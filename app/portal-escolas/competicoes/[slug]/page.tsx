@@ -8,6 +8,7 @@ import {
 } from "@/lib/portal-escolas/auth";
 import { readPortalCompetitionDetail } from "@/lib/portal-escolas/readPortalCompetitionDetail";
 import { PortalCompetitionFormatCreateForm } from "./PortalCompetitionFormatCreateForm";
+import { PortalCompetitionStructureCreateForm } from "./PortalCompetitionStructureCreateForm";
 import { PortalEscolasInternalNav } from "../../_components/PortalEscolasInternalNav";
 
 type PageProps = {
@@ -16,6 +17,7 @@ type PageProps = {
   }>;
   searchParams?: Promise<{
     formato?: string | string[];
+    estrutura?: string | string[];
   }>;
 };
 
@@ -517,6 +519,19 @@ function getCreateFormatStatusMessage(status: string | null) {
   return status ? messages[status] ?? null : null;
 }
 
+function getCreateStructureStatusMessage(status: string | null) {
+  const messages: Record<string, { kind: "success" | "error"; text: string }> = {
+    criada: { kind: "success", text: "Estrutura competitiva criada em rascunho para esta competição." },
+    duplicada: { kind: "error", text: "Esta competição já tem uma estrutura competitiva definida neste âmbito." },
+    "dados-invalidos": { kind: "error", text: "Não foi possível criar a estrutura: confirma os dados da competição." },
+    "sem-formato": { kind: "error", text: "Define primeiro o formato competitivo antes de criar a estrutura." },
+    "sem-permissao": { kind: "error", text: "Não tens permissão ativa para criar a estrutura desta competição." },
+    erro: { kind: "error", text: "Não foi possível criar a estrutura. Tenta novamente ou valida a configuração da fase SQL." }
+  };
+
+  return status ? messages[status] ?? null : null;
+}
+
 function canCreateFormatForCompetition(
   permissions: {
     portal_entity_id: string;
@@ -627,6 +642,96 @@ async function createPortalCompetitionFormat(formData: FormData) {
   redirect(`/portal-escolas/competicoes/${competitionSlug}?formato=criado`);
 }
 
+async function createPortalCompetitionStructure(formData: FormData) {
+  "use server";
+
+  const supabase = await createPortalEscolasServerClient();
+
+  if (!supabase) {
+    redirect(`${PORTAL_ESCOLAS_LOGIN_PATH}?status=not-configured`);
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect(PORTAL_ESCOLAS_LOGIN_PATH);
+  }
+
+  const authorization = await readPortalAuthorization(supabase, user.id);
+
+  if (!authorization.allowed) {
+    redirect("/portal-escolas/competicoes?estrutura=sem-permissao");
+  }
+
+  const portalCompetitionId = readFormText(formData, "portal_competition_id");
+  const competitionSlug = readFormText(formData, "competition_slug");
+
+  if (!isUuid(portalCompetitionId) || !competitionSlug) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug || ""}?estrutura=dados-invalidos`);
+  }
+
+  const data = await readPortalCompetitionDetail(supabase, authorization, competitionSlug);
+  const competition = data.competitions.find((item) => item.id === portalCompetitionId && item.slug === competitionSlug);
+
+  if (!competition) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?estrutura=dados-invalidos`);
+  }
+
+  if (competition.formats.length === 0) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?estrutura=sem-formato`);
+  }
+
+  if (competition.stages.length > 0) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?estrutura=duplicada`);
+  }
+
+  if (
+    !canCreateFormatForCompetition(
+      authorization.permissions,
+      competition.portalEntityId,
+      competition.portalContextId,
+      competition.id
+    )
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?estrutura=sem-permissao`);
+  }
+
+  const { error } = await supabase.rpc("portal_create_competition_structure", {
+    p_portal_competition_id: portalCompetitionId,
+    p_name: null,
+    p_type: null,
+    p_stage_order: null,
+    p_scheduled_date: null,
+    p_status: "draft"
+  });
+
+  if (error) {
+    const errorCode = typeof error.code === "string" ? error.code : "";
+    const errorMessage = typeof error.message === "string" ? error.message.toLowerCase() : "";
+
+    if (errorCode === "23505" || errorMessage.includes("already")) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?estrutura=duplicada`);
+    }
+
+    if (errorMessage.includes("format_required")) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?estrutura=sem-formato`);
+    }
+
+    if (errorCode === "42501") {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?estrutura=sem-permissao`);
+    }
+
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?estrutura=erro`);
+  }
+
+  revalidatePath(`/portal-escolas/competicoes/${competitionSlug}`);
+  revalidatePath("/portal-escolas/competicoes");
+  redirect(`/portal-escolas/competicoes/${competitionSlug}?estrutura=criada`);
+}
+
 export default async function PortalCompetitionDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
@@ -675,6 +780,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
   const eventCount = data.competitions.reduce((total, competition) => total + competition.summary.eventCount, 0);
   const rankingCount = data.competitions.reduce((total, competition) => total + competition.summary.rankingCount, 0);
   const createFormatStatusMessage = getCreateFormatStatusMessage(readSearchParam(resolvedSearchParams?.formato));
+  const createStructureStatusMessage = getCreateStructureStatusMessage(readSearchParam(resolvedSearchParams?.estrutura));
 
   return (
     <main className="portal-competition-detail-shell">
@@ -899,6 +1005,48 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 )}
               </section>
 
+              {createStructureStatusMessage ? (
+                <p
+                  className={`portal-competition-detail-feedback${
+                    createStructureStatusMessage.kind === "error" ? " portal-competition-detail-feedback-error" : ""
+                  }`}
+                >
+                  {createStructureStatusMessage.text}
+                </p>
+              ) : null}
+
+              {competition.formats.length > 0 &&
+              competition.stages.length === 0 &&
+              competition.status === "draft" &&
+              competition.slug &&
+              canCreateFormatForCompetition(
+                authorization.permissions,
+                competition.portalEntityId,
+                competition.portalContextId,
+                competition.id
+              ) ? (
+                <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-create-structure-${competition.key}`}>
+                  <div className="portal-competition-detail-section-header">
+                    <div>
+                      <p className="portal-competition-detail-eyebrow">Próximo passo</p>
+                      <h3 id={`portal-competition-create-structure-${competition.key}`}>Criar estrutura competitiva</h3>
+                      <p className="portal-competition-detail-text">
+                        O Portal cria a primeira camada de organização da competição. Para este formato, a estrutura sugerida é uma fase regular organizada por jornadas.
+                      </p>
+                    </div>
+                    <span className="portal-competition-detail-tag">Formato → estrutura</span>
+                  </div>
+
+                  <PortalCompetitionStructureCreateForm
+                    action={createPortalCompetitionStructure}
+                    portalCompetitionId={competition.id}
+                    competitionSlug={competition.slug}
+                    competitionName={competition.name}
+                    formatName={competition.formats[0]?.name ?? "Formato competitivo definido"}
+                  />
+                </section>
+              ) : null}
+
               <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-stages-${competition.key}`}>
                 <div className="portal-competition-detail-section-header">
                   <div>
@@ -915,12 +1063,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                   <div className="portal-competition-detail-stage-list">
                     {competition.stages.map((stage) => (
                       <article className="portal-competition-detail-stage" key={stage.key}>
-                        <span>{stage.typeLabel}</span>
+                        <span>Estrutura escolhida</span>
                         <strong>{stage.name}</strong>
                         <div className="portal-competition-detail-meta">
                           <span className="portal-competition-detail-tag">{stage.statusLabel}</span>
-                          <span className="portal-competition-detail-tag">{stage.orderLabel}</span>
-                          <span className="portal-competition-detail-tag">{stage.scheduledDate ?? "Sem data"}</span>
                         </div>
                         <span>Eventos nesta estrutura</span>
                         <strong>{formatCountLabel(stage.eventCount, "evento", "eventos")}</strong>
