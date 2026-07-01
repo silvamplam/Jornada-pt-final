@@ -101,6 +101,18 @@ type PortalStageRow = RowWithId & {
 type PortalParticipantRow = RowWithId & {
   portal_entity_id: string;
   name: string;
+  type: string | null;
+  status: string | null;
+};
+
+type PortalCompetitionParticipantRow = RowWithId & {
+  portal_entity_id: string;
+  portal_context_id: string;
+  portal_competition_id: string;
+  portal_participant_id: string;
+  registration_status: string;
+  group_label: string | null;
+  seed_order: number | null;
 };
 
 type PortalEventRow = RowWithId & {
@@ -213,6 +225,16 @@ export type PortalCompetitionDetailStage = {
   resultEntryCount: number;
 };
 
+export type PortalCompetitionDetailParticipant = {
+  key: string;
+  name: string;
+  typeLabel: string;
+  statusLabel: string;
+  registrationStatusLabel: string;
+  groupLabel: string | null;
+  seedOrderLabel: string;
+};
+
 export type PortalCompetitionDetailEvent = {
   key: string;
   name: string;
@@ -275,11 +297,13 @@ export type PortalCompetitionDetailRecord = {
   modalityCatalogCode: string | null;
   formats: PortalCompetitionDetailFormat[];
   stages: PortalCompetitionDetailStage[];
+  participants: PortalCompetitionDetailParticipant[];
   events: PortalCompetitionDetailEvent[];
   rankings: PortalCompetitionDetailRanking[];
   summary: {
     formatCount: number;
     stageCount: number;
+    competitionParticipantCount: number;
     eventCount: number;
     eventParticipantCount: number;
     resultEntryCount: number;
@@ -339,7 +363,11 @@ const labelMap: Record<string, string> = {
   draw: "Empate",
   loss: "Derrota",
   win: "Vitória",
-  overall: "Geral"
+  overall: "Geral",
+  team: "Turma/equipa",
+  group: "Grupo",
+  individual: "Individual",
+  participant: "Participante"
 };
 
 function uniqueValues(values: Array<string | null | undefined>) {
@@ -651,6 +679,25 @@ async function readStages(supabase: SupabaseClient, competitionIds: string[]) {
   );
 }
 
+async function readCompetitionParticipants(supabase: SupabaseClient, competitionIds: string[]) {
+  if (competitionIds.length === 0) {
+    return { rows: [] as PortalCompetitionParticipantRow[], unavailableSection: null };
+  }
+
+  return readRows<PortalCompetitionParticipantRow>(
+    supabase,
+    "portal_competition_participants",
+    "id,portal_entity_id,portal_context_id,portal_competition_id,portal_participant_id,registration_status,group_label,seed_order",
+    {
+      sectionLabel: "participantes da competição",
+      limit: LOOKUP_LIMIT,
+      apply(query) {
+        return query.in("portal_competition_id", competitionIds).order("seed_order", { ascending: true });
+      }
+    }
+  );
+}
+
 async function readEventParticipants(supabase: SupabaseClient, eventIds: string[]) {
   if (eventIds.length === 0) {
     return { rows: [] as PortalEventParticipantRow[], unavailableSection: null };
@@ -713,7 +760,7 @@ async function readParticipantsByIds(supabase: SupabaseClient, participantIds: s
     return { rows: [] as PortalParticipantRow[], unavailableSection: null };
   }
 
-  return readRows<PortalParticipantRow>(supabase, "portal_participants", "id,portal_entity_id,name", {
+  return readRows<PortalParticipantRow>(supabase, "portal_participants", "id,portal_entity_id,name,type,status", {
     sectionLabel: "participantes",
     limit: LOOKUP_LIMIT,
     apply(query) {
@@ -806,6 +853,41 @@ function makeStages(
         eventCount: stageEvents.length,
         participantCount: stageParticipants.length,
         resultEntryCount: stageResults.length
+      };
+    });
+}
+
+function makeCompetitionParticipants(
+  competitionId: string,
+  competitionParticipants: PortalCompetitionParticipantRow[],
+  participantsById: Map<string, PortalParticipantRow>
+): PortalCompetitionDetailParticipant[] {
+  return [...competitionParticipants]
+    .filter((participant) => participant.portal_competition_id === competitionId)
+    .sort((first, second) => {
+      const firstOrder = first.seed_order ?? 999999;
+      const secondOrder = second.seed_order ?? 999999;
+
+      if (firstOrder !== secondOrder) {
+        return firstOrder - secondOrder;
+      }
+
+      const firstName = participantsById.get(first.portal_participant_id)?.name ?? "Participante";
+      const secondName = participantsById.get(second.portal_participant_id)?.name ?? "Participante";
+
+      return firstName.localeCompare(secondName, "pt");
+    })
+    .map((competitionParticipant) => {
+      const participant = participantsById.get(competitionParticipant.portal_participant_id);
+
+      return {
+        key: competitionParticipant.id,
+        name: participant?.name ?? "Participante",
+        typeLabel: formatLabel(participant?.type, "Participante"),
+        statusLabel: formatLabel(participant?.status, "Rascunho"),
+        registrationStatusLabel: formatLabel(competitionParticipant.registration_status),
+        groupLabel: competitionParticipant.group_label,
+        seedOrderLabel: competitionParticipant.seed_order === null ? "Sem ordem" : `Ordem ${competitionParticipant.seed_order}`
       };
     });
 }
@@ -908,6 +990,7 @@ function makeCompetitionDetails(
   events: PortalEventRow[],
   eventParticipants: PortalEventParticipantRow[],
   resultEntries: PortalResultEntryRow[],
+  competitionParticipants: PortalCompetitionParticipantRow[],
   rankings: PortalRankingRow[],
   rankingEntries: PortalRankingEntryRow[],
   stages: PortalStageRow[],
@@ -930,6 +1013,7 @@ function makeCompetitionDetails(
       : null;
     const competitionFormats = makeFormats(competition.id, formats, formatCatalogById);
     const competitionStages = makeStages(competition.id, stages, events, eventParticipants, resultEntries);
+    const competitionParticipantsList = makeCompetitionParticipants(competition.id, competitionParticipants, participantsById);
     const competitionEvents = makeEvents(competition.id, events, eventParticipants, resultEntries, stagesById, participantsById);
     const competitionRankings = makeRankings(competition.id, rankings, rankingEntries, participantsById);
     const competitionEventParticipants = eventParticipants.filter((participant) => participant.portal_competition_id === competition.id);
@@ -959,11 +1043,13 @@ function makeCompetitionDetails(
       modalityCatalogCode: catalog?.code ?? null,
       formats: competitionFormats,
       stages: competitionStages,
+      participants: competitionParticipantsList,
       events: competitionEvents,
       rankings: competitionRankings,
       summary: {
         formatCount: competitionFormats.length,
         stageCount: competitionStages.length,
+        competitionParticipantCount: competitionParticipantsList.length,
         eventCount: competitionEvents.length,
         eventParticipantCount: competitionEventParticipants.length,
         resultEntryCount: competitionResultEntries.length,
@@ -1052,20 +1138,22 @@ export async function readPortalCompetitionDetail(
   const eventIds = uniqueValues(eventsResult.rows.map((event) => event.id));
   const rankingIds = uniqueValues(rankingsResult.rows.map((ranking) => ranking.id));
 
-  const [eventParticipantsResult, resultEntriesResult, rankingEntriesResult, stagesResult] = await Promise.all([
+  const [eventParticipantsResult, resultEntriesResult, rankingEntriesResult, stagesResult, competitionParticipantsResult] = await Promise.all([
     readEventParticipants(supabase, eventIds),
     readResultEntries(supabase, eventIds),
     readRankingEntries(supabase, rankingIds),
-    readStages(supabase, competitionIds)
+    readStages(supabase, competitionIds),
+    readCompetitionParticipants(supabase, competitionIds)
   ]);
 
-  [eventParticipantsResult, resultEntriesResult, rankingEntriesResult, stagesResult].forEach((result) => {
+  [eventParticipantsResult, resultEntriesResult, rankingEntriesResult, stagesResult, competitionParticipantsResult].forEach((result) => {
     if (result.unavailableSection) {
       unavailableSections.add(result.unavailableSection);
     }
   });
 
   const participantIds = uniqueValues([
+    ...competitionParticipantsResult.rows.map((participant) => participant.portal_participant_id),
     ...eventParticipantsResult.rows.map((participant) => participant.portal_participant_id),
     ...resultEntriesResult.rows.map((entry) => entry.portal_participant_id),
     ...rankingEntriesResult.rows.map((entry) => entry.portal_participant_id)
@@ -1088,6 +1176,7 @@ export async function readPortalCompetitionDetail(
       eventsResult.rows,
       eventParticipantsResult.rows,
       resultEntriesResult.rows,
+      competitionParticipantsResult.rows,
       rankingsResult.rows,
       rankingEntriesResult.rows,
       stagesResult.rows,
