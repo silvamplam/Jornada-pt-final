@@ -9,6 +9,7 @@ import {
 import { readPortalCompetitionDetail } from "@/lib/portal-escolas/readPortalCompetitionDetail";
 import { PortalCompetitionFormatCreateForm } from "./PortalCompetitionFormatCreateForm";
 import { PortalCompetitionStructureCreateForm } from "./PortalCompetitionStructureCreateForm";
+import { PortalCompetitionParticipantCreateForm } from "./PortalCompetitionParticipantCreateForm";
 import { PortalEscolasInternalNav } from "../../_components/PortalEscolasInternalNav";
 
 type PageProps = {
@@ -18,6 +19,7 @@ type PageProps = {
   searchParams?: Promise<{
     formato?: string | string[];
     estrutura?: string | string[];
+    participante?: string | string[];
   }>;
 };
 
@@ -172,6 +174,7 @@ const competitionDetailStyles = `
   .portal-competition-detail-tree,
   .portal-competition-detail-format-list,
   .portal-competition-detail-stage-list,
+  .portal-competition-detail-participant-list,
   .portal-competition-detail-event-list,
   .portal-competition-detail-ranking-list {
     display: grid;
@@ -193,6 +196,7 @@ const competitionDetailStyles = `
   .portal-competition-detail-tree-card,
   .portal-competition-detail-format,
   .portal-competition-detail-stage,
+  .portal-competition-detail-participant,
   .portal-competition-detail-event,
   .portal-competition-detail-ranking {
     min-width: 0;
@@ -206,6 +210,7 @@ const competitionDetailStyles = `
   .portal-competition-detail-tree-card,
   .portal-competition-detail-format,
   .portal-competition-detail-stage,
+  .portal-competition-detail-participant,
   .portal-competition-detail-event,
   .portal-competition-detail-ranking {
     display: grid;
@@ -216,6 +221,7 @@ const competitionDetailStyles = `
   .portal-competition-detail-tree-card span,
   .portal-competition-detail-format span,
   .portal-competition-detail-stage span,
+  .portal-competition-detail-participant span,
   .portal-competition-detail-event span,
   .portal-competition-detail-ranking span,
   .portal-competition-detail-label,
@@ -231,6 +237,7 @@ const competitionDetailStyles = `
   .portal-competition-detail-tree-card strong,
   .portal-competition-detail-format strong,
   .portal-competition-detail-stage strong,
+  .portal-competition-detail-participant strong,
   .portal-competition-detail-event strong,
   .portal-competition-detail-ranking strong {
     color: #102033;
@@ -239,7 +246,8 @@ const competitionDetailStyles = `
 
 
   .portal-competition-detail-format-list,
-  .portal-competition-detail-stage-list {
+  .portal-competition-detail-stage-list,
+  .portal-competition-detail-participant-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -360,7 +368,8 @@ const competitionDetailStyles = `
   }
 
   .portal-competition-format-create-field input,
-  .portal-competition-format-create-field select {
+  .portal-competition-format-create-field select,
+  .portal-competition-format-create-field textarea {
     min-height: 42px;
     border: 1px solid #cbdce7;
     border-radius: 8px;
@@ -368,6 +377,11 @@ const competitionDetailStyles = `
     color: #102033;
     font: inherit;
     padding: 10px 12px;
+  }
+
+  .portal-competition-format-create-field textarea {
+    min-height: 92px;
+    resize: vertical;
   }
 
   .portal-competition-format-create-field input[readonly] {
@@ -507,6 +521,22 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
+function readOptionalNonNegativeInteger(formData: FormData, fieldName: string) {
+  const rawValue = readFormText(formData, fieldName);
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const parsedValue = Number.parseInt(rawValue, 10);
+
+  if (!Number.isInteger(parsedValue) || parsedValue < 0) {
+    return Number.NaN;
+  }
+
+  return parsedValue;
+}
+
 function getCreateFormatStatusMessage(status: string | null) {
   const messages: Record<string, { kind: "success" | "error"; text: string }> = {
     criado: { kind: "success", text: "Formato competitivo definido em rascunho para esta competição." },
@@ -527,6 +557,20 @@ function getCreateStructureStatusMessage(status: string | null) {
     "sem-formato": { kind: "error", text: "Define primeiro o formato competitivo antes de criar a estrutura." },
     "sem-permissao": { kind: "error", text: "Não tens permissão ativa para criar a estrutura desta competição." },
     erro: { kind: "error", text: "Não foi possível criar a estrutura. Tenta novamente ou valida a configuração da fase SQL." }
+  };
+
+  return status ? messages[status] ?? null : null;
+}
+
+function getCreateParticipantStatusMessage(status: string | null) {
+  const messages: Record<string, { kind: "success" | "error"; text: string }> = {
+    criado: { kind: "success", text: "Participante adicionado em rascunho a esta competição." },
+    duplicado: { kind: "error", text: "Já existe um participante com esse nome nesta competição." },
+    "dados-invalidos": { kind: "error", text: "Não foi possível adicionar o participante: confirma o nome e os campos opcionais." },
+    "sem-formato": { kind: "error", text: "Define primeiro o formato competitivo antes de adicionar participantes." },
+    "sem-estrutura": { kind: "error", text: "Cria primeiro a estrutura competitiva antes de adicionar participantes." },
+    "sem-permissao": { kind: "error", text: "Não tens permissão ativa para adicionar participantes a esta competição." },
+    erro: { kind: "error", text: "Não foi possível adicionar o participante. Tenta novamente ou valida a configuração da fase SQL." }
   };
 
   return status ? messages[status] ?? null : null;
@@ -732,6 +776,115 @@ async function createPortalCompetitionStructure(formData: FormData) {
   redirect(`/portal-escolas/competicoes/${competitionSlug}?estrutura=criada`);
 }
 
+async function createPortalCompetitionParticipant(formData: FormData) {
+  "use server";
+
+  const supabase = await createPortalEscolasServerClient();
+
+  if (!supabase) {
+    redirect(`${PORTAL_ESCOLAS_LOGIN_PATH}?status=not-configured`);
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect(PORTAL_ESCOLAS_LOGIN_PATH);
+  }
+
+  const authorization = await readPortalAuthorization(supabase, user.id);
+
+  if (!authorization.allowed) {
+    redirect("/portal-escolas/competicoes?participante=sem-permissao");
+  }
+
+  const portalCompetitionId = readFormText(formData, "portal_competition_id");
+  const competitionSlug = readFormText(formData, "competition_slug");
+  const participantName = readFormText(formData, "participant_name");
+  const participantType = readFormText(formData, "participant_type") || "team";
+  const groupLabel = readFormText(formData, "group_label") || null;
+  const notes = readFormText(formData, "notes") || null;
+  const seedOrder = readOptionalNonNegativeInteger(formData, "seed_order");
+
+  if (!isUuid(portalCompetitionId) || !competitionSlug || !participantName || Number.isNaN(seedOrder)) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug || ""}?participante=dados-invalidos`);
+  }
+
+  const allowedTypes = new Set(["team", "group", "individual", "participant"]);
+
+  if (!allowedTypes.has(participantType)) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=dados-invalidos`);
+  }
+
+  const data = await readPortalCompetitionDetail(supabase, authorization, competitionSlug);
+  const competition = data.competitions.find((item) => item.id === portalCompetitionId && item.slug === competitionSlug);
+
+  if (!competition) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=dados-invalidos`);
+  }
+
+  if (competition.formats.length === 0) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=sem-formato`);
+  }
+
+  if (competition.stages.length === 0) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=sem-estrutura`);
+  }
+
+  if (
+    !canCreateFormatForCompetition(
+      authorization.permissions,
+      competition.portalEntityId,
+      competition.portalContextId,
+      competition.id
+    )
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=sem-permissao`);
+  }
+
+  const { error } = await supabase.rpc("portal_create_competition_participant", {
+    p_portal_competition_id: portalCompetitionId,
+    p_name: participantName,
+    p_type: participantType,
+    p_group_label: groupLabel,
+    p_seed_order: seedOrder,
+    p_external_reference: null,
+    p_notes: notes,
+    p_status: "draft",
+    p_registration_status: "draft"
+  });
+
+  if (error) {
+    const errorCode = typeof error.code === "string" ? error.code : "";
+    const errorMessage = typeof error.message === "string" ? error.message.toLowerCase() : "";
+
+    if (errorCode === "23505" || errorMessage.includes("already")) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=duplicado`);
+    }
+
+    if (errorMessage.includes("format_required")) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=sem-formato`);
+    }
+
+    if (errorMessage.includes("structure_required")) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=sem-estrutura`);
+    }
+
+    if (errorCode === "42501") {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=sem-permissao`);
+    }
+
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=erro`);
+  }
+
+  revalidatePath(`/portal-escolas/competicoes/${competitionSlug}`);
+  revalidatePath("/portal-escolas/competicoes");
+  revalidatePath("/portal-escolas/participantes");
+  redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=criado`);
+}
+
 export default async function PortalCompetitionDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
@@ -779,8 +932,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
   const stageCount = data.competitions.reduce((total, competition) => total + competition.summary.stageCount, 0);
   const eventCount = data.competitions.reduce((total, competition) => total + competition.summary.eventCount, 0);
   const rankingCount = data.competitions.reduce((total, competition) => total + competition.summary.rankingCount, 0);
+  const participantCount = data.competitions.reduce((total, competition) => total + competition.summary.competitionParticipantCount, 0);
   const createFormatStatusMessage = getCreateFormatStatusMessage(readSearchParam(resolvedSearchParams?.formato));
   const createStructureStatusMessage = getCreateStructureStatusMessage(readSearchParam(resolvedSearchParams?.estrutura));
+  const createParticipantStatusMessage = getCreateParticipantStatusMessage(readSearchParam(resolvedSearchParams?.participante));
 
   return (
     <main className="portal-competition-detail-shell">
@@ -795,7 +950,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
             </p>
           </div>
           <span className="portal-competition-detail-tag">
-            {mainCompetition ? `${formatCount} formatos · ${stageCount} estruturas · ${eventCount} eventos · ${rankingCount} rankings` : "sem dados"}
+            {mainCompetition ? `${formatCount} formatos · ${stageCount} estruturas · ${participantCount} participantes · ${eventCount} eventos · ${rankingCount} rankings` : "sem dados"}
           </span>
         </section>
 
@@ -1077,6 +1232,82 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                   </div>
                 ) : (
                   <p className="portal-competition-detail-empty">Ainda não existe estrutura competitiva formal disponível para esta competição neste âmbito autorizado.</p>
+                )}
+              </section>
+
+              {createParticipantStatusMessage ? (
+                <p
+                  className={`portal-competition-detail-feedback${
+                    createParticipantStatusMessage.kind === "error" ? " portal-competition-detail-feedback-error" : ""
+                  }`}
+                >
+                  {createParticipantStatusMessage.text}
+                </p>
+              ) : null}
+
+              {competition.formats.length > 0 &&
+              competition.stages.length > 0 &&
+              competition.status === "draft" &&
+              competition.slug &&
+              canCreateFormatForCompetition(
+                authorization.permissions,
+                competition.portalEntityId,
+                competition.portalContextId,
+                competition.id
+              ) ? (
+                <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-create-participant-${competition.key}`}>
+                  <div className="portal-competition-detail-section-header">
+                    <div>
+                      <p className="portal-competition-detail-eyebrow">Próximo passo</p>
+                      <h3 id={`portal-competition-create-participant-${competition.key}`}>Adicionar participantes</h3>
+                      <p className="portal-competition-detail-text">
+                        Adiciona turmas, equipas, alunos ou grupos à competição. O Portal mantém o participante e a inscrição em rascunho até validação futura de gatekeeper.
+                      </p>
+                    </div>
+                    <span className="portal-competition-detail-tag">Estrutura → participantes</span>
+                  </div>
+
+                  <PortalCompetitionParticipantCreateForm
+                    action={createPortalCompetitionParticipant}
+                    portalCompetitionId={competition.id}
+                    competitionSlug={competition.slug}
+                    competitionName={competition.name}
+                  />
+                </section>
+              ) : null}
+
+              <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-participants-${competition.key}`}>
+                <div className="portal-competition-detail-section-header">
+                  <div>
+                    <p className="portal-competition-detail-eyebrow">Estrutura competitiva → participantes</p>
+                    <h3 id={`portal-competition-participants-${competition.key}`}>Participantes da competição</h3>
+                    <p className="portal-competition-detail-text">
+                      Lista de participantes inscritos na competição. Ainda não cria eventos, resultados ou rankings.
+                    </p>
+                  </div>
+                  <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.competitionParticipantCount, "participante", "participantes")}</span>
+                </div>
+
+                {competition.participants.length > 0 ? (
+                  <div className="portal-competition-detail-participant-list">
+                    {competition.participants.map((participant) => (
+                      <article className="portal-competition-detail-participant" key={participant.key}>
+                        <span>Participante</span>
+                        <strong>{participant.name}</strong>
+                        <div className="portal-competition-detail-meta">
+                          <span className="portal-competition-detail-tag">{participant.typeLabel}</span>
+                          <span className="portal-competition-detail-tag">Participante: {participant.statusLabel}</span>
+                          <span className="portal-competition-detail-tag">Inscrição: {participant.registrationStatusLabel}</span>
+                        </div>
+                        <span>Grupo/série</span>
+                        <strong>{participant.groupLabel ?? "Sem grupo/série"}</strong>
+                        <span>Ordem</span>
+                        <strong>{participant.seedOrderLabel}</strong>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="portal-competition-detail-empty">Ainda não existem participantes associados a esta competição.</p>
                 )}
               </section>
 
