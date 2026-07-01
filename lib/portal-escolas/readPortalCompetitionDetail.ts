@@ -227,6 +227,7 @@ export type PortalCompetitionDetailStage = {
 
 export type PortalCompetitionDetailParticipant = {
   key: string;
+  participantId: string;
   name: string;
   typeLabel: string;
   statusLabel: string;
@@ -882,6 +883,7 @@ function makeCompetitionParticipants(
 
       return {
         key: competitionParticipant.id,
+        participantId: competitionParticipant.portal_participant_id,
         name: participant?.name ?? "Participante",
         typeLabel: formatLabel(participant?.type, "Participante"),
         statusLabel: formatLabel(participant?.status, "Rascunho"),
