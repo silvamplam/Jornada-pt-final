@@ -10,6 +10,7 @@ import { readPortalCompetitionDetail } from "@/lib/portal-escolas/readPortalComp
 import { PortalCompetitionFormatCreateForm } from "./PortalCompetitionFormatCreateForm";
 import { PortalCompetitionStructureCreateForm } from "./PortalCompetitionStructureCreateForm";
 import { PortalCompetitionParticipantCreateForm } from "./PortalCompetitionParticipantCreateForm";
+import { PortalCompetitionEventCreateForm } from "./PortalCompetitionEventCreateForm";
 import { PortalEscolasInternalNav } from "../../_components/PortalEscolasInternalNav";
 
 type PageProps = {
@@ -20,6 +21,7 @@ type PageProps = {
     formato?: string | string[];
     estrutura?: string | string[];
     participante?: string | string[];
+    evento?: string | string[];
   }>;
 };
 
@@ -414,6 +416,43 @@ const competitionDetailStyles = `
     opacity: 0.55;
   }
 
+  .portal-competition-event-create-options {
+    display: grid;
+    gap: 8px;
+  }
+
+  .portal-competition-event-create-option {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px;
+    border: 1px solid #dbe7ef;
+    border-radius: 8px;
+    background: #ffffff;
+  }
+
+  .portal-competition-event-create-option input {
+    width: 16px;
+    min-height: auto;
+    margin-top: 2px;
+  }
+
+  .portal-competition-event-create-option span {
+    display: grid;
+    gap: 3px;
+  }
+
+  .portal-competition-event-create-option strong {
+    color: #102033;
+    font-size: 14px;
+  }
+
+  .portal-competition-event-create-option small {
+    color: #526274;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
   .portal-competition-detail-feedback {
     margin: 0 0 14px;
     padding: 12px;
@@ -571,6 +610,22 @@ function getCreateParticipantStatusMessage(status: string | null) {
     "sem-estrutura": { kind: "error", text: "Cria primeiro a estrutura competitiva antes de adicionar participantes." },
     "sem-permissao": { kind: "error", text: "Não tens permissão ativa para adicionar participantes a esta competição." },
     erro: { kind: "error", text: "Não foi possível adicionar o participante. Tenta novamente ou valida a configuração da fase SQL." }
+  };
+
+  return status ? messages[status] ?? null : null;
+}
+
+function getCreateEventStatusMessage(status: string | null) {
+  const messages: Record<string, { kind: "success" | "error"; text: string }> = {
+    criado: { kind: "success", text: "Evento criado em rascunho para esta competição." },
+    duplicado: { kind: "error", text: "Já existe um evento com esse nome nesta estrutura." },
+    "dados-invalidos": { kind: "error", text: "Não foi possível criar o evento: confirma nome, ordem, data/hora e participantes selecionados." },
+    "sem-formato": { kind: "error", text: "Define primeiro o formato competitivo antes de criar eventos." },
+    "sem-estrutura": { kind: "error", text: "Cria primeiro a estrutura competitiva antes de criar eventos." },
+    "sem-participantes": { kind: "error", text: "Adiciona primeiro participantes à competição antes de criar eventos." },
+    "participante-invalido": { kind: "error", text: "Só podes associar ao evento participantes já inscritos nesta competição." },
+    "sem-permissao": { kind: "error", text: "Não tens permissão ativa para criar eventos nesta competição." },
+    erro: { kind: "error", text: "Não foi possível criar o evento. Tenta novamente ou valida a configuração da fase SQL." }
   };
 
   return status ? messages[status] ?? null : null;
@@ -885,6 +940,161 @@ async function createPortalCompetitionParticipant(formData: FormData) {
   redirect(`/portal-escolas/competicoes/${competitionSlug}?participante=criado`);
 }
 
+async function createPortalCompetitionEvent(formData: FormData) {
+  "use server";
+
+  const supabase = await createPortalEscolasServerClient();
+
+  if (!supabase) {
+    redirect(`${PORTAL_ESCOLAS_LOGIN_PATH}?status=not-configured`);
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect(PORTAL_ESCOLAS_LOGIN_PATH);
+  }
+
+  const authorization = await readPortalAuthorization(supabase, user.id);
+
+  if (!authorization.allowed) {
+    redirect("/portal-escolas/competicoes?evento=sem-permissao");
+  }
+
+  const portalCompetitionId = readFormText(formData, "portal_competition_id");
+  const portalStageId = readFormText(formData, "portal_stage_id");
+  const competitionSlug = readFormText(formData, "competition_slug");
+  const eventName = readFormText(formData, "event_name");
+  const eventType = readFormText(formData, "event_type") || "match";
+  const eventOrder = readOptionalNonNegativeInteger(formData, "event_order");
+  const scheduledAtRaw = readFormText(formData, "scheduled_at");
+  const venue = readFormText(formData, "venue") || null;
+  const notes = readFormText(formData, "notes") || null;
+  const participantIds = formData
+    .getAll("participant_ids")
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (
+    !isUuid(portalCompetitionId) ||
+    !isUuid(portalStageId) ||
+    !competitionSlug ||
+    !eventName ||
+    Number.isNaN(eventOrder) ||
+    (eventOrder !== null && eventOrder < 1) ||
+    participantIds.some((participantId) => !isUuid(participantId))
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug || ""}?evento=dados-invalidos`);
+  }
+
+  const allowedTypes = new Set(["match", "event"]);
+
+  if (!allowedTypes.has(eventType)) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=dados-invalidos`);
+  }
+
+  let scheduledAt: string | null = null;
+
+  if (scheduledAtRaw) {
+    const parsedDate = new Date(scheduledAtRaw);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=dados-invalidos`);
+    }
+
+    scheduledAt = parsedDate.toISOString();
+  }
+
+  const data = await readPortalCompetitionDetail(supabase, authorization, competitionSlug);
+  const competition = data.competitions.find((item) => item.id === portalCompetitionId && item.slug === competitionSlug);
+
+  if (!competition) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=dados-invalidos`);
+  }
+
+  if (competition.formats.length === 0) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=sem-formato`);
+  }
+
+  if (competition.stages.length === 0) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=sem-estrutura`);
+  }
+
+  if (!competition.stages.some((stage) => stage.key === portalStageId)) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=dados-invalidos`);
+  }
+
+  if (competition.participants.length === 0) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=sem-participantes`);
+  }
+
+  const allowedParticipantIds = new Set(competition.participants.map((participant) => participant.participantId));
+
+  if (participantIds.some((participantId) => !allowedParticipantIds.has(participantId))) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=participante-invalido`);
+  }
+
+  if (
+    !canCreateFormatForCompetition(
+      authorization.permissions,
+      competition.portalEntityId,
+      competition.portalContextId,
+      competition.id
+    )
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=sem-permissao`);
+  }
+
+  const { error } = await supabase.rpc("portal_create_competition_event", {
+    p_portal_competition_id: portalCompetitionId,
+    p_name: eventName,
+    p_portal_stage_id: portalStageId,
+    p_type: eventType,
+    p_event_order: eventOrder,
+    p_scheduled_at: scheduledAt,
+    p_venue: venue,
+    p_notes: notes,
+    p_participant_ids: participantIds,
+    p_status: "draft"
+  });
+
+  if (error) {
+    const errorCode = typeof error.code === "string" ? error.code : "";
+    const errorMessage = typeof error.message === "string" ? error.message.toLowerCase() : "";
+
+    if (errorCode === "23505" || errorMessage.includes("already")) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=duplicado`);
+    }
+
+    if (errorMessage.includes("format_required")) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=sem-formato`);
+    }
+
+    if (errorMessage.includes("structure_required")) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=sem-estrutura`);
+    }
+
+    if (errorMessage.includes("participant_not_registered")) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=participante-invalido`);
+    }
+
+    if (errorCode === "42501") {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=sem-permissao`);
+    }
+
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=erro`);
+  }
+
+  revalidatePath(`/portal-escolas/competicoes/${competitionSlug}`);
+  revalidatePath("/portal-escolas/competicoes");
+  revalidatePath("/portal-escolas/eventos");
+  redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=criado`);
+}
+
 export default async function PortalCompetitionDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
@@ -936,6 +1146,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
   const createFormatStatusMessage = getCreateFormatStatusMessage(readSearchParam(resolvedSearchParams?.formato));
   const createStructureStatusMessage = getCreateStructureStatusMessage(readSearchParam(resolvedSearchParams?.estrutura));
   const createParticipantStatusMessage = getCreateParticipantStatusMessage(readSearchParam(resolvedSearchParams?.participante));
+  const createEventStatusMessage = getCreateEventStatusMessage(readSearchParam(resolvedSearchParams?.evento));
 
   return (
     <main className="portal-competition-detail-shell">
@@ -1310,6 +1521,51 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                   <p className="portal-competition-detail-empty">Ainda não existem participantes associados a esta competição.</p>
                 )}
               </section>
+
+              {createEventStatusMessage ? (
+                <p
+                  className={`portal-competition-detail-feedback${
+                    createEventStatusMessage.kind === "error" ? " portal-competition-detail-feedback-error" : ""
+                  }`}
+                >
+                  {createEventStatusMessage.text}
+                </p>
+              ) : null}
+
+              {competition.formats.length > 0 &&
+              competition.stages.length > 0 &&
+              competition.participants.length > 0 &&
+              competition.status === "draft" &&
+              competition.slug &&
+              canCreateFormatForCompetition(
+                authorization.permissions,
+                competition.portalEntityId,
+                competition.portalContextId,
+                competition.id
+              ) ? (
+                <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-create-event-${competition.key}`}>
+                  <div className="portal-competition-detail-section-header">
+                    <div>
+                      <p className="portal-competition-detail-eyebrow">Próximo passo</p>
+                      <h3 id={`portal-competition-create-event-${competition.key}`}>Criar evento/jornada</h3>
+                      <p className="portal-competition-detail-text">
+                        Cria a unidade concreta onde depois serão inseridos resultados: jornada, jogo, prova, partida, série ou final. O evento fica em rascunho e a publicação continua dependente de gatekeeper.
+                      </p>
+                    </div>
+                    <span className="portal-competition-detail-tag">Participantes → eventos</span>
+                  </div>
+
+                  <PortalCompetitionEventCreateForm
+                    action={createPortalCompetitionEvent}
+                    portalCompetitionId={competition.id}
+                    portalStageId={competition.stages[0]?.key ?? ""}
+                    competitionSlug={competition.slug}
+                    competitionName={competition.name}
+                    stageName={competition.stages[0]?.name ?? "Estrutura competitiva"}
+                    participantOptions={competition.participants}
+                  />
+                </section>
+              ) : null}
 
               <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-events-${competition.key}`}>
                 <div className="portal-competition-detail-section-header">
