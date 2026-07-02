@@ -11,6 +11,7 @@ import { PortalCompetitionFormatCreateForm } from "./PortalCompetitionFormatCrea
 import { PortalCompetitionStructureCreateForm } from "./PortalCompetitionStructureCreateForm";
 import { PortalCompetitionParticipantCreateForm } from "./PortalCompetitionParticipantCreateForm";
 import { PortalCompetitionEventCreateForm } from "./PortalCompetitionEventCreateForm";
+import { PortalCompetitionResultEntryForm } from "./PortalCompetitionResultEntryForm";
 import { PortalEscolasInternalNav } from "../../_components/PortalEscolasInternalNav";
 
 type PageProps = {
@@ -22,6 +23,7 @@ type PageProps = {
     estrutura?: string | string[];
     participante?: string | string[];
     evento?: string | string[];
+    resultado?: string | string[];
   }>;
 };
 
@@ -576,6 +578,26 @@ function readOptionalNonNegativeInteger(formData: FormData, fieldName: string) {
   return parsedValue;
 }
 
+function readOptionalDecimal(formData: FormData, fieldName: string) {
+  const rawValue = readFormText(formData, fieldName);
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const parsedValue = Number(rawValue.replace(",", "."));
+
+  return Number.isFinite(parsedValue) ? parsedValue : Number.NaN;
+}
+
+function normalizeResultOutcome(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  return value === "win" || value === "draw" || value === "loss" ? value : undefined;
+}
+
 function getCreateFormatStatusMessage(status: string | null) {
   const messages: Record<string, { kind: "success" | "error"; text: string }> = {
     criado: { kind: "success", text: "Formato competitivo definido em rascunho para esta competição." },
@@ -631,6 +653,18 @@ function getCreateEventStatusMessage(status: string | null) {
   return status ? messages[status] ?? null : null;
 }
 
+function getResultEntryStatusMessage(status: string | null) {
+  const messages: Record<string, { kind: "success" | "error"; text: string }> = {
+    guardado: { kind: "success", text: "Resultado guardado para este evento." },
+    "dados-invalidos": { kind: "error", text: "Não foi possível guardar o resultado: confirma os valores preenchidos." },
+    "participante-invalido": { kind: "error", text: "O participante selecionado não pertence a este evento." },
+    "sem-permissao": { kind: "error", text: "Não tens permissão ativa para editar resultados nesta competição." },
+    erro: { kind: "error", text: "Não foi possível guardar o resultado. Tenta novamente ou valida a configuração existente." }
+  };
+
+  return status ? messages[status] ?? null : null;
+}
+
 function canCreateFormatForCompetition(
   permissions: {
     portal_entity_id: string;
@@ -650,6 +684,30 @@ function canCreateFormatForCompetition(
       permission.status === "active" &&
       permission.can_view &&
       permission.can_create &&
+      permission.can_edit &&
+      permission.portal_entity_id === portalEntityId &&
+      (!permission.portal_context_id || permission.portal_context_id === portalContextId) &&
+      (!permission.portal_competition_id || permission.portal_competition_id === portalCompetitionId)
+  );
+}
+
+function canEditResultsForCompetition(
+  permissions: {
+    portal_entity_id: string;
+    portal_context_id: string | null;
+    portal_competition_id: string | null;
+    can_view: boolean;
+    can_edit: boolean;
+    status: string;
+  }[],
+  portalEntityId: string,
+  portalContextId: string,
+  portalCompetitionId: string
+) {
+  return permissions.some(
+    (permission) =>
+      permission.status === "active" &&
+      permission.can_view &&
       permission.can_edit &&
       permission.portal_entity_id === portalEntityId &&
       (!permission.portal_context_id || permission.portal_context_id === portalContextId) &&
@@ -1095,6 +1153,109 @@ async function createPortalCompetitionEvent(formData: FormData) {
   redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=criado`);
 }
 
+async function savePortalCompetitionResultEntry(formData: FormData) {
+  "use server";
+
+  const supabase = await createPortalEscolasServerClient();
+
+  if (!supabase) {
+    redirect(`${PORTAL_ESCOLAS_LOGIN_PATH}?status=not-configured`);
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect(PORTAL_ESCOLAS_LOGIN_PATH);
+  }
+
+  const authorization = await readPortalAuthorization(supabase, user.id);
+
+  if (!authorization.allowed) {
+    redirect("/portal-escolas/competicoes?resultado=sem-permissao");
+  }
+
+  const competitionSlug = readFormText(formData, "competition_slug");
+  const portalEventId = readFormText(formData, "portal_event_id");
+  const portalParticipantId = readFormText(formData, "portal_participant_id");
+  const scoreText = readFormText(formData, "score_text").slice(0, 120) || null;
+  const scoreNumeric = readOptionalDecimal(formData, "score_numeric");
+  const points = readOptionalDecimal(formData, "points");
+  const outcome = normalizeResultOutcome(readFormText(formData, "outcome"));
+  const resultStatus = "submitted";
+
+  if (
+    !competitionSlug ||
+    !isUuid(portalEventId) ||
+    !isUuid(portalParticipantId) ||
+    Number.isNaN(scoreNumeric) ||
+    Number.isNaN(points) ||
+    outcome === undefined
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug || ""}?resultado=dados-invalidos`);
+  }
+
+  if (!scoreText && scoreNumeric === null && points === null && outcome === null) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?resultado=dados-invalidos`);
+  }
+
+  const data = await readPortalCompetitionDetail(supabase, authorization, competitionSlug);
+  const competition = data.competitions.find(
+    (item) => item.slug === competitionSlug && item.events.some((event) => event.key === portalEventId)
+  );
+
+  if (!competition) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?resultado=dados-invalidos`);
+  }
+
+  if (
+    !canEditResultsForCompetition(
+      authorization.permissions,
+      competition.portalEntityId,
+      competition.portalContextId,
+      competition.id
+    )
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?resultado=sem-permissao`);
+  }
+
+  const event = competition.events.find((item) => item.key === portalEventId);
+
+  if (!event) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?resultado=dados-invalidos`);
+  }
+
+  if (!event.eventParticipants.some((participant) => participant.portalParticipantId === portalParticipantId)) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?resultado=participante-invalido`);
+  }
+
+  const { error } = await supabase.rpc("portal_upsert_result_entry", {
+    p_portal_event_id: portalEventId,
+    p_portal_participant_id: portalParticipantId,
+    p_score_text: scoreText,
+    p_score_numeric: scoreNumeric,
+    p_points: points,
+    p_outcome: outcome,
+    p_result_status: resultStatus
+  });
+
+  if (error) {
+    const errorCode = typeof error.code === "string" ? error.code : "";
+
+    if (errorCode === "42501") {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?resultado=sem-permissao`);
+    }
+
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?resultado=erro`);
+  }
+
+  revalidatePath(`/portal-escolas/competicoes/${competitionSlug}`);
+  revalidatePath("/portal-escolas/competicoes");
+  redirect(`/portal-escolas/competicoes/${competitionSlug}?resultado=guardado`);
+}
+
 export default async function PortalCompetitionDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
@@ -1147,6 +1308,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
   const createStructureStatusMessage = getCreateStructureStatusMessage(readSearchParam(resolvedSearchParams?.estrutura));
   const createParticipantStatusMessage = getCreateParticipantStatusMessage(readSearchParam(resolvedSearchParams?.participante));
   const createEventStatusMessage = getCreateEventStatusMessage(readSearchParam(resolvedSearchParams?.evento));
+  const resultEntryStatusMessage = getResultEntryStatusMessage(readSearchParam(resolvedSearchParams?.resultado));
 
   return (
     <main className="portal-competition-detail-shell">
@@ -1567,6 +1729,16 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 </section>
               ) : null}
 
+              {resultEntryStatusMessage ? (
+                <p
+                  className={`portal-competition-detail-feedback${
+                    resultEntryStatusMessage.kind === "error" ? " portal-competition-detail-feedback-error" : ""
+                  }`}
+                >
+                  {resultEntryStatusMessage.text}
+                </p>
+              ) : null}
+
               <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-events-${competition.key}`}>
                 <div className="portal-competition-detail-section-header">
                   <div>
@@ -1611,6 +1783,32 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                         </div>
                         <span>Participantes</span>
                         <strong>{event.participantLabels.length > 0 ? event.participantLabels.join(" · ") : "Sem participantes associados"}</strong>
+                        {competition.slug &&
+                        event.eventParticipants.length > 0 &&
+                        canEditResultsForCompetition(
+                          authorization.permissions,
+                          competition.portalEntityId,
+                          competition.portalContextId,
+                          competition.id
+                        ) ? (
+                          <div className="portal-competition-detail-participant-list" aria-label={`Inserir resultados em ${event.name}`}>
+                            {event.eventParticipants.map((participant) => (
+                              <PortalCompetitionResultEntryForm
+                                action={savePortalCompetitionResultEntry}
+                                competitionSlug={competition.slug ?? ""}
+                                eventId={event.key}
+                                participantId={participant.portalParticipantId}
+                                participantName={participant.participantName}
+                                initialScoreText={participant.currentResult?.scoreText ?? null}
+                                initialScoreNumeric={participant.currentResult?.scoreNumeric ?? null}
+                                initialPoints={participant.currentResult?.points ?? null}
+                                initialOutcome={participant.currentResult?.outcome ?? null}
+                                initialResultStatus={participant.currentResult?.resultStatus ?? null}
+                                key={`${event.key}-${participant.portalParticipantId}`}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
                         {event.resultEntries.length > 0 ? (
                           <div className="portal-competition-detail-table-wrap">
                             <table className="portal-competition-detail-table">
