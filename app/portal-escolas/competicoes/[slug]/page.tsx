@@ -24,6 +24,7 @@ type PageProps = {
     participante?: string | string[];
     evento?: string | string[];
     resultado?: string | string[];
+    ranking?: string | string[];
   }>;
 };
 
@@ -399,7 +400,8 @@ const competitionDetailStyles = `
     line-height: 1.4;
   }
 
-  .portal-competition-format-create-form button {
+  .portal-competition-format-create-form button,
+  .portal-competition-ranking-recalculate-form button {
     justify-self: start;
     min-height: 40px;
     border: 0;
@@ -413,9 +415,27 @@ const competitionDetailStyles = `
     text-transform: uppercase;
   }
 
-  .portal-competition-format-create-form button:disabled {
+  .portal-competition-format-create-form button:disabled,
+  .portal-competition-ranking-recalculate-form button:disabled {
     cursor: not-allowed;
     opacity: 0.55;
+  }
+
+  .portal-competition-ranking-recalculate-form {
+    display: grid;
+    gap: 10px;
+    margin: 0 0 14px;
+    padding: 14px;
+    border: 1px solid #dbe7ef;
+    border-radius: 8px;
+    background: #f8fbfd;
+  }
+
+  .portal-competition-ranking-recalculate-form p {
+    margin: 0;
+    color: #526274;
+    font-size: 14px;
+    line-height: 1.45;
   }
 
   .portal-competition-event-create-options {
@@ -665,6 +685,17 @@ function getResultEntryStatusMessage(status: string | null) {
   return status ? messages[status] ?? null : null;
 }
 
+function getRankingRecalculationStatusMessage(status: string | null) {
+  const messages: Record<string, { kind: "success" | "error"; text: string }> = {
+    recalculado: { kind: "success", text: "Classificação recalculada com sucesso." },
+    "dados-invalidos": { kind: "error", text: "Não foi possível recalcular a classificação." },
+    "sem-permissao": { kind: "error", text: "Não tens permissão ativa para recalcular a classificação desta competição." },
+    erro: { kind: "error", text: "Não foi possível recalcular a classificação." }
+  };
+
+  return status ? messages[status] ?? null : null;
+}
+
 function canCreateFormatForCompetition(
   permissions: {
     portal_entity_id: string;
@@ -709,6 +740,31 @@ function canEditResultsForCompetition(
       permission.status === "active" &&
       permission.can_view &&
       permission.can_edit &&
+      permission.portal_entity_id === portalEntityId &&
+      (!permission.portal_context_id || permission.portal_context_id === portalContextId) &&
+      (!permission.portal_competition_id || permission.portal_competition_id === portalCompetitionId)
+  );
+}
+
+function canRecalculateRankingForCompetition(
+  permissions: {
+    portal_entity_id: string;
+    portal_context_id: string | null;
+    portal_competition_id: string | null;
+    can_view: boolean;
+    can_edit: boolean;
+    can_validate: boolean;
+    status: string;
+  }[],
+  portalEntityId: string,
+  portalContextId: string,
+  portalCompetitionId: string
+) {
+  return permissions.some(
+    (permission) =>
+      permission.status === "active" &&
+      permission.can_view &&
+      (permission.can_edit || permission.can_validate) &&
       permission.portal_entity_id === portalEntityId &&
       (!permission.portal_context_id || permission.portal_context_id === portalContextId) &&
       (!permission.portal_competition_id || permission.portal_competition_id === portalCompetitionId)
@@ -1256,6 +1312,74 @@ async function savePortalCompetitionResultEntry(formData: FormData) {
   redirect(`/portal-escolas/competicoes/${competitionSlug}?resultado=guardado`);
 }
 
+async function recalculatePortalCompetitionRanking(formData: FormData) {
+  "use server";
+
+  const supabase = await createPortalEscolasServerClient();
+
+  if (!supabase) {
+    redirect(`${PORTAL_ESCOLAS_LOGIN_PATH}?status=not-configured`);
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect(PORTAL_ESCOLAS_LOGIN_PATH);
+  }
+
+  const authorization = await readPortalAuthorization(supabase, user.id);
+
+  if (!authorization.allowed) {
+    redirect("/portal-escolas/competicoes?ranking=sem-permissao");
+  }
+
+  const competitionSlug = readFormText(formData, "competition_slug");
+  const portalCompetitionId = readFormText(formData, "portal_competition_id");
+
+  if (!competitionSlug || !isUuid(portalCompetitionId)) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug || ""}?ranking=dados-invalidos`);
+  }
+
+  const data = await readPortalCompetitionDetail(supabase, authorization, competitionSlug);
+  const competition = data.competitions.find((item) => item.id === portalCompetitionId && item.slug === competitionSlug);
+
+  if (!competition) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?ranking=dados-invalidos`);
+  }
+
+  if (
+    !canRecalculateRankingForCompetition(
+      authorization.permissions,
+      competition.portalEntityId,
+      competition.portalContextId,
+      competition.id
+    )
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?ranking=sem-permissao`);
+  }
+
+  const { error } = await supabase.rpc("portal_recalculate_competition_ranking", {
+    p_portal_competition_id: competition.id,
+    p_portal_ranking_id: null
+  });
+
+  if (error) {
+    const errorCode = typeof error.code === "string" ? error.code : "";
+
+    if (errorCode === "42501") {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?ranking=sem-permissao`);
+    }
+
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?ranking=erro`);
+  }
+
+  revalidatePath(`/portal-escolas/competicoes/${competitionSlug}`);
+  redirect(`/portal-escolas/competicoes/${competitionSlug}?ranking=recalculado`);
+}
+
 export default async function PortalCompetitionDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
@@ -1309,6 +1433,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
   const createParticipantStatusMessage = getCreateParticipantStatusMessage(readSearchParam(resolvedSearchParams?.participante));
   const createEventStatusMessage = getCreateEventStatusMessage(readSearchParam(resolvedSearchParams?.evento));
   const resultEntryStatusMessage = getResultEntryStatusMessage(readSearchParam(resolvedSearchParams?.resultado));
+  const rankingRecalculationStatusMessage = getRankingRecalculationStatusMessage(readSearchParam(resolvedSearchParams?.ranking));
 
   return (
     <main className="portal-competition-detail-shell">
@@ -1849,7 +1974,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                     <p className="portal-competition-detail-eyebrow">Resultados → ranking</p>
                     <h3 id={`portal-competition-rankings-${competition.key}`}>Classificação / ranking</h3>
                     <p className="portal-competition-detail-text">
-                      A classificação é recalculada a partir dos resultados guardados para os eventos desta competição. Depois de guardar um resultado, esta tabela reflete automaticamente pontos, jogos/provas, registo e marcador acumulado.
+                      A classificação pode ser recalculada manualmente a partir dos resultados guardados para os eventos desta competição. O recálculo mantém a classificação em rascunho.
                     </p>
                     <ul className="portal-competition-detail-ranking-guide" aria-label="Como interpretar a classificação">
                       <li>
@@ -1868,6 +1993,31 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                   </div>
                   <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.rankingCount, "ranking", "rankings")}</span>
                 </div>
+
+                {rankingRecalculationStatusMessage ? (
+                  <p
+                    className={`portal-competition-detail-feedback${
+                      rankingRecalculationStatusMessage.kind === "error" ? " portal-competition-detail-feedback-error" : ""
+                    }`}
+                  >
+                    {rankingRecalculationStatusMessage.text}
+                  </p>
+                ) : null}
+
+                {competition.slug &&
+                canRecalculateRankingForCompetition(
+                  authorization.permissions,
+                  competition.portalEntityId,
+                  competition.portalContextId,
+                  competition.id
+                ) ? (
+                  <form action={recalculatePortalCompetitionRanking} className="portal-competition-ranking-recalculate-form">
+                    <input type="hidden" name="portal_competition_id" value={competition.id} />
+                    <input type="hidden" name="competition_slug" value={competition.slug} />
+                    <p>Atualiza a classificação a partir dos resultados submetidos ou validados. A classificação fica em rascunho.</p>
+                    <button type="submit">Recalcular classificação</button>
+                  </form>
+                ) : null}
 
                 {competition.rankings.length > 0 ? (
                   <div className="portal-competition-detail-ranking-list">
