@@ -236,6 +236,27 @@ export type PortalCompetitionDetailParticipant = {
   seedOrderLabel: string;
 };
 
+export type PortalCompetitionDetailEventParticipant = {
+  eventParticipantId: string;
+  portalParticipantId: string;
+  participantName: string;
+  role: string | null;
+  roleLabel: string;
+  groupLabel: string | null;
+  seedOrder: number | null;
+  seedOrderLabel: string;
+  status: string;
+  statusLabel: string;
+  currentResult: {
+    resultEntryId: string;
+    scoreText: string | null;
+    scoreNumeric: number | string | null;
+    points: number | string | null;
+    outcome: string | null;
+    resultStatus: string | null;
+  } | null;
+};
+
 export type PortalCompetitionDetailEvent = {
   key: string;
   name: string;
@@ -246,6 +267,7 @@ export type PortalCompetitionDetailEvent = {
   scheduledAt: string | null;
   venue: string | null;
   participantLabels: string[];
+  eventParticipants: PortalCompetitionDetailEventParticipant[];
   resultEntries: Array<{
     key: string;
     participantLabel: string;
@@ -894,14 +916,25 @@ function makeCompetitionParticipants(
     });
 }
 
+function makeEventResultKey(portalEventId: string, portalParticipantId: string) {
+  return `${portalEventId}:${portalParticipantId}`;
+}
+
 function makeEvents(
   competitionId: string,
   events: PortalEventRow[],
   eventParticipants: PortalEventParticipantRow[],
   resultEntries: PortalResultEntryRow[],
+  competitionParticipants: PortalCompetitionParticipantRow[],
   stagesById: Map<string, PortalStageRow>,
   participantsById: Map<string, PortalParticipantRow>
 ): PortalCompetitionDetailEvent[] {
+  const competitionParticipantsByParticipantId = new Map(
+    competitionParticipants
+      .filter((participant) => participant.portal_competition_id === competitionId)
+      .map((participant) => [participant.portal_participant_id, participant])
+  );
+
   return [...events]
     .filter((event) => event.portal_competition_id === competitionId)
     .sort((first, second) => {
@@ -919,6 +952,38 @@ function makeEvents(
         .filter((participant) => participant.portal_event_id === event.id)
         .sort((first, second) => (first.seed_order ?? 999999) - (second.seed_order ?? 999999));
       const eventResults = resultEntries.filter((entry) => entry.portal_event_id === event.id);
+      const eventResultsByParticipantId = new Map(
+        eventResults.map((entry) => [makeEventResultKey(entry.portal_event_id, entry.portal_participant_id), entry])
+      );
+      const eventParticipantDetails = participants.map((participant) => {
+        const participantRow = participantsById.get(participant.portal_participant_id);
+        const competitionParticipant = competitionParticipantsByParticipantId.get(participant.portal_participant_id);
+        const currentResult =
+          eventResultsByParticipantId.get(makeEventResultKey(event.id, participant.portal_participant_id)) ?? null;
+
+        return {
+          eventParticipantId: participant.id,
+          portalParticipantId: participant.portal_participant_id,
+          participantName: participantRow?.name ?? "Participante",
+          role: participant.role,
+          roleLabel: formatLabel(participant.role, "Participante"),
+          groupLabel: competitionParticipant?.group_label ?? null,
+          seedOrder: participant.seed_order,
+          seedOrderLabel: participant.seed_order === null ? "Sem ordem" : `Ordem ${participant.seed_order}`,
+          status: participant.status,
+          statusLabel: formatLabel(participant.status),
+          currentResult: currentResult
+            ? {
+                resultEntryId: currentResult.id,
+                scoreText: currentResult.score_text,
+                scoreNumeric: currentResult.score_numeric,
+                points: currentResult.points,
+                outcome: currentResult.outcome,
+                resultStatus: currentResult.result_status
+              }
+            : null
+        };
+      });
 
       return {
         key: event.id,
@@ -931,12 +996,12 @@ function makeEvents(
         statusLabel: formatLabel(event.status),
         scheduledAt: event.scheduled_at,
         venue: event.venue,
-        participantLabels: participants.map((participant) => {
-          const name = participantsById.get(participant.portal_participant_id)?.name ?? "Participante";
-          const role = participant.role ? ` (${formatLabel(participant.role).toLowerCase()})` : "";
+        participantLabels: eventParticipantDetails.map((participant) => {
+          const role = participant.role ? ` (${participant.roleLabel.toLowerCase()})` : "";
 
-          return `${name}${role}`;
+          return `${participant.participantName}${role}`;
         }),
+        eventParticipants: eventParticipantDetails,
         resultEntries: eventResults.map((entry) => ({
           key: entry.id,
           participantLabel: participantsById.get(entry.portal_participant_id)?.name ?? "Participante",
@@ -1016,7 +1081,15 @@ function makeCompetitionDetails(
     const competitionFormats = makeFormats(competition.id, formats, formatCatalogById);
     const competitionStages = makeStages(competition.id, stages, events, eventParticipants, resultEntries);
     const competitionParticipantsList = makeCompetitionParticipants(competition.id, competitionParticipants, participantsById);
-    const competitionEvents = makeEvents(competition.id, events, eventParticipants, resultEntries, stagesById, participantsById);
+    const competitionEvents = makeEvents(
+      competition.id,
+      events,
+      eventParticipants,
+      resultEntries,
+      competitionParticipants,
+      stagesById,
+      participantsById
+    );
     const competitionRankings = makeRankings(competition.id, rankings, rankingEntries, participantsById);
     const competitionEventParticipants = eventParticipants.filter((participant) => participant.portal_competition_id === competition.id);
     const competitionResultEntries = resultEntries.filter((entry) => entry.portal_competition_id === competition.id);
