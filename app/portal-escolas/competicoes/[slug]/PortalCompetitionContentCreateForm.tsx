@@ -42,9 +42,9 @@ export function PortalCompetitionContentCreateForm({
       <input type="hidden" name="competition_slug" value={competitionSlug} />
 
       <div className="portal-competition-format-create-state" aria-label="Estado do conteúdo após criação">
-        <span className="portal-competition-detail-tag">Estado inicial: draft</span>
-        <span className="portal-competition-detail-tag">Publicação: não publicada</span>
-        <span className="portal-competition-detail-tag">Camada: Portal das Escolas</span>
+        <span className="portal-competition-detail-tag">Rascunho</span>
+        <span className="portal-competition-detail-tag">Não publicado</span>
+        <span className="portal-competition-detail-tag">Portal das Escolas</span>
       </div>
 
       <div className="portal-competition-format-create-field">
@@ -94,11 +94,11 @@ export function PortalCompetitionContentCreateForm({
           maxLength={4000}
           placeholder="Escreve o conteúdo em rascunho para revisão futura no Portal das Escolas"
         />
-        <span>Obrigatório nesta UI mínima para evitar submissões vazias.</span>
+        <span>Escreve o texto principal do conteúdo.</span>
       </div>
 
       <div className="portal-competition-format-create-field">
-        <label htmlFor={`${fieldIdPrefix}-media-url`}>URL de media opcional</label>
+        <label htmlFor={`${fieldIdPrefix}-media-url`}>Link para imagem ou vídeo</label>
         <input
           id={`${fieldIdPrefix}-media-url`}
           name="media_url"
@@ -135,7 +135,7 @@ export function PortalCompetitionContentCreateForm({
       </div>
 
       <button type="submit" disabled={!canCreateContent}>
-        Criar conteúdo em draft
+        Criar conteúdo em rascunho
       </button>
     </form>
   );
