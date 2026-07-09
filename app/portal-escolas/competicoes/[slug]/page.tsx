@@ -13,7 +13,13 @@ import { PortalCompetitionParticipantCreateForm } from "./PortalCompetitionParti
 import { PortalCompetitionEventCreateForm } from "./PortalCompetitionEventCreateForm";
 import { PortalCompetitionResultEntryForm } from "./PortalCompetitionResultEntryForm";
 import { PortalCompetitionContentCreateForm } from "./PortalCompetitionContentCreateForm";
+import {
+  PortalCompetitionGuidedPath,
+  type PortalCompetitionGuidedPathAction,
+  type PortalCompetitionGuidedPathStep
+} from "./PortalCompetitionGuidedPath";
 import { PortalEscolasInternalNav } from "../../_components/PortalEscolasInternalNav";
+import type { PortalCompetitionDetailRecord } from "@/lib/portal-escolas/readPortalCompetitionDetail";
 
 type PageProps = {
   params: Promise<{
@@ -175,6 +181,118 @@ const competitionDetailStyles = `
     gap: 16px;
     align-items: start;
     margin-bottom: 16px;
+  }
+
+  .portal-competition-guided-path-next {
+    display: grid;
+    gap: 6px;
+    min-width: min(320px, 100%);
+    padding: 14px;
+    border: 1px solid #f0c36d;
+    border-radius: 8px;
+    background: #fff7e6;
+  }
+
+  .portal-competition-guided-path-next span {
+    color: #7c4a00;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .portal-competition-guided-path-next a {
+    color: #102033;
+    font-size: 16px;
+    font-weight: 900;
+    text-decoration: none;
+  }
+
+  .portal-competition-guided-path-list {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .portal-competition-guided-path-step a {
+    display: grid;
+    gap: 8px;
+    height: 100%;
+    padding: 12px;
+    border: 1px solid #dbe7ef;
+    border-radius: 8px;
+    background: #f8fbfd;
+    color: #102033;
+    text-decoration: none;
+  }
+
+  .portal-competition-guided-path-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: #e7f4f8;
+    color: #0f6478;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .portal-competition-guided-path-step strong {
+    font-size: 14px;
+  }
+
+  .portal-competition-guided-path-step small {
+    color: #526274;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .portal-competition-guided-path-step em {
+    width: fit-content;
+    padding: 5px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 900;
+  }
+
+  .portal-competition-guided-path-step-complete a {
+    border-color: #b9dcc7;
+    background: #f1fbf4;
+  }
+
+  .portal-competition-guided-path-step-complete em {
+    background: #dff5e7;
+    color: #216137;
+  }
+
+  .portal-competition-guided-path-step-current a {
+    border-color: #f0c36d;
+    background: #fffaf0;
+  }
+
+  .portal-competition-guided-path-step-current em {
+    background: #ffe8ad;
+    color: #7c4a00;
+  }
+
+  .portal-competition-guided-path-step-pending em {
+    background: #e7f4f8;
+    color: #0f6478;
+  }
+
+  .portal-competition-guided-path-step-future a {
+    background: #f5f7fa;
+    color: #526274;
+  }
+
+  .portal-competition-guided-path-step-future em {
+    background: #e7ebef;
+    color: #526274;
   }
 
   .portal-competition-detail-summary-grid,
@@ -515,6 +633,7 @@ const competitionDetailStyles = `
     .portal-competition-detail-tree,
     .portal-competition-detail-format-list,
     .portal-competition-detail-stage-list,
+    .portal-competition-guided-path-list,
     .portal-competition-detail-ranking-guide,
     .portal-competition-detail-result-guide {
       grid-template-columns: 1fr;
@@ -808,6 +927,124 @@ function canRecalculateRankingForCompetition(
       (!permission.portal_context_id || permission.portal_context_id === portalContextId) &&
       (!permission.portal_competition_id || permission.portal_competition_id === portalCompetitionId)
   );
+}
+
+function makeGuidedPathStepStatus(
+  isComplete: boolean,
+  key: string,
+  currentKey: string
+): PortalCompetitionGuidedPathStep["status"] {
+  if (isComplete) {
+    return "Concluído";
+  }
+
+  return key === currentKey ? "Atual" : "Por fazer";
+}
+
+function makeCompetitionGuidedPath(
+  competition: PortalCompetitionDetailRecord,
+  canCreateContent: boolean
+): {
+  steps: PortalCompetitionGuidedPathStep[];
+  nextAction: PortalCompetitionGuidedPathAction;
+} {
+  const hasConfiguration = competition.formats.length > 0 && competition.stages.length > 0;
+  const hasParticipants = competition.participants.length > 0;
+  const hasEvents = competition.events.length > 0;
+  const hasResults = competition.summary.resultEntryCount > 0;
+  const hasClassification = competition.summary.rankingEntryCount > 0;
+
+  let currentKey = "conteudos";
+  let nextAction: PortalCompetitionGuidedPathAction = {
+    label: "criar conteúdo em draft",
+    href: "#conteudos"
+  };
+
+  if (!hasConfiguration) {
+    currentKey = "configuracao";
+    nextAction = {
+      label: "configurar a competição",
+      href: "#configuracao"
+    };
+  } else if (!hasParticipants) {
+    currentKey = "participantes";
+    nextAction = {
+      label: "adicionar participantes",
+      href: "#participantes"
+    };
+  } else if (!hasEvents) {
+    currentKey = "eventos";
+    nextAction = {
+      label: "criar evento/jornada",
+      href: "#eventos-resultados"
+    };
+  } else if (!hasResults) {
+    currentKey = "resultados";
+    nextAction = {
+      label: "inserir resultados",
+      href: "#eventos-resultados"
+    };
+  } else if (!hasClassification) {
+    currentKey = "classificacao";
+    nextAction = {
+      label: "recalcular classificação",
+      href: "#classificacao"
+    };
+  } else if (!canCreateContent) {
+    currentKey = "revisao";
+    nextAction = {
+      label: "rever a competição",
+      href: "#classificacao"
+    };
+  }
+
+  return {
+    nextAction,
+    steps: [
+      {
+        title: "Configuração",
+        description: "Formato e estrutura da competição.",
+        status: makeGuidedPathStepStatus(hasConfiguration, "configuracao", currentKey),
+        href: "#configuracao"
+      },
+      {
+        title: "Participantes",
+        description: "Turmas, equipas ou alunos inscritos.",
+        status: makeGuidedPathStepStatus(hasParticipants, "participantes", currentKey),
+        href: "#participantes"
+      },
+      {
+        title: "Eventos",
+        description: "Jornadas, jogos ou provas criadas.",
+        status: makeGuidedPathStepStatus(hasEvents, "eventos", currentKey),
+        href: "#eventos-resultados"
+      },
+      {
+        title: "Resultados",
+        description: "Registos guardados nos eventos.",
+        status: makeGuidedPathStepStatus(hasResults, "resultados", currentKey),
+        href: "#eventos-resultados"
+      },
+      {
+        title: "Conteúdos",
+        description: "Rascunhos associados à competição.",
+        status: currentKey === "conteudos" ? "Atual" : "Por fazer",
+        href: canCreateContent ? "#conteudos" : "#classificacao"
+      },
+      {
+        title: "Classificação",
+        description: "Ranking calculado a partir dos resultados.",
+        status: makeGuidedPathStepStatus(hasClassification, "classificacao", currentKey),
+        href: "#classificacao"
+      },
+      {
+        title: "Revisão futura",
+        description: "Validação e publicação numa fase posterior.",
+        status: "Futuro",
+        href: "#classificacao"
+      }
+    ]
+  };
 }
 
 async function createPortalCompetitionFormat(formData: FormData) {
@@ -1599,6 +1836,15 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
   const resultEntryStatusMessage = getResultEntryStatusMessage(readSearchParam(resolvedSearchParams?.resultado));
   const contentSubmissionStatusMessage = getContentSubmissionStatusMessage(readSearchParam(resolvedSearchParams?.conteudo));
   const rankingRecalculationStatusMessage = getRankingRecalculationStatusMessage(readSearchParam(resolvedSearchParams?.ranking));
+  const mainCanCreateContent = mainCompetition
+    ? canCreateContentForCompetition(
+        authorization.permissions,
+        mainCompetition.portalEntityId,
+        mainCompetition.portalContextId,
+        mainCompetition.id
+      )
+    : false;
+  const guidedPath = mainCompetition ? makeCompetitionGuidedPath(mainCompetition, mainCanCreateContent) : null;
 
   return (
     <main className="portal-competition-detail-shell">
@@ -1640,6 +1886,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
           </section>
         ) : null}
 
+        {guidedPath ? (
+          <PortalCompetitionGuidedPath steps={guidedPath.steps} nextAction={guidedPath.nextAction} />
+        ) : null}
+
         {!mainCompetition ? (
           <section className="portal-competition-detail-section" aria-labelledby="portal-competition-detail-empty-title">
             <h2 id="portal-competition-detail-empty-title">Sem competição visível neste âmbito</h2>
@@ -1649,7 +1899,12 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
           </section>
         ) : (
           data.competitions.map((competition) => (
-            <section className="portal-competition-detail-section" key={competition.key} aria-labelledby={`portal-competition-${competition.key}`}>
+            <section
+              className="portal-competition-detail-section"
+              id={mainCompetition?.key === competition.key ? "configuracao" : undefined}
+              key={competition.key}
+              aria-labelledby={`portal-competition-${competition.key}`}
+            >
               <div className="portal-competition-detail-section-header">
                 <div>
                   <p className="portal-competition-detail-eyebrow">Eixo formal</p>
@@ -1939,7 +2194,11 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 </section>
               ) : null}
 
-              <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-participants-${competition.key}`}>
+              <section
+                className="portal-competition-detail-section"
+                id={mainCompetition?.key === competition.key ? "participantes" : undefined}
+                aria-labelledby={`portal-competition-participants-${competition.key}`}
+              >
                 <div className="portal-competition-detail-section-header">
                   <div>
                     <p className="portal-competition-detail-eyebrow">Estrutura competitiva → participantes</p>
@@ -2029,7 +2288,11 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 </p>
               ) : null}
 
-              <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-events-${competition.key}`}>
+              <section
+                className="portal-competition-detail-section"
+                id={mainCompetition?.key === competition.key ? "eventos-resultados" : undefined}
+                aria-labelledby={`portal-competition-events-${competition.key}`}
+              >
                 <div className="portal-competition-detail-section-header">
                   <div>
                     <p className="portal-competition-detail-eyebrow">Estrutura competitiva → eventos</p>
@@ -2150,7 +2413,11 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 competition.portalContextId,
                 competition.id
               ) ? (
-                <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-content-${competition.key}`}>
+                <section
+                  className="portal-competition-detail-section"
+                  id={mainCompetition?.key === competition.key ? "conteudos" : undefined}
+                  aria-labelledby={`portal-competition-content-${competition.key}`}
+                >
                   <div className="portal-competition-detail-section-header">
                     <div>
                       <p className="portal-competition-detail-eyebrow">Competição → conteúdo</p>
@@ -2177,7 +2444,11 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 </section>
               ) : null}
 
-              <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-rankings-${competition.key}`}>
+              <section
+                className="portal-competition-detail-section"
+                id={mainCompetition?.key === competition.key ? "classificacao" : undefined}
+                aria-labelledby={`portal-competition-rankings-${competition.key}`}
+              >
                 <div className="portal-competition-detail-section-header">
                   <div>
                     <p className="portal-competition-detail-eyebrow">Resultados → ranking</p>
