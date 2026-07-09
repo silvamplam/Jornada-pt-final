@@ -157,6 +157,20 @@ const competitionDetailStyles = `
     text-transform: uppercase;
   }
 
+  .portal-competition-detail-actions-secondary {
+    margin-top: 12px;
+    margin-bottom: 18px;
+  }
+
+  .portal-competition-detail-actions-secondary a {
+    min-height: 34px;
+    padding: 7px 10px;
+    border-color: #dbe7ef;
+    background: #f8fbfd;
+    color: #526274;
+    font-size: 11px;
+  }
+
   .portal-competition-detail-tag {
     display: inline-flex;
     align-items: center;
@@ -181,6 +195,13 @@ const competitionDetailStyles = `
     gap: 16px;
     align-items: start;
     margin-bottom: 16px;
+  }
+
+  .portal-competition-detail-section-header-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
   }
 
   .portal-competition-technical-details summary {
@@ -1885,7 +1906,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
 
         <PortalEscolasInternalNav current="competicoes" />
 
-        <nav className="portal-competition-detail-actions" aria-label="Ações do detalhe da competição">
+        <nav className="portal-competition-detail-actions portal-competition-detail-actions-secondary" aria-label="Ações do detalhe da competição">
           <a href="/portal-escolas/competicoes">Voltar a competições</a>
           <a href={PORTAL_ESCOLAS_PANEL_PATH}>Voltar ao painel</a>
           {mainCompetition ? (
@@ -2046,12 +2067,13 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-create-format-${competition.key}`}>
                   <div className="portal-competition-detail-section-header">
                     <div>
-                      <p className="portal-competition-detail-eyebrow">Próximo passo</p>
+                      <p className="portal-competition-detail-eyebrow">Configuração</p>
                       <h3 id={`portal-competition-create-format-${competition.key}`}>Definir formato competitivo</h3>
                       <p className="portal-competition-detail-text">
                         Escolhe como a competição vai ser organizada.
                       </p>
                     </div>
+                    <span className="portal-competition-detail-tag">Ação principal</span>
                   </div>
 
                   <PortalCompetitionFormatCreateForm
@@ -2073,7 +2095,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                       Define a organização dos eventos, resultados e classificação.
                     </p>
                   </div>
-                  <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.formatCount, "formato", "formatos")}</span>
+                  <div className="portal-competition-detail-section-header-tags">
+                    <span className="portal-competition-detail-tag">{competition.formats.length > 0 ? "Já criado" : "Consultar"}</span>
+                    <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.formatCount, "formato", "formatos")}</span>
+                  </div>
                 </div>
 
                 {competition.formats.length > 0 ? (
@@ -2118,12 +2143,13 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-create-structure-${competition.key}`}>
                   <div className="portal-competition-detail-section-header">
                     <div>
-                      <p className="portal-competition-detail-eyebrow">Próximo passo</p>
+                      <p className="portal-competition-detail-eyebrow">Organização</p>
                       <h3 id={`portal-competition-create-structure-${competition.key}`}>Criar estrutura competitiva</h3>
                       <p className="portal-competition-detail-text">
                         Organiza a competição em fases, jornadas ou grupos.
                       </p>
                     </div>
+                    <span className="portal-competition-detail-tag">Ação principal</span>
                   </div>
 
                   <PortalCompetitionStructureCreateForm
@@ -2145,7 +2171,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                       Organiza a competição em fases, jornadas ou grupos.
                     </p>
                   </div>
-                  <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.stageCount, "estrutura", "estruturas")}</span>
+                  <div className="portal-competition-detail-section-header-tags">
+                    <span className="portal-competition-detail-tag">{competition.stages.length > 0 ? "Já criado" : "Consultar"}</span>
+                    <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.stageCount, "estrutura", "estruturas")}</span>
+                  </div>
                 </div>
 
                 {competition.stages.length > 0 ? (
@@ -2192,12 +2221,13 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-create-participant-${competition.key}`}>
                   <div className="portal-competition-detail-section-header">
                     <div>
-                      <p className="portal-competition-detail-eyebrow">Próximo passo</p>
+                      <p className="portal-competition-detail-eyebrow">Participantes</p>
                       <h3 id={`portal-competition-create-participant-${competition.key}`}>Adicionar participantes</h3>
                       <p className="portal-competition-detail-text">
                         Adiciona turmas, equipas, alunos ou grupos à competição.
                       </p>
                     </div>
+                    <span className="portal-competition-detail-tag">Ação principal</span>
                   </div>
 
                   <PortalCompetitionParticipantCreateForm
@@ -2222,7 +2252,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                       Participantes inscritos nesta competição.
                     </p>
                   </div>
-                  <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.competitionParticipantCount, "participante", "participantes")}</span>
+                  <div className="portal-competition-detail-section-header-tags">
+                    <span className="portal-competition-detail-tag">Consultar</span>
+                    <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.competitionParticipantCount, "participante", "participantes")}</span>
+                  </div>
                 </div>
 
                 {competition.participants.length > 0 ? (
@@ -2272,12 +2305,13 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-create-event-${competition.key}`}>
                   <div className="portal-competition-detail-section-header">
                     <div>
-                      <p className="portal-competition-detail-eyebrow">Próximo passo</p>
+                      <p className="portal-competition-detail-eyebrow">Eventos</p>
                       <h3 id={`portal-competition-create-event-${competition.key}`}>Criar evento/jornada</h3>
                       <p className="portal-competition-detail-text">
                         Cria a jornada, jogo ou prova onde serão registados resultados.
                       </p>
                     </div>
+                    <span className="portal-competition-detail-tag">Ação principal</span>
                   </div>
 
                   <PortalCompetitionEventCreateForm
@@ -2309,10 +2343,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
               >
                 <div className="portal-competition-detail-section-header">
                   <div>
-                    <p className="portal-competition-detail-eyebrow">Eventos e resultados</p>
+                    <p className="portal-competition-detail-eyebrow">Resultados</p>
                     <h3 id={`portal-competition-events-${competition.key}`}>Eventos, participantes e resultados</h3>
                     <p className="portal-competition-detail-text">
-                      Cria eventos e regista resultados por participante.
+                      Regista resultados nos eventos já criados.
                     </p>
                     <ul className="portal-competition-detail-result-guide" aria-label="Como ler resultados nesta competição">
                       <li>
@@ -2329,7 +2363,21 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                       </li>
                     </ul>
                   </div>
-                  <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.eventCount, "evento", "eventos")}</span>
+                  <div className="portal-competition-detail-section-header-tags">
+                    <span className="portal-competition-detail-tag">
+                      {competition.slug &&
+                      competition.events.length > 0 &&
+                      canEditResultsForCompetition(
+                        authorization.permissions,
+                        competition.portalEntityId,
+                        competition.portalContextId,
+                        competition.id
+                      )
+                        ? "Ação principal"
+                        : "Consultar"}
+                    </span>
+                    <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.eventCount, "evento", "eventos")}</span>
+                  </div>
                 </div>
 
                 {competition.events.length > 0 ? (
@@ -2440,6 +2488,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                         Cria conteúdos em rascunho associados a esta competição.
                       </p>
                     </div>
+                    <span className="portal-competition-detail-tag">Ação principal</span>
                   </div>
 
                   <PortalCompetitionContentCreateForm
@@ -2461,7 +2510,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
               >
                 <div className="portal-competition-detail-section-header">
                   <div>
-                    <p className="portal-competition-detail-eyebrow">Resultados → classificação</p>
+                    <p className="portal-competition-detail-eyebrow">Classificação</p>
                     <h3 id={`portal-competition-rankings-${competition.key}`}>Classificação</h3>
                     <p className="portal-competition-detail-text">
                       Recalcula e consulta a classificação a partir dos resultados.
@@ -2481,7 +2530,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                       </li>
                     </ul>
                   </div>
-                  <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.rankingCount, "classificação", "classificações")}</span>
+                  <div className="portal-competition-detail-section-header-tags">
+                    <span className="portal-competition-detail-tag">Consultar</span>
+                    <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.rankingCount, "classificação", "classificações")}</span>
+                  </div>
                 </div>
 
                 {rankingRecalculationStatusMessage ? (
