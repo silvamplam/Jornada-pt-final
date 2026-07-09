@@ -183,6 +183,26 @@ const competitionDetailStyles = `
     margin-bottom: 16px;
   }
 
+  .portal-competition-technical-details summary {
+    cursor: pointer;
+    color: #102033;
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.25;
+  }
+
+  .portal-competition-technical-details summary::marker {
+    color: #0f6f8d;
+  }
+
+  .portal-competition-technical-details .portal-competition-detail-summary-grid {
+    margin-top: 14px;
+  }
+
+  .portal-competition-technical-details .portal-competition-detail-tag {
+    margin-top: 12px;
+  }
+
   .portal-competition-guided-path-next {
     display: grid;
     gap: 6px;
@@ -1855,7 +1875,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
             <p className="portal-competition-detail-eyebrow">Portal das Escolas · detalhe da competição</p>
             <h1 id="portal-competition-detail-title">{mainCompetition?.name ?? "Competição não encontrada"}</h1>
             <p className="portal-competition-detail-text">
-              Esta é a página central da competição: confirma o âmbito, consulta eventos e resultados, e acompanha a classificação/ranking recalculada a partir dos resultados.
+              Configura a competição e acompanha participantes, eventos, resultados, conteúdos e classificação.
             </p>
           </div>
           <span className="portal-competition-detail-tag">
@@ -1907,16 +1927,16 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
             >
               <div className="portal-competition-detail-section-header">
                 <div>
-                  <p className="portal-competition-detail-eyebrow">Eixo formal</p>
+                  <p className="portal-competition-detail-eyebrow">Dados da competição</p>
                   <h2 id={`portal-competition-${competition.key}`}>{competition.name}</h2>
                   <p className="portal-competition-detail-text">
-                    Esta leitura não substitui jogos, resultados ou páginas legacy. Apenas mostra a competição como nó intermédio da árvore multidesporto.
+                    Resumo do âmbito e das ligações desta competição.
                   </p>
                 </div>
                 <span className="portal-competition-detail-tag">{competition.statusLabel}</span>
               </div>
 
-              <div className="portal-competition-detail-tree" aria-label="Árvore multidesporto da competição">
+              <div className="portal-competition-detail-tree" aria-label="Ligações da competição">
                 <article className="portal-competition-detail-tree-card">
                   <span>Entidade</span>
                   <strong>{competition.entityLabel}</strong>
@@ -1952,58 +1972,56 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
               </div>
 
               <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-summary-${competition.key}`}>
-                <div className="portal-competition-detail-section-header">
-                  <div>
-                    <p className="portal-competition-detail-eyebrow">Resumo</p>
-                    <h3 id={`portal-competition-summary-${competition.key}`}>Competição formal</h3>
-                  </div>
+                <details className="portal-competition-technical-details">
+                  <summary id={`portal-competition-summary-${competition.key}`}>Detalhes técnicos</summary>
+                  <p className="portal-competition-detail-text">Informação de referência sobre âmbito, códigos e contadores desta competição.</p>
                   <span className="portal-competition-detail-tag">{competition.scopeLabel}</span>
-                </div>
 
-                <div className="portal-competition-detail-summary-grid">
-                  <article className="portal-competition-detail-summary-card">
-                    <span>Modalidade formal</span>
-                    <strong>{competition.formalModalityLabel}</strong>
-                    <span>Estado da modalidade</span>
-                    <strong>{competition.formalModalityStatusLabel}</strong>
-                  </article>
-                  <article className="portal-competition-detail-summary-card">
-                    <span>Catálogo da modalidade</span>
-                    <strong>{competition.modalityCatalogLabel}</strong>
-                    <span>Código canónico</span>
-                    <strong>{competition.modalityCatalogCode ?? "Sem código associado"}</strong>
-                  </article>
-                  <article className="portal-competition-detail-summary-card">
-                    <span>Formato legacy</span>
-                    <strong>{competition.legacyFormatLabel}</strong>
-                    <span>Modalidade legacy</span>
-                    <strong>{competition.legacyModalityLabel}</strong>
-                  </article>
-                  <article className="portal-competition-detail-summary-card">
-                    <span>Slug</span>
-                    <strong>{competition.slug ?? "Sem slug"}</strong>
-                    <span>Código local da modalidade</span>
-                    <strong>{competition.formalModalityLocalCode ?? "Sem código local"}</strong>
-                  </article>
-                  <article className="portal-competition-detail-summary-card">
-                    <span>Estrutura competitiva</span>
-                    <strong>{formatCountLabel(competition.summary.stageCount, "estrutura", "estruturas")}</strong>
-                    <span>Eventos</span>
-                    <strong>{formatCountLabel(competition.summary.eventCount, "evento", "eventos")}</strong>
-                  </article>
-                  <article className="portal-competition-detail-summary-card">
-                    <span>Participantes em eventos</span>
-                    <strong>{competition.summary.eventParticipantCount}</strong>
-                    <span>Resultados em eventos</span>
-                    <strong>{competition.summary.resultEntryCount}</strong>
-                  </article>
-                  <article className="portal-competition-detail-summary-card">
-                    <span>Rankings</span>
-                    <strong>{competition.summary.rankingCount} rankings</strong>
-                    <span>Linhas de ranking</span>
-                    <strong>{competition.summary.rankingEntryCount}</strong>
-                  </article>
-                </div>
+                  <div className="portal-competition-detail-summary-grid">
+                    <article className="portal-competition-detail-summary-card">
+                      <span>Modalidade formal</span>
+                      <strong>{competition.formalModalityLabel}</strong>
+                      <span>Estado da modalidade</span>
+                      <strong>{competition.formalModalityStatusLabel}</strong>
+                    </article>
+                    <article className="portal-competition-detail-summary-card">
+                      <span>Catálogo da modalidade</span>
+                      <strong>{competition.modalityCatalogLabel}</strong>
+                      <span>Código canónico</span>
+                      <strong>{competition.modalityCatalogCode ?? "Sem código associado"}</strong>
+                    </article>
+                    <article className="portal-competition-detail-summary-card">
+                      <span>Formato antigo</span>
+                      <strong>{competition.legacyFormatLabel}</strong>
+                      <span>Modalidade antiga</span>
+                      <strong>{competition.legacyModalityLabel}</strong>
+                    </article>
+                    <article className="portal-competition-detail-summary-card">
+                      <span>Slug</span>
+                      <strong>{competition.slug ?? "Sem slug"}</strong>
+                      <span>Código local da modalidade</span>
+                      <strong>{competition.formalModalityLocalCode ?? "Sem código local"}</strong>
+                    </article>
+                    <article className="portal-competition-detail-summary-card">
+                      <span>Estrutura competitiva</span>
+                      <strong>{formatCountLabel(competition.summary.stageCount, "estrutura", "estruturas")}</strong>
+                      <span>Eventos</span>
+                      <strong>{formatCountLabel(competition.summary.eventCount, "evento", "eventos")}</strong>
+                    </article>
+                    <article className="portal-competition-detail-summary-card">
+                      <span>Participantes em eventos</span>
+                      <strong>{competition.summary.eventParticipantCount}</strong>
+                      <span>Resultados em eventos</span>
+                      <strong>{competition.summary.resultEntryCount}</strong>
+                    </article>
+                    <article className="portal-competition-detail-summary-card">
+                      <span>Classificações</span>
+                      <strong>{competition.summary.rankingCount}</strong>
+                      <span>Linhas da classificação</span>
+                      <strong>{competition.summary.rankingEntryCount}</strong>
+                    </article>
+                  </div>
+                </details>
               </section>
 
               {createFormatStatusMessage ? (
@@ -2031,10 +2049,9 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                       <p className="portal-competition-detail-eyebrow">Próximo passo</p>
                       <h3 id={`portal-competition-create-format-${competition.key}`}>Definir formato competitivo</h3>
                       <p className="portal-competition-detail-text">
-                        Escolhe a mecânica da competição. O Portal preenche os campos técnicos por baixo e mantém tudo em rascunho até validação futura de gatekeeper.
+                        Escolhe como a competição vai ser organizada.
                       </p>
                     </div>
-                    <span className="portal-competition-detail-tag">Competição → formato</span>
                   </div>
 
                   <PortalCompetitionFormatCreateForm
@@ -2050,10 +2067,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
               <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-formats-${competition.key}`}>
                 <div className="portal-competition-detail-section-header">
                   <div>
-                    <p className="portal-competition-detail-eyebrow">Competição → formato</p>
-                    <h3 id={`portal-competition-formats-${competition.key}`}>Formatos competitivos</h3>
+                    <p className="portal-competition-detail-eyebrow">Configuração</p>
+                    <h3 id={`portal-competition-formats-${competition.key}`}>Formato da competição</h3>
                     <p className="portal-competition-detail-text">
-                      O formato define a mecânica competitiva: tipo de evento, modelo de resultado e modelo de ranking/classificação.
+                      Define a organização dos eventos, resultados e classificação.
                     </p>
                   </div>
                   <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.formatCount, "formato", "formatos")}</span>
@@ -2104,10 +2121,9 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                       <p className="portal-competition-detail-eyebrow">Próximo passo</p>
                       <h3 id={`portal-competition-create-structure-${competition.key}`}>Criar estrutura competitiva</h3>
                       <p className="portal-competition-detail-text">
-                        O Portal cria a primeira camada de organização da competição. Para este formato, a estrutura sugerida é uma fase regular organizada por jornadas.
+                        Organiza a competição em fases, jornadas ou grupos.
                       </p>
                     </div>
-                    <span className="portal-competition-detail-tag">Formato → estrutura</span>
                   </div>
 
                   <PortalCompetitionStructureCreateForm
@@ -2123,10 +2139,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
               <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-stages-${competition.key}`}>
                 <div className="portal-competition-detail-section-header">
                   <div>
-                    <p className="portal-competition-detail-eyebrow">Formato → estrutura competitiva</p>
-                    <h3 id={`portal-competition-stages-${competition.key}`}>Estrutura competitiva</h3>
+                    <p className="portal-competition-detail-eyebrow">Organização</p>
+                    <h3 id={`portal-competition-stages-${competition.key}`}>Estrutura da competição</h3>
                     <p className="portal-competition-detail-text">
-                      A estrutura organiza a competição antes dos eventos: jornadas, fases, rondas, séries, grupos, provas ou etapas. A rota /portal-escolas/jornadas mantém o nome por compatibilidade, mas aqui é lida como camada genérica.
+                      Organiza a competição em fases, jornadas ou grupos.
                     </p>
                   </div>
                   <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.stageCount, "estrutura", "estruturas")}</span>
@@ -2179,10 +2195,9 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                       <p className="portal-competition-detail-eyebrow">Próximo passo</p>
                       <h3 id={`portal-competition-create-participant-${competition.key}`}>Adicionar participantes</h3>
                       <p className="portal-competition-detail-text">
-                        Adiciona turmas, equipas, alunos ou grupos à competição. O Portal mantém o participante e a inscrição em rascunho até validação futura de gatekeeper.
+                        Adiciona turmas, equipas, alunos ou grupos à competição.
                       </p>
                     </div>
-                    <span className="portal-competition-detail-tag">Estrutura → participantes</span>
                   </div>
 
                   <PortalCompetitionParticipantCreateForm
@@ -2201,10 +2216,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
               >
                 <div className="portal-competition-detail-section-header">
                   <div>
-                    <p className="portal-competition-detail-eyebrow">Estrutura competitiva → participantes</p>
+                    <p className="portal-competition-detail-eyebrow">Participantes</p>
                     <h3 id={`portal-competition-participants-${competition.key}`}>Participantes da competição</h3>
                     <p className="portal-competition-detail-text">
-                      Lista de participantes inscritos na competição. Ainda não cria eventos, resultados ou rankings.
+                      Participantes inscritos nesta competição.
                     </p>
                   </div>
                   <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.competitionParticipantCount, "participante", "participantes")}</span>
@@ -2260,10 +2275,9 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                       <p className="portal-competition-detail-eyebrow">Próximo passo</p>
                       <h3 id={`portal-competition-create-event-${competition.key}`}>Criar evento/jornada</h3>
                       <p className="portal-competition-detail-text">
-                        Cria a unidade concreta onde depois serão inseridos resultados: jornada, jogo, prova, partida, série ou final. O evento fica em rascunho e a publicação continua dependente de gatekeeper.
+                        Cria a jornada, jogo ou prova onde serão registados resultados.
                       </p>
                     </div>
-                    <span className="portal-competition-detail-tag">Participantes → eventos</span>
                   </div>
 
                   <PortalCompetitionEventCreateForm
@@ -2295,10 +2309,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
               >
                 <div className="portal-competition-detail-section-header">
                   <div>
-                    <p className="portal-competition-detail-eyebrow">Estrutura competitiva → eventos</p>
+                    <p className="portal-competition-detail-eyebrow">Eventos e resultados</p>
                     <h3 id={`portal-competition-events-${competition.key}`}>Eventos, participantes e resultados</h3>
                     <p className="portal-competition-detail-text">
-                      Cada evento mostra os participantes e os resultados já guardados. Nos campeonatos por jornadas são jogos; noutras modalidades podem ser provas, partidas, séries ou finais.
+                      Cria eventos e regista resultados por participante.
                     </p>
                     <ul className="portal-competition-detail-result-guide" aria-label="Como ler resultados nesta competição">
                       <li>
@@ -2420,16 +2434,12 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                 >
                   <div className="portal-competition-detail-section-header">
                     <div>
-                      <p className="portal-competition-detail-eyebrow">Competição → conteúdo</p>
+                      <p className="portal-competition-detail-eyebrow">Conteúdos</p>
                       <h3 id={`portal-competition-content-${competition.key}`}>Conteúdo da competição</h3>
                       <p className="portal-competition-detail-text">
-                        Cria um conteúdo em rascunho associado a esta competição. A submissão fica no Portal das Escolas e não é publicada na Jornada.pt.
-                      </p>
-                      <p className="portal-competition-detail-text">
-                        Este formulário escreve apenas em submissões do Portal das Escolas; não cria publicação e não entra no editorial antigo.
+                        Cria conteúdos em rascunho associados a esta competição.
                       </p>
                     </div>
-                    <span className="portal-competition-detail-tag">Draft auditado</span>
                   </div>
 
                   <PortalCompetitionContentCreateForm
@@ -2451,10 +2461,10 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
               >
                 <div className="portal-competition-detail-section-header">
                   <div>
-                    <p className="portal-competition-detail-eyebrow">Resultados → ranking</p>
-                    <h3 id={`portal-competition-rankings-${competition.key}`}>Classificação / ranking</h3>
+                    <p className="portal-competition-detail-eyebrow">Resultados → classificação</p>
+                    <h3 id={`portal-competition-rankings-${competition.key}`}>Classificação</h3>
                     <p className="portal-competition-detail-text">
-                      A classificação pode ser recalculada manualmente a partir dos resultados guardados para os eventos desta competição. O recálculo mantém a classificação em rascunho.
+                      Recalcula e consulta a classificação a partir dos resultados.
                     </p>
                     <ul className="portal-competition-detail-ranking-guide" aria-label="Como interpretar a classificação">
                       <li>
@@ -2471,7 +2481,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                       </li>
                     </ul>
                   </div>
-                  <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.rankingCount, "ranking", "rankings")}</span>
+                  <span className="portal-competition-detail-tag">{formatCountLabel(competition.summary.rankingCount, "classificação", "classificações")}</span>
                 </div>
 
                 {rankingRecalculationStatusMessage ? (
