@@ -12,6 +12,7 @@ import { PortalCompetitionStructureCreateForm } from "./PortalCompetitionStructu
 import { PortalCompetitionParticipantCreateForm } from "./PortalCompetitionParticipantCreateForm";
 import { PortalCompetitionEventCreateForm } from "./PortalCompetitionEventCreateForm";
 import { PortalCompetitionResultEntryForm } from "./PortalCompetitionResultEntryForm";
+import { PortalCompetitionContentCreateForm } from "./PortalCompetitionContentCreateForm";
 import { PortalEscolasInternalNav } from "../../_components/PortalEscolasInternalNav";
 
 type PageProps = {
@@ -24,6 +25,7 @@ type PageProps = {
     participante?: string | string[];
     evento?: string | string[];
     resultado?: string | string[];
+    conteudo?: string | string[];
     ranking?: string | string[];
   }>;
 };
@@ -685,6 +687,17 @@ function getResultEntryStatusMessage(status: string | null) {
   return status ? messages[status] ?? null : null;
 }
 
+function getContentSubmissionStatusMessage(status: string | null) {
+  const messages: Record<string, { kind: "success" | "error"; text: string }> = {
+    criado: { kind: "success", text: "Conteúdo criado em draft para esta competição. Continua sem publicação na Jornada.pt." },
+    "dados-invalidos": { kind: "error", text: "Não foi possível criar o conteúdo: confirma tipo, título, corpo e associações opcionais." },
+    "sem-permissao": { kind: "error", text: "Não tens permissão ativa para criar conteúdos em draft nesta competição." },
+    erro: { kind: "error", text: "Não foi possível criar o conteúdo em draft. Tenta novamente ou valida a configuração da RPC." }
+  };
+
+  return status ? messages[status] ?? null : null;
+}
+
 function getRankingRecalculationStatusMessage(status: string | null) {
   const messages: Record<string, { kind: "success" | "error"; text: string }> = {
     recalculado: { kind: "success", text: "Classificação recalculada com sucesso." },
@@ -740,6 +753,32 @@ function canEditResultsForCompetition(
       permission.status === "active" &&
       permission.can_view &&
       permission.can_edit &&
+      permission.portal_entity_id === portalEntityId &&
+      (!permission.portal_context_id || permission.portal_context_id === portalContextId) &&
+      (!permission.portal_competition_id || permission.portal_competition_id === portalCompetitionId)
+  );
+}
+
+function canCreateContentForCompetition(
+  permissions: {
+    portal_entity_id: string;
+    portal_context_id: string | null;
+    portal_competition_id: string | null;
+    can_view: boolean;
+    can_create: boolean;
+    can_edit: boolean;
+    can_submit_content: boolean;
+    status: string;
+  }[],
+  portalEntityId: string,
+  portalContextId: string,
+  portalCompetitionId: string
+) {
+  return permissions.some(
+    (permission) =>
+      permission.status === "active" &&
+      permission.can_view &&
+      (permission.can_submit_content || permission.can_create || permission.can_edit) &&
       permission.portal_entity_id === portalEntityId &&
       (!permission.portal_context_id || permission.portal_context_id === portalContextId) &&
       (!permission.portal_competition_id || permission.portal_competition_id === portalCompetitionId)
@@ -1209,6 +1248,131 @@ async function createPortalCompetitionEvent(formData: FormData) {
   redirect(`/portal-escolas/competicoes/${competitionSlug}?evento=criado`);
 }
 
+async function createPortalCompetitionContentSubmission(formData: FormData) {
+  "use server";
+
+  const supabase = await createPortalEscolasServerClient();
+
+  if (!supabase) {
+    redirect(`${PORTAL_ESCOLAS_LOGIN_PATH}?status=not-configured`);
+  }
+
+  const {
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect(PORTAL_ESCOLAS_LOGIN_PATH);
+  }
+
+  const authorization = await readPortalAuthorization(supabase, user.id);
+
+  if (!authorization.allowed) {
+    redirect("/portal-escolas/competicoes?conteudo=sem-permissao");
+  }
+
+  const portalCompetitionId = readFormText(formData, "portal_competition_id");
+  const competitionSlug = readFormText(formData, "competition_slug");
+  const contentType = readFormText(formData, "type");
+  const title = readFormText(formData, "title");
+  const summary = readFormText(formData, "summary") || null;
+  const body = readFormText(formData, "body");
+  const mediaUrl = readFormText(formData, "media_url") || null;
+  const portalEventId = readFormText(formData, "portal_event_id") || null;
+  const portalParticipantId = readFormText(formData, "portal_participant_id") || null;
+  const allowedContentTypes = new Set(["news", "note", "photo", "video"]);
+
+  if (
+    !isUuid(portalCompetitionId) ||
+    !competitionSlug ||
+    !allowedContentTypes.has(contentType) ||
+    !title ||
+    !body ||
+    (portalEventId !== null && !isUuid(portalEventId)) ||
+    (portalParticipantId !== null && !isUuid(portalParticipantId))
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug || ""}?conteudo=dados-invalidos`);
+  }
+
+  const data = await readPortalCompetitionDetail(supabase, authorization, competitionSlug);
+  const competition = data.competitions.find((item) => item.id === portalCompetitionId && item.slug === competitionSlug);
+
+  if (!competition) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?conteudo=dados-invalidos`);
+  }
+
+  if (
+    !canCreateContentForCompetition(
+      authorization.permissions,
+      competition.portalEntityId,
+      competition.portalContextId,
+      competition.id
+    )
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?conteudo=sem-permissao`);
+  }
+
+  const selectedEvent = portalEventId ? competition.events.find((event) => event.key === portalEventId) : null;
+
+  if (portalEventId && !selectedEvent) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?conteudo=dados-invalidos`);
+  }
+
+  if (
+    portalParticipantId &&
+    !competition.participants.some((participant) => participant.participantId === portalParticipantId)
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?conteudo=dados-invalidos`);
+  }
+
+  if (
+    selectedEvent &&
+    portalParticipantId &&
+    !selectedEvent.eventParticipants.some((participant) => participant.portalParticipantId === portalParticipantId)
+  ) {
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?conteudo=dados-invalidos`);
+  }
+
+  const { error } = await supabase.rpc("portal_create_content_submission", {
+    p_portal_competition_id: portalCompetitionId,
+    p_type: contentType,
+    p_title: title,
+    p_summary: summary,
+    p_body: body,
+    p_media_url: mediaUrl,
+    p_portal_stage_id: null,
+    p_portal_event_id: portalEventId,
+    p_portal_participant_id: portalParticipantId
+  });
+
+  if (error) {
+    const errorCode = typeof error.code === "string" ? error.code : "";
+    const errorMessage = typeof error.message === "string" ? error.message.toLowerCase() : "";
+
+    if (errorCode === "42501") {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?conteudo=sem-permissao`);
+    }
+
+    if (
+      errorCode === "22023" ||
+      errorMessage.includes("required") ||
+      errorMessage.includes("not found") ||
+      errorMessage.includes("does not match") ||
+      errorMessage.includes("not registered")
+    ) {
+      redirect(`/portal-escolas/competicoes/${competitionSlug}?conteudo=dados-invalidos`);
+    }
+
+    redirect(`/portal-escolas/competicoes/${competitionSlug}?conteudo=erro`);
+  }
+
+  revalidatePath(`/portal-escolas/competicoes/${competitionSlug}`);
+  revalidatePath("/portal-escolas/conteudos");
+  revalidatePath("/portal-escolas/painel");
+  redirect(`/portal-escolas/competicoes/${competitionSlug}?conteudo=criado`);
+}
+
 async function savePortalCompetitionResultEntry(formData: FormData) {
   "use server";
 
@@ -1433,6 +1597,7 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
   const createParticipantStatusMessage = getCreateParticipantStatusMessage(readSearchParam(resolvedSearchParams?.participante));
   const createEventStatusMessage = getCreateEventStatusMessage(readSearchParam(resolvedSearchParams?.evento));
   const resultEntryStatusMessage = getResultEntryStatusMessage(readSearchParam(resolvedSearchParams?.resultado));
+  const contentSubmissionStatusMessage = getContentSubmissionStatusMessage(readSearchParam(resolvedSearchParams?.conteudo));
   const rankingRecalculationStatusMessage = getRankingRecalculationStatusMessage(readSearchParam(resolvedSearchParams?.ranking));
 
   return (
@@ -1967,6 +2132,50 @@ export default async function PortalCompetitionDetailPage({ params, searchParams
                   <p className="portal-competition-detail-empty">Ainda não existem eventos formais disponíveis para esta competição neste âmbito autorizado.</p>
                 )}
               </section>
+
+              {contentSubmissionStatusMessage ? (
+                <p
+                  className={`portal-competition-detail-feedback${
+                    contentSubmissionStatusMessage.kind === "error" ? " portal-competition-detail-feedback-error" : ""
+                  }`}
+                >
+                  {contentSubmissionStatusMessage.text}
+                </p>
+              ) : null}
+
+              {competition.slug &&
+              canCreateContentForCompetition(
+                authorization.permissions,
+                competition.portalEntityId,
+                competition.portalContextId,
+                competition.id
+              ) ? (
+                <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-content-${competition.key}`}>
+                  <div className="portal-competition-detail-section-header">
+                    <div>
+                      <p className="portal-competition-detail-eyebrow">Competição → conteúdo</p>
+                      <h3 id={`portal-competition-content-${competition.key}`}>Conteúdo da competição</h3>
+                      <p className="portal-competition-detail-text">
+                        Cria um conteúdo em rascunho associado a esta competição. A submissão fica no Portal das Escolas e não é publicada na Jornada.pt.
+                      </p>
+                      <p className="portal-competition-detail-text">
+                        Este formulário escreve apenas em submissões do Portal das Escolas; não cria publicação e não entra no editorial antigo.
+                      </p>
+                    </div>
+                    <span className="portal-competition-detail-tag">Draft auditado</span>
+                  </div>
+
+                  <PortalCompetitionContentCreateForm
+                    action={createPortalCompetitionContentSubmission}
+                    portalCompetitionId={competition.id}
+                    competitionSlug={competition.slug}
+                    competitionName={competition.name}
+                    events={competition.events}
+                    participants={competition.participants}
+                    canCreateContent={true}
+                  />
+                </section>
+              ) : null}
 
               <section className="portal-competition-detail-section" aria-labelledby={`portal-competition-rankings-${competition.key}`}>
                 <div className="portal-competition-detail-section-header">
