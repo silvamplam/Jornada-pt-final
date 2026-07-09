@@ -28,8 +28,8 @@ export function PortalCompetitionFormatCreateForm({
       <input type="hidden" name="competition_slug" value={competitionSlug} />
 
       <div className="portal-competition-format-create-state" aria-label="Estado do formato após criação">
-        <span className="portal-competition-detail-tag">Estado inicial: rascunho</span>
-        <span className="portal-competition-detail-tag">Publicação: gatekeeper</span>
+        <span className="portal-competition-detail-tag">Rascunho</span>
+        <span className="portal-competition-detail-tag">Pendente de validação</span>
       </div>
 
       <div className="portal-competition-format-create-field">

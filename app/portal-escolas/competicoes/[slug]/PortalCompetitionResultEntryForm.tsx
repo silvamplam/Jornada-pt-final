@@ -46,8 +46,8 @@ export function PortalCompetitionResultEntryForm({
       <input type="hidden" name="result_status" value="submitted" />
 
       <div className="portal-competition-format-create-state" aria-label="Estado do resultado após gravação">
-        <span className="portal-competition-detail-tag">Estado: submetido</span>
-        <span className="portal-competition-detail-tag">Validação futura</span>
+        <span className="portal-competition-detail-tag">Submetido</span>
+        <span className="portal-competition-detail-tag">Pendente de validação</span>
       </div>
 
       <div className="portal-competition-format-create-field">
@@ -56,19 +56,19 @@ export function PortalCompetitionResultEntryForm({
       </div>
 
       <div className="portal-competition-format-create-field">
-        <label htmlFor={`${fieldIdPrefix}-score-text`}>Resultado / observação</label>
+        <label htmlFor={`${fieldIdPrefix}-score-text`}>Resultado ou observação</label>
         <input
           id={`${fieldIdPrefix}-score-text`}
           name="score_text"
           type="text"
           maxLength={120}
           defaultValue={initialScoreText ?? ""}
-          placeholder="Ex.: Resultado UI: 2 pontos"
+          placeholder="Ex.: 2-1, 12,5 s ou 2 pontos"
         />
       </div>
 
       <div className="portal-competition-format-create-field">
-        <label htmlFor={`${fieldIdPrefix}-score-numeric`}>Valor</label>
+        <label htmlFor={`${fieldIdPrefix}-score-numeric`}>Valor numérico</label>
         <input
           id={`${fieldIdPrefix}-score-numeric`}
           name="score_numeric"

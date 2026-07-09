@@ -34,8 +34,8 @@ export function PortalCompetitionEventCreateForm({
       <input type="hidden" name="competition_slug" value={competitionSlug} />
 
       <div className="portal-competition-format-create-state" aria-label="Estado do evento após criação">
-        <span className="portal-competition-detail-tag">Estado inicial: rascunho</span>
-        <span className="portal-competition-detail-tag">Publicação: gatekeeper</span>
+        <span className="portal-competition-detail-tag">Rascunho</span>
+        <span className="portal-competition-detail-tag">Pendente de validação</span>
       </div>
 
       <div className="portal-competition-format-create-field">
@@ -51,7 +51,7 @@ export function PortalCompetitionEventCreateForm({
       </div>
 
       <div className="portal-competition-format-create-field">
-        <label htmlFor="portal-competition-event-name">Nome do evento/jornada</label>
+        <label htmlFor="portal-competition-event-name">Nome da jornada ou evento</label>
         <input
           id="portal-competition-event-name"
           name="event_name"
@@ -60,7 +60,7 @@ export function PortalCompetitionEventCreateForm({
           maxLength={140}
           placeholder="Ex.: Jornada 1"
         />
-        <span>Usa um nome simples para a escola reconhecer a jornada, jogo, prova ou ronda.</span>
+        <span>Usa um nome fácil de reconhecer, como Jornada 1 ou Prova final.</span>
       </div>
 
       <div className="portal-competition-format-create-field">
@@ -69,11 +69,11 @@ export function PortalCompetitionEventCreateForm({
           <option value="match">Jogo/partida</option>
           <option value="event">Evento/prova</option>
         </select>
-        <span>O Portal guarda o tipo compatível com o formato competitivo definido.</span>
+        <span>Escolhe se vais registar um jogo ou uma prova.</span>
       </div>
 
       <div className="portal-competition-format-create-field">
-        <label htmlFor="portal-competition-event-order">Ordem/jornada, se aplicável</label>
+        <label htmlFor="portal-competition-event-order">Número da jornada</label>
         <input
           id="portal-competition-event-order"
           name="event_order"
@@ -83,17 +83,17 @@ export function PortalCompetitionEventCreateForm({
           inputMode="numeric"
           placeholder="Ex.: 1"
         />
-        <span>Opcional. Se ficares sem preencher, o Portal atribui a próxima ordem disponível.</span>
+        <span>Opcional. Se não preencheres, o Portal usa a próxima ordem disponível.</span>
       </div>
 
       <div className="portal-competition-format-create-field">
-        <label htmlFor="portal-competition-event-scheduled-at">Data/hora, se aplicável</label>
+        <label htmlFor="portal-competition-event-scheduled-at">Data e hora</label>
         <input id="portal-competition-event-scheduled-at" name="scheduled_at" type="datetime-local" />
-        <span>Opcional. Pode ser preenchido mais tarde antes da validação/publicação.</span>
+        <span>Opcional. Podes preencher ou ajustar mais tarde.</span>
       </div>
 
       <div className="portal-competition-format-create-field">
-        <label htmlFor="portal-competition-event-venue">Local, se aplicável</label>
+        <label htmlFor="portal-competition-event-venue">Local</label>
         <input
           id="portal-competition-event-venue"
           name="venue"
@@ -101,7 +101,7 @@ export function PortalCompetitionEventCreateForm({
           maxLength={140}
           placeholder="Ex.: Campo da escola"
         />
-        <span>Opcional. Mantém uma descrição simples e reconhecível.</span>
+        <span>Opcional. Usa uma descrição simples, como Campo da escola.</span>
       </div>
 
       <div className="portal-competition-format-create-field">
@@ -134,10 +134,10 @@ export function PortalCompetitionEventCreateForm({
           maxLength={300}
           placeholder="Ex.: observações internas sobre a jornada, prova ou jogo"
         />
-        <span>As notas não publicam nada e servem apenas para preparar a validação futura.</span>
+        <span>Notas internas para preparar a validação futura; não são publicadas.</span>
       </div>
 
-      <button type="submit">Criar evento em rascunho</button>
+      <button type="submit">Criar evento</button>
     </form>
   );
 }

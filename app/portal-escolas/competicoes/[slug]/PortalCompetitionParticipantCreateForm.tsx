@@ -19,8 +19,8 @@ export function PortalCompetitionParticipantCreateForm({
       <input type="hidden" name="competition_slug" value={competitionSlug} />
 
       <div className="portal-competition-format-create-state" aria-label="Estado do participante após criação">
-        <span className="portal-competition-detail-tag">Estado inicial: rascunho</span>
-        <span className="portal-competition-detail-tag">Publicação: gatekeeper</span>
+        <span className="portal-competition-detail-tag">Rascunho</span>
+        <span className="portal-competition-detail-tag">Pendente de validação</span>
       </div>
 
       <div className="portal-competition-format-create-field">
@@ -39,7 +39,7 @@ export function PortalCompetitionParticipantCreateForm({
           maxLength={120}
           placeholder="Ex.: Turma 7.º A"
         />
-        <span>Usa um nome claro para a escola ou entidade reconhecer o participante.</span>
+        <span>Usa um nome que a escola reconheça facilmente.</span>
       </div>
 
       <div className="portal-competition-format-create-field">
@@ -50,11 +50,11 @@ export function PortalCompetitionParticipantCreateForm({
           <option value="individual">Aluno/participante individual</option>
           <option value="participant">Participante genérico</option>
         </select>
-        <span>Este campo é guardado de forma simples para apoiar eventos e resultados futuros.</span>
+        <span>Ajuda a organizar eventos e resultados mais tarde.</span>
       </div>
 
       <div className="portal-competition-format-create-field">
-        <label htmlFor="portal-competition-participant-group">Grupo/série, se aplicável</label>
+        <label htmlFor="portal-competition-participant-group">Grupo ou série</label>
         <input
           id="portal-competition-participant-group"
           name="group_label"
@@ -62,11 +62,11 @@ export function PortalCompetitionParticipantCreateForm({
           maxLength={80}
           placeholder="Ex.: Grupo A"
         />
-        <span>Opcional. Útil para competições com grupos, séries ou escalões.</span>
+        <span>Opcional. Útil quando a competição tem grupos, séries ou escalões.</span>
       </div>
 
       <div className="portal-competition-format-create-field">
-        <label htmlFor="portal-competition-participant-seed">Ordem, se aplicável</label>
+        <label htmlFor="portal-competition-participant-seed">Posição na lista</label>
         <input
           id="portal-competition-participant-seed"
           name="seed_order"
@@ -76,7 +76,7 @@ export function PortalCompetitionParticipantCreateForm({
           inputMode="numeric"
           placeholder="Ex.: 1"
         />
-        <span>Opcional. Pode ser usada mais tarde para ordenação ou sorteio.</span>
+        <span>Opcional. Usa um número se quiseres definir a ordem inicial.</span>
       </div>
 
       <div className="portal-competition-format-create-field">
@@ -87,10 +87,10 @@ export function PortalCompetitionParticipantCreateForm({
           maxLength={300}
           placeholder="Ex.: equipa mista, observações internas ou contexto escolar"
         />
-        <span>As notas ajudam a preparar eventos futuros, mas não publicam nada.</span>
+        <span>Notas internas para preparar eventos futuros; não são publicadas.</span>
       </div>
 
-      <button type="submit">Adicionar participante em rascunho</button>
+      <button type="submit">Adicionar participante</button>
     </form>
   );
 }
