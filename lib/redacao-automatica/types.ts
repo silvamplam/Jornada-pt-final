@@ -38,7 +38,13 @@ export type LoadedPage = Readonly<{
   loadedAt: string;
 }>;
 
+export type DiscoveredArticleLink = Readonly<{
+  originalUrl: string;
+  sourceMetadata: JsonObject;
+}>;
+
 export type ArticleLinkCandidate = Readonly<{
+  sourceCode: string;
   originalUrl: string;
   normalizedUrl: string;
   sourcePageUrl: string;
@@ -72,9 +78,11 @@ export type NormalizedDetectedArticle = Readonly<{
 }>;
 
 export type CollectionErrorCode =
+  | "source_not_found"
   | "source_inactive"
   | "legal_hold"
   | "adapter_missing"
+  | "adapter_source_mismatch"
   | "invalid_adapter_key"
   | "duplicate_adapter_key"
   | "invalid_url"
@@ -98,6 +106,20 @@ export type CollectionError = Readonly<{
   url: string | null;
   recoverable: boolean;
   detail?: string | null;
+}>;
+
+export type SourceCollectionSummary = Readonly<{
+  sourceCode: string;
+  startedAt: string;
+  finishedAt: string;
+  listingUrls: readonly string[];
+  loadedListingCount: number;
+  discoveredCount: number;
+  acceptedCount: number;
+  duplicateCount: number;
+  rejectedCount: number;
+  candidates: readonly ArticleLinkCandidate[];
+  errors: readonly CollectionError[];
 }>;
 
 export type OperationResult<T, E> =

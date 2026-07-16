@@ -1,6 +1,6 @@
 import type {
   AdapterResult,
-  ArticleLinkCandidate,
+  DiscoveredArticleLink,
   LoadedPage,
   NormalizedDetectedArticle,
   SourceConfiguration,
@@ -29,7 +29,7 @@ export interface SourceAdapter {
 
   getListingUrls(source: SourceConfiguration): AdapterResult<readonly string[]>;
 
-  discoverArticleLinks(input: AdapterListingInput): AdapterResult<readonly ArticleLinkCandidate[]>;
+  discoverArticleLinks(input: AdapterListingInput): AdapterResult<readonly DiscoveredArticleLink[]>;
 
   normalizeArticleUrl(input: AdapterUrlInput): AdapterResult<string>;
 
