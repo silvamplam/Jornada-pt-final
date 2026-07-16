@@ -74,6 +74,15 @@ export function listRegisteredSources(): SourceRegistryEntry[] {
   return [...sourceRegistry].sort((first, second) => first.displayOrder - second.displayOrder);
 }
 
+export function findRegisteredSource(code: string): SourceRegistryEntry | null {
+  const normalizedCode = code.trim();
+  if (!normalizedCode) {
+    return null;
+  }
+
+  return sourceRegistry.find((source) => source.code === normalizedCode) ?? null;
+}
+
 function sourceExecutionError(
   source: SourceConfiguration,
   code: SourceExecutionError["code"],
