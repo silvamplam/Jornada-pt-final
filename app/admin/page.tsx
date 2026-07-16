@@ -422,6 +422,7 @@ export default async function AdminPage() {
         </div>
         <div className="admin-hero-actions">
           <a href="/admin/gestor">Centro de gestao</a>
+          <a href="/admin/editorial/redacao-automatica">Redação automática</a>
           <a href="/admin/editorial/home">HOME EDITORIAL</a>
           <a href="/admin/editorial/artigos">ARTIGOS / NOTÍCIAS</a>
           <a href="/admin/editorial/conteudos">VÍDEO</a>
