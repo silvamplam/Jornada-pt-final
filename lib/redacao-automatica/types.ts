@@ -1,0 +1,107 @@
+export const SOURCE_OPERATIONAL_STATUSES = [
+  "active",
+  "paused",
+  "legal_hold",
+  "degraded",
+  "disabled",
+] as const;
+
+export type SourceOperationalStatus = (typeof SOURCE_OPERATIONAL_STATUSES)[number];
+
+export type SourceConfiguration = Readonly<{
+  code: string;
+  name: string;
+  domain: string;
+  homepage: string;
+  adapterKey: string | null;
+  operationalStatus: SourceOperationalStatus;
+  monitoringEnabled: boolean;
+  inactiveReason: string | null;
+  legalNote: string | null;
+  editorialNote: string;
+  displayOrder: number;
+}>;
+
+export type JsonPrimitive = string | number | boolean | null;
+
+export type JsonValue = JsonPrimitive | JsonObject | readonly JsonValue[];
+
+export type JsonObject = Readonly<{
+  [key: string]: JsonValue;
+}>;
+
+export type LoadedPage = Readonly<{
+  requestedUrl: string;
+  finalUrl: string;
+  contentType: string | null;
+  body: string;
+  loadedAt: string;
+}>;
+
+export type ArticleLinkCandidate = Readonly<{
+  originalUrl: string;
+  normalizedUrl: string;
+  sourcePageUrl: string;
+  detectedAt: string;
+  sourceMetadata: JsonObject;
+}>;
+
+export type ArticleProcessingStatus =
+  | "detected"
+  | "normalized"
+  | "duplicate"
+  | "rejected"
+  | "ready_for_review"
+  | "failed";
+
+export type NormalizedDetectedArticle = Readonly<{
+  sourceCode: string;
+  originalUrl: string;
+  normalizedUrl: string;
+  externalId: string | null;
+  title: string;
+  subtitle: string | null;
+  summary: string | null;
+  author: string | null;
+  publishedAt: string | null;
+  detectedAt: string;
+  imageUrl: string | null;
+  excerpt: string | null;
+  processingStatus: ArticleProcessingStatus;
+  sourceMetadata: JsonObject;
+}>;
+
+export type CollectionErrorCode =
+  | "source_inactive"
+  | "legal_hold"
+  | "adapter_missing"
+  | "invalid_adapter_key"
+  | "duplicate_adapter_key"
+  | "invalid_url"
+  | "load_failed"
+  | "unsupported_content"
+  | "parse_failed"
+  | "required_field_missing"
+  | "duplicate";
+
+export type CollectionErrorStage =
+  | "configuration"
+  | "listing"
+  | "article"
+  | "normalization"
+  | "persistence";
+
+export type CollectionError = Readonly<{
+  code: CollectionErrorCode;
+  stage: CollectionErrorStage;
+  sourceCode: string | null;
+  url: string | null;
+  recoverable: boolean;
+  detail?: string | null;
+}>;
+
+export type OperationResult<T, E> =
+  | Readonly<{ ok: true; value: T }>
+  | Readonly<{ ok: false; error: E }>;
+
+export type AdapterResult<T> = OperationResult<T, CollectionError>;
