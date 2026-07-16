@@ -1,33 +1,30 @@
-export const SOURCE_OPERATIONAL_STATUSES = [
-  "active",
-  "paused",
-  "legal_hold",
-  "degraded",
-  "disabled",
-] as const;
+import type {
+  CollectionError,
+  OperationResult,
+  SourceConfiguration,
+} from "@/lib/redacao-automatica/types";
 
-export type SourceOperationalStatus = (typeof SOURCE_OPERATIONAL_STATUSES)[number];
+export { SOURCE_OPERATIONAL_STATUSES } from "@/lib/redacao-automatica/types";
+export type { SourceOperationalStatus } from "@/lib/redacao-automatica/types";
 
-export type SourceRegistryEntry = Readonly<{
-  code: string;
-  name: string;
-  homepage: string;
-  adapterKey: string;
-  operationalStatus: SourceOperationalStatus;
-  monitoringEnabled: boolean;
-  legalNote: string | null;
-  editorialNote: string;
-  displayOrder: number;
-}>;
+export type SourceRegistryEntry = SourceConfiguration;
+
+export type SourceExecutionError = CollectionError &
+  Readonly<{
+    code: "legal_hold" | "source_inactive";
+    stage: "configuration";
+  }>;
 
 const sourceRegistry = [
   {
     code: "record",
     name: "Record",
+    domain: "record.pt",
     homepage: "https://www.record.pt/",
     adapterKey: "record",
     operationalStatus: "paused",
     monitoringEnabled: false,
+    inactiveReason: "Monitorização ainda não ativa.",
     legalNote: null,
     editorialNote: "Preparado para futura ativação.",
     displayOrder: 10,
@@ -35,10 +32,12 @@ const sourceRegistry = [
   {
     code: "abola",
     name: "A Bola",
+    domain: "abola.pt",
     homepage: "https://www.abola.pt/",
     adapterKey: "abola",
     operationalStatus: "paused",
     monitoringEnabled: false,
+    inactiveReason: "Monitorização ainda não ativa.",
     legalNote: null,
     editorialNote: "Preparado para futura ativação.",
     displayOrder: 20,
@@ -46,10 +45,12 @@ const sourceRegistry = [
   {
     code: "maisfutebol",
     name: "Maisfutebol",
+    domain: "maisfutebol.iol.pt",
     homepage: "https://maisfutebol.iol.pt/",
     adapterKey: "maisfutebol",
     operationalStatus: "paused",
     monitoringEnabled: false,
+    inactiveReason: "Monitorização ainda não ativa.",
     legalNote: null,
     editorialNote: "Preparado para futura ativação.",
     displayOrder: 30,
@@ -57,10 +58,12 @@ const sourceRegistry = [
   {
     code: "ojogo",
     name: "O Jogo",
+    domain: "ojogo.pt",
     homepage: "https://www.ojogo.pt/",
-    adapterKey: "ojogo",
+    adapterKey: null,
     operationalStatus: "legal_hold",
     monitoringEnabled: false,
+    inactiveReason: "Validação jurídica ou licenciamento pendente.",
     legalNote: "Monitorização inativa até validação jurídica ou licenciamento.",
     editorialNote: "Aguardará validação jurídica antes de qualquer ativação.",
     displayOrder: 40,
@@ -69,4 +72,33 @@ const sourceRegistry = [
 
 export function listRegisteredSources(): SourceRegistryEntry[] {
   return [...sourceRegistry].sort((first, second) => first.displayOrder - second.displayOrder);
+}
+
+function sourceExecutionError(
+  source: SourceConfiguration,
+  code: SourceExecutionError["code"],
+): SourceExecutionError {
+  return {
+    code,
+    stage: "configuration",
+    sourceCode: source.code,
+    url: null,
+    recoverable: code !== "legal_hold",
+    detail: source.legalNote ?? source.inactiveReason ?? source.editorialNote,
+  };
+}
+
+export function evaluateSourceExecution(
+  source: SourceConfiguration,
+): OperationResult<SourceConfiguration, SourceExecutionError> {
+  if (source.operationalStatus === "legal_hold") {
+    return { ok: false, error: sourceExecutionError(source, "legal_hold") };
+  }
+
+  const adapterKey = source.adapterKey?.trim();
+  if (!source.monitoringEnabled || source.operationalStatus !== "active" || !adapterKey) {
+    return { ok: false, error: sourceExecutionError(source, "source_inactive") };
+  }
+
+  return { ok: true, value: source };
 }
