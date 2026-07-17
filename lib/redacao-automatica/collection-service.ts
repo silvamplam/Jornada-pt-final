@@ -124,6 +124,7 @@ export async function collectSource(
     const loadedPageResult = await dependencies.pageLoader.load({
       sourceCode: source.code,
       url: listingUrl,
+      purpose: "listing",
     });
 
     if (!loadedPageResult.ok) {
