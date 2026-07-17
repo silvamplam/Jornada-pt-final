@@ -335,15 +335,4 @@ export const maisfutebolAdapter: SourceAdapter = {
 
     return normalizedUrl;
   },
-
-  extractArticle({ page }) {
-    return adapterError({
-      code: "unsupported_content",
-      stage: "article",
-      sourceCode: MAISFUTEBOL_SOURCE_CODE,
-      url: page.finalUrl,
-      recoverable: false,
-      detail: "A extração de artigos não é suportada nesta versão do adaptador.",
-    });
-  },
 };

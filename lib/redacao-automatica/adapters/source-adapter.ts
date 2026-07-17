@@ -33,5 +33,5 @@ export interface SourceAdapter {
 
   normalizeArticleUrl(input: AdapterUrlInput): AdapterResult<string>;
 
-  extractArticle(input: AdapterArticleInput): AdapterResult<NormalizedDetectedArticle>;
+  extractArticle?(input: AdapterArticleInput): AdapterResult<NormalizedDetectedArticle>;
 }
