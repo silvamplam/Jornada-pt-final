@@ -63,6 +63,16 @@ export type ArticleProcessingStatus =
   | "ready_for_review"
   | "failed";
 
+export type ArticleBodyBlock =
+  | Readonly<{
+      type: "paragraph";
+      text: string;
+    }>
+  | Readonly<{
+      type: "heading";
+      text: string;
+    }>;
+
 export type NormalizedDetectedArticle = Readonly<{
   sourceCode: string;
   originalUrl: string;
@@ -73,9 +83,11 @@ export type NormalizedDetectedArticle = Readonly<{
   summary: string | null;
   author: string | null;
   publishedAt: string | null;
+  modifiedAt: string | null;
   detectedAt: string;
   imageUrl: string | null;
   excerpt: string | null;
+  body: readonly ArticleBodyBlock[];
   processingStatus: ArticleProcessingStatus;
   sourceMetadata: JsonObject;
 }>;
