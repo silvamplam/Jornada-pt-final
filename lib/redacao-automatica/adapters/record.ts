@@ -1,5 +1,6 @@
 import { load } from "cheerio";
 
+import { parseRecordArticle } from "@/lib/redacao-automatica/adapters/record-article-parser";
 import type { SourceAdapter } from "@/lib/redacao-automatica/adapters/source-adapter";
 import { normalizeUrl } from "@/lib/redacao-automatica/normalization";
 import type {
@@ -11,7 +12,8 @@ import type {
 
 const RECORD_SOURCE_CODE = "record";
 const RECORD_HOSTNAME = "www.record.pt";
-const RECORD_ARTICLE_PATHNAME = /^\/(futebol|internacional|modalidades)\/.+\/detalhe\/[^/]+\/?$/;
+const RECORD_ARTICLE_PATHNAME =
+  /^\/(?:(?:futebol|internacional|modalidades)\/.+\/detalhe|modalidades\/detalhe)\/[^/]+\/?$/;
 const RECORD_HOMEPAGE_REFERENCE = /^HP_/i;
 const IGNORED_HREF_SCHEMES = /^(?:javascript|mailto|tel|data):/i;
 
@@ -237,14 +239,7 @@ export const recordAdapter: SourceAdapter = {
     });
   },
 
-  extractArticle({ page }) {
-    return adapterError({
-      code: "unsupported_content",
-      stage: "article",
-      sourceCode: RECORD_SOURCE_CODE,
-      url: page.finalUrl,
-      recoverable: false,
-      detail: "A extração de artigos não é suportada nesta versão do adaptador.",
-    });
+  extractArticle(input) {
+    return parseRecordArticle(input);
   },
 };
