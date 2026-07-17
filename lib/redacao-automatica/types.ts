@@ -33,9 +33,12 @@ export type JsonObject = Readonly<{
 export type LoadedPage = Readonly<{
   requestedUrl: string;
   finalUrl: string;
+  statusCode: number;
   contentType: string | null;
   body: string;
   loadedAt: string;
+  redirectCount: number;
+  byteLength: number;
 }>;
 
 export type DiscoveredArticleLink = Readonly<{
@@ -86,6 +89,13 @@ export type CollectionErrorCode =
   | "invalid_adapter_key"
   | "duplicate_adapter_key"
   | "invalid_url"
+  | "domain_not_allowed"
+  | "private_network_blocked"
+  | "dns_resolution_failed"
+  | "redirect_blocked"
+  | "timeout"
+  | "http_error"
+  | "response_too_large"
   | "load_failed"
   | "unsupported_content"
   | "parse_failed"
