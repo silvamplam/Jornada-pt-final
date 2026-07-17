@@ -1,5 +1,6 @@
 import { load } from "cheerio";
 
+import { parseAbolaArticle } from "@/lib/redacao-automatica/adapters/abola-article-parser";
 import type { SourceAdapter } from "@/lib/redacao-automatica/adapters/source-adapter";
 import { normalizeUrl } from "@/lib/redacao-automatica/normalization";
 import type {
@@ -254,14 +255,7 @@ export const abolaAdapter: SourceAdapter = {
     return normalizedUrl;
   },
 
-  extractArticle({ page }) {
-    return adapterError({
-      code: "unsupported_content",
-      stage: "article",
-      sourceCode: ABOLA_SOURCE_CODE,
-      url: page.finalUrl,
-      recoverable: false,
-      detail: "A extração de artigos não é suportada nesta versão do adaptador.",
-    });
+  extractArticle(input) {
+    return parseAbolaArticle(input);
   },
 };
