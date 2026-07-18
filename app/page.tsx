@@ -111,9 +111,10 @@ type SiteFeaturedMatch = {
 
 type HomeMatchRow = {
   id: string;
+  matchday_id: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
-  scheduled_date: string;
+  scheduled_date: string | null;
   kickoff_at: string | null;
   status: string | null;
   minute: number | string | null;
@@ -123,6 +124,11 @@ type HomeMatchRow = {
   home_score: number | null;
   away_score: number | null;
   broadcast_channel_id: string | null;
+};
+
+type HomeMatchdayRow = {
+  id: string;
+  number: number | null;
 };
 
 type HomeTeamRow = {
@@ -300,15 +306,20 @@ async function readHomeFeaturedMatches(): Promise<PublicMatchStripMatch[]> {
 
   const matchesById = await readRowsById<HomeMatchRow>(
     "matches",
-    "id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,minute,live_started_at,live_base_minute,is_clock_running,home_score,away_score,broadcast_channel_id",
+    "id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,minute,live_started_at,live_base_minute,is_clock_running,home_score,away_score,broadcast_channel_id",
     matchIds
   );
   const matches = Array.from(matchesById.values());
-  const [teamsById, broadcastChannelsByMatchId] = await Promise.all([
+  const [teamsById, matchdaysById, broadcastChannelsByMatchId] = await Promise.all([
     readRowsById<HomeTeamRow>(
       "teams",
       "id,name,short_name,logo_url",
       uniqueValues(matches.flatMap((match) => [match.home_team_id, match.away_team_id]))
+    ),
+    readRowsById<HomeMatchdayRow>(
+      "matchdays",
+      "id,number",
+      uniqueValues(matches.map((match) => match.matchday_id))
     ),
     readBroadcastChannelsByMatchId(matchIds, matches)
   ]);
@@ -324,6 +335,7 @@ async function readHomeFeaturedMatches(): Promise<PublicMatchStripMatch[]> {
       id: match.id,
       scheduled_date: match.scheduled_date,
       kickoff_at: match.kickoff_at,
+      matchdayNumber: match.matchday_id ? matchdaysById.get(match.matchday_id)?.number ?? null : null,
       status: match.status ?? "scheduled",
       minute: match.minute,
       live_started_at: match.live_started_at,
@@ -338,23 +350,34 @@ async function readHomeFeaturedMatches(): Promise<PublicMatchStripMatch[]> {
   }
 
   return selectedMatches.sort((first, second) => {
-    const firstOrder = sortOrderByMatchId.get(first.id) ?? null;
-    const secondOrder = sortOrderByMatchId.get(second.id) ?? null;
-    if (firstOrder !== null && secondOrder !== null && firstOrder !== secondOrder) return firstOrder - secondOrder;
-    if (firstOrder !== null && secondOrder === null) return -1;
-    if (firstOrder === null && secondOrder !== null) return 1;
-    const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
-    if (dateDifference !== 0) return dateDifference;
-    if (first.kickoff_at && second.kickoff_at) {
+    if (first.matchdayNumber !== second.matchdayNumber) {
+      if (first.matchdayNumber === null) return 1;
+      if (second.matchdayNumber === null) return -1;
+      return first.matchdayNumber - second.matchdayNumber;
+    }
+
+    if (first.scheduled_date !== second.scheduled_date) {
+      if (first.scheduled_date === null) return 1;
+      if (second.scheduled_date === null) return -1;
+      return first.scheduled_date.localeCompare(second.scheduled_date);
+    }
+
+    if (first.kickoff_at !== second.kickoff_at) {
+      if (first.kickoff_at === null || first.kickoff_at === undefined) return 1;
+      if (second.kickoff_at === null || second.kickoff_at === undefined) return -1;
       const firstTime = new Date(first.kickoff_at).getTime();
       const secondTime = new Date(second.kickoff_at).getTime();
       const firstValid = !Number.isNaN(firstTime);
       const secondValid = !Number.isNaN(secondTime);
       if (firstValid && secondValid && firstTime !== secondTime) return firstTime - secondTime;
       if (firstValid !== secondValid) return firstValid ? -1 : 1;
-    } else if (first.kickoff_at !== second.kickoff_at) {
-      return first.kickoff_at ? -1 : 1;
     }
+
+    const firstOrder = sortOrderByMatchId.get(first.id) ?? null;
+    const secondOrder = sortOrderByMatchId.get(second.id) ?? null;
+    if (firstOrder !== null && secondOrder !== null && firstOrder !== secondOrder) return firstOrder - secondOrder;
+    if (firstOrder !== null && secondOrder === null) return -1;
+    if (firstOrder === null && secondOrder !== null) return 1;
     return first.id.localeCompare(second.id);
   });
 }

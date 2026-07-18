@@ -19,7 +19,7 @@ type MatchForStanding = {
   home_team_id: string;
   away_team_id: string;
   status: string;
-  scheduled_date: string;
+  scheduled_date: string | null;
   kickoff_at: string | null;
   home_score: number | null;
   away_score: number | null;
@@ -280,7 +280,7 @@ export async function seedStandingRowsFromSeason({
     fetchSupabaseAdminTable<MatchForStanding>(
       `matches?select=matchday_id,home_team_id,away_team_id,status,scheduled_date,kickoff_at,home_score,away_score&competition_id=eq.${encodeURIComponent(
         competitionId
-      )}&season_id=eq.${encodeURIComponent(seasonId)}&order=scheduled_date.asc,kickoff_at.asc.nullslast,home_team_id.asc,away_team_id.asc&limit=500`
+      )}&season_id=eq.${encodeURIComponent(seasonId)}&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,home_team_id.asc,away_team_id.asc&limit=500`
     ),
     fetchSupabaseAdminTable<MatchdayForStanding>(
       `matchdays?select=id,number&season_id=eq.${encodeURIComponent(seasonId)}&order=number.asc&limit=100`

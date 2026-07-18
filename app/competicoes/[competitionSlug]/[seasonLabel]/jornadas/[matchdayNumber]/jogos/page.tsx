@@ -803,8 +803,11 @@ const civilMonthNames = [
   "dezembro"
 ];
 
-function parseCivilDate(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+const compactMonthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
+function parseCivilDate(value: string | null | undefined) {
+  const cleanValue = value ?? "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(cleanValue);
   if (!match) return null;
 
   const year = Number(match[1]);
@@ -819,7 +822,7 @@ function parseCivilDate(value: string) {
     return null;
   }
 
-  return { day, month, year, key: value };
+  return { day, month, year, key: cleanValue };
 }
 
 function formatCivilDate(value: string) {
@@ -875,6 +878,90 @@ function formatMatchdayDateContext(matches: PublicSeasonMatch[]) {
   }
 
   return `${firstLabel} – ${lastLabel}`;
+}
+
+function validKickoffTime(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("pt-PT", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Lisbon"
+  }).format(date);
+}
+
+function kickoffCivilDate(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Lisbon"
+  }).formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+  return year && month && day
+    ? { day, month, year, key: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` }
+    : null;
+}
+
+function matchSchedulePresentation(match: Pick<PublicSeasonMatch, "scheduled_date" | "kickoff_at">) {
+  const scheduledDate = parseCivilDate(match.scheduled_date);
+  const kickoffTime = validKickoffTime(match.kickoff_at);
+  if (kickoffTime) {
+    const civilDate = scheduledDate ?? kickoffCivilDate(match.kickoff_at);
+    if (civilDate) {
+      return {
+        visual: `${String(civilDate.day).padStart(2, "0")} ${compactMonthNames[civilDate.month - 1]} · ${kickoffTime}`,
+        accessible: `${civilDate.day} de ${civilMonthNames[civilDate.month - 1]} de ${civilDate.year}, às ${kickoffTime.replace(":", "h")}`,
+        dateTime: match.kickoff_at
+      };
+    }
+  }
+  if (scheduledDate) {
+    return {
+      visual: `${String(scheduledDate.day).padStart(2, "0")} ${compactMonthNames[scheduledDate.month - 1]} · HORA POR DEFINIR`,
+      accessible: `${scheduledDate.day} de ${civilMonthNames[scheduledDate.month - 1]} de ${scheduledDate.year}, hora por definir`,
+      dateTime: match.scheduled_date
+    };
+  }
+  return { visual: "DATA E HORA POR DEFINIR", accessible: "Data e hora por definir", dateTime: null };
+}
+
+function MatchScheduleLabel({ match }: { match: PublicSeasonMatch }) {
+  const schedule = matchSchedulePresentation(match);
+  return schedule.dateTime ? (
+    <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
+  ) : (
+    <span aria-label={schedule.accessible}>{schedule.visual}</span>
+  );
+}
+
+function formatCivilDateRange(firstDate: NonNullable<ReturnType<typeof parseCivilDate>>, lastDate: NonNullable<ReturnType<typeof parseCivilDate>>) {
+  if (firstDate.key === lastDate.key) return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year}`;
+  if (firstDate.year === lastDate.year && firstDate.month === lastDate.month) {
+    return `${firstDate.day}–${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
+  }
+  if (firstDate.year === lastDate.year) {
+    return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
+  }
+  return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
+}
+
+function formatPreferredMatchdayDateContext(matches: PublicSeasonMatch[], startsOn: string | null, endsOn: string | null) {
+  const startsDate = parseCivilDate(startsOn);
+  const endsDate = parseCivilDate(endsOn);
+  if (startsDate && endsDate) return formatCivilDateRange(startsDate, endsDate);
+  const scheduledDates = matches
+    .map((match) => parseCivilDate(match.scheduled_date))
+    .filter((date): date is NonNullable<typeof date> => date !== null)
+    .sort((firstDate, secondDate) => firstDate.key.localeCompare(secondDate.key));
+  if (scheduledDates.length === 0) return "Data por definir";
+  return formatCivilDateRange(scheduledDates[0], scheduledDates[scheduledDates.length - 1]);
 }
 
 function statusKind(status: string) {
@@ -976,7 +1063,6 @@ function LivePulseDots() {
 function MatchCard({ match }: { match: PublicSeasonMatch }) {
   const kind = statusKind(match.status);
   const compactBroadcastChannelName = compactTvLabel(match.broadcastChannel?.name?.trim());
-  const scheduledMeta = compactBroadcastChannelName ? `${formatKickoffTime(match.kickoff_at)} \u00b7 ${compactBroadcastChannelName}` : formatKickoffTime(match.kickoff_at);
   const livePrimeClassName = "public-live-minute-prime public-live-minute-prime-active";
   const statusText = kind === "live" ? (
     <>
@@ -1014,7 +1100,10 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         <TeamBadge logoUrl={match.awayTeam?.logo_url} name={match.awayTeam?.name} shortName={match.awayTeam?.short_name} />
       </div>
       <div className="public-games-meta">
-        <span>{kind === "scheduled" ? scheduledMeta : formatKickoff(match.scheduled_date, match.kickoff_at)}</span>
+        <span>
+          <MatchScheduleLabel match={match} />
+          {kind === "scheduled" && compactBroadcastChannelName ? ` · ${compactBroadcastChannelName}` : null}
+        </span>
         {kind === "scheduled" || kind === "live" ? null : <BroadcastBadge match={match} />}
       </div>
     </article>
@@ -1025,7 +1114,6 @@ function ReferenceGamesCard({ match }: { match: PublicSeasonMatch }) {
   const kind = statusKind(match.status);
   const showScore = (kind === "finished" || kind === "live" || kind === "halftime") && match.home_score !== null && match.away_score !== null;
   const compactBroadcastChannelName = compactTvLabel(match.broadcastChannel?.name?.trim());
-  const scheduledMeta = compactBroadcastChannelName ? `${formatKickoffTime(match.kickoff_at)} \u00b7 ${compactBroadcastChannelName}` : formatKickoffTime(match.kickoff_at);
   const livePrimeClassName = "public-live-minute-prime public-live-minute-prime-active";
   const statusText = kind === "live" ? (
     <>
@@ -1051,7 +1139,12 @@ function ReferenceGamesCard({ match }: { match: PublicSeasonMatch }) {
       </span>
       <div className="public-games-meta">
         <span className={kind === "live" ? "public-games-status-live" : undefined}>
-          {kind === "scheduled" ? scheduledMeta : statusText}
+          {kind === "scheduled" ? (
+            <>
+              <MatchScheduleLabel match={match} />
+              {compactBroadcastChannelName ? ` · ${compactBroadcastChannelName}` : null}
+            </>
+          ) : statusText}
           {kind === "live" ? <LivePulseDots /> : null}
         </span>
         {kind === "scheduled" || kind === "live" ? null : <BroadcastBadge match={match} />}
@@ -1143,7 +1236,11 @@ export default async function PublicMatchdayGamesPage({ params }: PublicMatchday
   const visibleMatchdays = activeMatchdayLeg === "second" ? secondLegMatchdays : firstLegMatchdays;
   const firstLegHref = firstLegMatchdays[0] ? gamesPageHref(firstLegMatchdays[0].number) : currentSeasonHref;
   const secondLegHref = secondLegMatchdays[0] ? gamesPageHref(secondLegMatchdays[0].number) : currentSeasonHref;
-  const selectedMatchdayDateContext = formatMatchdayDateContext(context.matchesForMatchday);
+  const selectedMatchdayDateContext = formatPreferredMatchdayDateContext(
+    context.matchesForMatchday,
+    context.matchday.starts_on,
+    context.matchday.ends_on
+  );
   const sidebarNewsItems = context.latestNews.slice(0, 4).map((item) => ({
     id: item.id,
     dateLabel: item.time_label?.trim() || "",
