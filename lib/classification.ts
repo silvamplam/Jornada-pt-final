@@ -32,7 +32,8 @@ export type ClassificationMatch = {
   matchday_id: string | null;
   home_team_id: string;
   away_team_id: string;
-  kickoff_at: string;
+  scheduled_date?: string | null;
+  kickoff_at: string | null;
   status: string;
   home_score: number | string | null;
   away_score: number | string | null;
@@ -55,6 +56,57 @@ export type ClassificationRow = {
   home: ClassificationSplit;
   away: ClassificationSplit;
 };
+
+const LISBON_CIVIL_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Lisbon",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+});
+
+function resolveClassificationScheduledDate(match: ClassificationMatch) {
+  const scheduledDate = match.scheduled_date?.trim() ?? "";
+  if (scheduledDate) return scheduledDate;
+  if (!match.kickoff_at) return "";
+
+  const kickoff = new Date(match.kickoff_at);
+  if (Number.isNaN(kickoff.getTime())) return "";
+
+  const parts = LISBON_CIVIL_DATE_FORMATTER.formatToParts(kickoff);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
+function compareMatchSchedule(first: ClassificationMatch, second: ClassificationMatch) {
+  const firstDate = resolveClassificationScheduledDate(first);
+  const secondDate = resolveClassificationScheduledDate(second);
+
+  if (firstDate !== secondDate) {
+    if (!firstDate) return 1;
+    if (!secondDate) return -1;
+    return firstDate.localeCompare(secondDate);
+  }
+
+  if (first.kickoff_at && second.kickoff_at) {
+    const firstTime = new Date(first.kickoff_at).getTime();
+    const secondTime = new Date(second.kickoff_at).getTime();
+    const firstValid = !Number.isNaN(firstTime);
+    const secondValid = !Number.isNaN(secondTime);
+
+    if (firstValid && secondValid && firstTime !== secondTime) return firstTime - secondTime;
+    if (firstValid !== secondValid) return firstValid ? -1 : 1;
+  } else if (first.kickoff_at !== second.kickoff_at) {
+    return first.kickoff_at ? -1 : 1;
+  }
+
+  return (
+    first.home_team_id.localeCompare(second.home_team_id) ||
+    first.away_team_id.localeCompare(second.away_team_id)
+  );
+}
 
 export const STAT_COLUMNS: Array<{ key: keyof ClassificationSplit; label: string }> = [
   { key: "played", label: "J" },
@@ -195,7 +247,7 @@ export function buildAccumulatedClassification({
     .sort(
       (a, b) =>
         a.matchday!.number - b.matchday!.number ||
-        new Date(a.match.kickoff_at).getTime() - new Date(b.match.kickoff_at).getTime()
+        compareMatchSchedule(a.match, b.match)
     );
 
   finishedMatches.forEach(({ match }) => {

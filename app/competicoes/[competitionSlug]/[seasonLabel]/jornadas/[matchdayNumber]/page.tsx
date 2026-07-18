@@ -2623,69 +2623,110 @@ function goalDifferenceClass(value: number) {
   return value > 0 ? "public-gd-positive" : value < 0 ? "public-gd-negative" : "public-gd-neutral";
 }
 
-function formatKickoff(value: string) {
-  return new Intl.DateTimeFormat("pt-PT", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Lisbon"
-  }).format(new Date(value));
+const civilMonthNames = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro"
+];
+
+function parseCivilDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const validationDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    validationDate.getUTCFullYear() !== year ||
+    validationDate.getUTCMonth() !== month - 1 ||
+    validationDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return { day, month, year, key: value };
 }
 
-function formatKickoffTime(value: string) {
+function formatCivilDate(value: string) {
+  const date = parseCivilDate(value);
+  return date ? `${String(date.day).padStart(2, "0")}/${String(date.month).padStart(2, "0")}/${date.year}` : null;
+}
+
+function formatKickoff(scheduledDate: string, value: string | null) {
+  if (value) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat("pt-PT", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Europe/Lisbon"
+      }).format(date);
+    }
+  }
+
+  const dateLabel = formatCivilDate(scheduledDate);
+  return dateLabel ? `${dateLabel} · Hora por definir` : "Hora por definir";
+}
+
+function formatKickoffTime(value: string | null) {
+  if (!value) return "Hora por definir";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Hora por definir";
+
   return new Intl.DateTimeFormat("pt-PT", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Europe/Lisbon"
-  }).format(new Date(value));
+  }).format(date);
 }
 
-function formatMiniCardKickoff(value: string) {
+function formatMiniCardKickoff(scheduledDate: string, value: string | null) {
+  if (!value) {
+    const date = parseCivilDate(scheduledDate);
+    return date
+      ? `${String(date.day).padStart(2, "0")}/${String(date.month).padStart(2, "0")} · Hora por definir`
+      : "Hora por definir";
+  }
+
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return formatKickoff(scheduledDate, null);
+
   const dayMonth = new Intl.DateTimeFormat("pt-PT", {
     day: "2-digit",
     month: "2-digit",
     timeZone: "Europe/Lisbon"
   }).format(date);
-  const time = formatKickoffTime(value);
 
-  return `${dayMonth} · ${time}`;
+  return `${dayMonth} · ${formatKickoffTime(value)}`;
 }
 
 function formatMatchdayDateContext(matches: PublicSeasonMatch[]) {
-  const kickoffDates = matches
-    .map((match) => new Date(match.kickoff_at))
-    .filter((date) => !Number.isNaN(date.getTime()))
-    .sort((firstDate, secondDate) => firstDate.getTime() - secondDate.getTime());
+  const scheduledDates = matches
+    .map((match) => parseCivilDate(match.scheduled_date))
+    .filter((date): date is NonNullable<typeof date> => date !== null)
+    .sort((firstDate, secondDate) => firstDate.key.localeCompare(secondDate.key));
 
-  if (kickoffDates.length === 0) return "Data por definir";
+  if (scheduledDates.length === 0) return "Data por definir";
 
-  const firstDate = kickoffDates[0];
-  const lastDate = kickoffDates[kickoffDates.length - 1];
-  const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
-    day: "numeric",
-    month: "long",
-    timeZone: "Europe/Lisbon"
-  });
-  const dayFormatter = new Intl.DateTimeFormat("pt-PT", {
-    day: "numeric",
-    timeZone: "Europe/Lisbon"
-  });
-  const monthFormatter = new Intl.DateTimeFormat("pt-PT", {
-    month: "long",
-    timeZone: "Europe/Lisbon"
-  });
-  const monthKeyFormatter = new Intl.DateTimeFormat("en-CA", {
-    month: "2-digit",
-    timeZone: "Europe/Lisbon"
-  });
+  const firstDate = scheduledDates[0];
+  const lastDate = scheduledDates[scheduledDates.length - 1];
+  const firstLabel = `${firstDate.day} ${civilMonthNames[firstDate.month - 1]}`;
+  const lastLabel = `${lastDate.day} ${civilMonthNames[lastDate.month - 1]}`;
+  if (firstDate.key === lastDate.key) return firstLabel;
 
-  const firstLabel = dateFormatter.format(firstDate);
-  const lastLabel = dateFormatter.format(lastDate);
-  if (firstLabel === lastLabel) return firstLabel;
-
-  const sameMonth = monthKeyFormatter.format(firstDate) === monthKeyFormatter.format(lastDate);
-  if (sameMonth) {
-    return `${dayFormatter.format(firstDate)}–${dayFormatter.format(lastDate)} ${monthFormatter.format(lastDate)}`;
+  if (firstDate.year === lastDate.year && firstDate.month === lastDate.month) {
+    return `${firstDate.day}–${lastDate.day} ${civilMonthNames[lastDate.month - 1]}`;
   }
 
   return `${firstLabel} – ${lastLabel}`;
@@ -2970,7 +3011,9 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
           </span>
         ) : kind === "scheduled" ? (
           <>
-            <time className="public-matchday-mini-time" dateTime={match.kickoff_at}>{formatMiniCardKickoff(match.kickoff_at)}</time>
+            <time className="public-matchday-mini-time" dateTime={match.kickoff_at ?? match.scheduled_date}>
+              {formatMiniCardKickoff(match.scheduled_date, match.kickoff_at)}
+            </time>
             {broadcastChannelName ? (
               <>
                 <span className="public-matchday-mini-separator" aria-hidden="true">·</span>
@@ -3027,7 +3070,7 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         </div>
       </div>
       <div className="public-matchday-meta">
-        <span>{formatKickoff(match.kickoff_at)}</span>
+        <span>{formatKickoff(match.scheduled_date, match.kickoff_at)}</span>
         {match.venue ? <span>{match.venue}</span> : null}
         {kind === "live" ? null : <BroadcastBadge match={match} />}
       </div>

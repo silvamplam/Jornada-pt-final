@@ -13,6 +13,7 @@ export type PublicMatchStripBroadcastChannel = {
 
 export type PublicMatchStripMatch = {
   id: string;
+  scheduled_date: string;
   kickoff_at?: string | null;
   status?: string | null;
   minute?: number | string | null;
@@ -39,11 +40,24 @@ function formatKickoffTime(value?: string | null) {
   }).format(date);
 }
 
-function formatMiniCardKickoff(value?: string | null) {
-  if (!value) return "Hora por definir";
+function formatCivilDayMonth(value?: string | null) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
+  if (!match) return null;
+
+  return `${match[3]}/${match[2]}`;
+}
+
+function formatMiniCardKickoff(scheduledDate: string, value?: string | null) {
+  if (!value) {
+    const dayMonth = formatCivilDayMonth(scheduledDate);
+    return dayMonth ? `${dayMonth} \u00b7 Hora por definir` : "Hora por definir";
+  }
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Hora por definir";
+  if (Number.isNaN(date.getTime())) {
+    const dayMonth = formatCivilDayMonth(scheduledDate);
+    return dayMonth ? `${dayMonth} \u00b7 Hora por definir` : "Hora por definir";
+  }
 
   const dayMonth = new Intl.DateTimeFormat("pt-PT", {
     day: "2-digit",
@@ -214,7 +228,9 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
           </span>
         ) : (
           <>
-            <time className="public-matchday-mini-time" dateTime={match.kickoff_at ?? undefined}>{formatMiniCardKickoff(match.kickoff_at)}</time>
+            <time className="public-matchday-mini-time" dateTime={match.kickoff_at ?? match.scheduled_date}>
+              {formatMiniCardKickoff(match.scheduled_date, match.kickoff_at)}
+            </time>
             {broadcastChannelName ? (
               <>
                 <span className="public-matchday-mini-separator" aria-hidden="true">{"\u00b7"}</span>

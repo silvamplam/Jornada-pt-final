@@ -410,7 +410,17 @@ function errorMessage(error?: string) {
   return null;
 }
 
-function formatDateTimeInput(value: string): string {
+function formatCivilDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+}
+
+function formatDateTimeInput(value: string | null): string {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
   const parts = new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Europe/Lisbon",
     year: "numeric",
@@ -419,7 +429,7 @@ function formatDateTimeInput(value: string): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
-  }).format(new Date(value));
+  }).format(date);
 
   return parts.replace(" ", "T");
 }
@@ -606,6 +616,9 @@ function renderMatchFields(
         !canWrite
       )}
       {textField(`kickoff-${match.id}`, "Data e hora", "kickoff_at", formatDateTimeInput(match.kickoff_at), !canWrite, "datetime-local", true)}
+      {!match.kickoff_at ? (
+        <small className="match-helper">Data: {formatCivilDate(match.scheduled_date)} · Hora por definir</small>
+      ) : null}
       {selectField(
         `status-${match.id}`,
         "Estado",
