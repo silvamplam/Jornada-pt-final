@@ -67,6 +67,14 @@ const teamAdminStyles = `
     text-transform: uppercase;
   }
 
+  .team-admin-hero-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
   .team-admin-message {
     margin-top: 18px;
     padding: 16px 18px;
@@ -387,7 +395,10 @@ export default async function AdminTeamsPage({ searchParams }: TeamsPageProps) {
           <h1>Clubes</h1>
           <span>Adicionar e corrigir nomes, siglas, paises, cores e emblemas.</span>
         </div>
-        <a href="/admin/gestor">Voltar ao gestor</a>
+        <nav aria-label="Ações de clubes" className="team-admin-hero-actions">
+          <a href="/admin/clubes/aliases">Gerir aliases</a>
+          <a href="/admin/gestor">Voltar ao gestor</a>
+        </nav>
       </header>
 
       {!overview.configured ? (
