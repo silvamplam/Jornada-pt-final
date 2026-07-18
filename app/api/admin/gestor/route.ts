@@ -1,4 +1,32 @@
 import { NextResponse } from "next/server";
+import {
+  applyCalendarCheckpointTransition,
+  buildCalendarTeamLookup,
+  createCalendarFingerprint,
+  createCalendarSourceKey,
+  createCalendarTemporalUpdatePatch,
+  createCompetitiveIdentity,
+  decideCalendarTemporalAction,
+  findCalendarCompetitiveDuplicate,
+  formatCalendarPreviewDate,
+  getNextCalendarMatchday,
+  groupCalendarActionsByMatchday,
+  parseCalendarImport,
+  resolveCalendarTeam,
+  validateCalendarCheckpointSequence,
+  validateCalendarFingerprint,
+  type CalendarApplicationProgress,
+  type CalendarApplyCheckpoint,
+  type CalendarApplyResponse,
+  type CalendarErrorResponse,
+  type CalendarImportRow,
+  type CalendarMatchdayCheckpoint,
+  type CalendarMatchdayPlan,
+  type CalendarPreviewResponse,
+  type CalendarPreviewRow,
+  type CalendarPreviewSummary,
+  type CalendarResolvedCompetitiveIdentity
+} from "@/lib/calendar-import";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
@@ -165,28 +193,9 @@ type ApplyClubListSummary = {
   invalidLines: number;
 };
 
-type CalendarListRow = {
-  lineNumber: number;
-  matchdayNumber: number;
-  matchdayLabel: string;
-  homeName: string;
-  awayName: string;
-  kickoffAt: string;
-  venue: string | null;
-};
-
-type CalendarApplySummary = {
-  createdMatchdays: number;
-  reusedMatchdays: number;
-  createdMatches: number;
-  existingMatches: number;
-  blockedConflicts: number;
-  invalidLines: number;
-  involvedMatchdays: CalendarMatchdayRow[];
-};
-
 type ManualParticipantRow = {
   team_id: string;
+  status: string | null;
 };
 
 type CalendarMatchdayRow = {
@@ -197,9 +206,28 @@ type CalendarMatchdayRow = {
 
 type ExistingCalendarMatchRow = {
   id: string;
+  source_key: string | null;
   matchday_id: string | null;
   home_team_id: string;
   away_team_id: string;
+  status: string;
+  scheduled_date: string | null;
+  kickoff_at: string | null;
+};
+
+type PlannedCalendarWrite = {
+  matchdayNumber: number;
+  lineNumber: number;
+  row: CalendarImportRow;
+  preview: CalendarPreviewRow;
+  homeTeamId: string;
+  awayTeamId: string;
+  existingMatchId: string | null;
+};
+
+type CalendarServerPlan = {
+  response: CalendarPreviewResponse;
+  writes: PlannedCalendarWrite[];
 };
 
 type MatchIdRow = {
@@ -1723,40 +1751,6 @@ async function saveMatchdayLatestNewsItem(formData: FormData) {
   }
 }
 
-function parseCalendarList(rawList: string): { rows: CalendarListRow[]; invalidLines: number } {
-  const rows: CalendarListRow[] = [];
-  let invalidLines = 0;
-
-  rawList
-    .split(/\r?\n/)
-    .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
-    .filter((item) => item.line.length > 0)
-    .forEach(({ line, lineNumber }) => {
-      const [numberValue = "", labelValue = "", homeValue = "", awayValue = "", kickoffValue = "", venueValue = ""] = line
-        .split(";")
-        .map((value) => value.trim());
-      const matchdayNumber = Number.parseInt(numberValue, 10);
-      const matchdayLabel = labelValue || (Number.isNaN(matchdayNumber) ? "" : `Jornada ${String(matchdayNumber).padStart(2, "0")}`);
-
-      if (Number.isNaN(matchdayNumber) || matchdayNumber < 1 || !matchdayLabel || !homeValue || !awayValue || !kickoffValue) {
-        invalidLines += 1;
-        return;
-      }
-
-      rows.push({
-        lineNumber,
-        matchdayNumber,
-        matchdayLabel,
-        homeName: homeValue,
-        awayName: awayValue,
-        kickoffAt: kickoffValue,
-        venue: cleanText(venueValue)
-      });
-    });
-
-  return { rows, invalidLines };
-}
-
 function teamLookupKey(value: string | null | undefined) {
   return value ? slugify(value) : "";
 }
@@ -1837,213 +1831,618 @@ async function readTeamAliasesForTeamIds(teamIds: string[]) {
   ).catch(() => []);
 }
 
-async function applyCalendarList(formData: FormData): Promise<CalendarApplySummary> {
-  const countryId = cleanText(formData.get("country_id"));
-  const competitionId = cleanText(formData.get("competition_id"));
-  const seasonId = cleanText(formData.get("season_id"));
-  const rawList = cleanText(formData.get("calendar_preview"));
+class CalendarImportRequestError extends Error {
+  code: string;
+  status: number;
+  checkpoint?: Partial<CalendarApplyCheckpoint>;
+  progress?: CalendarApplicationProgress;
 
-  if (!countryId || !competitionId || !seasonId || !rawList) {
-    throw new Error("missing-fields");
+  constructor(
+    code: string,
+    message: string,
+    status = 400,
+    checkpoint?: Partial<CalendarApplyCheckpoint>,
+    progress?: CalendarApplicationProgress
+  ) {
+    super(message);
+    this.code = code;
+    this.status = status;
+    this.checkpoint = checkpoint;
+    this.progress = progress;
   }
+}
 
+function calendarRejectRow({
+  lineNumber,
+  matchdayNumber,
+  matchdayLabel,
+  homeName,
+  awayName,
+  note,
+  status = "reject"
+}: {
+  lineNumber: number;
+  matchdayNumber: number | null;
+  matchdayLabel: string;
+  homeName: string;
+  awayName: string;
+  note: string;
+  status?: "reject" | "duplicate";
+}): CalendarPreviewRow {
+  return {
+    lineNumber,
+    status,
+    statusLabel: status === "duplicate" ? "duplicado" : "rejeitar",
+    matchdayNumber,
+    matchdayLabel,
+    matchdayId: null,
+    matchdayWillBeCreated: false,
+    homeName,
+    awayName,
+    homeTeamId: null,
+    awayTeamId: null,
+    inputState: null,
+    scheduledDate: null,
+    kickoffAt: null,
+    scheduleLabel: matchdayNumber ? `J${matchdayNumber} · DATA E HORA POR DEFINIR` : "DATA E HORA POR DEFINIR",
+    venue: null,
+    existingMatchId: null,
+    note
+  };
+}
+
+async function validateCalendarContext(countryId: string, competitionId: string, seasonId: string) {
   if (!(await hasRows(`countries?select=id&id=eq.${encodeURIComponent(countryId)}`))) {
-    throw new Error("country-not-found");
+    throw new CalendarImportRequestError("country-not-found", "O país selecionado não existe.", 404);
   }
-
   if (
     !(await hasRows(
       `competitions?select=id&id=eq.${encodeURIComponent(competitionId)}&country_id=eq.${encodeURIComponent(countryId)}`
     ))
   ) {
-    throw new Error("competition-country-invalid");
+    throw new CalendarImportRequestError("competition-country-invalid", "A competição não pertence ao país selecionado.");
   }
-
   if (
     !(await hasRows(
       `seasons?select=id&id=eq.${encodeURIComponent(seasonId)}&competition_id=eq.${encodeURIComponent(competitionId)}`
     ))
   ) {
-    throw new Error("season-competition-invalid");
+    throw new CalendarImportRequestError("season-competition-invalid", "A época não pertence à competição selecionada.");
+  }
+}
+
+async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServerPlan> {
+  const countryId = cleanText(formData.get("country_id"));
+  const competitionId = cleanText(formData.get("competition_id"));
+  const seasonId = cleanText(formData.get("season_id"));
+  const rawEntry = formData.get("calendar_list");
+  const rawList = typeof rawEntry === "string" ? rawEntry : null;
+
+  if (!countryId || !competitionId || !seasonId || rawList === null) {
+    throw new CalendarImportRequestError("missing-fields", "Faltam o contexto ou a lista do calendário.");
   }
 
-  const parsed = parseCalendarList(rawList);
-  const summary: CalendarApplySummary = {
-    createdMatchdays: 0,
-    reusedMatchdays: 0,
-    createdMatches: 0,
-    existingMatches: 0,
-    blockedConflicts: 0,
-    invalidLines: parsed.invalidLines,
-    involvedMatchdays: []
-  };
+  await validateCalendarContext(countryId, competitionId, seasonId);
+  const parsed = parseCalendarImport(rawList);
+  const previewRows: CalendarPreviewRow[] = parsed.issues.map((item) =>
+    calendarRejectRow({
+      lineNumber: item.lineNumber,
+      matchdayNumber: item.matchdayNumber,
+      matchdayLabel: item.matchdayLabel,
+      homeName: item.homeName,
+      awayName: item.awayName,
+      note: item.message,
+      status: item.status
+    })
+  );
 
   const participants = await fetchSupabaseAdminTable<ManualParticipantRow>(
-    `season_teams?select=team_id&season_id=eq.${encodeURIComponent(
-      seasonId
-    )}&data_source=eq.manual&sync_status=eq.manual&manual_override=is.true&limit=500`
+    `season_teams?select=team_id,status&season_id=eq.${encodeURIComponent(seasonId)}&status=neq.inactive&limit=500`
   );
   const participantTeamIds = Array.from(new Set(participants.map((participant) => participant.team_id)));
-
   if (participantTeamIds.length === 0) {
-    throw new Error("matchday-needs-participants");
+    throw new CalendarImportRequestError("matchday-needs-participants", "A época não tem participantes ativos.");
   }
 
-  const teamsQuery = participantTeamIds.map((id) => encodeURIComponent(id)).join(",");
-  const teams = await fetchSupabaseAdminTable<TeamRow>(
-    `teams?select=id,name,short_name,slug,code,country_id&id=in.(${teamsQuery})&country_id=eq.${encodeURIComponent(countryId)}&limit=500`
-  );
-  const teamsById = new Map(teams.map((team) => [team.id, team]));
-  const teamsByKey = new Map<string, TeamRow>();
-  teams.forEach((team) => {
-    addTeamLookupKey(teamsByKey, team.name, team);
-    addTeamLookupKey(teamsByKey, team.short_name, team);
-    addTeamLookupKey(teamsByKey, team.slug, team);
-    addTeamLookupKey(teamsByKey, team.code, team);
-  });
-  const teamAliases = await fetchSupabaseAdminTable<TeamAliasRow>(
-    `team_aliases?select=team_id,normalized_alias&team_id=in.(${teamsQuery})&limit=1000`
-  ).catch(() => []);
-  teamAliases.forEach((alias) => {
-    const team = teamsById.get(alias.team_id);
-    if (team) {
-      addTeamLookupKey(teamsByKey, alias.normalized_alias, team, { override: true });
-    }
-  });
+  const teamsQuery = participantTeamIds.map(encodeURIComponent).join(",");
+  const [teams, teamAliases, matchdayRows, existingMatches] = await Promise.all([
+    fetchSupabaseAdminTable<TeamRow>(
+      `teams?select=id,name,short_name,slug,code,country_id&id=in.(${teamsQuery})&country_id=eq.${encodeURIComponent(countryId)}&limit=500`
+    ),
+    fetchSupabaseAdminTable<TeamAliasRow>(
+      `team_aliases?select=team_id,normalized_alias&team_id=in.(${teamsQuery})&limit=1000`
+    ),
+    fetchSupabaseAdminTable<CalendarMatchdayRow>(
+      `matchdays?select=id,number,label&season_id=eq.${encodeURIComponent(seasonId)}&limit=500`
+    ),
+    fetchSupabaseAdminTable<ExistingCalendarMatchRow>(
+      `matches?select=id,source_key,matchday_id,home_team_id,away_team_id,status,scheduled_date,kickoff_at&season_id=eq.${encodeURIComponent(
+        seasonId
+      )}&limit=1000`
+    )
+  ]);
 
-  const matchdayRows = await fetchSupabaseAdminTable<CalendarMatchdayRow>(
-    `matchdays?select=id,number,label&season_id=eq.${encodeURIComponent(seasonId)}&manual_override=is.true&limit=500`
-  );
+  const teamsById = new Map(teams.map((team) => [team.id, team]));
+  const teamLookup = buildCalendarTeamLookup([
+    ...teams.map((team) => ({ teamId: team.id, keys: [team.name, team.short_name, team.slug, team.code] })),
+    ...teamAliases
+      .filter((alias) => teamsById.has(alias.team_id))
+      .map((alias) => ({ teamId: alias.team_id, keys: [alias.normalized_alias] }))
+  ]);
+
   const matchdaysByNumber = new Map(matchdayRows.map((matchday) => [matchday.number, matchday]));
-  const involvedMatchdaysByNumber = new Map<number, CalendarMatchdayRow>();
-  const seenCreatedOrReusedMatchdays = new Set<number>();
-  const existingMatches = await fetchSupabaseAdminTable<ExistingCalendarMatchRow>(
-    `matches?select=id,matchday_id,home_team_id,away_team_id&season_id=eq.${encodeURIComponent(seasonId)}&limit=1000`
-  );
   const matchdayNumberById = new Map(matchdayRows.map((matchday) => [matchday.id, matchday.number]));
-  const usedTeamsByMatchday = new Map<number, Set<string>>();
-  const existingMatchKeys = new Set<string>();
-  const existingSeasonMatchKeys = new Set<string>();
+  const existingByIdentity = new Map<string, ExistingCalendarMatchRow[]>();
+  const existingUses = new Map<number, Map<string, Set<string>>>();
 
   existingMatches.forEach((match) => {
-    existingSeasonMatchKeys.add(`${match.home_team_id}:${match.away_team_id}`);
     if (!match.matchday_id) return;
-    const number = matchdayNumberById.get(match.matchday_id);
-    if (!number) return;
+    const matchdayNumber = matchdayNumberById.get(match.matchday_id);
+    if (matchdayNumber === undefined) return;
+    const identity = createCompetitiveIdentity(seasonId, match.matchday_id, match.home_team_id, match.away_team_id);
+    const identityMatches = existingByIdentity.get(identity) ?? [];
+    identityMatches.push(match);
+    existingByIdentity.set(identity, identityMatches);
 
-    const usedTeams = usedTeamsByMatchday.get(number) ?? new Set<string>();
-    usedTeams.add(match.home_team_id);
-    usedTeams.add(match.away_team_id);
-    usedTeamsByMatchday.set(number, usedTeams);
-    existingMatchKeys.add(`${number}:${match.home_team_id}:${match.away_team_id}`);
+    const uses = existingUses.get(matchdayNumber) ?? new Map<string, Set<string>>();
+    [match.home_team_id, match.away_team_id].forEach((teamId) => {
+      const matchIds = uses.get(teamId) ?? new Set<string>();
+      matchIds.add(match.id);
+      uses.set(teamId, matchIds);
+    });
+    existingUses.set(matchdayNumber, uses);
   });
 
-  const seenMatchKeys = new Set<string>();
-  const seenSeasonMatchKeys = new Set<string>();
+  const importedUses = new Map<number, Map<string, Set<string>>>();
+  const labelsByNumber = new Map<number, string>();
+  const conflictingLabels = new Set<number>();
+  parsed.rows.forEach((row) => {
+    const current = labelsByNumber.get(row.matchdayNumber);
+    if (current && current !== row.matchdayLabel) conflictingLabels.add(row.matchdayNumber);
+    else labelsByNumber.set(row.matchdayNumber, row.matchdayLabel);
+  });
+
+  const seenResolvedIdentities: CalendarResolvedCompetitiveIdentity[] = [];
+  const pairingCounts = new Map<string, number>();
+  const writes: PlannedCalendarWrite[] = [];
+  let unresolvedClubs = 0;
+  let ambiguousClubs = 0;
+  let repeatedTeamsInMatchday = 0;
 
   for (const row of parsed.rows) {
-    const homeTeam = teamsByKey.get(teamLookupKey(row.homeName));
-    const awayTeam = teamsByKey.get(teamLookupKey(row.awayName));
-
-    if (!homeTeam || !awayTeam) {
-      summary.blockedConflicts += 1;
+    const matchday = matchdaysByNumber.get(row.matchdayNumber) ?? null;
+    const matchdayReference = matchday?.id ?? `planned-matchday-${row.matchdayNumber}`;
+    if (conflictingLabels.has(row.matchdayNumber)) {
+      previewRows.push(
+        calendarRejectRow({ ...row, note: "A mesma jornada tem labels diferentes no ficheiro." })
+      );
       continue;
     }
 
-    if (homeTeam.id === awayTeam.id) {
-      summary.blockedConflicts += 1;
+    const homeResolution = resolveCalendarTeam(teamLookup, row.homeName);
+    const awayResolution = resolveCalendarTeam(teamLookup, row.awayName);
+    if (homeResolution.status === "unresolved" || awayResolution.status === "unresolved") {
+      unresolvedClubs += 1;
+      previewRows.push(calendarRejectRow({ ...row, note: "Clube não resolvido entre os participantes ativos da época." }));
+      continue;
+    }
+    if (homeResolution.status === "ambiguous" || awayResolution.status === "ambiguous") {
+      ambiguousClubs += 1;
+      previewRows.push(calendarRejectRow({ ...row, note: "Clube ambíguo: a chave corresponde a mais de um participante ativo." }));
       continue;
     }
 
-    const matchKey = `${row.matchdayNumber}:${homeTeam.id}:${awayTeam.id}`;
-    const seasonMatchKey = `${homeTeam.id}:${awayTeam.id}`;
-    if (existingMatchKeys.has(matchKey)) {
-      const existingMatchday = matchdaysByNumber.get(row.matchdayNumber);
-      if (existingMatchday) {
-        involvedMatchdaysByNumber.set(row.matchdayNumber, existingMatchday);
-      }
-      summary.existingMatches += 1;
+    const homeTeamId = homeResolution.teamId;
+    const awayTeamId = awayResolution.teamId;
+    if (homeTeamId === awayTeamId) {
+      previewRows.push(calendarRejectRow({ ...row, note: "Casa e Fora resolvem para o mesmo clube." }));
       continue;
     }
 
-    if (existingSeasonMatchKeys.has(seasonMatchKey) || seenMatchKeys.has(matchKey) || seenSeasonMatchKeys.has(seasonMatchKey)) {
-      summary.blockedConflicts += 1;
+    const identity = createCompetitiveIdentity(seasonId, matchdayReference, homeTeamId, awayTeamId);
+    const resolvedIdentity = {
+      lineNumber: row.lineNumber,
+      seasonId,
+      matchdayId: matchdayReference,
+      homeTeamId,
+      awayTeamId
+    };
+    if (findCalendarCompetitiveDuplicate(seenResolvedIdentities, resolvedIdentity)) {
+      previewRows.push(calendarRejectRow({ ...row, note: "Identidade competitiva repetida no ficheiro.", status: "duplicate" }));
+      continue;
+    }
+    seenResolvedIdentities.push(resolvedIdentity);
+
+    const pairingKey = `${homeTeamId}:${awayTeamId}`;
+    pairingCounts.set(pairingKey, (pairingCounts.get(pairingKey) ?? 0) + 1);
+    const existingForIdentity = matchday ? existingByIdentity.get(identity) ?? [] : [];
+    if (existingForIdentity.length > 1) {
+      previewRows.push(calendarRejectRow({ ...row, note: "Existem vários jogos com a mesma identidade competitiva." }));
+      continue;
+    }
+    const existing = existingForIdentity[0] ?? null;
+
+    const existingMatchUses = existingUses.get(row.matchdayNumber) ?? new Map<string, Set<string>>();
+    const newMatchUses = importedUses.get(row.matchdayNumber) ?? new Map<string, Set<string>>();
+    const hasOtherUse = [homeTeamId, awayTeamId].some((teamId) => {
+      const currentIds = existingMatchUses.get(teamId) ?? new Set<string>();
+      const plannedIds = newMatchUses.get(teamId) ?? new Set<string>();
+      return Array.from(currentIds).some((matchId) => matchId !== existing?.id) || plannedIds.size > 0;
+    });
+    if (hasOtherUse) {
+      repeatedTeamsInMatchday += 1;
+      previewRows.push(calendarRejectRow({ ...row, note: "Uma das equipas já tem outro jogo nesta jornada." }));
       continue;
     }
 
-    const usedTeams = usedTeamsByMatchday.get(row.matchdayNumber) ?? new Set<string>();
-    if (usedTeams.has(homeTeam.id) || usedTeams.has(awayTeam.id)) {
-      summary.blockedConflicts += 1;
-      continue;
-    }
-
-    let matchday = matchdaysByNumber.get(row.matchdayNumber);
-    if (!matchday) {
-      const createdMatchdays = await writeSupabaseAdminReturning<CalendarMatchdayRow>("matchdays", {
-        method: "POST",
-        body: JSON.stringify({
-          season_id: seasonId,
-          number: row.matchdayNumber,
-          label: row.matchdayLabel,
-          status: "scheduled",
-          data_source: "manual",
-          sync_status: "manual",
-          manual_override: true,
-          external_provider: null,
-          external_id: null,
-          last_synced_at: null
-        })
+    if (!existing) {
+      [homeTeamId, awayTeamId].forEach((teamId) => {
+        const plannedIds = newMatchUses.get(teamId) ?? new Set<string>();
+        plannedIds.add(`line-${row.lineNumber}`);
+        newMatchUses.set(teamId, plannedIds);
       });
-      matchday = createdMatchdays[0];
-      if (!matchday) {
-        summary.blockedConflicts += 1;
-        continue;
-      }
-      matchdaysByNumber.set(row.matchdayNumber, matchday);
-      summary.createdMatchdays += 1;
-    } else if (!seenCreatedOrReusedMatchdays.has(row.matchdayNumber)) {
-      summary.reusedMatchdays += 1;
+      importedUses.set(row.matchdayNumber, newMatchUses);
     }
 
-    seenCreatedOrReusedMatchdays.add(row.matchdayNumber);
-    involvedMatchdaysByNumber.set(row.matchdayNumber, matchday);
-    seenMatchKeys.add(matchKey);
-    seenSeasonMatchKeys.add(seasonMatchKey);
-    usedTeams.add(homeTeam.id);
-    usedTeams.add(awayTeam.id);
-    usedTeamsByMatchday.set(row.matchdayNumber, usedTeams);
+    const action = existing
+      ? decideCalendarTemporalAction(
+          { scheduledDate: existing.scheduled_date, kickoffAt: existing.kickoff_at, status: existing.status },
+          row
+        )
+      : null;
+    if (action?.action === "conflict") {
+      previewRows.push(calendarRejectRow({ ...row, note: action.reason }));
+      continue;
+    }
 
-    await writeSupabaseAdmin("matches", {
+    const plannedAction = existing ? action?.action ?? "keep" : "create";
+    const effectiveLabel = matchday?.label ?? row.matchdayLabel;
+    const preview: CalendarPreviewRow = {
+      lineNumber: row.lineNumber,
+      status: plannedAction,
+      statusLabel: plannedAction === "create" ? "criar" : plannedAction === "update" ? "atualizar" : "manter",
+      matchdayNumber: row.matchdayNumber,
+      matchdayLabel: effectiveLabel,
+      matchdayId: matchday?.id ?? null,
+      matchdayWillBeCreated: !matchday,
+      homeName: row.homeName,
+      awayName: row.awayName,
+      homeTeamId,
+      awayTeamId,
+      inputState: row.inputState,
+      scheduledDate: row.scheduledDate,
+      kickoffAt: row.kickoffAt,
+      scheduleLabel: formatCalendarPreviewDate(row.scheduledDate, row.kickoffAt, row.matchdayNumber),
+      venue: row.venue,
+      existingMatchId: existing?.id ?? null,
+      note: existing
+        ? action?.reason ?? "O jogo existente será preservado."
+        : matchday
+          ? "A jornada existente será reutilizada."
+          : "Jornada a criar; starts_on e ends_on permanecerão nulos."
+    };
+    previewRows.push(preview);
+    writes.push({
+      matchdayNumber: row.matchdayNumber,
+      lineNumber: row.lineNumber,
+      row,
+      preview,
+      homeTeamId,
+      awayTeamId,
+      existingMatchId: existing?.id ?? null
+    });
+  }
+
+  previewRows.sort((left, right) => left.lineNumber - right.lineNumber);
+  const observedNumbers = Array.from(new Set(parsed.rows.map((row) => row.matchdayNumber))).sort((a, b) => a - b);
+  const gamesByMatchday = observedNumbers.map((number) => ({
+    number,
+    games: parsed.rows.filter((row) => row.matchdayNumber === number).length
+  }));
+  const missingMatchdayNumbers: number[] = [];
+  if (observedNumbers.length > 1) {
+    for (let number = observedNumbers[0]; number <= observedNumbers[observedNumbers.length - 1]; number += 1) {
+      if (!observedNumbers.includes(number)) missingMatchdayNumbers.push(number);
+    }
+  }
+
+  const matchdays: CalendarMatchdayPlan[] = observedNumbers.map((number) => {
+    const matchday = matchdaysByNumber.get(number) ?? null;
+    const relevantRows = previewRows.filter((row) => row.matchdayNumber === number);
+    const fingerprint = createCalendarFingerprint({
+      seasonId,
+      matchday: { number, id: matchday?.id ?? null, label: matchday?.label ?? labelsByNumber.get(number) ?? `Jornada ${number}` },
+      rows: relevantRows.map((row) => ({
+        lineNumber: row.lineNumber,
+        status: row.status,
+        homeTeamId: row.homeTeamId,
+        awayTeamId: row.awayTeamId,
+        existingMatchId: row.existingMatchId,
+        scheduledDate: row.scheduledDate,
+        kickoffAt: row.kickoffAt,
+        note: row.note
+      }))
+    });
+    return {
+      number,
+      label: matchday?.label ?? labelsByNumber.get(number) ?? `Jornada ${String(number).padStart(2, "0")}`,
+      matchdayId: matchday?.id ?? null,
+      willBeCreated: !matchday,
+      fingerprint,
+      createCount: relevantRows.filter((row) => row.status === "create").length,
+      updateCount: relevantRows.filter((row) => row.status === "update").length,
+      keepCount: relevantRows.filter((row) => row.status === "keep").length
+    };
+  });
+
+  const summary: CalendarPreviewSummary = {
+    activeParticipants: participantTeamIds.length,
+    totalRows: parsed.usefulLineCount,
+    distinctMatchdays: observedNumbers.length,
+    matchesToCreate: previewRows.filter((row) => row.status === "create").length,
+    matchesToUpdate: previewRows.filter((row) => row.status === "update").length,
+    matchesToKeep: previewRows.filter((row) => row.status === "keep").length,
+    rejectedRows: previewRows.filter((row) => row.status === "reject").length,
+    duplicateRows: previewRows.filter((row) => row.status === "duplicate").length,
+    unresolvedClubs,
+    ambiguousClubs,
+    matchdaysToCreate: matchdays.filter((matchday) => matchday.willBeCreated).length,
+    gamesByMatchday,
+    missingMatchdayNumbers,
+    repeatedPairings: Array.from(pairingCounts.values()).reduce((total, count) => total + Math.max(0, count - 1), 0),
+    repeatedTeamsInMatchday
+  };
+  const fingerprint = createCalendarFingerprint({
+    seasonId,
+    matchdays: matchdays.map((matchday) => ({ number: matchday.number, fingerprint: matchday.fingerprint })),
+    blocked: { rejectedRows: summary.rejectedRows, duplicateRows: summary.duplicateRows }
+  });
+
+  return { response: { ok: true, fingerprint, rows: previewRows, matchdays, summary }, writes };
+}
+
+async function previewCalendarList(formData: FormData): Promise<CalendarPreviewResponse> {
+  return (await buildCalendarServerPlan(formData)).response;
+}
+
+async function createOrReadCalendarMatchday(seasonId: string, plan: CalendarMatchdayPlan) {
+  if (plan.matchdayId) return { id: plan.matchdayId, number: plan.number, label: plan.label, created: false };
+
+  const created = await writeSupabaseAdminReturning<CalendarMatchdayRow>(
+    "matchdays?on_conflict=season_id,number",
+    {
       method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
       body: JSON.stringify({
-        source_key: `manual-calendar-${Date.now()}-${row.lineNumber}`,
-        competition_id: competitionId,
         season_id: seasonId,
-        matchday_id: matchday.id,
-        home_team_id: homeTeam.id,
-        away_team_id: awayTeam.id,
-        kickoff_at: normalizeKickoff(row.kickoffAt),
-        venue: row.venue,
+        number: plan.number,
+        label: plan.label,
+        starts_on: null,
+        ends_on: null,
         status: "scheduled",
         data_source: "manual",
         sync_status: "manual",
         manual_override: true,
         external_provider: null,
         external_id: null,
-        external_match_id: null,
         last_synced_at: null
       })
+    }
+  );
+  if (created[0]) return { ...created[0], created: true };
+
+  const existing = await fetchSupabaseAdminTable<CalendarMatchdayRow>(
+    `matchdays?select=id,number,label&season_id=eq.${encodeURIComponent(seasonId)}&number=eq.${plan.number}&limit=1`
+  );
+  if (!existing[0]) {
+    throw new CalendarImportRequestError("matchday-create-failed", "Não foi possível criar ou reencontrar a jornada.", 409);
+  }
+  return { ...existing[0], created: false };
+}
+
+function readCalendarCheckpoints(formData: FormData): CalendarMatchdayCheckpoint[] {
+  const raw = cleanText(formData.get("calendar_checkpoints"));
+  if (!raw) return [];
+
+  let value: unknown;
+  try {
+    value = JSON.parse(raw) as unknown;
+  } catch {
+    throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Os checkpoints enviados não são JSON válido.");
+  }
+  if (!Array.isArray(value)) {
+    throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Os checkpoints enviados não formam uma lista.");
+  }
+
+  return value.map((item) => {
+    if (typeof item !== "object" || item === null) {
+      throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Existe um checkpoint inválido.");
+    }
+    const record = item as Record<string, unknown>;
+    const numbers = [
+      record.matchdayNumber,
+      record.createdMatches,
+      record.updatedMatches,
+      record.keptMatches
+    ];
+    if (
+      !numbers.every((number) => typeof number === "number" && Number.isInteger(number) && number >= 0) ||
+      typeof record.matchdayLabel !== "string" ||
+      typeof record.createdMatchday !== "boolean" ||
+      (record.status !== "completed" && record.status !== "failed") ||
+      (record.message !== undefined && typeof record.message !== "string")
+    ) {
+      throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Existe um checkpoint com campos inválidos.");
+    }
+
+    return {
+      matchdayNumber: record.matchdayNumber as number,
+      matchdayLabel: record.matchdayLabel,
+      createdMatchday: record.createdMatchday,
+      createdMatches: record.createdMatches as number,
+      updatedMatches: record.updatedMatches as number,
+      keptMatches: record.keptMatches as number,
+      status: record.status,
+      ...(record.message ? { message: record.message as string } : {})
+    };
+  });
+}
+
+async function applyCalendarMatchday(formData: FormData): Promise<CalendarApplyResponse> {
+  const seasonId = cleanText(formData.get("season_id"));
+  const competitionId = cleanText(formData.get("competition_id"));
+  const fingerprint = cleanText(formData.get("matchday_fingerprint"));
+  const matchdayText = cleanText(formData.get("matchday_number"));
+  if (!seasonId || !competitionId || !fingerprint || !matchdayText || !/^[1-9]\d*$/.test(matchdayText)) {
+    throw new CalendarImportRequestError("missing-fields", "Faltam dados para aplicar a jornada.");
+  }
+
+  const plan = await buildCalendarServerPlan(formData);
+  if (plan.response.rows.some((row) => row.status === "reject" || row.status === "duplicate")) {
+    throw new CalendarImportRequestError("calendar-plan-blocked", "A lista contém linhas rejeitadas ou duplicadas; é necessário novo preview.", 409);
+  }
+
+  const matchdayNumber = Number(matchdayText);
+  const matchdayPlan = plan.response.matchdays.find((matchday) => matchday.number === matchdayNumber);
+  if (!matchdayPlan) {
+    throw new CalendarImportRequestError("matchday-not-in-plan", "A jornada não pertence ao plano validado.", 404);
+  }
+  const currentCheckpoints = readCalendarCheckpoints(formData);
+  const checkpointValidation = validateCalendarCheckpointSequence(plan.response.matchdays, currentCheckpoints);
+  if (!checkpointValidation.ok) {
+    throw new CalendarImportRequestError(checkpointValidation.error, checkpointValidation.message, 409);
+  }
+  const nextMatchday = getNextCalendarMatchday(plan.response.matchdays, currentCheckpoints);
+  if (!nextMatchday) {
+    throw new CalendarImportRequestError(
+      "calendar-checkpoint-stopped",
+      "A aplicação está concluída ou parada no primeiro checkpoint falhado; atualiza o preview antes de retomar.",
+      409
+    );
+  }
+  if (nextMatchday.number !== matchdayNumber) {
+    throw new CalendarImportRequestError("calendar-checkpoint-invalid", "A jornada pedida não é a próxima jornada aplicável.", 409);
+  }
+
+  const fingerprintValidation = validateCalendarFingerprint(fingerprint, matchdayPlan.fingerprint);
+  if (!fingerprintValidation.ok) {
+    throw new CalendarImportRequestError(fingerprintValidation.error, fingerprintValidation.message, 409);
+  }
+
+  const checkpoint: CalendarApplyCheckpoint = {
+    matchdayNumber,
+    matchdayLabel: matchdayPlan.label,
+    createdMatchday: false,
+    createdMatches: 0,
+    updatedMatches: 0,
+    keptMatches: matchdayPlan.keepCount
+  };
+
+  try {
+    const matchday = await createOrReadCalendarMatchday(seasonId, matchdayPlan);
+    checkpoint.createdMatchday = matchday.created;
+    const matchdayWrites =
+      groupCalendarActionsByMatchday(plan.writes).find((group) => group.matchdayNumber === matchdayNumber)?.items ?? [];
+    const creates = matchdayWrites.filter((write) => write.preview.status === "create");
+    if (creates.length > 0) {
+      await writeSupabaseAdmin("matches?on_conflict=source_key", {
+        method: "POST",
+        headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
+        body: JSON.stringify(
+          creates.map((write) => ({
+            source_key: createCalendarSourceKey(seasonId, matchday.id, write.homeTeamId, write.awayTeamId),
+            competition_id: competitionId,
+            season_id: seasonId,
+            matchday_id: matchday.id,
+            home_team_id: write.homeTeamId,
+            away_team_id: write.awayTeamId,
+            scheduled_date: write.row.scheduledDate,
+            kickoff_at: write.row.kickoffAt,
+            venue: write.row.venue,
+            status: "scheduled",
+            data_source: "manual",
+            sync_status: "manual",
+            manual_override: true,
+            external_provider: null,
+            external_id: null,
+            external_match_id: null,
+            last_synced_at: null
+          }))
+        )
+      });
+      checkpoint.createdMatches = creates.length;
+    }
+
+    const updates = matchdayWrites.filter((write) => write.preview.status === "update" && write.existingMatchId);
+    for (const update of updates) {
+      const temporalPatch = createCalendarTemporalUpdatePatch(update.row);
+      if (!temporalPatch) {
+        throw new CalendarImportRequestError("calendar-update-invalid", "Uma atualização temporal ficou sem data válida.", 409, checkpoint);
+      }
+      const updated = await writeSupabaseAdminReturning<{ id: string }>(
+        `matches?id=eq.${encodeURIComponent(update.existingMatchId ?? "")}&season_id=eq.${encodeURIComponent(
+          seasonId
+        )}&status=eq.scheduled`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(temporalPatch)
+        }
+      );
+      if (!updated[0]) {
+        throw new CalendarImportRequestError("match-update-stale", "Um jogo deixou de estar disponível para atualização.", 409, checkpoint);
+      }
+      checkpoint.updatedMatches += 1;
+    }
+  } catch (error) {
+    const message = error instanceof CalendarImportRequestError ? error.message : "A aplicação da jornada falhou; atualiza o preview e retoma.";
+    const failedTransition = applyCalendarCheckpointTransition(plan.response.matchdays, currentCheckpoints, {
+      ...checkpoint,
+      status: "failed",
+      message
     });
-    summary.createdMatches += 1;
+    if (error instanceof CalendarImportRequestError) {
+      error.checkpoint = { ...checkpoint, ...(error.checkpoint ?? {}) };
+      if (failedTransition.ok) error.progress = failedTransition.progress;
+      throw error;
+    }
+    throw new CalendarImportRequestError(
+      "calendar-apply-failed",
+      message,
+      500,
+      checkpoint,
+      failedTransition.ok ? failedTransition.progress : undefined
+    );
   }
 
-  if (summary.createdMatches === 0 && summary.existingMatches === 0) {
-    throw new Error("calendar-list-invalid");
+  const completedTransition = applyCalendarCheckpointTransition(plan.response.matchdays, currentCheckpoints, {
+    ...checkpoint,
+    status: "completed"
+  });
+  if (!completedTransition.ok) {
+    throw new CalendarImportRequestError(completedTransition.error, completedTransition.message, 409, checkpoint);
+  }
+  return { ok: true, checkpoint, progress: completedTransition.progress };
+}
+
+function calendarErrorResponse(error: unknown) {
+  if (error instanceof CalendarImportRequestError) {
+    const payload: CalendarErrorResponse = {
+      ok: false,
+      error: error.code,
+      message: error.message,
+      ...(error.checkpoint ? { checkpoint: error.checkpoint } : {}),
+      ...(error.progress ? { progress: error.progress } : {})
+    };
+    return NextResponse.json(payload, { status: error.status });
   }
 
-  summary.involvedMatchdays = Array.from(involvedMatchdaysByNumber.values()).sort((a, b) => a.number - b.number);
-
-  return summary;
+  console.error("[admin/gestor] calendar import failed");
+  const payload: CalendarErrorResponse = {
+    ok: false,
+    error: "calendar-unexpected-error",
+    message: "A operação do calendário falhou sem alterar o contexto selecionado."
+  };
+  return NextResponse.json(payload, { status: 500 });
 }
 
 async function readAgendaMatch(formData: FormData): Promise<AgendaMatchRow> {
@@ -2509,13 +2908,37 @@ async function removeCountry(formData: FormData) {
 }
 
 export async function POST(request: Request) {
+  const formData = await request.formData();
+  const actionType = cleanText(formData.get("action_type"));
+
   if (!getSupabaseServiceConfig()) {
-    const formData = await request.formData();
+    if (actionType === "preview_calendar_list" || actionType === "apply_calendar_matchday") {
+      const payload: CalendarErrorResponse = {
+        ok: false,
+        error: "missing-service",
+        message: "A escrita administrativa não está configurada."
+      };
+      return NextResponse.json(payload, { status: 503 });
+    }
     return returnUrl(request, formData, "error", "missing-service");
   }
 
-  const formData = await request.formData();
-  const actionType = cleanText(formData.get("action_type"));
+  if (actionType === "preview_calendar_list") {
+    try {
+      return NextResponse.json(await previewCalendarList(formData));
+    } catch (error) {
+      return calendarErrorResponse(error);
+    }
+  }
+
+  if (actionType === "apply_calendar_matchday") {
+    try {
+      return NextResponse.json(await applyCalendarMatchday(formData));
+    } catch (error) {
+      return calendarErrorResponse(error);
+    }
+  }
+
   let createdValue = actionType ?? "1";
   let extraParams: Record<string, string> | undefined;
 
@@ -2545,9 +2968,6 @@ export async function POST(request: Request) {
       await removeTeam(formData);
     } else if (actionType === "matchday") {
       await createMatchday(formData);
-    } else if (actionType === "apply_calendar_list") {
-      const summary = await applyCalendarList(formData);
-      extraParams = { calendar_apply_summary: JSON.stringify(summary) };
     } else if (actionType === "remove_matchday") {
       await removeMatchday(formData);
     } else if (actionType === "save_matchday_headline") {
