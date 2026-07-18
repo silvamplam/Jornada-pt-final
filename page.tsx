@@ -1572,67 +1572,127 @@ function goalDifferenceClass(value: number) {
   return value > 0 ? "public-gd-positive" : value < 0 ? "public-gd-negative" : "public-gd-neutral";
 }
 
-function formatKickoff(value: string) {
-  return new Intl.DateTimeFormat("pt-PT", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Lisbon"
-  }).format(new Date(value));
+const civilMonthNames = [
+  "janeiro",
+  "fevereiro",
+  "março",
+  "abril",
+  "maio",
+  "junho",
+  "julho",
+  "agosto",
+  "setembro",
+  "outubro",
+  "novembro",
+  "dezembro"
+];
+
+function parseCivilDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const validationDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    validationDate.getUTCFullYear() !== year ||
+    validationDate.getUTCMonth() !== month - 1 ||
+    validationDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return { day, month, year, key: value };
 }
 
-function formatKickoffTime(value: string) {
+function formatCivilDate(value: string) {
+  const date = parseCivilDate(value);
+  return date ? `${String(date.day).padStart(2, "0")}/${String(date.month).padStart(2, "0")}/${date.year}` : null;
+}
+
+function formatKickoff(scheduledDate: string, value: string | null) {
+  if (value) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat("pt-PT", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Europe/Lisbon"
+      }).format(date);
+    }
+  }
+
+  const dateLabel = formatCivilDate(scheduledDate);
+  return dateLabel ? `${dateLabel} · Hora por definir` : "Hora por definir";
+}
+
+function formatKickoffTime(value: string | null) {
+  if (!value) return "Hora por definir";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Hora por definir";
+
   return new Intl.DateTimeFormat("pt-PT", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Europe/Lisbon"
-  }).format(new Date(value));
+  }).format(date);
 }
 
-function formatBroadcastGuideKickoff(value: string) {
+function formatBroadcastGuideKickoff(scheduledDate: string, value: string | null) {
+  if (!value) {
+    const date = parseCivilDate(scheduledDate);
+    return date
+      ? `${String(date.day).padStart(2, "0")}/${String(date.month).padStart(2, "0")} · Hora por definir`
+      : "Hora por definir";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return formatBroadcastGuideKickoff(scheduledDate, null);
+
   return new Intl.DateTimeFormat("pt-PT", {
     day: "2-digit",
     month: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Europe/Lisbon"
-  }).format(new Date(value));
+  }).format(date);
+}
+
+function compareMatchSchedule(first: PublicSeasonMatch, second: PublicSeasonMatch) {
+  const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
+  if (dateDifference !== 0) return dateDifference;
+
+  if (!first.kickoff_at || !second.kickoff_at) {
+    if (first.kickoff_at !== second.kickoff_at) return first.kickoff_at ? -1 : 1;
+    return first.id.localeCompare(second.id);
+  }
+
+  const firstTime = new Date(first.kickoff_at).getTime();
+  const secondTime = new Date(second.kickoff_at).getTime();
+  if (Number.isNaN(firstTime) && Number.isNaN(secondTime)) return first.id.localeCompare(second.id);
+  if (Number.isNaN(firstTime)) return 1;
+  if (Number.isNaN(secondTime)) return -1;
+  return firstTime - secondTime || first.id.localeCompare(second.id);
 }
 
 function formatMatchdayDateContext(matches: PublicSeasonMatch[]) {
-  const kickoffDates = matches
-    .map((match) => new Date(match.kickoff_at))
-    .filter((date) => !Number.isNaN(date.getTime()))
-    .sort((firstDate, secondDate) => firstDate.getTime() - secondDate.getTime());
+  const scheduledDates = matches
+    .map((match) => parseCivilDate(match.scheduled_date))
+    .filter((date): date is NonNullable<typeof date> => date !== null)
+    .sort((firstDate, secondDate) => firstDate.key.localeCompare(secondDate.key));
 
-  if (kickoffDates.length === 0) return "Data por definir";
+  if (scheduledDates.length === 0) return "Data por definir";
 
-  const firstDate = kickoffDates[0];
-  const lastDate = kickoffDates[kickoffDates.length - 1];
-  const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
-    day: "numeric",
-    month: "long",
-    timeZone: "Europe/Lisbon"
-  });
-  const dayFormatter = new Intl.DateTimeFormat("pt-PT", {
-    day: "numeric",
-    timeZone: "Europe/Lisbon"
-  });
-  const monthFormatter = new Intl.DateTimeFormat("pt-PT", {
-    month: "long",
-    timeZone: "Europe/Lisbon"
-  });
-  const monthKeyFormatter = new Intl.DateTimeFormat("en-CA", {
-    month: "2-digit",
-    timeZone: "Europe/Lisbon"
-  });
+  const firstDate = scheduledDates[0];
+  const lastDate = scheduledDates[scheduledDates.length - 1];
+  const firstLabel = `${firstDate.day} ${civilMonthNames[firstDate.month - 1]}`;
+  const lastLabel = `${lastDate.day} ${civilMonthNames[lastDate.month - 1]}`;
+  if (firstDate.key === lastDate.key) return firstLabel;
 
-  const firstLabel = dateFormatter.format(firstDate);
-  const lastLabel = dateFormatter.format(lastDate);
-  if (firstLabel === lastLabel) return firstLabel;
-
-  const sameMonth = monthKeyFormatter.format(firstDate) === monthKeyFormatter.format(lastDate);
-  if (sameMonth) {
-    return `${dayFormatter.format(firstDate)}–${dayFormatter.format(lastDate)} ${monthFormatter.format(lastDate)}`;
+  if (firstDate.year === lastDate.year && firstDate.month === lastDate.month) {
+    return `${firstDate.day}–${lastDate.day} ${civilMonthNames[lastDate.month - 1]}`;
   }
 
   return `${firstLabel} – ${lastLabel}`;
@@ -1777,7 +1837,7 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
       </span>
       <span className={`public-matchday-mini-status public-matchday-status-${statusKind(match.status)}`}>
         <span>{statusText}</span>
-        {showKickoffTime ? <time className="public-matchday-mini-time" dateTime={match.kickoff_at}>{formatKickoffTime(match.kickoff_at)}</time> : null}
+        {showKickoffTime ? <time className="public-matchday-mini-time" dateTime={match.kickoff_at ?? match.scheduled_date}>{formatKickoffTime(match.kickoff_at)}</time> : null}
         <MiniBroadcastBadge match={match} />
       </span>
     </article>
@@ -1811,7 +1871,7 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         </div>
       </div>
       <div className="public-matchday-meta">
-        <span>{formatKickoff(match.kickoff_at)}</span>
+        <span>{formatKickoff(match.scheduled_date, match.kickoff_at)}</span>
         {match.venue ? <span>{match.venue}</span> : null}
         <BroadcastBadge match={match} />
       </div>
@@ -1869,15 +1929,15 @@ export default async function PublicMatchdayPage({ params }: PublicMatchdayPageP
   const complementaryMode = context.editorial?.complementary_mode ?? "none";
   const focusedStripMatch = liveMatches[0] ?? halftimeMatches[0] ?? null;
   const nextScheduledMatches = [...scheduledMatches]
-    .sort((firstMatch, secondMatch) => new Date(firstMatch.kickoff_at).getTime() - new Date(secondMatch.kickoff_at).getTime())
+    .sort(compareMatchSchedule)
     .slice(0, 4);
   const broadcastGuideItems =
     nextScheduledMatches.length > 0
       ? nextScheduledMatches.map((match) => ({
           id: match.id,
           game: `${match.homeTeam?.short_name || match.homeTeam?.name || "Casa"} vs ${match.awayTeam?.short_name || match.awayTeam?.name || "Fora"}`,
-          kickoffLabel: formatBroadcastGuideKickoff(match.kickoff_at),
-          kickoffDateTime: match.kickoff_at,
+          kickoffLabel: formatBroadcastGuideKickoff(match.scheduled_date, match.kickoff_at),
+          kickoffDateTime: match.kickoff_at ?? match.scheduled_date,
           channelName: match.broadcastChannel?.name || "TV por definir",
           channelLogoUrl: match.broadcastChannel?.logo_url || null
         }))

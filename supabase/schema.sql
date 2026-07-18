@@ -118,6 +118,7 @@ create table if not exists matches (
   away_team_id uuid not null references teams(id),
   status text not null default 'scheduled',
   minute integer,
+  scheduled_date date not null,
   kickoff_at timestamptz not null,
   home_score integer,
   away_score integer,
@@ -132,6 +133,35 @@ create table if not exists matches (
   manual_override boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+create or replace function public.sync_match_scheduled_date()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.scheduled_date is null then
+    if new.kickoff_at is not null then
+      new.scheduled_date := (new.kickoff_at at time zone 'Europe/Lisbon')::date;
+    end if;
+  elsif tg_op = 'UPDATE' then
+    if new.kickoff_at is distinct from old.kickoff_at
+      and new.kickoff_at is not null
+      and new.scheduled_date is not distinct from old.scheduled_date then
+      new.scheduled_date := (new.kickoff_at at time zone 'Europe/Lisbon')::date;
+    end if;
+  end if;
+
+  return new;
+end
+$$;
+
+drop trigger if exists sync_match_scheduled_date_before_write on public.matches;
+
+create trigger sync_match_scheduled_date_before_write
+before insert or update of kickoff_at, scheduled_date on public.matches
+for each row
+execute function public.sync_match_scheduled_date();
 
 create table if not exists standings (
   id uuid primary key default gen_random_uuid(),

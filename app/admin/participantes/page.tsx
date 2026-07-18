@@ -376,16 +376,28 @@ function logo(participant: SupabaseAdminSeasonTeam) {
   return <img src={participant.team.logo_url} alt="" />;
 }
 
-function formatShortDate(value: string | null) {
+function formatCivilDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : null;
+}
+
+function formatShortDate(scheduledDate: string, value: string | null) {
   if (!value) {
-    return "sem data";
+    const dateLabel = formatCivilDate(scheduledDate);
+    return dateLabel ? `${dateLabel} · hora por definir` : "hora por definir";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    const dateLabel = formatCivilDate(scheduledDate);
+    return dateLabel ? `${dateLabel} · hora por definir` : "hora por definir";
   }
 
   return new Intl.DateTimeFormat("pt-PT", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric"
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function sourceMatchLabel(match: SupabaseAdminSeasonTeam["sourceMatches"][number]) {
@@ -393,7 +405,7 @@ function sourceMatchLabel(match: SupabaseAdminSeasonTeam["sourceMatches"][number
   const away = match.awayTeam?.name ?? "Fora";
   const score = match.home_score !== null && match.away_score !== null ? ` ${match.home_score}-${match.away_score}` : "";
 
-  return `${home} x ${away}${score} - ${formatShortDate(match.kickoff_at)}`;
+  return `${home} x ${away}${score} - ${formatShortDate(match.scheduled_date, match.kickoff_at)}`;
 }
 
 function originLabel(participant: SupabaseAdminSeasonTeam) {

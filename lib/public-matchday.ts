@@ -598,7 +598,7 @@ export async function getPublicMatchdayDiagnostic({
         `season_teams?select=id,season_id,team_id,display_order,status,data_source,sync_status,manual_override&season_id=eq.${encodeURIComponent(season.id)}&order=display_order.asc&limit=1000`
       ),
       fetchSupabaseAdminTable<PublicSeasonMatch>(
-        `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,live_started_at,live_base_minute,is_clock_running,kickoff_at,home_score,away_score,venue,broadcast_channel_id&season_id=eq.${encodeURIComponent(season.id)}&order=kickoff_at.asc&limit=1000`
+        `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,live_started_at,live_base_minute,is_clock_running,scheduled_date,kickoff_at,home_score,away_score,venue,broadcast_channel_id&season_id=eq.${encodeURIComponent(season.id)}&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=1000`
       )
     ]);
     const matchday = matchdays.find((item) => item.number === matchdayNumber) ?? null;

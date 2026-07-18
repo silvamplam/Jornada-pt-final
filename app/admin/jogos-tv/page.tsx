@@ -42,6 +42,7 @@ type MatchRow = {
   matchday_id: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
+  scheduled_date: string;
   kickoff_at: string | null;
   status: string | null;
   minute: number | null;
@@ -408,11 +409,22 @@ async function readRowsById<T extends { id: string }>(table: string, select: str
   return new Map(rows.map((row) => [row.id, row]));
 }
 
-function formatLisbonDateTime(value: string | null) {
-  if (!value) return "Data/hora por definir";
+function formatCivilDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : null;
+}
+
+function formatLisbonDateTime(scheduledDate: string, value: string | null) {
+  if (!value) {
+    const dateLabel = formatCivilDate(scheduledDate);
+    return dateLabel ? `${dateLabel} · Hora por definir` : "Hora por definir";
+  }
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Data/hora por definir";
+  if (Number.isNaN(date.getTime())) {
+    const dateLabel = formatCivilDate(scheduledDate);
+    return dateLabel ? `${dateLabel} · Hora por definir` : "Hora por definir";
+  }
 
   return new Intl.DateTimeFormat("pt-PT", {
     day: "2-digit",
@@ -445,14 +457,22 @@ function matchdaySortNumber(matchday: MatchdayRow | null) {
 }
 
 function sortByKickoff(first: HydratedMatch, second: HydratedMatch) {
-  const firstTime = first.kickoff_at ? new Date(first.kickoff_at).getTime() : Number.MAX_SAFE_INTEGER;
-  const secondTime = second.kickoff_at ? new Date(second.kickoff_at).getTime() : Number.MAX_SAFE_INTEGER;
+  const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
+  if (dateDifference !== 0) return dateDifference;
 
-  if (Number.isNaN(firstTime) && Number.isNaN(secondTime)) return 0;
+  if (!first.kickoff_at || !second.kickoff_at) {
+    if (first.kickoff_at !== second.kickoff_at) return first.kickoff_at ? -1 : 1;
+    return first.id.localeCompare(second.id);
+  }
+
+  const firstTime = new Date(first.kickoff_at).getTime();
+  const secondTime = new Date(second.kickoff_at).getTime();
+
+  if (Number.isNaN(firstTime) && Number.isNaN(secondTime)) return first.id.localeCompare(second.id);
   if (Number.isNaN(firstTime)) return 1;
   if (Number.isNaN(secondTime)) return -1;
 
-  return firstTime - secondTime;
+  return firstTime - secondTime || first.id.localeCompare(second.id);
 }
 
 function groupByCompetition(matches: HydratedMatch[]) {
@@ -495,7 +515,7 @@ function groupByMatchday(matches: HydratedMatch[]) {
 async function readMatches(selectedCompetitionId: string | null) {
   const competitionFilter = selectedCompetitionId ? `&competition_id=eq.${encodeURIComponent(selectedCompetitionId)}` : "";
   const matches = await fetchSupabaseAdminTable<MatchRow>(
-    `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,kickoff_at,status,minute,home_score,away_score,broadcast_channel_id${competitionFilter}&order=kickoff_at.asc&limit=1200`
+    `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,minute,home_score,away_score,broadcast_channel_id${competitionFilter}&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=1200`
   ).catch(() => []);
   const [competitionsById, seasonsById, matchdaysById, teamsById, channelsById] = await Promise.all([
     readRowsById<CompetitionRow>("competitions", "id,name,slug", uniqueValues(matches.map((match) => match.competition_id))),
@@ -544,7 +564,7 @@ function MatchRowCard({ channels, match }: { channels: BroadcastChannelRow[]; ma
       </div>
       <div className="tv-match-meta">
         <strong>{statusLabel(match)}</strong>
-        <span>{formatLisbonDateTime(match.kickoff_at)}</span>
+        <span>{formatLisbonDateTime(match.scheduled_date, match.kickoff_at)}</span>
         <span>{match.channel?.name ? `Canal atual: ${match.channel.name}` : "Sem canal atribuído"}</span>
       </div>
       <form className="tv-channel-form" action="/api/admin/jogos-tv" method="post">

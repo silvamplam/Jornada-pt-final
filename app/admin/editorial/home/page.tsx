@@ -166,6 +166,7 @@ type HomeMatch = {
   away_team_id: string;
   status: string | null;
   minute: number | null;
+  scheduled_date: string;
   kickoff_at: string | null;
   home_score: number | null;
   away_score: number | null;
@@ -1425,14 +1426,21 @@ function StatusPill({ status }: { status: string | null | undefined }) {
   return <span className={`home-admin-pill${statusClass(status)}`}>{statusText(status)}</span>;
 }
 
-function formatDateTime(value: string | null | undefined) {
+function formatCivilDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : null;
+}
+
+function formatDateTime(scheduledDate: string, value: string | null | undefined) {
   if (!value) {
-    return "Sem data";
+    const dateLabel = formatCivilDate(scheduledDate);
+    return dateLabel ? `${dateLabel} · Hora por definir` : "Hora por definir";
   }
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return value;
+    const dateLabel = formatCivilDate(scheduledDate);
+    return dateLabel ? `${dateLabel} · Hora por definir` : "Hora por definir";
   }
 
   return new Intl.DateTimeFormat("pt-PT", {
@@ -1754,7 +1762,7 @@ async function readHomeGameSelectionData(): Promise<HomeGameSelectionData> {
         "matchdays?select=id,season_id,number,label,starts_on,ends_on,status&order=number.asc"
       ),
       fetchSupabaseAdminTable<HomeMatch>(
-        "matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,kickoff_at,home_score,away_score,venue,broadcast_channel_id&order=kickoff_at.asc&limit=1000"
+        "matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,scheduled_date,kickoff_at,home_score,away_score,venue,broadcast_channel_id&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=1000"
       ),
       fetchSupabaseAdminTable<HomeTeam>("teams?select=id,name,short_name,logo_url&order=name.asc"),
       fetchSupabaseAdminTable<HomeBroadcastChannel>("broadcast_channels?select=id,name,logo_url&order=name.asc")
@@ -2093,7 +2101,7 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                                 <div className="home-admin-game-main">
                                   <strong>{matchTitle(match, teamsById)}</strong>
                                   <small>
-                                    {formatDateTime(match.kickoff_at)} | {matchStatusLabel(match)}
+                                    {formatDateTime(match.scheduled_date, match.kickoff_at)} | {matchStatusLabel(match)}
                                   </small>
                                 </div>
                                 <span className="home-admin-game-score">{matchScoreLabel(match)}</span>

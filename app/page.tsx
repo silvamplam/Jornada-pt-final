@@ -113,6 +113,7 @@ type HomeMatchRow = {
   id: string;
   home_team_id: string | null;
   away_team_id: string | null;
+  scheduled_date: string;
   kickoff_at: string | null;
   status: string | null;
   minute: number | string | null;
@@ -299,7 +300,7 @@ async function readHomeFeaturedMatches(): Promise<PublicMatchStripMatch[]> {
 
   const matchesById = await readRowsById<HomeMatchRow>(
     "matches",
-    "id,home_team_id,away_team_id,kickoff_at,status,minute,live_started_at,live_base_minute,is_clock_running,home_score,away_score,broadcast_channel_id",
+    "id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,minute,live_started_at,live_base_minute,is_clock_running,home_score,away_score,broadcast_channel_id",
     matchIds
   );
   const matches = Array.from(matchesById.values());
@@ -321,6 +322,7 @@ async function readHomeFeaturedMatches(): Promise<PublicMatchStripMatch[]> {
 
     selectedMatches.push({
       id: match.id,
+      scheduled_date: match.scheduled_date,
       kickoff_at: match.kickoff_at,
       status: match.status ?? "scheduled",
       minute: match.minute,
@@ -341,7 +343,19 @@ async function readHomeFeaturedMatches(): Promise<PublicMatchStripMatch[]> {
     if (firstOrder !== null && secondOrder !== null && firstOrder !== secondOrder) return firstOrder - secondOrder;
     if (firstOrder !== null && secondOrder === null) return -1;
     if (firstOrder === null && secondOrder !== null) return 1;
-    return (first.kickoff_at ?? "").localeCompare(second.kickoff_at ?? "");
+    const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
+    if (dateDifference !== 0) return dateDifference;
+    if (first.kickoff_at && second.kickoff_at) {
+      const firstTime = new Date(first.kickoff_at).getTime();
+      const secondTime = new Date(second.kickoff_at).getTime();
+      const firstValid = !Number.isNaN(firstTime);
+      const secondValid = !Number.isNaN(secondTime);
+      if (firstValid && secondValid && firstTime !== secondTime) return firstTime - secondTime;
+      if (firstValid !== secondValid) return firstValid ? -1 : 1;
+    } else if (first.kickoff_at !== second.kickoff_at) {
+      return first.kickoff_at ? -1 : 1;
+    }
+    return first.id.localeCompare(second.id);
   });
 }
 

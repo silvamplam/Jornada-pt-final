@@ -10,6 +10,7 @@ type MatchRow = {
   matchday_id: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
+  scheduled_date: string;
   kickoff_at: string | null;
   status: string | null;
   minute: number | string | null;
@@ -62,6 +63,7 @@ type PublicGame = {
   matchday: MatchdayRow | null;
   homeTeam: TeamRow | null;
   awayTeam: TeamRow | null;
+  scheduled_date: string;
   kickoff_at: string | null;
   status: string | null;
   minute: number | string | null;
@@ -516,11 +518,22 @@ function statusKind(status?: string | null) {
   return "scheduled";
 }
 
-function formatKickoff(value?: string | null) {
-  if (!value) return "Data/hora por definir";
+function formatCivilDayMonth(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}/${match[2]}` : null;
+}
+
+function formatKickoff(scheduledDate: string, value?: string | null) {
+  if (!value) {
+    const dayMonth = formatCivilDayMonth(scheduledDate);
+    return dayMonth ? `${dayMonth} \u00b7 Hora por definir` : "Hora por definir";
+  }
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Data/hora por definir";
+  if (Number.isNaN(date.getTime())) {
+    const dayMonth = formatCivilDayMonth(scheduledDate);
+    return dayMonth ? `${dayMonth} \u00b7 Hora por definir` : "Hora por definir";
+  }
 
   return new Intl.DateTimeFormat("pt-PT", {
     day: "2-digit",
@@ -660,9 +673,9 @@ async function readPublicGames(filters: { competitionId?: string | null; seasonI
     filters.matchdayId ? `matchday_id=eq.${encodeURIComponent(filters.matchdayId)}` : null
   ].filter(Boolean);
   const query =
-    "matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,kickoff_at,status,minute,home_score,away_score,broadcast_channel_id" +
+    "matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,minute,home_score,away_score,broadcast_channel_id" +
     (queryFilters.length > 0 ? `&${queryFilters.join("&")}` : "") +
-    "&order=kickoff_at.asc&limit=800";
+    "&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=800";
   const matches = await fetchSupabaseAdminTable<MatchRow>(query).catch(() => []);
   const matchIds = matches.map((match) => match.id);
   const [teamsById, competitionsById, seasonsById, matchdaysById, broadcastChannelsByMatchId] = await Promise.all([
@@ -696,6 +709,7 @@ async function readPublicGames(filters: { competitionId?: string | null; seasonI
     matchday: match.matchday_id ? matchdaysById.get(match.matchday_id) ?? null : null,
     homeTeam: match.home_team_id ? teamsById.get(match.home_team_id) ?? null : null,
     awayTeam: match.away_team_id ? teamsById.get(match.away_team_id) ?? null : null,
+    scheduled_date: match.scheduled_date,
     kickoff_at: match.kickoff_at,
     status: match.status,
     minute: match.minute,
@@ -706,14 +720,22 @@ async function readPublicGames(filters: { competitionId?: string | null; seasonI
 }
 
 function sortGames(first: PublicGame, second: PublicGame) {
-  const firstTime = first.kickoff_at ? new Date(first.kickoff_at).getTime() : Number.MAX_SAFE_INTEGER;
-  const secondTime = second.kickoff_at ? new Date(second.kickoff_at).getTime() : Number.MAX_SAFE_INTEGER;
+  const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
+  if (dateDifference !== 0) return dateDifference;
 
-  if (Number.isNaN(firstTime) && Number.isNaN(secondTime)) return 0;
+  if (!first.kickoff_at || !second.kickoff_at) {
+    if (first.kickoff_at !== second.kickoff_at) return first.kickoff_at ? -1 : 1;
+    return first.id.localeCompare(second.id);
+  }
+
+  const firstTime = new Date(first.kickoff_at).getTime();
+  const secondTime = new Date(second.kickoff_at).getTime();
+
+  if (Number.isNaN(firstTime) && Number.isNaN(secondTime)) return first.id.localeCompare(second.id);
   if (Number.isNaN(firstTime)) return 1;
   if (Number.isNaN(secondTime)) return -1;
 
-  return firstTime - secondTime;
+  return firstTime - secondTime || first.id.localeCompare(second.id);
 }
 
 function TeamBlock({ team, side }: { team: TeamRow | null; side: "home" | "away" }) {
@@ -779,7 +801,7 @@ function GameCard({ game, showCompetition, showContext = true }: { game: PublicG
         ) : kind === "finished" ? (
           <span className="public-game-status">Finalizado</span>
         ) : (
-          <time dateTime={game.kickoff_at ?? undefined}>{formatKickoff(game.kickoff_at)}</time>
+          <time dateTime={game.kickoff_at ?? game.scheduled_date}>{formatKickoff(game.scheduled_date, game.kickoff_at)}</time>
         )}
         {channelName ? (
           <span className="public-game-tv">
