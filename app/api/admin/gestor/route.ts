@@ -28,6 +28,11 @@ import {
   type CalendarResolvedCompetitiveIdentity
 } from "@/lib/calendar-import";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
+import {
+  buildSeasonParticipantPlan,
+  type SeasonParticipantPlan,
+  type SeasonParticipantPlanSummary
+} from "@/lib/season-participant-list";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 const ROUNDUP_EDITOR_SORT_ORDERS = Array.from({ length: 10 }, (_, index) => index + 1);
@@ -175,22 +180,12 @@ type TeamAliasRow = {
   normalized_alias: string;
 };
 
-type ClubListRow = {
-  lineNumber: number;
-  name: string;
-  shortName: string | null;
-  slug: string;
-  logoUrl: string | null;
-  primaryColor: string | null;
-};
+type ApplyClubListSummary = SeasonParticipantPlanSummary;
 
-type ApplyClubListSummary = {
-  createdTeams: number;
-  reusedTeams: number;
-  addedParticipants: number;
-  existingParticipants: number;
-  blockedConflicts: number;
-  invalidLines: number;
+type SeasonParticipantAssociationRow = {
+  team_id: string;
+  status: string | null;
+  display_order: number;
 };
 
 type ManualParticipantRow = {
@@ -561,48 +556,71 @@ async function createParticipant(formData: FormData) {
   });
 }
 
-function parseClubList(rawList: string): { rows: ClubListRow[]; invalidLines: number } {
-  const seenSlugs = new Set<string>();
-  const rows: ClubListRow[] = [];
-  let invalidLines = 0;
+async function buildSeasonParticipantServerPlan(
+  countryId: string,
+  seasonId: string,
+  rawList: string
+): Promise<{ plan: SeasonParticipantPlan; participants: SeasonParticipantAssociationRow[] }> {
+  let teams: TeamRow[] | null = null;
+  try {
+    teams = await fetchSupabaseAdminTable<TeamRow>(
+      `teams?select=id,name,short_name,slug,code,country_id&country_id=eq.${encodeURIComponent(countryId)}&limit=2000`
+    );
+  } catch {
+    teams = null;
+  }
 
-  rawList
-    .split(/\r?\n/)
-    .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
-    .filter((item) => item.line.length > 0)
-    .forEach(({ line, lineNumber }) => {
-      const [nameValue = "", shortValue = "", slugValue = "", logoValue = "", colorValue = ""] = line
-        .split(";")
-        .map((value) => value.trim());
-      const name = nameValue;
-      const slug = slugify(slugValue || name);
-
-      if (!name || !slug || seenSlugs.has(slug)) {
-        invalidLines += 1;
-        return;
+  let aliases: TeamAliasRow[] | null = null;
+  if (teams !== null) {
+    const teamIds = Array.from(new Set(teams.map((team) => team.id))).filter(Boolean);
+    if (teamIds.length === 0) {
+      aliases = [];
+    } else {
+      try {
+        aliases = await fetchSupabaseAdminTable<TeamAliasRow>(
+          `team_aliases?select=team_id,normalized_alias&team_id=in.(${teamIds.map(encodeURIComponent).join(",")})&limit=2000`
+        );
+      } catch {
+        aliases = null;
       }
+    }
+  }
 
-      seenSlugs.add(slug);
-      rows.push({
-        lineNumber,
-        name,
-        shortName: cleanText(shortValue) ? shortValue.toUpperCase() : null,
-        slug,
-        logoUrl: cleanText(logoValue),
-        primaryColor: cleanText(colorValue)
-      });
-    });
+  const participants = await fetchSupabaseAdminTable<SeasonParticipantAssociationRow>(
+    `season_teams?select=team_id,status,display_order&season_id=eq.${encodeURIComponent(seasonId)}&limit=2000`
+  );
+  const plan = buildSeasonParticipantPlan({
+    rawList,
+    teams:
+      teams?.map((team) => ({
+        id: team.id,
+        name: team.name,
+        shortName: team.short_name,
+        slug: team.slug,
+        code: team.code ?? null
+      })) ?? null,
+    aliases:
+      aliases?.map((alias) => ({
+        teamId: alias.team_id,
+        normalizedAlias: alias.normalized_alias
+      })) ?? null,
+    participants: participants.map((participant) => ({
+      teamId: participant.team_id,
+      status: participant.status
+    }))
+  });
 
-  return { rows, invalidLines };
+  return { plan, participants };
 }
 
 async function applyClubList(formData: FormData): Promise<ApplyClubListSummary> {
   const countryId = cleanText(formData.get("country_id"));
   const competitionId = cleanText(formData.get("competition_id"));
   const seasonId = cleanText(formData.get("season_id"));
-  const rawList = cleanText(formData.get("club_preview"));
+  const rawListValue = formData.get("club_preview");
+  const rawList = typeof rawListValue === "string" ? rawListValue : null;
 
-  if (!countryId || !competitionId || !seasonId || !rawList) {
+  if (!countryId || !competitionId || !seasonId || !rawList?.trim()) {
     throw new Error("missing-fields");
   }
 
@@ -626,111 +644,57 @@ async function applyClubList(formData: FormData): Promise<ApplyClubListSummary> 
     throw new Error("season-competition-invalid");
   }
 
-  const parsed = parseClubList(rawList);
-  const summary: ApplyClubListSummary = {
-    createdTeams: 0,
-    reusedTeams: 0,
-    addedParticipants: 0,
-    existingParticipants: 0,
-    blockedConflicts: 0,
-    invalidLines: parsed.invalidLines
-  };
-  const lookupTeams = await readTeamsForCountryLookup(countryId);
-  const lookupAliases = await readTeamAliasesForTeamIds(lookupTeams.map((team) => team.id));
-  const teamsByKey = buildTeamLookupIndex(lookupTeams, lookupAliases);
-
-  for (const row of parsed.rows) {
-    let team = resolveTeamByInputName({
-      teamsByKey,
-      slug: row.slug,
-      name: row.name,
-      shortName: row.shortName
-    });
-
-    if (!team) {
-      const existingTeams = await fetchSupabaseAdminTable<TeamRow>(
-        `teams?select=id,name,short_name,slug,code,country_id&slug=eq.${encodeURIComponent(row.slug)}&limit=1`
-      );
-      team = existingTeams[0];
-    }
-
-    if (team?.country_id && team.country_id !== countryId) {
-      summary.blockedConflicts += 1;
-      continue;
-    }
-
-    if (!team) {
-      const createdTeams = await writeSupabaseAdminReturning<TeamRow>("teams", {
-        method: "POST",
-        body: JSON.stringify({
-          name: row.name,
-          short_name: row.shortName ?? row.name.slice(0, 6).toUpperCase(),
-          slug: row.slug,
-          country_id: countryId,
-          logo_url: row.logoUrl,
-          primary_color: row.primaryColor
-        })
-      });
-      team = createdTeams[0];
-      summary.createdTeams += 1;
-      if (team) {
-        addTeamLookupKey(teamsByKey, team.slug, team);
-        addTeamLookupKey(teamsByKey, team.name, team);
-        addTeamLookupKey(teamsByKey, team.short_name, team);
-        addTeamLookupKey(teamsByKey, team.code, team);
-      }
-    } else {
-      summary.reusedTeams += 1;
-
-      if (!team.country_id) {
-        await writeSupabaseAdmin(`teams?id=eq.${encodeURIComponent(team.id)}&country_id=is.null`, {
-          method: "PATCH",
-          body: JSON.stringify({
-            country_id: countryId
-          })
-        });
-
-        if (
-          !(await hasRows(
-            `teams?select=id&id=eq.${encodeURIComponent(team.id)}&country_id=eq.${encodeURIComponent(countryId)}`
-          ))
-        ) {
-          throw new Error("invalid-team-country");
-        }
-      }
-    }
-
-    if (!team?.id) {
-      summary.invalidLines += 1;
-      continue;
-    }
-
-    const participantExists = await hasRows(
-      `season_teams?select=id&season_id=eq.${encodeURIComponent(seasonId)}&team_id=eq.${encodeURIComponent(team.id)}`
-    );
-
-    await writeSupabaseAdmin("season_teams?on_conflict=season_id,team_id", {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify({
-        season_id: seasonId,
-        team_id: team.id,
-        display_order: row.lineNumber,
-        status: "active",
-        data_source: "manual",
-        sync_status: "manual",
-        manual_override: true
-      })
-    });
-
-    if (participantExists) {
-      summary.existingParticipants += 1;
-    } else {
-      summary.addedParticipants += 1;
-    }
+  const { plan, participants } = await buildSeasonParticipantServerPlan(countryId, seasonId, rawList);
+  if (!plan.applicable) {
+    const reasonCodes = new Set(plan.rows.map((row) => row.reasonCode));
+    if (reasonCodes.has("catalog-unavailable")) throw new Error("participant-catalog-unavailable");
+    if (reasonCodes.has("aliases-unavailable")) throw new Error("participant-aliases-unavailable");
+    if (reasonCodes.has("participants-unavailable")) throw new Error("participant-participants-unavailable");
+    throw new Error("participant-list-invalid");
   }
 
-  return summary;
+  const associations = plan.rows.filter(
+    (row): row is typeof row & { teamId: string } => row.action === "associate" && Boolean(row.teamId)
+  );
+  const reactivations = plan.rows.filter(
+    (row): row is typeof row & { teamId: string } => row.action === "reactivate" && Boolean(row.teamId)
+  );
+  const nextDisplayOrder = participants.reduce(
+    (maximum, participant) => Math.max(maximum, participant.display_order),
+    0
+  );
+
+  if (associations.length > 0) {
+    await writeSupabaseAdmin("season_teams", {
+      method: "POST",
+      body: JSON.stringify(
+        associations.map((row, index) => ({
+          season_id: seasonId,
+          team_id: row.teamId,
+          display_order: nextDisplayOrder + index + 1,
+          status: "active",
+          data_source: "manual",
+          sync_status: "manual",
+          manual_override: true
+        }))
+      )
+    });
+  }
+
+  if (reactivations.length > 0) {
+    const teamIds = reactivations.map((row) => row.teamId).sort();
+    await writeSupabaseAdmin(
+      `season_teams?season_id=eq.${encodeURIComponent(seasonId)}&team_id=in.(${teamIds
+        .map(encodeURIComponent)
+        .join(",")})&status=eq.inactive`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status: "active" })
+      }
+    );
+  }
+
+  return plan.summary;
 }
 
 async function removeParticipant(formData: FormData) {
