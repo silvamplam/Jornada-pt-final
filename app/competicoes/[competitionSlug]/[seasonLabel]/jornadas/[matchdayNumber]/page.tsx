@@ -2638,8 +2638,11 @@ const civilMonthNames = [
   "dezembro"
 ];
 
-function parseCivilDate(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+const compactMonthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
+function parseCivilDate(value: string | null | undefined) {
+  const cleanValue = value ?? "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(cleanValue);
   if (!match) return null;
 
   const year = Number(match[1]);
@@ -2654,7 +2657,7 @@ function parseCivilDate(value: string) {
     return null;
   }
 
-  return { day, month, year, key: value };
+  return { day, month, year, key: cleanValue };
 }
 
 function formatCivilDate(value: string) {
@@ -2730,6 +2733,90 @@ function formatMatchdayDateContext(matches: PublicSeasonMatch[]) {
   }
 
   return `${firstLabel} – ${lastLabel}`;
+}
+
+function validKickoffTime(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("pt-PT", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Lisbon"
+  }).format(date);
+}
+
+function kickoffCivilDate(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Lisbon"
+  }).formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+  return year && month && day
+    ? { day, month, year, key: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` }
+    : null;
+}
+
+function matchSchedulePresentation(match: Pick<PublicSeasonMatch, "scheduled_date" | "kickoff_at" | "matchday">, compact: boolean) {
+  const scheduledDate = parseCivilDate(match.scheduled_date);
+  const kickoffTime = validKickoffTime(match.kickoff_at);
+
+  if (kickoffTime) {
+    const civilDate = scheduledDate ?? kickoffCivilDate(match.kickoff_at);
+    if (civilDate) {
+      return {
+        visual: `${String(civilDate.day).padStart(2, "0")} ${compactMonthNames[civilDate.month - 1]} · ${kickoffTime}`,
+        accessible: `${civilDate.day} de ${civilMonthNames[civilDate.month - 1]} de ${civilDate.year}, às ${kickoffTime.replace(":", "h")}`,
+        dateTime: match.kickoff_at
+      };
+    }
+  }
+
+  if (scheduledDate) {
+    return {
+      visual: `${String(scheduledDate.day).padStart(2, "0")} ${compactMonthNames[scheduledDate.month - 1]} · ${compact ? "A DEFINIR" : "HORA POR DEFINIR"}`,
+      accessible: `${scheduledDate.day} de ${civilMonthNames[scheduledDate.month - 1]} de ${scheduledDate.year}, hora por definir`,
+      dateTime: match.scheduled_date
+    };
+  }
+
+  const matchdayNumber = match.matchday?.number ?? null;
+  return {
+    visual: compact ? (matchdayNumber === null ? "A DEFINIR" : `J${matchdayNumber} · A DEFINIR`) : "DATA E HORA POR DEFINIR",
+    accessible: matchdayNumber === null ? "Data e hora por definir" : `Jornada ${matchdayNumber}, data e hora por definir`,
+    dateTime: null
+  };
+}
+
+function formatCivilDateRange(firstDate: NonNullable<ReturnType<typeof parseCivilDate>>, lastDate: NonNullable<ReturnType<typeof parseCivilDate>>) {
+  if (firstDate.key === lastDate.key) return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year}`;
+  if (firstDate.year === lastDate.year && firstDate.month === lastDate.month) {
+    return `${firstDate.day}–${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
+  }
+  if (firstDate.year === lastDate.year) {
+    return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
+  }
+  return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
+}
+
+function formatPreferredMatchdayDateContext(matches: PublicSeasonMatch[], startsOn: string | null, endsOn: string | null) {
+  const startsDate = parseCivilDate(startsOn);
+  const endsDate = parseCivilDate(endsOn);
+  if (startsDate && endsDate) return formatCivilDateRange(startsDate, endsDate);
+
+  const scheduledDates = matches
+    .map((match) => parseCivilDate(match.scheduled_date))
+    .filter((date): date is NonNullable<typeof date> => date !== null)
+    .sort((firstDate, secondDate) => firstDate.key.localeCompare(secondDate.key));
+  if (scheduledDates.length === 0) return "Data por definir";
+  return formatCivilDateRange(scheduledDates[0], scheduledDates[scheduledDates.length - 1]);
 }
 
 function statusLabel(status: string) {
@@ -2988,6 +3075,7 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
   ) : statusLabel(match.status);
   const homeTeamName = match.homeTeam?.name ?? "Equipa da casa";
   const awayTeamName = match.awayTeam?.name ?? "Equipa visitante";
+  const schedule = matchSchedulePresentation(match, true);
 
   return (
     <article className={`public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
@@ -3011,9 +3099,11 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
           </span>
         ) : kind === "scheduled" ? (
           <>
-            <time className="public-matchday-mini-time" dateTime={match.kickoff_at ?? match.scheduled_date}>
-              {formatMiniCardKickoff(match.scheduled_date, match.kickoff_at)}
-            </time>
+            {schedule.dateTime ? (
+              <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
+            ) : (
+              <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
+            )}
             {broadcastChannelName ? (
               <>
                 <span className="public-matchday-mini-separator" aria-hidden="true">·</span>
@@ -3045,6 +3135,7 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
   ) : statusLabel(match.status);
   const homeWinner = isWinner(match, "home");
   const awayWinner = isWinner(match, "away");
+  const schedule = matchSchedulePresentation(match, false);
 
   return (
     <article className={`public-matchday-card public-matchday-card-${kind}`} key={match.id}>
@@ -3070,7 +3161,11 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         </div>
       </div>
       <div className="public-matchday-meta">
-        <span>{formatKickoff(match.scheduled_date, match.kickoff_at)}</span>
+        {schedule.dateTime ? (
+          <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
+        ) : (
+          <span aria-label={schedule.accessible}>{schedule.visual}</span>
+        )}
         {match.venue ? <span>{match.venue}</span> : null}
         {kind === "live" ? null : <BroadcastBadge match={match} />}
       </div>
@@ -3250,7 +3345,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const gamesPageHref = `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${context.matchday.number}/jogos`;
   const liveMatches = context.matchesForMatchday.filter((match) => statusKind(match.status) === "live");
   const halftimeMatches = context.matchesForMatchday.filter((match) => statusKind(match.status) === "halftime");
-  const selectedMatchdayDateContext = formatMatchdayDateContext(context.matchesForMatchday);
+  const selectedMatchdayDateContext = formatPreferredMatchdayDateContext(
+    context.matchesForMatchday,
+    context.matchday.starts_on,
+    context.matchday.ends_on
+  );
   const editorial = context.editorial;
   const liveBelowHeadlineSubtitle = await readBelowHeadlineSubtitle(context.matchday.id);
   const publishedHeadline = editorial?.status === "published" ? editorial : null;

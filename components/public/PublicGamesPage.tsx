@@ -10,7 +10,7 @@ type MatchRow = {
   matchday_id: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
-  scheduled_date: string;
+  scheduled_date: string | null;
   kickoff_at: string | null;
   status: string | null;
   minute: number | string | null;
@@ -63,7 +63,7 @@ type PublicGame = {
   matchday: MatchdayRow | null;
   homeTeam: TeamRow | null;
   awayTeam: TeamRow | null;
-  scheduled_date: string;
+  scheduled_date: string | null;
   kickoff_at: string | null;
   status: string | null;
   minute: number | string | null;
@@ -518,30 +518,80 @@ function statusKind(status?: string | null) {
   return "scheduled";
 }
 
-function formatCivilDayMonth(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  return match ? `${match[3]}/${match[2]}` : null;
+const compactMonthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+const accessibleMonthNames = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+function parseCivilDate(value?: string | null) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const validationDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    validationDate.getUTCFullYear() !== year ||
+    validationDate.getUTCMonth() !== month - 1 ||
+    validationDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year, month, day };
 }
 
-function formatKickoff(scheduledDate: string, value?: string | null) {
-  if (!value) {
-    const dayMonth = formatCivilDayMonth(scheduledDate);
-    return dayMonth ? `${dayMonth} \u00b7 Hora por definir` : "Hora por definir";
-  }
-
+function kickoffCivilDate(value?: string | null) {
+  if (!value) return null;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    const dayMonth = formatCivilDayMonth(scheduledDate);
-    return dayMonth ? `${dayMonth} \u00b7 Hora por definir` : "Hora por definir";
-  }
+  if (Number.isNaN(date.getTime())) return null;
 
-  return new Intl.DateTimeFormat("pt-PT", {
+  const parts = new Intl.DateTimeFormat("en-CA", {
     day: "2-digit",
     month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+    year: "numeric",
     timeZone: "Europe/Lisbon"
-  }).format(date);
+  }).formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+
+  return year && month && day ? { year, month, day } : null;
+}
+
+function gameSchedule(scheduledDateValue: string | null, kickoffValue?: string | null) {
+  const scheduledDate = parseCivilDate(scheduledDateValue);
+  const kickoff = kickoffValue ? new Date(kickoffValue) : null;
+  const validKickoff = kickoff && !Number.isNaN(kickoff.getTime()) ? kickoff : null;
+
+  if (validKickoff) {
+    const civilDate = scheduledDate ?? kickoffCivilDate(kickoffValue);
+    if (civilDate) {
+      const time = new Intl.DateTimeFormat("pt-PT", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Lisbon"
+      }).format(validKickoff);
+      return {
+        visual: `${String(civilDate.day).padStart(2, "0")} ${compactMonthNames[civilDate.month - 1]} \u00b7 ${time}`,
+        accessible: `${civilDate.day} de ${accessibleMonthNames[civilDate.month - 1]} de ${civilDate.year}, às ${time.replace(":", "h")}`,
+        dateTime: kickoffValue ?? null
+      };
+    }
+  }
+
+  if (scheduledDate) {
+    return {
+      visual: `${String(scheduledDate.day).padStart(2, "0")} ${compactMonthNames[scheduledDate.month - 1]} \u00b7 HORA POR DEFINIR`,
+      accessible: `${scheduledDate.day} de ${accessibleMonthNames[scheduledDate.month - 1]} de ${scheduledDate.year}, hora por definir`,
+      dateTime: scheduledDateValue
+    };
+  }
+
+  return {
+    visual: "DATA E HORA POR DEFINIR",
+    accessible: "Data e hora por definir",
+    dateTime: null
+  };
 }
 
 function teamInitials(team?: TeamRow | null) {
@@ -675,7 +725,7 @@ async function readPublicGames(filters: { competitionId?: string | null; seasonI
   const query =
     "matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,minute,home_score,away_score,broadcast_channel_id" +
     (queryFilters.length > 0 ? `&${queryFilters.join("&")}` : "") +
-    "&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=800";
+    "&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc&limit=800";
   const matches = await fetchSupabaseAdminTable<MatchRow>(query).catch(() => []);
   const matchIds = matches.map((match) => match.id);
   const [teamsById, competitionsById, seasonsById, matchdaysById, broadcastChannelsByMatchId] = await Promise.all([
@@ -720,8 +770,12 @@ async function readPublicGames(filters: { competitionId?: string | null; seasonI
 }
 
 function sortGames(first: PublicGame, second: PublicGame) {
-  const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
-  if (dateDifference !== 0) return dateDifference;
+  if (first.scheduled_date !== second.scheduled_date) {
+    if (first.scheduled_date === null) return 1;
+    if (second.scheduled_date === null) return -1;
+    const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
+    if (dateDifference !== 0) return dateDifference;
+  }
 
   if (!first.kickoff_at || !second.kickoff_at) {
     if (first.kickoff_at !== second.kickoff_at) return first.kickoff_at ? -1 : 1;
@@ -779,6 +833,7 @@ function GameCard({ game, showCompetition, showContext = true }: { game: PublicG
   const channelName = cleanText(game.broadcastChannel?.name);
   const seasonLabel = cleanText(game.season?.label);
   const liveLabel = kind === "halftime" ? "Intervalo" : game.minute ? `Em direto - ${game.minute}'` : "Em direto";
+  const schedule = gameSchedule(game.scheduled_date, game.kickoff_at);
 
   return (
     <article className={`public-game-card${showContext ? "" : " public-game-card-no-context"}`}>
@@ -801,7 +856,11 @@ function GameCard({ game, showCompetition, showContext = true }: { game: PublicG
         ) : kind === "finished" ? (
           <span className="public-game-status">Finalizado</span>
         ) : (
-          <time dateTime={game.kickoff_at ?? game.scheduled_date}>{formatKickoff(game.scheduled_date, game.kickoff_at)}</time>
+          schedule.dateTime ? (
+            <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
+          ) : (
+            <span aria-label={schedule.accessible}>{schedule.visual}</span>
+          )
         )}
         {channelName ? (
           <span className="public-game-tv">

@@ -166,7 +166,7 @@ type HomeMatch = {
   away_team_id: string;
   status: string | null;
   minute: number | null;
-  scheduled_date: string;
+  scheduled_date: string | null;
   kickoff_at: string | null;
   home_score: number | null;
   away_score: number | null;
@@ -1426,12 +1426,12 @@ function StatusPill({ status }: { status: string | null | undefined }) {
   return <span className={`home-admin-pill${statusClass(status)}`}>{statusText(status)}</span>;
 }
 
-function formatCivilDate(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+function formatCivilDate(value: string | null) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
   return match ? `${match[3]}/${match[2]}/${match[1]}` : null;
 }
 
-function formatDateTime(scheduledDate: string, value: string | null | undefined) {
+function formatDateTime(scheduledDate: string | null, value: string | null | undefined) {
   if (!value) {
     const dateLabel = formatCivilDate(scheduledDate);
     return dateLabel ? `${dateLabel} · Hora por definir` : "Hora por definir";
@@ -1449,6 +1449,26 @@ function formatDateTime(scheduledDate: string, value: string | null | undefined)
     hour: "2-digit",
     minute: "2-digit"
   }).format(date);
+}
+
+const scheduleMonthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
+function formatMatchSchedule(scheduledDate: string | null, kickoffAt: string | null | undefined) {
+  const civil = /^(\d{4})-(\d{2})-(\d{2})$/.exec(scheduledDate ?? "");
+  const month = civil ? Number(civil[2]) : 0;
+  const dateLabel = civil && month >= 1 && month <= 12 ? `${civil[3]} ${scheduleMonthNames[month - 1]}` : null;
+  if (kickoffAt) {
+    const kickoff = new Date(kickoffAt);
+    if (!Number.isNaN(kickoff.getTime())) {
+      const time = new Intl.DateTimeFormat("pt-PT", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Lisbon"
+      }).format(kickoff);
+      return dateLabel ? `${dateLabel} · ${time}` : time;
+    }
+  }
+  return dateLabel ? `${dateLabel} · HORA POR DEFINIR` : "DATA E HORA POR DEFINIR";
 }
 
 function matchStatusLabel(match: HomeMatch) {
@@ -1762,7 +1782,7 @@ async function readHomeGameSelectionData(): Promise<HomeGameSelectionData> {
         "matchdays?select=id,season_id,number,label,starts_on,ends_on,status&order=number.asc"
       ),
       fetchSupabaseAdminTable<HomeMatch>(
-        "matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,scheduled_date,kickoff_at,home_score,away_score,venue,broadcast_channel_id&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=1000"
+        "matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,scheduled_date,kickoff_at,home_score,away_score,venue,broadcast_channel_id&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc&limit=1000"
       ),
       fetchSupabaseAdminTable<HomeTeam>("teams?select=id,name,short_name,logo_url&order=name.asc"),
       fetchSupabaseAdminTable<HomeBroadcastChannel>("broadcast_channels?select=id,name,logo_url&order=name.asc")
@@ -2101,7 +2121,7 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                                 <div className="home-admin-game-main">
                                   <strong>{matchTitle(match, teamsById)}</strong>
                                   <small>
-                                    {formatDateTime(match.scheduled_date, match.kickoff_at)} | {matchStatusLabel(match)}
+                                    {formatMatchSchedule(match.scheduled_date, match.kickoff_at)} | {matchStatusLabel(match)}
                                   </small>
                                 </div>
                                 <span className="home-admin-game-score">{matchScoreLabel(match)}</span>

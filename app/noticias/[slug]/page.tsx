@@ -846,8 +846,11 @@ const civilMonthNames = [
   "dezembro"
 ];
 
-function parseCivilDate(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+const compactMonthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
+function parseCivilDate(value: string | null | undefined) {
+  const cleanValue = value ?? "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(cleanValue);
   if (!match) return null;
 
   const year = Number(match[1]);
@@ -862,7 +865,7 @@ function parseCivilDate(value: string) {
     return null;
   }
 
-  return { day, month, year, key: value };
+  return { day, month, year, key: cleanValue };
 }
 
 function formatKickoffTime(value: string | null) {
@@ -917,6 +920,86 @@ function formatMatchdayDateContext(matches: PublicSeasonMatch[]) {
   }
 
   return `${firstLabel} – ${lastLabel}`;
+}
+
+function validKickoffTime(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("pt-PT", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Lisbon"
+  }).format(date);
+}
+
+function kickoffCivilDate(value: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Lisbon"
+  }).formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+  return year && month && day
+    ? { day, month, year, key: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` }
+    : null;
+}
+
+function compactMatchSchedule(match: Pick<PublicSeasonMatch, "scheduled_date" | "kickoff_at" | "matchday">) {
+  const scheduledDate = parseCivilDate(match.scheduled_date);
+  const kickoffTime = validKickoffTime(match.kickoff_at);
+  if (kickoffTime) {
+    const civilDate = scheduledDate ?? kickoffCivilDate(match.kickoff_at);
+    if (civilDate) {
+      return {
+        visual: `${String(civilDate.day).padStart(2, "0")} ${compactMonthNames[civilDate.month - 1]} · ${kickoffTime}`,
+        accessible: `${civilDate.day} de ${civilMonthNames[civilDate.month - 1]} de ${civilDate.year}, às ${kickoffTime.replace(":", "h")}`,
+        dateTime: match.kickoff_at
+      };
+    }
+  }
+  if (scheduledDate) {
+    return {
+      visual: `${String(scheduledDate.day).padStart(2, "0")} ${compactMonthNames[scheduledDate.month - 1]} · A DEFINIR`,
+      accessible: `${scheduledDate.day} de ${civilMonthNames[scheduledDate.month - 1]} de ${scheduledDate.year}, hora por definir`,
+      dateTime: match.scheduled_date
+    };
+  }
+  const matchdayNumber = match.matchday?.number ?? null;
+  return {
+    visual: matchdayNumber === null ? "A DEFINIR" : `J${matchdayNumber} · A DEFINIR`,
+    accessible: matchdayNumber === null ? "Data e hora por definir" : `Jornada ${matchdayNumber}, data e hora por definir`,
+    dateTime: null
+  };
+}
+
+function formatCivilDateRange(firstDate: NonNullable<ReturnType<typeof parseCivilDate>>, lastDate: NonNullable<ReturnType<typeof parseCivilDate>>) {
+  if (firstDate.key === lastDate.key) return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year}`;
+  if (firstDate.year === lastDate.year && firstDate.month === lastDate.month) {
+    return `${firstDate.day}–${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
+  }
+  if (firstDate.year === lastDate.year) {
+    return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
+  }
+  return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
+}
+
+function formatPreferredMatchdayDateContext(matches: PublicSeasonMatch[], startsOn: string | null, endsOn: string | null) {
+  const startsDate = parseCivilDate(startsOn);
+  const endsDate = parseCivilDate(endsOn);
+  if (startsDate && endsDate) return formatCivilDateRange(startsDate, endsDate);
+  const scheduledDates = matches
+    .map((match) => parseCivilDate(match.scheduled_date))
+    .filter((date): date is NonNullable<typeof date> => date !== null)
+    .sort((firstDate, secondDate) => firstDate.key.localeCompare(secondDate.key));
+  if (scheduledDates.length === 0) return "Data por definir";
+  return formatCivilDateRange(scheduledDates[0], scheduledDates[scheduledDates.length - 1]);
 }
 
 function statusKind(status: string) {
@@ -1039,6 +1122,7 @@ function ArticleMatchCard({ match }: { match: PublicSeasonMatch }) {
   ) : statusLabel(match.status);
   const homeTeamName = match.homeTeam?.name?.trim() || match.homeTeam?.short_name?.trim() || "Equipa";
   const awayTeamName = match.awayTeam?.name?.trim() || match.awayTeam?.short_name?.trim() || "Equipa";
+  const schedule = compactMatchSchedule(match);
 
   return (
     <article className={`news-article-game-card news-article-game-card-${kind}`}>
@@ -1055,9 +1139,11 @@ function ArticleMatchCard({ match }: { match: PublicSeasonMatch }) {
       <span className="news-article-game-meta">
         {kind === "scheduled" ? (
           <>
-            <time dateTime={match.kickoff_at ?? match.scheduled_date}>
-              {formatMiniCardKickoff(match.scheduled_date, match.kickoff_at)}
-            </time>
+            {schedule.dateTime ? (
+              <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
+            ) : (
+              <span aria-label={schedule.accessible}>{schedule.visual}</span>
+            )}
             {channelName ? (
               <>
                 <span aria-hidden="true">·</span>
@@ -1262,7 +1348,11 @@ export default async function NewsArticlePage({ params }: PageProps) {
   const visibleMatchdays = activeMatchdayLeg === "second" ? secondLegMatchdays : firstLegMatchdays;
   const firstLegHref = firstLegMatchdays[0] ? matchdayHref(firstLegMatchdays[0].number) : currentSeasonHref;
   const secondLegHref = secondLegMatchdays[0] ? matchdayHref(secondLegMatchdays[0].number) : currentSeasonHref;
-  const selectedMatchdayDateContext = formatMatchdayDateContext(articleMatches);
+  const selectedMatchdayDateContext = formatPreferredMatchdayDateContext(
+    articleMatches,
+    articleContext?.matchday.starts_on ?? null,
+    articleContext?.matchday.ends_on ?? null
+  );
   const articleGamesGridTemplateColumns = "repeat(auto-fit, minmax(min(132px, 100%), 1fr))";
 
   return (

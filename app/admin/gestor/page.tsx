@@ -47,7 +47,8 @@ type SeasonAgendaMatch = {
   matchday_id: string | null;
   home_team_id: string;
   away_team_id: string;
-  kickoff_at: string;
+  scheduled_date: string | null;
+  kickoff_at: string | null;
   venue: string | null;
   status: string;
   minute: number | null;
@@ -1709,12 +1710,23 @@ function toDatetimeLocal(value?: string | null) {
   return `${byType.get("year")}-${byType.get("month")}-${byType.get("day")}T${byType.get("hour")}:${byType.get("minute")}`;
 }
 
-function formatLisbonDateTime(value: string) {
-  return new Intl.DateTimeFormat("pt-PT", {
-    timeZone: "Europe/Lisbon",
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(new Date(value));
+function formatLisbonDateTime(scheduledDate: string | null, kickoffAt: string | null) {
+  const monthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+  const civil = /^(\d{4})-(\d{2})-(\d{2})$/.exec(scheduledDate ?? "");
+  const month = civil ? Number(civil[2]) : 0;
+  const dateLabel = civil && month >= 1 && month <= 12 ? `${civil[3]} ${monthNames[month - 1]}` : null;
+  if (kickoffAt) {
+    const kickoff = new Date(kickoffAt);
+    if (!Number.isNaN(kickoff.getTime())) {
+      const time = new Intl.DateTimeFormat("pt-PT", {
+        timeZone: "Europe/Lisbon",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(kickoff);
+      return dateLabel ? `${dateLabel} · ${time}` : time;
+    }
+  }
+  return dateLabel ? `${dateLabel} · HORA POR DEFINIR` : "DATA E HORA POR DEFINIR";
 }
 
 async function readTeamsForCountry(countryId?: string): Promise<CountryTeam[]> {
@@ -1791,9 +1803,9 @@ async function readMatchesForMatchday(matchdayId?: string): Promise<SeasonAgenda
 
   try {
     return await fetchSupabaseAdminTable<SeasonAgendaMatch>(
-      `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,kickoff_at,venue,status,minute,live_started_at,live_base_minute,is_clock_running,home_score,away_score,broadcast_channel_id&matchday_id=eq.${encodeURIComponent(
+      `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,venue,status,minute,live_started_at,live_base_minute,is_clock_running,home_score,away_score,broadcast_channel_id&matchday_id=eq.${encodeURIComponent(
         matchdayId
-      )}&manual_override=is.true&order=kickoff_at.asc`
+      )}&manual_override=is.true&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc`
     );
   } catch {
     return [];
@@ -1807,9 +1819,9 @@ async function readMatchesForSeason(seasonId?: string): Promise<SeasonAgendaMatc
 
   try {
     return await fetchSupabaseAdminTable<SeasonAgendaMatch>(
-      `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,kickoff_at,venue,status,minute,live_started_at,live_base_minute,is_clock_running,home_score,away_score,broadcast_channel_id&season_id=eq.${encodeURIComponent(
+      `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,venue,status,minute,live_started_at,live_base_minute,is_clock_running,home_score,away_score,broadcast_channel_id&season_id=eq.${encodeURIComponent(
         seasonId
-      )}&manual_override=is.true&order=kickoff_at.asc`
+      )}&manual_override=is.true&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc`
     );
   } catch {
     return [];
@@ -2344,7 +2356,7 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
               {homeTeam?.name ?? "Casa"} {match.home_score ?? "-"}-{match.away_score ?? "-"} {awayTeam?.name ?? "Fora"}
             </b>
             <small className="manager-match-summary-line">
-              {formatLisbonDateTime(match.kickoff_at)} - {match.venue ?? "Sem estadio"} - {statusLabel}
+              {formatLisbonDateTime(match.scheduled_date, match.kickoff_at)} - {match.venue ?? "Sem estadio"} - {statusLabel}
               {minuteLabel}
             </small>
           </div>
@@ -2374,7 +2386,7 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
             {homeTeam?.name ?? "Casa"} vs {awayTeam?.name ?? "Fora"}
           </b>
           <small className="manager-match-summary-line">
-            <span>{formatLisbonDateTime(match.kickoff_at)}</span>
+            <span>{formatLisbonDateTime(match.scheduled_date, match.kickoff_at)}</span>
             <span>{match.venue ?? "Sem estadio"}</span>
             <span>{statusLabel}{minuteLabel}{scoreLabel}</span>
             <span>{baseMinuteLabel}</span>

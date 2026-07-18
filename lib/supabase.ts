@@ -212,7 +212,7 @@ export type SupabaseMatch = {
   away_team_id: string;
   status: string;
   minute: number | null;
-  scheduled_date: string;
+  scheduled_date: string | null;
   kickoff_at: string | null;
   home_score: number | null;
   away_score: number | null;
@@ -311,7 +311,7 @@ export type SupabaseParticipantSourceMatch = {
   season_id: string;
   home_team_id: string;
   away_team_id: string;
-  scheduled_date: string;
+  scheduled_date: string | null;
   kickoff_at: string | null;
   status: string | null;
   home_score: number | null;
@@ -779,7 +779,7 @@ export async function getAdminSeasonParticipants(): Promise<{
         "teams?select=id,name,short_name,slug,code,country,logo_url,primary_color&order=name.asc"
       ),
       readTable<SupabaseMatch>(
-        "matches?select=id,season_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,home_score,away_score&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=1000"
+        "matches?select=id,season_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,home_score,away_score&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc&limit=1000"
       ).catch(() => [])
     ]);
 
@@ -874,7 +874,7 @@ export async function getAdminMatchesTv(): Promise<{
     const readTable = writeConfigured ? fetchSupabaseAdminTable : fetchSupabaseTable;
     const [matches, competitions, seasons, matchdays, teams, broadcastChannels] = await Promise.all([
       readTable<SupabaseMatch>(
-        "matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,scheduled_date,kickoff_at,home_score,away_score,venue,broadcast_channel_id&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=1000"
+        "matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,scheduled_date,kickoff_at,home_score,away_score,venue,broadcast_channel_id&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc&limit=1000"
       ),
       readTable<SupabaseCompetition>(
         "competitions?select=id,name,slug,country,logo_url,is_active&order=name.asc"
@@ -972,12 +972,12 @@ export async function getAdminMatchesEditor(): Promise<{
 
     try {
       matches = await readTable<SupabaseMatch>(
-        `matches?select=${matchSelectWithSync}&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=160`
+        `matches?select=${matchSelectWithSync}&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc&limit=160`
       );
     } catch {
       syncMetadataAvailable = false;
       matches = await readTable<SupabaseMatch>(
-        `matches?select=${matchSelectBase}&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=160`
+        `matches?select=${matchSelectBase}&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc&limit=160`
       );
     }
 
@@ -1298,7 +1298,7 @@ export async function getPublicBroadcastOverrides(): Promise<BroadcastOverride[]
   try {
     const [matches, broadcastChannels] = await Promise.all([
       fetchSupabaseTable<SupabasePublicBroadcastMatch>(
-        "matches?select=source_key,broadcast_channel_id&source_key=not.is.null&broadcast_channel_id=not.is.null&order=kickoff_at.asc&limit=200"
+        "matches?select=source_key,broadcast_channel_id&source_key=not.is.null&broadcast_channel_id=not.is.null&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,source_key.asc&limit=200"
       ),
       fetchSupabaseTable<SupabaseBroadcastChannel>(
         "broadcast_channels?select=id,name,platform,country,logo_url&order=name.asc"

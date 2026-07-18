@@ -376,12 +376,13 @@ function logo(participant: SupabaseAdminSeasonTeam) {
   return <img src={participant.team.logo_url} alt="" />;
 }
 
-function formatCivilDate(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+function formatCivilDate(value: string | null) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
   return match ? `${match[3]}/${match[2]}/${match[1]}` : null;
 }
 
-function formatShortDate(scheduledDate: string, value: string | null) {
+function formatShortDate(scheduledDate: string | null, value: string | null) {
+  if (!scheduledDate && !value) return "Data e hora por definir";
   if (!value) {
     const dateLabel = formatCivilDate(scheduledDate);
     return dateLabel ? `${dateLabel} · hora por definir` : "hora por definir";

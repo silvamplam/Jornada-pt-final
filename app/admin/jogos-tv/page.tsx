@@ -42,7 +42,7 @@ type MatchRow = {
   matchday_id: string | null;
   home_team_id: string | null;
   away_team_id: string | null;
-  scheduled_date: string;
+  scheduled_date: string | null;
   kickoff_at: string | null;
   status: string | null;
   minute: number | null;
@@ -409,12 +409,12 @@ async function readRowsById<T extends { id: string }>(table: string, select: str
   return new Map(rows.map((row) => [row.id, row]));
 }
 
-function formatCivilDate(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+function formatCivilDate(value: string | null) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
   return match ? `${match[3]}/${match[2]}/${match[1]}` : null;
 }
 
-function formatLisbonDateTime(scheduledDate: string, value: string | null) {
+function formatLisbonDateTime(scheduledDate: string | null, value: string | null) {
   if (!value) {
     const dateLabel = formatCivilDate(scheduledDate);
     return dateLabel ? `${dateLabel} · Hora por definir` : "Hora por definir";
@@ -434,6 +434,26 @@ function formatLisbonDateTime(scheduledDate: string, value: string | null) {
     minute: "2-digit",
     timeZone: "Europe/Lisbon"
   }).format(date);
+}
+
+const scheduleMonthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
+function formatMatchSchedule(scheduledDate: string | null, kickoffAt: string | null) {
+  const civil = /^(\d{4})-(\d{2})-(\d{2})$/.exec(scheduledDate ?? "");
+  const month = civil ? Number(civil[2]) : 0;
+  const dateLabel = civil && month >= 1 && month <= 12 ? `${civil[3]} ${scheduleMonthNames[month - 1]}` : null;
+  if (kickoffAt) {
+    const kickoff = new Date(kickoffAt);
+    if (!Number.isNaN(kickoff.getTime())) {
+      const time = new Intl.DateTimeFormat("pt-PT", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Europe/Lisbon"
+      }).format(kickoff);
+      return dateLabel ? `${dateLabel} · ${time}` : time;
+    }
+  }
+  return dateLabel ? `${dateLabel} · HORA POR DEFINIR` : "DATA E HORA POR DEFINIR";
 }
 
 function statusLabel(match: MatchRow) {
@@ -457,8 +477,12 @@ function matchdaySortNumber(matchday: MatchdayRow | null) {
 }
 
 function sortByKickoff(first: HydratedMatch, second: HydratedMatch) {
-  const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
-  if (dateDifference !== 0) return dateDifference;
+  if (first.scheduled_date !== second.scheduled_date) {
+    if (first.scheduled_date === null) return 1;
+    if (second.scheduled_date === null) return -1;
+    const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
+    if (dateDifference !== 0) return dateDifference;
+  }
 
   if (!first.kickoff_at || !second.kickoff_at) {
     if (first.kickoff_at !== second.kickoff_at) return first.kickoff_at ? -1 : 1;
@@ -515,7 +539,7 @@ function groupByMatchday(matches: HydratedMatch[]) {
 async function readMatches(selectedCompetitionId: string | null) {
   const competitionFilter = selectedCompetitionId ? `&competition_id=eq.${encodeURIComponent(selectedCompetitionId)}` : "";
   const matches = await fetchSupabaseAdminTable<MatchRow>(
-    `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,minute,home_score,away_score,broadcast_channel_id${competitionFilter}&order=scheduled_date.asc,kickoff_at.asc.nullslast,id.asc&limit=1200`
+    `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,minute,home_score,away_score,broadcast_channel_id${competitionFilter}&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc&limit=1200`
   ).catch(() => []);
   const [competitionsById, seasonsById, matchdaysById, teamsById, channelsById] = await Promise.all([
     readRowsById<CompetitionRow>("competitions", "id,name,slug", uniqueValues(matches.map((match) => match.competition_id))),
@@ -564,7 +588,7 @@ function MatchRowCard({ channels, match }: { channels: BroadcastChannelRow[]; ma
       </div>
       <div className="tv-match-meta">
         <strong>{statusLabel(match)}</strong>
-        <span>{formatLisbonDateTime(match.scheduled_date, match.kickoff_at)}</span>
+        <span>{formatMatchSchedule(match.scheduled_date, match.kickoff_at)}</span>
         <span>{match.channel?.name ? `Canal atual: ${match.channel.name}` : "Sem canal atribuído"}</span>
       </div>
       <form className="tv-channel-form" action="/api/admin/jogos-tv" method="post">

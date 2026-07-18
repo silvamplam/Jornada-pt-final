@@ -410,9 +410,9 @@ function errorMessage(error?: string) {
   return null;
 }
 
-function formatCivilDate(value: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : value;
+function formatCivilDate(value: string | null): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : null;
 }
 
 function formatDateTimeInput(value: string | null): string {
@@ -616,9 +616,11 @@ function renderMatchFields(
         !canWrite
       )}
       {textField(`kickoff-${match.id}`, "Data e hora", "kickoff_at", formatDateTimeInput(match.kickoff_at), !canWrite, "datetime-local", true)}
-      {!match.kickoff_at ? (
+      {!match.kickoff_at ? (match.scheduled_date ? (
         <small className="match-helper">Data: {formatCivilDate(match.scheduled_date)} · Hora por definir</small>
-      ) : null}
+      ) : (
+        <small className="match-helper">Data e hora por definir</small>
+      )) : null}
       {selectField(
         `status-${match.id}`,
         "Estado",

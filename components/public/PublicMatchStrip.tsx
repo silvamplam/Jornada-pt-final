@@ -13,8 +13,9 @@ export type PublicMatchStripBroadcastChannel = {
 
 export type PublicMatchStripMatch = {
   id: string;
-  scheduled_date: string;
+  scheduled_date: string | null;
   kickoff_at?: string | null;
+  matchdayNumber: number | null;
   status?: string | null;
   minute?: number | string | null;
   live_started_at?: string | null;
@@ -40,33 +41,88 @@ function formatKickoffTime(value?: string | null) {
   }).format(date);
 }
 
-function formatCivilDayMonth(value?: string | null) {
+const compactMonthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+const accessibleMonthNames = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+function parseCivilDate(value?: string | null) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
   if (!match) return null;
 
-  return `${match[3]}/${match[2]}`;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const validationDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    validationDate.getUTCFullYear() !== year ||
+    validationDate.getUTCMonth() !== month - 1 ||
+    validationDate.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year, month, day };
 }
 
-function formatMiniCardKickoff(scheduledDate: string, value?: string | null) {
-  if (!value) {
-    const dayMonth = formatCivilDayMonth(scheduledDate);
-    return dayMonth ? `${dayMonth} \u00b7 Hora por definir` : "Hora por definir";
-  }
+function compactCivilDate(date: { month: number; day: number }) {
+  return `${String(date.day).padStart(2, "0")} ${compactMonthNames[date.month - 1]}`;
+}
 
+function accessibleCivilDate(date: { year: number; month: number; day: number }) {
+  return `${date.day} de ${accessibleMonthNames[date.month - 1]} de ${date.year}`;
+}
+
+function kickoffCivilDate(value?: string | null) {
+  if (!value) return null;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    const dayMonth = formatCivilDayMonth(scheduledDate);
-    return dayMonth ? `${dayMonth} \u00b7 Hora por definir` : "Hora por definir";
-  }
+  if (Number.isNaN(date.getTime())) return null;
 
-  const dayMonth = new Intl.DateTimeFormat("pt-PT", {
+  const parts = new Intl.DateTimeFormat("en-CA", {
     day: "2-digit",
     month: "2-digit",
+    year: "numeric",
     timeZone: "Europe/Lisbon"
-  }).format(date);
-  const time = formatKickoffTime(value);
+  }).formatToParts(date);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  const day = Number(parts.find((part) => part.type === "day")?.value);
 
-  return time ? `${dayMonth} \u00b7 ${time}` : dayMonth;
+  return year && month && day ? { year, month, day } : null;
+}
+
+function miniCardSchedule(match: PublicMatchStripMatch) {
+  const scheduledDate = parseCivilDate(match.scheduled_date);
+  const kickoffTime = formatKickoffTime(match.kickoff_at);
+
+  if (kickoffTime) {
+    const civilDate = scheduledDate ?? kickoffCivilDate(match.kickoff_at);
+    if (civilDate) {
+      return {
+        visual: `${compactCivilDate(civilDate)} \u00b7 ${kickoffTime}`,
+        accessible: `${accessibleCivilDate(civilDate)}, às ${kickoffTime.replace(":", "h")}`,
+        dateTime: match.kickoff_at ?? null
+      };
+    }
+  }
+
+  if (scheduledDate) {
+    return {
+      visual: `${compactCivilDate(scheduledDate)} \u00b7 A DEFINIR`,
+      accessible: `${accessibleCivilDate(scheduledDate)}, hora por definir`,
+      dateTime: match.scheduled_date
+    };
+  }
+
+  return match.matchdayNumber !== null
+    ? {
+        visual: `J${match.matchdayNumber} \u00b7 A DEFINIR`,
+        accessible: `Jornada ${match.matchdayNumber}, data e hora por definir`,
+        dateTime: null
+      }
+    : {
+        visual: "A DEFINIR",
+        accessible: "Data e hora por definir",
+        dateTime: null
+      };
 }
 
 function statusLabel(status?: string | null) {
@@ -206,6 +262,7 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
       <LivePulseDots />
     </>
   ) : statusLabel(match.status);
+  const schedule = miniCardSchedule(match);
 
   return (
     <article className={`public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
@@ -228,9 +285,13 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
           </span>
         ) : (
           <>
-            <time className="public-matchday-mini-time" dateTime={match.kickoff_at ?? match.scheduled_date}>
-              {formatMiniCardKickoff(match.scheduled_date, match.kickoff_at)}
-            </time>
+            {schedule.dateTime ? (
+              <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
+                {schedule.visual}
+              </time>
+            ) : (
+              <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
+            )}
             {broadcastChannelName ? (
               <>
                 <span className="public-matchday-mini-separator" aria-hidden="true">{"\u00b7"}</span>

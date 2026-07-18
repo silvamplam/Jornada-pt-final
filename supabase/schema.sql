@@ -118,8 +118,8 @@ create table if not exists matches (
   away_team_id uuid not null references teams(id),
   status text not null default 'scheduled',
   minute integer,
-  scheduled_date date not null,
-  kickoff_at timestamptz not null,
+  scheduled_date date,
+  kickoff_at timestamptz,
   home_score integer,
   away_score integer,
   venue text,
@@ -140,16 +140,8 @@ language plpgsql
 set search_path = public
 as $$
 begin
-  if new.scheduled_date is null then
-    if new.kickoff_at is not null then
-      new.scheduled_date := (new.kickoff_at at time zone 'Europe/Lisbon')::date;
-    end if;
-  elsif tg_op = 'UPDATE' then
-    if new.kickoff_at is distinct from old.kickoff_at
-      and new.kickoff_at is not null
-      and new.scheduled_date is not distinct from old.scheduled_date then
-      new.scheduled_date := (new.kickoff_at at time zone 'Europe/Lisbon')::date;
-    end if;
+  if new.kickoff_at is not null then
+    new.scheduled_date := (new.kickoff_at at time zone 'Europe/Lisbon')::date;
   end if;
 
   return new;

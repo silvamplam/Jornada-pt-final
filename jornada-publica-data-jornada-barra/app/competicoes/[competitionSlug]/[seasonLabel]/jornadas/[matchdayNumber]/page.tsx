@@ -1256,8 +1256,9 @@ const civilMonthNames = [
   "dezembro"
 ];
 
-function parseCivilDate(value: string) {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+function parseCivilDate(value: string | null | undefined) {
+  const cleanValue = value ?? "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(cleanValue);
   if (!match) return null;
 
   const year = Number(match[1]);
@@ -1272,15 +1273,15 @@ function parseCivilDate(value: string) {
     return null;
   }
 
-  return { day, month, year, key: value };
+  return { day, month, year, key: cleanValue };
 }
 
-function formatCivilDate(value: string) {
+function formatCivilDate(value: string | null) {
   const date = parseCivilDate(value);
   return date ? `${String(date.day).padStart(2, "0")}/${String(date.month).padStart(2, "0")}/${date.year}` : null;
 }
 
-function formatKickoff(scheduledDate: string, value: string | null) {
+function formatKickoff(scheduledDate: string | null, value: string | null) {
   if (value) {
     const date = new Date(value);
     if (!Number.isNaN(date.getTime())) {
@@ -1293,7 +1294,7 @@ function formatKickoff(scheduledDate: string, value: string | null) {
   }
 
   const dateLabel = formatCivilDate(scheduledDate);
-  return dateLabel ? `${dateLabel} · Hora por definir` : "Hora por definir";
+  return dateLabel ? `${dateLabel} · HORA POR DEFINIR` : "DATA E HORA POR DEFINIR";
 }
 
 function formatKickoffTime(value: string | null) {
@@ -1309,12 +1310,12 @@ function formatKickoffTime(value: string | null) {
   }).format(date);
 }
 
-function formatBroadcastGuideKickoff(scheduledDate: string, value: string | null) {
+function formatBroadcastGuideKickoff(scheduledDate: string | null, value: string | null) {
   if (!value) {
     const date = parseCivilDate(scheduledDate);
     return date
       ? `${String(date.day).padStart(2, "0")}/${String(date.month).padStart(2, "0")} · Hora por definir`
-      : "Hora por definir";
+      : "DATA E HORA POR DEFINIR";
   }
 
   const date = new Date(value);
@@ -1330,8 +1331,12 @@ function formatBroadcastGuideKickoff(scheduledDate: string, value: string | null
 }
 
 function compareMatchSchedule(first: PublicSeasonMatch, second: PublicSeasonMatch) {
-  const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
-  if (dateDifference !== 0) return dateDifference;
+  if (first.scheduled_date !== second.scheduled_date) {
+    if (first.scheduled_date === null) return 1;
+    if (second.scheduled_date === null) return -1;
+    const dateDifference = first.scheduled_date.localeCompare(second.scheduled_date);
+    if (dateDifference !== 0) return dateDifference;
+  }
 
   if (!first.kickoff_at || !second.kickoff_at) {
     if (first.kickoff_at !== second.kickoff_at) return first.kickoff_at ? -1 : 1;
@@ -1492,6 +1497,11 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
   const kind = statusKind(match.status);
   const statusText = match.minute && (kind === "live" || kind === "halftime") ? `${statusLabel(match.status)} - ${match.minute}'` : statusLabel(match.status);
   const showKickoffTime = kind === "scheduled";
+  const kickoffDateTime = match.kickoff_at ?? match.scheduled_date;
+  const undatedLabel = match.matchday?.number ? `J${match.matchday.number} · A DEFINIR` : "A DEFINIR";
+  const undatedAccessibleLabel = match.matchday?.number
+    ? `Jornada ${match.matchday.number}, data e hora por definir`
+    : "Data e hora por definir";
 
   return (
     <article className={`public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
@@ -1506,7 +1516,13 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
       </span>
       <span className={`public-matchday-mini-status public-matchday-status-${statusKind(match.status)}`}>
         <span>{statusText}</span>
-        {showKickoffTime ? <time className="public-matchday-mini-time" dateTime={match.kickoff_at ?? match.scheduled_date}>{formatKickoffTime(match.kickoff_at)}</time> : null}
+        {showKickoffTime ? (
+          kickoffDateTime ? (
+            <time className="public-matchday-mini-time" dateTime={kickoffDateTime}>{formatBroadcastGuideKickoff(match.scheduled_date, match.kickoff_at)}</time>
+          ) : (
+            <span className="public-matchday-mini-time" aria-label={undatedAccessibleLabel}>{undatedLabel}</span>
+          )
+        ) : null}
         <MiniBroadcastBadge match={match} />
       </span>
     </article>
@@ -1756,7 +1772,11 @@ export default async function PublicMatchdayPage({ params }: PublicMatchdayPageP
                     <span className="public-cover-tv-game">
                       <strong>{item.game}</strong>
                       <span className="public-cover-tv-meta">
-                        <time dateTime={item.kickoffDateTime ?? undefined}>{item.kickoffLabel}</time>
+                        {item.kickoffDateTime ? (
+                          <time dateTime={item.kickoffDateTime}>{item.kickoffLabel}</time>
+                        ) : (
+                          <span>{item.kickoffLabel}</span>
+                        )}
                         <span className="public-cover-tv-channel">
                           {item.channelLogoUrl ? <img alt="" src={item.channelLogoUrl} /> : <span className="public-cover-tv-channel-logo">{item.channelName}</span>}
                           {item.channelLogoUrl ? <span>{item.channelName}</span> : null}
