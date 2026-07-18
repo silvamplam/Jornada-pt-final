@@ -44,8 +44,8 @@ begin
     raise exception 'preflight_team_aliases_not_a_table' using errcode = '42809';
   end if;
 
-  if (
-    select c.relrowsecurity
+  if not (
+    select c.relrowsecurity and not c.relforcerowsecurity
     from pg_catalog.pg_class c
     where c.oid = v_team_aliases_oid
   ) or exists (
@@ -53,7 +53,7 @@ begin
     from pg_catalog.pg_policy p
     where p.polrelid = v_team_aliases_oid
   ) then
-    raise exception 'preflight_team_aliases_rls_state_or_policies_unexpected'
+    raise exception 'preflight_team_aliases_rls_baseline_unexpected'
       using errcode = '55000';
   end if;
 

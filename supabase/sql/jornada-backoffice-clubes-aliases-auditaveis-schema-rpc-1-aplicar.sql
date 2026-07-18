@@ -22,8 +22,8 @@ begin
     raise exception 'apply_required_base_table_missing' using errcode = '42P01';
   end if;
 
-  if (
-    select c.relrowsecurity
+  if not (
+    select c.relrowsecurity and not c.relforcerowsecurity
     from pg_catalog.pg_class c
     where c.oid = v_team_aliases_oid
   ) or exists (
@@ -31,7 +31,7 @@ begin
     from pg_catalog.pg_policy p
     where p.polrelid = v_team_aliases_oid
   ) then
-    raise exception 'apply_team_aliases_rls_state_or_policies_unexpected'
+    raise exception 'apply_team_aliases_rls_baseline_unexpected'
       using errcode = '55000';
   end if;
 
