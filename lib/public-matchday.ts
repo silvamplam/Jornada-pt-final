@@ -145,7 +145,7 @@ async function readTeams(ids: string[]) {
   }
 
   return fetchSupabaseAdminTable<SupabaseTeam>(
-    `teams?select=id,name,short_name,slug,country,logo_url,primary_color&id=in.(${idList(uniqueIds)})&limit=1000`
+    `teams?select=id,name,short_name,code,slug,country,logo_url,primary_color&id=in.(${idList(uniqueIds)})&limit=1000`
   );
 }
 

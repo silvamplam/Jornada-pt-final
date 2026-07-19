@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
 import { readPublicCompetitionMenu } from "@/lib/public-competition-menu";
+import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
 type MatchRow = {
@@ -23,6 +24,7 @@ type TeamRow = {
   id: string;
   name: string | null;
   short_name: string | null;
+  code: string | null;
   logo_url: string | null;
 };
 
@@ -594,23 +596,6 @@ function gameSchedule(scheduledDateValue: string | null, kickoffValue?: string |
   };
 }
 
-function teamInitials(team?: TeamRow | null) {
-  const source = cleanText(team?.short_name) || cleanText(team?.name) || "";
-  const initials = source
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 3)
-    .toUpperCase();
-
-  return initials || "FC";
-}
-
-function teamName(team?: TeamRow | null) {
-  return cleanText(team?.name) || cleanText(team?.short_name) || "Equipa";
-}
-
 async function readCompetitionBySlug(slug?: string | null) {
   const cleanSlug = cleanText(slug);
   if (!cleanSlug) return null;
@@ -731,7 +716,7 @@ async function readPublicGames(filters: { competitionId?: string | null; seasonI
   const [teamsById, competitionsById, seasonsById, matchdaysById, broadcastChannelsByMatchId] = await Promise.all([
     readRowsById<TeamRow>(
       "teams",
-      "id,name,short_name,logo_url",
+      "id,name,short_name,code,logo_url",
       uniqueValues(matches.flatMap((match) => [match.home_team_id, match.away_team_id]))
     ),
     readRowsById<CompetitionRow>(
@@ -795,10 +780,19 @@ function sortGames(first: PublicGame, second: PublicGame) {
 function TeamBlock({ team, side }: { team: TeamRow | null; side: "home" | "away" }) {
   const badge = (
     <span className="public-game-team-badge">
-      {team?.logo_url ? <img alt="" src={team.logo_url} /> : teamInitials(team)}
+      {team?.logo_url
+        ? <img alt="" src={team.logo_url} />
+        : getPublicTeamName({ name: team?.name, shortName: team?.short_name, code: team?.code }, "badge")}
     </span>
   );
-  const name = <span className="public-game-team-name">{teamName(team)}</span>;
+  const name = (
+    <span
+      className="public-game-team-name"
+      title={getPublicTeamName({ name: team?.name, shortName: team?.short_name, code: team?.code }, "full")}
+    >
+      {getPublicTeamName({ name: team?.name, shortName: team?.short_name, code: team?.code }, "compact")}
+    </span>
+  );
 
   return (
     <span className="public-game-team">
