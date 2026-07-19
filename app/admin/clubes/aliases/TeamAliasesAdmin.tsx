@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import TeamAliasBatchImport from "./TeamAliasBatchImport";
 import styles from "./team-aliases.module.css";
 
 type CountryOption = {
@@ -248,6 +249,10 @@ function sourceLabel(source: string) {
     return "Dados existentes";
   }
 
+  if (source === "admin_batch_import") {
+    return "Importação em lote";
+  }
+
   return "Outra origem";
 }
 
@@ -291,6 +296,7 @@ export default function TeamAliasesAdmin({
   const [editingAliasId, setEditingAliasId] = useState<string | null>(null);
   const [editAlias, setEditAlias] = useState("");
   const [mutationKey, setMutationKey] = useState<string | null>(null);
+  const [batchBusy, setBatchBusy] = useState(false);
   const requestSequence = useRef(0);
   const mutationLocked = useRef(false);
 
@@ -301,6 +307,10 @@ export default function TeamAliasesAdmin({
   const selectedCreateTeam = useMemo(
     () => teamsForCountry.find((team) => team.id === createTeamId) ?? null,
     [createTeamId, teamsForCountry]
+  );
+  const selectedCountryName = useMemo(
+    () => countries.find((country) => country.id === countryId)?.name ?? "",
+    [countries, countryId]
   );
 
   const loadAliases = useCallback(
@@ -406,7 +416,7 @@ export default function TeamAliasesAdmin({
     key: string,
     afterSuccess?: () => void
   ) {
-    if (mutationLocked.current) {
+    if (mutationLocked.current || batchBusy) {
       return;
     }
 
@@ -455,7 +465,7 @@ export default function TeamAliasesAdmin({
   }
 
   function startEditing(alias: TeamAlias) {
-    if (mutationLocked.current || isLoading) {
+    if (mutationLocked.current || isLoading || batchBusy) {
       return;
     }
 
@@ -515,7 +525,7 @@ export default function TeamAliasesAdmin({
     void executeMutation(payload, alias.id);
   }
 
-  const requestsPending = isLoading || mutationKey !== null;
+  const requestsPending = isLoading || mutationKey !== null || batchBusy;
   const createDisabled =
     !apiAvailable ||
     requestsPending ||
@@ -554,7 +564,7 @@ export default function TeamAliasesAdmin({
           <label className={styles.field}>
             <span>País</span>
             <select
-              disabled={!apiAvailable || mutationKey !== null}
+              disabled={!apiAvailable || mutationKey !== null || batchBusy}
               onChange={(event) => changeCountry(event.target.value)}
               required
               value={countryId}
@@ -570,7 +580,7 @@ export default function TeamAliasesAdmin({
           <label className={styles.field}>
             <span>Clube</span>
             <select
-              disabled={!apiAvailable || !countryId || mutationKey !== null}
+              disabled={!apiAvailable || !countryId || mutationKey !== null || batchBusy}
               onChange={(event) => {
                 setTeamId(event.target.value);
                 setEditingAliasId(null);
@@ -588,7 +598,7 @@ export default function TeamAliasesAdmin({
           <label className={styles.field}>
             <span>Estado</span>
             <select
-              disabled={!apiAvailable || !countryId || mutationKey !== null}
+              disabled={!apiAvailable || !countryId || mutationKey !== null || batchBusy}
               onChange={(event) => {
                 setStatus(event.target.value as StatusFilter);
                 setEditingAliasId(null);
@@ -605,6 +615,16 @@ export default function TeamAliasesAdmin({
         </div>
       </section>
 
+      <TeamAliasBatchImport
+        countryId={countryId}
+        countryName={selectedCountryName}
+        disabled={!apiAvailable || isLoading || mutationKey !== null}
+        onBusyChange={setBatchBusy}
+        onApplied={async () => {
+          await loadAliases();
+        }}
+      />
+
       <section className={styles.panel} aria-labelledby="create-alias-title">
         <header className={styles.panelHeader}>
           <div>
@@ -617,7 +637,7 @@ export default function TeamAliasesAdmin({
           <label className={styles.field}>
             <span>País</span>
             <select
-              disabled={!apiAvailable || mutationKey !== null}
+              disabled={!apiAvailable || mutationKey !== null || batchBusy}
               onChange={(event) => changeCountry(event.target.value)}
               required
               value={countryId}
@@ -633,7 +653,7 @@ export default function TeamAliasesAdmin({
           <label className={styles.field}>
             <span>Clube canónico</span>
             <select
-              disabled={!apiAvailable || !countryId || mutationKey !== null}
+              disabled={!apiAvailable || !countryId || mutationKey !== null || batchBusy}
               onChange={(event) => {
                 setCreateTeamId(event.target.value);
                 setActionError(null);
@@ -651,7 +671,7 @@ export default function TeamAliasesAdmin({
           <label className={styles.field}>
             <span>Novo alias</span>
             <input
-              disabled={!apiAvailable || mutationKey !== null}
+              disabled={!apiAvailable || mutationKey !== null || batchBusy}
               maxLength={160}
               onChange={(event) => {
                 setNewAlias(event.target.value);
