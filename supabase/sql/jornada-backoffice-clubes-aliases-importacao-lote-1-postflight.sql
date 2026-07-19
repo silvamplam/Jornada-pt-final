@@ -544,7 +544,7 @@ begin
     and a.attnum > 0
     and not a.attisdropped;
 
-  select array_agg(c.conname || ':' || c.contype order by c.conname)
+  select array_agg(c.conname || ':' || c.contype::text order by c.conname)
   into v_constraint_names
   from pg_catalog.pg_constraint c
   where c.conrelid = v_team_aliases_oid;
@@ -567,7 +567,7 @@ begin
       using errcode = '55000';
   end if;
 
-  select array_agg(c.conname || ':' || c.contype order by c.conname)
+  select array_agg(c.conname || ':' || c.contype::text order by c.conname)
   into v_constraint_names
   from pg_catalog.pg_constraint c
   where c.conrelid = v_audit_oid;
