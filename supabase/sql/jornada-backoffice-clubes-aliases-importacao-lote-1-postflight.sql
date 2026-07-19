@@ -1047,7 +1047,6 @@ begin
      and i.indisvalid
      and i.indisready
      and i.indislive
-     and not i.indcheckxmin
      and i.indimmediate
      and not i.indisclustered
      and not i.indisreplident
