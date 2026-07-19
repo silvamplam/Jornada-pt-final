@@ -1,5 +1,5 @@
-import { getAdminTeams } from "@/lib/supabase";
-import { Fragment } from "react";
+import { getAdminTeamPublicNameManagement } from "@/lib/supabase";
+import TeamPublicNameManager from "./TeamPublicNameManager";
 
 export const dynamic = "force-dynamic";
 
@@ -359,7 +359,7 @@ function errorMessage(error?: string) {
 
 export default async function AdminTeamsPage({ searchParams }: TeamsPageProps) {
   const params = await searchParams;
-  const overview = await getAdminTeams();
+  const overview = await getAdminTeamPublicNameManagement();
   const message = errorMessage(params.error);
   const canWrite = overview.writeConfigured && !overview.error;
   const assetSummary =
@@ -386,36 +386,6 @@ export default async function AdminTeamsPage({ searchParams }: TeamsPageProps) {
   return (
     <main className="team-admin-shell">
       <style>{teamAdminStyles}</style>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            document.addEventListener("click", function (event) {
-              var button = event.target;
-              if (!(button instanceof HTMLButtonElement)) return;
-              var formId = button.getAttribute("data-submit-form");
-              var message = button.getAttribute("data-confirm");
-              if (!formId) return;
-              if (message && !window.confirm(message)) return;
-              var form = document.getElementById(formId);
-              if (form instanceof HTMLFormElement) {
-                form.requestSubmit();
-              }
-            });
-
-            document.addEventListener("submit", function (event) {
-              var form = event.target;
-              if (!(form instanceof HTMLFormElement)) return;
-              var inputId = form.getAttribute("data-confirm-empty-input");
-              var message = form.getAttribute("data-confirm-empty-message");
-              if (!inputId || !message) return;
-              var input = document.getElementById(inputId);
-              if (input instanceof HTMLInputElement && input.value.trim() === "" && !window.confirm(message)) {
-                event.preventDefault();
-              }
-            });
-          `
-        }}
-      />
       <header className="team-admin-hero">
         <div>
           <p>Jornada.pt</p>
@@ -532,99 +502,12 @@ export default async function AdminTeamsPage({ searchParams }: TeamsPageProps) {
         </form>
       </section>
 
-      <section className="team-admin-list" id="clubes-existentes">
-        <header>
-          <h2>Clubes existentes</h2>
-          <small>{overview.teams.length} clubes na base de dados</small>
-        </header>
-        {overview.teams.map((team) => (
-          <Fragment key={team.id}>
-          <form action={`/api/admin/teams/${team.id}`} className="team-form" id={`team-update-${team.id}`} method="post">
-            <figure>{team.logo_url ? <img alt="" src={team.logo_url} /> : team.short_name}</figure>
-            <div className="team-field">
-              <label htmlFor={`name-${team.id}`}>Nome</label>
-              <input disabled={!canWrite} id={`name-${team.id}`} name="name" required defaultValue={team.name} />
-            </div>
-            <div className="team-field">
-              <label htmlFor={`short-${team.id}`}>Sigla</label>
-              <input
-                disabled={!canWrite}
-                id={`short-${team.id}`}
-                maxLength={6}
-                name="short_name"
-                required
-                defaultValue={team.short_name}
-              />
-            </div>
-            <div className="team-field">
-              <label htmlFor={`slug-${team.id}`}>Slug</label>
-              <input disabled={!canWrite} id={`slug-${team.id}`} name="slug" required defaultValue={team.slug} />
-            </div>
-            <div className="team-field">
-              <label htmlFor={`country-${team.id}`}>Pais</label>
-              <input disabled={!canWrite} id={`country-${team.id}`} name="country" defaultValue={team.country ?? ""} />
-            </div>
-            <div className="team-field">
-              <label htmlFor={`logo-${team.id}`}>Emblema URL</label>
-              <input disabled={!canWrite} id={`logo-${team.id}`} name="logo_url" defaultValue={team.logo_url ?? ""} />
-            </div>
-            <div className="team-field">
-              <label htmlFor={`color-${team.id}`}>Cor</label>
-              <input
-                disabled={!canWrite}
-                id={`color-${team.id}`}
-                name="primary_color"
-                defaultValue={team.primary_color ?? ""}
-              />
-            </div>
-            <div className="team-actions">
-              <button disabled={!canWrite} type="submit">Guardar</button>
-              <button
-                className="team-remove-button"
-                data-confirm="Tem a certeza que pretende remover este clube? Esta acao so sera possivel se o clube nao tiver dependencias."
-                data-submit-form={`team-delete-${team.id}`}
-                disabled={!canWrite}
-                type="button"
-              >
-                Remover
-              </button>
-            </div>
-          </form>
-          <form
-            action={`/api/admin/teams/${team.id}/public-name`}
-            className="team-assets-form"
-            data-confirm-empty-input={team.public_name ? `public-name-${team.id}` : undefined}
-            data-confirm-empty-message={
-              team.public_name ? `Limpar o nome público de ${team.name}?` : undefined
-            }
-            method="post"
-          >
-            <small>
-              Clube canónico: <strong>{team.name}</strong>
-            </small>
-            <div className="team-field">
-              <label htmlFor={`public-name-${team.id}`}>Nome público</label>
-              <input
-                aria-describedby={`public-name-help-${team.id}`}
-                autoComplete="off"
-                defaultValue={team.public_name ?? ""}
-                disabled={!canWrite}
-                id={`public-name-${team.id}`}
-                maxLength={80}
-                name="publicName"
-              />
-              <small id={`public-name-help-${team.id}`}>
-                Nome usado em jogos, jornadas, resultados e classificações. Não é uma sigla nem um alias.
-              </small>
-            </div>
-            <button disabled={!canWrite} type="submit">Guardar nome público</button>
-          </form>
-          <form action={`/api/admin/teams/${team.id}`} hidden id={`team-delete-${team.id}`} method="post">
-            <input type="hidden" name="action_type" value="delete" />
-          </form>
-          </Fragment>
-        ))}
-      </section>
+      <TeamPublicNameManager
+        competitions={overview.competitions}
+        countries={overview.countries}
+        disabled={!canWrite}
+        teams={overview.teams}
+      />
     </main>
   );
 }
