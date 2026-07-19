@@ -3,6 +3,7 @@ import { getPublicTeamName } from "@/lib/public-team-name";
 
 export type PublicMatchStripTeam = {
   name?: string | null;
+  public_name?: string | null;
   short_name?: string | null;
   code?: string | null;
   logo_url?: string | null;
@@ -149,7 +150,7 @@ function statusKind(status?: string | null) {
 
 function TeamBadge({ team }: { team?: PublicMatchStripTeam | null }) {
   const label = getPublicTeamName(
-    { name: team?.name, shortName: team?.short_name, code: team?.code },
+    { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
     "badge"
   );
 
@@ -198,15 +199,15 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
     <article className={`public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
       <span className="public-matchday-mini-team">
         <TeamBadge team={match.homeTeam} />
-        <span title={getPublicTeamName({ name: match.homeTeam?.name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "full")}>
-          {getPublicTeamName({ name: match.homeTeam?.name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
+        <span title={getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "full")}>
+          {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
         </span>
         {showScore ? <b className="public-matchday-mini-score">{match.home_score}</b> : null}
       </span>
       <span className="public-matchday-mini-team">
         <TeamBadge team={match.awayTeam} />
-        <span title={getPublicTeamName({ name: match.awayTeam?.name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "full")}>
-          {getPublicTeamName({ name: match.awayTeam?.name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
+        <span title={getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "full")}>
+          {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
         </span>
         {showScore ? <b className="public-matchday-mini-score">{match.away_score}</b> : null}
       </span>

@@ -134,6 +134,7 @@ type HomeMatchdayRow = {
 type HomeTeamRow = {
   id: string;
   name: string | null;
+  public_name: string | null;
   short_name: string | null;
   code: string | null;
   logo_url: string | null;
@@ -314,7 +315,7 @@ async function readHomeFeaturedMatches(): Promise<PublicMatchStripMatch[]> {
   const [teamsById, matchdaysById, broadcastChannelsByMatchId] = await Promise.all([
     readRowsById<HomeTeamRow>(
       "teams",
-      "id,name,short_name,code,logo_url",
+      "id,name,public_name,short_name,code,logo_url",
       uniqueValues(matches.flatMap((match) => [match.home_team_id, match.away_team_id]))
     ),
     readRowsById<HomeMatchdayRow>(

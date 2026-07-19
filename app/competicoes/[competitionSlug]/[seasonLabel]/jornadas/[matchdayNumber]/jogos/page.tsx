@@ -1007,7 +1007,7 @@ function TeamBadge({ team }: { team?: PublicSeasonMatch["homeTeam"] }) {
   return (
     <PublicTeamBadge
       fallbackLabel={getPublicTeamName(
-        { name: team?.name, shortName: team?.short_name, code: team?.code },
+        { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
         "badge"
       )}
       logoUrl={team?.logo_url}
@@ -1061,11 +1061,11 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
   const homeWinner = isWinner(match, "home");
   const awayWinner = isWinner(match, "away");
   const homeTeamName = getPublicTeamName(
-    { name: match.homeTeam?.name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code },
+    { name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code },
     "full"
   );
   const awayTeamName = getPublicTeamName(
-    { name: match.awayTeam?.name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code },
+    { name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code },
     "full"
   );
 
@@ -1076,7 +1076,7 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
       </div>
       <div className={`public-games-team-copy public-games-team-copy-home ${homeWinner ? "public-games-team-winner" : ""}`}>
         <strong title={homeTeamName}>
-          {getPublicTeamName({ name: match.homeTeam?.name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
+          {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
         </strong>
         <small>Casa</small>
       </div>
@@ -1089,7 +1089,7 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
       </div>
       <div className={`public-games-team-copy public-games-team-copy-away ${awayWinner ? "public-games-team-winner" : ""}`}>
         <strong title={awayTeamName}>
-          {getPublicTeamName({ name: match.awayTeam?.name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
+          {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
         </strong>
         <small>Fora</small>
       </div>
@@ -1122,11 +1122,11 @@ function ReferenceGamesCard({ match }: { match: PublicSeasonMatch }) {
     </>
   ) : match.minute && kind === "halftime" ? `${statusLabel(match.status)} - ${match.minute}'` : statusLabel(match.status);
   const homeTeamName = getPublicTeamName(
-    { name: match.homeTeam?.name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code },
+    { name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code },
     "full"
   );
   const awayTeamName = getPublicTeamName(
-    { name: match.awayTeam?.name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code },
+    { name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code },
     "full"
   );
 
@@ -1135,14 +1135,14 @@ function ReferenceGamesCard({ match }: { match: PublicSeasonMatch }) {
       <span className="public-games-team-line">
         <TeamBadge team={match.homeTeam} />
         <span title={homeTeamName}>
-          {getPublicTeamName({ name: match.homeTeam?.name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
+          {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
         </span>
         {showScore ? <b className="public-games-team-score">{match.home_score}</b> : null}
       </span>
       <span className="public-games-team-line">
         <TeamBadge team={match.awayTeam} />
         <span title={awayTeamName}>
-          {getPublicTeamName({ name: match.awayTeam?.name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
+          {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
         </span>
         {showScore ? <b className="public-games-team-score">{match.away_score}</b> : null}
       </span>

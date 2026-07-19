@@ -23,6 +23,7 @@ type MatchRow = {
 type TeamRow = {
   id: string;
   name: string | null;
+  public_name: string | null;
   short_name: string | null;
   code: string | null;
   logo_url: string | null;
@@ -716,7 +717,7 @@ async function readPublicGames(filters: { competitionId?: string | null; seasonI
   const [teamsById, competitionsById, seasonsById, matchdaysById, broadcastChannelsByMatchId] = await Promise.all([
     readRowsById<TeamRow>(
       "teams",
-      "id,name,short_name,code,logo_url",
+      "id,name,public_name,short_name,code,logo_url",
       uniqueValues(matches.flatMap((match) => [match.home_team_id, match.away_team_id]))
     ),
     readRowsById<CompetitionRow>(
@@ -782,15 +783,15 @@ function TeamBlock({ team, side }: { team: TeamRow | null; side: "home" | "away"
     <span className="public-game-team-badge">
       {team?.logo_url
         ? <img alt="" src={team.logo_url} />
-        : getPublicTeamName({ name: team?.name, shortName: team?.short_name, code: team?.code }, "badge")}
+        : getPublicTeamName({ name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code }, "badge")}
     </span>
   );
   const name = (
     <span
       className="public-game-team-name"
-      title={getPublicTeamName({ name: team?.name, shortName: team?.short_name, code: team?.code }, "full")}
+      title={getPublicTeamName({ name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code }, "full")}
     >
-      {getPublicTeamName({ name: team?.name, shortName: team?.short_name, code: team?.code }, "compact")}
+      {getPublicTeamName({ name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code }, "compact")}
     </span>
   );
 
