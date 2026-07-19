@@ -23,6 +23,52 @@ function redirectTo(request: Request, path: string) {
   return NextResponse.redirect(new URL(path, request.url), { status: 303 });
 }
 
+const TEAM_ADMIN_MESSAGE_KEYS = [
+  "created",
+  "deleted",
+  "updated",
+  "public_name_updated",
+  "public_name_cleared",
+  "public_name_unchanged",
+  "error"
+] as const;
+
+function safeReturnTo(request: Request, value: string | null): URL {
+  const fallback = new URL("/admin/clubes", request.url);
+  if (!value) {
+    fallback.hash = "clubes-existentes";
+    return fallback;
+  }
+
+  try {
+    const target = new URL(value, request.url);
+    if (target.origin !== fallback.origin || target.pathname !== "/admin/clubes") {
+      fallback.hash = "clubes-existentes";
+      return fallback;
+    }
+
+    target.hash = "clubes-existentes";
+    return target;
+  } catch {
+    fallback.hash = "clubes-existentes";
+    return fallback;
+  }
+}
+
+function redirectToManager(
+  request: Request,
+  returnTo: string | null,
+  key: "deleted" | "updated" | "error",
+  value: string
+) {
+  const target = safeReturnTo(request, returnTo);
+  for (const messageKey of TEAM_ADMIN_MESSAGE_KEYS) {
+    target.searchParams.delete(messageKey);
+  }
+  target.searchParams.set(key, value);
+  return NextResponse.redirect(target, { status: 303 });
+}
+
 async function hasRows(path: string) {
   const rows = await fetchSupabaseAdminTable<{ id: string }>(`${path}&limit=1`);
   return rows.length > 0;
@@ -42,10 +88,11 @@ export async function POST(request: Request, context: UpdateTeamContext) {
   const { id } = await context.params;
   const formData = await request.formData();
   const actionType = cleanText(formData.get("action_type"));
+  const returnTo = cleanText(formData.get("return_to"));
 
   if (actionType === "delete") {
     if (!id) {
-      return redirectTo(request, "/admin/clubes?error=missing-fields#clubes-existentes");
+      return redirectToManager(request, returnTo, "error", "missing-fields");
     }
 
     const encodedId = encodeURIComponent(id);
@@ -57,17 +104,17 @@ export async function POST(request: Request, context: UpdateTeamContext) {
         (await hasRows(`standing_rows?select=id&team_id=eq.${encodedId}`));
 
       if (hasDependencies) {
-        return redirectTo(request, "/admin/clubes?error=team-has-dependencies#clubes-existentes");
+        return redirectToManager(request, returnTo, "error", "team-has-dependencies");
       }
 
       await writeSupabaseAdmin(`teams?id=eq.${encodedId}`, {
         method: "DELETE"
       });
     } catch {
-      return redirectTo(request, "/admin/clubes?error=delete#clubes-existentes");
+      return redirectToManager(request, returnTo, "error", "delete");
     }
 
-    return redirectTo(request, "/admin/clubes?deleted=1#clubes-existentes");
+    return redirectToManager(request, returnTo, "deleted", "1");
   }
 
   const name = cleanText(formData.get("name"));
@@ -75,7 +122,7 @@ export async function POST(request: Request, context: UpdateTeamContext) {
   const slug = cleanText(formData.get("slug")) ?? (name ? slugify(name) : null);
 
   if (!id || !name || !shortName || !slug) {
-    return redirectTo(request, "/admin/clubes?error=missing-fields");
+    return redirectToManager(request, returnTo, "error", "missing-fields");
   }
 
   try {
@@ -91,8 +138,8 @@ export async function POST(request: Request, context: UpdateTeamContext) {
       })
     });
   } catch {
-    return redirectTo(request, "/admin/clubes?error=save");
+    return redirectToManager(request, returnTo, "error", "save");
   }
 
-  return redirectTo(request, "/admin/clubes?updated=1");
+  return redirectToManager(request, returnTo, "updated", "1");
 }

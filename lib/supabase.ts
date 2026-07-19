@@ -195,6 +195,35 @@ export type SupabaseTeam = {
   manual_override?: boolean | null;
 };
 
+export type AdminTeamPublicNameCompetition = {
+  id: string;
+  name: string;
+  slug: string;
+  isCurrent: boolean;
+};
+
+export type AdminTeamPublicNameCountry = {
+  key: string;
+  id: string | null;
+  name: string;
+  source: "normalized" | "legacy" | "missing";
+};
+
+export type AdminTeamPublicNameTeam = {
+  id: string;
+  name: string;
+  publicName: string | null;
+  shortName: string;
+  slug: string;
+  code: string | null;
+  country: string | null;
+  countryId: string | null;
+  resolvedCountry: AdminTeamPublicNameCountry;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  competitions: AdminTeamPublicNameCompetition[];
+};
+
 export type SupabaseBroadcastChannel = {
   id: string;
   name: string;
@@ -462,6 +491,62 @@ export async function writeSupabaseAdminReturning<T>(path: string, init: Request
 
 type SupabaseReadTable = <T>(path: string) => Promise<T[]>;
 
+const ADMIN_READ_PAGE_SIZE = 1000;
+
+async function readAllAdminRows<T>(path: string): Promise<T[]> {
+  const serviceConfig = getSupabaseServiceConfig();
+  const publicConfig = getSupabaseConfig();
+  const config = serviceConfig
+    ? { url: serviceConfig.url, key: serviceConfig.serviceRoleKey }
+    : publicConfig
+      ? { url: publicConfig.url, key: publicConfig.anonKey }
+      : null;
+  if (!config) {
+    throw new Error("Supabase environment variables are missing.");
+  }
+
+  const rows: T[] = [];
+  const separator = path.includes("?") ? "&" : "?";
+  let total: number | null = null;
+
+  for (let offset = 0; total === null || offset < total; ) {
+    const endpoint = `${config.url.replace(/\/$/, "")}/rest/v1/${path}${separator}limit=${ADMIN_READ_PAGE_SIZE}&offset=${offset}`;
+    const response = await fetch(endpoint, {
+      cache: "no-store",
+      headers: {
+        apikey: config.key,
+        Authorization: `Bearer ${config.key}`,
+        Prefer: "count=exact"
+      }
+    });
+
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(detail || `Supabase request failed with status ${response.status}`);
+    }
+
+    const contentRange = response.headers.get("content-range");
+    const totalValue = contentRange?.match(/\/(\d+)$/u)?.[1];
+    if (!totalValue) {
+      throw new Error("Supabase did not return an exact row count for the administrative list.");
+    }
+    total = Number(totalValue);
+
+    const page = (await response.json()) as T[];
+    rows.push(...page);
+
+    if (rows.length >= total) {
+      return rows.slice(0, total);
+    }
+    if (page.length === 0) {
+      throw new Error("Supabase administrative pagination ended before the declared row count.");
+    }
+    offset += page.length;
+  }
+
+  return rows;
+}
+
 async function readCountriesWithFallback(readTable: SupabaseReadTable): Promise<SupabaseCountry[]> {
   try {
     return await readTable<SupabaseCountry>(
@@ -561,6 +646,198 @@ export async function getAdminTeams(): Promise<{
       writeConfigured,
       error: error instanceof Error ? error.message : "Erro desconhecido ao ler clubes.",
       teams: []
+    };
+  }
+}
+
+type AdminTeamPublicNameRow = {
+  id: string;
+  name: string;
+  public_name: string | null;
+  short_name: string;
+  slug: string;
+  code: string | null;
+  country: string | null;
+  country_id: string | null;
+  logo_url: string | null;
+  primary_color: string | null;
+};
+
+type AdminTeamPublicNameCountryRow = {
+  id: string;
+  name: string;
+};
+
+type AdminTeamPublicNameCompetitionRow = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+type AdminTeamPublicNameSeasonRow = {
+  id: string;
+  competition_id: string;
+  is_current: boolean;
+};
+
+type AdminTeamPublicNameSeasonTeamRow = {
+  season_id: string;
+  team_id: string;
+};
+
+function adminDisplayText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function compareAdminLabels(left: string, right: string): number {
+  return left.localeCompare(right, "pt-PT", { sensitivity: "base" });
+}
+
+export async function getAdminTeamPublicNameManagement(): Promise<{
+  configured: boolean;
+  writeConfigured: boolean;
+  error?: string;
+  teams: AdminTeamPublicNameTeam[];
+  competitions: AdminTeamPublicNameCompetition[];
+  countries: AdminTeamPublicNameCountry[];
+}> {
+  const readConfigured = Boolean(getSupabaseConfig() || getSupabaseServiceConfig());
+  const writeConfigured = Boolean(getSupabaseServiceConfig());
+
+  if (!readConfigured) {
+    return {
+      configured: false,
+      writeConfigured,
+      teams: [],
+      competitions: [],
+      countries: []
+    };
+  }
+
+  try {
+    const [teamRows, countryRows, competitionRows, seasonRows, seasonTeamRows] = await Promise.all([
+      readAllAdminRows<AdminTeamPublicNameRow>(
+        "teams?select=id,name,public_name,short_name,slug,code,country,country_id,logo_url,primary_color&order=name.asc,id.asc"
+      ),
+      readAllAdminRows<AdminTeamPublicNameCountryRow>(
+        "countries?select=id,name&order=name.asc,id.asc"
+      ),
+      readAllAdminRows<AdminTeamPublicNameCompetitionRow>(
+        "competitions?select=id,name,slug&order=name.asc,id.asc"
+      ),
+      readAllAdminRows<AdminTeamPublicNameSeasonRow>(
+        "seasons?select=id,competition_id,is_current&order=is_current.desc,id.asc"
+      ),
+      readAllAdminRows<AdminTeamPublicNameSeasonTeamRow>(
+        "season_teams?select=season_id,team_id&order=team_id.asc,season_id.asc"
+      )
+    ]);
+
+    const countriesById = new Map(countryRows.map((country) => [country.id, country]));
+    const competitionsById = new Map(competitionRows.map((competition) => [competition.id, competition]));
+    const seasonsById = new Map(seasonRows.map((season) => [season.id, season]));
+    const currentCompetitionIds = new Set(
+      seasonRows.filter((season) => season.is_current).map((season) => season.competition_id)
+    );
+    const teamCompetitions = new Map<string, Map<string, AdminTeamPublicNameCompetition>>();
+
+    for (const seasonTeam of seasonTeamRows) {
+      const season = seasonsById.get(seasonTeam.season_id);
+      const competition = season ? competitionsById.get(season.competition_id) : undefined;
+      if (!season || !competition) {
+        continue;
+      }
+
+      const competitionsForTeam = teamCompetitions.get(seasonTeam.team_id) ?? new Map();
+      const existing = competitionsForTeam.get(competition.id);
+      competitionsForTeam.set(competition.id, {
+        id: competition.id,
+        name: competition.name,
+        slug: competition.slug,
+        isCurrent: Boolean(existing?.isCurrent || season.is_current)
+      });
+      teamCompetitions.set(seasonTeam.team_id, competitionsForTeam);
+    }
+
+    const countryOptions = new Map<string, AdminTeamPublicNameCountry>();
+    const teams = teamRows.map<AdminTeamPublicNameTeam>((team) => {
+      const normalizedCountry = team.country_id ? countriesById.get(team.country_id) : undefined;
+      const legacyCountry = adminDisplayText(team.country);
+      const resolvedCountry: AdminTeamPublicNameCountry = normalizedCountry
+        ? {
+            key: `country:${normalizedCountry.id}`,
+            id: normalizedCountry.id,
+            name: normalizedCountry.name,
+            source: "normalized"
+          }
+        : legacyCountry
+          ? {
+              key: `legacy:${legacyCountry}`,
+              id: null,
+              name: legacyCountry,
+              source: "legacy"
+            }
+          : {
+              key: "missing",
+              id: null,
+              name: "Sem país",
+              source: "missing"
+            };
+      countryOptions.set(resolvedCountry.key, resolvedCountry);
+
+      const competitions = Array.from(teamCompetitions.get(team.id)?.values() ?? []).sort(
+        (left, right) => Number(right.isCurrent) - Number(left.isCurrent) || compareAdminLabels(left.name, right.name)
+      );
+
+      return {
+        id: team.id,
+        name: team.name,
+        publicName: team.public_name,
+        shortName: team.short_name,
+        slug: team.slug,
+        code: team.code,
+        country: team.country,
+        countryId: team.country_id,
+        resolvedCountry,
+        logoUrl: team.logo_url,
+        primaryColor: team.primary_color,
+        competitions
+      };
+    });
+
+    const competitions = competitionRows
+      .map<AdminTeamPublicNameCompetition>((competition) => ({
+        id: competition.id,
+        name: competition.name,
+        slug: competition.slug,
+        isCurrent: currentCompetitionIds.has(competition.id)
+      }))
+      .sort(
+        (left, right) => Number(right.isCurrent) - Number(left.isCurrent) || compareAdminLabels(left.name, right.name)
+      );
+    const countries = Array.from(countryOptions.values()).sort(
+      (left, right) =>
+        Number(left.source === "missing") - Number(right.source === "missing") ||
+        Number(left.source === "legacy") - Number(right.source === "legacy") ||
+        compareAdminLabels(left.name, right.name)
+    );
+
+    return {
+      configured: true,
+      writeConfigured,
+      teams,
+      competitions,
+      countries
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      writeConfigured,
+      error: error instanceof Error ? error.message : "Erro desconhecido ao ler clubes.",
+      teams: [],
+      competitions: [],
+      countries: []
     };
   }
 }

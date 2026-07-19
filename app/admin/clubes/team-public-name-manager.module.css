@@ -1,0 +1,409 @@
+.manager {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(12, 22, 34, 0.07);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e6ebf1;
+}
+
+.header h2,
+.header p {
+  margin: 0;
+}
+
+.header h2 {
+  font-size: 21px;
+  text-transform: uppercase;
+}
+
+.header p {
+  margin-top: 5px;
+  color: #687380;
+  font-size: 13px;
+}
+
+.header > strong {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #34404d;
+  font-size: 12px;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(4, minmax(150px, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e6ebf1;
+  background: #f8fafc;
+}
+
+.filterField,
+.publicNameForm,
+.structuralField {
+  display: grid;
+  gap: 6px;
+}
+
+.filterField label,
+.publicNameForm label,
+.structuralField label {
+  color: #4f5b68;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.filterField input,
+.filterField select,
+.publicNameForm input,
+.structuralField input {
+  min-height: 40px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #10151b;
+  font: inherit;
+  font-size: 14px;
+}
+
+.filterField input:focus-visible,
+.filterField select:focus-visible,
+.publicNameForm input:focus-visible,
+.structuralField input:focus-visible,
+.manager button:focus-visible,
+.details summary:focus-visible {
+  outline: 3px solid rgba(229, 37, 42, 0.24);
+  outline-offset: 2px;
+  border-color: #e5252a;
+}
+
+.manager button {
+  min-height: 39px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: #e5252a;
+  color: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.manager button:disabled,
+.manager input:disabled,
+.manager select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.resetButton {
+  background: #34404d !important;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e6ebf1;
+}
+
+.summary span {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #34404d;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.liveRegion:empty {
+  display: none;
+}
+
+.liveRegion p {
+  margin: 14px 20px 0;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.successMessage {
+  border-color: #bfe4c9 !important;
+  background: #f0fbf3;
+  color: #146b2c;
+}
+
+.errorMessage {
+  border-color: #ffc4c4 !important;
+  background: #fff3f3;
+  color: #8b1e22;
+}
+
+.list {
+  display: grid;
+}
+
+.emptyState {
+  margin: 0;
+  padding: 32px 20px;
+  color: #687380;
+  text-align: center;
+}
+
+.teamCard {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e6ebf1;
+}
+
+.compactRow {
+  display: grid;
+  grid-template-columns: 58px minmax(210px, 1.2fr) minmax(230px, 1fr) minmax(230px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.crest {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid #dce3eb;
+  border-radius: 50%;
+  background: #f8fafc;
+  color: #5e6874;
+  font-size: 10px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.crest img {
+  display: block;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.identity h3,
+.identity p {
+  margin: 0;
+}
+
+.identity h3 {
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.identity > p {
+  margin-top: 4px;
+  color: #7b8794;
+  font-size: 12px;
+}
+
+.metadata,
+.competitions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.metadata span {
+  color: #4f5b68;
+  font-size: 12px;
+}
+
+.competitionBadge,
+.mutedBadge {
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #34404d;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.competitionBadge:first-child {
+  background: #e8f2ff;
+  color: #174f82;
+}
+
+.mutedBadge {
+  color: #687380;
+}
+
+.publicNameForm small,
+.suggestion small {
+  color: #687380;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.publicNameForm button,
+.suggestion button {
+  justify-self: start;
+}
+
+.suggestion {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  min-height: 116px;
+  padding: 12px;
+  border: 1px dashed #c7d1dc;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.suggestion > strong {
+  color: #4f5b68;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.suggestionValue {
+  color: #10151b;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.suggestion button {
+  background: #34404d;
+}
+
+.details {
+  margin-top: 14px;
+  border-top: 1px solid #e6ebf1;
+}
+
+.details summary {
+  margin-top: 12px;
+  padding: 7px 0;
+  color: #34404d;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.structuralForm {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dce3eb;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.structuralForm > button {
+  align-self: end;
+  justify-self: start;
+}
+
+.removeForm {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.removeForm button {
+  background: #10151b;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.pagination span {
+  color: #4f5b68;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+@media (max-width: 1240px) {
+  .filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .compactRow {
+    grid-template-columns: 58px minmax(220px, 1fr) minmax(240px, 1fr);
+  }
+
+  .suggestion {
+    grid-column: 2 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .header,
+  .compactRow {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .filters,
+  .structuralForm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .crest {
+    width: 44px;
+    height: 44px;
+  }
+
+  .suggestion {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .filters,
+  .structuralForm {
+    grid-template-columns: 1fr;
+  }
+
+  .manager {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .header,
+  .filters,
+  .teamCard {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+  }
+}
