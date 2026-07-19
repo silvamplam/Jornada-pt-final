@@ -900,7 +900,8 @@ begin
       and c.contype in ('c', 'f')
       and (
         not c.convalidated
-        or c.connoinherit
+        or (c.contype = 'c' and c.connoinherit)
+        or (c.contype = 'f' and not c.connoinherit)
         or c.condeferrable
         or c.condeferred
       )
