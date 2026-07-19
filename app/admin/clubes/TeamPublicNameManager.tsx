@@ -6,6 +6,19 @@ import {
   suggestAdminTeamPublicName,
   type AdminTeamPublicNameSuggestion
 } from "@/lib/admin-team-public-name-suggestion";
+import {
+  isTeamPublicNameBatchApplyResponse,
+  isTeamPublicNameBatchErrorResponse,
+  isTeamPublicNameBatchPreviewResponse,
+  TEAM_PUBLIC_NAME_BATCH_MAX_BODY_BYTES,
+  TEAM_PUBLIC_NAME_BATCH_MAX_ROWS,
+  TEAM_PUBLIC_NAME_MAX_CHARACTERS,
+  type TeamPublicNameBatchApplyResponse,
+  type TeamPublicNameApplyStatus,
+  type TeamPublicNameBatchClientRequest,
+  type TeamPublicNameBatchPreviewResponse,
+  type TeamPublicNamePreviewStatus
+} from "@/lib/team-public-name-batch-policy";
 import type {
   AdminTeamPublicNameCompetition,
   AdminTeamPublicNameCountry,
@@ -15,7 +28,6 @@ import styles from "./team-public-name-manager.module.css";
 
 const PAGE_SIZE = 50;
 const SEARCH_MAX_CHARACTERS = 120;
-const PUBLIC_NAME_MAX_CHARACTERS = 80;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\u009f]/u;
 const PUBLIC_NAME_STATUSES = new Set(["missing", "present", "all"]);
 const SORT_OPTIONS = new Set(["name-asc", "name-desc"]);
@@ -105,6 +117,56 @@ function parsePage(value: string | null): number {
   return Number.isSafeInteger(page) && page >= 1 ? page : 1;
 }
 
+function publicNameLabel(value: string | null): string {
+  return value ?? "Sem nome público";
+}
+
+function previewStatusLabel(status: TeamPublicNamePreviewStatus): string {
+  if (status === "set") {
+    return "Novo nome";
+  }
+  if (status === "update") {
+    return "Atualização";
+  }
+  if (status === "clear") {
+    return "Limpeza";
+  }
+  if (status === "noop") {
+    return "Sem alteração";
+  }
+  if (status === "not_found") {
+    return "Clube não encontrado";
+  }
+  return "Inválido";
+}
+
+function applyStatusLabel(status: TeamPublicNameApplyStatus): string {
+  if (status === "set") {
+    return "Nome definido";
+  }
+  if (status === "updated") {
+    return "Nome atualizado";
+  }
+  if (status === "cleared") {
+    return "Nome limpo";
+  }
+  if (status === "noop") {
+    return "Sem alteração";
+  }
+  return "Erro";
+}
+
+function hasSameUniqueTeamIds(expectedTeamIds: string[], actualTeamIds: string[]): boolean {
+  const expected = new Set(expectedTeamIds);
+  const actual = new Set(actualTeamIds);
+  return (
+    expected.size === expectedTeamIds.length &&
+    actual.size === actualTeamIds.length &&
+    expected.size === actual.size &&
+    Array.from(expected).every((teamId) => actual.has(teamId))
+  );
+}
+
 export default function TeamPublicNameManager({
   teams,
   competitions,
@@ -146,14 +208,21 @@ export default function TeamPublicNameManager({
   );
   const [savingTeamId, setSavingTeamId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<SaveFeedback | null>(null);
+  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(() => new Set());
+  const [batchPreview, setBatchPreview] = useState<TeamPublicNameBatchPreviewResponse | null>(null);
+  const [batchResult, setBatchResult] = useState<TeamPublicNameBatchApplyResponse | null>(null);
+  const [batchLoading, setBatchLoading] = useState<"preview" | "apply" | null>(null);
   const saveLockRef = useRef(false);
+  const batchLockRef = useRef(false);
   const mountedRef = useRef(true);
   const requestControllerRef = useRef<AbortController | null>(null);
+  const batchRequestControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
       mountedRef.current = false;
       requestControllerRef.current?.abort();
+      batchRequestControllerRef.current?.abort();
     };
   }, []);
 
@@ -274,6 +343,18 @@ export default function TeamPublicNameManager({
   const totalPages = Math.max(1, Math.ceil(filteredTeams.length / PAGE_SIZE));
   const page = queryInput === queryFromUrl ? Math.min(requestedPage, totalPages) : 1;
   const pageTeams = filteredTeams.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const selectedTeams = useMemo(
+    () => teams.filter((team) => selectedTeamIds.has(team.id)),
+    [selectedTeamIds, teams]
+  );
+  const selectedVisibleCount = pageTeams.filter((team) => selectedTeamIds.has(team.id)).length;
+  const batchBusy = batchLoading !== null;
+  const previewBlocksApply = Boolean(
+    batchPreview &&
+      (batchPreview.summary.invalid > 0 ||
+        batchPreview.summary.notFound > 0 ||
+        batchPreview.rows.some((row) => row.snapshot === null))
+  );
 
   useEffect(() => {
     if (queryInput === queryFromUrl && requestedPage !== page) {
@@ -299,16 +380,370 @@ export default function TeamPublicNameManager({
     });
   }
 
+  function invalidateBatchReview() {
+    setBatchPreview(null);
+    setBatchResult(null);
+  }
+
+  function toggleTeamSelection(teamId: string) {
+    if (batchBusy || savingTeamId !== null) {
+      return;
+    }
+
+    const next = new Set(selectedTeamIds);
+    if (next.has(teamId)) {
+      next.delete(teamId);
+    } else {
+      if (next.size >= TEAM_PUBLIC_NAME_BATCH_MAX_ROWS) {
+        setFeedback({
+          tone: "error",
+          message: `Só é possível selecionar ${TEAM_PUBLIC_NAME_BATCH_MAX_ROWS} clubes por lote.`
+        });
+        return;
+      }
+      next.add(teamId);
+    }
+
+    setSelectedTeamIds(next);
+    invalidateBatchReview();
+  }
+
+  function selectVisibleTeams() {
+    if (batchBusy || savingTeamId !== null) {
+      return;
+    }
+
+    const next = new Set(selectedTeamIds);
+    for (const team of pageTeams) {
+      next.add(team.id);
+    }
+    if (next.size > TEAM_PUBLIC_NAME_BATCH_MAX_ROWS) {
+      setFeedback({
+        tone: "error",
+        message: `A seleção visível ultrapassaria o limite de ${TEAM_PUBLIC_NAME_BATCH_MAX_ROWS} clubes. Desmarque outros clubes primeiro.`
+      });
+      return;
+    }
+
+    setSelectedTeamIds(next);
+    invalidateBatchReview();
+  }
+
+  function deselectVisibleTeams() {
+    if (batchBusy || savingTeamId !== null) {
+      return;
+    }
+
+    const next = new Set(selectedTeamIds);
+    for (const team of pageTeams) {
+      next.delete(team.id);
+    }
+    setSelectedTeamIds(next);
+    invalidateBatchReview();
+  }
+
+  function clearSelection() {
+    if (batchBusy || savingTeamId !== null) {
+      return;
+    }
+
+    setSelectedTeamIds(new Set());
+    invalidateBatchReview();
+  }
+
+  function buildPreviewRequest(): TeamPublicNameBatchClientRequest {
+    return {
+      action: "preview",
+      rows: selectedTeams.map((team) => ({
+        teamId: team.id,
+        publicName: drafts[team.id] ?? currentPublicNames[team.id] ?? ""
+      }))
+    };
+  }
+
+  function serializeBatchRequest(request: TeamPublicNameBatchClientRequest): string | null {
+    const body = JSON.stringify(request);
+    if (new TextEncoder().encode(body).byteLength > TEAM_PUBLIC_NAME_BATCH_MAX_BODY_BYTES) {
+      setFeedback({
+        tone: "error",
+        message: "O pedido excede o limite permitido. Reduza os valores antes de continuar."
+      });
+      return null;
+    }
+    return body;
+  }
+
+  async function readBatchResponse(response: Response): Promise<unknown> {
+    if (response.redirected && new URL(response.url).pathname === "/admin/login") {
+      window.location.assign(response.url);
+      return null;
+    }
+
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function previewSelectedTeams() {
+    if (
+      disabled ||
+      selectedTeams.length === 0 ||
+      selectedTeams.length > TEAM_PUBLIC_NAME_BATCH_MAX_ROWS ||
+      saveLockRef.current ||
+      batchLockRef.current
+    ) {
+      return;
+    }
+
+    const request = buildPreviewRequest();
+    const body = serializeBatchRequest(request);
+    if (!body) {
+      return;
+    }
+
+    batchLockRef.current = true;
+    setBatchLoading("preview");
+    setBatchPreview(null);
+    setBatchResult(null);
+    setFeedback(null);
+    const controller = new AbortController();
+    batchRequestControllerRef.current = controller;
+
+    try {
+      const response = await fetch("/api/admin/teams/public-names/batch", {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        body,
+        signal: controller.signal
+      });
+      const payload = await readBatchResponse(response);
+
+      if (!response.ok) {
+        throw new Error(
+          isTeamPublicNameBatchErrorResponse(payload)
+            ? payload.message
+            : "Não foi possível pré-visualizar os nomes públicos."
+        );
+      }
+      if (
+        !isTeamPublicNameBatchPreviewResponse(payload) ||
+        !hasSameUniqueTeamIds(
+          selectedTeams.map((team) => team.id),
+          payload.rows.map((row) => row.teamId)
+        )
+      ) {
+        throw new Error("O servidor devolveu uma pré-visualização inválida.");
+      }
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setBatchPreview(payload);
+      setFeedback({
+        tone: payload.summary.invalid > 0 || payload.summary.notFound > 0 ? "error" : "success",
+        message:
+          payload.summary.invalid > 0 || payload.summary.notFound > 0
+            ? "A pré-visualização contém linhas que têm de ser corrigidas ou removidas."
+            : "Pré-visualização concluída. Nenhum dado foi gravado."
+      });
+    } catch (error) {
+      if (!mountedRef.current || (error instanceof DOMException && error.name === "AbortError")) {
+        return;
+      }
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Não foi possível pré-visualizar o lote."
+      });
+    } finally {
+      if (mountedRef.current) {
+        setBatchLoading(null);
+      }
+      batchRequestControllerRef.current = null;
+      batchLockRef.current = false;
+    }
+  }
+
+  async function applyPreviewedTeams() {
+    if (
+      disabled ||
+      !batchPreview ||
+      previewBlocksApply ||
+      saveLockRef.current ||
+      batchLockRef.current
+    ) {
+      return;
+    }
+
+    const snapshots = batchPreview.rows.flatMap((row) => (row.snapshot ? [row.snapshot] : []));
+    if (snapshots.length !== batchPreview.summary.total) {
+      setFeedback({ tone: "error", message: "A pré-visualização já não pode ser aplicada." });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      [
+        `Aplicar alterações a ${batchPreview.summary.total} clubes?`,
+        `Novos nomes: ${batchPreview.summary.sets}.`,
+        `Atualizações: ${batchPreview.summary.updates}.`,
+        `Limpezas: ${batchPreview.summary.clears}.`,
+        "Cada clube alterado será auditado individualmente.",
+        "A aplicação não é uma transação global e pode terminar com sucessos parciais."
+      ].join("\n")
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const request: TeamPublicNameBatchClientRequest = {
+      action: "apply",
+      rows: snapshots.map((snapshot) => ({
+        teamId: snapshot.teamId,
+        publicName: snapshot.publicName ?? "",
+        expectedPublicName: snapshot.expectedPublicName
+      }))
+    };
+    const body = serializeBatchRequest(request);
+    if (!body) {
+      return;
+    }
+
+    batchLockRef.current = true;
+    setBatchLoading("apply");
+    setFeedback(null);
+    const controller = new AbortController();
+    batchRequestControllerRef.current = controller;
+
+    try {
+      const response = await fetch("/api/admin/teams/public-names/batch", {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        body,
+        signal: controller.signal
+      });
+      const payload = await readBatchResponse(response);
+
+      if (
+        response.status === 409 &&
+        isTeamPublicNameBatchErrorResponse(payload) &&
+        payload.preview
+      ) {
+        if (!mountedRef.current) {
+          return;
+        }
+        setCurrentPublicNames((current) => {
+          const next = { ...current };
+          for (const row of payload.preview?.rows ?? []) {
+            if (row.canonicalName !== null) {
+              next[row.teamId] = row.currentPublicName;
+            }
+          }
+          return next;
+        });
+        setBatchPreview(payload.preview);
+        setBatchResult(null);
+        setFeedback({
+          tone: "error",
+          message: "Um ou mais nomes foram alterados desde a última pré-visualização. Reveja novamente antes de confirmar."
+        });
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          isTeamPublicNameBatchErrorResponse(payload)
+            ? payload.message
+            : "Não foi possível aplicar os nomes públicos."
+        );
+      }
+      if (
+        !isTeamPublicNameBatchApplyResponse(payload) ||
+        !hasSameUniqueTeamIds(
+          snapshots.map((snapshot) => snapshot.teamId),
+          payload.rows.map((row) => row.teamId)
+        )
+      ) {
+        throw new Error("O servidor devolveu um resultado de aplicação inválido.");
+      }
+      if (!mountedRef.current) {
+        return;
+      }
+
+      const completedIds = new Set(
+        payload.rows.filter((row) => row.status !== "error").map((row) => row.teamId)
+      );
+      setCurrentPublicNames((current) => {
+        const next = { ...current };
+        for (const row of payload.rows) {
+          if (row.status !== "error") {
+            next[row.teamId] = row.publicName;
+          }
+        }
+        return next;
+      });
+      setDrafts((current) => {
+        const next = { ...current };
+        for (const row of payload.rows) {
+          if (row.status !== "error") {
+            next[row.teamId] = row.publicName ?? "";
+          }
+        }
+        return next;
+      });
+      setSelectedTeamIds((current) => {
+        const next = new Set(current);
+        for (const teamId of completedIds) {
+          next.delete(teamId);
+        }
+        return next;
+      });
+      setBatchResult(payload);
+      setBatchPreview(null);
+      setFeedback({
+        tone: payload.summary.errors > 0 ? "error" : "success",
+        message:
+          payload.summary.errors > 0
+            ? `Lote concluído com ${payload.summary.succeeded} clubes processados e ${payload.summary.errors} erros. As linhas falhadas permanecem selecionadas.`
+            : `Lote concluído. ${payload.summary.succeeded} clubes processados sem erros.`
+      });
+    } catch (error) {
+      if (!mountedRef.current || (error instanceof DOMException && error.name === "AbortError")) {
+        return;
+      }
+      setFeedback({
+        tone: "error",
+        message: error instanceof Error ? error.message : "Não foi possível aplicar o lote."
+      });
+    } finally {
+      if (mountedRef.current) {
+        setBatchLoading(null);
+      }
+      batchRequestControllerRef.current = null;
+      batchLockRef.current = false;
+    }
+  }
+
   async function savePublicName(event: FormEvent<HTMLFormElement>, team: AdminTeamPublicNameTeam) {
     event.preventDefault();
-    if (disabled || saveLockRef.current) {
+    if (disabled || saveLockRef.current || batchLockRef.current) {
       return;
     }
 
     const draft = drafts[team.id] ?? "";
     const finalValue = trimSqlSpaces(draft) || null;
     if (
-      (finalValue !== null && Array.from(finalValue).length > PUBLIC_NAME_MAX_CHARACTERS) ||
+      (finalValue !== null && Array.from(finalValue).length > TEAM_PUBLIC_NAME_MAX_CHARACTERS) ||
       (finalValue !== null && CONTROL_CHARACTER_PATTERN.test(finalValue))
     ) {
       setFeedback({
@@ -326,6 +761,7 @@ export default function TeamPublicNameManager({
       return;
     }
 
+    invalidateBatchReview();
     saveLockRef.current = true;
     setSavingTeamId(team.id);
     setFeedback(null);
@@ -483,6 +919,56 @@ export default function TeamPublicNameManager({
         <span>50 clubes por página</span>
       </div>
 
+      <div className={styles.batchActions}>
+        <div className={styles.selectionSummary}>
+          <strong>{selectedTeamIds.size} clubes selecionados</strong>
+          <span>Máximo de {TEAM_PUBLIC_NAME_BATCH_MAX_ROWS} clubes por lote. A seleção mantém-se entre páginas e filtros.</span>
+        </div>
+        <div className={styles.batchButtons}>
+          <button
+            disabled={disabled || batchBusy || savingTeamId !== null || pageTeams.length === 0}
+            onClick={selectVisibleTeams}
+            type="button"
+          >
+            Selecionar visíveis
+          </button>
+          <button
+            disabled={disabled || batchBusy || savingTeamId !== null || selectedVisibleCount === 0}
+            onClick={deselectVisibleTeams}
+            type="button"
+          >
+            Desmarcar visíveis
+          </button>
+          <button
+            disabled={disabled || batchBusy || savingTeamId !== null || selectedTeamIds.size === 0}
+            onClick={clearSelection}
+            type="button"
+          >
+            Limpar seleção
+          </button>
+          <button
+            disabled={disabled || batchBusy || savingTeamId !== null || selectedTeamIds.size === 0}
+            onClick={() => void previewSelectedTeams()}
+            type="button"
+          >
+            {batchLoading === "preview" ? "A pré-visualizar…" : "Pré-visualizar selecionados"}
+          </button>
+          <button
+            disabled={
+              disabled ||
+              batchBusy ||
+              savingTeamId !== null ||
+              !batchPreview ||
+              previewBlocksApply
+            }
+            onClick={() => void applyPreviewedTeams()}
+            type="button"
+          >
+            {batchLoading === "apply" ? "A aplicar…" : "Aplicar alterações confirmadas"}
+          </button>
+        </div>
+      </div>
+
       <div aria-live="polite" className={styles.liveRegion} role="status">
         {feedback ? (
           <p className={feedback.tone === "success" ? styles.successMessage : styles.errorMessage}>
@@ -490,6 +976,101 @@ export default function TeamPublicNameManager({
           </p>
         ) : null}
       </div>
+
+      {batchPreview ? (
+        <section className={styles.batchPanel} aria-labelledby="team-public-name-preview-title">
+          <div className={styles.batchPanelHeader}>
+            <div>
+              <h3 id="team-public-name-preview-title">Pré-visualização do lote</h3>
+              <p>Nenhum dado foi gravado. Reveja os valores antes da confirmação.</p>
+            </div>
+            <div className={styles.batchCounters}>
+              <span>Novos: {batchPreview.summary.sets}</span>
+              <span>Atualizações: {batchPreview.summary.updates}</span>
+              <span>Limpezas: {batchPreview.summary.clears}</span>
+              <span>Sem alteração: {batchPreview.summary.noops}</span>
+              <span>Inválidos: {batchPreview.summary.invalid}</span>
+              <span>Não encontrados: {batchPreview.summary.notFound}</span>
+            </div>
+          </div>
+          {previewBlocksApply ? (
+            <p className={styles.blockingNotice}>
+              Aplicação bloqueada. Corrija o draft ou retire da seleção as linhas inválidas ou não encontradas.
+            </p>
+          ) : null}
+          <div className={styles.batchTableWrapper}>
+            <table className={styles.batchTable}>
+              <thead>
+                <tr>
+                  <th scope="col">Clube</th>
+                  <th scope="col">Nome anterior</th>
+                  <th scope="col">Nome novo</th>
+                  <th scope="col">Resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batchPreview.rows.map((row) => (
+                  <tr key={row.teamId}>
+                    <td>{row.canonicalName ?? row.teamId}</td>
+                    <td>{publicNameLabel(row.currentPublicName)}</td>
+                    <td>{publicNameLabel(row.proposedPublicName)}</td>
+                    <td>
+                      <span className={styles.statusBadge} data-status={row.status}>
+                        {previewStatusLabel(row.status)}
+                      </span>
+                      {row.message ? <small>{row.message}</small> : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {batchResult ? (
+        <section className={styles.batchPanel} aria-labelledby="team-public-name-result-title">
+          <div className={styles.batchPanelHeader}>
+            <div>
+              <h3 id="team-public-name-result-title">Resultado da aplicação</h3>
+              <p>As linhas com erro permanecem selecionadas para revisão manual.</p>
+            </div>
+            <div className={styles.batchCounters}>
+              <span>Concluídos: {batchResult.summary.succeeded}</span>
+              <span>Novos: {batchResult.summary.sets}</span>
+              <span>Atualizados: {batchResult.summary.updates}</span>
+              <span>Limpos: {batchResult.summary.clears}</span>
+              <span>Sem alteração: {batchResult.summary.noops}</span>
+              <span>Erros: {batchResult.summary.errors}</span>
+            </div>
+          </div>
+          <div className={styles.batchTableWrapper}>
+            <table className={styles.batchTable}>
+              <thead>
+                <tr>
+                  <th scope="col">Clube</th>
+                  <th scope="col">Nome público final</th>
+                  <th scope="col">Resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batchResult.rows.map((row) => (
+                  <tr key={row.teamId}>
+                    <td>{row.canonicalName}</td>
+                    <td>{publicNameLabel(row.publicName)}</td>
+                    <td>
+                      <span className={styles.statusBadge} data-status={row.status}>
+                        {applyStatusLabel(row.status)}
+                      </span>
+                      <small>{row.message}</small>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       <div className={styles.list}>
         {pageTeams.length === 0 ? (
@@ -501,12 +1082,26 @@ export default function TeamPublicNameManager({
           const currentPublicName = currentPublicNames[team.id];
           const draft = drafts[team.id] ?? "";
           const isSaving = savingTeamId === team.id;
-          const isBusy = savingTeamId !== null;
+          const isBusy = savingTeamId !== null || batchBusy;
+          const isSelected = selectedTeamIds.has(team.id);
           const helpId = `public-name-help-${team.id}`;
 
           return (
             <article className={styles.teamCard} key={team.id}>
               <div className={styles.compactRow}>
+                <div className={styles.selectionCell}>
+                  <input
+                    aria-label={`Selecionar ${team.name} para o lote`}
+                    checked={isSelected}
+                    disabled={
+                      disabled ||
+                      isBusy ||
+                      (!isSelected && selectedTeamIds.size >= TEAM_PUBLIC_NAME_BATCH_MAX_ROWS)
+                    }
+                    onChange={() => toggleTeamSelection(team.id)}
+                    type="checkbox"
+                  />
+                </div>
                 <figure className={styles.crest}>
                   {team.logoUrl ? (
                     <img alt={`Emblema de ${team.name}`} src={team.logoUrl} />
@@ -545,10 +1140,11 @@ export default function TeamPublicNameManager({
                     autoComplete="off"
                     disabled={disabled || isBusy}
                     id={`public-name-${team.id}`}
-                    maxLength={PUBLIC_NAME_MAX_CHARACTERS}
-                    onChange={(event) =>
-                      setDrafts((current) => ({ ...current, [team.id]: event.target.value }))
-                    }
+                    maxLength={TEAM_PUBLIC_NAME_MAX_CHARACTERS}
+                    onChange={(event) => {
+                      setDrafts((current) => ({ ...current, [team.id]: event.target.value }));
+                      invalidateBatchReview();
+                    }}
                     value={draft}
                   />
                   <small id={helpId}>
@@ -567,9 +1163,10 @@ export default function TeamPublicNameManager({
                       <small>{confidenceLabel(suggestion)}. {suggestion.reason}</small>
                       <button
                         disabled={disabled || isBusy}
-                        onClick={() =>
-                          setDrafts((current) => ({ ...current, [team.id]: suggestion.value ?? "" }))
-                        }
+                        onClick={() => {
+                          setDrafts((current) => ({ ...current, [team.id]: suggestion.value ?? "" }));
+                          invalidateBatchReview();
+                        }}
                         type="button"
                       >
                         Usar sugestão
