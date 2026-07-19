@@ -368,7 +368,7 @@ export default function TeamAliasBatchImport({
 
       setAppliedResult(result);
       setNotice(
-        `${result.summary.createdCount} aliases criados. A listagem atual foi recarregada.`
+        `Lote aplicado com sucesso. Foram criados ${result.summary.createdCount} aliases.`
       );
       await onApplied();
     } catch (requestError) {

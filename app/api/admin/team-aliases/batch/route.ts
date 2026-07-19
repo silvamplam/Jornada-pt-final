@@ -19,6 +19,7 @@ import {
 const ADMIN_ALIAS_ACTOR_TYPE = "admin_session";
 const ADMIN_ALIAS_ACTOR_REFERENCE = "jornada_backoffice_shared_admin";
 const ADMIN_ALIAS_SOURCE = "admin_batch_import";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 class InvalidBatchRpcResponseError extends Error {
   constructor() {
@@ -71,6 +72,10 @@ function sameBatchSummary(left: TeamAliasBatchRpcRow, right: TeamAliasBatchRpcRo
   );
 }
 
+function isNullableUuid(value: string | null) {
+  return value === null || UUID_PATTERN.test(value);
+}
+
 function validateBatchSemantics(rows: TeamAliasBatchRpcRow[], requestedApply: boolean) {
   const first = rows[0];
   if (!first || rows.some((row) => !sameBatchSummary(first, row))) {
@@ -92,6 +97,7 @@ function validateBatchSemantics(rows: TeamAliasBatchRpcRow[], requestedApply: bo
     first.batch_existing_active_count === existingActiveCount &&
     first.batch_created_count === changedRows.length &&
     first.batch_noop === (blockingCount === 0 && createCount === 0) &&
+    (blockingCount === 0 || changedRows.length === 0) &&
     changedRows.every(
       (row) => row.result_status === "create" && row.result_code === "created"
     ) &&
@@ -157,6 +163,11 @@ async function runBatch(
   if (
     rows.length !== input.rows.length ||
     !rows.every(isTeamAliasBatchRpcRow) ||
+    rows.some(
+      (row) =>
+        !isNullableUuid(row.resolved_team_id) ||
+        !isNullableUuid(row.result_team_alias_id)
+    ) ||
     rows.some((row, index) => row.line_number !== input.rows[index]?.lineNumber) ||
     !validateBatchSemantics(rows, apply)
   ) {
@@ -297,7 +308,28 @@ export async function POST(request: Request) {
     const applyReference = requestReference("apply");
     const applied = await runBatch(input, true, "apply", applyReference);
     if (
+      !applied.summary.canApply ||
+      applied.summary.blockingCount > 0 ||
+      applied.rows.some((row) => row.blocking)
+    ) {
+      const refreshedCheckReference = requestReference("apply-check");
+      const refreshedPreview = await runBatch(
+        input,
+        false,
+        "preview",
+        refreshedCheckReference
+      );
+      return errorResponse(
+        "team_alias_batch_no_longer_applicable",
+        "O lote deixou de estar pronto para aplicação. Reveja o novo resultado.",
+        409,
+        refreshedPreview
+      );
+    }
+
+    if (
       !applied.summary.requestedApply ||
+      !applied.summary.canApply ||
       applied.summary.blockingCount !== 0 ||
       applied.rows.some((row) => row.blocking) ||
       applied.summary.createdCount !== applied.rows.filter((row) => row.changed).length
