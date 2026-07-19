@@ -128,7 +128,7 @@ begin
      or not has_table_privilege('service_role', v_teams_oid, 'UPDATE')
      or not has_table_privilege('service_role', v_teams_oid, 'DELETE')
      or not has_table_privilege('anon', v_teams_oid, 'SELECT')
-     or not has_table_privilege('authenticated', v_teams_oid, 'SELECT')
+     or has_table_privilege('authenticated', v_teams_oid, 'SELECT')
      or has_table_privilege('anon', v_teams_oid, 'INSERT')
      or has_table_privilege('anon', v_teams_oid, 'UPDATE')
      or has_table_privilege('anon', v_teams_oid, 'DELETE')

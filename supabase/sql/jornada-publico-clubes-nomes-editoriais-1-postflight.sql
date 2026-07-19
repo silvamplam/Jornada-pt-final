@@ -24,6 +24,21 @@ begin
     raise exception 'postflight_required_object_missing' using errcode = '55000';
   end if;
 
+  if not has_table_privilege('service_role', v_teams_oid, 'SELECT')
+     or not has_table_privilege('service_role', v_teams_oid, 'INSERT')
+     or not has_table_privilege('service_role', v_teams_oid, 'UPDATE')
+     or not has_table_privilege('service_role', v_teams_oid, 'DELETE')
+     or not has_table_privilege('anon', v_teams_oid, 'SELECT')
+     or has_table_privilege('anon', v_teams_oid, 'INSERT')
+     or has_table_privilege('anon', v_teams_oid, 'UPDATE')
+     or has_table_privilege('anon', v_teams_oid, 'DELETE')
+     or has_table_privilege('authenticated', v_teams_oid, 'SELECT')
+     or has_table_privilege('authenticated', v_teams_oid, 'INSERT')
+     or has_table_privilege('authenticated', v_teams_oid, 'UPDATE')
+     or has_table_privilege('authenticated', v_teams_oid, 'DELETE') then
+    raise exception 'postflight_teams_privileges_unexpected' using errcode = '42501';
+  end if;
+
   select c.column_default
   into v_column_default
   from information_schema.columns c
