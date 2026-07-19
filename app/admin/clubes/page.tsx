@@ -314,6 +314,9 @@ type TeamsPageProps = {
     assets_found?: string;
     assets_errors?: string;
     assets_replace?: string;
+    public_name_updated?: string;
+    public_name_cleared?: string;
+    public_name_unchanged?: string;
     error?: string;
   }>;
 };
@@ -337,6 +340,18 @@ function errorMessage(error?: string) {
 
   if (error === "team-has-dependencies") {
     return "Este clube nao pode ser removido porque ainda tem participantes, jogos ou outros dados associados.";
+  }
+
+  if (error === "public-name-invalid") {
+    return "O nome público é inválido. Usa no máximo 80 caracteres e não incluas caracteres de controlo.";
+  }
+
+  if (error === "public-name-team-not-found") {
+    return "O clube do nome público já não existe.";
+  }
+
+  if (error === "public-name-response" || error === "public-name-save") {
+    return "Não foi possível guardar o nome público.";
   }
 
   return null;
@@ -386,6 +401,18 @@ export default async function AdminTeamsPage({ searchParams }: TeamsPageProps) {
                 form.requestSubmit();
               }
             });
+
+            document.addEventListener("submit", function (event) {
+              var form = event.target;
+              if (!(form instanceof HTMLFormElement)) return;
+              var inputId = form.getAttribute("data-confirm-empty-input");
+              var message = form.getAttribute("data-confirm-empty-message");
+              if (!inputId || !message) return;
+              var input = document.getElementById(inputId);
+              if (input instanceof HTMLInputElement && input.value.trim() === "" && !window.confirm(message)) {
+                event.preventDefault();
+              }
+            });
           `
         }}
       />
@@ -418,6 +445,15 @@ export default async function AdminTeamsPage({ searchParams }: TeamsPageProps) {
       {params.created ? <section className="team-admin-message success">Clube criado.</section> : null}
       {params.updated ? <section className="team-admin-message success">Clube atualizado.</section> : null}
       {params.deleted ? <section className="team-admin-message success">Clube removido.</section> : null}
+      {params.public_name_updated ? (
+        <section className="team-admin-message success">Nome público guardado.</section>
+      ) : null}
+      {params.public_name_cleared ? (
+        <section className="team-admin-message success">Nome público limpo.</section>
+      ) : null}
+      {params.public_name_unchanged ? (
+        <section className="team-admin-message success">O nome público já tinha esse valor.</section>
+      ) : null}
       {assetSummary ? (
         <section className="team-admin-message success">
           Atualizacao de emblemas concluida.
@@ -553,6 +589,35 @@ export default async function AdminTeamsPage({ searchParams }: TeamsPageProps) {
                 Remover
               </button>
             </div>
+          </form>
+          <form
+            action={`/api/admin/teams/${team.id}/public-name`}
+            className="team-assets-form"
+            data-confirm-empty-input={team.public_name ? `public-name-${team.id}` : undefined}
+            data-confirm-empty-message={
+              team.public_name ? `Limpar o nome público de ${team.name}?` : undefined
+            }
+            method="post"
+          >
+            <small>
+              Clube canónico: <strong>{team.name}</strong>
+            </small>
+            <div className="team-field">
+              <label htmlFor={`public-name-${team.id}`}>Nome público</label>
+              <input
+                aria-describedby={`public-name-help-${team.id}`}
+                autoComplete="off"
+                defaultValue={team.public_name ?? ""}
+                disabled={!canWrite}
+                id={`public-name-${team.id}`}
+                maxLength={80}
+                name="publicName"
+              />
+              <small id={`public-name-help-${team.id}`}>
+                Nome usado em jogos, jornadas, resultados e classificações. Não é uma sigla nem um alias.
+              </small>
+            </div>
+            <button disabled={!canWrite} type="submit">Guardar nome público</button>
           </form>
           <form action={`/api/admin/teams/${team.id}`} hidden id={`team-delete-${team.id}`} method="post">
             <input type="hidden" name="action_type" value="delete" />

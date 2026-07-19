@@ -1,8 +1,11 @@
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
+import { getPublicTeamName } from "@/lib/public-team-name";
 
 export type PublicMatchStripTeam = {
   name?: string | null;
+  public_name?: string | null;
   short_name?: string | null;
+  code?: string | null;
   logo_url?: string | null;
 };
 
@@ -145,83 +148,11 @@ function statusKind(status?: string | null) {
   return "scheduled";
 }
 
-function teamInitials(name?: string | null, shortName?: string | null) {
-  const source = shortName || name || "";
-  const initials = source
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 3)
-    .toUpperCase();
-
-  return initials || "FC";
-}
-
-function normalizeTeamName(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-const compactTeamNameOverrides: Record<string, string> = {
-  "academico de viseu": "A. de Viseu",
-  "athletic club": "Athletic",
-  "atletico de madrid": "A. Madrid",
-  "atletico madrid": "A. Madrid",
-  "brighton & hove albion": "Brighton",
-  "brighton and hove albion": "Brighton",
-  "celta vigo": "Celta",
-  "deportivo la coruna": "Deportivo",
-  "estoril praia": "Estoril",
-  "estrela da amadora": "Estrela",
-  "manchester city": "M. City",
-  "manchester united": "M. United",
-  "nottingham forest": "N. Forest",
-  "racing santander": "Racing",
-  "rayo vallecano": "Rayo",
-  "real betis": "Betis",
-  "real madrid": "R. Madrid",
-  "real sociedad": "R. Sociedad",
-  "tottenham hotspur": "Tottenham"
-};
-
-function fullTeamName(team?: PublicMatchStripTeam | null) {
-  return team?.name?.trim() || team?.short_name?.trim() || "Equipa";
-}
-
-function compactTeamName(team?: PublicMatchStripTeam | null) {
-  const editorialName = team?.name?.trim();
-  const fallback = team?.short_name?.trim() || editorialName || "Equipa";
-
-  if (!editorialName) {
-    return fallback;
-  }
-
-  const normalizedName = normalizeTeamName(editorialName);
-  const override = compactTeamNameOverrides[normalizedName];
-  if (override) {
-    return override;
-  }
-
-  if (editorialName.length <= 13) {
-    return editorialName;
-  }
-
-  const parts = editorialName.split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    const compactName = `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
-    return compactName.length <= 16 ? compactName : `${parts[0][0]}. ${parts[1]}`;
-  }
-
-  return fallback.length <= 13 ? fallback : editorialName;
-}
-
 function TeamBadge({ team }: { team?: PublicMatchStripTeam | null }) {
-  const label = teamInitials(team?.name, team?.short_name);
+  const label = getPublicTeamName(
+    { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
+    "badge"
+  );
 
   return (
     <span className="public-team-badge">
@@ -268,12 +199,16 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
     <article className={`public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
       <span className="public-matchday-mini-team">
         <TeamBadge team={match.homeTeam} />
-        <span title={fullTeamName(match.homeTeam)}>{compactTeamName(match.homeTeam)}</span>
+        <span title={getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "full")}>
+          {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
+        </span>
         {showScore ? <b className="public-matchday-mini-score">{match.home_score}</b> : null}
       </span>
       <span className="public-matchday-mini-team">
         <TeamBadge team={match.awayTeam} />
-        <span title={fullTeamName(match.awayTeam)}>{compactTeamName(match.awayTeam)}</span>
+        <span title={getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "full")}>
+          {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
+        </span>
         {showScore ? <b className="public-matchday-mini-score">{match.away_score}</b> : null}
       </span>
       <span className="public-matchday-mini-status">

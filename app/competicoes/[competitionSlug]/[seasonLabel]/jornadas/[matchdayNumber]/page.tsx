@@ -2,6 +2,7 @@ import { buildAccumulatedClassification, totalClassificationStats, type Classifi
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
+import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import RoundupVideoSwitcher from "@/components/public/RoundupVideoSwitcher";
@@ -2931,57 +2932,6 @@ function matchResult(match: PublicSeasonMatch) {
   return `${match.home_score} - ${match.away_score}`;
 }
 
-function teamInitials(name?: string | null, shortName?: string | null) {
-  const source = shortName || name || "";
-  const initials = source
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 3)
-    .toUpperCase();
-
-  return initials || "FC";
-}
-
-const COMPACT_TEAM_LABELS: Record<string, string> = {
-  "athletic club": "Athletic",
-  "atletico madrid": "A. Madrid",
-  "atletico de madrid": "A. Madrid",
-  "celta vigo": "Celta",
-  "rayo vallecano": "Rayo",
-  "real betis": "Betis",
-  "real madrid": "R. Madrid",
-  "real sociedad": "R. Sociedad",
-  "racing santander": "Racing",
-  "deportivo la coruna": "Deportivo"
-};
-
-function compactTeamKey(name: string) {
-  return name
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function shortTeamLabel(name?: string | null, shortName?: string | null) {
-  const editorialName = name?.trim();
-  const compactName = editorialName ? COMPACT_TEAM_LABELS[compactTeamKey(editorialName)] : null;
-  const fallback = shortName?.trim() || editorialName || "Equipa";
-
-  if (!editorialName) {
-    return fallback;
-  }
-
-  if (compactName) {
-    return compactName;
-  }
-
-  return editorialName.length <= 20 ? editorialName : fallback;
-}
-
 function isWinner(match: PublicSeasonMatch, side: "home" | "away") {
   if (match.status !== "finished" || match.home_score === null || match.away_score === null || match.home_score === match.away_score) {
     return false;
@@ -3022,8 +2972,16 @@ function renderStatHeaders(group: string) {
   ));
 }
 
-function TeamBadge({ logoUrl, name, shortName }: { logoUrl?: string | null; name?: string | null; shortName?: string | null }) {
-  return <PublicTeamBadge fallbackLabel={teamInitials(name, shortName)} logoUrl={logoUrl} />;
+function TeamBadge({ team }: { team?: PublicSeasonMatch["homeTeam"] }) {
+  return (
+    <PublicTeamBadge
+      fallbackLabel={getPublicTeamName(
+        { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
+        "badge"
+      )}
+      logoUrl={team?.logo_url}
+    />
+  );
 }
 
 function BroadcastBadge({ match }: { match: PublicSeasonMatch }) {
@@ -3073,20 +3031,30 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
       {compactBroadcastChannelName ? <span className="public-matchday-mini-channel" title={broadcastChannelName}>{compactBroadcastChannelName}</span> : null}
     </>
   ) : statusLabel(match.status);
-  const homeTeamName = match.homeTeam?.name ?? "Equipa da casa";
-  const awayTeamName = match.awayTeam?.name ?? "Equipa visitante";
+  const homeTeamName = getPublicTeamName(
+    { name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code },
+    "full"
+  );
+  const awayTeamName = getPublicTeamName(
+    { name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code },
+    "full"
+  );
   const schedule = matchSchedulePresentation(match, true);
 
   return (
     <article className={`public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
       <span className="public-matchday-mini-team">
-        <TeamBadge logoUrl={match.homeTeam?.logo_url} name={match.homeTeam?.name} shortName={match.homeTeam?.short_name} />
-        <span title={homeTeamName}>{shortTeamLabel(match.homeTeam?.name, match.homeTeam?.short_name)}</span>
+        <TeamBadge team={match.homeTeam} />
+        <span title={homeTeamName}>
+          {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
+        </span>
         {showScore ? <b className="public-matchday-mini-score">{match.home_score}</b> : null}
       </span>
       <span className="public-matchday-mini-team">
-        <TeamBadge logoUrl={match.awayTeam?.logo_url} name={match.awayTeam?.name} shortName={match.awayTeam?.short_name} />
-        <span title={awayTeamName}>{shortTeamLabel(match.awayTeam?.name, match.awayTeam?.short_name)}</span>
+        <TeamBadge team={match.awayTeam} />
+        <span title={awayTeamName}>
+          {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
+        </span>
         {showScore ? <b className="public-matchday-mini-score">{match.away_score}</b> : null}
       </span>
       <span className="public-matchday-mini-status">
@@ -3141,10 +3109,12 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
     <article className={`public-matchday-card public-matchday-card-${kind}`} key={match.id}>
       <div className={`public-matchday-team ${homeWinner ? "public-matchday-team-winner" : ""}`}>
         <div className="public-matchday-team-copy">
-          <strong>{match.homeTeam?.name ?? "Equipa da casa"}</strong>
+          <strong title={getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "full")}>
+            {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
+          </strong>
           <small>Casa</small>
         </div>
-        <TeamBadge logoUrl={match.homeTeam?.logo_url} name={match.homeTeam?.name} shortName={match.homeTeam?.short_name} />
+        <TeamBadge team={match.homeTeam} />
       </div>
       <div className="public-matchday-score">
         <strong>{matchResult(match)}</strong>
@@ -3154,9 +3124,11 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         </small>
       </div>
       <div className={`public-matchday-team ${awayWinner ? "public-matchday-team-winner" : ""}`}>
-        <TeamBadge logoUrl={match.awayTeam?.logo_url} name={match.awayTeam?.name} shortName={match.awayTeam?.short_name} />
+        <TeamBadge team={match.awayTeam} />
         <div className="public-matchday-team-copy">
-          <strong>{match.awayTeam?.name ?? "Equipa visitante"}</strong>
+          <strong title={getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "full")}>
+            {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
+          </strong>
           <small>Fora</small>
         </div>
       </div>
@@ -3213,7 +3185,9 @@ function LogoDiagnosticPanel({ context }: { context: PublicMatchdayContext }) {
     string,
     {
       name: string;
+      publicName: string | null;
       shortName: string;
+      code: string | null;
       slug: string;
       logoUrl: string | null;
       sources: Set<string>;
@@ -3235,7 +3209,9 @@ function LogoDiagnosticPanel({ context }: { context: PublicMatchdayContext }) {
 
     rowsById.set(team.id, {
       name: team.name,
+      publicName: team.public_name ?? null,
       shortName: team.short_name,
+      code: team.code ?? null,
       slug: team.slug,
       logoUrl: team.logo_url,
       sources: new Set([source])
@@ -3270,7 +3246,7 @@ function LogoDiagnosticPanel({ context }: { context: PublicMatchdayContext }) {
         <tbody>
           {rows.map((row) => (
             <tr key={row.slug}>
-              <td>{row.name || row.shortName}</td>
+              <td>{getPublicTeamName({ name: row.name, publicName: row.publicName, shortName: row.shortName, code: row.code }, "full")}</td>
               <td>{row.slug}</td>
               <td>{row.logoUrl ? <code>{row.logoUrl}</code> : "—"}</td>
               <td>{logoDiagnosticStatus(row.logoUrl)}</td>
@@ -3329,6 +3305,24 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     matches: context.matchesForSeason,
     matchdays: context.matchdays,
     selectedMatchday: context.matchday
+  });
+  const classificationTeamsById = new Map(
+    context.participants.map((participant) => [participant.team_id, participant.team] as const)
+  );
+  const publicClassificationRows = classificationRows.map((row) => {
+    const team = classificationTeamsById.get(row.teamId);
+    const nameInput = {
+      name: team?.name ?? row.name,
+      publicName: team?.public_name,
+      shortName: team?.short_name,
+      code: team?.code
+    };
+
+    return {
+      ...row,
+      publicName: getPublicTeamName(nameInput, "compact"),
+      fullName: getPublicTeamName(nameInput, "full")
+    };
   });
   const matchdayHref = (number: number) => `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${number}`;
   const shouldSplitMatchdayNav = context.matchdays.length > 20;
@@ -3982,12 +3976,12 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               </tr>
             </thead>
             <tbody>
-              {classificationRows.map((row, index) => (
+              {publicClassificationRows.map((row, index) => (
                 <tr key={row.teamId}>
                   <td>{index + 1}</td>
                   <td className="public-table-club">
                     <span className="public-club-cell">
-                    <span className="public-club-name">{row.name}</span>
+                    <span className="public-club-name" title={row.fullName}>{row.publicName}</span>
                     <span className="public-club-form">
                       <span>Últimos:</span>
                       {row.recentForm.length > 0 ? (
