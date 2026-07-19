@@ -181,6 +181,7 @@ export type SupabaseTeam = {
   id: string;
   name: string;
   short_name: string;
+  public_name?: string | null;
   slug: string;
   code?: string | null;
   country: string | null;
@@ -543,10 +544,10 @@ export async function getAdminTeams(): Promise<{
   try {
     const teams = writeConfigured
       ? await fetchSupabaseAdminTable<SupabaseTeam>(
-          "teams?select=id,name,short_name,slug,country,logo_url,primary_color&order=name.asc"
+          "teams?select=id,name,short_name,public_name,slug,country,logo_url,primary_color&order=name.asc"
         )
       : await fetchSupabaseTable<SupabaseTeam>(
-          "teams?select=id,name,short_name,slug,country,logo_url,primary_color&order=name.asc"
+          "teams?select=id,name,short_name,public_name,slug,country,logo_url,primary_color&order=name.asc"
         );
 
     return {
