@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
     "lint": "next lint",
-    "test:redacao-hardening": "tsx --test lib/redacao-automatica/source-access-hardening.test.ts"
+    "test:redacao-hardening": "tsx --test lib/redacao-automatica/source-access-hardening.test.ts",
+    "test:redacao-parsers": "tsx --test lib/redacao-automatica/article-parsers.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
