@@ -151,6 +151,18 @@ export type CalendarApplicationProgress = {
   stopped: boolean;
 };
 
+export type CalendarApplicationClientState = {
+  completedCount: number;
+  pendingCount: number;
+  hasPending: boolean;
+  hasFailed: boolean;
+  isComplete: boolean;
+  canApply: boolean;
+  action: "apply" | "resume" | null;
+  nextMatchdayNumber: number | null;
+  shouldRefreshPersistedData: boolean;
+};
+
 export type CalendarFingerprintValidation =
   | { ok: true }
   | { ok: false; error: "calendar-preview-stale"; message: string };
@@ -786,6 +798,31 @@ export function buildCalendarApplicationProgress(
     failedMatchday: failed?.matchdayNumber ?? null,
     nextMatchdayNumber: next?.number ?? null,
     stopped: failed !== null
+  };
+}
+
+export function buildCalendarApplicationClientState(
+  matchdays: readonly Pick<CalendarMatchdayPlan, "number">[],
+  checkpoints: readonly CalendarMatchdayCheckpoint[]
+): CalendarApplicationClientState {
+  const progress = buildCalendarApplicationProgress(matchdays, checkpoints);
+  const completedCount = progress.completedMatchdays.length;
+  const pendingCount = progress.pendingMatchdays.length;
+  const hasPending = pendingCount > 0;
+  const hasFailed = progress.failedMatchday !== null;
+  const isComplete = matchdays.length > 0 && !hasPending && !hasFailed;
+  const canApply = hasPending && !hasFailed;
+
+  return {
+    completedCount,
+    pendingCount,
+    hasPending,
+    hasFailed,
+    isComplete,
+    canApply,
+    action: canApply ? (completedCount > 0 ? "resume" : "apply") : null,
+    nextMatchdayNumber: progress.nextMatchdayNumber,
+    shouldRefreshPersistedData: isComplete || (hasFailed && completedCount > 0)
   };
 }
 
