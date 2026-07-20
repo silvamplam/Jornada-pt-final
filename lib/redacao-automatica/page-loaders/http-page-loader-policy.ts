@@ -13,6 +13,7 @@ const COMMON_ALLOWED_CONTENT_TYPES = Object.freeze(["text/html"]);
 const COMMON_TIMEOUT_MS = 10_000;
 const COMMON_MAX_BYTES = 5 * 1024 * 1024;
 const COMMON_MAX_REDIRECTS = 3;
+const FORBIDDEN_HTTP_SOURCE_CODES = Object.freeze(["maisfutebol", "ojogo"]);
 
 function createPolicy(
   sourceCode: string,
@@ -32,8 +33,11 @@ function createPolicy(
 const policiesBySourceCode = new Map<string, HttpPageLoaderPolicy>([
   ["record", createPolicy("record", ["www.record.pt"])],
   ["abola", createPolicy("abola", ["www.abola.pt"])],
-  ["maisfutebol", createPolicy("maisfutebol", ["maisfutebol.iol.pt"])],
 ]);
+
+export function isHttpSourceForbidden(sourceCode: string): boolean {
+  return FORBIDDEN_HTTP_SOURCE_CODES.includes(sourceCode.trim());
+}
 
 export function resolveHttpPageLoaderPolicy(
   sourceCode: string,

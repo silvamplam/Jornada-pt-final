@@ -47,12 +47,13 @@ const sourceRegistry = [
     name: "Maisfutebol",
     domain: "maisfutebol.iol.pt",
     homepage: "https://maisfutebol.iol.pt/",
-    adapterKey: "maisfutebol",
+    adapterKey: null,
     operationalStatus: "paused",
     monitoringEnabled: false,
-    inactiveReason: "Monitorização ainda não ativa.",
-    legalNote: null,
-    editorialNote: "Preparado para futura ativação.",
+    inactiveReason: "Pedidos HTTP externos não autorizados.",
+    legalNote: "O adaptador está preservado apenas para análise offline de HTML local.",
+    editorialNote:
+      "Qualquer futura ativação exige revisão e alteração deliberada das várias camadas de proteção.",
     displayOrder: 30,
   },
   {
