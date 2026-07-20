@@ -96,6 +96,7 @@ export type CollectionErrorCode =
   | "source_not_found"
   | "source_inactive"
   | "legal_hold"
+  | "source_forbidden"
   | "adapter_missing"
   | "adapter_source_mismatch"
   | "invalid_adapter_key"

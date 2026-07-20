@@ -6,6 +6,7 @@ import type {
   PageLoadRequest,
 } from "@/lib/redacao-automatica/page-loader";
 import {
+  isHttpSourceForbidden,
   resolveHttpPageLoaderPolicy,
   type HttpPageLoaderPolicy,
 } from "@/lib/redacao-automatica/page-loaders/http-page-loader-policy";
@@ -732,6 +733,16 @@ export function createHttpPageLoader(
   return {
     async load(request): Promise<OperationResult<LoadedPage, CollectionError>> {
       const normalizedSourceCode = request.sourceCode.trim();
+
+      if (isHttpSourceForbidden(normalizedSourceCode)) {
+        return errorResult(
+          request,
+          "source_forbidden",
+          false,
+          "A fonte não está autorizada para carregamento HTTP externo.",
+        );
+      }
+
       let policy: HttpPageLoaderPolicy | null;
 
       try {
