@@ -393,6 +393,7 @@ export default async function AdminTeamsPage({ searchParams }: TeamsPageProps) {
           <span>Adicionar e corrigir nomes, siglas, paises, cores e emblemas.</span>
         </div>
         <nav aria-label="Ações de clubes" className="team-admin-hero-actions">
+          <a href="/admin/clubes/criacao-em-lote">Criar clubes em lote</a>
           <a href="/admin/clubes/aliases">Gerir aliases</a>
           <a href="/admin/gestor">Voltar ao gestor</a>
         </nav>
