@@ -2,6 +2,7 @@ import { buildAccumulatedClassification, totalClassificationStats, type Classifi
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
+import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
@@ -3325,17 +3326,20 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     };
   });
   const matchdayHref = (number: number) => `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${number}`;
-  const shouldSplitMatchdayNav = context.matchdays.length > 20;
-  const firstLegMatchdays = shouldSplitMatchdayNav ? context.matchdays.slice(0, 19) : context.matchdays;
-  const secondLegMatchdays = shouldSplitMatchdayNav ? context.matchdays.slice(19) : [];
-  const activeMatchdayLeg =
-    shouldSplitMatchdayNav && secondLegMatchdays.some((matchday) => matchday.id === context.matchday.id)
-      ? "second"
-      : "first";
-  const visibleMatchdays =
-    shouldSplitMatchdayNav && activeMatchdayLeg === "second" ? secondLegMatchdays : firstLegMatchdays;
-  const firstLegHref = firstLegMatchdays[0] ? matchdayHref(firstLegMatchdays[0].number) : currentSeasonHref;
-  const secondLegHref = secondLegMatchdays[0] ? matchdayHref(secondLegMatchdays[0].number) : currentSeasonHref;
+  const matchdayLegNavigation = buildPublicMatchdayLegNavigation(
+    context.matchdays,
+    context.activeParticipantCount,
+    context.matchday.id
+  );
+  const shouldSplitMatchdayNav = matchdayLegNavigation.applies;
+  const activeMatchdayLeg = matchdayLegNavigation.activeLeg;
+  const visibleMatchdays = matchdayLegNavigation.visibleMatchdays;
+  const firstLegHref = matchdayLegNavigation.firstLegTarget
+    ? matchdayHref(matchdayLegNavigation.firstLegTarget.number)
+    : currentSeasonHref;
+  const secondLegHref = matchdayLegNavigation.secondLegTarget
+    ? matchdayHref(matchdayLegNavigation.secondLegTarget.number)
+    : currentSeasonHref;
   const gamesPageHref = `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${context.matchday.number}/jogos`;
   const liveMatches = context.matchesForMatchday.filter((match) => statusKind(match.status) === "live");
   const halftimeMatches = context.matchesForMatchday.filter((match) => statusKind(match.status) === "halftime");

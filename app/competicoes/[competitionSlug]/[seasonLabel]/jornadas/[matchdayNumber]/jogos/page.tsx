@@ -1,4 +1,5 @@
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
+import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import {
   getPublicMatchdayDiagnostic,
   seasonLabelToUrlSegment,
@@ -1235,16 +1236,20 @@ export default async function PublicMatchdayGamesPage({ params }: PublicMatchday
     { key: "scheduled", label: "Agendados", matches: scheduledMatches },
     { key: "other", label: "Outros estados", matches: otherMatches }
   ].filter((group) => group.matches.length > 0);
-  const shouldSplitMatchdayNav = context.matchdays.length > 20;
-  const firstLegMatchdays = shouldSplitMatchdayNav ? context.matchdays.slice(0, 19) : context.matchdays;
-  const secondLegMatchdays = shouldSplitMatchdayNav ? context.matchdays.slice(19) : [];
-  const activeMatchdayLeg =
-    shouldSplitMatchdayNav && secondLegMatchdays.some((matchday) => matchday.id === context.matchday.id)
-      ? "second"
-      : "first";
-  const visibleMatchdays = activeMatchdayLeg === "second" ? secondLegMatchdays : firstLegMatchdays;
-  const firstLegHref = firstLegMatchdays[0] ? gamesPageHref(firstLegMatchdays[0].number) : currentSeasonHref;
-  const secondLegHref = secondLegMatchdays[0] ? gamesPageHref(secondLegMatchdays[0].number) : currentSeasonHref;
+  const matchdayLegNavigation = buildPublicMatchdayLegNavigation(
+    context.matchdays,
+    context.activeParticipantCount,
+    context.matchday.id
+  );
+  const shouldSplitMatchdayNav = matchdayLegNavigation.applies;
+  const activeMatchdayLeg = matchdayLegNavigation.activeLeg;
+  const visibleMatchdays = matchdayLegNavigation.visibleMatchdays;
+  const firstLegHref = matchdayLegNavigation.firstLegTarget
+    ? gamesPageHref(matchdayLegNavigation.firstLegTarget.number)
+    : currentSeasonHref;
+  const secondLegHref = matchdayLegNavigation.secondLegTarget
+    ? gamesPageHref(matchdayLegNavigation.secondLegTarget.number)
+    : currentSeasonHref;
   const selectedMatchdayDateContext = formatPreferredMatchdayDateContext(
     context.matchesForMatchday,
     context.matchday.starts_on,

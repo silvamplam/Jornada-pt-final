@@ -68,6 +68,7 @@ export type PublicMatchdayContext = {
   seasons: SupabaseSeason[];
   matchday: SupabaseMatchday;
   matchdays: SupabaseMatchday[];
+  activeParticipantCount: number;
   participants: PublicSeasonParticipant[];
   matchesForSeason: PublicSeasonMatch[];
   matchesForMatchday: PublicSeasonMatch[];
@@ -618,6 +619,7 @@ export async function getPublicMatchdayDiagnostic({
       };
     }
 
+    const activeParticipantCount = participants.filter((participant) => participant.status !== "inactive").length;
     const manualParticipants = participants.filter(
       (participant) =>
         participant.data_source === "manual" &&
@@ -675,6 +677,7 @@ export async function getPublicMatchdayDiagnostic({
         seasons,
         matchday,
         matchdays,
+        activeParticipantCount,
         participants: manualParticipants.map((participant) => ({
           ...participant,
           team: teamsById.get(participant.team_id) ?? null

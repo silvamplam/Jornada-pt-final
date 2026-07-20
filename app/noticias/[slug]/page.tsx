@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
+import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import {
   getPublicMatchdayDiagnostic,
@@ -1290,20 +1291,20 @@ export default async function NewsArticlePage({ params }: PageProps) {
         }))
       : [];
   const currentSeasonHref = articleContext && seasonSegment ? `/competicoes/${articleContext.competition.slug}/${seasonSegment}/jornadas/1` : "/";
-  const shouldSplitMatchdayNav = articleContext ? articleContext.matchdays.length > 20 : false;
-  const firstLegMatchdays = articleContext
-    ? shouldSplitMatchdayNav
-      ? articleContext.matchdays.slice(0, 19)
-      : articleContext.matchdays
-    : [];
-  const secondLegMatchdays = articleContext && shouldSplitMatchdayNav ? articleContext.matchdays.slice(19) : [];
-  const activeMatchdayLeg =
-    shouldSplitMatchdayNav && secondLegMatchdays.some((matchday) => matchday.id === articleContext?.matchday.id)
-      ? "second"
-      : "first";
-  const visibleMatchdays = activeMatchdayLeg === "second" ? secondLegMatchdays : firstLegMatchdays;
-  const firstLegHref = firstLegMatchdays[0] ? matchdayHref(firstLegMatchdays[0].number) : currentSeasonHref;
-  const secondLegHref = secondLegMatchdays[0] ? matchdayHref(secondLegMatchdays[0].number) : currentSeasonHref;
+  const matchdayLegNavigation = buildPublicMatchdayLegNavigation(
+    articleContext?.matchdays ?? [],
+    articleContext?.activeParticipantCount,
+    articleContext?.matchday.id
+  );
+  const shouldSplitMatchdayNav = matchdayLegNavigation.applies;
+  const activeMatchdayLeg = matchdayLegNavigation.activeLeg;
+  const visibleMatchdays = matchdayLegNavigation.visibleMatchdays;
+  const firstLegHref = matchdayLegNavigation.firstLegTarget
+    ? matchdayHref(matchdayLegNavigation.firstLegTarget.number)
+    : currentSeasonHref;
+  const secondLegHref = matchdayLegNavigation.secondLegTarget
+    ? matchdayHref(matchdayLegNavigation.secondLegTarget.number)
+    : currentSeasonHref;
   const selectedMatchdayDateContext = formatPreferredMatchdayDateContext(
     articleMatches,
     articleContext?.matchday.starts_on ?? null,

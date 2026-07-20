@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
 import { readPublicCompetitionMenu } from "@/lib/public-competition-menu";
+import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
@@ -46,6 +47,11 @@ type SeasonRow = {
 type MatchdayRow = {
   id: string;
   number: number | null;
+};
+
+type SeasonParticipantRow = {
+  id: string;
+  status: string | null;
 };
 
 type BroadcastLinkRow = {
@@ -648,6 +654,16 @@ async function readMatchdaysBySeason(seasonId: string | null | undefined) {
   ).catch(() => []);
 }
 
+async function readActiveParticipantCount(seasonId: string | null | undefined) {
+  if (!seasonId) return null;
+
+  const participants = await fetchSupabaseAdminTable<SeasonParticipantRow>(
+    `season_teams?select=id,status&season_id=eq.${encodeURIComponent(seasonId)}&limit=1000`
+  ).catch(() => []);
+
+  return participants.filter((participant) => participant.status !== "inactive").length;
+}
+
 async function readBroadcastChannelsByMatchId(matchIds: string[], matches: MatchRow[] = []) {
   const channelsByMatchId = new Map<string, BroadcastChannelRow>();
   if (matchIds.length === 0) return channelsByMatchId;
@@ -1119,10 +1135,12 @@ export default async function PublicGamesPageContent({ competitionSlug, seasonLa
   const navigationMatchdayNumber = navigationMatchday?.number ?? null;
   let navigationSeasons: SeasonRow[] = [];
   let navigationMatchdays: MatchdayRow[] = [];
+  let activeParticipantCount: number | null = null;
   if (navigationCompetition?.id && navigationSeason?.id) {
-    [navigationSeasons, navigationMatchdays] = await Promise.all([
+    [navigationSeasons, navigationMatchdays, activeParticipantCount] = await Promise.all([
       readSeasonsByCompetition(navigationCompetition.id),
-      readMatchdaysBySeason(navigationSeason.id)
+      readMatchdaysBySeason(navigationSeason.id),
+      readActiveParticipantCount(navigationSeason.id)
     ]);
   }
   const hasSeasonNavigation = Boolean(
@@ -1145,16 +1163,20 @@ export default async function PublicGamesPageContent({ competitionSlug, seasonLa
   const currentNavigationSeasonHref = navigationCompetitionSlug && navigationSeasonSegment
     ? `/competicoes/${navigationCompetitionSlug}/${navigationSeasonSegment}/jornadas/1/jogos`
     : "/jogos";
-  const shouldSplitMatchdayNav = navigationMatchdays.length > 20;
-  const firstLegMatchdays = shouldSplitMatchdayNav ? navigationMatchdays.slice(0, 19) : navigationMatchdays;
-  const secondLegMatchdays = shouldSplitMatchdayNav ? navigationMatchdays.slice(19) : [];
-  const activeMatchdayLeg =
-    shouldSplitMatchdayNav && secondLegMatchdays.some((item) => item.id === navigationMatchday?.id)
-      ? "second"
-      : "first";
-  const visibleMatchdays = activeMatchdayLeg === "second" ? secondLegMatchdays : firstLegMatchdays;
-  const firstLegHref = firstLegMatchdays[0]?.number ? navigationMatchdayHref(firstLegMatchdays[0].number) : currentNavigationSeasonHref;
-  const secondLegHref = secondLegMatchdays[0]?.number ? navigationMatchdayHref(secondLegMatchdays[0].number) : currentNavigationSeasonHref;
+  const matchdayLegNavigation = buildPublicMatchdayLegNavigation(
+    navigationMatchdays,
+    activeParticipantCount,
+    navigationMatchday?.id
+  );
+  const shouldSplitMatchdayNav = matchdayLegNavigation.applies;
+  const activeMatchdayLeg = matchdayLegNavigation.activeLeg;
+  const visibleMatchdays = matchdayLegNavigation.visibleMatchdays;
+  const firstLegHref = matchdayLegNavigation.firstLegTarget?.number
+    ? navigationMatchdayHref(matchdayLegNavigation.firstLegTarget.number)
+    : currentNavigationSeasonHref;
+  const secondLegHref = matchdayLegNavigation.secondLegTarget?.number
+    ? navigationMatchdayHref(matchdayLegNavigation.secondLegTarget.number)
+    : currentNavigationSeasonHref;
 
   return (
     <main className="public-matchday-shell">
