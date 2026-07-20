@@ -6,6 +6,7 @@
   type ClassificationSplit
 } from "@/lib/classification";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
+import Link from "next/link";
 import {
   buildSeasonParticipantPlan,
   type SeasonParticipantPlanSummary
@@ -1759,7 +1760,6 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
     remove_participant: "Participante removido da epoca selecionada.",
     remove_all_participants: "Participantes removidos da epoca selecionada.",
     remove_old_participant: "Ligacao de suporte removida de season_teams.",
-    remove_team: "Clube removido do pais selecionado.",
     matchday: "Jornada criada dentro da epoca selecionada.",
     remove_matchday: "Jornada removida da epoca selecionada.",
     match: "Jogo criado dentro da jornada selecionada.",
@@ -1780,6 +1780,7 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
     "missing-service": "Liga primeiro a Supabase na Vercel.",
     "missing-fields": "Preenche os campos obrigatorios antes de guardar.",
     "unknown-action": "A acao enviada pelo formulario nao foi reconhecida.",
+    "safe-deletion-required": "A remoção segura é obrigatória. Use a gestão de clubes para analisar as dependências.",
     "country-not-found": "Nao foi possivel confirmar o pais selecionado.",
     "competition-country-invalid": "A competicao selecionada nao pertence ao pais escolhido.",
     "season-competition-invalid": "A epoca selecionada nao pertence a competicao escolhida.",
@@ -2863,19 +2864,12 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
                           <b>{team.name}</b>
                           <small>{team.short_name ?? team.slug}</small>
                         </div>
-                        <form
-                          action="/api/admin/gestor"
-                          data-confirm="Tem a certeza que quer remover este clube deste pais? Esta acao so avanca se o clube nao estiver associado a nenhuma epoca."
-                          method="post"
+                        <Link
+                          className="manager-link-button"
+                          href={`/admin/clubes?q=${encodeURIComponent(team.name)}#clubes-existentes`}
                         >
-                          <input type="hidden" name="action_type" value="remove_team" />
-                          <input type="hidden" name="return_to" value={clubsReturnTo} />
-                          <input type="hidden" name="team_id" value={team.id} />
-                          <input type="hidden" name="country_id" value={selectedCountry?.id ?? ""} />
-                          <button className="manager-link-button" type="submit">
-                            Remover
-                          </button>
-                        </form>
+                          Remover em Clubes
+                        </Link>
                       </li>
                     ))}
                   </ul>

@@ -24,6 +24,7 @@ import type {
   AdminTeamPublicNameCountry,
   AdminTeamPublicNameTeam
 } from "@/lib/supabase";
+import TeamSafeDeletion from "./TeamSafeDeletion";
 import styles from "./team-public-name-manager.module.css";
 
 const PAGE_SIZE = 50;
@@ -212,6 +213,7 @@ export default function TeamPublicNameManager({
   const [batchPreview, setBatchPreview] = useState<TeamPublicNameBatchPreviewResponse | null>(null);
   const [batchResult, setBatchResult] = useState<TeamPublicNameBatchApplyResponse | null>(null);
   const [batchLoading, setBatchLoading] = useState<"preview" | "apply" | null>(null);
+  const [deletedTeamIds, setDeletedTeamIds] = useState<Set<string>>(() => new Set());
   const saveLockRef = useRef(false);
   const batchLockRef = useRef(false);
   const mountedRef = useRef(true);
@@ -310,6 +312,9 @@ export default function TeamPublicNameManager({
   const filteredTeams = useMemo(() => {
     const normalizedQuery = normalizeForSearch(queryInput);
     const filtered = teams.filter((team) => {
+      if (deletedTeamIds.has(team.id)) {
+        return false;
+      }
       const publicName = currentPublicNames[team.id];
       const matchesQuery =
         !normalizedQuery ||
@@ -338,7 +343,16 @@ export default function TeamPublicNameManager({
       const comparison = left.name.localeCompare(right.name, "pt-PT", { sensitivity: "base" });
       return sort === "name-desc" ? -comparison : comparison;
     });
-  }, [competitionFilter, countryFilter, currentPublicNames, publicNameStatus, queryInput, sort, teams]);
+  }, [
+    competitionFilter,
+    countryFilter,
+    currentPublicNames,
+    deletedTeamIds,
+    publicNameStatus,
+    queryInput,
+    sort,
+    teams
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredTeams.length / PAGE_SIZE));
   const page = queryInput === queryFromUrl ? Math.min(requestedPage, totalPages) : 1;
@@ -383,6 +397,18 @@ export default function TeamPublicNameManager({
   function invalidateBatchReview() {
     setBatchPreview(null);
     setBatchResult(null);
+  }
+
+  function handleTeamDeleted(teamId: string, teamName: string) {
+    setDeletedTeamIds((current) => new Set(current).add(teamId));
+    setSelectedTeamIds((current) => {
+      const next = new Set(current);
+      next.delete(teamId);
+      return next;
+    });
+    invalidateBatchReview();
+    setFeedback({ tone: "success", message: `Clube removido com sucesso: ${teamName}.` });
+    router.refresh();
   }
 
   function toggleTeamSelection(teamId: string) {
@@ -835,7 +861,7 @@ export default function TeamPublicNameManager({
           <h2>Clubes existentes</h2>
           <p>Gerir os nomes públicos e abrir os restantes dados apenas quando necessário.</p>
         </div>
-        <strong>{teams.length} clubes carregados</strong>
+        <strong>{teams.length - deletedTeamIds.size} clubes carregados</strong>
       </header>
 
       <div className={styles.filters}>
@@ -1230,24 +1256,12 @@ export default function TeamPublicNameManager({
                   </div>
                   <button disabled={disabled || isBusy} type="submit">Guardar dados completos</button>
                 </form>
-                <form
-                  action={`/api/admin/teams/${team.id}`}
-                  className={styles.removeForm}
-                  method="post"
-                  onSubmit={(event) => {
-                    if (
-                      !window.confirm(
-                        "Tem a certeza que pretende remover este clube? Esta ação só será possível se o clube não tiver dependências."
-                      )
-                    ) {
-                      event.preventDefault();
-                    }
-                  }}
-                >
-                  <input name="action_type" type="hidden" value="delete" />
-                  <input name="return_to" type="hidden" value={returnTo} />
-                  <button disabled={disabled || isBusy} type="submit">Remover clube</button>
-                </form>
+                <TeamSafeDeletion
+                  disabled={disabled || isBusy}
+                  onDeleted={handleTeamDeleted}
+                  teamId={team.id}
+                  teamName={team.name}
+                />
               </details>
             </article>
           );

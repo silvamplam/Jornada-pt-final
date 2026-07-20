@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseServiceConfig, writeSupabaseAdmin } from "@/lib/supabase";
 
 function cleanText(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
@@ -69,9 +69,14 @@ function redirectToManager(
   return NextResponse.redirect(target, { status: 303 });
 }
 
-async function hasRows(path: string) {
-  const rows = await fetchSupabaseAdminTable<{ id: string }>(`${path}&limit=1`);
-  return rows.length > 0;
+function safeDeletionRequiredResponse() {
+  return NextResponse.json(
+    {
+      error: "safe_deletion_required",
+      message: "A remoção segura é obrigatória."
+    },
+    { status: 409, headers: { "Cache-Control": "no-store" } }
+  );
 }
 
 type UpdateTeamContext = {
@@ -81,40 +86,17 @@ type UpdateTeamContext = {
 };
 
 export async function POST(request: Request, context: UpdateTeamContext) {
-  if (!getSupabaseServiceConfig()) {
-    return redirectTo(request, "/admin/clubes?error=missing-service");
-  }
-
   const { id } = await context.params;
   const formData = await request.formData();
   const actionType = cleanText(formData.get("action_type"));
   const returnTo = cleanText(formData.get("return_to"));
 
   if (actionType === "delete") {
-    if (!id) {
-      return redirectToManager(request, returnTo, "error", "missing-fields");
-    }
+    return safeDeletionRequiredResponse();
+  }
 
-    const encodedId = encodeURIComponent(id);
-
-    try {
-      const hasDependencies =
-        (await hasRows(`season_teams?select=id&team_id=eq.${encodedId}`)) ||
-        (await hasRows(`matches?select=id&or=(home_team_id.eq.${encodedId},away_team_id.eq.${encodedId})`)) ||
-        (await hasRows(`standing_rows?select=id&team_id=eq.${encodedId}`));
-
-      if (hasDependencies) {
-        return redirectToManager(request, returnTo, "error", "team-has-dependencies");
-      }
-
-      await writeSupabaseAdmin(`teams?id=eq.${encodedId}`, {
-        method: "DELETE"
-      });
-    } catch {
-      return redirectToManager(request, returnTo, "error", "delete");
-    }
-
-    return redirectToManager(request, returnTo, "deleted", "1");
+  if (!getSupabaseServiceConfig()) {
+    return redirectTo(request, "/admin/clubes?error=missing-service");
   }
 
   const name = cleanText(formData.get("name"));
@@ -142,4 +124,8 @@ export async function POST(request: Request, context: UpdateTeamContext) {
   }
 
   return redirectToManager(request, returnTo, "updated", "1");
+}
+
+export async function DELETE() {
+  return safeDeletionRequiredResponse();
 }
