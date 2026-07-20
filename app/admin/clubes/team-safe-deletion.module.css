@@ -1,0 +1,140 @@
+.root {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.backdrop {
+  align-items: center;
+  background: rgb(9 16 28 / 76%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.dialog {
+  background: #fff;
+  border: 1px solid #d8dde7;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgb(9 16 28 / 32%);
+  color: #172033;
+  max-height: min(760px, calc(100vh - 48px));
+  max-width: 720px;
+  overflow: auto;
+  padding: 24px;
+  width: 100%;
+}
+
+.header {
+  align-items: flex-start;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.header h3,
+.header p,
+.content p {
+  margin-top: 0;
+}
+
+.eyebrow {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.content {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.notice,
+.blocked,
+.error {
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.notice {
+  background: #effaf4;
+  border: 1px solid #a7e0bd;
+}
+
+.blocked,
+.error {
+  background: #fff4f3;
+  border: 1px solid #efb0aa;
+}
+
+.notice p,
+.blocked p {
+  margin-bottom: 0;
+  margin-top: 6px;
+}
+
+.aliasList,
+.dependencyList {
+  margin: 12px 0 0;
+  padding-left: 22px;
+}
+
+.dependencyList li {
+  display: grid;
+  gap: 2px 12px;
+  grid-template-columns: 1fr auto;
+  margin-bottom: 10px;
+}
+
+.dependencyList small {
+  color: #64748b;
+  grid-column: 1 / -1;
+}
+
+.confirmation {
+  border-top: 1px solid #d8dde7;
+  display: grid;
+  gap: 10px;
+  padding-top: 16px;
+}
+
+.confirmation label {
+  font-weight: 700;
+}
+
+.confirmation input {
+  border: 1px solid #9aa5b5;
+  border-radius: 8px;
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.dangerButton {
+  background: #b42318;
+  border-color: #b42318;
+  color: #fff;
+  justify-self: start;
+}
+
+.dangerButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 640px) {
+  .backdrop {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .dialog {
+    max-height: calc(100vh - 24px);
+    padding: 18px;
+  }
+}

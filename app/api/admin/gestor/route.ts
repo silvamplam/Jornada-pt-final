@@ -759,42 +759,6 @@ async function removeOldParticipant(formData: FormData) {
   );
 }
 
-async function removeTeam(formData: FormData) {
-  const teamId = cleanText(formData.get("team_id"));
-  const countryId = cleanText(formData.get("country_id"));
-
-  if (!teamId || !countryId) {
-    throw new Error("missing-fields");
-  }
-
-  const teamParticipantsPath = `season_teams?select=id&team_id=eq.${encodeURIComponent(teamId)}`;
-  const manualTeamParticipantsPath =
-    `${teamParticipantsPath}&data_source=eq.manual&sync_status=eq.manual&manual_override=is.true`;
-
-  if (await hasRows(manualTeamParticipantsPath)) {
-    throw new Error("team-has-participants");
-  }
-
-  if (await hasRows(teamParticipantsPath)) {
-    throw new Error("team-has-old-participants");
-  }
-
-  if (
-    await hasRows(
-      `matches?select=id&or=(home_team_id.eq.${encodeURIComponent(teamId)},away_team_id.eq.${encodeURIComponent(teamId)})`
-    )
-  ) {
-    throw new Error("team-has-matches");
-  }
-
-  await writeSupabaseAdmin(
-    `teams?id=eq.${encodeURIComponent(teamId)}&country_id=eq.${encodeURIComponent(countryId)}`,
-    {
-      method: "DELETE"
-    }
-  );
-}
-
 async function createMatchday(formData: FormData) {
   const seasonId = cleanText(formData.get("season_id"));
   const number = cleanInteger(formData.get("number"));
@@ -2875,6 +2839,10 @@ export async function POST(request: Request) {
   const formData = await request.formData();
   const actionType = cleanText(formData.get("action_type"));
 
+  if (actionType === "remove_team") {
+    return returnUrl(request, formData, "error", "safe-deletion-required");
+  }
+
   if (!getSupabaseServiceConfig()) {
     if (actionType === "preview_calendar_list" || actionType === "apply_calendar_matchday") {
       const payload: CalendarErrorResponse = {
@@ -2928,8 +2896,6 @@ export async function POST(request: Request) {
       await removeAllParticipants(formData);
     } else if (actionType === "remove_old_participant") {
       await removeOldParticipant(formData);
-    } else if (actionType === "remove_team") {
-      await removeTeam(formData);
     } else if (actionType === "matchday") {
       await createMatchday(formData);
     } else if (actionType === "remove_matchday") {
