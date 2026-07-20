@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import {
   CALENDAR_IMPORT_HEADER,
   CALENDAR_IMPORT_MAX_BYTES,
   CALENDAR_IMPORT_MAX_LINES,
   applyCalendarCheckpointTransition,
+  buildCalendarApplicationClientState,
   calendarImportByteLength,
   getNextCalendarMatchday,
   prepareCalendarCheckpointsForResume,
@@ -59,6 +61,7 @@ async function readJsonResponse(response: Response): Promise<unknown> {
 }
 
 export function CalendarImportTool({ countryId, competitionId, seasonId, writeConfigured }: CalendarImportToolProps) {
+  const router = useRouter();
   const [rawList, setRawList] = useState("");
   const [preview, setPreview] = useState<CalendarPreviewResponse | null>(null);
   const [message, setMessage] = useState("");
@@ -79,8 +82,10 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
   const blocked = Boolean(
     preview && (preview.summary.rejectedRows > 0 || preview.summary.duplicateRows > 0 || preview.matchdays.length === 0)
   );
-  const completedCount = Object.values(checkpoints).filter((checkpoint) => checkpoint.status === "completed").length;
-  const hasFailedCheckpoint = Object.values(checkpoints).some((checkpoint) => checkpoint.status === "failed");
+  const applicationState = useMemo(
+    () => buildCalendarApplicationClientState(preview?.matchdays ?? [], Object.values(checkpoints)),
+    [checkpoints, preview?.matchdays]
+  );
 
   function resetPlan(nextRawList: string) {
     setRawList(nextRawList);
@@ -171,7 +176,7 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
   }
 
   async function applyMatchdays() {
-    if (!preview || blocked || applying) return;
+    if (!preview || blocked || applying || !applicationState.canApply) return;
     setApplying(true);
     setError("");
     setMessage("Aplicação iniciada por jornada.");
@@ -214,6 +219,9 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
           if (failedTransition.ok) {
             workingCheckpoints = failedTransition.progress.checkpoints;
             setCheckpoints(checkpointRecord(workingCheckpoints));
+            if (buildCalendarApplicationClientState(preview.matchdays, workingCheckpoints).shouldRefreshPersistedData) {
+              router.refresh();
+            }
           }
           setError(`A aplicação parou na Jornada ${matchday.number}. Atualiza o preview para retomar.`);
           return;
@@ -224,6 +232,9 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
           if (calendarError?.progress) {
             workingCheckpoints = calendarError.progress.checkpoints;
             setCheckpoints(checkpointRecord(workingCheckpoints));
+            if (buildCalendarApplicationClientState(preview.matchdays, workingCheckpoints).shouldRefreshPersistedData) {
+              router.refresh();
+            }
           }
           setError(`A aplicação parou na Jornada ${matchday.number}: ${calendarError?.message ?? "erro não detalhado"}`);
           return;
@@ -231,6 +242,11 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
 
         workingCheckpoints = payload.progress.checkpoints;
         setCheckpoints(checkpointRecord(workingCheckpoints));
+        if (payload.progress.pendingMatchdays.length === 0) {
+          setMessage("Todas as jornadas do plano foram aplicadas e confirmadas por checkpoint.");
+          router.refresh();
+          return;
+        }
       }
     } finally {
       setApplying(false);
@@ -351,15 +367,21 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
           ) : null}
 
           <div className="manager-matchday-actions">
-            <button
-              className="manager-button"
-              type="button"
-              onClick={applyMatchdays}
-              disabled={blocked || applying || previewing || hasFailedCheckpoint}
-            >
-              {applying ? "A aplicar por jornada…" : completedCount ? "Retomar jornadas pendentes" : "Aplicar calendário validado"}
-            </button>
-            {hasFailedCheckpoint ? (
+            {applicationState.hasPending ? (
+              <button
+                className="manager-button"
+                type="button"
+                onClick={applyMatchdays}
+                disabled={blocked || applying || previewing || !applicationState.canApply}
+              >
+                {applying
+                  ? "A aplicar por jornada…"
+                  : applicationState.action === "resume"
+                    ? "Retomar jornadas pendentes"
+                    : "Aplicar calendário validado"}
+              </button>
+            ) : null}
+            {applicationState.hasFailed ? (
               <button className="manager-subtle-button" type="button" onClick={() => requestPreview(true)} disabled={applying || previewing}>
                 Atualizar preview para retomar
               </button>
