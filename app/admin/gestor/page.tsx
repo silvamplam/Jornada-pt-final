@@ -1367,7 +1367,7 @@ async function readTeamAliasesForTeams(teamIds: string[]): Promise<TeamAlias[] |
 
   try {
     return await fetchSupabaseAdminTable<TeamAlias>(
-      `team_aliases?select=team_id,normalized_alias&team_id=in.(${uniqueTeamIds.map(encodeURIComponent).join(",")})&limit=2000`
+      `team_aliases?select=team_id,normalized_alias&team_id=in.(${uniqueTeamIds.map(encodeURIComponent).join(",")})&status=eq.active&limit=2000`
     );
   } catch {
     return null;
