@@ -7,7 +7,7 @@ import {
   type PublicSeasonMatch
 } from "@/lib/public-matchday";
 import { getPublicTeamName } from "@/lib/public-team-name";
-import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
+import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { redirect } from "next/navigation";
 
@@ -487,11 +487,10 @@ const gamesPageStyles = `
 
   .public-games-meta {
     display: flex;
-    flex-wrap: nowrap;
+    align-items: center;
     justify-content: flex-start;
-    gap: 4px;
     min-width: 0;
-    padding: 2px 0 0 29px;
+    padding: 2px 0 0;
     color: #607086;
     font-size: 10.5px;
     font-weight: 800;
@@ -1010,13 +1009,6 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
       {match.minute ? (
         <span className="public-games-live-minute">{match.minute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
-      {broadcastChannelName ? (
-        <BroadcastChannelLogo
-          logoUrl={match.broadcastChannel?.logo_url}
-          name={broadcastChannelName}
-          variant="compact"
-        />
-      ) : null}
     </>
   ) : match.minute && kind === "halftime" ? `${statusLabel(match.status)} · ${match.minute}'` : statusLabel(match.status);
   const homeWinner = isWinner(match, "home");
@@ -1058,26 +1050,11 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         <TeamBadge team={match.awayTeam} />
       </div>
       <div className="public-games-meta">
-        <span>
-          <MatchScheduleLabel match={match} />
-          {kind === "scheduled" && broadcastChannelName ? (
-            <>
-              <span aria-hidden="true"> · </span>
-              <BroadcastChannelLogo
-                logoUrl={match.broadcastChannel?.logo_url}
-                name={broadcastChannelName}
-                variant="compact"
-              />
-            </>
-          ) : null}
-        </span>
-        {kind === "scheduled" || kind === "live" ? null : (
-          <BroadcastChannelLogo
-            logoUrl={match.broadcastChannel?.logo_url}
-            name={broadcastChannelName}
-            variant="default"
-          />
-        )}
+        <PublicMatchMeta
+          channelLogoUrl={match.broadcastChannel?.logo_url}
+          channelName={broadcastChannelName}
+          dateTime={<MatchScheduleLabel match={match} />}
+        />
       </div>
     </article>
   );
@@ -1093,13 +1070,6 @@ function ReferenceGamesCard({ match }: { match: PublicSeasonMatch }) {
       <span className="public-games-live-label">Live</span>
       {match.minute ? (
         <span className="public-games-live-minute">{match.minute}<span className={livePrimeClassName}>'</span></span>
-      ) : null}
-      {broadcastChannelName ? (
-        <BroadcastChannelLogo
-          logoUrl={match.broadcastChannel?.logo_url}
-          name={broadcastChannelName}
-          variant="compact"
-        />
       ) : null}
     </>
   ) : match.minute && kind === "halftime" ? `${statusLabel(match.status)} - ${match.minute}'` : statusLabel(match.status);
@@ -1129,31 +1099,16 @@ function ReferenceGamesCard({ match }: { match: PublicSeasonMatch }) {
         {showScore ? <b className="public-games-team-score">{match.away_score}</b> : null}
       </span>
       <div className="public-games-meta">
-        <span className={kind === "live" ? "public-games-status-live" : undefined}>
-          {kind === "scheduled" ? (
-            <>
-              <MatchScheduleLabel match={match} />
-              {broadcastChannelName ? (
-                <>
-                  <span aria-hidden="true"> · </span>
-                  <BroadcastChannelLogo
-                    logoUrl={match.broadcastChannel?.logo_url}
-                    name={broadcastChannelName}
-                    variant="compact"
-                  />
-                </>
-              ) : null}
-            </>
-          ) : statusText}
-          {kind === "live" ? <LivePulseDots /> : null}
-        </span>
-        {kind === "scheduled" || kind === "live" ? null : (
-          <BroadcastChannelLogo
-            logoUrl={match.broadcastChannel?.logo_url}
-            name={broadcastChannelName}
-            variant="default"
-          />
-        )}
+        <PublicMatchMeta
+          channelLogoUrl={match.broadcastChannel?.logo_url}
+          channelName={broadcastChannelName}
+          dateTime={(
+            <span className={kind === "live" ? "public-games-status-live" : undefined}>
+              {kind === "scheduled" ? <MatchScheduleLabel match={match} /> : statusText}
+              {kind === "live" ? <LivePulseDots /> : null}
+            </span>
+          )}
+        />
       </div>
     </article>
   );

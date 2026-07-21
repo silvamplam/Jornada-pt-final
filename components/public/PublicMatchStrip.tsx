@@ -1,4 +1,5 @@
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
+import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicTeamName } from "@/lib/public-team-name";
 
@@ -185,11 +186,13 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
         <span className="public-matchday-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
       {broadcastChannelName ? (
-        <BroadcastChannelLogo
-          logoUrl={match.broadcastChannel?.logo_url}
-          name={broadcastChannelName}
-          variant="compact"
-        />
+        <span className="public-matchday-mini-channel">
+          <BroadcastChannelLogo
+            logoUrl={match.broadcastChannel?.logo_url}
+            name={broadcastChannelName}
+            variant="matchMeta"
+          />
+        </span>
       ) : null}
       <LivePulseDots />
     </>
@@ -220,25 +223,17 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
             {liveStatus}
           </span>
         ) : (
-          <>
-            {schedule.dateTime ? (
+          <PublicMatchMeta
+            channelLogoUrl={match.broadcastChannel?.logo_url}
+            channelName={broadcastChannelName}
+            dateTime={schedule.dateTime ? (
               <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
                 {schedule.visual}
               </time>
             ) : (
               <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
             )}
-            {broadcastChannelName ? (
-              <>
-                <span className="public-matchday-mini-separator" aria-hidden="true">{"\u00b7"}</span>
-                <BroadcastChannelLogo
-                  logoUrl={match.broadcastChannel?.logo_url}
-                  name={broadcastChannelName}
-                  variant="compact"
-                />
-              </>
-            ) : null}
-          </>
+          />
         )}
       </span>
     </article>
@@ -250,7 +245,7 @@ export default function PublicMatchStrip({ matches }: { matches: PublicMatchStri
     const kind = statusKind(match.status);
     return kind === "live" || kind === "halftime";
   }) ?? null;
-  const gridTemplateColumns = "repeat(auto-fit, minmax(min(132px, 100%), 1fr))";
+  const gridTemplateColumns = "repeat(auto-fit, minmax(min(154px, 100%), 1fr))";
 
   if (matches.length === 0) {
     return null;

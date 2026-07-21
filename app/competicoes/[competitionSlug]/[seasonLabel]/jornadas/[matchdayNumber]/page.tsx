@@ -6,6 +6,7 @@ import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navi
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
+import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import RoundupVideoSwitcher from "@/components/public/RoundupVideoSwitcher";
 import { redirect } from "next/navigation";
@@ -478,8 +479,7 @@ const publicMatchdayStyles = `
     color: #10151b;
   }
 
-  .public-matchday-live-label,
-  .public-matchday-mini-separator {
+  .public-matchday-live-label {
     color: #10151b;
   }
 
@@ -561,7 +561,7 @@ const publicMatchdayStyles = `
   }
 
   .public-matchday-mini-time {
-    flex: 0 0 auto;
+    min-width: 0;
     color: inherit;
     white-space: nowrap;
   }
@@ -574,9 +574,12 @@ const publicMatchdayStyles = `
     font-weight: 900;
   }
 
-  .public-matchday-mini-separator {
+  .public-matchday-mini-channel {
+    display: inline-flex;
     flex: 0 0 auto;
-    color: inherit;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
   }
 
   .public-matchday-cover {
@@ -2410,7 +2413,7 @@ const publicMatchdayStyles = `
     }
 
     .public-matchday-strip {
-      grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)) !important;
+      grid-template-columns: repeat(auto-fit, minmax(min(154px, 100%), 1fr)) !important;
       overflow-x: visible;
     }
 
@@ -2985,11 +2988,13 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
         <span className="public-matchday-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
       {broadcastChannelName ? (
-        <BroadcastChannelLogo
-          logoUrl={match.broadcastChannel?.logo_url}
-          name={broadcastChannelName}
-          variant="compact"
-        />
+        <span className="public-matchday-mini-channel">
+          <BroadcastChannelLogo
+            logoUrl={match.broadcastChannel?.logo_url}
+            name={broadcastChannelName}
+            variant="matchMeta"
+          />
+        </span>
       ) : null}
     </>
   ) : statusLabel(match.status);
@@ -3028,23 +3033,15 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
             {kind === "live" ? <LivePulseDots /> : null}
           </span>
         ) : kind === "scheduled" ? (
-          <>
-            {schedule.dateTime ? (
+          <PublicMatchMeta
+            channelLogoUrl={match.broadcastChannel?.logo_url}
+            channelName={broadcastChannelName}
+            dateTime={schedule.dateTime ? (
               <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
             ) : (
               <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
             )}
-            {broadcastChannelName ? (
-              <>
-                <span className="public-matchday-mini-separator" aria-hidden="true">·</span>
-                <BroadcastChannelLogo
-                  logoUrl={match.broadcastChannel?.logo_url}
-                  name={broadcastChannelName}
-                  variant="compact"
-                />
-              </>
-            ) : null}
-          </>
+          />
         ) : (
           <span>{statusLabel(match.status)}</span>
         )}
@@ -3068,7 +3065,7 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         <BroadcastChannelLogo
           logoUrl={match.broadcastChannel?.logo_url}
           name={broadcastChannelName}
-          variant="compact"
+          variant="matchMeta"
         />
       ) : null}
     </>
@@ -3105,19 +3102,16 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         </div>
       </div>
       <div className="public-matchday-meta">
-        {schedule.dateTime ? (
-          <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
-        ) : (
-          <span aria-label={schedule.accessible}>{schedule.visual}</span>
-        )}
+        <PublicMatchMeta
+          channelLogoUrl={match.broadcastChannel?.logo_url}
+          channelName={kind === "live" ? null : broadcastChannelName}
+          dateTime={schedule.dateTime ? (
+            <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
+          ) : (
+            <span aria-label={schedule.accessible}>{schedule.visual}</span>
+          )}
+        />
         {match.venue ? <span>{match.venue}</span> : null}
-        {kind === "live" ? null : (
-          <BroadcastChannelLogo
-            logoUrl={match.broadcastChannel?.logo_url}
-            name={broadcastChannelName}
-            variant="default"
-          />
-        )}
       </div>
     </article>
   );
@@ -3559,7 +3553,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           <div
             className="public-matchday-strip"
             data-matchday-strip
-            style={{ gridTemplateColumns: `repeat(${Math.max(context.matchesForMatchday.length, 1)}, minmax(118px, 1fr))` }}
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(154px, 100%), 1fr))" }}
           >
             {context.matchesForMatchday.length > 0 ? (
               context.matchesForMatchday.map((match) => (

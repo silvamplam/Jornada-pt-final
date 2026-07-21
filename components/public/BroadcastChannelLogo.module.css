@@ -5,10 +5,10 @@
   align-items: center;
   justify-content: center;
   max-width: 100%;
-  overflow: hidden;
-  border: 1px solid rgba(71, 85, 105, 0.28);
-  border-radius: 4px;
-  background: #e2e8f0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #172033;
   vertical-align: middle;
 }
@@ -20,31 +20,52 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  transform: scale(var(--broadcast-channel-optical-scale, 1));
+  transform-origin: center;
   filter:
-    drop-shadow(0 0 0.75px rgba(255, 255, 255, 0.98))
-    drop-shadow(0 0 1px rgba(15, 23, 42, 0.92));
+    drop-shadow(0 0 0.65px rgba(255, 255, 255, 0.96))
+    drop-shadow(0 1px 0.75px rgba(15, 23, 42, 0.36));
+}
+
+.lightLogo img {
+  filter:
+    drop-shadow(0 0 0.6px rgba(15, 23, 42, 0.95))
+    drop-shadow(0 0 1.4px rgba(15, 23, 42, 0.6))
+    drop-shadow(0 1px 0.8px rgba(15, 23, 42, 0.35));
 }
 
 .compact {
   width: 58px;
-  height: 18px;
-  padding: 1px 3px;
+  height: 14px;
+  padding: 0;
 }
 
 .default {
-  width: 96px;
-  height: 26px;
-  padding: 1px 4px;
+  width: 92px;
+  height: 20px;
+  padding: 0;
+}
+
+.matchMeta {
+  width: 54px;
+  height: 18px;
+  padding: 0;
+  line-height: 0;
 }
 
 .compact img {
-  max-width: 52px;
-  max-height: 14px;
+  max-width: 58px;
+  max-height: 12px;
 }
 
 .default img {
-  max-width: 88px;
-  max-height: 22px;
+  max-width: 92px;
+  max-height: 18px;
+}
+
+.matchMeta img {
+  max-width: 54px;
+  max-height: 18px;
 }
 
 .fallback {
@@ -62,4 +83,8 @@
 
 .fallback.default {
   font-size: 11px;
+}
+
+.fallback.matchMeta {
+  font-size: 8px;
 }

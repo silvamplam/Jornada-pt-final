@@ -1,5 +1,5 @@
 import Link from "next/link";
-import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
+import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
 import { readPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
@@ -400,14 +400,14 @@ const gamesPageStyles = `
   }
 
   .public-game-info {
-    display: grid;
-    gap: 5px;
-    justify-items: end;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
     min-width: 0;
     color: #526174;
     font-size: 12px;
     font-weight: 800;
-    text-align: right;
+    text-align: left;
   }
 
   .public-game-status {
@@ -419,16 +419,6 @@ const gamesPageStyles = `
 
   .public-game-status-live {
     color: #c40012;
-  }
-
-  .public-game-tv {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 6px;
-    max-width: 100%;
-    min-width: 0;
-    color: #607086;
   }
 
   .public-games-ad-rail {
@@ -468,11 +458,6 @@ const gamesPageStyles = `
       display: grid;
       grid-template-columns: 28px minmax(0, 1fr) 58px minmax(0, 1fr) 28px;
       max-width: none;
-    }
-
-    .public-game-info {
-      justify-items: start;
-      text-align: left;
     }
 
     .public-games-ad-box {
@@ -857,26 +842,19 @@ function GameCard({ game, showCompetition, showContext = true }: { game: PublicG
         <TeamBlock team={game.awayTeam} side="away" />
       </div>
       <div className="public-game-info">
-        {kind === "live" || kind === "halftime" ? (
-          <span className="public-game-status public-game-status-live">{liveLabel}</span>
-        ) : kind === "finished" ? (
-          <span className="public-game-status">Finalizado</span>
-        ) : (
-          schedule.dateTime ? (
+        <PublicMatchMeta
+          channelLogoUrl={game.broadcastChannel?.logo_url}
+          channelName={channelName}
+          dateTime={kind === "live" || kind === "halftime" ? (
+            <span className="public-game-status public-game-status-live">{liveLabel}</span>
+          ) : kind === "finished" ? (
+            <span className="public-game-status">Finalizado</span>
+          ) : schedule.dateTime ? (
             <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
           ) : (
             <span aria-label={schedule.accessible}>{schedule.visual}</span>
-          )
-        )}
-        {channelName ? (
-          <span className="public-game-tv">
-            <BroadcastChannelLogo
-              logoUrl={game.broadcastChannel?.logo_url}
-              name={channelName}
-              variant="default"
-            />
-          </span>
-        ) : null}
+          )}
+        />
       </div>
     </article>
   );

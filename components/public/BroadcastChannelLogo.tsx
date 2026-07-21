@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { CSSProperties } from "react";
 
 import { resolveBroadcastChannelLogoPresentation } from "@/lib/public-broadcast-channel-logo";
 import styles from "./BroadcastChannelLogo.module.css";
@@ -8,7 +9,7 @@ import styles from "./BroadcastChannelLogo.module.css";
 type BroadcastChannelLogoProps = {
   name?: string | null;
   logoUrl?: string | null;
-  variant: "compact" | "default";
+  variant: "compact" | "default" | "matchMeta";
 };
 
 export default function BroadcastChannelLogo({ name, logoUrl, variant }: BroadcastChannelLogoProps) {
@@ -26,8 +27,13 @@ export default function BroadcastChannelLogo({ name, logoUrl, variant }: Broadca
     );
   }
 
+  const imageClassName = presentation.contrastMode === "light-logo" ? `${className} ${styles.lightLogo}` : className;
+  const imageStyle = {
+    "--broadcast-channel-optical-scale": presentation.opticalScale
+  } as CSSProperties;
+
   return (
-    <span className={className}>
+    <span className={imageClassName} style={imageStyle}>
       <img
         alt={presentation.name}
         src={presentation.logoUrl}
