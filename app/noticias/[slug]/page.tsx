@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
@@ -594,19 +595,6 @@ const articlePageStyles = `
     color: #16a34a;
   }
 
-  .news-article-game-live-channel {
-    color: #263241;
-    white-space: nowrap;
-  }
-
-  .news-article-game-channel {
-    min-width: 0;
-    overflow: visible;
-    color: #263241;
-    text-overflow: clip;
-    white-space: nowrap;
-  }
-
   .news-article-sidebar {
     display: grid;
     align-content: start;
@@ -1045,18 +1033,12 @@ function LivePulseDots() {
   );
 }
 
-function compactTvLabel(value?: string | null) {
-  const label = value?.trim();
-  return label ? label.replace(/^Sport\s*TV\s*/i, "SportTV") : "";
-}
-
 function ArticleMatchCard({ match }: { match: PublicSeasonMatch }) {
   const kind = statusKind(match.status);
   const hasScore = match.home_score !== null && match.away_score !== null;
   const showScore = hasScore && (kind === "finished" || kind === "live" || kind === "halftime");
   const publicMinute = getPublicLiveMinute(match);
   const channelName = match.broadcastChannel?.name?.trim();
-  const compactChannelName = compactTvLabel(channelName);
   const livePrimeClassName = "public-live-minute-prime public-live-minute-prime-active";
   const liveStatus = kind === "live" ? (
     <>
@@ -1064,7 +1046,13 @@ function ArticleMatchCard({ match }: { match: PublicSeasonMatch }) {
       {publicMinute !== null ? (
         <span className="news-article-game-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
-      {compactChannelName ? <span className="news-article-game-live-channel" title={channelName}>{compactChannelName}</span> : null}
+      {channelName ? (
+        <BroadcastChannelLogo
+          logoUrl={match.broadcastChannel?.logo_url}
+          name={channelName}
+          variant="compact"
+        />
+      ) : null}
     </>
   ) : statusLabel(match.status);
   const homeTeamName = getPublicTeamName(
@@ -1104,7 +1092,11 @@ function ArticleMatchCard({ match }: { match: PublicSeasonMatch }) {
             {channelName ? (
               <>
                 <span aria-hidden="true">·</span>
-                <span className="news-article-game-channel" title={channelName}>{compactChannelName}</span>
+                <BroadcastChannelLogo
+                  logoUrl={match.broadcastChannel?.logo_url}
+                  name={channelName}
+                  variant="compact"
+                />
               </>
             ) : null}
           </>

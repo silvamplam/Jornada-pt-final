@@ -7,6 +7,7 @@ import {
   type PublicSeasonMatch
 } from "@/lib/public-matchday";
 import { getPublicTeamName } from "@/lib/public-team-name";
+import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { redirect } from "next/navigation";
 
@@ -515,11 +516,6 @@ const gamesPageStyles = `
     color: #16a34a;
   }
 
-  .public-games-live-channel {
-    color: #263241;
-    white-space: nowrap;
-  }
-
   .public-live-pulse-dots {
     display: inline-flex;
     align-items: center;
@@ -583,27 +579,6 @@ const gamesPageStyles = `
       animation: none;
       opacity: 1;
     }
-  }
-
-  .public-games-tv {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 4px;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    color: #263241;
-    font-weight: 800;
-    white-space: nowrap;
-  }
-
-  .public-games-tv img {
-    width: 22px;
-    height: 14px;
-    object-fit: contain;
   }
 
   .public-games-empty {
@@ -1016,27 +991,6 @@ function TeamBadge({ team }: { team?: PublicSeasonMatch["homeTeam"] }) {
   );
 }
 
-function BroadcastBadge({ match }: { match: PublicSeasonMatch }) {
-  if (!match.broadcastChannel) {
-    return null;
-  }
-
-  const broadcastChannelName = match.broadcastChannel.name?.trim();
-  const displayBroadcastChannelName = compactTvLabel(broadcastChannelName);
-
-  return (
-    <span className="public-games-tv">
-      {match.broadcastChannel.logo_url ? <img alt="" src={match.broadcastChannel.logo_url} /> : null}
-      <span>{displayBroadcastChannelName}</span>
-    </span>
-  );
-}
-
-function compactTvLabel(value?: string | null) {
-  const label = value?.trim();
-  return label ? label.replace(/^Sport\s*TV\s*/i, "SportTV") : "";
-}
-
 function LivePulseDots() {
   return (
     <span className="public-live-pulse-dots" aria-hidden="true">
@@ -1048,7 +1002,7 @@ function LivePulseDots() {
 
 function MatchCard({ match }: { match: PublicSeasonMatch }) {
   const kind = statusKind(match.status);
-  const compactBroadcastChannelName = compactTvLabel(match.broadcastChannel?.name?.trim());
+  const broadcastChannelName = match.broadcastChannel?.name?.trim();
   const livePrimeClassName = "public-live-minute-prime public-live-minute-prime-active";
   const statusText = kind === "live" ? (
     <>
@@ -1056,7 +1010,13 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
       {match.minute ? (
         <span className="public-games-live-minute">{match.minute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
-      {compactBroadcastChannelName ? <span className="public-games-live-channel" title={match.broadcastChannel?.name ?? undefined}>{compactBroadcastChannelName}</span> : null}
+      {broadcastChannelName ? (
+        <BroadcastChannelLogo
+          logoUrl={match.broadcastChannel?.logo_url}
+          name={broadcastChannelName}
+          variant="compact"
+        />
+      ) : null}
     </>
   ) : match.minute && kind === "halftime" ? `${statusLabel(match.status)} · ${match.minute}'` : statusLabel(match.status);
   const homeWinner = isWinner(match, "home");
@@ -1100,9 +1060,24 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
       <div className="public-games-meta">
         <span>
           <MatchScheduleLabel match={match} />
-          {kind === "scheduled" && compactBroadcastChannelName ? ` · ${compactBroadcastChannelName}` : null}
+          {kind === "scheduled" && broadcastChannelName ? (
+            <>
+              <span aria-hidden="true"> · </span>
+              <BroadcastChannelLogo
+                logoUrl={match.broadcastChannel?.logo_url}
+                name={broadcastChannelName}
+                variant="compact"
+              />
+            </>
+          ) : null}
         </span>
-        {kind === "scheduled" || kind === "live" ? null : <BroadcastBadge match={match} />}
+        {kind === "scheduled" || kind === "live" ? null : (
+          <BroadcastChannelLogo
+            logoUrl={match.broadcastChannel?.logo_url}
+            name={broadcastChannelName}
+            variant="default"
+          />
+        )}
       </div>
     </article>
   );
@@ -1111,7 +1086,7 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
 function ReferenceGamesCard({ match }: { match: PublicSeasonMatch }) {
   const kind = statusKind(match.status);
   const showScore = (kind === "finished" || kind === "live" || kind === "halftime") && match.home_score !== null && match.away_score !== null;
-  const compactBroadcastChannelName = compactTvLabel(match.broadcastChannel?.name?.trim());
+  const broadcastChannelName = match.broadcastChannel?.name?.trim();
   const livePrimeClassName = "public-live-minute-prime public-live-minute-prime-active";
   const statusText = kind === "live" ? (
     <>
@@ -1119,7 +1094,13 @@ function ReferenceGamesCard({ match }: { match: PublicSeasonMatch }) {
       {match.minute ? (
         <span className="public-games-live-minute">{match.minute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
-      {compactBroadcastChannelName ? <span className="public-games-live-channel" title={match.broadcastChannel?.name ?? undefined}>{compactBroadcastChannelName}</span> : null}
+      {broadcastChannelName ? (
+        <BroadcastChannelLogo
+          logoUrl={match.broadcastChannel?.logo_url}
+          name={broadcastChannelName}
+          variant="compact"
+        />
+      ) : null}
     </>
   ) : match.minute && kind === "halftime" ? `${statusLabel(match.status)} - ${match.minute}'` : statusLabel(match.status);
   const homeTeamName = getPublicTeamName(
@@ -1152,12 +1133,27 @@ function ReferenceGamesCard({ match }: { match: PublicSeasonMatch }) {
           {kind === "scheduled" ? (
             <>
               <MatchScheduleLabel match={match} />
-              {compactBroadcastChannelName ? ` · ${compactBroadcastChannelName}` : null}
+              {broadcastChannelName ? (
+                <>
+                  <span aria-hidden="true"> · </span>
+                  <BroadcastChannelLogo
+                    logoUrl={match.broadcastChannel?.logo_url}
+                    name={broadcastChannelName}
+                    variant="compact"
+                  />
+                </>
+              ) : null}
             </>
           ) : statusText}
           {kind === "live" ? <LivePulseDots /> : null}
         </span>
-        {kind === "scheduled" || kind === "live" ? null : <BroadcastBadge match={match} />}
+        {kind === "scheduled" || kind === "live" ? null : (
+          <BroadcastChannelLogo
+            logoUrl={match.broadcastChannel?.logo_url}
+            name={broadcastChannelName}
+            variant="default"
+          />
+        )}
       </div>
     </article>
   );

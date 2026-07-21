@@ -5,6 +5,7 @@ import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
+import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import RoundupVideoSwitcher from "@/components/public/RoundupVideoSwitcher";
 import { redirect } from "next/navigation";
@@ -571,12 +572,6 @@ const publicMatchdayStyles = `
     background: transparent;
     color: inherit;
     font-weight: 900;
-  }
-
-  .public-matchday-mini-channel {
-    flex: 0 1 auto;
-    color: #263241;
-    white-space: nowrap;
   }
 
   .public-matchday-mini-separator {
@@ -1968,24 +1963,6 @@ const publicMatchdayStyles = `
     font-size: 11px;
   }
 
-  .public-matchday-tv {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 7px;
-    border: 1px solid #dce3eb;
-    border-radius: 999px;
-    background: #ffffff;
-    color: #263241;
-    font-weight: 800;
-  }
-
-  .public-matchday-tv img {
-    width: 28px;
-    height: 18px;
-    object-fit: contain;
-  }
-
   .public-matchday-nav {
     display: flex;
     flex: 1 1 auto;
@@ -2985,22 +2962,6 @@ function TeamBadge({ team }: { team?: PublicSeasonMatch["homeTeam"] }) {
   );
 }
 
-function BroadcastBadge({ match }: { match: PublicSeasonMatch }) {
-  if (!match.broadcastChannel) {
-    return null;
-  }
-
-  const broadcastChannelName = match.broadcastChannel.name?.trim();
-  const displayBroadcastChannelName = compactTvLabel(broadcastChannelName);
-
-  return (
-    <span className="public-matchday-tv">
-      {match.broadcastChannel.logo_url ? <img alt="" src={match.broadcastChannel.logo_url} /> : null}
-      <span>{displayBroadcastChannelName}</span>
-    </span>
-  );
-}
-
 function LivePulseDots() {
   return (
     <span className="public-live-pulse-dots" aria-hidden="true">
@@ -3010,15 +2971,9 @@ function LivePulseDots() {
   );
 }
 
-function compactTvLabel(value?: string | null) {
-  const label = value?.trim();
-  return label ? label.replace(/^Sport\s*TV\s*/i, "SportTV") : "";
-}
-
 function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: boolean }) {
   const kind = statusKind(match.status);
   const broadcastChannelName = match.broadcastChannel?.name?.trim();
-  const compactBroadcastChannelName = compactTvLabel(broadcastChannelName);
   const hasScore = match.home_score !== null && match.away_score !== null;
   const showScore = hasScore && (kind === "finished" || kind === "live" || kind === "halftime");
   const publicMinute = getPublicLiveMinute(match);
@@ -3029,7 +2984,13 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
       {publicMinute !== null ? (
         <span className="public-matchday-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
-      {compactBroadcastChannelName ? <span className="public-matchday-mini-channel" title={broadcastChannelName}>{compactBroadcastChannelName}</span> : null}
+      {broadcastChannelName ? (
+        <BroadcastChannelLogo
+          logoUrl={match.broadcastChannel?.logo_url}
+          name={broadcastChannelName}
+          variant="compact"
+        />
+      ) : null}
     </>
   ) : statusLabel(match.status);
   const homeTeamName = getPublicTeamName(
@@ -3076,7 +3037,11 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
             {broadcastChannelName ? (
               <>
                 <span className="public-matchday-mini-separator" aria-hidden="true">·</span>
-                <span className="public-matchday-mini-channel" title={broadcastChannelName}>{compactBroadcastChannelName}</span>
+                <BroadcastChannelLogo
+                  logoUrl={match.broadcastChannel?.logo_url}
+                  name={broadcastChannelName}
+                  variant="compact"
+                />
               </>
             ) : null}
           </>
@@ -3091,7 +3056,7 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
 function MatchCard({ match }: { match: PublicSeasonMatch }) {
   const kind = statusKind(match.status);
   const publicMinute = getPublicLiveMinute(match);
-  const compactBroadcastChannelName = compactTvLabel(match.broadcastChannel?.name?.trim());
+  const broadcastChannelName = match.broadcastChannel?.name?.trim();
   const livePrimeClassName = "public-live-minute-prime public-live-minute-prime-active";
   const statusText = kind === "live" ? (
     <>
@@ -3099,7 +3064,13 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
       {publicMinute !== null ? (
         <span className="public-matchday-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
-      {compactBroadcastChannelName ? <span className="public-matchday-mini-channel" title={match.broadcastChannel?.name ?? undefined}>{compactBroadcastChannelName}</span> : null}
+      {broadcastChannelName ? (
+        <BroadcastChannelLogo
+          logoUrl={match.broadcastChannel?.logo_url}
+          name={broadcastChannelName}
+          variant="compact"
+        />
+      ) : null}
     </>
   ) : statusLabel(match.status);
   const homeWinner = isWinner(match, "home");
@@ -3140,7 +3111,13 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
           <span aria-label={schedule.accessible}>{schedule.visual}</span>
         )}
         {match.venue ? <span>{match.venue}</span> : null}
-        {kind === "live" ? null : <BroadcastBadge match={match} />}
+        {kind === "live" ? null : (
+          <BroadcastChannelLogo
+            logoUrl={match.broadcastChannel?.logo_url}
+            name={broadcastChannelName}
+            variant="default"
+          />
+        )}
       </div>
     </article>
   );

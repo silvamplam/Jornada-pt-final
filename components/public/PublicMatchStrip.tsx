@@ -1,3 +1,4 @@
+import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicTeamName } from "@/lib/public-team-name";
 
@@ -170,15 +171,9 @@ function LivePulseDots() {
   );
 }
 
-function compactTvLabel(value?: string | null) {
-  const label = value?.trim();
-  return label ? label.replace(/^Sport\s*TV\s*/i, "SportTV") : "";
-}
-
 function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focus?: boolean }) {
   const kind = statusKind(match.status);
   const broadcastChannelName = match.broadcastChannel?.name?.trim();
-  const compactBroadcastChannelName = compactTvLabel(broadcastChannelName);
   const hasScore = match.home_score !== null && match.home_score !== undefined && match.away_score !== null && match.away_score !== undefined;
   const showScore = hasScore && (kind === "finished" || kind === "live" || kind === "halftime");
   const publicMinute = getPublicLiveMinute(match);
@@ -189,7 +184,13 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
       {publicMinute !== null ? (
         <span className="public-matchday-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
-      {compactBroadcastChannelName ? <span className="public-matchday-mini-channel" title={broadcastChannelName}>{compactBroadcastChannelName}</span> : null}
+      {broadcastChannelName ? (
+        <BroadcastChannelLogo
+          logoUrl={match.broadcastChannel?.logo_url}
+          name={broadcastChannelName}
+          variant="compact"
+        />
+      ) : null}
       <LivePulseDots />
     </>
   ) : statusLabel(match.status);
@@ -230,7 +231,11 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
             {broadcastChannelName ? (
               <>
                 <span className="public-matchday-mini-separator" aria-hidden="true">{"\u00b7"}</span>
-                <span className="public-matchday-mini-channel" title={broadcastChannelName}>{compactBroadcastChannelName}</span>
+                <BroadcastChannelLogo
+                  logoUrl={match.broadcastChannel?.logo_url}
+                  name={broadcastChannelName}
+                  variant="compact"
+                />
               </>
             ) : null}
           </>
