@@ -433,9 +433,11 @@ const gamesPageStyles = `
   .public-games-team-line {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 5px;
     align-items: center;
+    height: 28px;
+    gap: 6px;
     min-width: 0;
+    overflow: visible;
     font-weight: 900;
   }
 

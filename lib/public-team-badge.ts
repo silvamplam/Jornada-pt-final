@@ -20,7 +20,7 @@ const DEFAULT_VISUAL_CONFIG: PublicTeamBadgeVisualConfig = {
 };
 
 const TEAM_VISUAL_CONFIG = new Map<string, PublicTeamBadgeVisualConfig>([
-  ["moreirense", { opticalScale: 1.16, contrastMode: "standard" }],
+  ["sporting", { opticalScale: 1.38, contrastMode: "standard" }],
   ["santa-clara", { opticalScale: 1, contrastMode: "light-detail" }]
 ]);
 

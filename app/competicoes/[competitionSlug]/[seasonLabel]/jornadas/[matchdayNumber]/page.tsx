@@ -396,8 +396,9 @@ const publicMatchdayStyles = `
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 4px;
-    overflow: hidden;
+    height: 28px;
+    gap: 6px;
+    overflow: visible;
     font-weight: 800;
     text-transform: none;
   }

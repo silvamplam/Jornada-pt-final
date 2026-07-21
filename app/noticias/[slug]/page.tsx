@@ -464,9 +464,11 @@ const articlePageStyles = `
   .news-article-game-team {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 5px;
     align-items: center;
+    height: 28px;
+    gap: 6px;
     min-width: 0;
+    overflow: visible;
     color: #0d141d;
     font-weight: 900;
     line-height: 1.1;

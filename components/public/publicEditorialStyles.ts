@@ -331,7 +331,8 @@ export const publicEditorialStyles = `
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 4px;
+    height: 28px;
+    gap: 6px;
     overflow: visible;
     font-weight: 800;
     text-transform: none;

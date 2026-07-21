@@ -302,7 +302,7 @@ const gamesPageStyles = `
 
   .public-game-card-no-context .public-game-main {
     display: grid;
-    grid-template-columns: 30px minmax(120px, 180px) 70px minmax(120px, 180px) 30px;
+    grid-template-columns: 60px minmax(120px, 180px) 70px minmax(120px, 180px) 60px;
     width: auto;
     max-width: 100%;
     justify-self: start;
@@ -314,6 +314,7 @@ const gamesPageStyles = `
     grid-template-columns: auto minmax(0, 1fr);
     gap: 8px;
     align-items: center;
+    height: 33px;
     min-width: 0;
     color: #10151b;
     font-size: 14px;
@@ -433,7 +434,7 @@ const gamesPageStyles = `
 
     .public-game-card-no-context .public-game-main {
       display: grid;
-      grid-template-columns: 30px minmax(0, 1fr) 58px minmax(0, 1fr) 30px;
+      grid-template-columns: 60px minmax(0, 1fr) 58px minmax(0, 1fr) 60px;
       max-width: none;
     }
 
