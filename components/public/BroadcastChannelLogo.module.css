@@ -47,8 +47,8 @@
 }
 
 .matchMeta {
-  width: 46px;
-  height: 16px;
+  width: 54px;
+  height: 18px;
   padding: 0;
   line-height: 0;
 }
@@ -64,8 +64,8 @@
 }
 
 .matchMeta img {
-  max-width: 46px;
-  max-height: 16px;
+  max-width: 54px;
+  max-height: 18px;
 }
 
 .fallback {
