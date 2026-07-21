@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
 import { readPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
@@ -428,12 +429,6 @@ const gamesPageStyles = `
     max-width: 100%;
     min-width: 0;
     color: #607086;
-  }
-
-  .public-game-tv img {
-    width: 18px;
-    height: 18px;
-    object-fit: contain;
   }
 
   .public-games-ad-rail {
@@ -875,8 +870,11 @@ function GameCard({ game, showCompetition, showContext = true }: { game: PublicG
         )}
         {channelName ? (
           <span className="public-game-tv">
-            {game.broadcastChannel?.logo_url ? <img alt="" src={game.broadcastChannel.logo_url} /> : null}
-            <span>{channelName}</span>
+            <BroadcastChannelLogo
+              logoUrl={game.broadcastChannel?.logo_url}
+              name={channelName}
+              variant="default"
+            />
           </span>
         ) : null}
       </div>

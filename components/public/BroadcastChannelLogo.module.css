@@ -1,0 +1,65 @@
+.root {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(71, 85, 105, 0.28);
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: #172033;
+  vertical-align: middle;
+}
+
+.root img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 0 0.75px rgba(255, 255, 255, 0.98))
+    drop-shadow(0 0 1px rgba(15, 23, 42, 0.92));
+}
+
+.compact {
+  width: 58px;
+  height: 18px;
+  padding: 1px 3px;
+}
+
+.default {
+  width: 96px;
+  height: 26px;
+  padding: 1px 4px;
+}
+
+.compact img {
+  max-width: 52px;
+  max-height: 14px;
+}
+
+.default img {
+  max-width: 88px;
+  max-height: 22px;
+}
+
+.fallback {
+  overflow: hidden;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fallback.compact {
+  font-size: 9px;
+}
+
+.fallback.default {
+  font-size: 11px;
+}
