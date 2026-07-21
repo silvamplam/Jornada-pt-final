@@ -20,9 +20,18 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  transform: scale(var(--broadcast-channel-optical-scale, 1));
+  transform-origin: center;
   filter:
     drop-shadow(0 0 0.65px rgba(255, 255, 255, 0.96))
     drop-shadow(0 1px 0.75px rgba(15, 23, 42, 0.36));
+}
+
+.lightLogo img {
+  filter:
+    drop-shadow(0 0 0.6px rgba(15, 23, 42, 0.95))
+    drop-shadow(0 0 1.4px rgba(15, 23, 42, 0.6))
+    drop-shadow(0 1px 0.8px rgba(15, 23, 42, 0.35));
 }
 
 .compact {

@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicTeamName } from "@/lib/public-team-name";
@@ -30,6 +32,12 @@ export type PublicMatchStripMatch = {
   homeTeam?: PublicMatchStripTeam | null;
   awayTeam?: PublicMatchStripTeam | null;
   broadcastChannel?: PublicMatchStripBroadcastChannel | null;
+};
+
+const homeCompactChannelStyle: CSSProperties = {
+  width: 44,
+  maxWidth: 44,
+  flexShrink: 0
 };
 
 function formatKickoffTime(value?: string | null) {
@@ -178,6 +186,18 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
   const showScore = hasScore && (kind === "finished" || kind === "live" || kind === "halftime");
   const publicMinute = getPublicLiveMinute(match);
   const livePrimeClassName = "home-live-minute-prime home-live-minute-prime-active";
+  const scheduledStatusStyle: CSSProperties | undefined = kind === "scheduled"
+    ? {
+        display: "grid",
+        gridTemplateColumns: broadcastChannelName ? "minmax(0, 1fr) 44px" : "minmax(0, 1fr)",
+        alignItems: "center",
+        columnGap: broadcastChannelName ? 3 : 0,
+        minWidth: 0,
+        overflow: "visible",
+        fontSize: 9,
+        letterSpacing: "-0.01em"
+      }
+    : undefined;
   const liveStatus = kind === "live" ? (
     <>
       <span className="public-matchday-live-label">Live</span>
@@ -185,7 +205,7 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
         <span className="public-matchday-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
       {broadcastChannelName ? (
-        <span className="public-matchday-mini-channel">
+        <span className="public-matchday-mini-channel" style={homeCompactChannelStyle}>
           <BroadcastChannelLogo
             logoUrl={match.broadcastChannel?.logo_url}
             name={broadcastChannelName}
@@ -214,7 +234,7 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
         </span>
         {showScore ? <b className="public-matchday-mini-score">{match.away_score}</b> : null}
       </span>
-      <span className="public-matchday-mini-status">
+      <span className="public-matchday-mini-status" style={scheduledStatusStyle}>
         {kind === "finished" ? (
           <span>Finalizado</span>
         ) : kind === "live" || kind === "halftime" ? (
@@ -231,16 +251,13 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
               <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
             )}
             {broadcastChannelName ? (
-              <>
-                <span className="public-matchday-mini-separator" aria-hidden="true">{"\u00b7"}</span>
-                <span className="public-matchday-mini-channel">
-                  <BroadcastChannelLogo
-                    logoUrl={match.broadcastChannel?.logo_url}
-                    name={broadcastChannelName}
-                    variant="compact"
-                  />
-                </span>
-              </>
+              <span className="public-matchday-mini-channel" style={homeCompactChannelStyle}>
+                <BroadcastChannelLogo
+                  logoUrl={match.broadcastChannel?.logo_url}
+                  name={broadcastChannelName}
+                  variant="compact"
+                />
+              </span>
             ) : null}
           </>
         )}
@@ -254,7 +271,7 @@ export default function PublicMatchStrip({ matches }: { matches: PublicMatchStri
     const kind = statusKind(match.status);
     return kind === "live" || kind === "halftime";
   }) ?? null;
-  const gridTemplateColumns = "repeat(auto-fit, minmax(min(132px, 100%), 1fr))";
+  const gridTemplateColumns = "repeat(auto-fit, minmax(min(154px, 100%), 1fr))";
 
   if (matches.length === 0) {
     return null;
