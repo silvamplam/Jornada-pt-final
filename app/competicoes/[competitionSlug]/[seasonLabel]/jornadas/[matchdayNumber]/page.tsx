@@ -579,6 +579,15 @@ const publicMatchdayStyles = `
     color: inherit;
   }
 
+  .public-matchday-mini-channel {
+    display: inline-flex;
+    flex: 0 1 58px;
+    min-width: 0;
+    max-width: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+
   .public-matchday-cover {
     --public-cover-rule-color: #10151b;
     --public-cover-rule-gap: 8px;
@@ -2985,11 +2994,13 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
         <span className="public-matchday-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
       {broadcastChannelName ? (
-        <BroadcastChannelLogo
-          logoUrl={match.broadcastChannel?.logo_url}
-          name={broadcastChannelName}
-          variant="compact"
-        />
+        <span className="public-matchday-mini-channel">
+          <BroadcastChannelLogo
+            logoUrl={match.broadcastChannel?.logo_url}
+            name={broadcastChannelName}
+            variant="compact"
+          />
+        </span>
       ) : null}
     </>
   ) : statusLabel(match.status);
@@ -3037,11 +3048,13 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
             {broadcastChannelName ? (
               <>
                 <span className="public-matchday-mini-separator" aria-hidden="true">·</span>
-                <BroadcastChannelLogo
-                  logoUrl={match.broadcastChannel?.logo_url}
-                  name={broadcastChannelName}
-                  variant="compact"
-                />
+                <span className="public-matchday-mini-channel">
+                  <BroadcastChannelLogo
+                    logoUrl={match.broadcastChannel?.logo_url}
+                    name={broadcastChannelName}
+                    variant="compact"
+                  />
+                </span>
               </>
             ) : null}
           </>

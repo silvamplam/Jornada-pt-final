@@ -185,11 +185,13 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
         <span className="public-matchday-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
       ) : null}
       {broadcastChannelName ? (
-        <BroadcastChannelLogo
-          logoUrl={match.broadcastChannel?.logo_url}
-          name={broadcastChannelName}
-          variant="compact"
-        />
+        <span className="public-matchday-mini-channel">
+          <BroadcastChannelLogo
+            logoUrl={match.broadcastChannel?.logo_url}
+            name={broadcastChannelName}
+            variant="compact"
+          />
+        </span>
       ) : null}
       <LivePulseDots />
     </>
@@ -231,11 +233,13 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
             {broadcastChannelName ? (
               <>
                 <span className="public-matchday-mini-separator" aria-hidden="true">{"\u00b7"}</span>
-                <BroadcastChannelLogo
-                  logoUrl={match.broadcastChannel?.logo_url}
-                  name={broadcastChannelName}
-                  variant="compact"
-                />
+                <span className="public-matchday-mini-channel">
+                  <BroadcastChannelLogo
+                    logoUrl={match.broadcastChannel?.logo_url}
+                    name={broadcastChannelName}
+                    variant="compact"
+                  />
+                </span>
               </>
             ) : null}
           </>

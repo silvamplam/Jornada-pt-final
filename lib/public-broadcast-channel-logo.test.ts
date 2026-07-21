@@ -73,7 +73,7 @@ test("o componente cliente troca erro de imagem por fallback e usa uma única id
   assert.doesNotMatch(imageBranch, />\s*\{presentation\.name\}\s*</);
 });
 
-test("o CSS preserva proporção, reserva espaço e mantém contraste neutro", async () => {
+test("o CSS preserva proporção sem cápsula e aplica contraste apenas à imagem", async () => {
   const source = await readFile(stylesUrl, "utf8");
   assert.deepEqual(
     resolveBroadcastChannelLogoPresentation("DAZN 1", "https://cdn.example.test/dazn-1.svg"),
@@ -86,12 +86,27 @@ test("o CSS preserva proporção, reserva espaço e mantém contraste neutro", a
   assert.match(source, /object-fit:\s*contain/);
   assert.match(source, /width:\s*auto/);
   assert.match(source, /height:\s*auto/);
-  assert.match(source, /background:\s*#e2e8f0/);
+  assert.match(source, /background:\s*transparent/);
+  assert.match(source, /border:\s*0/);
+  assert.match(source, /border-radius:\s*0/);
+  assert.doesNotMatch(source, /box-shadow/);
   assert.match(source, /drop-shadow[\s\S]*drop-shadow/);
-  assert.match(source, /\.compact\s*\{[\s\S]*?width:\s*58px[\s\S]*?height:\s*18px/);
-  assert.match(source, /\.compact img\s*\{[\s\S]*?max-width:\s*52px[\s\S]*?max-height:\s*14px/);
-  assert.match(source, /\.default\s*\{[\s\S]*?width:\s*96px[\s\S]*?height:\s*26px/);
-  assert.match(source, /\.default img\s*\{[\s\S]*?max-width:\s*88px[\s\S]*?max-height:\s*22px/);
+  assert.match(source, /\.compact\s*\{[\s\S]*?width:\s*58px[\s\S]*?height:\s*14px[\s\S]*?padding:\s*0/);
+  assert.match(source, /\.compact img\s*\{[\s\S]*?max-width:\s*58px[\s\S]*?max-height:\s*12px/);
+  assert.match(source, /\.default\s*\{[\s\S]*?width:\s*92px[\s\S]*?height:\s*20px[\s\S]*?padding:\s*0/);
+  assert.match(source, /\.default img\s*\{[\s\S]*?max-width:\s*92px[\s\S]*?max-height:\s*18px/);
+});
+
+test("Home e jornada contêm o canal compacto sem o deixar rebentar a linha inferior", async () => {
+  const [homeStrip, matchdayPage] = await Promise.all([
+    readFile(integrationUrls[0], "utf8"),
+    readFile(integrationUrls[2], "utf8")
+  ]);
+  for (const source of [homeStrip, matchdayPage]) {
+    assert.match(source, /className="public-matchday-mini-channel"/);
+    assert.match(source, /public-matchday-mini-separator[\s\S]*public-matchday-mini-channel/);
+  }
+  assert.match(matchdayPage, /\.public-matchday-mini-channel\s*\{[\s\S]*?flex:\s*0 1 58px[\s\S]*?min-width:\s*0/);
 });
 
 test("as cinco superfícies públicas usam o componente comum sem compactTvLabel", async () => {
