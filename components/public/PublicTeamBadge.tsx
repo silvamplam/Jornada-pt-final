@@ -1,39 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import {
+  resolvePublicTeamBadgePresentation,
+  type PublicTeamBadgeContrastMode
+} from "@/lib/public-team-badge";
+import styles from "./PublicTeamBadge.module.css";
+
+export type PublicTeamBadgeVariant = "compact" | "default";
 
 type PublicTeamBadgeProps = {
   logoUrl?: string | null;
   fallbackLabel: string;
+  altLabel?: string | null;
+  slug?: string | null;
+  variant?: PublicTeamBadgeVariant;
 };
 
-function validLogoUrl(value?: string | null) {
-  return typeof value === "string" && /^https?:\/\//i.test(value.trim()) ? value.trim() : null;
+function contrastClassName(mode: PublicTeamBadgeContrastMode) {
+  return mode === "light-detail" ? styles.lightDetail : "";
 }
 
-export default function PublicTeamBadge({ logoUrl, fallbackLabel }: PublicTeamBadgeProps) {
-  const [failed, setFailed] = useState(false);
-  const imageUrl = failed ? null : validLogoUrl(logoUrl);
+export default function PublicTeamBadge({
+  logoUrl,
+  fallbackLabel,
+  altLabel,
+  slug,
+  variant = "default"
+}: PublicTeamBadgeProps) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const presentation = resolvePublicTeamBadgePresentation(logoUrl, slug);
+  const exactAlt = altLabel?.trim() || fallbackLabel.trim();
+  const showImage = presentation.kind === "image" && presentation.logoUrl !== failedUrl;
+  const rootClassName = `${styles.root} ${styles[variant]}`;
 
   useEffect(() => {
-    setFailed(false);
+    setFailedUrl(null);
   }, [logoUrl]);
 
   return (
-    <span className="public-team-badge" aria-hidden="true" data-logo-url={logoUrl ?? ""}>
-      {imageUrl ? (
+    <span className={rootClassName} data-public-team-badge="true" data-logo-url={logoUrl ?? ""} data-team-slug={slug ?? ""}>
+      {showImage ? (
         <img
-          alt=""
-          src={imageUrl}
-          onError={() => {
-            if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("debug_logos") === "1") {
-              console.warn("Emblema falhou ao carregar", { fallbackLabel, logoUrl: imageUrl });
-            }
-            setFailed(true);
-          }}
+          alt={exactAlt}
+          title={exactAlt}
+          className={`${styles.image} ${contrastClassName(presentation.contrastMode)}`}
+          src={presentation.logoUrl}
+          style={{ "--public-team-badge-optical-scale": presentation.opticalScale } as CSSProperties}
+          onError={() => setFailedUrl(presentation.logoUrl)}
         />
       ) : (
-        fallbackLabel
+        <span className={styles.fallback} title={exactAlt}>{fallbackLabel}</span>
       )}
     </span>
   );

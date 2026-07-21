@@ -439,7 +439,7 @@ const gamesPageStyles = `
     font-weight: 900;
   }
 
-  .public-games-team-line span {
+  .public-games-team-line > span:not([data-public-team-badge]) {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -462,27 +462,6 @@ const gamesPageStyles = `
 
   .public-games-team-winner strong {
     color: #137a3a;
-  }
-
-          .public-team-badge {
-            display: grid;
-            flex: 0 0 24px;
-            place-items: center;
-            width: 24px;
-            height: 24px;
-    overflow: hidden;
-    border: 1px solid #d8dee6;
-    border-radius: 999px;
-    background: #f8fafc;
-    color: #263241;
-    font-size: 11px;
-    font-weight: 900;
-  }
-
-  .public-team-badge img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
   }
 
   .public-games-meta {
@@ -981,11 +960,17 @@ function isWinner(match: PublicSeasonMatch, side: "home" | "away") {
 function TeamBadge({ team }: { team?: PublicSeasonMatch["homeTeam"] }) {
   return (
     <PublicTeamBadge
+      altLabel={getPublicTeamName(
+        { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
+        "full"
+      )}
       fallbackLabel={getPublicTeamName(
         { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
         "badge"
       )}
       logoUrl={team?.logo_url}
+      slug={team?.slug}
+      variant="compact"
     />
   );
 }

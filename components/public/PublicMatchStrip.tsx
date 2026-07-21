@@ -1,5 +1,6 @@
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
+import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicTeamName } from "@/lib/public-team-name";
 
@@ -8,6 +9,7 @@ export type PublicMatchStripTeam = {
   public_name?: string | null;
   short_name?: string | null;
   code?: string | null;
+  slug?: string | null;
   logo_url?: string | null;
 };
 
@@ -157,9 +159,16 @@ function TeamBadge({ team }: { team?: PublicMatchStripTeam | null }) {
   );
 
   return (
-    <span className="public-team-badge">
-      {team?.logo_url ? <img alt="" src={team.logo_url} /> : label}
-    </span>
+    <PublicTeamBadge
+      altLabel={getPublicTeamName(
+        { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
+        "full"
+      )}
+      fallbackLabel={label}
+      logoUrl={team?.logo_url}
+      slug={team?.slug}
+      variant="compact"
+    />
   );
 }
 
