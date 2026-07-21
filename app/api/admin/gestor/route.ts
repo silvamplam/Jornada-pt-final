@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 import {
   applyCalendarCheckpointTransition,
+  buildCalendarBroadcastChannelLookup,
   buildCalendarTeamLookup,
   createCalendarFingerprint,
   createCalendarSourceKey,
-  createCalendarTemporalUpdatePatch,
   createCompetitiveIdentity,
-  decideCalendarTemporalAction,
+  decideCalendarMatchAction,
   findCalendarCompetitiveDuplicate,
   formatCalendarPreviewDate,
   getNextCalendarMatchday,
   groupCalendarActionsByMatchday,
   parseCalendarImport,
+  resolveCalendarBroadcastChannel,
   resolveCalendarTeam,
   validateCalendarCheckpointSequence,
   validateCalendarFingerprint,
@@ -22,6 +23,7 @@ import {
   type CalendarImportRow,
   type CalendarMatchdayCheckpoint,
   type CalendarMatchdayPlan,
+  type CalendarMatchUpdatePatch,
   type CalendarPreviewResponse,
   type CalendarPreviewRow,
   type CalendarPreviewSummary,
@@ -208,6 +210,13 @@ type ExistingCalendarMatchRow = {
   status: string;
   scheduled_date: string | null;
   kickoff_at: string | null;
+  venue: string | null;
+  broadcast_channel_id: string | null;
+};
+
+type BroadcastChannelRow = {
+  id: string;
+  name: string;
 };
 
 type PlannedCalendarWrite = {
@@ -218,6 +227,7 @@ type PlannedCalendarWrite = {
   homeTeamId: string;
   awayTeamId: string;
   existingMatchId: string | null;
+  updatePatch: CalendarMatchUpdatePatch;
 };
 
 type CalendarServerPlan = {
@@ -1814,6 +1824,9 @@ function calendarRejectRow({
     kickoffAt: null,
     scheduleLabel: matchdayNumber ? `J${matchdayNumber} · DATA E HORA POR DEFINIR` : "DATA E HORA POR DEFINIR",
     venue: null,
+    broadcastChannelName: null,
+    broadcastChannelId: null,
+    changes: [],
     existingMatchId: null,
     note
   };
@@ -1873,7 +1886,7 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
   }
 
   const teamsQuery = participantTeamIds.map(encodeURIComponent).join(",");
-  const [teams, teamAliases, matchdayRows, existingMatches] = await Promise.all([
+  const [teams, teamAliases, matchdayRows, existingMatches, broadcastChannels] = await Promise.all([
     fetchSupabaseAdminTable<TeamRow>(
       `teams?select=id,name,short_name,slug,code,country_id&id=in.(${teamsQuery})&country_id=eq.${encodeURIComponent(countryId)}&limit=500`
     ),
@@ -1884,9 +1897,12 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
       `matchdays?select=id,number,label&season_id=eq.${encodeURIComponent(seasonId)}&limit=500`
     ),
     fetchSupabaseAdminTable<ExistingCalendarMatchRow>(
-      `matches?select=id,source_key,matchday_id,home_team_id,away_team_id,status,scheduled_date,kickoff_at&season_id=eq.${encodeURIComponent(
+      `matches?select=id,source_key,matchday_id,home_team_id,away_team_id,status,scheduled_date,kickoff_at,venue,broadcast_channel_id&season_id=eq.${encodeURIComponent(
         seasonId
       )}&limit=1000`
+    ),
+    fetchSupabaseAdminTable<BroadcastChannelRow>(
+      "broadcast_channels?select=id,name&order=name.asc&limit=500"
     )
   ]);
 
@@ -1900,6 +1916,8 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
 
   const matchdaysByNumber = new Map(matchdayRows.map((matchday) => [matchday.number, matchday]));
   const matchdayNumberById = new Map(matchdayRows.map((matchday) => [matchday.id, matchday.number]));
+  const broadcastChannelsById = new Map(broadcastChannels.map((channel) => [channel.id, channel]));
+  const broadcastChannelLookup = buildCalendarBroadcastChannelLookup(broadcastChannels);
   const existingByIdentity = new Map<string, ExistingCalendarMatchRow[]>();
   const existingUses = new Map<number, Map<string, Set<string>>>();
 
@@ -1967,6 +1985,24 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
       continue;
     }
 
+    let resolvedBroadcastChannel: BroadcastChannelRow | null = null;
+    if (row.broadcastChannelName !== null) {
+      const channelResolution = resolveCalendarBroadcastChannel(broadcastChannelLookup, row.broadcastChannelName);
+      if (channelResolution.status === "unresolved") {
+        previewRows.push(calendarRejectRow({ ...row, note: `CanalTV desconhecido: ${row.broadcastChannelName}.` }));
+        continue;
+      }
+      if (channelResolution.status === "ambiguous") {
+        previewRows.push(calendarRejectRow({ ...row, note: `CanalTV ambíguo no catálogo: ${row.broadcastChannelName}.` }));
+        continue;
+      }
+      resolvedBroadcastChannel = broadcastChannelsById.get(channelResolution.channelId) ?? null;
+      if (!resolvedBroadcastChannel) {
+        previewRows.push(calendarRejectRow({ ...row, note: "O CanalTV deixou de estar disponível no catálogo." }));
+        continue;
+      }
+    }
+
     const identity = createCompetitiveIdentity(seasonId, matchdayReference, homeTeamId, awayTeamId);
     const resolvedIdentity = {
       lineNumber: row.lineNumber,
@@ -2013,9 +2049,19 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
     }
 
     const action = existing
-      ? decideCalendarTemporalAction(
-          { scheduledDate: existing.scheduled_date, kickoffAt: existing.kickoff_at, status: existing.status },
-          row
+      ? decideCalendarMatchAction(
+          {
+            scheduledDate: existing.scheduled_date,
+            kickoffAt: existing.kickoff_at,
+            status: existing.status,
+            venue: existing.venue,
+            broadcastChannelId: existing.broadcast_channel_id,
+            broadcastChannelName: existing.broadcast_channel_id
+              ? broadcastChannelsById.get(existing.broadcast_channel_id)?.name ?? null
+              : null
+          },
+          row,
+          resolvedBroadcastChannel
         )
       : null;
     if (action?.action === "conflict") {
@@ -2042,6 +2088,9 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
       kickoffAt: row.kickoffAt,
       scheduleLabel: formatCalendarPreviewDate(row.scheduledDate, row.kickoffAt, row.matchdayNumber),
       venue: row.venue,
+      broadcastChannelName: resolvedBroadcastChannel?.name ?? null,
+      broadcastChannelId: resolvedBroadcastChannel?.id ?? null,
+      changes: action?.changes ?? [],
       existingMatchId: existing?.id ?? null,
       note: existing
         ? action?.reason ?? "O jogo existente será preservado."
@@ -2057,7 +2106,8 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
       preview,
       homeTeamId,
       awayTeamId,
-      existingMatchId: existing?.id ?? null
+      existingMatchId: existing?.id ?? null,
+      updatePatch: action?.patch ?? {}
     });
   }
 
@@ -2088,6 +2138,10 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
         existingMatchId: row.existingMatchId,
         scheduledDate: row.scheduledDate,
         kickoffAt: row.kickoffAt,
+        venue: row.venue,
+        broadcastChannelId: row.broadcastChannelId,
+        broadcastChannelName: row.broadcastChannelName,
+        changes: row.changes,
         note: row.note
       }))
     });
@@ -2287,6 +2341,7 @@ async function applyCalendarMatchday(formData: FormData): Promise<CalendarApplyR
             scheduled_date: write.row.scheduledDate,
             kickoff_at: write.row.kickoffAt,
             venue: write.row.venue,
+            broadcast_channel_id: write.preview.broadcastChannelId,
             status: "scheduled",
             data_source: "manual",
             sync_status: "manual",
@@ -2303,17 +2358,18 @@ async function applyCalendarMatchday(formData: FormData): Promise<CalendarApplyR
 
     const updates = matchdayWrites.filter((write) => write.preview.status === "update" && write.existingMatchId);
     for (const update of updates) {
-      const temporalPatch = createCalendarTemporalUpdatePatch(update.row);
-      if (!temporalPatch) {
-        throw new CalendarImportRequestError("calendar-update-invalid", "Uma atualização temporal ficou sem data válida.", 409, checkpoint);
+      if (Object.keys(update.updatePatch).length === 0) {
+        throw new CalendarImportRequestError("calendar-update-invalid", "Uma atualização ficou sem campos efetivamente alterados.", 409, checkpoint);
       }
       const updated = await writeSupabaseAdminReturning<{ id: string }>(
         `matches?id=eq.${encodeURIComponent(update.existingMatchId ?? "")}&season_id=eq.${encodeURIComponent(
           seasonId
-        )}&status=eq.scheduled`,
+        )}&matchday_id=eq.${encodeURIComponent(matchday.id)}&home_team_id=eq.${encodeURIComponent(
+          update.homeTeamId
+        )}&away_team_id=eq.${encodeURIComponent(update.awayTeamId)}`,
         {
           method: "PATCH",
-          body: JSON.stringify(temporalPatch)
+          body: JSON.stringify(update.updatePatch)
         }
       );
       if (!updated[0]) {
