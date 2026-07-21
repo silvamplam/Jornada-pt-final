@@ -7,7 +7,7 @@ import {
   type PublicSeasonMatch
 } from "@/lib/public-matchday";
 import { getPublicTeamName } from "@/lib/public-team-name";
-import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
+import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { redirect } from "next/navigation";
 
@@ -486,11 +486,9 @@ const gamesPageStyles = `
   }
 
   .public-games-meta {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
     align-items: center;
-    column-gap: 5px;
-    width: 100%;
+    justify-content: flex-start;
     min-width: 0;
     padding: 2px 0 0;
     color: #607086;
@@ -498,19 +496,6 @@ const gamesPageStyles = `
     font-weight: 800;
     line-height: 1.15;
     white-space: nowrap;
-  }
-
-  .public-games-meta-copy {
-    min-width: 0;
-    white-space: nowrap;
-  }
-
-  .public-games-meta-channel {
-    display: inline-flex;
-    min-width: 0;
-    flex-shrink: 0;
-    align-items: center;
-    justify-self: end;
   }
 
   .public-games-status-live {
@@ -1065,18 +1050,11 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         <TeamBadge team={match.awayTeam} />
       </div>
       <div className="public-games-meta">
-        <span className="public-games-meta-copy">
-          <MatchScheduleLabel match={match} />
-        </span>
-        {broadcastChannelName ? (
-          <span className="public-games-meta-channel">
-            <BroadcastChannelLogo
-              logoUrl={match.broadcastChannel?.logo_url}
-              name={broadcastChannelName}
-              variant="compact"
-            />
-          </span>
-        ) : null}
+        <PublicMatchMeta
+          channelLogoUrl={match.broadcastChannel?.logo_url}
+          channelName={broadcastChannelName}
+          dateTime={<MatchScheduleLabel match={match} />}
+        />
       </div>
     </article>
   );
@@ -1121,21 +1099,16 @@ function ReferenceGamesCard({ match }: { match: PublicSeasonMatch }) {
         {showScore ? <b className="public-games-team-score">{match.away_score}</b> : null}
       </span>
       <div className="public-games-meta">
-        <span className={`public-games-meta-copy${kind === "live" ? " public-games-status-live" : ""}`}>
-          {kind === "scheduled" ? (
-            <MatchScheduleLabel match={match} />
-          ) : statusText}
-          {kind === "live" ? <LivePulseDots /> : null}
-        </span>
-        {broadcastChannelName ? (
-          <span className="public-games-meta-channel">
-            <BroadcastChannelLogo
-              logoUrl={match.broadcastChannel?.logo_url}
-              name={broadcastChannelName}
-              variant="compact"
-            />
-          </span>
-        ) : null}
+        <PublicMatchMeta
+          channelLogoUrl={match.broadcastChannel?.logo_url}
+          channelName={broadcastChannelName}
+          dateTime={(
+            <span className={kind === "live" ? "public-games-status-live" : undefined}>
+              {kind === "scheduled" ? <MatchScheduleLabel match={match} /> : statusText}
+              {kind === "live" ? <LivePulseDots /> : null}
+            </span>
+          )}
+        />
       </div>
     </article>
   );

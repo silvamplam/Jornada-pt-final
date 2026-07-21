@@ -9,7 +9,7 @@ import styles from "./BroadcastChannelLogo.module.css";
 type BroadcastChannelLogoProps = {
   name?: string | null;
   logoUrl?: string | null;
-  variant: "compact" | "default";
+  variant: "compact" | "default" | "matchMeta";
 };
 
 export default function BroadcastChannelLogo({ name, logoUrl, variant }: BroadcastChannelLogoProps) {

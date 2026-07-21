@@ -1,0 +1,22 @@
+.matchMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.dateTime {
+  display: inline-block;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.channel {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  line-height: 0;
+}

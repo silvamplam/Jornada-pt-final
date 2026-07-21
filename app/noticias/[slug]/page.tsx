@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
+import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
@@ -502,7 +503,6 @@ const articlePageStyles = `
     display: flex;
     min-width: 0;
     align-items: center;
-    gap: 4px;
     justify-content: center;
     overflow: visible;
     padding: 1px 2px 0;
@@ -1050,7 +1050,7 @@ function ArticleMatchCard({ match }: { match: PublicSeasonMatch }) {
         <BroadcastChannelLogo
           logoUrl={match.broadcastChannel?.logo_url}
           name={channelName}
-          variant="compact"
+          variant="matchMeta"
         />
       ) : null}
     </>
@@ -1083,23 +1083,15 @@ function ArticleMatchCard({ match }: { match: PublicSeasonMatch }) {
       </span>
       <span className="news-article-game-meta">
         {kind === "scheduled" ? (
-          <>
-            {schedule.dateTime ? (
+          <PublicMatchMeta
+            channelLogoUrl={match.broadcastChannel?.logo_url}
+            channelName={channelName}
+            dateTime={schedule.dateTime ? (
               <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
             ) : (
               <span aria-label={schedule.accessible}>{schedule.visual}</span>
             )}
-            {channelName ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <BroadcastChannelLogo
-                  logoUrl={match.broadcastChannel?.logo_url}
-                  name={channelName}
-                  variant="compact"
-                />
-              </>
-            ) : null}
-          </>
+          />
         ) : kind === "live" || kind === "halftime" ? (
           <span className="news-article-game-live-status">
             {liveStatus}

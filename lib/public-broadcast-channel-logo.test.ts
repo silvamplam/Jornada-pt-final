@@ -6,6 +6,8 @@ import { resolveBroadcastChannelLogoPresentation } from "./public-broadcast-chan
 
 const componentUrl = new URL("../components/public/BroadcastChannelLogo.tsx", import.meta.url);
 const stylesUrl = new URL("../components/public/BroadcastChannelLogo.module.css", import.meta.url);
+const matchMetaComponentUrl = new URL("../components/public/PublicMatchMeta.tsx", import.meta.url);
+const matchMetaStylesUrl = new URL("../components/public/PublicMatchMeta.module.css", import.meta.url);
 const integrationUrls = [
   new URL("../components/public/PublicMatchStrip.tsx", import.meta.url),
   new URL("../components/public/PublicGamesPage.tsx", import.meta.url),
@@ -126,41 +128,33 @@ test("o CSS preserva proporção sem cápsula e aplica contraste apenas à image
   assert.match(source, /\.compact img\s*\{[\s\S]*?max-width:\s*58px[\s\S]*?max-height:\s*12px/);
   assert.match(source, /\.default\s*\{[\s\S]*?width:\s*92px[\s\S]*?height:\s*20px[\s\S]*?padding:\s*0/);
   assert.match(source, /\.default img\s*\{[\s\S]*?max-width:\s*92px[\s\S]*?max-height:\s*18px/);
+  assert.match(source, /\.matchMeta\s*\{[\s\S]*?width:\s*38px[\s\S]*?height:\s*12px[\s\S]*?padding:\s*0[\s\S]*?line-height:\s*0/);
+  assert.match(source, /\.matchMeta img\s*\{[\s\S]*?max-width:\s*38px[\s\S]*?max-height:\s*12px/);
 });
 
-test("Home, jornada e página de jogos separam texto e canal em duas zonas", async () => {
-  const [homeStrip, publicGamesPage, matchdayPage, matchdayGamesPage] = await Promise.all([
-    readFile(integrationUrls[0], "utf8"),
-    readFile(integrationUrls[1], "utf8"),
-    readFile(integrationUrls[2], "utf8"),
-    readFile(integrationUrls[3], "utf8")
+test("PublicMatchMeta centraliza estrutura, espaçamento e área do canal", async () => {
+  const [componentSource, styleSource] = await Promise.all([
+    readFile(matchMetaComponentUrl, "utf8"),
+    readFile(matchMetaStylesUrl, "utf8")
   ]);
-  assert.match(homeStrip, /gridTemplateColumns:\s*"minmax\(0, 1fr\) auto"/);
-  assert.match(homeStrip, /columnGap:\s*broadcastChannelName \? 5 : 0/);
-  assert.match(homeStrip, /homeCompactChannelStyle[\s\S]*?maxWidth:\s*44[\s\S]*?minWidth:\s*0[\s\S]*?flexShrink:\s*0[\s\S]*?justifySelf:\s*"end"/);
-  assert.doesNotMatch(homeStrip, /letterSpacing|gridTemplateColumns:\s*broadcastChannelName \? "minmax\(0, 1fr\) 44px"/);
-  assert.match(homeStrip, /minmax\(min\(154px, 100%\), 1fr\)/);
-  assert.doesNotMatch(homeStrip, /position:\s*["']absolute["']|marginLeft:\s*-[0-9]/);
-
-  assert.match(matchdayPage, /\.public-matchday-mini-card-scheduled \.public-matchday-mini-status\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto[\s\S]*?column-gap:\s*5px/);
-  assert.match(matchdayPage, /\.public-matchday-mini-channel\s*\{[\s\S]*?min-width:\s*0[\s\S]*?justify-self:\s*end/);
-  assert.doesNotMatch(matchdayPage, /public-matchday-mini-separator/);
-
-  assert.match(matchdayGamesPage, /\.public-games-meta\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto[\s\S]*?column-gap:\s*5px/);
-  assert.match(matchdayGamesPage, /className="public-games-meta-copy"[\s\S]*?<MatchScheduleLabel match=\{match\} \/>[\s\S]*?<span className="public-games-meta-channel">/);
-  assert.doesNotMatch(matchdayGamesPage, /<span aria-hidden="true">\s*·\s*<\/span>[\s\S]{0,160}<BroadcastChannelLogo/);
-
-  assert.match(publicGamesPage, /\.public-game-info\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto[\s\S]*?column-gap:\s*5px/);
-  assert.match(publicGamesPage, /\.public-game-tv\s*\{[\s\S]*?justify-self:\s*end[\s\S]*?flex-shrink:\s*0/);
+  assert.match(componentSource, /<span className=\{styles\.dateTime\}>\{dateTime\}<\/span>/);
+  assert.match(componentSource, /\{hasChannel \? \([\s\S]*?<span className=\{styles\.channel\}>[\s\S]*?variant="matchMeta"/);
+  assert.match(componentSource, /const hasChannel = Boolean\(channelName\?\.trim\(\)\)/);
+  assert.match(styleSource, /\.matchMeta\s*\{[\s\S]*?display:\s*inline-flex[\s\S]*?gap:\s*6px[\s\S]*?max-width:\s*100%[\s\S]*?white-space:\s*nowrap/);
+  assert.equal(styleSource.match(/gap:\s*6px/g)?.length, 1);
+  assert.match(styleSource, /\.dateTime\s*\{[\s\S]*?display:\s*inline-block[\s\S]*?flex:\s*0 0 auto[\s\S]*?white-space:\s*nowrap/);
+  assert.match(styleSource, /\.channel\s*\{[\s\S]*?display:\s*inline-grid[\s\S]*?flex:\s*0 0 auto[\s\S]*?place-items:\s*center[\s\S]*?line-height:\s*0/);
+  assert.doesNotMatch(styleSource, /grid-template-columns|justify-content:\s*space-between|margin-left:\s*auto|position:\s*absolute|margin[^:]*:\s*-/);
 });
 
-test("as cinco superfícies públicas usam o componente comum sem compactTvLabel", async () => {
+test("as cinco superfícies públicas reutilizam PublicMatchMeta sem layout local divergente", async () => {
   const sources = await Promise.all(integrationUrls.map((url) => readFile(url, "utf8")));
   for (const source of sources) {
-    assert.match(source, /import BroadcastChannelLogo from "@\/components\/public\/BroadcastChannelLogo"/);
-    assert.match(source, /<BroadcastChannelLogo/);
+    assert.match(source, /import PublicMatchMeta from "@\/components\/public\/PublicMatchMeta"/);
+    assert.match(source, /<PublicMatchMeta/);
     assert.doesNotMatch(source, /compactTvLabel|SportTV/);
     assert.doesNotMatch(source, /Sem transmissão|Sem canal/);
+    assert.doesNotMatch(source, /public-matchday-mini-separator|public-games-meta-copy|public-games-meta-channel|public-game-tv/);
   }
 });
 
@@ -168,15 +162,14 @@ test("não permanece imagem de canal com alt vazio nem texto redundante no Publi
   const source = await readFile(integrationUrls[1], "utf8");
   assert.doesNotMatch(source, /broadcastChannel\?\.logo_url \? <img/);
   assert.doesNotMatch(source, /<span>\{channelName\}<\/span>/);
-  assert.match(source, /logoUrl=\{game\.broadcastChannel\?\.logo_url\}/);
-  assert.match(source, /name=\{channelName\}/);
+  assert.match(source, /channelLogoUrl=\{game\.broadcastChannel\?\.logo_url\}/);
+  assert.match(source, /channelName=\{channelName\}/);
 });
 
-test("integrações mantêm variantes compact e default nos estados atuais", async () => {
+test("integrações usam a mesma variante matchMeta e mantêm os estados atuais", async () => {
   const sources = await Promise.all(integrationUrls.map((url) => readFile(url, "utf8")));
   const combined = sources.join("\n");
-  assert.match(combined, /variant="compact"/);
-  assert.match(combined, /variant="default"/);
+  assert.match(await readFile(matchMetaComponentUrl, "utf8"), /variant="matchMeta"/);
   assert.match(combined, /kind === "scheduled"/);
   assert.match(combined, /kind === "live"/);
   assert.match(combined, /kind === "finished"/);

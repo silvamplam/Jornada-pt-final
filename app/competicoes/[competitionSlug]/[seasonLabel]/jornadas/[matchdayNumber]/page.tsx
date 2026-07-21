@@ -6,6 +6,7 @@ import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navi
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
+import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import RoundupVideoSwitcher from "@/components/public/RoundupVideoSwitcher";
 import { redirect } from "next/navigation";
@@ -575,23 +576,10 @@ const publicMatchdayStyles = `
 
   .public-matchday-mini-channel {
     display: inline-flex;
-    flex: 0 1 58px;
-    flex-shrink: 0;
+    flex: 0 0 auto;
     min-width: 0;
-    max-width: 100%;
     align-items: center;
     justify-content: center;
-    justify-self: end;
-  }
-
-  .public-matchday-mini-card-scheduled .public-matchday-mini-status {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    justify-content: normal;
-    column-gap: 5px;
-    width: 100%;
-    min-width: 0;
   }
 
   .public-matchday-cover {
@@ -3004,7 +2992,7 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
           <BroadcastChannelLogo
             logoUrl={match.broadcastChannel?.logo_url}
             name={broadcastChannelName}
-            variant="compact"
+            variant="matchMeta"
           />
         </span>
       ) : null}
@@ -3045,22 +3033,15 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
             {kind === "live" ? <LivePulseDots /> : null}
           </span>
         ) : kind === "scheduled" ? (
-          <>
-            {schedule.dateTime ? (
+          <PublicMatchMeta
+            channelLogoUrl={match.broadcastChannel?.logo_url}
+            channelName={broadcastChannelName}
+            dateTime={schedule.dateTime ? (
               <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
             ) : (
               <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
             )}
-            {broadcastChannelName ? (
-              <span className="public-matchday-mini-channel">
-                <BroadcastChannelLogo
-                  logoUrl={match.broadcastChannel?.logo_url}
-                  name={broadcastChannelName}
-                  variant="compact"
-                />
-              </span>
-            ) : null}
-          </>
+          />
         ) : (
           <span>{statusLabel(match.status)}</span>
         )}
@@ -3084,7 +3065,7 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         <BroadcastChannelLogo
           logoUrl={match.broadcastChannel?.logo_url}
           name={broadcastChannelName}
-          variant="compact"
+          variant="matchMeta"
         />
       ) : null}
     </>
@@ -3121,19 +3102,16 @@ function MatchCard({ match }: { match: PublicSeasonMatch }) {
         </div>
       </div>
       <div className="public-matchday-meta">
-        {schedule.dateTime ? (
-          <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
-        ) : (
-          <span aria-label={schedule.accessible}>{schedule.visual}</span>
-        )}
+        <PublicMatchMeta
+          channelLogoUrl={match.broadcastChannel?.logo_url}
+          channelName={kind === "live" ? null : broadcastChannelName}
+          dateTime={schedule.dateTime ? (
+            <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
+          ) : (
+            <span aria-label={schedule.accessible}>{schedule.visual}</span>
+          )}
+        />
         {match.venue ? <span>{match.venue}</span> : null}
-        {kind === "live" ? null : (
-          <BroadcastChannelLogo
-            logoUrl={match.broadcastChannel?.logo_url}
-            name={broadcastChannelName}
-            variant="default"
-          />
-        )}
       </div>
     </article>
   );
