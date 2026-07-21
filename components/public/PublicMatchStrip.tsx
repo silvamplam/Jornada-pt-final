@@ -35,9 +35,10 @@ export type PublicMatchStripMatch = {
 };
 
 const homeCompactChannelStyle: CSSProperties = {
-  width: 44,
   maxWidth: 44,
-  flexShrink: 0
+  minWidth: 0,
+  flexShrink: 0,
+  justifySelf: "end"
 };
 
 function formatKickoffTime(value?: string | null) {
@@ -189,13 +190,13 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
   const scheduledStatusStyle: CSSProperties | undefined = kind === "scheduled"
     ? {
         display: "grid",
-        gridTemplateColumns: broadcastChannelName ? "minmax(0, 1fr) 44px" : "minmax(0, 1fr)",
+        gridTemplateColumns: "minmax(0, 1fr) auto",
         alignItems: "center",
-        columnGap: broadcastChannelName ? 3 : 0,
+        columnGap: broadcastChannelName ? 5 : 0,
+        width: "100%",
         minWidth: 0,
         overflow: "visible",
-        fontSize: 9,
-        letterSpacing: "-0.01em"
+        fontSize: 9
       }
     : undefined;
   const liveStatus = kind === "live" ? (

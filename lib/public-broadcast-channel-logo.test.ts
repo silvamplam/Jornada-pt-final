@@ -128,18 +128,30 @@ test("o CSS preserva proporção sem cápsula e aplica contraste apenas à image
   assert.match(source, /\.default img\s*\{[\s\S]*?max-width:\s*92px[\s\S]*?max-height:\s*18px/);
 });
 
-test("Home separa data e canal em duas zonas compactas sem sobreposição", async () => {
-  const [homeStrip, matchdayPage] = await Promise.all([
+test("Home, jornada e página de jogos separam texto e canal em duas zonas", async () => {
+  const [homeStrip, publicGamesPage, matchdayPage, matchdayGamesPage] = await Promise.all([
     readFile(integrationUrls[0], "utf8"),
-    readFile(integrationUrls[2], "utf8")
+    readFile(integrationUrls[1], "utf8"),
+    readFile(integrationUrls[2], "utf8"),
+    readFile(integrationUrls[3], "utf8")
   ]);
-  assert.match(homeStrip, /gridTemplateColumns:\s*broadcastChannelName \? "minmax\(0, 1fr\) 44px"/);
-  assert.match(homeStrip, /columnGap:\s*broadcastChannelName \? 3 : 0/);
-  assert.match(homeStrip, /homeCompactChannelStyle[\s\S]*?width:\s*44[\s\S]*?maxWidth:\s*44[\s\S]*?flexShrink:\s*0/);
+  assert.match(homeStrip, /gridTemplateColumns:\s*"minmax\(0, 1fr\) auto"/);
+  assert.match(homeStrip, /columnGap:\s*broadcastChannelName \? 5 : 0/);
+  assert.match(homeStrip, /homeCompactChannelStyle[\s\S]*?maxWidth:\s*44[\s\S]*?minWidth:\s*0[\s\S]*?flexShrink:\s*0[\s\S]*?justifySelf:\s*"end"/);
+  assert.doesNotMatch(homeStrip, /letterSpacing|gridTemplateColumns:\s*broadcastChannelName \? "minmax\(0, 1fr\) 44px"/);
   assert.match(homeStrip, /minmax\(min\(154px, 100%\), 1fr\)/);
   assert.doesNotMatch(homeStrip, /position:\s*["']absolute["']|marginLeft:\s*-[0-9]/);
-  assert.match(matchdayPage, /className="public-matchday-mini-channel"/);
-  assert.match(matchdayPage, /\.public-matchday-mini-channel\s*\{[\s\S]*?flex:\s*0 1 58px[\s\S]*?min-width:\s*0/);
+
+  assert.match(matchdayPage, /\.public-matchday-mini-card-scheduled \.public-matchday-mini-status\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto[\s\S]*?column-gap:\s*5px/);
+  assert.match(matchdayPage, /\.public-matchday-mini-channel\s*\{[\s\S]*?min-width:\s*0[\s\S]*?justify-self:\s*end/);
+  assert.doesNotMatch(matchdayPage, /public-matchday-mini-separator/);
+
+  assert.match(matchdayGamesPage, /\.public-games-meta\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto[\s\S]*?column-gap:\s*5px/);
+  assert.match(matchdayGamesPage, /className="public-games-meta-copy"[\s\S]*?<MatchScheduleLabel match=\{match\} \/>[\s\S]*?<span className="public-games-meta-channel">/);
+  assert.doesNotMatch(matchdayGamesPage, /<span aria-hidden="true">\s*·\s*<\/span>[\s\S]{0,160}<BroadcastChannelLogo/);
+
+  assert.match(publicGamesPage, /\.public-game-info\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto[\s\S]*?column-gap:\s*5px/);
+  assert.match(publicGamesPage, /\.public-game-tv\s*\{[\s\S]*?justify-self:\s*end[\s\S]*?flex-shrink:\s*0/);
 });
 
 test("as cinco superfícies públicas usam o componente comum sem compactTvLabel", async () => {

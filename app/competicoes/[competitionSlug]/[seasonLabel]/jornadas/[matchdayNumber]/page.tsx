@@ -478,8 +478,7 @@ const publicMatchdayStyles = `
     color: #10151b;
   }
 
-  .public-matchday-live-label,
-  .public-matchday-mini-separator {
+  .public-matchday-live-label {
     color: #10151b;
   }
 
@@ -561,7 +560,7 @@ const publicMatchdayStyles = `
   }
 
   .public-matchday-mini-time {
-    flex: 0 0 auto;
+    min-width: 0;
     color: inherit;
     white-space: nowrap;
   }
@@ -574,18 +573,25 @@ const publicMatchdayStyles = `
     font-weight: 900;
   }
 
-  .public-matchday-mini-separator {
-    flex: 0 0 auto;
-    color: inherit;
-  }
-
   .public-matchday-mini-channel {
     display: inline-flex;
     flex: 0 1 58px;
+    flex-shrink: 0;
     min-width: 0;
     max-width: 100%;
     align-items: center;
     justify-content: center;
+    justify-self: end;
+  }
+
+  .public-matchday-mini-card-scheduled .public-matchday-mini-status {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    justify-content: normal;
+    column-gap: 5px;
+    width: 100%;
+    min-width: 0;
   }
 
   .public-matchday-cover {
@@ -2419,7 +2425,7 @@ const publicMatchdayStyles = `
     }
 
     .public-matchday-strip {
-      grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)) !important;
+      grid-template-columns: repeat(auto-fit, minmax(min(154px, 100%), 1fr)) !important;
       overflow-x: visible;
     }
 
@@ -3046,16 +3052,13 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
               <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
             )}
             {broadcastChannelName ? (
-              <>
-                <span className="public-matchday-mini-separator" aria-hidden="true">·</span>
-                <span className="public-matchday-mini-channel">
-                  <BroadcastChannelLogo
-                    logoUrl={match.broadcastChannel?.logo_url}
-                    name={broadcastChannelName}
-                    variant="compact"
-                  />
-                </span>
-              </>
+              <span className="public-matchday-mini-channel">
+                <BroadcastChannelLogo
+                  logoUrl={match.broadcastChannel?.logo_url}
+                  name={broadcastChannelName}
+                  variant="compact"
+                />
+              </span>
             ) : null}
           </>
         ) : (
@@ -3572,7 +3575,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           <div
             className="public-matchday-strip"
             data-matchday-strip
-            style={{ gridTemplateColumns: `repeat(${Math.max(context.matchesForMatchday.length, 1)}, minmax(118px, 1fr))` }}
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(154px, 100%), 1fr))" }}
           >
             {context.matchesForMatchday.length > 0 ? (
               context.matchesForMatchday.map((match) => (

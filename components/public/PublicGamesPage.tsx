@@ -401,13 +401,20 @@ const gamesPageStyles = `
 
   .public-game-info {
     display: grid;
-    gap: 5px;
-    justify-items: end;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 5px;
+    width: 100%;
     min-width: 0;
     color: #526174;
     font-size: 12px;
     font-weight: 800;
-    text-align: right;
+    text-align: left;
+  }
+
+  .public-game-info > :first-child {
+    min-width: 0;
+    white-space: nowrap;
   }
 
   .public-game-status {
@@ -425,6 +432,8 @@ const gamesPageStyles = `
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
+    justify-self: end;
+    flex-shrink: 0;
     gap: 6px;
     max-width: 100%;
     min-width: 0;
