@@ -378,7 +378,7 @@ export const publicEditorialStyles = `
     justify-content: center;
     gap: 2px;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
     padding: 3px 0 0;
     border-radius: 0;
     background: transparent;

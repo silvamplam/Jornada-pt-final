@@ -8,6 +8,7 @@ const componentUrl = new URL("../components/public/BroadcastChannelLogo.tsx", im
 const stylesUrl = new URL("../components/public/BroadcastChannelLogo.module.css", import.meta.url);
 const matchMetaComponentUrl = new URL("../components/public/PublicMatchMeta.tsx", import.meta.url);
 const matchMetaStylesUrl = new URL("../components/public/PublicMatchMeta.module.css", import.meta.url);
+const publicEditorialStylesUrl = new URL("../components/public/publicEditorialStyles.ts", import.meta.url);
 const integrationUrls = [
   new URL("../components/public/PublicMatchStrip.tsx", import.meta.url),
   new URL("../components/public/PublicGamesPage.tsx", import.meta.url),
@@ -36,20 +37,22 @@ test("a configuração ótica fica centralizada por canal no helper", () => {
       kind: "image",
       name: "RTP1",
       logoUrl: "https://cdn.example.test/rtp1.svg",
-      opticalScale: 0.76,
+      opticalScale: 0.64,
       contrastMode: "standard"
     }
   );
-  assert.deepEqual(
-    resolveBroadcastChannelLogoPresentation("DAZN 1", "https://cdn.example.test/dazn-1.svg"),
-    {
-      kind: "image",
-      name: "DAZN 1",
-      logoUrl: "https://cdn.example.test/dazn-1.svg",
-      opticalScale: 1,
-      contrastMode: "standard"
-    }
-  );
+  for (const name of ["DAZN 1", "DAZN 2", "DAZN 3"]) {
+    assert.deepEqual(
+      resolveBroadcastChannelLogoPresentation(name, `https://cdn.example.test/${name.at(-1)}.svg`),
+      {
+        kind: "image",
+        name,
+        logoUrl: `https://cdn.example.test/${name.at(-1)}.svg`,
+        opticalScale: 0.62,
+        contrastMode: "standard"
+      }
+    );
+  }
 });
 
 test("logo ausente, vazio, inválido ou HTTP usa o nome exato como fallback", () => {
@@ -110,7 +113,7 @@ test("o CSS preserva proporção sem cápsula e aplica contraste apenas à image
       kind: "image",
       name: "DAZN 1",
       logoUrl: "https://cdn.example.test/dazn-1.svg",
-      opticalScale: 1,
+      opticalScale: 0.62,
       contrastMode: "standard"
     }
   );
@@ -145,6 +148,16 @@ test("PublicMatchMeta centraliza estrutura, espaçamento e área do canal", asyn
   assert.match(styleSource, /\.dateTime\s*\{[\s\S]*?display:\s*inline-block[\s\S]*?flex:\s*0 0 auto[\s\S]*?white-space:\s*nowrap/);
   assert.match(styleSource, /\.channel\s*\{[\s\S]*?display:\s*inline-grid[\s\S]*?flex:\s*0 0 auto[\s\S]*?place-items:\s*center[\s\S]*?line-height:\s*0/);
   assert.doesNotMatch(styleSource, /grid-template-columns|justify-content:\s*space-between|margin-left:\s*auto|position:\s*absolute|margin[^:]*:\s*-/);
+});
+
+test("a Home não recorta a área partilhada nem reduz o logótipo", async () => {
+  const [homeSource, homeStyles] = await Promise.all([
+    readFile(integrationUrls[0], "utf8"),
+    readFile(publicEditorialStylesUrl, "utf8")
+  ]);
+  assert.match(homeSource, /<PublicMatchMeta/);
+  assert.doesNotMatch(homeSource, /width:\s*(?:4[0-9]|5[0-3])|height:\s*1[0-7]|scale\(/);
+  assert.match(homeStyles, /\.public-matchday-mini-card \.public-matchday-mini-status\s*\{[\s\S]*?overflow:\s*visible/);
 });
 
 test("as cinco superfícies públicas reutilizam PublicMatchMeta sem layout local divergente", async () => {

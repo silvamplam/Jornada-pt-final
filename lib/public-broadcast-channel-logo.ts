@@ -22,7 +22,12 @@ const DEFAULT_VISUAL_CONFIG: BroadcastChannelLogoVisualConfig = {
 };
 
 const CHANNEL_VISUAL_CONFIG = new Map<string, BroadcastChannelLogoVisualConfig>([
-  ["rtp1", { opticalScale: 0.76, contrastMode: "standard" }],
+  ["rtp1", { opticalScale: 0.64, contrastMode: "standard" }],
+  ...["dazn 1", "dazn 2", "dazn 3"]
+    .map((channelName): [string, BroadcastChannelLogoVisualConfig] => [
+      channelName,
+      { opticalScale: 0.62, contrastMode: "standard" }
+    ]),
   ...["sport tv 1", "sport tv 2", "sport tv 3", "sport tv 4", "sport tv 5", "sport tv 6", "sport tv 7", "sport tv+"]
     .map((channelName): [string, BroadcastChannelLogoVisualConfig] => [
       channelName,
