@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
+import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
 import { readPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
@@ -28,6 +29,7 @@ type TeamRow = {
   public_name: string | null;
   short_name: string | null;
   code: string | null;
+  slug: string | null;
   logo_url: string | null;
 };
 
@@ -300,7 +302,7 @@ const gamesPageStyles = `
 
   .public-game-card-no-context .public-game-main {
     display: grid;
-    grid-template-columns: 28px minmax(120px, 180px) 70px minmax(120px, 180px) 28px;
+    grid-template-columns: 60px minmax(120px, 180px) 70px minmax(120px, 180px) 60px;
     width: auto;
     max-width: 100%;
     justify-self: start;
@@ -312,6 +314,7 @@ const gamesPageStyles = `
     grid-template-columns: auto minmax(0, 1fr);
     gap: 8px;
     align-items: center;
+    height: 33px;
     min-width: 0;
     color: #10151b;
     font-size: 14px;
@@ -342,35 +345,10 @@ const gamesPageStyles = `
     order: 1;
   }
 
-  .public-game-card-no-context .public-game-team:last-child .public-game-team-badge {
-    order: 2;
-  }
-
   .public-game-team-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .public-game-team-badge {
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    border: 1px solid #dfe5ec;
-    border-radius: 999px;
-    background: #ffffff;
-    color: #263241;
-    font-size: 10px;
-    font-weight: 950;
-    overflow: hidden;
-  }
-
-  .public-game-team-badge img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
   }
 
   .public-game-score {
@@ -456,7 +434,7 @@ const gamesPageStyles = `
 
     .public-game-card-no-context .public-game-main {
       display: grid;
-      grid-template-columns: 28px minmax(0, 1fr) 58px minmax(0, 1fr) 28px;
+      grid-template-columns: 60px minmax(0, 1fr) 58px minmax(0, 1fr) 60px;
       max-width: none;
     }
 
@@ -713,7 +691,7 @@ async function readPublicGames(filters: { competitionId?: string | null; seasonI
   const [teamsById, competitionsById, seasonsById, matchdaysById, broadcastChannelsByMatchId] = await Promise.all([
     readRowsById<TeamRow>(
       "teams",
-      "id,name,public_name,short_name,code,logo_url",
+      "id,name,public_name,short_name,code,slug,logo_url",
       uniqueValues(matches.flatMap((match) => [match.home_team_id, match.away_team_id]))
     ),
     readRowsById<CompetitionRow>(
@@ -775,17 +753,26 @@ function sortGames(first: PublicGame, second: PublicGame) {
 }
 
 function TeamBlock({ team, side }: { team: TeamRow | null; side: "home" | "away" }) {
+  const fullName = getPublicTeamName(
+    { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
+    "full"
+  );
   const badge = (
-    <span className="public-game-team-badge">
-      {team?.logo_url
-        ? <img alt="" src={team.logo_url} />
-        : getPublicTeamName({ name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code }, "badge")}
-    </span>
+    <PublicTeamBadge
+      altLabel={fullName}
+      fallbackLabel={getPublicTeamName(
+        { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
+        "badge"
+      )}
+      logoUrl={team?.logo_url}
+      slug={team?.slug}
+      variant="default"
+    />
   );
   const name = (
     <span
       className="public-game-team-name"
-      title={getPublicTeamName({ name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code }, "full")}
+      title={fullName}
     >
       {getPublicTeamName({ name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code }, "compact")}
     </span>

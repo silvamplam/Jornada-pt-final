@@ -464,25 +464,21 @@ const articlePageStyles = `
   .news-article-game-team {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 5px;
     align-items: center;
+    height: 28px;
+    gap: 6px;
     min-width: 0;
+    overflow: visible;
     color: #0d141d;
     font-weight: 900;
     line-height: 1.1;
   }
 
-  .news-article-game-team span {
+  .news-article-game-team > span:not([data-public-team-badge]) {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .news-article-game-card .public-team-badge {
-    width: 24px;
-    height: 24px;
-    font-size: 9px;
   }
 
   .news-article-game-score {
@@ -1015,11 +1011,17 @@ function statusLabel(status: string) {
 function TeamBadge({ team }: { team?: PublicSeasonMatch["homeTeam"] }) {
   return (
     <PublicTeamBadge
+      altLabel={getPublicTeamName(
+        { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
+        "full"
+      )}
       fallbackLabel={getPublicTeamName(
         { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
         "badge"
       )}
       logoUrl={team?.logo_url}
+      slug={team?.slug}
+      variant="compact"
     />
   );
 }

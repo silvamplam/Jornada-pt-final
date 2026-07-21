@@ -7,7 +7,7 @@ import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
-import PublicTeamBadge from "@/components/public/PublicTeamBadge";
+import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/public/PublicTeamBadge";
 import RoundupVideoSwitcher from "@/components/public/RoundupVideoSwitcher";
 import { redirect } from "next/navigation";
 
@@ -255,7 +255,7 @@ const publicMatchdayStyles = `
     margin-left: auto;
     margin-right: auto;
     margin-top: 12px;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .public-matchday-scoreboard-panel {
@@ -396,8 +396,9 @@ const publicMatchdayStyles = `
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 4px;
-    overflow: hidden;
+    height: 28px;
+    gap: 6px;
+    overflow: visible;
     font-weight: 800;
     text-transform: none;
   }
@@ -410,7 +411,7 @@ const publicMatchdayStyles = `
     justify-content: flex-start;
   }
 
-  .public-matchday-mini-team span {
+  .public-matchday-mini-team > span:not([data-public-team-badge]) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -428,12 +429,6 @@ const publicMatchdayStyles = `
 
   .public-matchday-mini-card-live .public-matchday-mini-team:first-of-type .public-matchday-mini-score {
     padding-right: 0;
-  }
-
-  .public-matchday-mini-card .public-team-badge {
-    width: 22px;
-    height: 22px;
-    background: #ffffff;
   }
 
   .public-matchday-mini-card .public-matchday-mini-status {
@@ -1886,27 +1881,6 @@ const publicMatchdayStyles = `
     color: #137a3a;
   }
 
-  .public-team-badge {
-    display: grid;
-    flex: 0 0 auto;
-    place-items: center;
-    width: 30px;
-    height: 30px;
-    overflow: hidden;
-    border: 1px solid #d8dee6;
-    border-radius: 999px;
-    background: #f8fafc;
-    color: #263241;
-    font-size: 11px;
-    font-weight: 900;
-  }
-
-  .public-team-badge img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-
   .public-matchday-score {
     min-width: 72px;
     text-align: center;
@@ -2953,14 +2927,20 @@ function renderStatHeaders(group: string) {
   ));
 }
 
-function TeamBadge({ team }: { team?: PublicSeasonMatch["homeTeam"] }) {
+function TeamBadge({ team, variant = "default" }: { team?: PublicSeasonMatch["homeTeam"]; variant?: PublicTeamBadgeVariant }) {
   return (
     <PublicTeamBadge
+      altLabel={getPublicTeamName(
+        { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
+        "full"
+      )}
       fallbackLabel={getPublicTeamName(
         { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
         "badge"
       )}
       logoUrl={team?.logo_url}
+      slug={team?.slug}
+      variant={variant}
     />
   );
 }
@@ -3011,14 +2991,14 @@ function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: 
   return (
     <article className={`public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
       <span className="public-matchday-mini-team">
-        <TeamBadge team={match.homeTeam} />
+        <TeamBadge team={match.homeTeam} variant="compact" />
         <span title={homeTeamName}>
           {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
         </span>
         {showScore ? <b className="public-matchday-mini-score">{match.home_score}</b> : null}
       </span>
       <span className="public-matchday-mini-team">
-        <TeamBadge team={match.awayTeam} />
+        <TeamBadge team={match.awayTeam} variant="compact" />
         <span title={awayTeamName}>
           {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
         </span>

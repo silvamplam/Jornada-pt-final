@@ -331,8 +331,9 @@ export const publicEditorialStyles = `
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 4px;
-    overflow: hidden;
+    height: 28px;
+    gap: 6px;
+    overflow: visible;
     font-weight: 800;
     text-transform: none;
   }
@@ -345,7 +346,7 @@ export const publicEditorialStyles = `
     justify-content: flex-start;
   }
 
-  .public-matchday-mini-team span {
+  .public-matchday-mini-team > span:not([data-public-team-badge]) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -363,12 +364,6 @@ export const publicEditorialStyles = `
 
   .public-matchday-mini-card-live .public-matchday-mini-team:first-of-type .public-matchday-mini-score {
     padding-right: 0;
-  }
-
-  .public-matchday-mini-card .public-team-badge {
-    width: 24px;
-    height: 24px;
-    background: #ffffff;
   }
 
   .public-matchday-mini-card .public-matchday-mini-status {
@@ -1654,27 +1649,6 @@ export const publicEditorialStyles = `
 
   .public-matchday-team-winner strong {
     color: #137a3a;
-  }
-
-  .public-team-badge {
-    display: grid;
-    flex: 0 0 auto;
-    place-items: center;
-    width: 34px;
-    height: 34px;
-    overflow: hidden;
-    border: 1px solid #d8dee6;
-    border-radius: 999px;
-    background: #f8fafc;
-    color: #263241;
-    font-size: 11px;
-    font-weight: 900;
-  }
-
-  .public-team-badge img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
   }
 
   .public-matchday-score {
