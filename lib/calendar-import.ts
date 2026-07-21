@@ -1,4 +1,5 @@
-export const CALENDAR_IMPORT_HEADER = "Jornada;Nome da jornada;Casa;Fora;DataHora;Estadio";
+export const CALENDAR_IMPORT_HEADER = "Jornada;Nome da jornada;Casa;Fora;DataHora;Estádio;CanalTV";
+export const CALENDAR_IMPORT_LEGACY_HEADER = "Jornada;Nome da jornada;Casa;Fora;DataHora;Estadio";
 export const CALENDAR_IMPORT_MAX_BYTES = 256 * 1024;
 export const CALENDAR_IMPORT_MAX_LINES = 500;
 
@@ -7,13 +8,15 @@ const FIELD_LIMITS = {
   matchdayLabel: 120,
   teamName: 160,
   dateTime: 35,
-  venue: 240
+  venue: 240,
+  broadcastChannel: 160
 } as const;
 
 const MONTH_LABELS = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 const LISBON_TIME_ZONE = "Europe/Lisbon";
 
 export type CalendarImportState = "A" | "B" | "C";
+export type CalendarImportFormat = "canonical" | "legacy";
 export type CalendarPlanAction = "create" | "update" | "keep" | "reject" | "duplicate";
 
 export type CalendarImportRow = {
@@ -25,6 +28,7 @@ export type CalendarImportRow = {
   scheduledDate: string | null;
   kickoffAt: string | null;
   venue: string | null;
+  broadcastChannelName: string | null;
   inputState: CalendarImportState;
 };
 
@@ -44,6 +48,7 @@ export type CalendarImportParseResult = {
   issues: CalendarImportIssue[];
   usefulLineCount: number;
   headerPresent: boolean;
+  format: CalendarImportFormat;
   byteLength: number;
 };
 
@@ -60,6 +65,37 @@ export type CalendarTemporalDecision = {
   kickoffAt?: string | null;
 };
 
+export type CalendarPreviewChange = {
+  field: "dateTime" | "venue" | "broadcastChannel";
+  currentLabel: string;
+  nextLabel: string;
+};
+
+export type CalendarMatchUpdatePatch = {
+  scheduled_date?: string;
+  kickoff_at?: string | null;
+  venue?: string;
+  broadcast_channel_id?: string;
+};
+
+export type CalendarExistingMatchDetails = CalendarTemporalMatch & {
+  venue: string | null;
+  broadcastChannelId: string | null;
+  broadcastChannelName: string | null;
+};
+
+export type CalendarResolvedBroadcastChannel = {
+  id: string;
+  name: string;
+};
+
+export type CalendarMatchDecision = {
+  action: "update" | "keep" | "conflict";
+  reason: string;
+  patch: CalendarMatchUpdatePatch;
+  changes: CalendarPreviewChange[];
+};
+
 export type CalendarTeamLookupEntry = {
   teamId: string;
   keys: Array<string | null | undefined>;
@@ -69,6 +105,11 @@ export type CalendarTeamResolution =
   | { status: "resolved"; teamId: string }
   | { status: "unresolved" }
   | { status: "ambiguous"; teamIds: string[] };
+
+export type CalendarBroadcastChannelResolution =
+  | { status: "resolved"; channelId: string }
+  | { status: "unresolved" }
+  | { status: "ambiguous"; channelIds: string[] };
 
 export type CalendarPreviewRow = {
   lineNumber: number;
@@ -87,6 +128,9 @@ export type CalendarPreviewRow = {
   kickoffAt: string | null;
   scheduleLabel: string;
   venue: string | null;
+  broadcastChannelName: string | null;
+  broadcastChannelId: string | null;
+  changes: CalendarPreviewChange[];
   existingMatchId: string | null;
   note: string;
 };
@@ -273,10 +317,64 @@ function sameCivilDateTime(left: CivilDateTimeParts, right: CivilDateTimeParts) 
   );
 }
 
+function civilUtcEpoch(parts: CivilDateTimeParts, millisecond = 0) {
+  const date = new Date(0);
+  date.setUTCFullYear(parts.year, parts.month - 1, parts.day);
+  date.setUTCHours(parts.hour, parts.minute, parts.second, millisecond);
+  return date.getTime();
+}
+
+function parseExplicitOffsetCalendarDateTime(value: string): ParsedDateTime | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const parts: CivilDateTimeParts = {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+    hour: Number(match[4]),
+    minute: Number(match[5]),
+    second: Number(match[6] ?? "0")
+  };
+  const millisecond = Number((match[7]?.slice(1) ?? "").padEnd(3, "0") || "0");
+  const offsetText = match[8];
+  const offsetHours = offsetText === "Z" ? 0 : Number(offsetText.slice(1, 3));
+  const offsetMinutesPart = offsetText === "Z" ? 0 : Number(offsetText.slice(4, 6));
+
+  if (
+    !isValidCivilDate(parts) ||
+    parts.hour > 23 ||
+    parts.minute > 59 ||
+    parts.second > 59 ||
+    offsetHours > 14 ||
+    offsetMinutesPart > 59 ||
+    (offsetHours === 14 && offsetMinutesPart !== 0)
+  ) {
+    return { ok: false, code: "datetime-invalid", message: "DataHora contém uma data, hora ou offset inválido." };
+  }
+
+  const signedOffsetMinutes =
+    offsetText === "Z" ? 0 : (offsetText.startsWith("+") ? 1 : -1) * (offsetHours * 60 + offsetMinutesPart);
+  const timestamp = civilUtcEpoch(parts, millisecond) - signedOffsetMinutes * 60_000;
+  const inLisbon = lisbonParts(timestamp);
+  return {
+    ok: true,
+    scheduledDate: civilDateText(inLisbon),
+    kickoffAt: new Date(timestamp).toISOString()
+  };
+}
+
 function parseCalendarDateTime(value: string): ParsedDateTime {
+  const explicitOffset = parseExplicitOffsetCalendarDateTime(value);
+  if (explicitOffset) return explicitOffset;
+
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
   if (!match) {
-    return { ok: false, code: "datetime-invalid", message: "DataHora deve usar exclusivamente YYYY-MM-DDTHH:mm." };
+    return {
+      ok: false,
+      code: "datetime-invalid",
+      message: "DataHora deve usar YYYY-MM-DD, YYYY-MM-DDTHH:mm ou ISO 8601 com offset explícito."
+    };
   }
 
   const parts: CivilDateTimeParts = {
@@ -292,7 +390,7 @@ function parseCalendarDateTime(value: string): ParsedDateTime {
     return { ok: false, code: "datetime-invalid", message: "DataHora contém uma data ou hora inválida." };
   }
 
-  const utcCivil = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+  const utcCivil = civilUtcEpoch(parts);
   const candidates = new Set<number>();
 
   for (let offsetMinutes = -14 * 60; offsetMinutes <= 14 * 60; offsetMinutes += 15) {
@@ -345,6 +443,32 @@ export function normalizeCalendarTeamKey(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+export function normalizeCalendarChannelKey(value: string) {
+  return normalizeCalendarTeamKey(value);
+}
+
+export function buildCalendarBroadcastChannelLookup(channels: readonly CalendarResolvedBroadcastChannel[]) {
+  const index = new Map<string, Set<string>>();
+  channels.forEach((channel) => {
+    const key = normalizeCalendarChannelKey(channel.name);
+    if (!key) return;
+    const channelIds = index.get(key) ?? new Set<string>();
+    channelIds.add(channel.id);
+    index.set(key, channelIds);
+  });
+  return index;
+}
+
+export function resolveCalendarBroadcastChannel(
+  index: Map<string, Set<string>>,
+  value: string
+): CalendarBroadcastChannelResolution {
+  const channelIds = Array.from(index.get(normalizeCalendarChannelKey(value)) ?? []).sort();
+  if (channelIds.length === 0) return { status: "unresolved" };
+  if (channelIds.length > 1) return { status: "ambiguous", channelIds };
+  return { status: "resolved", channelId: channelIds[0] };
+}
+
 export function buildCalendarTeamLookup(entries: CalendarTeamLookupEntry[]) {
   const index = new Map<string, Set<string>>();
   entries.forEach((entry) => {
@@ -395,41 +519,73 @@ export function parseCalendarImport(rawList: string): CalendarImportParseResult 
     .split(/\r?\n/)
     .map((line, index) => ({ line: line.trim(), lineNumber: index + 1 }))
     .filter((item) => item.line.length > 0);
-  const headerPresent = usefulLines[0]?.line === CALENDAR_IMPORT_HEADER;
-  const dataLines = headerPresent ? usefulLines.slice(1) : usefulLines;
+  const firstFields = usefulLines[0]?.line.split(";").map((value) => value.trim()) ?? [];
+  const canonicalHeaderPresent = usefulLines[0]?.line === CALENDAR_IMPORT_HEADER;
+  const legacyHeaderPresent = usefulLines[0]?.line === CALENDAR_IMPORT_LEGACY_HEADER;
+  const headerPresent = canonicalHeaderPresent || legacyHeaderPresent;
+  const looksLikeHeader = firstFields[0] === "Jornada";
+  const invalidHeader = !headerPresent && (looksLikeHeader || firstFields.length === 7);
+  const format: CalendarImportFormat = canonicalHeaderPresent || firstFields.length === 7 ? "canonical" : "legacy";
+  const dataLines = headerPresent || looksLikeHeader ? usefulLines.slice(1) : usefulLines;
 
   if (byteLength > CALENDAR_IMPORT_MAX_BYTES) {
     issues.push(issue(0, "input-too-large", `A lista excede o limite de ${CALENDAR_IMPORT_MAX_BYTES} bytes.`, []));
-    return { rows, issues, usefulLineCount: dataLines.length, headerPresent, byteLength };
+    return { rows, issues, usefulLineCount: dataLines.length, headerPresent, format, byteLength };
   }
 
   if (dataLines.length > CALENDAR_IMPORT_MAX_LINES) {
     issues.push(issue(0, "too-many-lines", `A lista excede o limite de ${CALENDAR_IMPORT_MAX_LINES} linhas úteis.`, []));
-    return { rows, issues, usefulLineCount: dataLines.length, headerPresent, byteLength };
+    return { rows, issues, usefulLineCount: dataLines.length, headerPresent, format, byteLength };
+  }
+
+  if (invalidHeader) {
+    const seventhColumnError = firstFields.length === 7 && firstFields.slice(0, 6).join(";") === CALENDAR_IMPORT_HEADER.split(";").slice(0, 6).join(";");
+    issues.push(
+      issue(
+        usefulLines[0]?.lineNumber ?? 1,
+        "header-invalid",
+        seventhColumnError
+          ? "Cabeçalho inválido: a sétima coluna deve chamar-se exatamente CanalTV."
+          : `Cabeçalho inválido. Use exatamente ${CALENDAR_IMPORT_HEADER}.`,
+        firstFields
+      )
+    );
+    return { rows, issues, usefulLineCount: dataLines.length, headerPresent: false, format, byteLength };
   }
 
   if (dataLines.length === 0) {
     issues.push(issue(0, "empty-input", "A lista não contém jogos.", []));
-    return { rows, issues, usefulLineCount: 0, headerPresent, byteLength };
+    return { rows, issues, usefulLineCount: 0, headerPresent, format, byteLength };
   }
 
   const seenRawIdentities = new Set<string>();
 
   for (const { line, lineNumber } of dataLines) {
     const fields = line.split(";").map((value) => value.trim());
-    if (fields.length < 5 || fields.length > 6) {
-      issues.push(issue(lineNumber, "column-count-invalid", "Cada linha deve conter cinco ou seis colunas separadas por ponto e vírgula.", fields));
+    const validColumnCount = format === "canonical" ? fields.length === 7 : fields.length === 5 || fields.length === 6;
+    if (!validColumnCount) {
+      issues.push(
+        issue(
+          lineNumber,
+          "column-count-invalid",
+          format === "canonical"
+            ? "Cada linha do formato canónico deve conter exatamente sete colunas separadas por ponto e vírgula."
+            : "Cada linha legacy deve conter cinco ou seis colunas separadas por ponto e vírgula.",
+          fields
+        )
+      );
       continue;
     }
 
-    const [numberValue, labelValue, homeValue, awayValue, dateTimeValue, venueValue = ""] = fields;
+    const [numberValue, labelValue, homeValue, awayValue, dateTimeValue, venueValue = "", broadcastChannelValue = ""] = fields;
     if (
       numberValue.length > FIELD_LIMITS.matchdayNumber ||
       labelValue.length > FIELD_LIMITS.matchdayLabel ||
       homeValue.length > FIELD_LIMITS.teamName ||
       awayValue.length > FIELD_LIMITS.teamName ||
       dateTimeValue.length > FIELD_LIMITS.dateTime ||
-      venueValue.length > FIELD_LIMITS.venue
+      venueValue.length > FIELD_LIMITS.venue ||
+      broadcastChannelValue.length > FIELD_LIMITS.broadcastChannel
     ) {
       issues.push(issue(lineNumber, "field-too-long", "Um ou mais campos excedem o comprimento permitido.", fields));
       continue;
@@ -502,11 +658,12 @@ export function parseCalendarImport(rawList: string): CalendarImportParseResult 
       scheduledDate,
       kickoffAt,
       venue: venueValue || null,
+      broadcastChannelName: broadcastChannelValue || null,
       inputState
     });
   }
 
-  return { rows, issues, usefulLineCount: dataLines.length, headerPresent, byteLength };
+  return { rows, issues, usefulLineCount: dataLines.length, headerPresent, format, byteLength };
 }
 
 export function formatCalendarPreviewDate(
@@ -583,25 +740,23 @@ export function decideCalendarTemporalAction(
   existing: CalendarTemporalMatch,
   incoming: CalendarImportRow
 ): CalendarTemporalDecision {
-  if (existing.status !== "scheduled") {
-    return sameTemporalValues(existing, incoming)
-      ? { action: "keep", reason: `O jogo está ${existing.status} e os dados temporais coincidem.` }
-      : { action: "conflict", reason: `O jogo está ${existing.status}; dados temporais divergentes exigem ação manual.` };
-  }
-
   if (incoming.inputState === "C") {
     return { action: "keep", reason: "Uma linha sem data e hora não apaga informação existente." };
   }
 
   if (incoming.inputState === "A") {
-    return sameTemporalValues(existing, incoming)
-      ? { action: "keep", reason: "Data e hora já coincidem." }
-      : {
-          action: "update",
-          reason: "Data e hora explicitamente fornecidas serão atualizadas.",
-          scheduledDate: incoming.scheduledDate ?? undefined,
-          kickoffAt: incoming.kickoffAt
-        };
+    if (sameTemporalValues(existing, incoming)) {
+      return { action: "keep", reason: "Data e hora já coincidem." };
+    }
+    if (existing.status !== "scheduled") {
+      return { action: "conflict", reason: `O jogo está ${existing.status}; dados temporais divergentes exigem ação manual.` };
+    }
+    return {
+      action: "update",
+      reason: "Data e hora explicitamente fornecidas serão atualizadas.",
+      scheduledDate: incoming.scheduledDate ?? undefined,
+      kickoffAt: incoming.kickoffAt
+    };
   }
 
   if (existing.kickoffAt) {
@@ -610,14 +765,18 @@ export function decideCalendarTemporalAction(
       : { action: "conflict", reason: "A nova data diverge de um jogo com hora confirmada." };
   }
 
-  return existing.scheduledDate === incoming.scheduledDate
-    ? { action: "keep", reason: "A data já coincide e a hora continua por definir." }
-    : {
-        action: "update",
-        reason: "A data será atualizada e a hora continuará por definir.",
-        scheduledDate: incoming.scheduledDate ?? undefined,
-        kickoffAt: null
-      };
+  if (existing.scheduledDate === incoming.scheduledDate) {
+    return { action: "keep", reason: "A data já coincide e a hora continua por definir." };
+  }
+  if (existing.status !== "scheduled") {
+    return { action: "conflict", reason: `O jogo está ${existing.status}; dados temporais divergentes exigem ação manual.` };
+  }
+  return {
+    action: "update",
+    reason: "A data será atualizada e a hora continuará por definir.",
+    scheduledDate: incoming.scheduledDate ?? undefined,
+    kickoffAt: null
+  };
 }
 
 export type CalendarTemporalUpdatePatch = {
@@ -632,6 +791,70 @@ export function createCalendarTemporalUpdatePatch(
   return {
     scheduled_date: incoming.scheduledDate,
     kickoff_at: incoming.kickoffAt
+  };
+}
+
+export function decideCalendarMatchAction(
+  existing: CalendarExistingMatchDetails,
+  incoming: CalendarImportRow,
+  resolvedBroadcastChannel: CalendarResolvedBroadcastChannel | null
+): CalendarMatchDecision {
+  const temporal = decideCalendarTemporalAction(existing, incoming);
+  if (temporal.action === "conflict") {
+    return { action: "conflict", reason: temporal.reason, patch: {}, changes: [] };
+  }
+
+  const patch: CalendarMatchUpdatePatch = {};
+  const changes: CalendarPreviewChange[] = [];
+  if (temporal.action === "update") {
+    Object.assign(patch, createCalendarTemporalUpdatePatch(incoming) ?? {});
+    changes.push({
+      field: "dateTime",
+      currentLabel: formatCalendarPreviewDate(existing.scheduledDate, existing.kickoffAt, incoming.matchdayNumber),
+      nextLabel: formatCalendarPreviewDate(incoming.scheduledDate, incoming.kickoffAt, incoming.matchdayNumber)
+    });
+  }
+
+  if (incoming.venue !== null && existing.venue !== incoming.venue) {
+    patch.venue = incoming.venue;
+    changes.push({
+      field: "venue",
+      currentLabel: existing.venue ?? "Sem estádio",
+      nextLabel: incoming.venue
+    });
+  }
+
+  if (incoming.broadcastChannelName !== null) {
+    if (!resolvedBroadcastChannel) {
+      return { action: "conflict", reason: "CanalTV preenchido sem resolução válida no catálogo.", patch: {}, changes: [] };
+    }
+    if (existing.broadcastChannelId !== resolvedBroadcastChannel.id) {
+      patch.broadcast_channel_id = resolvedBroadcastChannel.id;
+      changes.push({
+        field: "broadcastChannel",
+        currentLabel: existing.broadcastChannelName ?? "Sem canal",
+        nextLabel: resolvedBroadcastChannel.name
+      });
+    }
+  }
+
+  if (changes.length === 0) {
+    return {
+      action: "keep",
+      reason: "Os valores fornecidos já coincidem com os atuais; células vazias preservam os restantes campos.",
+      patch,
+      changes
+    };
+  }
+
+  const labels = changes.map((change) =>
+    change.field === "dateTime" ? "DataHora" : change.field === "venue" ? "Estádio" : "CanalTV"
+  );
+  return {
+    action: "update",
+    reason: `Serão atualizados: ${labels.join(", ")}.`,
+    patch,
+    changes
   };
 }
 

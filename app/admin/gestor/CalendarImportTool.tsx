@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   CALENDAR_IMPORT_HEADER,
+  CALENDAR_IMPORT_LEGACY_HEADER,
   CALENDAR_IMPORT_MAX_BYTES,
   CALENDAR_IMPORT_MAX_LINES,
   applyCalendarCheckpointTransition,
@@ -45,7 +46,13 @@ function usefulLineCount(value: string) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-  return lines[0] === CALENDAR_IMPORT_HEADER ? Math.max(0, lines.length - 1) : lines.length;
+  return lines[0] === CALENDAR_IMPORT_HEADER || lines[0] === CALENDAR_IMPORT_LEGACY_HEADER
+    ? Math.max(0, lines.length - 1)
+    : lines.length;
+}
+
+function calendarChangeLabel(field: "dateTime" | "venue" | "broadcastChannel") {
+  return field === "dateTime" ? "DataHora" : field === "venue" ? "Estádio" : "CanalTV";
 }
 
 function checkpointRecord(checkpoints: CalendarMatchdayCheckpoint[]) {
@@ -258,8 +265,9 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
       <header>
         <h3>Importar dados do calendário</h3>
         <p>
-          Formato: <code>{CALENDAR_IMPORT_HEADER}</code>. DataHora aceita data e hora, apenas data ou campo vazio. Os campos não
-          podem conter ponto e vírgula.
+          Formato canónico: <code>{CALENDAR_IMPORT_HEADER}</code>. DataHora aceita ISO 8601 com offset, data e hora local, apenas
+          data ou campo vazio. Células vazias de DataHora, Estádio e CanalTV preservam o valor existente. Os campos não podem
+          conter ponto e vírgula.
         </p>
       </header>
 
@@ -271,9 +279,8 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
             value={rawList}
             onChange={(event) => resetPlan(event.target.value)}
             placeholder={
-              "3;Jornada 03;Benfica;Casa Pia;2026-08-23T20:30;Estádio da Luz\n" +
-              "3;Jornada 03;Sporting;Arouca;2026-08-23;Estádio José Alvalade\n" +
-              "3;Jornada 03;Famalicão;Braga;;Estádio Municipal de Famalicão"
+              `${CALENDAR_IMPORT_HEADER}\n` +
+              "4;Jornada 04;Académico de Viseu;FC Porto;2026-08-28T20:15:00+01:00;Estádio Municipal do Fontelo;Sport TV 1"
             }
           />
           <small>
@@ -329,7 +336,7 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
             <table className="manager-table">
               <thead>
                 <tr>
-                  <th>Estado</th><th>Jornada</th><th>Casa</th><th>Fora</th><th>Data/hora</th><th>Estádio</th><th>Observação</th>
+                  <th>Estado</th><th>Jornada</th><th>Casa</th><th>Fora</th><th>Data/hora</th><th>Estádio</th><th>Alterações</th><th>Observação</th>
                 </tr>
               </thead>
               <tbody>
@@ -341,6 +348,15 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
                     <td>{row.awayName || "—"}</td>
                     <td>{row.scheduleLabel}</td>
                     <td>{row.venue ?? "—"}</td>
+                    <td>
+                      {row.changes.length
+                        ? row.changes.map((change) => (
+                            <div key={change.field}>
+                              <b>{calendarChangeLabel(change.field)}:</b> {change.currentLabel} → {change.nextLabel}
+                            </div>
+                          ))
+                        : "—"}
+                    </td>
                     <td>{row.note}</td>
                   </tr>
                 ))}
