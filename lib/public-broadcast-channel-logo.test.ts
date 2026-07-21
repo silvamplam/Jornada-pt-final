@@ -128,8 +128,8 @@ test("o CSS preserva proporção sem cápsula e aplica contraste apenas à image
   assert.match(source, /\.compact img\s*\{[\s\S]*?max-width:\s*58px[\s\S]*?max-height:\s*12px/);
   assert.match(source, /\.default\s*\{[\s\S]*?width:\s*92px[\s\S]*?height:\s*20px[\s\S]*?padding:\s*0/);
   assert.match(source, /\.default img\s*\{[\s\S]*?max-width:\s*92px[\s\S]*?max-height:\s*18px/);
-  assert.match(source, /\.matchMeta\s*\{[\s\S]*?width:\s*38px[\s\S]*?height:\s*12px[\s\S]*?padding:\s*0[\s\S]*?line-height:\s*0/);
-  assert.match(source, /\.matchMeta img\s*\{[\s\S]*?max-width:\s*38px[\s\S]*?max-height:\s*12px/);
+  assert.match(source, /\.matchMeta\s*\{[\s\S]*?width:\s*46px[\s\S]*?height:\s*16px[\s\S]*?padding:\s*0[\s\S]*?line-height:\s*0/);
+  assert.match(source, /\.matchMeta img\s*\{[\s\S]*?max-width:\s*46px[\s\S]*?max-height:\s*16px/);
 });
 
 test("PublicMatchMeta centraliza estrutura, espaçamento e área do canal", async () => {
