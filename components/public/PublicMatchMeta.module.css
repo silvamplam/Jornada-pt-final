@@ -38,6 +38,16 @@
   letter-spacing: -0.1px;
 }
 
+.withoutChannel {
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+
+.withoutChannel .dateTime {
+  justify-self: center;
+  text-align: center;
+}
+
 .channel {
   display: grid;
   grid-column: 3;

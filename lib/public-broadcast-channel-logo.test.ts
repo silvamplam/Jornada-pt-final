@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { resolveBroadcastChannelLogoPresentation } from "./public-broadcast-channel-logo";
+import {
+  isSportTvBroadcastChannel,
+  resolveBroadcastChannelLogoPresentation
+} from "./public-broadcast-channel-logo";
 
 const componentUrl = new URL("../components/public/BroadcastChannelLogo.tsx", import.meta.url);
 const stylesUrl = new URL("../components/public/BroadcastChannelLogo.module.css", import.meta.url);
@@ -285,12 +288,15 @@ test("PublicMatchMeta centraliza estrutura, espaçamento e área do canal", asyn
   assert.match(componentSource, /const channel = hasChannel \? \([\s\S]*?<span className=\{styles\.channel\}>[\s\S]*?variant="matchMeta"/);
   assert.doesNotMatch(componentSource, /matchMetaLayoutMode|channelVariant|matchMetaCompact/);
   assert.match(componentSource, /variant === "compact" \? `\$\{styles\.matchMeta\} \$\{styles\.compact\}` : styles\.matchMeta/);
-  assert.match(componentSource, /<span className=\{className\} data-public-match-meta>/);
+  assert.match(componentSource, /const className = hasChannel \? variantClassName : `\$\{variantClassName\} \$\{styles\.withoutChannel\}`/);
+  assert.match(componentSource, /<span[\s\S]*?className=\{className\}[\s\S]*?data-public-match-channel-family=\{isSportTvChannel \? "sport-tv" : undefined\}[\s\S]*?data-public-match-meta/);
   assert.doesNotMatch(componentSource, /denseDate|denseTime|denseBottom/);
   assert.match(styleSource, /\.matchMeta\s*\{[\s\S]*?display:\s*grid[\s\S]*?grid-template-columns:\s*max-content minmax\(2px, 1fr\) max-content[\s\S]*?align-items:\s*center[\s\S]*?width:\s*auto[\s\S]*?max-width:\s*none[\s\S]*?min-width:\s*0[\s\S]*?margin-inline:\s*calc\(-1 \* var\(--public-match-card-inline-padding, 0px\)\)[\s\S]*?padding-inline:\s*3px[\s\S]*?column-gap:\s*0/);
   assert.match(styleSource, /\.dateTime\s*\{[\s\S]*?grid-column:\s*1[\s\S]*?justify-self:\s*start[\s\S]*?min-width:\s*0[\s\S]*?overflow:\s*visible[\s\S]*?text-align:\s*left[\s\S]*?text-overflow:\s*clip[\s\S]*?white-space:\s*nowrap[\s\S]*?margin:\s*0[\s\S]*?font-size:\s*9\.5px[\s\S]*?line-height:\s*1[\s\S]*?letter-spacing:\s*-0\.1px/);
   assert.match(styleSource, /\.compact\s*\{[\s\S]*?column-gap:\s*0/);
   assert.match(styleSource, /\.compact \.dateTime\s*\{[\s\S]*?font-size:\s*8\.5px[\s\S]*?line-height:\s*1[\s\S]*?letter-spacing:\s*-0\.1px/);
+  assert.match(styleSource, /\.withoutChannel\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?width:\s*100%/);
+  assert.match(styleSource, /\.withoutChannel \.dateTime\s*\{[\s\S]*?justify-self:\s*center[\s\S]*?text-align:\s*center/);
   assert.doesNotMatch(`${componentSource}\n${styleSource}`, /dense|row-gap|grid-template-rows|text-overflow:\s*ellipsis/);
   assert.match(styleSource, /\.channel\s*\{[\s\S]*?display:\s*grid[\s\S]*?grid-column:\s*3[\s\S]*?place-items:\s*center[\s\S]*?justify-self:\s*end[\s\S]*?flex-shrink:\s*0[\s\S]*?width:\s*max-content[\s\S]*?max-width:\s*none[\s\S]*?height:\s*max-content[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0[\s\S]*?overflow:\s*visible/);
   assert.doesNotMatch(styleSource, /display:\s*inline-flex|position:\s*absolute|margin[^:]*:\s*-/);
@@ -342,7 +348,7 @@ test("matchMeta usa dimensões reais, full-bleed simétrico e colunas separadas"
   assert.match(stripStyleSource, /padding-inline:\s*var\(--public-match-card-inline-padding\)/);
   assert.match(metaStyleSource, /margin-inline:\s*calc\(-1 \* var\(--public-match-card-inline-padding, 0px\)\)/);
   assert.match(metaStyleSource, /padding-inline:\s*3px/);
-  assert.match(editorialStyleSource, /> \[data-public-match-meta\]\s*\{[\s\S]*?flex:\s*1 1 auto/);
+  assert.match(editorialStyleSource, /> \[data-public-match-meta\]\[data-public-match-channel-family="sport-tv"\]\s*\{[\s\S]*?flex:\s*1 1 auto/);
   assert.match(metaStyleSource, /column-gap:\s*0/);
   assert.match(metaStyleSource, /\.dateTime\s*\{[\s\S]*?grid-column:\s*1/);
   assert.match(metaStyleSource, /\.channel\s*\{[\s\S]*?grid-column:\s*3[\s\S]*?width:\s*max-content[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0/);
@@ -434,6 +440,24 @@ test("a Home não recorta a área partilhada nem reduz o logótipo", async () =>
   assert.match(homeSource, /<PublicMatchMeta/);
   assert.doesNotMatch(homeSource, /width:\s*(?:4[0-9]|5[0-3])|height:\s*1[0-7]|scale\(/);
   assert.match(homeStyles, /\.public-matchday-mini-card \.public-matchday-mini-status\s*\{[\s\S]*?overflow:\s*visible/);
+});
+
+test("a Home expande apenas Sport TV e centra os restantes canais como as jornadas", async () => {
+  const [componentSource, homeStyles, helperSource] = await Promise.all([
+    readFile(matchMetaComponentUrl, "utf8"),
+    readFile(publicEditorialStylesUrl, "utf8"),
+    readFile(helperUrl, "utf8")
+  ]);
+  assert.match(componentSource, /const isSportTvChannel = isSportTvBroadcastChannel\(channelName\)/);
+  assert.match(componentSource, /data-public-match-channel-family=\{isSportTvChannel \? "sport-tv" : undefined\}/);
+  assert.match(homeStyles, /> \[data-public-match-meta\]\[data-public-match-channel-family="sport-tv"\]\s*\{\s*flex:\s*1 1 auto;/);
+  for (const name of ["Sport TV 1", "Sport TV 2", "Sport TV 3", "Sport TV 4", "Sport TV 5", "Sport TV 6", "Sport TV 7", "Sport TV+"]) {
+    assert.equal(isSportTvBroadcastChannel(name), true);
+  }
+  for (const name of ["BTV", "RTP1", "TVI", "DAZN 1", "Canal 11", "Outro canal", null]) {
+    assert.equal(isSportTvBroadcastChannel(name), false);
+  }
+  assert.match(helperSource, /\["sport tv 1", \{ opticalScale: 1\.14, contrastMode: "light-logo", slotMinWidth: 64 \}\]/);
 });
 
 test("as cinco superfícies públicas reutilizam PublicMatchMeta sem layout local divergente", async () => {
