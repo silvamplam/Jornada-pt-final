@@ -21,7 +21,27 @@ const DEFAULT_VISUAL_CONFIG: PublicTeamBadgeVisualConfig = {
 
 const TEAM_VISUAL_CONFIG = new Map<string, PublicTeamBadgeVisualConfig>([
   ["sporting", { opticalScale: 1.38, contrastMode: "standard" }],
-  ["santa-clara", { opticalScale: 1, contrastMode: "light-detail" }]
+  ["santa-clara", { opticalScale: 1, contrastMode: "light-detail" }],
+  ["athletic-club", { opticalScale: 0.89, contrastMode: "standard" }],
+  ["atletico-de-madrid", { opticalScale: 1.10, contrastMode: "standard" }],
+  ["deportivo-alaves", { opticalScale: 1.10, contrastMode: "standard" }],
+  ["elche-cf", { opticalScale: 0.98, contrastMode: "standard" }],
+  ["fc-barcelona", { opticalScale: 0.88, contrastMode: "standard" }],
+  ["getafe-cf", { opticalScale: 1.10, contrastMode: "standard" }],
+  ["levante-ud", { opticalScale: 0.95, contrastMode: "standard" }],
+  ["malaga-cf", { opticalScale: 0.92, contrastMode: "standard" }],
+  ["osasuna", { opticalScale: 1.10, contrastMode: "standard" }],
+  ["rayo-vallecano", { opticalScale: 1.10, contrastMode: "standard" }],
+  ["rc-celta-de-vigo", { opticalScale: 1.10, contrastMode: "standard" }],
+  ["rc-deportivo", { opticalScale: 0.96, contrastMode: "standard" }],
+  ["rcd-espanyol", { opticalScale: 1.10, contrastMode: "standard" }],
+  ["real-betis", { opticalScale: 1.10, contrastMode: "standard" }],
+  ["real-madrid", { opticalScale: 1.02, contrastMode: "standard" }],
+  ["real-racing-club", { opticalScale: 1.06, contrastMode: "standard" }],
+  ["real-sociedad", { opticalScale: 0.96, contrastMode: "standard" }],
+  ["sevilla-fc", { opticalScale: 0.97, contrastMode: "standard" }],
+  ["valencia-cf", { opticalScale: 0.96, contrastMode: "standard" }],
+  ["villarreal-cf", { opticalScale: 0.97, contrastMode: "standard" }]
 ]);
 
 function resolveVisualConfig(slug?: string | null) {

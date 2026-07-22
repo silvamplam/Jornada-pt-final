@@ -1,0 +1,20 @@
+.shell.shell {
+  display: block;
+  min-width: 0;
+  overflow: visible;
+}
+
+.shell > .row {
+  display: grid;
+  grid-template-columns: repeat(var(--public-match-strip-columns), minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+  gap: clamp(2px, 0.45vw, 7px);
+  overflow: visible;
+}
+
+.row > .card {
+  min-width: 0;
+  width: auto;
+  padding-inline: clamp(3px, 0.5vw, 8px);
+}

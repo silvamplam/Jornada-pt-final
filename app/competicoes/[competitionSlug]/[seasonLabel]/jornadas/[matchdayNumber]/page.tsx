@@ -7,6 +7,7 @@ import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
+import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/public/PublicTeamBadge";
 import RoundupVideoSwitcher from "@/components/public/RoundupVideoSwitcher";
 import { redirect } from "next/navigation";
@@ -316,18 +317,8 @@ const publicMatchdayStyles = `
   .public-matchday-strip {
     display: grid;
     gap: 7px;
-    grid-template-columns: repeat(10, minmax(118px, 1fr));
-    overflow-x: auto;
-    scroll-behavior: smooth;
-    scroll-padding: 6px;
     padding: 6px 0;
     background: transparent;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .public-matchday-strip::-webkit-scrollbar {
-    display: none;
   }
 
   .public-matchday-strip-shell {
@@ -2386,11 +2377,6 @@ const publicMatchdayStyles = `
       padding: 0 10px;
     }
 
-    .public-matchday-strip {
-      grid-template-columns: repeat(auto-fit, minmax(min(154px, 100%), 1fr)) !important;
-      overflow-x: visible;
-    }
-
     .public-matchday-cover {
       grid-template-columns:
         minmax(180px, 220px)
@@ -2954,82 +2940,6 @@ function LivePulseDots() {
   );
 }
 
-function CompactMatchCard({ match, focus }: { match: PublicSeasonMatch; focus?: boolean }) {
-  const kind = statusKind(match.status);
-  const broadcastChannelName = match.broadcastChannel?.name?.trim();
-  const hasScore = match.home_score !== null && match.away_score !== null;
-  const showScore = hasScore && (kind === "finished" || kind === "live" || kind === "halftime");
-  const publicMinute = getPublicLiveMinute(match);
-  const livePrimeClassName = "public-live-minute-prime public-live-minute-prime-active";
-  const liveStatus = kind === "live" ? (
-    <>
-      <span className="public-matchday-live-label">Live</span>
-      {publicMinute !== null ? (
-        <span className="public-matchday-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
-      ) : null}
-      {broadcastChannelName ? (
-        <span className="public-matchday-mini-channel">
-          <BroadcastChannelLogo
-            logoUrl={match.broadcastChannel?.logo_url}
-            name={broadcastChannelName}
-            variant="matchMeta"
-          />
-        </span>
-      ) : null}
-    </>
-  ) : statusLabel(match.status);
-  const homeTeamName = getPublicTeamName(
-    { name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code },
-    "full"
-  );
-  const awayTeamName = getPublicTeamName(
-    { name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code },
-    "full"
-  );
-  const schedule = matchSchedulePresentation(match, true);
-
-  return (
-    <article className={`public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
-      <span className="public-matchday-mini-team">
-        <TeamBadge team={match.homeTeam} variant="compact" />
-        <span title={homeTeamName}>
-          {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
-        </span>
-        {showScore ? <b className="public-matchday-mini-score">{match.home_score}</b> : null}
-      </span>
-      <span className="public-matchday-mini-team">
-        <TeamBadge team={match.awayTeam} variant="compact" />
-        <span title={awayTeamName}>
-          {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
-        </span>
-        {showScore ? <b className="public-matchday-mini-score">{match.away_score}</b> : null}
-      </span>
-      <span className="public-matchday-mini-status">
-        {kind === "finished" ? (
-          <span>Finalizado</span>
-        ) : kind === "live" || kind === "halftime" ? (
-          <span>
-            {liveStatus}
-            {kind === "live" ? <LivePulseDots /> : null}
-          </span>
-        ) : kind === "scheduled" ? (
-          <PublicMatchMeta
-            channelLogoUrl={match.broadcastChannel?.logo_url}
-            channelName={broadcastChannelName}
-            dateTime={schedule.dateTime ? (
-              <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
-            ) : (
-              <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
-            )}
-          />
-        ) : (
-          <span>{statusLabel(match.status)}</span>
-        )}
-      </span>
-    </article>
-  );
-}
-
 function MatchCard({ match }: { match: PublicSeasonMatch }) {
   const kind = statusKind(match.status);
   const publicMinute = getPublicLiveMinute(match);
@@ -3397,7 +3307,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     ? hasReferenceSlotContent(referenceSideBlock)
     : editorial?.side_block_status === "published" &&
       Boolean(sideBlockImageUrl || explicitSideBlockLabel || sideBlockTitle || sideBlockText);
-  const focusedStripMatch = liveMatches[0] ?? halftimeMatches[0] ?? null;
   const latestZoneMode = editorial?.latest_zone_mode === "editorial_line" ? "editorial_line" : "latest_news";
   const configuredLatestZoneTitle = editorial?.latest_zone_title?.trim() ?? "";
   const latestZoneTitle = usePublishedReferenceComposition
@@ -3528,22 +3437,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           `
         }}
       />
-      <section className="public-matchday-panel public-matchday-scoreboard-panel" aria-label="Visao rapida dos jogos">
-        <div className="public-matchday-strip-shell">
-          <div
-            className="public-matchday-strip"
-            data-matchday-strip
-            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(154px, 100%), 1fr))" }}
-          >
-            {context.matchesForMatchday.length > 0 ? (
-              context.matchesForMatchday.map((match) => (
-                <CompactMatchCard focus={focusedStripMatch?.id === match.id} key={match.id} match={match} />
-              ))
-            ) : (
-              <p>Ainda nao ha jogos nesta jornada.</p>
-            )}
-          </div>
-        </div>
+      <PublicMatchStrip
+        matches={context.matchesForMatchday.map((match) => ({
+          ...match,
+          matchdayNumber: context.matchday.number
+        }))}
+      />
+      {context.matchesForMatchday.length > 0 ? (
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -3558,7 +3458,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             `
           }}
         />
-      </section>
+      ) : null}
 
       <section className="public-matchday-panel" aria-label="Capa da jornada">
         <div className="public-matchday-cover">
