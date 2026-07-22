@@ -47,8 +47,12 @@
 }
 
 .matchMeta {
-  width: 54px;
+  align-items: center;
+  justify-content: flex-end;
+  width: var(--broadcast-channel-match-meta-slot-width, 54px);
+  max-width: none;
   height: 18px;
+  min-height: 18px;
   padding: 0;
   line-height: 0;
 }
@@ -64,8 +68,31 @@
 }
 
 .matchMeta img {
-  max-width: 54px;
-  max-height: 18px;
+  width: var(--broadcast-channel-match-meta-width, 54px);
+  height: var(--broadcast-channel-match-meta-height, 18px);
+  max-width: none;
+  max-height: none;
+  align-self: center;
+  margin: 0;
+  padding: 0;
+  object-fit: contain;
+  transform: none;
+}
+
+.matchMeta .alphaViewport {
+  display: block;
+  width: var(--broadcast-channel-match-meta-width, 54px);
+  height: var(--broadcast-channel-match-meta-height, 18px);
+  max-width: none;
+  max-height: none;
+  overflow: hidden;
+  filter:
+    drop-shadow(0 0 0.65px rgba(255, 255, 255, 0.96))
+    drop-shadow(0 1px 0.75px rgba(15, 23, 42, 0.36));
+}
+
+.matchMeta .alphaViewport image {
+  transform: none;
 }
 
 .fallback {
@@ -86,5 +113,6 @@
 }
 
 .fallback.matchMeta {
+  max-width: 54px;
   font-size: 8px;
 }

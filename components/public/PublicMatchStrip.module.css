@@ -14,7 +14,31 @@
 }
 
 .row > .card {
+  --public-match-card-inline-padding: clamp(3px, 0.5vw, 8px);
+
   min-width: 0;
   width: auto;
-  padding-inline: clamp(3px, 0.5vw, 8px);
+  padding-inline: var(--public-match-card-inline-padding);
+}
+
+.row > .card > .team {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  width: auto;
+  min-width: 0;
+  margin-inline: calc(-1 * var(--public-match-card-inline-padding));
+  padding-inline: 3px;
+  column-gap: 4px;
+}
+
+.row > .card > .teamWithScore {
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+}
+
+.row > .card > .team > .teamName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
