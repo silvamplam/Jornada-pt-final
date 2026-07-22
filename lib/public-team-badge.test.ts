@@ -172,7 +172,7 @@ test("dez jogos usam uma unica grelha dinamica sem scroll", async () => {
   assert.match(matchStrip, /"--public-match-strip-columns":\s*matches\.length/);
   assert.match(stripStyles, /\.shell\.shell\s*\{[\s\S]*?overflow:\s*visible/);
   assert.match(stripStyles, /\.shell\s*>\s*\.row\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\);[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*0;[\s\S]*?gap:\s*clamp\([\s\S]*?overflow:\s*visible/);
-  assert.match(stripStyles, /\.row\s*>\s*\.card\s*\{[\s\S]*?min-width:\s*0;[\s\S]*?width:\s*auto;[\s\S]*?padding-inline:\s*clamp\(/);
+  assert.match(stripStyles, /\.row\s*>\s*\.card\s*\{[\s\S]*?--public-match-card-inline-padding:\s*clamp\(3px, 0\.5vw, 8px\);[\s\S]*?min-width:\s*0;[\s\S]*?width:\s*auto;[\s\S]*?padding-inline:\s*var\(--public-match-card-inline-padding\)/);
   assert.doesNotMatch(stripStyles, /overflow-x:\s*auto|flex-shrink|min-width:\s*154px|display:\s*flex/);
 
   const matches = Array.from({ length: 10 }, (_, index) => ({ id: `jogo-${index + 1}` }));

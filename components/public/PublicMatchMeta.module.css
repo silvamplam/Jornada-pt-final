@@ -1,22 +1,55 @@
 .matchMeta {
-  display: inline-flex;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: max-content minmax(2px, 1fr) max-content;
   align-items: center;
-  gap: 6px;
-  max-width: 100%;
+  width: auto;
+  max-width: none;
   min-width: 0;
+  margin-inline: calc(-1 * var(--public-match-card-inline-padding, 0px));
+  padding-inline: 3px;
+  column-gap: 0;
   white-space: nowrap;
   vertical-align: middle;
 }
 
 .dateTime {
-  display: inline-block;
-  flex: 0 0 auto;
+  display: block;
+  grid-column: 1;
+  justify-self: start;
+  min-width: 0;
+  overflow: visible;
+  text-align: left;
+  text-overflow: clip;
   white-space: nowrap;
+  margin: 0;
+  font-size: 9.5px;
+  line-height: 1;
+  letter-spacing: -0.1px;
+}
+
+.compact {
+  column-gap: 0;
+}
+
+.compact .dateTime {
+  font-size: 8.5px;
+  line-height: 1;
+  letter-spacing: -0.1px;
 }
 
 .channel {
-  display: inline-grid;
-  flex: 0 0 auto;
+  display: grid;
+  grid-column: 3;
   place-items: center;
+  justify-self: end;
+  flex-shrink: 0;
+  width: max-content;
+  max-width: none;
+  min-width: 0;
+  height: max-content;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
   line-height: 0;
 }

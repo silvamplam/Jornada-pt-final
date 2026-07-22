@@ -389,6 +389,10 @@ export const publicEditorialStyles = `
     flex: 0 0 auto;
   }
 
+  .public-matchday-mini-card .public-matchday-mini-status > [data-public-match-meta] {
+    flex: 1 1 auto;
+  }
+
   .public-matchday-mini-card .public-matchday-mini-status .public-matchday-mini-channel {
     flex: 0 1 auto;
   }

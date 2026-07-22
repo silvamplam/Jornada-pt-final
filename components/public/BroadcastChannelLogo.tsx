@@ -12,7 +12,11 @@ type BroadcastChannelLogoProps = {
   variant: "compact" | "default" | "matchMeta";
 };
 
-export default function BroadcastChannelLogo({ name, logoUrl, variant }: BroadcastChannelLogoProps) {
+export default function BroadcastChannelLogo({
+  name,
+  logoUrl,
+  variant
+}: BroadcastChannelLogoProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const presentation = resolveBroadcastChannelLogoPresentation(name, logoUrl);
 
@@ -28,18 +32,42 @@ export default function BroadcastChannelLogo({ name, logoUrl, variant }: Broadca
   }
 
   const imageClassName = presentation.contrastMode === "light-logo" ? `${className} ${styles.lightLogo}` : className;
+  const matchMetaGeometry = variant === "matchMeta" ? presentation.matchMetaGeometry : undefined;
+  const renderedWidth = matchMetaGeometry?.renderedWidth ?? 54 * presentation.opticalScale;
+  const renderedHeight = matchMetaGeometry?.renderedHeight ?? Math.min(18, 18 * presentation.opticalScale);
+  const slotWidth = Math.max(renderedWidth, presentation.slotMinWidth);
   const imageStyle = {
-    "--broadcast-channel-optical-scale": presentation.opticalScale
+    "--broadcast-channel-optical-scale": presentation.opticalScale,
+    "--broadcast-channel-match-meta-width": `${renderedWidth.toFixed(2)}px`,
+    "--broadcast-channel-match-meta-height": `${renderedHeight.toFixed(2)}px`,
+    "--broadcast-channel-match-meta-slot-width": `${slotWidth.toFixed(2)}px`
   } as CSSProperties;
 
   return (
     <span className={imageClassName} style={imageStyle}>
-      <img
-        alt={presentation.name}
-        src={presentation.logoUrl}
-        title={presentation.name}
-        onError={() => setFailedUrl(presentation.logoUrl)}
-      />
+      {matchMetaGeometry?.sourceViewport ? (
+        <svg
+          className={styles.alphaViewport}
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          viewBox={matchMetaGeometry.sourceViewport.viewBox}
+        >
+          <title>{presentation.name}</title>
+          <image
+            height={matchMetaGeometry.sourceViewport.height}
+            href={presentation.logoUrl}
+            onError={() => setFailedUrl(presentation.logoUrl)}
+            width={matchMetaGeometry.sourceViewport.width}
+          />
+        </svg>
+      ) : (
+        <img
+          alt={presentation.name}
+          src={presentation.logoUrl}
+          title={presentation.name}
+          onError={() => setFailedUrl(presentation.logoUrl)}
+        />
+      )}
     </span>
   );
 }
