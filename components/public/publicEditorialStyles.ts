@@ -1968,11 +1968,6 @@ export const publicEditorialStyles = `
       padding: 6px 9px;
     }
 
-    .public-matchday-strip {
-      grid-template-columns: repeat(auto-fit, minmax(min(128px, 100%), 1fr)) !important;
-      overflow-x: visible;
-    }
-
     .public-matchday-strip-shell {
       padding: 0 8px;
     }
@@ -1993,9 +1988,6 @@ export const publicEditorialStyles = `
       min-width: 0;
     }
 
-    .public-matchday-strip {
-      grid-template-columns: repeat(auto-fit, minmax(min(142px, 100%), 1fr)) !important;
-    }
   }
 
   @media (max-width: 760px) {
@@ -2040,24 +2032,9 @@ export const publicEditorialStyles = `
       font-size: 12px;
     }
 
-    .public-matchday-strip {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(148px, 100%), 1fr)) !important;
-      overflow-x: visible;
-      padding: 6px 0;
-    }
-
-    .public-matchday-strip::-webkit-scrollbar {
-      display: none;
-    }
-
     .public-matchday-strip-shell {
       margin: 0;
       padding: 0;
-    }
-
-    .public-matchday-mini-card {
-      flex: 1 1 auto;
     }
 
   .public-season-nav-bar {

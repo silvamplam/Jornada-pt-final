@@ -3,6 +3,8 @@ import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicTeamName } from "@/lib/public-team-name";
+import type { CSSProperties } from "react";
+import styles from "./PublicMatchStrip.module.css";
 
 export type PublicMatchStripTeam = {
   name?: string | null;
@@ -209,7 +211,7 @@ function CompactMatchCard({ match, focus }: { match: PublicMatchStripMatch; focu
   const schedule = miniCardSchedule(match);
 
   return (
-    <article className={`public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
+    <article className={`${styles.card} public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
       <span className="public-matchday-mini-team">
         <TeamBadge team={match.homeTeam} />
         <span title={getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "full")}>
@@ -254,7 +256,6 @@ export default function PublicMatchStrip({ matches }: { matches: PublicMatchStri
     const kind = statusKind(match.status);
     return kind === "live" || kind === "halftime";
   }) ?? null;
-  const gridTemplateColumns = "repeat(auto-fit, minmax(min(154px, 100%), 1fr))";
 
   if (matches.length === 0) {
     return null;
@@ -262,8 +263,12 @@ export default function PublicMatchStrip({ matches }: { matches: PublicMatchStri
 
   return (
     <section className="public-matchday-panel public-matchday-scoreboard-panel" aria-label="Visao rapida dos jogos">
-      <div className="public-matchday-strip-shell">
-        <div className="public-matchday-strip" data-matchday-strip style={{ gridTemplateColumns }}>
+      <div className={`${styles.shell} public-matchday-strip-shell`}>
+        <div
+          className={`${styles.row} public-matchday-strip`}
+          data-matchday-strip
+          style={{ "--public-match-strip-columns": matches.length } as CSSProperties}
+        >
           {matches.map((match) => (
             <CompactMatchCard focus={focusedMatch?.id === match.id} key={match.id} match={match} />
           ))}
