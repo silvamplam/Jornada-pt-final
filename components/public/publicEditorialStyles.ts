@@ -389,7 +389,7 @@ export const publicEditorialStyles = `
     flex: 0 0 auto;
   }
 
-  .public-matchday-mini-card .public-matchday-mini-status > [data-public-match-meta] {
+  .public-matchday-mini-card .public-matchday-mini-status > [data-public-match-meta][data-public-match-channel-family="sport-tv"] {
     flex: 1 1 auto;
   }
 

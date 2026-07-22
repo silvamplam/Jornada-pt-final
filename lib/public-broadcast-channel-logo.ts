@@ -78,6 +78,11 @@ const CHANNEL_VISUAL_CONFIG = new Map<string, BroadcastChannelLogoVisualConfig>(
   ["dazn 3", { opticalScale: 0.82, contrastMode: "standard" }]
 ]);
 
+export function isSportTvBroadcastChannel(name: string | null | undefined): boolean {
+  const channelKey = name?.trim().toLocaleLowerCase("pt-PT") ?? "";
+  return /^sport tv(?: [1-7]|\+)$/.test(channelKey);
+}
+
 function resolveBroadcastChannelLogoVisualConfig(
   name: string
 ): BroadcastChannelLogoVisualConfig & { slotMinWidth: number } {
