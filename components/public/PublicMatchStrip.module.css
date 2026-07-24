@@ -42,3 +42,27 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+@media (max-width: 760px) {
+  .shell.shell {
+    padding-inline: 0;
+  }
+
+  .shell > .row {
+    --public-match-strip-mobile-gap: 7px;
+
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    gap: var(--public-match-strip-mobile-gap);
+    overflow: visible;
+  }
+
+  .row > .card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc((100% - var(--public-match-strip-mobile-gap)) / 2);
+  }
+}
