@@ -471,13 +471,13 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   assert.match(matchMetaSource, /const channel = hasChannel \? \([\s\S]*?\) : null/);
   assert.match(matchMetaSource, /visualNormalization=\{channelLogoNormalization\}/);
 
-  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 47fr\) minmax\(0, 6fr\) minmax\(0, 47fr\);[\s\S]*?grid-template-rows:\s*52px 28px;[\s\S]*?column-gap:\s*0;[\s\S]*?row-gap:\s*0/);
-  assert.match(stripStyles, /\.row > \.adjustedCard > \.team\s*\{[\s\S]*?grid-template-rows:\s*30px 1px 15px 6px;[\s\S]*?height:\s*52px/);
+  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?container-type:\s*inline-size;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 2px minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*52px 28px;[\s\S]*?column-gap:\s*0;[\s\S]*?row-gap:\s*0/);
+  assert.match(stripStyles, /\.row > \.adjustedCard > \.team\s*\{[\s\S]*?grid-template-rows:\s*34px 0 18px 0;[\s\S]*?height:\s*52px/);
   assert.match(stripStyles, /\.team:first-of-type\s*\{[\s\S]*?grid-column:\s*1/);
   assert.match(stripStyles, /\.team:nth-of-type\(2\)\s*\{[\s\S]*?grid-column:\s*3/);
-  assert.match(stripStyles, /data-public-team-badge\]\)\s*\{[\s\S]*?--adjusted-team-badge-width:\s*28px;[\s\S]*?--adjusted-team-badge-height:\s*28px;[\s\S]*?width:\s*34px;[\s\S]*?height:\s*30px/);
-  assert.match(stripStyles, /data-logo-shape="tall"[\s\S]*?--adjusted-team-badge-width:\s*24px;[\s\S]*?--adjusted-team-badge-height:\s*29px/);
-  assert.match(stripStyles, /data-logo-shape="wide"[\s\S]*?--adjusted-team-badge-width:\s*32px;[\s\S]*?--adjusted-team-badge-height:\s*25px/);
+  assert.match(stripStyles, /data-public-team-badge\]\)\s*\{[\s\S]*?--adjusted-team-badge-width:\s*32px;[\s\S]*?--adjusted-team-badge-height:\s*32px;[\s\S]*?width:\s*38px;[\s\S]*?height:\s*34px/);
+  assert.match(stripStyles, /data-logo-shape="tall"[\s\S]*?--adjusted-team-badge-width:\s*27px;[\s\S]*?--adjusted-team-badge-height:\s*33px/);
+  assert.match(stripStyles, /data-logo-shape="wide"[\s\S]*?--adjusted-team-badge-width:\s*36px;[\s\S]*?--adjusted-team-badge-height:\s*28px/);
   assert.match(stripStyles, /\.adjustedCard > \.team > :global\(\[data-public-team-badge\]\) > img\s*\{[\s\S]*?transform:\s*scale\(var\(--public-team-badge-optical-scale, 1\)\)/);
   assert.match(stripStyles, /\.adjustedStatus > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-template-rows:\s*9px 18px;[\s\S]*?height:\s*28px;[\s\S]*?row-gap:\s*1px/);
   assert.match(stripStyles, /\.adjustedStatus\s*\{[\s\S]*?height:\s*28px;[\s\S]*?overflow:\s*visible;[\s\S]*?transform:\s*translateY\(4px\)/);
@@ -501,10 +501,16 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   assert.match(coordinatedNamesBlock, /grid-template-columns:\s*minmax\(max-content,\s*1fr\) minmax\(max-content,\s*1fr\)/);
   assert.match(coordinatedNamesBlock, /justify-content:\s*center/);
   assert.match(coordinatedNamesBlock, /width:\s*100%/);
-  assert.match(coordinatedNamesBlock, /column-gap:\s*6%/);
+  assert.match(coordinatedNamesBlock, /height:\s*18px/);
+  assert.match(coordinatedNamesBlock, /margin-top:\s*34px/);
+  assert.match(coordinatedNamesBlock, /column-gap:\s*2px/);
   assert.match(adjustedNameBlock, /min-width:\s*max-content/);
-  assert.match(adjustedNameBlock, /font-size:\s*11px/);
-  assert.match(adjustedNameBlock, /line-height:\s*12px/);
+  assert.match(adjustedNameBlock, /font-family:\s*inherit/);
+  assert.match(adjustedNameBlock, /font-size:\s*clamp\(11\.5px,\s*9\.5cqi,\s*12\.5px\)/);
+  assert.match(adjustedNameBlock, /font-style:\s*normal/);
+  assert.match(adjustedNameBlock, /font-weight:\s*800/);
+  assert.match(adjustedNameBlock, /line-height:\s*14px/);
+  assert.match(adjustedNameBlock, /text-transform:\s*none/);
   assert.match(adjustedNameBlock, /overflow:\s*visible/);
   assert.match(adjustedNameBlock, /text-overflow:\s*clip/);
   assert.match(adjustedNameBlock, /white-space:\s*nowrap/);
@@ -517,16 +523,16 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
 
   const referenceCardHeight = 96;
   const badgeTop = 7;
-  const badgeBottom = badgeTop + 30;
-  const namesTop = badgeBottom + 1;
-  const namesBottom = namesTop + 15;
+  const badgeBottom = badgeTop + 34;
+  const namesTop = badgeBottom;
+  const namesBottom = namesTop + 18;
   const dateTop = 7 + 52 + 4;
   const dateBottom = dateTop + 9;
   const channelTop = dateBottom + 1;
   const channelBottom = channelTop + 18;
   assert.deepEqual(
     [badgeTop, badgeBottom, namesTop, namesBottom, dateTop, dateBottom, channelTop, channelBottom, referenceCardHeight - channelBottom],
-    [7, 37, 38, 53, 63, 72, 73, 91, 5]
+    [7, 41, 41, 59, 63, 72, 73, 91, 5]
   );
 });
 
