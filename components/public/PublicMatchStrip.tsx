@@ -230,6 +230,22 @@ function CompactMatchCard({
   const schedule = miniCardSchedule(match);
   const teamClassName = showScore ? `${styles.team} ${styles.teamWithScore}` : styles.team;
   const adjusted = layoutVariant === "adjusted";
+  const homeTeamName = {
+    name: match.homeTeam?.name,
+    publicName: match.homeTeam?.public_name,
+    shortName: match.homeTeam?.short_name,
+    code: match.homeTeam?.code
+  };
+  const awayTeamName = {
+    name: match.awayTeam?.name,
+    publicName: match.awayTeam?.public_name,
+    shortName: match.awayTeam?.short_name,
+    code: match.awayTeam?.code
+  };
+  const homeFullName = getPublicTeamName(homeTeamName, "full");
+  const awayFullName = getPublicTeamName(awayTeamName, "full");
+  const homeCompactName = getPublicTeamName(homeTeamName, "compact");
+  const awayCompactName = getPublicTeamName(awayTeamName, "compact");
   const scheduleMeta = (
     <PublicMatchMeta
       channelLogoUrl={match.broadcastChannel?.logo_url}
@@ -254,26 +270,28 @@ function CompactMatchCard({
     >
       <span className={`${teamClassName} public-matchday-mini-team`}>
         <TeamBadge normalizeVisualWeight={adjusted} team={match.homeTeam} />
-        <span className={styles.teamName} title={getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "full")}>
-          {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
-        </span>
+        {!adjusted ? <span className={styles.teamName} title={homeFullName}>{homeCompactName}</span> : null}
         {showScore ? <b aria-hidden={adjusted ? "true" : undefined} className="public-matchday-mini-score">{match.home_score}</b> : null}
       </span>
       <span className={`${teamClassName} public-matchday-mini-team`}>
         <TeamBadge normalizeVisualWeight={adjusted} team={match.awayTeam} />
-        <span className={styles.teamName} title={getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "full")}>
-          {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
-        </span>
+        {!adjusted ? <span className={styles.teamName} title={awayFullName}>{awayCompactName}</span> : null}
         {showScore ? <b aria-hidden={adjusted ? "true" : undefined} className="public-matchday-mini-score">{match.away_score}</b> : null}
       </span>
       {adjusted ? (
-        <span
-          aria-label={showScore ? `Resultado ${match.home_score} a ${match.away_score}` : "Versus"}
-          className={styles.versus}
-        >
-          <b aria-hidden="true">VS</b>
-          {showScore ? <span aria-hidden="true" className={styles.adjustedScore}>{match.home_score}-{match.away_score}</span> : null}
-        </span>
+        <>
+          <span className={styles.adjustedNames} data-public-match-team-names="coordinated">
+            <span className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
+            <span className={styles.teamName} title={awayFullName}>{awayCompactName}</span>
+          </span>
+          <span
+            aria-label={showScore ? `Resultado ${match.home_score} a ${match.away_score}` : "Versus"}
+            className={styles.versus}
+          >
+            <b aria-hidden="true">VS</b>
+            {showScore ? <span aria-hidden="true" className={styles.adjustedScore}>{match.home_score}-{match.away_score}</span> : null}
+          </span>
+        </>
       ) : null}
       <span className={`public-matchday-mini-status${adjusted ? ` ${styles.adjustedStatus}` : ""}`}>
         {adjusted ? (

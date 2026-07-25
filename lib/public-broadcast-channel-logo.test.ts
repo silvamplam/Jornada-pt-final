@@ -411,7 +411,8 @@ test("PublicMatchStrip usa meta default com 9 jogos e compact horizontal com 10"
   assert.match(styleSource, /\.row > \.card\s*\{[\s\S]*?--public-match-card-inline-padding:\s*clamp\(3px, 0\.5vw, 8px\)[\s\S]*?min-width:\s*0[\s\S]*?width:\s*auto[\s\S]*?padding-inline:\s*var\(--public-match-card-inline-padding\)/);
   assert.match(componentSource, /const teamClassName = showScore \? `\$\{styles\.team\} \$\{styles\.teamWithScore\}` : styles\.team/);
   assert.equal(componentSource.match(/className=\{`\$\{teamClassName\} public-matchday-mini-team`\}/g)?.length, 2);
-  assert.equal(componentSource.match(/className=\{styles\.teamName\}/g)?.length, 2);
+  assert.equal(componentSource.match(/className=\{styles\.teamName\}/g)?.length, 4);
+  assert.equal(componentSource.match(/!adjusted \? <span className=\{styles\.teamName\}/g)?.length, 2);
   assert.match(styleSource, /\.row > \.card > \.team\s*\{[\s\S]*?grid-template-columns:\s*max-content minmax\(0, 1fr\)[\s\S]*?align-items:\s*center[\s\S]*?width:\s*auto[\s\S]*?min-width:\s*0[\s\S]*?margin-inline:\s*calc\(-1 \* var\(--public-match-card-inline-padding\)\)[\s\S]*?padding-inline:\s*3px[\s\S]*?column-gap:\s*4px/);
   assert.match(styleSource, /\.row > \.card > \.teamWithScore\s*\{[\s\S]*?grid-template-columns:\s*max-content minmax\(0, 1fr\) max-content/);
   assert.match(styleSource, /\.row > \.card > \.team > \.teamName\s*\{[\s\S]*?min-width:\s*0[\s\S]*?overflow:\s*hidden[\s\S]*?text-overflow:\s*ellipsis[\s\S]*?white-space:\s*nowrap/);
@@ -458,6 +459,8 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   ]);
 
   assert.match(componentSource, /adjusted \? ` \$\{styles\.adjustedCard\}` : ""/);
+  assert.match(componentSource, /className=\{styles\.adjustedNames\} data-public-match-team-names="coordinated"/);
+  assert.match(componentSource, /!adjusted \? <span className=\{styles\.teamName\}/);
   assert.match(componentSource, /className=\{styles\.versus\}/);
   assert.match(componentSource, /<b aria-hidden="true">VS<\/b>/);
   assert.equal(componentSource.match(/getPublicTeamName\([\s\S]*?, "compact"\)/g)?.length, 2);
@@ -468,13 +471,13 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   assert.match(matchMetaSource, /const channel = hasChannel \? \([\s\S]*?\) : null/);
   assert.match(matchMetaSource, /visualNormalization=\{channelLogoNormalization\}/);
 
-  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 46fr\) minmax\(0, 8fr\) minmax\(0, 46fr\);[\s\S]*?grid-template-rows:\s*52px 28px;[\s\S]*?column-gap:\s*0;[\s\S]*?row-gap:\s*0/);
-  assert.match(stripStyles, /\.row > \.adjustedCard > \.team\s*\{[\s\S]*?grid-template-rows:\s*28px 1px 17px 6px;[\s\S]*?height:\s*52px/);
+  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 47fr\) minmax\(0, 6fr\) minmax\(0, 47fr\);[\s\S]*?grid-template-rows:\s*52px 28px;[\s\S]*?column-gap:\s*0;[\s\S]*?row-gap:\s*0/);
+  assert.match(stripStyles, /\.row > \.adjustedCard > \.team\s*\{[\s\S]*?grid-template-rows:\s*30px 1px 15px 6px;[\s\S]*?height:\s*52px/);
   assert.match(stripStyles, /\.team:first-of-type\s*\{[\s\S]*?grid-column:\s*1/);
   assert.match(stripStyles, /\.team:nth-of-type\(2\)\s*\{[\s\S]*?grid-column:\s*3/);
-  assert.match(stripStyles, /data-public-team-badge\]\)\s*\{[\s\S]*?--adjusted-team-badge-width:\s*26px;[\s\S]*?--adjusted-team-badge-height:\s*26px;[\s\S]*?width:\s*32px;[\s\S]*?height:\s*28px/);
-  assert.match(stripStyles, /data-logo-shape="tall"[\s\S]*?--adjusted-team-badge-width:\s*22px;[\s\S]*?--adjusted-team-badge-height:\s*27px/);
-  assert.match(stripStyles, /data-logo-shape="wide"[\s\S]*?--adjusted-team-badge-width:\s*30px;[\s\S]*?--adjusted-team-badge-height:\s*23px/);
+  assert.match(stripStyles, /data-public-team-badge\]\)\s*\{[\s\S]*?--adjusted-team-badge-width:\s*28px;[\s\S]*?--adjusted-team-badge-height:\s*28px;[\s\S]*?width:\s*34px;[\s\S]*?height:\s*30px/);
+  assert.match(stripStyles, /data-logo-shape="tall"[\s\S]*?--adjusted-team-badge-width:\s*24px;[\s\S]*?--adjusted-team-badge-height:\s*29px/);
+  assert.match(stripStyles, /data-logo-shape="wide"[\s\S]*?--adjusted-team-badge-width:\s*32px;[\s\S]*?--adjusted-team-badge-height:\s*25px/);
   assert.match(stripStyles, /\.adjustedCard > \.team > :global\(\[data-public-team-badge\]\) > img\s*\{[\s\S]*?transform:\s*scale\(var\(--public-team-badge-optical-scale, 1\)\)/);
   assert.match(stripStyles, /\.adjustedStatus > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-template-rows:\s*9px 18px;[\s\S]*?height:\s*28px;[\s\S]*?row-gap:\s*1px/);
   assert.match(stripStyles, /\.adjustedStatus\s*\{[\s\S]*?height:\s*28px;[\s\S]*?overflow:\s*visible;[\s\S]*?transform:\s*translateY\(4px\)/);
@@ -487,32 +490,43 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   const adjustedCardBlock = stripStyles.match(/\.row > \.adjustedCard\s*\{([^}]*)\}/)?.[1] ?? "";
   const adjustedFirstTeamBlock = stripStyles.match(/\.row > \.adjustedCard > \.team:first-of-type\s*\{([^}]*)\}/)?.[1] ?? "";
   const adjustedSecondTeamBlock = stripStyles.match(/\.row > \.adjustedCard > \.team:nth-of-type\(2\)\s*\{([^}]*)\}/)?.[1] ?? "";
-  const adjustedNameBlock = stripStyles.match(/\.row > \.adjustedCard > \.team > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
+  const defaultNameBlock = stripStyles.match(/\.row > \.card > \.team > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
+  const coordinatedNamesBlock = stripStyles.match(/\.adjustedNames\s*\{([^}]*)\}/)?.[1] ?? "";
+  const adjustedNameBlock = stripStyles.match(/\.adjustedNames > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(adjustedCardBlock, /(?:^|[\s;])(?:width|min-width|max-width|height|min-height|max-height|padding|margin|border|border-radius)\s*:/);
   assert.doesNotMatch(`${adjustedFirstTeamBlock}\n${adjustedSecondTeamBlock}`, /transform:/);
-  assert.match(adjustedNameBlock, /font-size:\s*10\.5px/);
-  assert.match(adjustedNameBlock, /line-height:\s*11px/);
+  assert.match(defaultNameBlock, /overflow:\s*hidden/);
+  assert.match(defaultNameBlock, /text-overflow:\s*ellipsis/);
+  assert.match(coordinatedNamesBlock, /grid-column:\s*1\s*\/\s*-1/);
+  assert.match(coordinatedNamesBlock, /grid-template-columns:\s*minmax\(max-content,\s*1fr\) minmax\(max-content,\s*1fr\)/);
+  assert.match(coordinatedNamesBlock, /justify-content:\s*center/);
+  assert.match(coordinatedNamesBlock, /width:\s*100%/);
+  assert.match(coordinatedNamesBlock, /column-gap:\s*6%/);
+  assert.match(adjustedNameBlock, /min-width:\s*max-content/);
+  assert.match(adjustedNameBlock, /font-size:\s*11px/);
+  assert.match(adjustedNameBlock, /line-height:\s*12px/);
   assert.match(adjustedNameBlock, /overflow:\s*visible/);
   assert.match(adjustedNameBlock, /text-overflow:\s*clip/);
   assert.match(adjustedNameBlock, /white-space:\s*nowrap/);
   assert.match(adjustedNameBlock, /word-break:\s*normal/);
   assert.match(adjustedNameBlock, /hyphens:\s*none/);
   assert.doesNotMatch(adjustedNameBlock, /ellipsis|line-clamp|overflow:\s*hidden|white-space:\s*normal/);
+  assert.doesNotMatch(stripStyles, /\.adjustedNames > \.teamName:(?:first-child|last-child|nth-child)/);
   assert.doesNotMatch(componentSource, /slice\(|substring\(|substr\(/);
   assert.doesNotMatch(componentSource, /competitionSlug|liga-portugal|la-liga/);
 
   const referenceCardHeight = 96;
   const badgeTop = 7;
-  const badgeBottom = badgeTop + 28;
+  const badgeBottom = badgeTop + 30;
   const namesTop = badgeBottom + 1;
-  const namesBottom = namesTop + 17;
+  const namesBottom = namesTop + 15;
   const dateTop = 7 + 52 + 4;
   const dateBottom = dateTop + 9;
   const channelTop = dateBottom + 1;
   const channelBottom = channelTop + 18;
   assert.deepEqual(
     [badgeTop, badgeBottom, namesTop, namesBottom, dateTop, dateBottom, channelTop, channelBottom, referenceCardHeight - channelBottom],
-    [7, 35, 36, 53, 63, 72, 73, 91, 5]
+    [7, 37, 38, 53, 63, 72, 73, 91, 5]
   );
 });
 

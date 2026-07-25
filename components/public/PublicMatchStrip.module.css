@@ -44,7 +44,7 @@
 }
 
 .row > .adjustedCard {
-  grid-template-columns: minmax(0, 46fr) minmax(0, 8fr) minmax(0, 46fr);
+  grid-template-columns: minmax(0, 47fr) minmax(0, 6fr) minmax(0, 47fr);
   grid-template-rows: 52px 28px;
   column-gap: 0;
   row-gap: 0;
@@ -54,7 +54,7 @@
   display: grid;
   grid-row: 1;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 28px 1px 17px 6px;
+  grid-template-rows: 30px 1px 15px 6px;
   place-items: center;
   align-self: start;
   width: 100%;
@@ -75,11 +75,11 @@
 
 .row > .adjustedCard > .team > :global([data-public-team-badge]) {
   grid-row: 1;
-  --adjusted-team-badge-width: 26px;
-  --adjusted-team-badge-height: 26px;
+  --adjusted-team-badge-width: 28px;
+  --adjusted-team-badge-height: 28px;
 
-  width: 32px;
-  height: 28px;
+  width: 34px;
+  height: 30px;
 }
 
 .row > .adjustedCard > .team > :global([data-public-team-badge]) > img {
@@ -93,23 +93,35 @@
 }
 
 .row > .adjustedCard > .team > :global([data-public-team-badge][data-logo-shape="tall"]) {
-  --adjusted-team-badge-width: 22px;
-  --adjusted-team-badge-height: 27px;
+  --adjusted-team-badge-width: 24px;
+  --adjusted-team-badge-height: 29px;
 }
 
 .row > .adjustedCard > .team > :global([data-public-team-badge][data-logo-shape="wide"]) {
-  --adjusted-team-badge-width: 30px;
-  --adjusted-team-badge-height: 23px;
+  --adjusted-team-badge-width: 32px;
+  --adjusted-team-badge-height: 25px;
 }
 
-.row > .adjustedCard > .team > .teamName {
-  grid-row: 3;
-  align-self: center;
-  justify-self: stretch;
-  max-width: 100%;
+.adjustedNames {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  grid-template-columns: minmax(max-content, 1fr) minmax(max-content, 1fr);
+  align-items: center;
+  justify-content: center;
+  align-self: start;
+  width: 100%;
+  min-width: 0;
+  height: 15px;
+  margin-top: 31px;
+  column-gap: 6%;
+}
+
+.adjustedNames > .teamName {
+  min-width: max-content;
   overflow: visible;
-  font-size: 10.5px;
-  line-height: 11px;
+  font-size: 11px;
+  line-height: 12px;
   letter-spacing: -0.25px;
   text-align: center;
   text-overflow: clip;
@@ -127,7 +139,7 @@
   display: grid;
   grid-column: 2;
   grid-row: 1;
-  grid-template-rows: 28px 1px 17px 6px;
+  grid-template-rows: 30px 1px 15px 6px;
   place-items: center;
   align-self: start;
   height: 52px;
