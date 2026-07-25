@@ -168,8 +168,9 @@ test("preview ajustado usa Sport TV como referencia e reduz os restantes canais 
   assert.equal(getAdjustedPreviewBroadcastScale("Sport TV 1"), 1);
   assert.equal(getAdjustedPreviewBroadcastScale("Sport TV+"), 1);
   assert.equal(getAdjustedPreviewBroadcastScale("RTP1"), 0.68);
-  assert.equal(getAdjustedPreviewBroadcastScale("TVI"), 0.66);
+  assert.equal(getAdjustedPreviewBroadcastScale("TVI"), 0.693);
   assert.equal(getAdjustedPreviewBroadcastScale("BTV"), 0.68);
+  assert.equal(getAdjustedPreviewBroadcastScale("Canal 11"), 0.756);
   assert.equal(getAdjustedPreviewBroadcastScale("Canal desconhecido"), 0.72);
 });
 
@@ -189,22 +190,30 @@ test("preview ajustado uniformiza DAZN 2 e DAZN 3 com os SVG oficiais da famíli
   }
 });
 
-test("micro-ajustes óticos ficam isolados ao preview e produzem aumento renderizado real na TVI", async () => {
+test("micro-ajustes óticos ficam isolados ao preview e aumentam TVI e Canal 11 na mesma proporção", async () => {
   const [componentSource, styleSource] = await Promise.all([
     readFile(componentUrl, "utf8"),
     readFile(stylesUrl, "utf8")
   ]);
-  const previousTviScale = 0.62;
+  const previousTviScale = 0.66;
+  const previousCanal11Scale = 0.72;
   const currentTviScale = getAdjustedPreviewBroadcastScale("TVI");
+  const currentCanal11Scale = getAdjustedPreviewBroadcastScale("Canal 11");
   const adjustedLogoWidth = 61.56;
   const adjustedLogoHeight = 18;
 
-  assert.equal(currentTviScale, 0.66);
+  assert.equal(currentTviScale, 0.693);
+  assert.equal(currentCanal11Scale, 0.756);
   assert.ok(currentTviScale > previousTviScale);
-  assert.equal(Number(((currentTviScale / previousTviScale - 1) * 100).toFixed(2)), 6.45);
+  assert.ok(currentCanal11Scale > previousCanal11Scale);
+  assert.equal(Number(((currentTviScale / previousTviScale - 1) * 100).toFixed(2)), 5);
+  assert.equal(Number(((currentCanal11Scale / previousCanal11Scale - 1) * 100).toFixed(2)), 5);
   assert.ok(adjustedLogoWidth * currentTviScale > adjustedLogoWidth * previousTviScale);
   assert.ok(adjustedLogoHeight * currentTviScale > adjustedLogoHeight * previousTviScale);
+  assert.ok(adjustedLogoWidth * currentCanal11Scale > adjustedLogoWidth * previousCanal11Scale);
+  assert.ok(adjustedLogoHeight * currentCanal11Scale > adjustedLogoHeight * previousCanal11Scale);
   assert.ok(adjustedLogoWidth * currentTviScale < adjustedLogoWidth * getAdjustedPreviewBroadcastScale("Sport TV 1"));
+  assert.ok(adjustedLogoWidth * currentCanal11Scale < adjustedLogoWidth * getAdjustedPreviewBroadcastScale("Sport TV 1"));
 
   assert.match(componentSource, /const adjustedPreview = visualNormalization === "adjusted-preview"/);
   assert.match(componentSource, /adjustedPreview\s*\?\s*getAdjustedPreviewBroadcastLogoUrl\(name, logoUrl\)\s*:\s*logoUrl/);
@@ -500,12 +509,12 @@ test("preview ajustado dos cards fica limitado ao parametro exato da pagina de j
 });
 
 test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fallback de canal", async () => {
-  const [componentSource, stripStyles, matchMetaSource, broadcastStyles, editorialStyles] = await Promise.all([
+  const [componentSource, stripStyles, matchMetaSource, broadcastStyles, matchdayPageSource] = await Promise.all([
     readFile(integrationUrls[0], "utf8"),
     readFile(matchStripStylesUrl, "utf8"),
     readFile(matchMetaComponentUrl, "utf8"),
     readFile(stylesUrl, "utf8"),
-    readFile(publicEditorialStylesUrl, "utf8")
+    readFile(integrationUrls[2], "utf8")
   ]);
 
   assert.match(componentSource, /adjusted \? ` \$\{styles\.adjustedCard\}` : ""/);
@@ -544,6 +553,7 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   const coordinatedNamesBlock = stripStyles.match(/\.adjustedNames\s*\{([^}]*)\}/)?.[1] ?? "";
   const adjustedNameBlock = stripStyles.match(/\.adjustedNames > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
   const versusBlock = stripStyles.match(/\.versus\s*\{([^}]*)\}/)?.[1] ?? "";
+  const versusLabelBlock = stripStyles.match(/\.versus > b\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(adjustedCardBlock, /(?:^|[\s;])(?:width|min-width|max-width|height|min-height|max-height|padding|margin|border|border-radius)\s*:/);
   assert.doesNotMatch(`${adjustedFirstTeamBlock}\n${adjustedSecondTeamBlock}`, /transform:/);
   assert.match(defaultNameBlock, /overflow:\s*hidden/);
@@ -569,14 +579,23 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   assert.match(adjustedNameBlock, /hyphens:\s*none/);
   assert.doesNotMatch(adjustedNameBlock, /ellipsis|line-clamp|overflow:\s*hidden|white-space:\s*normal/);
   assert.doesNotMatch(stripStyles, /\.adjustedNames > \.teamName:(?:first-child|last-child|nth-child)/);
-  assert.match(editorialStyles, /\.public-matchday-mini-card\s*\{[\s\S]*?position:\s*relative[\s\S]*?padding:\s*7px 8px 8px[\s\S]*?border:\s*1px solid/);
+  assert.match(componentSource, /<article[\s\S]*?styles\.adjustedCard[\s\S]*?public-matchday-mini-card/);
+  assert.match(matchdayPageSource, /\.public-matchday-mini-card\s*\{[\s\S]*?position:\s*relative[\s\S]*?width:\s*100%[\s\S]*?padding:\s*7px 8px[\s\S]*?border:\s*1px solid/);
+  assert.match(adjustedCardBlock, /position:\s*relative/);
   assert.match(versusBlock, /position:\s*absolute/);
   assert.match(versusBlock, /top:\s*7px/);
-  assert.match(versusBlock, /left:\s*50%/);
-  assert.match(versusBlock, /width:\s*2px/);
+  assert.match(versusBlock, /left:\s*0/);
+  assert.match(versusBlock, /grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(versusBlock, /width:\s*100%/);
   assert.match(versusBlock, /min-width:\s*0/);
-  assert.match(versusBlock, /transform:\s*translateX\(-50%\)/);
-  assert.doesNotMatch(versusBlock, /margin|right:|grid-column/);
+  assert.doesNotMatch(versusBlock, /margin|right:|transform|grid-column/);
+  assert.match(versusLabelBlock, /position:\s*absolute/);
+  assert.match(versusLabelBlock, /left:\s*50%/);
+  assert.match(versusLabelBlock, /width:\s*max-content/);
+  assert.match(versusLabelBlock, /transform:\s*translateX\(-50%\)/);
+  assert.doesNotMatch(versusLabelBlock, /margin|right:|grid-column/);
+  assert.equal(stripStyles.match(/^\.versus(?:\s*>\s*b)?\s*\{/gm)?.length, 2);
+  assert.doesNotMatch(coordinatedNamesBlock, /position|left:|right:|transform/);
   assert.doesNotMatch(componentSource, /slice\(|substring\(|substr\(/);
   assert.doesNotMatch(componentSource, /competitionSlug|liga-portugal|la-liga/);
 

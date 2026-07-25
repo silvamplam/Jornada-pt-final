@@ -44,6 +44,7 @@
 }
 
 .row > .adjustedCard {
+  position: relative;
   container-type: inline-size;
   grid-template-columns: minmax(0, 1fr) 2px minmax(0, 1fr);
   grid-template-rows: 52px 28px;
@@ -143,11 +144,12 @@
 .versus {
   position: absolute;
   top: 7px;
-  left: 50%;
+  left: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 30px 1px 15px 6px;
   place-items: center;
-  width: 2px;
+  width: 100%;
   min-width: 0;
   height: 52px;
   row-gap: 0;
@@ -155,12 +157,17 @@
   font-size: 8.5px;
   font-weight: 900;
   line-height: 1;
-  transform: translateX(-50%);
 }
 
 .versus > b {
-  grid-row: 1;
-  align-self: center;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: max-content;
+  height: 30px;
+  transform: translateX(-50%);
 }
 
 .adjustedScore {

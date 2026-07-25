@@ -41,12 +41,12 @@ const DEFAULT_VISUAL_CONFIG: BroadcastChannelLogoVisualConfig = {
 const ADJUSTED_PREVIEW_DEFAULT_SCALE = 0.72;
 const ADJUSTED_PREVIEW_CHANNEL_SCALE = new Map<string, number>([
   ["rtp1", 0.68],
-  ["tvi", 0.66],
+  ["tvi", 0.693],
   ["btv", 0.68],
   ["dazn 1", 0.7],
   ["dazn 2", 0.7],
   ["dazn 3", 0.7],
-  ["canal 11", 0.72]
+  ["canal 11", 0.756]
 ]);
 
 const ADJUSTED_PREVIEW_CHANNEL_LOGO_URL = new Map<string, string>([
