@@ -44,7 +44,7 @@
 }
 
 .row > .adjustedCard {
-  grid-template-columns: minmax(0, 42fr) minmax(0, 16fr) minmax(0, 42fr);
+  grid-template-columns: minmax(0, 44fr) minmax(0, 12fr) minmax(0, 44fr);
   grid-template-rows: 52px 28px;
   column-gap: 0;
   row-gap: 0;
@@ -67,18 +67,18 @@
 
 .row > .adjustedCard > .team:first-of-type {
   grid-column: 1;
-  transform: translateX(4.75%);
+  transform: translateX(2.25%);
 }
 
 .row > .adjustedCard > .team:nth-of-type(2) {
   grid-column: 3;
-  transform: translateX(-4.75%);
+  transform: translateX(-2.25%);
 }
 
 .row > .adjustedCard > .team > :global([data-public-team-badge]) {
   grid-row: 1;
-  --adjusted-team-badge-width: 24px;
-  --adjusted-team-badge-height: 24px;
+  --adjusted-team-badge-width: 23px;
+  --adjusted-team-badge-height: 23px;
 
   width: 30px;
   height: 24px;
@@ -90,17 +90,18 @@
   height: var(--adjusted-team-badge-height);
   max-height: var(--adjusted-team-badge-height);
   object-fit: contain;
-  transform: none;
+  transform: scale(var(--public-team-badge-optical-scale, 1));
+  transform-origin: center;
 }
 
 .row > .adjustedCard > .team > :global([data-public-team-badge][data-logo-shape="tall"]) {
-  --adjusted-team-badge-width: 22px;
+  --adjusted-team-badge-width: 20px;
   --adjusted-team-badge-height: 24px;
 }
 
 .row > .adjustedCard > .team > :global([data-public-team-badge][data-logo-shape="wide"]) {
-  --adjusted-team-badge-width: 28px;
-  --adjusted-team-badge-height: 22px;
+  --adjusted-team-badge-width: 27px;
+  --adjusted-team-badge-height: 20px;
 }
 
 .row > .adjustedCard > .team > .teamName {
@@ -109,12 +110,12 @@
   justify-self: stretch;
   max-width: 100%;
   overflow: visible;
-  font-size: 10.5px;
+  font-size: 9.5px;
   line-height: 10px;
-  letter-spacing: -0.1px;
+  letter-spacing: -0.2px;
   text-align: center;
   text-overflow: clip;
-  white-space: normal;
+  white-space: nowrap;
   word-break: normal;
   overflow-wrap: normal;
   hyphens: none;
@@ -169,7 +170,7 @@
 .row > .adjustedCard > .adjustedStatus > :global([data-public-match-meta]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 8px 18px;
+  grid-template-rows: 9px 18px;
   align-items: center;
   width: 100%;
   max-width: 100%;
@@ -177,7 +178,7 @@
   height: 28px;
   margin-inline: 0;
   padding-inline: 0;
-  row-gap: 2px;
+  row-gap: 1px;
 }
 
 .row > .adjustedCard > .adjustedStatus > :global([data-public-match-meta]) > span:first-child {
@@ -188,8 +189,8 @@
   min-width: 0;
   overflow: visible;
   color: #607086;
-  font-size: 8px;
-  line-height: 8px;
+  font-size: 8.75px;
+  line-height: 9px;
   text-align: center;
 }
 

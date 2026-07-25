@@ -38,15 +38,15 @@ const DEFAULT_VISUAL_CONFIG: BroadcastChannelLogoVisualConfig = {
   slotMinWidth: 46
 };
 
-const ADJUSTED_PREVIEW_DEFAULT_SCALE = 0.86;
+const ADJUSTED_PREVIEW_DEFAULT_SCALE = 0.72;
 const ADJUSTED_PREVIEW_CHANNEL_SCALE = new Map<string, number>([
-  ["rtp1", 0.82],
-  ["tvi", 0.82],
-  ["btv", 0.84],
-  ["dazn 1", 0.84],
-  ["dazn 2", 0.84],
-  ["dazn 3", 0.84],
-  ["canal 11", 0.86]
+  ["rtp1", 0.68],
+  ["tvi", 0.62],
+  ["btv", 0.68],
+  ["dazn 1", 0.7],
+  ["dazn 2", 0.7],
+  ["dazn 3", 0.7],
+  ["canal 11", 0.72]
 ]);
 
 const CHANNEL_VISUAL_CONFIG = new Map<string, BroadcastChannelLogoVisualConfig>([
