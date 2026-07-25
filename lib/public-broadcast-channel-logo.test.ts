@@ -542,6 +542,7 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   const defaultNameBlock = stripStyles.match(/\.row > \.card > \.team > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
   const coordinatedNamesBlock = stripStyles.match(/\.adjustedNames\s*\{([^}]*)\}/)?.[1] ?? "";
   const adjustedNameBlock = stripStyles.match(/\.adjustedNames > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
+  const versusBlock = stripStyles.match(/\.versus\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(adjustedCardBlock, /(?:^|[\s;])(?:width|min-width|max-width|height|min-height|max-height|padding|margin|border|border-radius)\s*:/);
   assert.doesNotMatch(`${adjustedFirstTeamBlock}\n${adjustedSecondTeamBlock}`, /transform:/);
   assert.match(defaultNameBlock, /overflow:\s*hidden/);
@@ -567,6 +568,11 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   assert.match(adjustedNameBlock, /hyphens:\s*none/);
   assert.doesNotMatch(adjustedNameBlock, /ellipsis|line-clamp|overflow:\s*hidden|white-space:\s*normal/);
   assert.doesNotMatch(stripStyles, /\.adjustedNames > \.teamName:(?:first-child|last-child|nth-child)/);
+  assert.match(versusBlock, /grid-column:\s*1\s*\/\s*-1/);
+  assert.match(versusBlock, /justify-self:\s*center/);
+  assert.match(versusBlock, /width:\s*2px/);
+  assert.match(versusBlock, /min-width:\s*0/);
+  assert.doesNotMatch(versusBlock, /margin|translate|left:|right:/);
   assert.doesNotMatch(componentSource, /slice\(|substring\(|substr\(/);
   assert.doesNotMatch(componentSource, /competitionSlug|liga-portugal|la-liga/);
 
