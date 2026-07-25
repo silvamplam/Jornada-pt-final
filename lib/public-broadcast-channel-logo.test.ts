@@ -395,7 +395,7 @@ test("PublicMatchStrip usa meta default com 9 jogos e compact horizontal com 10"
   assert.equal(9 >= compactThreshold ? "compact" : "default", "default");
   assert.equal(10 >= compactThreshold ? "compact" : "default", "compact");
   assert.match(componentSource, /metaVariant=\{metaVariant\}/);
-  assert.match(componentSource, /dateTime=\{schedule\.dateTime \? \([\s\S]*?\{schedule\.visual\}[\s\S]*?variant=\{metaVariant\}/);
+  assert.match(componentSource, /const scheduleMeta = \([\s\S]*?dateTime=\{schedule\.dateTime \? \([\s\S]*?\{schedule\.visual\}[\s\S]*?variant=\{adjusted \? "default" : metaVariant\}/);
   assert.doesNotMatch(componentSource, /denseDate|denseTime|styles\.dense|flex-direction:\s*column/);
   assert.match(styleSource, /grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\)/);
   assert.match(styleSource, /\.row > \.card\s*\{[\s\S]*?--public-match-card-inline-padding:\s*clamp\(3px, 0\.5vw, 8px\)[\s\S]*?min-width:\s*0[\s\S]*?width:\s*auto[\s\S]*?padding-inline:\s*var\(--public-match-card-inline-padding\)/);
@@ -414,9 +414,56 @@ test("PublicMatchStrip usa meta default com 9 jogos e compact horizontal com 10"
     [8, 18, 4, 14]
   );
   assert.match(componentSource, /<PublicTeamBadge[\s\S]*?variant="compact"/);
-  assert.doesNotMatch(`${componentSource}\n${styleSource}`, /opticalScale|transform:\s*scale|\.team[^}]*height:/);
+  assert.doesNotMatch(`${componentSource}\n${styleSource}`, /opticalScale|transform:\s*scale/);
+  const defaultTeamBlock = styleSource.match(/\.row > \.card > \.team\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.doesNotMatch(defaultTeamBlock, /height:/);
   assert.doesNotMatch(`${componentSource}\n${styleSource}`, /overflow-x:\s*auto|flex-wrap|grid-template-columns:\s*repeat\(10|min-width:\s*154px/);
   assert.equal(Array.from({ length: 10 }).length, 10);
+});
+
+test("preview ajustado dos cards fica limitado ao parametro exato da pagina de jornada", async () => {
+  const [componentSource, matchdaySource, homeSource] = await Promise.all([
+    readFile(integrationUrls[0], "utf8"),
+    readFile(integrationUrls[2], "utf8"),
+    readFile(homePageUrl, "utf8")
+  ]);
+
+  assert.match(matchdaySource, /layoutJogos\?: string/);
+  assert.match(matchdaySource, /query\.layoutJogos === "ajustado" \? "adjusted" : "default"/);
+  assert.match(matchdaySource, /<PublicMatchStrip[\s\S]*?layoutVariant=\{matchStripLayoutVariant\}/);
+  assert.match(componentSource, /export type PublicMatchStripLayoutVariant = "default" \| "adjusted"/);
+  assert.match(componentSource, /layoutVariant = "default"/);
+  assert.match(componentSource, /data-layout-variant=\{adjusted \? "adjusted" : undefined\}/);
+  assert.doesNotMatch(homeSource, /layoutVariant=\{|layoutJogos/);
+});
+
+test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fallback de canal", async () => {
+  const [componentSource, stripStyles, matchMetaSource, broadcastStyles] = await Promise.all([
+    readFile(integrationUrls[0], "utf8"),
+    readFile(matchStripStylesUrl, "utf8"),
+    readFile(matchMetaComponentUrl, "utf8"),
+    readFile(stylesUrl, "utf8")
+  ]);
+
+  assert.match(componentSource, /adjusted \? ` \$\{styles\.adjustedCard\}` : ""/);
+  assert.match(componentSource, /className=\{styles\.versus\}/);
+  assert.match(componentSource, /<b aria-hidden="true">VS<\/b>/);
+  assert.equal(componentSource.match(/getPublicTeamName\([\s\S]*?, "compact"\)/g)?.length, 2);
+  assert.match(componentSource, /adjusted \? \(\s*scheduleMeta\s*\) : kind === "finished"/);
+  assert.match(componentSource, /channelLogoUrl=\{match\.broadcastChannel\?\.logo_url\}/);
+  assert.match(componentSource, /channelName=\{broadcastChannelName\}/);
+  assert.match(matchMetaSource, /const channel = hasChannel \? \([\s\S]*?\) : null/);
+
+  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 18px minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*43px 34px/);
+  assert.match(stripStyles, /\.row > \.adjustedCard > \.team\s*\{[\s\S]*?grid-template-rows:\s*28px 12px;[\s\S]*?height:\s*43px/);
+  assert.match(stripStyles, /\.adjustedStatus > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-template-rows:\s*12px 18px;[\s\S]*?height:\s*34px/);
+  assert.match(stripStyles, /data-public-match-channel-family="sport-tv"[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*64px/);
+  assert.match(broadcastStyles, /\.matchMeta img\s*\{[\s\S]*?object-fit:\s*contain/);
+
+  const adjustedCardBlock = stripStyles.match(/\.row > \.adjustedCard\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.doesNotMatch(adjustedCardBlock, /(?:^|[\s;])(?:width|min-width|max-width|height|min-height|max-height|padding|margin|border|border-radius)\s*:/);
+  assert.doesNotMatch(componentSource, /slice\(|substring\(|substr\(/);
+  assert.doesNotMatch(componentSource, /competitionSlug|liga-portugal|la-liga/);
 });
 
 test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal de equipa", async () => {

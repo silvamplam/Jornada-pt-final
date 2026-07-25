@@ -22,6 +22,7 @@ type PublicMatchdayPageProps = {
   }>;
   searchParams?: Promise<{
     debug_logos?: string;
+    layoutJogos?: string;
   }>;
 };
 
@@ -3140,6 +3141,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     return <DiagnosticPanel diagnostic={diagnostic} />;
   }
   const showLogoDiagnostic = query.debug_logos === "1";
+  const matchStripLayoutVariant = query.layoutJogos === "ajustado" ? "adjusted" : "default";
 
   const seasonSegment = seasonLabelToUrlSegment(context.season.label);
   const seasonOptions = context.seasons.map((season) => ({
@@ -3438,6 +3440,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         }}
       />
       <PublicMatchStrip
+        layoutVariant={matchStripLayoutVariant}
         matches={context.matchesForMatchday.map((match) => ({
           ...match,
           matchdayNumber: context.matchday.number

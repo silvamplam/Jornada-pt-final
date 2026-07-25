@@ -37,6 +37,8 @@ export type PublicMatchStripMatch = {
   broadcastChannel?: PublicMatchStripBroadcastChannel | null;
 };
 
+export type PublicMatchStripLayoutVariant = "default" | "adjusted";
+
 function formatKickoffTime(value?: string | null) {
   if (!value) return null;
 
@@ -186,11 +188,13 @@ function LivePulseDots() {
 function CompactMatchCard({
   match,
   focus,
-  metaVariant
+  metaVariant,
+  layoutVariant
 }: {
   match: PublicMatchStripMatch;
   focus?: boolean;
   metaVariant: "default" | "compact";
+  layoutVariant: PublicMatchStripLayoutVariant;
 }) {
   const kind = statusKind(match.status);
   const broadcastChannelName = match.broadcastChannel?.name?.trim();
@@ -218,50 +222,75 @@ function CompactMatchCard({
   ) : statusLabel(match.status);
   const schedule = miniCardSchedule(match);
   const teamClassName = showScore ? `${styles.team} ${styles.teamWithScore}` : styles.team;
+  const adjusted = layoutVariant === "adjusted";
+  const scheduleMeta = (
+    <PublicMatchMeta
+      channelLogoUrl={match.broadcastChannel?.logo_url}
+      channelName={broadcastChannelName}
+      dateTime={schedule.dateTime ? (
+        <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
+          {schedule.visual}
+        </time>
+      ) : (
+        <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
+      )}
+      variant={adjusted ? "default" : metaVariant}
+    />
+  );
 
   return (
-    <article className={`${styles.card} public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
+    <article
+      className={`${styles.card}${adjusted ? ` ${styles.adjustedCard}` : ""} public-matchday-mini-card public-matchday-mini-card-${kind}`}
+      data-layout-variant={adjusted ? "adjusted" : undefined}
+      data-live-focus={focus ? "true" : undefined}
+    >
       <span className={`${teamClassName} public-matchday-mini-team`}>
         <TeamBadge team={match.homeTeam} />
         <span className={styles.teamName} title={getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "full")}>
           {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
         </span>
-        {showScore ? <b className="public-matchday-mini-score">{match.home_score}</b> : null}
+        {showScore ? <b aria-hidden={adjusted ? "true" : undefined} className="public-matchday-mini-score">{match.home_score}</b> : null}
       </span>
       <span className={`${teamClassName} public-matchday-mini-team`}>
         <TeamBadge team={match.awayTeam} />
         <span className={styles.teamName} title={getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "full")}>
           {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
         </span>
-        {showScore ? <b className="public-matchday-mini-score">{match.away_score}</b> : null}
+        {showScore ? <b aria-hidden={adjusted ? "true" : undefined} className="public-matchday-mini-score">{match.away_score}</b> : null}
       </span>
-      <span className="public-matchday-mini-status">
-        {kind === "finished" ? (
+      {adjusted ? (
+        <span
+          aria-label={showScore ? `Resultado ${match.home_score} a ${match.away_score}` : "Versus"}
+          className={styles.versus}
+        >
+          <b aria-hidden="true">VS</b>
+          {showScore ? <span aria-hidden="true" className={styles.adjustedScore}>{match.home_score}-{match.away_score}</span> : null}
+        </span>
+      ) : null}
+      <span className={`public-matchday-mini-status${adjusted ? ` ${styles.adjustedStatus}` : ""}`}>
+        {adjusted ? (
+          scheduleMeta
+        ) : kind === "finished" ? (
           <span>Finalizado</span>
         ) : kind === "live" || kind === "halftime" ? (
           <span>
             {liveStatus}
           </span>
         ) : (
-          <PublicMatchMeta
-            channelLogoUrl={match.broadcastChannel?.logo_url}
-            channelName={broadcastChannelName}
-            dateTime={schedule.dateTime ? (
-              <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
-                {schedule.visual}
-              </time>
-            ) : (
-              <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
-            )}
-            variant={metaVariant}
-          />
+          scheduleMeta
         )}
       </span>
     </article>
   );
 }
 
-export default function PublicMatchStrip({ matches }: { matches: PublicMatchStripMatch[] }) {
+export default function PublicMatchStrip({
+  matches,
+  layoutVariant = "default"
+}: {
+  matches: PublicMatchStripMatch[];
+  layoutVariant?: PublicMatchStripLayoutVariant;
+}) {
   const focusedMatch = matches.find((match) => {
     const kind = statusKind(match.status);
     return kind === "live" || kind === "halftime";
@@ -282,7 +311,13 @@ export default function PublicMatchStrip({ matches }: { matches: PublicMatchStri
           style={{ "--public-match-strip-columns": matches.length } as CSSProperties}
         >
           {matches.map((match) => (
-            <CompactMatchCard focus={focusedMatch?.id === match.id} key={match.id} match={match} metaVariant={metaVariant} />
+            <CompactMatchCard
+              focus={focusedMatch?.id === match.id}
+              key={match.id}
+              layoutVariant={layoutVariant}
+              match={match}
+              metaVariant={metaVariant}
+            />
           ))}
         </div>
       </div>
