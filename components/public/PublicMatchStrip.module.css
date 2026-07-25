@@ -44,7 +44,7 @@
 }
 
 .row > .adjustedCard {
-  grid-template-columns: minmax(0, 44fr) minmax(0, 12fr) minmax(0, 44fr);
+  grid-template-columns: minmax(0, 46fr) minmax(0, 8fr) minmax(0, 46fr);
   grid-template-rows: 52px 28px;
   column-gap: 0;
   row-gap: 0;
@@ -54,7 +54,7 @@
   display: grid;
   grid-row: 1;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 24px 1px 20px 7px;
+  grid-template-rows: 28px 1px 17px 6px;
   place-items: center;
   align-self: start;
   width: 100%;
@@ -67,21 +67,19 @@
 
 .row > .adjustedCard > .team:first-of-type {
   grid-column: 1;
-  transform: translateX(2.25%);
 }
 
 .row > .adjustedCard > .team:nth-of-type(2) {
   grid-column: 3;
-  transform: translateX(-2.25%);
 }
 
 .row > .adjustedCard > .team > :global([data-public-team-badge]) {
   grid-row: 1;
-  --adjusted-team-badge-width: 23px;
-  --adjusted-team-badge-height: 23px;
+  --adjusted-team-badge-width: 26px;
+  --adjusted-team-badge-height: 26px;
 
-  width: 30px;
-  height: 24px;
+  width: 32px;
+  height: 28px;
 }
 
 .row > .adjustedCard > .team > :global([data-public-team-badge]) > img {
@@ -95,13 +93,13 @@
 }
 
 .row > .adjustedCard > .team > :global([data-public-team-badge][data-logo-shape="tall"]) {
-  --adjusted-team-badge-width: 20px;
-  --adjusted-team-badge-height: 24px;
+  --adjusted-team-badge-width: 22px;
+  --adjusted-team-badge-height: 27px;
 }
 
 .row > .adjustedCard > .team > :global([data-public-team-badge][data-logo-shape="wide"]) {
-  --adjusted-team-badge-width: 27px;
-  --adjusted-team-badge-height: 20px;
+  --adjusted-team-badge-width: 30px;
+  --adjusted-team-badge-height: 23px;
 }
 
 .row > .adjustedCard > .team > .teamName {
@@ -110,9 +108,9 @@
   justify-self: stretch;
   max-width: 100%;
   overflow: visible;
-  font-size: 9.5px;
-  line-height: 10px;
-  letter-spacing: -0.2px;
+  font-size: 10.5px;
+  line-height: 11px;
+  letter-spacing: -0.25px;
   text-align: center;
   text-overflow: clip;
   white-space: nowrap;
@@ -129,7 +127,7 @@
   display: grid;
   grid-column: 2;
   grid-row: 1;
-  grid-template-rows: 24px 1px 20px 7px;
+  grid-template-rows: 28px 1px 17px 6px;
   place-items: center;
   align-self: start;
   height: 52px;

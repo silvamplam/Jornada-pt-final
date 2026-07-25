@@ -468,12 +468,13 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   assert.match(matchMetaSource, /const channel = hasChannel \? \([\s\S]*?\) : null/);
   assert.match(matchMetaSource, /visualNormalization=\{channelLogoNormalization\}/);
 
-  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 44fr\) minmax\(0, 12fr\) minmax\(0, 44fr\);[\s\S]*?grid-template-rows:\s*52px 28px;[\s\S]*?column-gap:\s*0;[\s\S]*?row-gap:\s*0/);
-  assert.match(stripStyles, /\.row > \.adjustedCard > \.team\s*\{[\s\S]*?grid-template-rows:\s*24px 1px 20px 7px;[\s\S]*?height:\s*52px/);
-  assert.match(stripStyles, /\.team:first-of-type\s*\{[\s\S]*?grid-column:\s*1;[\s\S]*?transform:\s*translateX\(2\.25%\)/);
-  assert.match(stripStyles, /\.team:nth-of-type\(2\)\s*\{[\s\S]*?grid-column:\s*3;[\s\S]*?transform:\s*translateX\(-2\.25%\)/);
-  assert.match(stripStyles, /data-logo-shape="tall"[\s\S]*?--adjusted-team-badge-width:\s*20px;[\s\S]*?--adjusted-team-badge-height:\s*24px/);
-  assert.match(stripStyles, /data-logo-shape="wide"[\s\S]*?--adjusted-team-badge-width:\s*27px;[\s\S]*?--adjusted-team-badge-height:\s*20px/);
+  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 46fr\) minmax\(0, 8fr\) minmax\(0, 46fr\);[\s\S]*?grid-template-rows:\s*52px 28px;[\s\S]*?column-gap:\s*0;[\s\S]*?row-gap:\s*0/);
+  assert.match(stripStyles, /\.row > \.adjustedCard > \.team\s*\{[\s\S]*?grid-template-rows:\s*28px 1px 17px 6px;[\s\S]*?height:\s*52px/);
+  assert.match(stripStyles, /\.team:first-of-type\s*\{[\s\S]*?grid-column:\s*1/);
+  assert.match(stripStyles, /\.team:nth-of-type\(2\)\s*\{[\s\S]*?grid-column:\s*3/);
+  assert.match(stripStyles, /data-public-team-badge\]\)\s*\{[\s\S]*?--adjusted-team-badge-width:\s*26px;[\s\S]*?--adjusted-team-badge-height:\s*26px;[\s\S]*?width:\s*32px;[\s\S]*?height:\s*28px/);
+  assert.match(stripStyles, /data-logo-shape="tall"[\s\S]*?--adjusted-team-badge-width:\s*22px;[\s\S]*?--adjusted-team-badge-height:\s*27px/);
+  assert.match(stripStyles, /data-logo-shape="wide"[\s\S]*?--adjusted-team-badge-width:\s*30px;[\s\S]*?--adjusted-team-badge-height:\s*23px/);
   assert.match(stripStyles, /\.adjustedCard > \.team > :global\(\[data-public-team-badge\]\) > img\s*\{[\s\S]*?transform:\s*scale\(var\(--public-team-badge-optical-scale, 1\)\)/);
   assert.match(stripStyles, /\.adjustedStatus > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-template-rows:\s*9px 18px;[\s\S]*?height:\s*28px;[\s\S]*?row-gap:\s*1px/);
   assert.match(stripStyles, /\.adjustedStatus\s*\{[\s\S]*?height:\s*28px;[\s\S]*?overflow:\s*visible;[\s\S]*?transform:\s*translateY\(4px\)/);
@@ -484,8 +485,13 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   assert.equal(52 + 28, 28 + 28 + 18 + 3 + 3);
 
   const adjustedCardBlock = stripStyles.match(/\.row > \.adjustedCard\s*\{([^}]*)\}/)?.[1] ?? "";
+  const adjustedFirstTeamBlock = stripStyles.match(/\.row > \.adjustedCard > \.team:first-of-type\s*\{([^}]*)\}/)?.[1] ?? "";
+  const adjustedSecondTeamBlock = stripStyles.match(/\.row > \.adjustedCard > \.team:nth-of-type\(2\)\s*\{([^}]*)\}/)?.[1] ?? "";
   const adjustedNameBlock = stripStyles.match(/\.row > \.adjustedCard > \.team > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(adjustedCardBlock, /(?:^|[\s;])(?:width|min-width|max-width|height|min-height|max-height|padding|margin|border|border-radius)\s*:/);
+  assert.doesNotMatch(`${adjustedFirstTeamBlock}\n${adjustedSecondTeamBlock}`, /transform:/);
+  assert.match(adjustedNameBlock, /font-size:\s*10\.5px/);
+  assert.match(adjustedNameBlock, /line-height:\s*11px/);
   assert.match(adjustedNameBlock, /overflow:\s*visible/);
   assert.match(adjustedNameBlock, /text-overflow:\s*clip/);
   assert.match(adjustedNameBlock, /white-space:\s*nowrap/);
@@ -497,16 +503,16 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
 
   const referenceCardHeight = 96;
   const badgeTop = 7;
-  const badgeBottom = badgeTop + 24;
+  const badgeBottom = badgeTop + 28;
   const namesTop = badgeBottom + 1;
-  const namesBottom = namesTop + 20;
+  const namesBottom = namesTop + 17;
   const dateTop = 7 + 52 + 4;
   const dateBottom = dateTop + 9;
   const channelTop = dateBottom + 1;
   const channelBottom = channelTop + 18;
   assert.deepEqual(
     [badgeTop, badgeBottom, namesTop, namesBottom, dateTop, dateBottom, channelTop, channelBottom, referenceCardHeight - channelBottom],
-    [7, 31, 32, 52, 63, 72, 73, 91, 5]
+    [7, 35, 36, 53, 63, 72, 73, 91, 5]
   );
 });
 
