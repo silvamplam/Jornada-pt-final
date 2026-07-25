@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { CSSProperties } from "react";
 
 import {
+  getAdjustedPreviewBroadcastLogoUrl,
   getAdjustedPreviewBroadcastScale,
   resolveBroadcastChannelLogoPresentation
 } from "@/lib/public-broadcast-channel-logo";
@@ -25,12 +26,18 @@ export default function BroadcastChannelLogo({
   visualNormalization
 }: BroadcastChannelLogoProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const presentation = resolveBroadcastChannelLogoPresentation(name, logoUrl);
+  const adjustedPreview = visualNormalization === "adjusted-preview";
+  const effectiveLogoUrl = adjustedPreview
+    ? getAdjustedPreviewBroadcastLogoUrl(name, logoUrl)
+    : logoUrl;
+  const presentation = resolveBroadcastChannelLogoPresentation(name, effectiveLogoUrl);
 
   if (presentation.kind === "hidden") return null;
 
-  const className = `${styles.root} ${styles[variant]}${visualNormalization === "adjusted-preview" ? ` ${styles.adjustedPreview}` : ""}`;
-  const adjustedPreviewStyle = visualNormalization === "adjusted-preview"
+  const isAdjustedPreviewCanal11 = adjustedPreview
+    && presentation.name.toLocaleLowerCase("pt-PT") === "canal 11";
+  const className = `${styles.root} ${styles[variant]}${adjustedPreview ? ` ${styles.adjustedPreview}` : ""}${isAdjustedPreviewCanal11 ? ` ${styles.adjustedPreviewCanal11}` : ""}`;
+  const adjustedPreviewStyle = adjustedPreview
     ? { "--broadcast-channel-adjusted-preview-scale": getAdjustedPreviewBroadcastScale(presentation.name) } as CSSProperties
     : undefined;
   if (presentation.kind === "fallback" || presentation.logoUrl === failedUrl) {

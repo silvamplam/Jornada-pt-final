@@ -41,12 +41,17 @@ const DEFAULT_VISUAL_CONFIG: BroadcastChannelLogoVisualConfig = {
 const ADJUSTED_PREVIEW_DEFAULT_SCALE = 0.72;
 const ADJUSTED_PREVIEW_CHANNEL_SCALE = new Map<string, number>([
   ["rtp1", 0.68],
-  ["tvi", 0.62],
+  ["tvi", 0.66],
   ["btv", 0.68],
   ["dazn 1", 0.7],
   ["dazn 2", 0.7],
   ["dazn 3", 0.7],
   ["canal 11", 0.72]
+]);
+
+const ADJUSTED_PREVIEW_CHANNEL_LOGO_URL = new Map<string, string>([
+  ["dazn 2", "https://commons.wikimedia.org/wiki/Special:Redirect/file/DAZN_2_2024.svg"],
+  ["dazn 3", "https://commons.wikimedia.org/wiki/Special:Redirect/file/DAZN_3_2024.svg"]
 ]);
 
 const CHANNEL_VISUAL_CONFIG = new Map<string, BroadcastChannelLogoVisualConfig>([
@@ -98,6 +103,14 @@ export function getAdjustedPreviewBroadcastScale(name: string | null | undefined
   if (isSportTvBroadcastChannel(name)) return 1;
   const channelKey = name?.trim().toLocaleLowerCase("pt-PT") ?? "";
   return ADJUSTED_PREVIEW_CHANNEL_SCALE.get(channelKey) ?? ADJUSTED_PREVIEW_DEFAULT_SCALE;
+}
+
+export function getAdjustedPreviewBroadcastLogoUrl(
+  name: string | null | undefined,
+  logoUrl: string | null | undefined
+): string | null | undefined {
+  const channelKey = name?.trim().toLocaleLowerCase("pt-PT") ?? "";
+  return ADJUSTED_PREVIEW_CHANNEL_LOGO_URL.get(channelKey) ?? logoUrl;
 }
 
 function resolveBroadcastChannelLogoVisualConfig(

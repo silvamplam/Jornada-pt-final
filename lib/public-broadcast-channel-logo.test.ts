@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  getAdjustedPreviewBroadcastLogoUrl,
   getAdjustedPreviewBroadcastScale,
   isSportTvBroadcastChannel,
   resolveBroadcastChannelLogoPresentation
@@ -167,9 +168,57 @@ test("preview ajustado usa Sport TV como referencia e reduz os restantes canais 
   assert.equal(getAdjustedPreviewBroadcastScale("Sport TV 1"), 1);
   assert.equal(getAdjustedPreviewBroadcastScale("Sport TV+"), 1);
   assert.equal(getAdjustedPreviewBroadcastScale("RTP1"), 0.68);
-  assert.equal(getAdjustedPreviewBroadcastScale("TVI"), 0.62);
+  assert.equal(getAdjustedPreviewBroadcastScale("TVI"), 0.66);
   assert.equal(getAdjustedPreviewBroadcastScale("BTV"), 0.68);
   assert.equal(getAdjustedPreviewBroadcastScale("Canal desconhecido"), 0.72);
+});
+
+test("preview ajustado uniformiza DAZN 2 e DAZN 3 com os SVG oficiais da família de DAZN 1", () => {
+  const dazn1Url = "https://cdn.example.test/dazn-1.svg";
+  assert.equal(getAdjustedPreviewBroadcastLogoUrl("DAZN 1", dazn1Url), dazn1Url);
+  assert.equal(
+    getAdjustedPreviewBroadcastLogoUrl("DAZN 2", "https://cdn.example.test/dazn-2.png"),
+    "https://commons.wikimedia.org/wiki/Special:Redirect/file/DAZN_2_2024.svg"
+  );
+  assert.equal(
+    getAdjustedPreviewBroadcastLogoUrl("DAZN 3", "https://cdn.example.test/dazn-3.png"),
+    "https://commons.wikimedia.org/wiki/Special:Redirect/file/DAZN_3_2024.svg"
+  );
+  for (const name of ["DAZN 1", "DAZN 2", "DAZN 3"]) {
+    assert.equal(getAdjustedPreviewBroadcastScale(name), 0.7);
+  }
+});
+
+test("micro-ajustes óticos ficam isolados ao preview e produzem aumento renderizado real na TVI", async () => {
+  const [componentSource, styleSource] = await Promise.all([
+    readFile(componentUrl, "utf8"),
+    readFile(stylesUrl, "utf8")
+  ]);
+  const previousTviScale = 0.62;
+  const currentTviScale = getAdjustedPreviewBroadcastScale("TVI");
+  const adjustedLogoWidth = 61.56;
+  const adjustedLogoHeight = 18;
+
+  assert.equal(currentTviScale, 0.66);
+  assert.ok(currentTviScale > previousTviScale);
+  assert.equal(Number(((currentTviScale / previousTviScale - 1) * 100).toFixed(2)), 6.45);
+  assert.ok(adjustedLogoWidth * currentTviScale > adjustedLogoWidth * previousTviScale);
+  assert.ok(adjustedLogoHeight * currentTviScale > adjustedLogoHeight * previousTviScale);
+  assert.ok(adjustedLogoWidth * currentTviScale < adjustedLogoWidth * getAdjustedPreviewBroadcastScale("Sport TV 1"));
+
+  assert.match(componentSource, /const adjustedPreview = visualNormalization === "adjusted-preview"/);
+  assert.match(componentSource, /adjustedPreview\s*\?\s*getAdjustedPreviewBroadcastLogoUrl\(name, logoUrl\)\s*:\s*logoUrl/);
+  assert.match(componentSource, /isAdjustedPreviewCanal11[\s\S]*?=== "canal 11"/);
+  assert.match(styleSource, /\.root\s*\{[\s\S]*?overflow:\s*visible/);
+  assert.match(styleSource, /\.matchMeta\.adjustedPreview\s*\{[\s\S]*?transform:\s*scale\(var\(--broadcast-channel-adjusted-preview-scale, 1\)\)[\s\S]*?transform-origin:\s*center/);
+  assert.match(styleSource, /\.matchMeta\.adjustedPreview img,[\s\S]*?width:\s*61\.56px[\s\S]*?height:\s*18px/);
+
+  const canal11Rule = styleSource.match(
+    /\.matchMeta\.adjustedPreviewCanal11 img,\s*\.matchMeta\.adjustedPreviewCanal11 \.alphaViewport\s*\{([^}]*)\}/
+  )?.[1] ?? "";
+  assert.match(canal11Rule, /drop-shadow\(0 0 0\.55px rgba\(15, 23, 42, 0\.32\)\)/);
+  assert.match(canal11Rule, /drop-shadow\(0 0\.5px 0\.65px rgba\(15, 23, 42, 0\.2\)\)/);
+  assert.doesNotMatch(canal11Rule, /\b(?:width|height|margin|padding|position|transform)\s*:/);
 });
 
 test("o componente cliente troca erro de imagem por fallback e usa uma única identificação semântica", async () => {
