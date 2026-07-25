@@ -116,8 +116,8 @@
 .matchMeta.adjustedPreviewCanal11 img,
 .matchMeta.adjustedPreviewCanal11 .alphaViewport {
   filter:
-    drop-shadow(0 0 0.55px rgba(15, 23, 42, 0.32))
-    drop-shadow(0 0.5px 0.65px rgba(15, 23, 42, 0.2));
+    drop-shadow(0 0 0.7px rgba(15, 23, 42, 0.62))
+    drop-shadow(0 0.75px 0.85px rgba(15, 23, 42, 0.36));
 }
 
 .fallback {

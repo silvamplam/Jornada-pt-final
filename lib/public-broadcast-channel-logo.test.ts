@@ -216,8 +216,8 @@ test("micro-ajustes óticos ficam isolados ao preview e produzem aumento renderi
   const canal11Rule = styleSource.match(
     /\.matchMeta\.adjustedPreviewCanal11 img,\s*\.matchMeta\.adjustedPreviewCanal11 \.alphaViewport\s*\{([^}]*)\}/
   )?.[1] ?? "";
-  assert.match(canal11Rule, /drop-shadow\(0 0 0\.55px rgba\(15, 23, 42, 0\.32\)\)/);
-  assert.match(canal11Rule, /drop-shadow\(0 0\.5px 0\.65px rgba\(15, 23, 42, 0\.2\)\)/);
+  assert.match(canal11Rule, /drop-shadow\(0 0 0\.7px rgba\(15, 23, 42, 0\.62\)\)/);
+  assert.match(canal11Rule, /drop-shadow\(0 0\.75px 0\.85px rgba\(15, 23, 42, 0\.36\)\)/);
   assert.doesNotMatch(canal11Rule, /\b(?:width|height|margin|padding|position|transform)\s*:/);
 });
 
@@ -500,11 +500,12 @@ test("preview ajustado dos cards fica limitado ao parametro exato da pagina de j
 });
 
 test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fallback de canal", async () => {
-  const [componentSource, stripStyles, matchMetaSource, broadcastStyles] = await Promise.all([
+  const [componentSource, stripStyles, matchMetaSource, broadcastStyles, editorialStyles] = await Promise.all([
     readFile(integrationUrls[0], "utf8"),
     readFile(matchStripStylesUrl, "utf8"),
     readFile(matchMetaComponentUrl, "utf8"),
-    readFile(stylesUrl, "utf8")
+    readFile(stylesUrl, "utf8"),
+    readFile(publicEditorialStylesUrl, "utf8")
   ]);
 
   assert.match(componentSource, /adjusted \? ` \$\{styles\.adjustedCard\}` : ""/);
@@ -568,11 +569,14 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   assert.match(adjustedNameBlock, /hyphens:\s*none/);
   assert.doesNotMatch(adjustedNameBlock, /ellipsis|line-clamp|overflow:\s*hidden|white-space:\s*normal/);
   assert.doesNotMatch(stripStyles, /\.adjustedNames > \.teamName:(?:first-child|last-child|nth-child)/);
-  assert.match(versusBlock, /grid-column:\s*1\s*\/\s*-1/);
-  assert.match(versusBlock, /justify-self:\s*center/);
+  assert.match(editorialStyles, /\.public-matchday-mini-card\s*\{[\s\S]*?position:\s*relative[\s\S]*?padding:\s*7px 8px 8px[\s\S]*?border:\s*1px solid/);
+  assert.match(versusBlock, /position:\s*absolute/);
+  assert.match(versusBlock, /top:\s*7px/);
+  assert.match(versusBlock, /left:\s*50%/);
   assert.match(versusBlock, /width:\s*2px/);
   assert.match(versusBlock, /min-width:\s*0/);
-  assert.doesNotMatch(versusBlock, /margin|translate|left:|right:/);
+  assert.match(versusBlock, /transform:\s*translateX\(-50%\)/);
+  assert.doesNotMatch(versusBlock, /margin|right:|grid-column/);
   assert.doesNotMatch(componentSource, /slice\(|substring\(|substr\(/);
   assert.doesNotMatch(componentSource, /competitionSlug|liga-portugal|la-liga/);
 
