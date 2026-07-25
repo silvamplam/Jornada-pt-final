@@ -7,12 +7,13 @@ import type {
   OperationResult,
 } from "@/lib/redacao-automatica/types";
 
-const ARTICLE_SELECT =
-  "id,source_code,original_url,normalized_url,external_id,title,subtitle,summary,author,published_at,modified_at,detected_at,image_url,processing_status,first_detected_at,last_detected_at,created_at,updated_at";
-const SNAPSHOT_SELECT =
-  "id,article_id,content_hash,body,source_metadata,extracted_at,created_at";
+export const NEWSROOM_PERSISTENCE_RPC_NAME =
+  "newsroom_persist_article_snapshot";
+
 const TIMESTAMPTZ_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const processingStatuses = new Set<ArticleProcessingStatus>([
   "detected",
@@ -46,6 +47,12 @@ const snapshotInputKeys = [
   "extractedAt",
 ] as const;
 const bodyBlockKeys = ["type", "text"] as const;
+const rpcResultKeys = [
+  "article_id",
+  "snapshot_id",
+  "article_action",
+  "snapshot_action",
+] as const;
 
 export type PersistNewsroomArticleInput = Readonly<{
   article: Readonly<{
@@ -108,45 +115,45 @@ export type PersistNewsroomArticleResult = OperationResult<
   NewsroomPersistenceError
 >;
 
+export type NewsroomPersistenceRpcArguments = Readonly<{
+  p_source_code: string;
+  p_original_url: string;
+  p_normalized_url: string;
+  p_external_id: string | null;
+  p_title: string;
+  p_subtitle: string | null;
+  p_summary: string | null;
+  p_author: string | null;
+  p_published_at: string | null;
+  p_modified_at: string | null;
+  p_detected_at: string;
+  p_image_url: string | null;
+  p_processing_status: ArticleProcessingStatus;
+  p_content_hash: string;
+  p_body: readonly ArticleBodyBlock[];
+  p_source_metadata: JsonObject;
+  p_extracted_at: string;
+}>;
+
 export interface NewsroomPersistenceTransport {
   isConfigured(): boolean;
-  readRows<T>(path: string): Promise<T[]>;
-  writeRows<T>(path: string, init: RequestInit): Promise<T[]>;
-  isUnavailableError(error: unknown): boolean;
+  executeRpc(
+    functionName: string,
+    argumentsValue: NewsroomPersistenceRpcArguments,
+  ): Promise<unknown>;
 }
 
-type NewsroomArticleRow = {
-  id: string;
-  source_code: string;
-  original_url: string;
-  normalized_url: string;
-  external_id: string | null;
-  title: string;
-  subtitle: string | null;
-  summary: string | null;
-  author: string | null;
-  published_at: string | null;
-  modified_at: string | null;
-  detected_at: string;
-  image_url: string | null;
-  processing_status: string;
-  first_detected_at: string;
-  last_detected_at: string;
-  created_at: string;
-  updated_at: string;
-};
-
-type NewsroomSnapshotRow = {
-  id: string;
+type NewsroomPersistenceRpcRow = Readonly<{
   article_id: string;
-  content_hash: string;
-  body: unknown;
-  source_metadata: unknown;
-  extracted_at: string;
-  created_at: string;
-};
+  snapshot_id: string;
+  article_action: NewsroomArticleWriteOutcome["action"];
+  snapshot_action: NewsroomSnapshotWriteOutcome["action"];
+}>;
 
-type FailureStage = NewsroomPersistenceError["stage"];
+type ControlledRpcError = Readonly<{
+  code: "input_invalid" | "source_not_found" | "persistence_conflict";
+  detail: string | null;
+}>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -206,7 +213,10 @@ function isHttpUrl(value: unknown, requireNormalized: boolean): value is string 
   }
 }
 
-function isJsonValue(value: unknown, ancestors = new Set<object>()): value is JsonValue {
+function isJsonValue(
+  value: unknown,
+  ancestors = new Set<object>(),
+): value is JsonValue {
   if (
     value === null
     || typeof value === "string"
@@ -228,7 +238,11 @@ function isJsonValue(value: unknown, ancestors = new Set<object>()): value is Js
   }
 
   const prototype = Object.getPrototypeOf(value);
-  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
+  if (
+    !Array.isArray(value)
+    && prototype !== Object.prototype
+    && prototype !== null
+  ) {
     return false;
   }
 
@@ -290,7 +304,9 @@ function isValidInput(value: unknown): value is PersistNewsroomArticleInput {
     && isTimestamp(article.detectedAt)
     && (article.imageUrl === null || isHttpUrl(article.imageUrl, false))
     && typeof article.processingStatus === "string"
-    && processingStatuses.has(article.processingStatus as ArticleProcessingStatus)
+    && processingStatuses.has(
+      article.processingStatus as ArticleProcessingStatus,
+    )
     && isRequiredText(snapshot.contentHash)
     && isArticleBody(snapshot.body)
     && isSourceMetadata(snapshot.sourceMetadata)
@@ -300,8 +316,7 @@ function isValidInput(value: unknown): value is PersistNewsroomArticleInput {
 
 function failure(
   code: NewsroomPersistenceErrorCode,
-  stage: FailureStage,
-  article: NewsroomArticleWriteOutcome | null = null,
+  stage: NewsroomPersistenceError["stage"],
 ): PersistNewsroomArticleResult {
   const messages: Record<NewsroomPersistenceErrorCode, string> = {
     input_invalid: "Os dados normalizados fornecidos são inválidos.",
@@ -318,416 +333,111 @@ function failure(
       code,
       stage,
       message: messages[code],
-      article,
-      operationIncomplete: stage === "snapshot" && article !== null,
+      article: null,
+      operationIncomplete: false,
     },
   };
 }
 
-function databaseFailure(
-  transport: NewsroomPersistenceTransport,
-  error: unknown,
-  fallbackCode: "article_write_failed" | "snapshot_write_failed",
-  stage: "article" | "snapshot",
-  article: NewsroomArticleWriteOutcome | null = null,
-): PersistNewsroomArticleResult {
+function rpcArguments(
+  input: PersistNewsroomArticleInput,
+): NewsroomPersistenceRpcArguments {
+  return {
+    p_source_code: input.article.sourceCode,
+    p_original_url: input.article.originalUrl,
+    p_normalized_url: input.article.normalizedUrl,
+    p_external_id: input.article.externalId,
+    p_title: input.article.title,
+    p_subtitle: input.article.subtitle,
+    p_summary: input.article.summary,
+    p_author: input.article.author,
+    p_published_at: input.article.publishedAt,
+    p_modified_at: input.article.modifiedAt,
+    p_detected_at: input.article.detectedAt,
+    p_image_url: input.article.imageUrl,
+    p_processing_status: input.article.processingStatus,
+    p_content_hash: input.snapshot.contentHash,
+    p_body: input.snapshot.body,
+    p_source_metadata: input.snapshot.sourceMetadata,
+    p_extracted_at: input.snapshot.extractedAt,
+  };
+}
+
+function isRpcRow(value: unknown): value is NewsroomPersistenceRpcRow {
+  if (!isRecord(value) || !hasExactKeys(value, rpcResultKeys)) {
+    return false;
+  }
+
+  return (
+    typeof value.article_id === "string"
+    && UUID_PATTERN.test(value.article_id)
+    && typeof value.snapshot_id === "string"
+    && UUID_PATTERN.test(value.snapshot_id)
+    && (
+      value.article_action === "created"
+      || value.article_action === "reused"
+      || value.article_action === "updated"
+    )
+    && (
+      value.snapshot_action === "created"
+      || value.snapshot_action === "reused"
+    )
+  );
+}
+
+function rpcRow(value: unknown): NewsroomPersistenceRpcRow | null {
+  if (!Array.isArray(value) || value.length !== 1 || !isRpcRow(value[0])) {
+    return null;
+  }
+
+  return value[0];
+}
+
+function errorPayload(error: unknown): unknown {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+
+  try {
+    return JSON.parse(error.message) as unknown;
+  } catch {
+    return { message: error.message };
+  }
+}
+
+function controlledRpcError(error: unknown): ControlledRpcError | null {
+  const payload = errorPayload(error);
+  if (!isRecord(payload) || typeof payload.message !== "string") {
+    return null;
+  }
+
+  if (
+    payload.message !== "input_invalid"
+    && payload.message !== "source_not_found"
+    && payload.message !== "persistence_conflict"
+  ) {
+    return null;
+  }
+
+  return {
+    code: payload.message,
+    detail: typeof payload.details === "string"
+      ? payload.details
+      : typeof payload.detail === "string"
+        ? payload.detail
+        : null,
+  };
+}
+
+function controlledFailure(error: ControlledRpcError): PersistNewsroomArticleResult {
+  if (error.code === "input_invalid" || error.code === "source_not_found") {
+    return failure(error.code, "validation");
+  }
+
   return failure(
-    transport.isUnavailableError(error) ? "persistence_unavailable" : fallbackCode,
-    stage,
-    article,
+    "persistence_conflict",
+    error.detail === "snapshot" ? "snapshot" : "article",
   );
-}
-
-function isArticleRow(value: unknown): value is NewsroomArticleRow {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    isRequiredText(value.id)
-    && isRequiredText(value.source_code)
-    && isRequiredText(value.original_url)
-    && isRequiredText(value.normalized_url)
-    && isNullableText(value.external_id)
-    && isRequiredText(value.title)
-    && isNullableText(value.subtitle)
-    && isNullableText(value.summary)
-    && isNullableText(value.author)
-    && isNullableTimestamp(value.published_at)
-    && isNullableTimestamp(value.modified_at)
-    && isTimestamp(value.detected_at)
-    && (value.image_url === null || isHttpUrl(value.image_url, false))
-    && typeof value.processing_status === "string"
-    && isTimestamp(value.first_detected_at)
-    && isTimestamp(value.last_detected_at)
-    && isTimestamp(value.created_at)
-    && isTimestamp(value.updated_at)
-  );
-}
-
-function isSnapshotRow(value: unknown): value is NewsroomSnapshotRow {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  return (
-    isRequiredText(value.id)
-    && isRequiredText(value.article_id)
-    && isRequiredText(value.content_hash)
-    && Array.isArray(value.body)
-    && isRecord(value.source_metadata)
-    && isTimestamp(value.extracted_at)
-    && isTimestamp(value.created_at)
-  );
-}
-
-function articleInsertBody(
-  input: PersistNewsroomArticleInput,
-): Record<string, unknown> {
-  const { article } = input;
-  return {
-    source_code: article.sourceCode,
-    original_url: article.originalUrl,
-    normalized_url: article.normalizedUrl,
-    external_id: article.externalId,
-    title: article.title,
-    subtitle: article.subtitle,
-    summary: article.summary,
-    author: article.author,
-    published_at: article.publishedAt,
-    modified_at: article.modifiedAt,
-    detected_at: article.detectedAt,
-    image_url: article.imageUrl,
-    processing_status: article.processingStatus,
-    first_detected_at: article.detectedAt,
-    last_detected_at: article.detectedAt,
-  };
-}
-
-function articleIdentityPath(input: PersistNewsroomArticleInput): string {
-  return (
-    `newsroom_articles?select=${ARTICLE_SELECT}`
-    + `&source_code=eq.${encodeURIComponent(input.article.sourceCode)}`
-    + `&normalized_url=eq.${encodeURIComponent(input.article.normalizedUrl)}`
-    + "&limit=1"
-  );
-}
-
-function setChangedValue(
-  patch: Record<string, unknown>,
-  key: string,
-  currentValue: unknown,
-  nextValue: unknown,
-): void {
-  if (currentValue !== nextValue) {
-    patch[key] = nextValue;
-  }
-}
-
-function articleMetadataPatch(
-  existing: NewsroomArticleRow,
-  input: PersistNewsroomArticleInput,
-): Record<string, unknown> {
-  const patch: Record<string, unknown> = {};
-  const { article } = input;
-
-  if (existing.external_id === null && article.externalId !== null) {
-    patch.external_id = article.externalId;
-  }
-
-  if (Date.parse(article.detectedAt) < Date.parse(existing.last_detected_at)) {
-    return patch;
-  }
-
-  setChangedValue(patch, "title", existing.title, article.title);
-  setChangedValue(patch, "subtitle", existing.subtitle, article.subtitle);
-  setChangedValue(patch, "summary", existing.summary, article.summary);
-  setChangedValue(patch, "author", existing.author, article.author);
-  setChangedValue(patch, "published_at", existing.published_at, article.publishedAt);
-  setChangedValue(patch, "modified_at", existing.modified_at, article.modifiedAt);
-  setChangedValue(patch, "detected_at", existing.detected_at, article.detectedAt);
-  setChangedValue(patch, "image_url", existing.image_url, article.imageUrl);
-  setChangedValue(
-    patch,
-    "processing_status",
-    existing.processing_status,
-    article.processingStatus,
-  );
-  setChangedValue(
-    patch,
-    "last_detected_at",
-    existing.last_detected_at,
-    article.detectedAt,
-  );
-  return patch;
-}
-
-async function persistArticle(
-  input: PersistNewsroomArticleInput,
-  transport: NewsroomPersistenceTransport,
-): Promise<
-  OperationResult<NewsroomArticleWriteOutcome, NewsroomPersistenceError>
-> {
-  let insertedRows: NewsroomArticleRow[];
-  try {
-    insertedRows = await transport.writeRows<NewsroomArticleRow>(
-      `newsroom_articles?on_conflict=source_code,normalized_url&select=${ARTICLE_SELECT}`,
-      {
-        method: "POST",
-        headers: {
-          Prefer: "resolution=ignore-duplicates,return=representation",
-        },
-        body: JSON.stringify(articleInsertBody(input)),
-      },
-    );
-  } catch (error) {
-    return databaseFailure(
-      transport,
-      error,
-      "article_write_failed",
-      "article",
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  if (insertedRows.length > 1) {
-    return failure(
-      "persistence_conflict",
-      "article",
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  if (insertedRows.length === 1) {
-    const inserted = insertedRows[0];
-    if (
-      !isArticleRow(inserted)
-      || inserted.source_code !== input.article.sourceCode
-      || inserted.normalized_url !== input.article.normalizedUrl
-    ) {
-      return failure(
-        "article_write_failed",
-        "article",
-      ) as OperationResult<never, NewsroomPersistenceError>;
-    }
-
-    return {
-      ok: true,
-      value: {
-        id: inserted.id,
-        action: "created",
-      },
-    };
-  }
-
-  let existingRows: NewsroomArticleRow[];
-  try {
-    existingRows = await transport.readRows<NewsroomArticleRow>(
-      articleIdentityPath(input),
-    );
-  } catch (error) {
-    return databaseFailure(
-      transport,
-      error,
-      "article_write_failed",
-      "article",
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  const existing = existingRows[0];
-  if (
-    existingRows.length !== 1
-    || !isArticleRow(existing)
-    || existing.source_code !== input.article.sourceCode
-    || existing.normalized_url !== input.article.normalizedUrl
-  ) {
-    return failure(
-      "persistence_conflict",
-      "article",
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  if (
-    existing.external_id !== null
-    && input.article.externalId !== null
-    && existing.external_id !== input.article.externalId
-  ) {
-    return failure(
-      "persistence_conflict",
-      "article",
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  const patch = articleMetadataPatch(existing, input);
-  if (Object.keys(patch).length === 0) {
-    return {
-      ok: true,
-      value: {
-        id: existing.id,
-        action: "reused",
-      },
-    };
-  }
-
-  let updatedRows: NewsroomArticleRow[];
-  try {
-    updatedRows = await transport.writeRows<NewsroomArticleRow>(
-      `newsroom_articles?select=${ARTICLE_SELECT}`
-      + `&id=eq.${encodeURIComponent(existing.id)}`
-      + `&source_code=eq.${encodeURIComponent(existing.source_code)}`
-      + `&normalized_url=eq.${encodeURIComponent(existing.normalized_url)}`,
-      {
-        method: "PATCH",
-        headers: {
-          Prefer: "return=representation",
-        },
-        body: JSON.stringify(patch),
-      },
-    );
-  } catch (error) {
-    return databaseFailure(
-      transport,
-      error,
-      "article_write_failed",
-      "article",
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  const updated = updatedRows[0];
-  if (
-    updatedRows.length !== 1
-    || !isArticleRow(updated)
-    || updated.id !== existing.id
-    || updated.source_code !== existing.source_code
-    || updated.normalized_url !== existing.normalized_url
-  ) {
-    return failure(
-      "persistence_conflict",
-      "article",
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  return {
-    ok: true,
-    value: {
-      id: updated.id,
-      action: "updated",
-    },
-  };
-}
-
-function snapshotIdentityPath(
-  articleId: string,
-  contentHash: string,
-): string {
-  return (
-    `newsroom_article_snapshots?select=${SNAPSHOT_SELECT}`
-    + `&article_id=eq.${encodeURIComponent(articleId)}`
-    + `&content_hash=eq.${encodeURIComponent(contentHash)}`
-    + "&limit=1"
-  );
-}
-
-async function persistSnapshot(
-  input: PersistNewsroomArticleInput,
-  article: NewsroomArticleWriteOutcome,
-  transport: NewsroomPersistenceTransport,
-): Promise<
-  OperationResult<NewsroomSnapshotWriteOutcome, NewsroomPersistenceError>
-> {
-  let insertedRows: NewsroomSnapshotRow[];
-  try {
-    insertedRows = await transport.writeRows<NewsroomSnapshotRow>(
-      `newsroom_article_snapshots?on_conflict=article_id,content_hash&select=${SNAPSHOT_SELECT}`,
-      {
-        method: "POST",
-        headers: {
-          Prefer: "resolution=ignore-duplicates,return=representation",
-        },
-        body: JSON.stringify({
-          article_id: article.id,
-          content_hash: input.snapshot.contentHash,
-          body: input.snapshot.body,
-          source_metadata: input.snapshot.sourceMetadata,
-          extracted_at: input.snapshot.extractedAt,
-        }),
-      },
-    );
-  } catch (error) {
-    return databaseFailure(
-      transport,
-      error,
-      "snapshot_write_failed",
-      "snapshot",
-      article,
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  if (insertedRows.length > 1) {
-    return failure(
-      "persistence_conflict",
-      "snapshot",
-      article,
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  if (insertedRows.length === 1) {
-    const inserted = insertedRows[0];
-    if (
-      !isSnapshotRow(inserted)
-      || inserted.article_id !== article.id
-      || inserted.content_hash !== input.snapshot.contentHash
-    ) {
-      return failure(
-        "snapshot_write_failed",
-        "snapshot",
-        article,
-      ) as OperationResult<never, NewsroomPersistenceError>;
-    }
-
-    return {
-      ok: true,
-      value: {
-        id: inserted.id,
-        action: "created",
-      },
-    };
-  }
-
-  let existingRows: NewsroomSnapshotRow[];
-  try {
-    existingRows = await transport.readRows<NewsroomSnapshotRow>(
-      snapshotIdentityPath(article.id, input.snapshot.contentHash),
-    );
-  } catch (error) {
-    return databaseFailure(
-      transport,
-      error,
-      "snapshot_write_failed",
-      "snapshot",
-      article,
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  const existing = existingRows[0];
-  if (
-    existingRows.length !== 1
-    || !isSnapshotRow(existing)
-    || existing.article_id !== article.id
-    || existing.content_hash !== input.snapshot.contentHash
-  ) {
-    return failure(
-      "persistence_conflict",
-      "snapshot",
-      article,
-    ) as OperationResult<never, NewsroomPersistenceError>;
-  }
-
-  return {
-    ok: true,
-    value: {
-      id: existing.id,
-      action: "reused",
-    },
-  };
 }
 
 export function createNewsroomArticlePersistence(
@@ -748,26 +458,36 @@ export function createNewsroomArticlePersistence(
       return failure("persistence_unavailable", "article");
     }
 
-    const articleResult = await persistArticle(input, transport);
-    if (!articleResult.ok) {
-      return articleResult;
+    let rawResult: unknown;
+    try {
+      rawResult = await transport.executeRpc(
+        NEWSROOM_PERSISTENCE_RPC_NAME,
+        rpcArguments(input),
+      );
+    } catch (error) {
+      const controlled = controlledRpcError(error);
+      return controlled
+        ? controlledFailure(controlled)
+        : failure("persistence_unavailable", "article");
     }
 
-    const snapshotResult = await persistSnapshot(
-      input,
-      articleResult.value,
-      transport,
-    );
-    if (!snapshotResult.ok) {
-      return snapshotResult;
+    const persisted = rpcRow(rawResult);
+    if (!persisted) {
+      return failure("persistence_unavailable", "article");
     }
 
     return {
       ok: true,
       value: {
         complete: true,
-        article: articleResult.value,
-        snapshot: snapshotResult.value,
+        article: {
+          id: persisted.article_id,
+          action: persisted.article_action,
+        },
+        snapshot: {
+          id: persisted.snapshot_id,
+          action: persisted.snapshot_action,
+        },
       },
     };
   };
