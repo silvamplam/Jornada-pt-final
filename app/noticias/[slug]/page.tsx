@@ -1,12 +1,8 @@
 import { notFound } from "next/navigation";
 
-import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
-import PublicMatchMeta from "@/components/public/PublicMatchMeta";
-import PublicTeamBadge from "@/components/public/PublicTeamBadge";
+import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
-import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
-import { getPublicTeamName } from "@/lib/public-team-name";
 import {
   getPublicMatchdayDiagnostic,
   seasonLabelToUrlSegment,
@@ -416,179 +412,8 @@ const articlePageStyles = `
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
   }
 
-  .news-article-games-shell {
-    display: block;
-  }
-
-  .news-article-games-button {
-    display: none;
-  }
-
-  .news-article-games-button:hover {
-    display: none;
-  }
-
-  .news-article-games-scroller {
-    display: grid;
-    width: 100%;
-    min-width: 0;
-    gap: 7px;
-    align-items: stretch;
-    overflow-x: visible;
-    padding: 6px 0;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .news-article-games-scroller::-webkit-scrollbar {
-    display: none;
-  }
-
-  .news-article-game-card {
-    position: relative;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    min-width: 0;
-    gap: 3px;
-    align-items: center;
-    min-height: 78px;
-    padding: 7px 8px;
-    border: 1px solid #ccd8e5;
-    border-radius: 8px;
-    background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
-    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.085);
-    color: #111820;
-    font-size: 12px;
-  }
-
-  .news-article-game-team {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    height: 28px;
-    gap: 6px;
-    min-width: 0;
-    overflow: visible;
-    color: #0d141d;
-    font-weight: 900;
-    line-height: 1.1;
-  }
-
-  .news-article-game-team > span:not([data-public-team-badge]) {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .news-article-game-score {
-    min-width: 18px;
-    color: #05080c;
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 16px;
-    font-weight: 900;
-    line-height: 1;
-    text-align: right;
-  }
-
-  .news-article-game-card-live .news-article-game-team:first-of-type .news-article-game-score {
-    padding-right: 0;
-  }
-
-  .news-article-game-meta {
-    display: flex;
-    min-width: 0;
-    align-items: center;
-    justify-content: center;
-    overflow: visible;
-    padding: 1px 2px 0;
-    color: #435160;
-    font-size: 9.5px;
-    font-weight: 900;
-    line-height: 1.15;
-    white-space: nowrap;
-  }
-
-  .public-live-pulse-dots {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    margin-left: 5px;
-    vertical-align: middle;
-  }
-
-  .public-live-pulse-dots span {
-    width: 4px;
-    height: 4px;
-    border-radius: 999px;
-    background: #16a34a;
-    opacity: 0.35;
-    animation: public-live-dot-alternate 1.15s infinite ease-in-out;
-  }
-
-  .public-live-pulse-dots span:nth-child(2) {
-    animation-delay: 0.55s;
-  }
-
-  .public-live-minute-prime {
-    display: inline-block;
-    color: inherit;
-  }
-
-  .public-live-minute-prime-active {
-    animation: public-live-prime-pulse 1s infinite ease-in-out;
-  }
-
-  @keyframes public-live-dot-alternate {
-    0%,
-    100% {
-      opacity: 0.35;
-    }
-
-    50% {
-      opacity: 1;
-    }
-  }
-
-  @keyframes public-live-prime-pulse {
-    0%,
-    100% {
-      opacity: 0.35;
-    }
-
-    50% {
-      opacity: 1;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .public-live-pulse-dots span {
-      animation: none;
-      opacity: 0.75;
-      transform: none;
-    }
-
-    .public-live-minute-prime-active {
-      animation: none;
-      opacity: 1;
-    }
-  }
-
-  .news-article-game-live-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: #10151b;
-    white-space: nowrap;
-  }
-
-  .news-article-game-live-label,
-  .news-article-game-live-separator {
-    color: #10151b;
-  }
-
-  .news-article-game-live-minute {
-    color: #16a34a;
+  .news-article-games-strip .public-matchday-mini-card {
+    padding-block: 7px;
   }
 
   .news-article-sidebar {
@@ -750,25 +575,6 @@ const articlePageStyles = `
       padding: 2px 14px 8px;
     }
 
-    .news-article-games-shell {
-      display: block;
-    }
-
-    .news-article-games-button {
-      display: none;
-    }
-
-    .news-article-games-scroller {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(148px, 100%), 1fr)) !important;
-      padding: 6px 0;
-      overflow-x: visible;
-    }
-
-    .news-article-game-card {
-      flex: 1 1 auto;
-    }
-
     .news-article-sidebar {
       position: static;
     }
@@ -831,8 +637,6 @@ const civilMonthNames = [
   "novembro",
   "dezembro"
 ];
-
-const compactMonthNames = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 
 function parseCivilDate(value: string | null | undefined) {
   const cleanValue = value ?? "";
@@ -919,52 +723,6 @@ function validKickoffTime(value: string | null) {
   }).format(date);
 }
 
-function kickoffCivilDate(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "Europe/Lisbon"
-  }).formatToParts(date);
-  const year = Number(parts.find((part) => part.type === "year")?.value);
-  const month = Number(parts.find((part) => part.type === "month")?.value);
-  const day = Number(parts.find((part) => part.type === "day")?.value);
-  return year && month && day
-    ? { day, month, year, key: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` }
-    : null;
-}
-
-function compactMatchSchedule(match: Pick<PublicSeasonMatch, "scheduled_date" | "kickoff_at" | "matchday">) {
-  const scheduledDate = parseCivilDate(match.scheduled_date);
-  const kickoffTime = validKickoffTime(match.kickoff_at);
-  if (kickoffTime) {
-    const civilDate = scheduledDate ?? kickoffCivilDate(match.kickoff_at);
-    if (civilDate) {
-      return {
-        visual: `${String(civilDate.day).padStart(2, "0")} ${compactMonthNames[civilDate.month - 1]} · ${kickoffTime}`,
-        accessible: `${civilDate.day} de ${civilMonthNames[civilDate.month - 1]} de ${civilDate.year}, às ${kickoffTime.replace(":", "h")}`,
-        dateTime: match.kickoff_at
-      };
-    }
-  }
-  if (scheduledDate) {
-    return {
-      visual: `${String(scheduledDate.day).padStart(2, "0")} ${compactMonthNames[scheduledDate.month - 1]} · A DEFINIR`,
-      accessible: `${scheduledDate.day} de ${civilMonthNames[scheduledDate.month - 1]} de ${scheduledDate.year}, hora por definir`,
-      dateTime: match.scheduled_date
-    };
-  }
-  const matchdayNumber = match.matchday?.number ?? null;
-  return {
-    visual: matchdayNumber === null ? "A DEFINIR" : `J${matchdayNumber} · A DEFINIR`,
-    accessible: matchdayNumber === null ? "Data e hora por definir" : `Jornada ${matchdayNumber}, data e hora por definir`,
-    dateTime: null
-  };
-}
-
 function formatCivilDateRange(firstDate: NonNullable<ReturnType<typeof parseCivilDate>>, lastDate: NonNullable<ReturnType<typeof parseCivilDate>>) {
   if (firstDate.key === lastDate.key) return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year}`;
   if (firstDate.year === lastDate.year && firstDate.month === lastDate.month) {
@@ -986,125 +744,6 @@ function formatPreferredMatchdayDateContext(matches: PublicSeasonMatch[], starts
     .sort((firstDate, secondDate) => firstDate.key.localeCompare(secondDate.key));
   if (scheduledDates.length === 0) return "Data por definir";
   return formatCivilDateRange(scheduledDates[0], scheduledDates[scheduledDates.length - 1]);
-}
-
-function statusKind(status: string) {
-  const normalized = status.trim().toLowerCase();
-  if (normalized === "finished") return "finished";
-  if (normalized === "live") return "live";
-  if (normalized === "halftime") return "halftime";
-  if (normalized === "scheduled") return "scheduled";
-  return "unknown";
-}
-
-function statusLabel(status: string) {
-  const normalized = status.trim().toLowerCase();
-  if (normalized === "finished") return "Finalizado";
-  if (normalized === "scheduled") return "Agendado";
-  if (normalized === "live") return "Live";
-  if (normalized === "halftime") return "Intervalo";
-  if (normalized === "postponed") return "Adiado";
-  if (normalized === "cancelled") return "Cancelado";
-  return status;
-}
-
-function TeamBadge({ team }: { team?: PublicSeasonMatch["homeTeam"] }) {
-  return (
-    <PublicTeamBadge
-      altLabel={getPublicTeamName(
-        { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
-        "full"
-      )}
-      fallbackLabel={getPublicTeamName(
-        { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
-        "badge"
-      )}
-      logoUrl={team?.logo_url}
-      slug={team?.slug}
-      variant="compact"
-    />
-  );
-}
-
-function LivePulseDots() {
-  return (
-    <span className="public-live-pulse-dots" aria-hidden="true">
-      <span />
-      <span />
-    </span>
-  );
-}
-
-function ArticleMatchCard({ match }: { match: PublicSeasonMatch }) {
-  const kind = statusKind(match.status);
-  const hasScore = match.home_score !== null && match.away_score !== null;
-  const showScore = hasScore && (kind === "finished" || kind === "live" || kind === "halftime");
-  const publicMinute = getPublicLiveMinute(match);
-  const channelName = match.broadcastChannel?.name?.trim();
-  const livePrimeClassName = "public-live-minute-prime public-live-minute-prime-active";
-  const liveStatus = kind === "live" ? (
-    <>
-      <span className="news-article-game-live-label">Live</span>
-      {publicMinute !== null ? (
-        <span className="news-article-game-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
-      ) : null}
-      {channelName ? (
-        <BroadcastChannelLogo
-          logoUrl={match.broadcastChannel?.logo_url}
-          name={channelName}
-          variant="matchMeta"
-        />
-      ) : null}
-    </>
-  ) : statusLabel(match.status);
-  const homeTeamName = getPublicTeamName(
-    { name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code },
-    "full"
-  );
-  const awayTeamName = getPublicTeamName(
-    { name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code },
-    "full"
-  );
-  const schedule = compactMatchSchedule(match);
-
-  return (
-    <article className={`news-article-game-card news-article-game-card-${kind}`}>
-      <span className="news-article-game-team">
-        <TeamBadge team={match.homeTeam} />
-        <span title={homeTeamName}>
-          {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
-        </span>
-        {showScore ? <b className="news-article-game-score">{match.home_score}</b> : null}
-      </span>
-      <span className="news-article-game-team">
-        <TeamBadge team={match.awayTeam} />
-        <span title={awayTeamName}>
-          {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
-        </span>
-        {showScore ? <b className="news-article-game-score">{match.away_score}</b> : null}
-      </span>
-      <span className="news-article-game-meta">
-        {kind === "scheduled" ? (
-          <PublicMatchMeta
-            channelLogoUrl={match.broadcastChannel?.logo_url}
-            channelName={channelName}
-            dateTime={schedule.dateTime ? (
-              <time dateTime={schedule.dateTime} aria-label={schedule.accessible}>{schedule.visual}</time>
-            ) : (
-              <span aria-label={schedule.accessible}>{schedule.visual}</span>
-            )}
-          />
-        ) : kind === "live" || kind === "halftime" ? (
-          <span className="news-article-game-live-status">
-            {liveStatus}
-            {kind === "live" ? <LivePulseDots /> : null}
-          </span>
-        ) : (
-          <span>{kind === "finished" ? "Finalizado" : statusLabel(match.status)}</span>
-        )}
-      </span>
-    </article>
-  );
 }
 
 function articleParagraphs(body?: string | null) {
@@ -1296,7 +935,6 @@ export default async function NewsArticlePage({ params }: PageProps) {
     articleContext?.matchday.starts_on ?? null,
     articleContext?.matchday.ends_on ?? null
   );
-  const articleGamesGridTemplateColumns = "repeat(auto-fit, minmax(min(132px, 100%), 1fr))";
 
   return (
     <div className="news-article-shell">
@@ -1387,13 +1025,12 @@ export default async function NewsArticlePage({ params }: PageProps) {
       />
       {articleMatches.length > 0 ? (
         <section className="news-article-games-strip" aria-label="Jogos da jornada associados a esta notícia">
-          <div className="news-article-games-shell">
-            <div className="news-article-games-scroller" data-news-article-games-strip style={{ gridTemplateColumns: articleGamesGridTemplateColumns }}>
-              {articleMatches.map((match) => (
-                <ArticleMatchCard key={match.id} match={match} />
-              ))}
-            </div>
-          </div>
+          <PublicMatchStrip
+            matches={articleMatches.map((match) => ({
+              ...match,
+              matchdayNumber: match.matchday?.number ?? null
+            }))}
+          />
         </section>
       ) : null}
       <main className="news-article-layout">

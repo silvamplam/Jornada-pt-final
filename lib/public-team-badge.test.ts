@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { resolvePublicTeamBadgePresentation } from "./public-team-badge";
+import {
+  classifyPublicTeamBadgeShape,
+  resolvePublicTeamBadgePresentation
+} from "./public-team-badge";
 
 const componentUrl = new URL("../components/public/PublicTeamBadge.tsx", import.meta.url);
 const stylesUrl = new URL("../components/public/PublicTeamBadge.module.css", import.meta.url);
@@ -17,6 +20,14 @@ const integrations = [
   new URL("../app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/jogos/page.tsx", import.meta.url),
   new URL("../app/noticias/[slug]/page.tsx", import.meta.url)
 ];
+
+test("normalização percetiva classifica emblemas por proporção sem conhecer clubes", () => {
+  assert.equal(classifyPublicTeamBadgeShape(40, 80), "tall");
+  assert.equal(classifyPublicTeamBadgeShape(80, 80), "balanced");
+  assert.equal(classifyPublicTeamBadgeShape(120, 80), "wide");
+  assert.equal(classifyPublicTeamBadgeShape(0, 80), "balanced");
+  assert.equal(classifyPublicTeamBadgeShape(Number.NaN, 80), "balanced");
+});
 
 test("URLs HTTPS usam imagem e URLs ausentes ou inseguras usam fallback", () => {
   assert.deepEqual(
@@ -92,6 +103,8 @@ test("o componente cliente mantem alt text e troca uma imagem falhada pelo fallb
   assert.match(source, /title=\{exactAlt\}/);
   assert.match(source, /onError=\{\(\) => setFailedUrl\(presentation\.logoUrl\)\}/);
   assert.match(source, /presentation\.logoUrl !== failedUrl/);
+  assert.match(source, /data-logo-shape=\{logoShape\}/);
+  assert.match(source, /classifyPublicTeamBadgeShape\(event\.currentTarget\.naturalWidth, event\.currentTarget\.naturalHeight\)/);
   assert.match(source, /<span className=\{styles\.fallback\} title=\{exactAlt\}>\{fallbackLabel\}<\/span>/);
   assert.match(source, /--public-team-badge-optical-scale/);
   assert.doesNotMatch(source, /aria-hidden="true"|alt=""/);
@@ -112,7 +125,7 @@ test("o CSS usa altura comum, largura automatica e area estavel sem clipping", a
 
 test("todas as superficies reutilizam PublicTeamBadge e fornecem slug", async () => {
   const sources = await Promise.all(integrations.map((url) => readFile(url, "utf8")));
-  for (const source of sources) {
+  for (const source of sources.slice(0, 4)) {
     assert.match(source, /import PublicTeamBadge/);
     assert.match(source, /<PublicTeamBadge/);
     assert.match(source, /slug=\{team\?\.slug\}/);
@@ -121,7 +134,9 @@ test("todas as superficies reutilizam PublicTeamBadge e fornecem slug", async ()
   assert.match(sources[1], /variant="default"/);
   assert.match(sources[2], /<PublicMatchStrip/);
   assert.match(sources[3], /variant="compact"/);
-  assert.match(sources[4], /variant="compact"/);
+  assert.match(sources[4], /import PublicMatchStrip/);
+  assert.match(sources[4], /<PublicMatchStrip/);
+  assert.doesNotMatch(sources[4], /import PublicTeamBadge|<PublicTeamBadge/);
   assert.doesNotMatch(sources[0], /team\?\.logo_url \? <img/);
   assert.doesNotMatch(sources[1], /public-game-team-badge|team\?\.logo_url\s*\?\s*<img/);
 });
@@ -136,12 +151,13 @@ test("Home e pagina global de jogos carregam o slug necessario ao contraste cent
 });
 
 test("as linhas de equipa usam alturas fixas e nao recortam o emblema", async () => {
-  const [editorialStyles, gamesPage, matchdayPage, matchdayGamesPage, newsPage] = await Promise.all([
+  const [editorialStyles, gamesPage, matchdayPage, matchdayGamesPage, newsPage, stripStyles] = await Promise.all([
     readFile(publicEditorialStylesUrl, "utf8"),
     readFile(integrations[1], "utf8"),
     readFile(integrations[2], "utf8"),
     readFile(integrations[3], "utf8"),
-    readFile(integrations[4], "utf8")
+    readFile(integrations[4], "utf8"),
+    readFile(matchStripStylesUrl, "utf8")
   ]);
   const combined = [editorialStyles, gamesPage, matchdayPage, matchdayGamesPage, newsPage].join("\n");
   assert.doesNotMatch(combined, /\.public-team-badge\s*\{|\.public-game-team-badge/);
@@ -151,9 +167,43 @@ test("as linhas de equipa usam alturas fixas e nao recortam o emblema", async ()
     assert.match(source, /\.public-matchday-mini-team\s*\{[\s\S]*?height:\s*28px[\s\S]*?gap:\s*6px[\s\S]*?overflow:\s*visible/);
   }
   assert.match(matchdayGamesPage, /\.public-games-team-line\s*\{[\s\S]*?height:\s*28px[\s\S]*?gap:\s*6px[\s\S]*?overflow:\s*visible/);
-  assert.match(newsPage, /\.news-article-game-team\s*\{[\s\S]*?height:\s*28px[\s\S]*?gap:\s*6px[\s\S]*?overflow:\s*visible/);
+  assert.match(newsPage, /<PublicMatchStrip/);
+  assert.doesNotMatch(newsPage, /\.news-article-game-team|text-overflow:\s*ellipsis/);
+  assert.match(stripStyles, /data-public-team-badge\]\)\s*\{[\s\S]*?width:\s*38px;[\s\S]*?height:\s*34px/);
+  assert.match(stripStyles, /data-logo-shape="tall"[\s\S]*?--public-match-team-badge-width:\s*27px;[\s\S]*?--public-match-team-badge-height:\s*33px/);
+  assert.match(stripStyles, /data-logo-shape="wide"[\s\S]*?--public-match-team-badge-width:\s*36px;[\s\S]*?--public-match-team-badge-height:\s*28px/);
   assert.match(gamesPage, /\.public-game-team\s*\{[\s\S]*?height:\s*33px/);
   assert.match(gamesPage, /grid-template-columns:\s*60px minmax\(120px, 180px\) 70px minmax\(120px, 180px\) 60px/);
+});
+
+test("nomes públicos ficam numa linha sem ellipsis ou line-clamp em todas as superfícies", async () => {
+  const [stripStyles, editorialStyles, gamesPage, matchdayPage, matchdayGamesPage, newsPage] = await Promise.all([
+    readFile(matchStripStylesUrl, "utf8"),
+    readFile(publicEditorialStylesUrl, "utf8"),
+    readFile(integrations[1], "utf8"),
+    readFile(integrations[2], "utf8"),
+    readFile(integrations[3], "utf8"),
+    readFile(integrations[4], "utf8")
+  ]);
+
+  const stripNameRule = stripStyles.match(/\.teamNames > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
+  const detailedGamesNameRule = gamesPage.match(/^\s{2}\.public-game-team-name\s*\{([^}]*)\}/m)?.[1] ?? "";
+  const matchdayGamesNameRule = matchdayGamesPage.match(/\.public-games-team-line > span:not\(\[data-public-team-badge\]\)\s*\{([^}]*)\}/)?.[1] ?? "";
+  for (const rule of [stripNameRule, detailedGamesNameRule, matchdayGamesNameRule]) {
+    assert.match(rule, /white-space:\s*nowrap/);
+    assert.match(rule, /text-overflow:\s*clip/);
+    assert.doesNotMatch(rule, /ellipsis|line-clamp|overflow:\s*hidden/);
+  }
+
+  for (const sharedSource of [editorialStyles, matchdayPage]) {
+    const legacyOverride = sharedSource.match(/\.public-matchday-mini-team > span:not\(\[data-public-team-badge\]\)\s*\{([^}]*)\}/)?.[1] ?? "";
+    assert.match(legacyOverride, /overflow:\s*visible/);
+    assert.match(legacyOverride, /text-overflow:\s*clip/);
+    assert.doesNotMatch(legacyOverride, /ellipsis|line-clamp/);
+  }
+
+  assert.match(newsPage, /<PublicMatchStrip/);
+  assert.doesNotMatch(newsPage, /news-article-game-team|ArticleMatchCard/);
 });
 
 test("dez jogos usam uma unica grelha dinamica sem scroll", async () => {

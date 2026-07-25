@@ -346,8 +346,8 @@ const gamesPageStyles = `
   }
 
   .public-game-team-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
   }
 

@@ -403,8 +403,8 @@ const publicMatchdayStyles = `
   }
 
   .public-matchday-mini-team > span:not([data-public-team-badge]) {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
   }
 

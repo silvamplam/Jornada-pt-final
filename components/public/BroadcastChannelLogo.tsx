@@ -3,7 +3,10 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 
-import { resolveBroadcastChannelLogoPresentation } from "@/lib/public-broadcast-channel-logo";
+import {
+  getPublicBroadcastMatchMetaScale,
+  resolveBroadcastChannelLogoPresentation
+} from "@/lib/public-broadcast-channel-logo";
 import styles from "./BroadcastChannelLogo.module.css";
 
 type BroadcastChannelLogoProps = {
@@ -22,10 +25,15 @@ export default function BroadcastChannelLogo({
 
   if (presentation.kind === "hidden") return null;
 
-  const className = `${styles.root} ${styles[variant]}`;
+  const matchMeta = variant === "matchMeta";
+  const isCanal11 = matchMeta && presentation.name.toLocaleLowerCase("pt-PT") === "canal 11";
+  const className = `${styles.root} ${styles[variant]}${matchMeta ? ` ${styles.normalizedMatchMeta}` : ""}${isCanal11 ? ` ${styles.canal11}` : ""}`;
+  const matchMetaStyle = matchMeta
+    ? { "--broadcast-channel-match-meta-scale": getPublicBroadcastMatchMetaScale(presentation.name) } as CSSProperties
+    : undefined;
   if (presentation.kind === "fallback" || presentation.logoUrl === failedUrl) {
     return (
-      <span className={`${className} ${styles.fallback}`} title={presentation.name}>
+      <span className={`${className} ${styles.fallback}`} style={matchMetaStyle} title={presentation.name}>
         {presentation.name}
       </span>
     );
@@ -40,7 +48,8 @@ export default function BroadcastChannelLogo({
     "--broadcast-channel-optical-scale": presentation.opticalScale,
     "--broadcast-channel-match-meta-width": `${renderedWidth.toFixed(2)}px`,
     "--broadcast-channel-match-meta-height": `${renderedHeight.toFixed(2)}px`,
-    "--broadcast-channel-match-meta-slot-width": `${slotWidth.toFixed(2)}px`
+    "--broadcast-channel-match-meta-slot-width": `${slotWidth.toFixed(2)}px`,
+    ...matchMetaStyle
   } as CSSProperties;
 
   return (

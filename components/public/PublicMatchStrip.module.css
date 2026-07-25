@@ -16,31 +16,199 @@
 .row > .card {
   --public-match-card-inline-padding: clamp(3px, 0.5vw, 8px);
 
+  position: relative;
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2px minmax(0, 1fr);
+  grid-template-rows: 52px 28px;
+  align-items: start;
   min-width: 0;
   width: auto;
   padding-inline: var(--public-match-card-inline-padding);
+  column-gap: 0;
+  row-gap: 0;
+  border: 1px solid #ccd8e5;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.085);
+  color: #111820;
+  font-size: 12px;
 }
 
 .row > .card > .team {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-row: 1;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 34px 0 18px 0;
+  place-items: center;
+  align-self: start;
+  width: 100%;
+  min-width: 0;
+  height: 52px;
+  margin-inline: 0;
+  padding-inline: 0;
+  row-gap: 0;
+}
+
+.row > .card > .team:first-of-type {
+  grid-column: 1;
+}
+
+.row > .card > .team:nth-of-type(2) {
+  grid-column: 3;
+}
+
+.row > .card > .team > :global([data-public-team-badge]) {
+  grid-row: 1;
+  --public-match-team-badge-width: 32px;
+  --public-match-team-badge-height: 32px;
+
+  width: 38px;
+  height: 34px;
+}
+
+.row > .card > .team > :global([data-public-team-badge]) > img {
+  width: var(--public-match-team-badge-width);
+  max-width: var(--public-match-team-badge-width);
+  height: var(--public-match-team-badge-height);
+  max-height: var(--public-match-team-badge-height);
+  object-fit: contain;
+  transform: scale(var(--public-team-badge-optical-scale, 1));
+  transform-origin: center;
+}
+
+.row > .card > .team > :global([data-public-team-badge][data-logo-shape="tall"]) {
+  --public-match-team-badge-width: 27px;
+  --public-match-team-badge-height: 33px;
+}
+
+.row > .card > .team > :global([data-public-team-badge][data-logo-shape="wide"]) {
+  --public-match-team-badge-width: 36px;
+  --public-match-team-badge-height: 28px;
+}
+
+.teamNames {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  grid-template-columns: minmax(max-content, 1fr) minmax(max-content, 1fr);
   align-items: center;
-  width: auto;
+  justify-content: center;
+  align-self: start;
+  width: 100%;
   min-width: 0;
-  margin-inline: calc(-1 * var(--public-match-card-inline-padding));
-  padding-inline: 3px;
-  column-gap: 4px;
+  height: 18px;
+  margin-top: 34px;
+  column-gap: 2px;
 }
 
-.row > .card > .teamWithScore {
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
-}
-
-.row > .card > .team > .teamName {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.teamNames > .teamName {
+  min-width: max-content;
+  overflow: visible;
+  font-family: inherit;
+  font-size: clamp(11.5px, 9.5cqi, 12.5px);
+  font-style: normal;
+  font-weight: 800;
+  line-height: 14px;
+  letter-spacing: -0.25px;
+  text-align: center;
+  text-transform: none;
+  text-overflow: clip;
   white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
+.versus {
+  position: absolute;
+  top: 7px;
+  left: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 30px 1px 15px 6px;
+  place-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 52px;
+  row-gap: 0;
+  color: #526174;
+  font-size: 8.5px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.versus > b {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: max-content;
+  height: 30px;
+  transform: translateX(-50%);
+}
+
+.score {
+  grid-row: 3;
+  color: #10151b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10px;
+  line-height: 12px;
+  white-space: nowrap;
+}
+
+.row > .card > .status {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0;
+  overflow: visible;
+  transform: translateY(4px);
+}
+
+.row > .card > .status > :global([data-public-match-meta]) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 9px 18px;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 28px;
+  margin-inline: 0;
+  padding-inline: 0;
+  row-gap: 1px;
+}
+
+.row > .card > .status > :global([data-public-match-meta]) > span:first-child {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: center;
+  max-width: 100%;
+  min-width: 0;
+  overflow: visible;
+  color: #607086;
+  font-size: 8.75px;
+  line-height: 9px;
+  text-align: center;
+}
+
+.row > .card > .status > :global([data-public-match-meta]) > span:last-child:not(:first-child) {
+  display: grid;
+  grid-column: 1;
+  grid-row: 2;
+  place-items: center;
+  justify-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 18px;
+  overflow: visible;
 }
 
 @media (max-width: 760px) {
