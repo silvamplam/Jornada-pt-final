@@ -442,9 +442,9 @@ const gamesPageStyles = `
   }
 
   .public-games-team-line > span:not([data-public-team-badge]) {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    min-width: max-content;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
   }
 

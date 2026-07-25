@@ -1,7 +1,5 @@
-import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
-import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import type { CSSProperties } from "react";
 import styles from "./PublicMatchStrip.module.css";
@@ -134,17 +132,6 @@ function miniCardSchedule(match: PublicMatchStripMatch) {
       };
 }
 
-function statusLabel(status?: string | null) {
-  const normalized = status?.trim().toLowerCase();
-  if (normalized === "finished") return "Finalizado";
-  if (normalized === "scheduled") return "Agendado";
-  if (normalized === "live") return "Live";
-  if (normalized === "halftime") return "Intervalo";
-  if (normalized === "postponed") return "Adiado";
-  if (normalized === "cancelled") return "Cancelado";
-  return status?.trim() || "Agendado";
-}
-
 function statusKind(status?: string | null) {
   const normalized = status?.trim().toLowerCase();
   if (normalized === "finished") return "finished";
@@ -152,6 +139,17 @@ function statusKind(status?: string | null) {
   if (normalized === "halftime") return "halftime";
   if (normalized === "scheduled") return "scheduled";
   return "scheduled";
+}
+
+function statusLabel(status?: string | null) {
+  const normalized = status?.trim().toLowerCase();
+  if (normalized === "finished") return "Finalizado";
+  if (normalized === "scheduled") return "Agendado";
+  if (normalized === "live") return "Em direto";
+  if (normalized === "halftime") return "Intervalo";
+  if (normalized === "postponed") return "Adiado";
+  if (normalized === "cancelled") return "Cancelado";
+  return status?.trim() || "Agendado";
 }
 
 function TeamBadge({ team }: { team?: PublicMatchStripTeam | null }) {
@@ -174,88 +172,68 @@ function TeamBadge({ team }: { team?: PublicMatchStripTeam | null }) {
   );
 }
 
-function LivePulseDots() {
-  return (
-    <span className="home-live-pulse-dots" aria-hidden="true">
-      <span />
-      <span />
-    </span>
-  );
-}
-
 function CompactMatchCard({
   match,
-  focus,
-  metaVariant
+  focus
 }: {
   match: PublicMatchStripMatch;
   focus?: boolean;
-  metaVariant: "default" | "compact";
 }) {
   const kind = statusKind(match.status);
   const broadcastChannelName = match.broadcastChannel?.name?.trim();
   const hasScore = match.home_score !== null && match.home_score !== undefined && match.away_score !== null && match.away_score !== undefined;
   const showScore = hasScore && (kind === "finished" || kind === "live" || kind === "halftime");
-  const publicMinute = getPublicLiveMinute(match);
-  const livePrimeClassName = "home-live-minute-prime home-live-minute-prime-active";
-  const liveStatus = kind === "live" ? (
-    <>
-      <span className="public-matchday-live-label">Live</span>
-      {publicMinute !== null ? (
-        <span className="public-matchday-live-minute">{publicMinute}<span className={livePrimeClassName}>'</span></span>
-      ) : null}
-      {broadcastChannelName ? (
-        <span className="public-matchday-mini-channel">
-          <BroadcastChannelLogo
-            logoUrl={match.broadcastChannel?.logo_url}
-            name={broadcastChannelName}
-            variant="matchMeta"
-          />
-        </span>
-      ) : null}
-      <LivePulseDots />
-    </>
-  ) : statusLabel(match.status);
   const schedule = miniCardSchedule(match);
-  const teamClassName = showScore ? `${styles.team} ${styles.teamWithScore}` : styles.team;
+  const homeTeamName = {
+    name: match.homeTeam?.name,
+    publicName: match.homeTeam?.public_name,
+    shortName: match.homeTeam?.short_name,
+    code: match.homeTeam?.code
+  };
+  const awayTeamName = {
+    name: match.awayTeam?.name,
+    publicName: match.awayTeam?.public_name,
+    shortName: match.awayTeam?.short_name,
+    code: match.awayTeam?.code
+  };
+  const homeFullName = getPublicTeamName(homeTeamName, "full");
+  const awayFullName = getPublicTeamName(awayTeamName, "full");
+  const homeCompactName = getPublicTeamName(homeTeamName, "compact");
+  const awayCompactName = getPublicTeamName(awayTeamName, "compact");
 
   return (
     <article className={`${styles.card} public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
-      <span className={`${teamClassName} public-matchday-mini-team`}>
+      <span className={`${styles.team} public-matchday-mini-team`}>
         <TeamBadge team={match.homeTeam} />
-        <span className={styles.teamName} title={getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "full")}>
-          {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
-        </span>
-        {showScore ? <b className="public-matchday-mini-score">{match.home_score}</b> : null}
       </span>
-      <span className={`${teamClassName} public-matchday-mini-team`}>
+      <span className={`${styles.team} public-matchday-mini-team`}>
         <TeamBadge team={match.awayTeam} />
-        <span className={styles.teamName} title={getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "full")}>
-          {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
-        </span>
-        {showScore ? <b className="public-matchday-mini-score">{match.away_score}</b> : null}
       </span>
-      <span className="public-matchday-mini-status">
-        {kind === "finished" ? (
-          <span>Finalizado</span>
-        ) : kind === "live" || kind === "halftime" ? (
-          <span>
-            {liveStatus}
-          </span>
-        ) : (
-          <PublicMatchMeta
-            channelLogoUrl={match.broadcastChannel?.logo_url}
-            channelName={broadcastChannelName}
-            dateTime={schedule.dateTime ? (
-              <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
-                {schedule.visual}
-              </time>
-            ) : (
-              <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
-            )}
-            variant={metaVariant}
-          />
-        )}
+      <span className={styles.teamNames} data-public-match-team-names="coordinated">
+        <span className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
+        <span className={styles.teamName} title={awayFullName}>{awayCompactName}</span>
+      </span>
+      <span
+        aria-label={showScore
+          ? `${statusLabel(match.status)}. Resultado ${match.home_score} a ${match.away_score}`
+          : `${statusLabel(match.status)}. Versus`}
+        className={styles.versus}
+      >
+        <b aria-hidden="true">VS</b>
+        {showScore ? <span aria-hidden="true" className={styles.score}>{match.home_score}-{match.away_score}</span> : null}
+      </span>
+      <span className={`${styles.status} public-matchday-mini-status`}>
+        <PublicMatchMeta
+          channelLogoUrl={match.broadcastChannel?.logo_url}
+          channelName={broadcastChannelName}
+          dateTime={schedule.dateTime ? (
+            <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
+              {schedule.visual}
+            </time>
+          ) : (
+            <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
+          )}
+        />
       </span>
     </article>
   );
@@ -271,8 +249,6 @@ export default function PublicMatchStrip({ matches }: { matches: PublicMatchStri
     return null;
   }
 
-  const metaVariant = matches.length >= 10 ? "compact" : "default";
-
   return (
     <section className="public-matchday-panel public-matchday-scoreboard-panel" aria-label="Visao rapida dos jogos">
       <div className={`${styles.shell} public-matchday-strip-shell`}>
@@ -282,7 +258,7 @@ export default function PublicMatchStrip({ matches }: { matches: PublicMatchStri
           style={{ "--public-match-strip-columns": matches.length } as CSSProperties}
         >
           {matches.map((match) => (
-            <CompactMatchCard focus={focusedMatch?.id === match.id} key={match.id} match={match} metaVariant={metaVariant} />
+            <CompactMatchCard focus={focusedMatch?.id === match.id} key={match.id} match={match} />
           ))}
         </div>
       </div>

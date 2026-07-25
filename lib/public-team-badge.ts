@@ -1,4 +1,16 @@
 export type PublicTeamBadgeContrastMode = "standard" | "light-detail";
+export type PublicTeamBadgeShape = "tall" | "balanced" | "wide";
+
+export function classifyPublicTeamBadgeShape(width: number, height: number): PublicTeamBadgeShape {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return "balanced";
+  }
+
+  const aspectRatio = width / height;
+  if (aspectRatio < 0.82) return "tall";
+  if (aspectRatio > 1.18) return "wide";
+  return "balanced";
+}
 
 type PublicTeamBadgeVisualConfig = {
   opticalScale: number;

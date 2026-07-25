@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  getPublicBroadcastLogoUrl,
+  getPublicBroadcastMatchMetaScale,
   isSportTvBroadcastChannel,
   resolveBroadcastChannelLogoPresentation
 } from "./public-broadcast-channel-logo";
@@ -100,12 +102,18 @@ test("os fatores óticos aprovados ficam centralizados por canal no helper", asy
     }
   );
   for (const name of ["DAZN 1", "DAZN 2", "DAZN 3"]) {
+    const sourceLogoUrl = `https://cdn.example.test/${name.at(-1)}.svg`;
+    const expectedLogoUrl = name === "DAZN 2"
+      ? "https://commons.wikimedia.org/wiki/Special:Redirect/file/DAZN_2_2024.svg"
+      : name === "DAZN 3"
+        ? "https://commons.wikimedia.org/wiki/Special:Redirect/file/DAZN_3_2024.svg"
+        : sourceLogoUrl;
     assert.deepEqual(
-      resolveBroadcastChannelLogoPresentation(name, `https://cdn.example.test/${name.at(-1)}.svg`),
+      resolveBroadcastChannelLogoPresentation(name, sourceLogoUrl),
       {
         kind: "image",
         name,
-        logoUrl: `https://cdn.example.test/${name.at(-1)}.svg`,
+        logoUrl: expectedLogoUrl,
         opticalScale: 0.82,
         contrastMode: "standard",
         slotMinWidth: 46
@@ -125,11 +133,45 @@ test("os fatores óticos aprovados ficam centralizados por canal no helper", asy
   );
 
   const helperSource = await readFile(helperUrl, "utf8");
+  const channelVisualConfigSource = helperSource.split("const CHANNEL_VISUAL_CONFIG")[1] ?? "";
   assert.deepEqual(
-    [...helperSource.matchAll(/^\s*\["([^"]+)", \{/gm)].map((match) => match[1]),
+    [...channelVisualConfigSource.matchAll(/^\s*\["([^"]+)", \{/gm)].map((match) => match[1]),
     ["rtp1", "sport tv 1", "sport tv 2", "sport tv 3", "sport tv 4", "sport tv 5", "sport tv 6", "sport tv 7", "sport tv+", "btv", "tvi", "dazn 1", "dazn 2", "dazn 3"]
   );
   assert.doesNotMatch(helperSource, /Math\.|calculate|computedScale/);
+});
+
+test("normalização final dos canais é global e preserva Sport TV como referência", async () => {
+  assert.equal(getPublicBroadcastMatchMetaScale("Sport TV 1"), 1);
+  assert.equal(getPublicBroadcastMatchMetaScale("Sport TV+"), 1);
+  assert.equal(getPublicBroadcastMatchMetaScale("RTP1"), 0.68);
+  assert.equal(getPublicBroadcastMatchMetaScale("TVI"), 0.693);
+  assert.equal(getPublicBroadcastMatchMetaScale("BTV"), 0.68);
+  assert.equal(getPublicBroadcastMatchMetaScale("Canal 11"), 0.756);
+  assert.equal(getPublicBroadcastMatchMetaScale("Canal desconhecido"), 0.72);
+  assert.equal(getPublicBroadcastMatchMetaScale("DAZN 1"), 0.7);
+  assert.equal(getPublicBroadcastMatchMetaScale("DAZN 2"), 0.7);
+  assert.equal(getPublicBroadcastMatchMetaScale("DAZN 3"), 0.7);
+
+  assert.equal(getPublicBroadcastLogoUrl("DAZN 1", "https://cdn.example.test/dazn-1.svg"), "https://cdn.example.test/dazn-1.svg");
+  assert.equal(
+    getPublicBroadcastLogoUrl("DAZN 2", "https://cdn.example.test/dazn-2.png"),
+    "https://commons.wikimedia.org/wiki/Special:Redirect/file/DAZN_2_2024.svg"
+  );
+  assert.equal(
+    getPublicBroadcastLogoUrl("DAZN 3", "https://cdn.example.test/dazn-3.png"),
+    "https://commons.wikimedia.org/wiki/Special:Redirect/file/DAZN_3_2024.svg"
+  );
+
+  const [componentSource, styleSource] = await Promise.all([
+    readFile(componentUrl, "utf8"),
+    readFile(stylesUrl, "utf8")
+  ]);
+  assert.match(componentSource, /matchMeta \? ` \$\{styles\.normalizedMatchMeta\}` : ""/);
+  assert.match(componentSource, /--broadcast-channel-match-meta-scale/);
+  assert.match(styleSource, /\.matchMeta\.normalizedMatchMeta\s*\{[\s\S]*?width:\s*64px;[\s\S]*?height:\s*18px;[\s\S]*?transform:\s*scale\(var\(--broadcast-channel-match-meta-scale, 1\)\)/);
+  assert.match(styleSource, /\.matchMeta\.normalizedMatchMeta img,[\s\S]*?width:\s*61\.56px;[\s\S]*?height:\s*18px;[\s\S]*?object-fit:\s*contain/);
+  assert.match(styleSource, /\.matchMeta\.canal11 img,[\s\S]*?drop-shadow\(0 0 0\.7px rgba\(15, 23, 42, 0\.62\)\)[\s\S]*?drop-shadow\(0 0\.75px 0\.85px rgba\(15, 23, 42, 0\.36\)\)/);
 });
 
 test("logo ausente, vazio, inválido ou HTTP usa o nome exato como fallback", () => {
@@ -384,39 +426,33 @@ test("matchMeta usa dimensões reais, full-bleed simétrico e colunas separadas"
   }
 });
 
-test("PublicMatchStrip usa meta default com 9 jogos e compact horizontal com 10", async () => {
+test("PublicMatchStrip usa o layout aprovado como padrão em qualquer dimensão da grelha", async () => {
   const [componentSource, styleSource] = await Promise.all([
     readFile(integrationUrls[0], "utf8"),
     readFile(matchStripStylesUrl, "utf8")
   ]);
   assert.match(componentSource, /"--public-match-strip-columns":\s*matches\.length/);
-  const compactThreshold = Number(componentSource.match(/matches\.length >= (\d+) \? "compact" : "default"/)?.[1]);
-  assert.equal(compactThreshold, 10);
-  assert.equal(9 >= compactThreshold ? "compact" : "default", "default");
-  assert.equal(10 >= compactThreshold ? "compact" : "default", "compact");
-  assert.match(componentSource, /metaVariant=\{metaVariant\}/);
-  assert.match(componentSource, /dateTime=\{schedule\.dateTime \? \([\s\S]*?\{schedule\.visual\}[\s\S]*?variant=\{metaVariant\}/);
-  assert.doesNotMatch(componentSource, /denseDate|denseTime|styles\.dense|flex-direction:\s*column/);
+  assert.doesNotMatch(componentSource, /layoutVariant|adjusted|layoutJogos|metaVariant/);
+  assert.match(componentSource, /className=\{styles\.teamNames\} data-public-match-team-names="coordinated"/);
+  assert.match(componentSource, /className=\{styles\.versus\}/);
+  assert.match(componentSource, /<b aria-hidden="true">VS<\/b>/);
   assert.match(styleSource, /grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\)/);
-  assert.match(styleSource, /\.row > \.card\s*\{[\s\S]*?--public-match-card-inline-padding:\s*clamp\(3px, 0\.5vw, 8px\)[\s\S]*?min-width:\s*0[\s\S]*?width:\s*auto[\s\S]*?padding-inline:\s*var\(--public-match-card-inline-padding\)/);
-  assert.match(componentSource, /const teamClassName = showScore \? `\$\{styles\.team\} \$\{styles\.teamWithScore\}` : styles\.team/);
-  assert.equal(componentSource.match(/className=\{`\$\{teamClassName\} public-matchday-mini-team`\}/g)?.length, 2);
+  assert.match(styleSource, /\.row > \.card\s*\{[\s\S]*?position:\s*relative;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 2px minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*52px 28px/);
+  assert.equal(componentSource.match(/className=\{`\$\{styles\.team\} public-matchday-mini-team`\}/g)?.length, 2);
   assert.equal(componentSource.match(/className=\{styles\.teamName\}/g)?.length, 2);
-  assert.match(styleSource, /\.row > \.card > \.team\s*\{[\s\S]*?grid-template-columns:\s*max-content minmax\(0, 1fr\)[\s\S]*?align-items:\s*center[\s\S]*?width:\s*auto[\s\S]*?min-width:\s*0[\s\S]*?margin-inline:\s*calc\(-1 \* var\(--public-match-card-inline-padding\)\)[\s\S]*?padding-inline:\s*3px[\s\S]*?column-gap:\s*4px/);
-  assert.match(styleSource, /\.row > \.card > \.teamWithScore\s*\{[\s\S]*?grid-template-columns:\s*max-content minmax\(0, 1fr\) max-content/);
-  assert.match(styleSource, /\.row > \.card > \.team > \.teamName\s*\{[\s\S]*?min-width:\s*0[\s\S]*?overflow:\s*hidden[\s\S]*?text-overflow:\s*ellipsis[\s\S]*?white-space:\s*nowrap/);
-  const noScoreNameGainAtMinPadding = (2 * (3 - 3)) + ((2 * 6) - 4);
-  const noScoreNameGainAtMaxPadding = (2 * (8 - 3)) + ((2 * 6) - 4);
-  const scoreNameGainAtMinPadding = (2 * (3 - 3)) + ((2 * 6) - (2 * 4));
-  const scoreNameGainAtMaxPadding = (2 * (8 - 3)) + ((2 * 6) - (2 * 4));
-  assert.deepEqual(
-    [noScoreNameGainAtMinPadding, noScoreNameGainAtMaxPadding, scoreNameGainAtMinPadding, scoreNameGainAtMaxPadding],
-    [8, 18, 4, 14]
-  );
+  assert.match(styleSource, /\.teamNames\s*\{[\s\S]*?grid-template-columns:\s*minmax\(max-content, 1fr\) minmax\(max-content, 1fr\);[\s\S]*?width:\s*100%;[\s\S]*?column-gap:\s*2px/);
+  const teamNameRule = styleSource.match(/\.teamNames > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(teamNameRule, /font-size:\s*clamp\(11\.5px, 9\.5cqi, 12\.5px\)/);
+  assert.match(teamNameRule, /overflow:\s*visible/);
+  assert.match(teamNameRule, /text-overflow:\s*clip/);
+  assert.match(teamNameRule, /white-space:\s*nowrap/);
+  assert.doesNotMatch(teamNameRule, /ellipsis|line-clamp|overflow:\s*hidden|white-space:\s*normal/);
+  assert.match(styleSource, /\.versus\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*0;[\s\S]*?width:\s*100%/);
+  assert.match(styleSource, /\.versus > b\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*50%;[\s\S]*?transform:\s*translateX\(-50%\)/);
+  assert.doesNotMatch(styleSource, /\.versus\s*\{[^}]*width:\s*2px/);
+  assert.doesNotMatch(styleSource, /\.versus\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*auto/);
   assert.match(componentSource, /<PublicTeamBadge[\s\S]*?variant="compact"/);
-  assert.doesNotMatch(`${componentSource}\n${styleSource}`, /opticalScale|transform:\s*scale|\.team[^}]*height:/);
   assert.doesNotMatch(`${componentSource}\n${styleSource}`, /overflow-x:\s*auto|flex-wrap|grid-template-columns:\s*repeat\(10|min-width:\s*154px/);
-  assert.equal(Array.from({ length: 10 }).length, 10);
 });
 
 test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal de equipa", async () => {
@@ -430,6 +466,22 @@ test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal d
     assert.match(source, /<PublicMatchStrip/);
   }
   assert.doesNotMatch(stripSource, /liga-portugal|la-liga|competitionSlug/);
+});
+
+test("layout aprovado não depende de query parameter e a notícia sem jornada não recebe barra", async () => {
+  const [homeSource, matchdaySource, newsSource, stripSource] = await Promise.all([
+    readFile(homePageUrl, "utf8"),
+    readFile(integrationUrls[2], "utf8"),
+    readFile(integrationUrls[4], "utf8"),
+    readFile(integrationUrls[0], "utf8")
+  ]);
+  for (const source of [homeSource, matchdaySource, newsSource, stripSource]) {
+    assert.doesNotMatch(source, /layoutJogos|layoutVariant|adjusted-preview|adjustedPreview/);
+  }
+  assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\}/);
+  assert.match(matchdaySource, /<PublicMatchStrip[\s\S]*?matches=\{context\.matchesForMatchday\.map/);
+  assert.match(newsSource, /if \(!article\.matchday_id\) \{\s*return null;/);
+  assert.match(newsSource, /articleMatches\.length > 0 \? \([\s\S]*?<PublicMatchStrip/);
 });
 
 test("a Home não recorta a área partilhada nem reduz o logótipo", async () => {
@@ -460,15 +512,18 @@ test("a Home expande apenas Sport TV e centra os restantes canais como as jornad
   assert.match(helperSource, /\["sport tv 1", \{ opticalScale: 1\.14, contrastMode: "light-logo", slotMinWidth: 64 \}\]/);
 });
 
-test("as cinco superfícies públicas reutilizam PublicMatchMeta sem layout local divergente", async () => {
+test("as cinco superfícies públicas reutilizam o contrato partilhado sem layout local divergente", async () => {
   const sources = await Promise.all(integrationUrls.map((url) => readFile(url, "utf8")));
-  for (const source of sources) {
+  for (const source of sources.slice(0, 4)) {
     assert.match(source, /import PublicMatchMeta from "@\/components\/public\/PublicMatchMeta"/);
     assert.match(source, /<PublicMatchMeta/);
     assert.doesNotMatch(source, /compactTvLabel|SportTV/);
     assert.doesNotMatch(source, /Sem transmissão|Sem canal/);
     assert.doesNotMatch(source, /public-matchday-mini-separator|public-games-meta-copy|public-games-meta-channel|public-game-tv/);
   }
+  assert.match(sources[4], /import PublicMatchStrip from "@\/components\/public\/PublicMatchStrip"/);
+  assert.match(sources[4], /<PublicMatchStrip/);
+  assert.doesNotMatch(sources[4], /ArticleMatchCard|news-article-game-card|import PublicMatchMeta/);
 });
 
 test("não permanece imagem de canal com alt vazio nem texto redundante no PublicGamesPage", async () => {

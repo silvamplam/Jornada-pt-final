@@ -95,6 +95,31 @@
   transform: none;
 }
 
+.matchMeta.normalizedMatchMeta {
+  width: 64px;
+  max-width: 64px;
+  height: 18px;
+  min-height: 18px;
+  transform: scale(var(--broadcast-channel-match-meta-scale, 1));
+  transform-origin: center;
+}
+
+.matchMeta.normalizedMatchMeta img,
+.matchMeta.normalizedMatchMeta .alphaViewport {
+  width: 61.56px;
+  max-width: 61.56px;
+  height: 18px;
+  max-height: 18px;
+  object-fit: contain;
+}
+
+.matchMeta.canal11 img,
+.matchMeta.canal11 .alphaViewport {
+  filter:
+    drop-shadow(0 0 0.7px rgba(15, 23, 42, 0.62))
+    drop-shadow(0 0.75px 0.85px rgba(15, 23, 42, 0.36));
+}
+
 .fallback {
   overflow: hidden;
   font-weight: 800;

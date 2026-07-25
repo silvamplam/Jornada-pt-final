@@ -38,6 +38,22 @@ const DEFAULT_VISUAL_CONFIG: BroadcastChannelLogoVisualConfig = {
   slotMinWidth: 46
 };
 
+const MATCH_META_DEFAULT_SCALE = 0.72;
+const MATCH_META_CHANNEL_SCALE = new Map<string, number>([
+  ["rtp1", 0.68],
+  ["tvi", 0.693],
+  ["btv", 0.68],
+  ["dazn 1", 0.7],
+  ["dazn 2", 0.7],
+  ["dazn 3", 0.7],
+  ["canal 11", 0.756]
+]);
+
+const CANONICAL_CHANNEL_LOGO_URL = new Map<string, string>([
+  ["dazn 2", "https://commons.wikimedia.org/wiki/Special:Redirect/file/DAZN_2_2024.svg"],
+  ["dazn 3", "https://commons.wikimedia.org/wiki/Special:Redirect/file/DAZN_3_2024.svg"]
+]);
+
 const CHANNEL_VISUAL_CONFIG = new Map<string, BroadcastChannelLogoVisualConfig>([
   ["rtp1", {
     opticalScale: 0.72,
@@ -83,6 +99,20 @@ export function isSportTvBroadcastChannel(name: string | null | undefined): bool
   return /^sport tv(?: [1-7]|\+)$/.test(channelKey);
 }
 
+export function getPublicBroadcastMatchMetaScale(name: string | null | undefined): number {
+  if (isSportTvBroadcastChannel(name)) return 1;
+  const channelKey = name?.trim().toLocaleLowerCase("pt-PT") ?? "";
+  return MATCH_META_CHANNEL_SCALE.get(channelKey) ?? MATCH_META_DEFAULT_SCALE;
+}
+
+export function getPublicBroadcastLogoUrl(
+  name: string | null | undefined,
+  logoUrl: string | null | undefined
+): string | null | undefined {
+  const channelKey = name?.trim().toLocaleLowerCase("pt-PT") ?? "";
+  return CANONICAL_CHANNEL_LOGO_URL.get(channelKey) ?? logoUrl;
+}
+
 function resolveBroadcastChannelLogoVisualConfig(
   name: string
 ): BroadcastChannelLogoVisualConfig & { slotMinWidth: number } {
@@ -100,7 +130,7 @@ export function resolveBroadcastChannelLogoPresentation(
   const exactName = name?.trim();
   if (!exactName) return { kind: "hidden" };
 
-  const candidateUrl = logoUrl?.trim();
+  const candidateUrl = getPublicBroadcastLogoUrl(exactName, logoUrl)?.trim();
   if (!candidateUrl) return { kind: "fallback", name: exactName };
 
   try {
