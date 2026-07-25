@@ -492,6 +492,10 @@ test("mapeia o contrato de persistência e acrescenta proveniência offline", as
           sourceMetadata: {
             zeta: true,
             parser: "fixture-article-v2",
+            loadedAt: EXTRACTED_AT,
+            nested: {
+              loadedAt: "valor-aninhado-preservado",
+            },
           },
         }),
       };
@@ -540,6 +544,13 @@ test("mapeia o contrato de persistência e acrescenta proveniência offline", as
     persisted.snapshot.sourceMetadata.normalizedUrl,
     ARTICLE_URL,
   );
+  assert.equal(
+    Object.hasOwn(persisted.snapshot.sourceMetadata, "loadedAt"),
+    false,
+  );
+  assert.deepEqual(persisted.snapshot.sourceMetadata.nested, {
+    loadedAt: "valor-aninhado-preservado",
+  });
   assert.equal(
     JSON.stringify(persisted.snapshot.sourceMetadata).includes("<html"),
     false,
@@ -711,42 +722,78 @@ test("integra offline as fixtures sintéticas de Record e A Bola", async () => {
       sourceCode: "record",
       originalUrl: RECORD_URL,
       fixture: "record/article-valid-minimal.html",
+      parser: "record-article-v1",
     },
     {
       sourceCode: "abola",
       originalUrl: ABOLA_URL,
       fixture: "abola/article-valid-minimal.html",
+      parser: "abola-article-v1",
     },
   ] as const;
 
   for (const fixtureCase of cases) {
-    const result = await ingest({
-      sourceCode: fixtureCase.sourceCode,
-      originalUrl: fixtureCase.originalUrl,
-      html: await readFixture(fixtureCase.fixture),
-      detectedAt: DETECTED_AT,
-      extractedAt: EXTRACTED_AT,
-    });
+    const html = await readFixture(fixtureCase.fixture);
+    const firstInputIndex = persistenceInputs.length;
+    const results = [];
 
-    if (!result.ok) {
-      throw new Error(
-        `A fixture ${fixtureCase.fixture} falhou com ${result.error.code}.`,
-      );
+    for (const extractedAt of [
+      EXTRACTED_AT,
+      "2026-07-25T11:01:00.000Z",
+    ]) {
+      const result = await ingest({
+        sourceCode: fixtureCase.sourceCode,
+        originalUrl: fixtureCase.originalUrl,
+        html,
+        detectedAt: DETECTED_AT,
+        extractedAt,
+      });
+
+      if (!result.ok) {
+        throw new Error(
+          `A fixture ${fixtureCase.fixture} falhou com ${result.error.code}.`,
+        );
+      }
+      results.push(result.value);
     }
-    assert.equal(result.ok, true);
-    assert.equal(result.value.sourceCode, fixtureCase.sourceCode);
-    assert.match(result.value.contentHash, /^[0-9a-f]{64}$/);
+
+    const firstInput = persistenceInputs[firstInputIndex];
+    const secondInput = persistenceInputs[firstInputIndex + 1];
+    assert.ok(firstInput);
+    assert.ok(secondInput);
+    assert.equal(results.length, 2);
+    assert.equal(results[0]?.sourceCode, fixtureCase.sourceCode);
+    assert.match(results[0]?.contentHash ?? "", /^[0-9a-f]{64}$/);
+    assert.equal(results[0]?.contentHash, results[1]?.contentHash);
+    assert.deepEqual(
+      firstInput.snapshot.sourceMetadata,
+      secondInput.snapshot.sourceMetadata,
+    );
+    assert.equal(
+      Object.hasOwn(firstInput.snapshot.sourceMetadata, "loadedAt"),
+      false,
+    );
+    assert.equal(firstInput.snapshot.extractedAt, EXTRACTED_AT);
+    assert.equal(
+      secondInput.snapshot.extractedAt,
+      "2026-07-25T11:01:00.000Z",
+    );
+
+    const metadata = firstInput.snapshot.sourceMetadata;
+    assert.equal(metadata.ingestionMode, "offline_local_html");
+    assert.equal(metadata.networkRequest, false);
+    assert.equal(metadata.sourceCode, fixtureCase.sourceCode);
+    assert.equal(metadata.adapterKey, fixtureCase.sourceCode);
+    assert.equal(metadata.originalUrl, fixtureCase.originalUrl);
+    assert.equal(metadata.normalizedUrl, fixtureCase.originalUrl);
+    assert.equal(metadata.parser, fixtureCase.parser);
+    assert.equal(metadata.statusCode, 200);
+    assert.equal(metadata.redirectCount, 0);
+    assert.equal(metadata.byteLength, Buffer.byteLength(html, "utf8"));
+    assert.equal(JSON.stringify(metadata).includes("<html"), false);
   }
 
-  assert.equal(persistenceInputs.length, 2);
-  for (const input of persistenceInputs) {
-    assert.equal(
-      input.snapshot.sourceMetadata.ingestionMode,
-      "offline_local_html",
-    );
-    assert.equal(input.snapshot.sourceMetadata.networkRequest, false);
-    assert.equal(input.snapshot.extractedAt, EXTRACTED_AT);
-  }
+  assert.equal(persistenceInputs.length, cases.length * 2);
 });
 
 test("O Jogo permanece bloqueado e Maisfutebol não se torna operacional", async () => {

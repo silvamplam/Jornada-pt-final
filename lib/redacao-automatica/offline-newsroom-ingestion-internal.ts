@@ -370,8 +370,14 @@ function normalizeArticle(
     return null;
   }
 
+  const {
+    loadedAt: ignoredLoadedAt,
+    ...stableAdapterSourceMetadata
+  } = value.sourceMetadata;
+  void ignoredLoadedAt;
+
   const sourceMetadata: JsonObject = {
-    ...value.sourceMetadata,
+    ...stableAdapterSourceMetadata,
     ingestionMode: "offline_local_html",
     networkRequest: false,
     sourceCode: source.code,
