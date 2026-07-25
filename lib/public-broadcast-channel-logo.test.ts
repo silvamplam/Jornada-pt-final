@@ -454,11 +454,18 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   assert.match(componentSource, /channelName=\{broadcastChannelName\}/);
   assert.match(matchMetaSource, /const channel = hasChannel \? \([\s\S]*?\) : null/);
 
-  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 18px minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*43px 34px/);
+  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 16px minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*43px 30px;[\s\S]*?row-gap:\s*7px/);
   assert.match(stripStyles, /\.row > \.adjustedCard > \.team\s*\{[\s\S]*?grid-template-rows:\s*28px 12px;[\s\S]*?height:\s*43px/);
-  assert.match(stripStyles, /\.adjustedStatus > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-template-rows:\s*12px 18px;[\s\S]*?height:\s*34px/);
+  assert.match(stripStyles, /data-public-team-badge\]\)\s*\{[\s\S]*?width:\s*28px;[\s\S]*?height:\s*28px/);
+  assert.match(stripStyles, /data-public-team-badge\]\) > img\s*\{[\s\S]*?width:\s*26px;[\s\S]*?height:\s*26px;[\s\S]*?object-fit:\s*contain;[\s\S]*?transform:\s*none/);
+  assert.match(stripStyles, /\.team > \.teamName\s*\{[\s\S]*?font-size:\s*clamp\(10\.5px, 0\.72vw, 11px\);[\s\S]*?line-height:\s*12px/);
+  assert.match(stripStyles, /\.adjustedStatus > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-template-rows:\s*10px 18px;[\s\S]*?height:\s*30px;[\s\S]*?row-gap:\s*2px/);
+  assert.match(stripStyles, /data-public-match-meta\]\) > span:first-child\s*\{[\s\S]*?font-size:\s*8\.5px;[\s\S]*?line-height:\s*10px/);
   assert.match(stripStyles, /data-public-match-channel-family="sport-tv"[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*64px/);
+  assert.match(stripStyles, /data-public-match-meta\]:not\(\[data-public-match-channel-family="sport-tv"\]\)[\s\S]*?width:\s*64px;[\s\S]*?height:\s*18px/);
+  assert.match(stripStyles, /data-public-match-meta\]:not\(\[data-public-match-channel-family="sport-tv"\]\)[\s\S]*?width:\s*61\.56px;[\s\S]*?height:\s*18px;[\s\S]*?object-fit:\s*contain/);
   assert.match(broadcastStyles, /\.matchMeta img\s*\{[\s\S]*?object-fit:\s*contain/);
+  assert.equal(43 + 7 + 30, 28 + 28 + 18 + 3 + 3);
 
   const adjustedCardBlock = stripStyles.match(/\.row > \.adjustedCard\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(adjustedCardBlock, /(?:^|[\s;])(?:width|min-width|max-width|height|min-height|max-height|padding|margin|border|border-radius)\s*:/);

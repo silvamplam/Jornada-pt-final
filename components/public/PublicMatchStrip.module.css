@@ -44,9 +44,10 @@
 }
 
 .row > .adjustedCard {
-  grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr);
-  grid-template-rows: 43px 34px;
+  grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
+  grid-template-rows: 43px 30px;
   column-gap: 2px;
+  row-gap: 7px;
 }
 
 .row > .adjustedCard > .team {
@@ -74,14 +75,26 @@
 
 .row > .adjustedCard > .team > :global([data-public-team-badge]) {
   grid-row: 1;
+  width: 28px;
+  height: 28px;
+}
+
+.row > .adjustedCard > .team > :global([data-public-team-badge]) > img {
+  width: 26px;
+  max-width: 26px;
+  height: 26px;
+  max-height: 26px;
+  object-fit: contain;
+  transform: none;
 }
 
 .row > .adjustedCard > .team > .teamName {
   grid-row: 2;
   justify-self: stretch;
   max-width: 100%;
-  font-size: 10px;
+  font-size: clamp(10.5px, 0.72vw, 11px);
   line-height: 12px;
+  letter-spacing: -0.15px;
   text-align: center;
 }
 
@@ -130,12 +143,12 @@
 .row > .adjustedCard > .adjustedStatus > :global([data-public-match-meta]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 12px 18px;
+  grid-template-rows: 10px 18px;
   align-items: center;
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  height: 34px;
+  height: 30px;
   margin-inline: 0;
   padding-inline: 0;
   row-gap: 2px;
@@ -148,8 +161,8 @@
   max-width: 100%;
   min-width: 0;
   overflow: visible;
-  font-size: 9.5px;
-  line-height: 12px;
+  font-size: 8.5px;
+  line-height: 10px;
   text-align: center;
 }
 
@@ -169,6 +182,22 @@
 .row > .adjustedCard > .adjustedStatus > :global([data-public-match-channel-family="sport-tv"]) > span:last-child {
   width: 100%;
   min-width: 64px;
+}
+
+.row > .adjustedCard > .adjustedStatus > :global([data-public-match-meta]:not([data-public-match-channel-family="sport-tv"])) > span:last-child > span {
+  width: 64px;
+  max-width: 64px;
+  height: 18px;
+  max-height: 18px;
+}
+
+.row > .adjustedCard > .adjustedStatus > :global([data-public-match-meta]:not([data-public-match-channel-family="sport-tv"])) > span:last-child > span > img,
+.row > .adjustedCard > .adjustedStatus > :global([data-public-match-meta]:not([data-public-match-channel-family="sport-tv"])) > span:last-child > span > svg {
+  width: 61.56px;
+  max-width: 61.56px;
+  height: 18px;
+  max-height: 18px;
+  object-fit: contain;
 }
 
 @media (max-width: 760px) {
