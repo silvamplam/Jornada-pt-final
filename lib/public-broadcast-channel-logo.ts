@@ -38,6 +38,17 @@ const DEFAULT_VISUAL_CONFIG: BroadcastChannelLogoVisualConfig = {
   slotMinWidth: 46
 };
 
+const ADJUSTED_PREVIEW_DEFAULT_SCALE = 0.86;
+const ADJUSTED_PREVIEW_CHANNEL_SCALE = new Map<string, number>([
+  ["rtp1", 0.82],
+  ["tvi", 0.82],
+  ["btv", 0.84],
+  ["dazn 1", 0.84],
+  ["dazn 2", 0.84],
+  ["dazn 3", 0.84],
+  ["canal 11", 0.86]
+]);
+
 const CHANNEL_VISUAL_CONFIG = new Map<string, BroadcastChannelLogoVisualConfig>([
   ["rtp1", {
     opticalScale: 0.72,
@@ -81,6 +92,12 @@ const CHANNEL_VISUAL_CONFIG = new Map<string, BroadcastChannelLogoVisualConfig>(
 export function isSportTvBroadcastChannel(name: string | null | undefined): boolean {
   const channelKey = name?.trim().toLocaleLowerCase("pt-PT") ?? "";
   return /^sport tv(?: [1-7]|\+)$/.test(channelKey);
+}
+
+export function getAdjustedPreviewBroadcastScale(name: string | null | undefined): number {
+  if (isSportTvBroadcastChannel(name)) return 1;
+  const channelKey = name?.trim().toLocaleLowerCase("pt-PT") ?? "";
+  return ADJUSTED_PREVIEW_CHANNEL_SCALE.get(channelKey) ?? ADJUSTED_PREVIEW_DEFAULT_SCALE;
 }
 
 function resolveBroadcastChannelLogoVisualConfig(

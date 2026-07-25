@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  getAdjustedPreviewBroadcastScale,
   isSportTvBroadcastChannel,
   resolveBroadcastChannelLogoPresentation
 } from "./public-broadcast-channel-logo";
@@ -160,6 +161,15 @@ test("nomes dos subcanais permanecem exatos e Sport TV 7 usa fallback sem logo",
     kind: "fallback",
     name: "Sport TV 7"
   });
+});
+
+test("preview ajustado usa Sport TV como referencia e reduz os restantes canais de forma centralizada", () => {
+  assert.equal(getAdjustedPreviewBroadcastScale("Sport TV 1"), 1);
+  assert.equal(getAdjustedPreviewBroadcastScale("Sport TV+"), 1);
+  assert.equal(getAdjustedPreviewBroadcastScale("RTP1"), 0.82);
+  assert.equal(getAdjustedPreviewBroadcastScale("TVI"), 0.82);
+  assert.equal(getAdjustedPreviewBroadcastScale("BTV"), 0.84);
+  assert.equal(getAdjustedPreviewBroadcastScale("Canal desconhecido"), 0.86);
 });
 
 test("o componente cliente troca erro de imagem por fallback e usa uma única identificação semântica", async () => {
@@ -451,26 +461,50 @@ test("preview ajustado reorganiza apenas o interior e preserva nomes, dados e fa
   assert.equal(componentSource.match(/getPublicTeamName\([\s\S]*?, "compact"\)/g)?.length, 2);
   assert.match(componentSource, /adjusted \? \(\s*scheduleMeta\s*\) : kind === "finished"/);
   assert.match(componentSource, /channelLogoUrl=\{match\.broadcastChannel\?\.logo_url\}/);
+  assert.match(componentSource, /channelLogoNormalization=\{adjusted \? "adjusted-preview" : undefined\}/);
   assert.match(componentSource, /channelName=\{broadcastChannelName\}/);
   assert.match(matchMetaSource, /const channel = hasChannel \? \([\s\S]*?\) : null/);
+  assert.match(matchMetaSource, /visualNormalization=\{channelLogoNormalization\}/);
 
-  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 16px minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*43px 30px;[\s\S]*?row-gap:\s*7px/);
-  assert.match(stripStyles, /\.row > \.adjustedCard > \.team\s*\{[\s\S]*?grid-template-rows:\s*28px 12px;[\s\S]*?height:\s*43px/);
-  assert.match(stripStyles, /data-public-team-badge\]\)\s*\{[\s\S]*?width:\s*28px;[\s\S]*?height:\s*28px/);
-  assert.match(stripStyles, /data-public-team-badge\]\) > img\s*\{[\s\S]*?width:\s*26px;[\s\S]*?height:\s*26px;[\s\S]*?object-fit:\s*contain;[\s\S]*?transform:\s*none/);
-  assert.match(stripStyles, /\.team > \.teamName\s*\{[\s\S]*?font-size:\s*clamp\(10\.5px, 0\.72vw, 11px\);[\s\S]*?line-height:\s*12px/);
-  assert.match(stripStyles, /\.adjustedStatus > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-template-rows:\s*10px 18px;[\s\S]*?height:\s*30px;[\s\S]*?row-gap:\s*2px/);
-  assert.match(stripStyles, /data-public-match-meta\]\) > span:first-child\s*\{[\s\S]*?font-size:\s*8\.5px;[\s\S]*?line-height:\s*10px/);
-  assert.match(stripStyles, /data-public-match-channel-family="sport-tv"[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*64px/);
-  assert.match(stripStyles, /data-public-match-meta\]:not\(\[data-public-match-channel-family="sport-tv"\]\)[\s\S]*?width:\s*64px;[\s\S]*?height:\s*18px/);
-  assert.match(stripStyles, /data-public-match-meta\]:not\(\[data-public-match-channel-family="sport-tv"\]\)[\s\S]*?width:\s*61\.56px;[\s\S]*?height:\s*18px;[\s\S]*?object-fit:\s*contain/);
+  assert.match(stripStyles, /\.row > \.adjustedCard\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 42fr\) minmax\(0, 16fr\) minmax\(0, 42fr\);[\s\S]*?grid-template-rows:\s*52px 28px;[\s\S]*?column-gap:\s*0;[\s\S]*?row-gap:\s*0/);
+  assert.match(stripStyles, /\.row > \.adjustedCard > \.team\s*\{[\s\S]*?grid-template-rows:\s*24px 1px 20px 7px;[\s\S]*?height:\s*52px/);
+  assert.match(stripStyles, /\.team:first-of-type\s*\{[\s\S]*?grid-column:\s*1;[\s\S]*?transform:\s*translateX\(4\.75%\)/);
+  assert.match(stripStyles, /\.team:nth-of-type\(2\)\s*\{[\s\S]*?grid-column:\s*3;[\s\S]*?transform:\s*translateX\(-4\.75%\)/);
+  assert.match(stripStyles, /data-logo-shape="tall"[\s\S]*?--adjusted-team-badge-width:\s*22px;[\s\S]*?--adjusted-team-badge-height:\s*24px/);
+  assert.match(stripStyles, /data-logo-shape="wide"[\s\S]*?--adjusted-team-badge-width:\s*28px;[\s\S]*?--adjusted-team-badge-height:\s*22px/);
+  assert.match(stripStyles, /\.adjustedStatus > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-template-rows:\s*8px 18px;[\s\S]*?height:\s*28px;[\s\S]*?row-gap:\s*2px/);
+  assert.match(stripStyles, /\.adjustedStatus\s*\{[\s\S]*?height:\s*28px;[\s\S]*?overflow:\s*visible;[\s\S]*?transform:\s*translateY\(4px\)/);
+  assert.match(stripStyles, /data-public-match-meta\]\) > span:first-child\s*\{[\s\S]*?font-size:\s*8px;[\s\S]*?line-height:\s*8px/);
+  assert.match(broadcastStyles, /\.matchMeta\.adjustedPreview\s*\{[\s\S]*?width:\s*64px;[\s\S]*?height:\s*18px;[\s\S]*?transform:\s*scale\(var\(--broadcast-channel-adjusted-preview-scale, 1\)\)/);
+  assert.match(broadcastStyles, /\.matchMeta\.adjustedPreview img,[\s\S]*?width:\s*61\.56px;[\s\S]*?height:\s*18px;[\s\S]*?object-fit:\s*contain/);
   assert.match(broadcastStyles, /\.matchMeta img\s*\{[\s\S]*?object-fit:\s*contain/);
-  assert.equal(43 + 7 + 30, 28 + 28 + 18 + 3 + 3);
+  assert.equal(52 + 28, 28 + 28 + 18 + 3 + 3);
 
   const adjustedCardBlock = stripStyles.match(/\.row > \.adjustedCard\s*\{([^}]*)\}/)?.[1] ?? "";
+  const adjustedNameBlock = stripStyles.match(/\.row > \.adjustedCard > \.team > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
   assert.doesNotMatch(adjustedCardBlock, /(?:^|[\s;])(?:width|min-width|max-width|height|min-height|max-height|padding|margin|border|border-radius)\s*:/);
+  assert.match(adjustedNameBlock, /overflow:\s*visible/);
+  assert.match(adjustedNameBlock, /text-overflow:\s*clip/);
+  assert.match(adjustedNameBlock, /white-space:\s*normal/);
+  assert.match(adjustedNameBlock, /word-break:\s*normal/);
+  assert.match(adjustedNameBlock, /hyphens:\s*none/);
+  assert.doesNotMatch(adjustedNameBlock, /ellipsis|line-clamp|overflow:\s*hidden/);
   assert.doesNotMatch(componentSource, /slice\(|substring\(|substr\(/);
   assert.doesNotMatch(componentSource, /competitionSlug|liga-portugal|la-liga/);
+
+  const referenceCardHeight = 96;
+  const badgeTop = 7;
+  const badgeBottom = badgeTop + 24;
+  const namesTop = badgeBottom + 1;
+  const namesBottom = namesTop + 20;
+  const dateTop = 7 + 52 + 4;
+  const dateBottom = dateTop + 8;
+  const channelTop = dateBottom + 2;
+  const channelBottom = channelTop + 18;
+  assert.deepEqual(
+    [badgeTop, badgeBottom, namesTop, namesBottom, dateTop, dateBottom, channelTop, channelBottom, referenceCardHeight - channelBottom],
+    [7, 31, 32, 52, 63, 71, 73, 91, 5]
+  );
 });
 
 test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal de equipa", async () => {

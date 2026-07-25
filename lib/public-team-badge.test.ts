@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { resolvePublicTeamBadgePresentation } from "./public-team-badge";
+import {
+  classifyPublicTeamBadgeShape,
+  resolvePublicTeamBadgePresentation
+} from "./public-team-badge";
 
 const componentUrl = new URL("../components/public/PublicTeamBadge.tsx", import.meta.url);
 const stylesUrl = new URL("../components/public/PublicTeamBadge.module.css", import.meta.url);
@@ -17,6 +20,14 @@ const integrations = [
   new URL("../app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/jogos/page.tsx", import.meta.url),
   new URL("../app/noticias/[slug]/page.tsx", import.meta.url)
 ];
+
+test("normalizacao perceptiva classifica emblemas por proporcao sem conhecer clubes", () => {
+  assert.equal(classifyPublicTeamBadgeShape(40, 80), "tall");
+  assert.equal(classifyPublicTeamBadgeShape(80, 80), "balanced");
+  assert.equal(classifyPublicTeamBadgeShape(120, 80), "wide");
+  assert.equal(classifyPublicTeamBadgeShape(0, 80), "balanced");
+  assert.equal(classifyPublicTeamBadgeShape(Number.NaN, 80), "balanced");
+});
 
 test("URLs HTTPS usam imagem e URLs ausentes ou inseguras usam fallback", () => {
   assert.deepEqual(
@@ -91,6 +102,9 @@ test("o componente cliente mantem alt text e troca uma imagem falhada pelo fallb
   assert.match(source, /alt=\{exactAlt\}/);
   assert.match(source, /title=\{exactAlt\}/);
   assert.match(source, /onError=\{\(\) => setFailedUrl\(presentation\.logoUrl\)\}/);
+  assert.match(source, /visualNormalization\?: "perceptual"/);
+  assert.match(source, /data-logo-shape=\{visualNormalization === "perceptual" \? logoShape : undefined\}/);
+  assert.match(source, /classifyPublicTeamBadgeShape\(event\.currentTarget\.naturalWidth, event\.currentTarget\.naturalHeight\)/);
   assert.match(source, /presentation\.logoUrl !== failedUrl/);
   assert.match(source, /<span className=\{styles\.fallback\} title=\{exactAlt\}>\{fallbackLabel\}<\/span>/);
   assert.match(source, /--public-team-badge-optical-scale/);

@@ -2,8 +2,10 @@
 
 import { useEffect, useState, type CSSProperties } from "react";
 import {
+  classifyPublicTeamBadgeShape,
   resolvePublicTeamBadgePresentation,
-  type PublicTeamBadgeContrastMode
+  type PublicTeamBadgeContrastMode,
+  type PublicTeamBadgeShape
 } from "@/lib/public-team-badge";
 import styles from "./PublicTeamBadge.module.css";
 
@@ -15,6 +17,7 @@ type PublicTeamBadgeProps = {
   altLabel?: string | null;
   slug?: string | null;
   variant?: PublicTeamBadgeVariant;
+  visualNormalization?: "perceptual";
 };
 
 function contrastClassName(mode: PublicTeamBadgeContrastMode) {
@@ -26,9 +29,11 @@ export default function PublicTeamBadge({
   fallbackLabel,
   altLabel,
   slug,
-  variant = "default"
+  variant = "default",
+  visualNormalization
 }: PublicTeamBadgeProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [logoShape, setLogoShape] = useState<PublicTeamBadgeShape>("balanced");
   const presentation = resolvePublicTeamBadgePresentation(logoUrl, slug);
   const exactAlt = altLabel?.trim() || fallbackLabel.trim();
   const showImage = presentation.kind === "image" && presentation.logoUrl !== failedUrl;
@@ -36,10 +41,17 @@ export default function PublicTeamBadge({
 
   useEffect(() => {
     setFailedUrl(null);
-  }, [logoUrl]);
+    setLogoShape("balanced");
+  }, [logoUrl, visualNormalization]);
 
   return (
-    <span className={rootClassName} data-public-team-badge="true" data-logo-url={logoUrl ?? ""} data-team-slug={slug ?? ""}>
+    <span
+      className={rootClassName}
+      data-logo-shape={visualNormalization === "perceptual" ? logoShape : undefined}
+      data-logo-url={logoUrl ?? ""}
+      data-public-team-badge="true"
+      data-team-slug={slug ?? ""}
+    >
       {showImage ? (
         <img
           alt={exactAlt}
@@ -48,6 +60,10 @@ export default function PublicTeamBadge({
           src={presentation.logoUrl}
           style={{ "--public-team-badge-optical-scale": presentation.opticalScale } as CSSProperties}
           onError={() => setFailedUrl(presentation.logoUrl)}
+          onLoad={(event) => {
+            if (visualNormalization !== "perceptual") return;
+            setLogoShape(classifyPublicTeamBadgeShape(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight));
+          }}
         />
       ) : (
         <span className={styles.fallback} title={exactAlt}>{fallbackLabel}</span>

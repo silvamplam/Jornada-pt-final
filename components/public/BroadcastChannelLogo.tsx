@@ -3,29 +3,39 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 
-import { resolveBroadcastChannelLogoPresentation } from "@/lib/public-broadcast-channel-logo";
+import {
+  getAdjustedPreviewBroadcastScale,
+  resolveBroadcastChannelLogoPresentation
+} from "@/lib/public-broadcast-channel-logo";
 import styles from "./BroadcastChannelLogo.module.css";
+
+export type BroadcastChannelLogoNormalization = "adjusted-preview";
 
 type BroadcastChannelLogoProps = {
   name?: string | null;
   logoUrl?: string | null;
   variant: "compact" | "default" | "matchMeta";
+  visualNormalization?: BroadcastChannelLogoNormalization;
 };
 
 export default function BroadcastChannelLogo({
   name,
   logoUrl,
-  variant
+  variant,
+  visualNormalization
 }: BroadcastChannelLogoProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const presentation = resolveBroadcastChannelLogoPresentation(name, logoUrl);
 
   if (presentation.kind === "hidden") return null;
 
-  const className = `${styles.root} ${styles[variant]}`;
+  const className = `${styles.root} ${styles[variant]}${visualNormalization === "adjusted-preview" ? ` ${styles.adjustedPreview}` : ""}`;
+  const adjustedPreviewStyle = visualNormalization === "adjusted-preview"
+    ? { "--broadcast-channel-adjusted-preview-scale": getAdjustedPreviewBroadcastScale(presentation.name) } as CSSProperties
+    : undefined;
   if (presentation.kind === "fallback" || presentation.logoUrl === failedUrl) {
     return (
-      <span className={`${className} ${styles.fallback}`} title={presentation.name}>
+      <span className={`${className} ${styles.fallback}`} style={adjustedPreviewStyle} title={presentation.name}>
         {presentation.name}
       </span>
     );
@@ -40,7 +50,8 @@ export default function BroadcastChannelLogo({
     "--broadcast-channel-optical-scale": presentation.opticalScale,
     "--broadcast-channel-match-meta-width": `${renderedWidth.toFixed(2)}px`,
     "--broadcast-channel-match-meta-height": `${renderedHeight.toFixed(2)}px`,
-    "--broadcast-channel-match-meta-slot-width": `${slotWidth.toFixed(2)}px`
+    "--broadcast-channel-match-meta-slot-width": `${slotWidth.toFixed(2)}px`,
+    ...adjustedPreviewStyle
   } as CSSProperties;
 
   return (

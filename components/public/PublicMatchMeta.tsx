@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 
-import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
+import BroadcastChannelLogo, {
+  type BroadcastChannelLogoNormalization
+} from "@/components/public/BroadcastChannelLogo";
 import { isSportTvBroadcastChannel } from "@/lib/public-broadcast-channel-logo";
 import styles from "./PublicMatchMeta.module.css";
 
@@ -9,13 +11,15 @@ type PublicMatchMetaProps = {
   channelName?: string | null;
   channelLogoUrl?: string | null;
   variant?: "default" | "compact";
+  channelLogoNormalization?: BroadcastChannelLogoNormalization;
 };
 
 export default function PublicMatchMeta({
   dateTime,
   channelName,
   channelLogoUrl,
-  variant = "default"
+  variant = "default",
+  channelLogoNormalization
 }: PublicMatchMetaProps) {
   const hasChannel = Boolean(channelName?.trim());
   const isSportTvChannel = isSportTvBroadcastChannel(channelName);
@@ -25,6 +29,7 @@ export default function PublicMatchMeta({
         logoUrl={channelLogoUrl}
         name={channelName}
         variant="matchMeta"
+        visualNormalization={channelLogoNormalization}
       />
     </span>
   ) : null;

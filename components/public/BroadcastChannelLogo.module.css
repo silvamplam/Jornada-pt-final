@@ -95,6 +95,24 @@
   transform: none;
 }
 
+.matchMeta.adjustedPreview {
+  width: 64px;
+  max-width: 64px;
+  height: 18px;
+  min-height: 18px;
+  transform: scale(var(--broadcast-channel-adjusted-preview-scale, 1));
+  transform-origin: center;
+}
+
+.matchMeta.adjustedPreview img,
+.matchMeta.adjustedPreview .alphaViewport {
+  width: 61.56px;
+  max-width: 61.56px;
+  height: 18px;
+  max-height: 18px;
+  object-fit: contain;
+}
+
 .fallback {
   overflow: hidden;
   font-weight: 800;

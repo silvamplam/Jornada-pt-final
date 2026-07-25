@@ -156,7 +156,13 @@ function statusKind(status?: string | null) {
   return "scheduled";
 }
 
-function TeamBadge({ team }: { team?: PublicMatchStripTeam | null }) {
+function TeamBadge({
+  team,
+  normalizeVisualWeight = false
+}: {
+  team?: PublicMatchStripTeam | null;
+  normalizeVisualWeight?: boolean;
+}) {
   const label = getPublicTeamName(
     { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
     "badge"
@@ -172,6 +178,7 @@ function TeamBadge({ team }: { team?: PublicMatchStripTeam | null }) {
       logoUrl={team?.logo_url}
       slug={team?.slug}
       variant="compact"
+      visualNormalization={normalizeVisualWeight ? "perceptual" : undefined}
     />
   );
 }
@@ -226,6 +233,7 @@ function CompactMatchCard({
   const scheduleMeta = (
     <PublicMatchMeta
       channelLogoUrl={match.broadcastChannel?.logo_url}
+      channelLogoNormalization={adjusted ? "adjusted-preview" : undefined}
       channelName={broadcastChannelName}
       dateTime={schedule.dateTime ? (
         <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
@@ -245,14 +253,14 @@ function CompactMatchCard({
       data-live-focus={focus ? "true" : undefined}
     >
       <span className={`${teamClassName} public-matchday-mini-team`}>
-        <TeamBadge team={match.homeTeam} />
+        <TeamBadge normalizeVisualWeight={adjusted} team={match.homeTeam} />
         <span className={styles.teamName} title={getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "full")}>
           {getPublicTeamName({ name: match.homeTeam?.name, publicName: match.homeTeam?.public_name, shortName: match.homeTeam?.short_name, code: match.homeTeam?.code }, "compact")}
         </span>
         {showScore ? <b aria-hidden={adjusted ? "true" : undefined} className="public-matchday-mini-score">{match.home_score}</b> : null}
       </span>
       <span className={`${teamClassName} public-matchday-mini-team`}>
-        <TeamBadge team={match.awayTeam} />
+        <TeamBadge normalizeVisualWeight={adjusted} team={match.awayTeam} />
         <span className={styles.teamName} title={getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "full")}>
           {getPublicTeamName({ name: match.awayTeam?.name, publicName: match.awayTeam?.public_name, shortName: match.awayTeam?.short_name, code: match.awayTeam?.code }, "compact")}
         </span>
