@@ -1,38 +1,73 @@
+import type { PageLoadPurpose } from "@/lib/redacao-automatica/page-loader";
+
 export type HttpPageLoaderPolicy = Readonly<{
   sourceCode: string;
   allowedHostnames: readonly string[];
   allowedProtocols: readonly string[];
+  allowedPurposes: readonly PageLoadPurpose[];
   timeoutMs: number;
   maxBytes: number;
   maxRedirects: number;
   allowedContentTypes: readonly string[];
+  acceptedStatusCodes: readonly number[];
+  userAgent: string;
+  acceptLanguage: string;
 }>;
 
-const COMMON_ALLOWED_PROTOCOLS = Object.freeze(["https:"]);
-const COMMON_ALLOWED_CONTENT_TYPES = Object.freeze(["text/html"]);
-const COMMON_TIMEOUT_MS = 10_000;
-const COMMON_MAX_BYTES = 5 * 1024 * 1024;
-const COMMON_MAX_REDIRECTS = 3;
-const FORBIDDEN_HTTP_SOURCE_CODES = Object.freeze(["maisfutebol", "ojogo"]);
-
-function createPolicy(
-  sourceCode: string,
-  allowedHostnames: readonly string[],
-): HttpPageLoaderPolicy {
-  return Object.freeze({
-    sourceCode,
-    allowedHostnames: Object.freeze([...allowedHostnames]),
-    allowedProtocols: COMMON_ALLOWED_PROTOCOLS,
-    timeoutMs: COMMON_TIMEOUT_MS,
-    maxBytes: COMMON_MAX_BYTES,
-    maxRedirects: COMMON_MAX_REDIRECTS,
-    allowedContentTypes: COMMON_ALLOWED_CONTENT_TYPES,
-  });
-}
+const CONTROLLED_USER_AGENT =
+  "Jornada.pt-Newsroom/1.0 (+https://www.jornada.pt/)";
+const CONTROLLED_ACCEPT_LANGUAGE = "pt-PT,pt;q=0.9,en;q=0.5";
+const FORBIDDEN_HTTP_SOURCE_CODES = Object.freeze(["ojogo"]);
 
 const policiesBySourceCode = new Map<string, HttpPageLoaderPolicy>([
-  ["record", createPolicy("record", ["www.record.pt"])],
-  ["abola", createPolicy("abola", ["www.abola.pt"])],
+  [
+    "record",
+    Object.freeze({
+      sourceCode: "record",
+      allowedHostnames: Object.freeze(["www.record.pt"]),
+      allowedProtocols: Object.freeze(["https:"]),
+      allowedPurposes: Object.freeze(["listing", "article"] as const),
+      timeoutMs: 10_000,
+      maxBytes: 5 * 1024 * 1024,
+      maxRedirects: 3,
+      allowedContentTypes: Object.freeze(["text/html"]),
+      acceptedStatusCodes: Object.freeze([200]),
+      userAgent: CONTROLLED_USER_AGENT,
+      acceptLanguage: CONTROLLED_ACCEPT_LANGUAGE,
+    }),
+  ],
+  [
+    "abola",
+    Object.freeze({
+      sourceCode: "abola",
+      allowedHostnames: Object.freeze(["www.abola.pt"]),
+      allowedProtocols: Object.freeze(["https:"]),
+      allowedPurposes: Object.freeze(["listing", "article"] as const),
+      timeoutMs: 10_000,
+      maxBytes: 5 * 1024 * 1024,
+      maxRedirects: 3,
+      allowedContentTypes: Object.freeze(["text/html"]),
+      acceptedStatusCodes: Object.freeze([200]),
+      userAgent: CONTROLLED_USER_AGENT,
+      acceptLanguage: CONTROLLED_ACCEPT_LANGUAGE,
+    }),
+  ],
+  [
+    "maisfutebol",
+    Object.freeze({
+      sourceCode: "maisfutebol",
+      allowedHostnames: Object.freeze(["maisfutebol.iol.pt"]),
+      allowedProtocols: Object.freeze(["https:"]),
+      allowedPurposes: Object.freeze(["listing"] as const),
+      timeoutMs: 10_000,
+      maxBytes: 5 * 1024 * 1024,
+      maxRedirects: 3,
+      allowedContentTypes: Object.freeze(["text/html"]),
+      acceptedStatusCodes: Object.freeze([200]),
+      userAgent: CONTROLLED_USER_AGENT,
+      acceptLanguage: CONTROLLED_ACCEPT_LANGUAGE,
+    }),
+  ],
 ]);
 
 export function isHttpSourceForbidden(sourceCode: string): boolean {

@@ -42,13 +42,6 @@ type ValidatedBody = Readonly<{
   byteLength: number;
 }>;
 
-const REQUEST_HEADERS = Object.freeze({
-  "User-Agent": "Jornada.pt-Newsroom/1.0 (+https://www.jornada.pt/)",
-  Accept: "text/html",
-  "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.5",
-  "Accept-Encoding": "identity",
-});
-
 const REDIRECT_STATUS_CODES = new Set([301, 302, 303, 307, 308]);
 const TIMEOUT_SIGNAL = Symbol("http-page-loader-timeout");
 
@@ -87,6 +80,16 @@ function safeErrorUrl(value: unknown): string | null {
 
   try {
     const url = new URL(value.trim());
+    const hostname = url.hostname.toLowerCase();
+    const ipLiteral = normalizeIpLiteralHostname(hostname);
+    if (
+      isIP(ipLiteral) !== 0
+      || hostname === "localhost"
+      || !hostname.includes(".")
+    ) {
+      return null;
+    }
+
     return `${url.protocol}//${url.host}${url.pathname}`;
   } catch {
     return null;
@@ -765,6 +768,15 @@ export function createHttpPageLoader(
         );
       }
 
+      if (!policy.allowedPurposes.includes(request.purpose)) {
+        return errorResult(
+          request,
+          "source_forbidden",
+          false,
+          "A finalidade pedida nao e autorizada pela policy HTTP.",
+        );
+      }
+
       const initialUrlResult = validateUrl(request, policy, request.url);
       if (!initialUrlResult.ok) {
         return initialUrlResult;
@@ -798,7 +810,12 @@ export function createHttpPageLoader(
             response = await withAbort(
               fetchImpl(currentUrl.toString(), {
                 method: "GET",
-                headers: REQUEST_HEADERS,
+                headers: {
+                  "User-Agent": policy.userAgent,
+                  Accept: policy.allowedContentTypes.join(", "),
+                  "Accept-Language": policy.acceptLanguage,
+                  "Accept-Encoding": "identity",
+                },
                 redirect: "manual",
                 credentials: "omit",
                 referrerPolicy: "no-referrer",
@@ -897,7 +914,7 @@ export function createHttpPageLoader(
             );
           }
 
-          if (response.status !== 200) {
+          if (!policy.acceptedStatusCodes.includes(response.status)) {
             await cancelResponseBody(response, controller.signal);
             return errorResult(
               request,
@@ -952,7 +969,7 @@ export function createHttpPageLoader(
             value: {
               requestedUrl,
               finalUrl: currentUrl.toString(),
-              statusCode: 200,
+              statusCode: response.status,
               contentType,
               body: bodyResult.value.body,
               loadedAt: clock().toISOString(),
