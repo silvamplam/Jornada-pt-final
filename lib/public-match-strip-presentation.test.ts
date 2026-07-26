@@ -25,12 +25,13 @@ function match(
   };
 }
 
-test("agendado mantem VS, horario e canal", () => {
+test("agendado deixa o centro vazio e mantem horario e canal", () => {
   assert.deepEqual(getPublicMatchStripPresentation(match(), NOW), {
     kind: "scheduled",
     statusLabel: "Agendado",
-    center: { kind: "versus", text: "VS" },
+    center: { kind: "empty" },
     status: { kind: "schedule" },
+    lowerScore: null,
     showChannel: true
   });
 });
@@ -46,6 +47,7 @@ test("direto 0-0 substitui VS e usa minuto publico com canal", () => {
     statusLabel: "Live",
     center: { kind: "score", text: "0\u20130" },
     status: { kind: "live", label: "Live", minute: 0 },
+    lowerScore: null,
     showChannel: true
   });
 });
@@ -59,7 +61,6 @@ test("direto 1-0 apresenta apenas o resultado central formatado", () => {
   }), NOW);
 
   assert.deepEqual(presentation.center, { kind: "score", text: "1\u20130" });
-  assert.equal(presentation.center.text.includes("VS"), false);
 });
 
 test("relogio a correr reutiliza minuto base e instante de inicio", () => {
@@ -110,11 +111,12 @@ test("intervalo apresenta resultado, terminologia anterior e canal", () => {
     statusLabel: "Intervalo",
     center: { kind: "score", text: "2\u20132" },
     status: { kind: "label", label: "Intervalo" },
+    lowerScore: null,
     showChannel: true
   });
 });
 
-test("finalizado apresenta resultado e oculta exclusivamente o canal", () => {
+test("finalizado move resultado para a linha inferior e oculta o canal", () => {
   assert.deepEqual(getPublicMatchStripPresentation(match({
     status: "finished",
     home_score: 1,
@@ -122,8 +124,9 @@ test("finalizado apresenta resultado e oculta exclusivamente o canal", () => {
   }), NOW), {
     kind: "finished",
     statusLabel: "Finalizado",
-    center: { kind: "score", text: "1\u20130" },
+    center: { kind: "empty" },
     status: { kind: "label", label: "Finalizado" },
+    lowerScore: "1\u20130",
     showChannel: false
   });
 });
@@ -136,22 +139,27 @@ test("finalizado sem canal conserva a mesma apresentacao sem inventar espaco tex
   }), NOW);
 
   assert.equal(presentation.showChannel, false);
+  assert.deepEqual(presentation.center, { kind: "empty" });
   assert.deepEqual(presentation.status, {
     kind: "label",
     label: "Finalizado"
   });
+  assert.equal(presentation.lowerScore, "0\u20130");
 });
 
-test("marcador incompleto usa VS sem fabricar resultado", () => {
+test("marcador incompleto deixa o centro vazio sem fabricar resultado", () => {
   for (const input of [
     match({ status: "live", home_score: 1, away_score: null }),
     match({ status: "halftime", home_score: null, away_score: 0 }),
     match({ status: "finished", home_score: null, away_score: null })
   ]) {
+    const presentation = getPublicMatchStripPresentation(input, NOW);
+
     assert.deepEqual(
-      getPublicMatchStripPresentation(input, NOW).center,
-      { kind: "versus", text: "VS" }
+      presentation.center,
+      { kind: "empty" }
     );
+    assert.equal(presentation.lowerScore, null);
   }
 });
 
@@ -168,8 +176,9 @@ test("adiado e cancelado preservam fallback agendado sem inferir estado pelo mar
 
     assert.equal(presentation.kind, "scheduled");
     assert.equal(presentation.statusLabel, label);
-    assert.deepEqual(presentation.center, { kind: "versus", text: "VS" });
+    assert.deepEqual(presentation.center, { kind: "empty" });
     assert.deepEqual(presentation.status, { kind: "schedule" });
+    assert.equal(presentation.lowerScore, null);
     assert.equal(presentation.showChannel, true);
   }
 });
@@ -227,6 +236,14 @@ test("quatro consumidores usam a barra partilhada e a grelha grande fica separad
   );
   assert.doesNotMatch(componentSource, /setInterval|setTimeout|fetch\(/);
   assert.doesNotMatch(componentSource, /homeCompactName.*home_score|awayCompactName.*away_score/);
+  assert.doesNotMatch(componentSource, /Versus|>\s*VS\s*</);
+  assert.doesNotMatch(stylesSource, /\.versus\b/);
+  assert.match(componentSource, /presentation\.lowerScore !== null/);
+  assert.match(componentSource, /className=\{styles\.finishedScore\}/);
+  assert.match(stylesSource, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*2px\s*minmax\(0,\s*1fr\)/);
+  assert.match(stylesSource, /\.row > \.card > \.team:first-of-type\s*\{[\s\S]*?grid-column:\s*1/);
+  assert.match(stylesSource, /\.row > \.card > \.team:nth-of-type\(2\)\s*\{[\s\S]*?grid-column:\s*3/);
   assert.match(stylesSource, /grid-template-rows:\s*52px 28px/);
   assert.match(stylesSource, /\.score\s*\{[\s\S]*?max-width:\s*54px;[\s\S]*?overflow:\s*hidden;[\s\S]*?font-variant-numeric:\s*tabular-nums/);
+  assert.match(stylesSource, /\.finishedScore\s*\{[\s\S]*?grid-row:\s*2;[\s\S]*?height:\s*18px;[\s\S]*?font-variant-numeric:\s*tabular-nums/);
 });

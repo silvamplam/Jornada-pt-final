@@ -120,33 +120,13 @@
   hyphens: none;
 }
 
-.versus {
+.center {
   position: absolute;
   top: 7px;
   left: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 30px 1px 15px 6px;
-  place-items: center;
   width: 100%;
   min-width: 0;
   height: 52px;
-  row-gap: 0;
-  color: #526174;
-  font-size: 8.5px;
-  font-weight: 900;
-  line-height: 1;
-}
-
-.versus > b {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  display: grid;
-  place-items: center;
-  width: max-content;
-  height: 30px;
-  transform: translateX(-50%);
 }
 
 .score {
@@ -191,6 +171,32 @@
 .stateLabel {
   color: inherit;
   font-weight: 900;
+  white-space: nowrap;
+}
+
+.finishedMeta {
+  box-sizing: border-box;
+}
+
+.finishedScore {
+  display: grid;
+  grid-column: 1;
+  grid-row: 2;
+  place-items: center;
+  justify-self: center;
+  width: max-content;
+  max-width: 54px;
+  height: 18px;
+  overflow: hidden;
+  color: #10151b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(15px, 11cqi, 18px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  line-height: 18px;
+  letter-spacing: -0.4px;
+  text-align: center;
+  text-overflow: clip;
   white-space: nowrap;
 }
 

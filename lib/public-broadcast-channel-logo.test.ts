@@ -434,8 +434,8 @@ test("PublicMatchStrip usa o layout aprovado como padrão em qualquer dimensão 
   assert.match(componentSource, /"--public-match-strip-columns":\s*matches\.length/);
   assert.doesNotMatch(componentSource, /layoutVariant|adjusted|layoutJogos|metaVariant/);
   assert.match(componentSource, /className=\{styles\.teamNames\} data-public-match-team-names="coordinated"/);
-  assert.match(componentSource, /className=\{styles\.versus\}/);
-  assert.match(componentSource, /<b aria-hidden="true">VS<\/b>/);
+  assert.match(componentSource, /className=\{styles\.center\}/);
+  assert.doesNotMatch(componentSource, /Versus|>\s*VS\s*</);
   assert.match(styleSource, /grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\)/);
   assert.match(styleSource, /\.row > \.card\s*\{[\s\S]*?position:\s*relative;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 2px minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*52px 28px/);
   assert.equal(componentSource.match(/className=\{`\$\{styles\.team\} public-matchday-mini-team`\}/g)?.length, 2);
@@ -447,10 +447,9 @@ test("PublicMatchStrip usa o layout aprovado como padrão em qualquer dimensão 
   assert.match(teamNameRule, /text-overflow:\s*clip/);
   assert.match(teamNameRule, /white-space:\s*nowrap/);
   assert.doesNotMatch(teamNameRule, /ellipsis|line-clamp|overflow:\s*hidden|white-space:\s*normal/);
-  assert.match(styleSource, /\.versus\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*0;[\s\S]*?width:\s*100%/);
-  assert.match(styleSource, /\.versus > b\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*50%;[\s\S]*?transform:\s*translateX\(-50%\)/);
-  assert.doesNotMatch(styleSource, /\.versus\s*\{[^}]*width:\s*2px/);
-  assert.doesNotMatch(styleSource, /\.versus\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*auto/);
+  assert.match(styleSource, /\.center\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*0;[\s\S]*?width:\s*100%/);
+  assert.match(styleSource, /\.score\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*50%;[\s\S]*?transform:\s*translateX\(-50%\)/);
+  assert.doesNotMatch(styleSource, /\.versus\b/);
   assert.match(componentSource, /<PublicTeamBadge[\s\S]*?variant="compact"/);
   assert.doesNotMatch(`${componentSource}\n${styleSource}`, /overflow-x:\s*auto|flex-wrap|grid-template-columns:\s*repeat\(10|min-width:\s*154px/);
 });

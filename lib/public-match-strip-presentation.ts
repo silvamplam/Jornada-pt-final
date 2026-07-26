@@ -16,8 +16,7 @@ export type PublicMatchStripPresentationKind =
 
 export type PublicMatchStripCenter =
   | {
-      kind: "versus";
-      text: "VS";
+      kind: "empty";
     }
   | {
       kind: "score";
@@ -43,6 +42,7 @@ export type PublicMatchStripPresentation = {
   statusLabel: string;
   center: PublicMatchStripCenter;
   status: PublicMatchStripStatus;
+  lowerScore: string | null;
   showChannel: boolean;
 };
 
@@ -96,9 +96,8 @@ export function getPublicMatchStripPresentation(
     match.home_score,
     match.away_score
   );
-  const showScore = formattedScore !== null && (
-    kind === "finished"
-    || kind === "live"
+  const showCenterScore = formattedScore !== null && (
+    kind === "live"
     || kind === "halftime"
   );
 
@@ -117,10 +116,11 @@ export function getPublicMatchStripPresentation(
   return {
     kind,
     statusLabel: statusLabel(match.status),
-    center: showScore
+    center: showCenterScore
       ? { kind: "score", text: formattedScore }
-      : { kind: "versus", text: "VS" },
+      : { kind: "empty" },
     status,
+    lowerScore: kind === "finished" ? formattedScore : null,
     showChannel: kind !== "finished"
   };
 }

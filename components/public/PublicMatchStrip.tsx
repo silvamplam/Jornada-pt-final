@@ -222,24 +222,32 @@ function CompactMatchCard({
         <span className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
         <span className={styles.teamName} title={awayFullName}>{awayCompactName}</span>
       </span>
-      <span
-        aria-label={presentation.center.kind === "score"
-          ? `${presentation.statusLabel}. Resultado ${match.home_score} a ${match.away_score}`
-          : `${presentation.statusLabel}. Versus`}
-        className={styles.versus}
-      >
-        {presentation.center.kind === "score" ? (
+      {presentation.center.kind === "score" ? (
+        <span
+          aria-label={`${presentation.statusLabel}. Resultado ${match.home_score} a ${match.away_score}`}
+          className={styles.center}
+        >
           <strong aria-hidden="true" className={styles.score}>{presentation.center.text}</strong>
-        ) : (
-          <b aria-hidden="true">VS</b>
-        )}
-      </span>
+        </span>
+      ) : null}
       <span className={`${styles.status} public-matchday-mini-status`}>
-        <PublicMatchMeta
-          channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
-          channelName={presentation.showChannel ? broadcastChannelName : null}
-          dateTime={statusContent}
-        />
+        {presentation.lowerScore !== null ? (
+          <span className={styles.finishedMeta} data-public-match-meta>
+            <span>{statusContent}</span>
+            <strong
+              aria-label={`Resultado ${match.home_score} a ${match.away_score}`}
+              className={styles.finishedScore}
+            >
+              {presentation.lowerScore}
+            </strong>
+          </span>
+        ) : (
+          <PublicMatchMeta
+            channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
+            channelName={presentation.showChannel ? broadcastChannelName : null}
+            dateTime={statusContent}
+          />
+        )}
       </span>
     </article>
   );
