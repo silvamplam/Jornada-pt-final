@@ -251,9 +251,9 @@ test("quatro consumidores usam a barra partilhada e a grelha grande fica separad
   assert.match(stylesSource, /grid-template-rows:\s*52px 28px/);
   assert.match(stylesSource, /\.score\s*\{[\s\S]*?max-width:\s*54px;[\s\S]*?overflow:\s*hidden;[\s\S]*?font-size:\s*clamp\(19px,\s*14cqi,\s*22px\);[\s\S]*?font-variant-numeric:\s*tabular-nums/);
   assert.match(stylesSource, /\.scheduledSeparator\s*\{[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*800/);
-  assert.match(stylesSource, /\.liveStatus :global\(\.public-matchday-live-label\)\s*\{[\s\S]*?font-size:\s*10px;[\s\S]*?line-height:\s*10px/);
-  assert.match(stylesSource, /\.liveStatus :global\(\.public-matchday-live-minute\),\s*\.stateLabel:global\(\.public-matchday-live-minute\)\s*\{[\s\S]*?color:\s*#16a34a;[\s\S]*?font-size:\s*10\.5px;[\s\S]*?line-height:\s*10px/);
-  assert.match(stylesSource, /\.finishedScoreLine\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*12px\s*minmax\(0,\s*1fr\)/);
+  assert.match(stylesSource, /\.liveStatus :global\(\.public-matchday-live-label\)\s*\{[\s\S]*?font-size:\s*9\.5px;[\s\S]*?line-height:\s*10px/);
+  assert.match(stylesSource, /\.liveStatus :global\(\.public-matchday-live-minute\),\s*\.stateLabel:global\(\.public-matchday-live-minute\)\s*\{[\s\S]*?color:\s*#16a34a;[\s\S]*?font-size:\s*10px;[\s\S]*?line-height:\s*10px/);
+  assert.match(stylesSource, /\.finishedScoreLine\s*\{[\s\S]*?--public-finished-score-inset:\s*clamp\(2px,\s*2\.5cqi,\s*4px\);[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*12px\s*minmax\(0,\s*1fr\);[\s\S]*?transform:\s*translateY\(-2px\)/);
   assert.match(stylesSource, /\.finishedSideScore\s*\{[\s\S]*?font-size:\s*clamp\(16px,\s*11cqi,\s*18px\);[\s\S]*?font-variant-numeric:\s*tabular-nums/);
   assert.match(stylesSource, /\.finishedScoreSeparator\s*\{[\s\S]*?font-size:\s*13px/);
   assert.match(stylesSource, /\.finishedLabel\s*\{[\s\S]*?font-size:\s*8\.75px;[\s\S]*?line-height:\s*18px/);

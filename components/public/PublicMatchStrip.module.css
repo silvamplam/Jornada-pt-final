@@ -170,14 +170,14 @@
 
 .liveStatus :global(.public-matchday-live-label) {
   color: #10151b;
-  font-size: 10px;
+  font-size: 9.5px;
   line-height: 10px;
 }
 
 .liveStatus :global(.public-matchday-live-minute),
 .stateLabel:global(.public-matchday-live-minute) {
   color: #16a34a;
-  font-size: 10.5px;
+  font-size: 10px;
   line-height: 10px;
 }
 
@@ -192,7 +192,7 @@
 }
 
 .finishedScoreLine {
-  --public-finished-score-inset: clamp(4px, 4cqi, 7px);
+  --public-finished-score-inset: clamp(2px, 2.5cqi, 4px);
 
   display: grid;
   grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
@@ -205,6 +205,7 @@
   min-width: 0;
   height: 9px;
   overflow: visible;
+  transform: translateY(-2px);
 }
 
 .finishedSideScore {
