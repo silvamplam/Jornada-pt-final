@@ -249,10 +249,14 @@ test("quatro consumidores usam a barra partilhada e a grelha grande fica separad
   assert.match(stylesSource, /\.row > \.card > \.team:first-of-type\s*\{[\s\S]*?grid-column:\s*1/);
   assert.match(stylesSource, /\.row > \.card > \.team:nth-of-type\(2\)\s*\{[\s\S]*?grid-column:\s*3/);
   assert.match(stylesSource, /grid-template-rows:\s*52px 28px/);
-  assert.match(stylesSource, /\.score\s*\{[\s\S]*?max-width:\s*54px;[\s\S]*?overflow:\s*hidden;[\s\S]*?font-variant-numeric:\s*tabular-nums/);
+  assert.match(stylesSource, /\.score\s*\{[\s\S]*?max-width:\s*54px;[\s\S]*?overflow:\s*hidden;[\s\S]*?font-size:\s*clamp\(19px,\s*14cqi,\s*22px\);[\s\S]*?font-variant-numeric:\s*tabular-nums/);
   assert.match(stylesSource, /\.scheduledSeparator\s*\{[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*800/);
-  assert.match(stylesSource, /\.liveStatus :global\(\.public-matchday-live-minute\),\s*\.stateLabel:global\(\.public-matchday-live-minute\)\s*\{[\s\S]*?color:\s*#16a34a/);
+  assert.match(stylesSource, /\.liveStatus :global\(\.public-matchday-live-label\)\s*\{[\s\S]*?font-size:\s*10px;[\s\S]*?line-height:\s*10px/);
+  assert.match(stylesSource, /\.liveStatus :global\(\.public-matchday-live-minute\),\s*\.stateLabel:global\(\.public-matchday-live-minute\)\s*\{[\s\S]*?color:\s*#16a34a;[\s\S]*?font-size:\s*10\.5px;[\s\S]*?line-height:\s*10px/);
   assert.match(stylesSource, /\.finishedScoreLine\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*12px\s*minmax\(0,\s*1fr\)/);
+  assert.match(stylesSource, /\.finishedSideScore\s*\{[\s\S]*?font-size:\s*clamp\(16px,\s*11cqi,\s*18px\);[\s\S]*?font-variant-numeric:\s*tabular-nums/);
+  assert.match(stylesSource, /\.finishedScoreSeparator\s*\{[\s\S]*?font-size:\s*13px/);
+  assert.match(stylesSource, /\.finishedLabel\s*\{[\s\S]*?font-size:\s*8\.75px;[\s\S]*?line-height:\s*18px/);
   assert.match(stylesSource, /\.finishedSideScore\[data-finished-score-side="left"\]\s*\{[\s\S]*?translateX\(var\(--public-finished-score-inset\)\)/);
   assert.match(stylesSource, /\.finishedSideScore\[data-finished-score-side="right"\]\s*\{[\s\S]*?translateX\(calc\(0px - var\(--public-finished-score-inset\)\)\)/);
 });

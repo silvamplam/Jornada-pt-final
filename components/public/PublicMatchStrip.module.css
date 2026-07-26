@@ -142,7 +142,7 @@
   transform: translateX(-50%);
   color: #10151b;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(18px, 13cqi, 21px);
+  font-size: clamp(19px, 14cqi, 22px);
   font-variant-numeric: tabular-nums;
   font-weight: 900;
   line-height: 1;
@@ -170,11 +170,15 @@
 
 .liveStatus :global(.public-matchday-live-label) {
   color: #10151b;
+  font-size: 10px;
+  line-height: 10px;
 }
 
 .liveStatus :global(.public-matchday-live-minute),
 .stateLabel:global(.public-matchday-live-minute) {
   color: #16a34a;
+  font-size: 10.5px;
+  line-height: 10px;
 }
 
 .stateLabel {
@@ -208,7 +212,7 @@
   justify-self: center;
   color: #10151b;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(12px, 9cqi, 14px);
+  font-size: clamp(16px, 11cqi, 18px);
   font-variant-numeric: tabular-nums;
   font-weight: 900;
   line-height: 1;
@@ -232,7 +236,7 @@
   grid-row: 1;
   justify-self: center;
   color: #526174;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1;
 }
