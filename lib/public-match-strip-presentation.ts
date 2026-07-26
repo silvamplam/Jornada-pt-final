@@ -19,6 +19,10 @@ export type PublicMatchStripCenter =
       kind: "empty";
     }
   | {
+      kind: "placeholder";
+      text: "-";
+    }
+  | {
       kind: "score";
       text: string;
     };
@@ -65,6 +69,11 @@ function statusLabel(status?: string | null) {
   if (normalized === "postponed") return "Adiado";
   if (normalized === "cancelled") return "Cancelado";
   return status?.trim() || "Agendado";
+}
+
+function isScheduledStatus(status?: string | null) {
+  const normalized = status?.trim().toLowerCase();
+  return !normalized || normalized === "scheduled";
 }
 
 export function formatPublicMatchStripScore(
@@ -118,7 +127,9 @@ export function getPublicMatchStripPresentation(
     statusLabel: statusLabel(match.status),
     center: showCenterScore
       ? { kind: "score", text: formattedScore }
-      : { kind: "empty" },
+      : isScheduledStatus(match.status)
+        ? { kind: "placeholder", text: "-" }
+        : { kind: "empty" },
     status,
     lowerScore: kind === "finished" ? formattedScore : null,
     showChannel: kind !== "finished"

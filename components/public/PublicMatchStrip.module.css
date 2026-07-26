@@ -151,6 +151,14 @@
   white-space: nowrap;
 }
 
+.scheduledSeparator {
+  color: #526174;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
 .liveStatus {
   display: inline-flex;
   align-items: center;

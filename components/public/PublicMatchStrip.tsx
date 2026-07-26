@@ -222,12 +222,21 @@ function CompactMatchCard({
         <span className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
         <span className={styles.teamName} title={awayFullName}>{awayCompactName}</span>
       </span>
-      {presentation.center.kind === "score" ? (
+      {presentation.center.kind !== "empty" ? (
         <span
-          aria-label={`${presentation.statusLabel}. Resultado ${match.home_score} a ${match.away_score}`}
+          aria-label={presentation.center.kind === "score"
+            ? `${presentation.statusLabel}. Resultado ${match.home_score} a ${match.away_score}`
+            : presentation.statusLabel}
           className={styles.center}
         >
-          <strong aria-hidden="true" className={styles.score}>{presentation.center.text}</strong>
+          <strong
+            aria-hidden="true"
+            className={presentation.center.kind === "score"
+              ? styles.score
+              : `${styles.score} ${styles.scheduledSeparator}`}
+          >
+            {presentation.center.text}
+          </strong>
         </span>
       ) : null}
       <span className={`${styles.status} public-matchday-mini-status`}>

@@ -25,11 +25,11 @@ function match(
   };
 }
 
-test("agendado deixa o centro vazio e mantem horario e canal", () => {
+test("agendado mostra apenas traco central e mantem horario e canal", () => {
   assert.deepEqual(getPublicMatchStripPresentation(match(), NOW), {
     kind: "scheduled",
     statusLabel: "Agendado",
-    center: { kind: "empty" },
+    center: { kind: "placeholder", text: "-" },
     status: { kind: "schedule" },
     lowerScore: null,
     showChannel: true
@@ -238,6 +238,7 @@ test("quatro consumidores usam a barra partilhada e a grelha grande fica separad
   assert.doesNotMatch(componentSource, /homeCompactName.*home_score|awayCompactName.*away_score/);
   assert.doesNotMatch(componentSource, /Versus|>\s*VS\s*</);
   assert.doesNotMatch(stylesSource, /\.versus\b/);
+  assert.match(componentSource, /`\$\{styles\.score\} \$\{styles\.scheduledSeparator\}`/);
   assert.match(componentSource, /presentation\.lowerScore !== null/);
   assert.match(componentSource, /className=\{styles\.finishedScore\}/);
   assert.match(stylesSource, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*2px\s*minmax\(0,\s*1fr\)/);
@@ -245,5 +246,6 @@ test("quatro consumidores usam a barra partilhada e a grelha grande fica separad
   assert.match(stylesSource, /\.row > \.card > \.team:nth-of-type\(2\)\s*\{[\s\S]*?grid-column:\s*3/);
   assert.match(stylesSource, /grid-template-rows:\s*52px 28px/);
   assert.match(stylesSource, /\.score\s*\{[\s\S]*?max-width:\s*54px;[\s\S]*?overflow:\s*hidden;[\s\S]*?font-variant-numeric:\s*tabular-nums/);
+  assert.match(stylesSource, /\.scheduledSeparator\s*\{[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*800/);
   assert.match(stylesSource, /\.finishedScore\s*\{[\s\S]*?grid-row:\s*2;[\s\S]*?height:\s*18px;[\s\S]*?font-variant-numeric:\s*tabular-nums/);
 });
