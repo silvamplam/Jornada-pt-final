@@ -8,7 +8,6 @@ import {
 } from "@/lib/public-matchday";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
-import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { redirect } from "next/navigation";
 
@@ -1296,13 +1295,6 @@ export default async function PublicMatchdayGamesPage({ params }: PublicMatchday
             <span>{selectedMatchdayDateContext}</span>
           </div>
         </section>
-
-        <PublicMatchStrip
-          matches={context.matchesForMatchday.map((match) => ({
-            ...match,
-            matchdayNumber: context.matchday.number
-          }))}
-        />
 
         <div className="public-games-layout">
           <section className="public-games-main public-games-panel" aria-label="Lista detalhada dos jogos">

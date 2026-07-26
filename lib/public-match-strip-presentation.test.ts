@@ -190,7 +190,7 @@ test("resultado com dois algarismos usa en dash sem perder valores", () => {
   assert.equal(formatPublicMatchStripScore(2, 2), "2\u20132");
 });
 
-test("quatro consumidores usam a barra partilhada e a grelha grande fica separada", async () => {
+test("a barra partilhada permanece nos contextos validos e o separador Jogos mantem apenas a grelha grande", async () => {
   const [
     componentSource,
     stylesSource,
@@ -222,17 +222,25 @@ test("quatro consumidores usam a barra partilhada e a grelha grande fica separad
   for (const source of [
     homeSource,
     competitionSource,
-    newsSource,
-    gamesSource
+    newsSource
   ]) {
     assert.match(source, /import PublicMatchStrip/);
     assert.match(source, /<PublicMatchStrip/);
   }
 
+  assert.doesNotMatch(gamesSource, /import PublicMatchStrip|<PublicMatchStrip/);
+  assert.doesNotMatch(gamesSource, /public-matchday-strip|data-matchday-strip/);
+  assert.match(gamesSource, /<nav className="public-matchday-nav"/);
+  assert.match(gamesSource, /<strong>Jogos da jornada<\/strong>/);
+  assert.match(gamesSource, /\{ key: "scheduled", label: "Agendados", matches: scheduledMatches \}/);
   assert.match(gamesSource, /function ReferenceGamesCard\(/);
   assert.match(
     gamesSource,
     /group\.matches\.map\(\(match\) => \(\s*<ReferenceGamesCard/
+  );
+  assert.match(
+    gamesSource,
+    /<section className="public-games-page-head"[\s\S]*?<\/section>\s*<div className="public-games-layout">/
   );
   assert.doesNotMatch(componentSource, /setInterval|setTimeout|fetch\(/);
   assert.doesNotMatch(componentSource, /homeCompactName.*home_score|awayCompactName.*away_score/);
