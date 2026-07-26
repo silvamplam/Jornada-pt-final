@@ -150,12 +150,110 @@
 }
 
 .score {
-  grid-row: 3;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: max-content;
+  max-width: 54px;
+  height: 30px;
+  overflow: hidden;
+  transform: translateX(-50%);
   color: #10151b;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 10px;
-  line-height: 12px;
+  font-size: clamp(18px, 13cqi, 21px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.5px;
+  text-overflow: clip;
   white-space: nowrap;
+}
+
+.liveStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #10151b;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.liveStatus :global(.public-matchday-live-label) {
+  color: #10151b;
+}
+
+.liveStatus :global(.public-matchday-live-minute) {
+  color: #16a34a;
+}
+
+.stateLabel {
+  color: inherit;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.livePulseDots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.livePulseDots > span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: #16a34a;
+  opacity: 0.35;
+  animation: matchStripLiveDotAlternate 1.15s infinite ease-in-out;
+}
+
+.livePulseDots > span:nth-child(2) {
+  animation-delay: 0.55s;
+}
+
+.livePrime {
+  display: inline-block;
+  color: inherit;
+  animation: matchStripLivePrimePulse 1s infinite ease-in-out;
+}
+
+@keyframes matchStripLiveDotAlternate {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes matchStripLivePrimePulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .livePulseDots > span {
+    animation: none;
+    opacity: 0.75;
+    transform: none;
+  }
+
+  .livePrime {
+    animation: none;
+    opacity: 1;
+  }
 }
 
 .row > .card > .status {
