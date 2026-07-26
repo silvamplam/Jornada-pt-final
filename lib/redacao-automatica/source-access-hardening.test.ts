@@ -42,10 +42,14 @@ function injectedPolicy(
     sourceCode,
     allowedHostnames: [allowedHostname],
     allowedProtocols: ["https:"],
+    allowedPurposes: ["listing", "article"],
     timeoutMs: 1_000,
     maxBytes: 1_024,
     maxRedirects: 0,
     allowedContentTypes: ["text/html"],
+    acceptedStatusCodes: [200],
+    userAgent: "Jornada.pt-Test/1.0",
+    acceptLanguage: "pt-PT",
   };
 }
 
@@ -54,7 +58,7 @@ async function assertDirectLoaderBlocked({
   url,
   purpose,
 }: Readonly<{
-  sourceCode: "maisfutebol" | "ojogo";
+  sourceCode: "ojogo";
   url: string;
   purpose: "listing" | "article";
 }>): Promise<void> {
@@ -151,10 +155,10 @@ function articleCandidate(
 test("as policies e a proibição HTTP distinguem fontes permitidas e proibidas", () => {
   assert.ok(resolveHttpPageLoaderPolicy("record"));
   assert.ok(resolveHttpPageLoaderPolicy("abola"));
-  assert.equal(resolveHttpPageLoaderPolicy("maisfutebol"), null);
+  assert.ok(resolveHttpPageLoaderPolicy("maisfutebol"));
   assert.equal(resolveHttpPageLoaderPolicy("ojogo"), null);
 
-  assert.equal(isHttpSourceForbidden(" maisfutebol "), true);
+  assert.equal(isHttpSourceForbidden(" maisfutebol "), false);
   assert.equal(isHttpSourceForbidden("ojogo"), true);
   assert.equal(isHttpSourceForbidden("record"), false);
   assert.equal(isHttpSourceForbidden("abola"), false);
@@ -177,14 +181,6 @@ test("o source registry preserva os estados e desassocia adapters proibidos", ()
   assert.equal(ojogo?.operationalStatus, "legal_hold");
   assert.equal(ojogo?.monitoringEnabled, false);
   assert.equal(ojogo?.adapterKey, null);
-});
-
-test("o PageLoader bloqueia diretamente o Maisfutebol antes das injeções", async () => {
-  await assertDirectLoaderBlocked({
-    sourceCode: "maisfutebol",
-    url: "https://maisfutebol.iol.pt/",
-    purpose: "listing",
-  });
 });
 
 test("o PageLoader bloqueia diretamente O Jogo antes das injeções", async () => {
