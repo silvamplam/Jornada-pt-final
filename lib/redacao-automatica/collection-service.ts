@@ -9,11 +9,13 @@ import type {
   CollectionError,
   OperationResult,
   SourceCollectionSummary,
+  SourceExecutionMode,
 } from "@/lib/redacao-automatica/types";
 
 export type CollectSourceInput = Readonly<{
   sourceCode: string;
   detectedAt: string;
+  executionMode?: SourceExecutionMode;
 }>;
 
 export type CollectSourceDependencies = Readonly<{
@@ -59,7 +61,11 @@ export async function collectSource(
     return sourceResult;
   }
 
-  const executionResult = evaluateSourceExecution(sourceResult.value);
+  const executionMode = input.executionMode ?? "automatic";
+  const executionResult = evaluateSourceExecution(
+    sourceResult.value,
+    executionMode,
+  );
   if (!executionResult.ok) {
     return executionResult;
   }

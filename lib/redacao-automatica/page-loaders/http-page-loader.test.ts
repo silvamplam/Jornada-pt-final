@@ -626,6 +626,7 @@ test("collection service passa purpose listing explicitamente", async () => {
     adapterKey: SOURCE_CODE,
     operationalStatus: "active",
     monitoringEnabled: true,
+    manualCollectionEnabled: false,
     inactiveReason: null,
     legalNote: null,
     editorialNote: "Fixture local.",

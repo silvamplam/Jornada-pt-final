@@ -173,13 +173,17 @@ test("o source registry preserva os estados e desassocia adapters proibidos", ()
 
   assert.equal(record?.operationalStatus, "paused");
   assert.equal(record?.monitoringEnabled, false);
+  assert.equal(record?.manualCollectionEnabled, true);
   assert.equal(abola?.operationalStatus, "paused");
   assert.equal(abola?.monitoringEnabled, false);
+  assert.equal(abola?.manualCollectionEnabled, true);
   assert.equal(maisfutebol?.operationalStatus, "paused");
   assert.equal(maisfutebol?.monitoringEnabled, false);
+  assert.equal(maisfutebol?.manualCollectionEnabled, false);
   assert.equal(maisfutebol?.adapterKey, null);
   assert.equal(ojogo?.operationalStatus, "legal_hold");
   assert.equal(ojogo?.monitoringEnabled, false);
+  assert.equal(ojogo?.manualCollectionEnabled, false);
   assert.equal(ojogo?.adapterKey, null);
 });
 

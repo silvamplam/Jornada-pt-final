@@ -2,9 +2,12 @@ import type {
   CollectionError,
   OperationResult,
   SourceConfiguration,
+  SourceExecutionMode,
 } from "@/lib/redacao-automatica/types";
 
+export { SOURCE_EXECUTION_MODES } from "@/lib/redacao-automatica/types";
 export { SOURCE_OPERATIONAL_STATUSES } from "@/lib/redacao-automatica/types";
+export type { SourceExecutionMode } from "@/lib/redacao-automatica/types";
 export type { SourceOperationalStatus } from "@/lib/redacao-automatica/types";
 
 export type SourceRegistryEntry = SourceConfiguration;
@@ -24,6 +27,7 @@ const sourceRegistry = [
     adapterKey: "record",
     operationalStatus: "paused",
     monitoringEnabled: false,
+    manualCollectionEnabled: true,
     inactiveReason: "Monitorização ainda não ativa.",
     legalNote: null,
     editorialNote: "Preparado para futura ativação.",
@@ -37,6 +41,7 @@ const sourceRegistry = [
     adapterKey: "abola",
     operationalStatus: "paused",
     monitoringEnabled: false,
+    manualCollectionEnabled: true,
     inactiveReason: "Monitorização ainda não ativa.",
     legalNote: null,
     editorialNote: "Preparado para futura ativação.",
@@ -50,6 +55,7 @@ const sourceRegistry = [
     adapterKey: null,
     operationalStatus: "paused",
     monitoringEnabled: false,
+    manualCollectionEnabled: false,
     inactiveReason: "Pedidos HTTP externos não autorizados.",
     legalNote: "O adaptador está preservado apenas para análise offline de HTML local.",
     editorialNote:
@@ -64,6 +70,7 @@ const sourceRegistry = [
     adapterKey: null,
     operationalStatus: "legal_hold",
     monitoringEnabled: false,
+    manualCollectionEnabled: false,
     inactiveReason: "Validação jurídica ou licenciamento pendente.",
     legalNote: "Monitorização inativa até validação jurídica ou licenciamento.",
     editorialNote: "Aguardará validação jurídica antes de qualquer ativação.",
@@ -100,12 +107,26 @@ function sourceExecutionError(
 
 export function evaluateSourceExecution(
   source: SourceConfiguration,
+  executionMode: SourceExecutionMode = "automatic",
 ): OperationResult<SourceConfiguration, SourceExecutionError> {
   if (source.operationalStatus === "legal_hold") {
     return { ok: false, error: sourceExecutionError(source, "legal_hold") };
   }
 
   const adapterKey = source.adapterKey?.trim();
+
+  if (executionMode === "manual") {
+    if (
+      source.operationalStatus === "disabled"
+      || source.manualCollectionEnabled !== true
+      || !adapterKey
+    ) {
+      return { ok: false, error: sourceExecutionError(source, "source_inactive") };
+    }
+
+    return { ok: true, value: source };
+  }
+
   if (!source.monitoringEnabled || source.operationalStatus !== "active" || !adapterKey) {
     return { ok: false, error: sourceExecutionError(source, "source_inactive") };
   }
