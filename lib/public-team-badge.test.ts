@@ -42,7 +42,7 @@ test("URLs HTTPS usam imagem e URLs ausentes ou inseguras usam fallback", () => 
   }
 });
 
-test("os vinte fatores aprovados da La Liga ficam centralizados sem alterar excecoes portuguesas", async () => {
+test("os fatores aprovados da La Liga e Premier League ficam centralizados sem alterar excecoes portuguesas", async () => {
   const laLigaScales = new Map([
     ["athletic-club", 0.89],
     ["atletico-de-madrid", 1.10],
@@ -65,6 +65,28 @@ test("os vinte fatores aprovados da La Liga ficam centralizados sem alterar exce
     ["valencia-cf", 0.96],
     ["villarreal-cf", 0.97]
   ]);
+  const premierLeagueScales = new Map([
+    ["arsenal", 0.98],
+    ["aston-villa", 1],
+    ["bournemouth", 1],
+    ["brentford", 1],
+    ["brighton-hove-albion", 0.96],
+    ["chelsea", 0.96],
+    ["coventry-city", 0.98],
+    ["crystal-palace", 1.08],
+    ["everton", 1.08],
+    ["fulham", 1],
+    ["hull-city", 1.08],
+    ["ipswich-town", 1],
+    ["leeds-united", 1.02],
+    ["liverpool", 1.06],
+    ["manchester-city", 0.96],
+    ["manchester-united", 1],
+    ["newcastle-united", 0.96],
+    ["nottingham-forest", 1.08],
+    ["sunderland", 1.10],
+    ["tottenham-hotspur", 1.05]
+  ]);
 
   assert.deepEqual(
     resolvePublicTeamBadgePresentation("https://cdn.example.test/moreirense.png", "moreirense"),
@@ -81,6 +103,13 @@ test("os vinte fatores aprovados da La Liga ficam centralizados sem alterar exce
       { kind: "image", logoUrl, opticalScale, contrastMode: "standard" }
     );
   }
+  for (const [slug, opticalScale] of premierLeagueScales) {
+    const logoUrl = `https://cdn.example.test/${slug}.png`;
+    assert.deepEqual(
+      resolvePublicTeamBadgePresentation(logoUrl, slug),
+      { kind: "image", logoUrl, opticalScale, contrastMode: "standard" }
+    );
+  }
   assert.deepEqual(
     resolvePublicTeamBadgePresentation("https://cdn.example.test/santa-clara.png", "santa-clara"),
     { kind: "image", logoUrl: "https://cdn.example.test/santa-clara.png", opticalScale: 1, contrastMode: "light-detail" }
@@ -89,7 +118,7 @@ test("os vinte fatores aprovados da La Liga ficam centralizados sem alterar exce
   const source = await readFile(helperUrl, "utf8");
   assert.deepEqual(
     [...source.matchAll(/^\s*\["([^"]+)", \{ opticalScale:/gm)].map((match) => match[1]),
-    ["sporting", "santa-clara", ...laLigaScales.keys()]
+    ["sporting", "santa-clara", ...laLigaScales.keys(), ...premierLeagueScales.keys()]
   );
   assert.doesNotMatch(source, /moreirense/);
   assert.doesNotMatch(source, /Math\.sqrt|alphaArea|calculatePublicTeamBadgeOpticalScale/);

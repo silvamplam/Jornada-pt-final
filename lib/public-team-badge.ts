@@ -53,7 +53,27 @@ const TEAM_VISUAL_CONFIG = new Map<string, PublicTeamBadgeVisualConfig>([
   ["real-sociedad", { opticalScale: 0.96, contrastMode: "standard" }],
   ["sevilla-fc", { opticalScale: 0.97, contrastMode: "standard" }],
   ["valencia-cf", { opticalScale: 0.96, contrastMode: "standard" }],
-  ["villarreal-cf", { opticalScale: 0.97, contrastMode: "standard" }]
+  ["villarreal-cf", { opticalScale: 0.97, contrastMode: "standard" }],
+  ["arsenal", { opticalScale: 0.98, contrastMode: "standard" }],
+  ["aston-villa", { opticalScale: 1, contrastMode: "standard" }],
+  ["bournemouth", { opticalScale: 1, contrastMode: "standard" }],
+  ["brentford", { opticalScale: 1, contrastMode: "standard" }],
+  ["brighton-hove-albion", { opticalScale: 0.96, contrastMode: "standard" }],
+  ["chelsea", { opticalScale: 0.96, contrastMode: "standard" }],
+  ["coventry-city", { opticalScale: 0.98, contrastMode: "standard" }],
+  ["crystal-palace", { opticalScale: 1.08, contrastMode: "standard" }],
+  ["everton", { opticalScale: 1.08, contrastMode: "standard" }],
+  ["fulham", { opticalScale: 1, contrastMode: "standard" }],
+  ["hull-city", { opticalScale: 1.08, contrastMode: "standard" }],
+  ["ipswich-town", { opticalScale: 1, contrastMode: "standard" }],
+  ["leeds-united", { opticalScale: 1.02, contrastMode: "standard" }],
+  ["liverpool", { opticalScale: 1.06, contrastMode: "standard" }],
+  ["manchester-city", { opticalScale: 0.96, contrastMode: "standard" }],
+  ["manchester-united", { opticalScale: 1, contrastMode: "standard" }],
+  ["newcastle-united", { opticalScale: 0.96, contrastMode: "standard" }],
+  ["nottingham-forest", { opticalScale: 1.08, contrastMode: "standard" }],
+  ["sunderland", { opticalScale: 1.10, contrastMode: "standard" }],
+  ["tottenham-hotspur", { opticalScale: 1.05, contrastMode: "standard" }]
 ]);
 
 function resolveVisualConfig(slug?: string | null) {
