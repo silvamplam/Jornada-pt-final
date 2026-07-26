@@ -205,7 +205,7 @@
   min-width: 0;
   height: 9px;
   overflow: visible;
-  transform: translateY(-2px);
+  transform: translateY(-5px);
 }
 
 .finishedSideScore {
