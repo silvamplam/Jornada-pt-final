@@ -888,7 +888,11 @@ test("a fronteira é server-only e o núcleo não contém rede nem fontes espec�
     /["'](?:record|abola|maisfutebol|ojogo)["']/i,
   );
   assert.equal(
-    internalSource.match(/dependencies\.persistArticle\(/g)?.length,
+    internalSource.match(/await persistArticle\(persistenceInput\)/g)?.length,
+    1,
+  );
+  assert.equal(
+    internalSource.match(/dependencies\.persistArticle,/g)?.length,
     1,
   );
 
