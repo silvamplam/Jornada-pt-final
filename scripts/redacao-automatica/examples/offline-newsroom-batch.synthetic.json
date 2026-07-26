@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "itemId": "synthetic-ojogo-legal-hold-1",
+      "sourceCode": "ojogo",
+      "originalUrl": "https://www.ojogo.pt/noticias/fixture-sintetica-local",
+      "html": "<!doctype html><html lang=\"pt\"><head><title>Fixture sintetica local</title></head><body><article><h1>Conteudo totalmente sintetico</h1><p>Este HTML existe apenas para uma invocacao manual local e controlada.</p></article></body></html>",
+      "detectedAt": "2026-07-26T10:00:00.000Z",
+      "extractedAt": "2026-07-26T10:01:00.000Z"
+    }
+  ]
+}
