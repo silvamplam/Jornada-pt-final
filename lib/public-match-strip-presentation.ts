@@ -46,7 +46,10 @@ export type PublicMatchStripPresentation = {
   statusLabel: string;
   center: PublicMatchStripCenter;
   status: PublicMatchStripStatus;
-  lowerScore: string | null;
+  finishedScore: {
+    left: string;
+    right: string;
+  } | null;
   showChannel: boolean;
 };
 
@@ -131,7 +134,12 @@ export function getPublicMatchStripPresentation(
         ? { kind: "placeholder", text: "-" }
         : { kind: "empty" },
     status,
-    lowerScore: kind === "finished" ? formattedScore : null,
+    finishedScore: kind === "finished" && formattedScore !== null
+      ? {
+          left: String(match.home_score),
+          right: String(match.away_score)
+        }
+      : null,
     showChannel: kind !== "finished"
   };
 }

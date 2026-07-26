@@ -31,12 +31,12 @@ test("agendado mostra apenas traco central e mantem horario e canal", () => {
     statusLabel: "Agendado",
     center: { kind: "placeholder", text: "-" },
     status: { kind: "schedule" },
-    lowerScore: null,
+    finishedScore: null,
     showChannel: true
   });
 });
 
-test("direto 0-0 substitui VS e usa minuto publico com canal", () => {
+test("direto 0-0 usa resultado central e minuto publico com canal", () => {
   assert.deepEqual(getPublicMatchStripPresentation(match({
     status: "live",
     minute: 0,
@@ -47,7 +47,7 @@ test("direto 0-0 substitui VS e usa minuto publico com canal", () => {
     statusLabel: "Live",
     center: { kind: "score", text: "0\u20130" },
     status: { kind: "live", label: "Live", minute: 0 },
-    lowerScore: null,
+    finishedScore: null,
     showChannel: true
   });
 });
@@ -111,12 +111,12 @@ test("intervalo apresenta resultado, terminologia anterior e canal", () => {
     statusLabel: "Intervalo",
     center: { kind: "score", text: "2\u20132" },
     status: { kind: "label", label: "Intervalo" },
-    lowerScore: null,
+    finishedScore: null,
     showChannel: true
   });
 });
 
-test("finalizado move resultado para a linha inferior e oculta o canal", () => {
+test("finalizado separa os marcadores por lado e oculta o canal", () => {
   assert.deepEqual(getPublicMatchStripPresentation(match({
     status: "finished",
     home_score: 1,
@@ -126,7 +126,7 @@ test("finalizado move resultado para a linha inferior e oculta o canal", () => {
     statusLabel: "Finalizado",
     center: { kind: "empty" },
     status: { kind: "label", label: "Finalizado" },
-    lowerScore: "1\u20130",
+    finishedScore: { left: "1", right: "0" },
     showChannel: false
   });
 });
@@ -144,7 +144,7 @@ test("finalizado sem canal conserva a mesma apresentacao sem inventar espaco tex
     kind: "label",
     label: "Finalizado"
   });
-  assert.equal(presentation.lowerScore, "0\u20130");
+  assert.deepEqual(presentation.finishedScore, { left: "0", right: "0" });
 });
 
 test("marcador incompleto deixa o centro vazio sem fabricar resultado", () => {
@@ -159,7 +159,7 @@ test("marcador incompleto deixa o centro vazio sem fabricar resultado", () => {
       presentation.center,
       { kind: "empty" }
     );
-    assert.equal(presentation.lowerScore, null);
+    assert.equal(presentation.finishedScore, null);
   }
 });
 
@@ -178,7 +178,7 @@ test("adiado e cancelado preservam fallback agendado sem inferir estado pelo mar
     assert.equal(presentation.statusLabel, label);
     assert.deepEqual(presentation.center, { kind: "empty" });
     assert.deepEqual(presentation.status, { kind: "schedule" });
-    assert.equal(presentation.lowerScore, null);
+    assert.equal(presentation.finishedScore, null);
     assert.equal(presentation.showChannel, true);
   }
 });
@@ -239,13 +239,20 @@ test("quatro consumidores usam a barra partilhada e a grelha grande fica separad
   assert.doesNotMatch(componentSource, /Versus|>\s*VS\s*</);
   assert.doesNotMatch(stylesSource, /\.versus\b/);
   assert.match(componentSource, /`\$\{styles\.score\} \$\{styles\.scheduledSeparator\}`/);
-  assert.match(componentSource, /presentation\.lowerScore !== null/);
-  assert.match(componentSource, /className=\{styles\.finishedScore\}/);
+  assert.match(componentSource, /presentation\.finishedScore !== null/);
+  assert.match(componentSource, /data-finished-score-side="left"/);
+  assert.match(componentSource, /data-finished-score-side="right"/);
+  assert.match(componentSource, /className=\{styles\.finishedScoreSeparator\}>-<\/span>/);
+  assert.match(componentSource, /className=\{`\$\{styles\.stateLabel\} \$\{styles\.finishedLabel\}`\}/);
+  assert.match(componentSource, /`\$\{styles\.stateLabel\} public-matchday-live-minute`/);
   assert.match(stylesSource, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*2px\s*minmax\(0,\s*1fr\)/);
   assert.match(stylesSource, /\.row > \.card > \.team:first-of-type\s*\{[\s\S]*?grid-column:\s*1/);
   assert.match(stylesSource, /\.row > \.card > \.team:nth-of-type\(2\)\s*\{[\s\S]*?grid-column:\s*3/);
   assert.match(stylesSource, /grid-template-rows:\s*52px 28px/);
   assert.match(stylesSource, /\.score\s*\{[\s\S]*?max-width:\s*54px;[\s\S]*?overflow:\s*hidden;[\s\S]*?font-variant-numeric:\s*tabular-nums/);
   assert.match(stylesSource, /\.scheduledSeparator\s*\{[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*800/);
-  assert.match(stylesSource, /\.finishedScore\s*\{[\s\S]*?grid-row:\s*2;[\s\S]*?height:\s*18px;[\s\S]*?font-variant-numeric:\s*tabular-nums/);
+  assert.match(stylesSource, /\.liveStatus :global\(\.public-matchday-live-minute\),\s*\.stateLabel:global\(\.public-matchday-live-minute\)\s*\{[\s\S]*?color:\s*#16a34a/);
+  assert.match(stylesSource, /\.finishedScoreLine\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s*12px\s*minmax\(0,\s*1fr\)/);
+  assert.match(stylesSource, /\.finishedSideScore\[data-finished-score-side="left"\]\s*\{[\s\S]*?translateX\(var\(--public-finished-score-inset\)\)/);
+  assert.match(stylesSource, /\.finishedSideScore\[data-finished-score-side="right"\]\s*\{[\s\S]*?translateX\(calc\(0px - var\(--public-finished-score-inset\)\)\)/);
 });

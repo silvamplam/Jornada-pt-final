@@ -172,7 +172,8 @@
   color: #10151b;
 }
 
-.liveStatus :global(.public-matchday-live-minute) {
+.liveStatus :global(.public-matchday-live-minute),
+.stateLabel:global(.public-matchday-live-minute) {
   color: #16a34a;
 }
 
@@ -186,26 +187,60 @@
   box-sizing: border-box;
 }
 
-.finishedScore {
+.finishedScoreLine {
+  --public-finished-score-inset: clamp(4px, 4cqi, 7px);
+
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
+  align-items: center;
   grid-column: 1;
-  grid-row: 2;
-  place-items: center;
+  grid-row: 1;
   justify-self: center;
-  width: max-content;
-  max-width: 54px;
-  height: 18px;
-  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 9px;
+  overflow: visible;
+}
+
+.finishedSideScore {
+  grid-row: 1;
+  justify-self: center;
   color: #10151b;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(15px, 11cqi, 18px);
+  font-size: clamp(12px, 9cqi, 14px);
   font-variant-numeric: tabular-nums;
   font-weight: 900;
-  line-height: 18px;
-  letter-spacing: -0.4px;
+  line-height: 1;
+  letter-spacing: -0.25px;
   text-align: center;
-  text-overflow: clip;
   white-space: nowrap;
+}
+
+.finishedSideScore[data-finished-score-side="left"] {
+  grid-column: 1;
+  transform: translateX(var(--public-finished-score-inset));
+}
+
+.finishedSideScore[data-finished-score-side="right"] {
+  grid-column: 3;
+  transform: translateX(calc(0px - var(--public-finished-score-inset)));
+}
+
+.finishedScoreSeparator {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  color: #526174;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.finishedLabel {
+  color: #607086;
+  font-size: 8.75px;
+  line-height: 18px;
 }
 
 .livePulseDots {

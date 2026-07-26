@@ -201,7 +201,13 @@ function CompactMatchCard({
       <LivePulseDots />
     </span>
   ) : presentation.status.kind === "label" ? (
-    <span className={styles.stateLabel}>{presentation.status.label}</span>
+    <span
+      className={presentation.kind === "halftime"
+        ? `${styles.stateLabel} public-matchday-live-minute`
+        : styles.stateLabel}
+    >
+      {presentation.status.label}
+    </span>
   ) : schedule.dateTime ? (
     <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
       {schedule.visual}
@@ -240,15 +246,35 @@ function CompactMatchCard({
         </span>
       ) : null}
       <span className={`${styles.status} public-matchday-mini-status`}>
-        {presentation.lowerScore !== null ? (
+        {presentation.kind === "finished" ? (
           <span className={styles.finishedMeta} data-public-match-meta>
-            <span>{statusContent}</span>
-            <strong
-              aria-label={`Resultado ${match.home_score} a ${match.away_score}`}
-              className={styles.finishedScore}
-            >
-              {presentation.lowerScore}
-            </strong>
+            {presentation.finishedScore !== null ? (
+              <span
+                aria-label={`Resultado ${presentation.finishedScore.left} a ${presentation.finishedScore.right}`}
+                className={styles.finishedScoreLine}
+              >
+                <strong
+                  aria-hidden="true"
+                  className={styles.finishedSideScore}
+                  data-finished-score-side="left"
+                >
+                  {presentation.finishedScore.left}
+                </strong>
+                <span aria-hidden="true" className={styles.finishedScoreSeparator}>-</span>
+                <strong
+                  aria-hidden="true"
+                  className={styles.finishedSideScore}
+                  data-finished-score-side="right"
+                >
+                  {presentation.finishedScore.right}
+                </strong>
+              </span>
+            ) : (
+              <span aria-hidden="true" className={styles.finishedScoreLine} />
+            )}
+            <span className={`${styles.stateLabel} ${styles.finishedLabel}`}>
+              {presentation.statusLabel}
+            </span>
           </span>
         ) : (
           <PublicMatchMeta
