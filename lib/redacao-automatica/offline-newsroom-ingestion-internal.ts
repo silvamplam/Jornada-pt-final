@@ -86,6 +86,11 @@ export type IngestOfflineNewsroomArticleResult = OperationResult<
   OfflineNewsroomIngestionError
 >;
 
+type OfflineNewsroomIngestionFailure = Extract<
+  IngestOfflineNewsroomArticleResult,
+  { ok: false }
+>;
+
 export type OfflineNewsroomIngestionDependencies = Readonly<{
   sourceProvider: SourceConfigurationProvider;
   adapterRegistry: AdapterRegistry;
@@ -101,6 +106,34 @@ type ValidatedInput = Readonly<{
   detectedAt: string;
   extractedAt: string;
 }>;
+
+export type LoadedNewsroomArticleIngestionInput = Readonly<{
+  source: SourceConfiguration;
+  adapter: SourceAdapter;
+  page: LoadedPage;
+  detectedAt: string;
+  extractedAt: string;
+  ingestionMode: "offline_local_html" | "http_manual_article";
+  networkRequest: boolean;
+}>;
+
+export type LoadedNewsroomArticleIngestionSuccess = Readonly<{
+  complete: true;
+  sourceCode: string;
+  normalizedUrl: string;
+  contentHash: string;
+  title: string;
+  publishedAt: string | null;
+  detectedAt: string;
+  extractedAt: string;
+  article: NewsroomArticleWriteOutcome;
+  snapshot: NewsroomSnapshotWriteOutcome;
+}>;
+
+export type LoadedNewsroomArticleIngestionResult = OperationResult<
+  LoadedNewsroomArticleIngestionSuccess,
+  OfflineNewsroomIngestionError
+>;
 
 const ERROR_MESSAGES: Readonly<
   Record<OfflineNewsroomIngestionErrorCode, string>
@@ -121,7 +154,7 @@ function failure(
   stage: OfflineNewsroomIngestionError["stage"],
   sourceCode: string | null,
   persistenceCode: NewsroomPersistenceErrorCode | null = null,
-): IngestOfflineNewsroomArticleResult {
+): OfflineNewsroomIngestionFailure {
   return {
     ok: false,
     error: {
@@ -322,7 +355,13 @@ function normalizeArticle(
   value: unknown,
   source: SourceConfiguration,
   adapter: SourceAdapter,
-  input: ValidatedInput,
+  input: Readonly<{
+    originalUrl: string;
+    detectedAt: string;
+    extractedAt: string;
+    ingestionMode: LoadedNewsroomArticleIngestionInput["ingestionMode"];
+    networkRequest: boolean;
+  }>,
 ): PersistNewsroomArticleInput | null {
   if (!isRecord(value)) {
     return null;
@@ -378,8 +417,8 @@ function normalizeArticle(
 
   const sourceMetadata: JsonObject = {
     ...stableAdapterSourceMetadata,
-    ingestionMode: "offline_local_html",
-    networkRequest: false,
+    ingestionMode: input.ingestionMode,
+    networkRequest: input.networkRequest,
     sourceCode: source.code,
     adapterKey: adapter.key,
     originalUrl: input.originalUrl,
@@ -473,6 +512,96 @@ export function sha256CanonicalJson(value: JsonValue): string {
   return createHash("sha256")
     .update(canonicalizeJson(value), "utf8")
     .digest("hex");
+}
+
+export async function ingestLoadedNewsroomArticle(
+  input: LoadedNewsroomArticleIngestionInput,
+  persistArticle: OfflineNewsroomIngestionDependencies["persistArticle"],
+): Promise<LoadedNewsroomArticleIngestionResult> {
+  const {
+    source,
+    adapter,
+    page,
+  } = input;
+
+  let parsedResult;
+  try {
+    parsedResult = adapter.extractArticle?.({
+      source,
+      page,
+      detectedAt: input.detectedAt,
+    });
+  } catch {
+    return failure("parsing_failed", "parsing", source.code);
+  }
+
+  if (!parsedResult) {
+    return failure("offline_not_supported", "configuration", source.code);
+  }
+
+  if (!parsedResult.ok) {
+    return failure(
+      parsedResult.error.code === "required_field_missing"
+        ? "normalized_article_invalid"
+        : "parsing_failed",
+      parsedResult.error.code === "required_field_missing"
+        ? "normalization"
+        : "parsing",
+      source.code,
+    );
+  }
+
+  const persistenceInput = normalizeArticle(
+    parsedResult.value,
+    source,
+    adapter,
+    {
+      originalUrl: page.requestedUrl,
+      detectedAt: input.detectedAt,
+      extractedAt: input.extractedAt,
+      ingestionMode: input.ingestionMode,
+      networkRequest: input.networkRequest,
+    },
+  );
+  if (!persistenceInput) {
+    return failure(
+      "normalized_article_invalid",
+      "normalization",
+      source.code,
+    );
+  }
+
+  let persisted;
+  try {
+    persisted = await persistArticle(persistenceInput);
+  } catch {
+    return failure("persistence_failed", "persistence", source.code);
+  }
+
+  if (!persisted.ok) {
+    return failure(
+      "persistence_failed",
+      "persistence",
+      source.code,
+      persisted.error.code,
+    );
+  }
+
+  return {
+    ok: true,
+    value: {
+      complete: true,
+      sourceCode: source.code,
+      normalizedUrl: persistenceInput.article.normalizedUrl,
+      contentHash: persistenceInput.snapshot.contentHash,
+      title: persistenceInput.article.title,
+      publishedAt: persistenceInput.article.publishedAt,
+      detectedAt: persistenceInput.article.detectedAt,
+      extractedAt: persistenceInput.snapshot.extractedAt,
+      article: persisted.value.article,
+      snapshot: persisted.value.snapshot,
+    },
+  };
 }
 
 export function createOfflineNewsroomIngestion(
@@ -577,68 +706,31 @@ export function createOfflineNewsroomIngestion(
       return failure("input_invalid", "validation", source.code);
     }
 
-    let parsedResult;
-    try {
-      parsedResult = adapter.extractArticle({
+    const ingested = await ingestLoadedNewsroomArticle(
+      {
         source,
+        adapter,
         page: offlineLoadedPage(input, inputUrlResult.value),
         detectedAt: input.detectedAt,
-      });
-    } catch {
-      return failure("parsing_failed", "parsing", source.code);
-    }
-
-    if (!parsedResult.ok) {
-      return failure(
-        parsedResult.error.code === "required_field_missing"
-          ? "normalized_article_invalid"
-          : "parsing_failed",
-        parsedResult.error.code === "required_field_missing"
-          ? "normalization"
-          : "parsing",
-        source.code,
-      );
-    }
-
-    const persistenceInput = normalizeArticle(
-      parsedResult.value,
-      source,
-      adapter,
-      input,
+        extractedAt: input.extractedAt,
+        ingestionMode: "offline_local_html",
+        networkRequest: false,
+      },
+      dependencies.persistArticle,
     );
-    if (!persistenceInput) {
-      return failure(
-        "normalized_article_invalid",
-        "normalization",
-        source.code,
-      );
-    }
-
-    let persisted;
-    try {
-      persisted = await dependencies.persistArticle(persistenceInput);
-    } catch {
-      return failure("persistence_failed", "persistence", source.code);
-    }
-
-    if (!persisted.ok) {
-      return failure(
-        "persistence_failed",
-        "persistence",
-        source.code,
-        persisted.error.code,
-      );
+    if (!ingested.ok) {
+      return ingested;
     }
 
     return {
       ok: true,
       value: {
         complete: true,
-        sourceCode: source.code,
-        normalizedUrl: persistenceInput.article.normalizedUrl,
-        contentHash: persistenceInput.snapshot.contentHash,
-        article: persisted.value.article,
-        snapshot: persisted.value.snapshot,
+        sourceCode: ingested.value.sourceCode,
+        normalizedUrl: ingested.value.normalizedUrl,
+        contentHash: ingested.value.contentHash,
+        article: ingested.value.article,
+        snapshot: ingested.value.snapshot,
       },
     };
   };
