@@ -50,6 +50,7 @@ function source(
     adapterKey: "fixture",
     operationalStatus: "paused",
     monitoringEnabled: false,
+    manualCollectionEnabled: false,
     inactiveReason: "Operação externa inativa.",
     legalNote: null,
     editorialNote: "Fonte sintética para testes locais.",

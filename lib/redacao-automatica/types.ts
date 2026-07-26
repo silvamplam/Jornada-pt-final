@@ -8,6 +8,13 @@ export const SOURCE_OPERATIONAL_STATUSES = [
 
 export type SourceOperationalStatus = (typeof SOURCE_OPERATIONAL_STATUSES)[number];
 
+export const SOURCE_EXECUTION_MODES = [
+  "automatic",
+  "manual",
+] as const;
+
+export type SourceExecutionMode = (typeof SOURCE_EXECUTION_MODES)[number];
+
 export type SourceConfiguration = Readonly<{
   code: string;
   name: string;
@@ -16,6 +23,7 @@ export type SourceConfiguration = Readonly<{
   adapterKey: string | null;
   operationalStatus: SourceOperationalStatus;
   monitoringEnabled: boolean;
+  manualCollectionEnabled: boolean;
   inactiveReason: string | null;
   legalNote: string | null;
   editorialNote: string;
