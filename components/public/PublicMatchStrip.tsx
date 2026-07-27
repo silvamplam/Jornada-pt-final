@@ -1,6 +1,7 @@
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { getPublicMatchStripPresentation } from "@/lib/public-match-strip-presentation";
+import { getPublicMatchStripTheme } from "@/lib/public-match-strip-theme";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import type { CSSProperties } from "react";
 import styles from "./PublicMatchStrip.module.css";
@@ -189,25 +190,42 @@ function CompactMatchCard({
   const awayFullName = getPublicTeamName(awayTeamName, "full");
   const homeCompactName = getPublicTeamName(homeTeamName, "compact");
   const awayCompactName = getPublicTeamName(awayTeamName, "compact");
+  const activeScore = presentation.center.kind === "score"
+    ? presentation.center.text
+    : null;
+  const finishedScoreText = presentation.finishedScore !== null
+    ? `${presentation.finishedScore.left}–${presentation.finishedScore.right}`
+    : null;
   const statusContent = presentation.status.kind === "live" ? (
-    <span className={styles.liveStatus}>
-      <span className="public-matchday-live-label">{presentation.status.label}</span>
+    <span
+      aria-label={`${presentation.statusLabel}${activeScore ? `. Resultado ${match.home_score} a ${match.away_score}` : ""}${presentation.status.minute !== null ? `. Minuto ${presentation.status.minute}` : ""}`}
+      className={styles.liveStatus}
+    >
+      {activeScore ? (
+        <strong aria-hidden="true" className={styles.statusScore}>{activeScore}</strong>
+      ) : null}
       {presentation.status.minute !== null ? (
-        <span className="public-matchday-live-minute">
+        <span aria-hidden="true" className="public-matchday-live-minute">
           {presentation.status.minute}
           <span className={`${styles.livePrime} home-live-minute-prime home-live-minute-prime-active`}>{"'"}</span>
         </span>
       ) : null}
       <LivePulseDots />
     </span>
-  ) : presentation.status.kind === "label" ? (
+  ) : presentation.kind === "halftime" ? (
     <span
-      className={presentation.kind === "halftime"
-        ? `${styles.stateLabel} public-matchday-live-minute`
-        : styles.stateLabel}
+      aria-label={`${presentation.statusLabel}${activeScore ? `. Resultado ${match.home_score} a ${match.away_score}` : ""}`}
+      className={styles.halftimeStatus}
     >
-      {presentation.status.label}
+      {activeScore ? (
+        <strong aria-hidden="true" className={styles.statusScore}>{activeScore}</strong>
+      ) : null}
+      <span aria-hidden="true" className={`${styles.stateLabel} public-matchday-live-minute`}>
+        {presentation.statusLabel}
+      </span>
     </span>
+  ) : presentation.status.kind === "label" ? (
+    <span className={styles.stateLabel}>{presentation.status.label}</span>
   ) : schedule.dateTime ? (
     <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
       {schedule.visual}
@@ -228,53 +246,27 @@ function CompactMatchCard({
         <span className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
         <span className={styles.teamName} title={awayFullName}>{awayCompactName}</span>
       </span>
-      {presentation.center.kind !== "empty" ? (
-        <span
-          aria-label={presentation.center.kind === "score"
-            ? `${presentation.statusLabel}. Resultado ${match.home_score} a ${match.away_score}`
-            : presentation.statusLabel}
-          className={styles.center}
-        >
-          <strong
-            aria-hidden="true"
-            className={presentation.center.kind === "score"
-              ? styles.score
-              : `${styles.score} ${styles.scheduledSeparator}`}
-          >
+      {presentation.center.kind === "placeholder" ? (
+        <span aria-label={presentation.statusLabel} className={styles.center}>
+          <strong aria-hidden="true" className={`${styles.score} ${styles.scheduledSeparator}`}>
             {presentation.center.text}
           </strong>
         </span>
       ) : null}
       <span className={`${styles.status} public-matchday-mini-status`}>
         {presentation.kind === "finished" ? (
-          <span className={styles.finishedMeta} data-public-match-meta>
-            {presentation.finishedScore !== null ? (
-              <span
-                aria-label={`Resultado ${presentation.finishedScore.left} a ${presentation.finishedScore.right}`}
-                className={styles.finishedScoreLine}
-              >
-                <strong
-                  aria-hidden="true"
-                  className={styles.finishedSideScore}
-                  data-finished-score-side="left"
-                >
-                  {presentation.finishedScore.left}
-                </strong>
-                <span aria-hidden="true" className={styles.finishedScoreSeparator}>-</span>
-                <strong
-                  aria-hidden="true"
-                  className={styles.finishedSideScore}
-                  data-finished-score-side="right"
-                >
-                  {presentation.finishedScore.right}
-                </strong>
-              </span>
-            ) : (
-              <span aria-hidden="true" className={styles.finishedScoreLine} />
-            )}
-            <span className={`${styles.stateLabel} ${styles.finishedLabel}`}>
-              {presentation.statusLabel}
-            </span>
+          <span
+            aria-label={finishedScoreText
+              ? `Finalizado. Resultado ${presentation.finishedScore?.left} a ${presentation.finishedScore?.right}`
+              : "Finalizado"}
+            className={styles.finishedMeta}
+            data-public-match-meta
+          >
+            {finishedScoreText ? (
+              <strong aria-hidden="true" className={styles.finishedScore}>
+                {finishedScoreText}
+              </strong>
+            ) : null}
           </span>
         ) : (
           <PublicMatchMeta
@@ -288,7 +280,14 @@ function CompactMatchCard({
   );
 }
 
-export default function PublicMatchStrip({ matches }: { matches: PublicMatchStripMatch[] }) {
+export default function PublicMatchStrip({
+  matches,
+  competitionSlug
+}: {
+  matches: PublicMatchStripMatch[];
+  competitionSlug?: string | null;
+}) {
+  const competitionTheme = getPublicMatchStripTheme(competitionSlug);
   const focusedMatch = matches.find((match) => {
     const kind = getPublicMatchStripPresentation(match).kind;
     return kind === "live" || kind === "halftime";
@@ -299,7 +298,11 @@ export default function PublicMatchStrip({ matches }: { matches: PublicMatchStri
   }
 
   return (
-    <section className="public-matchday-panel public-matchday-scoreboard-panel" aria-label="Visao rapida dos jogos">
+    <section
+      className={`${styles.panel} public-matchday-panel public-matchday-scoreboard-panel`}
+      data-competition-theme={competitionTheme ?? undefined}
+      aria-label="Visao rapida dos jogos"
+    >
       <div className={`${styles.shell} public-matchday-strip-shell`}>
         <div
           className={`${styles.row} public-matchday-strip`}

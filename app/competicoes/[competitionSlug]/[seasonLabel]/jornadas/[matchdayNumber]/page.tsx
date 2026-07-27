@@ -3516,6 +3516,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         }}
       />
       <PublicMatchStrip
+        competitionSlug={context.competition.slug}
         matches={context.matchesForMatchday.map((match) => ({
           ...match,
           matchdayNumber: context.matchday.number

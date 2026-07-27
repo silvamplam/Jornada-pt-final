@@ -4,6 +4,217 @@
   overflow: visible;
 }
 
+.panel {
+  min-width: 0;
+}
+
+.panel[data-competition-theme="liga-portugal"] {
+  --public-liga-portugal-navy: #00235a;
+  --public-liga-portugal-gold: #f4c300;
+  --public-liga-portugal-ink: #10243f;
+  --public-liga-portugal-muted: #5d6b7d;
+}
+
+.panel[data-competition-theme="liga-portugal"] .shell {
+  padding: 6px;
+  border: 1px solid rgba(0, 35, 90, 0.16);
+  border-radius: 11px;
+  background:
+    linear-gradient(90deg, rgba(244, 195, 0, 0.08), transparent 28%),
+    linear-gradient(180deg, #f7f9fc 0%, #edf2f7 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card {
+  --public-liga-portugal-home-rgb: 244, 195, 0;
+  --public-liga-portugal-away-rgb: 0, 35, 90;
+
+  isolation: isolate;
+  overflow: hidden;
+  border-color: rgba(0, 35, 90, 0.26);
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff 64%, #f4f6f8 64%, #eef2f5 100%);
+  box-shadow: 0 4px 11px rgba(0, 35, 90, 0.11);
+  color: var(--public-liga-portugal-ink);
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card:nth-child(4n + 2),
+.panel[data-competition-theme="liga-portugal"] .row > .card:nth-child(4n + 3) {
+  --public-liga-portugal-home-rgb: 0, 35, 90;
+  --public-liga-portugal-away-rgb: 244, 195, 0;
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card::before,
+.panel[data-competition-theme="liga-portugal"] .row > .card::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card::before {
+  background:
+    radial-gradient(circle at 18% 19%, rgba(255, 255, 255, 0.72) 0%, transparent 37%),
+    linear-gradient(
+      180deg,
+      rgba(var(--public-liga-portugal-home-rgb), 0.27) 0%,
+      rgba(var(--public-liga-portugal-home-rgb), 0.18) 48%,
+      rgba(var(--public-liga-portugal-home-rgb), 0.08) 73%,
+      rgba(var(--public-liga-portugal-home-rgb), 0) 100%
+    );
+  clip-path: polygon(
+    0 0,
+    58% 0,
+    49% 18%,
+    56% 34%,
+    47% 52%,
+    55% 69%,
+    46% 84%,
+    50% 100%,
+    0 100%
+  );
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card::after {
+  background:
+    radial-gradient(circle at 82% 19%, rgba(255, 255, 255, 0.72) 0%, transparent 37%),
+    linear-gradient(
+      180deg,
+      rgba(var(--public-liga-portugal-away-rgb), 0.23) 0%,
+      rgba(var(--public-liga-portugal-away-rgb), 0.15) 48%,
+      rgba(var(--public-liga-portugal-away-rgb), 0.07) 73%,
+      rgba(var(--public-liga-portugal-away-rgb), 0) 100%
+    );
+  clip-path: polygon(
+    58% 0,
+    100% 0,
+    100% 100%,
+    50% 100%,
+    46% 84%,
+    55% 69%,
+    47% 52%,
+    56% 34%,
+    49% 18%
+  );
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card:nth-child(4n + 2)::before {
+  clip-path: polygon(
+    0 0,
+    46% 0,
+    57% 24%,
+    48% 43%,
+    59% 65%,
+    51% 82%,
+    55% 100%,
+    0 100%
+  );
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card:nth-child(4n + 2)::after {
+  clip-path: polygon(
+    46% 0,
+    100% 0,
+    100% 100%,
+    55% 100%,
+    51% 82%,
+    59% 65%,
+    48% 43%,
+    57% 24%
+  );
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card:nth-child(4n + 3)::before {
+  clip-path: polygon(
+    0 0,
+    55% 0,
+    50% 20%,
+    61% 37%,
+    48% 57%,
+    58% 77%,
+    49% 100%,
+    0 100%
+  );
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card:nth-child(4n + 3)::after {
+  clip-path: polygon(
+    55% 0,
+    100% 0,
+    100% 100%,
+    49% 100%,
+    58% 77%,
+    48% 57%,
+    61% 37%,
+    50% 20%
+  );
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card:nth-child(4n + 4)::before {
+  clip-path: polygon(
+    0 0,
+    48% 0,
+    58% 17%,
+    51% 36%,
+    60% 53%,
+    50% 72%,
+    56% 88%,
+    53% 100%,
+    0 100%
+  );
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card:nth-child(4n + 4)::after {
+  clip-path: polygon(
+    48% 0,
+    100% 0,
+    100% 100%,
+    53% 100%,
+    56% 88%,
+    50% 72%,
+    60% 53%,
+    51% 36%,
+    58% 17%
+  );
+}
+
+.panel[data-competition-theme="liga-portugal"] .row > .card > * {
+  z-index: 1;
+}
+
+.panel[data-competition-theme="liga-portugal"] .teamName,
+.panel[data-competition-theme="liga-portugal"] .score,
+.panel[data-competition-theme="liga-portugal"] .statusScore,
+.panel[data-competition-theme="liga-portugal"] .finishedScore {
+  color: var(--public-liga-portugal-ink);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.74);
+}
+
+.panel[data-competition-theme="liga-portugal"] .scheduledSeparator {
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  color: transparent;
+  font-size: 0;
+  opacity: 0;
+}
+
+.panel[data-competition-theme="liga-portugal"] .status {
+  border-top: 1px solid rgba(0, 35, 90, 0.09);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(238, 242, 245, 0.62));
+}
+
+.panel[data-competition-theme="liga-portugal"] .status > :global([data-public-match-meta]) > span:first-child {
+  color: var(--public-liga-portugal-muted);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.panel[data-competition-theme="liga-portugal"] .card[data-live-focus="true"] {
+  border-color: rgba(0, 35, 90, 0.44);
+  box-shadow: 0 5px 14px rgba(0, 35, 90, 0.16);
+}
+
 .shell > .row {
   display: grid;
   grid-template-columns: repeat(var(--public-match-strip-columns), minmax(0, 1fr));
@@ -159,26 +370,42 @@
   letter-spacing: 0;
 }
 
-.liveStatus {
+.liveStatus,
+.halftimeStatus {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
+  justify-content: center;
   gap: 4px;
+  min-width: 0;
   color: #10151b;
   font-weight: 900;
+  line-height: 1;
   white-space: nowrap;
 }
 
-.liveStatus :global(.public-matchday-live-label) {
+.liveStatus > *,
+.halftimeStatus > * {
+  flex: 0 0 auto;
+}
+
+.statusScore {
   color: #10151b;
-  font-size: 9.5px;
-  line-height: 10px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(14.5px, 10.5cqi, 16px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
 }
 
 .liveStatus :global(.public-matchday-live-minute),
-.stateLabel:global(.public-matchday-live-minute) {
+.halftimeStatus .stateLabel:global(.public-matchday-live-minute) {
+  display: inline-flex;
+  align-items: baseline;
   color: #16a34a;
   font-size: 10px;
-  line-height: 10px;
+  line-height: 1;
 }
 
 .stateLabel {
@@ -189,63 +416,19 @@
 
 .finishedMeta {
   box-sizing: border-box;
+  transform: translateY(-3px);
 }
 
-.finishedScoreLine {
-  --public-finished-score-inset: clamp(2px, 2.5cqi, 4px);
-
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 12px minmax(0, 1fr);
-  align-items: center;
-  grid-column: 1;
-  grid-row: 1;
-  justify-self: center;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  height: 9px;
-  overflow: visible;
-  transform: translateY(-5px);
-}
-
-.finishedSideScore {
-  grid-row: 1;
-  justify-self: center;
+.finishedScore {
   color: #10151b;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(16px, 11cqi, 18px);
+  font-size: clamp(18px, 12.5cqi, 21px);
   font-variant-numeric: tabular-nums;
   font-weight: 900;
   line-height: 1;
-  letter-spacing: -0.25px;
+  letter-spacing: 0.1em;
   text-align: center;
   white-space: nowrap;
-}
-
-.finishedSideScore[data-finished-score-side="left"] {
-  grid-column: 1;
-  transform: translateX(var(--public-finished-score-inset));
-}
-
-.finishedSideScore[data-finished-score-side="right"] {
-  grid-column: 3;
-  transform: translateX(calc(0px - var(--public-finished-score-inset)));
-}
-
-.finishedScoreSeparator {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: center;
-  color: #526174;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.finishedLabel {
-  color: #607086;
-  font-size: 8.75px;
-  line-height: 18px;
 }
 
 .livePulseDots {
@@ -363,9 +546,34 @@
   overflow: visible;
 }
 
+
+.row > .card > .status > .finishedMeta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 28px;
+  margin-inline: 0;
+  padding-inline: 0;
+  overflow: visible;
+}
+
+.row > .card:global(.public-matchday-mini-card-live) > .status > :global([data-public-match-meta]),
+.row > .card:global(.public-matchday-mini-card-halftime) > .status > :global([data-public-match-meta]) {
+  grid-template-rows: 10px 17px;
+  row-gap: 1px;
+}
+
 @media (max-width: 760px) {
   .shell.shell {
     padding-inline: 0;
+  }
+
+  .panel[data-competition-theme="liga-portugal"] .shell.shell {
+    padding: 5px;
   }
 
   .shell > .row {
@@ -385,4 +593,22 @@
     justify-self: center;
     width: calc((100% - var(--public-match-strip-mobile-gap)) / 2);
   }
+}
+
+/* Afinação final do estado em direto: mantém o canal como estava,
+   alinha o minuto verde ao centro e iguala o tamanho do resultado ao intervalo. */
+.row > .card:global(.public-matchday-mini-card-live) .liveStatus {
+  align-items: center;
+  gap: 4px;
+}
+
+.row > .card:global(.public-matchday-mini-card-live) .statusScore {
+  font-size: clamp(14.5px, 10.5cqi, 16px);
+  letter-spacing: 0.1em;
+}
+
+.row > .card:global(.public-matchday-mini-card-live) .liveStatus :global(.public-matchday-live-minute) {
+  align-items: center;
+  position: relative;
+  top: 1px;
 }
