@@ -3,6 +3,7 @@ import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
+import { buildPublicMatchdayEditorialVisibility } from "@/lib/public-matchday-editorial-visibility";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
@@ -1374,9 +1375,7 @@ const publicMatchdayStyles = `
     aspect-ratio: 16 / 9;
     overflow: hidden;
     border-radius: 6px;
-    background:
-      linear-gradient(rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.62)),
-      url("https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=700&q=80") center / cover;
+    background: #eef2f6;
   }
 
   .public-complement-media img,
@@ -2556,6 +2555,73 @@ const publicMatchdayStyles = `
       justify-content: flex-start;
     }
   }
+  .public-matchday-cover[data-editorial-layout="feature-main"],
+  .public-matchday-cover[data-editorial-layout="feature-news"],
+  .public-matchday-cover[data-editorial-layout="main-news"],
+  .public-matchday-cover[data-editorial-layout="feature"],
+  .public-matchday-cover[data-editorial-layout="main"],
+  .public-matchday-cover[data-editorial-layout="news"] {
+    min-height: 0;
+  }
+
+  .public-matchday-cover[data-editorial-layout="feature-main"] {
+    grid-template-columns: minmax(220px, 240px) minmax(0, 1fr);
+    grid-template-areas: "feature main";
+  }
+
+  .public-matchday-cover[data-editorial-layout="feature-news"] {
+    grid-template-columns: minmax(220px, 240px) minmax(0, 1fr);
+    grid-template-areas: "feature news";
+  }
+
+  .public-matchday-cover[data-editorial-layout="main-news"] {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 280px);
+    grid-template-areas: "main news";
+  }
+
+  .public-matchday-cover[data-editorial-layout="feature"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "feature";
+  }
+
+  .public-matchday-cover[data-editorial-layout="main"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "main";
+  }
+
+  .public-matchday-cover[data-editorial-layout="news"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "news";
+  }
+
+  .public-matchday-main-lower.public-matchday-main-lower-single {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .public-matchday-main-lower.public-matchday-main-lower-single > * {
+    grid-column: 1 / -1;
+  }
+
+  .public-cover-headline[data-headline-layout="copy-only"],
+  .public-cover-headline[data-headline-layout="media-only"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  @media (max-width: 980px) {
+    .public-matchday-cover[data-editorial-layout="feature-main"],
+    .public-matchday-cover[data-editorial-layout="feature-news"],
+    .public-matchday-cover[data-editorial-layout="main-news"] {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: none;
+    }
+
+    .public-matchday-cover[data-editorial-layout="feature-main"] > *,
+    .public-matchday-cover[data-editorial-layout="feature-news"] > *,
+    .public-matchday-cover[data-editorial-layout="main-news"] > * {
+      grid-area: auto;
+    }
+  }
+
 `;
 
 function signedNumber(value: number) {
@@ -3219,17 +3285,17 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const referenceSideBlock = usePublishedReferenceComposition ? firstReferenceSlotItem(context.referenceSlots.side_block) : null;
   const referenceEditorialLineItems = usePublishedReferenceComposition ? context.referenceSlots.editorial_line_item ?? [] : [];
   const useReferenceRoundupItems = usePublishedReferenceComposition && context.hasReferenceRoundupItems;
-  const effectiveRoundupItems = useReferenceRoundupItems
+  const effectiveRoundupItems = (useReferenceRoundupItems
     ? context.referenceRoundupItems
     : usePublishedReferenceComposition
       ? []
-      : context.roundupItems;
+      : context.roundupItems).filter((item) => Boolean(item.title?.trim()));
   const headlineTitle = referenceHeadline
-    ? cleanReferenceSnapshotText(referenceHeadline.title_snapshot) || "Manchete da jornada"
-    : publishedHeadline?.title || "Manchete da jornada";
+    ? cleanReferenceSnapshotText(referenceHeadline.title_snapshot)
+    : publishedHeadline?.title?.trim() || null;
   const headlineSummary = referenceHeadline
-    ? cleanReferenceSnapshotText(referenceHeadline.subtitle_snapshot) || "Espaço reservado para a leitura editorial desta jornada."
-    : publishedHeadline?.summary || "Espaço reservado para a leitura editorial desta jornada.";
+    ? cleanReferenceSnapshotText(referenceHeadline.subtitle_snapshot)
+    : publishedHeadline?.summary?.trim() || null;
   const headlineImageUrl = referenceHeadline
     ? cleanReferenceSnapshotText(referenceHeadline.image_url_snapshot)
     : publishedHeadline?.image_url?.trim() || null;
@@ -3237,6 +3303,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     ? cleanReferenceSnapshotText(referenceHeadline.link_url_snapshot)
     : cleanReferenceSnapshotText(publishedHeadline?.headline_link_url);
   const headlineMedia = context.headlineMedia;
+  const hasPublishedHeadline = usePublishedReferenceComposition
+    ? Boolean(headlineTitle || headlineSummary || headlineImageUrl || headlineMedia)
+    : Boolean(publishedHeadline && (headlineTitle || headlineSummary || headlineImageUrl || headlineMedia));
   const complementaryMode = editorial?.complementary_mode ?? "none";
   const referenceHighlightItems = usePublishedReferenceComposition
     ? [...(context.referenceSlots.highlight ?? [])]
@@ -3245,11 +3314,12 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         .map((item) => ({
           id: item.id,
           label: cleanReferenceSnapshotText(item.label_snapshot),
-          title: cleanReferenceSnapshotText(item.title_snapshot) || "Destaque da jornada",
+          title: cleanReferenceSnapshotText(item.title_snapshot) || "",
           subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot),
           imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
           linkUrl: cleanReferenceSnapshotText(item.link_url_snapshot)
         }))
+        .filter((item) => item.title.length > 0)
     : [];
   const configuredBelowHeadlineMode = editorial?.below_headline_mode === "roundup" ? "roundup" : "highlights";
   const belowHeadlineMode = referenceHighlightItems.length > 0 ? "highlights" : configuredBelowHeadlineMode;
@@ -3268,32 +3338,32 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       : context.highlights.map((highlight) => ({
           id: highlight.id,
           label: highlight.label?.trim() || null,
-          title: highlight.title?.trim() || "Destaque da jornada",
+          title: highlight.title?.trim() || "",
           subtitle: highlight.subtitle?.trim() || null,
           imageUrl: highlight.image_url?.trim() || null,
           linkUrl: highlight.link_url?.trim() || null
-        }));
-  const hasPublishedComplementaryStory = usePublishedReferenceComposition
-    ? hasReferenceSlotContent(referenceComplement)
-    : complementaryMode === "complementary_story" &&
-      editorial?.complementary_status === "published" &&
-      Boolean(editorial?.complementary_title?.trim());
+        })).filter((highlight) => highlight.title.length > 0);
   const complementaryImageUrl = usePublishedReferenceComposition
     ? cleanReferenceSnapshotText(referenceComplement?.image_url_snapshot)
     : editorial?.complementary_image_url?.trim() || null;
   const complementaryLabel = usePublishedReferenceComposition
     ? cleanReferenceSnapshotText(referenceComplement?.label_snapshot)
-    : editorial?.complementary_label || null;
+    : editorial?.complementary_label?.trim() || null;
   const complementaryTitle = usePublishedReferenceComposition
     ? cleanReferenceSnapshotText(referenceComplement?.title_snapshot)
-    : editorial?.complementary_title || null;
+    : editorial?.complementary_title?.trim() || null;
   const complementaryText = usePublishedReferenceComposition
     ? cleanReferenceSnapshotText(referenceComplement?.subtitle_snapshot)
-    : editorial?.complementary_text || null;
+    : editorial?.complementary_text?.trim() || null;
   const complementaryLinkUrl = usePublishedReferenceComposition
     ? cleanReferenceSnapshotText(referenceComplement?.link_url_snapshot)
     : editorial?.complementary_link_url?.trim() || null;
   const complementMedia = context.complementMedia;
+  const hasPublishedComplementaryStory = usePublishedReferenceComposition
+    ? Boolean(complementaryTitle || complementaryText || complementaryImageUrl || complementMedia)
+    : complementaryMode === "complementary_story" &&
+      editorial?.complementary_status === "published" &&
+      Boolean(complementaryTitle || complementaryText || complementaryImageUrl || complementMedia);
   const sideBlockImageUrl = usePublishedReferenceComposition
     ? cleanReferenceSnapshotText(referenceSideBlock?.image_url_snapshot)
     : editorial?.side_block_image_url?.trim() || null;
@@ -3305,9 +3375,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const sideBlockText = usePublishedReferenceComposition ? cleanReferenceSnapshotText(referenceSideBlock?.subtitle_snapshot) : cleanPublicSideBlockText(editorial?.side_block_text);
   const sideBlockLinkUrl = usePublishedReferenceComposition ? cleanReferenceSnapshotText(referenceSideBlock?.link_url_snapshot) : editorial?.side_block_link_url?.trim() || null;
   const hasPublishedSideBlock = usePublishedReferenceComposition
-    ? hasReferenceSlotContent(referenceSideBlock)
+    ? Boolean(sideBlockImageUrl || sideBlockTitle || sideBlockText)
     : editorial?.side_block_status === "published" &&
-      Boolean(sideBlockImageUrl || explicitSideBlockLabel || sideBlockTitle || sideBlockText);
+      Boolean(sideBlockImageUrl || sideBlockTitle || sideBlockText);
   const latestZoneMode = editorial?.latest_zone_mode === "editorial_line" ? "editorial_line" : "latest_news";
   const configuredLatestZoneTitle = editorial?.latest_zone_title?.trim() ?? "";
   const latestZoneTitle = usePublishedReferenceComposition
@@ -3322,7 +3392,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     ? referenceEditorialLineItems.map((item) => ({
         id: item.id,
         timeLabel: publicFreeZoneReferenceLabel(item),
-        title: cleanReferenceSnapshotText(item.title_snapshot) || "Notícia da jornada",
+        title: cleanReferenceSnapshotText(item.title_snapshot) || "",
         subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot) || "",
         imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
         linkUrl: cleanReferenceSnapshotText(item.link_url_snapshot)
@@ -3330,11 +3400,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     : context.latestNews.map((item) => ({
         id: item.id,
         timeLabel: item.time_label || "",
-        title: item.title || "Noticia da jornada",
+        title: item.title?.trim() || "",
         subtitle: item.subtitle?.trim() || "",
         imageUrl: item.image_url?.trim() || null,
         linkUrl: item.link_url?.trim() || null
-      }));
+      })).filter((item) => item.title.length > 0);
   const showLatestZone = latestNewsItems.length > 0;
   const importantNewsItems = usePublishedReferenceComposition
     ? [...(context.referenceSlots.important_item ?? [])]
@@ -3343,15 +3413,30 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         .map((item) => ({
           id: item.id,
           label: publicFreeZoneReferenceLabel(item),
-          title: cleanReferenceSnapshotText(item.title_snapshot) || "Notícia da jornada",
+          title: cleanReferenceSnapshotText(item.title_snapshot) || "",
           subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot),
           imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
           linkUrl: cleanReferenceSnapshotText(item.link_url_snapshot)
         }))
+        .filter((item) => item.title.length > 0)
     : [];
   const showImportantNews = importantNewsItems.length > 0;
   const showBelowHeadlineEditorialStrip =
-    belowHeadlineMode === "highlights" || effectiveRoundupItems.length > 0 || !usePublishedReferenceComposition;
+    belowHeadlineMode === "highlights" ? effectiveHighlights.length > 0 : effectiveRoundupItems.length > 0;
+  const editorialVisibility = buildPublicMatchdayEditorialVisibility({
+    hasHeadline: hasPublishedHeadline,
+    hasSideBlock: hasPublishedSideBlock,
+    highlightCount: belowHeadlineMode === "highlights" ? effectiveHighlights.length : 0,
+    roundupCount: belowHeadlineMode === "roundup" ? effectiveRoundupItems.length : 0,
+    hasComplementaryStory: hasPublishedComplementaryStory,
+    latestNewsCount: latestNewsItems.length,
+    importantNewsCount: importantNewsItems.length
+  });
+  const headlineLayout = headlineMedia || headlineImageUrl
+    ? headlineTitle || headlineSummary
+      ? "media-copy"
+      : "media-only"
+    : "copy-only";
 
   return (
     <main className="public-matchday-shell">
@@ -3453,12 +3538,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         />
       ) : null}
 
+      {editorialVisibility.showCoverPanel ? (
       <section className="public-matchday-panel" aria-label="Capa da jornada">
-        <div className="public-matchday-cover">
+        <div className="public-matchday-cover" data-editorial-layout={editorialVisibility.coverLayout}>
+          {editorialVisibility.showSideBlock ? (
           <aside className="public-matchday-feature public-side-editorial-block" aria-label="Bloco editorial lateral da jornada">
             <div className="public-side-editorial-inner">
-              {hasPublishedSideBlock ? (
-                sideBlockLinkUrl ? (
+                {sideBlockLinkUrl ? (
                   <a className="public-side-editorial-card-link" href={sideBlockLinkUrl} aria-label={sideBlockTitle ? `Abrir ${sideBlockTitle}` : "Abrir artigo"}>
                     {sideBlockImageUrl ? (
                       <div className="public-side-editorial-image">
@@ -3486,21 +3572,21 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                     {sideBlockText ? <p>{sideBlockText}</p> : null}
                   </div>
                 </>
-                )
-              ) : (
-                <div className="public-side-editorial-placeholder">Espaco editorial por definir</div>
-              )}
+                )}
             </div>
           </aside>
+          ) : null}
+          {editorialVisibility.showMainColumn ? (
           <div className="public-matchday-main-column">
+            {editorialVisibility.showHeadline ? (
             <article className="public-matchday-editorial">
-              <div className="public-cover-headline">
+              <div className="public-cover-headline" data-headline-layout={headlineLayout}>
                 {headlineMedia ? (
                   <div className="public-editorial-main-image">
                     {headlineMedia.kind === "embed" && headlineMedia.embed_url ? (
                       <iframe
                         src={headlineMedia.embed_url}
-                        title={headlineMedia.title || headlineTitle}
+                        title={headlineMedia.title || headlineTitle || "Manchete da jornada"}
                         allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                         allowFullScreen
                         loading="lazy"
@@ -3517,24 +3603,31 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                     <img src={headlineImageUrl} alt="" />
                   </div>
                 ) : null}
+                {headlineTitle || headlineSummary ? (
                 <div>
-                  {headlineLinkUrl ? (
-                    <a className="public-cover-headline-title-link" href={headlineLinkUrl}>
+                  {headlineTitle ? (
+                    headlineLinkUrl ? (
+                      <a className="public-cover-headline-title-link" href={headlineLinkUrl}>
+                        <h2 style={!referenceHeadline && publishedHeadline?.title_color ? { color: publishedHeadline.title_color } : undefined}>
+                          {headlineTitle}
+                        </h2>
+                      </a>
+                    ) : (
                       <h2 style={!referenceHeadline && publishedHeadline?.title_color ? { color: publishedHeadline.title_color } : undefined}>
                         {headlineTitle}
                       </h2>
-                    </a>
-                  ) : (
-                    <h2 style={!referenceHeadline && publishedHeadline?.title_color ? { color: publishedHeadline.title_color } : undefined}>
-                      {headlineTitle}
-                    </h2>
-                  )}
-                  <p>{headlineSummary}</p>
+                    )
+                  ) : null}
+                  {headlineSummary ? <p>{headlineSummary}</p> : null}
                 </div>
+                ) : null}
               </div>
             </article>
-            <div className="public-matchday-main-lower">
-              {belowHeadlineMode === "roundup" ? (
+            ) : null}
+            {editorialVisibility.showMainLower ? (
+            <div className={`public-matchday-main-lower${editorialVisibility.mainLowerIsSingle ? " public-matchday-main-lower-single" : ""}`}>
+              {showBelowHeadlineEditorialStrip ? (
+              belowHeadlineMode === "roundup" ? (
                 <RoundupVideoSwitcher
                   items={effectiveRoundupItems}
                   heading={editorial?.roundup_video_heading ?? belowHeadlineHeading}
@@ -3542,10 +3635,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                   matchdayNumber={context.matchday.number}
                 />
               ) : (
-                <>
-              {showBelowHeadlineEditorialStrip ? (
               <section
-                className={`public-matchday-roundup public-below-headline-${belowHeadlineMode} public-editorial-flex-block`}
+                className="public-matchday-roundup public-below-headline-highlights public-editorial-flex-block"
                 data-editorial-slot="videos-ou-noticias"
                 aria-label="Zona editorial abaixo da manchete"
               >
@@ -3557,10 +3648,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                     {belowHeadlineSubtitle ? <p className="public-below-headline-subtitle">{belowHeadlineSubtitle}</p> : null}
                   </div>
                 </div>
-                <div className="public-cover-story-strip" aria-label="Resumos e destaques da jornada">
-              {belowHeadlineMode === "highlights" ? (
-                effectiveHighlights.length > 0 ? (
-                  effectiveHighlights.map((highlight) => {
+                <div className="public-cover-story-strip" aria-label="Destaques da jornada">
+                  {effectiveHighlights.map((highlight) => {
                     const imageUrl = highlight.imageUrl;
                     const highlightLinkUrl = highlight.linkUrl;
                     return (
@@ -3587,116 +3676,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                         {highlight.subtitle ? <small>{highlight.subtitle}</small> : null}
                       </article>
                     );
-                  })
-                ) : (
-                  <>
-                    <article className="public-cover-story">
-                      <div className="public-highlight-image">
-                        <img
-                          src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=700&q=80"
-                          alt=""
-                        />
-                      </div>
-                      <span>Antevisão</span>
-                      <strong>Os pontos de atenção antes da bola rolar</strong>
-                    </article>
-                    <article className="public-cover-story">
-                      <div className="public-highlight-image">
-                        <img
-                          src="https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=700&q=80"
-                          alt=""
-                        />
-                      </div>
-                      <span>Ambiente</span>
-                      <strong>A jornada vista pelas bancadas e pelos protagonistas</strong>
-                    </article>
-                    <article className="public-cover-story">
-                      <div className="public-highlight-image">
-                        <img
-                          src="https://images.unsplash.com/photo-1577223625816-7546f13df25d?auto=format&fit=crop&w=700&q=80"
-                          alt=""
-                        />
-                      </div>
-                      <span>Contexto</span>
-                      <strong>O que pode mudar na tabela depois dos resultados</strong>
-                    </article>
-                  </>
-                )
-              ) : effectiveRoundupItems.length > 0 ? (
-                effectiveRoundupItems.map((item) => {
-                  const showPlay = Boolean(item.video_url) || item.type === "video" || item.type === "golos" || item.type === "resumo";
-                  const imageUrl = item.image_url?.trim();
-                  return (
-                    <article className="public-cover-story" key={item.id}>
-                      <div className="public-highlight-image">
-                        {imageUrl ? <img src={imageUrl} alt="" /> : null}
-                        {showPlay ? <span className="public-media-play" aria-hidden="true">▶</span> : null}
-                      </div>
-                      {item.label ? <span>{item.label}</span> : null}
-                      <strong>{item.title}</strong>
-                      {item.subtitle ? <small>{item.subtitle}</small> : null}
-                      {item.duration ? <span className="public-roundup-duration">{item.duration}</span> : null}
-                      {item.video_url ? (
-                        <a className="public-roundup-arrow" href={item.video_url} aria-label="Abrir conteudo do resumo">
-                          ›
-                        </a>
-                      ) : (
-                        <span className="public-roundup-arrow" aria-hidden="true">›</span>
-                      )}
-                    </article>
-                  );
-                })
-              ) : (
-                <>
-                  <article className="public-cover-story">
-                    <div className="public-highlight-image">
-                      <img
-                        src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=700&q=80"
-                        alt=""
-                      />
-                      <span className="public-media-play" aria-hidden="true">▶</span>
-                    </div>
-                    <span>Antevisão</span>
-                    <strong>Os pontos de atenção antes da bola rolar</strong>
-                    <small>Resumo completo</small>
-                    <span className="public-roundup-duration">5:42</span>
-                    <span className="public-roundup-arrow" aria-hidden="true">›</span>
-                  </article>
-                  <article className="public-cover-story">
-                    <div className="public-highlight-image">
-                      <img
-                        src="https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=700&q=80"
-                        alt=""
-                      />
-                      <span className="public-media-play" aria-hidden="true">▶</span>
-                    </div>
-                    <span>Ambiente</span>
-                    <strong>A jornada vista pelas bancadas e pelos protagonistas</strong>
-                    <small>Golos e melhores momentos</small>
-                    <span className="public-roundup-duration">4:18</span>
-                    <span className="public-roundup-arrow" aria-hidden="true">›</span>
-                  </article>
-                  <article className="public-cover-story">
-                    <div className="public-highlight-image">
-                      <img
-                        src="https://images.unsplash.com/photo-1577223625816-7546f13df25d?auto=format&fit=crop&w=700&q=80"
-                        alt=""
-                      />
-                      <span className="public-media-play" aria-hidden="true">▶</span>
-                    </div>
-                    <span>Contexto</span>
-                    <strong>O que pode mudar na tabela depois dos resultados</strong>
-                    <small>Notícia de contexto</small>
-                    <span className="public-roundup-duration">6:21</span>
-                    <span className="public-roundup-arrow" aria-hidden="true">›</span>
-                  </article>
-                </>
-              )}
+                  })}
                 </div>
               </section>
+              )
               ) : null}
+              {editorialVisibility.showComplementaryStory ? (
               <aside className="public-matchday-cover-side public-editorial-flex-block public-below-headline-side" data-editorial-slot="video-ou-imagem-noticia" aria-label="Bloco complementar da jornada">
-                {hasPublishedComplementaryStory ? (
                   <>
                     {complementMedia ? (
                       <div className="public-complement-media">
@@ -3736,18 +3722,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                       {complementaryText ? <p>{complementaryText}</p> : null}
                     </div>
                   </>
-                ) : (
-                  <div className="public-complement-body">
-                    <strong>Espaço editorial preparado</strong>
-                    <p>Bloco complementar por definir.</p>
-                  </div>
-                )}
               </aside>
-                </>
-              )}
+              ) : null}
             </div>
+            ) : null}
           </div>
-          {showLatestZone ? (
+          ) : null}
+          {editorialVisibility.showLatestZone ? (
           <aside className="public-matchday-news" aria-label={latestZoneTitle || "Linha editorial"}>
             {latestZoneTitle ? <h3 style={latestZoneTitleColor ? { color: latestZoneTitleColor } : undefined}>{latestZoneTitle}</h3> : null}
             <ul className="public-news-list">
@@ -3776,8 +3757,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           ) : null}
         </div>
       </section>
+      ) : null}
 
-      {showImportantNews ? (
+      {editorialVisibility.showImportantNews ? (
         <section className="public-matchday-panel public-important-news" aria-label="Mais notícias da jornada">
           <div className="public-important-news-grid">
             {importantNewsItems.map((item) => (
