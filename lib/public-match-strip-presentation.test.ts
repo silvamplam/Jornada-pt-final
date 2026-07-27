@@ -260,15 +260,15 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(stylesSource, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*2px\s*minmax\(0,\s*1fr\)/);
   assert.match(stylesSource, /\.row > \.card > \.team:first-of-type\s*\{[\s\S]*?grid-column:\s*1/);
   assert.match(stylesSource, /\.row > \.card > \.team:nth-of-type\(2\)\s*\{[\s\S]*?grid-column:\s*3/);
-  assert.match(stylesSource, /grid-template-rows:\s*52px 28px/);
+  assert.match(stylesSource, /grid-template-rows:\s*48px 32px/);
   assert.match(stylesSource, /\.score\s*\{[\s\S]*?max-width:\s*54px;[\s\S]*?overflow:\s*hidden;[\s\S]*?font-size:\s*clamp\(19px,\s*14cqi,\s*22px\);[\s\S]*?font-variant-numeric:\s*tabular-nums/);
   assert.match(stylesSource, /\.scheduledSeparator\s*\{[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*800/);
   assert.match(stylesSource, /\.liveStatus,\s*\.halftimeStatus\s*\{[\s\S]*?display:\s*inline-flex;[\s\S]*?justify-content:\s*center/);
   assert.match(stylesSource, /\.statusScore\s*\{[\s\S]*?font-size:\s*clamp\(14\.5px,\s*10\.5cqi,\s*16px\);[\s\S]*?font-variant-numeric:\s*tabular-nums;[\s\S]*?letter-spacing:\s*0\.1em/);
   assert.match(stylesSource, /\.liveStatus :global\(\.public-matchday-live-minute\),\s*\.halftimeStatus \.stateLabel:global\(\.public-matchday-live-minute\)\s*\{[\s\S]*?color:\s*#16a34a;[\s\S]*?font-size:\s*10px/);
   assert.match(stylesSource, /\.finishedScore\s*\{[\s\S]*?font-size:\s*clamp\(18px,\s*12\.5cqi,\s*21px\);[\s\S]*?font-variant-numeric:\s*tabular-nums;[\s\S]*?letter-spacing:\s*0\.1em/);
-  assert.match(stylesSource, /\.row > \.card > \.status > \.finishedMeta\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\);[\s\S]*?height:\s*28px/);
-  assert.match(stylesSource, /public-matchday-mini-card-live[\s\S]*?grid-template-rows:\s*10px 17px/);
+  assert.match(stylesSource, /\.row > \.card > \.status > \.finishedMeta\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0,\s*1fr\);[\s\S]*?height:\s*32px/);
+  assert.match(stylesSource, /public-matchday-mini-card-live[\s\S]*?grid-template-rows:\s*10px 20px/);
   assert.match(stylesSource, /public-matchday-mini-card-live[^}]*\.liveStatus\s*\{[\s\S]*?align-items:\s*center;[\s\S]*?gap:\s*4px/);
   assert.match(stylesSource, /public-matchday-mini-card-live[^}]*\.statusScore\s*\{[\s\S]*?font-size:\s*clamp\(14\.5px,\s*10\.5cqi,\s*16px\);[\s\S]*?letter-spacing:\s*0\.1em/);
   assert.match(stylesSource, /public-matchday-mini-card-live[^}]*public-matchday-live-minute[\s\S]*?align-items:\s*center;[\s\S]*?top:\s*1px/);

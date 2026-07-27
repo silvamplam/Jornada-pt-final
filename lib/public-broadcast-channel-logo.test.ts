@@ -437,12 +437,12 @@ test("PublicMatchStrip usa o layout aprovado como padrão em qualquer dimensão 
   assert.match(componentSource, /className=\{styles\.center\}/);
   assert.doesNotMatch(componentSource, /Versus|>\s*VS\s*</);
   assert.match(styleSource, /grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\)/);
-  assert.match(styleSource, /\.row > \.card\s*\{[\s\S]*?position:\s*relative;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 2px minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*52px 28px/);
+  assert.match(styleSource, /\.row > \.card\s*\{[\s\S]*?position:\s*relative;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 2px minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*48px 32px/);
   assert.equal(componentSource.match(/className=\{`\$\{styles\.team\} public-matchday-mini-team`\}/g)?.length, 2);
   assert.equal(componentSource.match(/className=\{styles\.teamName\}/g)?.length, 2);
   assert.match(styleSource, /\.teamNames\s*\{[\s\S]*?grid-template-columns:\s*minmax\(max-content, 1fr\) minmax\(max-content, 1fr\);[\s\S]*?width:\s*100%;[\s\S]*?column-gap:\s*2px/);
   const teamNameRule = styleSource.match(/\.teamNames > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
-  assert.match(teamNameRule, /font-size:\s*clamp\(11\.5px, 9\.5cqi, 12\.5px\)/);
+  assert.match(teamNameRule, /font-size:\s*clamp\(11px, 9\.1cqi, 12px\)/);
   assert.match(teamNameRule, /overflow:\s*visible/);
   assert.match(teamNameRule, /text-overflow:\s*clip/);
   assert.match(teamNameRule, /white-space:\s*nowrap/);
@@ -464,7 +464,12 @@ test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal d
     assert.match(source, /import PublicMatchStrip/);
     assert.match(source, /<PublicMatchStrip/);
   }
-  assert.doesNotMatch(stripSource, /liga-portugal|la-liga|competitionSlug/);
+  assert.match(stripSource, /competitionSlug\?: string \| null/);
+  assert.match(stripSource, /getPublicMatchStripTheme\(competitionSlug\)/);
+  assert.doesNotMatch(
+    stripSource,
+    /competitionSlug\s*===|competitionSlug\?\.trim\(\)\.toLowerCase\(\)|"liga-portugal"|"premier-league"|"la-liga"/
+  );
 });
 
 test("layout aprovado não depende de query parameter e a notícia sem jornada não recebe barra", async () => {

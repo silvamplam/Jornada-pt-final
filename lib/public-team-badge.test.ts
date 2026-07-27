@@ -198,7 +198,7 @@ test("as linhas de equipa usam alturas fixas e nao recortam o emblema", async ()
   assert.match(matchdayGamesPage, /\.public-games-team-line\s*\{[\s\S]*?height:\s*28px[\s\S]*?gap:\s*6px[\s\S]*?overflow:\s*visible/);
   assert.match(newsPage, /<PublicMatchStrip/);
   assert.doesNotMatch(newsPage, /\.news-article-game-team|text-overflow:\s*ellipsis/);
-  assert.match(stripStyles, /data-public-team-badge\]\)\s*\{[\s\S]*?width:\s*38px;[\s\S]*?height:\s*34px/);
+  assert.match(stripStyles, /data-public-team-badge\]\)\s*\{[\s\S]*?width:\s*36px;[\s\S]*?height:\s*31px/);
   assert.match(stripStyles, /data-logo-shape="tall"[\s\S]*?--public-match-team-badge-width:\s*27px;[\s\S]*?--public-match-team-badge-height:\s*33px/);
   assert.match(stripStyles, /data-logo-shape="wide"[\s\S]*?--public-match-team-badge-width:\s*36px;[\s\S]*?--public-match-team-badge-height:\s*28px/);
   assert.match(gamesPage, /\.public-game-team\s*\{[\s\S]*?height:\s*33px/);
