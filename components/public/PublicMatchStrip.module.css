@@ -281,6 +281,10 @@
   z-index: 1;
 }
 
+.panel[data-competition-theme="premier-league"] .center {
+  display: none;
+}
+
 .panel[data-competition-theme="premier-league"] .teamName,
 .panel[data-competition-theme="premier-league"] .score,
 .panel[data-competition-theme="premier-league"] .statusScore,
@@ -305,6 +309,122 @@
   box-shadow:
     0 5px 14px rgba(61, 25, 91, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
+
+.panel[data-competition-theme="la-liga"] {
+  --public-laliga-coral: #ff4b44;
+  --public-laliga-amber: #f7b32b;
+  --public-laliga-blue: #3478f6;
+  --public-laliga-violet: #7c4dff;
+  --public-laliga-cyan: #20c4d9;
+  --public-laliga-ink: #1d2230;
+  --public-laliga-muted: #667085;
+}
+
+.panel[data-competition-theme="la-liga"] .shell {
+  padding: 6px;
+  border: 1px solid rgba(29, 34, 48, 0.18);
+  border-radius: 11px;
+  background: linear-gradient(180deg, #fafbfd 0%, #edf1f5 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+
+.panel[data-competition-theme="la-liga"] .row > .card {
+  isolation: isolate;
+  overflow: hidden;
+  border-color: rgba(29, 34, 48, 0.24);
+  background: linear-gradient(180deg, #fefeff 0%, #f8f9fc 61%, #eef1f5 61%, #e9edf3 100%);
+  box-shadow:
+    0 4px 11px rgba(29, 34, 48, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.91);
+  color: var(--public-laliga-ink);
+}
+
+.panel[data-competition-theme="la-liga"] .row > .card::before,
+.panel[data-competition-theme="la-liga"] .row > .card::after {
+  position: absolute;
+  bottom: -18px;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.panel[data-competition-theme="la-liga"] .row > .card::before {
+  left: -18px;
+  width: 86px;
+  height: 86px;
+  background:
+    linear-gradient(138deg,
+      rgba(255, 75, 68, 0.13) 0 60%,
+      rgba(247, 179, 43, 0.11) 60% 100%);
+  clip-path: polygon(0 26%, 72% 0, 100% 42%, 52% 100%, 0 100%);
+  opacity: 0.9;
+}
+
+.panel[data-competition-theme="la-liga"] .row > .card::after {
+  right: -18px;
+  width: 86px;
+  height: 86px;
+  background:
+    linear-gradient(222deg,
+      rgba(52, 120, 246, 0.13) 0 60%,
+      rgba(32, 196, 217, 0.11) 60% 100%);
+  clip-path: polygon(28% 0, 100% 26%, 100% 100%, 0 100%, 0 42%);
+  opacity: 0.9;
+}
+
+.panel[data-competition-theme="la-liga"] .row > .card:nth-child(4n + 2)::before,
+.panel[data-competition-theme="la-liga"] .row > .card:nth-child(4n + 3)::after {
+  width: 92px;
+  opacity: 0.95;
+}
+
+.panel[data-competition-theme="la-liga"] .row > .card:nth-child(4n + 2)::after,
+.panel[data-competition-theme="la-liga"] .row > .card:nth-child(4n + 3)::before {
+  height: 80px;
+  bottom: -14px;
+  opacity: 0.84;
+}
+
+.panel[data-competition-theme="la-liga"] .row > .card:nth-child(4n + 4)::before,
+.panel[data-competition-theme="la-liga"] .row > .card:nth-child(4n + 4)::after {
+  opacity: 0.78;
+}
+
+.panel[data-competition-theme="la-liga"] .row > .card > * {
+  z-index: 1;
+}
+
+.panel[data-competition-theme="la-liga"] .center {
+  display: none;
+}
+
+.panel[data-competition-theme="la-liga"] .teamName,
+.panel[data-competition-theme="la-liga"] .score,
+.panel[data-competition-theme="la-liga"] .statusScore,
+.panel[data-competition-theme="la-liga"] .finishedScore {
+  color: var(--public-laliga-ink);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.81);
+}
+
+.panel[data-competition-theme="la-liga"] .status {
+  border-top: 1px solid rgba(29, 34, 48, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(236, 240, 245, 0.76));
+}
+
+.panel[data-competition-theme="la-liga"] .status > :global([data-public-match-meta]) > span:first-child {
+  color: var(--public-laliga-muted);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.panel[data-competition-theme="la-liga"] .card[data-live-focus="true"] {
+  border-color: rgba(52, 120, 246, 0.44);
+  box-shadow:
+    0 5px 14px rgba(29, 34, 48, 0.15),
+    0 0 0 1px rgba(255, 75, 68, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.91);
 }
 
 .shell > .row {
@@ -669,6 +789,10 @@
   }
 
   .panel[data-competition-theme="premier-league"] .shell.shell {
+    padding: 5px;
+  }
+
+  .panel[data-competition-theme="la-liga"] .shell.shell {
     padding: 5px;
   }
 

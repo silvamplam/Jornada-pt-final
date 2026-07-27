@@ -8,7 +8,8 @@ test("ativa as identidades próprias apenas nas competições suportadas", () =>
   assert.equal(getPublicMatchStripTheme(" LIGA-PORTUGAL "), "liga-portugal");
   assert.equal(getPublicMatchStripTheme("premier-league"), "premier-league");
   assert.equal(getPublicMatchStripTheme(" PREMIER-LEAGUE "), "premier-league");
-  assert.equal(getPublicMatchStripTheme("la-liga"), null);
+  assert.equal(getPublicMatchStripTheme("la-liga"), "la-liga");
+  assert.equal(getPublicMatchStripTheme(" LA-LIGA "), "la-liga");
   assert.equal(getPublicMatchStripTheme(null), null);
 });
 
@@ -29,14 +30,14 @@ test("a identidade Liga Portugal permanece isolada no CSS modular", () => {
 });
 
 
-test("a identidade Premier League usa sombras cromáticas simétricas sem separador gráfico", () => {
+test("a identidade Premier League usa sombras cromáticas simétricas e remove o hífen central", () => {
   const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
   const premierLeagueStart = css.indexOf('.panel[data-competition-theme="premier-league"]');
-  const sharedLayoutStart = css.indexOf(".shell > .row", premierLeagueStart);
-  const premierLeagueCss = css.slice(premierLeagueStart, sharedLayoutStart);
+  const laligaStart = css.indexOf('.panel[data-competition-theme="la-liga"]', premierLeagueStart);
+  const premierLeagueCss = css.slice(premierLeagueStart, laligaStart);
 
   assert.ok(premierLeagueStart >= 0);
-  assert.ok(sharedLayoutStart > premierLeagueStart);
+  assert.ok(laligaStart > premierLeagueStart);
   assert.match(premierLeagueCss, /#3d195b/i);
   assert.match(premierLeagueCss, /#00ff85/i);
   assert.match(premierLeagueCss, /#04f5ff/i);
@@ -44,8 +45,38 @@ test("a identidade Premier League usa sombras cromáticas simétricas sem separa
   assert.match(premierLeagueCss, /radial-gradient\(ellipse at 88% 17%/);
   assert.match(premierLeagueCss, /radial-gradient\(circle at 8% 12%/);
   assert.match(premierLeagueCss, /radial-gradient\(circle at 92% 12%/);
+  assert.match(premierLeagueCss, /\.panel\[data-competition-theme="premier-league"\] \.center \{\s*display: none;/);
   assert.doesNotMatch(premierLeagueCss, /clip-path|polygon\(/);
   assert.doesNotMatch(premierLeagueCss, /\.center::before|\.center::after/);
+});
+
+
+test("a identidade LALIGA usa placas triangulares sóbrias em confronto e remove o hífen central", () => {
+  const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
+  const laligaStart = css.indexOf('.panel[data-competition-theme="la-liga"]');
+  const sharedLayoutStart = css.indexOf(".shell > .row", laligaStart);
+  const laligaCss = css.slice(laligaStart, sharedLayoutStart);
+
+  assert.ok(laligaStart >= 0);
+  assert.ok(sharedLayoutStart > laligaStart);
+  assert.match(laligaCss, /#ff4b44/i);
+  assert.match(laligaCss, /#f7b32b/i);
+  assert.match(laligaCss, /#3478f6/i);
+  assert.match(laligaCss, /#7c4dff/i);
+  assert.match(laligaCss, /#20c4d9/i);
+  assert.match(laligaCss, /width:\s*86px/);
+  assert.match(laligaCss, /height:\s*86px/);
+  assert.match(laligaCss, /left:\s*-18px/);
+  assert.match(laligaCss, /right:\s*-18px/);
+  assert.match(laligaCss, /clip-path:\s*polygon\(0 26%, 72% 0, 100% 42%, 52% 100%, 0 100%\)/);
+  assert.match(laligaCss, /clip-path:\s*polygon\(28% 0, 100% 26%, 100% 100%, 0 100%, 0 42%\)/);
+  assert.match(laligaCss, /linear-gradient\(138deg,/);
+  assert.match(laligaCss, /linear-gradient\(222deg,/);
+  assert.match(laligaCss, /nth-child\(4n \+ 2\)::before/);
+  assert.match(laligaCss, /nth-child\(4n \+ 3\)::after/);
+  assert.match(laligaCss, /opacity:\s*0\.78/);
+  assert.match(laligaCss, /\.panel\[data-competition-theme="la-liga"\] \.center \{\s*display: none;/);
+  assert.doesNotMatch(laligaCss, /\.center::before|\.center::after/);
 });
 
 test("os contextos competitivos passam o slug ao componente", () => {
