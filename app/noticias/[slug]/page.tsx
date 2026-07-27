@@ -1016,6 +1016,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
       {articleMatches.length > 0 ? (
         <section className="news-article-games-strip" aria-label="Jogos da jornada associados a esta notícia">
           <PublicMatchStrip
+            competitionSlug={articleContext?.competition.slug}
             matches={articleMatches.map((match) => ({
               ...match,
               matchdayNumber: match.matchday?.number ?? null
