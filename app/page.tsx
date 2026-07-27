@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import { PublicEditorialLayout, type PublicEditorialHighlight, type PublicEditorialLatestNews } from "@/components/public/PublicEditorialLayout";
 import PublicMatchStrip, { type PublicMatchStripMatch } from "@/components/public/PublicMatchStrip";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
@@ -525,13 +526,7 @@ export default async function HomePage() {
         <Link className="public-site-brand" href="/" aria-label="Jornada.pt">
           Jornada<span>.pt</span>
         </Link>
-        <nav className="public-site-menu" aria-label="CompetiÃ§Ãµes principais">
-          {competitionLinks.map((link) => (
-            <Link href={link.href} key={link.label}>
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        <PublicCompetitionNavigation competitions={competitionLinks} />
         <div className="public-site-actions" aria-label="Acoes">
           <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>
           <Link href="/admin/login">Entrar</Link>

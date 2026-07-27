@@ -7,6 +7,7 @@ import {
   type PublicSeasonMatch
 } from "@/lib/public-matchday";
 import { getPublicTeamName } from "@/lib/public-team-name";
+import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { redirect } from "next/navigation";
@@ -1136,7 +1137,6 @@ export default async function PublicMatchdayGamesPage({ params }: PublicMatchday
   const matchdayPageHref = (number: number) => `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${number}`;
   const gamesPageHref = (number: number) => `${matchdayPageHref(number)}/jogos`;
   const currentMatchdayHref = matchdayPageHref(context.matchday.number);
-  const currentGamesHref = gamesPageHref(context.matchday.number);
   const classificationHref = `${currentMatchdayHref}#classificacao`;
   const seasonOptions = context.seasons.map((season) => ({
     id: season.id,
@@ -1147,7 +1147,8 @@ export default async function PublicMatchdayGamesPage({ params }: PublicMatchday
   const currentCompetitionMenuItem = {
     label: context.competition.name,
     slug: context.competition.slug,
-    href: currentMatchdayHref
+    href: currentMatchdayHref,
+    logoUrl: context.competition.logo_url
   };
   const publicCompetitionMenuBase = await getPublicCompetitionMenu().catch(() => []);
   const publicCompetitionMenu = publicCompetitionMenuBase.map((item) =>
@@ -1210,19 +1211,11 @@ export default async function PublicMatchdayGamesPage({ params }: PublicMatchday
           <a className="public-site-brand" href="/">
             Jornada<span>.pt</span>
           </a>
-          <nav className="public-site-menu" aria-label="Competições principais">
-            {publicCompetitionMenu.map((item) => (
-              <a
-                aria-current={item.slug === context.competition.slug ? "page" : undefined}
-                href={item.href}
-                key={item.slug}
-              >
-                {item.label}
-              </a>
-            ))}
-            <a aria-current="page" href={currentGamesHref}>Jogos</a>
-            <a href={classificationHref}>Classificação</a>
-          </nav>
+          <PublicCompetitionNavigation
+            competitions={publicCompetitionMenu}
+            activeCompetitionSlug={context.competition.slug}
+            classificationHref={classificationHref}
+          />
           <div className="public-site-actions" aria-label="Ações">
             <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>
             <a href="/admin/gestor">Entrar</a>
