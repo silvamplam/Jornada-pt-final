@@ -215,6 +215,98 @@
   box-shadow: 0 5px 14px rgba(0, 35, 90, 0.16);
 }
 
+
+.panel[data-competition-theme="premier-league"] {
+  --public-premier-league-purple: #3d195b;
+  --public-premier-league-green: #00ff85;
+  --public-premier-league-cyan: #04f5ff;
+  --public-premier-league-ink: #241531;
+  --public-premier-league-muted: #665b71;
+}
+
+.panel[data-competition-theme="premier-league"] .shell {
+  padding: 6px;
+  border: 1px solid rgba(61, 25, 91, 0.16);
+  border-radius: 11px;
+  background:
+    radial-gradient(ellipse at 10% 50%, rgba(4, 245, 255, 0.055), transparent 34%),
+    radial-gradient(ellipse at 90% 50%, rgba(0, 255, 133, 0.05), transparent 34%),
+    linear-gradient(180deg, #fbfaff 0%, #f3f0f7 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+
+.panel[data-competition-theme="premier-league"] .row > .card {
+  isolation: isolate;
+  overflow: hidden;
+  border-color: rgba(61, 25, 91, 0.24);
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff 61%, #f7f5f9 61%, #f1edf5 100%);
+  box-shadow:
+    0 4px 11px rgba(61, 25, 91, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  color: var(--public-premier-league-ink);
+}
+
+.panel[data-competition-theme="premier-league"] .row > .card::before,
+.panel[data-competition-theme="premier-league"] .row > .card::after {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.panel[data-competition-theme="premier-league"] .row > .card::before {
+  background:
+    radial-gradient(ellipse at 12% 17%, rgba(61, 25, 91, 0.27) 0%, rgba(61, 25, 91, 0.14) 36%, rgba(61, 25, 91, 0) 72%),
+    radial-gradient(circle at 8% 12%, rgba(4, 245, 255, 0.16) 0%, rgba(4, 245, 255, 0) 38%);
+}
+
+.panel[data-competition-theme="premier-league"] .row > .card::after {
+  background:
+    radial-gradient(ellipse at 88% 17%, rgba(61, 25, 91, 0.24) 0%, rgba(61, 25, 91, 0.12) 36%, rgba(61, 25, 91, 0) 72%),
+    radial-gradient(circle at 92% 12%, rgba(0, 255, 133, 0.14) 0%, rgba(0, 255, 133, 0) 38%);
+}
+
+.panel[data-competition-theme="premier-league"] .row > .card:nth-child(4n + 2)::before,
+.panel[data-competition-theme="premier-league"] .row > .card:nth-child(4n + 3)::after {
+  opacity: 0.92;
+}
+
+.panel[data-competition-theme="premier-league"] .row > .card:nth-child(4n + 2)::after,
+.panel[data-competition-theme="premier-league"] .row > .card:nth-child(4n + 3)::before {
+  opacity: 0.82;
+}
+
+.panel[data-competition-theme="premier-league"] .row > .card > * {
+  z-index: 1;
+}
+
+.panel[data-competition-theme="premier-league"] .teamName,
+.panel[data-competition-theme="premier-league"] .score,
+.panel[data-competition-theme="premier-league"] .statusScore,
+.panel[data-competition-theme="premier-league"] .finishedScore {
+  color: var(--public-premier-league-ink);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.panel[data-competition-theme="premier-league"] .status {
+  border-top: 1px solid rgba(61, 25, 91, 0.09);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(243, 239, 247, 0.67));
+}
+
+.panel[data-competition-theme="premier-league"] .status > :global([data-public-match-meta]) > span:first-child {
+  color: var(--public-premier-league-muted);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.panel[data-competition-theme="premier-league"] .card[data-live-focus="true"] {
+  border-color: rgba(61, 25, 91, 0.44);
+  box-shadow:
+    0 5px 14px rgba(61, 25, 91, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86);
+}
+
 .shell > .row {
   display: grid;
   grid-template-columns: repeat(var(--public-match-strip-columns), minmax(0, 1fr));
@@ -231,7 +323,7 @@
   container-type: inline-size;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 2px minmax(0, 1fr);
-  grid-template-rows: 52px 28px;
+  grid-template-rows: 48px 32px;
   align-items: start;
   min-width: 0;
   width: auto;
@@ -250,12 +342,12 @@
   display: grid;
   grid-row: 1;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 34px 0 18px 0;
+  grid-template-rows: 30px 0 16px 0;
   place-items: center;
   align-self: start;
   width: 100%;
   min-width: 0;
-  height: 52px;
+  height: 48px;
   margin-inline: 0;
   padding-inline: 0;
   row-gap: 0;
@@ -274,8 +366,8 @@
   --public-match-team-badge-width: 32px;
   --public-match-team-badge-height: 32px;
 
-  width: 38px;
-  height: 34px;
+  width: 36px;
+  height: 31px;
 }
 
 .row > .card > .team > :global([data-public-team-badge]) > img {
@@ -308,8 +400,8 @@
   align-self: start;
   width: 100%;
   min-width: 0;
-  height: 18px;
-  margin-top: 34px;
+  height: 16px;
+  margin-top: 30px;
   column-gap: 2px;
 }
 
@@ -317,10 +409,10 @@
   min-width: max-content;
   overflow: visible;
   font-family: inherit;
-  font-size: clamp(11.5px, 9.5cqi, 12.5px);
+  font-size: clamp(11px, 9.1cqi, 12px);
   font-style: normal;
   font-weight: 800;
-  line-height: 14px;
+  line-height: 13px;
   letter-spacing: -0.25px;
   text-align: center;
   text-transform: none;
@@ -333,11 +425,11 @@
 
 .center {
   position: absolute;
-  top: 7px;
+  top: 4px;
   left: 0;
   width: 100%;
   min-width: 0;
-  height: 52px;
+  height: 48px;
 }
 
 .score {
@@ -500,21 +592,21 @@
   align-self: stretch;
   width: 100%;
   min-width: 0;
-  height: 28px;
+  height: 32px;
   padding: 0;
   overflow: visible;
-  transform: translateY(4px);
+  transform: translateY(1px);
 }
 
 .row > .card > .status > :global([data-public-match-meta]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 9px 18px;
+  grid-template-rows: 10px 21px;
   align-items: center;
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  height: 28px;
+  height: 32px;
   margin-inline: 0;
   padding-inline: 0;
   row-gap: 1px;
@@ -528,8 +620,8 @@
   min-width: 0;
   overflow: visible;
   color: #607086;
-  font-size: 8.75px;
-  line-height: 9px;
+  font-size: 8.5px;
+  line-height: 10px;
   text-align: center;
 }
 
@@ -542,7 +634,7 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  height: 18px;
+  height: 21px;
   overflow: visible;
 }
 
@@ -555,7 +647,7 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  height: 28px;
+  height: 32px;
   margin-inline: 0;
   padding-inline: 0;
   overflow: visible;
@@ -563,7 +655,7 @@
 
 .row > .card:global(.public-matchday-mini-card-live) > .status > :global([data-public-match-meta]),
 .row > .card:global(.public-matchday-mini-card-halftime) > .status > :global([data-public-match-meta]) {
-  grid-template-rows: 10px 17px;
+  grid-template-rows: 10px 20px;
   row-gap: 1px;
 }
 
@@ -573,6 +665,10 @@
   }
 
   .panel[data-competition-theme="liga-portugal"] .shell.shell {
+    padding: 5px;
+  }
+
+  .panel[data-competition-theme="premier-league"] .shell.shell {
     padding: 5px;
   }
 
