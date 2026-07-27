@@ -1,0 +1,148 @@
+.navigation {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  min-width: 0;
+  margin-right: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  color: #10151b;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.navigation::-webkit-scrollbar {
+  display: none;
+}
+
+.competitionGroup {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.link {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 32px;
+  color: #10151b;
+  text-decoration: none;
+}
+
+.competitionLink[aria-current="page"] {
+  color: #c40012;
+}
+
+.classificationLink {
+  gap: 9px;
+  margin-left: auto;
+  padding: 0;
+}
+
+.classificationLink[aria-current="page"] {
+  color: #10151b;
+  font-weight: 950;
+  letter-spacing: 0.015em;
+}
+
+.competitionEmblem {
+  display: block;
+  width: auto;
+  height: 36px;
+  max-width: 115px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.competitionEmblem[data-variant="liga-portugal-horizontal"] {
+  box-sizing: border-box;
+  width: 100px;
+  height: 36px;
+  max-width: 100px;
+  padding: 6px 4px;
+  border-radius: 3px;
+  background: #00235a;
+}
+
+.competitionEmblem[data-variant="laliga-horizontal"] {
+  width: 95px;
+  height: auto;
+  max-width: 95px;
+}
+
+.competitionEmblem[data-variant="premier-league-lockup"] {
+  width: auto;
+  height: 36px;
+  max-width: 115px;
+}
+
+.link:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #303842;
+  outline-offset: 2px;
+}
+
+@media (max-width: 1180px) {
+  .navigation {
+    margin-right: 10px;
+    font-size: 11.5px;
+  }
+
+  .competitionGroup {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 760px) {
+  .navigation {
+    width: 100%;
+    margin-right: 0;
+    font-size: 11px;
+  }
+
+  .competitionGroup {
+    gap: 11px;
+  }
+
+  .link {
+    min-height: 34px;
+  }
+
+  .classificationLink {
+    gap: 8px;
+    margin-left: 18px;
+  }
+
+  .competitionEmblem {
+    width: auto;
+    height: 30px;
+    max-width: 100px;
+  }
+
+  .competitionEmblem[data-variant="liga-portugal-horizontal"] {
+    width: 92px;
+    height: 32px;
+    max-width: 92px;
+    padding: 5px 4px;
+  }
+
+  .competitionEmblem[data-variant="laliga-horizontal"] {
+    width: 84px;
+    height: auto;
+    max-width: 84px;
+  }
+
+  .competitionEmblem[data-variant="premier-league-lockup"] {
+    width: auto;
+    height: 30px;
+    max-width: 100px;
+  }
+}

@@ -10,6 +10,7 @@ export type PublicCompetitionMenuItem = {
   label: string;
   slug: string;
   href: string;
+  logoUrl: string | null;
 };
 
 const COMPETITION_MENU_ORDER = [
@@ -38,7 +39,7 @@ function menuSort(a: PublicCompetitionMenuItem, b: PublicCompetitionMenuItem) {
 export async function getPublicCompetitionMenu(): Promise<PublicCompetitionMenuItem[]> {
   const [competitions, seasons, matchdays] = await Promise.all([
     fetchSupabaseAdminTable<SupabaseCompetition>(
-      "competitions?select=id,name,slug,is_active&is_active=eq.true&order=name.asc&limit=100"
+      "competitions?select=id,name,slug,logo_url,is_active&is_active=eq.true&order=name.asc&limit=100"
     ),
     fetchSupabaseAdminTable<SupabaseSeason>(
       "seasons?select=id,competition_id,label,is_current&order=label.desc&limit=500"
@@ -66,7 +67,8 @@ export async function getPublicCompetitionMenu(): Promise<PublicCompetitionMenuI
       return {
         label: competition.name,
         slug: competition.slug,
-        href
+        href,
+        logoUrl: competition.logo_url
       };
     })
     .filter((item): item is PublicCompetitionMenuItem => Boolean(item))

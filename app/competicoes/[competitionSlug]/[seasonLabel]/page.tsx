@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
 import { readPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
@@ -17,6 +18,7 @@ type CompetitionRow = {
   id: string;
   name: string | null;
   slug: string | null;
+  logo_url: string | null;
 };
 
 type SeasonRow = {
@@ -42,7 +44,7 @@ function seasonLabelToUrlSegment(label: string | null | undefined) {
 
 async function readSeasonContext(competitionSlug: string, seasonLabel: string) {
   const competitionRows = await fetchSupabaseAdminTable<CompetitionRow>(
-    `competitions?select=id,name,slug&slug=eq.${encodeURIComponent(competitionSlug)}&limit=1`
+    `competitions?select=id,name,slug,logo_url&slug=eq.${encodeURIComponent(competitionSlug)}&limit=1`
   ).catch(() => []);
   const competition = competitionRows[0] ?? null;
 
@@ -85,7 +87,8 @@ export default async function PublicSeasonLandingPage({ params }: SeasonLandingP
   const activeCompetition = {
     label: competitionName,
     slug: competitionSlug,
-    href: `/competicoes/${competitionSlug}/${seasonLabel}`
+    href: `/competicoes/${competitionSlug}/${seasonLabel}`,
+    logoUrl: context?.competition.logo_url ?? null
   };
   const publicCompetitionMenu = competitionMenu.some((item) => item.slug === competitionSlug)
     ? competitionMenu.map((item) => (item.slug === competitionSlug ? activeCompetition : item))
@@ -128,13 +131,10 @@ export default async function PublicSeasonLandingPage({ params }: SeasonLandingP
           <Link className="public-site-brand" href="/">
             Jornada<span>.pt</span>
           </Link>
-          <nav className="public-site-menu" aria-label="Competicoes principais">
-            {publicCompetitionMenu.map((item) => (
-              <Link aria-current={item.slug === competitionSlug ? "page" : undefined} href={item.href} key={item.slug}>
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <PublicCompetitionNavigation
+            competitions={publicCompetitionMenu}
+            activeCompetitionSlug={competitionSlug}
+          />
           <div className="public-site-actions" aria-label="Acoes">
             <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>
             <Link href="/admin/gestor">Entrar</Link>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
@@ -1078,11 +1079,6 @@ export default async function PublicGamesPageContent({ competitionSlug, seasonLa
   const groupedGames = groupedByCompetition(games, menuOrder);
   const activeCompetitionSlug = cleanText(competition?.slug);
   const activeCompetitionName = cleanText(competition?.name) || activeCompetitionSlug || "Competicao";
-  const gamesHref = isContextual && activeCompetitionSlug && seasonLabel
-    ? matchdayNumber
-      ? `/competicoes/${activeCompetitionSlug}/${seasonLabel}/jornadas/${matchdayNumber}/jogos`
-      : `/competicoes/${activeCompetitionSlug}/${seasonLabel}/jogos`
-    : "/jogos";
   const classificacaoHref = activeCompetitionSlug && seasonLabel && matchdayNumber
     ? `/competicoes/${activeCompetitionSlug}/${seasonLabel}/jornadas/${matchdayNumber}#classificacao`
     : null;
@@ -1150,21 +1146,11 @@ export default async function PublicGamesPageContent({ competitionSlug, seasonLa
           <Link className="public-site-brand" href="/" aria-label="Jornada.pt">
             Jornada<span>.pt</span>
           </Link>
-          <nav className="public-site-menu" aria-label="Competicoes principais">
-            {competitionLinks.map((link) => (
-              <Link
-                aria-current={competition && link.slug === competition.slug ? "page" : undefined}
-                href={link.href}
-                key={link.slug}
-              >
-                {link.label}
-              </Link>
-            ))}
-            <Link aria-current="page" href={gamesHref}>
-              Jogos
-            </Link>
-            {classificacaoHref ? <Link href={classificacaoHref}>Classificação</Link> : null}
-          </nav>
+          <PublicCompetitionNavigation
+            competitions={competitionLinks}
+            activeCompetitionSlug={competition?.slug}
+            classificationHref={classificacaoHref}
+          />
           <div className="public-site-actions" aria-label="Acoes">
             <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>
             <Link href="/admin/login">Entrar</Link>

@@ -8,6 +8,7 @@ import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
+import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/public/PublicTeamBadge";
 import RoundupVideoSwitcher from "@/components/public/RoundupVideoSwitcher";
 import { redirect } from "next/navigation";
@@ -3151,7 +3152,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const currentCompetitionMenuItem = {
     label: context.competition.name,
     slug: context.competition.slug,
-    href: `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${context.matchday.number}`
+    href: `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${context.matchday.number}`,
+    logoUrl: context.competition.logo_url
   };
   const publicCompetitionMenuBase = await getPublicCompetitionMenu().catch(() => []);
   const publicCompetitionMenu = publicCompetitionMenuBase.map((item) =>
@@ -3201,7 +3203,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const secondLegHref = matchdayLegNavigation.secondLegTarget
     ? matchdayHref(matchdayLegNavigation.secondLegTarget.number)
     : currentSeasonHref;
-  const gamesPageHref = `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${context.matchday.number}/jogos`;
   const liveMatches = context.matchesForMatchday.filter((match) => statusKind(match.status) === "live");
   const halftimeMatches = context.matchesForMatchday.filter((match) => statusKind(match.status) === "halftime");
   const selectedMatchdayDateContext = formatPreferredMatchdayDateContext(
@@ -3361,19 +3362,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         <a className="public-site-brand" href="/">
           Jornada<span>.pt</span>
         </a>
-        <nav className="public-site-menu" aria-label="Competições principais">
-          {publicCompetitionMenu.map((item) => (
-            <a
-              aria-current={item.slug === context.competition.slug ? "page" : undefined}
-              href={item.href}
-              key={item.slug}
-            >
-              {item.label}
-            </a>
-          ))}
-          <a href={gamesPageHref}>Jogos</a>
-          <a href="#classificacao">Classificação</a>
-        </nav>
+        <PublicCompetitionNavigation
+          competitions={publicCompetitionMenu}
+          activeCompetitionSlug={context.competition.slug}
+          classificationHref="#classificacao"
+        />
         <div className="public-site-actions" aria-label="Ações">
           <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>
           <a href="/admin/gestor">Entrar</a>

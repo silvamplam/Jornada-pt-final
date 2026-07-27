@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
@@ -891,17 +892,14 @@ export default async function NewsArticlePage({ params }: PageProps) {
     articleContext && seasonSegment
       ? `/competicoes/${articleContext.competition.slug}/${seasonSegment}/jornadas/${matchdayNumber}`
       : "/";
-  const gamesPageHref =
-    articleContext && seasonSegment
-      ? `/competicoes/${articleContext.competition.slug}/${seasonSegment}/jornadas/${articleContext.matchday.number}/jogos`
-      : null;
   const classificationHref = articleContext ? `${matchdayHref(articleContext.matchday.number)}#classificacao` : null;
   const currentCompetitionMenuItem =
     articleContext && seasonSegment
       ? {
           label: articleContext.competition.name,
           slug: articleContext.competition.slug,
-          href: matchdayHref(articleContext.matchday.number)
+          href: matchdayHref(articleContext.matchday.number),
+          logoUrl: articleContext.competition.logo_url
         }
       : null;
   const publicCompetitionMenu = currentCompetitionMenuItem
@@ -944,19 +942,11 @@ export default async function NewsArticlePage({ params }: PageProps) {
           <a className="public-site-brand" href="/">
             Jornada<span>.pt</span>
           </a>
-          <nav className="public-site-menu" aria-label="Competições principais">
-            {publicCompetitionMenu.map((item) => (
-              <a
-                aria-current={articleContext?.competition.slug === item.slug ? "page" : undefined}
-                href={item.href}
-                key={item.slug}
-              >
-                {item.label}
-              </a>
-            ))}
-            {gamesPageHref ? <a href={gamesPageHref}>Jogos</a> : null}
-            {classificationHref ? <a href={classificationHref}>Classificação</a> : null}
-          </nav>
+          <PublicCompetitionNavigation
+            competitions={publicCompetitionMenu}
+            activeCompetitionSlug={articleContext?.competition.slug}
+            classificationHref={classificationHref}
+          />
           <div className="public-site-actions" aria-label="Ações">
             <span className="public-site-search" aria-label="Pesquisar">
               Pesquisar
