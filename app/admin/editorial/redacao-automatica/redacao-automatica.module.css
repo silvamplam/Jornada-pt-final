@@ -1383,6 +1383,209 @@
   white-space: nowrap;
 }
 
+.dossierSourceManagementForm,
+.dossierAddSourcesForm {
+  display: grid;
+  gap: 14px;
+}
+
+.dossierSourceManagementForm > button,
+.dossierAddSourcesForm > button {
+  justify-self: start;
+  min-height: 42px;
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 16px;
+  background: #101820;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.dossierSourceExcluded {
+  border-style: dashed !important;
+  background: #f2f4f6 !important;
+  opacity: 0.78;
+}
+
+.dossierSourceControls {
+  display: grid;
+  grid-template-columns: 84px minmax(130px, 1fr) minmax(150px, 1fr);
+  gap: 9px;
+  align-items: end;
+}
+
+.dossierSourceControls label,
+.dossierSourceNote,
+.dossierAvailableSourceControls label {
+  display: grid;
+  gap: 6px;
+}
+
+.dossierSourceControls label > span,
+.dossierSourceNote > span,
+.dossierAvailableSourceControls label > span {
+  color: #526476;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dossierSourceControls input[type="number"],
+.dossierSourceControls select,
+.dossierSourceNote textarea,
+.dossierAvailableSourceControls select {
+  width: 100%;
+  border: 1px solid #cfd9e2;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172533;
+  font: inherit;
+}
+
+.dossierSourceControls input[type="number"],
+.dossierSourceControls select,
+.dossierAvailableSourceControls select {
+  min-height: 38px;
+  padding: 7px 9px;
+}
+
+.dossierSourceNote textarea {
+  min-height: 82px;
+  padding: 9px 10px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.dossierSourceIncluded {
+  display: flex !important;
+  min-height: 38px;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  border: 1px solid #d4dde5;
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: #ffffff;
+}
+
+.dossierSourceIncluded input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: #172533;
+}
+
+.dossierSourceIncluded span {
+  color: #22384b !important;
+  font-size: 12px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.dossierAddSourcesSection {
+  margin-top: 18px;
+}
+
+.dossierAddSourcesForm {
+  padding: 18px 20px 20px;
+}
+
+.dossierAvailableSourceList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dossierAvailableSourceList li {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid #dce4ea;
+  border-radius: 11px;
+  padding: 14px;
+  background: #f9fbfc;
+}
+
+.dossierAvailableSourceHeading {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.dossierAvailableSourceHeading > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.dossierAvailableSourceHeading span,
+.dossierAvailableSourceHeading small {
+  color: #738292;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dossierAvailableSourceHeading strong {
+  color: #172533;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.dossierAvailableSourceList dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.dossierAvailableSourceList dl div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.dossierAvailableSourceList dt {
+  color: #788797;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.dossierAvailableSourceList dd {
+  overflow: hidden;
+  margin: 0;
+  color: #405264;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dossierAvailableSourceControls {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(150px, 0.8fr);
+  gap: 9px;
+  align-items: end;
+}
+
+.dossierAvailableSourceList li > a {
+  width: max-content;
+  border: 1px solid #cbd6df;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #1b3448;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
 @media (max-width: 980px) {
   .dossierWorkspace,
   .dossierDetailLayout {
@@ -1395,6 +1598,19 @@
 
   .dossierPreferences {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dossierSourceControls,
+  .dossierAvailableSourceControls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dossierSourceIncluded {
+    grid-column: 1 / -1;
+  }
+
+  .dossierAvailableSourceList {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1414,5 +1630,19 @@
 
   .dossierList li a {
     justify-self: start;
+  }
+
+  .dossierSourceControls,
+  .dossierAvailableSourceControls {
+    grid-template-columns: 1fr;
+  }
+
+  .dossierSourceIncluded {
+    grid-column: auto;
+  }
+
+  .dossierAvailableSourceHeading {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

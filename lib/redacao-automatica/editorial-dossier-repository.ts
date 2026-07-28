@@ -60,6 +60,7 @@ export type EditorialDossierSummary = Readonly<{
   title: string;
   status: EditorialDossierStatus;
   sourceCount: number;
+  includedSourceCount: number;
   outputMode: EditorialDossierOutputMode;
   outputCount: number;
   updatedAt: string;
@@ -189,14 +190,21 @@ export async function listEditorialDossiers(
       return { ok: true, value: [] };
     }
 
-    const sources = await fetchSupabaseAdminTable<Pick<DossierSourceRow, "id" | "dossier_id">>(
-      "newsroom_editorial_dossier_sources?select=id,dossier_id"
+    const sources = await fetchSupabaseAdminTable<Pick<DossierSourceRow, "id" | "dossier_id" | "included">>(
+      "newsroom_editorial_dossier_sources?select=id,dossier_id,included"
       + `&dossier_id=in.(${uuidList(dossiers.map((dossier) => dossier.id))})&limit=1000`,
     );
     const sourceCounts = new Map<string, number>();
+    const includedSourceCounts = new Map<string, number>();
 
     for (const source of sources) {
       sourceCounts.set(source.dossier_id, (sourceCounts.get(source.dossier_id) ?? 0) + 1);
+      if (source.included) {
+        includedSourceCounts.set(
+          source.dossier_id,
+          (includedSourceCounts.get(source.dossier_id) ?? 0) + 1,
+        );
+      }
     }
 
     return {
@@ -206,6 +214,7 @@ export async function listEditorialDossiers(
         title: dossier.title,
         status: dossierStatus(dossier.status),
         sourceCount: sourceCounts.get(dossier.id) ?? 0,
+        includedSourceCount: includedSourceCounts.get(dossier.id) ?? 0,
         outputMode: outputMode(dossier.output_mode),
         outputCount: dossier.output_count,
         updatedAt: dossier.updated_at,
@@ -238,7 +247,7 @@ export async function getEditorialDossierById(
     const sources = await fetchSupabaseAdminTable<DossierSourceRow>(
       "newsroom_editorial_dossier_sources?select=id,dossier_id,newsroom_article_id,newsroom_snapshot_id,source_role,sort_order,editorial_note,included,created_at,updated_at"
       + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
-      + "&order=sort_order.asc,id.asc&limit=100",
+      + "&order=included.desc,sort_order.asc,id.asc&limit=100",
     );
     const articleIds = sources.map((source) => source.newsroom_article_id);
     const snapshotIds = sources.map((source) => source.newsroom_snapshot_id);

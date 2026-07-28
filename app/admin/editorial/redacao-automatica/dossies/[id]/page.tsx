@@ -8,6 +8,10 @@ import {
   type EditorialDossierSourceRole,
   type EditorialDossierStatus,
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
+import {
+  listNewsroomArticles,
+  type NewsroomArticleSummary,
+} from "@/lib/redacao-automatica/newsroom-article-repository";
 import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
 import type { ArticleProcessingStatus } from "@/lib/redacao-automatica/types";
 
@@ -69,6 +73,25 @@ function firstQueryValue(value: string | string[] | undefined): string | null {
   return value?.trim() || null;
 }
 
+
+function positivePage(value: string | null): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function canJoinDossier(article: NewsroomArticleSummary): boolean {
+  return ["detected", "normalized", "ready_for_review"].includes(article.processingStatus)
+    && article.hasUsableSnapshot;
+}
+
+function sourcePriority(sortOrder: number, fallback: number): number {
+  if (!Number.isFinite(sortOrder) || sortOrder < 0) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.round(sortOrder / 10));
+}
+
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -85,7 +108,11 @@ function formatDate(value: string): string {
 export default async function EditorialDossierPage({ params, searchParams }: DossierPageProps) {
   const { id } = await params;
   const query = searchParams ? await searchParams : {};
-  const result = await getEditorialDossierById(id);
+  const sourcePage = positivePage(firstQueryValue(query.source_page));
+  const [result, inboxResult] = await Promise.all([
+    getEditorialDossierById(id),
+    listNewsroomArticles({ page: sourcePage, pageSize: 12 }),
+  ]);
 
   if (result.ok && !result.value) {
     notFound();
@@ -114,6 +141,14 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
 
   const dossier = result.value!;
   const sourceNames = new Map(listRegisteredSources().map((source) => [source.code, source.name]));
+  const existingArticleIds = new Set(dossier.sources.map((source) => source.newsroomArticleId));
+  const availableSources = inboxResult.ok
+    ? inboxResult.value.items.filter((article) => (
+        canJoinDossier(article) && !existingArticleIds.has(article.id)
+      ))
+    : [];
+  const includedSourceCount = dossier.sources.filter((source) => source.included).length;
+  const excludedSourceCount = dossier.sources.length - includedSourceCount;
   const state = firstQueryValue(query.dossier_state);
   const errorCode = firstQueryValue(query.dossier_error);
   const errorMessages: Record<string, string> = {
@@ -121,6 +156,13 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
     service_unavailable: "O serviço dos Dossiês não está configurado.",
     dossier_not_found: "O Dossiê já não existe.",
     dossier_update_failed: "Não foi possível guardar as alterações.",
+    source_not_found: "Uma das fontes já não existe ou já não pertence ao Dossiê.",
+    source_not_eligible: "Uma das fontes não está disponível para inclusão no Dossiê.",
+    source_snapshot_missing: "Uma das fontes não tem um snapshot normalizado utilizável.",
+    source_already_in_dossier: "Uma das fontes já pertence ao Dossiê. Reativa-a na gestão das fontes.",
+    source_limit_exceeded: "O Dossiê atingiu o limite de 20 fontes congeladas.",
+    source_management_failed: "Não foi possível guardar a gestão das fontes.",
+    source_add_failed: "Não foi possível acrescentar as fontes selecionadas.",
   };
   const errorMessage = errorCode
     ? errorMessages[errorCode] ?? "Não foi possível guardar o Dossiê."
@@ -129,7 +171,11 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
     ? "O Dossiê foi criado e os snapshots das fontes ficaram congelados."
     : state === "updated"
       ? "As orientações e preferências do Dossiê foram guardadas."
-      : null;
+      : state === "sources_updated"
+        ? "A ordem, os papéis, as notas e a inclusão das fontes foram guardados."
+        : state === "sources_added"
+          ? "As novas fontes foram acrescentadas com os snapshots atuais congelados."
+          : null;
 
   return (
     <main className={styles.shell}>
@@ -156,8 +202,8 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
             <strong>{statusLabels[dossier.status]}</strong>
           </div>
           <div>
-            <span>Fontes congeladas</span>
-            <strong>{dossier.sources.length}</strong>
+            <span>Fontes ativas</span>
+            <strong>{includedSourceCount} / {dossier.sources.length}</strong>
           </div>
           <div>
             <span>Resultado previsto</span>
@@ -264,43 +310,205 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
             <div className={styles.sectionHeader}>
               <div>
                 <p className={styles.sectionEyebrow}>Proveniência congelada</p>
-                <h2 id="dossier-sources-title">Fontes</h2>
+                <h2 id="dossier-sources-title">Gestão das fontes</h2>
               </div>
-              <p>A ordem indica a prioridade inicial definida na criação.</p>
+              <p>
+                Reordena, classifica e exclui fontes da futura composição sem apagar os snapshots.
+              </p>
             </div>
 
-            <ol className={styles.dossierSourceList}>
-              {dossier.sources.map((source, index) => (
-                <li key={source.id}>
-                  <div className={styles.dossierSourceHeading}>
-                    <span>{String(index + 1).padStart(2, "0")}</span>
-                    <div>
-                      <strong>{source.articleTitle}</strong>
-                      <small>
-                        {sourceNames.get(source.sourceCode) ?? source.sourceCode}
-                        {" · "}
-                        {roleLabels[source.sourceRole]}
-                      </small>
+            <form
+              action="/api/admin/editorial/redacao-automatica/dossies"
+              method="post"
+              className={styles.dossierSourceManagementForm}
+            >
+              <input type="hidden" name="action" value="manage_sources" />
+              <input type="hidden" name="dossier_id" value={dossier.id} />
+
+              <ol className={styles.dossierSourceList}>
+                {dossier.sources.map((source, index) => (
+                  <li
+                    key={source.id}
+                    className={source.included ? undefined : styles.dossierSourceExcluded}
+                  >
+                    <input type="hidden" name="dossier_source_id" value={source.id} />
+
+                    <div className={styles.dossierSourceHeading}>
+                      <span>
+                        {String(sourcePriority(source.sortOrder, index + 1)).padStart(2, "0")}
+                      </span>
+                      <div>
+                        <strong>{source.articleTitle}</strong>
+                        <small>
+                          {sourceNames.get(source.sourceCode) ?? source.sourceCode}
+                          {" · "}
+                          {source.included ? "Ativa" : "Excluída"}
+                        </small>
+                      </div>
                     </div>
-                  </div>
-                  <dl>
-                    <div><dt>Estado</dt><dd>{processingStatusLabels[source.processingStatus]}</dd></div>
-                    <div><dt>Snapshot</dt><dd>{source.newsroomSnapshotId}</dd></div>
-                    <div><dt>Extração</dt><dd>{formatDate(source.snapshotExtractedAt)}</dd></div>
-                    <div><dt>Blocos</dt><dd>{source.snapshotBodyBlockCount}</dd></div>
-                  </dl>
-                  <a href={`/admin/editorial/redacao-automatica?articleId=${encodeURIComponent(source.newsroomArticleId)}`}>
-                    Abrir artigo-fonte
-                  </a>
-                </li>
-              ))}
-            </ol>
+
+                    <div className={styles.dossierSourceControls}>
+                      <label>
+                        <span>Prioridade</span>
+                        <input
+                          type="number"
+                          name={`source_priority_${source.id}`}
+                          min={0}
+                          max={999}
+                          step={1}
+                          defaultValue={sourcePriority(source.sortOrder, index + 1)}
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        <span>Papel</span>
+                        <select name={`source_role_${source.id}`} defaultValue={source.sourceRole}>
+                          {Object.entries(roleLabels).map(([value, label]) => (
+                            <option value={value} key={value}>{label}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className={styles.dossierSourceIncluded}>
+                        <input
+                          type="checkbox"
+                          name={`source_included_${source.id}`}
+                          defaultChecked={source.included}
+                        />
+                        <span>Usar na composição</span>
+                      </label>
+                    </div>
+
+                    <label className={styles.dossierSourceNote}>
+                      <span>Nota editorial desta fonte</span>
+                      <textarea
+                        name={`source_note_${source.id}`}
+                        defaultValue={source.editorialNote ?? ""}
+                        maxLength={3000}
+                        rows={3}
+                        placeholder="Regista a função desta fonte, reservas, factos prioritários ou informação a não utilizar."
+                      />
+                    </label>
+
+                    <dl>
+                      <div><dt>Estado</dt><dd>{processingStatusLabels[source.processingStatus]}</dd></div>
+                      <div><dt>Snapshot</dt><dd>{source.newsroomSnapshotId}</dd></div>
+                      <div><dt>Extração</dt><dd>{formatDate(source.snapshotExtractedAt)}</dd></div>
+                      <div><dt>Blocos</dt><dd>{source.snapshotBodyBlockCount}</dd></div>
+                    </dl>
+
+                    <a href={`/admin/editorial/redacao-automatica?articleId=${encodeURIComponent(source.newsroomArticleId)}`}>
+                      Abrir artigo-fonte
+                    </a>
+                  </li>
+                ))}
+              </ol>
+
+              <button type="submit">Guardar gestão das fontes</button>
+            </form>
 
             <p className={styles.dossierFrozenNote}>
-              Alterações ou novas extrações das fontes não substituem silenciosamente estes snapshots.
+              {excludedSourceCount > 0
+                ? `${excludedSourceCount} fonte(s) excluída(s). Podem ser reativadas sem perder o snapshot.`
+                : "Desmarcar uma fonte exclui-a da futura composição, mas preserva a proveniência e o snapshot."}
             </p>
           </aside>
         </div>
+
+        <section
+          className={`${styles.section} ${styles.dossierAddSourcesSection}`}
+          aria-labelledby="dossier-add-sources-title"
+        >
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionEyebrow}>Ampliação controlada</p>
+              <h2 id="dossier-add-sources-title">Acrescentar fontes</h2>
+            </div>
+            <p>
+              As novas fontes congelam o snapshot atual. As fontes já guardadas mantêm os snapshots anteriores.
+            </p>
+          </div>
+
+          {!inboxResult.ok ? (
+            <div className={styles.readError}>
+              <strong>Caixa de entrada indisponível</strong>
+              <span>Não foi possível procurar novas fontes neste momento.</span>
+            </div>
+          ) : availableSources.length > 0 ? (
+            <form
+              action="/api/admin/editorial/redacao-automatica/dossies"
+              method="post"
+              className={styles.dossierAddSourcesForm}
+            >
+              <input type="hidden" name="action" value="add_sources" />
+              <input type="hidden" name="dossier_id" value={dossier.id} />
+
+              <ul className={styles.dossierAvailableSourceList}>
+                {availableSources.map((article) => (
+                  <li key={article.id}>
+                    <div className={styles.dossierAvailableSourceHeading}>
+                      <div>
+                        <span>{sourceNames.get(article.sourceCode) ?? article.sourceCode}</span>
+                        <strong>{article.title}</strong>
+                      </div>
+                      <small>{processingStatusLabels[article.processingStatus]}</small>
+                    </div>
+
+                    <dl>
+                      <div><dt>Deteção</dt><dd>{formatDate(article.detectedAt)}</dd></div>
+                      <div><dt>Snapshot atual</dt><dd>{article.latestSnapshotId ?? "—"}</dd></div>
+                    </dl>
+
+                    <div className={styles.dossierAvailableSourceControls}>
+                      <label className={styles.dossierSourceIncluded}>
+                        <input type="checkbox" name="newsroom_article_id" value={article.id} />
+                        <span>Acrescentar ao Dossiê</span>
+                      </label>
+
+                      <label>
+                        <span>Papel inicial</span>
+                        <select
+                          name={`source_add_role_${article.id}`}
+                          defaultValue="complementary"
+                        >
+                          {Object.entries(roleLabels).map(([value, label]) => (
+                            <option value={value} key={value}>{label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <a href={`/admin/editorial/redacao-automatica?articleId=${encodeURIComponent(article.id)}`}>
+                      Abrir artigo-fonte
+                    </a>
+                  </li>
+                ))}
+              </ul>
+
+              <button type="submit">Acrescentar fontes selecionadas</button>
+            </form>
+          ) : (
+            <div className={styles.inboxEmpty}>
+              <strong>Sem novas fontes disponíveis nesta página</strong>
+              <span>
+                As fontes já pertencentes ao Dossiê são geridas acima, mesmo quando estão excluídas.
+              </span>
+            </div>
+          )}
+
+          {inboxResult.ok && (inboxResult.value.hasPreviousPage || inboxResult.value.hasNextPage) ? (
+            <nav className={styles.pagination} aria-label="Paginação das fontes disponíveis">
+              {inboxResult.value.hasPreviousPage ? (
+                <a href={`?source_page=${inboxResult.value.page - 1}`}>Página anterior</a>
+              ) : <span />}
+              <span>Página {inboxResult.value.page}</span>
+              {inboxResult.value.hasNextPage ? (
+                <a href={`?source_page=${inboxResult.value.page + 1}`}>Página seguinte</a>
+              ) : <span />}
+            </nav>
+          ) : null}
+        </section>
       </div>
     </main>
   );

@@ -11,6 +11,7 @@ const MAX_SOURCES = 20;
 const MAX_TITLE_LENGTH = 180;
 const MAX_EDITORIAL_INSTRUCTIONS_LENGTH = 12000;
 const MAX_CONTEXT_INSTRUCTIONS_LENGTH = 8000;
+const MAX_EDITORIAL_NOTE_LENGTH = 3000;
 
 const allowedSourceStatuses = new Set<ArticleProcessingStatus>([
   "detected",
@@ -22,6 +23,29 @@ export type EditorialDossierSourceSelection = Readonly<{
   newsroomArticleId: string;
   priority: number;
   sourceRole: EditorialDossierSourceRole;
+}>;
+
+export type EditorialDossierSourceEdit = Readonly<{
+  sourceId: string;
+  priority: number;
+  sourceRole: EditorialDossierSourceRole;
+  editorialNote: string;
+  included: boolean;
+}>;
+
+export type EditorialDossierSourceAddition = Readonly<{
+  newsroomArticleId: string;
+  sourceRole: EditorialDossierSourceRole;
+}>;
+
+export type ManageEditorialDossierSourcesInput = Readonly<{
+  dossierId: string;
+  sources: readonly EditorialDossierSourceEdit[];
+}>;
+
+export type AddEditorialDossierSourcesInput = Readonly<{
+  dossierId: string;
+  sources: readonly EditorialDossierSourceAddition[];
 }>;
 
 export type EditorialDossierSourceCandidate = Readonly<{
@@ -76,6 +100,28 @@ export type EditorialDossierSourceInsert = Readonly<{
   included: true;
 }>;
 
+export type EditorialDossierSourceState = Readonly<{
+  id: string;
+  dossierId: string;
+  newsroomArticleId: string;
+  newsroomSnapshotId: string;
+  sourceRole: EditorialDossierSourceRole;
+  sortOrder: number;
+  editorialNote: string | null;
+  included: boolean;
+}>;
+
+export type EditorialDossierSourceUpsert = Readonly<{
+  id: string;
+  dossier_id: string;
+  newsroom_article_id: string;
+  newsroom_snapshot_id: string;
+  source_role: EditorialDossierSourceRole;
+  sort_order: number;
+  editorial_note: string | null;
+  included: boolean;
+}>;
+
 export type EditorialDossierUpdate = Readonly<{
   title: string;
   editorial_instructions: string;
@@ -96,8 +142,11 @@ export interface EditorialDossierTransport {
   isConfigured(): boolean;
   randomUuid(): string;
   readSourceCandidates(articleIds: readonly string[]): Promise<readonly EditorialDossierSourceCandidate[]>;
+  readDossierSources(dossierId: string): Promise<readonly EditorialDossierSourceState[] | null>;
   insertDossier(payload: EditorialDossierInsert): Promise<EditorialDossierWrite | null>;
   insertSources(payload: readonly EditorialDossierSourceInsert[]): Promise<number>;
+  upsertSources(payload: readonly EditorialDossierSourceUpsert[]): Promise<number>;
+  touchDossier(dossierId: string): Promise<void>;
   deleteDossier(dossierId: string): Promise<void>;
   updateDossier(
     dossierId: string,
@@ -111,6 +160,10 @@ export type EditorialDossierErrorCode =
   | "source_not_found"
   | "source_not_eligible"
   | "source_snapshot_missing"
+  | "source_already_in_dossier"
+  | "source_limit_exceeded"
+  | "source_management_failed"
+  | "source_add_failed"
   | "dossier_creation_failed"
   | "dossier_not_found"
   | "dossier_update_failed";
@@ -146,6 +199,25 @@ export type EditorialDossierUpdateResult =
       }>;
     }>;
 
+
+export type EditorialDossierSourcesResult =
+  | Readonly<{
+      ok: true;
+      value: Readonly<{
+        dossierId: string;
+        sourceCount: number;
+        includedSourceCount: number;
+        addedCount: number;
+      }>;
+    }>
+  | Readonly<{
+      ok: false;
+      error: Readonly<{
+        code: EditorialDossierErrorCode;
+        message: string;
+      }>;
+    }>;
+
 function createFailure(
   code: EditorialDossierErrorCode,
   message: string,
@@ -157,6 +229,13 @@ function updateFailure(
   code: EditorialDossierErrorCode,
   message: string,
 ): EditorialDossierUpdateResult {
+  return { ok: false, error: { code, message } };
+}
+
+function sourcesFailure(
+  code: EditorialDossierErrorCode,
+  message: string,
+): EditorialDossierSourcesResult {
   return { ok: false, error: { code, message } };
 }
 
@@ -217,6 +296,90 @@ function normalizedSelections(
     .map((source, index) => ({ ...source, inputIndex: index }))
     .sort((left, right) => left.priority - right.priority || left.inputIndex - right.inputIndex)
     .map(({ inputIndex: _inputIndex, ...source }) => source);
+}
+
+type NormalizedEditorialDossierSourceEdit = Readonly<{
+  sourceId: string;
+  priority: number;
+  sourceRole: EditorialDossierSourceRole;
+  editorialNote: string | null;
+  included: boolean;
+}>;
+
+function normalizedSourceEdits(
+  sources: readonly EditorialDossierSourceEdit[],
+): readonly NormalizedEditorialDossierSourceEdit[] | null {
+  if (sources.length < 1 || sources.length > MAX_SOURCES) {
+    return null;
+  }
+
+  const normalized: NormalizedEditorialDossierSourceEdit[] = [];
+  const seen = new Set<string>();
+
+  for (const source of sources) {
+    const sourceId = normalizedUuid(source.sourceId);
+    const editorialNote = cleanText(source.editorialNote);
+
+    if (
+      !sourceId
+      || seen.has(sourceId)
+      || !Number.isFinite(source.priority)
+      || source.priority < 0
+      || !validRole(source.sourceRole)
+      || editorialNote.length > MAX_EDITORIAL_NOTE_LENGTH
+    ) {
+      return null;
+    }
+
+    seen.add(sourceId);
+    normalized.push({
+      sourceId,
+      priority: source.priority,
+      sourceRole: source.sourceRole,
+      editorialNote: editorialNote || null,
+      included: source.included,
+    });
+  }
+
+  return normalized;
+}
+
+function normalizedAdditions(
+  sources: readonly EditorialDossierSourceAddition[],
+): readonly EditorialDossierSourceAddition[] | null {
+  const unique = new Map<string, EditorialDossierSourceAddition>();
+
+  for (const source of sources) {
+    const articleId = normalizedUuid(source.newsroomArticleId);
+
+    if (!articleId || !validRole(source.sourceRole)) {
+      return null;
+    }
+
+    if (!unique.has(articleId)) {
+      unique.set(articleId, {
+        newsroomArticleId: articleId,
+        sourceRole: source.sourceRole,
+      });
+    }
+  }
+
+  if (unique.size < 1 || unique.size > MAX_SOURCES) {
+    return null;
+  }
+
+  return [...unique.values()];
+}
+
+async function touchDossierBestEffort(
+  transport: EditorialDossierTransport,
+  dossierId: string,
+): Promise<void> {
+  try {
+    await transport.touchDossier(dossierId);
+  } catch {
+    // A gestão das fontes já foi concluída; a atualização do timestamp é complementar.
+  }
 }
 
 function normalizedOutputCount(
@@ -411,5 +574,213 @@ export function updateEditorialDossierService(transport: EditorialDossierTranspo
     } catch {
       return updateFailure("dossier_update_failed", "Não foi possível guardar o Dossiê.");
     }
+  };
+}
+
+export function manageEditorialDossierSourcesService(transport: EditorialDossierTransport) {
+  return async function manageEditorialDossierSources(
+    input: ManageEditorialDossierSourcesInput,
+  ): Promise<EditorialDossierSourcesResult> {
+    const dossierId = normalizedUuid(input.dossierId);
+    const edits = normalizedSourceEdits(input.sources);
+
+    if (!dossierId || !edits) {
+      return sourcesFailure("input_invalid", "Os dados das fontes do Dossiê não são válidos.");
+    }
+
+    if (!transport.isConfigured()) {
+      return sourcesFailure("service_unavailable", "O serviço dos Dossiês não está configurado.");
+    }
+
+    let existingSources: readonly EditorialDossierSourceState[] | null;
+    try {
+      existingSources = await transport.readDossierSources(dossierId);
+    } catch {
+      return sourcesFailure("source_management_failed", "Não foi possível ler as fontes do Dossiê.");
+    }
+
+    if (!existingSources) {
+      return sourcesFailure("dossier_not_found", "O Dossiê já não existe.");
+    }
+
+    if (existingSources.length !== edits.length) {
+      return sourcesFailure(
+        "input_invalid",
+        "A lista de fontes mudou. Reabre o Dossiê antes de guardar.",
+      );
+    }
+
+    const existingById = new Map(existingSources.map((source) => [source.id, source]));
+    const ordered = edits
+      .map((edit, inputIndex) => ({ edit, inputIndex }))
+      .sort((left, right) => (
+        left.edit.priority - right.edit.priority
+        || left.inputIndex - right.inputIndex
+      ));
+    const payload: EditorialDossierSourceUpsert[] = [];
+
+    for (const { edit } of ordered) {
+      const existing = existingById.get(edit.sourceId);
+      if (!existing || existing.dossierId !== dossierId) {
+        return sourcesFailure(
+          "source_not_found",
+          "Uma das fontes já não pertence a este Dossiê.",
+        );
+      }
+
+      payload.push({
+        id: existing.id,
+        dossier_id: existing.dossierId,
+        newsroom_article_id: existing.newsroomArticleId,
+        newsroom_snapshot_id: existing.newsroomSnapshotId,
+        source_role: edit.sourceRole,
+        sort_order: (payload.length + 1) * 10,
+        editorial_note: edit.editorialNote,
+        included: edit.included,
+      });
+    }
+
+    try {
+      const updatedCount = await transport.upsertSources(payload);
+      if (updatedCount !== payload.length) {
+        throw new Error("source_count_mismatch");
+      }
+    } catch {
+      return sourcesFailure(
+        "source_management_failed",
+        "Não foi possível guardar a gestão das fontes.",
+      );
+    }
+
+    await touchDossierBestEffort(transport, dossierId);
+
+    return {
+      ok: true,
+      value: {
+        dossierId,
+        sourceCount: payload.length,
+        includedSourceCount: payload.filter((source) => source.included).length,
+        addedCount: 0,
+      },
+    };
+  };
+}
+
+export function addEditorialDossierSourcesService(transport: EditorialDossierTransport) {
+  return async function addEditorialDossierSources(
+    input: AddEditorialDossierSourcesInput,
+  ): Promise<EditorialDossierSourcesResult> {
+    const dossierId = normalizedUuid(input.dossierId);
+    const additions = normalizedAdditions(input.sources);
+
+    if (!dossierId || !additions) {
+      return sourcesFailure("input_invalid", "Seleciona fontes válidas para acrescentar.");
+    }
+
+    if (!transport.isConfigured()) {
+      return sourcesFailure("service_unavailable", "O serviço dos Dossiês não está configurado.");
+    }
+
+    let existingSources: readonly EditorialDossierSourceState[] | null;
+    try {
+      existingSources = await transport.readDossierSources(dossierId);
+    } catch {
+      return sourcesFailure("source_add_failed", "Não foi possível ler as fontes do Dossiê.");
+    }
+
+    if (!existingSources) {
+      return sourcesFailure("dossier_not_found", "O Dossiê já não existe.");
+    }
+
+    if (existingSources.length + additions.length > MAX_SOURCES) {
+      return sourcesFailure(
+        "source_limit_exceeded",
+        `Um Dossiê pode ter no máximo ${MAX_SOURCES} fontes congeladas.`,
+      );
+    }
+
+    const existingArticleIds = new Set(
+      existingSources.map((source) => source.newsroomArticleId),
+    );
+
+    if (additions.some((source) => existingArticleIds.has(source.newsroomArticleId))) {
+      return sourcesFailure(
+        "source_already_in_dossier",
+        "Uma das fontes já pertence ao Dossiê. Reativa-a na gestão das fontes.",
+      );
+    }
+
+    let candidates: readonly EditorialDossierSourceCandidate[];
+    try {
+      candidates = await transport.readSourceCandidates(
+        additions.map((source) => source.newsroomArticleId),
+      );
+    } catch {
+      return sourcesFailure("source_add_failed", "Não foi possível validar as novas fontes.");
+    }
+
+    const candidatesById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+    const maxSortOrder = existingSources.reduce(
+      (highest, source) => Math.max(highest, source.sortOrder),
+      0,
+    );
+    const payload: EditorialDossierSourceInsert[] = [];
+
+    for (const addition of additions) {
+      const candidate = candidatesById.get(addition.newsroomArticleId);
+
+      if (!candidate) {
+        return sourcesFailure("source_not_found", "Uma das novas fontes já não existe.");
+      }
+
+      if (!allowedSourceStatuses.has(candidate.processingStatus)) {
+        return sourcesFailure(
+          "source_not_eligible",
+          "Uma das novas fontes não está disponível para o Dossiê.",
+        );
+      }
+
+      if (!candidate.snapshot || !hasUsableBody(candidate.snapshot.body)) {
+        return sourcesFailure(
+          "source_snapshot_missing",
+          "Uma das novas fontes não tem um snapshot normalizado utilizável.",
+        );
+      }
+
+      payload.push({
+        id: transport.randomUuid(),
+        dossier_id: dossierId,
+        newsroom_article_id: candidate.id,
+        newsroom_snapshot_id: candidate.snapshot.id,
+        source_role: addition.sourceRole,
+        sort_order: maxSortOrder + payload.length * 10 + 10,
+        editorial_note: null,
+        included: true,
+      });
+    }
+
+    try {
+      const insertedCount = await transport.insertSources(payload);
+      if (insertedCount !== payload.length) {
+        throw new Error("source_count_mismatch");
+      }
+    } catch {
+      return sourcesFailure(
+        "source_add_failed",
+        "Não foi possível acrescentar todas as fontes selecionadas.",
+      );
+    }
+
+    await touchDossierBestEffort(transport, dossierId);
+
+    return {
+      ok: true,
+      value: {
+        dossierId,
+        sourceCount: existingSources.length + payload.length,
+        includedSourceCount: existingSources.filter((source) => source.included).length + payload.length,
+        addedCount: payload.length,
+      },
+    };
   };
 }

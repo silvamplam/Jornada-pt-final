@@ -2,11 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  addEditorialDossierSourcesService,
   createEditorialDossierService,
+  manageEditorialDossierSourcesService,
   updateEditorialDossierService,
   type EditorialDossierInsert,
   type EditorialDossierSourceCandidate,
   type EditorialDossierSourceInsert,
+  type EditorialDossierSourceState,
+  type EditorialDossierSourceUpsert,
   type EditorialDossierTransport,
   type EditorialDossierUpdate,
 } from "@/lib/redacao-automatica/editorial-dossier-service-internal";
@@ -16,6 +20,8 @@ const sourceOneId = "00000000-0000-4000-8000-000000000011";
 const sourceTwoId = "00000000-0000-4000-8000-000000000012";
 const snapshotOneId = "00000000-0000-4000-8000-000000000021";
 const snapshotTwoId = "00000000-0000-4000-8000-000000000022";
+const dossierSourceOneId = "00000000-0000-4000-8000-000000000041";
+const dossierSourceTwoId = "00000000-0000-4000-8000-000000000042";
 
 function candidate(
   id: string,
@@ -33,12 +39,38 @@ function candidate(
   };
 }
 
+
+function sourceState(
+  id: string,
+  articleId: string,
+  snapshotId: string,
+  sortOrder: number,
+  sourceRole: EditorialDossierSourceState["sourceRole"] = "complementary",
+): EditorialDossierSourceState {
+  return {
+    id,
+    dossierId,
+    newsroomArticleId: articleId,
+    newsroomSnapshotId: snapshotId,
+    sourceRole,
+    sortOrder,
+    editorialNote: null,
+    included: true,
+  };
+}
+
 function fakeTransport(overrides: Partial<EditorialDossierTransport> = {}) {
   let uuidIndex = 0;
   const insertedDossiers: EditorialDossierInsert[] = [];
   const insertedSources: Array<readonly EditorialDossierSourceInsert[]> = [];
+  const upsertedSources: Array<readonly EditorialDossierSourceUpsert[]> = [];
   const deletedDossiers: string[] = [];
+  const touchedDossiers: string[] = [];
   const updates: Array<{ id: string; payload: EditorialDossierUpdate }> = [];
+  const currentSources: readonly EditorialDossierSourceState[] = [
+    sourceState(dossierSourceOneId, sourceOneId, snapshotOneId, 10, "primary"),
+    sourceState(dossierSourceTwoId, sourceTwoId, snapshotTwoId, 20, "corroboration"),
+  ];
   const ids = [
     dossierId,
     "00000000-0000-4000-8000-000000000031",
@@ -53,6 +85,7 @@ function fakeTransport(overrides: Partial<EditorialDossierTransport> = {}) {
         ? candidate(sourceOneId, snapshotOneId)
         : candidate(sourceTwoId, snapshotTwoId, "ready_for_review")
     )),
+    readDossierSources: async () => currentSources,
     insertDossier: async (payload) => {
       insertedDossiers.push(payload);
       return { id: payload.id, title: payload.title };
@@ -60,6 +93,13 @@ function fakeTransport(overrides: Partial<EditorialDossierTransport> = {}) {
     insertSources: async (payload) => {
       insertedSources.push(payload);
       return payload.length;
+    },
+    upsertSources: async (payload) => {
+      upsertedSources.push(payload);
+      return payload.length;
+    },
+    touchDossier: async (id) => {
+      touchedDossiers.push(id);
     },
     deleteDossier: async (id) => {
       deletedDossiers.push(id);
@@ -75,7 +115,9 @@ function fakeTransport(overrides: Partial<EditorialDossierTransport> = {}) {
     transport,
     insertedDossiers,
     insertedSources,
+    upsertedSources,
     deletedDossiers,
+    touchedDossiers,
     updates,
   };
 }
@@ -292,4 +334,159 @@ test("impede combinações inválidas entre modo e quantidade de artigos", async
   if (!result.ok) {
     assert.equal(result.error.code, "input_invalid");
   }
+});
+
+test("gere ordem, papel, nota e inclusão sem substituir artigos ou snapshots", async () => {
+  const fake = fakeTransport();
+  const manage = manageEditorialDossierSourcesService(fake.transport);
+
+  const result = await manage({
+    dossierId,
+    sources: [
+      {
+        sourceId: dossierSourceTwoId,
+        priority: 1,
+        sourceRole: "primary",
+        editorialNote: "  Confirmar o resultado e a duração. ",
+        included: true,
+      },
+      {
+        sourceId: dossierSourceOneId,
+        priority: 2,
+        sourceRole: "context",
+        editorialNote: " ",
+        included: false,
+      },
+    ],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(fake.upsertedSources.length, 1);
+  assert.deepEqual(fake.upsertedSources[0], [
+    {
+      id: dossierSourceTwoId,
+      dossier_id: dossierId,
+      newsroom_article_id: sourceTwoId,
+      newsroom_snapshot_id: snapshotTwoId,
+      source_role: "primary",
+      sort_order: 10,
+      editorial_note: "Confirmar o resultado e a duração.",
+      included: true,
+    },
+    {
+      id: dossierSourceOneId,
+      dossier_id: dossierId,
+      newsroom_article_id: sourceOneId,
+      newsroom_snapshot_id: snapshotOneId,
+      source_role: "context",
+      sort_order: 20,
+      editorial_note: null,
+      included: false,
+    },
+  ]);
+  assert.deepEqual(fake.touchedDossiers, [dossierId]);
+});
+
+test("recusa uma gestão incompleta ou com fonte alheia ao Dossiê", async () => {
+  const fake = fakeTransport();
+  const manage = manageEditorialDossierSourcesService(fake.transport);
+
+  const incomplete = await manage({
+    dossierId,
+    sources: [{
+      sourceId: dossierSourceOneId,
+      priority: 1,
+      sourceRole: "primary",
+      editorialNote: "",
+      included: true,
+    }],
+  });
+
+  assert.equal(incomplete.ok, false);
+  if (!incomplete.ok) {
+    assert.equal(incomplete.error.code, "input_invalid");
+  }
+
+  const foreign = await manage({
+    dossierId,
+    sources: [
+      {
+        sourceId: dossierSourceOneId,
+        priority: 1,
+        sourceRole: "primary",
+        editorialNote: "",
+        included: true,
+      },
+      {
+        sourceId: "00000000-0000-4000-8000-000000000099",
+        priority: 2,
+        sourceRole: "complementary",
+        editorialNote: "",
+        included: true,
+      },
+    ],
+  });
+
+  assert.equal(foreign.ok, false);
+  if (!foreign.ok) {
+    assert.equal(foreign.error.code, "source_not_found");
+  }
+});
+
+test("acrescenta uma nova fonte no fim e congela apenas o snapshot atual dessa fonte", async () => {
+  const existing = sourceState(
+    dossierSourceOneId,
+    sourceOneId,
+    snapshotOneId,
+    10,
+    "primary",
+  );
+  const fake = fakeTransport({
+    readDossierSources: async () => [existing],
+  });
+  const add = addEditorialDossierSourcesService(fake.transport);
+
+  const result = await add({
+    dossierId,
+    sources: [{
+      newsroomArticleId: sourceTwoId,
+      sourceRole: "context",
+    }],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(fake.insertedSources.length, 1);
+  assert.deepEqual(fake.insertedSources[0].map((source) => ({
+    dossierId: source.dossier_id,
+    articleId: source.newsroom_article_id,
+    snapshotId: source.newsroom_snapshot_id,
+    role: source.source_role,
+    order: source.sort_order,
+  })), [{
+    dossierId,
+    articleId: sourceTwoId,
+    snapshotId: snapshotTwoId,
+    role: "context",
+    order: 20,
+  }]);
+  assert.equal(existing.newsroomSnapshotId, snapshotOneId);
+});
+
+test("impede acrescentar novamente uma fonte já congelada", async () => {
+  const fake = fakeTransport();
+  const add = addEditorialDossierSourcesService(fake.transport);
+
+  const result = await add({
+    dossierId,
+    sources: [{
+      newsroomArticleId: sourceOneId,
+      sourceRole: "complementary",
+    }],
+  });
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.code, "source_already_in_dossier");
+  }
+  assert.equal(fake.insertedSources.length, 0);
 });
