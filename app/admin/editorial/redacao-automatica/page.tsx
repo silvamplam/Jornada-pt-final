@@ -1,4 +1,8 @@
 import {
+  findNewsroomEditorialDraft,
+  type LinkedEditorialArticle,
+} from "@/lib/redacao-automatica/editorial-draft-service";
+import {
   getNewsroomArticleById,
   listNewsroomArticles,
   type NewsroomArticleDetail,
@@ -133,9 +137,21 @@ function inboxHref(page: number, articleId?: string): string {
 function ArticleDetail({
   article,
   sourceName,
+  page,
+  editorialArticle,
+  draftLookupFailed,
+  draftErrorMessage,
+  reviewErrorMessage,
+  reviewSuccessMessage,
 }: {
   article: NewsroomArticleDetail;
   sourceName: string;
+  page: number;
+  editorialArticle: LinkedEditorialArticle | null;
+  draftLookupFailed: boolean;
+  draftErrorMessage: string | null;
+  reviewErrorMessage: string | null;
+  reviewSuccessMessage: string | null;
 }) {
   const snapshot = article.snapshot;
 
@@ -167,6 +183,70 @@ function ArticleDetail({
         </a>
         <span title={article.normalizedUrl}>URL normalizada preservada</span>
       </div>
+
+      <section className={styles.draftAction} aria-labelledby="editorial-draft-title">
+        <div>
+          <p className={styles.sectionEyebrow}>Integração editorial</p>
+          <h4 id="editorial-draft-title">
+            {article.processingStatus === "ready_for_review" || editorialArticle
+              ? "Rascunho editorial"
+              : "Validação editorial"}
+          </h4>
+        </div>
+        {draftErrorMessage ? (
+          <p className={styles.draftActionError} role="status">{draftErrorMessage}</p>
+        ) : null}
+        {reviewErrorMessage ? (
+          <p className={styles.draftActionError} role="status">{reviewErrorMessage}</p>
+        ) : null}
+        {reviewSuccessMessage ? (
+          <p className={styles.reviewActionSuccess} role="status">{reviewSuccessMessage}</p>
+        ) : null}
+        {editorialArticle ? (
+          <div className={styles.draftActionReady}>
+            <p>
+              {editorialArticle.status === "published"
+                ? "Este artigo-fonte já está ligado a um artigo publicado."
+                : "Este artigo-fonte já tem um rascunho editorial."}
+            </p>
+            <a href={`/admin/editorial/artigos?articleId=${encodeURIComponent(editorialArticle.id)}`}>
+              {editorialArticle.status === "published" ? "Abrir artigo editorial" : "Abrir rascunho editorial"}
+            </a>
+          </div>
+        ) : draftLookupFailed ? (
+          <p className={styles.draftActionNote}>
+            Não foi possível confirmar a existência de um rascunho. A criação fica indisponível para evitar duplicações.
+          </p>
+        ) : !article.snapshot?.body.length ? (
+          <p className={styles.draftActionNote}>
+            A validação editorial fica disponível quando existir um snapshot normalizado com corpo editorial.
+          </p>
+        ) : article.processingStatus === "detected" || article.processingStatus === "normalized" ? (
+          <form action="/api/admin/editorial/redacao-automatica/review" method="post">
+            <input type="hidden" name="newsroom_article_id" value={article.id} />
+            <input type="hidden" name="return_to" value={inboxHref(page, article.id)} />
+            <p>
+              Confirma manualmente que o artigo-fonte e o respetivo snapshot podem avançar para validação editorial.
+              Esta ação não cria nem publica qualquer artigo.
+            </p>
+            <button type="submit">Marcar como Por rever</button>
+          </form>
+        ) : article.processingStatus !== "ready_for_review" ? (
+          <p className={styles.draftActionNote}>
+            O estado atual do artigo não permite avançar para a criação de rascunho.
+          </p>
+        ) : (
+          <form action="/api/admin/editorial/redacao-automatica/drafts" method="post">
+            <input type="hidden" name="newsroom_article_id" value={article.id} />
+            <input type="hidden" name="return_to" value={inboxHref(page, article.id)} />
+            <p>
+              Cria um rascunho em estado draft com o título, subtítulo, imagem e corpo normalizado já persistidos.
+              A publicação continua exclusivamente manual.
+            </p>
+            <button type="submit">Criar rascunho editorial</button>
+          </form>
+        )}
+      </section>
 
       {article.imageUrl ? (
         <figure className={styles.articleImage}>
@@ -223,9 +303,44 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
   const detailResult = selectedArticleId
     ? await getNewsroomArticleById(selectedArticleId)
     : null;
+  const draftResult = selectedArticleId
+    ? await findNewsroomEditorialDraft(selectedArticleId)
+    : null;
   const articlePage = listResult.ok ? listResult.value : emptyArticlePage;
   const selectedArticle = detailResult?.ok ? detailResult.value : null;
+  const selectedEditorialArticle = draftResult?.ok ? draftResult.value : null;
   const hasReadError = !listResult.ok || (detailResult !== null && !detailResult.ok);
+  const draftLookupFailed = draftResult !== null && !draftResult.ok;
+  const draftErrorCode = firstQueryValue(params.draft_error);
+  const draftErrorMessages: Record<string, string> = {
+    input_invalid: "O artigo selecionado não é válido.",
+    service_unavailable: "O serviço editorial não está configurado.",
+    newsroom_article_not_found: "O artigo da caixa de entrada já não existe.",
+    newsroom_article_not_ready: "O artigo ainda não está disponível para validação editorial.",
+    newsroom_snapshot_missing: "O artigo ainda não tem um snapshot normalizado utilizável.",
+    draft_creation_failed: "Não foi possível criar ou localizar o rascunho editorial.",
+  };
+  const draftErrorMessage = draftErrorCode
+    ? draftErrorMessages[draftErrorCode] ?? "Não foi possível concluir a criação do rascunho."
+    : null;
+  const reviewErrorCode = firstQueryValue(params.review_error);
+  const reviewErrorMessages: Record<string, string> = {
+    input_invalid: "O artigo selecionado não é válido.",
+    service_unavailable: "O serviço da caixa de entrada não está configurado.",
+    newsroom_article_not_found: "O artigo da caixa de entrada já não existe.",
+    newsroom_snapshot_missing: "O artigo ainda não tem um snapshot normalizado utilizável.",
+    newsroom_article_not_reviewable: "O estado atual do artigo não permite marcá-lo como Por rever.",
+    status_update_failed: "Não foi possível marcar o artigo como Por rever.",
+  };
+  const reviewErrorMessage = reviewErrorCode
+    ? reviewErrorMessages[reviewErrorCode] ?? "Não foi possível concluir a validação editorial."
+    : null;
+  const reviewState = firstQueryValue(params.review_state);
+  const reviewSuccessMessage = reviewState === "updated"
+    ? "O artigo foi marcado como Por rever. Já pode criar o rascunho editorial."
+    : reviewState === "reused"
+      ? "O artigo já estava marcado como Por rever."
+      : null;
 
   const editorialSummary = [
     { label: "Artigos persistidos", value: listResult.ok ? String(articlePage.total) : "—" },
@@ -265,7 +380,7 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
             ))}
           </div>
           <p className={styles.emptyDataNote}>
-            A caixa de entrada é exclusivamente de leitura. A monitorização das fontes continua inativa.
+            A caixa de entrada permite leitura e criação manual controlada de rascunhos. A monitorização das fontes continua inativa.
           </p>
         </section>
 
@@ -275,7 +390,7 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
               <p className={styles.sectionEyebrow}>Persistência de artigos-fonte</p>
               <h2 id="newsroom-inbox-title">Caixa de entrada</h2>
             </div>
-            <p>Consulta read-only dos artigos e snapshots já persistidos, sem ações editoriais ou recolha externa.</p>
+            <p>Consulta dos artigos e snapshots persistidos, com criação manual de rascunhos e sem nova recolha externa.</p>
           </div>
 
           {hasReadError ? (
@@ -331,6 +446,12 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
                 <ArticleDetail
                   article={selectedArticle}
                   sourceName={sourceNames.get(selectedArticle.sourceCode) ?? selectedArticle.sourceCode}
+                  page={articlePage.page}
+                  editorialArticle={selectedEditorialArticle}
+                  draftLookupFailed={draftLookupFailed}
+                  draftErrorMessage={draftErrorMessage}
+                  reviewErrorMessage={reviewErrorMessage}
+                  reviewSuccessMessage={reviewSuccessMessage}
                 />
               ) : (
                 <aside className={styles.detailPlaceholder}>
@@ -403,11 +524,11 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
             <p className={styles.sectionEyebrow}>Continuidade do processo</p>
             <h2 id="integration-title">Integração editorial</h2>
             <p>
-              A notícia validada será futuramente guardada como rascunho no sistema editorial existente e aberta
-              no editor normal de artigos.
+              Um artigo marcado como “Por rever” e com snapshot normalizado pode agora originar manualmente um
+              rascunho no sistema editorial existente, mantendo a proveniência e abrindo o editor normal de artigos.
             </p>
             <p className={styles.futureActionNote}>
-              A validação e a criação do rascunho serão disponibilizadas numa fase posterior.
+              A ação nunca publica automaticamente e não executa nova recolha externa.
             </p>
           </div>
           <a className={styles.integrationLink} href="/admin/editorial/artigos">

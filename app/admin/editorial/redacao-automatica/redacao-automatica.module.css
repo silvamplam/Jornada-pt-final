@@ -464,6 +464,87 @@
   font-size: 0.74rem;
 }
 
+.draftAction {
+  display: grid;
+  gap: 11px;
+  padding: 16px;
+  border: 1px solid #d8e0e8;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.draftAction h4,
+.draftAction p {
+  margin: 0;
+}
+
+.draftAction h4 {
+  margin-top: 4px;
+  color: #17202a;
+  font-size: 1rem;
+}
+
+.draftAction form,
+.draftActionReady {
+  display: grid;
+  gap: 11px;
+}
+
+.draftAction form p,
+.draftActionReady p,
+.draftActionNote,
+.draftActionError {
+  color: #52606d;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.draftAction form button,
+.draftActionReady a {
+  display: inline-flex;
+  width: max-content;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 13px;
+  border: 1px solid #10151b;
+  border-radius: 7px;
+  background: #10151b;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-decoration: none;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.draftAction form button:hover,
+.draftActionReady a:hover {
+  background: #29333e;
+}
+
+.draftActionError {
+  padding: 9px 11px;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  background: #fff7f7;
+  color: #991b1b;
+  font-weight: 750;
+}
+
+.reviewActionSuccess {
+  padding: 9px 11px;
+  border: 1px solid #bbdfc8;
+  border-radius: 7px;
+  background: #f2fbf5;
+  color: #176534;
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
 .articleImage {
   margin: 0;
   overflow: hidden;
