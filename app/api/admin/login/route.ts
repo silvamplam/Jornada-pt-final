@@ -13,6 +13,21 @@ function getSafeNext(value: FormDataEntryValue | null): string {
   return value;
 }
 
+function relativeRedirect(path: string, params: Record<string, string> = {}) {
+  const url = new URL(path, "https://jornada.local");
+
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+
+  return new NextResponse(null, {
+    status: 303,
+    headers: {
+      Location: `${url.pathname}${url.search}`
+    }
+  });
+}
+
 export async function POST(request: Request) {
   const formData = await request.formData();
   const password = formData.get("password");
@@ -20,16 +35,17 @@ export async function POST(request: Request) {
   const expectedPassword = process.env.ADMIN_PASSWORD;
 
   if (!expectedPassword) {
-    return NextResponse.redirect(new URL("/admin/login?error=missing", request.url), { status: 303 });
+    return relativeRedirect("/admin/login", { error: "missing" });
   }
 
   if (typeof password !== "string" || password !== expectedPassword) {
-    const loginUrl = new URL("/admin/login?error=invalid", request.url);
-    loginUrl.searchParams.set("next", nextPath);
-    return NextResponse.redirect(loginUrl, { status: 303 });
+    return relativeRedirect("/admin/login", {
+      error: "invalid",
+      next: nextPath
+    });
   }
 
-  const response = NextResponse.redirect(new URL(nextPath, request.url), { status: 303 });
+  const response = relativeRedirect(nextPath);
   const session = await createAdminSession();
 
   response.cookies.set({
