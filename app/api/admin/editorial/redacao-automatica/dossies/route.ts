@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
 import {
+  addEditorialDossierSources,
   createEditorialDossier,
+  manageEditorialDossierSources,
   updateEditorialDossier,
+  type EditorialDossierSourceAddition,
+  type EditorialDossierSourceEdit,
   type EditorialDossierSourceSelection,
 } from "@/lib/redacao-automatica/editorial-dossier-service";
 import type {
@@ -70,6 +74,42 @@ function createSelections(formData: FormData): readonly EditorialDossierSourceSe
   });
 }
 
+
+function sourceEdits(formData: FormData): readonly EditorialDossierSourceEdit[] {
+  return formData.getAll("dossier_source_id").flatMap((value): EditorialDossierSourceEdit[] => {
+    const sourceId = cleanText(value);
+    if (!sourceId) {
+      return [];
+    }
+
+    return [{
+      sourceId,
+      priority: numberValue(formData.get(`source_priority_${sourceId}`), 999),
+      sourceRole: sourceRole(cleanText(formData.get(`source_role_${sourceId}`))),
+      editorialNote: cleanText(formData.get(`source_note_${sourceId}`)),
+      included: formData.has(`source_included_${sourceId}`),
+    }];
+  });
+}
+
+function sourceAdditions(formData: FormData): readonly EditorialDossierSourceAddition[] {
+  return formData.getAll("newsroom_article_id").flatMap((value): EditorialDossierSourceAddition[] => {
+    const newsroomArticleId = cleanText(value);
+    if (!newsroomArticleId) {
+      return [];
+    }
+
+    return [{
+      newsroomArticleId,
+      sourceRole: sourceRole(cleanText(formData.get(`source_add_role_${newsroomArticleId}`))),
+    }];
+  });
+}
+
+function dossierDetailPath(dossierId: string): string {
+  return `/admin/editorial/redacao-automatica/dossies/${encodeURIComponent(dossierId)}`;
+}
+
 export async function POST(request: Request) {
   const formData = await request.formData();
   const action = cleanText(formData.get("action"));
@@ -94,6 +134,39 @@ export async function POST(request: Request) {
     );
   }
 
+  if (action === "manage_sources") {
+    const dossierId = cleanText(formData.get("dossier_id"));
+    const result = await manageEditorialDossierSources({
+      dossierId,
+      sources: sourceEdits(formData),
+    });
+    const detailPath = dossierDetailPath(dossierId);
+
+    if (!result.ok) {
+      return redirectTo(detailPath, { dossier_error: result.error.code });
+    }
+
+    return redirectTo(detailPath, { dossier_state: "sources_updated" });
+  }
+
+  if (action === "add_sources") {
+    const dossierId = cleanText(formData.get("dossier_id"));
+    const result = await addEditorialDossierSources({
+      dossierId,
+      sources: sourceAdditions(formData),
+    });
+    const detailPath = dossierDetailPath(dossierId);
+
+    if (!result.ok) {
+      return redirectTo(detailPath, { dossier_error: result.error.code });
+    }
+
+    return redirectTo(detailPath, {
+      dossier_state: "sources_added",
+      added_count: String(result.value.addedCount),
+    });
+  }
+
   if (action === "update") {
     const dossierId = cleanText(formData.get("dossier_id"));
     const mode = outputMode(cleanText(formData.get("output_mode")));
@@ -111,7 +184,7 @@ export async function POST(request: Request) {
       lengthMode: lengthMode(cleanText(formData.get("length_mode"))),
       articleKind: articleKind(cleanText(formData.get("article_kind"))),
     });
-    const detailPath = `/admin/editorial/redacao-automatica/dossies/${encodeURIComponent(dossierId)}`;
+    const detailPath = dossierDetailPath(dossierId);
 
     if (!result.ok) {
       return redirectTo(detailPath, { dossier_error: result.error.code });
