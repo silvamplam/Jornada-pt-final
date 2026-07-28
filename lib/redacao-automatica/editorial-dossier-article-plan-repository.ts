@@ -25,6 +25,7 @@ export type EditorialDossierArticlePlan = Readonly<{
   articleKind: EditorialDossierArticleKind;
   lengthMode: EditorialDossierLengthMode;
   editorialInstructions: string;
+  editorialArticleId: string | null;
   createdAt: string;
   updatedAt: string;
   sources: readonly EditorialDossierArticlePlanSource[];
@@ -39,6 +40,7 @@ type ArticlePlanRow = {
   article_kind: string;
   length_mode: string;
   editorial_instructions: string;
+  editorial_article_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -100,7 +102,7 @@ export async function listEditorialDossierArticlePlans(
   try {
     const [plans, assignments] = await Promise.all([
       fetchSupabaseAdminTable<ArticlePlanRow>(
-        "newsroom_editorial_dossier_article_plans?select=id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,created_at,updated_at"
+        "newsroom_editorial_dossier_article_plans?select=id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,editorial_article_id,created_at,updated_at"
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + "&order=sort_order.asc,id.asc&limit=20",
       ),
@@ -136,6 +138,7 @@ export async function listEditorialDossierArticlePlans(
       articleKind: articleKind(plan.article_kind),
       lengthMode: lengthMode(plan.length_mode),
       editorialInstructions: plan.editorial_instructions,
+      editorialArticleId: plan.editorial_article_id,
       createdAt: plan.created_at,
       updatedAt: plan.updated_at,
       sources: (sourcesByPlanId.get(plan.id) ?? [])

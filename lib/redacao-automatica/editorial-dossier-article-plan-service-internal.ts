@@ -36,6 +36,7 @@ export type EditorialDossierArticlePlanSourceState = Readonly<{
 export type EditorialDossierArticlePlanState = Readonly<{
   id: string;
   status: EditorialDossierArticlePlanStatus;
+  editorialArticleId: string | null;
   sources: readonly Readonly<{
     dossierSourceId: string;
     sortOrder: number;
@@ -77,6 +78,7 @@ export type EditorialDossierArticlePlanErrorCode =
   | "article_plan_ready_incomplete"
   | "article_plan_source_not_found"
   | "article_plan_source_unavailable"
+  | "article_plan_already_converted"
   | "article_plan_save_failed";
 
 export type EditorialDossierArticlePlanSaveResult =
@@ -206,6 +208,13 @@ export function saveEditorialDossierArticlePlanService(
 
     if (articlePlanId && !existingPlan) {
       return failure("article_plan_not_found", "O artigo planeado já não pertence a este Dossiê.");
+    }
+
+    if (existingPlan?.editorialArticleId) {
+      return failure(
+        "article_plan_already_converted",
+        "O artigo planeado já originou um artigo editorial e deixou de poder ser alterado.",
+      );
     }
 
     if (!existingPlan && input.status === "cancelled") {
