@@ -13,6 +13,7 @@ import {
   saveEditorialDossierArticlePlan,
   type EditorialDossierArticlePlanSourceSelection,
 } from "@/lib/redacao-automatica/editorial-dossier-article-plan-service";
+import { createEditorialDossierArticlePlanDraft } from "@/lib/redacao-automatica/editorial-dossier-article-plan-draft-service";
 import type {
   EditorialDossierArticleKind,
   EditorialDossierLengthMode,
@@ -190,6 +191,25 @@ export async function POST(request: Request) {
     return redirectTo(detailPath, {
       dossier_state: "sources_added",
       added_count: String(result.value.addedCount),
+    });
+  }
+
+  if (action === "create_article_plan_draft") {
+    const dossierId = cleanText(formData.get("dossier_id"));
+    const articlePlanId = cleanText(formData.get("article_plan_id"));
+    const result = await createEditorialDossierArticlePlanDraft(
+      dossierId,
+      articlePlanId,
+    );
+    const detailPath = dossierDetailPath(dossierId);
+
+    if (!result.ok) {
+      return redirectTo(detailPath, { dossier_error: result.error.code });
+    }
+
+    return redirectTo("/admin/editorial/artigos", {
+      articleId: result.value.editorialArticleId,
+      dossier_plan_draft: result.value.action,
     });
   }
 

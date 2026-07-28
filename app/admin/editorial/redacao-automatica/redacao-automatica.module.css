@@ -1690,6 +1690,126 @@
   overflow: hidden;
 }
 
+.dossierArticlePlanDraftAction,
+.dossierArticlePlanConvertedActions {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px 18px;
+}
+
+.dossierArticlePlanDraftAction button,
+.dossierArticlePlanConvertedActions a {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 15px;
+  border: 0;
+  border-radius: 7px;
+  background: #10151b;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.dossierArticlePlanDraftAction button:hover,
+.dossierArticlePlanConvertedActions a:hover {
+  background: #202934;
+}
+
+.dossierArticlePlanDraftAction span,
+.dossierArticlePlanConvertedActions span {
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.dossierArticlePlanConverted {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.dossierArticlePlanConvertedGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dossierArticlePlanConvertedGrid > div,
+.dossierArticlePlanConvertedInstructions,
+.dossierArticlePlanConvertedSources {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #dce3eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.dossierArticlePlanConvertedGrid span,
+.dossierArticlePlanConvertedInstructions > span,
+.dossierArticlePlanConvertedSources > span {
+  display: block;
+  margin-bottom: 5px;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dossierArticlePlanConvertedGrid strong {
+  color: #111827;
+  font-size: 0.84rem;
+}
+
+.dossierArticlePlanConvertedInstructions p {
+  margin: 0;
+  color: #334155;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.dossierArticlePlanConvertedSources ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dossierArticlePlanConvertedSources li {
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid #dce3eb;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.dossierArticlePlanConvertedSources li strong {
+  color: #111827;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.dossierArticlePlanConvertedSources li small {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.dossierArticlePlanConvertedActions {
+  padding: 0;
+}
+
 .dossierArticlePlanCancelled {
   border-color: #d6dbe2;
   background: #f8fafc;
@@ -1993,18 +2113,23 @@
 
 @media (max-width: 720px) {
   .dossierArticlePlanSummary,
-  .dossierArticlePlanActions {
+  .dossierArticlePlanActions,
+  .dossierArticlePlanDraftAction,
+  .dossierArticlePlanConvertedActions {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .dossierArticlePlanSummary span,
-  .dossierArticlePlanActions span {
+  .dossierArticlePlanActions span,
+  .dossierArticlePlanDraftAction span,
+  .dossierArticlePlanConvertedActions span {
     text-align: left;
   }
 
   .dossierArticlePlanGrid,
-  .dossierArticlePlanSourceList > li {
+  .dossierArticlePlanSourceList > li,
+  .dossierArticlePlanConvertedGrid {
     grid-template-columns: 1fr;
   }
 

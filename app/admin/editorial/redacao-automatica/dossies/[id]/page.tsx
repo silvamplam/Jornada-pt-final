@@ -181,6 +181,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
   const includedSourceCount = dossier.sources.filter((source) => source.included).length;
   const excludedSourceCount = dossier.sources.length - includedSourceCount;
   const articlePlans = articlePlansResult.ok ? articlePlansResult.value : [];
+  const dossierSourcesById = new Map(dossier.sources.map((source) => [source.id, source]));
   const activeArticlePlanCount = articlePlans.filter((plan) => plan.status !== "cancelled").length;
   const state = firstQueryValue(query.dossier_state);
   const errorCode = firstQueryValue(query.dossier_error);
@@ -201,6 +202,10 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
     article_plan_ready_incomplete: "Um artigo pronto exige orientação editorial e pelo menos uma fonte.",
     article_plan_source_not_found: "Uma das fontes já não pertence a este Dossiê.",
     article_plan_source_unavailable: "Uma fonte excluída só pode permanecer num artigo onde já estava atribuída.",
+    article_plan_already_converted: "O artigo planeado já originou um artigo editorial e ficou congelado.",
+    article_plan_not_ready: "Apenas um artigo planeado no estado Pronto pode originar um rascunho.",
+    article_plan_incomplete: "O artigo planeado precisa de título, orientação e pelo menos uma fonte.",
+    draft_creation_failed: "Não foi possível criar o rascunho editorial.",
     article_plan_save_failed: "Não foi possível guardar o artigo planeado.",
   };
   const errorMessage = errorCode
@@ -502,10 +507,68 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                       <span>{String(planIndex + 1).padStart(2, "0")}</span>
                       <div>
                         <strong>{plan.workingTitle}</strong>
-                        <small>{articlePlanStatusLabels[plan.status]}</small>
+                        <small>{plan.editorialArticleId ? "Rascunho editorial criado" : articlePlanStatusLabels[plan.status]}</small>
                       </div>
                     </div>
 
+                    {plan.editorialArticleId ? (
+                      <div className={styles.dossierArticlePlanConverted}>
+                        <div className={styles.dossierArticlePlanConvertedGrid}>
+                          <div>
+                            <span>Estado do plano</span>
+                            <strong>{articlePlanStatusLabels[plan.status]}</strong>
+                          </div>
+                          <div>
+                            <span>Prioridade</span>
+                            <strong>{articlePlanPriority(plan.sortOrder, planIndex + 1)}</strong>
+                          </div>
+                          <div>
+                            <span>Género</span>
+                            <strong>{articleKindLabels[plan.articleKind]}</strong>
+                          </div>
+                          <div>
+                            <span>Extensão</span>
+                            <strong>{lengthModeLabels[plan.lengthMode]}</strong>
+                          </div>
+                        </div>
+
+                        <div className={styles.dossierArticlePlanConvertedInstructions}>
+                          <span>Orientação preservada</span>
+                          <p>{plan.editorialInstructions}</p>
+                        </div>
+
+                        <div className={styles.dossierArticlePlanConvertedSources}>
+                          <span>Fontes preservadas</span>
+                          <ol>
+                            {plan.sources.map((assignment, sourceIndex) => {
+                              const source = dossierSourcesById.get(assignment.dossierSourceId);
+
+                              return (
+                                <li key={assignment.id}>
+                                  <strong>{source?.articleTitle ?? "Fonte congelada"}</strong>
+                                  <small>
+                                    Ordem {sourceIndex + 1}
+                                    {source ? ` · ${sourceNames.get(source.sourceCode) ?? source.sourceCode}` : ""}
+                                  </small>
+                                </li>
+                              );
+                            })}
+                          </ol>
+                        </div>
+
+                        <div className={styles.dossierArticlePlanConvertedActions}>
+                          <a
+                            href={`/admin/editorial/artigos?articleId=${encodeURIComponent(plan.editorialArticleId)}`}
+                          >
+                            Abrir rascunho editorial
+                          </a>
+                          <span>
+                            O plano e as fontes ficaram congelados para preservar a proveniência deste artigo.
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
                     <form
                       action="/api/admin/editorial/redacao-automatica/dossies"
                       method="post"
@@ -627,6 +690,23 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                         <span>Snapshot e proveniência não são alterados por esta operação.</span>
                       </div>
                     </form>
+                        {plan.status === "ready" ? (
+                          <form
+                            action="/api/admin/editorial/redacao-automatica/dossies"
+                            method="post"
+                            className={styles.dossierArticlePlanDraftAction}
+                          >
+                            <input type="hidden" name="action" value="create_article_plan_draft" />
+                            <input type="hidden" name="dossier_id" value={dossier.id} />
+                            <input type="hidden" name="article_plan_id" value={plan.id} />
+                            <button type="submit">Criar rascunho editorial</button>
+                            <span>
+                              O título será pré-preenchido. O corpo ficará vazio para redação humana no editor.
+                            </span>
+                          </form>
+                        ) : null}
+                      </>
+                    )}
                   </article>
                 );
               })}

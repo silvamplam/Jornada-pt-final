@@ -119,6 +119,7 @@ test("uma fonte depois excluída pode permanecer num plano onde já estava atrib
     plans: [{
       id: planId,
       status: "planned",
+      editorialArticleId: null,
       sources: [{ dossierSourceId: sourceTwoId, sortOrder: 10 }],
     }],
   });
@@ -134,11 +135,37 @@ test("uma fonte depois excluída pode permanecer num plano onde já estava atrib
   assert.deepEqual(payloads[0]?.p_dossier_source_ids, [sourceTwoId]);
 });
 
+test("um plano já convertido fica imutável", async () => {
+  const state = dossierState({
+    plans: [{
+      id: planId,
+      status: "ready",
+      editorialArticleId: "00000000-0000-4000-8000-000000000099",
+      sources: [{ dossierSourceId: sourceOneId, sortOrder: 10 }],
+    }],
+  });
+  const { transport, payloads } = fakeTransport(state);
+  const save = saveEditorialDossierArticlePlanService(transport);
+  const result = await save({
+    ...baseInput(),
+    articlePlanId: planId,
+    status: "ready",
+    editorialInstructions: "Orientação já congelada.",
+  });
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.code, "article_plan_already_converted");
+  }
+  assert.equal(payloads.length, 0);
+});
+
 test("cancelar preserva no payload as atribuições existentes", async () => {
   const state = dossierState({
     plans: [{
       id: planId,
       status: "ready",
+      editorialArticleId: null,
       sources: [
         { dossierSourceId: sourceThreeId, sortOrder: 20 },
         { dossierSourceId: sourceOneId, sortOrder: 10 },
@@ -164,6 +191,7 @@ test("não permite criar ou reativar um quinto plano ativo", async () => {
     plans: [1, 2, 3, 4].map((index) => ({
       id: `00000000-0000-4000-8000-00000000010${index}`,
       status: "planned" as const,
+      editorialArticleId: null,
       sources: [],
     })),
   });

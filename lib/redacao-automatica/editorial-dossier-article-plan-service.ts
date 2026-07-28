@@ -35,6 +35,7 @@ type ArticlePlanStateRow = {
   id: string;
   dossier_id: string;
   status: string;
+  editorial_article_id: string | null;
 };
 
 type ArticlePlanSourceStateRow = {
@@ -72,7 +73,7 @@ async function readDossierState(
       + "&order=sort_order.asc,id.asc&limit=100",
     ),
     fetchSupabaseAdminTable<ArticlePlanStateRow>(
-      "newsroom_editorial_dossier_article_plans?select=id,dossier_id,status"
+      "newsroom_editorial_dossier_article_plans?select=id,dossier_id,status,editorial_article_id"
       + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
       + "&order=sort_order.asc,id.asc&limit=20",
     ),
@@ -99,6 +100,7 @@ async function readDossierState(
   const plans = planRows.map((plan): EditorialDossierArticlePlanState => ({
     id: plan.id,
     status: planStatus(plan.status),
+    editorialArticleId: plan.editorial_article_id,
     sources: (assignmentsByPlanId.get(plan.id) ?? [])
       .slice()
       .sort((left, right) => (
