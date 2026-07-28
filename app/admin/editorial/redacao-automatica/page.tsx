@@ -7,7 +7,13 @@ import {
   listNewsroomArticles,
   type NewsroomArticleDetail,
   type NewsroomArticlePage,
+  type NewsroomArticleSummary,
 } from "@/lib/redacao-automatica/newsroom-article-repository";
+import {
+  listEditorialDossiers,
+  type EditorialDossierSourceRole,
+  type EditorialDossierStatus,
+} from "@/lib/redacao-automatica/editorial-dossier-repository";
 import {
   listRegisteredSources,
   type SourceOperationalStatus,
@@ -69,6 +75,20 @@ const processingStatusLabels: Record<ArticleProcessingStatus, string> = {
   failed: "Falhou",
 };
 
+const dossierStatusLabels: Record<EditorialDossierStatus, string> = {
+  draft: "Em preparação",
+  ready_for_generation: "Pronto para gerar",
+  completed: "Concluído",
+  archived: "Arquivado",
+};
+
+const dossierSourceRoleLabels: Record<EditorialDossierSourceRole, string> = {
+  primary: "Principal",
+  corroboration: "Confirmação",
+  context: "Contexto",
+  complementary: "Complementar",
+};
+
 const emptyArticlePage: NewsroomArticlePage = {
   items: [],
   page: 1,
@@ -119,6 +139,11 @@ function formatDate(value: string | null): string {
     timeStyle: "short",
     timeZone: "Europe/Lisbon",
   }).format(date);
+}
+
+function canUseInDossier(article: NewsroomArticleSummary): boolean {
+  return article.hasUsableSnapshot
+    && ["detected", "normalized", "ready_for_review"].includes(article.processingStatus);
 }
 
 function inboxHref(page: number, articleId?: string): string {
@@ -299,7 +324,10 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
   const sources = listRegisteredSources();
   const sourceNames = new Map(sources.map((source) => [source.code, source.name]));
 
-  const listResult = await listNewsroomArticles({ page: requestedPage, pageSize: PAGE_SIZE });
+  const [listResult, dossierListResult] = await Promise.all([
+    listNewsroomArticles({ page: requestedPage, pageSize: PAGE_SIZE }),
+    listEditorialDossiers(12),
+  ]);
   const detailResult = selectedArticleId
     ? await getNewsroomArticleById(selectedArticleId)
     : null;
@@ -342,11 +370,25 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
       ? "O artigo já estava marcado como Por rever."
       : null;
 
+  const dossiers = dossierListResult.ok ? dossierListResult.value : [];
+  const dossierErrorCode = firstQueryValue(params.dossier_error);
+  const dossierErrorMessages: Record<string, string> = {
+    input_invalid: "Indica um título e seleciona pelo menos uma fonte válida.",
+    service_unavailable: "O serviço dos Dossiês não está configurado.",
+    source_not_found: "Uma das fontes selecionadas já não existe.",
+    source_not_eligible: "Uma das fontes selecionadas não está disponível para o Dossiê.",
+    source_snapshot_missing: "Uma das fontes não tem um snapshot normalizado utilizável.",
+    dossier_creation_failed: "Não foi possível criar o Dossiê com todas as fontes.",
+  };
+  const dossierErrorMessage = dossierErrorCode
+    ? dossierErrorMessages[dossierErrorCode] ?? "Não foi possível criar o Dossiê."
+    : null;
+
   const editorialSummary = [
     { label: "Artigos persistidos", value: listResult.ok ? String(articlePage.total) : "—" },
     { label: "Por rever", value: listResult.ok ? String(articlePage.readyForReview) : "—" },
     { label: "Fontes configuradas", value: String(sources.length) },
-    { label: "Recolha automática", value: "Inativa" },
+    { label: "Dossiês em preparação", value: dossierListResult.ok ? String(dossiers.length) : "—" },
   ] as const;
 
   return (
@@ -384,13 +426,100 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
           </p>
         </section>
 
+        <section className={styles.section} aria-labelledby="editorial-dossiers-title">
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionEyebrow}>Mesa de preparação</p>
+              <h2 id="editorial-dossiers-title">Dossiês de redação</h2>
+            </div>
+            <p>Seleciona várias fontes na Caixa de entrada, define a prioridade inicial e guarda as orientações humanas.</p>
+          </div>
+
+          {dossierErrorMessage ? (
+            <p className={styles.dossierError} role="status">{dossierErrorMessage}</p>
+          ) : null}
+
+          <div className={styles.dossierWorkspace}>
+            <form
+              action="/api/admin/editorial/redacao-automatica/dossies"
+              method="post"
+              id="create-editorial-dossier"
+              className={styles.dossierCreateForm}
+            >
+              <input type="hidden" name="action" value="create" />
+              <label>
+                <span>Título interno do Dossiê</span>
+                <input
+                  name="title"
+                  maxLength={180}
+                  required
+                  placeholder="Ex.: FC Porto prepara próximo jogo após apresentação"
+                />
+              </label>
+              <label>
+                <span>Orientações editoriais</span>
+                <textarea
+                  name="editorial_instructions"
+                  maxLength={12000}
+                  rows={6}
+                  placeholder="Define o que é mais importante, a ordem da informação, o ângulo e o resultado pretendido."
+                />
+              </label>
+              <label>
+                <span>Contexto a introduzir</span>
+                <textarea
+                  name="context_instructions"
+                  maxLength={8000}
+                  rows={4}
+                  placeholder="Acrescenta o contexto competitivo ou editorial que deve enquadrar a notícia."
+                />
+              </label>
+              <p>
+                Depois de preencher, seleciona as fontes na lista abaixo. O snapshot mais recente de cada fonte será congelado no momento da criação.
+              </p>
+              <button type="submit">Criar Dossiê com as fontes selecionadas</button>
+            </form>
+
+            <div className={styles.dossierListPanel}>
+              <div className={styles.dossierListHeading}>
+                <strong>Dossiês guardados</strong>
+                <span>{dossierListResult.ok ? dossiers.length : "—"}</span>
+              </div>
+              {!dossierListResult.ok ? (
+                <p className={styles.detailEmpty}>Não foi possível ler os Dossiês neste momento.</p>
+              ) : dossiers.length === 0 ? (
+                <p className={styles.detailEmpty}>Ainda não existem Dossiês de redação.</p>
+              ) : (
+                <ol className={styles.dossierList}>
+                  {dossiers.map((dossier) => (
+                    <li key={dossier.id}>
+                      <div>
+                        <span>{dossierStatusLabels[dossier.status]}</span>
+                        <strong>{dossier.title}</strong>
+                        <small>
+                          {dossier.sourceCount} {dossier.sourceCount === 1 ? "fonte" : "fontes"}
+                          {" · "}
+                          {formatDate(dossier.updatedAt)}
+                        </small>
+                      </div>
+                      <a href={`/admin/editorial/redacao-automatica/dossies/${encodeURIComponent(dossier.id)}`}>
+                        Abrir Dossiê
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </div>
+        </section>
+
         <section className={styles.section} aria-labelledby="newsroom-inbox-title">
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.sectionEyebrow}>Persistência de artigos-fonte</p>
               <h2 id="newsroom-inbox-title">Caixa de entrada</h2>
             </div>
-            <p>Consulta dos artigos e snapshots persistidos, com criação manual de rascunhos e sem nova recolha externa.</p>
+            <p>Consulta, seleciona e combina artigos-fonte sem executar nova recolha externa.</p>
           </div>
 
           {hasReadError ? (
@@ -424,6 +553,48 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
                         <div><dt>Deteção</dt><dd>{formatDate(article.detectedAt)}</dd></div>
                         <div><dt>Imagem</dt><dd>{article.imageUrl ? "Disponível" : "Sem imagem"}</dd></div>
                       </dl>
+                      {canUseInDossier(article) ? (
+                        <div className={styles.articleDossierSelection}>
+                          <label className={styles.articleDossierCheckbox}>
+                            <input
+                              type="checkbox"
+                              name="newsroom_article_id"
+                              value={article.id}
+                              form="create-editorial-dossier"
+                            />
+                            <span>Usar no Dossiê</span>
+                          </label>
+                          <label>
+                            <span>Prioridade</span>
+                            <input
+                              type="number"
+                              name={`source_priority_${article.id}`}
+                              defaultValue={articlePage.items.indexOf(article) + 1}
+                              min={1}
+                              max={99}
+                              form="create-editorial-dossier"
+                            />
+                          </label>
+                          <label>
+                            <span>Papel</span>
+                            <select
+                              name={`source_role_${article.id}`}
+                              defaultValue="complementary"
+                              form="create-editorial-dossier"
+                            >
+                              {Object.entries(dossierSourceRoleLabels).map(([value, label]) => (
+                                <option value={value} key={value}>{label}</option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                      ) : (
+                        <p className={styles.articleDossierUnavailable}>
+                          {!article.hasUsableSnapshot
+                            ? "Sem snapshot normalizado utilizável"
+                            : "Estado indisponível para Dossiê"}
+                        </p>
+                      )}
                       <a className={styles.openArticleLink} href={inboxHref(articlePage.page, article.id)}>
                         Abrir
                       </a>

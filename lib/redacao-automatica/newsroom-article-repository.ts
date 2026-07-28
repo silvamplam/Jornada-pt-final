@@ -65,6 +65,8 @@ export type NewsroomArticleSummary = Readonly<{
   lastDetectedAt: string;
   imageUrl: string | null;
   processingStatus: ArticleProcessingStatus;
+  latestSnapshotId: string | null;
+  hasUsableSnapshot: boolean;
 }>;
 
 export type NewsroomArticleSnapshot = Readonly<{
@@ -99,6 +101,17 @@ export type NewsroomArticlePage = Readonly<{
   readyForReview: number;
   hasPreviousPage: boolean;
   hasNextPage: boolean;
+}>;
+
+export type NewsroomDossierSourceCandidate = Readonly<{
+  id: string;
+  sourceCode: string;
+  title: string;
+  processingStatus: ArticleProcessingStatus;
+  snapshot: Readonly<{
+    id: string;
+    body: readonly ArticleBodyBlock[];
+  }> | null;
 }>;
 
 export type NewsroomRepositoryResult<T> =
@@ -150,7 +163,16 @@ function processingStatus(value: string): ArticleProcessingStatus {
     : "failed";
 }
 
-function articleSummary(row: NewsroomArticleRow): NewsroomArticleSummary {
+function hasUsableBody(body: readonly ArticleBodyBlock[]): boolean {
+  return body.some((block) => block.text.trim().length > 0);
+}
+
+function articleSummary(
+  row: NewsroomArticleRow,
+  snapshotRow: NewsroomSnapshotRow | null = null,
+): NewsroomArticleSummary {
+  const body = snapshotRow ? articleBody(snapshotRow.body) : [];
+
   return {
     id: row.id,
     sourceCode: row.source_code,
@@ -161,6 +183,8 @@ function articleSummary(row: NewsroomArticleRow): NewsroomArticleSummary {
     lastDetectedAt: row.last_detected_at,
     imageUrl: row.image_url,
     processingStatus: processingStatus(row.processing_status),
+    latestSnapshotId: snapshotRow?.id ?? null,
+    hasUsableSnapshot: hasUsableBody(body),
   };
 }
 
@@ -215,6 +239,33 @@ function snapshot(row: NewsroomSnapshotRow): NewsroomArticleSnapshot {
   };
 }
 
+function uuidList(values: readonly string[]): string {
+  return values.map((value) => encodeURIComponent(value)).join(",");
+}
+
+async function latestSnapshotsByArticle(
+  articleIds: readonly string[],
+): Promise<Map<string, NewsroomSnapshotRow>> {
+  if (articleIds.length === 0) {
+    return new Map();
+  }
+
+  const rows = await fetchSupabaseAdminTable<NewsroomSnapshotRow>(
+    "newsroom_article_snapshots?select=id,article_id,content_hash,body,source_metadata,extracted_at,created_at"
+    + `&article_id=in.(${uuidList(articleIds)})`
+    + "&order=extracted_at.desc,created_at.desc,id.desc&limit=1000",
+  );
+  const latest = new Map<string, NewsroomSnapshotRow>();
+
+  for (const row of rows) {
+    if (!latest.has(row.article_id)) {
+      latest.set(row.article_id, row);
+    }
+  }
+
+  return latest;
+}
+
 function sourceFilter(sourceCode: string | null): string {
   return sourceCode ? `&source_code=eq.${encodeURIComponent(sourceCode)}` : "";
 }
@@ -261,11 +312,12 @@ export async function listNewsroomArticles(
       ),
       readArticleCounts(sourceCode),
     ]);
+    const latestSnapshots = await latestSnapshotsByArticle(rows.map((row) => row.id));
 
     return {
       ok: true,
       value: {
-        items: rows.map(articleSummary),
+        items: rows.map((row) => articleSummary(row, latestSnapshots.get(row.id) ?? null)),
         page,
         pageSize,
         total: counts.total,
@@ -303,10 +355,12 @@ export async function getNewsroomArticleById(
       + "&order=extracted_at.desc,created_at.desc&limit=1",
     );
 
+    const latestSnapshot = snapshots[0] ?? null;
+
     return {
       ok: true,
       value: {
-        ...articleSummary(article),
+        ...articleSummary(article, latestSnapshot),
         originalUrl: article.original_url,
         normalizedUrl: article.normalized_url,
         externalId: article.external_id,
@@ -316,8 +370,56 @@ export async function getNewsroomArticleById(
         firstDetectedAt: article.first_detected_at,
         createdAt: article.created_at,
         updatedAt: article.updated_at,
-        snapshot: snapshots[0] ? snapshot(snapshots[0]) : null,
+        snapshot: latestSnapshot ? snapshot(latestSnapshot) : null,
       },
+    };
+  } catch {
+    return readUnavailable();
+  }
+}
+
+
+export async function getNewsroomDossierSourceCandidates(
+  articleIds: readonly string[],
+): Promise<NewsroomRepositoryResult<readonly NewsroomDossierSourceCandidate[]>> {
+  const normalizedIds = articleIds
+    .map((value) => value.trim().toLowerCase())
+    .filter((value, index, values) => UUID_PATTERN.test(value) && values.indexOf(value) === index);
+
+  if (normalizedIds.length === 0) {
+    return { ok: true, value: [] };
+  }
+
+  try {
+    const rows = await fetchSupabaseAdminTable<NewsroomArticleRow>(
+      "newsroom_articles?select=id,source_code,original_url,normalized_url,external_id,title,subtitle,summary,author,published_at,modified_at,detected_at,image_url,processing_status,first_detected_at,last_detected_at,created_at,updated_at"
+      + `&id=in.(${uuidList(normalizedIds)})&limit=${normalizedIds.length}`,
+    );
+    const rowsById = new Map(rows.map((row) => [row.id, row]));
+    const latestSnapshots = await latestSnapshotsByArticle(normalizedIds);
+
+    return {
+      ok: true,
+      value: normalizedIds.flatMap((id): NewsroomDossierSourceCandidate[] => {
+        const row = rowsById.get(id);
+        if (!row) {
+          return [];
+        }
+
+        const latestSnapshot = latestSnapshots.get(id);
+        return [{
+          id,
+          sourceCode: row.source_code,
+          title: row.title,
+          processingStatus: processingStatus(row.processing_status),
+          snapshot: latestSnapshot
+            ? {
+                id: latestSnapshot.id,
+                body: articleBody(latestSnapshot.body),
+              }
+            : null,
+        }];
+      }),
     };
   } catch {
     return readUnavailable();
