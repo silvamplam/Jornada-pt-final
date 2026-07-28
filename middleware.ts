@@ -2,19 +2,14 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { ADMIN_SESSION_COOKIE, verifyAdminSession } from "@/lib/admin-session";
 
-function relativeRedirect(path: string, params: Record<string, string> = {}) {
-  const url = new URL(path, "https://jornada.local");
+function redirectToAdminLogin(request: NextRequest, nextPath: string) {
+  const url = request.nextUrl.clone();
 
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
-  }
+  url.pathname = "/admin/login";
+  url.search = "";
+  url.searchParams.set("next", nextPath);
 
-  return new NextResponse(null, {
-    status: 303,
-    headers: {
-      Location: `${url.pathname}${url.search}`
-    }
-  });
+  return NextResponse.redirect(url, { status: 303 });
 }
 
 export async function middleware(request: NextRequest) {
@@ -37,9 +32,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  return relativeRedirect("/admin/login", {
-    next: isAdminApi ? "/admin/clubes" : `${pathname}${search}`
-  });
+  return redirectToAdminLogin(
+    request,
+    isAdminApi ? "/admin/clubes" : `${pathname}${search}`
+  );
 }
 
 export const config = {
