@@ -9,6 +9,11 @@ import {
   type EditorialDossierStatus,
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
 import {
+  listEditorialDossierArticlePlans,
+  type EditorialDossierArticlePlan,
+  type EditorialDossierArticlePlanStatus,
+} from "@/lib/redacao-automatica/editorial-dossier-article-plan-repository";
+import {
   listNewsroomArticles,
   type NewsroomArticleSummary,
 } from "@/lib/redacao-automatica/newsroom-article-repository";
@@ -65,6 +70,12 @@ const articleKindLabels: Record<EditorialDossierArticleKind, string> = {
   summary: "Síntese",
 };
 
+const articlePlanStatusLabels: Record<EditorialDossierArticlePlanStatus, string> = {
+  planned: "Planeado",
+  ready: "Pronto",
+  cancelled: "Cancelado",
+};
+
 function firstQueryValue(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) {
     return value[0]?.trim() || null;
@@ -92,6 +103,25 @@ function sourcePriority(sortOrder: number, fallback: number): number {
   return Math.max(1, Math.round(sortOrder / 10));
 }
 
+function articlePlanPriority(sortOrder: number, fallback: number): number {
+  if (!Number.isFinite(sortOrder) || sortOrder < 0) {
+    return fallback;
+  }
+
+  return Math.max(1, Math.round(sortOrder / 10));
+}
+
+function articlePlanSourcePriority(
+  plan: EditorialDossierArticlePlan,
+  dossierSourceId: string,
+  fallback: number,
+): number {
+  const assignment = plan.sources.find((source) => source.dossierSourceId === dossierSourceId);
+  return assignment
+    ? articlePlanPriority(assignment.sortOrder, fallback)
+    : fallback;
+}
+
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -109,9 +139,10 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
   const { id } = await params;
   const query = searchParams ? await searchParams : {};
   const sourcePage = positivePage(firstQueryValue(query.source_page));
-  const [result, inboxResult] = await Promise.all([
+  const [result, inboxResult, articlePlansResult] = await Promise.all([
     getEditorialDossierById(id),
     listNewsroomArticles({ page: sourcePage, pageSize: 12 }),
+    listEditorialDossierArticlePlans(id),
   ]);
 
   if (result.ok && !result.value) {
@@ -149,6 +180,8 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
     : [];
   const includedSourceCount = dossier.sources.filter((source) => source.included).length;
   const excludedSourceCount = dossier.sources.length - includedSourceCount;
+  const articlePlans = articlePlansResult.ok ? articlePlansResult.value : [];
+  const activeArticlePlanCount = articlePlans.filter((plan) => plan.status !== "cancelled").length;
   const state = firstQueryValue(query.dossier_state);
   const errorCode = firstQueryValue(query.dossier_error);
   const errorMessages: Record<string, string> = {
@@ -163,6 +196,12 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
     source_limit_exceeded: "O Dossiê atingiu o limite de 20 fontes congeladas.",
     source_management_failed: "Não foi possível guardar a gestão das fontes.",
     source_add_failed: "Não foi possível acrescentar as fontes selecionadas.",
+    article_plan_not_found: "O artigo planeado já não pertence a este Dossiê.",
+    article_plan_limit_exceeded: "O Dossiê já tem quatro artigos planeados ativos.",
+    article_plan_ready_incomplete: "Um artigo pronto exige orientação editorial e pelo menos uma fonte.",
+    article_plan_source_not_found: "Uma das fontes já não pertence a este Dossiê.",
+    article_plan_source_unavailable: "Uma fonte excluída só pode permanecer num artigo onde já estava atribuída.",
+    article_plan_save_failed: "Não foi possível guardar o artigo planeado.",
   };
   const errorMessage = errorCode
     ? errorMessages[errorCode] ?? "Não foi possível guardar o Dossiê."
@@ -175,7 +214,15 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
         ? "A ordem, os papéis, as notas e a inclusão das fontes foram guardados."
         : state === "sources_added"
           ? "As novas fontes foram acrescentadas com os snapshots atuais congelados."
-          : null;
+          : state === "article_plan_created"
+            ? "O artigo planeado foi criado."
+            : state === "article_plan_updated"
+              ? "O artigo planeado foi guardado."
+              : state === "article_plan_cancelled"
+                ? "O artigo planeado foi cancelado sem perder as fontes atribuídas."
+                : state === "article_plan_reactivated"
+                  ? "O artigo planeado foi reativado."
+                  : null;
 
   return (
     <main className={styles.shell}>
@@ -277,7 +324,6 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                     <option value="2">2</option>
                     <option value="3">3</option>
                     <option value="4">4</option>
-                    <option value="5">5</option>
                   </select>
                 </label>
                 <label>
@@ -415,6 +461,308 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
             </p>
           </aside>
         </div>
+
+        <section
+          className={`${styles.section} ${styles.dossierArticlePlansSection}`}
+          aria-labelledby="dossier-article-plans-title"
+        >
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionEyebrow}>Estrutura editorial</p>
+              <h2 id="dossier-article-plans-title">Artigos planeados</h2>
+            </div>
+            <p>
+              Define cada artigo, as fontes congeladas que lhe pertencem e o momento em que fica pronto.
+            </p>
+          </div>
+
+          <div className={styles.dossierArticlePlanSummary}>
+            <strong>{activeArticlePlanCount} / 4 ativos</strong>
+            <span>
+              Planeado pode ficar incompleto. Pronto exige orientação editorial e pelo menos uma fonte.
+            </span>
+          </div>
+
+          {!articlePlansResult.ok ? (
+            <div className={styles.readError}>
+              <strong>Planeamento indisponível</strong>
+              <span>Não foi possível ler os artigos planeados neste momento.</span>
+            </div>
+          ) : articlePlans.length > 0 ? (
+            <div className={styles.dossierArticlePlanList}>
+              {articlePlans.map((plan, planIndex) => {
+                const assignedSourceIds = new Set(plan.sources.map((source) => source.dossierSourceId));
+
+                return (
+                  <article
+                    className={`${styles.dossierArticlePlanCard} ${plan.status === "cancelled" ? styles.dossierArticlePlanCancelled : ""}`}
+                    key={plan.id}
+                  >
+                    <div className={styles.dossierArticlePlanHeader}>
+                      <span>{String(planIndex + 1).padStart(2, "0")}</span>
+                      <div>
+                        <strong>{plan.workingTitle}</strong>
+                        <small>{articlePlanStatusLabels[plan.status]}</small>
+                      </div>
+                    </div>
+
+                    <form
+                      action="/api/admin/editorial/redacao-automatica/dossies"
+                      method="post"
+                      className={styles.dossierArticlePlanForm}
+                    >
+                      <input type="hidden" name="action" value="save_article_plan" />
+                      <input type="hidden" name="dossier_id" value={dossier.id} />
+                      <input type="hidden" name="article_plan_id" value={plan.id} />
+
+                      <div className={styles.dossierArticlePlanGrid}>
+                        <label className={styles.dossierArticlePlanTitle}>
+                          <span>Título de trabalho</span>
+                          <input name="working_title" defaultValue={plan.workingTitle} maxLength={180} required />
+                        </label>
+
+                        <label>
+                          <span>Estado</span>
+                          <select name="article_plan_status" defaultValue={plan.status}>
+                            {Object.entries(articlePlanStatusLabels).map(([value, label]) => (
+                              <option value={value} key={value}>{label}</option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label>
+                          <span>Prioridade</span>
+                          <input
+                            type="number"
+                            name="article_plan_priority"
+                            min={1}
+                            max={999}
+                            step={1}
+                            defaultValue={articlePlanPriority(plan.sortOrder, planIndex + 1)}
+                            required
+                          />
+                        </label>
+
+                        <label>
+                          <span>Género</span>
+                          <select name="article_kind" defaultValue={plan.articleKind}>
+                            {Object.entries(articleKindLabels).map(([value, label]) => (
+                              <option value={value} key={value}>{label}</option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label>
+                          <span>Extensão</span>
+                          <select name="length_mode" defaultValue={plan.lengthMode}>
+                            {Object.entries(lengthModeLabels).map(([value, label]) => (
+                              <option value={value} key={value}>{label}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      <label className={styles.dossierArticlePlanInstructions}>
+                        <span>Orientação específica deste artigo</span>
+                        <textarea
+                          name="editorial_instructions"
+                          defaultValue={plan.editorialInstructions}
+                          maxLength={12000}
+                          rows={4}
+                          placeholder="Define o ângulo, a hierarquia da informação e o resultado esperado para este artigo."
+                        />
+                      </label>
+
+                      <fieldset className={styles.dossierArticlePlanSources}>
+                        <legend>Fontes atribuídas</legend>
+                        <p>
+                          A mesma fonte pode servir vários artigos. Uma fonte excluída pode permanecer apenas onde já estava atribuída.
+                        </p>
+                        <ul className={styles.dossierArticlePlanSourceList}>
+                          {dossier.sources.map((source, sourceIndex) => {
+                            const isAssigned = assignedSourceIds.has(source.id);
+                            const canSelect = source.included || isAssigned;
+
+                            return (
+                              <li
+                                key={source.id}
+                                className={!source.included ? styles.dossierArticlePlanSourceExcluded : undefined}
+                              >
+                                <label className={styles.dossierArticlePlanSourceChoice}>
+                                  <input
+                                    type="checkbox"
+                                    name="article_plan_source_id"
+                                    value={source.id}
+                                    defaultChecked={isAssigned}
+                                    disabled={!canSelect}
+                                  />
+                                  <span>
+                                    <strong>{source.articleTitle}</strong>
+                                    <small>
+                                      {sourceNames.get(source.sourceCode) ?? source.sourceCode}
+                                      {source.included ? " · Ativa" : " · Excluída do Dossiê"}
+                                    </small>
+                                  </span>
+                                </label>
+                                <label className={styles.dossierArticlePlanSourcePriority}>
+                                  <span>Ordem</span>
+                                  <input
+                                    type="number"
+                                    name={`article_plan_source_priority_${source.id}`}
+                                    min={1}
+                                    max={999}
+                                    step={1}
+                                    defaultValue={articlePlanSourcePriority(plan, source.id, sourceIndex + 1)}
+                                    disabled={!canSelect}
+                                  />
+                                </label>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </fieldset>
+
+                      <div className={styles.dossierArticlePlanActions}>
+                        <button type="submit">Guardar artigo planeado</button>
+                        <span>Snapshot e proveniência não são alterados por esta operação.</span>
+                      </div>
+                    </form>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className={styles.inboxEmpty}>
+              <strong>Ainda não existem artigos planeados</strong>
+              <span>Cria o primeiro plano abaixo. Nenhum texto será gerado nesta fase.</span>
+            </div>
+          )}
+
+          {articlePlansResult.ok && activeArticlePlanCount < 4 ? (
+            <div className={styles.dossierArticlePlanCreate}>
+              <div>
+                <h3>Criar artigo planeado</h3>
+                <p>O plano pode ser guardado sem fontes enquanto estiver em preparação.</p>
+              </div>
+
+              <form
+                action="/api/admin/editorial/redacao-automatica/dossies"
+                method="post"
+                className={styles.dossierArticlePlanForm}
+              >
+                <input type="hidden" name="action" value="save_article_plan" />
+                <input type="hidden" name="dossier_id" value={dossier.id} />
+
+                <div className={styles.dossierArticlePlanGrid}>
+                  <label className={styles.dossierArticlePlanTitle}>
+                    <span>Título de trabalho</span>
+                    <input
+                      name="working_title"
+                      maxLength={180}
+                      required
+                      placeholder="Ex.: FC Porto prepara o próximo jogo após a apresentação"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Estado inicial</span>
+                    <select name="article_plan_status" defaultValue="planned">
+                      <option value="planned">Planeado</option>
+                      <option value="ready">Pronto</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Prioridade</span>
+                    <input
+                      type="number"
+                      name="article_plan_priority"
+                      min={1}
+                      max={999}
+                      step={1}
+                      defaultValue={activeArticlePlanCount + 1}
+                      required
+                    />
+                  </label>
+
+                  <label>
+                    <span>Género</span>
+                    <select name="article_kind" defaultValue={dossier.articleKind}>
+                      {Object.entries(articleKindLabels).map(([value, label]) => (
+                        <option value={value} key={value}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Extensão</span>
+                    <select name="length_mode" defaultValue={dossier.lengthMode}>
+                      {Object.entries(lengthModeLabels).map(([value, label]) => (
+                        <option value={value} key={value}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <label className={styles.dossierArticlePlanInstructions}>
+                  <span>Orientação específica deste artigo</span>
+                  <textarea
+                    name="editorial_instructions"
+                    maxLength={12000}
+                    rows={4}
+                    placeholder="Define o ângulo, a hierarquia da informação e o resultado esperado para este artigo."
+                  />
+                </label>
+
+                <fieldset className={styles.dossierArticlePlanSources}>
+                  <legend>Fontes iniciais</legend>
+                  <p>Seleciona apenas fontes ativas. A ordem será congelada no plano, não no snapshot.</p>
+                  {dossier.sources.some((source) => source.included) ? (
+                    <ul className={styles.dossierArticlePlanSourceList}>
+                      {dossier.sources.filter((source) => source.included).map((source, sourceIndex) => (
+                        <li key={source.id}>
+                          <label className={styles.dossierArticlePlanSourceChoice}>
+                            <input type="checkbox" name="article_plan_source_id" value={source.id} />
+                            <span>
+                              <strong>{source.articleTitle}</strong>
+                              <small>{sourceNames.get(source.sourceCode) ?? source.sourceCode}</small>
+                            </span>
+                          </label>
+                          <label className={styles.dossierArticlePlanSourcePriority}>
+                            <span>Ordem</span>
+                            <input
+                              type="number"
+                              name={`article_plan_source_priority_${source.id}`}
+                              min={1}
+                              max={999}
+                              step={1}
+                              defaultValue={sourceIndex + 1}
+                            />
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className={styles.inboxEmpty}>
+                      <strong>Sem fontes ativas</strong>
+                      <span>Podes criar o plano em preparação e atribuir fontes depois de as reativares.</span>
+                    </div>
+                  )}
+                </fieldset>
+
+                <div className={styles.dossierArticlePlanActions}>
+                  <button type="submit">Criar artigo planeado</button>
+                  <span>Não será criado rascunho nem executada geração automática.</span>
+                </div>
+              </form>
+            </div>
+          ) : articlePlansResult.ok ? (
+            <div className={styles.dossierArticlePlanLimit}>
+              <strong>Limite de quatro artigos ativos atingido</strong>
+              <span>Cancela um plano ativo antes de criar ou reativar outro.</span>
+            </div>
+          ) : null}
+        </section>
 
         <section
           className={`${styles.section} ${styles.dossierAddSourcesSection}`}

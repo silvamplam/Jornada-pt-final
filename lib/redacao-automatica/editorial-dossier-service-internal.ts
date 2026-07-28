@@ -394,7 +394,7 @@ function normalizedOutputCount(
     return outputCount === 1 ? 1 : null;
   }
 
-  return outputCount >= 2 && outputCount <= 5 ? outputCount : null;
+  return outputCount >= 2 && outputCount <= 4 ? outputCount : null;
 }
 
 function validOutputMode(value: EditorialDossierOutputMode): boolean {
