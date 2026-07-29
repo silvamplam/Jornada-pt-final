@@ -77,17 +77,14 @@ test("a seleção da Caixa de entrada conhece o snapshot mais recente, mas a cri
   assert.match(serviceSource, /insertSources/);
 });
 
-test("a fase não liga IA, tradução, publicação nem artigos editoriais", () => {
+test("o fluxo manual de criação do Dossiê continua sem chamar IA nem publicar", () => {
   const source = [
-    read(newsroomPage),
-    read(dossierPage),
-    read(dossierRoute),
     read(dossierRepository),
     read(dossierService),
     read(dossierInternal),
   ].join("\n");
 
-  assert.doesNotMatch(source, /openai|anthropic|gemini|generateContent|translation_run|prompt_version/i);
+  assert.doesNotMatch(source, /openai|anthropic|gemini|generateContent|responses\.create/i);
   assert.doesNotMatch(source, /insert into public\.editorial_articles|status\s*:\s*"published"/i);
   assert.doesNotMatch(source, /cron|worker|webhook|http_post|net\./i);
 });

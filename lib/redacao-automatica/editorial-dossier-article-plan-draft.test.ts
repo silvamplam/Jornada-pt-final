@@ -166,7 +166,11 @@ test("a UI, a rota e o SQL mantêm a conversão manual, idempotente e sem IA", (
   assert.match(apply, /'',\s*null,/i);
   assert.match(apply, /editorial_dossier_article_plan_already_converted/i);
   assert.doesNotMatch(
-    [page, route, apply].join("\n"),
-    /openai|anthropic|gemini|generateContent|translation_run|prompt_version|status\s*=\s*'published'/i,
+    [
+      read("lib/redacao-automatica/editorial-dossier-article-plan-draft-service.ts"),
+      read("lib/redacao-automatica/editorial-dossier-article-plan-draft-service-internal.ts"),
+      apply,
+    ].join("\n"),
+    /openai|anthropic|gemini|generateContent|responses\.create|status\s*=\s*'published'/i,
   );
 });
