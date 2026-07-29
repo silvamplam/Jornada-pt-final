@@ -22,6 +22,7 @@ type PageProps = {
     created?: string;
     removed?: string;
     link_removed?: string;
+    dossier_plan_generation?: string;
     detail?: string;
   }>;
 };
@@ -117,6 +118,12 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
   }
   if (params.link_removed) {
     return "Ligação removida.";
+  }
+  if (params.dossier_plan_generation === "generated") {
+    return "Primeira versão gerada no corpo do rascunho. Revê integralmente o texto antes de guardar ou publicar.";
+  }
+  if (params.dossier_plan_generation === "reused") {
+    return "A primeira versão já existia. Foi aberto o mesmo rascunho editorial.";
   }
 
   const messages: Record<string, string> = {

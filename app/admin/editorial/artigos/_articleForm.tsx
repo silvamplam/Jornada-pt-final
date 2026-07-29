@@ -158,8 +158,6 @@ const articleFormEnhancer = `
     function setFieldState(field, enabled) {
       if (!field) return;
       field.hidden = !enabled;
-      field.style.display = enabled ? "" : "none";
-      field.setAttribute("aria-hidden", enabled ? "false" : "true");
       Array.prototype.forEach.call(field.querySelectorAll("select"), function (select) {
         select.disabled = !enabled;
       });
@@ -555,11 +553,21 @@ export function ArticleEditorForm({
             <span>Época</span>
             <select name="season_id" data-article-season defaultValue={initialSeasonId} disabled={!showSeason}>
               <option value="">Sem época</option>
-              {seasons.map((season) => (
-                <option key={season.id} value={season.id} data-competition-id={season.competition_id ?? ""}>
-                  {seasonLabel(season)}
-                </option>
-              ))}
+              {seasons.map((season) => {
+                const enabled = Boolean(initialCompetitionId) && season.competition_id === initialCompetitionId;
+
+                return (
+                  <option
+                    key={season.id}
+                    value={season.id}
+                    data-competition-id={season.competition_id ?? ""}
+                    hidden={!enabled}
+                    disabled={!enabled}
+                  >
+                    {seasonLabel(season)}
+                  </option>
+                );
+              })}
             </select>
           </label>
 
@@ -567,16 +575,22 @@ export function ArticleEditorForm({
             <span>Jornada</span>
             <select name="matchday_id" data-article-matchday defaultValue={article?.matchday_id ?? ""} disabled={!showMatchday}>
               <option value="">Sem jornada</option>
-              {matchdays.map((matchday) => (
-                <option
-                  key={matchday.id}
-                  value={matchday.id}
-                  data-season-id={matchday.season_id ?? ""}
-                  data-competition-id={matchday.season_id ? competitionBySeasonId.get(matchday.season_id) ?? "" : ""}
-                >
-                  {matchdayLabel(matchday)}
-                </option>
-              ))}
+              {matchdays.map((matchday) => {
+                const enabled = Boolean(initialSeasonId) && matchday.season_id === initialSeasonId;
+
+                return (
+                  <option
+                    key={matchday.id}
+                    value={matchday.id}
+                    data-season-id={matchday.season_id ?? ""}
+                    data-competition-id={matchday.season_id ? competitionBySeasonId.get(matchday.season_id) ?? "" : ""}
+                    hidden={!enabled}
+                    disabled={!enabled}
+                  >
+                    {matchdayLabel(matchday)}
+                  </option>
+                );
+              })}
             </select>
           </label>
         </div>

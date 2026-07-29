@@ -14,6 +14,7 @@ import {
   type EditorialDossierArticlePlanSourceSelection,
 } from "@/lib/redacao-automatica/editorial-dossier-article-plan-service";
 import { createEditorialDossierArticlePlanDraft } from "@/lib/redacao-automatica/editorial-dossier-article-plan-draft-service";
+import { generateEditorialDossierArticlePlanDraftBody } from "@/lib/redacao-automatica/editorial-dossier-article-plan-generation-service";
 import type {
   EditorialDossierArticleKind,
   EditorialDossierLengthMode,
@@ -210,6 +211,25 @@ export async function POST(request: Request) {
     return redirectTo("/admin/editorial/artigos", {
       articleId: result.value.editorialArticleId,
       dossier_plan_draft: result.value.action,
+    });
+  }
+
+  if (action === "generate_article_plan_draft_body") {
+    const dossierId = cleanText(formData.get("dossier_id"));
+    const articlePlanId = cleanText(formData.get("article_plan_id"));
+    const result = await generateEditorialDossierArticlePlanDraftBody(
+      dossierId,
+      articlePlanId,
+    );
+    const detailPath = dossierDetailPath(dossierId);
+
+    if (!result.ok) {
+      return redirectTo(detailPath, { dossier_error: result.error.code });
+    }
+
+    return redirectTo("/admin/editorial/artigos", {
+      articleId: result.value.editorialArticleId,
+      dossier_plan_generation: result.value.action,
     });
   }
 

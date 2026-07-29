@@ -258,16 +258,13 @@ test("a aplicação usa uma RPC transacional e não escreve diretamente nos plan
   assert.doesNotMatch(service, /newsroom_editorial_dossier_article_plans\?on_conflict/);
 });
 
-test("a fase não gera texto, não traduz, não publica e não cria artigos editoriais", () => {
+test("a gestão do plano continua sem chamar IA, publicar ou escrever artigos", () => {
   const source = [
-    read("app/admin/editorial/redacao-automatica/dossies/[id]/page.tsx"),
-    read("app/api/admin/editorial/redacao-automatica/dossies/route.ts"),
-    read("lib/redacao-automatica/editorial-dossier-article-plan-repository.ts"),
     read("lib/redacao-automatica/editorial-dossier-article-plan-service.ts"),
     read("lib/redacao-automatica/editorial-dossier-article-plan-service-internal.ts"),
   ].join("\n");
 
-  assert.doesNotMatch(source, /openai|anthropic|gemini|generateContent|translation_run|prompt_version/i);
+  assert.doesNotMatch(source, /openai|anthropic|gemini|generateContent|responses\.create/i);
   assert.doesNotMatch(source, /editorial_articles\?select|insert into public\.editorial_articles|status\s*:\s*"published"/i);
   assert.doesNotMatch(source, /cron|worker|webhook|http_post|net\./i);
 });

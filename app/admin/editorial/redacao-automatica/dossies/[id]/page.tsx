@@ -206,6 +206,13 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
     article_plan_not_ready: "Apenas um artigo planeado no estado Pronto pode originar um rascunho.",
     article_plan_incomplete: "O artigo planeado precisa de título, orientação e pelo menos uma fonte.",
     draft_creation_failed: "Não foi possível criar o rascunho editorial.",
+    generation_provider_unavailable: "A geração editorial ainda não está configurada neste ambiente.",
+    draft_not_found: "O rascunho editorial ligado ao plano não está disponível.",
+    draft_not_empty: "O rascunho já contém texto e não será substituído automaticamente.",
+    generation_input_too_large: "O conjunto de fontes excede o limite seguro desta primeira geração.",
+    generation_failed: "O fornecedor não conseguiu produzir a primeira versão editorial.",
+    generation_output_invalid: "A resposta recebida não contém um corpo editorial utilizável.",
+    generation_apply_conflict: "O rascunho mudou durante a geração e não foi substituído.",
     article_plan_save_failed: "Não foi possível guardar o artigo planeado.",
   };
   const errorMessage = errorCode
@@ -507,7 +514,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                       <span>{String(planIndex + 1).padStart(2, "0")}</span>
                       <div>
                         <strong>{plan.workingTitle}</strong>
-                        <small>{plan.editorialArticleId ? "Rascunho editorial criado" : articlePlanStatusLabels[plan.status]}</small>
+                        <small>{plan.generation ? "Primeira versão gerada" : plan.editorialArticleId ? "Rascunho editorial criado" : articlePlanStatusLabels[plan.status]}</small>
                       </div>
                     </div>
 
@@ -566,6 +573,39 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                             O plano e as fontes ficaram congelados para preservar a proveniência deste artigo.
                           </span>
                         </div>
+
+                        {plan.generation ? (
+                          <div className={styles.dossierArticlePlanDraftAction}>
+                            <strong>Primeira versão gerada</strong>
+                            <span>
+                              {plan.generation.provider} · {plan.generation.model} · {formatDate(plan.generation.createdAt)}.
+                              O artigo continua em rascunho e exige revisão humana.
+                            </span>
+                          </div>
+                        ) : plan.editorialArticleStatus === "draft" && !plan.editorialArticleHasBody ? (
+                          <form
+                            action="/api/admin/editorial/redacao-automatica/dossies"
+                            method="post"
+                            className={styles.dossierArticlePlanDraftAction}
+                          >
+                            <input type="hidden" name="action" value="generate_article_plan_draft_body" />
+                            <input type="hidden" name="dossier_id" value={dossier.id} />
+                            <input type="hidden" name="article_plan_id" value={plan.id} />
+                            <button type="submit">Gerar primeira versão</button>
+                            <span>
+                              Usa apenas as fontes congeladas e as orientações humanas. Não publica, não traduz
+                              e não substitui um rascunho que já contenha texto.
+                            </span>
+                          </form>
+                        ) : (
+                          <div className={styles.dossierArticlePlanDraftAction}>
+                            <strong>Geração automática indisponível</strong>
+                            <span>
+                              O rascunho já contém texto ou deixou de estar no estado Rascunho. Esta fase não
+                              substitui conteúdo editorial existente.
+                            </span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <>

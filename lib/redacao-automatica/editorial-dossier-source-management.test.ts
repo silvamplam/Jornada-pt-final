@@ -84,16 +84,14 @@ test("a leitura mostra fontes ativas antes das excluídas e não apaga linhas", 
   );
 });
 
-test("a fase não liga IA, tradução, geração de artigos ou publicação", () => {
+test("a gestão das fontes continua sem chamar IA, criar artigos ou publicar", () => {
   const source = [
-    read(dossierPage),
-    read(dossierRoute),
     read(dossierRepository),
     read(dossierService),
     read(dossierInternal),
   ].join("\n");
 
-  assert.doesNotMatch(source, /openai|anthropic|gemini|generateContent|translation_run|prompt_version/i);
+  assert.doesNotMatch(source, /openai|anthropic|gemini|generateContent|responses\.create/i);
   assert.doesNotMatch(source, /insert into public\.editorial_articles|status\s*:\s*"published"/i);
   assert.doesNotMatch(source, /cron|worker|webhook|http_post|net\./i);
 });

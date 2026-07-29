@@ -1,0 +1,318 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+import {
+  buildEditorialDossierGenerationPrompt,
+  createEditorialDossierArticlePlanGenerationService,
+  EDITORIAL_DOSSIER_GENERATION_PROMPT_VERSION,
+  type ApplyEditorialDossierGenerationInput,
+  type EditorialDossierArticlePlanGenerationContext,
+  type EditorialDossierArticlePlanGenerationTransport,
+  type EditorialGenerationProvider,
+  type ExistingEditorialDossierGeneration,
+} from "@/lib/redacao-automatica/editorial-dossier-article-plan-generation-service-internal";
+
+const dossierId = "00000000-0000-4000-8000-000000000001";
+const planId = "00000000-0000-4000-8000-000000000011";
+const articleId = "00000000-0000-4000-8000-000000000021";
+const generationId = "00000000-0000-4000-8000-000000000031";
+const sourceOneId = "00000000-0000-4000-8000-000000000041";
+const sourceTwoId = "00000000-0000-4000-8000-000000000042";
+const newsroomOneId = "00000000-0000-4000-8000-000000000051";
+const newsroomTwoId = "00000000-0000-4000-8000-000000000052";
+const snapshotOneId = "00000000-0000-4000-8000-000000000061";
+const snapshotTwoId = "00000000-0000-4000-8000-000000000062";
+
+function read(path: string): string {
+  return readFileSync(path, "utf8");
+}
+
+function context(
+  overrides: Partial<EditorialDossierArticlePlanGenerationContext> = {},
+): EditorialDossierArticlePlanGenerationContext {
+  return {
+    dossier: {
+      id: dossierId,
+      title: "Teste de composição editorial com duas fontes",
+      editorialInstructions: "Separar os dois contextos.",
+      contextInstructions: "Explicar que ambas as equipas preparam a nova época.",
+      outputLanguage: "pt-PT",
+    },
+    plan: {
+      id: planId,
+      dossierId,
+      status: "ready",
+      workingTitle: "Vitória fecha estágio; FC Porto prepara a nova época",
+      articleKind: "analysis",
+      lengthMode: "developed",
+      editorialInstructions: "Usar apenas os factos presentes nas fontes atribuídas.",
+      editorialArticleId: articleId,
+    },
+    article: {
+      id: articleId,
+      status: "draft",
+      body: "",
+      updatedAt: "2026-07-29T08:00:00.000Z",
+    },
+    sources: [
+      {
+        dossierSourceId: sourceOneId,
+        newsroomArticleId: newsroomOneId,
+        newsroomSnapshotId: snapshotOneId,
+        sourceCode: "record",
+        articleTitle: "FC Porto vence S. João de Ver",
+        sourceRole: "primary",
+        sortOrder: 10,
+        editorialNote: "Abrir com o FC Porto.",
+        contentHash: "a".repeat(64),
+        body: [
+          { type: "paragraph", text: "O FC Porto venceu o S. João de Ver num jogo de preparação." },
+          { type: "paragraph", text: "Rodrigo Mora e Eduardo Ferreira estiveram em destaque." },
+        ],
+      },
+      {
+        dossierSourceId: sourceTwoId,
+        newsroomArticleId: newsroomTwoId,
+        newsroomSnapshotId: snapshotTwoId,
+        sourceCode: "abola",
+        articleTitle: "Vitória encerra estágio",
+        sourceRole: "context",
+        sortOrder: 20,
+        editorialNote: null,
+        contentHash: "b".repeat(64),
+        body: [
+          { type: "paragraph", text: "O Vitória encerrou o estágio com um teste frente ao Nottingham Forest." },
+        ],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function existingGeneration(): ExistingEditorialDossierGeneration {
+  return {
+    id: generationId,
+    editorialArticleId: articleId,
+    provider: "openai",
+    model: "gpt-5-mini",
+    promptVersion: EDITORIAL_DOSSIER_GENERATION_PROMPT_VERSION,
+    createdAt: "2026-07-29T08:05:00.000Z",
+  };
+}
+
+function fakeEnvironment(options: {
+  generation?: ExistingEditorialDossierGeneration | null;
+  generationContext?: EditorialDossierArticlePlanGenerationContext | null;
+  providerConfigured?: boolean;
+  providerText?: string;
+  applyAction?: "applied" | "reused";
+} = {}) {
+  let providerCalls = 0;
+  let applyCalls = 0;
+  let appliedInput: ApplyEditorialDossierGenerationInput | null = null;
+
+  const transport: EditorialDossierArticlePlanGenerationTransport = {
+    isConfigured: () => true,
+    findGeneration: async () => options.generation ?? null,
+    readContext: async () => options.generationContext ?? context(),
+    applyGeneration: async (input) => {
+      applyCalls += 1;
+      appliedInput = input;
+      return {
+        generationId,
+        editorialArticleId: articleId,
+        action: options.applyAction ?? "applied",
+      };
+    },
+  };
+
+  const provider: EditorialGenerationProvider = {
+    isConfigured: () => options.providerConfigured ?? true,
+    generate: async () => {
+      providerCalls += 1;
+      return {
+        provider: "openai",
+        model: "gpt-5-mini-2025-08-07",
+        responseId: "resp_test",
+        text: options.providerText
+          ?? "O FC Porto venceu o S. João de Ver num encontro de preparação em que Rodrigo Mora e Eduardo Ferreira estiveram em destaque.\n\nO Vitória de Guimarães encerrou o estágio com um teste frente ao Nottingham Forest, num contexto distinto da preparação portista.",
+        inputTokens: 500,
+        outputTokens: 120,
+        totalTokens: 620,
+      };
+    },
+  };
+
+  return {
+    service: createEditorialDossierArticlePlanGenerationService(transport, provider),
+    counts: () => ({ providerCalls, applyCalls }),
+    appliedInput: () => appliedInput,
+  };
+}
+
+test("rejeita identificadores inválidos sem ler contexto nem chamar o fornecedor", async () => {
+  const environment = fakeEnvironment();
+  const result = await environment.service("inválido", planId);
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.code, "input_invalid");
+  }
+  assert.deepEqual(environment.counts(), { providerCalls: 0, applyCalls: 0 });
+});
+
+test("reutiliza uma geração existente sem nova chamada externa", async () => {
+  const environment = fakeEnvironment({ generation: existingGeneration() });
+  const result = await environment.service(dossierId, planId);
+
+  assert.deepEqual(result, {
+    ok: true,
+    value: {
+      generationId,
+      editorialArticleId: articleId,
+      action: "reused",
+    },
+  });
+  assert.deepEqual(environment.counts(), { providerCalls: 0, applyCalls: 0 });
+});
+
+test("protege rascunhos com texto humano e planos não prontos", async () => {
+  const withBody = fakeEnvironment({
+    generationContext: context({
+      article: {
+        id: articleId,
+        status: "draft",
+        body: "Texto escrito por uma pessoa.",
+        updatedAt: "2026-07-29T08:00:00.000Z",
+      },
+    }),
+  });
+  const bodyResult = await withBody.service(dossierId, planId);
+  assert.equal(bodyResult.ok, false);
+  if (!bodyResult.ok) {
+    assert.equal(bodyResult.error.code, "draft_not_empty");
+  }
+
+  const plannedContext = context();
+  const planned = fakeEnvironment({
+    generationContext: {
+      ...plannedContext,
+      plan: { ...plannedContext.plan, status: "planned" },
+    },
+  });
+  const plannedResult = await planned.service(dossierId, planId);
+  assert.equal(plannedResult.ok, false);
+  if (!plannedResult.ok) {
+    assert.equal(plannedResult.error.code, "article_plan_not_ready");
+  }
+
+  assert.deepEqual(withBody.counts(), { providerCalls: 0, applyCalls: 0 });
+  assert.deepEqual(planned.counts(), { providerCalls: 0, applyCalls: 0 });
+});
+
+test("bloqueia fontes sem snapshot utilizável e fornecedor não configurado", async () => {
+  const invalidContext = context();
+  const missingSource = fakeEnvironment({
+    generationContext: {
+      ...invalidContext,
+      sources: [{ ...invalidContext.sources[0], body: [] }],
+    },
+  });
+  const sourceResult = await missingSource.service(dossierId, planId);
+  assert.equal(sourceResult.ok, false);
+  if (!sourceResult.ok) {
+    assert.equal(sourceResult.error.code, "source_snapshot_missing");
+  }
+
+  const unavailable = fakeEnvironment({ providerConfigured: false });
+  const providerResult = await unavailable.service(dossierId, planId);
+  assert.equal(providerResult.ok, false);
+  if (!providerResult.ok) {
+    assert.equal(providerResult.error.code, "generation_provider_unavailable");
+  }
+
+  assert.deepEqual(missingSource.counts(), { providerCalls: 0, applyCalls: 0 });
+  assert.deepEqual(unavailable.counts(), { providerCalls: 0, applyCalls: 0 });
+});
+
+test("gera apenas o corpo, preserva ordem e aplica metadados auditáveis", async () => {
+  const environment = fakeEnvironment();
+  const result = await environment.service(dossierId, planId);
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.value.action, "generated");
+    assert.equal(result.value.editorialArticleId, articleId);
+  }
+  assert.deepEqual(environment.counts(), { providerCalls: 1, applyCalls: 1 });
+
+  const applied = environment.appliedInput();
+  assert.ok(applied);
+  assert.equal(applied?.provider, "openai");
+  assert.equal(applied?.model, "gpt-5-mini-2025-08-07");
+  assert.equal(applied?.promptVersion, EDITORIAL_DOSSIER_GENERATION_PROMPT_VERSION);
+  assert.equal(applied?.inputHash.length, 64);
+  assert.equal(applied?.inputSnapshot.sources[0].dossier_source_id, sourceOneId);
+  assert.equal(applied?.inputSnapshot.sources[1].dossier_source_id, sourceTwoId);
+  assert.equal(applied?.inputSnapshot.plan.working_title, context().plan.workingTitle);
+  assert.match(applied?.generatedBody ?? "", /FC Porto/);
+  assert.match(applied?.generatedBody ?? "", /Vitória/);
+});
+
+test("o prompt separa instruções de fontes e fixa título, idioma e revisão humana", () => {
+  const prompt = buildEditorialDossierGenerationPrompt(context());
+  const payload = JSON.parse(prompt.input) as {
+    titulo_fixo: string;
+    idioma: string;
+    fontes: Array<{ fonte: string; conteudo: string[] }>;
+  };
+
+  assert.equal(payload.titulo_fixo, context().plan.workingTitle);
+  assert.equal(payload.idioma, "pt-PT");
+  assert.equal(payload.fontes[0].fonte, "record");
+  assert.equal(payload.fontes[1].fonte, "abola");
+  assert.match(prompt.instructions, /apenas o corpo do artigo/i);
+  assert.match(prompt.instructions, /exclusivamente os factos/i);
+  assert.match(prompt.instructions, /revisto por uma pessoa/i);
+  assert.equal(prompt.inputHash.length, 64);
+  assert.equal(prompt.maxOutputTokens, 5_000);
+});
+
+test("a UI, rota, provider e SQL mantêm geração explícita, draft e proveniência", () => {
+  const page = read("app/admin/editorial/redacao-automatica/dossies/[id]/page.tsx");
+  const route = read("app/api/admin/editorial/redacao-automatica/dossies/route.ts");
+  const provider = read(
+    "lib/redacao-automatica/openai-editorial-generation-provider-internal.ts",
+  );
+  const apply = read(
+    "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-rascunho-geracao-controlada-1-aplicar.sql",
+  );
+
+  assert.match(page, /name="action" value="generate_article_plan_draft_body"/);
+  assert.match(page, /Gerar primeira versão/);
+  assert.match(page, /não substitui um rascunho que já contenha texto/i);
+  assert.match(route, /generateEditorialDossierArticlePlanDraftBody/);
+  assert.match(route, /dossier_plan_generation/);
+
+  assert.match(provider, /https:\/\/api\.openai\.com\/v1\/responses/);
+  assert.match(provider, /store:\s*false/);
+  assert.match(provider, /reasoning:\s*\{\s*effort:\s*"low"/);
+  assert.doesNotMatch(provider, /console\.log|OPENAI_API_KEY.*return|apiKey.*message/i);
+
+  assert.match(
+    apply,
+    /create table public\.newsroom_editorial_dossier_article_plan_generations/i,
+  );
+  assert.match(
+    apply,
+    /create function public\.newsroom_apply_editorial_dossier_article_plan_generation/i,
+  );
+  assert.match(apply, /for update/i);
+  assert.match(apply, /article\.status = 'draft'/i);
+  assert.match(apply, /btrim\(coalesce\(article\.body, ''\)\) = ''/i);
+  assert.match(apply, /p_input_snapshot is distinct from v_input_snapshot/i);
+  assert.match(apply, /'reused'::text/i);
+  assert.match(apply, /'applied'::text/i);
+  assert.doesNotMatch([page, route, provider, apply].join("\n"), /status\s*=\s*'published'|translation_run|web_search/i);
+});
