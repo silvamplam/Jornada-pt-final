@@ -5,6 +5,7 @@ import test from "node:test";
 const routeFiles = [
   "app/api/admin/editorial/redacao-automatica/drafts/route.ts",
   "app/api/admin/editorial/redacao-automatica/review/route.ts",
+  "app/api/admin/editorial/redacao-automatica/topic-search/route.ts",
 ] as const;
 
 for (const routeFile of routeFiles) {

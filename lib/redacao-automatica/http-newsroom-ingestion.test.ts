@@ -120,6 +120,7 @@ function persistenceSuccess(
 function collectionFailure(
   code: CollectionError["code"],
   sourceCode = "record",
+  statusCode?: number,
 ): CollectionError {
   return {
     code,
@@ -127,6 +128,7 @@ function collectionFailure(
     sourceCode,
     url: "https://internal.invalid/raw-secret",
     recoverable: false,
+    ...(statusCode === undefined ? {} : { statusCode }),
     detail: "fetch SECRET 10.0.0.1 <html>raw</html> stack postgres",
   };
 }
@@ -424,6 +426,7 @@ for (const errorCode of [
   "domain_not_allowed",
   "timeout",
   "http_error",
+  "redirect_blocked",
   "unsupported_content",
   "response_too_large",
 ] as const) {
@@ -433,9 +436,24 @@ for (const errorCode of [
     });
     const error = expectFailure(await harness.ingest(input()), errorCode);
     assert.equal(error.stage, "loading");
+    assert.equal(Object.hasOwn(error, "statusCode"), false);
     assert.equal(harness.calls.load.length, 1);
     assert.equal(harness.calls.extract, 0);
     assert.equal(harness.calls.persist, 0);
+  });
+}
+
+for (const statusCode of [403, 404] as const) {
+  test(`preserva HTTP ${statusCode} do PageLoader sem analisar mensagens`, async () => {
+    const harness = createHarness({
+      loadFailure: collectionFailure("http_error", "record", statusCode),
+    });
+    const error = expectFailure(await harness.ingest(input()), "http_error");
+
+    assert.equal(error.stage, "loading");
+    assert.equal(error.sourceCode, "record");
+    assert.equal(error.statusCode, statusCode);
+    assert.equal(error.persistenceCode, null);
   });
 }
 
@@ -510,6 +528,7 @@ test("falha de persistencia e excecao sao sanitizadas sem segunda chamada", asyn
     "persistence_failed",
   );
   assert.equal(failure.persistenceCode, "persistence_conflict");
+  assert.equal(Object.hasOwn(failure, "statusCode"), false);
   assert.equal(failureHarness.calls.persist, 1);
 
   const throwHarness = createHarness({

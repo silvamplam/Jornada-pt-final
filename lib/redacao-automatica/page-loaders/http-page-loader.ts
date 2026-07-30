@@ -102,6 +102,7 @@ function collectionError(
   recoverable: boolean,
   detail: string,
   url: unknown = request.url,
+  statusCode?: number,
 ): CollectionError {
   return {
     code,
@@ -109,6 +110,7 @@ function collectionError(
     sourceCode: sourceCodeForError(request),
     url: safeErrorUrl(url),
     recoverable,
+    ...(statusCode === undefined ? {} : { statusCode }),
     detail,
   };
 }
@@ -119,10 +121,11 @@ function errorResult<T>(
   recoverable: boolean,
   detail: string,
   url: unknown = request.url,
+  statusCode?: number,
 ): OperationResult<T, CollectionError> {
   return {
     ok: false,
-    error: collectionError(request, code, recoverable, detail, url),
+    error: collectionError(request, code, recoverable, detail, url, statusCode),
   };
 }
 
@@ -922,6 +925,7 @@ export function createHttpPageLoader(
               isRecoverableHttpStatus(response.status),
               `A resposta devolveu o status HTTP ${response.status}.`,
               currentUrl.toString(),
+              response.status,
             );
           }
 

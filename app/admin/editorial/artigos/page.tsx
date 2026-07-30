@@ -19,6 +19,7 @@ type PageProps = {
     mode?: string;
     error?: string;
     saved?: string;
+    published?: string;
     created?: string;
     removed?: string;
     link_removed?: string;
@@ -111,7 +112,10 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
     return "Artigo criado.";
   }
   if (params.saved) {
-    return "Artigo guardado.";
+    return "Alterações guardadas.";
+  }
+  if (params.published) {
+    return "Artigo publicado. O endereço público já está disponível.";
   }
   if (params.removed) {
     return "Artigo removido.";
@@ -128,12 +132,13 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
 
   const messages: Record<string, string> = {
     "invalid-action": "A ação pedida não existe.",
-    "missing-title": "Indique um título para o artigo.",
-    "missing-slug": "Indique um slug ou deixe que seja gerado a partir do título.",
-    "duplicate-slug": "Já existe um artigo com esse slug.",
+    "missing-title": "Indica um título para o artigo.",
+    "missing-slug": "Indica um endereço ou deixa que seja gerado a partir do título.",
+    "duplicate-slug": "Já existe um artigo com esse endereço.",
     "invalid-context": "A competição, época e jornada escolhidas não pertencem ao mesmo contexto.",
     "invalid-published-at": "A data de publicação não é válida.",
-    "missing-service": "Não foi possível aceder ao serviço Supabase de administração.",
+    "missing-body": "O artigo precisa de texto antes de poder ser publicado.",
+    "missing-service": "Não foi possível aceder ao serviço editorial.",
     "missing-article": "O artigo selecionado já não existe.",
     "delete-not-confirmed": "Confirme a remoção antes de apagar o artigo.",
     "invalid-link-target": "A ligação pedida não é permitida.",
@@ -141,10 +146,10 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
     "link-mismatch": "A ligação atual já não aponta para este artigo.",
     "link-removed": "Ligação removida.",
     "article-has-links": "Este artigo ainda está ligado a zonas editoriais. Remova primeiro as ligações em Ligado em antes de apagar.",
-    "required-field": "O Supabase recusou a gravação por campo obrigatório em falta.",
-    constraint: "O Supabase recusou a gravação por constraint da tabela.",
-    permission: "O Supabase recusou a gravação por permissões/RLS.",
-    "supabase-error": "O Supabase recusou a gravação.",
+    "required-field": "Falta preencher um campo obrigatório.",
+    constraint: "Os dados introduzidos não cumprem uma regra editorial.",
+    permission: "Não existem permissões para concluir esta ação.",
+    "supabase-error": "Não foi possível guardar o artigo.",
     "save-failed": "Não foi possível gravar o artigo.",
   };
 
@@ -152,8 +157,7 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
     return null;
   }
 
-  const base = messages[params.error] ?? "Não foi possível gravar o artigo.";
-  return params.detail ? `${base} Detalhe: ${params.detail}` : base;
+  return messages[params.error] ?? "Não foi possível gravar o artigo.";
 }
 
 const articleContextLinkStyles = `
@@ -377,10 +381,103 @@ const articleContextLinkStyles = `
       grid-template-columns: 1fr;
     }
   }
+  .editorial-admin-more-navigation {
+    position: relative;
+  }
+
+  .editorial-admin-more-navigation summary {
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .editorial-admin-more-navigation summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .editorial-admin-more-navigation > div {
+    position: absolute;
+    z-index: 10;
+    top: calc(100% + 8px);
+    right: 0;
+    display: grid;
+    min-width: 220px;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    background: #111827;
+    box-shadow: 0 14px 35px rgb(15 23 42 / 28%);
+  }
+
+  .editorial-admin-more-navigation > div a {
+    display: block;
+  }
+
+  .article-admin-public-pending {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .article-admin-link-technical {
+    margin-left: auto;
+    color: #64748b;
+    font-size: 11px;
+  }
+
+  .article-admin-link-technical summary {
+    cursor: pointer;
+    font-weight: 800;
+  }
+
+  .article-admin-link-technical span {
+    display: block;
+    margin-top: 6px;
+  }
+
+  .article-admin-error-technical {
+    margin: -10px 0 18px;
+    padding: 10px 12px;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    background: #fff7f7;
+    color: #7f1d1d;
+    font-size: 12px;
+  }
+
+  .article-admin-error-technical summary {
+    cursor: pointer;
+    font-weight: 900;
+  }
+
+  .article-admin-error-technical code {
+    display: block;
+    margin-top: 8px;
+    white-space: normal;
+  }
+
+  .editorial-admin-more-navigation > summary {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 0 14px;
+    background: #fff;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
 `;
 
 function statusLabel(status: string | null) {
-  return status?.trim() || "sem estado";
+  if (status === "published") {
+    return "Publicado";
+  }
+
+  return "Rascunho";
 }
 
 function compactId(value?: string | null) {
@@ -787,6 +884,7 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
   const selectedArticle = selectedArticleFromQuery(articles, params.articleId, params.mode);
   const isEditing = Boolean(selectedArticle);
   const message = pageMessage(params);
+  const technicalDetail = params.error && params.detail ? params.detail : null;
   const selectedContext = selectedArticle ? resolveArticleContext(selectedArticle, context) : null;
   const selectedLinkData = selectedArticle ? await readArticleLinkPlacements(selectedArticle, context) : { publicPath: null, placements: [] as LinkPlacement[] };
   const sidebarItems = articles.map((article) => ({
@@ -807,10 +905,11 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
           {item.article.label ? <span>{item.article.label}</span> : null}
         </span>
         <strong>{item.article.title ?? "Sem titulo"}</strong>
-        <span className="article-admin-sidebar-meta">
-          {item.article.slug ? <span>/{item.article.slug}</span> : null}
-          {item.articleDate ? <span>{item.articleDate}</span> : null}
-        </span>
+        {item.articleDate ? (
+          <span className="article-admin-sidebar-meta">
+            <span>{item.articleDate}</span>
+          </span>
+        ) : null}
         <span className="article-admin-sidebar-context">
           {item.articleContext.competitionLabel} / {item.articleContext.seasonLabel} / {item.articleContext.matchdayLabel}
         </span>
@@ -823,33 +922,45 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
       <div className="editorial-admin-container">
         <header className="editorial-admin-header editorial-admin-hero">
           <div>
-            <h1>Artigos / Notícias</h1>
+            <h1>Revisão e publicação</h1>
             <p>
-              Biblioteca editorial global de public.editorial_articles, com criação e edição na mesma página.
+              Revê o conteúdo, completa os elementos editoriais e publica apenas quando o artigo estiver validado.
             </p>
           </div>
           <nav className="editorial-admin-actions" aria-label="Navegação editorial">
-            <a href="/admin/editorial/home">Home Editorial</a>
-            <a href="/admin/editorial/conteudos">VÍDEO</a>
-            <a href="/admin/editorial/composicao">Composição Editorial</a>
-            <a href="/admin/editorial/jornada">Editorial da Jornada</a>
-            <a href="/admin/gestor">Centro de Gestão</a>
+            <a href="/admin/editorial/redacao-automatica">Voltar aos Dossiês</a>
             <a href="/admin">Backoffice</a>
+            <details className="editorial-admin-more-navigation">
+              <summary>Outras áreas editoriais</summary>
+              <div>
+                <a href="/admin/editorial/home">Home Editorial</a>
+                <a href="/admin/editorial/conteudos">Vídeo</a>
+                <a href="/admin/editorial/composicao">Composição Editorial</a>
+                <a href="/admin/editorial/jornada">Editorial da Jornada</a>
+                <a href="/admin/gestor">Centro de Gestão</a>
+              </div>
+            </details>
           </nav>
           <div className="editorial-admin-actions" aria-label="Ações de artigos">
             <a className="primary" href="/admin/editorial/artigos?mode=novo">
-              Novo artigo
+              Criar artigo manual
             </a>
           </div>
         </header>
 
         {message ? <p className="article-admin-alert">{message}</p> : null}
+        {technicalDetail ? (
+          <details className="article-admin-error-technical">
+            <summary>Detalhes técnicos do erro</summary>
+            <code>{technicalDetail}</code>
+          </details>
+        ) : null}
 
         <div className="article-admin-workspace">
           <aside className="article-admin-sidebar" aria-label="Artigos existentes">
             <div className="article-admin-sidebar-header">
-              <h2>Artigos existentes</h2>
-              <p>{articles.length} artigos na biblioteca editorial.</p>
+              <h2>Artigos em revisão e publicados</h2>
+              <p>{articles.length} artigos disponíveis.</p>
             </div>
 
             {error ? <p className="article-admin-alert">{error}</p> : null}
@@ -916,11 +1027,11 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
 
           <section className="article-admin-editor">
             <div className="article-admin-editor-header">
-              <h2>{isEditing ? "Editar artigo" : "Novo artigo"}</h2>
+              <h2>{isEditing ? "Rever artigo" : "Criar artigo manual"}</h2>
               <p>
                 {isEditing
-                  ? "O artigo selecionado mantém o link público e pode ser atualizado aqui."
-                  : "Preencha o formulário para criar um novo rascunho ou artigo publicado."}
+                  ? "Guarda a revisão sem publicar ou usa a ação explícita de publicação quando o texto estiver validado."
+                  : "Cria um rascunho manual e publica apenas depois de rever o conteúdo."}
               </p>
             </div>
 
@@ -928,11 +1039,13 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
               <section className="article-admin-diagnostic" aria-label="Contexto e ligacoes editoriais do artigo">
                 <div className="article-admin-diagnostic-header">
                   <h3>Contexto</h3>
-                  {selectedLinkData.publicPath ? (
+                  {selectedLinkData.publicPath && selectedArticle.status === "published" ? (
                     <a className="article-admin-public-link" href={selectedLinkData.publicPath} target="_blank" rel="noreferrer">
-                      {selectedLinkData.publicPath}
+                      Abrir artigo publicado
                     </a>
-                  ) : null}
+                  ) : (
+                    <span className="article-admin-public-pending">Endereço público disponível depois da publicação</span>
+                  )}
                 </div>
                 <div className="article-admin-context-grid">
                   <div className="article-admin-context-card">
@@ -968,9 +1081,6 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
                         {placement.contextLabel ? <span className="article-admin-link-context">{placement.contextLabel}</span> : null}
                         {placement.detail ? <span>{placement.detail}</span> : null}
                         <div className="article-admin-link-footer">
-                          <span className="article-admin-link-source">
-                            {placement.table}.{placement.field} / {compactId(placement.recordId)}
-                          </span>
                           <form className="article-admin-remove-link-form" action="/api/admin/editorial/artigos" method="post">
                             <input type="hidden" name="action_type" value="remove_article_link" />
                             <input type="hidden" name="slug" value={selectedArticle.slug ?? ""} />
@@ -985,17 +1095,21 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
                             />
                             <button
                               type="submit"
-                              title="Remove apenas esta ligacao. O artigo e o item editorial nao sao apagados."
+                              title="Remove apenas esta ligação. O artigo e o item editorial não são apagados."
                             >
-                              Remover ligacao
+                              Remover ligação
                             </button>
                           </form>
+                          <details className="article-admin-link-technical">
+                            <summary>Dados técnicos</summary>
+                            <span>{placement.table}.{placement.field} / {compactId(placement.recordId)}</span>
+                          </details>
                         </div>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="article-admin-empty-note">Este artigo ainda nao esta ligado a nenhuma zona editorial.</p>
+                  <p className="article-admin-empty-note">Este artigo ainda não está colocado em nenhuma área editorial.</p>
                 )}
               </section>
             ) : null}
@@ -1027,7 +1141,7 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
                   <input type="hidden" name="return_to" value="/admin/editorial/artigos" />
                   <div>
                     <strong>Remover artigo</strong>
-                    <p>Remove apenas o registo de public.editorial_articles. O link público deixará de abrir em /noticias/{selectedArticle.slug ?? "[slug]"}.</p>
+                    <p>Remove definitivamente este artigo. O respetivo endereço público deixará de funcionar.</p>
                     <label className="article-admin-delete-confirm">
                       <input name="confirm_delete" type="checkbox" value="yes" required />
                       <span>Confirmo que quero remover este artigo editorial.</span>

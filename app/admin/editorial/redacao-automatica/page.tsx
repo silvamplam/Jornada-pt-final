@@ -4,7 +4,7 @@ import {
 } from "@/lib/redacao-automatica/editorial-draft-service";
 import {
   getNewsroomArticleById,
-  listNewsroomArticles,
+  searchNewsroomArticles,
   type NewsroomArticleDetail,
   type NewsroomArticlePage,
   type NewsroomArticleSummary,
@@ -20,6 +20,21 @@ import {
   type SourceRegistryEntry,
 } from "@/lib/redacao-automatica/source-registry";
 import type { ArticleProcessingStatus } from "@/lib/redacao-automatica/types";
+import {
+  editorialWorkflowSteps,
+  formatNewsroomPublishedAt,
+} from "@/lib/redacao-automatica/editorial-workflow-ux";
+import {
+  hasNewsroomTopicSearchTerms,
+  newsroomTopicPeriod,
+  newsroomTopicPeriodDays,
+} from "@/lib/redacao-automatica/newsroom-topic-search";
+import {
+  parseNewsroomExternalTopicSearchSourceReports,
+  type FailureReasonCount,
+  type NewsroomTopicFailureStage,
+  type NewsroomTopicSourceTechnicalReport,
+} from "@/lib/redacao-automatica/newsroom-external-topic-search-internal";
 
 import styles from "./redacao-automatica.module.css";
 
@@ -30,17 +45,6 @@ type SearchParams = Record<string, string | string[] | undefined>;
 type AutomaticNewsroomPageProps = {
   searchParams?: Promise<SearchParams>;
 };
-
-const PAGE_SIZE = 20;
-
-const editorialFlow = [
-  "Tema detetado",
-  "Informação reunida",
-  "Notícia gerada",
-  "Validação editorial",
-  "Rascunho criado",
-  "Revisão e publicação",
-] as const;
 
 const operationalStatusLabels: Record<SourceOperationalStatus, string> = {
   active: "Operacional",
@@ -92,7 +96,7 @@ const dossierSourceRoleLabels: Record<EditorialDossierSourceRole, string> = {
 const emptyArticlePage: NewsroomArticlePage = {
   items: [],
   page: 1,
-  pageSize: PAGE_SIZE,
+  pageSize: 0,
   total: 0,
   readyForReview: 0,
   hasPreviousPage: false,
@@ -119,9 +123,80 @@ function firstQueryValue(value: string | string[] | undefined): string | null {
   return value?.trim() || null;
 }
 
-function pageNumber(value: string | null): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+function nonNegativeIntegerQueryValue(value: string | string[] | undefined): number {
+  const parsed = Number(firstQueryValue(value));
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function queryIdSet(value: string | string[] | undefined): ReadonlySet<string> {
+  const rawValue = firstQueryValue(value);
+  return new Set(
+    (rawValue ?? "")
+      .split(",")
+      .map((id) => id.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+function topicSearchSourceReports(
+  value: string | string[] | undefined,
+): readonly NewsroomTopicSourceTechnicalReport[] {
+  return parseNewsroomExternalTopicSearchSourceReports(firstQueryValue(value));
+}
+
+const failureStageLabels: Record<NewsroomTopicFailureStage, string> = {
+  validation: "validação",
+  configuration: "configuração",
+  listing: "listagem",
+  loading: "carregamento",
+  article: "artigo",
+  parsing: "análise",
+  normalization: "normalização",
+  persistence: "persistência",
+  snapshot: "snapshot",
+};
+
+function topicSearchFailureLabel(failure: FailureReasonCount): string {
+  const persistenceCode = failure.persistenceCode ?? (
+    failure.code === "persistence_conflict"
+    || failure.code === "persistence_unavailable"
+      ? failure.code
+      : null
+  );
+  if (persistenceCode === "persistence_conflict") {
+    return "Conflito ao guardar o artigo";
+  }
+  if (persistenceCode === "persistence_unavailable") {
+    return "Serviço de persistência indisponível";
+  }
+
+  if (failure.code === "http_error") {
+    if (failure.statusCode === 403) {
+      return "HTTP 403 — acesso recusado pela fonte";
+    }
+    if (failure.statusCode === 404) {
+      return "HTTP 404 — página não encontrada";
+    }
+    return failure.statusCode === undefined
+      ? "Erro HTTP ao consultar a fonte"
+      : `HTTP ${failure.statusCode} — resposta recusada pela fonte`;
+  }
+
+  const labels: Partial<Record<FailureReasonCount["code"], string>> = {
+    timeout: "A fonte não respondeu a tempo",
+    redirect_blocked: "Redirecionamento não autorizado",
+    response_too_large: "A página excedeu o tamanho permitido",
+    unsupported_content: "A resposta não era uma página HTML suportada",
+    load_failed: "Não foi possível carregar a página",
+    parsing_failed: "Página não reconhecida ou não analisável",
+    parse_failed: "Página não reconhecida ou não analisável",
+    normalized_article_invalid: "Campos ou conteúdo obrigatório insuficiente",
+    required_field_missing: "Campos ou conteúdo obrigatório insuficiente",
+    persistence_failed: "Artigo lido mas não guardado",
+  };
+
+  return labels[failure.code]
+    ?? `Falha técnica na etapa ${failureStageLabels[failure.stage]}`;
 }
 
 function formatDate(value: string | null): string {
@@ -141,15 +216,31 @@ function formatDate(value: string | null): string {
   }).format(date);
 }
 
-function canUseInDossier(article: NewsroomArticleSummary): boolean {
+function canUseInComposition(article: NewsroomArticleSummary): boolean {
   return article.hasUsableSnapshot
     && ["detected", "normalized", "ready_for_review"].includes(article.processingStatus);
 }
 
-function inboxHref(page: number, articleId?: string): string {
+function compositionHref({
+  topic,
+  period,
+  sourceCode,
+  articleId,
+}: {
+  topic: string;
+  period: string;
+  sourceCode: string | null;
+  articleId?: string;
+}): string {
   const params = new URLSearchParams();
-  if (page > 1) {
-    params.set("page", String(page));
+  if (topic) {
+    params.set("topic", topic);
+  }
+  if (period) {
+    params.set("period", period);
+  }
+  if (sourceCode) {
+    params.set("source", sourceCode);
   }
   if (articleId) {
     params.set("articleId", articleId);
@@ -162,7 +253,7 @@ function inboxHref(page: number, articleId?: string): string {
 function ArticleDetail({
   article,
   sourceName,
-  page,
+  returnTo,
   editorialArticle,
   draftLookupFailed,
   draftErrorMessage,
@@ -171,7 +262,7 @@ function ArticleDetail({
 }: {
   article: NewsroomArticleDetail;
   sourceName: string;
-  page: number;
+  returnTo: string;
   editorialArticle: LinkedEditorialArticle | null;
   draftLookupFailed: boolean;
   draftErrorMessage: string | null;
@@ -196,82 +287,81 @@ function ArticleDetail({
       <dl className={styles.detailFacts}>
         <div><dt>Fonte</dt><dd>{sourceName}</dd></div>
         <div><dt>Autor</dt><dd>{article.author ?? "—"}</dd></div>
-        <div><dt>Publicação</dt><dd>{formatDate(article.publishedAt)}</dd></div>
+        <div>
+          <dt>Publicação</dt>
+          <dd>
+            {article.publishedAt
+              ? formatNewsroomPublishedAt(
+                  article.publishedAt,
+                  article.publishedAtPrecision,
+                )
+              : "—"}
+          </dd>
+        </div>
         <div><dt>Modificação</dt><dd>{formatDate(article.modifiedAt)}</dd></div>
         <div><dt>Deteção</dt><dd>{formatDate(article.detectedAt)}</dd></div>
-        <div><dt>Identificador externo</dt><dd>{article.externalId ?? "—"}</dd></div>
       </dl>
 
       <div className={styles.sourceLinks}>
         <a href={article.originalUrl} target="_blank" rel="noopener noreferrer">
           Abrir URL original
         </a>
-        <span title={article.normalizedUrl}>URL normalizada preservada</span>
+        <span title={article.normalizedUrl}>Origem preservada</span>
       </div>
 
-      <section className={styles.draftAction} aria-labelledby="editorial-draft-title">
-        <div>
-          <p className={styles.sectionEyebrow}>Integração editorial</p>
-          <h4 id="editorial-draft-title">
-            {article.processingStatus === "ready_for_review" || editorialArticle
-              ? "Rascunho editorial"
-              : "Validação editorial"}
-          </h4>
-        </div>
-        {draftErrorMessage ? (
-          <p className={styles.draftActionError} role="status">{draftErrorMessage}</p>
-        ) : null}
-        {reviewErrorMessage ? (
-          <p className={styles.draftActionError} role="status">{reviewErrorMessage}</p>
-        ) : null}
-        {reviewSuccessMessage ? (
-          <p className={styles.reviewActionSuccess} role="status">{reviewSuccessMessage}</p>
-        ) : null}
-        {editorialArticle ? (
-          <div className={styles.draftActionReady}>
-            <p>
-              {editorialArticle.status === "published"
-                ? "Este artigo-fonte já está ligado a um artigo publicado."
-                : "Este artigo-fonte já tem um rascunho editorial."}
-            </p>
-            <a href={`/admin/editorial/artigos?articleId=${encodeURIComponent(editorialArticle.id)}`}>
-              {editorialArticle.status === "published" ? "Abrir artigo editorial" : "Abrir rascunho editorial"}
-            </a>
+      <details className={styles.advancedAction}>
+        <summary>Modo direto (avançado)</summary>
+        <p className={styles.advancedActionIntro}>
+          Cria um rascunho diretamente a partir desta fonte, sem composição de várias fontes.
+        </p>
+        <section className={styles.draftAction} aria-labelledby="editorial-draft-title">
+          <div>
+            <p className={styles.sectionEyebrow}>Integração editorial direta</p>
+            <h4 id="editorial-draft-title">
+              {article.processingStatus === "ready_for_review" || editorialArticle
+                ? "Rascunho editorial"
+                : "Validação editorial"}
+            </h4>
           </div>
-        ) : draftLookupFailed ? (
-          <p className={styles.draftActionNote}>
-            Não foi possível confirmar a existência de um rascunho. A criação fica indisponível para evitar duplicações.
-          </p>
-        ) : !article.snapshot?.body.length ? (
-          <p className={styles.draftActionNote}>
-            A validação editorial fica disponível quando existir um snapshot normalizado com corpo editorial.
-          </p>
-        ) : article.processingStatus === "detected" || article.processingStatus === "normalized" ? (
-          <form action="/api/admin/editorial/redacao-automatica/review" method="post">
-            <input type="hidden" name="newsroom_article_id" value={article.id} />
-            <input type="hidden" name="return_to" value={inboxHref(page, article.id)} />
-            <p>
-              Confirma manualmente que o artigo-fonte e o respetivo snapshot podem avançar para validação editorial.
-              Esta ação não cria nem publica qualquer artigo.
+          {draftErrorMessage ? <p className={styles.draftActionError} role="status">{draftErrorMessage}</p> : null}
+          {reviewErrorMessage ? <p className={styles.draftActionError} role="status">{reviewErrorMessage}</p> : null}
+          {reviewSuccessMessage ? <p className={styles.reviewActionSuccess} role="status">{reviewSuccessMessage}</p> : null}
+          {editorialArticle ? (
+            <div className={styles.draftActionReady}>
+              <p>
+                {editorialArticle.status === "published"
+                  ? "Este artigo-fonte já está ligado a um artigo publicado."
+                  : "Este artigo-fonte já tem um rascunho editorial."}
+              </p>
+              <a href={`/admin/editorial/artigos?articleId=${encodeURIComponent(editorialArticle.id)}`}>
+                {editorialArticle.status === "published" ? "Abrir artigo editorial" : "Abrir rascunho editorial"}
+              </a>
+            </div>
+          ) : draftLookupFailed ? (
+            <p className={styles.draftActionNote}>
+              Não foi possível confirmar a existência de um rascunho. A criação fica indisponível para evitar duplicações.
             </p>
-            <button type="submit">Marcar como Por rever</button>
-          </form>
-        ) : article.processingStatus !== "ready_for_review" ? (
-          <p className={styles.draftActionNote}>
-            O estado atual do artigo não permite avançar para a criação de rascunho.
-          </p>
-        ) : (
-          <form action="/api/admin/editorial/redacao-automatica/drafts" method="post">
-            <input type="hidden" name="newsroom_article_id" value={article.id} />
-            <input type="hidden" name="return_to" value={inboxHref(page, article.id)} />
-            <p>
-              Cria um rascunho em estado draft com o título, subtítulo, imagem e corpo normalizado já persistidos.
-              A publicação continua exclusivamente manual.
-            </p>
-            <button type="submit">Criar rascunho editorial</button>
-          </form>
-        )}
-      </section>
+          ) : !article.snapshot?.body.length ? (
+            <p className={styles.draftActionNote}>A validação editorial fica disponível quando existir conteúdo utilizável.</p>
+          ) : article.processingStatus === "detected" || article.processingStatus === "normalized" ? (
+            <form action="/api/admin/editorial/redacao-automatica/review" method="post">
+              <input type="hidden" name="newsroom_article_id" value={article.id} />
+              <input type="hidden" name="return_to" value={returnTo} />
+              <p>Confirma que esta fonte pode avançar. Esta ação não cria nem publica qualquer artigo.</p>
+              <button type="submit">Marcar como Por rever</button>
+            </form>
+          ) : article.processingStatus !== "ready_for_review" ? (
+            <p className={styles.draftActionNote}>O estado atual do artigo não permite criar um rascunho direto.</p>
+          ) : (
+            <form action="/api/admin/editorial/redacao-automatica/drafts" method="post">
+              <input type="hidden" name="newsroom_article_id" value={article.id} />
+              <input type="hidden" name="return_to" value={returnTo} />
+              <p>Cria um rascunho com o conteúdo desta fonte. A publicação continua manual.</p>
+              <button type="submit">Criar rascunho editorial</button>
+            </form>
+          )}
+        </section>
+      </details>
 
       {article.imageUrl ? (
         <figure className={styles.articleImage}>
@@ -286,8 +376,8 @@ function ArticleDetail({
 
       <section className={styles.bodySection} aria-labelledby="normalized-body-title">
         <div className={styles.bodyHeader}>
-          <h4 id="normalized-body-title">Corpo normalizado</h4>
-          <span>{snapshot ? `${snapshot.body.length} blocos` : "Sem snapshot"}</span>
+          <h4 id="normalized-body-title">Conteúdo da fonte</h4>
+          <span>{snapshot?.body.length ? "Disponível" : "Sem conteúdo"}</span>
         </div>
         {snapshot?.body.length ? (
           <div className={styles.normalizedBody}>
@@ -298,20 +388,24 @@ function ArticleDetail({
             ))}
           </div>
         ) : (
-          <p className={styles.detailEmpty}>O artigo ainda não tem um snapshot de corpo disponível.</p>
+          <p className={styles.detailEmpty}>O artigo ainda não tem conteúdo disponível.</p>
         )}
       </section>
 
       {snapshot ? (
-        <section className={styles.provenance} aria-labelledby="technical-provenance-title">
-          <h4 id="technical-provenance-title">Proveniência técnica</h4>
-          <dl>
-            <div><dt>Snapshot</dt><dd>{snapshot.id}</dd></div>
-            <div><dt>Hash de conteúdo</dt><dd>{snapshot.contentHash}</dd></div>
-            <div><dt>Extração</dt><dd>{formatDate(snapshot.extractedAt)}</dd></div>
-            <div><dt>Blocos normalizados</dt><dd>{snapshot.body.length}</dd></div>
-          </dl>
-        </section>
+        <details className={styles.technicalDetails}>
+          <summary>Ver dados técnicos da fonte</summary>
+          <section className={styles.provenance} aria-labelledby="technical-provenance-title">
+            <h4 id="technical-provenance-title">Proveniência técnica</h4>
+            <dl>
+              <div><dt>Identificador externo</dt><dd>{article.externalId ?? "—"}</dd></div>
+              <div><dt>Snapshot</dt><dd>{snapshot.id}</dd></div>
+              <div><dt>Hash de conteúdo</dt><dd>{snapshot.contentHash}</dd></div>
+              <div><dt>Extração</dt><dd>{formatDate(snapshot.extractedAt)}</dd></div>
+              <div><dt>Blocos normalizados</dt><dd>{snapshot.body.length}</dd></div>
+            </dl>
+          </section>
+        </details>
       ) : null}
     </article>
   );
@@ -320,43 +414,135 @@ function ArticleDetail({
 export default async function AutomaticNewsroomPage({ searchParams }: AutomaticNewsroomPageProps) {
   const params = searchParams ? await searchParams : {};
   const selectedArticleId = firstQueryValue(params.articleId);
-  const requestedPage = pageNumber(firstQueryValue(params.page));
+  const topic = firstQueryValue(params.topic) ?? "";
+  const period = newsroomTopicPeriod(firstQueryValue(params.period));
   const sources = listRegisteredSources();
+  const searchableSources = sources.filter((source) => (
+    source.manualCollectionEnabled === true
+    && Boolean(source.adapterKey?.trim())
+    && source.operationalStatus !== "legal_hold"
+    && source.operationalStatus !== "disabled"
+  ));
+  const requestedSourceCode = firstQueryValue(params.source);
+  const searchSourceCode = searchableSources.some((source) => source.code === requestedSourceCode)
+    ? requestedSourceCode
+    : null;
   const sourceNames = new Map(sources.map((source) => [source.code, source.name]));
-
-  const [listResult, dossierListResult] = await Promise.all([
-    listNewsroomArticles({ page: requestedPage, pageSize: PAGE_SIZE }),
-    listEditorialDossiers(12),
-  ]);
-  const detailResult = selectedArticleId
-    ? await getNewsroomArticleById(selectedArticleId)
-    : null;
-  const draftResult = selectedArticleId
-    ? await findNewsroomEditorialDraft(selectedArticleId)
-    : null;
+  const topicSearchRequested = hasNewsroomTopicSearchTerms(topic);
+  const listResult = topicSearchRequested
+    ? await searchNewsroomArticles({
+      query: topic,
+      periodDays: newsroomTopicPeriodDays(period),
+      sourceCode: searchSourceCode,
+    })
+    : { ok: true as const, value: emptyArticlePage };
+  const dossierListResult = await listEditorialDossiers(12);
+  const detailResult = selectedArticleId ? await getNewsroomArticleById(selectedArticleId) : null;
+  const draftResult = selectedArticleId ? await findNewsroomEditorialDraft(selectedArticleId) : null;
   const articlePage = listResult.ok ? listResult.value : emptyArticlePage;
   const selectedArticle = detailResult?.ok ? detailResult.value : null;
   const selectedEditorialArticle = draftResult?.ok ? draftResult.value : null;
-  const hasReadError = !listResult.ok || (detailResult !== null && !detailResult.ok);
+  const topicSearchFailed = topicSearchRequested && !listResult.ok;
+  const externalSearchState = firstQueryValue(params.external_search_state);
+  const externalSearchErrorCode = firstQueryValue(params.external_search_error);
+  const externalSearchCandidateLinks = nonNegativeIntegerQueryValue(
+    params.external_search_candidate_links,
+  );
+  const externalSearchRawDiscovered = nonNegativeIntegerQueryValue(
+    params.external_search_raw_discovered,
+  );
+  const externalSearchRejectedLinks = nonNegativeIntegerQueryValue(
+    params.external_search_rejected_links,
+  );
+  const externalSearchListingDuplicates = nonNegativeIntegerQueryValue(
+    params.external_search_listing_duplicates,
+  );
+  const externalSearchUniqueCandidates = nonNegativeIntegerQueryValue(
+    params.external_search_unique_candidates,
+  );
+  const externalSearchPositiveCandidates = nonNegativeIntegerQueryValue(
+    params.external_search_positive_candidates,
+  );
+  const externalSearchZeroCandidates = nonNegativeIntegerQueryValue(
+    params.external_search_zero_candidates,
+  );
+  const externalSearchPositiveTruncated = nonNegativeIntegerQueryValue(
+    params.external_search_positive_truncated,
+  );
+  const externalSearchRecoveryAttempted = nonNegativeIntegerQueryValue(
+    params.external_search_recovery_attempted,
+  );
+  const externalSearchAttemptedArticles = nonNegativeIntegerQueryValue(
+    params.external_search_attempted_articles,
+  );
+  const externalSearchReadArticles = nonNegativeIntegerQueryValue(
+    params.external_search_read_articles,
+  );
+  const externalSearchFailedSources = nonNegativeIntegerQueryValue(params.external_search_failed_sources);
+  const externalSearchFailedArticles = nonNegativeIntegerQueryValue(params.external_search_failed_articles);
+  const externalSearchExcludedMissingDate = nonNegativeIntegerQueryValue(
+    params.external_search_excluded_missing_date,
+  );
+  const externalSearchExcludedInvalidDate = nonNegativeIntegerQueryValue(
+    params.external_search_excluded_invalid_date,
+  );
+  const externalSearchExcludedFuture = nonNegativeIntegerQueryValue(
+    params.external_search_excluded_future,
+  );
+  const externalSearchExcludedPeriod = nonNegativeIntegerQueryValue(
+    params.external_search_excluded_period,
+  );
+  const externalSearchExcludedSnapshot = nonNegativeIntegerQueryValue(
+    params.external_search_excluded_snapshot,
+  );
+  const externalSearchExcludedState = nonNegativeIntegerQueryValue(
+    params.external_search_excluded_state,
+  );
+  const externalSearchExcludedTopic = nonNegativeIntegerQueryValue(
+    params.external_search_excluded_topic,
+  );
+  const externalSearchExcludedDuplicate = nonNegativeIntegerQueryValue(
+    params.external_search_excluded_duplicate,
+  );
+  const externalSearchSourceReports = topicSearchSourceReports(
+    params.external_search_source_reports,
+  );
+  const collectedResultIds = queryIdSet(params.external_search_collected_ids);
+  const collectedResultCount = articlePage.items.filter((article) => (
+    collectedResultIds.has(article.id.toLowerCase())
+  )).length;
+  const availableResultCount = articlePage.items.length - collectedResultCount;
+  const externalSearchErrorMessages: Record<string, string> = {
+    input_invalid: "Escreve um tema com termos suficientes para pesquisar nas fontes.",
+    source_unavailable: "A fonte selecionada ainda não permite pesquisa externa controlada.",
+    collection_unavailable: "Não foi possível consultar as fontes selecionadas neste momento.",
+    archive_unavailable: "Não foi possível consultar o arquivo persistido neste momento.",
+  };
+  const externalSearchErrorMessage = externalSearchErrorCode
+    ? externalSearchErrorMessages[externalSearchErrorCode] ?? "Não foi possível concluir a pesquisa nas fontes."
+    : null;
   const draftLookupFailed = draftResult !== null && !draftResult.ok;
+  const searchReturnTo = compositionHref({ topic, period, sourceCode: searchSourceCode });
+
   const draftErrorCode = firstQueryValue(params.draft_error);
   const draftErrorMessages: Record<string, string> = {
     input_invalid: "O artigo selecionado não é válido.",
     service_unavailable: "O serviço editorial não está configurado.",
     newsroom_article_not_found: "O artigo da caixa de entrada já não existe.",
     newsroom_article_not_ready: "O artigo ainda não está disponível para validação editorial.",
-    newsroom_snapshot_missing: "O artigo ainda não tem um snapshot normalizado utilizável.",
+    newsroom_snapshot_missing: "O artigo ainda não tem conteúdo utilizável.",
     draft_creation_failed: "Não foi possível criar ou localizar o rascunho editorial.",
   };
   const draftErrorMessage = draftErrorCode
     ? draftErrorMessages[draftErrorCode] ?? "Não foi possível concluir a criação do rascunho."
     : null;
+
   const reviewErrorCode = firstQueryValue(params.review_error);
   const reviewErrorMessages: Record<string, string> = {
     input_invalid: "O artigo selecionado não é válido.",
     service_unavailable: "O serviço da caixa de entrada não está configurado.",
     newsroom_article_not_found: "O artigo da caixa de entrada já não existe.",
-    newsroom_snapshot_missing: "O artigo ainda não tem um snapshot normalizado utilizável.",
+    newsroom_snapshot_missing: "O artigo ainda não tem conteúdo utilizável.",
     newsroom_article_not_reviewable: "O estado atual do artigo não permite marcá-lo como Por rever.",
     status_update_failed: "Não foi possível marcar o artigo como Por rever.",
   };
@@ -365,31 +551,35 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
     : null;
   const reviewState = firstQueryValue(params.review_state);
   const reviewSuccessMessage = reviewState === "updated"
-    ? "O artigo foi marcado como Por rever. Já pode criar o rascunho editorial."
+    ? "O artigo foi marcado como Por rever."
     : reviewState === "reused"
       ? "O artigo já estava marcado como Por rever."
       : null;
 
-  const dossiers = dossierListResult.ok ? dossierListResult.value : [];
-  const dossierErrorCode = firstQueryValue(params.dossier_error);
-  const dossierErrorMessages: Record<string, string> = {
-    input_invalid: "Indica um título e seleciona pelo menos uma fonte válida.",
-    service_unavailable: "O serviço dos Dossiês não está configurado.",
-    source_not_found: "Uma das fontes selecionadas já não existe.",
-    source_not_eligible: "Uma das fontes selecionadas não está disponível para o Dossiê.",
-    source_snapshot_missing: "Uma das fontes não tem um snapshot normalizado utilizável.",
-    dossier_creation_failed: "Não foi possível criar o Dossiê com todas as fontes.",
+  const compositionErrorCode = firstQueryValue(params.composition_error);
+  const compositionErrorMessages: Record<string, string> = {
+    input_invalid: "Seleciona pelo menos uma fonte e preenche o assunto, a combinação e os destaques.",
+    service_unavailable: "A composição editorial não está configurada neste ambiente.",
+    source_not_found: "Uma das fontes selecionadas já não está disponível.",
+    source_not_eligible: "Uma das fontes selecionadas ainda não pode ser utilizada.",
+    source_snapshot_missing: "Uma das fontes ainda não tem conteúdo utilizável.",
+    dossier_creation_failed: "Não foi possível preparar o trabalho editorial.",
+    composition_state_unavailable: "O trabalho foi criado, mas não foi possível preparar as fontes para a composição.",
+    article_plan_save_failed: "O trabalho foi guardado, mas não foi possível preparar a primeira versão.",
+    article_plan_ready_incomplete: "As instruções ou as fontes não são suficientes para gerar a primeira versão.",
+    draft_creation_failed: "O planeamento ficou guardado, mas não foi possível criar o rascunho.",
+    generation_provider_unavailable: "A geração por IA não está configurada neste ambiente.",
+    generation_input_too_large: "O conjunto de fontes é demasiado extenso para esta composição.",
+    generation_failed: "A IA não conseguiu produzir a primeira versão neste momento.",
+    generation_output_invalid: "A IA respondeu sem conteúdo editorial utilizável.",
+    generation_apply_conflict: "O rascunho foi alterado durante a geração e não foi substituído.",
   };
-  const dossierErrorMessage = dossierErrorCode
-    ? dossierErrorMessages[dossierErrorCode] ?? "Não foi possível criar o Dossiê."
+  const compositionErrorMessage = compositionErrorCode
+    ? compositionErrorMessages[compositionErrorCode] ?? "Não foi possível concluir a composição."
     : null;
+  const compositionDossierId = firstQueryValue(params.composition_dossier_id);
 
-  const editorialSummary = [
-    { label: "Artigos persistidos", value: listResult.ok ? String(articlePage.total) : "—" },
-    { label: "Por rever", value: listResult.ok ? String(articlePage.readyForReview) : "—" },
-    { label: "Fontes configuradas", value: String(sources.length) },
-    { label: "Dossiês em preparação", value: dossierListResult.ok ? String(dossiers.length) : "—" },
-  ] as const;
+  const dossiers = dossierListResult.ok ? dossierListResult.value : [];
 
   return (
     <main className={styles.shell}>
@@ -397,98 +587,422 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
         <header className={styles.hero}>
           <div className={styles.heroCopy}>
             <p className={styles.eyebrow}>Área editorial</p>
-            <h1>Redação automática</h1>
+            <h1>Nova composição</h1>
             <p className={styles.description}>
-              Área destinada à deteção de temas, acompanhamento de dossiês e preparação automática de notícias
-              para validação editorial.
+              Pesquisa um tema nas fontes autorizadas, escolhe as notícias relacionadas e explica como a IA deve construir o artigo.
             </p>
           </div>
-          <nav className={styles.heroActions} aria-label="Navegação da Redação automática">
+          <nav className={styles.heroActions} aria-label="Navegação da composição editorial">
             <a href="/admin">Voltar ao backoffice</a>
-            <a className={styles.primaryAction} href="/admin/editorial/artigos">
-              Ver artigos editoriais
-            </a>
+            <a className={styles.primaryAction} href="/admin/editorial/artigos">Artigos em revisão</a>
           </nav>
         </header>
 
-        <section className={styles.summarySection} aria-labelledby="editorial-summary-title">
-          <h2 className={styles.visuallyHidden} id="editorial-summary-title">Resumo editorial</h2>
-          <div className={styles.summaryGrid}>
-            {editorialSummary.map((item) => (
-              <article className={styles.summaryCard} key={item.label}>
-                <strong>{item.value}</strong>
-                <span>{item.label}</span>
-              </article>
-            ))}
+        <section className={styles.compositionJourney} aria-labelledby="composition-journey-title">
+          <div>
+            <p className={styles.sectionEyebrow}>Percurso principal</p>
+            <h2 id="composition-journey-title">Do tema à revisão final</h2>
+            <p>A pesquisa consulta o arquivo e atualiza as páginas autorizadas. A publicação continua sempre dependente da revisão humana.</p>
           </div>
-          <p className={styles.emptyDataNote}>
-            A caixa de entrada permite leitura e criação manual controlada de rascunhos. A monitorização das fontes continua inativa.
+          <ol>
+            <li><span>1</span><strong>Pesquisar tema</strong></li>
+            <li><span>2</span><strong>Ver notícias relacionadas</strong></li>
+            <li><span>3</span><strong>Escolher fontes</strong></li>
+            <li><span>4</span><strong>Dar instruções</strong></li>
+            <li><span>5</span><strong>Gerar primeira versão</strong></li>
+            <li><span>6</span><strong>Rever e publicar nos Artigos</strong></li>
+          </ol>
+        </section>
+
+        <section className={styles.topicSearch} aria-labelledby="topic-search-title">
+          <div className={styles.compositionStepHeader}>
+            <span>1</span>
+            <div>
+              <p className={styles.sectionEyebrow}>Pesquisa editorial</p>
+              <h2 id="topic-search-title">Sobre o que queres escrever?</h2>
+              <p>Consulta primeiro o arquivo e atualiza as páginas recentes das fontes autorizadas antes de apresentar os resultados.</p>
+            </div>
+          </div>
+          <form action="/api/admin/editorial/redacao-automatica/topic-search" method="post" className={styles.topicSearchForm}>
+            <label className={styles.topicSearchQuery}>
+              <span>Tema a pesquisar</span>
+              <input
+                type="search"
+                name="topic"
+                defaultValue={topic}
+                maxLength={180}
+                required
+                placeholder="Ex.: Vitória de Guimarães estágio de pré-época"
+              />
+            </label>
+            <label>
+              <span>Período</span>
+              <select name="period" defaultValue={period}>
+                <option value="1">Últimas 24 horas</option>
+                <option value="7">Últimos 7 dias</option>
+                <option value="30">Últimos 30 dias</option>
+                <option value="all">Todo o arquivo recolhido</option>
+              </select>
+            </label>
+            <label>
+              <span>Fonte</span>
+              <select name="source" defaultValue={searchSourceCode ?? ""}>
+                <option value="">Todas as fontes</option>
+                {searchableSources.map((source) => (
+                  <option value={source.code} key={source.code}>{source.name}</option>
+                ))}
+              </select>
+            </label>
+            <button type="submit">Pesquisar nas fontes</button>
+          </form>
+          <p className={styles.topicSearchNote}>
+            A pesquisa é iniciada apenas por esta ação, usa carregamento HTTP controlado e não gera nem publica qualquer artigo.
           </p>
         </section>
 
-        <section className={styles.section} aria-labelledby="editorial-dossiers-title">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className={styles.sectionEyebrow}>Mesa de preparação</p>
-              <h2 id="editorial-dossiers-title">Dossiês de redação</h2>
-            </div>
-            <p>Seleciona várias fontes na Caixa de entrada, define a prioridade inicial e guarda as orientações humanas.</p>
+        {externalSearchErrorMessage ? (
+          <div className={`${styles.topicSearchFeedback} ${styles.topicSearchFeedbackError}`} role="status">
+            <strong>A pesquisa nas fontes não ficou concluída.</strong>
+            <span>{externalSearchErrorMessage}</span>
           </div>
+        ) : externalSearchState ? (
+          <div
+            className={`${styles.topicSearchFeedback} ${
+              externalSearchState === "partial"
+                ? styles.topicSearchFeedbackWarning
+                : styles.topicSearchFeedbackSuccess
+            }`}
+            role="status"
+          >
+            <strong>{articlePage.items.length} notícias relacionadas encontradas</strong>
+            <ul className={styles.topicSearchCounts}>
+              <li>{externalSearchAttemptedArticles} artigos tentados</li>
+              <li>{externalSearchReadArticles} artigos lidos</li>
+              <li>{availableResultCount} já estavam disponíveis</li>
+              <li>{collectedResultCount} foram recolhidas nesta pesquisa</li>
+              <li>{externalSearchFailedArticles} outras ligações não puderam ser lidas</li>
+              {externalSearchExcludedMissingDate > 0 ? (
+                <li>{externalSearchExcludedMissingDate} excluídos por falta de data de publicação</li>
+              ) : null}
+              {externalSearchExcludedInvalidDate > 0 ? (
+                <li>{externalSearchExcludedInvalidDate} excluídos por data de publicação inválida</li>
+              ) : null}
+              {externalSearchExcludedFuture > 0 ? (
+                <li>{externalSearchExcludedFuture} excluídos por data futura</li>
+              ) : null}
+              {externalSearchExcludedPeriod > 0 ? (
+                <li>{externalSearchExcludedPeriod} ficaram fora do período</li>
+              ) : null}
+              {externalSearchExcludedTopic > 0 ? (
+                <li>{externalSearchExcludedTopic} não confirmaram o tema pesquisado</li>
+              ) : null}
+              {externalSearchExcludedSnapshot > 0 ? (
+                <li>{externalSearchExcludedSnapshot} não tinham conteúdo utilizável</li>
+              ) : null}
+              {externalSearchExcludedState > 0 ? (
+                <li>{externalSearchExcludedState} tinham estado não elegível</li>
+              ) : null}
+              {externalSearchExcludedDuplicate > 0 ? (
+                <li>{externalSearchExcludedDuplicate} eram duplicados canónicos</li>
+              ) : null}
+              {externalSearchFailedSources > 0 ? (
+                <li>{externalSearchFailedSources} fontes não responderam</li>
+              ) : null}
+            </ul>
+            <details className={styles.topicSearchTechnicalDetails}>
+              <summary>Detalhes técnicos da pesquisa</summary>
+              <ul>
+                <li>{externalSearchRawDiscovered} ligações descobertas nas listagens</li>
+                <li>{externalSearchRejectedLinks} ligações rejeitadas na normalização</li>
+                <li>{externalSearchListingDuplicates} duplicados de listagem</li>
+                <li>{externalSearchUniqueCandidates || externalSearchCandidateLinks} candidatos únicos</li>
+                <li>{externalSearchPositiveCandidates} candidatos com pontuação positiva</li>
+                <li>{externalSearchZeroCandidates} candidatos com pontuação zero, não tentados</li>
+                <li>{externalSearchPositiveTruncated} candidatos positivos não tentados por limite</li>
+                <li>{externalSearchRecoveryAttempted} recuperações controladas de artigos antigos</li>
+              </ul>
+              {externalSearchSourceReports.length > 0 ? (
+                <ul>
+                  {externalSearchSourceReports.map((report) => (
+                    <li key={report.sourceCode}>
+                      <strong>{sourceNames.get(report.sourceCode) ?? report.sourceCode}</strong>:{" "}
+                      {report.rawDiscoveredLinkCount} descobertas,{" "}
+                      {report.uniqueCandidateCount} únicas,{" "}
+                      {report.positiveCandidateCount} positivas,{" "}
+                      {report.attemptedArticleCount} tentadas,{" "}
+                      {report.readArticleCount} lidas,{" "}
+                      {report.failedArticleCount} falhadas,{" "}
+                      {report.finalEligibleArticleCount} elegíveis
+                      {report.failures.length > 0 ? (
+                        <>
+                          <div>
+                            {report.failedArticleCount === 1
+                              ? "1 artigo não pôde ser processado"
+                              : `${report.failedArticleCount} artigos não puderam ser processados`}
+                          </div>
+                          <ul>
+                            {report.failures.map((failure) => (
+                              <li
+                                key={[
+                                  failure.stage,
+                                  failure.code,
+                                  failure.statusCode ?? "",
+                                  failure.persistenceCode ?? "",
+                                ].join(":")}
+                              >
+                                {failure.count} — {topicSearchFailureLabel(failure)}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </details>
+          </div>
+        ) : null}
 
-          {dossierErrorMessage ? (
-            <p className={styles.dossierError} role="status">{dossierErrorMessage}</p>
-          ) : null}
+        {compositionErrorMessage ? (
+          <div className={styles.compositionError} role="status">
+            <strong>A composição não ficou concluída.</strong>
+            <span>{compositionErrorMessage}</span>
+            {compositionDossierId ? (
+              <a href={`/admin/editorial/redacao-automatica/dossies/${encodeURIComponent(compositionDossierId)}`}>
+                Abrir recuperação avançada
+              </a>
+            ) : null}
+          </div>
+        ) : null}
 
-          <div className={styles.dossierWorkspace}>
-            <form
-              action="/api/admin/editorial/redacao-automatica/dossies"
-              method="post"
-              id="create-editorial-dossier"
-              className={styles.dossierCreateForm}
-            >
-              <input type="hidden" name="action" value="create" />
-              <label>
-                <span>Título interno do Dossiê</span>
-                <input
-                  name="title"
-                  maxLength={180}
-                  required
-                  placeholder="Ex.: FC Porto prepara próximo jogo após apresentação"
-                />
-              </label>
-              <label>
-                <span>Orientações editoriais</span>
-                <textarea
-                  name="editorial_instructions"
-                  maxLength={12000}
-                  rows={6}
-                  placeholder="Define o que é mais importante, a ordem da informação, o ângulo e o resultado pretendido."
-                />
-              </label>
+        {topicSearchRequested && !topicSearchFailed && articlePage.items.length > 0 ? (
+          <form
+            action="/api/admin/editorial/redacao-automatica/dossies"
+            method="post"
+            id="create-editorial-composition"
+            className={styles.compositionForm}
+          >
+          <input type="hidden" name="action" value="compose" />
+
+          <section className={styles.compositionSources} aria-labelledby="composition-sources-title">
+            <div className={styles.compositionStepHeader}>
+              <span>2</span>
+              <div>
+                <p className={styles.sectionEyebrow}>Resultados e seleção</p>
+                <h2 id="composition-sources-title">Ver notícias e escolher os artigos de base</h2>
+                <p>Seleciona uma ou várias fontes. A primeira, se não definires outra, será tratada como principal.</p>
+              </div>
+            </div>
+
+            <div className={styles.compositionSourceSummary}>
+              <strong>{articlePage.items.length} notícias relacionadas com “{topic}”</strong>
+              <span>
+                {availableResultCount} já disponíveis · {collectedResultCount} recolhidas nesta pesquisa
+              </span>
+            </div>
+            <ol className={styles.compositionSourceList}>
+              {articlePage.items.map((article, index) => (
+                <li key={article.id}>
+                  <div className={styles.compositionSourceChoice}>
+                    <div className={styles.compositionSourceActions}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          name="newsroom_article_id"
+                          value={article.id}
+                          disabled={!canUseInComposition(article)}
+                        />
+                        <span>Selecionar</span>
+                      </label>
+                      <a
+                        href={article.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Consultar fonte
+                      </a>
+                    </div>
+                    <strong>{article.title}</strong>
+                    <small>{sourceNames.get(article.sourceCode) ?? article.sourceCode}</small>
+                    {article.publishedAt ? (
+                      <time dateTime={article.publishedAt}>
+                        Publicado em {formatNewsroomPublishedAt(
+                          article.publishedAt,
+                          article.publishedAtPrecision,
+                        )}
+                      </time>
+                    ) : null}
+                    {article.summary || article.subtitle ? (
+                      <p>{article.summary ?? article.subtitle}</p>
+                    ) : null}
+                    <em>
+                      {collectedResultIds.has(article.id.toLowerCase())
+                        ? "Recolhida nesta pesquisa"
+                        : "Já disponível"}
+                    </em>
+                  </div>
+                  {canUseInComposition(article) ? (
+                    <div className={styles.compositionSourceControls}>
+                      <label>
+                        <span>Prioridade</span>
+                        <input
+                          type="number"
+                          name={`source_priority_${article.id}`}
+                          defaultValue={index + 1}
+                          min={1}
+                          max={99}
+                        />
+                      </label>
+                      <label>
+                        <span>Função na composição</span>
+                        <select
+                          name={`source_role_${article.id}`}
+                          defaultValue={index === 0 ? "primary" : "complementary"}
+                        >
+                          {Object.entries(dossierSourceRoleLabels).map(([value, label]) => (
+                            <option value={value} key={value}>{label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section className={styles.compositionInstructions} aria-labelledby="composition-instructions-title">
+            <div className={styles.compositionStepHeader}>
+              <span>4</span>
+              <div>
+                <p className={styles.sectionEyebrow}>Orientação humana</p>
+                <h2 id="composition-instructions-title">Explicar à IA o artigo pretendido</h2>
+                <p>Estas instruções determinam o ângulo, a hierarquia e a forma de combinar as fontes.</p>
+              </div>
+            </div>
+
+            <label>
+              <span>Assunto ou título de trabalho</span>
+              <input
+                name="working_title"
+                defaultValue={topic}
+                maxLength={180}
+                required
+                placeholder="Ex.: Vitória encerra estágio e prepara a nova época"
+              />
+            </label>
+
+            <label>
+              <span>Como unir as fontes</span>
+              <textarea
+                name="combine_instructions"
+                maxLength={6000}
+                rows={5}
+                required
+                placeholder="Explica a relação entre as fontes, qual conduz o texto e como a informação complementar deve ser integrada."
+              />
+            </label>
+
+            <label>
+              <span>Assuntos a destacar e como tratá-los</span>
+              <textarea
+                name="highlight_instructions"
+                maxLength={6000}
+                rows={5}
+                required
+                placeholder="Indica os factos, declarações ou temas prioritários, a ordem e o destaque que devem receber."
+              />
+            </label>
+
+            <div className={styles.compositionOptionalGrid}>
               <label>
                 <span>Contexto a introduzir</span>
                 <textarea
                   name="context_instructions"
-                  maxLength={8000}
+                  maxLength={4000}
                   rows={4}
-                  placeholder="Acrescenta o contexto competitivo ou editorial que deve enquadrar a notícia."
+                  placeholder="Acrescenta o enquadramento necessário para o leitor compreender o artigo."
                 />
               </label>
-              <p>
-                Depois de preencher, seleciona as fontes na lista abaixo. O snapshot mais recente de cada fonte será congelado no momento da criação.
-              </p>
-              <button type="submit">Criar Dossiê com as fontes selecionadas</button>
-            </form>
+              <label>
+                <span>O que evitar</span>
+                <textarea
+                  name="avoid_instructions"
+                  maxLength={4000}
+                  rows={4}
+                  placeholder="Indica informação a excluir, misturas a evitar ou conclusões que não devem ser feitas."
+                />
+              </label>
+            </div>
 
-            <div className={styles.dossierListPanel}>
-              <div className={styles.dossierListHeading}>
-                <strong>Dossiês guardados</strong>
-                <span>{dossierListResult.ok ? dossiers.length : "—"}</span>
+            <div className={styles.compositionFormatGrid}>
+              <label>
+                <span>Género</span>
+                <select name="article_kind" defaultValue="news">
+                  <option value="news">Notícia</option>
+                  <option value="analysis">Análise</option>
+                  <option value="preview">Antevisão</option>
+                  <option value="summary">Síntese</option>
+                </select>
+              </label>
+              <label>
+                <span>Extensão</span>
+                <select name="length_mode" defaultValue="standard">
+                  <option value="brief">Breve</option>
+                  <option value="standard">Normal</option>
+                  <option value="developed">Desenvolvido</option>
+                </select>
+              </label>
+            </div>
+
+            <div className={styles.compositionGenerate}>
+              <div>
+                <span>5</span>
+                <p>
+                  A primeira versão será criada como rascunho e abrirá automaticamente na página dos Artigos para revisão final.
+                </p>
+              </div>
+              <button type="submit">Gerar primeira versão</button>
+            </div>
+          </section>
+          </form>
+        ) : topicSearchFailed ? (
+          <div className={styles.topicSearchState} role="status">
+            <strong>Não foi possível pesquisar as notícias.</strong>
+            <span>Tenta novamente sem alterar nem perder qualquer trabalho editorial.</span>
+          </div>
+        ) : topicSearchRequested ? (
+          <div className={styles.topicSearchState}>
+            <strong>Não foram encontradas notícias relacionadas com “{topic}”.</strong>
+            <span>
+              {externalSearchState || externalSearchErrorMessage
+                ? "As fontes atuais já foram consultadas. Experimenta um tema mais específico, outro período ou todas as fontes."
+                : "Carrega em Pesquisar nas fontes para atualizar as notícias disponíveis para este tema."}
+            </span>
+          </div>
+        ) : (
+          <div className={styles.topicSearchState}>
+            <strong>Começa pela pesquisa do tema.</strong>
+            <span>Os artigos de base só aparecem depois de pesquisares o assunto sobre o qual queres escrever.</span>
+          </div>
+        )}
+
+        <details className={styles.advancedWorkspace} open={Boolean(selectedArticle)}>
+          <summary>Trabalhos guardados e ferramentas avançadas</summary>
+          <div className={styles.advancedWorkspaceContent}>
+            <section className={styles.section} aria-labelledby="saved-work-title">
+              <div className={styles.sectionHeader}>
+                <div>
+                  <p className={styles.sectionEyebrow}>Recuperação e auditoria</p>
+                  <h2 id="saved-work-title">Trabalhos guardados</h2>
+                </div>
+                <p>Usa esta área apenas para consultar ou recuperar uma composição interrompida.</p>
               </div>
               {!dossierListResult.ok ? (
-                <p className={styles.detailEmpty}>Não foi possível ler os Dossiês neste momento.</p>
+                <p className={styles.detailEmpty}>Não foi possível ler os trabalhos guardados.</p>
               ) : dossiers.length === 0 ? (
-                <p className={styles.detailEmpty}>Ainda não existem Dossiês de redação.</p>
+                <p className={styles.detailEmpty}>Ainda não existem trabalhos guardados.</p>
               ) : (
                 <ol className={styles.dossierList}>
                   {dossiers.map((dossier) => (
@@ -496,216 +1010,81 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
                       <div>
                         <span>{dossierStatusLabels[dossier.status]}</span>
                         <strong>{dossier.title}</strong>
-                        <small>
-                          {dossier.sourceCount} {dossier.sourceCount === 1 ? "fonte" : "fontes"}
-                          {" · "}
-                          {formatDate(dossier.updatedAt)}
-                        </small>
+                        <small>{dossier.sourceCount} {dossier.sourceCount === 1 ? "fonte" : "fontes"} · {formatDate(dossier.updatedAt)}</small>
                       </div>
                       <a href={`/admin/editorial/redacao-automatica/dossies/${encodeURIComponent(dossier.id)}`}>
-                        Abrir Dossiê
+                        Abrir gestão avançada
                       </a>
                     </li>
                   ))}
                 </ol>
               )}
-            </div>
-          </div>
-        </section>
+            </section>
 
-        <section className={styles.section} aria-labelledby="newsroom-inbox-title">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className={styles.sectionEyebrow}>Persistência de artigos-fonte</p>
-              <h2 id="newsroom-inbox-title">Caixa de entrada</h2>
-            </div>
-            <p>Consulta, seleciona e combina artigos-fonte sem executar nova recolha externa.</p>
-          </div>
-
-          {hasReadError ? (
-            <div className={styles.readError} role="status">
-              <strong>Caixa de entrada temporariamente indisponível.</strong>
-              <span>Não foi possível concluir a leitura. Tente novamente mais tarde.</span>
-            </div>
-          ) : articlePage.items.length === 0 ? (
-            <div className={styles.inboxEmpty}>
-              <strong>Ainda não existem artigos recolhidos.</strong>
-              <span>A caixa de entrada será preenchida apenas quando existir uma recolha autorizada.</span>
-            </div>
-          ) : (
-            <div className={styles.inboxLayout}>
-              <div className={styles.articleListColumn}>
-                <div className={styles.listSummary}>
-                  <strong>{articlePage.total} artigos</strong>
-                  <span>Página {articlePage.page}</span>
+            {selectedArticle ? (
+              <section className={styles.section} id="advanced-source-preview" aria-labelledby="advanced-source-title">
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.sectionEyebrow}>Consulta avançada</p>
+                    <h2 id="advanced-source-title">Fonte selecionada</h2>
+                  </div>
                 </div>
-                <ol className={styles.articleList}>
-                  {articlePage.items.map((article) => (
-                    <li className={article.id === selectedArticle?.id ? styles.articleItemSelected : undefined} key={article.id}>
-                      <div className={styles.articleItemTopline}>
-                        <span>{sourceNames.get(article.sourceCode) ?? article.sourceCode}</span>
-                        <span className={styles.processingStatus}>{processingStatusLabels[article.processingStatus]}</span>
-                      </div>
-                      <h3>{article.title}</h3>
-                      <dl className={styles.articleMetadata}>
-                        <div><dt>Autor</dt><dd>{article.author ?? "—"}</dd></div>
-                        <div><dt>Publicação</dt><dd>{formatDate(article.publishedAt)}</dd></div>
-                        <div><dt>Deteção</dt><dd>{formatDate(article.detectedAt)}</dd></div>
-                        <div><dt>Imagem</dt><dd>{article.imageUrl ? "Disponível" : "Sem imagem"}</dd></div>
-                      </dl>
-                      {canUseInDossier(article) ? (
-                        <div className={styles.articleDossierSelection}>
-                          <label className={styles.articleDossierCheckbox}>
-                            <input
-                              type="checkbox"
-                              name="newsroom_article_id"
-                              value={article.id}
-                              form="create-editorial-dossier"
-                            />
-                            <span>Usar no Dossiê</span>
-                          </label>
-                          <label>
-                            <span>Prioridade</span>
-                            <input
-                              type="number"
-                              name={`source_priority_${article.id}`}
-                              defaultValue={articlePage.items.indexOf(article) + 1}
-                              min={1}
-                              max={99}
-                              form="create-editorial-dossier"
-                            />
-                          </label>
-                          <label>
-                            <span>Papel</span>
-                            <select
-                              name={`source_role_${article.id}`}
-                              defaultValue="complementary"
-                              form="create-editorial-dossier"
-                            >
-                              {Object.entries(dossierSourceRoleLabels).map(([value, label]) => (
-                                <option value={value} key={value}>{label}</option>
-                              ))}
-                            </select>
-                          </label>
-                        </div>
-                      ) : (
-                        <p className={styles.articleDossierUnavailable}>
-                          {!article.hasUsableSnapshot
-                            ? "Sem snapshot normalizado utilizável"
-                            : "Estado indisponível para Dossiê"}
-                        </p>
-                      )}
-                      <a className={styles.openArticleLink} href={inboxHref(articlePage.page, article.id)}>
-                        Abrir
-                      </a>
-                    </li>
-                  ))}
-                </ol>
-                {(articlePage.hasPreviousPage || articlePage.hasNextPage) ? (
-                  <nav className={styles.pagination} aria-label="Paginação da caixa de entrada">
-                    {articlePage.hasPreviousPage ? (
-                      <a href={inboxHref(articlePage.page - 1)}>Página anterior</a>
-                    ) : <span />}
-                    {articlePage.hasNextPage ? (
-                      <a href={inboxHref(articlePage.page + 1)}>Página seguinte</a>
-                    ) : null}
-                  </nav>
-                ) : null}
-              </div>
-
-              {selectedArticle ? (
                 <ArticleDetail
                   article={selectedArticle}
                   sourceName={sourceNames.get(selectedArticle.sourceCode) ?? selectedArticle.sourceCode}
-                  page={articlePage.page}
+                  returnTo={searchReturnTo}
                   editorialArticle={selectedEditorialArticle}
                   draftLookupFailed={draftLookupFailed}
                   draftErrorMessage={draftErrorMessage}
                   reviewErrorMessage={reviewErrorMessage}
                   reviewSuccessMessage={reviewSuccessMessage}
                 />
-              ) : (
-                <aside className={styles.detailPlaceholder}>
-                  <strong>Selecione um artigo</strong>
-                  <span>Use “Abrir” para consultar o conteúdo e a proveniência do snapshot mais recente.</span>
-                </aside>
-              )}
-            </div>
-          )}
-        </section>
+              </section>
+            ) : null}
 
-        <section className={styles.section} aria-labelledby="planned-sources-title">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className={styles.sectionEyebrow}>Configuração inicial</p>
-              <h2 id="planned-sources-title">Fontes previstas</h2>
-            </div>
-            <p>A ativação de cada fonte dependerá da respetiva validação técnica e jurídica.</p>
-          </div>
-
-          <div className={styles.sourceGrid}>
-            {sources.map((source) => (
-              <article className={styles.sourceCard} key={source.code}>
-                <div className={styles.sourceCardHeader}>
-                  <div>
-                    <span>Fonte prevista</span>
-                    <h3>{source.name}</h3>
+            <details className={styles.technicalArea}>
+              <summary>Configuração técnica das fontes</summary>
+              <div className={styles.technicalAreaContent}>
+                <section className={styles.section} aria-labelledby="planned-sources-title">
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <p className={styles.sectionEyebrow}>Configuração inicial</p>
+                      <h2 id="planned-sources-title">Fontes previstas</h2>
+                    </div>
                   </div>
-                  <span className={`${styles.statusBadge} ${operationalStatusClasses[source.operationalStatus]}`}>
-                    {operationalStatusLabels[source.operationalStatus]}
-                  </span>
-                </div>
-                <p className={styles.monitoringStatus}>{getMonitoringStatus(source)}</p>
-                <p>{source.editorialNote}</p>
-                {source.legalNote ? <p className={styles.legalNote}>{source.legalNote}</p> : null}
-              </article>
-            ))}
+                  <div className={styles.sourceGrid}>
+                    {sources.map((source) => (
+                      <article className={styles.sourceCard} key={source.code}>
+                        <div className={styles.sourceCardHeader}>
+                          <div><span>Fonte prevista</span><h3>{source.name}</h3></div>
+                          <span className={`${styles.statusBadge} ${operationalStatusClasses[source.operationalStatus]}`}>
+                            {operationalStatusLabels[source.operationalStatus]}
+                          </span>
+                        </div>
+                        <p className={styles.monitoringStatus}>{getMonitoringStatus(source)}</p>
+                        <p>{source.editorialNote}</p>
+                        {source.legalNote ? <p className={styles.legalNote}>{source.legalNote}</p> : null}
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className={styles.section} aria-labelledby="technical-flow-title">
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <p className={styles.sectionEyebrow}>Auditoria preservada</p>
+                      <h2 id="technical-flow-title">Etapas internas</h2>
+                    </div>
+                  </div>
+                  <ol className={styles.flowGrid}>
+                    {editorialWorkflowSteps.map((step, index) => (
+                      <li key={step.id}><span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span><strong>{step.label}</strong></li>
+                    ))}
+                  </ol>
+                </section>
+              </div>
+            </details>
           </div>
-
-          <aside className={styles.extensibilityNote} aria-label="Evolução das fontes">
-            <strong>Evolução progressiva</strong>
-            <p>
-              A área será preparada para receber novas fontes de forma progressiva, sem alterar o funcionamento
-              dos temas, dossiês e artigos.
-            </p>
-          </aside>
-        </section>
-
-        <section className={styles.section} aria-labelledby="editorial-flow-title">
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className={styles.sectionEyebrow}>Processo futuro</p>
-              <h2 id="editorial-flow-title">Fluxo editorial</h2>
-            </div>
-            <p>A validação editorial mantém-se antes da criação do rascunho e da revisão final.</p>
-          </div>
-
-          <ol className={styles.flowGrid}>
-            {editorialFlow.map((step, index) => (
-              <li key={step}>
-                <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                <strong>{step}</strong>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section className={`${styles.section} ${styles.integrationSection}`} aria-labelledby="integration-title">
-          <div>
-            <p className={styles.sectionEyebrow}>Continuidade do processo</p>
-            <h2 id="integration-title">Integração editorial</h2>
-            <p>
-              Um artigo marcado como “Por rever” e com snapshot normalizado pode agora originar manualmente um
-              rascunho no sistema editorial existente, mantendo a proveniência e abrindo o editor normal de artigos.
-            </p>
-            <p className={styles.futureActionNote}>
-              A ação nunca publica automaticamente e não executa nova recolha externa.
-            </p>
-          </div>
-          <a className={styles.integrationLink} href="/admin/editorial/artigos">
-            Abrir artigos editoriais
-          </a>
-        </section>
+        </details>
       </div>
     </main>
   );

@@ -19,6 +19,13 @@ import {
 } from "@/lib/redacao-automatica/newsroom-article-repository";
 import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
 import type { ArticleProcessingStatus } from "@/lib/redacao-automatica/types";
+import {
+  articlePlanEditorialWorkflowStep,
+  dossierEditorialWorkflowStep,
+  editorialWorkflowSteps,
+  editorialWorkflowStepState,
+  type EditorialWorkflowStepId,
+} from "@/lib/redacao-automatica/editorial-workflow-ux";
 
 import styles from "../../redacao-automatica.module.css";
 
@@ -71,9 +78,25 @@ const articleKindLabels: Record<EditorialDossierArticleKind, string> = {
 };
 
 const articlePlanStatusLabels: Record<EditorialDossierArticlePlanStatus, string> = {
-  planned: "Planeado",
-  ready: "Pronto",
+  planned: "Em preparação",
+  ready: "Pronto para avançar",
   cancelled: "Cancelado",
+};
+
+const workflowStepDescriptions: Record<EditorialWorkflowStepId, string> = {
+  sources: "Organiza as fontes que sustentam o trabalho editorial.",
+  planning: "Define o próximo artigo, o ângulo e as fontes que lhe pertencem.",
+  draft: "Prepara e gera a primeira versão a partir do planeamento aprovado.",
+  review: "Revê o texto, completa os elementos editoriais e valida o conteúdo.",
+  publication: "O artigo está publicado ou pronto para consulta no editor.",
+};
+
+const workflowStepActions: Record<EditorialWorkflowStepId, string> = {
+  sources: "Rever fontes",
+  planning: "Continuar planeamento",
+  draft: "Preparar primeira versão",
+  review: "Abrir artigo para revisão",
+  publication: "Consultar artigos",
 };
 
 function firstQueryValue(value: string | string[] | undefined): string | null {
@@ -183,6 +206,16 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
   const articlePlans = articlePlansResult.ok ? articlePlansResult.value : [];
   const dossierSourcesById = new Map(dossier.sources.map((source) => [source.id, source]));
   const activeArticlePlanCount = articlePlans.filter((plan) => plan.status !== "cancelled").length;
+  const workflowStep = dossierEditorialWorkflowStep({
+    includedSourceCount,
+    plans: articlePlans,
+  });
+  const workflowStepLabel = editorialWorkflowSteps.find((step) => step.id === workflowStep)?.label ?? "Planeamento";
+  const workflowTarget = workflowStep === "sources"
+    ? "#dossier-sources-title"
+    : workflowStep === "publication"
+      ? "/admin/editorial/artigos"
+      : "#dossier-article-plans-title";
   const state = firstQueryValue(query.dossier_state);
   const errorCode = firstQueryValue(query.dossier_error);
   const errorMessages: Record<string, string> = {
@@ -192,7 +225,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
     dossier_update_failed: "Não foi possível guardar as alterações.",
     source_not_found: "Uma das fontes já não existe ou já não pertence ao Dossiê.",
     source_not_eligible: "Uma das fontes não está disponível para inclusão no Dossiê.",
-    source_snapshot_missing: "Uma das fontes não tem um snapshot normalizado utilizável.",
+    source_snapshot_missing: "Uma das fontes ainda não tem conteúdo utilizável.",
     source_already_in_dossier: "Uma das fontes já pertence ao Dossiê. Reativa-a na gestão das fontes.",
     source_limit_exceeded: "O Dossiê atingiu o limite de 20 fontes congeladas.",
     source_management_failed: "Não foi possível guardar a gestão das fontes.",
@@ -210,8 +243,8 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
     draft_not_found: "O rascunho editorial ligado ao plano não está disponível.",
     draft_not_empty: "O rascunho já contém texto e não será substituído automaticamente.",
     generation_input_too_large: "O conjunto de fontes excede o limite seguro desta primeira geração.",
-    generation_failed: "O fornecedor não conseguiu produzir a primeira versão editorial.",
-    generation_output_invalid: "A resposta recebida não contém um corpo editorial utilizável.",
+    generation_failed: "Não foi possível gerar a primeira versão. Tenta novamente mais tarde.",
+    generation_output_invalid: "A primeira versão recebida não tem conteúdo editorial utilizável.",
     generation_apply_conflict: "O rascunho mudou durante a geração e não foi substituído.",
     article_plan_save_failed: "Não foi possível guardar o artigo planeado.",
   };
@@ -219,13 +252,13 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
     ? errorMessages[errorCode] ?? "Não foi possível guardar o Dossiê."
     : null;
   const successMessage = state === "created"
-    ? "O Dossiê foi criado e os snapshots das fontes ficaram congelados."
+    ? "O Dossiê foi criado e as fontes ficaram associadas."
     : state === "updated"
       ? "As orientações e preferências do Dossiê foram guardadas."
       : state === "sources_updated"
         ? "A ordem, os papéis, as notas e a inclusão das fontes foram guardados."
         : state === "sources_added"
-          ? "As novas fontes foram acrescentadas com os snapshots atuais congelados."
+          ? "As novas fontes foram acrescentadas ao Dossiê."
           : state === "article_plan_created"
             ? "O artigo planeado foi criado."
             : state === "article_plan_updated"
@@ -241,23 +274,21 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
       <div className={styles.container}>
         <header className={styles.hero}>
           <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}>Mesa de preparação</p>
+            <p className={styles.eyebrow}>Gestão avançada</p>
             <h1>{dossier.title}</h1>
             <p className={styles.description}>
-              Organiza as fontes e as orientações humanas antes de qualquer composição automática.
+              Consulta ou corrige fontes, planeamento e auditoria. A composição normal começa na página Nova composição.
             </p>
           </div>
-          <nav className={styles.heroActions} aria-label="Navegação do Dossiê">
-            <a href="/admin/editorial/redacao-automatica">Voltar à Redação automática</a>
-            <a className={styles.primaryAction} href="/admin/editorial/artigos">
-              Ver artigos editoriais
-            </a>
+          <nav className={styles.heroActions} aria-label="Navegação da gestão avançada">
+            <a className={styles.primaryAction} href="/admin/editorial/redacao-automatica">Voltar à nova composição</a>
+            <a href="/admin/editorial/artigos">Artigos em revisão</a>
           </nav>
         </header>
 
         <section className={styles.dossierDetailSummary} aria-label="Estado do Dossiê">
           <div>
-            <span>Estado</span>
+            <span>Estado do planeamento</span>
             <strong>{statusLabels[dossier.status]}</strong>
           </div>
           <div>
@@ -277,6 +308,29 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
           </div>
         </section>
 
+        <section className={styles.dossierWorkflow} aria-labelledby="dossier-workflow-title">
+          <div className={styles.dossierWorkflowHeader}>
+            <div>
+              <p className={styles.sectionEyebrow}>Estado interno do trabalho</p>
+              <h2 id="dossier-workflow-title">Etapa atual: {workflowStepLabel}</h2>
+              <p>{workflowStepDescriptions[workflowStep]}</p>
+            </div>
+            <a href={workflowTarget}>{workflowStepActions[workflowStep]}</a>
+          </div>
+          <ol className={styles.workflowSteps}>
+            {editorialWorkflowSteps.map((step, index) => {
+              const stepState = editorialWorkflowStepState(workflowStep, step.id);
+
+              return (
+                <li data-state={stepState} key={step.id}>
+                  <span>{index + 1}</span>
+                  <strong>{step.label}</strong>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
         {errorMessage ? <p className={styles.dossierError} role="status">{errorMessage}</p> : null}
         {successMessage ? <p className={styles.dossierSuccess} role="status">{successMessage}</p> : null}
 
@@ -287,7 +341,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                 <p className={styles.sectionEyebrow}>Orientação humana</p>
                 <h2 id="dossier-editor-title">Definição editorial</h2>
               </div>
-              <p>Estas instruções serão usadas futuramente pelo compositor, mas nesta fase são apenas guardadas.</p>
+              <p>Estas orientações guiam o planeamento e a geração das primeiras versões.</p>
             </div>
 
             <form action="/api/admin/editorial/redacao-automatica/dossies" method="post" className={styles.dossierForm}>
@@ -357,7 +411,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
               </div>
 
               <p className={styles.dossierLanguageNote}>
-                Língua de saída: Português de Portugal. A tradução será uma etapa autónoma numa fase posterior.
+                Língua de saída: Português de Portugal.
               </p>
 
               <button type="submit">Guardar Dossiê</button>
@@ -367,11 +421,11 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
           <aside className={styles.dossierSourcesPanel} aria-labelledby="dossier-sources-title">
             <div className={styles.sectionHeader}>
               <div>
-                <p className={styles.sectionEyebrow}>Proveniência congelada</p>
+                <p className={styles.sectionEyebrow}>Fontes do Dossiê</p>
                 <h2 id="dossier-sources-title">Gestão das fontes</h2>
               </div>
               <p>
-                Reordena, classifica e exclui fontes da futura composição sem apagar os snapshots.
+                Reordena, classifica e decide que fontes entram no planeamento.
               </p>
             </div>
 
@@ -449,12 +503,15 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                       />
                     </label>
 
-                    <dl>
-                      <div><dt>Estado</dt><dd>{processingStatusLabels[source.processingStatus]}</dd></div>
-                      <div><dt>Snapshot</dt><dd>{source.newsroomSnapshotId}</dd></div>
-                      <div><dt>Extração</dt><dd>{formatDate(source.snapshotExtractedAt)}</dd></div>
-                      <div><dt>Blocos</dt><dd>{source.snapshotBodyBlockCount}</dd></div>
-                    </dl>
+                    <details className={styles.technicalDetails}>
+                      <summary>Dados técnicos da fonte</summary>
+                      <dl>
+                        <div><dt>Estado</dt><dd>{processingStatusLabels[source.processingStatus]}</dd></div>
+                        <div><dt>Snapshot</dt><dd>{source.newsroomSnapshotId}</dd></div>
+                        <div><dt>Extração</dt><dd>{formatDate(source.snapshotExtractedAt)}</dd></div>
+                        <div><dt>Blocos</dt><dd>{source.snapshotBodyBlockCount}</dd></div>
+                      </dl>
+                    </details>
 
                     <a href={`/admin/editorial/redacao-automatica?articleId=${encodeURIComponent(source.newsroomArticleId)}`}>
                       Abrir artigo-fonte
@@ -468,8 +525,8 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
 
             <p className={styles.dossierFrozenNote}>
               {excludedSourceCount > 0
-                ? `${excludedSourceCount} fonte(s) excluída(s). Podem ser reativadas sem perder o snapshot.`
-                : "Desmarcar uma fonte exclui-a da futura composição, mas preserva a proveniência e o snapshot."}
+                ? `${excludedSourceCount} fonte(s) excluída(s). Podem ser reativadas sem perder o registo de origem.`
+                : "Desmarcar uma fonte retira-a do planeamento sem eliminar o registo da sua origem."}
             </p>
           </aside>
         </div>
@@ -480,18 +537,18 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
         >
           <div className={styles.sectionHeader}>
             <div>
-              <p className={styles.sectionEyebrow}>Estrutura editorial</p>
+              <p className={styles.sectionEyebrow}>Percurso editorial</p>
               <h2 id="dossier-article-plans-title">Artigos planeados</h2>
             </div>
             <p>
-              Define cada artigo, as fontes congeladas que lhe pertencem e o momento em que fica pronto.
+              Trabalha um artigo de cada vez e avança apenas quando a etapa atual estiver concluída.
             </p>
           </div>
 
           <div className={styles.dossierArticlePlanSummary}>
             <strong>{activeArticlePlanCount} / 4 ativos</strong>
             <span>
-              Planeado pode ficar incompleto. Pronto exige orientação editorial e pelo menos uma fonte.
+              Em preparação permite completar dados. Pronto para avançar exige orientação e pelo menos uma fonte.
             </span>
           </div>
 
@@ -504,6 +561,10 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
             <div className={styles.dossierArticlePlanList}>
               {articlePlans.map((plan, planIndex) => {
                 const assignedSourceIds = new Set(plan.sources.map((source) => source.dossierSourceId));
+                const planWorkflowStep = articlePlanEditorialWorkflowStep(plan);
+                const planWorkflowLabel = plan.status === "cancelled"
+                  ? "Cancelado"
+                  : editorialWorkflowSteps.find((step) => step.id === planWorkflowStep)?.label ?? "Planeamento";
 
                 return (
                   <article
@@ -514,7 +575,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                       <span>{String(planIndex + 1).padStart(2, "0")}</span>
                       <div>
                         <strong>{plan.workingTitle}</strong>
-                        <small>{plan.generation ? "Primeira versão gerada" : plan.editorialArticleId ? "Rascunho editorial criado" : articlePlanStatusLabels[plan.status]}</small>
+                        <small>Etapa atual: {planWorkflowLabel}</small>
                       </div>
                     </div>
 
@@ -539,48 +600,63 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                           </div>
                         </div>
 
-                        <div className={styles.dossierArticlePlanConvertedInstructions}>
-                          <span>Orientação preservada</span>
-                          <p>{plan.editorialInstructions}</p>
-                        </div>
+                        <details className={styles.planDetails}>
+                          <summary>Ver planeamento e fontes</summary>
+                          <div className={styles.dossierArticlePlanConvertedInstructions}>
+                            <span>Orientação editorial</span>
+                            <p>{plan.editorialInstructions}</p>
+                          </div>
 
-                        <div className={styles.dossierArticlePlanConvertedSources}>
-                          <span>Fontes preservadas</span>
-                          <ol>
-                            {plan.sources.map((assignment, sourceIndex) => {
-                              const source = dossierSourcesById.get(assignment.dossierSourceId);
+                          <div className={styles.dossierArticlePlanConvertedSources}>
+                            <span>Fontes atribuídas</span>
+                            <ol>
+                              {plan.sources.map((assignment, sourceIndex) => {
+                                const source = dossierSourcesById.get(assignment.dossierSourceId);
 
-                              return (
-                                <li key={assignment.id}>
-                                  <strong>{source?.articleTitle ?? "Fonte congelada"}</strong>
-                                  <small>
-                                    Ordem {sourceIndex + 1}
-                                    {source ? ` · ${sourceNames.get(source.sourceCode) ?? source.sourceCode}` : ""}
-                                  </small>
-                                </li>
-                              );
-                            })}
-                          </ol>
-                        </div>
+                                return (
+                                  <li key={assignment.id}>
+                                    <strong>{source?.articleTitle ?? "Fonte associada"}</strong>
+                                    <small>
+                                      Ordem {sourceIndex + 1}
+                                      {source ? ` · ${sourceNames.get(source.sourceCode) ?? source.sourceCode}` : ""}
+                                    </small>
+                                  </li>
+                                );
+                              })}
+                            </ol>
+                          </div>
+                        </details>
 
-                        <div className={styles.dossierArticlePlanConvertedActions}>
-                          <a
-                            href={`/admin/editorial/artigos?articleId=${encodeURIComponent(plan.editorialArticleId)}`}
-                          >
-                            Abrir rascunho editorial
-                          </a>
-                          <span>
-                            O plano e as fontes ficaram congelados para preservar a proveniência deste artigo.
-                          </span>
-                        </div>
+                        {plan.editorialArticleStatus === "draft" && !plan.editorialArticleHasBody && !plan.generation ? (
+                          <details className={styles.planAlternativeAction}>
+                            <summary>Alternativa: escrever manualmente</summary>
+                            <a href={`/admin/editorial/artigos?articleId=${encodeURIComponent(plan.editorialArticleId)}`}>
+                              Abrir rascunho vazio
+                            </a>
+                          </details>
+                        ) : (
+                          <div className={styles.dossierArticlePlanConvertedActions}>
+                            <a
+                              href={`/admin/editorial/artigos?articleId=${encodeURIComponent(plan.editorialArticleId)}`}
+                            >
+                              {plan.editorialArticleStatus === "published" ? "Abrir artigo publicado" : "Rever e concluir artigo"}
+                            </a>
+                            <span>
+                              Este é o artigo associado a este planeamento.
+                            </span>
+                          </div>
+                        )}
 
                         {plan.generation ? (
                           <div className={styles.dossierArticlePlanDraftAction}>
-                            <strong>Primeira versão gerada</strong>
-                            <span>
-                              {plan.generation.provider} · {plan.generation.model} · {formatDate(plan.generation.createdAt)}.
-                              O artigo continua em rascunho e exige revisão humana.
-                            </span>
+                            <strong>Primeira versão pronta para revisão</strong>
+                            <span>Abre o artigo, revê integralmente o texto e publica apenas depois da validação humana.</span>
+                            <details className={styles.generationDetails}>
+                              <summary>Registo técnico da geração</summary>
+                              <span>
+                                {plan.generation.provider} · {plan.generation.model} · {formatDate(plan.generation.createdAt)}
+                              </span>
+                            </details>
                           </div>
                         ) : plan.editorialArticleStatus === "draft" && !plan.editorialArticleHasBody ? (
                           <form
@@ -593,16 +669,14 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                             <input type="hidden" name="article_plan_id" value={plan.id} />
                             <button type="submit">Gerar primeira versão</button>
                             <span>
-                              Usa apenas as fontes congeladas e as orientações humanas. Não publica, não traduz
-                              e não substitui um rascunho que já contenha texto.
+                              Usa apenas as fontes atribuídas e as orientações editoriais. O resultado seguirá para revisão humana.
                             </span>
                           </form>
                         ) : (
                           <div className={styles.dossierArticlePlanDraftAction}>
-                            <strong>Geração automática indisponível</strong>
+                            <strong>Primeira versão já protegida</strong>
                             <span>
-                              O rascunho já contém texto ou deixou de estar no estado Rascunho. Esta fase não
-                              substitui conteúdo editorial existente.
+                              O artigo já contém texto ou foi publicado. Para continuar, abre o artigo no editor.
                             </span>
                           </div>
                         )}
@@ -625,7 +699,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                         </label>
 
                         <label>
-                          <span>Estado</span>
+                          <span>Estado do planeamento</span>
                           <select name="article_plan_status" defaultValue={plan.status}>
                             {Object.entries(articlePlanStatusLabels).map(([value, label]) => (
                               <option value={value} key={value}>{label}</option>
@@ -726,8 +800,8 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                       </fieldset>
 
                       <div className={styles.dossierArticlePlanActions}>
-                        <button type="submit">Guardar artigo planeado</button>
-                        <span>Snapshot e proveniência não são alterados por esta operação.</span>
+                        <button type="submit">Guardar planeamento</button>
+                        <span>As fontes associadas mantêm-se ligadas a este artigo.</span>
                       </div>
                     </form>
                         {plan.status === "ready" ? (
@@ -739,9 +813,9 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                             <input type="hidden" name="action" value="create_article_plan_draft" />
                             <input type="hidden" name="dossier_id" value={dossier.id} />
                             <input type="hidden" name="article_plan_id" value={plan.id} />
-                            <button type="submit">Criar rascunho editorial</button>
+                            <button type="submit">Preparar primeira versão</button>
                             <span>
-                              O título será pré-preenchido. O corpo ficará vazio para redação humana no editor.
+                              Cria o artigo associado e prepara a etapa seguinte, sem publicar.
                             </span>
                           </form>
                         ) : null}
@@ -761,8 +835,8 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
           {articlePlansResult.ok && activeArticlePlanCount < 4 ? (
             <div className={styles.dossierArticlePlanCreate}>
               <div>
-                <h3>Criar artigo planeado</h3>
-                <p>O plano pode ser guardado sem fontes enquanto estiver em preparação.</p>
+                <h3>Planear novo artigo</h3>
+                <p>Define o artigo e as fontes. Podes completá-lo antes de o marcar como pronto para avançar.</p>
               </div>
 
               <form
@@ -785,10 +859,10 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                   </label>
 
                   <label>
-                    <span>Estado inicial</span>
+                    <span>Estado do planeamento</span>
                     <select name="article_plan_status" defaultValue="planned">
-                      <option value="planned">Planeado</option>
-                      <option value="ready">Pronto</option>
+                      <option value="planned">Em preparação</option>
+                      <option value="ready">Pronto para avançar</option>
                     </select>
                   </label>
 
@@ -835,8 +909,8 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                 </label>
 
                 <fieldset className={styles.dossierArticlePlanSources}>
-                  <legend>Fontes iniciais</legend>
-                  <p>Seleciona apenas fontes ativas. A ordem será congelada no plano, não no snapshot.</p>
+                  <legend>Fontes atribuídas</legend>
+                  <p>Seleciona as fontes que sustentam este artigo e define a respetiva ordem.</p>
                   {dossier.sources.some((source) => source.included) ? (
                     <ul className={styles.dossierArticlePlanSourceList}>
                       {dossier.sources.filter((source) => source.included).map((source, sourceIndex) => (
@@ -871,8 +945,8 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                 </fieldset>
 
                 <div className={styles.dossierArticlePlanActions}>
-                  <button type="submit">Criar artigo planeado</button>
-                  <span>Não será criado rascunho nem executada geração automática.</span>
+                  <button type="submit">Criar planeamento</button>
+                  <span>Depois de o planeamento estar pronto, a interface indicará a próxima ação.</span>
                 </div>
               </form>
             </div>
@@ -894,7 +968,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
               <h2 id="dossier-add-sources-title">Acrescentar fontes</h2>
             </div>
             <p>
-              As novas fontes congelam o snapshot atual. As fontes já guardadas mantêm os snapshots anteriores.
+              As novas fontes ficam associadas ao Dossiê sem alterar as fontes já guardadas.
             </p>
           </div>
 

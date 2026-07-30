@@ -143,8 +143,8 @@ test("a UI, a rota e o SQL mantêm a conversão manual, idempotente e sem IA", (
   );
 
   assert.match(page, /name="action" value="create_article_plan_draft"/);
-  assert.match(page, /Criar rascunho editorial/);
-  assert.match(page, /Abrir rascunho editorial/);
+  assert.match(page, /Preparar primeira versão/);
+  assert.match(page, /Abrir rascunho vazio/);
   assert.match(page, /plan\.editorialArticleId/);
   assert.match(route, /createEditorialDossierArticlePlanDraft/);
   assert.match(route, /dossier_plan_draft/);

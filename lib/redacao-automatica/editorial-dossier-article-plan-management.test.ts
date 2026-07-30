@@ -215,7 +215,7 @@ test("a página apresenta criação, edição, estados e atribuição de fontes"
   assert.match(page, /name="article_plan_status"/);
   assert.match(page, /name="article_plan_source_id"/);
   assert.match(page, /article_plan_source_priority_/);
-  assert.match(page, /Planeado/);
+  assert.match(page, /Em preparação/);
   assert.match(page, /Pronto/);
   assert.match(page, /Cancelado/);
   assert.match(page, /activeArticlePlanCount < 4/);

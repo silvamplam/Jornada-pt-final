@@ -58,6 +58,7 @@ export type HttpNewsroomIngestionError = Readonly<{
   message: string;
   sourceCode: string | null;
   persistenceCode: NewsroomPersistenceErrorCode | null;
+  statusCode?: number;
   operationIncomplete: false;
 }>;
 
@@ -224,6 +225,7 @@ function failure(
   stage: HttpNewsroomIngestionError["stage"],
   sourceCode: string | null,
   persistenceCode: NewsroomPersistenceErrorCode | null = null,
+  statusCode?: number,
 ): IngestHttpNewsroomArticleResult {
   return {
     ok: false,
@@ -233,6 +235,7 @@ function failure(
       message: ERROR_MESSAGES[code],
       sourceCode,
       persistenceCode,
+      ...(statusCode === undefined ? {} : { statusCode }),
       operationIncomplete: false,
     },
   };
@@ -345,6 +348,8 @@ export function createHttpNewsroomIngestion(
         loadedPageResult.error.code,
         "loading",
         source.code,
+        null,
+        loadedPageResult.error.statusCode,
       );
     }
     const page = loadedPageResult.value;

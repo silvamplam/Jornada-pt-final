@@ -291,7 +291,7 @@ test("a UI, rota, provider e SQL mantêm geração explícita, draft e proveniê
 
   assert.match(page, /name="action" value="generate_article_plan_draft_body"/);
   assert.match(page, /Gerar primeira versão/);
-  assert.match(page, /não substitui um rascunho que já contenha texto/i);
+  assert.match(page, /O artigo já contém texto ou foi publicado/i);
   assert.match(route, /generateEditorialDossierArticlePlanDraftBody/);
   assert.match(route, /dossier_plan_generation/);
 

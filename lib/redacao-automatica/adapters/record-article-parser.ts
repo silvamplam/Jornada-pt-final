@@ -24,6 +24,11 @@ type CanonicalSelection = Readonly<{
   source: "canonical" | "open_graph" | "final_url";
 }>;
 
+type ParsedPublishedAt = Readonly<{
+  value: string;
+  precision: "date" | "instant";
+}>;
+
 const RECORD_SOURCE_CODE = "record";
 const RECORD_DOMAIN = "record.pt";
 const RECORD_HOSTNAME = "www.record.pt";
@@ -35,6 +40,7 @@ const MAX_JSON_LD_DEPTH = 12;
 const MAX_JSON_LD_NODES = 10_000;
 const COMPLETE_INSTANT_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$/i;
+const CALENDAR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const EXCLUDED_BODY_SELECTOR = [
   ".pub_inside_text",
@@ -465,6 +471,33 @@ function parseCompleteInstant(value: unknown): string | null {
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString();
 }
 
+function parseCalendarDate(value: unknown): string | null {
+  const normalizedValue = normalizeArticleText(value);
+  if (!normalizedValue || !CALENDAR_DATE_PATTERN.test(normalizedValue)) {
+    return null;
+  }
+
+  const parsedDate = new Date(`${normalizedValue}T00:00:00.000Z`);
+  if (
+    Number.isNaN(parsedDate.getTime())
+    || parsedDate.toISOString().slice(0, 10) !== normalizedValue
+  ) {
+    return null;
+  }
+
+  return parsedDate.toISOString();
+}
+
+function parsePublishedAt(value: unknown): ParsedPublishedAt | null {
+  const instant = parseCompleteInstant(value);
+  if (instant) {
+    return { value: instant, precision: "instant" };
+  }
+
+  const date = parseCalendarDate(value);
+  return date ? { value: date, precision: "date" } : null;
+}
+
 function safeImageUrl(value: unknown): string | null {
   const normalizedValue = normalizeArticleText(value);
   if (!normalizedValue) {
@@ -673,7 +706,6 @@ function externalArticleId($: CheerioRoot): string | null {
 function isSpecialFormat($: CheerioRoot): boolean {
   return (
     $(".timeline-editorial, .timeline-editorial__card").length > 0 ||
-    $(".mainVideo").length > 0 ||
     $("#jed_resultado").length > 0
   );
 }
@@ -920,16 +952,18 @@ export function parseRecordArticle(
         ? "json_ld"
         : null;
 
-    let publishedAt = parseCompleteInstant(newsArticle.datePublished);
-    let publishedAtSource: "json_ld" | "meta" | null = publishedAt
+    let parsedPublishedAt = parsePublishedAt(newsArticle.datePublished);
+    let publishedAtSource: "json_ld" | "meta" | null = parsedPublishedAt
       ? "json_ld"
       : null;
-    if (!publishedAt) {
-      publishedAt = parseCompleteInstant(
+    if (!parsedPublishedAt) {
+      parsedPublishedAt = parsePublishedAt(
         $("meta[property='article:published_time']").first().attr("content"),
       );
-      publishedAtSource = publishedAt ? "meta" : null;
+      publishedAtSource = parsedPublishedAt ? "meta" : null;
     }
+    const publishedAt = parsedPublishedAt?.value ?? null;
+    const publishedAtPrecision = parsedPublishedAt?.precision ?? null;
 
     let modifiedAt = parseCompleteInstant(newsArticle.dateModified);
     let modifiedAtSource: "json_ld" | "meta" | null = modifiedAt
@@ -1021,6 +1055,7 @@ export function parseRecordArticle(
           summarySource,
           authorSource,
           publishedAtSource,
+          publishedAtPrecision,
           modifiedAtSource,
           imageSource,
           externalIdSource: externalId ? "social_share" : null,
