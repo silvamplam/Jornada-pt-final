@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
+import PublicMatchdayNavigation from "@/components/public/PublicMatchdayNavigation";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
@@ -443,6 +444,203 @@ const gamesPageStyles = `
       min-height: 180px;
     }
   }
+
+
+  /* JORNADA-CABECALHO-COMPETITIVO-INICIO */
+  .public-season-nav-bar {
+    border-top: 1px solid #e1e6ec;
+    border-bottom: 1px solid #d7dee7;
+    background: #ffffff;
+  }
+
+  .public-season-nav-inner {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
+    gap: 18px;
+    align-items: end;
+    min-height: 78px;
+    max-width: 1512px;
+    margin: 0 auto;
+    padding: 6px 0 0;
+    overflow: hidden;
+  }
+
+  .public-season-context-card {
+    display: grid;
+    align-self: stretch;
+    align-content: end;
+    gap: 6px;
+    min-width: 220px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .public-season-context-card .public-season-select-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: max-content;
+    max-width: 100%;
+    min-height: 30px;
+    padding: 5px 8px 5px 10px;
+    border: 1px solid #cfd7e1;
+    background: #f8fafc;
+    color: #263241;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .public-season-context-card .public-season-select {
+    width: auto;
+    min-width: 112px;
+    max-width: 138px;
+    border: 0;
+    background: transparent;
+    color: #10151b;
+    font: inherit;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .public-season-context-card .public-matchday-leg-nav {
+    display: flex;
+    width: max-content;
+    max-width: 100%;
+    align-items: center;
+    gap: 0;
+    padding: 0;
+    border-top: 2px solid #10151b;
+    background: #ffffff;
+    white-space: nowrap;
+  }
+
+  .public-season-context-card .public-matchday-leg-nav a {
+    display: inline-block;
+    min-width: 0;
+    padding: 8px 11px;
+    border: 0;
+    border-right: 1px solid #dfe5ec;
+    border-radius: 0;
+    background: #ffffff;
+    color: #263241;
+    font-size: 11px;
+    font-weight: 900;
+    text-align: center;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+
+  .public-season-context-card .public-matchday-leg-nav a[aria-current="true"] {
+    background: #10151b;
+    color: #ffffff;
+  }
+
+  .public-matchday-date-row {
+    display: flex;
+    align-self: end;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 32px;
+    padding: 0 2px 8px 0;
+    border: 0;
+    background: transparent;
+    white-space: nowrap;
+  }
+
+  .public-matchday-date-row .public-matchday-date-context {
+    display: inline;
+    color: #607086;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: right;
+  }
+
+  .public-matchday-date-row .public-matchday-date-context strong {
+    color: #263241;
+    font-weight: 900;
+  }
+
+  @media (max-width: 1180px) {
+    .public-season-nav-inner {
+      grid-template-columns: minmax(194px, max-content) minmax(0, 1fr) max-content;
+      gap: 10px;
+    }
+
+    .public-season-context-card {
+      min-width: 194px;
+    }
+
+    .public-season-context-card .public-season-select-wrap {
+      gap: 6px;
+      padding: 5px 7px;
+    }
+
+    .public-season-context-card .public-season-select {
+      min-width: 96px;
+    }
+
+    .public-season-context-card .public-matchday-leg-nav a {
+      padding: 7px 10px;
+      font-size: 10.5px;
+    }
+
+    .public-matchday-date-row .public-matchday-date-context {
+      font-size: 9.5px;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .public-season-nav-inner {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
+      align-items: stretch;
+      min-height: 0;
+      padding: 8px 16px 9px;
+      overflow: visible;
+    }
+
+    .public-season-context-card {
+      align-content: start;
+      min-width: 0;
+    }
+
+    .public-matchday-date-row {
+      justify-content: flex-start;
+      min-height: 0;
+      padding: 0;
+    }
+
+    .public-matchday-date-row .public-matchday-date-context {
+      text-align: left;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .public-season-context-card .public-season-select-wrap,
+    .public-season-context-card .public-matchday-leg-nav {
+      width: 100%;
+    }
+
+    .public-season-context-card .public-season-select {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .public-season-context-card .public-matchday-leg-nav a {
+      flex: 1 1 50%;
+    }
+
+    .public-matchday-date-row {
+      white-space: normal;
+    }
+  }
+  /* JORNADA-CABECALHO-COMPETITIVO-FIM */
 `;
 
 function cleanText(value: string | null | undefined) {
@@ -524,6 +722,34 @@ function kickoffCivilDate(value?: string | null) {
   const day = Number(parts.find((part) => part.type === "day")?.value);
 
   return year && month && day ? { year, month, day } : null;
+}
+
+function formatNavigationDateContext(games: PublicGame[]) {
+  const dates = games
+    .map((game) => parseCivilDate(game.scheduled_date))
+    .filter((date): date is NonNullable<ReturnType<typeof parseCivilDate>> => Boolean(date))
+    .sort((left, right) =>
+      left.year - right.year || left.month - right.month || left.day - right.day
+    );
+
+  if (dates.length === 0) return "Por definir";
+
+  const first = dates[0];
+  const last = dates[dates.length - 1];
+  const firstMonth = accessibleMonthNames[first.month - 1];
+  const lastMonth = accessibleMonthNames[last.month - 1];
+
+  if (first.year === last.year && first.month === last.month) {
+    return first.day === last.day
+      ? `${first.day} de ${firstMonth} de ${first.year}`
+      : `${first.day}–${last.day} de ${firstMonth} de ${first.year}`;
+  }
+
+  if (first.year === last.year) {
+    return `${first.day} de ${firstMonth}–${last.day} de ${lastMonth} de ${first.year}`;
+  }
+
+  return `${first.day} de ${firstMonth} de ${first.year}–${last.day} de ${lastMonth} de ${last.year}`;
 }
 
 function gameSchedule(scheduledDateValue: string | null, kickoffValue?: string | null) {
@@ -1092,6 +1318,7 @@ export default async function PublicGamesPageContent({ competitionSlug, seasonLa
   const navigationSeasonLabel = cleanText(navigationSeason?.label);
   const navigationSeasonSegment = navigationSeasonLabel ? seasonLabelToUrlSegment(navigationSeasonLabel) : null;
   const navigationMatchdayNumber = navigationMatchday?.number ?? null;
+  const navigationDateContext = formatNavigationDateContext(games);
   let navigationSeasons: SeasonRow[] = [];
   let navigationMatchdays: MatchdayRow[] = [];
   let activeParticipantCount: number | null = null;
@@ -1163,39 +1390,47 @@ export default async function PublicGamesPageContent({ competitionSlug, seasonLa
               <p>Navegacao principal da epoca {navigationSeasonLabel}.</p>
             </div>
             <div className="public-season-nav-inner">
-              <label className="public-season-select-wrap">
-                <span>Epoca</span>
-                <select className="public-season-select" data-games-season-select defaultValue={currentNavigationSeasonHref}>
-                  {navigationSeasonOptions.map((item) => (
-                    <option key={item.id} value={item.href}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {shouldSplitMatchdayNav ? (
-                <nav className="public-matchday-leg-nav" aria-label="Voltas da epoca">
-                  <Link aria-current={activeMatchdayLeg === "first" ? "true" : undefined} href={firstLegHref}>
-                    1.ª volta
-                  </Link>
-                  <Link aria-current={activeMatchdayLeg === "second" ? "true" : undefined} href={secondLegHref}>
-                    2.ª volta
-                  </Link>
-                </nav>
-              ) : null}
-              <nav className="public-matchday-nav" aria-label="Jornadas">
-                {visibleMatchdays.map((item) => (
-                  item.number ? (
-                    <Link
-                      aria-current={item.id === navigationMatchday?.id ? "page" : undefined}
-                      href={navigationMatchdayHref(item.number)}
-                      key={item.id}
-                    >
-                      J{String(item.number).padStart(2, "0")}
+              <div className="public-season-context-card" aria-label="Contexto da competição">
+                <label className="public-season-select-wrap">
+                  <span>Época</span>
+                  <select className="public-season-select" data-games-season-select defaultValue={currentNavigationSeasonHref}>
+                    {navigationSeasonOptions.map((item) => (
+                      <option key={item.id} value={item.href}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {shouldSplitMatchdayNav ? (
+                  <nav className="public-matchday-leg-nav" aria-label="Voltas da época">
+                    <Link aria-current={activeMatchdayLeg === "first" ? "true" : undefined} href={firstLegHref}>
+                      1.ª volta
                     </Link>
-                  ) : null
+                    <Link aria-current={activeMatchdayLeg === "second" ? "true" : undefined} href={secondLegHref}>
+                      2.ª volta
+                    </Link>
+                  </nav>
+                ) : null}
+              </div>
+              <PublicMatchdayNavigation
+                ariaLabel="Jornadas"
+                items={visibleMatchdays.flatMap((item) => (
+                  item.number
+                    ? [{
+                        id: item.id,
+                        href: navigationMatchdayHref(item.number),
+                        isActive: item.id === navigationMatchday?.id,
+                        label: `J${String(item.number).padStart(2, "0")}`
+                      }]
+                    : []
                 ))}
-              </nav>
+                storageKey={`public-matchday-nav:${activeCompetitionSlug ?? "global"}:${season?.label ?? "sem-epoca"}:games-index`}
+              />
+              <div className="public-matchday-date-row">
+                <span className="public-matchday-date-context">
+                  <strong>Data:</strong> {navigationDateContext}
+                </span>
+              </div>
             </div>
           </section>
         ) : null}
