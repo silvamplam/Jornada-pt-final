@@ -110,7 +110,7 @@
 
 .summaryGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -630,7 +630,7 @@
 
 .sourceGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
   padding: 18px 22px;
 }
@@ -2143,5 +2143,934 @@
   .dossierArticlePlanLimit {
     margin-right: 12px;
     margin-left: 12px;
+  }
+}
+
+
+.workflowSection {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.workflowSteps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflowSteps li {
+  display: grid;
+  min-height: 88px;
+  gap: 8px;
+  align-content: start;
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.workflowSteps li > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.workflowSteps li > strong {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.workflowSteps li[data-state="complete"] {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.workflowSteps li[data-state="complete"] > span {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.workflowSteps li[data-state="current"] {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 10%);
+}
+
+.workflowSteps li[data-state="current"] > span {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.dossierWorkflow {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px solid #bfdbfe;
+  border-radius: 14px;
+  background: #eff6ff;
+}
+
+.dossierWorkflowHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+}
+
+.dossierWorkflowHeader h2,
+.dossierWorkflowHeader p {
+  margin: 0;
+}
+
+.dossierWorkflowHeader h2 {
+  margin-top: 4px;
+  font-size: 22px;
+}
+
+.dossierWorkflowHeader > div > p:last-child {
+  margin-top: 8px;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.dossierWorkflowHeader > a {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 0 16px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dossierCreateDetails {
+  order: 2;
+  border: 1px solid #dbe2ea;
+  border-radius: 12px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.dossierCreateDetails > summary {
+  cursor: pointer;
+  padding: 16px 18px;
+  font-weight: 900;
+}
+
+.dossierCreateDetails[open] > summary {
+  border-bottom: 1px solid #dbe2ea;
+}
+
+.dossierCreateDetails .dossierCreateForm {
+  border: 0;
+  border-radius: 0;
+}
+
+.dossierListPanel {
+  order: 1;
+}
+
+.advancedAction,
+.technicalDetails,
+.planDetails,
+.generationDetails,
+.technicalArea {
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.advancedAction,
+.technicalDetails,
+.planDetails,
+.generationDetails {
+  margin-top: 14px;
+}
+
+.advancedAction > summary,
+.technicalDetails > summary,
+.planDetails > summary,
+.generationDetails > summary,
+.technicalArea > summary {
+  cursor: pointer;
+  padding: 12px 14px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.advancedActionIntro {
+  margin: 0;
+  padding: 0 14px 12px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.advancedAction .draftAction {
+  margin: 0 12px 12px;
+}
+
+.technicalDetails .provenance {
+  margin: 0 12px 12px;
+}
+
+.technicalDetails dl {
+  margin-top: 10px;
+}
+
+.planDetails {
+  padding-bottom: 10px;
+}
+
+.planDetails .dossierArticlePlanConvertedInstructions,
+.planDetails .dossierArticlePlanConvertedSources {
+  margin-right: 10px;
+  margin-left: 10px;
+}
+
+.generationDetails {
+  width: 100%;
+  margin-top: 4px;
+  background: #ffffff;
+}
+
+.generationDetails > span {
+  display: block;
+  padding: 0 12px 12px;
+}
+
+.technicalArea {
+  margin-top: 18px;
+}
+
+.technicalArea > summary {
+  padding: 16px 18px;
+  font-size: 14px;
+}
+
+.technicalAreaContent {
+  display: grid;
+  gap: 18px;
+  padding: 0 16px 16px;
+}
+
+.technicalAreaContent > .section {
+  margin-top: 0;
+  box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  .workflowSteps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dossierWorkflowHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dossierWorkflowHeader > a {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .workflowSteps {
+    grid-template-columns: 1fr;
+  }
+
+  .dossierWorkflow {
+    padding: 16px;
+  }
+
+  .dossierWorkflowHeader > a {
+    width: 100%;
+  }
+}
+
+
+.planAlternativeAction {
+  margin-top: 14px;
+  border: 1px dashed #94a3b8;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.planAlternativeAction summary {
+  cursor: pointer;
+  padding: 11px 13px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.planAlternativeAction a {
+  display: inline-flex;
+  margin: 0 12px 12px;
+  min-height: 36px;
+  align-items: center;
+  border-radius: 7px;
+  padding: 0 12px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.compositionJourney {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.8fr);
+  gap: 22px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: #eff6ff;
+}
+
+.compositionJourney h2,
+.compositionJourney p {
+  margin: 0;
+}
+
+.compositionJourney h2 {
+  margin-top: 5px;
+  font-size: 1.35rem;
+}
+
+.compositionJourney > div > p:last-child {
+  margin-top: 8px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.compositionJourney ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.compositionJourney li {
+  display: grid;
+  min-height: 78px;
+  align-content: center;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.compositionJourney li span,
+.compositionStepHeader > span,
+.compositionGenerate > div > span {
+  display: inline-flex;
+  width: 27px;
+  height: 27px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.compositionJourney li strong {
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.compositionError {
+  display: flex;
+  gap: 8px 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff1f2;
+  color: #991b1b;
+}
+
+.compositionError strong {
+  font-weight: 900;
+}
+
+.compositionError a {
+  margin-left: auto;
+  color: #7f1d1d;
+  font-weight: 900;
+}
+
+.compositionForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+  gap: 18px;
+  margin-top: 18px;
+  align-items: start;
+}
+
+.compositionSources,
+.compositionInstructions {
+  overflow: hidden;
+  border: 1px solid #dce3eb;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(12, 22, 34, 0.07);
+}
+
+.compositionInstructions {
+  position: sticky;
+  top: 18px;
+  padding-bottom: 20px;
+}
+
+.compositionStepHeader {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 20px 22px;
+  border-bottom: 1px solid #e6ebf1;
+}
+
+.compositionStepHeader h2,
+.compositionStepHeader p {
+  margin: 0;
+}
+
+.compositionStepHeader h2 {
+  margin-top: 4px;
+  font-size: 1.28rem;
+}
+
+.compositionStepHeader > div > p:last-child {
+  margin-top: 7px;
+  color: #64748b;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.compositionSourceSummary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 18px;
+  border-bottom: 1px solid #e6ebf1;
+  color: #475569;
+  font-size: 0.78rem;
+}
+
+.compositionSourceList {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 14px;
+  list-style: none;
+}
+
+.compositionSourceList > li {
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.compositionSourceChoice {
+  display: grid;
+  gap: 7px;
+  padding: 15px;
+}
+
+.compositionSourceActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.compositionSourceActions label {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  color: #0f172a;
+  font-size: 0.76rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.compositionSourceActions input {
+  width: 18px;
+  height: 18px;
+}
+
+.compositionSourceActions a {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  padding: 6px 10px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.compositionSourceChoice small {
+  color: #64748b;
+  font-size: 0.69rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.compositionSourceChoice > strong {
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.compositionSourceChoice time {
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.compositionSourceChoice em {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.compositionSourceList > li:has(input:checked) {
+  background: #eff6ff;
+  box-shadow: inset 4px 0 0 #2563eb;
+}
+
+.compositionSourceActions label:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.compositionSourceControls {
+  display: none;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(170px, 1fr);
+  gap: 10px;
+  align-items: end;
+  padding: 0 15px 15px;
+}
+
+.compositionSourceList > li:has(input:checked) .compositionSourceControls {
+  display: grid;
+}
+
+.compositionSourceControls label,
+.compositionInstructions > label,
+.compositionOptionalGrid label,
+.compositionFormatGrid label {
+  display: grid;
+  gap: 6px;
+}
+
+.compositionSourceControls label > span,
+.compositionInstructions > label > span,
+.compositionOptionalGrid label > span,
+.compositionFormatGrid label > span {
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.compositionSourceControls input,
+.compositionSourceControls select,
+.compositionInstructions input,
+.compositionInstructions textarea,
+.compositionInstructions select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+}
+
+.compositionSourceControls input,
+.compositionSourceControls select,
+.compositionInstructions input,
+.compositionInstructions select {
+  min-height: 40px;
+  padding: 8px 10px;
+}
+
+.compositionInstructions textarea {
+  resize: vertical;
+  padding: 10px 11px;
+  line-height: 1.5;
+}
+
+.compositionInstructions > label,
+.compositionOptionalGrid,
+.compositionFormatGrid,
+.compositionGenerate {
+  margin-right: 20px;
+  margin-left: 20px;
+}
+
+.compositionInstructions > label {
+  margin-top: 16px;
+}
+
+.compositionOptionalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.compositionFormatGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.compositionGenerate {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  background: #f0fdf4;
+}
+
+.compositionGenerate > div {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+}
+
+.compositionGenerate p {
+  margin: 0;
+  color: #166534;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.compositionGenerate button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 17px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.advancedWorkspace {
+  margin-top: 18px;
+  border: 1px solid #dbe2ea;
+  border-radius: 12px;
+  background: #eef2f6;
+  overflow: hidden;
+}
+
+.advancedWorkspace > summary {
+  cursor: pointer;
+  padding: 17px 19px;
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.advancedWorkspaceContent {
+  display: grid;
+  gap: 16px;
+  padding: 0 16px 16px;
+}
+
+.advancedWorkspaceContent > .section,
+.advancedWorkspaceContent > .technicalArea {
+  margin-top: 0;
+  box-shadow: none;
+}
+
+@media (max-width: 1050px) {
+  .compositionForm,
+  .compositionJourney {
+    grid-template-columns: 1fr;
+  }
+
+  .compositionInstructions {
+    position: static;
+  }
+
+  .compositionJourney ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .compositionJourney ol,
+  .compositionOptionalGrid,
+  .compositionFormatGrid,
+  .compositionSourceControls {
+    grid-template-columns: 1fr;
+  }
+
+  .compositionSourceControls {
+    padding-left: 15px;
+  }
+
+  .compositionGenerate {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .compositionGenerate button {
+    width: 100%;
+  }
+}
+
+.topicSearch {
+  margin-top: 18px;
+  overflow: hidden;
+  border: 1px solid #dce3eb;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(12, 22, 34, 0.07);
+}
+
+.topicSearchForm {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.7fr) minmax(170px, 0.55fr) minmax(160px, 0.55fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 18px 20px 12px;
+}
+
+.topicSearchForm label {
+  display: grid;
+  gap: 6px;
+}
+
+.topicSearchForm label > span {
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.topicSearchForm input,
+.topicSearchForm select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px 11px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+}
+
+.topicSearchForm button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 18px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.topicSearchNote {
+  margin: 0;
+  padding: 0 20px 18px;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+
+.topicSearchFeedback {
+  display: grid;
+  gap: 5px;
+  margin-top: 18px;
+  padding: 15px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.topicSearchFeedback strong {
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.topicSearchFeedback span {
+  color: #475569;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.topicSearchCounts {
+  display: flex;
+  gap: 5px 16px;
+  flex-wrap: wrap;
+  margin: 2px 0 0;
+  padding: 0;
+  color: #475569;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  list-style: none;
+}
+
+.topicSearchCounts li::before {
+  content: "•";
+  margin-right: 6px;
+}
+
+.topicSearchTechnicalDetails {
+  margin-top: 6px;
+  color: #475569;
+  font-size: 0.76rem;
+}
+
+.topicSearchTechnicalDetails summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.topicSearchTechnicalDetails ul {
+  display: grid;
+  gap: 3px;
+  margin: 8px 0 0;
+  padding-left: 20px;
+  line-height: 1.45;
+}
+
+.topicSearchFeedbackSuccess {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.topicSearchFeedbackSuccess strong,
+.topicSearchFeedbackSuccess span,
+.topicSearchFeedbackSuccess .topicSearchCounts {
+  color: #166534;
+}
+
+.topicSearchFeedbackWarning {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.topicSearchFeedbackWarning strong,
+.topicSearchFeedbackWarning span,
+.topicSearchFeedbackWarning .topicSearchCounts {
+  color: #92400e;
+}
+
+.topicSearchFeedbackError {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.topicSearchFeedbackError strong,
+.topicSearchFeedbackError span {
+  color: #991b1b;
+}
+
+.topicSearchState {
+  display: grid;
+  gap: 5px;
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.topicSearchState strong {
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.topicSearchState span {
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.compositionSourceChoice p {
+  margin: 0;
+  color: #475569;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.compositionSearchLimit {
+  margin: 0;
+  padding: 0 18px 16px;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 1050px) {
+  .topicSearchForm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .topicSearchQuery,
+  .topicSearchForm button {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .topicSearchForm {
+    grid-template-columns: 1fr;
+  }
+
+  .topicSearchQuery,
+  .topicSearchForm button {
+    grid-column: auto;
   }
 }

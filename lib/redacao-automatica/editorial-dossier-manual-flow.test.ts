@@ -14,15 +14,21 @@ const dossierService = "lib/redacao-automatica/editorial-dossier-service.ts";
 const dossierInternal = "lib/redacao-automatica/editorial-dossier-service-internal.ts";
 const newsroomRepository = "lib/redacao-automatica/newsroom-article-repository.ts";
 
-test("a Caixa de entrada permite selecionar várias fontes e criar um Dossiê", () => {
+test("a pesquisa editorial permite encontrar e selecionar várias fontes para uma composição", () => {
   const source = read(newsroomPage);
 
-  assert.match(source, /id="create-editorial-dossier"/);
+  assert.match(source, /name="topic"/);
+  assert.match(source, /Pesquisar nas fontes/);
+  assert.match(source, /searchNewsroomArticles/);
+  assert.match(source, /topic-search/);
+  assert.match(source, /Ver notícias relacionadas/);
+  assert.match(source, /id="create-editorial-composition"/);
   assert.match(source, /name="newsroom_article_id"/);
-  assert.match(source, /form="create-editorial-dossier"/);
   assert.match(source, /name={`source_priority_\$\{article\.id\}`}/);
   assert.match(source, /name={`source_role_\$\{article\.id\}`}/);
-  assert.match(source, /Criar Dossiê com as fontes selecionadas/);
+  assert.match(source, /name="combine_instructions"/);
+  assert.match(source, /name="highlight_instructions"/);
+  assert.match(source, /Gerar primeira versão/);
   assert.match(source, /listEditorialDossiers/);
 });
 
@@ -72,6 +78,8 @@ test("a seleção da Caixa de entrada conhece o snapshot mais recente, mas a cri
   const serviceSource = read(dossierService);
 
   assert.match(newsroomSource, /latestSnapshotsByArticle/);
+  assert.match(newsroomSource, /searchNewsroomArticles/);
+  assert.match(newsroomSource, /scoreNewsroomTopicCandidate/);
   assert.match(newsroomSource, /getNewsroomDossierSourceCandidates/);
   assert.match(serviceSource, /getNewsroomDossierSourceCandidates/);
   assert.match(serviceSource, /insertSources/);

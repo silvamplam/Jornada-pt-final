@@ -21,6 +21,9 @@ import type {
   EditorialDossierOutputMode,
   EditorialDossierSourceRole,
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
+import {
+  getEditorialDossierById,
+} from "@/lib/redacao-automatica/editorial-dossier-repository";
 import type { EditorialDossierArticlePlanStatus } from "@/lib/redacao-automatica/editorial-dossier-article-plan-repository";
 
 function cleanText(value: FormDataEntryValue | null): string {
@@ -134,6 +137,29 @@ function articlePlanSourceSelections(
   });
 }
 
+
+function compositionInstructions(formData: FormData): string {
+  const combine = cleanText(formData.get("combine_instructions"));
+  const highlights = cleanText(formData.get("highlight_instructions"));
+  const avoid = cleanText(formData.get("avoid_instructions"));
+
+  return [
+    combine ? `Como combinar as fontes:\n${combine}` : "",
+    highlights ? `Assuntos a destacar e tratamento pretendido:\n${highlights}` : "",
+    avoid ? `Informação a evitar:\n${avoid}` : "",
+  ].filter(Boolean).join("\n\n");
+}
+
+function compositionErrorRedirect(
+  code: string,
+  dossierId?: string,
+) {
+  return redirectTo("/admin/editorial/redacao-automatica", {
+    composition_error: code,
+    ...(dossierId ? { composition_dossier_id: dossierId } : {}),
+  });
+}
+
 function dossierDetailPath(dossierId: string): string {
   return `/admin/editorial/redacao-automatica/dossies/${encodeURIComponent(dossierId)}`;
 }
@@ -141,6 +167,90 @@ function dossierDetailPath(dossierId: string): string {
 export async function POST(request: Request) {
   const formData = await request.formData();
   const action = cleanText(formData.get("action"));
+
+
+  if (action === "compose") {
+    const workingTitle = cleanText(formData.get("working_title"));
+    const combineInstructions = cleanText(formData.get("combine_instructions"));
+    const highlightInstructions = cleanText(formData.get("highlight_instructions"));
+    const instructions = compositionInstructions(formData);
+    const selections = createSelections(formData);
+
+    if (
+      !workingTitle
+      || !combineInstructions
+      || !highlightInstructions
+      || selections.length < 1
+    ) {
+      return compositionErrorRedirect("input_invalid");
+    }
+
+    const dossierResult = await createEditorialDossier({
+      title: workingTitle,
+      editorialInstructions: instructions,
+      contextInstructions: cleanText(formData.get("context_instructions")),
+      sources: selections,
+    });
+
+    if (!dossierResult.ok) {
+      return compositionErrorRedirect(dossierResult.error.code);
+    }
+
+    const dossierId = dossierResult.value.dossier.id;
+    const dossierReadResult = await getEditorialDossierById(dossierId);
+
+    if (!dossierReadResult.ok || !dossierReadResult.value) {
+      return compositionErrorRedirect("composition_state_unavailable", dossierId);
+    }
+
+    const planSources = dossierReadResult.value.sources
+      .filter((source) => source.included)
+      .slice()
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .map((source, index) => ({
+        dossierSourceId: source.id,
+        priority: index + 1,
+      }));
+
+    const planResult = await saveEditorialDossierArticlePlan({
+      dossierId,
+      articlePlanId: null,
+      workingTitle,
+      status: "ready",
+      priority: 1,
+      articleKind: articleKind(cleanText(formData.get("article_kind"))),
+      lengthMode: lengthMode(cleanText(formData.get("length_mode"))),
+      editorialInstructions: instructions,
+      sources: planSources,
+    });
+
+    if (!planResult.ok) {
+      return compositionErrorRedirect(planResult.error.code, dossierId);
+    }
+
+    const draftResult = await createEditorialDossierArticlePlanDraft(
+      dossierId,
+      planResult.value.articlePlanId,
+    );
+
+    if (!draftResult.ok) {
+      return compositionErrorRedirect(draftResult.error.code, dossierId);
+    }
+
+    const generationResult = await generateEditorialDossierArticlePlanDraftBody(
+      dossierId,
+      planResult.value.articlePlanId,
+    );
+
+    if (!generationResult.ok) {
+      return compositionErrorRedirect(generationResult.error.code, dossierId);
+    }
+
+    return redirectTo("/admin/editorial/artigos", {
+      articleId: generationResult.value.editorialArticleId,
+      dossier_plan_generation: generationResult.value.action,
+    });
+  }
 
   if (action === "create") {
     const result = await createEditorialDossier({

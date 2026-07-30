@@ -49,6 +49,10 @@ function isHtmlContentType(contentType: string | null): boolean {
   return contentType?.toLowerCase().includes("text/html") ?? false;
 }
 
+function normalizeAnchorText(value: string): string {
+  return value.replace(/\u00a0/g, " ").trim().replace(/\s+/g, " ");
+}
+
 function resolveUrlForInspection(href: string, baseUrl: string): URL | null {
   try {
     const url = new URL(href, baseUrl);
@@ -151,11 +155,16 @@ export const recordAdapter: SourceAdapter = {
           return;
         }
 
+        const anchorText = normalizeAnchorText($(element).text())
+          || normalizeAnchorText($(element).attr("aria-label") ?? "")
+          || normalizeAnchorText($(element).attr("title") ?? "");
+
         links.push({
           originalUrl: href,
           sourceMetadata: {
             discoveryMethod: "anchor",
             listingPath: listingUrl.pathname,
+            ...(anchorText ? { anchorText } : {}),
           },
         });
       });

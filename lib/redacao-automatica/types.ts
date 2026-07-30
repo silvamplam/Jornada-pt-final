@@ -38,6 +38,19 @@ export type JsonObject = Readonly<{
   [key: string]: JsonValue;
 }>;
 
+export type PublishedAtPrecision = "date" | "instant";
+
+export function publishedAtPrecisionFromSourceMetadata(
+  value: unknown,
+): PublishedAtPrecision | null {
+  if (!value || Array.isArray(value) || typeof value !== "object") {
+    return null;
+  }
+
+  const precision = (value as Record<string, unknown>).publishedAtPrecision;
+  return precision === "date" || precision === "instant" ? precision : null;
+}
+
 export type LoadedPage = Readonly<{
   requestedUrl: string;
   finalUrl: string;
@@ -136,6 +149,7 @@ export type CollectionError = Readonly<{
   sourceCode: string | null;
   url: string | null;
   recoverable: boolean;
+  statusCode?: number;
   detail?: string | null;
 }>;
 

@@ -396,6 +396,7 @@ test("converte timeout em erro publico controlado", async () => {
   );
 
   assert.equal(error.recoverable, true);
+  assert.equal(Object.hasOwn(error, "statusCode"), false);
   assert.match(error.detail ?? "", /timeout/i);
 });
 
@@ -409,8 +410,23 @@ test("rejeita resposta HTTP incompatível com a policy", async () => {
   );
 
   assert.equal(error.recoverable, true);
+  assert.equal(error.statusCode, 503);
   assert.doesNotMatch(JSON.stringify(error), /conteudo nao devolvido/);
 });
+
+for (const statusCode of [403, 404] as const) {
+  test(`preserva estruturalmente o status HTTP ${statusCode}`, async () => {
+    const harness = createHarness({
+      responses: [htmlResponse("conteudo nao devolvido", { status: statusCode })],
+    });
+    const error = expectError(
+      await harness.loader.load(request()),
+      "http_error",
+    );
+
+    assert.equal(error.statusCode, statusCode);
+  });
+}
 
 test("rejeita Content-Type nao autorizado", async () => {
   const harness = createHarness({
@@ -420,10 +436,11 @@ test("rejeita Content-Type nao autorizado", async () => {
       }),
     ],
   });
-  expectError(
+  const error = expectError(
     await harness.loader.load(request()),
     "unsupported_content",
   );
+  assert.equal(Object.hasOwn(error, "statusCode"), false);
 });
 
 test("rejeita Content-Length acima do limite antes de ler o body", async () => {
@@ -498,10 +515,11 @@ test("bloqueia redirect para host nao autorizado antes do segundo pedido", async
   const harness = createHarness({
     responses: [redirectResponse("https://blocked.example/final")],
   });
-  expectError(
+  const error = expectError(
     await harness.loader.load(request()),
     "redirect_blocked",
   );
+  assert.equal(Object.hasOwn(error, "statusCode"), false);
   assert.equal(harness.fetchCalls.length, 1);
 });
 

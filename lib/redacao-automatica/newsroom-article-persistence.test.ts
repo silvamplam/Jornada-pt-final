@@ -245,6 +245,26 @@ test("usa o nome exato da RPC e mapeia todos os parâmetros tipados", async () =
   });
 });
 
+test("encaminha publishedAt nulo para a RPC sem inventar uma data", async () => {
+  const transport = new FakeNewsroomTransport();
+  const input = validInput();
+  const inputWithoutPublicationDate: PersistNewsroomArticleInput = {
+    ...input,
+    article: {
+      ...input.article,
+      publishedAt: null,
+    },
+  };
+
+  const result = await createNewsroomArticlePersistence(transport)(
+    inputWithoutPublicationDate,
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(transport.calls.length, 1);
+  assert.equal(transport.calls[0]?.argumentsValue.p_published_at, null);
+});
+
 test("mapeia source_not_found deliberado devolvido pela RPC", async () => {
   const transport = new FakeNewsroomTransport();
   transport.error = rpcError("source_not_found", "validation");
@@ -402,4 +422,103 @@ test("a fronteira pública continua server-only e sem dependências client", asy
       );
     }
   }
+});
+
+test("a sequência SQL versionada preserva published_at e a identidade canónica", async () => {
+  const stepsUrl = new URL("../../supabase/steps/", import.meta.url);
+  const applySql = await readFile(
+    new URL(
+      "27-redacao-automatica-newsroom-published-at-idempotencia-apply.sql",
+      stepsUrl,
+    ),
+    "utf8",
+  );
+  const rpcDefinition = applySql.slice(
+    applySql.indexOf(
+      "create or replace function public.newsroom_persist_article_snapshot",
+    ),
+  );
+
+  assert.match(
+    rpcDefinition,
+    /v_effective_published_at\s*:=\s*case[\s\S]*coalesce\(p_published_at,\s*v_article\.published_at\)/,
+  );
+  assert.match(
+    rpcDefinition,
+    /published_at\s*=\s*v_effective_published_at/,
+  );
+  assert.match(
+    rpcDefinition,
+    /where article\.source_code = p_source_code[\s\S]*article\.normalized_url = p_normalized_url/,
+  );
+  assert.match(
+    rpcDefinition,
+    /original_url\s*=\s*v_effective_original_url/,
+  );
+  assert.doesNotMatch(
+    rpcDefinition,
+    /if\s+v_article\.original_url is distinct from p_original_url/,
+  );
+  assert.match(
+    rpcDefinition,
+    /v_article\.external_id is not null[\s\S]*p_external_id is not null[\s\S]*v_article\.external_id is distinct from p_external_id/,
+  );
+});
+
+test("a sequência SQL reutiliza snapshot equivalente e preserva conflitos verdadeiros", async () => {
+  const applySql = await readFile(
+    new URL(
+      "../../supabase/steps/27-redacao-automatica-newsroom-published-at-idempotencia-apply.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const rpcDefinition = applySql.slice(
+    applySql.indexOf(
+      "create or replace function public.newsroom_persist_article_snapshot",
+    ),
+  );
+
+  assert.match(
+    rpcDefinition,
+    /where snapshot\.article_id = v_article\.id[\s\S]*snapshot\.content_hash = p_content_hash/,
+  );
+  assert.match(
+    rpcDefinition,
+    /if v_snapshot\.body is distinct from p_body then[\s\S]*persistence_conflict/,
+  );
+  assert.doesNotMatch(
+    rpcDefinition,
+    /v_snapshot\.source_metadata is distinct from p_source_metadata/,
+  );
+  assert.doesNotMatch(
+    rpcDefinition,
+    /update\s+(?:public\.)?newsroom_article_snapshots/i,
+  );
+  assert.doesNotMatch(
+    rpcDefinition,
+    /delete\s+from\s+(?:public\.)?newsroom_article_snapshots/i,
+  );
+  assert.match(rpcDefinition, /v_snapshot_action\s*:=\s*'reused'/);
+});
+
+test("o smoke SQL cobre idempotência e termina sempre com ROLLBACK", async () => {
+  const smokeSql = await readFile(
+    new URL(
+      "../../supabase/steps/29-redacao-automatica-newsroom-published-at-idempotencia-smoke-rollback.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  assert.match(smokeSql, /^\s*--[\s\S]*\bbegin;/i);
+  assert.match(smokeSql, /smoke_identical_reuse_unexpected/);
+  assert.match(smokeSql, /smoke_canonical_date_fill_unexpected/);
+  assert.match(smokeSql, /smoke_valid_date_was_erased/);
+  assert.match(smokeSql, /smoke_newer_valid_date_not_applied/);
+  assert.match(smokeSql, /smoke_technical_metadata_reuse_unexpected/);
+  assert.match(smokeSql, /smoke_external_id_conflict_not_rejected/);
+  assert.match(smokeSql, /smoke_body_conflict_not_rejected/);
+  assert.match(smokeSql, /v_article_count <> 1 or v_snapshot_count <> 1/);
+  assert.match(smokeSql, /\brollback;[\s\S]*'writes_persisted', false\s*\)[\s\S]*;\s*$/i);
 });

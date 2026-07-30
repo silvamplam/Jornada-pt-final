@@ -24,6 +24,10 @@ const RECORD_MINIMAL_URL =
   "https://www.record.pt/futebol/futebol-nacional/liga-betclic/porto/detalhe/artigo-minimo";
 const RECORD_RESTRICTED_URL =
   "https://www.record.pt/futebol/futebol-nacional/liga-betclic/sporting/detalhe/artigo-restrito";
+const RECORD_MAINVIDEO_URL =
+  "https://www.record.pt/futebol/futebol-nacional/detalhe/artigo-linear-com-video-incidental";
+const RECORD_DATE_ONLY_URL =
+  "https://www.record.pt/futebol/futebol-nacional/detalhe/artigo-data-calendario";
 const ABOLA_FULL_URL =
   "https://www.abola.pt/noticias/artigo-sintetico-1234567890123456789";
 const ABOLA_MINIMAL_URL =
@@ -244,6 +248,7 @@ test("Record extrai integralmente uma fixture completa e preserva proveniência"
   assert.equal(metadata.summarySource, "json_ld");
   assert.equal(metadata.authorSource, "dom");
   assert.equal(metadata.publishedAtSource, "json_ld");
+  assert.equal(metadata.publishedAtPrecision, "instant");
   assert.equal(metadata.modifiedAtSource, "json_ld");
   assert.equal(metadata.imageSource, "json_ld");
   assert.equal(metadata.externalIdSource, "social_share");
@@ -272,10 +277,249 @@ test("Record aceita a fixture mínima com campos opcionais ausentes", async () =
   assert.equal(article.summary, null);
   assert.equal(article.author, null);
   assert.equal(article.publishedAt, null);
+  assert.equal(article.sourceMetadata.publishedAtPrecision, null);
   assert.equal(article.modifiedAt, null);
   assert.equal(article.imageUrl, null);
   assert.equal(article.externalId, null);
   assert.ok(article.body.length > 0);
+});
+
+test("Record aceita artigo linear completo com .mainVideo incidental", async () => {
+  const html = await readFixture(
+    "record/article-valid-mainvideo-incidental.html",
+  );
+  const article = expectSuccess(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_MAINVIDEO_URL),
+  );
+
+  assert.equal(article.normalizedUrl, RECORD_MAINVIDEO_URL);
+});
+
+test("Record extrai título de artigo linear com .mainVideo incidental", async () => {
+  const html = await readFixture(
+    "record/article-valid-mainvideo-incidental.html",
+  );
+  const article = expectSuccess(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_MAINVIDEO_URL),
+  );
+
+  assert.equal(article.title, "Artigo linear sintético com vídeo incidental");
+});
+
+test("Record extrai corpo de artigo linear com .mainVideo incidental", async () => {
+  const html = await readFixture(
+    "record/article-valid-mainvideo-incidental.html",
+  );
+  const article = expectSuccess(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_MAINVIDEO_URL),
+  );
+
+  assert.equal(article.body.length, 3);
+  assert.match(article.body[0]?.text ?? "", /notícia linear completa/i);
+  assert.match(article.body[2]?.text ?? "", /informação totalmente fictícia/i);
+});
+
+test("Record extrai datePublished do JSON-LD sem meta article:published_time", async () => {
+  const html = await readFixture(
+    "record/article-valid-mainvideo-incidental.html",
+  );
+  assert.equal(html.includes("article:published_time"), false);
+
+  const article = expectSuccess(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_MAINVIDEO_URL),
+  );
+
+  assert.equal(article.publishedAt, "2026-07-29T09:30:00.000Z");
+  assert.equal(article.sourceMetadata.publishedAtSource, "json_ld");
+  assert.equal(article.sourceMetadata.publishedAtPrecision, "instant");
+});
+
+test("Record normaliza datePublished de calendário com precisão date", async () => {
+  const html = await readFixture("record/article-valid-date-only.html");
+  assert.equal(html.includes("article:published_time"), false);
+
+  const article = expectSuccess(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_DATE_ONLY_URL),
+  );
+
+  assert.equal(article.publishedAt, "2026-07-29T00:00:00.000Z");
+  assert.equal(article.sourceMetadata.publishedAtSource, "json_ld");
+  assert.equal(article.sourceMetadata.publishedAtPrecision, "date");
+});
+
+test("Record aceita uma data de calendário bissexta válida", async () => {
+  const html = replaceRequired(
+    await readFixture("record/article-valid-date-only.html"),
+    '"datePublished": "2026-07-29"',
+    '"datePublished": "2024-02-29"',
+  );
+
+  const article = expectSuccess(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_DATE_ONLY_URL),
+  );
+
+  assert.equal(article.publishedAt, "2024-02-29T00:00:00.000Z");
+  assert.equal(article.sourceMetadata.publishedAtPrecision, "date");
+});
+
+for (const invalidDate of [
+  "2026-02-29",
+  "2026-13-01",
+  "2026-00-10",
+  "2026-07-32",
+] as const) {
+  test(`Record rejeita a data de calendário impossível ${invalidDate}`, async () => {
+    const html = replaceRequired(
+      await readFixture("record/article-valid-date-only.html"),
+      '"datePublished": "2026-07-29"',
+      `"datePublished": "${invalidDate}"`,
+    );
+
+    const article = expectSuccess(
+      extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_DATE_ONLY_URL),
+    );
+
+    assert.equal(article.publishedAt, null);
+    assert.equal(article.sourceMetadata.publishedAtSource, null);
+    assert.equal(article.sourceMetadata.publishedAtPrecision, null);
+  });
+}
+
+for (const invalidFormat of [
+  "26-07-29",
+  "2026-7-9",
+  "29/07/2026",
+  "texto livre",
+] as const) {
+  test(`Record rejeita o formato de data permissivo ${invalidFormat}`, async () => {
+    const html = replaceRequired(
+      await readFixture("record/article-valid-date-only.html"),
+      '"datePublished": "2026-07-29"',
+      `"datePublished": "${invalidFormat}"`,
+    );
+
+    const article = expectSuccess(
+      extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_DATE_ONLY_URL),
+    );
+
+    assert.equal(article.publishedAt, null);
+    assert.equal(article.sourceMetadata.publishedAtSource, null);
+    assert.equal(article.sourceMetadata.publishedAtPrecision, null);
+  });
+}
+
+test("Record mantém article:published_time como fallback com precisão instant", async () => {
+  const html = replaceRequired(
+    await readFixture("record/article-valid-full.html"),
+    '"datePublished": "2026-07-20T09:00:00+01:00"',
+    '"datePublished": "data-inválida"',
+  );
+
+  const article = expectSuccess(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_FULL_URL),
+  );
+
+  assert.equal(article.publishedAt, "2026-07-20T08:00:00.000Z");
+  assert.equal(article.sourceMetadata.publishedAtSource, "meta");
+  assert.equal(article.sourceMetadata.publishedAtPrecision, "instant");
+});
+
+test("Record continua a rejeitar página vídeo-only sem corpo editorial", async () => {
+  const html = replaceRequired(
+    await readFixture("record/article-valid-mainvideo-incidental.html"),
+    '<article class="main_article">',
+    '<section class="video_only">',
+  ).replace("</article>", "</section>");
+
+  expectError(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_MAINVIDEO_URL),
+    {
+      code: "parse_failed",
+      sourceCode: "record",
+      recoverable: true,
+      detail: /artigo principal/i,
+    },
+  );
+});
+
+test("Record continua a rejeitar timeline editorial", async () => {
+  const html = replaceRequired(
+    await readFixture("record/article-valid-mainvideo-incidental.html"),
+    "<body>",
+    '<body><div class="timeline-editorial"></div>',
+  );
+
+  expectError(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_MAINVIDEO_URL),
+    {
+      code: "unsupported_content",
+      sourceCode: "record",
+      recoverable: false,
+      detail: /formato editorial especial/i,
+    },
+  );
+});
+
+test("Record continua a rejeitar cartão de timeline editorial", async () => {
+  const html = replaceRequired(
+    await readFixture("record/article-valid-mainvideo-incidental.html"),
+    "<body>",
+    '<body><div class="timeline-editorial__card"></div>',
+  );
+
+  expectError(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_MAINVIDEO_URL),
+    {
+      code: "unsupported_content",
+      sourceCode: "record",
+      recoverable: false,
+      detail: /formato editorial especial/i,
+    },
+  );
+});
+
+test("Record continua a rejeitar #jed_resultado", async () => {
+  const html = replaceRequired(
+    await readFixture("record/article-valid-mainvideo-incidental.html"),
+    "<body>",
+    '<body><div id="jed_resultado"></div>',
+  );
+
+  expectError(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_MAINVIDEO_URL),
+    {
+      code: "unsupported_content",
+      sourceCode: "record",
+      recoverable: false,
+      detail: /formato editorial especial/i,
+    },
+  );
+});
+
+test("Record continua a rejeitar NewsArticle ambíguo", async () => {
+  const html = replaceRequired(
+    await readFixture("record/article-valid-mainvideo-incidental.html"),
+    "</head>",
+    `    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "NewsArticle",
+        "url": "${RECORD_MAINVIDEO_URL}",
+        "headline": "Segundo artigo sintético incompatível"
+      }
+    </script>
+  </head>`,
+  );
+
+  expectError(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_MAINVIDEO_URL),
+    {
+      code: "parse_failed",
+      sourceCode: "record",
+      recoverable: true,
+      detail: /newsarticle inequivoco/i,
+    },
+  );
 });
 
 test("Record exige título editorial", async () => {

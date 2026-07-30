@@ -1,3 +1,9 @@
+import {
+  articleEditorialWorkflowStep,
+  editorialWorkflowSteps,
+  editorialWorkflowStepState,
+} from "@/lib/redacao-automatica/editorial-workflow-ux";
+
 export type EditorialArticle = {
   id: string;
   slug: string | null;
@@ -431,7 +437,26 @@ export function ArticleEditorForm({
   const publicHref = publicArticleHref(article?.slug);
   const isEdit = mode === "edit";
   const currentStatus = firstText(article?.status) || "draft";
+  const workflowStep = articleEditorialWorkflowStep({
+    status: currentStatus,
+    body: article?.body ?? null,
+  });
+  const workflowTitle = workflowStep === "publication"
+    ? "Artigo publicado"
+    : workflowStep === "review"
+      ? "Revisão humana"
+      : "Preparação do rascunho";
+  const workflowDescription = workflowStep === "publication"
+    ? "O artigo está publicado. As alterações guardadas mantêm o estado público."
+    : workflowStep === "review"
+      ? "Revê integralmente o texto e completa os elementos editoriais antes de publicar."
+      : "Preenche o conteúdo e guarda o rascunho antes de avançar para a publicação.";
   const canOpenPublicArticle = Boolean(publicHref && currentStatus === "published");
+  const saveActionLabel = currentStatus === "published"
+    ? "Guardar alterações"
+    : isEdit
+      ? "Guardar revisão"
+      : "Guardar rascunho";
   const initialMatchday = article?.matchday_id ? matchdays.find((item) => item.id === article.matchday_id) : null;
   const initialSeasonId = article?.season_id ?? initialMatchday?.season_id ?? "";
   const initialSeason = initialSeasonId ? seasons.find((item) => item.id === initialSeasonId) : null;
@@ -450,24 +475,27 @@ export function ArticleEditorForm({
 
       {message ? <p className="article-admin-alert">{message}</p> : null}
 
+      <section className="article-editor-workflow" aria-labelledby="article-editor-workflow-title">
+        <div>
+          <p className="article-editor-workflow-eyebrow">Percurso editorial</p>
+          <h3 id="article-editor-workflow-title">{workflowTitle}</h3>
+          <p>{workflowDescription}</p>
+        </div>
+        <ol>
+          {editorialWorkflowSteps.slice(2).map((step, index) => (
+            <li data-state={editorialWorkflowStepState(workflowStep, step.id)} key={step.id}>
+              <span>{index + 3}</span>
+              <strong>{step.label}</strong>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       <section className="article-admin-section">
         <div className="article-admin-grid">
           <label className="article-admin-full">
             <span>Título</span>
             <input name="title" data-article-title defaultValue={article?.title ?? ""} required />
-          </label>
-
-          <label>
-            <span>Slug</span>
-            <input name="slug" data-article-slug defaultValue={article?.slug ?? ""} placeholder="gerado-a-partir-do-titulo" />
-          </label>
-
-          <label>
-            <span>Estado</span>
-            <select name="status" defaultValue={currentStatus}>
-              <option value="draft">draft</option>
-              <option value="published">published</option>
-            </select>
           </label>
 
           <label>
@@ -478,11 +506,6 @@ export function ArticleEditorForm({
           <label>
             <span>Autor</span>
             <input name="author" defaultValue={article?.author ?? ""} placeholder="Nome do autor" />
-          </label>
-
-          <label>
-            <span>Publicado em</span>
-            <input name="published_at" type="datetime-local" defaultValue={formatDateTimeLocal(article?.published_at)} />
           </label>
 
           <label className="article-admin-full">
@@ -596,21 +619,40 @@ export function ArticleEditorForm({
         </div>
       </section>
 
+      <details className="article-admin-publication-options">
+        <summary>Opções de publicação</summary>
+        <label>
+          <span>Endereço do artigo</span>
+          <input name="slug" data-article-slug defaultValue={article?.slug ?? ""} placeholder="gerado-a-partir-do-titulo" />
+        </label>
+        <label>
+          <span>Data e hora de publicação</span>
+          <input name="published_at" type="datetime-local" defaultValue={formatDateTimeLocal(article?.published_at)} />
+        </label>
+        <p>Se a data ficar vazia, será usada a data e hora em que carregares em “Publicar artigo”.</p>
+      </details>
+
       <div className="article-admin-form-actions">
         <a className="article-admin-secondary" href="/admin/editorial/artigos">
           Voltar à lista
         </a>
         {canOpenPublicArticle && publicHref ? (
           <a className="article-admin-secondary" href={publicHref} target="_blank" rel="noreferrer">
-            Abrir público
+            Abrir artigo publicado
           </a>
-        ) : publicHref ? (
-          <span className="article-admin-secondary article-admin-disabled" aria-disabled="true">
-            Só disponível quando publicado
-          </span>
         ) : null}
-        <button type="submit">{isEdit ? "Guardar alterações" : "Criar artigo"}</button>
+        <button name="editorial_action" type="submit" value="save">{saveActionLabel}</button>
+        {currentStatus !== "published" ? (
+          <button className="article-admin-publish-action" name="editorial_action" type="submit" value="publish">
+            Publicar artigo
+          </button>
+        ) : null}
       </div>
+      {currentStatus !== "published" ? (
+        <p className="article-admin-publication-note">
+          Publicar torna o artigo visível no respetivo endereço público. A publicação nunca é automática.
+        </p>
+      ) : null}
 
       <script dangerouslySetInnerHTML={{ __html: articleFormEnhancer }} />
       <script dangerouslySetInnerHTML={{ __html: articleImageUploadScript }} />
@@ -1133,4 +1175,151 @@ export const editorialArticleAdminStyles = `
       display: grid;
     }
   }
+  .article-editor-workflow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+    gap: 24px;
+    align-items: center;
+    margin: 0 0 20px;
+    padding: 20px;
+    border: 1px solid #bfdbfe;
+    border-radius: 14px;
+    background: #eff6ff;
+  }
+
+  .article-editor-workflow h3,
+  .article-editor-workflow p {
+    margin: 0;
+  }
+
+  .article-editor-workflow h3 {
+    margin-top: 4px;
+    font-size: 22px;
+  }
+
+  .article-editor-workflow > div > p:last-child {
+    margin-top: 8px;
+    color: #475569;
+    line-height: 1.55;
+  }
+
+  .article-editor-workflow-eyebrow {
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .article-editor-workflow ol {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .article-editor-workflow li {
+    display: grid;
+    gap: 6px;
+    min-height: 72px;
+    padding: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+  }
+
+  .article-editor-workflow li span {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    border-radius: 999px;
+    background: #e2e8f0;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .article-editor-workflow li strong {
+    font-size: 12px;
+  }
+
+  .article-editor-workflow li[data-state="complete"] {
+    border-color: #86efac;
+    background: #f0fdf4;
+  }
+
+  .article-editor-workflow li[data-state="current"] {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgb(37 99 235 / 10%);
+  }
+
+  .article-editor-workflow li[data-state="current"] span {
+    background: #2563eb;
+    color: #fff;
+  }
+
+  .article-admin-publication-options {
+    margin: 0 0 18px;
+    padding: 14px 16px;
+    border: 1px solid #dbe2ea;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+
+  .article-admin-publication-options summary {
+    cursor: pointer;
+    font-weight: 900;
+  }
+
+  .article-admin-publication-options label {
+    display: grid;
+    gap: 7px;
+    max-width: 420px;
+    margin-top: 14px;
+  }
+
+  .article-admin-publication-options label span {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .article-admin-publication-options input {
+    min-height: 42px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 0 12px;
+    background: #fff;
+  }
+
+  .article-admin-publication-options p,
+  .article-admin-publication-note {
+    margin: 10px 0 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .article-admin-form-actions .article-admin-publish-action {
+    background: #dc2626;
+  }
+
+  .article-admin-form-actions .article-admin-publish-action:hover {
+    background: #b91c1c;
+  }
+
+  @media (max-width: 900px) {
+    .article-editor-workflow {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .article-editor-workflow ol {
+      grid-template-columns: 1fr;
+    }
+  }
+
 `;

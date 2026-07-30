@@ -48,6 +48,10 @@ function isHtmlContentType(contentType: string | null): boolean {
   return contentType?.toLowerCase().includes("text/html") ?? false;
 }
 
+function normalizeAnchorText(value: string): string {
+  return value.replace(/\u00a0/g, " ").trim().replace(/\s+/g, " ");
+}
+
 function isIgnoredHref(href: string): boolean {
   return !href || href.startsWith("#") || IGNORED_HREF_SCHEMES.test(href);
 }
@@ -172,12 +176,17 @@ export const abolaAdapter: SourceAdapter = {
           return;
         }
 
+        const anchorText = normalizeAnchorText($(element).text())
+          || normalizeAnchorText($(element).attr("aria-label") ?? "")
+          || normalizeAnchorText($(element).attr("title") ?? "");
+
         links.push({
           originalUrl: href,
           sourceMetadata: {
             discoveryMethod: "anchor",
             listingPath,
             articleId,
+            ...(anchorText ? { anchorText } : {}),
           },
         });
       });

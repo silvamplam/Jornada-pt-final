@@ -13,6 +13,11 @@ type ArticleIdRow = {
   id: string;
 };
 
+type ArticleStatusRow = {
+  id: string;
+  status: string | null;
+};
+
 type CreatedArticleRow = {
   id: string;
   slug: string | null;
@@ -61,6 +66,7 @@ type ArticlePayload = {
 };
 
 type ArticleScope = "home" | "competition" | "matchday" | "general";
+type EditorialAction = "save" | "publish";
 
 type LinkRemovalTarget =
   | "matchday_editorials"
@@ -130,6 +136,10 @@ function normalizeSlug(value: string) {
 
 function cleanStatus(value: string | null): "draft" | "published" {
   return value === "published" ? "published" : "draft";
+}
+
+function cleanEditorialAction(value: string | null): EditorialAction {
+  return value === "publish" ? "publish" : "save";
 }
 
 function normalizePublishedAt(value: string | null) {
@@ -252,14 +262,12 @@ async function assertSlugAvailable(slug: string, currentArticleId: string | null
   }
 }
 
-async function assertArticleExists(articleId: string) {
-  const rows = await fetchSupabaseAdminTable<ArticleIdRow>(
-    `editorial_articles?select=id&id=eq.${encodeURIComponent(articleId)}&limit=1`,
+async function readArticleStatus(articleId: string) {
+  const rows = await fetchSupabaseAdminTable<ArticleStatusRow>(
+    `editorial_articles?select=id,status&id=eq.${encodeURIComponent(articleId)}&limit=1`,
   );
 
-  if (!rows[0]) {
-    throw new ArticleAdminError("missing-article");
-  }
+  return rows[0] ?? null;
 }
 
 async function readArticleForDelete(articleId: string) {
@@ -418,7 +426,11 @@ async function articleHasActiveLinks(slug: string) {
   return linkRows.some((rows) => rows.length > 0);
 }
 
-async function buildPayload(formData: FormData, currentArticleId: string | null): Promise<ArticlePayload> {
+async function buildPayload(
+  formData: FormData,
+  currentArticleId: string | null,
+  targetStatus: "draft" | "published",
+): Promise<ArticlePayload> {
   const title = cleanText(formData.get("title"));
   if (!title) {
     throw new ArticleAdminError("missing-title");
@@ -431,10 +443,14 @@ async function buildPayload(formData: FormData, currentArticleId: string | null)
 
   await assertSlugAvailable(slug, currentArticleId);
 
-  const status = cleanStatus(cleanText(formData.get("status")));
+  const body = cleanText(formData.get("body")) ?? "";
+  if (targetStatus === "published" && !body) {
+    throw new ArticleAdminError("missing-body");
+  }
+
   let publishedAt = normalizePublishedAt(cleanText(formData.get("published_at")));
 
-  if (status === "published" && !publishedAt) {
+  if (targetStatus === "published" && !publishedAt) {
     publishedAt = new Date().toISOString();
   }
 
@@ -444,12 +460,12 @@ async function buildPayload(formData: FormData, currentArticleId: string | null)
   return {
     title,
     slug,
-    status,
+    status: targetStatus,
     scope,
     label: cleanText(formData.get("label")),
     author: cleanText(formData.get("author")),
     subtitle: cleanText(formData.get("subtitle")),
-    body: cleanText(formData.get("body")) ?? "",
+    body,
     image_url: cleanText(formData.get("image_url")),
     image_caption: cleanText(formData.get("image_caption")),
     published_at: publishedAt,
@@ -460,7 +476,9 @@ async function buildPayload(formData: FormData, currentArticleId: string | null)
 }
 
 async function createArticle(request: Request, formData: FormData) {
-  const payload = await buildPayload(formData, null);
+  const editorialAction = cleanEditorialAction(cleanText(formData.get("editorial_action")));
+  const targetStatus = editorialAction === "publish" ? "published" : "draft";
+  const payload = await buildPayload(formData, null, targetStatus);
   const rows = await writeSupabaseAdminReturning<CreatedArticleRow>("editorial_articles?select=id,slug", {
     method: "POST",
     body: JSON.stringify(createInsertPayload(payload)),
@@ -472,7 +490,13 @@ async function createArticle(request: Request, formData: FormData) {
   }
 
   const returnTo = safeReturnTo(cleanText(formData.get("return_to"))) ?? "/admin/editorial/artigos";
-  return redirectTo(request, returnTo, { articleId: created.id, created: "1" });
+  return redirectTo(
+    request,
+    returnTo,
+    editorialAction === "publish"
+      ? { articleId: created.id, published: "1" }
+      : { articleId: created.id, created: "1" },
+  );
 }
 
 async function updateArticle(request: Request, formData: FormData) {
@@ -481,9 +505,16 @@ async function updateArticle(request: Request, formData: FormData) {
     throw new ArticleAdminError("missing-article");
   }
 
-  await assertArticleExists(articleId);
+  const currentArticle = await readArticleStatus(articleId);
+  if (!currentArticle) {
+    throw new ArticleAdminError("missing-article");
+  }
 
-  const payload = await buildPayload(formData, articleId);
+  const editorialAction = cleanEditorialAction(cleanText(formData.get("editorial_action")));
+  const targetStatus = editorialAction === "publish"
+    ? "published"
+    : cleanStatus(currentArticle.status);
+  const payload = await buildPayload(formData, articleId, targetStatus);
   await writeSupabaseAdmin(`editorial_articles?id=eq.${encodeURIComponent(articleId)}`, {
     method: "PATCH",
     body: JSON.stringify({
@@ -493,7 +524,13 @@ async function updateArticle(request: Request, formData: FormData) {
   });
 
   const returnTo = safeReturnTo(cleanText(formData.get("return_to"))) ?? `/admin/editorial/artigos?articleId=${encodeURIComponent(articleId)}`;
-  return redirectTo(request, returnTo, { articleId, saved: "1" });
+  return redirectTo(
+    request,
+    returnTo,
+    editorialAction === "publish"
+      ? { articleId, published: "1" }
+      : { articleId, saved: "1" },
+  );
 }
 
 async function deleteArticle(request: Request, formData: FormData) {
