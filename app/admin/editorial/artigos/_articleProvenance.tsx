@@ -3,6 +3,9 @@ import type {
   ProvenanceValueOrigin,
 } from "@/lib/redacao-automatica/editorial-article-provenance-internal";
 import type { PublishedAtPrecision } from "@/lib/redacao-automatica/types";
+import {
+  MANUAL_NEWSROOM_SOURCE_LABEL,
+} from "@/lib/redacao-automatica/manual-newsroom-entry-contract";
 
 import { formatShortDate } from "./_articleForm";
 
@@ -130,6 +133,9 @@ export function ArticleProvenancePanel({
       <ol className="article-provenance-sources">
         {provenance.sources.map((source) => {
           const sourceUrl = safeSourceUrl(source.originalUrl ?? source.normalizedUrl);
+          const sourceLabel = source.isManualEntry
+            ? MANUAL_NEWSROOM_SOURCE_LABEL
+            : source.sourceCode;
           return (
             <li key={source.dossierSourceId}>
               <header>
@@ -142,21 +148,38 @@ export function ArticleProvenancePanel({
                 </p>
               ) : null}
               <dl>
-                <div><dt>Órgão / fonte</dt><dd><ValueWithOrigin value={source.sourceCode} origin={source.sourceCodeOrigin} /></dd></div>
+                <div>
+                  <dt>Órgão / fonte</dt>
+                  <dd>
+                    <ValueWithOrigin value={sourceLabel} origin={source.sourceCodeOrigin} />
+                    {source.isManualEntry ? (
+                      <small className="article-provenance-manual">
+                        Conteúdo introduzido manualmente no arquivo editorial.
+                      </small>
+                    ) : null}
+                  </dd>
+                </div>
                 <div><dt>Título</dt><dd><ValueWithOrigin value={source.title} origin={source.titleOrigin} /></dd></div>
                 <div><dt>Publicado em</dt><dd><ValueWithOrigin value={source.publishedAt ? formatProvenancePublishedAt(source.publishedAt, source.publishedAtPrecision) : null} origin={source.publishedAtOrigin} /></dd></div>
-                <div><dt>URL original</dt><dd><ValueWithOrigin value={source.originalUrl} origin={source.originalUrlOrigin} /></dd></div>
-                {source.normalizedUrl && source.normalizedUrl !== source.originalUrl ? (
+                {!source.isManualEntry ? (
+                  <div><dt>URL original</dt><dd><ValueWithOrigin value={source.originalUrl} origin={source.originalUrlOrigin} /></dd></div>
+                ) : null}
+                {!source.isManualEntry && source.normalizedUrl && source.normalizedUrl !== source.originalUrl ? (
                   <div><dt>URL normalizada</dt><dd><ValueWithOrigin value={source.normalizedUrl} origin={source.normalizedUrlOrigin} /></dd></div>
                 ) : null}
                 <div><dt>ID do artigo-fonte</dt><dd><code>{source.newsroomArticleId}</code></dd></div>
                 <div><dt>ID do snapshot congelado</dt><dd><code>{source.newsroomSnapshotId}</code></dd></div>
                 <div><dt>Hash</dt><dd><code>{source.contentHash ?? "Não disponível"}</code></dd></div>
-                <div><dt>Extraído em</dt><dd>{formatShortDate(source.extractedAt)}</dd></div>
+                <div>
+                  <dt>{source.isManualEntry ? "Introduzido em" : "Extraído em"}</dt>
+                  <dd>{formatShortDate(source.extractedAt)}</dd>
+                </div>
                 {source.editorialNote ? <div><dt>Nota editorial</dt><dd>{source.editorialNote}</dd></div> : null}
               </dl>
               <footer>
-                {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer">Consultar fonte original</a> : null}
+                {!source.isManualEntry && sourceUrl ? (
+                  <a href={sourceUrl} target="_blank" rel="noopener noreferrer">Consultar fonte original</a>
+                ) : null}
                 <a href={`/admin/editorial/redacao-automatica?articleId=${encodeURIComponent(source.newsroomArticleId)}`}>
                   Abrir artigo-fonte no arquivo
                 </a>
@@ -203,6 +226,7 @@ export const articleProvenanceStyles = `
   .article-provenance-sources header, .article-provenance-sources footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
   .article-provenance-sources dl { margin: 12px 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .article-provenance-legacy, .article-provenance-missing { display: block; color: #8a5a13; }
+  .article-provenance-manual { display: block; color: #1f6f8b; }
   .article-provenance-warning { color: #9b2c2c; font-weight: 700; }
   .article-provenance-generation { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (max-width: 900px) {

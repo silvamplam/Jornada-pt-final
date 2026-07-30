@@ -464,6 +464,15 @@
   font-size: 0.74rem;
 }
 
+.manualSourceNote {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid #1f6f8b;
+  background: #f0f9ff;
+  color: #155e75;
+  font-size: 0.82rem;
+}
+
 .draftAction {
   display: grid;
   gap: 11px;
@@ -2641,6 +2650,18 @@
   text-decoration: none;
 }
 
+.manualSourceBadge {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #e0f2fe;
+  color: #075985;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
 .compositionSourceChoice small {
   color: #64748b;
   font-size: 0.69rem;
@@ -2892,7 +2913,7 @@
 
 .topicSearchForm {
   display: grid;
-  grid-template-columns: minmax(280px, 1.7fr) minmax(170px, 0.55fr) minmax(160px, 0.55fr) auto;
+  grid-template-columns: minmax(280px, 1.7fr) minmax(170px, 0.55fr) minmax(160px, 0.55fr);
   gap: 12px;
   align-items: end;
   padding: 18px 20px 12px;
@@ -2933,6 +2954,97 @@
   font-size: 0.82rem;
   font-weight: 900;
   cursor: pointer;
+}
+
+.collectionActions {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 20px 12px;
+}
+
+.collectionActions > button,
+.collectionActions :global(.manual-news-entry-toggle),
+.collectionActions :global(.manual-news-entry-submit button) {
+  min-height: 44px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 18px;
+  background: #0f172a;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.collectionActions :global(.manual-news-entry) {
+  display: contents;
+}
+
+.collectionActions :global(.manual-news-entry-toggle) {
+  border: 1px solid #94a3b8;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.collectionActions :global(#manual-news-entry-panel) {
+  flex: 0 0 100%;
+  padding: 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.collectionActions :global(#manual-news-entry-panel[hidden]) {
+  display: none;
+}
+
+.collectionActions :global(#manual-news-entry-panel form) {
+  display: grid;
+  gap: 14px;
+}
+
+.collectionActions :global(#manual-news-entry-panel label) {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.collectionActions :global(#manual-news-entry-panel input:not([type="hidden"])),
+.collectionActions :global(#manual-news-entry-panel textarea) {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+}
+
+.collectionActions :global(#manual-news-entry-panel textarea) {
+  min-height: 220px;
+  resize: vertical;
+}
+
+.collectionActions :global(.manual-news-entry-submit) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.collectionActions :global(.manual-news-entry-submit button:disabled) {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.collectionActions :global(.manual-news-entry-submit span) {
+  color: #475569;
+  font-size: 0.78rem;
 }
 
 .topicSearchNote {
@@ -3089,5 +3201,10 @@
   .topicSearchQuery,
   .topicSearchForm button {
     grid-column: auto;
+  }
+
+  .collectionActions > button,
+  .collectionActions :global(.manual-news-entry-toggle) {
+    width: 100%;
   }
 }

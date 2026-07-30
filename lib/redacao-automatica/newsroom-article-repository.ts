@@ -20,6 +20,9 @@ import type {
 import {
   publishedAtPrecisionFromSourceMetadata,
 } from "@/lib/redacao-automatica/types";
+import {
+  isManualNewsroomSource,
+} from "@/lib/redacao-automatica/manual-newsroom-entry-contract";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
@@ -45,8 +48,8 @@ const processingStatuses = new Set<ArticleProcessingStatus>([
 type NewsroomArticleRow = {
   id: string;
   source_code: string;
-  original_url: string;
-  normalized_url: string;
+  original_url: string | null;
+  normalized_url: string | null;
   external_id: string | null;
   title: string;
   subtitle: string | null;
@@ -90,7 +93,8 @@ export type NewsroomArticleSummary = Readonly<{
   processingStatus: ArticleProcessingStatus;
   latestSnapshotId: string | null;
   hasUsableSnapshot: boolean;
-  sourceUrl: string;
+  sourceUrl: string | null;
+  isManualEntry: boolean;
 }>;
 
 export type NewsroomArticleSnapshot = Readonly<{
@@ -105,8 +109,8 @@ export type NewsroomArticleSnapshot = Readonly<{
 
 export type NewsroomArticleDetail = NewsroomArticleSummary &
   Readonly<{
-    originalUrl: string;
-    normalizedUrl: string;
+    originalUrl: string | null;
+    normalizedUrl: string | null;
     externalId: string | null;
     subtitle: string | null;
     summary: string | null;
@@ -272,6 +276,10 @@ function articleSummary(
   snapshotRow: NewsroomSnapshotRow | null = null,
 ): NewsroomArticleSummary {
   const body = snapshotRow ? articleBody(snapshotRow.body) : [];
+  const isManualEntry = isManualNewsroomSource(
+    row.source_code,
+    snapshotRow?.source_metadata,
+  );
 
   return {
     id: row.id,
@@ -291,7 +299,19 @@ function articleSummary(
     latestSnapshotId: snapshotRow?.id ?? null,
     hasUsableSnapshot: hasUsableBody(body),
     sourceUrl: row.normalized_url || row.original_url,
+    isManualEntry,
   };
+}
+
+function canonicalArticleIdentity(row: NewsroomArticleRow): string {
+  if (isManualNewsroomSource(row.source_code)) {
+    return `${row.source_code.trim().toLowerCase()}\u0000${row.id}`;
+  }
+
+  return (
+    `${row.source_code.trim().toLowerCase()}\u0000`
+    + (row.normalized_url?.trim() || row.original_url?.trim() || row.id)
+  );
 }
 
 function isJsonValue(value: unknown): value is JsonValue {
@@ -555,10 +575,7 @@ export async function searchNewsroomArticles(
     const canonicalArticles = new Map<string, typeof relevant[number]>();
 
     for (const candidate of relevant) {
-      const canonicalIdentity = (
-        `${candidate.row.source_code.trim().toLowerCase()}\u0000`
-        + candidate.row.normalized_url.trim()
-      );
+      const canonicalIdentity = canonicalArticleIdentity(candidate.row);
       if (canonicalArticles.has(canonicalIdentity)) {
         recordTopicOutcome(diagnostics, candidate.row.id, "canonical_duplicate");
         continue;
@@ -589,8 +606,11 @@ export async function searchNewsroomArticles(
 
 function validRecoveryUrl(
   sourceCode: string,
-  value: string,
+  value: string | null,
 ): value is string {
+  if (!value) {
+    return false;
+  }
   try {
     const url = new URL(value);
     const expectedHost = sourceCode === "record"

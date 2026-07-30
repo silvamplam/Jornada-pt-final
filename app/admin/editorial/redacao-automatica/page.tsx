@@ -35,8 +35,17 @@ import {
   type NewsroomTopicFailureStage,
   type NewsroomTopicSourceTechnicalReport,
 } from "@/lib/redacao-automatica/newsroom-external-topic-search-internal";
+import {
+  MANUAL_NEWSROOM_SOURCE_CODE,
+  MANUAL_NEWSROOM_SOURCE_LABEL,
+} from "@/lib/redacao-automatica/manual-newsroom-entry-contract";
+import {
+  isManualNewsroomSubmissionId,
+  lisbonDateOnly,
+} from "@/lib/redacao-automatica/manual-newsroom-entry-internal";
 
 import CompositionSubmitEnhancer from "./_compositionSubmitEnhancer";
+import ManualNewsEntryForm from "./_manualNewsEntryForm";
 import styles from "./redacao-automatica.module.css";
 
 export const dynamic = "force-dynamic";
@@ -303,12 +312,20 @@ function ArticleDetail({
         <div><dt>Deteção</dt><dd>{formatDate(article.detectedAt)}</dd></div>
       </dl>
 
-      <div className={styles.sourceLinks}>
-        <a href={article.originalUrl} target="_blank" rel="noopener noreferrer">
-          Abrir URL original
-        </a>
-        <span title={article.normalizedUrl}>Origem preservada</span>
-      </div>
+      {article.isManualEntry ? (
+        <p className={styles.manualSourceNote}>
+          Entrada manual — não existe uma ligação externa associada.
+        </p>
+      ) : (
+        <div className={styles.sourceLinks}>
+          {article.originalUrl ? (
+            <a href={article.originalUrl} target="_blank" rel="noopener noreferrer">
+              Abrir URL original
+            </a>
+          ) : null}
+          {article.normalizedUrl ? <span title={article.normalizedUrl}>Origem preservada</span> : null}
+        </div>
+      )}
 
       <details className={styles.advancedAction}>
         <summary>Modo direto (avançado)</summary>
@@ -428,7 +445,10 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
   const searchSourceCode = searchableSources.some((source) => source.code === requestedSourceCode)
     ? requestedSourceCode
     : null;
-  const sourceNames = new Map(sources.map((source) => [source.code, source.name]));
+  const sourceNames = new Map([
+    ...sources.map((source) => [source.code, source.name] as const),
+    [MANUAL_NEWSROOM_SOURCE_CODE, MANUAL_NEWSROOM_SOURCE_LABEL] as const,
+  ]);
   const topicSearchRequested = hasNewsroomTopicSearchTerms(topic);
   const listResult = topicSearchRequested
     ? await searchNewsroomArticles({
@@ -557,6 +577,36 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
       ? "O artigo já estava marcado como Por rever."
       : null;
 
+  const manualEntryErrorCode = firstQueryValue(params.manual_entry_error);
+  const manualEntryErrorMessages: Record<string, string> = {
+    submission_id_invalid: "O identificador persistente desta submissão é inválido. Atualiza a página antes de tentar novamente.",
+    title_invalid: "Preenche um título válido com até 180 caracteres.",
+    body_invalid: "Preenche o corpo da notícia em texto simples.",
+    published_date_invalid: "Escolhe uma data de publicação real.",
+    published_date_future: "A data da notícia não pode estar no futuro.",
+    image_invalid: "A imagem não corresponde ao upload administrativo autorizado.",
+    service_unavailable: "A entrada manual não está configurada neste ambiente.",
+    submission_payload_conflict: "Esta submissão já foi usada com conteúdo diferente. A notícia anteriormente guardada foi preservada.",
+    save_failed: "Não foi possível guardar a notícia manual neste momento.",
+  };
+  const manualEntryErrorMessage = manualEntryErrorCode
+    ? manualEntryErrorMessages[manualEntryErrorCode] ?? "Não foi possível guardar a notícia manual."
+    : null;
+  const manualEntryState = firstQueryValue(params.manual_entry_state);
+  const manualEntrySuccessMessage = manualEntryState === "created"
+    ? "A notícia manual foi guardada no arquivo."
+    : manualEntryState === "reused"
+      ? "A notícia manual já estava guardada e foi reutilizada."
+      : null;
+  const requestedManualSubmissionId = firstQueryValue(params.manual_submission_id) ?? "";
+  const manualSubmissionId = isManualNewsroomSubmissionId(requestedManualSubmissionId)
+    ? requestedManualSubmissionId.trim().toLowerCase()
+    : crypto.randomUUID();
+  const manualEntryMaxDate = lisbonDateOnly(new Date())
+    ?? new Date().toISOString().slice(0, 10);
+  const manualEntryInitiallyOpen = firstQueryValue(params.manual_entry_open) === "1"
+    || Boolean(manualEntryErrorMessage);
+
   const compositionErrorCode = firstQueryValue(params.composition_error);
   const compositionErrorMessages: Record<string, string> = {
     input_invalid: "Seleciona pelo menos uma fonte e preenche o assunto, a combinação e os destaques.",
@@ -629,7 +679,12 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
               <p>Consulta primeiro o arquivo e atualiza as páginas recentes das fontes autorizadas antes de apresentar os resultados.</p>
             </div>
           </div>
-          <form action="/api/admin/editorial/redacao-automatica/topic-search" method="post" className={styles.topicSearchForm}>
+          <form
+            action="/api/admin/editorial/redacao-automatica/topic-search"
+            method="post"
+            className={styles.topicSearchForm}
+            id="automatic-topic-search"
+          >
             <label className={styles.topicSearchQuery}>
               <span>Tema a pesquisar</span>
               <input
@@ -659,12 +714,33 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
                 ))}
               </select>
             </label>
-            <button type="submit">Pesquisar nas fontes</button>
           </form>
+          <div className={styles.collectionActions}>
+            <button type="submit" form="automatic-topic-search">
+              Pesquisar nas fontes autorizadas
+            </button>
+            <ManualNewsEntryForm
+              submissionId={manualSubmissionId}
+              maxDate={manualEntryMaxDate}
+              initiallyOpen={manualEntryInitiallyOpen}
+            />
+          </div>
           <p className={styles.topicSearchNote}>
             A pesquisa é iniciada apenas por esta ação, usa carregamento HTTP controlado e não gera nem publica qualquer artigo.
           </p>
         </section>
+
+        {manualEntryErrorMessage ? (
+          <div className={`${styles.topicSearchFeedback} ${styles.topicSearchFeedbackError}`} role="status">
+            <strong>A notícia manual não foi guardada.</strong>
+            <span>{manualEntryErrorMessage}</span>
+          </div>
+        ) : manualEntrySuccessMessage ? (
+          <div className={`${styles.topicSearchFeedback} ${styles.topicSearchFeedbackSuccess}`} role="status">
+            <strong>{manualEntrySuccessMessage}</strong>
+            <span>Podes selecioná-la abaixo e combiná-la com as restantes fontes.</span>
+          </div>
+        ) : null}
 
         {externalSearchErrorMessage ? (
           <div className={`${styles.topicSearchFeedback} ${styles.topicSearchFeedbackError}`} role="status">
@@ -822,13 +898,17 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
                         />
                         <span>Selecionar</span>
                       </label>
-                      <a
-                        href={article.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Consultar fonte
-                      </a>
+                      {article.sourceUrl && !article.isManualEntry ? (
+                        <a
+                          href={article.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Consultar fonte
+                        </a>
+                      ) : (
+                        <span className={styles.manualSourceBadge}>Entrada manual</span>
+                      )}
                     </div>
                     <strong>{article.title}</strong>
                     <small>{sourceNames.get(article.sourceCode) ?? article.sourceCode}</small>
@@ -844,9 +924,11 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
                       <p>{article.summary ?? article.subtitle}</p>
                     ) : null}
                     <em>
-                      {collectedResultIds.has(article.id.toLowerCase())
-                        ? "Recolhida nesta pesquisa"
-                        : "Já disponível"}
+                      {article.isManualEntry
+                        ? "Entrada manual"
+                        : collectedResultIds.has(article.id.toLowerCase())
+                          ? "Recolhida nesta pesquisa"
+                          : "Já disponível"}
                     </em>
                   </div>
                   {canUseInComposition(article) ? (

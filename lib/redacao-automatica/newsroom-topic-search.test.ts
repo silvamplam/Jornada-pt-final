@@ -221,8 +221,9 @@ test("o repositório pesquisa todo o arquivo elegível por páginas e identidade
   assert.match(repository, /classifyNewsroomTopicArchiveCandidate/);
   assert.match(repository, /topicDiagnostics: diagnostics/);
   assert.match(repository, /recordTopicOutcome\(diagnostics/);
-  assert.match(repository, /candidate\.row\.source_code\.trim\(\)\.toLowerCase\(\)/);
-  assert.match(repository, /candidate\.row\.normalized_url\.trim\(\)/);
+  assert.match(repository, /function canonicalArticleIdentity/);
+  assert.match(repository, /isManualNewsroomSource\(row\.source_code\)/);
+  assert.match(repository, /row\.normalized_url\?\.trim\(\) \|\| row\.original_url\?\.trim\(\) \|\| row\.id/);
   assert.match(repository, /published_at=is\.null/);
   assert.match(repository, /last_detected_at=lte\./);
   assert.match(repository, /cooldownHours/);
