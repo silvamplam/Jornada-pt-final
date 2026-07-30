@@ -320,7 +320,10 @@ test("a simples leitura da página não inicia recolha, geração ou publicaçã
   assert.doesNotMatch(newsroom, /ingestHttpNewsroomArticle/);
   assert.doesNotMatch(newsroom, /generateEditorialDossierArticlePlanDraftBody/);
   assert.doesNotMatch(newsroom, /publishEditorial/);
-  assert.match(newsroom, /<form action="\/api\/admin\/editorial\/redacao-automatica\/topic-search" method="post"/);
+  assert.match(
+    newsroom,
+    /<form\s+action="\/api\/admin\/editorial\/redacao-automatica\/topic-search"\s+method="post"/,
+  );
 });
 
 test("o Dossiê fica identificado como gestão avançada e a revisão permanece nos Artigos", () => {

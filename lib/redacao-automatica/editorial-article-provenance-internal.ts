@@ -2,6 +2,9 @@ import {
   publishedAtPrecisionFromSourceMetadata,
   type PublishedAtPrecision,
 } from "@/lib/redacao-automatica/types";
+import {
+  isManualNewsroomSource,
+} from "@/lib/redacao-automatica/manual-newsroom-entry-contract";
 
 export type ProvenanceValueOrigin = "frozen" | "legacy_current_article" | "missing";
 
@@ -27,6 +30,7 @@ export type EditorialArticleProvenanceSource = Readonly<{
   contentHash: string | null;
   extractedAt: string | null;
   snapshotMatchesArticle: boolean;
+  isManualEntry: boolean;
 }>;
 
 export type EditorialArticleProvenance = Readonly<{
@@ -103,8 +107,8 @@ export type ProvenanceNewsroomArticleRow = Readonly<{
   id: string;
   source_code: string;
   title: string;
-  original_url: string;
-  normalized_url: string;
+  original_url: string | null;
+  normalized_url: string | null;
   published_at: string | null;
 }>;
 
@@ -177,13 +181,18 @@ export function buildEditorialArticleProvenance(input: Readonly<{
     const snapshot = snapshotsById.get(dossierSource.newsroom_snapshot_id);
     const snapshotMatchesArticle = snapshot?.article_id === dossierSource.newsroom_article_id;
     const metadata = snapshotMatchesArticle ? recordValue(snapshot?.source_metadata) : {};
+    const isManualEntry = isManualNewsroomSource(article?.source_code, metadata);
     const sourceCode = frozenOrLegacy(metadata.sourceCode, article?.source_code);
     const title = frozenOrLegacy(dossierSource.title_snapshot, article?.title);
-    const originalUrl = frozenOrLegacy(metadata.originalUrl, article?.original_url);
-    const normalizedUrl = frozenOrLegacy(
-      metadata.normalizedUrl ?? metadata.finalUrl,
-      article?.normalized_url,
-    );
+    const originalUrl = isManualEntry
+      ? { value: null, origin: "missing" as const }
+      : frozenOrLegacy(metadata.originalUrl, article?.original_url);
+    const normalizedUrl = isManualEntry
+      ? { value: null, origin: "missing" as const }
+      : frozenOrLegacy(
+          metadata.normalizedUrl ?? metadata.finalUrl,
+          article?.normalized_url,
+        );
     const publishedAt = frozenOrLegacy(dossierSource.published_at_snapshot, article?.published_at);
     const publishedAtPrecision = snapshotMatchesArticle
       ? publishedAtPrecisionFromSourceMetadata(snapshot?.source_metadata)
@@ -211,6 +220,7 @@ export function buildEditorialArticleProvenance(input: Readonly<{
       contentHash: snapshotMatchesArticle ? snapshot?.content_hash ?? null : null,
       extractedAt: snapshotMatchesArticle ? snapshot?.extracted_at ?? null : null,
       snapshotMatchesArticle,
+      isManualEntry,
     }];
   });
 
