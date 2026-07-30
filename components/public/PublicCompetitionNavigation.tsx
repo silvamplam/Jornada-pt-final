@@ -80,6 +80,24 @@ export default function PublicCompetitionNavigation({
           </Link>
         ))}
       </span>
+      {/* JORNADA-LED-TICKER-INICIO */}
+      <div
+        aria-label={"Toda a informa\u00e7\u00e3o. Qualquer competi\u00e7\u00e3o. Qualquer momento."}
+        className={styles.messageTicker}
+        role="note"
+      >
+        <div aria-hidden="true" className={styles.messageViewport}>
+          <div className={styles.messageTrack}>
+            <span className={styles.messageText}>
+              {"TODA A INFORMA\u00c7\u00c3O. QUALQUER COMPETI\u00c7\u00c3O. QUALQUER MOMENTO."}
+            </span>
+            <span className={styles.messageText}>
+              {"TODA A INFORMA\u00c7\u00c3O. QUALQUER COMPETI\u00c7\u00c3O. QUALQUER MOMENTO."}
+            </span>
+          </div>
+        </div>
+      </div>
+      {/* JORNADA-LED-TICKER-FIM */}
       {classificationHref && activeCompetition ? (
         <Link
           aria-current={classificationHashIsActive ? "page" : undefined}

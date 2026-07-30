@@ -1,0 +1,415 @@
+.wrapper {
+  position: relative;
+  display: grid;
+  flex: 1 1 0;
+  grid-template-rows: 54px auto;
+  align-self: stretch;
+  min-width: 320px;
+  max-width: 100%;
+  overflow: hidden;
+  --journey-from-x: 38px;
+  --journey-to-x: 38px;
+  --journey-duration: 900ms;
+  --journey-trail-scale: 1;
+}
+
+
+.wrapper :global(.public-matchday-nav a) {
+  transition: color 80ms linear;
+}
+
+.wrapper :global(.public-matchday-nav a[data-active="true"]) {
+  color: #ffffff;
+}
+
+.wrapper[data-pending="true"] :global(.public-matchday-nav a) {
+  pointer-events: none;
+}
+
+.lane {
+  position: relative;
+  z-index: 1;
+  height: 54px;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff 70%, #fafbfd 100%);
+}
+
+.lane::before {
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(196, 0, 18, 0.18) 12%, rgba(47, 52, 59, 0.16) 50%, rgba(196, 0, 18, 0.18) 88%, transparent 100%);
+  content: "";
+}
+
+.destination {
+  position: absolute;
+  bottom: 1px;
+  left: var(--journey-to-x);
+  width: 28px;
+  height: 12px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgba(196, 0, 18, 0.26) 0%, rgba(196, 0, 18, 0.08) 52%, transparent 74%);
+  transform: translateX(-50%);
+}
+
+.runnerShell {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 116px;
+  height: 52px;
+  transform: translateX(calc(var(--journey-to-x) - 58px));
+  will-change: transform;
+}
+
+.wrapper[data-phase="hidden"] .runnerShell {
+  opacity: 0;
+}
+
+.wrapper[data-phase="ready"] .runnerShell {
+  transform: translateX(calc(var(--journey-from-x) - 58px));
+}
+
+.wrapper[data-phase="running"] .runnerShell {
+  transform: translateX(calc(var(--journey-to-x) - 58px));
+  transition: transform var(--journey-duration) cubic-bezier(0.18, 0.84, 0.2, 1);
+}
+
+.wrapper[data-phase="settled"] .runnerShell {
+  transform: translateX(calc(var(--journey-to-x) - 58px));
+}
+
+.runner {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 116px;
+  height: 50px;
+  overflow: visible;
+  filter: drop-shadow(0 2px 1px rgba(16, 21, 27, 0.12));
+}
+
+.wrapper[data-direction="left"] .runner {
+  transform: scaleX(-1);
+  transform-origin: center;
+}
+
+.sprite {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.wrapper[data-phase="running"] .sprite {
+  animation: journey-bob 0.3s ease-in-out infinite alternate;
+}
+
+.wrapper[data-phase="running"] .backArm,
+.wrapper[data-phase="running"] .frontLeg {
+  animation: journey-limb-forward 0.3s ease-in-out infinite alternate;
+}
+
+.wrapper[data-phase="running"] .frontArm,
+.wrapper[data-phase="running"] .backLeg {
+  animation: journey-limb-back 0.3s ease-in-out infinite alternate;
+}
+
+.shadow {
+  fill: rgba(16, 21, 27, 0.16);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.wrapper[data-phase="running"] .shadow {
+  animation: journey-shadow 0.3s ease-in-out infinite alternate;
+}
+
+.face,
+.ear,
+.backArm circle,
+.frontArm circle {
+  fill: #f5b896;
+  stroke: #20262d;
+  stroke-width: 1.6;
+}
+
+.hair,
+.shorts {
+  fill: #20262d;
+  stroke: #20262d;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.shirt {
+  fill: #ffffff;
+  stroke: #20262d;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.tie,
+.tieKnot {
+  fill: #c40012;
+  stroke: #20262d;
+  stroke-linejoin: round;
+  stroke-width: 1.1;
+  transform-box: fill-box;
+  transform-origin: top center;
+}
+
+.wrapper[data-phase="running"] .tie {
+  animation: journey-tie 0.3s ease-in-out infinite alternate;
+}
+
+.collar,
+.smile {
+  fill: none;
+  stroke: #20262d;
+  stroke-linecap: round;
+  stroke-width: 1.5;
+}
+
+.eye {
+  fill: #20262d;
+}
+
+
+.backArm,
+.frontArm,
+.backLeg,
+.frontLeg {
+  fill: none;
+  stroke: #20262d;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 5.2;
+  transform-box: fill-box;
+  transform-origin: top center;
+}
+
+.ball {
+  fill: #ffffff;
+  stroke: #20262d;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.3;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.wrapper[data-phase="running"] .ball {
+  animation: journey-ball-spin 0.52s linear infinite;
+}
+
+.ball path:first-of-type {
+  fill: #20262d;
+}
+
+.trail {
+  position: absolute;
+  right: 56px;
+  bottom: 7px;
+  width: 72px;
+  height: 19px;
+  opacity: 0;
+  transform: scaleX(var(--journey-trail-scale));
+  transform-origin: right center;
+}
+
+.wrapper[data-phase="running"] .trail {
+  opacity: 1;
+  transition: opacity 90ms linear;
+}
+
+.wrapper[data-direction="left"] .trail {
+  right: auto;
+  left: 56px;
+  transform: scaleX(calc(var(--journey-trail-scale) * -1));
+  transform-origin: left center;
+}
+
+.trailLineOne,
+.trailLineTwo,
+.trailBurst {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+}
+
+.trailLineOne,
+.trailLineTwo {
+  background: linear-gradient(90deg, transparent, rgba(196, 0, 18, 0.52), rgba(196, 0, 18, 0.08));
+}
+
+.trailLineOne {
+  top: 4px;
+  left: 0;
+  width: 58px;
+  height: 3px;
+  animation: journey-trail 0.28s linear infinite;
+}
+
+.trailLineTwo {
+  top: 12px;
+  left: 13px;
+  width: 46px;
+  height: 2px;
+  animation: journey-trail 0.28s linear infinite reverse;
+}
+
+.trailBurst {
+  top: 1px;
+  right: 0;
+  width: 24px;
+  height: 17px;
+  background: radial-gradient(circle, rgba(196, 0, 18, 0.5) 0%, rgba(196, 0, 18, 0.12) 42%, transparent 72%);
+  animation: journey-burst 0.44s ease-out infinite;
+}
+
+@keyframes journey-bob {
+  from { transform: translateY(0) rotate(-1deg); }
+  to { transform: translateY(-2.5px) rotate(1deg); }
+}
+
+@keyframes journey-shadow {
+  from { opacity: 0.75; transform: scaleX(1); }
+  to { opacity: 0.42; transform: scaleX(0.84); }
+}
+
+@keyframes journey-limb-forward {
+  from { transform: rotate(-15deg); }
+  to { transform: rotate(17deg); }
+}
+
+@keyframes journey-limb-back {
+  from { transform: rotate(16deg); }
+  to { transform: rotate(-16deg); }
+}
+
+@keyframes journey-tie {
+  from { transform: rotate(-3deg); }
+  to { transform: rotate(5deg); }
+}
+
+@keyframes journey-ball-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes journey-trail {
+  from { opacity: 0.9; transform: translateX(0); }
+  to { opacity: 0.08; transform: translateX(-12px); }
+}
+
+@keyframes journey-burst {
+  from { opacity: 0.8; transform: scale(0.65); }
+  to { opacity: 0; transform: scale(1.2); }
+}
+
+@media (max-width: 900px) {
+  .wrapper {
+    grid-template-rows: 44px auto;
+    min-width: 230px;
+  }
+
+  .lane {
+    height: 44px;
+  }
+
+  .runnerShell {
+    bottom: 0;
+    width: 94px;
+    height: 42px;
+    transform: translateX(calc(var(--journey-to-x) - 47px));
+  }
+
+  .wrapper[data-phase="ready"] .runnerShell {
+    transform: translateX(calc(var(--journey-from-x) - 47px));
+  }
+
+  .wrapper[data-phase="running"] .runnerShell,
+  .wrapper[data-phase="settled"] .runnerShell {
+    transform: translateX(calc(var(--journey-to-x) - 47px));
+  }
+
+  .runner {
+    width: 94px;
+    height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runnerShell,
+  .trail,
+  .sprite,
+  .shadow,
+  .backArm,
+  .frontArm,
+  .backLeg,
+  .frontLeg,
+  .tie,
+  .ball {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .wrapper[data-phase="ready"] .runnerShell,
+  .wrapper[data-phase="running"] .runnerShell,
+  .wrapper[data-phase="settled"] .runnerShell {
+    transform: translateX(calc(var(--journey-to-x) - 58px));
+  }
+
+  .wrapper[data-phase="running"] .trail,
+  .trail {
+    opacity: 0;
+  }
+}
+
+/* JORNADA-RASTO-DIRECIONAL-INICIO */
+
+/* Movimento para a esquerda: o rasto fica à direita do boneco */
+.wrapper[data-direction="left"] .trail {
+  right: auto;
+  left: 56px;
+  transform: scaleX(var(--journey-trail-scale));
+  transform-origin: left center;
+}
+
+.wrapper[data-direction="left"] .trailLineOne,
+.wrapper[data-direction="left"] .trailLineTwo {
+  background: linear-gradient(
+    90deg,
+    rgba(196, 0, 18, 0.52),
+    rgba(196, 0, 18, 0.16),
+    transparent
+  );
+  animation-name: journey-trail-left;
+}
+
+.wrapper[data-direction="left"] .trailBurst {
+  right: auto;
+  left: 0;
+}
+
+@keyframes journey-trail-left {
+  from {
+    opacity: 0.9;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0.08;
+    transform: translateX(12px);
+  }
+}
+
+@media (max-width: 900px) {
+  .wrapper[data-direction="left"] .trail {
+    left: 46px;
+  }
+}
+
+/* JORNADA-RASTO-DIRECIONAL-FIM */

@@ -230,7 +230,8 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
 
   assert.doesNotMatch(gamesSource, /import PublicMatchStrip|<PublicMatchStrip/);
   assert.doesNotMatch(gamesSource, /public-matchday-strip|data-matchday-strip/);
-  assert.match(gamesSource, /<nav className="public-matchday-nav"/);
+  assert.match(gamesSource, /import PublicMatchdayNavigation/);
+  assert.match(gamesSource, /<PublicMatchdayNavigation/);
   assert.match(gamesSource, /<strong>Jogos da jornada<\/strong>/);
   assert.match(gamesSource, /\{ key: "scheduled", label: "Agendados", matches: scheduledMatches \}/);
   assert.match(gamesSource, /function ReferenceGamesCard\(/);
