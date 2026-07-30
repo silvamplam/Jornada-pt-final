@@ -43,6 +43,7 @@ import {
   isManualNewsroomSubmissionId,
   lisbonDateOnly,
 } from "@/lib/redacao-automatica/manual-newsroom-entry-internal";
+import { getEditorialProfileOverview } from "@/lib/redacao-automatica/editorial-profile-repository";
 
 import CompositionSubmitEnhancer from "./_compositionSubmitEnhancer";
 import ManualNewsEntryForm from "./_manualNewsEntryForm";
@@ -458,6 +459,7 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
     })
     : { ok: true as const, value: emptyArticlePage };
   const dossierListResult = await listEditorialDossiers(12);
+  const editorialProfileResult = await getEditorialProfileOverview();
   const detailResult = selectedArticleId ? await getNewsroomArticleById(selectedArticleId) : null;
   const draftResult = selectedArticleId ? await findNewsroomEditorialDraft(selectedArticleId) : null;
   const articlePage = listResult.ok ? listResult.value : emptyArticlePage;
@@ -650,6 +652,7 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
           </div>
           <nav className={styles.heroActions} aria-label="Navegação da composição editorial">
             <a href="/admin">Voltar ao backoffice</a>
+            <a href="/admin/editorial/redacao-automatica/linha-editorial">Linha editorial</a>
             <a className={styles.primaryAction} href="/admin/editorial/artigos">Artigos em revisão</a>
           </nav>
         </header>
@@ -1055,6 +1058,11 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
                 <span>5</span>
                 <p>
                   A primeira versão será criada como rascunho e abrirá automaticamente na página dos Artigos para revisão final.
+                </p>
+                <p className={styles.editorialProfileGenerationNote}>
+                  {editorialProfileResult.ok
+                    ? `Linha editorial ativa: versão ${editorialProfileResult.profile.activeVersion.versionNumber} · ${editorialProfileResult.profile.activeVersion.contentHash.slice(0, 12)}… A versão será fixada no plano pelo servidor.`
+                    : "Linha editorial indisponível. A geração será recusada até existir uma versão ativa validada."}
                 </p>
               </div>
               <div className={styles.compositionSubmit}>

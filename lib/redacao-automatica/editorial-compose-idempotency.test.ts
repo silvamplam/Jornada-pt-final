@@ -405,3 +405,23 @@ test("hotfix SQL elimina a resolucao ambigua e preserva o contrato de prepare", 
   assert.match(smoke, /'smoke_passed', residue\.residue_count = 0/);
   assert.match(smoke, /'writes_committed', false/);
 });
+
+test("a evolução editorial preserva a assinatura idempotente e fixa o perfil no plano", () => {
+  const apply = readFileSync(
+    "supabase/steps/43-redacao-automatica-linha-editorial-persistente-apply.sql",
+    "utf8",
+  );
+
+  assert.match(
+    apply,
+    /create or replace function public\.newsroom_prepare_editorial_compose\([\s\S]*p_newsroom_article_ids uuid\[\][\s\S]*p_source_notes text\[\][\s\S]*returns table \([\s\S]*composition_action text,[\s\S]*generation_status text/i,
+  );
+  assert.match(
+    apply,
+    /on conflict on constraint newsroom_editorial_compose_requests_pkey do nothing/i,
+  );
+  assert.match(apply, /editorial_profile_version_id/);
+  assert.match(apply, /editorial_profile_pinned_at/);
+  assert.doesNotMatch(apply, /on conflict\s*\(\s*submission_id\s*\)/i);
+  assert.doesNotMatch(apply, /https:\/\/api\.openai\.com|status\s*=\s*'published'/i);
+});

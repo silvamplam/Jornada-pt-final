@@ -19,6 +19,7 @@ import type {
   EditorialDossierSourceRole,
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
 import { openAiEditorialGenerationProvider } from "@/lib/redacao-automatica/openai-editorial-generation-provider";
+import { pinEditorialProfileVersionForPlan } from "@/lib/redacao-automatica/editorial-profile-service";
 import type { ArticleBodyBlock } from "@/lib/redacao-automatica/types";
 
 export type {
@@ -43,6 +44,9 @@ type ArticlePlanRow = {
   length_mode: string;
   editorial_instructions: string;
   editorial_article_id: string | null;
+  editorial_profile_id: string | null;
+  editorial_profile_version_id: string | null;
+  editorial_profile_pinned_at: string | null;
 };
 
 type EditorialArticleRow = {
@@ -67,6 +71,7 @@ type DossierSourceRow = {
   newsroom_snapshot_id: string;
   source_role: string;
   editorial_note: string | null;
+  title_snapshot: string | null;
 };
 
 type NewsroomArticleRow = {
@@ -80,6 +85,22 @@ type SnapshotRow = {
   article_id: string;
   content_hash: string;
   body: unknown;
+};
+
+type EditorialProfileRow = {
+  id: string;
+  code: string;
+  name: string;
+};
+
+type EditorialProfileVersionRow = {
+  id: string;
+  profile_id: string;
+  version_number: number;
+  document_text: string;
+  content_hash: string;
+  approval_state: "approved";
+  created_at: string;
 };
 
 type GenerationRow = {
@@ -190,7 +211,7 @@ async function readContext(
 ): Promise<EditorialDossierArticlePlanGenerationContext | null> {
   const plans = await fetchSupabaseAdminTable<ArticlePlanRow>(
     "newsroom_editorial_dossier_article_plans"
-    + "?select=id,dossier_id,status,working_title,article_kind,length_mode,editorial_instructions,editorial_article_id"
+    + "?select=id,dossier_id,status,working_title,article_kind,length_mode,editorial_instructions,editorial_article_id,editorial_profile_id,editorial_profile_version_id,editorial_profile_pinned_at"
     + `&id=eq.${encodeURIComponent(articlePlanId)}`
     + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
     + "&limit=1",
@@ -201,7 +222,22 @@ async function readContext(
     return null;
   }
 
-  const [dossiers, assignments] = await Promise.all([
+  const profilePromise = plan.editorial_profile_id
+    ? fetchSupabaseAdminTable<EditorialProfileRow>(
+        "newsroom_editorial_profiles?select=id,code,name"
+        + `&id=eq.${encodeURIComponent(plan.editorial_profile_id)}`
+        + "&limit=1",
+      )
+    : Promise.resolve([]);
+  const profileVersionPromise = plan.editorial_profile_version_id
+    ? fetchSupabaseAdminTable<EditorialProfileVersionRow>(
+        "newsroom_editorial_profile_versions"
+        + "?select=id,profile_id,version_number,document_text,content_hash,approval_state,created_at"
+        + `&id=eq.${encodeURIComponent(plan.editorial_profile_version_id)}`
+        + "&limit=1",
+      )
+    : Promise.resolve([]);
+  const [dossiers, assignments, profileRows, profileVersionRows] = await Promise.all([
     fetchSupabaseAdminTable<DossierRow>(
       "newsroom_editorial_dossiers"
       + "?select=id,title,editorial_instructions,context_instructions,output_language"
@@ -215,10 +251,22 @@ async function readContext(
       + `&article_plan_id=eq.${encodeURIComponent(articlePlanId)}`
       + "&order=sort_order.asc,id.asc&limit=100",
     ),
+    profilePromise,
+    profileVersionPromise,
   ]);
   const dossier = dossiers[0];
+  const editorialProfile = profileRows[0] ?? null;
+  const editorialProfileVersion = profileVersionRows[0] ?? null;
 
-  if (!dossier) {
+  if (
+    !dossier
+    || !editorialProfile
+    || !editorialProfileVersion
+    || editorialProfileVersion.profile_id !== editorialProfile.id
+    || plan.editorial_profile_id !== editorialProfile.id
+    || plan.editorial_profile_version_id !== editorialProfileVersion.id
+    || !plan.editorial_profile_pinned_at
+  ) {
     return null;
   }
 
@@ -234,7 +282,7 @@ async function readContext(
   const sourceRowsPromise = dossierSourceIds.length > 0
     ? fetchSupabaseAdminTable<DossierSourceRow>(
         "newsroom_editorial_dossier_sources"
-        + "?select=id,dossier_id,newsroom_article_id,newsroom_snapshot_id,source_role,editorial_note"
+        + "?select=id,dossier_id,newsroom_article_id,newsroom_snapshot_id,source_role,editorial_note,title_snapshot"
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + `&id=in.(${uuidList(dossierSourceIds)})`
         + `&limit=${dossierSourceIds.length}`,
@@ -289,7 +337,10 @@ async function readContext(
       newsroomArticleId: newsroomArticle.id,
       newsroomSnapshotId: snapshot.id,
       sourceCode: newsroomArticle.source_code,
-      articleTitle: newsroomArticle.title,
+      articleTitle: dossierSource.title_snapshot?.trim() || newsroomArticle.title,
+      articleTitleOrigin: dossierSource.title_snapshot?.trim()
+        ? "frozen"
+        : "legacy_current_article",
       sourceRole: sourceRole(dossierSource.source_role),
       sortOrder: assignment.sort_order,
       editorialNote: dossierSource.editorial_note,
@@ -317,6 +368,18 @@ async function readContext(
       lengthMode: lengthMode(plan.length_mode),
       editorialInstructions: plan.editorial_instructions,
       editorialArticleId: plan.editorial_article_id,
+      editorialProfile: {
+        profileId: editorialProfile.id,
+        profileCode: editorialProfile.code,
+        profileName: editorialProfile.name,
+        versionId: editorialProfileVersion.id,
+        versionNumber: editorialProfileVersion.version_number,
+        documentText: editorialProfileVersion.document_text,
+        contentHash: editorialProfileVersion.content_hash,
+        approvalState: editorialProfileVersion.approval_state,
+        versionCreatedAt: editorialProfileVersion.created_at,
+        pinnedAt: plan.editorial_profile_pinned_at,
+      },
     },
     article: editorialArticle
       ? {
@@ -375,6 +438,13 @@ const generateWithOpenAi = createEditorialDossierArticlePlanGenerationService(
   {
     isConfigured() {
       return Boolean(getSupabaseServiceConfig());
+    },
+    async pinEditorialProfileVersion(dossierId, articlePlanId) {
+      const result = await pinEditorialProfileVersionForPlan({
+        dossierId,
+        planId: articlePlanId,
+      });
+      return result.ok ? result.value : null;
     },
     readContext,
     findGeneration,

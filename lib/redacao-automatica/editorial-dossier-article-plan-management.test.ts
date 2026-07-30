@@ -222,6 +222,21 @@ test("a página apresenta criação, edição, estados e atribuição de fontes"
   assert.doesNotMatch(page, /<option value="5">5<\/option>/);
 });
 
+test("o plano mostra a versão editorial fixada sem permitir escolhê-la", () => {
+  const page = read("app/admin/editorial/redacao-automatica/dossies/[id]/page.tsx");
+  const repository = read(
+    "lib/redacao-automatica/editorial-dossier-article-plan-repository.ts",
+  );
+
+  assert.match(page, /Linha editorial fixada/);
+  assert.match(page, /Plano legacy/);
+  assert.match(page, /plan\.editorialProfile\.versionNumber/);
+  assert.doesNotMatch(page, /name="editorial_profile_version_id"/);
+  assert.match(repository, /editorial_profile_version_id/);
+  assert.match(repository, /editorial_profile_pinned_at/);
+  assert.match(repository, /currentState/);
+});
+
 test("a rota preserva redirect relativo e distingue a gravação dos planos", () => {
   const route = read("app/api/admin/editorial/redacao-automatica/dossies/route.ts");
 

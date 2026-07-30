@@ -215,6 +215,8 @@ test("a composição principal começa pela pesquisa e reúne fontes, instruçõ
   assert.match(newsroom, /name="highlight_instructions"/);
   assert.match(newsroom, /name="avoid_instructions"/);
   assert.match(newsroom, /Gerar primeira versão/);
+  assert.match(newsroom, /linha-editorial/);
+  assert.match(newsroom, /Linha editorial ativa/);
   assert.match(newsroom, /Rever e publicar nos Artigos/);
   assert.match(newsroom, /Trabalhos guardados e ferramentas avançadas/);
   assert.match(newsroom, /topic-search/);

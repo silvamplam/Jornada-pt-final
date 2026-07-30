@@ -242,6 +242,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
     generation_provider_unavailable: "A geração editorial ainda não está configurada neste ambiente.",
     draft_not_found: "O rascunho editorial ligado ao plano não está disponível.",
     draft_not_empty: "O rascunho já contém texto e não será substituído automaticamente.",
+    editorial_profile_unavailable: "Não foi possível fixar uma versão editorial ativa e válida neste plano.",
     generation_input_too_large: "O conjunto de fontes excede o limite seguro desta primeira geração.",
     generation_failed: "Não foi possível gerar a primeira versão. Tenta novamente mais tarde.",
     generation_output_invalid: "A primeira versão recebida não tem conteúdo editorial utilizável.",
@@ -577,6 +578,26 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                         <strong>{plan.workingTitle}</strong>
                         <small>Etapa atual: {planWorkflowLabel}</small>
                       </div>
+                    </div>
+
+                    <div className={styles.dossierEditorialProfile}>
+                      <strong>Linha editorial fixada</strong>
+                      {plan.editorialProfile ? (
+                        <span>
+                          {plan.editorialProfile.profileName} · versão{" "}
+                          {plan.editorialProfile.versionNumber} ·{" "}
+                          {plan.editorialProfile.currentState === "active"
+                            ? "atualmente ativa"
+                            : "histórica"}{" "}
+                          · {plan.editorialProfile.contentHash.slice(0, 12)}… ·
+                          fixada em {formatDate(plan.editorialProfile.pinnedAt)}
+                        </span>
+                      ) : (
+                        <span>
+                          Plano legacy: a versão ativa será fixada de forma
+                          atómica no primeiro pedido explícito de geração.
+                        </span>
+                      )}
                     </div>
 
                     {plan.editorialArticleId ? (
