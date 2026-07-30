@@ -3,6 +3,12 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  articleAdminRedirect,
+  articleAdminRedirectLocation,
+  isArticleAdminUuid,
+  safeArticleAdminReturnTo,
+} from "@/lib/admin-article-redirect";
+import {
   articleEditorialWorkflowStep,
   dossierEditorialWorkflowStep,
   editorialWorkflowStepState,
@@ -54,6 +60,93 @@ test("o editor distingue rascunho vazio, revisão e publicação", () => {
   assert.equal(editorialWorkflowStepState("review", "draft"), "complete");
   assert.equal(editorialWorkflowStepState("review", "review"), "current");
   assert.equal(editorialWorkflowStepState("review", "publication"), "upcoming");
+});
+
+test("os redirects dos Artigos usam Location relativa e preservam os indicadores", () => {
+  const articleId = "11111111-2222-4333-8444-555555555555";
+  const cases = [
+    { params: { articleId, saved: "1" }, indicator: "saved", expected: "1" },
+    { params: { articleId, created: "1" }, indicator: "created", expected: "1" },
+    { params: { articleId, published: "1" }, indicator: "published", expected: "1" },
+    { params: { removed: "1" }, indicator: "removed", expected: "1" },
+    { params: { error: "invalid-action" }, indicator: "error", expected: "invalid-action" },
+  ] as const;
+
+  for (const { params, indicator, expected } of cases) {
+    const response = articleAdminRedirect("/admin/editorial/artigos", params);
+    const location = response.headers.get("location");
+
+    assert.equal(response.status, 303);
+    assert.ok(location);
+    assert.match(location, /^\/admin\/editorial\/artigos(?:\?|$)/);
+    assert.equal(new URL(location, "https://jornada.local").searchParams.get(indicator), expected);
+    assert.doesNotMatch(location, /0\.0\.0\.0/);
+
+    if ("articleId" in params) {
+      assert.equal(new URL(location, "https://jornada.local").searchParams.get("articleId"), articleId);
+    }
+  }
+});
+
+test("o browser resolve o redirect dos Artigos na origem pela qual acedeu", () => {
+  const articleId = "11111111-2222-4333-8444-555555555555";
+  const location = articleAdminRedirectLocation("/admin/editorial/artigos", {
+    articleId,
+    saved: "1",
+  });
+  const origins = [
+    "http://localhost:3000",
+    "https://jornada-preview.example",
+    "https://www.jornada.pt",
+  ];
+
+  for (const origin of origins) {
+    const resolved = new URL(location, origin);
+    assert.equal(resolved.origin, origin);
+    assert.equal(resolved.pathname, "/admin/editorial/artigos");
+    assert.equal(resolved.searchParams.get("articleId"), articleId);
+    assert.equal(resolved.searchParams.get("saved"), "1");
+  }
+});
+
+test("o redirect dos Artigos rejeita origens e identificadores fornecidos pelo utilizador", () => {
+  const articleId = "11111111-2222-4333-8444-555555555555";
+
+  assert.equal(
+    safeArticleAdminReturnTo(`/admin/editorial/artigos?articleId=${articleId}`),
+    `/admin/editorial/artigos?articleId=${articleId}`,
+  );
+  assert.equal(safeArticleAdminReturnTo("https://evil.example/admin/editorial/artigos"), null);
+  assert.equal(safeArticleAdminReturnTo("//evil.example/admin/editorial/artigos"), null);
+  assert.equal(safeArticleAdminReturnTo("/admin/login"), null);
+  assert.equal(isArticleAdminUuid(articleId), true);
+  assert.equal(isArticleAdminUuid("not-a-uuid"), false);
+  assert.equal(isArticleAdminUuid(null), false);
+  assert.throws(
+    () => articleAdminRedirectLocation("https://evil.example/admin/editorial/artigos", { saved: "1" }),
+    /invalid-return-to/,
+  );
+});
+
+test("a rota dos Artigos não reconstrói redirects a partir do endereço de escuta", () => {
+  const route = readFileSync("app/api/admin/editorial/artigos/route.ts", "utf8");
+  const redirectHelper = readFileSync("lib/admin-article-redirect.ts", "utf8");
+
+  assert.match(redirectHelper, /new NextResponse\(null, \{/);
+  assert.match(redirectHelper, /Location: articleAdminRedirectLocation\(path, params\)/);
+  assert.doesNotMatch(route, /new URL\(path, request\.url\)/);
+  assert.doesNotMatch(redirectHelper, /request\.url|request\.nextUrl/);
+  assert.doesNotMatch(route, /x-forwarded-host|x-forwarded-proto/i);
+  assert.doesNotMatch(redirectHelper, /x-forwarded-host|x-forwarded-proto/i);
+  assert.doesNotMatch(route, /process\.env\.(?:HOST|HOSTNAME|URL|ORIGIN)/);
+  assert.doesNotMatch(redirectHelper, /process\.env\.(?:HOST|HOSTNAME|URL|ORIGIN)/);
+  assert.match(route, /cleanArticleId\(formData\.get\("article_id"\)\)/);
+  assert.match(route, /editorialAction === "publish"/);
+  assert.match(
+    route,
+    /editorialAction === "publish"\s*\?\s*"published"\s*:\s*cleanStatus\(currentArticle\.status\)/,
+  );
+  assert.doesNotMatch(route, /OpenAI|generateEditorial|dossier_sources/i);
 });
 
 test("a precisão de publicação é validada sem ser inferida pela hora", () => {
@@ -207,21 +300,17 @@ test("a composição principal começa pela pesquisa e reúne fontes, instruçõ
   assert.match(externalRoute, /export const maxDuration = 60/);
 
   assert.match(route, /action === "compose"/);
-  assert.match(route, /compositionInstructions/);
-  assert.match(route, /const dossierResult = await createEditorialDossier/);
-  assert.match(route, /const planResult = await saveEditorialDossierArticlePlan/);
-  assert.match(route, /const draftResult = await createEditorialDossierArticlePlanDraft/);
-  assert.match(route, /const generationResult = await generateEditorialDossierArticlePlanDraftBody/);
+  assert.match(route, /const composeResult = await prepareEditorialCompose/);
+  assert.match(route, /const generationResult = await runEditorialComposeGeneration/);
+  assert.match(route, /claim: \(\) => claimEditorialComposeGeneration/);
+  assert.match(route, /generate: \(\) => generateEditorialDossierArticlePlanDraftBody/);
+  assert.match(route, /markEditorialComposeGenerationCompleted/);
   assert.match(route, /dossier_plan_generation/);
 
-  const createIndex = route.indexOf("const dossierResult = await createEditorialDossier");
-  const planIndex = route.indexOf("const planResult = await saveEditorialDossierArticlePlan");
-  const draftIndex = route.indexOf("const draftResult = await createEditorialDossierArticlePlanDraft");
-  const generationIndex = route.indexOf("const generationResult = await generateEditorialDossierArticlePlanDraftBody");
+  const prepareIndex = route.indexOf("const composeResult = await prepareEditorialCompose");
+  const generationIndex = route.indexOf("const generationResult = await runEditorialComposeGeneration");
 
-  assert.ok(createIndex >= 0 && createIndex < planIndex);
-  assert.ok(planIndex < draftIndex);
-  assert.ok(draftIndex < generationIndex);
+  assert.ok(prepareIndex >= 0 && prepareIndex < generationIndex);
 });
 
 test("a simples leitura da página não inicia recolha, geração ou publicação", () => {

@@ -1,4 +1,7 @@
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
+import { getEditorialArticleEditorData } from "@/lib/redacao-automatica/editorial-article-editor-repository-internal";
+import { getEditorialArticleById } from "@/lib/redacao-automatica/editorial-article-editor-repository";
+import { getEditorialArticleProvenance } from "@/lib/redacao-automatica/editorial-article-provenance-repository";
 
 import {
   ArticleEditorForm,
@@ -10,6 +13,10 @@ import {
   firstText,
   formatShortDate,
 } from "./_articleForm";
+import {
+  ArticleProvenancePanel,
+  articleProvenanceStyles,
+} from "./_articleProvenance";
 
 export const dynamic = "force-dynamic";
 
@@ -128,6 +135,9 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
   }
   if (params.dossier_plan_generation === "reused") {
     return "A primeira versão já existia. Foi aberto o mesmo rascunho editorial.";
+  }
+  if (params.dossier_plan_generation === "in_progress") {
+    return "A primeira versão já está a ser gerada por outro pedido. Este é o mesmo rascunho e não foi iniciada uma segunda geração.";
   }
 
   const messages: Record<string, string> = {
@@ -529,18 +539,6 @@ function resolveArticleContext(article: EditorialArticle, context: ContextOption
   };
 }
 
-function selectedArticleFromQuery(articles: EditorialArticle[], articleId?: string, mode?: string) {
-  if (mode === "novo") {
-    return null;
-  }
-
-  if (!articleId) {
-    return null;
-  }
-
-  return articles.find((article) => article.id === articleId) ?? null;
-}
-
 function countCompetitionArticles(group: ArticleSidebarCompetitionGroup) {
   return group.seasonGroups.reduce(
     (competitionCount, seasonGroup) =>
@@ -880,13 +878,26 @@ async function readArticleLinkPlacements(article: EditorialArticle, context: Con
 
 export default async function AdminEditorialArticlesPage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
-  const [{ articles, error }, context] = await Promise.all([readEditorialArticles(), loadContextOptions()]);
-  const selectedArticle = selectedArticleFromQuery(articles, params.articleId, params.mode);
+  const [{ articles, error }, context, editorData] = await Promise.all([
+    readEditorialArticles(),
+    loadContextOptions(),
+    getEditorialArticleEditorData(
+      params.articleId,
+      params.mode,
+      getEditorialArticleById,
+    ),
+  ]);
+  const selectedArticle = editorData.article;
+  const requestedArticleState = editorData.state;
   const isEditing = Boolean(selectedArticle);
+  const canCreate = editorData.request.kind === "absent";
   const message = pageMessage(params);
   const technicalDetail = params.error && params.detail ? params.detail : null;
   const selectedContext = selectedArticle ? resolveArticleContext(selectedArticle, context) : null;
   const selectedLinkData = selectedArticle ? await readArticleLinkPlacements(selectedArticle, context) : { publicPath: null, placements: [] as LinkPlacement[] };
+  const provenanceResult = selectedArticle
+    ? await getEditorialArticleProvenance(selectedArticle.id, selectedArticle.status)
+    : null;
   const sidebarItems = articles.map((article) => ({
     article,
     articleContext: resolveArticleContext(article, context),
@@ -1027,13 +1038,31 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
 
           <section className="article-admin-editor">
             <div className="article-admin-editor-header">
-              <h2>{isEditing ? "Rever artigo" : "Criar artigo manual"}</h2>
+              <h2>{isEditing ? "Rever artigo" : canCreate ? "Criar artigo manual" : "Artigo pedido"}</h2>
               <p>
                 {isEditing
                   ? "Guarda a revisão sem publicar ou usa a ação explícita de publicação quando o texto estiver validado."
-                  : "Cria um rascunho manual e publica apenas depois de rever o conteúdo."}
+                  : canCreate
+                    ? "Cria um rascunho manual e publica apenas depois de rever o conteúdo."
+                    : "O pedido foi tratado sem abrir o formulário de criação e sem escrever dados."}
               </p>
             </div>
+
+            {requestedArticleState === "invalid" ? (
+              <p className="article-admin-alert" role="alert">
+                O identificador do artigo é inválido. Confirma a ligação e tenta novamente.
+              </p>
+            ) : null}
+            {requestedArticleState === "not_found" ? (
+              <p className="article-admin-alert" role="alert">
+                Artigo não encontrado. O identificador é válido, mas não corresponde a nenhum artigo editorial.
+              </p>
+            ) : null}
+            {requestedArticleState === "unavailable" ? (
+              <p className="article-admin-alert" role="alert">
+                Não foi possível carregar o artigo pedido neste momento.
+              </p>
+            ) : null}
 
             {selectedArticle && selectedContext ? (
               <section className="article-admin-diagnostic" aria-label="Contexto e ligacoes editoriais do artigo">
@@ -1114,18 +1143,28 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
               </section>
             ) : null}
 
-            <ArticleEditorForm
-              mode={isEditing ? "edit" : "create"}
-              article={selectedArticle}
-              competitions={context.competitions}
-              seasons={context.seasons}
-              matchdays={context.matchdays}
-              returnTo={
-                isEditing && selectedArticle
-                  ? `/admin/editorial/artigos?articleId=${encodeURIComponent(selectedArticle.id)}`
-                  : "/admin/editorial/artigos"
-              }
-            />
+            {provenanceResult?.ok && provenanceResult.value ? (
+              <ArticleProvenancePanel provenance={provenanceResult.value} />
+            ) : selectedArticle && provenanceResult && !provenanceResult.ok ? (
+              <p className="article-admin-alert" role="alert">
+                O artigo foi carregado, mas a proveniência da Redação Automática não está disponível.
+              </p>
+            ) : null}
+
+            {selectedArticle || canCreate ? (
+              <ArticleEditorForm
+                mode={isEditing ? "edit" : "create"}
+                article={selectedArticle}
+                competitions={context.competitions}
+                seasons={context.seasons}
+                matchdays={context.matchdays}
+                returnTo={
+                  isEditing && selectedArticle
+                    ? `/admin/editorial/artigos?articleId=${encodeURIComponent(selectedArticle.id)}`
+                    : "/admin/editorial/artigos"
+                }
+              />
+            ) : null}
             {selectedArticle ? (
               selectedLinkData.placements.length > 0 ? (
                 <div className="article-admin-delete-form">
@@ -1157,6 +1196,7 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
 
       <style>{editorialArticleAdminStyles}</style>
       <style>{articleContextLinkStyles}</style>
+      <style>{articleProvenanceStyles}</style>
     </main>
   );
 }

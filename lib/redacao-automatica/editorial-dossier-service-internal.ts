@@ -51,6 +51,7 @@ export type AddEditorialDossierSourcesInput = Readonly<{
 export type EditorialDossierSourceCandidate = Readonly<{
   id: string;
   title: string;
+  publishedAt?: string | null;
   processingStatus: ArticleProcessingStatus;
   snapshot: Readonly<{
     id: string;
@@ -94,6 +95,8 @@ export type EditorialDossierSourceInsert = Readonly<{
   dossier_id: string;
   newsroom_article_id: string;
   newsroom_snapshot_id: string;
+  title_snapshot: string;
+  published_at_snapshot: string | null;
   source_role: EditorialDossierSourceRole;
   sort_order: number;
   editorial_note: null;
@@ -477,6 +480,8 @@ export function createEditorialDossierService(transport: EditorialDossierTranspo
       dossier_id: dossierId,
       newsroom_article_id: candidate.id,
       newsroom_snapshot_id: candidate.snapshot!.id,
+      title_snapshot: candidate.title,
+      published_at_snapshot: candidate.publishedAt ?? null,
       source_role: !hasPrimary && index === 0 ? "primary" : selection.sourceRole,
       sort_order: (index + 1) * 10,
       editorial_note: null,
@@ -752,6 +757,8 @@ export function addEditorialDossierSourcesService(transport: EditorialDossierTra
         dossier_id: dossierId,
         newsroom_article_id: candidate.id,
         newsroom_snapshot_id: candidate.snapshot.id,
+        title_snapshot: candidate.title,
+        published_at_snapshot: candidate.publishedAt ?? null,
         source_role: addition.sourceRole,
         sort_order: maxSortOrder + payload.length * 10 + 10,
         editorial_note: null,

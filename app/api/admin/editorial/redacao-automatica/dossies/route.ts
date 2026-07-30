@@ -15,14 +15,22 @@ import {
 } from "@/lib/redacao-automatica/editorial-dossier-article-plan-service";
 import { createEditorialDossierArticlePlanDraft } from "@/lib/redacao-automatica/editorial-dossier-article-plan-draft-service";
 import { generateEditorialDossierArticlePlanDraftBody } from "@/lib/redacao-automatica/editorial-dossier-article-plan-generation-service";
+import {
+  claimEditorialComposeGeneration,
+  markEditorialComposeGenerationCompleted,
+  markEditorialComposeGenerationFailed,
+  prepareEditorialCompose,
+} from "@/lib/redacao-automatica/editorial-compose-idempotency-service";
+import {
+  isEditorialComposeSubmissionId,
+  runEditorialComposeGeneration,
+  type EditorialComposeSourceInput,
+} from "@/lib/redacao-automatica/editorial-compose-idempotency-internal";
 import type {
   EditorialDossierArticleKind,
   EditorialDossierLengthMode,
   EditorialDossierOutputMode,
   EditorialDossierSourceRole,
-} from "@/lib/redacao-automatica/editorial-dossier-repository";
-import {
-  getEditorialDossierById,
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
 import type { EditorialDossierArticlePlanStatus } from "@/lib/redacao-automatica/editorial-dossier-article-plan-repository";
 
@@ -90,6 +98,24 @@ function createSelections(formData: FormData): readonly EditorialDossierSourceSe
   });
 }
 
+function compositionSelections(formData: FormData): readonly EditorialComposeSourceInput[] {
+  return formData.getAll("newsroom_article_id").flatMap((value): EditorialComposeSourceInput[] => {
+    const newsroomArticleId = cleanText(value);
+    const newsroomSnapshotId = cleanText(formData.get(`source_snapshot_${newsroomArticleId}`));
+    if (!newsroomArticleId || !newsroomSnapshotId) {
+      return [];
+    }
+
+    return [{
+      newsroomArticleId,
+      newsroomSnapshotId,
+      priority: numberValue(formData.get(`source_priority_${newsroomArticleId}`), -1),
+      sourceRole: sourceRole(cleanText(formData.get(`source_role_${newsroomArticleId}`))),
+      editorialNote: cleanText(formData.get(`source_note_${newsroomArticleId}`)),
+    }];
+  });
+}
+
 function sourceEdits(formData: FormData): readonly EditorialDossierSourceEdit[] {
   return formData.getAll("dossier_source_id").flatMap((value): EditorialDossierSourceEdit[] => {
     const sourceId = cleanText(value);
@@ -138,18 +164,6 @@ function articlePlanSourceSelections(
 }
 
 
-function compositionInstructions(formData: FormData): string {
-  const combine = cleanText(formData.get("combine_instructions"));
-  const highlights = cleanText(formData.get("highlight_instructions"));
-  const avoid = cleanText(formData.get("avoid_instructions"));
-
-  return [
-    combine ? `Como combinar as fontes:\n${combine}` : "",
-    highlights ? `Assuntos a destacar e tratamento pretendido:\n${highlights}` : "",
-    avoid ? `Informação a evitar:\n${avoid}` : "",
-  ].filter(Boolean).join("\n\n");
-}
-
 function compositionErrorRedirect(
   code: string,
   dossierId?: string,
@@ -170,85 +184,69 @@ export async function POST(request: Request) {
 
 
   if (action === "compose") {
+    const submissionId = cleanText(formData.get("submission_id"));
     const workingTitle = cleanText(formData.get("working_title"));
     const combineInstructions = cleanText(formData.get("combine_instructions"));
     const highlightInstructions = cleanText(formData.get("highlight_instructions"));
-    const instructions = compositionInstructions(formData);
-    const selections = createSelections(formData);
+    const selections = compositionSelections(formData);
 
     if (
-      !workingTitle
+      !isEditorialComposeSubmissionId(submissionId)
+      || !workingTitle
       || !combineInstructions
       || !highlightInstructions
       || selections.length < 1
     ) {
-      return compositionErrorRedirect("input_invalid");
+      return compositionErrorRedirect(
+        isEditorialComposeSubmissionId(submissionId) ? "input_invalid" : "submission_id_invalid",
+      );
     }
 
-    const dossierResult = await createEditorialDossier({
-      title: workingTitle,
-      editorialInstructions: instructions,
+    const composeResult = await prepareEditorialCompose({
+      submissionId,
+      workingTitle,
+      combineInstructions,
+      highlightInstructions,
       contextInstructions: cleanText(formData.get("context_instructions")),
+      avoidInstructions: cleanText(formData.get("avoid_instructions")),
+      articleKind: articleKind(cleanText(formData.get("article_kind"))),
+      lengthMode: lengthMode(cleanText(formData.get("length_mode"))),
+      outputLanguage: "pt-PT",
       sources: selections,
     });
 
-    if (!dossierResult.ok) {
-      return compositionErrorRedirect(dossierResult.error.code);
+    if (!composeResult.ok) {
+      return compositionErrorRedirect(composeResult.error);
     }
 
-    const dossierId = dossierResult.value.dossier.id;
-    const dossierReadResult = await getEditorialDossierById(dossierId);
-
-    if (!dossierReadResult.ok || !dossierReadResult.value) {
-      return compositionErrorRedirect("composition_state_unavailable", dossierId);
-    }
-
-    const planSources = dossierReadResult.value.sources
-      .filter((source) => source.included)
-      .slice()
-      .sort((left, right) => left.sortOrder - right.sortOrder)
-      .map((source, index) => ({
-        dossierSourceId: source.id,
-        priority: index + 1,
-      }));
-
-    const planResult = await saveEditorialDossierArticlePlan({
-      dossierId,
-      articlePlanId: null,
-      workingTitle,
-      status: "ready",
-      priority: 1,
-      articleKind: articleKind(cleanText(formData.get("article_kind"))),
-      lengthMode: lengthMode(cleanText(formData.get("length_mode"))),
-      editorialInstructions: instructions,
-      sources: planSources,
-    });
-
-    if (!planResult.ok) {
-      return compositionErrorRedirect(planResult.error.code, dossierId);
-    }
-
-    const draftResult = await createEditorialDossierArticlePlanDraft(
-      dossierId,
-      planResult.value.articlePlanId,
+    const { request: composeRequest, composition } = composeResult.value;
+    const claimToken = crypto.randomUUID();
+    const generationResult = await runEditorialComposeGeneration(
+      composition,
+      {
+        claim: () => claimEditorialComposeGeneration(composeRequest, claimToken),
+        generate: () => generateEditorialDossierArticlePlanDraftBody(
+          composition.dossierId,
+          composition.articlePlanId,
+        ),
+        fail: (errorCode) => markEditorialComposeGenerationFailed(
+          composeRequest,
+          claimToken,
+          errorCode,
+        ),
+        complete: () => markEditorialComposeGenerationCompleted(
+          composeRequest,
+          claimToken,
+        ),
+      },
     );
-
-    if (!draftResult.ok) {
-      return compositionErrorRedirect(draftResult.error.code, dossierId);
-    }
-
-    const generationResult = await generateEditorialDossierArticlePlanDraftBody(
-      dossierId,
-      planResult.value.articlePlanId,
-    );
-
     if (!generationResult.ok) {
-      return compositionErrorRedirect(generationResult.error.code, dossierId);
+      return compositionErrorRedirect(generationResult.error, composition.dossierId);
     }
 
     return redirectTo("/admin/editorial/artigos", {
-      articleId: generationResult.value.editorialArticleId,
-      dossier_plan_generation: generationResult.value.action,
+      articleId: composition.editorialArticleId,
+      dossier_plan_generation: generationResult.action,
     });
   }
 
