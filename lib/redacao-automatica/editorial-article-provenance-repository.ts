@@ -7,6 +7,7 @@ import {
   type ProvenanceAssignmentRow,
   type ProvenanceDossierRow,
   type ProvenanceDossierSourceRow,
+  type ProvenanceEditorialProfileRow,
   type ProvenanceGenerationRow,
   type ProvenanceNewsroomArticleRow,
   type ProvenancePlanRow,
@@ -28,7 +29,7 @@ export async function getEditorialArticleProvenance(
   try {
     const plans = await fetchSupabaseAdminTable<ProvenancePlanRow>(
       "newsroom_editorial_dossier_article_plans"
-      + "?select=id,dossier_id,editorial_article_id,working_title,article_kind,length_mode,status,editorial_instructions,created_at"
+      + "?select=id,dossier_id,editorial_article_id,working_title,article_kind,length_mode,status,editorial_instructions,created_at,editorial_profile_id,editorial_profile_version_id,editorial_profile_pinned_at"
       + `&editorial_article_id=eq.${encodeURIComponent(editorialArticleId)}&limit=1`,
     );
     const plan = plans[0];
@@ -49,15 +50,24 @@ export async function getEditorialArticleProvenance(
       ),
       fetchSupabaseAdminTable<ProvenanceGenerationRow>(
         "newsroom_editorial_dossier_article_plan_generations"
-        + "?select=provider,model,prompt_version,provider_response_id,input_hash,input_tokens,output_tokens,created_at"
+        + "?select=provider,model,prompt_version,provider_response_id,input_hash,input_tokens,output_tokens,editorial_profile_id,editorial_profile_version_id,editorial_profile_version_number,editorial_profile_content_hash,editorial_profile_state_at_generation,editorial_profile_version_created_at,editorial_profile_pinned_at,generated_body_hash,created_at"
         + `&dossier_id=eq.${encodeURIComponent(plan.dossier_id)}`
         + `&article_plan_id=eq.${encodeURIComponent(plan.id)}&limit=1`,
       ),
     ]);
     const dossier = dossiers[0];
+    const generation = generationRows[0] ?? null;
     if (!dossier || plan.editorial_article_id !== editorialArticleId) {
       return { ok: false, error: "relation_invalid" };
     }
+
+    const editorialProfileRows = generation?.editorial_profile_id
+      ? await fetchSupabaseAdminTable<ProvenanceEditorialProfileRow>(
+          "newsroom_editorial_profiles?select=id,code,name"
+          + `&id=eq.${encodeURIComponent(generation.editorial_profile_id)}`
+          + "&limit=1",
+        )
+      : [];
 
     const sourceIds = assignments.map((assignment) => assignment.dossier_source_id);
     const dossierSources = sourceIds.length > 0
@@ -96,7 +106,8 @@ export async function getEditorialArticleProvenance(
         dossierSources,
         newsroomArticles,
         snapshots,
-        generation: generationRows[0] ?? null,
+        generation,
+        editorialProfile: editorialProfileRows[0] ?? null,
       }),
     };
   } catch {

@@ -191,15 +191,49 @@ export function ArticleProvenancePanel({
 
       <div className="article-admin-diagnostic-header"><h4>Geração</h4></div>
       {provenance.generation ? (
-        <dl className="article-provenance-generation">
-          <div><dt>Provider / modelo</dt><dd>{provenance.generation.provider} / {provenance.generation.model}</dd></div>
-          <div><dt>Prompt</dt><dd>{provenance.generation.promptVersion}</dd></div>
-          <div><dt>Response ID</dt><dd><code>{provenance.generation.providerResponseId ?? "Não persistido"}</code></dd></div>
-          <div><dt>Gerado em</dt><dd>{formatShortDate(provenance.generation.generatedAt)}</dd></div>
-          <div><dt>Tokens</dt><dd>input {provenance.generation.inputTokens ?? "—"} / output {provenance.generation.outputTokens ?? "—"}</dd></div>
-          <div><dt>Hash do input</dt><dd><code>{provenance.generation.inputHash}</code></dd></div>
-          <div><dt>Estado</dt><dd>{provenance.generation.status}</dd></div>
-        </dl>
+        <>
+          <dl className="article-provenance-generation">
+            <div><dt>Provider / modelo</dt><dd>{provenance.generation.provider} / {provenance.generation.model}</dd></div>
+            <div><dt>Prompt</dt><dd>{provenance.generation.promptVersion}</dd></div>
+            <div><dt>Response ID</dt><dd><code>{provenance.generation.providerResponseId ?? "Não persistido"}</code></dd></div>
+            <div><dt>Gerado em</dt><dd>{formatShortDate(provenance.generation.generatedAt)}</dd></div>
+            <div><dt>Tokens</dt><dd>input {provenance.generation.inputTokens ?? "—"} / output {provenance.generation.outputTokens ?? "—"}</dd></div>
+            <div><dt>Hash do input</dt><dd><code>{provenance.generation.inputHash}</code></dd></div>
+            <div><dt>Hash da primeira versão</dt><dd><code>{provenance.generation.generatedBodyHash ?? "Não persistido (geração legacy)"}</code></dd></div>
+            <div><dt>Estado</dt><dd>{provenance.generation.status}</dd></div>
+          </dl>
+          {provenance.generation.editorialProfile ? (
+            <section className="article-provenance-editorial-profile">
+              <h5>Linha editorial usada</h5>
+              <dl>
+                <div>
+                  <dt>Perfil</dt>
+                  <dd>
+                    {provenance.generation.editorialProfile.profileName
+                      ?? provenance.generation.editorialProfile.profileCode
+                      ?? provenance.generation.editorialProfile.profileId}
+                  </dd>
+                </div>
+                <div><dt>ID do perfil</dt><dd><code>{provenance.generation.editorialProfile.profileId}</code></dd></div>
+                <div><dt>Versão</dt><dd>{provenance.generation.editorialProfile.versionNumber}</dd></div>
+                <div><dt>ID da versão</dt><dd><code>{provenance.generation.editorialProfile.versionId}</code></dd></div>
+                <div><dt>Hash editorial</dt><dd><code>{provenance.generation.editorialProfile.contentHash}</code></dd></div>
+                <div><dt>Estado na geração</dt><dd>{provenance.generation.editorialProfile.stateAtGeneration}</dd></div>
+                <div><dt>Versão criada em</dt><dd>{formatShortDate(provenance.generation.editorialProfile.versionCreatedAt)}</dd></div>
+                <div><dt>Fixada no plano em</dt><dd>{formatShortDate(provenance.generation.editorialProfile.pinnedAt)}</dd></div>
+              </dl>
+              <p>
+                O corpo atual do artigo pode divergir desta primeira versão
+                depois da revisão humana. O hash acima identifica o texto
+                originalmente gerado e preservado.
+              </p>
+            </section>
+          ) : (
+            <p className="article-admin-empty-note">
+              Geração legacy: não existe uma versão editorial persistida para apresentar.
+            </p>
+          )}
+        </>
       ) : (
         <p className="article-admin-empty-note">Ainda não existe uma geração concluída para este plano.</p>
       )}
@@ -229,7 +263,11 @@ export const articleProvenanceStyles = `
   .article-provenance-manual { display: block; color: #1f6f8b; }
   .article-provenance-warning { color: #9b2c2c; font-weight: 700; }
   .article-provenance-generation { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .article-provenance-editorial-profile { margin-top: 14px; padding: 14px; border: 1px solid #d9e4e8; border-radius: 10px; background: #f8fafc; }
+  .article-provenance-editorial-profile h5 { margin: 0 0 10px; font-size: 0.95rem; }
+  .article-provenance-editorial-profile dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .article-provenance-editorial-profile p { margin: 12px 0 0; color: #52606d; font-size: 0.82rem; line-height: 1.5; }
   @media (max-width: 900px) {
-    .article-provenance-grid, .article-provenance-sources dl, .article-provenance-generation { grid-template-columns: 1fr; }
+    .article-provenance-grid, .article-provenance-sources dl, .article-provenance-generation, .article-provenance-editorial-profile dl { grid-template-columns: 1fr; }
   }
 `;

@@ -64,6 +64,18 @@ export type EditorialArticleProvenance = Readonly<{
     inputTokens: number | null;
     outputTokens: number | null;
     inputHash: string;
+    generatedBodyHash: string | null;
+    editorialProfile: Readonly<{
+      profileId: string;
+      profileCode: string | null;
+      profileName: string | null;
+      versionId: string;
+      versionNumber: number;
+      contentHash: string;
+      stateAtGeneration: string;
+      versionCreatedAt: string;
+      pinnedAt: string;
+    }> | null;
     status: "completed";
   }> | null;
 }>;
@@ -78,6 +90,9 @@ export type ProvenancePlanRow = Readonly<{
   status: string;
   editorial_instructions: string;
   created_at: string;
+  editorial_profile_id?: string | null;
+  editorial_profile_version_id?: string | null;
+  editorial_profile_pinned_at?: string | null;
 }>;
 
 export type ProvenanceDossierRow = Readonly<{
@@ -128,7 +143,21 @@ export type ProvenanceGenerationRow = Readonly<{
   input_hash: string;
   input_tokens: number | null;
   output_tokens: number | null;
+  editorial_profile_id?: string | null;
+  editorial_profile_version_id?: string | null;
+  editorial_profile_version_number?: number | null;
+  editorial_profile_content_hash?: string | null;
+  editorial_profile_state_at_generation?: string | null;
+  editorial_profile_version_created_at?: string | null;
+  editorial_profile_pinned_at?: string | null;
+  generated_body_hash?: string | null;
   created_at: string;
+}>;
+
+export type ProvenanceEditorialProfileRow = Readonly<{
+  id: string;
+  code: string;
+  name: string;
 }>;
 
 function recordValue(value: unknown): Record<string, unknown> {
@@ -166,6 +195,7 @@ export function buildEditorialArticleProvenance(input: Readonly<{
   newsroomArticles: readonly ProvenanceNewsroomArticleRow[];
   snapshots: readonly ProvenanceSnapshotRow[];
   generation: ProvenanceGenerationRow | null;
+  editorialProfile?: ProvenanceEditorialProfileRow | null;
 }>): EditorialArticleProvenance {
   const sourcesById = new Map(input.dossierSources.map((source) => [source.id, source]));
   const articlesById = new Map(input.newsroomArticles.map((article) => [article.id, article]));
@@ -256,6 +286,40 @@ export function buildEditorialArticleProvenance(input: Readonly<{
           inputTokens: input.generation.input_tokens,
           outputTokens: input.generation.output_tokens,
           inputHash: input.generation.input_hash,
+          generatedBodyHash: input.generation.generated_body_hash ?? null,
+          editorialProfile:
+            input.generation.editorial_profile_id
+            && input.generation.editorial_profile_version_id
+            && typeof input.generation.editorial_profile_version_number ===
+              "number"
+            && input.generation.editorial_profile_content_hash
+            && input.generation.editorial_profile_state_at_generation
+            && input.generation.editorial_profile_version_created_at
+            && input.generation.editorial_profile_pinned_at
+              ? {
+                  profileId: input.generation.editorial_profile_id,
+                  profileCode:
+                    input.editorialProfile?.id ===
+                    input.generation.editorial_profile_id
+                      ? input.editorialProfile.code
+                      : null,
+                  profileName:
+                    input.editorialProfile?.id ===
+                    input.generation.editorial_profile_id
+                      ? input.editorialProfile.name
+                      : null,
+                  versionId: input.generation.editorial_profile_version_id,
+                  versionNumber:
+                    input.generation.editorial_profile_version_number,
+                  contentHash:
+                    input.generation.editorial_profile_content_hash,
+                  stateAtGeneration:
+                    input.generation.editorial_profile_state_at_generation,
+                  versionCreatedAt:
+                    input.generation.editorial_profile_version_created_at,
+                  pinnedAt: input.generation.editorial_profile_pinned_at,
+                }
+              : null,
           status: "completed",
         }
       : null,

@@ -23,6 +23,10 @@ const newsroomOneId = "00000000-0000-4000-8000-000000000051";
 const newsroomTwoId = "00000000-0000-4000-8000-000000000052";
 const snapshotOneId = "00000000-0000-4000-8000-000000000061";
 const snapshotTwoId = "00000000-0000-4000-8000-000000000062";
+const profileId = "00000000-0000-4000-8000-000000000071";
+const profileVersionId = "00000000-0000-4000-8000-000000000072";
+const profileDocument =
+  "A Jornada.pt parte dos factos para identificar problemas e avaliar alternativas com evidência.";
 
 function read(path: string): string {
   return readFileSync(path, "utf8");
@@ -48,6 +52,18 @@ function context(
       lengthMode: "developed",
       editorialInstructions: "Usar apenas os factos presentes nas fontes atribuídas.",
       editorialArticleId: articleId,
+      editorialProfile: {
+        profileId,
+        profileCode: "jornada-pt",
+        profileName: "Linha editorial da Jornada.pt",
+        versionId: profileVersionId,
+        versionNumber: 1,
+        documentText: profileDocument,
+        contentHash: "c".repeat(64),
+        approvalState: "approved",
+        versionCreatedAt: "2026-07-29T07:00:00.000Z",
+        pinnedAt: "2026-07-29T07:30:00.000Z",
+      },
     },
     article: {
       id: articleId,
@@ -62,6 +78,7 @@ function context(
         newsroomSnapshotId: snapshotOneId,
         sourceCode: "record",
         articleTitle: "FC Porto vence S. João de Ver",
+        articleTitleOrigin: "frozen",
         sourceRole: "primary",
         sortOrder: 10,
         editorialNote: "Abrir com o FC Porto.",
@@ -77,6 +94,7 @@ function context(
         newsroomSnapshotId: snapshotTwoId,
         sourceCode: "abola",
         articleTitle: "Vitória encerra estágio",
+        articleTitleOrigin: "frozen",
         sourceRole: "context",
         sortOrder: 20,
         editorialNote: null,
@@ -114,6 +132,8 @@ function fakeEnvironment(options: {
 
   const transport: EditorialDossierArticlePlanGenerationTransport = {
     isConfigured: () => true,
+    pinEditorialProfileVersion: async () =>
+      (options.generationContext ?? context()).plan.editorialProfile ?? null,
     findGeneration: async () => options.generation ?? null,
     readContext: async () => options.generationContext ?? context(),
     applyGeneration: async (input) => {
@@ -236,6 +256,26 @@ test("bloqueia fontes sem snapshot utilizável e fornecedor não configurado", a
   assert.deepEqual(unavailable.counts(), { providerCalls: 0, applyCalls: 0 });
 });
 
+test("recusa gerar sem versão editorial fixada", async () => {
+  const unpinnedContext = context();
+  const environment = fakeEnvironment({
+    generationContext: {
+      ...unpinnedContext,
+      plan: {
+        ...unpinnedContext.plan,
+        editorialProfile: undefined,
+      },
+    },
+  });
+  const result = await environment.service(dossierId, planId);
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.code, "editorial_profile_unavailable");
+  }
+  assert.deepEqual(environment.counts(), { providerCalls: 0, applyCalls: 0 });
+});
+
 test("gera apenas o corpo, preserva ordem e aplica metadados auditáveis", async () => {
   const environment = fakeEnvironment();
   const result = await environment.service(dossierId, planId);
@@ -253,6 +293,8 @@ test("gera apenas o corpo, preserva ordem e aplica metadados auditáveis", async
   assert.equal(applied?.model, "gpt-5-mini-2025-08-07");
   assert.equal(applied?.promptVersion, EDITORIAL_DOSSIER_GENERATION_PROMPT_VERSION);
   assert.equal(applied?.inputHash.length, 64);
+  assert.equal(applied?.inputSnapshot.version, 2);
+  assert.equal(applied?.inputSnapshot.editorial_profile.version_id, profileVersionId);
   assert.equal(applied?.inputSnapshot.sources[0].dossier_source_id, sourceOneId);
   assert.equal(applied?.inputSnapshot.sources[1].dossier_source_id, sourceTwoId);
   assert.equal(applied?.inputSnapshot.plan.working_title, context().plan.workingTitle);
@@ -273,10 +315,70 @@ test("o prompt separa instruções de fontes e fixa título, idioma e revisão h
   assert.equal(payload.fontes[0].fonte, "record");
   assert.equal(payload.fontes[1].fonte, "abola");
   assert.match(prompt.instructions, /apenas o corpo do artigo/i);
-  assert.match(prompt.instructions, /exclusivamente os factos/i);
+  assert.match(prompt.instructions, /exclusivamente factos/i);
   assert.match(prompt.instructions, /revisto por uma pessoa/i);
+  assert.match(prompt.instructions, /\[LINHA_EDITORIAL_APROVADA\]/);
+  assert.match(prompt.instructions, new RegExp(profileDocument));
+  assert.equal(
+    prompt.inputSnapshot.editorial_profile.content_hash,
+    "c".repeat(64),
+  );
   assert.equal(prompt.inputHash.length, 64);
   assert.equal(prompt.maxOutputTokens, 5_000);
+});
+
+test("o input hash é determinístico e muda quando muda a versão editorial", () => {
+  const first = buildEditorialDossierGenerationPrompt(context());
+  const repeated = buildEditorialDossierGenerationPrompt(context());
+  const changedContext = context();
+  const changed = buildEditorialDossierGenerationPrompt({
+    ...changedContext,
+    plan: {
+      ...changedContext.plan,
+      editorialProfile: {
+        ...changedContext.plan.editorialProfile!,
+        versionId: "00000000-0000-4000-8000-000000000073",
+        versionNumber: 2,
+      },
+    },
+  });
+
+  assert.equal(first.inputHash, repeated.inputHash);
+  assert.notEqual(first.inputHash, changed.inputHash);
+  assert.notEqual(
+    first.inputSnapshot.editorial_profile.version_id,
+    changed.inputSnapshot.editorial_profile.version_id,
+  );
+});
+
+test("o contexto usa title_snapshot e identifica o fallback legacy", () => {
+  const service = read(
+    "lib/redacao-automatica/editorial-dossier-article-plan-generation-service.ts",
+  );
+  const frozen = buildEditorialDossierGenerationPrompt(context());
+  const legacyContext = context();
+  const legacy = buildEditorialDossierGenerationPrompt({
+    ...legacyContext,
+    sources: legacyContext.sources.map((source, index) =>
+      index === 0
+        ? { ...source, articleTitleOrigin: "legacy_current_article" }
+        : source,
+    ),
+  });
+
+  assert.match(service, /title_snapshot/);
+  assert.match(
+    service,
+    /dossierSource\.title_snapshot\?\.trim\(\)\s*\?\s*"frozen"\s*:\s*"legacy_current_article"/,
+  );
+  assert.equal(
+    frozen.inputSnapshot.sources[0].article_title_origin,
+    "frozen",
+  );
+  assert.equal(
+    legacy.inputSnapshot.sources[0].article_title_origin,
+    "legacy_current_article",
+  );
 });
 
 test("a UI, rota, provider e SQL mantêm geração explícita, draft e proveniência", () => {
@@ -286,7 +388,7 @@ test("a UI, rota, provider e SQL mantêm geração explícita, draft e proveniê
     "lib/redacao-automatica/openai-editorial-generation-provider-internal.ts",
   );
   const apply = read(
-    "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-rascunho-geracao-controlada-1-aplicar.sql",
+    "supabase/steps/43-redacao-automatica-linha-editorial-persistente-apply.sql",
   );
 
   assert.match(page, /name="action" value="generate_article_plan_draft_body"/);
@@ -302,16 +404,19 @@ test("a UI, rota, provider e SQL mantêm geração explícita, draft e proveniê
 
   assert.match(
     apply,
-    /create table public\.newsroom_editorial_dossier_article_plan_generations/i,
+    /alter table public\.newsroom_editorial_dossier_article_plan_generations/i,
   );
   assert.match(
     apply,
-    /create function public\.newsroom_apply_editorial_dossier_article_plan_generation/i,
+    /create or replace function public\.newsroom_apply_editorial_dossier_article_plan_generation/i,
   );
   assert.match(apply, /for update/i);
   assert.match(apply, /article\.status = 'draft'/i);
   assert.match(apply, /btrim\(coalesce\(article\.body, ''\)\) = ''/i);
   assert.match(apply, /p_input_snapshot is distinct from v_input_snapshot/i);
+  assert.match(apply, /generated_body_hash/i);
+  assert.match(apply, /title_snapshot/i);
+  assert.match(apply, /dossier-article-plan-body-v2-editorial-profile/i);
   assert.match(apply, /'reused'::text/i);
   assert.match(apply, /'applied'::text/i);
   assert.doesNotMatch([page, route, provider, apply].join("\n"), /status\s*=\s*'published'|translation_run|web_search/i);

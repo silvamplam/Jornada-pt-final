@@ -14,6 +14,8 @@ import {
 const ARTICLE_ID = "20000000-0000-4000-8000-000000000001";
 const PLAN_ID = "20000000-0000-4000-8000-000000000002";
 const DOSSIER_ID = "20000000-0000-4000-8000-000000000003";
+const PROFILE_ID = "20000000-0000-4000-8000-000000000011";
+const PROFILE_VERSION_ID = "20000000-0000-4000-8000-000000000012";
 const SOURCE_ONE_ID = "20000000-0000-4000-8000-000000000004";
 const SOURCE_TWO_ID = "20000000-0000-4000-8000-000000000005";
 const NEWSROOM_ONE_ID = "20000000-0000-4000-8000-000000000006";
@@ -71,6 +73,9 @@ function build(
       status: "ready",
       editorial_instructions: "Synthetic persisted instructions",
       created_at: "2026-07-30T09:00:00.000Z",
+      editorial_profile_id: PROFILE_ID,
+      editorial_profile_version_id: PROFILE_VERSION_ID,
+      editorial_profile_pinned_at: "2026-07-30T09:01:00.000Z",
     },
     dossier: {
       id: DOSSIER_ID,
@@ -97,7 +102,20 @@ function build(
       input_hash: "b".repeat(64),
       input_tokens: 10,
       output_tokens: 20,
+      editorial_profile_id: PROFILE_ID,
+      editorial_profile_version_id: PROFILE_VERSION_ID,
+      editorial_profile_version_number: 1,
+      editorial_profile_content_hash: "c".repeat(64),
+      editorial_profile_state_at_generation: "active",
+      editorial_profile_version_created_at: "2026-07-30T08:00:00.000Z",
+      editorial_profile_pinned_at: "2026-07-30T09:01:00.000Z",
+      generated_body_hash: "d".repeat(64),
       created_at: "2026-07-30T09:05:00.000Z",
+    },
+    editorialProfile: {
+      id: PROFILE_ID,
+      code: "jornada-pt",
+      name: "Linha editorial da Jornada.pt",
     },
     ...overrides,
   });
@@ -122,6 +140,44 @@ test("a proveniência usa o snapshot exato e os valores congelados, nunca o mais
   assert.equal(frozen.originalUrl, "https://example.invalid/frozen-original");
   assert.equal(frozen.titleOrigin, "frozen");
   assert.equal(frozen.publishedAtOrigin, "frozen");
+});
+
+test("a proveniência fixa a versão editorial e o hash da primeira versão", () => {
+  const generation = build().generation;
+
+  assert.ok(generation);
+  assert.equal(generation?.generatedBodyHash, "d".repeat(64));
+  assert.deepEqual(generation?.editorialProfile, {
+    profileId: PROFILE_ID,
+    profileCode: "jornada-pt",
+    profileName: "Linha editorial da Jornada.pt",
+    versionId: PROFILE_VERSION_ID,
+    versionNumber: 1,
+    contentHash: "c".repeat(64),
+    stateAtGeneration: "active",
+    versionCreatedAt: "2026-07-30T08:00:00.000Z",
+    pinnedAt: "2026-07-30T09:01:00.000Z",
+  });
+});
+
+test("uma geração legacy permanece legível sem inventar versão editorial", () => {
+  const legacy = build({
+    generation: {
+      provider: "synthetic-provider",
+      model: "synthetic-model",
+      prompt_version: "dossier-article-plan-body-v1",
+      provider_response_id: null,
+      input_hash: "e".repeat(64),
+      input_tokens: null,
+      output_tokens: null,
+      created_at: "2026-07-30T09:05:00.000Z",
+    },
+    editorialProfile: null,
+  }).generation;
+
+  assert.ok(legacy);
+  assert.equal(legacy?.editorialProfile, null);
+  assert.equal(legacy?.generatedBodyHash, null);
 });
 
 test("a precisao publicada vem apenas dos metadados do snapshot congelado", () => {
@@ -289,7 +345,10 @@ test("repository e painel são read-only, não carregam corpo de snapshots nem e
   assert.match(repository, /&id=in\.\(\$\{uuidList\(snapshotIds\)\}\)/);
   assert.match(repository, /if \(!plan\) \{\s*return \{ ok: true, value: null \};/);
   assert.doesNotMatch(repository, /order=extracted_at\.desc/);
-  assert.doesNotMatch(repository, /select=.*body/);
+  assert.doesNotMatch(
+    repository,
+    /newsroom_article_snapshots\?select=[^"\n]*\bbody\b/,
+  );
   assert.doesNotMatch(repository, /writeSupabase/);
   assert.match(
     internal,
@@ -307,15 +366,24 @@ test("repository e painel são read-only, não carregam corpo de snapshots nem e
   );
   assert.match(panel, /formatShortDate\(source\.extractedAt\)/);
   assert.match(panel, /formatShortDate\(provenance\.generation\.generatedAt\)/);
+  assert.match(panel, /Linha editorial usada/);
+  assert.match(panel, /generatedBodyHash/);
+  assert.match(panel, /Geração legacy/);
   assert.doesNotMatch(panel, /api[_-]?key|authorization|cookie|headers/i);
   assert.doesNotMatch(panel, /Publicar artigo/);
 });
 
 test("guardar revisão regressa ao mesmo articleId e volta a carregar a proveniência", () => {
   const page = readFileSync("app/admin/editorial/artigos/page.tsx", "utf8");
+  const route = readFileSync("app/api/admin/editorial/artigos/route.ts", "utf8");
   assert.match(page, /getEditorialArticleProvenance\(selectedArticle\.id, selectedArticle\.status\)/);
   assert.match(
     page,
     /returnTo=\{[\s\S]*`\/admin\/editorial\/artigos\?articleId=\$\{encodeURIComponent\(selectedArticle\.id\)\}`/,
   );
+  assert.doesNotMatch(
+    route,
+    /newsroom_editorial_dossier_article_plan_generations|generated_body_hash|generated_body/,
+  );
+  assert.match(route, /editorialAction === "publish"/);
 });
