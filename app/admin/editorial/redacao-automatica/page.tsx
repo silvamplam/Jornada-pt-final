@@ -36,6 +36,7 @@ import {
   type NewsroomTopicSourceTechnicalReport,
 } from "@/lib/redacao-automatica/newsroom-external-topic-search-internal";
 
+import CompositionSubmitEnhancer from "./_compositionSubmitEnhancer";
 import styles from "./redacao-automatica.module.css";
 
 export const dynamic = "force-dynamic";
@@ -559,6 +560,10 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
   const compositionErrorCode = firstQueryValue(params.composition_error);
   const compositionErrorMessages: Record<string, string> = {
     input_invalid: "Seleciona pelo menos uma fonte e preenche o assunto, a combinação e os destaques.",
+    submission_id_invalid: "O identificador persistente desta submissão é inválido. Atualiza a página antes de tentar novamente.",
+    submission_payload_conflict: "Esta submissão já foi usada com dados editoriais diferentes. O conjunto anterior foi preservado.",
+    composition_failed: "Não foi possível criar ou retomar atomicamente esta composição.",
+    generation_claim_failed: "A composição foi preservada, mas não foi possível reclamar a geração neste momento.",
     service_unavailable: "A composição editorial não está configurada neste ambiente.",
     source_not_found: "Uma das fontes selecionadas já não está disponível.",
     source_not_eligible: "Uma das fontes selecionadas ainda não pode ser utilizada.",
@@ -578,6 +583,7 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
     ? compositionErrorMessages[compositionErrorCode] ?? "Não foi possível concluir a composição."
     : null;
   const compositionDossierId = firstQueryValue(params.composition_dossier_id);
+  const compositionSubmissionId = crypto.randomUUID();
 
   const dossiers = dossierListResult.ok ? dossierListResult.value : [];
 
@@ -784,6 +790,7 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
             className={styles.compositionForm}
           >
           <input type="hidden" name="action" value="compose" />
+          <input type="hidden" name="submission_id" value={compositionSubmissionId} />
 
           <section className={styles.compositionSources} aria-labelledby="composition-sources-title">
             <div className={styles.compositionStepHeader}>
@@ -844,6 +851,11 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
                   </div>
                   {canUseInComposition(article) ? (
                     <div className={styles.compositionSourceControls}>
+                      <input
+                        type="hidden"
+                        name={`source_snapshot_${article.id}`}
+                        value={article.latestSnapshotId ?? ""}
+                      />
                       <label>
                         <span>Prioridade</span>
                         <input
@@ -963,9 +975,15 @@ export default async function AutomaticNewsroomPage({ searchParams }: AutomaticN
                   A primeira versão será criada como rascunho e abrirá automaticamente na página dos Artigos para revisão final.
                 </p>
               </div>
-              <button type="submit">Gerar primeira versão</button>
+              <div className={styles.compositionSubmit}>
+                <button type="submit" data-composition-submit>Gerar primeira versão</button>
+                <span data-composition-submit-status role="status" hidden>
+                  A composição está a ser criada ou retomada. Não feches esta página.
+                </span>
+              </div>
             </div>
           </section>
+          <CompositionSubmitEnhancer />
           </form>
         ) : topicSearchFailed ? (
           <div className={styles.topicSearchState} role="status">

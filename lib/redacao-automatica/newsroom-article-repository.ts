@@ -146,6 +146,7 @@ export type NewsroomDossierSourceCandidate = Readonly<{
   id: string;
   sourceCode: string;
   title: string;
+  publishedAt: string | null;
   processingStatus: ArticleProcessingStatus;
   snapshot: Readonly<{
     id: string;
@@ -781,6 +782,7 @@ export async function getNewsroomDossierSourceCandidates(
           id,
           sourceCode: row.source_code,
           title: row.title,
+          publishedAt: row.published_at,
           processingStatus: processingStatus(row.processing_status),
           snapshot: latestSnapshot
             ? {

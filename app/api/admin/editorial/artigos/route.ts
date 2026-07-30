@@ -1,7 +1,11 @@
 import { randomUUID } from "crypto";
 
-import { NextResponse } from "next/server";
-
+import {
+  ARTICLE_ADMIN_PATH,
+  articleAdminRedirect,
+  isArticleAdminUuid,
+  safeArticleAdminReturnTo,
+} from "@/lib/admin-article-redirect";
 import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
@@ -153,32 +157,6 @@ function normalizePublishedAt(value: string | null) {
   }
 
   return date.toISOString();
-}
-
-function redirectTo(request: Request, path: string, params: Record<string, string>) {
-  const url = new URL(path, request.url);
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
-  }
-
-  return NextResponse.redirect(url, { status: 303 });
-}
-
-function safeReturnTo(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const url = new URL(value, "https://jornada.local");
-    if (url.pathname !== "/admin/editorial/artigos") {
-      return null;
-    }
-
-    return `${url.pathname}${url.search}`;
-  } catch {
-    return null;
-  }
 }
 
 function createInsertPayload(payload: ArticlePayload) {
@@ -370,11 +348,28 @@ function scopeForContext(context: {
 
 function cleanUuid(value: FormDataEntryValue | null) {
   const cleanValue = cleanText(value);
-  if (!cleanValue || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanValue)) {
+  if (!isArticleAdminUuid(cleanValue)) {
     throw new ArticleAdminError("invalid-link-target");
   }
 
   return cleanValue;
+}
+
+function cleanArticleId(value: FormDataEntryValue | null) {
+  const articleId = cleanText(value);
+  if (!articleId) {
+    throw new ArticleAdminError("missing-article");
+  }
+  if (!isArticleAdminUuid(articleId)) {
+    throw new ArticleAdminError("invalid-article");
+  }
+
+  return articleId;
+}
+
+function optionalArticleId(value: FormDataEntryValue | null) {
+  const articleId = cleanText(value);
+  return isArticleAdminUuid(articleId) ? articleId : null;
 }
 
 function cleanLinkRemovalTarget(table: string | null, field: string | null) {
@@ -475,7 +470,7 @@ async function buildPayload(
   };
 }
 
-async function createArticle(request: Request, formData: FormData) {
+async function createArticle(formData: FormData) {
   const editorialAction = cleanEditorialAction(cleanText(formData.get("editorial_action")));
   const targetStatus = editorialAction === "publish" ? "published" : "draft";
   const payload = await buildPayload(formData, null, targetStatus);
@@ -485,13 +480,12 @@ async function createArticle(request: Request, formData: FormData) {
   });
 
   const created = rows[0];
-  if (!created?.id) {
+  if (!created?.id || !isArticleAdminUuid(created.id)) {
     throw new ArticleAdminError("save-failed");
   }
 
-  const returnTo = safeReturnTo(cleanText(formData.get("return_to"))) ?? "/admin/editorial/artigos";
-  return redirectTo(
-    request,
+  const returnTo = safeArticleAdminReturnTo(cleanText(formData.get("return_to"))) ?? ARTICLE_ADMIN_PATH;
+  return articleAdminRedirect(
     returnTo,
     editorialAction === "publish"
       ? { articleId: created.id, published: "1" }
@@ -499,11 +493,8 @@ async function createArticle(request: Request, formData: FormData) {
   );
 }
 
-async function updateArticle(request: Request, formData: FormData) {
-  const articleId = cleanText(formData.get("article_id"));
-  if (!articleId) {
-    throw new ArticleAdminError("missing-article");
-  }
+async function updateArticle(formData: FormData) {
+  const articleId = cleanArticleId(formData.get("article_id"));
 
   const currentArticle = await readArticleStatus(articleId);
   if (!currentArticle) {
@@ -523,9 +514,8 @@ async function updateArticle(request: Request, formData: FormData) {
     }),
   });
 
-  const returnTo = safeReturnTo(cleanText(formData.get("return_to"))) ?? `/admin/editorial/artigos?articleId=${encodeURIComponent(articleId)}`;
-  return redirectTo(
-    request,
+  const returnTo = safeArticleAdminReturnTo(cleanText(formData.get("return_to"))) ?? `${ARTICLE_ADMIN_PATH}?articleId=${encodeURIComponent(articleId)}`;
+  return articleAdminRedirect(
     returnTo,
     editorialAction === "publish"
       ? { articleId, published: "1" }
@@ -533,11 +523,8 @@ async function updateArticle(request: Request, formData: FormData) {
   );
 }
 
-async function deleteArticle(request: Request, formData: FormData) {
-  const articleId = cleanText(formData.get("article_id"));
-  if (!articleId) {
-    throw new ArticleAdminError("missing-article");
-  }
+async function deleteArticle(formData: FormData) {
+  const articleId = cleanArticleId(formData.get("article_id"));
   if (cleanText(formData.get("confirm_delete")) !== "yes") {
     throw new ArticleAdminError("delete-not-confirmed");
   }
@@ -555,10 +542,10 @@ async function deleteArticle(request: Request, formData: FormData) {
     method: "DELETE",
   });
 
-  return redirectTo(request, "/admin/editorial/artigos", { removed: "1" });
+  return articleAdminRedirect(ARTICLE_ADMIN_PATH, { removed: "1" });
 }
 
-async function removeArticleLink(request: Request, formData: FormData) {
+async function removeArticleLink(formData: FormData) {
   const slug = normalizeSlug(cleanText(formData.get("slug")) ?? "");
   if (!slug) {
     throw new ArticleAdminError("missing-article");
@@ -595,8 +582,8 @@ async function removeArticleLink(request: Request, formData: FormData) {
     }),
   });
 
-  const returnTo = safeReturnTo(cleanText(formData.get("return_to"))) ?? "/admin/editorial/artigos";
-  return redirectTo(request, returnTo, { link_removed: "1" });
+  const returnTo = safeArticleAdminReturnTo(cleanText(formData.get("return_to"))) ?? ARTICLE_ADMIN_PATH;
+  return articleAdminRedirect(returnTo, { link_removed: "1" });
 }
 
 export async function POST(request: Request) {
@@ -611,22 +598,22 @@ export async function POST(request: Request) {
     }
 
     if (actionType === "create_article") {
-      return await createArticle(request, formData);
+      return await createArticle(formData);
     }
 
     if (actionType === "update_article") {
-      return await updateArticle(request, formData);
+      return await updateArticle(formData);
     }
 
     if (actionType === "delete_article") {
-      return await deleteArticle(request, formData);
+      return await deleteArticle(formData);
     }
 
     if (actionType === "remove_article_link") {
-      return await removeArticleLink(request, formData);
+      return await removeArticleLink(formData);
     }
 
-    return redirectTo(request, "/admin/editorial/artigos", { error: "invalid-action" });
+    return articleAdminRedirect(ARTICLE_ADMIN_PATH, { error: "invalid-action" });
   } catch (error) {
     let code: string;
     let detail: string;
@@ -638,14 +625,14 @@ export async function POST(request: Request) {
       code = classifySupabaseError(parsedSupabaseError);
       detail = supabaseDetailText(parsedSupabaseError);
     }
-    const articleId = cleanText(formData.get("article_id"));
-    const returnTo = safeReturnTo(cleanText(formData.get("return_to")));
+    const articleId = optionalArticleId(formData.get("article_id"));
+    const returnTo = safeArticleAdminReturnTo(cleanText(formData.get("return_to")));
     const fallbackPath =
       returnTo ??
       ((actionType === "update_article" || actionType === "delete_article") && articleId
-        ? `/admin/editorial/artigos?articleId=${encodeURIComponent(articleId)}`
-        : "/admin/editorial/artigos?mode=novo");
+        ? `${ARTICLE_ADMIN_PATH}?articleId=${encodeURIComponent(articleId)}`
+        : `${ARTICLE_ADMIN_PATH}?mode=novo`);
 
-    return redirectTo(request, fallbackPath, { error: code, detail });
+    return articleAdminRedirect(fallbackPath, { error: code, detail });
   }
 }
