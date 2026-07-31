@@ -1,7 +1,6 @@
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import { getEditorialArticleEditorData } from "@/lib/redacao-automatica/editorial-article-editor-repository-internal";
 import { getEditorialArticleById } from "@/lib/redacao-automatica/editorial-article-editor-repository";
-import { getEditorialArticleProvenance } from "@/lib/redacao-automatica/editorial-article-provenance-repository";
 
 import {
   ArticleEditorForm,
@@ -13,10 +12,6 @@ import {
   firstText,
   formatShortDate,
 } from "./_articleForm";
-import {
-  ArticleProvenancePanel,
-  articleProvenanceStyles,
-} from "./_articleProvenance";
 
 export const dynamic = "force-dynamic";
 
@@ -131,7 +126,7 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
     return "Ligação removida.";
   }
   if (params.dossier_plan_generation === "generated") {
-    return "Primeira versão gerada no corpo do rascunho. Revê integralmente o texto antes de guardar ou publicar.";
+    return "Notícia preparada para revisão com imagem, título, pós-título e corpo. Revê tudo antes de publicar.";
   }
   if (params.dossier_plan_generation === "reused") {
     return "A primeira versão já existia. Foi aberto o mesmo rascunho editorial.";
@@ -147,7 +142,9 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
     "duplicate-slug": "Já existe um artigo com esse endereço.",
     "invalid-context": "A competição, época e jornada escolhidas não pertencem ao mesmo contexto.",
     "invalid-published-at": "A data de publicação não é válida.",
+    "missing-post-title": "O artigo precisa de pós-título antes de poder ser publicado.",
     "missing-body": "O artigo precisa de texto antes de poder ser publicado.",
+    "missing-image": "O artigo precisa de imagem antes de poder ser publicado.",
     "missing-service": "Não foi possível aceder ao serviço editorial.",
     "missing-article": "O artigo selecionado já não existe.",
     "delete-not-confirmed": "Confirme a remoção antes de apagar o artigo.",
@@ -380,6 +377,39 @@ const articleContextLinkStyles = `
     line-height: 1.45;
   }
 
+  .article-admin-linked-removal {
+    display: block;
+  }
+
+  .article-admin-linked-removal-copy {
+    width: 100%;
+  }
+
+  .article-admin-linked-removal-list {
+    margin-top: 12px;
+  }
+
+  .article-admin-linked-removal .article-admin-link-item {
+    border-color: #fecaca;
+  }
+
+  .article-admin-linked-removal .article-admin-link-item > strong {
+    margin: 0;
+    color: #111827;
+  }
+
+  .article-admin-linked-removal .article-admin-link-item span {
+    color: #4b5563;
+  }
+
+  .article-admin-linked-removal .article-admin-remove-link-form {
+    margin-top: 5px;
+  }
+
+  .article-admin-linked-removal-note {
+    margin-top: 10px !important;
+    font-size: 13px;
+  }
   @media (max-width: 900px) {
     .article-admin-context-grid {
       grid-template-columns: 1fr 1fr;
@@ -478,6 +508,81 @@ const articleContextLinkStyles = `
     color: #111827;
     font-size: 13px;
     font-weight: 700;
+  }
+
+  .editorial-admin-header > div:first-child {
+    flex: 1 1 560px;
+    min-width: 0;
+  }
+
+  .editorial-admin-header-actions {
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+
+  .editorial-admin-header-actions > a,
+  .editorial-admin-header-actions > .editorial-admin-more-navigation > summary {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    border-radius: 8px;
+    padding: 0 14px;
+    background: transparent;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .editorial-admin-header-actions > a:hover,
+  .editorial-admin-header-actions > .editorial-admin-more-navigation > summary:hover {
+    border-color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .editorial-admin-header-actions > .editorial-admin-header-primary {
+    border-color: #ffffff;
+    background: #ffffff;
+    color: #10151b;
+  }
+
+  .editorial-admin-header-actions > .editorial-admin-header-primary:hover {
+    background: #f1f5f9;
+    color: #10151b;
+  }
+
+  .editorial-admin-header-actions .editorial-admin-more-navigation > div {
+    min-width: 230px;
+  }
+
+  .editorial-admin-header-actions .editorial-admin-more-navigation > div a {
+    display: block;
+    border-radius: 7px;
+    padding: 9px 10px;
+    color: #f8fafc;
+    font-size: 13px;
+    font-weight: 750;
+    text-decoration: none;
+  }
+
+  .editorial-admin-header-actions .editorial-admin-more-navigation > div a:hover {
+    background: #1f2937;
+  }
+
+  @media (max-width: 820px) {
+    .editorial-admin-header-actions {
+      justify-content: flex-start;
+      margin-left: 0;
+    }
   }
 
 `;
@@ -893,15 +998,13 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
   const canCreate = editorData.request.kind === "absent";
   const message = pageMessage(params);
   const technicalDetail = params.error && params.detail ? params.detail : null;
-  const selectedContext = selectedArticle ? resolveArticleContext(selectedArticle, context) : null;
   const selectedLinkData = selectedArticle ? await readArticleLinkPlacements(selectedArticle, context) : { publicPath: null, placements: [] as LinkPlacement[] };
-  const provenanceResult = selectedArticle
-    ? await getEditorialArticleProvenance(selectedArticle.id, selectedArticle.status)
-    : null;
   const sidebarItems = articles.map((article) => ({
     article,
     articleContext: resolveArticleContext(article, context),
-    articleDate: firstText(formatShortDate(article.published_at), formatShortDate(article.created_at)),
+    articleDate: article.status === "published"
+      ? firstText(formatShortDate(article.published_at), "Publicado")
+      : "Por publicar",
     isSelected: selectedArticle?.id === article.id,
   }));
   const groupedSidebarArticles = groupArticleSidebarItems(sidebarItems);
@@ -938,12 +1041,14 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
               Revê o conteúdo, completa os elementos editoriais e publica apenas quando o artigo estiver validado.
             </p>
           </div>
-          <nav className="editorial-admin-actions" aria-label="Navegação editorial">
-            <a href="/admin/editorial/redacao-automatica">Voltar aos Dossiês</a>
-            <a href="/admin">Backoffice</a>
+          <nav className="editorial-admin-header-actions" aria-label="Navegação e ações de artigos">
+            <a href="/admin/editorial/redacao-automatica">
+              Redação automática
+            </a>
             <details className="editorial-admin-more-navigation">
-              <summary>Outras áreas editoriais</summary>
+              <summary>Outras áreas</summary>
               <div>
+                <a href="/admin">Backoffice</a>
                 <a href="/admin/editorial/home">Home Editorial</a>
                 <a href="/admin/editorial/conteudos">Vídeo</a>
                 <a href="/admin/editorial/composicao">Composição Editorial</a>
@@ -951,12 +1056,13 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
                 <a href="/admin/gestor">Centro de Gestão</a>
               </div>
             </details>
-          </nav>
-          <div className="editorial-admin-actions" aria-label="Ações de artigos">
-            <a className="primary" href="/admin/editorial/artigos?mode=novo">
+            <a
+              className="editorial-admin-header-primary"
+              href="/admin/editorial/artigos?mode=novo"
+            >
               Criar artigo manual
             </a>
-          </div>
+          </nav>
         </header>
 
         {message ? <p className="article-admin-alert">{message}</p> : null}
@@ -1064,93 +1170,6 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
               </p>
             ) : null}
 
-            {selectedArticle && selectedContext ? (
-              <section className="article-admin-diagnostic" aria-label="Contexto e ligacoes editoriais do artigo">
-                <div className="article-admin-diagnostic-header">
-                  <h3>Contexto</h3>
-                  {selectedLinkData.publicPath && selectedArticle.status === "published" ? (
-                    <a className="article-admin-public-link" href={selectedLinkData.publicPath} target="_blank" rel="noreferrer">
-                      Abrir artigo publicado
-                    </a>
-                  ) : (
-                    <span className="article-admin-public-pending">Endereço público disponível depois da publicação</span>
-                  )}
-                </div>
-                <div className="article-admin-context-grid">
-                  <div className="article-admin-context-card">
-                    <span>Competicao / Liga</span>
-                    <strong>{selectedContext.competitionLabel}</strong>
-                  </div>
-                  <div className="article-admin-context-card">
-                    <span>Epoca</span>
-                    <strong>{selectedContext.seasonLabel}</strong>
-                  </div>
-                  <div className="article-admin-context-card">
-                    <span>Jornada</span>
-                    <strong>{selectedContext.matchdayLabel}</strong>
-                  </div>
-                  <div className="article-admin-context-card">
-                    <span>Estado / Contexto</span>
-                    <strong>
-                      {selectedContext.stateLabel} / {selectedContext.scopeLabel}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="article-admin-diagnostic-header">
-                  <h3>Ligado em</h3>
-                </div>
-                {selectedLinkData.placements.length > 0 ? (
-                  <ul className="article-admin-link-list">
-                    {selectedLinkData.placements.map((placement, index) => (
-                      <li className="article-admin-link-item" key={`${placement.table}-${placement.position}-${index}`}>
-                        <strong>
-                          {placement.area} - {placement.position}
-                        </strong>
-                        {placement.contextLabel ? <span className="article-admin-link-context">{placement.contextLabel}</span> : null}
-                        {placement.detail ? <span>{placement.detail}</span> : null}
-                        <div className="article-admin-link-footer">
-                          <form className="article-admin-remove-link-form" action="/api/admin/editorial/artigos" method="post">
-                            <input type="hidden" name="action_type" value="remove_article_link" />
-                            <input type="hidden" name="slug" value={selectedArticle.slug ?? ""} />
-                            <input type="hidden" name="target_table" value={placement.table} />
-                            <input type="hidden" name="target_id" value={placement.recordId} />
-                            <input type="hidden" name="target_field" value={placement.field} />
-                            <input type="hidden" name="expected_url" value={placement.currentUrl} />
-                            <input
-                              type="hidden"
-                              name="return_to"
-                              value={`/admin/editorial/artigos?articleId=${encodeURIComponent(selectedArticle.id)}`}
-                            />
-                            <button
-                              type="submit"
-                              title="Remove apenas esta ligação. O artigo e o item editorial não são apagados."
-                            >
-                              Remover ligação
-                            </button>
-                          </form>
-                          <details className="article-admin-link-technical">
-                            <summary>Dados técnicos</summary>
-                            <span>{placement.table}.{placement.field} / {compactId(placement.recordId)}</span>
-                          </details>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="article-admin-empty-note">Este artigo ainda não está colocado em nenhuma área editorial.</p>
-                )}
-              </section>
-            ) : null}
-
-            {provenanceResult?.ok && provenanceResult.value ? (
-              <ArticleProvenancePanel provenance={provenanceResult.value} />
-            ) : selectedArticle && provenanceResult && !provenanceResult.ok ? (
-              <p className="article-admin-alert" role="alert">
-                O artigo foi carregado, mas a proveniência da Redação Automática não está disponível.
-              </p>
-            ) : null}
-
             {selectedArticle || canCreate ? (
               <ArticleEditorForm
                 mode={isEditing ? "edit" : "create"}
@@ -1167,10 +1186,57 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
             ) : null}
             {selectedArticle ? (
               selectedLinkData.placements.length > 0 ? (
-                <div className="article-admin-delete-form">
-                  <div>
+                <div className="article-admin-delete-form article-admin-linked-removal">
+                  <div className="article-admin-linked-removal-copy">
                     <strong>Remover artigo bloqueado</strong>
-                    <p>Este artigo ainda está ligado a zonas editoriais. Remova primeiro todas as ligações em “Ligado em” antes de apagar o artigo.</p>
+                    <p>Este artigo está ligado em:</p>
+
+                    <ul className="article-admin-link-list article-admin-linked-removal-list">
+                      {selectedLinkData.placements.map((placement, index) => (
+                        <li
+                          className="article-admin-link-item"
+                          key={`${placement.table}-${placement.position}-${index}`}
+                        >
+                          <strong>
+                            {placement.area} — {placement.position}
+                          </strong>
+                          {placement.contextLabel ? (
+                            <span className="article-admin-link-context">
+                              {placement.contextLabel}
+                            </span>
+                          ) : null}
+                          {placement.detail ? <span>{placement.detail}</span> : null}
+
+                          <form
+                            className="article-admin-remove-link-form"
+                            action="/api/admin/editorial/artigos"
+                            method="post"
+                          >
+                            <input type="hidden" name="action_type" value="remove_article_link" />
+                            <input type="hidden" name="slug" value={selectedArticle.slug ?? ""} />
+                            <input type="hidden" name="target_table" value={placement.table} />
+                            <input type="hidden" name="target_id" value={placement.recordId} />
+                            <input type="hidden" name="target_field" value={placement.field} />
+                            <input type="hidden" name="expected_url" value={placement.currentUrl} />
+                            <input
+                              type="hidden"
+                              name="return_to"
+                              value={`/admin/editorial/artigos?articleId=${encodeURIComponent(selectedArticle.id)}`}
+                            />
+                            <button
+                              type="submit"
+                              title="Retira o artigo apenas desta zona editorial."
+                            >
+                              Desvincular
+                            </button>
+                          </form>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <p className="article-admin-linked-removal-note">
+                      Depois de desvincular todas as zonas editoriais, a remoção do artigo fica disponível.
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -1196,7 +1262,6 @@ export default async function AdminEditorialArticlesPage({ searchParams }: PageP
 
       <style>{editorialArticleAdminStyles}</style>
       <style>{articleContextLinkStyles}</style>
-      <style>{articleProvenanceStyles}</style>
     </main>
   );
 }

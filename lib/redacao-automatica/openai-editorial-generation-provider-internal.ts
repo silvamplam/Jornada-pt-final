@@ -5,7 +5,7 @@ import type {
 } from "@/lib/redacao-automatica/editorial-dossier-article-plan-generation-service-internal";
 
 const DEFAULT_ENDPOINT = "https://api.openai.com/v1/responses";
-const DEFAULT_TIMEOUT_MS = 50_000;
+const DEFAULT_TIMEOUT_MS = 90_000;
 
 export type OpenAiEditorialGenerationConfig = Readonly<{
   apiKey: string;
@@ -38,6 +38,20 @@ type OpenAiResponsesPayload = Readonly<{
   incomplete_details?: unknown;
   usage?: unknown;
 }>;
+
+function incompleteReason(payload: OpenAiResponsesPayload): string | null {
+  if (
+    !payload.incomplete_details
+    || typeof payload.incomplete_details !== "object"
+    || Array.isArray(payload.incomplete_details)
+  ) {
+    return null;
+  }
+
+  return requiredText(
+    (payload.incomplete_details as Record<string, unknown>).reason,
+  );
+}
 
 function requiredText(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0
@@ -137,70 +151,113 @@ export function createOpenAiEditorialGenerationProvider(
 
       const endpoint = config.endpoint?.trim() || DEFAULT_ENDPOINT;
       const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      let outputTokenLimit = request.maxOutputTokens;
 
-      try {
-        const response = await fetchImpl(endpoint, {
-          method: "POST",
-          cache: "no-store",
-          signal: controller.signal,
-          headers: {
-            Authorization: `Bearer ${config.apiKey.trim()}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: config.model.trim(),
-            store: false,
-            reasoning: {
-              effort: "low",
-            },
-            instructions: request.instructions,
-            input: request.input,
-            max_output_tokens: request.maxOutputTokens,
-            metadata: {
-              feature: "jornada_editorial_generation",
-              prompt_version: request.promptVersion,
-            },
-          }),
-        });
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-        const rawText = await response.text();
-        let payload: OpenAiResponsesPayload;
         try {
-          payload = rawText ? JSON.parse(rawText) as OpenAiResponsesPayload : {};
-        } catch {
-          throw new Error("openai-editorial-generation-invalid-json");
+          const response = await fetchImpl(endpoint, {
+            method: "POST",
+            cache: "no-store",
+            signal: controller.signal,
+            headers: {
+              Authorization: `Bearer ${config.apiKey.trim()}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: config.model.trim(),
+              store: false,
+              reasoning: {
+                effort: "low",
+              },
+              instructions: request.instructions,
+              input: request.input,
+              max_output_tokens: outputTokenLimit,
+              text: {
+                format: {
+                  type: "json_schema",
+                  name: "jornada_editorial_article",
+                  strict: true,
+                  schema: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["title", "post_title", "body"],
+                    properties: {
+                      title: { type: "string" },
+                      post_title: { type: "string" },
+                      body: { type: "string" },
+                    },
+                  },
+                },
+              },
+              metadata: {
+                feature: "jornada_editorial_generation",
+                prompt_version: request.promptVersion,
+              },
+            }),
+          });
+
+          const requestId = response.headers.get("x-request-id")?.trim() || null;
+          const rawText = await response.text();
+          let payload: OpenAiResponsesPayload;
+          try {
+            payload = rawText ? JSON.parse(rawText) as OpenAiResponsesPayload : {};
+          } catch {
+            throw new Error("openai-editorial-generation-invalid-json");
+          }
+
+          if (!response.ok) {
+            const requestSuffix = requestId ? `-${requestId}` : "";
+            throw new Error(
+              `openai-editorial-generation-http-${response.status}${requestSuffix}`,
+            );
+          }
+
+          if (payload.status !== "completed") {
+            const reason = incompleteReason(payload) ?? "unknown";
+            const mayRetry = (
+              attempt === 1
+              && ["max_tokens", "max_output_tokens"].includes(reason)
+            );
+
+            if (mayRetry) {
+              outputTokenLimit = Math.min(
+                Math.max(outputTokenLimit * 2, outputTokenLimit + 1_500),
+                12_000,
+              );
+              continue;
+            }
+
+            throw new Error(
+              `openai-editorial-generation-incomplete-${reason}`,
+            );
+          }
+
+          const text = outputText(payload);
+          const model = requiredText(payload.model) ?? config.model.trim();
+          if (!text || !model) {
+            throw new Error("openai-editorial-generation-empty-output");
+          }
+
+          const tokenUsage = usage(payload);
+
+          return {
+            provider: "openai",
+            model,
+            responseId: requiredText(payload.id),
+            text,
+            inputTokens: tokenUsage.inputTokens,
+            outputTokens: tokenUsage.outputTokens,
+            totalTokens: tokenUsage.totalTokens,
+          };
+        } finally {
+          clearTimeout(timeout);
         }
-
-        if (!response.ok) {
-          throw new Error(`openai-editorial-generation-http-${response.status}`);
-        }
-
-        if (payload.status !== "completed") {
-          throw new Error("openai-editorial-generation-incomplete");
-        }
-
-        const text = outputText(payload);
-        const model = requiredText(payload.model) ?? config.model.trim();
-        if (!text || !model) {
-          throw new Error("openai-editorial-generation-empty-output");
-        }
-
-        const tokenUsage = usage(payload);
-
-        return {
-          provider: "openai",
-          model,
-          responseId: requiredText(payload.id),
-          text,
-          inputTokens: tokenUsage.inputTokens,
-          outputTokens: tokenUsage.outputTokens,
-          totalTokens: tokenUsage.totalTokens,
-        };
-      } finally {
-        clearTimeout(timeout);
       }
+
+      throw new Error("openai-editorial-generation-incomplete");
     },
   };
 }

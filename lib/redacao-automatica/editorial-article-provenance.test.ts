@@ -373,14 +373,20 @@ test("repository e painel são read-only, não carregam corpo de snapshots nem e
   assert.doesNotMatch(panel, /Publicar artigo/);
 });
 
-test("guardar revisão regressa ao mesmo articleId e volta a carregar a proveniência", () => {
+test("a revisão regressa ao mesmo artigo sem expor a proveniência técnica", () => {
   const page = readFileSync("app/admin/editorial/artigos/page.tsx", "utf8");
   const route = readFileSync("app/api/admin/editorial/artigos/route.ts", "utf8");
-  assert.match(page, /getEditorialArticleProvenance\(selectedArticle\.id, selectedArticle\.status\)/);
+  const repository = readFileSync(
+    "lib/redacao-automatica/editorial-article-provenance-repository.ts",
+    "utf8",
+  );
+
+  assert.doesNotMatch(page, /getEditorialArticleProvenance|ArticleProvenancePanel/);
   assert.match(
     page,
     /returnTo=\{[\s\S]*`\/admin\/editorial\/artigos\?articleId=\$\{encodeURIComponent\(selectedArticle\.id\)\}`/,
   );
+  assert.match(repository, /generated_body_hash/);
   assert.doesNotMatch(
     route,
     /newsroom_editorial_dossier_article_plan_generations|generated_body_hash|generated_body/,

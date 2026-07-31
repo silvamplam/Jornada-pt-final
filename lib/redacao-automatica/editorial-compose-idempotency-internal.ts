@@ -121,8 +121,12 @@ export function normalizeEditorialComposeInput(
   }
 
   const editorialInstructions = [
-    `Como combinar as fontes:\n${combineInstructions}`,
-    `Assuntos a destacar e tratamento pretendido:\n${highlightInstructions}`,
+    combineInstructions === highlightInstructions
+      ? `Instruções do editor:\n${combineInstructions}`
+      : [
+          `Como combinar as fontes:\n${combineInstructions}`,
+          `Assuntos a destacar e tratamento pretendido:\n${highlightInstructions}`,
+        ].join("\n\n"),
     avoidInstructions ? `Informação a evitar:\n${avoidInstructions}` : "",
   ].filter(Boolean).join("\n\n");
   const canonicalPayload = {

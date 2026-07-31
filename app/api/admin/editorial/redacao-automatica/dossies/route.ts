@@ -15,6 +15,7 @@ import {
 } from "@/lib/redacao-automatica/editorial-dossier-article-plan-service";
 import { createEditorialDossierArticlePlanDraft } from "@/lib/redacao-automatica/editorial-dossier-article-plan-draft-service";
 import { generateEditorialDossierArticlePlanDraftBody } from "@/lib/redacao-automatica/editorial-dossier-article-plan-generation-service";
+import { getNewsroomArticleById } from "@/lib/redacao-automatica/newsroom-article-repository";
 import {
   claimEditorialComposeGeneration,
   markEditorialComposeGenerationCompleted,
@@ -39,14 +40,22 @@ function cleanText(value: FormDataEntryValue | null): string {
 }
 
 function numberValue(value: FormDataEntryValue | null, fallback: number): number {
-  const parsed = Number(cleanText(value));
+  const normalized = cleanText(value);
+  if (!normalized) {
+    return fallback;
+  }
+
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function sourceRole(value: string): EditorialDossierSourceRole {
+function sourceRole(
+  value: string,
+  fallback: EditorialDossierSourceRole = "complementary",
+): EditorialDossierSourceRole {
   return ["primary", "corroboration", "context", "complementary"].includes(value)
     ? value as EditorialDossierSourceRole
-    : "complementary";
+    : fallback;
 }
 
 function outputMode(value: string): EditorialDossierOutputMode {
@@ -99,7 +108,7 @@ function createSelections(formData: FormData): readonly EditorialDossierSourceSe
 }
 
 function compositionSelections(formData: FormData): readonly EditorialComposeSourceInput[] {
-  return formData.getAll("newsroom_article_id").flatMap((value): EditorialComposeSourceInput[] => {
+  return formData.getAll("newsroom_article_id").flatMap((value, index): EditorialComposeSourceInput[] => {
     const newsroomArticleId = cleanText(value);
     const newsroomSnapshotId = cleanText(formData.get(`source_snapshot_${newsroomArticleId}`));
     if (!newsroomArticleId || !newsroomSnapshotId) {
@@ -109,8 +118,11 @@ function compositionSelections(formData: FormData): readonly EditorialComposeSou
     return [{
       newsroomArticleId,
       newsroomSnapshotId,
-      priority: numberValue(formData.get(`source_priority_${newsroomArticleId}`), -1),
-      sourceRole: sourceRole(cleanText(formData.get(`source_role_${newsroomArticleId}`))),
+      priority: numberValue(formData.get(`source_priority_${newsroomArticleId}`), index + 1),
+      sourceRole: sourceRole(
+        cleanText(formData.get(`source_role_${newsroomArticleId}`)),
+        index === 0 ? "primary" : "complementary",
+      ),
       editorialNote: cleanText(formData.get(`source_note_${newsroomArticleId}`)),
     }];
   });
@@ -185,10 +197,24 @@ export async function POST(request: Request) {
 
   if (action === "compose") {
     const submissionId = cleanText(formData.get("submission_id"));
-    const workingTitle = cleanText(formData.get("working_title"));
-    const combineInstructions = cleanText(formData.get("combine_instructions"));
-    const highlightInstructions = cleanText(formData.get("highlight_instructions"));
     const selections = compositionSelections(formData);
+    const aiInstructions = cleanText(formData.get("ai_instructions"));
+    const firstSelectedArticleId = selections[0]?.newsroomArticleId ?? "";
+    const firstSelectedArticleResult = firstSelectedArticleId
+      ? await getNewsroomArticleById(firstSelectedArticleId)
+      : null;
+    const sourceTitle = firstSelectedArticleResult?.ok
+      ? firstSelectedArticleResult.value?.title ?? ""
+      : "";
+    const workingTitle = (
+      cleanText(formData.get("working_title"))
+      || sourceTitle
+      || "Notícia em preparação"
+    ).slice(0, 180);
+    const combineInstructions = aiInstructions
+      || cleanText(formData.get("combine_instructions"));
+    const highlightInstructions = aiInstructions
+      || cleanText(formData.get("highlight_instructions"));
 
     if (
       !isEditorialComposeSubmissionId(submissionId)

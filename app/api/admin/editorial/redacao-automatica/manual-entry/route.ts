@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   }
 
   return redirectTo({
-    topic: result.value.request.title,
+    query: result.value.request.title,
     period: "all",
     articleId: result.value.newsroomArticleId,
     manual_entry_state: result.value.action,

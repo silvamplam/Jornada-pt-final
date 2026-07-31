@@ -1563,11 +1563,21 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               <label htmlFor="editorial-context-season">Epoca</label>
               <select id="editorial-context-season" name="season_id" defaultValue={season.id}>
                 <option value="">Escolher epoca</option>
-                {contextSelector.seasons.map((item) => (
-                  <option key={item.id} value={item.id} data-competition={item.competition_id ?? ""}>
-                    {item.label ?? "Epoca sem nome"}
-                  </option>
-                ))}
+                {contextSelector.seasons.map((item) => {
+                  const optionHidden = Boolean(competition.id) && item.competition_id !== competition.id;
+
+                  return (
+                    <option
+                      key={item.id}
+                      value={item.id}
+                      data-competition={item.competition_id ?? ""}
+                      hidden={optionHidden}
+                      disabled={optionHidden}
+                    >
+                      {item.label ?? "Epoca sem nome"}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div className="editorial-context-selector-field">
@@ -1576,6 +1586,9 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 <option value="">Escolher jornada</option>
                 {contextSelector.matchdays.map((item) => {
                   const optionSeason = item.season_id ? selectorSeasonById.get(item.season_id) : null;
+                  const optionHidden =
+                    (Boolean(competition.id) && optionSeason?.competition_id !== competition.id)
+                    || (Boolean(season.id) && item.season_id !== season.id);
 
                   return (
                     <option
@@ -1583,6 +1596,8 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                       value={item.id}
                       data-season={item.season_id ?? ""}
                       data-competition={optionSeason?.competition_id ?? ""}
+                      hidden={optionHidden}
+                      disabled={optionHidden}
                     >
                       {formatContextSelectorMatchdayLabel(item, selectorSeasonById, selectorCompetitionById, selectorCountryById)}
                     </option>

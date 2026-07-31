@@ -29,6 +29,7 @@ const MAX_PAGE_SIZE = 50;
 const SUMMARY_PAGE_SIZE = 1000;
 const TOPIC_SEARCH_PAGE_SIZE = 250;
 const SNAPSHOT_ARTICLE_CHUNK_SIZE = 100;
+const USED_SOURCE_PAGE_SIZE = 1000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const topicSearchProcessingStatuses = new Set([
   "detected",
@@ -78,6 +79,10 @@ type NewsroomSnapshotRow = {
   created_at: string;
 };
 
+type NewsroomDossierSourceUsageRow = {
+  newsroom_article_id: string;
+};
+
 export type NewsroomArticleSummary = Readonly<{
   id: string;
   sourceCode: string;
@@ -95,6 +100,7 @@ export type NewsroomArticleSummary = Readonly<{
   hasUsableSnapshot: boolean;
   sourceUrl: string | null;
   isManualEntry: boolean;
+  usedInComposition: boolean;
 }>;
 
 export type NewsroomArticleSnapshot = Readonly<{
@@ -171,6 +177,11 @@ export type NewsroomRepositoryResult<T> =
 export type ListNewsroomArticlesOptions = Readonly<{
   page?: number;
   pageSize?: number;
+  sourceCode?: string | null;
+}>;
+
+export type ListCurrentNewsroomArticlesOptions = Readonly<{
+  periodDays?: number | null;
   sourceCode?: string | null;
 }>;
 
@@ -274,6 +285,7 @@ function hasUsableBody(body: readonly ArticleBodyBlock[]): boolean {
 function articleSummary(
   row: NewsroomArticleRow,
   snapshotRow: NewsroomSnapshotRow | null = null,
+  usedInComposition = false,
 ): NewsroomArticleSummary {
   const body = snapshotRow ? articleBody(snapshotRow.body) : [];
   const isManualEntry = isManualNewsroomSource(
@@ -300,6 +312,7 @@ function articleSummary(
     hasUsableSnapshot: hasUsableBody(body),
     sourceUrl: row.normalized_url || row.original_url,
     isManualEntry,
+    usedInComposition,
   };
 }
 
@@ -493,6 +506,130 @@ export async function listNewsroomArticles(
   }
 }
 
+
+async function usedNewsroomArticleIds(): Promise<ReadonlySet<string>> {
+  const ids = new Set<string>();
+  let offset = 0;
+
+  while (true) {
+    const rows = await fetchSupabaseAdminTable<NewsroomDossierSourceUsageRow>(
+      "newsroom_editorial_dossier_sources?select=newsroom_article_id"
+      + "&included=eq.true"
+      + `&order=id.asc&offset=${offset}&limit=${USED_SOURCE_PAGE_SIZE}`,
+    );
+
+    for (const row of rows) {
+      ids.add(row.newsroom_article_id);
+    }
+
+    if (rows.length < USED_SOURCE_PAGE_SIZE) {
+      return ids;
+    }
+    offset += USED_SOURCE_PAGE_SIZE;
+  }
+}
+
+function currentFeedTimestamp(row: NewsroomArticleRow): number {
+  const publishedAt = publishedAtTimestamp(row);
+  if (publishedAt !== null) {
+    return publishedAt;
+  }
+
+  const detectedAt = Date.parse(row.detected_at);
+  return Number.isNaN(detectedAt) ? 0 : detectedAt;
+}
+
+async function readAllCurrentFeedArticleRows(
+  sourceCode: string | null,
+): Promise<readonly NewsroomArticleRow[]> {
+  const rows: NewsroomArticleRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchSupabaseAdminTable<NewsroomArticleRow>(
+      "newsroom_articles?select=id,source_code,original_url,normalized_url,external_id,title,subtitle,summary,author,published_at,modified_at,detected_at,image_url,processing_status,first_detected_at,last_detected_at,created_at,updated_at"
+      + sourceFilter(sourceCode)
+      + "&processing_status=in.(detected,normalized,ready_for_review)"
+      + `&order=published_at.desc.nullslast,last_detected_at.desc,id.desc&offset=${offset}&limit=${TOPIC_SEARCH_PAGE_SIZE}`,
+    );
+
+    rows.push(...page);
+    if (page.length < TOPIC_SEARCH_PAGE_SIZE) {
+      return rows;
+    }
+    offset += TOPIC_SEARCH_PAGE_SIZE;
+  }
+}
+
+export async function listCurrentNewsroomArticles(
+  options: ListCurrentNewsroomArticlesOptions = {},
+): Promise<NewsroomRepositoryResult<NewsroomArticlePage>> {
+  const sourceCode = normalizeSourceCode(options.sourceCode);
+  const periodDays = normalizeTopicPeriodDays(options.periodDays ?? 7);
+
+  try {
+    const [rows, usedArticleIds] = await Promise.all([
+      readAllCurrentFeedArticleRows(sourceCode),
+      usedNewsroomArticleIds(),
+    ]);
+    const now = Date.now();
+    const periodStart = periodDays === null
+      ? null
+      : now - periodDays * 24 * 60 * 60 * 1000;
+    const availableRows = rows.filter((row) => (
+      periodStart === null || currentFeedTimestamp(row) >= periodStart
+    ));
+    const latestSnapshots = await latestSnapshotsByArticle(
+      availableRows.map((row) => row.id),
+    );
+    const canonicalArticles = new Map<string, {
+      row: NewsroomArticleRow;
+      snapshot: NewsroomSnapshotRow;
+      usedInComposition: boolean;
+    }>();
+
+    for (const row of availableRows) {
+      const snapshotRow = latestSnapshots.get(row.id);
+      if (!snapshotRow || !hasUsableBody(articleBody(snapshotRow.body))) {
+        continue;
+      }
+
+      const identity = canonicalArticleIdentity(row);
+      const existing = canonicalArticles.get(identity);
+      const usedInComposition = usedArticleIds.has(row.id);
+      if (!existing) {
+        canonicalArticles.set(identity, { row, snapshot: snapshotRow, usedInComposition });
+      } else if (usedInComposition && !existing.usedInComposition) {
+        canonicalArticles.set(identity, { ...existing, usedInComposition: true });
+      }
+    }
+
+    const selected = [...canonicalArticles.values()].sort((left, right) => (
+      currentFeedTimestamp(right.row) - currentFeedTimestamp(left.row)
+      || right.row.id.localeCompare(left.row.id)
+    ));
+
+    return {
+      ok: true,
+      value: {
+        items: selected.map(({ row, snapshot: snapshotRow, usedInComposition }) => (
+          articleSummary(row, snapshotRow, usedInComposition)
+        )),
+        page: 1,
+        pageSize: selected.length,
+        total: selected.length,
+        readyForReview: selected.filter(
+          ({ row }) => row.processing_status === "ready_for_review",
+        ).length,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      },
+    };
+  } catch {
+    return readUnavailable();
+  }
+}
+
 export async function searchNewsroomArticles(
   options: SearchNewsroomArticlesOptions,
 ): Promise<NewsroomRepositoryResult<NewsroomArticlePage>> {
@@ -517,7 +654,10 @@ export async function searchNewsroomArticles(
   }
 
   try {
-    const rows = await readAllTopicSearchArticleRows(sourceCode);
+    const [rows, usedArticleIds] = await Promise.all([
+      readAllTopicSearchArticleRows(sourceCode),
+      usedNewsroomArticleIds(),
+    ]);
     const now = new Date();
     const diagnostics = emptyTopicDiagnostics();
     const metadataEligibleRows = rows.filter((row) => {
@@ -572,15 +712,23 @@ export async function searchNewsroomArticles(
         || right.publishedAt - left.publishedAt
         || right.row.id.localeCompare(left.row.id)
       ));
-    const canonicalArticles = new Map<string, typeof relevant[number]>();
+    const canonicalArticles = new Map<string, {
+      candidate: typeof relevant[number];
+      usedInComposition: boolean;
+    }>();
 
     for (const candidate of relevant) {
       const canonicalIdentity = canonicalArticleIdentity(candidate.row);
-      if (canonicalArticles.has(canonicalIdentity)) {
+      const existing = canonicalArticles.get(canonicalIdentity);
+      const usedInComposition = usedArticleIds.has(candidate.row.id);
+      if (existing) {
+        if (usedInComposition && !existing.usedInComposition) {
+          canonicalArticles.set(canonicalIdentity, { ...existing, usedInComposition: true });
+        }
         recordTopicOutcome(diagnostics, candidate.row.id, "canonical_duplicate");
         continue;
       }
-      canonicalArticles.set(canonicalIdentity, candidate);
+      canonicalArticles.set(canonicalIdentity, { candidate, usedInComposition });
       recordTopicOutcome(diagnostics, candidate.row.id, "eligible");
     }
 
@@ -589,11 +737,15 @@ export async function searchNewsroomArticles(
     return {
       ok: true,
       value: {
-        items: selected.map(({ row, snapshot: snapshotRow }) => articleSummary(row, snapshotRow)),
+        items: selected.map(({ candidate, usedInComposition }) => (
+          articleSummary(candidate.row, candidate.snapshot, usedInComposition)
+        )),
         page: 1,
         pageSize: selected.length,
         total: selected.length,
-        readyForReview: selected.filter(({ row }) => row.processing_status === "ready_for_review").length,
+        readyForReview: selected.filter(({ candidate }) => (
+          candidate.row.processing_status === "ready_for_review"
+        )).length,
         hasPreviousPage: false,
         hasNextPage: false,
         topicDiagnostics: diagnostics,

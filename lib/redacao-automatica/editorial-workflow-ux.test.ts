@@ -194,7 +194,7 @@ test("a data de publicação respeita a precisão original", () => {
   assert.equal(formatNewsroomPublishedAt("data-inválida", null), "data inválida");
 });
 
-test("a composição principal começa pela pesquisa e reúne fontes, instruções e geração", () => {
+test("a composição principal apresenta atualidade, uma instrução e revisão", () => {
   const newsroom = readFileSync("app/admin/editorial/redacao-automatica/page.tsx", "utf8");
   const repository = readFileSync("lib/redacao-automatica/newsroom-article-repository.ts", "utf8");
   const workflow = readFileSync("lib/redacao-automatica/editorial-workflow-ux.ts", "utf8");
@@ -203,105 +203,48 @@ test("a composição principal começa pela pesquisa e reúne fontes, instruçõ
     "utf8",
   );
   const route = readFileSync("app/api/admin/editorial/redacao-automatica/dossies/route.ts", "utf8");
+  const feedRoute = readFileSync(
+    "app/api/admin/editorial/redacao-automatica/current-feed/route.ts",
+    "utf8",
+  );
 
-  assert.match(newsroom, /name="topic"/);
-  assert.match(newsroom, /Pesquisar nas fontes/);
-  assert.match(newsroom, /searchNewsroomArticles/);
-  assert.match(newsroom, /Pesquisar tema/);
-  assert.match(newsroom, /Ver notícias relacionadas/);
+  assert.match(newsroom, /<strong>Atualidade<\/strong>/);
+  assert.match(newsroom, /<strong>Criar notícia<\/strong>/);
+  assert.match(newsroom, /<strong>Revisão<\/strong>/);
+  assert.match(newsroom, /listCurrentNewsroomArticles/);
+  assert.match(newsroom, />Atualizar<\/button>/);
   assert.match(newsroom, /id="create-editorial-composition"/);
   assert.match(newsroom, /name="newsroom_article_id"/);
-  assert.match(newsroom, /name="combine_instructions"/);
-  assert.match(newsroom, /name="highlight_instructions"/);
-  assert.match(newsroom, /name="avoid_instructions"/);
-  assert.match(newsroom, /Gerar primeira versão/);
-  assert.match(newsroom, /linha-editorial/);
-  assert.match(newsroom, /Linha editorial ativa/);
-  assert.match(newsroom, /Rever e publicar nos Artigos/);
-  assert.match(newsroom, /Trabalhos guardados e ferramentas avançadas/);
-  assert.match(newsroom, /topic-search/);
-  assert.match(newsroom, /carregamento HTTP controlado/);
-  assert.doesNotMatch(newsroom, /Esta pesquisa não faz uma nova recolha externa/);
+  assert.match(newsroom, /name="ai_instructions"/);
+  assert.match(newsroom, /A linha editorial não está disponível/);
   assert.match(newsroom, /<time dateTime=\{article\.publishedAt\}>/);
   assert.match(
     newsroom,
-    /Publicado em \{formatNewsroomPublishedAt\(\s*article\.publishedAt,\s*article\.publishedAtPrecision,\s*\)\}/,
+    /formatNewsroomPublishedAt\(\s*article\.publishedAt,\s*article\.publishedAtPrecision,\s*\)/,
   );
-  assert.equal(
-    newsroom.match(
-      /formatNewsroomPublishedAt\(\s*article\.publishedAt,\s*article\.publishedAtPrecision,\s*\)/g,
-    )?.length,
-    2,
-  );
+  assert.match(newsroom, /Abrir fonte/);
+  assert.match(newsroom, /name="query"/);
+  assert.match(newsroom, /ManualNewsEntryForm/);
+  assert.match(newsroom, /article\.usedInComposition/);
+  assert.match(newsroom, /CurrentFeedReveal/);
+  assert.doesNotMatch(newsroom, /name="combine_instructions"/);
+  assert.doesNotMatch(newsroom, /Detalhes técnicos da pesquisa/);
+  assert.doesNotMatch(newsroom, />Prioridade</);
+  assert.doesNotMatch(newsroom, />Função na composição</);
+  assert.match(styles, /REDACAO-AUTOMATICA-FLUXO-SIMPLES-INICIO/);
+  assert.match(repository, /listCurrentNewsroomArticles/);
+  assert.match(repository, /newsroom_editorial_dossier_sources\?select=newsroom_article_id/);
+  assert.match(repository, /included=eq\.true/);
+  assert.doesNotMatch(repository, /!usedArticleIds\.has\(row\.id\)/);
   assert.match(workflow, /new Intl\.DateTimeFormat\("pt-PT"/);
   assert.match(workflow, /timeZone: "Europe\/Lisbon"/);
-  assert.doesNotMatch(newsroom, /publishedAt \?\? article\.detectedAt/);
-  assert.match(newsroom, /Selecionar/);
-  assert.match(newsroom, /Consultar fonte/);
-  assert.match(newsroom, /Já disponível/);
-  assert.match(newsroom, /Recolhida nesta pesquisa/);
-  assert.match(newsroom, /Detalhes técnicos da pesquisa/);
-  assert.match(newsroom, /report\.failures\.length > 0/);
-  assert.match(newsroom, /failure\.count\} — \{topicSearchFailureLabel\(failure\)/);
-  assert.match(newsroom, /HTTP 403 — acesso recusado pela fonte/);
-  assert.match(newsroom, /HTTP 404 — página não encontrada/);
-  assert.match(newsroom, /A fonte não respondeu a tempo/);
-  assert.match(newsroom, /Redirecionamento não autorizado/);
-  assert.match(newsroom, /A resposta não era uma página HTML suportada/);
-  assert.match(newsroom, /Página não reconhecida ou não analisável/);
-  assert.match(newsroom, /Campos ou conteúdo obrigatório insuficiente/);
-  assert.match(newsroom, /Artigo lido mas não guardado/);
-  assert.match(newsroom, /Conflito ao guardar o artigo/);
-  assert.match(newsroom, /Serviço de persistência indisponível/);
-  assert.match(newsroom, /Falha técnica na etapa/);
-  assert.doesNotMatch(newsroom, /corpo insuficiente/i);
-  assert.match(newsroom, /ligações descobertas nas listagens/);
-  assert.match(newsroom, /excluídos por falta de data de publicação/);
-  assert.match(newsroom, /não confirmaram o tema pesquisado/);
-  assert.match(newsroom, />Prioridade</);
-  assert.match(newsroom, />Função na composição</);
-  assert.match(styles, /\.compositionSourceControls\s*\{\s*display: none;/);
-  assert.match(
-    styles,
-    /\.compositionSourceList > li:has\(input:checked\) \.compositionSourceControls\s*\{\s*display: grid;/,
-  );
-  assert.match(repository, /classifyNewsroomTopicArchiveCandidate/);
-  assert.match(repository, /latestSnapshotsByArticle/);
-  assert.match(
-    repository,
-    /publishedAtPrecision:\s*publishedAtPrecisionFromSourceMetadata\(\s*snapshotRow\?\.source_metadata,\s*\)/,
-  );
-  assert.doesNotMatch(newsroom, /Criar Dossiê com as fontes selecionadas/);
 
-  const externalRoute = readFileSync("app/api/admin/editorial/redacao-automatica/topic-search/route.ts", "utf8");
-  assert.match(externalRoute, /searchExternalNewsroomTopic/);
-  assert.match(externalRoute, /const initialArchive = await searchNewsroomArticles/);
-  assert.match(externalRoute, /const finalArchive = await searchNewsroomArticles/);
-  assert.ok(
-    externalRoute.indexOf("const initialArchive = await searchNewsroomArticles")
-      < externalRoute.indexOf("const externalSearch = await searchExternalNewsroomTopic"),
-  );
-  assert.ok(
-    externalRoute.indexOf("const externalSearch = await searchExternalNewsroomTopic")
-      < externalRoute.indexOf("const finalArchive = await searchNewsroomArticles"),
-  );
-  assert.match(externalRoute, /externalSearch\.value\.articles/);
-  assert.match(externalRoute, /classifyNewsroomTopicSearchResultOrigins/);
-  assert.match(externalRoute, /external_search_collected_ids/);
-  assert.match(externalRoute, /external_search_related/);
-  assert.match(externalRoute, /external_search_raw_discovered/);
-  assert.match(externalRoute, /external_search_excluded_missing_date/);
-  assert.match(externalRoute, /external_search_source_reports/);
-  assert.match(externalRoute, /compactNewsroomExternalTopicSearchSourceReports/);
-  assert.doesNotMatch(
-    externalRoute,
-    /JSON\.stringify\(externalSearch\.value\.failureReasonCounts\)/,
-  );
-  assert.match(externalRoute, /external_search_available/);
-  assert.match(externalRoute, /external_search_state/);
-  assert.match(externalRoute, /export const maxDuration = 60/);
+  assert.match(feedRoute, /refreshNewsroomCurrentFeed/);
+  assert.match(feedRoute, /export const maxDuration = 300/);
 
   assert.match(route, /action === "compose"/);
+  assert.match(route, /const aiInstructions = cleanText\(formData\.get\("ai_instructions"\)\)/);
+  assert.match(route, /index === 0 \? "primary" : "complementary"/);
   assert.match(route, /const composeResult = await prepareEditorialCompose/);
   assert.match(route, /const generationResult = await runEditorialComposeGeneration/);
   assert.match(route, /claim: \(\) => claimEditorialComposeGeneration/);
@@ -324,7 +267,7 @@ test("a simples leitura da página não inicia recolha, geração ou publicaçã
   assert.doesNotMatch(newsroom, /publishEditorial/);
   assert.match(
     newsroom,
-    /<form\s+action="\/api\/admin\/editorial\/redacao-automatica\/topic-search"\s+method="post"/,
+    /<form action="\/api\/admin\/editorial\/redacao-automatica\/current-feed" method="post">/,
   );
 });
 
@@ -336,8 +279,8 @@ test("o Dossiê fica identificado como gestão avançada e a revisão permanece 
   assert.match(dossier, /Gestão avançada/);
   assert.match(dossier, /Voltar à nova composição/);
   assert.match(dossier, /Registo técnico da geração/);
-  assert.match(editor, /Guardar revisão/);
-  assert.match(editor, /Publicar artigo/);
+  assert.match(editor, /Guardar em revisão/);
+  assert.match(editor, />\s*Publicar\s*</);
   assert.doesNotMatch(editor, /<select name="status"/);
   assert.match(route, /editorial_action/);
   assert.match(route, /missing-body/);

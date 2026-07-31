@@ -405,7 +405,7 @@ async function applyGeneration(
   });
 
   const rows = await writeSupabaseAdminReturning<ApplyGenerationRpcRow>(
-    "rpc/newsroom_apply_generated_article",
+    "rpc/newsroom_apply_complete_editorial_dossier_article_plan_generation",
     {
       method: "POST",
       body: JSON.stringify({

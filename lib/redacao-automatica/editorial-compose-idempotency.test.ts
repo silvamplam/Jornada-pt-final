@@ -72,6 +72,22 @@ test("fingerprint é determinístico após normalização e inclui snapshots e o
   );
 });
 
+test("uma única instrução do editor não é duplicada no pedido à IA", () => {
+  const normalized = normalizeEditorialComposeInput(input({
+    combineInstructions: "Dar prioridade ao impacto no próximo jogo.",
+    highlightInstructions: "Dar prioridade ao impacto no próximo jogo.",
+    contextInstructions: "",
+    avoidInstructions: "",
+  }));
+
+  assert.ok(normalized);
+  assert.equal(
+    normalized.editorialInstructions,
+    "Instruções do editor:\nDar prioridade ao impacto no próximo jogo.",
+  );
+  assert.doesNotMatch(normalized.editorialInstructions, /Como combinar as fontes/);
+});
+
 test("mesma chave com payload editorial diferente produz fingerprint diferente", () => {
   const baseline = normalizeEditorialComposeInput(input());
   const changedSnapshot = normalizeEditorialComposeInput(input({
@@ -121,7 +137,7 @@ test("submit enhancer hidrata sem mutar HTML e bloqueia apenas repeticoes", () =
   const pageListeners = new Map<string, EventListenerOrEventListenerObject>();
   const button = {
     disabled: false,
-    textContent: "Gerar primeira versao",
+    textContent: "Criar notícia",
   };
   const status = { hidden: true };
   const form = {
@@ -189,7 +205,7 @@ test("submit enhancer hidrata sem mutar HTML e bloqueia apenas repeticoes", () =
   const cleanup = installCompositionSubmitEnhancer(form, pageLifecycle);
 
   assert.equal(button.disabled, false);
-  assert.equal(button.textContent, "Gerar primeira versao");
+  assert.equal(button.textContent, "Criar notícia");
   assert.equal(status.hidden, true);
 
   let firstPrevented = 0;
@@ -200,7 +216,7 @@ test("submit enhancer hidrata sem mutar HTML e bloqueia apenas repeticoes", () =
   } as unknown as Event);
   assert.equal(firstPrevented, 0);
   assert.equal(button.disabled, true);
-  assert.equal(button.textContent, "A preparar a primeira versão…");
+  assert.equal(button.textContent, "A preparar a notícia…");
   assert.equal(status.hidden, false);
 
   let secondPrevented = 0;
@@ -213,7 +229,7 @@ test("submit enhancer hidrata sem mutar HTML e bloqueia apenas repeticoes", () =
 
   invoke(pageListeners.get("pageshow"), new Event("pageshow"));
   assert.equal(button.disabled, false);
-  assert.equal(button.textContent, "Gerar primeira versão");
+  assert.equal(button.textContent, "Criar notícia");
   assert.equal(status.hidden, true);
 
   cleanup();

@@ -3,8 +3,8 @@
 import { useEffect } from "react";
 
 const FORM_ID = "create-editorial-composition";
-const IDLE_BUTTON_TEXT = "Gerar primeira versão";
-const SUBMITTING_BUTTON_TEXT = "A preparar a primeira versão…";
+const IDLE_BUTTON_TEXT = "Criar notícia";
+const SUBMITTING_BUTTON_TEXT = "A preparar a notícia…";
 
 export function installCompositionSubmitEnhancer(
   form: HTMLFormElement,
@@ -12,12 +12,13 @@ export function installCompositionSubmitEnhancer(
 ): () => void {
   const button = form.querySelector<HTMLButtonElement>("[data-composition-submit]");
   const status = form.querySelector<HTMLElement>("[data-composition-submit-status]");
+  const initiallyDisabled = Boolean(button?.disabled);
   let submitting = false;
 
   const reset = () => {
     submitting = false;
     if (button) {
-      button.disabled = false;
+      button.disabled = initiallyDisabled;
       button.textContent = IDLE_BUTTON_TEXT;
     }
     if (status) {
