@@ -438,9 +438,17 @@ async function buildPayload(
 
   await assertSlugAvailable(slug, currentArticleId);
 
+  const subtitle = cleanText(formData.get("subtitle"));
   const body = cleanText(formData.get("body")) ?? "";
+  const imageUrl = cleanText(formData.get("image_url"));
+  if (targetStatus === "published" && !subtitle) {
+    throw new ArticleAdminError("missing-post-title");
+  }
   if (targetStatus === "published" && !body) {
     throw new ArticleAdminError("missing-body");
+  }
+  if (targetStatus === "published" && !imageUrl) {
+    throw new ArticleAdminError("missing-image");
   }
 
   let publishedAt = normalizePublishedAt(cleanText(formData.get("published_at")));
@@ -459,9 +467,9 @@ async function buildPayload(
     scope,
     label: cleanText(formData.get("label")),
     author: cleanText(formData.get("author")),
-    subtitle: cleanText(formData.get("subtitle")),
+    subtitle,
     body,
-    image_url: cleanText(formData.get("image_url")),
+    image_url: imageUrl,
     image_caption: cleanText(formData.get("image_caption")),
     published_at: publishedAt,
     competition_id: context.competition_id,

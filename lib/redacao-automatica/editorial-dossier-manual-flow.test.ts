@@ -14,22 +14,23 @@ const dossierService = "lib/redacao-automatica/editorial-dossier-service.ts";
 const dossierInternal = "lib/redacao-automatica/editorial-dossier-service-internal.ts";
 const newsroomRepository = "lib/redacao-automatica/newsroom-article-repository.ts";
 
-test("a pesquisa editorial permite encontrar e selecionar várias fontes para uma composição", () => {
+test("a atualidade permite escolher fontes e dar uma única instrução à IA", () => {
   const source = read(newsroomPage);
 
-  assert.match(source, /name="topic"/);
-  assert.match(source, /Pesquisar nas fontes/);
-  assert.match(source, /searchNewsroomArticles/);
-  assert.match(source, /topic-search/);
-  assert.match(source, /Ver notícias relacionadas/);
+  assert.match(source, /listCurrentNewsroomArticles/);
+  assert.match(source, />Atualizar<\/button>/);
+  assert.match(source, /current-feed/);
   assert.match(source, /id="create-editorial-composition"/);
   assert.match(source, /name="newsroom_article_id"/);
-  assert.match(source, /name={`source_priority_\$\{article\.id\}`}/);
-  assert.match(source, /name={`source_role_\$\{article\.id\}`}/);
-  assert.match(source, /name="combine_instructions"/);
-  assert.match(source, /name="highlight_instructions"/);
-  assert.match(source, /Gerar primeira versão/);
-  assert.match(source, /listEditorialDossiers/);
+  assert.match(source, /name={`source_snapshot_\$\{article\.id\}`}/);
+  assert.match(source, /name="ai_instructions"/);
+  assert.match(source, /Criar notícia/);
+  assert.match(source, /A linha editorial não está disponível/);
+  assert.match(source, /name="query"/);
+  assert.match(source, /ManualNewsEntryForm/);
+  assert.match(source, /article\.usedInComposition/);
+  assert.doesNotMatch(source, /name="combine_instructions"/);
+  assert.doesNotMatch(source, /name="highlight_instructions"/);
 });
 
 test("a página do Dossiê permite reabrir e guardar orientações e preferências", () => {

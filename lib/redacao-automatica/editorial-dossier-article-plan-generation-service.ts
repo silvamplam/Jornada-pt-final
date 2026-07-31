@@ -19,6 +19,7 @@ import type {
   EditorialDossierSourceRole,
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
 import { openAiEditorialGenerationProvider } from "@/lib/redacao-automatica/openai-editorial-generation-provider";
+import { archiveEditorialSourceImagesLocally } from "@/lib/redacao-automatica/editorial-source-image";
 import { pinEditorialProfileVersionForPlan } from "@/lib/redacao-automatica/editorial-profile-service";
 import type { ArticleBodyBlock } from "@/lib/redacao-automatica/types";
 
@@ -78,6 +79,7 @@ type NewsroomArticleRow = {
   id: string;
   source_code: string;
   title: string;
+  image_url: string | null;
 };
 
 type SnapshotRow = {
@@ -299,7 +301,7 @@ async function readContext(
   const [newsroomArticles, snapshots] = await Promise.all([
     newsroomArticleIds.length > 0
       ? fetchSupabaseAdminTable<NewsroomArticleRow>(
-          "newsroom_articles?select=id,source_code,title"
+          "newsroom_articles?select=id,source_code,title,image_url"
           + `&id=in.(${uuidList(newsroomArticleIds)})`
           + `&limit=${newsroomArticleIds.length}`,
         )
@@ -345,6 +347,7 @@ async function readContext(
       sortOrder: assignment.sort_order,
       editorialNote: dossierSource.editorial_note,
       contentHash: snapshot.content_hash,
+      imageUrl: newsroomArticle.image_url,
       body: articleBody(snapshot.body),
     }];
   });
@@ -396,8 +399,13 @@ async function readContext(
 async function applyGeneration(
   input: ApplyEditorialDossierGenerationInput,
 ): Promise<ApplyEditorialDossierGenerationResult | null> {
+  await archiveEditorialSourceImagesLocally({
+    articleId: input.editorialArticleId,
+    sources: input.sourceImages,
+  });
+
   const rows = await writeSupabaseAdminReturning<ApplyGenerationRpcRow>(
-    "rpc/newsroom_apply_editorial_dossier_article_plan_generation",
+    "rpc/newsroom_apply_generated_article",
     {
       method: "POST",
       body: JSON.stringify({
@@ -405,6 +413,9 @@ async function applyGeneration(
         p_article_plan_id: input.articlePlanId,
         p_editorial_article_id: input.editorialArticleId,
         p_expected_article_updated_at: input.expectedArticleUpdatedAt,
+        p_generated_title: input.generatedTitle,
+        p_generated_post_title: input.generatedPostTitle,
+        p_image_url: null,
         p_generated_body: input.generatedBody,
         p_provider: input.provider,
         p_model: input.model,

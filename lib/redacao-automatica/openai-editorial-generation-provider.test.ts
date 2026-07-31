@@ -45,7 +45,7 @@ test("usa Responses API, store false, reasoning low e não expõe a chave", asyn
           type: "message",
           content: [{
             type: "output_text",
-            text: "Primeiro parágrafo factual com informação suficiente para formar um corpo editorial válido.\n\nSegundo parágrafo factual e separado.",
+            text: '{"title":"FC Porto prepara nova época com vitória","post_title":"Dragões venceram o S. João de Ver num encontro de preparação marcado por jovens em destaque.","body":"Primeiro parágrafo factual com informação suficiente para formar um corpo editorial válido.\\n\\nSegundo parágrafo factual e separado."}',
           }],
         }],
         usage: {
@@ -81,6 +81,17 @@ test("usa Responses API, store false, reasoning low e não expõe a chave", asyn
     instructions: string;
     input: string;
     max_output_tokens: number;
+    text: {
+      format: {
+        type: string;
+        name: string;
+        strict: boolean;
+        schema: {
+          required: string[];
+          additionalProperties: boolean;
+        };
+      };
+    };
     metadata: Record<string, string>;
   };
   assert.equal(body.model, "gpt-5-mini");
@@ -89,13 +100,18 @@ test("usa Responses API, store false, reasoning low e não expõe a chave", asyn
   assert.equal(body.instructions, "Instruções editoriais.");
   assert.equal(body.input, "{\"fontes\":[]}");
   assert.equal(body.max_output_tokens, 3_000);
+  assert.equal(body.text.format.type, "json_schema");
+  assert.equal(body.text.format.name, "jornada_editorial_article");
+  assert.equal(body.text.format.strict, true);
+  assert.deepEqual(body.text.format.schema.required, ["title", "post_title", "body"]);
+  assert.equal(body.text.format.schema.additionalProperties, false);
   assert.equal(body.metadata.prompt_version, "dossier-article-plan-body-v1");
 
   assert.deepEqual(result, {
     provider: "openai",
     model: "gpt-5-mini-2025-08-07",
     responseId: "resp_123",
-    text: "Primeiro parágrafo factual com informação suficiente para formar um corpo editorial válido.\n\nSegundo parágrafo factual e separado.",
+    text: '{"title":"FC Porto prepara nova época com vitória","post_title":"Dragões venceram o S. João de Ver num encontro de preparação marcado por jovens em destaque.","body":"Primeiro parágrafo factual com informação suficiente para formar um corpo editorial válido.\\n\\nSegundo parágrafo factual e separado."}',
     inputTokens: 120,
     outputTokens: 80,
     totalTokens: 200,

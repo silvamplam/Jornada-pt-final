@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   buildEditorialDossierGenerationPrompt,
   createEditorialDossierArticlePlanGenerationService,
+  normalizeGeneratedEditorialDraft,
   EDITORIAL_DOSSIER_GENERATION_PROMPT_VERSION,
   type ApplyEditorialDossierGenerationInput,
   type EditorialDossierArticlePlanGenerationContext,
@@ -83,6 +84,7 @@ function context(
         sortOrder: 10,
         editorialNote: "Abrir com o FC Porto.",
         contentHash: "a".repeat(64),
+        imageUrl: "https://cdn.example.test/fc-porto.jpg",
         body: [
           { type: "paragraph", text: "O FC Porto venceu o S. João de Ver num jogo de preparação." },
           { type: "paragraph", text: "Rodrigo Mora e Eduardo Ferreira estiveram em destaque." },
@@ -99,6 +101,7 @@ function context(
         sortOrder: 20,
         editorialNote: null,
         contentHash: "b".repeat(64),
+        imageUrl: null,
         body: [
           { type: "paragraph", text: "O Vitória encerrou o estágio com um teste frente ao Nottingham Forest." },
         ],
@@ -156,7 +159,11 @@ function fakeEnvironment(options: {
         model: "gpt-5-mini-2025-08-07",
         responseId: "resp_test",
         text: options.providerText
-          ?? "O FC Porto venceu o S. João de Ver num encontro de preparação em que Rodrigo Mora e Eduardo Ferreira estiveram em destaque.\n\nO Vitória de Guimarães encerrou o estágio com um teste frente ao Nottingham Forest, num contexto distinto da preparação portista.",
+          ?? JSON.stringify({
+            title: "FC Porto vence e prepara a nova época",
+            post_title: "Dragões bateram o S. João de Ver, enquanto o Vitória encerrou o estágio frente ao Nottingham Forest.",
+            body: "O FC Porto venceu o S. João de Ver num encontro de preparação em que Rodrigo Mora e Eduardo Ferreira estiveram em destaque.\n\nO Vitória de Guimarães encerrou o estágio com um teste frente ao Nottingham Forest, num contexto distinto da preparação portista.",
+          }),
         inputTokens: 500,
         outputTokens: 120,
         totalTokens: 620,
@@ -276,7 +283,7 @@ test("recusa gerar sem versão editorial fixada", async () => {
   assert.deepEqual(environment.counts(), { providerCalls: 0, applyCalls: 0 });
 });
 
-test("gera apenas o corpo, preserva ordem e aplica metadados auditáveis", async () => {
+test("analisa diretamente fontes pequenas e gera título, pós-título e corpo", async () => {
   const environment = fakeEnvironment();
   const result = await environment.service(dossierId, planId);
 
@@ -298,23 +305,33 @@ test("gera apenas o corpo, preserva ordem e aplica metadados auditáveis", async
   assert.equal(applied?.inputSnapshot.sources[0].dossier_source_id, sourceOneId);
   assert.equal(applied?.inputSnapshot.sources[1].dossier_source_id, sourceTwoId);
   assert.equal(applied?.inputSnapshot.plan.working_title, context().plan.workingTitle);
+  assert.equal(applied?.generatedTitle, "FC Porto vence e prepara a nova época");
+  assert.match(applied?.generatedPostTitle ?? "", /Dragões/);
+  assert.deepEqual(applied?.sourceImages, [
+    {
+      sourceCode: "record",
+      articleTitle: "FC Porto vence S. João de Ver",
+      imageUrl: "https://cdn.example.test/fc-porto.jpg",
+    },
+  ]);
   assert.match(applied?.generatedBody ?? "", /FC Porto/);
   assert.match(applied?.generatedBody ?? "", /Vitória/);
 });
 
-test("o prompt separa instruções de fontes e fixa título, idioma e revisão humana", () => {
+test("o prompt separa instruções de fontes e pede a notícia completa para revisão", () => {
   const prompt = buildEditorialDossierGenerationPrompt(context());
   const payload = JSON.parse(prompt.input) as {
-    titulo_fixo: string;
+    titulo_de_trabalho: string;
     idioma: string;
     fontes: Array<{ fonte: string; conteudo: string[] }>;
   };
 
-  assert.equal(payload.titulo_fixo, context().plan.workingTitle);
+  assert.equal(payload.titulo_de_trabalho, context().plan.workingTitle);
   assert.equal(payload.idioma, "pt-PT");
   assert.equal(payload.fontes[0].fonte, "record");
   assert.equal(payload.fontes[1].fonte, "abola");
-  assert.match(prompt.instructions, /apenas o corpo do artigo/i);
+  assert.match(prompt.instructions, /título, pós-título e corpo/i);
+  assert.match(prompt.instructions, /formato estruturado/i);
   assert.match(prompt.instructions, /exclusivamente factos/i);
   assert.match(prompt.instructions, /revisto por uma pessoa/i);
   assert.match(prompt.instructions, /\[LINHA_EDITORIAL_APROVADA\]/);
@@ -325,6 +342,27 @@ test("o prompt separa instruções de fontes e fixa título, idioma e revisão h
   );
   assert.equal(prompt.inputHash.length, 64);
   assert.equal(prompt.maxOutputTokens, 5_000);
+});
+
+test("normaliza apenas respostas estruturadas completas", () => {
+  assert.deepEqual(
+    normalizeGeneratedEditorialDraft(JSON.stringify({
+      title: "Título editorial válido",
+      post_title: "Pós-título factual suficientemente completo para revisão.",
+      body: "Este é um corpo editorial com dimensão suficiente para ser aceite pela validação e seguir para revisão humana antes de qualquer publicação.",
+    })),
+    {
+      title: "Título editorial válido",
+      postTitle: "Pós-título factual suficientemente completo para revisão.",
+      body: "Este é um corpo editorial com dimensão suficiente para ser aceite pela validação e seguir para revisão humana antes de qualquer publicação.",
+    },
+  );
+  assert.equal(normalizeGeneratedEditorialDraft("texto livre"), null);
+  assert.equal(normalizeGeneratedEditorialDraft(JSON.stringify({
+    title: "Curto",
+    post_title: "Também curto",
+    body: "Insuficiente",
+  })), null);
 });
 
 test("o input hash é determinístico e muda quando muda a versão editorial", () => {
@@ -400,6 +438,8 @@ test("a UI, rota, provider e SQL mantêm geração explícita, draft e proveniê
   assert.match(provider, /https:\/\/api\.openai\.com\/v1\/responses/);
   assert.match(provider, /store:\s*false/);
   assert.match(provider, /reasoning:\s*\{\s*effort:\s*"low"/);
+  assert.match(provider, /type:\s*"json_schema"/);
+  assert.match(provider, /required:\s*\["title", "post_title", "body"\]/);
   assert.doesNotMatch(provider, /console\.log|OPENAI_API_KEY.*return|apiKey.*message/i);
 
   assert.match(

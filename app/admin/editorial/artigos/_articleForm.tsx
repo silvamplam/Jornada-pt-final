@@ -1,9 +1,3 @@
-import {
-  articleEditorialWorkflowStep,
-  editorialWorkflowSteps,
-  editorialWorkflowStepState,
-} from "@/lib/redacao-automatica/editorial-workflow-ux";
-
 export type EditorialArticle = {
   id: string;
   slug: string | null;
@@ -97,25 +91,6 @@ export function formatShortDate(value: string | null | undefined) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
-}
-
-function formatDateTimeLocal(value: string | null | undefined) {
-  if (!value) {
-    return "";
-  }
-
-  const match = value.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/);
-  if (match) {
-    return match[1];
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function seasonLabel(season: SeasonOption) {
@@ -437,26 +412,13 @@ export function ArticleEditorForm({
   const publicHref = publicArticleHref(article?.slug);
   const isEdit = mode === "edit";
   const currentStatus = firstText(article?.status) || "draft";
-  const workflowStep = articleEditorialWorkflowStep({
-    status: currentStatus,
-    body: article?.body ?? null,
-  });
-  const workflowTitle = workflowStep === "publication"
-    ? "Artigo publicado"
-    : workflowStep === "review"
-      ? "Revisão humana"
-      : "Preparação do rascunho";
-  const workflowDescription = workflowStep === "publication"
-    ? "O artigo está publicado. As alterações guardadas mantêm o estado público."
-    : workflowStep === "review"
-      ? "Revê integralmente o texto e completa os elementos editoriais antes de publicar."
-      : "Preenche o conteúdo e guarda o rascunho antes de avançar para a publicação.";
+  const publicationDateLabel = currentStatus === "published"
+    ? firstText(formatShortDate(article?.published_at), "Publicado")
+    : "Por publicar";
   const canOpenPublicArticle = Boolean(publicHref && currentStatus === "published");
   const saveActionLabel = currentStatus === "published"
     ? "Guardar alterações"
-    : isEdit
-      ? "Guardar revisão"
-      : "Guardar rascunho";
+    : "Guardar em revisão";
   const initialMatchday = article?.matchday_id ? matchdays.find((item) => item.id === article.matchday_id) : null;
   const initialSeasonId = article?.season_id ?? initialMatchday?.season_id ?? "";
   const initialSeason = initialSeasonId ? seasons.find((item) => item.id === initialSeasonId) : null;
@@ -471,61 +433,17 @@ export function ArticleEditorForm({
     <form className="editorial-article-form" action="/api/admin/editorial/artigos" method="post" data-article-admin-form>
       <input type="hidden" name="action_type" value={isEdit ? "update_article" : "create_article"} />
       {isEdit ? <input type="hidden" name="article_id" value={article?.id ?? ""} /> : null}
+      <input type="hidden" name="published_at" value={article?.published_at ?? ""} />
       {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
 
       {message ? <p className="article-admin-alert">{message}</p> : null}
-
-      <section className="article-editor-workflow" aria-labelledby="article-editor-workflow-title">
-        <div>
-          <p className="article-editor-workflow-eyebrow">Percurso editorial</p>
-          <h3 id="article-editor-workflow-title">{workflowTitle}</h3>
-          <p>{workflowDescription}</p>
-        </div>
-        <ol>
-          {editorialWorkflowSteps.slice(2).map((step, index) => (
-            <li data-state={editorialWorkflowStepState(workflowStep, step.id)} key={step.id}>
-              <span>{index + 3}</span>
-              <strong>{step.label}</strong>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="article-admin-section">
-        <div className="article-admin-grid">
-          <label className="article-admin-full">
-            <span>Título</span>
-            <input name="title" data-article-title defaultValue={article?.title ?? ""} required />
-          </label>
-
-          <label>
-            <span>Etiqueta</span>
-            <input name="label" defaultValue={article?.label ?? ""} placeholder="OPINIÃO, ANÁLISE..." />
-          </label>
-
-          <label>
-            <span>Autor</span>
-            <input name="author" defaultValue={article?.author ?? ""} placeholder="Nome do autor" />
-          </label>
-
-          <label className="article-admin-full">
-            <span>Subtítulo</span>
-            <textarea name="subtitle" rows={3} defaultValue={article?.subtitle ?? ""} />
-          </label>
-
-          <label className="article-admin-full">
-            <span>Corpo</span>
-            <textarea name="body" rows={12} defaultValue={article?.body ?? ""} />
-          </label>
-        </div>
-      </section>
 
       <section className="article-admin-section article-admin-compact-section">
         <p className="article-admin-section-title">Imagem</p>
         <div className="article-admin-grid">
           <label className="article-admin-full">
             <span>Imagem principal</span>
-            <input name="image_url" defaultValue={article?.image_url ?? ""} placeholder="https://..." />
+            <input name="image_url" defaultValue={article?.image_url ?? ""} placeholder="https://..." required />
           </label>
 
           <div className="article-admin-upload article-admin-full" data-article-image-upload>
@@ -548,8 +466,42 @@ export function ArticleEditorForm({
         </div>
       </section>
 
-      <section className="article-admin-section article-admin-compact-section">
-        <p className="article-admin-section-title">Contexto</p>
+      <section className="article-admin-section">
+        <div className="article-admin-grid">
+          <label className="article-admin-full">
+            <span>Título</span>
+            <input name="title" data-article-title defaultValue={article?.title ?? ""} required />
+          </label>
+
+          <label>
+            <span>Antetítulo</span>
+            <input name="label" defaultValue={article?.label ?? ""} placeholder="Ex.: LIGA PORTUGAL" />
+          </label>
+
+          <label>
+            <span>Autor</span>
+            <input name="author" defaultValue={article?.author ?? ""} placeholder="Nome do autor" />
+          </label>
+
+          <label className="article-admin-full">
+            <span>Pós-título</span>
+            <textarea name="subtitle" rows={3} defaultValue={article?.subtitle ?? ""} required />
+          </label>
+
+          <div className="article-admin-publication-date article-admin-full">
+            <span>Data Jornada.pt</span>
+            <strong>{publicationDateLabel}</strong>
+          </div>
+
+          <label className="article-admin-full">
+            <span>Corpo</span>
+            <textarea name="body" rows={12} defaultValue={article?.body ?? ""} required />
+          </label>
+        </div>
+      </section>
+
+      <details className="article-admin-publication-options">
+        <summary>Onde publicar</summary>
         <div className="article-admin-grid">
           <label>
             <span>Âmbito</span>
@@ -617,19 +569,14 @@ export function ArticleEditorForm({
             </select>
           </label>
         </div>
-      </section>
+      </details>
 
       <details className="article-admin-publication-options">
-        <summary>Opções de publicação</summary>
+        <summary>Endereço</summary>
         <label>
           <span>Endereço do artigo</span>
           <input name="slug" data-article-slug defaultValue={article?.slug ?? ""} placeholder="gerado-a-partir-do-titulo" />
         </label>
-        <label>
-          <span>Data e hora de publicação</span>
-          <input name="published_at" type="datetime-local" defaultValue={formatDateTimeLocal(article?.published_at)} />
-        </label>
-        <p>Se a data ficar vazia, será usada a data e hora em que carregares em “Publicar artigo”.</p>
       </details>
 
       <div className="article-admin-form-actions">
@@ -644,16 +591,10 @@ export function ArticleEditorForm({
         <button name="editorial_action" type="submit" value="save">{saveActionLabel}</button>
         {currentStatus !== "published" ? (
           <button className="article-admin-publish-action" name="editorial_action" type="submit" value="publish">
-            Publicar artigo
+            Publicar
           </button>
         ) : null}
       </div>
-      {currentStatus !== "published" ? (
-        <p className="article-admin-publication-note">
-          Publicar torna o artigo visível no respetivo endereço público. A publicação nunca é automática.
-        </p>
-      ) : null}
-
       <script dangerouslySetInnerHTML={{ __html: articleFormEnhancer }} />
       <script dangerouslySetInnerHTML={{ __html: articleImageUploadScript }} />
     </form>
@@ -708,6 +649,26 @@ export const editorialArticleAdminStyles = `
   }
 
   .editorial-admin-actions,
+  .article-admin-publication-date {
+    display: grid;
+    gap: 6px;
+    padding: 12px 14px;
+    border: 1px solid #d9dee7;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+
+  .article-admin-publication-date span {
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+  }
+
+  .article-admin-publication-date strong {
+    font-size: 14px;
+    color: #111827;
+  }
+
   .article-admin-form-actions {
     display: flex;
     flex-wrap: wrap;

@@ -336,6 +336,7 @@ test("o corpo manual entra no input normal da geração sem fluxo paralelo", () 
       sortOrder: 1,
       editorialNote: null,
       contentHash: "a".repeat(64),
+      imageUrl: null,
       body: [{ type: "paragraph", text: "Corpo manual congelado e sintético." }],
     }],
   };
@@ -470,17 +471,20 @@ test("a rota guarda apenas no arquivo, usa 303 relativo e não tem GET nem efeit
   assert.doesNotMatch(source, /console\.(?:log|error|warn)/);
 });
 
-test("a página mantém pesquisa automática explícita e identifica a entrada manual", () => {
+test("a página mantém pesquisa por tema e integra fontes automáticas e manuais", () => {
   const source = readFileSync(
     "app/admin/editorial/redacao-automatica/page.tsx",
     "utf8",
   );
-  assert.match(source, /Pesquisar nas fontes autorizadas/);
+  assert.match(source, /<span>Tema<\/span>/);
+  assert.match(source, /name="query"/);
+  assert.match(source, /placeholder="Pesquisar"/);
+  assert.match(source, />Pesquisar<\/button>/);
   assert.match(source, /ManualNewsEntryForm/);
   assert.match(source, /article\.sourceUrl && !article\.isManualEntry/);
-  assert.match(source, /Entrada manual — não existe uma ligação externa associada/);
+  assert.match(source, /article\.usedInComposition/);
+  assert.match(source, />Usada<\/span>/);
 });
-
 test("imagem, autenticação e segurança reutilizam os contratos administrativos existentes", () => {
   const imageRoute = readFileSync(
     "app/api/admin/editorial/artigos/upload-image/sign/route.ts",
