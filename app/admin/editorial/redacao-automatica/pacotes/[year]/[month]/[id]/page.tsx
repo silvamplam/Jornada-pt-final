@@ -27,9 +27,9 @@ type SourcePackagePageProps = Readonly<{
 const updateErrorMessages: Record<string, string> = {
   input_invalid: "Revê o título e as instruções. Um dos campos ultrapassa o limite permitido.",
   location_invalid: "A localização deste pacote deixou de ser válida.",
-  package_not_found: "O pacote já não está disponível na pasta local.",
-  package_read_failed: "Não foi possível ler o pacote existente com segurança.",
-  package_write_failed: "Não foi possível atualizar o ficheiro Markdown e o manifesto.",
+  package_not_found: "O pacote já não está disponível no armazenamento editorial.",
+  package_read_failed: "Não foi possível ler o pacote editorial com segurança.",
+  package_write_failed: "Não foi possível atualizar o pacote editorial.",
 };
 
 function firstQueryValue(value: string | string[] | undefined): string | null {
@@ -124,11 +124,21 @@ export default async function SourcePackagePage({
             <div><span>Selecionadas</span><strong>{manifest.selectedCount}</strong></div>
             <div><span>Preparadas</span><strong>{manifest.preparedCount}</strong></div>
             <div><span>Com falha</span><strong>{manifest.failedCount}</strong></div>
-            <div><span>Imagens guardadas</span><strong>{manifest.imageCount}</strong></div>
+            <div><span>Imagens locais</span><strong>{manifest.imageCount}</strong></div>
           </div>
 
           <p className={styles.sourcePackagePath}>
-            <strong>Pasta local:</strong> <code>{manifest.localDirectory}</code>
+            {manifest.localDirectory ? (
+              <>
+                <strong>Arquivo local de imagens:</strong>{" "}
+                <code>{manifest.localDirectory}</code>
+              </>
+            ) : (
+              <>
+                <strong>Arquivo local de imagens:</strong>{" "}
+                indisponível neste ambiente; o Markdown permanece acessível para copiar e descarregar.
+              </>
+            )}
           </p>
 
           <div className={styles.sourcePackageEditorialSummary}>

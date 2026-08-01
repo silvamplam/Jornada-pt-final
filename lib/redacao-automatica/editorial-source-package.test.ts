@@ -335,8 +335,9 @@ test("a interface recolhe género, título e instruções e expõe as três aç�
   assert.match(page, /sem voltar a recolher as fontes nem as imagens/i);
   assert.match(page, /package_updated/);
   assert.match(page, /package_update_error/);
-  assert.match(page, /Imagens guardadas/);
+  assert.match(page, /Imagens locais/);
   assert.match(page, /manifest\.localDirectory/);
+  assert.match(page, /Markdown permanece acessível para copiar e descarregar/);
   assert.match(route, /editorial_genre/);
   assert.match(route, /suggested_title/);
   assert.match(route, /editorial_instructions/);
@@ -353,7 +354,8 @@ test("a interface recolhe género, título e instruções e expõe as três aç�
   const packageService = read(
     "lib/redacao-automatica/editorial-source-package.ts",
   );
-  assert.match(packageService, /replacePackageFilesAtomically/);
+  assert.match(packageService, /writeSupabaseAdminReturning/);
+  assert.match(packageService, /newsroom_editorial_source_packages/);
   assert.match(packageService, /updateEditorialSourcePackageMarkdown/);
   assert.match(packageService, /suggestedTitle: editorial\.suggestedTitle/);
   assert.match(packageService, /additionalInstructions: editorial\.additionalInstructions/);
@@ -373,13 +375,27 @@ test("a interface recolhe género, título e instruções e expõe as três aç�
   assert.match(articleImporter, /Nada é guardado ou publicado automaticamente/);
 });
 
-test("o pacote reutiliza a mesma pasta local das imagens editoriais", () => {
+test("o Markdown persiste no Supabase e o arquivo local fica limitado às imagens", () => {
   const imageService = read("lib/redacao-automatica/editorial-source-image.ts");
   const packageService = read("lib/redacao-automatica/editorial-source-package.ts");
+  const packageType = read("lib/redacao-automatica/editorial-source-package-internal.ts");
+  const applySql = read(
+    "supabase/steps/53-redacao-automatica-pacotes-fontes-persistentes-apply.sql",
+  );
 
   assert.match(imageService, /"Pictures", "Jornada\.pt", "Editorial"/);
   assert.match(imageService, /export function editorialLocalArchiveDirectory/);
   assert.match(packageService, /editorialLocalArchiveDirectory\(input\.packageId, now\)/);
-  assert.match(packageService, /archiveEditorialSourceImagesLocally/);
-  assert.match(packageService, /editorialSourcePackageFileName/);
+  assert.match(packageService, /const archivedImages = localDirectory/);
+  assert.match(packageService, /writeSupabaseAdmin\("newsroom_editorial_source_packages"/);
+  assert.match(packageService, /fetchSupabaseAdminTable<EditorialSourcePackageRow>/);
+  assert.match(packageService, /writeSupabaseAdminReturning<EditorialSourcePackageUpdateRow>/);
+  assert.doesNotMatch(packageService, /local_archive_unavailable/);
+  assert.doesNotMatch(packageService, /writeFile\(/);
+  assert.match(packageType, /localDirectory: string \| null/);
+  assert.match(applySql, /create table public\.newsroom_editorial_source_packages/);
+  assert.match(applySql, /manifest jsonb not null/);
+  assert.match(applySql, /markdown text not null/);
+  assert.match(applySql, /force row level security/);
+  assert.match(applySql, /to service_role/);
 });
