@@ -17,10 +17,13 @@ const IMAGE_TYPES = new Map([
   ["image/avif", "avif"],
 ]);
 
-type DownloadedImage = Readonly<{
+export type EditorialSourceDownloadedImage = Readonly<{
+  sourceUrl: string;
   bytes: Uint8Array;
   extension: string;
 }>;
+
+type DownloadedImage = Omit<EditorialSourceDownloadedImage, "sourceUrl">;
 
 export type EditorialSourceImageArchiveInput = Readonly<{
   articleId: string;
@@ -170,6 +173,25 @@ async function downloadImage(url: URL): Promise<DownloadedImage | null> {
   }
 }
 
+
+export async function downloadEditorialSourceImage(
+  imageUrl: string,
+): Promise<EditorialSourceDownloadedImage | null> {
+  const url = validHttpImageUrl(imageUrl);
+  if (!url) {
+    return null;
+  }
+
+  const downloaded = await downloadImage(url);
+  return downloaded
+    ? {
+        sourceUrl: url.toString(),
+        bytes: downloaded.bytes,
+        extension: downloaded.extension,
+      }
+    : null;
+}
+
 export function editorialLocalArchiveRoot(): string | null {
   const configured = process.env.JORNADA_EDITORIAL_LOCAL_IMAGE_DIR?.trim();
   if (configured) {
@@ -212,6 +234,27 @@ function safeFilePart(value: string): string {
   return normalized || "fonte";
 }
 
+export function editorialSourceImageFileName(input: Readonly<{
+  position: number;
+  sourceCode: string;
+  articleTitle: string;
+  bytes: Uint8Array;
+  extension: string;
+}>): string {
+  const digest = createHash("sha256")
+    .update(input.bytes)
+    .digest("hex")
+    .slice(0, 10);
+  const position = String(input.position).padStart(2, "0");
+
+  return [
+    position,
+    safeFilePart(input.sourceCode),
+    safeFilePart(input.articleTitle),
+    digest,
+  ].join("-") + `.${input.extension}`;
+}
+
 async function saveImage(input: Readonly<{
   articleId: string;
   sourceCode: string;
@@ -225,17 +268,13 @@ async function saveImage(input: Readonly<{
   if (!directory) {
     return null;
   }
-  const digest = createHash("sha256")
-    .update(input.downloaded.bytes)
-    .digest("hex")
-    .slice(0, 10);
-  const position = String(input.position).padStart(2, "0");
-  const fileName = [
-    position,
-    safeFilePart(input.sourceCode),
-    safeFilePart(input.articleTitle),
-    digest,
-  ].join("-") + `.${input.downloaded.extension}`;
+  const fileName = editorialSourceImageFileName({
+    position: input.position,
+    sourceCode: input.sourceCode,
+    articleTitle: input.articleTitle,
+    bytes: input.downloaded.bytes,
+    extension: input.downloaded.extension,
+  });
   const filePath = path.join(directory, fileName);
 
   try {

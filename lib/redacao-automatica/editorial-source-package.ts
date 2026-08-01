@@ -185,6 +185,7 @@ function manifestEntries(entries: readonly EditorialSourcePackageEntry[]) {
     sourceName: entry.sourceName,
     title: entry.title,
     errorCode: entry.status === "failed" ? entry.errorCode : null,
+    imageUrl: entry.status === "prepared" ? entry.imageUrl : null,
   }));
 }
 

@@ -9,6 +9,7 @@ import {
   buildEditorialSourcePackageMarkdown,
   editorialSourceAnteTitle,
   editorialSourcePackageFileName,
+  editorialSourcePackageImagesFileName,
   editorialSourcePackagePrompt,
   isEditorialSourcePackageLocation,
   normalizeEditorialSourcePackageEditorialInput,
@@ -100,6 +101,10 @@ test("define um ficheiro e uma instrução diferentes para cada género", () => 
   assert.equal(editorialSourcePackageFileName("brief"), "fontes-selecionadas-breve.md");
   assert.equal(editorialSourcePackageFileName("analysis"), "fontes-selecionadas-analise.md");
   assert.equal(editorialSourcePackageFileName("editorial"), "fontes-selecionadas-editorial.md");
+  assert.equal(editorialSourcePackageImagesFileName("news"), "imagens-fontes-noticia.zip");
+  assert.equal(editorialSourcePackageImagesFileName("brief"), "imagens-fontes-breve.zip");
+  assert.equal(editorialSourcePackageImagesFileName("analysis"), "imagens-fontes-analise.zip");
+  assert.equal(editorialSourcePackageImagesFileName("editorial"), "imagens-fontes-editorial.zip");
 
   assert.match(editorialSourcePackagePrompt("news"), /notícia jornalística desenvolvida/i);
   assert.match(editorialSourcePackagePrompt("brief"), /entre 100 e 180 palavras/i);
@@ -287,7 +292,7 @@ test("valida a localização local sem aceitar travessia de diretórios", () => 
   }), false);
 });
 
-test("a interface recolhe género, título e instruções e expõe as três ações finais", () => {
+test("a interface recolhe género, título e instruções e expõe as ações finais", () => {
   const mainPage = read("app/admin/editorial/redacao-automatica/page.tsx");
   const page = read(
     "app/admin/editorial/redacao-automatica/pacotes/[year]/[month]/[id]/page.tsx",
@@ -304,6 +309,9 @@ test("a interface recolhe género, título e instruções e expõe as três aç�
   const contentRoute = read(
     "app/api/admin/editorial/redacao-automatica/source-package/[year]/[month]/[id]/route.ts",
   );
+  const imagesRoute = read(
+    "app/api/admin/editorial/redacao-automatica/source-package/[year]/[month]/[id]/images/route.ts",
+  );
 
   assert.match(mainPage, /name="editorial_genre"/);
   assert.match(mainPage, /name="suggested_title"/);
@@ -314,6 +322,7 @@ test("a interface recolhe género, título e instruções e expõe as três aç�
   assert.match(internal, /label: "Análise"/);
   assert.match(internal, /label: "Editorial"/);
   assert.match(actions, /Descarregar \.md —/);
+  assert.match(actions, /Descarregar imagens \(\.zip\) —/);
   assert.match(actions, /Copiar fontes —/);
   assert.match(actions, /Importar resposta e abrir Artigos/);
   assert.doesNotMatch(actions, />\s*Ir para Artigos\s*</);
@@ -335,6 +344,8 @@ test("a interface recolhe género, título e instruções e expõe as três aç�
   assert.match(page, /sem voltar a recolher as fontes nem as imagens/i);
   assert.match(page, /package_updated/);
   assert.match(page, /package_update_error/);
+  assert.match(page, /Imagens disponíveis/);
+  assert.match(page, /imageSourceCount/);
   assert.match(page, /Imagens locais/);
   assert.match(page, /manifest\.localDirectory/);
   assert.match(page, /Markdown permanece acessível para copiar e descarregar/);
@@ -350,6 +361,9 @@ test("a interface recolhe género, título e instruções e expõe as três aç�
   assert.match(contentRoute, /updateEditorialSourcePackageEditorial/);
   assert.match(contentRoute, /package_updated/);
   assert.match(contentRoute, /package_update_error/);
+  assert.match(imagesRoute, /application\/zip/);
+  assert.match(imagesRoute, /buildEditorialSourceImagesZip/);
+  assert.match(imagesRoute, /X-Jornada-Images-Downloaded/);
 
   const packageService = read(
     "lib/redacao-automatica/editorial-source-package.ts",
@@ -359,6 +373,7 @@ test("a interface recolhe género, título e instruções e expõe as três aç�
   assert.match(packageService, /updateEditorialSourcePackageMarkdown/);
   assert.match(packageService, /suggestedTitle: editorial\.suggestedTitle/);
   assert.match(packageService, /additionalInstructions: editorial\.additionalInstructions/);
+  assert.match(packageService, /imageUrl: entry\.status === "prepared"/);
 
   const articleForm = read("app/admin/editorial/artigos/_articleForm.tsx");
   const articleImporter = read("app/admin/editorial/artigos/_externalArticleImport.tsx");
@@ -379,6 +394,8 @@ test("o Markdown persiste no Supabase e o arquivo local fica limitado às imagen
   const imageService = read("lib/redacao-automatica/editorial-source-image.ts");
   const packageService = read("lib/redacao-automatica/editorial-source-package.ts");
   const packageType = read("lib/redacao-automatica/editorial-source-package-internal.ts");
+  const imageZipService = read("lib/redacao-automatica/editorial-source-image-zip.ts");
+  const zipArchive = read("lib/redacao-automatica/zip-archive.ts");
   const preflightSql = read(
     "supabase/steps/52-redacao-automatica-pacotes-fontes-persistentes-preflight.sql",
   );
@@ -402,6 +419,11 @@ test("o Markdown persiste no Supabase e o arquivo local fica limitado às imagen
   assert.doesNotMatch(packageService, /local_archive_unavailable/);
   assert.doesNotMatch(packageService, /writeFile\(/);
   assert.match(packageType, /localDirectory: string \| null/);
+  assert.match(packageType, /imageUrl\?: string \| null/);
+  assert.match(imageZipService, /MAX_ZIP_IMAGE_BYTES/);
+  assert.match(imageZipService, /LEIA-ME\.txt/);
+  assert.match(zipArchive, /0x04034b50/);
+  assert.match(zipArchive, /0x06054b50/);
   assert.match(applySql, /create table public\.newsroom_editorial_source_packages/);
   assert.match(applySql, /manifest jsonb not null/);
   assert.match(applySql, /markdown text not null/);
