@@ -16,6 +16,9 @@ type SourcePackageActionsProps = Readonly<{
   downloadUrl: string;
   fileName: string;
   genreLabel: string;
+  imagesUrl: string;
+  imagesFileName: string;
+  imageSourceCount: number;
 }>;
 
 async function copyText(text: string): Promise<void> {
@@ -80,6 +83,9 @@ export default function SourcePackageActions({
   downloadUrl,
   fileName,
   genreLabel,
+  imagesUrl,
+  imagesFileName,
+  imageSourceCount,
 }: SourcePackageActionsProps) {
   const manualResponseRef = useRef<HTMLTextAreaElement | null>(null);
   const [status, setStatus] = useState("");
@@ -225,6 +231,18 @@ export default function SourcePackageActions({
         >
           Descarregar .md — {genreLabel}
         </a>
+        {imageSourceCount > 0 ? (
+          <a
+            className={styles.sourcePackageButton}
+            href={imagesUrl}
+            download={imagesFileName}
+            onClick={() => setStatus(
+              `A preparar ${imageSourceCount} ${imageSourceCount === 1 ? "imagem" : "imagens"} para download…`,
+            )}
+          >
+            Descarregar imagens (.zip) — {imageSourceCount}
+          </a>
+        ) : null}
         <button
           className={styles.sourcePackageButton}
           type="button"

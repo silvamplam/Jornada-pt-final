@@ -76,6 +76,7 @@ export type EditorialSourcePackageManifestEntry = Readonly<{
   sourceName: string | null;
   title: string | null;
   errorCode: string | null;
+  imageUrl?: string | null;
 }>;
 
 export type EditorialSourcePackageManifest = Readonly<{
@@ -125,6 +126,12 @@ export function editorialSourcePackageFileName(
   genre: EditorialSourcePackageGenre,
 ): string {
   return `fontes-selecionadas-${editorialSourcePackageGenreDefinition(genre).fileSlug}.md`;
+}
+
+export function editorialSourcePackageImagesFileName(
+  genre: EditorialSourcePackageGenre,
+): string {
+  return `imagens-fontes-${editorialSourcePackageGenreDefinition(genre).fileSlug}.zip`;
 }
 
 export function normalizeEditorialSourcePackageEditorialInput(input: Readonly<{

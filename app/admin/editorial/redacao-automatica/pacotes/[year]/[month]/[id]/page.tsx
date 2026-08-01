@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   EDITORIAL_SOURCE_PACKAGE_INSTRUCTIONS_MAX_LENGTH,
   EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH,
+  editorialSourcePackageImagesFileName,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
   readEditorialSourcePackage,
@@ -72,6 +73,15 @@ export default async function SourcePackagePage({
   const contentUrl =
     `/api/admin/editorial/redacao-automatica/source-package/${year}/${month}/${id}`;
   const failedEntries = manifest.entries.filter((entry) => entry.status === "failed");
+  const imageSourceCount = new Set(manifest.entries.flatMap((entry) => (
+    entry.status === "prepared"
+    && typeof entry.imageUrl === "string"
+    && entry.imageUrl.trim()
+      ? [entry.imageUrl.trim()]
+      : []
+  ))).size;
+  const imagesUrl = `${contentUrl}/images`;
+  const imagesFileName = editorialSourcePackageImagesFileName(manifest.genre);
   const packageUpdated = firstQueryValue(query.package_updated) === "1";
   const packageUpdateErrorCode = firstQueryValue(query.package_update_error);
   const packageUpdateError = packageUpdateErrorCode
@@ -124,6 +134,7 @@ export default async function SourcePackagePage({
             <div><span>Selecionadas</span><strong>{manifest.selectedCount}</strong></div>
             <div><span>Preparadas</span><strong>{manifest.preparedCount}</strong></div>
             <div><span>Com falha</span><strong>{manifest.failedCount}</strong></div>
+            <div><span>Imagens disponíveis</span><strong>{imageSourceCount}</strong></div>
             <div><span>Imagens locais</span><strong>{manifest.imageCount}</strong></div>
           </div>
 
@@ -206,6 +217,9 @@ export default async function SourcePackagePage({
             downloadUrl={`${contentUrl}?download=1`}
             fileName={manifest.markdownFileName}
             genreLabel={manifest.genreLabel}
+            imagesUrl={imagesUrl}
+            imagesFileName={imagesFileName}
+            imageSourceCount={imageSourceCount}
           />
         </section>
 
