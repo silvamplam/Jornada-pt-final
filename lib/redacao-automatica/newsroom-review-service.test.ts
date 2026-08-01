@@ -205,16 +205,17 @@ test("uma atualização concorrente é resolvida por nova leitura idempotente", 
   assert.equal(transport.updateCalls, 1);
 });
 
-test("a UI e a rota expõem a transição manual sem recolha externa", async () => {
+test("a rota de revisão legacy permanece protegida, mas já não integra o fluxo principal", async () => {
   const [page, route, middleware] = await Promise.all([
     readFile("app/admin/editorial/redacao-automatica/page.tsx", "utf8"),
     readFile("app/api/admin/editorial/redacao-automatica/review/route.ts", "utf8"),
     readFile("middleware.ts", "utf8"),
   ]);
 
-  assert.match(page, /action="\/api\/admin\/editorial\/redacao-automatica\/review"/);
-  assert.match(page, /Marcar como Por rever/);
-  assert.match(page, /Criar rascunho editorial/);
+  assert.doesNotMatch(page, /action="\/api\/admin\/editorial\/redacao-automatica\/review"/);
+  assert.doesNotMatch(page, /Marcar como Por rever/);
+  assert.doesNotMatch(page, /Criar rascunho editorial/);
+  assert.match(page, /Preparar ficheiro Markdown/);
   assert.match(route, /markNewsroomArticleReadyForReview/);
   assert.match(route, /review_state/);
   assert.doesNotMatch(route, /PageLoader|adapter|fetch\s*\(/i);

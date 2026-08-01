@@ -14,23 +14,24 @@ const dossierService = "lib/redacao-automatica/editorial-dossier-service.ts";
 const dossierInternal = "lib/redacao-automatica/editorial-dossier-service-internal.ts";
 const newsroomRepository = "lib/redacao-automatica/newsroom-article-repository.ts";
 
-test("a atualidade permite escolher fontes e dar uma única instrução à IA", () => {
+test("a atualidade prepara um pacote manual de até vinte fontes sem IA", () => {
   const source = read(newsroomPage);
 
   assert.match(source, /listCurrentNewsroomArticles/);
   assert.match(source, />Atualizar<\/button>/);
   assert.match(source, /current-feed/);
-  assert.match(source, /id="create-editorial-composition"/);
+  assert.match(source, /id="create-editorial-source-package"/);
+  assert.match(source, /source-package/);
   assert.match(source, /name="newsroom_article_id"/);
   assert.match(source, /name={`source_snapshot_\$\{article\.id\}`}/);
-  assert.match(source, /name="ai_instructions"/);
-  assert.match(source, /Criar notícia/);
-  assert.match(source, /A linha editorial não está disponível/);
+  assert.match(source, /data-source-package-source/);
+  assert.match(source, /Preparar ficheiro Markdown/);
+  assert.match(source, /Nada é enviado à IA/);
   assert.match(source, /name="query"/);
   assert.match(source, /ManualNewsEntryForm/);
-  assert.match(source, /article\.usedInComposition/);
-  assert.doesNotMatch(source, /name="combine_instructions"/);
-  assert.doesNotMatch(source, /name="highlight_instructions"/);
+  assert.doesNotMatch(source, /name="ai_instructions"/);
+  assert.doesNotMatch(source, /getEditorialProfileOverview/);
+  assert.doesNotMatch(source, /create-editorial-composition/);
 });
 
 test("a página do Dossiê permite reabrir e guardar orientações e preferências", () => {

@@ -269,7 +269,7 @@ test("a consulta do estado ligado é read-only e controlada", async () => {
   assert.equal(transport.inserted.length, 0);
 });
 
-test("a UI e a rota mantêm criação manual, autorização existente e zero recolha HTTP", async () => {
+test("a rota de rascunho legacy permanece protegida, mas o fluxo principal abre Artigos manualmente", async () => {
   const [page, route, middleware, schemaSql] = await Promise.all([
     readFile("app/admin/editorial/redacao-automatica/page.tsx", "utf8"),
     readFile("app/api/admin/editorial/redacao-automatica/drafts/route.ts", "utf8"),
@@ -280,9 +280,10 @@ test("a UI e a rota mantêm criação manual, autorização existente e zero rec
     ),
   ]);
 
-  assert.match(page, /action="\/api\/admin\/editorial\/redacao-automatica\/drafts"/);
-  assert.match(page, /Criar rascunho editorial/);
-  assert.match(page, /Abrir rascunho editorial/);
+  assert.doesNotMatch(page, /action="\/api\/admin\/editorial\/redacao-automatica\/drafts"/);
+  assert.doesNotMatch(page, /Criar rascunho editorial/);
+  assert.doesNotMatch(page, /Abrir rascunho editorial/);
+  assert.match(page, /href="\/admin\/editorial\/artigos"/);
   assert.match(route, /createNewsroomEditorialDraft/);
   assert.match(route, /newsroom_draft/);
   assert.doesNotMatch(route, /PageLoader|adapter|fetch\s*\(|published\s*:/i);

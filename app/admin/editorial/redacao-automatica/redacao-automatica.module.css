@@ -3992,3 +3992,483 @@
   }
 }
 /* REDACAO-AUTOMATICA-FLUXO-SIMPLES-FIM */
+
+
+/* REDACAO-AUTOMATICA-PACOTE-FONTES-MANUAL-INICIO */
+.simpleCreateAction [data-source-package-submit-status] {
+  width: 100%;
+  color: #52606d;
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.sourcePackageSummary,
+.sourcePackageContents {
+  margin-top: 16px;
+  padding: 22px;
+  border: 1px solid #dce3eb;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.sourcePackageSummary h2,
+.sourcePackageSummary p,
+.sourcePackageContents h2,
+.sourcePackageContents p {
+  margin: 0;
+}
+
+.sourcePackageStats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.sourcePackageStats > div {
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.sourcePackageStats span,
+.sourcePackageStats strong {
+  display: block;
+}
+
+.sourcePackageStats span {
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.sourcePackageStats strong {
+  margin-top: 6px;
+  color: #111827;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.sourcePackagePath {
+  margin-top: 16px !important;
+  color: #475569;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.sourcePackagePath code {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.sourcePackageActions {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #e5eaf0;
+}
+
+.sourcePackageActionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.sourcePackageButton {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid #10151b;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #10151b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.sourcePackageButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sourcePackagePrimaryButton {
+  background: #10151b;
+  color: #ffffff;
+}
+
+.sourcePackagePasteField {
+  display: grid;
+  gap: 7px;
+}
+
+.sourcePackagePasteField span {
+  color: #334155;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.sourcePackagePasteField textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.sourcePackagePasteField textarea:focus {
+  border-color: #10151b;
+  outline: 2px solid rgba(15, 23, 42, 0.12);
+  outline-offset: 1px;
+}
+
+.sourcePackagePasteFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+}
+
+.sourcePackagePasteButton {
+  min-height: 38px;
+  border: 1px solid #10151b;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: #ffffff;
+  color: #10151b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.sourcePackagePasteButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.sourcePackagePasteFooter small {
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.sourcePackageActionStatus {
+  min-height: 1.3em;
+  margin: 0;
+  color: #52606d;
+  font-size: 0.8rem;
+}
+
+.sourcePackageContents ol {
+  display: grid;
+  gap: 9px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sourcePackageContents li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 13px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.sourcePackageContents li > span {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #edf1f5;
+  color: #334155;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.sourcePackageContents li strong {
+  color: #111827;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.sourcePackageContents li p {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 760px) {
+  .sourcePackageStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sourcePackageButton {
+    width: 100%;
+  }
+}
+
+.sourcePackageEditorialFields {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.sourcePackageEditorialFields > label {
+  display: grid;
+  gap: 7px;
+}
+
+.sourcePackageEditorialFields > label > span,
+.sourcePackageGenreFieldset legend {
+  color: #374151;
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.sourcePackageEditorialFields small {
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-transform: none;
+}
+
+.sourcePackageEditorialFields input[type="text"] {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.sourcePackageGenreFieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sourcePackageGenreFieldset legend {
+  margin-bottom: 8px;
+}
+
+.sourcePackageGenreOptions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.sourcePackageGenreOptions label {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+
+.sourcePackageGenreOptions input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sourcePackageGenreOptions span {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-transform: none;
+}
+
+.sourcePackageGenreOptions input:checked + span {
+  border-color: #10151b;
+  background: #10151b;
+  color: #ffffff;
+}
+
+.sourcePackageGenreOptions input:focus-visible + span {
+  outline: 3px solid rgba(37, 99, 235, 0.24);
+  outline-offset: 2px;
+}
+
+.sourcePackageEditorialNote {
+  margin: 0;
+  color: #52606d;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.sourcePackageEditorialSummary {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.sourcePackageEditorialSummary p {
+  white-space: pre-wrap;
+  color: #475569;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+
+.sourcePackageEditForm {
+  display: grid;
+  gap: 15px;
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid #d5dde6;
+  border-radius: 9px;
+  background: #ffffff;
+}
+
+.sourcePackageEditHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.sourcePackageEditHeader h3,
+.sourcePackageEditHeader p {
+  margin: 0;
+}
+
+.sourcePackageEditHeader h3 {
+  color: #111827;
+  font-size: 1rem;
+}
+
+.sourcePackageEditHeader p {
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.sourcePackageEditHeader > p {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.sourcePackageEditForm > label {
+  display: grid;
+  gap: 7px;
+}
+
+.sourcePackageEditForm > label > span {
+  color: #374151;
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.sourcePackageEditForm input,
+.sourcePackageEditForm textarea {
+  width: 100%;
+  padding: 10px 13px;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.sourcePackageEditForm input {
+  min-height: 44px;
+}
+
+.sourcePackageEditForm textarea {
+  min-height: 116px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.sourcePackageEditForm small {
+  color: #64748b;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.sourcePackageEditActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.sourcePackageEditActions button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #10151b;
+  border-radius: 8px;
+  background: #10151b;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.sourcePackageEditActions p {
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .sourcePackageGenreOptions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sourcePackageEditHeader {
+    display: grid;
+  }
+
+  .sourcePackageEditHeader > p {
+    justify-self: start;
+  }
+
+  .sourcePackageEditActions button {
+    width: 100%;
+  }
+}
+
+/* REDACAO-AUTOMATICA-PACOTE-FONTES-MANUAL-FIM */

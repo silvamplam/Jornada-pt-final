@@ -1,3 +1,5 @@
+import ExternalArticleImport from "./_externalArticleImport";
+
 export type EditorialArticle = {
   id: string;
   slug: string | null;
@@ -437,6 +439,7 @@ export function ArticleEditorForm({
       {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
 
       {message ? <p className="article-admin-alert">{message}</p> : null}
+      {!isEdit ? <ExternalArticleImport /> : null}
 
       <section className="article-admin-section article-admin-compact-section">
         <p className="article-admin-section-title">Imagem</p>
@@ -745,6 +748,102 @@ export const editorialArticleAdminStyles = `
     color: #1e3a8a;
     font-size: 13px;
     font-weight: 700;
+  }
+
+  .article-admin-external-import {
+    display: grid;
+    gap: 12px;
+    padding: 16px 22px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8fafc;
+  }
+
+  .article-admin-external-import-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 16px;
+    align-items: center;
+  }
+
+  .article-admin-external-import strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #111827;
+    font-size: 14px;
+  }
+
+  .article-admin-external-import p {
+    margin: 0;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .article-admin-external-import > p {
+    min-height: 18px;
+    color: #1e3a8a;
+    font-weight: 700;
+  }
+
+  .article-admin-external-import-paste {
+    display: grid;
+    gap: 6px;
+  }
+
+  .article-admin-external-import-paste span {
+    color: #334155;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .article-admin-external-import-paste textarea {
+    width: 100%;
+    min-height: 130px;
+    resize: vertical;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fff;
+    color: #111827;
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .article-admin-external-import-paste textarea:focus {
+    border-color: #111827;
+    outline: 2px solid rgba(15, 23, 42, 0.12);
+    outline-offset: 1px;
+  }
+
+  .article-admin-external-import-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    align-items: center;
+  }
+
+  .article-admin-external-import-footer small {
+    color: #64748b;
+    font-size: 11px;
+  }
+
+  .article-admin-external-import button {
+    min-height: 38px;
+    border: 1px solid #111827;
+    border-radius: 8px;
+    padding: 0 14px;
+    background: #111827;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .article-admin-external-import button:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
   }
 
   .article-admin-workspace {
