@@ -93,7 +93,7 @@ export type EditorialSourcePackageManifest = Readonly<{
   preparedCount: number;
   failedCount: number;
   imageCount: number;
-  localDirectory: string;
+  localDirectory: string | null;
   entries: readonly EditorialSourcePackageManifestEntry[];
 }>;
 

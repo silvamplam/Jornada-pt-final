@@ -100,7 +100,7 @@ export function installSourcePackageSubmitEnhancer(
       button.textContent = SUBMITTING_BUTTON_TEXT;
     }
 
-    showStatus("A recolher os textos integrais e a guardar as imagens.");
+    showStatus("A recolher os textos integrais e a preparar o pacote.");
   };
 
   form.addEventListener("change", handleChange);

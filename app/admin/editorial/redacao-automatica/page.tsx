@@ -58,9 +58,8 @@ function canUseInSourcePackage(article: NewsroomArticleSummary): boolean {
 
 const sourcePackageErrorMessages: Record<string, string> = {
   input_invalid: "Seleciona entre 1 e 20 notícias e confirma os dados editoriais do pacote.",
-  local_archive_unavailable: "A pasta local dos pacotes editoriais não está disponível neste ambiente.",
   source_read_failed: "Não foi possível ler as notícias selecionadas neste momento.",
-  package_write_failed: "Não foi possível guardar o ficheiro Markdown e as imagens no computador.",
+  package_write_failed: "Não foi possível guardar o pacote editorial neste momento.",
 };
 
 const feedErrorMessages: Record<string, string> = {
