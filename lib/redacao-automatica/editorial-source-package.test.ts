@@ -379,8 +379,17 @@ test("o Markdown persiste no Supabase e o arquivo local fica limitado às imagen
   const imageService = read("lib/redacao-automatica/editorial-source-image.ts");
   const packageService = read("lib/redacao-automatica/editorial-source-package.ts");
   const packageType = read("lib/redacao-automatica/editorial-source-package-internal.ts");
+  const preflightSql = read(
+    "supabase/steps/52-redacao-automatica-pacotes-fontes-persistentes-preflight.sql",
+  );
   const applySql = read(
     "supabase/steps/53-redacao-automatica-pacotes-fontes-persistentes-apply.sql",
+  );
+  const postflightSql = read(
+    "supabase/steps/54-redacao-automatica-pacotes-fontes-persistentes-postflight.sql",
+  );
+  const smokeSql = read(
+    "supabase/steps/55-redacao-automatica-pacotes-fontes-persistentes-smoke-rollback.sql",
   );
 
   assert.match(imageService, /"Pictures", "Jornada\.pt", "Editorial"/);
@@ -396,6 +405,11 @@ test("o Markdown persiste no Supabase e o arquivo local fica limitado às imagen
   assert.match(applySql, /create table public\.newsroom_editorial_source_packages/);
   assert.match(applySql, /manifest jsonb not null/);
   assert.match(applySql, /markdown text not null/);
+  assert.match(preflightSql, /service_role_missing/);
   assert.match(applySql, /force row level security/);
   assert.match(applySql, /to service_role/);
+  assert.match(postflightSql, /public_privilege_detected/);
+  assert.match(postflightSql, /service_role_privilege_missing/);
+  assert.match(smokeSql, /set local role service_role/);
+  assert.match(smokeSql, /rollback/);
 });
