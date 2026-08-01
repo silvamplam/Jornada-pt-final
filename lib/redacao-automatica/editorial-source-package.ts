@@ -208,11 +208,20 @@ function persistedManifest(
       : "",
   });
 
+  if (!editorial) {
+    return null;
+  }
+
+  const validMarkdownFileNames = new Set([
+    editorialSourcePackageFileName(editorial.genre),
+    editorialSourcePackageFileName(editorial.genre, editorial.suggestedTitle),
+  ]);
+
   if (
     manifest.version !== 2
-    || !editorial
     || manifest.genreLabel !== editorial.genreLabel
-    || manifest.markdownFileName !== editorialSourcePackageFileName(editorial.genre)
+    || typeof manifest.markdownFileName !== "string"
+    || !validMarkdownFileNames.has(manifest.markdownFileName)
     || manifest.packageId !== location.packageId
     || manifest.year !== location.year
     || manifest.month !== location.month
@@ -351,7 +360,10 @@ export async function createEditorialSourcePackage(
   });
 
   const createdAt = now.toISOString();
-  const markdownFileName = editorialSourcePackageFileName(editorial.genre);
+  const markdownFileName = editorialSourcePackageFileName(
+    editorial.genre,
+    editorial.suggestedTitle,
+  );
   const markdown = buildEditorialSourcePackageMarkdown({
     createdAt,
     editorial,
@@ -508,6 +520,10 @@ export async function updateEditorialSourcePackageEditorial(input: Readonly<{
 
   const manifest: EditorialSourcePackageManifest = {
     ...current.value.manifest,
+    markdownFileName: editorialSourcePackageFileName(
+      editorial.genre,
+      editorial.suggestedTitle,
+    ),
     genreLabel: editorial.genreLabel,
     suggestedTitle: editorial.suggestedTitle,
     additionalInstructions: editorial.additionalInstructions,

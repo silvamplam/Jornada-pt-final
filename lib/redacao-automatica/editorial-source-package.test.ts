@@ -105,6 +105,32 @@ test("define um ficheiro e uma instrução diferentes para cada género", () => 
   assert.equal(editorialSourcePackageImagesFileName("brief"), "imagens-fontes-breve.zip");
   assert.equal(editorialSourcePackageImagesFileName("analysis"), "imagens-fontes-analise.zip");
   assert.equal(editorialSourcePackageImagesFileName("editorial"), "imagens-fontes-editorial.zip");
+  assert.equal(
+    editorialSourcePackageFileName(
+      "news",
+      "Doumbia prepara a estreia do Sporting na Liga",
+    ),
+    "fontes-doumbia-prepara-a-estreia-do-sporting-na-liga.md",
+  );
+  assert.equal(
+    editorialSourcePackageImagesFileName(
+      "news",
+      "Doumbia prepara a estreia do Sporting na Liga",
+    ),
+    "imagens-doumbia-prepara-a-estreia-do-sporting-na-liga.zip",
+  );
+  assert.equal(
+    editorialSourcePackageImagesFileName("analysis", "  João Félix: decisão & futuro!  "),
+    "imagens-joao-felix-decisao-futuro.zip",
+  );
+  assert.equal(
+    editorialSourcePackageImagesFileName("brief", "⚽️"),
+    "imagens-fontes-breve.zip",
+  );
+  assert.equal(
+    editorialSourcePackageImagesFileName("editorial", "A".repeat(100)),
+    `imagens-${"a".repeat(70)}.zip`,
+  );
 
   assert.match(editorialSourcePackagePrompt("news"), /notícia jornalística desenvolvida/i);
   assert.match(editorialSourcePackagePrompt("brief"), /entre 100 e 180 palavras/i);
@@ -355,7 +381,8 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(route, /source_snapshot_/);
   assert.match(route, /createEditorialSourcePackage/);
   assert.match(contentRoute, /text\/markdown; charset=utf-8/);
-  assert.match(contentRoute, /manifest\.markdownFileName/);
+  assert.match(contentRoute, /editorialSourcePackageFileName/);
+  assert.match(contentRoute, /manifest\.suggestedTitle/);
   assert.match(contentRoute, /Content-Disposition/);
   assert.match(contentRoute, /export async function POST/);
   assert.match(contentRoute, /updateEditorialSourcePackageEditorial/);
@@ -364,6 +391,7 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(imagesRoute, /application\/zip/);
   assert.match(imagesRoute, /buildEditorialSourceImagesZip/);
   assert.match(imagesRoute, /X-Jornada-Images-Downloaded/);
+  assert.match(imagesRoute, /manifest\.suggestedTitle/);
 
   const packageService = read(
     "lib/redacao-automatica/editorial-source-package.ts",
@@ -372,6 +400,7 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(packageService, /newsroom_editorial_source_packages/);
   assert.match(packageService, /updateEditorialSourcePackageMarkdown/);
   assert.match(packageService, /suggestedTitle: editorial\.suggestedTitle/);
+  assert.match(packageService, /markdownFileName: editorialSourcePackageFileName/);
   assert.match(packageService, /additionalInstructions: editorial\.additionalInstructions/);
   assert.match(packageService, /imageUrl: entry\.status === "prepared"/);
 

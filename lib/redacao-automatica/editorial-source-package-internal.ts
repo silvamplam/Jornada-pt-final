@@ -122,16 +122,41 @@ export function editorialSourcePackageGenreDefinition(
     ?? EDITORIAL_SOURCE_PACKAGE_GENRES[0];
 }
 
+function editorialSourcePackageTopicSlug(value: string | null | undefined): string | null {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  const slug = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 70)
+    .replace(/-+$/g, "");
+
+  return slug || null;
+}
+
 export function editorialSourcePackageFileName(
   genre: EditorialSourcePackageGenre,
+  suggestedTitle: string | null = null,
 ): string {
-  return `fontes-selecionadas-${editorialSourcePackageGenreDefinition(genre).fileSlug}.md`;
+  const topicSlug = editorialSourcePackageTopicSlug(suggestedTitle);
+  return topicSlug
+    ? `fontes-${topicSlug}.md`
+    : `fontes-selecionadas-${editorialSourcePackageGenreDefinition(genre).fileSlug}.md`;
 }
 
 export function editorialSourcePackageImagesFileName(
   genre: EditorialSourcePackageGenre,
+  suggestedTitle: string | null = null,
 ): string {
-  return `imagens-fontes-${editorialSourcePackageGenreDefinition(genre).fileSlug}.zip`;
+  const topicSlug = editorialSourcePackageTopicSlug(suggestedTitle);
+  return topicSlug
+    ? `imagens-${topicSlug}.zip`
+    : `imagens-fontes-${editorialSourcePackageGenreDefinition(genre).fileSlug}.zip`;
 }
 
 export function normalizeEditorialSourcePackageEditorialInput(input: Readonly<{

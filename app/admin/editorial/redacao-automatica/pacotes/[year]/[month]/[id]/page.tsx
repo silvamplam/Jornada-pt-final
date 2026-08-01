@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   EDITORIAL_SOURCE_PACKAGE_INSTRUCTIONS_MAX_LENGTH,
   EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH,
+  editorialSourcePackageFileName,
   editorialSourcePackageImagesFileName,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
@@ -81,7 +82,14 @@ export default async function SourcePackagePage({
       : []
   ))).size;
   const imagesUrl = `${contentUrl}/images`;
-  const imagesFileName = editorialSourcePackageImagesFileName(manifest.genre);
+  const markdownFileName = editorialSourcePackageFileName(
+    manifest.genre,
+    manifest.suggestedTitle,
+  );
+  const imagesFileName = editorialSourcePackageImagesFileName(
+    manifest.genre,
+    manifest.suggestedTitle,
+  );
   const packageUpdated = firstQueryValue(query.package_updated) === "1";
   const packageUpdateErrorCode = firstQueryValue(query.package_update_error);
   const packageUpdateError = packageUpdateErrorCode
@@ -117,7 +125,7 @@ export default async function SourcePackagePage({
           </p>
         ) : packageUpdated ? (
           <p className={styles.simpleFeedbackSuccess} role="status">
-            O título e as instruções foram atualizados no Markdown. As fontes e as imagens mantiveram-se.
+            O título, as instruções e os nomes dos ficheiros foram atualizados. As fontes e as imagens mantiveram-se.
           </p>
         ) : null}
 
@@ -215,7 +223,7 @@ export default async function SourcePackagePage({
           <SourcePackageActions
             contentUrl={contentUrl}
             downloadUrl={`${contentUrl}?download=1`}
-            fileName={manifest.markdownFileName}
+            fileName={markdownFileName}
             genreLabel={manifest.genreLabel}
             imagesUrl={imagesUrl}
             imagesFileName={imagesFileName}

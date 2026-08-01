@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 
 import {
+  editorialSourcePackageFileName,
+} from "@/lib/redacao-automatica/editorial-source-package-internal";
+import {
   readEditorialSourcePackage,
   updateEditorialSourcePackageEditorial,
 } from "@/lib/redacao-automatica/editorial-source-package";
@@ -66,9 +69,13 @@ export async function GET(request: Request, context: RouteContext) {
   });
 
   if (download) {
+    const fileName = editorialSourcePackageFileName(
+      result.value.manifest.genre,
+      result.value.manifest.suggestedTitle,
+    );
     headers.set(
       "Content-Disposition",
-      `attachment; filename="${result.value.manifest.markdownFileName}"`,
+      `attachment; filename="${fileName}"`,
     );
   }
 
