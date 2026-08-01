@@ -69,7 +69,10 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  const fileName = editorialSourcePackageImagesFileName(result.value.manifest.genre);
+  const fileName = editorialSourcePackageImagesFileName(
+    result.value.manifest.genre,
+    result.value.manifest.suggestedTitle,
+  );
 
   const body = new ArrayBuffer(zip.bytes.byteLength);
   new Uint8Array(body).set(zip.bytes);
