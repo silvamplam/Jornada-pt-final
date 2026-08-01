@@ -18,6 +18,18 @@ test("o plano do servidor carrega o catálogo e nunca cria canais", async () => 
   }
 });
 
+test("o calendário resolve participantes legados sem country_id sem sair da época", async () => {
+  const source = await readFile(routeUrl, "utf8");
+  assert.match(
+    source,
+    /teams\?select=id,name,short_name,slug,code,country_id&id=in\.\(\$\{teamsQuery\}\)&or=\(country_id\.eq\.\$\{encodeURIComponent\(countryId\)\},country_id\.is\.null\)&limit=500/
+  );
+  assert.doesNotMatch(
+    source,
+    /teams\?select=id,name,short_name,slug,code,country_id&id=in\.\(\$\{teamsQuery\}\)&country_id=eq\./
+  );
+});
+
 test("a identificação competitiva preserva o ID e rejeita zero lógico apenas como criação ou vários como ambiguidade", async () => {
   const source = await readFile(routeUrl, "utf8");
   assert.match(source, /createCompetitiveIdentity\(seasonId, matchdayReference, homeTeamId, awayTeamId\)/);

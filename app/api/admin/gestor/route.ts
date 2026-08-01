@@ -1888,7 +1888,7 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
   const teamsQuery = participantTeamIds.map(encodeURIComponent).join(",");
   const [teams, teamAliases, matchdayRows, existingMatches, broadcastChannels] = await Promise.all([
     fetchSupabaseAdminTable<TeamRow>(
-      `teams?select=id,name,short_name,slug,code,country_id&id=in.(${teamsQuery})&country_id=eq.${encodeURIComponent(countryId)}&limit=500`
+      `teams?select=id,name,short_name,slug,code,country_id&id=in.(${teamsQuery})&or=(country_id.eq.${encodeURIComponent(countryId)},country_id.is.null)&limit=500`
     ),
     fetchSupabaseAdminTable<TeamAliasRow>(
       `team_aliases?select=team_id,normalized_alias&team_id=in.(${teamsQuery})&limit=1000`
