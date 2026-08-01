@@ -471,7 +471,7 @@ test("a rota guarda apenas no arquivo, usa 303 relativo e não tem GET nem efeit
   assert.doesNotMatch(source, /console\.(?:log|error|warn)/);
 });
 
-test("a página mantém pesquisa por tema e integra fontes automáticas e manuais", () => {
+test("a página mantém pesquisa por tema e integra fontes automáticas e manuais no pacote", () => {
   const source = readFileSync(
     "app/admin/editorial/redacao-automatica/page.tsx",
     "utf8",
@@ -482,8 +482,10 @@ test("a página mantém pesquisa por tema e integra fontes automáticas e manuai
   assert.match(source, />Pesquisar<\/button>/);
   assert.match(source, /ManualNewsEntryForm/);
   assert.match(source, /article\.sourceUrl && !article\.isManualEntry/);
-  assert.match(source, /article\.usedInComposition/);
-  assert.match(source, />Usada<\/span>/);
+  assert.match(source, /create-editorial-source-package/);
+  assert.match(source, /Preparar ficheiro Markdown/);
+  assert.doesNotMatch(source, /article\.usedInComposition/);
+  assert.doesNotMatch(source, />Usada<\/span>/);
 });
 test("imagem, autenticação e segurança reutilizam os contratos administrativos existentes", () => {
   const imageRoute = readFileSync(

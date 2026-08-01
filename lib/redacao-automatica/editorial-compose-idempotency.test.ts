@@ -113,18 +113,22 @@ test("chave ausente ou inválida e fontes sem snapshot são rejeitadas", () => {
   })), null);
 });
 
-test("UI envia UUID e snapshot congelado, desativa apenas como proteção complementar", () => {
+test("a UI manual envia UUID e snapshot congelado sem acionar a composição por IA", () => {
   const page = readFileSync("app/admin/editorial/redacao-automatica/page.tsx", "utf8");
-  const enhancer = readFileSync(
-    "app/admin/editorial/redacao-automatica/_compositionSubmitEnhancer.tsx",
+  const packageEnhancer = readFileSync(
+    "app/admin/editorial/redacao-automatica/_sourcePackageSubmitEnhancer.tsx",
     "utf8",
   );
-  assert.match(page, /name="submission_id" value=\{compositionSubmissionId\}/);
+
   assert.match(page, /name=\{`source_snapshot_\$\{article\.id\}`\}/);
   assert.match(page, /value=\{article\.latestSnapshotId \?\? ""\}/);
-  assert.match(page, /<CompositionSubmitEnhancer \/>/);
-  assert.match(enhancer, /button\.disabled = true/);
-  assert.match(page, /data-composition-submit-status/);
+  assert.match(page, /<SourcePackageSubmitEnhancer \/>/);
+  assert.match(page, /data-source-package-submit-status/);
+  assert.match(packageEnhancer, /EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES/);
+  assert.match(packageEnhancer, /button\.disabled = true/);
+  assert.doesNotMatch(page, /name="submission_id"/);
+  assert.doesNotMatch(page, /<CompositionSubmitEnhancer \/>/);
+  assert.doesNotMatch(page, /data-composition-submit-status/);
 });
 
 test("submit enhancer hidrata sem mutar HTML e bloqueia apenas repeticoes", () => {
@@ -188,6 +192,7 @@ test("submit enhancer hidrata sem mutar HTML e bloqueia apenas repeticoes", () =
   assert.match(enhancer, /^"use client";/);
   assert.match(enhancer, /useEffect\(\(\) => \{/);
   assert.match(enhancer, /return installCompositionSubmitEnhancer\(form\)/);
+  assert.doesNotMatch(page, /<CompositionSubmitEnhancer \/>/);
   assert.doesNotMatch(page, /compositionSubmitEnhancer\s*=\s*`/);
   assert.doesNotMatch(
     page,

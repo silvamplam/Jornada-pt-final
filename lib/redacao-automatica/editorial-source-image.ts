@@ -170,7 +170,7 @@ async function downloadImage(url: URL): Promise<DownloadedImage | null> {
   }
 }
 
-function localEditorialRoot(): string | null {
+export function editorialLocalArchiveRoot(): string | null {
   const configured = process.env.JORNADA_EDITORIAL_LOCAL_IMAGE_DIR?.trim();
   if (configured) {
     return configured;
@@ -179,6 +179,25 @@ function localEditorialRoot(): string | null {
   return process.platform === "win32"
     ? path.join(homedir(), "Pictures", "Jornada.pt", "Editorial")
     : null;
+}
+
+export function editorialLocalArchiveDirectory(
+  archiveId: string,
+  now: Date = new Date(),
+): string | null {
+  const normalizedArchiveId = archiveId.trim();
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(normalizedArchiveId)) {
+    return null;
+  }
+
+  const root = editorialLocalArchiveRoot();
+  if (!root) {
+    return null;
+  }
+
+  const year = String(now.getFullYear());
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  return path.join(root, year, month, normalizedArchiveId);
 }
 
 function safeFilePart(value: string): string {
@@ -202,14 +221,10 @@ async function saveImage(input: Readonly<{
   position: number;
   now: Date;
 }>): Promise<string | null> {
-  const root = localEditorialRoot();
-  if (!root) {
+  const directory = editorialLocalArchiveDirectory(input.articleId, input.now);
+  if (!directory) {
     return null;
   }
-
-  const year = String(input.now.getFullYear());
-  const month = String(input.now.getMonth() + 1).padStart(2, "0");
-  const directory = path.join(root, year, month, input.articleId);
   const digest = createHash("sha256")
     .update(input.downloaded.bytes)
     .digest("hex")

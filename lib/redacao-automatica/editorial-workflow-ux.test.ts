@@ -194,7 +194,7 @@ test("a data de publicação respeita a precisão original", () => {
   assert.equal(formatNewsroomPublishedAt("data-inválida", null), "data inválida");
 });
 
-test("a composição principal apresenta atualidade, uma instrução e revisão", () => {
+test("a preparação principal apresenta atualidade, pacote de fontes e acesso aos Artigos", () => {
   const newsroom = readFileSync("app/admin/editorial/redacao-automatica/page.tsx", "utf8");
   const repository = readFileSync("lib/redacao-automatica/newsroom-article-repository.ts", "utf8");
   const workflow = readFileSync("lib/redacao-automatica/editorial-workflow-ux.ts", "utf8");
@@ -202,21 +202,24 @@ test("a composição principal apresenta atualidade, uma instrução e revisão"
     "app/admin/editorial/redacao-automatica/redacao-automatica.module.css",
     "utf8",
   );
-  const route = readFileSync("app/api/admin/editorial/redacao-automatica/dossies/route.ts", "utf8");
+  const route = readFileSync(
+    "app/api/admin/editorial/redacao-automatica/source-package/route.ts",
+    "utf8",
+  );
   const feedRoute = readFileSync(
     "app/api/admin/editorial/redacao-automatica/current-feed/route.ts",
     "utf8",
   );
 
   assert.match(newsroom, /<strong>Atualidade<\/strong>/);
-  assert.match(newsroom, /<strong>Criar notícia<\/strong>/);
-  assert.match(newsroom, /<strong>Revisão<\/strong>/);
+  assert.match(newsroom, /<strong>Preparar fontes<\/strong>/);
+  assert.match(newsroom, /<strong>Artigos<\/strong>/);
   assert.match(newsroom, /listCurrentNewsroomArticles/);
   assert.match(newsroom, />Atualizar<\/button>/);
-  assert.match(newsroom, /id="create-editorial-composition"/);
+  assert.match(newsroom, /id="create-editorial-source-package"/);
   assert.match(newsroom, /name="newsroom_article_id"/);
-  assert.match(newsroom, /name="ai_instructions"/);
-  assert.match(newsroom, /A linha editorial não está disponível/);
+  assert.match(newsroom, /data-source-package-source/);
+  assert.match(newsroom, /Nada é enviado à IA/);
   assert.match(newsroom, /<time dateTime=\{article\.publishedAt\}>/);
   assert.match(
     newsroom,
@@ -225,37 +228,24 @@ test("a composição principal apresenta atualidade, uma instrução e revisão"
   assert.match(newsroom, /Abrir fonte/);
   assert.match(newsroom, /name="query"/);
   assert.match(newsroom, /ManualNewsEntryForm/);
-  assert.match(newsroom, /article\.usedInComposition/);
   assert.match(newsroom, /CurrentFeedReveal/);
-  assert.doesNotMatch(newsroom, /name="combine_instructions"/);
-  assert.doesNotMatch(newsroom, /Detalhes técnicos da pesquisa/);
+  assert.doesNotMatch(newsroom, /name="ai_instructions"/);
+  assert.doesNotMatch(newsroom, /getEditorialProfileOverview/);
   assert.doesNotMatch(newsroom, />Prioridade</);
   assert.doesNotMatch(newsroom, />Função na composição</);
-  assert.match(styles, /REDACAO-AUTOMATICA-FLUXO-SIMPLES-INICIO/);
+  assert.match(styles, /REDACAO-AUTOMATICA-PACOTE-FONTES-MANUAL-INICIO/);
   assert.match(repository, /listCurrentNewsroomArticles/);
-  assert.match(repository, /newsroom_editorial_dossier_sources\?select=newsroom_article_id/);
-  assert.match(repository, /included=eq\.true/);
-  assert.doesNotMatch(repository, /!usedArticleIds\.has\(row\.id\)/);
   assert.match(workflow, /new Intl\.DateTimeFormat\("pt-PT"/);
   assert.match(workflow, /timeZone: "Europe\/Lisbon"/);
 
   assert.match(feedRoute, /refreshNewsroomCurrentFeed/);
   assert.match(feedRoute, /export const maxDuration = 300/);
 
-  assert.match(route, /action === "compose"/);
-  assert.match(route, /const aiInstructions = cleanText\(formData\.get\("ai_instructions"\)\)/);
-  assert.match(route, /index === 0 \? "primary" : "complementary"/);
-  assert.match(route, /const composeResult = await prepareEditorialCompose/);
-  assert.match(route, /const generationResult = await runEditorialComposeGeneration/);
-  assert.match(route, /claim: \(\) => claimEditorialComposeGeneration/);
-  assert.match(route, /generate: \(\) => generateEditorialDossierArticlePlanDraftBody/);
-  assert.match(route, /markEditorialComposeGenerationCompleted/);
-  assert.match(route, /dossier_plan_generation/);
-
-  const prepareIndex = route.indexOf("const composeResult = await prepareEditorialCompose");
-  const generationIndex = route.indexOf("const generationResult = await runEditorialComposeGeneration");
-
-  assert.ok(prepareIndex >= 0 && prepareIndex < generationIndex);
+  assert.match(route, /source_snapshot_/);
+  assert.match(route, /normalizeEditorialSourcePackageSelections/);
+  assert.match(route, /createEditorialSourcePackage/);
+  assert.match(route, /crypto\.randomUUID\(\)/);
+  assert.doesNotMatch(route, /generateEditorialDossierArticlePlanDraftBody|OpenAI/i);
 });
 
 test("a simples leitura da página não inicia recolha, geração ou publicação", () => {

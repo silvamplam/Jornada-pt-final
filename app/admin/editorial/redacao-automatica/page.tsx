@@ -3,7 +3,6 @@ import {
   searchNewsroomArticles,
   type NewsroomArticleSummary,
 } from "@/lib/redacao-automatica/newsroom-article-repository";
-import { getEditorialProfileOverview } from "@/lib/redacao-automatica/editorial-profile-repository";
 import {
   formatNewsroomPublishedAt,
 } from "@/lib/redacao-automatica/editorial-workflow-ux";
@@ -20,8 +19,13 @@ import {
   newsroomTopicPeriodDays,
 } from "@/lib/redacao-automatica/newsroom-topic-search";
 import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
+import {
+  EDITORIAL_SOURCE_PACKAGE_GENRES,
+  EDITORIAL_SOURCE_PACKAGE_INSTRUCTIONS_MAX_LENGTH,
+  EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH,
+} from "@/lib/redacao-automatica/editorial-source-package-internal";
 
-import CompositionSubmitEnhancer from "./_compositionSubmitEnhancer";
+import SourcePackageSubmitEnhancer from "./_sourcePackageSubmitEnhancer";
 import CurrentFeedReveal from "./_currentFeedReveal";
 import ManualNewsEntryForm from "./_manualNewsEntryForm";
 import styles from "./redacao-automatica.module.css";
@@ -47,28 +51,16 @@ function nonNegativeIntegerQueryValue(value: string | string[] | undefined): num
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
-function canUseInComposition(article: NewsroomArticleSummary): boolean {
+function canUseInSourcePackage(article: NewsroomArticleSummary): boolean {
   return article.hasUsableSnapshot
     && ["detected", "normalized", "ready_for_review"].includes(article.processingStatus);
 }
 
-const compositionErrorMessages: Record<string, string> = {
-  input_invalid: "Escolhe pelo menos uma notícia e escreve as instruções para a IA.",
-  submission_id_invalid: "O pedido perdeu validade. Atualiza a página e tenta novamente.",
-  submission_payload_conflict: "Este pedido já foi usado com dados diferentes. Atualiza a página.",
-  source_not_found: "Uma das notícias selecionadas já não está disponível.",
-  source_not_eligible: "Uma das notícias selecionadas ainda não pode ser utilizada.",
-  source_snapshot_missing: "Uma das notícias selecionadas ainda não tem conteúdo utilizável.",
-  dossier_creation_failed: "Não foi possível preparar a notícia.",
-  composition_state_unavailable: "A notícia foi iniciada, mas não foi possível preparar as fontes.",
-  article_plan_save_failed: "A notícia foi guardada, mas a primeira versão não ficou preparada.",
-  article_plan_ready_incomplete: "As instruções ou as fontes não são suficientes.",
-  draft_creation_failed: "Não foi possível criar o rascunho para revisão.",
-  generation_provider_unavailable: "A geração por IA não está configurada neste ambiente.",
-  generation_input_too_large: "Foram selecionadas fontes a mais para uma única notícia.",
-  generation_failed: "A IA não conseguiu produzir o texto neste momento.",
-  generation_output_invalid: "A IA respondeu sem um texto utilizável.",
-  generation_apply_conflict: "O rascunho foi alterado durante a geração e não foi substituído.",
+const sourcePackageErrorMessages: Record<string, string> = {
+  input_invalid: "Seleciona entre 1 e 20 notícias e confirma os dados editoriais do pacote.",
+  local_archive_unavailable: "A pasta local dos pacotes editoriais não está disponível neste ambiente.",
+  source_read_failed: "Não foi possível ler as notícias selecionadas neste momento.",
+  package_write_failed: "Não foi possível guardar o ficheiro Markdown e as imagens no computador.",
 };
 
 const feedErrorMessages: Record<string, string> = {
@@ -112,12 +104,10 @@ export default async function AutomaticNewsroomPage({
   const feedResult = query
     ? await searchNewsroomArticles({ query, periodDays, sourceCode })
     : await listCurrentNewsroomArticles({ periodDays, sourceCode });
-  const editorialProfileResult = await getEditorialProfileOverview();
   const articles = feedResult.ok ? feedResult.value.items : [];
-  const compositionSubmissionId = crypto.randomUUID();
-  const compositionErrorCode = firstQueryValue(params.composition_error);
-  const compositionErrorMessage = compositionErrorCode
-    ? compositionErrorMessages[compositionErrorCode] ?? "Não foi possível criar a notícia."
+  const sourcePackageErrorCode = firstQueryValue(params.package_error);
+  const sourcePackageErrorMessage = sourcePackageErrorCode
+    ? sourcePackageErrorMessages[sourcePackageErrorCode] ?? "Não foi possível preparar as fontes."
     : null;
   const feedErrorCode = firstQueryValue(params.feed_error);
   const feedErrorMessage = feedErrorCode
@@ -158,24 +148,23 @@ export default async function AutomaticNewsroomPage({
       <div className={styles.simpleContainer}>
         <header className={styles.simpleHero}>
           <div>
-            <p className={styles.eyebrow}>Redação automática</p>
-            <h1>Criar notícia</h1>
+            <p className={styles.eyebrow}>Preparação editorial</p>
+            <h1>Preparar fontes</h1>
           </div>
           <nav aria-label="Navegação editorial">
             <a href="/admin">Backoffice</a>
-            <a href="/admin/editorial/redacao-automatica/linha-editorial">Linha editorial</a>
-            <a className={styles.simplePrimaryLink} href="/admin/editorial/artigos">Revisão</a>
+            <a className={styles.simplePrimaryLink} href="/admin/editorial/artigos">Artigos</a>
           </nav>
         </header>
 
         <ol className={styles.simpleSteps} aria-label="Percurso editorial">
           <li data-active="true"><span>1</span><strong>Atualidade</strong></li>
-          <li><span>2</span><strong>Criar notícia</strong></li>
-          <li><span>3</span><strong>Revisão</strong></li>
+          <li><span>2</span><strong>Preparar fontes</strong></li>
+          <li><span>3</span><strong>Artigos</strong></li>
         </ol>
 
-        {compositionErrorMessage ? (
-          <p className={styles.simpleFeedbackError} role="status">{compositionErrorMessage}</p>
+        {sourcePackageErrorMessage ? (
+          <p className={styles.simpleFeedbackError} role="status">{sourcePackageErrorMessage}</p>
         ) : null}
         {manualEntryErrorMessage ? (
           <p className={styles.simpleFeedbackError} role="status">{manualEntryErrorMessage}</p>
@@ -249,14 +238,11 @@ export default async function AutomaticNewsroomPage({
           </p>
         ) : (
           <form
-            action="/api/admin/editorial/redacao-automatica/dossies"
+            action="/api/admin/editorial/redacao-automatica/source-package"
             method="post"
-            id="create-editorial-composition"
+            id="create-editorial-source-package"
             className={styles.simpleComposition}
           >
-            <input type="hidden" name="action" value="compose" />
-            <input type="hidden" name="submission_id" value={compositionSubmissionId} />
-
             <ol className={styles.simpleFeedList} data-current-feed-list>
               {articles.map((article, index) => (
                 <li key={article.id} data-current-feed-item hidden={index >= 24}>
@@ -266,8 +252,8 @@ export default async function AutomaticNewsroomPage({
                       name="newsroom_article_id"
                       value={article.id}
                       defaultChecked={article.id === requestedArticleId}
-                      disabled={!canUseInComposition(article)}
-                      data-composition-source
+                      disabled={!canUseInSourcePackage(article)}
+                      data-source-package-source
                     />
                     <span>Escolher</span>
                   </label>
@@ -292,9 +278,6 @@ export default async function AutomaticNewsroomPage({
                           )}
                         </time>
                       ) : null}
-                      {article.usedInComposition ? (
-                        <span className={styles.simpleFeedBadge}>Usada</span>
-                      ) : null}
                     </div>
                     <h3>{article.title}</h3>
                     {article.summary || article.subtitle ? (
@@ -311,40 +294,74 @@ export default async function AutomaticNewsroomPage({
             </ol>
             <CurrentFeedReveal total={articles.length} />
 
-            <section className={styles.simpleInstructions} aria-labelledby="ai-instructions-title">
+            <section className={styles.simpleInstructions} aria-labelledby="source-package-title">
               <div>
-                <p className={styles.sectionEyebrow}>Criar notícia</p>
-                <h2 id="ai-instructions-title">Instruções à IA</h2>
-              </div>
-              <label>
-                <span>Instruções</span>
-                <textarea
-                  name="ai_instructions"
-                  maxLength={6000}
-                  rows={6}
-                  required
-                  placeholder="Ex.: Destacar a ausência do jogador, explicar a consequência para o próximo jogo e não especular sobre o tempo de recuperação."
-                />
-              </label>
-              {!editorialProfileResult.ok ? (
-                <p className={styles.simpleFeedbackError} role="alert">
-                  A linha editorial não está disponível.
+                <p className={styles.sectionEyebrow}>Pacote editorial de fontes</p>
+                <h2 id="source-package-title">Preparar ficheiro Markdown</h2>
+                <p>
+                  Seleciona entre 1 e 20 notícias, escolhe o género e acrescenta a tua orientação.
+                  O sistema junta a instrução de redação às fontes integrais e guarda as imagens
+                  localmente. Nada é enviado à IA.
                 </p>
-              ) : null}
+              </div>
+
+              <div className={styles.sourcePackageEditorialFields}>
+                <fieldset className={styles.sourcePackageGenreFieldset}>
+                  <legend>Género jornalístico</legend>
+                  <div className={styles.sourcePackageGenreOptions}>
+                    {EDITORIAL_SOURCE_PACKAGE_GENRES.map((genre, index) => (
+                      <label key={genre.value}>
+                        <input
+                          type="radio"
+                          name="editorial_genre"
+                          value={genre.value}
+                          defaultChecked={index === 0}
+                        />
+                        <span>{genre.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <label>
+                  <span>Título sugerido <small>opcional</small></span>
+                  <input
+                    type="text"
+                    name="suggested_title"
+                    maxLength={EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH}
+                    placeholder="Escreve uma proposta para a IA melhorar ou substituir"
+                  />
+                </label>
+
+                <label>
+                  <span>Instruções adicionais <small>opcional</small></span>
+                  <textarea
+                    name="editorial_instructions"
+                    rows={5}
+                    maxLength={EDITORIAL_SOURCE_PACKAGE_INSTRUCTIONS_MAX_LENGTH}
+                    placeholder="Ex.: dar prioridade às declarações principais; evitar centrar o texto na arbitragem; usar tom crítico sem adjetivação excessiva."
+                  />
+                </label>
+
+                <p className={styles.sourcePackageEditorialNote}>
+                  O ficheiro começa pela tarefa editorial correspondente ao género escolhido,
+                  seguida do título sugerido, das tuas instruções e das fontes integrais.
+                </p>
+              </div>
+
               <div className={styles.simpleCreateAction}>
+                <span data-source-package-selection-count>0 notícias selecionadas</span>
                 <button
                   type="submit"
-                  data-composition-submit
-                  disabled={!editorialProfileResult.ok}
+                  data-source-package-submit
+                  disabled
                 >
-                  Criar notícia
+                  Preparar fontes
                 </button>
-                <span data-composition-submit-status role="status" hidden>
-                  A IA está a preparar o texto para revisão.
-                </span>
+                <span data-source-package-submit-status role="status" hidden />
               </div>
             </section>
-            <CompositionSubmitEnhancer />
+            <SourcePackageSubmitEnhancer />
           </form>
         )}
       </div>
