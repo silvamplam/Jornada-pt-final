@@ -153,7 +153,7 @@
   align-items: center;
   min-width: 260px;
   max-width: 680px;
-  height: 14px;
+  height: 20px;
   margin: 0 18px;
   overflow: hidden;
   border: 1px solid #5a2944;
@@ -180,11 +180,11 @@
 .messageText {
   display: block;
   flex: 0 0 auto;
-  padding-right: 36px;
+  padding-right: 48px;
   color: #ffffff;
-  font-size: 6.5px;
+  font-size: 9.5px;
   font-weight: 800;
-  line-height: 13px;
+  line-height: 18px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -219,8 +219,8 @@
   }
 
   .messageText {
-    font-size: 6px;
-    padding-right: 28px;
+    font-size: 9px;
+    padding-right: 40px;
   }
 }
 
