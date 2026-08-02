@@ -121,6 +121,7 @@ export type SupabaseMatchdayEditorial = {
   side_block_status?: "draft" | "published";
   side_block_type?: string | null;
   side_block_label?: string | null;
+  side_block_label_color?: string | null;
   side_block_title?: string | null;
   side_block_title_color?: string | null;
   side_block_author?: string | null;
@@ -166,6 +167,7 @@ export type SupabaseMatchdayLatestNews = {
   id: string;
   matchday_id: string;
   time_label: string | null;
+  time_label_color?: string | null;
   title: string | null;
   subtitle?: string | null;
   image_url: string | null;

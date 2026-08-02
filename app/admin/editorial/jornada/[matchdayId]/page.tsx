@@ -839,7 +839,7 @@ type MatchdayHighlightForAdmin = SupabaseMatchdayHighlight & {
 async function readMatchdayEditorial(matchdayId: string): Promise<MatchdayEditorialForAdmin | null> {
   try {
     return await readFirst<MatchdayEditorialForAdmin>(
-      `matchday_editorials?select=id,matchday_id,title,summary,title_color,image_url,headline_link_url,below_headline_mode,below_headline_heading,below_headline_subtitle,below_headline_heading_color,complementary_mode,complementary_roundup_item_id,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,roundup_video_heading,roundup_video_heading_color,side_block_status,side_block_type,side_block_label,side_block_title,side_block_title_color,side_block_author,side_block_text,side_block_image_url,side_block_link_url,latest_zone_mode,latest_zone_title,latest_zone_title_color,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_editorials?select=id,matchday_id,title,summary,title_color,image_url,headline_link_url,below_headline_mode,below_headline_heading,below_headline_subtitle,below_headline_heading_color,complementary_mode,complementary_roundup_item_id,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,roundup_video_heading,roundup_video_heading_color,side_block_status,side_block_type,side_block_label,side_block_label_color,side_block_title,side_block_title_color,side_block_author,side_block_text,side_block_image_url,side_block_link_url,latest_zone_mode,latest_zone_title,latest_zone_title_color,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}`
     );
@@ -879,7 +879,7 @@ async function readMatchdayRoundupItems(matchdayId: string): Promise<SupabaseMat
 async function readMatchdayLatestNews(matchdayId: string): Promise<SupabaseMatchdayLatestNews[]> {
   try {
     return await fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
-      `matchday_latest_news?select=id,matchday_id,time_label,title,subtitle,image_url,link_url,article_id,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_latest_news?select=id,matchday_id,time_label,time_label_color,title,subtitle,image_url,link_url,article_id,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&order=sort_order.asc&limit=8`
     );
@@ -1386,8 +1386,12 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     <input id={`latest-news-${order}-sort-order`} readOnly value={order} />
                   </div>
                   <div className="editorial-admin-field">
-                    <label htmlFor={`latest-news-${order}-time-label`}>Hora</label>
-                    <input id={`latest-news-${order}-time-label`} name="latest_news_time_label" defaultValue={item?.time_label ?? ""} placeholder="12:30" />
+                    <label htmlFor={`latest-news-${order}-time-label`}>Antetitulo</label>
+                    <input id={`latest-news-${order}-time-label`} name="latest_news_time_label" defaultValue={item?.time_label ?? ""} placeholder="22:30 ou ANALISE" />
+                  </div>
+                  <div className="editorial-admin-field">
+                    <label htmlFor={`latest-news-${order}-time-label-color`}>Cor do antetitulo</label>
+                    <input id={`latest-news-${order}-time-label-color`} name="latest_news_time_label_color" defaultValue={item?.time_label_color ?? ""} placeholder="#c40000" pattern="^#[0-9A-Fa-f]{6}$" />
                   </div>
                   <div className="editorial-admin-field">
                     <label htmlFor={`latest-news-${order}-title`}>Titulo</label>
@@ -1890,8 +1894,12 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               </select>
             </div>
             <div className="editorial-admin-field">
-              <label htmlFor="side-block-label">Etiqueta</label>
+              <label htmlFor="side-block-label">Antetitulo</label>
               <input id="side-block-label" name="side_block_label" defaultValue={editorial?.side_block_label ?? ""} placeholder="OPINIAO" />
+            </div>
+            <div className="editorial-admin-field">
+              <label htmlFor="side-block-label-color">Cor do antetitulo</label>
+              <input id="side-block-label-color" name="side_block_label_color" defaultValue={editorial?.side_block_label_color ?? ""} placeholder="#c40000" pattern="^#[0-9A-Fa-f]{6}$" />
             </div>
             <div className="editorial-admin-field">
               <label htmlFor="side-block-title">Titulo</label>

@@ -866,6 +866,7 @@ async function saveMatchdayEditorial(formData: FormData) {
   const sideBlockStatus = sideBlockStatusValue === "published" ? "published" : "draft";
   const sideBlockType = cleanText(formData.get("side_block_type"));
   const sideBlockLabel = cleanText(formData.get("side_block_label"));
+  const sideBlockLabelColor = cleanHexColor(formData.get("side_block_label_color"));
   const sideBlockTitle = cleanText(formData.get("side_block_title"));
   const sideBlockTitleColor = cleanText(formData.get("side_block_title_color"));
   const sideBlockAuthor = cleanText(formData.get("side_block_author"));
@@ -938,6 +939,7 @@ async function saveMatchdayEditorial(formData: FormData) {
     editorialPayload.side_block_status = sideBlockStatus;
     editorialPayload.side_block_type = sideBlockType;
     editorialPayload.side_block_label = sideBlockLabel;
+    editorialPayload.side_block_label_color = sideBlockLabelColor;
     editorialPayload.side_block_title = sideBlockTitle;
     editorialPayload.side_block_title_color = sideBlockTitleColor;
     editorialPayload.side_block_author = sideBlockAuthor;
@@ -1016,6 +1018,7 @@ async function saveMatchdaySideBlock(formData: FormData) {
   const sideBlockStatusValue = cleanText(formData.get("side_block_status")) ?? "draft";
   const sideBlockType = cleanText(formData.get("side_block_type"));
   const sideBlockLabel = cleanText(formData.get("side_block_label"));
+  const sideBlockLabelColor = cleanHexColor(formData.get("side_block_label_color"));
   const sideBlockTitle = cleanText(formData.get("side_block_title"));
   const sideBlockTitleColor = cleanText(formData.get("side_block_title_color"));
   const sideBlockAuthor = cleanText(formData.get("side_block_author"));
@@ -1047,6 +1050,7 @@ async function saveMatchdaySideBlock(formData: FormData) {
     side_block_status: sideBlockStatusValue,
     side_block_type: sideBlockType,
     side_block_label: sideBlockLabel,
+    side_block_label_color: sideBlockLabelColor,
     side_block_title: sideBlockTitle,
     side_block_title_color: sideBlockTitleColor,
     side_block_author: sideBlockAuthor,
@@ -1559,6 +1563,7 @@ async function saveMatchdayLatestNews(formData: FormData) {
   for (const sortOrder of LATEST_NEWS_EDITOR_SORT_ORDERS) {
     const newsId = cleanText(formData.get(`latest_news_${sortOrder}_id`));
     const timeLabel = cleanText(formData.get(`latest_news_${sortOrder}_time_label`));
+    const timeLabelColor = cleanHexColor(formData.get(`latest_news_${sortOrder}_time_label_color`));
     const title = cleanText(formData.get(`latest_news_${sortOrder}_title`));
     const subtitle = cleanText(formData.get(`latest_news_${sortOrder}_subtitle`));
     const imageUrl = cleanText(formData.get(`latest_news_${sortOrder}_image_url`));
@@ -1580,6 +1585,7 @@ async function saveMatchdayLatestNews(formData: FormData) {
     const payload = {
       matchday_id: matchdayId,
       time_label: timeLabel,
+      time_label_color: timeLabelColor,
       title,
       subtitle,
       image_url: imageUrl,
@@ -1642,6 +1648,7 @@ async function saveMatchdayLatestNewsItem(formData: FormData) {
 
   const existingItem = existingRows[0] ?? null;
   const timeLabel = cleanText(formData.get("latest_news_time_label"));
+  const timeLabelColor = cleanHexColor(formData.get("latest_news_time_label_color"));
   const title = cleanText(formData.get("latest_news_title"));
   const subtitle = cleanText(formData.get("latest_news_subtitle"));
   const imageUrl = cleanText(formData.get("latest_news_image_url"));
@@ -1663,6 +1670,7 @@ async function saveMatchdayLatestNewsItem(formData: FormData) {
   const payload = {
     matchday_id: matchdayId,
     time_label: timeLabel,
+    time_label_color: timeLabelColor,
     title,
     subtitle,
     image_url: imageUrl,

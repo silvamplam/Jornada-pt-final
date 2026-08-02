@@ -69,6 +69,7 @@ const allowedTextFields = [
 const allowedColorFields = [
   "headline_title_color",
   "side_block_title_color",
+  "side_block_label_color",
   "below_headline_heading_color",
   "roundup_video_heading_color",
   "final_zone_title_color"
@@ -647,6 +648,7 @@ async function updateFinalZone(request: Request, formData: FormData) {
     const payload = {
       sort_order: sortOrder,
       time_label: cleanText(formData.get(`final_news_${rowKey}_time_label`)),
+      time_label_color: cleanColor(cleanText(formData.get(`final_news_${rowKey}_time_label_color`))),
       title: cleanText(formData.get(`final_news_${rowKey}_title`)),
       subtitle: cleanText(formData.get(`final_news_${rowKey}_subtitle`)),
       image_url: cleanText(formData.get(`final_news_${rowKey}_image_url`)),

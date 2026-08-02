@@ -23,6 +23,7 @@ type SiteEditorial = {
   side_block_status: "draft" | "published";
   side_block_type: string | null;
   side_block_label: string | null;
+  side_block_label_color: string | null;
   side_block_title: string | null;
   side_block_title_color: string | null;
   side_block_author: string | null;
@@ -71,6 +72,7 @@ type SiteRoundupItem = {
 type SiteLatestNews = {
   id: string;
   time_label: string | null;
+  time_label_color: string | null;
   title: string | null;
   subtitle: string | null;
   link_url: string | null;
@@ -274,7 +276,7 @@ function sideBlockTypeLabel(type: string | null | undefined) {
 
 async function readHomeEditorial() {
   const editorials = await fetchSupabaseAdminTable<SiteEditorial>(
-    "site_editorials?select=id,slug,status,headline_title,headline_subtitle,headline_image_url,headline_link_url,headline_title_color,below_headline_mode,below_headline_heading,below_headline_heading_color,side_block_status,side_block_type,side_block_label,side_block_title,side_block_title_color,side_block_author,side_block_text,side_block_image_url,side_block_link_url,complementary_mode,complementary_roundup_item_id,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,roundup_video_heading,roundup_video_heading_color,final_zone_title,final_zone_title_color,final_zone_mode&slug=eq.home&limit=1"
+    "site_editorials?select=id,slug,status,headline_title,headline_subtitle,headline_image_url,headline_link_url,headline_title_color,below_headline_mode,below_headline_heading,below_headline_heading_color,side_block_status,side_block_type,side_block_label,side_block_label_color,side_block_title,side_block_title_color,side_block_author,side_block_text,side_block_image_url,side_block_link_url,complementary_mode,complementary_roundup_item_id,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,roundup_video_heading,roundup_video_heading_color,final_zone_title,final_zone_title_color,final_zone_mode&slug=eq.home&limit=1"
   ).catch(() => []);
 
   return editorials[0] ?? null;
@@ -294,7 +296,7 @@ async function readHomeRoundupItems(siteEditorialId: string) {
 
 async function readHomeLatestNews(siteEditorialId: string) {
   return fetchSupabaseAdminTable<SiteLatestNews>(
-    `site_editorial_latest_news?select=id,time_label,title,subtitle,link_url,image_url,sort_order,status&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}&status=eq.published&order=sort_order.asc&limit=8`
+    `site_editorial_latest_news?select=id,time_label,time_label_color,title,subtitle,link_url,image_url,sort_order,status&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}&status=eq.published&order=sort_order.asc&limit=8`
   ).catch(() => []);
 }
 
@@ -466,6 +468,7 @@ export default async function HomePage() {
     editorial?.side_block_status === "published" &&
     Boolean(cleanText(editorial.side_block_title) || cleanText(editorial.side_block_text));
   const sideBlockLabel = cleanText(editorial?.side_block_label) || sideBlockTypeLabel(editorial?.side_block_type);
+  const sideBlockLabelColor = cleanText(editorial?.side_block_label_color);
   const sideBlockTitle = cleanText(editorial?.side_block_title);
   const sideBlockText = cleanText(editorial?.side_block_text);
   const sideBlockAuthor = cleanText(editorial?.side_block_author);
@@ -512,6 +515,7 @@ export default async function HomePage() {
   const publicLatestNews: PublicEditorialLatestNews[] = latestNews.map((item) => ({
     id: item.id,
     timeLabel: cleanText(item.time_label),
+    timeLabelColor: cleanText(item.time_label_color),
     title: cleanText(item.title) || "Noticia",
     subtitle: cleanText(item.subtitle),
     imageUrl: cleanText(item.image_url),
@@ -541,6 +545,7 @@ export default async function HomePage() {
         sideBlock={{
           isPublished: hasPublishedSideBlock,
           label: sideBlockLabel,
+          labelColor: sideBlockLabelColor,
           title: sideBlockTitle,
           titleColor: sideBlockTitleColor,
           author: sideBlockAuthor,

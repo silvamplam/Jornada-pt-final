@@ -3567,6 +3567,16 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     : editorial?.side_block_image_url?.trim() || null;
   const explicitSideBlockLabel = usePublishedReferenceComposition ? cleanReferenceSnapshotText(referenceSideBlock?.label_snapshot) : cleanPublicSideBlockText(editorial?.side_block_label);
   const sideBlockLabel = usePublishedReferenceComposition ? explicitSideBlockLabel : explicitSideBlockLabel || sideBlockTypeLabel(editorial?.side_block_type);
+  const referenceSideBlockUsesEditorialColor = Boolean(
+    usePublishedReferenceComposition
+      && referenceSideBlock?.source_id === editorial?.id
+      && ["matchday_editorial", "matchday_editorial_side_block"].includes(referenceSideBlock?.source_type ?? "")
+  );
+  const sideBlockLabelColor = usePublishedReferenceComposition
+    ? referenceSideBlockUsesEditorialColor
+      ? editorial?.side_block_label_color?.trim() || null
+      : null
+    : editorial?.side_block_label_color?.trim() || null;
   const sideBlockTitle = usePublishedReferenceComposition ? cleanReferenceSnapshotText(referenceSideBlock?.title_snapshot) : cleanPublicSideBlockText(editorial?.side_block_title);
   const sideBlockTitleColor = usePublishedReferenceComposition ? null : editorial?.side_block_title_color?.trim() || null;
   const sideBlockAuthor = usePublishedReferenceComposition ? null : cleanPublicSideBlockText(editorial?.side_block_author);
@@ -3586,10 +3596,17 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     !usePublishedReferenceComposition && /^#[0-9A-Fa-f]{6}$/.test(configuredLatestZoneTitleColor)
       ? configuredLatestZoneTitleColor
       : null;
+  const latestNewsColorById = new Map(
+    context.latestNews.map((item) => [item.id, item.time_label_color?.trim() || null])
+  );
   const latestNewsItems = usePublishedReferenceComposition
     ? referenceEditorialLineItems.map((item) => ({
         id: item.id,
         timeLabel: publicFreeZoneReferenceLabel(item),
+        timeLabelColor:
+          item.source_type === "matchday_latest_news" && item.source_id
+            ? latestNewsColorById.get(item.source_id) ?? null
+            : null,
         title: cleanReferenceSnapshotText(item.title_snapshot) || "",
         subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot) || "",
         imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
@@ -3598,6 +3615,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     : context.latestNews.map((item) => ({
         id: item.id,
         timeLabel: item.time_label || "",
+        timeLabelColor: item.time_label_color?.trim() || null,
         title: item.title?.trim() || "",
         subtitle: item.subtitle?.trim() || "",
         imageUrl: item.image_url?.trim() || null,
@@ -3751,7 +3769,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                       </div>
                     ) : null}
                     <div className="public-side-editorial-copy">
-                      {sideBlockLabel ? <span className="public-side-editorial-label">{sideBlockLabel}</span> : null}
+                      {sideBlockLabel ? (
+                        <span className="public-side-editorial-label" style={sideBlockLabelColor ? { color: sideBlockLabelColor } : undefined}>
+                          {sideBlockLabel}
+                        </span>
+                      ) : null}
                       {sideBlockTitle ? <strong style={sideBlockTitleColor ? { color: sideBlockTitleColor } : undefined}>{sideBlockTitle}</strong> : null}
                       {sideBlockAuthor ? <small>{sideBlockAuthor}</small> : null}
                       {sideBlockText ? <p>{sideBlockText}</p> : null}
@@ -3765,7 +3787,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                     </div>
                   ) : null}
                   <div className="public-side-editorial-copy">
-                    {sideBlockLabel ? <span className="public-side-editorial-label">{sideBlockLabel}</span> : null}
+                    {sideBlockLabel ? (
+                        <span className="public-side-editorial-label" style={sideBlockLabelColor ? { color: sideBlockLabelColor } : undefined}>
+                          {sideBlockLabel}
+                        </span>
+                      ) : null}
                     {sideBlockTitle ? <strong style={sideBlockTitleColor ? { color: sideBlockTitleColor } : undefined}>{sideBlockTitle}</strong> : null}
                     {sideBlockAuthor ? <small>{sideBlockAuthor}</small> : null}
                     {sideBlockText ? <p>{sideBlockText}</p> : null}
@@ -3939,7 +3965,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                     </div>
                   ) : null}
                   <div className="public-news-copy">
-                    {item.timeLabel ? <time dateTime={item.timeLabel}>{item.timeLabel}</time> : null}
+                    {item.timeLabel ? (
+                      <time dateTime={item.timeLabel} style={item.timeLabelColor ? { color: item.timeLabelColor } : undefined}>
+                        {item.timeLabel}
+                      </time>
+                    ) : null}
                     {item.linkUrl ? (
                       <a className="public-news-title" href={item.linkUrl}>
                         {item.title}
