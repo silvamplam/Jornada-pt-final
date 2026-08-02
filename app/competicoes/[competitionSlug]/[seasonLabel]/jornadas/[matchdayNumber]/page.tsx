@@ -3505,6 +3505,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     ? Boolean(headlineTitle || headlineSummary || headlineImageUrl || headlineMedia)
     : Boolean(publishedHeadline && (headlineTitle || headlineSummary || headlineImageUrl || headlineMedia));
   const complementaryMode = editorial?.complementary_mode ?? "none";
+  const highlightColorById = new Map(
+    context.highlights.map((item) => [item.id, item.label_color?.trim() || null])
+  );
   const referenceHighlightItems = usePublishedReferenceComposition
     ? [...(context.referenceSlots.highlight ?? [])]
         .filter(hasReferenceSlotContent)
@@ -3512,6 +3515,10 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         .map((item) => ({
           id: item.id,
           label: cleanReferenceSnapshotText(item.label_snapshot),
+          labelColor:
+            item.source_type === "matchday_highlight" && item.source_id
+              ? highlightColorById.get(item.source_id) ?? null
+              : null,
           title: cleanReferenceSnapshotText(item.title_snapshot) || "",
           subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot),
           imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
@@ -3536,6 +3543,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       : context.highlights.map((highlight) => ({
           id: highlight.id,
           label: highlight.label?.trim() || null,
+          labelColor: highlight.label_color?.trim() || null,
           title: highlight.title?.trim() || "",
           subtitle: highlight.subtitle?.trim() || null,
           imageUrl: highlight.image_url?.trim() || null,

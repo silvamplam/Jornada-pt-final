@@ -1251,6 +1251,7 @@ async function saveMatchdayHighlights(formData: FormData) {
   for (const sortOrder of [1, 2, 3]) {
     const highlightId = cleanText(formData.get(`highlight_${sortOrder}_id`));
     const label = cleanText(formData.get(`highlight_${sortOrder}_label`));
+    const labelColor = cleanHexColor(formData.get(`highlight_${sortOrder}_label_color`));
     const title = cleanText(formData.get(`highlight_${sortOrder}_title`));
     const subtitle = cleanText(formData.get(`highlight_${sortOrder}_subtitle`));
     const imageUrl = cleanText(formData.get(`highlight_${sortOrder}_image_url`));
@@ -1265,6 +1266,7 @@ async function saveMatchdayHighlights(formData: FormData) {
     const payload = {
       matchday_id: matchdayId,
       label,
+      label_color: labelColor,
       title,
       subtitle,
       image_url: imageUrl,
@@ -1318,6 +1320,7 @@ async function saveMatchdayHighlightItem(formData: FormData) {
   }
 
   const label = cleanText(formData.get("highlight_label"));
+  const labelColor = cleanHexColor(formData.get("highlight_label_color"));
   const title = cleanText(formData.get("highlight_title"));
   const subtitle = cleanText(formData.get("highlight_subtitle"));
   const imageUrl = cleanText(formData.get("highlight_image_url"));
@@ -1337,6 +1340,7 @@ async function saveMatchdayHighlightItem(formData: FormData) {
   const payload = {
     matchday_id: matchdayId,
     label,
+    label_color: labelColor,
     title,
     subtitle,
     image_url: imageUrl,

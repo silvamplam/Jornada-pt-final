@@ -188,12 +188,20 @@ async function readMatchdayEditorial(matchdayId: string): Promise<PublicMatchday
 async function readPublishedMatchdayHighlights(matchdayId: string) {
   try {
     return fetchSupabaseAdminTable<PublicMatchdayHighlight>(
-      `matchday_highlights?select=id,matchday_id,label,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_highlights?select=id,matchday_id,label,label_color,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&status=eq.published&order=sort_order.asc&limit=3`
     );
   } catch {
-    return [];
+    try {
+      return fetchSupabaseAdminTable<PublicMatchdayHighlight>(
+        `matchday_highlights?select=id,matchday_id,label,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+          matchdayId
+        )}&status=eq.published&order=sort_order.asc&limit=3`
+      );
+    } catch {
+      return [];
+    }
   }
 }
 

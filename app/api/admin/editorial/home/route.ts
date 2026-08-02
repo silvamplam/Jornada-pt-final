@@ -449,6 +449,7 @@ async function updateHighlights(request: Request, formData: FormData) {
     const payload = {
       sort_order: sortOrder,
       label: cleanText(formData.get(`highlight_${rowKey}_label`)),
+      label_color: cleanColor(cleanText(formData.get(`highlight_${rowKey}_label_color`))),
       title: cleanText(formData.get(`highlight_${rowKey}_title`)),
       subtitle: cleanText(formData.get(`highlight_${rowKey}_subtitle`)),
       image_url: cleanText(formData.get(`highlight_${rowKey}_image_url`)),
@@ -510,6 +511,7 @@ async function updateHighlightItem(request: Request, formData: FormData) {
   const payload = {
     sort_order: sortOrder,
     label: cleanText(formData.get(`highlight_${rowKey}_label`)),
+    label_color: cleanColor(cleanText(formData.get(`highlight_${rowKey}_label_color`))),
     title: cleanText(formData.get(`highlight_${rowKey}_title`)),
     subtitle: cleanText(formData.get(`highlight_${rowKey}_subtitle`)),
     image_url: cleanText(formData.get(`highlight_${rowKey}_image_url`)),

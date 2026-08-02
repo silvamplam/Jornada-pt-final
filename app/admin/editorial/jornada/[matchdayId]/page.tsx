@@ -855,7 +855,7 @@ async function readMatchdayEditorial(matchdayId: string): Promise<MatchdayEditor
 async function readMatchdayHighlights(matchdayId: string): Promise<MatchdayHighlightForAdmin[]> {
   try {
     return await fetchSupabaseAdminTable<MatchdayHighlightForAdmin>(
-      `matchday_highlights?select=id,matchday_id,label,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_highlights?select=id,matchday_id,label,label_color,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&order=sort_order.asc&limit=3`
     );
@@ -1099,6 +1099,17 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 <div className="editorial-admin-field">
                   <label htmlFor={`highlight-${order}-label`}>Etiqueta</label>
                   <input form={highlightFormId} id={`highlight-${order}-label`} name="highlight_label" defaultValue={highlight?.label ?? ""} placeholder={order === 1 ? "ANTEVISAO" : order === 2 ? "AMBIENTE" : "CONTEXTO"} />
+                </div>
+                <div className="editorial-admin-field">
+                  <label htmlFor={`highlight-${order}-label-color`}>Cor do antetitulo</label>
+                  <input
+                    form={highlightFormId}
+                    id={`highlight-${order}-label-color`}
+                    name="highlight_label_color"
+                    defaultValue={highlight?.label_color ?? ""}
+                    placeholder="#c40000"
+                    pattern="^#[0-9A-Fa-f]{6}$"
+                  />
                 </div>
                 <div className="editorial-admin-field">
                   <label htmlFor={`highlight-${order}-title`}>Titulo</label>
