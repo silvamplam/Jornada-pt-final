@@ -139,6 +139,7 @@ export type SupabaseMatchdayHighlight = {
   id: string;
   matchday_id: string;
   label: string | null;
+  label_color?: string | null;
   title: string | null;
   image_url: string | null;
   sort_order: number;

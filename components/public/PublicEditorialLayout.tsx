@@ -3,6 +3,7 @@ import RoundupVideoSwitcher, { type RoundupVideoItem } from "./RoundupVideoSwitc
 export type PublicEditorialHighlight = {
   id: string;
   label?: string | null;
+  labelColor?: string | null;
   title?: string | null;
   subtitle?: string | null;
   imageUrl?: string | null;
@@ -240,7 +241,7 @@ function PublicHighlightCard({ item }: { item: PublicEditorialHighlight }) {
   const body = (
     <>
       <div className="public-highlight-image">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : null}</div>
-      {item.label ? <span>{item.label}</span> : null}
+      {item.label ? <span style={item.labelColor ? { color: item.labelColor } : undefined}>{item.label}</span> : null}
       <strong>{item.title}</strong>
       {item.subtitle ? <small>{item.subtitle}</small> : null}
     </>

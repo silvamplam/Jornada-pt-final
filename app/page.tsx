@@ -48,6 +48,7 @@ type SiteEditorial = {
 type SiteHighlight = {
   id: string;
   label: string | null;
+  label_color: string | null;
   title: string | null;
   subtitle: string | null;
   image_url: string | null;
@@ -159,6 +160,7 @@ const fallbackHighlights = [
   {
     id: "fallback-highlight-1",
     label: "Antevisao",
+    label_color: null,
     title: "Os temas fortes antes da bola rolar",
     subtitle: "",
     image_url: "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=700&q=80",
@@ -167,6 +169,7 @@ const fallbackHighlights = [
   {
     id: "fallback-highlight-2",
     label: "Ambiente",
+    label_color: null,
     title: "A jornada vista pelas bancadas e pelos protagonistas",
     subtitle: "",
     image_url: "https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=700&q=80",
@@ -175,6 +178,7 @@ const fallbackHighlights = [
   {
     id: "fallback-highlight-3",
     label: "Contexto",
+    label_color: null,
     title: "O futebol contado antes, durante e depois do jogo",
     subtitle: "",
     image_url: "https://images.unsplash.com/photo-1577223625816-7546f13df25d?auto=format&fit=crop&w=700&q=80",
@@ -284,7 +288,7 @@ async function readHomeEditorial() {
 
 async function readHomeHighlights(siteEditorialId: string) {
   return fetchSupabaseAdminTable<SiteHighlight>(
-    `site_editorial_highlights?select=id,label,title,subtitle,image_url,link_url,sort_order,status&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}&status=eq.published&order=sort_order.asc&limit=3`
+    `site_editorial_highlights?select=id,label,label_color,title,subtitle,image_url,link_url,sort_order,status&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}&status=eq.published&order=sort_order.asc&limit=3`
   ).catch(() => []);
 }
 
@@ -497,6 +501,7 @@ export default async function HomePage() {
   const publicHighlights: PublicEditorialHighlight[] = visibleHighlights.slice(0, 3).map((item) => ({
     id: item.id,
     label: cleanText(item.label),
+    labelColor: cleanText(item.label_color),
     title: cleanText(item.title),
     subtitle: cleanText(item.subtitle),
     imageUrl: cleanText(item.image_url),

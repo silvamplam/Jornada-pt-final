@@ -51,6 +51,7 @@ type SiteEditorialHighlight = {
   site_editorial_id: string | null;
   sort_order: number | null;
   label: string | null;
+  label_color: string | null;
   title: string | null;
   subtitle: string | null;
   image_url: string | null;
@@ -2490,6 +2491,17 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                                             data-home-highlight-field="label"
                                             type="text"
                                             defaultValue={item?.label ?? ""}
+                                          />
+                                        </label>
+                                        <label className="home-admin-field">
+                                          <span>Cor do antetitulo</span>
+                                          <input
+                                            form={formId}
+                                            name={`highlight_${row.key}_label_color`}
+                                            type="text"
+                                            defaultValue={item?.label_color ?? ""}
+                                            placeholder="#c40000"
+                                            pattern="^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$"
                                           />
                                         </label>
                                         <label className="home-admin-field">
