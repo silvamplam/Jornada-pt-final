@@ -458,6 +458,94 @@
   font-size: 12px;
 }
 
+.panel[data-visual-variant="home"] .shell {
+  padding: 6px;
+  border: 1px solid rgba(24, 42, 64, 0.12);
+  border-radius: 11px;
+  background:
+    radial-gradient(ellipse at 8% 0%, rgba(54, 88, 124, 0.07), transparent 35%),
+    radial-gradient(ellipse at 92% 100%, rgba(17, 39, 66, 0.055), transparent 38%),
+    linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 6px 18px rgba(15, 23, 42, 0.055);
+}
+
+.panel[data-visual-variant="home"] .row > .card {
+  isolation: isolate;
+  overflow: hidden;
+  grid-template-columns: minmax(0, 1fr) 10px minmax(0, 1fr);
+  border-color: rgba(30, 50, 74, 0.2);
+  background:
+    linear-gradient(
+      104deg,
+      rgba(20, 42, 68, 0.035) 0%,
+      rgba(20, 42, 68, 0.012) 48%,
+      rgba(255, 255, 255, 0.96) 48.3%,
+      rgba(255, 255, 255, 0.96) 51.7%,
+      rgba(20, 42, 68, 0.01) 52%,
+      rgba(20, 42, 68, 0.028) 100%
+    ),
+    linear-gradient(180deg, #ffffff 0%, #ffffff 61%, #f4f7fa 61%, #edf2f6 100%);
+  box-shadow:
+    0 5px 14px rgba(15, 23, 42, 0.095),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+.panel[data-visual-variant="home"] .row > .card::before,
+.panel[data-visual-variant="home"] .row > .card::after {
+  position: absolute;
+  top: 0;
+  bottom: 32px;
+  z-index: 0;
+  width: 58%;
+  content: "";
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-size: 82px 82px;
+  filter: saturate(0.82) contrast(0.92);
+  opacity: 0.13;
+}
+
+.panel[data-visual-variant="home"] .row > .card::before {
+  left: 0;
+  background-image: var(--public-match-home-backdrop-image);
+  background-position: 12% 48%;
+  clip-path: polygon(0 0, 100% 0, 82% 100%, 0 100%);
+}
+
+.panel[data-visual-variant="home"] .row > .card::after {
+  right: 0;
+  background-image: var(--public-match-away-backdrop-image);
+  background-position: 88% 48%;
+  clip-path: polygon(18% 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.panel[data-visual-variant="home"] .row > .card > * {
+  z-index: 1;
+}
+
+.panel[data-visual-variant="home"] .row > .card > .team > :global([data-public-team-badge]) {
+  filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.16));
+}
+
+.panel[data-visual-variant="home"] .teamName {
+  color: #142033;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.panel[data-visual-variant="home"] .status {
+  border-top: 1px solid rgba(30, 50, 74, 0.09);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(235, 241, 246, 0.78));
+}
+
+.panel[data-visual-variant="home"] .card[data-live-focus="true"] {
+  border-color: rgba(22, 163, 74, 0.38);
+  box-shadow:
+    0 6px 16px rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(22, 163, 74, 0.08);
+}
+
 .row > .card > .team {
   display: grid;
   grid-row: 1;
@@ -793,6 +881,10 @@
   }
 
   .panel[data-competition-theme="la-liga"] .shell.shell {
+    padding: 5px;
+  }
+
+  .panel[data-visual-variant="home"] .shell.shell {
     padding: 5px;
   }
 

@@ -163,12 +163,26 @@ function LivePulseDots() {
   );
 }
 
+type PublicMatchStripVariant = "default" | "home";
+
+type PublicMatchStripCardStyle = CSSProperties & {
+  "--public-match-home-backdrop-image": string;
+  "--public-match-away-backdrop-image": string;
+};
+
+function matchBackdropImage(value?: string | null): string {
+  const url = value?.trim();
+  return url ? `url(${JSON.stringify(url)})` : "none";
+}
+
 function CompactMatchCard({
   match,
-  focus
+  focus,
+  visualVariant
 }: {
   match: PublicMatchStripMatch;
   focus?: boolean;
+  visualVariant: PublicMatchStripVariant;
 }) {
   const presentation = getPublicMatchStripPresentation(match);
   const kind = presentation.kind;
@@ -196,6 +210,12 @@ function CompactMatchCard({
   const finishedScoreText = presentation.finishedScore !== null
     ? `${presentation.finishedScore.left}–${presentation.finishedScore.right}`
     : null;
+  const visualStyle: PublicMatchStripCardStyle | undefined = visualVariant === "home"
+    ? {
+        "--public-match-home-backdrop-image": matchBackdropImage(match.homeTeam?.logo_url),
+        "--public-match-away-backdrop-image": matchBackdropImage(match.awayTeam?.logo_url)
+      }
+    : undefined;
   const statusContent = presentation.status.kind === "live" ? (
     <span
       aria-label={`${presentation.statusLabel}${activeScore ? `. Resultado ${match.home_score} a ${match.away_score}` : ""}${presentation.status.minute !== null ? `. Minuto ${presentation.status.minute}` : ""}`}
@@ -235,7 +255,12 @@ function CompactMatchCard({
   );
 
   return (
-    <article className={`${styles.card} public-matchday-mini-card public-matchday-mini-card-${kind}`} data-live-focus={focus ? "true" : undefined}>
+    <article
+      className={`${styles.card} public-matchday-mini-card public-matchday-mini-card-${kind}`}
+      data-live-focus={focus ? "true" : undefined}
+      data-visual-variant={visualVariant}
+      style={visualStyle}
+    >
       <span className={`${styles.team} public-matchday-mini-team`}>
         <TeamBadge team={match.homeTeam} />
       </span>
@@ -246,7 +271,7 @@ function CompactMatchCard({
         <span className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
         <span className={styles.teamName} title={awayFullName}>{awayCompactName}</span>
       </span>
-      {presentation.center.kind === "placeholder" ? (
+      {presentation.center.kind === "placeholder" && visualVariant !== "home" ? (
         <span aria-label={presentation.statusLabel} className={styles.center}>
           <strong aria-hidden="true" className={`${styles.score} ${styles.scheduledSeparator}`}>
             {presentation.center.text}
@@ -282,10 +307,12 @@ function CompactMatchCard({
 
 export default function PublicMatchStrip({
   matches,
-  competitionSlug
+  competitionSlug,
+  variant = "default"
 }: {
   matches: PublicMatchStripMatch[];
   competitionSlug?: string | null;
+  variant?: PublicMatchStripVariant;
 }) {
   const competitionTheme = getPublicMatchStripTheme(competitionSlug);
   const focusedMatch = matches.find((match) => {
@@ -301,6 +328,7 @@ export default function PublicMatchStrip({
     <section
       className={`${styles.panel} public-matchday-panel public-matchday-scoreboard-panel`}
       data-competition-theme={competitionTheme ?? undefined}
+      data-visual-variant={variant}
       aria-label="Visao rapida dos jogos"
     >
       <div className={`${styles.shell} public-matchday-strip-shell`}>
@@ -310,7 +338,12 @@ export default function PublicMatchStrip({
           style={{ "--public-match-strip-columns": matches.length } as CSSProperties}
         >
           {matches.map((match) => (
-            <CompactMatchCard focus={focusedMatch?.id === match.id} key={match.id} match={match} />
+            <CompactMatchCard
+              focus={focusedMatch?.id === match.id}
+              key={match.id}
+              match={match}
+              visualVariant={variant}
+            />
           ))}
         </div>
       </div>
