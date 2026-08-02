@@ -17,6 +17,7 @@ type SiteEditorial = {
   headline_title_color: string | null;
   side_block_type: string | null;
   side_block_label: string | null;
+  side_block_label_color: string | null;
   side_block_title: string | null;
   side_block_text: string | null;
   side_block_author: string | null;
@@ -64,6 +65,7 @@ type SiteEditorialLatestNews = {
   site_editorial_id: string | null;
   sort_order: number | null;
   time_label: string | null;
+  time_label_color: string | null;
   title: string | null;
   subtitle?: string | null;
   image_url: string | null;
@@ -2297,7 +2299,8 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                           </div>
                           <div className="home-admin-form-grid">
                             <TextField label="Tipo" name="side_block_type" value={editorial.side_block_type} />
-                            <TextField label="Etiqueta" name="side_block_label" value={editorial.side_block_label} />
+                            <TextField label="Antetitulo" name="side_block_label" value={editorial.side_block_label} />
+                            <TextField label="Cor do antetitulo" name="side_block_label_color" value={editorial.side_block_label_color} placeholder="#c40000" />
                             <TextField label="Titulo" name="side_block_title" value={editorial.side_block_title} wide />
                             <TextAreaField label="Texto" name="side_block_text" value={editorial.side_block_text} />
                             <TextField label="Autor" name="side_block_author" value={editorial.side_block_author} />
@@ -2968,8 +2971,12 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                                             <input form={formId} min={1} name={`final_news_${row.key}_sort_order`} type="number" defaultValue={item?.sort_order ?? row.order} />
                                           </label>
                                           <label className="home-admin-field">
-                                            <span>Hora da noticia</span>
+                                            <span>Antetitulo</span>
                                             <input data-home-final-field="time_label" form={formId} name={`final_news_${row.key}_time_label`} type="text" defaultValue={item?.time_label ?? ""} />
+                                          </label>
+                                          <label className="home-admin-field">
+                                            <span>Cor do antetitulo</span>
+                                            <input form={formId} name={`final_news_${row.key}_time_label_color`} type="text" defaultValue={item?.time_label_color ?? ""} placeholder="#c40000" pattern="^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$" />
                                           </label>
                                           <label className="home-admin-field">
                                             <span>Estado</span>

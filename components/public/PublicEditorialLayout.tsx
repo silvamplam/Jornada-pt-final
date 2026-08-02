@@ -12,6 +12,7 @@ export type PublicEditorialHighlight = {
 export type PublicEditorialLatestNews = {
   id: string;
   timeLabel?: string | null;
+  timeLabelColor?: string | null;
   title?: string | null;
   subtitle?: string | null;
   imageUrl?: string | null;
@@ -21,6 +22,7 @@ export type PublicEditorialLatestNews = {
 export type PublicSideBlockData = {
   isPublished: boolean;
   label?: string | null;
+  labelColor?: string | null;
   title?: string | null;
   titleColor?: string | null;
   author?: string | null;
@@ -133,7 +135,11 @@ export function PublicSideBlock({ data, ariaLabel = "Bloco editorial lateral da 
               </div>
             ) : null}
             <div className="public-side-editorial-copy">
-              {data.label ? <span className="public-side-editorial-label">{data.label}</span> : null}
+              {data.label ? (
+                <span className="public-side-editorial-label" style={data.labelColor ? { color: data.labelColor } : undefined}>
+                  {data.label}
+                </span>
+              ) : null}
               {data.title ? (
                 data.linkUrl ? (
                   <a className="public-side-editorial-title-link" href={data.linkUrl}>
@@ -393,7 +399,11 @@ export function PublicLatestNewsBlock({ items, title = "Últimas notícias" }: {
               </div>
             ) : null}
             <div className="public-news-copy">
-              {item.timeLabel ? <time dateTime={item.timeLabel}>{item.timeLabel}</time> : null}
+              {item.timeLabel ? (
+                <time dateTime={item.timeLabel} style={item.timeLabelColor ? { color: item.timeLabelColor } : undefined}>
+                  {item.timeLabel}
+                </time>
+              ) : null}
               {item.linkUrl ? (
                 <a className="public-news-title" href={item.linkUrl}>{item.title}</a>
               ) : (
