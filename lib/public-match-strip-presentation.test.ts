@@ -228,6 +228,17 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
     assert.match(source, /<PublicMatchStrip/);
   }
 
+  assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\} variant="home" \/>/);
+  assert.match(componentSource, /variant\?: PublicMatchStripVariant/);
+  assert.match(componentSource, /data-visual-variant=\{visualVariant\}/);
+  assert.match(componentSource, /visualVariant !== "home"/);
+  assert.match(componentSource, /--public-match-home-backdrop-image/);
+  assert.match(componentSource, /--public-match-away-backdrop-image/);
+  assert.match(stylesSource, /\.panel\[data-visual-variant="home"\] \.row > \.card::before/);
+  assert.match(stylesSource, /var\(--public-match-home-backdrop-image\)/);
+  assert.match(stylesSource, /var\(--public-match-away-backdrop-image\)/);
+  assert.match(stylesSource, /clip-path: polygon\(0 0, 100% 0, 82% 100%, 0 100%\)/);
+
   assert.doesNotMatch(gamesSource, /import PublicMatchStrip|<PublicMatchStrip/);
   assert.doesNotMatch(gamesSource, /public-matchday-strip|data-matchday-strip/);
   assert.match(gamesSource, /import PublicMatchdayNavigation/);

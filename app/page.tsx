@@ -534,7 +534,7 @@ export default async function HomePage() {
       </header>
       </div>
 
-      <PublicMatchStrip matches={featuredMatches} />
+      <PublicMatchStrip matches={featuredMatches} variant="home" />
 
       <PublicEditorialLayout
         ariaLabel="Capa da jornada"
