@@ -121,14 +121,14 @@ test("resolveMatchdayHorizontalNewsItems preserva a fotografia da composicao pub
 
 
 
-test("resolveMatchdayHorizontalNewsItems usa a faixa viva quando a composicao publicada nao tem itens nessa zona", () => {
+test("resolveMatchdayHorizontalNewsItems respeita uma composicao publicada sem itens na faixa", () => {
   const items = resolveMatchdayHorizontalNewsItems({
     hasPublishedReferenceComposition: true,
     referenceItems: [],
     liveItems: [{ id: "live", title: "Noticia viva publicada", sortOrder: 1 }]
   });
 
-  assert.equal(items[0]?.id, "live");
+  assert.deepEqual(items, []);
 });
 
 test("resolveMatchdayHorizontalNewsItems devolve uma lista vazia sem noticias publicaveis", () => {

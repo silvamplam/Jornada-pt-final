@@ -93,9 +93,7 @@ export function resolveMatchdayHorizontalNewsItems({
   referenceItems: EditorialHorizontalNewsSource[];
   liveItems: EditorialHorizontalNewsSource[];
 }) {
-  const shouldUseReferenceItems = hasPublishedReferenceComposition && referenceItems.length > 0;
-
   return buildEditorialHorizontalNewsItems(
-    shouldUseReferenceItems ? referenceItems : liveItems
+    hasPublishedReferenceComposition ? referenceItems : liveItems
   );
 }
