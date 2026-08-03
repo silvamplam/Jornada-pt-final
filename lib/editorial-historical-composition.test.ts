@@ -10,6 +10,7 @@ function source(relativePath: string) {
 const compositionPageSource = source("app/admin/editorial/composicao/[matchdayId]/page.tsx");
 const compositionRouteSource = source("app/api/admin/editorial/composicao/route.ts");
 const automaticBankSqlSource = source("supabase/steps/73-composicao-historica-banco-automatico-apply.sql");
+const deletedSourceCleanupSqlSource = source("supabase/steps/77-composicao-historica-limpeza-origem-eliminada-apply.sql");
 
 test("o banco histórico apresenta um fluxo único, filtrável e sem origem editorial visível", () => {
   assert.match(compositionPageSource, /Banco histórico da jornada/);
@@ -60,4 +61,14 @@ test("a base de dados automatiza artigos e conteúdos publicados, reconcilia dup
   assert.match(automaticBankSqlSource, /matchday_editorial_bank_items_automatic_source_unique_idx/);
   assert.match(automaticBankSqlSource, /source_type = 'matchday_editorial_bank_item'/);
   assert.doesNotMatch(automaticBankSqlSource, /set status = 'active'/i);
+});
+
+
+test("eliminar uma origem limpa apenas os itens livres ou arquivados do banco", () => {
+  assert.match(deletedSourceCleanupSqlSource, /after delete on public\.editorial_articles/);
+  assert.match(deletedSourceCleanupSqlSource, /after delete on public\.editorial_contents/);
+  assert.match(deletedSourceCleanupSqlSource, /delete from public\.matchday_editorial_bank_items bank/);
+  assert.match(deletedSourceCleanupSqlSource, /composition_item\.source_id = bank\.id/);
+  assert.match(deletedSourceCleanupSqlSource, /matchday_editorial_bank_item/);
+  assert.doesNotMatch(deletedSourceCleanupSqlSource, /delete from public\.matchday_reference_composition_items/);
 });
