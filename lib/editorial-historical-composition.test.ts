@@ -11,6 +11,8 @@ const compositionPageSource = source("app/admin/editorial/composicao/[matchdayId
 const compositionRouteSource = source("app/api/admin/editorial/composicao/route.ts");
 const automaticBankSqlSource = source("supabase/steps/73-composicao-historica-banco-automatico-apply.sql");
 const deletedSourceCleanupSqlSource = source("supabase/steps/77-composicao-historica-limpeza-origem-eliminada-apply.sql");
+const articleRouteSource = source("app/api/admin/editorial/artigos/route.ts");
+const newsroomArticleDeleteSqlSource = source("supabase/steps/81-editorial-artigos-eliminacao-desvincular-redacao-automatica-apply.sql");
 
 test("o banco histórico apresenta um fluxo único, filtrável e sem origem editorial visível", () => {
   assert.match(compositionPageSource, /Banco histórico da jornada/);
@@ -71,4 +73,19 @@ test("eliminar uma origem limpa apenas os itens livres ou arquivados do banco", 
   assert.match(deletedSourceCleanupSqlSource, /composition_item\.source_id = bank\.id/);
   assert.match(deletedSourceCleanupSqlSource, /matchday_editorial_bank_item/);
   assert.doesNotMatch(deletedSourceCleanupSqlSource, /delete from public\.matchday_reference_composition_items/);
+});
+
+
+test("eliminar um artigo sem vínculos públicos limpa dependências internas sem destruir o plano", () => {
+  assert.match(articleRouteSource, /articleHasActiveLinks/);
+  assert.match(articleRouteSource, /matchday_reference_composition_items/);
+  assert.match(articleRouteSource, /throw new ArticleAdminError\("article-has-links"\)/);
+  assert.match(newsroomArticleDeleteSqlSource, /on delete set null/i);
+  assert.match(newsroomArticleDeleteSqlSource, /newsroom_editorial_dossier_article_plan_generations_article_fkey[\s\S]*on delete cascade/i);
+  assert.match(newsroomArticleDeleteSqlSource, /newsroom_editorial_compose_requests_article_fkey[\s\S]*on delete cascade/i);
+  assert.match(newsroomArticleDeleteSqlSource, /newsroom_reject_editorial_generation_mutation/);
+  assert.match(newsroomArticleDeleteSqlSource, /tg_op = 'DELETE'/i);
+  assert.match(newsroomArticleDeleteSqlSource, /not exists[\s\S]*public\.editorial_articles/i);
+  assert.match(newsroomArticleDeleteSqlSource, /editorial_generation_immutable/);
+  assert.doesNotMatch(newsroomArticleDeleteSqlSource, /delete from public\.matchday_reference_composition_items/i);
 });
