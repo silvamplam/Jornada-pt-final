@@ -1,8 +1,10 @@
 import Link from "next/link";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import { PublicEditorialLayout, type PublicEditorialHighlight, type PublicEditorialLatestNews } from "@/components/public/PublicEditorialLayout";
+import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
 import PublicMatchStrip, { type PublicMatchStripMatch } from "@/components/public/PublicMatchStrip";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
+import { buildEditorialHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import { readPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
@@ -78,6 +80,18 @@ type SiteLatestNews = {
   subtitle: string | null;
   link_url: string | null;
   image_url: string | null;
+  sort_order: number;
+  status: "draft" | "published";
+};
+
+type SiteHorizontalNews = {
+  id: string;
+  label: string | null;
+  label_color: string | null;
+  title: string | null;
+  subtitle: string | null;
+  image_url: string | null;
+  link_url: string | null;
   sort_order: number;
   status: "draft" | "published";
 };
@@ -304,6 +318,12 @@ async function readHomeLatestNews(siteEditorialId: string) {
   ).catch(() => []);
 }
 
+async function readHomeHorizontalNews(siteEditorialId: string) {
+  return fetchSupabaseAdminTable<SiteHorizontalNews>(
+    `site_editorial_horizontal_news?select=id,label,label_color,title,subtitle,image_url,link_url,sort_order,status&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}&status=eq.published&order=sort_order.asc`
+  ).catch(() => []);
+}
+
 async function readHomeFeaturedMatches(): Promise<PublicMatchStripMatch[]> {
   const featuredRows = await fetchSupabaseAdminTable<SiteFeaturedMatch>(
     "site_featured_matches?select=match_id,sort_order,created_at&order=sort_order.asc.nullslast,created_at.asc"
@@ -450,13 +470,14 @@ async function readBroadcastChannelsByMatchId(matchIds: string[], matches: HomeM
 export default async function HomePage() {
   const editorial = await readHomeEditorial();
   const [featuredMatches, competitionLinks] = await Promise.all([readHomeFeaturedMatches(), readPublicCompetitionMenu()]);
-  const [highlights, roundupItems, latestNews]: [SiteHighlight[], SiteRoundupItem[], SiteLatestNews[]] = editorial
+  const [highlights, roundupItems, latestNews, horizontalNews]: [SiteHighlight[], SiteRoundupItem[], SiteLatestNews[], SiteHorizontalNews[]] = editorial
     ? await Promise.all([
         readHomeHighlights(editorial.id),
         readHomeRoundupItems(editorial.id),
-        readHomeLatestNews(editorial.id)
+        readHomeLatestNews(editorial.id),
+        readHomeHorizontalNews(editorial.id)
       ])
-    : [[], [], []];
+    : [[], [], [], []];
   const headlineIsPublished = editorial?.status === "published";
   const headlineTitle = headlineIsPublished ? cleanText(editorial.headline_title) : null;
   const headlineSubtitle = headlineIsPublished ? cleanText(editorial.headline_subtitle) : null;
@@ -526,6 +547,18 @@ export default async function HomePage() {
     imageUrl: cleanText(item.image_url),
     linkUrl: cleanText(item.link_url)
   }));
+  const publicHorizontalNews = buildEditorialHorizontalNewsItems(
+    horizontalNews.map((item) => ({
+      id: item.id,
+      label: item.label,
+      labelColor: item.label_color,
+      title: item.title,
+      subtitle: item.subtitle,
+      imageUrl: item.image_url,
+      linkUrl: item.link_url,
+      sortOrder: item.sort_order
+    }))
+  );
 
   return (
     <main className="public-matchday-shell">
@@ -594,6 +627,8 @@ export default async function HomePage() {
         latestNews={publicLatestNews}
         latestNewsTitle={finalZoneTitle ?? ""}
       />
+
+      <PublicHorizontalNewsStrip items={publicHorizontalNews} ariaLabel="Faixa horizontal de noticias da Home" />
     </main>
   );
 }

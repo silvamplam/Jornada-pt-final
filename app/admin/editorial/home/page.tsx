@@ -1,3 +1,5 @@
+import EditorialHorizontalNewsEditor from "@/components/admin/EditorialHorizontalNewsEditor";
+import { buildEditorialHorizontalNewsEditorOrders } from "@/lib/editorial-horizontal-news";
 import {
   getEditorialPublishedSources,
   type EditorialPublishedSource
@@ -69,6 +71,21 @@ type SiteEditorialLatestNews = {
   time_label_color: string | null;
   title: string | null;
   subtitle?: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  status: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type SiteEditorialHorizontalNews = {
+  id: string;
+  site_editorial_id: string | null;
+  sort_order: number | null;
+  label: string | null;
+  label_color: string | null;
+  title: string | null;
+  subtitle: string | null;
   image_url: string | null;
   link_url: string | null;
   status: string | null;
@@ -191,6 +208,7 @@ type HomeEditorialData = {
   editorial: SiteEditorial | null;
   highlights: SiteEditorialHighlight[];
   latestNews: SiteEditorialLatestNews[];
+  horizontalNews: SiteEditorialHorizontalNews[];
   roundupItems: SiteEditorialRoundupItem[];
   featuredMatches: SiteFeaturedMatch[];
   error: string | null;
@@ -210,7 +228,7 @@ type PageProps = {
   }>;
 };
 
-type FeedbackScope = "games" | "headline" | "side" | "composition" | "complement" | "highlights" | "roundup" | "final-zone";
+type FeedbackScope = "games" | "headline" | "side" | "composition" | "complement" | "highlights" | "roundup" | "horizontal-news" | "final-zone";
 
 const homeEditorialStyles = `
   body {
@@ -1551,7 +1569,7 @@ function itemNumber(value: number | null | undefined, fallback: number) {
   return String(value ?? fallback).padStart(2, "0");
 }
 
-function itemAnchor(prefix: "home-highlight-item" | "home-roundup-item" | "home-final-item", number: string) {
+function itemAnchor(prefix: "home-highlight-item" | "home-roundup-item" | "home-horizontal-news-item" | "home-final-item", number: string) {
   return `${prefix}-${number}`;
 }
 
@@ -1565,6 +1583,10 @@ function highlightHasReadableContent(item: SiteEditorialHighlight) {
 
 function latestNewsHasReadableContent(item: SiteEditorialLatestNews) {
   return hasContent(item.title, item.subtitle, item.image_url, item.link_url, item.time_label);
+}
+
+function horizontalNewsHasReadableContent(item: SiteEditorialHorizontalNews) {
+  return hasContent(item.label, item.title, item.subtitle, item.image_url, item.link_url);
 }
 
 function inputValue(value: string | null | undefined) {
@@ -1637,6 +1659,8 @@ function errorMessage(error: string | undefined, detail?: string) {
     "invalid-roundup-item": "O Roundup contem um item que nao pertence a esta Home.",
     "invalid-roundup-type": "Tipo de Roundup invalido. Use video, resumo, golos ou noticia.",
     "invalid-final-zone-item": "A Zona Editorial Final contem um item que nao pertence a esta Home.",
+    "invalid-horizontal-news-item": "A faixa horizontal contem um item que nao pertence a esta Home.",
+    "horizontal-news-title-required": "Para publicar uma noticia na faixa horizontal, indica o titulo.",
     "empty-featured-selection": "Por seguranca, esta fase nao guarda uma selecao vazia. Mantem pelo menos um jogo selecionado.",
     "required-field": "O Supabase recusou a gravacao por campo obrigatorio em falta.",
     constraint: "O Supabase recusou a gravacao por constraint da tabela.",
@@ -1657,7 +1681,7 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
 }
 
 function scopedMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>, scope: FeedbackScope) {
-  if ((scope === "highlights" || scope === "roundup" || scope === "final-zone") && params.item) {
+  if ((scope === "highlights" || scope === "roundup" || scope === "horizontal-news" || scope === "final-zone") && params.item) {
     return null;
   }
 
@@ -1681,6 +1705,7 @@ function scopedMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>, 
     complement: "Complemento guardado com sucesso.",
     highlights: "Destaques abaixo da manchete guardados com sucesso.",
     roundup: "Videos / Resumo / Roundup guardados com sucesso.",
+    "horizontal-news": "Faixa horizontal de noticias guardada com sucesso.",
     "final-zone": "Zona Editorial Final guardada com sucesso."
   };
 
@@ -1689,7 +1714,7 @@ function scopedMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>, 
 
 function itemMessage(
   params: Awaited<NonNullable<PageProps["searchParams"]>>,
-  scope: Extract<FeedbackScope, "highlights" | "roundup" | "final-zone">,
+  scope: Extract<FeedbackScope, "highlights" | "roundup" | "horizontal-news" | "final-zone">,
   anchor: string,
   label: string
 ) {
@@ -1732,6 +1757,7 @@ async function readHomeEditorialData(): Promise<HomeEditorialData> {
         editorial: null,
         highlights: [],
         latestNews: [],
+        horizontalNews: [],
         roundupItems: [],
         featuredMatches: [],
         error: null
@@ -1739,13 +1765,16 @@ async function readHomeEditorialData(): Promise<HomeEditorialData> {
     }
 
     const encodedId = encodeURIComponent(editorial.id);
-    const [highlights, latestNews, roundupItems, featuredMatches] = await Promise.all([
+    const [highlights, latestNews, horizontalNews, roundupItems, featuredMatches] = await Promise.all([
       fetchSupabaseAdminTable<SiteEditorialHighlight>(
         `site_editorial_highlights?select=*&site_editorial_id=eq.${encodedId}&order=sort_order.asc`
       ),
       fetchSupabaseAdminTable<SiteEditorialLatestNews>(
         `site_editorial_latest_news?select=*&site_editorial_id=eq.${encodedId}&order=sort_order.asc`
       ),
+      fetchSupabaseAdminTable<SiteEditorialHorizontalNews>(
+        `site_editorial_horizontal_news?select=*&site_editorial_id=eq.${encodedId}&order=sort_order.asc`
+      ).catch(() => []),
       fetchSupabaseAdminTable<SiteEditorialRoundupItem>(
         `site_editorial_roundup_items?select=*&site_editorial_id=eq.${encodedId}&order=sort_order.asc`
       ),
@@ -1756,6 +1785,7 @@ async function readHomeEditorialData(): Promise<HomeEditorialData> {
       editorial,
       highlights,
       latestNews,
+      horizontalNews,
       roundupItems,
       featuredMatches,
       error: null
@@ -1765,6 +1795,7 @@ async function readHomeEditorialData(): Promise<HomeEditorialData> {
       editorial: null,
       highlights: [],
       latestNews: [],
+      horizontalNews: [],
       roundupItems: [],
       featuredMatches: [],
       error: error instanceof Error ? error.message : "Nao foi possivel ler as tabelas site_*."
@@ -1822,7 +1853,7 @@ async function readPublishedHomeEditorialArticles(): Promise<HomeEditorialArticl
 export default async function AdminEditorialHomePage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const [
-    { editorial, highlights, latestNews, roundupItems, featuredMatches, error },
+    { editorial, highlights, latestNews, horizontalNews, roundupItems, featuredMatches, error },
     gameSelection,
     publishedArticles,
     publishedSources
@@ -1833,6 +1864,30 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
     getEditorialPublishedSources().catch(() => [])
   ]);
   const visibleRoundupItems = roundupItems.filter(roundupHasReadableContent);
+  const horizontalNewsEditorItems = horizontalNews.map((item) => ({
+    id: item.id,
+    sortOrder: item.sort_order ?? 0,
+    label: item.label,
+    labelColor: item.label_color,
+    title: item.title,
+    subtitle: item.subtitle,
+    imageUrl: item.image_url,
+    linkUrl: item.link_url,
+    status: item.status
+  }));
+  const horizontalNewsEditorOrders = buildEditorialHorizontalNewsEditorOrders(horizontalNewsEditorItems);
+  const horizontalNewsSources = publishedSources.map((source) => ({
+    key: `${source.source_type}:${source.source_id}`,
+    optionLabel: `${textValue(source.title, source.source_slug, source.source_id)} - ${source.origin_label}`,
+    label: publishedSourceHighlightLabel(source),
+    title: textValue(source.title),
+    subtitle: publishedSourceHighlightSubtitle(source),
+    imageUrl: publishedSourceHighlightImageUrl(source),
+    linkUrl: textValue(source.link_url)
+  }));
+  const horizontalNewsOpenOrder = horizontalNewsEditorOrders.find(
+    (order) => params.item === itemAnchor("home-horizontal-news-item", String(order).padStart(2, "0"))
+  ) ?? null;
   const roundupEditorRows = [...roundupItems].sort((first, second) => (first.sort_order ?? 9999) - (second.sort_order ?? 9999));
   const fixedHighlightSlots = [1, 2, 3];
   const usedHighlightIds = new Set<string>();
@@ -1986,6 +2041,7 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
           <a href="#home-headline">Manchete</a>
           <a href="#home-side-block">Bloco lateral</a>
           <a href="#home-composition">Composicao</a>
+          <a href="#home-horizontal-news">Faixa horizontal</a>
           <a href="#home-final-zone">Zona Final</a>
         </nav>
 
@@ -2186,6 +2242,15 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                     />
                   );
                 })}
+                {horizontalNewsEditorOrders.map((order) => (
+                  <form
+                    action="/api/admin/editorial/home"
+                    className="home-admin-hidden-form"
+                    id={`home-horizontal-news-form-${order}`}
+                    key={`horizontal-news-form-${order}`}
+                    method="post"
+                  />
+                ))}
                 {finalZoneEditorRows.map((row) => {
                   return (
                     <form
@@ -2724,6 +2789,28 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                               ) : null}
                             </div>
                           </section>
+                          <EditorialHorizontalNewsEditor
+                            id="home-horizontal-news"
+                            description="Publica noticias numa faixa horizontal no fundo da Home. A zona cresce conforme o numero de noticias e apresenta cinco por linha no desktop."
+                            tableName="site_editorial_horizontal_news"
+                            items={horizontalNewsEditorItems}
+                            orders={horizontalNewsEditorOrders}
+                            sources={horizontalNewsSources}
+                            formIdForOrder={(order) => `home-horizontal-news-form-${order}`}
+                            hiddenFieldsForOrder={(order) => {
+                              const anchor = itemAnchor("home-horizontal-news-item", String(order).padStart(2, "0"));
+                              return [
+                                { name: "action_type", value: "update_horizontal_news_item" },
+                                { name: "site_editorial_id", value: editorial.id },
+                                { name: "return_anchor", value: anchor }
+                              ];
+                            }}
+                            messageForOrder={(order) => {
+                              const anchor = itemAnchor("home-horizontal-news-item", String(order).padStart(2, "0"));
+                              return <FeedbackMessage message={itemMessage(params, "horizontal-news", anchor, `Item #${String(order).padStart(2, "0")}`)} />;
+                            }}
+                            openOrder={horizontalNewsOpenOrder}
+                          />
                         </div>
 
                         <div className="home-admin-composition-side-stack">

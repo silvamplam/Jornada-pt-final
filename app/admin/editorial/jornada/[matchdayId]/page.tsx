@@ -1,3 +1,5 @@
+import EditorialHorizontalNewsEditor from "@/components/admin/EditorialHorizontalNewsEditor";
+import { buildEditorialHorizontalNewsEditorOrders } from "@/lib/editorial-horizontal-news";
 import {
   fetchSupabaseAdminTable,
   type SupabaseCompetition,
@@ -5,6 +7,7 @@ import {
   type SupabaseMatchday,
   type SupabaseMatchdayEditorial,
   type SupabaseMatchdayHighlight,
+  type SupabaseMatchdayHorizontalNews,
   type SupabaseMatchdayLatestNews,
   type SupabaseMatchdayRoundupItem,
   type SupabaseSeason
@@ -876,6 +879,14 @@ async function readMatchdayRoundupItems(matchdayId: string): Promise<SupabaseMat
   ).catch(() => []);
 }
 
+async function readMatchdayHorizontalNews(matchdayId: string): Promise<SupabaseMatchdayHorizontalNews[]> {
+  return fetchSupabaseAdminTable<SupabaseMatchdayHorizontalNews>(
+    `matchday_horizontal_news?select=id,matchday_id,label,label_color,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      matchdayId
+    )}&order=sort_order.asc`
+  ).catch(() => []);
+}
+
 async function readMatchdayLatestNews(matchdayId: string): Promise<SupabaseMatchdayLatestNews[]> {
   try {
     return await fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
@@ -914,7 +925,7 @@ async function readPublishedEditorialArticles(): Promise<EditorialArticleForSide
   ).catch(() => []);
 }
 
-type FeedbackScope = "manchete" | "bloco-lateral" | "composicao" | "destaques" | "resumo-jornada" | "bloco-complementar" | "ultimas-noticias";
+type FeedbackScope = "manchete" | "bloco-lateral" | "composicao" | "destaques" | "resumo-jornada" | "faixa-horizontal" | "bloco-complementar" | "ultimas-noticias";
 
 function messageFor(created?: string, error?: string, scope?: FeedbackScope, detail?: string) {
   const createdLabels: Record<string, string> = {
@@ -929,6 +940,7 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     save_matchday_roundup_item: "Item do Resumo da Jornada guardado.",
     save_matchday_latest_news: "Zona final da capa guardada.",
     save_matchday_latest_news_item: "Item da zona final guardado.",
+    save_matchday_horizontal_news_item: "Item da faixa horizontal guardado.",
     upload_matchday_editorial_image: "Imagem da manchete carregada.",
     upload_matchday_highlight_image: "Imagem do destaque carregada."
   };
@@ -955,6 +967,9 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
       save_matchday_roundup_items: "Resumo da Jornada guardado.",
       save_matchday_roundup_item: "Item do Resumo da Jornada guardado."
     },
+    "faixa-horizontal": {
+      save_matchday_horizontal_news_item: "Item da faixa horizontal guardado."
+    },
     "bloco-complementar": {
       save_matchday_complement: "Bloco complementar guardado.",
       save_matchday_editorial: "Bloco complementar guardado."
@@ -972,6 +987,8 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     "editorial-title-required": "Para publicar, indica uma manchete da jornada.",
     "highlight-title-required": "Para publicar um destaque, indica o titulo.",
     "latest-news-title-required": "Para publicar uma noticia, indica o titulo.",
+    "horizontal-news-title-required": "Para publicar uma noticia na faixa horizontal, indica o titulo.",
+    "horizontal-news-save-failed": "Nao foi possivel guardar a faixa horizontal de noticias.",
     "editorial-image-type": "O ficheiro tem de ser uma imagem JPG, PNG ou WebP.",
     "editorial-image-size": "A imagem nao pode ter mais de 5MB.",
     "editorial-image-upload": "Nao foi possivel carregar a imagem. Confirma o bucket de Storage.",
@@ -1011,6 +1028,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const feedbackScope = oneParam(query, "feedback_scope");
   const feedbackItem = oneParam(query, "feedback_item");
   const latestNewsErrorDetail = oneParam(query, "latest_news_error_detail");
+  const horizontalNewsErrorDetail = oneParam(query, "horizontal_news_error_detail");
   const context = await readMatchdayContext(matchdayId);
 
   if (!context) {
@@ -1035,6 +1053,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const highlights = await readMatchdayHighlights(matchday.id);
   const roundupItems = await readMatchdayRoundupItems(matchday.id);
   const latestNews = await readMatchdayLatestNews(matchday.id);
+  const horizontalNews = await readMatchdayHorizontalNews(matchday.id);
   const publishedReferenceComposition = await readPublishedReferenceComposition(matchday.id);
   const publishedEditorialArticles = await readPublishedEditorialArticles();
   const publishedSources = await getEditorialPublishedSources({
@@ -1061,6 +1080,8 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
     `${returnTo}?feedback_scope=destaques&feedback_item=highlight-${paddedOrder(order)}#highlight-item-${paddedOrder(order)}`;
   const returnToResumoItem = (order: number) =>
     `${returnTo}?feedback_scope=resumo-jornada&feedback_item=roundup-${paddedOrder(order)}#roundup-item-${paddedOrder(order)}`;
+  const returnToHorizontalNewsItem = (order: number) =>
+    `${returnTo}?feedback_scope=faixa-horizontal&feedback_item=horizontal-news-${paddedOrder(order)}#faixa-horizontal-item-${paddedOrder(order)}`;
   const returnToLatestNewsItem = (order: number) =>
     `${returnTo}?feedback_scope=ultimas-noticias&feedback_item=latest-news-${paddedOrder(order)}#latest-news-item-${paddedOrder(order)}`;
   const itemMessageFor = (scope: FeedbackScope, itemKey: string, detail?: string) =>
@@ -1071,6 +1092,30 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const selectorCompetitionById = new Map(contextSelector.competitions.map((item) => [item.id, item]));
   const selectorSeasonById = new Map(contextSelector.seasons.map((item) => [item.id, item]));
   const belowHeadlineSettingsFormId = "below-headline-settings-form";
+  const horizontalNewsSources = publishedSources.map((source) => ({
+    key: `${source.source_type}:${source.source_id}`,
+    optionLabel: publishedSourceOptionLabel(source),
+    label: publishedSourceComplementLabel(source),
+    title: cleanText(source.title),
+    subtitle: publishedSourceComplementText(source),
+    imageUrl: publishedSourceComplementImageUrl(source),
+    linkUrl: cleanText(source.link_url)
+  }));
+  const horizontalNewsEditorItems = horizontalNews.map((item) => ({
+    id: item.id,
+    sortOrder: item.sort_order,
+    label: item.label,
+    labelColor: item.label_color ?? null,
+    title: item.title,
+    subtitle: item.subtitle,
+    imageUrl: item.image_url,
+    linkUrl: item.link_url,
+    status: item.status
+  }));
+  const horizontalNewsEditorOrders = buildEditorialHorizontalNewsEditorOrders(horizontalNewsEditorItems);
+  const horizontalNewsOpenOrder = horizontalNewsEditorOrders.find(
+    (order) => feedbackScope === "faixa-horizontal" && feedbackItem === `horizontal-news-${paddedOrder(order)}`
+  ) ?? null;
 
   const highlightsEditor = (
     <>
@@ -1629,6 +1674,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
 
       <nav className="editorial-admin-block-nav" aria-label="Navegacao interna da Editorial da Jornada">
         <a href="#composicao">Abaixo da manchete</a>
+        <a href="#faixa-horizontal">Faixa horizontal</a>
         <a href="#ultimas-noticias">Zona Final</a>
       </nav>
 
@@ -2078,6 +2124,33 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 {scopedMessageFor(created, error, feedbackScope, "resumo-jornada")}
                 {roundupEditor}
               </div>
+              {horizontalNewsEditorOrders.map((order) => (
+                <form
+                  action="/api/admin/gestor"
+                  className="editorial-admin-hidden-form"
+                  id={`matchday-horizontal-news-form-${order}`}
+                  key={`matchday-horizontal-news-form-${order}`}
+                  method="post"
+                />
+              ))}
+              <EditorialHorizontalNewsEditor
+                id="faixa-horizontal"
+                description="Publica noticias entre o conteudo editorial e a classificacao. A zona cresce conforme o numero de noticias, apresenta cinco por linha no desktop e desaparece por completo quando esta vazia."
+                tableName="matchday_horizontal_news"
+                items={horizontalNewsEditorItems}
+                orders={horizontalNewsEditorOrders}
+                sources={horizontalNewsSources}
+                formIdForOrder={(order) => `matchday-horizontal-news-form-${order}`}
+                hiddenFieldsForOrder={(order) => [
+                  { name: "action_type", value: "save_matchday_horizontal_news_item" },
+                  { name: "return_to", value: returnToHorizontalNewsItem(order) },
+                  { name: "matchday_id", value: matchday.id }
+                ]}
+                messageForOrder={(order) =>
+                  itemMessageFor("faixa-horizontal", `horizontal-news-${paddedOrder(order)}`, horizontalNewsErrorDetail)
+                }
+                openOrder={horizontalNewsOpenOrder}
+              />
             </div>
 
             <div className="editorial-admin-composition-side-stack">

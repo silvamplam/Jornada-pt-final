@@ -275,6 +275,7 @@ function returnUrl(request: Request, formData: FormData, key: "created" | "error
   url.searchParams.delete("calendar_apply_summary");
   url.searchParams.delete("clear_calendar_error_detail");
   url.searchParams.delete("latest_news_error_detail");
+  url.searchParams.delete("horizontal_news_error_detail");
   url.searchParams.set(key, value);
   Object.entries(extraParams ?? {}).forEach(([paramKey, paramValue]) => {
     url.searchParams.set(paramKey, paramValue);
@@ -1327,7 +1328,7 @@ async function saveMatchdayHighlightItem(formData: FormData) {
   const linkUrl = cleanText(formData.get("highlight_link_url"));
   const statusValue = cleanText(formData.get("highlight_status")) ?? "draft";
   const status = statusValue === "published" ? "published" : "draft";
-  const hasContent = Boolean(label || title || subtitle || imageUrl || linkUrl);
+  const hasContent = Boolean(label || labelColor || title || subtitle || imageUrl || linkUrl);
 
   if (status === "published" && !title) {
     throw new Error("highlight-title-required");
@@ -1695,6 +1696,84 @@ async function saveMatchdayLatestNewsItem(formData: FormData) {
     );
   } else {
     await writeSupabaseAdmin("matchday_latest_news", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  }
+}
+
+async function saveMatchdayHorizontalNewsItem(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const sortOrder = cleanInteger(formData.get("horizontal_news_sort_order"));
+  const newsId = cleanText(formData.get("horizontal_news_id"));
+
+  if (!matchdayId || !sortOrder || sortOrder < 1) {
+    throw new Error("missing-fields");
+  }
+
+  if (!(await hasRows(`matchdays?select=id&id=eq.${encodeURIComponent(matchdayId)}`))) {
+    throw new Error("matchday-invalid");
+  }
+
+  const existingRows = newsId
+    ? await fetchSupabaseAdminTable<{ id: string; sort_order: number }>(
+        `matchday_horizontal_news?select=id,sort_order&id=eq.${encodeURIComponent(newsId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
+      ).catch(() => [])
+    : await fetchSupabaseAdminTable<{ id: string; sort_order: number }>(
+        `matchday_horizontal_news?select=id,sort_order&matchday_id=eq.${encodeURIComponent(matchdayId)}&sort_order=eq.${sortOrder}&limit=1`
+      ).catch(() => []);
+  const existingItem = existingRows[0] ?? null;
+  if (newsId && (!existingItem || existingItem.sort_order !== sortOrder)) {
+    throw new Error("horizontal-news-item-invalid");
+  }
+
+  const label = cleanText(formData.get("horizontal_news_label"));
+  const labelColor = cleanHexColor(formData.get("horizontal_news_label_color"));
+  const title = cleanText(formData.get("horizontal_news_title"));
+  const subtitle = cleanText(formData.get("horizontal_news_subtitle"));
+  const imageUrl = cleanText(formData.get("horizontal_news_image_url"));
+  const linkUrl = cleanText(formData.get("horizontal_news_link_url"));
+  const statusValue = cleanText(formData.get("horizontal_news_status")) ?? "draft";
+  const status = statusValue === "published" ? "published" : "draft";
+  const hasContent = Boolean(label || labelColor || title || subtitle || imageUrl || linkUrl);
+
+  if (cleanText(formData.get("horizontal_news_delete")) === "1") {
+    if (existingItem) {
+      await writeSupabaseAdmin(
+        `matchday_horizontal_news?id=eq.${encodeURIComponent(existingItem.id)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+        { method: "DELETE" }
+      );
+    }
+    return;
+  }
+
+  if (status === "published" && !title) {
+    throw new Error("horizontal-news-title-required");
+  }
+
+  const payload = {
+    matchday_id: matchdayId,
+    label,
+    label_color: labelColor,
+    title,
+    subtitle,
+    image_url: imageUrl,
+    link_url: linkUrl,
+    sort_order: sortOrder,
+    status,
+    updated_at: new Date().toISOString()
+  };
+
+  if (existingItem) {
+    await writeSupabaseAdmin(
+      `matchday_horizontal_news?id=eq.${encodeURIComponent(existingItem.id)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      }
+    );
+  } else if (hasContent || status === "published") {
+    await writeSupabaseAdmin("matchday_horizontal_news", {
       method: "POST",
       body: JSON.stringify(payload)
     });
@@ -2990,6 +3069,8 @@ export async function POST(request: Request) {
       await saveMatchdayLatestNews(formData);
     } else if (actionType === "save_matchday_latest_news_item") {
       await saveMatchdayLatestNewsItem(formData);
+    } else if (actionType === "save_matchday_horizontal_news_item") {
+      await saveMatchdayHorizontalNewsItem(formData);
     } else if (actionType === "match") {
       await createMatch(formData);
     } else if (actionType === "update_match") {
@@ -3020,6 +3101,12 @@ export async function POST(request: Request) {
     if (actionType === "save_matchday_latest_news" || actionType === "save_matchday_latest_news_item") {
       return returnUrl(request, formData, "error", "latest-news-save-failed", {
         latest_news_error_detail: shortActionError(error)
+      });
+    }
+
+    if (actionType === "save_matchday_horizontal_news_item") {
+      return returnUrl(request, formData, "error", "horizontal-news-save-failed", {
+        horizontal_news_error_detail: shortActionError(error)
       });
     }
 

@@ -151,15 +151,20 @@ test("a rota pública não contém placeholders editoriais nem imagens fictícia
   assert.doesNotMatch(publicMatchdayPageSource, /images\.unsplash\.com/i);
 });
 
-test("a capa editorial é condicional e a classificação permanece depois dela", () => {
+test("a capa editorial e a faixa horizontal ficam antes da classificação", () => {
   const conditionalCoverIndex = publicMatchdayPageSource.indexOf(
     "{editorialVisibility.showCoverPanel ? ("
+  );
+  const horizontalNewsIndex = publicMatchdayPageSource.indexOf(
+    "<PublicHorizontalNewsStrip"
   );
   const classificationIndex = publicMatchdayPageSource.indexOf(
     'id="classificacao"'
   );
 
   assert.notEqual(conditionalCoverIndex, -1);
+  assert.notEqual(horizontalNewsIndex, -1);
   assert.notEqual(classificationIndex, -1);
-  assert.ok(conditionalCoverIndex < classificationIndex);
+  assert.ok(conditionalCoverIndex < horizontalNewsIndex);
+  assert.ok(horizontalNewsIndex < classificationIndex);
 });

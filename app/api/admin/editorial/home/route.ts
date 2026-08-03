@@ -29,6 +29,12 @@ type SiteEditorialLatestNewsRow = {
   sort_order: number | null;
 };
 
+type SiteEditorialHorizontalNewsRow = {
+  id: string;
+  site_editorial_id: string | null;
+  sort_order: number | null;
+};
+
 type SiteEditorialRoundupItemRow = {
   id: string;
   site_editorial_id: string | null;
@@ -119,7 +125,7 @@ function cleanReturnAnchor(value: FormDataEntryValue | null) {
     return null;
   }
 
-  if (/^home-(highlight|roundup|final)-item-\d{2,3}$/.test(cleanValue)) {
+  if (/^home-(highlight|roundup|horizontal-news|final)-item-\d{2,3}$/.test(cleanValue)) {
     return cleanValue;
   }
 
@@ -199,6 +205,7 @@ const contextAnchors = {
   complement: "home-complement",
   highlights: "home-highlights",
   roundup: "home-roundup",
+  "horizontal-news": "home-horizontal-news",
   "final-zone": "home-final-zone"
 } as const;
 
@@ -428,6 +435,10 @@ function hasRoundupContent(payload: Record<string, string | number | null>) {
   return Boolean(payload.label || payload.title || payload.subtitle || payload.image_url || payload.video_url || payload.duration);
 }
 
+function hasHorizontalNewsContent(payload: Record<string, string | number | null>) {
+  return Boolean(payload.label || payload.label_color || payload.title || payload.subtitle || payload.image_url || payload.link_url);
+}
+
 async function updateHighlights(request: Request, formData: FormData) {
   const siteEditorialId = cleanText(formData.get("site_editorial_id"));
   if (!siteEditorialId) {
@@ -628,6 +639,89 @@ async function updateRoundupItems(request: Request, formData: FormData) {
   }, returnAnchor ?? contextAnchors.roundup);
 }
 
+async function updateHorizontalNewsItem(request: Request, formData: FormData) {
+  const siteEditorialId = cleanText(formData.get("site_editorial_id"));
+  const returnAnchor = cleanReturnAnchor(formData.get("return_anchor"));
+  const rowId = cleanText(formData.get("horizontal_news_id"));
+  const sortOrder = cleanInteger(formData.get("horizontal_news_sort_order"));
+
+  if (!siteEditorialId) {
+    throw new HomeEditorialAdminError("missing-home-editorial");
+  }
+  if (!sortOrder || sortOrder < 1) {
+    throw new HomeEditorialAdminError("invalid-horizontal-news-item");
+  }
+
+  await ensureHomeEditorialExists(siteEditorialId);
+
+  const existingRows = rowId
+    ? await fetchSupabaseAdminTable<SiteEditorialHorizontalNewsRow>(
+        `site_editorial_horizontal_news?select=id,site_editorial_id,sort_order&id=eq.${encodeURIComponent(rowId)}&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}&limit=1`
+      ).catch(() => [])
+    : await fetchSupabaseAdminTable<SiteEditorialHorizontalNewsRow>(
+        `site_editorial_horizontal_news?select=id,site_editorial_id,sort_order&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}&sort_order=eq.${sortOrder}&limit=1`
+      ).catch(() => []);
+  const existingItem = existingRows[0] ?? null;
+  if (rowId && (!existingItem || existingItem.sort_order !== sortOrder)) {
+    throw new HomeEditorialAdminError("invalid-horizontal-news-item");
+  }
+
+  const payload = {
+    site_editorial_id: siteEditorialId,
+    label: cleanText(formData.get("horizontal_news_label")),
+    label_color: cleanColor(cleanText(formData.get("horizontal_news_label_color"))),
+    title: cleanText(formData.get("horizontal_news_title")),
+    subtitle: cleanText(formData.get("horizontal_news_subtitle")),
+    image_url: cleanText(formData.get("horizontal_news_image_url")),
+    link_url: cleanText(formData.get("horizontal_news_link_url")),
+    sort_order: sortOrder,
+    status: cleanStatus(cleanText(formData.get("horizontal_news_status"))),
+    updated_at: new Date().toISOString()
+  };
+
+  if (cleanText(formData.get("horizontal_news_delete")) === "1") {
+    if (existingItem) {
+      await writeSupabaseAdmin(
+        `site_editorial_horizontal_news?id=eq.${encodeURIComponent(existingItem.id)}&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}`,
+        { method: "DELETE" }
+      );
+    }
+
+    return redirectTo(request, {
+      saved: "horizontal-news",
+      ...(returnAnchor ? { item: returnAnchor } : {})
+    }, returnAnchor ?? contextAnchors["horizontal-news"]);
+  }
+
+  if (payload.status === "published" && !payload.title) {
+    throw new HomeEditorialAdminError("horizontal-news-title-required");
+  }
+
+  if (existingItem) {
+    await writeSupabaseAdmin(
+      `site_editorial_horizontal_news?id=eq.${encodeURIComponent(existingItem.id)}&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      }
+    );
+  } else if (hasHorizontalNewsContent(payload) || payload.status === "published") {
+    await writeSupabaseAdmin("site_editorial_horizontal_news", {
+      method: "POST",
+      body: JSON.stringify({
+        id: randomUUID(),
+        created_at: new Date().toISOString(),
+        ...payload
+      })
+    });
+  }
+
+  return redirectTo(request, {
+    saved: "horizontal-news",
+    ...(returnAnchor ? { item: returnAnchor } : {})
+  }, returnAnchor ?? contextAnchors["horizontal-news"]);
+}
+
 async function updateFinalZone(request: Request, formData: FormData) {
   const siteEditorialId = cleanText(formData.get("site_editorial_id"));
   const returnAnchor = cleanReturnAnchor(formData.get("return_anchor"));
@@ -706,6 +800,8 @@ export async function POST(request: Request) {
       ? "highlights"
     : actionType === "update_roundup_items"
       ? "roundup"
+    : actionType === "update_horizontal_news_item"
+      ? "horizontal-news"
     : actionType === "update_final_zone"
       ? "final-zone"
     : cleanSaveContext(cleanText(formData.get("save_context"))) ?? "headline";
@@ -716,6 +812,7 @@ export async function POST(request: Request) {
     actionType !== "update_highlight_item" &&
     actionType !== "update_highlights" &&
     actionType !== "update_roundup_items" &&
+    actionType !== "update_horizontal_news_item" &&
     actionType !== "update_final_zone"
   ) {
     return redirectTo(request, { error: "invalid-action", failed: saveContext }, contextAnchors[saveContext]);
@@ -733,6 +830,9 @@ export async function POST(request: Request) {
     }
     if (actionType === "update_roundup_items") {
       return await updateRoundupItems(request, formData);
+    }
+    if (actionType === "update_horizontal_news_item") {
+      return await updateHorizontalNewsItem(request, formData);
     }
     if (actionType === "update_final_zone") {
       return await updateFinalZone(request, formData);

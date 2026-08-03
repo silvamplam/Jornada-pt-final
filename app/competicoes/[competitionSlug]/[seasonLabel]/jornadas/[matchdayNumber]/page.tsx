@@ -3,10 +3,12 @@ import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
+import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import { buildPublicMatchdayEditorialVisibility } from "@/lib/public-matchday-editorial-visibility";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
+import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
@@ -3630,21 +3632,31 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         linkUrl: item.link_url?.trim() || null
       })).filter((item) => item.title.length > 0);
   const showLatestZone = latestNewsItems.length > 0;
-  const importantNewsItems = usePublishedReferenceComposition
-    ? [...(context.referenceSlots.important_item ?? [])]
-        .filter(hasReferenceSlotContent)
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map((item) => ({
-          id: item.id,
-          label: publicFreeZoneReferenceLabel(item),
-          title: cleanReferenceSnapshotText(item.title_snapshot) || "",
-          subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot),
-          imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
-          linkUrl: cleanReferenceSnapshotText(item.link_url_snapshot)
-        }))
-        .filter((item) => item.title.length > 0)
-    : [];
-  const showImportantNews = importantNewsItems.length > 0;
+  const importantNewsItems = resolveMatchdayHorizontalNewsItems({
+    hasPublishedReferenceComposition: usePublishedReferenceComposition,
+    referenceItems: [...(context.referenceSlots.important_item ?? [])]
+      .filter(hasReferenceSlotContent)
+      .map((item) => ({
+        id: item.id,
+        label: publicFreeZoneReferenceLabel(item),
+        labelColor: cleanReferenceSnapshotText(item.label_color_snapshot),
+        title: cleanReferenceSnapshotText(item.title_snapshot),
+        subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot),
+        imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
+        linkUrl: cleanReferenceSnapshotText(item.link_url_snapshot),
+        sortOrder: item.sort_order
+      })),
+    liveItems: context.horizontalNews.map((item) => ({
+      id: item.id,
+      label: item.label,
+      labelColor: item.label_color ?? null,
+      title: item.title,
+      subtitle: item.subtitle,
+      imageUrl: item.image_url,
+      linkUrl: item.link_url,
+      sortOrder: item.sort_order
+    }))
+  });
   const showBelowHeadlineEditorialStrip =
     belowHeadlineMode === "highlights" ? effectiveHighlights.length > 0 : effectiveRoundupItems.length > 0;
   const editorialVisibility = buildPublicMatchdayEditorialVisibility({
@@ -3996,34 +4008,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       </section>
       ) : null}
 
-      {editorialVisibility.showImportantNews ? (
-        <section className="public-matchday-panel public-important-news" aria-label="Mais notícias da jornada">
-          <div className="public-important-news-grid">
-            {importantNewsItems.map((item) => (
-                <article className="public-important-news-card" key={item.id}>
-                  {item.imageUrl && item.linkUrl ? (
-                    <a className="public-important-news-image-link" href={item.linkUrl}>
-                      <img src={item.imageUrl} alt="" />
-                    </a>
-                  ) : item.imageUrl ? (
-                    <span className="public-important-news-image">
-                      <img src={item.imageUrl} alt="" />
-                    </span>
-                  ) : null}
-                  {item.label ? <span className="public-important-news-label">{item.label}</span> : null}
-                  {item.linkUrl ? (
-                    <a className="public-important-news-title" href={item.linkUrl}>
-                      {item.title}
-                    </a>
-                  ) : (
-                    <strong className="public-important-news-title">{item.title}</strong>
-                  )}
-                  {item.subtitle ? <p>{item.subtitle}</p> : null}
-                </article>
-              ))}
-          </div>
-        </section>
-      ) : null}
+      <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" />
 
       <section className="public-matchday-panel" id="classificacao" aria-label="Classificacao acumulada">
         <div className="public-table-wrap">
