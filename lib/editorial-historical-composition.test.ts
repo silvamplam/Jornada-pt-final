@@ -10,7 +10,7 @@ function source(relativePath: string) {
 const compositionPageSource = source("app/admin/editorial/composicao/[matchdayId]/page.tsx");
 const compositionRouteSource = source("app/api/admin/editorial/composicao/route.ts");
 const automaticBankSqlSource = source("supabase/steps/73-composicao-historica-banco-automatico-apply.sql");
-const deletedSourceCleanupSqlSource = source("supabase/steps/77-composicao-historica-limpeza-origem-eliminada-apply.sql");
+const deletedSourceCleanupSqlSource = source("supabase/steps/85-composicao-historica-limpeza-total-origem-eliminada-apply.sql");
 const articleRouteSource = source("app/api/admin/editorial/artigos/route.ts");
 const newsroomArticleDeleteSqlSource = source("supabase/steps/81-editorial-artigos-eliminacao-desvincular-redacao-automatica-apply.sql");
 
@@ -66,13 +66,14 @@ test("a base de dados automatiza artigos e conteúdos publicados, reconcilia dup
 });
 
 
-test("eliminar uma origem limpa apenas os itens livres ou arquivados do banco", () => {
+test("eliminar uma origem limpa as composições internas e remove definitivamente a entrada do banco", () => {
   assert.match(deletedSourceCleanupSqlSource, /after delete on public\.editorial_articles/);
   assert.match(deletedSourceCleanupSqlSource, /after delete on public\.editorial_contents/);
-  assert.match(deletedSourceCleanupSqlSource, /delete from public\.matchday_editorial_bank_items bank/);
+  assert.match(deletedSourceCleanupSqlSource, /delete from public\.matchday_reference_composition_items/);
   assert.match(deletedSourceCleanupSqlSource, /composition_item\.source_id = bank\.id/);
-  assert.match(deletedSourceCleanupSqlSource, /matchday_editorial_bank_item/);
-  assert.doesNotMatch(deletedSourceCleanupSqlSource, /delete from public\.matchday_reference_composition_items/);
+  assert.match(deletedSourceCleanupSqlSource, /delete from public\.matchday_editorial_bank_items bank/);
+  assert.match(deletedSourceCleanupSqlSource, /not exists[\s\S]*public\.editorial_articles/);
+  assert.match(deletedSourceCleanupSqlSource, /not exists[\s\S]*public\.editorial_contents/);
 });
 
 
