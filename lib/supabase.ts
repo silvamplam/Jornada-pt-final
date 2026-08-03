@@ -180,6 +180,20 @@ export type SupabaseMatchdayLatestNews = {
   updated_at: string;
 };
 
+export type SupabaseMatchdayHorizontalNews = {
+  id: string;
+  matchday_id: string;
+  label: string | null;
+  title: string | null;
+  subtitle: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  sort_order: number;
+  status: "draft" | "published";
+  created_at: string;
+  updated_at: string;
+};
+
 export type SupabaseTeam = {
   id: string;
   name: string;
