@@ -184,6 +184,7 @@ export type SupabaseMatchdayHorizontalNews = {
   id: string;
   matchday_id: string;
   label: string | null;
+  label_color?: string | null;
   title: string | null;
   subtitle: string | null;
   image_url: string | null;

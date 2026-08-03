@@ -3639,6 +3639,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       .map((item) => ({
         id: item.id,
         label: publicFreeZoneReferenceLabel(item),
+        labelColor: cleanReferenceSnapshotText(item.label_color_snapshot),
         title: cleanReferenceSnapshotText(item.title_snapshot),
         subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot),
         imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
@@ -3648,6 +3649,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     liveItems: context.horizontalNews.map((item) => ({
       id: item.id,
       label: item.label,
+      labelColor: item.label_color ?? null,
       title: item.title,
       subtitle: item.subtitle,
       imageUrl: item.image_url,
@@ -4006,7 +4008,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       </section>
       ) : null}
 
-      <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Mais noticias da jornada" />
+      <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" />
 
       <section className="public-matchday-panel" id="classificacao" aria-label="Classificacao acumulada">
         <div className="public-table-wrap">

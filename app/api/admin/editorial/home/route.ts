@@ -436,7 +436,7 @@ function hasRoundupContent(payload: Record<string, string | number | null>) {
 }
 
 function hasHorizontalNewsContent(payload: Record<string, string | number | null>) {
-  return Boolean(payload.label || payload.title || payload.subtitle || payload.image_url || payload.link_url);
+  return Boolean(payload.label || payload.label_color || payload.title || payload.subtitle || payload.image_url || payload.link_url);
 }
 
 async function updateHighlights(request: Request, formData: FormData) {
@@ -648,7 +648,7 @@ async function updateHorizontalNewsItem(request: Request, formData: FormData) {
   if (!siteEditorialId) {
     throw new HomeEditorialAdminError("missing-home-editorial");
   }
-  if (!sortOrder || ![1, 2, 3, 4].includes(sortOrder)) {
+  if (!sortOrder || sortOrder < 1) {
     throw new HomeEditorialAdminError("invalid-horizontal-news-item");
   }
 
@@ -669,6 +669,7 @@ async function updateHorizontalNewsItem(request: Request, formData: FormData) {
   const payload = {
     site_editorial_id: siteEditorialId,
     label: cleanText(formData.get("horizontal_news_label")),
+    label_color: cleanColor(cleanText(formData.get("horizontal_news_label_color"))),
     title: cleanText(formData.get("horizontal_news_title")),
     subtitle: cleanText(formData.get("horizontal_news_subtitle")),
     image_url: cleanText(formData.get("horizontal_news_image_url")),
@@ -677,6 +678,20 @@ async function updateHorizontalNewsItem(request: Request, formData: FormData) {
     status: cleanStatus(cleanText(formData.get("horizontal_news_status"))),
     updated_at: new Date().toISOString()
   };
+
+  if (cleanText(formData.get("horizontal_news_delete")) === "1") {
+    if (existingItem) {
+      await writeSupabaseAdmin(
+        `site_editorial_horizontal_news?id=eq.${encodeURIComponent(existingItem.id)}&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}`,
+        { method: "DELETE" }
+      );
+    }
+
+    return redirectTo(request, {
+      saved: "horizontal-news",
+      ...(returnAnchor ? { item: returnAnchor } : {})
+    }, returnAnchor ?? contextAnchors["horizontal-news"]);
+  }
 
   if (payload.status === "published" && !payload.title) {
     throw new HomeEditorialAdminError("horizontal-news-title-required");

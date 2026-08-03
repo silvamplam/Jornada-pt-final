@@ -4,6 +4,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  buildEditorialHorizontalNewsEditorOrders,
   buildEditorialHorizontalNewsItems,
   resolveMatchdayHorizontalNewsItems
 } from "./editorial-horizontal-news";
@@ -35,6 +36,7 @@ test("buildEditorialHorizontalNewsItems ordena, limpa e exclui linhas sem titulo
     {
       id: "first",
       label: null,
+      labelColor: null,
       title: "Primeira noticia",
       subtitle: null,
       imageUrl: null,
@@ -44,6 +46,7 @@ test("buildEditorialHorizontalNewsItems ordena, limpa e exclui linhas sem titulo
     {
       id: "third",
       label: "Analise",
+      labelColor: null,
       title: "Terceira noticia",
       subtitle: "Contexto",
       imageUrl: "/image.jpg",
@@ -51,6 +54,37 @@ test("buildEditorialHorizontalNewsItems ordena, limpa e exclui linhas sem titulo
       sortOrder: 3
     }
   ]);
+});
+
+
+
+test("buildEditorialHorizontalNewsItems nao limita a quantidade e preserva a cor do antetitulo", () => {
+  const sources = Array.from({ length: 10 }, (_, index) => ({
+    id: `item-${index + 1}`,
+    label: `Etiqueta ${index + 1}`,
+    labelColor: index === 0 ? "  #123456  " : null,
+    title: `Noticia ${index + 1}`,
+    sortOrder: index + 1
+  }));
+
+  const items = buildEditorialHorizontalNewsItems(sources);
+
+  assert.equal(items.length, 10);
+  assert.equal(items[0]?.labelColor, "#123456");
+  assert.equal(items[9]?.sortOrder, 10);
+});
+
+test("buildEditorialHorizontalNewsEditorOrders mantem as posicoes existentes e cria a seguinte", () => {
+  assert.deepEqual(
+    buildEditorialHorizontalNewsEditorOrders([
+      { sortOrder: 5 },
+      { sortOrder: 2 },
+      { sortOrder: 5 },
+      { sortOrder: 0 }
+    ]),
+    [2, 5, 6]
+  );
+  assert.deepEqual(buildEditorialHorizontalNewsEditorOrders([]), [1]);
 });
 
 test("resolveMatchdayHorizontalNewsItems preserva a fotografia da composicao publicada", () => {
@@ -73,6 +107,18 @@ test("resolveMatchdayHorizontalNewsItems preserva a fotografia da composicao pub
     })[0]?.id,
     "live"
   );
+});
+
+
+
+test("resolveMatchdayHorizontalNewsItems usa a faixa viva quando a composicao publicada nao tem itens nessa zona", () => {
+  const items = resolveMatchdayHorizontalNewsItems({
+    hasPublishedReferenceComposition: true,
+    referenceItems: [],
+    liveItems: [{ id: "live", title: "Noticia viva publicada", sortOrder: 1 }]
+  });
+
+  assert.equal(items[0]?.id, "live");
 });
 
 test("resolveMatchdayHorizontalNewsItems devolve uma lista vazia sem noticias publicaveis", () => {
@@ -98,4 +144,40 @@ test("a faixa horizontal da Home fica depois de toda a composição editorial ex
   assert.notEqual(editorialLayoutIndex, -1);
   assert.notEqual(horizontalNewsIndex, -1);
   assert.ok(editorialLayoutIndex < horizontalNewsIndex);
+});
+
+
+const publicHorizontalNewsSource = readFileSync(
+  fileURLToPath(new URL("../components/public/PublicHorizontalNewsStrip.tsx", import.meta.url)),
+  "utf8"
+);
+const compositionPageSource = readFileSync(
+  fileURLToPath(new URL("../app/admin/editorial/composicao/[matchdayId]/page.tsx", import.meta.url)),
+  "utf8"
+);
+const compositionRouteSource = readFileSync(
+  fileURLToPath(new URL("../app/api/admin/editorial/composicao/route.ts", import.meta.url)),
+  "utf8"
+);
+const publicMatchdayLoaderSource = readFileSync(
+  fileURLToPath(new URL("./public-matchday.ts", import.meta.url)),
+  "utf8"
+);
+
+test("a faixa publica apresenta cinco noticias por linha no desktop", () => {
+  assert.match(publicHorizontalNewsSource, /grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.doesNotMatch(publicHorizontalNewsSource, /repeat\(auto-fit/);
+});
+
+test("a faixa horizontal integra a composicao editorial e preserva a cor", () => {
+  assert.match(compositionPageSource, /Faixa horizontal de notícias/);
+  assert.match(compositionPageSource, /label_color_snapshot/);
+  assert.match(compositionRouteSource, /sourceType:\s*"matchday_horizontal_news"/);
+  assert.match(compositionRouteSource, /slot_type:\s*"important_item"/);
+  assert.match(compositionRouteSource, /label_color_snapshot:\s*item\.label_color/);
+});
+
+test("as leituras publicas da faixa nao impõem o limite antigo de quatro itens", () => {
+  assert.doesNotMatch(homePageSource, /site_editorial_horizontal_news[^`]*limit=4/);
+  assert.doesNotMatch(publicMatchdayLoaderSource, /matchday_horizontal_news[^`]*limit=4/);
 });

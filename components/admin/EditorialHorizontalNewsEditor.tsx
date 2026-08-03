@@ -4,6 +4,7 @@ export type EditorialHorizontalNewsAdminItem = {
   id: string;
   sortOrder: number;
   label: string | null;
+  labelColor: string | null;
   title: string | null;
   subtitle: string | null;
   imageUrl: string | null;
@@ -151,6 +152,11 @@ const styles = `
     grid-column: 1 / -1;
   }
 
+  .horizontal-news-admin-actions > div {
+    display: flex;
+    gap: 8px;
+  }
+
   .horizontal-news-admin-actions button {
     padding: 9px 12px;
     border: 0;
@@ -162,6 +168,12 @@ const styles = `
     font-weight: 900;
     text-transform: uppercase;
     cursor: pointer;
+  }
+
+  .horizontal-news-admin-actions button.secondary {
+    border: 1px solid #cdd6e1;
+    background: #ffffff;
+    color: #354154;
   }
 
   @media (max-width: 720px) {
@@ -185,6 +197,7 @@ export default function EditorialHorizontalNewsEditor({
   description,
   tableName,
   items,
+  orders,
   sources,
   formIdForOrder,
   hiddenFieldsForOrder,
@@ -196,6 +209,7 @@ export default function EditorialHorizontalNewsEditor({
   description: string;
   tableName: string;
   items: EditorialHorizontalNewsAdminItem[];
+  orders: number[];
   sources: EditorialHorizontalNewsSourceOption[];
   formIdForOrder: (order: number) => string;
   hiddenFieldsForOrder: (order: number, item: EditorialHorizontalNewsAdminItem | null) => HiddenField[];
@@ -211,7 +225,7 @@ export default function EditorialHorizontalNewsEditor({
         <small className="horizontal-news-admin-table">{tableName}</small>
       </header>
       <div className="horizontal-news-admin-list">
-        {[1, 2, 3, 4].map((order) => {
+        {orders.map((order) => {
           const item = items.find((candidate) => candidate.sortOrder === order) ?? null;
           const formId = formIdForOrder(order);
           const titleText = clean(item?.title) || "Rascunho vazio";
@@ -270,6 +284,16 @@ export default function EditorialHorizontalNewsEditor({
                   <span>Antetitulo</span>
                   <input form={formId} data-horizontal-news-field="label" name="horizontal_news_label" defaultValue={item?.label ?? ""} />
                 </label>
+                <label className="horizontal-news-admin-field">
+                  <span>Cor do antetitulo</span>
+                  <input
+                    form={formId}
+                    name="horizontal_news_label_color"
+                    defaultValue={item?.labelColor ?? ""}
+                    placeholder="#c40000"
+                    pattern="^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$"
+                  />
+                </label>
                 <label className="horizontal-news-admin-field is-wide">
                   <span>Titulo</span>
                   <input form={formId} data-horizontal-news-field="title" name="horizontal_news_title" defaultValue={item?.title ?? ""} />
@@ -288,8 +312,15 @@ export default function EditorialHorizontalNewsEditor({
                 </label>
                 {messageForOrder ? <div className="horizontal-news-admin-field is-wide">{messageForOrder(order)}</div> : null}
                 <div className="horizontal-news-admin-actions">
-                  <small className="horizontal-news-admin-note">A posicao publica corresponde a este numero.</small>
-                  <button form={formId} type="submit">Guardar item #{String(order).padStart(2, "0")}</button>
+                  <small className="horizontal-news-admin-note">Os itens novos sao acrescentados no fim. A grelha publica apresenta cinco noticias por linha.</small>
+                  <div>
+                    {item ? (
+                      <button className="secondary" form={formId} name="horizontal_news_delete" value="1" type="submit">
+                        Eliminar item
+                      </button>
+                    ) : null}
+                    <button form={formId} type="submit">Guardar item #{String(order).padStart(2, "0")}</button>
+                  </div>
                 </div>
               </div>
             </details>

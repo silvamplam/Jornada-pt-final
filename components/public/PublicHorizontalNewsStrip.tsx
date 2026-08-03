@@ -9,7 +9,7 @@ const horizontalNewsStyles = `
 
   .public-important-news-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px;
   }
 
@@ -69,6 +69,24 @@ const horizontalNewsStyles = `
     font-size: 13px;
     line-height: 1.35;
   }
+
+  @media (max-width: 1100px) {
+    .public-important-news-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 720px) {
+    .public-important-news-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 460px) {
+    .public-important-news-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 `;
 
 export default function PublicHorizontalNewsStrip({
@@ -97,7 +115,11 @@ export default function PublicHorizontalNewsStrip({
                 <img src={item.imageUrl} alt="" />
               </span>
             ) : null}
-            {item.label ? <span className="public-important-news-label">{item.label}</span> : null}
+            {item.label ? (
+              <span className="public-important-news-label" style={item.labelColor ? { color: item.labelColor } : undefined}>
+                {item.label}
+              </span>
+            ) : null}
             {item.linkUrl ? (
               <a className="public-important-news-title" href={item.linkUrl}>
                 {item.title}

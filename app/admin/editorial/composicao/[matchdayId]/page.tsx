@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   fetchSupabaseAdminTable,
   type SupabaseCompetition,
@@ -6,6 +6,7 @@ import {
   type SupabaseMatchday,
   type SupabaseMatchdayEditorial,
   type SupabaseMatchdayHighlight,
+  type SupabaseMatchdayHorizontalNews,
   type SupabaseMatchdayLatestNews,
   type SupabaseMatchdayRoundupItem,
   type SupabaseSeason
@@ -88,6 +89,7 @@ type ReferenceCompositionItem = {
   image_url_snapshot: string | null;
   link_url_snapshot: string | null;
   label_snapshot: string | null;
+  label_color_snapshot: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -97,6 +99,7 @@ type MatchdayEditorialBankItem = {
   id: string;
   matchday_id: string;
   label: string | null;
+  label_color: string | null;
   title: string;
   subtitle: string | null;
   image_url: string | null;
@@ -124,7 +127,7 @@ const referenceCompositionSections = [
   { slotType: "complement", title: "Complemento da manchete" },
   { slotType: "side_block", title: "Bloco lateral" },
   { slotType: "highlight", title: "Destaques abaixo da manchete" },
-  { slotType: "important_item", title: "Mais notícias da jornada" },
+  { slotType: "important_item", title: "Faixa horizontal de notícias" },
   { slotType: "editorial_line_item", title: "Zona editorial final" },
   { slotType: "related_article", title: "Artigos relacionados" },
   { slotType: "roundup", title: "Resumo / Vídeos" },
@@ -206,7 +209,13 @@ function isArtificialFreeZoneLabel(label?: string | null, sourceType?: string | 
   const normalizedSourceType = normalizeSourceType(sourceType);
 
   if (!normalizedLabel) return false;
-  if (normalizedLabel === "zona editorial final" || normalizedLabel === "mais noticias da jornada" || normalizedLabel === "mais notícias da jornada") return true;
+  if (
+    normalizedLabel === "zona editorial final" ||
+    normalizedLabel === "mais noticias da jornada" ||
+    normalizedLabel === "mais notícias da jornada" ||
+    normalizedLabel === "faixa horizontal de noticias" ||
+    normalizedLabel === "faixa horizontal de notícias"
+  ) return true;
   if (normalizedSourceType === "matchday_editorial") {
     return normalizedLabel === "manchete" || normalizedLabel === "complemento" || normalizedLabel === "complemento da manchete" || normalizedLabel === "bloco lateral";
   }
@@ -1074,13 +1083,13 @@ function formatContextSelectorMatchdayLabel(
 async function readMatchdayEditorial(matchdayId: string): Promise<MatchdayEditorialWithHeadlineLink | null> {
   try {
     return await readFirst<MatchdayEditorialWithHeadlineLink>(
-      `matchday_editorials?select=id,matchday_id,title,summary,title_color,image_url,headline_link_url,below_headline_mode,below_headline_heading,below_headline_heading_color,complementary_mode,complementary_roundup_item_id,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,roundup_video_heading,roundup_video_heading_color,side_block_status,side_block_type,side_block_label,side_block_title,side_block_title_color,side_block_author,side_block_text,side_block_image_url,side_block_link_url,latest_zone_mode,latest_zone_title,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_editorials?select=id,matchday_id,title,summary,title_color,image_url,headline_link_url,below_headline_mode,below_headline_heading,below_headline_heading_color,complementary_mode,complementary_roundup_item_id,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,roundup_video_heading,roundup_video_heading_color,side_block_status,side_block_type,side_block_label,side_block_label_color,side_block_title,side_block_title_color,side_block_author,side_block_text,side_block_image_url,side_block_link_url,latest_zone_mode,latest_zone_title,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}`
     );
   } catch {
     return readFirst<MatchdayEditorialWithHeadlineLink>(
-      `matchday_editorials?select=id,matchday_id,title,summary,title_color,image_url,headline_link_url,below_headline_mode,below_headline_heading,below_headline_heading_color,complementary_mode,complementary_roundup_item_id,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,roundup_video_heading,roundup_video_heading_color,side_block_status,side_block_type,side_block_label,side_block_title,side_block_title_color,side_block_author,side_block_text,side_block_image_url,side_block_link_url,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_editorials?select=id,matchday_id,title,summary,title_color,image_url,headline_link_url,below_headline_mode,below_headline_heading,below_headline_heading_color,complementary_mode,complementary_roundup_item_id,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,roundup_video_heading,roundup_video_heading_color,side_block_status,side_block_type,side_block_label,side_block_label_color,side_block_title,side_block_title_color,side_block_author,side_block_text,side_block_image_url,side_block_link_url,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}`
     ).catch(() => null);
@@ -1089,9 +1098,17 @@ async function readMatchdayEditorial(matchdayId: string): Promise<MatchdayEditor
 
 function readMatchdayHighlights(matchdayId: string): Promise<MatchdayHighlightWithLink[]> {
   return fetchSupabaseAdminTable<MatchdayHighlightWithLink>(
-    `matchday_highlights?select=id,matchday_id,label,title,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_highlights?select=id,matchday_id,label,label_color,title,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&order=sort_order.asc&limit=20`
+  ).catch(() => []);
+}
+
+function readMatchdayHorizontalNews(matchdayId: string): Promise<SupabaseMatchdayHorizontalNews[]> {
+  return fetchSupabaseAdminTable<SupabaseMatchdayHorizontalNews>(
+    `matchday_horizontal_news?select=id,matchday_id,label,label_color,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      matchdayId
+    )}&order=sort_order.asc`
   ).catch(() => []);
 }
 
@@ -1106,7 +1123,7 @@ function readMatchdayRoundupItems(matchdayId: string): Promise<SupabaseMatchdayR
 async function readMatchdayLatestNews(matchdayId: string): Promise<SupabaseMatchdayLatestNews[]> {
   try {
     return await fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
-      `matchday_latest_news?select=id,matchday_id,time_label,title,subtitle,image_url,link_url,article_id,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_latest_news?select=id,matchday_id,time_label,time_label_color,title,subtitle,image_url,link_url,article_id,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&order=sort_order.asc&limit=50`
     );
@@ -1155,15 +1172,15 @@ function readReferenceCompositionItems(compositionId?: string | null): Promise<R
   }
 
   return fetchSupabaseAdminTable<ReferenceCompositionItem>(
-    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,source_id,article_id,sort_order,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,label_snapshot,status,created_at,updated_at&composition_id=eq.${encodeURIComponent(
+    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,source_id,article_id,sort_order,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,label_snapshot,label_color_snapshot,status,created_at,updated_at&composition_id=eq.${encodeURIComponent(
       compositionId
-    )}&order=sort_order.asc&limit=200`
+    )}&order=sort_order.asc`
   ).catch(() => []);
 }
 
 function readMatchdayEditorialBankItems(matchdayId: string): Promise<MatchdayEditorialBankItem[]> {
   return fetchSupabaseAdminTable<MatchdayEditorialBankItem>(
-    `matchday_editorial_bank_items?select=id,matchday_id,label,title,subtitle,image_url,link_url,source_type,source_id,source_slug,origin_slot_type,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_editorial_bank_items?select=id,matchday_id,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug,origin_slot_type,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&order=sort_order.asc.nullslast,created_at.desc&limit=200`
   ).catch(() => []);
@@ -1230,6 +1247,7 @@ function EmptyState({ children }: { children: ReactNode }) {
 
 function ItemCard({
   label,
+  labelColor,
   title,
   subtitle,
   imageUrl,
@@ -1239,6 +1257,7 @@ function ItemCard({
   children
 }: {
   label?: string | null;
+  labelColor?: string | null;
   title?: string | null;
   subtitle?: string | null;
   imageUrl?: string | null;
@@ -1252,7 +1271,11 @@ function ItemCard({
   return (
     <article className="composition-admin-item">
       <ImagePreview src={imageUrl} />
-      {textOrEmpty(label) ? <span className="composition-admin-label">{label}</span> : null}
+      {textOrEmpty(label) ? (
+        <span className="composition-admin-label" style={textOrEmpty(labelColor) ? { color: labelColor ?? undefined } : undefined}>
+          {label}
+        </span>
+      ) : null}
       {addedInLabel ? (
         <span className="composition-admin-added-badge">Já adicionada em: {addedInLabel}</span>
       ) : null}
@@ -1569,6 +1592,7 @@ function AddCandidateForm({
   imageUrl,
   linkUrl,
   label,
+  labelColor,
   alreadyAdded,
   buttonLabel = "Adicionar à composição"
 }: {
@@ -1585,6 +1609,7 @@ function AddCandidateForm({
   imageUrl?: string | null;
   linkUrl?: string | null;
   label?: string | null;
+  labelColor?: string | null;
   alreadyAdded?: boolean;
   buttonLabel?: string;
 }) {
@@ -1608,6 +1633,7 @@ function AddCandidateForm({
       <HiddenField name="image_url_snapshot" value={imageUrl} />
       <HiddenField name="link_url_snapshot" value={linkUrl} />
       <HiddenField name="label_snapshot" value={label} />
+      <HiddenField name="label_color_snapshot" value={labelColor} />
       <button className="composition-admin-small-button" type="submit">
         {buttonLabel}
       </button>
@@ -1628,6 +1654,7 @@ function AddImportantItemForm({
   imageUrl,
   linkUrl,
   label,
+  labelColor,
   alreadyAdded
 }: {
   composition: ReferenceComposition | null;
@@ -1642,6 +1669,7 @@ function AddImportantItemForm({
   imageUrl?: string | null;
   linkUrl?: string | null;
   label?: string | null;
+  labelColor?: string | null;
   alreadyAdded?: boolean;
 }) {
   if (!composition || composition.status !== "draft" || alreadyAdded) {
@@ -1664,8 +1692,9 @@ function AddImportantItemForm({
       <HiddenField name="image_url_snapshot" value={imageUrl} />
       <HiddenField name="link_url_snapshot" value={linkUrl} />
       <HiddenField name="label_snapshot" value={label} />
+      <HiddenField name="label_color_snapshot" value={labelColor} />
       <button className="composition-admin-small-button secondary" type="submit">
-        Adicionar a Mais notícias da jornada
+        Adicionar à Faixa horizontal de notícias
       </button>
     </form>
   );
@@ -1770,11 +1799,12 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   }
 
   const { matchday, season, competition, country } = context;
-  const [editorial, highlights, roundupItems, latestNews, articles, bankItems] = await Promise.all([
+  const [editorial, highlights, roundupItems, latestNews, horizontalNews, articles, bankItems] = await Promise.all([
     readMatchdayEditorial(matchday.id),
     readMatchdayHighlights(matchday.id),
     readMatchdayRoundupItems(matchday.id),
     readMatchdayLatestNews(matchday.id),
+    readMatchdayHorizontalNews(matchday.id),
     readMatchdayArticles(matchday.id),
     readMatchdayEditorialBankItems(matchday.id)
   ]);
@@ -2004,6 +2034,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         key={item.id}
                         imageUrl={item.image_url}
                         label={item.label}
+                        labelColor={item.label_color}
                         title={item.title}
                         subtitle={item.subtitle}
                         linkUrl={item.link_url}
@@ -2034,6 +2065,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         key={item.id}
                         imageUrl={item.image_url}
                         label={item.label}
+                        labelColor={item.label_color}
                         title={item.title}
                         subtitle={item.subtitle}
                         linkUrl={item.link_url}
@@ -2060,6 +2092,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                     key={item.id}
                     imageUrl={item.image_url}
                     label={item.label}
+                    labelColor={item.label_color}
                     title={item.title}
                     meta={[`Posicao ${item.sort_order}`, statusLabel(item.status)]}
                   />
@@ -2087,6 +2120,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                 <ItemCard
                   imageUrl={editorial?.side_block_image_url}
                   label={editorial?.side_block_label || editorial?.side_block_type}
+                  labelColor={editorial?.side_block_label_color}
                   title={editorial?.side_block_title}
                   subtitle={editorial?.side_block_text}
                   linkUrl={editorial?.side_block_link_url}
@@ -2114,6 +2148,25 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
               />
             </Card>
 
+            <CollapsibleCard title="Atualidade original - faixa horizontal de notícias">
+              <ItemsGrid
+                items={horizontalNews}
+                empty="Não existem notícias na faixa horizontal."
+                render={(item) => (
+                  <ItemCard
+                    key={item.id}
+                    imageUrl={item.image_url}
+                    label={item.label}
+                    labelColor={item.label_color}
+                    title={item.title}
+                    subtitle={item.subtitle}
+                    linkUrl={item.link_url}
+                    meta={[`Posicao ${item.sort_order}`, statusLabel(item.status)]}
+                  />
+                )}
+              />
+            </CollapsibleCard>
+
             <CollapsibleCard title="Atualidade original - zona editorial final">
               <div className="composition-admin-meta">
                 <span>Modo atual: {latestZoneMode}</span>
@@ -2127,6 +2180,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                     key={item.id}
                     imageUrl={item.image_url}
                     label={item.time_label}
+                    labelColor={item.time_label_color}
                     title={item.title}
                     subtitle={item.subtitle}
                     linkUrl={item.link_url}
@@ -2201,7 +2255,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                       </div>
                       <div className="composition-admin-grid">
                         {section.items.length === 0 && section.slotType === "important_item" ? (
-                          <EmptyState>Sem notícias adicionadas nesta zona.</EmptyState>
+                          <EmptyState>Sem notícias adicionadas à faixa horizontal.</EmptyState>
                         ) : null}
                         {section.items.map((item) => {
                           const itemMeta = [
@@ -2231,6 +2285,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                               key={item.id}
                               imageUrl={item.image_url_snapshot}
                               label={compositionItemDisplayLabel(item)}
+                              labelColor={item.label_color_snapshot}
                               title={item.title_snapshot}
                               subtitle={item.subtitle_snapshot}
                               linkUrl={item.link_url_snapshot}
@@ -2325,6 +2380,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                     <ItemCard
                       imageUrl={editorial?.side_block_image_url}
                       label={editorial?.side_block_label || editorial?.side_block_type}
+                      labelColor={editorial?.side_block_label_color}
                       title={editorial?.side_block_title}
                       subtitle={editorial?.side_block_text}
                       linkUrl={editorial?.side_block_link_url}
@@ -2344,6 +2400,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         imageUrl={editorial.side_block_image_url}
                         linkUrl={editorial.side_block_link_url}
                         label={editorial.side_block_label || editorial.side_block_type}
+                        labelColor={editorial.side_block_label_color}
                         alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_editorial", editorial.id, null, editorial.side_block_link_url, "side_block", editorial.side_block_title, editorial.side_block_text, editorial.side_block_image_url))}
                       />
                       <AddCandidateForm
@@ -2359,6 +2416,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         imageUrl={editorial.side_block_image_url}
                         linkUrl={editorial.side_block_link_url}
                         label={editorial.side_block_label || editorial.side_block_type}
+                        labelColor={editorial.side_block_label_color}
                         alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_editorial", editorial.id, null, editorial.side_block_link_url, "side_block", editorial.side_block_title, editorial.side_block_text, editorial.side_block_image_url))}
                         buttonLabel="Adicionar como Manchete"
                       />
@@ -2374,6 +2432,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         imageUrl={editorial.side_block_image_url}
                         linkUrl={editorial.side_block_link_url}
                         label={editorial.side_block_label || editorial.side_block_type}
+                        labelColor={editorial.side_block_label_color}
                         alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_editorial", editorial.id, null, editorial.side_block_link_url, "side_block", editorial.side_block_title, editorial.side_block_text, editorial.side_block_image_url))}
                       />
                       <AddCandidateForm
@@ -2389,6 +2448,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         imageUrl={editorial.side_block_image_url}
                         linkUrl={editorial.side_block_link_url}
                         label={editorial.side_block_label || editorial.side_block_type}
+                        labelColor={editorial.side_block_label_color}
                         alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_editorial", editorial.id, null, editorial.side_block_link_url, "side_block", editorial.side_block_title, editorial.side_block_text, editorial.side_block_image_url))}
                         buttonLabel="Adicionar à Zona editorial final"
                       />
@@ -2485,6 +2545,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         key={item.id}
                         imageUrl={item.image_url}
                         label={item.label}
+                        labelColor={item.label_color}
                         title={item.title}
                         linkUrl={item.link_url}
                         addedInLabel={getCandidateAddedInLabel("matchday_highlight", item.id, null, item.link_url, null, item.title, null, item.image_url)}
@@ -2502,6 +2563,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                           imageUrl={item.image_url}
                           linkUrl={item.link_url}
                           label={item.label}
+                          labelColor={item.label_color}
                           alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_highlight", item.id, null, item.link_url, null, item.title, null, item.image_url))}
                         />
                         <AddCandidateForm
@@ -2516,6 +2578,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                           imageUrl={item.image_url}
                           linkUrl={item.link_url}
                           label={item.label}
+                          labelColor={item.label_color}
                           alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_highlight", item.id, null, item.link_url, null, item.title, null, item.image_url))}
                           buttonLabel="Adicionar como Manchete"
                         />
@@ -2530,6 +2593,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                           imageUrl={item.image_url}
                           linkUrl={item.link_url}
                           label={item.label}
+                          labelColor={item.label_color}
                           alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_highlight", item.id, null, item.link_url, null, item.title, null, item.image_url))}
                         />
                         <AddCandidateForm
@@ -2544,6 +2608,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                           imageUrl={item.image_url}
                           linkUrl={item.link_url}
                           label={item.label}
+                          labelColor={item.label_color}
                           alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_highlight", item.id, null, item.link_url, null, item.title, null, item.image_url))}
                           buttonLabel="Adicionar à Zona editorial final"
                         />
@@ -2561,6 +2626,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         key={item.id}
                         imageUrl={item.image_url}
                         label={item.time_label}
+                        labelColor={item.time_label_color}
                         title={item.title}
                         subtitle={item.subtitle}
                         linkUrl={item.link_url}
@@ -2581,6 +2647,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                           imageUrl={item.image_url}
                           linkUrl={item.link_url}
                           label={item.time_label}
+                          labelColor={item.time_label_color}
                           alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_latest_news", item.id, item.article_id, item.link_url, null, item.title, item.subtitle, item.image_url))}
                           buttonLabel="Adicionar à Zona editorial final"
                         />
@@ -2598,6 +2665,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                           imageUrl={item.image_url}
                           linkUrl={item.link_url}
                           label={item.time_label}
+                          labelColor={item.time_label_color}
                           alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_latest_news", item.id, item.article_id, item.link_url, null, item.title, item.subtitle, item.image_url))}
                           buttonLabel="Adicionar como Manchete"
                         />
@@ -2614,6 +2682,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                           imageUrl={item.image_url}
                           linkUrl={item.link_url}
                           label={item.time_label}
+                          labelColor={item.time_label_color}
                           alreadyAdded={Boolean(getCandidateAddedInLabel("matchday_latest_news", item.id, item.article_id, item.link_url, null, item.title, item.subtitle, item.image_url))}
                         />
                       </ItemCard>

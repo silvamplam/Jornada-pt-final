@@ -87,6 +87,7 @@ type SiteLatestNews = {
 type SiteHorizontalNews = {
   id: string;
   label: string | null;
+  label_color: string | null;
   title: string | null;
   subtitle: string | null;
   image_url: string | null;
@@ -319,7 +320,7 @@ async function readHomeLatestNews(siteEditorialId: string) {
 
 async function readHomeHorizontalNews(siteEditorialId: string) {
   return fetchSupabaseAdminTable<SiteHorizontalNews>(
-    `site_editorial_horizontal_news?select=id,label,title,subtitle,image_url,link_url,sort_order,status&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}&status=eq.published&order=sort_order.asc&limit=4`
+    `site_editorial_horizontal_news?select=id,label,label_color,title,subtitle,image_url,link_url,sort_order,status&site_editorial_id=eq.${encodeURIComponent(siteEditorialId)}&status=eq.published&order=sort_order.asc`
   ).catch(() => []);
 }
 
@@ -550,13 +551,13 @@ export default async function HomePage() {
     horizontalNews.map((item) => ({
       id: item.id,
       label: item.label,
+      labelColor: item.label_color,
       title: item.title,
       subtitle: item.subtitle,
       imageUrl: item.image_url,
       linkUrl: item.link_url,
       sortOrder: item.sort_order
-    })),
-    4
+    }))
   );
 
   return (
@@ -627,7 +628,7 @@ export default async function HomePage() {
         latestNewsTitle={finalZoneTitle ?? ""}
       />
 
-      <PublicHorizontalNewsStrip items={publicHorizontalNews} ariaLabel="Mais noticias da Home" />
+      <PublicHorizontalNewsStrip items={publicHorizontalNews} ariaLabel="Faixa horizontal de noticias da Home" />
     </main>
   );
 }

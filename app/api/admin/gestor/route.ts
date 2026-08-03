@@ -39,7 +39,6 @@ import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, 
 
 const ROUNDUP_EDITOR_SORT_ORDERS = Array.from({ length: 10 }, (_, index) => index + 1);
 const LATEST_NEWS_EDITOR_SORT_ORDERS = Array.from({ length: 8 }, (_, index) => index + 1);
-const HORIZONTAL_NEWS_EDITOR_SORT_ORDERS = [1, 2, 3, 4];
 
 function cleanText(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
@@ -1329,7 +1328,7 @@ async function saveMatchdayHighlightItem(formData: FormData) {
   const linkUrl = cleanText(formData.get("highlight_link_url"));
   const statusValue = cleanText(formData.get("highlight_status")) ?? "draft";
   const status = statusValue === "published" ? "published" : "draft";
-  const hasContent = Boolean(label || title || subtitle || imageUrl || linkUrl);
+  const hasContent = Boolean(label || labelColor || title || subtitle || imageUrl || linkUrl);
 
   if (status === "published" && !title) {
     throw new Error("highlight-title-required");
@@ -1708,7 +1707,7 @@ async function saveMatchdayHorizontalNewsItem(formData: FormData) {
   const sortOrder = cleanInteger(formData.get("horizontal_news_sort_order"));
   const newsId = cleanText(formData.get("horizontal_news_id"));
 
-  if (!matchdayId || !sortOrder || !HORIZONTAL_NEWS_EDITOR_SORT_ORDERS.includes(sortOrder)) {
+  if (!matchdayId || !sortOrder || sortOrder < 1) {
     throw new Error("missing-fields");
   }
 
@@ -1729,13 +1728,24 @@ async function saveMatchdayHorizontalNewsItem(formData: FormData) {
   }
 
   const label = cleanText(formData.get("horizontal_news_label"));
+  const labelColor = cleanHexColor(formData.get("horizontal_news_label_color"));
   const title = cleanText(formData.get("horizontal_news_title"));
   const subtitle = cleanText(formData.get("horizontal_news_subtitle"));
   const imageUrl = cleanText(formData.get("horizontal_news_image_url"));
   const linkUrl = cleanText(formData.get("horizontal_news_link_url"));
   const statusValue = cleanText(formData.get("horizontal_news_status")) ?? "draft";
   const status = statusValue === "published" ? "published" : "draft";
-  const hasContent = Boolean(label || title || subtitle || imageUrl || linkUrl);
+  const hasContent = Boolean(label || labelColor || title || subtitle || imageUrl || linkUrl);
+
+  if (cleanText(formData.get("horizontal_news_delete")) === "1") {
+    if (existingItem) {
+      await writeSupabaseAdmin(
+        `matchday_horizontal_news?id=eq.${encodeURIComponent(existingItem.id)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+        { method: "DELETE" }
+      );
+    }
+    return;
+  }
 
   if (status === "published" && !title) {
     throw new Error("horizontal-news-title-required");
@@ -1744,6 +1754,7 @@ async function saveMatchdayHorizontalNewsItem(formData: FormData) {
   const payload = {
     matchday_id: matchdayId,
     label,
+    label_color: labelColor,
     title,
     subtitle,
     image_url: imageUrl,

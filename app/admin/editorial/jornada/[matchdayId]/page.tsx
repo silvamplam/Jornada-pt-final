@@ -1,4 +1,5 @@
 import EditorialHorizontalNewsEditor from "@/components/admin/EditorialHorizontalNewsEditor";
+import { buildEditorialHorizontalNewsEditorOrders } from "@/lib/editorial-horizontal-news";
 import {
   fetchSupabaseAdminTable,
   type SupabaseCompetition,
@@ -880,9 +881,9 @@ async function readMatchdayRoundupItems(matchdayId: string): Promise<SupabaseMat
 
 async function readMatchdayHorizontalNews(matchdayId: string): Promise<SupabaseMatchdayHorizontalNews[]> {
   return fetchSupabaseAdminTable<SupabaseMatchdayHorizontalNews>(
-    `matchday_horizontal_news?select=id,matchday_id,label,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_horizontal_news?select=id,matchday_id,label,label_color,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
-    )}&order=sort_order.asc&limit=4`
+    )}&order=sort_order.asc`
   ).catch(() => []);
 }
 
@@ -1100,7 +1101,19 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
     imageUrl: publishedSourceComplementImageUrl(source),
     linkUrl: cleanText(source.link_url)
   }));
-  const horizontalNewsOpenOrder = [1, 2, 3, 4].find(
+  const horizontalNewsEditorItems = horizontalNews.map((item) => ({
+    id: item.id,
+    sortOrder: item.sort_order,
+    label: item.label,
+    labelColor: item.label_color ?? null,
+    title: item.title,
+    subtitle: item.subtitle,
+    imageUrl: item.image_url,
+    linkUrl: item.link_url,
+    status: item.status
+  }));
+  const horizontalNewsEditorOrders = buildEditorialHorizontalNewsEditorOrders(horizontalNewsEditorItems);
+  const horizontalNewsOpenOrder = horizontalNewsEditorOrders.find(
     (order) => feedbackScope === "faixa-horizontal" && feedbackItem === `horizontal-news-${paddedOrder(order)}`
   ) ?? null;
 
@@ -2111,7 +2124,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 {scopedMessageFor(created, error, feedbackScope, "resumo-jornada")}
                 {roundupEditor}
               </div>
-              {[1, 2, 3, 4].map((order) => (
+              {horizontalNewsEditorOrders.map((order) => (
                 <form
                   action="/api/admin/gestor"
                   className="editorial-admin-hidden-form"
@@ -2122,18 +2135,10 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               ))}
               <EditorialHorizontalNewsEditor
                 id="faixa-horizontal"
-                description="Publica ate quatro noticias entre o conteudo editorial e a classificacao. Sem noticias publicadas, a faixa desaparece por completo."
+                description="Publica noticias entre o conteudo editorial e a classificacao. A zona cresce conforme o numero de noticias, apresenta cinco por linha no desktop e desaparece por completo quando esta vazia."
                 tableName="matchday_horizontal_news"
-                items={horizontalNews.map((item) => ({
-                  id: item.id,
-                  sortOrder: item.sort_order,
-                  label: item.label,
-                  title: item.title,
-                  subtitle: item.subtitle,
-                  imageUrl: item.image_url,
-                  linkUrl: item.link_url,
-                  status: item.status
-                }))}
+                items={horizontalNewsEditorItems}
+                orders={horizontalNewsEditorOrders}
                 sources={horizontalNewsSources}
                 formIdForOrder={(order) => `matchday-horizontal-news-form-${order}`}
                 hiddenFieldsForOrder={(order) => [

@@ -60,6 +60,7 @@ type CurrentEditorial = {
   side_block_status: string | null;
   side_block_type: string | null;
   side_block_label: string | null;
+  side_block_label_color: string | null;
   side_block_title: string | null;
   side_block_text: string | null;
   side_block_image_url: string | null;
@@ -69,6 +70,7 @@ type CurrentEditorial = {
 type CurrentHighlight = {
   id: string;
   label: string | null;
+  label_color: string | null;
   title: string | null;
   image_url: string | null;
   link_url: string | null;
@@ -79,11 +81,24 @@ type CurrentHighlight = {
 type CurrentLatestNews = {
   id: string;
   time_label: string | null;
+  time_label_color: string | null;
   title: string | null;
   subtitle: string | null;
   image_url: string | null;
   link_url: string | null;
   article_id: string | null;
+  sort_order: number;
+  status: string | null;
+};
+
+type CurrentHorizontalNews = {
+  id: string;
+  label: string | null;
+  label_color: string | null;
+  title: string | null;
+  subtitle: string | null;
+  image_url: string | null;
+  link_url: string | null;
   sort_order: number;
   status: string | null;
 };
@@ -99,6 +114,7 @@ type CurrentImportantReferenceItem = {
   image_url_snapshot: string | null;
   link_url_snapshot: string | null;
   label_snapshot: string | null;
+  label_color_snapshot: string | null;
   status: string | null;
 };
 
@@ -124,6 +140,7 @@ type CompositionSnapshot = {
   image_url_snapshot: string | null;
   link_url_snapshot: string | null;
   label_snapshot: string | null;
+  label_color_snapshot: string | null;
 };
 
 type CompositionPublicationItem = {
@@ -150,6 +167,7 @@ type CompositionMoveItem = {
 type MatchdayEditorialBankCandidate = {
   matchday_id: string;
   label: string | null;
+  label_color: string | null;
   title: string;
   subtitle: string | null;
   image_url: string | null;
@@ -164,6 +182,7 @@ type MatchdayEditorialBankCandidate = {
 
 type ExistingBankItem = {
   id: string;
+  label_color?: string | null;
   source_type: string | null;
   source_id: string | null;
   source_slug: string | null;
@@ -177,6 +196,7 @@ type BankItemForAssignment = {
   id: string;
   status: string | null;
   label: string | null;
+  label_color: string | null;
   title: string;
   subtitle: string | null;
   image_url: string | null;
@@ -262,6 +282,7 @@ function sourceSlugFromLink(linkUrl?: string | null) {
 function bankCandidate({
   matchdayId,
   label,
+  labelColor,
   title,
   subtitle,
   imageUrl,
@@ -274,6 +295,7 @@ function bankCandidate({
 }: {
   matchdayId: string;
   label?: string | null;
+  labelColor?: string | null;
   title?: string | null;
   subtitle?: string | null;
   imageUrl?: string | null;
@@ -295,6 +317,7 @@ function bankCandidate({
   return {
     matchday_id: matchdayId,
     label: cleanSnapshotValue(label),
+    label_color: cleanSnapshotValue(labelColor),
     title: cleanTitle,
     subtitle: cleanSnapshotValue(subtitle),
     image_url: cleanSnapshotValue(imageUrl),
@@ -396,7 +419,7 @@ function compositionItemEditorialIdentity(
 
 async function readMatchdayBankIdentityItems(matchdayId: string) {
   return fetchSupabaseAdminTable<ExistingBankItem>(
-    `matchday_editorial_bank_items?select=id,source_type,source_id,source_slug,link_url,title,subtitle,image_url&matchday_id=eq.${encodeURIComponent(
+    `matchday_editorial_bank_items?select=id,label_color,source_type,source_id,source_slug,link_url,title,subtitle,image_url&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&limit=1000`
   );
@@ -542,28 +565,33 @@ async function readPublishedImportantReferenceItems(matchdayId: string) {
   }
 
   return fetchSupabaseAdminTable<CurrentImportantReferenceItem>(
-    `matchday_reference_composition_items?select=id,slot_type,source_type,source_id,sort_order,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,label_snapshot,status&composition_id=eq.${encodeURIComponent(
+    `matchday_reference_composition_items?select=id,slot_type,source_type,source_id,sort_order,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,label_snapshot,label_color_snapshot,status&composition_id=eq.${encodeURIComponent(
       composition.id
-    )}&slot_type=eq.important_item&order=sort_order.asc&limit=50`
+    )}&slot_type=eq.important_item&order=sort_order.asc`
   ).catch(() => []);
 }
 
 async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayEditorialBankCandidate[]> {
-  const [editorial, highlights, latestNews, importantItems] = await Promise.all([
+  const [editorial, highlights, latestNews, horizontalNews, importantItems] = await Promise.all([
     readFirst<CurrentEditorial>(
-      `matchday_editorials?select=id,title,summary,image_url,headline_link_url,complementary_mode,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,side_block_status,side_block_type,side_block_label,side_block_title,side_block_text,side_block_image_url,side_block_link_url&matchday_id=eq.${encodeURIComponent(
+      `matchday_editorials?select=id,title,summary,image_url,headline_link_url,complementary_mode,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,side_block_status,side_block_type,side_block_label,side_block_label_color,side_block_title,side_block_text,side_block_image_url,side_block_link_url&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}`
     ),
     fetchSupabaseAdminTable<CurrentHighlight>(
-      `matchday_highlights?select=id,label,title,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
+      `matchday_highlights?select=id,label,label_color,title,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&status=eq.published&order=sort_order.asc&limit=50`
     ).catch(() => []),
     fetchSupabaseAdminTable<CurrentLatestNews>(
-      `matchday_latest_news?select=id,time_label,title,subtitle,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
+      `matchday_latest_news?select=id,time_label,time_label_color,title,subtitle,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&status=eq.published&order=sort_order.asc&limit=50`
+    ).catch(() => []),
+    fetchSupabaseAdminTable<CurrentHorizontalNews>(
+      `matchday_horizontal_news?select=id,label,label_color,title,subtitle,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
+        matchdayId
+      )}&status=eq.published&order=sort_order.asc`
     ).catch(() => []),
     readPublishedImportantReferenceItems(matchdayId)
   ]);
@@ -614,6 +642,7 @@ async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayE
       bankCandidate({
         matchdayId,
         label: editorial.side_block_label || editorial.side_block_type,
+        labelColor: editorial.side_block_label_color,
         title: editorial.side_block_title,
         subtitle: editorial.side_block_text,
         imageUrl: editorial.side_block_image_url,
@@ -631,6 +660,7 @@ async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayE
       bankCandidate({
         matchdayId,
         label: item.label,
+        labelColor: item.label_color,
         title: item.title,
         imageUrl: item.image_url,
         linkUrl: item.link_url,
@@ -647,6 +677,7 @@ async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayE
       bankCandidate({
         matchdayId,
         label: item.time_label,
+        labelColor: item.time_label_color,
         title: item.title,
         subtitle: item.subtitle,
         imageUrl: item.image_url,
@@ -659,6 +690,24 @@ async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayE
     );
   });
 
+  horizontalNews.forEach((item) => {
+    candidates.push(
+      bankCandidate({
+        matchdayId,
+        label: item.label,
+        labelColor: item.label_color,
+        title: item.title,
+        subtitle: item.subtitle,
+        imageUrl: item.image_url,
+        linkUrl: item.link_url,
+        sourceType: "matchday_horizontal_news",
+        sourceId: item.id,
+        originSlotType: "important_item",
+        sortOrder: 200 + item.sort_order
+      })
+    );
+  });
+
   importantItems
     .filter((item) => normalizeSourceType(item.source_type) !== "article")
     .forEach((item) => {
@@ -666,6 +715,7 @@ async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayE
         bankCandidate({
           matchdayId,
           label: item.label_snapshot,
+          labelColor: item.label_color_snapshot,
           title: item.title_snapshot,
           subtitle: item.subtitle_snapshot,
           imageUrl: item.image_url_snapshot,
@@ -720,6 +770,7 @@ async function saveCurrentMatchdayEditorialBank(matchdayId: string): Promise<Sav
 
     knownItems.push({
       id: "",
+      label_color: candidate.label_color,
       source_type: candidate.source_type,
       source_id: candidate.source_id,
       source_slug: candidate.source_slug,
@@ -791,7 +842,7 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
   }
 
   const bankItem = await readFirst<BankItemForAssignment>(
-    `matchday_editorial_bank_items?select=id,status,label,title,subtitle,image_url,link_url,source_type,source_id,source_slug&id=eq.${encodeURIComponent(
+    `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug&id=eq.${encodeURIComponent(
       bankItemId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`
   );
@@ -854,6 +905,7 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
       image_url_snapshot: bankItem.image_url,
       link_url_snapshot: bankItem.link_url,
       label_snapshot: bankItem.label,
+      label_color_snapshot: bankItem.label_color,
       status: "draft"
     })
   });
@@ -894,21 +946,26 @@ async function unassignBankItemFromCompositionSlot(formData: FormData) {
 }
 
 async function buildCurrentPageSnapshots(matchdayId: string, useRoundupItems: boolean): Promise<CompositionSnapshot[]> {
-  const [editorial, highlights, latestNews, roundupItems] = await Promise.all([
+  const [editorial, highlights, latestNews, horizontalNews, roundupItems] = await Promise.all([
     readFirst<CurrentEditorial>(
-      `matchday_editorials?select=id,title,summary,image_url,headline_link_url,complementary_mode,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,side_block_status,side_block_type,side_block_label,side_block_title,side_block_text,side_block_image_url,side_block_link_url&matchday_id=eq.${encodeURIComponent(
+      `matchday_editorials?select=id,title,summary,image_url,headline_link_url,complementary_mode,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,side_block_status,side_block_type,side_block_label,side_block_label_color,side_block_title,side_block_text,side_block_image_url,side_block_link_url&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}`
     ),
     fetchSupabaseAdminTable<CurrentHighlight>(
-      `matchday_highlights?select=id,label,title,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
+      `matchday_highlights?select=id,label,label_color,title,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&status=eq.published&order=sort_order.asc&limit=50`
     ).catch(() => []),
     fetchSupabaseAdminTable<CurrentLatestNews>(
-      `matchday_latest_news?select=id,time_label,title,subtitle,image_url,link_url,article_id,sort_order,status&matchday_id=eq.${encodeURIComponent(
+      `matchday_latest_news?select=id,time_label,time_label_color,title,subtitle,image_url,link_url,article_id,sort_order,status&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&status=eq.published&order=sort_order.asc&limit=50`
+    ).catch(() => []),
+    fetchSupabaseAdminTable<CurrentHorizontalNews>(
+      `matchday_horizontal_news?select=id,label,label_color,title,subtitle,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
+        matchdayId
+      )}&status=eq.published&order=sort_order.asc`
     ).catch(() => []),
     useRoundupItems
       ? fetchSupabaseAdminTable<CurrentRoundupItem>(
@@ -931,7 +988,8 @@ async function buildCurrentPageSnapshots(matchdayId: string, useRoundupItems: bo
       subtitle_snapshot: editorial.summary,
       image_url_snapshot: editorial.image_url,
       link_url_snapshot: editorial.headline_link_url ?? null,
-      label_snapshot: "Manchete"
+      label_snapshot: "Manchete",
+      label_color_snapshot: null
     });
   }
 
@@ -951,7 +1009,8 @@ async function buildCurrentPageSnapshots(matchdayId: string, useRoundupItems: bo
       subtitle_snapshot: editorial.complementary_text,
       image_url_snapshot: editorial.complementary_image_url,
       link_url_snapshot: editorial.complementary_link_url,
-      label_snapshot: editorial.complementary_label
+      label_snapshot: editorial.complementary_label,
+      label_color_snapshot: null
     });
   }
 
@@ -965,7 +1024,8 @@ async function buildCurrentPageSnapshots(matchdayId: string, useRoundupItems: bo
       subtitle_snapshot: editorial.side_block_text,
       image_url_snapshot: editorial.side_block_image_url,
       link_url_snapshot: editorial.side_block_link_url,
-      label_snapshot: editorial.side_block_label || editorial.side_block_type
+      label_snapshot: editorial.side_block_label || editorial.side_block_type,
+      label_color_snapshot: editorial.side_block_label_color
     });
   }
 
@@ -979,7 +1039,8 @@ async function buildCurrentPageSnapshots(matchdayId: string, useRoundupItems: bo
       subtitle_snapshot: null,
       image_url_snapshot: item.image_url,
       link_url_snapshot: item.link_url,
-      label_snapshot: item.label
+      label_snapshot: item.label,
+      label_color_snapshot: item.label_color
     });
   });
 
@@ -993,7 +1054,23 @@ async function buildCurrentPageSnapshots(matchdayId: string, useRoundupItems: bo
       subtitle_snapshot: item.subtitle,
       image_url_snapshot: item.image_url,
       link_url_snapshot: item.link_url,
-      label_snapshot: item.time_label
+      label_snapshot: item.time_label,
+      label_color_snapshot: item.time_label_color
+    });
+  });
+
+  horizontalNews.forEach((item) => {
+    snapshots.push({
+      slot_type: "important_item",
+      source_type: "matchday_horizontal_news",
+      source_id: item.id,
+      article_id: null,
+      title_snapshot: item.title,
+      subtitle_snapshot: item.subtitle,
+      image_url_snapshot: item.image_url,
+      link_url_snapshot: item.link_url,
+      label_snapshot: item.label,
+      label_color_snapshot: item.label_color
     });
   });
 
@@ -1007,7 +1084,8 @@ async function buildCurrentPageSnapshots(matchdayId: string, useRoundupItems: bo
       subtitle_snapshot: item.subtitle,
       image_url_snapshot: item.image_url,
       link_url_snapshot: item.video_url,
-      label_snapshot: item.label || item.type
+      label_snapshot: item.label || item.type,
+      label_color_snapshot: null
     });
   });
 
@@ -1052,7 +1130,12 @@ async function addItem(formData: FormData) {
   const compositionId = cleanText(formData.get("composition_id"));
   if (!matchdayId || !compositionId || !(await compositionBelongsToMatchday(compositionId, matchdayId))) throw new Error("composition-invalid");
 
-  const nextItem: CompositionIdentityItem & { slot_type: string | null; sort_order: number; label_snapshot: string | null } = {
+  const nextItem: CompositionIdentityItem & {
+    slot_type: string | null;
+    sort_order: number;
+    label_snapshot: string | null;
+    label_color_snapshot: string | null;
+  } = {
     slot_type: cleanText(formData.get("slot_type")),
     source_type: cleanText(formData.get("source_type")),
     source_id: cleanText(formData.get("source_id")),
@@ -1062,7 +1145,8 @@ async function addItem(formData: FormData) {
     subtitle_snapshot: cleanText(formData.get("subtitle_snapshot")),
     image_url_snapshot: cleanText(formData.get("image_url_snapshot")),
     link_url_snapshot: cleanText(formData.get("link_url_snapshot")),
-    label_snapshot: cleanText(formData.get("label_snapshot"))
+    label_snapshot: cleanText(formData.get("label_snapshot")),
+    label_color_snapshot: cleanText(formData.get("label_color_snapshot"))
   };
 
   const existingItems = await readCompositionIdentityItems(compositionId);

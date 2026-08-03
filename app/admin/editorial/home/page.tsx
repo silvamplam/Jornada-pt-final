@@ -1,4 +1,5 @@
 import EditorialHorizontalNewsEditor from "@/components/admin/EditorialHorizontalNewsEditor";
+import { buildEditorialHorizontalNewsEditorOrders } from "@/lib/editorial-horizontal-news";
 import {
   getEditorialPublishedSources,
   type EditorialPublishedSource
@@ -82,6 +83,7 @@ type SiteEditorialHorizontalNews = {
   site_editorial_id: string | null;
   sort_order: number | null;
   label: string | null;
+  label_color: string | null;
   title: string | null;
   subtitle: string | null;
   image_url: string | null;
@@ -1862,7 +1864,18 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
     getEditorialPublishedSources().catch(() => [])
   ]);
   const visibleRoundupItems = roundupItems.filter(roundupHasReadableContent);
-  const visibleHorizontalNews = horizontalNews.filter(horizontalNewsHasReadableContent);
+  const horizontalNewsEditorItems = horizontalNews.map((item) => ({
+    id: item.id,
+    sortOrder: item.sort_order ?? 0,
+    label: item.label,
+    labelColor: item.label_color,
+    title: item.title,
+    subtitle: item.subtitle,
+    imageUrl: item.image_url,
+    linkUrl: item.link_url,
+    status: item.status
+  }));
+  const horizontalNewsEditorOrders = buildEditorialHorizontalNewsEditorOrders(horizontalNewsEditorItems);
   const horizontalNewsSources = publishedSources.map((source) => ({
     key: `${source.source_type}:${source.source_id}`,
     optionLabel: `${textValue(source.title, source.source_slug, source.source_id)} - ${source.origin_label}`,
@@ -1872,7 +1885,7 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
     imageUrl: publishedSourceHighlightImageUrl(source),
     linkUrl: textValue(source.link_url)
   }));
-  const horizontalNewsOpenOrder = [1, 2, 3, 4].find(
+  const horizontalNewsOpenOrder = horizontalNewsEditorOrders.find(
     (order) => params.item === itemAnchor("home-horizontal-news-item", String(order).padStart(2, "0"))
   ) ?? null;
   const roundupEditorRows = [...roundupItems].sort((first, second) => (first.sort_order ?? 9999) - (second.sort_order ?? 9999));
@@ -2229,7 +2242,7 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                     />
                   );
                 })}
-                {[1, 2, 3, 4].map((order) => (
+                {horizontalNewsEditorOrders.map((order) => (
                   <form
                     action="/api/admin/editorial/home"
                     className="home-admin-hidden-form"
@@ -2778,18 +2791,10 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                           </section>
                           <EditorialHorizontalNewsEditor
                             id="home-horizontal-news"
-                            description="Publica ate quatro noticias numa faixa horizontal no fundo da Home. Os campos fechados evitam aumentar o scroll."
+                            description="Publica noticias numa faixa horizontal no fundo da Home. A zona cresce conforme o numero de noticias e apresenta cinco por linha no desktop."
                             tableName="site_editorial_horizontal_news"
-                            items={visibleHorizontalNews.map((item) => ({
-                              id: item.id,
-                              sortOrder: item.sort_order ?? 0,
-                              label: item.label,
-                              title: item.title,
-                              subtitle: item.subtitle,
-                              imageUrl: item.image_url,
-                              linkUrl: item.link_url,
-                              status: item.status
-                            }))}
+                            items={horizontalNewsEditorItems}
+                            orders={horizontalNewsEditorOrders}
                             sources={horizontalNewsSources}
                             formIdForOrder={(order) => `home-horizontal-news-form-${order}`}
                             hiddenFieldsForOrder={(order) => {
