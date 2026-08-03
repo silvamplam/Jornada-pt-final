@@ -21,6 +21,13 @@ test("o banco histórico apresenta um fluxo único, filtrável e sem origem edit
   assert.doesNotMatch(compositionPageSource, /Origem:/);
 });
 
+test("os itens do banco sem imagem não reservam a coluna da miniatura", () => {
+  assert.match(compositionPageSource, /const hasImage = Boolean\(textOrEmpty\(item\.image_url\)\)/);
+  assert.match(compositionPageSource, /composition-admin-bank-item \$\{hasImage \? "has-image" : "no-image"\}/);
+  assert.match(compositionPageSource, /\.composition-admin-bank-item\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) minmax\(170px, 0\.48fr\);/);
+  assert.match(compositionPageSource, /\.composition-admin-bank-item\.has-image\s*\{\s*grid-template-columns: 88px minmax\(0, 1fr\) minmax\(170px, 0\.48fr\);/);
+});
+
 test("a composição histórica permite mover, ordenar, retirar e publicar com confirmação", () => {
   assert.match(compositionPageSource, /Composição histórica da jornada/);
   assert.match(compositionPageSource, /MoveCompositionItemForm/);

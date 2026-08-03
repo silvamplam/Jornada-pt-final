@@ -789,13 +789,17 @@ const compositionPageStyles = `
 
   .composition-admin-bank-item {
     display: grid;
-    grid-template-columns: 88px minmax(0, 1fr) minmax(170px, 0.48fr);
+    grid-template-columns: minmax(0, 1fr) minmax(170px, 0.48fr);
     gap: 10px;
     align-items: start;
     padding: 10px;
     border: 1px solid #e3e9f0;
     border-radius: 6px;
     background: #ffffff;
+  }
+
+  .composition-admin-bank-item.has-image {
+    grid-template-columns: 88px minmax(0, 1fr) minmax(170px, 0.48fr);
   }
 
   .composition-admin-bank-item .composition-admin-image {
@@ -1586,11 +1590,12 @@ function BankNewsListItem({
   returnTo: string;
 }) {
   const isArchived = item.status === "archived";
+  const hasImage = Boolean(textOrEmpty(item.image_url));
   const stateLabel = isArchived ? "Arquivada" : placementLabel ? `Em uso: ${placementLabel}` : "Disponível";
   const stateClass = isArchived ? " archived" : placementLabel ? " in-use" : "";
 
   return (
-    <article className="composition-admin-bank-item">
+    <article className={`composition-admin-bank-item ${hasImage ? "has-image" : "no-image"}`}>
       <ImagePreview src={item.image_url} />
       <div className="composition-admin-bank-copy">
         {textOrEmpty(item.label) ? (
