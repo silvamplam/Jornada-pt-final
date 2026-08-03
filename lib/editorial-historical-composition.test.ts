@@ -81,8 +81,10 @@ test("eliminar um artigo sem vínculos públicos limpa dependências internas se
   assert.match(articleRouteSource, /matchday_reference_composition_items/);
   assert.match(articleRouteSource, /throw new ArticleAdminError\("article-has-links"\)/);
   assert.match(newsroomArticleDeleteSqlSource, /on delete set null/i);
-  assert.match(newsroomArticleDeleteSqlSource, /newsroom_editorial_dossier_article_plan_generations_article_fkey[\s\S]*on delete cascade/i);
+  assert.match(newsroomArticleDeleteSqlSource, /newsroom_editorial_plan_generations_article_fkey[\s\S]*on delete cascade/i);
   assert.match(newsroomArticleDeleteSqlSource, /newsroom_editorial_compose_requests_article_fkey[\s\S]*on delete cascade/i);
+  assert.match(newsroomArticleDeleteSqlSource, /pg_catalog\.pg_constraint/);
+  assert.match(newsroomArticleDeleteSqlSource, /constraint_row\.conkey = array\[source_attribute\.attnum\]/i);
   assert.match(newsroomArticleDeleteSqlSource, /newsroom_reject_editorial_generation_mutation/);
   assert.match(newsroomArticleDeleteSqlSource, /tg_op = 'DELETE'/i);
   assert.match(newsroomArticleDeleteSqlSource, /not exists[\s\S]*public\.editorial_articles/i);
