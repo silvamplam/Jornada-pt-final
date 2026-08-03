@@ -240,6 +240,12 @@ test("a preparação principal apresenta atualidade, pacote de fontes e acesso a
 
   assert.match(feedRoute, /refreshNewsroomCurrentFeed/);
   assert.match(feedRoute, /export const maxDuration = 300/);
+  assert.match(feedRoute, /feed_created/);
+  assert.match(feedRoute, /feed_updated/);
+  assert.match(feedRoute, /feed_existing/);
+  assert.match(newsroom, /Novas:/);
+  assert.match(newsroom, /Atualizadas:/);
+  assert.match(newsroom, /Já estavam no arquivo:/);
 
   assert.match(route, /source_snapshot_/);
   assert.match(route, /normalizeEditorialSourcePackageSelections/);

@@ -47,6 +47,9 @@ export async function POST(request: Request) {
     ...(query ? { query } : {}),
     feed_state: result.value.status,
     feed_available: String(result.value.availableCount),
+    feed_created: String(result.value.createdCount),
+    feed_updated: String(result.value.updatedCount),
+    feed_existing: String(result.value.existingCount),
     feed_failed: String(result.value.failedCount),
     feed_more: result.value.hasMore ? "1" : "0",
   });

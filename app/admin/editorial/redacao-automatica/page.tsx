@@ -114,14 +114,23 @@ export default async function AutomaticNewsroomPage({
     : null;
   const feedState = firstQueryValue(params.feed_state);
   const feedAvailable = nonNegativeIntegerQueryValue(params.feed_available);
+  const hasFeedBreakdown = [params.feed_created, params.feed_updated, params.feed_existing]
+    .some((value) => firstQueryValue(value) !== null);
+  const feedCreated = hasFeedBreakdown
+    ? nonNegativeIntegerQueryValue(params.feed_created)
+    : feedAvailable;
+  const feedUpdated = nonNegativeIntegerQueryValue(params.feed_updated);
+  const feedExisting = nonNegativeIntegerQueryValue(params.feed_existing);
   const feedFailed = nonNegativeIntegerQueryValue(params.feed_failed);
+  const feedClassified = feedCreated + feedUpdated + feedExisting;
+  const feedBreakdownMessage = `Novas: ${feedCreated}. Atualizadas: ${feedUpdated}. Já estavam no arquivo: ${feedExisting}.`;
   const feedSuccessMessage = feedState === "up_to_date"
-    ? "A atualidade já está atualizada."
+    ? feedBreakdownMessage
     : feedState === "updated"
-      ? `${feedAvailable} ${feedAvailable === 1 ? "notícia nova ficou disponível" : "notícias novas ficaram disponíveis"}.`
+      ? feedBreakdownMessage
       : feedState === "partial"
-        ? feedAvailable > 0
-          ? `${feedAvailable} ${feedAvailable === 1 ? "notícia nova ficou disponível" : "notícias novas ficaram disponíveis"}.`
+        ? feedClassified > 0
+          ? feedBreakdownMessage
           : "A atualização ficou incompleta. Tenta novamente."
         : null;
   const manualEntryErrorCode = firstQueryValue(params.manual_entry_error);
