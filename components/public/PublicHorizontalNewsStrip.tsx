@@ -6,32 +6,32 @@ import {
 } from "@/lib/editorial-horizontal-news";
 
 const horizontalNewsStyles = `
-  .public-important-news {
+  .public-horizontal-news {
     display: grid;
     gap: 16px;
     padding: 18px;
   }
 
-  .public-important-news-grid {
+  .public-horizontal-news-stack {
     display: grid;
     gap: 14px;
   }
 
-  .public-important-news-row {
+  .public-horizontal-news-row {
     display: grid;
     grid-template-columns: repeat(var(--horizontal-news-columns), minmax(0, 1fr));
     gap: var(--horizontal-news-gap);
   }
 
-  .public-important-news-card {
+  .public-horizontal-news-card {
     display: grid;
     align-content: start;
     gap: 8px;
     min-width: 0;
   }
 
-  .public-important-news-image,
-  .public-important-news-image-link {
+  .public-horizontal-news-image,
+  .public-horizontal-news-image-link {
     display: block;
     width: 100%;
     aspect-ratio: 16 / 9;
@@ -40,8 +40,8 @@ const horizontalNewsStyles = `
     background: #eef2f6;
   }
 
-  .public-important-news-image img,
-  .public-important-news-image-link img {
+  .public-horizontal-news-image img,
+  .public-horizontal-news-image-link img {
     display: block;
     width: 100%;
     height: 100%;
@@ -49,7 +49,7 @@ const horizontalNewsStyles = `
     object-position: center;
   }
 
-  .public-important-news-label {
+  .public-horizontal-news-label {
     color: #c40012;
     font-size: var(--horizontal-news-label-size);
     font-weight: 900;
@@ -57,7 +57,7 @@ const horizontalNewsStyles = `
     text-transform: uppercase;
   }
 
-  .public-important-news-title {
+  .public-horizontal-news-title {
     display: block;
     color: inherit;
     font-family: Georgia, "Times New Roman", serif;
@@ -67,13 +67,13 @@ const horizontalNewsStyles = `
     text-decoration: none;
   }
 
-  .public-important-news-title:hover {
+  .public-horizontal-news-title:hover {
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
   }
 
-  .public-important-news-card p {
+  .public-horizontal-news-card p {
     margin: 0;
     color: #607086;
     font-size: var(--horizontal-news-subtitle-size);
@@ -81,20 +81,20 @@ const horizontalNewsStyles = `
   }
 
   @media (max-width: 1100px) {
-    .public-important-news-row {
+    .public-horizontal-news-row {
       grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 12px;
     }
   }
 
   @media (max-width: 720px) {
-    .public-important-news-row {
+    .public-horizontal-news-row {
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     }
   }
 
   @media (max-width: 460px) {
-    .public-important-news-row {
+    .public-horizontal-news-row {
       grid-template-columns: 1fr;
     }
   }
@@ -152,37 +152,37 @@ export default function PublicHorizontalNewsStrip({
   const rows = buildEditorialHorizontalNewsRows(items, 6);
 
   return (
-    <section className="public-matchday-panel public-important-news" aria-label={ariaLabel}>
+    <section className="public-matchday-panel public-horizontal-news" aria-label={ariaLabel}>
       <style>{horizontalNewsStyles}</style>
-      <div className="public-important-news-grid">
+      <div className="public-horizontal-news-stack">
         {rows.map((row, rowIndex) => (
           <div
-            className="public-important-news-row"
+            className="public-horizontal-news-row"
             key={`horizontal-news-row-${row[0]?.id ?? rowIndex}`}
             style={horizontalNewsRowStyle(row.length)}
           >
             {row.map((item) => (
-              <article className="public-important-news-card" key={item.id}>
+              <article className="public-horizontal-news-card" key={item.id}>
                 {item.imageUrl && item.linkUrl ? (
-                  <a className="public-important-news-image-link" href={item.linkUrl}>
+                  <a className="public-horizontal-news-image-link" href={item.linkUrl}>
                     <img src={item.imageUrl} alt="" />
                   </a>
                 ) : item.imageUrl ? (
-                  <span className="public-important-news-image">
+                  <span className="public-horizontal-news-image">
                     <img src={item.imageUrl} alt="" />
                   </span>
                 ) : null}
                 {item.label ? (
-                  <span className="public-important-news-label" style={item.labelColor ? { color: item.labelColor } : undefined}>
+                  <span className="public-horizontal-news-label" style={item.labelColor ? { color: item.labelColor } : undefined}>
                     {item.label}
                   </span>
                 ) : null}
                 {item.linkUrl ? (
-                  <a className="public-important-news-title" href={item.linkUrl}>
+                  <a className="public-horizontal-news-title" href={item.linkUrl}>
                     {item.title}
                   </a>
                 ) : (
-                  <strong className="public-important-news-title">{item.title}</strong>
+                  <strong className="public-horizontal-news-title">{item.title}</strong>
                 )}
                 {item.subtitle ? <p>{item.subtitle}</p> : null}
               </article>

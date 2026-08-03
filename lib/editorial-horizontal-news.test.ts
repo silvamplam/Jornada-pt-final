@@ -178,6 +178,9 @@ test("a faixa publica adapta a largura e admite seis noticias na mesma linha", (
   assert.match(publicHorizontalNewsSource, /buildEditorialHorizontalNewsRows\(items, 6\)/);
   assert.match(publicHorizontalNewsSource, /--horizontal-news-columns/);
   assert.match(publicHorizontalNewsSource, /grid-template-columns:\s*repeat\(var\(--horizontal-news-columns\), minmax\(0, 1fr\)\)/);
+  assert.match(publicHorizontalNewsSource, /public-horizontal-news-stack/);
+  assert.match(publicHorizontalNewsSource, /public-horizontal-news-row/);
+  assert.doesNotMatch(publicHorizontalNewsSource, /public-important-news-grid/);
   assert.doesNotMatch(publicHorizontalNewsSource, /repeat\(5, minmax\(0, 1fr\)\)/);
 });
 
