@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin } from "@/lib/supabase";
+import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 function cleanText(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") return null;
@@ -103,6 +103,31 @@ type CurrentHorizontalNews = {
   status: string | null;
 };
 
+type CurrentEditorialArticlePublication = {
+  id: string;
+  slug: string | null;
+  label: string | null;
+  title: string | null;
+  subtitle: string | null;
+  image_url: string | null;
+  status: string | null;
+  published_at: string | null;
+};
+
+type CurrentEditorialContentPublication = {
+  id: string;
+  slug: string | null;
+  label: string | null;
+  title: string | null;
+  subtitle: string | null;
+  summary: string | null;
+  image_url: string | null;
+  thumbnail_url: string | null;
+  content_type: string | null;
+  status: string | null;
+  published_at: string | null;
+};
+
 type CurrentImportantReferenceItem = {
   id: string;
   slot_type: string | null;
@@ -162,6 +187,8 @@ type CompositionMoveItem = {
   composition_id: string;
   slot_type: string;
   source_type: string | null;
+  sort_order: number;
+  created_at: string;
 };
 
 type MatchdayEditorialBankCandidate = {
@@ -182,6 +209,7 @@ type MatchdayEditorialBankCandidate = {
 
 type ExistingBankItem = {
   id: string;
+  label?: string | null;
   label_color?: string | null;
   source_type: string | null;
   source_id: string | null;
@@ -225,6 +253,7 @@ type CompositionBankIdentityItem = {
 
 type SaveBankResult = {
   saved: number;
+  updated: number;
   existing: number;
   repeated: number;
   skipped: number;
@@ -572,7 +601,17 @@ async function readPublishedImportantReferenceItems(matchdayId: string) {
 }
 
 async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayEditorialBankCandidate[]> {
-  const [editorial, highlights, latestNews, horizontalNews, importantItems] = await Promise.all([
+  const [editorialArticles, editorialContents, editorial, highlights, latestNews, horizontalNews, importantItems] = await Promise.all([
+    fetchSupabaseAdminTable<CurrentEditorialArticlePublication>(
+      `editorial_articles?select=id,slug,label,title,subtitle,image_url,status,published_at&matchday_id=eq.${encodeURIComponent(
+        matchdayId
+      )}&status=eq.published&order=published_at.asc.nullslast,created_at.asc`
+    ).catch(() => []),
+    fetchSupabaseAdminTable<CurrentEditorialContentPublication>(
+      `editorial_contents?select=id,slug,label,title,subtitle,summary,image_url,thumbnail_url,content_type,status,published_at&matchday_id=eq.${encodeURIComponent(
+        matchdayId
+      )}&status=eq.published&order=published_at.asc.nullslast,created_at.asc`
+    ).catch(() => []),
     readFirst<CurrentEditorial>(
       `matchday_editorials?select=id,title,summary,image_url,headline_link_url,complementary_mode,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,side_block_status,side_block_type,side_block_label,side_block_label_color,side_block_title,side_block_text,side_block_image_url,side_block_link_url&matchday_id=eq.${encodeURIComponent(
         matchdayId
@@ -597,6 +636,40 @@ async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayE
   ]);
 
   const candidates: Array<MatchdayEditorialBankCandidate | null> = [];
+
+  editorialArticles.forEach((item, index) => {
+    candidates.push(
+      bankCandidate({
+        matchdayId,
+        label: item.label,
+        title: item.title,
+        subtitle: item.subtitle,
+        imageUrl: item.image_url,
+        linkUrl: item.slug ? `/noticias/${item.slug}` : null,
+        sourceType: "editorial_article",
+        sourceId: item.id,
+        sourceSlug: item.slug,
+        sortOrder: index + 1
+      })
+    );
+  });
+
+  editorialContents.forEach((item, index) => {
+    candidates.push(
+      bankCandidate({
+        matchdayId,
+        label: item.label || item.content_type,
+        title: item.title,
+        subtitle: item.summary || item.subtitle,
+        imageUrl: item.thumbnail_url || item.image_url,
+        linkUrl: item.slug ? `/conteudos/${item.slug}` : null,
+        sourceType: "editorial_content",
+        sourceId: item.id,
+        sourceSlug: item.slug,
+        sortOrder: editorialArticles.length + index + 1
+      })
+    );
+  });
 
   if (editorial && hasContent(editorial.title, editorial.summary, editorial.image_url)) {
     candidates.push(
@@ -750,16 +823,52 @@ async function saveCurrentMatchdayEditorialBank(matchdayId: string): Promise<Sav
   }
 
   const knownItems = await fetchSupabaseAdminTable<ExistingBankItem>(
-    `matchday_editorial_bank_items?select=id,source_type,source_id,source_slug,link_url,title,subtitle,image_url&matchday_id=eq.${encodeURIComponent(
+    `matchday_editorial_bank_items?select=id,label,label_color,source_type,source_id,source_slug,link_url,title,subtitle,image_url&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&limit=1000`
   );
   let saved = 0;
+  let updated = 0;
   let existing = 0;
 
   for (const candidate of candidates) {
-    if (knownItems.some((item) => bankIdentitiesMatch(item, candidate))) {
-      existing += 1;
+    const knownItem = knownItems.find((item) => bankIdentitiesMatch(item, candidate));
+
+    if (knownItem) {
+      const payload = {
+        label: candidate.label,
+        label_color: candidate.label_color ?? knownItem.label_color ?? null,
+        title: candidate.title,
+        subtitle: candidate.subtitle,
+        image_url: candidate.image_url,
+        link_url: candidate.link_url,
+        source_type: candidate.source_type,
+        source_id: candidate.source_id,
+        source_slug: candidate.source_slug,
+        origin_slot_type: candidate.origin_slot_type,
+        sort_order: candidate.sort_order
+      };
+      const changed =
+        normalizeIdentityValue(knownItem.label) !== normalizeIdentityValue(payload.label) ||
+        normalizeIdentityValue(knownItem.label_color) !== normalizeIdentityValue(payload.label_color) ||
+        normalizeIdentityValue(knownItem.title) !== normalizeIdentityValue(payload.title) ||
+        normalizeIdentityValue(knownItem.subtitle) !== normalizeIdentityValue(payload.subtitle) ||
+        normalizeEditorialLinkValue(knownItem.image_url) !== normalizeEditorialLinkValue(payload.image_url) ||
+        normalizeEditorialLinkValue(knownItem.link_url) !== normalizeEditorialLinkValue(payload.link_url) ||
+        normalizeIdentityValue(knownItem.source_type) !== normalizeIdentityValue(payload.source_type) ||
+        normalizeIdentityValue(knownItem.source_id) !== normalizeIdentityValue(payload.source_id) ||
+        normalizeIdentityValue(knownItem.source_slug) !== normalizeIdentityValue(payload.source_slug);
+
+      if (changed && knownItem.id) {
+        await writeSupabaseAdmin(`matchday_editorial_bank_items?id=eq.${encodeURIComponent(knownItem.id)}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload)
+        });
+        Object.assign(knownItem, payload);
+        updated += 1;
+      } else {
+        existing += 1;
+      }
       continue;
     }
 
@@ -770,6 +879,7 @@ async function saveCurrentMatchdayEditorialBank(matchdayId: string): Promise<Sav
 
     knownItems.push({
       id: "",
+      label: candidate.label,
       label_color: candidate.label_color,
       source_type: candidate.source_type,
       source_id: candidate.source_id,
@@ -782,7 +892,7 @@ async function saveCurrentMatchdayEditorialBank(matchdayId: string): Promise<Sav
     saved += 1;
   }
 
-  return { saved, existing, repeated, skipped: existing + repeated };
+  return { saved, updated, existing, repeated, skipped: existing + repeated };
 }
 
 async function updateBankItemStatus(formData: FormData, nextStatus: "active" | "archived") {
@@ -880,35 +990,44 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
     throw new CompositionPublicationError("Esta noticia ja esta associada a composicao.");
   }
 
-  if (
-    singleBankCompositionSlotTypes.has(slotType) &&
-    (await hasRows(
-      `matchday_reference_composition_items?select=id&composition_id=eq.${encodeURIComponent(
-        compositionId
-      )}&slot_type=eq.${encodeURIComponent(slotType)}`
-    ))
-  ) {
-    throw new CompositionPublicationError("Esta zona ja tem um item. Retire primeiro o item atual antes de associar outro.");
+  const nextSortOrder = singleBankCompositionSlotTypes.has(slotType)
+    ? 1
+    : (await readMaxSortOrderForSlot(compositionId, slotType)) + 1;
+  const createdItems = await writeSupabaseAdminReturning<{ id: string }>(
+    "matchday_reference_composition_items?select=id",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        composition_id: compositionId,
+        slot_type: slotType,
+        source_type: "matchday_editorial_bank_item",
+        source_id: bankItem.id,
+        sort_order: nextSortOrder,
+        title_snapshot: bankItem.title,
+        subtitle_snapshot: bankItem.subtitle,
+        image_url_snapshot: bankItem.image_url,
+        link_url_snapshot: bankItem.link_url,
+        label_snapshot: bankItem.label,
+        label_color_snapshot: bankItem.label_color,
+        status: "draft"
+      })
+    }
+  );
+  const createdItemId = createdItems[0]?.id;
+
+  if (!createdItemId) {
+    throw new Error("bank-assignment-invalid");
   }
 
-  const nextSortOrder = (await readMaxSortOrderForSlot(compositionId, slotType)) + 1;
-  await writeSupabaseAdmin("matchday_reference_composition_items", {
-    method: "POST",
-    body: JSON.stringify({
-      composition_id: compositionId,
-      slot_type: slotType,
-      source_type: "manual_link",
-      source_id: bankItem.id,
-      sort_order: nextSortOrder,
-      title_snapshot: bankItem.title,
-      subtitle_snapshot: bankItem.subtitle,
-      image_url_snapshot: bankItem.image_url,
-      link_url_snapshot: bankItem.link_url,
-      label_snapshot: bankItem.label,
-      label_color_snapshot: bankItem.label_color,
-      status: "draft"
-    })
-  });
+  if (singleBankCompositionSlotTypes.has(slotType)) {
+    await writeSupabaseAdmin(
+      `matchday_reference_composition_items?composition_id=eq.${encodeURIComponent(
+        compositionId
+      )}&slot_type=eq.${encodeURIComponent(slotType)}&id=neq.${encodeURIComponent(createdItemId)}`,
+      { method: "DELETE" }
+    );
+  }
+
 }
 
 async function unassignBankItemFromCompositionSlot(formData: FormData) {
@@ -1181,21 +1300,20 @@ async function moveCompositionItem(formData: FormData) {
   const compositionId = cleanText(formData.get("composition_id"));
   const itemId = cleanText(formData.get("item_id"));
   const targetSlotType = cleanText(formData.get("target_slot_type"));
-  const allowedTargetSlots = new Set(["headline", "important_item", "editorial_line_item"]);
 
   if (
     !matchdayId ||
     !compositionId ||
     !itemId ||
     !targetSlotType ||
-    !allowedTargetSlots.has(targetSlotType) ||
+    !bankCompositionSlotTypes.has(targetSlotType) ||
     !(await compositionBelongsToMatchday(compositionId, matchdayId))
   ) {
     throw new Error("composition-invalid");
   }
 
   const item = await readFirst<CompositionMoveItem>(
-    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type&id=eq.${encodeURIComponent(
+    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,sort_order,created_at&id=eq.${encodeURIComponent(
       itemId
     )}&composition_id=eq.${encodeURIComponent(compositionId)}`
   );
@@ -1204,8 +1322,11 @@ async function moveCompositionItem(formData: FormData) {
   if (item.slot_type === "roundup" || normalizeSourceType(item.source_type) === "matchday_roundup_item") {
     throw new Error("composition-invalid");
   }
+  if (item.slot_type === targetSlotType) return;
 
-  const nextSortOrder = (await readMaxSortOrderForSlot(compositionId, targetSlotType)) + 1;
+  const nextSortOrder = singleBankCompositionSlotTypes.has(targetSlotType)
+    ? 1
+    : (await readMaxSortOrderForSlot(compositionId, targetSlotType)) + 1;
   await writeSupabaseAdmin(
     `matchday_reference_composition_items?id=eq.${encodeURIComponent(itemId)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
     {
@@ -1217,6 +1338,68 @@ async function moveCompositionItem(formData: FormData) {
       })
     }
   );
+  if (singleBankCompositionSlotTypes.has(targetSlotType)) {
+    await writeSupabaseAdmin(
+      `matchday_reference_composition_items?composition_id=eq.${encodeURIComponent(
+        compositionId
+      )}&slot_type=eq.${encodeURIComponent(targetSlotType)}&id=neq.${encodeURIComponent(itemId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+}
+
+async function reorderCompositionItem(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  const itemId = cleanText(formData.get("item_id"));
+  const direction = cleanText(formData.get("direction"));
+
+  if (
+    !matchdayId ||
+    !compositionId ||
+    !itemId ||
+    (direction !== "up" && direction !== "down") ||
+    !(await compositionBelongsToMatchday(compositionId, matchdayId))
+  ) {
+    throw new Error("composition-invalid");
+  }
+
+  const item = await readFirst<CompositionMoveItem>(
+    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,sort_order,created_at&id=eq.${encodeURIComponent(
+      itemId
+    )}&composition_id=eq.${encodeURIComponent(compositionId)}`
+  );
+  if (!item) throw new Error("composition-invalid");
+
+  const items = await fetchSupabaseAdminTable<CompositionMoveItem>(
+    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,sort_order,created_at&composition_id=eq.${encodeURIComponent(
+      compositionId
+    )}&slot_type=eq.${encodeURIComponent(item.slot_type)}&order=sort_order.asc,created_at.asc`
+  );
+  const currentIndex = items.findIndex((candidate) => candidate.id === item.id);
+  const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= items.length) return;
+
+  const reordered = [...items];
+  const currentItem = reordered[currentIndex];
+  if (!currentItem) return;
+  reordered.splice(currentIndex, 1);
+  reordered.splice(targetIndex, 0, currentItem);
+
+  for (const [index, candidate] of reordered.entries()) {
+    const nextOrder = index + 1;
+    if (candidate.sort_order === nextOrder) continue;
+
+    await writeSupabaseAdmin(
+      `matchday_reference_composition_items?id=eq.${encodeURIComponent(candidate.id)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ sort_order: nextOrder, updated_at: new Date().toISOString() })
+      }
+    );
+  }
 }
 
 async function saveCurrentPageState(formData: FormData) {
@@ -1250,7 +1433,8 @@ async function saveCurrentPageState(formData: FormData) {
 async function publishReferenceComposition(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const compositionId = cleanText(formData.get("composition_id"));
-  if (!matchdayId || !compositionId) throw new Error("composition-invalid");
+  const confirmed = cleanText(formData.get("confirm_publish")) === "yes";
+  if (!matchdayId || !compositionId || !confirmed) throw new CompositionPublicationError("Confirma a revisão da composição antes de publicar.");
 
   const composition = await readReferenceCompositionState(compositionId, matchdayId);
   if (!composition) throw new Error("composition-invalid");
@@ -1327,12 +1511,13 @@ export async function POST(request: Request) {
     else if (actionType === "add_item") await addItem(formData);
     else if (actionType === "remove_item") await removeItem(formData);
     else if (actionType === "move_composition_item") await moveCompositionItem(formData);
+    else if (actionType === "reorder_composition_item") await reorderCompositionItem(formData);
     else if (actionType === "save_current_page_state") await saveCurrentPageState(formData);
     else if (actionType === "save_matchday_editorial_bank_current") {
       const result = await saveCurrentMatchdayEditorialBank(matchdayId);
       return redirectTo(
         request,
-        `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_saved=${result.saved}&bank_existing=${result.existing}&bank_repeated=${result.repeated}&bank_skipped=${result.skipped}#matchday-editorial-bank`
+        `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_saved=${result.saved}&bank_updated=${result.updated}&bank_existing=${result.existing}&bank_repeated=${result.repeated}&bank_skipped=${result.skipped}#matchday-editorial-bank`
       );
     }
     else if (actionType === "archive_bank_item") {
