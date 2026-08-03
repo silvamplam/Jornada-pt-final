@@ -1,4 +1,9 @@
-import type { EditorialHorizontalNewsItem } from "@/lib/editorial-horizontal-news";
+import type { CSSProperties } from "react";
+
+import {
+  buildEditorialHorizontalNewsRows,
+  type EditorialHorizontalNewsItem
+} from "@/lib/editorial-horizontal-news";
 
 const horizontalNewsStyles = `
   .public-important-news {
@@ -9,8 +14,13 @@ const horizontalNewsStyles = `
 
   .public-important-news-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px;
+  }
+
+  .public-important-news-row {
+    display: grid;
+    grid-template-columns: repeat(var(--horizontal-news-columns), minmax(0, 1fr));
+    gap: var(--horizontal-news-gap);
   }
 
   .public-important-news-card {
@@ -41,7 +51,7 @@ const horizontalNewsStyles = `
 
   .public-important-news-label {
     color: #c40012;
-    font-size: 11px;
+    font-size: var(--horizontal-news-label-size);
     font-weight: 900;
     line-height: 1;
     text-transform: uppercase;
@@ -51,7 +61,7 @@ const horizontalNewsStyles = `
     display: block;
     color: inherit;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: 17px;
+    font-size: var(--horizontal-news-title-size);
     font-weight: 700;
     line-height: 1.15;
     text-decoration: none;
@@ -66,28 +76,67 @@ const horizontalNewsStyles = `
   .public-important-news-card p {
     margin: 0;
     color: #607086;
-    font-size: 13px;
+    font-size: var(--horizontal-news-subtitle-size);
     line-height: 1.35;
   }
 
   @media (max-width: 1100px) {
-    .public-important-news-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+    .public-important-news-row {
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
     }
   }
 
   @media (max-width: 720px) {
-    .public-important-news-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .public-important-news-row {
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     }
   }
 
   @media (max-width: 460px) {
-    .public-important-news-grid {
+    .public-important-news-row {
       grid-template-columns: 1fr;
     }
   }
 `;
+
+type HorizontalNewsRowStyle = CSSProperties & {
+  "--horizontal-news-columns": number;
+  "--horizontal-news-gap": string;
+  "--horizontal-news-label-size": string;
+  "--horizontal-news-title-size": string;
+  "--horizontal-news-subtitle-size": string;
+};
+
+function horizontalNewsRowStyle(columnCount: number): HorizontalNewsRowStyle {
+  if (columnCount >= 6) {
+    return {
+      "--horizontal-news-columns": columnCount,
+      "--horizontal-news-gap": "10px",
+      "--horizontal-news-label-size": "10px",
+      "--horizontal-news-title-size": "15px",
+      "--horizontal-news-subtitle-size": "12px"
+    };
+  }
+
+  if (columnCount === 5) {
+    return {
+      "--horizontal-news-columns": columnCount,
+      "--horizontal-news-gap": "12px",
+      "--horizontal-news-label-size": "10.5px",
+      "--horizontal-news-title-size": "16px",
+      "--horizontal-news-subtitle-size": "12.5px"
+    };
+  }
+
+  return {
+    "--horizontal-news-columns": columnCount,
+    "--horizontal-news-gap": "14px",
+    "--horizontal-news-label-size": "11px",
+    "--horizontal-news-title-size": "17px",
+    "--horizontal-news-subtitle-size": "13px"
+  };
+}
 
 export default function PublicHorizontalNewsStrip({
   items,
@@ -100,35 +149,45 @@ export default function PublicHorizontalNewsStrip({
     return null;
   }
 
+  const rows = buildEditorialHorizontalNewsRows(items, 6);
+
   return (
     <section className="public-matchday-panel public-important-news" aria-label={ariaLabel}>
       <style>{horizontalNewsStyles}</style>
       <div className="public-important-news-grid">
-        {items.map((item) => (
-          <article className="public-important-news-card" key={item.id}>
-            {item.imageUrl && item.linkUrl ? (
-              <a className="public-important-news-image-link" href={item.linkUrl}>
-                <img src={item.imageUrl} alt="" />
-              </a>
-            ) : item.imageUrl ? (
-              <span className="public-important-news-image">
-                <img src={item.imageUrl} alt="" />
-              </span>
-            ) : null}
-            {item.label ? (
-              <span className="public-important-news-label" style={item.labelColor ? { color: item.labelColor } : undefined}>
-                {item.label}
-              </span>
-            ) : null}
-            {item.linkUrl ? (
-              <a className="public-important-news-title" href={item.linkUrl}>
-                {item.title}
-              </a>
-            ) : (
-              <strong className="public-important-news-title">{item.title}</strong>
-            )}
-            {item.subtitle ? <p>{item.subtitle}</p> : null}
-          </article>
+        {rows.map((row, rowIndex) => (
+          <div
+            className="public-important-news-row"
+            key={`horizontal-news-row-${row[0]?.id ?? rowIndex}`}
+            style={horizontalNewsRowStyle(row.length)}
+          >
+            {row.map((item) => (
+              <article className="public-important-news-card" key={item.id}>
+                {item.imageUrl && item.linkUrl ? (
+                  <a className="public-important-news-image-link" href={item.linkUrl}>
+                    <img src={item.imageUrl} alt="" />
+                  </a>
+                ) : item.imageUrl ? (
+                  <span className="public-important-news-image">
+                    <img src={item.imageUrl} alt="" />
+                  </span>
+                ) : null}
+                {item.label ? (
+                  <span className="public-important-news-label" style={item.labelColor ? { color: item.labelColor } : undefined}>
+                    {item.label}
+                  </span>
+                ) : null}
+                {item.linkUrl ? (
+                  <a className="public-important-news-title" href={item.linkUrl}>
+                    {item.title}
+                  </a>
+                ) : (
+                  <strong className="public-important-news-title">{item.title}</strong>
+                )}
+                {item.subtitle ? <p>{item.subtitle}</p> : null}
+              </article>
+            ))}
+          </div>
         ))}
       </div>
     </section>

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   buildEditorialHorizontalNewsEditorOrders,
   buildEditorialHorizontalNewsItems,
+  buildEditorialHorizontalNewsRows,
   resolveMatchdayHorizontalNewsItems
 } from "./editorial-horizontal-news";
 
@@ -72,6 +73,15 @@ test("buildEditorialHorizontalNewsItems nao limita a quantidade e preserva a cor
   assert.equal(items.length, 10);
   assert.equal(items[0]?.labelColor, "#123456");
   assert.equal(items[9]?.sortOrder, 10);
+});
+
+test("buildEditorialHorizontalNewsRows distribui as noticias por linhas completas e equilibradas", () => {
+  const items = Array.from({ length: 13 }, (_, index) => index + 1);
+
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 6), 6).map((row) => row.length), [6]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 7), 6).map((row) => row.length), [4, 3]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 10), 6).map((row) => row.length), [5, 5]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items, 6).map((row) => row.length), [5, 4, 4]);
 });
 
 test("buildEditorialHorizontalNewsEditorOrders mantem as posicoes existentes e cria a seguinte", () => {
@@ -164,9 +174,11 @@ const publicMatchdayLoaderSource = readFileSync(
   "utf8"
 );
 
-test("a faixa publica apresenta cinco noticias por linha no desktop", () => {
-  assert.match(publicHorizontalNewsSource, /grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
-  assert.doesNotMatch(publicHorizontalNewsSource, /repeat\(auto-fit/);
+test("a faixa publica adapta a largura e admite seis noticias na mesma linha", () => {
+  assert.match(publicHorizontalNewsSource, /buildEditorialHorizontalNewsRows\(items, 6\)/);
+  assert.match(publicHorizontalNewsSource, /--horizontal-news-columns/);
+  assert.match(publicHorizontalNewsSource, /grid-template-columns:\s*repeat\(var\(--horizontal-news-columns\), minmax\(0, 1fr\)\)/);
+  assert.doesNotMatch(publicHorizontalNewsSource, /repeat\(5, minmax\(0, 1fr\)\)/);
 });
 
 test("a faixa horizontal integra a composicao editorial e preserva a cor", () => {

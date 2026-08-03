@@ -58,6 +58,32 @@ export function buildEditorialHorizontalNewsEditorOrders(
   return [...existingOrders, nextOrder];
 }
 
+
+export function buildEditorialHorizontalNewsRows<T>(
+  items: T[],
+  maxItemsPerRow = 6
+): T[][] {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const safeMaxItemsPerRow =
+    Number.isInteger(maxItemsPerRow) && maxItemsPerRow > 0 ? maxItemsPerRow : 6;
+  const rowCount = Math.ceil(items.length / safeMaxItemsPerRow);
+  const baseRowSize = Math.floor(items.length / rowCount);
+  const rowsWithExtraItem = items.length % rowCount;
+  const rows: T[][] = [];
+  let offset = 0;
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const rowSize = baseRowSize + (rowIndex < rowsWithExtraItem ? 1 : 0);
+    rows.push(items.slice(offset, offset + rowSize));
+    offset += rowSize;
+  }
+
+  return rows;
+}
+
 export function resolveMatchdayHorizontalNewsItems({
   hasPublishedReferenceComposition,
   referenceItems,
