@@ -47,7 +47,8 @@ test("a jornada usa faixa compacta sem boneco e os restantes contextos preservam
   assert.match(competitionSource, /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#44152f/);
   assert.match(competitionSource, /showMessageTicker=\{false\}/);
   assert.match(competitionSource, /flex-wrap:\s*wrap/);
-  assert.match(competitionSource, /premier-league-lockup"\] \{[\s\S]*?filter:\s*brightness\(0\) invert\(1\)/);
+  assert.match(competitionSource, /public-season-competition-emblem\[data-logo-variant="premier-league-lockup"\][\s\S]*?background:\s*#ffffff/);
+  assert.match(competitionSource, /premier-league-lockup"\] \{[\s\S]*?filter:\s*none/);
   assert.doesNotMatch(competitionSource, /import PublicMatchdayNavigation|<PublicMatchdayNavigation/);
   assert.doesNotMatch(competitionSource, /public-matchday-status-card|Jornada selecionada/);
   assert.match(competitionSource, /<PublicMatchStrip/);

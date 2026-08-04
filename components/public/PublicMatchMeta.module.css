@@ -63,18 +63,3 @@
   overflow: visible;
   line-height: 0;
 }
-
-.clean {
-  grid-template-columns: minmax(0, 1fr);
-  width: 100%;
-  margin-inline: 0;
-  padding-inline: 0;
-}
-
-.clean .dateTime,
-.clean.withoutChannel .dateTime {
-  justify-self: start;
-  text-align: left;
-  font-size: 9px;
-  font-weight: 800;
-}

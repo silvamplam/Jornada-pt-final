@@ -2761,11 +2761,21 @@ const publicMatchdayStyles = `
     max-width: 76px;
   }
 
+  .public-season-competition-emblem[data-logo-variant="premier-league-lockup"] {
+    min-width: 88px;
+    min-height: 32px;
+    padding: 4px 7px;
+    border-left: 0;
+    border-radius: 4px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(17, 24, 32, 0.14);
+  }
+
   .public-season-competition-emblem img[data-variant="premier-league-lockup"] {
     width: auto;
-    height: 29px;
-    max-width: 82px;
-    filter: brightness(0) invert(1);
+    height: 24px;
+    max-width: 76px;
+    filter: none;
   }
 
   .public-matchday-nav-compact {
@@ -3808,6 +3818,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               <a
                 aria-label={`Classificação da ${context.competition.name}`}
                 className="public-season-competition-emblem"
+                data-logo-variant={currentCompetitionLogo.variant}
                 href="#classificacao"
               >
                 <img
@@ -3862,23 +3873,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         }))}
         variant="clean"
       />
-      {context.matchesForMatchday.length > 0 ? (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              document.addEventListener("DOMContentLoaded", function () {
-                var strip = document.querySelector("[data-matchday-strip]");
-                if (!strip) return;
-                var focused = strip.querySelector("[data-live-focus='true']");
-                if (focused && "scrollIntoView" in focused) {
-                  focused.scrollIntoView({ block: "nearest", inline: "center" });
-                }
-              });
-            `
-          }}
-        />
-      ) : null}
-
       {editorialVisibility.showCoverPanel ? (
       <section className="public-matchday-panel" aria-label="Capa da jornada">
         <div className="public-matchday-cover" data-editorial-layout={editorialVisibility.coverLayout}>

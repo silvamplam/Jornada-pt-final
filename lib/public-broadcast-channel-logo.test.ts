@@ -329,7 +329,9 @@ test("PublicMatchMeta centraliza estrutura, espaçamento e área do canal", asyn
   assert.match(componentSource, /const hasChannel = Boolean\(channelName\?\.trim\(\)\)/);
   assert.match(componentSource, /const channel = hasChannel \? \([\s\S]*?<span className=\{styles\.channel\}>[\s\S]*?variant="matchMeta"/);
   assert.doesNotMatch(componentSource, /matchMetaLayoutMode|channelVariant|matchMetaCompact/);
-  assert.match(componentSource, /variant === "compact"[\s\S]*?styles\.compact[\s\S]*?variant === "clean"[\s\S]*?styles\.clean/);
+  assert.match(componentSource, /variant\?: "default" \| "compact";/);
+  assert.match(componentSource, /variant === "compact"[\s\S]*?styles\.compact/);
+  assert.doesNotMatch(componentSource, /variant === "clean"|styles\.clean/);
   assert.match(componentSource, /const className = hasChannel \? variantClassName : `\$\{variantClassName\} \$\{styles\.withoutChannel\}`/);
   assert.match(componentSource, /<span[\s\S]*?className=\{className\}[\s\S]*?data-public-match-channel-family=\{isSportTvChannel \? "sport-tv" : undefined\}[\s\S]*?data-public-match-meta/);
   assert.doesNotMatch(componentSource, /denseDate|denseTime|denseBottom/);
@@ -340,8 +342,7 @@ test("PublicMatchMeta centraliza estrutura, espaçamento e área do canal", asyn
   assert.match(styleSource, /\.withoutChannel\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?width:\s*100%/);
   assert.match(styleSource, /\.withoutChannel \.dateTime\s*\{[\s\S]*?justify-self:\s*center[\s\S]*?text-align:\s*center/);
   assert.doesNotMatch(`${componentSource}\n${styleSource}`, /dense|row-gap|text-overflow:\s*ellipsis/);
-  assert.match(styleSource, /\.clean \{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?width:\s*100%/);
-  assert.match(styleSource, /\.clean\.withoutChannel \.dateTime \{[\s\S]*?justify-self:\s*start[\s\S]*?text-align:\s*left/);
+  assert.doesNotMatch(styleSource, /\.clean(?:\s|\.)/);
   assert.match(styleSource, /\.channel\s*\{[\s\S]*?display:\s*grid[\s\S]*?grid-column:\s*3[\s\S]*?place-items:\s*center[\s\S]*?justify-self:\s*end[\s\S]*?flex-shrink:\s*0[\s\S]*?width:\s*max-content[\s\S]*?max-width:\s*none[\s\S]*?height:\s*max-content[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0[\s\S]*?overflow:\s*visible/);
   assert.doesNotMatch(styleSource, /display:\s*inline-flex|position:\s*absolute|margin[^:]*:\s*-/);
 });
@@ -438,24 +439,26 @@ test("PublicMatchStrip usa carrossel limpo e mantém o layout partilhado nos res
   assert.match(componentSource, /variant === "clean" \? \([\s\S]*?<PublicMatchStripCarousel>/);
   assert.match(componentSource, /data-public-match-card/);
   assert.match(componentSource, /data-public-match-channel-footer/);
-  assert.match(componentSource, /variant=\{visualVariant === "clean" \? "clean" : "default"\}/);
+  assert.match(componentSource, /data-public-match-schedule/);
   assert.match(componentSource, /visual:\s*`\$\{compactCivilDate\(civilDate\)\} \\u00b7 \$\{kickoffTime\}`/);
   assert.doesNotMatch(componentSource, /data-strip-density/);
   assert.match(carouselSource, /aria-label="Ver jogo anterior"/);
   assert.match(carouselSource, /aria-label="Ver jogo seguinte"/);
   assert.match(carouselSource, /viewport\.scrollBy\(\{[\s\S]*?behavior:\s*"smooth"/);
   assert.match(carouselSource, /firstCard\.getBoundingClientRect\(\)\.width \+ gap/);
+  assert.match(styleSource, /\.carousel\s*\{[\s\S]*?max-width:\s*1512px[\s\S]*?margin-inline:\s*auto/);
   assert.match(styleSource, /\.carouselViewport\s*\{[\s\S]*?overflow-x:\s*auto[\s\S]*?scrollbar-width:\s*none/);
   assert.match(styleSource, /\.carouselViewport::-webkit-scrollbar\s*\{[\s\S]*?display:\s*none/);
-  assert.match(styleSource, /grid-auto-columns:\s*calc\(\(100% - 42px\) \/ 8\)/);
-  assert.match(styleSource, /@media \(max-width:\s*1499px\)[\s\S]*?calc\(\(100% - 30px\) \/ 6\)/);
-  assert.match(styleSource, /@media \(max-width:\s*1023px\)[\s\S]*?calc\(\(100% - 18px\) \/ 4\)/);
-  assert.match(styleSource, /@media \(max-width:\s*639px\)[\s\S]*?calc\(\(100% - 6px\) \/ 2\)/);
-  assert.match(styleSource, /@media \(max-width:\s*399px\)[\s\S]*?grid-auto-columns:\s*100%/);
+  assert.match(styleSource, /grid-auto-columns:\s*182px/);
+  assert.match(styleSource, /@media \(max-width:\s*1879px\)[\s\S]*?max-width:\s*1132px/);
+  assert.match(styleSource, /@media \(max-width:\s*1399px\)[\s\S]*?max-width:\s*752px/);
+  assert.match(styleSource, /@media \(max-width:\s*767px\)[\s\S]*?max-width:\s*372px/);
+  assert.match(styleSource, /@media \(max-width:\s*399px\)[\s\S]*?max-width:\s*182px/);
   assert.match(styleSource, /\.carouselButton\s*\{[\s\S]*?color:\s*#44152f/);
-  assert.match(styleSource, /\.row > \.card \{[\s\S]*?grid-template-rows:\s*28px 25px 25px 26px[\s\S]*?min-height:\s*112px/);
-  assert.match(styleSource, /\.cleanChannel\s*\{[\s\S]*?grid-row:\s*4[\s\S]*?justify-content:\s*flex-start/);
-  assert.match(styleSource, /> :global\(\[data-public-match-meta\]\) > span:first-child \{[\s\S]*?justify-self:\s*start[\s\S]*?text-align:\s*left/);
+  assert.match(styleSource, /\.row > \.card \{[\s\S]*?grid-template-rows:\s*16px 25px 42px 23px[\s\S]*?width:\s*182px[\s\S]*?height:\s*132px[\s\S]*?background:\s*#ffffff/);
+  assert.match(styleSource, /\.cleanSchedule[\s\S]*?justify-content:\s*flex-start[\s\S]*?text-align:\s*left/);
+  assert.match(styleSource, /\.cleanChannel\s*\{[\s\S]*?grid-row:\s*2[\s\S]*?justify-content:\s*flex-start[\s\S]*?border-bottom:/);
+  assert.match(styleSource, /\.teamNames\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
 });
 
 test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal de equipa", async () => {
@@ -489,7 +492,7 @@ test("layout aprovado não depende de query parameter e a notícia sem jornada n
   assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\}/);
   assert.match(matchdaySource, /<PublicMatchStrip[\s\S]*?matches=\{context\.matchesForMatchday\.map/);
   assert.match(matchdaySource, /showActiveCompetitionLogo=\{false\}/);
-  assert.match(matchdaySource, /className="public-season-competition-emblem"[\s\S]*?href="#classificacao"/);
+  assert.match(matchdaySource, /className="public-season-competition-emblem"[\s\S]*?data-logo-variant=\{currentCompetitionLogo\.variant\}[\s\S]*?href="#classificacao"/);
   assert.match(matchdaySource, /resolvePublicCompetitionLogoPresentation\(currentCompetitionMenuItem\)/);
   assert.match(newsSource, /if \(!article\.matchday_id\) \{\s*return null;/);
   assert.match(newsSource, /articleMatches\.length > 0 \? \([\s\S]*?<PublicMatchStrip/);

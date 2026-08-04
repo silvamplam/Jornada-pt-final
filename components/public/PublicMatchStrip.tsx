@@ -296,12 +296,15 @@ function CompactMatchCard({
               </strong>
             ) : null}
           </span>
+        ) : visualVariant === "clean" ? (
+          <span className={styles.cleanSchedule} data-public-match-meta data-public-match-schedule>
+            {statusContent}
+          </span>
         ) : (
           <PublicMatchMeta
-            channelLogoUrl={visualVariant !== "clean" && presentation.showChannel ? match.broadcastChannel?.logo_url : null}
-            channelName={visualVariant !== "clean" && presentation.showChannel ? broadcastChannelName : null}
+            channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
+            channelName={presentation.showChannel ? broadcastChannelName : null}
             dateTime={statusContent}
-            variant={visualVariant === "clean" ? "clean" : "default"}
           />
         )}
       </span>
