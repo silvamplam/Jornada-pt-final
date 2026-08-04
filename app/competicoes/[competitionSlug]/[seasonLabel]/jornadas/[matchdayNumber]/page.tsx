@@ -2,6 +2,7 @@ import { buildAccumulatedClassification, totalClassificationStats, type Classifi
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
+import { resolvePublicCompetitionLogoPresentation } from "@/lib/public-competition-navigation";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import { buildPublicMatchdayEditorialVisibility } from "@/lib/public-matchday-editorial-visibility";
@@ -2724,6 +2725,48 @@ const publicMatchdayStyles = `
     color: #44152f;
   }
 
+  .public-season-competition-emblem {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 52px;
+    min-height: 32px;
+    padding: 0 7px;
+    border-left: 1px solid rgba(255, 255, 255, 0.32);
+    text-decoration: none;
+  }
+
+  .public-season-competition-emblem img {
+    display: block;
+    width: auto;
+    height: 28px;
+    max-width: 88px;
+    object-fit: contain;
+  }
+
+  .public-season-competition-emblem img[data-variant="liga-portugal-horizontal"] {
+    box-sizing: border-box;
+    width: 82px;
+    height: 30px;
+    max-width: 82px;
+    padding: 5px 4px;
+    border-radius: 3px;
+    background: #00235a;
+  }
+
+  .public-season-competition-emblem img[data-variant="laliga-horizontal"] {
+    width: 76px;
+    height: auto;
+    max-width: 76px;
+  }
+
+  .public-season-competition-emblem img[data-variant="premier-league-lockup"] {
+    width: auto;
+    height: 29px;
+    max-width: 82px;
+  }
+
   .public-matchday-nav-compact {
     display: flex;
     flex-wrap: wrap;
@@ -2822,6 +2865,16 @@ const publicMatchdayStyles = `
 
     .public-season-context-card {
       flex-wrap: wrap;
+    }
+
+    .public-season-competition-emblem {
+      min-height: 30px;
+      padding-right: 5px;
+      padding-left: 5px;
+    }
+
+    .public-season-competition-emblem img {
+      max-width: 76px;
     }
 
     .public-season-context-card .public-season-select-wrap {
@@ -3448,6 +3501,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     href: `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${context.matchday.number}`,
     logoUrl: context.competition.logo_url
   };
+  const currentCompetitionLogo = resolvePublicCompetitionLogoPresentation(currentCompetitionMenuItem);
   const publicCompetitionMenuBase = await getPublicCompetitionMenu().catch(() => []);
   const publicCompetitionMenu = publicCompetitionMenuBase.map((item) =>
     item.slug === currentCompetitionMenuItem.slug ? currentCompetitionMenuItem : item
@@ -3714,6 +3768,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           competitions={publicCompetitionMenu}
           activeCompetitionSlug={context.competition.slug}
           classificationHref="#classificacao"
+          showActiveCompetitionLogo={false}
           showMessageTicker={false}
         />
         <div className="public-site-actions" aria-label="Ações">
@@ -3747,6 +3802,23 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                   2.ª volta
                 </a>
               </nav>
+            ) : null}
+            {currentCompetitionLogo ? (
+              <a
+                aria-label={`Classificação da ${context.competition.name}`}
+                className="public-season-competition-emblem"
+                href="#classificacao"
+              >
+                <img
+                  alt=""
+                  aria-hidden="true"
+                  data-variant={currentCompetitionLogo.variant}
+                  decoding="async"
+                  height={currentCompetitionLogo.intrinsicHeight}
+                  src={currentCompetitionLogo.logoUrl}
+                  width={currentCompetitionLogo.intrinsicWidth}
+                />
+              </a>
             ) : null}
           </div>
           <nav className="public-matchday-nav-compact" aria-label="Jornadas da época">

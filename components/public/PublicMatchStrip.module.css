@@ -1058,7 +1058,7 @@
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .status > :global([data-public-match-meta]) {
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  grid-template-columns: minmax(0, 1fr) max-content;
   grid-template-rows: minmax(0, 1fr);
   align-items: center;
   height: 24px;
@@ -1066,22 +1066,22 @@
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .status > :global([data-public-match-meta]) > span:first-child {
-  grid-column: 3;
+  grid-column: 1;
   grid-row: 1;
-  justify-self: end;
+  justify-self: start;
   color: #526174;
   font-size: 9px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0.01em;
-  text-align: right;
+  text-align: left;
   white-space: nowrap;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .status > :global([data-public-match-meta]) > span:last-child:not(:first-child) {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
-  justify-self: start;
+  justify-self: end;
   width: auto;
   height: 22px;
 }
@@ -1110,6 +1110,33 @@
 .panel[data-visual-variant="clean"] .card[data-live-focus="true"] {
   border-color: #22a755;
   box-shadow: 0 0 0 1px rgba(34, 167, 85, 0.12), 0 2px 5px rgba(15, 23, 42, 0.06);
+}
+
+.panel[data-visual-variant="clean"][data-strip-density="dense"] .shell > .row {
+  gap: 3px;
+}
+
+.panel[data-visual-variant="clean"][data-strip-density="dense"] .row > .card {
+  grid-template-columns: 20px minmax(0, 1fr);
+  min-height: 86px;
+  padding: 5px 4px;
+}
+
+.panel[data-visual-variant="clean"][data-strip-density="dense"] .row > .card > .team {
+  width: 20px;
+}
+
+.panel[data-visual-variant="clean"][data-strip-density="dense"] .teamNames > .teamName {
+  font-size: clamp(9px, 0.62vw, 10.5px);
+  letter-spacing: -0.22px;
+}
+
+.panel[data-visual-variant="clean"][data-strip-density="dense"] .row > .card > .status > :global([data-public-match-meta]) {
+  column-gap: 2px;
+}
+
+.panel[data-visual-variant="clean"][data-strip-density="dense"] .row > .card > .status > :global([data-public-match-meta]) > span:first-child {
+  font-size: 8px;
 }
 
 @media (max-width: 1180px) {

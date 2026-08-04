@@ -98,7 +98,7 @@ function kickoffCivilDate(value?: string | null) {
   return year && month && day ? { year, month, day } : null;
 }
 
-function miniCardSchedule(match: PublicMatchStripMatch, compact = false) {
+function miniCardSchedule(match: PublicMatchStripMatch) {
   const scheduledDate = parseCivilDate(match.scheduled_date);
   const kickoffTime = formatKickoffTime(match.kickoff_at);
 
@@ -106,7 +106,7 @@ function miniCardSchedule(match: PublicMatchStripMatch, compact = false) {
     const civilDate = scheduledDate ?? kickoffCivilDate(match.kickoff_at);
     if (civilDate) {
       return {
-        visual: compact ? kickoffTime : `${compactCivilDate(civilDate)} \u00b7 ${kickoffTime}`,
+        visual: `${compactCivilDate(civilDate)} \u00b7 ${kickoffTime}`,
         accessible: `${accessibleCivilDate(civilDate)}, às ${kickoffTime.replace(":", "h")}`,
         dateTime: match.kickoff_at ?? null
       };
@@ -115,7 +115,7 @@ function miniCardSchedule(match: PublicMatchStripMatch, compact = false) {
 
   if (scheduledDate) {
     return {
-      visual: compact ? "A DEFINIR" : `${compactCivilDate(scheduledDate)} \u00b7 A DEFINIR`,
+      visual: `${compactCivilDate(scheduledDate)} \u00b7 A DEFINIR`,
       accessible: `${accessibleCivilDate(scheduledDate)}, hora por definir`,
       dateTime: match.scheduled_date
     };
@@ -187,7 +187,7 @@ function CompactMatchCard({
   const presentation = getPublicMatchStripPresentation(match);
   const kind = presentation.kind;
   const broadcastChannelName = match.broadcastChannel?.name?.trim();
-  const schedule = miniCardSchedule(match, visualVariant === "clean");
+  const schedule = miniCardSchedule(match);
   const homeTeamName = {
     name: match.homeTeam?.name,
     publicName: match.homeTeam?.public_name,
@@ -298,6 +298,7 @@ function CompactMatchCard({
             channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
             channelName={presentation.showChannel ? broadcastChannelName : null}
             dateTime={statusContent}
+            variant={visualVariant === "clean" ? "compact" : "default"}
           />
         )}
       </span>
@@ -328,6 +329,7 @@ export default function PublicMatchStrip({
     <section
       className={`${styles.panel} public-matchday-panel public-matchday-scoreboard-panel`}
       data-competition-theme={competitionTheme ?? undefined}
+      data-strip-density={matches.length >= 10 ? "dense" : undefined}
       data-visual-variant={variant}
       aria-label="Visao rapida dos jogos"
     >

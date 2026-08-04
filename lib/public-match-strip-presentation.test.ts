@@ -248,7 +248,8 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(cleanStyles, /@media \(max-width:\s*1180px\)[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
   assert.doesNotMatch(cleanStyles, /overflow-x:\s*auto|scroll-snap|grid-auto-flow:\s*column/);
   assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.center \{\s*display:\s*none/);
-  assert.match(componentSource, /miniCardSchedule\(match, visualVariant === "clean"\)/);
+  assert.match(componentSource, /const schedule = miniCardSchedule\(match\);/);
+  assert.doesNotMatch(componentSource, /miniCardSchedule\(match,\s*visualVariant === "clean"\)/);
   const compactCardSource = componentSource.split("function CompactMatchCard")[1]?.split("export default function PublicMatchStrip")[0] ?? "";
   assert.doesNotMatch(compactCardSource, /Liga Portugal|La Liga|Premier League|competitionSlug/);
   assert.doesNotMatch(competitionSource, /import PublicMatchdayNavigation|<PublicMatchdayNavigation/);

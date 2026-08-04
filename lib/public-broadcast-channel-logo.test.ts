@@ -462,8 +462,11 @@ test("PublicMatchStrip usa o layout aprovado como padrão em qualquer dimensão 
   );
   assert.match(cleanStyleSource, /grid-auto-flow:\s*row/);
   assert.match(cleanStyleSource, /overflow:\s*visible/);
-  assert.match(cleanStyleSource, /> :global\(\[data-public-match-meta\]\) > span:first-child \{[\s\S]*?grid-column:\s*3[\s\S]*?justify-self:\s*end[\s\S]*?text-align:\s*right/);
-  assert.match(cleanStyleSource, /> :global\(\[data-public-match-meta\]\) > span:last-child:not\(:first-child\) \{[\s\S]*?grid-column:\s*1[\s\S]*?justify-self:\s*start/);
+  assert.match(cleanStyleSource, /> :global\(\[data-public-match-meta\]\) > span:first-child \{[\s\S]*?grid-column:\s*1[\s\S]*?justify-self:\s*start[\s\S]*?text-align:\s*left/);
+  assert.match(cleanStyleSource, /> :global\(\[data-public-match-meta\]\) > span:last-child:not\(:first-child\) \{[\s\S]*?grid-column:\s*2[\s\S]*?justify-self:\s*end/);
+  assert.match(componentSource, /visual:\s*`\$\{compactCivilDate\(civilDate\)\} \\u00b7 \$\{kickoffTime\}`/);
+  assert.match(componentSource, /data-strip-density=\{matches\.length >= 10 \? "dense" : undefined\}/);
+  assert.match(cleanStyleSource, /data-strip-density="dense"[\s\S]*?min-height:\s*86px[\s\S]*?padding:\s*5px 4px/);
 });
 
 test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal de equipa", async () => {
@@ -496,6 +499,9 @@ test("layout aprovado não depende de query parameter e a notícia sem jornada n
   }
   assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\}/);
   assert.match(matchdaySource, /<PublicMatchStrip[\s\S]*?matches=\{context\.matchesForMatchday\.map/);
+  assert.match(matchdaySource, /showActiveCompetitionLogo=\{false\}/);
+  assert.match(matchdaySource, /className="public-season-competition-emblem"[\s\S]*?href="#classificacao"/);
+  assert.match(matchdaySource, /resolvePublicCompetitionLogoPresentation\(currentCompetitionMenuItem\)/);
   assert.match(newsSource, /if \(!article\.matchday_id\) \{\s*return null;/);
   assert.match(newsSource, /articleMatches\.length > 0 \? \([\s\S]*?<PublicMatchStrip/);
 });
