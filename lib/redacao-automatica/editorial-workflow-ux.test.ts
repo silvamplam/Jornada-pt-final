@@ -196,6 +196,10 @@ test("a data de publicação respeita a precisão original", () => {
 
 test("a preparação principal apresenta atualidade, pacote de fontes e acesso aos Artigos", () => {
   const newsroom = readFileSync("app/admin/editorial/redacao-automatica/page.tsx", "utf8");
+  const manualEntry = readFileSync(
+    "app/admin/editorial/redacao-automatica/_manualNewsEntryForm.tsx",
+    "utf8",
+  );
   const repository = readFileSync("lib/redacao-automatica/newsroom-article-repository.ts", "utf8");
   const workflow = readFileSync("lib/redacao-automatica/editorial-workflow-ux.ts", "utf8");
   const styles = readFileSync(
@@ -232,6 +236,14 @@ test("a preparação principal apresenta atualidade, pacote de fontes e acesso a
   assert.match(newsroom, /Abrir fonte/);
   assert.match(newsroom, /name="query"/);
   assert.match(newsroom, /ManualNewsEntryForm/);
+  assert.match(newsroom, /simpleToolbarHeader/);
+  assert.match(newsroom, /simpleToolbarPrimaryActions/);
+  assert.match(
+    newsroom,
+    /simpleToolbarHeader[\s\S]*>Atualizar<\/button>[\s\S]*<ManualNewsEntryForm[\s\S]*<form method="get" className=\{styles\.simpleFilters\}>/,
+  );
+  assert.match(manualEntry, />\s*Adicionar notícia\s*</);
+  assert.doesNotMatch(manualEntry, /Adicionar notícia manualmente/);
   assert.match(newsroom, /CurrentFeedReveal/);
   assert.doesNotMatch(newsroom, /name="ai_instructions"/);
   assert.doesNotMatch(newsroom, /getEditorialProfileOverview/);

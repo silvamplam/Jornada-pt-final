@@ -150,7 +150,7 @@ export default function ManualNewsEntryForm({
         aria-controls="manual-news-entry-panel"
         onClick={() => setOpen((current) => !current)}
       >
-        Adicionar notícia manualmente
+        Adicionar notícia
       </button>
       <section id="manual-news-entry-panel" hidden={!open}>
         <form

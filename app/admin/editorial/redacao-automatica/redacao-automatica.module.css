@@ -3546,15 +3546,20 @@
 }
 
 .simpleToolbar {
-  display: flex;
-  gap: 20px;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
+  gap: 16px;
   margin-top: 16px;
   padding: 20px;
   border: 1px solid #dce3eb;
   border-radius: 10px;
   background: #ffffff;
+}
+
+.simpleToolbarHeader {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: space-between;
 }
 
 .simpleToolbar h2,
@@ -3572,13 +3577,27 @@
   font-size: 0.86rem;
 }
 
-.simpleToolbarActions,
+.simpleToolbarPrimaryActions,
 .simpleFilters {
   display: flex;
   flex-wrap: wrap;
   gap: 9px;
   align-items: flex-end;
   justify-content: flex-end;
+}
+
+.simpleToolbarPrimaryActions {
+  flex: 0 0 auto;
+}
+
+.simpleFilters {
+  width: 100%;
+  padding-top: 16px;
+  border-top: 1px solid #e5eaf0;
+}
+
+.simpleSearchField {
+  flex: 1 1 260px;
 }
 
 .simpleFilters label {
@@ -3605,7 +3624,8 @@
 }
 
 .simpleSearchField input {
-  width: min(240px, 32vw);
+  width: 100%;
+  min-width: 240px;
 }
 
 .simpleFilters button,
@@ -3619,11 +3639,11 @@
   color: #ffffff;
 }
 
-.simpleToolbarActions :global(.manual-news-entry) {
+.simpleToolbarPrimaryActions :global(.manual-news-entry) {
   position: relative;
 }
 
-.simpleToolbarActions :global(.manual-news-entry-toggle) {
+.simpleToolbarPrimaryActions :global(.manual-news-entry-toggle) {
   min-height: 38px;
   padding: 0 11px;
   border: 1px solid #cbd5df;
@@ -3636,7 +3656,7 @@
   font-weight: 800;
 }
 
-.simpleToolbarActions :global(#manual-news-entry-panel) {
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel) {
   position: absolute;
   z-index: 20;
   top: calc(100% + 8px);
@@ -3649,16 +3669,16 @@
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
 }
 
-.simpleToolbarActions :global(#manual-news-entry-panel[hidden]) {
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel[hidden]) {
   display: none;
 }
 
-.simpleToolbarActions :global(#manual-news-entry-panel form) {
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel form) {
   display: grid;
   gap: 12px;
 }
 
-.simpleToolbarActions :global(#manual-news-entry-panel label) {
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel label) {
   display: grid;
   gap: 5px;
   color: #52606d;
@@ -3667,8 +3687,8 @@
   text-transform: uppercase;
 }
 
-.simpleToolbarActions :global(#manual-news-entry-panel input:not([type="hidden"])),
-.simpleToolbarActions :global(#manual-news-entry-panel textarea) {
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel input:not([type="hidden"])),
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel textarea) {
   width: 100%;
   padding: 10px 11px;
   border: 1px solid #cbd5df;
@@ -3680,14 +3700,14 @@
   text-transform: none;
 }
 
-.simpleToolbarActions :global(.manual-news-entry-submit) {
+.simpleToolbarPrimaryActions :global(.manual-news-entry-submit) {
   display: flex;
   gap: 10px;
   align-items: center;
   justify-content: flex-end;
 }
 
-.simpleToolbarActions :global(.manual-news-entry-submit button) {
+.simpleToolbarPrimaryActions :global(.manual-news-entry-submit button) {
   min-height: 38px;
   padding: 0 13px;
   border: 0;
@@ -3698,7 +3718,7 @@
   font-weight: 850;
 }
 
-.simpleToolbarActions :global(.manual-news-entry-submit span) {
+.simpleToolbarPrimaryActions :global(.manual-news-entry-submit span) {
   color: #64748b;
   font-size: 0.76rem;
 }
@@ -3952,13 +3972,13 @@
 
 @media (max-width: 900px) {
   .simpleHero,
-  .simpleToolbar {
+  .simpleToolbarHeader {
     align-items: stretch;
     flex-direction: column;
   }
 
   .simpleHero nav,
-  .simpleToolbarActions,
+  .simpleToolbarPrimaryActions,
   .simpleFilters {
     justify-content: flex-start;
   }
@@ -3968,7 +3988,13 @@
     width: 100%;
   }
 
-  .simpleToolbarActions :global(#manual-news-entry-panel) {
+  .simpleFilters label,
+  .simpleFilters select,
+  .simpleFilters button {
+    width: 100%;
+  }
+
+  .simpleToolbarPrimaryActions :global(#manual-news-entry-panel) {
     right: auto;
     left: 0;
   }

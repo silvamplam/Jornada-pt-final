@@ -295,56 +295,58 @@ export default async function AutomaticNewsroomPage({
         </nav>
 
         <section className={styles.simpleToolbar} aria-labelledby="current-feed-title">
-          <div>
-            <h2 id="current-feed-title">{viewTitle(view)}</h2>
-            <p>{viewDescription(view)}</p>
+          <div className={styles.simpleToolbarHeader}>
+            <div>
+              <h2 id="current-feed-title">{viewTitle(view)}</h2>
+              <p>{viewDescription(view)}</p>
+            </div>
+            <div className={styles.simpleToolbarPrimaryActions}>
+              <form action="/api/admin/editorial/redacao-automatica/current-feed" method="post">
+                <input type="hidden" name="view" value={view} />
+                <input type="hidden" name="query" value={query} />
+                <input type="hidden" name="period" value={period} />
+                <input type="hidden" name="source" value={sourceCode ?? ""} />
+                <button className={styles.simpleRefreshButton} type="submit">Atualizar</button>
+              </form>
+              <ManualNewsEntryForm
+                submissionId={manualSubmissionId}
+                maxDate={manualEntryMaxDate}
+                initiallyOpen={manualEntryInitiallyOpen}
+              />
+            </div>
           </div>
-          <div className={styles.simpleToolbarActions}>
-            <form method="get" className={styles.simpleFilters}>
-              <input type="hidden" name="view" value={view} />
-              <label className={styles.simpleSearchField}>
-                <span>Tema</span>
-                <input
-                  type="search"
-                  name="query"
-                  defaultValue={query}
-                  placeholder="Pesquisar"
-                />
-              </label>
-              <label>
-                <span>Período</span>
-                <select name="period" defaultValue={period}>
-                  <option value="1">24 horas</option>
-                  <option value="7">7 dias</option>
-                  <option value="30">30 dias</option>
-                  <option value="all">Tudo</option>
-                </select>
-              </label>
-              <label>
-                <span>Fonte</span>
-                <select name="source" defaultValue={sourceCode ?? ""}>
-                  <option value="">Todas</option>
-                  {availableSources.map((source) => (
-                    <option value={source.code} key={source.code}>{source.name}</option>
-                  ))}
-                  <option value={MANUAL_NEWSROOM_SOURCE_CODE}>{MANUAL_NEWSROOM_SOURCE_LABEL}</option>
-                </select>
-              </label>
-              <button type="submit">Pesquisar</button>
-            </form>
-            <form action="/api/admin/editorial/redacao-automatica/current-feed" method="post">
-              <input type="hidden" name="view" value={view} />
-              <input type="hidden" name="query" value={query} />
-              <input type="hidden" name="period" value={period} />
-              <input type="hidden" name="source" value={sourceCode ?? ""} />
-              <button className={styles.simpleRefreshButton} type="submit">Atualizar</button>
-            </form>
-            <ManualNewsEntryForm
-              submissionId={manualSubmissionId}
-              maxDate={manualEntryMaxDate}
-              initiallyOpen={manualEntryInitiallyOpen}
-            />
-          </div>
+          <form method="get" className={styles.simpleFilters}>
+            <input type="hidden" name="view" value={view} />
+            <label className={styles.simpleSearchField}>
+              <span>Tema</span>
+              <input
+                type="search"
+                name="query"
+                defaultValue={query}
+                placeholder="Pesquisar"
+              />
+            </label>
+            <label>
+              <span>Período</span>
+              <select name="period" defaultValue={period}>
+                <option value="1">24 horas</option>
+                <option value="7">7 dias</option>
+                <option value="30">30 dias</option>
+                <option value="all">Tudo</option>
+              </select>
+            </label>
+            <label>
+              <span>Fonte</span>
+              <select name="source" defaultValue={sourceCode ?? ""}>
+                <option value="">Todas</option>
+                {availableSources.map((source) => (
+                  <option value={source.code} key={source.code}>{source.name}</option>
+                ))}
+                <option value={MANUAL_NEWSROOM_SOURCE_CODE}>{MANUAL_NEWSROOM_SOURCE_LABEL}</option>
+              </select>
+            </label>
+            <button type="submit">Pesquisar</button>
+          </form>
         </section>
 
         {!inboxResult.ok ? (
