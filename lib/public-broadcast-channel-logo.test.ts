@@ -320,7 +320,7 @@ test("as chaves reais TVI e RTP1 aplicam a geometria medida sem overflow", () =>
   assert.ok((rtp1.matchMetaGeometry?.renderedHeight ?? Infinity) <= 18);
 });
 
-test("PublicMatchMeta centraliza estrutura, espaçamento e área do canal", async () => {
+test("PublicMatchMeta preserva o alinhamento compacto com e sem canal", async () => {
   const [componentSource, styleSource] = await Promise.all([
     readFile(matchMetaComponentUrl, "utf8"),
     readFile(matchMetaStylesUrl, "utf8")
@@ -337,20 +337,22 @@ test("PublicMatchMeta centraliza estrutura, espaçamento e área do canal", asyn
   assert.doesNotMatch(componentSource, /denseDate|denseTime|denseBottom/);
   assert.match(styleSource, /\.matchMeta\s*\{[\s\S]*?display:\s*grid[\s\S]*?grid-template-columns:\s*max-content minmax\(2px, 1fr\) max-content[\s\S]*?align-items:\s*center[\s\S]*?width:\s*auto[\s\S]*?max-width:\s*none[\s\S]*?min-width:\s*0[\s\S]*?margin-inline:\s*calc\(-1 \* var\(--public-match-card-inline-padding, 0px\)\)[\s\S]*?padding-inline:\s*3px[\s\S]*?column-gap:\s*0/);
   assert.match(styleSource, /\.dateTime\s*\{[\s\S]*?grid-column:\s*1[\s\S]*?justify-self:\s*start[\s\S]*?min-width:\s*0[\s\S]*?overflow:\s*visible[\s\S]*?text-align:\s*left[\s\S]*?text-overflow:\s*clip[\s\S]*?white-space:\s*nowrap[\s\S]*?margin:\s*0[\s\S]*?font-size:\s*9\.5px[\s\S]*?line-height:\s*1[\s\S]*?letter-spacing:\s*-0\.1px/);
-  assert.match(styleSource, /\.compact\s*\{[\s\S]*?column-gap:\s*0/);
-  assert.match(styleSource, /\.compact \.dateTime\s*\{[\s\S]*?font-size:\s*8\.5px[\s\S]*?line-height:\s*1[\s\S]*?letter-spacing:\s*-0\.1px/);
+  assert.match(styleSource, /\.compact\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?grid-template-rows:\s*16px 25px[\s\S]*?align-items:\s*start[\s\S]*?width:\s*100%[\s\S]*?height:\s*41px[\s\S]*?border-bottom:/);
+  assert.match(styleSource, /\.compact \.dateTime\s*\{[\s\S]*?grid-row:\s*1[\s\S]*?justify-self:\s*start[\s\S]*?width:\s*100%[\s\S]*?font-size:\s*9px[\s\S]*?text-align:\s*left/);
   assert.match(styleSource, /\.withoutChannel\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?width:\s*100%/);
   assert.match(styleSource, /\.withoutChannel \.dateTime\s*\{[\s\S]*?justify-self:\s*center[\s\S]*?text-align:\s*center/);
+  assert.match(styleSource, /\.compact\.withoutChannel \.dateTime\s*\{[\s\S]*?justify-self:\s*start[\s\S]*?text-align:\s*left/);
   assert.doesNotMatch(`${componentSource}\n${styleSource}`, /dense|row-gap|text-overflow:\s*ellipsis/);
   assert.doesNotMatch(styleSource, /\.clean(?:\s|\.)/);
   assert.match(styleSource, /\.channel\s*\{[\s\S]*?display:\s*grid[\s\S]*?grid-column:\s*3[\s\S]*?place-items:\s*center[\s\S]*?justify-self:\s*end[\s\S]*?flex-shrink:\s*0[\s\S]*?width:\s*max-content[\s\S]*?max-width:\s*none[\s\S]*?height:\s*max-content[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0[\s\S]*?overflow:\s*visible/);
+  assert.match(styleSource, /\.compact \.channel\s*\{[\s\S]*?grid-column:\s*1[\s\S]*?grid-row:\s*2[\s\S]*?place-items:\s*start[\s\S]*?justify-self:\s*start[\s\S]*?height:\s*25px/);
   assert.doesNotMatch(styleSource, /display:\s*inline-flex|position:\s*absolute|margin[^:]*:\s*-/);
 });
 
-test("PublicMatchMeta usa 9.5px com 9 jogos e 8.5px com 10", async () => {
+test("PublicMatchMeta usa 9.5px por omissão e 9px na faixa compacta", async () => {
   const styleSource = await readFile(matchMetaStylesUrl, "utf8");
   assert.match(styleSource, /\.dateTime\s*\{[\s\S]*?font-size:\s*9\.5px/);
-  assert.match(styleSource, /\.compact \.dateTime\s*\{[\s\S]*?font-size:\s*8\.5px/);
+  assert.match(styleSource, /\.compact \.dateTime\s*\{[\s\S]*?font-size:\s*9px/);
 });
 
 test("matchMeta usa dimensões reais, full-bleed simétrico e colunas separadas", async () => {
@@ -438,8 +440,8 @@ test("PublicMatchStrip usa carrossel limpo e mantém o layout partilhado nos res
   assert.match(componentSource, /import PublicMatchStripCarousel/);
   assert.match(componentSource, /variant === "clean" \? \([\s\S]*?<PublicMatchStripCarousel>/);
   assert.match(componentSource, /data-public-match-card/);
-  assert.match(componentSource, /data-public-match-channel-footer/);
   assert.match(componentSource, /data-public-match-schedule/);
+  assert.match(componentSource, /visualVariant === "clean"[\s\S]*?<PublicMatchMeta[\s\S]*?dateTime=\{scheduleContent\}[\s\S]*?variant="compact"/);
   assert.match(componentSource, /visual:\s*`\$\{compactCivilDate\(civilDate\)\} \\u00b7 \$\{kickoffTime\}`/);
   assert.doesNotMatch(componentSource, /data-strip-density/);
   assert.match(carouselSource, /aria-label="Ver jogo anterior"/);
@@ -465,8 +467,8 @@ test("PublicMatchStrip usa carrossel limpo e mantém o layout partilhado nos res
   assert.match(styleSource, /\.carouselButtonBack\s*\{[\s\S]*?left:\s*0/);
   assert.match(styleSource, /\.carouselButtonForward\s*\{[\s\S]*?right:\s*0/);
   assert.match(styleSource, /\.panel\[data-visual-variant="clean"\] \.row > \.card \{[\s\S]*?box-sizing:\s*border-box[\s\S]*?flex:\s*0 0 var\(--match-card-width\)[\s\S]*?grid-template-rows:\s*16px 25px 42px 23px[\s\S]*?width:\s*var\(--match-card-width\)[\s\S]*?min-width:\s*var\(--match-card-width\)[\s\S]*?max-width:\s*var\(--match-card-width\)[\s\S]*?height:\s*var\(--match-card-height\)[\s\S]*?max-height:\s*var\(--match-card-height\)[\s\S]*?background:\s*#ffffff/);
-  assert.match(styleSource, /\.cleanSchedule[\s\S]*?align-items:\s*flex-start[\s\S]*?justify-content:\s*flex-start[\s\S]*?width:\s*100%[\s\S]*?text-align:\s*left/);
-  assert.match(styleSource, /\.cleanChannel\s*\{[\s\S]*?grid-row:\s*2[\s\S]*?justify-content:\s*flex-start[\s\S]*?border-bottom:/);
+  assert.match(styleSource, /> \.status\s*\{[\s\S]*?grid-row:\s*1 \/ 3[\s\S]*?width:\s*100%[\s\S]*?height:\s*41px/);
+  assert.doesNotMatch(styleSource.slice(styleSource.indexOf('.panel[data-visual-variant="clean"]')), /\.cleanSchedule|\.cleanChannel/);
   assert.match(styleSource, /\.teamNames\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)/);
 });
 

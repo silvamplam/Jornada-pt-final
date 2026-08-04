@@ -29,13 +29,28 @@
 }
 
 .compact {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 16px 25px;
+  align-items: start;
+  width: 100%;
+  height: 41px;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid #e7edf3;
   column-gap: 0;
 }
 
 .compact .dateTime {
-  font-size: 8.5px;
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  width: 100%;
+  color: #263d5c;
+  font-size: 9px;
+  font-weight: 850;
   line-height: 1;
   letter-spacing: -0.1px;
+  text-align: left;
 }
 
 .withoutChannel {
@@ -46,6 +61,11 @@
 .withoutChannel .dateTime {
   justify-self: center;
   text-align: center;
+}
+
+.compact.withoutChannel .dateTime {
+  justify-self: start;
+  text-align: left;
 }
 
 .channel {
@@ -62,4 +82,15 @@
   padding: 0;
   overflow: visible;
   line-height: 0;
+}
+
+.compact .channel {
+  grid-column: 1;
+  grid-row: 2;
+  place-items: start;
+  justify-self: start;
+  align-self: stretch;
+  width: 100%;
+  height: 25px;
+  padding: 2px 0 5px;
 }

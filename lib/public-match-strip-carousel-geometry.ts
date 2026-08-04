@@ -1,4 +1,4 @@
-export const CARD_WIDTH = 180;
+export const CARD_WIDTH = 160;
 export const CARD_HEIGHT = 132;
 export const CARD_GAP = 10;
 export const CARD_STEP = CARD_WIDTH + CARD_GAP;

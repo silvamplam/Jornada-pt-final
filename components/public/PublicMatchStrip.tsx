@@ -1,4 +1,3 @@
-import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchStripCarousel from "@/components/public/PublicMatchStripCarousel";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
@@ -218,6 +217,13 @@ function CompactMatchCard({
         "--public-match-away-backdrop-image": matchBackdropImage(match.awayTeam?.logo_url)
       }
     : undefined;
+  const scheduleContent = schedule.dateTime ? (
+    <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
+      {schedule.visual}
+    </time>
+  ) : (
+    <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
+  );
   const statusContent = presentation.status.kind === "live" ? (
     <span
       aria-label={`${presentation.statusLabel}${activeScore ? `. Resultado ${match.home_score} a ${match.away_score}` : ""}${presentation.status.minute !== null ? `. Minuto ${presentation.status.minute}` : ""}`}
@@ -248,13 +254,7 @@ function CompactMatchCard({
     </span>
   ) : presentation.status.kind === "label" ? (
     <span className={styles.stateLabel}>{presentation.status.label}</span>
-  ) : schedule.dateTime ? (
-    <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
-      {schedule.visual}
-    </time>
-  ) : (
-    <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
-  );
+  ) : scheduleContent;
 
   return (
     <article
@@ -281,8 +281,18 @@ function CompactMatchCard({
           </strong>
         </span>
       ) : null}
-      <span className={`${styles.status} public-matchday-mini-status`}>
-        {presentation.kind === "finished" ? (
+      <span
+        className={`${styles.status} public-matchday-mini-status`}
+        data-public-match-schedule={visualVariant === "clean" ? "true" : undefined}
+      >
+        {visualVariant === "clean" ? (
+          <PublicMatchMeta
+            channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
+            channelName={presentation.showChannel ? broadcastChannelName : null}
+            dateTime={scheduleContent}
+            variant="compact"
+          />
+        ) : presentation.kind === "finished" ? (
           <span
             aria-label={finishedScoreText
               ? `Finalizado. Resultado ${presentation.finishedScore?.left} a ${presentation.finishedScore?.right}`
@@ -296,10 +306,6 @@ function CompactMatchCard({
               </strong>
             ) : null}
           </span>
-        ) : visualVariant === "clean" ? (
-          <span className={styles.cleanSchedule} data-public-match-meta data-public-match-schedule>
-            {statusContent}
-          </span>
         ) : (
           <PublicMatchMeta
             channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
@@ -308,21 +314,6 @@ function CompactMatchCard({
           />
         )}
       </span>
-      {visualVariant === "clean" ? (
-        <span
-          className={styles.cleanChannel}
-          data-has-channel={presentation.showChannel && broadcastChannelName ? "true" : "false"}
-          data-public-match-channel-footer
-        >
-          {presentation.showChannel && broadcastChannelName ? (
-            <BroadcastChannelLogo
-              logoUrl={match.broadcastChannel?.logo_url}
-              name={broadcastChannelName}
-              variant="matchMeta"
-            />
-          ) : null}
-        </span>
-      ) : null}
     </article>
   );
 }

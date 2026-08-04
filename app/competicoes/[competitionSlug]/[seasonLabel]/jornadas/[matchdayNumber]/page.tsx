@@ -2772,10 +2772,12 @@ const publicMatchdayStyles = `
   }
 
   .public-season-competition-emblem img[data-variant="premier-league-lockup"] {
-    width: auto;
-    height: 24px;
+    width: 76px;
+    height: auto;
     max-width: 76px;
+    max-height: 32px;
     filter: none;
+    image-rendering: auto;
   }
 
   .public-matchday-nav-compact {
