@@ -252,7 +252,13 @@ test("dez jogos usam uma unica grelha dinamica sem scroll", async () => {
   assert.match(stripStyles, /\.shell\.shell\s*\{[\s\S]*?overflow:\s*visible/);
   assert.match(stripStyles, /\.shell\s*>\s*\.row\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\);[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*0;[\s\S]*?gap:\s*clamp\([\s\S]*?overflow:\s*visible/);
   assert.match(stripStyles, /\.row\s*>\s*\.card\s*\{[\s\S]*?--public-match-card-inline-padding:\s*clamp\(3px, 0\.5vw, 8px\);[\s\S]*?min-width:\s*0;[\s\S]*?width:\s*auto;[\s\S]*?padding-inline:\s*var\(--public-match-card-inline-padding\)/);
-  assert.doesNotMatch(stripStyles, /overflow-x:\s*auto|flex-shrink|min-width:\s*154px|display:\s*flex/);
+  const cleanVariantStart = stripStyles.indexOf('.panel[data-visual-variant="clean"]');
+  assert.ok(cleanVariantStart > 0);
+  const defaultStripStyles = stripStyles.slice(0, cleanVariantStart);
+  const cleanStripStyles = stripStyles.slice(cleanVariantStart);
+  assert.doesNotMatch(defaultStripStyles, /overflow-x:\s*auto|flex-shrink|min-width:\s*154px|display:\s*flex/);
+  assert.match(cleanStripStyles, /overflow-x:\s*auto/);
+  assert.doesNotMatch(cleanStripStyles, /flex-shrink|min-width:\s*154px|display:\s*flex/);
 
   const matches = Array.from({ length: 10 }, (_, index) => ({ id: `jogo-${index + 1}` }));
   assert.equal(matches.length, 10);

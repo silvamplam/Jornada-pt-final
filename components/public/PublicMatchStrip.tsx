@@ -163,7 +163,7 @@ function LivePulseDots() {
   );
 }
 
-type PublicMatchStripVariant = "default" | "home";
+type PublicMatchStripVariant = "default" | "home" | "clean";
 
 type PublicMatchStripCardStyle = CSSProperties & {
   "--public-match-home-backdrop-image": string;

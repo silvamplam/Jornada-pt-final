@@ -3757,6 +3757,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           ...match,
           matchdayNumber: context.matchday.number
         }))}
+        variant="clean"
       />
       {context.matchesForMatchday.length > 0 ? (
         <script

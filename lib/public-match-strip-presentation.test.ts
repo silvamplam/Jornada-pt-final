@@ -229,6 +229,10 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   }
 
   assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\} variant="home" \/>/);
+  assert.match(competitionSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
+  assert.doesNotMatch(homeSource, /variant="clean"/);
+  assert.doesNotMatch(newsSource, /variant="clean"/);
+  assert.match(componentSource, /type PublicMatchStripVariant = "default" \| "home" \| "clean"/);
   assert.match(componentSource, /variant\?: PublicMatchStripVariant/);
   assert.match(componentSource, /data-visual-variant=\{visualVariant\}/);
   assert.match(componentSource, /visualVariant !== "home"/);
@@ -238,6 +242,9 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(stylesSource, /var\(--public-match-home-backdrop-image\)/);
   assert.match(stylesSource, /var\(--public-match-away-backdrop-image\)/);
   assert.match(stylesSource, /clip-path: polygon\(0 0, 100% 0, 82% 100%, 0 100%\)/);
+  assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.shell > \.row \{[\s\S]*?grid-auto-flow:\s*column;[\s\S]*?overflow-x:\s*auto/);
+  assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.row > \.card \{[\s\S]*?background:\s*#ffffff;[\s\S]*?scroll-snap-align:\s*start/);
+  assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.center \{\s*display:\s*none/);
 
   assert.doesNotMatch(gamesSource, /import PublicMatchStrip|<PublicMatchStrip/);
   assert.doesNotMatch(gamesSource, /public-matchday-strip|data-matchday-strip/);
