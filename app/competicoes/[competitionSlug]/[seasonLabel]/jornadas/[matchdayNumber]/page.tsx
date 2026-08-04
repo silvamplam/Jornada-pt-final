@@ -2628,8 +2628,10 @@ const publicMatchdayStyles = `
 
   /* JORNADA-CABECALHO-COMPETITIVO-INICIO */
   .public-season-nav-bar {
+    margin: 0 -24px;
+    padding: 0 24px;
     border: 0;
-    background: #c40012;
+    background: #44152f;
     color: #ffffff;
   }
 
@@ -2638,10 +2640,10 @@ const publicMatchdayStyles = `
     grid-template-columns: max-content minmax(0, 1fr) max-content;
     align-items: center;
     gap: 12px;
-    min-height: 50px;
+    min-height: 58px;
     max-width: 1512px;
     margin: 0 auto;
-    padding: 6px 0;
+    padding: 8px 0;
     overflow: visible;
   }
 
@@ -2719,7 +2721,7 @@ const publicMatchdayStyles = `
   .public-season-context-card .public-matchday-leg-nav a[aria-current="true"] {
     border-color: #ffffff;
     background: #ffffff;
-    color: #c40012;
+    color: #44152f;
   }
 
   .public-matchday-nav-compact {
@@ -2758,7 +2760,7 @@ const publicMatchdayStyles = `
   .public-matchday-nav-compact a[aria-current="page"] {
     border-color: #ffffff;
     background: #ffffff;
-    color: #c40012;
+    color: #44152f;
     font-weight: 950;
   }
 
@@ -2776,7 +2778,7 @@ const publicMatchdayStyles = `
 
   .public-matchday-date-row .public-matchday-date-context {
     display: inline;
-    color: #c40012;
+    color: #44152f;
     font-size: 11px;
     font-weight: 850;
     line-height: 1.15;
@@ -2784,7 +2786,7 @@ const publicMatchdayStyles = `
   }
 
   .public-matchday-date-row .public-matchday-date-context strong {
-    color: #7f0010;
+    color: #2a1020;
     font-weight: 950;
   }
 
@@ -2807,6 +2809,11 @@ const publicMatchdayStyles = `
   }
 
   @media (max-width: 620px) {
+    .public-season-nav-bar {
+      margin: 0 -16px;
+      padding: 0 16px;
+    }
+
     .public-season-nav-inner {
       grid-template-columns: minmax(0, 1fr);
       gap: 6px;
@@ -3707,6 +3714,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           competitions={publicCompetitionMenu}
           activeCompetitionSlug={context.competition.slug}
           classificationHref="#classificacao"
+          showMessageTicker={false}
         />
         <div className="public-site-actions" aria-label="Ações">
           <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>

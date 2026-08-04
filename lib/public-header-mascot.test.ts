@@ -44,7 +44,8 @@ test("a jornada usa faixa compacta sem boneco e os restantes contextos preservam
   assert.match(competitionSource, /public-matchday-date-row/);
   assert.match(competitionSource, /<strong>Data:<\/strong>/);
   assert.match(competitionSource, /className="public-matchday-nav-compact"/);
-  assert.match(competitionSource, /background:\s*#c40012/);
+  assert.match(competitionSource, /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#44152f/);
+  assert.match(competitionSource, /showMessageTicker=\{false\}/);
   assert.match(competitionSource, /flex-wrap:\s*wrap/);
   assert.doesNotMatch(competitionSource, /import PublicMatchdayNavigation|<PublicMatchdayNavigation/);
   assert.doesNotMatch(competitionSource, /public-matchday-status-card|Jornada selecionada/);

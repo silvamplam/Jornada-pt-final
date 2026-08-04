@@ -244,7 +244,7 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(stylesSource, /clip-path: polygon\(0 0, 100% 0, 82% 100%, 0 100%\)/);
   const cleanStyles = stylesSource.slice(stylesSource.indexOf('.panel[data-visual-variant="clean"]'));
   assert.match(cleanStyles, /\.shell > \.row \{[\s\S]*?grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\);[\s\S]*?overflow:\s*visible/);
-  assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?min-height:\s*74px;[\s\S]*?background:\s*#ffffff/);
+  assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?min-height:\s*86px;[\s\S]*?background:\s*#ffffff/);
   assert.match(cleanStyles, /@media \(max-width:\s*1180px\)[\s\S]*?grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
   assert.doesNotMatch(cleanStyles, /overflow-x:\s*auto|scroll-snap|grid-auto-flow:\s*column/);
   assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.center \{\s*display:\s*none/);

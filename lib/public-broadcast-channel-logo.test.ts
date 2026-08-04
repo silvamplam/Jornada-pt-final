@@ -462,6 +462,8 @@ test("PublicMatchStrip usa o layout aprovado como padrão em qualquer dimensão 
   );
   assert.match(cleanStyleSource, /grid-auto-flow:\s*row/);
   assert.match(cleanStyleSource, /overflow:\s*visible/);
+  assert.match(cleanStyleSource, /> :global\(\[data-public-match-meta\]\) > span:first-child \{[\s\S]*?grid-column:\s*3[\s\S]*?justify-self:\s*end[\s\S]*?text-align:\s*right/);
+  assert.match(cleanStyleSource, /> :global\(\[data-public-match-meta\]\) > span:last-child:not\(:first-child\) \{[\s\S]*?grid-column:\s*1[\s\S]*?justify-self:\s*start/);
 });
 
 test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal de equipa", async () => {
