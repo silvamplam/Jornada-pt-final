@@ -3546,15 +3546,20 @@
 }
 
 .simpleToolbar {
-  display: flex;
-  gap: 20px;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
+  gap: 16px;
   margin-top: 16px;
   padding: 20px;
   border: 1px solid #dce3eb;
   border-radius: 10px;
   background: #ffffff;
+}
+
+.simpleToolbarHeader {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: space-between;
 }
 
 .simpleToolbar h2,
@@ -3572,13 +3577,27 @@
   font-size: 0.86rem;
 }
 
-.simpleToolbarActions,
+.simpleToolbarPrimaryActions,
 .simpleFilters {
   display: flex;
   flex-wrap: wrap;
   gap: 9px;
   align-items: flex-end;
   justify-content: flex-end;
+}
+
+.simpleToolbarPrimaryActions {
+  flex: 0 0 auto;
+}
+
+.simpleFilters {
+  width: 100%;
+  padding-top: 16px;
+  border-top: 1px solid #e5eaf0;
+}
+
+.simpleSearchField {
+  flex: 1 1 260px;
 }
 
 .simpleFilters label {
@@ -3605,7 +3624,8 @@
 }
 
 .simpleSearchField input {
-  width: min(240px, 32vw);
+  width: 100%;
+  min-width: 240px;
 }
 
 .simpleFilters button,
@@ -3619,11 +3639,11 @@
   color: #ffffff;
 }
 
-.simpleToolbarActions :global(.manual-news-entry) {
+.simpleToolbarPrimaryActions :global(.manual-news-entry) {
   position: relative;
 }
 
-.simpleToolbarActions :global(.manual-news-entry-toggle) {
+.simpleToolbarPrimaryActions :global(.manual-news-entry-toggle) {
   min-height: 38px;
   padding: 0 11px;
   border: 1px solid #cbd5df;
@@ -3636,7 +3656,7 @@
   font-weight: 800;
 }
 
-.simpleToolbarActions :global(#manual-news-entry-panel) {
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel) {
   position: absolute;
   z-index: 20;
   top: calc(100% + 8px);
@@ -3649,16 +3669,16 @@
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
 }
 
-.simpleToolbarActions :global(#manual-news-entry-panel[hidden]) {
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel[hidden]) {
   display: none;
 }
 
-.simpleToolbarActions :global(#manual-news-entry-panel form) {
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel form) {
   display: grid;
   gap: 12px;
 }
 
-.simpleToolbarActions :global(#manual-news-entry-panel label) {
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel label) {
   display: grid;
   gap: 5px;
   color: #52606d;
@@ -3667,8 +3687,8 @@
   text-transform: uppercase;
 }
 
-.simpleToolbarActions :global(#manual-news-entry-panel input:not([type="hidden"])),
-.simpleToolbarActions :global(#manual-news-entry-panel textarea) {
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel input:not([type="hidden"])),
+.simpleToolbarPrimaryActions :global(#manual-news-entry-panel textarea) {
   width: 100%;
   padding: 10px 11px;
   border: 1px solid #cbd5df;
@@ -3680,14 +3700,14 @@
   text-transform: none;
 }
 
-.simpleToolbarActions :global(.manual-news-entry-submit) {
+.simpleToolbarPrimaryActions :global(.manual-news-entry-submit) {
   display: flex;
   gap: 10px;
   align-items: center;
   justify-content: flex-end;
 }
 
-.simpleToolbarActions :global(.manual-news-entry-submit button) {
+.simpleToolbarPrimaryActions :global(.manual-news-entry-submit button) {
   min-height: 38px;
   padding: 0 13px;
   border: 0;
@@ -3698,7 +3718,7 @@
   font-weight: 850;
 }
 
-.simpleToolbarActions :global(.manual-news-entry-submit span) {
+.simpleToolbarPrimaryActions :global(.manual-news-entry-submit span) {
   color: #64748b;
   font-size: 0.76rem;
 }
@@ -3952,13 +3972,13 @@
 
 @media (max-width: 900px) {
   .simpleHero,
-  .simpleToolbar {
+  .simpleToolbarHeader {
     align-items: stretch;
     flex-direction: column;
   }
 
   .simpleHero nav,
-  .simpleToolbarActions,
+  .simpleToolbarPrimaryActions,
   .simpleFilters {
     justify-content: flex-start;
   }
@@ -3968,7 +3988,13 @@
     width: 100%;
   }
 
-  .simpleToolbarActions :global(#manual-news-entry-panel) {
+  .simpleFilters label,
+  .simpleFilters select,
+  .simpleFilters button {
+    width: 100%;
+  }
+
+  .simpleToolbarPrimaryActions :global(#manual-news-entry-panel) {
     right: auto;
     left: 0;
   }
@@ -4472,3 +4498,174 @@
 }
 
 /* REDACAO-AUTOMATICA-PACOTE-FONTES-MANUAL-FIM */
+
+/* REDACAO-AUTOMATICA-BLOCOS-REVISAO-EDITORIAL-INICIO */
+.inboxTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.inboxTabs a {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #cbd5df;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.inboxTabs a[data-active="true"] {
+  border-color: #10151b;
+  background: #10151b;
+  color: #ffffff;
+}
+
+.inboxTabs span {
+  display: inline-flex;
+  min-width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  font-size: 0.7rem;
+}
+
+.inboxBlockSummary {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid #dce3eb;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.inboxBlockSummary strong {
+  color: #111827;
+}
+
+.simpleFeedBadge[data-kind="new"] {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.simpleFeedBadge[data-kind="updated"] {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.simpleFeedBadge[data-kind="working"] {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.simpleFeedBadge[data-kind="dismissed"] {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.inboxCardFooter {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.inboxCardFooter > a {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.inboxCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.inboxCardActions button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid #cbd5df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.inboxCardActions button:first-child {
+  border-color: #1d4ed8;
+  color: #1d4ed8;
+}
+
+.inboxCloseBlock {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 16px 18px;
+  border: 1px solid #a7d8b8;
+  border-radius: 10px;
+  background: #eef9f1;
+}
+
+.inboxCloseBlock div {
+  display: grid;
+  gap: 4px;
+}
+
+.inboxCloseBlock strong {
+  color: #14532d;
+}
+
+.inboxCloseBlock span {
+  color: #3f5f4a;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.inboxCloseBlock button {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 7px;
+  background: #166534;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .inboxBlockSummary,
+  .inboxCloseBlock,
+  .inboxCardFooter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inboxCardActions {
+    justify-content: flex-start;
+  }
+}
+/* REDACAO-AUTOMATICA-BLOCOS-REVISAO-EDITORIAL-FIM */

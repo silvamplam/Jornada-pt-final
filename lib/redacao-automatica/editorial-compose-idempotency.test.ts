@@ -126,6 +126,8 @@ test("a UI manual envia UUID e snapshot congelado sem acionar a composição por
   assert.match(page, /data-source-package-submit-status/);
   assert.match(packageEnhancer, /EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES/);
   assert.match(packageEnhancer, /button\.disabled = true/);
+  assert.match(packageEnhancer, /event instanceof SubmitEvent/);
+  assert.match(packageEnhancer, /event\.submitter !== button/);
   assert.doesNotMatch(page, /name="submission_id"/);
   assert.doesNotMatch(page, /<CompositionSubmitEnhancer \/>/);
   assert.doesNotMatch(page, /data-composition-submit-status/);

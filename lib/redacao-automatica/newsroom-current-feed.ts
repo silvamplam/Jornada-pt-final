@@ -8,6 +8,7 @@ import { ingestHttpNewsroomArticle } from "@/lib/redacao-automatica/http-newsroo
 import {
   newsroomCurrentFeedIdentity,
   selectNewsroomCurrentFeedCandidates,
+  summarizeNewsroomCurrentFeedPersistence,
 } from "@/lib/redacao-automatica/newsroom-current-feed-internal";
 import { createHttpPageLoader } from "@/lib/redacao-automatica/page-loaders/http-page-loader";
 import { registeredSourceConfigurationProvider } from "@/lib/redacao-automatica/source-configuration-provider";
@@ -38,6 +39,9 @@ export type NewsroomCurrentFeedRefreshResult =
         newCandidateCount: number;
         attemptedCount: number;
         availableCount: number;
+        createdCount: number;
+        updatedCount: number;
+        existingCount: number;
         failedCount: number;
         hasMore: boolean;
       }>;
@@ -183,7 +187,12 @@ export async function refreshNewsroomCurrentFeed(
       extractedAt: timestamp,
     }),
   );
-  const availableCount = ingestionResults.filter((result) => result.ok).length;
+  const persistenceSummary = summarizeNewsroomCurrentFeedPersistence(
+    ingestionResults.map((result) => (
+      result.ok ? result.value.article.action : null
+    )),
+  );
+  const availableCount = persistenceSummary.availableCount;
   const failedCount = ingestionResults.length - availableCount;
   const partial = (
     successfulCollections.length < sources.length
@@ -205,6 +214,9 @@ export async function refreshNewsroomCurrentFeed(
       newCandidateCount: selection.availableNewCount,
       attemptedCount: selection.candidates.length,
       availableCount,
+      createdCount: persistenceSummary.createdCount,
+      updatedCount: persistenceSummary.updatedCount,
+      existingCount: selection.alreadyKnownCount + persistenceSummary.reusedCount,
       failedCount,
       hasMore: false,
     },

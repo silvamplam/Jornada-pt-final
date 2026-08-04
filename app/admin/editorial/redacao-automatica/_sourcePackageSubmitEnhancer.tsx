@@ -73,6 +73,10 @@ export function installSourcePackageSubmitEnhancer(
   };
 
   const handleSubmit = (event: Event) => {
+    if (!(event instanceof SubmitEvent) || event.submitter !== button) {
+      return;
+    }
+
     const selected = selectedCount();
 
     if (

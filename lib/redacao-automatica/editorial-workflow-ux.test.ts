@@ -196,6 +196,10 @@ test("a data de publicação respeita a precisão original", () => {
 
 test("a preparação principal apresenta atualidade, pacote de fontes e acesso aos Artigos", () => {
   const newsroom = readFileSync("app/admin/editorial/redacao-automatica/page.tsx", "utf8");
+  const manualEntry = readFileSync(
+    "app/admin/editorial/redacao-automatica/_manualNewsEntryForm.tsx",
+    "utf8",
+  );
   const repository = readFileSync("lib/redacao-automatica/newsroom-article-repository.ts", "utf8");
   const workflow = readFileSync("lib/redacao-automatica/editorial-workflow-ux.ts", "utf8");
   const styles = readFileSync(
@@ -210,11 +214,15 @@ test("a preparação principal apresenta atualidade, pacote de fontes e acesso a
     "app/api/admin/editorial/redacao-automatica/current-feed/route.ts",
     "utf8",
   );
+  const inboxRoute = readFileSync(
+    "app/api/admin/editorial/redacao-automatica/inbox/route.ts",
+    "utf8",
+  );
 
   assert.match(newsroom, /<strong>Atualidade<\/strong>/);
   assert.match(newsroom, /<strong>Preparar fontes<\/strong>/);
   assert.match(newsroom, /<strong>Artigos<\/strong>/);
-  assert.match(newsroom, /listCurrentNewsroomArticles/);
+  assert.match(newsroom, /loadNewsroomEditorialInbox/);
   assert.match(newsroom, />Atualizar<\/button>/);
   assert.match(newsroom, /id="create-editorial-source-package"/);
   assert.match(newsroom, /name="newsroom_article_id"/);
@@ -228,6 +236,14 @@ test("a preparação principal apresenta atualidade, pacote de fontes e acesso a
   assert.match(newsroom, /Abrir fonte/);
   assert.match(newsroom, /name="query"/);
   assert.match(newsroom, /ManualNewsEntryForm/);
+  assert.match(newsroom, /simpleToolbarHeader/);
+  assert.match(newsroom, /simpleToolbarPrimaryActions/);
+  assert.match(
+    newsroom,
+    /simpleToolbarHeader[\s\S]*>Atualizar<\/button>[\s\S]*<ManualNewsEntryForm[\s\S]*<form method="get" className=\{styles\.simpleFilters\}>/,
+  );
+  assert.match(manualEntry, />\s*Adicionar notícia\s*</);
+  assert.doesNotMatch(manualEntry, /Adicionar notícia manualmente/);
   assert.match(newsroom, /CurrentFeedReveal/);
   assert.doesNotMatch(newsroom, /name="ai_instructions"/);
   assert.doesNotMatch(newsroom, /getEditorialProfileOverview/);
@@ -240,6 +256,21 @@ test("a preparação principal apresenta atualidade, pacote de fontes e acesso a
 
   assert.match(feedRoute, /refreshNewsroomCurrentFeed/);
   assert.match(feedRoute, /export const maxDuration = 300/);
+  assert.match(feedRoute, /feed_created/);
+  assert.match(feedRoute, /feed_updated/);
+  assert.match(feedRoute, /feed_existing/);
+  assert.match(newsroom, /Por rever/);
+  assert.match(newsroom, /Em trabalho/);
+  assert.match(newsroom, /Arquivo \/ contexto/);
+  assert.match(newsroom, /Fechar este bloco/);
+  assert.match(newsroom, /Nova/);
+  assert.match(newsroom, /Atualizada/);
+  assert.match(newsroom, /Lida/);
+  assert.match(newsroom, /Sem interesse/);
+  assert.doesNotMatch(newsroom, />\s*Vista\s*</);
+  assert.doesNotMatch(newsroom, />\s*Dispensar\s*</);
+  assert.match(inboxRoute, /applyNewsroomEditorialInboxAction/);
+  assert.match(inboxRoute, /close_block/);
 
   assert.match(route, /source_snapshot_/);
   assert.match(route, /normalizeEditorialSourcePackageSelections/);

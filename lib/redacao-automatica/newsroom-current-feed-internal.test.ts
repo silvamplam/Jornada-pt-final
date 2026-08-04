@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   newsroomCurrentFeedIdentity,
   selectNewsroomCurrentFeedCandidates,
+  summarizeNewsroomCurrentFeedPersistence,
 } from "@/lib/redacao-automatica/newsroom-current-feed-internal";
 import type { SourceCollectionSummary } from "@/lib/redacao-automatica/types";
 
@@ -45,6 +46,7 @@ test("exclui artigos já conhecidos sem impor limites editoriais", () => {
     { sourceCode: "abola", articleUrl: "https://abola.example/b" },
   ]);
   assert.equal(result.availableNewCount, 3);
+  assert.equal(result.alreadyKnownCount, 1);
   assert.equal(result.truncated, false);
 });
 
@@ -57,5 +59,23 @@ test("seleciona todos os candidatos novos descobertos", () => {
 
   assert.equal(result.candidates.length, 48);
   assert.equal(result.availableNewCount, 48);
+  assert.equal(result.alreadyKnownCount, 0);
   assert.equal(result.truncated, false);
+});
+
+test("separa novas, atualizadas e já existentes sem contar falhas", () => {
+  const summary = summarizeNewsroomCurrentFeedPersistence([
+    "created",
+    "updated",
+    "reused",
+    "updated",
+    null,
+  ]);
+
+  assert.deepEqual(summary, {
+    createdCount: 1,
+    updatedCount: 2,
+    reusedCount: 1,
+    availableCount: 4,
+  });
 });
