@@ -947,8 +947,8 @@
 
 .carousel {
   position: relative;
-  width: 100%;
-  max-width: 1512px;
+  width: 1512px;
+  max-width: calc(100vw - 80px);
   min-width: 0;
   margin-inline: auto;
 }
@@ -971,12 +971,16 @@
   height: 0;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .carouselViewport {
+    scroll-behavior: auto;
+  }
+}
+
 .carouselViewport > .row {
-  display: grid;
-  grid-template-columns: none;
-  grid-auto-flow: column;
-  grid-auto-columns: 182px;
-  justify-content: start;
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
   width: max-content;
   min-width: 0;
   gap: 8px;
@@ -1006,11 +1010,11 @@
 }
 
 .carouselButtonBack {
-  left: -42px;
+  left: -40px;
 }
 
 .carouselButtonForward {
-  right: -42px;
+  right: -40px;
 }
 
 .carouselButton:hover:not(:disabled),
@@ -1030,12 +1034,14 @@
 
 .panel[data-visual-variant="clean"] .row > .card {
   isolation: isolate;
+  flex: 0 0 182px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: 16px 25px 42px 23px;
   align-content: start;
   align-items: center;
   width: 182px;
   min-width: 182px;
+  max-width: 182px;
   height: 132px;
   min-height: 132px;
   padding: 8px 10px 7px;
@@ -1057,7 +1063,7 @@
   display: flex;
   grid-column: 1 / -1;
   grid-row: 1;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-start;
   align-self: stretch;
   width: 100%;
@@ -1072,7 +1078,7 @@
 .cleanSchedule,
 .panel[data-visual-variant="clean"] .row > .card > .status > .finishedMeta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-start;
   width: 100%;
   min-width: 0;
@@ -1203,15 +1209,15 @@
   box-shadow: 0 0 0 1px rgba(68, 21, 47, 0.11), 0 2px 5px rgba(15, 23, 42, 0.08);
 }
 
-@media (max-width: 1879px) {
+@media (max-width: 1591px) {
   .carousel {
-    max-width: 1132px;
+    width: 1132px;
   }
 }
 
-@media (max-width: 1399px) {
+@media (max-width: 1211px) {
   .carousel {
-    max-width: 752px;
+    width: 752px;
   }
 }
 
@@ -1221,26 +1227,16 @@
     height: 50px;
     font-size: 34px;
   }
+}
 
-  .carouselButtonBack {
-    left: 0;
-    background: linear-gradient(90deg, #ffffff 58%, rgba(255, 255, 255, 0));
-  }
-
-  .carouselButtonForward {
-    right: 0;
-    background: linear-gradient(270deg, #ffffff 58%, rgba(255, 255, 255, 0));
+@media (max-width: 831px) {
+  .carousel {
+    width: 372px;
   }
 }
 
-@media (max-width: 767px) {
+@media (max-width: 451px) {
   .carousel {
-    max-width: 372px;
-  }
-}
-
-@media (max-width: 399px) {
-  .carousel {
-    max-width: 182px;
+    width: 182px;
   }
 }

@@ -32,7 +32,7 @@ export default function PublicMatchStripCarousel({ children }: PublicMatchStripC
       const viewportRight = viewport.scrollLeft + viewport.clientWidth;
 
       if (cardLeft < viewport.scrollLeft || cardRight > viewportRight) {
-        viewport.scrollLeft = Math.max(cardLeft - 4, 0);
+        viewport.scrollLeft = Math.max(cardLeft, 0);
       }
     }
 
@@ -62,10 +62,11 @@ export default function PublicMatchStripCarousel({ children }: PublicMatchStripC
     const rowStyles = window.getComputedStyle(row);
     const gap = Number.parseFloat(rowStyles.columnGap || rowStyles.gap) || 0;
     const distance = firstCard.getBoundingClientRect().width + gap;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     viewport.scrollBy({
       left: direction * distance,
-      behavior: "smooth"
+      behavior: reducedMotion ? "auto" : "smooth"
     });
   };
 
