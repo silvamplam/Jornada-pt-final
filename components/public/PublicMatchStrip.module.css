@@ -204,7 +204,7 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(238, 242, 245, 0.62));
 }
 
-.panel[data-competition-theme="liga-portugal"] .status > :global([data-public-match-meta]) > span:first-child {
+.panel:not([data-visual-variant="clean"])[data-competition-theme="liga-portugal"] .status > :global([data-public-match-meta]) > span:first-child {
   color: var(--public-liga-portugal-muted);
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -298,7 +298,7 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(243, 239, 247, 0.67));
 }
 
-.panel[data-competition-theme="premier-league"] .status > :global([data-public-match-meta]) > span:first-child {
+.panel:not([data-visual-variant="clean"])[data-competition-theme="premier-league"] .status > :global([data-public-match-meta]) > span:first-child {
   color: var(--public-premier-league-muted);
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -413,7 +413,7 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(236, 240, 245, 0.76));
 }
 
-.panel[data-competition-theme="la-liga"] .status > :global([data-public-match-meta]) > span:first-child {
+.panel:not([data-visual-variant="clean"])[data-competition-theme="la-liga"] .status > :global([data-public-match-meta]) > span:first-child {
   color: var(--public-laliga-muted);
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -806,7 +806,7 @@
   transform: translateY(1px);
 }
 
-.row > .card > .status > :global([data-public-match-meta]) {
+.panel:not([data-visual-variant="clean"]) .row > .card > .status > :global([data-public-match-meta]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 10px 21px;
@@ -820,7 +820,7 @@
   row-gap: 1px;
 }
 
-.row > .card > .status > :global([data-public-match-meta]) > span:first-child {
+.panel:not([data-visual-variant="clean"]) .row > .card > .status > :global([data-public-match-meta]) > span:first-child {
   grid-column: 1;
   grid-row: 1;
   justify-self: center;
@@ -833,7 +833,7 @@
   text-align: center;
 }
 
-.row > .card > .status > :global([data-public-match-meta]) > span:last-child:not(:first-child) {
+.panel:not([data-visual-variant="clean"]) .row > .card > .status > :global([data-public-match-meta]) > span:last-child:not(:first-child) {
   display: grid;
   grid-column: 1;
   grid-row: 2;
@@ -861,8 +861,8 @@
   overflow: visible;
 }
 
-.row > .card:global(.public-matchday-mini-card-live) > .status > :global([data-public-match-meta]),
-.row > .card:global(.public-matchday-mini-card-halftime) > .status > :global([data-public-match-meta]) {
+.panel:not([data-visual-variant="clean"]) .row > .card:global(.public-matchday-mini-card-live) > .status > :global([data-public-match-meta]),
+.panel:not([data-visual-variant="clean"]) .row > .card:global(.public-matchday-mini-card-halftime) > .status > :global([data-public-match-meta]) {
   grid-template-rows: 10px 20px;
   row-gap: 1px;
 }
@@ -923,4 +923,284 @@
   align-items: center;
   position: relative;
   top: 1px;
+}
+
+/* Variante experimental da página de jornada: carrossel limpo, sem barra de scroll visível. */
+.panel[data-visual-variant="clean"] {
+  width: 100vw;
+  max-width: none;
+  margin: 0 calc(50% - 50vw);
+  padding: 6px 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.panel[data-visual-variant="clean"] .shell {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.carouselMeasure {
+  width: 100%;
+  min-width: 0;
+}
+
+.carousel {
+  position: relative;
+  width: var(--match-carousel-shell-width);
+  max-width: 100%;
+  min-width: 0;
+  margin-inline: auto;
+}
+
+.carousel[data-can-move-forward="true"]::after {
+  position: absolute;
+  inset-block: 0;
+  right: max(0px, calc((100% - var(--match-carousel-viewport-width)) / 2));
+  z-index: 1;
+  width: 72px;
+  content: "";
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.42) 32%, rgba(255, 255, 255, 0.88) 72%, #ffffff 100%);
+  pointer-events: none;
+}
+
+.carousel[data-can-move-back="true"]::before {
+  position: absolute;
+  inset-block: 0;
+  left: max(0px, calc((100% - var(--match-carousel-viewport-width)) / 2));
+  z-index: 1;
+  width: 72px;
+  content: "";
+  background: linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0.88) 28%, rgba(255, 255, 255, 0.42) 68%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+}
+
+.carouselViewport {
+  width: var(--match-carousel-viewport-width);
+  max-width: var(--match-carousel-viewport-width);
+  min-width: 0;
+  margin-inline: auto;
+  padding-inline: 0;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.carouselViewport::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carouselViewport {
+    scroll-behavior: auto;
+  }
+}
+
+.carouselViewport > .row {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  width: max-content;
+  min-width: 0;
+  gap: var(--match-card-gap);
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.carouselButton {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: var(--match-carousel-arrow-zone-width);
+  height: 42px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #44152f;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+  font-size: 31px;
+  font-weight: 400;
+  line-height: 1;
+  transform: translateY(-50%);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.carouselButtonBack {
+  left: 0;
+}
+
+.carouselButtonForward {
+  right: 0;
+}
+
+.carouselButton:hover:not(:disabled),
+.carouselButton:focus-visible:not(:disabled) {
+  outline: none;
+  transform: translateY(-50%) scale(1.06);
+}
+
+.carouselButton:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.carouselButton span {
+  transform: translateY(-1px);
+}
+
+.panel[data-visual-variant="clean"] .row > .card {
+  box-sizing: border-box;
+  isolation: isolate;
+  flex: 0 0 var(--match-card-width);
+  grid-template-columns: repeat(2, var(--match-card-team-column-width));
+  grid-template-rows: 14px 2px 18px 2px 1px 4px 28px 3px 12px;
+  align-content: start;
+  align-items: center;
+  width: var(--match-card-width);
+  min-width: var(--match-card-width);
+  max-width: var(--match-card-width);
+  height: var(--match-card-height);
+  min-height: var(--match-card-height);
+  max-height: var(--match-card-height);
+  padding: 9px var(--match-card-inline-padding);
+  column-gap: var(--match-card-gap);
+  border: 1px solid #e2e4e9;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 2px 3px rgba(15, 23, 42, 0.1);
+  color: #111820;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  scroll-snap-align: start;
+}
+
+.panel[data-visual-variant="clean"] .row > .card::before,
+.panel[data-visual-variant="clean"] .row > .card::after {
+  display: none;
+  content: none;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .status {
+  display: block;
+  grid-column: 1 / -1;
+  grid-row: 1 / 6;
+  align-self: stretch;
+  width: 100%;
+  height: 37px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  transform: none;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .status > :global([data-public-match-meta]) {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .team {
+  display: grid;
+  grid-row: 7;
+  grid-template-columns: var(--match-card-team-column-width);
+  grid-template-rows: 28px;
+  place-items: center;
+  align-self: stretch;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .team:first-of-type {
+  grid-column: 1;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .team:nth-of-type(2) {
+  grid-column: 2;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .team > :global([data-public-team-badge]) {
+  --public-match-team-badge-width: 28px;
+  --public-match-team-badge-height: 28px;
+
+  width: 28px;
+  height: 28px;
+  filter: none;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .team > :global([data-public-team-badge][data-logo-shape="tall"]) {
+  --public-match-team-badge-width: 24px;
+  --public-match-team-badge-height: 28px;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .team > :global([data-public-team-badge][data-logo-shape="wide"]) {
+  --public-match-team-badge-width: 28px;
+  --public-match-team-badge-height: 23px;
+}
+
+.panel[data-visual-variant="clean"] .teamNames {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-row: 9;
+  grid-template-columns: repeat(2, var(--match-card-team-column-width));
+  align-items: start;
+  justify-content: stretch;
+  width: 100%;
+  height: 12px;
+  margin: 0;
+  column-gap: var(--match-card-gap);
+}
+
+.panel[data-visual-variant="clean"] .teamNames > .teamName {
+  min-width: 0;
+  overflow: hidden;
+  color: #111820;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 12px;
+  letter-spacing: 0;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: none;
+  white-space: nowrap;
+}
+
+.panel[data-visual-variant="clean"] .center {
+  display: none;
+}
+
+.panel[data-visual-variant="clean"] .finishedScore,
+.panel[data-visual-variant="clean"] .statusScore {
+  color: #111820;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-shadow: none;
+}
+
+.panel[data-visual-variant="clean"] .liveStatus,
+.panel[data-visual-variant="clean"] .halftimeStatus {
+  justify-content: flex-start;
+}
+
+.panel[data-visual-variant="clean"] .card[data-live-focus="true"] {
+  border-color: #44152f;
+  box-shadow: 0 0 0 1px rgba(68, 21, 47, 0.11), 0 2px 5px rgba(15, 23, 42, 0.08);
 }

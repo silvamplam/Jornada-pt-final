@@ -201,6 +201,10 @@
   margin-left: 0;
 }
 
+.navigation[data-message-ticker="false"] .classificationLink {
+  margin-left: auto;
+}
+
 @keyframes jornada-led-ticker-scroll {
   from {
     transform: translateX(0);

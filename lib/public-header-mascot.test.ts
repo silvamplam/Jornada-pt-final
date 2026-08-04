@@ -36,19 +36,27 @@ test("mantem o boneco com gravata e resposta imediata", async () => {
   assert.match(stylesSource, /a\[data-active="true"\][\s\S]*?color:\s*#ffffff/);
 });
 
-test("mantem a composicao natural sem caixas de estado", async () => {
+test("a jornada usa faixa compacta sem boneco e os restantes contextos preservam a navegação partilhada", async () => {
   const sources = await Promise.all(integrationUrls.map((url) => readFile(url, "utf8")));
-
-  for (const source of sources) {
-    assert.match(source, /public-season-context-card/);
-    assert.match(source, /public-matchday-date-row/);
-    assert.match(source, /<strong>Data:<\/strong>/);
-    assert.match(source, /grid-template-columns:\s*max-content minmax\(0, 1fr\) max-content/);
-    assert.doesNotMatch(source, /public-matchday-status-card/);
-    assert.doesNotMatch(source, /Jornada selecionada/);
-  }
-
   const competitionSource = sources[0];
+
+  assert.match(competitionSource, /public-season-context-card/);
+  assert.match(competitionSource, /public-matchday-date-row/);
+  assert.match(competitionSource, /<strong>Data:<\/strong>/);
+  assert.match(competitionSource, /className="public-matchday-nav-compact"/);
+  assert.match(competitionSource, /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#44152f/);
+  assert.match(competitionSource, /showMessageTicker=\{false\}/);
+  assert.match(competitionSource, /flex-wrap:\s*wrap/);
+  assert.match(competitionSource, /public-season-competition-emblem\[data-logo-variant="premier-league-lockup"\][\s\S]*?background:\s*#ffffff/);
+  assert.match(competitionSource, /img\[data-variant="premier-league-lockup"\] \{[\s\S]*?width:\s*76px[\s\S]*?height:\s*auto[\s\S]*?max-height:\s*32px[\s\S]*?filter:\s*none[\s\S]*?image-rendering:\s*auto/);
+  assert.doesNotMatch(competitionSource, /import PublicMatchdayNavigation|<PublicMatchdayNavigation/);
+  assert.doesNotMatch(competitionSource, /public-matchday-status-card|Jornada selecionada/);
   assert.match(competitionSource, /<PublicMatchStrip/);
   assert.doesNotMatch(competitionSource, />Jogos<\/a>/);
+
+  for (const source of sources.slice(1)) {
+    assert.match(source, /public-season-context-card/);
+    assert.match(source, /public-matchday-date-row/);
+    assert.doesNotMatch(source, /public-matchday-status-card|Jornada selecionada/);
+  }
 });

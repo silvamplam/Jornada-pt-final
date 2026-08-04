@@ -7,8 +7,62 @@ import {
   getPublicMatchStripPresentation,
   type PublicMatchStripPresentationInput
 } from "@/lib/public-match-strip-presentation";
+import {
+  ARROW_ZONE_WIDTH,
+  CARD_BORDER_WIDTH,
+  CARD_GAP,
+  CARD_HEIGHT,
+  CARD_INLINE_PADDING,
+  CARD_STEP,
+  CARD_TEAM_COLUMN_WIDTH,
+  CARD_WIDTH,
+  VISIBLE_CARD_COUNTS,
+  getMatchCarouselShellWidth,
+  getMatchCarouselViewportWidth,
+  selectMatchCarouselVisibleCardCount
+} from "@/lib/public-match-strip-carousel-geometry";
 
 const NOW = new Date("2026-07-26T20:05:30.000Z");
+
+test("geometria do carrossel deriva todas as larguras da mesma formula", () => {
+  assert.equal(CARD_WIDTH, 144);
+  assert.equal(CARD_HEIGHT, 104);
+  assert.equal(CARD_GAP, 8);
+  assert.equal(CARD_STEP, 152);
+  assert.equal(CARD_INLINE_PADDING, 10);
+  assert.equal(CARD_BORDER_WIDTH, 1);
+  assert.equal(CARD_TEAM_COLUMN_WIDTH, 57);
+  assert.equal(ARROW_ZONE_WIDTH, 32);
+  assert.deepEqual(VISIBLE_CARD_COUNTS, [8, 6, 4, 2, 1]);
+  assert.deepEqual(
+    VISIBLE_CARD_COUNTS.map((count) => getMatchCarouselViewportWidth(count)),
+    [1208, 904, 600, 296, 144]
+  );
+  assert.deepEqual(
+    VISIBLE_CARD_COUNTS.map((count) => getMatchCarouselShellWidth(count)),
+    [1272, 968, 664, 360, 208]
+  );
+
+  for (const [availableWidth, expectedCount] of [
+    [1920, 8],
+    [1914, 8],
+    [1536, 8],
+    [1272, 8],
+    [1208, 8],
+    [1207, 6],
+    [968, 6],
+    [904, 6],
+    [903, 4],
+    [664, 4],
+    [600, 4],
+    [599, 2],
+    [360, 2],
+    [296, 2],
+    [295, 1]
+  ] as const) {
+    assert.equal(selectMatchCarouselVisibleCardCount(availableWidth), expectedCount);
+  }
+});
 
 function match(
   overrides: Partial<PublicMatchStripPresentationInput> = {}
@@ -228,7 +282,10 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
     assert.match(source, /<PublicMatchStrip/);
   }
 
-  assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\} variant="home" \/>/);
+  assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\} variant="clean" \/>/);
+  assert.match(competitionSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
+  assert.match(newsSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
+  assert.match(componentSource, /type PublicMatchStripVariant = "default" \| "home" \| "clean"/);
   assert.match(componentSource, /variant\?: PublicMatchStripVariant/);
   assert.match(componentSource, /data-visual-variant=\{visualVariant\}/);
   assert.match(componentSource, /visualVariant !== "home"/);
@@ -238,6 +295,34 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(stylesSource, /var\(--public-match-home-backdrop-image\)/);
   assert.match(stylesSource, /var\(--public-match-away-backdrop-image\)/);
   assert.match(stylesSource, /clip-path: polygon\(0 0, 100% 0, 82% 100%, 0 100%\)/);
+  const cleanStyles = stylesSource.slice(stylesSource.indexOf('.panel[data-visual-variant="clean"]'));
+  assert.match(componentSource, /import PublicMatchStripCarousel/);
+  assert.match(componentSource, /data-public-match-schedule/);
+  assert.match(componentSource, /visualVariant === "clean"[\s\S]*?<PublicMatchMeta[\s\S]*?dateTime=\{scheduleContent\}[\s\S]*?variant="compact"/);
+  assert.match(cleanStyles, /\.panel\[data-visual-variant="clean"\]\s*\{[\s\S]*?width:\s*100vw[\s\S]*?max-width:\s*none[\s\S]*?margin:\s*0 calc\(50% - 50vw\)/);
+  assert.match(cleanStyles, /\.carouselMeasure\s*\{[\s\S]*?width:\s*100%/);
+  assert.match(cleanStyles, /\.carousel\s*\{[\s\S]*?width:\s*var\(--match-carousel-shell-width\)[\s\S]*?max-width:\s*100%[\s\S]*?margin-inline:\s*auto/);
+  assert.match(cleanStyles, /\.carouselViewport \{[\s\S]*?width:\s*var\(--match-carousel-viewport-width\)[\s\S]*?max-width:\s*var\(--match-carousel-viewport-width\)[\s\S]*?margin-inline:\s*auto[\s\S]*?padding-inline:\s*0[\s\S]*?overflow-x:\s*hidden[\s\S]*?scrollbar-width:\s*none/);
+  assert.match(cleanStyles, /\.carouselViewport::-webkit-scrollbar \{[\s\S]*?display:\s*none/);
+  assert.match(cleanStyles, /\.carouselViewport > \.row\s*\{[\s\S]*?display:\s*flex[\s\S]*?flex-wrap:\s*nowrap[\s\S]*?justify-content:\s*flex-start[\s\S]*?width:\s*max-content[\s\S]*?gap:\s*var\(--match-card-gap\)[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0/);
+  assert.doesNotMatch(cleanStyles, /grid-auto-columns/);
+  assert.doesNotMatch(cleanStyles, /@media \(max-width:\s*(?:1591|1211|831|451)px\)/);
+  assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?flex:\s*0 0 var\(--match-card-width\);[\s\S]*?width:\s*var\(--match-card-width\);[\s\S]*?min-width:\s*var\(--match-card-width\);[\s\S]*?max-width:\s*var\(--match-card-width\);[\s\S]*?height:\s*var\(--match-card-height\);[\s\S]*?min-height:\s*var\(--match-card-height\);[\s\S]*?max-height:\s*var\(--match-card-height\);[\s\S]*?background:\s*#ffffff/);
+  assert.match(cleanStyles, /> \.status\s*\{[\s\S]*?grid-row:\s*1 \/ 6[\s\S]*?width:\s*100%[\s\S]*?height:\s*37px/);
+  assert.doesNotMatch(cleanStyles, /\.cleanSchedule|\.cleanChannel/);
+  assert.match(cleanStyles, /\.teamNames \{[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)/);
+  const trackRule = cleanStyles.match(/\.carouselViewport > \.row\s*\{([^}]*)\}/)?.[1] ?? "";
+  const cleanCardRule = cleanStyles.match(/\.panel\[data-visual-variant="clean"\] \.row > \.card\s*\{([^}]*)\}/)?.[1] ?? "";
+  for (const rule of [trackRule, cleanCardRule]) {
+    assert.doesNotMatch(rule, /flex-grow|flex:\s*1|\b1fr\b|space-between|space-around|%/);
+  }
+  assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.center \{\s*display:\s*none/);
+  assert.match(componentSource, /const schedule = miniCardSchedule\(match\);/);
+  assert.doesNotMatch(componentSource, /miniCardSchedule\(match,\s*visualVariant === "clean"\)/);
+  const compactCardSource = componentSource.split("function CompactMatchCard")[1]?.split("export default function PublicMatchStrip")[0] ?? "";
+  assert.doesNotMatch(compactCardSource, /Liga Portugal|La Liga|Premier League|competitionSlug/);
+  assert.doesNotMatch(competitionSource, /import PublicMatchdayNavigation|<PublicMatchdayNavigation/);
+  assert.match(competitionSource, /className="public-matchday-nav-compact"/);
 
   assert.doesNotMatch(gamesSource, /import PublicMatchStrip|<PublicMatchStrip/);
   assert.doesNotMatch(gamesSource, /public-matchday-strip|data-matchday-strip/);

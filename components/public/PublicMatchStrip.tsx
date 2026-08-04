@@ -1,4 +1,5 @@
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
+import PublicMatchStripCarousel from "@/components/public/PublicMatchStripCarousel";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { getPublicMatchStripPresentation } from "@/lib/public-match-strip-presentation";
 import { getPublicMatchStripTheme } from "@/lib/public-match-strip-theme";
@@ -163,7 +164,7 @@ function LivePulseDots() {
   );
 }
 
-type PublicMatchStripVariant = "default" | "home";
+type PublicMatchStripVariant = "default" | "home" | "clean";
 
 type PublicMatchStripCardStyle = CSSProperties & {
   "--public-match-home-backdrop-image": string;
@@ -216,6 +217,13 @@ function CompactMatchCard({
         "--public-match-away-backdrop-image": matchBackdropImage(match.awayTeam?.logo_url)
       }
     : undefined;
+  const scheduleContent = schedule.dateTime ? (
+    <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
+      {schedule.visual}
+    </time>
+  ) : (
+    <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
+  );
   const statusContent = presentation.status.kind === "live" ? (
     <span
       aria-label={`${presentation.statusLabel}${activeScore ? `. Resultado ${match.home_score} a ${match.away_score}` : ""}${presentation.status.minute !== null ? `. Minuto ${presentation.status.minute}` : ""}`}
@@ -246,18 +254,13 @@ function CompactMatchCard({
     </span>
   ) : presentation.status.kind === "label" ? (
     <span className={styles.stateLabel}>{presentation.status.label}</span>
-  ) : schedule.dateTime ? (
-    <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
-      {schedule.visual}
-    </time>
-  ) : (
-    <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
-  );
+  ) : scheduleContent;
 
   return (
     <article
       className={`${styles.card} public-matchday-mini-card public-matchday-mini-card-${kind}`}
       data-live-focus={focus ? "true" : undefined}
+      data-public-match-card
       data-visual-variant={visualVariant}
       style={visualStyle}
     >
@@ -278,8 +281,18 @@ function CompactMatchCard({
           </strong>
         </span>
       ) : null}
-      <span className={`${styles.status} public-matchday-mini-status`}>
-        {presentation.kind === "finished" ? (
+      <span
+        className={`${styles.status} public-matchday-mini-status`}
+        data-public-match-schedule={visualVariant === "clean" ? "true" : undefined}
+      >
+        {visualVariant === "clean" ? (
+          <PublicMatchMeta
+            channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
+            channelName={presentation.showChannel ? broadcastChannelName : null}
+            dateTime={scheduleContent}
+            variant="compact"
+          />
+        ) : presentation.kind === "finished" ? (
           <span
             aria-label={finishedScoreText
               ? `Finalizado. Resultado ${presentation.finishedScore?.left} a ${presentation.finishedScore?.right}`
@@ -308,7 +321,7 @@ function CompactMatchCard({
 export default function PublicMatchStrip({
   matches,
   competitionSlug,
-  variant = "default"
+  variant = "clean"
 }: {
   matches: PublicMatchStripMatch[];
   competitionSlug?: string | null;
@@ -332,20 +345,33 @@ export default function PublicMatchStrip({
       aria-label="Visao rapida dos jogos"
     >
       <div className={`${styles.shell} public-matchday-strip-shell`}>
-        <div
-          className={`${styles.row} public-matchday-strip`}
-          data-matchday-strip
-          style={{ "--public-match-strip-columns": matches.length } as CSSProperties}
-        >
-          {matches.map((match) => (
-            <CompactMatchCard
-              focus={focusedMatch?.id === match.id}
-              key={match.id}
-              match={match}
-              visualVariant={variant}
-            />
-          ))}
-        </div>
+        {variant === "clean" ? (
+          <PublicMatchStripCarousel>
+            {matches.map((match) => (
+              <CompactMatchCard
+                focus={focusedMatch?.id === match.id}
+                key={match.id}
+                match={match}
+                visualVariant={variant}
+              />
+            ))}
+          </PublicMatchStripCarousel>
+        ) : (
+          <div
+            className={`${styles.row} public-matchday-strip`}
+            data-matchday-strip
+            style={{ "--public-match-strip-columns": matches.length } as CSSProperties}
+          >
+            {matches.map((match) => (
+              <CompactMatchCard
+                focus={focusedMatch?.id === match.id}
+                key={match.id}
+                match={match}
+                visualVariant={variant}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
