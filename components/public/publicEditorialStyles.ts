@@ -36,6 +36,16 @@ export const publicEditorialStyles = `
     border-bottom: 1px solid #dfe5ec;
   }
 
+  .public-home-games-transition-bar {
+    display: block;
+    height: 58px;
+    min-height: 58px;
+    margin: 0 -24px;
+    padding: 0 24px;
+    border: 0;
+    background: #44152f;
+  }
+
   .public-site-brand {
     display: inline-flex;
     align-items: baseline;
@@ -2000,6 +2010,11 @@ export const publicEditorialStyles = `
     }
 
     .public-top-stack {
+      margin: 0 -16px;
+      padding: 0 16px;
+    }
+
+    .public-home-games-transition-bar {
       margin: 0 -16px;
       padding: 0 16px;
     }

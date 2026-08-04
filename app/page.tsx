@@ -568,12 +568,13 @@ export default async function HomePage() {
         <Link className="public-site-brand" href="/" aria-label="Jornada.pt">
           Jornada<span>.pt</span>
         </Link>
-        <PublicCompetitionNavigation competitions={competitionLinks} />
+        <PublicCompetitionNavigation competitions={competitionLinks} showMessageTicker={false} />
         <div className="public-site-actions" aria-label="Acoes">
           <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>
           <Link href="/admin/login">Entrar</Link>
         </div>
       </header>
+      <div aria-hidden="true" className="public-home-games-transition-bar" />
       </div>
 
       <PublicMatchStrip matches={featuredMatches} variant="clean" />

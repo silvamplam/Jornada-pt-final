@@ -361,6 +361,49 @@ test("impede wrap, conserva o conjunto unido e aplica a proporcao de espaco pedi
   );
 });
 
+test("a Home remove apenas o ticker e mant?m a barra vazia antes do carrossel", async () => {
+  const [homeSource, componentSource, sharedStylesSource] = await Promise.all([
+    readFile(integrationUrls[0], "utf8"),
+    readFile(componentUrl, "utf8"),
+    readFile(sharedStylesUrl, "utf8")
+  ]);
+
+  assert.match(
+    homeSource,
+    /<PublicCompetitionNavigation competitions=\{competitionLinks\} showMessageTicker=\{false\} \/>/
+  );
+  assert.match(componentSource, /showMessageTicker = true/);
+  assert.match(componentSource, /\{showMessageTicker \? \(/);
+  assert.match(componentSource, /className=\{styles\.messageTicker\}/);
+
+  const headerIndex = homeSource.indexOf("</header>");
+  const transitionBarIndex = homeSource.indexOf(
+    '<div aria-hidden="true" className="public-home-games-transition-bar" />'
+  );
+  const matchStripIndex = homeSource.indexOf(
+    '<PublicMatchStrip matches={featuredMatches} variant="clean" />'
+  );
+  const editorialIndex = homeSource.indexOf("<PublicEditorialLayout");
+
+  assert.ok(headerIndex >= 0);
+  assert.ok(headerIndex < transitionBarIndex);
+  assert.ok(transitionBarIndex < matchStripIndex);
+  assert.ok(matchStripIndex < editorialIndex);
+
+  const transitionBarRule = cssRule(sharedStylesSource, ".public-home-games-transition-bar");
+  assert.match(transitionBarRule, /height:\s*58px/);
+  assert.match(transitionBarRule, /min-height:\s*58px/);
+  assert.match(transitionBarRule, /margin:\s*0 -24px/);
+  assert.match(transitionBarRule, /padding:\s*0 24px/);
+  assert.match(transitionBarRule, /border:\s*0/);
+  assert.match(transitionBarRule, /background:\s*#44152f/);
+  assert.doesNotMatch(sharedStylesSource, /\.public-home-games-transition-bar::(?:before|after)/);
+  assert.match(
+    sharedStylesSource,
+    /@media \(max-width: 760px\)[\s\S]*?\.public-home-games-transition-bar\s*\{[\s\S]*?margin:\s*0 -16px[\s\S]*?padding:\s*0 16px/
+  );
+});
+
 test("integracoes preservam a competicao ativa no link de Classificacao", async () => {
   const [
     homeSource,
