@@ -87,7 +87,7 @@ function inboxLabel(article: NewsroomEditorialInboxItem): string {
     return "Em trabalho";
   }
 
-  return article.editorial.label === "dismissed" ? "Dispensada" : "Vista";
+  return article.editorial.label === "dismissed" ? "Sem interesse" : "Lida";
 }
 
 function viewTitle(view: NewsroomEditorialInboxView): string {
@@ -105,9 +105,9 @@ function viewDescription(view: NewsroomEditorialInboxView): string {
     return "Notícias que decidiste acompanhar ou usar numa peça.";
   }
   if (view === "archive") {
-    return "Notícias já vistas ou dispensadas. Usa-as apenas quando precisares de contexto.";
+    return "Notícias já lidas ou marcadas como sem interesse. Usa-as apenas quando precisares de contexto.";
   }
-  return "Apenas notícias ainda não decididas ou alteradas depois de já terem sido vistas.";
+  return "Apenas notícias ainda não decididas ou alteradas depois de já terem sido lidas.";
 }
 
 const sourcePackageErrorMessages: Record<string, string> = {
@@ -216,9 +216,9 @@ export default async function AutomaticNewsroomPage({
     : inboxState === "working"
       ? "Notícia colocada em trabalho."
       : inboxState === "seen"
-        ? "Notícia marcada como vista."
+        ? "Notícia marcada como lida."
         : inboxState === "dismissed"
-          ? "Notícia dispensada e mantida no arquivo."
+          ? "Notícia marcada como sem interesse e mantida no arquivo."
           : inboxState === "reopen"
             ? "Notícia devolvida a Por rever."
             : null;
@@ -461,7 +461,7 @@ export default async function AutomaticNewsroomPage({
                               formMethod="post"
                               formNoValidate
                             >
-                              Vista
+                              Lida
                             </button>
                           ) : null}
                           {article.editorial.view !== "archive" || article.editorial.label !== "dismissed" ? (
@@ -477,7 +477,7 @@ export default async function AutomaticNewsroomPage({
                               formMethod="post"
                               formNoValidate
                             >
-                              Dispensar
+                              Sem interesse
                             </button>
                           ) : null}
                           {article.editorial.view === "archive" ? (
@@ -519,7 +519,7 @@ export default async function AutomaticNewsroomPage({
                 <div>
                   <strong>Terminaste este bloco?</strong>
                   <span>
-                    As notícias que não colocaste em trabalho passam a vistas e desaparecem de Por rever.
+                    As notícias que não colocaste em trabalho passam a lidas e desaparecem de Por rever.
                   </span>
                 </div>
                 <button

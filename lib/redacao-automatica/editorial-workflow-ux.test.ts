@@ -253,6 +253,10 @@ test("a preparação principal apresenta atualidade, pacote de fontes e acesso a
   assert.match(newsroom, /Fechar este bloco/);
   assert.match(newsroom, /Nova/);
   assert.match(newsroom, /Atualizada/);
+  assert.match(newsroom, /Lida/);
+  assert.match(newsroom, /Sem interesse/);
+  assert.doesNotMatch(newsroom, />\s*Vista\s*</);
+  assert.doesNotMatch(newsroom, />\s*Dispensar\s*</);
   assert.match(inboxRoute, /applyNewsroomEditorialInboxAction/);
   assert.match(inboxRoute, /close_block/);
 
