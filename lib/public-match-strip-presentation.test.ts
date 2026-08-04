@@ -9,6 +9,7 @@ import {
 } from "@/lib/public-match-strip-presentation";
 import {
   ARROW_ZONE_WIDTH,
+  CARD_BORDER_WIDTH,
   CARD_GAP,
   CARD_HEIGHT,
   CARD_INLINE_PADDING,
@@ -24,36 +25,40 @@ import {
 const NOW = new Date("2026-07-26T20:05:30.000Z");
 
 test("geometria do carrossel deriva todas as larguras da mesma formula", () => {
-  assert.equal(CARD_WIDTH, 160);
-  assert.equal(CARD_HEIGHT, 132);
-  assert.equal(CARD_GAP, 10);
-  assert.equal(CARD_STEP, 170);
+  assert.equal(CARD_WIDTH, 144);
+  assert.equal(CARD_HEIGHT, 104);
+  assert.equal(CARD_GAP, 8);
+  assert.equal(CARD_STEP, 152);
   assert.equal(CARD_INLINE_PADDING, 10);
-  assert.equal(CARD_TEAM_COLUMN_WIDTH, 65);
-  assert.equal(ARROW_ZONE_WIDTH, 40);
+  assert.equal(CARD_BORDER_WIDTH, 1);
+  assert.equal(CARD_TEAM_COLUMN_WIDTH, 57);
+  assert.equal(ARROW_ZONE_WIDTH, 32);
   assert.deepEqual(VISIBLE_CARD_COUNTS, [8, 6, 4, 2, 1]);
   assert.deepEqual(
     VISIBLE_CARD_COUNTS.map((count) => getMatchCarouselViewportWidth(count)),
-    [1350, 1010, 670, 330, 160]
+    [1208, 904, 600, 296, 144]
   );
   assert.deepEqual(
     VISIBLE_CARD_COUNTS.map((count) => getMatchCarouselShellWidth(count)),
-    [1430, 1090, 750, 410, 240]
+    [1272, 968, 664, 360, 208]
   );
 
   for (const [availableWidth, expectedCount] of [
     [1920, 8],
     [1914, 8],
     [1536, 8],
-    [1519, 8],
-    [1430, 8],
-    [1429, 6],
-    [1090, 6],
-    [1089, 4],
-    [750, 4],
-    [749, 2],
-    [410, 2],
-    [409, 1]
+    [1272, 8],
+    [1208, 8],
+    [1207, 6],
+    [968, 6],
+    [904, 6],
+    [903, 4],
+    [664, 4],
+    [600, 4],
+    [599, 2],
+    [360, 2],
+    [296, 2],
+    [295, 1]
   ] as const) {
     assert.equal(selectMatchCarouselVisibleCardCount(availableWidth), expectedCount);
   }
@@ -277,10 +282,9 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
     assert.match(source, /<PublicMatchStrip/);
   }
 
-  assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\} variant="home" \/>/);
+  assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\} variant="clean" \/>/);
   assert.match(competitionSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
-  assert.doesNotMatch(homeSource, /variant="clean"/);
-  assert.doesNotMatch(newsSource, /variant="clean"/);
+  assert.match(newsSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
   assert.match(componentSource, /type PublicMatchStripVariant = "default" \| "home" \| "clean"/);
   assert.match(componentSource, /variant\?: PublicMatchStripVariant/);
   assert.match(componentSource, /data-visual-variant=\{visualVariant\}/);
@@ -304,7 +308,7 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.doesNotMatch(cleanStyles, /grid-auto-columns/);
   assert.doesNotMatch(cleanStyles, /@media \(max-width:\s*(?:1591|1211|831|451)px\)/);
   assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?flex:\s*0 0 var\(--match-card-width\);[\s\S]*?width:\s*var\(--match-card-width\);[\s\S]*?min-width:\s*var\(--match-card-width\);[\s\S]*?max-width:\s*var\(--match-card-width\);[\s\S]*?height:\s*var\(--match-card-height\);[\s\S]*?min-height:\s*var\(--match-card-height\);[\s\S]*?max-height:\s*var\(--match-card-height\);[\s\S]*?background:\s*#ffffff/);
-  assert.match(cleanStyles, /> \.status\s*\{[\s\S]*?grid-row:\s*1 \/ 3[\s\S]*?width:\s*100%[\s\S]*?height:\s*41px/);
+  assert.match(cleanStyles, /> \.status\s*\{[\s\S]*?grid-row:\s*1 \/ 6[\s\S]*?width:\s*100%[\s\S]*?height:\s*37px/);
   assert.doesNotMatch(cleanStyles, /\.cleanSchedule|\.cleanChannel/);
   assert.match(cleanStyles, /\.teamNames \{[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)/);
   const trackRule = cleanStyles.match(/\.carouselViewport > \.row\s*\{([^}]*)\}/)?.[1] ?? "";

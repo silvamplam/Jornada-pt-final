@@ -402,21 +402,6 @@ const articlePageStyles = `
     margin: 0 0 22px;
   }
 
-  .news-article-games-strip {
-    width: calc(100% + 48px);
-    margin: 0 -24px;
-    margin-left: -24px;
-    margin-right: -24px;
-    padding: 2px 24px 10px;
-    border-top: 1px solid #dbe4ee;
-    border-bottom: 1px solid #d4deea;
-    background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  }
-
-  .news-article-games-strip .public-matchday-mini-card {
-    padding-block: 7px;
-  }
 
   .news-article-sidebar {
     display: grid;
@@ -570,12 +555,6 @@ const articlePageStyles = `
       padding-top: 18px;
     }
 
-    .news-article-games-strip {
-      width: calc(100% + 28px);
-      margin: 0 -14px;
-      margin-top: 0;
-      padding: 2px 14px 8px;
-    }
 
     .news-article-sidebar {
       position: static;
@@ -1222,6 +1201,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
               ...match,
               matchdayNumber: match.matchday?.number ?? null
             }))}
+            variant="clean"
           />
         </section>
       ) : null}

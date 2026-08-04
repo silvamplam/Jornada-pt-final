@@ -321,7 +321,7 @@ function CompactMatchCard({
 export default function PublicMatchStrip({
   matches,
   competitionSlug,
-  variant = "default"
+  variant = "clean"
 }: {
   matches: PublicMatchStripMatch[];
   competitionSlug?: string | null;

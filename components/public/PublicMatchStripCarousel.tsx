@@ -149,6 +149,8 @@ export default function PublicMatchStripCarousel({ children }: PublicMatchStripC
       <div
         className={styles.carousel}
         data-public-match-carousel
+        data-can-move-forward={canMoveForward ? "true" : undefined}
+        data-can-move-back={canMoveBack ? "true" : undefined}
         data-visible-cards={visibleCardCount}
         style={geometryStyle}
       >
