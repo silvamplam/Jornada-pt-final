@@ -98,7 +98,7 @@ function kickoffCivilDate(value?: string | null) {
   return year && month && day ? { year, month, day } : null;
 }
 
-function miniCardSchedule(match: PublicMatchStripMatch) {
+function miniCardSchedule(match: PublicMatchStripMatch, compact = false) {
   const scheduledDate = parseCivilDate(match.scheduled_date);
   const kickoffTime = formatKickoffTime(match.kickoff_at);
 
@@ -106,7 +106,7 @@ function miniCardSchedule(match: PublicMatchStripMatch) {
     const civilDate = scheduledDate ?? kickoffCivilDate(match.kickoff_at);
     if (civilDate) {
       return {
-        visual: `${compactCivilDate(civilDate)} \u00b7 ${kickoffTime}`,
+        visual: compact ? kickoffTime : `${compactCivilDate(civilDate)} \u00b7 ${kickoffTime}`,
         accessible: `${accessibleCivilDate(civilDate)}, às ${kickoffTime.replace(":", "h")}`,
         dateTime: match.kickoff_at ?? null
       };
@@ -115,7 +115,7 @@ function miniCardSchedule(match: PublicMatchStripMatch) {
 
   if (scheduledDate) {
     return {
-      visual: `${compactCivilDate(scheduledDate)} \u00b7 A DEFINIR`,
+      visual: compact ? "A DEFINIR" : `${compactCivilDate(scheduledDate)} \u00b7 A DEFINIR`,
       accessible: `${accessibleCivilDate(scheduledDate)}, hora por definir`,
       dateTime: match.scheduled_date
     };
@@ -187,7 +187,7 @@ function CompactMatchCard({
   const presentation = getPublicMatchStripPresentation(match);
   const kind = presentation.kind;
   const broadcastChannelName = match.broadcastChannel?.name?.trim();
-  const schedule = miniCardSchedule(match);
+  const schedule = miniCardSchedule(match, visualVariant === "clean");
   const homeTeamName = {
     name: match.homeTeam?.name,
     publicName: match.homeTeam?.public_name,

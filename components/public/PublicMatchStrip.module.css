@@ -925,12 +925,11 @@
   top: 1px;
 }
 
-/* Variante experimental da página de jornada: barra horizontal limpa,
-   sem painel de fundo e com cartões compactos inspirados numa agenda. */
+/* Variante experimental da página de jornada: grelha limpa, compacta e sem deslocação horizontal. */
 .panel[data-visual-variant="clean"] {
   width: 100%;
   margin-top: 0;
-  padding: 8px 0 10px;
+  padding: 6px 0 10px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -943,40 +942,34 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .panel[data-visual-variant="clean"] .shell > .row {
-  grid-template-columns: none;
-  grid-auto-flow: column;
-  grid-auto-columns: clamp(166px, 12vw, 184px);
-  justify-content: start;
+  grid-template-columns: repeat(var(--public-match-strip-columns), minmax(0, 1fr));
+  grid-auto-flow: row;
+  justify-content: stretch;
   width: 100%;
-  gap: 10px;
-  padding: 1px 2px 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-inline: contain;
-  scroll-snap-type: inline proximity;
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5df transparent;
+  min-width: 0;
+  gap: 6px;
+  padding: 0;
+  overflow: visible;
 }
 
 .panel[data-visual-variant="clean"] .row > .card {
   isolation: isolate;
-  grid-template-columns: 28px minmax(0, 1fr);
-  grid-template-rows: 34px 28px 28px;
+  grid-template-columns: 22px minmax(0, 1fr);
+  grid-template-rows: 24px 22px 22px;
   align-items: center;
   width: auto;
   min-width: 0;
-  min-height: 100px;
-  padding: 8px 10px;
+  min-height: 74px;
+  padding: 4px 6px;
   border: 1px solid #dbe3ec;
-  border-radius: 10px;
+  border-radius: 5px;
   background: #ffffff;
-  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.055);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.045);
   color: #111820;
-  scroll-snap-align: start;
 }
 
 .panel[data-visual-variant="clean"] .row > .card::before,
@@ -987,8 +980,8 @@
 
 .panel[data-visual-variant="clean"] .row > .card > .team {
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   margin: 0;
 }
 
@@ -1003,48 +996,49 @@
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .team > :global([data-public-team-badge]) {
-  --public-match-team-badge-width: 22px;
-  --public-match-team-badge-height: 22px;
+  --public-match-team-badge-width: 18px;
+  --public-match-team-badge-height: 18px;
 
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   filter: none;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .team > :global([data-public-team-badge][data-logo-shape="tall"]) {
-  --public-match-team-badge-width: 19px;
-  --public-match-team-badge-height: 23px;
+  --public-match-team-badge-width: 16px;
+  --public-match-team-badge-height: 19px;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .team > :global([data-public-team-badge][data-logo-shape="wide"]) {
-  --public-match-team-badge-width: 24px;
-  --public-match-team-badge-height: 19px;
+  --public-match-team-badge-width: 20px;
+  --public-match-team-badge-height: 16px;
 }
 
 .panel[data-visual-variant="clean"] .teamNames {
   grid-column: 2;
   grid-row: 2 / 4;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 28px 28px;
+  grid-template-rows: 22px 22px;
   align-items: center;
   justify-content: stretch;
   width: 100%;
-  height: 56px;
+  height: 44px;
   margin: 0;
   column-gap: 0;
 }
 
 .panel[data-visual-variant="clean"] .teamNames > .teamName {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   color: #152033;
-  font-size: 13px;
+  font-size: clamp(10px, 0.78vw, 11.5px);
   font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.15px;
+  line-height: 1;
+  letter-spacing: -0.16px;
   text-align: left;
   text-overflow: clip;
   text-shadow: none;
+  white-space: nowrap;
 }
 
 .panel[data-visual-variant="clean"] .center {
@@ -1055,8 +1049,8 @@
   grid-column: 1 / -1;
   grid-row: 1;
   align-self: stretch;
-  height: 34px;
-  padding: 0 0 5px;
+  height: 24px;
+  padding: 0 0 3px;
   border: 0;
   border-bottom: 1px solid #eef2f6;
   background: transparent;
@@ -1067,8 +1061,8 @@
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: minmax(0, 1fr);
   align-items: center;
-  height: 28px;
-  column-gap: 5px;
+  height: 20px;
+  column-gap: 3px;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .status > :global([data-public-match-meta]) > span:first-child {
@@ -1077,9 +1071,9 @@
   justify-self: start;
   color: #526174;
   font-size: 9px;
-  font-weight: 750;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: 0.015em;
+  letter-spacing: 0.01em;
   text-align: left;
   white-space: nowrap;
 }
@@ -1089,12 +1083,12 @@
   grid-row: 1;
   justify-self: end;
   width: auto;
-  height: 24px;
+  height: 20px;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .status > .finishedMeta {
   place-items: start;
-  height: 28px;
+  height: 20px;
   transform: none;
 }
 
@@ -1102,7 +1096,7 @@
 .panel[data-visual-variant="clean"] .statusScore {
   color: #111820;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.04em;
   text-shadow: none;
@@ -1115,7 +1109,13 @@
 
 .panel[data-visual-variant="clean"] .card[data-live-focus="true"] {
   border-color: #22a755;
-  box-shadow: 0 0 0 1px rgba(34, 167, 85, 0.12), 0 3px 8px rgba(15, 23, 42, 0.07);
+  box-shadow: 0 0 0 1px rgba(34, 167, 85, 0.12), 0 2px 5px rgba(15, 23, 42, 0.06);
+}
+
+@media (max-width: 1180px) {
+  .panel[data-visual-variant="clean"] .shell > .row {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -1124,14 +1124,23 @@
   }
 
   .panel[data-visual-variant="clean"] .shell > .row {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(158px, 72vw);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
     max-width: 100%;
-    gap: 8px;
-    overflow-x: auto;
-    overflow-y: hidden;
+    gap: 6px;
+    overflow: visible;
+  }
+
+  .panel[data-visual-variant="clean"] .row > .card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc((100% - 6px) / 2);
+  }
+}
+
+@media (max-width: 460px) {
+  .panel[data-visual-variant="clean"] .shell > .row {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .panel[data-visual-variant="clean"] .row > .card:last-child:nth-child(odd) {

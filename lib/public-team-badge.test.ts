@@ -257,8 +257,10 @@ test("dez jogos usam uma unica grelha dinamica sem scroll", async () => {
   const defaultStripStyles = stripStyles.slice(0, cleanVariantStart);
   const cleanStripStyles = stripStyles.slice(cleanVariantStart);
   assert.doesNotMatch(defaultStripStyles, /overflow-x:\s*auto|flex-shrink|min-width:\s*154px|display:\s*flex/);
-  assert.match(cleanStripStyles, /overflow-x:\s*auto/);
-  assert.doesNotMatch(cleanStripStyles, /flex-shrink|min-width:\s*154px|display:\s*flex/);
+  assert.doesNotMatch(cleanStripStyles, /overflow-x:\s*auto|scroll-snap|grid-auto-flow:\s*column|flex-shrink|min-width:\s*154px|display:\s*flex/);
+  assert.match(cleanStripStyles, /grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\)/);
+  assert.match(cleanStripStyles, /grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(cleanStripStyles, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
 
   const matches = Array.from({ length: 10 }, (_, index) => ({ id: `jogo-${index + 1}` }));
   assert.equal(matches.length, 10);

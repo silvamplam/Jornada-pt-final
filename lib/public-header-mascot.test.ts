@@ -36,19 +36,24 @@ test("mantem o boneco com gravata e resposta imediata", async () => {
   assert.match(stylesSource, /a\[data-active="true"\][\s\S]*?color:\s*#ffffff/);
 });
 
-test("mantem a composicao natural sem caixas de estado", async () => {
+test("a jornada usa faixa compacta sem boneco e os restantes contextos preservam a navegação partilhada", async () => {
   const sources = await Promise.all(integrationUrls.map((url) => readFile(url, "utf8")));
-
-  for (const source of sources) {
-    assert.match(source, /public-season-context-card/);
-    assert.match(source, /public-matchday-date-row/);
-    assert.match(source, /<strong>Data:<\/strong>/);
-    assert.match(source, /grid-template-columns:\s*max-content minmax\(0, 1fr\) max-content/);
-    assert.doesNotMatch(source, /public-matchday-status-card/);
-    assert.doesNotMatch(source, /Jornada selecionada/);
-  }
-
   const competitionSource = sources[0];
+
+  assert.match(competitionSource, /public-season-context-card/);
+  assert.match(competitionSource, /public-matchday-date-row/);
+  assert.match(competitionSource, /<strong>Data:<\/strong>/);
+  assert.match(competitionSource, /className="public-matchday-nav-compact"/);
+  assert.match(competitionSource, /background:\s*#c40012/);
+  assert.match(competitionSource, /flex-wrap:\s*wrap/);
+  assert.doesNotMatch(competitionSource, /import PublicMatchdayNavigation|<PublicMatchdayNavigation/);
+  assert.doesNotMatch(competitionSource, /public-matchday-status-card|Jornada selecionada/);
   assert.match(competitionSource, /<PublicMatchStrip/);
   assert.doesNotMatch(competitionSource, />Jogos<\/a>/);
+
+  for (const source of sources.slice(1)) {
+    assert.match(source, /public-season-context-card/);
+    assert.match(source, /public-matchday-date-row/);
+    assert.doesNotMatch(source, /public-matchday-status-card|Jornada selecionada/);
+  }
 });
