@@ -7,8 +7,55 @@ import {
   getPublicMatchStripPresentation,
   type PublicMatchStripPresentationInput
 } from "@/lib/public-match-strip-presentation";
+import {
+  ARROW_ZONE_WIDTH,
+  CARD_GAP,
+  CARD_HEIGHT,
+  CARD_INLINE_PADDING,
+  CARD_STEP,
+  CARD_TEAM_COLUMN_WIDTH,
+  CARD_WIDTH,
+  VISIBLE_CARD_COUNTS,
+  getMatchCarouselShellWidth,
+  getMatchCarouselViewportWidth,
+  selectMatchCarouselVisibleCardCount
+} from "@/lib/public-match-strip-carousel-geometry";
 
 const NOW = new Date("2026-07-26T20:05:30.000Z");
+
+test("geometria do carrossel deriva todas as larguras da mesma formula", () => {
+  assert.equal(CARD_WIDTH, 180);
+  assert.equal(CARD_HEIGHT, 132);
+  assert.equal(CARD_GAP, 10);
+  assert.equal(CARD_STEP, 190);
+  assert.equal(CARD_INLINE_PADDING, 10);
+  assert.equal(CARD_TEAM_COLUMN_WIDTH, 75);
+  assert.equal(ARROW_ZONE_WIDTH, 40);
+  assert.deepEqual(VISIBLE_CARD_COUNTS, [8, 6, 4, 2, 1]);
+  assert.deepEqual(
+    VISIBLE_CARD_COUNTS.map((count) => getMatchCarouselViewportWidth(count)),
+    [1510, 1130, 750, 370, 180]
+  );
+  assert.deepEqual(
+    VISIBLE_CARD_COUNTS.map((count) => getMatchCarouselShellWidth(count)),
+    [1590, 1210, 830, 450, 260]
+  );
+
+  for (const [availableWidth, expectedCount] of [
+    [1920, 8],
+    [1914, 8],
+    [1590, 8],
+    [1589, 6],
+    [1210, 6],
+    [1209, 4],
+    [830, 4],
+    [829, 2],
+    [450, 2],
+    [449, 1]
+  ] as const) {
+    assert.equal(selectMatchCarouselVisibleCardCount(availableWidth), expectedCount);
+  }
+});
 
 function match(
   overrides: Partial<PublicMatchStripPresentationInput> = {}
@@ -246,19 +293,23 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(componentSource, /import PublicMatchStripCarousel/);
   assert.match(componentSource, /data-public-match-channel-footer/);
   assert.match(componentSource, /data-public-match-schedule/);
-  assert.match(cleanStyles, /\.carousel\s*\{[\s\S]*?width:\s*1512px[\s\S]*?max-width:\s*calc\(100vw - 80px\)[\s\S]*?margin-inline:\s*auto/);
-  assert.match(cleanStyles, /\.carouselViewport \{[\s\S]*?overflow-x:\s*auto[\s\S]*?scrollbar-width:\s*none/);
+  assert.match(cleanStyles, /\.panel\[data-visual-variant="clean"\]\s*\{[\s\S]*?width:\s*100vw[\s\S]*?max-width:\s*none[\s\S]*?margin:\s*0 calc\(50% - 50vw\)/);
+  assert.match(cleanStyles, /\.carouselMeasure\s*\{[\s\S]*?width:\s*100%/);
+  assert.match(cleanStyles, /\.carousel\s*\{[\s\S]*?width:\s*var\(--match-carousel-shell-width\)[\s\S]*?max-width:\s*100%[\s\S]*?margin-inline:\s*auto/);
+  assert.match(cleanStyles, /\.carouselViewport \{[\s\S]*?width:\s*var\(--match-carousel-viewport-width\)[\s\S]*?max-width:\s*var\(--match-carousel-viewport-width\)[\s\S]*?margin-inline:\s*auto[\s\S]*?padding-inline:\s*0[\s\S]*?overflow-x:\s*hidden[\s\S]*?scrollbar-width:\s*none/);
   assert.match(cleanStyles, /\.carouselViewport::-webkit-scrollbar \{[\s\S]*?display:\s*none/);
-  assert.match(cleanStyles, /\.carouselViewport > \.row\s*\{[\s\S]*?display:\s*flex[\s\S]*?flex-wrap:\s*nowrap[\s\S]*?justify-content:\s*flex-start[\s\S]*?gap:\s*8px/);
+  assert.match(cleanStyles, /\.carouselViewport > \.row\s*\{[\s\S]*?display:\s*flex[\s\S]*?flex-wrap:\s*nowrap[\s\S]*?justify-content:\s*flex-start[\s\S]*?width:\s*max-content[\s\S]*?gap:\s*var\(--match-card-gap\)[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0/);
   assert.doesNotMatch(cleanStyles, /grid-auto-columns/);
-  assert.match(cleanStyles, /@media \(max-width:\s*1591px\)[\s\S]*?width:\s*1132px/);
-  assert.match(cleanStyles, /@media \(max-width:\s*1211px\)[\s\S]*?width:\s*752px/);
-  assert.match(cleanStyles, /@media \(max-width:\s*831px\)[\s\S]*?width:\s*372px/);
-  assert.match(cleanStyles, /@media \(max-width:\s*451px\)[\s\S]*?width:\s*182px/);
-  assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?flex:\s*0 0 182px;[\s\S]*?width:\s*182px;[\s\S]*?min-width:\s*182px;[\s\S]*?max-width:\s*182px;[\s\S]*?height:\s*132px;[\s\S]*?background:\s*#ffffff/);
+  assert.doesNotMatch(cleanStyles, /@media \(max-width:\s*(?:1591|1211|831|451)px\)/);
+  assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?flex:\s*0 0 var\(--match-card-width\);[\s\S]*?width:\s*var\(--match-card-width\);[\s\S]*?min-width:\s*var\(--match-card-width\);[\s\S]*?max-width:\s*var\(--match-card-width\);[\s\S]*?height:\s*var\(--match-card-height\);[\s\S]*?min-height:\s*var\(--match-card-height\);[\s\S]*?max-height:\s*var\(--match-card-height\);[\s\S]*?background:\s*#ffffff/);
   assert.match(cleanStyles, /\.cleanSchedule[\s\S]*?align-items:\s*flex-start[\s\S]*?justify-content:\s*flex-start[\s\S]*?width:\s*100%[\s\S]*?text-align:\s*left/);
   assert.match(cleanStyles, /\.cleanChannel \{[\s\S]*?grid-row:\s*2[\s\S]*?border-bottom:/);
-  assert.match(cleanStyles, /\.teamNames \{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(cleanStyles, /\.teamNames \{[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)/);
+  const trackRule = cleanStyles.match(/\.carouselViewport > \.row\s*\{([^}]*)\}/)?.[1] ?? "";
+  const cleanCardRule = cleanStyles.match(/\.panel\[data-visual-variant="clean"\] \.row > \.card\s*\{([^}]*)\}/)?.[1] ?? "";
+  for (const rule of [trackRule, cleanCardRule]) {
+    assert.doesNotMatch(rule, /flex-grow|flex:\s*1|\b1fr\b|space-between|space-around|%/);
+  }
   assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.center \{\s*display:\s*none/);
   assert.match(componentSource, /const schedule = miniCardSchedule\(match\);/);
   assert.doesNotMatch(componentSource, /miniCardSchedule\(match,\s*visualVariant === "clean"\)/);

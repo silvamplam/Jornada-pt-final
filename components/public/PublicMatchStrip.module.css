@@ -927,8 +927,9 @@
 
 /* Variante experimental da página de jornada: carrossel limpo, sem barra de scroll visível. */
 .panel[data-visual-variant="clean"] {
-  width: 100%;
-  margin-top: 0;
+  width: 100vw;
+  max-width: none;
+  margin: 0 calc(50% - 50vw);
   padding: 8px 0 12px;
   border: 0;
   border-radius: 0;
@@ -945,18 +946,26 @@
   overflow: visible;
 }
 
+.carouselMeasure {
+  width: 100%;
+  min-width: 0;
+}
+
 .carousel {
   position: relative;
-  width: 1512px;
-  max-width: calc(100vw - 80px);
+  width: var(--match-carousel-shell-width);
+  max-width: 100%;
   min-width: 0;
   margin-inline: auto;
 }
 
 .carouselViewport {
-  width: 100%;
+  width: var(--match-carousel-viewport-width);
+  max-width: var(--match-carousel-viewport-width);
   min-width: 0;
-  overflow-x: auto;
+  margin-inline: auto;
+  padding-inline: 0;
+  overflow-x: hidden;
   overflow-y: hidden;
   overscroll-behavior-inline: contain;
   scroll-behavior: smooth;
@@ -983,7 +992,8 @@
   justify-content: flex-start;
   width: max-content;
   min-width: 0;
-  gap: 8px;
+  gap: var(--match-card-gap);
+  margin: 0;
   padding: 0;
   overflow: visible;
 }
@@ -994,7 +1004,7 @@
   z-index: 2;
   display: grid;
   place-items: center;
-  width: 34px;
+  width: var(--match-carousel-arrow-zone-width);
   height: 52px;
   padding: 0;
   border: 0;
@@ -1010,11 +1020,11 @@
 }
 
 .carouselButtonBack {
-  left: -40px;
+  left: 0;
 }
 
 .carouselButtonForward {
-  right: -40px;
+  right: 0;
 }
 
 .carouselButton:hover:not(:disabled),
@@ -1033,18 +1043,21 @@
 }
 
 .panel[data-visual-variant="clean"] .row > .card {
+  box-sizing: border-box;
   isolation: isolate;
-  flex: 0 0 182px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 0 0 var(--match-card-width);
+  grid-template-columns: repeat(2, var(--match-card-team-column-width));
   grid-template-rows: 16px 25px 42px 23px;
   align-content: start;
   align-items: center;
-  width: 182px;
-  min-width: 182px;
-  max-width: 182px;
-  height: 132px;
-  min-height: 132px;
-  padding: 8px 10px 7px;
+  width: var(--match-card-width);
+  min-width: var(--match-card-width);
+  max-width: var(--match-card-width);
+  height: var(--match-card-height);
+  min-height: var(--match-card-height);
+  max-height: var(--match-card-height);
+  padding: 8px var(--match-card-inline-padding) 7px;
+  column-gap: var(--match-card-gap);
   border: 1px solid #dbe3ec;
   border-radius: 10px;
   background: #ffffff;
@@ -1162,13 +1175,13 @@
   display: grid;
   grid-column: 1 / -1;
   grid-row: 4;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, var(--match-card-team-column-width));
   align-items: start;
   justify-content: stretch;
   width: 100%;
   height: 23px;
   margin: 0;
-  column-gap: 8px;
+  column-gap: var(--match-card-gap);
 }
 
 .panel[data-visual-variant="clean"] .teamNames > .teamName {
@@ -1207,36 +1220,4 @@
 .panel[data-visual-variant="clean"] .card[data-live-focus="true"] {
   border-color: #44152f;
   box-shadow: 0 0 0 1px rgba(68, 21, 47, 0.11), 0 2px 5px rgba(15, 23, 42, 0.08);
-}
-
-@media (max-width: 1591px) {
-  .carousel {
-    width: 1132px;
-  }
-}
-
-@media (max-width: 1211px) {
-  .carousel {
-    width: 752px;
-  }
-}
-
-@media (max-width: 839px) {
-  .carouselButton {
-    width: 30px;
-    height: 50px;
-    font-size: 34px;
-  }
-}
-
-@media (max-width: 831px) {
-  .carousel {
-    width: 372px;
-  }
-}
-
-@media (max-width: 451px) {
-  .carousel {
-    width: 182px;
-  }
 }
