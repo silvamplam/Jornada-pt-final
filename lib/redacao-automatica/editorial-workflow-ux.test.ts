@@ -210,11 +210,15 @@ test("a preparação principal apresenta atualidade, pacote de fontes e acesso a
     "app/api/admin/editorial/redacao-automatica/current-feed/route.ts",
     "utf8",
   );
+  const inboxRoute = readFileSync(
+    "app/api/admin/editorial/redacao-automatica/inbox/route.ts",
+    "utf8",
+  );
 
   assert.match(newsroom, /<strong>Atualidade<\/strong>/);
   assert.match(newsroom, /<strong>Preparar fontes<\/strong>/);
   assert.match(newsroom, /<strong>Artigos<\/strong>/);
-  assert.match(newsroom, /listCurrentNewsroomArticles/);
+  assert.match(newsroom, /loadNewsroomEditorialInbox/);
   assert.match(newsroom, />Atualizar<\/button>/);
   assert.match(newsroom, /id="create-editorial-source-package"/);
   assert.match(newsroom, /name="newsroom_article_id"/);
@@ -243,9 +247,14 @@ test("a preparação principal apresenta atualidade, pacote de fontes e acesso a
   assert.match(feedRoute, /feed_created/);
   assert.match(feedRoute, /feed_updated/);
   assert.match(feedRoute, /feed_existing/);
-  assert.match(newsroom, /Novas:/);
-  assert.match(newsroom, /Atualizadas:/);
-  assert.match(newsroom, /Já estavam no arquivo:/);
+  assert.match(newsroom, /Por rever/);
+  assert.match(newsroom, /Em trabalho/);
+  assert.match(newsroom, /Arquivo \/ contexto/);
+  assert.match(newsroom, /Fechar este bloco/);
+  assert.match(newsroom, /Nova/);
+  assert.match(newsroom, /Atualizada/);
+  assert.match(inboxRoute, /applyNewsroomEditorialInboxAction/);
+  assert.match(inboxRoute, /close_block/);
 
   assert.match(route, /source_snapshot_/);
   assert.match(route, /normalizeEditorialSourcePackageSelections/);

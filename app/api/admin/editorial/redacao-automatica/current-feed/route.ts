@@ -30,6 +30,7 @@ export async function POST(request: Request) {
   const period = newsroomTopicPeriod(cleanText(formData.get("period")));
   const source = cleanText(formData.get("source"));
   const query = cleanText(formData.get("query"));
+  const view = cleanText(formData.get("view"));
   const result = await refreshNewsroomCurrentFeed(source || null);
 
   if (!result.ok) {
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
       period,
       ...(source ? { source } : {}),
       ...(query ? { query } : {}),
+      ...(view ? { view } : {}),
       feed_error: result.error.code,
     });
   }
@@ -45,6 +47,7 @@ export async function POST(request: Request) {
     period,
     ...(source ? { source } : {}),
     ...(query ? { query } : {}),
+    ...(view ? { view } : {}),
     feed_state: result.value.status,
     feed_available: String(result.value.availableCount),
     feed_created: String(result.value.createdCount),

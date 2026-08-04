@@ -1,9 +1,4 @@
 import {
-  listCurrentNewsroomArticles,
-  searchNewsroomArticles,
-  type NewsroomArticleSummary,
-} from "@/lib/redacao-automatica/newsroom-article-repository";
-import {
   formatNewsroomPublishedAt,
 } from "@/lib/redacao-automatica/editorial-workflow-ux";
 import {
@@ -14,6 +9,15 @@ import {
   MANUAL_NEWSROOM_SOURCE_CODE,
   MANUAL_NEWSROOM_SOURCE_LABEL,
 } from "@/lib/redacao-automatica/manual-newsroom-entry-contract";
+import {
+  loadNewsroomEditorialInbox,
+} from "@/lib/redacao-automatica/newsroom-editorial-inbox";
+import {
+  newsroomEditorialInboxActionValue,
+  newsroomEditorialInboxView,
+  type NewsroomEditorialInboxItem,
+  type NewsroomEditorialInboxView,
+} from "@/lib/redacao-automatica/newsroom-editorial-inbox-internal";
 import {
   newsroomTopicPeriod,
   newsroomTopicPeriodDays,
@@ -31,6 +35,8 @@ import ManualNewsEntryForm from "./_manualNewsEntryForm";
 import styles from "./redacao-automatica.module.css";
 
 export const dynamic = "force-dynamic";
+
+const REVIEW_BLOCK_SIZE = 24;
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -51,9 +57,57 @@ function nonNegativeIntegerQueryValue(value: string | string[] | undefined): num
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
-function canUseInSourcePackage(article: NewsroomArticleSummary): boolean {
+function canUseInSourcePackage(article: NewsroomEditorialInboxItem): boolean {
   return article.hasUsableSnapshot
     && ["detected", "normalized", "ready_for_review"].includes(article.processingStatus);
+}
+
+function inboxHref(
+  view: NewsroomEditorialInboxView,
+  period: string,
+  sourceCode: string | null,
+  query: string,
+): string {
+  const params = new URLSearchParams({ view, period });
+  if (sourceCode) {
+    params.set("source", sourceCode);
+  }
+  if (query) {
+    params.set("query", query);
+  }
+
+  return `/admin/editorial/redacao-automatica?${params.toString()}`;
+}
+
+function inboxLabel(article: NewsroomEditorialInboxItem): string {
+  if (article.editorial.view === "pending") {
+    return article.editorial.label === "updated" ? "Atualizada" : "Nova";
+  }
+  if (article.editorial.view === "working") {
+    return "Em trabalho";
+  }
+
+  return article.editorial.label === "dismissed" ? "Dispensada" : "Vista";
+}
+
+function viewTitle(view: NewsroomEditorialInboxView): string {
+  if (view === "working") {
+    return "Em trabalho";
+  }
+  if (view === "archive") {
+    return "Arquivo / contexto";
+  }
+  return "Por rever";
+}
+
+function viewDescription(view: NewsroomEditorialInboxView): string {
+  if (view === "working") {
+    return "Notícias que decidiste acompanhar ou usar numa peça.";
+  }
+  if (view === "archive") {
+    return "Notícias já vistas ou dispensadas. Usa-as apenas quando precisares de contexto.";
+  }
+  return "Apenas notícias ainda não decididas ou alteradas depois de já terem sido vistas.";
 }
 
 const sourcePackageErrorMessages: Record<string, string> = {
@@ -66,6 +120,13 @@ const feedErrorMessages: Record<string, string> = {
   source_unavailable: "Não existem fontes disponíveis para atualizar.",
   collection_unavailable: "Não foi possível consultar as fontes neste momento.",
   archive_unavailable: "As fontes foram consultadas, mas não foi possível atualizar a atualidade.",
+};
+
+const inboxErrorMessages: Record<string, string> = {
+  input_invalid: "A decisão editorial perdeu validade. Atualiza a página e tenta novamente.",
+  service_unavailable: "A organização editorial não está configurada neste ambiente.",
+  snapshot_stale: "Uma das notícias mudou entretanto. Atualiza a página antes de fechar o bloco.",
+  write_failed: "Não foi possível guardar a decisão editorial.",
 };
 
 const manualEntryErrorMessages: Record<string, string> = {
@@ -88,6 +149,7 @@ export default async function AutomaticNewsroomPage({
   const periodDays = newsroomTopicPeriodDays(period);
   const sourceCode = firstQueryValue(params.source);
   const query = firstQueryValue(params.query) ?? firstQueryValue(params.topic) ?? "";
+  const view = newsroomEditorialInboxView(firstQueryValue(params.view));
   const requestedArticleId = firstQueryValue(params.articleId);
   const registeredSources = listRegisteredSources();
   const availableSources = registeredSources.filter((source) => (
@@ -100,10 +162,20 @@ export default async function AutomaticNewsroomPage({
     ...registeredSources.map((source): [string, string] => [source.code, source.name]),
     [MANUAL_NEWSROOM_SOURCE_CODE, MANUAL_NEWSROOM_SOURCE_LABEL],
   ]);
-  const feedResult = query
-    ? await searchNewsroomArticles({ query, periodDays, sourceCode })
-    : await listCurrentNewsroomArticles({ periodDays, sourceCode });
-  const articles = feedResult.ok ? feedResult.value.items : [];
+  const inboxResult = await loadNewsroomEditorialInbox({
+    view,
+    query,
+    periodDays,
+    sourceCode,
+  });
+  const articles = inboxResult.ok ? inboxResult.value.items : [];
+  const visibleArticles = view === "pending"
+    ? articles.slice(0, REVIEW_BLOCK_SIZE)
+    : articles;
+  const blockItems = view === "pending"
+    ? visibleArticles.filter((article) => article.latestSnapshotId)
+    : [];
+  const returnTo = inboxHref(view, period, sourceCode, query);
   const sourcePackageErrorCode = firstQueryValue(params.package_error);
   const sourcePackageErrorMessage = sourcePackageErrorCode
     ? sourcePackageErrorMessages[sourcePackageErrorCode] ?? "Não foi possível preparar as fontes."
@@ -123,7 +195,7 @@ export default async function AutomaticNewsroomPage({
   const feedExisting = nonNegativeIntegerQueryValue(params.feed_existing);
   const feedFailed = nonNegativeIntegerQueryValue(params.feed_failed);
   const feedClassified = feedCreated + feedUpdated + feedExisting;
-  const feedBreakdownMessage = `Novas: ${feedCreated}. Atualizadas: ${feedUpdated}. Já estavam no arquivo: ${feedExisting}.`;
+  const feedBreakdownMessage = `Recolha técnica: ${feedCreated} novas, ${feedUpdated} atualizadas e ${feedExisting} já existentes.`;
   const feedSuccessMessage = feedState === "up_to_date"
     ? feedBreakdownMessage
     : feedState === "updated"
@@ -133,6 +205,23 @@ export default async function AutomaticNewsroomPage({
           ? feedBreakdownMessage
           : "A atualização ficou incompleta. Tenta novamente."
         : null;
+  const inboxErrorCode = firstQueryValue(params.inbox_error);
+  const inboxErrorMessage = inboxErrorCode
+    ? inboxErrorMessages[inboxErrorCode] ?? "Não foi possível guardar a decisão editorial."
+    : null;
+  const inboxState = firstQueryValue(params.inbox_state);
+  const inboxCount = nonNegativeIntegerQueryValue(params.inbox_count);
+  const inboxSuccessMessage = inboxState === "close_block"
+    ? `Bloco fechado: ${inboxCount} notícias deixaram de estar por rever.`
+    : inboxState === "working"
+      ? "Notícia colocada em trabalho."
+      : inboxState === "seen"
+        ? "Notícia marcada como vista."
+        : inboxState === "dismissed"
+          ? "Notícia dispensada e mantida no arquivo."
+          : inboxState === "reopen"
+            ? "Notícia devolvida a Por rever."
+            : null;
   const manualEntryErrorCode = firstQueryValue(params.manual_entry_error);
   const manualEntryErrorMessage = manualEntryErrorCode
     ? manualEntryErrorMessages[manualEntryErrorCode] ?? "Não foi possível guardar a notícia manual."
@@ -179,6 +268,11 @@ export default async function AutomaticNewsroomPage({
         ) : manualEntrySuccessMessage ? (
           <p className={styles.simpleFeedbackSuccess} role="status">{manualEntrySuccessMessage}</p>
         ) : null}
+        {inboxErrorMessage ? (
+          <p className={styles.simpleFeedbackError} role="status">{inboxErrorMessage}</p>
+        ) : inboxSuccessMessage ? (
+          <p className={styles.simpleFeedbackSuccess} role="status">{inboxSuccessMessage}</p>
+        ) : null}
         {feedErrorMessage ? (
           <p className={styles.simpleFeedbackError} role="status">{feedErrorMessage}</p>
         ) : feedSuccessMessage ? (
@@ -188,12 +282,26 @@ export default async function AutomaticNewsroomPage({
           </p>
         ) : null}
 
+        <nav className={styles.inboxTabs} aria-label="Estados da atualidade">
+          <a href={inboxHref("pending", period, sourceCode, query)} data-active={view === "pending"}>
+            Por rever <span>{inboxResult.ok ? inboxResult.value.pendingCount : 0}</span>
+          </a>
+          <a href={inboxHref("working", period, sourceCode, query)} data-active={view === "working"}>
+            Em trabalho <span>{inboxResult.ok ? inboxResult.value.workingCount : 0}</span>
+          </a>
+          <a href={inboxHref("archive", period, sourceCode, query)} data-active={view === "archive"}>
+            Arquivo <span>{inboxResult.ok ? inboxResult.value.archiveCount : 0}</span>
+          </a>
+        </nav>
+
         <section className={styles.simpleToolbar} aria-labelledby="current-feed-title">
           <div>
-            <h2 id="current-feed-title">Atualidade</h2>
+            <h2 id="current-feed-title">{viewTitle(view)}</h2>
+            <p>{viewDescription(view)}</p>
           </div>
           <div className={styles.simpleToolbarActions}>
             <form method="get" className={styles.simpleFilters}>
+              <input type="hidden" name="view" value={view} />
               <label className={styles.simpleSearchField}>
                 <span>Tema</span>
                 <input
@@ -225,6 +333,7 @@ export default async function AutomaticNewsroomPage({
               <button type="submit">Pesquisar</button>
             </form>
             <form action="/api/admin/editorial/redacao-automatica/current-feed" method="post">
+              <input type="hidden" name="view" value={view} />
               <input type="hidden" name="query" value={query} />
               <input type="hidden" name="period" value={period} />
               <input type="hidden" name="source" value={sourceCode ?? ""} />
@@ -238,11 +347,17 @@ export default async function AutomaticNewsroomPage({
           </div>
         </section>
 
-        {!feedResult.ok ? (
+        {!inboxResult.ok ? (
           <p className={styles.simpleEmpty}>Não foi possível ler a atualidade.</p>
         ) : articles.length === 0 ? (
           <p className={styles.simpleEmpty}>
-            {query ? `Não existem notícias relacionadas com “${query}”.` : "Não existem notícias neste período."}
+            {query
+              ? `Não existem notícias nesta área relacionadas com “${query}”.`
+              : view === "pending"
+                ? "Não há notícias por rever neste período."
+                : view === "working"
+                  ? "Não há notícias em trabalho."
+                  : "O arquivo ainda está vazio neste período."}
           </p>
         ) : (
           <form
@@ -251,9 +366,21 @@ export default async function AutomaticNewsroomPage({
             id="create-editorial-source-package"
             className={styles.simpleComposition}
           >
+            <input type="hidden" name="inbox_return_to" value={returnTo} />
+            <div className={styles.inboxBlockSummary}>
+              <strong>
+                {view === "pending"
+                  ? `Bloco atual: ${visibleArticles.length} de ${articles.length} por rever`
+                  : `${articles.length} notícias nesta área`}
+              </strong>
+              {view === "pending" ? (
+                <span>Decide o que fica em trabalho. No fim, fecha o bloco para não voltares a lê-lo.</span>
+              ) : null}
+            </div>
+
             <ol className={styles.simpleFeedList} data-current-feed-list>
-              {articles.map((article, index) => (
-                <li key={article.id} data-current-feed-item hidden={index >= 24}>
+              {visibleArticles.map((article, index) => (
+                <li key={article.id} data-current-feed-item hidden={view !== "pending" && index >= REVIEW_BLOCK_SIZE}>
                   <label className={styles.simpleFeedChoice}>
                     <input
                       type="checkbox"
@@ -278,6 +405,12 @@ export default async function AutomaticNewsroomPage({
                   <div className={styles.simpleFeedContent}>
                     <div className={styles.simpleFeedMeta}>
                       <strong>{sourceNames.get(article.sourceCode) ?? article.sourceCode}</strong>
+                      <span className={styles.simpleFeedBadge} data-kind={article.editorial.label}>
+                        {inboxLabel(article)}
+                      </span>
+                      {article.editorial.changedAfterReview && article.editorial.view === "working" ? (
+                        <span className={styles.simpleFeedBadge} data-kind="updated">Atualizada</span>
+                      ) : null}
                       {article.publishedAt ? (
                         <time dateTime={article.publishedAt}>
                           {formatNewsroomPublishedAt(
@@ -291,16 +424,116 @@ export default async function AutomaticNewsroomPage({
                     {article.summary || article.subtitle ? (
                       <p>{article.summary ?? article.subtitle}</p>
                     ) : null}
-                    {article.sourceUrl && !article.isManualEntry ? (
-                      <a href={article.sourceUrl} target="_blank" rel="noopener noreferrer">
-                        Abrir fonte
-                      </a>
-                    ) : null}
+                    <div className={styles.inboxCardFooter}>
+                      {article.sourceUrl && !article.isManualEntry ? (
+                        <a href={article.sourceUrl} target="_blank" rel="noopener noreferrer">
+                          Abrir fonte
+                        </a>
+                      ) : <span />}
+                      {article.latestSnapshotId ? (
+                        <div className={styles.inboxCardActions}>
+                          {article.editorial.view !== "working" ? (
+                            <button
+                              type="submit"
+                              name="inbox_action"
+                              value={newsroomEditorialInboxActionValue(
+                                "working",
+                                article.id,
+                                article.latestSnapshotId,
+                              )}
+                              formAction="/api/admin/editorial/redacao-automatica/inbox"
+                              formMethod="post"
+                              formNoValidate
+                            >
+                              Em trabalho
+                            </button>
+                          ) : null}
+                          {article.editorial.view !== "archive" || article.editorial.label !== "seen" ? (
+                            <button
+                              type="submit"
+                              name="inbox_action"
+                              value={newsroomEditorialInboxActionValue(
+                                "seen",
+                                article.id,
+                                article.latestSnapshotId,
+                              )}
+                              formAction="/api/admin/editorial/redacao-automatica/inbox"
+                              formMethod="post"
+                              formNoValidate
+                            >
+                              Vista
+                            </button>
+                          ) : null}
+                          {article.editorial.view !== "archive" || article.editorial.label !== "dismissed" ? (
+                            <button
+                              type="submit"
+                              name="inbox_action"
+                              value={newsroomEditorialInboxActionValue(
+                                "dismissed",
+                                article.id,
+                                article.latestSnapshotId,
+                              )}
+                              formAction="/api/admin/editorial/redacao-automatica/inbox"
+                              formMethod="post"
+                              formNoValidate
+                            >
+                              Dispensar
+                            </button>
+                          ) : null}
+                          {article.editorial.view === "archive" ? (
+                            <button
+                              type="submit"
+                              name="inbox_action"
+                              value={newsroomEditorialInboxActionValue(
+                                "reopen",
+                                article.id,
+                                article.latestSnapshotId,
+                              )}
+                              formAction="/api/admin/editorial/redacao-automatica/inbox"
+                              formMethod="post"
+                              formNoValidate
+                            >
+                              Voltar a rever
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </li>
               ))}
             </ol>
-            <CurrentFeedReveal total={articles.length} />
+
+            {view !== "pending" ? <CurrentFeedReveal total={visibleArticles.length} /> : null}
+
+            {view === "pending" && blockItems.length > 0 ? (
+              <section className={styles.inboxCloseBlock}>
+                {blockItems.map((article) => (
+                  <input
+                    key={article.id}
+                    type="hidden"
+                    name="inbox_block_item"
+                    value={`${article.id}:${article.latestSnapshotId}`}
+                  />
+                ))}
+                <div>
+                  <strong>Terminaste este bloco?</strong>
+                  <span>
+                    As notícias que não colocaste em trabalho passam a vistas e desaparecem de Por rever.
+                  </span>
+                </div>
+                <button
+                  type="submit"
+                  name="inbox_action"
+                  value="close_block"
+                  formAction="/api/admin/editorial/redacao-automatica/inbox"
+                  formMethod="post"
+                  formNoValidate
+                >
+                  Fechar este bloco
+                </button>
+              </section>
+            ) : null}
 
             <section className={styles.simpleInstructions} aria-labelledby="source-package-title">
               <div>

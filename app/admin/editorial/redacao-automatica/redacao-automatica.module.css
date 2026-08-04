@@ -4472,3 +4472,174 @@
 }
 
 /* REDACAO-AUTOMATICA-PACOTE-FONTES-MANUAL-FIM */
+
+/* REDACAO-AUTOMATICA-BLOCOS-REVISAO-EDITORIAL-INICIO */
+.inboxTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.inboxTabs a {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #cbd5df;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.inboxTabs a[data-active="true"] {
+  border-color: #10151b;
+  background: #10151b;
+  color: #ffffff;
+}
+
+.inboxTabs span {
+  display: inline-flex;
+  min-width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  font-size: 0.7rem;
+}
+
+.inboxBlockSummary {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid #dce3eb;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.inboxBlockSummary strong {
+  color: #111827;
+}
+
+.simpleFeedBadge[data-kind="new"] {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.simpleFeedBadge[data-kind="updated"] {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.simpleFeedBadge[data-kind="working"] {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.simpleFeedBadge[data-kind="dismissed"] {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.inboxCardFooter {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.inboxCardFooter > a {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.inboxCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.inboxCardActions button {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid #cbd5df;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.inboxCardActions button:first-child {
+  border-color: #1d4ed8;
+  color: #1d4ed8;
+}
+
+.inboxCloseBlock {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 16px 18px;
+  border: 1px solid #a7d8b8;
+  border-radius: 10px;
+  background: #eef9f1;
+}
+
+.inboxCloseBlock div {
+  display: grid;
+  gap: 4px;
+}
+
+.inboxCloseBlock strong {
+  color: #14532d;
+}
+
+.inboxCloseBlock span {
+  color: #3f5f4a;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.inboxCloseBlock button {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 7px;
+  background: #166534;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .inboxBlockSummary,
+  .inboxCloseBlock,
+  .inboxCardFooter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inboxCardActions {
+    justify-content: flex-start;
+  }
+}
+/* REDACAO-AUTOMATICA-BLOCOS-REVISAO-EDITORIAL-FIM */
