@@ -235,45 +235,29 @@ test("nomes públicos ficam numa linha sem ellipsis ou line-clamp em todas as su
   assert.doesNotMatch(newsPage, /news-article-game-team|ArticleMatchCard/);
 });
 
-test("dez jogos usam uma unica grelha dinamica sem scroll", async () => {
-  const [matchStrip, stripStyles, editorialStyles, matchdayPage] = await Promise.all([
+test("a jornada mostra oito jogos no desktop e navega sem scrollbar visível", async () => {
+  const [matchStrip, carousel, stripStyles, matchdayPage] = await Promise.all([
     readFile(integrations[0], "utf8"),
+    readFile(new URL("../components/public/PublicMatchStripCarousel.tsx", import.meta.url), "utf8"),
     readFile(matchStripStylesUrl, "utf8"),
-    readFile(publicEditorialStylesUrl, "utf8"),
     readFile(integrations[2], "utf8")
   ]);
 
-  assert.match(matchStrip, /import styles from "\.\/PublicMatchStrip\.module\.css"/);
-  assert.match(matchStrip, /styles\.shell/);
-  assert.match(matchStrip, /styles\.row/);
-  assert.match(matchStrip, /styles\.card/);
-  assert.doesNotMatch(matchStrip, /gridTemplateColumns/);
-  assert.match(matchStrip, /"--public-match-strip-columns":\s*matches\.length/);
-  assert.match(stripStyles, /\.shell\.shell\s*\{[\s\S]*?overflow:\s*visible/);
-  assert.match(stripStyles, /\.shell\s*>\s*\.row\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\);[\s\S]*?width:\s*100%;[\s\S]*?min-width:\s*0;[\s\S]*?gap:\s*clamp\([\s\S]*?overflow:\s*visible/);
-  assert.match(stripStyles, /\.row\s*>\s*\.card\s*\{[\s\S]*?--public-match-card-inline-padding:\s*clamp\(3px, 0\.5vw, 8px\);[\s\S]*?min-width:\s*0;[\s\S]*?width:\s*auto;[\s\S]*?padding-inline:\s*var\(--public-match-card-inline-padding\)/);
-  const cleanVariantStart = stripStyles.indexOf('.panel[data-visual-variant="clean"]');
-  assert.ok(cleanVariantStart > 0);
-  const defaultStripStyles = stripStyles.slice(0, cleanVariantStart);
-  const cleanStripStyles = stripStyles.slice(cleanVariantStart);
-  assert.doesNotMatch(defaultStripStyles, /overflow-x:\s*auto|flex-shrink|min-width:\s*154px|display:\s*flex/);
-  assert.doesNotMatch(cleanStripStyles, /overflow-x:\s*auto|scroll-snap|grid-auto-flow:\s*column|flex-shrink|min-width:\s*154px|display:\s*flex/);
-  assert.match(cleanStripStyles, /grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\)/);
-  assert.match(cleanStripStyles, /grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
-  assert.match(cleanStripStyles, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
-
-  const matches = Array.from({ length: 10 }, (_, index) => ({ id: `jogo-${index + 1}` }));
-  assert.equal(matches.length, 10);
-
-  assert.match(matchdayPage, /import PublicMatchStrip/);
+  assert.match(matchStrip, /import PublicMatchStripCarousel/);
+  assert.match(matchStrip, /variant === "clean" \? \([\s\S]*?<PublicMatchStripCarousel>/);
+  assert.match(matchStrip, /data-public-match-card/);
+  assert.match(carousel, /aria-label="Ver jogo anterior"/);
+  assert.match(carousel, /aria-label="Ver jogo seguinte"/);
+  assert.match(carousel, /viewport\.scrollBy/);
+  assert.match(stripStyles, /grid-auto-columns:\s*calc\(\(100% - 42px\) \/ 8\)/);
+  assert.match(stripStyles, /@media \(max-width:\s*1499px\)[\s\S]*?\/ 6\)/);
+  assert.match(stripStyles, /@media \(max-width:\s*1023px\)[\s\S]*?\/ 4\)/);
+  assert.match(stripStyles, /@media \(max-width:\s*639px\)[\s\S]*?\/ 2\)/);
+  assert.match(stripStyles, /@media \(max-width:\s*399px\)[\s\S]*?grid-auto-columns:\s*100%/);
+  assert.match(stripStyles, /scrollbar-width:\s*none/);
+  assert.match(stripStyles, /::-webkit-scrollbar\s*\{[\s\S]*?display:\s*none/);
+  assert.match(stripStyles, /\.carouselButton\s*\{[\s\S]*?color:\s*#44152f/);
+  assert.match(stripStyles, /min-height:\s*112px/);
   assert.match(matchdayPage, /<PublicMatchStrip/);
   assert.doesNotMatch(matchdayPage, /function CompactMatchCard/);
-  assert.doesNotMatch(matchdayPage, /style=\{\{\s*gridTemplateColumns/);
-  for (const source of [editorialStyles, matchdayPage]) {
-    assert.doesNotMatch(source, /\.public-matchday-strip\s*\{\s*grid-template-columns:\s*repeat\(auto-fit/m);
-    for (const block of source.matchAll(/\.public-matchday-strip\s*\{([^}]*)\}/g)) {
-      assert.doesNotMatch(block[1], /overflow-x:\s*auto|scrollbar-width|grid-template-columns:\s*repeat\(10/);
-    }
-  }
-  assert.doesNotMatch(matchdayPage, /\.public-matchday-strip::?-webkit-scrollbar/);
 });

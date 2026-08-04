@@ -8,7 +8,7 @@ type PublicMatchMetaProps = {
   dateTime: ReactNode;
   channelName?: string | null;
   channelLogoUrl?: string | null;
-  variant?: "default" | "compact";
+  variant?: "default" | "compact" | "clean";
 };
 
 export default function PublicMatchMeta({
@@ -28,7 +28,11 @@ export default function PublicMatchMeta({
       />
     </span>
   ) : null;
-  const variantClassName = variant === "compact" ? `${styles.matchMeta} ${styles.compact}` : styles.matchMeta;
+  const variantClassName = variant === "compact"
+    ? `${styles.matchMeta} ${styles.compact}`
+    : variant === "clean"
+      ? `${styles.matchMeta} ${styles.clean}`
+      : styles.matchMeta;
   const className = hasChannel ? variantClassName : `${variantClassName} ${styles.withoutChannel}`;
 
   return (

@@ -2765,6 +2765,7 @@ const publicMatchdayStyles = `
     width: auto;
     height: 29px;
     max-width: 82px;
+    filter: brightness(0) invert(1);
   }
 
   .public-matchday-nav-compact {

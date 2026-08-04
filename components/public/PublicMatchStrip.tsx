@@ -1,4 +1,6 @@
+import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
+import PublicMatchStripCarousel from "@/components/public/PublicMatchStripCarousel";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
 import { getPublicMatchStripPresentation } from "@/lib/public-match-strip-presentation";
 import { getPublicMatchStripTheme } from "@/lib/public-match-strip-theme";
@@ -258,6 +260,7 @@ function CompactMatchCard({
     <article
       className={`${styles.card} public-matchday-mini-card public-matchday-mini-card-${kind}`}
       data-live-focus={focus ? "true" : undefined}
+      data-public-match-card
       data-visual-variant={visualVariant}
       style={visualStyle}
     >
@@ -295,13 +298,28 @@ function CompactMatchCard({
           </span>
         ) : (
           <PublicMatchMeta
-            channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
-            channelName={presentation.showChannel ? broadcastChannelName : null}
+            channelLogoUrl={visualVariant !== "clean" && presentation.showChannel ? match.broadcastChannel?.logo_url : null}
+            channelName={visualVariant !== "clean" && presentation.showChannel ? broadcastChannelName : null}
             dateTime={statusContent}
-            variant={visualVariant === "clean" ? "compact" : "default"}
+            variant={visualVariant === "clean" ? "clean" : "default"}
           />
         )}
       </span>
+      {visualVariant === "clean" ? (
+        <span
+          className={styles.cleanChannel}
+          data-has-channel={presentation.showChannel && broadcastChannelName ? "true" : "false"}
+          data-public-match-channel-footer
+        >
+          {presentation.showChannel && broadcastChannelName ? (
+            <BroadcastChannelLogo
+              logoUrl={match.broadcastChannel?.logo_url}
+              name={broadcastChannelName}
+              variant="matchMeta"
+            />
+          ) : null}
+        </span>
+      ) : null}
     </article>
   );
 }
@@ -329,25 +347,37 @@ export default function PublicMatchStrip({
     <section
       className={`${styles.panel} public-matchday-panel public-matchday-scoreboard-panel`}
       data-competition-theme={competitionTheme ?? undefined}
-      data-strip-density={matches.length >= 10 ? "dense" : undefined}
       data-visual-variant={variant}
       aria-label="Visao rapida dos jogos"
     >
       <div className={`${styles.shell} public-matchday-strip-shell`}>
-        <div
-          className={`${styles.row} public-matchday-strip`}
-          data-matchday-strip
-          style={{ "--public-match-strip-columns": matches.length } as CSSProperties}
-        >
-          {matches.map((match) => (
-            <CompactMatchCard
-              focus={focusedMatch?.id === match.id}
-              key={match.id}
-              match={match}
-              visualVariant={variant}
-            />
-          ))}
-        </div>
+        {variant === "clean" ? (
+          <PublicMatchStripCarousel>
+            {matches.map((match) => (
+              <CompactMatchCard
+                focus={focusedMatch?.id === match.id}
+                key={match.id}
+                match={match}
+                visualVariant={variant}
+              />
+            ))}
+          </PublicMatchStripCarousel>
+        ) : (
+          <div
+            className={`${styles.row} public-matchday-strip`}
+            data-matchday-strip
+            style={{ "--public-match-strip-columns": matches.length } as CSSProperties}
+          >
+            {matches.map((match) => (
+              <CompactMatchCard
+                focus={focusedMatch?.id === match.id}
+                key={match.id}
+                match={match}
+                visualVariant={variant}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

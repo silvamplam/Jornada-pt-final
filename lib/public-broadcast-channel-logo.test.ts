@@ -329,7 +329,7 @@ test("PublicMatchMeta centraliza estrutura, espaçamento e área do canal", asyn
   assert.match(componentSource, /const hasChannel = Boolean\(channelName\?\.trim\(\)\)/);
   assert.match(componentSource, /const channel = hasChannel \? \([\s\S]*?<span className=\{styles\.channel\}>[\s\S]*?variant="matchMeta"/);
   assert.doesNotMatch(componentSource, /matchMetaLayoutMode|channelVariant|matchMetaCompact/);
-  assert.match(componentSource, /variant === "compact" \? `\$\{styles\.matchMeta\} \$\{styles\.compact\}` : styles\.matchMeta/);
+  assert.match(componentSource, /variant === "compact"[\s\S]*?styles\.compact[\s\S]*?variant === "clean"[\s\S]*?styles\.clean/);
   assert.match(componentSource, /const className = hasChannel \? variantClassName : `\$\{variantClassName\} \$\{styles\.withoutChannel\}`/);
   assert.match(componentSource, /<span[\s\S]*?className=\{className\}[\s\S]*?data-public-match-channel-family=\{isSportTvChannel \? "sport-tv" : undefined\}[\s\S]*?data-public-match-meta/);
   assert.doesNotMatch(componentSource, /denseDate|denseTime|denseBottom/);
@@ -339,7 +339,9 @@ test("PublicMatchMeta centraliza estrutura, espaçamento e área do canal", asyn
   assert.match(styleSource, /\.compact \.dateTime\s*\{[\s\S]*?font-size:\s*8\.5px[\s\S]*?line-height:\s*1[\s\S]*?letter-spacing:\s*-0\.1px/);
   assert.match(styleSource, /\.withoutChannel\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?width:\s*100%/);
   assert.match(styleSource, /\.withoutChannel \.dateTime\s*\{[\s\S]*?justify-self:\s*center[\s\S]*?text-align:\s*center/);
-  assert.doesNotMatch(`${componentSource}\n${styleSource}`, /dense|row-gap|grid-template-rows|text-overflow:\s*ellipsis/);
+  assert.doesNotMatch(`${componentSource}\n${styleSource}`, /dense|row-gap|text-overflow:\s*ellipsis/);
+  assert.match(styleSource, /\.clean \{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?width:\s*100%/);
+  assert.match(styleSource, /\.clean\.withoutChannel \.dateTime \{[\s\S]*?justify-self:\s*start[\s\S]*?text-align:\s*left/);
   assert.match(styleSource, /\.channel\s*\{[\s\S]*?display:\s*grid[\s\S]*?grid-column:\s*3[\s\S]*?place-items:\s*center[\s\S]*?justify-self:\s*end[\s\S]*?flex-shrink:\s*0[\s\S]*?width:\s*max-content[\s\S]*?max-width:\s*none[\s\S]*?height:\s*max-content[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0[\s\S]*?overflow:\s*visible/);
   assert.doesNotMatch(styleSource, /display:\s*inline-flex|position:\s*absolute|margin[^:]*:\s*-/);
 });
@@ -426,47 +428,34 @@ test("matchMeta usa dimensões reais, full-bleed simétrico e colunas separadas"
   }
 });
 
-test("PublicMatchStrip usa o layout aprovado como padrão em qualquer dimensão da grelha", async () => {
-  const [componentSource, styleSource] = await Promise.all([
+test("PublicMatchStrip usa carrossel limpo e mantém o layout partilhado nos restantes contextos", async () => {
+  const [componentSource, carouselSource, styleSource] = await Promise.all([
     readFile(integrationUrls[0], "utf8"),
+    readFile(new URL("../components/public/PublicMatchStripCarousel.tsx", import.meta.url), "utf8"),
     readFile(matchStripStylesUrl, "utf8")
   ]);
-  assert.match(componentSource, /"--public-match-strip-columns":\s*matches\.length/);
-  assert.doesNotMatch(componentSource, /layoutVariant|adjusted|layoutJogos|metaVariant/);
-  assert.match(componentSource, /className=\{styles\.teamNames\} data-public-match-team-names="coordinated"/);
-  assert.match(componentSource, /className=\{styles\.center\}/);
-  assert.doesNotMatch(componentSource, /Versus|>\s*VS\s*</);
-  assert.match(styleSource, /grid-template-columns:\s*repeat\(var\(--public-match-strip-columns\), minmax\(0, 1fr\)\)/);
-  assert.match(styleSource, /\.row > \.card\s*\{[\s\S]*?position:\s*relative;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) 2px minmax\(0, 1fr\);[\s\S]*?grid-template-rows:\s*48px 32px/);
-  assert.equal(componentSource.match(/className=\{`\$\{styles\.team\} public-matchday-mini-team`\}/g)?.length, 2);
-  assert.equal(componentSource.match(/className=\{styles\.teamName\}/g)?.length, 2);
-  assert.match(styleSource, /\.teamNames\s*\{[\s\S]*?grid-template-columns:\s*minmax\(max-content, 1fr\) minmax\(max-content, 1fr\);[\s\S]*?width:\s*100%;[\s\S]*?column-gap:\s*2px/);
-  const teamNameRule = styleSource.match(/\.teamNames > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
-  assert.match(teamNameRule, /font-size:\s*clamp\(11px, 9\.1cqi, 12px\)/);
-  assert.match(teamNameRule, /overflow:\s*visible/);
-  assert.match(teamNameRule, /text-overflow:\s*clip/);
-  assert.match(teamNameRule, /white-space:\s*nowrap/);
-  assert.doesNotMatch(teamNameRule, /ellipsis|line-clamp|overflow:\s*hidden|white-space:\s*normal/);
-  assert.match(styleSource, /\.center\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*0;[\s\S]*?width:\s*100%/);
-  assert.match(styleSource, /\.score\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?left:\s*50%;[\s\S]*?transform:\s*translateX\(-50%\)/);
-  assert.doesNotMatch(styleSource, /\.versus\b/);
-  assert.match(componentSource, /<PublicTeamBadge[\s\S]*?variant="compact"/);
-  const cleanVariantStart = styleSource.indexOf('.panel[data-visual-variant="clean"]');
-  assert.ok(cleanVariantStart > 0);
-  const defaultStyleSource = styleSource.slice(0, cleanVariantStart);
-  const cleanStyleSource = styleSource.slice(cleanVariantStart);
-  assert.doesNotMatch(`${componentSource}\n${defaultStyleSource}`, /overflow-x:\s*auto|flex-wrap|grid-template-columns:\s*repeat\(10|min-width:\s*154px/);
-  assert.doesNotMatch(
-    cleanStyleSource,
-    /overflow-x:\s*(?:auto|scroll)|grid-auto-flow:\s*column|min-width:\s*154px/
-  );
-  assert.match(cleanStyleSource, /grid-auto-flow:\s*row/);
-  assert.match(cleanStyleSource, /overflow:\s*visible/);
-  assert.match(cleanStyleSource, /> :global\(\[data-public-match-meta\]\) > span:first-child \{[\s\S]*?grid-column:\s*1[\s\S]*?justify-self:\s*start[\s\S]*?text-align:\s*left/);
-  assert.match(cleanStyleSource, /> :global\(\[data-public-match-meta\]\) > span:last-child:not\(:first-child\) \{[\s\S]*?grid-column:\s*2[\s\S]*?justify-self:\s*end/);
+  assert.match(componentSource, /import PublicMatchStripCarousel/);
+  assert.match(componentSource, /variant === "clean" \? \([\s\S]*?<PublicMatchStripCarousel>/);
+  assert.match(componentSource, /data-public-match-card/);
+  assert.match(componentSource, /data-public-match-channel-footer/);
+  assert.match(componentSource, /variant=\{visualVariant === "clean" \? "clean" : "default"\}/);
   assert.match(componentSource, /visual:\s*`\$\{compactCivilDate\(civilDate\)\} \\u00b7 \$\{kickoffTime\}`/);
-  assert.match(componentSource, /data-strip-density=\{matches\.length >= 10 \? "dense" : undefined\}/);
-  assert.match(cleanStyleSource, /data-strip-density="dense"[\s\S]*?min-height:\s*86px[\s\S]*?padding:\s*5px 4px/);
+  assert.doesNotMatch(componentSource, /data-strip-density/);
+  assert.match(carouselSource, /aria-label="Ver jogo anterior"/);
+  assert.match(carouselSource, /aria-label="Ver jogo seguinte"/);
+  assert.match(carouselSource, /viewport\.scrollBy\(\{[\s\S]*?behavior:\s*"smooth"/);
+  assert.match(carouselSource, /firstCard\.getBoundingClientRect\(\)\.width \+ gap/);
+  assert.match(styleSource, /\.carouselViewport\s*\{[\s\S]*?overflow-x:\s*auto[\s\S]*?scrollbar-width:\s*none/);
+  assert.match(styleSource, /\.carouselViewport::-webkit-scrollbar\s*\{[\s\S]*?display:\s*none/);
+  assert.match(styleSource, /grid-auto-columns:\s*calc\(\(100% - 42px\) \/ 8\)/);
+  assert.match(styleSource, /@media \(max-width:\s*1499px\)[\s\S]*?calc\(\(100% - 30px\) \/ 6\)/);
+  assert.match(styleSource, /@media \(max-width:\s*1023px\)[\s\S]*?calc\(\(100% - 18px\) \/ 4\)/);
+  assert.match(styleSource, /@media \(max-width:\s*639px\)[\s\S]*?calc\(\(100% - 6px\) \/ 2\)/);
+  assert.match(styleSource, /@media \(max-width:\s*399px\)[\s\S]*?grid-auto-columns:\s*100%/);
+  assert.match(styleSource, /\.carouselButton\s*\{[\s\S]*?color:\s*#44152f/);
+  assert.match(styleSource, /\.row > \.card \{[\s\S]*?grid-template-rows:\s*28px 25px 25px 26px[\s\S]*?min-height:\s*112px/);
+  assert.match(styleSource, /\.cleanChannel\s*\{[\s\S]*?grid-row:\s*4[\s\S]*?justify-content:\s*flex-start/);
+  assert.match(styleSource, /> :global\(\[data-public-match-meta\]\) > span:first-child \{[\s\S]*?justify-self:\s*start[\s\S]*?text-align:\s*left/);
 });
 
 test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal de equipa", async () => {
