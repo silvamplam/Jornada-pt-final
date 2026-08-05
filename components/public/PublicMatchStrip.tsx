@@ -1,10 +1,23 @@
+"use client";
+
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchStripCarousel from "@/components/public/PublicMatchStripCarousel";
 import PublicTeamBadge from "@/components/public/PublicTeamBadge";
+import {
+  PUBLIC_MATCH_STRIP_REFRESH_INTERVAL_MS,
+  mergePublicMatchStripLiveUpdates,
+  type PublicMatchStripLiveUpdate
+} from "@/lib/public-match-strip-live-refresh";
 import { getPublicMatchStripPresentation } from "@/lib/public-match-strip-presentation";
 import { getPublicMatchStripTheme } from "@/lib/public-match-strip-theme";
 import { getPublicTeamName } from "@/lib/public-team-name";
-import type { CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties
+} from "react";
 import styles from "./PublicMatchStrip.module.css";
 
 export type PublicMatchStripTeam = {
@@ -234,13 +247,15 @@ function matchBackdropImage(value?: string | null): string {
 function CompactMatchCard({
   match,
   focus,
+  now,
   visualVariant
 }: {
   match: PublicMatchStripMatch;
   focus?: boolean;
+  now: Date;
   visualVariant: PublicMatchStripVariant;
 }) {
-  const presentation = getPublicMatchStripPresentation(match);
+  const presentation = getPublicMatchStripPresentation(match, now);
   const kind = presentation.kind;
   const broadcastChannelName = match.broadcastChannel?.name?.trim();
   const schedule = miniCardSchedule(match);
@@ -310,6 +325,62 @@ function CompactMatchCard({
   ) : presentation.status.kind === "label" ? (
     <span className={styles.stateLabel}>{presentation.status.label}</span>
   ) : scheduleContent;
+  const cleanStateLabel = kind === "live"
+    ? "AGORA"
+    : kind === "halftime"
+      ? "INTERVALO"
+      : kind === "finished"
+        ? "FINAL"
+        : null;
+  const cleanStateLabelClass = kind === "live"
+    ? styles.cleanStateBadgeLive
+    : kind === "halftime"
+      ? styles.cleanStateBadgeHalftime
+      : styles.cleanStateBadgeFinished;
+  const halftimeMinuteSource = match.live_base_minute ?? match.minute;
+  const halftimeMinuteValue = typeof halftimeMinuteSource === "number"
+    ? halftimeMinuteSource
+    : typeof halftimeMinuteSource === "string" && halftimeMinuteSource.trim()
+      ? Number(halftimeMinuteSource)
+      : null;
+  const cleanMinute = presentation.status.kind === "live"
+    ? presentation.status.minute
+    : kind === "halftime"
+      && halftimeMinuteValue !== null
+      && Number.isFinite(halftimeMinuteValue)
+      ? Math.max(0, Math.floor(halftimeMinuteValue))
+      : null;
+  const cleanHeaderLead = cleanMinute !== null ? `${cleanMinute}'` : null;
+  const cleanHeaderContent = cleanStateLabel ? (
+    <span
+      aria-label={kind === "live"
+        ? `${cleanMinute !== null ? `Minuto ${cleanMinute}. ` : ""}Agora`
+        : kind === "halftime"
+          ? `${cleanMinute !== null ? `Minuto ${cleanMinute}. ` : ""}Intervalo`
+          : "Final"}
+      className={styles.cleanStatusLine}
+    >
+      {cleanHeaderLead ? (
+        <strong className={styles.cleanStatusLead} aria-hidden="true">
+          {cleanHeaderLead}
+        </strong>
+      ) : (
+        <span aria-hidden="true" />
+      )}
+      <span
+        aria-hidden="true"
+        className={`${styles.cleanStateBadge} ${cleanStateLabelClass}`}
+      >
+        {cleanStateLabel}
+      </span>
+    </span>
+  ) : scheduleContent;
+  const cleanScoreText = activeScore ?? finishedScoreText;
+  const cleanFooterClassName = kind === "finished"
+    ? `${styles.broadcast} ${styles.cleanFinishedFooter}`
+    : kind === "live" || kind === "halftime"
+      ? `${styles.broadcast} ${styles.cleanActiveFooter}`
+      : styles.broadcast;
 
   return (
     <article
@@ -347,7 +418,7 @@ function CompactMatchCard({
         data-public-match-schedule={visualVariant === "clean" ? "true" : undefined}
       >
         {visualVariant === "clean" ? (
-          scheduleContent
+          cleanHeaderContent
         ) : presentation.kind === "finished" ? (
           <span
             aria-label={finishedScoreText
@@ -371,13 +442,38 @@ function CompactMatchCard({
         )}
       </span>
       {visualVariant === "clean" ? (
-        <span className={styles.broadcast} data-public-match-broadcast>
-          <PublicMatchMeta
-            channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
-            channelName={presentation.showChannel ? broadcastChannelName : null}
-            dateTime={<span aria-hidden="true" />}
-            variant="compact"
-          />
+        <span className={cleanFooterClassName} data-public-match-broadcast>
+          {kind === "scheduled" ? (
+            <PublicMatchMeta
+              channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
+              channelName={presentation.showChannel ? broadcastChannelName : null}
+              dateTime={<span aria-hidden="true" />}
+              variant="compact"
+            />
+          ) : (
+            <>
+              {cleanScoreText ? (
+                <strong
+                  aria-label={`Resultado ${match.home_score} a ${match.away_score}`}
+                  className={`${styles.cleanScore} ${
+                    kind === "finished" ? styles.cleanScoreFinished : styles.cleanScoreActive
+                  }`}
+                >
+                  {cleanScoreText}
+                </strong>
+              ) : null}
+              {(kind === "live" || kind === "halftime")
+                && presentation.showChannel
+                && broadcastChannelName ? (
+                <PublicMatchMeta
+                  channelLogoUrl={match.broadcastChannel?.logo_url}
+                  channelName={broadcastChannelName}
+                  dateTime={<span aria-hidden="true" />}
+                  variant="compact"
+                />
+              ) : null}
+            </>
+          )}
         </span>
       ) : null}
     </article>
@@ -395,13 +491,76 @@ export default function PublicMatchStrip({
   carouselLayout?: PublicMatchStripCarouselLayout;
   variant?: PublicMatchStripVariant;
 }) {
+  const [currentMatches, setCurrentMatches] = useState(matches);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const matchIdsKey = useMemo(
+    () => matches.map((match) => match.id).join(","),
+    [matches]
+  );
   const competitionTheme = getPublicMatchStripTheme(competitionSlug);
-  const focusedMatch = matches.find((match) => {
-    const kind = getPublicMatchStripPresentation(match).kind;
+  const now = new Date(nowMs);
+  const focusedMatch = currentMatches.find((match) => {
+    const kind = getPublicMatchStripPresentation(match, now).kind;
     return kind === "live" || kind === "halftime";
   }) ?? null;
 
-  if (matches.length === 0) {
+  useEffect(() => {
+    setCurrentMatches(matches);
+  }, [matches]);
+
+  const refreshLiveState = useCallback(async (signal: AbortSignal) => {
+    if (!matchIdsKey) return;
+
+    const response = await fetch(
+      `/api/public/matches/live?ids=${encodeURIComponent(matchIdsKey)}`,
+      { cache: "no-store", signal }
+    );
+
+    if (!response.ok) return;
+
+    const payload = await response.json() as {
+      matches?: PublicMatchStripLiveUpdate[];
+    };
+
+    if (!Array.isArray(payload.matches)) return;
+
+    setCurrentMatches((current) => (
+      mergePublicMatchStripLiveUpdates(current, payload.matches ?? [])
+    ));
+  }, [matchIdsKey]);
+
+  useEffect(() => {
+    if (!matchIdsKey) return;
+
+    let controller: AbortController | null = null;
+
+    const refresh = () => {
+      setNowMs(Date.now());
+      if (document.visibilityState !== "visible") return;
+
+      controller?.abort();
+      controller = new AbortController();
+      void refreshLiveState(controller.signal).catch(() => undefined);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    refresh();
+    const intervalId = window.setInterval(
+      refresh,
+      PUBLIC_MATCH_STRIP_REFRESH_INTERVAL_MS
+    );
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      controller?.abort();
+    };
+  }, [matchIdsKey, refreshLiveState]);
+
+  if (currentMatches.length === 0) {
     return null;
   }
 
@@ -416,11 +575,12 @@ export default function PublicMatchStrip({
       <div className={`${styles.shell} public-matchday-strip-shell`}>
         {variant === "clean" ? (
           <PublicMatchStripCarousel layout={carouselLayout}>
-            {matches.map((match) => (
+            {currentMatches.map((match) => (
               <CompactMatchCard
                 focus={focusedMatch?.id === match.id}
                 key={match.id}
                 match={match}
+                now={now}
                 visualVariant={variant}
               />
             ))}
@@ -429,13 +589,14 @@ export default function PublicMatchStrip({
           <div
             className={`${styles.row} public-matchday-strip`}
             data-matchday-strip
-            style={{ "--public-match-strip-columns": matches.length } as CSSProperties}
+            style={{ "--public-match-strip-columns": currentMatches.length } as CSSProperties}
           >
-            {matches.map((match) => (
+            {currentMatches.map((match) => (
               <CompactMatchCard
                 focus={focusedMatch?.id === match.id}
                 key={match.id}
                 match={match}
+                now={now}
                 visualVariant={variant}
               />
             ))}
