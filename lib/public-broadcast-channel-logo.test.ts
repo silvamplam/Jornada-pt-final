@@ -145,7 +145,7 @@ test("normalização final dos canais é global e preserva Sport TV como referê
   assert.equal(getPublicBroadcastMatchMetaScale("Sport TV 1"), 1);
   assert.equal(getPublicBroadcastMatchMetaScale("Sport TV+"), 1);
   assert.equal(getPublicBroadcastMatchMetaScale("RTP1"), 0.68);
-  assert.equal(getPublicBroadcastMatchMetaScale("TVI"), 0.693);
+  assert.equal(getPublicBroadcastMatchMetaScale("TVI"), 0.82);
   assert.equal(getPublicBroadcastMatchMetaScale("BTV"), 0.68);
   assert.equal(getPublicBroadcastMatchMetaScale("Canal 11"), 0.756);
   assert.equal(getPublicBroadcastMatchMetaScale("Canal desconhecido"), 0.72);
@@ -212,6 +212,7 @@ test("o componente cliente troca erro de imagem por fallback e usa uma única id
   assert.match(source, /onError=\{\(\) => setFailedUrl\(presentation\.logoUrl\)\}/);
   assert.match(source, /alt=\{presentation\.name\}/);
   assert.match(source, /title=\{presentation\.name\}/);
+  assert.equal((source.match(/data-public-broadcast-logo-visual/g) ?? []).length, 3);
   assert.match(source, /\{presentation\.name\}[\s\S]*<\/span>/);
   assert.doesNotMatch(source, /aria-label|sr-only|visually-hidden/);
   assert.doesNotMatch(source, /next\/image|from ["']next\/image["']/);
@@ -270,6 +271,7 @@ test("RTP1 e TVI usam geometria estática real e Sport TV mantém o slot de 64px
   assert.match(styleSource, /\.matchMeta img\s*\{[\s\S]*?align-self:\s*center[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0[\s\S]*?transform:\s*none/);
   assert.match(componentSource, /matchMetaGeometry\?\.sourceViewport \? \([\s\S]*?<svg[\s\S]*?viewBox=\{matchMetaGeometry\.sourceViewport\.viewBox\}/);
   assert.match(styleSource, /\.matchMeta \.alphaViewport\s*\{[\s\S]*?width:\s*var\(--broadcast-channel-match-meta-width, 54px\)[\s\S]*?height:\s*var\(--broadcast-channel-match-meta-height, 18px\)[\s\S]*?max-width:\s*none[\s\S]*?max-height:\s*none/);
+  assert.match(styleSource, /\.matchMeta\.normalizedMatchMeta \.alphaViewport\s*\{[\s\S]*?width:\s*var\(--broadcast-channel-match-meta-width, 54px\)[\s\S]*?max-width:\s*none[\s\S]*?height:\s*var\(--broadcast-channel-match-meta-height, 18px\)[\s\S]*?max-height:\s*none/);
 
   for (const [name, opticalScale, slotMinWidth, renderedWidth, slotWidth, renderedHeight] of [
     ["RTP1", 0.72, 46, 38.88, 46, 10.99],
@@ -440,17 +442,18 @@ test("PublicMatchStrip usa carrossel limpo e mantém o layout partilhado nos res
   ]);
   assert.match(componentSource, /import PublicMatchStripCarousel/);
   assert.match(componentSource, /variant = "clean"/);
-  assert.match(componentSource, /variant === "clean" \? \([\s\S]*?<PublicMatchStripCarousel>/);
+  assert.match(componentSource, /variant === "clean" \? \([\s\S]*?<PublicMatchStripCarousel layout=\{carouselLayout\}>/);
   assert.match(componentSource, /data-public-match-card/);
   assert.match(componentSource, /data-public-match-schedule/);
-  assert.match(componentSource, /visualVariant === "clean"[\s\S]*?<PublicMatchMeta[\s\S]*?dateTime=\{scheduleContent\}[\s\S]*?variant="compact"/);
+  assert.match(componentSource, /visualVariant === "clean" \? \(\s*scheduleContent\s*\)/);
+  assert.match(componentSource, /data-public-match-broadcast[\s\S]*?<PublicMatchMeta[\s\S]*?dateTime=\{<span aria-hidden="true" \/>\}[\s\S]*?variant="compact"/);
   assert.match(componentSource, /visual:\s*`\$\{compactCivilDate\(civilDate\)\} \\u00b7 \$\{kickoffTime\}`/);
   assert.doesNotMatch(componentSource, /data-strip-density/);
   assert.match(carouselSource, /aria-label="Ver jogo anterior"/);
   assert.match(carouselSource, /aria-label="Ver jogo seguinte"/);
   assert.match(carouselSource, /new ResizeObserver\(updateVisibleCardCount\)/);
   assert.match(carouselSource, /selectMatchCarouselVisibleCardCount\(availableWidth\)/);
-  assert.match(carouselSource, /data-visible-cards=\{visibleCardCount\}/);
+  assert.match(carouselSource, /data-visible-cards=\{layout === "fixed" \? visibleCardCount : undefined\}/);
   assert.match(carouselSource, /data-can-move-forward=\{canMoveForward \? "true" : undefined\}/);
   assert.match(carouselSource, /data-can-move-back=\{canMoveBack \? "true" : undefined\}/);
   assert.match(carouselSource, /window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches/);
@@ -459,7 +462,7 @@ test("PublicMatchStrip usa carrossel limpo e mantém o layout partilhado nos res
   assert.match(carouselSource, /"--match-card-width": `\$\{CARD_WIDTH\}px`/);
   assert.match(carouselSource, /"--match-card-height": `\$\{CARD_HEIGHT\}px`/);
   assert.match(carouselSource, /"--match-card-gap": `\$\{CARD_GAP\}px`/);
-  assert.match(carouselSource, /"--match-carousel-shell-width": `\$\{shellWidth\}px`/);
+  assert.match(carouselSource, /"--match-carousel-shell-width": layout === "fluid-peek" \? "100%" : `\$\{shellWidth\}px`/);
   assert.match(styleSource, /\.panel\[data-visual-variant="clean"\]\s*\{[\s\S]*?width:\s*100vw[\s\S]*?max-width:\s*none[\s\S]*?margin:\s*0 calc\(50% - 50vw\)/);
   assert.match(styleSource, /\.carousel\s*\{[\s\S]*?width:\s*var\(--match-carousel-shell-width\)[\s\S]*?max-width:\s*100%[\s\S]*?margin-inline:\s*auto/);
   assert.match(styleSource, /\.carouselViewport\s*\{[\s\S]*?width:\s*var\(--match-carousel-viewport-width\)[\s\S]*?padding-inline:\s*0[\s\S]*?overflow-x:\s*hidden[\s\S]*?scrollbar-width:\s*none/);
@@ -472,10 +475,150 @@ test("PublicMatchStrip usa carrossel limpo e mantém o layout partilhado nos res
   assert.match(styleSource, /\.carousel\[data-can-move-back="true"\]::before\s*\{[\s\S]*?left:\s*max\(0px, calc\(\(100% - var\(--match-carousel-viewport-width\)\) \/ 2\)\)[\s\S]*?width:\s*72px[\s\S]*?linear-gradient[\s\S]*?rgba\(255, 255, 255, 0\.88\)/);
   assert.match(styleSource, /\.carouselButtonBack\s*\{[\s\S]*?left:\s*0/);
   assert.match(styleSource, /\.carouselButtonForward\s*\{[\s\S]*?right:\s*0/);
-  assert.match(styleSource, /\.panel\[data-visual-variant="clean"\] \.row > \.card \{[\s\S]*?box-sizing:\s*border-box[\s\S]*?flex:\s*0 0 var\(--match-card-width\)[\s\S]*?grid-template-rows:\s*14px 2px 18px 2px 1px 4px 28px 3px 12px[\s\S]*?width:\s*var\(--match-card-width\)[\s\S]*?min-width:\s*var\(--match-card-width\)[\s\S]*?max-width:\s*var\(--match-card-width\)[\s\S]*?height:\s*var\(--match-card-height\)[\s\S]*?max-height:\s*var\(--match-card-height\)[\s\S]*?padding:\s*9px var\(--match-card-inline-padding\)[\s\S]*?background:\s*#ffffff/);
-  assert.match(styleSource, /> \.status\s*\{[\s\S]*?grid-row:\s*1 \/ 6[\s\S]*?width:\s*100%[\s\S]*?height:\s*37px/);
-  assert.doesNotMatch(styleSource.slice(styleSource.indexOf('.panel[data-visual-variant="clean"]')), /\.cleanSchedule|\.cleanChannel/);
-  assert.match(styleSource, /\.teamNames\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)/);
+  assert.match(styleSource, /\.panel\[data-visual-variant="clean"\] \.row > \.card \{[\s\S]*?box-sizing:\s*border-box[\s\S]*?flex:\s*0 0 var\(--match-card-width\)[\s\S]*?grid-template-rows:\s*13px 10px 28px 8px 14px 13px 18px[\s\S]*?width:\s*var\(--match-card-width\)[\s\S]*?min-width:\s*var\(--match-card-width\)[\s\S]*?max-width:\s*var\(--match-card-width\)[\s\S]*?height:\s*var\(--match-card-height\)[\s\S]*?max-height:\s*var\(--match-card-height\)[\s\S]*?padding:\s*12px var\(--match-card-inline-padding\)[\s\S]*?background:\s*#ffffff/);
+  assert.match(styleSource, /> \.status\s*\{[\s\S]*?grid-row:\s*1[\s\S]*?width:\s*100%[\s\S]*?height:\s*13px[\s\S]*?font-size:\s*11px[\s\S]*?font-weight:\s*500[\s\S]*?line-height:\s*13px/);
+  assert.match(styleSource, /> \.broadcast\s*\{[\s\S]*?grid-row:\s*7[\s\S]*?align-self:\s*end[\s\S]*?justify-content:\s*flex-end[\s\S]*?width:\s*calc\(100% \+ var\(--match-card-inline-padding\)\)[\s\S]*?margin:\s*0 calc\(-1 \* var\(--match-card-inline-padding\)\) 0 0[\s\S]*?padding:\s*0 6px 0 0[\s\S]*?transform:\s*translateY\(-2px\)[\s\S]*?text-align:\s*right/);
+  assert.match(styleSource, /> \.broadcast > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?justify-content:\s*flex-end[\s\S]*?height:\s*18px[\s\S]*?padding:\s*0[\s\S]*?border:\s*0[\s\S]*?text-align:\s*right/);
+  assert.match(styleSource, /> \.broadcast > :global\(\[data-public-match-meta\]\) > :not\(:first-child\) > span\s*\{[\s\S]*?justify-content:\s*flex-end[\s\S]*?transform-origin:\s*right bottom/);
+  assert.match(styleSource, /\.teamNames\s*\{[\s\S]*?grid-row:\s*5[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)[\s\S]*?align-self:\s*stretch[\s\S]*?width:\s*100%[\s\S]*?margin:\s*0[\s\S]*?column-gap:\s*var\(--match-card-gap\)[\s\S]*?height:\s*14px/);
+  assert.match(styleSource, /\.teamNames > \.teamName\s*\{[\s\S]*?justify-self:\s*center[\s\S]*?width:\s*max-content[\s\S]*?max-width:\s*none[\s\S]*?overflow:\s*visible[\s\S]*?font-size:\s*12px[\s\S]*?font-weight:\s*600[\s\S]*?line-height:\s*14px[\s\S]*?white-space:\s*nowrap/);
+  assert.doesNotMatch(styleSource, /> :not\(:first-child\) :is\(img, picture, svg\)\s*\{[\s\S]*?height:\s*12px/);
+});
+
+test("fluid-peek preserva sete jogos claros, esbate o oitavo e alinha o canal pela equipa da direita", async () => {
+  const [homeSource, matchdaySource, newsSource, stripSource, carouselSource, styleSource] =
+    await Promise.all([
+      readFile(homePageUrl, "utf8"),
+      readFile(integrationUrls[2], "utf8"),
+      readFile(integrationUrls[4], "utf8"),
+      readFile(integrationUrls[0], "utf8"),
+      readFile(new URL("../components/public/PublicMatchStripCarousel.tsx", import.meta.url), "utf8"),
+      readFile(matchStripStylesUrl, "utf8")
+    ]);
+
+  assert.match(homeSource, /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"/);
+  assert.match(matchdaySource, /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"/);
+  assert.doesNotMatch(newsSource, /carouselLayout="fluid-peek"/);
+  assert.match(stripSource, /carouselLayout = "fixed"/);
+  assert.match(stripSource, /<PublicMatchStripCarousel layout=\{carouselLayout\}>/);
+  assert.doesNotMatch(carouselSource, /PEEK_LEADING_OFFSET/);
+  assert.match(carouselSource, /const PEEK_TOTAL_CARD_COUNT = 8;/);
+  assert.match(carouselSource, /const PEEK_CLEAR_CARD_COUNT = 7;/);
+  assert.match(carouselSource, /const PEEK_EDGE_FADE_WIDTH = CARD_WIDTH \/ 2;/);
+  assert.match(carouselSource, /const PEEK_CARD_HEIGHT = 98;/);
+  assert.match(carouselSource, /\(PEEK_TOTAL_CARD_COUNT \* CARD_WIDTH\)[\s\S]*?\(\(PEEK_TOTAL_CARD_COUNT - 1\) \* CARD_GAP\)/);
+  assert.match(carouselSource, /const PEEK_VIEWPORT_WIDTH = PEEK_CONTENT_WIDTH;/);
+
+
+  assert.match(
+    carouselSource,
+    /useLayoutEffect\(\(\) => \{\s*if \(layout === "fluid-peek"\) return;[\s\S]*?new ResizeObserver\(updateVisibleCardCount\)/
+  );
+  assert.match(carouselSource, /querySelectorAll<HTMLElement>\("\[data-public-match-card\]"\)/);
+  assert.match(carouselSource, /querySelector<HTMLElement>\("\[data-public-match-away-name\]"\)/);
+  assert.match(carouselSource, /querySelector<Element>\("\[data-public-broadcast-logo-visual\]"\)/);
+  assert.match(carouselSource, /setProperty\("--public-match-broadcast-shift-x", "0px"\)/);
+  assert.match(carouselSource, /Number\(\(awayNameRect\.right - logoVisualRect\.right\)\.toFixed\(2\)\)/);
+  assert.match(carouselSource, /setProperty\("--public-match-broadcast-shift-x", `\$\{shiftX\}px`\)/);
+  assert.match(carouselSource, /querySelectorAll<Element>\("\[data-public-broadcast-logo-visual\]"\)/);
+  assert.match(carouselSource, /observer\?\.observe\(logo\)/);
+  assert.match(carouselSource, /const completeCardCount = cardRects\.filter/);
+  assert.doesNotMatch(carouselSource, /forwardPartialCard|fallbackPartialWidth|nextCardVisibleFraction/);
+  assert.match(carouselSource, /data-complete-card-count=/);
+  assert.match(carouselSource, /boundedScrollLeft = Math\.min\(Math\.max\(viewport\.scrollLeft, 0\), maximumScroll\)/);
+  assert.match(carouselSource, /targetScroll = Math\.round\(Math\.min\(/);
+  assert.match(carouselSource, /data-first-card-start=/);
+  assert.match(carouselSource, /data-clear-card-count=\{layout === "fluid-peek" \? PEEK_CLEAR_CARD_COUNT : undefined\}/);
+  assert.match(carouselSource, /data-edge-fade-width=\{layout === "fluid-peek" \? PEEK_EDGE_FADE_WIDTH : undefined\}/);
+  assert.doesNotMatch(carouselSource, /data-next-card-visible-fraction=/);
+  assert.match(carouselSource, /data-peek-content-width=/);
+  assert.match(carouselSource, /data-peek-viewport-width=/);
+  assert.match(carouselSource, /"--match-carousel-edge-fade-width": `\$\{PEEK_EDGE_FADE_WIDTH\}px`/);
+  assert.match(carouselSource, /"--match-carousel-peek-card-height":/);
+
+  const fluidPanelRule = styleSource.match(
+    /\.panel\[data-visual-variant="clean"\]\[data-carousel-layout="fluid-peek"\]\s*\{([^}]*)\}/
+  )?.[1] ?? "";
+  assert.match(fluidPanelRule, /width:\s*calc\(100% \+ 48px\)/);
+  assert.match(fluidPanelRule, /margin-inline:\s*-24px/);
+  assert.match(fluidPanelRule, /padding-top:\s*0/);
+  assert.doesNotMatch(fluidPanelRule, /100vw/);
+  assert.match(
+    styleSource,
+    /\.carousel\[data-carousel-layout="fluid-peek"\]\s*\{[\s\S]*?position:\s*relative[\s\S]*?width:\s*min\([\s\S]*?var\(--match-carousel-peek-viewport-width\)[\s\S]*?2 \* var\(--match-carousel-arrow-zone-width\)[\s\S]*?margin-inline:\s*auto/
+  );
+  const fluidCarouselRule = styleSource.match(
+    /\.carousel\[data-carousel-layout="fluid-peek"\]\s*\{([^}]*)\}/
+  )?.[1] ?? "";
+  assert.doesNotMatch(fluidCarouselRule, /display:\s*grid|grid-template-columns/);
+  assert.match(
+    styleSource,
+    /\.carousel\[data-carousel-layout="fluid-peek"\]::before,[\s\S]*?\.carousel\[data-carousel-layout="fluid-peek"\]::after\s*\{[\s\S]*?display:\s*none[\s\S]*?content:\s*""[\s\S]*?pointer-events:\s*none/
+  );
+  assert.match(
+    styleSource,
+    /@media \(min-width: 761px\) \{[\s\S]*?\.carousel\[data-carousel-layout="fluid-peek"\]\[data-can-move-back="true"\]::before,[\s\S]*?\.carousel\[data-carousel-layout="fluid-peek"\]\[data-can-move-forward="true"\]::after\s*\{[\s\S]*?position:\s*absolute[\s\S]*?inset-block:\s*0[\s\S]*?z-index:\s*1[\s\S]*?display:\s*block[\s\S]*?width:\s*var\(--match-carousel-edge-fade-width\)/
+  );
+  assert.match(
+    styleSource,
+    /\.carousel\[data-carousel-layout="fluid-peek"\]\[data-can-move-back="true"\]::before\s*\{[\s\S]*?left:\s*var\(--match-carousel-arrow-zone-width\)[\s\S]*?linear-gradient\([\s\S]*?#ffffff 0%[\s\S]*?rgba\(255, 255, 255, 0\.88\) 28%[\s\S]*?rgba\(255, 255, 255, 0\) 100%/
+  );
+  assert.match(
+    styleSource,
+    /\.carousel\[data-carousel-layout="fluid-peek"\]\[data-can-move-forward="true"\]::after\s*\{[\s\S]*?right:\s*var\(--match-carousel-arrow-zone-width\)[\s\S]*?linear-gradient\([\s\S]*?rgba\(255, 255, 255, 0\) 0%[\s\S]*?rgba\(255, 255, 255, 0\.88\) 72%[\s\S]*?#ffffff 100%/
+  );
+  assert.match(
+    styleSource,
+    /\.carousel\[data-carousel-layout="fluid-peek"\] \.carouselViewport\s*\{[\s\S]*?width:\s*min\([\s\S]*?var\(--match-carousel-peek-viewport-width\)[\s\S]*?calc\(100% - \(2 \* var\(--match-carousel-arrow-zone-width\)\)\)[\s\S]*?max-width:\s*var\(--match-carousel-peek-viewport-width\)[\s\S]*?margin-inline:\s*auto[\s\S]*?overflow:\s*hidden/
+  );
+  assert.match(
+    styleSource,
+    /\.carousel\[data-carousel-layout="fluid-peek"\] \.carouselViewport > \.row\s*\{[\s\S]*?padding-inline:\s*0/
+  );
+  const fluidCardRule = styleSource.match(
+    /\.panel\[data-visual-variant="clean"\]\[data-carousel-layout="fluid-peek"\] \.row > \.card\s*\{([^}]*)\}/
+  )?.[1] ?? "";
+  assert.match(fluidCardRule, /background:\s*rgba\(68, 21, 47, 0\.13\)/);
+  assert.match(fluidCardRule, /grid-template-rows:\s*13px 5px 28px 4px 14px 5px 18px/);
+  assert.match(fluidCardRule, /height:\s*var\(--match-carousel-peek-card-height\)/);
+  assert.match(
+    styleSource,
+    /data-carousel-layout="fluid-peek"\] \.row > \.card > \.broadcast\s*\{[\s\S]*?position:\s*absolute[\s\S]*?right:\s*0[\s\S]*?bottom:\s*4px[\s\S]*?width:\s*max-content[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0[\s\S]*?transform:\s*translate\(var\(--public-match-broadcast-shift-x, 0px\), -2px\)/
+  );
+  assert.match(fluidCardRule, /padding:\s*6px var\(--match-card-inline-padding\) 3px/);
+  assert.match(fluidCardRule, /animation:\s*public-match-card-emerge 320ms/);
+  assert.match(fluidCardRule, /border-top-left-radius:\s*0/);
+  assert.match(fluidCardRule, /border-top-right-radius:\s*0/);
+  assert.match(fluidCardRule, /border-bottom-right-radius:\s*10px/);
+  assert.match(fluidCardRule, /border-bottom-left-radius:\s*10px/);
+  assert.doesNotMatch(fluidCardRule, /\bopacity\s*:/);
+  assert.doesNotMatch(styleSource, /match-carousel-peek-inline-gutter|match-carousel-forward-fade|match-carousel-back-fade/);
+  assert.match(styleSource, /\.carouselButton\s*\{[\s\S]*?position:\s*absolute[\s\S]*?top:\s*50%[\s\S]*?width:\s*var\(--match-carousel-arrow-zone-width\)[\s\S]*?background:\s*transparent/);
+  assert.match(styleSource, /\.carouselButtonBack\s*\{[\s\S]*?left:\s*0/);
+  assert.match(styleSource, /\.carouselButtonForward\s*\{[\s\S]*?right:\s*0/);
+  assert.match(
+    styleSource,
+    /@media \(max-width: 760px\)[\s\S]*?data-carousel-layout="fluid-peek"[\s\S]*?display:\s*none[\s\S]*?overflow-x:\s*auto/
+  );
+  assert.match(
+    styleSource,
+    /@media \(max-width: 760px\)[\s\S]*?data-carousel-layout="fluid-peek"[\s\S]*?width:\s*calc\(100% \+ 32px\)[\s\S]*?\.carousel\[data-carousel-layout="fluid-peek"\][\s\S]*?display:\s*block[\s\S]*?width:\s*100%[\s\S]*?max-width:\s*none[\s\S]*?\.carouselViewport[\s\S]*?width:\s*100%[\s\S]*?max-width:\s*none/
+  );
+  assert.match(
+    styleSource,
+    /\.carouselButton\s*\{[\s\S]*?position:\s*absolute[\s\S]*?top:\s*50%/
+  );
+  const arrowButtonRule = styleSource.match(/\.carouselButton\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(arrowButtonRule, /color:\s*#44152f/);
+  assert.match(arrowButtonRule, /font-size:\s*31px/);
+  assert.match(arrowButtonRule, /font-weight:\s*400/);
+  assert.match(arrowButtonRule, /background:\s*transparent/);
+  assert.doesNotMatch(arrowButtonRule, /border-radius|box-shadow/);
+  assert.match(styleSource, /rgba\(255, 255, 255, 0\.96\)/);
+  assert.match(
+    matchdaySource,
+    /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#44152f[\s\S]*?box-shadow:\s*0 8px 18px rgba\(68, 21, 47, 0\.16\)[\s\S]*?\}\s*\.public-season-nav-inner\s*\{[\s\S]*?box-sizing:\s*border-box[\s\S]*?align-items:\s*center[\s\S]*?height:\s*74px[\s\S]*?min-height:\s*74px[\s\S]*?padding:\s*8px 0/
+  );
 });
 
 test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal de equipa", async () => {
@@ -506,11 +649,12 @@ test("layout aprovado não depende de query parameter e a notícia sem jornada n
   for (const source of [homeSource, matchdaySource, newsSource, stripSource]) {
     assert.doesNotMatch(source, /layoutJogos|layoutVariant|adjusted-preview|adjustedPreview/);
   }
-  assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\}/);
+  assert.match(homeSource, /<PublicMatchStrip[\s\S]*?matches=\{featuredMatches\}/);
   assert.match(matchdaySource, /<PublicMatchStrip[\s\S]*?matches=\{context\.matchesForMatchday\.map/);
-  assert.match(matchdaySource, /showActiveCompetitionLogo=\{false\}/);
-  assert.match(matchdaySource, /className="public-season-competition-emblem"[\s\S]*?data-logo-variant=\{currentCompetitionLogo\.variant\}[\s\S]*?href="#classificacao"/);
-  assert.match(matchdaySource, /resolvePublicCompetitionLogoPresentation\(currentCompetitionMenuItem\)/);
+  assert.doesNotMatch(matchdaySource, /showActiveCompetitionLogo=\{false\}/);
+  assert.doesNotMatch(matchdaySource, /className="public-season-competition-emblem"/);
+  assert.doesNotMatch(matchdaySource, /resolvePublicCompetitionLogoPresentation\(currentCompetitionMenuItem\)/);
+  assert.match(matchdaySource, /<PublicCompetitionNavigation[\s\S]*?classificationHref="#classificacao"[\s\S]*?showMessageTicker=\{false\}/);
   assert.match(newsSource, /if \(!article\.matchday_id\) \{\s*return null;/);
   assert.match(newsSource, /articleMatches\.length > 0 \? \([\s\S]*?<PublicMatchStrip/);
 });

@@ -37,13 +37,15 @@ export const publicEditorialStyles = `
   }
 
   .public-home-games-transition-bar {
+    box-sizing: border-box;
     display: block;
-    height: 58px;
-    min-height: 58px;
+    height: 74px;
+    min-height: 74px;
     margin: 0 -24px;
     padding: 0 24px;
     border: 0;
     background: #44152f;
+    box-shadow: 0 8px 18px rgba(68, 21, 47, 0.16);
   }
 
   .public-site-brand {

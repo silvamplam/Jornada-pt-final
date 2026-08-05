@@ -135,6 +135,60 @@ function miniCardSchedule(match: PublicMatchStripMatch) {
       };
 }
 
+function toCardDisplayCase(value: string) {
+  const lowerWords = new Set(["de", "da", "do", "das", "dos", "e"]);
+  const source = value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\s*-\s*/g, "-");
+
+  return source
+    .split(" ")
+    .map((word, wordIndex) => {
+      if (!word) return word;
+
+      return word
+        .split("-")
+        .map((part, partIndex) => {
+          if (!part) return part;
+
+          if (/^[A-Za-zÀ-ÿ]\.$/.test(part)) {
+            const letter = part.slice(0, 1).toLocaleUpperCase("pt-PT");
+            return `${letter}.`;
+          }
+
+          const normalized = part.toLocaleLowerCase("pt-PT");
+
+          if ((wordIndex > 0 || partIndex > 0) && lowerWords.has(normalized)) {
+            return normalized;
+          }
+
+          return normalized.slice(0, 1).toLocaleUpperCase("pt-PT") + normalized.slice(1);
+        })
+        .join("-");
+    })
+    .join(" ");
+}
+
+function cardDisplayTeamName(team?: PublicMatchStripTeam | null) {
+  const candidates = [
+    team?.public_name,
+    team?.name,
+    team?.short_name,
+    team?.code
+  ];
+
+  for (const candidate of candidates) {
+    const value = candidate?.trim();
+    if (!value) continue;
+
+    const normalized = toCardDisplayCase(value);
+    if (normalized) return normalized;
+  }
+
+  return "—";
+}
+
 function TeamBadge({ team }: { team?: PublicMatchStripTeam | null }) {
   const label = getPublicTeamName(
     { name: team?.name, publicName: team?.public_name, shortName: team?.short_name, code: team?.code },
@@ -165,6 +219,7 @@ function LivePulseDots() {
 }
 
 type PublicMatchStripVariant = "default" | "home" | "clean";
+type PublicMatchStripCarouselLayout = "fixed" | "fluid-peek";
 
 type PublicMatchStripCardStyle = CSSProperties & {
   "--public-match-home-backdrop-image": string;
@@ -203,8 +258,8 @@ function CompactMatchCard({
   };
   const homeFullName = getPublicTeamName(homeTeamName, "full");
   const awayFullName = getPublicTeamName(awayTeamName, "full");
-  const homeCompactName = getPublicTeamName(homeTeamName, "compact");
-  const awayCompactName = getPublicTeamName(awayTeamName, "compact");
+  const homeCompactName = cardDisplayTeamName(match.homeTeam);
+  const awayCompactName = cardDisplayTeamName(match.awayTeam);
   const activeScore = presentation.center.kind === "score"
     ? presentation.center.text
     : null;
@@ -272,7 +327,13 @@ function CompactMatchCard({
       </span>
       <span className={styles.teamNames} data-public-match-team-names="coordinated">
         <span className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
-        <span className={styles.teamName} title={awayFullName}>{awayCompactName}</span>
+        <span
+          className={styles.teamName}
+          data-public-match-away-name
+          title={awayFullName}
+        >
+          {awayCompactName}
+        </span>
       </span>
       {presentation.center.kind === "placeholder" && visualVariant !== "home" ? (
         <span aria-label={presentation.statusLabel} className={styles.center}>
@@ -286,12 +347,7 @@ function CompactMatchCard({
         data-public-match-schedule={visualVariant === "clean" ? "true" : undefined}
       >
         {visualVariant === "clean" ? (
-          <PublicMatchMeta
-            channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
-            channelName={presentation.showChannel ? broadcastChannelName : null}
-            dateTime={scheduleContent}
-            variant="compact"
-          />
+          scheduleContent
         ) : presentation.kind === "finished" ? (
           <span
             aria-label={finishedScoreText
@@ -314,6 +370,16 @@ function CompactMatchCard({
           />
         )}
       </span>
+      {visualVariant === "clean" ? (
+        <span className={styles.broadcast} data-public-match-broadcast>
+          <PublicMatchMeta
+            channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
+            channelName={presentation.showChannel ? broadcastChannelName : null}
+            dateTime={<span aria-hidden="true" />}
+            variant="compact"
+          />
+        </span>
+      ) : null}
     </article>
   );
 }
@@ -321,10 +387,12 @@ function CompactMatchCard({
 export default function PublicMatchStrip({
   matches,
   competitionSlug,
+  carouselLayout = "fixed",
   variant = "clean"
 }: {
   matches: PublicMatchStripMatch[];
   competitionSlug?: string | null;
+  carouselLayout?: PublicMatchStripCarouselLayout;
   variant?: PublicMatchStripVariant;
 }) {
   const competitionTheme = getPublicMatchStripTheme(competitionSlug);
@@ -341,12 +409,13 @@ export default function PublicMatchStrip({
     <section
       className={`${styles.panel} public-matchday-panel public-matchday-scoreboard-panel`}
       data-competition-theme={competitionTheme ?? undefined}
+      data-carousel-layout={variant === "clean" ? carouselLayout : undefined}
       data-visual-variant={variant}
       aria-label="Visao rapida dos jogos"
     >
       <div className={`${styles.shell} public-matchday-strip-shell`}>
         {variant === "clean" ? (
-          <PublicMatchStripCarousel>
+          <PublicMatchStripCarousel layout={carouselLayout}>
             {matches.map((match) => (
               <CompactMatchCard
                 focus={focusedMatch?.id === match.id}

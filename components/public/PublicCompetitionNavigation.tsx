@@ -15,7 +15,6 @@ type PublicCompetitionNavigationProps = {
   competitions: PublicCompetitionMenuItem[];
   activeCompetitionSlug?: string | null;
   classificationHref?: string | null;
-  showActiveCompetitionLogo?: boolean;
   showMessageTicker?: boolean;
 };
 
@@ -37,7 +36,6 @@ export default function PublicCompetitionNavigation({
   competitions,
   activeCompetitionSlug,
   classificationHref,
-  showActiveCompetitionLogo = true,
   showMessageTicker = true
 }: PublicCompetitionNavigationProps) {
   const [classificationHashIsActive, setClassificationHashIsActive] = useState(false);
@@ -117,7 +115,7 @@ export default function PublicCompetitionNavigation({
           className={`${styles.link} ${styles.classificationLink}`}
           href={classificationHref}
         >
-          {showActiveCompetitionLogo && activeCompetitionLogo ? (
+          {activeCompetitionLogo ? (
             <img
               alt=""
               aria-hidden="true"

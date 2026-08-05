@@ -282,7 +282,11 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
     assert.match(source, /<PublicMatchStrip/);
   }
 
-  assert.match(homeSource, /<PublicMatchStrip matches=\{featuredMatches\} variant="clean" \/>/);
+  assert.match(
+    homeSource,
+    /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"[\s\S]*?matches=\{featuredMatches\}[\s\S]*?variant="clean"/
+  );
+  assert.match(competitionSource, /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"/);
   assert.match(competitionSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
   assert.match(newsSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
   assert.match(componentSource, /type PublicMatchStripVariant = "default" \| "home" \| "clean"/);
@@ -298,7 +302,9 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   const cleanStyles = stylesSource.slice(stylesSource.indexOf('.panel[data-visual-variant="clean"]'));
   assert.match(componentSource, /import PublicMatchStripCarousel/);
   assert.match(componentSource, /data-public-match-schedule/);
-  assert.match(componentSource, /visualVariant === "clean"[\s\S]*?<PublicMatchMeta[\s\S]*?dateTime=\{scheduleContent\}[\s\S]*?variant="compact"/);
+  assert.match(componentSource, /visualVariant === "clean" \? \(\s*scheduleContent\s*\)/);
+  assert.match(componentSource, /data-public-match-away-name/);
+  assert.match(componentSource, /data-public-match-broadcast[\s\S]*?<PublicMatchMeta[\s\S]*?dateTime=\{<span aria-hidden="true" \/>\}[\s\S]*?variant="compact"/);
   assert.match(cleanStyles, /\.panel\[data-visual-variant="clean"\]\s*\{[\s\S]*?width:\s*100vw[\s\S]*?max-width:\s*none[\s\S]*?margin:\s*0 calc\(50% - 50vw\)/);
   assert.match(cleanStyles, /\.carouselMeasure\s*\{[\s\S]*?width:\s*100%/);
   assert.match(cleanStyles, /\.carousel\s*\{[\s\S]*?width:\s*var\(--match-carousel-shell-width\)[\s\S]*?max-width:\s*100%[\s\S]*?margin-inline:\s*auto/);
@@ -308,9 +314,10 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.doesNotMatch(cleanStyles, /grid-auto-columns/);
   assert.doesNotMatch(cleanStyles, /@media \(max-width:\s*(?:1591|1211|831|451)px\)/);
   assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?flex:\s*0 0 var\(--match-card-width\);[\s\S]*?width:\s*var\(--match-card-width\);[\s\S]*?min-width:\s*var\(--match-card-width\);[\s\S]*?max-width:\s*var\(--match-card-width\);[\s\S]*?height:\s*var\(--match-card-height\);[\s\S]*?min-height:\s*var\(--match-card-height\);[\s\S]*?max-height:\s*var\(--match-card-height\);[\s\S]*?background:\s*#ffffff/);
-  assert.match(cleanStyles, /> \.status\s*\{[\s\S]*?grid-row:\s*1 \/ 6[\s\S]*?width:\s*100%[\s\S]*?height:\s*37px/);
-  assert.doesNotMatch(cleanStyles, /\.cleanSchedule|\.cleanChannel/);
-  assert.match(cleanStyles, /\.teamNames \{[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)/);
+  assert.match(cleanStyles, /> \.status\s*\{[\s\S]*?grid-row:\s*1[\s\S]*?width:\s*100%[\s\S]*?height:\s*13px[\s\S]*?font-size:\s*11px[\s\S]*?font-weight:\s*500[\s\S]*?line-height:\s*13px/);
+  assert.match(cleanStyles, /> \.broadcast\s*\{[\s\S]*?grid-row:\s*7[\s\S]*?align-self:\s*end[\s\S]*?justify-content:\s*flex-end[\s\S]*?height:\s*18px[\s\S]*?padding:\s*0 6px 0 0[\s\S]*?transform:\s*translateY\(-2px\)[\s\S]*?text-align:\s*right/);
+  assert.match(cleanStyles, /\.teamNames \{[\s\S]*?grid-row:\s*5[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)[\s\S]*?align-self:\s*stretch[\s\S]*?width:\s*100%[\s\S]*?margin:\s*0[\s\S]*?column-gap:\s*var\(--match-card-gap\)/);
+  assert.match(cleanStyles, /\.teamNames > \.teamName\s*\{[\s\S]*?justify-self:\s*center[\s\S]*?width:\s*max-content[\s\S]*?overflow:\s*visible/);
   const trackRule = cleanStyles.match(/\.carouselViewport > \.row\s*\{([^}]*)\}/)?.[1] ?? "";
   const cleanCardRule = cleanStyles.match(/\.panel\[data-visual-variant="clean"\] \.row > \.card\s*\{([^}]*)\}/)?.[1] ?? "";
   for (const rule of [trackRule, cleanCardRule]) {
