@@ -445,7 +445,7 @@ test("PublicMatchStrip usa carrossel limpo e mantém o layout partilhado nos res
   assert.match(componentSource, /variant === "clean" \? \([\s\S]*?<PublicMatchStripCarousel layout=\{carouselLayout\}>/);
   assert.match(componentSource, /data-public-match-card/);
   assert.match(componentSource, /data-public-match-schedule/);
-  assert.match(componentSource, /visualVariant === "clean" \? \(\s*scheduleContent\s*\)/);
+  assert.match(componentSource, /visualVariant === "clean" \? \(\s*cleanHeaderContent\s*\)/);
   assert.match(componentSource, /data-public-match-broadcast[\s\S]*?<PublicMatchMeta[\s\S]*?dateTime=\{<span aria-hidden="true" \/>\}[\s\S]*?variant="compact"/);
   assert.match(componentSource, /visual:\s*`\$\{compactCivilDate\(civilDate\)\} \\u00b7 \$\{kickoffTime\}`/);
   assert.doesNotMatch(componentSource, /data-strip-density/);

@@ -302,7 +302,7 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   const cleanStyles = stylesSource.slice(stylesSource.indexOf('.panel[data-visual-variant="clean"]'));
   assert.match(componentSource, /import PublicMatchStripCarousel/);
   assert.match(componentSource, /data-public-match-schedule/);
-  assert.match(componentSource, /visualVariant === "clean" \? \(\s*scheduleContent\s*\)/);
+  assert.match(componentSource, /visualVariant === "clean" \? \(\s*cleanHeaderContent\s*\)/);
   assert.match(componentSource, /data-public-match-away-name/);
   assert.match(componentSource, /data-public-match-broadcast[\s\S]*?<PublicMatchMeta[\s\S]*?dateTime=\{<span aria-hidden="true" \/>\}[\s\S]*?variant="compact"/);
   assert.match(cleanStyles, /\.panel\[data-visual-variant="clean"\]\s*\{[\s\S]*?width:\s*100vw[\s\S]*?max-width:\s*none[\s\S]*?margin:\s*0 calc\(50% - 50vw\)/);
@@ -346,7 +346,25 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
     gamesSource,
     /<section className="public-games-page-head"[\s\S]*?<\/section>\s*<div className="public-games-layout">/
   );
-  assert.doesNotMatch(componentSource, /setInterval|setTimeout|fetch\(/);
+  assert.match(componentSource, /PUBLIC_MATCH_STRIP_REFRESH_INTERVAL_MS/);
+  assert.match(componentSource, /window\.setInterval\([\s\S]*?PUBLIC_MATCH_STRIP_REFRESH_INTERVAL_MS/);
+  assert.match(componentSource, /fetch\(\s*`\/api\/public\/matches\/live\?ids=/);
+  assert.match(componentSource, /document\.visibilityState !== "visible"/);
+  assert.match(componentSource, /cleanStateLabel = kind === "live"[\s\S]*?"AGORA"/);
+  assert.match(componentSource, /const cleanHeaderLead = cleanMinute !== null \? `\$\{cleanMinute\}'` : null/);
+  assert.doesNotMatch(componentSource, /const cleanKickoffLabel|cleanHeaderLead = kind === "finished" \? schedule\.visual/);
+  assert.match(componentSource, /className=\{`\$\{styles\.cleanStateBadge\} \$\{cleanStateLabelClass\}`\}/);
+  assert.match(componentSource, /className=\{`\$\{styles\.cleanScore\} \$\{[\s\S]*?styles\.cleanScoreFinished[\s\S]*?styles\.cleanScoreActive/);
+  assert.match(componentSource, /\(kind === "live" \|\| kind === "halftime"\)\s*&&\s*presentation\.showChannel[\s\S]*?<PublicMatchMeta/);
+  assert.match(stylesSource, /\.cleanStateBadgeLive\s*\{[\s\S]*?background:\s*#16a34a;[\s\S]*?animation:\s*public-match-now-fade 2\.6s/);
+  assert.match(stylesSource, /\.cleanStateBadgeHalftime\s*\{[\s\S]*?background:\s*#15803d;[\s\S]*?color:\s*#ffffff/);
+  assert.match(stylesSource, /\.cleanStateBadgeFinished\s*\{[\s\S]*?background:\s*#111820;[\s\S]*?color:\s*#ffffff/);
+  assert.match(stylesSource, /\.cleanStatusLine\s*\{[\s\S]*?justify-content:\s*flex-end;[\s\S]*?gap:\s*5px/);
+  assert.match(stylesSource, /@keyframes public-match-now-fade[\s\S]*?opacity:\s*0\.52/);
+  assert.match(stylesSource, /\.cleanActiveFooter\s*\{[\s\S]*?gap:\s*8px/);
+  assert.match(stylesSource, /\.cleanScoreActive\s*\{[\s\S]*?font-size:\s*13px;[\s\S]*?font-weight:\s*700;[\s\S]*?letter-spacing:\s*0\.03em/);
+  assert.match(stylesSource, /\.cleanStatusLead\s*\{[\s\S]*?color:\s*#15803d/);
+  assert.match(stylesSource, /\.cleanScoreFinished\s*\{[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*700;[\s\S]*?letter-spacing:\s*0\.03em/);
   assert.doesNotMatch(componentSource, /homeCompactName.*home_score|awayCompactName.*away_score/);
   assert.doesNotMatch(componentSource, /Versus|>\s*VS\s*</);
   assert.doesNotMatch(stylesSource, /\.versus\b/);
