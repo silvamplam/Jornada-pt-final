@@ -2,7 +2,6 @@ import { buildAccumulatedClassification, totalClassificationStats, type Classifi
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
-import { resolvePublicCompetitionLogoPresentation } from "@/lib/public-competition-navigation";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import { buildPublicMatchdayEditorialVisibility } from "@/lib/public-matchday-editorial-visibility";
@@ -2634,14 +2633,17 @@ const publicMatchdayStyles = `
     border: 0;
     background: #44152f;
     color: #ffffff;
+    box-shadow: 0 8px 18px rgba(68, 21, 47, 0.16);
   }
 
   .public-season-nav-inner {
+    box-sizing: border-box;
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr) max-content;
     align-items: center;
     gap: 12px;
-    min-height: 58px;
+    height: 74px;
+    min-height: 74px;
     max-width: 1512px;
     margin: 0 auto;
     padding: 8px 0;
@@ -3514,7 +3516,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     href: `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${context.matchday.number}`,
     logoUrl: context.competition.logo_url
   };
-  const currentCompetitionLogo = resolvePublicCompetitionLogoPresentation(currentCompetitionMenuItem);
   const publicCompetitionMenuBase = await getPublicCompetitionMenu().catch(() => []);
   const publicCompetitionMenu = publicCompetitionMenuBase.map((item) =>
     item.slug === currentCompetitionMenuItem.slug ? currentCompetitionMenuItem : item
@@ -3781,7 +3782,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           competitions={publicCompetitionMenu}
           activeCompetitionSlug={context.competition.slug}
           classificationHref="#classificacao"
-          showActiveCompetitionLogo={false}
           showMessageTicker={false}
         />
         <div className="public-site-actions" aria-label="Ações">
@@ -3815,24 +3815,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                   2.ª volta
                 </a>
               </nav>
-            ) : null}
-            {currentCompetitionLogo ? (
-              <a
-                aria-label={`Classificação da ${context.competition.name}`}
-                className="public-season-competition-emblem"
-                data-logo-variant={currentCompetitionLogo.variant}
-                href="#classificacao"
-              >
-                <img
-                  alt=""
-                  aria-hidden="true"
-                  data-variant={currentCompetitionLogo.variant}
-                  decoding="async"
-                  height={currentCompetitionLogo.intrinsicHeight}
-                  src={currentCompetitionLogo.logoUrl}
-                  width={currentCompetitionLogo.intrinsicWidth}
-                />
-              </a>
             ) : null}
           </div>
           <nav className="public-matchday-nav-compact" aria-label="Jornadas da época">
@@ -3868,6 +3850,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         }}
       />
       <PublicMatchStrip
+        carouselLayout="fluid-peek"
         competitionSlug={context.competition.slug}
         matches={context.matchesForMatchday.map((match) => ({
           ...match,

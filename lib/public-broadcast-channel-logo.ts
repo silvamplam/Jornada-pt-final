@@ -41,7 +41,7 @@ const DEFAULT_VISUAL_CONFIG: BroadcastChannelLogoVisualConfig = {
 const MATCH_META_DEFAULT_SCALE = 0.72;
 const MATCH_META_CHANNEL_SCALE = new Map<string, number>([
   ["rtp1", 0.68],
-  ["tvi", 0.693],
+  ["tvi", 0.82],
   ["btv", 0.68],
   ["dazn 1", 0.7],
   ["dazn 2", 0.7],

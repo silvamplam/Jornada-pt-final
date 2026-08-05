@@ -1069,7 +1069,7 @@
   isolation: isolate;
   flex: 0 0 var(--match-card-width);
   grid-template-columns: repeat(2, var(--match-card-team-column-width));
-  grid-template-rows: 14px 2px 18px 2px 1px 4px 28px 3px 12px;
+  grid-template-rows: 13px 10px 28px 8px 14px 13px 18px;
   align-content: start;
   align-items: center;
   width: var(--match-card-width);
@@ -1078,7 +1078,7 @@
   height: var(--match-card-height);
   min-height: var(--match-card-height);
   max-height: var(--match-card-height);
-  padding: 9px var(--match-card-inline-padding);
+  padding: 12px var(--match-card-inline-padding);
   column-gap: var(--match-card-gap);
   border: 1px solid #e2e4e9;
   border-radius: 10px;
@@ -1098,26 +1098,100 @@
 .panel[data-visual-variant="clean"] .row > .card > .status {
   display: block;
   grid-column: 1 / -1;
-  grid-row: 1 / 6;
+  grid-row: 1;
   align-self: stretch;
   width: 100%;
-  height: 37px;
+  height: 13px;
   padding: 0;
   border: 0;
   background: transparent;
   overflow: visible;
+  color: #40536b;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 13px;
+  letter-spacing: 0;
+  text-align: left;
   transform: none;
 }
 
-.panel[data-visual-variant="clean"] .row > .card > .status > :global([data-public-match-meta]) {
+.panel[data-visual-variant="clean"] .row > .card > .status > :global(.public-matchday-mini-time) {
+  display: block;
   width: 100%;
-  min-width: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  white-space: nowrap;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast {
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 7;
+  align-self: end;
+  align-items: flex-end;
+  justify-content: flex-end;
+  width: calc(100% + var(--match-card-inline-padding));
+  height: 18px;
+  min-height: 18px;
+  margin: 0 calc(-1 * var(--match-card-inline-padding)) 0 0;
+  padding: 0 6px 0 0;
+  overflow: visible;
+  transform: translateY(-2px);
+  color: #596779;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 12px;
+  text-align: right;
+  opacity: 1;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  width: 100%;
+  height: 18px;
+  min-height: 18px;
   margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  text-align: right;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) > :first-child {
+  display: none;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) > :not(:first-child) {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: right;
+  opacity: 1;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) > :not(:first-child) > span {
+  justify-content: flex-end;
+  transform-origin: right bottom;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast img {
+  object-position: right bottom;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .team {
   display: grid;
-  grid-row: 7;
+  grid-row: 3;
   grid-template-columns: var(--match-card-team-column-width);
   grid-template-rows: 28px;
   place-items: center;
@@ -1157,26 +1231,30 @@
 .panel[data-visual-variant="clean"] .teamNames {
   display: grid;
   grid-column: 1 / -1;
-  grid-row: 9;
+  grid-row: 5;
   grid-template-columns: repeat(2, var(--match-card-team-column-width));
   align-items: start;
   justify-content: stretch;
+  align-self: stretch;
   width: 100%;
-  height: 12px;
+  height: 14px;
   margin: 0;
   column-gap: var(--match-card-gap);
 }
 
 .panel[data-visual-variant="clean"] .teamNames > .teamName {
+  justify-self: center;
+  width: max-content;
   min-width: 0;
-  overflow: hidden;
+  max-width: none;
+  overflow: visible;
   color: #111820;
   font-size: 12px;
   font-weight: 600;
-  line-height: 12px;
+  line-height: 14px;
   letter-spacing: 0;
   text-align: center;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   text-shadow: none;
   white-space: nowrap;
 }
@@ -1200,7 +1278,194 @@
   justify-content: flex-start;
 }
 
-.panel[data-visual-variant="clean"] .card[data-live-focus="true"] {
-  border-color: #44152f;
-  box-shadow: 0 0 0 1px rgba(68, 21, 47, 0.11), 0 2px 5px rgba(15, 23, 42, 0.08);
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] {
+  position: relative;
+  width: calc(100% + 48px);
+  margin-inline: -24px;
+  padding-top: 0;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .shell {
+  width: 100%;
+}
+
+.carousel[data-carousel-layout="fluid-peek"] {
+  position: relative;
+  width: min(
+    100%,
+    calc(var(--match-carousel-peek-viewport-width) + (2 * var(--match-carousel-arrow-zone-width)))
+  );
+  max-width: calc(var(--match-carousel-peek-viewport-width) + (2 * var(--match-carousel-arrow-zone-width)));
+  margin-inline: auto;
+}
+
+.carousel[data-carousel-layout="fluid-peek"]::before,
+.carousel[data-carousel-layout="fluid-peek"]::after {
+  display: none;
+  content: "";
+  pointer-events: none;
+}
+
+@media (min-width: 761px) {
+  .carousel[data-carousel-layout="fluid-peek"][data-can-move-back="true"]::before,
+  .carousel[data-carousel-layout="fluid-peek"][data-can-move-forward="true"]::after {
+    position: absolute;
+    inset-block: 0;
+    z-index: 1;
+    display: block;
+    width: var(--match-carousel-edge-fade-width);
+  }
+
+  .carousel[data-carousel-layout="fluid-peek"][data-can-move-back="true"]::before {
+    left: var(--match-carousel-arrow-zone-width);
+    background: linear-gradient(
+      90deg,
+      #ffffff 0%,
+      rgba(255, 255, 255, 0.88) 28%,
+      rgba(255, 255, 255, 0.42) 68%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  }
+
+  .carousel[data-carousel-layout="fluid-peek"][data-can-move-forward="true"]::after {
+    right: var(--match-carousel-arrow-zone-width);
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.42) 32%,
+      rgba(255, 255, 255, 0.88) 72%,
+      #ffffff 100%
+    );
+  }
+}
+
+.carousel[data-carousel-layout="fluid-peek"] .carouselViewport {
+  width: min(
+    var(--match-carousel-peek-viewport-width),
+    calc(100% - (2 * var(--match-carousel-arrow-zone-width)))
+  );
+  max-width: var(--match-carousel-peek-viewport-width);
+  margin-inline: auto;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  scroll-padding-inline: 0;
+}
+
+.carousel[data-carousel-layout="fluid-peek"] .carouselViewport > .row {
+  box-sizing: content-box;
+  padding-inline: 0;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast {
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  width: max-content;
+  margin: 0;
+  padding: 0;
+  transform: translate(var(--public-match-broadcast-shift-x, 0px), -2px);
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast > :global([data-public-match-meta]),
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast > :global([data-public-match-meta]) > :not(:first-child) {
+  width: max-content;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card {
+  grid-template-rows: 13px 5px 28px 4px 14px 5px 18px;
+  height: var(--match-carousel-peek-card-height);
+  min-height: var(--match-carousel-peek-card-height);
+  max-height: var(--match-carousel-peek-card-height);
+  padding: 6px var(--match-card-inline-padding) 3px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 10px;
+  border-bottom-left-radius: 10px;
+  background: rgba(68, 21, 47, 0.13);
+  box-shadow: 0 4px 8px rgba(15, 23, 42, 0.11), inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  animation: public-match-card-emerge 320ms cubic-bezier(0.22, 0.72, 0.26, 1) both;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(2) {
+  animation-delay: 20ms;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(3) {
+  animation-delay: 40ms;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(4) {
+  animation-delay: 60ms;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(5) {
+  animation-delay: 80ms;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(6) {
+  animation-delay: 100ms;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(7) {
+  animation-delay: 120ms;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(8) {
+  animation-delay: 140ms;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(n + 9) {
+  animation-delay: 160ms;
+}
+
+@keyframes public-match-card-emerge {
+  from {
+    opacity: 0.78;
+    transform: translateY(-7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] {
+    width: calc(100% + 32px);
+    margin-inline: -16px;
+  }
+
+  .carousel[data-carousel-layout="fluid-peek"] {
+    display: block;
+    width: 100%;
+    max-width: none;
+  }
+
+  .carousel[data-carousel-layout="fluid-peek"]::before,
+  .carousel[data-carousel-layout="fluid-peek"]::after,
+  .carousel[data-carousel-layout="fluid-peek"] .carouselButton {
+    display: none;
+    content: none;
+  }
+
+  .carousel[data-carousel-layout="fluid-peek"] .carouselViewport {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    overflow-x: auto;
+    scroll-padding-inline: 16px;
+    scroll-snap-type: x proximity;
+  }
+
+  .carousel[data-carousel-layout="fluid-peek"] .carouselViewport > .row {
+    padding-inline: 16px;
+  }
 }

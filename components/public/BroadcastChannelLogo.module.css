@@ -113,6 +113,13 @@
   object-fit: contain;
 }
 
+.matchMeta.normalizedMatchMeta .alphaViewport {
+  width: var(--broadcast-channel-match-meta-width, 54px);
+  max-width: none;
+  height: var(--broadcast-channel-match-meta-height, 18px);
+  max-height: none;
+}
+
 .matchMeta.canal11 img,
 .matchMeta.canal11 .alphaViewport {
   filter:

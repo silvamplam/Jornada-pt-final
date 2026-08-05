@@ -33,7 +33,12 @@ export default function BroadcastChannelLogo({
     : undefined;
   if (presentation.kind === "fallback" || presentation.logoUrl === failedUrl) {
     return (
-      <span className={`${className} ${styles.fallback}`} style={matchMetaStyle} title={presentation.name}>
+      <span
+        className={`${className} ${styles.fallback}`}
+        data-public-broadcast-logo-visual
+        style={matchMetaStyle}
+        title={presentation.name}
+      >
         {presentation.name}
       </span>
     );
@@ -57,6 +62,7 @@ export default function BroadcastChannelLogo({
       {matchMetaGeometry?.sourceViewport ? (
         <svg
           className={styles.alphaViewport}
+          data-public-broadcast-logo-visual
           preserveAspectRatio="xMidYMid meet"
           role="img"
           viewBox={matchMetaGeometry.sourceViewport.viewBox}
@@ -72,6 +78,7 @@ export default function BroadcastChannelLogo({
       ) : (
         <img
           alt={presentation.name}
+          data-public-broadcast-logo-visual
           src={presentation.logoUrl}
           title={presentation.name}
           onError={() => setFailedUrl(presentation.logoUrl)}

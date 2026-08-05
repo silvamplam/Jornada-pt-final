@@ -577,7 +577,11 @@ export default async function HomePage() {
       <div aria-hidden="true" className="public-home-games-transition-bar" />
       </div>
 
-      <PublicMatchStrip matches={featuredMatches} variant="clean" />
+      <PublicMatchStrip
+        carouselLayout="fluid-peek"
+        matches={featuredMatches}
+        variant="clean"
+      />
 
       <PublicEditorialLayout
         ariaLabel="Capa da jornada"

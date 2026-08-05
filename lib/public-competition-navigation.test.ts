@@ -252,6 +252,19 @@ test("mantem emblema e Classificacao na mesma ligacao acessivel", async () => {
   );
 });
 
+
+test("mostra o emblema ativo junto da Classificacao e remove o duplicado da barra de epoca", async () => {
+  const matchdaySource = await readFile(integrationUrls[2], "utf8");
+
+  assert.doesNotMatch(matchdaySource, /showActiveCompetitionLogo=\{false\}/);
+  assert.doesNotMatch(matchdaySource, /className="public-season-competition-emblem"/);
+  assert.doesNotMatch(matchdaySource, /resolvePublicCompetitionLogoPresentation/);
+  assert.match(
+    matchdaySource,
+    /<PublicCompetitionNavigation[\s\S]*?classificationHref="#classificacao"[\s\S]*?showMessageTicker=\{false\}/
+  );
+});
+
 test("mantem liga ativa a vermelho e Classificacao ativa neutra", async () => {
   const [componentSource, stylesSource] = await Promise.all([
     readFile(componentUrl, "utf8"),
@@ -380,9 +393,7 @@ test("a Home remove apenas o ticker e mant?m a barra vazia antes do carrossel", 
   const transitionBarIndex = homeSource.indexOf(
     '<div aria-hidden="true" className="public-home-games-transition-bar" />'
   );
-  const matchStripIndex = homeSource.indexOf(
-    '<PublicMatchStrip matches={featuredMatches} variant="clean" />'
-  );
+  const matchStripIndex = homeSource.indexOf("<PublicMatchStrip", transitionBarIndex);
   const editorialIndex = homeSource.indexOf("<PublicEditorialLayout");
 
   assert.ok(headerIndex >= 0);
@@ -391,12 +402,14 @@ test("a Home remove apenas o ticker e mant?m a barra vazia antes do carrossel", 
   assert.ok(matchStripIndex < editorialIndex);
 
   const transitionBarRule = cssRule(sharedStylesSource, ".public-home-games-transition-bar");
-  assert.match(transitionBarRule, /height:\s*58px/);
-  assert.match(transitionBarRule, /min-height:\s*58px/);
+  assert.match(transitionBarRule, /box-sizing:\s*border-box/);
+  assert.match(transitionBarRule, /height:\s*74px/);
+  assert.match(transitionBarRule, /min-height:\s*74px/);
   assert.match(transitionBarRule, /margin:\s*0 -24px/);
   assert.match(transitionBarRule, /padding:\s*0 24px/);
   assert.match(transitionBarRule, /border:\s*0/);
   assert.match(transitionBarRule, /background:\s*#44152f/);
+  assert.match(transitionBarRule, /box-shadow:\s*0 8px 18px rgba\(68, 21, 47, 0\.16\)/);
   assert.doesNotMatch(sharedStylesSource, /\.public-home-games-transition-bar::(?:before|after)/);
   assert.match(
     sharedStylesSource,
