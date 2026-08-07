@@ -195,7 +195,7 @@ test("a faixa publica adapta a largura e admite seis noticias na mesma linha", (
 });
 
 test("a faixa horizontal integra a composicao editorial e preserva a cor", () => {
-  assert.match(compositionPageSource, /Faixa horizontal de notícias/);
+  assert.match(compositionPageSource, /Faixa de notícias/);
   assert.match(compositionPageSource, /label_color_snapshot/);
   assert.match(compositionRouteSource, /sourceType:\s*"matchday_horizontal_news"/);
   assert.match(compositionRouteSource, /slot_type:\s*"important_item"/);
