@@ -229,15 +229,19 @@ const editorialPageStyles = `
   }
 
   .editorial-admin-block-nav {
+    position: sticky;
+    top: 8px;
+    z-index: 30;
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 12px;
     border: 1px solid #f2c7ca;
     border-radius: 8px;
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.98);
     padding: 10px;
-    box-shadow: 0 10px 24px rgba(8, 15, 24, 0.08);
+    box-shadow: 0 10px 24px rgba(8, 15, 24, 0.12);
+    backdrop-filter: blur(8px);
   }
 
   .editorial-admin-block-nav a {
@@ -258,6 +262,55 @@ const editorialPageStyles = `
 
   .editorial-admin-block-nav a:hover {
     background: #b91c1c;
+  }
+
+  .editorial-admin-zone-stack {
+    display: grid;
+    gap: 22px;
+    margin-top: 18px;
+  }
+
+  .editorial-admin-zone {
+    scroll-margin-top: 84px;
+  }
+
+  .editorial-admin-zone > .editorial-admin-zone-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: -20px -20px 18px;
+    padding: 14px 20px;
+    border-bottom: 1px solid #dce3eb;
+    background: #f8fafc;
+  }
+
+  .editorial-admin-zone-number {
+    display: inline-flex;
+    min-width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: #e5252a;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .editorial-admin-zone-title {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.1;
+  }
+
+  .editorial-admin-zone .horizontal-news-admin {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .editorial-admin-zone .horizontal-news-admin > header {
+    display: none;
   }
 
   .editorial-admin-grid {
@@ -492,7 +545,7 @@ const editorialPageStyles = `
     border: 1px solid #dce3eb;
     border-radius: 8px;
     background: #ffffff;
-    scroll-margin-top: 18px;
+    scroll-margin-top: 84px;
   }
 
   .editorial-admin-item-details > summary {
@@ -631,12 +684,13 @@ const editorialPageStyles = `
   }
 
   #manchete,
-  #composicao,
-  #destaques,
-  #resumo-jornada,
-  #bloco-complementar,
-  #ultimas-noticias {
-    scroll-margin-top: 18px;
+  #ultimas-noticias,
+  #contexto,
+  #tres-noticias,
+  #video,
+  #noticia-ao-lado-video,
+  #faixa-noticias {
+    scroll-margin-top: 84px;
   }
 
   .editorial-admin-note-list {
@@ -903,22 +957,6 @@ async function readMatchdayLatestNews(matchdayId: string): Promise<SupabaseMatch
   }
 }
 
-type PublishedReferenceCompositionSummary = {
-  id: string;
-  internal_name: string | null;
-  published_at: string | null;
-};
-
-async function readPublishedReferenceComposition(matchdayId: string): Promise<PublishedReferenceCompositionSummary | null> {
-  return fetchSupabaseAdminTable<PublishedReferenceCompositionSummary>(
-    `matchday_reference_compositions?select=id,internal_name,published_at&matchday_id=eq.${encodeURIComponent(
-      matchdayId
-    )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast&limit=1`
-  )
-    .then((rows) => rows[0] ?? null)
-    .catch(() => null);
-}
-
 async function readPublishedEditorialArticles(): Promise<EditorialArticleForSideBlock[]> {
   return fetchSupabaseAdminTable<EditorialArticleForSideBlock>(
     "editorial_articles?select=id,slug,title,subtitle,body,label,author,image_url,published_at,created_at,status&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=50"
@@ -929,72 +967,72 @@ type FeedbackScope = "manchete" | "bloco-lateral" | "composicao" | "destaques" |
 
 function messageFor(created?: string, error?: string, scope?: FeedbackScope, detail?: string) {
   const createdLabels: Record<string, string> = {
-    save_matchday_headline: "Manchete guardada.",
-    save_matchday_side_block: "Bloco lateral guardado.",
-    save_matchday_complement: "Bloco complementar guardado.",
-    save_matchday_below_headline: "Zona de destaques guardada.",
-    save_matchday_editorial: "Linha editorial da jornada guardada.",
-    save_matchday_highlights: "Destaques guardados.",
-    save_matchday_highlight_item: "Destaque guardado.",
-    save_matchday_roundup_items: "Resumo da Jornada guardado.",
-    save_matchday_roundup_settings: "Resumo de video guardado.",
-    save_matchday_roundup_item: "Item do Resumo da Jornada guardado.",
-    save_matchday_latest_news: "Zona final da capa guardada.",
-    save_matchday_latest_news_item: "Item da zona final guardado.",
-    save_matchday_horizontal_news_item: "Item da faixa horizontal guardado.",
-    upload_matchday_editorial_image: "Imagem da manchete carregada.",
-    upload_matchday_highlight_image: "Imagem do destaque carregada."
+    save_matchday_headline: "Manchete guardada. ✓",
+    save_matchday_side_block: "Contexto guardado. ✓",
+    save_matchday_complement: "Notícia ao lado do vídeo guardada. ✓",
+    save_matchday_below_headline: "3 notícias guardadas. ✓",
+    save_matchday_editorial: "Editorial guardada. ✓",
+    save_matchday_highlights: "3 notícias guardadas. ✓",
+    save_matchday_highlight_item: "Notícia guardada. ✓",
+    save_matchday_roundup_items: "Vídeos guardados. ✓",
+    save_matchday_roundup_settings: "Vídeo guardado. ✓",
+    save_matchday_roundup_item: "Vídeo guardado. ✓",
+    save_matchday_latest_news: "Últimas guardadas. ✓",
+    save_matchday_latest_news_item: "Notícia guardada. ✓",
+    save_matchday_horizontal_news_item: "Notícia guardada. ✓",
+    upload_matchday_editorial_image: "Imagem da manchete carregada. ✓",
+    upload_matchday_highlight_image: "Imagem da notícia carregada. ✓"
   };
   const scopedCreatedLabels: Partial<Record<FeedbackScope, Record<string, string>>> = {
     manchete: {
-      save_matchday_headline: "Manchete guardada.",
-      save_matchday_editorial: "Manchete guardada.",
-      upload_matchday_editorial_image: "Imagem da manchete carregada."
+      save_matchday_headline: "Manchete guardada. ✓",
+      save_matchday_editorial: "Manchete guardada. ✓",
+      upload_matchday_editorial_image: "Imagem da manchete carregada. ✓"
     },
     composicao: {
-      save_matchday_below_headline: "Zona de destaques guardada.",
-      save_matchday_editorial: "Composicao guardada."
+      save_matchday_below_headline: "3 notícias guardadas. ✓",
+      save_matchday_editorial: "Editorial guardada. ✓"
     },
     "bloco-lateral": {
-      save_matchday_side_block: "Bloco lateral da jornada guardado.",
-      save_matchday_editorial: "Bloco lateral da jornada guardado."
+      save_matchday_side_block: "Contexto guardado. ✓",
+      save_matchday_editorial: "Contexto guardado. ✓"
     },
     destaques: {
-      save_matchday_highlights: "Destaques guardados.",
-      save_matchday_highlight_item: "Destaque guardado.",
-      upload_matchday_highlight_image: "Imagem do destaque carregada."
+      save_matchday_highlights: "3 notícias guardadas. ✓",
+      save_matchday_highlight_item: "Notícia guardada. ✓",
+      upload_matchday_highlight_image: "Imagem da notícia carregada. ✓"
     },
     "resumo-jornada": {
-      save_matchday_roundup_items: "Resumo da Jornada guardado.",
-      save_matchday_roundup_settings: "Resumo de video guardado.",
-      save_matchday_roundup_item: "Item do Resumo da Jornada guardado."
+      save_matchday_roundup_items: "Vídeos guardados. ✓",
+      save_matchday_roundup_settings: "Vídeo guardado. ✓",
+      save_matchday_roundup_item: "Vídeo guardado. ✓"
     },
     "faixa-horizontal": {
-      save_matchday_horizontal_news_item: "Item da faixa horizontal guardado."
+      save_matchday_horizontal_news_item: "Notícia guardada. ✓"
     },
     "bloco-complementar": {
-      save_matchday_complement: "Bloco complementar guardado.",
-      save_matchday_editorial: "Bloco complementar guardado."
+      save_matchday_complement: "Notícia ao lado do vídeo guardada. ✓",
+      save_matchday_editorial: "Notícia ao lado do vídeo guardada. ✓"
     },
     "ultimas-noticias": {
-      save_matchday_latest_news: "Zona final da capa guardada.",
-      save_matchday_latest_news_item: "Item da zona final guardado."
+      save_matchday_latest_news: "Últimas guardadas. ✓",
+      save_matchday_latest_news_item: "Notícia guardada. ✓"
     }
   };
   const errorLabels: Record<string, string> = {
     "missing-service": "Liga primeiro a Supabase na Vercel.",
     "missing-fields": "Preenche os campos obrigatorios antes de guardar.",
     "matchday-invalid": "A jornada escolhida ja nao existe.",
-    "roundup-item-invalid": "O item escolhido do Resumo da Jornada nao pertence a esta jornada.",
+    "roundup-item-invalid": "O vídeo escolhido não pertence a esta jornada.",
     "editorial-title-required": "Para publicar, indica uma manchete da jornada.",
-    "highlight-title-required": "Para publicar um destaque, indica o titulo.",
+    "highlight-title-required": "Para publicar a notícia, indica o título.",
     "latest-news-title-required": "Para publicar uma noticia, indica o titulo.",
-    "horizontal-news-title-required": "Para publicar uma noticia na faixa horizontal, indica o titulo.",
-    "horizontal-news-save-failed": "Nao foi possivel guardar a faixa horizontal de noticias.",
+    "horizontal-news-title-required": "Para publicar a notícia na faixa, indica o título.",
+    "horizontal-news-save-failed": "Não foi possível guardar a faixa de notícias.",
     "editorial-image-type": "O ficheiro tem de ser uma imagem JPG, PNG ou WebP.",
     "editorial-image-size": "A imagem nao pode ter mais de 5MB.",
     "editorial-image-upload": "Nao foi possivel carregar a imagem. Confirma o bucket de Storage.",
-    "latest-news-save-failed": "Nao foi possivel guardar a Zona Editorial Final.",
+    "latest-news-save-failed": "Não foi possível guardar as Últimas.",
     save: "Nao foi possivel guardar. Confirma se a base de dados esta atualizada."
   };
 
@@ -1056,7 +1094,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const roundupItems = await readMatchdayRoundupItems(matchday.id);
   const latestNews = await readMatchdayLatestNews(matchday.id);
   const horizontalNews = await readMatchdayHorizontalNews(matchday.id);
-  const publishedReferenceComposition = await readPublishedReferenceComposition(matchday.id);
   const publishedEditorialArticles = await readPublishedEditorialArticles();
   const publishedSources = await getEditorialPublishedSources({
     competitionId: competition.id,
@@ -1070,20 +1107,19 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const belowHeadlineHeadingFallback = `Jornada ${String(matchday.number).padStart(2, "0")}`;
   const roundupVideoHeadingFallback = `Jornada ${String(matchday.number).padStart(2, "0")} · Jogos Vídeo Resumo`;
   const returnTo = `/admin/editorial/jornada/${matchday.id}`;
-  const scopedReturnTo = (scope: FeedbackScope, anchor = scope) => `${returnTo}?feedback_scope=${scope}#${anchor}`;
+  const scopedReturnTo = (scope: FeedbackScope, anchor: string = scope) => `${returnTo}?feedback_scope=${scope}#${anchor}`;
   const returnToManchete = scopedReturnTo("manchete");
-  const returnToBlocoLateral = scopedReturnTo("bloco-lateral");
-  const returnToComposicao = scopedReturnTo("composicao");
-  const returnToDestaques = scopedReturnTo("destaques");
-  const returnToResumo = scopedReturnTo("resumo-jornada");
-  const returnToComplementar = scopedReturnTo("bloco-complementar");
+  const returnToBlocoLateral = scopedReturnTo("bloco-lateral", "contexto");
+  const returnToDestaques = scopedReturnTo("destaques", "tres-noticias");
+  const returnToResumo = scopedReturnTo("resumo-jornada", "video");
+  const returnToComplementar = scopedReturnTo("bloco-complementar", "noticia-ao-lado-video");
   const returnToUltimasNoticias = scopedReturnTo("ultimas-noticias");
   const returnToHighlightItem = (order: number) =>
     `${returnTo}?feedback_scope=destaques&feedback_item=highlight-${paddedOrder(order)}#highlight-item-${paddedOrder(order)}`;
   const returnToResumoItem = (order: number) =>
     `${returnTo}?feedback_scope=resumo-jornada&feedback_item=roundup-${paddedOrder(order)}#roundup-item-${paddedOrder(order)}`;
   const returnToHorizontalNewsItem = (order: number) =>
-    `${returnTo}?feedback_scope=faixa-horizontal&feedback_item=horizontal-news-${paddedOrder(order)}#faixa-horizontal-item-${paddedOrder(order)}`;
+    `${returnTo}?feedback_scope=faixa-horizontal&feedback_item=horizontal-news-${paddedOrder(order)}#faixa-noticias-editor-item-${paddedOrder(order)}`;
   const returnToLatestNewsItem = (order: number) =>
     `${returnTo}?feedback_scope=ultimas-noticias&feedback_item=latest-news-${paddedOrder(order)}#latest-news-item-${paddedOrder(order)}`;
   const itemMessageFor = (scope: FeedbackScope, itemKey: string, detail?: string) =>
@@ -1128,7 +1164,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
           const itemKey = `highlight-${paddedOrder(order)}`;
           const itemAnchor = `highlight-item-${paddedOrder(order)}`;
           return (
-            <details className="editorial-admin-item-details" data-highlight-card={order} id={itemAnchor} key={order}>
+            <details className="editorial-admin-item-details" data-highlight-card={order} id={itemAnchor} key={order} open={feedbackScope === "destaques" && feedbackItem === itemKey}>
               <summary>
                 <span className="editorial-admin-item-summary-title">{itemSummaryTitle(order, highlight?.title, "Rascunho vazio")}</span>
                 {highlight?.label ? <span className="editorial-admin-item-label">{highlight.label}</span> : null}
@@ -1144,7 +1180,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               <div className="editorial-admin-item-details-body">
                 {itemMessageFor("destaques", itemKey)}
                 <div className="editorial-admin-field">
-                  <label htmlFor={`highlight-${order}-label`}>Etiqueta</label>
+                  <label htmlFor={`highlight-${order}-label`}>Antetítulo</label>
                   <input form={highlightFormId} id={`highlight-${order}-label`} name="highlight_label" defaultValue={highlight?.label ?? ""} placeholder={order === 1 ? "ANTEVISAO" : order === 2 ? "AMBIENTE" : "CONTEXTO"} />
                 </div>
                 <div className="editorial-admin-field">
@@ -1169,7 +1205,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   />
                 </div>
                 <div className="editorial-admin-field">
-                  <label htmlFor={`highlight-${order}-subtitle`}>Subtitulo / texto curto</label>
+                  <label htmlFor={`highlight-${order}-subtitle`}>Pós-título</label>
                   <input form={highlightFormId} id={`highlight-${order}-subtitle`} name="highlight_subtitle" defaultValue={highlight?.subtitle ?? ""} placeholder="Resumo curto opcional do destaque" />
                 </div>
                 <div className="editorial-admin-field">
@@ -1177,13 +1213,13 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   <input form={highlightFormId} id={`highlight-${order}-image-url`} name="highlight_image_url" defaultValue={highlight?.image_url ?? ""} placeholder="https://exemplo.com/imagem.jpg" />
                 </div>
                 <div className="editorial-admin-field">
-                  <label htmlFor={`highlight-${order}-link-url`}>Link do destaque</label>
+                  <label htmlFor={`highlight-${order}-link-url`}>Link da notícia</label>
                   <input form={highlightFormId} id={`highlight-${order}-link-url`} name="highlight_link_url" defaultValue={highlight?.link_url ?? ""} placeholder="/noticias/slug-do-artigo" />
                 </div>
                 <fieldset className="editorial-admin-fieldset editorial-admin-compact-card">
-                  <legend>Ligar fonte publicada ao destaque</legend>
+                  <legend>Escolher artigo</legend>
                   <div className="editorial-admin-field">
-                    <label htmlFor={`highlight-${order}-article-source`}>Preencher destaque com fonte publicada</label>
+                    <label htmlFor={`highlight-${order}-article-source`}>Preencher com artigo publicado</label>
                     <select id={`highlight-${order}-article-source`} data-highlight-article-select defaultValue="">
                       <option value="">Escolher fonte publicada</option>
                       {publishedSources.map((source) => (
@@ -1201,9 +1237,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                       ))}
                     </select>
                   </div>
-                  <p className="editorial-admin-muted">
-                    Ao escolher uma fonte, o destaque recebe etiqueta, titulo, imagem e link interno. Pode ajustar manualmente antes de guardar.
-                  </p>
                 </fieldset>
                 {highlight?.image_url ? (
                   <div className="editorial-admin-preview">
@@ -1218,7 +1251,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   </select>
                 </div>
                 <button className="editorial-admin-button" form={highlightFormId} type="submit">
-                  Guardar destaque #{paddedOrder(order)}
+                  Guardar notícia #{paddedOrder(order)}
                 </button>
                 <form action="/api/admin/gestor/editorial-image" className="editorial-admin-upload-inline" encType="multipart/form-data" method="post">
                   <input type="hidden" name="return_to" value={returnToHighlightItem(order)} />
@@ -1226,7 +1259,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   <input type="hidden" name="target" value="highlight" />
                   <input type="hidden" name="sort_order" value={order} />
                   <div className="editorial-admin-field">
-                    <label htmlFor={`highlight-${order}-image-upload`}>Carregar imagem do destaque {order}</label>
+                    <label htmlFor={`highlight-${order}-image-upload`}>Carregar imagem da notícia {order}</label>
                     <input accept="image/jpeg,image/png,image/webp" id={`highlight-${order}-image-upload`} name="image" type="file" />
                   </div>
                   <button className="editorial-admin-button secondary" type="submit">
@@ -1306,7 +1339,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             <input type="hidden" name="action_type" value="save_matchday_roundup_item" />
             <input type="hidden" name="return_to" value={returnToResumoItem(order)} />
             <input type="hidden" name="matchday_id" value={matchday.id} />
-            <details className="editorial-admin-item-details" id={itemAnchor}>
+            <details className="editorial-admin-item-details" id={itemAnchor} open={feedbackScope === "resumo-jornada" && feedbackItem === itemKey}>
               <summary>
                 <span className="editorial-admin-item-summary-title">{itemSummaryTitle(order, item?.title, "Item sem titulo")}</span>
                 <span className="editorial-admin-item-status">{item?.status === "published" ? "Publicado" : "Rascunho"}</span>
@@ -1320,7 +1353,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   <input id={`roundup-${order}-sort-order`} readOnly value={order} />
                 </div>
                 <div className="editorial-admin-field">
-                  <label htmlFor={`roundup-${order}-label`}>Etiqueta</label>
+                  <label htmlFor={`roundup-${order}-label`}>Antetítulo</label>
                   <input id={`roundup-${order}-label`} name="roundup_label" defaultValue={item?.label ?? ""} placeholder={order === 1 ? "VIDEO" : order === 2 ? "GOLOS" : order === 3 ? "NOTICIA" : "RESUMO"} />
                 </div>
                 <div className="editorial-admin-field">
@@ -1333,7 +1366,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   />
                 </div>
                 <div className="editorial-admin-field">
-                  <label htmlFor={`roundup-${order}-subtitle`}>Descricao</label>
+                  <label htmlFor={`roundup-${order}-subtitle`}>Pós-título</label>
                   <input id={`roundup-${order}-subtitle`} name="roundup_subtitle" defaultValue={item?.subtitle ?? ""} placeholder={order === 1 ? "Resumo completo" : order === 2 ? "Golos e melhores momentos" : order === 3 ? "Noticia de contexto" : "Descricao curta"} />
                 </div>
                 <div className="editorial-admin-field">
@@ -1345,7 +1378,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   <input id={`roundup-${order}-duration`} name="roundup_duration" defaultValue={item?.duration ?? ""} placeholder="5:42" />
                 </div>
                 <details className="editorial-admin-technical-details">
-                  <summary>Thumbnail / imagem avancado</summary>
+                  <summary>Imagem</summary>
                   <div className="editorial-admin-field">
                     <label htmlFor={`roundup-${order}-image-url`}>Imagem URL</label>
                     <input id={`roundup-${order}-image-url`} name="roundup_image_url" defaultValue={item?.image_url ?? ""} placeholder="https://exemplo.com/imagem.jpg" />
@@ -1385,17 +1418,17 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         <input type="hidden" name="return_to" value={returnToUltimasNoticias} />
         <input type="hidden" name="matchday_id" value={matchday.id} />
         <fieldset className="editorial-admin-fieldset">
-          <legend>Modo da zona</legend>
+          <legend>Apresentação</legend>
           <div className="editorial-admin-grid two">
             <div className="editorial-admin-field">
-              <label htmlFor="latest-zone-mode">Modo da zona</label>
+              <label htmlFor="latest-zone-mode">Formato</label>
               <select id="latest-zone-mode" name="latest_zone_mode" defaultValue={latestZoneMode}>
-                <option value="latest_news">Ultimas noticias</option>
-                <option value="editorial_line">Linha editorial</option>
+                <option value="latest_news">Últimas</option>
+                <option value="editorial_line">Cartões</option>
               </select>
             </div>
             <div className="editorial-admin-field">
-              <label htmlFor="latest-zone-title">Titulo publico da zona</label>
+              <label htmlFor="latest-zone-title">Título da zona</label>
               <input
                 id="latest-zone-title"
                 name="latest_zone_title"
@@ -1404,7 +1437,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               />
             </div>
             <div className="editorial-admin-field">
-              <label htmlFor="latest-zone-title-color">Cor do titulo publico da zona</label>
+              <label htmlFor="latest-zone-title-color">Cor do título da zona</label>
               <input
                 id="latest-zone-title-color"
                 name="latest_zone_title_color"
@@ -1415,7 +1448,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             </div>
           </div>
           <button className="editorial-admin-button secondary" type="submit">
-            Guardar modo da zona
+            Guardar Últimas
           </button>
         </fieldset>
       </form>
@@ -1429,7 +1462,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               <input type="hidden" name="action_type" value="save_matchday_latest_news_item" />
               <input type="hidden" name="return_to" value={returnToLatestNewsItem(order)} />
               <input type="hidden" name="matchday_id" value={matchday.id} />
-              <details className="editorial-admin-item-details" id={itemAnchor}>
+              <details className="editorial-admin-item-details" id={itemAnchor} open={feedbackScope === "ultimas-noticias" && feedbackItem === itemKey}>
                 <summary>
                   <span className="editorial-admin-item-summary-title">{itemSummaryTitle(order, item?.title, "Rascunho vazio")}</span>
                   <span className="editorial-admin-item-status">{item?.status === "published" ? "Publicado" : "Rascunho"}</span>
@@ -1456,7 +1489,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     <input id={`latest-news-${order}-title`} name="latest_news_title" defaultValue={item?.title ?? ""} placeholder="Titulo curto da noticia" />
                   </div>
                   <div className="editorial-admin-field">
-                    <label htmlFor={`latest-news-${order}-subtitle`}>Subtitulo / resumo</label>
+                    <label htmlFor={`latest-news-${order}-subtitle`}>Pós-título</label>
                     <input id={`latest-news-${order}-subtitle`} name="latest_news_subtitle" defaultValue={item?.subtitle ?? ""} placeholder="Resumo curto opcional" />
                   </div>
                   <div className="editorial-admin-field">
@@ -1468,9 +1501,9 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     <input id={`latest-news-${order}-link-url`} name="latest_news_link_url" defaultValue={item?.link_url ?? ""} placeholder="/noticias/slug-do-artigo" />
                   </div>
                   <fieldset className="editorial-admin-fieldset editorial-admin-compact-card">
-                    <legend>Ligar fonte publicada</legend>
+                    <legend>Escolher artigo</legend>
                     <div className="editorial-admin-field">
-                      <label htmlFor={`latest-news-${order}-article-source`}>Preencher com fonte publicada</label>
+                      <label htmlFor={`latest-news-${order}-article-source`}>Preencher com artigo publicado</label>
                       <select id={`latest-news-${order}-article-source`} data-latest-news-article-select defaultValue="">
                         <option value="">Escolher fonte publicada</option>
                         {publishedSources.map((source) => (
@@ -1487,9 +1520,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                         ))}
                       </select>
                     </div>
-                    <p className="editorial-admin-muted">
-                      Ao escolher uma fonte, este item recebe titulo, subtitulo, imagem e link interno. Pode ajustar manualmente antes de guardar.
-                    </p>
                   </fieldset>
                   {item?.image_url ? (
                     <div className="editorial-admin-preview">
@@ -1590,7 +1620,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             CONTEÚDOS / AUDIOVISUAL
           </a>
           <a className="editorial-admin-button secondary" href={`/admin/editorial/composicao/${encodeURIComponent(matchday.id)}`}>
-            Composição Editorial
+            Abrir composição
           </a>
           <a className="editorial-admin-button secondary" href="/admin/gestor">
             Gestor
@@ -1674,10 +1704,14 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         )}
       </section>
 
-      <nav className="editorial-admin-block-nav" aria-label="Navegacao interna da Editorial da Jornada">
-        <a href="#composicao">Abaixo da manchete</a>
-        <a href="#faixa-horizontal">Faixa horizontal</a>
-        <a href="#ultimas-noticias">Zona Final</a>
+      <nav className="editorial-admin-block-nav" aria-label="Zonas da Editorial da Jornada">
+        <a href="#manchete">01 Manchete</a>
+        <a href="#ultimas-noticias">02 Últimas</a>
+        <a href="#contexto">03 Contexto</a>
+        <a href="#tres-noticias">04 3 notícias</a>
+        <a href="#video">05 Vídeo</a>
+        <a href="#noticia-ao-lado-video">06 Ao lado do vídeo</a>
+        <a href="#faixa-noticias">07 Faixa de notícias</a>
       </nav>
 
       <script
@@ -1744,24 +1778,11 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         }}
       />
 
-      {feedbackScope ? null : messageFor(created, error)}
-
-      <div className="editorial-admin-grid">
-        <section className="editorial-admin-panel" id="manchete">
-          <header>
-            <h2>Manchete viva da jornada</h2>
-            <p>Fonte viva da atualidade desta jornada. Estes campos gravam em matchday_editorials.</p>
-            {publishedReferenceComposition ? (
-              <div className="editorial-admin-live-note warning">
-                <strong>Composicao publicada/current detetada.</strong>
-                <span>A pagina publica pode estar a usar a composicao publicada em vez destes campos vivos.</span>
-              </div>
-            ) : (
-              <div className="editorial-admin-live-note">
-                <strong>Sem composicao publicada/current ativa.</strong>
-                <span>A pagina publica usa esta manchete viva quando estiver publicada.</span>
-              </div>
-            )}
+      <div className="editorial-admin-zone-stack" data-composition-form>
+        <section className="editorial-admin-panel editorial-admin-zone" id="manchete">
+          <header className="editorial-admin-zone-header">
+            <span className="editorial-admin-zone-number">01</span>
+            <h2 className="editorial-admin-zone-title">Manchete</h2>
           </header>
           {scopedMessageFor(created, error, feedbackScope, "manchete")}
           <form className="editorial-admin-form" action="/api/admin/gestor" data-headline-form method="post">
@@ -1778,7 +1799,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               />
             </div>
             <div className="editorial-admin-field">
-              <label htmlFor="matchday-editorial-summary">Resumo curto</label>
+              <label htmlFor="matchday-editorial-summary">Pós-título</label>
               <textarea
                 id="matchday-editorial-summary"
                 name="summary"
@@ -1814,9 +1835,9 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               />
             </div>
             <fieldset className="editorial-admin-fieldset editorial-admin-compact-card">
-              <legend>Ligar fonte publicada à manchete</legend>
+              <legend>Escolher artigo</legend>
               <div className="editorial-admin-field">
-                <label htmlFor="headline-article-source">Preencher manchete com fonte publicada</label>
+                <label htmlFor="headline-article-source">Preencher com artigo publicado</label>
                 <select id="headline-article-source" data-headline-article-select defaultValue="">
                   <option value="">Escolher fonte publicada</option>
                   {publishedSources.map((source) => (
@@ -1833,9 +1854,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   ))}
                 </select>
               </div>
-              <p className="editorial-admin-muted">
-                Preenche titulo, resumo, imagem e link interno. Pode ajustar antes de guardar.
-              </p>
             </fieldset>
             {editorial?.image_url ? (
               <div className="editorial-admin-preview">
@@ -1923,10 +1941,19 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
           </form>
         </section>
 
-        <aside className="editorial-admin-panel" id="bloco-lateral">
-          <header>
-            <h2>Bloco lateral / fonte viva</h2>
-            <p>Chamada editorial independente da manchete viva.</p>
+        <section className="editorial-admin-panel editorial-admin-zone" id="ultimas-noticias">
+          <header className="editorial-admin-zone-header">
+            <span className="editorial-admin-zone-number">02</span>
+            <h2 className="editorial-admin-zone-title">Últimas</h2>
+          </header>
+                {scopedMessageFor(created, error, feedbackScope, "ultimas-noticias", latestNewsErrorDetail)}
+                {latestNewsEditor}
+        </section>
+
+        <section className="editorial-admin-panel editorial-admin-zone" id="contexto">
+          <header className="editorial-admin-zone-header">
+            <span className="editorial-admin-zone-number">03</span>
+            <h2 className="editorial-admin-zone-title">Contexto</h2>
           </header>
           {scopedMessageFor(created, error, feedbackScope, "bloco-lateral")}
           <form className="editorial-admin-form" action="/api/admin/gestor" data-side-block-form method="post">
@@ -1985,9 +2012,9 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               <input id="side-block-link-url" name="side_block_link_url" defaultValue={editorial?.side_block_link_url ?? ""} placeholder="/noticias/slug-do-artigo" />
             </div>
             <fieldset className="editorial-admin-fieldset editorial-admin-compact-card">
-              <legend>Ligar fonte publicada ao bloco lateral</legend>
+              <legend>Escolher artigo</legend>
               <div className="editorial-admin-field">
-                <label htmlFor="side-block-article-source">Preencher bloco lateral com fonte publicada</label>
+                <label htmlFor="side-block-article-source">Preencher com artigo publicado</label>
                 <select id="side-block-article-source" data-side-block-article-select defaultValue="">
                   <option value="">Escolher fonte publicada</option>
                   {publishedSources.map((source) => (
@@ -2006,12 +2033,9 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   ))}
                 </select>
               </div>
-              <p className="editorial-admin-muted">
-                Preenche os campos do bloco lateral. Podes ajustar antes de guardar.
-              </p>
             </fieldset>
             <button className="editorial-admin-button" type="submit">
-              Guardar bloco lateral
+              Guardar contexto
             </button>
           </form>
           <script
@@ -2067,28 +2091,20 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               `
             }}
           />
-        </aside>
-      </div>
+        </section>
 
-      <section className="editorial-admin-panel editorial-admin-composition" id="composicao">
-        <header>
-          <h2>Zonas editoriais abaixo da manchete</h2>
-          <p>Destaques, Resumo de video e Complemento funcionam como zonas publicas independentes e podem estar ativos em simultaneo.</p>
-        </header>
-        {scopedMessageFor(created, error, feedbackScope, "composicao")}
-        <div data-composition-form>
-          <div className="editorial-admin-composition-grid">
-            <div className="editorial-admin-composition-side-stack">
-              <section className="editorial-admin-composition-card" id="destaques">
-                <h3>Destaques da manchete</h3>
-                <p>Controla apenas os tres destaques apresentados imediatamente abaixo da manchete.</p>
+        <section className="editorial-admin-panel editorial-admin-zone" id="tres-noticias">
+          <header className="editorial-admin-zone-header">
+            <span className="editorial-admin-zone-number">04</span>
+            <h2 className="editorial-admin-zone-title">3 notícias abaixo da manchete</h2>
+          </header>
                 {scopedMessageFor(created, error, feedbackScope, "destaques")}
                 <form className="editorial-admin-form" action="/api/admin/gestor" id={belowHeadlineSettingsFormId} method="post">
                   <input type="hidden" name="action_type" value="save_matchday_below_headline" />
                   <input type="hidden" name="return_to" value={returnToDestaques} />
                   <input type="hidden" name="matchday_id" value={matchday.id} />
                   <div className="editorial-admin-field">
-                    <label htmlFor="composition-below-headline-mode">Estado dos destaques</label>
+                    <label htmlFor="composition-below-headline-mode">Estado</label>
                     <select id="composition-below-headline-mode" name="below_headline_mode" defaultValue={belowHeadlineMode}>
                       <option value="highlights">Ativos</option>
                       <option value="roundup">Inativos</option>
@@ -2103,23 +2119,24 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     <input id="below-headline-heading-color" name="below_headline_heading_color" defaultValue={editorial?.below_headline_heading_color ?? ""} placeholder="#0b1f3a" />
                   </div>
                   <button className="editorial-admin-button" type="submit">
-                    Guardar zona de destaques
+                    Guardar 3 notícias
                   </button>
                 </form>
-                <p className="editorial-admin-muted">Cada destaque continua a ter o seu proprio estado e botao de guardar.</p>
                 {highlightsEditor}
-              </section>
+        </section>
 
-              <section className="editorial-admin-composition-card" id="resumo-jornada">
-                <h3>Resumo de video</h3>
-                <p>Controla de forma independente a lista de resumos, o video inicial e o respetivo cabecalho.</p>
+        <section className="editorial-admin-panel editorial-admin-zone" id="video">
+          <header className="editorial-admin-zone-header">
+            <span className="editorial-admin-zone-number">05</span>
+            <h2 className="editorial-admin-zone-title">Vídeo</h2>
+          </header>
                 {scopedMessageFor(created, error, feedbackScope, "resumo-jornada")}
                 <form className="editorial-admin-form" action="/api/admin/gestor" method="post">
                   <input type="hidden" name="action_type" value="save_matchday_roundup_settings" />
                   <input type="hidden" name="return_to" value={returnToResumo} />
                   <input type="hidden" name="matchday_id" value={matchday.id} />
                   <div className="editorial-admin-field">
-                    <label htmlFor="roundup-zone-mode">Estado do resumo de video</label>
+                    <label htmlFor="roundup-zone-mode">Estado</label>
                     <select id="roundup-zone-mode" name="complementary_mode" defaultValue={roundupMode}>
                       <option value="roundup_video">Ativo</option>
                       <option value="none">Inativo</option>
@@ -2145,53 +2162,24 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     </select>
                   </div>
                   <button className="editorial-admin-button" type="submit">
-                    Guardar zona de resumo
+                    Guardar vídeo
                   </button>
                 </form>
-                <p className="editorial-admin-muted">Ativar ou desativar esta zona nao altera os Destaques nem o Complemento.</p>
                 {roundupEditor}
-              </section>
+        </section>
 
-              {horizontalNewsEditorOrders.map((order) => (
-                <form
-                  action="/api/admin/gestor"
-                  className="editorial-admin-hidden-form"
-                  id={`matchday-horizontal-news-form-${order}`}
-                  key={`matchday-horizontal-news-form-${order}`}
-                  method="post"
-                />
-              ))}
-              <EditorialHorizontalNewsEditor
-                id="faixa-horizontal"
-                description="Publica noticias entre o conteudo editorial e a classificacao. A zona cresce conforme o numero de noticias, apresenta cinco por linha no desktop e desaparece por completo quando esta vazia."
-                tableName="matchday_horizontal_news"
-                items={horizontalNewsEditorItems}
-                orders={horizontalNewsEditorOrders}
-                sources={horizontalNewsSources}
-                formIdForOrder={(order) => `matchday-horizontal-news-form-${order}`}
-                hiddenFieldsForOrder={(order) => [
-                  { name: "action_type", value: "save_matchday_horizontal_news_item" },
-                  { name: "return_to", value: returnToHorizontalNewsItem(order) },
-                  { name: "matchday_id", value: matchday.id }
-                ]}
-                messageForOrder={(order) =>
-                  itemMessageFor("faixa-horizontal", `horizontal-news-${paddedOrder(order)}`, horizontalNewsErrorDetail)
-                }
-                openOrder={horizontalNewsOpenOrder}
-              />
-            </div>
-
-            <div className="editorial-admin-composition-side-stack">
-              <section className="editorial-admin-composition-card" id="bloco-complementar">
-                <h3>Complemento</h3>
-                <p>Controla apenas o conteudo editorial apresentado ao lado do Resumo de video.</p>
+        <section className="editorial-admin-panel editorial-admin-zone" id="noticia-ao-lado-video">
+          <header className="editorial-admin-zone-header">
+            <span className="editorial-admin-zone-number">06</span>
+            <h2 className="editorial-admin-zone-title">Notícia ao lado do vídeo</h2>
+          </header>
                 <form className="editorial-admin-form" action="/api/admin/gestor" data-complementary-form method="post">
                   {scopedMessageFor(created, error, feedbackScope, "bloco-complementar")}
                   <input type="hidden" name="action_type" value="save_matchday_complement" />
                   <input type="hidden" name="return_to" value={returnToComplementar} />
                   <input type="hidden" name="matchday_id" value={matchday.id} />
                   <div className="editorial-admin-field">
-                    <label htmlFor="complementary-status">Estado do complemento</label>
+                    <label htmlFor="complementary-status">Estado</label>
                     <select id="complementary-status" name="complementary_status" defaultValue={editorial?.complementary_status ?? "draft"}>
                       <option value="published">Ativo</option>
                       <option value="draft">Inativo</option>
@@ -2202,11 +2190,11 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     <input id="complementary-label" name="complementary_label" defaultValue={editorial?.complementary_label ?? ""} placeholder="DESTAQUE" />
                   </div>
                   <div className="editorial-admin-field">
-                    <label htmlFor="complementary-title">Titulo do conteudo</label>
+                    <label htmlFor="complementary-title">Título</label>
                     <input id="complementary-title" name="complementary_title" defaultValue={editorial?.complementary_title ?? ""} placeholder="Um detalhe editorial para acompanhar a manchete" />
                   </div>
                   <div className="editorial-admin-field">
-                    <label htmlFor="complementary-text">Texto curto / conteudo breve</label>
+                    <label htmlFor="complementary-text">Pós-título</label>
                     <textarea id="complementary-text" name="complementary_text" defaultValue={editorial?.complementary_text ?? ""} placeholder="Texto curto do complemento da manchete." />
                   </div>
                   <div className="editorial-admin-field">
@@ -2218,9 +2206,9 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     <input id="complementary-link-url" name="complementary_link_url" defaultValue={editorial?.complementary_link_url ?? ""} placeholder="/noticias/slug-do-artigo" />
                   </div>
                   <fieldset className="editorial-admin-fieldset editorial-admin-compact-card">
-                    <legend>Ligar fonte publicada ao complemento</legend>
+                    <legend>Escolher artigo</legend>
                     <div className="editorial-admin-field">
-                      <label htmlFor="complementary-article-source">Preencher complemento com fonte publicada</label>
+                      <label htmlFor="complementary-article-source">Preencher com artigo publicado</label>
                       <select id="complementary-article-source" data-complementary-article-select defaultValue="">
                         <option value="">Escolher fonte publicada</option>
                         {publishedSources.map((source) => (
@@ -2238,24 +2226,48 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                         ))}
                       </select>
                     </div>
-                    <p className="editorial-admin-muted">Preenche etiqueta, titulo, texto, imagem e link publico. Pode ajustar antes de guardar.</p>
-                  </fieldset>
+                    </fieldset>
                   <button className="editorial-admin-button" type="submit">
-                    Guardar zona de complemento
+                    Guardar notícia
                   </button>
                 </form>
-                <p className="editorial-admin-muted">Ativar ou desativar esta zona nao altera os Destaques nem o Resumo de video.</p>
-              </section>
+        </section>
 
-              <section className="editorial-admin-composition-card" id="ultimas-noticias">
-                <h3>Zona editorial final</h3>
-                <p>Escolhe entre atualidade e Linha editorial. Em Linha editorial, podes publicar cartoes com imagem, titulo, subtitulo e link.</p>
-                {scopedMessageFor(created, error, feedbackScope, "ultimas-noticias", latestNewsErrorDetail)}
-                {latestNewsEditor}
-              </section>
-            </div>
-          </div>
-        </div>
+        <section className="editorial-admin-panel editorial-admin-zone" id="faixa-noticias">
+          <header className="editorial-admin-zone-header">
+            <span className="editorial-admin-zone-number">07</span>
+            <h2 className="editorial-admin-zone-title">Faixa de notícias</h2>
+          </header>
+              {horizontalNewsEditorOrders.map((order) => (
+                <form
+                  action="/api/admin/gestor"
+                  className="editorial-admin-hidden-form"
+                  id={`matchday-horizontal-news-form-${order}`}
+                  key={`matchday-horizontal-news-form-${order}`}
+                  method="post"
+                />
+              ))}
+              <EditorialHorizontalNewsEditor
+                id="faixa-noticias-editor"
+                title=""
+                description=""
+                tableName=""
+                items={horizontalNewsEditorItems}
+                orders={horizontalNewsEditorOrders}
+                sources={horizontalNewsSources}
+                formIdForOrder={(order) => `matchday-horizontal-news-form-${order}`}
+                hiddenFieldsForOrder={(order) => [
+                  { name: "action_type", value: "save_matchday_horizontal_news_item" },
+                  { name: "return_to", value: returnToHorizontalNewsItem(order) },
+                  { name: "matchday_id", value: matchday.id }
+                ]}
+                messageForOrder={(order) =>
+                  itemMessageFor("faixa-horizontal", `horizontal-news-${paddedOrder(order)}`, horizontalNewsErrorDetail)
+                }
+                openOrder={horizontalNewsOpenOrder}
+              />
+        </section>
+
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -2309,7 +2321,27 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             `
           }}
         />
-      </section>
+      </div>
+
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            document.addEventListener("submit", function (event) {
+              var form = event.target;
+              if (!form || !form.getAttribute) return;
+              var action = form.getAttribute("action") || "";
+              if (action.indexOf("/api/admin/gestor") !== 0) return;
+              var submitter = event.submitter;
+              if (!submitter || submitter.tagName !== "BUTTON") return;
+              if (!submitter.dataset.originalLabel) {
+                submitter.dataset.originalLabel = submitter.textContent || "";
+              }
+              submitter.textContent = "A guardar...";
+              submitter.setAttribute("aria-busy", "true");
+            });
+          `
+        }}
+      />
     </main>
   );
 }
