@@ -64,14 +64,11 @@ export type PublicComplementaryData = {
   imageUrl?: string | null;
   linkUrl?: string | null;
   inlineMedia?: PublicInlineMedia | null;
-  fallbackTitle: string;
-  fallbackText: string;
 };
 
 export type PublicBelowHeadlineData = {
-  mode: "highlights" | "roundup";
-  label: string;
-  labelColor?: string | null;
+  highlightHeading: string;
+  highlightHeadingColor?: string | null;
   highlights: PublicEditorialHighlight[];
   roundupItems: RoundupVideoItem[];
   showRoundupVideo: boolean;
@@ -91,42 +88,50 @@ type PublicEditorialLayoutProps = {
   latestNewsTitle?: string;
 };
 
-const defaultRoundupFallbacks: RoundupVideoItem[] = [
-  {
-    id: "placeholder-roundup-preview",
-    label: "Antevisao",
-    title: "Os pontos de atencao antes da bola rolar",
-    subtitle: "Resumo completo",
-    image_url: "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=700&q=80",
-    video_url: null,
-    duration: "5:42",
-    type: "video"
-  },
-  {
-    id: "placeholder-roundup-stand",
-    label: "Ambiente",
-    title: "A jornada vista pelas bancadas e pelos protagonistas",
-    subtitle: "Golos e melhores momentos",
-    image_url: "https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?auto=format&fit=crop&w=700&q=80",
-    video_url: null,
-    duration: "4:18",
-    type: "video"
-  },
-  {
-    id: "placeholder-roundup-context",
-    label: "Contexto",
-    title: "O que pode mudar na tabela depois dos resultados",
-    subtitle: "Noticia de contexto",
-    image_url: "https://images.unsplash.com/photo-1577223625816-7546f13df25d?auto=format&fit=crop&w=700&q=80",
-    video_url: null,
-    duration: "6:21",
-    type: "noticia"
+const publicEditorialLayoutPolishStyles = `
+  .public-matchday-panel .public-matchday-lead-grid > .public-matchday-news,
+  .public-matchday-panel .public-matchday-lead-grid > .public-side-editorial-block,
+  .public-matchday-panel .public-matchday-depth-row > .public-matchday-main-lower,
+  .public-matchday-panel .public-matchday-depth-row > .public-matchday-cover-side,
+  .public-matchday-panel .public-roundup-video-layout > .public-matchday-roundup,
+  .public-matchday-panel .public-roundup-video-layout > .public-roundup-video-panel {
+    border-left: 0 !important;
+    border-right: 0 !important;
   }
-];
 
-export function PublicSideBlock({ data, ariaLabel = "Bloco editorial lateral da jornada" }: { data: PublicSideBlockData; ariaLabel?: string }) {
+  .public-matchday-panel .public-matchday-depth-row {
+    border-top: 0 !important;
+  }
+
+  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title,
+  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-context-title {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    border-top: 0 !important;
+  }
+
+  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title::before,
+  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title::after,
+  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-context-title::before,
+  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-context-title::after {
+    content: none !important;
+    display: none !important;
+    border: 0 !important;
+  }
+`;
+
+export function PublicSideBlock({
+  data,
+  ariaLabel = "Bloco editorial lateral da jornada",
+  sectionTitle
+}: {
+  data: PublicSideBlockData;
+  ariaLabel?: string;
+  sectionTitle?: string;
+}) {
   return (
     <aside className="public-matchday-feature public-side-editorial-block" aria-label={ariaLabel}>
+      {sectionTitle ? <h3 className="public-context-title">{sectionTitle}</h3> : null}
       <div className="public-side-editorial-inner">
         {data.isPublished ? (
           <>
@@ -191,24 +196,30 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {
     </div>
   ) : null;
 
+  const copy = (
+    <div className="public-cover-headline-copy">
+      <TitleTag style={data.titleColor ? { color: data.titleColor } : undefined}>{title}</TitleTag>
+      <p>{subtitle}</p>
+    </div>
+  );
+
   if (inlineMedia) {
     return (
       <article className="public-matchday-editorial">
         <div className="public-cover-headline">
+          {linkUrl ? (
+            <a
+              aria-label={`Abrir ${title}`}
+              className="public-cover-headline-copy-link"
+              href={linkUrl}
+              style={{ color: "inherit", textDecoration: "none" }}
+            >
+              {copy}
+            </a>
+          ) : (
+            copy
+          )}
           {media}
-          <div>
-            {linkUrl ? (
-              <a aria-label={`Abrir ${title}`} href={linkUrl} style={{ color: "inherit", textDecoration: "none" }}>
-                <TitleTag style={data.titleColor ? { color: data.titleColor } : undefined}>{title}</TitleTag>
-                <p>{subtitle}</p>
-              </a>
-            ) : (
-              <>
-                <TitleTag style={data.titleColor ? { color: data.titleColor } : undefined}>{title}</TitleTag>
-                <p>{subtitle}</p>
-              </>
-            )}
-          </div>
         </div>
       </article>
     );
@@ -216,18 +227,20 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {
 
   const content = (
     <>
+      {copy}
       {media}
-      <div>
-        <TitleTag style={data.titleColor ? { color: data.titleColor } : undefined}>{title}</TitleTag>
-        <p>{subtitle}</p>
-      </div>
     </>
   );
 
   return (
     <article className="public-matchday-editorial">
       {linkUrl ? (
-        <a aria-label={`Abrir ${title}`} className="public-cover-headline public-cover-headline-link" href={linkUrl} style={{ color: "inherit", textDecoration: "none" }}>
+        <a
+          aria-label={`Abrir ${title}`}
+          className="public-cover-headline public-cover-headline-link"
+          href={linkUrl}
+          style={{ color: "inherit", textDecoration: "none" }}
+        >
           {content}
         </a>
       ) : (
@@ -256,31 +269,6 @@ function PublicHighlightCard({ item }: { item: PublicEditorialHighlight }) {
   );
 }
 
-function PublicRoundupStoryCard({ item }: { item: RoundupVideoItem }) {
-  const showPlay = Boolean(item.video_url) || item.type === "video" || item.type === "golos" || item.type === "resumo";
-  const imageUrl = item.image_url?.trim();
-
-  return (
-    <article className="public-cover-story">
-      <div className="public-highlight-image">
-        {imageUrl ? <img src={imageUrl} alt="" /> : null}
-        {showPlay ? <span className="public-media-play" aria-hidden="true">▶</span> : null}
-      </div>
-      {item.label ? <span>{item.label}</span> : null}
-      <strong>{item.title}</strong>
-      {item.subtitle ? <small>{item.subtitle}</small> : null}
-      {item.duration ? <span className="public-roundup-duration">{item.duration}</span> : null}
-      {item.video_url ? (
-        <a className="public-roundup-arrow" href={item.video_url} aria-label="Abrir conteudo do resumo">
-          ›
-        </a>
-      ) : (
-        <span className="public-roundup-arrow" aria-hidden="true">›</span>
-      )}
-    </article>
-  );
-}
-
 export function PublicHighlightsBlock({ highlights }: { highlights: PublicEditorialHighlight[] }) {
   return (
     <div className="public-cover-story-strip">
@@ -291,14 +279,29 @@ export function PublicHighlightsBlock({ highlights }: { highlights: PublicEditor
   );
 }
 
-export function PublicComplementaryBlock({ data, ariaLabel = "Bloco complementar da jornada" }: { data: PublicComplementaryData; ariaLabel?: string }) {
+export function PublicComplementaryBlock({
+  data,
+  ariaLabel = "Bloco complementar da jornada",
+  sectionTitle
+}: {
+  data: PublicComplementaryData;
+  ariaLabel?: string;
+  sectionTitle?: string;
+}) {
   const inlineMedia = data.inlineMedia;
+  const hasVisibleContent =
+    data.isPublished &&
+    Boolean(inlineMedia || data.imageUrl || data.title || data.text || data.linkUrl);
+
+  if (!hasVisibleContent) {
+    return null;
+  }
   const media = inlineMedia ? (
     <div className="public-complement-media">
       {inlineMedia.kind === "embed" && inlineMedia.embedUrl ? (
         <iframe
           src={inlineMedia.embedUrl}
-          title={inlineMedia.title || data.title || data.fallbackTitle}
+          title={inlineMedia.title || data.title || "Conteudo complementar"}
           allow="encrypted-media; picture-in-picture; web-share"
           allowFullScreen
           loading="lazy"
@@ -318,79 +321,74 @@ export function PublicComplementaryBlock({ data, ariaLabel = "Bloco complementar
 
   return (
     <aside className="public-matchday-cover-side public-editorial-flex-block public-below-headline-side" data-editorial-slot="video-ou-imagem-noticia" aria-label={ariaLabel}>
-      {data.isPublished ? (
-        <>
-          {media}
-          <div className="public-complement-body">
-            {data.label ? <span className="public-complement-label">{data.label}</span> : null}
-            {data.title ? (
-              data.linkUrl ? (
-                <a className="public-complement-title-link" href={data.linkUrl}>
-                  <strong>{data.title}</strong>
-                </a>
-              ) : (
-                <strong>{data.title}</strong>
-              )
-            ) : null}
-            {data.text ? <p>{data.text}</p> : null}
-          </div>
-        </>
-      ) : (
-        <div className="public-complement-body">
-          <strong>{data.fallbackTitle}</strong>
-          <p>{data.fallbackText}</p>
-        </div>
-      )}
+      {sectionTitle ? <h3 className="public-editorial-section-title">{sectionTitle}</h3> : null}
+      {media}
+      <div className="public-complement-body">
+        {data.title ? (
+          data.linkUrl ? (
+            <a className="public-complement-title-link" href={data.linkUrl}>
+              <strong>{data.title}</strong>
+            </a>
+          ) : (
+            <strong>{data.title}</strong>
+          )
+        ) : null}
+        {data.text ? <p>{data.text}</p> : null}
+      </div>
     </aside>
   );
 }
 
-export function PublicBelowHeadlineBlock({ data }: { data: PublicBelowHeadlineData }) {
-  if (data.showRoundupVideo && data.roundupItems.length > 0) {
-    return (
-      <RoundupVideoSwitcher
-        items={data.roundupItems}
-        initialItemId={data.initialRoundupItemId ?? null}
-        heading={data.roundupHeading ?? null}
-        headingColor={data.roundupHeadingColor ?? null}
-        matchdayNumber={data.matchdayNumber ?? null}
-      />
-    );
+function PublicHighlightsSection({ data }: { data: PublicBelowHeadlineData }) {
+  if (data.highlights.length === 0) {
+    return null;
   }
 
-  const roundupItems = data.roundupItems.length > 0 ? data.roundupItems : defaultRoundupFallbacks;
-
   return (
-    <>
-      <section
-        className={`public-matchday-roundup public-below-headline-${data.mode} public-editorial-flex-block`}
-        data-editorial-slot="videos-ou-noticias"
-        aria-label="Zona editorial abaixo da manchete"
-      >
+    <section
+      className="public-matchday-roundup public-below-headline-highlights public-editorial-flex-block public-editorial-highlights-section"
+      data-editorial-slot="destaques-da-manchete"
+      aria-label={data.highlightHeading}
+    >
+      {data.highlightHeading.trim() ? (
         <div className="public-editorial-block-head">
-          <span className="public-roundup-matchday-label" style={data.labelColor ? { color: data.labelColor } : undefined}>
-            {data.label}
+          <span
+            className="public-roundup-matchday-label"
+            style={data.highlightHeadingColor ? { color: data.highlightHeadingColor } : undefined}
+          >
+            {data.highlightHeading}
           </span>
         </div>
-        {data.mode === "highlights" ? (
-          <PublicHighlightsBlock highlights={data.highlights} />
-        ) : (
-          <div className="public-cover-story-strip" aria-label="Resumos e destaques da jornada">
-            {roundupItems.map((item) => (
-              <PublicRoundupStoryCard item={item} key={item.id} />
-            ))}
-          </div>
-        )}
-      </section>
-      <PublicComplementaryBlock data={data.complementary} />
-    </>
+      ) : null}
+      <PublicHighlightsBlock highlights={data.highlights} />
+    </section>
   );
 }
 
-export function PublicLatestNewsBlock({ items, title = "Últimas notícias" }: { items: PublicEditorialLatestNews[]; title?: string }) {
+function PublicRoundupSummary({ data }: { data: PublicBelowHeadlineData }) {
+  if (!data.showRoundupVideo || data.roundupItems.length === 0) {
+    return null;
+  }
+
   return (
-    <aside className="public-matchday-news" aria-label={title}>
-      <h3>{title}</h3>
+    <div className="public-matchday-main-lower public-matchday-summary-column">
+      <RoundupVideoSwitcher
+        items={data.roundupItems}
+        initialItemId={data.initialRoundupItemId ?? null}
+        heading={data.roundupHeading}
+        headingColor={data.roundupHeadingColor ?? null}
+        matchdayNumber={data.matchdayNumber ?? null}
+      />
+    </div>
+  );
+}
+
+export function PublicLatestNewsBlock({ items, title }: { items: PublicEditorialLatestNews[]; title?: string }) {
+  const visibleTitle = title?.trim() ?? "";
+
+  return (
+    <aside className="public-matchday-news" aria-label={visibleTitle || "NotÃ­cias"}>
+      {visibleTitle ? <h3>{visibleTitle}</h3> : null}
       <ul className="public-news-list">
         {items.map((item) => (
           <li className="public-news-item" key={item.id}>
@@ -420,17 +418,43 @@ export function PublicLatestNewsBlock({ items, title = "Últimas notícias" }: {
 }
 
 export function PublicEditorialLayout({ ariaLabel = "Capa da jornada", sideBlock, headline, belowHeadline, latestNews, latestNewsTitle }: PublicEditorialLayoutProps) {
+  const hasRoundupSummary = belowHeadline.showRoundupVideo && belowHeadline.roundupItems.length > 0;
+  const hasComplementary =
+    belowHeadline.complementary.isPublished &&
+    Boolean(
+      belowHeadline.complementary.inlineMedia ||
+      belowHeadline.complementary.imageUrl ||
+      belowHeadline.complementary.title ||
+      belowHeadline.complementary.text ||
+      belowHeadline.complementary.linkUrl
+    );
+
   return (
     <section className="public-matchday-panel" aria-label={ariaLabel}>
+      <style>{publicEditorialLayoutPolishStyles}</style>
       <div className="public-matchday-cover">
-        <PublicSideBlock data={sideBlock} />
-        <div className="public-matchday-main-column">
-          <PublicHeadlineBlock data={headline} />
-          <div className="public-matchday-main-lower">
-            <PublicBelowHeadlineBlock data={belowHeadline} />
+        <div className="public-matchday-lead-grid">
+          <div className="public-matchday-main-column">
+            <PublicHeadlineBlock data={headline} />
+            <PublicHighlightsSection data={belowHeadline} />
           </div>
+          <PublicLatestNewsBlock items={latestNews} title={latestNewsTitle} />
+          <PublicSideBlock
+            data={sideBlock}
+            ariaLabel="Leitura editorial do tema principal"
+          />
         </div>
-        <PublicLatestNewsBlock items={latestNews} title={latestNewsTitle} />
+
+        {hasRoundupSummary || hasComplementary ? (
+          <div className={`public-matchday-depth-row${hasRoundupSummary ? "" : " public-matchday-depth-row-complement-only"}`}>
+            <PublicRoundupSummary data={belowHeadline} />
+            <PublicComplementaryBlock
+              data={belowHeadline.complementary}
+              ariaLabel="Aprofundamento editorial"
+              sectionTitle={belowHeadline.complementary.label ?? undefined}
+            />
+          </div>
+        ) : null}
       </div>
     </section>
   );

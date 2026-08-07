@@ -103,3 +103,57 @@ test("os cards Liga Portugal usam territórios cromáticos irregulares sem hífe
   assert.match(css, /rgba\(var\(--public-liga-portugal-home-rgb\),\s*0\.27\)/);
   assert.match(css, /rgba\(var\(--public-liga-portugal-away-rgb\),\s*0\.23\)/);
 });
+
+test("os minutos ao vivo ficam centrados na mesma linha da caixa AGORA", () => {
+  const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
+
+  assert.match(
+    css,
+    /\.panel\[data-visual-variant="clean"\] \.cleanStatusLine \{[\s\S]*?align-items:\s*center;[\s\S]*?height:\s*15px;/
+  );
+  assert.match(
+    css,
+    /\.panel\[data-visual-variant="clean"\] \.cleanStatusLead \{[\s\S]*?height:\s*15px;[\s\S]*?align-items:\s*center;[\s\S]*?line-height:\s*15px;[\s\S]*?transform:\s*translateY\(-1px\);/
+  );
+  assert.match(
+    css,
+    /\.panel\[data-visual-variant="clean"\] \.cleanStateBadge \{[\s\S]*?height:\s*15px;[\s\S]*?transform:\s*none;/
+  );
+});
+
+test("o rodape ao vivo alinha resultado e TV pelas colunas dos emblemas e centra o resultado sem TV", () => {
+  const component = readFileSync("components/public/PublicMatchStrip.tsx", "utf8");
+  const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
+
+  assert.match(component, /const hasCleanBroadcast = Boolean\(/);
+  assert.match(component, /hasCleanBroadcast \? "" : styles\.cleanActiveFooterWithoutBroadcast/);
+  assert.match(component, /<span className=\{cleanFooterClassName\}[\s\S]*?\{cleanScoreContent\}[\s\S]*?\{hasCleanBroadcast \? \(/);
+  assert.match(
+    css,
+    /\.panel\[data-visual-variant="clean"\] \.row > \.card > \.broadcast\.cleanActiveFooter \{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\);[\s\S]*?column-gap:\s*var\(--match-card-gap\);/
+  );
+  assert.match(
+    css,
+    /\.broadcast\.cleanActiveFooter > \.cleanScore \{[\s\S]*?grid-column:\s*1;[\s\S]*?justify-self:\s*center;/
+  );
+  assert.match(
+    css,
+    /\.broadcast\.cleanActiveFooter:not\(\.cleanActiveFooterWithoutBroadcast\) > \.cleanScore \{[\s\S]*?transform:\s*translateY\(2px\);/
+  );
+  assert.match(
+    css,
+    /\.broadcast\.cleanActiveFooter > :global\(\[data-public-match-meta\]\) \{[\s\S]*?grid-column:\s*2;[\s\S]*?justify-self:\s*center;/
+  );
+  assert.match(
+    css,
+    /\.broadcast\.cleanActiveFooterWithoutBroadcast > \.cleanScore \{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?justify-self:\s*center;/
+  );
+  assert.match(
+    css,
+    /\[data-carousel-layout="fluid-peek"\][\s\S]*?\.broadcast\.cleanActiveFooter \{[\s\S]*?position:\s*static;[\s\S]*?width:\s*100%;/
+  );
+  assert.match(
+    css,
+    /\.panel\[data-visual-variant="clean"\] \.cleanFinishedFooter \{[\s\S]*?display:\s*flex;[\s\S]*?justify-content:\s*center;/
+  );
+});

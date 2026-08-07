@@ -232,17 +232,22 @@ function gameFilterParams(formData: FormData) {
   return params;
 }
 
-function redirectTo(request: Request, params: Record<string, string>, anchor?: string | null) {
-  const url = new URL("/admin/editorial/home", request.url);
+function redirectTo(_request: Request, params: Record<string, string>, anchor?: string | null) {
+  const searchParams = new URLSearchParams();
+
   for (const [key, value] of Object.entries(params)) {
-    url.searchParams.set(key, value);
+    searchParams.set(key, value);
   }
 
-  if (anchor) {
-    url.hash = anchor;
-  }
+  const query = searchParams.toString();
+  const location = `/admin/editorial/home${query ? `?${query}` : ""}${anchor ? `#${anchor}` : ""}`;
 
-  return NextResponse.redirect(url, { status: 303 });
+  return new NextResponse(null, {
+    status: 303,
+    headers: {
+      Location: location
+    }
+  });
 }
 
 function sanitizeErrorText(value: string | null | undefined) {

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import EditorialHorizontalNewsSourceSelect from "./EditorialHorizontalNewsSourceSelect";
+
 export type EditorialHorizontalNewsAdminItem = {
   id: string;
   sortOrder: number;
@@ -252,22 +254,7 @@ export default function EditorialHorizontalNewsEditor({
                 <input form={formId} type="hidden" name="horizontal_news_sort_order" value={order} />
                 <label className="horizontal-news-admin-field is-wide">
                   <span>Preencher com fonte publicada</span>
-                  <select data-horizontal-news-source defaultValue="">
-                    <option value="">Escolher fonte publicada</option>
-                    {sources.map((source) => (
-                      <option
-                        key={source.key}
-                        value={source.key}
-                        data-horizontal-label={source.label}
-                        data-horizontal-title={source.title}
-                        data-horizontal-subtitle={source.subtitle}
-                        data-horizontal-image-url={source.imageUrl}
-                        data-horizontal-link-url={source.linkUrl}
-                      >
-                        {source.optionLabel}
-                      </option>
-                    ))}
-                  </select>
+                  <EditorialHorizontalNewsSourceSelect sources={sources} />
                 </label>
                 <label className="horizontal-news-admin-field">
                   <span>Posicao</span>
@@ -327,31 +314,6 @@ export default function EditorialHorizontalNewsEditor({
           );
         })}
       </div>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            (function () {
-              Array.prototype.slice.call(document.querySelectorAll('[data-horizontal-news-source]')).forEach(function (select) {
-                if (select.dataset.horizontalNewsBound === 'true') return;
-                select.dataset.horizontalNewsBound = 'true';
-                select.addEventListener('change', function () {
-                  var option = select.options[select.selectedIndex];
-                  var card = select.closest('[data-horizontal-news-card]');
-                  if (!option || !option.value || !card) return;
-                  ['label', 'title', 'subtitle', 'image_url', 'link_url'].forEach(function (name) {
-                    var field = card.querySelector('[data-horizontal-news-field="' + name + '"]');
-                    if (!field) return;
-                    var datasetName = name === 'image_url' ? 'horizontalImageUrl' : name === 'link_url' ? 'horizontalLinkUrl' : 'horizontal' + name.charAt(0).toUpperCase() + name.slice(1);
-                    field.value = option.dataset[datasetName] || '';
-                    field.dispatchEvent(new Event('input', { bubbles: true }));
-                  });
-                  select.value = '';
-                });
-              });
-            })();
-          `
-        }}
-      />
-    </section>
+</section>
   );
 }

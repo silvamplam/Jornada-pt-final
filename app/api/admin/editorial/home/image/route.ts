@@ -20,14 +20,15 @@ function cleanText(value: FormDataEntryValue | null): string | null {
   return trimmed ? trimmed : null;
 }
 
-function redirectTo(request: Request, returnTo: string | null, key: "created" | "error", value: string) {
-  const fallback = new URL("/admin/editorial/home", request.url);
+function redirectTo(_request: Request, returnTo: string | null, key: "created" | "error", value: string) {
+  const fallback = new URL("http://jornada.local/admin/editorial/home");
   let target = fallback;
 
   if (returnTo) {
     try {
-      const parsed = new URL(returnTo, request.url);
-      if (parsed.origin === fallback.origin && parsed.pathname.startsWith("/admin/editorial/home")) {
+      const parsed = new URL(returnTo, fallback);
+
+      if (parsed.pathname.startsWith("/admin/editorial/home")) {
         target = parsed;
       }
     } catch {
@@ -39,7 +40,14 @@ function redirectTo(request: Request, returnTo: string | null, key: "created" | 
   target.searchParams.delete("error");
   target.searchParams.set(key, value);
 
-  return NextResponse.redirect(target, { status: 303 });
+  const location = `${target.pathname}${target.search}${target.hash}`;
+
+  return new NextResponse(null, {
+    status: 303,
+    headers: {
+      Location: location
+    }
+  });
 }
 
 function publicStorageUrl(baseUrl: string, bucket: string, path: string) {

@@ -1096,6 +1096,7 @@ const homeEditorialStyles = `
     line-height: 1.45;
   }
 
+  .home-admin-composition-main-stack,
   .home-admin-composition-side-stack {
     display: grid;
     gap: 12px;
@@ -2011,7 +2012,8 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
     (item) => matchesById.has(item.match_id) && !filteredGameIds.has(item.match_id)
   );
   const belowHeadlineMode = editorial?.below_headline_mode === "roundup" ? "roundup" : "highlights";
-  const complementaryMode = belowHeadlineMode === "roundup" ? "roundup_video" : "complementary_story";
+  const complementaryMode =
+    editorial?.complementary_mode === "roundup_video" ? "roundup_video" : "complementary_story";
   const globalMessage = pageMessage(params);
 
   return (
@@ -2387,59 +2389,44 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                   <section className="home-admin-zone-panel home-admin-panel home-admin-composition" id="home-composition">
                     <header>
                       <div>
-                        <h2>Composicao abaixo da manchete</h2>
-                        <p>Controla os espacos editoriais da Home seguindo a arquitetura da Editorial da Jornada.</p>
+                        <h2>Zonas editoriais da Home</h2>
+                        <p>Destaques da manchete, resumo de video e complemento funcionam como zonas publicas independentes.</p>
                       </div>
                       <span className="home-admin-source">site_editorials + leitura site_*</span>
                     </header>
                     <FeedbackMessage message={scopedMessage(params, "composition")} />
                     <div className="home-admin-composition-body" data-home-composition-form>
                       <div className="home-admin-composition-grid">
-                        <div className="home-admin-composition-card">
-                          <div className="home-admin-zone-kicker">
-                            <h3>Zona abaixo da manchete</h3>
-                            <small>site_editorials.below_headline_*</small>
-                          </div>
-                          <p>Escolhe que conjunto ocupa a area inferior esquerda da composicao.</p>
-                          <section className="home-admin-form-section">
-                            <div className="home-admin-subzone-heading">
-                              <h4>Modo da zona</h4>
-                              <small>escolha publica</small>
+                        <div className="home-admin-composition-main-stack">
+                          <section className="home-admin-composition-card" id="home-highlights">
+                            <div className="home-admin-zone-kicker">
+                              <h3>Destaques da manchete</h3>
+                              <small>site_editorials.below_headline_* + site_editorial_highlights</small>
                             </div>
-                            <div className="home-admin-form-grid">
-                              <label className="home-admin-field">
-                                <span>Tipo de conteudo abaixo da manchete</span>
-                                <select data-home-below-select name="below_headline_mode" defaultValue={belowHeadlineMode}>
-                                  <option value="highlights">Destaques abaixo da manchete</option>
-                                  <option value="roundup">Videos / Resumo / Roundup</option>
-                                </select>
-                              </label>
-                            </div>
-                          </section>
-                          <div className="home-admin-save-row">
-                            <p>Guarda apenas os modos/cabecalhos em site_editorials. No laboratorio validado, controlam a composicao abaixo da manchete.</p>
-                            <button name="save_context" type="submit" value="composition">Guardar composicao</button>
-                          </div>
-                          <section
-                            className="home-admin-form-section home-admin-mode-section"
-                            data-home-below-section="highlights"
-                            id="home-highlights"
-                            hidden={belowHeadlineMode !== "highlights"}
-                          >
-                            <div className="home-admin-subzone-heading">
-                              <h4>Destaques abaixo da manchete</h4>
-                              <small>site_editorial_highlights</small>
-                            </div>
+                            <p>Controla apenas os tres destaques apresentados imediatamente abaixo da manchete.</p>
                             <FeedbackMessage message={scopedMessage(params, "highlights")} />
-                            <div className="home-admin-form-grid">
-                              <TextField label="Titulo abaixo da manchete" name="below_headline_heading" value={editorial.below_headline_heading} />
-                              <TextField
-                                label="Cor do titulo abaixo da manchete"
-                                name="below_headline_heading_color"
-                                value={editorial.below_headline_heading_color}
-                                placeholder="#10151b"
-                              />
-                            </div>
+                            <section className="home-admin-form-section">
+                              <div className="home-admin-subzone-heading">
+                                <h4>Publicacao e cabecalho</h4>
+                                <small>zona independente</small>
+                              </div>
+                              <div className="home-admin-form-grid">
+                                <label className="home-admin-field">
+                                  <span>Estado dos destaques</span>
+                                  <select data-home-below-select name="below_headline_mode" defaultValue={belowHeadlineMode}>
+                                    <option value="highlights">Ativos</option>
+                                    <option value="roundup">Inativos</option>
+                                  </select>
+                                </label>
+                                <TextField label="Titulo da zona" name="below_headline_heading" value={editorial.below_headline_heading} />
+                                <TextField
+                                  label="Cor do titulo da zona"
+                                  name="below_headline_heading_color"
+                                  value={editorial.below_headline_heading_color}
+                                  placeholder="#10151b"
+                                />
+                              </div>
+                            </section>
                             <div className="home-admin-highlights-form" role="group" aria-label="Editar Destaques abaixo da manchete">
                               {highlights.length === 0 ? (
                                 <p className="home-admin-muted-card home-admin-empty">
@@ -2637,27 +2624,72 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                                 </p>
                               ) : null}
                             </div>
+                            <div className="home-admin-save-row">
+                              <p>Guarda apenas o estado e o cabecalho da zona. Cada destaque continua a ter o seu proprio botao.</p>
+                              <button name="save_context" type="submit" value="highlights">Guardar zona de destaques</button>
+                            </div>
                           </section>
-                          <section
-                            className="home-admin-form-section home-admin-mode-section"
-                            data-home-below-section="roundup"
-                            id="home-roundup"
-                            hidden={belowHeadlineMode !== "roundup"}
-                          >
-                            <div className="home-admin-subzone-heading">
-                              <h4>Videos / Resumo / Roundup</h4>
-                              <small>site_editorial_roundup_items</small>
+
+                          <section className="home-admin-composition-card" id="home-roundup">
+                            <div className="home-admin-zone-kicker">
+                              <h3>Resumo de video</h3>
+                              <small>site_editorials.roundup_* + site_editorial_roundup_items</small>
                             </div>
+                            <p>Controla de forma independente a lista de resumos, o video selecionado e o respetivo cabecalho.</p>
                             <FeedbackMessage message={scopedMessage(params, "roundup")} />
-                            <div className="home-admin-form-grid">
-                              <TextField label="Titulo roundup/video" name="roundup_video_heading" value={editorial.roundup_video_heading} />
-                              <TextField
-                                label="Cor titulo roundup/video"
-                                name="roundup_video_heading_color"
-                                value={editorial.roundup_video_heading_color}
-                                placeholder="#10151b"
-                              />
-                            </div>
+                            <section className="home-admin-form-section">
+                              <div className="home-admin-subzone-heading">
+                                <h4>Publicacao, cabecalho e selecao inicial</h4>
+                                <small>zona independente</small>
+                              </div>
+                              <div className="home-admin-form-grid">
+                                <label className="home-admin-field">
+                                  <span>Estado do resumo de video</span>
+                                  <select data-home-roundup-select name="complementary_mode" defaultValue={complementaryMode}>
+                                    <option value="roundup_video">Ativo</option>
+                                    <option value="complementary_story">Inativo</option>
+                                  </select>
+                                </label>
+                                <TextField label="Titulo da zona" name="roundup_video_heading" value={editorial.roundup_video_heading} />
+                                <TextField
+                                  label="Cor do titulo da zona"
+                                  name="roundup_video_heading_color"
+                                  value={editorial.roundup_video_heading_color}
+                                  placeholder="#10151b"
+                                />
+                                <label className="home-admin-field is-wide">
+                                  <span>Item de resumo inicial</span>
+                                  <select name="complementary_roundup_item_id" defaultValue={editorial.complementary_roundup_item_id ?? ""}>
+                                    <option value="">Usar primeiro item publicado</option>
+                                    {roundupItems.map((item) => (
+                                      <option key={item.id} value={item.id}>
+                                        {item.sort_order ?? "-"} - {textValue(item.title, item.label, "Item sem titulo")}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
+                              <ul className="home-admin-list is-compact">
+                                {visibleRoundupItems.slice(0, 3).map((item) => (
+                                  <li key={item.id}>
+                                    <div className="home-admin-row-media">
+                                      <MediaPreview label={textValue(item.title, "Roundup")} src={item.image_url} />
+                                    </div>
+                                    <div className="home-admin-compact-meta">
+                                      <span className="home-admin-meta">{item.sort_order ?? "-"} | {textValue(item.type, "sem tipo")}</span>
+                                      <StatusPill status={item.status} />
+                                    </div>
+                                    <strong>{textValue(item.title, "Item sem conteudo")}</strong>
+                                  </li>
+                                ))}
+                                {visibleRoundupItems.length === 0 ? (
+                                  <li className="home-admin-empty-group">
+                                    <strong>Sem itens de resumo com conteudo visivel.</strong>
+                                    <small>Publica pelo menos um item para preencher esta zona na Home.</small>
+                                  </li>
+                                ) : null}
+                              </ul>
+                            </section>
                             <div className="home-admin-highlights-form" role="group" aria-label="Editar Videos / Resumo / Roundup">
                               {roundupEditorRows.length === 0 ? (
                                 <p className="home-admin-muted-card home-admin-empty">
@@ -2788,6 +2820,10 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                                 </p>
                               ) : null}
                             </div>
+                            <div className="home-admin-save-row">
+                              <p>Guarda apenas o estado, o cabecalho e a selecao inicial. Cada item continua a ter o seu proprio botao.</p>
+                              <button name="save_context" type="submit" value="roundup">Guardar zona de resumo</button>
+                            </div>
                           </section>
                           <EditorialHorizontalNewsEditor
                             id="home-horizontal-news"
@@ -2815,34 +2851,12 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
 
                         <div className="home-admin-composition-side-stack">
                           <section className="home-admin-composition-card" id="home-complement">
-                            <h3>Bloco complementar</h3>
-                            <p>Escolhe o conteudo do espaco editorial da direita.</p>
+                            <h3>Complemento</h3>
+                            <p>Controla apenas o conteudo editorial apresentado ao lado do resumo de video.</p>
                             <FeedbackMessage message={scopedMessage(params, "complement")} />
-                          <section className="home-admin-form-section">
+                            <section className="home-admin-form-section home-admin-mode-section">
                               <div className="home-admin-subzone-heading">
-                                <h4>Modo do complemento</h4>
-                                <small>site_editorials.complementary_mode</small>
-                              </div>
-                              <div className="home-admin-form-grid">
-                                <label className="home-admin-field is-wide">
-                                  <span>Tipo de bloco complementar</span>
-                                  <select data-home-complement-select name="complementary_mode" defaultValue={complementaryMode}>
-                                    <option value="complementary_story">Complemento da manchete</option>
-                                    <option value="roundup_video">Video do Resumo da Home</option>
-                                  </select>
-                                </label>
-                              </div>
-                              <p className="home-admin-muted-card home-admin-empty">
-                                Este modo acompanha a escolha da coluna esquerda: Destaques usam Complemento; Videos/Resumo/Roundup usam Video do Resumo.
-                              </p>
-                            </section>
-                            <section
-                              className="home-admin-form-section home-admin-mode-section"
-                              data-home-complement-section="complementary_story"
-                              hidden={complementaryMode !== "complementary_story"}
-                            >
-                              <div className="home-admin-subzone-heading">
-                                <h4>Complemento da manchete</h4>
+                                <h4>Publicacao e conteudo</h4>
                                 <small>site_editorials.complementary_*</small>
                               </div>
                               <div className="home-admin-muted-card home-admin-empty">
@@ -2871,60 +2885,23 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                                 </p>
                               </div>
                               <div className="home-admin-form-grid">
-                                <TextField label="Etiqueta" name="complementary_label" value={editorial.complementary_label} />
-                                <TextField label="Titulo" name="complementary_title" value={editorial.complementary_title} wide />
+                                <label className="home-admin-field">
+                                  <span>Estado do complemento</span>
+                                  <select name="complementary_status" defaultValue={editorial.complementary_status === "published" ? "published" : "draft"}>
+                                    <option value="published">Ativo</option>
+                                    <option value="draft">Inativo</option>
+                                  </select>
+                                </label>
+                                <TextField label="Titulo da zona" name="complementary_label" value={editorial.complementary_label} />
+                                <TextField label="Titulo do conteudo" name="complementary_title" value={editorial.complementary_title} wide />
                                 <TextAreaField label="Texto" name="complementary_text" value={editorial.complementary_text} />
                                 <TextField label="Imagem" name="complementary_image_url" value={editorial.complementary_image_url} wide />
                                 <TextField label="Link" name="complementary_link_url" value={editorial.complementary_link_url} wide />
-                                <StatusField label="Estado" name="complementary_status" value={editorial.complementary_status} />
                               </div>
-                            </section>
-                            <section
-                              className="home-admin-form-section home-admin-mode-section"
-                              data-home-complement-section="roundup_video"
-                              hidden={complementaryMode !== "roundup_video"}
-                            >
-                              <div className="home-admin-subzone-heading">
-                                <h4>Video do Resumo da Home</h4>
-                                <small>roundup selecionado</small>
-                              </div>
-                              <div className="home-admin-form-grid">
-                                <label className="home-admin-field is-wide">
-                                  <span>Item de resumo inicial</span>
-                                  <select name="complementary_roundup_item_id" defaultValue={editorial.complementary_roundup_item_id ?? ""}>
-                                    <option value="">Usar primeiro item publicado</option>
-                                    {roundupItems.map((item) => (
-                                      <option key={item.id} value={item.id}>
-                                        {item.sort_order ?? "-"} - {textValue(item.title, item.label, "Item sem titulo")}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                              </div>
-                              <ul className="home-admin-list is-compact">
-                                {visibleRoundupItems.slice(0, 3).map((item) => (
-                                  <li key={item.id}>
-                                    <div className="home-admin-row-media">
-                                      <MediaPreview label={textValue(item.title, "Roundup")} src={item.image_url} />
-                                    </div>
-                                    <div className="home-admin-compact-meta">
-                                      <span className="home-admin-meta">{item.sort_order ?? "-"} | {textValue(item.type, "sem tipo")}</span>
-                                      <StatusPill status={item.status} />
-                                    </div>
-                                    <strong>{textValue(item.title, "Item sem conteudo")}</strong>
-                                  </li>
-                                ))}
-                                {visibleRoundupItems.length === 0 ? (
-                                  <li className="home-admin-empty-group">
-                                    <strong>Sem itens de resumo com conteudo visivel.</strong>
-                                    <small>A relacao usa apenas complementary_mode e complementary_roundup_item_id. Nao ha schema novo.</small>
-                                  </li>
-                                ) : null}
-                              </ul>
                             </section>
                             <div className="home-admin-save-row">
-                              <p>Guarda a tabela-mae site_editorials. Nao edita roundup_items.</p>
-                              <button name="save_context" type="submit" value="complement">Guardar bloco complementar</button>
+                              <p>Guarda apenas o estado e o conteudo desta zona independente.</p>
+                              <button name="save_context" type="submit" value="complement">Guardar zona de complemento</button>
                             </div>
                           </section>
 
@@ -3130,18 +3107,11 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                 dangerouslySetInnerHTML={{
                   __html: `
                     (function () {
-                      var belowSelect = document.querySelector('[data-home-below-select]');
-                      var complementSelect = document.querySelector('[data-home-complement-select]');
-                      var belowSections = Array.prototype.slice.call(document.querySelectorAll('[data-home-below-section]'));
-                      var complementSections = Array.prototype.slice.call(document.querySelectorAll('[data-home-complement-section]'));
                       var headlineArticleSelect = document.querySelector('[data-home-headline-article-select]');
                       var sideArticleSelect = document.querySelector('[data-home-side-article-select]');
                       var complementArticleSelect = document.querySelector('[data-home-complement-article-select]');
                       var highlightArticleSelects = Array.prototype.slice.call(document.querySelectorAll('[data-home-highlight-article-select]'));
                       var finalArticleSelects = Array.prototype.slice.call(document.querySelectorAll('[data-home-final-article-select]'));
-                      function expectedComplementMode() {
-                        return belowSelect && belowSelect.value === 'roundup' ? 'roundup_video' : 'complementary_story';
-                      }
                       function setFieldValue(field, value) {
                         if (!field) return;
                         field.value = value || '';
@@ -3241,25 +3211,6 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                         setHomeFinalField(card, 'link_url', option.dataset.homeFinalLinkUrl);
                         finishPublishedSource(select);
                       }
-                      function syncBelowSections() {
-                        var mode = belowSelect ? belowSelect.value : 'highlights';
-                        belowSections.forEach(function (section) {
-                          section.hidden = section.getAttribute('data-home-below-section') !== mode;
-                        });
-                      }
-                      function syncComplementSections() {
-                        var mode = expectedComplementMode();
-                        if (complementSelect) complementSelect.value = mode;
-                        complementSections.forEach(function (section) {
-                          section.hidden = section.getAttribute('data-home-complement-section') !== mode;
-                        });
-                      }
-                      function syncComposition() {
-                        syncBelowSections();
-                        syncComplementSections();
-                      }
-                      if (belowSelect) belowSelect.addEventListener('change', syncComposition);
-                      if (complementSelect) complementSelect.addEventListener('change', syncComplementSections);
                       if (headlineArticleSelect) headlineArticleSelect.addEventListener('change', applyHomeHeadlineArticle);
                       if (sideArticleSelect) sideArticleSelect.addEventListener('change', applyHomeSideArticle);
                       if (complementArticleSelect) complementArticleSelect.addEventListener('change', applyHomeComplementArticle);
@@ -3273,7 +3224,6 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
                           applyHomeFinalArticle(select);
                         });
                       });
-                      syncComposition();
                     })();
                   `
                 }}

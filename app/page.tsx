@@ -486,8 +486,8 @@ export default async function HomePage() {
   const headlineTitleColor = headlineIsPublished ? cleanText(editorial.headline_title_color) : null;
   const headlineInlineMedia = await readHomeHeadlineInlineMedia(headlineLinkUrl, headlineImageUrl);
   const belowHeadlineMode = editorial?.below_headline_mode === "roundup" ? "roundup" : "highlights";
-  const belowHeadlineHeading =
-    cleanText(editorial?.below_headline_heading) || (belowHeadlineMode === "roundup" ? "Resumo da Jornada" : "Destaques");
+  const highlightsAreActive = belowHeadlineMode === "highlights";
+  const belowHeadlineHeading = cleanText(editorial?.below_headline_heading) ?? "";
   const belowHeadlineHeadingColor = cleanText(editorial?.below_headline_heading_color);
   const hasPublishedSideBlock =
     editorial?.side_block_status === "published" &&
@@ -501,6 +501,7 @@ export default async function HomePage() {
   const sideBlockLinkUrl = cleanText(editorial?.side_block_link_url);
   const sideBlockTitleColor = cleanText(editorial?.side_block_title_color);
   const complementaryMode = editorial?.complementary_mode ?? "none";
+  const roundupIsActive = complementaryMode === "roundup_video";
   const complementaryLabel = cleanText(editorial?.complementary_label);
   const complementaryTitle = cleanText(editorial?.complementary_title);
   const complementaryText = cleanText(editorial?.complementary_text);
@@ -516,9 +517,9 @@ export default async function HomePage() {
     : null;
   const validHighlights = highlights.filter((item) => Boolean(cleanText(item.title) || cleanText(item.image_url) || cleanText(item.link_url)));
   const validRoundupItems = roundupItems.filter((item) => Boolean(cleanText(item.title) || cleanText(item.image_url) || cleanText(item.video_url)));
-  const visibleHighlights = belowHeadlineMode === "highlights" ? (validHighlights.length > 0 ? validHighlights : fallbackHighlights) : [];
-  const visibleRoundupItems = belowHeadlineMode === "roundup" || complementaryMode === "roundup_video" ? validRoundupItems : [];
-  const hasRoundupVideoBlock = (belowHeadlineMode === "roundup" || complementaryMode === "roundup_video") && visibleRoundupItems.length > 0;
+  const visibleHighlights = highlightsAreActive ? (validHighlights.length > 0 ? validHighlights : fallbackHighlights) : [];
+  const visibleRoundupItems = roundupIsActive ? validRoundupItems : [];
+  const hasRoundupVideoBlock = roundupIsActive && visibleRoundupItems.length > 0;
   const publicHighlights: PublicEditorialHighlight[] = visibleHighlights.slice(0, 3).map((item) => ({
     id: item.id,
     label: cleanText(item.label),
@@ -577,63 +578,69 @@ export default async function HomePage() {
       <div aria-hidden="true" className="public-home-games-transition-bar" />
       </div>
 
-      <PublicMatchStrip
-        carouselLayout="fluid-peek"
-        matches={featuredMatches}
-        variant="clean"
-      />
+      <div className="public-home-match-strip-static">
+        <PublicMatchStrip
+          carouselLayout="fluid-peek"
+          matches={featuredMatches.slice(0, 8)}
+          variant="clean"
+        />
+      </div>
 
-      <PublicEditorialLayout
-        ariaLabel="Capa da jornada"
-        sideBlock={{
-          isPublished: hasPublishedSideBlock,
-          label: sideBlockLabel,
-          labelColor: sideBlockLabelColor,
-          title: sideBlockTitle,
-          titleColor: sideBlockTitleColor,
-          author: sideBlockAuthor,
-          text: sideBlockText,
-          imageUrl: sideBlockImageUrl,
-          linkUrl: sideBlockLinkUrl,
-          placeholder: "Espaco editorial por definir"
-        }}
-        headline={{
-          title: headlineTitle,
-          subtitle: headlineSubtitle,
-          imageUrl: headlineImageUrl,
-          linkUrl: headlineLinkUrl,
-          inlineMedia: headlineInlineMedia,
-          titleColor: headlineTitleColor,
-          fallbackTitle: "Jornada.pt",
-          fallbackSubtitle: "A capa editorial do futebol, pronta para acompanhar os grandes temas antes, durante e depois dos jogos."
-        }}
-        belowHeadline={{
-          mode: belowHeadlineMode,
-          label: belowHeadlineHeading,
-          labelColor: belowHeadlineHeadingColor,
-          highlights: publicHighlights,
-          roundupItems: publicRoundupItems,
-          showRoundupVideo: hasRoundupVideoBlock,
-          roundupHeading: editorial?.roundup_video_heading ?? null,
-          roundupHeadingColor: editorial?.roundup_video_heading_color ?? null,
-          initialRoundupItemId: editorial?.complementary_roundup_item_id ?? null,
-          complementary: {
-            isPublished: Boolean(hasComplementaryStory && editorial),
-            label: complementaryLabel,
-            title: complementaryTitle,
-            text: complementaryText,
-            imageUrl: complementaryImageUrl,
-            linkUrl: complementaryLinkUrl,
-            inlineMedia: complementaryInlineMedia,
-            fallbackTitle: "Leitura editorial",
-            fallbackText: "O complemento da capa fica reservado para a proxima historia publicada."
-          }
-        }}
-        latestNews={publicLatestNews}
-        latestNewsTitle={finalZoneTitle ?? ""}
-      />
+      <div className="public-home-editorial-region">
+        <PublicEditorialLayout
+          ariaLabel="Capa da jornada"
+          sideBlock={{
+            isPublished: hasPublishedSideBlock,
+            label: sideBlockLabel,
+            labelColor: sideBlockLabelColor,
+            title: sideBlockTitle,
+            titleColor: sideBlockTitleColor,
+            author: sideBlockAuthor,
+            text: sideBlockText,
+            imageUrl: sideBlockImageUrl,
+            linkUrl: sideBlockLinkUrl,
+            placeholder: "Espaco editorial por definir"
+          }}
+          headline={{
+            title: headlineTitle,
+            subtitle: headlineSubtitle,
+            imageUrl: headlineImageUrl,
+            linkUrl: headlineLinkUrl,
+            inlineMedia: headlineInlineMedia,
+            titleColor: headlineTitleColor,
+            fallbackTitle: "Jornada.pt",
+            fallbackSubtitle: "A capa editorial do futebol, pronta para acompanhar os grandes temas antes, durante e depois dos jogos.",
+            titleTag: "h1"
+          }}
+          belowHeadline={{
+            highlightHeading: belowHeadlineHeading,
+            highlightHeadingColor: belowHeadlineHeadingColor,
+            highlights: publicHighlights,
+            roundupItems: publicRoundupItems,
+            showRoundupVideo: hasRoundupVideoBlock,
+            roundupHeading: editorial?.roundup_video_heading ?? null,
+            roundupHeadingColor: editorial?.roundup_video_heading_color ?? null,
+            initialRoundupItemId: editorial?.complementary_roundup_item_id ?? null,
+            complementary: {
+              isPublished: Boolean(hasComplementaryStory && editorial),
+              label: complementaryLabel,
+              title: complementaryTitle,
+              text: complementaryText,
+              imageUrl: complementaryImageUrl,
+              linkUrl: complementaryLinkUrl,
+              inlineMedia: complementaryInlineMedia,
+            }
+          }}
+          latestNews={publicLatestNews}
+          latestNewsTitle={finalZoneTitle ?? ""}
+        />
 
-      <PublicHorizontalNewsStrip items={publicHorizontalNews} ariaLabel="Faixa horizontal de noticias da Home" />
+        <PublicHorizontalNewsStrip
+          items={publicHorizontalNews}
+          ariaLabel="Temas a acompanhar"
+          title="A acompanhar"
+        />
+      </div>
     </main>
   );
 }

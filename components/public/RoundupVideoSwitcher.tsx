@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -29,26 +29,23 @@ const roundupVideoListPolishStyles = `
   }
 
   .public-roundup-video-layout .public-roundup-zone-heading {
-    position: absolute;
-    top: calc(var(--public-roundup-video-top-offset, 28px) + 10px);
-    left: 0;
-    display: grid;
-    gap: 2px;
-    color: #0b1f3a;
-    font-size: 11px;
+    margin: 0;
+    padding: 0;
+    color: #10151b;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
     font-weight: 900;
-    line-height: 1.05;
-    letter-spacing: 0.02em;
+    line-height: 1;
+    letter-spacing: normal;
     text-transform: uppercase;
-    pointer-events: none;
   }
 
-  .public-roundup-video-layout .public-roundup-zone-heading span + span {
-    opacity: 0.72;
+  .public-roundup-video-layout .public-matchday-roundup {
+    gap: 12px;
   }
 
   .public-roundup-video-layout .public-roundup-video-panel {
-    padding-top: calc(var(--public-roundup-video-top-offset, 28px) + 3px);
+    padding-top: 26px;
   }
 
   .public-roundup-video-layout .public-matchday-roundup,
@@ -79,15 +76,9 @@ const roundupVideoListPolishStyles = `
     overflow-y: visible;
   }
 
-  .public-roundup-video-layout .public-roundup-inline-head-spacer {
-    visibility: hidden;
-    min-height: 22px;
-    pointer-events: none;
-  }
-
   .public-roundup-video-layout .public-roundup-scroll-window {
-    margin-left: -38px;
-    padding-left: 38px;
+    margin-left: 0;
+    padding-left: 34px;
     overflow-x: visible !important;
   }
 
@@ -209,33 +200,6 @@ const roundupVideoListPolishStyles = `
   }
 `;
 
-function splitHeadingLines(value?: string | null) {
-  const cleaned = value?.trim();
-
-  if (!cleaned) {
-    return [];
-  }
-
-  const parts = cleaned
-    .split(/\r?\n|·|Â·|&middot;|\s+-\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.length === 1) {
-    const jornadaMatch = parts[0].match(/^(jornada\s+\d{1,2})(?:\s+)(.+)$/i);
-
-    if (jornadaMatch) {
-      return [jornadaMatch[1], jornadaMatch[2]];
-    }
-  }
-
-  if (parts.length <= 2) {
-    return parts;
-  }
-
-  return [parts[0], parts.slice(1).join(" ")];
-}
-
 function youtubeVideoId(value?: string | null) {
   if (!value) {
     return null;
@@ -336,9 +300,8 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
     canScrollDown: hasScrollControls,
     canScrollUp: false
   });
-  const headingLines = splitHeadingLines(heading);
+  const headingText = heading?.trim() ?? "";
   const headingStyle = headingColor?.trim() ? { color: headingColor.trim() } : undefined;
-  const headingSpacerText = headingLines.length > 0 ? headingLines.join(" ") : "Jornada 00 Jogos Video Resumo";
   const compactListClass = items.length > 0 && items.length < 5 ? " public-roundup-compact-list" : "";
 
   const updateScrollState = useCallback(() => {
@@ -403,20 +366,15 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
   return (
     <div className="public-roundup-video-layout">
       <style>{roundupVideoListPolishStyles}</style>
-      {headingLines.length > 0 ? (
-        <div className="public-roundup-zone-heading" style={headingStyle}>
-          {headingLines.map((line, index) => (
-            <span key={`${line}-${index}`}>{line}</span>
-          ))}
-        </div>
-      ) : null}
       <section
         className={`public-matchday-roundup public-below-headline-roundup public-editorial-flex-block${hasScrollControls ? " public-roundup-has-scroll" : ""}${compactListClass}`}
         data-editorial-slot="resumo-ou-noticias"
       >
-        <div aria-hidden="true" className="public-editorial-block-head public-roundup-inline-head-spacer">
-          <span className="public-roundup-matchday-label">{headingSpacerText}</span>
-        </div>
+        {headingText ? (
+          <h3 className="public-roundup-zone-heading" style={headingStyle}>
+            {headingText}
+          </h3>
+        ) : null}
         <div className="public-roundup-scroll-frame">
           {hasScrollControls && scrollState.canScrollUp ? (
             <button className="public-roundup-scroll-button public-roundup-scroll-button-top" onClick={() => scrollRoundupList(-1)} type="button" aria-label="Ver itens anteriores">
@@ -450,18 +408,13 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
                         {itemLabel ? <span>{itemLabel}</span> : <span aria-hidden="true" />}
                         {itemDuration ? <span className="public-roundup-duration">{itemDuration}</span> : null}
                       </span>
-                      <strong>{item.title ?? "Video da jornada"}</strong>
+                      {item.title ? <strong>{item.title}</strong> : null}
                       {item.subtitle ? <small>{item.subtitle}</small> : null}
                     </button>
                   </article>
                 );
               })
-            ) : (
-              <div className="public-complement-body">
-                <strong>Resumo da Jornada por definir</strong>
-                <p>Prepara itens publicados no backoffice editorial desta jornada.</p>
-              </div>
-            )}
+            ) : null}
           </div>
           {hasScrollControls && scrollState.canScrollDown ? (
             <button className="public-roundup-scroll-button public-roundup-scroll-button-bottom" onClick={() => scrollRoundupList(1)} type="button" aria-label="Ver itens seguintes">
@@ -510,18 +463,11 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
                 {activeItem.label ? <span className="public-complement-label">{activeItem.label}</span> : <span aria-hidden="true" />}
                 {activeItem.duration ? <span>{activeItem.duration}</span> : null}
               </span>
-              <strong>{activeItem.title ?? "Video da jornada"}</strong>
+              {activeItem.title ? <strong>{activeItem.title}</strong> : null}
               {activeItem.subtitle ? <p>{activeItem.subtitle}</p> : null}
             </div>
           </div>
-        ) : (
-          <div className="public-roundup-video-block">
-            <div className="public-complement-body">
-              <strong>Video por definir</strong>
-              <p>Publica itens no Resumo da Jornada para ativar este leitor.</p>
-            </div>
-          </div>
-        )}
+        ) : null}
       </aside>
     </div>
   );
