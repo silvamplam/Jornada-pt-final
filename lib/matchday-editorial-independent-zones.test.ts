@@ -26,8 +26,56 @@ function functionSource(name: string, nextName: string) {
   return apiRouteSource.slice(start, end);
 }
 
-test("backoffice apresenta Destaques, Resumo de video e Complemento como zonas independentes", () => {
-  assert.match(adminPageSource, /Destaques, Resumo de video e Complemento funcionam como zonas publicas independentes/);
+test("backoffice organiza as sete zonas pela ordem publica e mantem a edicao independente", () => {
+  const zoneMarkers = [
+    'id="manchete"',
+    'id="ultimas-noticias"',
+    'id="contexto"',
+    'id="tres-noticias"',
+    'id="video"',
+    'id="noticia-ao-lado-video"',
+    'id="faixa-noticias"'
+  ];
+  const zoneIndexes = zoneMarkers.map((marker) => adminPageSource.indexOf(marker));
+
+  zoneIndexes.forEach((index, position) => {
+    assert.notEqual(index, -1, `zona ${position + 1} deve existir`);
+  });
+  assert.deepEqual([...zoneIndexes].sort((first, second) => first - second), zoneIndexes);
+
+  assert.match(adminPageSource, /href="#manchete">01 Manchete<\/a>/);
+  assert.match(adminPageSource, /href="#ultimas-noticias">02 Últimas<\/a>/);
+  assert.match(adminPageSource, /href="#contexto">03 Contexto<\/a>/);
+  assert.match(adminPageSource, /href="#tres-noticias">04 3 notícias<\/a>/);
+  assert.match(adminPageSource, /href="#video">05 Vídeo<\/a>/);
+  assert.match(adminPageSource, /href="#noticia-ao-lado-video">06 Ao lado do vídeo<\/a>/);
+  assert.match(adminPageSource, /href="#faixa-noticias">07 Faixa de notícias<\/a>/);
+
+  assert.match(
+    adminPageSource,
+    /\.editorial-admin-block-nav \{[\s\S]*?position:\s*sticky;[\s\S]*?top:\s*8px;/
+  );
+  assert.match(adminPageSource, /submitter\.textContent = "A guardar\.\.\.";/);
+  assert.match(
+    adminPageSource,
+    /data-highlight-card=\{order\}[\s\S]*?open=\{feedbackScope === "destaques" && feedbackItem === itemKey\}/
+  );
+  assert.match(
+    adminPageSource,
+    /open=\{feedbackScope === "resumo-jornada" && feedbackItem === itemKey\}/
+  );
+  assert.match(
+    adminPageSource,
+    /open=\{feedbackScope === "ultimas-noticias" && feedbackItem === itemKey\}/
+  );
+  assert.match(adminPageSource, /id="faixa-noticias-editor"[\s\S]*?openOrder=\{horizontalNewsOpenOrder\}/);
+
+  assert.doesNotMatch(adminPageSource, /Manchete viva da jornada/);
+  assert.doesNotMatch(adminPageSource, /Bloco lateral \/ fonte viva/);
+  assert.doesNotMatch(adminPageSource, /Zonas editoriais abaixo da manchete/);
+  assert.doesNotMatch(adminPageSource, /Destaques da manchete/);
+  assert.doesNotMatch(adminPageSource, /Zona editorial final/);
+
   assert.match(adminPageSource, /name="below_headline_mode"[\s\S]*?<option value="highlights">Ativos<\/option>[\s\S]*?<option value="roundup">Inativos<\/option>/);
   assert.match(adminPageSource, /name="complementary_mode"[\s\S]*?<option value="roundup_video">Ativo<\/option>[\s\S]*?<option value="none">Inativo<\/option>/);
   assert.match(adminPageSource, /name="complementary_status"[\s\S]*?<option value="published">Ativo<\/option>[\s\S]*?<option value="draft">Inativo<\/option>/);
