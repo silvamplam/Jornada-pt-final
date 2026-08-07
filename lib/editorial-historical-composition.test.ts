@@ -15,7 +15,7 @@ const articleRouteSource = source("app/api/admin/editorial/artigos/route.ts");
 const newsroomArticleDeleteSqlSource = source("supabase/steps/81-editorial-artigos-eliminacao-desvincular-redacao-automatica-apply.sql");
 
 test("o banco histórico apresenta um fluxo único, filtrável e sem origem editorial visível", () => {
-  assert.match(compositionPageSource, /Banco histórico da jornada/);
+  assert.match(compositionPageSource, /Banco da Jornada/);
   assert.match(compositionPageSource, /Sincronizar notícias em falta/);
   assert.match(compositionPageSource, /Todas[\s\S]*Disponíveis[\s\S]*Em uso[\s\S]*Arquivadas/);
   assert.match(compositionPageSource, /Adicionar à zona…/);
@@ -32,11 +32,11 @@ test("os itens do banco sem imagem não reservam a coluna da miniatura", () => {
 });
 
 test("a composição histórica permite mover, ordenar, retirar e publicar com confirmação", () => {
-  assert.match(compositionPageSource, /Composição histórica da jornada/);
+  assert.match(compositionPageSource, /Composição da Jornada/);
   assert.match(compositionPageSource, /MoveCompositionItemForm/);
   assert.match(compositionPageSource, /ReorderCompositionItemForm/);
   assert.match(compositionPageSource, /Retirar devolve a notícia ao estado Disponível no banco/);
-  assert.match(compositionPageSource, /Publicar composição histórica/);
+  assert.match(compositionPageSource, /Publicar composição/);
   assert.match(compositionPageSource, /name="confirm_publish" value="yes" required/);
 });
 
@@ -91,4 +91,30 @@ test("eliminar um artigo sem vínculos públicos limpa dependências internas se
   assert.match(newsroomArticleDeleteSqlSource, /not exists[\s\S]*public\.editorial_articles/i);
   assert.match(newsroomArticleDeleteSqlSource, /editorial_generation_immutable/);
   assert.doesNotMatch(newsroomArticleDeleteSqlSource, /delete from public\.matchday_reference_composition_items/i);
+});
+
+
+test("a composição usa as sete zonas editoriais pela mesma ordem da página pública", () => {
+  assert.match(
+    compositionPageSource,
+    /const referenceCompositionSections = \[[\s\S]*?headline[\s\S]*?Manchete[\s\S]*?editorial_line_item[\s\S]*?Últimas[\s\S]*?side_block[\s\S]*?Contexto[\s\S]*?highlight[\s\S]*?3 notícias abaixo da manchete[\s\S]*?roundup[\s\S]*?Vídeo[\s\S]*?complement[\s\S]*?Notícia ao lado do vídeo[\s\S]*?important_item[\s\S]*?Faixa de notícias/
+  );
+  assert.match(compositionPageSource, /href="#manchete">01 Manchete<\/a>/);
+  assert.match(compositionPageSource, /href="#ultimas-noticias">02 Últimas<\/a>/);
+  assert.match(compositionPageSource, /href="#contexto">03 Contexto<\/a>/);
+  assert.match(compositionPageSource, /href="#tres-noticias">04 3 notícias<\/a>/);
+  assert.match(compositionPageSource, /href="#video">05 Vídeo<\/a>/);
+  assert.match(compositionPageSource, /href="#noticia-ao-lado-video">06 Ao lado do vídeo<\/a>/);
+  assert.match(compositionPageSource, /href="#faixa-noticias">07 Faixa de notícias<\/a>/);
+  assert.match(compositionPageSource, /\.composition-admin-zone-nav\s*\{[\s\S]*?position:\s*sticky;/);
+  assert.match(compositionPageSource, /Abrir editorial/);
+});
+
+test("a composição mantém a posição e apresenta o resultado da gravação no local", () => {
+  assert.match(compositionPageSource, /name="return_anchor"/);
+  assert.match(compositionPageSource, /feedbackAnchor === sectionAnchor/);
+  assert.match(compositionPageSource, /submitter\.textContent = "A guardar\.\.\.";/);
+  assert.match(compositionRouteSource, /function compositionReturnTarget/);
+  assert.match(compositionRouteSource, /feedback_anchor=/);
+  assert.match(compositionRouteSource, /compositionReturnTarget\(returnTo, "composition_saved=1", returnAnchor\)/);
 });

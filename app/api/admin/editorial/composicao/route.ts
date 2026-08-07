@@ -32,6 +32,18 @@ function redirectTo(request: Request, path: string) {
   return NextResponse.redirect(new URL(path, request.url), { status: 303 });
 }
 
+function compositionReturnTarget(returnTo: string, resultParam: string, returnAnchor?: string | null) {
+  const fragmentIndex = returnTo.indexOf("#");
+  const base = fragmentIndex >= 0 ? returnTo.slice(0, fragmentIndex) : returnTo;
+  const existingAnchor = fragmentIndex >= 0 ? returnTo.slice(fragmentIndex + 1) : "";
+  const anchor = returnAnchor?.trim() || existingAnchor.trim();
+  const separator = base.includes("?") ? "&" : "?";
+  const feedback = anchor ? `&feedback_anchor=${encodeURIComponent(anchor)}` : "";
+  const fragment = anchor ? `#${encodeURIComponent(anchor)}` : "";
+
+  return `${base}${separator}${resultParam}${feedback}${fragment}`;
+}
+
 type DraftComposition = {
   id: string;
   matchday_id: string;
@@ -1503,6 +1515,7 @@ export async function POST(request: Request) {
   const actionType = cleanText(formData.get("action_type"));
   const matchdayId = cleanText(formData.get("matchday_id"));
   const returnTo = cleanText(formData.get("return_to")) ?? "/admin/gestor";
+  const returnAnchor = cleanText(formData.get("return_anchor"));
 
   try {
     if (!matchdayId) throw new Error("missing-matchday");
@@ -1553,8 +1566,8 @@ export async function POST(request: Request) {
     }
 
     const errorValue = error instanceof CompositionPublicationError ? encodeURIComponent(error.message) : "1";
-    return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}composition_error=${errorValue}`);
+    return redirectTo(request, compositionReturnTarget(returnTo, `composition_error=${errorValue}`, returnAnchor));
   }
 
-  return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}composition_saved=1`);
+  return redirectTo(request, compositionReturnTarget(returnTo, "composition_saved=1", returnAnchor));
 }

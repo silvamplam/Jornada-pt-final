@@ -34,6 +34,7 @@ type CompositionPageProps = {
     bank_unassigned?: string;
     composition_error?: string;
     composition_saved?: string;
+    feedback_anchor?: string;
   }>;
 };
 
@@ -128,15 +129,34 @@ type MatchdayHighlightWithLink = SupabaseMatchdayHighlight & {
 
 const referenceCompositionSections = [
   { slotType: "headline", title: "Manchete" },
-  { slotType: "complement", title: "Complemento da manchete" },
-  { slotType: "side_block", title: "Bloco lateral" },
-  { slotType: "highlight", title: "Destaques abaixo da manchete" },
-  { slotType: "important_item", title: "Faixa horizontal de notícias" },
-  { slotType: "editorial_line_item", title: "Zona editorial final" },
+  { slotType: "editorial_line_item", title: "Últimas" },
+  { slotType: "side_block", title: "Contexto" },
+  { slotType: "highlight", title: "3 notícias abaixo da manchete" },
+  { slotType: "roundup", title: "Vídeo" },
+  { slotType: "complement", title: "Notícia ao lado do vídeo" },
+  { slotType: "important_item", title: "Faixa de notícias" },
   { slotType: "related_article", title: "Artigos relacionados" },
-  { slotType: "roundup", title: "Resumo / Vídeos" },
-  { slotType: "custom_card", title: "Cartão personalizado" }
+  { slotType: "custom_card", title: "Outros conteúdos" }
 ];
+
+const compositionZoneMeta: Record<string, { anchor: string; number: string }> = {
+  headline: { anchor: "manchete", number: "01" },
+  editorial_line_item: { anchor: "ultimas-noticias", number: "02" },
+  side_block: { anchor: "contexto", number: "03" },
+  highlight: { anchor: "tres-noticias", number: "04" },
+  roundup: { anchor: "video", number: "05" },
+  complement: { anchor: "noticia-ao-lado-video", number: "06" },
+  important_item: { anchor: "faixa-noticias", number: "07" }
+};
+
+function compositionZoneAnchor(slotType?: string | null) {
+  return compositionZoneMeta[slotType ?? ""]?.anchor ?? `composition-zone-${slotType || "outros"}`;
+}
+
+function compositionZoneHeading(slotType: string, title: string) {
+  const number = compositionZoneMeta[slotType]?.number;
+  return number ? `${number} · ${title}` : title;
+}
 
 const bankAssignableSlotTypes = new Set(["headline", "complement", "side_block", "highlight", "important_item", "editorial_line_item"]);
 const bankAssignableSlotOptions = referenceCompositionSections.filter((section) => bankAssignableSlotTypes.has(section.slotType));
@@ -482,11 +502,11 @@ function getCompositionPublicationValidation(items: ReferenceCompositionItem[]) 
   }
 
   if (complementCount > 1) {
-    warnings.push("A composição só pode ter um complemento da manchete.");
+    warnings.push("A composição só pode ter uma notícia ao lado do vídeo.");
   }
 
   if (sideBlockCount > 1) {
-    warnings.push("A composição só pode ter um bloco lateral.");
+    warnings.push("A composição só pode ter um Contexto.");
   }
 
   return {
@@ -510,11 +530,11 @@ function getPublishedCompositionProblemMessage(items: ReferenceCompositionItem[]
   }
 
   if (complementCount > 1) {
-    return "Esta composição publicada tem um problema estrutural: a zona Complemento da manchete tem mais de um item. Reabre como rascunho, remove o complemento extra e publica novamente.";
+    return "Esta composição publicada tem um problema estrutural: a zona Notícia ao lado do vídeo tem mais de um item. Reabre como rascunho, remove o item extra e publica novamente.";
   }
 
   if (sideBlockCount > 1) {
-    return "Esta composição publicada tem um problema estrutural: a zona Bloco lateral tem mais de um item. Reabre como rascunho, remove o bloco lateral extra e publica novamente.";
+    return "Esta composição publicada tem um problema estrutural: a zona Contexto tem mais de um item. Reabre como rascunho, remove o item extra e publica novamente.";
   }
 
   return null;
@@ -670,6 +690,72 @@ const compositionPageStyles = `
     color: #607086;
     font-size: 13px;
     line-height: 1.35;
+  }
+
+  .composition-admin-zone-nav {
+    position: sticky;
+    top: 8px;
+    z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+    border: 1px solid #f2c7ca;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.98);
+    padding: 10px;
+    box-shadow: 0 10px 24px rgba(8, 15, 24, 0.12);
+    backdrop-filter: blur(8px);
+  }
+
+  .composition-admin-zone-nav a {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: #e5252a;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.03em;
+    padding: 0 10px;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+
+  .composition-admin-zone-nav a:hover {
+    background: #b91c1c;
+  }
+
+  #composition-status,
+  #manchete,
+  #ultimas-noticias,
+  #contexto,
+  #tres-noticias,
+  #video,
+  #noticia-ao-lado-video,
+  #faixa-noticias {
+    scroll-margin-top: 84px;
+  }
+
+  .composition-admin-feedback {
+    margin: 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1.35;
+  }
+
+  .composition-admin-feedback.success {
+    background: #e8f1ec;
+    color: #1f6d43;
+  }
+
+  .composition-admin-feedback.error {
+    background: #f8e8ea;
+    color: #8a2d35;
   }
 
   .composition-admin-layout {
@@ -864,8 +950,9 @@ const compositionPageStyles = `
     gap: 8px;
     padding: 10px;
     border: 1px solid #e3e9f0;
+    border-left: 4px solid #e5252a;
     border-radius: 6px;
-    background: #f8fafc;
+    background: #ffffff;
   }
 
   .composition-admin-section-heading {
@@ -1570,7 +1657,7 @@ function AssignBankItemForm({
         Adicionar à zona
       </button>
       <p className="composition-admin-note">
-        Manchete, complemento e bloco lateral são zonas únicas. Uma nova escolha substitui a anterior sem apagar a notícia do banco.
+        As zonas de posição única substituem o item anterior sem o apagar do banco.
       </p>
     </form>
   );
@@ -1630,11 +1717,13 @@ function MoveCompositionItemForm({
   composition,
   item,
   matchdayId,
+  returnAnchor,
   returnTo
 }: {
   composition: ReferenceComposition;
   item: ReferenceCompositionItem;
   matchdayId: string;
+  returnAnchor: string;
   returnTo: string;
 }) {
   if (item.slot_type === "roundup") return null;
@@ -1646,6 +1735,7 @@ function MoveCompositionItemForm({
       <HiddenField name="composition_id" value={composition.id} />
       <HiddenField name="item_id" value={item.id} />
       <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value={returnAnchor} />
       <select className="composition-admin-input" name="target_slot_type" defaultValue={item.slot_type} aria-label="Mover para outra zona">
         {bankAssignableSlotOptions.map((option) => (
           <option key={option.slotType} value={option.slotType}>
@@ -1664,6 +1754,7 @@ function ReorderCompositionItemForm({
   item,
   label,
   matchdayId,
+  returnAnchor,
   returnTo
 }: {
   composition: ReferenceComposition;
@@ -1671,6 +1762,7 @@ function ReorderCompositionItemForm({
   item: ReferenceCompositionItem;
   label: string;
   matchdayId: string;
+  returnAnchor: string;
   returnTo: string;
 }) {
   return (
@@ -1681,6 +1773,7 @@ function ReorderCompositionItemForm({
       <HiddenField name="item_id" value={item.id} />
       <HiddenField name="direction" value={direction} />
       <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value={returnAnchor} />
       <button className="composition-admin-small-button secondary" type="submit">{label}</button>
     </form>
   );
@@ -1692,20 +1785,21 @@ function CreateDraftForm({ matchdayId, returnTo }: { matchdayId: string; returnT
       <HiddenField name="action_type" value="create_draft" />
       <HiddenField name="matchday_id" value={matchdayId} />
       <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value="composition-status" />
       <div className="composition-admin-field">
         <label htmlFor="reference-composition-internal-name">Nome interno</label>
         <input
           className="composition-admin-input"
           id="reference-composition-internal-name"
           name="internal_name"
-          placeholder="Rascunho de composição histórica"
+          placeholder="Rascunho da composição"
         />
       </div>
       <button className="composition-admin-small-button" type="submit">
         Criar rascunho
       </button>
       <p className="composition-admin-note">
-        O rascunho é criado apenas na nova estrutura de composição histórica. A página pública continua sem alterações.
+        O rascunho fica disponível para edição antes de publicar.
       </p>
     </form>
   );
@@ -1726,6 +1820,7 @@ function UpdateDraftForm({
       <HiddenField name="matchday_id" value={matchdayId} />
       <HiddenField name="composition_id" value={composition.id} />
       <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value="composition-status" />
       <div className="composition-admin-field">
         <label htmlFor="reference-composition-current-name">Nome interno</label>
         <input
@@ -1766,6 +1861,7 @@ function PublishCompositionForm({
       <HiddenField name="matchday_id" value={matchdayId} />
       <HiddenField name="composition_id" value={composition.id} />
       <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value="composition-status" />
       <div className="composition-admin-publish-summary">
         <strong>Revisão antes de publicar</strong>
         <div className="composition-admin-meta">
@@ -1782,7 +1878,7 @@ function PublishCompositionForm({
         <input type="checkbox" name="confirm_publish" value="yes" required /> Confirmo que revi a manchete, as zonas, a ordem e as notícias ainda disponíveis no banco.
       </label>
       <button className="composition-admin-small-button" type="submit">
-        Publicar composição histórica
+        Publicar composição
       </button>
     </form>
   );
@@ -1803,6 +1899,7 @@ function ReopenCompositionForm({
       <HiddenField name="matchday_id" value={matchdayId} />
       <HiddenField name="composition_id" value={composition.id} />
       <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value="composition-status" />
       <p className="composition-admin-note">
         Esta composição está publicada. Para alterar itens, reabre como rascunho, corrige e publica novamente.
       </p>
@@ -1929,7 +2026,7 @@ function AddImportantItemForm({
       <HiddenField name="label_snapshot" value={label} />
       <HiddenField name="label_color_snapshot" value={labelColor} />
       <button className="composition-admin-small-button secondary" type="submit">
-        Adicionar à Faixa horizontal de notícias
+        Adicionar à Faixa de notícias
       </button>
     </form>
   );
@@ -1939,11 +2036,13 @@ function RemoveItemForm({
   composition,
   item,
   matchdayId,
+  returnAnchor,
   returnTo
 }: {
   composition: ReferenceComposition;
   item: ReferenceCompositionItem;
   matchdayId: string;
+  returnAnchor: string;
   returnTo: string;
 }) {
   return (
@@ -1953,6 +2052,7 @@ function RemoveItemForm({
       <HiddenField name="composition_id" value={composition.id} />
       <HiddenField name="item_id" value={item.id} />
       <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value={returnAnchor} />
       <button className="composition-admin-small-button secondary" type="submit">
         Retirar da zona
       </button>
@@ -1992,6 +2092,7 @@ function CompositionItemActions({
   composition,
   item,
   matchdayId,
+  returnAnchor,
   returnTo
 }: {
   canMoveDown: boolean;
@@ -1999,30 +2100,31 @@ function CompositionItemActions({
   composition: ReferenceComposition;
   item: ReferenceCompositionItem;
   matchdayId: string;
+  returnAnchor: string;
   returnTo: string;
 }) {
   const isBankItem = isBankCompositionSource(item.source_type, item.source_id);
 
   return (
     <div className="composition-admin-form">
-      <MoveCompositionItemForm composition={composition} item={item} matchdayId={matchdayId} returnTo={returnTo} />
+      <MoveCompositionItemForm composition={composition} item={item} matchdayId={matchdayId} returnAnchor={returnAnchor} returnTo={returnTo} />
       <div className="composition-admin-inline-actions">
         {canMoveUp ? (
-          <ReorderCompositionItemForm composition={composition} direction="up" item={item} label="Subir" matchdayId={matchdayId} returnTo={returnTo} />
+          <ReorderCompositionItemForm composition={composition} direction="up" item={item} label="Subir" matchdayId={matchdayId} returnAnchor={returnAnchor} returnTo={returnTo} />
         ) : null}
         {canMoveDown ? (
-          <ReorderCompositionItemForm composition={composition} direction="down" item={item} label="Descer" matchdayId={matchdayId} returnTo={returnTo} />
+          <ReorderCompositionItemForm composition={composition} direction="down" item={item} label="Descer" matchdayId={matchdayId} returnAnchor={returnAnchor} returnTo={returnTo} />
         ) : null}
         {isBankItem ? (
           <UnassignBankItemForm composition={composition} item={item} matchdayId={matchdayId} returnTo={returnTo} />
         ) : (
-          <RemoveItemForm composition={composition} item={item} matchdayId={matchdayId} returnTo={returnTo} />
+          <RemoveItemForm composition={composition} item={item} matchdayId={matchdayId} returnAnchor={returnAnchor} returnTo={returnTo} />
         )}
       </div>
       <p className="composition-admin-note">
         {isBankItem
           ? "Retirar devolve a notícia ao estado Disponível no banco."
-          : "Retirar remove apenas este item da composição histórica."}
+          : "Retirar remove apenas este item da composição."}
       </p>
     </div>
   );
@@ -2086,12 +2188,12 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   };
   const compositionSummary = [
     { slotType: "headline", label: "Manchete" },
-    { slotType: "complement", label: "Complemento" },
-    { slotType: "side_block", label: "Bloco lateral" },
-    { slotType: "highlight", label: "Destaques" },
-    { slotType: "important_item", label: "Faixa horizontal" },
-    { slotType: "editorial_line_item", label: "Zona final" },
-    { slotType: "roundup", label: "Resumo/Vídeos" }
+    { slotType: "editorial_line_item", label: "Últimas" },
+    { slotType: "side_block", label: "Contexto" },
+    { slotType: "highlight", label: "3 notícias" },
+    { slotType: "roundup", label: "Vídeo" },
+    { slotType: "complement", label: "Ao lado do vídeo" },
+    { slotType: "important_item", label: "Faixa de notícias" }
   ].map((section) => ({
     label: section.label,
     count: compositionItems.filter((item) => item.slot_type === section.slotType).length
@@ -2108,9 +2210,9 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     if (query.bank_assignment_error) {
       return query.bank_assignment_error === "1" ? "Não foi possível adicionar ou retirar a notícia da composição." : query.bank_assignment_error;
     }
-    if (query.bank_assigned) return "Notícia adicionada à composição histórica.";
+    if (query.bank_assigned) return "Notícia adicionada à composição.";
     if (query.bank_unassigned) return "Notícia retirada da composição e novamente disponível no banco.";
-    if (query.bank_archived) return "Notícia arquivada. Continua preservada no banco histórico.";
+    if (query.bank_archived) return "Notícia arquivada. Continua preservada no banco.";
     if (query.bank_reactivated) return "Notícia reativada e devolvida à lista disponível.";
     if (query.bank_error) return "Não foi possível sincronizar as publicações desta jornada.";
     if (query.bank_saved || query.bank_updated || query.bank_skipped || query.bank_existing || query.bank_repeated) {
@@ -2120,11 +2222,13 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   })();
   const compositionFeedback = query.composition_error
     ? query.composition_error === "1"
-      ? "Não foi possível guardar a alteração na composição histórica."
+      ? "Não foi possível guardar a alteração."
       : query.composition_error
     : query.composition_saved
-      ? "Alteração guardada na composição histórica."
+      ? "Alteração guardada."
       : null;
+  const compositionFeedbackKind = query.composition_error ? "error" : query.composition_saved ? "success" : "";
+  const feedbackAnchor = query.feedback_anchor ?? "";
 
   return (
     <main className="composition-admin-shell">
@@ -2132,7 +2236,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
 
       <section className="composition-admin-hero">
         <div>
-          <p>Composição histórica da jornada</p>
+          <p>Composição da Jornada</p>
           <h1>Jornada {String(matchday.number).padStart(2, "0")}</h1>
           <span>{contextLabel}</span>
         </div>
@@ -2147,7 +2251,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
             VÍDEO
           </a>
           <a className="composition-admin-button" href={`/admin/editorial/jornada/${encodeURIComponent(matchday.id)}`}>
-            Editorial da Jornada
+            Abrir editorial
           </a>
           <a className="composition-admin-button" href="/admin/gestor">
             Centro de Gestão
@@ -2206,6 +2310,16 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         )}
       </section>
 
+      <nav className="composition-admin-zone-nav" aria-label="Zonas da Composição da Jornada">
+        <a href="#manchete">01 Manchete</a>
+        <a href="#ultimas-noticias">02 Últimas</a>
+        <a href="#contexto">03 Contexto</a>
+        <a href="#tres-noticias">04 3 notícias</a>
+        <a href="#video">05 Vídeo</a>
+        <a href="#noticia-ao-lado-video">06 Ao lado do vídeo</a>
+        <a href="#faixa-noticias">07 Faixa de notícias</a>
+      </nav>
+
       <script
         dangerouslySetInnerHTML={{
           __html: `
@@ -2251,7 +2365,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       <div className="composition-admin-layout">
         <section className="composition-admin-panel">
           <header>
-            <h2>1. Banco histórico da jornada</h2>
+            <h2>1. Banco da Jornada</h2>
             <p>
               Todas as notícias e conteúdos publicados desta jornada ficam disponíveis aqui, independentemente da zona onde apareceram.
             </p>
@@ -2278,7 +2392,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                     </button>
                   </form>
 
-                  <nav className="composition-admin-bank-filters" aria-label="Filtrar banco histórico">
+                  <nav className="composition-admin-bank-filters" aria-label="Filtrar banco da jornada">
                     {[
                       { key: "all", label: "Todas", count: bankFilterCounts.all },
                       { key: "available", label: "Disponíveis", count: bankFilterCounts.available },
@@ -2335,16 +2449,19 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
 
         <section className="composition-admin-panel">
           <header>
-            <h2>2. Composição histórica da jornada</h2>
+            <h2>2. Composição da Jornada</h2>
             <p>
               Escolhe no banco as notícias que ficam no arquivo e define aqui a sua hierarquia, zona e ordem definitivas.
             </p>
           </header>
           <div className="composition-admin-stack">
-            <Card title={isPublishedComposition ? "Composição histórica publicada" : "Composição histórica em rascunho"}>
+            <div id="composition-status">
+              <Card title={isPublishedComposition ? "Composição publicada" : "Composição em rascunho"}>
               {draftComposition ? (
                 <>
-                  {compositionFeedback ? <p className="composition-admin-note">{compositionFeedback}</p> : null}
+                  {compositionFeedback && (!feedbackAnchor || feedbackAnchor === "composition-status") ? (
+                    <p className={`composition-admin-feedback ${compositionFeedbackKind}`}>{compositionFeedback}</p>
+                  ) : null}
                   <div className="composition-admin-meta">
                     <span>Estado: {compositionStatusLabel(draftComposition.status)}</span>
                     {isPublishedComposition ? (
@@ -2393,19 +2510,26 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
               ) : (
                 <CreateDraftForm matchdayId={matchday.id} returnTo={returnTo} />
               )}
-            </Card>
+              </Card>
+            </div>
 
-            <Card title="Zonas da composição histórica">
+            <Card title="Zonas da composição">
               {draftComposition ? (
                 <div className="composition-admin-section-list">
-                  {groupedCompositionItems.map((section) => (
-                    <section className="composition-admin-section" key={section.slotType}>
+                  {groupedCompositionItems.map((section) => {
+                    const sectionAnchor = compositionZoneAnchor(section.slotType);
+
+                    return (
+                    <section className="composition-admin-section" id={sectionAnchor} key={section.slotType}>
                       <div className="composition-admin-section-heading">
-                        <h4>{section.title}</h4>
+                        <h4>{compositionZoneHeading(section.slotType, section.title)}</h4>
                         <span>
                           {section.items.length} {section.items.length === 1 ? "item" : "itens"}
                         </span>
                       </div>
+                      {compositionFeedback && feedbackAnchor === sectionAnchor ? (
+                        <p className={`composition-admin-feedback ${compositionFeedbackKind}`}>{compositionFeedback}</p>
+                      ) : null}
                       {section.items.length > 0 ? (
                         <div className="composition-admin-grid">
                           {section.items.map((item, index) => {
@@ -2417,6 +2541,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                                 composition={draftComposition}
                                 item={item}
                                 matchdayId={matchday.id}
+                                returnAnchor={sectionAnchor}
                                 returnTo={returnTo}
                               />
                             ) : null;
@@ -2456,15 +2581,36 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         <EmptyState>Nenhuma notícia associada a esta zona.</EmptyState>
                       )}
                     </section>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <EmptyState>Cria primeiro um rascunho para começar a composição histórica.</EmptyState>
+                <EmptyState>Cria primeiro um rascunho para começar a composição.</EmptyState>
               )}
             </Card>
           </div>
         </section>
       </div>
+
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+            document.addEventListener("submit", function (event) {
+              var form = event.target;
+              if (!form || !form.getAttribute) return;
+              var action = form.getAttribute("action") || "";
+              if (action.indexOf("/api/admin/editorial/composicao") !== 0) return;
+              var submitter = event.submitter;
+              if (!submitter || submitter.tagName !== "BUTTON") return;
+              if (!submitter.dataset.originalLabel) {
+                submitter.dataset.originalLabel = submitter.textContent || "";
+              }
+              submitter.textContent = "A guardar...";
+              submitter.setAttribute("aria-busy", "true");
+            });
+          `
+        }}
+      />
     </main>
   );
 }
