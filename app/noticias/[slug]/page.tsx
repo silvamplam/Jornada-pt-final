@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
-import PublicMatchdayNavigation from "@/components/public/PublicMatchdayNavigation";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
@@ -50,6 +49,13 @@ type PageProps = {
     slug: string;
   }>;
 };
+
+function publicCompetitionBarColor(competitionSlug: string) {
+  if (competitionSlug === "liga-portugal") return "#00235a";
+  if (competitionSlug === "premier-league") return "#3d195b";
+  if (competitionSlug === "la-liga") return "#1d2230";
+  return "#262626";
+}
 
 const articlePageStyles = `
   body {
@@ -574,50 +580,55 @@ const articlePageStyles = `
   }
 
 
+  .public-league-match-strip-scroll > .public-matchday-scoreboard-panel {
+    margin-top: 3px;
+  }
+
   /* JORNADA-CABECALHO-COMPETITIVO-INICIO */
   .public-season-nav-bar {
-    border-top: 1px solid #e1e6ec;
-    border-bottom: 1px solid #d7dee7;
-    background: #ffffff;
+    margin: 0 -24px;
+    padding: 0 24px;
+    border: 0;
+    background: #262626;
+    color: #ffffff;
+    box-shadow: 0 8px 18px rgba(68, 21, 47, 0.16);
   }
 
   .public-season-nav-inner {
+    box-sizing: border-box;
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr) max-content;
-    gap: 18px;
-    align-items: end;
-    min-height: 78px;
+    align-items: center;
+    gap: 12px;
+    height: 74px;
+    min-height: 74px;
     max-width: 1512px;
     margin: 0 auto;
-    padding: 6px 0 0;
-    overflow: hidden;
+    padding: 8px 0;
+    overflow: visible;
   }
 
   .public-season-context-card {
-    display: grid;
-    align-self: stretch;
-    align-content: end;
-    gap: 6px;
-    min-width: 220px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
     padding: 0;
     border: 0;
-    border-radius: 0;
     background: transparent;
-    box-shadow: none;
   }
 
   .public-season-context-card .public-season-select-wrap {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    width: max-content;
-    max-width: 100%;
+    gap: 6px;
     min-height: 30px;
-    padding: 5px 8px 5px 10px;
-    border: 1px solid #cfd7e1;
-    background: #f8fafc;
-    color: #263241;
-    font-size: 11px;
+    padding: 4px 7px 4px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.42);
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    font-size: 10px;
     font-weight: 900;
     text-transform: uppercase;
     white-space: nowrap;
@@ -625,38 +636,43 @@ const articlePageStyles = `
 
   .public-season-context-card .public-season-select {
     width: auto;
-    min-width: 112px;
-    max-width: 138px;
+    min-width: 96px;
+    max-width: 126px;
     border: 0;
     background: transparent;
-    color: #10151b;
+    color: #ffffff;
     font: inherit;
     outline: none;
     cursor: pointer;
   }
 
+  .public-season-context-card .public-season-select option {
+    color: #10151b;
+  }
+
   .public-season-context-card .public-matchday-leg-nav {
     display: flex;
+    align-items: center;
+    gap: 2px;
     width: max-content;
     max-width: 100%;
-    align-items: center;
-    gap: 0;
     padding: 0;
-    border-top: 2px solid #10151b;
-    background: #ffffff;
+    border: 0;
+    background: transparent;
     white-space: nowrap;
   }
 
   .public-season-context-card .public-matchday-leg-nav a {
-    display: inline-block;
-    min-width: 0;
-    padding: 8px 11px;
-    border: 0;
-    border-right: 1px solid #dfe5ec;
-    border-radius: 0;
-    background: #ffffff;
-    color: #263241;
-    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 5px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.36);
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    font-size: 10px;
     font-weight: 900;
     text-align: center;
     text-decoration: none;
@@ -664,95 +680,178 @@ const articlePageStyles = `
   }
 
   .public-season-context-card .public-matchday-leg-nav a[aria-current="true"] {
-    background: #10151b;
+    border-color: #ffffff;
+    background: #ffffff;
+    color: #44152f;
+  }
+
+  .public-season-competition-emblem {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 52px;
+    min-height: 32px;
+    padding: 0 7px;
+    border-left: 1px solid rgba(255, 255, 255, 0.32);
+    text-decoration: none;
+  }
+
+  .public-season-competition-emblem img {
+    display: block;
+    width: auto;
+    height: 28px;
+    max-width: 88px;
+    object-fit: contain;
+  }
+
+  .public-season-competition-emblem img[data-variant="liga-portugal-horizontal"] {
+    box-sizing: border-box;
+    width: 82px;
+    height: 30px;
+    max-width: 82px;
+    padding: 5px 4px;
+    border-radius: 3px;
+    background: #00235a;
+  }
+
+  .public-season-competition-emblem img[data-variant="laliga-horizontal"] {
+    width: 76px;
+    height: auto;
+    max-width: 76px;
+  }
+
+  .public-season-competition-emblem[data-logo-variant="premier-league-lockup"] {
+    min-width: 88px;
+    min-height: 32px;
+    padding: 4px 7px;
+    border-left: 0;
+    border-radius: 4px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(17, 24, 32, 0.14);
+  }
+
+  .public-season-competition-emblem img[data-variant="premier-league-lockup"] {
+    width: 76px;
+    height: auto;
+    max-width: 76px;
+    max-height: 32px;
+    filter: none;
+    image-rendering: auto;
+  }
+
+  .public-matchday-nav-compact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .public-matchday-nav-compact a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    min-height: 28px;
+    padding: 4px 5px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 10px;
+    font-weight: 850;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .public-matchday-nav-compact a:hover,
+  .public-matchday-nav-compact a:focus-visible {
+    border-color: rgba(255, 255, 255, 0.48);
     color: #ffffff;
+  }
+
+  .public-matchday-nav-compact a[aria-current="page"] {
+    border-color: #ffffff;
+    background: #ffffff;
+    color: #44152f;
+    font-weight: 950;
   }
 
   .public-matchday-date-row {
     display: flex;
-    align-self: end;
     align-items: center;
     justify-content: flex-end;
-    min-height: 32px;
-    padding: 0 2px 8px 0;
-    border: 0;
-    background: transparent;
+    min-height: 34px;
+    padding: 6px 11px;
+    border: 1px solid #ffffff;
+    border-radius: 3px;
+    background: #ffffff;
     white-space: nowrap;
   }
 
   .public-matchday-date-row .public-matchday-date-context {
     display: inline;
-    color: #607086;
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1.25;
+    color: #44152f;
+    font-size: 11px;
+    font-weight: 850;
+    line-height: 1.15;
     text-align: right;
   }
 
   .public-matchday-date-row .public-matchday-date-context strong {
-    color: #263241;
-    font-weight: 900;
+    color: #2a1020;
+    font-weight: 950;
   }
 
   @media (max-width: 1180px) {
     .public-season-nav-inner {
-      grid-template-columns: minmax(194px, max-content) minmax(0, 1fr) max-content;
-      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) max-content;
+      gap: 6px 10px;
+      padding: 7px 16px;
     }
 
-    .public-season-context-card {
-      min-width: 194px;
-    }
-
-    .public-season-context-card .public-season-select-wrap {
-      gap: 6px;
-      padding: 5px 7px;
-    }
-
-    .public-season-context-card .public-season-select {
-      min-width: 96px;
-    }
-
-    .public-season-context-card .public-matchday-leg-nav a {
-      padding: 7px 10px;
-      font-size: 10.5px;
-    }
-
-    .public-matchday-date-row .public-matchday-date-context {
-      font-size: 9.5px;
-    }
-  }
-
-  @media (max-width: 900px) {
-    .public-season-nav-inner {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 8px;
-      align-items: stretch;
-      min-height: 0;
-      padding: 8px 16px 9px;
-      overflow: visible;
-    }
-
-    .public-season-context-card {
-      align-content: start;
-      min-width: 0;
+    .public-matchday-nav-compact {
+      grid-column: 1 / -1;
+      grid-row: 2;
     }
 
     .public-matchday-date-row {
-      justify-content: flex-start;
-      min-height: 0;
-      padding: 0;
-    }
-
-    .public-matchday-date-row .public-matchday-date-context {
-      text-align: left;
+      grid-column: 2;
+      grid-row: 1;
     }
   }
 
   @media (max-width: 620px) {
-    .public-season-context-card .public-season-select-wrap,
-    .public-season-context-card .public-matchday-leg-nav {
-      width: 100%;
+    .public-season-nav-bar {
+      margin: 0 -16px;
+      padding: 0 16px;
+    }
+
+    .public-season-nav-inner {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 6px;
+      padding: 8px 12px;
+    }
+
+    .public-season-context-card {
+      flex-wrap: wrap;
+    }
+
+    .public-season-competition-emblem {
+      min-height: 30px;
+      padding-right: 5px;
+      padding-left: 5px;
+    }
+
+    .public-season-competition-emblem img {
+      max-width: 76px;
+    }
+
+    .public-season-context-card .public-season-select-wrap {
+      flex: 1 1 150px;
     }
 
     .public-season-context-card .public-season-select {
@@ -760,11 +859,18 @@ const articlePageStyles = `
       min-width: 0;
     }
 
-    .public-season-context-card .public-matchday-leg-nav a {
-      flex: 1 1 50%;
+    .public-matchday-nav-compact {
+      grid-column: 1;
+      grid-row: 2;
+      justify-content: flex-start;
     }
 
     .public-matchday-date-row {
+      grid-column: 1;
+      grid-row: 3;
+      justify-content: flex-start;
+      width: max-content;
+      max-width: 100%;
       white-space: normal;
     }
   }
@@ -1110,6 +1216,9 @@ export default async function NewsArticlePage({ params }: PageProps) {
     articleContext?.matchday.starts_on ?? null,
     articleContext?.matchday.ends_on ?? null
   );
+  const competitionBarColor = articleContext
+    ? publicCompetitionBarColor(articleContext.competition.slug)
+    : "#262626";
 
   return (
     <div className="news-article-shell">
@@ -1123,6 +1232,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
             competitions={publicCompetitionMenu}
             activeCompetitionSlug={articleContext?.competition.slug}
             classificationHref={classificationHref}
+            showMessageTicker={false}
           />
           <div className="public-site-actions" aria-label="Ações">
             <span className="public-site-search" aria-label="Pesquisar">
@@ -1132,7 +1242,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
           </div>
         </header>
         {articleContext ? (
-          <section className="public-season-nav-bar" aria-label="Navegação de jornadas">
+          <section className="public-season-nav-bar" aria-label="Navegação de jornadas" style={{ background: competitionBarColor }}>
             <div className="public-hidden-heading">
               <h2>Jornadas</h2>
               <p>Navegação principal da época {articleContext.season.label}.</p>
@@ -1160,16 +1270,17 @@ export default async function NewsArticlePage({ params }: PageProps) {
                   </nav>
                 ) : null}
               </div>
-              <PublicMatchdayNavigation
-                ariaLabel="Jornadas"
-                items={visibleMatchdays.map((matchday) => ({
-                  id: matchday.id,
-                  href: matchdayHref(matchday.number),
-                  isActive: matchday.id === articleContext.matchday.id,
-                  label: `J${String(matchday.number).padStart(2, "0")}`
-                }))}
-                storageKey={`public-matchday-nav:${articleContext.competition.slug}:${articleContext.season.label}:news`}
-              />
+              <nav className="public-matchday-nav-compact" aria-label="Jornadas da época">
+                {visibleMatchdays.map((matchday) => (
+                  <a
+                    aria-current={matchday.id === articleContext.matchday.id ? "page" : undefined}
+                    href={matchdayHref(matchday.number)}
+                    key={matchday.id}
+                  >
+                    J{String(matchday.number).padStart(2, "0")}
+                  </a>
+                ))}
+              </nav>
               <div className="public-matchday-date-row">
                 <span className="public-matchday-date-context">
                   <strong>Data:</strong> {selectedMatchdayDateContext}
@@ -1194,9 +1305,9 @@ export default async function NewsArticlePage({ params }: PageProps) {
         }}
       />
       {articleMatches.length > 0 ? (
-        <section className="news-article-games-strip" aria-label="Jogos da jornada associados a esta notícia">
+        <section className="public-league-match-strip-scroll" aria-label="Jogos da jornada associados a esta notícia">
           <PublicMatchStrip
-            competitionSlug={articleContext?.competition.slug}
+            carouselLayout="fluid-peek"
             matches={articleMatches.map((match) => ({
               ...match,
               matchdayNumber: match.matchday?.number ?? null

@@ -18,9 +18,22 @@ export type PublicMatchdayEditorialCoverLayout =
   | "news"
   | "none";
 
+
+export type PublicMatchdayRoundupContentInput = {
+  title?: string | null;
+  image_url?: string | null;
+  video_url?: string | null;
+};
+
+export function hasPublicMatchdayRoundupContent(item: PublicMatchdayRoundupContentInput) {
+  return Boolean(item.title?.trim() || item.image_url?.trim() || item.video_url?.trim());
+}
+
 export type PublicMatchdayEditorialVisibility = {
   showHeadline: boolean;
   showSideBlock: boolean;
+  showHighlights: boolean;
+  showRoundup: boolean;
   showBelowHeadline: boolean;
   showComplementaryStory: boolean;
   showLatestZone: boolean;
@@ -42,17 +55,17 @@ export function buildPublicMatchdayEditorialVisibility(
 ): PublicMatchdayEditorialVisibility {
   const showHeadline = input.hasHeadline === true;
   const showSideBlock = input.hasSideBlock === true;
-  const showBelowHeadline =
-    nonNegativeCount(input.highlightCount) > 0 ||
-    nonNegativeCount(input.roundupCount) > 0;
+  const showHighlights = nonNegativeCount(input.highlightCount) > 0;
+  const showRoundup = nonNegativeCount(input.roundupCount) > 0;
+  const showBelowHeadline = showHighlights;
   const showComplementaryStory = input.hasComplementaryStory === true;
   const showLatestZone = nonNegativeCount(input.latestNewsCount) > 0;
   const showImportantNews = nonNegativeCount(input.importantNewsCount) > 0;
-  const showMainLower = showBelowHeadline || showComplementaryStory;
-  const showMainColumn = showHeadline || showMainLower;
-  const showCoverPanel = showSideBlock || showMainColumn || showLatestZone;
+  const showMainLower = showRoundup || showComplementaryStory;
+  const showMainColumn = showHeadline || showHighlights;
+  const showCoverPanel = showSideBlock || showMainColumn || showLatestZone || showMainLower;
   const showAnyEditorialContent = showCoverPanel || showImportantNews;
-  const mainLowerIsSingle = showBelowHeadline !== showComplementaryStory;
+  const mainLowerIsSingle = showRoundup !== showComplementaryStory;
 
   const coverParts = [
     showSideBlock ? "feature" : null,
@@ -63,6 +76,8 @@ export function buildPublicMatchdayEditorialVisibility(
   return {
     showHeadline,
     showSideBlock,
+    showHighlights,
+    showRoundup,
     showBelowHeadline,
     showComplementaryStory,
     showLatestZone,

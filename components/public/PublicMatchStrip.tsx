@@ -329,14 +329,10 @@ function CompactMatchCard({
     ? "AGORA"
     : kind === "halftime"
       ? "INTERVALO"
-      : kind === "finished"
-        ? "FINAL"
-        : null;
+      : null;
   const cleanStateLabelClass = kind === "live"
     ? styles.cleanStateBadgeLive
-    : kind === "halftime"
-      ? styles.cleanStateBadgeHalftime
-      : styles.cleanStateBadgeFinished;
+    : styles.cleanStateBadgeHalftime;
   const halftimeMinuteSource = match.live_base_minute ?? match.minute;
   const halftimeMinuteValue = typeof halftimeMinuteSource === "number"
     ? halftimeMinuteSource
@@ -351,13 +347,13 @@ function CompactMatchCard({
       ? Math.max(0, Math.floor(halftimeMinuteValue))
       : null;
   const cleanHeaderLead = cleanMinute !== null ? `${cleanMinute}'` : null;
-  const cleanHeaderContent = cleanStateLabel ? (
+  const cleanHeaderContent = kind === "finished" ? (
+    <span className="public-matchday-mini-time" aria-label="Finalizado">FINAL</span>
+  ) : cleanStateLabel ? (
     <span
       aria-label={kind === "live"
         ? `${cleanMinute !== null ? `Minuto ${cleanMinute}. ` : ""}Agora`
-        : kind === "halftime"
-          ? `${cleanMinute !== null ? `Minuto ${cleanMinute}. ` : ""}Intervalo`
-          : "Final"}
+        : `${cleanMinute !== null ? `Minuto ${cleanMinute}. ` : ""}Intervalo`}
       className={styles.cleanStatusLine}
     >
       {cleanHeaderLead ? (

@@ -932,11 +932,12 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     save_matchday_headline: "Manchete guardada.",
     save_matchday_side_block: "Bloco lateral guardado.",
     save_matchday_complement: "Bloco complementar guardado.",
-    save_matchday_below_headline: "Zona abaixo da manchete guardada.",
+    save_matchday_below_headline: "Zona de destaques guardada.",
     save_matchday_editorial: "Linha editorial da jornada guardada.",
-    save_matchday_highlights: "Destaques guardados e definidos como zona ativa abaixo da manchete.",
+    save_matchday_highlights: "Destaques guardados.",
     save_matchday_highlight_item: "Destaque guardado.",
-    save_matchday_roundup_items: "Resumo da Jornada guardado e definido como zona ativa abaixo da manchete.",
+    save_matchday_roundup_items: "Resumo da Jornada guardado.",
+    save_matchday_roundup_settings: "Resumo de video guardado.",
     save_matchday_roundup_item: "Item do Resumo da Jornada guardado.",
     save_matchday_latest_news: "Zona final da capa guardada.",
     save_matchday_latest_news_item: "Item da zona final guardado.",
@@ -951,7 +952,7 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
       upload_matchday_editorial_image: "Imagem da manchete carregada."
     },
     composicao: {
-      save_matchday_below_headline: "Zona abaixo da manchete guardada.",
+      save_matchday_below_headline: "Zona de destaques guardada.",
       save_matchday_editorial: "Composicao guardada."
     },
     "bloco-lateral": {
@@ -965,6 +966,7 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     },
     "resumo-jornada": {
       save_matchday_roundup_items: "Resumo da Jornada guardado.",
+      save_matchday_roundup_settings: "Resumo de video guardado.",
       save_matchday_roundup_item: "Item do Resumo da Jornada guardado."
     },
     "faixa-horizontal": {
@@ -1063,7 +1065,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   }).catch(() => []);
   const sideBlockArticleOptions = publishedEditorialArticles.filter((article) => articlePublicHref(article));
   const belowHeadlineMode = editorial?.below_headline_mode === "roundup" ? "roundup" : "highlights";
-  const complementaryMode = editorial?.complementary_mode ?? "none";
+  const roundupMode = editorial?.complementary_mode === "roundup_video" ? "roundup_video" : "none";
   const latestZoneMode = editorial?.latest_zone_mode === "editorial_line" ? "editorial_line" : "latest_news";
   const belowHeadlineHeadingFallback = `Jornada ${String(matchday.number).padStart(2, "0")}`;
   const roundupVideoHeadingFallback = `Jornada ${String(matchday.number).padStart(2, "0")} · Jogos Vídeo Resumo`;
@@ -2070,60 +2072,86 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
 
       <section className="editorial-admin-panel editorial-admin-composition" id="composicao">
         <header>
-          <h2>Composicao abaixo da manchete</h2>
-          <p>Controla os dois espacos editoriais que aparecem por baixo da manchete na primeira pagina.</p>
+          <h2>Zonas editoriais abaixo da manchete</h2>
+          <p>Destaques, Resumo de video e Complemento funcionam como zonas publicas independentes e podem estar ativos em simultaneo.</p>
         </header>
         {scopedMessageFor(created, error, feedbackScope, "composicao")}
         <div data-composition-form>
           <div className="editorial-admin-composition-grid">
-              <div className="editorial-admin-composition-card">
-                <h3>Zona abaixo da manchete</h3>
-                <p>Escolhe que conjunto ocupa a area inferior esquerda da composicao.</p>
-                <form className="editorial-admin-form" action="/api/admin/gestor" data-below-mode-form id={belowHeadlineSettingsFormId} method="post">
-                <input type="hidden" name="action_type" value="save_matchday_below_headline" />
-                <input type="hidden" name="return_to" value={returnToComposicao} />
-                <input type="hidden" name="matchday_id" value={matchday.id} />
-                <div className="editorial-admin-field">
-                  <label htmlFor="composition-below-headline-mode">Tipo de conteudo abaixo da manchete</label>
-                  <select id="composition-below-headline-mode" name="below_headline_mode" defaultValue={belowHeadlineMode}>
-                    <option value="highlights">Destaques abaixo da manchete</option>
-                    <option value="roundup">Resumo da Jornada</option>
-                  </select>
-                </div>
-                <button className="editorial-admin-button" type="submit">
-                  Guardar escolha
-                </button>
-              </form>
-              <div className="editorial-below-mode-section" data-below-section="highlights" hidden={belowHeadlineMode !== "highlights"} id="destaques">
-                <h4>Destaques abaixo da manchete</h4>
-                <p className="editorial-admin-muted">Edita os tres destaques editoriais desta zona e o texto superior que aparece no publico.</p>
-                <div className="editorial-admin-compact-stack">
-                  <div className="editorial-admin-field">
-                    <label htmlFor="below-headline-heading">Texto do topo</label>
-                    <input form={belowHeadlineSettingsFormId} id="below-headline-heading" name="below_headline_heading" defaultValue={editorial?.below_headline_heading ?? ""} placeholder={belowHeadlineHeadingFallback} />
-                  </div>
-                  <div className="editorial-admin-field">
-                    <label htmlFor="below-headline-subtitle">Subtitulo da zona abaixo da manchete</label>
-                    <input form={belowHeadlineSettingsFormId} id="below-headline-subtitle" name="below_headline_subtitle" defaultValue={editorial?.below_headline_subtitle ?? ""} placeholder="Linha de apoio opcional para os destaques" />
-                  </div>
-                  <div className="editorial-admin-field">
-                    <label htmlFor="below-headline-heading-color">Cor do texto do topo</label>
-                    <input form={belowHeadlineSettingsFormId} id="below-headline-heading-color" name="below_headline_heading_color" defaultValue={editorial?.below_headline_heading_color ?? ""} placeholder="#0b1f3a" />
-                  </div>
-                  <button className="editorial-admin-button secondary" form={belowHeadlineSettingsFormId} type="submit">
-                    Guardar texto do topo
-                  </button>
-                  <p className="editorial-admin-muted">Se ficarem vazios, a pagina publica usa {belowHeadlineHeadingFallback} e a cor atual.</p>
-                </div>
+            <div className="editorial-admin-composition-side-stack">
+              <section className="editorial-admin-composition-card" id="destaques">
+                <h3>Destaques da manchete</h3>
+                <p>Controla apenas os tres destaques apresentados imediatamente abaixo da manchete.</p>
                 {scopedMessageFor(created, error, feedbackScope, "destaques")}
+                <form className="editorial-admin-form" action="/api/admin/gestor" id={belowHeadlineSettingsFormId} method="post">
+                  <input type="hidden" name="action_type" value="save_matchday_below_headline" />
+                  <input type="hidden" name="return_to" value={returnToDestaques} />
+                  <input type="hidden" name="matchday_id" value={matchday.id} />
+                  <div className="editorial-admin-field">
+                    <label htmlFor="composition-below-headline-mode">Estado dos destaques</label>
+                    <select id="composition-below-headline-mode" name="below_headline_mode" defaultValue={belowHeadlineMode}>
+                      <option value="highlights">Ativos</option>
+                      <option value="roundup">Inativos</option>
+                    </select>
+                  </div>
+                  <div className="editorial-admin-field">
+                    <label htmlFor="below-headline-heading">Titulo da zona</label>
+                    <input id="below-headline-heading" name="below_headline_heading" defaultValue={editorial?.below_headline_heading ?? ""} placeholder={belowHeadlineHeadingFallback} />
+                  </div>
+                  <div className="editorial-admin-field">
+                    <label htmlFor="below-headline-heading-color">Cor do titulo da zona</label>
+                    <input id="below-headline-heading-color" name="below_headline_heading_color" defaultValue={editorial?.below_headline_heading_color ?? ""} placeholder="#0b1f3a" />
+                  </div>
+                  <button className="editorial-admin-button" type="submit">
+                    Guardar zona de destaques
+                  </button>
+                </form>
+                <p className="editorial-admin-muted">Cada destaque continua a ter o seu proprio estado e botao de guardar.</p>
                 {highlightsEditor}
-              </div>
-              <div className="editorial-below-mode-section" data-below-section="roundup" hidden={belowHeadlineMode !== "roundup"} id="resumo-jornada">
-                <h4>Resumo da Jornada</h4>
-                <p className="editorial-admin-muted">Edita ate dez entradas para videos, golos, resumos ou noticias da jornada.</p>
+              </section>
+
+              <section className="editorial-admin-composition-card" id="resumo-jornada">
+                <h3>Resumo de video</h3>
+                <p>Controla de forma independente a lista de resumos, o video inicial e o respetivo cabecalho.</p>
                 {scopedMessageFor(created, error, feedbackScope, "resumo-jornada")}
+                <form className="editorial-admin-form" action="/api/admin/gestor" method="post">
+                  <input type="hidden" name="action_type" value="save_matchday_roundup_settings" />
+                  <input type="hidden" name="return_to" value={returnToResumo} />
+                  <input type="hidden" name="matchday_id" value={matchday.id} />
+                  <div className="editorial-admin-field">
+                    <label htmlFor="roundup-zone-mode">Estado do resumo de video</label>
+                    <select id="roundup-zone-mode" name="complementary_mode" defaultValue={roundupMode}>
+                      <option value="roundup_video">Ativo</option>
+                      <option value="none">Inativo</option>
+                    </select>
+                  </div>
+                  <div className="editorial-admin-field">
+                    <label htmlFor="roundup-video-heading">Titulo da zona</label>
+                    <input id="roundup-video-heading" name="roundup_video_heading" defaultValue={editorial?.roundup_video_heading ?? ""} placeholder={roundupVideoHeadingFallback} />
+                  </div>
+                  <div className="editorial-admin-field">
+                    <label htmlFor="roundup-video-heading-color">Cor do titulo da zona</label>
+                    <input id="roundup-video-heading-color" name="roundup_video_heading_color" defaultValue={editorial?.roundup_video_heading_color ?? ""} placeholder="#003f8f" />
+                  </div>
+                  <div className="editorial-admin-field">
+                    <label htmlFor="complementary-roundup-item">Video inicial opcional</label>
+                    <select id="complementary-roundup-item" name="complementary_roundup_item_id" defaultValue={editorial?.complementary_roundup_item_id ?? ""}>
+                      <option value="">Usar primeiro item publicado</option>
+                      {roundupItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.sort_order}. {item.title || item.label || "Item sem titulo"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button className="editorial-admin-button" type="submit">
+                    Guardar zona de resumo
+                  </button>
+                </form>
+                <p className="editorial-admin-muted">Ativar ou desativar esta zona nao altera os Destaques nem o Complemento.</p>
                 {roundupEditor}
-              </div>
+              </section>
+
               {horizontalNewsEditorOrders.map((order) => (
                 <form
                   action="/api/admin/gestor"
@@ -2154,109 +2182,70 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             </div>
 
             <div className="editorial-admin-composition-side-stack">
-              <div className="editorial-admin-composition-card">
-                <h3>Complemento da Manchete</h3>
-                <p>Bloco complementar da fonte viva, separado da manchete principal.</p>
-                <form className="editorial-admin-form" action="/api/admin/gestor" data-complementary-form method="post" id="bloco-complementar">
+              <section className="editorial-admin-composition-card" id="bloco-complementar">
+                <h3>Complemento</h3>
+                <p>Controla apenas o conteudo editorial apresentado ao lado do Resumo de video.</p>
+                <form className="editorial-admin-form" action="/api/admin/gestor" data-complementary-form method="post">
                   {scopedMessageFor(created, error, feedbackScope, "bloco-complementar")}
                   <input type="hidden" name="action_type" value="save_matchday_complement" />
                   <input type="hidden" name="return_to" value={returnToComplementar} />
                   <input type="hidden" name="matchday_id" value={matchday.id} />
                   <div className="editorial-admin-field">
-                    <label htmlFor="complementary-mode">Tipo de bloco complementar</label>
-                    <select id="complementary-mode" name="complementary_mode" defaultValue={complementaryMode}>
-                      <option value="none">Nenhum</option>
-                      <option value="complementary_story">Complemento da manchete</option>
-                      <option value="roundup_video">Video do Resumo da Jornada</option>
+                    <label htmlFor="complementary-status">Estado do complemento</label>
+                    <select id="complementary-status" name="complementary_status" defaultValue={editorial?.complementary_status ?? "draft"}>
+                      <option value="published">Ativo</option>
+                      <option value="draft">Inativo</option>
                     </select>
                   </div>
-                  <div className="editorial-complement-mode-section" data-complementary-section="none" hidden={complementaryMode !== "none"}>
-                    <p className="editorial-admin-muted">O Bloco complementar fica desativado na pagina publica.</p>
+                  <div className="editorial-admin-field">
+                    <label htmlFor="complementary-label">Titulo da zona</label>
+                    <input id="complementary-label" name="complementary_label" defaultValue={editorial?.complementary_label ?? ""} placeholder="DESTAQUE" />
                   </div>
-                  <div className="editorial-complement-mode-section" data-complementary-section="roundup_video" hidden={complementaryMode !== "roundup_video"}>
+                  <div className="editorial-admin-field">
+                    <label htmlFor="complementary-title">Titulo do conteudo</label>
+                    <input id="complementary-title" name="complementary_title" defaultValue={editorial?.complementary_title ?? ""} placeholder="Um detalhe editorial para acompanhar a manchete" />
+                  </div>
+                  <div className="editorial-admin-field">
+                    <label htmlFor="complementary-text">Texto curto / conteudo breve</label>
+                    <textarea id="complementary-text" name="complementary_text" defaultValue={editorial?.complementary_text ?? ""} placeholder="Texto curto do complemento da manchete." />
+                  </div>
+                  <div className="editorial-admin-field">
+                    <label htmlFor="complementary-image-url">Imagem URL</label>
+                    <input id="complementary-image-url" name="complementary_image_url" defaultValue={editorial?.complementary_image_url ?? ""} placeholder="https://exemplo.com/imagem.jpg" />
+                  </div>
+                  <div className="editorial-admin-field">
+                    <label htmlFor="complementary-link-url">Link da noticia completa</label>
+                    <input id="complementary-link-url" name="complementary_link_url" defaultValue={editorial?.complementary_link_url ?? ""} placeholder="/noticias/slug-do-artigo" />
+                  </div>
+                  <fieldset className="editorial-admin-fieldset editorial-admin-compact-card">
+                    <legend>Ligar fonte publicada ao complemento</legend>
                     <div className="editorial-admin-field">
-                      <label htmlFor="complementary-roundup-item">Video inicial opcional</label>
-                      <select id="complementary-roundup-item" name="complementary_roundup_item_id" defaultValue={editorial?.complementary_roundup_item_id ?? ""}>
-                        <option value="">Usar primeiro item publicado</option>
-                        {roundupItems.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.sort_order}. {item.title || item.label || "Item sem titulo"}
+                      <label htmlFor="complementary-article-source">Preencher complemento com fonte publicada</label>
+                      <select id="complementary-article-source" data-complementary-article-select defaultValue="">
+                        <option value="">Escolher fonte publicada</option>
+                        {publishedSources.map((source) => (
+                          <option
+                            key={`${source.source_type}-${source.source_id}`}
+                            value={`${source.source_type}:${source.source_id}`}
+                            data-complementary-label={publishedSourceComplementLabel(source)}
+                            data-complementary-title={cleanText(source.title)}
+                            data-complementary-text={publishedSourceComplementText(source)}
+                            data-complementary-image-url={publishedSourceComplementImageUrl(source)}
+                            data-complementary-link-url={cleanText(source.link_url)}
+                          >
+                            {publishedSourceOptionLabel(source)}
                           </option>
                         ))}
                       </select>
-                      <p className="editorial-admin-muted">Este modo usa a lista publicada do Resumo da Jornada. O visitante escolhe o video na pagina publica; este campo apenas define o primeiro item, se precisares.</p>
                     </div>
-                    <div className="editorial-admin-field">
-                      <label htmlFor="roundup-video-heading">Titulo da lista / Cabecalho do resumo</label>
-                      <input id="roundup-video-heading" name="roundup_video_heading" defaultValue={editorial?.roundup_video_heading ?? ""} placeholder={roundupVideoHeadingFallback} />
-                      <p className="editorial-admin-muted">Se ficar vazio, a pagina publica usa automaticamente: {roundupVideoHeadingFallback}</p>
-                    </div>
-                    <div className="editorial-admin-field">
-                      <label htmlFor="roundup-video-heading-color">Cor do cabecalho</label>
-                      <input id="roundup-video-heading-color" name="roundup_video_heading_color" defaultValue={editorial?.roundup_video_heading_color ?? ""} placeholder="#003f8f" />
-                      <p className="editorial-admin-muted">Se ficar vazio, mantém a cor atual da pagina publica.</p>
-                    </div>
-                  </div>
-                  <div className="editorial-complement-mode-section" data-complementary-section="complementary_story" hidden={complementaryMode !== "complementary_story"}>
-                    <input type="hidden" name="complementary_roundup_item_id" value={editorial?.complementary_roundup_item_id ?? ""} />
-                    <div className="editorial-admin-field">
-                      <label htmlFor="complementary-label">Antetitulo / etiqueta</label>
-                      <input id="complementary-label" name="complementary_label" defaultValue={editorial?.complementary_label ?? ""} placeholder="DESTAQUE" />
-                    </div>
-                    <div className="editorial-admin-field">
-                      <label htmlFor="complementary-title">Titulo</label>
-                      <input id="complementary-title" name="complementary_title" defaultValue={editorial?.complementary_title ?? ""} placeholder="Um detalhe editorial para acompanhar a manchete" />
-                    </div>
-                    <div className="editorial-admin-field">
-                      <label htmlFor="complementary-text">Texto curto / conteudo breve</label>
-                      <textarea id="complementary-text" name="complementary_text" defaultValue={editorial?.complementary_text ?? ""} placeholder="Texto curto do complemento da manchete." />
-                    </div>
-                    <div className="editorial-admin-field">
-                      <label htmlFor="complementary-image-url">Imagem URL</label>
-                      <input id="complementary-image-url" name="complementary_image_url" defaultValue={editorial?.complementary_image_url ?? ""} placeholder="https://exemplo.com/imagem.jpg" />
-                    </div>
-                    <div className="editorial-admin-field">
-                      <label htmlFor="complementary-link-url">Link da noticia completa</label>
-                      <input id="complementary-link-url" name="complementary_link_url" defaultValue={editorial?.complementary_link_url ?? ""} placeholder="/noticias/slug-do-artigo" />
-                    </div>
-                    <fieldset className="editorial-admin-fieldset editorial-admin-compact-card">
-                      <legend>Ligar fonte publicada ao complemento</legend>
-                      <div className="editorial-admin-field">
-                        <label htmlFor="complementary-article-source">Preencher complemento com fonte publicada</label>
-                        <select id="complementary-article-source" data-complementary-article-select defaultValue="">
-                          <option value="">Escolher fonte publicada</option>
-                          {publishedSources.map((source) => (
-                            <option
-                              key={`${source.source_type}-${source.source_id}`}
-                              value={`${source.source_type}:${source.source_id}`}
-                              data-complementary-label={publishedSourceComplementLabel(source)}
-                              data-complementary-title={cleanText(source.title)}
-                              data-complementary-text={publishedSourceComplementText(source)}
-                              data-complementary-image-url={publishedSourceComplementImageUrl(source)}
-                              data-complementary-link-url={cleanText(source.link_url)}
-                            >
-                              {publishedSourceOptionLabel(source)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <p className="editorial-admin-muted">
-                        Preenche etiqueta, titulo, texto, imagem e link publico. Pode ajustar antes de guardar.
-                      </p>
-                    </fieldset>
-                    <div className="editorial-admin-field">
-                      <label htmlFor="complementary-status">Estado</label>
-                      <select id="complementary-status" name="complementary_status" defaultValue={editorial?.complementary_status ?? "draft"}>
-                        <option value="draft">Rascunho</option>
-                        <option value="published">Publicado</option>
-                      </select>
-                    </div>
-                  </div>
+                    <p className="editorial-admin-muted">Preenche etiqueta, titulo, texto, imagem e link publico. Pode ajustar antes de guardar.</p>
+                  </fieldset>
                   <button className="editorial-admin-button" type="submit">
-                    Guardar bloco complementar
+                    Guardar zona de complemento
                   </button>
                 </form>
-              </div>
+                <p className="editorial-admin-muted">Ativar ou desativar esta zona nao altera os Destaques nem o Resumo de video.</p>
+              </section>
 
               <section className="editorial-admin-composition-card" id="ultimas-noticias">
                 <h3>Zona editorial final</h3>
@@ -2273,11 +2262,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               (function () {
                 var form = document.querySelector('[data-composition-form]');
                 if (!form) return;
-                var belowSelect = form.querySelector('[name="below_headline_mode"]');
-                var complementSelect = form.querySelector('[data-complementary-form] [name="complementary_mode"]');
                 var complementArticleSelect = form.querySelector('[data-complementary-article-select]');
-                var belowSections = Array.prototype.slice.call(form.querySelectorAll('[data-below-section]'));
-                var sections = Array.prototype.slice.call(form.querySelectorAll('[data-complementary-section]'));
                 function setFieldValue(field, value) {
                   if (!field) return;
                   field.value = value || '';
@@ -2319,32 +2304,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   setComplementField('complementary_link_url', option.dataset.complementaryLinkUrl);
                   finishPublishedSource();
                 }
-                function syncBelowSections() {
-                  var mode = belowSelect ? belowSelect.value : 'highlights';
-                  belowSections.forEach(function (section) {
-                    section.hidden = section.getAttribute('data-below-section') !== mode;
-                  });
-                }
-                function syncComplementSections() {
-                  var mode = complementSelect ? complementSelect.value : 'none';
-                  sections.forEach(function (section) {
-                    section.hidden = section.getAttribute('data-complementary-section') !== mode;
-                  });
-                }
-                function syncComplementWithBelowMode() {
-                  if (!belowSelect || !complementSelect) {
-                    syncBelowSections();
-                    return;
-                  }
-                  complementSelect.value = belowSelect.value === 'roundup' ? 'roundup_video' : 'complementary_story';
-                  syncBelowSections();
-                  syncComplementSections();
-                }
-                if (belowSelect) belowSelect.addEventListener('change', syncComplementWithBelowMode);
-                if (complementSelect) complementSelect.addEventListener('change', syncComplementSections);
                 if (complementArticleSelect) complementArticleSelect.addEventListener('change', applyComplementArticle);
-                syncBelowSections();
-                syncComplementSections();
               })();
             `
           }}

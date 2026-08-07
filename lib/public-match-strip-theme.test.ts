@@ -79,15 +79,16 @@ test("a identidade LALIGA usa placas triangulares sóbrias em confronto e remove
   assert.doesNotMatch(laligaCss, /\.center::before|\.center::after/);
 });
 
-test("os contextos competitivos passam o slug ao componente", () => {
+test("a jornada e as notícias contextuais usam a mesma barra neutra de jogos", () => {
   const matchdayPage = readFileSync(
     "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
     "utf8"
   );
   const articlePage = readFileSync("app/noticias/[slug]/page.tsx", "utf8");
 
-  assert.match(matchdayPage, /competitionSlug=\{context\.competition\.slug\}/);
-  assert.match(articlePage, /competitionSlug=\{articleContext\?\.competition\.slug\}/);
+  assert.doesNotMatch(matchdayPage, /competitionSlug=\{context\.competition\.slug\}/);
+  assert.doesNotMatch(articlePage, /competitionSlug=\{articleContext\?\.competition\.slug\}/);
+  assert.match(articlePage, /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"[\s\S]*?variant="clean"/);
 });
 
 test("os cards Liga Portugal usam territórios cromáticos irregulares sem hífen central", () => {
