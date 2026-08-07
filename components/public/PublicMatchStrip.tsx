@@ -376,10 +376,27 @@ function CompactMatchCard({
     </span>
   ) : scheduleContent;
   const cleanScoreText = activeScore ?? finishedScoreText;
+  const cleanScoreContent = cleanScoreText ? (
+    <strong
+      aria-label={`Resultado ${match.home_score} a ${match.away_score}`}
+      className={`${styles.cleanScore} ${
+        kind === "finished" ? styles.cleanScoreFinished : styles.cleanScoreActive
+      }`}
+    >
+      {cleanScoreText}
+    </strong>
+  ) : null;
+  const hasCleanBroadcast = Boolean(
+    (kind === "live" || kind === "halftime")
+      && presentation.showChannel
+      && broadcastChannelName
+  );
   const cleanFooterClassName = kind === "finished"
     ? `${styles.broadcast} ${styles.cleanFinishedFooter}`
     : kind === "live" || kind === "halftime"
-      ? `${styles.broadcast} ${styles.cleanActiveFooter}`
+      ? `${styles.broadcast} ${styles.cleanActiveFooter} ${
+          hasCleanBroadcast ? "" : styles.cleanActiveFooterWithoutBroadcast
+        }`
       : styles.broadcast;
 
   return (
@@ -452,19 +469,8 @@ function CompactMatchCard({
             />
           ) : (
             <>
-              {cleanScoreText ? (
-                <strong
-                  aria-label={`Resultado ${match.home_score} a ${match.away_score}`}
-                  className={`${styles.cleanScore} ${
-                    kind === "finished" ? styles.cleanScoreFinished : styles.cleanScoreActive
-                  }`}
-                >
-                  {cleanScoreText}
-                </strong>
-              ) : null}
-              {(kind === "live" || kind === "halftime")
-                && presentation.showChannel
-                && broadcastChannelName ? (
+              {cleanScoreContent}
+              {hasCleanBroadcast ? (
                 <PublicMatchMeta
                   channelLogoUrl={match.broadcastChannel?.logo_url}
                   channelName={broadcastChannelName}

@@ -1137,23 +1137,25 @@
   justify-content: flex-end;
   width: 100%;
   min-width: 0;
-  height: 13px;
+  height: 15px;
   gap: 5px;
 }
 
 .panel[data-visual-variant="clean"] .cleanStatusLead {
   display: inline-flex;
   min-width: 0;
-  align-items: baseline;
+  height: 15px;
+  align-items: center;
   overflow: hidden;
   color: #15803d;
   font: inherit;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   font-weight: 900;
-  line-height: 13px;
+  line-height: 15px;
   text-overflow: clip;
   white-space: nowrap;
+  transform: translateY(-1px);
 }
 
 .panel[data-visual-variant="clean"] .cleanStateBadge {
@@ -1171,7 +1173,7 @@
   line-height: 13px;
   letter-spacing: 0.045em;
   white-space: nowrap;
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .panel[data-visual-variant="clean"] .cleanStateBadgeLive {
@@ -1273,9 +1275,34 @@
   object-position: right bottom;
 }
 
-.panel[data-visual-variant="clean"] .cleanActiveFooter {
+.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanActiveFooter {
+  display: grid;
+  grid-template-columns: repeat(2, var(--match-card-team-column-width));
   align-items: center;
-  gap: 8px;
+  justify-content: stretch;
+  width: 100%;
+  margin-inline: 0;
+  padding-inline: 0;
+  column-gap: var(--match-card-gap);
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanActiveFooter > .cleanScore {
+  grid-column: 1;
+  justify-self: center;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanActiveFooter:not(.cleanActiveFooterWithoutBroadcast) > .cleanScore {
+  transform: translateY(2px);
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanActiveFooter > :global([data-public-match-meta]) {
+  grid-column: 2;
+  justify-self: center;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanActiveFooterWithoutBroadcast > .cleanScore {
+  grid-column: 1 / -1;
+  justify-self: center;
 }
 
 .panel[data-visual-variant="clean"] .cleanActiveFooter > :global([data-public-match-meta]),
@@ -1285,6 +1312,7 @@
 }
 
 .panel[data-visual-variant="clean"] .cleanFinishedFooter {
+  display: flex;
   justify-content: center;
   width: 100%;
   margin-inline: 0;
@@ -1292,6 +1320,11 @@
 }
 
 .panel[data-visual-variant="clean"] .cleanScore {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
   margin: 0;
   color: #111820;
   font-family: inherit;
@@ -1496,6 +1529,14 @@
 .panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast > :global([data-public-match-meta]),
 .panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast > :global([data-public-match-meta]) > :not(:first-child) {
   width: max-content;
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast.cleanActiveFooter {
+  position: static;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  transform: translateY(-2px);
 }
 
 .panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast.cleanFinishedFooter {

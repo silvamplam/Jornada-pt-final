@@ -284,7 +284,7 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
 
   assert.match(
     homeSource,
-    /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"[\s\S]*?matches=\{featuredMatches\}[\s\S]*?variant="clean"/
+    /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"[\s\S]*?matches=\{featuredMatches\.slice\(0, 8\)\}[\s\S]*?variant="clean"/
   );
   assert.match(competitionSource, /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"/);
   assert.match(competitionSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
@@ -361,7 +361,16 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(stylesSource, /\.cleanStateBadgeFinished\s*\{[\s\S]*?background:\s*#111820;[\s\S]*?color:\s*#ffffff/);
   assert.match(stylesSource, /\.cleanStatusLine\s*\{[\s\S]*?justify-content:\s*flex-end;[\s\S]*?gap:\s*5px/);
   assert.match(stylesSource, /@keyframes public-match-now-fade[\s\S]*?opacity:\s*0\.52/);
-  assert.match(stylesSource, /\.cleanActiveFooter\s*\{[\s\S]*?gap:\s*8px/);
+  assert.match(stylesSource, /\.cleanActiveFooter\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\);[\s\S]*?column-gap:\s*var\(--match-card-gap\)/);
+  assert.match(stylesSource, /\.broadcast\.cleanActiveFooter > \.cleanScore\s*\{[\s\S]*?grid-column:\s*1;[\s\S]*?justify-self:\s*center/);
+  assert.match(stylesSource, /\.broadcast\.cleanActiveFooter:not\(\.cleanActiveFooterWithoutBroadcast\) > \.cleanScore\s*\{[\s\S]*?transform:\s*translateY\(2px\)/);
+  assert.match(stylesSource, /\.broadcast\.cleanActiveFooter > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-column:\s*2;[\s\S]*?justify-self:\s*center/);
+  assert.match(stylesSource, /\.broadcast\.cleanActiveFooterWithoutBroadcast > \.cleanScore\s*\{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?justify-self:\s*center/);
+  assert.match(stylesSource, /\[data-carousel-layout="fluid-peek"\][\s\S]*?\.broadcast\.cleanActiveFooter\s*\{[\s\S]*?position:\s*static;[\s\S]*?width:\s*100%/);
+  assert.match(stylesSource, /\.cleanFinishedFooter\s*\{[\s\S]*?display:\s*flex;[\s\S]*?justify-content:\s*center/);
+  assert.match(componentSource, /const hasCleanBroadcast = Boolean\(/);
+  assert.match(componentSource, /<span className=\{cleanFooterClassName\}[\s\S]*?\{cleanScoreContent\}[\s\S]*?\{hasCleanBroadcast \? \(/);
+  assert.doesNotMatch(stylesSource, /\.cleanScore\s*\{[^}]*grid-row:\s*3/);
   assert.match(stylesSource, /\.cleanScoreActive\s*\{[\s\S]*?font-size:\s*13px;[\s\S]*?font-weight:\s*700;[\s\S]*?letter-spacing:\s*0\.03em/);
   assert.match(stylesSource, /\.cleanStatusLead\s*\{[\s\S]*?color:\s*#15803d/);
   assert.match(stylesSource, /\.cleanScoreFinished\s*\{[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*700;[\s\S]*?letter-spacing:\s*0\.03em/);

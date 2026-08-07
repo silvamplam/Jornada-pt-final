@@ -9,7 +9,23 @@ const horizontalNewsStyles = `
   .public-horizontal-news {
     display: grid;
     gap: 16px;
-    padding: 18px;
+    padding: 22px 0 18px;
+    border: 0;
+    border-top: 1px solid #dbe4ee;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .public-horizontal-news-heading {
+    margin: 0;
+    padding-top: 8px;
+    border-top: 4px solid #10151b;
+    color: #10151b;
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
   }
 
   .public-horizontal-news-stack {
@@ -140,10 +156,12 @@ function horizontalNewsRowStyle(columnCount: number): HorizontalNewsRowStyle {
 
 export default function PublicHorizontalNewsStrip({
   items,
-  ariaLabel = "Mais noticias"
+  ariaLabel = "Mais noticias",
+  title
 }: {
   items: EditorialHorizontalNewsItem[];
   ariaLabel?: string;
+  title?: string;
 }) {
   if (items.length === 0) {
     return null;
@@ -154,6 +172,7 @@ export default function PublicHorizontalNewsStrip({
   return (
     <section className="public-matchday-panel public-horizontal-news" aria-label={ariaLabel}>
       <style>{horizontalNewsStyles}</style>
+      {title ? <h2 className="public-horizontal-news-heading">{title}</h2> : null}
       <div className="public-horizontal-news-stack">
         {rows.map((row, rowIndex) => (
           <div
