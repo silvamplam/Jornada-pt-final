@@ -638,7 +638,6 @@ export default async function HomePage() {
         <PublicHorizontalNewsStrip
           items={publicHorizontalNews}
           ariaLabel="Temas a acompanhar"
-          title="A acompanhar"
         />
       </div>
     </main>

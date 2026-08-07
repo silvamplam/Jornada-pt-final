@@ -44,7 +44,7 @@ export const publicEditorialStyles = `
     margin: 0 -24px;
     padding: 0 24px;
     border: 0;
-    background: #44152f;
+    background: #262626;
     box-shadow: 0 3px 8px rgba(68, 21, 47, 0.12);
   }
 
@@ -932,7 +932,6 @@ export const publicEditorialStyles = `
 
   .public-matchday-main-lower:has(.public-roundup-video-panel) {
     --public-roundup-top-align: 0px;
-    --public-roundup-video-top-offset: 28px;
     --public-roundup-scroll-control-height: 14px;
     --public-roundup-visible-list-height: 285px;
   }
@@ -1509,7 +1508,7 @@ export const publicEditorialStyles = `
     display: flex;
     justify-content: flex-end;
     align-items: flex-start;
-    padding: var(--public-roundup-video-top-offset) 0 0;
+    padding: 0;
   }
 
   .public-roundup-video-block {
@@ -1649,9 +1648,9 @@ export const publicEditorialStyles = `
     padding-top: 0;
     border-top: 0;
     font-size: 14px;
-    font-weight: 900;
-    line-height: 1;
-    text-transform: uppercase;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: none;
   }
 
   .public-matchday-news {

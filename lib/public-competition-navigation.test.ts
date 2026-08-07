@@ -408,12 +408,49 @@ test("a Home remove apenas o ticker e mant?m a barra vazia antes do carrossel", 
   assert.match(transitionBarRule, /margin:\s*0 -24px/);
   assert.match(transitionBarRule, /padding:\s*0 24px/);
   assert.match(transitionBarRule, /border:\s*0/);
-  assert.match(transitionBarRule, /background:\s*#44152f/);
-  assert.match(transitionBarRule, /box-shadow:\s*0 8px 18px rgba\(68, 21, 47, 0\.16\)/);
+  assert.match(transitionBarRule, /background:\s*#262626/);
+  assert.match(transitionBarRule, /box-shadow:\s*0 3px 8px rgba\(68, 21, 47, 0\.12\)/);
   assert.doesNotMatch(sharedStylesSource, /\.public-home-games-transition-bar::(?:before|after)/);
   assert.match(
     sharedStylesSource,
     /@media \(max-width: 760px\)[\s\S]*?\.public-home-games-transition-bar\s*\{[\s\S]*?margin:\s*0 -16px[\s\S]*?padding:\s*0 16px/
+  );
+});
+
+test("noticias contextuais usam o mesmo cabecalho competitivo da pagina publica da Liga", async () => {
+  const [matchdaySource, newsSource] = await Promise.all([
+    readFile(integrationUrls[2], "utf8"),
+    readFile(integrationUrls[4], "utf8")
+  ]);
+
+  const startMarker = "/* JORNADA-CABECALHO-COMPETITIVO-INICIO */";
+  const endMarker = "/* JORNADA-CABECALHO-COMPETITIVO-FIM */";
+
+  const competitiveStyles = (source: string) => {
+    const start = source.indexOf(startMarker);
+    const end = source.indexOf(endMarker, start);
+
+    assert.notEqual(start, -1);
+    assert.notEqual(end, -1);
+
+    return source.slice(start, end + endMarker.length);
+  };
+
+  assert.equal(competitiveStyles(newsSource), competitiveStyles(matchdaySource));
+  assert.match(
+    newsSource,
+    /<PublicCompetitionNavigation[\s\S]*?classificationHref=\{classificationHref\}[\s\S]*?showMessageTicker=\{false\}/
+  );
+  assert.match(newsSource, /style=\{\{ background: competitionBarColor \}\}/);
+  assert.match(newsSource, /<nav className="public-matchday-nav-compact" aria-label="Jornadas da época">/);
+  assert.doesNotMatch(newsSource, /PublicMatchdayNavigation/);
+  assert.match(
+    newsSource,
+    /<section className="public-league-match-strip-scroll"[\s\S]*?<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"[\s\S]*?variant="clean"/
+  );
+  assert.doesNotMatch(
+    newsSource,
+    /<PublicMatchStrip[\s\S]*?competitionSlug=\{articleContext\?\.competition\.slug\}/
   );
 });
 

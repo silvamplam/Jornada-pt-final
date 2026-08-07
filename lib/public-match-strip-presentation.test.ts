@@ -286,8 +286,11 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
     homeSource,
     /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"[\s\S]*?matches=\{featuredMatches\.slice\(0, 8\)\}[\s\S]*?variant="clean"/
   );
-  assert.match(competitionSource, /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"/);
+  assert.match(competitionSource, /className="public-league-match-strip-scroll"[\s\S]*?<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"/);
   assert.match(competitionSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
+  assert.doesNotMatch(competitionSource, /<PublicMatchStrip[\s\S]*?competitionSlug=/);
+  assert.match(competitionSource, /\.public-league-match-strip-scroll > \.public-matchday-scoreboard-panel\s*\{[\s\S]*?margin-top:\s*3px/);
+  assert.doesNotMatch(competitionSource, /className="public-home-match-strip-static"/);
   assert.match(newsSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
   assert.match(componentSource, /type PublicMatchStripVariant = "default" \| "home" \| "clean"/);
   assert.match(componentSource, /variant\?: PublicMatchStripVariant/);
@@ -313,7 +316,7 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(cleanStyles, /\.carouselViewport > \.row\s*\{[\s\S]*?display:\s*flex[\s\S]*?flex-wrap:\s*nowrap[\s\S]*?justify-content:\s*flex-start[\s\S]*?width:\s*max-content[\s\S]*?gap:\s*var\(--match-card-gap\)[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0/);
   assert.doesNotMatch(cleanStyles, /grid-auto-columns/);
   assert.doesNotMatch(cleanStyles, /@media \(max-width:\s*(?:1591|1211|831|451)px\)/);
-  assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?flex:\s*0 0 var\(--match-card-width\);[\s\S]*?width:\s*var\(--match-card-width\);[\s\S]*?min-width:\s*var\(--match-card-width\);[\s\S]*?max-width:\s*var\(--match-card-width\);[\s\S]*?height:\s*var\(--match-card-height\);[\s\S]*?min-height:\s*var\(--match-card-height\);[\s\S]*?max-height:\s*var\(--match-card-height\);[\s\S]*?background:\s*#ffffff/);
+  assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?flex:\s*0 0 var\(--match-card-width\);[\s\S]*?width:\s*var\(--match-card-width\);[\s\S]*?min-width:\s*var\(--match-card-width\);[\s\S]*?max-width:\s*var\(--match-card-width\);[\s\S]*?height:\s*var\(--match-card-height\);[\s\S]*?min-height:\s*var\(--match-card-height\);[\s\S]*?max-height:\s*var\(--match-card-height\);[\s\S]*?background:\s*rgba\(0,\s*0,\s*0,\s*0\.02\)/);
   assert.match(cleanStyles, /> \.status\s*\{[\s\S]*?grid-row:\s*1[\s\S]*?width:\s*100%[\s\S]*?height:\s*13px[\s\S]*?font-size:\s*11px[\s\S]*?font-weight:\s*500[\s\S]*?line-height:\s*13px/);
   assert.match(cleanStyles, /> \.broadcast\s*\{[\s\S]*?grid-row:\s*7[\s\S]*?align-self:\s*end[\s\S]*?justify-content:\s*flex-end[\s\S]*?height:\s*18px[\s\S]*?padding:\s*0 6px 0 0[\s\S]*?transform:\s*translateY\(-2px\)[\s\S]*?text-align:\s*right/);
   assert.match(cleanStyles, /\.teamNames \{[\s\S]*?grid-row:\s*5[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)[\s\S]*?align-self:\s*stretch[\s\S]*?width:\s*100%[\s\S]*?margin:\s*0[\s\S]*?column-gap:\s*var\(--match-card-gap\)/);
@@ -350,9 +353,10 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(componentSource, /window\.setInterval\([\s\S]*?PUBLIC_MATCH_STRIP_REFRESH_INTERVAL_MS/);
   assert.match(componentSource, /fetch\(\s*`\/api\/public\/matches\/live\?ids=/);
   assert.match(componentSource, /document\.visibilityState !== "visible"/);
-  assert.match(componentSource, /cleanStateLabel = kind === "live"[\s\S]*?"AGORA"/);
+  assert.match(componentSource, /cleanStateLabel = kind === "live"[\s\S]*?"AGORA"[\s\S]*?kind === "halftime"[\s\S]*?"INTERVALO"[\s\S]*?: null/);
   assert.match(componentSource, /const cleanHeaderLead = cleanMinute !== null \? `\$\{cleanMinute\}'` : null/);
   assert.doesNotMatch(componentSource, /const cleanKickoffLabel|cleanHeaderLead = kind === "finished" \? schedule\.visual/);
+  assert.match(componentSource, /kind === "finished" \? \(\s*<span className="public-matchday-mini-time" aria-label="Finalizado">FINAL<\/span>/);
   assert.match(componentSource, /className=\{`\$\{styles\.cleanStateBadge\} \$\{cleanStateLabelClass\}`\}/);
   assert.match(componentSource, /className=\{`\$\{styles\.cleanScore\} \$\{[\s\S]*?styles\.cleanScoreFinished[\s\S]*?styles\.cleanScoreActive/);
   assert.match(componentSource, /\(kind === "live" \|\| kind === "halftime"\)\s*&&\s*presentation\.showChannel[\s\S]*?<PublicMatchMeta/);

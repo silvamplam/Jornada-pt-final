@@ -86,38 +86,302 @@ type PublicEditorialLayoutProps = {
   belowHeadline: PublicBelowHeadlineData;
   latestNews: PublicEditorialLatestNews[];
   latestNewsTitle?: string;
+  latestNewsTitleColor?: string | null;
+  showHeadline?: boolean;
+  showSideBlock?: boolean;
+  showLatestNews?: boolean;
 };
 
 const publicEditorialLayoutPolishStyles = `
-  .public-matchday-panel .public-matchday-lead-grid > .public-matchday-news,
-  .public-matchday-panel .public-matchday-lead-grid > .public-side-editorial-block,
-  .public-matchday-panel .public-matchday-depth-row > .public-matchday-main-lower,
-  .public-matchday-panel .public-matchday-depth-row > .public-matchday-cover-side,
-  .public-matchday-panel .public-roundup-video-layout > .public-matchday-roundup,
-  .public-matchday-panel .public-roundup-video-layout > .public-roundup-video-panel {
+  .public-matchday-panel.public-editorial-layout-panel {
+    width: min(100%, 1200px) !important;
+    max-width: 1200px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .public-editorial-layout-panel .public-matchday-lead-grid > .public-matchday-news,
+  .public-editorial-layout-panel .public-matchday-lead-grid > .public-side-editorial-block,
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-matchday-main-lower,
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-matchday-cover-side,
+  .public-editorial-layout-panel .public-roundup-video-content > .public-matchday-roundup,
+  .public-editorial-layout-panel .public-roundup-video-content > .public-roundup-video-panel {
     border-left: 0 !important;
     border-right: 0 !important;
   }
 
-  .public-matchday-panel .public-matchday-depth-row {
-    border-top: 0 !important;
+  .public-editorial-layout-panel .public-matchday-cover {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+    gap: 20px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0 auto;
+    padding: 18px 0 22px;
+    align-items: start;
+    min-height: 0;
   }
 
-  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title,
-  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-context-title {
+  .public-editorial-layout-panel .public-matchday-lead-grid {
+    display: grid;
+    column-gap: 20px;
+    row-gap: 20px;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .public-editorial-layout-panel .public-matchday-lead-grid[data-top-columns="3"] {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 235px) minmax(190px, 205px);
+  }
+
+  .public-editorial-layout-panel .public-matchday-lead-grid[data-top-columns="2"] {
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 260px);
+  }
+
+  .public-editorial-layout-panel .public-matchday-lead-grid[data-top-columns="1"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .public-editorial-layout-panel .public-matchday-lead-grid > * {
+    grid-area: auto !important;
+    min-width: 0;
+  }
+
+  .public-editorial-layout-panel .public-matchday-main-column {
+    gap: 20px;
+    padding: 0;
+    border: 0;
+    grid-template-rows: auto;
+  }
+
+  .public-editorial-layout-panel .public-cover-headline {
+    grid-template-columns: minmax(250px, 1fr) minmax(0, 420px);
+    grid-template-areas: "copy media";
+    gap: 18px;
+    min-height: 285px;
+    padding: 0 0 10px;
+  }
+
+  .public-editorial-layout-panel .public-cover-headline-copy,
+  .public-editorial-layout-panel .public-cover-headline-copy-link {
+    grid-area: copy;
+    display: grid;
+    gap: 10px;
+    align-content: start;
+    min-width: 0;
+  }
+
+  .public-editorial-layout-panel .public-editorial-main-image {
+    grid-area: media;
+    height: 300px;
+    max-height: 300px;
+  }
+
+  .public-editorial-layout-panel .public-matchday-editorial h1,
+  .public-editorial-layout-panel .public-matchday-editorial h2 {
+    max-width: 100%;
+    font-size: clamp(30px, 1.9vw, 34px);
+    line-height: 1.03;
+    letter-spacing: -0.015em;
+    text-transform: none;
+  }
+
+  .public-editorial-layout-panel .public-matchday-editorial h1 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .public-editorial-layout-panel .public-cover-headline p {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+
+  .public-editorial-layout-panel .public-matchday-lead-grid > .public-matchday-news,
+  .public-editorial-layout-panel .public-matchday-lead-grid > .public-side-editorial-block {
+    align-self: stretch;
+    height: 100%;
+    min-height: 100%;
+    padding: 0 0 0 20px;
+    border: 0;
+    border-left: 0 !important;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .public-editorial-layout-panel .public-matchday-lead-grid > .public-side-editorial-block .public-side-editorial-inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    min-height: 100%;
+    align-content: start;
+  }
+
+  .public-editorial-layout-panel .public-matchday-lead-grid > .public-side-editorial-block .public-side-editorial-image {
+    aspect-ratio: 4 / 3;
+  }
+
+  .public-editorial-layout-panel .public-editorial-highlights-section {
+    padding-top: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-matchday-main-lower,
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-matchday-cover-side {
+    padding-top: 0 !important;
+    border-top: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    border-left: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .public-editorial-layout-panel .public-roundup-video-content > .public-matchday-roundup,
+  .public-editorial-layout-panel .public-roundup-video-content > .public-roundup-video-panel {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .public-editorial-layout-panel .public-matchday-depth-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.72fr) minmax(280px, 0.78fr);
+    gap: 24px;
+    align-items: start;
+    min-width: 0;
+    padding-top: 18px;
+    border-top: 1px solid #dbe4ee;
+  }
+
+  .public-editorial-layout-panel .public-matchday-depth-row-single {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-matchday-cover-side {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .public-editorial-layout-panel .public-matchday-depth-row .public-below-headline-side {
+    display: grid;
+    gap: 12px;
+    align-content: start;
+    min-height: 0;
+  }
+
+  .public-editorial-layout-panel .public-matchday-main-lower {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-matchday-main-lower,
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-matchday-cover-side,
+  .public-editorial-layout-panel .public-roundup-video-content > .public-matchday-roundup,
+  .public-editorial-layout-panel .public-roundup-video-content > .public-roundup-video-panel {
+    border-left: 0 !important;
+    border-right: 0 !important;
+  }
+
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title,
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-below-headline-side .public-context-title {
     margin-top: 0 !important;
     padding-top: 0 !important;
     border-top: 0 !important;
   }
 
-  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title::before,
-  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title::after,
-  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-context-title::before,
-  .public-matchday-panel .public-matchday-depth-row > .public-below-headline-side .public-context-title::after {
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title::before,
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title::after,
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-below-headline-side .public-context-title::before,
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-below-headline-side .public-context-title::after {
     content: none !important;
     display: none !important;
     border: 0 !important;
   }
+
+  @media (max-width: 1180px) {
+    .public-editorial-layout-panel .public-matchday-lead-grid[data-top-columns="3"] {
+      grid-template-columns: minmax(0, 1fr) minmax(210px, 230px);
+    }
+
+    .public-editorial-layout-panel .public-matchday-lead-grid[data-top-columns="3"] > .public-matchday-main-column {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .public-editorial-layout-panel .public-matchday-lead-grid[data-top-columns="3"] > .public-side-editorial-block {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .public-editorial-layout-panel .public-matchday-lead-grid[data-top-columns="3"] > .public-matchday-news {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      min-height: 0;
+      padding: 20px 0 0;
+      border-left: 0;
+      border-top: 1px solid #dbe4ee;
+    }
+
+    .public-editorial-layout-panel .public-matchday-depth-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 840px) {
+    .public-editorial-layout-panel .public-matchday-lead-grid,
+    .public-editorial-layout-panel .public-matchday-depth-row {
+      grid-template-columns: minmax(0, 1fr) !important;
+      gap: 24px;
+    }
+
+    .public-editorial-layout-panel .public-matchday-lead-grid > * {
+      grid-column: auto !important;
+      grid-row: auto !important;
+    }
+
+    .public-editorial-layout-panel .public-matchday-lead-grid > .public-matchday-news,
+    .public-editorial-layout-panel .public-matchday-lead-grid > .public-side-editorial-block {
+      grid-column: auto !important;
+      min-height: 0;
+      padding: 20px 0 0;
+      border-left: 0;
+      border-top: 1px solid #dbe4ee;
+    }
+  }
+  @media (max-width: 680px) {
+    .public-editorial-layout-panel .public-cover-headline {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "copy"
+        "media";
+      min-height: 0;
+    }
+  }
+
 `;
 
 export function PublicSideBlock({
@@ -383,12 +647,12 @@ function PublicRoundupSummary({ data }: { data: PublicBelowHeadlineData }) {
   );
 }
 
-export function PublicLatestNewsBlock({ items, title }: { items: PublicEditorialLatestNews[]; title?: string }) {
+export function PublicLatestNewsBlock({ items, title, titleColor }: { items: PublicEditorialLatestNews[]; title?: string; titleColor?: string | null }) {
   const visibleTitle = title?.trim() ?? "";
 
   return (
     <aside className="public-matchday-news" aria-label={visibleTitle || "NotÃ­cias"}>
-      {visibleTitle ? <h3>{visibleTitle}</h3> : null}
+      {visibleTitle ? <h3 style={titleColor ? { color: titleColor } : undefined}>{visibleTitle}</h3> : null}
       <ul className="public-news-list">
         {items.map((item) => (
           <li className="public-news-item" key={item.id}>
@@ -417,7 +681,23 @@ export function PublicLatestNewsBlock({ items, title }: { items: PublicEditorial
   );
 }
 
-export function PublicEditorialLayout({ ariaLabel = "Capa da jornada", sideBlock, headline, belowHeadline, latestNews, latestNewsTitle }: PublicEditorialLayoutProps) {
+export function PublicEditorialLayout({
+  ariaLabel = "Capa da jornada",
+  sideBlock,
+  headline,
+  belowHeadline,
+  latestNews,
+  latestNewsTitle,
+  latestNewsTitleColor,
+  showHeadline = true,
+  showSideBlock = true,
+  showLatestNews = true
+}: PublicEditorialLayoutProps) {
+  const hasHighlights = belowHeadline.highlights.length > 0;
+  const hasMainColumn = showHeadline || hasHighlights;
+  const hasLatestNews = showLatestNews && latestNews.length > 0;
+  const hasSideBlock = showSideBlock && sideBlock.isPublished;
+  const topColumnCount = [hasMainColumn, hasLatestNews, hasSideBlock].filter(Boolean).length;
   const hasRoundupSummary = belowHeadline.showRoundupVideo && belowHeadline.roundupItems.length > 0;
   const hasComplementary =
     belowHeadline.complementary.isPublished &&
@@ -428,25 +708,38 @@ export function PublicEditorialLayout({ ariaLabel = "Capa da jornada", sideBlock
       belowHeadline.complementary.text ||
       belowHeadline.complementary.linkUrl
     );
+  const hasDepthRow = hasRoundupSummary || hasComplementary;
+
+  if (topColumnCount === 0 && !hasDepthRow) {
+    return null;
+  }
 
   return (
-    <section className="public-matchday-panel" aria-label={ariaLabel}>
+    <section className="public-matchday-panel public-editorial-layout-panel" aria-label={ariaLabel}>
       <style>{publicEditorialLayoutPolishStyles}</style>
       <div className="public-matchday-cover">
-        <div className="public-matchday-lead-grid">
-          <div className="public-matchday-main-column">
-            <PublicHeadlineBlock data={headline} />
-            <PublicHighlightsSection data={belowHeadline} />
+        {topColumnCount > 0 ? (
+          <div className="public-matchday-lead-grid" data-top-columns={topColumnCount}>
+            {hasMainColumn ? (
+              <div className="public-matchday-main-column">
+                {showHeadline ? <PublicHeadlineBlock data={headline} /> : null}
+                <PublicHighlightsSection data={belowHeadline} />
+              </div>
+            ) : null}
+            {hasLatestNews ? (
+              <PublicLatestNewsBlock items={latestNews} title={latestNewsTitle} titleColor={latestNewsTitleColor} />
+            ) : null}
+            {hasSideBlock ? (
+              <PublicSideBlock
+                data={sideBlock}
+                ariaLabel="Leitura editorial do tema principal"
+              />
+            ) : null}
           </div>
-          <PublicLatestNewsBlock items={latestNews} title={latestNewsTitle} />
-          <PublicSideBlock
-            data={sideBlock}
-            ariaLabel="Leitura editorial do tema principal"
-          />
-        </div>
+        ) : null}
 
-        {hasRoundupSummary || hasComplementary ? (
-          <div className={`public-matchday-depth-row${hasRoundupSummary ? "" : " public-matchday-depth-row-complement-only"}`}>
+        {hasDepthRow ? (
+          <div className={`public-matchday-depth-row${hasRoundupSummary !== hasComplementary ? " public-matchday-depth-row-single" : ""}`}>
             <PublicRoundupSummary data={belowHeadline} />
             <PublicComplementaryBlock
               data={belowHeadline.complementary}

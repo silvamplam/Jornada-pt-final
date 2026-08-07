@@ -4,16 +4,16 @@ import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchd
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
-import { buildPublicMatchdayEditorialVisibility } from "@/lib/public-matchday-editorial-visibility";
+import { buildPublicMatchdayEditorialVisibility, hasPublicMatchdayRoundupContent } from "@/lib/public-matchday-editorial-visibility";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
+import { PublicEditorialLayout } from "@/components/public/PublicEditorialLayout";
 import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/public/PublicTeamBadge";
-import RoundupVideoSwitcher from "@/components/public/RoundupVideoSwitcher";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -29,18 +29,6 @@ type PublicMatchdayPageProps = {
   }>;
 };
 
-async function readBelowHeadlineSubtitle(matchdayId: string) {
-  try {
-    const rows = await fetchSupabaseAdminTable<{ below_headline_subtitle: string | null }>(
-      `matchday_editorials?select=below_headline_subtitle&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
-    );
-
-    return rows[0]?.below_headline_subtitle?.trim() || null;
-  } catch {
-    return null;
-  }
-}
-
 const PUBLIC_STAT_COLUMNS: Array<{ key: keyof ClassificationSplit; label: string }> = [
   { key: "played", label: "J" },
   { key: "wins", label: "V" },
@@ -51,6 +39,13 @@ const PUBLIC_STAT_COLUMNS: Array<{ key: keyof ClassificationSplit; label: string
   { key: "goalDifference", label: "DG" },
   { key: "points", label: "PTS" }
 ];
+
+function publicCompetitionBarColor(competitionSlug: string) {
+  if (competitionSlug === "liga-portugal") return "#00235a";
+  if (competitionSlug === "premier-league") return "#3d195b";
+  if (competitionSlug === "la-liga") return "#1d2230";
+  return "#262626";
+}
 
 const publicMatchdayStyles = `
   body {
@@ -80,6 +75,13 @@ const publicMatchdayStyles = `
   #jogos,
   #classificacao {
     scroll-margin-top: 132px;
+  }
+
+  #classificacao {
+    width: min(100%, 1200px);
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .public-site-topbar {
@@ -276,6 +278,10 @@ const publicMatchdayStyles = `
     min-height: 0;
   }
 
+  .public-league-match-strip-scroll > .public-matchday-scoreboard-panel {
+    margin-top: 3px;
+  }
+
   .public-matchday-scoreboard-panel + .public-matchday-panel {
     margin-top: 10px;
   }
@@ -288,6 +294,14 @@ const publicMatchdayStyles = `
     overflow: visible;
     max-width: 1512px;
     width: 100%;
+  }
+
+  .public-matchday-editorial-region {
+    width: min(100%, 1200px);
+    max-width: 1200px;
+    min-width: 0;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .public-matchday-panel header {
@@ -832,7 +846,6 @@ const publicMatchdayStyles = `
 
   .public-matchday-main-lower:has(.public-roundup-video-panel) {
     --public-roundup-top-align: 0px;
-    --public-roundup-video-top-offset: 28px;
     --public-roundup-scroll-control-height: 14px;
     --public-roundup-visible-list-height: 285px;
     grid-template-columns: minmax(0, 1fr);
@@ -1405,7 +1418,7 @@ const publicMatchdayStyles = `
     display: flex;
     justify-content: flex-end;
     align-items: flex-start;
-    padding: var(--public-roundup-video-top-offset) 0 0;
+    padding: 0;
   }
 
   .public-roundup-video-block {
@@ -1545,9 +1558,9 @@ const publicMatchdayStyles = `
     padding-top: 0;
     border-top: 0;
     font-size: 14px;
-    font-weight: 900;
-    line-height: 1;
-    text-transform: uppercase;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: none;
   }
 
   .public-matchday-news {
@@ -2631,7 +2644,7 @@ const publicMatchdayStyles = `
     margin: 0 -24px;
     padding: 0 24px;
     border: 0;
-    background: #44152f;
+    background: #262626;
     color: #ffffff;
     box-shadow: 0 8px 18px rgba(68, 21, 47, 0.16);
   }
@@ -3502,6 +3515,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     return <DiagnosticPanel diagnostic={diagnostic} />;
   }
   const showLogoDiagnostic = query.debug_logos === "1";
+  const competitionBarColor = publicCompetitionBarColor(context.competition.slug);
 
   const seasonSegment = seasonLabelToUrlSegment(context.season.label);
   const seasonOptions = context.seasons.map((season) => ({
@@ -3572,7 +3586,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     context.matchday.ends_on
   );
   const editorial = context.editorial;
-  const liveBelowHeadlineSubtitle = await readBelowHeadlineSubtitle(context.matchday.id);
   const publishedHeadline = editorial?.status === "published" ? editorial : null;
   const usePublishedReferenceComposition = context.hasPublishedReferenceComposition;
   const referenceHeadline = usePublishedReferenceComposition ? firstReferenceSlotItem(context.referenceSlots.headline) : null;
@@ -3582,9 +3595,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const useReferenceRoundupItems = usePublishedReferenceComposition && context.hasReferenceRoundupItems;
   const effectiveRoundupItems = (useReferenceRoundupItems
     ? context.referenceRoundupItems
-    : usePublishedReferenceComposition
-      ? []
-      : context.roundupItems).filter((item) => Boolean(item.title?.trim()));
+    : context.roundupItems).filter(hasPublicMatchdayRoundupContent);
   const headlineTitle = referenceHeadline
     ? cleanReferenceSnapshotText(referenceHeadline.title_snapshot)
     : publishedHeadline?.title?.trim() || null;
@@ -3623,17 +3634,14 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         }))
         .filter((item) => item.title.length > 0)
     : [];
-  const configuredBelowHeadlineMode = editorial?.below_headline_mode === "roundup" ? "roundup" : "highlights";
-  const belowHeadlineMode = referenceHighlightItems.length > 0 ? "highlights" : configuredBelowHeadlineMode;
-  const belowHeadlineHeading =
-    editorial?.below_headline_heading?.trim() || `Jornada ${String(context.matchday.number).padStart(2, "0")}`;
-  const belowHeadlineSubtitle =
-    belowHeadlineMode === "highlights"
-      ? liveBelowHeadlineSubtitle
-      : null;
+  const highlightsAreActive = editorial
+    ? editorial.below_headline_mode !== "roundup"
+    : referenceHighlightItems.length > 0;
+  const roundupIsActive = editorial
+    ? complementaryMode === "roundup_video"
+    : useReferenceRoundupItems;
+  const belowHeadlineHeading = editorial?.below_headline_heading?.trim() ?? "";
   const belowHeadlineHeadingColor = editorial?.below_headline_heading_color?.trim();
-  const belowHeadlineLabel = belowHeadlineMode === "highlights" ? belowHeadlineHeading : `Jornada ${String(context.matchday.number).padStart(2, "0")}`;
-  const belowHeadlineLabelColor = belowHeadlineMode === "highlights" ? belowHeadlineHeadingColor : null;
   const effectiveHighlights =
     referenceHighlightItems.length > 0
       ? referenceHighlightItems
@@ -3646,6 +3654,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           imageUrl: highlight.image_url?.trim() || null,
           linkUrl: highlight.link_url?.trim() || null
         })).filter((highlight) => highlight.title.length > 0);
+  const visibleHighlights = highlightsAreActive ? effectiveHighlights : [];
+  const visibleRoundupItems = roundupIsActive ? effectiveRoundupItems : [];
   const complementaryImageUrl = usePublishedReferenceComposition
     ? cleanReferenceSnapshotText(referenceComplement?.image_url_snapshot)
     : editorial?.complementary_image_url?.trim() || null;
@@ -3662,11 +3672,12 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     ? cleanReferenceSnapshotText(referenceComplement?.link_url_snapshot)
     : editorial?.complementary_link_url?.trim() || null;
   const complementMedia = context.complementMedia;
-  const hasPublishedComplementaryStory = usePublishedReferenceComposition
-    ? Boolean(complementaryTitle || complementaryText || complementaryImageUrl || complementMedia)
-    : complementaryMode === "complementary_story" &&
-      editorial?.complementary_status === "published" &&
-      Boolean(complementaryTitle || complementaryText || complementaryImageUrl || complementMedia);
+  const complementaryIsActive = editorial
+    ? editorial.complementary_status === "published"
+    : Boolean(referenceComplement);
+  const hasPublishedComplementaryStory =
+    complementaryIsActive &&
+    Boolean(complementaryTitle || complementaryText || complementaryImageUrl || complementMedia);
   const sideBlockImageUrl = usePublishedReferenceComposition
     ? cleanReferenceSnapshotText(referenceSideBlock?.image_url_snapshot)
     : editorial?.side_block_image_url?.trim() || null;
@@ -3752,22 +3763,15 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       sortOrder: item.sort_order
     }))
   });
-  const showBelowHeadlineEditorialStrip =
-    belowHeadlineMode === "highlights" ? effectiveHighlights.length > 0 : effectiveRoundupItems.length > 0;
   const editorialVisibility = buildPublicMatchdayEditorialVisibility({
     hasHeadline: hasPublishedHeadline,
     hasSideBlock: hasPublishedSideBlock,
-    highlightCount: belowHeadlineMode === "highlights" ? effectiveHighlights.length : 0,
-    roundupCount: belowHeadlineMode === "roundup" ? effectiveRoundupItems.length : 0,
+    highlightCount: visibleHighlights.length,
+    roundupCount: visibleRoundupItems.length,
     hasComplementaryStory: hasPublishedComplementaryStory,
     latestNewsCount: latestNewsItems.length,
     importantNewsCount: importantNewsItems.length
   });
-  const headlineLayout = headlineMedia || headlineImageUrl
-    ? headlineTitle || headlineSummary
-      ? "media-copy"
-      : "media-only"
-    : "copy-only";
 
   return (
     <main className="public-matchday-shell">
@@ -3789,7 +3793,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           <a href="/admin/gestor">Entrar</a>
         </div>
       </header>
-      <section className="public-season-nav-bar" aria-label="Navegacao de jornadas">
+      <section className="public-season-nav-bar" aria-label="Navegacao de jornadas" style={{ background: competitionBarColor }}>
         <div className="public-hidden-heading">
           <h2>Jornadas</h2>
           <p>Navegação principal da época {context.season.label}.</p>
@@ -3849,249 +3853,94 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           `
         }}
       />
-      <PublicMatchStrip
-        carouselLayout="fluid-peek"
-        competitionSlug={context.competition.slug}
-        matches={context.matchesForMatchday.map((match) => ({
-          ...match,
-          matchdayNumber: context.matchday.number
-        }))}
-        variant="clean"
-      />
+      <div className="public-league-match-strip-scroll">
+        <PublicMatchStrip
+          carouselLayout="fluid-peek"
+          matches={context.matchesForMatchday.map((match) => ({
+            ...match,
+            matchdayNumber: context.matchday.number
+          }))}
+          variant="clean"
+        />
+      </div>
       {editorialVisibility.showCoverPanel ? (
-      <section className="public-matchday-panel" aria-label="Capa da jornada">
-        <div className="public-matchday-cover" data-editorial-layout={editorialVisibility.coverLayout}>
-          {editorialVisibility.showSideBlock ? (
-          <aside className="public-matchday-feature public-side-editorial-block" aria-label="Bloco editorial lateral da jornada">
-            <div className="public-side-editorial-inner">
-                {sideBlockLinkUrl ? (
-                  <a className="public-side-editorial-card-link" href={sideBlockLinkUrl} aria-label={sideBlockTitle ? `Abrir ${sideBlockTitle}` : "Abrir artigo"}>
-                    {sideBlockImageUrl ? (
-                      <div className="public-side-editorial-image">
-                        <img alt="" src={sideBlockImageUrl} />
-                      </div>
-                    ) : null}
-                    <div className="public-side-editorial-copy">
-                      {sideBlockLabel ? (
-                        <span className="public-side-editorial-label" style={sideBlockLabelColor ? { color: sideBlockLabelColor } : undefined}>
-                          {sideBlockLabel}
-                        </span>
-                      ) : null}
-                      {sideBlockTitle ? <strong style={sideBlockTitleColor ? { color: sideBlockTitleColor } : undefined}>{sideBlockTitle}</strong> : null}
-                      {sideBlockAuthor ? <small>{sideBlockAuthor}</small> : null}
-                      {sideBlockText ? <p>{sideBlockText}</p> : null}
-                    </div>
-                  </a>
-                ) : (
-                <>
-                  {sideBlockImageUrl ? (
-                    <div className="public-side-editorial-image">
-                      <img alt="" src={sideBlockImageUrl} />
-                    </div>
-                  ) : null}
-                  <div className="public-side-editorial-copy">
-                    {sideBlockLabel ? (
-                        <span className="public-side-editorial-label" style={sideBlockLabelColor ? { color: sideBlockLabelColor } : undefined}>
-                          {sideBlockLabel}
-                        </span>
-                      ) : null}
-                    {sideBlockTitle ? <strong style={sideBlockTitleColor ? { color: sideBlockTitleColor } : undefined}>{sideBlockTitle}</strong> : null}
-                    {sideBlockAuthor ? <small>{sideBlockAuthor}</small> : null}
-                    {sideBlockText ? <p>{sideBlockText}</p> : null}
-                  </div>
-                </>
-                )}
-            </div>
-          </aside>
-          ) : null}
-          {editorialVisibility.showMainColumn ? (
-          <div className="public-matchday-main-column">
-            {editorialVisibility.showHeadline ? (
-            <article className="public-matchday-editorial">
-              <div className="public-cover-headline" data-headline-layout={headlineLayout}>
-                {headlineMedia ? (
-                  <div className="public-editorial-main-image">
-                    {headlineMedia.kind === "embed" && headlineMedia.embed_url ? (
-                      <iframe
-                        src={headlineMedia.embed_url}
-                        title={headlineMedia.title || headlineTitle || "Manchete da jornada"}
-                        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        loading="lazy"
-                      />
-                    ) : headlineMedia.kind === "direct_video" && headlineMedia.video_url ? (
-                      <video controls preload="metadata" poster={headlineMedia.poster_url || undefined}>
-                        <source src={headlineMedia.video_url} />
-                        O seu navegador nao suporta video HTML5.
-                      </video>
-                    ) : null}
-                  </div>
-                ) : headlineImageUrl ? (
-                  <div className="public-editorial-main-image">
-                    <img src={headlineImageUrl} alt="" />
-                  </div>
-                ) : null}
-                {headlineTitle || headlineSummary ? (
-                <div>
-                  {headlineTitle ? (
-                    headlineLinkUrl ? (
-                      <a className="public-cover-headline-title-link" href={headlineLinkUrl}>
-                        <h2 style={!referenceHeadline && publishedHeadline?.title_color ? { color: publishedHeadline.title_color } : undefined}>
-                          {headlineTitle}
-                        </h2>
-                      </a>
-                    ) : (
-                      <h2 style={!referenceHeadline && publishedHeadline?.title_color ? { color: publishedHeadline.title_color } : undefined}>
-                        {headlineTitle}
-                      </h2>
-                    )
-                  ) : null}
-                  {headlineSummary ? <p>{headlineSummary}</p> : null}
-                </div>
-                ) : null}
-              </div>
-            </article>
-            ) : null}
-            {editorialVisibility.showMainLower ? (
-            <div className={`public-matchday-main-lower${editorialVisibility.mainLowerIsSingle ? " public-matchday-main-lower-single" : ""}`}>
-              {showBelowHeadlineEditorialStrip ? (
-              belowHeadlineMode === "roundup" ? (
-                <RoundupVideoSwitcher
-                  items={effectiveRoundupItems}
-                  heading={editorial?.roundup_video_heading ?? belowHeadlineHeading}
-                  headingColor={editorial?.roundup_video_heading_color ?? belowHeadlineHeadingColor ?? null}
-                  matchdayNumber={context.matchday.number}
-                />
-              ) : (
-              <section
-                className="public-matchday-roundup public-below-headline-highlights public-editorial-flex-block"
-                data-editorial-slot="videos-ou-noticias"
-                aria-label="Zona editorial abaixo da manchete"
-              >
-                <div className="public-editorial-block-head">
-                  <div className="public-below-headline-heading-copy">
-                    <span className="public-roundup-matchday-label" style={belowHeadlineLabelColor ? { color: belowHeadlineLabelColor } : undefined}>
-                      {belowHeadlineLabel}
-                    </span>
-                    {belowHeadlineSubtitle ? <p className="public-below-headline-subtitle">{belowHeadlineSubtitle}</p> : null}
-                  </div>
-                </div>
-                <div className="public-cover-story-strip" aria-label="Destaques da jornada">
-                  {effectiveHighlights.map((highlight) => {
-                    const imageUrl = highlight.imageUrl;
-                    const highlightLinkUrl = highlight.linkUrl;
-                    return (
-                      <article className="public-cover-story" key={highlight.id}>
-                        {highlightLinkUrl ? (
-                          <a className="public-highlight-image-link" href={highlightLinkUrl}>
-                            <div className="public-highlight-image">
-                              {imageUrl ? <img src={imageUrl} alt="" /> : null}
-                            </div>
-                          </a>
-                        ) : (
-                          <div className="public-highlight-image">
-                            {imageUrl ? <img src={imageUrl} alt="" /> : null}
-                          </div>
-                        )}
-                        {highlight.label ? <span>{highlight.label}</span> : null}
-                        {highlightLinkUrl ? (
-                          <a className="public-cover-story-title-link" href={highlightLinkUrl}>
-                            <strong>{highlight.title}</strong>
-                          </a>
-                        ) : (
-                          <strong>{highlight.title}</strong>
-                        )}
-                        {highlight.subtitle ? <small>{highlight.subtitle}</small> : null}
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-              )
-              ) : null}
-              {editorialVisibility.showComplementaryStory ? (
-              <aside className="public-matchday-cover-side public-editorial-flex-block public-below-headline-side" data-editorial-slot="video-ou-imagem-noticia" aria-label="Bloco complementar da jornada">
-                  <>
-                    {complementMedia ? (
-                      <div className="public-complement-media">
-                        {complementMedia.kind === "embed" && complementMedia.embed_url ? (
-                          <iframe
-                            src={complementMedia.embed_url}
-                            title={complementMedia.title || complementaryTitle || "Complemento da manchete"}
-                            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowFullScreen
-                            loading="lazy"
-                          />
-                        ) : complementMedia.kind === "direct_video" && complementMedia.video_url ? (
-                          <video controls preload="metadata" poster={complementMedia.poster_url || undefined}>
-                            <source src={complementMedia.video_url} />
-                            O seu navegador nao suporta video HTML5.
-                          </video>
-                        ) : null}
-                      </div>
-                    ) : complementaryImageUrl ? (
-                      <div className="public-complement-media">
-                        <img src={complementaryImageUrl} alt="" />
-                      </div>
-                    ) : null}
-                    <div className="public-complement-body">
-                      {complementaryLabel ? (
-                        <span className="public-complement-label">{complementaryLabel}</span>
-                      ) : null}
-                      {complementaryTitle ? (
-                        complementaryLinkUrl ? (
-                          <a className="public-complement-title-link" href={complementaryLinkUrl}>
-                            <strong>{complementaryTitle}</strong>
-                          </a>
-                        ) : (
-                          <strong>{complementaryTitle}</strong>
-                        )
-                      ) : null}
-                      {complementaryText ? <p>{complementaryText}</p> : null}
-                    </div>
-                  </>
-              </aside>
-              ) : null}
-            </div>
-            ) : null}
-          </div>
-          ) : null}
-          {editorialVisibility.showLatestZone ? (
-          <aside className="public-matchday-news" aria-label={latestZoneTitle || "Linha editorial"}>
-            {latestZoneTitle ? <h3 style={latestZoneTitleColor ? { color: latestZoneTitleColor } : undefined}>{latestZoneTitle}</h3> : null}
-            <ul className="public-news-list">
-              {latestNewsItems.map((item) => (
-                <li className="public-news-item" key={item.id}>
-                  {item.imageUrl ? (
-                    <div className="public-news-thumb">
-                      <img alt="" src={item.imageUrl} />
-                    </div>
-                  ) : null}
-                  <div className="public-news-copy">
-                    {item.timeLabel ? (
-                      <time dateTime={item.timeLabel} style={item.timeLabelColor ? { color: item.timeLabelColor } : undefined}>
-                        {item.timeLabel}
-                      </time>
-                    ) : null}
-                    {item.linkUrl ? (
-                      <a className="public-news-title" href={item.linkUrl}>
-                        {item.title}
-                      </a>
-                    ) : (
-                      <span className="public-news-title">{item.title}</span>
-                    )}
-                    {item.subtitle ? <p className="public-news-subtitle">{item.subtitle}</p> : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </aside>
-          ) : null}
-        </div>
-      </section>
+        <PublicEditorialLayout
+          ariaLabel="Capa da jornada"
+          showHeadline={editorialVisibility.showHeadline}
+          showSideBlock={editorialVisibility.showSideBlock}
+          showLatestNews={editorialVisibility.showLatestZone}
+          sideBlock={{
+            isPublished: hasPublishedSideBlock,
+            label: sideBlockLabel,
+            labelColor: sideBlockLabelColor,
+            title: sideBlockTitle,
+            titleColor: sideBlockTitleColor,
+            author: sideBlockAuthor,
+            text: sideBlockText,
+            imageUrl: sideBlockImageUrl,
+            linkUrl: sideBlockLinkUrl
+          }}
+          headline={{
+            title: headlineTitle,
+            subtitle: headlineSummary,
+            imageUrl: headlineImageUrl,
+            linkUrl: headlineLinkUrl,
+            inlineMedia: headlineMedia
+              ? {
+                  kind: headlineMedia.kind,
+                  embedUrl: headlineMedia.embed_url,
+                  videoUrl: headlineMedia.video_url,
+                  posterUrl: headlineMedia.poster_url,
+                  caption: headlineMedia.caption,
+                  contentSlug: headlineMedia.content_slug,
+                  contentType: headlineMedia.content_type,
+                  title: headlineMedia.title
+                }
+              : null,
+            titleColor: !referenceHeadline ? publishedHeadline?.title_color ?? null : null,
+            fallbackTitle: "",
+            fallbackSubtitle: ""
+          }}
+          belowHeadline={{
+            highlightHeading: belowHeadlineHeading,
+            highlightHeadingColor: belowHeadlineHeadingColor ?? null,
+            highlights: visibleHighlights,
+            roundupItems: visibleRoundupItems,
+            showRoundupVideo: editorialVisibility.showRoundup,
+            roundupHeading: editorial?.roundup_video_heading ?? belowHeadlineHeading,
+            roundupHeadingColor: editorial?.roundup_video_heading_color ?? belowHeadlineHeadingColor ?? null,
+            initialRoundupItemId: editorial?.complementary_roundup_item_id ?? null,
+            matchdayNumber: context.matchday.number,
+            complementary: {
+              isPublished: hasPublishedComplementaryStory,
+              label: complementaryLabel,
+              title: complementaryTitle,
+              text: complementaryText,
+              imageUrl: complementaryImageUrl,
+              linkUrl: complementaryLinkUrl,
+              inlineMedia: complementMedia
+                ? {
+                    kind: complementMedia.kind,
+                    embedUrl: complementMedia.embed_url,
+                    videoUrl: complementMedia.video_url,
+                    posterUrl: complementMedia.poster_url,
+                    caption: complementMedia.caption,
+                    contentSlug: complementMedia.content_slug,
+                    contentType: complementMedia.content_type,
+                    title: complementMedia.title
+                  }
+                : null
+            }
+          }}
+          latestNews={latestNewsItems}
+          latestNewsTitle={latestZoneTitle}
+          latestNewsTitleColor={latestZoneTitleColor}
+        />
       ) : null}
 
-      <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" />
+      <div className="public-matchday-editorial-region">
+        <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" />
+      </div>
 
       <section className="public-matchday-panel" id="classificacao" aria-label="Classificacao acumulada">
         <div className="public-table-wrap">

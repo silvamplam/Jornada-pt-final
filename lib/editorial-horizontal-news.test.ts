@@ -174,6 +174,16 @@ const publicMatchdayLoaderSource = readFileSync(
   "utf8"
 );
 
+const publicMatchdayPageSource = readFileSync(
+  fileURLToPath(
+    new URL(
+      "../app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
+      import.meta.url
+    )
+  ),
+  "utf8"
+);
+
 test("a faixa publica adapta a largura e admite seis noticias na mesma linha", () => {
   assert.match(publicHorizontalNewsSource, /buildEditorialHorizontalNewsRows\(items, 6\)/);
   assert.match(publicHorizontalNewsSource, /--horizontal-news-columns/);
@@ -195,4 +205,15 @@ test("a faixa horizontal integra a composicao editorial e preserva a cor", () =>
 test("as leituras publicas da faixa nao impõem o limite antigo de quatro itens", () => {
   assert.doesNotMatch(homePageSource, /site_editorial_horizontal_news[^`]*limit=4/);
   assert.doesNotMatch(publicMatchdayLoaderSource, /matchday_horizontal_news[^`]*limit=4/);
+});
+
+test("a faixa horizontal da Liga respeita os 1200 px da zona editorial", () => {
+  assert.match(
+    publicMatchdayPageSource,
+    /\.public-matchday-editorial-region\s*\{[\s\S]*width:\s*min\(100%,\s*1200px\)[\s\S]*max-width:\s*1200px/
+  );
+  assert.match(
+    publicMatchdayPageSource,
+    /<div className="public-matchday-editorial-region">\s*<PublicHorizontalNewsStrip/
+  );
 });

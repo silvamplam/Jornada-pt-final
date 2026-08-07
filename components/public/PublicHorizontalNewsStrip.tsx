@@ -18,14 +18,12 @@ const horizontalNewsStyles = `
   }
 
   .public-horizontal-news-heading {
-    margin: 0;
-    padding-top: 8px;
-    border-top: 4px solid #10151b;
+    margin: 0 0 2px;
     color: #10151b;
     font-size: 14px;
-    font-weight: 900;
-    line-height: 1;
-    text-transform: uppercase;
+    font-weight: 800;
+    line-height: 1.1;
+    text-transform: none;
   }
 
   .public-horizontal-news-stack {
