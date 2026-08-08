@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { youtubeThumbnailUrl, youtubeVideoId } from "@/lib/public-video-embed";
+
+import YouTubeEmbedWithFallback from "./YouTubeEmbedWithFallback";
+
 export type RoundupVideoItem = {
   id?: string | null;
   label?: string | null;
@@ -236,29 +240,6 @@ const roundupVideoListPolishStyles = `
   }
 `;
 
-function youtubeVideoId(value?: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(value);
-    const hostname = parsed.hostname.replace(/^www\./, "");
-
-    if (hostname === "youtube.com" || hostname === "m.youtube.com") {
-      return parsed.searchParams.get("v") || parsed.pathname.split("/").filter(Boolean).at(-1) || null;
-    }
-
-    if (hostname === "youtu.be") {
-      return parsed.pathname.split("/").filter(Boolean)[0] || null;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
 function videoThumbnailUrl(item?: RoundupVideoItem | null) {
   const imageUrl = item?.image_url?.trim();
 
@@ -266,9 +247,7 @@ function videoThumbnailUrl(item?: RoundupVideoItem | null) {
     return imageUrl;
   }
 
-  const videoId = youtubeVideoId(item?.video_url);
-
-  return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null;
+  return youtubeThumbnailUrl(item?.video_url);
 }
 
 function videoEmbedUrl(value?: string | null) {
@@ -470,11 +449,11 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
           <div className="public-roundup-video-block">
             <div className="public-complement-media">
               {embedUrl ? (
-                <iframe
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  src={embedUrl}
-                  title={activeItem.title ?? "Video da jornada"}
+                <YouTubeEmbedWithFallback
+                  embedUrl={embedUrl}
+                  posterUrl={activePreviewImageUrl}
+                  title={activeItem.title ?? "Vídeo da jornada"}
+                  videoUrl={activeVideoUrl}
                 />
               ) : activePreviewImageUrl ? (
                 activeVideoUrl ? (
