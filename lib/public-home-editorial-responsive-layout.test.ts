@@ -339,3 +339,12 @@ test("o traco do video ativo entra no alinhamento dos Destaques e o espaco morto
     /\.public-roundup-video-content > \.public-roundup-video-panel \{[\s\S]*?justify-self:\s*stretch !important;[\s\S]*?width:\s*100% !important;/
   );
 });
+
+test("o complemento sobe seis pixels no desktop quando partilha a linha com o video", () => {
+  const layout = readFileSync("components/public/PublicEditorialLayout.tsx", "utf8");
+
+  assert.match(
+    layout,
+    /@media \(min-width:\s*1181px\) \{[\s\S]*?public-matchday-depth-row:not\(\.public-matchday-depth-row-single\) > \.public-below-headline-side \{[\s\S]*?margin-top:\s*-6px;/
+  );
+});

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import YouTubeEmbedWithFallback from "@/components/public/YouTubeEmbedWithFallback";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -215,12 +216,11 @@ export default async function PublicEditorialContentPage({ params }: PageProps) 
 
         {embedUrl ? (
           <section className="editorial-content-media" aria-label="Video">
-            <iframe
-              src={embedUrl}
+            <YouTubeEmbedWithFallback
+              embedUrl={embedUrl}
+              posterUrl={imageUrl}
               title={title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              loading="lazy"
+              videoUrl={videoUrl}
             />
           </section>
         ) : directVideoUrl ? (

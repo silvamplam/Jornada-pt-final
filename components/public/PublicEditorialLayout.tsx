@@ -1,4 +1,5 @@
 import RoundupVideoSwitcher, { type RoundupVideoItem } from "./RoundupVideoSwitcher";
+import YouTubeEmbedWithFallback from "./YouTubeEmbedWithFallback";
 
 export type PublicEditorialHighlight = {
   id: string;
@@ -291,6 +292,12 @@ const publicEditorialLayoutPolishStyles = `
     min-height: 0;
   }
 
+  @media (min-width: 1181px) {
+    .public-editorial-layout-panel .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side {
+      margin-top: -6px;
+    }
+  }
+
   .public-editorial-layout-panel .public-matchday-main-lower {
     display: block;
     min-width: 0;
@@ -440,12 +447,11 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {
   const media = inlineMedia ? (
     <div className="public-editorial-main-image">
       {inlineMedia.kind === "embed" && inlineMedia.embedUrl ? (
-        <iframe
-          src={inlineMedia.embedUrl}
+        <YouTubeEmbedWithFallback
+          embedUrl={inlineMedia.embedUrl}
+          posterUrl={inlineMedia.posterUrl || data.imageUrl}
           title={inlineMedia.title || title}
-          allow="encrypted-media; picture-in-picture; web-share"
-          allowFullScreen
-          loading="lazy"
+          videoUrl={inlineMedia.videoUrl}
         />
       ) : inlineMedia.kind === "direct_video" && inlineMedia.videoUrl ? (
         <video controls preload="metadata" poster={inlineMedia.posterUrl || data.imageUrl || undefined}>
@@ -563,12 +569,11 @@ export function PublicComplementaryBlock({
   const media = inlineMedia ? (
     <div className="public-complement-media">
       {inlineMedia.kind === "embed" && inlineMedia.embedUrl ? (
-        <iframe
-          src={inlineMedia.embedUrl}
-          title={inlineMedia.title || data.title || "Conteudo complementar"}
-          allow="encrypted-media; picture-in-picture; web-share"
-          allowFullScreen
-          loading="lazy"
+        <YouTubeEmbedWithFallback
+          embedUrl={inlineMedia.embedUrl}
+          posterUrl={inlineMedia.posterUrl || data.imageUrl}
+          title={inlineMedia.title || data.title || "Conteúdo complementar"}
+          videoUrl={inlineMedia.videoUrl}
         />
       ) : inlineMedia.kind === "direct_video" && inlineMedia.videoUrl ? (
         <video controls preload="metadata" poster={inlineMedia.posterUrl || data.imageUrl || undefined}>
