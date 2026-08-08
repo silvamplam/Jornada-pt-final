@@ -1,3 +1,4 @@
+import { adminRelativeRedirect, adminRelativeUrl } from "@/lib/admin-relative-redirect";
 import { getSupabaseServiceConfig, writeSupabaseAdmin } from "@/lib/supabase";
 
 function cleanText(value: FormDataEntryValue | null) {
@@ -5,16 +6,16 @@ function cleanText(value: FormDataEntryValue | null) {
   return text ? text : null;
 }
 
-function redirectTo(request: Request, formData: FormData, params: Record<string, string>) {
-  const fallback = new URL("/admin/jogos-tv", request.url);
+function redirectTo(_request: Request, formData: FormData, params: Record<string, string>) {
+  const fallback = adminRelativeUrl("/admin/jogos-tv");
   const target = cleanText(formData.get("return_to"));
-  const url = target ? new URL(target, request.url) : fallback;
+  const url = target ? adminRelativeUrl(target) : fallback;
 
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
 
-  return Response.redirect(url, 303);
+  return adminRelativeRedirect(url);
 }
 
 export async function POST(request: Request) {

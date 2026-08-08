@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { adminRelativeRedirect, adminRelativeUrl } from "@/lib/admin-relative-redirect";
+
 import { syncEditorialContentSnapshots } from "@/lib/editorial-content-snapshot-sync";
 import { fetchSupabaseAdminTable, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
@@ -108,13 +110,13 @@ function normalizePublishedAt(value: string | null) {
   return date.toISOString();
 }
 
-function redirectTo(request: Request, path: string, params: Record<string, string>) {
-  const url = new URL(path, request.url);
+function redirectTo(_request: Request, path: string, params: Record<string, string>) {
+  const url = adminRelativeUrl(path);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
 
-  return NextResponse.redirect(url, { status: 303 });
+  return adminRelativeRedirect(url);
 }
 
 async function readSlugRows(slug: string) {

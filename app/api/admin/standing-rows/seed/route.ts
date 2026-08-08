@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
 import { seedStandingRowsFromSeason } from "@/lib/standing-seeding";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig } from "@/lib/supabase";
 
@@ -19,8 +19,8 @@ function cleanText(value: FormDataEntryValue | null): string | null {
   return trimmed ? trimmed : null;
 }
 
-function redirectTo(request: Request, path: string) {
-  return NextResponse.redirect(new URL(path, request.url), { status: 303 });
+function redirectTo(_request: Request, path: string) {
+  return adminRelativeRedirect(path);
 }
 
 export async function POST(request: Request) {

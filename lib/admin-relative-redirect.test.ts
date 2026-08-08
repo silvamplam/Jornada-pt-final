@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
 import { NextRequest } from "next/server";
 import { middleware } from "../middleware";
+import {
+  adminRelativeLocation,
+  adminRelativeRedirect,
+  adminRelativeUrl
+} from "./admin-relative-redirect";
 
 const routeRedirectFiles = [
   "app/api/admin/login/route.ts",
@@ -84,4 +89,63 @@ test("login e logout mantêm Location relativa nas route handlers", async () => 
     sources.find(({ file }) => file === "app/api/admin/logout/route.ts")?.source ?? "",
     /Location:\s*"\/admin\/login\?loggedOut=1"/
   );
+});
+
+async function adminRouteFiles(root: string): Promise<string[]> {
+  const entries = await readdir(root, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const fullPath = `${root}/${entry.name}`;
+    if (entry.isDirectory()) {
+      files.push(...(await adminRouteFiles(fullPath)));
+    } else if (entry.isFile() && entry.name === "route.ts") {
+      files.push(fullPath);
+    }
+  }
+
+  return files.sort();
+}
+
+test("redirect administrativo relativo nunca expõe host do servidor", () => {
+  const url = adminRelativeUrl(
+    "/admin/editorial/composicao/abc?composition_saved=1#faixa-noticias"
+  );
+  url.searchParams.set("feedback_anchor", "faixa-noticias");
+
+  const location = adminRelativeLocation(url);
+  const response = adminRelativeRedirect(url);
+
+  assert.equal(
+    location,
+    "/admin/editorial/composicao/abc?composition_saved=1&feedback_anchor=faixa-noticias#faixa-noticias"
+  );
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), location);
+  assert.doesNotMatch(location, /0\.0\.0\.0|localhost|jornada\.local|https?:\/\//);
+});
+
+test("redirect administrativo rejeita destinos externos e não administrativos", () => {
+  assert.throws(() => adminRelativeUrl("https://example.com/admin"), /invalid-admin-redirect/);
+  assert.throws(() => adminRelativeUrl("//example.com/admin"), /invalid-admin-redirect/);
+  assert.throws(() => adminRelativeUrl("/noticias/teste"), /invalid-admin-redirect/);
+});
+
+test("todas as route handlers de /api/admin evitam APIs que absolutizam Location", async () => {
+  const files = await adminRouteFiles("app/api/admin");
+  assert.ok(files.length > 0, "Não encontrei route handlers em app/api/admin");
+
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    assert.doesNotMatch(
+      source,
+      /\b(?:NextResponse|Response)\.redirect\s*\(/,
+      `${file} não deve usar redirect() de Response/NextResponse em navegação interna`
+    );
+    assert.doesNotMatch(
+      source,
+      /new URL\([^,\n]+,\s*request\.url\)/,
+      `${file} não deve construir destinos internos sobre request.url`
+    );
+  }
 });
