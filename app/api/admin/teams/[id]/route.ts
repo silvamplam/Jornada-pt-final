@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminRelativeRedirect, adminRelativeUrl } from "@/lib/admin-relative-redirect";
 import { getSupabaseServiceConfig, writeSupabaseAdmin } from "@/lib/supabase";
 
 function cleanText(value: FormDataEntryValue | null): string | null {
@@ -19,8 +20,8 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function redirectTo(request: Request, path: string) {
-  return NextResponse.redirect(new URL(path, request.url), { status: 303 });
+function redirectTo(_request: Request, path: string) {
+  return adminRelativeRedirect(path);
 }
 
 const TEAM_ADMIN_MESSAGE_KEYS = [
@@ -33,15 +34,15 @@ const TEAM_ADMIN_MESSAGE_KEYS = [
   "error"
 ] as const;
 
-function safeReturnTo(request: Request, value: string | null): URL {
-  const fallback = new URL("/admin/clubes", request.url);
+function safeReturnTo(_request: Request, value: string | null): URL {
+  const fallback = adminRelativeUrl("/admin/clubes");
   if (!value) {
     fallback.hash = "clubes-existentes";
     return fallback;
   }
 
   try {
-    const target = new URL(value, request.url);
+    const target = adminRelativeUrl(value);
     if (target.origin !== fallback.origin || target.pathname !== "/admin/clubes") {
       fallback.hash = "clubes-existentes";
       return fallback;
@@ -66,7 +67,7 @@ function redirectToManager(
     target.searchParams.delete(messageKey);
   }
   target.searchParams.set(key, value);
-  return NextResponse.redirect(target, { status: 303 });
+  return adminRelativeRedirect(target);
 }
 
 function safeDeletionRequiredResponse() {

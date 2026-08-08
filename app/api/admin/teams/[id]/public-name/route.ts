@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
 import { getSupabaseServiceConfig, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -23,8 +24,8 @@ type UpdatePublicNameContext = {
 
 type PublicNameAction = "save" | "clear" | "noop";
 
-function redirectTo(request: Request, path: string) {
-  return NextResponse.redirect(new URL(path, request.url), { status: 303 });
+function redirectTo(_request: Request, path: string) {
+  return adminRelativeRedirect(path);
 }
 
 function jsonResponse(body: Record<string, unknown>, status: number) {

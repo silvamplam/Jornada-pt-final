@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 function cleanText(value: FormDataEntryValue | null): string | null {
@@ -28,8 +28,8 @@ function normalizeSourceType(sourceType?: string | null) {
   return normalized;
 }
 
-function redirectTo(request: Request, path: string) {
-  return NextResponse.redirect(new URL(path, request.url), { status: 303 });
+function redirectTo(_request: Request, path: string) {
+  return adminRelativeRedirect(path);
 }
 
 function compositionReturnTarget(returnTo: string, resultParam: string, returnAnchor?: string | null) {

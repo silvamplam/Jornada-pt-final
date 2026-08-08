@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { adminRelativeRedirect, adminRelativeUrl } from "@/lib/admin-relative-redirect";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -20,13 +20,13 @@ function cleanText(value: FormDataEntryValue | null): string | null {
   return trimmed ? trimmed : null;
 }
 
-function redirectTo(request: Request, returnTo: string | null, key: "created" | "error", value: string) {
-  const fallback = new URL("/admin/gestor", request.url);
+function redirectTo(_request: Request, returnTo: string | null, key: "created" | "error", value: string) {
+  const fallback = adminRelativeUrl("/admin/gestor");
   let target = fallback;
 
   if (returnTo) {
     try {
-      const parsed = new URL(returnTo, request.url);
+      const parsed = adminRelativeUrl(returnTo);
       if (parsed.origin === fallback.origin) {
         target = parsed;
       }
@@ -40,7 +40,7 @@ function redirectTo(request: Request, returnTo: string | null, key: "created" | 
   target.searchParams.set("section", "linha-editorial");
   target.searchParams.set(key, value);
 
-  return NextResponse.redirect(target, { status: 303 });
+  return adminRelativeRedirect(target);
 }
 
 function publicStorageUrl(baseUrl: string, bucket: string, path: string) {

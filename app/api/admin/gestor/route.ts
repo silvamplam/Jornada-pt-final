@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminRelativeRedirect, adminRelativeUrl } from "@/lib/admin-relative-redirect";
 import {
   applyCalendarCheckpointTransition,
   buildCalendarBroadcastChannelLookup,
@@ -261,13 +262,13 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function returnUrl(request: Request, formData: FormData, key: "created" | "error", value: string, extraParams?: Record<string, string>) {
+function returnUrl(_request: Request, formData: FormData, key: "created" | "error", value: string, extraParams?: Record<string, string>) {
   const rawReturnTo = cleanText(formData.get("return_to"));
   const safeReturnTo =
     rawReturnTo?.startsWith("/admin/gestor") || rawReturnTo?.startsWith("/admin/editorial/jornada/")
       ? rawReturnTo
       : "/admin/gestor";
-  const url = new URL(safeReturnTo, request.url);
+  const url = adminRelativeUrl(safeReturnTo);
 
   url.searchParams.delete("created");
   url.searchParams.delete("error");
@@ -281,7 +282,7 @@ function returnUrl(request: Request, formData: FormData, key: "created" | "error
     url.searchParams.set(paramKey, paramValue);
   });
 
-  return NextResponse.redirect(url, { status: 303 });
+  return adminRelativeRedirect(url);
 }
 
 async function hasRows(path: string) {
