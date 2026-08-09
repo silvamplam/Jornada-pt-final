@@ -1,3 +1,7 @@
+import {
+  EDITORIAL_CONTEXT_DESTINATION_LABEL,
+  EDITORIAL_CONTEXT_POST_TITLE_PROMPT_RULE,
+} from "@/lib/editorial-context-post-title";
 import type {
   ArticleBodyBlock,
   JsonObject,
@@ -353,8 +357,10 @@ function formatFailedEntry(
 
 const EXTERNAL_ARTICLE_IMPORT_RULES = [
   "A resposta deve começar exatamente com [JORNADA_ARTIGO_V1] e terminar exatamente com [/JORNADA_ARTIGO_V1].",
-  "Dentro desses marcadores, use exatamente esta ordem de campos: ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO. Cada rótulo deve ocupar uma linha isolada.",
+  `Se o editor indicar explicitamente nesta conversa que o artigo se destina à zona editorial Contexto, acrescente antes de ANTETÍTULO duas linhas isoladas: DESTINO EDITORIAL e ${EDITORIAL_CONTEXT_DESTINATION_LABEL}. Se não existir essa indicação explícita, omita por completo DESTINO EDITORIAL.`,
+  "Depois desse campo opcional, use exatamente esta ordem: ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO. Cada rótulo deve ocupar uma linha isolada.",
   "O ANTETÍTULO e o PÓS-TÍTULO podem ficar vazios quando o género ou o conteúdo não os justificarem. O TÍTULO e o CORPO são obrigatórios.",
+  EDITORIAL_CONTEXT_POST_TITLE_PROMPT_RULE,
   "Não use JSON, tabelas, blocos de código ou comentários fora dos marcadores. Estes marcadores permitem importar a resposta diretamente para o editor da Jornada.pt.",
 ];
 

@@ -24,6 +24,19 @@ function read(path: string): string {
   return readFileSync(path, "utf8");
 }
 
+test("o pacote só ativa o perfil Contexto quando o editor o indicar explicitamente no chat", () => {
+  const prompt = editorialSourcePackagePrompt("news");
+
+  assert.match(prompt, /indicar explicitamente nesta conversa/i);
+  assert.match(prompt, /DESTINO EDITORIAL/);
+  assert.match(prompt, /CONTEXTO/);
+  assert.match(prompt, /Se não existir essa indicação explícita, omita por completo DESTINO EDITORIAL/i);
+  assert.match(prompt, /Só quando o editor indicar explicitamente/i);
+  assert.match(prompt, /entre 420 e 500 caracteres/i);
+  assert.match(prompt, /aproxima-te do limite superior/i);
+  assert.match(prompt, /Esta regra não se aplica aos restantes artigos/i);
+});
+
 test("normaliza entre uma e vinte seleções e rejeita duplicados", () => {
   assert.deepEqual(
     normalizeEditorialSourcePackageSelections([{
@@ -420,6 +433,8 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(articleImporter, /formField\(form, "label"\)/);
   assert.match(articleImporter, /formField\(form, "title"\)/);
   assert.match(articleImporter, /formField\(form, "subtitle"\)/);
+  assert.match(articleImporter, /formField\(form, "editorial_destination"\)/);
+  assert.match(articleImporter, /article\.editorialDestination/);
   assert.match(articleImporter, /formField\(form, "body"\)/);
   assert.match(articleImporter, /formField\(form, "image_url"\)/);
   assert.match(articleImporter, /parseStoredEditorialExternalArticleTransfer/);

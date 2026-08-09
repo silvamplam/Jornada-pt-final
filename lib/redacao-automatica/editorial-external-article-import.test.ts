@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  EDITORIAL_CONTEXT_DESTINATION,
+  EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
+} from "@/lib/editorial-context-post-title";
+import {
   EDITORIAL_EXTERNAL_ARTICLE_END_MARKER,
   EDITORIAL_EXTERNAL_ARTICLE_START_MARKER,
   parseEditorialExternalArticleResponse,
@@ -107,6 +111,83 @@ test("rejeita marcadores incompletos, título ausente e corpo ausente", () => {
   );
 });
 
+test("o máximo de Contexto só é aplicado quando a resposta declara esse destino", () => {
+  const generic = parseEditorialExternalArticleResponse(`
+${EDITORIAL_EXTERNAL_ARTICLE_START_MARKER}
+ANTETÍTULO
+LIGA
+TÍTULO
+Título válido
+PÓS-TÍTULO
+${"x".repeat(EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS + 1)}
+CORPO
+Corpo válido.
+${EDITORIAL_EXTERNAL_ARTICLE_END_MARKER}
+  `);
+  assert.equal(generic.ok, true);
+
+  const context = parseEditorialExternalArticleResponse(`
+${EDITORIAL_EXTERNAL_ARTICLE_START_MARKER}
+DESTINO EDITORIAL
+CONTEXTO
+ANTETÍTULO
+LIGA
+TÍTULO
+Título válido
+PÓS-TÍTULO
+${"x".repeat(EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS + 1)}
+CORPO
+Corpo válido.
+${EDITORIAL_EXTERNAL_ARTICLE_END_MARKER}
+  `);
+  assert.deepEqual(context, { ok: false, error: "context_post_title_too_long" });
+});
+
+test("um destino editorial desconhecido é rejeitado em vez de ser tratado como Contexto", () => {
+  const result = parseEditorialExternalArticleResponse(`
+${EDITORIAL_EXTERNAL_ARTICLE_START_MARKER}
+DESTINO EDITORIAL
+FAIXA
+TÍTULO
+Título válido
+PÓS-TÍTULO
+Pós-título válido.
+CORPO
+Corpo válido.
+${EDITORIAL_EXTERNAL_ARTICLE_END_MARKER}
+  `);
+
+  assert.deepEqual(result, { ok: false, error: "structure_invalid" });
+});
+
+test("a resposta pode declarar explicitamente Contexto e o parser transporta esse destino", () => {
+  const result = parseEditorialExternalArticleResponse(`
+${EDITORIAL_EXTERNAL_ARTICLE_START_MARKER}
+DESTINO EDITORIAL
+CONTEXTO
+ANTETÍTULO
+FC PORTO-ALVERCA
+TÍTULO
+Título para Contexto
+PÓS-TÍTULO
+Texto factual preparado para o perfil de Contexto.
+CORPO
+Corpo integral.
+${EDITORIAL_EXTERNAL_ARTICLE_END_MARKER}
+  `);
+
+  assert.deepEqual(result, {
+    ok: true,
+    value: {
+      editorialDestination: EDITORIAL_CONTEXT_DESTINATION,
+      anteTitle: "FC PORTO-ALVERCA",
+      title: "Título para Contexto",
+      postTitle: "Texto factual preparado para o perfil de Contexto.",
+      body: "Corpo integral.",
+    },
+  });
+});
+
 test("o payload temporário expira e preserva os quatro campos editoriais", () => {
   const article = {
     anteTitle: "ANÁLISE",
@@ -185,6 +266,22 @@ test("o payload temporário transporta imagens do pacote sem duplicar URLs", () 
   );
 });
 
+
+test("o payload temporário preserva o destino Contexto até ao editor de Artigos", () => {
+  const article = {
+    editorialDestination: EDITORIAL_CONTEXT_DESTINATION,
+    anteTitle: "CONTEXTO",
+    title: "Título",
+    postTitle: "Pós-título adequado ao Contexto.",
+    body: "Corpo.",
+  };
+  const stored = storedEditorialExternalArticle(article, 1_000);
+
+  assert.deepEqual(
+    parseStoredEditorialExternalArticleTransfer(JSON.stringify(stored), 1_500)?.article,
+    article,
+  );
+});
 
 test("novo artigo assume Silvestre Chícharo como autor sem alterar artigos existentes", () => {
   const form = readFileSync(

@@ -7,6 +7,8 @@ import {
   buildEditorialHorizontalNewsEditorOrders,
   buildEditorialHorizontalNewsItems,
   buildEditorialHorizontalNewsRows,
+  moveEditorialHorizontalNewsItem,
+  prioritizeEditorialHorizontalNewsItem,
   resolveMatchdayHorizontalNewsItems
 } from "./editorial-horizontal-news";
 
@@ -75,13 +77,53 @@ test("buildEditorialHorizontalNewsItems nao limita a quantidade e preserva a cor
   assert.equal(items[9]?.sortOrder, 10);
 });
 
-test("buildEditorialHorizontalNewsRows distribui as noticias por linhas completas e equilibradas", () => {
-  const items = Array.from({ length: 13 }, (_, index) => index + 1);
+test("buildEditorialHorizontalNewsRows equilibra as filas, limita a cinco e coloca o excedente em baixo", () => {
+  const items = Array.from({ length: 26 }, (_, index) => index + 1);
 
-  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 6), 6).map((row) => row.length), [6]);
-  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 7), 6).map((row) => row.length), [3, 4]);
-  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 10), 6).map((row) => row.length), [5, 5]);
-  assert.deepEqual(buildEditorialHorizontalNewsRows(items, 6).map((row) => row.length), [4, 4, 5]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 5)).map((row) => row.length), [5]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 6)).map((row) => row.length), [3, 3]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 7)).map((row) => row.length), [3, 4]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 13)).map((row) => row.length), [4, 4, 5]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 16)).map((row) => row.length), [4, 4, 4, 4]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 17)).map((row) => row.length), [4, 4, 4, 5]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 21)).map((row) => row.length), [4, 4, 4, 4, 5]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items).map((row) => row.length), [4, 4, 4, 4, 5, 5]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items).flat(), items);
+  assert.ok(buildEditorialHorizontalNewsRows(items).every((row) => row.length <= 5));
+});
+
+test("a chegada mais recente à Faixa sobe para a primeira posição sem alterar a ordem relativa", () => {
+  const items = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
+
+  assert.deepEqual(
+    prioritizeEditorialHorizontalNewsItem(items, "c").map((item) => item.id),
+    ["c", "a", "b", "d"],
+  );
+  assert.deepEqual(
+    prioritizeEditorialHorizontalNewsItem(items, "a").map((item) => item.id),
+    ["a", "b", "c", "d"],
+  );
+});
+
+test("a ordem manual da Faixa move apenas para a posição anterior ou seguinte", () => {
+  const items = [{ id: "a" }, { id: "b" }, { id: "c" }];
+
+  assert.deepEqual(
+    moveEditorialHorizontalNewsItem(items, "b", "up").map((item) => item.id),
+    ["b", "a", "c"],
+  );
+  assert.deepEqual(
+    moveEditorialHorizontalNewsItem(items, "b", "down").map((item) => item.id),
+    ["a", "c", "b"],
+  );
+  assert.deepEqual(
+    moveEditorialHorizontalNewsItem(items, "a", "up").map((item) => item.id),
+    ["a", "b", "c"],
+  );
+  assert.deepEqual(
+    moveEditorialHorizontalNewsItem(items, "c", "down").map((item) => item.id),
+    ["a", "b", "c"],
+  );
 });
 
 test("buildEditorialHorizontalNewsEditorOrders mantem as posicoes existentes e cria a seguinte", () => {
@@ -184,14 +226,16 @@ const publicMatchdayPageSource = readFileSync(
   "utf8"
 );
 
-test("a faixa publica adapta a largura e admite seis noticias na mesma linha", () => {
-  assert.match(publicHorizontalNewsSource, /buildEditorialHorizontalNewsRows\(items, 6\)/);
+test("a faixa publica equilibra cada fila, ocupa toda a largura e nunca passa de cinco noticias", () => {
+  assert.match(publicHorizontalNewsSource, /buildEditorialHorizontalNewsRows\(items, 5\)/);
+  assert.match(publicHorizontalNewsSource, /horizontalNewsRowStyle\(row\.length\)/);
+  assert.doesNotMatch(publicHorizontalNewsSource, /desktopColumnCount/);
   assert.match(publicHorizontalNewsSource, /--horizontal-news-columns/);
   assert.match(publicHorizontalNewsSource, /grid-template-columns:\s*repeat\(var\(--horizontal-news-columns\), minmax\(0, 1fr\)\)/);
   assert.match(publicHorizontalNewsSource, /public-horizontal-news-stack/);
   assert.match(publicHorizontalNewsSource, /public-horizontal-news-row/);
+  assert.doesNotMatch(publicHorizontalNewsSource, /buildEditorialHorizontalNewsRows\(items, 6\)/);
   assert.doesNotMatch(publicHorizontalNewsSource, /public-important-news-grid/);
-  assert.doesNotMatch(publicHorizontalNewsSource, /repeat\(5, minmax\(0, 1fr\)\)/);
 });
 
 test("a faixa horizontal integra a composicao editorial e preserva a cor", () => {

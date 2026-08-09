@@ -1,3 +1,9 @@
+import {
+  EDITORIAL_CONTEXT_DESTINATION,
+  EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
+  EDITORIAL_CONTEXT_POST_TITLE_MIN_CHARS,
+} from "@/lib/editorial-context-post-title";
+
 import ExternalArticleImport from "./_externalArticleImport";
 
 export type EditorialArticle = {
@@ -495,9 +501,37 @@ export function ArticleEditorForm({
             />
           </label>
 
+          {!isEdit ? (
+            <label className="article-admin-full">
+              <span>Destino previsto do pós-título</span>
+              <select name="editorial_destination" data-article-editorial-destination defaultValue="">
+                <option value="">Artigo geral</option>
+                <option value={EDITORIAL_CONTEXT_DESTINATION}>Contexto</option>
+              </select>
+              <small>
+                Quando a resposta da IA indicar explicitamente Contexto, esta opção é preenchida automaticamente.
+              </small>
+            </label>
+          ) : null}
+
           <label className="article-admin-full">
             <span>Pós-título</span>
-            <textarea name="subtitle" rows={3} defaultValue={article?.subtitle ?? ""} required />
+            <textarea
+              name="subtitle"
+              data-article-post-title
+              rows={3}
+              defaultValue={article?.subtitle ?? ""}
+              required
+            />
+            {!isEdit ? (
+              <small
+                className="article-admin-context-post-title-note"
+                data-article-context-post-title-note
+                hidden
+              >
+                Contexto: procurar {EDITORIAL_CONTEXT_POST_TITLE_MIN_CHARS}–{EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS} caracteres. O mínimo é editorial: se os factos não justificarem esse comprimento, não acrescentar texto artificial.
+              </small>
+            ) : null}
           </label>
 
           <div className="article-admin-publication-date article-admin-full">
@@ -1430,6 +1464,12 @@ export const editorialArticleAdminStyles = `
   .article-editor-workflow li[data-state="current"] span {
     background: #2563eb;
     color: #fff;
+  }
+
+  .article-admin-context-post-title-note {
+    color: #607086;
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   .article-admin-context-note {

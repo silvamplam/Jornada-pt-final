@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 
+import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
 import {
   EDITORIAL_EXTERNAL_ARTICLE_STORAGE_KEY,
   parseEditorialExternalArticleResponse,
@@ -63,6 +64,9 @@ function parseErrorMessage(error: string): string {
   }
   if (error === "field_too_long") {
     return "A resposta ultrapassa o limite de um dos campos editoriais.";
+  }
+  if (error === "context_post_title_too_long") {
+    return `O pós-título indicado para Contexto ultrapassa ${EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS} caracteres.`;
   }
 
   return "A resposta não respeita a estrutura de importação da Jornada.pt.";

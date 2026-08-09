@@ -158,7 +158,18 @@ const styles = `
 
   .horizontal-news-admin-actions > div {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .horizontal-news-admin-order-form {
+    display: inline-flex;
+    gap: 8px;
+  }
+
+  .horizontal-news-admin-actions button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 
   .horizontal-news-admin-actions button {
@@ -207,6 +218,7 @@ export default function EditorialHorizontalNewsEditor({
   hiddenFieldsForOrder,
   messageForOrder,
   transferControlForOrder,
+  reorderControlForOrder,
   openOrder
 }: {
   id: string;
@@ -220,6 +232,7 @@ export default function EditorialHorizontalNewsEditor({
   hiddenFieldsForOrder: (order: number, item: EditorialHorizontalNewsAdminItem | null) => HiddenField[];
   messageForOrder?: (order: number) => ReactNode;
   transferControlForOrder?: (order: number, item: EditorialHorizontalNewsAdminItem | null) => ReactNode;
+  reorderControlForOrder?: (order: number, item: EditorialHorizontalNewsAdminItem | null) => ReactNode;
   openOrder?: number | null;
 }) {
   return (
@@ -306,8 +319,9 @@ export default function EditorialHorizontalNewsEditor({
                   <div className="horizontal-news-admin-field is-wide">{transferControlForOrder(order, item)}</div>
                 ) : null}
                 <div className="horizontal-news-admin-actions">
-                  <small className="horizontal-news-admin-note">Os itens novos sao acrescentados no fim. A grelha publica apresenta cinco noticias por linha.</small>
+                  <small className="horizontal-news-admin-note">A ordem de cima para baixo corresponde à leitura pública da esquerda para a direita. Uma transferência nova entra em primeiro.</small>
                   <div>
+                    {reorderControlForOrder ? reorderControlForOrder(order, item) : null}
                     {item ? (
                       <button className="secondary" form={formId} name="horizontal_news_delete" value="1" type="submit">
                         Eliminar item

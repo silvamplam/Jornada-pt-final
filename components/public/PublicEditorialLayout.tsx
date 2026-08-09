@@ -1,3 +1,4 @@
+import PublicContextPostTitle from "./PublicContextPostTitle";
 import PublicLatestNewsBlock from "./PublicLatestNewsBlock";
 import RoundupVideoSwitcher, { type RoundupVideoItem } from "./RoundupVideoSwitcher";
 import YouTubeEmbedWithFallback from "./YouTubeEmbedWithFallback";
@@ -488,11 +489,13 @@ const publicEditorialLayoutPolishStyles = `
 export function PublicSideBlock({
   data,
   ariaLabel = "Bloco editorial lateral da jornada",
-  sectionTitle
+  sectionTitle,
+  constrainTextToMainColumn = false
 }: {
   data: PublicSideBlockData;
   ariaLabel?: string;
   sectionTitle?: string;
+  constrainTextToMainColumn?: boolean;
 }) {
   return (
     <aside className="public-matchday-feature public-side-editorial-block" aria-label={ariaLabel}>
@@ -521,7 +524,9 @@ export function PublicSideBlock({
                 )
               ) : null}
               {data.author ? <small>{data.author}</small> : null}
-              {data.text ? <p>{data.text}</p> : null}
+              {data.text ? (
+                <PublicContextPostTitle text={data.text} constrainToMainColumn={constrainTextToMainColumn} />
+              ) : null}
             </div>
           </>
         ) : (
@@ -814,6 +819,7 @@ export function PublicEditorialLayout({
               <PublicSideBlock
                 data={sideBlock}
                 ariaLabel="Leitura editorial do tema principal"
+                constrainTextToMainColumn={scope === "matchday" && hasHighlights}
               />
             ) : null}
           </div>

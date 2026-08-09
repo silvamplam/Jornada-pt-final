@@ -9,6 +9,10 @@ import {
 } from "react";
 
 import {
+  EDITORIAL_CONTEXT_DESTINATION,
+  EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
+} from "@/lib/editorial-context-post-title";
+import {
   EDITORIAL_EXTERNAL_ARTICLE_STORAGE_KEY,
   parseEditorialExternalArticleResponse,
   parseStoredEditorialExternalArticleTransfer,
@@ -46,6 +50,27 @@ function setFieldValue(field: FormField | null, value: string): void {
   field.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function syncContextPostTitleProfile(form: HTMLFormElement): void {
+  const destinationField = formField(form, "editorial_destination");
+  const postTitleField = formField(form, "subtitle");
+  const contextNote = form.querySelector<HTMLElement>(
+    "[data-article-context-post-title-note]",
+  );
+  const isContext = fieldValue(destinationField) === EDITORIAL_CONTEXT_DESTINATION;
+
+  if (postTitleField instanceof HTMLTextAreaElement) {
+    if (isContext) {
+      postTitleField.maxLength = EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS;
+    } else {
+      postTitleField.removeAttribute("maxlength");
+    }
+  }
+
+  if (contextNote) {
+    contextNote.hidden = !isContext;
+  }
+}
+
 function formContainsEditorialText(form: HTMLFormElement): boolean {
   return ["label", "title", "subtitle", "body"].some((name) => (
     Boolean(fieldValue(formField(form, name)))
@@ -60,6 +85,11 @@ function applyArticleToForm(
   setFieldValue(formField(form, "title"), article.title);
   setFieldValue(formField(form, "subtitle"), article.postTitle ?? "");
   setFieldValue(formField(form, "body"), article.body);
+  setFieldValue(
+    formField(form, "editorial_destination"),
+    article.editorialDestination ?? "",
+  );
+  syncContextPostTitleProfile(form);
 
   const slug = formField(form, "slug");
   if (slug && !fieldValue(slug)) {
@@ -96,8 +126,11 @@ function parseErrorMessage(error: string): string {
   if (error === "field_too_long") {
     return "A resposta ultrapassa o limite de um dos campos editoriais.";
   }
+  if (error === "context_post_title_too_long") {
+    return `O pós-título indicado para Contexto ultrapassa ${EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS} caracteres.`;
+  }
 
-  return "A resposta não respeita a estrutura ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO.";
+  return "A resposta não respeita a estrutura editorial esperada.";
 }
 
 function sourceImageErrorMessage(error: string | undefined): string {
@@ -157,7 +190,11 @@ export default function ExternalArticleImport() {
     }
 
     applyArticleToForm(form, article);
-    setStatus("Notícia preenchida. Revê os campos e a imagem antes de guardar em revisão.");
+    setStatus(
+      article.editorialDestination === EDITORIAL_CONTEXT_DESTINATION
+        ? "Notícia preenchida com destino Contexto identificado. Revê os campos e a imagem antes de guardar em revisão."
+        : "Notícia preenchida. Revê os campos e a imagem antes de guardar em revisão.",
+    );
     return true;
   };
 
@@ -222,6 +259,22 @@ export default function ExternalArticleImport() {
     clearSourceImages();
     return importArticle(parsed.value, confirmReplacement);
   };
+
+  useEffect(() => {
+    const form = editorForm();
+    if (!form) {
+      return;
+    }
+
+    const destinationField = formField(form, "editorial_destination");
+    const sync = () => syncContextPostTitleProfile(form);
+    destinationField?.addEventListener("change", sync);
+    sync();
+
+    return () => {
+      destinationField?.removeEventListener("change", sync);
+    };
+  }, []);
 
   useEffect(() => {
     if (preparedTransferHandledRef.current) {

@@ -160,6 +160,8 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
     "missing-ante-title": "O artigo precisa de antetítulo antes de poder ser publicado.",
     "missing-author": "O artigo precisa de autor antes de poder ser publicado.",
     "missing-post-title": "O artigo precisa de pós-título antes de poder ser publicado.",
+    "context-post-title-too-long": "O pós-título destinado a Contexto não pode ultrapassar 500 caracteres.",
+    "invalid-editorial-destination": "O destino editorial indicado para o artigo não é válido.",
     "missing-body": "O artigo precisa de texto antes de poder ser publicado.",
     "missing-image": "O artigo precisa de imagem antes de poder ser publicado.",
     "missing-service": "Não foi possível aceder ao serviço editorial.",

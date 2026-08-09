@@ -15,6 +15,10 @@ import {
   type EditorialInitialPlacement,
 } from "@/lib/editorial-matchday-news-flow";
 import {
+  EDITORIAL_CONTEXT_DESTINATION,
+  EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
+} from "@/lib/editorial-context-post-title";
+import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
   writeSupabaseAdmin,
@@ -468,6 +472,22 @@ async function buildPayload(
   const label = cleanText(formData.get("label"));
   const author = cleanText(formData.get("author"));
   const subtitle = cleanText(formData.get("subtitle"));
+  const editorialDestination = cleanText(formData.get("editorial_destination"));
+  if (
+    !currentArticleId
+    && editorialDestination
+    && editorialDestination !== EDITORIAL_CONTEXT_DESTINATION
+  ) {
+    throw new ArticleAdminError("invalid-editorial-destination");
+  }
+  if (
+    !currentArticleId
+    && editorialDestination === EDITORIAL_CONTEXT_DESTINATION
+    && subtitle
+    && subtitle.length > EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS
+  ) {
+    throw new ArticleAdminError("context-post-title-too-long");
+  }
   const body = cleanText(formData.get("body")) ?? "";
   const imageUrl = cleanText(formData.get("image_url"));
 

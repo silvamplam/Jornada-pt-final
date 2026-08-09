@@ -1,3 +1,11 @@
+import {
+  EDITORIAL_CONTEXT_DESTINATION,
+  EDITORIAL_CONTEXT_DESTINATION_LABEL,
+  EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
+  normalizeEditorialContextDestination,
+  type EditorialContextDestination,
+} from "@/lib/editorial-context-post-title";
+
 export const EDITORIAL_EXTERNAL_ARTICLE_START_MARKER = "[JORNADA_ARTIGO_V1]";
 export const EDITORIAL_EXTERNAL_ARTICLE_END_MARKER = "[/JORNADA_ARTIGO_V1]";
 export const EDITORIAL_EXTERNAL_ARTICLE_STORAGE_KEY =
@@ -13,12 +21,14 @@ const FIELD_LIMITS = {
 } as const;
 
 type EditorialExternalArticleField =
+  | "editorialDestination"
   | "anteTitle"
   | "title"
   | "postTitle"
   | "body";
 
 export type EditorialExternalArticle = Readonly<{
+  editorialDestination?: EditorialContextDestination | null;
   anteTitle: string | null;
   title: string;
   postTitle: string | null;
@@ -65,7 +75,8 @@ export type EditorialExternalArticleParseResult =
         | "structure_invalid"
         | "title_missing"
         | "body_missing"
-        | "field_too_long";
+        | "field_too_long"
+        | "context_post_title_too_long";
     }>;
 
 
@@ -167,6 +178,9 @@ function normalizedHeading(line: string): EditorialExternalArticleField | null {
     .replace(/[\u0300-\u036f]/g, "")
     .toUpperCase();
 
+  if (cleaned === "DESTINO EDITORIAL") {
+    return "editorialDestination";
+  }
   if (cleaned === "ANTETITULO") {
     return "anteTitle";
   }
@@ -245,6 +259,7 @@ export function parseEditorialExternalArticleResponse(
   }
 
   const values: Record<EditorialExternalArticleField, string[]> = {
+    editorialDestination: [],
     anteTitle: [],
     title: [],
     postTitle: [],
@@ -256,13 +271,15 @@ export function parseEditorialExternalArticleResponse(
   for (const line of markedText.split("\n")) {
     const heading = normalizedHeading(line);
     const canStart = currentField === null
+      && (heading === "editorialDestination" || heading === "anteTitle" || heading === "title");
+    const canFollowDestination = currentField === "editorialDestination"
       && (heading === "anteTitle" || heading === "title");
     const canFollowAnteTitle = currentField === "anteTitle" && heading === "title";
     const canFollowTitle = currentField === "title"
       && (heading === "postTitle" || heading === "body");
     const canFollowPostTitle = currentField === "postTitle" && heading === "body";
     const isExpectedHeading =
-      canStart || canFollowAnteTitle || canFollowTitle || canFollowPostTitle;
+      canStart || canFollowDestination || canFollowAnteTitle || canFollowTitle || canFollowPostTitle;
 
     if (heading && isExpectedHeading) {
       if (seen.has(heading)) {
@@ -286,10 +303,16 @@ export function parseEditorialExternalArticleResponse(
     return { ok: false, error: "body_missing" };
   }
 
+  const rawEditorialDestination = normalizedSingleLine(values.editorialDestination.join("\n"));
+  const editorialDestination = normalizeEditorialContextDestination(rawEditorialDestination);
   const anteTitle = normalizedSingleLine(values.anteTitle.join("\n"));
   const title = normalizedSingleLine(values.title.join("\n"));
   const postTitle = normalizedSingleLine(values.postTitle.join("\n"));
   const body = normalizedBody(values.body.join("\n"));
+
+  if (rawEditorialDestination && !editorialDestination) {
+    return { ok: false, error: "structure_invalid" };
+  }
 
   if (!title) {
     return { ok: false, error: "title_missing" };
@@ -307,9 +330,17 @@ export function parseEditorialExternalArticleResponse(
     return { ok: false, error: "field_too_long" };
   }
 
+  if (
+    editorialDestination === EDITORIAL_CONTEXT_DESTINATION
+    && (postTitle?.length ?? 0) > EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS
+  ) {
+    return { ok: false, error: "context_post_title_too_long" };
+  }
+
   return {
     ok: true,
     value: {
+      ...(editorialDestination ? { editorialDestination } : {}),
       anteTitle,
       title,
       postTitle,
@@ -357,8 +388,12 @@ export function parseStoredEditorialExternalArticleTransfer(
     }
 
     const article = parsed.article as Partial<EditorialExternalArticle>;
+    const destinationLines = article.editorialDestination === EDITORIAL_CONTEXT_DESTINATION
+      ? ["DESTINO EDITORIAL", EDITORIAL_CONTEXT_DESTINATION_LABEL]
+      : [];
     const result = parseEditorialExternalArticleResponse([
       EDITORIAL_EXTERNAL_ARTICLE_START_MARKER,
+      ...destinationLines,
       "ANTETÍTULO",
       typeof article.anteTitle === "string" ? article.anteTitle : "",
       "TÍTULO",
