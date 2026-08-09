@@ -55,9 +55,13 @@ export async function POST(request: Request) {
   const submissionId = cleanText(formData.get("submission_id")).trim().toLowerCase();
   const result = await createManualNewsroomEntry({
     submissionId,
+    anteTitle: cleanText(formData.get("ante_title")),
     title: cleanText(formData.get("title")),
+    postTitle: cleanText(formData.get("post_title")),
+    author: cleanText(formData.get("author")),
     body: cleanText(formData.get("body")),
     publishedDate: cleanText(formData.get("published_date")),
+    publishedTime: cleanText(formData.get("published_time")),
     imageUrl: cleanText(formData.get("image_url")) || null,
   });
 

@@ -94,6 +94,24 @@ const horizontalNewsStyles = `
     line-height: 1.35;
   }
 
+  .public-horizontal-news[data-editorial-scope="matchday"] .public-horizontal-news-label,
+  .public-horizontal-news[data-editorial-scope="matchday"] .public-horizontal-news-title,
+  .public-horizontal-news[data-editorial-scope="matchday"] .public-horizontal-news-card p {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .public-horizontal-news[data-editorial-scope="matchday"] .public-horizontal-news-label {
+    -webkit-line-clamp: 1;
+  }
+
+  .public-horizontal-news[data-editorial-scope="matchday"] .public-horizontal-news-title,
+  .public-horizontal-news[data-editorial-scope="matchday"] .public-horizontal-news-card p {
+    -webkit-line-clamp: 3;
+  }
+
   @media (max-width: 1100px) {
     .public-horizontal-news-row {
       grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -155,10 +173,12 @@ function horizontalNewsRowStyle(columnCount: number): HorizontalNewsRowStyle {
 export default function PublicHorizontalNewsStrip({
   items,
   ariaLabel = "Mais noticias",
+  scope = "home",
   title
 }: {
   items: EditorialHorizontalNewsItem[];
   ariaLabel?: string;
+  scope?: "home" | "matchday";
   title?: string;
 }) {
   if (items.length === 0) {
@@ -168,7 +188,7 @@ export default function PublicHorizontalNewsStrip({
   const rows = buildEditorialHorizontalNewsRows(items, 6);
 
   return (
-    <section className="public-matchday-panel public-horizontal-news" aria-label={ariaLabel}>
+    <section className="public-matchday-panel public-horizontal-news" data-editorial-scope={scope} aria-label={ariaLabel}>
       <style>{horizontalNewsStyles}</style>
       {title ? <h2 className="public-horizontal-news-heading">{title}</h2> : null}
       <div className="public-horizontal-news-stack">

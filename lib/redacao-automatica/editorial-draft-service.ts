@@ -14,6 +14,7 @@ import {
   type LinkedEditorialArticle,
   type NewsroomDraftSource,
 } from "@/lib/redacao-automatica/editorial-draft-service-internal";
+import { editorialSourceAnteTitle } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import { getNewsroomArticleById } from "@/lib/redacao-automatica/newsroom-article-repository";
 
 export type {
@@ -56,8 +57,11 @@ const transport = {
 
     return {
       id: article.id,
+      label: article.snapshot ? editorialSourceAnteTitle(article.snapshot.sourceMetadata) : null,
       title: article.title,
       subtitle: article.subtitle,
+      summary: article.summary,
+      author: article.author,
       imageUrl: article.imageUrl,
       processingStatus: article.processingStatus,
       body: article.snapshot?.body ?? null,

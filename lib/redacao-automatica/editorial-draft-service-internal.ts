@@ -9,8 +9,11 @@ const UUID_PATTERN =
 
 export type NewsroomDraftSource = Readonly<{
   id: string;
+  label: string | null;
   title: string;
   subtitle: string | null;
+  summary: string | null;
+  author: string | null;
   imageUrl: string | null;
   processingStatus: ArticleProcessingStatus;
   body: readonly ArticleBodyBlock[] | null;
@@ -28,6 +31,8 @@ export type EditorialDraftInsert = Readonly<{
   slug: string;
   status: "draft";
   scope: "general";
+  label: string | null;
+  author: string | null;
   subtitle: string | null;
   body: string;
   image_url: string | null;
@@ -218,7 +223,9 @@ export function createNewsroomEditorialDraftService(
       slug: deterministicSlug(newsroomArticleId),
       status: "draft",
       scope: "general",
-      subtitle: source.subtitle,
+      label: source.label,
+      author: source.author,
+      subtitle: source.subtitle?.trim() || source.summary?.trim() || null,
       body,
       image_url: source.imageUrl,
       published_at: null,

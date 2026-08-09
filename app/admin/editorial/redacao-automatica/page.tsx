@@ -131,11 +131,15 @@ const inboxErrorMessages: Record<string, string> = {
 
 const manualEntryErrorMessages: Record<string, string> = {
   submission_id_invalid: "O pedido perdeu validade. Atualiza a página e tenta novamente.",
+  ante_title_invalid: "Escreve um antetítulo válido.",
   title_invalid: "Escreve um título válido.",
+  post_title_invalid: "Escreve um pós-título / resumo válido.",
+  author_invalid: "Indica o autor.",
   body_invalid: "Escreve um corpo válido.",
   published_date_invalid: "Escolhe uma data válida.",
-  published_date_future: "A data não pode estar no futuro.",
-  image_invalid: "A imagem escolhida não é válida.",
+  published_time_invalid: "Escolhe uma hora válida.",
+  published_at_future: "A data/hora não pode estar no futuro.",
+  image_invalid: "Escolhe uma imagem válida.",
   service_unavailable: "A entrada manual não está configurada neste ambiente.",
   submission_payload_conflict: "Este pedido já foi usado com dados diferentes.",
   save_failed: "Não foi possível guardar a notícia manual neste momento.",
@@ -567,12 +571,12 @@ export default async function AutomaticNewsroomPage({
                 </fieldset>
 
                 <label>
-                  <span>Título sugerido <small>opcional</small></span>
+                  <span>Assunto principal <small>opcional</small></span>
                   <input
                     type="text"
                     name="suggested_title"
                     maxLength={EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH}
-                    placeholder="Escreve uma proposta para a IA melhorar ou substituir"
+                    placeholder="Indica o tema, protagonista ou foco principal da notícia"
                   />
                 </label>
 
@@ -588,7 +592,7 @@ export default async function AutomaticNewsroomPage({
 
                 <p className={styles.sourcePackageEditorialNote}>
                   O ficheiro começa pela tarefa editorial correspondente ao género escolhido,
-                  seguida do título sugerido, das tuas instruções e das fontes integrais.
+                  seguida do assunto principal, das tuas instruções e das fontes integrais.
                 </p>
               </div>
 

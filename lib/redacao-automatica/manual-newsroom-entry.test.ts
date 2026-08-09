@@ -13,7 +13,10 @@ import {
   buildEditorialArticleProvenance,
 } from "@/lib/redacao-automatica/editorial-article-provenance-internal";
 import {
+  MANUAL_NEWSROOM_ANTETITLE_MAX_LENGTH,
+  MANUAL_NEWSROOM_AUTHOR_MAX_LENGTH,
   MANUAL_NEWSROOM_BODY_MAX_LENGTH,
+  MANUAL_NEWSROOM_POST_TITLE_MAX_LENGTH,
   MANUAL_NEWSROOM_SOURCE_CODE,
   MANUAL_NEWSROOM_SOURCE_LABEL,
   isManualNewsroomSource,
@@ -46,22 +49,30 @@ const NOW = new Date("2026-07-30T10:00:00.000Z");
 
 function validInput(overrides: Partial<{
   submissionId: string;
+  anteTitle: string;
   title: string;
+  postTitle: string;
+  author: string;
   body: string;
   publishedDate: string;
+  publishedTime: string;
   imageUrl: string | null;
 }> = {}) {
   return {
     submissionId: SUBMISSION_ID,
+    anteTitle: "  ANTETÍTULO   sintético  ",
     title: "  Título   sintético manual  ",
+    postTitle: "  Pós-título   sintético manual  ",
+    author: "  Autor   Sintético  ",
     body: "Primeiro parágrafo sintético.\r\n\r\nSegundo parágrafo sintético.",
     publishedDate: "2026-07-29",
-    imageUrl: null,
+    publishedTime: "09:15",
+    imageUrl: SYNTHETIC_IMAGE_URL,
     ...overrides,
   };
 }
 
-test("normaliza os quatro campos e preserva os parágrafos como texto simples", () => {
+test("normaliza o artigo manual completo e preserva os parágrafos", () => {
   const result = normalizeManualNewsroomEntry(validInput(), {
     now: NOW,
     storageBaseUrl: STORAGE_BASE_URL,
@@ -69,7 +80,10 @@ test("normaliza os quatro campos e preserva os parágrafos como texto simples", 
 
   assert.equal(result.ok, true);
   if (!result.ok) return;
+  assert.equal(result.value.anteTitle, "ANTETÍTULO sintético");
   assert.equal(result.value.title, "Título sintético manual");
+  assert.equal(result.value.postTitle, "Pós-título sintético manual");
+  assert.equal(result.value.author, "Autor Sintético");
   assert.equal(
     result.value.body,
     "Primeiro parágrafo sintético.\n\nSegundo parágrafo sintético.",
@@ -78,18 +92,26 @@ test("normaliza os quatro campos e preserva os parágrafos como texto simples", 
     { type: "paragraph", text: "Primeiro parágrafo sintético." },
     { type: "paragraph", text: "Segundo parágrafo sintético." },
   ]);
-  assert.equal(result.value.publishedAt, "2026-07-29T00:00:00.000Z");
-  assert.equal(result.value.imageUrl, null);
+  assert.equal(result.value.publishedDate, "2026-07-29");
+  assert.equal(result.value.publishedTime, "09:15");
+  assert.equal(result.value.imageUrl, SYNTHETIC_IMAGE_URL);
   assert.match(result.value.requestFingerprint, /^[0-9a-f]{64}$/);
   assert.match(result.value.contentHash, /^[0-9a-f]{64}$/);
 });
 
-test("valida título, corpo e submission_id sem deduplicar pelo conteúdo", () => {
+test("valida todos os campos canónicos sem deduplicar pelo conteúdo", () => {
   const cases = [
     [validInput({ submissionId: "invalid" }), "submission_id_invalid"],
+    [validInput({ anteTitle: " " }), "ante_title_invalid"],
+    [validInput({ anteTitle: "x".repeat(MANUAL_NEWSROOM_ANTETITLE_MAX_LENGTH + 1) }), "ante_title_invalid"],
     [validInput({ title: " " }), "title_invalid"],
+    [validInput({ postTitle: " " }), "post_title_invalid"],
+    [validInput({ postTitle: "x".repeat(MANUAL_NEWSROOM_POST_TITLE_MAX_LENGTH + 1) }), "post_title_invalid"],
+    [validInput({ author: " " }), "author_invalid"],
+    [validInput({ author: "x".repeat(MANUAL_NEWSROOM_AUTHOR_MAX_LENGTH + 1) }), "author_invalid"],
     [validInput({ body: " " }), "body_invalid"],
     [validInput({ body: "x".repeat(MANUAL_NEWSROOM_BODY_MAX_LENGTH + 1) }), "body_invalid"],
+    [validInput({ imageUrl: null }), "image_invalid"],
   ] as const;
 
   for (const [input, expectedCode] of cases) {
@@ -119,13 +141,15 @@ test("valida título, corpo e submission_id sem deduplicar pelo conteúdo", () =
   }
 });
 
-test("a data é date-only, rejeita datas impossíveis, hora e futuro", () => {
-  for (const [publishedDate, code] of [
-    ["2026-02-30", "published_date_invalid"],
-    ["2026-07-29T10:00", "published_date_invalid"],
-    ["2026-07-31", "published_date_future"],
+test("data e hora são separadas, válidas e não podem estar no futuro", () => {
+  for (const [input, code] of [
+    [validInput({ publishedDate: "2026-02-30" }), "published_date_invalid"],
+    [validInput({ publishedDate: "2026-07-29T10:00" }), "published_date_invalid"],
+    [validInput({ publishedTime: "25:00" }), "published_time_invalid"],
+    [validInput({ publishedDate: "2026-07-31" }), "published_at_future"],
+    [validInput({ publishedDate: "2026-07-30", publishedTime: "11:01" }), "published_at_future"],
   ] as const) {
-    const result = normalizeManualNewsroomEntry(validInput({ publishedDate }), {
+    const result = normalizeManualNewsroomEntry(input, {
       now: NOW,
       storageBaseUrl: STORAGE_BASE_URL,
     });
@@ -141,7 +165,7 @@ test("a imagem aceita apenas o destino e extensões do upload administrativo", (
     normalizeManualNewsroomImageUrl(SYNTHETIC_IMAGE_URL, STORAGE_BASE_URL),
     SYNTHETIC_IMAGE_URL,
   );
-  assert.equal(normalizeManualNewsroomImageUrl(null, STORAGE_BASE_URL), null);
+  assert.equal(normalizeManualNewsroomImageUrl(null, STORAGE_BASE_URL), undefined);
   assert.equal(
     normalizeManualNewsroomImageUrl(
       "https://evil.example/storage/v1/object/public/editorial-images/editorial/image.webp",
@@ -417,26 +441,36 @@ test("a origem manual é inequívoca e mantém fallback para dados legacy", () =
   assert.equal(isManualNewsroomSource("record", { origin: "automatic" }), false);
 });
 
-test("o formulário contém apenas os quatro campos visíveis e ações editoriais neutras", () => {
+test("o formulário manual recolhe o artigo canónico completo", () => {
   const source = readFileSync(
     "app/admin/editorial/redacao-automatica/_manualNewsEntryForm.tsx",
     "utf8",
   );
-  assert.equal((source.match(/<label>/g) ?? []).length, 4);
-  for (const label of ["Título", "Corpo", "Data", "Imagem"]) {
+  assert.equal((source.match(/<label>/g) ?? []).length, 8);
+  for (const label of [
+    "Antetítulo",
+    "Título",
+    "Pós-título / resumo",
+    "Autor",
+    "Corpo",
+    "Data",
+    "Hora",
+    "Imagem",
+  ]) {
     assert.match(source, new RegExp(`<span>${label}</span>`));
   }
-  for (const forbiddenField of [
-    'name="source"',
-    'name="url"',
-    'name="author"',
-    'name="summary"',
-    'name="notes"',
-    'name="caption"',
-    'name="credit"',
+  for (const name of [
+    "ante_title",
+    "title",
+    "post_title",
+    "author",
+    "body",
+    "published_date",
+    "published_time",
   ]) {
-    assert.doesNotMatch(source, new RegExp(forbiddenField));
+    assert.match(source, new RegExp(`name="${name}"`));
   }
+  assert.match(source, /type="file"[\s\S]*required/);
   assert.match(source, />Guardar notícia</);
   assert.doesNotMatch(source, />Publicar/);
   assert.doesNotMatch(source, />Gerar/);
@@ -467,6 +501,9 @@ test("a rota guarda apenas no arquivo, usa 303 relativo e não tem GET nem efeit
   assert.match(source, /status: 303/);
   assert.match(source, /Location: `\$\{PAGE_PATH\}/);
   assert.match(source, /createManualNewsroomEntry/);
+  for (const field of ["ante_title", "post_title", "author", "published_time"]) {
+    assert.ok(source.includes(`formData.get("${field}")`));
+  }
   assert.doesNotMatch(source, /OpenAI|generate|editorial_articles|dossier/i);
   assert.doesNotMatch(source, /console\.(?:log|error|warn)/);
 });
@@ -508,6 +545,42 @@ test("imagem, autenticação e segurança reutilizam os contratos administrativo
   assert.match(manualForm, /upload-image\/sign/);
   assert.match(middleware, /pathname\.startsWith\("\/api\/admin"\)/);
   assert.match(middleware, /verifyAdminSession/);
+});
+
+test("os steps 92–95 acrescentam a entrada manual canónica sem quebrar a RPC legacy", () => {
+  const preflight = readFileSync(
+    "supabase/steps/92-redacao-automatica-recolha-manual-artigo-canonico-preflight.sql",
+    "utf8",
+  );
+  const apply = readFileSync(
+    "supabase/steps/93-redacao-automatica-recolha-manual-artigo-canonico-apply.sql",
+    "utf8",
+  );
+  const postflight = readFileSync(
+    "supabase/steps/94-redacao-automatica-recolha-manual-artigo-canonico-postflight.sql",
+    "utf8",
+  );
+  const smoke = readFileSync(
+    "supabase/steps/95-redacao-automatica-recolha-manual-artigo-canonico-smoke-rollback.sql",
+    "utf8",
+  );
+
+  assert.match(preflight, /'writes_performed', false/);
+  assert.doesNotMatch(preflight, /^\s*(?:insert|update|delete|alter|create|drop|truncate)\s/im);
+  assert.match(apply, /create function public\.newsroom_create_complete_manual_entry/);
+  assert.match(apply, /p_ante_title text/);
+  assert.match(apply, /p_post_title text/);
+  assert.match(apply, /p_author text/);
+  assert.match(apply, /p_published_time text/);
+  assert.match(apply, /'publishedAtPrecision', 'instant'/);
+  assert.match(apply, /'anteTitle', btrim\(p_ante_title\)/);
+  assert.match(apply, /grant execute on function public\.newsroom_create_complete_manual_entry/);
+  assert.match(apply, /to service_role/);
+  assert.doesNotMatch(apply, /drop function public\.newsroom_create_manual_entry/);
+  assert.match(postflight, /'writes_performed', false/);
+  assert.match(smoke, /^begin;/im);
+  assert.match(smoke, /^rollback;/im);
+  assert.doesNotMatch(smoke, /^commit;/im);
 });
 
 test("os steps 38–41 preservam o contrato SQL, a idempotência e o rollback", () => {

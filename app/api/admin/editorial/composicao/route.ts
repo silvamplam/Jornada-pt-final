@@ -1,4 +1,15 @@
 import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
+import {
+  editorialArticleCanonicalMissingLabel,
+  missingEditorialArticleCanonicalFields,
+} from "@/lib/editorial-article-canonical";
+import {
+  EDITORIAL_NEWS_FLOW_SLOT_TYPES,
+  EDITORIAL_ZONE_PRESENTATION_PROFILES,
+  isEditorialNewsFlowSlotType,
+  projectEditorialArticleToZone,
+  type EditorialArticleZoneSource
+} from "@/lib/editorial-zone-presentation";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 function cleanText(value: FormDataEntryValue | null): string | null {
@@ -26,6 +37,11 @@ function normalizeSourceType(sourceType?: string | null) {
   if (normalized === "articles") return "article";
 
   return normalized;
+}
+
+function isEditorialArticleSourceType(sourceType?: string | null) {
+  const normalized = normalizeSourceType(sourceType);
+  return normalized === "editorial_article";
 }
 
 function redirectTo(_request: Request, path: string) {
@@ -126,6 +142,12 @@ type CurrentEditorialArticlePublication = {
   published_at: string | null;
 };
 
+type EditorialArticleForZone = EditorialArticleZoneSource & {
+  body: string | null;
+  matchday_id: string | null;
+  status: string | null;
+};
+
 type CurrentEditorialContentPublication = {
   id: string;
   slug: string | null;
@@ -199,6 +221,9 @@ type CompositionMoveItem = {
   composition_id: string;
   slot_type: string;
   source_type: string | null;
+  source_id: string | null;
+  article_id: string | null;
+  link_url_snapshot: string | null;
   sort_order: number;
   created_at: string;
 };
@@ -484,7 +509,10 @@ function validatePublishableCompositionItems(items: CompositionPublicationItem[]
     throw new CompositionPublicationError("A composição só pode ter um complemento da manchete.");
   }
   if ((counts.side_block ?? 0) > 1) {
-    throw new CompositionPublicationError("A composição só pode ter um bloco lateral.");
+    throw new CompositionPublicationError("A composição só pode ter um Contexto.");
+  }
+  if ((counts.highlight ?? 0) > 3) {
+    throw new CompositionPublicationError("A zona 3 notícias abaixo da manchete só pode ter três notícias.");
   }
 }
 
@@ -592,6 +620,94 @@ async function readMaxSortOrderForSlot(compositionId: string, slotType: string) 
     )}&slot_type=eq.${encodeURIComponent(slotType)}&order=sort_order.desc`
   );
   return row?.sort_order ?? 0;
+}
+
+async function readEditorialArticleForZone(articleId: string, matchdayId: string) {
+  const article = await readFirst<EditorialArticleForZone>(
+    `editorial_articles?select=id,slug,label,title,subtitle,body,image_url,author,published_at,matchday_id,status&id=eq.${encodeURIComponent(
+      articleId
+    )}&matchday_id=eq.${encodeURIComponent(matchdayId)}&status=eq.published`
+  );
+
+  if (!article) {
+    throw new CompositionPublicationError("O artigo-fonte já não está publicado nesta jornada.");
+  }
+
+  const missing = missingEditorialArticleCanonicalFields(article);
+  if (missing.length > 0) {
+    throw new CompositionPublicationError(
+      `O artigo-fonte está incompleto: falta ${editorialArticleCanonicalMissingLabel(missing)}. Completa o artigo antes de o publicar ou transferir entre zonas.`,
+    );
+  }
+
+  return article;
+}
+
+function editorialArticleSlugFromLink(linkUrl: string | null | undefined) {
+  const cleanLink = linkUrl?.trim();
+  if (!cleanLink) return null;
+
+  try {
+    const url = new URL(cleanLink, "https://jornada.invalid");
+    const match = url.pathname.match(/^\/noticias\/([^/]+)\/?$/);
+    return match?.[1] ? decodeURIComponent(match[1]).trim() || null : null;
+  } catch {
+    return null;
+  }
+}
+
+async function editorialArticleIdFromLink(linkUrl: string | null | undefined, matchdayId: string) {
+  const slug = editorialArticleSlugFromLink(linkUrl);
+  if (!slug) return null;
+
+  const article = await readFirst<{ id: string }>(
+    `editorial_articles?select=id&slug=eq.${encodeURIComponent(slug)}&matchday_id=eq.${encodeURIComponent(matchdayId)}&status=eq.published&limit=1`
+  );
+  return article?.id ?? null;
+}
+
+async function resolveEditorialArticleIdForCompositionItem(
+  item: CompositionMoveItem,
+  matchdayId: string,
+) {
+  if (isEditorialArticleSourceType(item.source_type) && item.source_id) return item.source_id;
+
+  if (normalizeSourceType(item.source_type) === "matchday_editorial_bank_item" && item.source_id) {
+    const bankItem = await readFirst<{
+      source_type: string | null;
+      source_id: string | null;
+      link_url: string | null;
+    }>(
+      `matchday_editorial_bank_items?select=source_type,source_id,link_url&id=eq.${encodeURIComponent(item.source_id)}`
+    );
+
+    if (bankItem && isEditorialArticleSourceType(bankItem.source_type) && bankItem.source_id) {
+      return bankItem.source_id;
+    }
+    const linkedBankArticleId = await editorialArticleIdFromLink(bankItem?.link_url, matchdayId);
+    if (linkedBankArticleId) return linkedBankArticleId;
+  }
+
+  return editorialArticleIdFromLink(item.link_url_snapshot, matchdayId);
+}
+
+async function assertCompositionSlotCapacity(compositionId: string, slotType: string, ignoreItemId?: string | null) {
+  const profile = EDITORIAL_ZONE_PRESENTATION_PROFILES[slotType as keyof typeof EDITORIAL_ZONE_PRESENTATION_PROFILES];
+  const capacity = profile?.capacity ?? null;
+  if (!capacity) return;
+
+  const items = await fetchSupabaseAdminTable<{ id: string }>(
+    `matchday_reference_composition_items?select=id&composition_id=eq.${encodeURIComponent(
+      compositionId
+    )}&slot_type=eq.${encodeURIComponent(slotType)}&limit=50`
+  );
+  const occupied = items.filter((item) => !ignoreItemId || item.id !== ignoreItemId).length;
+
+  if (occupied >= capacity) {
+    throw new CompositionPublicationError(
+      `${profile.publicName} já ${capacity === 1 ? "está ocupada" : `tem o máximo de ${capacity} notícias`}. Transfere ou retira primeiro um item dessa zona.`
+    );
+  }
 }
 
 async function readPublishedImportantReferenceItems(matchdayId: string) {
@@ -944,7 +1060,7 @@ async function updateBankItemStatus(formData: FormData, nextStatus: "active" | "
 }
 
 const bankCompositionSlotTypes = new Set(["headline", "complement", "side_block", "highlight", "important_item", "editorial_line_item"]);
-const singleBankCompositionSlotTypes = new Set(["headline", "complement", "side_block"]);
+const articleNewsFlowSlotTypes = new Set<string>(EDITORIAL_NEWS_FLOW_SLOT_TYPES);
 
 async function assignBankItemToCompositionSlot(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
@@ -971,6 +1087,11 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
 
   if (!bankItem || bankItem.status !== "active") {
     throw new Error("bank-assignment-invalid");
+  }
+
+  const articleId = isEditorialArticleSourceType(bankItem.source_type) ? bankItem.source_id : null;
+  if (articleId && !articleNewsFlowSlotTypes.has(slotType)) {
+    throw new CompositionPublicationError("Os artigos noticiosos só podem circular pelas cinco zonas noticiosas.");
   }
 
   const existingBankCompositionItems = await fetchSupabaseAdminTable<CompositionBankSourceItem>(
@@ -1002,9 +1123,24 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
     throw new CompositionPublicationError("Esta noticia ja esta associada a composicao.");
   }
 
-  const nextSortOrder = singleBankCompositionSlotTypes.has(slotType)
-    ? 1
-    : (await readMaxSortOrderForSlot(compositionId, slotType)) + 1;
+  await assertCompositionSlotCapacity(compositionId, slotType);
+
+  let projected = {
+    title: bankItem.title as string | null,
+    subtitle: bankItem.subtitle,
+    imageUrl: bankItem.image_url,
+    linkUrl: bankItem.link_url,
+    label: bankItem.label
+  };
+
+  if (articleId) {
+    if (!isEditorialNewsFlowSlotType(slotType)) {
+      throw new CompositionPublicationError("A zona escolhida não pertence ao circuito noticioso.");
+    }
+    projected = projectEditorialArticleToZone(await readEditorialArticleForZone(articleId, matchdayId), slotType);
+  }
+
+  const nextSortOrder = (await readMaxSortOrderForSlot(compositionId, slotType)) + 1;
   const createdItems = await writeSupabaseAdminReturning<{ id: string }>(
     "matchday_reference_composition_items?select=id",
     {
@@ -1014,32 +1150,22 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
         slot_type: slotType,
         source_type: "matchday_editorial_bank_item",
         source_id: bankItem.id,
+        article_id: null,
         sort_order: nextSortOrder,
-        title_snapshot: bankItem.title,
-        subtitle_snapshot: bankItem.subtitle,
-        image_url_snapshot: bankItem.image_url,
-        link_url_snapshot: bankItem.link_url,
-        label_snapshot: bankItem.label,
-        label_color_snapshot: bankItem.label_color,
+        title_snapshot: projected.title,
+        subtitle_snapshot: projected.subtitle,
+        image_url_snapshot: projected.imageUrl,
+        link_url_snapshot: projected.linkUrl,
+        label_snapshot: projected.label,
+        label_color_snapshot: articleId ? null : bankItem.label_color,
         status: "draft"
       })
     }
   );
-  const createdItemId = createdItems[0]?.id;
 
-  if (!createdItemId) {
+  if (!createdItems[0]?.id) {
     throw new Error("bank-assignment-invalid");
   }
-
-  if (singleBankCompositionSlotTypes.has(slotType)) {
-    await writeSupabaseAdmin(
-      `matchday_reference_composition_items?composition_id=eq.${encodeURIComponent(
-        compositionId
-      )}&slot_type=eq.${encodeURIComponent(slotType)}&id=neq.${encodeURIComponent(createdItemId)}`,
-      { method: "DELETE" }
-    );
-  }
-
 }
 
 async function unassignBankItemFromCompositionSlot(formData: FormData) {
@@ -1325,7 +1451,7 @@ async function moveCompositionItem(formData: FormData) {
   }
 
   const item = await readFirst<CompositionMoveItem>(
-    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,sort_order,created_at&id=eq.${encodeURIComponent(
+    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,source_id,article_id,link_url_snapshot,sort_order,created_at&id=eq.${encodeURIComponent(
       itemId
     )}&composition_id=eq.${encodeURIComponent(compositionId)}`
   );
@@ -1336,29 +1462,85 @@ async function moveCompositionItem(formData: FormData) {
   }
   if (item.slot_type === targetSlotType) return;
 
-  const nextSortOrder = singleBankCompositionSlotTypes.has(targetSlotType)
-    ? 1
-    : (await readMaxSortOrderForSlot(compositionId, targetSlotType)) + 1;
+  const articleId = await resolveEditorialArticleIdForCompositionItem(item, matchdayId);
+  if (
+    !articleId
+    && isEditorialNewsFlowSlotType(item.slot_type)
+    && isEditorialNewsFlowSlotType(targetSlotType)
+  ) {
+    throw new CompositionPublicationError(
+      "Esta notícia é um registo antigo sem artigo-fonte completo. Abre ou cria o artigo antes de a transferir entre zonas.",
+    );
+  }
+  if (articleId && !articleNewsFlowSlotTypes.has(targetSlotType)) {
+    throw new CompositionPublicationError("Os artigos noticiosos não podem ser transferidos para Contexto ou Vídeo.");
+  }
+
+  await assertCompositionSlotCapacity(compositionId, targetSlotType, item.id);
+  const nextSortOrder = (await readMaxSortOrderForSlot(compositionId, targetSlotType)) + 1;
+  const payload: Record<string, string | number | null> = {
+    slot_type: targetSlotType,
+    sort_order: nextSortOrder,
+    updated_at: new Date().toISOString()
+  };
+
+  if (articleId) {
+    if (!isEditorialNewsFlowSlotType(targetSlotType)) {
+      throw new CompositionPublicationError("A zona escolhida não pertence ao circuito noticioso.");
+    }
+    const projection = projectEditorialArticleToZone(
+      await readEditorialArticleForZone(articleId, matchdayId),
+      targetSlotType
+    );
+    payload.title_snapshot = projection.title;
+    payload.subtitle_snapshot = projection.subtitle;
+    payload.image_url_snapshot = projection.imageUrl;
+    payload.link_url_snapshot = projection.linkUrl;
+    payload.label_snapshot = projection.label;
+    payload.label_color_snapshot = null;
+  }
+
+  await writeSupabaseAdmin(
+    `matchday_reference_composition_items?id=eq.${encodeURIComponent(itemId)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
+    { method: "PATCH", body: JSON.stringify(payload) }
+  );
+}
+
+async function updateArticleZonePresentation(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  const itemId = cleanText(formData.get("item_id"));
+
+  if (!matchdayId || !compositionId || !itemId || !(await readDraftComposition(compositionId, matchdayId))) {
+    throw new Error("composition-invalid");
+  }
+
+  const item = await readFirst<CompositionMoveItem>(
+    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,source_id,article_id,link_url_snapshot,sort_order,created_at&id=eq.${encodeURIComponent(
+      itemId
+    )}&composition_id=eq.${encodeURIComponent(compositionId)}`
+  );
+
+  if (!item || item.slot_type !== "editorial_line_item") {
+    throw new Error("composition-invalid");
+  }
+
+  const articleId = await resolveEditorialArticleIdForCompositionItem(item, matchdayId);
+  if (!articleId) {
+    throw new CompositionPublicationError("A apresentação manual de Últimas só está disponível para artigos completos.");
+  }
+
   await writeSupabaseAdmin(
     `matchday_reference_composition_items?id=eq.${encodeURIComponent(itemId)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
     {
       method: "PATCH",
       body: JSON.stringify({
-        slot_type: targetSlotType,
-        sort_order: nextSortOrder,
+        label_snapshot: cleanText(formData.get("label_snapshot")),
+        subtitle_snapshot: cleanText(formData.get("subtitle_snapshot")),
         updated_at: new Date().toISOString()
       })
     }
   );
-  if (singleBankCompositionSlotTypes.has(targetSlotType)) {
-    await writeSupabaseAdmin(
-      `matchday_reference_composition_items?composition_id=eq.${encodeURIComponent(
-        compositionId
-      )}&slot_type=eq.${encodeURIComponent(targetSlotType)}&id=neq.${encodeURIComponent(itemId)}`,
-      { method: "DELETE" }
-    );
-  }
-
 }
 
 async function reorderCompositionItem(formData: FormData) {
@@ -1378,14 +1560,14 @@ async function reorderCompositionItem(formData: FormData) {
   }
 
   const item = await readFirst<CompositionMoveItem>(
-    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,sort_order,created_at&id=eq.${encodeURIComponent(
+    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,source_id,article_id,link_url_snapshot,sort_order,created_at&id=eq.${encodeURIComponent(
       itemId
     )}&composition_id=eq.${encodeURIComponent(compositionId)}`
   );
   if (!item) throw new Error("composition-invalid");
 
   const items = await fetchSupabaseAdminTable<CompositionMoveItem>(
-    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,sort_order,created_at&composition_id=eq.${encodeURIComponent(
+    `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,source_id,article_id,sort_order,created_at&composition_id=eq.${encodeURIComponent(
       compositionId
     )}&slot_type=eq.${encodeURIComponent(item.slot_type)}&order=sort_order.asc,created_at.asc`
   );
@@ -1524,6 +1706,7 @@ export async function POST(request: Request) {
     else if (actionType === "add_item") await addItem(formData);
     else if (actionType === "remove_item") await removeItem(formData);
     else if (actionType === "move_composition_item") await moveCompositionItem(formData);
+    else if (actionType === "update_article_zone_presentation") await updateArticleZonePresentation(formData);
     else if (actionType === "reorder_composition_item") await reorderCompositionItem(formData);
     else if (actionType === "save_current_page_state") await saveCurrentPageState(formData);
     else if (actionType === "save_matchday_editorial_bank_current") {

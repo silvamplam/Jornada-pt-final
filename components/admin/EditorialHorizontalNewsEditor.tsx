@@ -204,6 +204,7 @@ export default function EditorialHorizontalNewsEditor({
   formIdForOrder,
   hiddenFieldsForOrder,
   messageForOrder,
+  transferControlForOrder,
   openOrder
 }: {
   id: string;
@@ -216,6 +217,7 @@ export default function EditorialHorizontalNewsEditor({
   formIdForOrder: (order: number) => string;
   hiddenFieldsForOrder: (order: number, item: EditorialHorizontalNewsAdminItem | null) => HiddenField[];
   messageForOrder?: (order: number) => ReactNode;
+  transferControlForOrder?: (order: number, item: EditorialHorizontalNewsAdminItem | null) => ReactNode;
   openOrder?: number | null;
 }) {
   return (
@@ -298,6 +300,9 @@ export default function EditorialHorizontalNewsEditor({
                   <input form={formId} data-horizontal-news-field="link_url" name="horizontal_news_link_url" defaultValue={item?.linkUrl ?? ""} />
                 </label>
                 {messageForOrder ? <div className="horizontal-news-admin-field is-wide">{messageForOrder(order)}</div> : null}
+                {transferControlForOrder ? (
+                  <div className="horizontal-news-admin-field is-wide">{transferControlForOrder(order, item)}</div>
+                ) : null}
                 <div className="horizontal-news-admin-actions">
                   <small className="horizontal-news-admin-note">Os itens novos sao acrescentados no fim. A grelha publica apresenta cinco noticias por linha.</small>
                   <div>

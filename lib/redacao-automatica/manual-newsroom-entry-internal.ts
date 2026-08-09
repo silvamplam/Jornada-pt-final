@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 
 import {
+  MANUAL_NEWSROOM_ANTETITLE_MAX_LENGTH,
+  MANUAL_NEWSROOM_AUTHOR_MAX_LENGTH,
   MANUAL_NEWSROOM_BODY_MAX_LENGTH,
+  MANUAL_NEWSROOM_POST_TITLE_MAX_LENGTH,
   MANUAL_NEWSROOM_TITLE_MAX_LENGTH,
 } from "@/lib/redacao-automatica/manual-newsroom-entry-contract";
 import type {
@@ -13,36 +16,48 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const TIME_ONLY_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 const ALLOWED_IMAGE_EXTENSION_PATTERN = /\.(?:jpe?g|png|webp|avif)$/i;
 const MANUAL_IMAGE_PATH_PREFIX =
   "/storage/v1/object/public/editorial-images/editorial/";
 
 export type ManualNewsroomEntryInput = Readonly<{
   submissionId: string;
+  anteTitle: string;
   title: string;
+  postTitle: string;
+  author: string;
   body: string;
   publishedDate: string;
+  publishedTime: string;
   imageUrl: string | null;
 }>;
 
 export type NormalizedManualNewsroomEntry = Readonly<{
   submissionId: string;
+  anteTitle: string;
   title: string;
+  postTitle: string;
+  author: string;
   body: string;
   bodyBlocks: readonly ArticleBodyBlock[];
   publishedDate: string;
-  publishedAt: string;
-  imageUrl: string | null;
+  publishedTime: string;
+  imageUrl: string;
   requestFingerprint: string;
   contentHash: string;
 }>;
 
 export type ManualNewsroomEntryErrorCode =
   | "submission_id_invalid"
+  | "ante_title_invalid"
   | "title_invalid"
+  | "post_title_invalid"
+  | "author_invalid"
   | "body_invalid"
   | "published_date_invalid"
-  | "published_date_future"
+  | "published_time_invalid"
+  | "published_at_future"
   | "image_invalid"
   | "service_unavailable"
   | "submission_payload_conflict"
@@ -65,17 +80,21 @@ export type ManualNewsroomEntryResult = OperationResult<
 export type ManualNewsroomEntryRpcArguments = Readonly<{
   p_submission_id: string;
   p_request_fingerprint: string;
+  p_ante_title: string;
   p_title: string;
+  p_post_title: string;
+  p_author: string;
   p_body: readonly ArticleBodyBlock[];
   p_published_date: string;
-  p_image_url: string | null;
+  p_published_time: string;
+  p_image_url: string;
   p_content_hash: string;
 }>;
 
 export interface ManualNewsroomEntryTransport {
   configuration(): Readonly<{ storageBaseUrl: string }> | null;
   executeRpc(
-    functionName: "newsroom_create_manual_entry",
+    functionName: "newsroom_create_complete_manual_entry",
     argumentsValue: ManualNewsroomEntryRpcArguments,
   ): Promise<unknown>;
 }
@@ -110,7 +129,7 @@ export function isManualNewsroomSubmissionId(value: string): boolean {
   return UUID_PATTERN.test(value.trim().toLowerCase());
 }
 
-function normalizeTitle(value: string): string {
+function normalizeInline(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
@@ -133,9 +152,7 @@ function bodyBlocks(value: string): readonly ArticleBodyBlock[] {
 
 function isRealDateOnly(value: string): boolean {
   const match = value.match(DATE_ONLY_PATTERN);
-  if (!match) {
-    return false;
-  }
+  if (!match) return false;
 
   const year = Number(match[1]);
   const month = Number(match[2]);
@@ -148,35 +165,39 @@ function isRealDateOnly(value: string): boolean {
   );
 }
 
-export function lisbonDateOnly(now: Date): string | null {
-  if (Number.isNaN(now.getTime())) {
-    return null;
-  }
+function lisbonDateTimeParts(now: Date): Readonly<{ date: string; time: string }> | null {
+  if (Number.isNaN(now.getTime())) return null;
 
   const parts = new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
     timeZone: "Europe/Lisbon",
   }).formatToParts(now);
   const values = new Map(parts.map((part) => [part.type, part.value]));
   const year = values.get("year");
   const month = values.get("month");
   const day = values.get("day");
-  return year && month && day ? `${year}-${month}-${day}` : null;
+  const hour = values.get("hour");
+  const minute = values.get("minute");
+  return year && month && day && hour && minute
+    ? { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` }
+    : null;
+}
+
+export function lisbonDateOnly(now: Date): string | null {
+  return lisbonDateTimeParts(now)?.date ?? null;
 }
 
 export function normalizeManualNewsroomImageUrl(
   value: string | null,
   storageBaseUrl: string,
-): string | null | undefined {
+): string | undefined {
   const normalized = value?.trim() ?? "";
-  if (!normalized) {
-    return null;
-  }
-  if (normalized.length > 2048) {
-    return undefined;
-  }
+  if (!normalized || normalized.length > 2048) return undefined;
 
   try {
     const expectedBase = new URL(storageBaseUrl);
@@ -200,12 +221,13 @@ export function normalizeManualNewsroomImageUrl(
   }
 }
 
+function invalidInline(value: string, maxLength: number): boolean {
+  return !value || value.length > maxLength || value.includes("\u0000");
+}
+
 export function normalizeManualNewsroomEntry(
   input: ManualNewsroomEntryInput,
-  options: Readonly<{
-    now: Date;
-    storageBaseUrl: string;
-  }>,
+  options: Readonly<{ now: Date; storageBaseUrl: string }>,
 ): OperationResult<
   NormalizedManualNewsroomEntry,
   Readonly<{ code: ManualNewsroomEntryErrorCode }>
@@ -215,13 +237,24 @@ export function normalizeManualNewsroomEntry(
     return { ok: false, error: { code: "submission_id_invalid" } };
   }
 
-  const title = normalizeTitle(input.title);
-  if (
-    !title
-    || title.length > MANUAL_NEWSROOM_TITLE_MAX_LENGTH
-    || title.includes("\u0000")
-  ) {
+  const anteTitle = normalizeInline(input.anteTitle);
+  if (invalidInline(anteTitle, MANUAL_NEWSROOM_ANTETITLE_MAX_LENGTH)) {
+    return { ok: false, error: { code: "ante_title_invalid" } };
+  }
+
+  const title = normalizeInline(input.title);
+  if (invalidInline(title, MANUAL_NEWSROOM_TITLE_MAX_LENGTH)) {
     return { ok: false, error: { code: "title_invalid" } };
+  }
+
+  const postTitle = normalizeInline(input.postTitle);
+  if (invalidInline(postTitle, MANUAL_NEWSROOM_POST_TITLE_MAX_LENGTH)) {
+    return { ok: false, error: { code: "post_title_invalid" } };
+  }
+
+  const author = normalizeInline(input.author);
+  if (invalidInline(author, MANUAL_NEWSROOM_AUTHOR_MAX_LENGTH)) {
+    return { ok: false, error: { code: "author_invalid" } };
   }
 
   const body = normalizeBody(input.body);
@@ -236,43 +269,56 @@ export function normalizeManualNewsroomEntry(
   }
 
   const publishedDate = input.publishedDate.trim();
-  const currentDate = lisbonDateOnly(options.now);
-  if (!isRealDateOnly(publishedDate) || !currentDate) {
+  if (!isRealDateOnly(publishedDate)) {
     return { ok: false, error: { code: "published_date_invalid" } };
   }
-  if (publishedDate > currentDate) {
-    return { ok: false, error: { code: "published_date_future" } };
+
+  const publishedTime = input.publishedTime.trim();
+  if (!TIME_ONLY_PATTERN.test(publishedTime)) {
+    return { ok: false, error: { code: "published_time_invalid" } };
   }
 
-  const imageUrl = normalizeManualNewsroomImageUrl(
-    input.imageUrl,
-    options.storageBaseUrl,
-  );
-  if (imageUrl === undefined) {
+  const current = lisbonDateTimeParts(options.now);
+  if (!current) {
+    return { ok: false, error: { code: "published_date_invalid" } };
+  }
+  if (
+    publishedDate > current.date
+    || (publishedDate === current.date && publishedTime > current.time)
+  ) {
+    return { ok: false, error: { code: "published_at_future" } };
+  }
+
+  const imageUrl = normalizeManualNewsroomImageUrl(input.imageUrl, options.storageBaseUrl);
+  if (!imageUrl) {
     return { ok: false, error: { code: "image_invalid" } };
   }
 
   const contentPayload = {
+    anteTitle,
     title,
+    postTitle,
+    author,
     body,
     publishedDate,
+    publishedTime,
     imageUrl,
   };
-  const requestFingerprint = sha256({
-    submissionId,
-    ...contentPayload,
-  });
+  const requestFingerprint = sha256({ submissionId, ...contentPayload });
   const contentHash = sha256(contentPayload);
 
   return {
     ok: true,
     value: {
       submissionId,
+      anteTitle,
       title,
+      postTitle,
+      author,
       body,
       bodyBlocks: normalizedBodyBlocks,
       publishedDate,
-      publishedAt: `${publishedDate}T00:00:00.000Z`,
+      publishedTime,
       imageUrl,
       requestFingerprint,
       contentHash,
@@ -281,9 +327,7 @@ export function normalizeManualNewsroomEntry(
 }
 
 function isRpcRow(value: unknown): value is ManualNewsroomEntryRpcRow {
-  if (!value || Array.isArray(value) || typeof value !== "object") {
-    return false;
-  }
+  if (!value || Array.isArray(value) || typeof value !== "object") return false;
 
   const row = value as Record<string, unknown>;
   return (
@@ -327,21 +371,28 @@ export function createManualNewsroomEntryPersistence(
       now: options.now ?? new Date(),
       storageBaseUrl: configuration.storageBaseUrl,
     });
-    if (!normalized.ok) {
-      return normalized;
-    }
+    if (!normalized.ok) return normalized;
 
     const request = normalized.value;
+    const rpcArguments: ManualNewsroomEntryRpcArguments = {
+      p_submission_id: request.submissionId,
+      p_request_fingerprint: request.requestFingerprint,
+      p_ante_title: request.anteTitle,
+      p_title: request.title,
+      p_post_title: request.postTitle,
+      p_author: request.author,
+      p_body: request.bodyBlocks,
+      p_published_date: request.publishedDate,
+      p_published_time: request.publishedTime,
+      p_image_url: request.imageUrl,
+      p_content_hash: request.contentHash,
+    };
+
     try {
-      const result = await transport.executeRpc("newsroom_create_manual_entry", {
-        p_submission_id: request.submissionId,
-        p_request_fingerprint: request.requestFingerprint,
-        p_title: request.title,
-        p_body: request.bodyBlocks,
-        p_published_date: request.publishedDate,
-        p_image_url: request.imageUrl,
-        p_content_hash: request.contentHash,
-      });
+      const result = await transport.executeRpc(
+        "newsroom_create_complete_manual_entry",
+        rpcArguments,
+      );
       const row = rpcRow(result);
       if (
         !row
@@ -354,10 +405,10 @@ export function createManualNewsroomEntryPersistence(
       return {
         ok: true,
         value: {
-          submissionId: row.submission_id,
-          requestFingerprint: row.request_fingerprint,
-          newsroomArticleId: row.newsroom_article_id,
-          newsroomSnapshotId: row.newsroom_snapshot_id,
+          submissionId: request.submissionId,
+          requestFingerprint: request.requestFingerprint,
+          newsroomArticleId: row.newsroom_article_id.toLowerCase(),
+          newsroomSnapshotId: row.newsroom_snapshot_id.toLowerCase(),
           action: row.entry_action,
           request,
         },

@@ -48,12 +48,17 @@ test("a sincronização manual inclui todas as publicações editoriais associad
   assert.match(compositionRouteSource, /bank_updated=/);
 });
 
-test("qualquer notícia do banco pode ocupar uma zona e as zonas singulares são substituídas com segurança", () => {
+test("o banco preserva as zonas existentes e os artigos usam apenas o circuito noticioso", () => {
   assert.match(compositionRouteSource, /const bankCompositionSlotTypes = new Set\(\["headline", "complement", "side_block", "highlight", "important_item", "editorial_line_item"\]\)/);
-  assert.match(compositionRouteSource, /const singleBankCompositionSlotTypes = new Set\(\["headline", "complement", "side_block"\]\)/);
+  assert.match(compositionRouteSource, /const articleNewsFlowSlotTypes = new Set<string>\(EDITORIAL_NEWS_FLOW_SLOT_TYPES\)/);
+  assert.match(compositionRouteSource, /assertCompositionSlotCapacity/);
+  assert.match(compositionRouteSource, /projectEditorialArticleToZone/);
+  assert.match(compositionRouteSource, /article_id:\s*null/);
+  assert.match(compositionRouteSource, /resolveEditorialArticleIdForCompositionItem/);
   assert.match(compositionRouteSource, /source_type:\s*"matchday_editorial_bank_item"/);
   assert.match(compositionRouteSource, /actionType === "reorder_composition_item"/);
   assert.match(compositionRouteSource, /confirm_publish/);
+  assert.doesNotMatch(compositionRouteSource, /const singleBankCompositionSlotTypes/);
 });
 
 test("a base de dados automatiza artigos e conteúdos publicados, reconcilia duplicados e preserva arquivo", () => {
