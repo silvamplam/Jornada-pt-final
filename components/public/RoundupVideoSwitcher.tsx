@@ -31,13 +31,18 @@ type RoundupVideoSwitcherProps = {
 const roundupVideoListPolishStyles = `
   .public-roundup-video-layout {
     position: relative;
-    display: block !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 12px;
     width: 100%;
     min-width: 0;
   }
 
   .public-roundup-video-layout .public-roundup-zone-heading {
-    margin: 0 0 12px;
+    box-sizing: border-box;
+    height: 14px;
+    min-height: 14px;
+    margin: 0;
     padding: 0;
     color: #10151b;
     font-family: Arial, Helvetica, sans-serif;

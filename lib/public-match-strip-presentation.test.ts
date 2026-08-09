@@ -342,6 +342,14 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.center \{\s*display:\s*none/);
   assert.match(componentSource, /const schedule = miniCardSchedule\(match\);/);
   assert.doesNotMatch(componentSource, /miniCardSchedule\(match,\s*visualVariant === "clean"\)/);
+  assert.match(
+    componentSource,
+    /const hasScheduledFooterTime = Boolean\(\s*visualVariant === "clean"\s*&& kind === "scheduled"\s*&& scheduleTimeVisual\s*\);/
+  );
+  assert.match(
+    componentSource,
+    /hasScheduledFooterTime \? \([\s\S]*?className=\{styles\.cleanScheduledTime\}[\s\S]*?\{scheduleTimeVisual\}[\s\S]*?presentation\.showChannel && broadcastChannelName \? \(/
+  );
   const compactCardSource = componentSource.split("function CompactMatchCard")[1]?.split("export default function PublicMatchStrip")[0] ?? "";
   assert.doesNotMatch(compactCardSource, /Liga Portugal|La Liga|Premier League|competitionSlug/);
   assert.doesNotMatch(competitionSource, /import PublicMatchdayNavigation|<PublicMatchdayNavigation/);

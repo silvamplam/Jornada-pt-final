@@ -295,14 +295,18 @@ const publicEditorialLayoutPolishStyles = `
     min-height: 0;
   }
 
-  @media (min-width: 1181px) {
-    .public-editorial-layout-panel .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side {
-      margin-top: -6px;
-    }
+  .public-editorial-layout-panel .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side {
+    margin-top: 0;
+  }
 
-    .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side {
-      margin-top: 0;
-    }
+  .public-editorial-layout-panel .public-matchday-depth-row:not(.public-matchday-depth-row-single) .public-roundup-zone-heading,
+  .public-editorial-layout-panel .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side > .public-editorial-section-title {
+    box-sizing: border-box;
+    height: 14px;
+    min-height: 14px;
+    margin: 0;
+    padding: 0;
+    line-height: 14px;
   }
 
   .public-editorial-layout-panel .public-matchday-main-lower {
@@ -804,11 +808,11 @@ export function PublicEditorialLayout({
 
         {hasDepthRow ? (
           <div className={`public-matchday-depth-row${hasRoundupSummary !== hasComplementary ? " public-matchday-depth-row-single" : ""}`}>
-            <PublicRoundupSummary data={belowHeadline} reserveHeadingSpace={scope === "matchday" && hasRoundupSummary && hasComplementary} />
+            <PublicRoundupSummary data={belowHeadline} reserveHeadingSpace={hasRoundupSummary && hasComplementary} />
             <PublicComplementaryBlock
               data={belowHeadline.complementary}
               ariaLabel="Aprofundamento editorial"
-              reserveHeadingSpace={scope === "matchday" && hasRoundupSummary && hasComplementary}
+              reserveHeadingSpace={hasRoundupSummary && hasComplementary}
               sectionTitle={belowHeadline.complementary.label ?? undefined}
             />
           </div>
