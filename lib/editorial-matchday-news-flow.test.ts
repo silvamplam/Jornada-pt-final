@@ -10,6 +10,8 @@ function source(relativePath: string) {
 const flowSource = source("lib/editorial-matchday-news-flow.ts");
 const articleRouteSource = source("app/api/admin/editorial/artigos/route.ts");
 const gestorRouteSource = source("app/api/admin/gestor/route.ts");
+const editorialPageSource = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
+const compositionSyncSource = source("lib/editorial-current-reference-composition-sync.ts");
 
 
 test("publicar deixou de significar entrada automática em Últimas", () => {
@@ -44,59 +46,90 @@ test("Últimas não grava o UUID canónico na FK legada de articles", () => {
   assert.equal(gestorRouteSource.split(canonicalLegacyGuard).length - 1, 2);
 });
 
-test("notícias de outras zonas não podem ser transferidas para Últimas", () => {
-  assert.ok(flowSource.includes('if (input.targetSlotType === "editorial_line_item")'));
-  assert.ok(flowSource.includes("Últimas só recebe novidades escolhidas no momento da publicação."));
-  assert.ok(flowSource.includes('slotType !== "editorial_line_item"'));
+test("as seis zonas noticiosas entram no mesmo circuito, incluindo Contexto e Últimas", () => {
+  assert.ok(flowSource.includes('export type EditorialMatchdayTransferSlotType = EditorialNewsFlowSlotType | "side_block"'));
+  assert.ok(flowSource.includes('return value === "side_block" || (typeof value === "string" && isEditorialNewsFlowSlotType(value));'));
+  assert.ok(flowSource.includes('"side_block",'));
+  assert.equal(flowSource.includes("Últimas só recebe novidades escolhidas no momento da publicação."), false);
+  assert.equal(flowSource.includes('slotType !== "editorial_line_item"'), false);
+  assert.ok(editorialPageSource.includes('targetSlotType: "editorial_line_item"'));
+  assert.ok(editorialPageSource.includes('targetSlotType: "side_block"'));
+  assert.ok(editorialPageSource.includes('sourceSlotType="side_block"'));
 });
 
-test("ao sair de Últimas para destino livre, a notícia é promovida e Últimas recompõe-se", () => {
-  assert.ok(flowSource.includes('if (input.sourceSlotType === "editorial_line_item")'));
-  assert.ok(flowSource.includes("await clearArticleFromSourceZone(input.matchdayId, input.sourceSlotType, input.sourceId);"));
-  assert.ok(flowSource.includes("await normalizeLatestNewsOrder(input.matchdayId);"));
-});
-
-test("ao sair de Últimas para destino ocupado, é obrigatório decidir o destino da notícia substituída", () => {
+test("qualquer destino ocupado exige escolher explicitamente o destino da notícia desalojada", () => {
   assert.ok(flowSource.includes("displacedTargetSlotType?: EditorialDisplacedTargetSlotType | null"));
   assert.ok(flowSource.includes("news-flow-displaced-target-required"));
   assert.ok(flowSource.includes("Escolhe para onde deve ir a notícia que será substituída."));
   assert.ok(gestorRouteSource.includes('formData.get("displaced_target_choice")'));
-  assert.ok(gestorRouteSource.includes("displacedTargetSlotType,"));
+  assert.ok(gestorRouteSource.includes("isEditorialMatchdayTransferSlotType"));
+  assert.ok(editorialPageSource.includes("Se o destino estiver ocupado, escolhe para onde vai a notícia que sai."));
+  assert.equal(editorialPageSource.includes("As duas mudam de zona"), false);
 });
 
-test("a notícia substituída nunca é enviada automaticamente para Últimas", () => {
-  assert.ok(flowSource.includes("placeProjectionInAvailableZone"));
-  assert.ok(flowSource.includes('slotType === "editorial_line_item"'));
-  assert.ok(flowSource.includes("news-flow-latest-new-only"));
-  assert.ok(flowSource.includes('displacedTargetSlotType !== "unplaced"'));
+test("a troca automática desaparece e a posição de origem só é usada por escolha explícita", () => {
+  assert.equal(flowSource.includes("Entre zonas hierárquicas mantém-se a troca bidirecional já validada."), false);
+  assert.ok(flowSource.includes("Nunca existe troca automática."));
+  assert.ok(flowSource.includes("if (displacedTargetSlotType === input.sourceSlotType)"));
+  assert.ok(flowSource.includes("await writeProjectionToExistingSourceZone("));
+  assert.ok(editorialPageSource.includes("posição de origem"));
 });
 
-test("a notícia substituída pode ficar sem colocação ou ir para uma zona hierárquica livre", () => {
+test("a notícia desalojada pode ficar sem colocação, entrar em Últimas, Contexto, Faixa ou posição livre", () => {
   assert.ok(flowSource.includes('if (slotType === "unplaced") return null;'));
-  for (const slotType of ["headline", "highlight", "complement"]) {
-    assert.ok(flowSource.includes(`slotType === "${slotType}"`), slotType);
-  }
+  assert.ok(flowSource.includes('if (slotType === "editorial_line_item")'));
+  assert.ok(flowSource.includes('if (slotType === "side_block")'));
   assert.ok(flowSource.includes("matchday_horizontal_news"));
   assert.ok(flowSource.includes("news-flow-displaced-target-full"));
+  assert.ok(editorialPageSource.includes('{ value: "unplaced::", label: "Sem colocação editorial" }'));
+  assert.ok(editorialPageSource.includes('value: "editorial_line_item::"'));
+  assert.ok(editorialPageSource.includes('value: "side_block::"'));
+  assert.ok(editorialPageSource.includes('value: "important_item::"'));
 });
 
-test("entre as quatro zonas hierárquicas mantém-se a troca bidirecional validada", () => {
-  assert.ok(flowSource.includes("Entre zonas hierárquicas mantém-se a troca bidirecional já validada."));
-  assert.ok(flowSource.includes("const displacedProjection = await projectionForDisplacedOccupant"));
-  assert.ok(flowSource.includes("await writeProjectionToExistingSourceZone("));
-  assert.ok(flowSource.includes("await restoreSourceArticleAfterFailedSwap"));
+test("Últimas recebe transferências como lista cronológica e nunca como posição única ocupada", () => {
+  assert.ok(editorialPageSource.includes('label: "Últimas — acrescentar por cronologia"'));
+  assert.ok(flowSource.includes("await ensurePublishedArticleInLatest(matchdayId, articleId);"));
+  assert.ok(flowSource.includes("await normalizeLatestNewsOrder(matchdayId);"));
+  assert.ok(flowSource.includes("order=published_at.desc.nullslast,created_at.desc.nullslast"));
+});
+
+test("Contexto transfere artigo canónico preservando autor e o perfil próprio do pós-título", () => {
+  assert.ok(flowSource.includes('if (slotType === "side_block")'));
+  assert.ok(flowSource.includes("EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS"));
+  assert.ok(flowSource.includes("side_block_author: projection.author"));
+  assert.ok(flowSource.includes("side_block_text: projection.subtitle"));
+  assert.ok(flowSource.includes("side_block_link_url: projection.linkUrl"));
+  assert.ok(flowSource.includes("missingEditorialArticleCanonicalFields(article)"));
+});
+
+test("todos os controlos de transferência usam a mesma escolha de destino para a notícia desalojada", () => {
+  assert.ok(editorialPageSource.includes("newsDisplacedTargetOptionsForSource"));
+  for (const slotType of ["headline", "editorial_line_item", "side_block", "highlight", "complement", "important_item"]) {
+    assert.ok(editorialPageSource.includes(`newsDisplacedTargetOptionsForSource("${slotType}"`), slotType);
+  }
+  assert.ok(editorialPageSource.includes("data-displaced-target-field"));
+  assert.ok(editorialPageSource.includes("data-target-occupied"));
+});
+
+test("a composição publicada atual passa a sincronizar também Contexto", () => {
+  assert.ok(compositionSyncSource.includes('"side_block",'));
+  assert.ok(compositionSyncSource.includes('slot_type: "side_block"'));
+  assert.ok(compositionSyncSource.includes('source_type: "matchday_editorial_side_block"'));
+  assert.ok(compositionSyncSource.includes("side_block_text"));
+  assert.ok(compositionSyncSource.includes("side_block_link_url"));
 });
 
 test("a transferência continua a preservar o artigo canónico e a projetar o perfil da zona", () => {
   assert.ok(flowSource.includes("const article = await readPublishedCompleteArticle(input.articleId, input.matchdayId);"));
   assert.ok(flowSource.includes("projectEditorialArticleToZone"));
+  assert.ok(flowSource.includes("projectArticleToTransferZone"));
   assert.ok(flowSource.includes("missingEditorialArticleCanonicalFields(article)"));
-  assert.ok(flowSource.includes("Contexto e Vídeo não pertencem ao circuito normal de transferência de notícias."));
+  assert.ok(flowSource.includes("syncCurrentPublishedReferenceCompositionNewsFlow"));
 });
 
 test("uma nova chegada à Faixa sobe para primeiro e a ordem manual fica disponível no backoffice", () => {
   const horizontalEditorSource = source("components/admin/EditorialHorizontalNewsEditor.tsx");
-  const editorialPageSource = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
 
   assert.ok(flowSource.includes("prioritizeMatchdayHorizontalNewsItem"));
   assert.ok(flowSource.includes("persistHorizontalNewsOrder"));
@@ -120,7 +153,6 @@ test("a composição publicada atual continua sincronizada depois das mudanças 
 
 test("Últimas deixa de ter um teto editorial fixo de 20 notícias", () => {
   const publicMatchdaySource = source("lib/public-matchday.ts");
-  const editorialPageSource = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
   const gestorSource = source("app/api/admin/gestor/route.ts");
   const compositionPageSource = source("app/admin/editorial/composicao/[matchdayId]/page.tsx");
   const compositionRouteSource = source("app/api/admin/editorial/composicao/route.ts");
