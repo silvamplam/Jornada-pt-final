@@ -11,6 +11,7 @@ import {
   type EditorialNewsFlowSlotType,
 } from "@/lib/editorial-zone-presentation";
 import { syncCurrentPublishedReferenceCompositionNewsFlow } from "@/lib/editorial-current-reference-composition-sync";
+import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
 import {
   moveEditorialHorizontalNewsItem,
   prioritizeEditorialHorizontalNewsItem,
@@ -65,6 +66,13 @@ type EditorialRow = {
   complementary_image_url?: string | null;
   complementary_link_url?: string | null;
   complementary_status?: string | null;
+  side_block_status?: string | null;
+  side_block_label?: string | null;
+  side_block_title?: string | null;
+  side_block_author?: string | null;
+  side_block_text?: string | null;
+  side_block_image_url?: string | null;
+  side_block_link_url?: string | null;
   status?: string | null;
 };
 
@@ -91,21 +99,26 @@ type HorizontalNewsRow = {
 };
 
 export type EditorialInitialPlacement = "none" | EditorialNewsFlowSlotType;
-export type EditorialDisplacedTargetSlotType = EditorialNewsFlowSlotType | "unplaced";
+export type EditorialMatchdayTransferSlotType = EditorialNewsFlowSlotType | "side_block";
+export type EditorialDisplacedTargetSlotType = EditorialMatchdayTransferSlotType | "unplaced";
+
+export function isEditorialMatchdayTransferSlotType(value: unknown): value is EditorialMatchdayTransferSlotType {
+  return value === "side_block" || (typeof value === "string" && isEditorialNewsFlowSlotType(value));
+}
 
 export type EditorialMatchdayNewsTransferInput = {
   matchdayId: string;
   articleId: string;
-  sourceSlotType: EditorialNewsFlowSlotType;
+  sourceSlotType: EditorialMatchdayTransferSlotType;
   sourceId: string;
-  targetSlotType: EditorialNewsFlowSlotType;
+  targetSlotType: EditorialMatchdayTransferSlotType;
   targetId?: string | null;
   displacedTargetSlotType?: EditorialDisplacedTargetSlotType | null;
   displacedTargetOrder?: number | null;
 };
 
 type PlacedProjection = {
-  slotType: Exclude<EditorialNewsFlowSlotType, "editorial_line_item">;
+  slotType: EditorialMatchdayTransferSlotType;
   sourceId: string;
 };
 
@@ -113,6 +126,7 @@ type ZoneOccupant = {
   label: string | null;
   title: string | null;
   subtitle: string | null;
+  author: string | null;
   imageUrl: string | null;
   linkUrl: string | null;
 };
@@ -121,6 +135,7 @@ type ZoneProjection = {
   label: string | null;
   title: string | null;
   subtitle: string | null;
+  author: string | null;
   imageUrl: string | null;
   linkUrl: string | null;
 };
@@ -386,10 +401,19 @@ export async function placePublishedArticleInitially(
 async function sourceContainsArticle(
   matchdayId: string,
   articleId: string,
-  sourceSlotType: EditorialNewsFlowSlotType,
+  sourceSlotType: EditorialMatchdayTransferSlotType,
   sourceId: string,
   articlePath: string,
 ) {
+  if (sourceSlotType === "side_block") {
+    const rows = await fetchSupabaseAdminTable<EditorialRow>(
+      `matchday_editorials?select=id,side_block_link_url&id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(
+        matchdayId,
+      )}&limit=1`,
+    );
+    return cleanText(rows[0]?.side_block_link_url) === articlePath;
+  }
+
   if (sourceSlotType === "headline" || sourceSlotType === "complement") {
     const rows = await fetchSupabaseAdminTable<EditorialRow>(
       `matchday_editorials?select=id,headline_link_url,complementary_link_url&id=eq.${encodeURIComponent(
@@ -458,12 +482,38 @@ async function readPublishedCompleteArticleByLink(matchdayId: string, linkUrl?: 
   return article;
 }
 
-function fallbackProjectionForZone(occupant: ZoneOccupant, slotType: EditorialNewsFlowSlotType): ZoneProjection {
+function projectArticleToTransferZone(
+  article: NewsFlowArticle,
+  slotType: EditorialMatchdayTransferSlotType,
+): ZoneProjection {
+  if (slotType === "side_block") {
+    return {
+      label: cleanText(article.label),
+      title: cleanText(article.title),
+      subtitle: cleanText(article.subtitle)?.slice(0, EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS) ?? null,
+      author: cleanText(article.author),
+      imageUrl: cleanText(article.image_url),
+      linkUrl: publicArticlePath(article.slug),
+    };
+  }
+
+  const projection = projectEditorialArticleToZone(article, slotType);
+  return {
+    ...projection,
+    author: cleanText(article.author),
+  };
+}
+
+function fallbackProjectionForZone(
+  occupant: ZoneOccupant,
+  slotType: EditorialMatchdayTransferSlotType,
+): ZoneProjection {
   if (slotType === "editorial_line_item") {
     return {
       label: occupant.label,
       title: occupant.title,
       subtitle: null,
+      author: occupant.author,
       imageUrl: null,
       linkUrl: occupant.linkUrl,
     };
@@ -474,8 +524,16 @@ function fallbackProjectionForZone(occupant: ZoneOccupant, slotType: EditorialNe
       label: null,
       title: occupant.title,
       subtitle: occupant.subtitle,
+      author: occupant.author,
       imageUrl: occupant.imageUrl,
       linkUrl: occupant.linkUrl,
+    };
+  }
+
+  if (slotType === "side_block") {
+    return {
+      ...occupant,
+      subtitle: occupant.subtitle?.slice(0, EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS) ?? null,
     };
   }
 
@@ -484,7 +542,7 @@ function fallbackProjectionForZone(occupant: ZoneOccupant, slotType: EditorialNe
 
 async function readOccupiedTargetZone(
   matchdayId: string,
-  targetSlotType: EditorialNewsFlowSlotType,
+  targetSlotType: EditorialMatchdayTransferSlotType,
   targetId: string,
 ): Promise<ZoneOccupant> {
   if (targetSlotType === "headline") {
@@ -497,15 +555,49 @@ async function readOccupiedTargetZone(
     if (!row || !hasContent(row.title, row.summary, row.image_url, row.headline_link_url)) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-changed",
-        "A Manchete mudou desde que abriste a página. Atualiza antes de trocar.",
+        "A Manchete mudou desde que abriste a página. Atualiza antes de transferir.",
       );
     }
     return {
       label: null,
       title: cleanText(row.title),
       subtitle: cleanText(row.summary),
+      author: null,
       imageUrl: cleanText(row.image_url),
       linkUrl: cleanText(row.headline_link_url),
+    };
+  }
+
+  if (targetSlotType === "side_block") {
+    const rows = await fetchSupabaseAdminTable<EditorialRow>(
+      `matchday_editorials?select=id,side_block_status,side_block_label,side_block_title,side_block_author,side_block_text,side_block_image_url,side_block_link_url&id=eq.${encodeURIComponent(
+        targetId,
+      )}&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`,
+    );
+    const row = rows[0] ?? null;
+    if (
+      !row
+      || !hasContent(
+        row.side_block_label,
+        row.side_block_title,
+        row.side_block_author,
+        row.side_block_text,
+        row.side_block_image_url,
+        row.side_block_link_url,
+      )
+    ) {
+      throw new EditorialMatchdayNewsFlowError(
+        "news-flow-target-changed",
+        "O Contexto mudou desde que abriste a página. Atualiza antes de transferir.",
+      );
+    }
+    return {
+      label: cleanText(row.side_block_label),
+      title: cleanText(row.side_block_title),
+      subtitle: cleanText(row.side_block_text),
+      author: cleanText(row.side_block_author),
+      imageUrl: cleanText(row.side_block_image_url),
+      linkUrl: cleanText(row.side_block_link_url),
     };
   }
 
@@ -519,13 +611,14 @@ async function readOccupiedTargetZone(
     if (!row || !hasContent(row.complementary_label, row.complementary_title, row.complementary_text, row.complementary_image_url, row.complementary_link_url)) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-changed",
-        "A notícia ao lado do vídeo mudou desde que abriste a página. Atualiza antes de trocar.",
+        "A notícia ao lado do vídeo mudou desde que abriste a página. Atualiza antes de transferir.",
       );
     }
     return {
       label: cleanText(row.complementary_label),
       title: cleanText(row.complementary_title),
       subtitle: cleanText(row.complementary_text),
+      author: null,
       imageUrl: cleanText(row.complementary_image_url),
       linkUrl: cleanText(row.complementary_link_url),
     };
@@ -541,13 +634,14 @@ async function readOccupiedTargetZone(
     if (!row || !hasContent(row.time_label, row.title, row.subtitle, row.image_url, row.link_url)) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-changed",
-        "A notícia escolhida em Últimas mudou. Atualiza antes de trocar.",
+        "A notícia escolhida em Últimas mudou. Atualiza antes de transferir.",
       );
     }
     return {
       label: cleanText(row.time_label),
       title: cleanText(row.title),
       subtitle: cleanText(row.subtitle),
+      author: null,
       imageUrl: cleanText(row.image_url),
       linkUrl: cleanText(row.link_url),
     };
@@ -563,13 +657,14 @@ async function readOccupiedTargetZone(
     if (!row || !hasContent(row.label, row.title, row.subtitle, row.image_url, row.link_url)) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-changed",
-        "A notícia escolhida nos Destaques mudou. Atualiza antes de trocar.",
+        "A notícia escolhida nos Destaques mudou. Atualiza antes de transferir.",
       );
     }
     return {
       label: cleanText(row.label),
       title: cleanText(row.title),
       subtitle: cleanText(row.subtitle),
+      author: null,
       imageUrl: cleanText(row.image_url),
       linkUrl: cleanText(row.link_url),
     };
@@ -584,13 +679,14 @@ async function readOccupiedTargetZone(
   if (!row || !hasContent(row.label, row.title, row.subtitle, row.image_url, row.link_url)) {
     throw new EditorialMatchdayNewsFlowError(
       "news-flow-target-changed",
-      "A notícia escolhida na Faixa mudou. Atualiza antes de trocar.",
+      "A notícia escolhida na Faixa mudou. Atualiza antes de transferir.",
     );
   }
   return {
     label: cleanText(row.label),
     title: cleanText(row.title),
     subtitle: cleanText(row.subtitle),
+    author: null,
     imageUrl: cleanText(row.image_url),
     linkUrl: cleanText(row.link_url),
   };
@@ -598,19 +694,19 @@ async function readOccupiedTargetZone(
 
 async function projectionForDisplacedOccupant(
   matchdayId: string,
-  sourceSlotType: EditorialNewsFlowSlotType,
+  destinationSlotType: EditorialMatchdayTransferSlotType,
   occupant: ZoneOccupant,
 ): Promise<ZoneProjection> {
   const canonicalArticle = await readPublishedCompleteArticleByLink(matchdayId, occupant.linkUrl);
   if (canonicalArticle) {
-    return projectEditorialArticleToZone(canonicalArticle, sourceSlotType);
+    return projectArticleToTransferZone(canonicalArticle, destinationSlotType);
   }
-  return fallbackProjectionForZone(occupant, sourceSlotType);
+  return fallbackProjectionForZone(occupant, destinationSlotType);
 }
 
 async function writeProjectionToExistingSourceZone(
   matchdayId: string,
-  sourceSlotType: EditorialNewsFlowSlotType,
+  sourceSlotType: EditorialMatchdayTransferSlotType,
   sourceId: string,
   projection: ZoneProjection,
 ) {
@@ -625,6 +721,23 @@ async function writeProjectionToExistingSourceZone(
         image_url: projection.imageUrl,
         headline_link_url: projection.linkUrl,
         status: "published",
+        updated_at: now,
+      }),
+    });
+    return;
+  }
+
+  if (sourceSlotType === "side_block") {
+    await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        side_block_status: "published",
+        side_block_label: projection.label,
+        side_block_title: projection.title,
+        side_block_author: projection.author,
+        side_block_text: projection.subtitle,
+        side_block_image_url: projection.imageUrl,
+        side_block_link_url: projection.linkUrl,
         updated_at: now,
       }),
     });
@@ -686,7 +799,7 @@ async function writeProjectionToExistingSourceZone(
 async function restoreSourceArticleAfterFailedSwap(
   matchdayId: string,
   article: NewsFlowArticle,
-  sourceSlotType: EditorialNewsFlowSlotType,
+  sourceSlotType: EditorialMatchdayTransferSlotType,
   sourceId: string,
 ) {
   try {
@@ -694,7 +807,7 @@ async function restoreSourceArticleAfterFailedSwap(
       matchdayId,
       sourceSlotType,
       sourceId,
-      projectEditorialArticleToZone(article, sourceSlotType),
+      projectArticleToTransferZone(article, sourceSlotType),
     );
   } catch {
     // Best-effort compensation. The original target was not changed yet.
@@ -708,14 +821,37 @@ async function placeProjectionInAvailableZone(
   targetOrder?: number | null,
 ): Promise<PlacedProjection | null> {
   if (slotType === "unplaced") return null;
-  if (slotType === "editorial_line_item") {
-    throw new EditorialMatchdayNewsFlowError(
-      "news-flow-latest-new-only",
-      "Últimas só recebe novidades escolhidas no momento da publicação.",
-    );
-  }
 
   const now = new Date().toISOString();
+
+  if (slotType === "editorial_line_item") {
+    const rows = await readLatestNewsRows(matchdayId);
+    const sortOrder = Math.max(0, ...rows.map((row) => row.sort_order)) + 1;
+    await setLatestNewsMode(matchdayId);
+    await writeSupabaseAdmin("matchday_latest_news", {
+      method: "POST",
+      body: JSON.stringify({
+        matchday_id: matchdayId,
+        article_id: null,
+        time_label: projection.label,
+        time_label_color: null,
+        title: projection.title,
+        subtitle: projection.subtitle,
+        image_url: projection.imageUrl,
+        link_url: projection.linkUrl,
+        sort_order: sortOrder,
+        status: "published",
+        created_at: now,
+        updated_at: now,
+      }),
+    });
+    const inserted = await fetchSupabaseAdminTable<Pick<LatestNewsRow, "id">>(
+      `matchday_latest_news?select=id&matchday_id=eq.${encodeURIComponent(matchdayId)}&sort_order=eq.${sortOrder}&limit=1`,
+    );
+    if (!inserted[0]?.id) throw new EditorialMatchdayNewsFlowError("news-flow-placement-failed");
+    await normalizeLatestNewsOrder(matchdayId);
+    return { slotType, sourceId: inserted[0].id };
+  }
 
   if (slotType === "headline") {
     const rows = await fetchSupabaseAdminTable<EditorialRow>(
@@ -734,6 +870,55 @@ async function placeProjectionInAvailableZone(
       image_url: projection.imageUrl,
       headline_link_url: projection.linkUrl,
       status: "published",
+      updated_at: now,
+    };
+    if (existing) {
+      await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existing.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      return { slotType, sourceId: existing.id };
+    }
+    await writeSupabaseAdmin("matchday_editorials", {
+      method: "POST",
+      body: JSON.stringify({ matchday_id: matchdayId, ...payload }),
+    });
+    const inserted = await fetchSupabaseAdminTable<Pick<EditorialRow, "id">>(
+      `matchday_editorials?select=id&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`,
+    );
+    if (!inserted[0]?.id) throw new EditorialMatchdayNewsFlowError("news-flow-placement-failed");
+    return { slotType, sourceId: inserted[0].id };
+  }
+
+  if (slotType === "side_block") {
+    const rows = await fetchSupabaseAdminTable<EditorialRow>(
+      `matchday_editorials?select=id,side_block_label,side_block_title,side_block_author,side_block_text,side_block_image_url,side_block_link_url&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`,
+    );
+    const existing = rows[0] ?? null;
+    if (
+      existing
+      && hasContent(
+        existing.side_block_label,
+        existing.side_block_title,
+        existing.side_block_author,
+        existing.side_block_text,
+        existing.side_block_image_url,
+        existing.side_block_link_url,
+      )
+    ) {
+      throw new EditorialMatchdayNewsFlowError(
+        "news-flow-displaced-target-full",
+        "O Contexto escolhido para receber a notícia substituída já está ocupado.",
+      );
+    }
+    const payload = {
+      side_block_status: "published",
+      side_block_label: projection.label,
+      side_block_title: projection.title,
+      side_block_author: projection.author,
+      side_block_text: projection.subtitle,
+      side_block_image_url: projection.imageUrl,
+      side_block_link_url: projection.linkUrl,
       updated_at: now,
     };
     if (existing) {
@@ -897,10 +1082,10 @@ async function writeArticleToTargetZone(
   matchdayId: string,
   articleId: string,
   article: NewsFlowArticle,
-  targetSlotType: EditorialNewsFlowSlotType,
+  targetSlotType: EditorialMatchdayTransferSlotType,
   targetId?: string | null,
 ) {
-  const projection = projectEditorialArticleToZone(article, targetSlotType);
+  const projection = projectArticleToTransferZone(article, targetSlotType);
   const now = new Date().toISOString();
 
   if (targetSlotType === "editorial_line_item") {
@@ -914,7 +1099,7 @@ async function writeArticleToTargetZone(
     if (!target) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-changed",
-        "A notícia escolhida para trocar em Últimas já mudou. Atualiza a página e tenta novamente.",
+        "A notícia escolhida em Últimas já mudou. Atualiza a página e tenta novamente.",
       );
     }
 
@@ -947,13 +1132,13 @@ async function writeArticleToTargetZone(
     if (occupied && targetId !== existing?.id) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-full",
-        "Manchete já está ocupada. Escolhe explicitamente a notícia atual para fazer a troca.",
+        "Manchete já está ocupada. Escolhe explicitamente a notícia atual para a substituir.",
       );
     }
     if (targetId && (!existing || targetId !== existing.id)) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-changed",
-        "A Manchete mudou desde que abriste a página. Atualiza antes de trocar.",
+        "A Manchete mudou desde que abriste a página. Atualiza antes de transferir.",
       );
     }
 
@@ -963,6 +1148,61 @@ async function writeArticleToTargetZone(
       image_url: projection.imageUrl,
       headline_link_url: projection.linkUrl,
       status: "published",
+      updated_at: now,
+    };
+
+    if (existing) {
+      await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existing.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+    } else {
+      await writeSupabaseAdmin("matchday_editorials", {
+        method: "POST",
+        body: JSON.stringify({ matchday_id: matchdayId, ...payload }),
+      });
+    }
+    return;
+  }
+
+  if (targetSlotType === "side_block") {
+    const rows = await fetchSupabaseAdminTable<EditorialRow>(
+      `matchday_editorials?select=id,side_block_label,side_block_title,side_block_author,side_block_text,side_block_image_url,side_block_link_url&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`,
+    );
+    const existing = rows[0] ?? null;
+    const occupied = Boolean(
+      existing
+      && hasContent(
+        existing.side_block_label,
+        existing.side_block_title,
+        existing.side_block_author,
+        existing.side_block_text,
+        existing.side_block_image_url,
+        existing.side_block_link_url,
+      )
+    );
+
+    if (occupied && targetId !== existing?.id) {
+      throw new EditorialMatchdayNewsFlowError(
+        "news-flow-target-full",
+        "Contexto já está ocupado. Escolhe explicitamente a notícia atual para a substituir.",
+      );
+    }
+    if (targetId && (!existing || targetId !== existing.id)) {
+      throw new EditorialMatchdayNewsFlowError(
+        "news-flow-target-changed",
+        "O Contexto mudou desde que abriste a página. Atualiza antes de transferir.",
+      );
+    }
+
+    const payload = {
+      side_block_status: "published",
+      side_block_label: projection.label,
+      side_block_title: projection.title,
+      side_block_author: projection.author,
+      side_block_text: projection.subtitle,
+      side_block_image_url: projection.imageUrl,
+      side_block_link_url: projection.linkUrl,
       updated_at: now,
     };
 
@@ -1001,13 +1241,13 @@ async function writeArticleToTargetZone(
     if (occupied && targetId !== existing?.id) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-full",
-        "Notícia ao lado do vídeo já está ocupada. Escolhe explicitamente a notícia atual para fazer a troca.",
+        "Notícia ao lado do vídeo já está ocupada. Escolhe explicitamente a notícia atual para a substituir.",
       );
     }
     if (targetId && (!existing || targetId !== existing.id)) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-changed",
-        "A notícia ao lado do vídeo mudou desde que abriste a página. Atualiza antes de trocar.",
+        "A notícia ao lado do vídeo mudou desde que abriste a página. Atualiza antes de transferir.",
       );
     }
 
@@ -1046,7 +1286,7 @@ async function writeArticleToTargetZone(
     if (targetId && !explicitTarget) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-changed",
-        "A notícia escolhida para trocar nos Destaques já mudou. Atualiza a página e tenta novamente.",
+        "A notícia escolhida nos Destaques já mudou. Atualiza a página e tenta novamente.",
       );
     }
 
@@ -1058,7 +1298,7 @@ async function writeArticleToTargetZone(
     if (!targetOrder) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-full",
-        "3 notícias abaixo da manchete já tem três notícias. Escolhe com qual delas queres trocar.",
+        "3 notícias abaixo da manchete já tem três notícias. Escolhe qual delas queres substituir.",
       );
     }
 
@@ -1099,7 +1339,7 @@ async function writeArticleToTargetZone(
   if (targetId && !explicitTarget) {
     throw new EditorialMatchdayNewsFlowError(
       "news-flow-target-changed",
-      "A notícia escolhida para trocar na Faixa já mudou. Atualiza a página e tenta novamente.",
+      "A notícia escolhida na Faixa já mudou. Atualiza a página e tenta novamente.",
     );
   }
   const reusableOrder = rows.find((row) => !hasContent(row.label, row.title, row.subtitle, row.image_url, row.link_url))?.sort_order;
@@ -1141,7 +1381,7 @@ async function writeArticleToTargetZone(
 }
 async function clearArticleFromSourceZone(
   matchdayId: string,
-  sourceSlotType: EditorialNewsFlowSlotType,
+  sourceSlotType: EditorialMatchdayTransferSlotType,
   sourceId: string,
 ) {
   const now = new Date().toISOString();
@@ -1155,6 +1395,23 @@ async function clearArticleFromSourceZone(
         image_url: null,
         headline_link_url: null,
         status: "draft",
+        updated_at: now,
+      }),
+    });
+    return;
+  }
+
+  if (sourceSlotType === "side_block") {
+    await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        side_block_status: "draft",
+        side_block_label: null,
+        side_block_title: null,
+        side_block_author: null,
+        side_block_text: null,
+        side_block_image_url: null,
+        side_block_link_url: null,
         updated_at: now,
       }),
     });
@@ -1194,21 +1451,24 @@ async function clearArticleFromSourceZone(
   }
 }
 
+function transferSlotPublicName(slotType: EditorialMatchdayTransferSlotType) {
+  return slotType === "side_block"
+    ? "Contexto"
+    : EDITORIAL_ZONE_PRESENTATION_PROFILES[slotType].publicName;
+}
+
 export async function transferPublishedArticleBetweenMatchdayZones(input: EditorialMatchdayNewsTransferInput) {
-  if (!isEditorialNewsFlowSlotType(input.sourceSlotType) || !isEditorialNewsFlowSlotType(input.targetSlotType)) {
+  if (
+    !isEditorialMatchdayTransferSlotType(input.sourceSlotType)
+    || !isEditorialMatchdayTransferSlotType(input.targetSlotType)
+  ) {
     throw new EditorialMatchdayNewsFlowError(
       "news-flow-zone-invalid",
-      "Contexto e Vídeo não pertencem ao circuito normal de transferência de notícias.",
+      "A zona escolhida não pertence ao circuito de transferência de notícias.",
     );
   }
   if (input.sourceSlotType === input.targetSlotType) {
     throw new EditorialMatchdayNewsFlowError("news-flow-same-zone", "Escolhe uma zona de destino diferente.");
-  }
-  if (input.targetSlotType === "editorial_line_item") {
-    throw new EditorialMatchdayNewsFlowError(
-      "news-flow-latest-new-only",
-      "Últimas só recebe novidades escolhidas no momento da publicação.",
-    );
   }
 
   const article = await readPublishedCompleteArticle(input.articleId, input.matchdayId);
@@ -1224,25 +1484,37 @@ export async function transferPublishedArticleBetweenMatchdayZones(input: Editor
     );
   }
 
-  if (input.sourceSlotType === "editorial_line_item") {
-    let displacedPlacement: PlacedProjection | null = null;
+  let displacedPlacement: PlacedProjection | null = null;
+  let displacedMovedToSource = false;
 
-    if (input.targetId) {
-      const displacedOccupant = await readOccupiedTargetZone(input.matchdayId, input.targetSlotType, input.targetId);
-      const displacedTargetSlotType = input.displacedTargetSlotType ?? null;
-      if (!displacedTargetSlotType) {
-        throw new EditorialMatchdayNewsFlowError(
-          "news-flow-displaced-target-required",
-          "Escolhe para onde deve ir a notícia que será substituída.",
-        );
-      }
+  if (input.targetId) {
+    const displacedOccupant = await readOccupiedTargetZone(input.matchdayId, input.targetSlotType, input.targetId);
+    const displacedTargetSlotType = input.displacedTargetSlotType ?? null;
+    if (!displacedTargetSlotType) {
+      throw new EditorialMatchdayNewsFlowError(
+        "news-flow-displaced-target-required",
+        "Escolhe para onde deve ir a notícia que será substituída.",
+      );
+    }
 
-      if (displacedTargetSlotType !== "unplaced") {
-        const displacedProjection = await projectionForDisplacedOccupant(
+    if (displacedTargetSlotType !== "unplaced") {
+      const displacedProjection = await projectionForDisplacedOccupant(
+        input.matchdayId,
+        displacedTargetSlotType,
+        displacedOccupant,
+      );
+
+      if (displacedTargetSlotType === input.sourceSlotType) {
+        // A posição de origem só recebe a notícia desalojada quando o editor
+        // escolhe explicitamente esse destino. Nunca existe troca automática.
+        await writeProjectionToExistingSourceZone(
           input.matchdayId,
-          displacedTargetSlotType,
-          displacedOccupant,
+          input.sourceSlotType,
+          input.sourceId,
+          displacedProjection,
         );
+        displacedMovedToSource = true;
+      } else {
         displacedPlacement = await placeProjectionInAvailableZone(
           input.matchdayId,
           displacedTargetSlotType,
@@ -1250,75 +1522,56 @@ export async function transferPublishedArticleBetweenMatchdayZones(input: Editor
           input.displacedTargetOrder,
         );
       }
-
-      try {
-        await writeArticleToTargetZone(input.matchdayId, input.articleId, article, input.targetSlotType, input.targetId);
-      } catch (error) {
-        if (displacedPlacement) {
-          await clearArticleFromSourceZone(
-            input.matchdayId,
-            displacedPlacement.slotType,
-            displacedPlacement.sourceId,
-          ).catch(() => undefined);
-        }
-        throw error;
-      }
-    } else {
-      await writeArticleToTargetZone(input.matchdayId, input.articleId, article, input.targetSlotType, null);
     }
 
-    await clearArticleFromSourceZone(input.matchdayId, input.sourceSlotType, input.sourceId);
-    await normalizeLatestNewsOrder(input.matchdayId);
-    await syncCurrentPublishedReferenceCompositionNewsFlow(input.matchdayId);
-
-    return {
-      articleId: input.articleId,
-      from: input.sourceSlotType,
-      to: input.targetSlotType,
-      targetName: EDITORIAL_ZONE_PRESENTATION_PROFILES[input.targetSlotType].publicName,
-    };
-  }
-
-  if (input.targetId) {
-    const displacedOccupant = await readOccupiedTargetZone(input.matchdayId, input.targetSlotType, input.targetId);
-    const displacedProjection = await projectionForDisplacedOccupant(
-      input.matchdayId,
-      input.sourceSlotType,
-      displacedOccupant,
-    );
-
-    // Entre zonas hierárquicas mantém-se a troca bidirecional já validada.
-    await writeProjectionToExistingSourceZone(
-      input.matchdayId,
-      input.sourceSlotType,
-      input.sourceId,
-      displacedProjection,
-    );
     try {
-      await writeArticleToTargetZone(input.matchdayId, input.articleId, article, input.targetSlotType, input.targetId);
+      await writeArticleToTargetZone(
+        input.matchdayId,
+        input.articleId,
+        article,
+        input.targetSlotType,
+        input.targetId,
+      );
     } catch (error) {
-      await restoreSourceArticleAfterFailedSwap(input.matchdayId, article, input.sourceSlotType, input.sourceId);
+      if (displacedMovedToSource) {
+        await restoreSourceArticleAfterFailedSwap(
+          input.matchdayId,
+          article,
+          input.sourceSlotType,
+          input.sourceId,
+        );
+      } else if (displacedPlacement) {
+        await clearArticleFromSourceZone(
+          input.matchdayId,
+          displacedPlacement.slotType,
+          displacedPlacement.sourceId,
+        ).catch(() => undefined);
+      }
       throw error;
     }
-    if (input.sourceSlotType === "important_item") {
-      await prioritizeMatchdayHorizontalNewsItem(input.matchdayId, input.sourceId);
+
+    if (!displacedMovedToSource) {
+      await clearArticleFromSourceZone(input.matchdayId, input.sourceSlotType, input.sourceId);
     }
   } else {
     await writeArticleToTargetZone(input.matchdayId, input.articleId, article, input.targetSlotType, null);
     await clearArticleFromSourceZone(input.matchdayId, input.sourceSlotType, input.sourceId);
   }
+
   await syncCurrentPublishedReferenceCompositionNewsFlow(input.matchdayId);
 
   return {
     articleId: input.articleId,
     from: input.sourceSlotType,
     to: input.targetSlotType,
-    targetName: EDITORIAL_ZONE_PRESENTATION_PROFILES[input.targetSlotType].publicName,
+    targetName: transferSlotPublicName(input.targetSlotType),
   };
 }
 
-export function editorialNewsFlowTransferTargets(sourceSlotType: EditorialNewsFlowSlotType) {
-  return EDITORIAL_NEWS_FLOW_SLOT_TYPES.filter(
-    (slotType) => slotType !== sourceSlotType && slotType !== "editorial_line_item",
-  );
+export function editorialNewsFlowTransferTargets(sourceSlotType: EditorialMatchdayTransferSlotType) {
+  const slotTypes: EditorialMatchdayTransferSlotType[] = [
+    ...EDITORIAL_NEWS_FLOW_SLOT_TYPES,
+    "side_block",
+  ];
+  return slotTypes.filter((slotType) => slotType !== sourceSlotType);
 }

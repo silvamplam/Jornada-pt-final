@@ -7,9 +7,9 @@ import {
   normalizeLatestNewsOrder,
   normalizeMatchdayHorizontalNewsOrder,
   transferPublishedArticleBetweenMatchdayZones,
+  isEditorialMatchdayTransferSlotType,
   type EditorialDisplacedTargetSlotType,
 } from "@/lib/editorial-matchday-news-flow";
-import { isEditorialNewsFlowSlotType } from "@/lib/editorial-zone-presentation";
 import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
 import {
   applyCalendarCheckpointTransition,
@@ -52,6 +52,7 @@ import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, 
 const ROUNDUP_EDITOR_SORT_ORDERS = Array.from({ length: 10 }, (_, index) => index + 1);
 const NEWS_FLOW_REFERENCE_SYNC_ACTIONS = new Set([
   "save_matchday_headline",
+  "save_matchday_side_block",
   "save_matchday_complement",
   "save_matchday_editorial",
   "save_matchday_highlights",
@@ -1883,8 +1884,7 @@ async function transferMatchdayNewsArticle(formData: FormData) {
     displacedTargetSlotType = "unplaced";
   } else if (
     cleanDisplacedTargetSlotType
-    && cleanDisplacedTargetSlotType !== "editorial_line_item"
-    && isEditorialNewsFlowSlotType(cleanDisplacedTargetSlotType)
+    && isEditorialMatchdayTransferSlotType(cleanDisplacedTargetSlotType)
   ) {
     displacedTargetSlotType = cleanDisplacedTargetSlotType;
   } else if (displacedTargetChoice) {
@@ -1900,8 +1900,8 @@ async function transferMatchdayNewsArticle(formData: FormData) {
     !matchdayId
     || !articleId
     || !sourceId
-    || !isEditorialNewsFlowSlotType(sourceSlotType)
-    || !isEditorialNewsFlowSlotType(targetSlotType)
+    || !isEditorialMatchdayTransferSlotType(sourceSlotType)
+    || !isEditorialMatchdayTransferSlotType(targetSlotType)
   ) {
     throw new EditorialMatchdayNewsFlowError(
       "news-flow-invalid",

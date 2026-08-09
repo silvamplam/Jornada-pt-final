@@ -37,21 +37,22 @@ test("publicar sem colocação editorial é uma opção explícita e não transf
   assert.ok(articlePageSource.includes("O artigo continua disponível para colocação manual"));
 });
 
-test("Últimas deixa de aparecer como destino de transferência", () => {
+test("Últimas integra os destinos de transferência e continua a receber por cronologia", () => {
   const targetOptionsStart = editorialPageSource.indexOf("const newsTransferTargetOptions");
-  const targetOptionsEnd = editorialPageSource.indexOf("const latestDisplacedTargetOptions", targetOptionsStart);
+  const targetOptionsEnd = editorialPageSource.indexOf("function newsDisplacedTargetOptionsForSource", targetOptionsStart);
   assert.ok(targetOptionsStart >= 0 && targetOptionsEnd > targetOptionsStart);
   const targetOptionsBlock = editorialPageSource.slice(targetOptionsStart, targetOptionsEnd);
-  assert.equal(targetOptionsBlock.includes('targetSlotType: "editorial_line_item"'), false);
+  assert.ok(targetOptionsBlock.includes('targetSlotType: "editorial_line_item"'));
+  assert.ok(targetOptionsBlock.includes('label: "Últimas — acrescentar por cronologia"'));
 });
 
-test("Últimas continua a poder iniciar promoções para as quatro zonas hierárquicas", () => {
+test("Últimas e Contexto podem iniciar transferências pelo mesmo controlo", () => {
   assert.ok(editorialPageSource.includes('sourceSlotType="editorial_line_item"'));
-  assert.ok(editorialPageSource.includes("Últimas mantém-se cronológica"));
-  assert.ok(editorialPageSource.includes("ela nunca regressa automaticamente a Últimas"));
+  assert.ok(editorialPageSource.includes('sourceSlotType="side_block"'));
+  assert.ok(editorialPageSource.includes("Se o destino estiver ocupado, escolhe para onde vai a notícia que sai."));
 });
 
-test("uma promoção de Últimas para zona ocupada exige escolher o destino da notícia substituída", () => {
+test("qualquer transferência para destino ocupado exige escolher o destino da notícia substituída", () => {
   assert.ok(editorialPageSource.includes('name="displaced_target_choice"'));
   assert.ok(editorialPageSource.includes("Enviar a notícia substituída para"));
   assert.ok(editorialPageSource.includes("data-displaced-target-field"));
@@ -59,23 +60,24 @@ test("uma promoção de Últimas para zona ocupada exige escolher o destino da n
   assert.ok(editorialPageSource.includes("displacedSelect.required = needsDisplacedDestination"));
 });
 
-test("o destino da notícia substituída inclui sem colocação, posições livres e Faixa, mas não Últimas", () => {
+test("o destino da notícia substituída inclui sem colocação, Últimas, Contexto, posições livres e Faixa", () => {
   assert.ok(editorialPageSource.includes('{ value: "unplaced::", label: "Sem colocação editorial" }'));
   assert.ok(editorialPageSource.includes('value: "headline::"'));
+  assert.ok(editorialPageSource.includes('value: "editorial_line_item::"'));
+  assert.ok(editorialPageSource.includes('value: "side_block::"'));
   assert.ok(editorialPageSource.includes('value: `highlight::${order}`'));
   assert.ok(editorialPageSource.includes('value: "complement::"'));
   assert.ok(editorialPageSource.includes('value: "important_item::"'));
-  const displacedStart = editorialPageSource.indexOf("const latestDisplacedTargetOptions");
-  const displacedEnd = editorialPageSource.indexOf("const highlightsEditor", displacedStart);
-  const displacedBlock = editorialPageSource.slice(displacedStart, displacedEnd);
-  assert.equal(displacedBlock.includes('editorial_line_item'), false);
+  assert.ok(editorialPageSource.includes("newsDisplacedTargetOptionsForSource"));
 });
 
-test("as quatro zonas hierárquicas mantêm o controlo de transferência já validado", () => {
-  for (const slotType of ["headline", "highlight", "complement", "important_item"]) {
+test("todas as seis zonas usam o mesmo controlo e a troca automática desaparece", () => {
+  for (const slotType of ["headline", "editorial_line_item", "side_block", "highlight", "complement", "important_item"]) {
     assert.ok(editorialPageSource.includes(`sourceSlotType="${slotType}"`), slotType);
+    assert.ok(editorialPageSource.includes(`newsDisplacedTargetOptionsForSource("${slotType}"`), slotType);
   }
-  assert.ok(editorialPageSource.includes("As duas mudam de zona; nenhum artigo original é reescrito."));
+  assert.ok(editorialPageSource.includes("Nunca existe troca automática; o artigo original não é reescrito."));
+  assert.equal(editorialPageSource.includes("As duas mudam de zona; nenhum artigo original é reescrito."), false);
 });
 
 

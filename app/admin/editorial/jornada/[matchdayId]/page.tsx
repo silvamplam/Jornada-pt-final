@@ -5,6 +5,7 @@ import {
   EDITORIAL_CONTEXT_POST_TITLE_MIN_CHARS,
 } from "@/lib/editorial-context-post-title";
 import { buildEditorialHorizontalNewsEditorOrders } from "@/lib/editorial-horizontal-news";
+import type { EditorialMatchdayTransferSlotType } from "@/lib/editorial-matchday-news-flow";
 import {
   fetchSupabaseAdminTable,
   type SupabaseCompetition,
@@ -891,7 +892,7 @@ function publishedSourceProjection(source: EditorialPublishedSource, slotType: E
 }
 
 type NewsTransferTargetOption = {
-  targetSlotType: EditorialNewsFlowSlotType;
+  targetSlotType: EditorialMatchdayTransferSlotType;
   targetId: string | null;
   label: string;
   confirmMessage: string | null;
@@ -902,7 +903,7 @@ type NewsDisplacedTargetOption = {
   label: string;
 };
 
-function transferChoiceValue(slotType: EditorialNewsFlowSlotType, targetId?: string | null) {
+function transferChoiceValue(slotType: EditorialMatchdayTransferSlotType, targetId?: string | null) {
   return `${slotType}::${cleanText(targetId)}`;
 }
 
@@ -924,7 +925,7 @@ function NewsTransferControl({
 }: {
   matchdayId: string;
   articleId: string | null;
-  sourceSlotType: EditorialNewsFlowSlotType;
+  sourceSlotType: EditorialMatchdayTransferSlotType;
   sourceId: string | null;
   returnTo: string;
   hasPlacement: boolean;
@@ -943,16 +944,7 @@ function NewsTransferControl({
     );
   }
 
-  const promotesFromLatest = sourceSlotType === "editorial_line_item";
-  const targets = targetOptions
-    .filter((option) => option.targetSlotType !== sourceSlotType)
-    .map((option) => promotesFromLatest && option.targetId
-      ? {
-          ...option,
-          label: option.label.replace("trocar com", "substituir"),
-          confirmMessage: "Esta zona está ocupada. A notícia que lá está será enviada para o destino que escolheste. Continuar?"
-        }
-      : option);
+  const targets = targetOptions.filter((option) => option.targetSlotType !== sourceSlotType);
 
   return (
     <form action="/api/admin/gestor" className="editorial-admin-transfer" data-news-transfer-form method="post">
@@ -979,24 +971,18 @@ function NewsTransferControl({
             ))}
           </select>
         </label>
-        {promotesFromLatest ? (
-          <label data-displaced-target-field hidden>
-            Enviar a notícia substituída para
-            <select name="displaced_target_choice" defaultValue="" disabled>
-              <option value="" disabled>Escolher destino</option>
-              {displacedOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
-        ) : null}
+        <label data-displaced-target-field hidden>
+          Enviar a notícia substituída para
+          <select name="displaced_target_choice" defaultValue="" disabled>
+            <option value="" disabled>Escolher destino</option>
+            {displacedOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
         <button className="editorial-admin-button secondary" type="submit">Transferir</button>
       </div>
-      {promotesFromLatest ? (
-        <small>Últimas mantém-se cronológica. Se substituíres uma notícia noutra zona, escolhe para onde vai a notícia que sai; ela nunca regressa automaticamente a Últimas.</small>
-      ) : (
-        <small>Se a zona estiver ocupada, escolhes exatamente a notícia com que queres trocar. As duas mudam de zona; nenhum artigo original é reescrito.</small>
-      )}
+      <small>Se o destino estiver ocupado, escolhe para onde vai a notícia que sai. Nunca existe troca automática; o artigo original não é reescrito.</small>
     </form>
   );
 }
@@ -1393,10 +1379,34 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
     targetSlotType: "headline",
     targetId: headlineOccupied ? editorial?.id ?? null : null,
     label: headlineOccupied
-      ? `Manchete — trocar com “${shortTransferTitle(editorial?.title)}”`
+      ? `Manchete — substituir “${shortTransferTitle(editorial?.title)}”`
       : "Manchete",
     confirmMessage: headlineOccupied
-      ? `A Manchete já contém “${shortTransferTitle(editorial?.title)}”. Trocar as duas notícias de zona?`
+      ? "A Manchete está ocupada. Escolhe para onde vai a notícia atual antes de concluir a transferência."
+      : null
+  });
+
+  newsTransferTargetOptions.push({
+    targetSlotType: "editorial_line_item",
+    targetId: null,
+    label: "Últimas — acrescentar por cronologia",
+    confirmMessage: null
+  });
+
+  const contextOccupied = Boolean(
+    cleanText(editorial?.side_block_link_url)
+    || cleanText(editorial?.side_block_title)
+    || cleanText(editorial?.side_block_text)
+    || cleanText(editorial?.side_block_image_url)
+  );
+  newsTransferTargetOptions.push({
+    targetSlotType: "side_block",
+    targetId: contextOccupied ? editorial?.id ?? null : null,
+    label: contextOccupied
+      ? `Contexto — substituir “${shortTransferTitle(editorial?.side_block_title)}”`
+      : "Contexto",
+    confirmMessage: contextOccupied
+      ? "Contexto está ocupado. Escolhe para onde vai a notícia atual antes de concluir a transferência."
       : null
   });
 
@@ -1407,7 +1417,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
     newsTransferTargetOptions.push({
       targetSlotType: "highlight",
       targetId: null,
-      label: "3 notícias abaixo da manchete",
+      label: "3 notícias abaixo da manchete — posição livre",
       confirmMessage: null
     });
   } else {
@@ -1415,8 +1425,8 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
       newsTransferTargetOptions.push({
         targetSlotType: "highlight",
         targetId: item.id,
-        label: `3 notícias — trocar com #${paddedOrder(item.sort_order)} “${shortTransferTitle(item.title)}”`,
-        confirmMessage: `As 3 notícias já estão ocupadas. Trocar de zona com “${shortTransferTitle(item.title)}”?`
+        label: `3 notícias — substituir #${paddedOrder(item.sort_order)} “${shortTransferTitle(item.title)}”`,
+        confirmMessage: "A posição escolhida está ocupada. Escolhe para onde vai a notícia atual antes de concluir a transferência."
       });
     });
   }
@@ -1432,10 +1442,10 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
     targetSlotType: "complement",
     targetId: complementOccupied ? editorial?.id ?? null : null,
     label: complementOccupied
-      ? `Notícia ao lado do vídeo — trocar com “${shortTransferTitle(editorial?.complementary_title)}”`
+      ? `Notícia ao lado do vídeo — substituir “${shortTransferTitle(editorial?.complementary_title)}”`
       : "Notícia ao lado do vídeo",
     confirmMessage: complementOccupied
-      ? `A notícia ao lado do vídeo já contém “${shortTransferTitle(editorial?.complementary_title)}”. Trocar as duas notícias de zona?`
+      ? "A notícia ao lado do vídeo está ocupada. Escolhe para onde vai a notícia atual antes de concluir a transferência."
       : null
   });
 
@@ -1451,29 +1461,75 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
       newsTransferTargetOptions.push({
         targetSlotType: "important_item",
         targetId: item.id,
-        label: `Faixa de notícias — trocar com #${paddedOrder(item.sort_order)} “${shortTransferTitle(item.title)}”`,
-        confirmMessage: `Trocar de zona com a notícia da Faixa “${shortTransferTitle(item.title)}”?`
+        label: `Faixa de notícias — substituir #${paddedOrder(item.sort_order)} “${shortTransferTitle(item.title)}”`,
+        confirmMessage: "A posição escolhida na Faixa está ocupada. Escolhe para onde vai a notícia atual antes de concluir a transferência."
       });
     });
 
-  const latestDisplacedTargetOptions: NewsDisplacedTargetOption[] = [
-    { value: "unplaced::", label: "Sem colocação editorial" }
-  ];
-  if (!headlineOccupied) {
-    latestDisplacedTargetOptions.push({ value: "headline::", label: "Manchete" });
-  }
-  [1, 2, 3].forEach((order) => {
-    if (!occupiedHighlights.some((item) => item.sort_order === order)) {
-      latestDisplacedTargetOptions.push({
-        value: `highlight::${order}`,
-        label: `3 notícias abaixo da manchete — posição #${paddedOrder(order)}`
-      });
+  function newsDisplacedTargetOptionsForSource(
+    sourceSlotType: EditorialMatchdayTransferSlotType,
+    sourceId: string | null,
+  ): NewsDisplacedTargetOption[] {
+    const options: NewsDisplacedTargetOption[] = [
+      { value: "unplaced::", label: "Sem colocação editorial" }
+    ];
+
+    if (sourceSlotType === "headline") {
+      options.push({ value: "headline::", label: "Manchete — posição de origem" });
+    } else if (!headlineOccupied) {
+      options.push({ value: "headline::", label: "Manchete" });
     }
-  });
-  if (!complementOccupied) {
-    latestDisplacedTargetOptions.push({ value: "complement::", label: "Notícia ao lado do vídeo" });
+
+    if (sourceSlotType === "editorial_line_item") {
+      options.push({ value: "editorial_line_item::", label: "Últimas — posição de origem, com reordenação cronológica" });
+    } else {
+      options.push({ value: "editorial_line_item::", label: "Últimas — acrescentar por cronologia" });
+    }
+
+    if (sourceSlotType === "side_block") {
+      options.push({ value: "side_block::", label: "Contexto — posição de origem" });
+    } else if (!contextOccupied) {
+      options.push({ value: "side_block::", label: "Contexto" });
+    }
+
+    const sourceHighlight = sourceSlotType === "highlight"
+      ? occupiedHighlights.find((item) => item.id === sourceId) ?? null
+      : null;
+    [1, 2, 3].forEach((order) => {
+      const occupied = occupiedHighlights.some((item) => item.sort_order === order);
+      if (sourceHighlight?.sort_order === order) {
+        options.push({
+          value: `highlight::${order}`,
+          label: `3 notícias — posição de origem #${paddedOrder(order)}`
+        });
+      } else if (!occupied) {
+        options.push({
+          value: `highlight::${order}`,
+          label: `3 notícias abaixo da manchete — posição #${paddedOrder(order)}`
+        });
+      }
+    });
+
+    if (sourceSlotType === "complement") {
+      options.push({ value: "complement::", label: "Notícia ao lado do vídeo — posição de origem" });
+    } else if (!complementOccupied) {
+      options.push({ value: "complement::", label: "Notícia ao lado do vídeo" });
+    }
+
+    if (sourceSlotType === "important_item") {
+      const sourceHorizontal = horizontalNews.find((item) => item.id === sourceId) ?? null;
+      options.push({
+        value: "important_item::",
+        label: sourceHorizontal
+          ? `Faixa — posição de origem #${paddedOrder(sourceHorizontal.sort_order)}`
+          : "Faixa — posição de origem"
+      });
+    } else {
+      options.push({ value: "important_item::", label: "Faixa de notícias — acrescentar" });
+    }
+
+    return options;
   }
-  latestDisplacedTargetOptions.push({ value: "important_item::", label: "Faixa de notícias — acrescentar" });
 
   const highlightsEditor = (
     <>
@@ -1597,6 +1653,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   returnTo={returnToHighlightItem(order)}
                   hasPlacement={highlight?.status === "published" && Boolean(cleanText(highlight?.link_url) || cleanText(highlight?.title))}
                   targetOptions={newsTransferTargetOptions}
+                  displacedOptions={newsDisplacedTargetOptionsForSource("highlight", highlight?.id ?? null)}
                 />
               </div>
             </details>
@@ -1891,7 +1948,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               returnTo={returnToLatestNewsItem(order)}
               hasPlacement={item?.status === "published" && Boolean(cleanText(item?.link_url) || cleanText(item?.title))}
               targetOptions={newsTransferTargetOptions}
-              displacedOptions={latestDisplacedTargetOptions}
+              displacedOptions={newsDisplacedTargetOptionsForSource("editorial_line_item", item?.id ?? null)}
             />
             </div>
           );
@@ -2311,6 +2368,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             returnTo={returnToManchete}
             hasPlacement={editorial?.status === "published" && Boolean(cleanText(editorial?.headline_link_url) || cleanText(editorial?.title))}
             targetOptions={newsTransferTargetOptions}
+            displacedOptions={newsDisplacedTargetOptionsForSource("headline", editorial?.id ?? null)}
           />
         </section>
 
@@ -2432,6 +2490,16 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               Guardar contexto
             </button>
           </form>
+          <NewsTransferControl
+            matchdayId={matchday.id}
+            articleId={articleIdForPlacement(editorial?.side_block_link_url)}
+            sourceSlotType="side_block"
+            sourceId={editorial?.id ?? null}
+            returnTo={returnToBlocoLateral}
+            hasPlacement={editorial?.side_block_status === "published" && Boolean(cleanText(editorial?.side_block_link_url) || cleanText(editorial?.side_block_title))}
+            targetOptions={newsTransferTargetOptions}
+            displacedOptions={newsDisplacedTargetOptionsForSource("side_block", editorial?.id ?? null)}
+          />
           <script
             dangerouslySetInnerHTML={{
               __html: `
@@ -2658,6 +2726,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   returnTo={returnToComplementar}
                   hasPlacement={editorial?.complementary_status === "published" && Boolean(cleanText(editorial?.complementary_link_url) || cleanText(editorial?.complementary_title))}
                   targetOptions={newsTransferTargetOptions}
+                  displacedOptions={newsDisplacedTargetOptionsForSource("complement", editorial?.id ?? null)}
                 />
         </section>
 
@@ -2704,6 +2773,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     returnTo={returnToHorizontalNewsItem(order)}
                     hasPlacement={item?.status === "published" && Boolean(cleanText(item?.linkUrl) || cleanText(item?.title))}
                     targetOptions={newsTransferTargetOptions}
+                    displacedOptions={newsDisplacedTargetOptionsForSource("important_item", item?.id ?? null)}
                   />
                 )}
                 reorderControlForOrder={(_order, item) => {

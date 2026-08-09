@@ -5,6 +5,7 @@ const NEWS_FLOW_SLOT_TYPES = [
   "editorial_line_item",
   "highlight",
   "complement",
+  "side_block",
   "important_item",
 ] as const;
 
@@ -28,6 +29,13 @@ type EditorialRow = {
   complementary_image_url: string | null;
   complementary_link_url: string | null;
   complementary_status: string | null;
+  side_block_status: string | null;
+  side_block_label: string | null;
+  side_block_label_color: string | null;
+  side_block_title: string | null;
+  side_block_text: string | null;
+  side_block_image_url: string | null;
+  side_block_link_url: string | null;
 };
 
 type HighlightRow = {
@@ -107,7 +115,7 @@ async function readCurrentPublishedComposition(matchdayId: string) {
 async function buildLiveNewsFlowSnapshots(matchdayId: string): Promise<NewsFlowSnapshot[]> {
   const [editorialRows, highlights, latest, horizontal] = await Promise.all([
     fetchSupabaseAdminTable<EditorialRow>(
-      `matchday_editorials?select=id,status,title,summary,image_url,headline_link_url,complementary_label,complementary_text_color,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status&matchday_id=eq.${encodeURIComponent(
+      `matchday_editorials?select=id,status,title,summary,image_url,headline_link_url,complementary_label,complementary_text_color,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status,side_block_status,side_block_label,side_block_label_color,side_block_title,side_block_text,side_block_image_url,side_block_link_url&matchday_id=eq.${encodeURIComponent(
         matchdayId,
       )}&limit=1`,
     ).catch(() => []),
@@ -173,6 +181,30 @@ async function buildLiveNewsFlowSnapshots(matchdayId: string): Promise<NewsFlowS
     });
   }
 
+  if (
+    editorial?.side_block_status === "published"
+    && hasContent(
+      editorial.side_block_label,
+      editorial.side_block_title,
+      editorial.side_block_text,
+      editorial.side_block_image_url,
+      editorial.side_block_link_url,
+    )
+  ) {
+    snapshots.push({
+      slot_type: "side_block",
+      source_type: "matchday_editorial_side_block",
+      source_id: editorial.id,
+      sort_order: 1,
+      title_snapshot: cleanText(editorial.side_block_title),
+      subtitle_snapshot: cleanText(editorial.side_block_text),
+      image_url_snapshot: cleanText(editorial.side_block_image_url),
+      link_url_snapshot: cleanText(editorial.side_block_link_url),
+      label_snapshot: cleanText(editorial.side_block_label),
+      label_color_snapshot: cleanText(editorial.side_block_label_color),
+    });
+  }
+
   for (const item of highlights) {
     snapshots.push({
       slot_type: "highlight",
@@ -223,7 +255,7 @@ async function buildLiveNewsFlowSnapshots(matchdayId: string): Promise<NewsFlowS
 
 /**
  * Keeps only the CURRENT published reference composition aligned with the live
- * five-zone news flow. Older non-current published compositions are never
+ * news flow. Older non-current published compositions are never
  * touched, so they stay frozen as historical snapshots.
  */
 export async function syncCurrentPublishedReferenceCompositionNewsFlow(matchdayId: string) {
