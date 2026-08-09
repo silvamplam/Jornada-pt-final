@@ -3,11 +3,14 @@ import { adminRelativeRedirect, adminRelativeUrl } from "@/lib/admin-relative-re
 import { syncCurrentPublishedReferenceCompositionNewsFlow } from "@/lib/editorial-current-reference-composition-sync";
 import {
   EditorialMatchdayNewsFlowError,
+  moveMatchdayHorizontalNewsItem,
   normalizeLatestNewsOrder,
+  normalizeMatchdayHorizontalNewsOrder,
   transferPublishedArticleBetweenMatchdayZones,
   type EditorialDisplacedTargetSlotType,
 } from "@/lib/editorial-matchday-news-flow";
 import { isEditorialNewsFlowSlotType } from "@/lib/editorial-zone-presentation";
+import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
 import {
   applyCalendarCheckpointTransition,
   buildCalendarBroadcastChannelLookup,
@@ -56,6 +59,7 @@ const NEWS_FLOW_REFERENCE_SYNC_ACTIONS = new Set([
   "save_matchday_latest_news",
   "save_matchday_latest_news_item",
   "save_matchday_horizontal_news_item",
+  "move_matchday_horizontal_news_item",
 ]);
 
 function cleanText(value: FormDataEntryValue | null): string | null {
@@ -65,6 +69,14 @@ function cleanText(value: FormDataEntryValue | null): string | null {
 
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function cleanContextPostTitle(value: FormDataEntryValue | null): string | null {
+  const text = cleanText(value);
+  if (text && text.length > EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS) {
+    throw new Error("context-post-title-too-long");
+  }
+  return text;
 }
 
 function cleanHexColor(value: FormDataEntryValue | null): string | null {
@@ -903,7 +915,7 @@ async function saveMatchdayEditorial(formData: FormData) {
   const sideBlockTitle = cleanText(formData.get("side_block_title"));
   const sideBlockTitleColor = cleanText(formData.get("side_block_title_color"));
   const sideBlockAuthor = cleanText(formData.get("side_block_author"));
-  const sideBlockText = cleanText(formData.get("side_block_text"));
+  const sideBlockText = cleanContextPostTitle(formData.get("side_block_text"));
   const sideBlockImageUrl = cleanText(formData.get("side_block_image_url"));
   const sideBlockLinkUrl = cleanText(formData.get("side_block_link_url"));
 
@@ -1059,7 +1071,7 @@ async function saveMatchdaySideBlock(formData: FormData) {
   const sideBlockTitle = cleanText(formData.get("side_block_title"));
   const sideBlockTitleColor = cleanText(formData.get("side_block_title_color"));
   const sideBlockAuthor = cleanText(formData.get("side_block_author"));
-  const sideBlockText = cleanText(formData.get("side_block_text"));
+  const sideBlockText = cleanContextPostTitle(formData.get("side_block_text"));
 
   if (!matchdayId || !["draft", "published"].includes(sideBlockStatusValue)) {
     throw new Error("missing-fields");
@@ -1837,6 +1849,18 @@ async function saveMatchdayHorizontalNewsItem(formData: FormData) {
       body: JSON.stringify(payload)
     });
   }
+}
+
+async function moveMatchdayHorizontalNewsOrder(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const newsId = cleanText(formData.get("horizontal_news_id"));
+  const direction = cleanText(formData.get("horizontal_news_direction"));
+
+  if (!matchdayId || !newsId || (direction !== "up" && direction !== "down")) {
+    throw new Error("missing-fields");
+  }
+
+  await moveMatchdayHorizontalNewsItem(matchdayId, newsId, direction);
 }
 
 async function transferMatchdayNewsArticle(formData: FormData) {
@@ -3198,6 +3222,12 @@ export async function POST(request: Request) {
       }
     } else if (actionType === "save_matchday_horizontal_news_item") {
       await saveMatchdayHorizontalNewsItem(formData);
+      const matchdayId = cleanText(formData.get("matchday_id"));
+      if (matchdayId) {
+        await normalizeMatchdayHorizontalNewsOrder(matchdayId);
+      }
+    } else if (actionType === "move_matchday_horizontal_news_item") {
+      await moveMatchdayHorizontalNewsOrder(formData);
     } else if (actionType === "transfer_matchday_news_article") {
       await transferMatchdayNewsArticle(formData);
     } else if (actionType === "match") {
@@ -3246,7 +3276,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (actionType === "save_matchday_horizontal_news_item") {
+    if (actionType === "save_matchday_horizontal_news_item" || actionType === "move_matchday_horizontal_news_item") {
       return returnUrl(request, formData, "error", "horizontal-news-save-failed", {
         horizontal_news_error_detail: shortActionError(error)
       });

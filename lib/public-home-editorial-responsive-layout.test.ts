@@ -393,3 +393,14 @@ test("os dois titulos de zona respeitam a capitalizacao escrita e o complemento 
     /public-matchday-depth-row \.public-complement-body p \{[\s\S]*?-webkit-line-clamp:\s*1;/
   );
 });
+
+test("o pós-título do Contexto usa o mesmo limite inferior visual dos destaques na Jornada", () => {
+  const layout = readFileSync("components/public/PublicEditorialLayout.tsx", "utf8");
+  const contextPostTitle = readFileSync("components/public/PublicContextPostTitle.tsx", "utf8");
+
+  assert.match(layout, /constrainTextToMainColumn=\{scope === "matchday" && hasHighlights\}/);
+  assert.match(contextPostTitle, /data-editorial-slot="destaques-da-manchete"/);
+  assert.match(contextPostTitle, /getBoundingClientRect\(\)\.bottom - paragraph\.getBoundingClientRect\(\)\.top/);
+  assert.match(contextPostTitle, /-webkit-line-clamp/);
+  assert.match(contextPostTitle, /max-width: 1180px/);
+});

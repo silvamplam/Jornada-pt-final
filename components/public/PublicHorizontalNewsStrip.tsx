@@ -141,16 +141,6 @@ type HorizontalNewsRowStyle = CSSProperties & {
 };
 
 function horizontalNewsRowStyle(columnCount: number): HorizontalNewsRowStyle {
-  if (columnCount >= 6) {
-    return {
-      "--horizontal-news-columns": columnCount,
-      "--horizontal-news-gap": "10px",
-      "--horizontal-news-label-size": "10px",
-      "--horizontal-news-title-size": "15px",
-      "--horizontal-news-subtitle-size": "12px"
-    };
-  }
-
   if (columnCount === 5) {
     return {
       "--horizontal-news-columns": columnCount,
@@ -185,7 +175,7 @@ export default function PublicHorizontalNewsStrip({
     return null;
   }
 
-  const rows = buildEditorialHorizontalNewsRows(items, 6);
+  const rows = buildEditorialHorizontalNewsRows(items, 5);
 
   return (
     <section className="public-matchday-panel public-horizontal-news" data-editorial-scope={scope} aria-label={ariaLabel}>

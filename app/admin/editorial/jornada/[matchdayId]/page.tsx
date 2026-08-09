@@ -1,5 +1,9 @@
 import EditorialColorPresets, { EditorialColorInput } from "@/components/admin/EditorialColorPresets";
 import EditorialHorizontalNewsEditor from "@/components/admin/EditorialHorizontalNewsEditor";
+import {
+  EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
+  EDITORIAL_CONTEXT_POST_TITLE_MIN_CHARS,
+} from "@/lib/editorial-context-post-title";
 import { buildEditorialHorizontalNewsEditorOrders } from "@/lib/editorial-horizontal-news";
 import {
   fetchSupabaseAdminTable,
@@ -1179,6 +1183,7 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     save_matchday_latest_news: "Últimas guardadas. ✓",
     save_matchday_latest_news_item: "Notícia guardada. ✓",
     save_matchday_horizontal_news_item: "Notícia guardada. ✓",
+    move_matchday_horizontal_news_item: "Ordem da Faixa atualizada. ✓",
     transfer_matchday_news_article: "Notícia transferida. ✓",
     upload_matchday_editorial_image: "Imagem da manchete carregada. ✓",
     upload_matchday_highlight_image: "Imagem da notícia carregada. ✓"
@@ -1211,6 +1216,7 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     },
     "faixa-horizontal": {
       save_matchday_horizontal_news_item: "Notícia guardada. ✓",
+      move_matchday_horizontal_news_item: "Ordem da Faixa atualizada. ✓",
       transfer_matchday_news_article: "Notícia transferida. ✓"
     },
     "bloco-complementar": {
@@ -1234,6 +1240,7 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     "latest-news-title-required": "Para publicar uma noticia, indica o titulo.",
     "horizontal-news-title-required": "Para publicar a notícia na faixa, indica o título.",
     "horizontal-news-save-failed": "Não foi possível guardar a faixa de notícias.",
+    "context-post-title-too-long": "O pós-título do Contexto não pode ultrapassar 500 caracteres.",
     "editorial-image-type": "O ficheiro tem de ser uma imagem JPG, PNG ou WebP.",
     "editorial-image-size": "A imagem nao pode ter mais de 5MB.",
     "editorial-image-upload": "Nao foi possivel carregar a imagem. Confirma o bucket de Storage.",
@@ -1329,6 +1336,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const returnToDestaques = scopedReturnTo("destaques", "tres-noticias");
   const returnToResumo = scopedReturnTo("resumo-jornada", "video");
   const returnToComplementar = scopedReturnTo("bloco-complementar", "noticia-ao-lado-video");
+  const returnToFaixaHorizontal = scopedReturnTo("faixa-horizontal", "faixa-noticias");
   const returnToUltimasNoticias = scopedReturnTo("ultimas-noticias");
   const returnToHighlightItem = (order: number) =>
     `${returnTo}?feedback_scope=destaques&feedback_item=highlight-${paddedOrder(order)}#highlight-item-${paddedOrder(order)}`;
@@ -2377,8 +2385,17 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               <input id="side-block-author" name="side_block_author" defaultValue={editorial?.side_block_author ?? ""} placeholder="Silvestre Chicharo" />
             </div>
             <div className="editorial-admin-field">
-              <label htmlFor="side-block-text">Texto / excerto</label>
-              <textarea id="side-block-text" name="side_block_text" defaultValue={editorial?.side_block_text ?? ""} placeholder="Texto curto para a chamada editorial lateral." />
+              <label htmlFor="side-block-text">Pós-título / texto</label>
+              <textarea
+                id="side-block-text"
+                name="side_block_text"
+                defaultValue={editorial?.side_block_text ?? ""}
+                maxLength={EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS}
+                placeholder="Texto curto para a chamada editorial lateral."
+              />
+              <small>
+                Procurar {EDITORIAL_CONTEXT_POST_TITLE_MIN_CHARS}–{EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS} caracteres, sem acrescentar informação não sustentada apenas para preencher espaço.
+              </small>
             </div>
             <div className="editorial-admin-field">
               <label htmlFor="side-block-image-url">Imagem opcional</label>
@@ -2649,6 +2666,9 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             <span className="editorial-admin-zone-number">07</span>
             <h2 className="editorial-admin-zone-title">Faixa de notícias</h2>
           </header>
+              {feedbackScope === "faixa-horizontal" && !feedbackItem ? (
+                <div>{messageFor(created, error, "faixa-horizontal", horizontalNewsErrorDetail)}</div>
+              ) : null}
               {horizontalNewsEditorOrders.map((order) => (
                 <form
                   action="/api/admin/gestor"
@@ -2686,6 +2706,26 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     targetOptions={newsTransferTargetOptions}
                   />
                 )}
+                reorderControlForOrder={(_order, item) => {
+                  if (!item) return null;
+                  const index = horizontalNewsEditorItems.findIndex((candidate) => candidate.id === item.id);
+                  const isFirst = index <= 0;
+                  const isLast = index < 0 || index >= horizontalNewsEditorItems.length - 1;
+                  return (
+                    <form action="/api/admin/gestor" className="horizontal-news-admin-order-form" method="post">
+                      <input type="hidden" name="action_type" value="move_matchday_horizontal_news_item" />
+                      <input type="hidden" name="return_to" value={returnToFaixaHorizontal} />
+                      <input type="hidden" name="matchday_id" value={matchday.id} />
+                      <input type="hidden" name="horizontal_news_id" value={item.id} />
+                      <button className="secondary" type="submit" name="horizontal_news_direction" value="up" disabled={isFirst}>
+                        Subir / esquerda
+                      </button>
+                      <button className="secondary" type="submit" name="horizontal_news_direction" value="down" disabled={isLast}>
+                        Descer / direita
+                      </button>
+                    </form>
+                  );
+                }}
                 openOrder={horizontalNewsOpenOrder}
               />
         </section>

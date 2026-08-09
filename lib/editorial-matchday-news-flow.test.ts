@@ -94,6 +94,24 @@ test("a transferência continua a preservar o artigo canónico e a projetar o pe
   assert.ok(flowSource.includes("Contexto e Vídeo não pertencem ao circuito normal de transferência de notícias."));
 });
 
+test("uma nova chegada à Faixa sobe para primeiro e a ordem manual fica disponível no backoffice", () => {
+  const horizontalEditorSource = source("components/admin/EditorialHorizontalNewsEditor.tsx");
+  const editorialPageSource = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
+
+  assert.ok(flowSource.includes("prioritizeMatchdayHorizontalNewsItem"));
+  assert.ok(flowSource.includes("persistHorizontalNewsOrder"));
+  assert.ok(flowSource.includes("temporaryStart"));
+  assert.ok(flowSource.includes("await prioritizeMatchdayHorizontalNewsItem(matchdayId, incomingId);"));
+  assert.ok(flowSource.includes("export async function moveMatchdayHorizontalNewsItem"));
+  assert.ok(flowSource.includes("export async function normalizeMatchdayHorizontalNewsOrder"));
+  assert.ok(gestorRouteSource.includes('actionType === "move_matchday_horizontal_news_item"'));
+  assert.ok(gestorRouteSource.includes("await normalizeMatchdayHorizontalNewsOrder(matchdayId);"));
+  assert.ok(editorialPageSource.includes('value="move_matchday_horizontal_news_item"'));
+  assert.ok(editorialPageSource.includes("Subir / esquerda"));
+  assert.ok(editorialPageSource.includes("Descer / direita"));
+  assert.ok(horizontalEditorSource.includes("Uma transferência nova entra em primeiro."));
+});
+
 test("a composição publicada atual continua sincronizada depois das mudanças de posição", () => {
   assert.ok(flowSource.includes("syncCurrentPublishedReferenceCompositionNewsFlow"));
   assert.ok(flowSource.includes("await syncCurrentPublishedReferenceCompositionNewsFlow(input.matchdayId);"));

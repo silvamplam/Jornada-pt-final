@@ -58,25 +58,59 @@ export function buildEditorialHorizontalNewsEditorOrders(
   return [...existingOrders, nextOrder];
 }
 
+export type EditorialHorizontalNewsMoveDirection = "up" | "down";
+
+export function prioritizeEditorialHorizontalNewsItem<T extends { id: string }>(
+  items: readonly T[],
+  itemId: string,
+): T[] {
+  const index = items.findIndex((item) => item.id === itemId);
+  if (index <= 0) {
+    return [...items];
+  }
+
+  const item = items[index];
+  return [item, ...items.slice(0, index), ...items.slice(index + 1)];
+}
+
+export function moveEditorialHorizontalNewsItem<T extends { id: string }>(
+  items: readonly T[],
+  itemId: string,
+  direction: EditorialHorizontalNewsMoveDirection,
+): T[] {
+  const index = items.findIndex((item) => item.id === itemId);
+  if (index < 0) {
+    return [...items];
+  }
+
+  const targetIndex = direction === "up" ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= items.length) {
+    return [...items];
+  }
+
+  const reordered = [...items];
+  [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+  return reordered;
+}
 
 export function buildEditorialHorizontalNewsRows<T>(
   items: T[],
-  maxItemsPerRow = 6
+  maxItemsPerRow = 5
 ): T[][] {
   if (items.length === 0) {
     return [];
   }
 
   const safeMaxItemsPerRow =
-    Number.isInteger(maxItemsPerRow) && maxItemsPerRow > 0 ? maxItemsPerRow : 6;
+    Number.isInteger(maxItemsPerRow) && maxItemsPerRow > 0 ? maxItemsPerRow : 5;
   const rowCount = Math.ceil(items.length / safeMaxItemsPerRow);
   const baseRowSize = Math.floor(items.length / rowCount);
   const rowsWithExtraItem = items.length % rowCount;
+  const firstRowWithExtraItem = rowCount - rowsWithExtraItem;
   const rows: T[][] = [];
   let offset = 0;
 
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    const firstRowWithExtraItem = rowCount - rowsWithExtraItem;
     const rowSize = baseRowSize + (rowIndex >= firstRowWithExtraItem ? 1 : 0);
     rows.push(items.slice(offset, offset + rowSize));
     offset += rowSize;

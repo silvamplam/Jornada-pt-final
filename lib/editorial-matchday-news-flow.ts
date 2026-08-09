@@ -11,6 +11,11 @@ import {
   type EditorialNewsFlowSlotType,
 } from "@/lib/editorial-zone-presentation";
 import { syncCurrentPublishedReferenceCompositionNewsFlow } from "@/lib/editorial-current-reference-composition-sync";
+import {
+  moveEditorialHorizontalNewsItem,
+  prioritizeEditorialHorizontalNewsItem,
+  type EditorialHorizontalNewsMoveDirection,
+} from "@/lib/editorial-horizontal-news";
 import { fetchSupabaseAdminTable, writeSupabaseAdmin } from "@/lib/supabase";
 
 const HIGHLIGHT_SORT_ORDERS = [1, 2, 3] as const;
@@ -139,6 +144,74 @@ function dateValue(value?: string | null) {
   if (!clean) return 0;
   const date = new Date(clean);
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+async function readHorizontalNewsOrderRows(matchdayId: string) {
+  return fetchSupabaseAdminTable<Pick<HorizontalNewsRow, "id" | "sort_order">>(
+    `matchday_horizontal_news?select=id,sort_order&matchday_id=eq.${encodeURIComponent(matchdayId)}&order=sort_order.asc`,
+  );
+}
+
+async function persistHorizontalNewsOrder(
+  matchdayId: string,
+  orderedRows: readonly Pick<HorizontalNewsRow, "id" | "sort_order">[],
+) {
+  const normalizedRows = orderedRows.filter((row, index, rows) =>
+    rows.findIndex((candidate) => candidate.id === row.id) === index
+  );
+  const alreadyNormalized = normalizedRows.every((row, index) => row.sort_order === index + 1);
+  if (alreadyNormalized) return;
+
+  const maxSortOrder = Math.max(0, ...normalizedRows.map((row) => row.sort_order));
+  const temporaryStart = maxSortOrder + normalizedRows.length + 1;
+
+  for (let index = 0; index < normalizedRows.length; index += 1) {
+    await writeSupabaseAdmin(
+      `matchday_horizontal_news?id=eq.${encodeURIComponent(normalizedRows[index].id)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ sort_order: temporaryStart + index }),
+      },
+    );
+  }
+
+  for (let index = 0; index < normalizedRows.length; index += 1) {
+    await writeSupabaseAdmin(
+      `matchday_horizontal_news?id=eq.${encodeURIComponent(normalizedRows[index].id)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ sort_order: index + 1 }),
+      },
+    );
+  }
+}
+
+export async function normalizeMatchdayHorizontalNewsOrder(matchdayId: string) {
+  const rows = await readHorizontalNewsOrderRows(matchdayId);
+  await persistHorizontalNewsOrder(matchdayId, rows);
+}
+
+async function prioritizeMatchdayHorizontalNewsItem(matchdayId: string, itemId: string) {
+  const rows = await readHorizontalNewsOrderRows(matchdayId);
+  const reordered = prioritizeEditorialHorizontalNewsItem(rows, itemId);
+  await persistHorizontalNewsOrder(matchdayId, reordered);
+}
+
+export async function moveMatchdayHorizontalNewsItem(
+  matchdayId: string,
+  itemId: string,
+  direction: EditorialHorizontalNewsMoveDirection,
+) {
+  const rows = await readHorizontalNewsOrderRows(matchdayId);
+  if (!rows.some((row) => row.id === itemId)) {
+    throw new EditorialMatchdayNewsFlowError(
+      "horizontal-news-item-invalid",
+      "A notícia escolhida já não pertence à Faixa. Atualiza a página e tenta novamente.",
+    );
+  }
+
+  const reordered = moveEditorialHorizontalNewsItem(rows, itemId, direction);
+  await persistHorizontalNewsOrder(matchdayId, reordered);
 }
 
 async function readPublishedCompleteArticle(articleId: string, matchdayId: string): Promise<NewsFlowArticle> {
@@ -805,6 +878,7 @@ async function placeProjectionInAvailableZone(
       method: "PATCH",
       body: JSON.stringify(payload),
     });
+    await prioritizeMatchdayHorizontalNewsItem(matchdayId, reusable.id);
     return { slotType, sourceId: reusable.id };
   }
   await writeSupabaseAdmin("matchday_horizontal_news", {
@@ -815,6 +889,7 @@ async function placeProjectionInAvailableZone(
     `matchday_horizontal_news?select=id&matchday_id=eq.${encodeURIComponent(matchdayId)}&sort_order=eq.${sortOrder}&limit=1`,
   );
   if (!inserted[0]?.id) throw new EditorialMatchdayNewsFlowError("news-flow-placement-failed");
+  await prioritizeMatchdayHorizontalNewsItem(matchdayId, inserted[0].id);
   return { slotType, sourceId: inserted[0].id };
 }
 
@@ -1043,6 +1118,7 @@ async function writeArticleToTargetZone(
     updated_at: now,
   };
   const existing = explicitTarget ?? rowByOrder.get(targetOrder);
+  let incomingId = existing?.id ?? null;
   if (existing) {
     await writeSupabaseAdmin(`matchday_horizontal_news?id=eq.${encodeURIComponent(existing.id)}`, {
       method: "PATCH",
@@ -1053,7 +1129,15 @@ async function writeArticleToTargetZone(
       method: "POST",
       body: JSON.stringify({ ...payload, created_at: now }),
     });
+    const inserted = await fetchSupabaseAdminTable<Pick<HorizontalNewsRow, "id">>(
+      `matchday_horizontal_news?select=id&matchday_id=eq.${encodeURIComponent(matchdayId)}&sort_order=eq.${targetOrder}&limit=1`,
+    );
+    incomingId = inserted[0]?.id ?? null;
   }
+  if (!incomingId) {
+    throw new EditorialMatchdayNewsFlowError("news-flow-placement-failed");
+  }
+  await prioritizeMatchdayHorizontalNewsItem(matchdayId, incomingId);
 }
 async function clearArticleFromSourceZone(
   matchdayId: string,
@@ -1105,6 +1189,8 @@ async function clearArticleFromSourceZone(
 
   if (sourceSlotType === "editorial_line_item") {
     await normalizeLatestNewsOrder(matchdayId);
+  } else if (sourceSlotType === "important_item") {
+    await normalizeMatchdayHorizontalNewsOrder(matchdayId);
   }
 }
 
@@ -1213,6 +1299,9 @@ export async function transferPublishedArticleBetweenMatchdayZones(input: Editor
     } catch (error) {
       await restoreSourceArticleAfterFailedSwap(input.matchdayId, article, input.sourceSlotType, input.sourceId);
       throw error;
+    }
+    if (input.sourceSlotType === "important_item") {
+      await prioritizeMatchdayHorizontalNewsItem(input.matchdayId, input.sourceId);
     }
   } else {
     await writeArticleToTargetZone(input.matchdayId, input.articleId, article, input.targetSlotType, null);
