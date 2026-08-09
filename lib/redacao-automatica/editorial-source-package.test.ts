@@ -408,6 +408,9 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
 
   const articleForm = read("app/admin/editorial/artigos/_articleForm.tsx");
   const articleImporter = read("app/admin/editorial/artigos/_externalArticleImport.tsx");
+  const articleImageImportRoute = read(
+    "app/api/admin/editorial/artigos/import-source-image/route.ts",
+  );
   assert.match(articleForm, /<ExternalArticleImport \/>/);
   assert.match(articleImporter, /Preencher a partir do clipboard/);
   assert.match(articleImporter, /Resposta da IA/);
@@ -418,7 +421,25 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(articleImporter, /formField\(form, "title"\)/);
   assert.match(articleImporter, /formField\(form, "subtitle"\)/);
   assert.match(articleImporter, /formField\(form, "body"\)/);
+  assert.match(articleImporter, /formField\(form, "image_url"\)/);
+  assert.match(articleImporter, /parseStoredEditorialExternalArticleTransfer/);
+  assert.match(articleImporter, /transfer\.imageCandidates\.length === 1/);
+  assert.match(articleImporter, /Nenhuma é selecionada arbitrariamente/);
+  assert.match(articleImporter, /\/api\/admin\/editorial\/artigos\/import-source-image/);
+  assert.match(articleImporter, /setFieldValue\(formField\(form, "image_url"\), payload\.publicUrl\)/);
+  assert.match(articleImporter, /Imagem do pacote/);
   assert.match(articleImporter, /Nada é guardado ou publicado automaticamente/);
+  assert.match(page, /imageCandidates=\{imageCandidates\}/);
+  assert.match(page, /sourcePackage=\{\{ year, month, packageId: id \}\}/);
+  assert.match(actions, /storedEditorialExternalArticle\(article, Date\.now\(\), \{/);
+  assert.match(actions, /imageCandidates,/);
+  assert.match(actions, /sourcePackage,/);
+  assert.match(articleForm, /article-admin-external-images-grid/);
+  assert.match(articleImageImportRoute, /readEditorialSourcePackage/);
+  assert.match(articleImageImportRoute, /downloadEditorialSourceImage/);
+  assert.match(articleImageImportRoute, /const BUCKET = "editorial-images"/);
+  assert.match(articleImageImportRoute, /storage\/v1\/object/);
+  assert.match(articleImageImportRoute, /publicUrl/);
 });
 
 test("o Markdown persiste no Supabase e o arquivo local fica limitado às imagens", () => {

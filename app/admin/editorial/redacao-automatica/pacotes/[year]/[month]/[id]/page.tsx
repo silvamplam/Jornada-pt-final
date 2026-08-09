@@ -74,13 +74,29 @@ export default async function SourcePackagePage({
   const contentUrl =
     `/api/admin/editorial/redacao-automatica/source-package/${year}/${month}/${id}`;
   const failedEntries = manifest.entries.filter((entry) => entry.status === "failed");
-  const imageSourceCount = new Set(manifest.entries.flatMap((entry) => (
-    entry.status === "prepared"
-    && typeof entry.imageUrl === "string"
-    && entry.imageUrl.trim()
-      ? [entry.imageUrl.trim()]
-      : []
-  ))).size;
+  const imageCandidates = Array.from(
+    manifest.entries.reduce((unique, entry) => {
+      const imageUrl = entry.status === "prepared"
+        && typeof entry.imageUrl === "string"
+        ? entry.imageUrl.trim()
+        : "";
+      if (imageUrl && !unique.has(imageUrl)) {
+        unique.set(imageUrl, {
+          position: entry.position,
+          sourceCode: entry.sourceCode ?? "fonte",
+          articleTitle: entry.title ?? "Notícia",
+          imageUrl,
+        });
+      }
+      return unique;
+    }, new Map<string, {
+      position: number;
+      sourceCode: string;
+      articleTitle: string;
+      imageUrl: string;
+    }>()).values(),
+  );
+  const imageSourceCount = imageCandidates.length;
   const imagesUrl = `${contentUrl}/images`;
   const markdownFileName = editorialSourcePackageFileName(
     manifest.genre,
@@ -228,6 +244,8 @@ export default async function SourcePackagePage({
             imagesUrl={imagesUrl}
             imagesFileName={imagesFileName}
             imageSourceCount={imageSourceCount}
+            imageCandidates={imageCandidates}
+            sourcePackage={{ year, month, packageId: id }}
           />
         </section>
 

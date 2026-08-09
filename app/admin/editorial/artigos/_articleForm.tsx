@@ -46,6 +46,8 @@ export type MatchdayOption = {
   status?: string | null;
 };
 
+const DEFAULT_ARTICLE_AUTHOR = "Silvestre Chícharo";
+
 type ArticleEditorFormProps = {
   mode: "create" | "edit";
   article?: EditorialArticle | null;
@@ -486,7 +488,11 @@ export function ArticleEditorForm({
 
           <label>
             <span>Autor · obrigatório para publicar</span>
-            <input name="author" defaultValue={article?.author ?? ""} placeholder="Nome do autor" />
+            <input
+              name="author"
+              defaultValue={isEdit ? article?.author ?? "" : DEFAULT_ARTICLE_AUTHOR}
+              placeholder="Nome do autor"
+            />
           </label>
 
           <label className="article-admin-full">
@@ -867,6 +873,89 @@ export const editorialArticleAdminStyles = `
   .article-admin-external-import button:disabled {
     cursor: not-allowed;
     opacity: 0.65;
+  }
+
+
+  .article-admin-external-images {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid #dbe3ec;
+    border-radius: 8px;
+    background: #ffffff;
+  }
+
+  .article-admin-external-images-heading {
+    display: grid;
+    gap: 3px;
+  }
+
+  .article-admin-external-images-heading strong {
+    margin: 0;
+  }
+
+  .article-admin-external-images-heading small {
+    color: #64748b;
+    font-size: 11px;
+  }
+
+  .article-admin-external-images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .article-admin-external-import .article-admin-external-image-option {
+    display: grid;
+    min-height: 0;
+    gap: 5px;
+    align-content: start;
+    padding: 8px;
+    border: 1px solid #dbe3ec;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    text-align: left;
+  }
+
+  .article-admin-external-import .article-admin-external-image-option:hover:not(:disabled),
+  .article-admin-external-import .article-admin-external-image-option[data-selected="true"] {
+    border-color: #111827;
+    background: #f8fafc;
+  }
+
+  .article-admin-external-image-option img {
+    display: block;
+    width: 100%;
+    height: 92px;
+    border-radius: 6px;
+    background: #eef2f7;
+    object-fit: cover;
+  }
+
+  .article-admin-external-image-option > span {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .article-admin-external-image-option > strong {
+    display: -webkit-box;
+    min-height: 32px;
+    margin: 0;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    color: #111827;
+    font-size: 12px;
+    line-height: 1.3;
+  }
+
+  .article-admin-external-image-option > small {
+    color: #1e3a8a;
+    font-size: 10px;
+    font-weight: 800;
   }
 
   .article-admin-workspace {

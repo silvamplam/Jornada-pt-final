@@ -11,11 +11,19 @@ import {
 import {
   EDITORIAL_EXTERNAL_ARTICLE_STORAGE_KEY,
   parseEditorialExternalArticleResponse,
-  parseStoredEditorialExternalArticle,
+  parseStoredEditorialExternalArticleTransfer,
   type EditorialExternalArticle,
+  type EditorialExternalArticleImageCandidate,
+  type EditorialExternalArticleSourcePackage,
 } from "@/lib/redacao-automatica/editorial-external-article-import";
 
 type FormField = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+type SourceImageImportResponse = Readonly<{
+  ok?: boolean;
+  publicUrl?: string;
+  error?: string;
+}>;
 
 function formField(
   form: HTMLFormElement,
@@ -92,16 +100,42 @@ function parseErrorMessage(error: string): string {
   return "A resposta não respeita a estrutura ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO.";
 }
 
+function sourceImageErrorMessage(error: string | undefined): string {
+  if (error === "package-not-found") {
+    return "O pacote de fontes já não está disponível para importar a imagem.";
+  }
+  if (error === "image-unavailable") {
+    return "A imagem desta fonte já não está disponível para importação automática.";
+  }
+  if (error === "missing-editorial-images-bucket") {
+    return "O armazenamento editorial de imagens não está disponível.";
+  }
+
+  return "Não foi possível importar automaticamente esta imagem.";
+}
+
 export default function ExternalArticleImport() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const manualResponseRef = useRef<HTMLTextAreaElement | null>(null);
+  const preparedTransferHandledRef = useRef(false);
   const [status, setStatus] = useState("");
   const [reading, setReading] = useState(false);
   const [manualResponse, setManualResponse] = useState("");
+  const [sourcePackage, setSourcePackage] = useState<EditorialExternalArticleSourcePackage | null>(null);
+  const [imageCandidates, setImageCandidates] = useState<readonly EditorialExternalArticleImageCandidate[]>([]);
+  const [importingImagePosition, setImportingImagePosition] = useState<number | null>(null);
+  const [selectedImagePosition, setSelectedImagePosition] = useState<number | null>(null);
 
   const editorForm = (): HTMLFormElement | null => (
     rootRef.current?.closest("form") ?? null
   );
+
+  const clearSourceImages = () => {
+    setSourcePackage(null);
+    setImageCandidates([]);
+    setImportingImagePosition(null);
+    setSelectedImagePosition(null);
+  };
 
   const importArticle = (
     article: EditorialExternalArticle,
@@ -123,8 +157,55 @@ export default function ExternalArticleImport() {
     }
 
     applyArticleToForm(form, article);
-    setStatus("Notícia preenchida. Revê os campos, escolhe a imagem e guarda em revisão.");
+    setStatus("Notícia preenchida. Revê os campos e a imagem antes de guardar em revisão.");
     return true;
+  };
+
+  const importSourceImage = async (
+    candidate: EditorialExternalArticleImageCandidate,
+    packageLocation: EditorialExternalArticleSourcePackage,
+    automatic = false,
+  ): Promise<void> => {
+    const form = editorForm();
+    if (!form) {
+      setStatus("Não foi possível localizar o formulário do artigo.");
+      return;
+    }
+
+    setImportingImagePosition(candidate.position);
+    setStatus(automatic
+      ? "A aplicar automaticamente a imagem do pacote…"
+      : "A aplicar a imagem escolhida…");
+
+    try {
+      const response = await fetch("/api/admin/editorial/artigos/import-source-image", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          year: packageLocation.year,
+          month: packageLocation.month,
+          packageId: packageLocation.packageId,
+          position: candidate.position,
+        }),
+      });
+      const payload = await response.json().catch(() => null) as SourceImageImportResponse | null;
+
+      if (!response.ok || !payload?.publicUrl) {
+        throw new Error(payload?.error || "image-import-failed");
+      }
+
+      setFieldValue(formField(form, "image_url"), payload.publicUrl);
+      setSelectedImagePosition(candidate.position);
+      setStatus(automatic
+        ? "Notícia preenchida e imagem do pacote aplicada automaticamente. Revê antes de guardar em revisão."
+        : "Imagem aplicada ao artigo. Revê antes de guardar em revisão.");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : undefined;
+      setStatus(`${sourceImageErrorMessage(code)} Podes escolher outra imagem ou usar o carregamento manual.`);
+    } finally {
+      setImportingImagePosition(null);
+    }
   };
 
   const importText = (
@@ -138,10 +219,16 @@ export default function ExternalArticleImport() {
       return false;
     }
 
+    clearSourceImages();
     return importArticle(parsed.value, confirmReplacement);
   };
 
   useEffect(() => {
+    if (preparedTransferHandledRef.current) {
+      return;
+    }
+    preparedTransferHandledRef.current = true;
+
     const url = new URL(window.location.href);
     if (url.searchParams.get("import_external") !== "1") {
       return;
@@ -150,20 +237,46 @@ export default function ExternalArticleImport() {
     const stored = window.localStorage.getItem(
       EDITORIAL_EXTERNAL_ARTICLE_STORAGE_KEY,
     );
-    const article = stored
-      ? parseStoredEditorialExternalArticle(stored)
+    const transfer = stored
+      ? parseStoredEditorialExternalArticleTransfer(stored)
       : null;
 
     window.localStorage.removeItem(EDITORIAL_EXTERNAL_ARTICLE_STORAGE_KEY);
     removeImportQueryParameter();
 
-    if (!article) {
+    if (!transfer) {
       setStatus("A notícia preparada já não está disponível. Cola novamente a resposta no campo abaixo.");
       window.requestAnimationFrame(() => manualResponseRef.current?.focus());
       return;
     }
 
-    importArticle(article, false);
+    if (!importArticle(transfer.article, false)) {
+      return;
+    }
+
+    setSourcePackage(transfer.sourcePackage);
+    setImageCandidates(transfer.imageCandidates);
+
+    if (
+      transfer.sourcePackage
+      && transfer.imageCandidates.length === 1
+    ) {
+      void importSourceImage(
+        transfer.imageCandidates[0],
+        transfer.sourcePackage,
+        true,
+      );
+      return;
+    }
+
+    if (
+      transfer.sourcePackage
+      && transfer.imageCandidates.length > 1
+    ) {
+      setStatus(
+        `Notícia preenchida. O pacote tem ${transfer.imageCandidates.length} imagens: escolhe uma abaixo.`,
+      );
+    }
   }, []);
 
   const importFromClipboard = async () => {
@@ -235,6 +348,41 @@ export default function ExternalArticleImport() {
           {reading ? "A importar…" : "Preencher a partir do clipboard"}
         </button>
       </div>
+
+      {sourcePackage && imageCandidates.length > 0 ? (
+        <section className="article-admin-external-images" aria-label="Imagens do pacote de fontes">
+          <div className="article-admin-external-images-heading">
+            <strong>Imagem do pacote</strong>
+            <small>
+              {imageCandidates.length === 1
+                ? "A única imagem disponível é aplicada automaticamente."
+                : "Escolhe uma imagem. Nenhuma é selecionada arbitrariamente."}
+            </small>
+          </div>
+          <div className="article-admin-external-images-grid">
+            {imageCandidates.map((candidate) => {
+              const isLoading = importingImagePosition === candidate.position;
+              const isSelected = selectedImagePosition === candidate.position;
+
+              return (
+                <button
+                  key={`${candidate.position}-${candidate.imageUrl}`}
+                  type="button"
+                  className="article-admin-external-image-option"
+                  data-selected={isSelected ? "true" : undefined}
+                  onClick={() => void importSourceImage(candidate, sourcePackage)}
+                  disabled={importingImagePosition !== null}
+                >
+                  <img src={candidate.imageUrl} alt="" />
+                  <span>{candidate.sourceCode}</span>
+                  <strong>{candidate.articleTitle}</strong>
+                  <small>{isLoading ? "A aplicar…" : isSelected ? "Aplicada" : "Usar esta imagem"}</small>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <label className="article-admin-external-import-paste">
         <span>Resposta da IA</span>
