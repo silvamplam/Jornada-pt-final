@@ -224,14 +224,14 @@ async function readPublishedMatchdayLatestNews(matchdayId: string) {
     return fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
       `matchday_latest_news?select=id,matchday_id,time_label,time_label_color,title,subtitle,image_url,link_url,article_id,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
-      )}&status=eq.published&order=sort_order.asc&limit=20`
+      )}&status=eq.published&order=sort_order.asc`
     );
   } catch {
     try {
       return fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
         `matchday_latest_news?select=id,matchday_id,time_label,title,image_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
           matchdayId
-        )}&status=eq.published&order=sort_order.asc&limit=20`
+        )}&status=eq.published&order=sort_order.asc`
       );
     } catch {
       return [];

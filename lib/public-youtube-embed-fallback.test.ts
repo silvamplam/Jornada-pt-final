@@ -35,6 +35,10 @@ test("o player publico troca erros de embed por thumbnail e ligacao ao YouTube",
   assert.match(player, /Ver vídeo no YouTube/);
   assert.match(player, /href=\{watchUrl\}/);
   assert.match(player, /https:\/\/www\.youtube\.com\/iframe_api/);
+  assert.match(player, /document\.createElement\("div"\)/);
+  assert.match(player, /container\.replaceChildren\(host\)/);
+  assert.match(player, /container\.replaceChildren\(\)/);
+  assert.doesNotMatch(player, /new api\.Player\(playerHostRef\.current/);
   assert.match(roundup, /<YouTubeEmbedWithFallback/);
   assert.match(layout, /<YouTubeEmbedWithFallback/g);
   assert.match(contentPage, /<YouTubeEmbedWithFallback/);

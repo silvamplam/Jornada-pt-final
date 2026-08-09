@@ -13,7 +13,6 @@ import {
 import { syncCurrentPublishedReferenceCompositionNewsFlow } from "@/lib/editorial-current-reference-composition-sync";
 import { fetchSupabaseAdminTable, writeSupabaseAdmin } from "@/lib/supabase";
 
-const LATEST_NEWS_MAX_ITEMS = 20;
 const HIGHLIGHT_SORT_ORDERS = [1, 2, 3] as const;
 
 export class EditorialMatchdayNewsFlowError extends Error {
@@ -193,7 +192,7 @@ async function readLatestNewsRows(matchdayId: string) {
   return fetchSupabaseAdminTable<LatestNewsRow>(
     `matchday_latest_news?select=id,article_id,time_label,title,subtitle,image_url,link_url,sort_order,status,created_at&matchday_id=eq.${encodeURIComponent(
       matchdayId,
-    )}&order=sort_order.asc&limit=${LATEST_NEWS_MAX_ITEMS}`,
+    )}&order=sort_order.asc`,
   );
 }
 
@@ -277,13 +276,6 @@ export async function ensurePublishedArticleInLatest(matchdayId: string, article
       body: JSON.stringify(payload),
     });
   } else {
-    if (rows.length >= LATEST_NEWS_MAX_ITEMS) {
-      throw new EditorialMatchdayNewsFlowError(
-        "news-flow-latest-full",
-        `Últimas atingiu o limite técnico atual de ${LATEST_NEWS_MAX_ITEMS} notícias. Transfere ou retira uma antes de publicar outra.`,
-      );
-    }
-
     await writeSupabaseAdmin("matchday_latest_news", {
       method: "POST",
       body: JSON.stringify({

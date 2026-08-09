@@ -99,3 +99,22 @@ test("a composição publicada atual continua sincronizada depois das mudanças 
   assert.ok(flowSource.includes("await syncCurrentPublishedReferenceCompositionNewsFlow(input.matchdayId);"));
   assert.ok(gestorRouteSource.includes("NEWS_FLOW_REFERENCE_SYNC_ACTIONS"));
 });
+
+test("Últimas deixa de ter um teto editorial fixo de 20 notícias", () => {
+  const publicMatchdaySource = source("lib/public-matchday.ts");
+  const editorialPageSource = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
+  const gestorSource = source("app/api/admin/gestor/route.ts");
+  const compositionPageSource = source("app/admin/editorial/composicao/[matchdayId]/page.tsx");
+  const compositionRouteSource = source("app/api/admin/editorial/composicao/route.ts");
+
+  assert.equal(flowSource.includes("LATEST_NEWS_MAX_ITEMS"), false);
+  assert.equal(flowSource.includes("news-flow-latest-full"), false);
+  assert.doesNotMatch(flowSource, /matchday_latest_news[^`]*limit=20/);
+  assert.doesNotMatch(publicMatchdaySource, /matchday_latest_news[^`]*limit=20/);
+  assert.doesNotMatch(editorialPageSource, /matchday_latest_news[^`]*limit=20/);
+  assert.match(editorialPageSource, /buildLatestNewsEditorSortOrders/);
+  assert.match(gestorSource, /latestNewsSortOrdersFromFormData/);
+  assert.doesNotMatch(gestorSource, /LATEST_NEWS_EDITOR_SORT_ORDERS/);
+  assert.doesNotMatch(compositionPageSource, /matchday_latest_news[^`]*limit=50/);
+  assert.doesNotMatch(compositionRouteSource, /matchday_latest_news[^`]*limit=50/);
+});

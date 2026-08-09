@@ -47,7 +47,6 @@ import {
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 const ROUNDUP_EDITOR_SORT_ORDERS = Array.from({ length: 10 }, (_, index) => index + 1);
-const LATEST_NEWS_EDITOR_SORT_ORDERS = Array.from({ length: 20 }, (_, index) => index + 1);
 const NEWS_FLOW_REFERENCE_SYNC_ACTIONS = new Set([
   "save_matchday_headline",
   "save_matchday_complement",
@@ -83,6 +82,18 @@ function cleanInteger(value: FormDataEntryValue | null): number | null {
 
   const parsed = Number.parseInt(text, 10);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function latestNewsSortOrdersFromFormData(formData: FormData) {
+  return Array.from(
+    new Set(
+      Array.from(formData.keys())
+        .map((key) => /^latest_news_(\d+)_/.exec(key)?.[1] ?? null)
+        .filter((value): value is string => Boolean(value))
+        .map(Number)
+        .filter((value) => Number.isInteger(value) && value > 0)
+    )
+  ).sort((first, second) => first - second);
 }
 
 function cleanScore(value: FormDataEntryValue | null): number | null {
@@ -1606,7 +1617,7 @@ async function saveMatchdayLatestNews(formData: FormData) {
     })
   });
 
-  for (const sortOrder of LATEST_NEWS_EDITOR_SORT_ORDERS) {
+  for (const sortOrder of latestNewsSortOrdersFromFormData(formData)) {
     const newsId = cleanText(formData.get(`latest_news_${sortOrder}_id`));
     const timeLabel = cleanText(formData.get(`latest_news_${sortOrder}_time_label`));
     const timeLabelColor = cleanHexColor(formData.get(`latest_news_${sortOrder}_time_label_color`));
@@ -1676,7 +1687,7 @@ async function saveMatchdayLatestNewsItem(formData: FormData) {
   const sortOrder = cleanInteger(formData.get("latest_news_sort_order"));
   const newsId = cleanText(formData.get("latest_news_id"));
 
-  if (!matchdayId || !sortOrder || !LATEST_NEWS_EDITOR_SORT_ORDERS.includes(sortOrder)) {
+  if (!matchdayId || !sortOrder || sortOrder < 1) {
     throw new Error("missing-fields");
   }
 

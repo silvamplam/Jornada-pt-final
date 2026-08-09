@@ -2168,6 +2168,7 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
         </div>
         <div className="manager-hero-actions">
           <a href="/admin/editorial/home">HOME EDITORIAL</a>
+          <a href="/admin/editorial/redacao-automatica">REDAÇÃO AUTOMÁTICA</a>
           <a href="/admin/editorial/artigos">ARTIGOS / NOTÍCIAS</a>
           <a href="/admin/editorial/conteudos">VÍDEO</a>
           {matchdayEditorialHref ? (

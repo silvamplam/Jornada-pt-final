@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { EditorialColorInput } from "./EditorialColorPresets";
+
 import EditorialHorizontalNewsSourceSelect from "./EditorialHorizontalNewsSourceSelect";
 
 export type EditorialHorizontalNewsAdminItem = {
@@ -273,16 +275,16 @@ export default function EditorialHorizontalNewsEditor({
                   <span>Antetitulo</span>
                   <input form={formId} data-horizontal-news-field="label" name="horizontal_news_label" defaultValue={item?.label ?? ""} />
                 </label>
-                <label className="horizontal-news-admin-field">
+                <div className="horizontal-news-admin-field">
                   <span>Cor do antetitulo</span>
-                  <input
+                  <EditorialColorInput
                     form={formId}
                     name="horizontal_news_label_color"
                     defaultValue={item?.labelColor ?? ""}
                     placeholder="#c40000"
-                    pattern="^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$"
+                    pattern="^#[0-9A-Fa-f]{6}$"
                   />
-                </label>
+                </div>
                 <label className="horizontal-news-admin-field is-wide">
                   <span>Titulo</span>
                   <input form={formId} data-horizontal-news-field="title" name="horizontal_news_title" defaultValue={item?.title ?? ""} />

@@ -76,7 +76,8 @@ export function buildEditorialHorizontalNewsRows<T>(
   let offset = 0;
 
   for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    const rowSize = baseRowSize + (rowIndex < rowsWithExtraItem ? 1 : 0);
+    const firstRowWithExtraItem = rowCount - rowsWithExtraItem;
+    const rowSize = baseRowSize + (rowIndex >= firstRowWithExtraItem ? 1 : 0);
     rows.push(items.slice(offset, offset + rowSize));
     offset += rowSize;
   }
