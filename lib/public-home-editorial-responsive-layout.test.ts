@@ -311,6 +311,14 @@ test("o resumo de video controla internamente as duas colunas sem offsets herdad
 
   assert.match(
     roundup,
+    /\.public-roundup-video-layout \{[\s\S]*?display:\s*grid !important;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\);[\s\S]*?row-gap:\s*12px;/
+  );
+  assert.match(
+    roundup,
+    /\.public-roundup-video-layout \.public-roundup-zone-heading \{[\s\S]*?height:\s*14px;[\s\S]*?min-height:\s*14px;[\s\S]*?margin:\s*0;/
+  );
+  assert.match(
+    roundup,
     /\.public-roundup-video-content \{[\s\S]*?grid-template-columns:\s*minmax\(0, 340px\) minmax\(0, 1fr\);[\s\S]*?gap:\s*24px;[\s\S]*?align-items:\s*start;/
   );
   assert.match(
@@ -341,11 +349,25 @@ test("o traco do video ativo entra no alinhamento dos Destaques e o espaco morto
   );
 });
 
-test("o complemento sobe seis pixels no desktop quando partilha a linha com o video", () => {
+test("video e complemento partilham uma geometria vertical unica em Home e Jornada", () => {
   const layout = readFileSync("components/public/PublicEditorialLayout.tsx", "utf8");
 
+  assert.doesNotMatch(layout, /margin-top:\s*-6px/);
+  assert.doesNotMatch(layout, /reserveHeadingSpace=\{scope === "matchday"/);
   assert.match(
     layout,
-    /@media \(min-width:\s*1181px\) \{[\s\S]*?public-matchday-depth-row:not\(\.public-matchday-depth-row-single\) > \.public-below-headline-side \{[\s\S]*?margin-top:\s*-6px;/
+    /public-matchday-depth-row:not\(\.public-matchday-depth-row-single\) > \.public-below-headline-side \{[\s\S]*?margin-top:\s*0;/
+  );
+  assert.match(
+    layout,
+    /public-matchday-depth-row:not\(\.public-matchday-depth-row-single\) \.public-roundup-zone-heading,[\s\S]*?> \.public-below-headline-side > \.public-editorial-section-title \{[\s\S]*?height:\s*14px;[\s\S]*?min-height:\s*14px;[\s\S]*?margin:\s*0;[\s\S]*?line-height:\s*14px;/
+  );
+  assert.match(
+    layout,
+    /<PublicRoundupSummary data=\{belowHeadline\} reserveHeadingSpace=\{hasRoundupSummary && hasComplementary\} \/>/
+  );
+  assert.match(
+    layout,
+    /<PublicComplementaryBlock[\s\S]*?reserveHeadingSpace=\{hasRoundupSummary && hasComplementary\}/
   );
 });

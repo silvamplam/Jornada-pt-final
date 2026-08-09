@@ -306,8 +306,6 @@ function CompactMatchCard({
   const hasScheduledFooterTime = Boolean(
     visualVariant === "clean"
       && kind === "scheduled"
-      && presentation.showChannel
-      && broadcastChannelName
       && scheduleTimeVisual
   );
   const scheduleDateOnlyContent = scheduleDateVisual
@@ -537,12 +535,14 @@ function CompactMatchCard({
                 <span className={styles.cleanScheduledTime} aria-hidden="true">
                   {scheduleTimeVisual}
                 </span>
-                <PublicMatchMeta
-                  channelLogoUrl={match.broadcastChannel?.logo_url}
-                  channelName={broadcastChannelName}
-                  dateTime={<span aria-hidden="true" />}
-                  variant="compact"
-                />
+                {presentation.showChannel && broadcastChannelName ? (
+                  <PublicMatchMeta
+                    channelLogoUrl={match.broadcastChannel?.logo_url}
+                    channelName={broadcastChannelName}
+                    dateTime={<span aria-hidden="true" />}
+                    variant="compact"
+                  />
+                ) : null}
               </>
             ) : (
               <PublicMatchMeta
