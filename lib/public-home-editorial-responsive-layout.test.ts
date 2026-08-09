@@ -299,7 +299,7 @@ test("o resumo de video e o complemento usam o mesmo nivel e a mesma tipografia"
   );
   assert.match(
     roundup,
-    /\.public-roundup-video-layout \.public-roundup-zone-heading \{[\s\S]*?font-family:\s*Arial, Helvetica, sans-serif;[\s\S]*?font-size:\s*14px;[\s\S]*?font-weight:\s*900;[\s\S]*?line-height:\s*1;[\s\S]*?text-transform:\s*uppercase;/
+    /\.public-roundup-video-layout \.public-roundup-zone-heading \{[\s\S]*?font-family:\s*Arial, Helvetica, sans-serif;[\s\S]*?font-size:\s*14px;[\s\S]*?font-weight:\s*900;[\s\S]*?line-height:\s*1;[\s\S]*?text-transform:\s*none;/
   );
   assert.match(roundup, /\.public-roundup-video-content > \.public-matchday-roundup \{[\s\S]*?gap:\s*12px;/);
   assert.match(roundup, /\.public-roundup-video-content > \.public-roundup-video-panel \{[\s\S]*?padding:\s*0 !important;/);
@@ -369,5 +369,27 @@ test("video e complemento partilham uma geometria vertical unica em Home e Jorna
   assert.match(
     layout,
     /<PublicComplementaryBlock[\s\S]*?reserveHeadingSpace=\{hasRoundupSummary && hasComplementary\}/
+  );
+});
+
+test("os dois titulos de zona respeitam a capitalizacao escrita e o complemento usa duas linhas de titulo", () => {
+  const layout = readFileSync("components/public/PublicEditorialLayout.tsx", "utf8");
+  const roundup = readFileSync("components/public/RoundupVideoSwitcher.tsx", "utf8");
+
+  assert.match(
+    roundup,
+    /\.public-roundup-video-layout \.public-roundup-zone-heading \{[\s\S]*?text-transform:\s*none;/
+  );
+  assert.match(
+    layout,
+    /public-matchday-depth-row > \.public-below-headline-side \.public-editorial-section-title \{[\s\S]*?text-transform:\s*none;/
+  );
+  assert.match(
+    layout,
+    /public-matchday-depth-row \.public-complement-body strong \{[\s\S]*?-webkit-line-clamp:\s*2;/
+  );
+  assert.match(
+    layout,
+    /public-matchday-depth-row \.public-complement-body p \{[\s\S]*?-webkit-line-clamp:\s*1;/
   );
 });

@@ -888,6 +888,7 @@ async function saveMatchdayEditorial(formData: FormData) {
   const complementaryStatus = complementaryStatusValue === "published" ? "published" : "draft";
   const complementaryRoundupItemId = cleanText(formData.get("complementary_roundup_item_id"));
   const complementaryLabel = cleanText(formData.get("complementary_label"));
+  const complementaryLabelColor = cleanHexColor(formData.get("complementary_text_color"));
   const complementaryTitle = cleanText(formData.get("complementary_title"));
   const complementaryText = cleanText(formData.get("complementary_text"));
   const complementaryImageUrl = cleanText(formData.get("complementary_image_url"));
@@ -946,6 +947,10 @@ async function saveMatchdayEditorial(formData: FormData) {
     status,
     updated_at: new Date().toISOString()
   };
+
+  if (formData.has("complementary_text_color")) {
+    editorialPayload.complementary_text_color = complementaryLabelColor;
+  }
 
   if (formData.has("roundup_video_heading")) {
     editorialPayload.roundup_video_heading = roundupVideoHeading;
@@ -1114,6 +1119,7 @@ async function saveMatchdayComplement(formData: FormData) {
   const complementaryStatusValue = cleanText(formData.get("complementary_status")) ?? "draft";
   const complementaryStatus = complementaryStatusValue === "published" ? "published" : "draft";
   const complementaryLabel = cleanText(formData.get("complementary_label"));
+  const complementaryLabelColor = cleanHexColor(formData.get("complementary_text_color"));
   const complementaryTitle = cleanText(formData.get("complementary_title"));
   const complementaryText = cleanText(formData.get("complementary_text"));
 
@@ -1142,6 +1148,7 @@ async function saveMatchdayComplement(formData: FormData) {
     : existing?.complementary_link_url ?? null;
   const complementPayload: Record<string, string | null> = {
     complementary_label: complementaryLabel,
+    complementary_text_color: complementaryLabelColor,
     complementary_title: complementaryTitle,
     complementary_text: complementaryText,
     complementary_image_url: complementaryImageUrl,
