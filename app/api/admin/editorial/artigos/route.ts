@@ -7,6 +7,14 @@ import {
   safeArticleAdminReturnTo,
 } from "@/lib/admin-article-redirect";
 import {
+  missingEditorialArticleCanonicalFields,
+  type EditorialArticleCanonicalField,
+} from "@/lib/editorial-article-canonical";
+import {
+  placePublishedArticleInitially,
+  type EditorialInitialPlacement,
+} from "@/lib/editorial-matchday-news-flow";
+import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
   writeSupabaseAdmin,
@@ -20,6 +28,7 @@ type ArticleIdRow = {
 type ArticleStatusRow = {
   id: string;
   status: string | null;
+  matchday_id: string | null;
 };
 
 type CreatedArticleRow = {
@@ -146,6 +155,24 @@ function cleanEditorialAction(value: string | null): EditorialAction {
   return value === "publish" ? "publish" : "save";
 }
 
+function cleanInitialPlacement(value: FormDataEntryValue | null): EditorialInitialPlacement {
+  switch (cleanText(value)) {
+    case "headline":
+      return "headline";
+    case "editorial_line_item":
+      return "editorial_line_item";
+    case "highlight":
+      return "highlight";
+    case "complement":
+      return "complement";
+    case "important_item":
+      return "important_item";
+    default:
+      return "none";
+  }
+}
+
+
 function normalizePublishedAt(value: string | null) {
   if (!value) {
     return null;
@@ -242,7 +269,7 @@ async function assertSlugAvailable(slug: string, currentArticleId: string | null
 
 async function readArticleStatus(articleId: string) {
   const rows = await fetchSupabaseAdminTable<ArticleStatusRow>(
-    `editorial_articles?select=id,status&id=eq.${encodeURIComponent(articleId)}&limit=1`,
+    `editorial_articles?select=id,status,matchday_id&id=eq.${encodeURIComponent(articleId)}&limit=1`,
   );
 
   return rows[0] ?? null;
@@ -438,23 +465,40 @@ async function buildPayload(
 
   await assertSlugAvailable(slug, currentArticleId);
 
+  const label = cleanText(formData.get("label"));
+  const author = cleanText(formData.get("author"));
   const subtitle = cleanText(formData.get("subtitle"));
   const body = cleanText(formData.get("body")) ?? "";
   const imageUrl = cleanText(formData.get("image_url"));
-  if (targetStatus === "published" && !subtitle) {
-    throw new ArticleAdminError("missing-post-title");
-  }
-  if (targetStatus === "published" && !body) {
-    throw new ArticleAdminError("missing-body");
-  }
-  if (targetStatus === "published" && !imageUrl) {
-    throw new ArticleAdminError("missing-image");
-  }
 
   let publishedAt = normalizePublishedAt(cleanText(formData.get("published_at")));
 
   if (targetStatus === "published" && !publishedAt) {
     publishedAt = new Date().toISOString();
+  }
+
+  if (targetStatus === "published") {
+    const missing = missingEditorialArticleCanonicalFields({
+      label,
+      title,
+      subtitle,
+      body,
+      image_url: imageUrl,
+      author,
+      published_at: publishedAt,
+    });
+    const errorByField: Readonly<Partial<Record<EditorialArticleCanonicalField, string>>> = {
+      label: "missing-ante-title",
+      subtitle: "missing-post-title",
+      body: "missing-body",
+      image_url: "missing-image",
+      author: "missing-author",
+      published_at: "invalid-published-at",
+    };
+    const errorCode = missing.map((field) => errorByField[field]).find(Boolean);
+    if (errorCode) {
+      throw new ArticleAdminError(errorCode);
+    }
   }
 
   const context = await normalizeContextIds(formData);
@@ -465,8 +509,8 @@ async function buildPayload(
     slug,
     status: targetStatus,
     scope,
-    label: cleanText(formData.get("label")),
-    author: cleanText(formData.get("author")),
+    label,
+    author,
     subtitle,
     body,
     image_url: imageUrl,
@@ -493,10 +537,27 @@ async function createArticle(formData: FormData) {
   }
 
   const returnTo = safeArticleAdminReturnTo(cleanText(formData.get("return_to"))) ?? ARTICLE_ADMIN_PATH;
+
+  const initialPlacement = cleanInitialPlacement(formData.get("initial_placement"));
+  let placementError: string | null = null;
+
+  if (editorialAction === "publish" && payload.matchday_id && initialPlacement !== "none") {
+    try {
+      await placePublishedArticleInitially(payload.matchday_id, created.id, initialPlacement);
+    } catch (error) {
+      placementError = error instanceof Error ? error.message : "Não foi possível aplicar a colocação editorial escolhida.";
+    }
+  }
+
   return articleAdminRedirect(
     returnTo,
     editorialAction === "publish"
-      ? { articleId: created.id, published: "1" }
+      ? {
+          articleId: created.id,
+          published: "1",
+          placement: payload.matchday_id ? initialPlacement : "none",
+          ...(placementError ? { placement_error: "1", detail: placementError } : {}),
+        }
       : { articleId: created.id, created: "1" },
   );
 }
@@ -522,11 +583,28 @@ async function updateArticle(formData: FormData) {
     }),
   });
 
+  const isFirstPublication = editorialAction === "publish" && currentArticle.status !== "published";
+  const initialPlacement = cleanInitialPlacement(formData.get("initial_placement"));
+  let placementError: string | null = null;
+
+  if (isFirstPublication && payload.matchday_id && initialPlacement !== "none") {
+    try {
+      await placePublishedArticleInitially(payload.matchday_id, articleId, initialPlacement);
+    } catch (error) {
+      placementError = error instanceof Error ? error.message : "Não foi possível aplicar a colocação editorial escolhida.";
+    }
+  }
+
   const returnTo = safeArticleAdminReturnTo(cleanText(formData.get("return_to"))) ?? `${ARTICLE_ADMIN_PATH}?articleId=${encodeURIComponent(articleId)}`;
   return articleAdminRedirect(
     returnTo,
     editorialAction === "publish"
-      ? { articleId, published: "1" }
+      ? {
+          articleId,
+          published: "1",
+          placement: isFirstPublication && payload.matchday_id ? initialPlacement : "none",
+          ...(placementError ? { placement_error: "1", detail: placementError } : {}),
+        }
       : { articleId, saved: "1" },
   );
 }

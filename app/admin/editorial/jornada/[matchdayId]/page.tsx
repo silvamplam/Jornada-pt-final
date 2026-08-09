@@ -16,6 +16,11 @@ import {
   getEditorialPublishedSources,
   type EditorialPublishedSource
 } from "@/lib/editorial-published-sources";
+import {
+  EDITORIAL_ZONE_PRESENTATION_PROFILES,
+  projectEditorialArticleToZone,
+  type EditorialNewsFlowSlotType
+} from "@/lib/editorial-zone-presentation";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +61,7 @@ type EditorialArticleForSideBlock = {
 };
 
 const ROUNDUP_EDITOR_SORT_ORDERS = Array.from({ length: 10 }, (_, index) => index + 1);
-const LATEST_NEWS_EDITOR_SORT_ORDERS = Array.from({ length: 8 }, (_, index) => index + 1);
+const LATEST_NEWS_EDITOR_SORT_ORDERS = Array.from({ length: 20 }, (_, index) => index + 1);
 
 const editorialPageStyles = `
   body {
@@ -707,6 +712,45 @@ const editorialPageStyles = `
     display: none;
   }
 
+  .editorial-admin-transfer {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid #dce3eb;
+    border-radius: 7px;
+    background: #f8fafc;
+  }
+
+  .editorial-admin-transfer-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto;
+    gap: 8px;
+    align-items: end;
+  }
+
+  .editorial-admin-transfer label {
+    display: grid;
+    gap: 5px;
+    color: #354154;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .editorial-admin-transfer select {
+    min-height: 38px;
+    border: 1px solid #cdd6e1;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #10151b;
+    font: inherit;
+  }
+
+  .editorial-admin-transfer small {
+    color: #607086;
+    line-height: 1.4;
+  }
+
   @media (max-width: 980px) {
     .editorial-admin-shell {
       padding: 16px;
@@ -733,6 +777,10 @@ const editorialPageStyles = `
 
     .editorial-context-selector,
     .editorial-context-selector-form {
+      grid-template-columns: 1fr;
+    }
+
+    .editorial-admin-transfer-row {
       grid-template-columns: 1fr;
     }
   }
@@ -796,6 +844,144 @@ function publishedSourceComplementImageUrl(source: EditorialPublishedSource) {
 function publishedSourceOptionLabel(source: EditorialPublishedSource) {
   const sourceKind = source.source_type === "article" ? "Artigo" : publishedSourceComplementLabel(source);
   return `${cleanText(source.title) || cleanText(source.source_slug) || source.source_id} - ${sourceKind}`;
+}
+
+function publishedSourceProjection(source: EditorialPublishedSource, slotType: EditorialNewsFlowSlotType) {
+  if (source.source_type === "article") {
+    return projectEditorialArticleToZone(
+      {
+        id: source.source_id,
+        slug: source.source_slug,
+        label: source.label,
+        title: source.title,
+        subtitle: source.subtitle,
+        image_url: source.image_url,
+        author: source.author,
+        published_at: source.published_at
+      },
+      slotType
+    );
+  }
+
+  const profile = EDITORIAL_ZONE_PRESENTATION_PROFILES[slotType];
+  return {
+    label: profile.antetitleLines > 0 ? publishedSourceComplementLabel(source) : null,
+    title: cleanText(source.title) || null,
+    subtitle: profile.subtitleDefaultVisible === false ? null : publishedSourceComplementText(source) || null,
+    imageUrl: profile.showImage ? publishedSourceComplementImageUrl(source) || null : null,
+    linkUrl: cleanText(source.link_url) || null
+  };
+}
+
+type NewsTransferTargetOption = {
+  targetSlotType: EditorialNewsFlowSlotType;
+  targetId: string | null;
+  label: string;
+  confirmMessage: string | null;
+};
+
+type NewsDisplacedTargetOption = {
+  value: string;
+  label: string;
+};
+
+function transferChoiceValue(slotType: EditorialNewsFlowSlotType, targetId?: string | null) {
+  return `${slotType}::${cleanText(targetId)}`;
+}
+
+function shortTransferTitle(value?: string | null) {
+  const clean = cleanText(value);
+  if (!clean) return "conteúdo atual";
+  return clean.length > 72 ? `${clean.slice(0, 69)}…` : clean;
+}
+
+function NewsTransferControl({
+  matchdayId,
+  articleId,
+  sourceSlotType,
+  sourceId,
+  returnTo,
+  hasPlacement,
+  targetOptions,
+  displacedOptions = []
+}: {
+  matchdayId: string;
+  articleId: string | null;
+  sourceSlotType: EditorialNewsFlowSlotType;
+  sourceId: string | null;
+  returnTo: string;
+  hasPlacement: boolean;
+  targetOptions: NewsTransferTargetOption[];
+  displacedOptions?: NewsDisplacedTargetOption[];
+}) {
+  if (!hasPlacement || !sourceId) {
+    return null;
+  }
+
+  if (!articleId) {
+    return (
+      <div className="editorial-admin-transfer">
+        <small>Para transferir esta notícia entre zonas, liga-a primeiro a um artigo publicado através de “Escolher artigo”.</small>
+      </div>
+    );
+  }
+
+  const promotesFromLatest = sourceSlotType === "editorial_line_item";
+  const targets = targetOptions
+    .filter((option) => option.targetSlotType !== sourceSlotType)
+    .map((option) => promotesFromLatest && option.targetId
+      ? {
+          ...option,
+          label: option.label.replace("trocar com", "substituir"),
+          confirmMessage: "Esta zona está ocupada. A notícia que lá está será enviada para o destino que escolheste. Continuar?"
+        }
+      : option);
+
+  return (
+    <form action="/api/admin/gestor" className="editorial-admin-transfer" data-news-transfer-form method="post">
+      <input type="hidden" name="action_type" value="transfer_matchday_news_article" />
+      <input type="hidden" name="return_to" value={returnTo} />
+      <input type="hidden" name="matchday_id" value={matchdayId} />
+      <input type="hidden" name="article_id" value={articleId} />
+      <input type="hidden" name="source_slot_type" value={sourceSlotType} />
+      <input type="hidden" name="source_id" value={sourceId} />
+      <div className="editorial-admin-transfer-row">
+        <label>
+          Transferir para
+          <select name="target_choice" defaultValue="" required>
+            <option value="" disabled>Escolher zona</option>
+            {targets.map((option) => (
+              <option
+                data-confirm-message={option.confirmMessage ?? undefined}
+                data-target-occupied={option.targetId ? "1" : "0"}
+                key={transferChoiceValue(option.targetSlotType, option.targetId)}
+                value={transferChoiceValue(option.targetSlotType, option.targetId)}
+              >
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {promotesFromLatest ? (
+          <label data-displaced-target-field hidden>
+            Enviar a notícia substituída para
+            <select name="displaced_target_choice" defaultValue="" disabled>
+              <option value="" disabled>Escolher destino</option>
+              {displacedOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <button className="editorial-admin-button secondary" type="submit">Transferir</button>
+      </div>
+      {promotesFromLatest ? (
+        <small>Últimas mantém-se cronológica. Se substituíres uma notícia noutra zona, escolhe para onde vai a notícia que sai; ela nunca regressa automaticamente a Últimas.</small>
+      ) : (
+        <small>Se a zona estiver ocupada, escolhes exatamente a notícia com que queres trocar. As duas mudam de zona; nenhum artigo original é reescrito.</small>
+      )}
+    </form>
+  );
 }
 
 async function readFirst<T>(path: string): Promise<T | null> {
@@ -946,13 +1132,13 @@ async function readMatchdayLatestNews(matchdayId: string): Promise<SupabaseMatch
     return await fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
       `matchday_latest_news?select=id,matchday_id,time_label,time_label_color,title,subtitle,image_url,link_url,article_id,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
-      )}&order=sort_order.asc&limit=8`
+      )}&order=sort_order.asc&limit=20`
     );
   } catch {
     return fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
       `matchday_latest_news?select=id,matchday_id,time_label,title,image_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
-      )}&order=sort_order.asc&limit=8`
+      )}&order=sort_order.asc&limit=20`
     ).catch(() => []);
   }
 }
@@ -980,6 +1166,7 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     save_matchday_latest_news: "Últimas guardadas. ✓",
     save_matchday_latest_news_item: "Notícia guardada. ✓",
     save_matchday_horizontal_news_item: "Notícia guardada. ✓",
+    transfer_matchday_news_article: "Notícia transferida. ✓",
     upload_matchday_editorial_image: "Imagem da manchete carregada. ✓",
     upload_matchday_highlight_image: "Imagem da notícia carregada. ✓"
   };
@@ -987,7 +1174,8 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     manchete: {
       save_matchday_headline: "Manchete guardada. ✓",
       save_matchday_editorial: "Manchete guardada. ✓",
-      upload_matchday_editorial_image: "Imagem da manchete carregada. ✓"
+      upload_matchday_editorial_image: "Imagem da manchete carregada. ✓",
+      transfer_matchday_news_article: "Notícia transferida. ✓"
     },
     composicao: {
       save_matchday_below_headline: "3 notícias guardadas. ✓",
@@ -1000,7 +1188,8 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     destaques: {
       save_matchday_highlights: "3 notícias guardadas. ✓",
       save_matchday_highlight_item: "Notícia guardada. ✓",
-      upload_matchday_highlight_image: "Imagem da notícia carregada. ✓"
+      upload_matchday_highlight_image: "Imagem da notícia carregada. ✓",
+      transfer_matchday_news_article: "Notícia transferida. ✓"
     },
     "resumo-jornada": {
       save_matchday_roundup_items: "Vídeos guardados. ✓",
@@ -1008,15 +1197,18 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
       save_matchday_roundup_item: "Vídeo guardado. ✓"
     },
     "faixa-horizontal": {
-      save_matchday_horizontal_news_item: "Notícia guardada. ✓"
+      save_matchday_horizontal_news_item: "Notícia guardada. ✓",
+      transfer_matchday_news_article: "Notícia transferida. ✓"
     },
     "bloco-complementar": {
       save_matchday_complement: "Notícia ao lado do vídeo guardada. ✓",
-      save_matchday_editorial: "Notícia ao lado do vídeo guardada. ✓"
+      save_matchday_editorial: "Notícia ao lado do vídeo guardada. ✓",
+      transfer_matchday_news_article: "Notícia transferida. ✓"
     },
     "ultimas-noticias": {
       save_matchday_latest_news: "Últimas guardadas. ✓",
-      save_matchday_latest_news_item: "Notícia guardada. ✓"
+      save_matchday_latest_news_item: "Notícia guardada. ✓",
+      transfer_matchday_news_article: "Notícia transferida. ✓"
     }
   };
   const errorLabels: Record<string, string> = {
@@ -1033,6 +1225,7 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     "editorial-image-size": "A imagem nao pode ter mais de 5MB.",
     "editorial-image-upload": "Nao foi possivel carregar a imagem. Confirma o bucket de Storage.",
     "latest-news-save-failed": "Não foi possível guardar as Últimas.",
+    "news-flow-transfer-failed": "Não foi possível transferir a notícia.",
     save: "Nao foi possivel guardar. Confirma se a base de dados esta atualizada."
   };
 
@@ -1069,6 +1262,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const feedbackItem = oneParam(query, "feedback_item");
   const latestNewsErrorDetail = oneParam(query, "latest_news_error_detail");
   const horizontalNewsErrorDetail = oneParam(query, "horizontal_news_error_detail");
+  const newsFlowErrorDetail = oneParam(query, "news_flow_error_detail");
   const context = await readMatchdayContext(matchdayId);
 
   if (!context) {
@@ -1100,6 +1294,14 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
     seasonId: season.id,
     matchdayId: matchday.id
   }).catch(() => []);
+  const articleIdByLink = new Map(
+    publishedSources
+      .filter((source) => source.source_type === "article")
+      .map((source) => [cleanText(source.link_url), source.source_id] as const)
+      .filter(([linkUrl]) => Boolean(linkUrl))
+  );
+  const articleIdForPlacement = (linkUrl?: string | null, explicitArticleId?: string | null) =>
+    cleanText(explicitArticleId) || articleIdByLink.get(cleanText(linkUrl)) || null;
   const sideBlockArticleOptions = publishedEditorialArticles.filter((article) => articlePublicHref(article));
   const belowHeadlineMode = editorial?.below_headline_mode === "roundup" ? "roundup" : "highlights";
   const roundupMode = editorial?.complementary_mode === "roundup_video" ? "roundup_video" : "none";
@@ -1130,15 +1332,18 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const selectorCompetitionById = new Map(contextSelector.competitions.map((item) => [item.id, item]));
   const selectorSeasonById = new Map(contextSelector.seasons.map((item) => [item.id, item]));
   const belowHeadlineSettingsFormId = "below-headline-settings-form";
-  const horizontalNewsSources = publishedSources.map((source) => ({
-    key: `${source.source_type}:${source.source_id}`,
-    optionLabel: publishedSourceOptionLabel(source),
-    label: publishedSourceComplementLabel(source),
-    title: cleanText(source.title),
-    subtitle: publishedSourceComplementText(source),
-    imageUrl: publishedSourceComplementImageUrl(source),
-    linkUrl: cleanText(source.link_url)
-  }));
+  const horizontalNewsSources = publishedSources.map((source) => {
+    const projection = publishedSourceProjection(source, "important_item");
+    return {
+      key: `${source.source_type}:${source.source_id}`,
+      optionLabel: publishedSourceOptionLabel(source),
+      label: projection.label ?? "",
+      title: projection.title ?? "",
+      subtitle: projection.subtitle ?? "",
+      imageUrl: projection.imageUrl ?? "",
+      linkUrl: projection.linkUrl ?? ""
+    };
+  });
   const horizontalNewsEditorItems = horizontalNews.map((item) => ({
     id: item.id,
     sortOrder: item.sort_order,
@@ -1154,6 +1359,99 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const horizontalNewsOpenOrder = horizontalNewsEditorOrders.find(
     (order) => feedbackScope === "faixa-horizontal" && feedbackItem === `horizontal-news-${paddedOrder(order)}`
   ) ?? null;
+
+  const newsTransferTargetOptions: NewsTransferTargetOption[] = [];
+  const headlineOccupied = Boolean(
+    cleanText(editorial?.headline_link_url)
+    || cleanText(editorial?.title)
+    || cleanText(editorial?.summary)
+    || cleanText(editorial?.image_url)
+  );
+  newsTransferTargetOptions.push({
+    targetSlotType: "headline",
+    targetId: headlineOccupied ? editorial?.id ?? null : null,
+    label: headlineOccupied
+      ? `Manchete — trocar com “${shortTransferTitle(editorial?.title)}”`
+      : "Manchete",
+    confirmMessage: headlineOccupied
+      ? `A Manchete já contém “${shortTransferTitle(editorial?.title)}”. Trocar as duas notícias de zona?`
+      : null
+  });
+
+  const occupiedHighlights = highlights.filter(
+    (item) => Boolean(cleanText(item.label) || cleanText(item.title) || cleanText(item.subtitle) || cleanText(item.image_url) || cleanText(item.link_url))
+  );
+  if (occupiedHighlights.length < 3) {
+    newsTransferTargetOptions.push({
+      targetSlotType: "highlight",
+      targetId: null,
+      label: "3 notícias abaixo da manchete",
+      confirmMessage: null
+    });
+  } else {
+    occupiedHighlights.forEach((item) => {
+      newsTransferTargetOptions.push({
+        targetSlotType: "highlight",
+        targetId: item.id,
+        label: `3 notícias — trocar com #${paddedOrder(item.sort_order)} “${shortTransferTitle(item.title)}”`,
+        confirmMessage: `As 3 notícias já estão ocupadas. Trocar de zona com “${shortTransferTitle(item.title)}”?`
+      });
+    });
+  }
+
+  const complementOccupied = Boolean(
+    cleanText(editorial?.complementary_label)
+    || cleanText(editorial?.complementary_title)
+    || cleanText(editorial?.complementary_text)
+    || cleanText(editorial?.complementary_image_url)
+    || cleanText(editorial?.complementary_link_url)
+  );
+  newsTransferTargetOptions.push({
+    targetSlotType: "complement",
+    targetId: complementOccupied ? editorial?.id ?? null : null,
+    label: complementOccupied
+      ? `Notícia ao lado do vídeo — trocar com “${shortTransferTitle(editorial?.complementary_title)}”`
+      : "Notícia ao lado do vídeo",
+    confirmMessage: complementOccupied
+      ? `A notícia ao lado do vídeo já contém “${shortTransferTitle(editorial?.complementary_title)}”. Trocar as duas notícias de zona?`
+      : null
+  });
+
+  newsTransferTargetOptions.push({
+    targetSlotType: "important_item",
+    targetId: null,
+    label: "Faixa de notícias — acrescentar",
+    confirmMessage: null
+  });
+  horizontalNews
+    .filter((item) => item.status === "published" && Boolean(cleanText(item.link_url) || cleanText(item.title)))
+    .forEach((item) => {
+      newsTransferTargetOptions.push({
+        targetSlotType: "important_item",
+        targetId: item.id,
+        label: `Faixa de notícias — trocar com #${paddedOrder(item.sort_order)} “${shortTransferTitle(item.title)}”`,
+        confirmMessage: `Trocar de zona com a notícia da Faixa “${shortTransferTitle(item.title)}”?`
+      });
+    });
+
+  const latestDisplacedTargetOptions: NewsDisplacedTargetOption[] = [
+    { value: "unplaced::", label: "Sem colocação editorial" }
+  ];
+  if (!headlineOccupied) {
+    latestDisplacedTargetOptions.push({ value: "headline::", label: "Manchete" });
+  }
+  [1, 2, 3].forEach((order) => {
+    if (!occupiedHighlights.some((item) => item.sort_order === order)) {
+      latestDisplacedTargetOptions.push({
+        value: `highlight::${order}`,
+        label: `3 notícias abaixo da manchete — posição #${paddedOrder(order)}`
+      });
+    }
+  });
+  if (!complementOccupied) {
+    latestDisplacedTargetOptions.push({ value: "complement::", label: "Notícia ao lado do vídeo" });
+  }
+  latestDisplacedTargetOptions.push({ value: "important_item::", label: "Faixa de notícias — acrescentar" });
 
   const highlightsEditor = (
     <>
@@ -1178,7 +1476,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 <input type="hidden" name="highlight_sort_order" value={order} />
               </form>
               <div className="editorial-admin-item-details-body">
-                {itemMessageFor("destaques", itemKey)}
+                {itemMessageFor("destaques", itemKey, newsFlowErrorDetail)}
                 <div className="editorial-admin-field">
                   <label htmlFor={`highlight-${order}-label`}>Antetítulo</label>
                   <input form={highlightFormId} id={`highlight-${order}-label`} name="highlight_label" defaultValue={highlight?.label ?? ""} placeholder={order === 1 ? "ANTEVISAO" : order === 2 ? "AMBIENTE" : "CONTEXTO"} />
@@ -1222,19 +1520,22 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     <label htmlFor={`highlight-${order}-article-source`}>Preencher com artigo publicado</label>
                     <select id={`highlight-${order}-article-source`} data-highlight-article-select defaultValue="">
                       <option value="">Escolher fonte publicada</option>
-                      {publishedSources.map((source) => (
-                        <option
-                          key={`${source.source_type}-${source.source_id}`}
-                          value={`${source.source_type}:${source.source_id}`}
-                          data-highlight-label={publishedSourceComplementLabel(source)}
-                          data-highlight-title={cleanText(source.title)}
-                          data-highlight-subtitle={publishedSourceComplementText(source)}
-                          data-highlight-image-url={publishedSourceComplementImageUrl(source)}
-                          data-highlight-link-url={cleanText(source.link_url)}
-                        >
-                          {publishedSourceOptionLabel(source)}
-                        </option>
-                      ))}
+                      {publishedSources.map((source) => {
+                        const projection = publishedSourceProjection(source, "highlight");
+                        return (
+                          <option
+                            key={`${source.source_type}-${source.source_id}`}
+                            value={`${source.source_type}:${source.source_id}`}
+                            data-highlight-label={projection.label ?? ""}
+                            data-highlight-title={projection.title ?? ""}
+                            data-highlight-subtitle={projection.subtitle ?? ""}
+                            data-highlight-image-url={projection.imageUrl ?? ""}
+                            data-highlight-link-url={projection.linkUrl ?? ""}
+                          >
+                            {publishedSourceOptionLabel(source)}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 </fieldset>
@@ -1266,6 +1567,15 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     Carregar imagem
                   </button>
                 </form>
+                <NewsTransferControl
+                  matchdayId={matchday.id}
+                  articleId={articleIdForPlacement(highlight?.link_url)}
+                  sourceSlotType="highlight"
+                  sourceId={highlight?.id ?? null}
+                  returnTo={returnToHighlightItem(order)}
+                  hasPlacement={highlight?.status === "published" && Boolean(cleanText(highlight?.link_url) || cleanText(highlight?.title))}
+                  targetOptions={newsTransferTargetOptions}
+                />
               </div>
             </details>
           );
@@ -1458,7 +1768,8 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
           const itemKey = `latest-news-${paddedOrder(order)}`;
           const itemAnchor = `latest-news-item-${paddedOrder(order)}`;
           return (
-            <form action="/api/admin/gestor" className="editorial-admin-form editorial-admin-item-form" data-latest-news-card={order} key={order} method="post">
+            <div key={order}>
+            <form action="/api/admin/gestor" className="editorial-admin-form editorial-admin-item-form" data-latest-news-card={order} method="post">
               <input type="hidden" name="action_type" value="save_matchday_latest_news_item" />
               <input type="hidden" name="return_to" value={returnToLatestNewsItem(order)} />
               <input type="hidden" name="matchday_id" value={matchday.id} />
@@ -1468,7 +1779,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   <span className="editorial-admin-item-status">{item?.status === "published" ? "Publicado" : "Rascunho"}</span>
                 </summary>
                 <div className="editorial-admin-item-details-body">
-                  {itemMessageFor("ultimas-noticias", itemKey, latestNewsErrorDetail)}
+                  {itemMessageFor("ultimas-noticias", itemKey, newsFlowErrorDetail || latestNewsErrorDetail)}
                   <input type="hidden" name="latest_news_id" value={item?.id ?? ""} />
                   <input type="hidden" name="latest_news_sort_order" value={order} />
                   <input type="hidden" name="latest_news_article_id" value={item?.article_id ?? ""} />
@@ -1506,18 +1817,23 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                       <label htmlFor={`latest-news-${order}-article-source`}>Preencher com artigo publicado</label>
                       <select id={`latest-news-${order}-article-source`} data-latest-news-article-select defaultValue="">
                         <option value="">Escolher fonte publicada</option>
-                        {publishedSources.map((source) => (
-                          <option
-                            key={`${source.source_type}-${source.source_id}`}
-                            value={`${source.source_type}:${source.source_id}`}
-                            data-latest-news-title={cleanText(source.title)}
-                            data-latest-news-subtitle={publishedSourceComplementText(source)}
-                            data-latest-news-image-url={publishedSourceComplementImageUrl(source)}
-                            data-latest-news-link-url={cleanText(source.link_url)}
-                          >
-                            {publishedSourceOptionLabel(source)}
-                          </option>
-                        ))}
+                        {publishedSources.map((source) => {
+                          const projection = publishedSourceProjection(source, "editorial_line_item");
+                          return (
+                            <option
+                              key={`${source.source_type}-${source.source_id}`}
+                              value={`${source.source_type}:${source.source_id}`}
+                              data-latest-news-article-id={source.source_type === "article" ? source.source_id : ""}
+                              data-latest-news-time-label={projection.label ?? ""}
+                              data-latest-news-title={projection.title ?? ""}
+                              data-latest-news-subtitle={projection.subtitle ?? ""}
+                              data-latest-news-image-url={projection.imageUrl ?? ""}
+                              data-latest-news-link-url={projection.linkUrl ?? ""}
+                            >
+                              {publishedSourceOptionLabel(source)}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                   </fieldset>
@@ -1539,6 +1855,17 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 </div>
               </details>
             </form>
+            <NewsTransferControl
+              matchdayId={matchday.id}
+              articleId={articleIdForPlacement(item?.link_url, item?.article_id)}
+              sourceSlotType="editorial_line_item"
+              sourceId={item?.id ?? null}
+              returnTo={returnToLatestNewsItem(order)}
+              hasPlacement={item?.status === "published" && Boolean(cleanText(item?.link_url) || cleanText(item?.title))}
+              targetOptions={newsTransferTargetOptions}
+              displacedOptions={latestDisplacedTargetOptions}
+            />
+            </div>
           );
         })}
       </div>
@@ -1583,7 +1910,8 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 function applyLatestNewsArticle() {
                   var option = select.options[select.selectedIndex];
                   if (!option || !option.value) return;
-                  setLatestNewsField('article_id', '');
+                  setLatestNewsField('article_id', option.dataset.latestNewsArticleId);
+                  setLatestNewsField('time_label', option.dataset.latestNewsTimeLabel);
                   setLatestNewsField('title', option.dataset.latestNewsTitle);
                   setLatestNewsField('subtitle', option.dataset.latestNewsSubtitle);
                   setLatestNewsField('image_url', option.dataset.latestNewsImageUrl);
@@ -1784,7 +2112,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             <span className="editorial-admin-zone-number">01</span>
             <h2 className="editorial-admin-zone-title">Manchete</h2>
           </header>
-          {scopedMessageFor(created, error, feedbackScope, "manchete")}
+          {scopedMessageFor(created, error, feedbackScope, "manchete", newsFlowErrorDetail)}
           <form className="editorial-admin-form" action="/api/admin/gestor" data-headline-form method="post">
             <input type="hidden" name="action_type" value="save_matchday_headline" />
             <input type="hidden" name="return_to" value={returnToManchete} />
@@ -1840,18 +2168,21 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 <label htmlFor="headline-article-source">Preencher com artigo publicado</label>
                 <select id="headline-article-source" data-headline-article-select defaultValue="">
                   <option value="">Escolher fonte publicada</option>
-                  {publishedSources.map((source) => (
-                    <option
-                      key={`${source.source_type}-${source.source_id}`}
-                      value={`${source.source_type}:${source.source_id}`}
-                      data-headline-title={cleanText(source.title)}
-                      data-headline-summary={publishedSourceComplementText(source)}
-                      data-headline-image-url={publishedSourceComplementImageUrl(source)}
-                      data-headline-link-url={cleanText(source.link_url)}
-                    >
-                      {publishedSourceOptionLabel(source)}
-                    </option>
-                  ))}
+                  {publishedSources.map((source) => {
+                    const projection = publishedSourceProjection(source, "headline");
+                    return (
+                      <option
+                        key={`${source.source_type}-${source.source_id}`}
+                        value={`${source.source_type}:${source.source_id}`}
+                        data-headline-title={projection.title ?? ""}
+                        data-headline-summary={projection.subtitle ?? ""}
+                        data-headline-image-url={projection.imageUrl ?? ""}
+                        data-headline-link-url={projection.linkUrl ?? ""}
+                      >
+                        {publishedSourceOptionLabel(source)}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </fieldset>
@@ -1939,6 +2270,15 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               Carregar imagem da manchete
             </button>
           </form>
+          <NewsTransferControl
+            matchdayId={matchday.id}
+            articleId={articleIdForPlacement(editorial?.headline_link_url)}
+            sourceSlotType="headline"
+            sourceId={editorial?.id ?? null}
+            returnTo={returnToManchete}
+            hasPlacement={editorial?.status === "published" && Boolean(cleanText(editorial?.headline_link_url) || cleanText(editorial?.title))}
+            targetOptions={newsTransferTargetOptions}
+          />
         </section>
 
         <section className="editorial-admin-panel editorial-admin-zone" id="ultimas-noticias">
@@ -1946,7 +2286,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             <span className="editorial-admin-zone-number">02</span>
             <h2 className="editorial-admin-zone-title">Últimas</h2>
           </header>
-                {scopedMessageFor(created, error, feedbackScope, "ultimas-noticias", latestNewsErrorDetail)}
+                {scopedMessageFor(created, error, feedbackScope, "ultimas-noticias", newsFlowErrorDetail || latestNewsErrorDetail)}
                 {latestNewsEditor}
         </section>
 
@@ -2174,7 +2514,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             <h2 className="editorial-admin-zone-title">Notícia ao lado do vídeo</h2>
           </header>
                 <form className="editorial-admin-form" action="/api/admin/gestor" data-complementary-form method="post">
-                  {scopedMessageFor(created, error, feedbackScope, "bloco-complementar")}
+                  {scopedMessageFor(created, error, feedbackScope, "bloco-complementar", newsFlowErrorDetail)}
                   <input type="hidden" name="action_type" value="save_matchday_complement" />
                   <input type="hidden" name="return_to" value={returnToComplementar} />
                   <input type="hidden" name="matchday_id" value={matchday.id} />
@@ -2211,19 +2551,22 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                       <label htmlFor="complementary-article-source">Preencher com artigo publicado</label>
                       <select id="complementary-article-source" data-complementary-article-select defaultValue="">
                         <option value="">Escolher fonte publicada</option>
-                        {publishedSources.map((source) => (
-                          <option
-                            key={`${source.source_type}-${source.source_id}`}
-                            value={`${source.source_type}:${source.source_id}`}
-                            data-complementary-label={publishedSourceComplementLabel(source)}
-                            data-complementary-title={cleanText(source.title)}
-                            data-complementary-text={publishedSourceComplementText(source)}
-                            data-complementary-image-url={publishedSourceComplementImageUrl(source)}
-                            data-complementary-link-url={cleanText(source.link_url)}
-                          >
-                            {publishedSourceOptionLabel(source)}
-                          </option>
-                        ))}
+                        {publishedSources.map((source) => {
+                          const projection = publishedSourceProjection(source, "complement");
+                          return (
+                            <option
+                              key={`${source.source_type}-${source.source_id}`}
+                              value={`${source.source_type}:${source.source_id}`}
+                              data-complementary-label={projection.label ?? ""}
+                              data-complementary-title={projection.title ?? ""}
+                              data-complementary-text={projection.subtitle ?? ""}
+                              data-complementary-image-url={projection.imageUrl ?? ""}
+                              data-complementary-link-url={projection.linkUrl ?? ""}
+                            >
+                              {publishedSourceOptionLabel(source)}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                     </fieldset>
@@ -2231,6 +2574,15 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     Guardar notícia
                   </button>
                 </form>
+                <NewsTransferControl
+                  matchdayId={matchday.id}
+                  articleId={articleIdForPlacement(editorial?.complementary_link_url)}
+                  sourceSlotType="complement"
+                  sourceId={editorial?.id ?? null}
+                  returnTo={returnToComplementar}
+                  hasPlacement={editorial?.complementary_status === "published" && Boolean(cleanText(editorial?.complementary_link_url) || cleanText(editorial?.complementary_title))}
+                  targetOptions={newsTransferTargetOptions}
+                />
         </section>
 
         <section className="editorial-admin-panel editorial-admin-zone" id="faixa-noticias">
@@ -2262,11 +2614,63 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   { name: "matchday_id", value: matchday.id }
                 ]}
                 messageForOrder={(order) =>
-                  itemMessageFor("faixa-horizontal", `horizontal-news-${paddedOrder(order)}`, horizontalNewsErrorDetail)
+                  itemMessageFor("faixa-horizontal", `horizontal-news-${paddedOrder(order)}`, newsFlowErrorDetail || horizontalNewsErrorDetail)
                 }
+                transferControlForOrder={(order, item) => (
+                  <NewsTransferControl
+                    matchdayId={matchday.id}
+                    articleId={articleIdForPlacement(item?.linkUrl)}
+                    sourceSlotType="important_item"
+                    sourceId={item?.id ?? null}
+                    returnTo={returnToHorizontalNewsItem(order)}
+                    hasPlacement={item?.status === "published" && Boolean(cleanText(item?.linkUrl) || cleanText(item?.title))}
+                    targetOptions={newsTransferTargetOptions}
+                  />
+                )}
                 openOrder={horizontalNewsOpenOrder}
               />
         </section>
+
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                document.querySelectorAll('[data-news-transfer-form]').forEach(function (form) {
+                  if (form.getAttribute('data-news-transfer-bound') === '1') return;
+                  form.setAttribute('data-news-transfer-bound', '1');
+                  var select = form.querySelector('select[name="target_choice"]');
+                  var displacedField = form.querySelector('[data-displaced-target-field]');
+                  var displacedSelect = form.querySelector('select[name="displaced_target_choice"]');
+
+                  function updateDisplacedDestination() {
+                    var option = select && select.selectedOptions ? select.selectedOptions[0] : null;
+                    var needsDisplacedDestination = Boolean(
+                      displacedSelect && option && option.getAttribute('data-target-occupied') === '1'
+                    );
+                    if (displacedField) displacedField.hidden = !needsDisplacedDestination;
+                    if (displacedSelect) {
+                      displacedSelect.disabled = !needsDisplacedDestination;
+                      displacedSelect.required = needsDisplacedDestination;
+                      if (!needsDisplacedDestination) displacedSelect.value = '';
+                    }
+                  }
+
+                  if (select) select.addEventListener('change', updateDisplacedDestination);
+                  updateDisplacedDestination();
+
+                  form.addEventListener('submit', function (event) {
+                    updateDisplacedDestination();
+                    var option = select && select.selectedOptions ? select.selectedOptions[0] : null;
+                    var message = option ? option.getAttribute('data-confirm-message') : '';
+                    if (message && !window.confirm(message)) {
+                      event.preventDefault();
+                    }
+                  });
+                });
+              })();
+            `
+          }}
+        />
 
         <script
           dangerouslySetInnerHTML={{
