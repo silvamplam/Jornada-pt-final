@@ -350,7 +350,7 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(actions, /Descarregar \.md —/);
   assert.match(actions, /Descarregar imagens \(\.zip\) —/);
   assert.match(actions, /Copiar fontes —/);
-  assert.match(actions, /Importar resposta e abrir Artigos/);
+  assert.match(actions, /Ler clipboard e abrir Artigos/);
   assert.doesNotMatch(actions, />\s*Ir para Artigos\s*</);
   assert.match(actions, /navigator\.clipboard/);
   assert.match(actions, /Resposta da IA/);
@@ -359,6 +359,8 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(actions, /Abrir Artigos com o texto colado/);
   assert.match(actions, /parseEditorialExternalArticleResponse/);
   assert.match(actions, /localStorage\.setItem/);
+  assert.match(actions, /window\.location\.assign\(articlesUrl\(\)\)/);
+  assert.doesNotMatch(actions, /window\.open\("about:blank"/);
   assert.match(actions, /import_external=1/);
   assert.match(page, /manifest\.genreLabel/);
   assert.match(page, /manifest\.suggestedTitle/);

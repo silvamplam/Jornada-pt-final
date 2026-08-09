@@ -146,6 +146,7 @@ const youtubeFallbackStyles = `
   .public-video-embed-fallback {
     position: absolute;
     inset: 0;
+    z-index: 3;
     display: block;
     overflow: hidden;
     color: #ffffff;
@@ -215,7 +216,7 @@ export default function YouTubeEmbedWithFallback({
   posterUrl,
   title,
 }: YouTubeEmbedWithFallbackProps) {
-  const playerHostRef = useRef<HTMLDivElement | null>(null);
+  const playerContainerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const [fallbackToYouTube, setFallbackToYouTube] = useState(false);
   const cleanVideoUrl = videoUrl?.trim() || "";
@@ -239,16 +240,24 @@ export default function YouTubeEmbedWithFallback({
       return;
     }
 
+    const container = playerContainerRef.current;
+    if (!container) {
+      return;
+    }
+
     let cancelled = false;
+    const host = document.createElement("div");
+    host.className = "public-video-embed-player-host";
+    container.replaceChildren(host);
 
     loadYouTubeIframeApi()
       .then((api) => {
-        if (cancelled || !playerHostRef.current) {
+        if (cancelled || !host.isConnected) {
           return;
         }
 
         playerRef.current?.destroy();
-        playerRef.current = new api.Player(playerHostRef.current, {
+        playerRef.current = new api.Player(host, {
           videoId: youtubeId,
           playerVars: {
             origin: window.location.origin,
@@ -278,6 +287,7 @@ export default function YouTubeEmbedWithFallback({
       cancelled = true;
       playerRef.current?.destroy();
       playerRef.current = null;
+      container.replaceChildren();
     };
   }, [youtubeId]);
 
@@ -298,6 +308,7 @@ export default function YouTubeEmbedWithFallback({
       <style>{youtubeFallbackStyles}</style>
       {fallbackPoster ? <img alt="" className="public-video-embed-poster" src={fallbackPoster} /> : null}
 
+      <div className="public-video-embed-player" ref={playerContainerRef} />
       {fallbackToYouTube && watchUrl ? (
         <a
           aria-label={`Ver ${cleanTitle} no YouTube`}
@@ -310,9 +321,7 @@ export default function YouTubeEmbedWithFallback({
           <span aria-hidden="true" className="public-video-embed-fallback-play" />
           <span className="public-video-embed-fallback-label">Ver vídeo no YouTube</span>
         </a>
-      ) : (
-        <div className="public-video-embed-player" ref={playerHostRef} />
-      )}
+      ) : null}
     </div>
   );
 }

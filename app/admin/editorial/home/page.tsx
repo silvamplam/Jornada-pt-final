@@ -1,3 +1,4 @@
+import EditorialColorPresets, { EditorialColorInput } from "@/components/admin/EditorialColorPresets";
 import EditorialHorizontalNewsEditor from "@/components/admin/EditorialHorizontalNewsEditor";
 import { buildEditorialHorizontalNewsEditorOrders } from "@/lib/editorial-horizontal-news";
 import {
@@ -1607,10 +1608,28 @@ function TextField({
   placeholder?: string;
   wide?: boolean;
 }) {
+  if (name.endsWith("_color")) {
+    return (
+      <div className={`home-admin-field${wide ? " is-wide" : ""}`}>
+        <span>{label}</span>
+        <EditorialColorInput
+          name={name}
+          defaultValue={inputValue(value)}
+          placeholder={placeholder}
+          pattern="^#[0-9A-Fa-f]{6}$"
+        />
+      </div>
+    );
+  }
+
   return (
     <label className={`home-admin-field${wide ? " is-wide" : ""}`}>
       <span>{label}</span>
-      <input name={name} defaultValue={inputValue(value)} placeholder={placeholder} />
+      <input
+        name={name}
+        defaultValue={inputValue(value)}
+        placeholder={placeholder}
+      />
     </label>
   );
 }
@@ -2019,6 +2038,7 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
   return (
     <main className="home-admin-shell">
       <style>{homeEditorialStyles}</style>
+      <EditorialColorPresets />
       <div className="home-admin-container">
         <section className="home-admin-hero">
           <div>
@@ -2030,6 +2050,7 @@ export default async function AdminEditorialHomePage({ searchParams }: PageProps
             </span>
           </div>
           <nav className="home-admin-actions" aria-label="Navegacao editorial">
+            <a href="/admin/editorial/redacao-automatica">Redação automática</a>
             <a href="/admin/editorial/artigos">Artigos / Noticias</a>
             <a href="/admin/editorial/conteudos">VÍDEO</a>
             <a href="/admin/editorial/composicao">Composicao Editorial</a>

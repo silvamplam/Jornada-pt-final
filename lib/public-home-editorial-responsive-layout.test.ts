@@ -153,12 +153,13 @@ test("destaques da manchete e resumo da jornada podem ser ativados de forma inde
 
 test("o cabeÃ§alho das Ãšltimas fica vazio quando o campo do backoffice estÃ¡ vazio", () => {
   const layout = readFileSync("components/public/PublicEditorialLayout.tsx", "utf8");
+  const latestBlock = readFileSync("components/public/PublicLatestNewsBlock.tsx", "utf8");
 
-  assert.match(layout, /const visibleTitle = title\?\.trim\(\) \?\? "";/);
-  assert.match(layout, /\{visibleTitle \? <h3[^>]*>\{visibleTitle\}<\/h3> : null\}/);
-  assert.match(layout, /<PublicLatestNewsBlock items=\{latestNews\} title=\{latestNewsTitle\} titleColor=\{latestNewsTitleColor\} \/>/);
+  assert.match(latestBlock, /const visibleTitle = title\?\.trim\(\) \?\? "";/);
+  assert.match(latestBlock, /\{visibleTitle \? <h3[^>]*>\{visibleTitle\}<\/h3> : null\}/);
+  assert.match(layout, /<PublicLatestNewsBlock items=\{latestNews\} title=\{latestNewsTitle\} titleColor=\{latestNewsTitleColor\} constrainToMainColumn=\{scope === "matchday"\} \/>/);
   assert.doesNotMatch(layout, /latestNewsTitle \|\| "Ãšltimas"/);
-  assert.doesNotMatch(layout, /title = "Ãšltimas notÃ­cias"/);
+  assert.doesNotMatch(latestBlock, /title = "Ãšltimas notÃ­cias"/);
 });
 
 test("os cabeÃ§alhos editoriais deixam de usar barras horizontais", () => {

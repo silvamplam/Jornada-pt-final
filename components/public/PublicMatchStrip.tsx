@@ -14,7 +14,9 @@ import { getPublicTeamName } from "@/lib/public-team-name";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties
 } from "react";
@@ -255,6 +257,8 @@ function CompactMatchCard({
   now: Date;
   visualVariant: PublicMatchStripVariant;
 }) {
+  const cardRef = useRef<HTMLElement>(null);
+  const homeTeamNameRef = useRef<HTMLSpanElement>(null);
   const presentation = getPublicMatchStripPresentation(match, now);
   const kind = presentation.kind;
   const broadcastChannelName = match.broadcastChannel?.name?.trim();
@@ -294,6 +298,29 @@ function CompactMatchCard({
   ) : (
     <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{schedule.visual}</span>
   );
+  const scheduledDateTimeMatch = presentation.kind === "scheduled"
+    ? /^(.*) · (\d{2}:\d{2})$/.exec(schedule.visual)
+    : null;
+  const scheduleDateVisual = scheduledDateTimeMatch?.[1] ?? null;
+  const scheduleTimeVisual = scheduledDateTimeMatch?.[2] ?? null;
+  const hasScheduledFooterTime = Boolean(
+    visualVariant === "clean"
+      && kind === "scheduled"
+      && presentation.showChannel
+      && broadcastChannelName
+      && scheduleTimeVisual
+  );
+  const scheduleDateOnlyContent = scheduleDateVisual
+    ? schedule.dateTime
+      ? (
+        <time className="public-matchday-mini-time" dateTime={schedule.dateTime} aria-label={schedule.accessible}>
+          {scheduleDateVisual}
+        </time>
+      )
+      : (
+        <span className="public-matchday-mini-time" aria-label={schedule.accessible}>{scheduleDateVisual}</span>
+      )
+    : scheduleContent;
   const statusContent = presentation.status.kind === "live" ? (
     <span
       aria-label={`${presentation.statusLabel}${activeScore ? `. Resultado ${match.home_score} a ${match.away_score}` : ""}${presentation.status.minute !== null ? `. Minuto ${presentation.status.minute}` : ""}`}
@@ -370,7 +397,7 @@ function CompactMatchCard({
         {cleanStateLabel}
       </span>
     </span>
-  ) : scheduleContent;
+  ) : hasScheduledFooterTime ? scheduleDateOnlyContent : scheduleContent;
   const cleanScoreText = activeScore ?? finishedScoreText;
   const cleanScoreContent = cleanScoreText ? (
     <strong
@@ -393,10 +420,58 @@ function CompactMatchCard({
       ? `${styles.broadcast} ${styles.cleanActiveFooter} ${
           hasCleanBroadcast ? "" : styles.cleanActiveFooterWithoutBroadcast
         }`
-      : styles.broadcast;
+      : hasScheduledFooterTime
+        ? `${styles.broadcast} ${styles.cleanScheduledFooterWithTime}`
+        : styles.broadcast;
+
+  const syncCleanHeaderAlignment = useCallback(() => {
+    if (visualVariant !== "clean") return;
+
+    const card = cardRef.current;
+    const homeName = homeTeamNameRef.current;
+    if (!card || !homeName) return;
+
+    const cardRect = card.getBoundingClientRect();
+    const homeNameRect = homeName.getBoundingClientRect();
+    const cardStyle = window.getComputedStyle(card);
+    const borderLeft = Number.parseFloat(cardStyle.borderLeftWidth) || 0;
+    const paddingLeft = Number.parseFloat(cardStyle.paddingLeft) || 0;
+    const contentLeft = cardRect.left + borderLeft + paddingLeft;
+    const inlineStart = homeNameRect.left - contentLeft;
+
+    card.style.setProperty(
+      "--match-card-status-inline-start",
+      `${Math.round(inlineStart * 100) / 100}px`
+    );
+  }, [homeCompactName, visualVariant]);
+
+  useLayoutEffect(() => {
+    if (visualVariant !== "clean") return;
+
+    syncCleanHeaderAlignment();
+
+    const card = cardRef.current;
+    const homeName = homeTeamNameRef.current;
+    const observer = typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(syncCleanHeaderAlignment);
+
+    if (card) observer?.observe(card);
+    if (homeName) observer?.observe(homeName);
+
+    if (!observer) {
+      window.addEventListener("resize", syncCleanHeaderAlignment);
+    }
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", syncCleanHeaderAlignment);
+    };
+  }, [syncCleanHeaderAlignment, visualVariant]);
 
   return (
     <article
+      ref={cardRef}
       className={`${styles.card} public-matchday-mini-card public-matchday-mini-card-${kind}`}
       data-live-focus={focus ? "true" : undefined}
       data-public-match-card
@@ -410,7 +485,7 @@ function CompactMatchCard({
         <TeamBadge team={match.awayTeam} />
       </span>
       <span className={styles.teamNames} data-public-match-team-names="coordinated">
-        <span className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
+        <span ref={homeTeamNameRef} className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
         <span
           className={styles.teamName}
           data-public-match-away-name
@@ -457,12 +532,26 @@ function CompactMatchCard({
       {visualVariant === "clean" ? (
         <span className={cleanFooterClassName} data-public-match-broadcast>
           {kind === "scheduled" ? (
-            <PublicMatchMeta
-              channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
-              channelName={presentation.showChannel ? broadcastChannelName : null}
-              dateTime={<span aria-hidden="true" />}
-              variant="compact"
-            />
+            hasScheduledFooterTime ? (
+              <>
+                <span className={styles.cleanScheduledTime} aria-hidden="true">
+                  {scheduleTimeVisual}
+                </span>
+                <PublicMatchMeta
+                  channelLogoUrl={match.broadcastChannel?.logo_url}
+                  channelName={broadcastChannelName}
+                  dateTime={<span aria-hidden="true" />}
+                  variant="compact"
+                />
+              </>
+            ) : (
+              <PublicMatchMeta
+                channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
+                channelName={presentation.showChannel ? broadcastChannelName : null}
+                dateTime={<span aria-hidden="true" />}
+                variant="compact"
+              />
+            )
           ) : (
             <>
               {cleanScoreContent}

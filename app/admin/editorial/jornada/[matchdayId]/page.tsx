@@ -1,3 +1,4 @@
+import EditorialColorPresets, { EditorialColorInput } from "@/components/admin/EditorialColorPresets";
 import EditorialHorizontalNewsEditor from "@/components/admin/EditorialHorizontalNewsEditor";
 import { buildEditorialHorizontalNewsEditorOrders } from "@/lib/editorial-horizontal-news";
 import {
@@ -61,7 +62,19 @@ type EditorialArticleForSideBlock = {
 };
 
 const ROUNDUP_EDITOR_SORT_ORDERS = Array.from({ length: 10 }, (_, index) => index + 1);
-const LATEST_NEWS_EDITOR_SORT_ORDERS = Array.from({ length: 20 }, (_, index) => index + 1);
+
+function buildLatestNewsEditorSortOrders(items: SupabaseMatchdayLatestNews[]) {
+  const existingOrders = Array.from(
+    new Set(
+      items
+        .map((item) => item.sort_order)
+        .filter((sortOrder) => Number.isInteger(sortOrder) && sortOrder > 0)
+    )
+  ).sort((first, second) => first - second);
+  const nextOrder = (existingOrders.at(-1) ?? 0) + 1;
+
+  return [...existingOrders, nextOrder];
+}
 
 const editorialPageStyles = `
   body {
@@ -1132,13 +1145,13 @@ async function readMatchdayLatestNews(matchdayId: string): Promise<SupabaseMatch
     return await fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
       `matchday_latest_news?select=id,matchday_id,time_label,time_label_color,title,subtitle,image_url,link_url,article_id,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
-      )}&order=sort_order.asc&limit=20`
+      )}&order=sort_order.asc`
     );
   } catch {
     return fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
       `matchday_latest_news?select=id,matchday_id,time_label,title,image_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
-      )}&order=sort_order.asc&limit=20`
+      )}&order=sort_order.asc`
     ).catch(() => []);
   }
 }
@@ -1287,6 +1300,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const highlights = await readMatchdayHighlights(matchday.id);
   const roundupItems = await readMatchdayRoundupItems(matchday.id);
   const latestNews = await readMatchdayLatestNews(matchday.id);
+  const latestNewsEditorSortOrders = buildLatestNewsEditorSortOrders(latestNews);
   const horizontalNews = await readMatchdayHorizontalNews(matchday.id);
   const publishedEditorialArticles = await readPublishedEditorialArticles();
   const publishedSources = await getEditorialPublishedSources({
@@ -1483,7 +1497,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 </div>
                 <div className="editorial-admin-field">
                   <label htmlFor={`highlight-${order}-label-color`}>Cor do antetitulo</label>
-                  <input
+                  <EditorialColorInput
                     form={highlightFormId}
                     id={`highlight-${order}-label-color`}
                     name="highlight_label_color"
@@ -1748,7 +1762,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             </div>
             <div className="editorial-admin-field">
               <label htmlFor="latest-zone-title-color">Cor do título da zona</label>
-              <input
+              <EditorialColorInput
                 id="latest-zone-title-color"
                 name="latest_zone_title_color"
                 defaultValue={editorial?.latest_zone_title_color ?? ""}
@@ -1763,7 +1777,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         </fieldset>
       </form>
       <div className="editorial-admin-compact-stack">
-        {LATEST_NEWS_EDITOR_SORT_ORDERS.map((order) => {
+        {latestNewsEditorSortOrders.map((order) => {
           const item = latestNews.find((newsItem) => newsItem.sort_order === order);
           const itemKey = `latest-news-${paddedOrder(order)}`;
           const itemAnchor = `latest-news-item-${paddedOrder(order)}`;
@@ -1793,7 +1807,13 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   </div>
                   <div className="editorial-admin-field">
                     <label htmlFor={`latest-news-${order}-time-label-color`}>Cor do antetitulo</label>
-                    <input id={`latest-news-${order}-time-label-color`} name="latest_news_time_label_color" defaultValue={item?.time_label_color ?? ""} placeholder="#c40000" pattern="^#[0-9A-Fa-f]{6}$" />
+                    <EditorialColorInput
+                      id={`latest-news-${order}-time-label-color`}
+                      name="latest_news_time_label_color"
+                      defaultValue={item?.time_label_color ?? ""}
+                      placeholder="#c40000"
+                      pattern="^#[0-9A-Fa-f]{6}$"
+                    />
                   </div>
                   <div className="editorial-admin-field">
                     <label htmlFor={`latest-news-${order}-title`}>Titulo</label>
@@ -1930,6 +1950,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   return (
     <main className="editorial-admin-shell">
       <style>{editorialPageStyles}</style>
+      <EditorialColorPresets />
 
       <section className="editorial-admin-hero">
         <div>
@@ -1940,6 +1961,9 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         <nav className="editorial-admin-actions" aria-label="Navegação do Editorial da Jornada">
           <a className="editorial-admin-button secondary" href="/admin/editorial/home">
             Home Editorial
+          </a>
+          <a className="editorial-admin-button secondary" href="/admin/editorial/redacao-automatica">
+            Redação automática
           </a>
           <a className="editorial-admin-button secondary" href="/admin/editorial/artigos">
             Artigos / Notícias
@@ -2137,11 +2161,12 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             </div>
             <div className="editorial-admin-field">
               <label htmlFor="matchday-editorial-title-color">Cor do titulo</label>
-              <input
+              <EditorialColorInput
                 id="matchday-editorial-title-color"
                 name="title_color"
                 defaultValue={editorial?.title_color ?? ""}
                 placeholder="#e5252a"
+                pattern="^#[0-9A-Fa-f]{6}$"
               />
             </div>
             <div className="editorial-admin-field">
@@ -2325,7 +2350,13 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             </div>
             <div className="editorial-admin-field">
               <label htmlFor="side-block-label-color">Cor do antetitulo</label>
-              <input id="side-block-label-color" name="side_block_label_color" defaultValue={editorial?.side_block_label_color ?? ""} placeholder="#c40000" pattern="^#[0-9A-Fa-f]{6}$" />
+              <EditorialColorInput
+                id="side-block-label-color"
+                name="side_block_label_color"
+                defaultValue={editorial?.side_block_label_color ?? ""}
+                placeholder="#c40000"
+                pattern="^#[0-9A-Fa-f]{6}$"
+              />
             </div>
             <div className="editorial-admin-field">
               <label htmlFor="side-block-title">Titulo</label>
@@ -2333,7 +2364,13 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
             </div>
             <div className="editorial-admin-field">
               <label htmlFor="side-block-title-color">Cor do titulo</label>
-              <input id="side-block-title-color" name="side_block_title_color" defaultValue={editorial?.side_block_title_color ?? ""} placeholder="#0b1f3a" />
+              <EditorialColorInput
+                id="side-block-title-color"
+                name="side_block_title_color"
+                defaultValue={editorial?.side_block_title_color ?? ""}
+                placeholder="#0b1f3a"
+                pattern="^#[0-9A-Fa-f]{6}$"
+              />
             </div>
             <div className="editorial-admin-field">
               <label htmlFor="side-block-author">Autor, opcional</label>
@@ -2456,7 +2493,13 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   </div>
                   <div className="editorial-admin-field">
                     <label htmlFor="below-headline-heading-color">Cor do titulo da zona</label>
-                    <input id="below-headline-heading-color" name="below_headline_heading_color" defaultValue={editorial?.below_headline_heading_color ?? ""} placeholder="#0b1f3a" />
+                    <EditorialColorInput
+                      id="below-headline-heading-color"
+                      name="below_headline_heading_color"
+                      defaultValue={editorial?.below_headline_heading_color ?? ""}
+                      placeholder="#0b1f3a"
+                      pattern="^#[0-9A-Fa-f]{6}$"
+                    />
                   </div>
                   <button className="editorial-admin-button" type="submit">
                     Guardar 3 notícias
@@ -2488,7 +2531,13 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   </div>
                   <div className="editorial-admin-field">
                     <label htmlFor="roundup-video-heading-color">Cor do titulo da zona</label>
-                    <input id="roundup-video-heading-color" name="roundup_video_heading_color" defaultValue={editorial?.roundup_video_heading_color ?? ""} placeholder="#003f8f" />
+                    <EditorialColorInput
+                      id="roundup-video-heading-color"
+                      name="roundup_video_heading_color"
+                      defaultValue={editorial?.roundup_video_heading_color ?? ""}
+                      placeholder="#003f8f"
+                      pattern="^#[0-9A-Fa-f]{6}$"
+                    />
                   </div>
                   <div className="editorial-admin-field">
                     <label htmlFor="complementary-roundup-item">Video inicial opcional</label>

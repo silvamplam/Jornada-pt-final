@@ -1,3 +1,4 @@
+import PublicLatestNewsBlock from "./PublicLatestNewsBlock";
 import RoundupVideoSwitcher, { type RoundupVideoItem } from "./RoundupVideoSwitcher";
 import YouTubeEmbedWithFallback from "./YouTubeEmbedWithFallback";
 
@@ -743,40 +744,6 @@ function PublicRoundupSummary({ data, reserveHeadingSpace = false }: { data: Pub
   );
 }
 
-export function PublicLatestNewsBlock({ items, title, titleColor }: { items: PublicEditorialLatestNews[]; title?: string; titleColor?: string | null }) {
-  const visibleTitle = title?.trim() ?? "";
-
-  return (
-    <aside className="public-matchday-news" aria-label={visibleTitle || "NotÃ­cias"}>
-      {visibleTitle ? <h3 style={titleColor ? { color: titleColor } : undefined}>{visibleTitle}</h3> : null}
-      <ul className="public-news-list">
-        {items.map((item) => (
-          <li className="public-news-item" key={item.id}>
-            {item.imageUrl ? (
-              <div className="public-news-thumb">
-                <img alt="" src={item.imageUrl} />
-              </div>
-            ) : null}
-            <div className="public-news-copy">
-              {item.timeLabel ? (
-                <time dateTime={item.timeLabel} style={item.timeLabelColor ? { color: item.timeLabelColor } : undefined}>
-                  {item.timeLabel}
-                </time>
-              ) : null}
-              {item.linkUrl ? (
-                <a className="public-news-title" href={item.linkUrl}>{item.title}</a>
-              ) : (
-                <span className="public-news-title">{item.title}</span>
-              )}
-              {item.subtitle ? <p className="public-news-subtitle">{item.subtitle}</p> : null}
-            </div>
-          </li>
-        ))}
-      </ul>
-    </aside>
-  );
-}
-
 export function PublicEditorialLayout({
   ariaLabel = "Capa da jornada",
   scope = "home",
@@ -824,7 +791,7 @@ export function PublicEditorialLayout({
               </div>
             ) : null}
             {hasLatestNews ? (
-              <PublicLatestNewsBlock items={latestNews} title={latestNewsTitle} titleColor={latestNewsTitleColor} />
+              <PublicLatestNewsBlock items={latestNews} title={latestNewsTitle} titleColor={latestNewsTitleColor} constrainToMainColumn={scope === "matchday"} />
             ) : null}
             {hasSideBlock ? (
               <PublicSideBlock

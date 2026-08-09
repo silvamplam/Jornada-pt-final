@@ -120,36 +120,21 @@ export default function SourcePackageActions({
     }
   };
 
-  const openArticle = (
-    article: EditorialExternalArticle,
-    targetWindow?: Window | null,
-  ) => {
+  const openArticle = (article: EditorialExternalArticle) => {
     storeArticle(article);
-    const url = articlesUrl();
-
-    if (targetWindow) {
-      targetWindow.opener = null;
-      targetWindow.location.replace(url);
-    } else {
-      window.location.assign(url);
-    }
-
     setStatus("Notícia preparada para preencher o editor.");
+    window.location.assign(articlesUrl());
   };
 
-  const importText = (
-    text: string,
-    targetWindow?: Window | null,
-  ): boolean => {
+  const importText = (text: string): boolean => {
     const parsed = parseEditorialExternalArticleResponse(text);
 
     if (!parsed.ok) {
-      targetWindow?.close();
       setStatus(parseErrorMessage(parsed.error));
       return false;
     }
 
-    openArticle(parsed.value, targetWindow);
+    openArticle(parsed.value);
     return true;
   };
 
@@ -165,12 +150,9 @@ export default function SourcePackageActions({
     }
 
     if (manualResponse.trim()) {
-      const targetWindow = window.open("about:blank", "_blank");
-      importText(manualResponse, targetWindow);
+      importText(manualResponse);
       return;
     }
-
-    const targetWindow = window.open("about:blank", "_blank");
 
     setImporting(true);
     setStatus("A ler a notícia copiada…");
@@ -181,9 +163,8 @@ export default function SourcePackageActions({
       }
 
       const clipboardText = await navigator.clipboard.readText();
-      importText(clipboardText, targetWindow);
+      importText(clipboardText);
     } catch {
-      targetWindow?.close();
       setStatus("O navegador bloqueou a leitura automática. Cola a resposta no campo abaixo; ao colar, os Artigos abrem automaticamente.");
       focusManualPaste();
     } finally {
@@ -202,13 +183,11 @@ export default function SourcePackageActions({
     event.preventDefault();
     setManualResponse(pastedText);
 
-    const targetWindow = window.open("about:blank", "_blank");
-    importText(pastedText, targetWindow);
+    importText(pastedText);
   };
 
   const importManualResponse = () => {
-    const targetWindow = window.open("about:blank", "_blank");
-    importText(manualResponse, targetWindow);
+    importText(manualResponse);
   };
 
   const handleManualKeyDown = (
@@ -257,7 +236,7 @@ export default function SourcePackageActions({
           onClick={importResponse}
           disabled={importing}
         >
-          {importing ? "A importar…" : "Importar resposta e abrir Artigos"}
+          {importing ? "A importar…" : "Ler clipboard e abrir Artigos"}
         </button>
       </div>
 
@@ -283,7 +262,7 @@ export default function SourcePackageActions({
         >
           Abrir Artigos com o texto colado
         </button>
-        <small>Também podes usar Ctrl+Enter depois de corrigir o texto.</small>
+        <small>O botão principal tenta ler o clipboard; se o navegador bloquear, cola aqui. Também podes usar Ctrl+Enter depois de corrigir o texto.</small>
       </div>
 
       <p className={styles.sourcePackageActionStatus} role="status" aria-live="polite">

@@ -1362,13 +1362,13 @@ async function readMatchdayLatestNews(matchdayId: string): Promise<SupabaseMatch
     return await fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
       `matchday_latest_news?select=id,matchday_id,time_label,time_label_color,title,subtitle,image_url,link_url,article_id,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
-      )}&order=sort_order.asc&limit=50`
+      )}&order=sort_order.asc`
     );
   } catch {
     return fetchSupabaseAdminTable<SupabaseMatchdayLatestNews>(
       `matchday_latest_news?select=id,matchday_id,time_label,title,image_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
-      )}&order=sort_order.asc&limit=50`
+      )}&order=sort_order.asc`
     ).catch(() => []);
   }
 }
@@ -2322,6 +2322,9 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         <nav className="composition-admin-actions" aria-label="Acoes de navegacao">
           <a className="composition-admin-button" href="/admin/editorial/home">
             Home editorial
+          </a>
+          <a className="composition-admin-button" href="/admin/editorial/redacao-automatica">
+            Redação automática
           </a>
           <a className="composition-admin-button" href="/admin/editorial/artigos">
             Artigos / Notícias

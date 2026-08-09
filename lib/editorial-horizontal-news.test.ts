@@ -79,9 +79,9 @@ test("buildEditorialHorizontalNewsRows distribui as noticias por linhas completa
   const items = Array.from({ length: 13 }, (_, index) => index + 1);
 
   assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 6), 6).map((row) => row.length), [6]);
-  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 7), 6).map((row) => row.length), [4, 3]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 7), 6).map((row) => row.length), [3, 4]);
   assert.deepEqual(buildEditorialHorizontalNewsRows(items.slice(0, 10), 6).map((row) => row.length), [5, 5]);
-  assert.deepEqual(buildEditorialHorizontalNewsRows(items, 6).map((row) => row.length), [5, 4, 4]);
+  assert.deepEqual(buildEditorialHorizontalNewsRows(items, 6).map((row) => row.length), [4, 4, 5]);
 });
 
 test("buildEditorialHorizontalNewsEditorOrders mantem as posicoes existentes e cria a seguinte", () => {

@@ -753,7 +753,7 @@ async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayE
     fetchSupabaseAdminTable<CurrentLatestNews>(
       `matchday_latest_news?select=id,time_label,time_label_color,title,subtitle,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
         matchdayId
-      )}&status=eq.published&order=sort_order.asc&limit=50`
+      )}&status=eq.published&order=sort_order.asc`
     ).catch(() => []),
     fetchSupabaseAdminTable<CurrentHorizontalNews>(
       `matchday_horizontal_news?select=id,label,label_color,title,subtitle,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
@@ -1217,7 +1217,7 @@ async function buildCurrentPageSnapshots(matchdayId: string, useRoundupItems: bo
     fetchSupabaseAdminTable<CurrentLatestNews>(
       `matchday_latest_news?select=id,time_label,time_label_color,title,subtitle,image_url,link_url,article_id,sort_order,status&matchday_id=eq.${encodeURIComponent(
         matchdayId
-      )}&status=eq.published&order=sort_order.asc&limit=50`
+      )}&status=eq.published&order=sort_order.asc`
     ).catch(() => []),
     fetchSupabaseAdminTable<CurrentHorizontalNews>(
       `matchday_horizontal_news?select=id,label,label_color,title,subtitle,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(

@@ -1638,7 +1638,7 @@ const publicMatchdayStyles = `
     color: #c40012;
     font-size: 12px;
     font-weight: 900;
-    line-height: 1;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

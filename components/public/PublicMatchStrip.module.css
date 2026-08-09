@@ -1106,8 +1106,10 @@
   grid-column: 1 / -1;
   grid-row: 1;
   align-self: stretch;
-  width: 100%;
+  box-sizing: border-box;
+  width: calc(100% - var(--match-card-status-inline-start, 14px));
   height: 13px;
+  margin-left: var(--match-card-status-inline-start, 14px);
   padding: 0;
   border: 0;
   background: transparent;
@@ -1134,7 +1136,7 @@
 .panel[data-visual-variant="clean"] .cleanStatusLine {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   width: 100%;
   min-width: 0;
   height: 15px;
@@ -1270,6 +1272,47 @@
   justify-content: flex-end;
   transform-origin: right bottom;
 }
+.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanScheduledFooterWithTime {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: flex-end;
+  justify-content: stretch;
+  width: 100%;
+  margin-inline: 0;
+  padding: 0 6px 0 0;
+  column-gap: 6px;
+  overflow: visible;
+  text-align: left;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanScheduledFooterWithTime > .cleanScheduledTime {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-self: start;
+  min-width: 0;
+  height: 18px;
+  margin-left: var(--match-card-status-inline-start, 14px);
+  color: #40536b;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  letter-spacing: 0;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanScheduledFooterWithTime > :global([data-public-match-meta]) {
+  grid-column: 2;
+  justify-self: end;
+  width: max-content;
+  transform: translateY(-2px);
+}
+
+.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanScheduledFooterWithTime > :global([data-public-match-meta]) > :not(:first-child) {
+  width: max-content;
+}
+
 
 .panel[data-visual-variant="clean"] .row > .card > .broadcast img {
   object-position: right bottom;
@@ -1538,6 +1581,18 @@
   width: 100%;
   transform: translateY(-2px);
 }
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast.cleanScheduledFooterWithTime {
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  width: 100%;
+  transform: translateY(-2px);
+}
+
+.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast.cleanScheduledFooterWithTime > :global([data-public-match-meta]) {
+  transform: translate(var(--public-match-broadcast-shift-x, 0px), -2px);
+}
+
 
 .panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast.cleanFinishedFooter {
   right: auto;
