@@ -54,3 +54,30 @@ test("o SQL acrescenta e valida apenas as quatro colunas previstas", () => {
   assert.match(smoke, /where false/);
   assert.match(smoke, /rollback;/);
 });
+
+test("a jornada permite editar, gravar e publicar a cor do titulo da zona complementar", () => {
+  const admin = read("app/admin/editorial/jornada/[matchdayId]/page.tsx");
+  const route = read("app/api/admin/gestor/route.ts");
+  const publicPage = read("app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx");
+  const publicData = read("lib/public-matchday.ts");
+  const layout = read("components/public/PublicEditorialLayout.tsx");
+  const sync = read("lib/editorial-current-reference-composition-sync.ts");
+  const types = read("lib/supabase.ts");
+  const schema = read("supabase/sql/fase-editorial-g-bloco-complementar.sql");
+
+  assert.match(admin, /name="complementary_text_color"/);
+  assert.match(route, /complementaryLabelColor = cleanHexColor\(formData\.get\("complementary_text_color"\)\)/);
+  assert.match(route, /complementary_text_color: complementaryLabelColor/);
+  assert.match(publicData, /complementary_text_color/);
+  assert.match(publicPage, /const complementaryLabelColor = usePublishedReferenceComposition/);
+  assert.match(publicPage, /referenceComplement\?\.label_color_snapshot/);
+  assert.match(publicPage, /editorial\?\.complementary_text_color\?\.trim\(\) \|\| null/);
+  assert.match(publicPage, /labelColor: complementaryLabelColor/);
+  assert.match(sync, /complementary_text_color: string \| null/);
+  assert.match(sync, /complementary_label,complementary_text_color,complementary_title/);
+  assert.match(sync, /label_color_snapshot: cleanText\(editorial\.complementary_text_color\)/);
+  assert.match(layout, /labelColor\?: string \| null/);
+  assert.match(layout, /style=\{data\.labelColor \? \{ color: data\.labelColor \} : undefined\}/);
+  assert.match(types, /complementary_text_color\?: string \| null/);
+  assert.match(schema, /add column if not exists complementary_text_color text/);
+});

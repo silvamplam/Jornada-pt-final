@@ -50,7 +50,7 @@ const roundupVideoListPolishStyles = `
     font-weight: 900;
     line-height: 1;
     letter-spacing: normal;
-    text-transform: uppercase;
+    text-transform: none;
   }
 
   .public-roundup-video-content {

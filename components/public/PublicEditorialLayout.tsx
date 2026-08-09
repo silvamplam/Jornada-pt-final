@@ -62,6 +62,7 @@ export type PublicHeadlineData = {
 export type PublicComplementaryData = {
   isPublished: boolean;
   label?: string | null;
+  labelColor?: string | null;
   title?: string | null;
   text?: string | null;
   imageUrl?: string | null;
@@ -331,6 +332,10 @@ const publicEditorialLayoutPolishStyles = `
     border-top: 0 !important;
   }
 
+  .public-editorial-layout-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title {
+    text-transform: none;
+  }
+
   .public-editorial-layout-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title::before,
   .public-editorial-layout-panel .public-matchday-depth-row > .public-below-headline-side .public-editorial-section-title::after,
   .public-editorial-layout-panel .public-matchday-depth-row > .public-below-headline-side .public-context-title::before,
@@ -397,9 +402,12 @@ const publicEditorialLayoutPolishStyles = `
   }
 
   .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-editorial-section-title,
-  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-complement-body strong,
   .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-complement-body p {
     -webkit-line-clamp: 1;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-complement-body strong {
+    -webkit-line-clamp: 2;
   }
 
   .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-headline-author {
@@ -680,7 +688,12 @@ export function PublicComplementaryBlock({
   return (
     <aside className="public-matchday-cover-side public-editorial-flex-block public-below-headline-side" data-editorial-slot="video-ou-imagem-noticia" aria-label={ariaLabel}>
       {sectionTitle ? (
-        <h3 className="public-editorial-section-title">{sectionTitle}</h3>
+        <h3
+          className="public-editorial-section-title"
+          style={data.labelColor ? { color: data.labelColor } : undefined}
+        >
+          {sectionTitle}
+        </h3>
       ) : reserveHeadingSpace ? (
         <h3 aria-hidden="true" className="public-editorial-section-title public-depth-zone-heading-placeholder">
           Vídeo

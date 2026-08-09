@@ -22,6 +22,7 @@ type EditorialRow = {
   image_url: string | null;
   headline_link_url: string | null;
   complementary_label: string | null;
+  complementary_text_color: string | null;
   complementary_title: string | null;
   complementary_text: string | null;
   complementary_image_url: string | null;
@@ -106,7 +107,7 @@ async function readCurrentPublishedComposition(matchdayId: string) {
 async function buildLiveNewsFlowSnapshots(matchdayId: string): Promise<NewsFlowSnapshot[]> {
   const [editorialRows, highlights, latest, horizontal] = await Promise.all([
     fetchSupabaseAdminTable<EditorialRow>(
-      `matchday_editorials?select=id,status,title,summary,image_url,headline_link_url,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status&matchday_id=eq.${encodeURIComponent(
+      `matchday_editorials?select=id,status,title,summary,image_url,headline_link_url,complementary_label,complementary_text_color,complementary_title,complementary_text,complementary_image_url,complementary_link_url,complementary_status&matchday_id=eq.${encodeURIComponent(
         matchdayId,
       )}&limit=1`,
     ).catch(() => []),
@@ -168,7 +169,7 @@ async function buildLiveNewsFlowSnapshots(matchdayId: string): Promise<NewsFlowS
       image_url_snapshot: cleanText(editorial.complementary_image_url),
       link_url_snapshot: cleanText(editorial.complementary_link_url),
       label_snapshot: cleanText(editorial.complementary_label),
-      label_color_snapshot: null,
+      label_color_snapshot: cleanText(editorial.complementary_text_color),
     });
   }
 

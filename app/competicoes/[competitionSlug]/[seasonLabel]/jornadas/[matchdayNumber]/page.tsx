@@ -3700,6 +3700,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const complementaryLabel = usePublishedReferenceComposition
     ? cleanReferenceSnapshotText(referenceComplement?.label_snapshot)
     : editorial?.complementary_label?.trim() || null;
+  const complementaryLabelColor = usePublishedReferenceComposition
+    ? cleanReferenceSnapshotText(referenceComplement?.label_color_snapshot)
+    : editorial?.complementary_text_color?.trim() || null;
   const complementaryTitle = usePublishedReferenceComposition
     ? cleanReferenceSnapshotText(referenceComplement?.title_snapshot)
     : editorial?.complementary_title?.trim() || null;
@@ -3954,6 +3957,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             complementary: {
               isPublished: hasPublishedComplementaryStory,
               label: complementaryLabel,
+              labelColor: complementaryLabelColor,
               title: complementaryTitle,
               text: complementaryText,
               imageUrl: complementaryImageUrl,
