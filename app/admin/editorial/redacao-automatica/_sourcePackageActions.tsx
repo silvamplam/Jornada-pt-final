@@ -7,6 +7,8 @@ import {
   parseEditorialExternalArticleResponse,
   storedEditorialExternalArticle,
   type EditorialExternalArticle,
+  type EditorialExternalArticleImageCandidate,
+  type EditorialExternalArticleSourcePackage,
 } from "@/lib/redacao-automatica/editorial-external-article-import";
 
 import styles from "./redacao-automatica.module.css";
@@ -19,6 +21,8 @@ type SourcePackageActionsProps = Readonly<{
   imagesUrl: string;
   imagesFileName: string;
   imageSourceCount: number;
+  imageCandidates: readonly EditorialExternalArticleImageCandidate[];
+  sourcePackage: EditorialExternalArticleSourcePackage;
 }>;
 
 async function copyText(text: string): Promise<void> {
@@ -64,10 +68,17 @@ function parseErrorMessage(error: string): string {
   return "A resposta não respeita a estrutura de importação da Jornada.pt.";
 }
 
-function storeArticle(article: EditorialExternalArticle): void {
+function storeArticle(
+  article: EditorialExternalArticle,
+  imageCandidates: readonly EditorialExternalArticleImageCandidate[],
+  sourcePackage: EditorialExternalArticleSourcePackage,
+): void {
   window.localStorage.setItem(
     EDITORIAL_EXTERNAL_ARTICLE_STORAGE_KEY,
-    JSON.stringify(storedEditorialExternalArticle(article)),
+    JSON.stringify(storedEditorialExternalArticle(article, Date.now(), {
+      imageCandidates,
+      sourcePackage,
+    })),
   );
 }
 
@@ -86,6 +97,8 @@ export default function SourcePackageActions({
   imagesUrl,
   imagesFileName,
   imageSourceCount,
+  imageCandidates,
+  sourcePackage,
 }: SourcePackageActionsProps) {
   const manualResponseRef = useRef<HTMLTextAreaElement | null>(null);
   const [status, setStatus] = useState("");
@@ -121,7 +134,7 @@ export default function SourcePackageActions({
   };
 
   const openArticle = (article: EditorialExternalArticle) => {
-    storeArticle(article);
+    storeArticle(article, imageCandidates, sourcePackage);
     setStatus("Notícia preparada para preencher o editor.");
     window.location.assign(articlesUrl());
   };

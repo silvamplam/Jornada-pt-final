@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -6,6 +7,7 @@ import {
   EDITORIAL_EXTERNAL_ARTICLE_START_MARKER,
   parseEditorialExternalArticleResponse,
   parseStoredEditorialExternalArticle,
+  parseStoredEditorialExternalArticleTransfer,
   storedEditorialExternalArticle,
 } from "./editorial-external-article-import";
 
@@ -105,7 +107,7 @@ test("rejeita marcadores incompletos, título ausente e corpo ausente", () => {
   );
 });
 
-test("o payload temporário expira e preserva apenas os quatro campos editoriais", () => {
+test("o payload temporário expira e preserva os quatro campos editoriais", () => {
   const article = {
     anteTitle: "ANÁLISE",
     title: "Título",
@@ -121,5 +123,81 @@ test("o payload temporário expira e preserva apenas os quatro campos editoriais
   assert.equal(
     parseStoredEditorialExternalArticle(JSON.stringify(stored), 1_000 + 31 * 60 * 1000),
     null,
+  );
+});
+
+test("o payload temporário transporta imagens do pacote sem duplicar URLs", () => {
+  const article = {
+    anteTitle: "ANÁLISE",
+    title: "Título",
+    postTitle: "Pós-título",
+    body: "Corpo.",
+  };
+  const sourcePackage = {
+    year: "2026",
+    month: "08",
+    packageId: "11111111-1111-4111-8111-111111111111",
+  };
+  const stored = storedEditorialExternalArticle(article, 1_000, {
+    sourcePackage,
+    imageCandidates: [
+      {
+        position: 1,
+        sourceCode: "record",
+        articleTitle: "Fonte A",
+        imageUrl: "https://example.com/a.jpg",
+      },
+      {
+        position: 2,
+        sourceCode: "abola",
+        articleTitle: "Fonte B",
+        imageUrl: "https://example.com/a.jpg",
+      },
+      {
+        position: 3,
+        sourceCode: "maisfutebol",
+        articleTitle: "Fonte C",
+        imageUrl: "https://example.com/c.webp",
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    parseStoredEditorialExternalArticleTransfer(JSON.stringify(stored), 1_500),
+    {
+      article,
+      sourcePackage,
+      imageCandidates: [
+        {
+          position: 1,
+          sourceCode: "record",
+          articleTitle: "Fonte A",
+          imageUrl: "https://example.com/a.jpg",
+        },
+        {
+          position: 3,
+          sourceCode: "maisfutebol",
+          articleTitle: "Fonte C",
+          imageUrl: "https://example.com/c.webp",
+        },
+      ],
+    },
+  );
+});
+
+
+test("novo artigo assume Silvestre Chícharo como autor sem alterar artigos existentes", () => {
+  const form = readFileSync(
+    "app/admin/editorial/artigos/_articleForm.tsx",
+    "utf8",
+  );
+
+  assert.match(
+    form,
+    /const DEFAULT_ARTICLE_AUTHOR = "Silvestre Chícharo";/,
+  );
+  assert.match(
+    form,
+    /defaultValue=\{isEdit \? article\?\.author \?\? "" : DEFAULT_ARTICLE_AUTHOR\}/,
   );
 });

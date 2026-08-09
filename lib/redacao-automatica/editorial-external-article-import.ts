@@ -3,6 +3,7 @@ export const EDITORIAL_EXTERNAL_ARTICLE_END_MARKER = "[/JORNADA_ARTIGO_V1]";
 export const EDITORIAL_EXTERNAL_ARTICLE_STORAGE_KEY =
   "jornada.editorial.external-article.v1";
 export const EDITORIAL_EXTERNAL_ARTICLE_MAX_AGE_MS = 30 * 60 * 1000;
+export const EDITORIAL_EXTERNAL_ARTICLE_MAX_IMAGE_CANDIDATES = 20;
 
 const FIELD_LIMITS = {
   anteTitle: 240,
@@ -24,10 +25,31 @@ export type EditorialExternalArticle = Readonly<{
   body: string;
 }>;
 
+export type EditorialExternalArticleSourcePackage = Readonly<{
+  year: string;
+  month: string;
+  packageId: string;
+}>;
+
+export type EditorialExternalArticleImageCandidate = Readonly<{
+  position: number;
+  sourceCode: string;
+  articleTitle: string;
+  imageUrl: string;
+}>;
+
+export type EditorialExternalArticleTransfer = Readonly<{
+  article: EditorialExternalArticle;
+  sourcePackage: EditorialExternalArticleSourcePackage | null;
+  imageCandidates: readonly EditorialExternalArticleImageCandidate[];
+}>;
+
 export type StoredEditorialExternalArticle = Readonly<{
   version: 1;
   storedAt: number;
   article: EditorialExternalArticle;
+  sourcePackage?: EditorialExternalArticleSourcePackage;
+  imageCandidates?: readonly EditorialExternalArticleImageCandidate[];
 }>;
 
 export type EditorialExternalArticleParseResult =
@@ -45,6 +67,94 @@ export type EditorialExternalArticleParseResult =
         | "body_missing"
         | "field_too_long";
     }>;
+
+
+const SOURCE_PACKAGE_YEAR_PATTERN = /^\d{4}$/;
+const SOURCE_PACKAGE_MONTH_PATTERN = /^(0[1-9]|1[0-2])$/;
+const SOURCE_PACKAGE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function normalizedSourcePackage(
+  value: unknown,
+): EditorialExternalArticleSourcePackage | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<EditorialExternalArticleSourcePackage>;
+  const year = typeof candidate.year === "string" ? candidate.year.trim() : "";
+  const month = typeof candidate.month === "string" ? candidate.month.trim() : "";
+  const packageId = typeof candidate.packageId === "string"
+    ? candidate.packageId.trim().toLowerCase()
+    : "";
+
+  return SOURCE_PACKAGE_YEAR_PATTERN.test(year)
+    && SOURCE_PACKAGE_MONTH_PATTERN.test(month)
+    && SOURCE_PACKAGE_ID_PATTERN.test(packageId)
+    ? { year, month, packageId }
+    : null;
+}
+
+function normalizedImageCandidate(
+  value: unknown,
+): EditorialExternalArticleImageCandidate | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<EditorialExternalArticleImageCandidate>;
+  const position = typeof candidate.position === "number"
+    ? candidate.position
+    : Number(candidate.position);
+  const sourceCode = typeof candidate.sourceCode === "string"
+    ? candidate.sourceCode.trim().slice(0, 120)
+    : "";
+  const articleTitle = typeof candidate.articleTitle === "string"
+    ? candidate.articleTitle.trim().slice(0, 500)
+    : "";
+  const rawImageUrl = typeof candidate.imageUrl === "string"
+    ? candidate.imageUrl.trim()
+    : "";
+
+  if (!Number.isInteger(position) || position < 1 || !rawImageUrl) {
+    return null;
+  }
+
+  try {
+    const imageUrl = new URL(rawImageUrl);
+    if (imageUrl.protocol !== "http:" && imageUrl.protocol !== "https:") {
+      return null;
+    }
+
+    return {
+      position,
+      sourceCode: sourceCode || "fonte",
+      articleTitle: articleTitle || "Notícia",
+      imageUrl: imageUrl.toString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function normalizeEditorialExternalArticleImageCandidates(
+  values: readonly unknown[],
+): readonly EditorialExternalArticleImageCandidate[] {
+  const unique = new Map<string, EditorialExternalArticleImageCandidate>();
+
+  for (const value of values) {
+    const candidate = normalizedImageCandidate(value);
+    if (!candidate || unique.has(candidate.imageUrl)) {
+      continue;
+    }
+
+    unique.set(candidate.imageUrl, candidate);
+    if (unique.size >= EDITORIAL_EXTERNAL_ARTICLE_MAX_IMAGE_CANDIDATES) {
+      break;
+    }
+  }
+
+  return Array.from(unique.values());
+}
 
 function normalizedHeading(line: string): EditorialExternalArticleField | null {
   const cleaned = line
@@ -211,18 +321,29 @@ export function parseEditorialExternalArticleResponse(
 export function storedEditorialExternalArticle(
   article: EditorialExternalArticle,
   storedAt = Date.now(),
+  metadata: Readonly<{
+    sourcePackage?: EditorialExternalArticleSourcePackage | null;
+    imageCandidates?: readonly EditorialExternalArticleImageCandidate[];
+  }> = {},
 ): StoredEditorialExternalArticle {
+  const sourcePackage = normalizedSourcePackage(metadata.sourcePackage);
+  const imageCandidates = sourcePackage
+    ? normalizeEditorialExternalArticleImageCandidates(metadata.imageCandidates ?? [])
+    : [];
+
   return {
     version: 1,
     storedAt,
     article,
+    ...(sourcePackage ? { sourcePackage } : {}),
+    ...(imageCandidates.length > 0 ? { imageCandidates } : {}),
   };
 }
 
-export function parseStoredEditorialExternalArticle(
+export function parseStoredEditorialExternalArticleTransfer(
   input: string,
   now = Date.now(),
-): EditorialExternalArticle | null {
+): EditorialExternalArticleTransfer | null {
   try {
     const parsed = JSON.parse(input) as Partial<StoredEditorialExternalArticle>;
     if (
@@ -249,8 +370,30 @@ export function parseStoredEditorialExternalArticle(
       EDITORIAL_EXTERNAL_ARTICLE_END_MARKER,
     ].join("\n"));
 
-    return result.ok ? result.value : null;
+    if (!result.ok) {
+      return null;
+    }
+
+    const sourcePackage = normalizedSourcePackage(parsed.sourcePackage);
+    const imageCandidates = sourcePackage
+      ? normalizeEditorialExternalArticleImageCandidates(
+          Array.isArray(parsed.imageCandidates) ? parsed.imageCandidates : [],
+        )
+      : [];
+
+    return {
+      article: result.value,
+      sourcePackage,
+      imageCandidates,
+    };
   } catch {
     return null;
   }
+}
+
+export function parseStoredEditorialExternalArticle(
+  input: string,
+  now = Date.now(),
+): EditorialExternalArticle | null {
+  return parseStoredEditorialExternalArticleTransfer(input, now)?.article ?? null;
 }
