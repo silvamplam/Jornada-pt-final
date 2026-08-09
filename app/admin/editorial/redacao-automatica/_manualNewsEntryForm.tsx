@@ -7,7 +7,10 @@ import {
 } from "react";
 
 import {
+  MANUAL_NEWSROOM_ANTETITLE_MAX_LENGTH,
+  MANUAL_NEWSROOM_AUTHOR_MAX_LENGTH,
   MANUAL_NEWSROOM_BODY_MAX_LENGTH,
+  MANUAL_NEWSROOM_POST_TITLE_MAX_LENGTH,
   MANUAL_NEWSROOM_TITLE_MAX_LENGTH,
 } from "@/lib/redacao-automatica/manual-newsroom-entry-contract";
 
@@ -68,14 +71,12 @@ export default function ManualNewsEntryForm({
     }
 
     const file = fileInputRef.current?.files?.[0] ?? null;
+    event.preventDefault();
     if (!file) {
-      submittingRef.current = true;
-      setSubmitting(true);
-      setStatusMessage("A guardar a notícia no arquivo…");
+      setStatusMessage("Escolhe a imagem principal da notícia.");
       return;
     }
 
-    event.preventDefault();
     const localError = localImageError(file);
     if (localError) {
       setStatusMessage(localError);
@@ -162,10 +163,38 @@ export default function ManualNewsEntryForm({
           <input ref={imageUrlRef} type="hidden" name="image_url" defaultValue="" />
 
           <label>
+            <span>Antetítulo</span>
+            <input
+              name="ante_title"
+              maxLength={MANUAL_NEWSROOM_ANTETITLE_MAX_LENGTH}
+              required
+            />
+          </label>
+
+          <label>
             <span>Título</span>
             <input
               name="title"
               maxLength={MANUAL_NEWSROOM_TITLE_MAX_LENGTH}
+              required
+            />
+          </label>
+
+          <label>
+            <span>Pós-título / resumo</span>
+            <textarea
+              name="post_title"
+              maxLength={MANUAL_NEWSROOM_POST_TITLE_MAX_LENGTH}
+              rows={3}
+              required
+            />
+          </label>
+
+          <label>
+            <span>Autor</span>
+            <input
+              name="author"
+              maxLength={MANUAL_NEWSROOM_AUTHOR_MAX_LENGTH}
               required
             />
           </label>
@@ -191,11 +220,22 @@ export default function ManualNewsEntryForm({
           </label>
 
           <label>
+            <span>Hora</span>
+            <input
+              type="time"
+              name="published_time"
+              step={60}
+              required
+            />
+          </label>
+
+          <label>
             <span>Imagem</span>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/jpg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif"
+              required
             />
           </label>
 

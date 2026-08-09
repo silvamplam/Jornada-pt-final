@@ -22,6 +22,8 @@ type PageProps = {
     error?: string;
     saved?: string;
     published?: string;
+    placement?: string;
+    placement_error?: string;
     created?: string;
     removed?: string;
     link_removed?: string;
@@ -117,7 +119,20 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
     return "Alterações guardadas.";
   }
   if (params.published) {
-    return "Artigo publicado. O endereço público já está disponível.";
+    if (params.placement_error) {
+      return "Artigo publicado, mas a colocação editorial escolhida não foi aplicada. O artigo continua disponível para colocação manual.";
+    }
+
+    const placementMessages: Record<string, string> = {
+      none: "Artigo publicado sem colocação editorial. O artigo continua disponível para colocação manual.",
+      headline: "Artigo publicado e colocado na Manchete.",
+      highlight: "Artigo publicado e colocado nas 3 notícias abaixo da manchete.",
+      editorial_line_item: "Artigo publicado e colocado em Últimas.",
+      complement: "Artigo publicado na Notícia ao lado do vídeo.",
+      important_item: "Artigo publicado na Faixa de notícias.",
+    };
+
+    return placementMessages[params.placement ?? ""] ?? "Artigo publicado. O endereço público já está disponível.";
   }
   if (params.removed) {
     return "Artigo removido.";
@@ -142,6 +157,8 @@ function pageMessage(params: Awaited<NonNullable<PageProps["searchParams"]>>) {
     "duplicate-slug": "Já existe um artigo com esse endereço.",
     "invalid-context": "A competição, época e jornada escolhidas não pertencem ao mesmo contexto.",
     "invalid-published-at": "A data de publicação não é válida.",
+    "missing-ante-title": "O artigo precisa de antetítulo antes de poder ser publicado.",
+    "missing-author": "O artigo precisa de autor antes de poder ser publicado.",
     "missing-post-title": "O artigo precisa de pós-título antes de poder ser publicado.",
     "missing-body": "O artigo precisa de texto antes de poder ser publicado.",
     "missing-image": "O artigo precisa de imagem antes de poder ser publicado.",

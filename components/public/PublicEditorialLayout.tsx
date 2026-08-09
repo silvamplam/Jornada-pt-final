@@ -48,6 +48,7 @@ export type PublicInlineMedia = {
 export type PublicHeadlineData = {
   title?: string | null;
   subtitle?: string | null;
+  author?: string | null;
   imageUrl?: string | null;
   linkUrl?: string | null;
   inlineMedia?: PublicInlineMedia | null;
@@ -82,6 +83,7 @@ export type PublicBelowHeadlineData = {
 
 type PublicEditorialLayoutProps = {
   ariaLabel?: string;
+  scope?: "home" | "matchday";
   sideBlock: PublicSideBlockData;
   headline: PublicHeadlineData;
   belowHeadline: PublicBelowHeadlineData;
@@ -296,6 +298,10 @@ const publicEditorialLayoutPolishStyles = `
     .public-editorial-layout-panel .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side {
       margin-top: -6px;
     }
+
+    .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side {
+      margin-top: 0;
+    }
   }
 
   .public-editorial-layout-panel .public-matchday-main-lower {
@@ -327,6 +333,81 @@ const publicEditorialLayoutPolishStyles = `
     content: none !important;
     display: none !important;
     border: 0 !important;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-editorial h1,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-editorial h2,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-cover-headline p,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-below-headline-highlights .public-cover-story strong,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-below-headline-highlights .public-cover-story small,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-news-title,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-side-editorial-label,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-side-editorial-copy strong,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-side-editorial-copy p,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-editorial-section-title,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-complement-body strong,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-complement-body p {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-editorial h1,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-editorial h2 {
+    -webkit-line-clamp: 5;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-cover-headline p {
+    -webkit-line-clamp: 6;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-below-headline-highlights .public-cover-story > span {
+    display: none;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-below-headline-highlights .public-cover-story strong,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-below-headline-highlights .public-cover-story small {
+    -webkit-line-clamp: 3;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-news .public-news-thumb {
+    display: none;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-news-title {
+    -webkit-line-clamp: 4;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-side-editorial-label {
+    -webkit-line-clamp: 2;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-side-editorial-copy strong {
+    -webkit-line-clamp: 6;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-side-editorial-copy p {
+    -webkit-line-clamp: 15;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-editorial-section-title,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-complement-body strong,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-complement-body p {
+    -webkit-line-clamp: 1;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-headline-author {
+    margin: 0;
+    color: #607086;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .public-editorial-layout-panel .public-depth-zone-heading-placeholder {
+    visibility: hidden;
+    pointer-events: none;
   }
 
   @media (max-width: 1180px) {
@@ -469,6 +550,7 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {
   const copy = (
     <div className="public-cover-headline-copy">
       <TitleTag style={data.titleColor ? { color: data.titleColor } : undefined}>{title}</TitleTag>
+      {data.author ? <small className="public-headline-author">{data.author}</small> : null}
       <p>{subtitle}</p>
     </div>
   );
@@ -552,10 +634,12 @@ export function PublicHighlightsBlock({ highlights }: { highlights: PublicEditor
 export function PublicComplementaryBlock({
   data,
   ariaLabel = "Bloco complementar da jornada",
+  reserveHeadingSpace = false,
   sectionTitle
 }: {
   data: PublicComplementaryData;
   ariaLabel?: string;
+  reserveHeadingSpace?: boolean;
   sectionTitle?: string;
 }) {
   const inlineMedia = data.inlineMedia;
@@ -590,7 +674,13 @@ export function PublicComplementaryBlock({
 
   return (
     <aside className="public-matchday-cover-side public-editorial-flex-block public-below-headline-side" data-editorial-slot="video-ou-imagem-noticia" aria-label={ariaLabel}>
-      {sectionTitle ? <h3 className="public-editorial-section-title">{sectionTitle}</h3> : null}
+      {sectionTitle ? (
+        <h3 className="public-editorial-section-title">{sectionTitle}</h3>
+      ) : reserveHeadingSpace ? (
+        <h3 aria-hidden="true" className="public-editorial-section-title public-depth-zone-heading-placeholder">
+          Vídeo
+        </h3>
+      ) : null}
       {media}
       <div className="public-complement-body">
         {data.title ? (
@@ -634,7 +724,7 @@ function PublicHighlightsSection({ data }: { data: PublicBelowHeadlineData }) {
   );
 }
 
-function PublicRoundupSummary({ data }: { data: PublicBelowHeadlineData }) {
+function PublicRoundupSummary({ data, reserveHeadingSpace = false }: { data: PublicBelowHeadlineData; reserveHeadingSpace?: boolean }) {
   if (!data.showRoundupVideo || data.roundupItems.length === 0) {
     return null;
   }
@@ -647,6 +737,7 @@ function PublicRoundupSummary({ data }: { data: PublicBelowHeadlineData }) {
         heading={data.roundupHeading}
         headingColor={data.roundupHeadingColor ?? null}
         matchdayNumber={data.matchdayNumber ?? null}
+        reserveHeadingSpace={reserveHeadingSpace}
       />
     </div>
   );
@@ -688,6 +779,7 @@ export function PublicLatestNewsBlock({ items, title, titleColor }: { items: Pub
 
 export function PublicEditorialLayout({
   ariaLabel = "Capa da jornada",
+  scope = "home",
   sideBlock,
   headline,
   belowHeadline,
@@ -720,7 +812,7 @@ export function PublicEditorialLayout({
   }
 
   return (
-    <section className="public-matchday-panel public-editorial-layout-panel" aria-label={ariaLabel}>
+    <section className="public-matchday-panel public-editorial-layout-panel" data-editorial-scope={scope} aria-label={ariaLabel}>
       <style>{publicEditorialLayoutPolishStyles}</style>
       <div className="public-matchday-cover">
         {topColumnCount > 0 ? (
@@ -745,10 +837,11 @@ export function PublicEditorialLayout({
 
         {hasDepthRow ? (
           <div className={`public-matchday-depth-row${hasRoundupSummary !== hasComplementary ? " public-matchday-depth-row-single" : ""}`}>
-            <PublicRoundupSummary data={belowHeadline} />
+            <PublicRoundupSummary data={belowHeadline} reserveHeadingSpace={scope === "matchday" && hasRoundupSummary && hasComplementary} />
             <PublicComplementaryBlock
               data={belowHeadline.complementary}
               ariaLabel="Aprofundamento editorial"
+              reserveHeadingSpace={scope === "matchday" && hasRoundupSummary && hasComplementary}
               sectionTitle={belowHeadline.complementary.label ?? undefined}
             />
           </div>

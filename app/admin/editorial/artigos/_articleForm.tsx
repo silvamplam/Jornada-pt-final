@@ -126,6 +126,7 @@ const articleFormEnhancer = `
     var competition = form.querySelector("[data-article-competition]");
     var season = form.querySelector("[data-article-season]");
     var matchday = form.querySelector("[data-article-matchday]");
+    var initialPlacementField = form.querySelector('[data-article-initial-placement-field]');
 
     if (title && slug) {
       slug.addEventListener("blur", function () {
@@ -212,6 +213,7 @@ const articleFormEnhancer = `
       setFieldState(competitionField, usesCompetition);
       setFieldState(seasonField, usesCompetition && Boolean(competitionId));
       setFieldState(matchdayField, usesMatchday && Boolean(seasonId));
+      setFieldState(initialPlacementField, usesMatchday && Boolean(seasonId) && Boolean(matchday && matchday.value));
     }
 
     if (scope) {
@@ -429,6 +431,7 @@ export function ArticleEditorForm({
   const showCompetition = currentScope === "competition" || currentScope === "matchday";
   const showSeason = showCompetition && Boolean(initialCompetitionId);
   const showMatchday = currentScope === "matchday" && Boolean(initialSeasonId);
+  const allowInitialPlacement = currentStatus !== "published";
   const competitionBySeasonId = new Map(seasons.map((season) => [season.id, season.competition_id ?? ""]));
 
   return (
@@ -477,12 +480,12 @@ export function ArticleEditorForm({
           </label>
 
           <label>
-            <span>Antetítulo</span>
+            <span>Antetítulo · obrigatório para publicar</span>
             <input name="label" defaultValue={article?.label ?? ""} placeholder="Ex.: LIGA PORTUGAL" />
           </label>
 
           <label>
-            <span>Autor</span>
+            <span>Autor · obrigatório para publicar</span>
             <input name="author" defaultValue={article?.author ?? ""} placeholder="Nome do autor" />
           </label>
 
@@ -505,6 +508,9 @@ export function ArticleEditorForm({
 
       <details className="article-admin-publication-options">
         <summary>Onde publicar</summary>
+        <p className="article-admin-context-note">
+          Ao publicar uma notícia de Jornada, escolhe a colocação inicial. Últimas é opcional e mantém sempre a ordem cronológica, com a notícia mais recente no topo.
+        </p>
         <div className="article-admin-grid">
           <label>
             <span>Âmbito</span>
@@ -571,6 +577,23 @@ export function ArticleEditorForm({
               })}
             </select>
           </label>
+
+          {allowInitialPlacement ? (
+            <label data-article-initial-placement-field hidden={!showMatchday}>
+              <span>Colocação inicial</span>
+              <select name="initial_placement" data-article-initial-placement defaultValue="none" disabled={!showMatchday}>
+                <option value="none">Publicar sem colocação editorial</option>
+                <option value="headline">Manchete</option>
+                <option value="highlight">3 notícias abaixo da manchete</option>
+                <option value="editorial_line_item">Últimas</option>
+                <option value="complement">Notícia ao lado do vídeo</option>
+                <option value="important_item">Faixa de notícias</option>
+              </select>
+              <small>
+                A colocação é independente do artigo. Se a zona escolhida estiver ocupada, o artigo permanece publicado e podes colocá-lo manualmente sem perder conteúdo.
+              </small>
+            </label>
+          ) : null}
         </div>
       </details>
 
@@ -1318,6 +1341,13 @@ export const editorialArticleAdminStyles = `
   .article-editor-workflow li[data-state="current"] span {
     background: #2563eb;
     color: #fff;
+  }
+
+  .article-admin-context-note {
+    margin: 10px 0 14px;
+    color: #526173;
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .article-admin-publication-options {

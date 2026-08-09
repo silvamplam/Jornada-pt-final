@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
 import { adminRelativeRedirect, adminRelativeUrl } from "@/lib/admin-relative-redirect";
+import { syncCurrentPublishedReferenceCompositionNewsFlow } from "@/lib/editorial-current-reference-composition-sync";
+import {
+  EditorialMatchdayNewsFlowError,
+  normalizeLatestNewsOrder,
+  transferPublishedArticleBetweenMatchdayZones,
+  type EditorialDisplacedTargetSlotType,
+} from "@/lib/editorial-matchday-news-flow";
+import { isEditorialNewsFlowSlotType } from "@/lib/editorial-zone-presentation";
 import {
   applyCalendarCheckpointTransition,
   buildCalendarBroadcastChannelLookup,
@@ -39,7 +47,17 @@ import {
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 const ROUNDUP_EDITOR_SORT_ORDERS = Array.from({ length: 10 }, (_, index) => index + 1);
-const LATEST_NEWS_EDITOR_SORT_ORDERS = Array.from({ length: 8 }, (_, index) => index + 1);
+const LATEST_NEWS_EDITOR_SORT_ORDERS = Array.from({ length: 20 }, (_, index) => index + 1);
+const NEWS_FLOW_REFERENCE_SYNC_ACTIONS = new Set([
+  "save_matchday_headline",
+  "save_matchday_complement",
+  "save_matchday_editorial",
+  "save_matchday_highlights",
+  "save_matchday_highlight_item",
+  "save_matchday_latest_news",
+  "save_matchday_latest_news_item",
+  "save_matchday_horizontal_news_item",
+]);
 
 function cleanText(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
@@ -277,6 +295,7 @@ function returnUrl(_request: Request, formData: FormData, key: "created" | "erro
   url.searchParams.delete("clear_calendar_error_detail");
   url.searchParams.delete("latest_news_error_detail");
   url.searchParams.delete("horizontal_news_error_detail");
+  url.searchParams.delete("news_flow_error_detail");
   url.searchParams.set(key, value);
   Object.entries(extraParams ?? {}).forEach(([paramKey, paramValue]) => {
     url.searchParams.set(paramKey, paramValue);
@@ -1802,6 +1821,64 @@ async function saveMatchdayHorizontalNewsItem(formData: FormData) {
   }
 }
 
+async function transferMatchdayNewsArticle(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const articleId = cleanText(formData.get("article_id"));
+  const sourceSlotType = cleanText(formData.get("source_slot_type"));
+  const sourceId = cleanText(formData.get("source_id"));
+  const targetChoice = cleanText(formData.get("target_choice"));
+  const [rawTargetSlotType = "", rawTargetId = ""] = (targetChoice ?? "").split("::", 2);
+  const targetSlotType = cleanText(rawTargetSlotType);
+  const targetId = cleanText(rawTargetId);
+
+  const displacedTargetChoice = cleanText(formData.get("displaced_target_choice"));
+  const [rawDisplacedTargetSlotType = "", rawDisplacedTargetOrder = ""] =
+    (displacedTargetChoice ?? "").split("::", 2);
+  const cleanDisplacedTargetSlotType = cleanText(rawDisplacedTargetSlotType);
+  let displacedTargetSlotType: EditorialDisplacedTargetSlotType | null = null;
+
+  if (cleanDisplacedTargetSlotType === "unplaced") {
+    displacedTargetSlotType = "unplaced";
+  } else if (
+    cleanDisplacedTargetSlotType
+    && cleanDisplacedTargetSlotType !== "editorial_line_item"
+    && isEditorialNewsFlowSlotType(cleanDisplacedTargetSlotType)
+  ) {
+    displacedTargetSlotType = cleanDisplacedTargetSlotType;
+  } else if (displacedTargetChoice) {
+    throw new EditorialMatchdayNewsFlowError(
+      "news-flow-invalid",
+      "O destino escolhido para a notícia substituída já não é válido.",
+    );
+  }
+
+  const displacedTargetOrder = cleanInteger(rawDisplacedTargetOrder);
+
+  if (
+    !matchdayId
+    || !articleId
+    || !sourceId
+    || !isEditorialNewsFlowSlotType(sourceSlotType)
+    || !isEditorialNewsFlowSlotType(targetSlotType)
+  ) {
+    throw new EditorialMatchdayNewsFlowError(
+      "news-flow-invalid",
+      "A transferência pedida já não é válida. Atualiza a página e tenta novamente.",
+    );
+  }
+
+  await transferPublishedArticleBetweenMatchdayZones({
+    matchdayId,
+    articleId,
+    sourceSlotType,
+    sourceId,
+    targetSlotType,
+    targetId,
+    displacedTargetSlotType,
+    displacedTargetOrder,
+  });
+}
+
 function teamLookupKey(value: string | null | undefined) {
   return value ? slugify(value) : "";
 }
@@ -3091,10 +3168,20 @@ export async function POST(request: Request) {
       await saveMatchdayRoundupItem(formData);
     } else if (actionType === "save_matchday_latest_news") {
       await saveMatchdayLatestNews(formData);
+      const matchdayId = cleanText(formData.get("matchday_id"));
+      if (matchdayId) {
+        await normalizeLatestNewsOrder(matchdayId);
+      }
     } else if (actionType === "save_matchday_latest_news_item") {
       await saveMatchdayLatestNewsItem(formData);
+      const matchdayId = cleanText(formData.get("matchday_id"));
+      if (matchdayId) {
+        await normalizeLatestNewsOrder(matchdayId);
+      }
     } else if (actionType === "save_matchday_horizontal_news_item") {
       await saveMatchdayHorizontalNewsItem(formData);
+    } else if (actionType === "transfer_matchday_news_article") {
+      await transferMatchdayNewsArticle(formData);
     } else if (actionType === "match") {
       await createMatch(formData);
     } else if (actionType === "update_match") {
@@ -3114,11 +3201,24 @@ export async function POST(request: Request) {
     } else {
       return returnUrl(request, formData, "error", "unknown-action");
     }
+
+    if (actionType && NEWS_FLOW_REFERENCE_SYNC_ACTIONS.has(actionType)) {
+      const matchdayId = cleanText(formData.get("matchday_id"));
+      if (matchdayId) {
+        await syncCurrentPublishedReferenceCompositionNewsFlow(matchdayId);
+      }
+    }
   } catch (error) {
     if (error instanceof ClearSeasonCalendarError) {
       console.error("[admin/gestor] clear_season_calendar failed:", error.detail);
       return returnUrl(request, formData, "error", error.message, {
         clear_calendar_error_detail: error.detail
+      });
+    }
+
+    if (actionType === "transfer_matchday_news_article") {
+      return returnUrl(request, formData, "error", "news-flow-transfer-failed", {
+        news_flow_error_detail: error instanceof Error ? shortActionError(error) : "Não foi possível transferir a notícia."
       });
     }
 

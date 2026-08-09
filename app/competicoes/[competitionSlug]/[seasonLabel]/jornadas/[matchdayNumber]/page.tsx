@@ -1633,10 +1633,14 @@ const publicMatchdayStyles = `
 
   .public-news-list time {
     display: block;
+    max-width: 100%;
+    overflow: hidden;
     color: #c40012;
     font-size: 12px;
     font-weight: 900;
     line-height: 1;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .public-news-title {
@@ -3588,6 +3592,33 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const editorial = context.editorial;
   const publishedHeadline = editorial?.status === "published" ? editorial : null;
   const usePublishedReferenceComposition = context.hasPublishedReferenceComposition;
+  const referenceBankItemIds = usePublishedReferenceComposition
+    ? Array.from(
+        new Set(
+          context.referenceCompositionItems
+            .filter((item) => item.source_type === "matchday_editorial_bank_item")
+            .map((item) => item.source_id)
+            .filter((value): value is string => Boolean(value))
+        )
+      )
+    : [];
+  const referenceBankItems = referenceBankItemIds.length > 0
+    ? await fetchSupabaseAdminTable<{ id: string; source_type: string | null; source_id: string | null }>(
+        `matchday_editorial_bank_items?select=id,source_type,source_id&id=in.(${referenceBankItemIds.join(",")})`
+      ).catch(() => [])
+    : [];
+  const editorialArticleIdByBankItemId = new Map(
+    referenceBankItems
+      .filter((item) => item.source_type?.trim().toLowerCase() === "editorial_article" && item.source_id)
+      .map((item) => [item.id, item.source_id as string])
+  );
+  const referenceEditorialArticleIds = Array.from(new Set(editorialArticleIdByBankItemId.values()));
+  const referenceEditorialArticles = referenceEditorialArticleIds.length > 0
+    ? await fetchSupabaseAdminTable<{ id: string; author: string | null }>(
+        `editorial_articles?select=id,author&id=in.(${referenceEditorialArticleIds.join(",")})`
+      ).catch(() => [])
+    : [];
+  const referenceEditorialArticleById = new Map(referenceEditorialArticles.map((article) => [article.id, article]));
   const referenceHeadline = usePublishedReferenceComposition ? firstReferenceSlotItem(context.referenceSlots.headline) : null;
   const referenceComplement = usePublishedReferenceComposition ? firstReferenceSlotItem(context.referenceSlots.complement) : null;
   const referenceSideBlock = usePublishedReferenceComposition ? firstReferenceSlotItem(context.referenceSlots.side_block) : null;
@@ -3608,6 +3639,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const headlineLinkUrl = referenceHeadline
     ? cleanReferenceSnapshotText(referenceHeadline.link_url_snapshot)
     : cleanReferenceSnapshotText(publishedHeadline?.headline_link_url);
+  const referenceHeadlineEditorialArticleId =
+    referenceHeadline?.source_type === "matchday_editorial_bank_item" && referenceHeadline.source_id
+      ? editorialArticleIdByBankItemId.get(referenceHeadline.source_id) ?? null
+      : null;
+  const headlineAuthor = referenceHeadlineEditorialArticleId
+    ? referenceEditorialArticleById.get(referenceHeadlineEditorialArticleId)?.author?.trim() || null
+    : null;
   const headlineMedia = context.headlineMedia;
   const hasPublishedHeadline = usePublishedReferenceComposition
     ? Boolean(headlineTitle || headlineSummary || headlineImageUrl || headlineMedia)
@@ -3866,6 +3904,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       {editorialVisibility.showCoverPanel ? (
         <PublicEditorialLayout
           ariaLabel="Capa da jornada"
+          scope="matchday"
           showHeadline={editorialVisibility.showHeadline}
           showSideBlock={editorialVisibility.showSideBlock}
           showLatestNews={editorialVisibility.showLatestZone}
@@ -3883,6 +3922,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           headline={{
             title: headlineTitle,
             subtitle: headlineSummary,
+            author: headlineAuthor,
             imageUrl: headlineImageUrl,
             linkUrl: headlineLinkUrl,
             inlineMedia: headlineMedia
@@ -3939,7 +3979,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       ) : null}
 
       <div className="public-matchday-editorial-region">
-        <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" />
+        <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" scope="matchday" />
       </div>
 
       <section className="public-matchday-panel" id="classificacao" aria-label="Classificacao acumulada">

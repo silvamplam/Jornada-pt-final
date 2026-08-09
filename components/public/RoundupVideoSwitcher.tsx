@@ -25,6 +25,7 @@ type RoundupVideoSwitcherProps = {
   matchdayNumber?: number | null;
   heading?: string | null;
   headingColor?: string | null;
+  reserveHeadingSpace?: boolean;
 };
 
 const roundupVideoListPolishStyles = `
@@ -76,6 +77,20 @@ const roundupVideoListPolishStyles = `
     height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+
+  .public-roundup-video-layout .public-roundup-zone-heading.public-depth-zone-heading-placeholder {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .public-roundup-video-layout .public-roundup-active-body strong,
+  .public-roundup-video-layout .public-roundup-active-body p {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   @media (max-width: 840px) {
@@ -294,7 +309,7 @@ function roundupItemKey(item: RoundupVideoItem, index: number) {
   return `roundup-${item.sort_order ?? index + 1}-${item.title?.trim() ?? "item"}`;
 }
 
-export default function RoundupVideoSwitcher({ items, initialItemId, heading, headingColor }: RoundupVideoSwitcherProps) {
+export default function RoundupVideoSwitcher({ items, initialItemId, heading, headingColor, reserveHeadingSpace = false }: RoundupVideoSwitcherProps) {
   const listRef = useRef<HTMLDivElement | null>(null);
   const itemEntries = useMemo(
     () => items.map((item, index) => ({ item, key: roundupItemKey(item, index) })),
@@ -384,6 +399,10 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
       {headingText ? (
         <h3 className="public-roundup-zone-heading" style={headingStyle}>
           {headingText}
+        </h3>
+      ) : reserveHeadingSpace ? (
+        <h3 aria-hidden="true" className="public-roundup-zone-heading public-depth-zone-heading-placeholder">
+          Vídeo
         </h3>
       ) : null}
       <div className="public-roundup-video-content">

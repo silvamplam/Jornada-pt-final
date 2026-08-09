@@ -34,8 +34,11 @@ after(() => {
 function validSource(): NewsroomDraftSource {
   return {
     id: NEWSROOM_ID,
+    label: "ANTETÍTULO DA FONTE",
     title: "Título persistido da fonte",
     subtitle: "Subtítulo persistido",
+    summary: "Resumo persistido",
+    author: "Autor persistido",
     imageUrl: "https://example.test/imagem.jpg",
     processingStatus: "ready_for_review",
     body: [
@@ -207,6 +210,8 @@ test("cria apenas um draft geral, sem publicação nem contexto competitivo", as
     slug: "newsroom-00000000000040008000000000000201",
     status: "draft",
     scope: "general",
+    label: "ANTETÍTULO DA FONTE",
+    author: "Autor persistido",
     subtitle: "Subtítulo persistido",
     body: "Enquadramento\n\nPrimeiro bloco normalizado.\n\nSegundo bloco normalizado.",
     image_url: "https://example.test/imagem.jpg",
@@ -217,6 +222,18 @@ test("cria apenas um draft geral, sem publicação nem contexto competitivo", as
     created_at: NOW,
     updated_at: NOW,
   });
+});
+
+test("usa o resumo como pós-título quando a fonte não tem subtítulo", async () => {
+  const transport = new FakeDraftTransport();
+  transport.source = { ...validSource(), subtitle: null, summary: "Resumo como pós-título" };
+
+  const result = await createNewsroomEditorialDraftService(transport)(NEWSROOM_ID);
+
+  assert.equal(result.ok, true);
+  assert.equal(transport.inserted[0]?.subtitle, "Resumo como pós-título");
+  assert.equal(transport.inserted[0]?.label, "ANTETÍTULO DA FONTE");
+  assert.equal(transport.inserted[0]?.author, "Autor persistido");
 });
 
 test("a segunda invocação é idempotente e devolve o mesmo artigo", async () => {

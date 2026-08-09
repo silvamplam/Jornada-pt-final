@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { EDITORIAL_NEWS_FLOW_SLOT_TYPES } from "@/lib/editorial-zone-presentation";
 import {
   fetchSupabaseAdminTable,
   type SupabaseCompetition,
@@ -160,6 +161,13 @@ function compositionZoneHeading(slotType: string, title: string) {
 
 const bankAssignableSlotTypes = new Set(["headline", "complement", "side_block", "highlight", "important_item", "editorial_line_item"]);
 const bankAssignableSlotOptions = referenceCompositionSections.filter((section) => bankAssignableSlotTypes.has(section.slotType));
+const editorialArticleFlowSlotTypes = new Set<string>(EDITORIAL_NEWS_FLOW_SLOT_TYPES);
+const editorialArticleFlowSlotOptions = referenceCompositionSections.filter((section) => editorialArticleFlowSlotTypes.has(section.slotType));
+
+function isEditorialArticleBankItem(item: MatchdayEditorialBankItem) {
+  const sourceType = item.source_type?.trim().toLowerCase() ?? "";
+  return sourceType === "editorial_article" && Boolean(item.source_id);
+}
 
 function groupCompositionItemsBySection(items: ReferenceCompositionItem[]) {
   const orderedItems = [...items].sort((a, b) => a.sort_order - b.sort_order);
@@ -493,6 +501,7 @@ function getCompositionPublicationValidation(items: ReferenceCompositionItem[]) 
   const headlineCount = counts.headline ?? 0;
   const complementCount = counts.complement ?? 0;
   const sideBlockCount = counts.side_block ?? 0;
+  const highlightCount = counts.highlight ?? 0;
   const warnings: string[] = [];
 
   if (headlineCount === 0) {
@@ -509,6 +518,10 @@ function getCompositionPublicationValidation(items: ReferenceCompositionItem[]) 
     warnings.push("A composição só pode ter um Contexto.");
   }
 
+  if (highlightCount > 3) {
+    warnings.push("A zona 3 notícias abaixo da manchete só pode ter três notícias.");
+  }
+
   return {
     canPublish: items.length > 0 && warnings.length === 0,
     warnings,
@@ -520,6 +533,7 @@ function getPublishedCompositionProblemMessage(items: ReferenceCompositionItem[]
   const headlineCount = counts.headline ?? 0;
   const complementCount = counts.complement ?? 0;
   const sideBlockCount = counts.side_block ?? 0;
+  const highlightCount = counts.highlight ?? 0;
 
   if (headlineCount === 0) {
     return "Esta composição publicada tem um problema estrutural: a zona Manchete não tem itens. Reabre como rascunho, adiciona uma manchete e publica novamente.";
@@ -535,6 +549,10 @@ function getPublishedCompositionProblemMessage(items: ReferenceCompositionItem[]
 
   if (sideBlockCount > 1) {
     return "Esta composição publicada tem um problema estrutural: a zona Contexto tem mais de um item. Reabre como rascunho, remove o item extra e publica novamente.";
+  }
+
+  if (highlightCount > 3) {
+    return "Esta composição publicada tem um problema estrutural: a zona 3 notícias abaixo da manchete tem mais de três itens. Reabre como rascunho e remove os itens extra antes de publicar novamente.";
   }
 
   return null;
@@ -1634,6 +1652,9 @@ function AssignBankItemForm({
     return null;
   }
 
+  const isArticle = isEditorialArticleBankItem(item);
+  const slotOptions = isArticle ? editorialArticleFlowSlotOptions : bankAssignableSlotOptions;
+
   return (
     <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
       <HiddenField name="action_type" value="assign_bank_item_to_composition_slot" />
@@ -1643,10 +1664,10 @@ function AssignBankItemForm({
       <HiddenField name="return_to" value={returnTo} />
       <HiddenField name="return_anchor" value="matchday-editorial-bank" />
       <div className="composition-admin-field">
-        <label htmlFor={`bank-zone-${item.id}`}>Adicionar à zona…</label>
+        <label htmlFor={`bank-zone-${item.id}`}>{isArticle ? "Publicar nesta zona…" : "Adicionar à zona…"}</label>
         <select className="composition-admin-input" id={`bank-zone-${item.id}`} name="slot_type" defaultValue="" required>
           <option value="" disabled>Escolher zona</option>
-          {bankAssignableSlotOptions.map((option) => (
+          {slotOptions.map((option) => (
             <option key={option.slotType} value={option.slotType}>
               {option.title}
             </option>
@@ -1654,10 +1675,12 @@ function AssignBankItemForm({
         </select>
       </div>
       <button className="composition-admin-small-button" type="submit">
-        Adicionar à zona
+        {isArticle ? "Publicar nesta zona" : "Adicionar à zona"}
       </button>
       <p className="composition-admin-note">
-        As zonas de posição única substituem o item anterior sem o apagar do banco.
+        {isArticle
+          ? "O artigo mantém-se completo na origem; esta zona recebe apenas a apresentação definida para ela."
+          : "Se a zona tiver limite de lugares, é necessário libertar primeiro um lugar ocupado."}
       </p>
     </form>
   );
@@ -1713,7 +1736,7 @@ function BankNewsListItem({
   );
 }
 
-function MoveCompositionItemForm({
+function LatestArticlePresentationForm({
   composition,
   item,
   matchdayId,
@@ -1726,7 +1749,57 @@ function MoveCompositionItemForm({
   returnAnchor: string;
   returnTo: string;
 }) {
+  if (item.slot_type !== "editorial_line_item") return null;
+
+  return (
+    <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+      <HiddenField name="action_type" value="update_article_zone_presentation" />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="item_id" value={item.id} />
+      <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value={returnAnchor} />
+      <div className="composition-admin-field">
+        <label htmlFor={`latest-label-${item.id}`}>Antetítulo / hora</label>
+        <input
+          className="composition-admin-input"
+          id={`latest-label-${item.id}`}
+          name="label_snapshot"
+          defaultValue={item.label_snapshot ?? ""}
+        />
+      </div>
+      <div className="composition-admin-field">
+        <label htmlFor={`latest-subtitle-${item.id}`}>Pós-título manual, opcional</label>
+        <input
+          className="composition-admin-input"
+          id={`latest-subtitle-${item.id}`}
+          name="subtitle_snapshot"
+          defaultValue={item.subtitle_snapshot ?? ""}
+        />
+      </div>
+      <button className="composition-admin-small-button secondary" type="submit">Guardar apresentação</button>
+      <p className="composition-admin-note">A hora é preenchida automaticamente ao entrar em Últimas. Podes editá-la e acrescentar um pós-título sem alterar o artigo original.</p>
+    </form>
+  );
+}
+
+function MoveCompositionItemForm({
+  articleSource,
+  composition,
+  item,
+  matchdayId,
+  returnAnchor,
+  returnTo
+}: {
+  articleSource: boolean;
+  composition: ReferenceComposition;
+  item: ReferenceCompositionItem;
+  matchdayId: string;
+  returnAnchor: string;
+  returnTo: string;
+}) {
   if (item.slot_type === "roundup") return null;
+  const slotOptions = articleSource ? editorialArticleFlowSlotOptions : bankAssignableSlotOptions;
 
   return (
     <form className="composition-admin-form-row" action="/api/admin/editorial/composicao" method="post">
@@ -1736,14 +1809,14 @@ function MoveCompositionItemForm({
       <HiddenField name="item_id" value={item.id} />
       <HiddenField name="return_to" value={returnTo} />
       <HiddenField name="return_anchor" value={returnAnchor} />
-      <select className="composition-admin-input" name="target_slot_type" defaultValue={item.slot_type} aria-label="Mover para outra zona">
-        {bankAssignableSlotOptions.map((option) => (
+      <select className="composition-admin-input" name="target_slot_type" defaultValue={item.slot_type} aria-label="Transferir para outra zona">
+        {slotOptions.map((option) => (
           <option key={option.slotType} value={option.slotType}>
             {option.title}
           </option>
         ))}
       </select>
-      <button className="composition-admin-small-button" type="submit">Mover</button>
+      <button className="composition-admin-small-button" type="submit">Transferir</button>
     </form>
   );
 }
@@ -2087,6 +2160,7 @@ function UnassignBankItemForm({
 }
 
 function CompositionItemActions({
+  articleSource,
   canMoveDown,
   canMoveUp,
   composition,
@@ -2095,6 +2169,7 @@ function CompositionItemActions({
   returnAnchor,
   returnTo
 }: {
+  articleSource: boolean;
   canMoveDown: boolean;
   canMoveUp: boolean;
   composition: ReferenceComposition;
@@ -2107,7 +2182,10 @@ function CompositionItemActions({
 
   return (
     <div className="composition-admin-form">
-      <MoveCompositionItemForm composition={composition} item={item} matchdayId={matchdayId} returnAnchor={returnAnchor} returnTo={returnTo} />
+      {articleSource ? (
+        <LatestArticlePresentationForm composition={composition} item={item} matchdayId={matchdayId} returnAnchor={returnAnchor} returnTo={returnTo} />
+      ) : null}
+      <MoveCompositionItemForm articleSource={articleSource} composition={composition} item={item} matchdayId={matchdayId} returnAnchor={returnAnchor} returnTo={returnTo} />
       <div className="composition-admin-inline-actions">
         {canMoveUp ? (
           <ReorderCompositionItemForm composition={composition} direction="up" item={item} label="Subir" matchdayId={matchdayId} returnAnchor={returnAnchor} returnTo={returnTo} />
@@ -2172,6 +2250,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const baseReturnTo = `/admin/editorial/composicao/${matchday.id}`;
   const returnTo = bankFilter === "all" ? baseReturnTo : `${baseReturnTo}?bank_filter=${encodeURIComponent(bankFilter)}`;
   const bankPlacementById = new Map(bankItems.map((item) => [item.id, bankItemPlacementLabel(compositionItems, item)]));
+  const editorialArticleBankItemIds = new Set(bankItems.filter(isEditorialArticleBankItem).map((item) => item.id));
   const availableBankItems = bankItems.filter((item) => item.status !== "archived" && !bankPlacementById.get(item.id));
   const filteredBankItems = bankItems.filter((item) => {
     const placement = bankPlacementById.get(item.id);
@@ -2536,6 +2615,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                             const itemMeta = [`Ordem ${item.sort_order}`, statusLabel(item.status)];
                             const actions = isDraftComposition ? (
                               <CompositionItemActions
+                                articleSource={item.source_type === "matchday_editorial_bank_item" && Boolean(item.source_id && editorialArticleBankItemIds.has(item.source_id))}
                                 canMoveDown={index < section.items.length - 1}
                                 canMoveUp={index > 0}
                                 composition={draftComposition}
