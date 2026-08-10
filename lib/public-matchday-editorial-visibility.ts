@@ -5,6 +5,7 @@ export type PublicMatchdayEditorialVisibilityInput = {
   roundupCount: number;
   hasComplementaryStory: boolean;
   latestNewsCount: number;
+  latestZonePlacement?: "top" | "hidden";
   importantNewsCount: number;
 };
 
@@ -59,7 +60,7 @@ export function buildPublicMatchdayEditorialVisibility(
   const showRoundup = nonNegativeCount(input.roundupCount) > 0;
   const showBelowHeadline = showHighlights;
   const showComplementaryStory = input.hasComplementaryStory === true;
-  const showLatestZone = nonNegativeCount(input.latestNewsCount) > 0;
+  const showLatestZone = input.latestZonePlacement !== "hidden" && nonNegativeCount(input.latestNewsCount) > 0;
   const showImportantNews = nonNegativeCount(input.importantNewsCount) > 0;
   const showMainLower = showRoundup || showComplementaryStory;
   const showMainColumn = showHeadline || showHighlights;

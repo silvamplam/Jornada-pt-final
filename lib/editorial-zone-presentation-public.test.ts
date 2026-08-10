@@ -35,9 +35,9 @@ test("Últimas não apresenta imagem e a Faixa usa 1/3/3 linhas na Jornada", () 
 
 test("o Vídeo usa uma linha e a Jornada alinha estruturalmente sem mexer no alinhamento validado das outras páginas", () => {
   assert.match(roundup, /public-roundup-active-body strong,[\s\S]*?public-roundup-active-body p[\s\S]*?-webkit-line-clamp:\s*1/);
-  assert.match(layout, /reserveHeadingSpace=\{scope === "matchday" && hasRoundupSummary && hasComplementary\}/);
+  assert.match(layout, /reserveHeadingSpace=\{hasRoundupSummary && hasComplementary\}/);
   assert.match(layout, /public-depth-zone-heading-placeholder/);
-  assert.match(layout, /margin-top:\s*-6px/);
+  assert.doesNotMatch(layout, /margin-top:\s*-6px/);
   assert.match(layout, /data-editorial-scope="matchday"[\s\S]*?margin-top:\s*0/);
 });
 

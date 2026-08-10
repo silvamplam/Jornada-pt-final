@@ -1702,6 +1702,31 @@ async function saveMatchdayLatestNews(formData: FormData) {
   }
 }
 
+async function setMatchdayLatestZonePlacement(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const latestZonePlacement = cleanText(formData.get("latest_zone_placement"));
+
+  if (!matchdayId || (latestZonePlacement !== "top" && latestZonePlacement !== "hidden")) {
+    throw new Error("missing-fields");
+  }
+
+  if (!(await hasRows(`matchdays?select=id&id=eq.${encodeURIComponent(matchdayId)}`))) {
+    throw new Error("matchday-invalid");
+  }
+
+  await writeSupabaseAdmin("matchday_editorials?on_conflict=matchday_id", {
+    method: "POST",
+    headers: {
+      Prefer: "resolution=merge-duplicates,return=minimal"
+    },
+    body: JSON.stringify({
+      matchday_id: matchdayId,
+      latest_zone_placement: latestZonePlacement,
+      updated_at: new Date().toISOString()
+    })
+  });
+}
+
 async function saveMatchdayLatestNewsItem(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const sortOrder = cleanInteger(formData.get("latest_news_sort_order"));
@@ -3214,6 +3239,8 @@ export async function POST(request: Request) {
       if (matchdayId) {
         await normalizeLatestNewsOrder(matchdayId);
       }
+    } else if (actionType === "set_matchday_latest_zone_placement") {
+      await setMatchdayLatestZonePlacement(formData);
     } else if (actionType === "save_matchday_latest_news_item") {
       await saveMatchdayLatestNewsItem(formData);
       const matchdayId = cleanText(formData.get("matchday_id"));
