@@ -30,7 +30,7 @@ test("a abertura coloca manchete e destaques, Ãºltimas e contexto em trÃªs c
   const functionStart = layout.indexOf("export function PublicEditorialLayout");
   const source = layout.slice(functionStart);
 
-  const leadGridIndex = source.indexOf('<div className="public-matchday-lead-grid"');
+  const leadGridIndex = source.indexOf('className="public-matchday-lead-grid"');
   const mainColumnIndex = source.indexOf('<div className="public-matchday-main-column">', leadGridIndex);
   const headlineIndex = source.indexOf("<PublicHeadlineBlock", mainColumnIndex);
   const highlightsIndex = source.indexOf("<PublicHighlightsSection", headlineIndex);

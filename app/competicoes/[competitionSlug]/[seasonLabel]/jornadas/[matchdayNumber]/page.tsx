@@ -3744,6 +3744,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     : editorial?.side_block_status === "published" &&
       Boolean(sideBlockImageUrl || sideBlockTitle || sideBlockText);
   const latestZoneMode = editorial?.latest_zone_mode === "editorial_line" ? "editorial_line" : "latest_news";
+  const latestZonePlacement = editorial?.latest_zone_placement === "hidden" ? "hidden" : "top";
   const configuredLatestZoneTitle = editorial?.latest_zone_title?.trim() ?? "";
   const latestZoneTitle = usePublishedReferenceComposition
     ? ""
@@ -3778,7 +3779,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         imageUrl: item.image_url?.trim() || null,
         linkUrl: item.link_url?.trim() || null
       })).filter((item) => item.title.length > 0);
-  const showLatestZone = latestNewsItems.length > 0;
   const importantNewsItems = resolveMatchdayHorizontalNewsItems({
     hasPublishedReferenceComposition: usePublishedReferenceComposition,
     referenceItems: [...(context.referenceSlots.important_item ?? [])]
@@ -3811,6 +3811,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     roundupCount: visibleRoundupItems.length,
     hasComplementaryStory: hasPublishedComplementaryStory,
     latestNewsCount: latestNewsItems.length,
+    latestZonePlacement,
     importantNewsCount: importantNewsItems.length
   });
 
@@ -4048,5 +4049,3 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     </main>
   );
 }
-
-
