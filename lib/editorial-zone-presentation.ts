@@ -165,6 +165,10 @@ export type EditorialArticleZoneProjection = {
   label: string | null;
 };
 
+export type EditorialArticleZoneProjectionWithTitle = Omit<EditorialArticleZoneProjection, "title"> & {
+  title: string;
+};
+
 function cleanText(value?: string | null) {
   const clean = value?.trim();
   return clean ? clean : null;
@@ -214,4 +218,15 @@ export function projectEditorialArticleToZone(
         ? sourceLabel
         : null
   };
+}
+
+export function requireEditorialArticleZoneProjectionTitle(
+  projection: EditorialArticleZoneProjection,
+): EditorialArticleZoneProjectionWithTitle {
+  const title = cleanText(projection.title);
+  if (!title) {
+    throw new Error("editorial-article-projection-title-missing");
+  }
+
+  return { ...projection, title };
 }

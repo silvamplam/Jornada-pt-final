@@ -90,6 +90,7 @@ type LinkRemovalTarget =
   | "matchday_highlights"
   | "matchday_latest_news"
   | "matchday_reference_composition_items"
+  | "matchday_hierarchical_composition_slots"
   | "site_editorials"
   | "site_editorial_highlights"
   | "site_editorial_latest_news";
@@ -121,6 +122,7 @@ const allowedLinkRemovalTargets: Record<LinkRemovalTarget, LinkRemovalField[]> =
   matchday_highlights: ["link_url"],
   matchday_latest_news: ["link_url"],
   matchday_reference_composition_items: ["link_url_snapshot"],
+  matchday_hierarchical_composition_slots: ["link_url_snapshot"],
   site_editorials: ["headline_link_url", "complementary_link_url", "side_block_link_url"],
   site_editorial_highlights: ["link_url"],
   site_editorial_latest_news: ["link_url"],
@@ -441,6 +443,7 @@ async function articleHasActiveLinks(slug: string) {
     `matchday_highlights?select=id&link_url=eq.${encodedUrl}&limit=1`,
     `matchday_latest_news?select=id&link_url=eq.${encodedUrl}&limit=1`,
     `matchday_reference_composition_items?select=id&link_url_snapshot=eq.${encodedUrl}&limit=1`,
+    `matchday_hierarchical_composition_slots?select=id&link_url_snapshot=eq.${encodedUrl}&limit=1`,
     `site_editorials?select=id&headline_link_url=eq.${encodedUrl}&limit=1`,
     `site_editorials?select=id&complementary_link_url=eq.${encodedUrl}&limit=1`,
     `site_editorials?select=id&side_block_link_url=eq.${encodedUrl}&limit=1`,

@@ -6,7 +6,8 @@ import {
   EDITORIAL_ZONE_PRESENTATION_PROFILES,
   buildLatestNewsAntetitle,
   isEditorialNewsFlowSlotType,
-  projectEditorialArticleToZone
+  projectEditorialArticleToZone,
+  requireEditorialArticleZoneProjectionTitle
 } from "./editorial-zone-presentation";
 
 const article = {
@@ -73,4 +74,16 @@ test("transferir de Últimas para Manchete restaura os campos do artigo-fonte", 
 
 test("a hora automática pode coexistir com o texto do antetítulo", () => {
   assert.equal(buildLatestNewsAntetitle(article), "15:32 · LIGA PORTUGAL");
+});
+
+test("um fluxo que exige título normaliza-o na fronteira sem cast", () => {
+  const projection = requireEditorialArticleZoneProjectionTitle(
+    projectEditorialArticleToZone({ ...article, title: "  Título normalizado  " }, "complement"),
+  );
+
+  assert.equal(projection.title, "Título normalizado");
+  assert.throws(
+    () => requireEditorialArticleZoneProjectionTitle({ ...projection, title: null }),
+    /editorial-article-projection-title-missing/,
+  );
 });

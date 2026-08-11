@@ -1,6 +1,20 @@
 import type { ReactNode } from "react";
 import { EDITORIAL_NEWS_FLOW_SLOT_TYPES } from "@/lib/editorial-zone-presentation";
 import {
+  HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS,
+  HIERARCHICAL_COMPOSITION_MOMENTS,
+  hierarchicalBeyondMatchdayPositionLabel,
+  hierarchicalSlotLabel,
+  incompleteHierarchicalBeyondMatchdayPositions,
+  incompleteHierarchicalCompositionSlots,
+  isPublishableHierarchicalBeyondMatchday,
+  isPublishableHierarchicalComposition,
+  missingHierarchicalCompositionSlots,
+  type HierarchicalCompositionSlot,
+  type ReferenceCompositionPresentationMode,
+} from "@/lib/editorial-hierarchical-composition";
+import HierarchicalCompositionInterpretivePreview from "@/components/admin/HierarchicalCompositionInterpretivePreview";
+import {
   fetchSupabaseAdminTable,
   type SupabaseCompetition,
   type SupabaseCountry,
@@ -36,6 +50,7 @@ type CompositionPageProps = {
     composition_error?: string;
     composition_saved?: string;
     feedback_anchor?: string;
+    presentation_mode?: string;
   }>;
 };
 
@@ -70,6 +85,18 @@ type SupabaseArticle = {
   updated_at: string;
 };
 
+type PublishedEditorialArticle = {
+  id: string;
+  slug: string | null;
+  label: string | null;
+  title: string | null;
+  subtitle: string | null;
+  image_url: string | null;
+  status: string | null;
+  published_at: string | null;
+  matchday_id: string | null;
+};
+
 type ReferenceComposition = {
   id: string;
   matchday_id: string;
@@ -77,6 +104,7 @@ type ReferenceComposition = {
   is_current: boolean;
   internal_name: string | null;
   use_roundup_items: boolean;
+  presentation_mode: ReferenceCompositionPresentationMode;
   created_at: string;
   updated_at: string;
   published_at: string | null;
@@ -1208,6 +1236,72 @@ const compositionPageStyles = `
     line-height: 1.45;
   }
 
+  .composition-admin-mode-selector {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px;
+    border: 1px solid #dce3eb;
+    border-radius: 8px;
+    background: #ffffff;
+  }
+
+  .composition-admin-mode-selector a {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #cdd6e1;
+    border-radius: 6px;
+    padding: 0 14px;
+    color: #526174;
+    font-size: 12px;
+    font-weight: 900;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+
+  .composition-admin-mode-selector a.active {
+    border-color: #10151b;
+    background: #10151b;
+    color: #ffffff;
+  }
+
+  .composition-admin-hierarchical-empty {
+    display: grid;
+    gap: 5px;
+    min-height: 110px;
+    align-content: center;
+    justify-items: center;
+    border: 1px dashed #b7c2ce;
+    border-radius: 6px;
+    background: #f7f9fb;
+    color: #607086;
+    font-size: 11px;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .composition-admin-preview {
+    width: 100%;
+    max-width: 1200px;
+    box-sizing: border-box;
+    margin-inline: auto;
+    overflow-x: auto;
+    background: #ffffff;
+  }
+
+  .composition-admin-preview-section {
+    width: 100%;
+    max-width: 1200px;
+    box-sizing: border-box;
+    margin: 14px auto 0;
+  }
+
+  .composition-admin-preview-section > .composition-admin-note {
+    padding: 12px 16px;
+  }
+
   @media (max-width: 980px) {
     .composition-admin-layout,
     .composition-admin-grid,
@@ -1381,25 +1475,31 @@ function readMatchdayArticles(matchdayId: string): Promise<SupabaseArticle[]> {
   ).catch(() => []);
 }
 
-function readDraftReferenceComposition(matchdayId: string): Promise<ReferenceComposition | null> {
+function readPublishedEditorialArticles(): Promise<PublishedEditorialArticle[]> {
+  return fetchSupabaseAdminTable<PublishedEditorialArticle>(
+    "editorial_articles?select=id,slug,label,title,subtitle,image_url,status,published_at,matchday_id&status=eq.published&order=published_at.desc.nullslast,created_at.desc&limit=200"
+  ).catch(() => []);
+}
+
+function readDraftReferenceComposition(
+  matchdayId: string,
+  presentationMode: ReferenceCompositionPresentationMode,
+): Promise<ReferenceComposition | null> {
   return readFirst<ReferenceComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
-    )}&status=eq.draft&order=created_at.desc`
+    )}&status=eq.draft&presentation_mode=eq.${encodeURIComponent(presentationMode)}&order=created_at.desc`
   ).catch(() => null);
 }
 
-async function readReferenceCompositionForBackoffice(matchdayId: string): Promise<ReferenceComposition | null> {
-  const draftComposition = await readDraftReferenceComposition(matchdayId);
-
-  if (draftComposition) {
-    return draftComposition;
-  }
-
+function readPublishedReferenceComposition(
+  matchdayId: string,
+  presentationMode: ReferenceCompositionPresentationMode,
+): Promise<ReferenceComposition | null> {
   return readFirst<ReferenceComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
-    )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast`
+    )}&status=eq.published&presentation_mode=eq.${encodeURIComponent(presentationMode)}&order=is_current.desc,published_at.desc.nullslast`
   ).catch(() => null);
 }
 
@@ -1420,6 +1520,16 @@ function readMatchdayEditorialBankItems(matchdayId: string): Promise<MatchdayEdi
     `matchday_editorial_bank_items?select=id,matchday_id,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug,origin_slot_type,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&order=sort_order.asc.nullslast,created_at.desc`
+  ).catch(() => []);
+}
+
+function readHierarchicalCompositionSlots(compositionId?: string | null): Promise<HierarchicalCompositionSlot[]> {
+  if (!compositionId) return Promise.resolve([]);
+
+  return fetchSupabaseAdminTable<HierarchicalCompositionSlot>(
+    `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
+      compositionId
+    )}`
   ).catch(() => []);
 }
 
@@ -1639,13 +1749,19 @@ function BankItemStatusForm({
 
 function AssignBankItemForm({
   composition,
+  hierarchicalAuxiliaryItems,
+  hierarchicalSlots,
   item,
   matchdayId,
+  presentationMode,
   returnTo
 }: {
   composition: ReferenceComposition | null;
+  hierarchicalAuxiliaryItems: ReferenceCompositionItem[];
+  hierarchicalSlots: HierarchicalCompositionSlot[];
   item: MatchdayEditorialBankItem;
   matchdayId: string;
+  presentationMode: ReferenceCompositionPresentationMode;
   returnTo: string;
 }) {
   if (!composition || composition.status !== "draft" || item.status !== "active") {
@@ -1654,6 +1770,72 @@ function AssignBankItemForm({
 
   const isArticle = isEditorialArticleBankItem(item);
   const slotOptions = isArticle ? editorialArticleFlowSlotOptions : bankAssignableSlotOptions;
+  const occupiedHierarchicalSlots = new Set(hierarchicalSlots.map((slot) => slot.slot_key));
+  const occupiedBeyondOrders = new Set(
+    hierarchicalAuxiliaryItems
+      .filter((candidate) => candidate.slot_type === "beyond_matchday")
+      .map((candidate) => candidate.sort_order),
+  );
+  const hasVideoHighlight = hierarchicalAuxiliaryItems.some((candidate) => candidate.slot_type === "complement");
+
+  if (presentationMode === "hierarchical") {
+    return (
+      <div className="composition-admin-stack">
+        <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+          <HiddenField name="action_type" value="assign_bank_item_to_hierarchical_slot" />
+          <HiddenField name="matchday_id" value={matchdayId} />
+          <HiddenField name="composition_id" value={composition.id} />
+          <HiddenField name="bank_item_id" value={item.id} />
+          <HiddenField name="return_to" value={returnTo} />
+          <HiddenField name="return_anchor" value="matchday-editorial-bank" />
+          <div className="composition-admin-field">
+            <label htmlFor={`bank-hierarchical-slot-${item.id}`}>Usar num dos 15 lugares…</label>
+            <select className="composition-admin-input" id={`bank-hierarchical-slot-${item.id}`} name="slot_key" defaultValue="" required>
+              <option value="" disabled>Escolher lugar</option>
+              {HIERARCHICAL_COMPOSITION_MOMENTS.map((moment) => (
+                <optgroup key={moment.key} label={moment.title}>
+                  {moment.slots.map((slot) => (
+                    <option disabled={occupiedHierarchicalSlots.has(slot.key)} key={slot.key} value={slot.key}>
+                      {slot.label}{occupiedHierarchicalSlots.has(slot.key) ? " — ocupado" : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+          <button className="composition-admin-small-button" type="submit">Atribuir ao lugar</button>
+        </form>
+
+        <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+          <HiddenField name="action_type" value="assign_bank_item_to_hierarchical_auxiliary" />
+          <HiddenField name="matchday_id" value={matchdayId} />
+          <HiddenField name="composition_id" value={composition.id} />
+          <HiddenField name="bank_item_id" value={item.id} />
+          <HiddenField name="return_to" value={returnTo} />
+          <HiddenField name="return_anchor" value="matchday-editorial-bank" />
+          <div className="composition-admin-field">
+            <label htmlFor={`bank-hierarchical-auxiliary-${item.id}`}>Usar num momento posterior…</label>
+            <select className="composition-admin-input" id={`bank-hierarchical-auxiliary-${item.id}`} name="auxiliary_target" defaultValue="" required>
+              <option value="" disabled>Escolher posição</option>
+              <option disabled={hasVideoHighlight} value="video_highlight">
+                Destaque da Jornada{hasVideoHighlight ? " — ocupado" : ""}
+              </option>
+              {HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS.map((position) => (
+                <option
+                  disabled={occupiedBeyondOrders.has(position.sortOrder)}
+                  key={position.key}
+                  value={`beyond_matchday_${position.sortOrder}`}
+                >
+                  Para Lá da Jornada — {position.label}{occupiedBeyondOrders.has(position.sortOrder) ? " — ocupado" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="composition-admin-small-button" type="submit">Atribuir ao momento</button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
@@ -1688,15 +1870,21 @@ function AssignBankItemForm({
 
 function BankNewsListItem({
   composition,
+  hierarchicalAuxiliaryItems,
+  hierarchicalSlots,
   item,
   matchdayId,
   placementLabel,
+  presentationMode,
   returnTo
 }: {
   composition: ReferenceComposition | null;
+  hierarchicalAuxiliaryItems: ReferenceCompositionItem[];
+  hierarchicalSlots: HierarchicalCompositionSlot[];
   item: MatchdayEditorialBankItem;
   matchdayId: string;
   placementLabel: string | null;
+  presentationMode: ReferenceCompositionPresentationMode;
   returnTo: string;
 }) {
   const isArchived = item.status === "archived";
@@ -1720,7 +1908,15 @@ function BankNewsListItem({
       </div>
       <div className="composition-admin-bank-actions">
         {!isArchived && !placementLabel ? (
-          <AssignBankItemForm composition={composition} item={item} matchdayId={matchdayId} returnTo={returnTo} />
+          <AssignBankItemForm
+            composition={composition}
+            hierarchicalAuxiliaryItems={hierarchicalAuxiliaryItems}
+            hierarchicalSlots={hierarchicalSlots}
+            item={item}
+            matchdayId={matchdayId}
+            presentationMode={presentationMode}
+            returnTo={returnTo}
+          />
         ) : null}
         {!isArchived && placementLabel ? (
           <p className="composition-admin-note">Retira a notícia da composição para a voltar a disponibilizar ou arquivar.</p>
@@ -1852,11 +2048,20 @@ function ReorderCompositionItemForm({
   );
 }
 
-function CreateDraftForm({ matchdayId, returnTo }: { matchdayId: string; returnTo: string }) {
+function CreateDraftForm({
+  matchdayId,
+  presentationMode,
+  returnTo,
+}: {
+  matchdayId: string;
+  presentationMode: ReferenceCompositionPresentationMode;
+  returnTo: string;
+}) {
   return (
     <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
       <HiddenField name="action_type" value="create_draft" />
       <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="presentation_mode" value={presentationMode} />
       <HiddenField name="return_to" value={returnTo} />
       <HiddenField name="return_anchor" value="composition-status" />
       <div className="composition-admin-field">
@@ -1892,6 +2097,7 @@ function UpdateDraftForm({
       <HiddenField name="action_type" value="update_draft" />
       <HiddenField name="matchday_id" value={matchdayId} />
       <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="presentation_mode" value={composition.presentation_mode} />
       <HiddenField name="return_to" value={returnTo} />
       <HiddenField name="return_anchor" value="composition-status" />
       <div className="composition-admin-field">
@@ -1903,14 +2109,22 @@ function UpdateDraftForm({
           defaultValue={composition.internal_name ?? ""}
         />
       </div>
-      <label className="composition-admin-check">
-        <input type="checkbox" name="use_roundup_items" value="1" defaultChecked={composition.use_roundup_items} /> Usar
-        resumo/vídeos
-      </label>
+      {composition.presentation_mode === "standard" ? (
+        <label className="composition-admin-check">
+          <input type="checkbox" name="use_roundup_items" value="1" defaultChecked={composition.use_roundup_items} /> Usar
+          resumo/vídeos
+        </label>
+      ) : (
+        <HiddenField name="use_roundup_items" value="1" />
+      )}
       <button className="composition-admin-small-button" type="submit">
         Guardar definições do rascunho
       </button>
-      <p className="composition-admin-note">Guarda apenas o nome interno e a opção de resumo/vídeos. Não altera as notícias nem publica a composição.</p>
+      <p className="composition-admin-note">
+        {composition.presentation_mode === "standard"
+          ? "Guarda apenas o nome interno e a opção de resumo/vídeos. Não altera as notícias nem publica a composição."
+          : "Guarda apenas o nome interno. Os vídeos desta versão são escolhidos e ordenados na própria Composição."}
+      </p>
     </form>
   );
 }
@@ -1951,8 +2165,32 @@ function PublishCompositionForm({
         <input type="checkbox" name="confirm_publish" value="yes" required /> Confirmo que revi a manchete, as zonas, a ordem e as notícias ainda disponíveis no banco.
       </label>
       <button className="composition-admin-small-button" type="submit">
-        Publicar composição
+        {composition.presentation_mode === "hierarchical" ? "Publicar e usar esta apresentação" : "Publicar composição"}
       </button>
+    </form>
+  );
+}
+
+function ActivateCompositionForm({
+  composition,
+  label,
+  matchdayId,
+  returnTo,
+}: {
+  composition: ReferenceComposition;
+  label: string;
+  matchdayId: string;
+  returnTo: string;
+}) {
+  return (
+    <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+      <HiddenField name="action_type" value="activate_reference_composition" />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value="composition-status" />
+      <button className="composition-admin-small-button" type="submit">{label}</button>
+      <p className="composition-admin-note">A outra apresentação permanece publicada e pode voltar a ser escolhida.</p>
     </form>
   );
 }
@@ -2208,6 +2446,407 @@ function CompositionItemActions({
   );
 }
 
+function UnassignHierarchicalSlotForm({
+  composition,
+  matchdayId,
+  returnTo,
+  slot,
+}: {
+  composition: ReferenceComposition;
+  matchdayId: string;
+  returnTo: string;
+  slot: HierarchicalCompositionSlot;
+}) {
+  return (
+    <form action="/api/admin/editorial/composicao" method="post">
+      <HiddenField name="action_type" value="unassign_hierarchical_slot" />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="hierarchical_slot_id" value={slot.id} />
+      <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value={`hierarchical-${slot.slot_key}`} />
+      <button className="composition-admin-small-button secondary" type="submit">Retirar deste lugar</button>
+    </form>
+  );
+}
+
+function HierarchicalCompositionEditor({
+  composition,
+  matchdayId,
+  returnTo,
+  slots,
+}: {
+  composition: ReferenceComposition;
+  matchdayId: string;
+  returnTo: string;
+  slots: HierarchicalCompositionSlot[];
+}) {
+  const slotsByKey = new Map(slots.map((slot) => [slot.slot_key, slot] as const));
+
+  return (
+    <div className="composition-admin-section-list">
+      {HIERARCHICAL_COMPOSITION_MOMENTS.map((moment) => (
+        <section className="composition-admin-section" key={moment.key}>
+          <div className="composition-admin-section-heading">
+            <h4>{moment.title}</h4>
+            <span>{moment.slots.filter((slot) => slotsByKey.has(slot.key)).length}/{moment.slots.length}</span>
+          </div>
+          <div className="composition-admin-grid">
+            {moment.slots.map((definition) => {
+              const slot = slotsByKey.get(definition.key) ?? null;
+              return (
+                <div id={`hierarchical-${definition.key}`} key={definition.key}>
+                  {slot ? (
+                    <ItemCard
+                      imageUrl={slot.image_url_snapshot}
+                      label={slot.label_snapshot}
+                      linkUrl={slot.link_url_snapshot}
+                      meta={[definition.label]}
+                      subtitle={slot.subtitle_snapshot}
+                      title={slot.title_snapshot}
+                    >
+                      {composition.status === "draft" ? (
+                        <UnassignHierarchicalSlotForm
+                          composition={composition}
+                          matchdayId={matchdayId}
+                          returnTo={returnTo}
+                          slot={slot}
+                        />
+                      ) : null}
+                    </ItemCard>
+                  ) : (
+                    <div className="composition-admin-hierarchical-empty">
+                      <strong>{definition.label}</strong>
+                      <span>Lugar ainda vazio</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function RemoveHierarchicalReferenceItemForm({
+  composition,
+  item,
+  label = "Retirar",
+  matchdayId,
+  returnAnchor,
+  returnTo,
+}: {
+  composition: ReferenceComposition;
+  item: ReferenceCompositionItem;
+  label?: string;
+  matchdayId: string;
+  returnAnchor: string;
+  returnTo: string;
+}) {
+  return (
+    <form action="/api/admin/editorial/composicao" method="post">
+      <HiddenField name="action_type" value="remove_item" />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="item_id" value={item.id} />
+      <HiddenField name="presentation_mode" value="hierarchical" />
+      <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value={returnAnchor} />
+      <button className="composition-admin-small-button secondary" type="submit">{label}</button>
+    </form>
+  );
+}
+
+function ReorderHierarchicalVideoForm({
+  composition,
+  direction,
+  item,
+  label,
+  matchdayId,
+  returnTo,
+}: {
+  composition: ReferenceComposition;
+  direction: "up" | "down";
+  item: ReferenceCompositionItem;
+  label: string;
+  matchdayId: string;
+  returnTo: string;
+}) {
+  return (
+    <form action="/api/admin/editorial/composicao" method="post">
+      <HiddenField name="action_type" value="reorder_composition_item" />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="item_id" value={item.id} />
+      <HiddenField name="direction" value={direction} />
+      <HiddenField name="presentation_mode" value="hierarchical" />
+      <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value="hierarchical-video" />
+      <button className="composition-admin-small-button secondary" type="submit">{label}</button>
+    </form>
+  );
+}
+
+function HierarchicalVideoEditor({
+  composition,
+  matchdayId,
+  referenceItems,
+  returnTo,
+  roundupItems,
+}: {
+  composition: ReferenceComposition;
+  matchdayId: string;
+  referenceItems: ReferenceCompositionItem[];
+  returnTo: string;
+  roundupItems: SupabaseMatchdayRoundupItem[];
+}) {
+  const selectedVideos = referenceItems
+    .filter((item) => item.slot_type === "roundup")
+    .sort((left, right) => left.sort_order - right.sort_order);
+  const selectedSourceIds = new Set(selectedVideos.map((item) => item.source_id).filter(Boolean));
+  const availableVideos = roundupItems.filter(
+    (item) => item.status === "published" && textOrEmpty(item.video_url) && !selectedSourceIds.has(item.id),
+  );
+
+  return (
+    <section className="composition-admin-section" id="hierarchical-video">
+      <div className="composition-admin-section-heading">
+        <h4>A Jornada em Vídeo</h4>
+        <span>{selectedVideos.length} {selectedVideos.length === 1 ? "vídeo" : "vídeos"}</span>
+      </div>
+      <p className="composition-admin-note">Esta lista pertence apenas a esta versão da Composição. Podes escolher, ordenar e retirar vídeos sem alterar a página viva.</p>
+
+      {composition.status === "draft" && availableVideos.length > 0 ? (
+        <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+          <HiddenField name="action_type" value="assign_roundup_item_to_hierarchical_composition" />
+          <HiddenField name="matchday_id" value={matchdayId} />
+          <HiddenField name="composition_id" value={composition.id} />
+          <HiddenField name="return_to" value={returnTo} />
+          <HiddenField name="return_anchor" value="hierarchical-video" />
+          <div className="composition-admin-field">
+            <label htmlFor="hierarchical-roundup-item">Adicionar vídeo publicado</label>
+            <select className="composition-admin-input" id="hierarchical-roundup-item" name="roundup_item_id" defaultValue="" required>
+              <option value="" disabled>Escolher vídeo</option>
+              {availableVideos.map((item) => (
+                <option key={item.id} value={item.id}>{item.title || item.label || item.type}</option>
+              ))}
+            </select>
+          </div>
+          <button className="composition-admin-small-button" type="submit">Adicionar vídeo</button>
+        </form>
+      ) : null}
+
+      {selectedVideos.length > 0 ? (
+        <div className="composition-admin-grid">
+          {selectedVideos.map((item, index) => (
+            <RoundupItemCard
+              key={item.id}
+              label={item.label_snapshot}
+              title={item.title_snapshot}
+              subtitle={item.subtitle_snapshot}
+              linkUrl={item.link_url_snapshot}
+              meta={[`Ordem ${index + 1}`]}
+            >
+              {composition.status === "draft" ? (
+                <div className="composition-admin-actions">
+                  <ReorderHierarchicalVideoForm
+                    composition={composition}
+                    direction="up"
+                    item={item}
+                    label="Subir"
+                    matchdayId={matchdayId}
+                    returnTo={returnTo}
+                  />
+                  <ReorderHierarchicalVideoForm
+                    composition={composition}
+                    direction="down"
+                    item={item}
+                    label="Descer"
+                    matchdayId={matchdayId}
+                    returnTo={returnTo}
+                  />
+                  <RemoveHierarchicalReferenceItemForm
+                    composition={composition}
+                    item={item}
+                    matchdayId={matchdayId}
+                    returnAnchor="hierarchical-video"
+                    returnTo={returnTo}
+                  />
+                </div>
+              ) : null}
+            </RoundupItemCard>
+          ))}
+        </div>
+      ) : (
+        <EmptyState>Ainda não foram escolhidos vídeos para esta Composição.</EmptyState>
+      )}
+    </section>
+  );
+}
+
+function PublishedArticleAuxiliaryForm({
+  articles,
+  composition,
+  matchdayId,
+  openTargets,
+  returnTo,
+}: {
+  articles: PublishedEditorialArticle[];
+  composition: ReferenceComposition;
+  matchdayId: string;
+  openTargets: Array<{ value: string; label: string }>;
+  returnTo: string;
+}) {
+  const selectableArticles = articles.filter((article) => textOrEmpty(article.title) && textOrEmpty(article.slug));
+  if (composition.status !== "draft" || openTargets.length === 0 || selectableArticles.length === 0) return null;
+
+  return (
+    <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+      <HiddenField name="action_type" value="assign_published_article_to_hierarchical_auxiliary" />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value="hierarchical-auxiliary" />
+      <div className="composition-admin-field">
+        <label htmlFor="hierarchical-published-article">Artigo publicado</label>
+        <select className="composition-admin-input" id="hierarchical-published-article" name="editorial_article_id" defaultValue="" required>
+          <option value="" disabled>Escolher artigo</option>
+          {selectableArticles.map((article) => (
+            <option key={article.id} value={article.id}>{article.title}</option>
+          ))}
+        </select>
+      </div>
+      <div className="composition-admin-field">
+        <label htmlFor="hierarchical-auxiliary-target">Posição</label>
+        <select className="composition-admin-input" id="hierarchical-auxiliary-target" name="auxiliary_target" defaultValue="" required>
+          <option value="" disabled>Escolher posição</option>
+          {openTargets.map((target) => (
+            <option key={target.value} value={target.value}>{target.label}</option>
+          ))}
+        </select>
+      </div>
+      <button className="composition-admin-small-button" type="submit">Adicionar artigo</button>
+      <p className="composition-admin-note">A seleção é manual. A Composição guarda o snapshot e mantém o artigo canónico na origem.</p>
+    </form>
+  );
+}
+
+function HierarchicalAuxiliaryEditor({
+  articles,
+  composition,
+  items,
+  matchdayId,
+  returnTo,
+}: {
+  articles: PublishedEditorialArticle[];
+  composition: ReferenceComposition;
+  items: ReferenceCompositionItem[];
+  matchdayId: string;
+  returnTo: string;
+}) {
+  const videoHighlight = items.find((item) => item.slot_type === "complement") ?? null;
+  const beyondByOrder = new Map(
+    items
+      .filter((item) => item.slot_type === "beyond_matchday")
+      .map((item) => [item.sort_order, item] as const),
+  );
+  const openTargets = [
+    ...(videoHighlight ? [] : [{ value: "video_highlight", label: "Destaque da Jornada" }]),
+    ...HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS
+      .filter((position) => !beyondByOrder.has(position.sortOrder))
+      .map((position) => ({
+        value: `beyond_matchday_${position.sortOrder}`,
+        label: `Para Lá da Jornada — ${position.label}`,
+      })),
+  ];
+
+  return (
+    <section className="composition-admin-section" id="hierarchical-auxiliary">
+      <div className="composition-admin-section-heading">
+        <h4>Momentos posteriores</h4>
+        <span>Destaque opcional + atualidade 1+4</span>
+      </div>
+
+      <PublishedArticleAuxiliaryForm
+        articles={articles}
+        composition={composition}
+        matchdayId={matchdayId}
+        openTargets={openTargets}
+        returnTo={returnTo}
+      />
+
+      <section className="composition-admin-section">
+        <div className="composition-admin-section-heading">
+          <h4>Destaque da Jornada</h4>
+          <span>Opcional, ao lado do vídeo</span>
+        </div>
+        {videoHighlight ? (
+          <ItemCard
+            imageUrl={videoHighlight.image_url_snapshot}
+            label={videoHighlight.label_snapshot}
+            linkUrl={videoHighlight.link_url_snapshot}
+            subtitle={videoHighlight.subtitle_snapshot}
+            title={videoHighlight.title_snapshot}
+          >
+            {composition.status === "draft" ? (
+              <RemoveHierarchicalReferenceItemForm
+                composition={composition}
+                item={videoHighlight}
+                matchdayId={matchdayId}
+                returnAnchor="hierarchical-auxiliary"
+                returnTo={returnTo}
+              />
+            ) : null}
+          </ItemCard>
+        ) : (
+          <EmptyState>Sem destaque. A secção de vídeo pode ser publicada sem este artigo.</EmptyState>
+        )}
+      </section>
+
+      <section className="composition-admin-section">
+        <div className="composition-admin-section-heading">
+          <h4>Para Lá da Jornada</h4>
+          <span>{beyondByOrder.size}/5 posições</span>
+        </div>
+        <p className="composition-admin-note">Seleção editorial manual da atualidade viva naquele momento; nunca é preenchida automaticamente por data.</p>
+        <div className="composition-admin-grid">
+          {HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS.map((position) => {
+            const item = beyondByOrder.get(position.sortOrder) ?? null;
+            return item ? (
+              <ItemCard
+                imageUrl={item.image_url_snapshot}
+                key={position.key}
+                label={item.label_snapshot}
+                linkUrl={item.link_url_snapshot}
+                meta={[hierarchicalBeyondMatchdayPositionLabel(position.sortOrder)]}
+                subtitle={item.subtitle_snapshot}
+                title={item.title_snapshot}
+              >
+                {composition.status === "draft" ? (
+                  <RemoveHierarchicalReferenceItemForm
+                    composition={composition}
+                    item={item}
+                    matchdayId={matchdayId}
+                    returnAnchor="hierarchical-auxiliary"
+                    returnTo={returnTo}
+                  />
+                ) : null}
+              </ItemCard>
+            ) : (
+              <div className="composition-admin-hierarchical-empty" key={position.key}>
+                <strong>{position.label}</strong>
+                <span>Posição ainda vazia</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </section>
+  );
+}
+
 export default async function AdminEditorialCompositionPage({ params, searchParams }: CompositionPageProps) {
   const { matchdayId } = await params;
   const query = searchParams ? await searchParams : {};
@@ -2228,17 +2867,86 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   }
 
   const { matchday, season, competition, country } = context;
-  const [draftComposition, bankItems, contextSelector] = await Promise.all([
-    readReferenceCompositionForBackoffice(matchday.id),
+  const presentationMode: ReferenceCompositionPresentationMode =
+    query.presentation_mode === "hierarchical" ? "hierarchical" : "standard";
+  const [modeDraftComposition, modePublishedComposition, bankItems, contextSelector, roundupItems, publishedArticles] = await Promise.all([
+    readDraftReferenceComposition(matchday.id, presentationMode),
+    readPublishedReferenceComposition(matchday.id, presentationMode),
     readMatchdayEditorialBankItems(matchday.id),
-    readContextSelectorData()
+    readContextSelectorData(),
+    presentationMode === "hierarchical" ? readMatchdayRoundupItems(matchday.id) : Promise.resolve([]),
+    presentationMode === "hierarchical" ? readPublishedEditorialArticles() : Promise.resolve([]),
   ]);
-  const compositionItems = await readReferenceCompositionItems(draftComposition?.id);
+  const draftComposition = modeDraftComposition ?? modePublishedComposition;
+  const [compositionItems, hierarchicalSlots] = await Promise.all([
+    readReferenceCompositionItems(draftComposition?.id),
+    presentationMode === "hierarchical" ? readHierarchicalCompositionSlots(draftComposition?.id) : Promise.resolve([]),
+  ]);
+  const hierarchicalAuxiliaryItems = compositionItems.filter(
+    (item) => item.slot_type === "complement" || item.slot_type === "beyond_matchday",
+  );
+  const hierarchicalPreviewRoundupItems = compositionItems
+    .filter((item) => item.slot_type === "roundup")
+    .sort((left, right) => left.sort_order - right.sort_order)
+    .map((item) => ({
+      id: item.id,
+      label: item.label_snapshot,
+      title: item.title_snapshot,
+      subtitle: item.subtitle_snapshot,
+      image_url: item.image_url_snapshot,
+      video_url: item.link_url_snapshot,
+      sort_order: item.sort_order,
+      status: item.status,
+    }));
+  const hierarchicalPreviewHighlightItem = hierarchicalAuxiliaryItems.find(
+    (item) => item.slot_type === "complement",
+  );
+  const hierarchicalPreviewVideoHighlight = hierarchicalPreviewHighlightItem
+    ? {
+        isPublished: true,
+        label: hierarchicalPreviewHighlightItem.label_snapshot,
+        labelColor: hierarchicalPreviewHighlightItem.label_color_snapshot,
+        title: hierarchicalPreviewHighlightItem.title_snapshot,
+        text: hierarchicalPreviewHighlightItem.subtitle_snapshot,
+        imageUrl: hierarchicalPreviewHighlightItem.image_url_snapshot,
+        linkUrl: hierarchicalPreviewHighlightItem.link_url_snapshot,
+      }
+    : null;
+  const hierarchicalPreviewBeyondMatchdayItems = hierarchicalAuxiliaryItems
+    .filter((item) => item.slot_type === "beyond_matchday")
+    .sort((left, right) => left.sort_order - right.sort_order)
+    .map((item) => ({
+      id: item.id,
+      label: item.label_snapshot,
+      title: item.title_snapshot ?? "",
+      subtitle: item.subtitle_snapshot,
+      imageUrl: item.image_url_snapshot,
+      linkUrl: item.link_url_snapshot ?? "",
+    }));
   const groupedCompositionItems = groupCompositionItemsBySection(compositionItems);
-  const publicationValidation = getCompositionPublicationValidation(compositionItems);
+  const missingHierarchicalSlots = missingHierarchicalCompositionSlots(hierarchicalSlots);
+  const incompleteHierarchicalSlots = incompleteHierarchicalCompositionSlots(hierarchicalSlots);
+  const incompleteBeyondPositions = incompleteHierarchicalBeyondMatchdayPositions(compositionItems);
+  const publicationValidation = presentationMode === "hierarchical"
+    ? {
+        canPublish:
+          isPublishableHierarchicalComposition(hierarchicalSlots) &&
+          isPublishableHierarchicalBeyondMatchday(compositionItems),
+        warnings: [
+          ...(Array.from(new Set([...missingHierarchicalSlots, ...incompleteHierarchicalSlots])).length > 0
+            ? [`15 lugares — em falta: ${Array.from(new Set([...missingHierarchicalSlots, ...incompleteHierarchicalSlots])).map(hierarchicalSlotLabel).join(", ")}.`]
+            : []),
+          ...(incompleteBeyondPositions.length > 0
+            ? [`Para Lá da Jornada — em falta: ${incompleteBeyondPositions.map((position) => position.label).join(", ")}.`]
+            : []),
+        ],
+      }
+    : getCompositionPublicationValidation(compositionItems);
   const isDraftComposition = draftComposition?.status === "draft";
   const isPublishedComposition = draftComposition?.status === "published";
-  const publishedCompositionProblemMessage = isPublishedComposition ? getPublishedCompositionProblemMessage(compositionItems) : null;
+  const publishedCompositionProblemMessage = isPublishedComposition && presentationMode === "standard"
+    ? getPublishedCompositionProblemMessage(compositionItems)
+    : null;
   const publishedAtLabel = formatPublishedAt(draftComposition?.published_at);
   const contextLabel = `${country?.name ?? "Pais"} / ${competition.name} / ${season.label} / ${matchday.label}`;
   const selectorCountryById = new Map(contextSelector.countries.map((item) => [item.id, item]));
@@ -2247,9 +2955,47 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const bankFilter = ["all", "available", "in_use", "archived"].includes(query.bank_filter ?? "")
     ? (query.bank_filter as "all" | "available" | "in_use" | "archived")
     : "all";
-  const baseReturnTo = `/admin/editorial/composicao/${matchday.id}`;
-  const returnTo = bankFilter === "all" ? baseReturnTo : `${baseReturnTo}?bank_filter=${encodeURIComponent(bankFilter)}`;
-  const bankPlacementById = new Map(bankItems.map((item) => [item.id, bankItemPlacementLabel(compositionItems, item)]));
+  const baseReturnTo = `/admin/editorial/composicao/${matchday.id}${presentationMode === "hierarchical" ? "?presentation_mode=hierarchical" : ""}`;
+  const returnTo = bankFilter === "all"
+    ? baseReturnTo
+    : `${baseReturnTo}${baseReturnTo.includes("?") ? "&" : "?"}bank_filter=${encodeURIComponent(bankFilter)}`;
+  const hierarchicalPlacementByBankId = new Map(
+    hierarchicalSlots
+      .filter((slot) => slot.bank_item_id)
+      .map((slot) => [slot.bank_item_id as string, hierarchicalSlotLabel(slot.slot_key)] as const),
+  );
+  const hierarchicalAuxiliaryPlacementByBankId = new Map(
+    hierarchicalAuxiliaryItems
+      .filter((item) => item.source_type === "matchday_editorial_bank_item" && item.source_id)
+      .map((item) => [
+        item.source_id as string,
+        item.slot_type === "complement"
+          ? "Destaque da Jornada"
+          : `Para Lá da Jornada — ${hierarchicalBeyondMatchdayPositionLabel(item.sort_order)}`,
+      ] as const),
+  );
+  const hierarchicalAuxiliaryPlacementByArticleId = new Map(
+    hierarchicalAuxiliaryItems
+      .filter((item) => item.source_type === "editorial_article" && item.source_id)
+      .map((item) => [
+        item.source_id as string,
+        item.slot_type === "complement"
+          ? "Destaque da Jornada"
+          : `Para Lá da Jornada — ${hierarchicalBeyondMatchdayPositionLabel(item.sort_order)}`,
+      ] as const),
+  );
+  const bankPlacementById = new Map(
+    bankItems.map((item) => [
+      item.id,
+      presentationMode === "hierarchical"
+        ? hierarchicalPlacementByBankId.get(item.id) ??
+          hierarchicalAuxiliaryPlacementByBankId.get(item.id) ??
+          (isEditorialArticleBankItem(item) && item.source_id
+            ? hierarchicalAuxiliaryPlacementByArticleId.get(item.source_id) ?? null
+            : null)
+        : bankItemPlacementLabel(compositionItems, item),
+    ]),
+  );
   const editorialArticleBankItemIds = new Set(bankItems.filter(isEditorialArticleBankItem).map((item) => item.id));
   const availableBankItems = bankItems.filter((item) => item.status !== "archived" && !bankPlacementById.get(item.id));
   const filteredBankItems = bankItems.filter((item) => {
@@ -2265,7 +3011,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     in_use: bankItems.filter((item) => item.status !== "archived" && Boolean(bankPlacementById.get(item.id))).length,
     archived: bankItems.filter((item) => item.status === "archived").length
   };
-  const compositionSummary = [
+  const standardCompositionSummary = [
     { slotType: "headline", label: "Manchete" },
     { slotType: "editorial_line_item", label: "Últimas" },
     { slotType: "side_block", label: "Contexto" },
@@ -2277,6 +3023,17 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     label: section.label,
     count: compositionItems.filter((item) => item.slot_type === section.slotType).length
   }));
+  const compositionSummary = presentationMode === "hierarchical"
+    ? [
+        ...HIERARCHICAL_COMPOSITION_MOMENTS.map((moment) => ({
+          label: moment.title,
+          count: moment.slots.filter((slot) => hierarchicalSlots.some((item) => item.slot_key === slot.key)).length,
+        })),
+        { label: "A Jornada em Vídeo", count: compositionItems.filter((item) => item.slot_type === "roundup").length },
+        { label: "Destaque da Jornada", count: compositionItems.filter((item) => item.slot_type === "complement").length },
+        { label: "Para Lá da Jornada", count: compositionItems.filter((item) => item.slot_type === "beyond_matchday").length },
+      ]
+    : standardCompositionSummary;
   const bankSavedCount = Math.max(0, Number.parseInt(query.bank_saved ?? "0", 10) || 0);
   const bankUpdatedCount = Math.max(0, Number.parseInt(query.bank_updated ?? "0", 10) || 0);
   const bankSkippedCount = Math.max(0, Number.parseInt(query.bank_skipped ?? "0", 10) || 0);
@@ -2392,15 +3149,26 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         )}
       </section>
 
-      <nav className="composition-admin-zone-nav" aria-label="Zonas da Composição da Jornada">
-        <a href="#manchete">01 Manchete</a>
-        <a href="#ultimas-noticias">02 Últimas</a>
-        <a href="#contexto">03 Contexto</a>
-        <a href="#tres-noticias">04 3 notícias</a>
-        <a href="#video">05 Vídeo</a>
-        <a href="#noticia-ao-lado-video">06 Ao lado do vídeo</a>
-        <a href="#faixa-noticias">07 Faixa de notícias</a>
+      <nav className="composition-admin-mode-selector" aria-label="Apresentação da Composição da Jornada">
+        <a className={presentationMode === "standard" ? "active" : undefined} href={`/admin/editorial/composicao/${matchday.id}`}>
+          Atual
+        </a>
+        <a className={presentationMode === "hierarchical" ? "active" : undefined} href={`/admin/editorial/composicao/${matchday.id}?presentation_mode=hierarchical`}>
+          Hierárquica
+        </a>
       </nav>
+
+      {presentationMode === "standard" ? (
+        <nav className="composition-admin-zone-nav" aria-label="Zonas da Composição da Jornada">
+          <a href="#manchete">01 Manchete</a>
+          <a href="#ultimas-noticias">02 Últimas</a>
+          <a href="#contexto">03 Contexto</a>
+          <a href="#tres-noticias">04 3 notícias</a>
+          <a href="#video">05 Vídeo</a>
+          <a href="#noticia-ao-lado-video">06 Ao lado do vídeo</a>
+          <a href="#faixa-noticias">07 Faixa de notícias</a>
+        </nav>
+      ) : null}
 
       <script
         dangerouslySetInnerHTML={{
@@ -2486,7 +3254,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         href={
                           filter.key === "all"
                             ? `${baseReturnTo}#matchday-editorial-bank`
-                            : `${baseReturnTo}?bank_filter=${encodeURIComponent(filter.key)}#matchday-editorial-bank`
+                            : `${baseReturnTo}${baseReturnTo.includes("?") ? "&" : "?"}bank_filter=${encodeURIComponent(filter.key)}#matchday-editorial-bank`
                         }
                         key={filter.key}
                       >
@@ -2505,10 +3273,13 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                     {filteredBankItems.map((item) => (
                       <BankNewsListItem
                         composition={draftComposition}
+                        hierarchicalAuxiliaryItems={hierarchicalAuxiliaryItems}
+                        hierarchicalSlots={hierarchicalSlots}
                         item={item}
                         key={item.id}
                         matchdayId={matchday.id}
                         placementLabel={bankPlacementById.get(item.id) ?? null}
+                        presentationMode={presentationMode}
                         returnTo={returnTo}
                       />
                     ))}
@@ -2546,12 +3317,17 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                   ) : null}
                   <div className="composition-admin-meta">
                     <span>Estado: {compositionStatusLabel(draftComposition.status)}</span>
+                    <span>Apresentação: {presentationMode === "hierarchical" ? "Hierárquica" : "Atual"}</span>
                     {isPublishedComposition ? (
                       <span>Versão ativa: {draftComposition.is_current ? "sim" : "não"}</span>
                     ) : (
                       <span>Ainda não publicada</span>
                     )}
-                    <span>{draftComposition.use_roundup_items ? "Inclui resumo/vídeos" : "Não inclui resumo/vídeos"}</span>
+                    {presentationMode === "standard" ? (
+                      <span>{draftComposition.use_roundup_items ? "Inclui resumo/vídeos" : "Não inclui resumo/vídeos"}</span>
+                    ) : (
+                      <span>{compositionItems.filter((item) => item.slot_type === "roundup").length} vídeos escolhidos nesta versão</span>
+                    )}
                     {publishedAtLabel ? <span>Publicado em: {publishedAtLabel}</span> : null}
                   </div>
 
@@ -2574,6 +3350,14 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                           unusedCount={availableBankItems.length}
                         />
                       ) : null}
+                      {modePublishedComposition && !modePublishedComposition.is_current ? (
+                        <ActivateCompositionForm
+                          composition={modePublishedComposition}
+                          label={presentationMode === "standard" ? "Usar apresentação Atual publicada" : "Usar apresentação Hierárquica publicada"}
+                          matchdayId={matchday.id}
+                          returnTo={returnTo}
+                        />
+                      ) : null}
                     </>
                   ) : null}
 
@@ -2588,16 +3372,40 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                       <ReopenCompositionForm composition={draftComposition} matchdayId={matchday.id} returnTo={returnTo} />
                     </>
                   ) : null}
+
+                  {isPublishedComposition && !draftComposition.is_current ? (
+                    <>
+                      <ActivateCompositionForm
+                        composition={draftComposition}
+                        label={presentationMode === "standard" ? "Usar apresentação Atual" : "Usar apresentação Hierárquica"}
+                        matchdayId={matchday.id}
+                        returnTo={returnTo}
+                      />
+                      <CreateDraftForm
+                        matchdayId={matchday.id}
+                        presentationMode={presentationMode}
+                        returnTo={returnTo}
+                      />
+                    </>
+                  ) : null}
                 </>
               ) : (
-                <CreateDraftForm matchdayId={matchday.id} returnTo={returnTo} />
+                <CreateDraftForm matchdayId={matchday.id} presentationMode={presentationMode} returnTo={returnTo} />
               )}
               </Card>
             </div>
 
-            <Card title="Zonas da composição">
+            <Card title={presentationMode === "hierarchical" ? "Cinco momentos editoriais" : "Zonas da composição"}>
               {draftComposition ? (
-                <div className="composition-admin-section-list">
+                presentationMode === "hierarchical" ? (
+                  <HierarchicalCompositionEditor
+                    composition={draftComposition}
+                    matchdayId={matchday.id}
+                    returnTo={returnTo}
+                    slots={hierarchicalSlots}
+                  />
+                ) : (
+                  <div className="composition-admin-section-list">
                   {groupedCompositionItems.map((section) => {
                     const sectionAnchor = compositionZoneAnchor(section.slotType);
 
@@ -2666,14 +3474,55 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                     </section>
                     );
                   })}
-                </div>
+                  </div>
+                )
               ) : (
                 <EmptyState>Cria primeiro um rascunho para começar a composição.</EmptyState>
               )}
             </Card>
+
+            {presentationMode === "hierarchical" && draftComposition ? (
+              <Card title="Momentos posteriores aos 15 lugares">
+                <div className="composition-admin-section-list">
+                  <HierarchicalVideoEditor
+                    composition={draftComposition}
+                    matchdayId={matchday.id}
+                    referenceItems={compositionItems}
+                    returnTo={returnTo}
+                    roundupItems={roundupItems}
+                  />
+                  <HierarchicalAuxiliaryEditor
+                    articles={publishedArticles}
+                    composition={draftComposition}
+                    items={hierarchicalAuxiliaryItems}
+                    matchdayId={matchday.id}
+                    returnTo={returnTo}
+                  />
+                </div>
+              </Card>
+            ) : null}
           </div>
         </section>
       </div>
+
+      {presentationMode === "hierarchical" && isDraftComposition && draftComposition ? (
+        <section className="composition-admin-panel composition-admin-preview-section">
+          <header>
+            <h2>Pré-visualização da apresentação Hierárquica</h2>
+          </header>
+          <p className="composition-admin-note">O preview usa o draft e não altera publicação nem apresentação current.</p>
+          <div className="composition-admin-preview">
+            <HierarchicalCompositionInterpretivePreview
+              beyondMatchdayItems={hierarchicalPreviewBeyondMatchdayItems}
+              matchdayNumber={matchday.number}
+              roundupHeading="A JORNADA EM VÍDEO"
+              roundupItems={hierarchicalPreviewRoundupItems}
+              slots={hierarchicalSlots}
+              videoHighlight={hierarchicalPreviewVideoHighlight}
+            />
+          </div>
+        </section>
+      ) : null}
 
       <script
         dangerouslySetInnerHTML={{

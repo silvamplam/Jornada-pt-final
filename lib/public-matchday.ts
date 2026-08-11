@@ -1,4 +1,5 @@
 import { fetchSupabaseAdminTable, type SupabaseBroadcastChannel, type SupabaseCompetition, type SupabaseMatch, type SupabaseMatchday, type SupabaseMatchdayEditorial, type SupabaseMatchdayHighlight, type SupabaseMatchdayHorizontalNews, type SupabaseMatchdayLatestNews, type SupabaseMatchdayRoundupItem, type SupabaseSeason, type SupabaseSeasonTeam, type SupabaseTeam } from "@/lib/supabase";
+import type { HierarchicalCompositionSlot, ReferenceCompositionPresentationMode } from "@/lib/editorial-hierarchical-composition";
 
 export type PublicSeasonParticipant = SupabaseSeasonTeam & {
   team: SupabaseTeam | null;
@@ -21,6 +22,7 @@ export type PublicReferenceComposition = {
   is_current: boolean;
   internal_name: string | null;
   use_roundup_items: boolean | null;
+  presentation_mode: ReferenceCompositionPresentationMode;
   published_at: string | null;
 };
 
@@ -82,6 +84,7 @@ export type PublicMatchdayContext = {
   complementMedia: PublicMatchdayHeadlineMedia | null;
   referenceComposition: PublicReferenceComposition | null;
   referenceCompositionItems: PublicReferenceCompositionItem[];
+  hierarchicalCompositionSlots: HierarchicalCompositionSlot[];
   referenceSlots: PublicReferenceCompositionSlots;
   referenceRoundupItems: SupabaseMatchdayRoundupItem[];
   hasPublishedReferenceComposition: boolean;
@@ -415,7 +418,7 @@ async function buildReferenceRoundupItems(matchdayId: string, referenceItems: Pu
 async function readPublishedReferenceCompositionBundle(matchdayId: string) {
   try {
     const compositions = await fetchSupabaseAdminTable<PublicReferenceComposition>(
-      `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,published_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,published_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast&limit=1`
     );
@@ -425,6 +428,7 @@ async function readPublishedReferenceCompositionBundle(matchdayId: string) {
       return {
         referenceComposition: null,
         referenceCompositionItems: [],
+        hierarchicalCompositionSlots: [],
         referenceSlots: {},
         referenceRoundupItems: [],
         hasPublishedReferenceComposition: false,
@@ -432,17 +436,27 @@ async function readPublishedReferenceCompositionBundle(matchdayId: string) {
       };
     }
 
-    const referenceCompositionItems = await fetchSupabaseAdminTable<PublicReferenceCompositionItem>(
+    const referenceItemsQuery =
       `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,source_id,article_id,sort_order,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,label_snapshot,label_color_snapshot,status&composition_id=eq.${encodeURIComponent(
         referenceComposition.id
-      )}&order=sort_order.asc`
-    );
+      )}&order=sort_order.asc`;
+    const referenceCompositionItems = referenceComposition.presentation_mode === "hierarchical"
+      ? await fetchSupabaseAdminTable<PublicReferenceCompositionItem>(referenceItemsQuery).catch(() => [])
+      : await fetchSupabaseAdminTable<PublicReferenceCompositionItem>(referenceItemsQuery);
+    const hierarchicalCompositionSlots = referenceComposition.presentation_mode === "hierarchical"
+      ? await fetchSupabaseAdminTable<HierarchicalCompositionSlot>(
+          `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
+            referenceComposition.id
+          )}`
+        ).catch(() => [])
+      : [];
     const referenceSlots = groupReferenceCompositionSlots(referenceCompositionItems);
     const referenceRoundupItems = await buildReferenceRoundupItems(matchdayId, referenceSlots.roundup ?? []);
 
     return {
       referenceComposition,
       referenceCompositionItems,
+      hierarchicalCompositionSlots,
       referenceSlots,
       referenceRoundupItems,
       hasPublishedReferenceComposition: true,
@@ -452,6 +466,7 @@ async function readPublishedReferenceCompositionBundle(matchdayId: string) {
     return {
       referenceComposition: null,
       referenceCompositionItems: [],
+      hierarchicalCompositionSlots: [],
       referenceSlots: {},
       referenceRoundupItems: [],
       hasPublishedReferenceComposition: false,
@@ -712,6 +727,7 @@ export async function getPublicMatchdayDiagnostic({
         complementMedia,
         referenceComposition: referenceCompositionBundle.referenceComposition,
         referenceCompositionItems: referenceCompositionBundle.referenceCompositionItems,
+        hierarchicalCompositionSlots: referenceCompositionBundle.hierarchicalCompositionSlots,
         referenceSlots: referenceCompositionBundle.referenceSlots,
         referenceRoundupItems: referenceCompositionBundle.referenceRoundupItems,
         hasPublishedReferenceComposition: referenceCompositionBundle.hasPublishedReferenceComposition,

@@ -166,7 +166,7 @@ test("a rota pública não contém placeholders editoriais nem imagens fictícia
 
 test("a capa editorial e a faixa horizontal ficam antes da classificação", () => {
   const conditionalCoverIndex = publicMatchdayPageSource.indexOf(
-    "{editorialVisibility.showCoverPanel ? ("
+    "{useHierarchicalReferenceComposition ? ("
   );
   const horizontalNewsIndex = publicMatchdayPageSource.indexOf(
     "<PublicHorizontalNewsStrip"

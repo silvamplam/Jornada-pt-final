@@ -345,7 +345,7 @@ const publicEditorialLayoutPolishStyles = `
 
   .public-editorial-layout-panel .public-matchday-depth-row {
     display: grid;
-    grid-template-columns: minmax(0, 1.72fr) minmax(280px, 0.78fr);
+    grid-template-columns: minmax(0, 1.78fr) minmax(300px, 0.72fr);
     gap: 24px;
     align-items: start;
     min-width: 0;
@@ -383,6 +383,70 @@ const publicEditorialLayoutPolishStyles = `
     margin: 0;
     padding: 0;
     line-height: 14px;
+  }
+
+
+
+  /* Jornada pública: o destaque ao lado do resumo usa a mesma linguagem editorial,
+     mas conserva a linha de cabeçalho para manter o alinhamento vertical. */
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) .public-roundup-zone-heading,
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side > .public-editorial-section-title {
+    height: 20px;
+    min-height: 20px;
+    line-height: 20px;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side > .public-editorial-section-title {
+    display: none;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side::before {
+    content: "DESTAQUE DA JORNADA";
+    display: block;
+    height: 20px;
+    min-height: 20px;
+    margin: 0;
+    color: #526174;
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 20px;
+    text-transform: uppercase;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side .public-complement-media {
+    border-radius: 4px;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side .public-complement-body {
+    gap: 5px;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side .public-complement-body strong {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.12;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side .public-complement-body p {
+    color: #526174;
+    font-size: 13px;
+    line-height: 1.3;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side .public-video-embed-fallback-label {
+    right: auto;
+    bottom: 10px;
+    left: 10px;
+    width: auto;
+    min-height: 26px;
+    padding: 0 9px;
+    border-radius: 2px;
+    background: rgba(5, 8, 12, 0.72);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0;
   }
 
   .public-editorial-layout-panel .public-matchday-main-lower {

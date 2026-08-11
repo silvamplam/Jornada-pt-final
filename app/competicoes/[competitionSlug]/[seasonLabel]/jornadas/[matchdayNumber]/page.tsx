@@ -5,10 +5,13 @@ import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import { buildPublicMatchdayEditorialVisibility, hasPublicMatchdayRoundupContent } from "@/lib/public-matchday-editorial-visibility";
+import { isPublishableHierarchicalBeyondMatchday, isPublishableHierarchicalComposition } from "@/lib/editorial-hierarchical-composition";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import { PublicEditorialLayout } from "@/components/public/PublicEditorialLayout";
+import type { PublicBeyondMatchdayNewsItem } from "@/components/public/PublicBeyondMatchdayNews";
+import PublicHierarchicalComposition from "@/components/public/PublicHierarchicalComposition";
 import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
@@ -302,6 +305,25 @@ const publicMatchdayStyles = `
     min-width: 0;
     margin-left: auto;
     margin-right: auto;
+  }
+
+  .public-matchday-hierarchical-region {
+    width: 100%;
+    max-width: 1200px;
+    min-width: 0;
+    box-sizing: border-box;
+    margin-inline: auto;
+  }
+
+  .public-matchday-hierarchical-region > .public-hierarchical-composition {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 0;
+    background: #ffffff;
+    box-shadow: none;
   }
 
   .public-matchday-panel header {
@@ -3592,6 +3614,15 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const editorial = context.editorial;
   const publishedHeadline = editorial?.status === "published" ? editorial : null;
   const usePublishedReferenceComposition = context.hasPublishedReferenceComposition;
+  const useHierarchicalReferenceComposition =
+    usePublishedReferenceComposition && context.referenceComposition?.presentation_mode === "hierarchical";
+  const hierarchicalBeyondReferenceItems = useHierarchicalReferenceComposition
+    ? context.referenceSlots.beyond_matchday ?? []
+    : [];
+  const hasValidHierarchicalReferenceComposition =
+    useHierarchicalReferenceComposition &&
+    isPublishableHierarchicalComposition(context.hierarchicalCompositionSlots) &&
+    isPublishableHierarchicalBeyondMatchday(hierarchicalBeyondReferenceItems);
   const referenceBankItemIds = usePublishedReferenceComposition
     ? Array.from(
         new Set(
@@ -3624,9 +3655,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const referenceSideBlock = usePublishedReferenceComposition ? firstReferenceSlotItem(context.referenceSlots.side_block) : null;
   const referenceEditorialLineItems = usePublishedReferenceComposition ? context.referenceSlots.editorial_line_item ?? [] : [];
   const useReferenceRoundupItems = usePublishedReferenceComposition && context.hasReferenceRoundupItems;
-  const effectiveRoundupItems = (useReferenceRoundupItems
-    ? context.referenceRoundupItems
-    : context.roundupItems).filter(hasPublicMatchdayRoundupContent);
+  const effectiveRoundupItems = (
+    useHierarchicalReferenceComposition
+      ? context.referenceRoundupItems
+      : useReferenceRoundupItems
+        ? context.referenceRoundupItems
+        : context.roundupItems
+  ).filter(hasPublicMatchdayRoundupContent);
   const headlineTitle = referenceHeadline
     ? cleanReferenceSnapshotText(referenceHeadline.title_snapshot)
     : publishedHeadline?.title?.trim() || null;
@@ -3815,6 +3850,34 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     importantNewsCount: importantNewsItems.length
   });
 
+  const hierarchicalVideoHighlight = useHierarchicalReferenceComposition && referenceComplement
+    ? {
+        isPublished: true,
+        label: "DESTAQUE DA JORNADA",
+        title: complementaryTitle,
+        text: complementaryText,
+        imageUrl: complementaryImageUrl,
+        linkUrl: complementaryLinkUrl,
+      }
+    : null;
+  const hierarchicalBeyondMatchdayNews = [...hierarchicalBeyondReferenceItems]
+    .sort((left, right) => left.sort_order - right.sort_order)
+    .reduce<PublicBeyondMatchdayNewsItem[]>((items, item) => {
+      const title = cleanReferenceSnapshotText(item.title_snapshot);
+      const linkUrl = cleanReferenceSnapshotText(item.link_url_snapshot);
+      if (!title || !linkUrl) return items;
+
+      items.push({
+        id: item.id,
+        label: cleanReferenceSnapshotText(item.label_snapshot),
+        title,
+        subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot),
+        imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
+        linkUrl,
+      });
+      return items;
+    }, []);
+
   return (
     <main className="public-matchday-shell">
       <style>{publicMatchdayStyles}</style>
@@ -3905,7 +3968,24 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           variant="clean"
         />
       </div>
-      {editorialVisibility.showCoverPanel ? (
+      {useHierarchicalReferenceComposition ? (
+        <div className="public-matchday-hierarchical-region">
+          {hasValidHierarchicalReferenceComposition ? (
+            <PublicHierarchicalComposition
+              slots={context.hierarchicalCompositionSlots}
+              roundupItems={effectiveRoundupItems}
+              roundupHeading="A JORNADA EM VÍDEO"
+              matchdayNumber={context.matchday.number}
+              videoHighlight={hierarchicalVideoHighlight}
+              beyondMatchdayItems={hierarchicalBeyondMatchdayNews}
+            />
+          ) : (
+            <section className="public-matchday-panel" aria-label="Composição hierárquica indisponível">
+              <p>A composição hierárquica desta jornada está temporariamente indisponível.</p>
+            </section>
+          )}
+        </div>
+      ) : editorialVisibility.showCoverPanel ? (
         <PublicEditorialLayout
           ariaLabel="Capa da jornada"
           scope="matchday"
@@ -3951,7 +4031,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             highlights: visibleHighlights,
             roundupItems: visibleRoundupItems,
             showRoundupVideo: editorialVisibility.showRoundup,
-            roundupHeading: editorial?.roundup_video_heading ?? belowHeadlineHeading,
+            roundupHeading: "A JORNADA EM VÍDEO",
             roundupHeadingColor: editorial?.roundup_video_heading_color ?? belowHeadlineHeadingColor ?? null,
             initialRoundupItemId: editorial?.complementary_roundup_item_id ?? null,
             matchdayNumber: context.matchday.number,
@@ -3983,9 +4063,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         />
       ) : null}
 
-      <div className="public-matchday-editorial-region">
-        <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" scope="matchday" />
-      </div>
+      {!useHierarchicalReferenceComposition ? (
+        <div className="public-matchday-editorial-region">
+          <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" scope="matchday" />
+        </div>
+      ) : null}
 
       <section className="public-matchday-panel" id="classificacao" aria-label="Classificacao acumulada">
         <div className="public-table-wrap">

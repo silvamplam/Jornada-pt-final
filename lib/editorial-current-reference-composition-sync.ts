@@ -13,6 +13,7 @@ type NewsFlowSlotType = (typeof NEWS_FLOW_SLOT_TYPES)[number];
 
 type CurrentComposition = {
   id: string;
+  presentation_mode: "standard" | "hierarchical";
 };
 
 type EditorialRow = {
@@ -105,9 +106,9 @@ function snapshotKey(slotType: string, sortOrder: number) {
 
 async function readCurrentPublishedComposition(matchdayId: string) {
   const rows = await fetchSupabaseAdminTable<CurrentComposition>(
-    `matchday_reference_compositions?select=id&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,presentation_mode&matchday_id=eq.${encodeURIComponent(
       matchdayId,
-    )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast&limit=1`,
+    )}&status=eq.published&is_current=is.true&presentation_mode=eq.standard&order=published_at.desc.nullslast&limit=1`,
   ).catch(() => []);
   return rows[0] ?? null;
 }

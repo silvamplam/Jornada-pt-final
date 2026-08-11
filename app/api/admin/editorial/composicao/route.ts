@@ -8,8 +8,24 @@ import {
   EDITORIAL_ZONE_PRESENTATION_PROFILES,
   isEditorialNewsFlowSlotType,
   projectEditorialArticleToZone,
+  requireEditorialArticleZoneProjectionTitle,
+  type EditorialArticleZoneProjectionWithTitle,
   type EditorialArticleZoneSource
 } from "@/lib/editorial-zone-presentation";
+import {
+  HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS,
+  hierarchicalBeyondMatchdayPositionLabel,
+  hierarchicalSlotLabel,
+  incompleteHierarchicalCompositionSlots,
+  isHierarchicalBeyondMatchdaySortOrder,
+  isHierarchicalCompositionSlotKey,
+  isReferenceCompositionPresentationMode,
+  isPublishableHierarchicalBeyondMatchday,
+  missingHierarchicalCompositionSlots,
+  type HierarchicalCompositionReferenceItem,
+  type HierarchicalCompositionSlot,
+  type ReferenceCompositionPresentationMode,
+} from "@/lib/editorial-hierarchical-composition";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 function cleanText(value: FormDataEntryValue | null): string | null {
@@ -65,6 +81,7 @@ type DraftComposition = {
   matchday_id: string;
   status: string;
   use_roundup_items: boolean;
+  presentation_mode: ReferenceCompositionPresentationMode;
 };
 
 type ReferenceCompositionState = DraftComposition & {
@@ -184,9 +201,23 @@ type CurrentRoundupItem = {
   subtitle: string | null;
   image_url: string | null;
   video_url: string | null;
+  duration: string | null;
   type: string | null;
   sort_order: number;
   status: string | null;
+};
+
+type HierarchicalAuxiliaryTarget = {
+  slotType: "complement" | "beyond_matchday";
+  sortOrder: number;
+  label: string;
+};
+
+type HierarchicalArticleCardProjection = EditorialArticleZoneProjectionWithTitle & {
+  subtitle: string;
+  imageUrl: string;
+  linkUrl: string;
+  label: string;
 };
 
 type CompositionSnapshot = {
@@ -296,6 +327,11 @@ type SaveBankResult = {
   skipped: number;
 };
 
+function cleanPresentationMode(value: FormDataEntryValue | null): ReferenceCompositionPresentationMode {
+  const mode = cleanText(value);
+  return isReferenceCompositionPresentationMode(mode) ? mode : "standard";
+}
+
 class CompositionPublicationError extends Error {
   constructor(message: string) {
     super(message);
@@ -313,11 +349,15 @@ async function hasRows(path: string) {
   return rows.length > 0;
 }
 
-async function compositionBelongsToMatchday(compositionId: string, matchdayId: string) {
+async function compositionBelongsToMatchday(
+  compositionId: string,
+  matchdayId: string,
+  presentationMode: ReferenceCompositionPresentationMode = "standard",
+) {
   return hasRows(
     `matchday_reference_compositions?select=id&id=eq.${encodeURIComponent(compositionId)}&matchday_id=eq.${encodeURIComponent(
       matchdayId
-    )}&status=eq.draft`
+    )}&status=eq.draft&presentation_mode=eq.${encodeURIComponent(presentationMode)}`
   );
 }
 
@@ -590,7 +630,7 @@ function filterNewCompositionSnapshots(snapshots: CompositionSnapshot[], existin
 
 async function readDraftComposition(compositionId: string, matchdayId: string) {
   return readFirst<DraftComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items&id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode&id=eq.${encodeURIComponent(
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}&status=eq.draft`
   );
@@ -598,7 +638,7 @@ async function readDraftComposition(compositionId: string, matchdayId: string) {
 
 async function readReferenceCompositionState(compositionId: string, matchdayId: string) {
   return readFirst<ReferenceCompositionState>(
-    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,is_current,published_at&id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,is_current,published_at&id=eq.${encodeURIComponent(
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`
   );
@@ -641,6 +681,81 @@ async function readEditorialArticleForZone(articleId: string, matchdayId: string
   }
 
   return article;
+}
+
+async function readPublishedEditorialArticleForHierarchicalAuxiliary(articleId: string) {
+  const article = await readFirst<EditorialArticleForZone>(
+    `editorial_articles?select=id,slug,label,title,subtitle,body,image_url,author,published_at,matchday_id,status&id=eq.${encodeURIComponent(
+      articleId
+    )}&status=eq.published`
+  );
+
+  if (!article) {
+    throw new CompositionPublicationError("O artigo-fonte já não está publicado.");
+  }
+
+  const missing = missingEditorialArticleCanonicalFields(article);
+  if (missing.length > 0) {
+    throw new CompositionPublicationError(
+      `O artigo-fonte está incompleto: falta ${editorialArticleCanonicalMissingLabel(missing)}. Completa o artigo antes de o usar na Composição.`,
+    );
+  }
+
+  return article;
+}
+
+function projectHierarchicalAuxiliaryArticle(
+  article: EditorialArticleForZone,
+): HierarchicalArticleCardProjection {
+  const projection = requireEditorialArticleZoneProjectionTitle(
+    projectEditorialArticleToZone(article, "complement"),
+  );
+  const subtitle = cleanText(projection.subtitle);
+  const imageUrl = cleanText(projection.imageUrl);
+  const linkUrl = cleanText(projection.linkUrl);
+  const label = cleanText(projection.label);
+
+  if (!subtitle || !imageUrl || !linkUrl || !label) {
+    throw new CompositionPublicationError(
+      "O artigo-fonte não tem todos os campos necessários para esta posição da Composição.",
+    );
+  }
+
+  return { ...projection, subtitle, imageUrl, linkUrl, label };
+}
+
+function projectHierarchicalAuxiliaryBankItem(
+  bankItem: BankItemForAssignment,
+): HierarchicalArticleCardProjection {
+  const title = cleanText(bankItem.title);
+  const subtitle = cleanText(bankItem.subtitle);
+  const imageUrl = cleanText(bankItem.image_url);
+  const linkUrl = cleanText(bankItem.link_url);
+  const label = cleanText(bankItem.label);
+
+  if (!title || !subtitle || !imageUrl || !linkUrl || !label) {
+    throw new CompositionPublicationError(
+      "A notícia do banco não tem todos os campos necessários para esta posição da Composição.",
+    );
+  }
+
+  return { title, subtitle, imageUrl, linkUrl, label };
+}
+
+function hierarchicalAuxiliaryTarget(value: string | null): HierarchicalAuxiliaryTarget | null {
+  if (value === "video_highlight") {
+    return { slotType: "complement", sortOrder: 1, label: "Destaque da Jornada" };
+  }
+
+  const match = value?.match(/^beyond_matchday_(\d+)$/);
+  const sortOrder = match?.[1] ? Number.parseInt(match[1], 10) : 0;
+  if (!isHierarchicalBeyondMatchdaySortOrder(sortOrder)) return null;
+
+  return {
+    slotType: "beyond_matchday",
+    sortOrder,
+    label: `Para Lá da Jornada — ${hierarchicalBeyondMatchdayPositionLabel(sortOrder)}`,
+  };
 }
 
 function editorialArticleSlugFromLink(linkUrl: string | null | undefined) {
@@ -714,7 +829,7 @@ async function readPublishedImportantReferenceItems(matchdayId: string) {
   const composition = await readFirst<{ id: string }>(
     `matchday_reference_compositions?select=id&matchday_id=eq.${encodeURIComponent(
       matchdayId
-    )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast`
+    )}&status=eq.published&is_current=is.true&presentation_mode=eq.standard&order=published_at.desc.nullslast`
   );
 
   if (!composition) {
@@ -1125,8 +1240,8 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
 
   await assertCompositionSlotCapacity(compositionId, slotType);
 
-  let projected = {
-    title: bankItem.title as string | null,
+  let projected: EditorialArticleZoneProjectionWithTitle = {
+    title: bankItem.title,
     subtitle: bankItem.subtitle,
     imageUrl: bankItem.image_url,
     linkUrl: bankItem.link_url,
@@ -1137,7 +1252,9 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
     if (!isEditorialNewsFlowSlotType(slotType)) {
       throw new CompositionPublicationError("A zona escolhida não pertence ao circuito noticioso.");
     }
-    projected = projectEditorialArticleToZone(await readEditorialArticleForZone(articleId, matchdayId), slotType);
+    projected = requireEditorialArticleZoneProjectionTitle(
+      projectEditorialArticleToZone(await readEditorialArticleForZone(articleId, matchdayId), slotType),
+    );
   }
 
   const nextSortOrder = (await readMaxSortOrderForSlot(compositionId, slotType)) + 1;
@@ -1200,6 +1317,364 @@ async function unassignBankItemFromCompositionSlot(formData: FormData) {
     `matchday_reference_composition_items?id=eq.${encodeURIComponent(item.id)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
     { method: "DELETE" }
   );
+}
+
+function hierarchicalBankSourceIdentity(item: BankItemForAssignment) {
+  const sourceType = normalizeIdentityValue(item.source_type);
+  const sourceId = normalizeIdentityValue(item.source_id);
+  if (sourceType && sourceId) return `${sourceType}:${sourceId}`;
+
+  const link = normalizeEditorialLinkValue(item.link_url);
+  if (link) return `link:${link}`;
+
+  return `bank:${item.id.toLowerCase()}`;
+}
+
+async function assignBankItemToHierarchicalSlot(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  const bankItemId = cleanText(formData.get("bank_item_id"));
+  const slotKey = cleanText(formData.get("slot_key"));
+
+  if (
+    !matchdayId ||
+    !compositionId ||
+    !bankItemId ||
+    !isHierarchicalCompositionSlotKey(slotKey) ||
+    !(await compositionBelongsToMatchday(compositionId, matchdayId, "hierarchical"))
+  ) {
+    throw new Error("hierarchical-assignment-invalid");
+  }
+
+  const bankItem = await readFirst<BankItemForAssignment>(
+    `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug&id=eq.${encodeURIComponent(
+      bankItemId
+    )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`
+  );
+  if (!bankItem || bankItem.status !== "active") {
+    throw new Error("hierarchical-assignment-invalid");
+  }
+
+  const sourceIdentity = hierarchicalBankSourceIdentity(bankItem);
+  const existingSlots = await fetchSupabaseAdminTable<Pick<HierarchicalCompositionSlot, "slot_key" | "source_identity">>(
+    `matchday_hierarchical_composition_slots?select=slot_key,source_identity&composition_id=eq.${encodeURIComponent(compositionId)}`
+  );
+
+  if (existingSlots.some((slot) => slot.slot_key === slotKey)) {
+    throw new CompositionPublicationError(`${hierarchicalSlotLabel(slotKey)} já está ocupado. Retira primeiro o conteúdo atual.`);
+  }
+  if (existingSlots.some((slot) => slot.source_identity === sourceIdentity)) {
+    throw new CompositionPublicationError("Esta notícia já ocupa outro lugar da composição hierárquica.");
+  }
+  if (await hierarchicalCompositionUsesBankItem(compositionId, bankItem.id)) {
+    throw new CompositionPublicationError("Esta notícia já ocupa outro lugar da composição hierárquica.");
+  }
+  if (
+    isEditorialArticleSourceType(bankItem.source_type) &&
+    bankItem.source_id &&
+    (await hierarchicalCompositionUsesEditorialArticle(compositionId, bankItem.source_id))
+  ) {
+    throw new CompositionPublicationError("Este artigo já ocupa outro lugar da composição hierárquica.");
+  }
+
+  await writeSupabaseAdmin("matchday_hierarchical_composition_slots", {
+    method: "POST",
+    body: JSON.stringify({
+      composition_id: compositionId,
+      slot_key: slotKey,
+      bank_item_id: bankItem.id,
+      source_identity: sourceIdentity,
+      label_snapshot: bankItem.label,
+      title_snapshot: bankItem.title,
+      subtitle_snapshot: bankItem.subtitle,
+      image_url_snapshot: bankItem.image_url,
+      link_url_snapshot: bankItem.link_url,
+    }),
+  });
+}
+
+async function unassignHierarchicalSlot(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  const slotId = cleanText(formData.get("hierarchical_slot_id"));
+
+  if (
+    !matchdayId ||
+    !compositionId ||
+    !slotId ||
+    !(await compositionBelongsToMatchday(compositionId, matchdayId, "hierarchical"))
+  ) {
+    throw new Error("hierarchical-unassignment-invalid");
+  }
+
+  await writeSupabaseAdmin(
+    `matchday_hierarchical_composition_slots?id=eq.${encodeURIComponent(slotId)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
+    { method: "DELETE" },
+  );
+}
+
+async function readHierarchicalCompositionSlots(compositionId: string) {
+  return fetchSupabaseAdminTable<HierarchicalCompositionSlot>(
+    `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
+      compositionId
+    )}`,
+  );
+}
+
+async function readHierarchicalCompositionReferenceItems(compositionId: string) {
+  return fetchSupabaseAdminTable<HierarchicalCompositionReferenceItem>(
+    `matchday_reference_composition_items?select=slot_type,sort_order,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,label_snapshot&composition_id=eq.${encodeURIComponent(
+      compositionId
+    )}`,
+  );
+}
+
+async function hierarchicalCompositionUsesEditorialArticle(
+  compositionId: string,
+  articleId: string,
+) {
+  const normalizedArticleId = normalizeIdentityValue(articleId);
+  const [slots, referenceItems] = await Promise.all([
+    fetchSupabaseAdminTable<Pick<HierarchicalCompositionSlot, "source_identity">>(
+      `matchday_hierarchical_composition_slots?select=source_identity&composition_id=eq.${encodeURIComponent(compositionId)}`,
+    ),
+    fetchSupabaseAdminTable<{
+      source_type: string | null;
+      source_id: string | null;
+    }>(
+      `matchday_reference_composition_items?select=source_type,source_id&composition_id=eq.${encodeURIComponent(
+        compositionId
+      )}&slot_type=in.(complement,beyond_matchday)`,
+    ),
+  ]);
+
+  if (slots.some((slot) => normalizeIdentityValue(slot.source_identity) === `editorial_article:${normalizedArticleId}`)) {
+    return true;
+  }
+
+  if (
+    referenceItems.some(
+      (item) => isEditorialArticleSourceType(item.source_type) && normalizeIdentityValue(item.source_id) === normalizedArticleId,
+    )
+  ) {
+    return true;
+  }
+
+  const bankItemIds = referenceItems
+    .filter((item) => isBankSourceType(item.source_type) && item.source_id)
+    .map((item) => item.source_id as string);
+  if (bankItemIds.length === 0) return false;
+
+  const bankItems = await fetchSupabaseAdminTable<Pick<BankItemForAssignment, "source_type" | "source_id">>(
+    `matchday_editorial_bank_items?select=source_type,source_id&id=in.(${bankItemIds.map(encodeURIComponent).join(",")})`,
+  );
+  return bankItems.some(
+    (item) => isEditorialArticleSourceType(item.source_type) && normalizeIdentityValue(item.source_id) === normalizedArticleId,
+  );
+}
+
+async function hierarchicalCompositionUsesBankItem(
+  compositionId: string,
+  bankItemId: string,
+) {
+  const [slot, auxiliaryItem] = await Promise.all([
+    readFirst<{ id: string }>(
+      `matchday_hierarchical_composition_slots?select=id&composition_id=eq.${encodeURIComponent(
+        compositionId
+      )}&bank_item_id=eq.${encodeURIComponent(bankItemId)}`,
+    ),
+    readFirst<{ id: string }>(
+      `matchday_reference_composition_items?select=id&composition_id=eq.${encodeURIComponent(
+        compositionId
+      )}&slot_type=in.(complement,beyond_matchday)&source_type=eq.matchday_editorial_bank_item&source_id=eq.${encodeURIComponent(bankItemId)}`,
+    ),
+  ]);
+
+  return Boolean(slot || auxiliaryItem);
+}
+
+async function persistHierarchicalAuxiliaryArticle(input: {
+  articleId: string | null;
+  bankItemId?: string | null;
+  compositionId: string;
+  projection: HierarchicalArticleCardProjection;
+  target: HierarchicalAuxiliaryTarget;
+}) {
+  const existingTarget = await readFirst<{ id: string }>(
+    `matchday_reference_composition_items?select=id&composition_id=eq.${encodeURIComponent(
+      input.compositionId
+    )}&slot_type=eq.${encodeURIComponent(input.target.slotType)}&sort_order=eq.${input.target.sortOrder}`,
+  );
+  if (existingTarget) {
+    throw new CompositionPublicationError(`${input.target.label} já está ocupado. Retira primeiro o artigo atual.`);
+  }
+
+  if (
+    input.bankItemId &&
+    (await hierarchicalCompositionUsesBankItem(input.compositionId, input.bankItemId))
+  ) {
+    throw new CompositionPublicationError("Esta notícia já ocupa outro lugar da composição hierárquica.");
+  }
+
+  if (
+    input.articleId &&
+    (await hierarchicalCompositionUsesEditorialArticle(input.compositionId, input.articleId))
+  ) {
+    throw new CompositionPublicationError("Este artigo já ocupa outro lugar da composição hierárquica.");
+  }
+
+  const sourceId = input.bankItemId ?? input.articleId;
+  if (!sourceId) throw new Error("hierarchical-auxiliary-source-invalid");
+
+  await writeSupabaseAdmin("matchday_reference_composition_items", {
+    method: "POST",
+    body: JSON.stringify({
+      composition_id: input.compositionId,
+      slot_type: input.target.slotType,
+      source_type: input.bankItemId ? "matchday_editorial_bank_item" : "editorial_article",
+      source_id: sourceId,
+      article_id: null,
+      sort_order: input.target.sortOrder,
+      title_snapshot: input.projection.title,
+      subtitle_snapshot: input.projection.subtitle,
+      image_url_snapshot: input.projection.imageUrl,
+      link_url_snapshot: input.projection.linkUrl,
+      label_snapshot: input.projection.label,
+      label_color_snapshot: null,
+      status: "draft",
+    }),
+  });
+}
+
+async function assignBankItemToHierarchicalAuxiliary(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  const bankItemId = cleanText(formData.get("bank_item_id"));
+  const target = hierarchicalAuxiliaryTarget(cleanText(formData.get("auxiliary_target")));
+
+  if (
+    !matchdayId ||
+    !compositionId ||
+    !bankItemId ||
+    !target ||
+    !(await compositionBelongsToMatchday(compositionId, matchdayId, "hierarchical"))
+  ) {
+    throw new Error("hierarchical-auxiliary-assignment-invalid");
+  }
+
+  const bankItem = await readFirst<BankItemForAssignment>(
+    `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug&id=eq.${encodeURIComponent(
+      bankItemId
+    )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+  );
+  if (!bankItem || bankItem.status !== "active") {
+    throw new CompositionPublicationError("Esta notícia já não está disponível no banco da Jornada.");
+  }
+
+  const articleId = isEditorialArticleSourceType(bankItem.source_type) ? bankItem.source_id : null;
+  const projection = articleId
+    ? projectHierarchicalAuxiliaryArticle(await readPublishedEditorialArticleForHierarchicalAuxiliary(articleId))
+    : projectHierarchicalAuxiliaryBankItem(bankItem);
+  await persistHierarchicalAuxiliaryArticle({
+    articleId,
+    bankItemId: bankItem.id,
+    compositionId,
+    projection,
+    target,
+  });
+}
+
+async function assignPublishedArticleToHierarchicalAuxiliary(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  const articleId = cleanText(formData.get("editorial_article_id"));
+  const target = hierarchicalAuxiliaryTarget(cleanText(formData.get("auxiliary_target")));
+
+  if (
+    !matchdayId ||
+    !compositionId ||
+    !articleId ||
+    !target ||
+    !(await compositionBelongsToMatchday(compositionId, matchdayId, "hierarchical"))
+  ) {
+    throw new Error("hierarchical-auxiliary-assignment-invalid");
+  }
+
+  const article = await readPublishedEditorialArticleForHierarchicalAuxiliary(articleId);
+  await persistHierarchicalAuxiliaryArticle({
+    articleId,
+    compositionId,
+    projection: projectHierarchicalAuxiliaryArticle(article),
+    target,
+  });
+}
+
+async function assignRoundupItemToHierarchicalComposition(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  const roundupItemId = cleanText(formData.get("roundup_item_id"));
+
+  if (
+    !matchdayId ||
+    !compositionId ||
+    !roundupItemId ||
+    !(await compositionBelongsToMatchday(compositionId, matchdayId, "hierarchical"))
+  ) {
+    throw new Error("hierarchical-roundup-assignment-invalid");
+  }
+
+  const roundupItem = await readFirst<CurrentRoundupItem>(
+    `matchday_roundup_items?select=id,label,title,subtitle,image_url,video_url,duration,type,sort_order,status&id=eq.${encodeURIComponent(
+      roundupItemId
+    )}&matchday_id=eq.${encodeURIComponent(matchdayId)}&status=eq.published`,
+  );
+  if (!roundupItem || !cleanText(roundupItem.video_url)) {
+    throw new CompositionPublicationError("O vídeo tem de estar publicado e ter URL antes de entrar na Composição.");
+  }
+
+  const existing = await readFirst<{ id: string }>(
+    `matchday_reference_composition_items?select=id&composition_id=eq.${encodeURIComponent(
+      compositionId
+    )}&slot_type=eq.roundup&source_type=eq.matchday_roundup_item&source_id=eq.${encodeURIComponent(roundupItem.id)}`,
+  );
+  if (existing) {
+    throw new CompositionPublicationError("Este vídeo já faz parte da Composição.");
+  }
+
+  const nextSortOrder = (await readMaxSortOrderForSlot(compositionId, "roundup")) + 1;
+  await writeSupabaseAdmin("matchday_reference_composition_items", {
+    method: "POST",
+    body: JSON.stringify({
+      composition_id: compositionId,
+      slot_type: "roundup",
+      source_type: "matchday_roundup_item",
+      source_id: roundupItem.id,
+      article_id: null,
+      sort_order: nextSortOrder,
+      title_snapshot: roundupItem.title,
+      subtitle_snapshot: roundupItem.subtitle,
+      image_url_snapshot: roundupItem.image_url,
+      link_url_snapshot: roundupItem.video_url,
+      label_snapshot: roundupItem.label || roundupItem.type,
+      label_color_snapshot: null,
+      status: "draft",
+    }),
+  });
+}
+
+async function activateReferenceComposition(formData: FormData, publishDraft: boolean) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  if (!matchdayId || !compositionId) throw new Error("composition-invalid");
+
+  await writeSupabaseAdmin("rpc/activate_matchday_reference_composition", {
+    method: "POST",
+    body: JSON.stringify({
+      p_matchday_id: matchdayId,
+      p_composition_id: compositionId,
+      p_publish_draft: publishDraft,
+    }),
+  });
 }
 
 async function buildCurrentPageSnapshots(matchdayId: string, useRoundupItems: boolean): Promise<CompositionSnapshot[]> {
@@ -1349,9 +1824,13 @@ async function buildCurrentPageSnapshots(matchdayId: string, useRoundupItems: bo
   return snapshots;
 }
 
-async function createDraft(matchdayId: string, internalName: string | null) {
+async function createDraft(
+  matchdayId: string,
+  internalName: string | null,
+  presentationMode: ReferenceCompositionPresentationMode,
+) {
   if (!(await hasRows(`matchdays?select=id&id=eq.${encodeURIComponent(matchdayId)}`))) throw new Error("matchday-invalid");
-  if (await hasRows(`matchday_reference_compositions?select=id&matchday_id=eq.${encodeURIComponent(matchdayId)}&status=eq.draft`)) return;
+  if (await hasRows(`matchday_reference_compositions?select=id&matchday_id=eq.${encodeURIComponent(matchdayId)}&status=eq.draft&presentation_mode=eq.${encodeURIComponent(presentationMode)}`)) return;
   await writeSupabaseAdmin("matchday_reference_compositions", {
     method: "POST",
     body: JSON.stringify({
@@ -1359,7 +1838,8 @@ async function createDraft(matchdayId: string, internalName: string | null) {
       status: "draft",
       is_current: false,
       internal_name: internalName,
-      use_roundup_items: true
+      use_roundup_items: true,
+      presentation_mode: presentationMode,
     })
   });
 }
@@ -1367,7 +1847,8 @@ async function createDraft(matchdayId: string, internalName: string | null) {
 async function updateDraft(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const compositionId = cleanText(formData.get("composition_id"));
-  if (!matchdayId || !compositionId || !(await compositionBelongsToMatchday(compositionId, matchdayId))) throw new Error("composition-invalid");
+  const presentationMode = cleanPresentationMode(formData.get("presentation_mode"));
+  if (!matchdayId || !compositionId || !(await compositionBelongsToMatchday(compositionId, matchdayId, presentationMode))) throw new Error("composition-invalid");
   await writeSupabaseAdmin(
     `matchday_reference_compositions?id=eq.${encodeURIComponent(compositionId)}&matchday_id=eq.${encodeURIComponent(
       matchdayId
@@ -1426,7 +1907,8 @@ async function removeItem(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const compositionId = cleanText(formData.get("composition_id"));
   const itemId = cleanText(formData.get("item_id"));
-  if (!matchdayId || !compositionId || !itemId || !(await compositionBelongsToMatchday(compositionId, matchdayId))) throw new Error("composition-invalid");
+  const presentationMode = cleanPresentationMode(formData.get("presentation_mode"));
+  if (!matchdayId || !compositionId || !itemId || !(await compositionBelongsToMatchday(compositionId, matchdayId, presentationMode))) throw new Error("composition-invalid");
   await writeSupabaseAdmin(
     `matchday_reference_composition_items?id=eq.${encodeURIComponent(itemId)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
     { method: "DELETE" }
@@ -1548,13 +2030,14 @@ async function reorderCompositionItem(formData: FormData) {
   const compositionId = cleanText(formData.get("composition_id"));
   const itemId = cleanText(formData.get("item_id"));
   const direction = cleanText(formData.get("direction"));
+  const presentationMode = cleanPresentationMode(formData.get("presentation_mode"));
 
   if (
     !matchdayId ||
     !compositionId ||
     !itemId ||
     (direction !== "up" && direction !== "down") ||
-    !(await compositionBelongsToMatchday(compositionId, matchdayId))
+    !(await compositionBelongsToMatchday(compositionId, matchdayId, presentationMode))
   ) {
     throw new Error("composition-invalid");
   }
@@ -1601,7 +2084,7 @@ async function saveCurrentPageState(formData: FormData) {
   const compositionId = cleanText(formData.get("composition_id"));
   if (!matchdayId || !compositionId) throw new Error("composition-invalid");
   const composition = await readDraftComposition(compositionId, matchdayId);
-  if (!composition) throw new Error("composition-invalid");
+  if (!composition || composition.presentation_mode !== "standard") throw new Error("composition-invalid");
 
   const snapshots = await buildCurrentPageSnapshots(matchdayId, composition.use_roundup_items);
   if (snapshots.length === 0) return;
@@ -1635,34 +2118,41 @@ async function publishReferenceComposition(formData: FormData) {
   if (composition.status === "published") return;
   if (composition.status !== "draft") throw new Error("composition-invalid");
 
-  const compositionItems = await fetchSupabaseAdminTable<CompositionPublicationItem>(
-    `matchday_reference_composition_items?select=slot_type&composition_id=eq.${encodeURIComponent(composition.id)}&limit=500`
-  );
-  validatePublishableCompositionItems(compositionItems);
-
-  await writeSupabaseAdmin(
-    `matchday_reference_compositions?matchday_id=eq.${encodeURIComponent(matchdayId)}&id=neq.${encodeURIComponent(
-      composition.id
-    )}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({ is_current: false })
+  if (composition.presentation_mode === "hierarchical") {
+    const hierarchicalSlots = await readHierarchicalCompositionSlots(composition.id);
+    const hierarchicalReferenceItems = await readHierarchicalCompositionReferenceItems(composition.id);
+    const missing = missingHierarchicalCompositionSlots(hierarchicalSlots);
+    const incomplete = incompleteHierarchicalCompositionSlots(hierarchicalSlots);
+    if (missing.length > 0 || incomplete.length > 0) {
+      const labels = Array.from(new Set([...missing, ...incomplete])).map(hierarchicalSlotLabel);
+      throw new CompositionPublicationError(`Completa os 15 lugares antes de publicar. Em falta: ${labels.join(", ")}.`);
     }
-  );
-
-  const now = new Date().toISOString();
-  await writeSupabaseAdmin(
-    `matchday_reference_compositions?id=eq.${encodeURIComponent(composition.id)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        status: "published",
-        is_current: true,
-        published_at: now,
-        updated_at: now
-      })
+    if (!isPublishableHierarchicalBeyondMatchday(hierarchicalReferenceItems)) {
+      const missingBeyond = HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS
+        .filter((position) => {
+          const item = hierarchicalReferenceItems.find(
+            (candidate) => candidate.slot_type === "beyond_matchday" && candidate.sort_order === position.sortOrder,
+          );
+          return !item ||
+            !item.label_snapshot?.trim() ||
+            !item.title_snapshot?.trim() ||
+            !item.subtitle_snapshot?.trim() ||
+            !item.image_url_snapshot?.trim() ||
+            !item.link_url_snapshot?.trim();
+        })
+        .map((position) => position.label);
+      throw new CompositionPublicationError(
+        `Completa as 5 posições de Para Lá da Jornada antes de publicar. Em falta: ${missingBeyond.join(", ")}.`,
+      );
     }
-  );
+  } else {
+    const compositionItems = await fetchSupabaseAdminTable<CompositionPublicationItem>(
+      `matchday_reference_composition_items?select=slot_type&composition_id=eq.${encodeURIComponent(composition.id)}&limit=500`
+    );
+    validatePublishableCompositionItems(compositionItems);
+  }
+
+  await activateReferenceComposition(formData, true);
 }
 
 async function reopenReferenceComposition(formData: FormData) {
@@ -1701,7 +2191,7 @@ export async function POST(request: Request) {
 
   try {
     if (!matchdayId) throw new Error("missing-matchday");
-    if (actionType === "create_draft") await createDraft(matchdayId, cleanText(formData.get("internal_name")));
+    if (actionType === "create_draft") await createDraft(matchdayId, cleanText(formData.get("internal_name")), cleanPresentationMode(formData.get("presentation_mode")));
     else if (actionType === "update_draft") await updateDraft(formData);
     else if (actionType === "add_item") await addItem(formData);
     else if (actionType === "remove_item") await removeItem(formData);
@@ -1732,7 +2222,28 @@ export async function POST(request: Request) {
       await unassignBankItemFromCompositionSlot(formData);
       return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_unassigned=1#matchday-editorial-bank`);
     }
+    else if (actionType === "assign_bank_item_to_hierarchical_slot") {
+      await assignBankItemToHierarchicalSlot(formData);
+      return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_assigned=1#matchday-editorial-bank`);
+    }
+    else if (actionType === "assign_bank_item_to_hierarchical_auxiliary") {
+      await assignBankItemToHierarchicalAuxiliary(formData);
+      return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_assigned=1#matchday-editorial-bank`);
+    }
+    else if (actionType === "assign_published_article_to_hierarchical_auxiliary") {
+      await assignPublishedArticleToHierarchicalAuxiliary(formData);
+      return redirectTo(request, compositionReturnTarget(returnTo, "composition_saved=1", returnAnchor));
+    }
+    else if (actionType === "assign_roundup_item_to_hierarchical_composition") {
+      await assignRoundupItemToHierarchicalComposition(formData);
+      return redirectTo(request, compositionReturnTarget(returnTo, "composition_saved=1", returnAnchor));
+    }
+    else if (actionType === "unassign_hierarchical_slot") {
+      await unassignHierarchicalSlot(formData);
+      return redirectTo(request, compositionReturnTarget(returnTo, "composition_saved=1", returnAnchor));
+    }
     else if (actionType === "publish_reference_composition") await publishReferenceComposition(formData);
+    else if (actionType === "activate_reference_composition") await activateReferenceComposition(formData, false);
     else if (actionType === "reopen_reference_composition") await reopenReferenceComposition(formData);
     else throw new Error("unknown-action");
   } catch (error) {
@@ -1743,7 +2254,12 @@ export async function POST(request: Request) {
       const errorValue = error instanceof CompositionPublicationError ? encodeURIComponent(error.message) : "1";
       return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_status_error=${errorValue}#matchday-editorial-bank`);
     }
-    if (actionType === "assign_bank_item_to_composition_slot" || actionType === "unassign_bank_item_from_composition_slot") {
+    if (
+      actionType === "assign_bank_item_to_composition_slot" ||
+      actionType === "unassign_bank_item_from_composition_slot" ||
+      actionType === "assign_bank_item_to_hierarchical_slot" ||
+      actionType === "assign_bank_item_to_hierarchical_auxiliary"
+    ) {
       const errorValue = error instanceof CompositionPublicationError ? encodeURIComponent(error.message) : "1";
       return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_assignment_error=${errorValue}#matchday-editorial-bank`);
     }
