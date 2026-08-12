@@ -1529,15 +1529,19 @@ function readMatchdayArticles(matchdayId: string): Promise<SupabaseArticle[]> {
   ).catch(() => []);
 }
 
-function readPublishedEditorialArticles(): Promise<PublishedEditorialArticle[]> {
+function readPublishedEditorialArticles(matchdayId: string): Promise<PublishedEditorialArticle[]> {
   return fetchSupabaseAdminTable<PublishedEditorialArticle>(
-    "editorial_articles?select=id,slug,label,title,subtitle,image_url,status,published_at,matchday_id&status=eq.published&order=published_at.desc.nullslast,created_at.desc&limit=200"
+    `editorial_articles?select=id,slug,label,title,subtitle,image_url,status,published_at,matchday_id&status=eq.published&or=(matchday_id.eq.${encodeURIComponent(
+      matchdayId
+    )},matchday_id.is.null)&order=published_at.desc.nullslast,created_at.desc&limit=200`
   ).catch(() => []);
 }
 
-function readPublishedEditorialContents(): Promise<PublishedEditorialContent[]> {
+function readPublishedEditorialContents(matchdayId: string): Promise<PublishedEditorialContent[]> {
   return fetchSupabaseAdminTable<PublishedEditorialContent>(
-    "editorial_contents?select=id,slug,content_type,label,title,subtitle,summary,image_url,thumbnail_url,video_url,embed_url,is_embeddable,status,published_at,matchday_id&status=eq.published&order=published_at.desc.nullslast,created_at.desc&limit=200"
+    `editorial_contents?select=id,slug,content_type,label,title,subtitle,summary,image_url,thumbnail_url,video_url,embed_url,is_embeddable,status,published_at,matchday_id&status=eq.published&or=(matchday_id.eq.${encodeURIComponent(
+      matchdayId
+    )},matchday_id.is.null)&order=published_at.desc.nullslast,created_at.desc&limit=200`
   ).catch(() => []);
 }
 
@@ -2967,8 +2971,8 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     readMatchdayEditorialBankItems(matchday.id),
     readContextSelectorData(),
     presentationMode === "hierarchical" ? readMatchdayRoundupItems(matchday.id) : Promise.resolve([]),
-    presentationMode === "hierarchical" ? readPublishedEditorialArticles() : Promise.resolve([]),
-    presentationMode === "hierarchical" ? readPublishedEditorialContents() : Promise.resolve([]),
+    presentationMode === "hierarchical" ? readPublishedEditorialArticles(matchday.id) : Promise.resolve([]),
+    presentationMode === "hierarchical" ? readPublishedEditorialContents(matchday.id) : Promise.resolve([]),
   ]);
   const draftComposition = modeDraftComposition ?? modePublishedComposition;
   const [compositionItems, hierarchicalSlots] = await Promise.all([
