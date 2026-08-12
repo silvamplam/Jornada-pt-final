@@ -306,6 +306,34 @@ function bankItemPlacementLabel(items: ReferenceCompositionItem[], bankItem: Mat
   });
 }
 
+function hierarchicalAuxiliaryBankItemPlacementLabel(
+  items: ReferenceCompositionItem[],
+  bankItem: MatchdayEditorialBankItem,
+) {
+  const placementLabels = items
+    .filter((item) =>
+      compositionItemMatchesCandidate(item, {
+        sourceType: bankItem.source_type ?? "matchday_editorial_bank_item",
+        sourceId: bankItem.source_id,
+        linkUrl: bankItem.link_url,
+        title: bankItem.title,
+        subtitle: bankItem.subtitle,
+        imageUrl: bankItem.image_url,
+      }),
+    )
+    .map((item) =>
+      item.slot_type === "complement"
+        ? "Destaque da Jornada"
+        : item.slot_type === "beyond_matchday"
+          ? `Para Lá da Jornada — ${hierarchicalBeyondMatchdayPositionLabel(item.sort_order)}`
+          : null,
+    )
+    .filter((label): label is string => Boolean(label));
+
+  const uniquePlacementLabels = Array.from(new Set(placementLabels));
+  return uniquePlacementLabels.length > 0 ? uniquePlacementLabels.join(", ") : null;
+}
+
 function isArtificialFreeZoneLabel(label?: string | null, sourceType?: string | null) {
   const normalizedLabel = normalizeCandidateValue(label);
   const normalizedSourceType = normalizeSourceType(sourceType);
@@ -3059,7 +3087,8 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           hierarchicalAuxiliaryPlacementByBankId.get(item.id) ??
           (isEditorialArticleBankItem(item) && item.source_id
             ? hierarchicalAuxiliaryPlacementByArticleId.get(item.source_id) ?? null
-            : null)
+            : null) ??
+          hierarchicalAuxiliaryBankItemPlacementLabel(hierarchicalAuxiliaryItems, item)
         : bankItemPlacementLabel(compositionItems, item),
     ]),
   );
