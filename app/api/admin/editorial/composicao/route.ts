@@ -240,6 +240,7 @@ type EditorialContentForHierarchicalMedia = {
 };
 
 type EditorialContentForHierarchicalAuxiliary = EditorialContentForHierarchicalMedia & {
+  matchday_id: string | null;
   slug: string | null;
   content_type: string | null;
   label: string | null;
@@ -779,7 +780,7 @@ async function hierarchicalBankItemMediaSnapshot(bankItem: BankItemForAssignment
 
 async function readPublishedEditorialContentForHierarchicalAuxiliary(contentId: string) {
   const content = await readFirst<EditorialContentForHierarchicalAuxiliary>(
-    `editorial_contents?select=id,slug,content_type,label,title,subtitle,summary,image_url,thumbnail_url,status,video_url,embed_url,is_embeddable&id=eq.${encodeURIComponent(
+    `editorial_contents?select=id,matchday_id,slug,content_type,label,title,subtitle,summary,image_url,thumbnail_url,status,video_url,embed_url,is_embeddable&id=eq.${encodeURIComponent(
       contentId
     )}&status=eq.published`,
   );
@@ -1764,12 +1765,19 @@ async function assignPublishedArticleToHierarchicalAuxiliary(formData: FormData)
   }
 
   const article = await readPublishedEditorialArticleForHierarchicalAuxiliary(articleId);
+  if (!publishedHierarchicalSourceMatchesMatchday(article.matchday_id, matchdayId)) {
+    throw new CompositionPublicationError("A publicação pertence a outra jornada.");
+  }
   await persistHierarchicalAuxiliaryArticle({
     articleId,
     compositionId,
     projection: projectHierarchicalAuxiliaryArticle(article),
     target,
   });
+}
+
+function publishedHierarchicalSourceMatchesMatchday(sourceMatchdayId: string | null, matchdayId: string) {
+  return sourceMatchdayId === null || sourceMatchdayId === matchdayId;
 }
 
 function parseHierarchicalPublishedSource(value: string | null) {
@@ -1800,6 +1808,9 @@ async function assignPublishedSourceToHierarchicalAuxiliary(formData: FormData) 
 
   if (source.sourceType === "editorial_article") {
     const article = await readPublishedEditorialArticleForHierarchicalAuxiliary(source.sourceId);
+    if (!publishedHierarchicalSourceMatchesMatchday(article.matchday_id, matchdayId)) {
+      throw new CompositionPublicationError("A publicação pertence a outra jornada.");
+    }
     await persistHierarchicalAuxiliaryArticle({
       articleId: source.sourceId,
       compositionId,
@@ -1814,6 +1825,9 @@ async function assignPublishedSourceToHierarchicalAuxiliary(formData: FormData) 
   }
 
   const content = await readPublishedEditorialContentForHierarchicalAuxiliary(source.sourceId);
+  if (!publishedHierarchicalSourceMatchesMatchday(content.matchday_id, matchdayId)) {
+    throw new CompositionPublicationError("A publicação pertence a outra jornada.");
+  }
   const mediaSnapshot = await readPublishedEditorialContentMedia(source.sourceId);
   await persistHierarchicalAuxiliaryArticle({
     articleId: null,
