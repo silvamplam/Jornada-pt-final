@@ -96,6 +96,26 @@ const hierarchicalPosteriorMomentsStyles = `
     padding-top: 24px;
     border-top: 2px solid #10151b;
   }
+
+  @media (max-width: 840px) {
+    .public-hierarchical-posterior-moments {
+      gap: 28px;
+    }
+
+    .public-hierarchical-videos {
+      padding-top: 20px;
+    }
+  }
+
+  @media (max-width: 680px) {
+    .public-hierarchical-posterior-moments {
+      gap: 24px;
+    }
+
+    .public-hierarchical-videos {
+      padding-top: 18px;
+    }
+  }
 `;
 
 const hierarchicalCompositionStyles = `
@@ -373,26 +393,30 @@ const hierarchicalCompositionStyles = `
 
   @media (max-width: 840px) {
     .public-hierarchical-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .public-hierarchical-moment .public-hierarchical-card,
-    .public-hierarchical-moment[data-moment] .public-hierarchical-card {
-      grid-column: span 1;
-      grid-row: auto;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
     }
 
     .public-hierarchical-moment[data-moment="dominant"] .public-hierarchical-card[data-slot="dominant_main"] {
       grid-column: 1 / -1;
+      grid-row: auto;
+    }
+
+    .public-hierarchical-moment[data-moment="dominant"] .public-hierarchical-card[data-slot="dominant_side_top"],
+    .public-hierarchical-moment[data-moment="dominant"] .public-hierarchical-card[data-slot="dominant_side_bottom"],
+    .public-hierarchical-moment[data-moment="strong"] .public-hierarchical-card,
+    .public-hierarchical-moment[data-moment="secondary"] .public-hierarchical-card {
+      grid-column: span 3;
+      grid-row: auto;
+    }
+
+    .public-hierarchical-moment[data-moment="other-chronicles"] .public-hierarchical-card,
+    .public-hierarchical-moment[data-moment="closing"] .public-hierarchical-card {
+      grid-column: span 2;
+      grid-row: auto;
     }
 
     .public-hierarchical-moment[data-moment="dominant"] .public-hierarchical-card-media {
       height: 190px;
-    }
-
-    .public-hierarchical-card .public-hierarchical-card-title,
-    .public-hierarchical-moment[data-moment] .public-hierarchical-card-title {
-      font-size: 22px;
     }
 
     .public-hierarchical-card[data-slot="dominant_main"] .public-hierarchical-card-media {
@@ -401,6 +425,15 @@ const hierarchicalCompositionStyles = `
 
     .public-hierarchical-card[data-slot="dominant_main"] .public-hierarchical-card-title {
       font-size: 32px;
+    }
+
+    .public-hierarchical-card[data-slot^="dominant_side_"] .public-hierarchical-card-title,
+    .public-hierarchical-moment[data-moment="other-chronicles"] .public-hierarchical-card-title {
+      font-size: 22px;
+    }
+
+    .public-hierarchical-moment[data-moment="closing"] .public-hierarchical-card-title {
+      font-size: 18px;
     }
   }
 
@@ -411,22 +444,45 @@ const hierarchicalCompositionStyles = `
 
     .public-hierarchical-grid {
       grid-template-columns: minmax(0, 1fr);
+      gap: 18px;
     }
 
     .public-hierarchical-moment .public-hierarchical-card,
     .public-hierarchical-moment[data-moment] .public-hierarchical-card,
     .public-hierarchical-moment[data-moment="dominant"] .public-hierarchical-card[data-slot="dominant_main"] {
       grid-column: 1;
+      grid-row: auto;
     }
 
-    .public-hierarchical-moment[data-moment="dominant"] .public-hierarchical-card-media {
-      height: 220px;
+    .public-hierarchical-moment[data-moment="dominant"] .public-hierarchical-card-media,
+    .public-hierarchical-card[data-slot="dominant_main"] .public-hierarchical-card-media {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
     }
 
-    .public-hierarchical-card .public-hierarchical-card-title,
-    .public-hierarchical-moment[data-moment] .public-hierarchical-card-title,
     .public-hierarchical-card[data-slot="dominant_main"] .public-hierarchical-card-title {
+      font-size: 26px;
+    }
+
+    .public-hierarchical-card[data-slot^="dominant_side_"] .public-hierarchical-card-title {
+      font-size: 22px;
+    }
+
+    .public-hierarchical-moment[data-moment="other-chronicles"] .public-hierarchical-card-title {
+      font-size: 23px;
+    }
+
+    .public-hierarchical-moment[data-moment="strong"] .public-hierarchical-card .public-hierarchical-card-title {
       font-size: 25px;
+    }
+
+    .public-hierarchical-moment[data-moment="secondary"] .public-hierarchical-card .public-hierarchical-card-title {
+      font-size: 18px;
+    }
+
+    .public-hierarchical-moment[data-moment="closing"] .public-hierarchical-card-title {
+      font-size: 20px;
     }
   }
 `;
