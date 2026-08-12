@@ -1,11 +1,13 @@
-import type {
-  HierarchicalCompositionSlot,
-  HierarchicalCompositionSlotKey,
+import {
+  hierarchicalCompositionMediaSnapshot,
+  type HierarchicalCompositionSlot,
+  type HierarchicalCompositionSlotKey,
 } from "@/lib/editorial-hierarchical-composition";
 import {
   PublicHierarchicalPosteriorMoments,
   type PublicHierarchicalPosteriorMomentsProps,
 } from "@/components/public/PublicHierarchicalComposition";
+import { PublicInlineMediaPlayer } from "@/components/public/PublicEditorialLayout";
 
 type HierarchicalCompositionInterpretivePreviewProps = {
   slots: HierarchicalCompositionSlot[];
@@ -488,11 +490,17 @@ const interpretivePreviewStyles = `
     background: #e7ebef;
   }
 
-  .composition-interpretive-media img {
+  .composition-interpretive-media img,
+  .composition-interpretive-media > video {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .composition-interpretive-media > .public-video-embed-root {
+    width: 100%;
+    height: 100%;
   }
 
   .composition-interpretive-media-missing,
@@ -588,17 +596,24 @@ const interpretivePreviewStyles = `
 `;
 
 function PreviewMedia({ slot, slotKey }: { slot: HierarchicalCompositionSlot | null; slotKey: HierarchicalCompositionSlotKey }) {
+  const inlineMedia = slotKey === "dominant_main" ? hierarchicalCompositionMediaSnapshot(slot) : null;
   const media = (
-    <span className="composition-interpretive-media">
-      {slot?.image_url_snapshot ? (
+    <div className="composition-interpretive-media">
+      {inlineMedia ? (
+        <PublicInlineMediaPlayer
+          fallbackPosterUrl={slot?.image_url_snapshot}
+          fallbackTitle={slot?.title_snapshot}
+          media={inlineMedia}
+        />
+      ) : slot?.image_url_snapshot ? (
         <img alt="" src={slot.image_url_snapshot} />
       ) : (
         <span className="composition-interpretive-media-missing">Imagem em falta · {slotKey}</span>
       )}
-    </span>
+    </div>
   );
 
-  return slot?.link_url_snapshot ? (
+  return slot?.link_url_snapshot && !inlineMedia ? (
     <a className="composition-interpretive-media-link" href={slot.link_url_snapshot}>{media}</a>
   ) : media;
 }

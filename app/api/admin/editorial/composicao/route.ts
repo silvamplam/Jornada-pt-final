@@ -24,6 +24,7 @@ import {
   missingHierarchicalCompositionSlots,
   type HierarchicalCompositionReferenceItem,
   type HierarchicalCompositionSlot,
+  type HierarchicalMediaKind,
   type ReferenceCompositionPresentationMode,
 } from "@/lib/editorial-hierarchical-composition";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
@@ -58,6 +59,10 @@ function normalizeSourceType(sourceType?: string | null) {
 function isEditorialArticleSourceType(sourceType?: string | null) {
   const normalized = normalizeSourceType(sourceType);
   return normalized === "editorial_article";
+}
+
+function isEditorialContentSourceType(sourceType?: string | null) {
+  return normalizeSourceType(sourceType) === "editorial_content";
 }
 
 function redirectTo(_request: Request, path: string) {
@@ -213,11 +218,36 @@ type HierarchicalAuxiliaryTarget = {
   label: string;
 };
 
-type HierarchicalArticleCardProjection = EditorialArticleZoneProjectionWithTitle & {
+type HierarchicalArticleCardProjection = Omit<EditorialArticleZoneProjectionWithTitle, "imageUrl"> & {
   subtitle: string;
-  imageUrl: string;
+  imageUrl: string | null;
   linkUrl: string;
   label: string;
+};
+
+type HierarchicalMediaSnapshot = {
+  kind: HierarchicalMediaKind;
+  embedUrl: string | null;
+  videoUrl: string | null;
+};
+
+type EditorialContentForHierarchicalMedia = {
+  id: string;
+  status: string | null;
+  video_url: string | null;
+  embed_url: string | null;
+  is_embeddable: boolean | null;
+};
+
+type EditorialContentForHierarchicalAuxiliary = EditorialContentForHierarchicalMedia & {
+  slug: string | null;
+  content_type: string | null;
+  label: string | null;
+  title: string | null;
+  subtitle: string | null;
+  summary: string | null;
+  image_url: string | null;
+  thumbnail_url: string | null;
 };
 
 type CompositionSnapshot = {
@@ -704,6 +734,87 @@ async function readPublishedEditorialArticleForHierarchicalAuxiliary(articleId: 
   return article;
 }
 
+function isDirectVideoUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return /\.(mp4|webm|ogg)$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+async function readPublishedEditorialContentMedia(contentId: string): Promise<HierarchicalMediaSnapshot> {
+  const content = await readFirst<EditorialContentForHierarchicalMedia>(
+    `editorial_contents?select=id,status,video_url,embed_url,is_embeddable&id=eq.${encodeURIComponent(
+      contentId
+    )}&status=eq.published`,
+  );
+
+  if (!content) {
+    throw new CompositionPublicationError("O conteúdo audiovisual já não está publicado.");
+  }
+
+  const embedUrl = content.is_embeddable ? cleanText(content.embed_url) : null;
+  if (embedUrl) {
+    return { kind: "embed", embedUrl, videoUrl: cleanText(content.video_url) };
+  }
+
+  const videoUrl = cleanText(content.video_url);
+  if (videoUrl && isDirectVideoUrl(videoUrl)) {
+    return { kind: "direct_video", embedUrl: null, videoUrl };
+  }
+
+  throw new CompositionPublicationError(
+    "O conteúdo audiovisual não tem um embed utilizável nem um ficheiro de vídeo direto suportado.",
+  );
+}
+
+async function hierarchicalBankItemMediaSnapshot(bankItem: BankItemForAssignment) {
+  if (!isEditorialContentSourceType(bankItem.source_type) || !bankItem.source_id) {
+    return null;
+  }
+
+  return readPublishedEditorialContentMedia(bankItem.source_id);
+}
+
+async function readPublishedEditorialContentForHierarchicalAuxiliary(contentId: string) {
+  const content = await readFirst<EditorialContentForHierarchicalAuxiliary>(
+    `editorial_contents?select=id,slug,content_type,label,title,subtitle,summary,image_url,thumbnail_url,status,video_url,embed_url,is_embeddable&id=eq.${encodeURIComponent(
+      contentId
+    )}&status=eq.published`,
+  );
+
+  if (!content) {
+    throw new CompositionPublicationError("O conteúdo audiovisual já não está publicado.");
+  }
+
+  return content;
+}
+
+function projectHierarchicalAuxiliaryEditorialContent(
+  content: EditorialContentForHierarchicalAuxiliary,
+): HierarchicalArticleCardProjection {
+  const slug = cleanText(content.slug);
+  const title = cleanText(content.title);
+  const subtitle = cleanText(content.summary) ?? cleanText(content.subtitle);
+  const label = cleanText(content.label) ?? cleanText(content.content_type) ?? "Vídeo";
+  const imageUrl = cleanText(content.thumbnail_url) ?? cleanText(content.image_url);
+
+  if (!slug || !title || !subtitle) {
+    throw new CompositionPublicationError(
+      "O conteúdo audiovisual não tem todos os campos necessários para o Destaque da Jornada.",
+    );
+  }
+
+  return {
+    title,
+    subtitle,
+    imageUrl,
+    linkUrl: `/conteudos/${slug}`,
+    label,
+  };
+}
+
 function projectHierarchicalAuxiliaryArticle(
   article: EditorialArticleForZone,
 ): HierarchicalArticleCardProjection {
@@ -733,9 +844,9 @@ function projectHierarchicalAuxiliaryBankItem(
   const linkUrl = cleanText(bankItem.link_url);
   const label = cleanText(bankItem.label);
 
-  if (!title || !subtitle || !imageUrl || !linkUrl || !label) {
+  if (!title || !subtitle || !linkUrl || !label) {
     throw new CompositionPublicationError(
-      "A notícia do banco não tem todos os campos necessários para esta posição da Composição.",
+      "O conteúdo do banco não tem todos os campos necessários para esta posição da Composição.",
     );
   }
 
@@ -1355,6 +1466,12 @@ async function assignBankItemToHierarchicalSlot(formData: FormData) {
     throw new Error("hierarchical-assignment-invalid");
   }
 
+  const isEditorialContent = isEditorialContentSourceType(bankItem.source_type);
+  if (isEditorialContent && slotKey !== "dominant_main") {
+    throw new CompositionPublicationError("O conteúdo audiovisual só pode ocupar a Manchete nos 15 lugares nucleares.");
+  }
+  const mediaSnapshot = isEditorialContent ? await hierarchicalBankItemMediaSnapshot(bankItem) : null;
+
   const sourceIdentity = hierarchicalBankSourceIdentity(bankItem);
   const existingSlots = await fetchSupabaseAdminTable<Pick<HierarchicalCompositionSlot, "slot_key" | "source_identity">>(
     `matchday_hierarchical_composition_slots?select=slot_key,source_identity&composition_id=eq.${encodeURIComponent(compositionId)}`
@@ -1389,6 +1506,9 @@ async function assignBankItemToHierarchicalSlot(formData: FormData) {
       subtitle_snapshot: bankItem.subtitle,
       image_url_snapshot: bankItem.image_url,
       link_url_snapshot: bankItem.link_url,
+      media_kind_snapshot: mediaSnapshot?.kind ?? null,
+      media_embed_url_snapshot: mediaSnapshot?.embedUrl ?? null,
+      media_video_url_snapshot: mediaSnapshot?.videoUrl ?? null,
     }),
   });
 }
@@ -1415,7 +1535,7 @@ async function unassignHierarchicalSlot(formData: FormData) {
 
 async function readHierarchicalCompositionSlots(compositionId: string) {
   return fetchSupabaseAdminTable<HierarchicalCompositionSlot>(
-    `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
+    `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,media_kind_snapshot,media_embed_url_snapshot,media_video_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
       compositionId
     )}`,
   );
@@ -1429,11 +1549,12 @@ async function readHierarchicalCompositionReferenceItems(compositionId: string) 
   );
 }
 
-async function hierarchicalCompositionUsesEditorialArticle(
+async function hierarchicalCompositionUsesCanonicalSource(
   compositionId: string,
-  articleId: string,
+  sourceType: "editorial_article" | "editorial_content",
+  sourceId: string,
 ) {
-  const normalizedArticleId = normalizeIdentityValue(articleId);
+  const normalizedSourceId = normalizeIdentityValue(sourceId);
   const [slots, referenceItems] = await Promise.all([
     fetchSupabaseAdminTable<Pick<HierarchicalCompositionSlot, "source_identity">>(
       `matchday_hierarchical_composition_slots?select=source_identity&composition_id=eq.${encodeURIComponent(compositionId)}`,
@@ -1448,13 +1569,13 @@ async function hierarchicalCompositionUsesEditorialArticle(
     ),
   ]);
 
-  if (slots.some((slot) => normalizeIdentityValue(slot.source_identity) === `editorial_article:${normalizedArticleId}`)) {
+  if (slots.some((slot) => normalizeIdentityValue(slot.source_identity) === `${sourceType}:${normalizedSourceId}`)) {
     return true;
   }
 
   if (
     referenceItems.some(
-      (item) => isEditorialArticleSourceType(item.source_type) && normalizeIdentityValue(item.source_id) === normalizedArticleId,
+      (item) => normalizeSourceType(item.source_type) === sourceType && normalizeIdentityValue(item.source_id) === normalizedSourceId,
     )
   ) {
     return true;
@@ -1469,8 +1590,22 @@ async function hierarchicalCompositionUsesEditorialArticle(
     `matchday_editorial_bank_items?select=source_type,source_id&id=in.(${bankItemIds.map(encodeURIComponent).join(",")})`,
   );
   return bankItems.some(
-    (item) => isEditorialArticleSourceType(item.source_type) && normalizeIdentityValue(item.source_id) === normalizedArticleId,
+    (item) => normalizeSourceType(item.source_type) === sourceType && normalizeIdentityValue(item.source_id) === normalizedSourceId,
   );
+}
+
+async function hierarchicalCompositionUsesEditorialArticle(
+  compositionId: string,
+  articleId: string,
+) {
+  return hierarchicalCompositionUsesCanonicalSource(compositionId, "editorial_article", articleId);
+}
+
+async function hierarchicalCompositionUsesEditorialContent(
+  compositionId: string,
+  contentId: string,
+) {
+  return hierarchicalCompositionUsesCanonicalSource(compositionId, "editorial_content", contentId);
 }
 
 async function hierarchicalCompositionUsesBankItem(
@@ -1495,10 +1630,12 @@ async function hierarchicalCompositionUsesBankItem(
 
 async function persistHierarchicalAuxiliaryArticle(input: {
   articleId: string | null;
+  editorialContentId?: string | null;
   bankItemId?: string | null;
   compositionId: string;
   projection: HierarchicalArticleCardProjection;
   target: HierarchicalAuxiliaryTarget;
+  mediaSnapshot?: HierarchicalMediaSnapshot | null;
 }) {
   const existingTarget = await readFirst<{ id: string }>(
     `matchday_reference_composition_items?select=id&composition_id=eq.${encodeURIComponent(
@@ -1523,15 +1660,27 @@ async function persistHierarchicalAuxiliaryArticle(input: {
     throw new CompositionPublicationError("Este artigo já ocupa outro lugar da composição hierárquica.");
   }
 
-  const sourceId = input.bankItemId ?? input.articleId;
+  if (
+    input.editorialContentId &&
+    (await hierarchicalCompositionUsesEditorialContent(input.compositionId, input.editorialContentId))
+  ) {
+    throw new CompositionPublicationError("Este vídeo já ocupa outro lugar da composição hierárquica.");
+  }
+
+  const sourceId = input.bankItemId ?? input.articleId ?? input.editorialContentId;
   if (!sourceId) throw new Error("hierarchical-auxiliary-source-invalid");
+  const sourceType = input.bankItemId
+    ? "matchday_editorial_bank_item"
+    : input.articleId
+      ? "editorial_article"
+      : "editorial_content";
 
   await writeSupabaseAdmin("matchday_reference_composition_items", {
     method: "POST",
     body: JSON.stringify({
       composition_id: input.compositionId,
       slot_type: input.target.slotType,
-      source_type: input.bankItemId ? "matchday_editorial_bank_item" : "editorial_article",
+      source_type: sourceType,
       source_id: sourceId,
       article_id: null,
       sort_order: input.target.sortOrder,
@@ -1541,6 +1690,9 @@ async function persistHierarchicalAuxiliaryArticle(input: {
       link_url_snapshot: input.projection.linkUrl,
       label_snapshot: input.projection.label,
       label_color_snapshot: null,
+      media_kind_snapshot: input.mediaSnapshot?.kind ?? null,
+      media_embed_url_snapshot: input.mediaSnapshot?.embedUrl ?? null,
+      media_video_url_snapshot: input.mediaSnapshot?.videoUrl ?? null,
       status: "draft",
     }),
   });
@@ -1572,15 +1724,26 @@ async function assignBankItemToHierarchicalAuxiliary(formData: FormData) {
   }
 
   const articleId = isEditorialArticleSourceType(bankItem.source_type) ? bankItem.source_id : null;
+  const isEditorialContent = isEditorialContentSourceType(bankItem.source_type);
+  if (isEditorialContent && target.slotType !== "complement") {
+    throw new CompositionPublicationError("O conteúdo audiovisual só pode ser usado no Destaque da Jornada neste momento posterior.");
+  }
+  const mediaSnapshot = isEditorialContent ? await hierarchicalBankItemMediaSnapshot(bankItem) : null;
   const projection = articleId
     ? projectHierarchicalAuxiliaryArticle(await readPublishedEditorialArticleForHierarchicalAuxiliary(articleId))
     : projectHierarchicalAuxiliaryBankItem(bankItem);
+  if (!projection.imageUrl && !(mediaSnapshot && target.slotType === "complement")) {
+    throw new CompositionPublicationError(
+      "O conteúdo do banco não tem todos os campos necessários para esta posição da Composição.",
+    );
+  }
   await persistHierarchicalAuxiliaryArticle({
     articleId,
     bankItemId: bankItem.id,
     compositionId,
     projection,
     target,
+    mediaSnapshot,
   });
 }
 
@@ -1606,6 +1769,59 @@ async function assignPublishedArticleToHierarchicalAuxiliary(formData: FormData)
     compositionId,
     projection: projectHierarchicalAuxiliaryArticle(article),
     target,
+  });
+}
+
+function parseHierarchicalPublishedSource(value: string | null) {
+  if (!value) return null;
+  const separator = value.indexOf(":");
+  if (separator <= 0) return null;
+  const sourceType = value.slice(0, separator);
+  const sourceId = cleanText(value.slice(separator + 1));
+  if (!sourceId || (sourceType !== "editorial_article" && sourceType !== "editorial_content")) return null;
+  return { sourceType, sourceId } as const;
+}
+
+async function assignPublishedSourceToHierarchicalAuxiliary(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  const source = parseHierarchicalPublishedSource(cleanText(formData.get("published_source")));
+  const target = hierarchicalAuxiliaryTarget(cleanText(formData.get("auxiliary_target")));
+
+  if (
+    !matchdayId ||
+    !compositionId ||
+    !source ||
+    !target ||
+    !(await compositionBelongsToMatchday(compositionId, matchdayId, "hierarchical"))
+  ) {
+    throw new Error("hierarchical-auxiliary-assignment-invalid");
+  }
+
+  if (source.sourceType === "editorial_article") {
+    const article = await readPublishedEditorialArticleForHierarchicalAuxiliary(source.sourceId);
+    await persistHierarchicalAuxiliaryArticle({
+      articleId: source.sourceId,
+      compositionId,
+      projection: projectHierarchicalAuxiliaryArticle(article),
+      target,
+    });
+    return;
+  }
+
+  if (target.slotType !== "complement") {
+    throw new CompositionPublicationError("O vídeo só pode ser usado no Destaque da Jornada neste menu.");
+  }
+
+  const content = await readPublishedEditorialContentForHierarchicalAuxiliary(source.sourceId);
+  const mediaSnapshot = await readPublishedEditorialContentMedia(source.sourceId);
+  await persistHierarchicalAuxiliaryArticle({
+    articleId: null,
+    editorialContentId: source.sourceId,
+    compositionId,
+    projection: projectHierarchicalAuxiliaryEditorialContent(content),
+    target,
+    mediaSnapshot,
   });
 }
 
@@ -2229,6 +2445,10 @@ export async function POST(request: Request) {
     else if (actionType === "assign_bank_item_to_hierarchical_auxiliary") {
       await assignBankItemToHierarchicalAuxiliary(formData);
       return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_assigned=1#matchday-editorial-bank`);
+    }
+    else if (actionType === "assign_published_source_to_hierarchical_auxiliary") {
+      await assignPublishedSourceToHierarchicalAuxiliary(formData);
+      return redirectTo(request, compositionReturnTarget(returnTo, "composition_saved=1", returnAnchor));
     }
     else if (actionType === "assign_published_article_to_hierarchical_auxiliary") {
       await assignPublishedArticleToHierarchicalAuxiliary(formData);

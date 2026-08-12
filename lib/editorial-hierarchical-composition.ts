@@ -58,6 +58,24 @@ export const HIERARCHICAL_COMPOSITION_SLOT_KEYS = HIERARCHICAL_COMPOSITION_MOMEN
 export type HierarchicalCompositionSlotKey =
   (typeof HIERARCHICAL_COMPOSITION_SLOT_KEYS)[number];
 
+export type HierarchicalMediaKind = "embed" | "direct_video";
+
+export type HierarchicalCompositionMediaSnapshotSource = {
+  media_kind_snapshot?: string | null;
+  media_embed_url_snapshot?: string | null;
+  media_video_url_snapshot?: string | null;
+  image_url_snapshot?: string | null;
+  title_snapshot?: string | null;
+};
+
+export type HierarchicalCompositionMediaSnapshot = {
+  kind: HierarchicalMediaKind;
+  embedUrl: string | null;
+  videoUrl: string | null;
+  posterUrl: string | null;
+  title: string | null;
+};
+
 export type HierarchicalCompositionSlot = {
   id: string;
   composition_id: string;
@@ -69,6 +87,9 @@ export type HierarchicalCompositionSlot = {
   subtitle_snapshot: string | null;
   image_url_snapshot: string | null;
   link_url_snapshot: string | null;
+  media_kind_snapshot?: HierarchicalMediaKind | null;
+  media_embed_url_snapshot?: string | null;
+  media_video_url_snapshot?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -108,6 +129,38 @@ export function isHierarchicalCompositionSlotKey(
   return HIERARCHICAL_COMPOSITION_SLOT_KEYS.includes(
     value as HierarchicalCompositionSlotKey,
   );
+}
+
+export function hierarchicalCompositionMediaSnapshot(
+  item?: HierarchicalCompositionMediaSnapshotSource | null,
+): HierarchicalCompositionMediaSnapshot | null {
+  if (!item) return null;
+
+  const mediaKind = item.media_kind_snapshot?.trim();
+  const embedUrl = item.media_embed_url_snapshot?.trim() || null;
+  const videoUrl = item.media_video_url_snapshot?.trim() || null;
+
+  if (mediaKind === "embed" && embedUrl) {
+    return {
+      kind: "embed",
+      embedUrl,
+      videoUrl,
+      posterUrl: item.image_url_snapshot?.trim() || null,
+      title: item.title_snapshot?.trim() || null,
+    };
+  }
+
+  if (mediaKind === "direct_video" && videoUrl) {
+    return {
+      kind: "direct_video",
+      embedUrl: null,
+      videoUrl,
+      posterUrl: item.image_url_snapshot?.trim() || null,
+      title: item.title_snapshot?.trim() || null,
+    };
+  }
+
+  return null;
 }
 
 export function hierarchicalSlotLabel(slotKey: HierarchicalCompositionSlotKey) {
@@ -163,7 +216,8 @@ export function incompleteHierarchicalCompositionSlots(slots: HierarchicalCompos
         !slot.label_snapshot?.trim() ||
         !slot.title_snapshot?.trim() ||
         !slot.subtitle_snapshot?.trim() ||
-        !slot.image_url_snapshot?.trim(),
+        (!slot.image_url_snapshot?.trim() &&
+          !(slot.slot_key === "dominant_main" && hierarchicalCompositionMediaSnapshot(slot))),
     )
     .map((slot) => slot.slot_key);
 }
