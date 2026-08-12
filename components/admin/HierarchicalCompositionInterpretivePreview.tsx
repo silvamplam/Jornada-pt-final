@@ -1,5 +1,7 @@
 import {
+  hierarchicalCompositionEditorialParagraphs,
   hierarchicalCompositionMediaSnapshot,
+  type HierarchicalCompositionEditorial,
   type HierarchicalCompositionSlot,
   type HierarchicalCompositionSlotKey,
 } from "@/lib/editorial-hierarchical-composition";
@@ -10,6 +12,7 @@ import {
 import { PublicInlineMediaPlayer } from "@/components/public/PublicEditorialLayout";
 
 type HierarchicalCompositionInterpretivePreviewProps = {
+  editorial?: HierarchicalCompositionEditorial | null;
   slots: HierarchicalCompositionSlot[];
 } & Omit<PublicHierarchicalPosteriorMomentsProps, "includeV13PreviewStructure">;
 
@@ -27,14 +30,6 @@ export const HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP = {
     compact: ["closing_1", "closing_2", "closing_3"],
   },
 } as const;
-
-export const HIERARCHICAL_EDITORIAL_PREVIEW_MOCK = `Este espaço sintetiza a leitura editorial da Jornada sem substituir as notícias. Parte do acontecimento dominante e liga-o aos sinais dos restantes jogos.
-
-A síntese distingue resultados circunstanciais de tendências consistentes, observando ritmos, respostas à pressão e temas comuns às equipas.
-
-As declarações ajudam a perceber o ambiente competitivo, sem fabricar conclusões. Informação e interpretação permanecem separadas.
-
-Nesta experiência, o texto testa proporção, densidade e continuidade vertical, avaliando se uma leitura breve oferece contexto antes do resto da composição.`;
 
 const interpretivePreviewStyles = `
   .composition-interpretive-preview {
@@ -100,14 +95,11 @@ const interpretivePreviewStyles = `
     text-transform: uppercase;
   }
 
-  .composition-interpretive-mock-label {
-    display: block;
-    margin-top: 7px;
+  .composition-interpretive-editorial-empty {
+    margin-top: 18px !important;
     color: #8a96a5;
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    font-size: 12px;
+    line-height: 1.5;
   }
 
   .composition-interpretive-editorial h3 {
@@ -646,6 +638,7 @@ function PreviewNewsCopy({
 
 export default function HierarchicalCompositionInterpretivePreview({
   beyondMatchdayItems,
+  editorial = null,
   matchdayNumber,
   roundupHeading,
   roundupHeadingColor,
@@ -654,6 +647,7 @@ export default function HierarchicalCompositionInterpretivePreview({
   videoHighlight,
 }: HierarchicalCompositionInterpretivePreviewProps) {
   const slotsByKey = new Map(slots.map((slot) => [slot.slot_key, slot] as const));
+  const editorialParagraphs = hierarchicalCompositionEditorialParagraphs(editorial?.text);
   const dominantSlot = slotsByKey.get(HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP.dominant) ?? null;
   const analysisMainKey = HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP.analysis.dominant;
   const analysisMainSlot = slotsByKey.get(analysisMainKey) ?? null;
@@ -688,18 +682,27 @@ export default function HierarchicalCompositionInterpretivePreview({
 
         <aside
           className="composition-interpretive-editorial"
-          data-editorial-source="mock-preview-not-persisted"
-          aria-label="Editorial da Jornada — demonstração não publicada"
+          data-editorial-source="hierarchical-composition-draft"
+          aria-label="Editorial da Jornada"
         >
           <span className="composition-interpretive-editorial-kicker">Editorial da Jornada</span>
-          <span className="composition-interpretive-mock-label">Mock de preview · não publicado</span>
-          <h3>Uma leitura para ligar os sinais da Jornada</h3>
-          <div className="composition-interpretive-editorial-body">
-            {HIERARCHICAL_EDITORIAL_PREVIEW_MOCK.split("\n\n").map((paragraph) => (
-              <p className="composition-interpretive-editorial-copy" key={paragraph}>{paragraph}</p>
-            ))}
-          </div>
-          <p className="composition-interpretive-editorial-signature">Silvestre Chícharo</p>
+          {editorial?.title?.trim() ? <h3>{editorial.title}</h3> : (
+            <p className="composition-interpretive-editorial-empty">Título por preencher.</p>
+          )}
+          {editorialParagraphs.length > 0 ? (
+            <div className="composition-interpretive-editorial-body">
+              {editorialParagraphs.map((paragraph) => (
+                <p className="composition-interpretive-editorial-copy" key={paragraph}>{paragraph}</p>
+              ))}
+            </div>
+          ) : (
+            <p className="composition-interpretive-editorial-empty">Texto por preencher.</p>
+          )}
+          {editorial?.author?.trim() ? (
+            <p className="composition-interpretive-editorial-signature">{editorial.author}</p>
+          ) : (
+            <p className="composition-interpretive-editorial-empty">Autor por preencher.</p>
+          )}
         </aside>
       </section>
 

@@ -3616,6 +3616,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const usePublishedReferenceComposition = context.hasPublishedReferenceComposition;
   const useHierarchicalReferenceComposition =
     usePublishedReferenceComposition && context.referenceComposition?.presentation_mode === "hierarchical";
+  const hierarchicalEditorial = useHierarchicalReferenceComposition && context.referenceComposition
+    ? {
+        title: context.referenceComposition.hierarchical_editorial_title,
+        text: context.referenceComposition.hierarchical_editorial_text,
+        author: context.referenceComposition.hierarchical_editorial_author,
+      }
+    : null;
   const hierarchicalBeyondReferenceItems = useHierarchicalReferenceComposition
     ? context.referenceSlots.beyond_matchday ?? []
     : [];
@@ -3974,6 +3981,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         <div className="public-matchday-hierarchical-region">
           {hasValidHierarchicalReferenceComposition ? (
             <PublicHierarchicalComposition
+              editorial={hierarchicalEditorial}
               slots={context.hierarchicalCompositionSlots}
               roundupItems={effectiveRoundupItems}
               roundupHeading="A JORNADA EM VÍDEO"

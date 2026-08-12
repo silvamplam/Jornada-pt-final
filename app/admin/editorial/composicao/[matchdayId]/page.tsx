@@ -3,14 +3,19 @@ import { EDITORIAL_NEWS_FLOW_SLOT_TYPES } from "@/lib/editorial-zone-presentatio
 import {
   HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS,
   HIERARCHICAL_COMPOSITION_MOMENTS,
+  HIERARCHICAL_COMPOSITION_EDITORIAL_FIELD_LABELS,
   hierarchicalBeyondMatchdayPositionLabel,
+  hierarchicalCompositionEditorialParagraphs,
   hierarchicalCompositionMediaSnapshot,
   hierarchicalSlotLabel,
   incompleteHierarchicalBeyondMatchdayPositions,
   incompleteHierarchicalCompositionSlots,
   isPublishableHierarchicalBeyondMatchday,
   isPublishableHierarchicalComposition,
+  isPublishableHierarchicalCompositionEditorial,
+  missingHierarchicalCompositionEditorialFields,
   missingHierarchicalCompositionSlots,
+  type HierarchicalCompositionEditorial,
   type HierarchicalCompositionSlot,
   type ReferenceCompositionPresentationMode,
 } from "@/lib/editorial-hierarchical-composition";
@@ -124,6 +129,9 @@ type ReferenceComposition = {
   internal_name: string | null;
   use_roundup_items: boolean;
   presentation_mode: ReferenceCompositionPresentationMode;
+  hierarchical_editorial_title: string | null;
+  hierarchical_editorial_text: string | null;
+  hierarchical_editorial_author: string | null;
   created_at: string;
   updated_at: string;
   published_at: string | null;
@@ -1253,6 +1261,11 @@ const compositionPageStyles = `
     font-size: 12px;
   }
 
+  textarea.composition-admin-input {
+    resize: vertical;
+    line-height: 1.5;
+  }
+
   .composition-admin-small-button {
     display: inline-flex;
     align-items: center;
@@ -1550,7 +1563,7 @@ function readDraftReferenceComposition(
   presentationMode: ReferenceCompositionPresentationMode,
 ): Promise<ReferenceComposition | null> {
   return readFirst<ReferenceComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_text,hierarchical_editorial_author,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&status=eq.draft&presentation_mode=eq.${encodeURIComponent(presentationMode)}&order=created_at.desc`
   ).catch(() => null);
@@ -1561,7 +1574,7 @@ function readPublishedReferenceComposition(
   presentationMode: ReferenceCompositionPresentationMode,
 ): Promise<ReferenceComposition | null> {
   return readFirst<ReferenceComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_text,hierarchical_editorial_author,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&status=eq.published&presentation_mode=eq.${encodeURIComponent(presentationMode)}&order=is_current.desc,published_at.desc.nullslast`
   ).catch(() => null);
@@ -1595,6 +1608,17 @@ function readHierarchicalCompositionSlots(compositionId?: string | null): Promis
       compositionId
     )}`
   ).catch(() => []);
+}
+
+function hierarchicalEditorialFromComposition(
+  composition?: ReferenceComposition | null,
+): HierarchicalCompositionEditorial | null {
+  if (!composition) return null;
+  return {
+    title: composition.hierarchical_editorial_title,
+    text: composition.hierarchical_editorial_text,
+    author: composition.hierarchical_editorial_author,
+  };
 }
 
 function statusLabel(status?: string | null) {
@@ -2197,6 +2221,87 @@ function UpdateDraftForm({
           : "Guarda apenas o nome interno. Os vídeos desta versão são escolhidos e ordenados na própria Composição."}
       </p>
     </form>
+  );
+}
+
+function HierarchicalEditorialEditor({
+  composition,
+  matchdayId,
+  returnTo,
+}: {
+  composition: ReferenceComposition;
+  matchdayId: string;
+  returnTo: string;
+}) {
+  const editorial = hierarchicalEditorialFromComposition(composition);
+  const paragraphs = hierarchicalCompositionEditorialParagraphs(editorial?.text);
+  const isDraft = composition.status === "draft";
+
+  if (!isDraft) {
+    return (
+      <section className="composition-admin-section" id="hierarchical-editorial">
+        <div className="composition-admin-section-heading">
+          <h4>Editorial da Jornada</h4>
+          <span>Conteúdo próprio desta composição</span>
+        </div>
+        <div className="composition-admin-stack">
+          <strong>{editorial?.title || "Sem título"}</strong>
+          {paragraphs.map((paragraph) => <p className="composition-admin-note" key={paragraph}>{paragraph}</p>)}
+          <span className="composition-admin-note">Autor: {editorial?.author || "por preencher"}</span>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="composition-admin-section" id="hierarchical-editorial">
+      <div className="composition-admin-section-heading">
+        <h4>Editorial da Jornada</h4>
+        <span>Exclusivo da apresentação hierárquica</span>
+      </div>
+      <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+        <HiddenField name="action_type" value="update_hierarchical_editorial" />
+        <HiddenField name="matchday_id" value={matchdayId} />
+        <HiddenField name="composition_id" value={composition.id} />
+        <HiddenField name="return_to" value={returnTo} />
+        <HiddenField name="return_anchor" value="hierarchical-editorial" />
+        <div className="composition-admin-field">
+          <label htmlFor="hierarchical-editorial-title">Título</label>
+          <input
+            className="composition-admin-input"
+            id="hierarchical-editorial-title"
+            name="hierarchical_editorial_title"
+            defaultValue={composition.hierarchical_editorial_title ?? ""}
+            required
+          />
+        </div>
+        <div className="composition-admin-field">
+          <label htmlFor="hierarchical-editorial-text">Texto</label>
+          <textarea
+            className="composition-admin-input"
+            id="hierarchical-editorial-text"
+            name="hierarchical_editorial_text"
+            defaultValue={composition.hierarchical_editorial_text ?? ""}
+            rows={10}
+            required
+          />
+        </div>
+        <div className="composition-admin-field">
+          <label htmlFor="hierarchical-editorial-author">Autor</label>
+          <input
+            className="composition-admin-input"
+            id="hierarchical-editorial-author"
+            name="hierarchical_editorial_author"
+            defaultValue={composition.hierarchical_editorial_author ?? ""}
+            required
+          />
+        </div>
+        <button className="composition-admin-small-button" type="submit">Guardar Editorial da Jornada</button>
+        <p className="composition-admin-note">
+          Este texto pertence apenas a esta composição hierárquica. Não altera Contexto, Editorial da Jornada standard ou qualquer notícia.
+        </p>
+      </form>
+    </section>
   );
 }
 
@@ -3026,17 +3131,25 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const missingHierarchicalSlots = missingHierarchicalCompositionSlots(hierarchicalSlots);
   const incompleteHierarchicalSlots = incompleteHierarchicalCompositionSlots(hierarchicalSlots);
   const incompleteBeyondPositions = incompleteHierarchicalBeyondMatchdayPositions(compositionItems);
+  const hierarchicalEditorial = presentationMode === "hierarchical"
+    ? hierarchicalEditorialFromComposition(draftComposition)
+    : null;
+  const missingHierarchicalEditorialFields = missingHierarchicalCompositionEditorialFields(hierarchicalEditorial);
   const publicationValidation = presentationMode === "hierarchical"
     ? {
         canPublish:
           isPublishableHierarchicalComposition(hierarchicalSlots) &&
-          isPublishableHierarchicalBeyondMatchday(compositionItems),
+          isPublishableHierarchicalBeyondMatchday(compositionItems) &&
+          isPublishableHierarchicalCompositionEditorial(hierarchicalEditorial),
         warnings: [
           ...(Array.from(new Set([...missingHierarchicalSlots, ...incompleteHierarchicalSlots])).length > 0
             ? [`15 lugares — em falta: ${Array.from(new Set([...missingHierarchicalSlots, ...incompleteHierarchicalSlots])).map(hierarchicalSlotLabel).join(", ")}.`]
             : []),
           ...(incompleteBeyondPositions.length > 0
             ? [`Para Lá da Jornada — em falta: ${incompleteBeyondPositions.map((position) => position.label).join(", ")}.`]
+            : []),
+          ...(missingHierarchicalEditorialFields.length > 0
+            ? [`Editorial da Jornada — em falta: ${missingHierarchicalEditorialFields.map((field) => HIERARCHICAL_COMPOSITION_EDITORIAL_FIELD_LABELS[field]).join(", ")}.`]
             : []),
         ],
       }
@@ -3495,6 +3608,19 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
               </Card>
             </div>
 
+            {presentationMode === "hierarchical" && draftComposition ? (
+              <Card title="Editorial da Jornada">
+                {compositionFeedback && feedbackAnchor === "hierarchical-editorial" ? (
+                  <p className={`composition-admin-feedback ${compositionFeedbackKind}`}>{compositionFeedback}</p>
+                ) : null}
+                <HierarchicalEditorialEditor
+                  composition={draftComposition}
+                  matchdayId={matchday.id}
+                  returnTo={returnTo}
+                />
+              </Card>
+            ) : null}
+
             <Card title={presentationMode === "hierarchical" ? "Cinco momentos editoriais" : "Zonas da composição"}>
               {draftComposition ? (
                 presentationMode === "hierarchical" ? (
@@ -3615,6 +3741,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           <div className="composition-admin-preview">
             <HierarchicalCompositionInterpretivePreview
               beyondMatchdayItems={hierarchicalPreviewBeyondMatchdayItems}
+              editorial={hierarchicalEditorial}
               matchdayNumber={matchday.number}
               roundupHeading="A JORNADA EM VÍDEO"
               roundupItems={hierarchicalPreviewRoundupItems}

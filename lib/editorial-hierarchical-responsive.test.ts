@@ -14,40 +14,43 @@ function mediaBlock(source: string, maxWidth: number, nextMaxWidth?: number) {
   return source.slice(start, end);
 }
 
-test("desktop mantém a hierarquia V13 aprovada", () => {
-  const desktop = compositionStyles.slice(0, compositionStyles.indexOf("@media (max-width: 1180px)"));
+test("desktop público usa a arquitetura interpretativa promovida do preview", () => {
+  const desktop = compositionStyles.slice(0, compositionStyles.indexOf("@media (max-width: 980px)"));
 
-  assert.match(desktop, /grid-template-columns: repeat\(12, minmax\(0, 1fr\)\)/);
-  assert.match(desktop, /data-slot="dominant_main"\][\s\S]*grid-column: span 8/);
-  assert.match(desktop, /data-slot="dominant_side_top"[\s\S]*grid-column: span 4/);
-  assert.match(desktop, /data-moment="strong"[\s\S]*grid-column: span 6/);
-  assert.match(desktop, /data-moment="secondary"[\s\S]*grid-column: span 3/);
-  assert.match(desktop, /data-moment="closing"[\s\S]*grid-column: span 4/);
+  assert.match(desktop, /composition-interpretive-dominant[\s\S]*grid-template-columns: minmax\(0, 5fr\) minmax\(0, 4fr\)/);
+  assert.match(desktop, /composition-interpretive-chronicles[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(desktop, /composition-interpretive-analysis-main[\s\S]*grid-column: span 4/);
+  assert.match(desktop, /composition-interpretive-analysis-center[\s\S]*grid-column: span 5/);
+  assert.match(desktop, /composition-interpretive-analysis-side[\s\S]*grid-column: span 3/);
+  assert.match(desktop, /composition-interpretive-other-left[\s\S]*grid-column: span 7/);
+  assert.match(desktop, /composition-interpretive-other-compact-column[\s\S]*grid-column: span 5/);
+  assert.match(desktop, /composition-interpretive-news \{[\s\S]*grid-column: span 9/);
+  assert.match(desktop, /composition-interpretive-editorial \{[\s\S]*grid-column: span 3/);
+  assert.match(compositionStyles, /composition-interpretive-news-full \{\s*grid-column: 1 \/ -1;/);
 });
 
-test("tablet mantém a hierarquia sem deixar terceiros cartões órfãos", () => {
-  const tablet = mediaBlock(compositionStyles, 840, 680);
+test("tablet reorganiza os blocos interpretativos sem alterar a ordem editorial", () => {
+  const tablet = mediaBlock(compositionStyles, 980, 720);
 
-  assert.match(tablet, /grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/);
-  assert.match(tablet, /data-slot="dominant_main"[\s\S]*grid-column: 1 \/ -1/);
-  assert.match(tablet, /data-slot="dominant_side_top"[\s\S]*data-slot="dominant_side_bottom"[\s\S]*data-moment="strong"[\s\S]*data-moment="secondary"[\s\S]*grid-column: span 3/);
-  assert.match(tablet, /data-moment="other-chronicles"[\s\S]*data-moment="closing"[\s\S]*grid-column: span 2/);
-  assert.doesNotMatch(tablet, /repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(tablet, /composition-interpretive-opening \{[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(tablet, /composition-interpretive-analysis-grid \{[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(
+    tablet,
+    /composition-interpretive-analysis-main,[\s\S]*composition-interpretive-analysis-center,[\s\S]*composition-interpretive-analysis-side \{[\s\S]*grid-column: 1;/,
+  );
+  assert.match(tablet, /composition-interpretive-other-games-layout \{[\s\S]*grid-template-columns: minmax\(0, 1fr\)/);
 });
 
-test("mobile passa a uma coluna e deixa a imagem dominante proporcional", () => {
-  const mobile = mediaBlock(compositionStyles, 680);
+test("mobile empilha os subblocos que ainda tinham duas ou três colunas", () => {
+  const mobile = mediaBlock(compositionStyles, 720);
 
-  assert.match(mobile, /grid-template-columns: minmax\(0, 1fr\)/);
-  assert.match(mobile, /grid-column: 1;[\s\S]*grid-row: auto/);
-  assert.match(mobile, /data-moment="dominant"[\s\S]*card-media[\s\S]*height: auto;[\s\S]*aspect-ratio: 16 \/ 9/);
-  assert.doesNotMatch(mobile, /height: 220px/);
-  assert.match(mobile, /data-slot="dominant_main"[\s\S]*font-size: 26px/);
-  assert.match(mobile, /data-moment="secondary"[\s\S]*font-size: 18px/);
-  assert.match(mobile, /data-moment="closing"[\s\S]*font-size: 20px/);
+  assert.match(
+    mobile,
+    /composition-interpretive-dominant,[\s\S]*composition-interpretive-chronicles,[\s\S]*composition-interpretive-analysis-medium,[\s\S]*composition-interpretive-other-second-featured,[\s\S]*composition-interpretive-other-compact \{[\s\S]*grid-template-columns: minmax\(0, 1fr\)/,
+  );
 });
 
-test("momentos posteriores reduzem apenas o ritmo vertical nos mesmos breakpoints", () => {
+test("momentos posteriores conservam o ritmo responsivo já validado", () => {
   assert.match(posteriorStyles, /gap: 34px/);
   assert.match(posteriorStyles, /@media \(max-width: 840px\)[\s\S]*gap: 28px[\s\S]*padding-top: 20px/);
   assert.match(posteriorStyles, /@media \(max-width: 680px\)[\s\S]*gap: 24px[\s\S]*padding-top: 18px/);

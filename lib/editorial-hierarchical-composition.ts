@@ -115,6 +115,42 @@ export type HierarchicalCompositionReferenceItem = {
   label_snapshot: string | null;
 };
 
+export type HierarchicalCompositionEditorial = {
+  title: string | null;
+  text: string | null;
+  author: string | null;
+};
+
+export type HierarchicalCompositionEditorialField = keyof HierarchicalCompositionEditorial;
+
+export const HIERARCHICAL_COMPOSITION_EDITORIAL_FIELD_LABELS: Record<
+  HierarchicalCompositionEditorialField,
+  string
+> = {
+  title: "título",
+  text: "texto",
+  author: "autor",
+};
+
+export function missingHierarchicalCompositionEditorialFields(
+  editorial?: HierarchicalCompositionEditorial | null,
+): HierarchicalCompositionEditorialField[] {
+  return (["title", "text", "author"] as const).filter((field) => !editorial?.[field]?.trim());
+}
+
+export function isPublishableHierarchicalCompositionEditorial(
+  editorial?: HierarchicalCompositionEditorial | null,
+) {
+  return missingHierarchicalCompositionEditorialFields(editorial).length === 0;
+}
+
+export function hierarchicalCompositionEditorialParagraphs(text?: string | null) {
+  return (text ?? "")
+    .split(/\r?\n\s*\r?\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
 export function isReferenceCompositionPresentationMode(
   value?: string | null,
 ): value is ReferenceCompositionPresentationMode {
