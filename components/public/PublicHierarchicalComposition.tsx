@@ -1,11 +1,12 @@
 import {
   HIERARCHICAL_COMPOSITION_MOMENTS,
+  hierarchicalCompositionMediaSnapshot,
   type HierarchicalCompositionSlot,
   type HierarchicalCompositionSlotKey,
 } from "@/lib/editorial-hierarchical-composition";
 
 import PublicBeyondMatchdayNews, { type PublicBeyondMatchdayNewsItem } from "./PublicBeyondMatchdayNews";
-import { PublicEditorialLayout, type PublicComplementaryData } from "./PublicEditorialLayout";
+import { PublicEditorialLayout, PublicInlineMediaPlayer, type PublicComplementaryData } from "./PublicEditorialLayout";
 import type { RoundupVideoItem } from "./RoundupVideoSwitcher";
 
 type PublicHierarchicalCompositionProps = {
@@ -133,12 +134,18 @@ const hierarchicalCompositionStyles = `
     background: #e7ebef;
   }
 
-  .public-hierarchical-card-media img {
+  .public-hierarchical-card-media img,
+  .public-hierarchical-card-media > video {
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: center;
+  }
+
+  .public-hierarchical-card-media > .public-video-embed-root {
+    width: 100%;
+    height: 100%;
   }
 
   .public-hierarchical-card-media-missing {
@@ -441,19 +448,26 @@ function HierarchicalCard({
     ) : null;
   }
 
-  const image = (
-    <span className="public-hierarchical-card-media">
-      {slot.image_url_snapshot ? (
+  const inlineMedia = slotKey === "dominant_main" ? hierarchicalCompositionMediaSnapshot(slot) : null;
+  const media = (
+    <div className="public-hierarchical-card-media">
+      {inlineMedia ? (
+        <PublicInlineMediaPlayer
+          fallbackPosterUrl={slot.image_url_snapshot}
+          fallbackTitle={slot.title_snapshot}
+          media={inlineMedia}
+        />
+      ) : slot.image_url_snapshot ? (
         <img alt="" src={slot.image_url_snapshot} />
       ) : (
         <span className="public-hierarchical-card-media-missing">Imagem em falta</span>
       )}
-    </span>
+    </div>
   );
 
   return (
     <article className="public-hierarchical-card" data-slot={slotKey}>
-      {slot.link_url_snapshot ? <a href={slot.link_url_snapshot}>{image}</a> : image}
+      {slot.link_url_snapshot && !inlineMedia ? <a href={slot.link_url_snapshot}>{media}</a> : media}
       <span className="public-hierarchical-card-label">{slot.label_snapshot}</span>
       <h3 className="public-hierarchical-card-title">
         {slot.link_url_snapshot ? <a href={slot.link_url_snapshot}>{slot.title_snapshot}</a> : slot.title_snapshot}

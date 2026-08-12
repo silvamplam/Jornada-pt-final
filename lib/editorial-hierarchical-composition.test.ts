@@ -191,9 +191,13 @@ test("os momentos posteriores usam snapshots normais e seleção editorial manua
   assert.match(compositionRoute, /assignRoundupItemToHierarchicalComposition/);
   assert.match(compositionRoute, /assignBankItemToHierarchicalAuxiliary/);
   assert.match(compositionRoute, /assignPublishedArticleToHierarchicalAuxiliary/);
-  assert.match(compositionRoute, /source_type: input\.bankItemId \? "matchday_editorial_bank_item" : "editorial_article"/);
-  assert.match(compositionPage, /A seleção é manual/);
-  assert.match(compositionPage, /nunca é preenchida automaticamente por data/);
+  assert.match(
+    compositionRoute,
+    /const sourceType = input\.bankItemId[\s\S]*\? "matchday_editorial_bank_item"[\s\S]*: input\.articleId[\s\S]*\? "editorial_article"[\s\S]*: "editorial_content"/,
+  );
+  assert.match(compositionRoute, /source_type: sourceType/);
+  assert.match(compositionPage, /editorial manual da atualidade viva naquele momento/i);
+  assert.match(compositionPage, /preenchida automaticamente por data/i);
   assert.doesNotMatch(publicPage, /BeyondMatchdayArticleRow|published_at\.desc[\s\S]*beyondMatchday/);
 });
 

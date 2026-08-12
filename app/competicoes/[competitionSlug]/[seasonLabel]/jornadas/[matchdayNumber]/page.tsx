@@ -5,7 +5,7 @@ import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import { buildPublicMatchdayEditorialVisibility, hasPublicMatchdayRoundupContent } from "@/lib/public-matchday-editorial-visibility";
-import { isPublishableHierarchicalBeyondMatchday, isPublishableHierarchicalComposition } from "@/lib/editorial-hierarchical-composition";
+import { hierarchicalCompositionMediaSnapshot, isPublishableHierarchicalBeyondMatchday, isPublishableHierarchicalComposition } from "@/lib/editorial-hierarchical-composition";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
@@ -3850,6 +3850,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     importantNewsCount: importantNewsItems.length
   });
 
+  const hierarchicalVideoHighlightMedia = hierarchicalCompositionMediaSnapshot(referenceComplement);
   const hierarchicalVideoHighlight = useHierarchicalReferenceComposition && referenceComplement
     ? {
         isPublished: true,
@@ -3858,6 +3859,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         text: complementaryText,
         imageUrl: complementaryImageUrl,
         linkUrl: complementaryLinkUrl,
+        inlineMedia: hierarchicalVideoHighlightMedia,
       }
     : null;
   const hierarchicalBeyondMatchdayNews = [...hierarchicalBeyondReferenceItems]

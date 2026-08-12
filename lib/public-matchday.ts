@@ -40,6 +40,9 @@ export type PublicReferenceCompositionItem = {
   link_url_snapshot: string | null;
   label_snapshot: string | null;
   label_color_snapshot: string | null;
+  media_kind_snapshot?: string | null;
+  media_embed_url_snapshot?: string | null;
+  media_video_url_snapshot?: string | null;
   status: string | null;
 };
 
@@ -437,7 +440,7 @@ async function readPublishedReferenceCompositionBundle(matchdayId: string) {
     }
 
     const referenceItemsQuery =
-      `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,source_id,article_id,sort_order,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,label_snapshot,label_color_snapshot,status&composition_id=eq.${encodeURIComponent(
+      `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,source_id,article_id,sort_order,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,label_snapshot,label_color_snapshot,media_kind_snapshot,media_embed_url_snapshot,media_video_url_snapshot,status&composition_id=eq.${encodeURIComponent(
         referenceComposition.id
       )}&order=sort_order.asc`;
     const referenceCompositionItems = referenceComposition.presentation_mode === "hierarchical"
@@ -445,7 +448,7 @@ async function readPublishedReferenceCompositionBundle(matchdayId: string) {
       : await fetchSupabaseAdminTable<PublicReferenceCompositionItem>(referenceItemsQuery);
     const hierarchicalCompositionSlots = referenceComposition.presentation_mode === "hierarchical"
       ? await fetchSupabaseAdminTable<HierarchicalCompositionSlot>(
-          `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
+          `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,media_kind_snapshot,media_embed_url_snapshot,media_video_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
             referenceComposition.id
           )}`
         ).catch(() => [])

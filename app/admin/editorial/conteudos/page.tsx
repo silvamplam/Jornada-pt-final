@@ -572,6 +572,7 @@ export default async function AdminEditorialContentsPage({ searchParams }: PageP
         <section className="content-admin-detail-panel" aria-label="Editor de conteudo audiovisual">
           {isCreating ? (
             <EditorialContentForm
+              key="create"
               mode="create"
               message={params.error ? message : null}
               competitions={lookups.competitionOptions}
@@ -580,6 +581,7 @@ export default async function AdminEditorialContentsPage({ searchParams }: PageP
             />
           ) : selectedContent ? (
             <EditorialContentForm
+              key={selectedContent.id}
               mode="edit"
               content={selectedContent}
               message={params.error ? message : null}

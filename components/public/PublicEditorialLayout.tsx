@@ -47,6 +47,38 @@ export type PublicInlineMedia = {
   title?: string | null;
 };
 
+export function PublicInlineMediaPlayer({
+  media,
+  fallbackPosterUrl,
+  fallbackTitle,
+}: {
+  media: PublicInlineMedia;
+  fallbackPosterUrl?: string | null;
+  fallbackTitle?: string | null;
+}) {
+  if (media.kind === "embed" && media.embedUrl) {
+    return (
+      <YouTubeEmbedWithFallback
+        embedUrl={media.embedUrl}
+        posterUrl={media.posterUrl || fallbackPosterUrl}
+        title={media.title || fallbackTitle}
+        videoUrl={media.videoUrl}
+      />
+    );
+  }
+
+  if (media.kind === "direct_video" && media.videoUrl) {
+    return (
+      <video controls preload="metadata" poster={media.posterUrl || fallbackPosterUrl || undefined}>
+        <source src={media.videoUrl} />
+        O seu navegador nao suporta video HTML5.
+      </video>
+    );
+  }
+
+  return null;
+}
+
 export type PublicHeadlineData = {
   title?: string | null;
   subtitle?: string | null;
@@ -683,19 +715,11 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {
   const inlineMedia = data.inlineMedia;
   const media = inlineMedia ? (
     <div className="public-editorial-main-image">
-      {inlineMedia.kind === "embed" && inlineMedia.embedUrl ? (
-        <YouTubeEmbedWithFallback
-          embedUrl={inlineMedia.embedUrl}
-          posterUrl={inlineMedia.posterUrl || data.imageUrl}
-          title={inlineMedia.title || title}
-          videoUrl={inlineMedia.videoUrl}
-        />
-      ) : inlineMedia.kind === "direct_video" && inlineMedia.videoUrl ? (
-        <video controls preload="metadata" poster={inlineMedia.posterUrl || data.imageUrl || undefined}>
-          <source src={inlineMedia.videoUrl} />
-          O seu navegador nao suporta video HTML5.
-        </video>
-      ) : null}
+      <PublicInlineMediaPlayer
+        fallbackPosterUrl={data.imageUrl}
+        fallbackTitle={title}
+        media={inlineMedia}
+      />
     </div>
   ) : data.imageUrl ? (
     <div className="public-editorial-main-image">
@@ -808,19 +832,11 @@ export function PublicComplementaryBlock({
   }
   const media = inlineMedia ? (
     <div className="public-complement-media">
-      {inlineMedia.kind === "embed" && inlineMedia.embedUrl ? (
-        <YouTubeEmbedWithFallback
-          embedUrl={inlineMedia.embedUrl}
-          posterUrl={inlineMedia.posterUrl || data.imageUrl}
-          title={inlineMedia.title || data.title || "Conteúdo complementar"}
-          videoUrl={inlineMedia.videoUrl}
-        />
-      ) : inlineMedia.kind === "direct_video" && inlineMedia.videoUrl ? (
-        <video controls preload="metadata" poster={inlineMedia.posterUrl || data.imageUrl || undefined}>
-          <source src={inlineMedia.videoUrl} />
-          O seu navegador nao suporta video HTML5.
-        </video>
-      ) : null}
+      <PublicInlineMediaPlayer
+        fallbackPosterUrl={data.imageUrl}
+        fallbackTitle={data.title || "Conteúdo complementar"}
+        media={inlineMedia}
+      />
     </div>
   ) : data.imageUrl ? (
     <div className="public-complement-media">
