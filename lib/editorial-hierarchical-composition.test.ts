@@ -8,9 +8,12 @@ import {
   HIERARCHICAL_COMPOSITION_MOMENTS,
   HIERARCHICAL_COMPOSITION_SLOT_KEYS,
   incompleteHierarchicalBeyondMatchdayPositions,
+  hierarchicalCompositionEditorialParagraphs,
   incompleteHierarchicalCompositionSlots,
   isPublishableHierarchicalBeyondMatchday,
   isPublishableHierarchicalComposition,
+  isPublishableHierarchicalCompositionEditorial,
+  missingHierarchicalCompositionEditorialFields,
   missingHierarchicalCompositionSlots,
   type HierarchicalCompositionSlot,
 } from "./editorial-hierarchical-composition";
@@ -27,6 +30,10 @@ const posteriorPreflightSql = source("supabase/steps/108-composicao-hierarquica-
 const posteriorApplySql = source("supabase/steps/109-composicao-hierarquica-momentos-posteriores-apply.sql");
 const posteriorPostflightSql = source("supabase/steps/110-composicao-hierarquica-momentos-posteriores-postflight.sql");
 const posteriorSmokeSql = source("supabase/steps/111-composicao-hierarquica-momentos-posteriores-smoke-rollback.sql");
+const editorialPreflightSql = source("supabase/steps/120-composicao-hierarquica-editorial-autonomo-preflight.sql");
+const editorialApplySql = source("supabase/steps/121-composicao-hierarquica-editorial-autonomo-apply.sql");
+const editorialPostflightSql = source("supabase/steps/122-composicao-hierarquica-editorial-autonomo-postflight.sql");
+const editorialSmokeSql = source("supabase/steps/123-composicao-hierarquica-editorial-autonomo-smoke-rollback.sql");
 const compositionRoute = source("app/api/admin/editorial/composicao/route.ts");
 const compositionPage = source("app/admin/editorial/composicao/[matchdayId]/page.tsx");
 const publicPage = source("app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx");
@@ -291,45 +298,48 @@ test("o sincronizador vivo só encontra composição current standard", () => {
   assert.doesNotMatch(currentSync, /matchday_hierarchical_composition_slots/);
 });
 
-test("o renderer público é separado, respeita os cinco momentos e mantém os quatro campos", () => {
+test("o renderer público usa a arquitetura interpretativa validada e mantém os quatro snapshots", () => {
+  const slotMapSource = renderer.match(
+    /HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP = \{([\s\S]*?)\n\} as const;/,
+  )?.[1] ?? "";
+  const mappedSlotKeys = HIERARCHICAL_COMPOSITION_SLOT_KEYS.filter((slotKey) => {
+    const occurrences = slotMapSource.match(new RegExp(`"${slotKey}"`, "g")) ?? [];
+    assert.equal(occurrences.length, 1, `${slotKey} deve ocorrer uma única vez no mapa público`);
+    return occurrences.length === 1;
+  });
+
   assert.match(publicPage, /<PublicHierarchicalComposition/);
-  assert.match(publicPage, /<PublicEditorialLayout/);
   assert.match(publicPage, /className="public-matchday-hierarchical-region"/);
   assert.match(
     publicPage,
     /\.public-matchday-hierarchical-region \{[\s\S]*width: 100%;[\s\S]*max-width: 1200px;[\s\S]*box-sizing: border-box;[\s\S]*margin-inline: auto;/,
   );
-  assert.match(
-    publicPage,
-    /\.public-matchday-hierarchical-region > \.public-hierarchical-composition \{[\s\S]*max-width: 100%;[\s\S]*box-sizing: border-box;/,
-  );
-  assert.match(renderer, /grid-template-columns: repeat\(12, minmax\(0, 1fr\)\)/);
-  assert.match(renderer, /data-moment={moment\.key}/);
+  assert.equal(mappedSlotKeys.length, HIERARCHICAL_COMPOSITION_SLOT_KEYS.length);
+  assert.match(renderer, /data-public-hierarchical-layout="interpretive"/);
+  assert.match(renderer, /composition-interpretive-opening/);
+  assert.match(renderer, /composition-interpretive-analysis-grid/);
+  assert.match(renderer, /composition-interpretive-other-games-layout/);
   assert.match(renderer, /slot\.image_url_snapshot/);
   assert.match(renderer, /slot\.label_snapshot/);
   assert.match(renderer, /slot\.title_snapshot/);
   assert.match(renderer, /slot\.subtitle_snapshot/);
-  assert.match(renderer, /data-slot="dominant_main"[\s\S]*grid-column: span 8/);
-  assert.match(renderer, /data-slot="dominant_main"[\s\S]*card-media[\s\S]*height: 470px/);
-  assert.match(renderer, /data-slot="dominant_main"[\s\S]*card-title[\s\S]*font-size: clamp\(31px, 2\.6vw, 40px\)/);
-  assert.match(renderer, /data-slot\^="dominant_side_"[\s\S]*card-media[\s\S]*height: 155px/);
-  assert.match(renderer, /data-moment="strong"[\s\S]*grid-column: span 6/);
-  assert.match(renderer, /data-moment="secondary"[\s\S]*grid-column: span 3/);
-  assert.match(renderer, /public-hierarchical-card-media img[\s\S]*width: 100%;[\s\S]*height: 100%;[\s\S]*object-fit: cover/);
+  assert.doesNotMatch(renderer, /HIERARCHICAL_EDITORIAL_PREVIEW_MOCK|mock-preview-not-persisted|Mock de preview · não publicado/);
 });
 
-test("o Momento 5 é mais compacto e mobile conserva a ordem do DOM", () => {
-  assert.match(
-    renderer,
-    /data-moment="other-chronicles"[\s\S]*data-moment="strong"[\s\S]*data-moment="secondary"[\s\S]*data-moment="closing"[\s\S]*width: 100%;[\s\S]*height: auto;[\s\S]*aspect-ratio: 16 \/ 9/,
-  );
-  assert.match(renderer, /data-moment="other-chronicles"[\s\S]*font-size: 25px/);
-  assert.match(renderer, /data-moment="closing"[\s\S]*font-size: 18px/);
-  assert.doesNotMatch(renderer, /height: (270|165|135)px/);
-  assert.doesNotMatch(renderer, /data-moment="other-chronicles"\] \.public-hierarchical-card-media \{\s*height: 220px/);
-  assert.match(renderer, /@media \(max-width: 840px\)/);
-  assert.match(renderer, /@media \(max-width: 680px\)/);
-  assert.match(renderer, /visibleMoments\.map/);
+test("o renderer público conserva a hierarquia visual do preview e usa Editorial autónomo quando completo", () => {
+  assert.match(renderer, /composition-interpretive-dominant[\s\S]*grid-template-columns: minmax\(0, 5fr\) minmax\(0, 4fr\)/);
+  assert.match(renderer, /composition-interpretive-chronicles[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(renderer, /composition-interpretive-analysis-main[\s\S]*grid-column: span 4/);
+  assert.match(renderer, /composition-interpretive-analysis-center[\s\S]*grid-column: span 5/);
+  assert.match(renderer, /composition-interpretive-analysis-side[\s\S]*grid-column: span 3/);
+  assert.match(renderer, /composition-interpretive-other-left[\s\S]*grid-column: span 7/);
+  assert.match(renderer, /composition-interpretive-other-compact-column[\s\S]*grid-column: span 5/);
+  assert.match(renderer, /composition-interpretive-news-full \{\s*grid-column: 1 \/ -1;/);
+  assert.match(renderer, /data-editorial-source="hierarchical-composition"/);
+  assert.match(renderer, /hasEditorial \? \(/);
+  assert.match(renderer, /@media \(max-width: 980px\)/);
+  assert.match(renderer, /@media \(max-width: 720px\)/);
+  assert.doesNotMatch(renderer, /visibleMoments\.map|public-hierarchical-card/);
 });
 
 test("a abertura interpretativa V4 existe apenas no preview e distribui os 15 slots sem repetições", () => {
@@ -445,34 +455,56 @@ test("Outros jogos mantém 7+5 com duas peças à esquerda, três à direita e c
   assert.doesNotMatch(interpretivePreview, /Empate deixa primeiro aviso|André Silva revive|article_id|source_identity\s*===/);
 });
 
-test("o Editorial da Jornada é um mock realista e não persistido", () => {
-  const mockText = interpretivePreview.match(/HIERARCHICAL_EDITORIAL_PREVIEW_MOCK = `([\s\S]*?)`;/)?.[1] ?? "";
+test("o Editorial da Jornada é autónomo, persistido na composição e obrigatório nas novas publicações hierarchical", () => {
   const editorialMarkup = interpretivePreview.match(/<aside[\s\S]*?composition-interpretive-editorial[\s\S]*?>([\s\S]*?)<\/aside>/)?.[1] ?? "";
-  assert.ok(mockText.length >= 550 && mockText.length <= 650);
-  assert.equal(mockText.split(/\r?\n\r?\n/).length, 4);
-  assert.match(interpretivePreview, /HIERARCHICAL_EDITORIAL_PREVIEW_MOCK\.split\("\\n\\n"\)\.map/);
-  assert.match(interpretivePreview, /data-editorial-source="mock-preview-not-persisted"/);
-  assert.match(interpretivePreview, /Mock de preview · não publicado/);
-  assert.match(interpretivePreview, /Silvestre Chícharo/);
+
+  assert.deepEqual(missingHierarchicalCompositionEditorialFields(null), ["title", "text", "author"]);
+  assert.equal(isPublishableHierarchicalCompositionEditorial({ title: "Título", text: "Texto", author: "Autor" }), true);
+  assert.equal(isPublishableHierarchicalCompositionEditorial({ title: "Título", text: " ", author: "Autor" }), false);
+  assert.deepEqual(hierarchicalCompositionEditorialParagraphs("Primeiro.\n\nSegundo."), ["Primeiro.", "Segundo."]);
+
+  assert.match(editorialPreflightSql, /matchday_reference_compositions/);
+  assert.match(editorialApplySql, /add column if not exists hierarchical_editorial_title text/i);
+  assert.match(editorialApplySql, /add column if not exists hierarchical_editorial_text text/i);
+  assert.match(editorialApplySql, /add column if not exists hierarchical_editorial_author text/i);
+  assert.match(editorialApplySql, /matchday_reference_compositions_hierarchical_editorial_complete_check[\s\S]*not valid/i);
+  assert.match(editorialPostflightSql, /constraint deveria permanecer NOT VALID/i);
+  assert.match(editorialSmokeSql, /hierarchical publicada sem Editorial completo foi aceite/i);
+
+  assert.match(compositionPage, /action_type" value="update_hierarchical_editorial"/);
+  assert.match(compositionPage, /feedbackAnchor === "hierarchical-editorial"/);
+  assert.match(compositionPage, /Este texto pertence apenas a esta composição hierárquica/);
+  assert.match(compositionRoute, /updateHierarchicalEditorial/);
+  assert.match(compositionRoute, /Completa o Editorial da Jornada antes de publicar/);
+  assert.match(publicLoader, /hierarchical_editorial_title/);
+  assert.match(publicLoader, /hierarchical_editorial_text/);
+  assert.match(publicLoader, /hierarchical_editorial_author/);
+  assert.match(publicPage, /editorial=\{hierarchicalEditorial\}/);
+  assert.match(interpretivePreview, /data-editorial-source="hierarchical-composition-draft"/);
+  assert.match(renderer, /data-editorial-source="hierarchical-composition"/);
+  assert.doesNotMatch(interpretivePreview, /HIERARCHICAL_EDITORIAL_PREVIEW_MOCK|mock-preview-not-persisted|Mock de preview · não publicado/);
+  assert.doesNotMatch(renderer, /editorialSideBlock|published-context/);
   assert.doesNotMatch(editorialMarkup, /<img/);
 });
 
-test("o Momento 4 usa paginação editorial leve sem caixas", () => {
-  assert.match(renderer, /data-moment="secondary"\] \{[\s\S]*margin-block: 10px 24px;[\s\S]*padding-top: 18px;[\s\S]*border-top: 1px solid #dfe5eb/);
-  assert.match(renderer, /data-moment="secondary"\] \.public-hierarchical-grid \{[\s\S]*column-gap: 24px;[\s\S]*row-gap: 28px/);
-  assert.match(renderer, /data-moment="secondary"\] \.public-hierarchical-card \{[\s\S]*grid-column: span 3;[\s\S]*gap: 7px;[\s\S]*border: 0;[\s\S]*background: transparent;[\s\S]*box-shadow: none/);
-  assert.match(renderer, /data-moment="secondary"[\s\S]*card-label[\s\S]*font-size: 10px;[\s\S]*font-weight: 800;[\s\S]*line-height: 1\.25/);
-  assert.match(renderer, /data-moment="secondary"[\s\S]*card-title[\s\S]*font-size: 16px;[\s\S]*font-weight: 700;[\s\S]*line-height: 1\.15/);
-  assert.match(renderer, /data-moment="secondary"[\s\S]*card-subtitle[\s\S]*font-size: 13px;[\s\S]*font-weight: 400;[\s\S]*line-height: 1\.55/);
+test("a página pública preserva a composição 4+5+3 de Arbitragem e reações", () => {
+  assert.match(renderer, />Arbitragem e reações<\/h2>/);
+  assert.match(renderer, /dominant: "secondary_strong_1"/);
+  assert.match(renderer, /center: \["secondary_strong_2", "secondary_1", "secondary_2"\]/);
+  assert.match(renderer, /side: \["dominant_side_top", "dominant_side_bottom"\]/);
+  assert.match(renderer, /composition-interpretive-analysis-grid[\s\S]*grid-template-columns: repeat\(12, minmax\(0, 1fr\)\)/);
+  assert.match(renderer, /composition-interpretive-analysis-main[\s\S]*grid-column: span 4/);
+  assert.match(renderer, /composition-interpretive-analysis-center[\s\S]*grid-column: span 5/);
+  assert.match(renderer, /composition-interpretive-analysis-side[\s\S]*grid-column: span 3/);
 });
 
-test("o Momento 3 funciona como segundo pico sem criar caixas", () => {
-  assert.match(renderer, /data-moment="strong"\] \{[\s\S]*margin-block: 12px 8px;[\s\S]*padding-top: 18px;[\s\S]*border-top: 1px solid #dfe5eb/);
-  assert.match(renderer, /data-moment="strong"\] \.public-hierarchical-grid \{[\s\S]*column-gap: 24px;[\s\S]*row-gap: 28px/);
-  assert.match(renderer, /data-moment="strong"\] \.public-hierarchical-card \{[\s\S]*grid-column: span 6;[\s\S]*align-self: start;[\s\S]*gap: 10px;[\s\S]*border: 0;[\s\S]*background: transparent;[\s\S]*box-shadow: none/);
-  assert.match(renderer, /data-moment="strong"[\s\S]*card-label[\s\S]*font-size: 14px;[\s\S]*font-weight: 800;[\s\S]*line-height: 1\.2/);
-  assert.match(renderer, /data-moment="strong"[\s\S]*card-title[\s\S]*font-size: 28px;[\s\S]*font-weight: 800;[\s\S]*line-height: 1\.12/);
-  assert.match(renderer, /data-moment="strong"[\s\S]*card-subtitle[\s\S]*font-size: 14px;[\s\S]*font-weight: 400;[\s\S]*line-height: 1\.5/);
+test("a página pública preserva Outros jogos em 7+5 com duas peças e três compactas", () => {
+  assert.match(renderer, />Outros jogos da jornada<\/h2>/);
+  assert.match(renderer, /primary: "secondary_3"/);
+  assert.match(renderer, /second: "secondary_4"/);
+  assert.match(renderer, /compact: \["closing_1", "closing_2", "closing_3"\]/);
+  assert.match(renderer, /composition-interpretive-other-left[\s\S]*grid-column: span 7/);
+  assert.match(renderer, /composition-interpretive-other-compact-column[\s\S]*grid-column: span 5/);
 });
 
 test("hierarchical inválida falha controladamente e os vídeos permanecem depois dos 15", () => {
@@ -482,7 +514,7 @@ test("hierarchical inválida falha controladamente e os vídeos permanecem depoi
   assert.match(renderer, /public-hierarchical-videos/);
   assert.match(renderer, /<PublicEditorialLayout/);
   assert.doesNotMatch(renderer, /<RoundupVideoSwitcher/);
-  assert.ok(renderer.indexOf("visibleMoments.map") < renderer.lastIndexOf("<PublicHierarchicalPosteriorMoments"));
+  assert.ok(renderer.indexOf('className="composition-interpretive-other-games-layout"') < renderer.lastIndexOf("<PublicHierarchicalPosteriorMoments"));
 });
 
 test("o renderer posterior existe apenas na composição hierárquica e conserva a ordem editorial 1+4", () => {
@@ -498,6 +530,8 @@ test("Para Lá mantém duas secundárias superiores com imagem e duas inferiores
   assert.match(beyondRenderer, /const isTextOnly = index >= 2/);
   assert.match(beyondRenderer, /data-secondary-presentation={isTextOnly \? "text" : "image"}/);
   assert.match(beyondRenderer, /{isTextOnly \? null : <StoryMedia item={item} \/>}/);
+  assert.match(beyondRenderer, /<StoryCopy item={item} showSubtitle={!isTextOnly} \/>/);
+  assert.match(beyondRenderer, /\(lead \|\| showSubtitle\) && item\.subtitle/);
   assert.match(beyondRenderer, /public-beyond-matchday-secondary-grid[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(beyondRenderer, /public-beyond-matchday-text-only[\s\S]*border-top: 1px solid #dbe4ee/);
 });

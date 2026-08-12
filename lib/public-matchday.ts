@@ -23,6 +23,9 @@ export type PublicReferenceComposition = {
   internal_name: string | null;
   use_roundup_items: boolean | null;
   presentation_mode: ReferenceCompositionPresentationMode;
+  hierarchical_editorial_title: string | null;
+  hierarchical_editorial_text: string | null;
+  hierarchical_editorial_author: string | null;
   published_at: string | null;
 };
 
@@ -421,7 +424,7 @@ async function buildReferenceRoundupItems(matchdayId: string, referenceItems: Pu
 async function readPublishedReferenceCompositionBundle(matchdayId: string) {
   try {
     const compositions = await fetchSupabaseAdminTable<PublicReferenceComposition>(
-      `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,published_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_text,hierarchical_editorial_author,published_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast&limit=1`
     );

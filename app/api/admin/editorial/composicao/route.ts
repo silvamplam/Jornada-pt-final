@@ -21,6 +21,7 @@ import {
   isHierarchicalCompositionSlotKey,
   isReferenceCompositionPresentationMode,
   isPublishableHierarchicalBeyondMatchday,
+  isPublishableHierarchicalCompositionEditorial,
   missingHierarchicalCompositionSlots,
   type HierarchicalCompositionReferenceItem,
   type HierarchicalCompositionSlot,
@@ -87,6 +88,9 @@ type DraftComposition = {
   status: string;
   use_roundup_items: boolean;
   presentation_mode: ReferenceCompositionPresentationMode;
+  hierarchical_editorial_title: string | null;
+  hierarchical_editorial_text: string | null;
+  hierarchical_editorial_author: string | null;
 };
 
 type ReferenceCompositionState = DraftComposition & {
@@ -160,6 +164,7 @@ type CurrentEditorialArticlePublication = {
   title: string | null;
   subtitle: string | null;
   image_url: string | null;
+  matchday_id?: string | null;
   status: string | null;
   published_at: string | null;
 };
@@ -180,6 +185,7 @@ type CurrentEditorialContentPublication = {
   image_url: string | null;
   thumbnail_url: string | null;
   content_type: string | null;
+  matchday_id?: string | null;
   status: string | null;
   published_at: string | null;
 };
@@ -661,7 +667,7 @@ function filterNewCompositionSnapshots(snapshots: CompositionSnapshot[], existin
 
 async function readDraftComposition(compositionId: string, matchdayId: string) {
   return readFirst<DraftComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode&id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_text,hierarchical_editorial_author&id=eq.${encodeURIComponent(
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}&status=eq.draft`
   );
@@ -669,7 +675,7 @@ async function readDraftComposition(compositionId: string, matchdayId: string) {
 
 async function readReferenceCompositionState(compositionId: string, matchdayId: string) {
   return readFirst<ReferenceCompositionState>(
-    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,is_current,published_at&id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_text,hierarchical_editorial_author,is_current,published_at&id=eq.${encodeURIComponent(
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`
   );
@@ -955,6 +961,90 @@ async function readPublishedImportantReferenceItems(matchdayId: string) {
   ).catch(() => []);
 }
 
+function canonicalBankPublicationLink(value?: string | null) {
+  const cleanValue = cleanSnapshotValue(value);
+  if (!cleanValue) return null;
+  const path = cleanValue.split(/[?#]/)[0].replace(/\/+$/, "");
+  const articlePrefix = "/noticias/";
+  const contentPrefix = "/conteudos/";
+
+  if (path.startsWith(articlePrefix)) {
+    const slug = path.slice(articlePrefix.length).trim();
+    return slug ? { kind: "article" as const, slug } : null;
+  }
+
+  if (path.startsWith(contentPrefix)) {
+    const slug = path.slice(contentPrefix.length).trim();
+    return slug ? { kind: "content" as const, slug } : null;
+  }
+
+  return null;
+}
+
+function canonicalBankPublicationEligibleForMatchday(sourceMatchdayId: string | null | undefined, matchdayId: string) {
+  return !sourceMatchdayId || sourceMatchdayId === matchdayId;
+}
+
+async function resolveBankCandidateCanonicalPublication(
+  matchdayId: string,
+  candidate: MatchdayEditorialBankCandidate,
+): Promise<MatchdayEditorialBankCandidate | null> {
+  if (isEditorialArticleSourceType(candidate.source_type) || isEditorialContentSourceType(candidate.source_type)) {
+    return candidate;
+  }
+
+  const canonicalLink = canonicalBankPublicationLink(candidate.link_url);
+  if (!canonicalLink) return candidate;
+
+  if (canonicalLink.kind === "article") {
+    const article = await readFirst<CurrentEditorialArticlePublication>(
+      `editorial_articles?select=id,slug,label,title,subtitle,image_url,matchday_id,status,published_at&slug=eq.${encodeURIComponent(
+        canonicalLink.slug,
+      )}&status=eq.published&limit=1`,
+    );
+
+    if (!article || !canonicalBankPublicationEligibleForMatchday(article.matchday_id, matchdayId)) {
+      return null;
+    }
+
+    return bankCandidate({
+      matchdayId,
+      label: article.label,
+      title: article.title,
+      subtitle: article.subtitle,
+      imageUrl: article.image_url,
+      linkUrl: article.slug ? `/noticias/${article.slug}` : candidate.link_url,
+      sourceType: "editorial_article",
+      sourceId: article.id,
+      sourceSlug: article.slug,
+      sortOrder: candidate.sort_order,
+    });
+  }
+
+  const content = await readFirst<CurrentEditorialContentPublication>(
+    `editorial_contents?select=id,slug,label,title,subtitle,summary,image_url,thumbnail_url,content_type,matchday_id,status,published_at&slug=eq.${encodeURIComponent(
+      canonicalLink.slug,
+    )}&status=eq.published&limit=1`,
+  );
+
+  if (!content || !canonicalBankPublicationEligibleForMatchday(content.matchday_id, matchdayId)) {
+    return null;
+  }
+
+  return bankCandidate({
+    matchdayId,
+    label: content.label || content.content_type,
+    title: content.title,
+    subtitle: content.summary || content.subtitle,
+    imageUrl: content.thumbnail_url || content.image_url,
+    linkUrl: content.slug ? `/conteudos/${content.slug}` : candidate.link_url,
+    sourceType: "editorial_content",
+    sourceId: content.id,
+    sourceSlug: content.slug,
+    sortOrder: candidate.sort_order,
+  });
+}
+
 async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayEditorialBankCandidate[]> {
   const [editorialArticles, editorialContents, editorial, highlights, latestNews, horizontalNews, importantItems] = await Promise.all([
     fetchSupabaseAdminTable<CurrentEditorialArticlePublication>(
@@ -1156,7 +1246,11 @@ async function buildCurrentBankCandidates(matchdayId: string): Promise<MatchdayE
       );
     });
 
-  return candidates.filter((item): item is MatchdayEditorialBankCandidate => Boolean(item));
+  const presentCandidates = candidates.filter((item): item is MatchdayEditorialBankCandidate => Boolean(item));
+  const resolvedCandidates = await Promise.all(
+    presentCandidates.map((candidate) => resolveBankCandidateCanonicalPublication(matchdayId, candidate)),
+  );
+  return resolvedCandidates.filter((item): item is MatchdayEditorialBankCandidate => Boolean(item));
 }
 
 async function saveCurrentMatchdayEditorialBank(matchdayId: string): Promise<SaveBankResult> {
@@ -2093,6 +2187,33 @@ async function updateDraft(formData: FormData) {
   );
 }
 
+async function updateHierarchicalEditorial(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  if (
+    !matchdayId ||
+    !compositionId ||
+    !(await compositionBelongsToMatchday(compositionId, matchdayId, "hierarchical"))
+  ) {
+    throw new Error("composition-invalid");
+  }
+
+  await writeSupabaseAdmin(
+    `matchday_reference_compositions?id=eq.${encodeURIComponent(compositionId)}&matchday_id=eq.${encodeURIComponent(
+      matchdayId,
+    )}&status=eq.draft&presentation_mode=eq.hierarchical`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        hierarchical_editorial_title: cleanText(formData.get("hierarchical_editorial_title")),
+        hierarchical_editorial_text: cleanText(formData.get("hierarchical_editorial_text")),
+        hierarchical_editorial_author: cleanText(formData.get("hierarchical_editorial_author")),
+        updated_at: new Date().toISOString(),
+      }),
+    },
+  );
+}
+
 async function addItem(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const compositionId = cleanText(formData.get("composition_id"));
@@ -2375,6 +2496,16 @@ async function publishReferenceComposition(formData: FormData) {
         `Completa as 5 posições de Para Lá da Jornada antes de publicar. Em falta: ${missingBeyond.join(", ")}.`,
       );
     }
+    const hierarchicalEditorial = {
+      title: composition.hierarchical_editorial_title,
+      text: composition.hierarchical_editorial_text,
+      author: composition.hierarchical_editorial_author,
+    };
+    if (!isPublishableHierarchicalCompositionEditorial(hierarchicalEditorial)) {
+      throw new CompositionPublicationError(
+        "Completa o Editorial da Jornada antes de publicar: título, texto e autor são obrigatórios.",
+      );
+    }
   } else {
     const compositionItems = await fetchSupabaseAdminTable<CompositionPublicationItem>(
       `matchday_reference_composition_items?select=slot_type&composition_id=eq.${encodeURIComponent(composition.id)}&limit=500`
@@ -2423,6 +2554,7 @@ export async function POST(request: Request) {
     if (!matchdayId) throw new Error("missing-matchday");
     if (actionType === "create_draft") await createDraft(matchdayId, cleanText(formData.get("internal_name")), cleanPresentationMode(formData.get("presentation_mode")));
     else if (actionType === "update_draft") await updateDraft(formData);
+    else if (actionType === "update_hierarchical_editorial") await updateHierarchicalEditorial(formData);
     else if (actionType === "add_item") await addItem(formData);
     else if (actionType === "remove_item") await removeItem(formData);
     else if (actionType === "move_composition_item") await moveCompositionItem(formData);

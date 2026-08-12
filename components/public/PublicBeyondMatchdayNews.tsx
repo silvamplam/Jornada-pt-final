@@ -235,14 +235,24 @@ function StoryMedia({ item }: { item: PublicBeyondMatchdayNewsItem }) {
   );
 }
 
-function StoryCopy({ item, lead = false }: { item: PublicBeyondMatchdayNewsItem; lead?: boolean }) {
+function StoryCopy({
+  item,
+  lead = false,
+  showSubtitle = false,
+}: {
+  item: PublicBeyondMatchdayNewsItem;
+  lead?: boolean;
+  showSubtitle?: boolean;
+}) {
   return (
     <div className="public-beyond-matchday-copy">
       {item.label ? <span className="public-beyond-matchday-label">{item.label}</span> : null}
       <a className="public-beyond-matchday-title" href={item.linkUrl}>
         {item.title}
       </a>
-      {lead && item.subtitle ? <p className="public-beyond-matchday-subtitle">{item.subtitle}</p> : null}
+      {(lead || showSubtitle) && item.subtitle ? (
+        <p className="public-beyond-matchday-subtitle">{item.subtitle}</p>
+      ) : null}
     </div>
   );
 }
@@ -280,7 +290,7 @@ export default function PublicBeyondMatchdayNews({ items, contextLabel }: Public
                   key={item.id}
                 >
                   {isTextOnly ? null : <StoryMedia item={item} />}
-                  <StoryCopy item={item} />
+                  <StoryCopy item={item} showSubtitle={!isTextOnly} />
                 </article>
               );
             })}
