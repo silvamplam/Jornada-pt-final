@@ -30,7 +30,7 @@ test("o Contexto mantém um perfil próprio e só é reconhecido quando indicado
 
 test("o limite de Contexto não é imposto globalmente aos artigos novos", () => {
   const articleForm = source("app/admin/editorial/artigos/_articleForm.tsx");
-  const articleRoute = source("app/api/admin/editorial/artigos/route.ts");
+  const articleService = source("lib/editorial-article-service-internal.ts");
   const articlePage = source("app/admin/editorial/artigos/page.tsx");
   const articleImporter = source("app/admin/editorial/artigos/_externalArticleImport.tsx");
 
@@ -44,9 +44,9 @@ test("o limite de Contexto não é imposto globalmente aos artigos novos", () =>
   assert.match(articleImporter, /article\.editorialDestination \?\? ""/);
   assert.match(articleImporter, /postTitleField\.maxLength = EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS/);
   assert.match(articleImporter, /postTitleField\.removeAttribute\("maxlength"\)/);
-  assert.match(articleRoute, /editorialDestination === EDITORIAL_CONTEXT_DESTINATION/);
-  assert.match(articleRoute, /context-post-title-too-long/);
-  assert.doesNotMatch(articleRoute, /!currentArticleId && subtitle && subtitle\.length/);
+  assert.match(articleService, /editorialDestination === EDITORIAL_CONTEXT_DESTINATION/);
+  assert.match(articleService, /context-post-title-too-long/);
+  assert.doesNotMatch(articleService, /!currentArticleId && subtitle && subtitle\.length/);
   assert.match(articlePage, /pós-título destinado a Contexto não pode ultrapassar 500 caracteres/i);
 });
 

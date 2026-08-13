@@ -130,6 +130,7 @@ test("o redirect dos Artigos rejeita origens e identificadores fornecidos pelo u
 
 test("a rota dos Artigos não reconstrói redirects a partir do endereço de escuta", () => {
   const route = readFileSync("app/api/admin/editorial/artigos/route.ts", "utf8");
+  const service = readFileSync("lib/editorial-article-service-internal.ts", "utf8");
   const redirectHelper = readFileSync("lib/admin-article-redirect.ts", "utf8");
 
   assert.match(redirectHelper, /new NextResponse\(null, \{/);
@@ -143,8 +144,8 @@ test("a rota dos Artigos não reconstrói redirects a partir do endereço de esc
   assert.match(route, /cleanArticleId\(formData\.get\("article_id"\)\)/);
   assert.match(route, /editorialAction === "publish"/);
   assert.match(
-    route,
-    /editorialAction === "publish"\s*\?\s*"published"\s*:\s*cleanStatus\(currentArticle\.status\)/,
+    service,
+    /options\.action === "publish"\s*\?\s*"published"\s*:\s*normalizeExistingStatus\(currentArticle\.status\)/,
   );
   assert.doesNotMatch(route, /OpenAI|generateEditorial|dossier_sources/i);
 });
@@ -296,6 +297,7 @@ test("o Dossiê fica identificado como gestão avançada e a revisão permanece 
   const dossier = readFileSync("app/admin/editorial/redacao-automatica/dossies/[id]/page.tsx", "utf8");
   const editor = readFileSync("app/admin/editorial/artigos/_articleForm.tsx", "utf8");
   const route = readFileSync("app/api/admin/editorial/artigos/route.ts", "utf8");
+  const service = readFileSync("lib/editorial-article-service-internal.ts", "utf8");
 
   assert.match(dossier, /Gestão avançada/);
   assert.match(dossier, /Voltar à nova composição/);
@@ -304,5 +306,5 @@ test("o Dossiê fica identificado como gestão avançada e a revisão permanece 
   assert.match(editor, />\s*Publicar\s*</);
   assert.doesNotMatch(editor, /<select name="status"/);
   assert.match(route, /editorial_action/);
-  assert.match(route, /missing-body/);
+  assert.match(service, /missing-body/);
 });
