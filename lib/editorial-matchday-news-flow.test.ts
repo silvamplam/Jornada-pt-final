@@ -9,13 +9,14 @@ function source(relativePath: string) {
 
 const flowSource = source("lib/editorial-matchday-news-flow.ts");
 const articleRouteSource = source("app/api/admin/editorial/artigos/route.ts");
+const articleServiceSource = source("lib/editorial-article-service.ts");
 const gestorRouteSource = source("app/api/admin/gestor/route.ts");
 const editorialPageSource = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
 const compositionSyncSource = source("lib/editorial-current-reference-composition-sync.ts");
 
 
 test("publicar deixou de significar entrada automática em Últimas", () => {
-  assert.ok(articleRouteSource.includes("placePublishedArticleInitially"));
+  assert.ok(articleServiceSource.includes("placePublishedArticleInitially"));
   assert.ok(articleRouteSource.includes('formData.get("initial_placement")'));
   assert.equal(articleRouteSource.includes("await ensurePublishedArticleInLatest(payload.matchday_id"), false);
   assert.equal(articleRouteSource.includes('error: "latest-placement-failed"'), false);

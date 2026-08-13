@@ -40,7 +40,8 @@ test("as imagens das fontes ficam apenas na pasta local para escolha manual", ()
 });
 test("a revisão mostra apenas a data Jornada.pt e a publicação grava o instante real", () => {
   const form = read("app/admin/editorial/artigos/_articleForm.tsx");
-  const route = read("app/api/admin/editorial/artigos/route.ts");
+  const service = read("lib/editorial-article-service-internal.ts");
+  const publicService = read("lib/editorial-article-service.ts");
   const page = read("app/admin/editorial/artigos/page.tsx");
 
   assert.match(form, />Pós-título</);
@@ -48,10 +49,11 @@ test("a revisão mostra apenas a data Jornada.pt e a publicação grava o instan
   assert.match(form, /"Por publicar"/);
   assert.match(form, /type="hidden" name="published_at"/);
   assert.doesNotMatch(form, /type="datetime-local"/);
-  assert.match(route, /targetStatus === "published" && !publishedAt/);
-  assert.match(route, /publishedAt = new Date\(\)\.toISOString\(\)/);
-  assert.match(route, /missing-post-title/);
-  assert.match(route, /missing-image/);
+  assert.match(service, /targetStatus === "published" && !publishedAt/);
+  assert.match(service, /publishedAt = transport\.now\(\)/);
+  assert.match(publicService, /return new Date\(\)\.toISOString\(\)/);
+  assert.match(service, /missing-post-title/);
+  assert.match(service, /missing-image/);
   assert.match(page, /article\.status === "published"[\s\S]*: "Por publicar"/);
 });
 

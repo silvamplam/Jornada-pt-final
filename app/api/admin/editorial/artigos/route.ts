@@ -1,5 +1,3 @@
-import { randomUUID } from "crypto";
-
 import {
   ARTICLE_ADMIN_PATH,
   articleAdminRedirect,
@@ -7,37 +5,22 @@ import {
   safeArticleAdminReturnTo,
 } from "@/lib/admin-article-redirect";
 import {
-  missingEditorialArticleCanonicalFields,
-  type EditorialArticleCanonicalField,
-} from "@/lib/editorial-article-canonical";
-import {
-  placePublishedArticleInitially,
-  type EditorialInitialPlacement,
-} from "@/lib/editorial-matchday-news-flow";
-import {
-  EDITORIAL_CONTEXT_DESTINATION,
-  EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
-} from "@/lib/editorial-context-post-title";
+  createEditorialArticle,
+  EditorialArticleServiceError,
+  normalizeEditorialArticleSlug,
+  updateEditorialArticle,
+  type EditorialArticleInput,
+  type EditorialArticlePlacementFailure,
+} from "@/lib/editorial-article-service";
+import type { EditorialInitialPlacement } from "@/lib/editorial-matchday-news-flow";
 import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
   writeSupabaseAdmin,
-  writeSupabaseAdminReturning,
 } from "@/lib/supabase";
 
 type ArticleIdRow = {
   id: string;
-};
-
-type ArticleStatusRow = {
-  id: string;
-  status: string | null;
-  matchday_id: string | null;
-};
-
-type CreatedArticleRow = {
-  id: string;
-  slug: string | null;
 };
 
 type ArticleDeleteRow = {
@@ -51,38 +34,6 @@ type ArticleSlugRow = {
   slug: string | null;
 };
 
-type CompetitionContextRow = {
-  id: string;
-};
-
-type SeasonContextRow = {
-  id: string;
-  competition_id: string | null;
-};
-
-type MatchdayContextRow = {
-  id: string;
-  season_id: string | null;
-};
-
-type ArticlePayload = {
-  title: string;
-  slug: string;
-  status: "draft" | "published";
-  scope: ArticleScope;
-  label: string | null;
-  author: string | null;
-  subtitle: string | null;
-  body: string;
-  image_url: string | null;
-  image_caption: string | null;
-  published_at: string | null;
-  competition_id: string | null;
-  season_id: string | null;
-  matchday_id: string | null;
-};
-
-type ArticleScope = "home" | "competition" | "matchday" | "general";
 type EditorialAction = "save" | "publish";
 
 type LinkRemovalTarget =
@@ -144,19 +95,6 @@ function cleanText(value: FormDataEntryValue | null) {
   return cleanValue.length > 0 ? cleanValue : null;
 }
 
-function normalizeSlug(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function cleanStatus(value: string | null): "draft" | "published" {
-  return value === "published" ? "published" : "draft";
-}
-
 function cleanEditorialAction(value: string | null): EditorialAction {
   return value === "publish" ? "publish" : "save";
 }
@@ -178,30 +116,36 @@ function cleanInitialPlacement(value: FormDataEntryValue | null): EditorialIniti
   }
 }
 
+function formText(value: FormDataEntryValue | null) {
+  return typeof value === "string" ? value : null;
+}
 
-function normalizePublishedAt(value: string | null) {
-  if (!value) {
+function articleInputFromFormData(formData: FormData): EditorialArticleInput {
+  return {
+    label: formText(formData.get("label")),
+    title: formText(formData.get("title")),
+    subtitle: formText(formData.get("subtitle")),
+    body: formText(formData.get("body")),
+    slug: formText(formData.get("slug")),
+    image_url: formText(formData.get("image_url")),
+    image_caption: formText(formData.get("image_caption")),
+    author: formText(formData.get("author")),
+    published_at: formText(formData.get("published_at")),
+    competition_id: formText(formData.get("competition_id")),
+    season_id: formText(formData.get("season_id")),
+    matchday_id: formText(formData.get("matchday_id")),
+    editorial_destination: formText(formData.get("editorial_destination")),
+  };
+}
+
+function placementErrorMessage(failure: EditorialArticlePlacementFailure | null) {
+  if (!failure) {
     return null;
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new ArticleAdminError("invalid-published-at");
-  }
-
-  return date.toISOString();
-}
-
-function createInsertPayload(payload: ArticlePayload) {
-  const now = new Date().toISOString();
-  return Object.fromEntries(
-    Object.entries({
-      id: randomUUID(),
-      ...payload,
-      created_at: now,
-      updated_at: now,
-    }).filter(([, value]) => value !== null),
-  );
+  return failure.cause instanceof Error
+    ? failure.cause.message
+    : "Não foi possível aplicar a colocação editorial escolhida.";
 }
 
 function sanitizeErrorText(value: string | null | undefined) {
@@ -262,25 +206,6 @@ function supabaseDetailText(error: ParsedSupabaseError) {
   return pieces.join(" | ");
 }
 
-async function assertSlugAvailable(slug: string, currentArticleId: string | null) {
-  const rows = await fetchSupabaseAdminTable<ArticleIdRow>(
-    `editorial_articles?select=id&slug=eq.${encodeURIComponent(slug)}&limit=2`,
-  );
-
-  const collision = rows.find((row) => row.id !== currentArticleId);
-  if (collision) {
-    throw new ArticleAdminError("duplicate-slug");
-  }
-}
-
-async function readArticleStatus(articleId: string) {
-  const rows = await fetchSupabaseAdminTable<ArticleStatusRow>(
-    `editorial_articles?select=id,status,matchday_id&id=eq.${encodeURIComponent(articleId)}&limit=1`,
-  );
-
-  return rows[0] ?? null;
-}
-
 async function readArticleForDelete(articleId: string) {
   const rows = await fetchSupabaseAdminTable<ArticleDeleteRow>(
     `editorial_articles?select=id,slug,title&id=eq.${encodeURIComponent(articleId)}&limit=1`,
@@ -295,88 +220,6 @@ async function readArticleBySlug(slug: string) {
   );
 
   return rows[0] ?? null;
-}
-
-async function readCompetition(competitionId: string) {
-  const rows = await fetchSupabaseAdminTable<CompetitionContextRow>(
-    `competitions?select=id&id=eq.${encodeURIComponent(competitionId)}&limit=1`,
-  );
-
-  return rows[0] ?? null;
-}
-
-async function readSeason(seasonId: string) {
-  const rows = await fetchSupabaseAdminTable<SeasonContextRow>(
-    `seasons?select=id,competition_id&id=eq.${encodeURIComponent(seasonId)}&limit=1`,
-  );
-
-  return rows[0] ?? null;
-}
-
-async function readMatchday(matchdayId: string) {
-  const rows = await fetchSupabaseAdminTable<MatchdayContextRow>(
-    `matchdays?select=id,season_id&id=eq.${encodeURIComponent(matchdayId)}&limit=1`,
-  );
-
-  return rows[0] ?? null;
-}
-
-async function normalizeContextIds(formData: FormData) {
-  let competitionId = cleanText(formData.get("competition_id"));
-  let seasonId = cleanText(formData.get("season_id"));
-  const matchdayId = cleanText(formData.get("matchday_id"));
-
-  if (competitionId && !(await readCompetition(competitionId))) {
-    throw new ArticleAdminError("invalid-context");
-  }
-
-  if (matchdayId) {
-    const matchday = await readMatchday(matchdayId);
-    if (!matchday?.season_id) {
-      throw new ArticleAdminError("invalid-context");
-    }
-
-    if (seasonId && matchday.season_id !== seasonId) {
-      throw new ArticleAdminError("invalid-context");
-    }
-
-    seasonId = seasonId ?? matchday.season_id;
-  }
-
-  if (seasonId) {
-    const season = await readSeason(seasonId);
-    if (!season?.competition_id) {
-      throw new ArticleAdminError("invalid-context");
-    }
-
-    if (competitionId && season.competition_id !== competitionId) {
-      throw new ArticleAdminError("invalid-context");
-    }
-
-    competitionId = competitionId ?? season.competition_id;
-  }
-
-  return {
-    competition_id: competitionId,
-    season_id: seasonId,
-    matchday_id: matchdayId,
-  };
-}
-
-function scopeForContext(context: {
-  competition_id: string | null;
-  season_id: string | null;
-  matchday_id: string | null;
-}): ArticleScope {
-  if (context.matchday_id) {
-    return "matchday";
-  }
-
-  if (context.competition_id || context.season_id) {
-    return "competition";
-  }
-
-  return "home";
 }
 
 function cleanUuid(value: FormDataEntryValue | null) {
@@ -455,168 +298,43 @@ async function articleHasActiveLinks(slug: string) {
   return linkRows.some((rows) => rows.length > 0);
 }
 
-async function buildPayload(
-  formData: FormData,
-  currentArticleId: string | null,
-  targetStatus: "draft" | "published",
-): Promise<ArticlePayload> {
-  const title = cleanText(formData.get("title"));
-  if (!title) {
-    throw new ArticleAdminError("missing-title");
-  }
-
-  const slug = normalizeSlug(cleanText(formData.get("slug")) ?? title);
-  if (!slug) {
-    throw new ArticleAdminError("missing-slug");
-  }
-
-  await assertSlugAvailable(slug, currentArticleId);
-
-  const label = cleanText(formData.get("label"));
-  const author = cleanText(formData.get("author"));
-  const subtitle = cleanText(formData.get("subtitle"));
-  const editorialDestination = cleanText(formData.get("editorial_destination"));
-  if (
-    !currentArticleId
-    && editorialDestination
-    && editorialDestination !== EDITORIAL_CONTEXT_DESTINATION
-  ) {
-    throw new ArticleAdminError("invalid-editorial-destination");
-  }
-  if (
-    !currentArticleId
-    && editorialDestination === EDITORIAL_CONTEXT_DESTINATION
-    && subtitle
-    && subtitle.length > EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS
-  ) {
-    throw new ArticleAdminError("context-post-title-too-long");
-  }
-  const body = cleanText(formData.get("body")) ?? "";
-  const imageUrl = cleanText(formData.get("image_url"));
-
-  let publishedAt = normalizePublishedAt(cleanText(formData.get("published_at")));
-
-  if (targetStatus === "published" && !publishedAt) {
-    publishedAt = new Date().toISOString();
-  }
-
-  if (targetStatus === "published") {
-    const missing = missingEditorialArticleCanonicalFields({
-      label,
-      title,
-      subtitle,
-      body,
-      image_url: imageUrl,
-      author,
-      published_at: publishedAt,
-    });
-    const errorByField: Readonly<Partial<Record<EditorialArticleCanonicalField, string>>> = {
-      label: "missing-ante-title",
-      subtitle: "missing-post-title",
-      body: "missing-body",
-      image_url: "missing-image",
-      author: "missing-author",
-      published_at: "invalid-published-at",
-    };
-    const errorCode = missing.map((field) => errorByField[field]).find(Boolean);
-    if (errorCode) {
-      throw new ArticleAdminError(errorCode);
-    }
-  }
-
-  const context = await normalizeContextIds(formData);
-  const scope = scopeForContext(context);
-
-  return {
-    title,
-    slug,
-    status: targetStatus,
-    scope,
-    label,
-    author,
-    subtitle,
-    body,
-    image_url: imageUrl,
-    image_caption: cleanText(formData.get("image_caption")),
-    published_at: publishedAt,
-    competition_id: context.competition_id,
-    season_id: context.season_id,
-    matchday_id: context.matchday_id,
-  };
-}
-
 async function createArticle(formData: FormData) {
   const editorialAction = cleanEditorialAction(cleanText(formData.get("editorial_action")));
-  const targetStatus = editorialAction === "publish" ? "published" : "draft";
-  const payload = await buildPayload(formData, null, targetStatus);
-  const rows = await writeSupabaseAdminReturning<CreatedArticleRow>("editorial_articles?select=id,slug", {
-    method: "POST",
-    body: JSON.stringify(createInsertPayload(payload)),
+  const result = await createEditorialArticle(articleInputFromFormData(formData), {
+    action: editorialAction,
+    initialPlacement: cleanInitialPlacement(formData.get("initial_placement")),
   });
-
-  const created = rows[0];
-  if (!created?.id || !isArticleAdminUuid(created.id)) {
-    throw new ArticleAdminError("save-failed");
-  }
+  const placementError = placementErrorMessage(result.placementFailure);
 
   const returnTo = safeArticleAdminReturnTo(cleanText(formData.get("return_to"))) ?? ARTICLE_ADMIN_PATH;
-
-  const initialPlacement = cleanInitialPlacement(formData.get("initial_placement"));
-  let placementError: string | null = null;
-
-  if (editorialAction === "publish" && payload.matchday_id && initialPlacement !== "none") {
-    try {
-      await placePublishedArticleInitially(payload.matchday_id, created.id, initialPlacement);
-    } catch (error) {
-      placementError = error instanceof Error ? error.message : "Não foi possível aplicar a colocação editorial escolhida.";
-    }
-  }
 
   return articleAdminRedirect(
     returnTo,
     editorialAction === "publish"
       ? {
-          articleId: created.id,
+          articleId: result.articleId,
           published: "1",
-          placement: payload.matchday_id ? initialPlacement : "none",
-          ...(placementError ? { placement_error: "1", detail: placementError } : {}),
+          placement: result.placement,
+          ...(placementError
+            ? { placement_error: "1", detail: placementError }
+            : {}),
         }
-      : { articleId: created.id, created: "1" },
+      : { articleId: result.articleId, created: "1" },
   );
 }
 
 async function updateArticle(formData: FormData) {
   const articleId = cleanArticleId(formData.get("article_id"));
-
-  const currentArticle = await readArticleStatus(articleId);
-  if (!currentArticle) {
-    throw new ArticleAdminError("missing-article");
-  }
-
   const editorialAction = cleanEditorialAction(cleanText(formData.get("editorial_action")));
-  const targetStatus = editorialAction === "publish"
-    ? "published"
-    : cleanStatus(currentArticle.status);
-  const payload = await buildPayload(formData, articleId, targetStatus);
-  await writeSupabaseAdmin(`editorial_articles?id=eq.${encodeURIComponent(articleId)}`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      ...payload,
-      updated_at: new Date().toISOString(),
-    }),
-  });
-
-  const isFirstPublication = editorialAction === "publish" && currentArticle.status !== "published";
-  const initialPlacement = cleanInitialPlacement(formData.get("initial_placement"));
-  let placementError: string | null = null;
-
-  if (isFirstPublication && payload.matchday_id && initialPlacement !== "none") {
-    try {
-      await placePublishedArticleInitially(payload.matchday_id, articleId, initialPlacement);
-    } catch (error) {
-      placementError = error instanceof Error ? error.message : "Não foi possível aplicar a colocação editorial escolhida.";
-    }
-  }
+  const result = await updateEditorialArticle(
+    articleId,
+    articleInputFromFormData(formData),
+    {
+      action: editorialAction,
+      initialPlacement: cleanInitialPlacement(formData.get("initial_placement")),
+    },
+  );
+  const placementError = placementErrorMessage(result.placementFailure);
 
   const returnTo = safeArticleAdminReturnTo(cleanText(formData.get("return_to"))) ?? `${ARTICLE_ADMIN_PATH}?articleId=${encodeURIComponent(articleId)}`;
   return articleAdminRedirect(
@@ -625,8 +343,10 @@ async function updateArticle(formData: FormData) {
       ? {
           articleId,
           published: "1",
-          placement: isFirstPublication && payload.matchday_id ? initialPlacement : "none",
-          ...(placementError ? { placement_error: "1", detail: placementError } : {}),
+          placement: result.placement,
+          ...(placementError
+            ? { placement_error: "1", detail: placementError }
+            : {}),
         }
       : { articleId, saved: "1" },
   );
@@ -655,7 +375,7 @@ async function deleteArticle(formData: FormData) {
 }
 
 async function removeArticleLink(formData: FormData) {
-  const slug = normalizeSlug(cleanText(formData.get("slug")) ?? "");
+  const slug = normalizeEditorialArticleSlug(cleanText(formData.get("slug")) ?? "");
   if (!slug) {
     throw new ArticleAdminError("missing-article");
   }
@@ -726,7 +446,7 @@ export async function POST(request: Request) {
   } catch (error) {
     let code: string;
     let detail: string;
-    if (error instanceof ArticleAdminError) {
+    if (error instanceof ArticleAdminError || error instanceof EditorialArticleServiceError) {
       code = error.code;
       detail = error.message;
     } else {
