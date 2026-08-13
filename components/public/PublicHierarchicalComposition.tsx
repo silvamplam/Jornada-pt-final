@@ -262,15 +262,19 @@ const hierarchicalCompositionStyles = `
 
   .composition-interpretive-dominant .composition-interpretive-title {
     font-family: Georgia, "Times New Roman", serif;
-    font-size: clamp(25px, 2.3vw, 34px);
+    font-size: clamp(25px, 2.37vw, 34px);
     font-weight: 700;
     line-height: 1.06;
     letter-spacing: 0;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
   }
 
   .composition-interpretive-dominant .composition-interpretive-subtitle {
     font-size: 15px;
     line-height: 1.48;
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
   }
 
   .composition-interpretive-chronicles {
@@ -309,12 +313,16 @@ const hierarchicalCompositionStyles = `
     font-size: 19px;
     font-weight: 800;
     line-height: 1.12;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
   }
 
   .composition-interpretive-chronicle .composition-interpretive-subtitle {
     color: #6d7989;
     font-size: 12.5px;
     line-height: 1.52;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .composition-interpretive-section {
@@ -352,7 +360,7 @@ const hierarchicalCompositionStyles = `
   }
 
   .composition-interpretive-analysis-main .composition-interpretive-media {
-    aspect-ratio: 3.2 / 1;
+    aspect-ratio: 2 / 1;
   }
 
   .composition-interpretive-analysis-main .composition-interpretive-copy {
@@ -364,11 +372,15 @@ const hierarchicalCompositionStyles = `
     font-size: 24px;
     font-weight: 800;
     line-height: 1.12;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .composition-interpretive-analysis-main .composition-interpretive-subtitle {
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.48;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
   }
 
   .composition-interpretive-analysis-center {
@@ -396,12 +408,14 @@ const hierarchicalCompositionStyles = `
 
   .composition-interpretive-analysis-medium .composition-interpretive-media-link {
     display: block;
-    height: 100%;
+    align-self: start;
+    height: auto;
   }
 
   .composition-interpretive-analysis-medium .composition-interpretive-media {
-    height: 100%;
-    min-height: 96px;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    min-height: 0;
   }
 
   .composition-interpretive-analysis-medium .composition-interpretive-copy {
@@ -415,6 +429,8 @@ const hierarchicalCompositionStyles = `
     font-size: 16px;
     font-weight: 800;
     line-height: 1.12;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .composition-interpretive-analysis-medium .composition-interpretive-subtitle {
@@ -452,6 +468,8 @@ const hierarchicalCompositionStyles = `
     font-size: 15px;
     font-weight: 800;
     line-height: 1.15;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .composition-interpretive-analysis-side-item .composition-interpretive-subtitle {
@@ -484,18 +502,22 @@ const hierarchicalCompositionStyles = `
   }
 
   .composition-interpretive-other-featured .composition-interpretive-media {
-    aspect-ratio: 4.2 / 1;
+    aspect-ratio: 3 / 1;
   }
 
   .composition-interpretive-other-featured .composition-interpretive-title {
     font-size: 22px;
     font-weight: 800;
     line-height: 1.14;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .composition-interpretive-other-featured .composition-interpretive-subtitle {
     font-size: 12.5px;
     line-height: 1.48;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .composition-interpretive-other-second-featured {
@@ -521,20 +543,22 @@ const hierarchicalCompositionStyles = `
     font-size: 18px;
     font-weight: 800;
     line-height: 1.15;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .composition-interpretive-other-second-featured .composition-interpretive-subtitle {
-    max-height: calc(3 * 11.5px * 1.48);
-    overflow: hidden;
-    font-size: 11.5px;
+    font-size: 12.5px;
     line-height: 1.48;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .composition-interpretive-other-compact-column {
     display: grid;
     grid-column: span 5;
-    grid-template-rows: repeat(3, auto);
-    align-content: space-between;
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    align-content: stretch;
     gap: 0;
     height: 100%;
     min-width: 0;
@@ -543,7 +567,8 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-other-compact {
     display: grid;
     grid-template-columns: minmax(128px, 0.94fr) minmax(0, 1.46fr);
-    gap: 14px;
+    column-gap: 14px;
+    row-gap: 6px;
     align-items: stretch;
     padding-block: 14px;
     border-top: 1px solid #dfe5eb;
@@ -560,12 +585,14 @@ const hierarchicalCompositionStyles = `
 
   .composition-interpretive-other-compact .composition-interpretive-media-link {
     display: block;
-    height: 100%;
+    align-self: start;
+    height: auto;
   }
 
   .composition-interpretive-other-compact .composition-interpretive-media {
-    height: 100%;
-    min-height: 92px;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    min-height: 0;
   }
 
   .composition-interpretive-other-compact .composition-interpretive-copy {
@@ -576,9 +603,21 @@ const hierarchicalCompositionStyles = `
   }
 
   .composition-interpretive-other-compact .composition-interpretive-title {
+    min-height: calc(3 * 15px * 1.17);
     font-size: 15px;
     font-weight: 750;
     line-height: 1.17;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+
+  .composition-interpretive-other-compact > .composition-interpretive-subtitle {
+    grid-column: 1 / -1;
+    align-self: start;
+    font-size: 12.5px;
+    line-height: 1.48;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .composition-interpretive-media {
@@ -625,7 +664,11 @@ const hierarchicalCompositionStyles = `
   }
 
   .composition-interpretive-title {
+    display: -webkit-box;
+    overflow: hidden;
     color: #10151b;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
   }
 
   .composition-interpretive-title a {
@@ -640,8 +683,12 @@ const hierarchicalCompositionStyles = `
   }
 
   .composition-interpretive-subtitle {
+    display: -webkit-box;
+    overflow: hidden;
     color: #5f6d7e;
     font-weight: 400;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
   }
 
 
@@ -689,6 +736,14 @@ const hierarchicalCompositionStyles = `
     .composition-interpretive-other-second-featured,
     .composition-interpretive-other-compact {
       grid-template-columns: minmax(0, 1fr);
+    }
+
+    .composition-interpretive-other-compact-column {
+      grid-template-rows: repeat(3, auto);
+    }
+
+    .composition-interpretive-other-compact .composition-interpretive-title {
+      min-height: 0;
     }
 
   }
@@ -954,6 +1009,9 @@ export default function PublicHierarchicalComposition({
                   <article className="composition-interpretive-other-compact" data-editorial-weight="compact" data-orientation="media-copy" data-slot={slotKey} key={slotKey}>
                     <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
                     <InterpretiveNewsCopy showEmptySlots={showEmptySlots} showSubtitle={false} slot={slot} slotKey={slotKey} />
+                    {slot?.subtitle_snapshot ? (
+                      <p className="composition-interpretive-subtitle">{slot.subtitle_snapshot}</p>
+                    ) : null}
                   </article>
                 );
               })}

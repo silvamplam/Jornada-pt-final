@@ -375,7 +375,7 @@ test("a abertura V3 permanece 9+3 com dominante 5+4, três crónicas e Editorial
   assert.match(interpretivePreview, /composition-interpretive-dominant[\s\S]*grid-template-columns: minmax\(0, 5fr\) minmax\(0, 4fr\)/);
   assert.match(
     interpretivePreview,
-    /composition-interpretive-dominant \.composition-interpretive-title[\s\S]*font-family: Georgia, "Times New Roman", serif;[\s\S]*font-size: clamp\(25px, 2\.3vw, 34px\);[\s\S]*font-weight: 700;[\s\S]*line-height: 1\.06;[\s\S]*letter-spacing: 0/,
+    /composition-interpretive-dominant \.composition-interpretive-title[\s\S]*font-family: Georgia, "Times New Roman", serif;[\s\S]*font-size: clamp\(25px, 2\.37vw, 34px\);[\s\S]*font-weight: 700;[\s\S]*line-height: 1\.06;[\s\S]*letter-spacing: 0/,
   );
   assert.match(interpretivePreview, /composition-interpretive-chronicles[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(interpretivePreview, /composition-interpretive-chronicle \.composition-interpretive-title[\s\S]*font-size: 19px;[\s\S]*font-weight: 800/);
@@ -408,10 +408,10 @@ test("Arbitragem e reações mantém 4+5+3 com distribuição vertical matemáti
   assert.match(interpretivePreview, /data-editorial-weight="main"/);
   assert.match(interpretivePreview, /data-editorial-weight="development"/);
   assert.match(interpretivePreview, /data-editorial-weight="complement"/);
-  assert.match(interpretivePreview, /composition-interpretive-analysis-main \.composition-interpretive-media \{[\s\S]*aspect-ratio: 3\.2 \/ 1/);
+  assert.match(interpretivePreview, /composition-interpretive-analysis-main \.composition-interpretive-media \{[\s\S]*aspect-ratio: 2 \/ 1/);
   assert.match(interpretivePreview, /composition-interpretive-analysis-main \.composition-interpretive-title \{[\s\S]*font-size: 24px;[\s\S]*line-height: 1\.12/);
   assert.match(interpretivePreview, /composition-interpretive-analysis-medium \{[\s\S]*grid-template-columns: minmax\(156px, 1\.08fr\) minmax\(0, 1\.72fr\)[\s\S]*gap: 14px;[\s\S]*align-items: stretch;[\s\S]*padding-bottom: 12px/);
-  assert.match(interpretivePreview, /composition-interpretive-analysis-medium \.composition-interpretive-media \{[\s\S]*height: 100%;[\s\S]*min-height: 96px/);
+  assert.match(interpretivePreview, /composition-interpretive-analysis-medium \.composition-interpretive-media \{[\s\S]*aspect-ratio: 16 \/ 9;[\s\S]*height: auto;[\s\S]*min-height: 0/);
   assert.match(interpretivePreview, /composition-interpretive-analysis-medium \.composition-interpretive-title \{[\s\S]*font-size: 16px;[\s\S]*font-weight: 800;[\s\S]*line-height: 1\.12/);
   assert.match(
     interpretivePreview,
@@ -423,7 +423,7 @@ test("Arbitragem e reações mantém 4+5+3 com distribuição vertical matemáti
     interpretivePreview,
     /HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP\.analysis\.side\.map\(\(slotKey\) => \{[\s\S]*<PreviewNewsCopy[\s\S]*showSubtitle=\{false\}[\s\S]*slot=\{slot\}[\s\S]*slotKey=\{slotKey\}/,
   );
-  assert.doesNotMatch(interpretivePreview, /subtitleLines|WebkitLineClamp|composition-interpretive-subtitle-clamped|-webkit-line-clamp/);
+  assert.match(interpretivePreview, /composition-interpretive-analysis-main \.composition-interpretive-title \{[\s\S]*-webkit-line-clamp: 3/);
   assert.doesNotMatch(interpretivePreview, /composition-interpretive-reactions|composition-interpretive-reaction|repeat\(6, minmax/);
 });
 
@@ -434,22 +434,22 @@ test("Outros jogos mantém 7+5 com duas peças à esquerda, três à direita e c
   assert.match(interpretivePreview, /compact: \["closing_1", "closing_2", "closing_3"\]/);
   assert.match(interpretivePreview, /composition-interpretive-other-games-layout[\s\S]*grid-template-columns: repeat\(12, minmax\(0, 1fr\)\);[\s\S]*align-items: stretch;[\s\S]*gap: 28px/);
   assert.match(interpretivePreview, /composition-interpretive-other-left \{[\s\S]*grid-column: span 7;[\s\S]*grid-template-rows: repeat\(2, auto\);[\s\S]*align-content: space-between;[\s\S]*gap: 24px;[\s\S]*height: 100%/);
-  assert.match(interpretivePreview, /composition-interpretive-other-compact-column \{[\s\S]*grid-column: span 5;[\s\S]*grid-template-rows: repeat\(3, auto\);[\s\S]*align-content: space-between;[\s\S]*height: 100%/);
-  assert.match(interpretivePreview, /composition-interpretive-other-featured \.composition-interpretive-media \{[\s\S]*aspect-ratio: 4\.2 \/ 1/);
+  assert.match(interpretivePreview, /composition-interpretive-other-compact-column \{[\s\S]*grid-column: span 5;[\s\S]*grid-template-rows: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*align-content: stretch;[\s\S]*height: 100%/);
+  assert.match(interpretivePreview, /composition-interpretive-other-featured \.composition-interpretive-media \{[\s\S]*aspect-ratio: 3 \/ 1/);
   assert.match(interpretivePreview, /composition-interpretive-other-featured \.composition-interpretive-title \{[\s\S]*font-size: 22px/);
   assert.match(interpretivePreview, /composition-interpretive-other-second-featured \{[\s\S]*grid-template-columns: minmax\(0, 0\.82fr\) minmax\(0, 1\.58fr\)/);
   assert.match(interpretivePreview, /composition-interpretive-other-second-featured \.composition-interpretive-media \{[\s\S]*aspect-ratio: 16 \/ 9/);
   assert.match(interpretivePreview, /data-editorial-weight="featured-primary"[\s\S]*<PreviewNewsCopy slot=\{otherFeaturedSlot\} slotKey=\{otherFeaturedKey\} \/>/);
   assert.match(interpretivePreview, /data-editorial-weight="featured-secondary"[\s\S]*<PreviewNewsCopy slot=\{otherSecondSlot\} slotKey=\{otherSecondKey\} \/>/);
-  assert.match(interpretivePreview, /composition-interpretive-other-second-featured \.composition-interpretive-subtitle \{[\s\S]*max-height: calc\(3 \* 11\.5px \* 1\.48\);[\s\S]*overflow: hidden/);
+  assert.match(interpretivePreview, /composition-interpretive-other-second-featured \.composition-interpretive-subtitle \{[\s\S]*font-size: 12\.5px;[\s\S]*-webkit-line-clamp: 3/);
   assert.match(interpretivePreview, /HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP\.otherGames\.compact\.map/);
-  assert.match(interpretivePreview, /composition-interpretive-other-compact \{[\s\S]*grid-template-columns: minmax\(128px, 0\.94fr\) minmax\(0, 1\.46fr\)[\s\S]*gap: 14px;[\s\S]*align-items: stretch;[\s\S]*padding-block: 14px/);
-  assert.match(interpretivePreview, /composition-interpretive-other-compact \.composition-interpretive-media-link \{[\s\S]*display: block;[\s\S]*height: 100%[\s\S]*\}[\s\S]*composition-interpretive-other-compact \.composition-interpretive-media \{[\s\S]*height: 100%;[\s\S]*min-height: 92px/);
+  assert.match(interpretivePreview, /composition-interpretive-other-compact \{[\s\S]*grid-template-columns: minmax\(128px, 0\.94fr\) minmax\(0, 1\.46fr\)[\s\S]*column-gap: 14px;[\s\S]*row-gap: 6px;[\s\S]*align-items: stretch;[\s\S]*padding-block: 14px/);
+  assert.match(interpretivePreview, /composition-interpretive-other-compact \.composition-interpretive-media-link \{[\s\S]*display: block;[\s\S]*height: auto[\s\S]*\}[\s\S]*composition-interpretive-other-compact \.composition-interpretive-media \{[\s\S]*aspect-ratio: 16 \/ 9;[\s\S]*height: auto;[\s\S]*min-height: 0/);
   assert.match(
     interpretivePreview,
-    /HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP\.otherGames\.compact\.map[\s\S]*<PreviewNewsCopy showSubtitle=\{false\} slot=\{slot\} slotKey=\{slotKey\} \/>/,
+    /HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP\.otherGames\.compact\.map[\s\S]*<PreviewNewsCopy showSubtitle=\{false\} slot=\{slot\} slotKey=\{slotKey\} \/>[\s\S]*slot\?\.subtitle_snapshot[\s\S]*\{slot\.subtitle_snapshot\}/,
   );
-  assert.doesNotMatch(interpretivePreview, /subtitleLines|WebkitLineClamp|composition-interpretive-subtitle-clamped|-webkit-line-clamp/);
+  assert.match(interpretivePreview, /composition-interpretive-other-compact \.composition-interpretive-title \{[\s\S]*min-height: calc\(3 \* 15px \* 1\.17\);[\s\S]*-webkit-line-clamp: 3/);
   assert.doesNotMatch(interpretivePreview, /composition-interpretive-other-secondary-grid|repeat\(2, minmax\(0, 1fr\)\)/);
   assert.doesNotMatch(interpretivePreview, /composition-interpretive-other-games-grid|composition-interpretive-other-game(?:\s|\.)/);
   assert.doesNotMatch(interpretivePreview, /Empate deixa primeiro aviso|André Silva revive|article_id|source_identity\s*===/);
@@ -530,10 +530,11 @@ test("Para Lá mantém duas secundárias superiores com imagem e duas inferiores
   assert.match(beyondRenderer, /const isTextOnly = index >= 2/);
   assert.match(beyondRenderer, /data-secondary-presentation={isTextOnly \? "text" : "image"}/);
   assert.match(beyondRenderer, /{isTextOnly \? null : <StoryMedia item={item} \/>}/);
-  assert.match(beyondRenderer, /<StoryCopy item={item} showSubtitle={!isTextOnly} \/>/);
+  assert.match(beyondRenderer, /<StoryCopy item={item} showSubtitle \/>/);
   assert.match(beyondRenderer, /\(lead \|\| showSubtitle\) && item\.subtitle/);
   assert.match(beyondRenderer, /public-beyond-matchday-secondary-grid[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(beyondRenderer, /public-beyond-matchday-text-only[\s\S]*border-top: 1px solid #dbe4ee/);
+  assert.match(beyondRenderer, /public-beyond-matchday-text-only \.public-beyond-matchday-subtitle[\s\S]*-webkit-line-clamp: 2/);
 });
 
 test("o preview do draft inclui Vídeo, Destaque e Para Lá sem alterar current", () => {

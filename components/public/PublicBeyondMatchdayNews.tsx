@@ -113,25 +113,42 @@ const styles = `
   }
 
   .public-beyond-matchday-title {
+    display: -webkit-box;
+    overflow: hidden;
     color: #10151b;
     font-family: Georgia, "Times New Roman", serif;
     font-weight: 700;
     text-decoration: none;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
   }
 
   .public-beyond-matchday-lead .public-beyond-matchday-title {
     font-size: 29px;
     line-height: 1.04;
     letter-spacing: -0.015em;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .public-beyond-matchday-subtitle {
+    display: -webkit-box;
+    overflow: hidden;
     margin: 0;
     color: #526174;
     font-family: "Segoe UI", Arial, Helvetica, sans-serif;
     font-size: 14px;
     font-weight: 400;
     line-height: 1.3;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+  }
+
+  .public-beyond-matchday-secondary-card[data-secondary-presentation="image"] .public-beyond-matchday-subtitle {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .public-beyond-matchday-secondary-grid {
@@ -146,18 +163,30 @@ const styles = `
   }
 
   .public-beyond-matchday-secondary-card .public-beyond-matchday-title {
-    display: block;
     font-size: 18px;
     line-height: 1.08;
     letter-spacing: -0.01em;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .public-beyond-matchday-text-only {
     display: grid;
     align-content: start;
-    min-height: 154px;
+    min-height: 0;
     padding: 13px 0 0;
     border-top: 1px solid #dbe4ee;
+  }
+
+  .public-beyond-matchday-text-only .public-beyond-matchday-copy {
+    padding-top: 0;
+  }
+
+  .public-beyond-matchday-text-only .public-beyond-matchday-subtitle {
+    font-size: 12.5px;
+    line-height: 1.4;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .public-beyond-matchday-title:hover,
@@ -290,7 +319,7 @@ export default function PublicBeyondMatchdayNews({ items, contextLabel }: Public
                   key={item.id}
                 >
                   {isTextOnly ? null : <StoryMedia item={item} />}
-                  <StoryCopy item={item} showSubtitle={!isTextOnly} />
+                  <StoryCopy item={item} showSubtitle />
                 </article>
               );
             })}
