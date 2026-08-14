@@ -220,7 +220,8 @@
 
 .contextGrid select:focus-visible,
 .textareaField textarea:focus-visible,
-.analysisActions button:focus-visible {
+.analysisActions button:focus-visible,
+.imagePickerRow:has(.fileInput:focus-visible) .imagePicker {
   outline: 3px solid rgba(229, 37, 42, 0.2);
   outline-offset: 2px;
 }
@@ -272,6 +273,148 @@
   border-color: #e7c46e;
   background: #fff9e8;
   color: #7a5200;
+}
+
+.imagePickerRow {
+  position: relative;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+
+.imageInstructions,
+.selectedCount,
+.imagePendingNotice,
+.imageAssociation p {
+  margin: 0;
+}
+
+.imageInstructions {
+  color: #52606d;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.selectedCount {
+  margin-top: 5px;
+  color: #10151b;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.imagePicker {
+  display: inline-flex;
+  min-height: 42px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border: 1px solid #10151b;
+  border-radius: 7px;
+  background: #10151b;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.imagePicker:hover {
+  background: #2a323c;
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.imageStats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 0;
+}
+
+.imageStats > div {
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.imageStats dt {
+  color: #52606d;
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.imageStats dd {
+  margin: 5px 0 0;
+  color: #10151b;
+  font-size: 1.55rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.imageFileProblems,
+.imagePendingNotice {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #efb0b4;
+  border-radius: 9px;
+  background: #fff7f7;
+  color: #7f1d1d;
+}
+
+.imagePendingNotice {
+  border-color: #e7c46e;
+  background: #fff9e8;
+  color: #7a5200;
+  font-size: 0.84rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.imageFileProblems h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.imageFileProblems ul {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.imageFileProblems li {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.imageFileProblems strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.imageFileProblems span {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 900;
 }
 
 .stats {
@@ -452,6 +595,69 @@
   font-weight: 800;
 }
 
+.imageAssociation {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid;
+  border-radius: 8px;
+}
+
+.associatedImage {
+  border-color: #b7dec5;
+  background: #f2fbf5;
+}
+
+.problemImage {
+  border-color: #efb0b4;
+  background: #fff7f7;
+}
+
+.imageAssociation img,
+.imagePlaceholder {
+  width: 76px;
+  height: 56px;
+  border-radius: 6px;
+}
+
+.imageAssociation img {
+  display: block;
+  object-fit: cover;
+}
+
+.imagePlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e2e8f0;
+  color: #64748b;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.imageAssociation p {
+  overflow-wrap: anywhere;
+  color: #334155;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.imageAssociation strong {
+  display: block;
+  margin-top: 4px;
+  color: #166534;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.problemImage strong {
+  color: #9f1239;
+}
+
 .noArticles {
   margin-top: 12px;
   color: #64748b;
@@ -461,7 +667,8 @@
   .hero,
   .sectionHeader,
   .resultsHeader,
-  .analysisActions {
+  .analysisActions,
+  .imagePickerRow {
     align-items: stretch;
     flex-direction: column;
   }
@@ -471,11 +678,13 @@
   }
 
   .contextGrid,
-  .readinessGrid {
+  .readinessGrid,
+  .imageStats {
     grid-template-columns: 1fr;
   }
 
-  .analysisActions button {
+  .analysisActions button,
+  .imagePicker {
     width: 100%;
   }
 }
