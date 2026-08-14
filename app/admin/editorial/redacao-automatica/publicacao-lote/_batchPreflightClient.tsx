@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   EDITORIAL_BATCH_ARTICLE_START_MARKER,
@@ -48,6 +48,93 @@ type ArticleResultRow = Readonly<{
   article: EditorialBatchArticle | null;
   issues: readonly EditorialBatchIssue[];
 }>;
+
+type BatchPublicationPlanItem = Readonly<{
+  key: string;
+  slug: string;
+  mode: "create" | "resume";
+  articleId?: string;
+  publishedAt: string;
+}>;
+
+type BatchPublicationItemStatus =
+  | "pending"
+  | "uploading"
+  | "publishing"
+  | "published"
+  | "published_missing_latest"
+  | "error"
+  | "not_attempted";
+
+type BatchPublicationItemState = Readonly<{
+  status: BatchPublicationItemStatus;
+  message: string;
+  articleId?: string;
+}>;
+
+type BatchPublicationPreflightResponse = Readonly<{
+  ok?: boolean;
+  error?: string;
+  detail?: string;
+  items?: readonly BatchPublicationPlanItem[];
+}>;
+
+type BatchPublicationItemResponse = Readonly<{
+  ok?: boolean;
+  error?: string;
+  detail?: string;
+  articleId?: string;
+  slug?: string;
+  published?: boolean;
+}>;
+
+type SignedUploadResponse = Readonly<{
+  ok?: boolean;
+  error?: string;
+  detail?: string;
+  signedUrl?: string;
+  publicUrl?: string;
+}>;
+
+const DEFAULT_BATCH_AUTHOR = "Silvestre Chícharo";
+const BATCH_PUBLICATION_ROUTE = "/api/admin/editorial/redacao-automatica/publicacao-lote";
+const ARTICLE_IMAGE_SIGN_ROUTE = "/api/admin/editorial/artigos/upload-image/sign";
+
+function responseDetail(payload: { error?: string; detail?: string } | null, fallback: string) {
+  return firstText(payload?.detail, payload?.error, fallback);
+}
+
+function imageContentType(file: File) {
+  const declared = file.type.trim().toLowerCase();
+  if (declared) {
+    return declared;
+  }
+
+  const extension = /\.([^.]+)$/.exec(file.name)?.[1]?.toLowerCase();
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  return "application/octet-stream";
+}
+
+function publicationStatusLabel(state: BatchPublicationItemState | undefined) {
+  switch (state?.status) {
+    case "uploading":
+      return "A CARREGAR IMAGEM…";
+    case "publishing":
+      return "A PUBLICAR…";
+    case "published":
+      return "PUBLICADO EM ÚLTIMAS";
+    case "published_missing_latest":
+      return "PUBLICADO, FALTA ÚLTIMAS";
+    case "error":
+      return "ERRO";
+    case "not_attempted":
+      return "NÃO TENTADO";
+    default:
+      return "PENDENTE";
+  }
+}
 
 function firstText(...values: Array<string | null | undefined>) {
   for (const value of values) {
@@ -107,11 +194,13 @@ function ImageSelectionPanel({
   imagePreflight,
   associationStale,
   onImagesSelected,
+  disabled,
 }: Readonly<{
   selectedImages: readonly File[];
   imagePreflight: EditorialBatchImagePreflight<File> | null;
   associationStale: boolean;
   onImagesSelected: (files: FileList | null) => void;
+  disabled: boolean;
 }>) {
   const statusText = imagePreflight
     ? imagePreflight.ready
@@ -149,6 +238,7 @@ function ImageSelectionPanel({
           type="file"
           multiple
           accept={EDITORIAL_BATCH_IMAGE_ACCEPT}
+          disabled={disabled}
           onChange={(event) => onImagesSelected(event.currentTarget.files)}
         />
       </div>
@@ -204,6 +294,7 @@ function ResultSummary({
   imagePreflight,
   imagePreviewUrls,
   contextComplete,
+  authorReady,
   competitionLabel,
   seasonLabel,
   matchdayLabel: selectedMatchdayLabel,
@@ -212,6 +303,7 @@ function ResultSummary({
   imagePreflight: EditorialBatchImagePreflight<File>;
   imagePreviewUrls: ReadonlyMap<File, string>;
   contextComplete: boolean;
+  authorReady: boolean;
   competitionLabel: string;
   seasonLabel: string;
   matchdayLabel: string;
@@ -221,7 +313,7 @@ function ResultSummary({
   const imageResultByKey = new Map(
     imagePreflight.articles.map((article) => [article.key, article]),
   );
-  const globallyPrepared = preflight.ready && contextComplete && imagePreflight.ready;
+  const globallyPrepared = preflight.ready && contextComplete && imagePreflight.ready && authorReady;
 
   return (
     <section className={styles.results} aria-labelledby="batch-results-title" aria-live="polite">
@@ -266,8 +358,8 @@ function ResultSummary({
         </article>
         <article>
           <span>Próxima etapa</span>
-          <strong>{globallyPrepared ? "Pré-flight completo" : "Ainda incompleto"}</strong>
-          <p>Esta fase não publica nem envia imagens.</p>
+          <strong>{globallyPrepared ? "Pronto para publicar" : "Ainda incompleto"}</strong>
+          <p>A publicação envia cada imagem, cria o artigo canónico e coloca-o em Últimas.</p>
         </article>
       </div>
 
@@ -360,6 +452,88 @@ function ResultSummary({
   );
 }
 
+function PublicationPanel({
+  articles,
+  states,
+  error,
+  isPublishing,
+  canPublish,
+  onPublish,
+}: Readonly<{
+  articles: readonly EditorialBatchArticle[];
+  states: Readonly<Record<string, BatchPublicationItemState>>;
+  error: string | null;
+  isPublishing: boolean;
+  canPublish: boolean;
+  onPublish: () => void;
+}>) {
+  const stateValues = Object.values(states);
+  const hasRun = stateValues.length > 0;
+  const allPublished = articles.length > 0
+    && articles.every((article) => states[article.key]?.status === "published");
+  const hasIncompleteRun = hasRun && !allPublished;
+
+  return (
+    <section className={styles.panel} aria-labelledby="batch-publication-title" aria-live="polite">
+      <div className={styles.sectionHeader}>
+        <div>
+          <p className={styles.sectionEyebrow}>Publicação</p>
+          <h2 id="batch-publication-title">Publicar em Últimas</h2>
+        </div>
+        <strong className={allPublished ? styles.readyBadge : styles.invalidBadge}>
+          {allPublished ? "LOTE PUBLICADO" : isPublishing ? "PUBLICAÇÃO EM CURSO" : "PRONTO"}
+        </strong>
+      </div>
+
+      <div className={styles.analysisActions}>
+        <p className={styles.analysisNote}>
+          {error
+            ? error
+            : allPublished
+              ? "Todos os artigos ficaram publicados e colocados em Últimas."
+              : "A publicação é sequencial e pára no primeiro erro, preservando o que já foi concluído."}
+        </p>
+        <button
+          type="button"
+          disabled={!canPublish || isPublishing || allPublished}
+          onClick={onPublish}
+        >
+          {isPublishing
+            ? "A PUBLICAR…"
+            : hasIncompleteRun
+              ? "RETOMAR PUBLICAÇÃO"
+              : allPublished
+                ? "LOTE PUBLICADO"
+                : "PUBLICAR LOTE"}
+        </button>
+      </div>
+
+      {hasRun ? (
+        <section className={styles.articleResults} aria-labelledby="batch-publication-items-title">
+          <h3 id="batch-publication-items-title">Estado por artigo</h3>
+          <ol>
+            {articles.map((article) => {
+              const state = states[article.key];
+              return (
+                <li key={article.key}>
+                  <div className={styles.articleKey}>{article.key}</div>
+                  <div className={styles.articleCopy}>
+                    <div className={styles.articleHeading}>
+                      <h4>{article.title}</h4>
+                      <strong>{publicationStatusLabel(state)}</strong>
+                    </div>
+                    <p className={styles.validNote}>{state?.message ?? "Aguarda publicação."}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : null}
+    </section>
+  );
+}
+
 export default function BatchPreflightClient({
   competitions,
   seasons,
@@ -373,6 +547,14 @@ export default function BatchPreflightClient({
   const [textChangedAfterAnalysis, setTextChangedAfterAnalysis] = useState(false);
   const [selectedImages, setSelectedImages] = useState<readonly File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<ReadonlyMap<File, string>>(new Map());
+  const [author, setAuthor] = useState(DEFAULT_BATCH_AUTHOR);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publicationError, setPublicationError] = useState<string | null>(null);
+  const [publicationStates, setPublicationStates] = useState<Readonly<Record<string, BatchPublicationItemState>>>({});
+  const publicationStatesRef = useRef<Record<string, BatchPublicationItemState>>({});
+  const publicationPlanRef = useRef<readonly BatchPublicationPlanItem[] | null>(null);
+  const uploadedImageUrlsRef = useRef<Record<string, string>>({});
+  const publishingRef = useRef(false);
 
   const availableSeasons = useMemo(
     () => seasons.filter((season) => season.competition_id === competitionId),
@@ -402,6 +584,12 @@ export default function BatchPreflightClient({
       : null,
     [analysedArticleKeys, preflight, selectedImages],
   );
+  const canPublish = Boolean(
+    preflight?.ready
+      && contextComplete
+      && imagePreflight?.ready
+      && author.trim(),
+  );
 
   useEffect(() => {
     const nextPreviewUrls = new Map<File, string>();
@@ -417,18 +605,221 @@ export default function BatchPreflightClient({
     };
   }, [selectedImages]);
 
+  function setPublicationState(key: string, state: BatchPublicationItemState) {
+    publicationStatesRef.current = {
+      ...publicationStatesRef.current,
+      [key]: state,
+    };
+    setPublicationStates(publicationStatesRef.current);
+  }
+
+  function resetPublicationRun() {
+    publicationPlanRef.current = null;
+    uploadedImageUrlsRef.current = {};
+    publicationStatesRef.current = {};
+    setPublicationStates({});
+    setPublicationError(null);
+  }
+
+  async function requestPublicationPreflight() {
+    if (!preflight || !matchdayId || !author.trim()) {
+      throw new Error("O lote deixou de estar pronto para publicação.");
+    }
+
+    const response = await fetch(BATCH_PUBLICATION_ROUTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "preflight",
+        matchdayId,
+        author: author.trim(),
+        articles: preflight.articles,
+      }),
+    });
+    const payload = await response.json().catch(() => null) as BatchPublicationPreflightResponse | null;
+
+    if (!response.ok || !payload?.ok || !payload.items) {
+      throw new Error(responseDetail(payload, "A verificação final da publicação falhou."));
+    }
+
+    return payload.items;
+  }
+
+  async function uploadBatchImage(file: File) {
+    const contentType = imageContentType(file);
+    const signResponse = await fetch(ARTICLE_IMAGE_SIGN_ROUTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        contentType,
+        size: file.size,
+      }),
+    });
+    const signPayload = await signResponse.json().catch(() => null) as SignedUploadResponse | null;
+
+    if (!signResponse.ok || !signPayload?.ok || !signPayload.signedUrl || !signPayload.publicUrl) {
+      throw new Error(responseDetail(signPayload, `Não foi possível preparar o upload de ${file.name}.`));
+    }
+
+    const uploadResponse = await fetch(signPayload.signedUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": contentType,
+        "x-upsert": "false",
+      },
+      body: file,
+    });
+
+    if (!uploadResponse.ok) {
+      const detail = await uploadResponse.text().catch(() => "");
+      throw new Error(firstText(detail, `Falhou o upload de ${file.name}.`));
+    }
+
+    return signPayload.publicUrl;
+  }
+
+  async function publishPlannedItem(
+    planItem: BatchPublicationPlanItem,
+    article: EditorialBatchArticle,
+    imageUrl: string | null,
+  ) {
+    const response = await fetch(BATCH_PUBLICATION_ROUTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "publish_item",
+        matchdayId,
+        author: author.trim(),
+        article,
+        imageUrl,
+        publishedAt: planItem.publishedAt,
+      }),
+    });
+    const payload = await response.json().catch(() => null) as BatchPublicationItemResponse | null;
+
+    if (!response.ok || !payload?.ok) {
+      const failure = new Error(responseDetail(payload, `Falhou a publicação do artigo ${article.key}.`));
+      Object.assign(failure, { payload });
+      throw failure;
+    }
+
+    return payload;
+  }
+
+  async function publishBatch() {
+    if (publishingRef.current || !canPublish || !preflight || !imagePreflight) {
+      return;
+    }
+
+    publishingRef.current = true;
+    setIsPublishing(true);
+    setPublicationError(null);
+
+    try {
+      const plan = publicationPlanRef.current ?? await requestPublicationPreflight();
+      publicationPlanRef.current = plan;
+
+      if (Object.keys(publicationStatesRef.current).length === 0) {
+        const initialStates = Object.fromEntries(
+          plan.map((item) => [item.key, { status: "pending", message: "Aguarda publicação." }]),
+        ) as Record<string, BatchPublicationItemState>;
+        publicationStatesRef.current = initialStates;
+        setPublicationStates(initialStates);
+      }
+
+      const articleByKey = new Map(preflight.articles.map((article) => [article.key, article]));
+      const imageByKey = new Map(imagePreflight.articles.map((image) => [image.key, image.file]));
+
+      for (let index = 0; index < plan.length; index += 1) {
+        const planItem = plan[index];
+        if (publicationStatesRef.current[planItem.key]?.status === "published") {
+          continue;
+        }
+
+        const article = articleByKey.get(planItem.key);
+        const file = imageByKey.get(planItem.key);
+        if (!article || (planItem.mode === "create" && !file)) {
+          throw new Error(`O artigo ${planItem.key} deixou de ter uma associação válida.`);
+        }
+
+        try {
+          let imageUrl = uploadedImageUrlsRef.current[planItem.key] ?? null;
+
+          if (planItem.mode === "create" && !imageUrl) {
+            setPublicationState(planItem.key, {
+              status: "uploading",
+              message: `A carregar ${file?.name ?? "imagem"}…`,
+            });
+            imageUrl = await uploadBatchImage(file as File);
+            uploadedImageUrlsRef.current[planItem.key] = imageUrl;
+          }
+
+          setPublicationState(planItem.key, {
+            status: "publishing",
+            message: planItem.mode === "resume"
+              ? "A confirmar o artigo existente e a garantir a entrada em Últimas…"
+              : "A criar o artigo canónico e a colocá-lo em Últimas…",
+          });
+
+          const result = await publishPlannedItem(planItem, article, imageUrl);
+          setPublicationState(planItem.key, {
+            status: "published",
+            message: planItem.mode === "resume"
+              ? "Artigo existente confirmado e garantido em Últimas."
+              : "Artigo publicado e colocado em Últimas.",
+            ...(result.articleId ? { articleId: result.articleId } : {}),
+          });
+        } catch (error) {
+          const payload = error instanceof Error
+            ? (error as Error & { payload?: BatchPublicationItemResponse }).payload
+            : undefined;
+          const message = error instanceof Error ? error.message : `Falhou o artigo ${planItem.key}.`;
+          setPublicationState(planItem.key, {
+            status: payload?.published ? "published_missing_latest" : "error",
+            message,
+            ...(payload?.articleId ? { articleId: payload.articleId } : {}),
+          });
+
+          for (const pendingItem of plan.slice(index + 1)) {
+            if (!publicationStatesRef.current[pendingItem.key]
+              || publicationStatesRef.current[pendingItem.key].status === "pending") {
+              setPublicationState(pendingItem.key, {
+                status: "not_attempted",
+                message: "Não tentado porque a publicação parou no artigo anterior.",
+              });
+            }
+          }
+
+          setPublicationError(`Publicação interrompida no artigo ${planItem.key}: ${message}`);
+          return;
+        }
+      }
+
+      setPublicationError(null);
+    } catch (error) {
+      setPublicationError(error instanceof Error ? error.message : "A publicação do lote falhou.");
+    } finally {
+      publishingRef.current = false;
+      setIsPublishing(false);
+    }
+  }
+
   function handleCompetitionChange(nextCompetitionId: string) {
+    resetPublicationRun();
     setCompetitionId(nextCompetitionId);
     setSeasonId("");
     setMatchdayId("");
   }
 
   function handleSeasonChange(nextSeasonId: string) {
+    resetPublicationRun();
     setSeasonId(nextSeasonId);
     setMatchdayId("");
   }
 
   function handleTextChange(nextText: string) {
+    resetPublicationRun();
     setArticleText(nextText);
     if (preflight) {
       setPreflight(null);
@@ -442,7 +833,18 @@ export default function BatchPreflightClient({
   }
 
   function handleImagesSelected(files: FileList | null) {
+    resetPublicationRun();
     setSelectedImages(files ? Array.from(files) : []);
+  }
+
+  function handleMatchdayChange(nextMatchdayId: string) {
+    resetPublicationRun();
+    setMatchdayId(nextMatchdayId);
+  }
+
+  function handleAuthorChange(nextAuthor: string) {
+    resetPublicationRun();
+    setAuthor(nextAuthor);
   }
 
   return (
@@ -464,6 +866,7 @@ export default function BatchPreflightClient({
             <select
               id="batch-competition"
               value={competitionId}
+              disabled={isPublishing}
               onChange={(event) => handleCompetitionChange(event.target.value)}
             >
               <option value="">Escolher competição</option>
@@ -480,7 +883,7 @@ export default function BatchPreflightClient({
             <select
               id="batch-season"
               value={seasonId}
-              disabled={!competitionId}
+              disabled={!competitionId || isPublishing}
               onChange={(event) => handleSeasonChange(event.target.value)}
             >
               <option value="">
@@ -499,8 +902,8 @@ export default function BatchPreflightClient({
             <select
               id="batch-matchday"
               value={matchdayId}
-              disabled={!seasonId}
-              onChange={(event) => setMatchdayId(event.target.value)}
+              disabled={!seasonId || isPublishing}
+              onChange={(event) => handleMatchdayChange(event.target.value)}
             >
               <option value="">
                 {seasonId ? "Escolher jornada" : "Escolha primeiro a época"}
@@ -513,6 +916,17 @@ export default function BatchPreflightClient({
             </select>
           </label>
         </div>
+
+        <label className={styles.textareaField} htmlFor="batch-author">
+          <span>Autor do lote</span>
+          <input
+            id="batch-author"
+            type="text"
+            value={author}
+            disabled={isPublishing}
+            onChange={(event) => handleAuthorChange(event.target.value)}
+          />
+        </label>
       </section>
 
       <section className={styles.panel} aria-labelledby="batch-articles-input-title">
@@ -530,6 +944,7 @@ export default function BatchPreflightClient({
             id="batch-article-text"
             rows={18}
             value={articleText}
+            disabled={isPublishing}
             onChange={(event) => handleTextChange(event.target.value)}
             placeholder={`Cole aqui um ou mais blocos ${EDITORIAL_BATCH_ARTICLE_START_MARKER}...`}
             spellCheck={false}
@@ -540,7 +955,7 @@ export default function BatchPreflightClient({
           <p className={styles.analysisNote}>
             A análise é local e determinística. Não guarda nem publica artigos.
           </p>
-          <button type="button" onClick={analyseBatch}>Analisar lote</button>
+          <button type="button" disabled={isPublishing} onClick={analyseBatch}>Analisar lote</button>
         </div>
 
         {textChangedAfterAnalysis ? (
@@ -555,6 +970,7 @@ export default function BatchPreflightClient({
         imagePreflight={imagePreflight}
         associationStale={textChangedAfterAnalysis}
         onImagesSelected={handleImagesSelected}
+        disabled={isPublishing}
       />
 
       {preflight && imagePreflight ? (
@@ -563,9 +979,21 @@ export default function BatchPreflightClient({
           imagePreflight={imagePreflight}
           imagePreviewUrls={imagePreviewUrls}
           contextComplete={contextComplete}
+          authorReady={Boolean(author.trim())}
           competitionLabel={firstText(selectedCompetition?.name, selectedCompetition?.slug)}
           seasonLabel={firstText(selectedSeason?.label)}
           matchdayLabel={selectedMatchday ? matchdayLabel(selectedMatchday) : ""}
+        />
+      ) : null}
+
+      {preflight && imagePreflight && (canPublish || Object.keys(publicationStates).length > 0) ? (
+        <PublicationPanel
+          articles={preflight.articles}
+          states={publicationStates}
+          error={publicationError}
+          isPublishing={isPublishing}
+          canPublish={canPublish}
+          onPublish={publishBatch}
         />
       ) : null}
     </div>

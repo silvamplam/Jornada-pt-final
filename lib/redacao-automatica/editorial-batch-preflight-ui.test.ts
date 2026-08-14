@@ -17,6 +17,7 @@ const routeSource = source("app/admin/editorial/redacao-automatica/publicacao-lo
 const clientSource = source("app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx");
 const imagePreflightSource = source("lib/redacao-automatica/editorial-batch-image-preflight.ts");
 const newsroomSource = source("app/admin/editorial/redacao-automatica/page.tsx");
+const publicationRouteSource = source("app/api/admin/editorial/redacao-automatica/publicacao-lote/route.ts");
 
 function clientFunction(functionName: string) {
   const start = clientSource.indexOf(`  function ${functionName}`);
@@ -106,7 +107,7 @@ test("existe textarea editorial acessível", () => {
 });
 
 test("existe botão semântico Analisar lote", () => {
-  assert.match(clientSource, /<button type="button" onClick=\{analyseBatch\}>Analisar lote<\/button>/);
+  assert.match(clientSource, /<button type="button"[^>]*onClick=\{analyseBatch\}>Analisar lote<\/button>/);
 });
 
 test("o contrato real fornece total, válidos, inválidos e chaves 01 02 03", () => {
@@ -134,7 +135,7 @@ test("o contrato real fornece total, válidos, inválidos e chaves 01 02 03", ()
 test("a UI apresenta a key fornecida pelo parser sem segunda numeração", () => {
   assert.match(clientSource, /<li key=\{row\.key\}/);
   assert.match(clientSource, /aria-label=\{`Artigo \$\{row\.key\}`\}>\{row\.key\}/);
-  assert.doesNotMatch(clientSource, /row\.index.*padStart|index \+ 1/);
+  assert.doesNotMatch(clientSource, /row\.index.*padStart/);
 });
 
 test("problemas globais e por artigo são separados", () => {
@@ -246,21 +247,82 @@ test("as previews são locais e os object URLs são sempre libertados", () => {
   assert.match(clientSource, /src={previewUrl}/);
 });
 
-test("não existem controlos de publicação", () => {
-  assert.doesNotMatch(clientSource, /<button[^>]*>Publicar lote<\/button>/i);
+test("a publicação só aparece depois do pré-flight global e suporta retoma", () => {
+  assert.match(clientSource, /"PUBLICAR LOTE"/);
+  assert.match(clientSource, /"RETOMAR PUBLICAÇÃO"/);
+  assert.match(clientSource, /preflight && imagePreflight && \(canPublish \|\| Object\.keys\(publicationStates\)\.length > 0\)/);
+  assert.match(clientSource, /disabled=\{!canPublish \|\| isPublishing \|\| allPublished\}/);
+  assert.match(clientSource, /publishingRef\.current/);
 });
 
-test("o cliente e o helper não fazem upload, rede, IA nem writes", () => {
-  assert.doesNotMatch(clientSource, /editorial-article-service|server-only|supabase/i);
-  assert.doesNotMatch(clientSource, /createEditorialArticle|placePublishedArticleInitially|fetch\(|writeSupabaseAdmin|signedUrl|upload\(/i);
+test("o upload do lote reutiliza exatamente a rota assinada existente e mantém o helper puro", () => {
+  assert.match(clientSource, /\/api\/admin\/editorial\/artigos\/upload-image\/sign/);
+  assert.match(clientSource, /method: "PUT"/);
+  assert.match(clientSource, /"x-upsert": "false"/);
+  assert.match(clientSource, /imageContentType\(file\)/);
   assert.doesNotMatch(imagePreflightSource, /supabase|fetch\(|openai|createEditorialArticle|write|upload|signedUrl/i);
   assert.doesNotMatch(routeSource, /writeSupabaseAdmin|createEditorialArticle|placePublishedArticleInitially/);
   assert.match(routeSource, /fetchSupabaseAdminTable/);
 });
-test("o estado global do lote inclui artigos, contexto e imagens", () => {
+
+test("a API de lote é apenas orquestração sobre artigo canónico e Últimas", () => {
+  assert.match(publicationRouteSource, /createEditorialArticle/);
+  assert.match(publicationRouteSource, /resolveCanonicalArticleContext/);
+  assert.match(publicationRouteSource, /normalizeEditorialArticleSlug/);
+  assert.match(publicationRouteSource, /ensurePublishedArticleInLatest/);
+  assert.match(publicationRouteSource, /initialPlacement: "editorial_line_item"/);
+  assert.doesNotMatch(publicationRouteSource, /writeSupabaseAdmin|writeSupabaseAdminReturning/);
+  assert.doesNotMatch(publicationRouteSource, /matchday_latest_news/);
+});
+
+test("o pre-flight servidor é read-only e bloqueia colisões antes do upload", () => {
+  const start = publicationRouteSource.indexOf("async function preflightPublication");
+  const end = publicationRouteSource.indexOf("async function publishItem", start);
+  const preflightSource = publicationRouteSource.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(preflightSource, /prepareBatch/);
+  assert.doesNotMatch(preflightSource, /createEditorialArticle|ensurePublishedArticleInLatest/);
+  assert.match(publicationRouteSource, /duplicate-slug-in-batch/);
+  assert.match(publicationRouteSource, /slug-collision/);
+});
+
+test("o servidor deriva o contexto só a partir da Jornada", () => {
+  assert.match(publicationRouteSource, /resolveCanonicalArticleContext\(\{ competition_id: null, season_id: null, matchday_id: matchdayId \}\)/);
+  assert.match(publicationRouteSource, /matchday_id: matchdayId/);
+  assert.match(publicationRouteSource, /competition_id: null/);
+  assert.match(publicationRouteSource, /season_id: null/);
+});
+
+test("a ordem do lote usa published_at determinístico e não a velocidade do upload", () => {
+  assert.match(publicationRouteSource, /baseTimeMs - \(item\.article\.index - 1\)/);
+  assert.match(publicationRouteSource, /resume-order-mismatch/);
+});
+
+test("uma falha pára o lote e deixa os artigos seguintes como não tentados", () => {
+  assert.match(clientSource, /for \(const pendingItem of plan\.slice\(index \+ 1\)\)/);
+  assert.match(clientSource, /status: "not_attempted"/);
+  assert.match(clientSource, /setPublicationError\(`Publicação interrompida no artigo/);
+  assert.match(clientSource, /return;/);
+});
+
+test("o retry reutiliza imagem já carregada e reconcilia artigo publicado em Últimas", () => {
+  assert.match(clientSource, /uploadedImageUrlsRef\.current\[planItem\.key\]/);
+  assert.match(clientSource, /publicationPlanRef\.current \?\? await requestPublicationPreflight\(\)/);
+  assert.match(publicationRouteSource, /if \(existing\)/);
+  assert.match(publicationRouteSource, /await ensurePublishedArticleInLatest\(matchdayId, existing\.id\)/);
+});
+
+test("o autor do lote mantém o valor editorial atual por defeito e é editável", () => {
+  assert.match(clientSource, /const DEFAULT_BATCH_AUTHOR = "Silvestre Chícharo"/);
+  assert.match(clientSource, /htmlFor="batch-author"/);
+  assert.match(clientSource, /value=\{author\}/);
+  assert.match(clientSource, /onChange=\{\(event\) => handleAuthorChange\(event\.target\.value\)\}/);
+});
+
+test("o estado global do lote inclui artigos, contexto, imagens e autor", () => {
   assert.match(
     clientSource,
-    /const globallyPrepared = preflight\.ready && contextComplete && imagePreflight\.ready;/,
+    /const globallyPrepared = preflight\.ready && contextComplete && imagePreflight\.ready && authorReady;/,
   );
   assert.match(
     clientSource,
