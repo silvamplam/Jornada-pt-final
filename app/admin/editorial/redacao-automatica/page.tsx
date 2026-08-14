@@ -254,6 +254,7 @@ export default async function AutomaticNewsroomPage({
           </div>
           <nav aria-label="Navegação editorial">
             <a href="/admin">Backoffice</a>
+            <a href="/admin/editorial/redacao-automatica/publicacao-lote">Publicação em lote</a>
             <a className={styles.simplePrimaryLink} href="/admin/editorial/artigos">Artigos</a>
           </nav>
         </header>
