@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   EDITORIAL_BATCH_ARTICLE_START_MARKER,
@@ -9,6 +9,11 @@ import {
   type EditorialBatchIssue,
   type EditorialBatchPreflight,
 } from "@/lib/redacao-automatica/editorial-batch-parser";
+import {
+  EDITORIAL_BATCH_IMAGE_ACCEPT,
+  preflightEditorialBatchImages,
+  type EditorialBatchImagePreflight,
+} from "@/lib/redacao-automatica/editorial-batch-image-preflight";
 
 import styles from "./publicacao-lote.module.css";
 
@@ -97,14 +102,115 @@ function articleResultRows(preflight: EditorialBatchPreflight): ArticleResultRow
   return [...rows.values()].sort((left, right) => left.index - right.index);
 }
 
+function ImageSelectionPanel({
+  selectedImages,
+  imagePreflight,
+  associationStale,
+  onImagesSelected,
+}: Readonly<{
+  selectedImages: readonly File[];
+  imagePreflight: EditorialBatchImagePreflight<File> | null;
+  associationStale: boolean;
+  onImagesSelected: (files: FileList | null) => void;
+}>) {
+  const statusText = imagePreflight
+    ? imagePreflight.ready
+      ? "PRÉ-FLIGHT DE IMAGENS VÁLIDO"
+      : "PRÉ-FLIGHT DE IMAGENS COM PROBLEMAS"
+    : associationStale
+      ? "ASSOCIAÇÃO DESATUALIZADA"
+      : "AGUARDA ANÁLISE DO LOTE";
+
+  return (
+    <section className={styles.panel} aria-labelledby="batch-images-title">
+      <div className={styles.sectionHeader}>
+        <div>
+          <p className={styles.sectionEyebrow}>Imagens</p>
+          <h2 id="batch-images-title">Associação local</h2>
+        </div>
+        <strong className={imagePreflight?.ready ? styles.readyBadge : styles.invalidBadge}>
+          {statusText}
+        </strong>
+      </div>
+
+      <div className={styles.imagePickerRow}>
+        <div>
+          <p className={styles.imageInstructions}>
+            Selecione todas as imagens de uma vez. A associação usa apenas o prefixo NN-.
+          </p>
+          <p className={styles.selectedCount}>Selecionadas: {selectedImages.length}</p>
+        </div>
+        <label className={styles.imagePicker} htmlFor="batch-images-input">
+          SELECIONAR IMAGENS
+        </label>
+        <input
+          id="batch-images-input"
+          className={styles.fileInput}
+          type="file"
+          multiple
+          accept={EDITORIAL_BATCH_IMAGE_ACCEPT}
+          onChange={(event) => onImagesSelected(event.currentTarget.files)}
+        />
+      </div>
+
+      {imagePreflight ? (
+        <>
+          <dl className={styles.imageStats} aria-label="Resumo do pré-flight de imagens">
+            <div>
+              <dt>Selecionadas</dt>
+              <dd>{imagePreflight.selected}</dd>
+            </div>
+            <div>
+              <dt>Associadas</dt>
+              <dd>{imagePreflight.associated}</dd>
+            </div>
+            <div>
+              <dt>Em falta</dt>
+              <dd>{imagePreflight.missing}</dd>
+            </div>
+            <div>
+              <dt>Problemas</dt>
+              <dd>{imagePreflight.problems}</dd>
+            </div>
+          </dl>
+
+          {imagePreflight.fileProblems.length > 0 ? (
+            <section className={styles.imageFileProblems} aria-labelledby="batch-image-files-title">
+              <h3 id="batch-image-files-title">Ficheiros com problemas</h3>
+              <ul>
+                {imagePreflight.fileProblems.map((problem, index) => (
+                  <li key={`${problem.code}-${problem.file.name}-${index}`}>
+                    <strong>{problem.file.name}</strong>
+                    <span>{problem.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </>
+      ) : (
+        <p className={styles.imagePendingNotice} role="status">
+          {associationStale
+            ? "Texto alterado — a validade das associações foi anulada. Analise o lote novamente."
+            : "Analise o lote para associar as imagens selecionadas às keys dos artigos."}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function ResultSummary({
   preflight,
+  imagePreflight,
+  imagePreviewUrls,
   contextComplete,
   competitionLabel,
   seasonLabel,
   matchdayLabel: selectedMatchdayLabel,
 }: Readonly<{
   preflight: EditorialBatchPreflight;
+  imagePreflight: EditorialBatchImagePreflight<File>;
+  imagePreviewUrls: ReadonlyMap<File, string>;
   contextComplete: boolean;
   competitionLabel: string;
   seasonLabel: string;
@@ -112,7 +218,10 @@ function ResultSummary({
 }>) {
   const globalIssues = preflight.issues.filter((issue) => issue.index === undefined);
   const articleRows = articleResultRows(preflight);
-  const globallyPrepared = preflight.ready && contextComplete;
+  const imageResultByKey = new Map(
+    imagePreflight.articles.map((article) => [article.key, article]),
+  );
+  const globallyPrepared = preflight.ready && contextComplete && imagePreflight.ready;
 
   return (
     <section className={styles.results} aria-labelledby="batch-results-title" aria-live="polite">
@@ -121,8 +230,8 @@ function ResultSummary({
           <p className={styles.sectionEyebrow}>Resultado</p>
           <h2 id="batch-results-title">Pré-flight do lote</h2>
         </div>
-        <strong className={preflight.ready ? styles.readyBadge : styles.invalidBadge}>
-          {preflight.ready ? "PRÉ-FLIGHT VÁLIDO" : "PRÉ-FLIGHT COM PROBLEMAS"}
+        <strong className={globallyPrepared ? styles.readyBadge : styles.invalidBadge}>
+          {globallyPrepared ? "PRÉ-FLIGHT VÁLIDO" : "PRÉ-FLIGHT COM PROBLEMAS"}
         </strong>
       </div>
 
@@ -157,8 +266,8 @@ function ResultSummary({
         </article>
         <article>
           <span>Próxima etapa</span>
-          <strong>{globallyPrepared ? "Lote preparado" : "Ainda não preparado"}</strong>
-          <p>Esta fase não publica nem associa imagens.</p>
+          <strong>{globallyPrepared ? "Pré-flight completo" : "Ainda incompleto"}</strong>
+          <p>Esta fase não publica nem envia imagens.</p>
         </article>
       </div>
 
@@ -184,6 +293,13 @@ function ResultSummary({
               const errors = row.issues.filter((issue) => issue.severity === "error");
               const isValid = errors.length === 0;
               const title = firstText(row.article?.title) || "Sem título";
+              const imageResult = imageResultByKey.get(row.key);
+              const previewUrl = imageResult?.file
+                ? imagePreviewUrls.get(imageResult.file)
+                : undefined;
+              const candidateNames = imageResult?.candidates
+                .map((file) => file.name)
+                .join(", ");
 
               return (
                 <li key={row.key} className={isValid ? styles.validArticle : styles.invalidArticle}>
@@ -207,6 +323,30 @@ function ResultSummary({
                     ) : (
                       <p className={styles.validNote}>Estrutura editorial válida.</p>
                     )}
+                    {imageResult ? (
+                      <div className={`${styles.imageAssociation} ${
+                        imageResult.status === "associated"
+                          ? styles.associatedImage
+                          : styles.problemImage
+                      }`}>
+                        {previewUrl && imageResult.file ? (
+                          <img
+                            src={previewUrl}
+                            alt={`Pré-visualização local de ${imageResult.file.name}`}
+                          />
+                        ) : (
+                          <div className={styles.imagePlaceholder} aria-hidden="true">SEM IMAGEM</div>
+                        )}
+                        <div>
+                          <p>
+                            {imageResult.file?.name
+                              ?? candidateNames
+                              ?? `Nenhum ficheiro ${row.key}-* selecionado`}
+                          </p>
+                          <strong>{imageResult.message}</strong>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </li>
               );
@@ -231,6 +371,8 @@ export default function BatchPreflightClient({
   const [articleText, setArticleText] = useState("");
   const [preflight, setPreflight] = useState<EditorialBatchPreflight | null>(null);
   const [textChangedAfterAnalysis, setTextChangedAfterAnalysis] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<readonly File[]>([]);
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<ReadonlyMap<File, string>>(new Map());
 
   const availableSeasons = useMemo(
     () => seasons.filter((season) => season.competition_id === competitionId),
@@ -250,6 +392,30 @@ export default function BatchPreflightClient({
       && selectedMatchday
       && selectedMatchday.season_id === selectedSeason.id,
   );
+  const analysedArticleKeys = useMemo(
+    () => preflight ? articleResultRows(preflight).map((row) => row.key) : [],
+    [preflight],
+  );
+  const imagePreflight = useMemo(
+    () => preflight
+      ? preflightEditorialBatchImages(analysedArticleKeys, selectedImages)
+      : null,
+    [analysedArticleKeys, preflight, selectedImages],
+  );
+
+  useEffect(() => {
+    const nextPreviewUrls = new Map<File, string>();
+    for (const file of selectedImages) {
+      nextPreviewUrls.set(file, URL.createObjectURL(file));
+    }
+    setImagePreviewUrls(nextPreviewUrls);
+
+    return () => {
+      for (const previewUrl of nextPreviewUrls.values()) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [selectedImages]);
 
   function handleCompetitionChange(nextCompetitionId: string) {
     setCompetitionId(nextCompetitionId);
@@ -273,6 +439,10 @@ export default function BatchPreflightClient({
   function analyseBatch() {
     setPreflight(preflightEditorialArticleBatch(articleText));
     setTextChangedAfterAnalysis(false);
+  }
+
+  function handleImagesSelected(files: FileList | null) {
+    setSelectedImages(files ? Array.from(files) : []);
   }
 
   return (
@@ -380,9 +550,18 @@ export default function BatchPreflightClient({
         ) : null}
       </section>
 
-      {preflight ? (
+      <ImageSelectionPanel
+        selectedImages={selectedImages}
+        imagePreflight={imagePreflight}
+        associationStale={textChangedAfterAnalysis}
+        onImagesSelected={handleImagesSelected}
+      />
+
+      {preflight && imagePreflight ? (
         <ResultSummary
           preflight={preflight}
+          imagePreflight={imagePreflight}
+          imagePreviewUrls={imagePreviewUrls}
           contextComplete={contextComplete}
           competitionLabel={firstText(selectedCompetition?.name, selectedCompetition?.slug)}
           seasonLabel={firstText(selectedSeason?.label)}
