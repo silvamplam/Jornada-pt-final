@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import {
   EDITORIAL_SOURCE_PACKAGE_INSTRUCTIONS_MAX_LENGTH,
   EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH,
-  editorialSourcePackageFileName,
+  editorialSourcePackageArticleImageSources,
   editorialSourcePackageImagesFileName,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
@@ -74,34 +74,9 @@ export default async function SourcePackagePage({
   const contentUrl =
     `/api/admin/editorial/redacao-automatica/source-package/${year}/${month}/${id}`;
   const failedEntries = manifest.entries.filter((entry) => entry.status === "failed");
-  const imageCandidates = Array.from(
-    manifest.entries.reduce((unique, entry) => {
-      const imageUrl = entry.status === "prepared"
-        && typeof entry.imageUrl === "string"
-        ? entry.imageUrl.trim()
-        : "";
-      if (imageUrl && !unique.has(imageUrl)) {
-        unique.set(imageUrl, {
-          position: entry.position,
-          sourceCode: entry.sourceCode ?? "fonte",
-          articleTitle: entry.title ?? "Notícia",
-          imageUrl,
-        });
-      }
-      return unique;
-    }, new Map<string, {
-      position: number;
-      sourceCode: string;
-      articleTitle: string;
-      imageUrl: string;
-    }>()).values(),
-  );
-  const imageSourceCount = imageCandidates.length;
+  const articleImages = editorialSourcePackageArticleImageSources(manifest.entries);
+  const imageSourceCount = articleImages.length;
   const imagesUrl = `${contentUrl}/images`;
-  const markdownFileName = editorialSourcePackageFileName(
-    manifest.genre,
-    manifest.suggestedTitle,
-  );
   const imagesFileName = editorialSourcePackageImagesFileName(
     manifest.genre,
     manifest.suggestedTitle,
@@ -132,7 +107,7 @@ export default async function SourcePackagePage({
         <ol className={styles.simpleSteps} aria-label="Percurso editorial">
           <li><span>1</span><strong>Atualidade</strong></li>
           <li data-active="true"><span>2</span><strong>Preparar fontes</strong></li>
-          <li><span>3</span><strong>Artigos</strong></li>
+          <li><span>3</span><strong>Publicar</strong></li>
         </ol>
 
         {packageUpdateError ? (
@@ -141,7 +116,9 @@ export default async function SourcePackagePage({
           </p>
         ) : packageUpdated ? (
           <p className={styles.simpleFeedbackSuccess} role="status">
-            O título, as instruções e os nomes dos ficheiros foram atualizados. As fontes e as imagens mantiveram-se.
+            {manifest.articleCount === 1
+              ? "O assunto principal e as instruções foram atualizados. As fontes e as imagens mantiveram-se."
+              : "As instruções foram atualizadas. Os grupos, as fontes e as imagens mantiveram-se."}
           </p>
         ) : null}
 
@@ -155,10 +132,11 @@ export default async function SourcePackagePage({
           </div>
 
           <div className={styles.sourcePackageStats}>
-            <div><span>Selecionadas</span><strong>{manifest.selectedCount}</strong></div>
-            <div><span>Preparadas</span><strong>{manifest.preparedCount}</strong></div>
+            <div><span>Fontes selecionadas</span><strong>{manifest.selectedCount}</strong></div>
+            <div><span>Artigos finais</span><strong>{manifest.articleCount}</strong></div>
+            <div><span>Fontes preparadas</span><strong>{manifest.preparedCount}</strong></div>
             <div><span>Com falha</span><strong>{manifest.failedCount}</strong></div>
-            <div><span>Imagens disponíveis</span><strong>{imageSourceCount}</strong></div>
+            <div><span>Imagens para artigos</span><strong>{imageSourceCount}</strong></div>
             <div><span>Imagens locais</span><strong>{manifest.imageCount}</strong></div>
           </div>
 
@@ -171,17 +149,19 @@ export default async function SourcePackagePage({
             ) : (
               <>
                 <strong>Arquivo local de imagens:</strong>{" "}
-                indisponível neste ambiente; o Markdown permanece acessível para copiar e descarregar.
+                indisponível neste ambiente; o pacote permanece acessível para copiar.
               </>
             )}
           </p>
 
           <div className={styles.sourcePackageEditorialSummary}>
             <p><strong>Género:</strong> {manifest.genreLabel}</p>
-            <p>
-              <strong>Título sugerido:</strong>{" "}
-              {manifest.suggestedTitle ?? "Não indicado"}
-            </p>
+            {manifest.articleCount === 1 ? (
+              <p>
+                <strong>Assunto principal:</strong>{" "}
+                {manifest.suggestedTitle ?? "Não indicado"}
+              </p>
+            ) : null}
             <p>
               <strong>Instruções adicionais:</strong>{" "}
               {manifest.additionalInstructions ?? "Sem instruções adicionais"}
@@ -197,25 +177,28 @@ export default async function SourcePackagePage({
               <div>
                 <h3>Ajustar antes de copiar</h3>
                 <p>
-                  Corrige o título ou acrescenta instruções. O Markdown é atualizado sem voltar a recolher as fontes nem as imagens.
+                  {manifest.articleCount === 1
+                    ? "Ajusta o assunto principal ou as instruções sem voltar a recolher as fontes nem as imagens."
+                    : "Ajusta as instruções sem voltar a recolher as fontes nem as imagens."}
                 </p>
               </div>
               <p><strong>Género:</strong> {manifest.genreLabel}</p>
             </div>
 
-            <label>
-              <span>Título sugerido</span>
-              <input
-                type="text"
-                name="suggested_title"
-                defaultValue={manifest.suggestedTitle ?? ""}
-                maxLength={EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH}
-                placeholder="Título ou enfoque inicial para a IA melhorar"
-              />
-              <small>
-                Opcional. Pode ser corrigido quantas vezes forem necessárias antes de copiar ou descarregar.
-              </small>
-            </label>
+            {manifest.articleCount === 1 ? (
+              <label>
+                <span>Assunto principal</span>
+                <input
+                  type="text"
+                  name="suggested_title"
+                  defaultValue={manifest.suggestedTitle ?? ""}
+                  maxLength={EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH}
+                  placeholder="Tema, protagonista ou foco principal"
+                />
+              </label>
+            ) : (
+              <input type="hidden" name="suggested_title" value="" />
+            )}
 
             <label>
               <span>Instruções adicionais</span>
@@ -229,22 +212,24 @@ export default async function SourcePackagePage({
             </label>
 
             <div className={styles.sourcePackageEditActions}>
-              <button type="submit">Atualizar título e instruções</button>
+              <button type="submit">
+                {manifest.articleCount === 1
+                  ? "Atualizar assunto e instruções"
+                  : "Atualizar instruções"}
+              </button>
               <p>
-                A ordem das notícias, os textos integrais e as imagens guardadas não são alterados.
+                Os grupos, os textos integrais e as imagens guardadas não são alterados.
               </p>
             </div>
           </form>
 
           <SourcePackageActions
             contentUrl={contentUrl}
-            downloadUrl={`${contentUrl}?download=1`}
-            fileName={markdownFileName}
             genreLabel={manifest.genreLabel}
             imagesUrl={imagesUrl}
             imagesFileName={imagesFileName}
             imageSourceCount={imageSourceCount}
-            imageCandidates={imageCandidates}
+            articleCount={manifest.articleCount}
             sourcePackage={{ year, month, packageId: id }}
           />
         </section>
@@ -253,19 +238,19 @@ export default async function SourcePackagePage({
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.sectionEyebrow}>Conteúdo</p>
-              <h2 id="package-contents-title">Notícias incluídas</h2>
+              <h2 id="package-contents-title">Fontes por artigo</h2>
             </div>
-            <p>O ficheiro preserva a ordem escolhida.</p>
+            <p>O ficheiro preserva os grupos e a ordem das fontes.</p>
           </div>
 
           <ol>
             {manifest.entries.map((entry) => (
               <li key={`${entry.position}-${entry.title ?? entry.errorCode}`}>
-                <span>{String(entry.position).padStart(2, "0")}</span>
+                <span>{String(entry.articlePosition).padStart(2, "0")}</span>
                 <div>
                   <strong>{entry.title ?? "Notícia indisponível"}</strong>
                   <p>
-                    {entry.sourceName ?? "Fonte não identificada"}
+                    {`Fonte ${String(entry.position).padStart(2, "0")} · ${entry.sourceName ?? "Fonte não identificada"}`}
                     {entry.status === "failed"
                       ? ` · Falha: ${entry.errorCode}`
                       : " · Texto integral preparado"}

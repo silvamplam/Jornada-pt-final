@@ -58,6 +58,16 @@ test("a página usa diretamente o pré-flight batch existente", () => {
   assert.match(clientSource, /preflightEditorialArticleBatch\(articleText\)/);
 });
 
+test("a Publicação em lote recebe diretamente o texto colado no pacote editorial", () => {
+  assert.match(clientSource, /EDITORIAL_BATCH_TRANSFER_STORAGE_KEY/);
+  assert.match(clientSource, /EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY/);
+  assert.match(clientSource, /parseEditorialBatchTransferSourcePackage/);
+  assert.match(clientSource, /window\.sessionStorage\.getItem/);
+  assert.match(clientSource, /window\.sessionStorage\.removeItem/);
+  assert.match(clientSource, /setArticleText\(transferredText\)/);
+  assert.match(clientSource, /setPreflight\(preflightEditorialArticleBatch\(transferredText\)\)/);
+});
+
 test("a página usa diretamente a função pura de pré-flight de imagens", () => {
   assert.match(clientSource, /from "@\/lib\/redacao-automatica\/editorial-batch-image-preflight"/);
   assert.match(
@@ -270,6 +280,8 @@ test("a API de lote é apenas orquestração sobre artigo canónico e Últimas",
   assert.match(publicationRouteSource, /resolveCanonicalArticleContext/);
   assert.match(publicationRouteSource, /normalizeEditorialArticleSlug/);
   assert.match(publicationRouteSource, /ensurePublishedArticleInLatest/);
+  assert.match(publicationRouteSource, /markEditorialSourcePackageArticleUsed/);
+  assert.match(publicationRouteSource, /source-usage-mark-failed/);
   assert.match(publicationRouteSource, /initialPlacement: "editorial_line_item"/);
   assert.doesNotMatch(publicationRouteSource, /writeSupabaseAdmin|writeSupabaseAdminReturning/);
   assert.doesNotMatch(publicationRouteSource, /matchday_latest_news/);
@@ -293,9 +305,26 @@ test("o servidor deriva o contexto só a partir da Jornada", () => {
   assert.match(publicationRouteSource, /season_id: null/);
 });
 
-test("a ordem do lote usa published_at determinístico e não a velocidade do upload", () => {
+test("a publicação vinda de pacote usa a hora da fonte mais recente por artigo", () => {
+  assert.match(clientSource, /action: "preflight"[\s\S]*?\.\.\.\(sourcePackage \? \{ sourcePackage \} : \{\}\)/);
+  assert.match(publicationRouteSource, /entry\.publishedAtPrecision === "instant"/);
+  assert.match(publicationRouteSource, /parsePublishedAt\(entry\.publishedAt\)/);
+  assert.doesNotMatch(publicationRouteSource, /type SourcePublicationRow/);
+  assert.doesNotMatch(publicationRouteSource, /publishedAtBySourceId/);
+  assert.match(publicationRouteSource, /sourcePublishedAt\.get\(item\.article\.index\)/);
+  assert.match(publicationRouteSource, /missing-source-published-at/);
+  assert.match(publicationRouteSource, /resume-source-time-mismatch/);
+});
+
+test("o lote manual sem pacote mantém uma ordem determinística independente do upload", () => {
   assert.match(publicationRouteSource, /baseTimeMs - \(item\.article\.index - 1\)/);
   assert.match(publicationRouteSource, /resume-order-mismatch/);
+});
+
+test("existe reconciliação controlada para corrigir lotes já publicados com a hora das fontes", () => {
+  assert.match(publicationRouteSource, /action === "reconcile_source_times"/);
+  assert.match(publicationRouteSource, /updateEditorialArticle\(article\.id/);
+  assert.match(publicationRouteSource, /await ensurePublishedArticleInLatest\(article\.matchday_id, article\.id\)/);
 });
 
 test("uma falha pára o lote e deixa os artigos seguintes como não tentados", () => {
@@ -310,6 +339,8 @@ test("o retry reutiliza imagem já carregada e reconcilia artigo publicado em Ú
   assert.match(clientSource, /publicationPlanRef\.current \?\? await requestPublicationPreflight\(\)/);
   assert.match(publicationRouteSource, /if \(existing\)/);
   assert.match(publicationRouteSource, /await ensurePublishedArticleInLatest\(matchdayId, existing\.id\)/);
+  assert.match(clientSource, /published_missing_usage/);
+  assert.match(clientSource, /FALTA MARCAR FONTES/);
 });
 
 test("o autor do lote mantém o valor editorial atual por defeito e é editável", () => {

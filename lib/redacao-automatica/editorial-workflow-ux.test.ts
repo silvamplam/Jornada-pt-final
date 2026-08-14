@@ -262,16 +262,19 @@ test("a preparação principal apresenta atualidade, pacote de fontes e acesso a
   assert.match(feedRoute, /feed_existing/);
   assert.match(newsroom, /Por rever/);
   assert.match(newsroom, /Em trabalho/);
-  assert.match(newsroom, /Arquivo \/ contexto/);
-  assert.match(newsroom, /Fechar este bloco/);
+  assert.match(newsroom, /Utilizadas/);
+  assert.match(newsroom, /Arquivo\s*<span>/);
+  assert.doesNotMatch(newsroom, /Fechar este bloco/);
   assert.match(newsroom, /Nova/);
   assert.match(newsroom, /Atualizada/);
-  assert.match(newsroom, /Lida/);
   assert.match(newsroom, /Sem interesse/);
+  assert.match(newsroom, /data-inbox-bulk-item/);
+  assert.match(newsroom, /InboxBulkActions/);
   assert.doesNotMatch(newsroom, />\s*Vista\s*</);
   assert.doesNotMatch(newsroom, />\s*Dispensar\s*</);
   assert.match(inboxRoute, /applyNewsroomEditorialInboxAction/);
-  assert.match(inboxRoute, /close_block/);
+  assert.match(inboxRoute, /inbox_bulk_action/);
+  assert.match(inboxRoute, /applyBulkAction/);
 
   assert.match(route, /source_snapshot_/);
   assert.match(route, /normalizeEditorialSourcePackageSelections/);

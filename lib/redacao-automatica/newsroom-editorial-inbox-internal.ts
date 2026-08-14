@@ -4,6 +4,7 @@ export const NEWSROOM_EDITORIAL_INBOX_VIEWS = [
   "pending",
   "working",
   "archive",
+  "used",
 ] as const;
 
 export type NewsroomEditorialInboxView =
@@ -25,9 +26,15 @@ export type NewsroomEditorialReviewState = Readonly<{
   reviewedAt: string;
 }>;
 
+export type NewsroomEditorialUsedState = Readonly<{
+  articleId: string;
+  snapshotId: string;
+  usedAt: string;
+}>;
+
 export type NewsroomEditorialInboxClassification = Readonly<{
   view: NewsroomEditorialInboxView;
-  label: "new" | "updated" | "working" | "seen" | "dismissed";
+  label: "new" | "updated" | "working" | "used" | "seen" | "dismissed";
   changedAfterReview: boolean;
 }>;
 
@@ -35,6 +42,7 @@ export type NewsroomEditorialInboxItem = NewsroomArticleSummary &
   Readonly<{
     editorial: NewsroomEditorialInboxClassification;
     reviewedAt: string | null;
+    usedAt: string | null;
   }>;
 
 export function newsroomEditorialInboxView(
@@ -50,7 +58,20 @@ export function newsroomEditorialInboxView(
 export function classifyNewsroomEditorialInboxItem(
   article: NewsroomArticleSummary,
   state: NewsroomEditorialReviewState | null,
+  usedState: NewsroomEditorialUsedState | null = null,
 ): NewsroomEditorialInboxClassification {
+  if (
+    usedState
+    && article.latestSnapshotId
+    && article.latestSnapshotId === usedState.snapshotId
+  ) {
+    return {
+      view: "used",
+      label: "used",
+      changedAfterReview: false,
+    };
+  }
+
   if (!state) {
     return {
       view: "pending",
@@ -90,11 +111,13 @@ export function classifyNewsroomEditorialInboxItem(
 export function decorateNewsroomEditorialInboxItem(
   article: NewsroomArticleSummary,
   state: NewsroomEditorialReviewState | null,
+  usedState: NewsroomEditorialUsedState | null = null,
 ): NewsroomEditorialInboxItem {
   return {
     ...article,
-    editorial: classifyNewsroomEditorialInboxItem(article, state),
+    editorial: classifyNewsroomEditorialInboxItem(article, state, usedState),
     reviewedAt: state?.reviewedAt ?? null,
+    usedAt: usedState?.usedAt ?? null,
   };
 }
 

@@ -5,6 +5,7 @@ import {
   EditorialArticleServiceError,
   normalizeEditorialArticleSlug,
   resolveCanonicalArticleContext,
+  updateEditorialArticle,
 } from "@/lib/editorial-article-service";
 import {
   ensurePublishedArticleInLatest,
@@ -14,6 +15,13 @@ import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
 } from "@/lib/supabase";
+import {
+  markEditorialSourcePackageArticleUsed,
+  readEditorialSourcePackage,
+} from "@/lib/redacao-automatica/editorial-source-package";
+import {
+  isEditorialSourcePackageLocation,
+} from "@/lib/redacao-automatica/editorial-source-package-internal";
 
 const MAX_BATCH_ARTICLES = 30;
 const OFFICIAL_BATCH_KEY = /^\d{2}$/;
@@ -35,6 +43,7 @@ type BatchPublicationPayload = Readonly<{
   article?: unknown;
   imageUrl?: unknown;
   publishedAt?: unknown;
+  sourcePackage?: unknown;
 }>;
 
 type ExistingArticleRow = Readonly<{
@@ -45,6 +54,7 @@ type ExistingArticleRow = Readonly<{
   subtitle: string | null;
   body: string | null;
   image_url: string | null;
+  image_caption?: string | null;
   author: string | null;
   published_at: string | null;
   matchday_id: string | null;
@@ -57,8 +67,55 @@ type PreparedBatchItem = Readonly<{
   existing: ExistingArticleRow | null;
 }>;
 
+type SourcePackagePayload = Readonly<{
+  year: string;
+  month: string;
+  packageId: string;
+}>;
+
+type ReconcileArticleRow = ExistingArticleRow & Readonly<{
+  image_caption: string | null;
+}>;
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function parseSourcePackage(value: unknown): SourcePackagePayload | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const sourcePackage = {
+    year: cleanText(candidate.year),
+    month: cleanText(candidate.month),
+    packageId: cleanText(candidate.packageId).toLowerCase(),
+  };
+
+  return isEditorialSourcePackageLocation(sourcePackage) ? sourcePackage : null;
+}
+
+async function markSourcePackageUsed(
+  sourcePackage: SourcePackagePayload | null,
+  articlePosition: number,
+  articleId: string,
+  slug: string,
+) {
+  if (!sourcePackage) {
+    return null;
+  }
+
+  const result = await markEditorialSourcePackageArticleUsed({
+    ...sourcePackage,
+    articlePosition,
+    publishedArticleId: articleId,
+    publishedSlug: slug,
+  });
+
+  return result.ok ? null : result.error.code;
 }
 
 function normalizedBody(value: unknown) {
@@ -126,6 +183,38 @@ function parsePublishedAt(value: unknown) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+
+async function sourcePublishedAtByArticle(
+  sourcePackage: SourcePackagePayload,
+) {
+  const sourcePackageResult = await readEditorialSourcePackage(sourcePackage);
+  if (!sourcePackageResult.ok) {
+    throw new Error(`source-package-read-failed:${sourcePackageResult.error.code}`);
+  }
+
+  const preparedEntries = sourcePackageResult.value.manifest.entries.filter(
+    (entry) => entry.status === "prepared",
+  );
+  const publishedAtByArticle = new Map<number, string>();
+
+  for (const entry of preparedEntries) {
+    const sourcePublishedAt = entry.publishedAtPrecision === "instant"
+      ? parsePublishedAt(entry.publishedAt)
+      : null;
+    if (!sourcePublishedAt) continue;
+
+    const current = publishedAtByArticle.get(entry.articlePosition);
+    if (!current || new Date(sourcePublishedAt).getTime() > new Date(current).getTime()) {
+      publishedAtByArticle.set(entry.articlePosition, sourcePublishedAt);
+    }
+  }
+
+  return {
+    package: sourcePackageResult.value,
+    publishedAtByArticle,
+  };
+}
+
 async function readExistingArticleBySlug(slug: string) {
   const rows = await fetchSupabaseAdminTable<ExistingArticleRow>(
     `editorial_articles?select=id,slug,label,title,subtitle,body,image_url,author,published_at,matchday_id,status&slug=eq.${encodeURIComponent(slug)}&limit=1`,
@@ -188,7 +277,34 @@ async function prepareBatch(
   return prepared;
 }
 
-function publicationPlan(prepared: readonly PreparedBatchItem[]) {
+function publicationPlan(
+  prepared: readonly PreparedBatchItem[],
+  sourcePublishedAt: ReadonlyMap<number, string> | null,
+) {
+  if (sourcePublishedAt) {
+    return prepared.map((item) => {
+      const publishedAt = sourcePublishedAt.get(item.article.index);
+      if (!publishedAt) {
+        throw new Error(`missing-source-published-at:${item.article.key}`);
+      }
+
+      if (item.existing) {
+        const existingPublishedAt = parsePublishedAt(item.existing.published_at);
+        if (existingPublishedAt !== publishedAt) {
+          throw new Error(`resume-source-time-mismatch:${item.article.key}`);
+        }
+      }
+
+      return {
+        key: item.article.key,
+        slug: item.slug,
+        mode: item.existing ? "resume" as const : "create" as const,
+        ...(item.existing ? { articleId: item.existing.id } : {}),
+        publishedAt,
+      };
+    });
+  }
+
   const anchor = prepared.find((item) => item.existing && parsePublishedAt(item.existing.published_at));
   const anchorPublishedAt = anchor?.existing ? parsePublishedAt(anchor.existing.published_at) : null;
   const anchorTime = anchorPublishedAt ? new Date(anchorPublishedAt).getTime() : Date.now();
@@ -219,16 +335,23 @@ async function preflightPublication(payload: BatchPublicationPayload) {
   const matchdayId = cleanText(payload.matchdayId);
   const author = cleanText(payload.author);
   const articles = parseBatchArticles(payload.articles);
+  const sourcePackage = payload.sourcePackage === undefined
+    ? null
+    : parseSourcePackage(payload.sourcePackage);
 
   if (!matchdayId) return jsonError("missing-matchday");
   if (!author) return jsonError("missing-author");
   if (!articles) return jsonError("invalid-batch");
+  if (payload.sourcePackage !== undefined && !sourcePackage) return jsonError("invalid-source-package");
 
   try {
     const prepared = await prepareBatch(articles, author, matchdayId);
+    const sourceTimes = sourcePackage
+      ? (await sourcePublishedAtByArticle(sourcePackage)).publishedAtByArticle
+      : null;
     return NextResponse.json({
       ok: true,
-      items: publicationPlan(prepared),
+      items: publicationPlan(prepared, sourceTimes),
     });
   } catch (error) {
     if (error instanceof EditorialArticleServiceError) {
@@ -260,6 +383,29 @@ async function preflightPublication(payload: BatchPublicationPayload) {
         `O artigo ${key} já existe, mas a sua data não é compatível com a retoma segura deste lote.`,
       );
     }
+    if (message.startsWith("missing-source-published-at:")) {
+      const [, key] = message.split(":");
+      return jsonError(
+        "missing-source-published-at",
+        409,
+        `O artigo ${key} não tem uma hora de fonte utilizável no pacote editorial.`,
+      );
+    }
+    if (message.startsWith("resume-source-time-mismatch:")) {
+      const [, key] = message.split(":");
+      return jsonError(
+        "resume-source-time-mismatch",
+        409,
+        `O artigo ${key} já existe com uma hora diferente da hora da fonte.`,
+      );
+    }
+    if (message.startsWith("source-package-read-failed:")) {
+      return jsonError(
+        "source-package-read-failed",
+        409,
+        "Não foi possível recuperar as horas das fontes deste pacote editorial.",
+      );
+    }
 
     return jsonError("batch-preflight-failed", 500, message);
   }
@@ -271,11 +417,15 @@ async function publishItem(payload: BatchPublicationPayload) {
   const article = parseArticle(payload.article);
   const imageUrl = cleanText(payload.imageUrl);
   const publishedAt = parsePublishedAt(payload.publishedAt);
+  const sourcePackage = payload.sourcePackage === undefined
+    ? null
+    : parseSourcePackage(payload.sourcePackage);
 
   if (!matchdayId) return jsonError("missing-matchday");
   if (!author) return jsonError("missing-author");
   if (!article) return jsonError("invalid-article");
   if (!publishedAt) return jsonError("invalid-published-at");
+  if (payload.sourcePackage !== undefined && !sourcePackage) return jsonError("invalid-source-package");
 
   try {
     const context = await resolveCanonicalArticleContext({ competition_id: null, season_id: null, matchday_id: matchdayId });
@@ -306,6 +456,24 @@ async function publishItem(payload: BatchPublicationPayload) {
           error: "latest-placement-failed",
           detail: safeDetail(error instanceof Error ? error.message : "Falhou a entrada em Últimas."),
           published: true,
+          articleId: existing.id,
+          slug,
+        }, { status: 502 });
+      }
+
+      const usageError = await markSourcePackageUsed(
+        sourcePackage,
+        article.index,
+        existing.id,
+        slug,
+      );
+      if (usageError) {
+        return NextResponse.json({
+          ok: false,
+          error: "source-usage-mark-failed",
+          detail: `O artigo está publicado em Últimas, mas as fontes não ficaram marcadas como utilizadas (${usageError}).`,
+          published: true,
+          latest: true,
           articleId: existing.id,
           slug,
         }, { status: 502 });
@@ -356,6 +524,24 @@ async function publishItem(payload: BatchPublicationPayload) {
       }, { status: 502 });
     }
 
+    const usageError = await markSourcePackageUsed(
+      sourcePackage,
+      article.index,
+      result.articleId,
+      result.slug,
+    );
+    if (usageError) {
+      return NextResponse.json({
+        ok: false,
+        error: "source-usage-mark-failed",
+        detail: `O artigo está publicado em Últimas, mas as fontes não ficaram marcadas como utilizadas (${usageError}).`,
+        published: true,
+        latest: true,
+        articleId: result.articleId,
+        slug: result.slug,
+      }, { status: 502 });
+    }
+
     return NextResponse.json({
       ok: true,
       resumed: false,
@@ -375,6 +561,109 @@ async function publishItem(payload: BatchPublicationPayload) {
       500,
       error instanceof Error ? error.message : "A publicação do artigo falhou.",
     );
+  }
+}
+
+
+async function reconcileSourcePackageTimes(payload: BatchPublicationPayload) {
+  const sourcePackage = parseSourcePackage(payload.sourcePackage);
+  if (!sourcePackage) return jsonError("invalid-source-package");
+
+  try {
+    const sourceTimes = await sourcePublishedAtByArticle(sourcePackage);
+    const groupedEntries = new Map<number, typeof sourceTimes.package.manifest.entries>();
+    for (const entry of sourceTimes.package.manifest.entries) {
+      if (entry.status !== "prepared") continue;
+      const group = groupedEntries.get(entry.articlePosition) ?? [];
+      groupedEntries.set(entry.articlePosition, [...group, entry]);
+    }
+
+    const reconciled: Array<Readonly<{
+      articlePosition: number;
+      articleId: string;
+      publishedAt: string;
+    }>> = [];
+
+    for (const [articlePosition, entries] of [...groupedEntries.entries()].sort((a, b) => a[0] - b[0])) {
+      const articleIds = [...new Set(entries.map((entry) => cleanText(entry.publishedArticleId)).filter(Boolean))];
+      const slugs = [...new Set(entries.map((entry) => cleanText(entry.publishedSlug)).filter(Boolean))];
+      if (articleIds.length === 0 && slugs.length === 0) continue;
+      if (articleIds.length !== 1 || slugs.length !== 1 || !UUID_PATTERN.test(articleIds[0])) {
+        throw new Error(`usage-conflict:${articlePosition}`);
+      }
+
+      const publishedAt = sourceTimes.publishedAtByArticle.get(articlePosition);
+      if (!publishedAt) {
+        throw new Error(`missing-source-published-at:${String(articlePosition).padStart(2, "0")}`);
+      }
+
+      const rows = await fetchSupabaseAdminTable<ReconcileArticleRow>(
+        "editorial_articles"
+        + "?select=id,slug,label,title,subtitle,body,image_url,image_caption,author,published_at,matchday_id,status"
+        + `&id=eq.${encodeURIComponent(articleIds[0])}&limit=1`,
+      );
+      const article = rows[0];
+      if (
+        !article
+        || article.status !== "published"
+        || cleanText(article.slug) !== slugs[0]
+        || !article.matchday_id
+      ) {
+        throw new Error(`published-article-mismatch:${articlePosition}`);
+      }
+
+      if (parsePublishedAt(article.published_at) !== publishedAt) {
+        await updateEditorialArticle(article.id, {
+          label: article.label,
+          title: article.title,
+          subtitle: article.subtitle,
+          body: article.body,
+          slug: article.slug,
+          image_url: article.image_url,
+          image_caption: article.image_caption,
+          author: article.author,
+          published_at: publishedAt,
+          competition_id: null,
+          season_id: null,
+          matchday_id: article.matchday_id,
+        }, {
+          action: "save",
+          initialPlacement: "none",
+        });
+      }
+
+      await ensurePublishedArticleInLatest(article.matchday_id, article.id);
+      reconciled.push({
+        articlePosition,
+        articleId: article.id,
+        publishedAt,
+      });
+    }
+
+    return NextResponse.json({ ok: true, items: reconciled });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "source-time-reconcile-failed";
+    if (message.startsWith("missing-source-published-at:")) {
+      const [, key] = message.split(":");
+      return jsonError(
+        "missing-source-published-at",
+        409,
+        `O artigo ${key} não tem uma hora de fonte utilizável no pacote editorial.`,
+      );
+    }
+    if (message.startsWith("source-package-read-failed:")) {
+      return jsonError("source-package-read-failed", 409, "Não foi possível ler o pacote editorial.");
+    }
+    if (message.startsWith("usage-conflict:") || message.startsWith("published-article-mismatch:")) {
+      return jsonError("source-time-reconcile-conflict", 409, message);
+    }
+    if (error instanceof EditorialArticleServiceError) {
+      return jsonError(error.code, 400, error.message);
+    }
+    if (error instanceof EditorialMatchdayNewsFlowError) {
+      return jsonError(error.code, 502, error.message);
+    }
+    return jsonError("source-time-reconcile-failed", 500, message);
   }
 }
 
@@ -398,6 +687,9 @@ export async function POST(request: Request) {
   }
   if (action === "publish_item") {
     return publishItem(payload);
+  }
+  if (action === "reconcile_source_times") {
+    return reconcileSourcePackageTimes(payload);
   }
 
   return jsonError("invalid-action");

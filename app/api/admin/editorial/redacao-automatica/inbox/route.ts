@@ -79,11 +79,60 @@ function blockItem(value: FormDataEntryValue): NewsroomEditorialInboxActionItem 
     : null;
 }
 
+async function applyBulkAction(
+  action: "working" | "dismissed",
+  items: readonly NewsroomEditorialInboxActionItem[],
+) {
+  let affectedCount = 0;
+
+  for (const item of items) {
+    const result = await applyNewsroomEditorialInboxAction(action, [item]);
+    if (!result.ok) {
+      return result;
+    }
+    affectedCount += result.value.affectedCount;
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      action,
+      batchId: null,
+      affectedCount,
+    },
+  };
+}
+
 export async function POST(request: Request) {
   const formData = await request.formData();
-  const actionValue = cleanText(formData.get("inbox_action"));
   const returnTo = safeReturnTo(cleanText(formData.get("inbox_return_to")));
+  const bulkActionValue = cleanText(formData.get("inbox_bulk_action"));
 
+  if (bulkActionValue) {
+    if (bulkActionValue !== "working" && bulkActionValue !== "dismissed") {
+      return redirectTo(returnTo, { inbox_error: "input_invalid" });
+    }
+
+    const items = formData.getAll("inbox_bulk_item").flatMap((value) => {
+      const item = blockItem(value);
+      return item ? [item] : [];
+    });
+    if (items.length < 1 || items.length > 100) {
+      return redirectTo(returnTo, { inbox_error: "input_invalid" });
+    }
+
+    const result = await applyBulkAction(bulkActionValue, items);
+    if (!result.ok) {
+      return redirectTo(returnTo, { inbox_error: result.error.code });
+    }
+
+    return redirectTo(returnTo, {
+      inbox_state: result.value.action,
+      inbox_count: String(result.value.affectedCount),
+    });
+  }
+
+  const actionValue = cleanText(formData.get("inbox_action"));
   if (!actionValue) {
     return redirectTo(returnTo, { inbox_error: "input_invalid" });
   }

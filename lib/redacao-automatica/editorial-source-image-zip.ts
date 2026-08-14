@@ -30,24 +30,26 @@ export type EditorialSourceImageZipResult =
 export async function buildEditorialSourceImagesZip(
   sources: readonly EditorialSourceImageZipSource[],
 ): Promise<EditorialSourceImageZipResult> {
-  const unique = new Map<string, EditorialSourceImageZipSource>();
-  for (const source of sources) {
+  const normalizedSources = sources.flatMap((source) => {
     const imageUrl = source.imageUrl.trim();
-    if (imageUrl && !unique.has(imageUrl)) {
-      unique.set(imageUrl, { ...source, imageUrl });
-    }
-  }
+    return imageUrl ? [{ ...source, imageUrl }] : [];
+  });
 
-  if (unique.size === 0) {
+  if (normalizedSources.length === 0) {
     return { ok: false, error: "images_unavailable" };
   }
 
   const files: Array<Readonly<{ fileName: string; bytes: Uint8Array }>> = [];
   const failures: string[] = [];
+  const downloadCache = new Map<string, Awaited<ReturnType<typeof downloadEditorialSourceImage>>>();
   let totalImageBytes = 0;
 
-  for (const source of unique.values()) {
-    const downloaded = await downloadEditorialSourceImage(source.imageUrl);
+  for (const source of normalizedSources) {
+    let downloaded = downloadCache.get(source.imageUrl);
+    if (downloaded === undefined) {
+      downloaded = await downloadEditorialSourceImage(source.imageUrl);
+      downloadCache.set(source.imageUrl, downloaded);
+    }
     if (!downloaded) {
       failures.push(`${source.position}. ${source.articleTitle}: download indisponível`);
       continue;

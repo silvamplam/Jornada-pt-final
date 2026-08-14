@@ -5,6 +5,7 @@ import {
   classifyNewsroomEditorialInboxItem,
   newsroomEditorialInboxView,
   type NewsroomEditorialReviewState,
+  type NewsroomEditorialUsedState,
 } from "./newsroom-editorial-inbox-internal";
 import type { NewsroomArticleSummary } from "./newsroom-article-repository";
 
@@ -40,12 +41,48 @@ function state(
   };
 }
 
+function usedState(
+  snapshotId = article.latestSnapshotId!,
+): NewsroomEditorialUsedState {
+  return {
+    articleId: article.id,
+    snapshotId,
+    usedAt: "2026-08-14T15:00:00.000Z",
+  };
+}
+
 test("uma notícia sem decisão entra em Por rever como nova", () => {
   assert.deepEqual(classifyNewsroomEditorialInboxItem(article, null), {
     view: "pending",
     label: "new",
     changedAfterReview: false,
   });
+});
+
+test("uma fonte usada no snapshot atual entra em Utilizadas", () => {
+  assert.deepEqual(
+    classifyNewsroomEditorialInboxItem(article, state("working"), usedState()),
+    {
+      view: "used",
+      label: "used",
+      changedAfterReview: false,
+    },
+  );
+});
+
+test("uma fonte utilizada volta ao fluxo normal quando recebe novo snapshot", () => {
+  assert.deepEqual(
+    classifyNewsroomEditorialInboxItem(
+      article,
+      state("seen", "33333333-3333-4333-8333-333333333333"),
+      usedState("33333333-3333-4333-8333-333333333333"),
+    ),
+    {
+      view: "pending",
+      label: "updated",
+      changedAfterReview: true,
+    },
+  );
 });
 
 test("uma notícia vista volta a Por rever quando surge novo snapshot", () => {
@@ -81,8 +118,9 @@ test("notícias vistas e dispensadas com snapshot atual ficam no arquivo", () =>
   assert.equal(classifyNewsroomEditorialInboxItem(article, state("dismissed")).view, "archive");
 });
 
-test("a vista inválida volta sempre a Por rever", () => {
+test("as quatro vistas são válidas e uma vista desconhecida volta a Por rever", () => {
   assert.equal(newsroomEditorialInboxView("working"), "working");
+  assert.equal(newsroomEditorialInboxView("used"), "used");
   assert.equal(newsroomEditorialInboxView("archive"), "archive");
   assert.equal(newsroomEditorialInboxView("invalida"), "pending");
 });

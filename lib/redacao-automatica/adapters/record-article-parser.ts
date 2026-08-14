@@ -41,6 +41,16 @@ const MAX_JSON_LD_NODES = 10_000;
 const COMPLETE_INSTANT_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$/i;
 const CALENDAR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const CLOCK_PATTERN = /\b(?:[01]\d|2[0-3]):[0-5]\d\b/g;
+const LISBON_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Lisbon",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
 
 const EXCLUDED_BODY_SELECTOR = [
   ".pub_inside_text",
@@ -498,6 +508,109 @@ function parsePublishedAt(value: unknown): ParsedPublishedAt | null {
   return date ? { value: date, precision: "date" } : null;
 }
 
+function lisbonDateTimeKey(value: Date): string | null {
+  const parts = new Map(
+    LISBON_DATE_TIME_FORMATTER
+      .formatToParts(value)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  const year = parts.get("year");
+  const month = parts.get("month");
+  const day = parts.get("day");
+  const hour = parts.get("hour");
+  const minute = parts.get("minute");
+  return year && month && day && hour && minute
+    ? `${year}-${month}-${day}T${hour}:${minute}`
+    : null;
+}
+
+function combineLisbonCalendarDateAndClock(
+  calendarDate: string,
+  clock: string,
+): string | null {
+  if (!CALENDAR_DATE_PATTERN.test(calendarDate)) {
+    return null;
+  }
+
+  const clockMatch = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(clock);
+  if (!clockMatch) {
+    return null;
+  }
+
+  const dateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(calendarDate);
+  if (!dateMatch) {
+    return null;
+  }
+
+  const year = Number(dateMatch[1]);
+  const month = Number(dateMatch[2]);
+  const day = Number(dateMatch[3]);
+  const hour = Number(clockMatch[1]);
+  const minute = Number(clockMatch[2]);
+  const wallClockKey = `${calendarDate}T${clock}`;
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  const matchingInstants: Date[] = [];
+
+  for (let offsetMinutes = -180; offsetMinutes <= 180; offsetMinutes += 30) {
+    const candidate = new Date(utcGuess + offsetMinutes * 60_000);
+    if (lisbonDateTimeKey(candidate) === wallClockKey) {
+      matchingInstants.push(candidate);
+    }
+  }
+
+  return matchingInstants.length === 1
+    ? matchingInstants[0].toISOString()
+    : null;
+}
+
+function domPublishedClock(titleArea: CheerioSelection): string | null {
+  const clone = titleArea.clone();
+  clone.children("h1, p, .bloco_journalists").remove();
+  clone.find("script, style, noscript").remove();
+  const matches = clone.text().match(CLOCK_PATTERN) ?? [];
+  const clocks = [...new Set(matches)];
+  return clocks.length === 1 ? clocks[0] : null;
+}
+
+function selectPublishedAt(
+  $: CheerioRoot,
+  titleArea: CheerioSelection,
+  jsonLdValue: unknown,
+): Readonly<{ parsed: ParsedPublishedAt; source: "json_ld" | "meta" | "dom" }> | null {
+  const jsonLdPublishedAt = parsePublishedAt(jsonLdValue);
+  const metaPublishedAt = parsePublishedAt(
+    $("meta[property='article:published_time']").first().attr("content"),
+  );
+
+  if (jsonLdPublishedAt?.precision === "instant") {
+    return { parsed: jsonLdPublishedAt, source: "json_ld" };
+  }
+  if (metaPublishedAt?.precision === "instant") {
+    return { parsed: metaPublishedAt, source: "meta" };
+  }
+
+  const calendarDates = [jsonLdPublishedAt, metaPublishedAt]
+    .filter((candidate): candidate is ParsedPublishedAt => candidate?.precision === "date")
+    .map((candidate) => candidate.value.slice(0, 10));
+  const uniqueCalendarDates = [...new Set(calendarDates)];
+  const clock = uniqueCalendarDates.length === 1 ? domPublishedClock(titleArea) : null;
+  const domInstant = clock
+    ? combineLisbonCalendarDateAndClock(uniqueCalendarDates[0], clock)
+    : null;
+  if (domInstant) {
+    return {
+      parsed: { value: domInstant, precision: "instant" },
+      source: "dom",
+    };
+  }
+
+  if (jsonLdPublishedAt) {
+    return { parsed: jsonLdPublishedAt, source: "json_ld" };
+  }
+  return metaPublishedAt ? { parsed: metaPublishedAt, source: "meta" } : null;
+}
+
 function safeImageUrl(value: unknown): string | null {
   const normalizedValue = normalizeArticleText(value);
   if (!normalizedValue) {
@@ -952,18 +1065,10 @@ export function parseRecordArticle(
         ? "json_ld"
         : null;
 
-    let parsedPublishedAt = parsePublishedAt(newsArticle.datePublished);
-    let publishedAtSource: "json_ld" | "meta" | null = parsedPublishedAt
-      ? "json_ld"
-      : null;
-    if (!parsedPublishedAt) {
-      parsedPublishedAt = parsePublishedAt(
-        $("meta[property='article:published_time']").first().attr("content"),
-      );
-      publishedAtSource = parsedPublishedAt ? "meta" : null;
-    }
-    const publishedAt = parsedPublishedAt?.value ?? null;
-    const publishedAtPrecision = parsedPublishedAt?.precision ?? null;
+    const publishedAtSelection = selectPublishedAt($, titleArea, newsArticle.datePublished);
+    const publishedAt = publishedAtSelection?.parsed.value ?? null;
+    const publishedAtSource = publishedAtSelection?.source ?? null;
+    const publishedAtPrecision = publishedAtSelection?.parsed.precision ?? null;
 
     let modifiedAt = parseCompleteInstant(newsArticle.dateModified);
     let modifiedAtSource: "json_ld" | "meta" | null = modifiedAt

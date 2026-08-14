@@ -334,6 +334,38 @@ test("Record extrai datePublished do JSON-LD sem meta article:published_time", a
   assert.equal(article.sourceMetadata.publishedAtPrecision, "instant");
 });
 
+test("Record prefere meta instant quando o JSON-LD só tem data de calendário", async () => {
+  const html = replaceRequired(
+    await readFixture("record/article-valid-full.html"),
+    '"datePublished": "2026-07-20T09:00:00+01:00"',
+    '"datePublished": "2026-07-20"',
+  );
+  const article = expectSuccess(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_FULL_URL),
+  );
+
+  assert.equal(article.publishedAt, "2026-07-20T08:00:00.000Z");
+  assert.equal(article.sourceMetadata.publishedAtSource, "meta");
+  assert.equal(article.sourceMetadata.publishedAtPrecision, "instant");
+});
+
+test("Record combina a data estruturada com uma hora DOM inequívoca", async () => {
+  const fixture = await readFixture("record/article-valid-date-only.html");
+  const html = fixture.replace(
+    /(<div class="article_titles"[^>]*>)/,
+    '$1<span class="publication-time">09:33</span>',
+  );
+  assert.notEqual(html, fixture, "A fixture tem de conter article_titles para inserir a hora.");
+
+  const article = expectSuccess(
+    extractArticle(recordAdapter, RECORD_SOURCE, html, RECORD_DATE_ONLY_URL),
+  );
+
+  assert.equal(article.publishedAt, "2026-07-29T08:33:00.000Z");
+  assert.equal(article.sourceMetadata.publishedAtSource, "dom");
+  assert.equal(article.sourceMetadata.publishedAtPrecision, "instant");
+});
+
 test("Record normaliza datePublished de calendário com precisão date", async () => {
   const html = await readFixture("record/article-valid-date-only.html");
   assert.equal(html.includes("article:published_time"), false);
@@ -688,6 +720,7 @@ test("A Bola extrai integralmente uma fixture completa e preserva proveniência"
   assert.equal(metadata.summarySource, "json_ld");
   assert.equal(metadata.authorSource, "json_ld");
   assert.equal(metadata.publishedAtSource, "json_ld");
+  assert.equal(metadata.publishedAtPrecision, "instant");
   assert.equal(metadata.modifiedAtSource, "json_ld");
   assert.equal(metadata.imageSource, "json_ld");
   assert.equal(metadata.bodySelector, "#article_body");
@@ -706,6 +739,7 @@ test("A Bola aceita a fixture mínima com campos opcionais ausentes", async () =
   assert.equal(article.summary, null);
   assert.equal(article.author, null);
   assert.equal(article.publishedAt, null);
+  assert.equal(article.sourceMetadata.publishedAtPrecision, null);
   assert.equal(article.modifiedAt, null);
   assert.equal(article.imageUrl, null);
   assert.ok(article.body.length > 0);

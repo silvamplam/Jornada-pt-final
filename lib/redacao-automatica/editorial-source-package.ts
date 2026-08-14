@@ -10,6 +10,7 @@ import {
 import {
   buildEditorialSourcePackageMarkdown,
   editorialSourceAnteTitle,
+  editorialSourcePackageArticleImageSources,
   editorialSourcePackageFileName,
   isEditorialSourcePackageLocation,
   normalizeEditorialSourcePackageEditorialInput,
@@ -30,9 +31,10 @@ import {
   MANUAL_NEWSROOM_SOURCE_LABEL,
 } from "@/lib/redacao-automatica/manual-newsroom-entry-contract";
 import { findRegisteredSource } from "@/lib/redacao-automatica/source-registry";
-import type {
-  ArticleBodyBlock,
-  JsonObject,
+import {
+  publishedAtPrecisionFromSourceMetadata,
+  type ArticleBodyBlock,
+  type JsonObject,
 } from "@/lib/redacao-automatica/types";
 
 type NewsroomArticleRow = {
@@ -126,6 +128,22 @@ export type UpdateEditorialSourcePackageEditorialResult =
       }>;
     }>;
 
+export type MarkEditorialSourcePackageArticleUsedResult =
+  | Readonly<{ ok: true }>
+  | Readonly<{
+      ok: false;
+      error: Readonly<{
+        code:
+          | "input_invalid"
+          | "location_invalid"
+          | "package_not_found"
+          | "package_read_failed"
+          | "package_write_failed"
+          | "article_group_not_found"
+          | "usage_conflict";
+      }>;
+    }>;
+
 function uuidList(values: readonly string[]): string {
   return values.map((value) => encodeURIComponent(value)).join(",");
 }
@@ -180,12 +198,20 @@ function yearAndMonth(now: Date): Readonly<{ year: string; month: string }> {
 function manifestEntries(entries: readonly EditorialSourcePackageEntry[]) {
   return entries.map((entry) => ({
     position: entry.position,
+    articlePosition: entry.articlePosition,
+    newsroomArticleId: entry.newsroomArticleId,
+    newsroomSnapshotId: entry.newsroomSnapshotId,
+    imagePreferred: entry.imagePreferred,
     status: entry.status,
     sourceCode: entry.sourceCode,
     sourceName: entry.sourceName,
     title: entry.title,
     errorCode: entry.status === "failed" ? entry.errorCode : null,
     imageUrl: entry.status === "prepared" ? entry.imageUrl : null,
+    publishedAt: entry.status === "prepared" ? entry.publishedAt : null,
+    publishedAtPrecision: entry.status === "prepared"
+      ? entry.publishedAtPrecision ?? null
+      : null,
   }));
 }
 
@@ -218,7 +244,7 @@ function persistedManifest(
   ]);
 
   if (
-    manifest.version !== 2
+    (manifest.version !== 2 && manifest.version !== 3)
     || manifest.genreLabel !== editorial.genreLabel
     || typeof manifest.markdownFileName !== "string"
     || !validMarkdownFileNames.has(manifest.markdownFileName)
@@ -235,7 +261,38 @@ function persistedManifest(
     return null;
   }
 
-  return manifest as EditorialSourcePackageManifest;
+  const entries = manifest.entries.map((entry, index) => {
+    if (!entry || typeof entry !== "object") {
+      return null;
+    }
+
+    const candidate = entry as EditorialSourcePackageManifest["entries"][number];
+    const articlePosition = Number.isInteger(candidate.articlePosition)
+      && candidate.articlePosition > 0
+      ? candidate.articlePosition
+      : index + 1;
+
+    return {
+      ...candidate,
+      articlePosition,
+    };
+  });
+
+  if (entries.some((entry) => !entry)) {
+    return null;
+  }
+
+  const normalizedEntries = entries as EditorialSourcePackageManifest["entries"];
+  const articleCount = Number.isInteger(manifest.articleCount)
+    && Number(manifest.articleCount) > 0
+    ? Number(manifest.articleCount)
+    : new Set(normalizedEntries.map((entry) => entry.articlePosition)).size;
+
+  return {
+    ...(manifest as EditorialSourcePackageManifest),
+    articleCount,
+    entries: normalizedEntries,
+  };
 }
 
 export async function createEditorialSourcePackage(
@@ -284,12 +341,17 @@ export async function createEditorialSourcePackage(
   const snapshotsById = new Map(snapshots.map((snapshot) => [snapshot.id, snapshot]));
   const entries = selections.map((selection, index): EditorialSourcePackageEntry => {
     const position = index + 1;
+    const articlePosition = selection.articleGroup ?? position;
     const article = articlesById.get(selection.newsroomArticleId);
     const snapshot = snapshotsById.get(selection.newsroomSnapshotId);
 
     if (!article) {
       return {
         position,
+        articlePosition,
+        newsroomArticleId: selection.newsroomArticleId,
+        newsroomSnapshotId: selection.newsroomSnapshotId,
+        imagePreferred: Boolean(selection.imagePreferred),
         status: "failed",
         sourceCode: null,
         sourceName: null,
@@ -306,6 +368,10 @@ export async function createEditorialSourcePackage(
     if (!snapshot) {
       return {
         position,
+        articlePosition,
+        newsroomArticleId: selection.newsroomArticleId,
+        newsroomSnapshotId: selection.newsroomSnapshotId,
+        imagePreferred: Boolean(selection.imagePreferred),
         status: "failed",
         sourceCode: article.source_code,
         sourceName: articleSourceName,
@@ -319,6 +385,10 @@ export async function createEditorialSourcePackage(
     if (snapshot.article_id !== article.id) {
       return {
         position,
+        articlePosition,
+        newsroomArticleId: selection.newsroomArticleId,
+        newsroomSnapshotId: selection.newsroomSnapshotId,
+        imagePreferred: Boolean(selection.imagePreferred),
         status: "failed",
         sourceCode: article.source_code,
         sourceName: articleSourceName,
@@ -333,6 +403,10 @@ export async function createEditorialSourcePackage(
     if (body.length === 0) {
       return {
         position,
+        articlePosition,
+        newsroomArticleId: selection.newsroomArticleId,
+        newsroomSnapshotId: selection.newsroomSnapshotId,
+        imagePreferred: Boolean(selection.imagePreferred),
         status: "failed",
         sourceCode: article.source_code,
         sourceName: articleSourceName,
@@ -345,12 +419,17 @@ export async function createEditorialSourcePackage(
 
     return {
       position,
+      articlePosition,
+      newsroomArticleId: selection.newsroomArticleId,
+      newsroomSnapshotId: selection.newsroomSnapshotId,
+      imagePreferred: Boolean(selection.imagePreferred),
       status: "prepared",
       sourceCode: article.source_code,
       sourceName: articleSourceName,
       sourceUrl,
       author: article.author,
       publishedAt: article.published_at,
+      publishedAtPrecision: publishedAtPrecisionFromSourceMetadata(snapshot.source_metadata),
       anteTitle: editorialSourceAnteTitle(jsonObject(snapshot.source_metadata)),
       title: article.title,
       postTitle: article.subtitle,
@@ -359,32 +438,29 @@ export async function createEditorialSourcePackage(
     };
   });
 
-  const createdAt = now.toISOString();
-  const markdownFileName = editorialSourcePackageFileName(
-    editorial.genre,
-    editorial.suggestedTitle,
-  );
-  const markdown = buildEditorialSourcePackageMarkdown({
-    createdAt,
-    editorial,
-    entries,
-  });
   const preparedEntries = entries.filter(
     (entry): entry is EditorialSourcePackagePreparedEntry => entry.status === "prepared",
   );
+  const articleCount = new Set(entries.map((entry) => entry.articlePosition)).size;
+  const effectiveEditorial: EditorialSourcePackageEditorialInput = articleCount > 1
+    ? { ...editorial, suggestedTitle: null }
+    : editorial;
+  const createdAt = now.toISOString();
+  const markdownFileName = editorialSourcePackageFileName(
+    effectiveEditorial.genre,
+    effectiveEditorial.suggestedTitle,
+  );
+  const markdown = buildEditorialSourcePackageMarkdown({
+    createdAt,
+    editorial: effectiveEditorial,
+    entries,
+  });
+  const articleImageSources = editorialSourcePackageArticleImageSources(entries);
 
   const archivedImages = localDirectory
     ? await archiveEditorialSourceImagesLocally({
         articleId: input.packageId,
-        sources: preparedEntries.flatMap((entry) => (
-          entry.imageUrl
-            ? [{
-                sourceCode: entry.sourceCode,
-                articleTitle: entry.title,
-                imageUrl: entry.imageUrl,
-              }]
-            : []
-        )),
+        sources: articleImageSources,
         now,
       })
     : [];
@@ -396,11 +472,12 @@ export async function createEditorialSourcePackage(
     year: location.year,
     month: location.month,
     markdownFileName,
-    genre: editorial.genre,
-    genreLabel: editorial.genreLabel,
-    suggestedTitle: editorial.suggestedTitle,
-    additionalInstructions: editorial.additionalInstructions,
+    genre: effectiveEditorial.genre,
+    genreLabel: effectiveEditorial.genreLabel,
+    suggestedTitle: effectiveEditorial.suggestedTitle,
+    additionalInstructions: effectiveEditorial.additionalInstructions,
     selectedCount: entries.length,
+    articleCount,
     preparedCount: preparedEntries.length,
     failedCount: entries.length - preparedEntries.length,
     imageCount: archivedImages.length,
@@ -481,6 +558,91 @@ export async function readEditorialSourcePackage(input: Readonly<{
   };
 }
 
+export async function markEditorialSourcePackageArticleUsed(input: Readonly<{
+  year: string;
+  month: string;
+  packageId: string;
+  articlePosition: number;
+  publishedArticleId: string;
+  publishedSlug: string;
+  usedAt?: string;
+}>): Promise<MarkEditorialSourcePackageArticleUsedResult> {
+  if (
+    !isEditorialSourcePackageLocation(input)
+    || !Number.isInteger(input.articlePosition)
+    || input.articlePosition < 1
+    || input.articlePosition > 30
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.publishedArticleId.trim())
+    || !input.publishedSlug.trim()
+  ) {
+    return { ok: false, error: { code: "input_invalid" } };
+  }
+
+  const current = await readEditorialSourcePackage(input);
+  if (!current.ok) {
+    return { ok: false, error: { code: current.error.code } };
+  }
+
+  const groupEntries = current.value.manifest.entries.filter(
+    (entry) => entry.articlePosition === input.articlePosition,
+  );
+  if (groupEntries.length === 0) {
+    return { ok: false, error: { code: "article_group_not_found" } };
+  }
+
+  const normalizedArticleId = input.publishedArticleId.trim().toLowerCase();
+  const normalizedSlug = input.publishedSlug.trim();
+  const conflict = groupEntries.some((entry) => (
+    (entry.publishedArticleId && entry.publishedArticleId !== normalizedArticleId)
+    || (entry.publishedSlug && entry.publishedSlug !== normalizedSlug)
+  ));
+  if (conflict) {
+    return { ok: false, error: { code: "usage_conflict" } };
+  }
+
+  const usedAt = input.usedAt && !Number.isNaN(Date.parse(input.usedAt))
+    ? new Date(input.usedAt).toISOString()
+    : new Date().toISOString();
+  const manifest: EditorialSourcePackageManifest = {
+    ...current.value.manifest,
+    entries: current.value.manifest.entries.map((entry) => (
+      entry.articlePosition === input.articlePosition
+        ? {
+            ...entry,
+            usedAt: entry.usedAt ?? usedAt,
+            publishedArticleId: normalizedArticleId,
+            publishedSlug: normalizedSlug,
+          }
+        : entry
+    )),
+  };
+
+  try {
+    const rows = await writeSupabaseAdminReturning<EditorialSourcePackageUpdateRow>(
+      "newsroom_editorial_source_packages"
+      + `?id=eq.${encodeURIComponent(input.packageId)}`
+      + `&package_year=eq.${encodeURIComponent(input.year)}`
+      + `&package_month=eq.${encodeURIComponent(input.month)}`
+      + "&select=id",
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          manifest,
+          updated_at: new Date().toISOString(),
+        }),
+      },
+    );
+
+    if (rows.length !== 1 || rows[0].id !== input.packageId) {
+      return { ok: false, error: { code: "package_write_failed" } };
+    }
+  } catch {
+    return { ok: false, error: { code: "package_write_failed" } };
+  }
+
+  return { ok: true };
+}
+
 export async function updateEditorialSourcePackageEditorial(input: Readonly<{
   year: string;
   month: string;
@@ -503,7 +665,7 @@ export async function updateEditorialSourcePackageEditorial(input: Readonly<{
 
   const editorial = normalizeEditorialSourcePackageEditorialInput({
     genre: current.value.manifest.genre,
-    suggestedTitle: input.suggestedTitle,
+    suggestedTitle: current.value.manifest.articleCount > 1 ? "" : input.suggestedTitle,
     additionalInstructions: input.additionalInstructions,
   });
   if (!editorial) {

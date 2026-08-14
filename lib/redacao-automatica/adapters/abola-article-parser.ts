@@ -29,6 +29,11 @@ type CanonicalSelection = Readonly<{
   source: "canonical" | "open_graph" | "final_url";
 }>;
 
+type ParsedPublishedAt = Readonly<{
+  value: string;
+  precision: "date" | "instant";
+}>;
+
 const ABOLA_SOURCE_CODE = "abola";
 const ABOLA_DOMAIN = "abola.pt";
 const ABOLA_HOSTNAME = "www.abola.pt";
@@ -38,6 +43,9 @@ const MINIMUM_BODY_TEXT_LENGTH = 120;
 const MAX_JSON_LD_DEPTH = 12;
 const MAX_JSON_LD_NODES = 10_000;
 const META_DESCRIPTION_SUFFIX = /\s*Continue a ler\.\s*$/i;
+const COMPLETE_INSTANT_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$/i;
+const CALENDAR_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const EXCLUDED_BODY_SELECTOR = [
   "script",
@@ -522,6 +530,27 @@ function parseDate(value: unknown): string | null {
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString();
 }
 
+function parsePublishedAt(value: unknown): ParsedPublishedAt | null {
+  const normalizedValue = normalizeArticleText(value);
+  if (!normalizedValue) {
+    return null;
+  }
+
+  if (COMPLETE_INSTANT_PATTERN.test(normalizedValue)) {
+    const parsed = parseDate(normalizedValue);
+    return parsed ? { value: parsed, precision: "instant" } : null;
+  }
+
+  if (CALENDAR_DATE_PATTERN.test(normalizedValue)) {
+    const parsed = parseDate(`${normalizedValue}T00:00:00.000Z`);
+    if (parsed?.slice(0, 10) === normalizedValue) {
+      return { value: parsed, precision: "date" };
+    }
+  }
+
+  return null;
+}
+
 function safeImageUrl(value: unknown): string | null {
   const normalizedValue = normalizeArticleText(value);
   if (!normalizedValue) {
@@ -852,16 +881,22 @@ export function parseAbolaArticle(
     }
     const author = authors.length > 0 ? authors.join(" & ") : null;
 
-    let publishedAt = parseDate(newsArticle.datePublished);
-    let publishedAtSource: "json_ld" | "meta" | null = publishedAt
-      ? "json_ld"
-      : null;
-    if (!publishedAt) {
-      publishedAt = parseDate(
-        $("meta[property='article:published_time']").first().attr("content"),
-      );
-      publishedAtSource = publishedAt ? "meta" : null;
-    }
+    const jsonLdPublishedAt = parsePublishedAt(newsArticle.datePublished);
+    const metaPublishedAt = parsePublishedAt(
+      $("meta[property='article:published_time']").first().attr("content"),
+    );
+    const publishedAtSelection = jsonLdPublishedAt?.precision === "instant"
+      ? { parsed: jsonLdPublishedAt, source: "json_ld" as const }
+      : metaPublishedAt?.precision === "instant"
+        ? { parsed: metaPublishedAt, source: "meta" as const }
+        : jsonLdPublishedAt
+          ? { parsed: jsonLdPublishedAt, source: "json_ld" as const }
+          : metaPublishedAt
+            ? { parsed: metaPublishedAt, source: "meta" as const }
+            : null;
+    const publishedAt = publishedAtSelection?.parsed.value ?? null;
+    const publishedAtSource = publishedAtSelection?.source ?? null;
+    const publishedAtPrecision = publishedAtSelection?.parsed.precision ?? null;
 
     let modifiedAt = parseDate(newsArticle.dateModified);
     let modifiedAtSource: "json_ld" | "meta" | null = modifiedAt
@@ -935,6 +970,7 @@ export function parseAbolaArticle(
           summarySource,
           authorSource,
           publishedAtSource,
+          publishedAtPrecision,
           modifiedAtSource,
           imageSource,
           bodySelector: "#article_body",

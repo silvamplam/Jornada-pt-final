@@ -48,9 +48,21 @@ function selectionsFromFormData(
     const newsroomSnapshotId = cleanText(
       formData.get(`source_snapshot_${newsroomArticleId}`),
     );
+    const articleGroupValue = cleanText(
+      formData.get(`source_group_${newsroomArticleId}`),
+    );
+    const articleGroup = Number(articleGroupValue);
+    const imagePreferred = cleanText(
+      formData.get(`source_image_preferred_${newsroomArticleId}`),
+    ) === "1";
 
     return newsroomArticleId && newsroomSnapshotId
-      ? [{ newsroomArticleId, newsroomSnapshotId }]
+      ? [{
+          newsroomArticleId,
+          newsroomSnapshotId,
+          ...(Number.isInteger(articleGroup) && articleGroup > 0 ? { articleGroup } : {}),
+          ...(imagePreferred ? { imagePreferred: true } : {}),
+        }]
       : [];
   });
 

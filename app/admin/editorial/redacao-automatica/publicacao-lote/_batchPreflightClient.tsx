@@ -10,6 +10,12 @@ import {
   type EditorialBatchPreflight,
 } from "@/lib/redacao-automatica/editorial-batch-parser";
 import {
+  EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
+  EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
+  parseEditorialBatchTransferSourcePackage,
+  type EditorialBatchTransferSourcePackage,
+} from "@/lib/redacao-automatica/editorial-batch-transfer";
+import {
   EDITORIAL_BATCH_IMAGE_ACCEPT,
   preflightEditorialBatchImages,
   type EditorialBatchImagePreflight,
@@ -63,6 +69,7 @@ type BatchPublicationItemStatus =
   | "publishing"
   | "published"
   | "published_missing_latest"
+  | "published_missing_usage"
   | "error"
   | "not_attempted";
 
@@ -86,6 +93,7 @@ type BatchPublicationItemResponse = Readonly<{
   articleId?: string;
   slug?: string;
   published?: boolean;
+  latest?: boolean;
 }>;
 
 type SignedUploadResponse = Readonly<{
@@ -127,6 +135,8 @@ function publicationStatusLabel(state: BatchPublicationItemState | undefined) {
       return "PUBLICADO EM ÚLTIMAS";
     case "published_missing_latest":
       return "PUBLICADO, FALTA ÚLTIMAS";
+    case "published_missing_usage":
+      return "PUBLICADO, FALTA MARCAR FONTES";
     case "error":
       return "ERRO";
     case "not_attempted":
@@ -548,6 +558,7 @@ export default function BatchPreflightClient({
   const [selectedImages, setSelectedImages] = useState<readonly File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<ReadonlyMap<File, string>>(new Map());
   const [author, setAuthor] = useState(DEFAULT_BATCH_AUTHOR);
+  const [sourcePackage, setSourcePackage] = useState<EditorialBatchTransferSourcePackage | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publicationError, setPublicationError] = useState<string | null>(null);
   const [publicationStates, setPublicationStates] = useState<Readonly<Record<string, BatchPublicationItemState>>>({});
@@ -592,6 +603,25 @@ export default function BatchPreflightClient({
   );
 
   useEffect(() => {
+    const transferredText = window.sessionStorage.getItem(
+      EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
+    );
+    if (!transferredText?.trim()) {
+      return;
+    }
+
+    const transferredSourcePackage = parseEditorialBatchTransferSourcePackage(
+      window.sessionStorage.getItem(EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY),
+    );
+    window.sessionStorage.removeItem(EDITORIAL_BATCH_TRANSFER_STORAGE_KEY);
+    window.sessionStorage.removeItem(EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY);
+    setArticleText(transferredText);
+    setSourcePackage(transferredSourcePackage);
+    setPreflight(preflightEditorialArticleBatch(transferredText));
+    setTextChangedAfterAnalysis(false);
+  }, []);
+
+  useEffect(() => {
     const nextPreviewUrls = new Map<File, string>();
     for (const file of selectedImages) {
       nextPreviewUrls.set(file, URL.createObjectURL(file));
@@ -634,6 +664,7 @@ export default function BatchPreflightClient({
         matchdayId,
         author: author.trim(),
         articles: preflight.articles,
+        ...(sourcePackage ? { sourcePackage } : {}),
       }),
     });
     const payload = await response.json().catch(() => null) as BatchPublicationPreflightResponse | null;
@@ -694,6 +725,7 @@ export default function BatchPreflightClient({
         article,
         imageUrl,
         publishedAt: planItem.publishedAt,
+        ...(sourcePackage ? { sourcePackage } : {}),
       }),
     });
     const payload = await response.json().catch(() => null) as BatchPublicationItemResponse | null;
@@ -776,7 +808,11 @@ export default function BatchPreflightClient({
             : undefined;
           const message = error instanceof Error ? error.message : `Falhou o artigo ${planItem.key}.`;
           setPublicationState(planItem.key, {
-            status: payload?.published ? "published_missing_latest" : "error",
+            status: payload?.published
+              ? payload.latest
+                ? "published_missing_usage"
+                : "published_missing_latest"
+              : "error",
             message,
             ...(payload?.articleId ? { articleId: payload.articleId } : {}),
           });

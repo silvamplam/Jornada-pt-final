@@ -1,11 +1,8 @@
-import {
-  EDITORIAL_CONTEXT_DESTINATION_LABEL,
-  EDITORIAL_CONTEXT_POST_TITLE_PROMPT_RULE,
-} from "@/lib/editorial-context-post-title";
 import type {
   ArticleBodyBlock,
   JsonObject,
   JsonValue,
+  PublishedAtPrecision,
 } from "@/lib/redacao-automatica/types";
 
 export const EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES = 20;
@@ -37,16 +34,23 @@ const MONTH_PATTERN = /^(0[1-9]|1[0-2])$/;
 export type EditorialSourcePackageSelection = Readonly<{
   newsroomArticleId: string;
   newsroomSnapshotId: string;
+  articleGroup?: number;
+  imagePreferred?: boolean;
 }>;
 
 export type EditorialSourcePackagePreparedEntry = Readonly<{
   position: number;
+  articlePosition: number;
+  newsroomArticleId?: string;
+  newsroomSnapshotId?: string;
+  imagePreferred?: boolean;
   status: "prepared";
   sourceCode: string;
   sourceName: string;
   sourceUrl: string | null;
   author: string | null;
   publishedAt: string | null;
+  publishedAtPrecision?: PublishedAtPrecision | null;
   anteTitle: string | null;
   title: string;
   postTitle: string | null;
@@ -56,6 +60,10 @@ export type EditorialSourcePackagePreparedEntry = Readonly<{
 
 export type EditorialSourcePackageFailedEntry = Readonly<{
   position: number;
+  articlePosition: number;
+  newsroomArticleId?: string;
+  newsroomSnapshotId?: string;
+  imagePreferred?: boolean;
   status: "failed";
   sourceCode: string | null;
   sourceName: string | null;
@@ -75,16 +83,25 @@ export type EditorialSourcePackageEntry =
 
 export type EditorialSourcePackageManifestEntry = Readonly<{
   position: number;
+  articlePosition: number;
+  newsroomArticleId?: string | null;
+  newsroomSnapshotId?: string | null;
+  imagePreferred?: boolean;
+  usedAt?: string | null;
+  publishedArticleId?: string | null;
+  publishedSlug?: string | null;
   status: "prepared" | "failed";
   sourceCode: string | null;
   sourceName: string | null;
   title: string | null;
   errorCode: string | null;
   imageUrl?: string | null;
+  publishedAt?: string | null;
+  publishedAtPrecision?: PublishedAtPrecision | null;
 }>;
 
 export type EditorialSourcePackageManifest = Readonly<{
-  version: 2;
+  version: 2 | 3;
   packageId: string;
   createdAt: string;
   year: string;
@@ -95,6 +112,7 @@ export type EditorialSourcePackageManifest = Readonly<{
   suggestedTitle: string | null;
   additionalInstructions: string | null;
   selectedCount: number;
+  articleCount: number;
   preparedCount: number;
   failedCount: number;
   imageCount: number;
@@ -211,19 +229,40 @@ export function normalizeEditorialSourcePackageSelections(
 
   const articleIds = new Set<string>();
   const snapshotIds = new Set<string>();
+  const groupPositions = new Map<number, number>();
+  const preferredImageGroups = new Set<number>();
   const normalized: EditorialSourcePackageSelection[] = [];
+  let nextArticlePosition = 1;
 
-  for (const selection of selections) {
+  for (const [index, selection] of selections.entries()) {
     const newsroomArticleId = cleanId(selection.newsroomArticleId);
     const newsroomSnapshotId = cleanId(selection.newsroomSnapshotId);
+    const rawArticleGroup = selection.articleGroup ?? index + 1;
 
     if (
       !UUID_PATTERN.test(newsroomArticleId)
       || !UUID_PATTERN.test(newsroomSnapshotId)
       || articleIds.has(newsroomArticleId)
       || snapshotIds.has(newsroomSnapshotId)
+      || !Number.isInteger(rawArticleGroup)
+      || rawArticleGroup < 1
+      || rawArticleGroup > EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES
     ) {
       return null;
+    }
+
+    let articleGroup = groupPositions.get(rawArticleGroup);
+    if (!articleGroup) {
+      articleGroup = nextArticlePosition;
+      groupPositions.set(rawArticleGroup, articleGroup);
+      nextArticlePosition += 1;
+    }
+
+    if (selection.imagePreferred && preferredImageGroups.has(articleGroup)) {
+      return null;
+    }
+    if (selection.imagePreferred) {
+      preferredImageGroups.add(articleGroup);
     }
 
     articleIds.add(newsroomArticleId);
@@ -231,10 +270,104 @@ export function normalizeEditorialSourcePackageSelections(
     normalized.push({
       newsroomArticleId,
       newsroomSnapshotId,
+      articleGroup,
+      ...(selection.imagePreferred ? { imagePreferred: true } : {}),
     });
   }
 
   return normalized;
+}
+
+export type EditorialSourcePackageArticleImageSource = Readonly<{
+  position: number;
+  sourceCode: string;
+  articleTitle: string;
+  imageUrl: string;
+}>;
+
+export function editorialSourcePackageArticleImageSources(
+  entries: readonly Readonly<{
+    articlePosition: number;
+    status: "prepared" | "failed";
+    sourceCode: string | null;
+    title: string | null;
+    imageUrl?: string | null;
+    imagePreferred?: boolean;
+  }>[],
+): readonly EditorialSourcePackageArticleImageSource[] {
+  const candidatesByArticle = new Map<number, EditorialSourcePackageArticleImageSource[]>();
+  const preferredByArticle = new Map<number, EditorialSourcePackageArticleImageSource>();
+
+  for (const entry of entries) {
+    const imageUrl = entry.status === "prepared"
+      && typeof entry.imageUrl === "string"
+      ? entry.imageUrl.trim()
+      : "";
+
+    if (!imageUrl) {
+      continue;
+    }
+
+    const candidate = {
+      position: entry.articlePosition,
+      sourceCode: entry.sourceCode?.trim() || "fonte",
+      articleTitle: entry.title?.trim() || "Notícia",
+      imageUrl,
+    };
+    const candidates = candidatesByArticle.get(entry.articlePosition) ?? [];
+    candidates.push(candidate);
+    candidatesByArticle.set(entry.articlePosition, candidates);
+
+    if (entry.imagePreferred && !preferredByArticle.has(entry.articlePosition)) {
+      preferredByArticle.set(entry.articlePosition, candidate);
+    }
+  }
+
+  return [...candidatesByArticle.entries()]
+    .map(([articlePosition, candidates]) => preferredByArticle.get(articlePosition) ?? candidates[0])
+    .filter((candidate): candidate is EditorialSourcePackageArticleImageSource => Boolean(candidate))
+    .sort((left, right) => left.position - right.position);
+}
+
+export type EditorialSourcePackageUsedSourceRef = Readonly<{
+  newsroomArticleId: string;
+  newsroomSnapshotId: string;
+  usedAt: string;
+}>;
+
+export function editorialSourcePackageUsedSourceRefs(
+  value: unknown,
+): readonly EditorialSourcePackageUsedSourceRef[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+
+  const entries = (value as { entries?: unknown }).entries;
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.flatMap((entry): EditorialSourcePackageUsedSourceRef[] => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return [];
+    }
+
+    const candidate = entry as Record<string, unknown>;
+    const newsroomArticleId = typeof candidate.newsroomArticleId === "string"
+      ? cleanId(candidate.newsroomArticleId)
+      : "";
+    const newsroomSnapshotId = typeof candidate.newsroomSnapshotId === "string"
+      ? cleanId(candidate.newsroomSnapshotId)
+      : "";
+    const usedAt = typeof candidate.usedAt === "string" ? candidate.usedAt.trim() : "";
+
+    return UUID_PATTERN.test(newsroomArticleId)
+      && UUID_PATTERN.test(newsroomSnapshotId)
+      && usedAt
+      && !Number.isNaN(Date.parse(usedAt))
+      ? [{ newsroomArticleId, newsroomSnapshotId, usedAt }]
+      : [];
+  });
 }
 
 export function isEditorialSourcePackageLocation(input: Readonly<{
@@ -307,10 +440,11 @@ function markdownBody(blocks: readonly ArticleBodyBlock[]): string[] {
 
 function formatPreparedEntry(
   entry: EditorialSourcePackagePreparedEntry,
-  total: number,
+  sourcePosition: number,
+  sourceTotal: number,
 ): string {
   const lines = [
-    `# NOTÍCIA ${String(entry.position).padStart(2, "0")} DE ${String(total).padStart(2, "0")}`,
+    `## FONTE ${String(sourcePosition).padStart(2, "0")} DE ${String(sourceTotal).padStart(2, "0")}`,
     "",
     ...markdownMetadata("FONTE", entry.sourceName),
     ...markdownMetadata("URL", entry.sourceUrl),
@@ -320,54 +454,77 @@ function formatPreparedEntry(
   ];
 
   if (entry.anteTitle) {
-    lines.push("## ANTETÍTULO", "", markdownText(entry.anteTitle), "");
+    lines.push("### ANTETÍTULO", "", markdownText(entry.anteTitle), "");
   }
 
-  lines.push("## TÍTULO", "", markdownText(entry.title), "");
+  lines.push("### TÍTULO", "", markdownText(entry.title), "");
 
   if (entry.postTitle) {
-    lines.push("## PÓS-TÍTULO", "", markdownText(entry.postTitle), "");
+    lines.push("### PÓS-TÍTULO", "", markdownText(entry.postTitle), "");
   }
 
-  lines.push("## CORPO", "", ...markdownBody(entry.body), "");
+  lines.push("### CORPO", "", ...markdownBody(entry.body), "");
 
   return lines.join("\n").trimEnd();
 }
 
 function formatFailedEntry(
   entry: EditorialSourcePackageFailedEntry,
-  total: number,
+  sourcePosition: number,
+  sourceTotal: number,
 ): string {
   return [
-    `# NOTÍCIA ${String(entry.position).padStart(2, "0")} DE ${String(total).padStart(2, "0")}`,
+    `## FONTE ${String(sourcePosition).padStart(2, "0")} DE ${String(sourceTotal).padStart(2, "0")}`,
     "",
     ...markdownMetadata("FONTE", entry.sourceName),
     ...markdownMetadata("URL", entry.sourceUrl),
     ...markdownMetadata("TÍTULO IDENTIFICADO", entry.title),
     "",
-    "## ESTADO",
+    "### ESTADO",
     "",
-    "Não foi possível preparar integralmente esta notícia.",
+    "Não foi possível preparar integralmente esta fonte.",
     "",
-    "## ERRO",
+    "### ERRO",
     "",
     `${entry.errorCode}: ${entry.errorMessage}`,
   ].join("\n").trimEnd();
 }
 
+function formatArticleGroup(
+  articlePosition: number,
+  articleTotal: number,
+  entries: readonly EditorialSourcePackageEntry[],
+): string {
+  const sourceSections = entries.map((entry, index) => (
+    entry.status === "prepared"
+      ? formatPreparedEntry(entry, index + 1, entries.length)
+      : formatFailedEntry(entry, index + 1, entries.length)
+  ));
+
+  return [
+    `# ARTIGO ${String(articlePosition).padStart(2, "0")} DE ${String(articleTotal).padStart(2, "0")}`,
+    "",
+    `**FONTES NESTE ARTIGO:** ${entries.length}`,
+    "",
+    ...sourceSections.flatMap((section, index) => (
+      index === 0 ? [section] : ["---", "", section]
+    )),
+  ].join("\n").trimEnd();
+}
+
 const EXTERNAL_ARTICLE_IMPORT_RULES = [
-  "A resposta deve começar exatamente com [JORNADA_ARTIGO_V1] e terminar exatamente com [/JORNADA_ARTIGO_V1].",
-  `Se o editor indicar explicitamente nesta conversa que o artigo se destina à zona editorial Contexto, acrescente antes de ANTETÍTULO duas linhas isoladas: DESTINO EDITORIAL e ${EDITORIAL_CONTEXT_DESTINATION_LABEL}. Se não existir essa indicação explícita, omita por completo DESTINO EDITORIAL.`,
-  "Depois desse campo opcional, use exatamente esta ordem: ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO. Cada rótulo deve ocupar uma linha isolada.",
-  "O ANTETÍTULO e o PÓS-TÍTULO podem ficar vazios quando o género ou o conteúdo não os justificarem. O TÍTULO e o CORPO são obrigatórios.",
-  EDITORIAL_CONTEXT_POST_TITLE_PROMPT_RULE,
-  "Não use JSON, tabelas, blocos de código ou comentários fora dos marcadores. Estes marcadores permitem importar a resposta diretamente para o editor da Jornada.pt.",
+  "Cada artigo final deve ser devolvido dentro de um bloco que começa exatamente com [JORNADA_ARTIGO_V1] e termina exatamente com [/JORNADA_ARTIGO_V1].",
+  "Quando existirem vários grupos ARTIGO NN, devolva exatamente um bloco [JORNADA_ARTIGO_V1] por grupo, pela mesma ordem, sem fundir grupos nem criar artigos adicionais.",
+  "Dentro de cada bloco, use exatamente esta ordem: ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO. Cada rótulo deve ocupar uma linha isolada.",
+  "Preencha sempre ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO com conteúdo utilizável. Os quatro campos são obrigatórios neste fluxo de publicação.",
+  "Não use JSON, tabelas, blocos de código ou comentários fora dos marcadores. Estes marcadores permitem levar a resposta diretamente para a Publicação em lote da Jornada.pt.",
 ];
 
 const COMMON_PROMPT_RULES = [
-  "Produza o texto em português europeu e baseie-se exclusivamente nas fontes integrais apresentadas abaixo.",
-  "Leia e considere todas as fontes antes de escrever. Utilize toda a informação relevante para o tema principal, eliminando apenas repetições, elementos laterais ou conteúdo que não contribua para o género e o enfoque escolhidos.",
-  "Use as fontes para confirmar, complementar e contextualizar os factos. Quando existirem versões divergentes, apresente e atribua claramente cada uma, sem escolher arbitrariamente uma como verdadeira.",
+  "Produza o texto em português europeu, com linguagem jornalística eloquente, fluida, natural e rigorosa.",
+  "Leia integralmente e considere todas as fontes incluídas no respetivo grupo ARTIGO antes de escrever. Fontes de grupos diferentes pertencem a artigos diferentes e nunca devem ser misturadas.",
+  "Além das fontes fornecidas, pesquise sempre fontes externas atuais e credíveis sobre o mesmo tema para complementar, contextualizar e atualizar a informação, salvo instrução expressa do editor para não fazer pesquisa externa.",
+  "A pesquisa complementar deve acrescentar contexto e atualidade sem inventar factos nem apagar divergências relevantes. Quando existirem versões divergentes, apresente e atribua claramente cada uma, sem escolher arbitrariamente uma como verdadeira.",
   "O título sugerido pelo editor é uma orientação inicial. Melhore-o ou substitua-o quando existir uma formulação mais rigorosa, informativa e adequada ao conteúdo efetivamente sustentado pelas fontes.",
   "Respeite as instruções adicionais do editor, desde que não contrariem os factos disponíveis.",
   "Não invente factos, citações, números, datas, intenções, relações causais ou conclusões não sustentadas. Preserve sempre a atribuição de declarações e interpretações.",
@@ -378,7 +535,7 @@ const GENRE_PROMPTS: Record<EditorialSourcePackageGenre, readonly string[]> = {
   news: [
     "Crie uma notícia jornalística desenvolvida.",
     "Identifique o tema jornalisticamente mais relevante e organize a informação numa narrativa coerente, em vez de resumir cada fonte separadamente.",
-    "Estruture o resultado com ANTETÍTULO opcional, TÍTULO, PÓS-TÍTULO e CORPO.",
+    "Estruture o resultado com ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO.",
     "O título deve ser informativo, claro e coerente com o tema principal. O pós-título deve acrescentar informação relevante sem repetir o título.",
     "Comece o corpo com um lead que apresente o essencial. Desenvolva depois os factos por ordem de relevância, integrando contexto, declarações e consequências em parágrafos jornalísticos naturais.",
     "Não use listas nem secções chamadas “Factos”, “Interpretação” ou “Conclusão”, salvo indicação expressa do editor.",
@@ -387,7 +544,7 @@ const GENRE_PROMPTS: Record<EditorialSourcePackageGenre, readonly string[]> = {
     "Crie uma breve jornalística.",
     "Identifique o facto mais relevante e concentre o texto nesse acontecimento, usando apenas o contexto indispensável à sua compreensão.",
     "O resultado deve ser curto, direto e informativo, normalmente entre 100 e 180 palavras.",
-    "Estruture o resultado com TÍTULO, PÓS-TÍTULO apenas quando acrescentar informação indispensável e CORPO.",
+    "Estruture o resultado com ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO, mantendo a concisão própria de uma breve.",
     "O corpo deve ter entre dois e quatro parágrafos. Não tente incluir todos os detalhes, antecedentes secundários ou declarações que não acrescentem informação essencial.",
   ],
   analysis: [
@@ -395,7 +552,7 @@ const GENRE_PROMPTS: Record<EditorialSourcePackageGenre, readonly string[]> = {
     "Identifique o problema, tendência ou questão central e construa uma interpretação sustentada nos factos disponíveis.",
     "Vá além da enumeração de acontecimentos, explicando relações, consequências, contradições e elementos de contexto.",
     "Distinga naturalmente factos, declarações, inferências e interpretação jornalística, sem usar essas categorias como títulos de secções.",
-    "Estruture o resultado com ANTETÍTULO opcional, TÍTULO, PÓS-TÍTULO e CORPO.",
+    "Estruture o resultado com ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO.",
     "Abra o corpo com a questão central, desenvolva a análise através dos factos e termine com a consequência, dúvida ou cenário mais relevante, sem fabricar previsões.",
     "Não transforme a interpretação em opinião sem fundamento.",
   ],
@@ -404,7 +561,7 @@ const GENRE_PROMPTS: Record<EditorialSourcePackageGenre, readonly string[]> = {
     "Leia todas as fontes antes de definir a tese. Identifique o problema central e assuma uma posição clara, institucional e argumentada.",
     "A posição deve resultar da apreciação crítica dos factos, sem informação inventada, ataques pessoais ou afirmações que as fontes não sustentem.",
     "Não esconda factos relevantes que contrariem a tese. Reconheça limitações e incertezas materialmente importantes sem abandonar a posição editorial.",
-    "Estruture o resultado com ANTETÍTULO opcional, TÍTULO, PÓS-TÍTULO e CORPO.",
+    "Estruture o resultado com ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO.",
     "Introduza o tema e a posição, desenvolva os argumentos com base nos factos e termine com uma conclusão editorial clara.",
     "Não use a primeira pessoa do singular e não apresente opinião como facto.",
   ],
@@ -475,10 +632,19 @@ export function buildEditorialSourcePackageMarkdown(input: Readonly<{
   const selectedCount = input.entries.length;
   const preparedCount = input.entries.filter((entry) => entry.status === "prepared").length;
   const failedCount = selectedCount - preparedCount;
-  const articleSections = input.entries.map((entry) => (
-    entry.status === "prepared"
-      ? formatPreparedEntry(entry, selectedCount)
-      : formatFailedEntry(entry, selectedCount)
+  const groupedEntries = new Map<number, EditorialSourcePackageEntry[]>();
+
+  for (const entry of input.entries) {
+    const current = groupedEntries.get(entry.articlePosition) ?? [];
+    current.push(entry);
+    groupedEntries.set(entry.articlePosition, current);
+  }
+
+  const articleGroups = [...groupedEntries.entries()]
+    .sort(([left], [right]) => left - right);
+  const articleCount = articleGroups.length;
+  const articleSections = articleGroups.map(([articlePosition, entries]) => (
+    formatArticleGroup(articlePosition, articleCount, entries)
   ));
 
   return [
@@ -488,8 +654,9 @@ export function buildEditorialSourcePackageMarkdown(input: Readonly<{
     "",
     "# FONTES INTEGRAIS",
     "",
-    `**NOTÍCIAS SELECIONADAS:** ${selectedCount}`,
-    `**PREPARADAS INTEGRALMENTE:** ${preparedCount}`,
+    `**FONTES SELECIONADAS:** ${selectedCount}`,
+    `**ARTIGOS FINAIS:** ${articleCount}`,
+    `**FONTES PREPARADAS INTEGRALMENTE:** ${preparedCount}`,
     `**COM FALHA:** ${failedCount}`,
     `**CRIADO EM:** ${input.createdAt}`,
     "",

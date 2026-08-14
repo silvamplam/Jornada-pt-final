@@ -30,6 +30,7 @@ import {
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 
 import SourcePackageSubmitEnhancer from "./_sourcePackageSubmitEnhancer";
+import InboxBulkActions from "./_inboxBulkActions";
 import CurrentFeedReveal from "./_currentFeedReveal";
 import ManualNewsEntryForm from "./_manualNewsEntryForm";
 import styles from "./redacao-automatica.module.css";
@@ -86,6 +87,9 @@ function inboxLabel(article: NewsroomEditorialInboxItem): string {
   if (article.editorial.view === "working") {
     return "Em trabalho";
   }
+  if (article.editorial.view === "used") {
+    return "Utilizada";
+  }
 
   return article.editorial.label === "dismissed" ? "Sem interesse" : "Lida";
 }
@@ -94,20 +98,26 @@ function viewTitle(view: NewsroomEditorialInboxView): string {
   if (view === "working") {
     return "Em trabalho";
   }
+  if (view === "used") {
+    return "Utilizadas";
+  }
   if (view === "archive") {
-    return "Arquivo / contexto";
+    return "Arquivo";
   }
   return "Por rever";
 }
 
 function viewDescription(view: NewsroomEditorialInboxView): string {
   if (view === "working") {
-    return "Notícias que decidiste acompanhar ou usar numa peça.";
+    return "Notícias que decidiste trabalhar agora ou manter disponíveis para um artigo.";
+  }
+  if (view === "used") {
+    return "Fontes que já deram origem a artigos publicados. Mantêm-se acessíveis sem voltar à fila de trabalho.";
   }
   if (view === "archive") {
-    return "Notícias já lidas ou marcadas como sem interesse. Usa-as apenas quando precisares de contexto.";
+    return "Notícias que decidiste não trabalhar neste momento.";
   }
-  return "Apenas notícias ainda não decididas ou alteradas depois de já terem sido lidas.";
+  return "Notícias novas ou atualizadas que ainda precisam de uma decisão editorial.";
 }
 
 const sourcePackageErrorMessages: Record<string, string> = {
@@ -176,9 +186,6 @@ export default async function AutomaticNewsroomPage({
   const visibleArticles = view === "pending"
     ? articles.slice(0, REVIEW_BLOCK_SIZE)
     : articles;
-  const blockItems = view === "pending"
-    ? visibleArticles.filter((article) => article.latestSnapshotId)
-    : [];
   const returnTo = inboxHref(view, period, sourceCode, query);
   const sourcePackageErrorCode = firstQueryValue(params.package_error);
   const sourcePackageErrorMessage = sourcePackageErrorCode
@@ -218,11 +225,11 @@ export default async function AutomaticNewsroomPage({
   const inboxSuccessMessage = inboxState === "close_block"
     ? `Bloco fechado: ${inboxCount} notícias deixaram de estar por rever.`
     : inboxState === "working"
-      ? "Notícia colocada em trabalho."
+      ? `${inboxCount} ${inboxCount === 1 ? "notícia colocada" : "notícias colocadas"} em trabalho.`
       : inboxState === "seen"
         ? "Notícia marcada como lida."
         : inboxState === "dismissed"
-          ? "Notícia marcada como sem interesse e mantida no arquivo."
+          ? `${inboxCount} ${inboxCount === 1 ? "notícia marcada" : "notícias marcadas"} como sem interesse e enviada${inboxCount === 1 ? "" : "s"} para Arquivo.`
           : inboxState === "reopen"
             ? "Notícia devolvida a Por rever."
             : null;
@@ -297,6 +304,9 @@ export default async function AutomaticNewsroomPage({
           <a href={inboxHref("archive", period, sourceCode, query)} data-active={view === "archive"}>
             Arquivo <span>{inboxResult.ok ? inboxResult.value.archiveCount : 0}</span>
           </a>
+          <a href={inboxHref("used", period, sourceCode, query)} data-active={view === "used"}>
+            Utilizadas <span>{inboxResult.ok ? inboxResult.value.usedCount : 0}</span>
+          </a>
         </nav>
 
         <section className={styles.simpleToolbar} aria-labelledby="current-feed-title">
@@ -364,7 +374,9 @@ export default async function AutomaticNewsroomPage({
                 ? "Não há notícias por rever neste período."
                 : view === "working"
                   ? "Não há notícias em trabalho."
-                  : "O arquivo ainda está vazio neste período."}
+                  : view === "used"
+                    ? "Ainda não há fontes utilizadas neste período."
+                    : "O arquivo ainda está vazio neste período."}
           </p>
         ) : (
           <form
@@ -381,29 +393,65 @@ export default async function AutomaticNewsroomPage({
                   : `${articles.length} notícias nesta área`}
               </strong>
               {view === "pending" ? (
-                <span>Decide o que fica em trabalho. No fim, fecha o bloco para não voltares a lê-lo.</span>
+                <span>Marca uma ou várias notícias e decide em conjunto: Em trabalho ou Sem interesse.</span>
               ) : null}
             </div>
 
             <ol className={styles.simpleFeedList} data-current-feed-list>
               {visibleArticles.map((article, index) => (
                 <li key={article.id} data-current-feed-item hidden={view !== "pending" && index >= REVIEW_BLOCK_SIZE}>
-                  <label className={styles.simpleFeedChoice}>
-                    <input
-                      type="checkbox"
-                      name="newsroom_article_id"
-                      value={article.id}
-                      defaultChecked={article.id === requestedArticleId}
-                      disabled={!canUseInSourcePackage(article)}
-                      data-source-package-source
-                    />
-                    <span>Escolher</span>
-                  </label>
-                  <input
-                    type="hidden"
-                    name={`source_snapshot_${article.id}`}
-                    value={article.latestSnapshotId ?? ""}
-                  />
+                  {view === "pending" && article.latestSnapshotId ? (
+                    <label className={styles.simpleFeedChoice}>
+                      <input
+                        type="checkbox"
+                        name="inbox_bulk_item"
+                        value={`${article.id}:${article.latestSnapshotId}`}
+                        data-inbox-bulk-item
+                      />
+                      <span>Selecionar</span>
+                    </label>
+                  ) : view === "working" ? (
+                    <>
+                      <label className={styles.simpleFeedChoice}>
+                        <input
+                          type="checkbox"
+                          name="newsroom_article_id"
+                          value={article.id}
+                          defaultChecked={article.id === requestedArticleId}
+                          disabled={!canUseInSourcePackage(article)}
+                          data-source-package-source
+                          data-source-package-has-image={article.imageUrl ? "1" : "0"}
+                          data-source-package-image-url={article.imageUrl ?? ""}
+                          data-source-package-title={article.title}
+                        />
+                        <span>Escolher</span>
+                      </label>
+                      <input
+                        type="hidden"
+                        name={`source_snapshot_${article.id}`}
+                        value={article.latestSnapshotId ?? ""}
+                      />
+                      <input
+                        type="hidden"
+                        name={`source_image_preferred_${article.id}`}
+                        value=""
+                        data-source-package-image-preference
+                      />
+                      <label
+                        className={styles.sourcePackageGroupChoice}
+                        data-source-package-group-control
+                        hidden
+                      >
+                        <span>Artigo</span>
+                        <select
+                          name={`source_group_${article.id}`}
+                          data-source-package-group
+                          disabled
+                          aria-label={`Artigo final para ${article.title}`}
+                        />
+                      </label>
+                    </>
+                  ) : null}
                   {article.imageUrl ? (
                     <div className={styles.simpleFeedImage}>
                       <img src={article.imageUrl} alt="" loading="lazy" />
@@ -437,72 +485,39 @@ export default async function AutomaticNewsroomPage({
                           Abrir fonte
                         </a>
                       ) : <span />}
-                      {article.latestSnapshotId ? (
+                      {article.latestSnapshotId && view === "working" ? (
                         <div className={styles.inboxCardActions}>
-                          {article.editorial.view !== "working" ? (
-                            <button
-                              type="submit"
-                              name="inbox_action"
-                              value={newsroomEditorialInboxActionValue(
-                                "working",
-                                article.id,
-                                article.latestSnapshotId,
-                              )}
-                              formAction="/api/admin/editorial/redacao-automatica/inbox"
-                              formMethod="post"
-                              formNoValidate
-                            >
-                              Em trabalho
-                            </button>
-                          ) : null}
-                          {article.editorial.view !== "archive" || article.editorial.label !== "seen" ? (
-                            <button
-                              type="submit"
-                              name="inbox_action"
-                              value={newsroomEditorialInboxActionValue(
-                                "seen",
-                                article.id,
-                                article.latestSnapshotId,
-                              )}
-                              formAction="/api/admin/editorial/redacao-automatica/inbox"
-                              formMethod="post"
-                              formNoValidate
-                            >
-                              Lida
-                            </button>
-                          ) : null}
-                          {article.editorial.view !== "archive" || article.editorial.label !== "dismissed" ? (
-                            <button
-                              type="submit"
-                              name="inbox_action"
-                              value={newsroomEditorialInboxActionValue(
-                                "dismissed",
-                                article.id,
-                                article.latestSnapshotId,
-                              )}
-                              formAction="/api/admin/editorial/redacao-automatica/inbox"
-                              formMethod="post"
-                              formNoValidate
-                            >
-                              Sem interesse
-                            </button>
-                          ) : null}
-                          {article.editorial.view === "archive" ? (
-                            <button
-                              type="submit"
-                              name="inbox_action"
-                              value={newsroomEditorialInboxActionValue(
-                                "reopen",
-                                article.id,
-                                article.latestSnapshotId,
-                              )}
-                              formAction="/api/admin/editorial/redacao-automatica/inbox"
-                              formMethod="post"
-                              formNoValidate
-                            >
-                              Voltar a rever
-                            </button>
-                          ) : null}
+                          <button
+                            type="submit"
+                            name="inbox_action"
+                            value={newsroomEditorialInboxActionValue(
+                              "dismissed",
+                              article.id,
+                              article.latestSnapshotId,
+                            )}
+                            formAction="/api/admin/editorial/redacao-automatica/inbox"
+                            formMethod="post"
+                            formNoValidate
+                          >
+                            Sem interesse
+                          </button>
+                        </div>
+                      ) : article.latestSnapshotId && view === "archive" ? (
+                        <div className={styles.inboxCardActions}>
+                          <button
+                            type="submit"
+                            name="inbox_action"
+                            value={newsroomEditorialInboxActionValue(
+                              "reopen",
+                              article.id,
+                              article.latestSnapshotId,
+                            )}
+                            formAction="/api/admin/editorial/redacao-automatica/inbox"
+                            formMethod="post"
+                            formNoValidate
+                          >
+                            Voltar a rever
+                          </button>
                         </div>
                       ) : null}
                     </div>
@@ -513,43 +528,19 @@ export default async function AutomaticNewsroomPage({
 
             {view !== "pending" ? <CurrentFeedReveal total={visibleArticles.length} /> : null}
 
-            {view === "pending" && blockItems.length > 0 ? (
-              <section className={styles.inboxCloseBlock}>
-                {blockItems.map((article) => (
-                  <input
-                    key={article.id}
-                    type="hidden"
-                    name="inbox_block_item"
-                    value={`${article.id}:${article.latestSnapshotId}`}
-                  />
-                ))}
-                <div>
-                  <strong>Terminaste este bloco?</strong>
-                  <span>
-                    As notícias que não colocaste em trabalho passam a lidas e desaparecem de Por rever.
-                  </span>
-                </div>
-                <button
-                  type="submit"
-                  name="inbox_action"
-                  value="close_block"
-                  formAction="/api/admin/editorial/redacao-automatica/inbox"
-                  formMethod="post"
-                  formNoValidate
-                >
-                  Fechar este bloco
-                </button>
-              </section>
-            ) : null}
+            {view === "pending" ? <InboxBulkActions /> : null}
 
-            <section className={styles.simpleInstructions} aria-labelledby="source-package-title">
+
+            {view === "working" ? (
+              <>
+              <section className={styles.simpleInstructions} aria-labelledby="source-package-title">
               <div>
                 <p className={styles.sectionEyebrow}>Pacote editorial de fontes</p>
-                <h2 id="source-package-title">Preparar ficheiro Markdown</h2>
+                <h2 id="source-package-title">Preparar artigos</h2>
                 <p>
-                  Seleciona entre 1 e 20 notícias, escolhe o género e acrescenta a tua orientação.
-                  O sistema junta a instrução de redação às fontes integrais e guarda as imagens
-                  localmente. Nada é enviado à IA.
+                  Seleciona entre 1 e 20 fontes. Cada fonte começa num artigo próprio; quando duas
+                  ou mais tratam a mesma notícia, junta-as no mesmo artigo. O sistema prepara as
+                  fontes integrais e uma imagem por artigo final. Nada é enviado à IA.
                 </p>
               </div>
 
@@ -571,8 +562,20 @@ export default async function AutomaticNewsroomPage({
                   </div>
                 </fieldset>
 
-                <label>
-                  <span>Assunto principal <small>opcional</small></span>
+                <div
+                  className={styles.sourcePackageArticleImages}
+                  data-source-package-image-summary
+                  hidden
+                >
+                  <div className={styles.sourcePackageArticleImagesHeader}>
+                    <strong>Imagens dos artigos</strong>
+                    <span>Quando um artigo tem várias imagens possíveis, podes trocar a escolha automática.</span>
+                  </div>
+                  <div data-source-package-image-summary-list />
+                </div>
+
+                <label data-source-package-suggested-title hidden>
+                  <span>Assunto principal <small>opcional · apenas para um artigo</small></span>
                   <input
                     type="text"
                     name="suggested_title"
@@ -592,13 +595,13 @@ export default async function AutomaticNewsroomPage({
                 </label>
 
                 <p className={styles.sourcePackageEditorialNote}>
-                  O ficheiro começa pela tarefa editorial correspondente ao género escolhido,
-                  seguida do assunto principal, das tuas instruções e das fontes integrais.
+                  O ficheiro mantém cada grupo editorial separado. Um grupo gera um artigo final;
+                  as instruções adicionais aplicam-se ao lote inteiro.
                 </p>
               </div>
 
               <div className={styles.simpleCreateAction}>
-                <span data-source-package-selection-count>0 notícias selecionadas</span>
+                <span data-source-package-selection-count>0 fontes selecionadas</span>
                 <button
                   type="submit"
                   data-source-package-submit
@@ -608,8 +611,10 @@ export default async function AutomaticNewsroomPage({
                 </button>
                 <span data-source-package-submit-status role="status" hidden />
               </div>
-            </section>
-            <SourcePackageSubmitEnhancer />
+              </section>
+              <SourcePackageSubmitEnhancer />
+              </>
+            ) : null}
           </form>
         )}
       </div>

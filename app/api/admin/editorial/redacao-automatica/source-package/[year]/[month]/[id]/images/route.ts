@@ -1,4 +1,5 @@
 import {
+  editorialSourcePackageArticleImageSources,
   editorialSourcePackageImagesFileName,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
@@ -46,18 +47,9 @@ export async function GET(_request: Request, context: RouteContext) {
     );
   }
 
-  const sources = result.value.manifest.entries.flatMap((entry) => (
-    entry.status === "prepared"
-    && typeof entry.imageUrl === "string"
-    && entry.imageUrl.trim()
-      ? [{
-          position: entry.position,
-          sourceCode: entry.sourceCode ?? "fonte",
-          articleTitle: entry.title ?? "noticia",
-          imageUrl: entry.imageUrl,
-        }]
-      : []
-  ));
+  const sources = editorialSourcePackageArticleImageSources(
+    result.value.manifest.entries,
+  );
   const zip = await buildEditorialSourceImagesZip(sources);
 
   if (!zip.ok) {

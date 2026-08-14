@@ -1,29 +1,26 @@
 "use client";
 
-import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
+import { useState, type ClipboardEvent, type KeyboardEvent } from "react";
 
-import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
 import {
-  EDITORIAL_EXTERNAL_ARTICLE_STORAGE_KEY,
-  parseEditorialExternalArticleResponse,
-  storedEditorialExternalArticle,
-  type EditorialExternalArticle,
-  type EditorialExternalArticleImageCandidate,
-  type EditorialExternalArticleSourcePackage,
-} from "@/lib/redacao-automatica/editorial-external-article-import";
+  preflightEditorialArticleBatch,
+} from "@/lib/redacao-automatica/editorial-batch-parser";
+import {
+  EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
+  EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
+  type EditorialBatchTransferSourcePackage,
+} from "@/lib/redacao-automatica/editorial-batch-transfer";
 
 import styles from "./redacao-automatica.module.css";
 
 type SourcePackageActionsProps = Readonly<{
   contentUrl: string;
-  downloadUrl: string;
-  fileName: string;
   genreLabel: string;
   imagesUrl: string;
   imagesFileName: string;
   imageSourceCount: number;
-  imageCandidates: readonly EditorialExternalArticleImageCandidate[];
-  sourcePackage: EditorialExternalArticleSourcePackage;
+  articleCount: number;
+  sourcePackage: EditorialBatchTransferSourcePackage;
 }>;
 
 async function copyText(text: string): Promise<void> {
@@ -49,65 +46,24 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
-function parseErrorMessage(error: string): string {
-  if (error === "response_empty") {
-    return "A resposta está vazia.";
-  }
-  if (error === "title_missing") {
-    return "Não foi encontrado um TÍTULO válido.";
-  }
-  if (error === "body_missing") {
-    return "Não foi encontrado um CORPO válido.";
-  }
-  if (error === "markers_incomplete") {
-    return "A resposta contém apenas um dos marcadores de importação.";
-  }
-  if (error === "field_too_long") {
-    return "A resposta ultrapassa o limite de um dos campos editoriais.";
-  }
-  if (error === "context_post_title_too_long") {
-    return `O pós-título indicado para Contexto ultrapassa ${EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS} caracteres.`;
-  }
-
-  return "A resposta não respeita a estrutura de importação da Jornada.pt.";
-}
-
-function storeArticle(
-  article: EditorialExternalArticle,
-  imageCandidates: readonly EditorialExternalArticleImageCandidate[],
-  sourcePackage: EditorialExternalArticleSourcePackage,
-): void {
-  window.localStorage.setItem(
-    EDITORIAL_EXTERNAL_ARTICLE_STORAGE_KEY,
-    JSON.stringify(storedEditorialExternalArticle(article, Date.now(), {
-      imageCandidates,
-      sourcePackage,
-    })),
-  );
-}
-
-function articlesUrl(): string {
+function batchPublicationUrl(): string {
   return new URL(
-    "/admin/editorial/artigos?import_external=1",
+    "/admin/editorial/redacao-automatica/publicacao-lote",
     window.location.origin,
   ).toString();
 }
 
 export default function SourcePackageActions({
   contentUrl,
-  downloadUrl,
-  fileName,
   genreLabel,
   imagesUrl,
   imagesFileName,
   imageSourceCount,
-  imageCandidates,
+  articleCount,
   sourcePackage,
 }: SourcePackageActionsProps) {
-  const manualResponseRef = useRef<HTMLTextAreaElement | null>(null);
   const [status, setStatus] = useState("");
   const [copying, setCopying] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [manualResponse, setManualResponse] = useState("");
 
   const copyPackage = async () => {
@@ -129,64 +85,39 @@ export default function SourcePackageActions({
       }
 
       await copyText(await response.text());
-      setStatus(`Pacote para ${genreLabel.toLowerCase()} copiado. Já podes trabalhá-lo aqui.`);
+      setStatus(`Pacote para ${genreLabel.toLowerCase()} copiado.`);
     } catch {
-      setStatus("Não foi possível copiar. Descarrega o ficheiro .md.");
+      setStatus("Não foi possível copiar o pacote neste momento.");
     } finally {
       setCopying(false);
     }
   };
 
-  const openArticle = (article: EditorialExternalArticle) => {
-    storeArticle(article, imageCandidates, sourcePackage);
-    setStatus("Notícia preparada para preencher o editor.");
-    window.location.assign(articlesUrl());
-  };
-
   const importText = (text: string): boolean => {
-    const parsed = parseEditorialExternalArticleResponse(text);
+    const preflight = preflightEditorialArticleBatch(text);
 
-    if (!parsed.ok) {
-      setStatus(parseErrorMessage(parsed.error));
+    if (!preflight.ready) {
+      setStatus("A resposta ainda não respeita integralmente o formato JORNADA_ARTIGO_V1.");
       return false;
     }
 
-    openArticle(parsed.value);
+    if (preflight.total !== articleCount) {
+      setStatus(
+        `Este pacote tem ${articleCount} ${articleCount === 1 ? "artigo final" : "artigos finais"}, mas a resposta contém ${preflight.total}.`,
+      );
+      return false;
+    }
+
+    window.sessionStorage.setItem(EDITORIAL_BATCH_TRANSFER_STORAGE_KEY, text);
+    window.sessionStorage.setItem(
+      EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
+      JSON.stringify(sourcePackage),
+    );
+    setStatus(
+      `${articleCount} ${articleCount === 1 ? "artigo reconhecido" : "artigos reconhecidos"}. A abrir Publicação em lote…`,
+    );
+    window.location.assign(batchPublicationUrl());
     return true;
-  };
-
-  const focusManualPaste = () => {
-    window.requestAnimationFrame(() => {
-      manualResponseRef.current?.focus();
-    });
-  };
-
-  const importResponse = async () => {
-    if (importing) {
-      return;
-    }
-
-    if (manualResponse.trim()) {
-      importText(manualResponse);
-      return;
-    }
-
-    setImporting(true);
-    setStatus("A ler a notícia copiada…");
-
-    try {
-      if (!navigator.clipboard?.readText) {
-        throw new Error("clipboard_unavailable");
-      }
-
-      const clipboardText = await navigator.clipboard.readText();
-      importText(clipboardText);
-    } catch {
-      setStatus("O navegador bloqueou a leitura automática. Cola a resposta no campo abaixo; ao colar, os Artigos abrem automaticamente.");
-      focusManualPaste();
-    } finally {
-      setImporting(false);
-    }
   };
 
   const importPastedResponse = (
@@ -199,12 +130,7 @@ export default function SourcePackageActions({
 
     event.preventDefault();
     setManualResponse(pastedText);
-
     importText(pastedText);
-  };
-
-  const importManualResponse = () => {
-    importText(manualResponse);
   };
 
   const handleManualKeyDown = (
@@ -212,21 +138,13 @@ export default function SourcePackageActions({
   ) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
-      importManualResponse();
+      importText(manualResponse);
     }
   };
 
   return (
     <div className={styles.sourcePackageActions}>
       <div className={styles.sourcePackageActionButtons}>
-        <a
-          className={styles.sourcePackageButton}
-          href={downloadUrl}
-          download={fileName}
-          onClick={() => setStatus(`Download de ${fileName} iniciado.`)}
-        >
-          Descarregar .md — {genreLabel}
-        </a>
         {imageSourceCount > 0 ? (
           <a
             className={styles.sourcePackageButton}
@@ -245,46 +163,31 @@ export default function SourcePackageActions({
           onClick={copyPackage}
           disabled={copying}
         >
-          {copying ? "A copiar…" : `Copiar fontes — ${genreLabel}`}
-        </button>
-        <button
-          className={`${styles.sourcePackageButton} ${styles.sourcePackagePrimaryButton}`}
-          type="button"
-          onClick={importResponse}
-          disabled={importing}
-        >
-          {importing ? "A importar…" : "Ler clipboard e abrir Artigos"}
+          {copying ? "A copiar…" : `Copiar pacote para ChatGPT — ${genreLabel}`}
         </button>
       </div>
 
       <label className={styles.sourcePackagePasteField}>
-        <span>Resposta da IA</span>
+        <span>Colar resposta do ChatGPT</span>
         <textarea
-          ref={manualResponseRef}
           value={manualResponse}
           onChange={(event) => setManualResponse(event.target.value)}
           onPaste={importPastedResponse}
           onKeyDown={handleManualKeyDown}
-          rows={7}
-          placeholder="Cola aqui a resposta completa. Ao colar, o editor de Artigos abre automaticamente."
+          rows={9}
+          placeholder={`Cola aqui ${articleCount === 1 ? "o artigo" : `os ${articleCount} artigos`} JORNADA_ARTIGO_V1. Ao colar, o texto segue diretamente para a Publicação em lote.`}
         />
       </label>
 
-      <div className={styles.sourcePackagePasteFooter}>
-        <button
-          className={styles.sourcePackagePasteButton}
-          type="button"
-          onClick={importManualResponse}
-          disabled={!manualResponse.trim()}
-        >
-          Abrir Artigos com o texto colado
-        </button>
-        <small>O botão principal tenta ler o clipboard; se o navegador bloquear, cola aqui. Também podes usar Ctrl+Enter depois de corrigir o texto.</small>
-      </div>
-
-      <p className={styles.sourcePackageActionStatus} role="status" aria-live="polite">
-        {status}
+      <p className={styles.sourcePackagePasteHint}>
+        Cola diretamente no campo. Se corrigires o texto depois de colar, usa Ctrl+Enter para continuar.
       </p>
+
+      {status ? (
+        <p className={styles.sourcePackageActionStatus} role="status" aria-live="polite">
+          {status}
+        </p>
+      ) : null}
     </div>
   );
 }

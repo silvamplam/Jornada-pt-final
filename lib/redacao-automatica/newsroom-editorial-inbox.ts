@@ -12,15 +12,21 @@ import {
   type NewsroomArticleSummary,
 } from "@/lib/redacao-automatica/newsroom-article-repository";
 import {
+  editorialSourcePackageUsedSourceRefs,
+} from "@/lib/redacao-automatica/editorial-source-package-internal";
+import {
   decorateNewsroomEditorialInboxItem,
   type NewsroomEditorialDecision,
   type NewsroomEditorialInboxItem,
   type NewsroomEditorialInboxView,
   type NewsroomEditorialReviewState,
+  type NewsroomEditorialUsedState,
 } from "@/lib/redacao-automatica/newsroom-editorial-inbox-internal";
 
 const STATE_PAGE_SIZE = 1000;
+const PACKAGE_PAGE_SIZE = 1000;
 const ARCHIVE_LIMIT = 100;
+const USED_LIMIT = 100;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -41,6 +47,10 @@ type ReviewStateRow = {
   decision: string;
   reviewed_snapshot_id: string;
   reviewed_at: string;
+};
+
+type SourcePackageRow = {
+  manifest: unknown;
 };
 
 type ApplyReviewRpcRow = {
@@ -64,6 +74,7 @@ export type NewsroomEditorialInboxResult =
         total: number;
         pendingCount: number;
         workingCount: number;
+        usedCount: number;
         archiveCount: number;
       }>;
     }>
@@ -150,6 +161,37 @@ async function readAllReviewStates(): Promise<readonly NewsroomEditorialReviewSt
   }
 }
 
+async function readAllUsedStates(): Promise<readonly NewsroomEditorialUsedState[]> {
+  const newestByArticle = new Map<string, NewsroomEditorialUsedState>();
+  let offset = 0;
+
+  while (true) {
+    const rows = await fetchSupabaseAdminTable<SourcePackageRow>(
+      "newsroom_editorial_source_packages"
+      + "?select=manifest"
+      + `&order=updated_at.desc,id.desc&offset=${offset}&limit=${PACKAGE_PAGE_SIZE}`,
+    );
+
+    for (const row of rows) {
+      for (const reference of editorialSourcePackageUsedSourceRefs(row.manifest)) {
+        const current = newestByArticle.get(reference.newsroomArticleId);
+        if (!current || Date.parse(reference.usedAt) > Date.parse(current.usedAt)) {
+          newestByArticle.set(reference.newsroomArticleId, {
+            articleId: reference.newsroomArticleId,
+            snapshotId: reference.newsroomSnapshotId,
+            usedAt: reference.usedAt,
+          });
+        }
+      }
+    }
+
+    if (rows.length < PACKAGE_PAGE_SIZE) {
+      return [...newestByArticle.values()];
+    }
+    offset += PACKAGE_PAGE_SIZE;
+  }
+}
+
 async function readArticlesByStates(
   states: readonly NewsroomEditorialReviewState[],
 ): Promise<readonly NewsroomArticleSummary[]> {
@@ -159,6 +201,38 @@ async function readArticlesByStates(
   }));
 
   return details.flatMap((detail) => detail ? [detail] : []);
+}
+
+async function readCurrentUsedItems(
+  usedStates: readonly NewsroomEditorialUsedState[],
+): Promise<readonly Readonly<{
+  article: NewsroomArticleSummary;
+  usedState: NewsroomEditorialUsedState;
+}>[]> {
+  type CurrentUsedItem = Readonly<{
+    article: NewsroomArticleSummary;
+    usedState: NewsroomEditorialUsedState;
+  }>;
+
+  const details = await Promise.all(
+    usedStates.map(async (usedState): Promise<CurrentUsedItem | null> => {
+      const result = await getNewsroomArticleById(usedState.articleId);
+      const article = result.ok ? result.value : null;
+
+      if (!article || article.latestSnapshotId !== usedState.snapshotId) {
+        return null;
+      }
+
+      return {
+        article,
+        usedState,
+      };
+    }),
+  );
+
+  return details.filter(
+    (detail): detail is CurrentUsedItem => detail !== null,
+  );
 }
 
 function itemTimestamp(item: NewsroomArticleSummary): number {
@@ -183,8 +257,14 @@ export async function loadNewsroomEditorialInbox(
   options: LoadNewsroomEditorialInboxOptions,
 ): Promise<NewsroomEditorialInboxResult> {
   try {
-    const states = await readAllReviewStates();
+    const [states, usedStates] = await Promise.all([
+      readAllReviewStates(),
+      readAllUsedStates(),
+    ]);
     const statesByArticleId = new Map(states.map((state) => [state.articleId, state]));
+    const usedByArticleId = new Map(usedStates.map((state) => [state.articleId, state]));
+    const currentUsedItems = await readCurrentUsedItems(usedStates);
+    const currentUsedIds = new Set(currentUsedItems.map(({ article }) => article.id));
     const currentResult = options.query
       ? await searchNewsroomArticles({
           query: options.query,
@@ -204,16 +284,39 @@ export async function loadNewsroomEditorialInbox(
       decorateNewsroomEditorialInboxItem(
         article,
         statesByArticleId.get(article.id) ?? null,
+        usedByArticleId.get(article.id) ?? null,
       )
     ));
     const pendingItems = currentItems.filter((item) => item.editorial.view === "pending");
-    const workingStates = states.filter((state) => state.decision === "working");
-    const archivedStates = states.filter((state) => state.decision !== "working");
+    const workingStates = states.filter(
+      (state) => state.decision === "working" && !currentUsedIds.has(state.articleId),
+    );
+    const archivedStates = states.filter(
+      (state) => state.decision !== "working" && !currentUsedIds.has(state.articleId),
+    );
 
     let items: readonly NewsroomEditorialInboxItem[];
 
     if (options.view === "pending") {
       items = pendingItems;
+    } else if (options.view === "used") {
+      items = currentUsedItems
+        .filter(({ article }) => (
+          sourceMatches(article, options.sourceCode)
+          && periodMatches(article, options.periodDays)
+          && (!options.query || currentItems.some((item) => item.id === article.id))
+        ))
+        .map(({ article, usedState }) => decorateNewsroomEditorialInboxItem(
+          article,
+          statesByArticleId.get(article.id) ?? null,
+          usedState,
+        ))
+        .sort((left, right) => (
+          Date.parse(right.usedAt ?? "") - Date.parse(left.usedAt ?? "")
+          || itemTimestamp(right) - itemTimestamp(left)
+          || right.id.localeCompare(left.id)
+        ))
+        .slice(0, USED_LIMIT);
     } else if (options.query) {
       items = currentItems.filter((item) => item.editorial.view === options.view);
     } else {
@@ -229,6 +332,7 @@ export async function loadNewsroomEditorialInbox(
         .map((article) => decorateNewsroomEditorialInboxItem(
           article,
           statesByArticleId.get(article.id) ?? null,
+          usedByArticleId.get(article.id) ?? null,
         ))
         .filter((item) => item.editorial.view === options.view)
         .sort((left, right) => (
@@ -238,8 +342,6 @@ export async function loadNewsroomEditorialInbox(
         ));
     }
 
-    const archiveCount = states.filter((state) => state.decision !== "working").length;
-
     return {
       ok: true,
       value: {
@@ -247,7 +349,8 @@ export async function loadNewsroomEditorialInbox(
         total: items.length,
         pendingCount: pendingItems.length,
         workingCount: workingStates.length,
-        archiveCount,
+        usedCount: currentUsedItems.length,
+        archiveCount: archivedStates.length,
       },
     };
   } catch {
