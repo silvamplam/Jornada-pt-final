@@ -3633,7 +3633,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   );
   const editorial = context.editorial;
   const publishedHeadline = editorial?.status === "published" ? editorial : null;
-  const usePublishedReferenceComposition = context.hasPublishedReferenceComposition;
+  const isManagedByEditorialDesk = context.editorialDeskControl.isManaged;
+  const usePublishedReferenceComposition =
+    context.hasPublishedReferenceComposition && !isManagedByEditorialDesk;
   const useHierarchicalReferenceComposition =
     usePublishedReferenceComposition && context.referenceComposition?.presentation_mode === "hierarchical";
   const hierarchicalEditorial = useHierarchicalReferenceComposition && context.referenceComposition
@@ -3850,6 +3852,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       })).filter((item) => item.title.length > 0);
   const importantNewsItems = resolveMatchdayHorizontalNewsItems({
     hasPublishedReferenceComposition: usePublishedReferenceComposition,
+    isManagedByDesk: isManagedByEditorialDesk,
+    faixaVisible: context.editorialDeskControl.faixaVisible,
     referenceItems: [...(context.referenceSlots.important_item ?? [])]
       .filter(hasReferenceSlotContent)
       .map((item) => ({

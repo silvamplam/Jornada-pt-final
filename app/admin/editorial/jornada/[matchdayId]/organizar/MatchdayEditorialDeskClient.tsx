@@ -4,6 +4,7 @@ import { useMemo, useState, type ChangeEvent, type DragEvent } from "react";
 import {
   MATCHDAY_DESK_GROUPS,
   applyDeskPlacementSelection,
+  buildMatchdayDeskApplyArticles,
   placementGroupForKey,
   placementLabelForKey,
   placeDeskArticleInSlot,
@@ -57,7 +58,14 @@ function isLayoutGroup(group: ReturnType<typeof placementGroupForKey>) {
 export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: MatchdayDeskSnapshot }) {
   const initialDesired = useMemo(() => initialDesiredState(snapshot), [snapshot]);
   const [desired, setDesired] = useState<MatchdayDeskDesiredState>(() => initialDesired);
-  const [faixaVisible, setFaixaVisible] = useState(true);
+  const [baseDesired, setBaseDesired] = useState<MatchdayDeskDesiredState>(() => initialDesired);
+  const [faixaVisible, setFaixaVisible] = useState(snapshot.faixaVisible);
+  const [baseFaixaVisible, setBaseFaixaVisible] = useState(snapshot.faixaVisible);
+  const [revision, setRevision] = useState(snapshot.revision);
+  const [stateToken, setStateToken] = useState(snapshot.stateToken);
+  const [isManaged, setIsManaged] = useState(snapshot.isManaged);
+  const [isApplying, setIsApplying] = useState(false);
+  const [initialConflictsResolved, setInitialConflictsResolved] = useState(false);
   const [history, setHistory] = useState<DeskHistoryEntry[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [destination, setDestination] = useState<DeskDestinationChoice | "">("");
@@ -87,13 +95,18 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
   const pendingArticleCount = useMemo(
     () => snapshot.articles.filter((article) => {
       const state = desired[article.id];
-      const initial = initialDesired[article.id];
+      const initial = baseDesired[article.id];
       return state?.inLatest !== initial?.inLatest || state?.placementKey !== initial?.placementKey;
     }).length,
-    [desired, initialDesired, snapshot.articles],
+    [baseDesired, desired, snapshot.articles],
   );
 
-  const pendingCount = pendingArticleCount + (faixaVisible ? 0 : 1);
+  const pendingCount = pendingArticleCount
+    + (faixaVisible === baseFaixaVisible ? 0 : 1)
+    + (initialConflictsResolved
+      ? 0
+      : snapshot.articles.filter((article) => article.placementConflictKeys.length > 0).length)
+    + (isManaged ? 0 : 1);
 
   function commit(nextDesired: MatchdayDeskDesiredState, nextFaixaVisible = faixaVisible, nextMessage = "") {
     if (desiredStatesEqual(nextDesired, desired) && nextFaixaVisible === faixaVisible) {
@@ -188,15 +201,65 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
   }
 
   function reset() {
-    if (desiredStatesEqual(desired, initialDesired) && faixaVisible) return;
+    if (desiredStatesEqual(desired, baseDesired) && faixaVisible === baseFaixaVisible) return;
     setHistory((items) => [...items, { desired, faixaVisible }]);
-    setDesired(initialDesired);
-    setFaixaVisible(true);
+    setDesired(baseDesired);
+    setFaixaVisible(baseFaixaVisible);
     setMessage("Planeamento reposto no estado atual da jornada.");
   }
 
   function toggleFaixaVisibility() {
     commit(desired, !faixaVisible, !faixaVisible ? "Faixa marcada como pública." : "Faixa marcada como oculta.");
+  }
+
+  async function applyChanges() {
+    if (snapshot.blockedPlacements.length > 0) {
+      setMessage("O Apply está bloqueado até os conteúdos assinalados serem resolvidos no Editorial atual.");
+      return;
+    }
+    if (!stateToken) {
+      setMessage("A infraestrutura da Mesa ainda não está disponível. A migration tem de ser aplicada primeiro.");
+      return;
+    }
+
+    setIsApplying(true);
+    setMessage("A aplicar o estado final da Jornada…");
+    try {
+      const response = await fetch(`/api/admin/editorial/jornada/${snapshot.matchdayId}/organizar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          revision,
+          stateToken,
+          faixaVisible,
+          articles: buildMatchdayDeskApplyArticles(desired),
+        }),
+      });
+      const result = await response.json() as {
+        ok: boolean;
+        message?: string;
+        revision?: number;
+        stateToken?: string;
+      };
+      if (!response.ok || !result.ok || !Number.isSafeInteger(result.revision) || !result.stateToken) {
+        setMessage(result.message ?? "Não foi possível aplicar as alterações da Mesa.");
+        return;
+      }
+
+      setBaseDesired(desired);
+      setBaseFaixaVisible(faixaVisible);
+      setRevision(result.revision as number);
+      setStateToken(result.stateToken);
+      setIsManaged(true);
+      setInitialConflictsResolved(true);
+      setHistory([]);
+      setSelectedIds([]);
+      setMessage("Alterações aplicadas. A página viva usa agora este estado editorial.");
+    } catch {
+      setMessage("Não foi possível contactar a aplicação da Mesa.");
+    } finally {
+      setIsApplying(false);
+    }
   }
 
   const filteredArticles = useMemo(() => {
@@ -412,7 +475,7 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
         {snapshot.blockedPlacements.length > 0 ? (
           <section className="desk-warning">
             <strong>{snapshot.blockedPlacements.length} conteúdos atuais não associados a artigos canónicos</strong>
-            <p>Esta primeira Beta não os altera. Continuam protegidos pelo Editorial atual.</p>
+            <p>O Apply está bloqueado para garantir que nenhum conteúdo é apagado silenciosamente.</p>
           </section>
         ) : null}
       </section>
@@ -420,16 +483,23 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
       <footer className="desk-pending-bar">
         <div>
           <strong>{pendingCount} alterações pendentes</strong>
-          <span>Modo de ensaio: a página viva ainda não é alterada.</span>
+          <span>{isManaged ? `Jornada gerida pela Mesa · revisão ${revision}` : "O primeiro Apply passa a gerir esta Jornada pela Mesa."}</span>
         </div>
         <button type="button" onClick={undo} disabled={history.length === 0}>Desfazer última</button>
-        <button type="button" onClick={reset} disabled={pendingCount === 0}>Limpar alterações</button>
+        <button
+          type="button"
+          onClick={reset}
+          disabled={pendingArticleCount === 0 && faixaVisible === baseFaixaVisible}
+        >
+          Limpar alterações
+        </button>
         <button
           className="apply"
           type="button"
-          onClick={() => setMessage("Modo de ensaio: nenhuma alteração foi gravada. Se esta organização for rápida e intuitiva, ligamos o Aplicar real na etapa seguinte desta branch.")}
+          onClick={applyChanges}
+          disabled={isApplying || pendingCount === 0 || snapshot.blockedPlacements.length > 0 || !stateToken}
         >
-          Aplicar alterações · ensaio
+          {isApplying ? "A aplicar…" : "Aplicar alterações"}
         </button>
       </footer>
     </div>

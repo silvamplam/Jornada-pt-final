@@ -12,11 +12,12 @@ const pageSource = source("app/admin/editorial/jornada/[matchdayId]/organizar/pa
 const editorialSource = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
 const readerSource = source("lib/editorial-matchday-desk.ts");
 
-test("a primeira Mesa Beta é deliberadamente não destrutiva", () => {
-  assert.ok(pageSource.includes("Ensaio não destrutivo"));
-  assert.ok(clientSource.includes("Modo de ensaio"));
-  assert.equal(clientSource.includes("fetch("), false);
-  assert.equal(clientSource.includes("/api/admin/"), false);
+test("a Mesa Beta aplica o estado planeado apenas pela API isolada", () => {
+  assert.equal(pageSource.includes("Modo de ensaio"), false);
+  assert.equal(clientSource.includes("Modo de ensaio"), false);
+  assert.ok(clientSource.includes("fetch("));
+  assert.ok(clientSource.includes("/api/admin/editorial/jornada/"));
+  assert.ok(clientSource.includes("buildMatchdayDeskApplyArticles(desired)"));
 });
 
 test("o Editorial atual apenas ganha uma porta para a Mesa Beta", () => {
@@ -24,12 +25,14 @@ test("o Editorial atual apenas ganha uma porta para a Mesa Beta", () => {
   assert.ok(editorialSource.includes("Organizar Jornada — Beta"));
 });
 
-test("a Mesa lê artigos publicados da jornada e todas as zonas vivas sem escrever", () => {
+test("a Mesa lê artigos publicados, zonas vivas e o controlo de concorrência", () => {
   assert.ok(readerSource.includes("editorial_articles?select="));
   assert.ok(readerSource.includes("matchday_latest_news?select="));
   assert.ok(readerSource.includes("matchday_horizontal_news?select="));
   assert.ok(readerSource.includes("matchday_live_layout_items?select="));
   assert.ok(readerSource.includes("matchday_highlights?select="));
+  assert.ok(readerSource.includes("matchday_editorial_desk_control?select="));
+  assert.ok(readerSource.includes("matchday_editorial_desk_state_token"));
   assert.equal(readerSource.includes("writeSupabaseAdmin"), false);
 });
 
@@ -38,7 +41,7 @@ test("a interface inclui seleção em bloco, Últimas independente, ordenação 
   assert.ok(clientSource.includes("− Últimas"));
   assert.ok(clientSource.includes("Sem colocação total"));
   assert.ok(clientSource.includes("draggable"));
-  assert.ok(clientSource.includes("Aplicar alterações · ensaio"));
+  assert.ok(clientSource.includes('"Aplicar alterações"'));
   assert.ok(clientSource.includes("Faixa de notícias"));
   assert.ok(clientSource.includes("● Pública"));
   assert.ok(clientSource.includes("○ Oculta"));

@@ -585,7 +585,9 @@ export default async function MatchdayEditorialDeskPage({ params }: MatchdayEdit
             <span>{snapshot.matchdayLabel}</span>
             <span>·</span>
             <span>{snapshot.articles.length} {"not\u00edcias"}</span>
-            <span className="desk-mode-badge" title="Ensaio não destrutivo">Modo de ensaio</span>
+            <span className="desk-mode-badge">
+              {snapshot.isManaged ? `Gerida pela Mesa · r${snapshot.revision}` : "Pronta para o primeiro Apply"}
+            </span>
           </div>
         </div>
         <nav>

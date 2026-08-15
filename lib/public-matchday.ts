@@ -72,6 +72,12 @@ export type PublicMatchdayHeadlineMedia = {
   title: string | null;
 };
 
+export type PublicMatchdayEditorialDeskControl = {
+  isManaged: boolean;
+  faixaVisible: boolean;
+  revision: number;
+};
+
 export type PublicMatchdayContext = {
   competition: SupabaseCompetition;
   season: SupabaseSeason;
@@ -88,6 +94,7 @@ export type PublicMatchdayContext = {
   latestNews: SupabaseMatchdayLatestNews[];
   horizontalNews: SupabaseMatchdayHorizontalNews[];
   liveLayoutItems: MatchdayLiveLayoutItem[];
+  editorialDeskControl: PublicMatchdayEditorialDeskControl;
   headlineMedia: PublicMatchdayHeadlineMedia | null;
   complementMedia: PublicMatchdayHeadlineMedia | null;
   referenceComposition: PublicReferenceComposition | null;
@@ -264,6 +271,27 @@ async function readMatchdayLiveLayoutItems(matchdayId: string) {
       matchdayId
     )}&order=created_at.asc`
   ).catch(() => []);
+}
+
+async function readMatchdayEditorialDeskControl(
+  matchdayId: string,
+): Promise<PublicMatchdayEditorialDeskControl> {
+  const rows = await fetchSupabaseAdminTable<{
+    is_managed: boolean;
+    faixa_visible: boolean;
+    revision: number;
+  }>(
+    `matchday_editorial_desk_control?select=is_managed,faixa_visible,revision&matchday_id=eq.${encodeURIComponent(
+      matchdayId,
+    )}&limit=1`,
+  ).catch(() => []);
+  const control = rows[0] ?? null;
+
+  return {
+    isManaged: control?.is_managed === true,
+    faixaVisible: control?.faixa_visible !== false,
+    revision: Number.isSafeInteger(control?.revision) ? control?.revision ?? 0 : 0,
+  };
 }
 
 function groupReferenceCompositionSlots(items: PublicReferenceCompositionItem[]) {
@@ -677,7 +705,7 @@ export async function getPublicMatchdayDiagnostic({
       ...manualParticipants.map((participant) => participant.team_id),
       ...matches.flatMap((match) => [match.home_team_id, match.away_team_id])
     ]);
-    const [broadcastChannels, editorial, highlights, roundupItems, latestNews, horizontalNews, liveLayoutItems, referenceCompositionBundle] = await Promise.all([
+    const [broadcastChannels, editorial, highlights, roundupItems, latestNews, horizontalNews, liveLayoutItems, editorialDeskControl, referenceCompositionBundle] = await Promise.all([
       readBroadcastChannels(matches.map((match) => match.broadcast_channel_id ?? "")),
       readMatchdayEditorial(matchday.id),
       readPublishedMatchdayHighlights(matchday.id),
@@ -685,6 +713,7 @@ export async function getPublicMatchdayDiagnostic({
       readPublishedMatchdayLatestNews(matchday.id),
       readPublishedMatchdayHorizontalNews(matchday.id),
       readMatchdayLiveLayoutItems(matchday.id),
+      readMatchdayEditorialDeskControl(matchday.id),
       readPublishedReferenceCompositionBundle(matchday.id)
     ]);
     const teamsById = byId(teams);
@@ -697,7 +726,9 @@ export async function getPublicMatchdayDiagnostic({
       awayTeam: teamsById.get(match.away_team_id) ?? null,
       broadcastChannel: match.broadcast_channel_id ? broadcastChannelsById.get(match.broadcast_channel_id) ?? null : null
     }));
-    const referenceSlots = referenceCompositionBundle.hasPublishedReferenceComposition
+    const usePublishedReferenceForLivePage =
+      referenceCompositionBundle.hasPublishedReferenceComposition && !editorialDeskControl.isManaged;
+    const referenceSlots = usePublishedReferenceForLivePage
       ? (referenceCompositionBundle.referenceSlots as PublicReferenceCompositionSlots)
       : null;
     const referenceHeadline = referenceSlots
@@ -739,6 +770,7 @@ export async function getPublicMatchdayDiagnostic({
         latestNews,
         horizontalNews,
         liveLayoutItems,
+        editorialDeskControl,
         headlineMedia,
         complementMedia,
         referenceComposition: referenceCompositionBundle.referenceComposition,

@@ -140,8 +140,26 @@ export type MatchdayDeskSnapshot = {
   matchdayLabel: string;
   seasonLabel: string;
   competitionName: string;
+  isManaged: boolean;
+  faixaVisible: boolean;
+  revision: number;
+  stateToken: string | null;
   articles: MatchdayDeskArticle[];
   blockedPlacements: MatchdayDeskBlockedPlacement[];
+};
+
+export type MatchdayDeskApplyArticle = {
+  articleId: string;
+  inLatest: boolean;
+  placementKey: string | null;
+};
+
+export type MatchdayDeskApplyResult = {
+  revision: number;
+  stateToken: string;
+  appliedAt: string;
+  isManaged: true;
+  faixaVisible: boolean;
 };
 
 export function matchdayDeskGroup(groupKey: MatchdayDeskGroupKey) {
@@ -159,6 +177,26 @@ export function placementGroupForKey(placementKey?: string | null): MatchdayDesk
   }
 
   return null;
+}
+
+export function isMatchdayDeskPlacementKey(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (typeof value !== "string") return false;
+  if (/^important_item:[1-9]\d*$/.test(value)) return true;
+
+  return MATCHDAY_DESK_GROUPS.some((group) =>
+    group.key !== "faixa" && group.slots.some((slot) => slot.key === value)
+  );
+}
+
+export function buildMatchdayDeskApplyArticles(
+  state: MatchdayDeskDesiredState,
+): MatchdayDeskApplyArticle[] {
+  return Object.entries(state).map(([articleId, article]) => ({
+    articleId,
+    inLatest: article.inLatest,
+    placementKey: article.placementKey,
+  }));
 }
 
 export function placementLabelForKey(placementKey?: string | null) {

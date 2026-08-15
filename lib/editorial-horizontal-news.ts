@@ -121,14 +121,22 @@ export function buildEditorialHorizontalNewsRows<T>(
 
 export function resolveMatchdayHorizontalNewsItems({
   hasPublishedReferenceComposition,
+  isManagedByDesk = false,
+  faixaVisible = true,
   referenceItems,
   liveItems
 }: {
   hasPublishedReferenceComposition: boolean;
+  isManagedByDesk?: boolean;
+  faixaVisible?: boolean;
   referenceItems: EditorialHorizontalNewsSource[];
   liveItems: EditorialHorizontalNewsSource[];
 }) {
+  if (isManagedByDesk && !faixaVisible) {
+    return [];
+  }
+
   return buildEditorialHorizontalNewsItems(
-    hasPublishedReferenceComposition ? referenceItems : liveItems
+    hasPublishedReferenceComposition && !isManagedByDesk ? referenceItems : liveItems
   );
 }

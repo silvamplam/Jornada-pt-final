@@ -65,7 +65,7 @@ test("os modos são aditivos e os registos existentes ficam standard por default
   assert.match(applySql, /presentation_mode in \('standard', 'hierarchical'\)/i);
   assert.match(publicLoader, /presentation_mode: ReferenceCompositionPresentationMode/);
   assert.match(publicPage, /presentation_mode === "hierarchical"/);
-  assert.match(publicPage, /: editorialVisibility\.showCoverPanel \? \(/);
+  assert.match(publicPage, /\(editorialVisibility\.showCoverPanel \|\| showFourNewsLatestLayout\) \? \(/);
 });
 
 test("um draft standard e um hierarchical coexistem, mas o mesmo modo não duplica", () => {
@@ -488,7 +488,8 @@ test("o Editorial da Jornada é autónomo, persistido na composição e obrigat�
 });
 
 test("a página pública preserva a composição 4+5+3 de Arbitragem e reações", () => {
-  assert.match(renderer, />Arbitragem e reações<\/h2>/);
+  assert.match(renderer, /heading = "Arbitragem e reações"/);
+  assert.match(renderer, /\{heading \? <h2[^>]+>\{heading\}<\/h2> : null\}/);
   assert.match(renderer, /dominant: "secondary_strong_1"/);
   assert.match(renderer, /center: \["secondary_strong_2", "secondary_1", "secondary_2"\]/);
   assert.match(renderer, /side: \["dominant_side_top", "dominant_side_bottom"\]/);
@@ -499,7 +500,8 @@ test("a página pública preserva a composição 4+5+3 de Arbitragem e reações
 });
 
 test("a página pública preserva Outros jogos em 7+5 com duas peças e três compactas", () => {
-  assert.match(renderer, />Outros jogos da jornada<\/h2>/);
+  assert.match(renderer, /heading = "Outros jogos da jornada"/);
+  assert.match(renderer, /\{heading \? <h2[^>]+>\{heading\}<\/h2> : null\}/);
   assert.match(renderer, /primary: "secondary_3"/);
   assert.match(renderer, /second: "secondary_4"/);
   assert.match(renderer, /compact: \["closing_1", "closing_2", "closing_3"\]/);

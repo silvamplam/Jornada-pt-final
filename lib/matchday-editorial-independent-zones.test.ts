@@ -26,7 +26,7 @@ function functionSource(name: string, nextName: string) {
   return apiRouteSource.slice(start, end);
 }
 
-test("backoffice organiza as sete zonas pela ordem publica e mantem a edicao independente", () => {
+test("backoffice organiza as onze zonas pela ordem publica e mantem a edicao independente", () => {
   const zoneMarkers = [
     'id="manchete"',
     'id="ultimas-noticias"',
@@ -34,6 +34,10 @@ test("backoffice organiza as sete zonas pela ordem publica e mantem a edicao ind
     'id="tres-noticias"',
     'id="video"',
     'id="noticia-ao-lado-video"',
+    'id: "layout-4-noticias-ultimas"',
+    'id: "layout-6-noticias"',
+    'id: "layout-5-noticias-equilibrado"',
+    'id: "layout-5-noticias-secundarias"',
     'id="faixa-noticias"'
   ];
   const zoneIndexes = zoneMarkers.map((marker) => adminPageSource.indexOf(marker));
@@ -49,7 +53,11 @@ test("backoffice organiza as sete zonas pela ordem publica e mantem a edicao ind
   assert.match(adminPageSource, /href="#tres-noticias">04 3 notícias<\/a>/);
   assert.match(adminPageSource, /href="#video">05 Vídeo<\/a>/);
   assert.match(adminPageSource, /href="#noticia-ao-lado-video">06 Ao lado do vídeo<\/a>/);
-  assert.match(adminPageSource, /href="#faixa-noticias">07 Faixa de notícias<\/a>/);
+  assert.match(adminPageSource, /href="#layout-4-noticias-ultimas"[^>]*>07 4 notícias \+ Últimas<\/a>/);
+  assert.match(adminPageSource, /href="#layout-6-noticias"[^>]*>08 6 notícias<\/a>/);
+  assert.match(adminPageSource, /href="#layout-5-noticias-equilibrado"[^>]*>09 5 notícias 1D\+1S\+3C<\/a>/);
+  assert.match(adminPageSource, /href="#layout-5-noticias-secundarias"[^>]*>10 5 notícias 1D\+4S<\/a>/);
+  assert.match(adminPageSource, /href="#faixa-noticias">11 Faixa de notícias<\/a>/);
 
   assert.match(
     adminPageSource,

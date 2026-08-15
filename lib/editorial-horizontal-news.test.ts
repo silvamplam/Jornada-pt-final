@@ -161,6 +161,33 @@ test("resolveMatchdayHorizontalNewsItems preserva a fotografia da composicao pub
   );
 });
 
+test("a Mesa gerida dá precedência à Faixa viva e pode ocultá-la sem apagar itens", () => {
+  const referenceItems = [{ id: "reference", title: "Faixa da composição", sortOrder: 1 }];
+  const liveItems = [{ id: "live", title: "Faixa viva", sortOrder: 1 }];
+
+  assert.equal(
+    resolveMatchdayHorizontalNewsItems({
+      hasPublishedReferenceComposition: true,
+      isManagedByDesk: true,
+      faixaVisible: true,
+      referenceItems,
+      liveItems,
+    })[0]?.id,
+    "live",
+  );
+  assert.deepEqual(
+    resolveMatchdayHorizontalNewsItems({
+      hasPublishedReferenceComposition: true,
+      isManagedByDesk: true,
+      faixaVisible: false,
+      referenceItems,
+      liveItems,
+    }),
+    [],
+  );
+  assert.equal(liveItems.length, 1);
+});
+
 
 
 test("resolveMatchdayHorizontalNewsItems respeita uma composicao publicada sem itens na faixa", () => {
