@@ -9,6 +9,7 @@ function source(relativePath: string) {
 
 const hierarchyModel = source("lib/editorial-hierarchical-composition.ts");
 const transferFlow = source("lib/editorial-matchday-news-flow.ts");
+const compositionSync = source("lib/editorial-current-reference-composition-sync.ts");
 const publicLoader = source("lib/public-matchday.ts");
 const publicPage = source("app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx");
 const publicRenderer = source("components/public/PublicHierarchicalComposition.tsx");
@@ -41,13 +42,18 @@ test("a Jornada viva reutiliza apenas os três layouts hierárquicos pedidos", (
   assert.doesNotMatch(hierarchyModel, /live_hierarchical:dominant_main|live_hierarchical:other_chronicle_/);
 });
 
-test("o estado vivo usa as tabelas existentes e fica isolado pela composição standard current", () => {
-  assert.match(transferFlow, /presentation_mode=eq\.standard/);
+test("o estado vivo usa a composição publicada current sem exigir o modo standard", () => {
+  assert.match(transferFlow, /status=eq\.published&is_current=is\.true&order=published_at\.desc\.nullslast&limit=1/);
+  assert.doesNotMatch(transferFlow, /presentation_mode=eq\.standard/);
+  assert.doesNotMatch(editorialAdmin, /presentation_mode=eq\.standard/);
   assert.match(transferFlow, /matchday_hierarchical_composition_slots/);
   assert.match(transferFlow, /matchday_reference_composition_items/);
   assert.match(transferFlow, /slot_type=eq\.beyond_matchday/);
   assert.match(transferFlow, /live:\$\{position\?\.transferSlotType \?\? slotType\}:/);
   assert.match(publicLoader, /hierarchicalCompositionSlots = await fetchSupabaseAdminTable<HierarchicalCompositionSlot>/);
+  assert.match(editorialAdmin, /Estes lugares ficam disponíveis quando existir uma composição publicada e atual para esta Jornada\./);
+  assert.doesNotMatch(editorialAdmin, /composição standard publicada desta Jornada/);
+  assert.match(compositionSync, /presentation_mode=eq\.standard/);
   assert.doesNotMatch(transferFlow, /create table|alter table/i);
 });
 

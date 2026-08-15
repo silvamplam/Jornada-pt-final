@@ -578,7 +578,7 @@ function fallbackProjectionForZone(
   return { ...occupant, articleId: null };
 }
 
-type CurrentStandardCompositionRow = {
+type CurrentLiveCompositionRow = {
   id: string;
 };
 
@@ -605,11 +605,11 @@ type LiveBeyondMatchdayRow = {
   link_url_snapshot: string | null;
 };
 
-async function readCurrentStandardCompositionId(matchdayId: string) {
-  const rows = await fetchSupabaseAdminTable<CurrentStandardCompositionRow>(
+async function readCurrentLiveCompositionId(matchdayId: string) {
+  const rows = await fetchSupabaseAdminTable<CurrentLiveCompositionRow>(
     `matchday_reference_compositions?select=id&matchday_id=eq.${encodeURIComponent(
       matchdayId,
-    )}&status=eq.published&is_current=is.true&presentation_mode=eq.standard&order=published_at.desc.nullslast&limit=1`,
+    )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast&limit=1`,
   ).catch(() => []);
   return rows[0]?.id ?? null;
 }
@@ -634,7 +634,7 @@ async function readLiveLayoutRow(
   matchdayId: string,
   slotType: LiveMatchdayHierarchicalTransferSlotType,
 ) {
-  const compositionId = await readCurrentStandardCompositionId(matchdayId);
+  const compositionId = await readCurrentLiveCompositionId(matchdayId);
   if (!compositionId) return { compositionId: null, row: null as LiveHierarchicalSlotRow | LiveBeyondMatchdayRow | null };
 
   const position = liveMatchdayHierarchicalLayoutPosition(slotType);
@@ -678,7 +678,7 @@ async function writeProjectionToLiveLayoutSlot(
   if (!compositionId) {
     throw new EditorialMatchdayNewsFlowError(
       "news-flow-live-layout-unavailable",
-      "Os layouts da atualidade só estão disponíveis enquanto a composição standard desta jornada estiver ativa.",
+      "Os layouts da atualidade só estão disponíveis enquanto existir uma composição publicada e atual para esta jornada.",
     );
   }
 

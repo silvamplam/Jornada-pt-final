@@ -1161,7 +1161,7 @@ async function readPublishedEditorialArticles(): Promise<EditorialArticleForSide
   ).catch(() => []);
 }
 
-type CurrentStandardLiveLayoutComposition = {
+type CurrentLiveLayoutComposition = {
   id: string;
 };
 
@@ -1196,10 +1196,10 @@ type LiveMatchdayHierarchicalLayoutState = {
 async function readLiveMatchdayHierarchicalLayoutState(
   matchdayId: string,
 ): Promise<LiveMatchdayHierarchicalLayoutState> {
-  const composition = await readFirst<CurrentStandardLiveLayoutComposition>(
+  const composition = await readFirst<CurrentLiveLayoutComposition>(
     `matchday_reference_compositions?select=id&matchday_id=eq.${encodeURIComponent(
       matchdayId
-    )}&status=eq.published&is_current=is.true&presentation_mode=eq.standard&order=published_at.desc.nullslast`
+    )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast`
   ).catch(() => null);
 
   if (!composition) {
@@ -2983,7 +2983,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
           </p>
           {!liveHierarchicalLayoutState.compositionId ? (
             <p className="editorial-admin-muted">
-              Estes lugares ficam disponíveis quando a composição standard publicada desta Jornada estiver ativa.
+              Estes lugares ficam disponíveis quando existir uma composição publicada e atual para esta Jornada.
             </p>
           ) : (
             <div className="editorial-admin-compact-stack">
