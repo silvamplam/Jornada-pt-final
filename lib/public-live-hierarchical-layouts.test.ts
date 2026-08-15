@@ -76,6 +76,8 @@ test("os layouts públicos são flexíveis, a zona 4+Últimas é condicional e a
   assert.match(publicPage, /latestZonePlacement === "four_news"/);
   assert.match(publicPage, /<PublicFourNewsLatestLayout/);
   assert.match(fourNewsRenderer, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.doesNotMatch(fourNewsRenderer, /grid-template-rows: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(fourNewsRenderer, /\.public-four-news-card \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(fourNewsRenderer, /<PublicLatestNewsBlock/);
   assert.match(publicEditorial, /!hasRoundupSummary \? midContent : null/);
   assert.match(publicEditorial, /hasRoundupSummary \? midContent : null/);
@@ -98,16 +100,25 @@ test("as posições reutilizadas entram no mesmo motor de transferências já us
   assert.match(editorialAdmin, /newsDisplacedTargetOptionsForSource\(position\.transferSlotType, occupant\.id\)/);
 });
 
-test("o backoffice identifica as zonas vivas apenas por quantidade e hierarquia", () => {
-  assert.match(editorialAdmin, /href="#layout-6-noticias"/);
-  assert.match(editorialAdmin, /href="#layout-5-noticias-equilibrado"/);
-  assert.match(editorialAdmin, /href="#layout-5-noticias-secundarias"/);
-  assert.match(editorialAdmin, /href="#layout-4-noticias-ultimas"/);
+test("o backoffice respeita a ordem hierárquica das zonas vivas e deixa a Faixa por último", () => {
+  assert.match(editorialAdmin, />07 4 notícias \+ Últimas<\/a>/);
+  assert.match(editorialAdmin, />08 6 notícias<\/a>/);
+  assert.match(editorialAdmin, />09 5 notícias 1D\+1S\+3C<\/a>/);
+  assert.match(editorialAdmin, />10 5 notícias 1D\+4S<\/a>/);
   assert.match(editorialAdmin, />11 Faixa de notícias<\/a>/);
+  assert.match(hierarchyModel, /4 notícias \+ Últimas — notícia 1/);
   assert.match(hierarchyModel, /6 notícias \(1 dominante · 3 secundárias · 2 complementares\)/);
   assert.match(hierarchyModel, /5 notícias \(1 dominante · 1 secundária · 3 complementares\)/);
   assert.match(hierarchyModel, /5 notícias \(1 dominante · 4 secundárias\)/);
-  assert.match(hierarchyModel, /4 notícias \(equivalentes\)/);
+
+  const transferStart = editorialAdmin.indexOf("const newsTransferTargetOptions");
+  const displacedStart = editorialAdmin.indexOf("function newsDisplacedTargetOptionsForSource", transferStart);
+  const transferBlock = editorialAdmin.slice(transferStart, displacedStart);
+  assert.ok(transferBlock.indexOf("LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach") < transferBlock.indexOf('targetSlotType: "important_item"'));
+
+  const displacedEnd = editorialAdmin.indexOf("const highlightsEditor", displacedStart);
+  const displacedBlock = editorialAdmin.slice(displacedStart, displacedEnd);
+  assert.ok(displacedBlock.indexOf("LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach") < displacedBlock.indexOf('sourceSlotType === "important_item"'));
 });
 
 test("a página viva e a composição hierárquica anulam sombras nas zonas de conteúdo", () => {

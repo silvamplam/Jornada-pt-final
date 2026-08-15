@@ -1539,6 +1539,20 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
       : null
   });
 
+  LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
+    const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
+    newsTransferTargetOptions.push({
+      targetSlotType: position.transferSlotType,
+      targetId: occupant?.id ?? null,
+      label: occupant
+        ? `${position.publicName} — substituir “${shortTransferTitle(occupant.title)}”`
+        : position.publicName,
+      confirmMessage: occupant
+        ? "Esta posição do layout da atualidade está ocupada. Escolhe para onde vai a notícia atual antes de concluir a transferência."
+        : null,
+    });
+  });
+
   newsTransferTargetOptions.push({
     targetSlotType: "important_item",
     targetId: null,
@@ -1555,20 +1569,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         confirmMessage: "A posição escolhida na Faixa está ocupada. Escolhe para onde vai a notícia atual antes de concluir a transferência."
       });
     });
-
-  LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
-    const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
-    newsTransferTargetOptions.push({
-      targetSlotType: position.transferSlotType,
-      targetId: occupant?.id ?? null,
-      label: occupant
-        ? `${position.publicName} — substituir “${shortTransferTitle(occupant.title)}”`
-        : position.publicName,
-      confirmMessage: occupant
-        ? "Esta posição do layout da atualidade está ocupada. Escolhe para onde vai a notícia atual antes de concluir a transferência."
-        : null,
-    });
-  });
 
   function newsDisplacedTargetOptionsForSource(
     sourceSlotType: EditorialMatchdayTransferSlotType,
@@ -1620,18 +1620,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
       options.push({ value: "complement::", label: "Notícia ao lado do vídeo" });
     }
 
-    if (sourceSlotType === "important_item") {
-      const sourceHorizontal = horizontalNews.find((item) => item.id === sourceId) ?? null;
-      options.push({
-        value: "important_item::",
-        label: sourceHorizontal
-          ? `Faixa — posição de origem #${paddedOrder(sourceHorizontal.sort_order)}`
-          : "Faixa — posição de origem"
-      });
-    } else {
-      options.push({ value: "important_item::", label: "Faixa de notícias — acrescentar" });
-    }
-
     LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
       const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
       if (sourceSlotType === position.transferSlotType) {
@@ -1646,6 +1634,18 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         });
       }
     });
+
+    if (sourceSlotType === "important_item") {
+      const sourceHorizontal = horizontalNews.find((item) => item.id === sourceId) ?? null;
+      options.push({
+        value: "important_item::",
+        label: sourceHorizontal
+          ? `Faixa — posição de origem #${paddedOrder(sourceHorizontal.sort_order)}`
+          : "Faixa — posição de origem"
+      });
+    } else {
+      options.push({ value: "important_item::", label: "Faixa de notícias — acrescentar" });
+    }
 
     return options;
   }
@@ -2247,10 +2247,10 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         <a href="#tres-noticias">04 3 notícias</a>
         <a href="#video">05 Vídeo</a>
         <a href="#noticia-ao-lado-video">06 Ao lado do vídeo</a>
-        <a href="#layout-6-noticias" title="1 dominante · 3 secundárias · 2 complementares">07 6 notícias</a>
-        <a href="#layout-5-noticias-equilibrado" title="1 dominante · 1 secundária · 3 complementares">08 5 notícias 1D+1S+3C</a>
-        <a href="#layout-5-noticias-secundarias" title="1 dominante · 4 secundárias">09 5 notícias 1D+4S</a>
-        <a href="#layout-4-noticias-ultimas" title="4 notícias equivalentes + Últimas">10 4 notícias + Últimas</a>
+        <a href="#layout-4-noticias-ultimas" title="4 notícias + Últimas">07 4 notícias + Últimas</a>
+        <a href="#layout-6-noticias" title="1 dominante · 3 secundárias · 2 complementares">08 6 notícias</a>
+        <a href="#layout-5-noticias-equilibrado" title="1 dominante · 1 secundária · 3 complementares">09 5 notícias 1D+1S+3C</a>
+        <a href="#layout-5-noticias-secundarias" title="1 dominante · 4 secundárias">10 5 notícias 1D+4S</a>
         <a href="#faixa-noticias">11 Faixa de notícias</a>
       </nav>
 
@@ -2879,10 +2879,10 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
           </p>
           <div className="editorial-admin-compact-stack">
             {[
+              { key: "four_news", id: "layout-4-noticias-ultimas", title: "4 notícias + Últimas — 4 notícias equivalentes" },
               { key: "six_news", id: "layout-6-noticias", title: "6 notícias — 1 dominante · 3 secundárias · 2 complementares" },
               { key: "five_news_balanced", id: "layout-5-noticias-equilibrado", title: "5 notícias — 1 dominante · 1 secundária · 3 complementares" },
               { key: "five_news_secondary", id: "layout-5-noticias-secundarias", title: "5 notícias — 1 dominante · 4 secundárias" },
-              { key: "four_news", id: "layout-4-noticias-ultimas", title: "4 notícias — equivalentes + Últimas" },
             ].map((group) => (
               <div className="editorial-admin-subpanel" id={group.id} key={group.key}>
                 <h3>{group.title}</h3>

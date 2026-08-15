@@ -30,31 +30,24 @@ const styles = `
     display: grid;
     grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
     gap: 24px;
-    align-items: stretch;
+    align-items: start;
     min-width: 0;
   }
 
   .public-four-news-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    gap: 18px;
+    gap: 22px 18px;
+    align-content: start;
     min-width: 0;
   }
 
   .public-four-news-card {
     display: grid;
-    grid-template-columns: minmax(118px, 0.9fr) minmax(0, 1.25fr);
-    gap: 12px;
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    align-content: start;
     min-width: 0;
-    padding-bottom: 14px;
-    border-bottom: 1px solid #dfe5eb;
-  }
-
-  .public-four-news-card:nth-last-child(-n + 2) {
-    padding-bottom: 0;
-    border-bottom: 0;
   }
 
   .public-four-news-media {
@@ -75,7 +68,7 @@ const styles = `
 
   .public-four-news-copy {
     display: grid;
-    gap: 5px;
+    gap: 6px;
     align-content: start;
     min-width: 0;
   }
@@ -116,25 +109,13 @@ const styles = `
 
   .public-four-news-latest-column {
     min-width: 0;
-    min-height: 0;
     padding-left: 20px;
     border-left: 1px solid #dfe5eb;
   }
 
   .public-four-news-latest-column > .public-matchday-news {
-    height: 100%;
-    max-height: 100%;
-    min-height: 0;
-    box-sizing: border-box;
-    overflow: hidden;
     padding: 0;
     border: 0;
-  }
-
-  .public-four-news-latest-column .public-news-list {
-    max-height: 100%;
-    overflow-y: auto;
-    scrollbar-width: thin;
   }
 
   @media (max-width: 980px) {
@@ -153,18 +134,6 @@ const styles = `
   @media (max-width: 680px) {
     .public-four-news-grid {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: none;
-    }
-
-    .public-four-news-card,
-    .public-four-news-card:nth-last-child(-n + 2) {
-      padding-bottom: 14px;
-      border-bottom: 1px solid #dfe5eb;
-    }
-
-    .public-four-news-card:last-child {
-      padding-bottom: 0;
-      border-bottom: 0;
     }
   }
 `;

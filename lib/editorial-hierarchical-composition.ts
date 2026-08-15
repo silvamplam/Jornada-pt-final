@@ -107,6 +107,34 @@ export type HierarchicalBeyondMatchdayPosition =
 
 export const LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS = [
   {
+    transferSlotType: "live_four_news:1",
+    storage: "four_news",
+    sortOrder: 1,
+    group: "four_news",
+    publicName: "4 notícias + Últimas — notícia 1",
+  },
+  {
+    transferSlotType: "live_four_news:2",
+    storage: "four_news",
+    sortOrder: 2,
+    group: "four_news",
+    publicName: "4 notícias + Últimas — notícia 2",
+  },
+  {
+    transferSlotType: "live_four_news:3",
+    storage: "four_news",
+    sortOrder: 3,
+    group: "four_news",
+    publicName: "4 notícias + Últimas — notícia 3",
+  },
+  {
+    transferSlotType: "live_four_news:4",
+    storage: "four_news",
+    sortOrder: 4,
+    group: "four_news",
+    publicName: "4 notícias + Últimas — notícia 4",
+  },
+  {
     transferSlotType: "live_hierarchical:secondary_strong_1",
     storage: "hierarchical",
     slotKey: "secondary_strong_1",
@@ -192,34 +220,6 @@ export const LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS = [
       ? "5 notícias (1 dominante · 4 secundárias) — dominante"
       : `5 notícias (1 dominante · 4 secundárias) — secundária ${position.sortOrder - 1}`,
   })),
-  {
-    transferSlotType: "live_four_news:1",
-    storage: "four_news",
-    sortOrder: 1,
-    group: "four_news",
-    publicName: "4 notícias (equivalentes) — notícia 1",
-  },
-  {
-    transferSlotType: "live_four_news:2",
-    storage: "four_news",
-    sortOrder: 2,
-    group: "four_news",
-    publicName: "4 notícias (equivalentes) — notícia 2",
-  },
-  {
-    transferSlotType: "live_four_news:3",
-    storage: "four_news",
-    sortOrder: 3,
-    group: "four_news",
-    publicName: "4 notícias (equivalentes) — notícia 3",
-  },
-  {
-    transferSlotType: "live_four_news:4",
-    storage: "four_news",
-    sortOrder: 4,
-    group: "four_news",
-    publicName: "4 notícias (equivalentes) — notícia 4",
-  },
 ] as const;
 
 export type LiveMatchdayHierarchicalLayoutPosition =
