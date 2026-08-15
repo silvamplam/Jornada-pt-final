@@ -4,7 +4,6 @@ import { useMemo, useState, type ChangeEvent, type DragEvent } from "react";
 import {
   MATCHDAY_DESK_GROUPS,
   applyDeskPlacementSelection,
-  moveDeskArticleWithinPlacementGroup,
   placementGroupForKey,
   placementLabelForKey,
   placeDeskArticleInSlot,
@@ -169,14 +168,6 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
     commit(next, faixaVisible, "As selecionadas ficam em Sem colocação no estado planeado.");
   }
 
-  function moveArticle(articleId: string, direction: "up" | "down") {
-    commit(
-      moveDeskArticleWithinPlacementGroup(desired, articleId, direction),
-      faixaVisible,
-      "Ordem atualizada no estado planeado.",
-    );
-  }
-
   function dropOnSlot(targetPlacementKey: string) {
     if (!draggedArticleId) return;
     commit(
@@ -251,11 +242,7 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
         onDragEnd={() => setDraggedArticleId(null)}
       >
         <strong>{article.title}</strong>
-        <div className="desk-slot-actions">
-          <button type="button" onClick={() => moveArticle(articleId, "up")} aria-label="Mover para posição anterior">↑</button>
-          <button type="button" onClick={() => moveArticle(articleId, "down")} aria-label="Mover para posição seguinte">↓</button>
-          <span>arrastar</span>
-        </div>
+        <span className="desk-drag-hint">arrastar</span>
         <div
           className="desk-slot-drop-target"
           onDragOver={(event: DragEvent<HTMLDivElement>) => event.preventDefault()}
@@ -393,7 +380,7 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
 
         {MATCHDAY_DESK_GROUPS.filter((group) => group.key !== "faixa").map(renderFixedGroup)}
 
-        <section className={`desk-zone desk-faixa ${faixaVisible ? "" : "hidden-zone"}`}>
+        <section aria-label="Faixa de notícias" className={`desk-zone desk-faixa ${faixaVisible ? "" : "hidden-zone"}`}>
           <header>
             <div>
               <h3>Faixa de notícias</h3>

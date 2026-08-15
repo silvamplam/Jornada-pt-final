@@ -5,6 +5,7 @@ import {
   applyDeskPlacementSelection,
   moveDeskArticleWithinPlacementGroup,
   placementGroupForKey,
+  placementLabelForKey,
   placeDeskArticleInSlot,
   setDeskLatestMembership,
   swapDeskArticleToSlot,
@@ -83,4 +84,33 @@ test("uma noticia pode ir diretamente para um slot especifico", () => {
   assert.equal(occupied.a.placementKey, "live_four_news:2");
   assert.equal(occupied.c.placementKey, null);
   assert.equal(occupied.a.inLatest, true);
+});
+test("as etiquetas da Mesa sao compactas e nao repetem a zona", () => {
+  assert.equal(placementLabelForKey("headline"), "Manchete");
+  assert.equal(placementLabelForKey("side_block"), "Contexto");
+  assert.equal(
+    placementLabelForKey("highlight:2"),
+    "3 not\u00edcias \u00b7 Posi\u00e7\u00e3o 2",
+  );
+  assert.equal(placementLabelForKey("complement"), "Ao lado do v\u00eddeo");
+  assert.equal(
+    placementLabelForKey("live_four_news:1"),
+    "4 not\u00edcias \u00b7 Posi\u00e7\u00e3o 1",
+  );
+  assert.equal(
+    placementLabelForKey("live_hierarchical:secondary_strong_1"),
+    "6 not\u00edcias \u00b7 Dominante",
+  );
+  assert.equal(
+    placementLabelForKey("live_hierarchical:closing_1"),
+    "5 not\u00edcias \u00b7 1D + 1S + 3C \u00b7 Complementar 1",
+  );
+  assert.equal(
+    placementLabelForKey("live_beyond_matchday:2"),
+    "5 not\u00edcias \u00b7 1D + 4S \u00b7 Secund\u00e1ria 1",
+  );
+  assert.equal(
+    placementLabelForKey("important_item:3"),
+    "Faixa \u00b7 posi\u00e7\u00e3o 3",
+  );
 });

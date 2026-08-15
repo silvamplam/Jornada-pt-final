@@ -27,15 +27,25 @@ export type MatchdayDeskGroupDefinition = {
   slots: MatchdayDeskSlotDefinition[];
 };
 
-function liveSlots(group: string) {
-  return LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS
-    .filter((position) => position.group === group)
-    .map((position) => ({
-      key: position.transferSlotType,
-      label: position.publicName.split("—").at(-1)?.trim() || position.publicName,
-    }));
+function capitalizeDeskSlotLabel(label: string) {
+  const trimmed = label.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toLocaleUpperCase("pt-PT") + trimmed.slice(1);
 }
 
+function liveSlots(group: string) {
+  const positions = LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS
+    .filter((position) => position.group === group);
+
+  return positions.map((position, index) => ({
+    key: position.transferSlotType,
+    label: group === "four_news"
+      ? `Posi\u00e7\u00e3o ${index + 1}`
+      : capitalizeDeskSlotLabel(
+          position.publicName.split("\u2014").at(-1) ?? position.publicName,
+        ),
+  }));
+}
 export const MATCHDAY_DESK_GROUPS: MatchdayDeskGroupDefinition[] = [
   {
     key: "headline",
@@ -55,7 +65,7 @@ export const MATCHDAY_DESK_GROUPS: MatchdayDeskGroupDefinition[] = [
     description: "Três notícias imediatamente abaixo da manchete.",
     slots: [1, 2, 3].map((order) => ({
       key: `highlight:${order}`,
-      label: `Notícia ${order}`,
+      label: `Posi\u00e7\u00e3o ${order}`,
     })),
   },
   {
@@ -152,20 +162,32 @@ export function placementGroupForKey(placementKey?: string | null): MatchdayDesk
 }
 
 export function placementLabelForKey(placementKey?: string | null) {
-  if (!placementKey) return "Sem colocação editorial";
+  if (!placementKey) return "Sem coloca\u00e7\u00e3o editorial";
+
   if (placementKey.startsWith("important_item:")) {
     const order = Number(placementKey.split(":")[1]);
-    return Number.isInteger(order) && order > 0 ? `Faixa · posição ${order}` : "Faixa";
+    return Number.isInteger(order) && order > 0
+      ? `Faixa \u00b7 posi\u00e7\u00e3o ${order}`
+      : "Faixa";
   }
 
   for (const group of MATCHDAY_DESK_GROUPS) {
     const slot = group.slots.find((candidate) => candidate.key === placementKey);
-    if (slot) return `${group.label} · ${slot.label}`;
+    if (!slot) continue;
+
+    if (group.slots.length === 1) {
+      return group.label;
+    }
+
+    if (group.key === "four_news") {
+      return `4 not\u00edcias \u00b7 ${slot.label}`;
+    }
+
+    return `${group.label} \u00b7 ${slot.label}`;
   }
 
   return placementKey;
 }
-
 function cloneDesiredState(state: MatchdayDeskDesiredState): MatchdayDeskDesiredState {
   return Object.fromEntries(
     Object.entries(state).map(([articleId, article]) => [articleId, { ...article }]),
