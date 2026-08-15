@@ -87,3 +87,50 @@ test("Últimas mantém o antetítulo com hora numa única linha", () => {
     /\.public-news-list time \{[\s\S]*?max-width:\s*100%;[\s\S]*?overflow:\s*hidden;[\s\S]*?text-overflow:\s*ellipsis;[\s\S]*?white-space:\s*nowrap;/,
   );
 });
+
+test("o destino da notícia substituída não depende do primeiro binding JavaScript para ser submetido", () => {
+  assert.ok(
+    editorialPageSource.includes(
+      'className="editorial-admin-displaced-target" data-displaced-target-field',
+    ),
+  );
+
+  assert.ok(
+    editorialPageSource.includes(
+      '@supports selector(.editorial-admin-transfer:has(option:checked))',
+    ),
+  );
+
+  assert.ok(
+    editorialPageSource.includes(
+      ':has(option[data-target-occupied="1"]:checked)',
+    ),
+  );
+
+  assert.equal(
+    editorialPageSource.includes(
+      'name="displaced_target_choice" defaultValue="" disabled',
+    ),
+    false,
+  );
+
+  assert.equal(
+    editorialPageSource.includes(
+      "displacedSelect.disabled = !needsDisplacedDestination",
+    ),
+    false,
+  );
+
+  assert.equal(
+    editorialPageSource.includes(
+      "displacedField.hidden = !needsDisplacedDestination",
+    ),
+    false,
+  );
+
+  assert.ok(
+    editorialPageSource.includes(
+      "displacedSelect.required = needsDisplacedDestination",
+    ),
+  );
+});

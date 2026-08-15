@@ -795,6 +795,21 @@ const editorialPageStyles = `
     font: inherit;
   }
 
+  .editorial-admin-displaced-target {
+    display: grid;
+  }
+
+  @supports selector(.editorial-admin-transfer:has(option:checked)) {
+    .editorial-admin-displaced-target {
+      display: none;
+    }
+
+    .editorial-admin-transfer:has(option[data-target-occupied="1"]:checked)
+      .editorial-admin-displaced-target {
+      display: grid;
+    }
+  }
+
   .editorial-admin-transfer small {
     color: #607086;
     line-height: 1.4;
@@ -1002,9 +1017,9 @@ function NewsTransferControl({
             ))}
           </select>
         </label>
-        <label data-displaced-target-field hidden>
+        <label className="editorial-admin-displaced-target" data-displaced-target-field>
           Enviar a notícia substituída para
-          <select name="displaced_target_choice" defaultValue="" disabled>
+          <select name="displaced_target_choice" defaultValue="">
             <option value="" disabled>Escolher destino</option>
             {displacedOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
@@ -3004,7 +3019,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                   if (form.getAttribute('data-news-transfer-bound') === '1') return;
                   form.setAttribute('data-news-transfer-bound', '1');
                   var select = form.querySelector('select[name="target_choice"]');
-                  var displacedField = form.querySelector('[data-displaced-target-field]');
                   var displacedSelect = form.querySelector('select[name="displaced_target_choice"]');
 
                   function updateDisplacedDestination() {
@@ -3012,9 +3026,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     var needsDisplacedDestination = Boolean(
                       displacedSelect && option && option.getAttribute('data-target-occupied') === '1'
                     );
-                    if (displacedField) displacedField.hidden = !needsDisplacedDestination;
                     if (displacedSelect) {
-                      displacedSelect.disabled = !needsDisplacedDestination;
                       displacedSelect.required = needsDisplacedDestination;
                       if (!needsDisplacedDestination) displacedSelect.value = '';
                     }
