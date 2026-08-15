@@ -85,7 +85,7 @@ test("os layouts públicos são flexíveis, a zona 4+Últimas é condicional e a
     /grid-template-columns:[\s\S]*?1\.22fr[\s\S]*?1\.22fr[\s\S]*?250px[\s\S]*?220px/,
   );
   assert.match(fourNewsRenderer, /grid-column: span 2/);
-  assert.match(fourNewsRenderer, /aspect-ratio: 4 \/ 3/);
+  assert.match(fourNewsRenderer, /aspect-ratio: 16 \/ 9/);
   assert.match(fourNewsRenderer, /public-four-news-ad-column/);
   assert.match(fourNewsRenderer, /data-public-ad-slot="four-news-latest"/);
   assert.match(fourNewsRenderer, /constrainToFourNewsGrid/);

@@ -42,7 +42,7 @@ const styles = `
     grid-column: span 2;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 22px 18px;
+    gap: 14px 18px;
     align-content: start;
     align-self: start;
     min-width: 0;
@@ -51,7 +51,7 @@ const styles = `
   .public-four-news-card {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
+    gap: 7px;
     align-content: start;
     min-width: 0;
   }
@@ -59,7 +59,7 @@ const styles = `
   .public-four-news-media {
     display: block;
     width: 100%;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 16 / 9;
     overflow: hidden;
     background: #eef2f5;
     text-decoration: none;
@@ -74,7 +74,7 @@ const styles = `
 
   .public-four-news-copy {
     display: grid;
-    gap: 6px;
+    gap: 4px;
     align-content: start;
     min-width: 0;
   }
@@ -109,8 +109,8 @@ const styles = `
     font-size: 12px;
     line-height: 1.35;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .public-four-news-latest-column {
