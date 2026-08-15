@@ -1,7 +1,18 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
 import { PRIMARY_SIDE_ADVERTISING_SLOT_KEY } from "@/lib/site-advertising";
 import { writeSupabaseAdmin } from "@/lib/supabase";
+
+const IMAGE_BUCKET = "editorial-images";
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+
+const ALLOWED_IMAGE_TYPES = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/avif", "avif"],
+]);
 
 class AdvertisingError extends Error {
   constructor(public code: string) {
@@ -35,7 +46,9 @@ function redirect(request: Request, key: string, value: string) {
 }
 
 function codeFor(error: unknown) {
-  if (error instanceof AdvertisingError) return error.code;
+  if (error instanceof AdvertisingError) {
+    return error.code;
+  }
 
   const detail = error instanceof Error ? error.message : "";
 
@@ -46,21 +59,123 @@ function codeFor(error: unknown) {
   return "save-failed";
 }
 
+function storageConfig() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  if (!url || !serviceRoleKey) {
+    throw new AdvertisingError("upload-failed");
+  }
+
+  return {
+    url: url.replace(/\/$/, ""),
+    serviceRoleKey,
+  };
+}
+
+function safeBaseName(filename: string) {
+  return (
+    filename
+      .replace(/\.[^.]+$/, "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "publicidade"
+  );
+}
+
+async function uploadAdvertisingImage(file: File) {
+  if (!file.size) {
+    return null;
+  }
+
+  const extension = ALLOWED_IMAGE_TYPES.get(
+    file.type.toLowerCase(),
+  );
+
+  if (!extension) {
+    throw new AdvertisingError("invalid-image-format");
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new AdvertisingError("image-too-large");
+  }
+
+  const config = storageConfig();
+  const now = new Date();
+  const year = String(now.getUTCFullYear());
+  const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+
+  const filename = `${Date.now()}-${randomUUID()}-${safeBaseName(
+    file.name,
+  )}.${extension}`;
+
+  const path = `publicidade/${year}/${month}/${filename}`;
+
+  const encodedPath = path
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+
+  const uploadResponse = await fetch(
+    `${config.url}/storage/v1/object/${IMAGE_BUCKET}/${encodedPath}`,
+    {
+      method: "POST",
+      headers: {
+        apikey: config.serviceRoleKey,
+        Authorization: `Bearer ${config.serviceRoleKey}`,
+        "Content-Type": file.type,
+        "Cache-Control": "31536000",
+        "x-upsert": "false",
+      },
+      body: Buffer.from(await file.arrayBuffer()),
+      cache: "no-store",
+    },
+  );
+
+  if (!uploadResponse.ok) {
+    throw new AdvertisingError("upload-failed");
+  }
+
+  return `${config.url}/storage/v1/object/public/${encodeURIComponent(
+    IMAGE_BUCKET,
+  )}/${encodedPath}`;
+}
+
 export async function POST(request: Request) {
   try {
     const form = await request.formData();
 
-    const name = clean(form.get("name")) || "Publicidade lateral";
-    const imageUrl = validUrl(
-      clean(form.get("image_url")),
-      "invalid-image",
-    );
+    const name =
+      clean(form.get("name")) || "Publicidade lateral";
+
+    const imageFileValue = form.get("image_file");
+
+    const uploadedImageUrl =
+      imageFileValue instanceof File && imageFileValue.size > 0
+        ? await uploadAdvertisingImage(imageFileValue)
+        : null;
+
+    const imageUrl = uploadedImageUrl
+      ? uploadedImageUrl
+      : validUrl(
+          clean(form.get("image_url")),
+          "invalid-image",
+        );
+
     const targetUrl = validUrl(
       clean(form.get("target_url")),
       "invalid-target",
     );
-    const altText = clean(form.get("alt_text")) || name;
-    const isActive = clean(form.get("is_active")) === "true";
+
+    const altText =
+      clean(form.get("alt_text")) || name;
+
+    const isActive =
+      clean(form.get("is_active")) === "true";
 
     if (isActive && !imageUrl) {
       throw new AdvertisingError("missing-image");
@@ -91,6 +206,10 @@ export async function POST(request: Request) {
 
     return redirect(request, "saved", "1");
   } catch (error) {
-    return redirect(request, "error", codeFor(error));
+    return redirect(
+      request,
+      "error",
+      codeFor(error),
+    );
   }
 }

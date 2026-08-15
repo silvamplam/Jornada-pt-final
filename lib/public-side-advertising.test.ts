@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -15,7 +15,6 @@ const ad = source("components/public/PublicSideAdvertisement.tsx");
 const layout = source("components/public/PublicFourNewsLatestLayout.tsx");
 const article = source("app/noticias/[slug]/page.tsx");
 const admin = source("app/admin/publicidade/page.tsx");
-const upload = source("app/admin/publicidade/AdvertisingImageUpload.tsx");
 const api = source("app/api/admin/publicidade/route.ts");
 const root = source("app/admin/page.tsx");
 const migration = source(
@@ -52,29 +51,53 @@ test("a publicidade inativa não deixa a coluna publicitária vazia", () => {
     layout,
     /\.public-four-news-ad-column:empty/,
   );
+
   assert.match(
     layout,
     /:not\(:has\(\.public-four-news-ad-slot\)\)/,
   );
 });
 
-test("o backoffice gere campanha, imagem, destino e estado", () => {
-  assert.match(admin, /action="\/api\/admin\/publicidade"/);
+test("o gestor de publicidade é integralmente server-side", () => {
+  assert.doesNotMatch(admin, /AdvertisingImageUpload/);
+  assert.doesNotMatch(admin, /"use client"/);
+  assert.match(admin, /encType="multipart\/form-data"/);
+  assert.match(admin, /name="image_file"/);
+  assert.match(admin, /name="image_url"/);
   assert.match(admin, /name="target_url"/);
   assert.match(admin, /name="alt_text"/);
   assert.match(admin, /name="is_active"/);
 
-  assert.match(
-    upload,
-    /\/api\/admin\/editorial\/conteudos\/upload-image\/sign/,
+  assert.equal(
+    existsSync(
+      fileURLToPath(
+        new URL(
+          "../app/admin/publicidade/AdvertisingImageUpload.tsx",
+          import.meta.url,
+        ),
+      ),
+    ),
+    false,
   );
-
-  assert.match(upload, /name="image_url"/);
-  assert.match(api, /site_advertising_slots\?on_conflict=slot_key/);
-  assert.match(root, /href="\/admin\/publicidade">PUBLICIDADE/);
 });
 
-test("a migração é idempotente e preserva a campanha atual", () => {
+test("o upload da campanha é processado no servidor", () => {
+  assert.match(api, /uploadAdvertisingImage/);
+  assert.match(api, /form\.get\("image_file"\)/);
+  assert.match(api, /storage\/v1\/object/);
+  assert.match(api, /editorial-images/);
+  assert.match(
+    api,
+    /site_advertising_slots\?on_conflict=slot_key/,
+  );
+
+  assert.match(
+    root,
+    /href="\/admin\/publicidade">PUBLICIDADE/,
+  );
+});
+
+test("a migração é idempotente e preserva a campanha inicial", () => {
   assert.match(
     migration,
     /create table if not exists public\.site_advertising_slots/,
