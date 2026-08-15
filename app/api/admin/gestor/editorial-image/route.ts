@@ -62,6 +62,7 @@ async function uploadToStorage(file: File, path: string) {
       apikey: config.serviceRoleKey,
       Authorization: `Bearer ${config.serviceRoleKey}`,
       "Content-Type": file.type,
+      "Cache-Control": "max-age=31536000",
       "x-upsert": "false"
     },
     body: file

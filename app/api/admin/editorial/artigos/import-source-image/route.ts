@@ -147,6 +147,7 @@ export async function POST(request: Request) {
         apikey: config.serviceRoleKey,
         Authorization: `Bearer ${config.serviceRoleKey}`,
         "Content-Type": contentType,
+        "Cache-Control": "max-age=31536000",
         "x-upsert": "false",
       },
       body: Buffer.from(downloaded.bytes),

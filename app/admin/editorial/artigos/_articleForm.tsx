@@ -341,6 +341,7 @@ const articleImageUploadScript = `
         method: 'PUT',
         headers: {
           'Content-Type': file.type,
+          'Cache-Control': 'max-age=31536000',
           'x-upsert': 'false'
         },
         body: file
