@@ -18,6 +18,7 @@ import {
   type LiveMatchdayHierarchicalTransferSlotType,
 } from "@/lib/editorial-hierarchical-composition";
 import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
+import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
 import {
   moveEditorialHorizontalNewsItem,
   prioritizeEditorialHorizontalNewsItem,
@@ -420,10 +421,10 @@ async function sourceContainsArticle(
   articlePath: string,
 ) {
   if (isLiveMatchdayHierarchicalTransferSlotType(sourceSlotType)) {
-    const { row } = await readLiveLayoutRow(matchdayId, sourceSlotType);
+    const row = await readLiveLayoutRow(matchdayId, sourceSlotType);
     if (!row || row.id !== sourceId) return false;
-    if (cleanText(row.link_url_snapshot) === articlePath) return true;
-    return "source_id" in row && row.source_id === articleId;
+    if (cleanText(row.link_url) === articlePath) return true;
+    return row.article_id === articleId;
   }
 
   if (sourceSlotType === "side_block") {
@@ -578,93 +579,26 @@ function fallbackProjectionForZone(
   return { ...occupant, articleId: null };
 }
 
-type CurrentLiveCompositionRow = {
-  id: string;
-};
-
-type LiveHierarchicalSlotRow = {
-  id: string;
-  slot_key: string;
-  source_identity: string;
-  label_snapshot: string | null;
-  title_snapshot: string | null;
-  subtitle_snapshot: string | null;
-  image_url_snapshot: string | null;
-  link_url_snapshot: string | null;
-};
-
-type LiveBeyondMatchdayRow = {
-  id: string;
-  source_type: string | null;
-  source_id: string | null;
-  sort_order: number;
-  label_snapshot: string | null;
-  title_snapshot: string | null;
-  subtitle_snapshot: string | null;
-  image_url_snapshot: string | null;
-  link_url_snapshot: string | null;
-};
-
-async function readCurrentLiveCompositionId(matchdayId: string) {
-  const rows = await fetchSupabaseAdminTable<CurrentLiveCompositionRow>(
-    `matchday_reference_compositions?select=id&matchday_id=eq.${encodeURIComponent(
-      matchdayId,
-    )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast&limit=1`,
-  ).catch(() => []);
-  return rows[0]?.id ?? null;
-}
-
-function liveHierarchicalSourceIdentity(
-  slotType: LiveMatchdayHierarchicalTransferSlotType,
-  projection: ZoneProjection,
-) {
-  // A identidade canónica do artigo continua dentro do snapshot. O prefixo da
-  // posição evita colisões transitórias da restrição UNIQUE enquanto o motor
-  // grava o destino antes de limpar a origem, preservando o rollback seguro.
-  const position = liveMatchdayHierarchicalLayoutPosition(slotType);
-  const sourceIdentity = projection.articleId
-    ? `editorial_article:${projection.articleId}`
-    : projection.linkUrl
-      ? `link:${projection.linkUrl}`
-      : `title:${projection.title ?? "sem-titulo"}`;
-  return `live:${position?.transferSlotType ?? slotType}:${sourceIdentity}`;
-}
-
 async function readLiveLayoutRow(
   matchdayId: string,
   slotType: LiveMatchdayHierarchicalTransferSlotType,
 ) {
-  const compositionId = await readCurrentLiveCompositionId(matchdayId);
-  if (!compositionId) return { compositionId: null, row: null as LiveHierarchicalSlotRow | LiveBeyondMatchdayRow | null };
-
-  const position = liveMatchdayHierarchicalLayoutPosition(slotType);
-  if (!position) return { compositionId, row: null as LiveHierarchicalSlotRow | LiveBeyondMatchdayRow | null };
-
-  if (position.storage === "hierarchical") {
-    const rows = await fetchSupabaseAdminTable<LiveHierarchicalSlotRow>(
-      `matchday_hierarchical_composition_slots?select=id,slot_key,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot&composition_id=eq.${encodeURIComponent(
-        compositionId,
-      )}&slot_key=eq.${encodeURIComponent(position.slotKey)}&limit=1`,
-    ).catch(() => []);
-    return { compositionId, row: rows[0] ?? null };
-  }
-
-  const rows = await fetchSupabaseAdminTable<LiveBeyondMatchdayRow>(
-    `matchday_reference_composition_items?select=id,source_type,source_id,sort_order,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot&composition_id=eq.${encodeURIComponent(
-      compositionId,
-    )}&slot_type=eq.beyond_matchday&sort_order=eq.${position.sortOrder}&limit=1`,
+  const rows = await fetchSupabaseAdminTable<MatchdayLiveLayoutItem>(
+    `matchday_live_layout_items?select=id,matchday_id,slot_type,article_id,label,title,subtitle,image_url,link_url,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      matchdayId,
+    )}&slot_type=eq.${encodeURIComponent(slotType)}&limit=1`,
   ).catch(() => []);
-  return { compositionId, row: rows[0] ?? null };
+  return rows[0] ?? null;
 }
 
-function liveLayoutRowOccupant(row: LiveHierarchicalSlotRow | LiveBeyondMatchdayRow): ZoneOccupant {
+function liveLayoutRowOccupant(row: MatchdayLiveLayoutItem): ZoneOccupant {
   return {
-    label: cleanText(row.label_snapshot),
-    title: cleanText(row.title_snapshot),
-    subtitle: cleanText(row.subtitle_snapshot),
+    label: cleanText(row.label),
+    title: cleanText(row.title),
+    subtitle: cleanText(row.subtitle),
     author: null,
-    imageUrl: cleanText(row.image_url_snapshot),
-    linkUrl: cleanText(row.link_url_snapshot),
+    imageUrl: cleanText(row.image_url),
+    linkUrl: cleanText(row.link_url),
   };
 }
 
@@ -674,22 +608,15 @@ async function writeProjectionToLiveLayoutSlot(
   projection: ZoneProjection,
   targetId: string | null,
 ) {
-  const { compositionId, row } = await readLiveLayoutRow(matchdayId, slotType);
-  if (!compositionId) {
-    throw new EditorialMatchdayNewsFlowError(
-      "news-flow-live-layout-unavailable",
-      "Os layouts da atualidade só estão disponíveis enquanto existir uma composição publicada e atual para esta jornada.",
-    );
-  }
-
+  const row = await readLiveLayoutRow(matchdayId, slotType);
   const occupied = Boolean(
     row
     && hasContent(
-      row.label_snapshot,
-      row.title_snapshot,
-      row.subtitle_snapshot,
-      row.image_url_snapshot,
-      row.link_url_snapshot,
+      row.label,
+      row.title,
+      row.subtitle,
+      row.image_url,
+      row.link_url,
     )
   );
 
@@ -706,81 +633,35 @@ async function writeProjectionToLiveLayoutSlot(
     );
   }
 
-  const position = liveMatchdayHierarchicalLayoutPosition(slotType);
-  if (!position) {
-    throw new EditorialMatchdayNewsFlowError("news-flow-zone-invalid");
-  }
-
   const now = new Date().toISOString();
-  if (position.storage === "hierarchical") {
-    const payload = {
-      composition_id: compositionId,
-      slot_key: position.slotKey,
-      bank_item_id: null,
-      source_identity: liveHierarchicalSourceIdentity(slotType, projection),
-      label_snapshot: projection.label,
-      title_snapshot: projection.title,
-      subtitle_snapshot: projection.subtitle,
-      image_url_snapshot: projection.imageUrl,
-      link_url_snapshot: projection.linkUrl,
-      media_kind_snapshot: null,
-      media_embed_url_snapshot: null,
-      media_video_url_snapshot: null,
-      updated_at: now,
-    };
-    if (row) {
-      await writeSupabaseAdmin(
-        `matchday_hierarchical_composition_slots?id=eq.${encodeURIComponent(row.id)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
-        { method: "PATCH", body: JSON.stringify(payload) },
-      );
-      return row.id;
-    }
-
-    await writeSupabaseAdmin("matchday_hierarchical_composition_slots", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    const inserted = await fetchSupabaseAdminTable<Pick<LiveHierarchicalSlotRow, "id">>(
-      `matchday_hierarchical_composition_slots?select=id&composition_id=eq.${encodeURIComponent(
-        compositionId,
-      )}&slot_key=eq.${encodeURIComponent(position.slotKey)}&limit=1`,
-    );
-    if (!inserted[0]?.id) throw new EditorialMatchdayNewsFlowError("news-flow-placement-failed");
-    return inserted[0].id;
-  }
-
   const payload = {
-    composition_id: compositionId,
-    slot_type: "beyond_matchday",
-    source_type: projection.articleId ? "editorial_article" : "manual_link",
-    source_id: projection.articleId,
-    article_id: null,
-    sort_order: position.sortOrder,
-    title_snapshot: projection.title,
-    subtitle_snapshot: projection.subtitle,
-    image_url_snapshot: projection.imageUrl,
-    link_url_snapshot: projection.linkUrl,
-    label_snapshot: projection.label,
-    label_color_snapshot: null,
-    status: "published",
+    matchday_id: matchdayId,
+    slot_type: slotType,
+    article_id: projection.articleId,
+    label: projection.label,
+    title: projection.title,
+    subtitle: projection.subtitle,
+    image_url: projection.imageUrl,
+    link_url: projection.linkUrl,
     updated_at: now,
   };
+
   if (row) {
     await writeSupabaseAdmin(
-      `matchday_reference_composition_items?id=eq.${encodeURIComponent(row.id)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
+      `matchday_live_layout_items?id=eq.${encodeURIComponent(row.id)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
       { method: "PATCH", body: JSON.stringify(payload) },
     );
     return row.id;
   }
 
-  await writeSupabaseAdmin("matchday_reference_composition_items", {
+  await writeSupabaseAdmin("matchday_live_layout_items", {
     method: "POST",
     body: JSON.stringify({ ...payload, created_at: now }),
   });
-  const inserted = await fetchSupabaseAdminTable<Pick<LiveBeyondMatchdayRow, "id">>(
-    `matchday_reference_composition_items?select=id&composition_id=eq.${encodeURIComponent(
-      compositionId,
-    )}&slot_type=eq.beyond_matchday&sort_order=eq.${position.sortOrder}&limit=1`,
+  const inserted = await fetchSupabaseAdminTable<Pick<MatchdayLiveLayoutItem, "id">>(
+    `matchday_live_layout_items?select=id&matchday_id=eq.${encodeURIComponent(
+      matchdayId,
+    )}&slot_type=eq.${encodeURIComponent(slotType)}&limit=1`,
   );
   if (!inserted[0]?.id) throw new EditorialMatchdayNewsFlowError("news-flow-placement-failed");
   return inserted[0].id;
@@ -792,13 +673,13 @@ async function readOccupiedTargetZone(
   targetId: string,
 ): Promise<ZoneOccupant> {
   if (isLiveMatchdayHierarchicalTransferSlotType(targetSlotType)) {
-    const { row } = await readLiveLayoutRow(matchdayId, targetSlotType);
+    const row = await readLiveLayoutRow(matchdayId, targetSlotType);
     if (!row || row.id !== targetId || !hasContent(
-      row.label_snapshot,
-      row.title_snapshot,
-      row.subtitle_snapshot,
-      row.image_url_snapshot,
-      row.link_url_snapshot,
+      row.label,
+      row.title,
+      row.subtitle,
+      row.image_url,
+      row.link_url,
     )) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-target-changed",
@@ -1666,19 +1547,15 @@ async function clearArticleFromSourceZone(
   const now = new Date().toISOString();
 
   if (isLiveMatchdayHierarchicalTransferSlotType(sourceSlotType)) {
-    const { compositionId, row } = await readLiveLayoutRow(matchdayId, sourceSlotType);
-    if (!compositionId || !row || row.id !== sourceId) {
+    const row = await readLiveLayoutRow(matchdayId, sourceSlotType);
+    if (!row || row.id !== sourceId) {
       throw new EditorialMatchdayNewsFlowError(
         "news-flow-source-changed",
         "A posição de origem no layout da atualidade mudou. Atualiza a página e tenta novamente.",
       );
     }
-    const position = liveMatchdayHierarchicalLayoutPosition(sourceSlotType);
-    const table = position?.storage === "hierarchical"
-      ? "matchday_hierarchical_composition_slots"
-      : "matchday_reference_composition_items";
     await writeSupabaseAdmin(
-      `${table}?id=eq.${encodeURIComponent(sourceId)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
+      `matchday_live_layout_items?id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
       { method: "DELETE" },
     );
     return;

@@ -9,7 +9,8 @@ function source(relativePath: string) {
 
 const hierarchyModel = source("lib/editorial-hierarchical-composition.ts");
 const transferFlow = source("lib/editorial-matchday-news-flow.ts");
-const compositionSync = source("lib/editorial-current-reference-composition-sync.ts");
+const liveLayoutModel = source("lib/editorial-matchday-live-layout.ts");
+const liveLayoutMigration = source("supabase/steps/118-jornada-layouts-vivos-independentes-apply.sql");
 const publicLoader = source("lib/public-matchday.ts");
 const publicPage = source("app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx");
 const publicRenderer = source("components/public/PublicHierarchicalComposition.tsx");
@@ -42,19 +43,19 @@ test("a Jornada viva reutiliza apenas os três layouts hierárquicos pedidos", (
   assert.doesNotMatch(hierarchyModel, /live_hierarchical:dominant_main|live_hierarchical:other_chronicle_/);
 });
 
-test("o estado vivo usa a composição publicada current sem exigir o modo standard", () => {
-  assert.match(transferFlow, /status=eq\.published&is_current=is\.true&order=published_at\.desc\.nullslast&limit=1/);
+test("o estado vivo é próprio da Jornada e não depende da Composição", () => {
+  assert.match(liveLayoutMigration, /create table if not exists public\.matchday_live_layout_items/);
+  assert.match(liveLayoutMigration, /matchday_id uuid not null references public\.matchdays/);
+  assert.match(liveLayoutMigration, /article_id uuid references public\.editorial_articles/);
+  assert.doesNotMatch(liveLayoutMigration, /matchday_reference_compositions|matchday_hierarchical_composition_slots/);
+  assert.match(liveLayoutModel, /export type MatchdayLiveLayoutItem/);
+  assert.match(transferFlow, /matchday_live_layout_items/);
   assert.doesNotMatch(transferFlow, /presentation_mode=eq\.standard/);
-  assert.doesNotMatch(editorialAdmin, /presentation_mode=eq\.standard/);
-  assert.match(transferFlow, /matchday_hierarchical_composition_slots/);
-  assert.match(transferFlow, /matchday_reference_composition_items/);
-  assert.match(transferFlow, /slot_type=eq\.beyond_matchday/);
-  assert.match(transferFlow, /live:\$\{position\?\.transferSlotType \?\? slotType\}:/);
-  assert.match(publicLoader, /hierarchicalCompositionSlots = await fetchSupabaseAdminTable<HierarchicalCompositionSlot>/);
-  assert.match(editorialAdmin, /Estes lugares ficam disponíveis quando existir uma composição publicada e atual para esta Jornada\./);
-  assert.doesNotMatch(editorialAdmin, /composição standard publicada desta Jornada/);
-  assert.match(compositionSync, /presentation_mode=eq\.standard/);
-  assert.doesNotMatch(transferFlow, /create table|alter table/i);
+  assert.doesNotMatch(transferFlow, /matchday_hierarchical_composition_slots/);
+  assert.doesNotMatch(transferFlow, /matchday_reference_composition_items/);
+  assert.match(publicLoader, /readMatchdayLiveLayoutItems/);
+  assert.match(publicLoader, /liveLayoutItems/);
+  assert.doesNotMatch(editorialAdmin, /composição standard publicada desta Jornada|composição publicada e atual para esta Jornada/);
 });
 
 test("os três layouts públicos usam os renderers hierárquicos já existentes e não deslocam a Faixa", () => {
@@ -63,6 +64,10 @@ test("os três layouts públicos usam os renderers hierárquicos já existentes 
   assert.match(publicRenderer, /<InterpretiveOtherGamesSection showEmptySlots=\{false\}/);
   assert.match(publicRenderer, /<PublicBeyondMatchdayNews/);
   assert.match(publicPage, /<PublicHierarchicalLiveLayouts/);
+  assert.match(publicPage, /context\.liveLayoutItems/);
+  assert.match(publicPage, /<PublicHierarchicalLiveLayouts[\s\S]*?slots=\{liveHierarchicalLayoutSlots\}/);
+  assert.doesNotMatch(publicPage, /<PublicHierarchicalLiveLayouts[\s\S]*?slots=\{context\.hierarchicalCompositionSlots\}/);
+  assert.match(publicPage, /\{!useHierarchicalReferenceComposition \? \([\s\S]*?<PublicHierarchicalLiveLayouts/);
 
   const horizontalIndex = publicPage.indexOf("<PublicHorizontalNewsStrip");
   const liveLayoutsIndex = publicPage.indexOf("<PublicHierarchicalLiveLayouts");

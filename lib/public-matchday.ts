@@ -1,5 +1,6 @@
 import { fetchSupabaseAdminTable, type SupabaseBroadcastChannel, type SupabaseCompetition, type SupabaseMatch, type SupabaseMatchday, type SupabaseMatchdayEditorial, type SupabaseMatchdayHighlight, type SupabaseMatchdayHorizontalNews, type SupabaseMatchdayLatestNews, type SupabaseMatchdayRoundupItem, type SupabaseSeason, type SupabaseSeasonTeam, type SupabaseTeam } from "@/lib/supabase";
 import type { HierarchicalCompositionSlot, ReferenceCompositionPresentationMode } from "@/lib/editorial-hierarchical-composition";
+import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
 
 export type PublicSeasonParticipant = SupabaseSeasonTeam & {
   team: SupabaseTeam | null;
@@ -86,6 +87,7 @@ export type PublicMatchdayContext = {
   roundupItems: SupabaseMatchdayRoundupItem[];
   latestNews: SupabaseMatchdayLatestNews[];
   horizontalNews: SupabaseMatchdayHorizontalNews[];
+  liveLayoutItems: MatchdayLiveLayoutItem[];
   headlineMedia: PublicMatchdayHeadlineMedia | null;
   complementMedia: PublicMatchdayHeadlineMedia | null;
   referenceComposition: PublicReferenceComposition | null;
@@ -253,6 +255,14 @@ async function readPublishedMatchdayHorizontalNews(matchdayId: string) {
     `matchday_horizontal_news?select=id,matchday_id,label,label_color,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&status=eq.published&order=sort_order.asc`
+  ).catch(() => []);
+}
+
+async function readMatchdayLiveLayoutItems(matchdayId: string) {
+  return fetchSupabaseAdminTable<MatchdayLiveLayoutItem>(
+    `matchday_live_layout_items?select=id,matchday_id,slot_type,article_id,label,title,subtitle,image_url,link_url,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      matchdayId
+    )}&order=created_at.asc`
   ).catch(() => []);
 }
 
@@ -449,9 +459,6 @@ async function readPublishedReferenceCompositionBundle(matchdayId: string) {
     const referenceCompositionItems = referenceComposition.presentation_mode === "hierarchical"
       ? await fetchSupabaseAdminTable<PublicReferenceCompositionItem>(referenceItemsQuery).catch(() => [])
       : await fetchSupabaseAdminTable<PublicReferenceCompositionItem>(referenceItemsQuery);
-    // The same hierarchical slot renderer is reused by the live standard composition
-    // for the selected current-affairs layouts. Historical hierarchical compositions
-    // keep their own rows because every slot remains scoped by composition_id.
     const hierarchicalCompositionSlots = await fetchSupabaseAdminTable<HierarchicalCompositionSlot>(
       `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,media_kind_snapshot,media_embed_url_snapshot,media_video_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
         referenceComposition.id
@@ -670,13 +677,14 @@ export async function getPublicMatchdayDiagnostic({
       ...manualParticipants.map((participant) => participant.team_id),
       ...matches.flatMap((match) => [match.home_team_id, match.away_team_id])
     ]);
-    const [broadcastChannels, editorial, highlights, roundupItems, latestNews, horizontalNews, referenceCompositionBundle] = await Promise.all([
+    const [broadcastChannels, editorial, highlights, roundupItems, latestNews, horizontalNews, liveLayoutItems, referenceCompositionBundle] = await Promise.all([
       readBroadcastChannels(matches.map((match) => match.broadcast_channel_id ?? "")),
       readMatchdayEditorial(matchday.id),
       readPublishedMatchdayHighlights(matchday.id),
       readPublishedMatchdayRoundupItems(matchday.id),
       readPublishedMatchdayLatestNews(matchday.id),
       readPublishedMatchdayHorizontalNews(matchday.id),
+      readMatchdayLiveLayoutItems(matchday.id),
       readPublishedReferenceCompositionBundle(matchday.id)
     ]);
     const teamsById = byId(teams);
@@ -730,6 +738,7 @@ export async function getPublicMatchdayDiagnostic({
         roundupItems,
         latestNews,
         horizontalNews,
+        liveLayoutItems,
         headlineMedia,
         complementMedia,
         referenceComposition: referenceCompositionBundle.referenceComposition,

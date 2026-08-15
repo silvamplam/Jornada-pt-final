@@ -5,7 +5,13 @@ import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import { buildPublicMatchdayEditorialVisibility, hasPublicMatchdayRoundupContent } from "@/lib/public-matchday-editorial-visibility";
-import { hierarchicalCompositionMediaSnapshot, isPublishableHierarchicalBeyondMatchday, isPublishableHierarchicalComposition } from "@/lib/editorial-hierarchical-composition";
+import {
+  LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS,
+  hierarchicalCompositionMediaSnapshot,
+  isPublishableHierarchicalBeyondMatchday,
+  isPublishableHierarchicalComposition,
+  type HierarchicalCompositionSlot,
+} from "@/lib/editorial-hierarchical-composition";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
@@ -3905,9 +3911,54 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const hierarchicalBeyondMatchdayNews = useHierarchicalReferenceComposition
     ? referenceBeyondMatchdayNews
     : [];
-  const liveBeyondMatchdayNews = usePublishedReferenceComposition && !useHierarchicalReferenceComposition
-    ? referenceBeyondMatchdayNews
-    : [];
+  const liveLayoutItemBySlotType = new Map(
+    context.liveLayoutItems.map((item) => [item.slot_type, item] as const)
+  );
+  const liveHierarchicalLayoutSlots = LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.reduce<HierarchicalCompositionSlot[]>(
+    (slots, position) => {
+      if (position.storage !== "hierarchical") return slots;
+      const item = liveLayoutItemBySlotType.get(position.transferSlotType);
+      if (!item) return slots;
+
+      slots.push({
+        id: item.id,
+        // Renderer-only adapter: the live zone has no composition state or composition id.
+        composition_id: "",
+        slot_key: position.slotKey,
+        bank_item_id: null,
+        source_identity: `live:${item.slot_type}:${item.id}`,
+        label_snapshot: item.label,
+        title_snapshot: item.title,
+        subtitle_snapshot: item.subtitle,
+        image_url_snapshot: item.image_url,
+        link_url_snapshot: item.link_url,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      });
+      return slots;
+    },
+    []
+  );
+  const liveBeyondMatchdayNews = LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.reduce<PublicBeyondMatchdayNewsItem[]>(
+    (items, position) => {
+      if (position.storage !== "beyond_matchday") return items;
+      const item = liveLayoutItemBySlotType.get(position.transferSlotType);
+      const title = item?.title?.trim() || null;
+      const linkUrl = item?.link_url?.trim() || null;
+      if (!item || !title || !linkUrl) return items;
+
+      items.push({
+        id: item.id,
+        label: item.label?.trim() || null,
+        title,
+        subtitle: item.subtitle?.trim() || null,
+        imageUrl: item.image_url?.trim() || null,
+        linkUrl,
+      });
+      return items;
+    },
+    []
+  );
 
   return (
     <main className="public-matchday-shell">
@@ -4101,10 +4152,10 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         </div>
       ) : null}
 
-      {usePublishedReferenceComposition && !useHierarchicalReferenceComposition ? (
+      {!useHierarchicalReferenceComposition ? (
         <div className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region">
           <PublicHierarchicalLiveLayouts
-            slots={context.hierarchicalCompositionSlots}
+            slots={liveHierarchicalLayoutSlots}
             matchdayNumber={context.matchday.number}
             beyondMatchdayItems={liveBeyondMatchdayNews}
           />

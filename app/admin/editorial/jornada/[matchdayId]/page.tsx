@@ -8,9 +8,9 @@ import { buildEditorialHorizontalNewsEditorOrders } from "@/lib/editorial-horizo
 import type { EditorialMatchdayTransferSlotType } from "@/lib/editorial-matchday-news-flow";
 import {
   LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS,
-  type HierarchicalCompositionSlot,
   type LiveMatchdayHierarchicalTransferSlotType,
 } from "@/lib/editorial-hierarchical-composition";
+import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
 import {
   fetchSupabaseAdminTable,
   type SupabaseCompetition,
@@ -1161,22 +1161,6 @@ async function readPublishedEditorialArticles(): Promise<EditorialArticleForSide
   ).catch(() => []);
 }
 
-type CurrentLiveLayoutComposition = {
-  id: string;
-};
-
-type LiveBeyondMatchdayItemForAdmin = {
-  id: string;
-  source_type: string | null;
-  source_id: string | null;
-  sort_order: number;
-  label_snapshot: string | null;
-  title_snapshot: string | null;
-  subtitle_snapshot: string | null;
-  image_url_snapshot: string | null;
-  link_url_snapshot: string | null;
-};
-
 type LiveLayoutAdminOccupant = {
   id: string;
   articleId: string | null;
@@ -1187,39 +1171,14 @@ type LiveLayoutAdminOccupant = {
   linkUrl: string | null;
 };
 
-type LiveMatchdayHierarchicalLayoutState = {
-  compositionId: string | null;
-  hierarchicalSlots: HierarchicalCompositionSlot[];
-  beyondMatchdayItems: LiveBeyondMatchdayItemForAdmin[];
-};
-
-async function readLiveMatchdayHierarchicalLayoutState(
+async function readMatchdayLiveLayoutItems(
   matchdayId: string,
-): Promise<LiveMatchdayHierarchicalLayoutState> {
-  const composition = await readFirst<CurrentLiveLayoutComposition>(
-    `matchday_reference_compositions?select=id&matchday_id=eq.${encodeURIComponent(
+): Promise<MatchdayLiveLayoutItem[]> {
+  return fetchSupabaseAdminTable<MatchdayLiveLayoutItem>(
+    `matchday_live_layout_items?select=id,matchday_id,slot_type,article_id,label,title,subtitle,image_url,link_url,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
-    )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast`
-  ).catch(() => null);
-
-  if (!composition) {
-    return { compositionId: null, hierarchicalSlots: [], beyondMatchdayItems: [] };
-  }
-
-  const [hierarchicalSlots, beyondMatchdayItems] = await Promise.all([
-    fetchSupabaseAdminTable<HierarchicalCompositionSlot>(
-      `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
-        composition.id
-      )}`
-    ).catch(() => []),
-    fetchSupabaseAdminTable<LiveBeyondMatchdayItemForAdmin>(
-      `matchday_reference_composition_items?select=id,source_type,source_id,sort_order,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot&composition_id=eq.${encodeURIComponent(
-        composition.id
-      )}&slot_type=eq.beyond_matchday&order=sort_order.asc`
-    ).catch(() => []),
-  ]);
-
-  return { compositionId: composition.id, hierarchicalSlots, beyondMatchdayItems };
+    )}&order=created_at.asc`
+  ).catch(() => []);
 }
 
 type FeedbackScope =
@@ -1379,7 +1338,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const latestNews = await readMatchdayLatestNews(matchday.id);
   const latestNewsEditorSortOrders = buildLatestNewsEditorSortOrders(latestNews);
   const horizontalNews = await readMatchdayHorizontalNews(matchday.id);
-  const liveHierarchicalLayoutState = await readLiveMatchdayHierarchicalLayoutState(matchday.id);
+  const liveLayoutItems = await readMatchdayLiveLayoutItems(matchday.id);
   const publishedEditorialArticles = await readPublishedEditorialArticles();
   const publishedSources = await getEditorialPublishedSources({
     competitionId: competition.id,
@@ -1460,35 +1419,16 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
     LiveLayoutAdminOccupant
   >();
   LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
-    if (position.storage === "hierarchical") {
-      const slot = liveHierarchicalLayoutState.hierarchicalSlots.find(
-        (candidate) => candidate.slot_key === position.slotKey
-      );
-      if (!slot) return;
-      liveLayoutOccupantBySlotType.set(position.transferSlotType, {
-        id: slot.id,
-        articleId: null,
-        label: slot.label_snapshot,
-        title: slot.title_snapshot,
-        subtitle: slot.subtitle_snapshot,
-        imageUrl: slot.image_url_snapshot,
-        linkUrl: slot.link_url_snapshot,
-      });
-      return;
-    }
-
-    const item = liveHierarchicalLayoutState.beyondMatchdayItems.find(
-      (candidate) => candidate.sort_order === position.sortOrder
-    );
+    const item = liveLayoutItems.find((candidate) => candidate.slot_type === position.transferSlotType);
     if (!item) return;
     liveLayoutOccupantBySlotType.set(position.transferSlotType, {
       id: item.id,
-      articleId: item.source_type === "editorial_article" ? item.source_id : null,
-      label: item.label_snapshot,
-      title: item.title_snapshot,
-      subtitle: item.subtitle_snapshot,
-      imageUrl: item.image_url_snapshot,
-      linkUrl: item.link_url_snapshot,
+      articleId: item.article_id,
+      label: item.label,
+      title: item.title,
+      subtitle: item.subtitle,
+      imageUrl: item.image_url,
+      linkUrl: item.link_url,
     });
   });
 
@@ -1590,21 +1530,19 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
       });
     });
 
-  if (liveHierarchicalLayoutState.compositionId) {
-    LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
-      const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
-      newsTransferTargetOptions.push({
-        targetSlotType: position.transferSlotType,
-        targetId: occupant?.id ?? null,
-        label: occupant
-          ? `${position.publicName} — substituir “${shortTransferTitle(occupant.title)}”`
-          : position.publicName,
-        confirmMessage: occupant
-          ? "Esta posição do layout da atualidade está ocupada. Escolhe para onde vai a notícia atual antes de concluir a transferência."
-          : null,
-      });
+  LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
+    const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
+    newsTransferTargetOptions.push({
+      targetSlotType: position.transferSlotType,
+      targetId: occupant?.id ?? null,
+      label: occupant
+        ? `${position.publicName} — substituir “${shortTransferTitle(occupant.title)}”`
+        : position.publicName,
+      confirmMessage: occupant
+        ? "Esta posição do layout da atualidade está ocupada. Escolhe para onde vai a notícia atual antes de concluir a transferência."
+        : null,
     });
-  }
+  });
 
   function newsDisplacedTargetOptionsForSource(
     sourceSlotType: EditorialMatchdayTransferSlotType,
@@ -1668,22 +1606,20 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
       options.push({ value: "important_item::", label: "Faixa de notícias — acrescentar" });
     }
 
-    if (liveHierarchicalLayoutState.compositionId) {
-      LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
-        const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
-        if (sourceSlotType === position.transferSlotType) {
-          options.push({
-            value: transferChoiceValue(position.transferSlotType),
-            label: `${position.publicName} — posição de origem`,
-          });
-        } else if (!occupant) {
-          options.push({
-            value: transferChoiceValue(position.transferSlotType),
-            label: position.publicName,
-          });
-        }
-      });
-    }
+    LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
+      const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
+      if (sourceSlotType === position.transferSlotType) {
+        options.push({
+          value: transferChoiceValue(position.transferSlotType),
+          label: `${position.publicName} — posição de origem`,
+        });
+      } else if (!occupant) {
+        options.push({
+          value: transferChoiceValue(position.transferSlotType),
+          label: position.publicName,
+        });
+      }
+    });
 
     return options;
   }
@@ -2972,67 +2908,61 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
 
         <section className="editorial-admin-panel editorial-admin-zone" id="layouts-atualidade">
           <header className="editorial-admin-zone-header">
-            <h2 className="editorial-admin-zone-title">Layouts hierárquicos na Jornada viva</h2>
+            <h2 className="editorial-admin-zone-title">Zonas adicionais da Jornada viva</h2>
           </header>
           {feedbackScope === "layouts-atualidade" ? (
             <div>{messageFor(created, error, "layouts-atualidade", newsFlowErrorDetail)}</div>
           ) : null}
           <p className="editorial-admin-muted">
-            Reutiliza na Jornada viva os três layouts já existentes na Composição Hierárquica.
-            As posições recebem e transferem os mesmos artigos do circuito atual; não criam cópias nem alteram a composição arquivada.
+            Acrescenta à Jornada viva três zonas com o desenho visual já definido na Composição Hierárquica.
+            Estas posições pertencem apenas à página viva: recebem os mesmos artigos do circuito atual e não leem nem escrevem a Composição.
           </p>
-          {!liveHierarchicalLayoutState.compositionId ? (
-            <p className="editorial-admin-muted">
-              Estes lugares ficam disponíveis quando existir uma composição publicada e atual para esta Jornada.
-            </p>
-          ) : (
-            <div className="editorial-admin-compact-stack">
-              {[
-                { key: "analysis", title: "Arbitragem e reações" },
-                { key: "other_games", title: "Outros jogos da jornada" },
-                { key: "beyond_matchday", title: "Para Lá da Jornada" },
-              ].map((group) => (
-                <div className="editorial-admin-subpanel" key={group.key}>
-                  <h3>{group.title}</h3>
-                  <div className="editorial-admin-compact-stack">
-                    {LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS
-                      .filter((position) => position.group === group.key)
-                      .map((position) => {
-                        const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
-                        return (
-                          <details className="editorial-admin-item-details" key={position.transferSlotType}>
-                            <summary>
-                              <span className="editorial-admin-item-summary-title">{position.publicName}</span>
-                              <span className="editorial-admin-item-status">{occupant ? "Ocupada" : "Livre"}</span>
-                            </summary>
-                            <div className="editorial-admin-item-details-body">
-                              {occupant ? (
-                                <>
-                                  {occupant.label ? <small>{occupant.label}</small> : null}
-                                  <strong>{occupant.title ?? "Notícia sem título"}</strong>
-                                  <NewsTransferControl
-                                    matchdayId={matchday.id}
-                                    articleId={articleIdForPlacement(occupant.linkUrl, occupant.articleId)}
-                                    sourceSlotType={position.transferSlotType}
-                                    sourceId={occupant.id}
-                                    returnTo={returnToLiveLayouts}
-                                    hasPlacement={Boolean(cleanText(occupant.linkUrl) || cleanText(occupant.title))}
-                                    targetOptions={newsTransferTargetOptions}
-                                    displacedOptions={newsDisplacedTargetOptionsForSource(position.transferSlotType, occupant.id)}
-                                  />
-                                </>
-                              ) : (
-                                <small>Posição livre. Usa “Transferir para…” em qualquer notícia do circuito editorial para a preencher.</small>
-                              )}
-                            </div>
-                          </details>
-                        );
-                      })}
-                  </div>
+          <div className="editorial-admin-compact-stack">
+            {[
+              { key: "analysis", title: "Arbitragem e reações" },
+              { key: "other_games", title: "Outros jogos da jornada" },
+              { key: "beyond_matchday", title: "Para Lá da Jornada" },
+            ].map((group) => (
+              <div className="editorial-admin-subpanel" key={group.key}>
+                <h3>{group.title}</h3>
+                <div className="editorial-admin-compact-stack">
+                  {LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS
+                    .filter((position) => position.group === group.key)
+                    .map((position) => {
+                      const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
+                      return (
+                        <details className="editorial-admin-item-details" key={position.transferSlotType}>
+                          <summary>
+                            <span className="editorial-admin-item-summary-title">{position.publicName}</span>
+                            <span className="editorial-admin-item-status">{occupant ? "Ocupada" : "Livre"}</span>
+                          </summary>
+                          <div className="editorial-admin-item-details-body">
+                            {occupant ? (
+                              <>
+                                {occupant.label ? <small>{occupant.label}</small> : null}
+                                <strong>{occupant.title ?? "Notícia sem título"}</strong>
+                                <NewsTransferControl
+                                  matchdayId={matchday.id}
+                                  articleId={articleIdForPlacement(occupant.linkUrl, occupant.articleId)}
+                                  sourceSlotType={position.transferSlotType}
+                                  sourceId={occupant.id}
+                                  returnTo={returnToLiveLayouts}
+                                  hasPlacement={Boolean(cleanText(occupant.linkUrl) || cleanText(occupant.title))}
+                                  targetOptions={newsTransferTargetOptions}
+                                  displacedOptions={newsDisplacedTargetOptionsForSource(position.transferSlotType, occupant.id)}
+                                />
+                              </>
+                            ) : (
+                              <small>Posição livre. Usa “Transferir para…” em qualquer notícia do circuito editorial para a preencher.</small>
+                            )}
+                          </div>
+                        </details>
+                      );
+                    })}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
         </section>
 
         <script

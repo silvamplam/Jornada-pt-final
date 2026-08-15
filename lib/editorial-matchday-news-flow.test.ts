@@ -61,17 +61,14 @@ test("as seis zonas base mantêm o mesmo circuito e aceitam os lugares hierárqu
   assert.ok(editorialPageSource.includes('sourceSlotType="side_block"'));
 });
 
-test("os layouts vivos não exigem composição standard prévia", () => {
-  assert.ok(flowSource.includes("async function readCurrentLiveCompositionId(matchdayId: string)"));
-  assert.match(
-    flowSource,
-    /matchday_reference_compositions\?select=id&matchday_id=eq\.[^`]+&status=eq\.published&is_current=is\.true&order=published_at\.desc\.nullslast&limit=1/,
-  );
-  assert.doesNotMatch(flowSource, /readCurrentStandardCompositionId/);
-  assert.doesNotMatch(flowSource, /presentation_mode=eq\.standard/);
-  assert.doesNotMatch(editorialPageSource, /presentation_mode=eq\.standard/);
-  assert.ok(editorialPageSource.includes("LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach"));
-  assert.ok(editorialPageSource.includes("quando existir uma composição publicada e atual para esta Jornada"));
+test("os três layouts vivos usam armazenamento próprio e não leem nem escrevem a Composição", () => {
+  assert.ok(flowSource.includes("matchday_live_layout_items"));
+  assert.equal(flowSource.includes("matchday_hierarchical_composition_slots"), false);
+  assert.equal(flowSource.includes("matchday_reference_composition_items"), false);
+  assert.equal(flowSource.includes("readCurrentStandardCompositionId"), false);
+  assert.equal(flowSource.includes("readCurrentLiveCompositionId"), false);
+  assert.ok(editorialPageSource.includes("matchday_live_layout_items"));
+  assert.equal(editorialPageSource.includes("liveHierarchicalLayoutState.compositionId"), false);
 });
 
 test("qualquer destino ocupado exige escolher explicitamente o destino da notícia desalojada", () => {
