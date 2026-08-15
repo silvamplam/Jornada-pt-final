@@ -1,5 +1,6 @@
 import PublicLatestNewsBlock from "./PublicLatestNewsBlock";
 import type { PublicEditorialLatestNews } from "./PublicEditorialLayout";
+import PublicSideAdvertisement from "./PublicSideAdvertisement";
 
 export type PublicFourNewsLatestItem = {
   id: string;
@@ -149,22 +150,25 @@ const styles = `
   }
 
   .public-four-news-ad-slot {
-    display: flex;
+    display: block;
     flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
+    overflow: hidden;
     box-sizing: border-box;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 12px;
+    padding: 0;
     border: 1px solid #e2e6eb;
-    background: #fafbfc;
-    color: #86909b;
-    font-size: 9px;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    background: #ffffff;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .public-four-news-ad-slot img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: top center;
   }
 
   @media (max-width: 1100px) {
@@ -285,13 +289,9 @@ export default function PublicFourNewsLatestLayout({
         <aside
           className="public-four-news-ad-column"
           aria-label="Publicidade"
+          data-public-ad-slot="four-news-latest"
         >
-          <div
-            className="public-four-news-ad-slot"
-            data-public-ad-slot="four-news-latest"
-          >
-            Publicidade
-          </div>
+          <PublicSideAdvertisement className="public-four-news-ad-slot" />
         </aside>
       </div>
     </section>

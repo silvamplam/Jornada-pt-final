@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
+import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import {
@@ -1345,15 +1346,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
         </article>
 
         <aside className="news-article-sidebar">
-          <a
-            className="news-article-ad news-article-ad-link"
-            href="https://now.startupmadeira.eu/"
-            target="_blank"
-            rel="noopener noreferrer sponsored"
-            aria-label="Startup Madeira NOW"
-          >
-            <img src="/ads/startup-madeira-now-sidebar.png" alt="Startup Madeira NOW" />
-          </a>
+          <PublicSideAdvertisement className="news-article-ad news-article-ad-link" />
           {moreArticles.length > 0 ? (
             <section className="news-article-side-panel" aria-label="Artigos relacionados">
               <ul className="news-article-side-list">
