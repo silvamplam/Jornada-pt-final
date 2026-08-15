@@ -7,6 +7,7 @@ import {
   moveDeskArticleWithinPlacementGroup,
   placementGroupForKey,
   placementLabelForKey,
+  placeDeskArticleInSlot,
   setDeskLatestMembership,
   swapDeskArticleToSlot,
   type MatchdayDeskDesiredState,
@@ -21,6 +22,7 @@ type DeskHistoryEntry = {
 };
 
 type DeskFilter = "all" | "latest" | "outside_latest" | "no_editorial" | "unplaced" | "faixa" | "layouts";
+type DeskDestinationChoice = MatchdayDeskDestination | `slot::${string}`;
 
 function initialDesiredState(snapshot: MatchdayDeskSnapshot): MatchdayDeskDesiredState {
   return Object.fromEntries(
@@ -59,7 +61,7 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
   const [faixaVisible, setFaixaVisible] = useState(true);
   const [history, setHistory] = useState<DeskHistoryEntry[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [destination, setDestination] = useState<MatchdayDeskDestination | "">("");
+  const [destination, setDestination] = useState<DeskDestinationChoice | "">("");
   const [filter, setFilter] = useState<DeskFilter>("all");
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
@@ -135,7 +137,22 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
     }
 
     try {
-      const next = applyDeskPlacementSelection(desired, selectedIds, destination);
+      if (destination.startsWith("slot::")) {
+        if (selectedIds.length !== 1) {
+          setMessage("Para escolher uma posi\u00e7\u00e3o espec\u00edfica, seleciona apenas uma not\u00edcia.");
+          return;
+        }
+
+        const targetPlacementKey = destination.slice("slot::".length);
+        const next = placeDeskArticleInSlot(desired, selectedIds[0], targetPlacementKey);
+        commit(
+          next,
+          faixaVisible,
+          `Coloca\u00e7\u00e3o planeada em ${placementLabelForKey(targetPlacementKey)}.`,
+        );
+        return;
+      }
+      const next = applyDeskPlacementSelection(desired, selectedIds, destination as MatchdayDeskDestination);
       commit(next, faixaVisible, "Colocação planeada. A ordem de seleção define a primeira ordem da zona.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível planear esta colocação.");
@@ -315,11 +332,20 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
             <strong>{selectedIds.length} selecionadas</strong>
             <button type="button" onClick={() => setLatest(true)}>+ Últimas</button>
             <button type="button" onClick={() => setLatest(false)}>− Últimas</button>
-            <select value={destination} onChange={(event: ChangeEvent<HTMLSelectElement>) => setDestination(event.target.value as MatchdayDeskDestination | "")}>
-              <option value="">Colocar em…</option>
-              <option value="none">Sem colocação editorial</option>
+            <select value={destination} onChange={(event: ChangeEvent<HTMLSelectElement>) => setDestination(event.target.value as DeskDestinationChoice | "")}>
+              <option value="">{"Colocar em\u2026"}</option>
+              <option value="none">{"Sem coloca\u00e7\u00e3o editorial"}</option>
               {MATCHDAY_DESK_GROUPS.map((group) => (
-                <option key={group.key} value={group.key}>{group.label}</option>
+                <optgroup key={group.key} label={group.label}>
+                  <option value={group.key}>
+                    {group.slots.length > 1 ? "Preencher pela ordem de sele\u00e7\u00e3o" : group.label}
+                  </option>
+                  {group.slots.length > 1
+                    ? group.slots.map((slot) => (
+                        <option key={slot.key} value={`slot::${slot.key}`}>{slot.label}</option>
+                      ))
+                    : null}
+                </optgroup>
               ))}
             </select>
             <button className="primary" type="button" onClick={placeSelected}>Colocar</button>

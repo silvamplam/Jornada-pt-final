@@ -5,6 +5,7 @@ import {
   applyDeskPlacementSelection,
   moveDeskArticleWithinPlacementGroup,
   placementGroupForKey,
+  placeDeskArticleInSlot,
   setDeskLatestMembership,
   swapDeskArticleToSlot,
   type MatchdayDeskDesiredState,
@@ -72,4 +73,14 @@ test("arrastar dentro de uma zona troca as posições sem duplicar a notícia", 
   assert.equal(next.b.placementKey, "live_four_news:2");
   assert.equal(next.c.placementKey, "live_four_news:1");
   assert.equal(placementGroupForKey(next.b.placementKey), "four_news");
+});
+test("uma noticia pode ir diretamente para um slot especifico", () => {
+  const highlight = placeDeskArticleInSlot(state(), "a", "highlight:2");
+  assert.equal(highlight.a.placementKey, "highlight:2");
+  assert.equal(highlight.a.inLatest, true);
+
+  const occupied = placeDeskArticleInSlot(state(), "a", "live_four_news:2");
+  assert.equal(occupied.a.placementKey, "live_four_news:2");
+  assert.equal(occupied.c.placementKey, null);
+  assert.equal(occupied.a.inLatest, true);
 });

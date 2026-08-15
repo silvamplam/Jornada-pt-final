@@ -252,6 +252,34 @@ export function applyDeskPlacementSelection(
   return next;
 }
 
+export function placeDeskArticleInSlot(
+  state: MatchdayDeskDesiredState,
+  articleId: string,
+  targetPlacementKey: string,
+) {
+  if (!state[articleId]) return state;
+
+  const targetGroup = placementGroupForKey(targetPlacementKey);
+  if (!targetGroup || targetGroup === "faixa") {
+    throw new Error("A posi\u00e7\u00e3o editorial escolhida n\u00e3o \u00e9 v\u00e1lida.");
+  }
+
+  const next = cloneDesiredState(state);
+  const sourceWasFaixa = placementGroupForKey(next[articleId].placementKey) === "faixa";
+  const displaced = Object.entries(next).find(
+    ([candidateId, article]) =>
+      candidateId !== articleId && article.placementKey === targetPlacementKey,
+  );
+
+  if (displaced) {
+    next[displaced[0]] = { ...next[displaced[0]], placementKey: null };
+  }
+
+  next[articleId] = { ...next[articleId], placementKey: targetPlacementKey };
+
+  if (sourceWasFaixa) normalizeFaixa(next);
+  return next;
+}
 export function setDeskLatestMembership(
   state: MatchdayDeskDesiredState,
   selectedArticleIds: string[],
