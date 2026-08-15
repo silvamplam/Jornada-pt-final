@@ -36,8 +36,31 @@ export const DEFAULT_PUBLIC_SIDE_ADVERTISEMENT: PublicSideAdvertisementData = {
   isActive: true,
 };
 
+const ADVERTISEMENT_READ_TIMEOUT_MS = 2500;
+
 function text(value: string | null | undefined) {
   return value?.trim() ?? "";
+}
+
+async function withAdvertisingReadTimeout<T>(
+  promise: Promise<T>,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error("advertising-read-timeout"));
+        }, ADVERTISEMENT_READ_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
 }
 
 export function normalizePublicSideAdvertisement(
@@ -67,8 +90,10 @@ export function isDisplayableSideAdvertisement(
 
 export async function readPrimarySideAdvertisement(): Promise<PublicSideAdvertisementReadResult> {
   try {
-    const rows = await fetchSupabaseAdminTable<SiteAdvertisingSlotRow>(
-      `site_advertising_slots?select=slot_key,name,image_url,target_url,alt_text,is_active&slot_key=eq.${PRIMARY_SIDE_ADVERTISING_SLOT_KEY}&limit=1`,
+    const rows = await withAdvertisingReadTimeout(
+      fetchSupabaseAdminTable<SiteAdvertisingSlotRow>(
+        `site_advertising_slots?select=slot_key,name,image_url,target_url,alt_text,is_active&slot_key=eq.${PRIMARY_SIDE_ADVERTISING_SLOT_KEY}&limit=1`,
+      ),
     );
 
     if (!rows[0]) {
