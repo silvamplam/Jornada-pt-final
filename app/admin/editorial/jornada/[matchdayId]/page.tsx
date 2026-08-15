@@ -2173,6 +2173,9 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
           <a className="editorial-admin-button secondary" href={`/admin/editorial/composicao/${encodeURIComponent(matchday.id)}`}>
             Abrir composição
           </a>
+          <a className="editorial-admin-button secondary" href={`/admin/editorial/jornada/${matchday.id}/organizar`}>
+            Organizar Jornada — Beta
+          </a>
           <a className="editorial-admin-button secondary" href="/admin/gestor">
             Gestor
           </a>
