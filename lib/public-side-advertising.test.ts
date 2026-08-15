@@ -110,3 +110,26 @@ test("a migração é idempotente e preserva a campanha inicial", () => {
     /on conflict \(slot_key\) do nothing/,
   );
 });
+test("o gestor não usa classes começadas por ad ou advertising", () => {
+  const loading = source("app/admin/publicidade/loading.tsx");
+
+  assert.doesNotMatch(
+    admin,
+    /className="(?:ad-|advertising-)/,
+  );
+
+  assert.doesNotMatch(
+    admin,
+    /\.(?:ad-|advertising-)[a-zA-Z0-9_-]*/,
+  );
+
+  assert.doesNotMatch(
+    loading,
+    /className="(?:ad-|advertising-)/,
+  );
+
+  assert.doesNotMatch(
+    loading,
+    /\.(?:ad-|advertising-)[a-zA-Z0-9_-]*/,
+  );
+});

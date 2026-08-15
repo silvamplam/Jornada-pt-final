@@ -15,7 +15,7 @@ const styles = `
     background: #eef2f6;
   }
 
-  .ad-admin {
+  .campaign-admin-shell {
     min-height: 100vh;
     box-sizing: border-box;
     padding: 28px;
@@ -24,15 +24,15 @@ const styles = `
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  .ad-header,
-  .ad-panel {
+  .campaign-header,
+  .campaign-panel {
     width: min(920px, 100%);
     box-sizing: border-box;
     margin-right: auto;
     margin-left: auto;
   }
 
-  .ad-header {
+  .campaign-header {
     display: flex;
     justify-content: space-between;
     gap: 20px;
@@ -43,22 +43,22 @@ const styles = `
     color: #ffffff;
   }
 
-  .ad-header h1,
-  .ad-header p {
+  .campaign-header h1,
+  .campaign-header p {
     margin: 0;
   }
 
-  .ad-header h1 {
+  .campaign-header h1 {
     margin-top: 6px;
     font-size: 34px;
   }
 
-  .ad-header p {
+  .campaign-header p {
     color: #cbd3dd;
     line-height: 1.4;
   }
 
-  .ad-header a {
+  .campaign-header a {
     flex: 0 0 auto;
     color: #ffffff;
     font-size: 12px;
@@ -66,7 +66,7 @@ const styles = `
     text-decoration: none;
   }
 
-  .ad-panel {
+  .campaign-panel {
     margin-top: 18px;
     padding: 24px;
     border: 1px solid #dce3eb;
@@ -75,26 +75,26 @@ const styles = `
     box-shadow: 0 10px 24px rgba(12, 22, 34, 0.07);
   }
 
-  .ad-form {
+  .campaign-form {
     display: grid;
     gap: 18px;
   }
 
-  .ad-field {
+  .campaign-field {
     display: grid;
     gap: 7px;
   }
 
-  .ad-field > span,
-  .ad-preview > strong {
+  .campaign-field > span,
+  .campaign-preview > strong {
     font-size: 12px;
     font-weight: 900;
     text-transform: uppercase;
   }
 
-  .ad-field input[type="text"],
-  .ad-field input[type="url"],
-  .ad-field input[type="file"] {
+  .campaign-field input[type="text"],
+  .campaign-field input[type="url"],
+  .campaign-field input[type="file"] {
     width: 100%;
     box-sizing: border-box;
     padding: 11px 12px;
@@ -105,33 +105,33 @@ const styles = `
     font: inherit;
   }
 
-  .ad-file-help,
-  .ad-note {
+  .campaign-file-help,
+  .campaign-note {
     margin: 0;
     color: #657181;
     font-size: 13px;
     line-height: 1.45;
   }
 
-  .ad-preview {
+  .campaign-preview {
     display: grid;
     gap: 8px;
   }
 
-  .ad-preview img {
+  .campaign-preview img {
     display: block;
     width: min(320px, 100%);
     height: auto;
   }
 
-  .ad-active {
+  .campaign-active {
     display: flex;
     gap: 8px;
     align-items: center;
     font-weight: 800;
   }
 
-  .ad-save {
+  .campaign-save {
     width: fit-content;
     padding: 12px 16px;
     border: 0;
@@ -144,7 +144,7 @@ const styles = `
     cursor: pointer;
   }
 
-  .ad-message {
+  .campaign-message {
     margin: 0 0 18px;
     padding: 12px 14px;
     border-radius: 5px;
@@ -153,22 +153,22 @@ const styles = `
     font-weight: 800;
   }
 
-  .ad-message.warning {
+  .campaign-message.warning {
     background: #fff6df;
     color: #654912;
   }
 
-  .ad-message.error {
+  .campaign-message.error {
     background: #fff0f0;
     color: #8e1820;
   }
 
   @media (max-width: 700px) {
-    .ad-admin {
+    .campaign-admin-shell {
       padding: 14px;
     }
 
-    .ad-header {
+    .campaign-header {
       display: grid;
     }
   }
@@ -210,10 +210,10 @@ export default async function AdvertisingPage({
   const error = errorMessage(params.error);
 
   return (
-    <main className="ad-admin">
+    <main className="campaign-admin-shell">
       <style>{styles}</style>
 
-      <header className="ad-header">
+      <header className="campaign-header">
         <div>
           <p>Jornada.pt</p>
           <h1>Publicidade</h1>
@@ -225,36 +225,36 @@ export default async function AdvertisingPage({
         <a href="/admin">VOLTAR AO BACKOFFICE</a>
       </header>
 
-      <section className="ad-panel">
+      <section className="campaign-panel">
         {params.saved ? (
-          <p className="ad-message">
+          <p className="campaign-message">
             Publicidade guardada nos dois locais.
           </p>
         ) : null}
 
         {!result.storageReady ? (
-          <p className="ad-message warning">
+          <p className="campaign-message warning">
             Não foi possível ler imediatamente a configuração.
             A campanha atual foi usada como fallback.
           </p>
         ) : null}
 
         {error ? (
-          <p className="ad-message error">{error}</p>
+          <p className="campaign-message error">{error}</p>
         ) : null}
 
-        <p className="ad-note">
+        <p className="campaign-note">
           Alteras aqui uma vez. A mesma campanha aparece ao lado das
           Últimas e na lateral dos artigos.
         </p>
 
         <form
-          className="ad-form"
+          className="campaign-form"
           action="/api/admin/publicidade"
           method="post"
           encType="multipart/form-data"
         >
-          <label className="ad-field">
+          <label className="campaign-field">
             <span>Nome / campanha</span>
             <input
               type="text"
@@ -263,7 +263,7 @@ export default async function AdvertisingPage({
             />
           </label>
 
-          <label className="ad-field">
+          <label className="campaign-field">
             <span>Imagem atual / URL</span>
             <input
               type="text"
@@ -272,27 +272,27 @@ export default async function AdvertisingPage({
             />
           </label>
 
-          <label className="ad-field">
+          <label className="campaign-field">
             <span>Carregar nova imagem</span>
             <input
               type="file"
               name="image_file"
               accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif"
             />
-            <p className="ad-file-help">
+            <span className="campaign-file-help">
               Se escolheres um ficheiro, ele substitui o URL da imagem
               quando guardares.
-            </p>
+            </span>
           </label>
 
           {ad.imageUrl ? (
-            <div className="ad-preview">
+            <div className="campaign-preview">
               <strong>Imagem atual</strong>
               <img src={ad.imageUrl} alt="" />
             </div>
           ) : null}
 
-          <label className="ad-field">
+          <label className="campaign-field">
             <span>Link de destino</span>
             <input
               type="text"
@@ -301,7 +301,7 @@ export default async function AdvertisingPage({
             />
           </label>
 
-          <label className="ad-field">
+          <label className="campaign-field">
             <span>Texto alternativo</span>
             <input
               type="text"
@@ -310,7 +310,7 @@ export default async function AdvertisingPage({
             />
           </label>
 
-          <label className="ad-active">
+          <label className="campaign-active">
             <input
               type="checkbox"
               name="is_active"
@@ -320,7 +320,7 @@ export default async function AdvertisingPage({
             Publicidade ativa
           </label>
 
-          <button className="ad-save" type="submit">
+          <button className="campaign-save" type="submit">
             GUARDAR PUBLICIDADE
           </button>
         </form>

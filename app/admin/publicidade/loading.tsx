@@ -4,7 +4,7 @@ const styles = `
     background: #eef2f6;
   }
 
-  .advertising-loading {
+  .campaign-loading {
     min-height: 100vh;
     box-sizing: border-box;
     padding: 28px;
@@ -13,7 +13,7 @@ const styles = `
     font-family: Arial, Helvetica, sans-serif;
   }
 
-  .advertising-loading-card {
+  .campaign-loading-card {
     width: min(920px, 100%);
     box-sizing: border-box;
     margin: 0 auto;
@@ -23,16 +23,16 @@ const styles = `
     color: #ffffff;
   }
 
-  .advertising-loading-card p {
+  .campaign-loading-card p {
     margin: 0;
     color: #cbd3dd;
   }
 
-  .advertising-loading-card h1 {
+  .campaign-loading-card h1 {
     margin: 6px 0 8px;
   }
 
-  .advertising-loading-status {
+  .campaign-loading-status {
     width: min(920px, 100%);
     box-sizing: border-box;
     margin: 18px auto 0;
@@ -45,16 +45,16 @@ const styles = `
 
 export default function AdvertisingLoading() {
   return (
-    <main className="advertising-loading">
+    <main className="campaign-loading">
       <style>{styles}</style>
 
-      <header className="advertising-loading-card">
+      <header className="campaign-loading-card">
         <p>Jornada.pt</p>
         <h1>Publicidade</h1>
         <p>Uma única campanha para a Jornada e para as notícias.</p>
       </header>
 
-      <section className="advertising-loading-status">
+      <section className="campaign-loading-status">
         A carregar a configuração da publicidade...
       </section>
     </main>
