@@ -105,6 +105,120 @@ export const HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS = [
 export type HierarchicalBeyondMatchdayPosition =
   (typeof HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS)[number];
 
+export const LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS = [
+  {
+    transferSlotType: "live_hierarchical:secondary_strong_1",
+    storage: "hierarchical",
+    slotKey: "secondary_strong_1",
+    group: "analysis",
+    publicName: "Arbitragem e reações — dominante",
+  },
+  {
+    transferSlotType: "live_hierarchical:secondary_strong_2",
+    storage: "hierarchical",
+    slotKey: "secondary_strong_2",
+    group: "analysis",
+    publicName: "Arbitragem e reações — desenvolvimento 1",
+  },
+  {
+    transferSlotType: "live_hierarchical:secondary_1",
+    storage: "hierarchical",
+    slotKey: "secondary_1",
+    group: "analysis",
+    publicName: "Arbitragem e reações — desenvolvimento 2",
+  },
+  {
+    transferSlotType: "live_hierarchical:secondary_2",
+    storage: "hierarchical",
+    slotKey: "secondary_2",
+    group: "analysis",
+    publicName: "Arbitragem e reações — desenvolvimento 3",
+  },
+  {
+    transferSlotType: "live_hierarchical:dominant_side_top",
+    storage: "hierarchical",
+    slotKey: "dominant_side_top",
+    group: "analysis",
+    publicName: "Arbitragem e reações — lateral superior",
+  },
+  {
+    transferSlotType: "live_hierarchical:dominant_side_bottom",
+    storage: "hierarchical",
+    slotKey: "dominant_side_bottom",
+    group: "analysis",
+    publicName: "Arbitragem e reações — lateral inferior",
+  },
+  {
+    transferSlotType: "live_hierarchical:secondary_3",
+    storage: "hierarchical",
+    slotKey: "secondary_3",
+    group: "other_games",
+    publicName: "Outros jogos da jornada — dominante",
+  },
+  {
+    transferSlotType: "live_hierarchical:secondary_4",
+    storage: "hierarchical",
+    slotKey: "secondary_4",
+    group: "other_games",
+    publicName: "Outros jogos da jornada — apoio",
+  },
+  {
+    transferSlotType: "live_hierarchical:closing_1",
+    storage: "hierarchical",
+    slotKey: "closing_1",
+    group: "other_games",
+    publicName: "Outros jogos da jornada — compacto 1",
+  },
+  {
+    transferSlotType: "live_hierarchical:closing_2",
+    storage: "hierarchical",
+    slotKey: "closing_2",
+    group: "other_games",
+    publicName: "Outros jogos da jornada — compacto 2",
+  },
+  {
+    transferSlotType: "live_hierarchical:closing_3",
+    storage: "hierarchical",
+    slotKey: "closing_3",
+    group: "other_games",
+    publicName: "Outros jogos da jornada — compacto 3",
+  },
+  ...HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS.map((position) => ({
+    transferSlotType: `live_beyond_matchday:${position.sortOrder}` as const,
+    storage: "beyond_matchday" as const,
+    sortOrder: position.sortOrder,
+    group: "beyond_matchday" as const,
+    publicName: `Para Lá da Jornada — ${position.label}`,
+  })),
+] as const;
+
+export type LiveMatchdayHierarchicalLayoutPosition =
+  (typeof LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS)[number];
+
+export type LiveMatchdayHierarchicalTransferSlotType =
+  LiveMatchdayHierarchicalLayoutPosition["transferSlotType"];
+
+export const LIVE_MATCHDAY_HIERARCHICAL_TRANSFER_SLOT_TYPES =
+  LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.map((position) => position.transferSlotType);
+
+const liveMatchdayHierarchicalTransferSlotTypeSet = new Set<string>(
+  LIVE_MATCHDAY_HIERARCHICAL_TRANSFER_SLOT_TYPES,
+);
+
+export function isLiveMatchdayHierarchicalTransferSlotType(
+  value?: string | null,
+): value is LiveMatchdayHierarchicalTransferSlotType {
+  return Boolean(value && liveMatchdayHierarchicalTransferSlotTypeSet.has(value));
+}
+
+export function liveMatchdayHierarchicalLayoutPosition(
+  slotType: LiveMatchdayHierarchicalTransferSlotType,
+) {
+  return LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.find(
+    (position) => position.transferSlotType === slotType,
+  ) ?? null;
+}
+
 export type HierarchicalCompositionReferenceItem = {
   slot_type: string;
   sort_order: number;

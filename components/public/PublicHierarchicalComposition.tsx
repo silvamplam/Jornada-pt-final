@@ -136,6 +136,18 @@ export const HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP = {
 } as const;
 
 const hierarchicalCompositionStyles = `
+  .public-hierarchical-composition {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .public-hierarchical-composition,
+  .public-hierarchical-composition * {
+    box-shadow: none !important;
+  }
+
   .composition-interpretive-preview {
     display: grid;
     gap: 42px;
@@ -813,6 +825,178 @@ function InterpretiveNewsCopy({
   );
 }
 
+type InterpretiveSlotsByKey = Map<HierarchicalCompositionSlotKey, HierarchicalCompositionSlot>;
+
+const LIVE_ANALYSIS_SLOT_KEYS: HierarchicalCompositionSlotKey[] = [
+  HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.dominant,
+  ...HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.center,
+  ...HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.side,
+];
+
+const LIVE_OTHER_GAMES_SLOT_KEYS: HierarchicalCompositionSlotKey[] = [
+  HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.primary,
+  HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.second,
+  ...HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.compact,
+];
+
+function hasCompleteInterpretiveSlots(
+  slotsByKey: InterpretiveSlotsByKey,
+  slotKeys: readonly HierarchicalCompositionSlotKey[],
+) {
+  return slotKeys.every((slotKey) => {
+    const slot = slotsByKey.get(slotKey);
+    return Boolean(
+      slot?.title_snapshot?.trim()
+      && slot?.subtitle_snapshot?.trim()
+      && slot?.image_url_snapshot?.trim()
+      && slot?.link_url_snapshot?.trim(),
+    );
+  });
+}
+
+function InterpretiveAnalysisSection({
+  slotsByKey,
+  showEmptySlots,
+}: {
+  slotsByKey: InterpretiveSlotsByKey;
+  showEmptySlots: boolean;
+}) {
+  const analysisMainKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.dominant;
+  const analysisMainSlot = slotsByKey.get(analysisMainKey) ?? null;
+
+  return (
+    <section className="composition-interpretive-section composition-interpretive-analysis" aria-labelledby="public-interpretive-analysis-title">
+      <h2 className="composition-interpretive-section-heading" id="public-interpretive-analysis-title">Arbitragem e reações</h2>
+      <div className="composition-interpretive-analysis-grid">
+        <article className="composition-interpretive-analysis-main" data-editorial-weight="main" data-slot={analysisMainKey}>
+          <InterpretiveMedia showEmptySlots={showEmptySlots} slot={analysisMainSlot} slotKey={analysisMainKey} />
+          <InterpretiveNewsCopy showEmptySlots={showEmptySlots} slot={analysisMainSlot} slotKey={analysisMainKey} />
+        </article>
+
+        <div className="composition-interpretive-analysis-center" data-editorial-weight="development">
+          {HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.center.map((slotKey) => {
+            const slot = slotsByKey.get(slotKey) ?? null;
+            return (
+              <article
+                className="composition-interpretive-analysis-medium"
+                data-orientation="media-copy"
+                data-slot={slotKey}
+                key={slotKey}
+              >
+                <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
+                <InterpretiveNewsCopy
+                  showEmptySlots={showEmptySlots}
+                  showSubtitle={false}
+                  slot={slot}
+                  slotKey={slotKey}
+                />
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="composition-interpretive-analysis-side" data-editorial-weight="complement">
+          {HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.side.map((slotKey) => {
+            const slot = slotsByKey.get(slotKey) ?? null;
+            return (
+              <article className="composition-interpretive-analysis-side-item" data-orientation="media-above" data-slot={slotKey} key={slotKey}>
+                <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
+                <InterpretiveNewsCopy
+                  showEmptySlots={showEmptySlots}
+                  showSubtitle={false}
+                  slot={slot}
+                  slotKey={slotKey}
+                />
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function InterpretiveOtherGamesSection({
+  slotsByKey,
+  showEmptySlots,
+}: {
+  slotsByKey: InterpretiveSlotsByKey;
+  showEmptySlots: boolean;
+}) {
+  const otherFeaturedKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.primary;
+  const otherFeaturedSlot = slotsByKey.get(otherFeaturedKey) ?? null;
+  const otherSecondKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.second;
+  const otherSecondSlot = slotsByKey.get(otherSecondKey) ?? null;
+
+  return (
+    <section className="composition-interpretive-section composition-interpretive-other-games" aria-labelledby="public-interpretive-other-games-title">
+      <h2 className="composition-interpretive-section-heading" id="public-interpretive-other-games-title">Outros jogos da jornada</h2>
+      <div className="composition-interpretive-other-games-layout">
+        <div className="composition-interpretive-other-left">
+          <article className="composition-interpretive-other-featured" data-editorial-weight="featured-primary" data-slot={otherFeaturedKey}>
+            <InterpretiveMedia showEmptySlots={showEmptySlots} slot={otherFeaturedSlot} slotKey={otherFeaturedKey} />
+            <InterpretiveNewsCopy showEmptySlots={showEmptySlots} slot={otherFeaturedSlot} slotKey={otherFeaturedKey} />
+          </article>
+
+          <article className="composition-interpretive-other-second-featured" data-editorial-weight="featured-secondary" data-orientation="media-copy" data-slot={otherSecondKey}>
+            <InterpretiveMedia showEmptySlots={showEmptySlots} slot={otherSecondSlot} slotKey={otherSecondKey} />
+            <InterpretiveNewsCopy showEmptySlots={showEmptySlots} slot={otherSecondSlot} slotKey={otherSecondKey} />
+          </article>
+        </div>
+
+        <div className="composition-interpretive-other-compact-column">
+          {HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.compact.map((slotKey) => {
+            const slot = slotsByKey.get(slotKey) ?? null;
+            return (
+              <article className="composition-interpretive-other-compact" data-editorial-weight="compact" data-orientation="media-copy" data-slot={slotKey} key={slotKey}>
+                <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
+                <InterpretiveNewsCopy showEmptySlots={showEmptySlots} showSubtitle={false} slot={slot} slotKey={slotKey} />
+                {slot?.subtitle_snapshot ? (
+                  <p className="composition-interpretive-subtitle">{slot.subtitle_snapshot}</p>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function PublicHierarchicalLiveLayouts({
+  slots,
+  beyondMatchdayItems = [],
+  matchdayNumber,
+  ariaLabel = "Layouts editoriais da atualidade",
+}: Pick<PublicHierarchicalCompositionProps, "slots" | "beyondMatchdayItems" | "matchdayNumber" | "ariaLabel">) {
+  const slotsByKey = new Map(slots.map((slot) => [slot.slot_key, slot] as const));
+  const showAnalysis = hasCompleteInterpretiveSlots(slotsByKey, LIVE_ANALYSIS_SLOT_KEYS);
+  const showOtherGames = hasCompleteInterpretiveSlots(slotsByKey, LIVE_OTHER_GAMES_SLOT_KEYS);
+  const showBeyondMatchday = beyondMatchdayItems.length === 5;
+
+  if (!showAnalysis && !showOtherGames && !showBeyondMatchday) return null;
+
+  return (
+    <section
+      className="public-matchday-panel public-hierarchical-composition public-hierarchical-live-layouts"
+      aria-label={ariaLabel}
+      data-public-hierarchical-layout="live-selected"
+    >
+      <style>{hierarchicalCompositionStyles}</style>
+      <div className="composition-interpretive-preview">
+        {showAnalysis ? <InterpretiveAnalysisSection showEmptySlots={false} slotsByKey={slotsByKey} /> : null}
+        {showOtherGames ? <InterpretiveOtherGamesSection showEmptySlots={false} slotsByKey={slotsByKey} /> : null}
+        {showBeyondMatchday ? (
+          <PublicBeyondMatchdayNews
+            contextLabel={`ATUALIDADE NO MOMENTO DA JORNADA ${String(matchdayNumber ?? "").padStart(2, "0")}`}
+            items={beyondMatchdayItems}
+          />
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function PublicHierarchicalPosteriorMoments({
   roundupItems = [],
   roundupHeading,
@@ -879,12 +1063,6 @@ export default function PublicHierarchicalComposition({
 }: PublicHierarchicalCompositionProps) {
   const slotsByKey = new Map(slots.map((slot) => [slot.slot_key, slot] as const));
   const dominantSlot = slotsByKey.get(HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.dominant) ?? null;
-  const analysisMainKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.dominant;
-  const analysisMainSlot = slotsByKey.get(analysisMainKey) ?? null;
-  const otherFeaturedKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.primary;
-  const otherFeaturedSlot = slotsByKey.get(otherFeaturedKey) ?? null;
-  const otherSecondKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.second;
-  const otherSecondSlot = slotsByKey.get(otherSecondKey) ?? null;
   const hasEditorial = isPublishableHierarchicalCompositionEditorial(editorial);
   const editorialParagraphs = hierarchicalCompositionEditorialParagraphs(editorial?.text);
 
@@ -938,86 +1116,9 @@ export default function PublicHierarchicalComposition({
           ) : null}
         </section>
 
-        <section className="composition-interpretive-section composition-interpretive-analysis" aria-labelledby="public-interpretive-analysis-title">
-          <h2 className="composition-interpretive-section-heading" id="public-interpretive-analysis-title">Arbitragem e reações</h2>
-          <div className="composition-interpretive-analysis-grid">
-            <article className="composition-interpretive-analysis-main" data-editorial-weight="main" data-slot={analysisMainKey}>
-              <InterpretiveMedia showEmptySlots={showEmptySlots} slot={analysisMainSlot} slotKey={analysisMainKey} />
-              <InterpretiveNewsCopy showEmptySlots={showEmptySlots} slot={analysisMainSlot} slotKey={analysisMainKey} />
-            </article>
+        <InterpretiveAnalysisSection showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
 
-            <div className="composition-interpretive-analysis-center" data-editorial-weight="development">
-              {HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.center.map((slotKey) => {
-                const slot = slotsByKey.get(slotKey) ?? null;
-                return (
-                  <article
-                    className="composition-interpretive-analysis-medium"
-                    data-orientation="media-copy"
-                    data-slot={slotKey}
-                    key={slotKey}
-                  >
-                    <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
-                    <InterpretiveNewsCopy
-                      showEmptySlots={showEmptySlots}
-                      showSubtitle={false}
-                      slot={slot}
-                      slotKey={slotKey}
-                    />
-                  </article>
-                );
-              })}
-            </div>
-
-            <div className="composition-interpretive-analysis-side" data-editorial-weight="complement">
-              {HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.side.map((slotKey) => {
-                const slot = slotsByKey.get(slotKey) ?? null;
-                return (
-                  <article className="composition-interpretive-analysis-side-item" data-orientation="media-above" data-slot={slotKey} key={slotKey}>
-                    <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
-                    <InterpretiveNewsCopy
-                      showEmptySlots={showEmptySlots}
-                      showSubtitle={false}
-                      slot={slot}
-                      slotKey={slotKey}
-                    />
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        <section className="composition-interpretive-section composition-interpretive-other-games" aria-labelledby="public-interpretive-other-games-title">
-          <h2 className="composition-interpretive-section-heading" id="public-interpretive-other-games-title">Outros jogos da jornada</h2>
-          <div className="composition-interpretive-other-games-layout">
-            <div className="composition-interpretive-other-left">
-              <article className="composition-interpretive-other-featured" data-editorial-weight="featured-primary" data-slot={otherFeaturedKey}>
-                <InterpretiveMedia showEmptySlots={showEmptySlots} slot={otherFeaturedSlot} slotKey={otherFeaturedKey} />
-                <InterpretiveNewsCopy showEmptySlots={showEmptySlots} slot={otherFeaturedSlot} slotKey={otherFeaturedKey} />
-              </article>
-
-              <article className="composition-interpretive-other-second-featured" data-editorial-weight="featured-secondary" data-orientation="media-copy" data-slot={otherSecondKey}>
-                <InterpretiveMedia showEmptySlots={showEmptySlots} slot={otherSecondSlot} slotKey={otherSecondKey} />
-                <InterpretiveNewsCopy showEmptySlots={showEmptySlots} slot={otherSecondSlot} slotKey={otherSecondKey} />
-              </article>
-            </div>
-
-            <div className="composition-interpretive-other-compact-column">
-              {HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.compact.map((slotKey) => {
-                const slot = slotsByKey.get(slotKey) ?? null;
-                return (
-                  <article className="composition-interpretive-other-compact" data-editorial-weight="compact" data-orientation="media-copy" data-slot={slotKey} key={slotKey}>
-                    <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
-                    <InterpretiveNewsCopy showEmptySlots={showEmptySlots} showSubtitle={false} slot={slot} slotKey={slotKey} />
-                    {slot?.subtitle_snapshot ? (
-                      <p className="composition-interpretive-subtitle">{slot.subtitle_snapshot}</p>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+        <InterpretiveOtherGamesSection showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
 
         <PublicHierarchicalPosteriorMoments
           beyondMatchdayItems={beyondMatchdayItems}

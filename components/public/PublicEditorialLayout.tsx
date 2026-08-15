@@ -142,6 +142,11 @@ const publicEditorialLayoutPolishStyles = `
     box-shadow: none !important;
   }
 
+  .public-editorial-layout-panel,
+  .public-editorial-layout-panel * {
+    box-shadow: none !important;
+  }
+
   .public-editorial-layout-panel .public-matchday-lead-grid > .public-matchday-news,
   .public-editorial-layout-panel .public-matchday-lead-grid > .public-side-editorial-block,
   .public-editorial-layout-panel .public-matchday-depth-row > .public-matchday-main-lower,
@@ -536,7 +541,10 @@ const publicEditorialLayoutPolishStyles = `
 
   .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-editorial h1,
   .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-editorial h2 {
-    -webkit-line-clamp: 5;
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-cover-headline p {

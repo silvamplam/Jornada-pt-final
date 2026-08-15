@@ -11,7 +11,7 @@ import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import { PublicEditorialLayout } from "@/components/public/PublicEditorialLayout";
 import type { PublicBeyondMatchdayNewsItem } from "@/components/public/PublicBeyondMatchdayNews";
-import PublicHierarchicalComposition from "@/components/public/PublicHierarchicalComposition";
+import PublicHierarchicalComposition, { PublicHierarchicalLiveLayouts } from "@/components/public/PublicHierarchicalComposition";
 import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
@@ -2956,6 +2956,19 @@ const publicMatchdayStyles = `
     }
   }
   /* JORNADA-CABECALHO-COMPETITIVO-FIM */
+
+  /* A página viva usa separadores, não elevação visual, nas zonas de conteúdo. */
+  .public-matchday-panel,
+  .public-matchday-scoreboard-panel,
+  .public-matchday-mini-card,
+  .public-matchday-editorial,
+  .public-matchday-feature,
+  .public-matchday-main-column,
+  .public-matchday-roundup,
+  .public-matchday-cover-side,
+  .public-matchday-news {
+    box-shadow: none !important;
+  }
 `;
 
 function signedNumber(value: number) {
@@ -3623,8 +3636,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         author: context.referenceComposition.hierarchical_editorial_author,
       }
     : null;
-  const hierarchicalBeyondReferenceItems = useHierarchicalReferenceComposition
+  const referenceBeyondMatchdayItems = usePublishedReferenceComposition
     ? context.referenceSlots.beyond_matchday ?? []
+    : [];
+  const hierarchicalBeyondReferenceItems = useHierarchicalReferenceComposition
+    ? referenceBeyondMatchdayItems
     : [];
   const hasValidHierarchicalReferenceComposition =
     useHierarchicalReferenceComposition &&
@@ -3869,7 +3885,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         inlineMedia: hierarchicalVideoHighlightMedia,
       }
     : null;
-  const hierarchicalBeyondMatchdayNews = [...hierarchicalBeyondReferenceItems]
+  const referenceBeyondMatchdayNews = [...referenceBeyondMatchdayItems]
     .sort((left, right) => left.sort_order - right.sort_order)
     .reduce<PublicBeyondMatchdayNewsItem[]>((items, item) => {
       const title = cleanReferenceSnapshotText(item.title_snapshot);
@@ -3886,6 +3902,12 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       });
       return items;
     }, []);
+  const hierarchicalBeyondMatchdayNews = useHierarchicalReferenceComposition
+    ? referenceBeyondMatchdayNews
+    : [];
+  const liveBeyondMatchdayNews = usePublishedReferenceComposition && !useHierarchicalReferenceComposition
+    ? referenceBeyondMatchdayNews
+    : [];
 
   return (
     <main className="public-matchday-shell">
@@ -4076,6 +4098,16 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       {!useHierarchicalReferenceComposition ? (
         <div className="public-matchday-editorial-region">
           <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" scope="matchday" />
+        </div>
+      ) : null}
+
+      {usePublishedReferenceComposition && !useHierarchicalReferenceComposition ? (
+        <div className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region">
+          <PublicHierarchicalLiveLayouts
+            slots={context.hierarchicalCompositionSlots}
+            matchdayNumber={context.matchday.number}
+            beyondMatchdayItems={liveBeyondMatchdayNews}
+          />
         </div>
       ) : null}
 

@@ -11,6 +11,12 @@ import {
   type EditorialNewsFlowSlotType,
 } from "@/lib/editorial-zone-presentation";
 import { syncCurrentPublishedReferenceCompositionNewsFlow } from "@/lib/editorial-current-reference-composition-sync";
+import {
+  LIVE_MATCHDAY_HIERARCHICAL_TRANSFER_SLOT_TYPES,
+  isLiveMatchdayHierarchicalTransferSlotType,
+  liveMatchdayHierarchicalLayoutPosition,
+  type LiveMatchdayHierarchicalTransferSlotType,
+} from "@/lib/editorial-hierarchical-composition";
 import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
 import {
   moveEditorialHorizontalNewsItem,
@@ -99,11 +105,18 @@ type HorizontalNewsRow = {
 };
 
 export type EditorialInitialPlacement = "none" | EditorialNewsFlowSlotType;
-export type EditorialMatchdayTransferSlotType = EditorialNewsFlowSlotType | "side_block";
+export type EditorialMatchdayTransferSlotType =
+  | EditorialNewsFlowSlotType
+  | "side_block"
+  | LiveMatchdayHierarchicalTransferSlotType;
 export type EditorialDisplacedTargetSlotType = EditorialMatchdayTransferSlotType | "unplaced";
 
 export function isEditorialMatchdayTransferSlotType(value: unknown): value is EditorialMatchdayTransferSlotType {
-  return value === "side_block" || (typeof value === "string" && isEditorialNewsFlowSlotType(value));
+  return value === "side_block"
+    || (typeof value === "string" && (
+      isEditorialNewsFlowSlotType(value)
+      || isLiveMatchdayHierarchicalTransferSlotType(value)
+    ));
 }
 
 export type EditorialMatchdayNewsTransferInput = {
@@ -138,6 +151,7 @@ type ZoneProjection = {
   author: string | null;
   imageUrl: string | null;
   linkUrl: string | null;
+  articleId: string | null;
 };
 
 function cleanText(value?: string | null) {
@@ -405,6 +419,13 @@ async function sourceContainsArticle(
   sourceId: string,
   articlePath: string,
 ) {
+  if (isLiveMatchdayHierarchicalTransferSlotType(sourceSlotType)) {
+    const { row } = await readLiveLayoutRow(matchdayId, sourceSlotType);
+    if (!row || row.id !== sourceId) return false;
+    if (cleanText(row.link_url_snapshot) === articlePath) return true;
+    return "source_id" in row && row.source_id === articleId;
+  }
+
   if (sourceSlotType === "side_block") {
     const rows = await fetchSupabaseAdminTable<EditorialRow>(
       `matchday_editorials?select=id,side_block_link_url&id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(
@@ -486,6 +507,18 @@ function projectArticleToTransferZone(
   article: NewsFlowArticle,
   slotType: EditorialMatchdayTransferSlotType,
 ): ZoneProjection {
+  if (isLiveMatchdayHierarchicalTransferSlotType(slotType)) {
+    return {
+      label: cleanText(article.label),
+      title: cleanText(article.title),
+      subtitle: cleanText(article.subtitle),
+      author: cleanText(article.author),
+      imageUrl: cleanText(article.image_url),
+      linkUrl: publicArticlePath(article.slug),
+      articleId: article.id,
+    };
+  }
+
   if (slotType === "side_block") {
     return {
       label: cleanText(article.label),
@@ -494,6 +527,7 @@ function projectArticleToTransferZone(
       author: cleanText(article.author),
       imageUrl: cleanText(article.image_url),
       linkUrl: publicArticlePath(article.slug),
+      articleId: article.id,
     };
   }
 
@@ -501,6 +535,7 @@ function projectArticleToTransferZone(
   return {
     ...projection,
     author: cleanText(article.author),
+    articleId: article.id,
   };
 }
 
@@ -516,6 +551,7 @@ function fallbackProjectionForZone(
       author: occupant.author,
       imageUrl: null,
       linkUrl: occupant.linkUrl,
+      articleId: null,
     };
   }
 
@@ -527,6 +563,7 @@ function fallbackProjectionForZone(
       author: occupant.author,
       imageUrl: occupant.imageUrl,
       linkUrl: occupant.linkUrl,
+      articleId: null,
     };
   }
 
@@ -534,10 +571,219 @@ function fallbackProjectionForZone(
     return {
       ...occupant,
       subtitle: occupant.subtitle?.slice(0, EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS) ?? null,
+      articleId: null,
     };
   }
 
-  return { ...occupant };
+  return { ...occupant, articleId: null };
+}
+
+type CurrentStandardCompositionRow = {
+  id: string;
+};
+
+type LiveHierarchicalSlotRow = {
+  id: string;
+  slot_key: string;
+  source_identity: string;
+  label_snapshot: string | null;
+  title_snapshot: string | null;
+  subtitle_snapshot: string | null;
+  image_url_snapshot: string | null;
+  link_url_snapshot: string | null;
+};
+
+type LiveBeyondMatchdayRow = {
+  id: string;
+  source_type: string | null;
+  source_id: string | null;
+  sort_order: number;
+  label_snapshot: string | null;
+  title_snapshot: string | null;
+  subtitle_snapshot: string | null;
+  image_url_snapshot: string | null;
+  link_url_snapshot: string | null;
+};
+
+async function readCurrentStandardCompositionId(matchdayId: string) {
+  const rows = await fetchSupabaseAdminTable<CurrentStandardCompositionRow>(
+    `matchday_reference_compositions?select=id&matchday_id=eq.${encodeURIComponent(
+      matchdayId,
+    )}&status=eq.published&is_current=is.true&presentation_mode=eq.standard&order=published_at.desc.nullslast&limit=1`,
+  ).catch(() => []);
+  return rows[0]?.id ?? null;
+}
+
+function liveHierarchicalSourceIdentity(
+  slotType: LiveMatchdayHierarchicalTransferSlotType,
+  projection: ZoneProjection,
+) {
+  // A identidade canónica do artigo continua dentro do snapshot. O prefixo da
+  // posição evita colisões transitórias da restrição UNIQUE enquanto o motor
+  // grava o destino antes de limpar a origem, preservando o rollback seguro.
+  const position = liveMatchdayHierarchicalLayoutPosition(slotType);
+  const sourceIdentity = projection.articleId
+    ? `editorial_article:${projection.articleId}`
+    : projection.linkUrl
+      ? `link:${projection.linkUrl}`
+      : `title:${projection.title ?? "sem-titulo"}`;
+  return `live:${position?.transferSlotType ?? slotType}:${sourceIdentity}`;
+}
+
+async function readLiveLayoutRow(
+  matchdayId: string,
+  slotType: LiveMatchdayHierarchicalTransferSlotType,
+) {
+  const compositionId = await readCurrentStandardCompositionId(matchdayId);
+  if (!compositionId) return { compositionId: null, row: null as LiveHierarchicalSlotRow | LiveBeyondMatchdayRow | null };
+
+  const position = liveMatchdayHierarchicalLayoutPosition(slotType);
+  if (!position) return { compositionId, row: null as LiveHierarchicalSlotRow | LiveBeyondMatchdayRow | null };
+
+  if (position.storage === "hierarchical") {
+    const rows = await fetchSupabaseAdminTable<LiveHierarchicalSlotRow>(
+      `matchday_hierarchical_composition_slots?select=id,slot_key,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot&composition_id=eq.${encodeURIComponent(
+        compositionId,
+      )}&slot_key=eq.${encodeURIComponent(position.slotKey)}&limit=1`,
+    ).catch(() => []);
+    return { compositionId, row: rows[0] ?? null };
+  }
+
+  const rows = await fetchSupabaseAdminTable<LiveBeyondMatchdayRow>(
+    `matchday_reference_composition_items?select=id,source_type,source_id,sort_order,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot&composition_id=eq.${encodeURIComponent(
+      compositionId,
+    )}&slot_type=eq.beyond_matchday&sort_order=eq.${position.sortOrder}&limit=1`,
+  ).catch(() => []);
+  return { compositionId, row: rows[0] ?? null };
+}
+
+function liveLayoutRowOccupant(row: LiveHierarchicalSlotRow | LiveBeyondMatchdayRow): ZoneOccupant {
+  return {
+    label: cleanText(row.label_snapshot),
+    title: cleanText(row.title_snapshot),
+    subtitle: cleanText(row.subtitle_snapshot),
+    author: null,
+    imageUrl: cleanText(row.image_url_snapshot),
+    linkUrl: cleanText(row.link_url_snapshot),
+  };
+}
+
+async function writeProjectionToLiveLayoutSlot(
+  matchdayId: string,
+  slotType: LiveMatchdayHierarchicalTransferSlotType,
+  projection: ZoneProjection,
+  targetId: string | null,
+) {
+  const { compositionId, row } = await readLiveLayoutRow(matchdayId, slotType);
+  if (!compositionId) {
+    throw new EditorialMatchdayNewsFlowError(
+      "news-flow-live-layout-unavailable",
+      "Os layouts da atualidade só estão disponíveis enquanto a composição standard desta jornada estiver ativa.",
+    );
+  }
+
+  const occupied = Boolean(
+    row
+    && hasContent(
+      row.label_snapshot,
+      row.title_snapshot,
+      row.subtitle_snapshot,
+      row.image_url_snapshot,
+      row.link_url_snapshot,
+    )
+  );
+
+  if (occupied && targetId !== row?.id) {
+    throw new EditorialMatchdayNewsFlowError(
+      "news-flow-target-full",
+      "A posição escolhida no layout da atualidade já está ocupada. Escolhe explicitamente a notícia atual para a substituir.",
+    );
+  }
+  if (targetId && (!row || targetId !== row.id)) {
+    throw new EditorialMatchdayNewsFlowError(
+      "news-flow-target-changed",
+      "A posição escolhida no layout da atualidade mudou. Atualiza a página e tenta novamente.",
+    );
+  }
+
+  const position = liveMatchdayHierarchicalLayoutPosition(slotType);
+  if (!position) {
+    throw new EditorialMatchdayNewsFlowError("news-flow-zone-invalid");
+  }
+
+  const now = new Date().toISOString();
+  if (position.storage === "hierarchical") {
+    const payload = {
+      composition_id: compositionId,
+      slot_key: position.slotKey,
+      bank_item_id: null,
+      source_identity: liveHierarchicalSourceIdentity(slotType, projection),
+      label_snapshot: projection.label,
+      title_snapshot: projection.title,
+      subtitle_snapshot: projection.subtitle,
+      image_url_snapshot: projection.imageUrl,
+      link_url_snapshot: projection.linkUrl,
+      media_kind_snapshot: null,
+      media_embed_url_snapshot: null,
+      media_video_url_snapshot: null,
+      updated_at: now,
+    };
+    if (row) {
+      await writeSupabaseAdmin(
+        `matchday_hierarchical_composition_slots?id=eq.${encodeURIComponent(row.id)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
+        { method: "PATCH", body: JSON.stringify(payload) },
+      );
+      return row.id;
+    }
+
+    await writeSupabaseAdmin("matchday_hierarchical_composition_slots", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    const inserted = await fetchSupabaseAdminTable<Pick<LiveHierarchicalSlotRow, "id">>(
+      `matchday_hierarchical_composition_slots?select=id&composition_id=eq.${encodeURIComponent(
+        compositionId,
+      )}&slot_key=eq.${encodeURIComponent(position.slotKey)}&limit=1`,
+    );
+    if (!inserted[0]?.id) throw new EditorialMatchdayNewsFlowError("news-flow-placement-failed");
+    return inserted[0].id;
+  }
+
+  const payload = {
+    composition_id: compositionId,
+    slot_type: "beyond_matchday",
+    source_type: projection.articleId ? "editorial_article" : "manual_link",
+    source_id: projection.articleId,
+    article_id: null,
+    sort_order: position.sortOrder,
+    title_snapshot: projection.title,
+    subtitle_snapshot: projection.subtitle,
+    image_url_snapshot: projection.imageUrl,
+    link_url_snapshot: projection.linkUrl,
+    label_snapshot: projection.label,
+    label_color_snapshot: null,
+    status: "published",
+    updated_at: now,
+  };
+  if (row) {
+    await writeSupabaseAdmin(
+      `matchday_reference_composition_items?id=eq.${encodeURIComponent(row.id)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
+      { method: "PATCH", body: JSON.stringify(payload) },
+    );
+    return row.id;
+  }
+
+  await writeSupabaseAdmin("matchday_reference_composition_items", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, created_at: now }),
+  });
+  const inserted = await fetchSupabaseAdminTable<Pick<LiveBeyondMatchdayRow, "id">>(
+    `matchday_reference_composition_items?select=id&composition_id=eq.${encodeURIComponent(
+      compositionId,
+    )}&slot_type=eq.beyond_matchday&sort_order=eq.${position.sortOrder}&limit=1`,
+  );
+  if (!inserted[0]?.id) throw new EditorialMatchdayNewsFlowError("news-flow-placement-failed");
+  return inserted[0].id;
 }
 
 async function readOccupiedTargetZone(
@@ -545,6 +791,23 @@ async function readOccupiedTargetZone(
   targetSlotType: EditorialMatchdayTransferSlotType,
   targetId: string,
 ): Promise<ZoneOccupant> {
+  if (isLiveMatchdayHierarchicalTransferSlotType(targetSlotType)) {
+    const { row } = await readLiveLayoutRow(matchdayId, targetSlotType);
+    if (!row || row.id !== targetId || !hasContent(
+      row.label_snapshot,
+      row.title_snapshot,
+      row.subtitle_snapshot,
+      row.image_url_snapshot,
+      row.link_url_snapshot,
+    )) {
+      throw new EditorialMatchdayNewsFlowError(
+        "news-flow-target-changed",
+        "A posição escolhida no layout da atualidade mudou. Atualiza a página e tenta novamente.",
+      );
+    }
+    return liveLayoutRowOccupant(row);
+  }
+
   if (targetSlotType === "headline") {
     const rows = await fetchSupabaseAdminTable<EditorialRow>(
       `matchday_editorials?select=id,title,summary,image_url,headline_link_url,status&id=eq.${encodeURIComponent(
@@ -712,6 +975,11 @@ async function writeProjectionToExistingSourceZone(
 ) {
   const now = new Date().toISOString();
 
+  if (isLiveMatchdayHierarchicalTransferSlotType(sourceSlotType)) {
+    await writeProjectionToLiveLayoutSlot(matchdayId, sourceSlotType, projection, sourceId);
+    return;
+  }
+
   if (sourceSlotType === "headline") {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`, {
       method: "PATCH",
@@ -821,6 +1089,11 @@ async function placeProjectionInAvailableZone(
   targetOrder?: number | null,
 ): Promise<PlacedProjection | null> {
   if (slotType === "unplaced") return null;
+
+  if (isLiveMatchdayHierarchicalTransferSlotType(slotType)) {
+    const sourceId = await writeProjectionToLiveLayoutSlot(matchdayId, slotType, projection, null);
+    return { slotType, sourceId };
+  }
 
   const now = new Date().toISOString();
 
@@ -1086,6 +1359,12 @@ async function writeArticleToTargetZone(
   targetId?: string | null,
 ) {
   const projection = projectArticleToTransferZone(article, targetSlotType);
+
+  if (isLiveMatchdayHierarchicalTransferSlotType(targetSlotType)) {
+    await writeProjectionToLiveLayoutSlot(matchdayId, targetSlotType, projection, targetId ?? null);
+    return;
+  }
+
   const now = new Date().toISOString();
 
   if (targetSlotType === "editorial_line_item") {
@@ -1386,6 +1665,25 @@ async function clearArticleFromSourceZone(
 ) {
   const now = new Date().toISOString();
 
+  if (isLiveMatchdayHierarchicalTransferSlotType(sourceSlotType)) {
+    const { compositionId, row } = await readLiveLayoutRow(matchdayId, sourceSlotType);
+    if (!compositionId || !row || row.id !== sourceId) {
+      throw new EditorialMatchdayNewsFlowError(
+        "news-flow-source-changed",
+        "A posição de origem no layout da atualidade mudou. Atualiza a página e tenta novamente.",
+      );
+    }
+    const position = liveMatchdayHierarchicalLayoutPosition(sourceSlotType);
+    const table = position?.storage === "hierarchical"
+      ? "matchday_hierarchical_composition_slots"
+      : "matchday_reference_composition_items";
+    await writeSupabaseAdmin(
+      `${table}?id=eq.${encodeURIComponent(sourceId)}&composition_id=eq.${encodeURIComponent(compositionId)}`,
+      { method: "DELETE" },
+    );
+    return;
+  }
+
   if (sourceSlotType === "headline") {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`, {
       method: "PATCH",
@@ -1452,6 +1750,9 @@ async function clearArticleFromSourceZone(
 }
 
 function transferSlotPublicName(slotType: EditorialMatchdayTransferSlotType) {
+  if (isLiveMatchdayHierarchicalTransferSlotType(slotType)) {
+    return liveMatchdayHierarchicalLayoutPosition(slotType)?.publicName ?? "Layout da atualidade";
+  }
   return slotType === "side_block"
     ? "Contexto"
     : EDITORIAL_ZONE_PRESENTATION_PROFILES[slotType].publicName;
@@ -1572,6 +1873,7 @@ export function editorialNewsFlowTransferTargets(sourceSlotType: EditorialMatchd
   const slotTypes: EditorialMatchdayTransferSlotType[] = [
     ...EDITORIAL_NEWS_FLOW_SLOT_TYPES,
     "side_block",
+    ...LIVE_MATCHDAY_HIERARCHICAL_TRANSFER_SLOT_TYPES,
   ];
   return slotTypes.filter((slotType) => slotType !== sourceSlotType);
 }

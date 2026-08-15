@@ -47,10 +47,13 @@ test("Últimas não grava o UUID canónico na FK legada de articles", () => {
   assert.equal(gestorRouteSource.split(canonicalLegacyGuard).length - 1, 2);
 });
 
-test("as seis zonas noticiosas entram no mesmo circuito, incluindo Contexto e Últimas", () => {
-  assert.ok(flowSource.includes('export type EditorialMatchdayTransferSlotType = EditorialNewsFlowSlotType | "side_block"'));
-  assert.ok(flowSource.includes('return value === "side_block" || (typeof value === "string" && isEditorialNewsFlowSlotType(value));'));
+test("as seis zonas base mantêm o mesmo circuito e aceitam os lugares hierárquicos vivos", () => {
+  assert.ok(flowSource.includes('| "side_block"'));
+  assert.ok(flowSource.includes('| LiveMatchdayHierarchicalTransferSlotType'));
+  assert.ok(flowSource.includes('isEditorialNewsFlowSlotType(value)'));
+  assert.ok(flowSource.includes('isLiveMatchdayHierarchicalTransferSlotType(value)'));
   assert.ok(flowSource.includes('"side_block",'));
+  assert.ok(flowSource.includes('...LIVE_MATCHDAY_HIERARCHICAL_TRANSFER_SLOT_TYPES'));
   assert.equal(flowSource.includes("Últimas só recebe novidades escolhidas no momento da publicação."), false);
   assert.equal(flowSource.includes('slotType !== "editorial_line_item"'), false);
   assert.ok(editorialPageSource.includes('targetSlotType: "editorial_line_item"'));

@@ -449,13 +449,14 @@ async function readPublishedReferenceCompositionBundle(matchdayId: string) {
     const referenceCompositionItems = referenceComposition.presentation_mode === "hierarchical"
       ? await fetchSupabaseAdminTable<PublicReferenceCompositionItem>(referenceItemsQuery).catch(() => [])
       : await fetchSupabaseAdminTable<PublicReferenceCompositionItem>(referenceItemsQuery);
-    const hierarchicalCompositionSlots = referenceComposition.presentation_mode === "hierarchical"
-      ? await fetchSupabaseAdminTable<HierarchicalCompositionSlot>(
-          `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,media_kind_snapshot,media_embed_url_snapshot,media_video_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
-            referenceComposition.id
-          )}`
-        ).catch(() => [])
-      : [];
+    // The same hierarchical slot renderer is reused by the live standard composition
+    // for the selected current-affairs layouts. Historical hierarchical compositions
+    // keep their own rows because every slot remains scoped by composition_id.
+    const hierarchicalCompositionSlots = await fetchSupabaseAdminTable<HierarchicalCompositionSlot>(
+      `matchday_hierarchical_composition_slots?select=id,composition_id,slot_key,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot,media_kind_snapshot,media_embed_url_snapshot,media_video_url_snapshot,created_at,updated_at&composition_id=eq.${encodeURIComponent(
+        referenceComposition.id
+      )}`
+    ).catch(() => []);
     const referenceSlots = groupReferenceCompositionSlots(referenceCompositionItems);
     const referenceRoundupItems = await buildReferenceRoundupItems(matchdayId, referenceSlots.roundup ?? []);
 
