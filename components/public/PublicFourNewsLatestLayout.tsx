@@ -39,6 +39,17 @@ const styles = `
     min-width: 0;
   }
 
+  .public-four-news-latest-grid:not(:has(.public-four-news-ad-slot)) {
+    grid-template-columns:
+      minmax(0, 1.22fr)
+      minmax(0, 1.22fr)
+      minmax(250px, 1fr);
+  }
+
+  .public-four-news-ad-column:empty {
+    display: none;
+  }
+
   .public-four-news-grid {
     grid-column: span 2;
     display: grid;
