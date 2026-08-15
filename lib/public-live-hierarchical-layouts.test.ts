@@ -16,6 +16,7 @@ const publicLoader = source("lib/public-matchday.ts");
 const publicPage = source("app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx");
 const publicRenderer = source("components/public/PublicHierarchicalComposition.tsx");
 const fourNewsRenderer = source("components/public/PublicFourNewsLatestLayout.tsx");
+const latestNewsRenderer = source("components/public/PublicLatestNewsBlock.tsx");
 const publicEditorial = source("components/public/PublicEditorialLayout.tsx");
 const editorialAdmin = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
 
@@ -79,6 +80,17 @@ test("os layouts públicos são flexíveis, a zona 4+Últimas é condicional e a
   assert.doesNotMatch(fourNewsRenderer, /grid-template-rows: repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(fourNewsRenderer, /\.public-four-news-card \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(fourNewsRenderer, /<PublicLatestNewsBlock/);
+  assert.match(
+    fourNewsRenderer,
+    /grid-template-columns:[\s\S]*?1\.22fr[\s\S]*?1\.22fr[\s\S]*?250px[\s\S]*?220px/,
+  );
+  assert.match(fourNewsRenderer, /grid-column: span 2/);
+  assert.match(fourNewsRenderer, /aspect-ratio: 4 \/ 3/);
+  assert.match(fourNewsRenderer, /public-four-news-ad-column/);
+  assert.match(fourNewsRenderer, /data-public-ad-slot="four-news-latest"/);
+  assert.match(fourNewsRenderer, /constrainToFourNewsGrid/);
+  assert.match(latestNewsRenderer, /constrainToFourNewsGrid/);
+  assert.match(latestNewsRenderer, /\.public-four-news-grid/);
   assert.match(publicEditorial, /!hasRoundupSummary \? midContent : null/);
   assert.match(publicEditorial, /hasRoundupSummary \? midContent : null/);
 

@@ -17,6 +17,7 @@ type PublicLatestNewsBlockProps = {
   title?: string;
   titleColor?: string | null;
   constrainToMainColumn?: boolean;
+  constrainToFourNewsGrid?: boolean;
 };
 
 export default function PublicLatestNewsBlock({
@@ -24,6 +25,7 @@ export default function PublicLatestNewsBlock({
   title,
   titleColor,
   constrainToMainColumn = false,
+  constrainToFourNewsGrid = false,
 }: PublicLatestNewsBlockProps) {
   const rootRef = useRef<HTMLElement | null>(null);
   const visibleTitle = title?.trim() ?? "";
@@ -31,33 +33,62 @@ export default function PublicLatestNewsBlock({
   useEffect(() => {
     const root = rootRef.current;
 
-    if (!root || !constrainToMainColumn) {
+    if (
+      !root ||
+      (!constrainToMainColumn && !constrainToFourNewsGrid)
+    ) {
       return;
     }
 
-    const grid = root.closest(".public-matchday-lead-grid");
-    const mainColumn = grid?.querySelector<HTMLElement>(".public-matchday-main-column");
-    const editorialBoundary = mainColumn?.querySelector<HTMLElement>(
-      '[data-editorial-slot="destaques-da-manchete"]',
-    ) ?? mainColumn?.lastElementChild as HTMLElement | null;
-    const list = root.querySelector<HTMLElement>(".public-news-list");
+    const grid = constrainToFourNewsGrid
+      ? root.closest(".public-four-news-latest-grid")
+      : root.closest(".public-matchday-lead-grid");
 
-    if (!mainColumn || !editorialBoundary || !list) {
+    const mainColumn = constrainToFourNewsGrid
+      ? null
+      : grid?.querySelector<HTMLElement>(
+          ".public-matchday-main-column",
+        );
+
+    const editorialBoundary = constrainToFourNewsGrid
+      ? (
+          grid?.querySelector<HTMLElement>(
+            ".public-four-news-grid",
+          ) ?? null
+        )
+      : (
+          mainColumn?.querySelector<HTMLElement>(
+            '[data-editorial-slot="destaques-da-manchete"]',
+          ) ??
+          (mainColumn?.lastElementChild as HTMLElement | null)
+        );
+
+    const list = root.querySelector<HTMLElement>(
+      ".public-news-list",
+    );
+
+    if (!editorialBoundary || !list) {
       return;
     }
+
+    const collapseBreakpoint = constrainToFourNewsGrid
+      ? "(max-width: 1100px)"
+      : "(max-width: 1180px)";
 
     let frameId = 0;
 
     const resetItems = () => {
-      list.querySelectorAll<HTMLElement>(".public-news-item").forEach((item) => {
-        item.style.removeProperty("display");
-      });
+      list
+        .querySelectorAll<HTMLElement>(".public-news-item")
+        .forEach((item) => {
+          item.style.removeProperty("display");
+        });
     };
 
     const syncHeightAndVisibleItems = () => {
       window.cancelAnimationFrame(frameId);
 
-      if (window.matchMedia("(max-width: 1180px)").matches) {
+      if (window.matchMedia(collapseBreakpoint).matches) {
         root.style.removeProperty("height");
         root.style.removeProperty("max-height");
         resetItems();
@@ -65,63 +96,135 @@ export default function PublicLatestNewsBlock({
       }
 
       const rootTop = root.getBoundingClientRect().top;
-      const editorialBottom = editorialBoundary.getBoundingClientRect().bottom;
-      const availableHeight = Math.max(0, Math.floor(editorialBottom - rootTop));
+      const editorialBottom =
+        editorialBoundary.getBoundingClientRect().bottom;
+
+      const availableHeight = Math.max(
+        0,
+        Math.floor(editorialBottom - rootTop),
+      );
+
       root.style.height = `${availableHeight}px`;
       root.style.maxHeight = `${availableHeight}px`;
+
       resetItems();
 
       frameId = window.requestAnimationFrame(() => {
-        const limit = editorialBoundary.getBoundingClientRect().bottom + 0.5;
+        const limit =
+          editorialBoundary.getBoundingClientRect().bottom + 0.5;
+
         let hideFollowing = false;
 
-        list.querySelectorAll<HTMLElement>(".public-news-item").forEach((item) => {
-          if (hideFollowing || item.getBoundingClientRect().bottom > limit) {
-            hideFollowing = true;
-            item.style.display = "none";
-          }
-        });
+        list
+          .querySelectorAll<HTMLElement>(".public-news-item")
+          .forEach((item) => {
+            if (
+              hideFollowing ||
+              item.getBoundingClientRect().bottom > limit
+            ) {
+              hideFollowing = true;
+              item.style.display = "none";
+            }
+          });
       });
     };
 
-    const observer = new ResizeObserver(syncHeightAndVisibleItems);
+    const observer = new ResizeObserver(
+      syncHeightAndVisibleItems,
+    );
+
     observer.observe(editorialBoundary);
-    window.addEventListener("resize", syncHeightAndVisibleItems);
+
+    window.addEventListener(
+      "resize",
+      syncHeightAndVisibleItems,
+    );
+
     syncHeightAndVisibleItems();
 
     return () => {
       window.cancelAnimationFrame(frameId);
       observer.disconnect();
-      window.removeEventListener("resize", syncHeightAndVisibleItems);
+
+      window.removeEventListener(
+        "resize",
+        syncHeightAndVisibleItems,
+      );
+
       root.style.removeProperty("height");
       root.style.removeProperty("max-height");
+
       resetItems();
     };
-  }, [constrainToMainColumn, items, visibleTitle]);
+  }, [
+    constrainToMainColumn,
+    constrainToFourNewsGrid,
+    items,
+    visibleTitle,
+  ]);
 
   return (
-    <aside className="public-matchday-news" aria-label={visibleTitle || "Notícias"} ref={rootRef}>
-      {visibleTitle ? <h3 style={titleColor ? { color: titleColor } : undefined}>{visibleTitle}</h3> : null}
+    <aside
+      className="public-matchday-news"
+      aria-label={visibleTitle || "Notícias"}
+      ref={rootRef}
+    >
+      {visibleTitle ? (
+        <h3
+          style={
+            titleColor
+              ? { color: titleColor }
+              : undefined
+          }
+        >
+          {visibleTitle}
+        </h3>
+      ) : null}
+
       <ul className="public-news-list">
         {items.map((item) => (
-          <li className="public-news-item" key={item.id}>
+          <li
+            className="public-news-item"
+            key={item.id}
+          >
             {item.imageUrl ? (
               <div className="public-news-thumb">
                 <img alt="" src={item.imageUrl} />
               </div>
             ) : null}
+
             <div className="public-news-copy">
               {item.timeLabel ? (
-                <time dateTime={item.timeLabel} style={item.timeLabelColor ? { color: item.timeLabelColor } : undefined}>
+                <time
+                  dateTime={item.timeLabel}
+                  style={
+                    item.timeLabelColor
+                      ? { color: item.timeLabelColor }
+                      : undefined
+                  }
+                >
                   {item.timeLabel}
                 </time>
               ) : null}
+
               {item.linkUrl ? (
-                <a className="public-news-title" href={item.linkUrl}>{item.title}</a>
+                <a
+                  className="public-news-title"
+                  href={item.linkUrl}
+                >
+                  {item.title}
+                </a>
               ) : (
-                <span className="public-news-title">{item.title}</span>
+                <span className="public-news-title">
+                  {item.title}
+                </span>
               )}
-              {item.subtitle ? <p className="public-news-subtitle">{item.subtitle}</p> : null}
+
+              {item.subtitle ? (
+                <p className="public-news-subtitle">
+                  {item.subtitle}
+                </p>
+              ) : null}
             </div>
           </li>
         ))}
