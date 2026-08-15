@@ -130,7 +130,7 @@ export type SupabaseMatchdayEditorial = {
   side_block_image_url?: string | null;
   side_block_link_url?: string | null;
   latest_zone_mode?: "latest_news" | "editorial_line";
-  latest_zone_placement?: "top" | "hidden";
+  latest_zone_placement?: "top" | "hidden" | "four_news";
   latest_zone_title?: string | null;
   status: "draft" | "published";
   created_at: string;

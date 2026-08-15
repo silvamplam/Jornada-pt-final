@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import PublicContextPostTitle from "./PublicContextPostTitle";
 import PublicLatestNewsBlock from "./PublicLatestNewsBlock";
 import RoundupVideoSwitcher, { type RoundupVideoItem } from "./RoundupVideoSwitcher";
@@ -128,6 +129,7 @@ type PublicEditorialLayoutProps = {
   showHeadline?: boolean;
   showSideBlock?: boolean;
   showLatestNews?: boolean;
+  midContent?: ReactNode;
 };
 
 const publicEditorialLayoutPolishStyles = `
@@ -939,7 +941,8 @@ export function PublicEditorialLayout({
   latestNewsTitleColor,
   showHeadline = true,
   showSideBlock = true,
-  showLatestNews = true
+  showLatestNews = true,
+  midContent = null
 }: PublicEditorialLayoutProps) {
   const hasHighlights = belowHeadline.highlights.length > 0;
   const hasMainColumn = showHeadline || hasHighlights;
@@ -958,7 +961,7 @@ export function PublicEditorialLayout({
     );
   const hasDepthRow = hasRoundupSummary || hasComplementary;
 
-  if (topColumnCount === 0 && !hasDepthRow) {
+  if (topColumnCount === 0 && !hasDepthRow && !midContent) {
     return null;
   }
 
@@ -992,6 +995,8 @@ export function PublicEditorialLayout({
           </div>
         ) : null}
 
+        {!hasRoundupSummary ? midContent : null}
+
         {hasDepthRow ? (
           <div className={`public-matchday-depth-row${hasRoundupSummary !== hasComplementary ? " public-matchday-depth-row-single" : ""}`}>
             <PublicRoundupSummary data={belowHeadline} reserveHeadingSpace={hasRoundupSummary && hasComplementary} />
@@ -1003,6 +1008,8 @@ export function PublicEditorialLayout({
             />
           </div>
         ) : null}
+
+        {hasRoundupSummary ? midContent : null}
       </div>
     </section>
   );

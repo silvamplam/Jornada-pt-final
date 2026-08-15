@@ -11,6 +11,8 @@ export type PublicBeyondMatchdayNewsItem = {
 type PublicBeyondMatchdayNewsProps = {
   items: PublicBeyondMatchdayNewsItem[];
   contextLabel: string;
+  heading?: string | null;
+  ariaLabel?: string;
 };
 
 const styles = `
@@ -286,20 +288,30 @@ function StoryCopy({
   );
 }
 
-export default function PublicBeyondMatchdayNews({ items, contextLabel }: PublicBeyondMatchdayNewsProps) {
+export default function PublicBeyondMatchdayNews({
+  items,
+  contextLabel,
+  heading = "PARA LÁ DA JORNADA",
+  ariaLabel = "Para lá da jornada",
+}: PublicBeyondMatchdayNewsProps) {
   const visibleItems = items.filter((item) => item.title.trim() && item.linkUrl.trim()).slice(0, 5);
   if (visibleItems.length === 0) return null;
 
   const lead = visibleItems[0];
   const secondary = visibleItems.slice(1, 5);
+  const visibleHeading = heading?.trim() ?? "";
+  const visibleContextLabel = contextLabel.trim();
+  const showHeader = Boolean(visibleHeading || visibleContextLabel);
 
   return (
-    <section className="public-beyond-matchday" aria-label="Para lá da jornada">
+    <section className="public-beyond-matchday" aria-label={ariaLabel}>
       <style>{styles}</style>
-      <header className="public-beyond-matchday-header">
-        <h2>PARA LÁ DA JORNADA</h2>
-        <p>{contextLabel}</p>
-      </header>
+      {showHeader ? (
+        <header className="public-beyond-matchday-header">
+          {visibleHeading ? <h2>{visibleHeading}</h2> : null}
+          {visibleContextLabel ? <p>{visibleContextLabel}</p> : null}
+        </header>
+      ) : null}
 
       <div className="public-beyond-matchday-grid" data-secondary-count={secondary.length}>
         <article className="public-beyond-matchday-lead">

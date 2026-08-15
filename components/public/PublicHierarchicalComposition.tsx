@@ -857,16 +857,22 @@ function hasCompleteInterpretiveSlots(
 function InterpretiveAnalysisSection({
   slotsByKey,
   showEmptySlots,
+  heading = "Arbitragem e reações",
 }: {
   slotsByKey: InterpretiveSlotsByKey;
   showEmptySlots: boolean;
+  heading?: string | null;
 }) {
   const analysisMainKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.dominant;
   const analysisMainSlot = slotsByKey.get(analysisMainKey) ?? null;
 
   return (
-    <section className="composition-interpretive-section composition-interpretive-analysis" aria-labelledby="public-interpretive-analysis-title">
-      <h2 className="composition-interpretive-section-heading" id="public-interpretive-analysis-title">Arbitragem e reações</h2>
+    <section
+      className="composition-interpretive-section composition-interpretive-analysis"
+      aria-label={heading ? undefined : "Zona editorial de 6 notícias"}
+      aria-labelledby={heading ? "public-interpretive-analysis-title" : undefined}
+    >
+      {heading ? <h2 className="composition-interpretive-section-heading" id="public-interpretive-analysis-title">{heading}</h2> : null}
       <div className="composition-interpretive-analysis-grid">
         <article className="composition-interpretive-analysis-main" data-editorial-weight="main" data-slot={analysisMainKey}>
           <InterpretiveMedia showEmptySlots={showEmptySlots} slot={analysisMainSlot} slotKey={analysisMainKey} />
@@ -919,9 +925,11 @@ function InterpretiveAnalysisSection({
 function InterpretiveOtherGamesSection({
   slotsByKey,
   showEmptySlots,
+  heading = "Outros jogos da jornada",
 }: {
   slotsByKey: InterpretiveSlotsByKey;
   showEmptySlots: boolean;
+  heading?: string | null;
 }) {
   const otherFeaturedKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.primary;
   const otherFeaturedSlot = slotsByKey.get(otherFeaturedKey) ?? null;
@@ -929,8 +937,12 @@ function InterpretiveOtherGamesSection({
   const otherSecondSlot = slotsByKey.get(otherSecondKey) ?? null;
 
   return (
-    <section className="composition-interpretive-section composition-interpretive-other-games" aria-labelledby="public-interpretive-other-games-title">
-      <h2 className="composition-interpretive-section-heading" id="public-interpretive-other-games-title">Outros jogos da jornada</h2>
+    <section
+      className="composition-interpretive-section composition-interpretive-other-games"
+      aria-label={heading ? undefined : "Zona editorial de 5 notícias"}
+      aria-labelledby={heading ? "public-interpretive-other-games-title" : undefined}
+    >
+      {heading ? <h2 className="composition-interpretive-section-heading" id="public-interpretive-other-games-title">{heading}</h2> : null}
       <div className="composition-interpretive-other-games-layout">
         <div className="composition-interpretive-other-left">
           <article className="composition-interpretive-other-featured" data-editorial-weight="featured-primary" data-slot={otherFeaturedKey}>
@@ -984,11 +996,13 @@ export function PublicHierarchicalLiveLayouts({
     >
       <style>{hierarchicalCompositionStyles}</style>
       <div className="composition-interpretive-preview">
-        {showAnalysis ? <InterpretiveAnalysisSection showEmptySlots={false} slotsByKey={slotsByKey} /> : null}
-        {showOtherGames ? <InterpretiveOtherGamesSection showEmptySlots={false} slotsByKey={slotsByKey} /> : null}
+        {showAnalysis ? <InterpretiveAnalysisSection heading={null} showEmptySlots={false} slotsByKey={slotsByKey} /> : null}
+        {showOtherGames ? <InterpretiveOtherGamesSection heading={null} showEmptySlots={false} slotsByKey={slotsByKey} /> : null}
         {showBeyondMatchday ? (
           <PublicBeyondMatchdayNews
-            contextLabel={`ATUALIDADE NO MOMENTO DA JORNADA ${String(matchdayNumber ?? "").padStart(2, "0")}`}
+            ariaLabel="Zona editorial de 5 notícias"
+            contextLabel=""
+            heading={null}
             items={beyondMatchdayItems}
           />
         ) : null}

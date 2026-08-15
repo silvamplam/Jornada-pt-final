@@ -335,6 +335,24 @@ const editorialPageStyles = `
     margin-left: auto;
   }
 
+  .editorial-admin-zone-placement-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .editorial-admin-zone-placement-form select {
+    min-height: 36px;
+    border: 1px solid #c8d2dd;
+    border-radius: 6px;
+    padding: 7px 9px;
+    background: #ffffff;
+    color: #10151b;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
   .editorial-admin-zone .horizontal-news-admin {
     margin-top: 0;
     padding-top: 0;
@@ -721,6 +739,10 @@ const editorialPageStyles = `
   #tres-noticias,
   #video,
   #noticia-ao-lado-video,
+  #layout-6-noticias,
+  #layout-5-noticias-equilibrado,
+  #layout-5-noticias-secundarias,
+  #layout-4-noticias-ultimas,
   #faixa-noticias {
     scroll-margin-top: 84px;
   }
@@ -1357,7 +1379,11 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const belowHeadlineMode = editorial?.below_headline_mode === "roundup" ? "roundup" : "highlights";
   const roundupMode = editorial?.complementary_mode === "roundup_video" ? "roundup_video" : "none";
   const latestZoneMode = editorial?.latest_zone_mode === "editorial_line" ? "editorial_line" : "latest_news";
-  const latestZonePlacement = editorial?.latest_zone_placement === "hidden" ? "hidden" : "top";
+  const latestZonePlacement = editorial?.latest_zone_placement === "hidden"
+    ? "hidden"
+    : editorial?.latest_zone_placement === "four_news"
+      ? "four_news"
+      : "top";
   const belowHeadlineHeadingFallback = `Jornada ${String(matchday.number).padStart(2, "0")}`;
   const roundupVideoHeadingFallback = `Jornada ${String(matchday.number).padStart(2, "0")} · Jogos Vídeo Resumo`;
   const returnTo = `/admin/editorial/jornada/${matchday.id}`;
@@ -2221,7 +2247,11 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         <a href="#tres-noticias">04 3 notícias</a>
         <a href="#video">05 Vídeo</a>
         <a href="#noticia-ao-lado-video">06 Ao lado do vídeo</a>
-        <a href="#faixa-noticias">07 Faixa de notícias</a>
+        <a href="#layout-6-noticias" title="1 dominante · 3 secundárias · 2 complementares">07 6 notícias</a>
+        <a href="#layout-5-noticias-equilibrado" title="1 dominante · 1 secundária · 3 complementares">08 5 notícias 1D+1S+3C</a>
+        <a href="#layout-5-noticias-secundarias" title="1 dominante · 4 secundárias">09 5 notícias 1D+4S</a>
+        <a href="#layout-4-noticias-ultimas" title="4 notícias equivalentes + Últimas">10 4 notícias + Últimas</a>
+        <a href="#faixa-noticias">11 Faixa de notícias</a>
       </nav>
 
       <script
@@ -2473,13 +2503,13 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
               <input type="hidden" name="action_type" value="set_matchday_latest_zone_placement" />
               <input type="hidden" name="return_to" value={returnToUltimasNoticias} />
               <input type="hidden" name="matchday_id" value={matchday.id} />
-              <input
-                type="hidden"
-                name="latest_zone_placement"
-                value={latestZonePlacement === "hidden" ? "top" : "hidden"}
-              />
+              <select aria-label="Posição de Últimas" name="latest_zone_placement" defaultValue={latestZonePlacement}>
+                <option value="top">Ao lado da manchete</option>
+                <option value="four_news">Na zona de 4 notícias</option>
+                <option value="hidden">Ocultas</option>
+              </select>
               <button className="editorial-admin-button secondary" type="submit">
-                {latestZonePlacement === "hidden" ? "Mostrar Últimas" : "Ocultar Últimas"}
+                Guardar posição
               </button>
             </form>
           </header>
@@ -2836,9 +2866,69 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 />
         </section>
 
+        <section className="editorial-admin-panel editorial-admin-zone" id="layouts-atualidade">
+          <header className="editorial-admin-zone-header">
+            <h2 className="editorial-admin-zone-title">Layouts da Jornada viva</h2>
+          </header>
+          {feedbackScope === "layouts-atualidade" ? (
+            <div>{messageFor(created, error, "layouts-atualidade", newsFlowErrorDetail)}</div>
+          ) : null}
+          <p className="editorial-admin-muted">
+            Estruturas editoriais flexíveis identificadas apenas pelo número de notícias e pela hierarquia interna.
+            Pertencem à página viva, usam os mesmos artigos do circuito atual e não leem nem escrevem a Composição.
+          </p>
+          <div className="editorial-admin-compact-stack">
+            {[
+              { key: "six_news", id: "layout-6-noticias", title: "6 notícias — 1 dominante · 3 secundárias · 2 complementares" },
+              { key: "five_news_balanced", id: "layout-5-noticias-equilibrado", title: "5 notícias — 1 dominante · 1 secundária · 3 complementares" },
+              { key: "five_news_secondary", id: "layout-5-noticias-secundarias", title: "5 notícias — 1 dominante · 4 secundárias" },
+              { key: "four_news", id: "layout-4-noticias-ultimas", title: "4 notícias — equivalentes + Últimas" },
+            ].map((group) => (
+              <div className="editorial-admin-subpanel" id={group.id} key={group.key}>
+                <h3>{group.title}</h3>
+                <div className="editorial-admin-compact-stack">
+                  {LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS
+                    .filter((position) => position.group === group.key)
+                    .map((position) => {
+                      const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
+                      return (
+                        <details className="editorial-admin-item-details" key={position.transferSlotType}>
+                          <summary>
+                            <span className="editorial-admin-item-summary-title">{position.publicName}</span>
+                            <span className="editorial-admin-item-status">{occupant ? "Ocupada" : "Livre"}</span>
+                          </summary>
+                          <div className="editorial-admin-item-details-body">
+                            {occupant ? (
+                              <>
+                                {occupant.label ? <small>{occupant.label}</small> : null}
+                                <strong>{occupant.title ?? "Notícia sem título"}</strong>
+                                <NewsTransferControl
+                                  matchdayId={matchday.id}
+                                  articleId={articleIdForPlacement(occupant.linkUrl, occupant.articleId)}
+                                  sourceSlotType={position.transferSlotType}
+                                  sourceId={occupant.id}
+                                  returnTo={returnToLiveLayouts}
+                                  hasPlacement={Boolean(cleanText(occupant.linkUrl) || cleanText(occupant.title))}
+                                  targetOptions={newsTransferTargetOptions}
+                                  displacedOptions={newsDisplacedTargetOptionsForSource(position.transferSlotType, occupant.id)}
+                                />
+                              </>
+                            ) : (
+                              <small>Posição livre. Usa “Transferir para…” em qualquer notícia do circuito editorial para a preencher.</small>
+                            )}
+                          </div>
+                        </details>
+                      );
+                    })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <section className="editorial-admin-panel editorial-admin-zone" id="faixa-noticias">
           <header className="editorial-admin-zone-header">
-            <span className="editorial-admin-zone-number">07</span>
+            <span className="editorial-admin-zone-number">11</span>
             <h2 className="editorial-admin-zone-title">Faixa de notícias</h2>
           </header>
               {feedbackScope === "faixa-horizontal" && !feedbackItem ? (
@@ -2904,65 +2994,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                 }}
                 openOrder={horizontalNewsOpenOrder}
               />
-        </section>
-
-        <section className="editorial-admin-panel editorial-admin-zone" id="layouts-atualidade">
-          <header className="editorial-admin-zone-header">
-            <h2 className="editorial-admin-zone-title">Zonas adicionais da Jornada viva</h2>
-          </header>
-          {feedbackScope === "layouts-atualidade" ? (
-            <div>{messageFor(created, error, "layouts-atualidade", newsFlowErrorDetail)}</div>
-          ) : null}
-          <p className="editorial-admin-muted">
-            Acrescenta à Jornada viva três zonas com o desenho visual já definido na Composição Hierárquica.
-            Estas posições pertencem apenas à página viva: recebem os mesmos artigos do circuito atual e não leem nem escrevem a Composição.
-          </p>
-          <div className="editorial-admin-compact-stack">
-            {[
-              { key: "analysis", title: "Arbitragem e reações" },
-              { key: "other_games", title: "Outros jogos da jornada" },
-              { key: "beyond_matchday", title: "Para Lá da Jornada" },
-            ].map((group) => (
-              <div className="editorial-admin-subpanel" key={group.key}>
-                <h3>{group.title}</h3>
-                <div className="editorial-admin-compact-stack">
-                  {LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS
-                    .filter((position) => position.group === group.key)
-                    .map((position) => {
-                      const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
-                      return (
-                        <details className="editorial-admin-item-details" key={position.transferSlotType}>
-                          <summary>
-                            <span className="editorial-admin-item-summary-title">{position.publicName}</span>
-                            <span className="editorial-admin-item-status">{occupant ? "Ocupada" : "Livre"}</span>
-                          </summary>
-                          <div className="editorial-admin-item-details-body">
-                            {occupant ? (
-                              <>
-                                {occupant.label ? <small>{occupant.label}</small> : null}
-                                <strong>{occupant.title ?? "Notícia sem título"}</strong>
-                                <NewsTransferControl
-                                  matchdayId={matchday.id}
-                                  articleId={articleIdForPlacement(occupant.linkUrl, occupant.articleId)}
-                                  sourceSlotType={position.transferSlotType}
-                                  sourceId={occupant.id}
-                                  returnTo={returnToLiveLayouts}
-                                  hasPlacement={Boolean(cleanText(occupant.linkUrl) || cleanText(occupant.title))}
-                                  targetOptions={newsTransferTargetOptions}
-                                  displacedOptions={newsDisplacedTargetOptionsForSource(position.transferSlotType, occupant.id)}
-                                />
-                              </>
-                            ) : (
-                              <small>Posição livre. Usa “Transferir para…” em qualquer notícia do circuito editorial para a preencher.</small>
-                            )}
-                          </div>
-                        </details>
-                      );
-                    })}
-                </div>
-              </div>
-            ))}
-          </div>
         </section>
 
         <script

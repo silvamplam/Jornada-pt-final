@@ -11,9 +11,11 @@ const hierarchyModel = source("lib/editorial-hierarchical-composition.ts");
 const transferFlow = source("lib/editorial-matchday-news-flow.ts");
 const liveLayoutModel = source("lib/editorial-matchday-live-layout.ts");
 const liveLayoutMigration = source("supabase/steps/118-jornada-layouts-vivos-independentes-apply.sql");
+const liveLayoutDeltaMigration = source("supabase/steps/119-jornada-zona-4-noticias-ultimas-apply.sql");
 const publicLoader = source("lib/public-matchday.ts");
 const publicPage = source("app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx");
 const publicRenderer = source("components/public/PublicHierarchicalComposition.tsx");
+const fourNewsRenderer = source("components/public/PublicFourNewsLatestLayout.tsx");
 const publicEditorial = source("components/public/PublicEditorialLayout.tsx");
 const editorialAdmin = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
 
@@ -31,15 +33,17 @@ const reusedHierarchicalSlots = [
   "closing_3",
 ] as const;
 
-test("a Jornada viva reutiliza apenas os três layouts hierárquicos pedidos", () => {
+test("a Jornada viva mantém três layouts reutilizados e acrescenta a zona 4 notícias + Últimas", () => {
   for (const slotKey of reusedHierarchicalSlots) {
     assert.match(hierarchyModel, new RegExp(`transferSlotType: "live_hierarchical:${slotKey}"`));
     assert.match(hierarchyModel, new RegExp(`slotKey: "${slotKey}"`));
   }
 
   assert.equal((hierarchyModel.match(/transferSlotType: "live_hierarchical:/g) ?? []).length, 11);
+  assert.equal((hierarchyModel.match(/transferSlotType: "live_four_news:/g) ?? []).length, 4);
   assert.match(hierarchyModel, /\.\.\.HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS\.map/);
   assert.match(hierarchyModel, /transferSlotType: `live_beyond_matchday:\$\{position\.sortOrder\}`/);
+  assert.match(hierarchyModel, /group: "four_news"/);
   assert.doesNotMatch(hierarchyModel, /live_hierarchical:dominant_main|live_hierarchical:other_chronicle_/);
 });
 
@@ -48,6 +52,9 @@ test("o estado vivo é próprio da Jornada e não depende da Composição", () =
   assert.match(liveLayoutMigration, /matchday_id uuid not null references public\.matchdays/);
   assert.match(liveLayoutMigration, /article_id uuid references public\.editorial_articles/);
   assert.doesNotMatch(liveLayoutMigration, /matchday_reference_compositions|matchday_hierarchical_composition_slots/);
+  assert.match(liveLayoutDeltaMigration, /live_four_news:1[\s\S]*live_four_news:4/);
+  assert.match(liveLayoutDeltaMigration, /latest_zone_placement in \('top', 'hidden', 'four_news'\)/);
+  assert.doesNotMatch(liveLayoutDeltaMigration, /matchday_reference_compositions|matchday_hierarchical_composition_slots/);
   assert.match(liveLayoutModel, /export type MatchdayLiveLayoutItem/);
   assert.match(transferFlow, /matchday_live_layout_items/);
   assert.doesNotMatch(transferFlow, /presentation_mode=eq\.standard/);
@@ -58,21 +65,25 @@ test("o estado vivo é próprio da Jornada e não depende da Composição", () =
   assert.doesNotMatch(editorialAdmin, /composição standard publicada desta Jornada|composição publicada e atual para esta Jornada/);
 });
 
-test("os três layouts públicos usam os renderers hierárquicos já existentes e não deslocam a Faixa", () => {
+test("os layouts públicos são flexíveis, a zona 4+Últimas é condicional e a Faixa fica no fim", () => {
   assert.match(publicRenderer, /export function PublicHierarchicalLiveLayouts/);
-  assert.match(publicRenderer, /<InterpretiveAnalysisSection showEmptySlots=\{false\}/);
-  assert.match(publicRenderer, /<InterpretiveOtherGamesSection showEmptySlots=\{false\}/);
-  assert.match(publicRenderer, /<PublicBeyondMatchdayNews/);
+  assert.match(publicRenderer, /<InterpretiveAnalysisSection heading=\{null\}/);
+  assert.match(publicRenderer, /<InterpretiveOtherGamesSection heading=\{null\}/);
+  assert.match(publicRenderer, /heading=\{null\}[\s\S]*<PublicBeyondMatchdayNews|<PublicBeyondMatchdayNews[\s\S]*heading=\{null\}/);
   assert.match(publicPage, /<PublicHierarchicalLiveLayouts/);
   assert.match(publicPage, /context\.liveLayoutItems/);
-  assert.match(publicPage, /<PublicHierarchicalLiveLayouts[\s\S]*?slots=\{liveHierarchicalLayoutSlots\}/);
-  assert.doesNotMatch(publicPage, /<PublicHierarchicalLiveLayouts[\s\S]*?slots=\{context\.hierarchicalCompositionSlots\}/);
-  assert.match(publicPage, /\{!useHierarchicalReferenceComposition \? \([\s\S]*?<PublicHierarchicalLiveLayouts/);
+  assert.match(publicPage, /storage !== "four_news"/);
+  assert.match(publicPage, /latestZonePlacement === "four_news"/);
+  assert.match(publicPage, /<PublicFourNewsLatestLayout/);
+  assert.match(fourNewsRenderer, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(fourNewsRenderer, /<PublicLatestNewsBlock/);
+  assert.match(publicEditorial, /!hasRoundupSummary \? midContent : null/);
+  assert.match(publicEditorial, /hasRoundupSummary \? midContent : null/);
 
-  const horizontalIndex = publicPage.indexOf("<PublicHorizontalNewsStrip");
   const liveLayoutsIndex = publicPage.indexOf("<PublicHierarchicalLiveLayouts");
+  const horizontalIndex = publicPage.indexOf("<PublicHorizontalNewsStrip");
   const standingsIndex = publicPage.indexOf('id="classificacao"');
-  assert.ok(horizontalIndex >= 0 && liveLayoutsIndex > horizontalIndex && standingsIndex > liveLayoutsIndex);
+  assert.ok(liveLayoutsIndex >= 0 && horizontalIndex > liveLayoutsIndex && standingsIndex > horizontalIndex);
 });
 
 test("as posições reutilizadas entram no mesmo motor de transferências já usado pelas zonas atuais", () => {
@@ -85,6 +96,18 @@ test("as posições reutilizadas entram no mesmo motor de transferências já us
   assert.match(editorialAdmin, /LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS/);
   assert.match(editorialAdmin, /sourceSlotType=\{position\.transferSlotType\}/);
   assert.match(editorialAdmin, /newsDisplacedTargetOptionsForSource\(position\.transferSlotType, occupant\.id\)/);
+});
+
+test("o backoffice identifica as zonas vivas apenas por quantidade e hierarquia", () => {
+  assert.match(editorialAdmin, /href="#layout-6-noticias"/);
+  assert.match(editorialAdmin, /href="#layout-5-noticias-equilibrado"/);
+  assert.match(editorialAdmin, /href="#layout-5-noticias-secundarias"/);
+  assert.match(editorialAdmin, /href="#layout-4-noticias-ultimas"/);
+  assert.match(editorialAdmin, />11 Faixa de notícias<\/a>/);
+  assert.match(hierarchyModel, /6 notícias \(1 dominante · 3 secundárias · 2 complementares\)/);
+  assert.match(hierarchyModel, /5 notícias \(1 dominante · 1 secundária · 3 complementares\)/);
+  assert.match(hierarchyModel, /5 notícias \(1 dominante · 4 secundárias\)/);
+  assert.match(hierarchyModel, /4 notícias \(equivalentes\)/);
 });
 
 test("a página viva e a composição hierárquica anulam sombras nas zonas de conteúdo", () => {

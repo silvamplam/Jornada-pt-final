@@ -23,7 +23,7 @@ const adminPage = readFileSync("app/admin/editorial/jornada/[matchdayId]/page.ts
 const gestorRoute = readFileSync("app/api/admin/gestor/route.ts", "utf8");
 const newsFlow = readFileSync("lib/editorial-matchday-news-flow.ts", "utf8");
 
-test("top mantém Últimas elegível e hidden domina mesmo quando existem notícias", () => {
+test("top mostra Últimas na capa; hidden e four_news retiram-na da posição superior", () => {
   const implicitTop = buildPublicMatchdayEditorialVisibility(baseVisibilityInput);
   const explicitTop = buildPublicMatchdayEditorialVisibility({
     ...baseVisibilityInput,
@@ -33,17 +33,27 @@ test("top mantém Últimas elegível e hidden domina mesmo quando existem notíc
     ...baseVisibilityInput,
     latestZonePlacement: "hidden",
   });
+  const fourNews = buildPublicMatchdayEditorialVisibility({
+    ...baseVisibilityInput,
+    latestZonePlacement: "four_news",
+  });
 
   assert.equal(implicitTop.showLatestZone, true);
   assert.equal(explicitTop.showLatestZone, true);
   assert.equal(explicitTop.coverLayout, "feature-main-news");
   assert.equal(hidden.showLatestZone, false);
   assert.equal(hidden.coverLayout, "feature-main");
+  assert.equal(fourNews.showLatestZone, false);
+  assert.equal(fourNews.coverLayout, "feature-main");
 });
 
-test("a migration é aditiva, usa default top e restringe esta fase a top ou hidden", () => {
+test("a migration base mantém default top e o delta acrescenta four_news", () => {
   const apply = readFileSync(
     "supabase/steps/97-jornada-ultimas-colocacao-zona-apply.sql",
+    "utf8",
+  );
+  const delta = readFileSync(
+    "supabase/steps/119-jornada-zona-4-noticias-ultimas-apply.sql",
     "utf8",
   );
   const postflight = readFileSync(
@@ -57,7 +67,10 @@ test("a migration é aditiva, usa default top e restringe esta fase a top ou hid
 
   assert.match(apply, /add column if not exists latest_zone_placement text not null default 'top'/i);
   assert.match(apply, /check \(latest_zone_placement in \('top', 'hidden'\)\)/i);
+  assert.match(delta, /latest_zone_placement in \('top', 'hidden', 'four_news'\)/i);
+  assert.match(delta, /live_four_news:1[\s\S]*live_four_news:4/i);
   assert.doesNotMatch(apply, /alter column latest_zone_mode|drop column|delete from/i);
+  assert.doesNotMatch(delta, /delete from|matchday_reference_compositions|matchday_hierarchical_composition_slots/i);
   assert.match(postflight, /latest_zone_placement not in \('top', 'hidden'\)/i);
   assert.match(smoke, /latest_zone_placement = 'hidden'/i);
   assert.match(smoke, /latest_zone_placement = 'top'/i);
@@ -66,7 +79,7 @@ test("a migration é aditiva, usa default top e restringe esta fase a top ou hid
 
 test("leitura pública aplica placement depois de montar dados vivos ou snapshots", () => {
   assert.match(publicLoader, /latest_zone_mode,latest_zone_placement,latest_zone_title/);
-  assert.match(publicPage, /const latestZonePlacement = editorial\?\.latest_zone_placement === "hidden" \? "hidden" : "top";/);
+  assert.match(publicPage, /editorial\?\.latest_zone_placement === "four_news"/);
   assert.match(publicPage, /latestNewsCount: latestNewsItems\.length,\s*latestZonePlacement,/);
 
   const referenceItemsIndex = publicPage.indexOf("referenceEditorialLineItems.map");
@@ -76,16 +89,17 @@ test("leitura pública aplica placement depois de montar dados vivos ou snapshot
   assert.doesNotMatch(publicPage, /referenceEditorialLineItems\.(?:splice|pop|shift)|matchday_reference_composition_items.*(?:DELETE|PATCH)/i);
 });
 
-test("backoffice alterna hidden e top sem editar notícias ou artigos canónicos", () => {
+test("backoffice escolhe top, four_news ou hidden sem editar notícias ou artigos canónicos", () => {
   assert.match(adminPage, /name="action_type" value="set_matchday_latest_zone_placement"/);
-  assert.match(adminPage, /latestZonePlacement === "hidden" \? "Mostrar Últimas" : "Ocultar Últimas"/);
-  assert.match(adminPage, /value=\{latestZonePlacement === "hidden" \? "top" : "hidden"\}/);
+  assert.match(adminPage, /<option value="top">Ao lado da manchete<\/option>/);
+  assert.match(adminPage, /<option value="four_news">Na zona de 4 notícias<\/option>/);
+  assert.match(adminPage, /<option value="hidden">Ocultas<\/option>/);
 
   const actionStart = gestorRoute.indexOf("async function setMatchdayLatestZonePlacement");
   const actionEnd = gestorRoute.indexOf("async function saveMatchdayLatestNewsItem", actionStart);
   const action = gestorRoute.slice(actionStart, actionEnd);
 
-  assert.match(action, /latestZonePlacement !== "top" && latestZonePlacement !== "hidden"/);
+  assert.match(action, /latestZonePlacement !== "top" && latestZonePlacement !== "hidden" && latestZonePlacement !== "four_news"/);
   assert.match(action, /matchday_editorials\?on_conflict=matchday_id/);
   assert.match(action, /latest_zone_placement: latestZonePlacement/);
   assert.doesNotMatch(action, /editorial_articles|matchday_latest_news|latest_zone_mode|status:/);

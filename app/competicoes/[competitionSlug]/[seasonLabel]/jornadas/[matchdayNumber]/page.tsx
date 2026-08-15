@@ -16,6 +16,7 @@ import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import { PublicEditorialLayout } from "@/components/public/PublicEditorialLayout";
+import PublicFourNewsLatestLayout, { type PublicFourNewsLatestItem } from "@/components/public/PublicFourNewsLatestLayout";
 import type { PublicBeyondMatchdayNewsItem } from "@/components/public/PublicBeyondMatchdayNews";
 import PublicHierarchicalComposition, { PublicHierarchicalLiveLayouts } from "@/components/public/PublicHierarchicalComposition";
 import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
@@ -3808,7 +3809,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     : editorial?.side_block_status === "published" &&
       Boolean(sideBlockImageUrl || sideBlockTitle || sideBlockText);
   const latestZoneMode = editorial?.latest_zone_mode === "editorial_line" ? "editorial_line" : "latest_news";
-  const latestZonePlacement = editorial?.latest_zone_placement === "hidden" ? "hidden" : "top";
+  const latestZonePlacement = editorial?.latest_zone_placement === "hidden"
+    ? "hidden"
+    : editorial?.latest_zone_placement === "four_news"
+      ? "four_news"
+      : "top";
   const configuredLatestZoneTitle = editorial?.latest_zone_title?.trim() ?? "";
   const latestZoneTitle = usePublishedReferenceComposition
     ? ""
@@ -3959,6 +3964,30 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     },
     []
   );
+  const liveFourNewsItems = LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.reduce<PublicFourNewsLatestItem[]>(
+    (items, position) => {
+      if (position.storage !== "four_news") return items;
+      const item = liveLayoutItemBySlotType.get(position.transferSlotType);
+      const title = item?.title?.trim() || null;
+      const linkUrl = item?.link_url?.trim() || null;
+      if (!item || !title || !linkUrl) return items;
+
+      items.push({
+        id: item.id,
+        label: item.label?.trim() || null,
+        title,
+        subtitle: item.subtitle?.trim() || null,
+        imageUrl: item.image_url?.trim() || null,
+        linkUrl,
+      });
+      return items;
+    },
+    []
+  );
+  const showFourNewsLatestLayout =
+    latestZonePlacement === "four_news"
+    && liveFourNewsItems.length === 4
+    && latestNewsItems.length > 0;
 
   return (
     <main className="public-matchday-shell">
@@ -4068,13 +4097,21 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             </section>
           )}
         </div>
-      ) : editorialVisibility.showCoverPanel ? (
+      ) : (editorialVisibility.showCoverPanel || showFourNewsLatestLayout) ? (
         <PublicEditorialLayout
           ariaLabel="Capa da jornada"
           scope="matchday"
           showHeadline={editorialVisibility.showHeadline}
           showSideBlock={editorialVisibility.showSideBlock}
           showLatestNews={editorialVisibility.showLatestZone}
+          midContent={showFourNewsLatestLayout ? (
+            <PublicFourNewsLatestLayout
+              items={liveFourNewsItems}
+              latestNews={latestNewsItems}
+              latestNewsTitle={latestZoneTitle}
+              latestNewsTitleColor={latestZoneTitleColor}
+            />
+          ) : null}
           sideBlock={{
             isPublished: hasPublishedSideBlock,
             label: sideBlockLabel,
@@ -4147,18 +4184,18 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       ) : null}
 
       {!useHierarchicalReferenceComposition ? (
-        <div className="public-matchday-editorial-region">
-          <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" scope="matchday" />
-        </div>
-      ) : null}
-
-      {!useHierarchicalReferenceComposition ? (
         <div className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region">
           <PublicHierarchicalLiveLayouts
             slots={liveHierarchicalLayoutSlots}
             matchdayNumber={context.matchday.number}
             beyondMatchdayItems={liveBeyondMatchdayNews}
           />
+        </div>
+      ) : null}
+
+      {!useHierarchicalReferenceComposition ? (
+        <div className="public-matchday-editorial-region">
+          <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" scope="matchday" />
         </div>
       ) : null}
 

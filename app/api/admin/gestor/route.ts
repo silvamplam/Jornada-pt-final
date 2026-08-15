@@ -1706,7 +1706,7 @@ async function setMatchdayLatestZonePlacement(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const latestZonePlacement = cleanText(formData.get("latest_zone_placement"));
 
-  if (!matchdayId || (latestZonePlacement !== "top" && latestZonePlacement !== "hidden")) {
+  if (!matchdayId || (latestZonePlacement !== "top" && latestZonePlacement !== "hidden" && latestZonePlacement !== "four_news")) {
     throw new Error("missing-fields");
   }
 
