@@ -142,23 +142,21 @@ const styles = `
 
   .public-four-news-ad-column {
     display: flex;
-    align-self: stretch;
+    align-self: start;
     min-width: 0;
-    min-height: 0;
     padding-left: 16px;
     border-left: 1px solid #dfe5eb;
   }
 
   .public-four-news-ad-slot {
     display: block;
-    flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
-    min-height: 0;
-    overflow: hidden;
+    overflow: visible;
     box-sizing: border-box;
     padding: 0;
-    border: 1px solid #e2e6eb;
-    background: #ffffff;
+    border: 0;
+    background: transparent;
     color: inherit;
     text-decoration: none;
   }
@@ -166,7 +164,7 @@ const styles = `
   .public-four-news-ad-slot img {
     display: block;
     width: 100%;
-    height: 100%;
+    height: auto;
     object-fit: contain;
     object-position: top center;
   }
@@ -199,10 +197,6 @@ const styles = `
       padding-top: 18px;
       border-left: 0;
       border-top: 1px solid #dfe5eb;
-    }
-
-    .public-four-news-ad-slot {
-      min-height: 180px;
     }
   }
 
