@@ -222,32 +222,32 @@ const hierarchicalCompositionStyles = `
   }
 
   .composition-interpretive-editorial h3 {
-    margin-top: 20px;
+    margin-top: 16px;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: 24px;
+    font-size: 23px;
     font-weight: 700;
-    line-height: 1.08;
+    line-height: 1.05;
     letter-spacing: -0.01em;
   }
 
   .composition-interpretive-editorial-body {
     display: grid;
-    gap: 12px;
-    margin-top: 18px;
+    gap: 9px;
+    margin-top: 14px;
   }
 
   .composition-interpretive-editorial-copy {
     margin: 0 !important;
     color: #3f4c5d;
     font-family: Georgia, "Times New Roman", serif !important;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 400;
-    line-height: 1.62;
+    line-height: 1.5;
   }
 
   .composition-interpretive-editorial-signature {
-    margin-top: 22px !important;
-    padding-top: 12px;
+    margin-top: 16px !important;
+    padding-top: 10px;
     border-top: 1px solid #dfe5eb;
     color: #10151b;
     font-size: 12px;
