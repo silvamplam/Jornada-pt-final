@@ -2097,6 +2097,14 @@ const publicMatchdayStyles = `
     text-transform: uppercase;
   }
 
+  .public-table-position {
+    width: 44px;
+    min-width: 44px;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    text-align: center !important;
+  }
+
   .public-table-club {
     min-width: 300px;
     text-align: left;
@@ -2131,7 +2139,20 @@ const publicMatchdayStyles = `
   }
 
   .public-table-divider {
-    border-left: 2px solid #b4c0ce;
+    padding-left: 10px !important;
+    border-left: 2px solid #91a0b2;
+  }
+
+  .public-table-group-total {
+    background: #ffffff;
+  }
+
+  .public-table-group-home {
+    background: #f3f6fa;
+  }
+
+  .public-table-group-away {
+    background: #f8fafc;
   }
 
   .public-points {
@@ -3308,6 +3329,7 @@ function renderStatsCells(stats: ClassificationSplit, options: { divider?: boole
     const value = stats[column.key];
     const className = [
       options.divider && index === 0 ? "public-table-divider" : "",
+      options.group ? `public-table-group-${options.group}` : "",
       column.key === "goalDifference" ? goalDifferenceClass(value) : ""
     ]
       .filter(Boolean)
@@ -3329,7 +3351,10 @@ function renderStatsCells(stats: ClassificationSplit, options: { divider?: boole
 
 function renderStatHeaders(group: string) {
   return PUBLIC_STAT_COLUMNS.map((column, index) => (
-    <th className={index === 0 ? "public-table-divider" : undefined} key={`${group}-${column.key}`}>
+    <th
+      className={[index === 0 ? "public-table-divider" : "", `public-table-group-${group}`].filter(Boolean).join(" ")}
+      key={`${group}-${column.key}`}
+    >
       {column.label}
     </th>
   ));
@@ -4209,11 +4234,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           <table className="public-table">
             <thead>
               <tr>
-                <th rowSpan={2}>Pos</th>
+                <th className="public-table-position" rowSpan={2}>Pos</th>
                 <th className="public-table-club" rowSpan={2}>Clube</th>
-                <th className="public-table-divider" colSpan={PUBLIC_STAT_COLUMNS.length}>Total</th>
-                <th className="public-table-divider" colSpan={PUBLIC_STAT_COLUMNS.length}>Casa</th>
-                <th className="public-table-divider" colSpan={PUBLIC_STAT_COLUMNS.length}>Fora</th>
+                <th className="public-table-divider public-table-group-total" colSpan={PUBLIC_STAT_COLUMNS.length}>Total</th>
+                <th className="public-table-divider public-table-group-home" colSpan={PUBLIC_STAT_COLUMNS.length}>Casa</th>
+                <th className="public-table-divider public-table-group-away" colSpan={PUBLIC_STAT_COLUMNS.length}>Fora</th>
               </tr>
               <tr>
                 {renderStatHeaders("total")}
@@ -4224,7 +4249,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             <tbody>
               {publicClassificationRows.map((row, index) => (
                 <tr key={row.teamId}>
-                  <td>{index + 1}</td>
+                  <td className="public-table-position">{index + 1}</td>
                   <td className="public-table-club">
                     <span className="public-club-cell">
                     <span className="public-club-name" title={row.fullName}>{row.publicName}</span>
