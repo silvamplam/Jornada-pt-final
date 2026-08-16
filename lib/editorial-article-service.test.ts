@@ -48,6 +48,7 @@ function fixture() {
       id: string;
       status: string | null;
       matchday_id: string | null;
+      slug?: string | null;
     } | null,
     competitions: new Map<string, { id: string }>(),
     seasons: new Map<string, { id: string; competition_id: string | null }>(),
@@ -71,7 +72,8 @@ function fixture() {
       return state.slugRows;
     },
     async readArticleStatus() {
-      return state.currentArticle;
+      const article = state.currentArticle;
+      return article ? { ...article, slug: article.slug ?? null } : null;
     },
     async readCompetition(competitionId) {
       return state.competitions.get(competitionId) ?? null;

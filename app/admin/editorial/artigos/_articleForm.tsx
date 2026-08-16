@@ -136,7 +136,7 @@ const articleFormEnhancer = `
     var matchday = form.querySelector("[data-article-matchday]");
     var initialPlacementField = form.querySelector('[data-article-initial-placement-field]');
 
-    if (title && slug) {
+    if (title && slug && !slug.readOnly) {
       slug.addEventListener("blur", function () {
         slug.value = normalizeSlug(slug.value);
       });
@@ -642,7 +642,19 @@ export function ArticleEditorForm({
         <summary>Endereço</summary>
         <label>
           <span>Endereço do artigo</span>
-          <input name="slug" data-article-slug defaultValue={article?.slug ?? ""} placeholder="gerado-a-partir-do-titulo" />
+          <input
+            name="slug"
+            data-article-slug
+            defaultValue={article?.slug ?? ""}
+            placeholder="gerado-a-partir-do-titulo"
+            readOnly={currentStatus === "published"}
+            aria-readonly={currentStatus === "published"}
+          />
+          {currentStatus === "published" ? (
+            <small>
+              Endereço fixo após publicação. Podes editar normalmente o título, texto, imagem e restantes campos sem alterar este URL.
+            </small>
+          ) : null}
         </label>
       </details>
 

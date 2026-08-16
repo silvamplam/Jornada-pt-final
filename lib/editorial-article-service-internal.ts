@@ -108,6 +108,7 @@ type ArticleStatusRow = Readonly<{
   id: string;
   status: string | null;
   matchday_id: string | null;
+  slug: string | null;
 }>;
 
 type CreatedArticleRow = Readonly<{
@@ -446,7 +447,11 @@ export function createEditorialArticleService(
       const targetStatus = options.action === "publish"
         ? "published"
         : normalizeExistingStatus(currentArticle.status);
-      const payload = await buildPayload(input, articleId, targetStatus, transport);
+      const stableInput =
+        currentArticle.status === "published" && cleanText(currentArticle.slug)
+          ? { ...input, slug: currentArticle.slug }
+          : input;
+      const payload = await buildPayload(stableInput, articleId, targetStatus, transport);
       await transport.updateArticle(articleId, {
         ...payload,
         updated_at: transport.now(),

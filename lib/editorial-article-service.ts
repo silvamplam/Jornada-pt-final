@@ -39,6 +39,7 @@ type ArticleStatusRow = {
   id: string;
   status: string | null;
   matchday_id: string | null;
+  slug: string | null;
 };
 
 type CreatedArticleRow = {
@@ -69,7 +70,7 @@ const service = createEditorialArticleService({
 
   async readArticleStatus(articleId: string) {
     const rows = await fetchSupabaseAdminTable<ArticleStatusRow>(
-      `editorial_articles?select=id,status,matchday_id&id=eq.${encodeURIComponent(articleId)}&limit=1`,
+      `editorial_articles?select=id,status,matchday_id,slug&id=eq.${encodeURIComponent(articleId)}&limit=1`,
     );
     return rows[0] ?? null;
   },
