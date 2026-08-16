@@ -26,7 +26,8 @@ test("fluxo de jogo adiado fica ligado de ponta a ponta", async () => {
   assert.match(route, /"scheduled", "live", "halftime", "finished", "postponed"/);
   assert.match(route, /rollover_excluded:\s*true/);
   assert.match(strip, /Nova data por definir/);
-  assert.match(landing, /LIGA_PORTUGAL_PUBLIC_ENTRY_SLUG/);
+  assert.doesNotMatch(landing, /LIGA_PORTUGAL_PUBLIC_ENTRY_SLUG/);
+  assert.match(landing, /if \(matchdays\.length > 0\)/);
   assert.match(landing, /selectPublicCompetitionEntryMatchday/);
   assert.match(schema, /rollover_excluded boolean not null default false/);
   assert.match(migration, /add column if not exists rollover_excluded boolean not null default false/);

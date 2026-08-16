@@ -2,10 +2,7 @@ import Link from "next/link";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
 import { readPublicCompetitionMenu } from "@/lib/public-competition-menu";
-import {
-  LIGA_PORTUGAL_PUBLIC_ENTRY_SLUG,
-  selectPublicCompetitionEntryMatchday
-} from "@/lib/public-competition-matchday-entry";
+import { selectPublicCompetitionEntryMatchday } from "@/lib/public-competition-matchday-entry";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import { redirect } from "next/navigation";
 
@@ -79,7 +76,7 @@ async function readSeasonContext(competitionSlug: string, seasonLabel: string) {
 
   let matchday: MatchdayRow | null = matchdays[0] ?? null;
 
-  if (competition.slug === LIGA_PORTUGAL_PUBLIC_ENTRY_SLUG && matchdays.length > 0) {
+  if (matchdays.length > 0) {
     const matches = await fetchSupabaseAdminTable<MatchRow>(
       `matches?select=id,matchday_id,status,kickoff_at,rollover_excluded&season_id=eq.${encodeURIComponent(season.id)}&limit=1000`
     ).catch(async () => {

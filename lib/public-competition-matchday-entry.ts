@@ -1,5 +1,3 @@
-export const LIGA_PORTUGAL_PUBLIC_ENTRY_SLUG = "liga-portugal";
-
 export const PUBLIC_MATCH_ESTIMATED_DURATION_MS = 2 * 60 * 60 * 1000;
 export const PUBLIC_MATCHDAY_EDITORIAL_WINDOW_MS = 48 * 60 * 60 * 1000;
 export const PUBLIC_MATCHDAY_ROLLOVER_MS =
