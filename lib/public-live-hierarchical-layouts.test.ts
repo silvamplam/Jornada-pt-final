@@ -166,19 +166,27 @@ test("as zonas vivas ganham respiro editorial sem introduzir titulos", () => {
   );
   assert.match(
     publicRenderer,
-    /\.composition-interpretive-preview > \.composition-interpretive-section::before,[\s\S]*?left: 11%;[\s\S]*?rgba\(91, 118, 148, 0\.10\)/,
+    /\.public-hierarchical-live-layouts::before \{[\s\S]*?height: 28px;[\s\S]*?radial-gradient\([\s\S]*?at 34% 50%[\s\S]*?filter: blur\(7px\);/,
   );
   assert.match(
     publicRenderer,
-    /\.public-hierarchical-live-layouts \{[\s\S]*?margin-top: clamp\(46px, 5vw, 68px\);[\s\S]*?padding-top: clamp\(24px, 2\.6vw, 34px\);/,
+    /\.public-hierarchical-live-layouts::after \{[\s\S]*?left: 16%;[\s\S]*?height: 1px;/,
+  );
+  assert.match(
+    publicRenderer,
+    /\.composition-interpretive-preview > \.composition-interpretive-section::before,[\s\S]*?left: 8%;[\s\S]*?height: 26px;[\s\S]*?filter: blur\(6px\);/,
+  );
+  assert.match(
+    publicRenderer,
+    /\.composition-interpretive-preview > \.composition-interpretive-section:nth-child\(even\)::before,[\s\S]*?radial-gradient\([\s\S]*?at 66% 50%/,
   );
   assert.match(
     fourNewsRenderer,
-    /\.public-four-news-latest-layout \{[\s\S]*?margin-top: clamp\(46px, 5vw, 68px\);[\s\S]*?border-top: 0;/,
+    /\.public-four-news-latest-layout::before \{[\s\S]*?height: 28px;[\s\S]*?radial-gradient\([\s\S]*?at 66% 50%[\s\S]*?filter: blur\(7px\);/,
   );
   assert.match(
     fourNewsRenderer,
-    /\.public-four-news-latest-layout::before \{[\s\S]*?left: 11%;[\s\S]*?rgba\(91, 118, 148, 0\.11\)/,
+    /\.public-four-news-latest-layout::after \{[\s\S]*?right: 16%;[\s\S]*?left: 10%;/,
   );
   assert.match(
     publicRenderer,

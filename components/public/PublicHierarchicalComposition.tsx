@@ -156,22 +156,47 @@ const hierarchicalCompositionStyles = `
 
   .public-hierarchical-live-layouts::before {
     position: absolute;
-    top: 0;
+    top: -6px;
     right: 3%;
-    left: 11%;
+    left: 8%;
+    height: 28px;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(159, 177, 196, 0) 0%,
+        rgba(145, 165, 186, 0.10) 16%,
+        rgba(121, 145, 171, 0.18) 46%,
+        rgba(103, 128, 156, 0.10) 72%,
+        rgba(159, 177, 196, 0) 100%
+      ),
+      radial-gradient(
+        58% 140% at 34% 50%,
+        rgba(119, 144, 171, 0.22) 0%,
+        rgba(134, 157, 181, 0.12) 36%,
+        rgba(171, 187, 203, 0.00) 100%
+      );
+    filter: blur(7px);
+    opacity: 0.92;
+    content: "";
+    pointer-events: none;
+  }
+
+  .public-hierarchical-live-layouts::after {
+    position: absolute;
+    top: 7px;
+    right: 10%;
+    left: 16%;
     height: 1px;
     background: linear-gradient(
       90deg,
-      rgba(150, 168, 188, 0) 0%,
-      rgba(132, 153, 176, 0.26) 12%,
-      rgba(101, 126, 153, 0.58) 48%,
-      rgba(139, 158, 179, 0.32) 82%,
-      rgba(150, 168, 188, 0) 100%
+      rgba(143, 162, 182, 0) 0%,
+      rgba(132, 153, 176, 0.14) 22%,
+      rgba(104, 128, 154, 0.28) 50%,
+      rgba(141, 160, 179, 0.14) 78%,
+      rgba(143, 162, 182, 0) 100%
     );
-    box-shadow:
-      -24px 13px 34px rgba(91, 118, 148, 0.11),
-      30px -7px 30px rgba(161, 180, 200, 0.07);
     content: "";
+    pointer-events: none;
   }
   .composition-interpretive-preview {
     display: grid;
@@ -373,22 +398,75 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-preview > .composition-interpretive-section::before,
   .composition-interpretive-preview > .public-beyond-matchday::before {
     position: absolute;
-    top: 0;
+    top: -5px;
     right: 3%;
-    left: 11%;
+    left: 8%;
+    height: 26px;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(158, 176, 195, 0) 0%,
+        rgba(145, 165, 186, 0.09) 15%,
+        rgba(118, 142, 168, 0.17) 46%,
+        rgba(104, 128, 156, 0.09) 72%,
+        rgba(158, 176, 195, 0) 100%
+      ),
+      radial-gradient(
+        56% 136% at 34% 50%,
+        rgba(116, 141, 169, 0.20) 0%,
+        rgba(133, 156, 180, 0.10) 38%,
+        rgba(171, 187, 203, 0.00) 100%
+      );
+    filter: blur(6px);
+    opacity: 0.9;
+    content: "";
+    pointer-events: none;
+  }
+
+  .composition-interpretive-preview > .composition-interpretive-section::after,
+  .composition-interpretive-preview > .public-beyond-matchday::after {
+    position: absolute;
+    top: 7px;
+    right: 10%;
+    left: 16%;
     height: 1px;
     background: linear-gradient(
       90deg,
-      rgba(151, 169, 188, 0) 0%,
-      rgba(137, 157, 179, 0.25) 12%,
-      rgba(105, 130, 156, 0.54) 48%,
-      rgba(143, 162, 181, 0.29) 82%,
-      rgba(151, 169, 188, 0) 100%
+      rgba(143, 162, 182, 0) 0%,
+      rgba(132, 153, 176, 0.13) 22%,
+      rgba(104, 128, 154, 0.26) 50%,
+      rgba(141, 160, 179, 0.13) 78%,
+      rgba(143, 162, 182, 0) 100%
     );
-    box-shadow:
-      -22px 12px 32px rgba(91, 118, 148, 0.10),
-      26px -6px 26px rgba(161, 180, 200, 0.065);
     content: "";
+    pointer-events: none;
+  }
+
+  .composition-interpretive-preview > .composition-interpretive-section:nth-child(even)::before,
+  .composition-interpretive-preview > .public-beyond-matchday:nth-child(even)::before {
+    right: 8%;
+    left: 3%;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(158, 176, 195, 0) 0%,
+        rgba(145, 165, 186, 0.08) 18%,
+        rgba(118, 142, 168, 0.16) 52%,
+        rgba(104, 128, 156, 0.10) 80%,
+        rgba(158, 176, 195, 0) 100%
+      ),
+      radial-gradient(
+        56% 136% at 66% 50%,
+        rgba(116, 141, 169, 0.19) 0%,
+        rgba(133, 156, 180, 0.10) 38%,
+        rgba(171, 187, 203, 0.00) 100%
+      );
+  }
+
+  .composition-interpretive-preview > .composition-interpretive-section:nth-child(even)::after,
+  .composition-interpretive-preview > .public-beyond-matchday:nth-child(even)::after {
+    right: 16%;
+    left: 10%;
   }
 
   .public-hierarchical-live-layouts .public-beyond-matchday {
