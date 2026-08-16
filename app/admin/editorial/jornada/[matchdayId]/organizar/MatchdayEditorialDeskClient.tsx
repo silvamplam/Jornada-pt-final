@@ -67,6 +67,16 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
   const [isManaged, setIsManaged] = useState(snapshot.isManaged);
   const [isApplying, setIsApplying] = useState(false);
   const [resolvingPlacementKey, setResolvingPlacementKey] = useState<string | null>(null);
+  const [canonicalChoiceByPlacement, setCanonicalChoiceByPlacement] = useState<Record<string, string>>(
+    () => Object.fromEntries(
+      snapshot.blockedPlacements
+        .filter((blocked) => blocked.suggestedArticleIds.length > 0)
+        .map((blocked) => [
+          blocked.placementKey,
+          blocked.suggestedArticleIds[0],
+        ] as const),
+    ),
+  );
   const [initialConflictsResolved, setInitialConflictsResolved] = useState(false);
   const [history, setHistory] = useState<DeskHistoryEntry[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -221,15 +231,26 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
 
   async function resolveBlockedPlacement(
     blocked: MatchdayDeskBlockedPlacement,
-    action: "activate" | "remove",
+    action: "activate" | "remove" | "associate",
   ) {
     if (resolvingPlacementKey) return;
+
+    const articleId = action === "associate"
+      ? canonicalChoiceByPlacement[blocked.placementKey] ?? ""
+      : "";
+
+    if (action === "associate" && !articleId) {
+      setMessage("Escolhe primeiro o artigo canónico correto.");
+      return;
+    }
 
     setResolvingPlacementKey(blocked.placementKey);
     setMessage(
       action === "activate"
         ? "A ativar o conteúdo nesta zona…"
-        : "A retirar o conteúdo inativo desta zona…",
+        : action === "associate"
+          ? "A associar o artigo canónico escolhido…"
+          : "A retirar o conteúdo desta zona…",
     );
 
     try {
@@ -241,6 +262,7 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
           body: JSON.stringify({
             placementKey: blocked.placementKey,
             action,
+            articleId: action === "associate" ? articleId : undefined,
           }),
         },
       );
@@ -261,6 +283,76 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
     } finally {
       setResolvingPlacementKey(null);
     }
+  }
+
+  function renderCanonicalResolution(blocked: MatchdayDeskBlockedPlacement) {
+    if (!blocked.canAssociate) return null;
+
+    const selectedArticleId = canonicalChoiceByPlacement[blocked.placementKey] ?? "";
+    const suggestedIds = new Set(blocked.suggestedArticleIds);
+
+    const suggestedCandidates = snapshot.canonicalCandidates.filter(
+      (candidate) => suggestedIds.has(candidate.id),
+    );
+
+    const otherCandidates = snapshot.canonicalCandidates.filter(
+      (candidate) => !suggestedIds.has(candidate.id),
+    );
+
+    return (
+      <div style={{ display: "grid", gap: 6 }}>
+        <select
+          value={selectedArticleId}
+          disabled={resolvingPlacementKey !== null}
+          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+            setCanonicalChoiceByPlacement((current) => ({
+              ...current,
+              [blocked.placementKey]: event.target.value,
+            }))
+          }
+        >
+          <option value="">Escolher artigo canónico…</option>
+
+          {suggestedCandidates.length > 0 ? (
+            <optgroup label="Sugestões">
+              {suggestedCandidates.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.title} · /noticias/{candidate.slug}
+                </option>
+              ))}
+            </optgroup>
+          ) : null}
+
+          <optgroup label="Todos os artigos publicados">
+            {otherCandidates.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.title} · /noticias/{candidate.slug}
+              </option>
+            ))}
+          </optgroup>
+        </select>
+
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            disabled={resolvingPlacementKey !== null || !selectedArticleId}
+            onClick={() => resolveBlockedPlacement(blocked, "associate")}
+          >
+            Associar artigo canónico
+          </button>
+
+          {blocked.canRemove ? (
+            <button
+              type="button"
+              disabled={resolvingPlacementKey !== null}
+              onClick={() => resolveBlockedPlacement(blocked, "remove")}
+            >
+              Retirar da zona
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
   }
 
   async function applyChanges() {
@@ -579,6 +671,11 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
                       ) : null}
                     </div>
                   ) : null}
+
+                  {blocked.kind === "canonical_missing"
+                    || blocked.kind === "canonical_conflict"
+                    ? renderCanonicalResolution(blocked)
+                    : null}
                 </article>
               ))}
             </div>

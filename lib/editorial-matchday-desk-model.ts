@@ -134,13 +134,22 @@ export type MatchdayDeskBlockedKind =
   | "canonical_conflict"
   | "incomplete_article";
 
+export type MatchdayDeskCanonicalCandidate = {
+  id: string;
+  slug: string;
+  label: string | null;
+  title: string;
+};
+
 export type MatchdayDeskBlockedPlacement = {
   placementKey: string;
   title: string;
   reason: string;
   kind: MatchdayDeskBlockedKind;
   articleId: string | null;
+  suggestedArticleIds: string[];
   canActivate: boolean;
+  canAssociate: boolean;
   canRemove: boolean;
 };
 
@@ -155,6 +164,7 @@ export type MatchdayDeskSnapshot = {
   revision: number;
   stateToken: string | null;
   articles: MatchdayDeskArticle[];
+  canonicalCandidates: MatchdayDeskCanonicalCandidate[];
   blockedPlacements: MatchdayDeskBlockedPlacement[];
 };
 

@@ -267,6 +267,7 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
 
   const [
     currentArticles,
+    allPublishedArticles,
     editorialRows,
     highlights,
     latestRows,
@@ -278,6 +279,9 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
       `editorial_articles?select=${ARTICLE_SELECT}&matchday_id=eq.${encodeURIComponent(
         matchdayId,
       )}&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=1000`,
+    ).catch(() => []),
+    fetchSupabaseAdminTable<ArticleRow>(
+      `editorial_articles?select=${ARTICLE_SELECT}&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=1000`,
     ).catch(() => []),
     fetchSupabaseAdminTable<EditorialRow>(
       `matchday_editorials?select=id,title,summary,image_url,headline_link_url,status,side_block_status,side_block_label,side_block_title,side_block_author,side_block_text,side_block_image_url,side_block_link_url,complementary_status,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url&matchday_id=eq.${encodeURIComponent(
@@ -349,6 +353,39 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
     return timeDifference || left.id.localeCompare(right.id);
   });
 
+  const canonicalCandidates = allPublishedArticles
+    .filter((article): article is ArticleRow & { slug: string; title: string } =>
+      Boolean(cleanText(article.slug) && cleanText(article.title))
+    )
+    .map((article) => ({
+      id: article.id,
+      slug: cleanText(article.slug) as string,
+      label: cleanText(article.label),
+      title: cleanText(article.title) as string,
+    }))
+    .sort((left, right) =>
+      left.title.localeCompare(right.title, "pt-PT", { sensitivity: "base" })
+    );
+
+  const canonicalCandidateIdsByTitle = new Map<string, string[]>();
+
+  canonicalCandidates.forEach((candidate) => {
+    const normalizedTitle = candidate.title.toLocaleLowerCase("pt-PT");
+    canonicalCandidateIdsByTitle.set(
+      normalizedTitle,
+      [
+        ...(canonicalCandidateIdsByTitle.get(normalizedTitle) ?? []),
+        candidate.id,
+      ],
+    );
+  });
+
+  function suggestedCanonicalArticleIds(title?: string | null) {
+    const normalizedTitle = cleanText(title)?.toLocaleLowerCase("pt-PT");
+    if (!normalizedTitle) return [];
+    return canonicalCandidateIdsByTitle.get(normalizedTitle) ?? [];
+  }
+
   const articleById = new Map(articles.map((article) => [article.id, article] as const));
   const articleIdsBySlug = new Map<string, string[]>();
   articles.forEach((article) => {
@@ -374,7 +411,9 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
     options: {
       kind?: MatchdayDeskBlockedPlacement["kind"];
       articleId?: string | null;
+      suggestedArticleIds?: string[];
       canActivate?: boolean;
+      canAssociate?: boolean;
       canRemove?: boolean;
     } = {},
   ) {
@@ -384,7 +423,9 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
       reason,
       kind: options.kind ?? "canonical_missing",
       articleId: options.articleId ?? null,
+      suggestedArticleIds: [...new Set(options.suggestedArticleIds ?? [])],
       canActivate: options.canActivate === true,
+      canAssociate: options.canAssociate === true,
       canRemove: options.canRemove === true,
     });
   }
@@ -430,6 +471,9 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
         {
           kind: "canonical_conflict",
           articleId: null,
+          suggestedArticleIds: [directArticleId, linkedArticleId],
+          canAssociate: canonicalCandidates.length > 0,
+          canRemove: true,
         },
       );
       return;
@@ -443,6 +487,9 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
         {
           kind: "canonical_missing",
           articleId: null,
+          suggestedArticleIds: suggestedCanonicalArticleIds(input.title),
+          canAssociate: canonicalCandidates.length > 0,
+          canRemove: true,
         },
       );
       return;
@@ -544,6 +591,9 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
         {
           kind: "canonical_missing",
           articleId: null,
+          suggestedArticleIds: suggestedCanonicalArticleIds(item.title),
+          canAssociate: canonicalCandidates.length > 0,
+          canRemove: true,
         },
       );
     }
@@ -595,6 +645,7 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
           placementConflictKeys: placementKeys.slice(1),
         };
       }),
+    canonicalCandidates,
     blockedPlacements,
   };
 }
