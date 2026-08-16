@@ -224,9 +224,10 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-editorial h3 {
     margin-top: 20px;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: 25px;
+    font-size: 24px;
     font-weight: 700;
     line-height: 1.08;
+    letter-spacing: -0.01em;
   }
 
   .composition-interpretive-editorial-body {
@@ -274,10 +275,10 @@ const hierarchicalCompositionStyles = `
 
   .composition-interpretive-dominant .composition-interpretive-title {
     font-family: Georgia, "Times New Roman", serif;
-    font-size: clamp(25px, 2.37vw, 34px);
+    font-size: clamp(28px, 1.7vw, 32px);
     font-weight: 700;
-    line-height: 1.06;
-    letter-spacing: 0;
+    line-height: 1.03;
+    letter-spacing: -0.015em;
     -webkit-line-clamp: 4;
     line-clamp: 4;
   }
