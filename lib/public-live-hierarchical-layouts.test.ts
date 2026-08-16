@@ -166,27 +166,27 @@ test("as zonas vivas ganham respiro editorial sem introduzir titulos", () => {
   );
   assert.match(
     publicRenderer,
-    /\.public-hierarchical-live-layouts::before \{[\s\S]*?height: 28px;[\s\S]*?radial-gradient\([\s\S]*?at 34% 50%[\s\S]*?filter: blur\(7px\);/,
+    /\.public-hierarchical-live-layouts::before \{[\s\S]*?top: 5px;[\s\S]*?right: 9%;[\s\S]*?left: 16%;[\s\S]*?height: 1px;/,
   );
   assert.match(
     publicRenderer,
-    /\.public-hierarchical-live-layouts::after \{[\s\S]*?left: 16%;[\s\S]*?height: 1px;/,
+    /\.public-hierarchical-live-layouts::after \{[\s\S]*?top: 4px;[\s\S]*?right: 17%;[\s\S]*?left: 24%;[\s\S]*?height: 10px;/,
   );
   assert.match(
     publicRenderer,
-    /\.composition-interpretive-preview > \.composition-interpretive-section::before,[\s\S]*?left: 8%;[\s\S]*?height: 26px;[\s\S]*?filter: blur\(6px\);/,
+    /\.composition-interpretive-preview > \.composition-interpretive-section::before,[\s\S]*?top: 5px;[\s\S]*?right: 9%;[\s\S]*?left: 16%;[\s\S]*?height: 1px;/,
   );
   assert.match(
     publicRenderer,
-    /\.composition-interpretive-preview > \.composition-interpretive-section:nth-child\(even\)::before,[\s\S]*?radial-gradient\([\s\S]*?at 66% 50%/,
+    /\.composition-interpretive-preview > \.composition-interpretive-section:nth-child\(even\)::before,[\s\S]*?right: 16%;[\s\S]*?left: 9%;/,
   );
   assert.match(
     fourNewsRenderer,
-    /\.public-four-news-latest-layout::before \{[\s\S]*?height: 28px;[\s\S]*?radial-gradient\([\s\S]*?at 66% 50%[\s\S]*?filter: blur\(7px\);/,
+    /\.public-four-news-latest-layout::before \{[\s\S]*?top: 5px;[\s\S]*?right: 16%;[\s\S]*?left: 9%;[\s\S]*?height: 1px;/,
   );
   assert.match(
     fourNewsRenderer,
-    /\.public-four-news-latest-layout::after \{[\s\S]*?right: 16%;[\s\S]*?left: 10%;/,
+    /\.public-four-news-latest-layout::after \{[\s\S]*?top: 4px;[\s\S]*?right: 24%;[\s\S]*?left: 17%;[\s\S]*?height: 10px;/,
   );
   assert.match(
     publicRenderer,

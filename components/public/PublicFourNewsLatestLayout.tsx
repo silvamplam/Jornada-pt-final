@@ -31,44 +31,33 @@ const styles = `
 
   .public-four-news-latest-layout::before {
     position: absolute;
-    top: -6px;
-    right: 3%;
-    left: 8%;
-    height: 28px;
-    background:
-      linear-gradient(
-        90deg,
-        rgba(159, 177, 196, 0) 0%,
-        rgba(145, 165, 186, 0.10) 16%,
-        rgba(121, 145, 171, 0.18) 46%,
-        rgba(103, 128, 156, 0.10) 72%,
-        rgba(159, 177, 196, 0) 100%
-      ),
-      radial-gradient(
-        58% 140% at 66% 50%,
-        rgba(119, 144, 171, 0.22) 0%,
-        rgba(134, 157, 181, 0.12) 36%,
-        rgba(171, 187, 203, 0.00) 100%
-      );
-    filter: blur(7px);
-    opacity: 0.92;
+    top: 5px;
+    right: 16%;
+    left: 9%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(144, 162, 181, 0) 0%,
+      rgba(133, 153, 174, 0.10) 20%,
+      rgba(108, 130, 154, 0.22) 50%,
+      rgba(136, 156, 177, 0.10) 80%,
+      rgba(144, 162, 181, 0) 100%
+    );
     content: "";
     pointer-events: none;
   }
 
   .public-four-news-latest-layout::after {
     position: absolute;
-    top: 7px;
-    right: 16%;
-    left: 10%;
-    height: 1px;
+    top: 4px;
+    right: 24%;
+    left: 17%;
+    height: 10px;
     background: linear-gradient(
       90deg,
-      rgba(143, 162, 182, 0) 0%,
-      rgba(132, 153, 176, 0.14) 22%,
-      rgba(104, 128, 154, 0.28) 50%,
-      rgba(141, 160, 179, 0.14) 78%,
-      rgba(143, 162, 182, 0) 100%
+      rgba(182, 194, 208, 0) 0%,
+      rgba(178, 191, 205, 0.05) 50%,
+      rgba(182, 194, 208, 0) 100%
     );
     content: "";
     pointer-events: none;

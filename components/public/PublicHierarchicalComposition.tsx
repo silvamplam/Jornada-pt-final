@@ -156,44 +156,33 @@ const hierarchicalCompositionStyles = `
 
   .public-hierarchical-live-layouts::before {
     position: absolute;
-    top: -6px;
-    right: 3%;
-    left: 8%;
-    height: 28px;
-    background:
-      linear-gradient(
-        90deg,
-        rgba(159, 177, 196, 0) 0%,
-        rgba(145, 165, 186, 0.10) 16%,
-        rgba(121, 145, 171, 0.18) 46%,
-        rgba(103, 128, 156, 0.10) 72%,
-        rgba(159, 177, 196, 0) 100%
-      ),
-      radial-gradient(
-        58% 140% at 34% 50%,
-        rgba(119, 144, 171, 0.22) 0%,
-        rgba(134, 157, 181, 0.12) 36%,
-        rgba(171, 187, 203, 0.00) 100%
-      );
-    filter: blur(7px);
-    opacity: 0.92;
+    top: 5px;
+    right: 9%;
+    left: 16%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(144, 162, 181, 0) 0%,
+      rgba(133, 153, 174, 0.10) 20%,
+      rgba(108, 130, 154, 0.22) 50%,
+      rgba(136, 156, 177, 0.10) 80%,
+      rgba(144, 162, 181, 0) 100%
+    );
     content: "";
     pointer-events: none;
   }
 
   .public-hierarchical-live-layouts::after {
     position: absolute;
-    top: 7px;
-    right: 10%;
-    left: 16%;
-    height: 1px;
+    top: 4px;
+    right: 17%;
+    left: 24%;
+    height: 10px;
     background: linear-gradient(
       90deg,
-      rgba(143, 162, 182, 0) 0%,
-      rgba(132, 153, 176, 0.14) 22%,
-      rgba(104, 128, 154, 0.28) 50%,
-      rgba(141, 160, 179, 0.14) 78%,
-      rgba(143, 162, 182, 0) 100%
+      rgba(182, 194, 208, 0) 0%,
+      rgba(178, 191, 205, 0.05) 50%,
+      rgba(182, 194, 208, 0) 100%
     );
     content: "";
     pointer-events: none;
@@ -398,27 +387,18 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-preview > .composition-interpretive-section::before,
   .composition-interpretive-preview > .public-beyond-matchday::before {
     position: absolute;
-    top: -5px;
-    right: 3%;
-    left: 8%;
-    height: 26px;
-    background:
-      linear-gradient(
-        90deg,
-        rgba(158, 176, 195, 0) 0%,
-        rgba(145, 165, 186, 0.09) 15%,
-        rgba(118, 142, 168, 0.17) 46%,
-        rgba(104, 128, 156, 0.09) 72%,
-        rgba(158, 176, 195, 0) 100%
-      ),
-      radial-gradient(
-        56% 136% at 34% 50%,
-        rgba(116, 141, 169, 0.20) 0%,
-        rgba(133, 156, 180, 0.10) 38%,
-        rgba(171, 187, 203, 0.00) 100%
-      );
-    filter: blur(6px);
-    opacity: 0.9;
+    top: 5px;
+    right: 9%;
+    left: 16%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(144, 162, 181, 0) 0%,
+      rgba(133, 153, 174, 0.09) 20%,
+      rgba(108, 130, 154, 0.20) 50%,
+      rgba(136, 156, 177, 0.09) 80%,
+      rgba(144, 162, 181, 0) 100%
+    );
     content: "";
     pointer-events: none;
   }
@@ -426,17 +406,15 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-preview > .composition-interpretive-section::after,
   .composition-interpretive-preview > .public-beyond-matchday::after {
     position: absolute;
-    top: 7px;
-    right: 10%;
-    left: 16%;
-    height: 1px;
+    top: 4px;
+    right: 17%;
+    left: 24%;
+    height: 10px;
     background: linear-gradient(
       90deg,
-      rgba(143, 162, 182, 0) 0%,
-      rgba(132, 153, 176, 0.13) 22%,
-      rgba(104, 128, 154, 0.26) 50%,
-      rgba(141, 160, 179, 0.13) 78%,
-      rgba(143, 162, 182, 0) 100%
+      rgba(182, 194, 208, 0) 0%,
+      rgba(178, 191, 205, 0.045) 50%,
+      rgba(182, 194, 208, 0) 100%
     );
     content: "";
     pointer-events: none;
@@ -444,29 +422,14 @@ const hierarchicalCompositionStyles = `
 
   .composition-interpretive-preview > .composition-interpretive-section:nth-child(even)::before,
   .composition-interpretive-preview > .public-beyond-matchday:nth-child(even)::before {
-    right: 8%;
-    left: 3%;
-    background:
-      linear-gradient(
-        90deg,
-        rgba(158, 176, 195, 0) 0%,
-        rgba(145, 165, 186, 0.08) 18%,
-        rgba(118, 142, 168, 0.16) 52%,
-        rgba(104, 128, 156, 0.10) 80%,
-        rgba(158, 176, 195, 0) 100%
-      ),
-      radial-gradient(
-        56% 136% at 66% 50%,
-        rgba(116, 141, 169, 0.19) 0%,
-        rgba(133, 156, 180, 0.10) 38%,
-        rgba(171, 187, 203, 0.00) 100%
-      );
+    right: 16%;
+    left: 9%;
   }
 
   .composition-interpretive-preview > .composition-interpretive-section:nth-child(even)::after,
   .composition-interpretive-preview > .public-beyond-matchday:nth-child(even)::after {
-    right: 16%;
-    left: 10%;
+    right: 24%;
+    left: 17%;
   }
 
   .public-hierarchical-live-layouts .public-beyond-matchday {
