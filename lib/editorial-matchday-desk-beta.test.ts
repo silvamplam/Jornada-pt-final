@@ -46,3 +46,14 @@ test("a interface inclui seleção em bloco, Últimas independente, ordenação 
   assert.ok(clientSource.includes("● Pública"));
   assert.ok(clientSource.includes("○ Oculta"));
 });
+test("Colocar limpa a seleção e o destino depois de planear a colocação", () => {
+  assert.ok(clientSource.includes("function commitPlacement("));
+  assert.match(
+    clientSource,
+    /function commitPlacement[\s\S]*?setSelectedIds\(\[\]\);[\s\S]*?setDestination\(""\);/,
+  );
+  assert.equal(
+    clientSource.split("commitPlacement(").length - 1,
+    3,
+  );
+});

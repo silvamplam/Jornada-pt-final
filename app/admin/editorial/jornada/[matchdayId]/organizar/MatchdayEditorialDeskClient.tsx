@@ -121,6 +121,12 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
     setMessage(nextMessage);
   }
 
+  function commitPlacement(nextDesired: MatchdayDeskDesiredState, nextMessage: string) {
+    commit(nextDesired, faixaVisible, nextMessage);
+    setSelectedIds([]);
+    setDestination("");
+  }
+
   function toggleSelection(articleId: string, checked: boolean) {
     setSelectedIds((items) => {
       if (checked) return items.includes(articleId) ? items : [...items, articleId];
@@ -159,15 +165,14 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
 
         const targetPlacementKey = destination.slice("slot::".length);
         const next = placeDeskArticleInSlot(desired, selectedIds[0], targetPlacementKey);
-        commit(
+        commitPlacement(
           next,
-          faixaVisible,
           `Coloca\u00e7\u00e3o planeada em ${placementLabelForKey(targetPlacementKey)}.`,
         );
         return;
       }
       const next = applyDeskPlacementSelection(desired, selectedIds, destination as MatchdayDeskDestination);
-      commit(next, faixaVisible, "Colocação planeada. A ordem de seleção define a primeira ordem da zona.");
+      commitPlacement(next, "Colocação planeada. A ordem de seleção define a primeira ordem da zona.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível planear esta colocação.");
     }
