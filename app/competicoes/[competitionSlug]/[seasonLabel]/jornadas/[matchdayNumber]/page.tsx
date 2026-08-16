@@ -2201,10 +2201,6 @@ const publicMatchdayStyles = `
     font-weight: 900;
   }
 
-  .public-table tbody td.public-table-points-column-total {
-    font-size: 15px;
-    letter-spacing: -0.01em;
-  }
 
   .public-points {
     font-weight: 900;
