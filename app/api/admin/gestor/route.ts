@@ -144,7 +144,7 @@ function cleanMatchMinute(value: FormDataEntryValue | null): number | null {
 
 function cleanMatchStatus(value: FormDataEntryValue | null, fallback = "scheduled"): string {
   const status = cleanText(value);
-  const allowed = new Set(["scheduled", "live", "halftime", "finished"]);
+  const allowed = new Set(["scheduled", "live", "halftime", "finished", "postponed"]);
 
   if (!status) {
     return allowed.has(fallback) ? fallback : "scheduled";
@@ -3062,6 +3062,11 @@ async function finishMatch(formData: FormData) {
     liveBaseMinute = liveBaseMinute ?? minute ?? match.live_base_minute ?? match.minute;
     liveStartedAt = null;
     isClockRunning = false;
+  } else if (status === "postponed") {
+    minute = null;
+    liveBaseMinute = null;
+    liveStartedAt = null;
+    isClockRunning = false;
   } else {
     liveStartedAt = null;
     isClockRunning = false;
@@ -3081,13 +3086,14 @@ async function finishMatch(formData: FormData) {
     {
       method: "PATCH",
       body: JSON.stringify({
-        home_score: homeScore,
-        away_score: awayScore,
+        home_score: status === "postponed" ? null : homeScore,
+        away_score: status === "postponed" ? null : awayScore,
         minute,
         live_base_minute: liveBaseMinute,
         live_started_at: liveStartedAt,
         is_clock_running: isClockRunning,
         status,
+        ...(status === "postponed" ? { rollover_excluded: true } : {}),
         data_source: "manual",
         sync_status: "manual",
         manual_override: true

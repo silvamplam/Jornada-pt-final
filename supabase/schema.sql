@@ -117,6 +117,7 @@ create table if not exists matches (
   home_team_id uuid not null references teams(id),
   away_team_id uuid not null references teams(id),
   status text not null default 'scheduled',
+  rollover_excluded boolean not null default false,
   minute integer,
   scheduled_date date,
   kickoff_at timestamptz,

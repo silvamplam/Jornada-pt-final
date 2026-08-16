@@ -1193,6 +1193,13 @@
   color: #ffffff;
 }
 
+.panel[data-visual-variant="clean"] .cleanStateBadgePostponed {
+  border-color: #a8b0ba;
+  background: #eef1f4;
+  box-shadow: none;
+  color: #44505c;
+}
+
 .panel[data-visual-variant="clean"] .cleanStateBadgeFinished {
   border-color: #111820;
   background: #111820;

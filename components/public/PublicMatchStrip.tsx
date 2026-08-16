@@ -354,10 +354,14 @@ function CompactMatchCard({
     ? "AGORA"
     : kind === "halftime"
       ? "INTERVALO"
-      : null;
+      : kind === "postponed"
+        ? "ADIADO"
+        : null;
   const cleanStateLabelClass = kind === "live"
     ? styles.cleanStateBadgeLive
-    : styles.cleanStateBadgeHalftime;
+    : kind === "halftime"
+      ? styles.cleanStateBadgeHalftime
+      : styles.cleanStateBadgePostponed;
   const halftimeMinuteSource = match.live_base_minute ?? match.minute;
   const halftimeMinuteValue = typeof halftimeMinuteSource === "number"
     ? halftimeMinuteSource
@@ -378,7 +382,9 @@ function CompactMatchCard({
     <span
       aria-label={kind === "live"
         ? `${cleanMinute !== null ? `Minuto ${cleanMinute}. ` : ""}Agora`
-        : `${cleanMinute !== null ? `Minuto ${cleanMinute}. ` : ""}Intervalo`}
+        : kind === "halftime"
+          ? `${cleanMinute !== null ? `Minuto ${cleanMinute}. ` : ""}Intervalo`
+          : "Adiado"}
       className={styles.cleanStatusLine}
     >
       {cleanHeaderLead ? (
@@ -418,7 +424,7 @@ function CompactMatchCard({
       ? `${styles.broadcast} ${styles.cleanActiveFooter} ${
           hasCleanBroadcast ? "" : styles.cleanActiveFooterWithoutBroadcast
         }`
-      : hasScheduledFooterTime
+      : kind === "postponed" || hasScheduledFooterTime
         ? `${styles.broadcast} ${styles.cleanScheduledFooterWithTime}`
         : styles.broadcast;
 
@@ -529,7 +535,9 @@ function CompactMatchCard({
       </span>
       {visualVariant === "clean" ? (
         <span className={cleanFooterClassName} data-public-match-broadcast>
-          {kind === "scheduled" ? (
+          {kind === "postponed" ? (
+            <span className={styles.cleanScheduledTime}>Nova data por definir</span>
+          ) : kind === "scheduled" ? (
             hasScheduledFooterTime ? (
               <>
                 <span className={styles.cleanScheduledTime} aria-hidden="true">

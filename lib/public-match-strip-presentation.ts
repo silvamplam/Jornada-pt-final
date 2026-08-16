@@ -12,6 +12,7 @@ export type PublicMatchStripPresentationKind =
   | "finished"
   | "live"
   | "halftime"
+  | "postponed"
   | "scheduled";
 
 export type PublicMatchStripCenter =
@@ -38,7 +39,7 @@ export type PublicMatchStripStatus =
     }
   | {
       kind: "label";
-      label: "Intervalo" | "Finalizado";
+      label: "Intervalo" | "Finalizado" | "Adiado";
     };
 
 export type PublicMatchStripPresentation = {
@@ -60,6 +61,7 @@ function statusKind(
   if (normalized === "finished") return "finished";
   if (normalized === "live") return "live";
   if (normalized === "halftime") return "halftime";
+  if (normalized === "postponed") return "postponed";
   return "scheduled";
 }
 
@@ -123,7 +125,9 @@ export function getPublicMatchStripPresentation(
       ? { kind: "label", label: "Intervalo" }
       : kind === "finished"
         ? { kind: "label", label: "Finalizado" }
-        : { kind: "schedule" };
+        : kind === "postponed"
+          ? { kind: "label", label: "Adiado" }
+          : { kind: "schedule" };
 
   return {
     kind,
@@ -140,6 +144,6 @@ export function getPublicMatchStripPresentation(
           right: String(match.away_score)
         }
       : null,
-    showChannel: kind !== "finished"
+    showChannel: kind !== "finished" && kind !== "postponed"
   };
 }

@@ -2,6 +2,10 @@ import Link from "next/link";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import { publicEditorialStyles } from "@/components/public/publicEditorialStyles";
 import { readPublicCompetitionMenu } from "@/lib/public-competition-menu";
+import {
+  LIGA_PORTUGAL_PUBLIC_ENTRY_SLUG,
+  selectPublicCompetitionEntryMatchday
+} from "@/lib/public-competition-matchday-entry";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import { redirect } from "next/navigation";
 
@@ -31,6 +35,14 @@ type MatchdayRow = {
   id: string;
   number: number | null;
   season_id: string | null;
+};
+
+type MatchRow = {
+  id: string;
+  matchday_id: string | null;
+  status: string | null;
+  kickoff_at: string | null;
+  rollover_excluded?: boolean | null;
 };
 
 function cleanText(value: string | null | undefined) {
@@ -65,10 +77,26 @@ async function readSeasonContext(competitionSlug: string, seasonLabel: string) {
     `matchdays?select=id,number,season_id&season_id=eq.${encodeURIComponent(season.id)}&order=number.asc&limit=200`
   ).catch(() => []);
 
+  let matchday: MatchdayRow | null = matchdays[0] ?? null;
+
+  if (competition.slug === LIGA_PORTUGAL_PUBLIC_ENTRY_SLUG && matchdays.length > 0) {
+    const matches = await fetchSupabaseAdminTable<MatchRow>(
+      `matches?select=id,matchday_id,status,kickoff_at,rollover_excluded&season_id=eq.${encodeURIComponent(season.id)}&limit=1000`
+    ).catch(async () => {
+      const fallbackRows = await fetchSupabaseAdminTable<Omit<MatchRow, "rollover_excluded">>(
+        `matches?select=id,matchday_id,status,kickoff_at&season_id=eq.${encodeURIComponent(season.id)}&limit=1000`
+      ).catch(() => []);
+
+      return fallbackRows.map((row) => ({ ...row, rollover_excluded: false }));
+    });
+
+    matchday = selectPublicCompetitionEntryMatchday(matchdays, matches);
+  }
+
   return {
     competition,
     season,
-    matchday: matchdays[0] ?? null
+    matchday
   };
 }
 

@@ -1589,7 +1589,9 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
     ? matchdaysForSeason.find((matchday) => matchday.id === requestedMatchdayId) ?? null
     : null;
   const matchesForMatchday = await readMatchesForMatchday(selectedMatchday?.id);
-  const scheduledMatchesForMatchday = matchesForMatchday.filter((match) => match.status === "scheduled");
+  const scheduledMatchesForMatchday = matchesForMatchday.filter(
+    (match) => match.status === "scheduled" || match.status === "postponed"
+  );
   const futureLiveMatchesForMatchday = matchesForMatchday.filter(
     (match) => match.status === "live" || match.status === "halftime"
   );
@@ -1858,6 +1860,7 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
     if (normalized === "live") return "Em direto";
     if (normalized === "halftime") return "Intervalo";
     if (normalized === "scheduled") return "Agendado";
+    if (normalized === "postponed") return "Adiado";
     return status || "Estado por definir";
   };
 
@@ -1867,7 +1870,7 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
     const hasFinalScore = match.home_score !== null && match.away_score !== null;
     const hasAnyScore = match.home_score !== null || match.away_score !== null;
     const statusKind = match.status.trim().toLowerCase();
-    const statusValue = ["scheduled", "live", "halftime", "finished"].includes(statusKind) ? statusKind : "scheduled";
+    const statusValue = ["scheduled", "live", "halftime", "finished", "postponed"].includes(statusKind) ? statusKind : "scheduled";
     const statusLabel = matchStatusLabel(match.status);
     const publicMinute = getPublicLiveMinute(match);
     const minuteLabel = publicMinute !== null && statusValue === "live" ? ` · ${publicMinute}'` : "";
@@ -1875,12 +1878,15 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
     const clockLabel = statusValue === "live" && match.is_clock_running ? "Relogio a correr" : "Relogio parado";
     const baseMinuteLabel = match.live_base_minute !== null ? `Base ${match.live_base_minute}'` : "Base sem minuto";
     const isFinished = match.status === "finished";
+    const isPostponed = statusKind === "postponed";
     const hasCompetitiveData =
-      isFinished ||
-      hasAnyScore ||
-      match.status !== "scheduled" ||
-      match.minute !== null ||
-      match.broadcast_channel_id !== null;
+      !isPostponed && (
+        isFinished ||
+        hasAnyScore ||
+        match.status !== "scheduled" ||
+        match.minute !== null ||
+        match.broadcast_channel_id !== null
+      );
     const stateForm = (
       <form className="manager-actions manager-state-actions" action="/api/admin/gestor" method="post">
         <input type="hidden" name="action_type" value="finish_match" />
@@ -1893,6 +1899,7 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
           <span>Estado</span>
           <select name="status" defaultValue={statusValue}>
             <option value="scheduled">Agendado</option>
+            <option value="postponed">Adiado</option>
             <option value="live">Em direto</option>
             <option value="halftime">Intervalo</option>
             <option value="finished">Finalizado</option>
@@ -3214,17 +3221,17 @@ export default async function AdminSeasonManagerPage({ searchParams }: { searchP
 
               <article className="manager-create-card manager-wide-card manager-match-scheduled">
                 <header>
-                  <h3>Jogos agendados</h3>
+                  <h3>Jogos de agenda</h3>
                   <p>
                     {selectedMatchday
-                      ? `${scheduledMatchesForMatchday.length} jogos ainda tratados como agenda nesta jornada.`
-                      : "Escolhe uma jornada para ver os jogos agendados."}
+                      ? `${scheduledMatchesForMatchday.length} jogos agendados ou adiados nesta jornada.`
+                      : "Escolhe uma jornada para ver os jogos de agenda."}
                   </p>
                 </header>
                 {!selectedMatchday ? (
                   <div className="manager-empty">Escolhe uma jornada para ver os jogos.</div>
                 ) : scheduledMatchesForMatchday.length === 0 ? (
-                  <div className="manager-empty">Nao ha jogos agendados nesta jornada.</div>
+                  <div className="manager-empty">Nao ha jogos agendados ou adiados nesta jornada.</div>
                 ) : (
                   <ul className="manager-list">{scheduledMatchesForMatchday.map(renderMatchListItem)}</ul>
                 )}

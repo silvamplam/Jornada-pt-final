@@ -261,6 +261,7 @@ export type SupabaseMatch = {
   home_team_id: string;
   away_team_id: string;
   status: string;
+  rollover_excluded?: boolean | null;
   minute: number | null;
   scheduled_date: string | null;
   kickoff_at: string | null;

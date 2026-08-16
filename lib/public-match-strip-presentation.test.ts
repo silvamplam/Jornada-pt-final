@@ -217,24 +217,34 @@ test("marcador incompleto deixa o centro vazio sem fabricar resultado", () => {
   }
 });
 
-test("adiado e cancelado preservam fallback agendado sem inferir estado pelo marcador", () => {
-  for (const [status, label] of [
-    ["postponed", "Adiado"],
-    ["cancelled", "Cancelado"]
-  ] as const) {
-    const presentation = getPublicMatchStripPresentation(match({
-      status,
-      home_score: 4,
-      away_score: 3
-    }), NOW);
+test("adiado tem estado proprio, sem resultado nem canal", () => {
+  assert.deepEqual(getPublicMatchStripPresentation(match({
+    status: "postponed",
+    home_score: 4,
+    away_score: 3
+  }), NOW), {
+    kind: "postponed",
+    statusLabel: "Adiado",
+    center: { kind: "empty" },
+    status: { kind: "label", label: "Adiado" },
+    finishedScore: null,
+    showChannel: false
+  });
+});
 
-    assert.equal(presentation.kind, "scheduled");
-    assert.equal(presentation.statusLabel, label);
-    assert.deepEqual(presentation.center, { kind: "empty" });
-    assert.deepEqual(presentation.status, { kind: "schedule" });
-    assert.equal(presentation.finishedScore, null);
-    assert.equal(presentation.showChannel, true);
-  }
+test("cancelado conserva fallback agendado sem inferir resultado", () => {
+  const presentation = getPublicMatchStripPresentation(match({
+    status: "cancelled",
+    home_score: 4,
+    away_score: 3
+  }), NOW);
+
+  assert.equal(presentation.kind, "scheduled");
+  assert.equal(presentation.statusLabel, "Cancelado");
+  assert.deepEqual(presentation.center, { kind: "empty" });
+  assert.deepEqual(presentation.status, { kind: "schedule" });
+  assert.equal(presentation.finishedScore, null);
+  assert.equal(presentation.showChannel, true);
 });
 
 test("resultado com dois algarismos usa en dash sem perder valores", () => {
