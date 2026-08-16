@@ -128,10 +128,20 @@ export type MatchdayDeskArticle = {
   placementConflictKeys: string[];
 };
 
+export type MatchdayDeskBlockedKind =
+  | "inactive"
+  | "canonical_missing"
+  | "canonical_conflict"
+  | "incomplete_article";
+
 export type MatchdayDeskBlockedPlacement = {
   placementKey: string;
   title: string;
   reason: string;
+  kind: MatchdayDeskBlockedKind;
+  articleId: string | null;
+  canActivate: boolean;
+  canRemove: boolean;
 };
 
 export type MatchdayDeskSnapshot = {

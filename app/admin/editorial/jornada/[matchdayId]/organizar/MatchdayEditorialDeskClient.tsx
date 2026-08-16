@@ -10,6 +10,7 @@ import {
   placeDeskArticleInSlot,
   setDeskLatestMembership,
   swapDeskArticleToSlot,
+  type MatchdayDeskBlockedPlacement,
   type MatchdayDeskDesiredState,
   type MatchdayDeskDestination,
   type MatchdayDeskGroupDefinition,
@@ -65,6 +66,7 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
   const [stateToken, setStateToken] = useState(snapshot.stateToken);
   const [isManaged, setIsManaged] = useState(snapshot.isManaged);
   const [isApplying, setIsApplying] = useState(false);
+  const [resolvingPlacementKey, setResolvingPlacementKey] = useState<string | null>(null);
   const [initialConflictsResolved, setInitialConflictsResolved] = useState(false);
   const [history, setHistory] = useState<DeskHistoryEntry[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -212,9 +214,53 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
     commit(desired, !faixaVisible, !faixaVisible ? "Faixa marcada como pública." : "Faixa marcada como oculta.");
   }
 
+  async function resolveBlockedPlacement(
+    blocked: MatchdayDeskBlockedPlacement,
+    action: "activate" | "remove",
+  ) {
+    if (resolvingPlacementKey) return;
+
+    setResolvingPlacementKey(blocked.placementKey);
+    setMessage(
+      action === "activate"
+        ? "A ativar o conteúdo nesta zona…"
+        : "A retirar o conteúdo inativo desta zona…",
+    );
+
+    try {
+      const response = await fetch(
+        `/api/admin/editorial/jornada/${snapshot.matchdayId}/organizar/resolve`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            placementKey: blocked.placementKey,
+            action,
+          }),
+        },
+      );
+
+      const result = await response.json() as {
+        ok?: boolean;
+        message?: string;
+      };
+
+      if (!response.ok || result.ok !== true) {
+        setMessage(result.message ?? "Não foi possível resolver esta situação.");
+        return;
+      }
+
+      window.location.reload();
+    } catch {
+      setMessage("Não foi possível contactar a resolução da Mesa.");
+    } finally {
+      setResolvingPlacementKey(null);
+    }
+  }
+
   async function applyChanges() {
     if (snapshot.blockedPlacements.length > 0) {
-      setMessage("O Apply está bloqueado até os conteúdos assinalados serem resolvidos no Editorial atual.");
+      setMessage("Resolve primeiro as situações assinaladas na própria Mesa.");
       return;
     }
     if (!stateToken) {
@@ -474,8 +520,63 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
 
         {snapshot.blockedPlacements.length > 0 ? (
           <section className="desk-warning">
-            <strong>{snapshot.blockedPlacements.length} conteúdos atuais não associados a artigos canónicos</strong>
-            <p>O Apply está bloqueado para garantir que nenhum conteúdo é apagado silenciosamente.</p>
+            <strong>
+              {snapshot.blockedPlacements.length}{" "}
+              {snapshot.blockedPlacements.length === 1
+                ? "situação atual precisa de resolução"
+                : "situações atuais precisam de resolução"}
+            </strong>
+            <p>
+              O Apply continua protegido até estas situações ficarem resolvidas.
+              Nenhum conteúdo será apagado silenciosamente.
+            </p>
+
+            <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+              {snapshot.blockedPlacements.map((blocked) => (
+                <article
+                  key={blocked.placementKey}
+                  style={{
+                    display: "grid",
+                    gap: 4,
+                    padding: 7,
+                    border: "1px solid rgba(120, 93, 25, .22)",
+                    borderRadius: 5,
+                    background: "rgba(255,255,255,.58)",
+                  }}
+                >
+                  <small style={{ fontWeight: 900 }}>
+                    {placementLabelForKey(blocked.placementKey)}
+                  </small>
+
+                  <strong>{blocked.title}</strong>
+                  <span style={{ fontSize: 10 }}>{blocked.reason}</span>
+
+                  {blocked.kind === "inactive" ? (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {blocked.canActivate ? (
+                        <button
+                          type="button"
+                          disabled={resolvingPlacementKey !== null}
+                          onClick={() => resolveBlockedPlacement(blocked, "activate")}
+                        >
+                          Ativar nesta zona
+                        </button>
+                      ) : null}
+
+                      {blocked.canRemove ? (
+                        <button
+                          type="button"
+                          disabled={resolvingPlacementKey !== null}
+                          onClick={() => resolveBlockedPlacement(blocked, "remove")}
+                        >
+                          Retirar da zona
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
           </section>
         ) : null}
       </section>

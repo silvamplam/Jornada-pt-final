@@ -367,11 +367,25 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
     return ids.length === 1 ? ids[0] : null;
   }
 
-  function blockPlacement(placementKey: string, title: string | null | undefined, reason: string) {
+  function blockPlacement(
+    placementKey: string,
+    title: string | null | undefined,
+    reason: string,
+    options: {
+      kind?: MatchdayDeskBlockedPlacement["kind"];
+      articleId?: string | null;
+      canActivate?: boolean;
+      canRemove?: boolean;
+    } = {},
+  ) {
     blockedPlacements.push({
       placementKey,
       title: cleanText(title) ?? "Conteúdo atual",
       reason,
+      kind: options.kind ?? "canonical_missing",
+      articleId: options.articleId ?? null,
+      canActivate: options.canActivate === true,
+      canRemove: options.canRemove === true,
     });
   }
 
@@ -386,32 +400,50 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
     },
   ) {
     if (!input.content) return;
+
+    const directArticleId = input.articleId && articleById.has(input.articleId) ? input.articleId : null;
+    const linkedArticleId = articleIdByLink(input.linkUrl);
+    const articleId = directArticleId ?? linkedArticleId;
+
     if (input.published === false) {
       blockPlacement(
         placementKey,
         input.title,
-        "Existe conteúdo não publicado nesta posição. Deve ser resolvido no Editorial antes de aplicar a Mesa.",
+        articleId
+          ? "O artigo canónico existe, mas esta posição editorial está inativa."
+          : "Esta posição editorial está inativa e não está associada com segurança a um artigo canónico publicado.",
+        {
+          kind: "inactive",
+          articleId,
+          canActivate: Boolean(articleId),
+          canRemove: true,
+        },
       );
       return;
     }
 
-    const directArticleId = input.articleId && articleById.has(input.articleId) ? input.articleId : null;
-    const linkedArticleId = articleIdByLink(input.linkUrl);
     if (directArticleId && linkedArticleId && directArticleId !== linkedArticleId) {
       blockPlacement(
         placementKey,
         input.title,
         "A posição contém identidades canónicas contraditórias e não pode ser substituída com segurança.",
+        {
+          kind: "canonical_conflict",
+          articleId: null,
+        },
       );
       return;
     }
 
-    const articleId = directArticleId ?? linkedArticleId;
     if (!articleId) {
       blockPlacement(
         placementKey,
         input.title,
         "Conteúdo da zona não associado com segurança a um artigo canónico publicado.",
+        {
+          kind: "canonical_missing",
+          articleId: null,
+        },
       );
       return;
     }
@@ -480,17 +512,28 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
   latestRows.forEach((item) => {
     const content = hasContent(item.time_label, item.title, item.subtitle, item.image_url, item.link_url);
     if (!content) return;
+
+    // article_id ainda aponta para public.articles (legado).
+    // A identidade canónica desta zona continua a ser resolvida pelo URL público.
+    const articleId = articleIdByLink(item.link_url);
+
     if (item.status !== "published") {
       blockPlacement(
         `latest:${item.sort_order}`,
         item.title,
-        "Existe conteúdo não publicado em Últimas. Deve ser resolvido no Editorial antes de aplicar a Mesa.",
+        articleId
+          ? "O artigo canónico existe, mas esta entrada de Últimas está inativa."
+          : "Esta entrada de Últimas está inativa e não está associada com segurança a um artigo canónico publicado.",
+        {
+          kind: "inactive",
+          articleId,
+          canActivate: Boolean(articleId),
+          canRemove: true,
+        },
       );
       return;
     }
 
-    // article_id still points to public.articles (legacy). The canonical identity is the public article URL.
-    const articleId = articleIdByLink(item.link_url);
     if (articleId) {
       latestArticleIds.add(articleId);
     } else {
@@ -498,6 +541,10 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
         `latest:${item.sort_order}`,
         item.title,
         "Conteúdo de Últimas não associado com segurança a um artigo canónico publicado.",
+        {
+          kind: "canonical_missing",
+          articleId: null,
+        },
       );
     }
   });
@@ -508,6 +555,10 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
       `article:${article.id}`,
       article.title,
       "Artigo publicado incompleto: é necessário título e endereço público antes de aplicar o estado final.",
+      {
+        kind: "incomplete_article",
+        articleId: article.id,
+      },
     );
   });
 
