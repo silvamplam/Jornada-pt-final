@@ -2098,18 +2098,20 @@ const publicMatchdayStyles = `
   }
 
   .public-table-position {
-    width: 44px;
-    min-width: 44px;
-    padding-left: 4px !important;
-    padding-right: 4px !important;
+    width: 56px;
+    min-width: 56px;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
     text-align: center !important;
     font-variant-numeric: tabular-nums;
   }
 
   .public-table-position-value {
-    display: block;
-    position: relative;
-    top: -2px;
+    display: inline-flex;
+    width: 100%;
+    min-height: 24px;
+    align-items: center;
+    justify-content: center;
     line-height: 1;
   }
 
@@ -2164,26 +2166,43 @@ const publicMatchdayStyles = `
   }
 
   .public-table-goal-difference-column {
-    border-left: 1px solid #dfe6ee;
+    border-left: 1px solid #d8e1ea;
+    background: #f4f7fa;
+  }
+
+  .public-table-group-home.public-table-goal-difference-column,
+  .public-table-group-away.public-table-goal-difference-column {
+    background: #f7f9fb;
   }
 
   .public-table-points-column {
-    border-left: 1px solid #c8d3df;
-    background: #edf2f7;
+    border-left: 1px solid #c1ccd8;
+    background: #e8eef4;
+    color: #203347;
     font-variant-numeric: tabular-nums;
   }
 
   .public-table-points-column-total {
-    background: #e4ebf3;
-    color: #1c2f45;
+    background: #d5dee8;
+    color: #10253d;
+  }
+
+  .public-table-group-home.public-table-points-column,
+  .public-table-group-away.public-table-points-column {
+    background: #eaf0f5;
   }
 
   .public-table th.public-table-points-column {
-    color: #32475f;
+    color: #2c4157;
   }
 
   .public-table tbody td.public-table-points-column {
     font-weight: 900;
+  }
+
+  .public-table tbody td.public-table-points-column-total {
+    font-size: 15px;
+    letter-spacing: -0.01em;
   }
 
   .public-points {
