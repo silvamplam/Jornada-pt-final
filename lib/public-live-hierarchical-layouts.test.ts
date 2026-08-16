@@ -166,7 +166,19 @@ test("as zonas vivas ganham respiro editorial sem introduzir titulos", () => {
   );
   assert.match(
     publicRenderer,
-    /\.composition-interpretive-preview > \.composition-interpretive-section::before,[\s\S]*?\.composition-interpretive-preview > \.public-beyond-matchday::before \{[\s\S]*?box-shadow: 0 -12px 30px rgba\(15, 23, 42, 0\.08\);/,
+    /\.composition-interpretive-preview > \.composition-interpretive-section::before,[\s\S]*?left: 11%;[\s\S]*?rgba\(91, 118, 148, 0\.10\)/,
+  );
+  assert.match(
+    publicRenderer,
+    /\.public-hierarchical-live-layouts \{[\s\S]*?margin-top: clamp\(46px, 5vw, 68px\);[\s\S]*?padding-top: clamp\(24px, 2\.6vw, 34px\);/,
+  );
+  assert.match(
+    fourNewsRenderer,
+    /\.public-four-news-latest-layout \{[\s\S]*?margin-top: clamp\(46px, 5vw, 68px\);[\s\S]*?border-top: 0;/,
+  );
+  assert.match(
+    fourNewsRenderer,
+    /\.public-four-news-latest-layout::before \{[\s\S]*?left: 11%;[\s\S]*?rgba\(91, 118, 148, 0\.11\)/,
   );
   assert.match(
     publicRenderer,

@@ -148,6 +148,31 @@ const hierarchicalCompositionStyles = `
     box-shadow: none !important;
   }
 
+  .public-hierarchical-live-layouts {
+    position: relative;
+    margin-top: clamp(46px, 5vw, 68px);
+    padding-top: clamp(24px, 2.6vw, 34px);
+  }
+
+  .public-hierarchical-live-layouts::before {
+    position: absolute;
+    top: 0;
+    right: 3%;
+    left: 11%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(150, 168, 188, 0) 0%,
+      rgba(132, 153, 176, 0.26) 12%,
+      rgba(101, 126, 153, 0.58) 48%,
+      rgba(139, 158, 179, 0.32) 82%,
+      rgba(150, 168, 188, 0) 100%
+    );
+    box-shadow:
+      -24px 13px 34px rgba(91, 118, 148, 0.11),
+      30px -7px 30px rgba(161, 180, 200, 0.07);
+    content: "";
+  }
   .composition-interpretive-preview {
     display: grid;
     gap: 64px;
@@ -349,18 +374,20 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-preview > .public-beyond-matchday::before {
     position: absolute;
     top: 0;
-    right: 4%;
-    left: 4%;
+    right: 3%;
+    left: 11%;
     height: 1px;
     background: linear-gradient(
       90deg,
-      rgba(174, 184, 196, 0) 0%,
-      rgba(174, 184, 196, 0.46) 14%,
-      rgba(128, 141, 157, 0.62) 50%,
-      rgba(174, 184, 196, 0.46) 86%,
-      rgba(174, 184, 196, 0) 100%
+      rgba(151, 169, 188, 0) 0%,
+      rgba(137, 157, 179, 0.25) 12%,
+      rgba(105, 130, 156, 0.54) 48%,
+      rgba(143, 162, 181, 0.29) 82%,
+      rgba(151, 169, 188, 0) 100%
     );
-    box-shadow: 0 -12px 30px rgba(15, 23, 42, 0.08);
+    box-shadow:
+      -22px 12px 32px rgba(91, 118, 148, 0.10),
+      26px -6px 26px rgba(161, 180, 200, 0.065);
     content: "";
   }
 
