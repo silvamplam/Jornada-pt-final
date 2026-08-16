@@ -2103,6 +2103,14 @@ const publicMatchdayStyles = `
     padding-left: 4px !important;
     padding-right: 4px !important;
     text-align: center !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .public-table-position-value {
+    display: block;
+    position: relative;
+    top: -2px;
+    line-height: 1;
   }
 
   .public-table-club {
@@ -2153,6 +2161,29 @@ const publicMatchdayStyles = `
 
   .public-table-group-away {
     background: #f8fafc;
+  }
+
+  .public-table-goal-difference-column {
+    border-left: 1px solid #dfe6ee;
+  }
+
+  .public-table-points-column {
+    border-left: 1px solid #c8d3df;
+    background: #edf2f7;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .public-table-points-column-total {
+    background: #e4ebf3;
+    color: #1c2f45;
+  }
+
+  .public-table th.public-table-points-column {
+    color: #32475f;
+  }
+
+  .public-table tbody td.public-table-points-column {
+    font-weight: 900;
   }
 
   .public-points {
@@ -3330,6 +3361,9 @@ function renderStatsCells(stats: ClassificationSplit, options: { divider?: boole
     const className = [
       options.divider && index === 0 ? "public-table-divider" : "",
       options.group ? `public-table-group-${options.group}` : "",
+      column.key === "goalDifference" ? "public-table-goal-difference-column" : "",
+      column.key === "points" ? "public-table-points-column" : "",
+      column.key === "points" && options.group === "total" ? "public-table-points-column-total" : "",
       column.key === "goalDifference" ? goalDifferenceClass(value) : ""
     ]
       .filter(Boolean)
@@ -3350,14 +3384,23 @@ function renderStatsCells(stats: ClassificationSplit, options: { divider?: boole
 }
 
 function renderStatHeaders(group: string) {
-  return PUBLIC_STAT_COLUMNS.map((column, index) => (
-    <th
-      className={[index === 0 ? "public-table-divider" : "", `public-table-group-${group}`].filter(Boolean).join(" ")}
-      key={`${group}-${column.key}`}
-    >
-      {column.label}
-    </th>
-  ));
+  return PUBLIC_STAT_COLUMNS.map((column, index) => {
+    const className = [
+      index === 0 ? "public-table-divider" : "",
+      `public-table-group-${group}`,
+      column.key === "goalDifference" ? "public-table-goal-difference-column" : "",
+      column.key === "points" ? "public-table-points-column" : "",
+      column.key === "points" && group === "total" ? "public-table-points-column-total" : ""
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    return (
+      <th className={className} key={`${group}-${column.key}`}>
+        {column.label}
+      </th>
+    );
+  });
 }
 
 function TeamBadge({ team, variant = "default" }: { team?: PublicSeasonMatch["homeTeam"]; variant?: PublicTeamBadgeVariant }) {
@@ -4249,7 +4292,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             <tbody>
               {publicClassificationRows.map((row, index) => (
                 <tr key={row.teamId}>
-                  <td className="public-table-position">{index + 1}</td>
+                  <td className="public-table-position"><span className="public-table-position-value">{index + 1}</span></td>
                   <td className="public-table-club">
                     <span className="public-club-cell">
                     <span className="public-club-name" title={row.fullName}>{row.publicName}</span>
