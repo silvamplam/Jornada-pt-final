@@ -150,7 +150,7 @@ const hierarchicalCompositionStyles = `
 
   .composition-interpretive-preview {
     display: grid;
-    gap: 42px;
+    gap: 64px;
     width: 100%;
     max-width: 1200px;
     min-width: 0;
@@ -341,8 +341,42 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-section {
     position: relative;
     min-width: 0;
-    padding-top: 18px;
-    border-top: 1px solid #dfe5eb;
+    padding-top: 32px;
+    border-top: 0;
+  }
+
+  .composition-interpretive-preview > .composition-interpretive-section::before,
+  .composition-interpretive-preview > .public-beyond-matchday::before {
+    position: absolute;
+    top: 0;
+    right: 4%;
+    left: 4%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(174, 184, 196, 0) 0%,
+      rgba(174, 184, 196, 0.46) 14%,
+      rgba(128, 141, 157, 0.62) 50%,
+      rgba(174, 184, 196, 0.46) 86%,
+      rgba(174, 184, 196, 0) 100%
+    );
+    box-shadow: 0 -12px 30px rgba(15, 23, 42, 0.08);
+    content: "";
+  }
+
+  .public-hierarchical-live-layouts .public-beyond-matchday {
+    position: relative;
+    padding-top: 32px;
+    border-top: 0;
+  }
+
+  .composition-interpretive-preview > :first-child {
+    padding-top: 0;
+  }
+
+  .composition-interpretive-preview > :first-child::before {
+    display: none;
+    content: none;
   }
 
   .public-hierarchical-composition h2.composition-interpretive-section-heading {
@@ -706,6 +740,19 @@ const hierarchicalCompositionStyles = `
 
 
   @media (max-width: 980px) {
+    .composition-interpretive-preview {
+      gap: 50px;
+    }
+
+    .composition-interpretive-section,
+    .public-hierarchical-live-layouts .public-beyond-matchday {
+      padding-top: 26px;
+    }
+
+    .composition-interpretive-preview > :first-child {
+      padding-top: 0;
+    }
+
     .composition-interpretive-opening {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -743,6 +790,19 @@ const hierarchicalCompositionStyles = `
   }
 
   @media (max-width: 720px) {
+    .composition-interpretive-preview {
+      gap: 38px;
+    }
+
+    .composition-interpretive-section,
+    .public-hierarchical-live-layouts .public-beyond-matchday {
+      padding-top: 22px;
+    }
+
+    .composition-interpretive-preview > :first-child {
+      padding-top: 0;
+    }
+
     .composition-interpretive-dominant,
     .composition-interpretive-chronicles,
     .composition-interpretive-analysis-medium,

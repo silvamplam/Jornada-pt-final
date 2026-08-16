@@ -154,3 +154,26 @@ test("a manchete da Jornada viva não corta o título com line-clamp", () => {
     /data-editorial-scope="matchday"[^}]*?\.public-matchday-editorial h1,[\s\S]*?\.public-matchday-editorial h2 \{\s*display: block;\s*-webkit-line-clamp: unset;\s*overflow: visible;\s*text-overflow: clip;/,
   );
 });
+
+test("as zonas vivas ganham respiro editorial sem introduzir titulos", () => {
+  assert.match(
+    publicRenderer,
+    /\.composition-interpretive-preview \{[\s\S]*?gap: 64px;/,
+  );
+  assert.match(
+    publicRenderer,
+    /\.composition-interpretive-section \{[\s\S]*?padding-top: 32px;[\s\S]*?border-top: 0;/,
+  );
+  assert.match(
+    publicRenderer,
+    /\.composition-interpretive-preview > \.composition-interpretive-section::before,[\s\S]*?\.composition-interpretive-preview > \.public-beyond-matchday::before \{[\s\S]*?box-shadow: 0 -12px 30px rgba\(15, 23, 42, 0\.08\);/,
+  );
+  assert.match(
+    publicRenderer,
+    /\.composition-interpretive-preview > :first-child \{[\s\S]*?padding-top: 0;/,
+  );
+  assert.match(publicRenderer, /@media \(max-width: 980px\) \{[\s\S]*?gap: 50px;/);
+  assert.match(publicRenderer, /@media \(max-width: 720px\) \{[\s\S]*?gap: 38px;/);
+  assert.match(publicRenderer, /<InterpretiveAnalysisSection heading=\{null\}/);
+  assert.match(publicRenderer, /<InterpretiveOtherGamesSection heading=\{null\}/);
+});
