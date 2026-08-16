@@ -9,6 +9,8 @@ import {
   getSupabaseServiceConfig,
 } from "@/lib/supabase";
 
+const ARTICLE_SELECT = "id,slug,label,title,subtitle,image_url,author,published_at,created_at";
+
 function cleanText(value?: string | null) {
   const clean = value?.trim();
   return clean || null;
@@ -40,6 +42,14 @@ function slugFromPublicArticleLink(value?: string | null) {
 
 function hasContent(...values: Array<string | null | undefined>) {
   return values.some((value) => Boolean(cleanText(value)));
+}
+
+function chunks<T>(values: T[], size = 50) {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
 }
 
 type MatchdayRow = {
@@ -190,13 +200,50 @@ async function callDeskRpc<T>(functionName: string, body: Record<string, unknown
 
 async function readDeskStateToken(matchdayId: string) {
   try {
-    const token = await callDeskRpc<string>("matchday_editorial_desk_state_token", {
+    const token = await callDeskRpc<string>("matchday_editorial_desk_state_token_v2", {
       p_matchday_id: matchdayId,
     });
     return cleanText(token);
   } catch {
     return null;
   }
+}
+
+async function fetchPublishedArticlesByReferences(input: {
+  slugs: string[];
+  articleIds: string[];
+}) {
+  const queries: Array<Promise<ArticleRow[]>> = [];
+
+  chunks([...new Set(input.slugs.filter(Boolean))]).forEach((slugChunk) => {
+    if (slugChunk.length === 0) return;
+    const filter = slugChunk.map((slug) => encodeURIComponent(slug)).join(",");
+    queries.push(
+      fetchSupabaseAdminTable<ArticleRow>(
+        `editorial_articles?select=${ARTICLE_SELECT}&slug=in.(${filter})&status=eq.published&limit=1000`,
+      ).catch(() => []),
+    );
+  });
+
+  chunks([...new Set(input.articleIds.filter(Boolean))]).forEach((idChunk) => {
+    if (idChunk.length === 0) return;
+    const filter = idChunk.map((articleId) => encodeURIComponent(articleId)).join(",");
+    queries.push(
+      fetchSupabaseAdminTable<ArticleRow>(
+        `editorial_articles?select=${ARTICLE_SELECT}&id=in.(${filter})&status=eq.published&limit=1000`,
+      ).catch(() => []),
+    );
+  });
+
+  if (queries.length === 0) return [];
+  return (await Promise.all(queries)).flat();
+}
+
+function articleSortTime(article: ArticleRow) {
+  const value = article.published_at ?? article.created_at;
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<MatchdayDeskSnapshot | null> {
@@ -218,9 +265,17 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
   const competition = competitions[0] ?? null;
   if (!competition) return null;
 
-  const [articles, editorialRows, highlights, latestRows, horizontalRows, liveRows, controls] = await Promise.all([
+  const [
+    currentArticles,
+    editorialRows,
+    highlights,
+    latestRows,
+    horizontalRows,
+    liveRows,
+    controls,
+  ] = await Promise.all([
     fetchSupabaseAdminTable<ArticleRow>(
-      `editorial_articles?select=id,slug,label,title,subtitle,image_url,author,published_at,created_at&matchday_id=eq.${encodeURIComponent(
+      `editorial_articles?select=${ARTICLE_SELECT}&matchday_id=eq.${encodeURIComponent(
         matchdayId,
       )}&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=1000`,
     ).catch(() => []),
@@ -258,6 +313,42 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
 
   const editorial = editorialRows[0] ?? null;
   const control = controls[0] ?? null;
+
+  const referencedSlugs = new Set<string>();
+  const referencedArticleIds = new Set<string>();
+
+  function registerLinkReference(linkUrl?: string | null) {
+    const slug = slugFromPublicArticleLink(linkUrl);
+    if (slug) referencedSlugs.add(slug);
+  }
+
+  if (editorial) {
+    registerLinkReference(editorial.headline_link_url);
+    registerLinkReference(editorial.side_block_link_url);
+    registerLinkReference(editorial.complementary_link_url);
+  }
+  highlights.forEach((item) => registerLinkReference(item.link_url));
+  latestRows.forEach((item) => registerLinkReference(item.link_url));
+  horizontalRows.forEach((item) => registerLinkReference(item.link_url));
+  liveRows.forEach((item) => {
+    registerLinkReference(item.link_url);
+    if (item.article_id) referencedArticleIds.add(item.article_id);
+  });
+
+  const referencedArticles = await fetchPublishedArticlesByReferences({
+    slugs: [...referencedSlugs],
+    articleIds: [...referencedArticleIds],
+  });
+
+  const articleMap = new Map<string, ArticleRow>();
+  currentArticles.forEach((article) => articleMap.set(article.id, article));
+  referencedArticles.forEach((article) => articleMap.set(article.id, article));
+
+  const articles = [...articleMap.values()].sort((left, right) => {
+    const timeDifference = articleSortTime(right) - articleSortTime(left);
+    return timeDifference || left.id.localeCompare(right.id);
+  });
+
   const articleById = new Map(articles.map((article) => [article.id, article] as const));
   const articleIdsBySlug = new Map<string, string[]>();
   articles.forEach((article) => {
@@ -265,6 +356,7 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
     if (!slug) return;
     articleIdsBySlug.set(slug, [...(articleIdsBySlug.get(slug) ?? []), article.id]);
   });
+
   const placementKeysByArticleId = new Map<string, string[]>();
   const blockedPlacements: MatchdayDeskBlockedPlacement[] = [];
 
@@ -313,12 +405,13 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
       );
       return;
     }
+
     const articleId = directArticleId ?? linkedArticleId;
     if (!articleId) {
       blockPlacement(
         placementKey,
         input.title,
-        "Conteúdo da zona não associado com segurança a um artigo publicado desta jornada.",
+        "Conteúdo da zona não associado com segurança a um artigo canónico publicado.",
       );
       return;
     }
@@ -404,7 +497,7 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
       blockPlacement(
         `latest:${item.sort_order}`,
         item.title,
-        "Conteúdo de Últimas não associado com segurança a um artigo publicado desta jornada.",
+        "Conteúdo de Últimas não associado com segurança a um artigo canónico publicado.",
       );
     }
   });
@@ -431,7 +524,9 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
       : 0,
     stateToken: null,
     articles: articles
-      .filter((article): article is ArticleRow & { slug: string; title: string } => Boolean(cleanText(article.slug) && cleanText(article.title)))
+      .filter((article): article is ArticleRow & { slug: string; title: string } =>
+        Boolean(cleanText(article.slug) && cleanText(article.title))
+      )
       .map((article) => {
         const placementKeys = placementKeysByArticleId.get(article.id) ?? [];
         return {
@@ -488,7 +583,7 @@ export async function applyMatchdayEditorialDeskState(input: {
   faixaVisible: boolean;
   articles: MatchdayDeskApplyArticle[];
 }) {
-  return callDeskRpc<MatchdayDeskApplyResult>("apply_matchday_editorial_desk_state", {
+  return callDeskRpc<MatchdayDeskApplyResult>("apply_matchday_editorial_desk_state_v2", {
     p_matchday_id: input.matchdayId,
     p_expected_revision: input.expectedRevision,
     p_expected_state_token: input.expectedStateToken,
