@@ -2086,6 +2086,7 @@ const publicMatchdayStyles = `
     padding: 10px 8px;
     border-bottom: 1px solid #e6ebf1;
     text-align: right;
+    vertical-align: middle;
     white-space: nowrap;
   }
 
@@ -2130,7 +2131,7 @@ const publicMatchdayStyles = `
   }
 
   .public-table-divider {
-    border-left: 2px solid #d8dee6;
+    border-left: 2px solid #b4c0ce;
   }
 
   .public-points {
