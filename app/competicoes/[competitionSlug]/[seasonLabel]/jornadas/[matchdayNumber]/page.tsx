@@ -2126,6 +2126,7 @@ const publicMatchdayStyles = `
     justify-content: space-between;
     gap: 12px;
     width: 100%;
+    transform: translateY(10px);
   }
 
   .public-club-name {
