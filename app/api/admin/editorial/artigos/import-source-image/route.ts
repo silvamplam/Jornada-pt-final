@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 import { getSupabaseServiceConfig } from "@/lib/supabase";
 import { downloadEditorialSourceImage } from "@/lib/redacao-automatica/editorial-source-image";
@@ -137,26 +138,22 @@ export async function POST(request: Request) {
     articleTitle: entry.title ?? "noticia",
     extension: downloaded.extension,
   });
-  const encodedPath = encodeStoragePath(path);
-  const uploadResponse = await fetch(
-    `${config.url.replace(/\/$/, "")}/storage/v1/object/${encodeURIComponent(BUCKET)}/${encodedPath}`,
-    {
-      method: "POST",
-      cache: "no-store",
-      headers: {
-        apikey: config.serviceRoleKey,
-        Authorization: `Bearer ${config.serviceRoleKey}`,
-        "Content-Type": contentType,
-        "Cache-Control": "max-age=31536000",
-        "x-upsert": "false",
-      },
-      body: Buffer.from(downloaded.bytes),
+  const storage = createClient(config.url, config.serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
     },
-  );
+  });
+  const { error: uploadError } = await storage.storage
+    .from(BUCKET)
+    .upload(path, Buffer.from(downloaded.bytes), {
+      cacheControl: "31536000",
+      contentType,
+      upsert: false,
+    });
 
-  if (!uploadResponse.ok) {
-    const detail = await uploadResponse.text().catch(() => "");
-    const missingBucket = uploadResponse.status === 404 || /bucket/i.test(detail);
+  if (uploadError) {
+    const missingBucket = /bucket/i.test(uploadError.message);
     return jsonError(
       missingBucket ? "missing-editorial-images-bucket" : "storage-upload-failed",
       missingBucket ? 404 : 502,

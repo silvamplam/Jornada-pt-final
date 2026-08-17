@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -23,12 +23,20 @@ test("uploads editoriais novos ficam com cache persistente no Storage", () => {
 
   assert.equal(countCacheHeaders(articleForm), 1);
   assert.equal(countCacheHeaders(contentForm), 2);
-  assert.equal(countCacheHeaders(importedImageRoute), 1);
+  assert.equal(countCacheHeaders(importedImageRoute), 0);
   assert.equal(countCacheHeaders(homeImageRoute), 1);
   assert.equal(countCacheHeaders(matchdayImageRoute), 1);
+
+  assert.match(importedImageRoute, /createClient/);
+  assert.match(importedImageRoute, /\.storage\s*\.from\(BUCKET\)[\s\S]*?\.upload\(/);
+  assert.match(importedImageRoute, /cacheControl:\s*"31536000"/);
+  assert.match(importedImageRoute, /contentType,/);
+  assert.match(importedImageRoute, /upsert:\s*false/);
+  assert.doesNotMatch(importedImageRoute, /"Cache-Control":\s*"max-age=31536000"/);
+  assert.doesNotMatch(importedImageRoute, /method:\s*"POST"/);
 });
 
-test("a política de cache acompanha uploads versionados, sem alterar URLs públicas", () => {
+test("a polÃ­tica de cache acompanha uploads versionados, sem alterar URLs pÃºblicas", () => {
   const articleUploadRoute = source("app/api/admin/editorial/artigos/upload-image/sign/route.ts");
   const contentImageUploadRoute = source("app/api/admin/editorial/conteudos/upload-image/sign/route.ts");
   const contentVideoUploadRoute = source("app/api/admin/editorial/conteudos/upload-video/sign/route.ts");
