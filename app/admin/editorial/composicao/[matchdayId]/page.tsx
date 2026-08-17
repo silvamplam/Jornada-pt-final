@@ -1,4 +1,10 @@
 import type { ReactNode } from "react";
+import { readMatchdayEditorialDesk } from "@/lib/editorial-matchday-desk";
+import {
+  placementGroupForKey,
+  placementLabelForKey,
+  type MatchdayDeskSnapshot,
+} from "@/lib/editorial-matchday-desk-model";
 import { EDITORIAL_NEWS_FLOW_SLOT_TYPES } from "@/lib/editorial-zone-presentation";
 import {
   HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS,
@@ -980,6 +986,59 @@ const compositionPageStyles = `
   .composition-admin-bank-list {
     display: grid;
     gap: 7px;
+  }
+
+  .composition-admin-desk-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .composition-admin-desk-search-row strong {
+    min-width: 64px;
+    color: #526174;
+    font-size: 11px;
+    text-align: right;
+  }
+
+  .composition-admin-bank-filters button.composition-admin-filter-link {
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .composition-admin-desk-selection-summary {
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    padding: 7px 9px;
+    border: 1px solid #dce3eb;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #526174;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  .composition-admin-desk-choice {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 6px;
+    align-items: start;
+    cursor: pointer;
+  }
+
+  .composition-admin-desk-choice input {
+    margin: 4px 0 0;
+  }
+
+  .composition-admin-desk-choice .composition-admin-image {
+    aspect-ratio: 4 / 3;
+  }
+
+  .composition-admin-bank-item.selected {
+    border-color: #10151b;
+    box-shadow: inset 0 0 0 1px #10151b;
   }
 
   .composition-admin-bank-item {
@@ -2039,6 +2098,317 @@ function BankNewsListItem({
   );
 }
 
+function liveDeskArticleStatus(inLatest: boolean, placementKey?: string | null) {
+  if (!inLatest && !placementKey) return "SEM COLOCAÇÃO";
+  if (inLatest && !placementKey) return "ÚLTIMAS · SEM ZONA";
+
+  const placement = placementLabelForKey(placementKey).toUpperCase();
+  return inLatest ? `ÚLTIMAS · ${placement}` : placement;
+}
+
+function AssignRoundupVideoFromDeskForm({
+  alreadySelected,
+  composition,
+  matchdayId,
+  returnTo,
+  videoId,
+}: {
+  alreadySelected: boolean;
+  composition: ReferenceComposition | null;
+  matchdayId: string;
+  returnTo: string;
+  videoId: string;
+}) {
+  if (alreadySelected) {
+    return <span className="composition-admin-state in-use">Na composição</span>;
+  }
+
+  if (!composition || composition.status !== "draft") {
+    return <span className="composition-admin-state">Disponível</span>;
+  }
+
+  return (
+    <form action="/api/admin/editorial/composicao" method="post">
+      <HiddenField name="action_type" value="assign_roundup_item_to_hierarchical_composition" />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="roundup_item_id" value={videoId} />
+      <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value="matchday-editorial-bank" />
+      <button className="composition-admin-small-button" type="submit">
+        Adicionar a A Jornada em Vídeo
+      </button>
+    </form>
+  );
+}
+
+function HierarchicalCompositionDeskBank({
+  bankItems,
+  bankPlacementById,
+  composition,
+  deskSnapshot,
+  matchdayId,
+  returnTo,
+  selectedRoundupSourceIds,
+}: {
+  bankItems: MatchdayEditorialBankItem[];
+  bankPlacementById: Map<string, string | null>;
+  composition: ReferenceComposition | null;
+  deskSnapshot: MatchdayDeskSnapshot | null;
+  matchdayId: string;
+  returnTo: string;
+  selectedRoundupSourceIds: Set<string>;
+}) {
+  const liveArticles = deskSnapshot?.articles ?? [];
+  const liveArticleById = new Map(
+    liveArticles.map((article) => [article.id, article] as const),
+  );
+  const articleOrder = new Map(
+    liveArticles.map((article, index) => [article.id, index] as const),
+  );
+
+  const deskBankItems = bankItems
+    .filter(
+      (item) =>
+        item.status !== "archived" &&
+        isEditorialArticleBankItem(item) &&
+        Boolean(item.source_id && liveArticleById.has(item.source_id)),
+    )
+    .sort(
+      (left, right) =>
+        (articleOrder.get(left.source_id ?? "") ?? Number.MAX_SAFE_INTEGER) -
+        (articleOrder.get(right.source_id ?? "") ?? Number.MAX_SAFE_INTEGER),
+    );
+
+  const mappedArticleIds = new Set(
+    deskBankItems
+      .map((item) => item.source_id)
+      .filter((sourceId): sourceId is string => Boolean(sourceId)),
+  );
+
+  const missingDeskArticleCount = liveArticles.filter(
+    (article) => !mappedArticleIds.has(article.id),
+  ).length;
+
+  const videos = deskSnapshot?.videos ?? [];
+  const totalItems = deskBankItems.length + videos.length;
+
+  const filters = [
+    ["all", "Todas"],
+    ["latest", "Últimas"],
+    ["latest_without_zone", "Sem zona nas Últimas"],
+    ["four_news", "4 notícias"],
+    ["six_news", "6 notícias"],
+    ["five_news_balanced", "5 notícias principais"],
+    ["five_news_secondary", "5 notícias secundárias"],
+    ["faixa", "Faixa"],
+    ["videos", "Vídeos"],
+    ["highlight", "Destaque da Jornada"],
+    ["unplaced", "Sem colocação"],
+  ] as const;
+
+  return (
+    <Card title="Banco da Mesa">
+      <div className="composition-admin-meta">
+        <span>Matéria publicada da página viva</span>
+        <span>Sem colocação incluídas</span>
+        <span>Vídeos publicados incluídos</span>
+      </div>
+
+      <div className="composition-admin-bank-toolbar">
+        <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+          <HiddenField name="action_type" value="save_matchday_editorial_bank_current" />
+          <HiddenField name="matchday_id" value={matchdayId} />
+          <HiddenField name="return_to" value={returnTo} />
+          <button className="composition-admin-small-button secondary" type="submit">
+            Sincronizar notícias em falta
+          </button>
+        </form>
+
+        <nav className="composition-admin-bank-filters" aria-label="Filtrar Banco da Mesa">
+          {filters.map(([key, label], index) => (
+            <button
+              className={`composition-admin-filter-link${index === 0 ? " active" : ""}`}
+              data-composition-desk-filter={key}
+              key={key}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <div className="composition-admin-desk-search-row">
+        <input
+          className="composition-admin-input"
+          data-composition-desk-search="true"
+          placeholder="Pesquisar por título ou antetítulo"
+          type="search"
+        />
+        <strong data-composition-desk-count="true">
+          {totalItems}/{totalItems}
+        </strong>
+      </div>
+
+      {composition?.status === "draft" ? (
+        <div
+          className="composition-admin-desk-selection-summary"
+          data-composition-selected-summary="true"
+        >
+          Nenhuma publicação selecionada.
+        </div>
+      ) : (
+        <p className="composition-admin-note">
+          Reabre a composição para poderes selecionar e colocar publicações.
+        </p>
+      )}
+
+      {!deskSnapshot ? (
+        <p className="composition-admin-note">
+          Não foi possível ler o estado atual da Mesa viva. Nenhuma colocação será presumida.
+        </p>
+      ) : null}
+
+      {missingDeskArticleCount > 0 ? (
+        <p className="composition-admin-note">
+          {missingDeskArticleCount} publicações da página viva ainda não têm entrada correspondente no banco.
+          Usa “Sincronizar notícias em falta”.
+        </p>
+      ) : null}
+
+      {totalItems > 0 ? (
+        <div className="composition-admin-bank-list">
+          {deskBankItems.map((item) => {
+            const article = item.source_id ? liveArticleById.get(item.source_id) ?? null : null;
+            if (!article) return null;
+
+            const group = placementGroupForKey(article.placementKey);
+            const compositionPlacement = bankPlacementById.get(item.id) ?? null;
+            const selectionDisabled =
+              composition?.status !== "draft" || Boolean(compositionPlacement);
+
+            return (
+              <article
+                className="composition-admin-bank-item has-image"
+                data-composition-desk-group={group ?? ""}
+                data-composition-desk-in-latest={article.inLatest ? "1" : "0"}
+                data-composition-desk-item="true"
+                data-composition-desk-kind="article"
+                data-composition-desk-search-text={normalizeCandidateValue(
+                  `${item.label ?? ""} ${item.title}`,
+                )}
+                key={item.id}
+              >
+                <label className="composition-admin-desk-choice">
+                  <input
+                    aria-label={`Selecionar ${item.title}`}
+                    data-composition-bank-choice="true"
+                    data-composition-bank-title={item.title}
+                    disabled={selectionDisabled}
+                    name="composition_desk_bank_item"
+                    type="radio"
+                    value={item.id}
+                  />
+                  <ImagePreview src={item.image_url} />
+                </label>
+
+                <div className="composition-admin-bank-copy">
+                  {textOrEmpty(item.label) ? (
+                    <span
+                      className="composition-admin-label"
+                      style={
+                        textOrEmpty(item.label_color)
+                          ? { color: item.label_color ?? undefined }
+                          : undefined
+                      }
+                    >
+                      {item.label}
+                    </span>
+                  ) : null}
+
+                  <strong className="composition-admin-title">{item.title}</strong>
+
+                  {textOrEmpty(item.subtitle) ? (
+                    <p className="composition-admin-copy">{item.subtitle}</p>
+                  ) : null}
+
+                  <span className="composition-admin-state">
+                    {liveDeskArticleStatus(article.inLatest, article.placementKey)}
+                  </span>
+
+                  <FieldLink href={item.link_url} />
+                </div>
+
+                <div className="composition-admin-bank-actions">
+                  {compositionPlacement ? (
+                    <span className="composition-admin-state in-use">
+                      Na composição: {compositionPlacement}
+                    </span>
+                  ) : composition?.status === "draft" ? (
+                    <p className="composition-admin-note">
+                      Seleciona esta publicação e depois escolhe o lugar na Mesa da Composição.
+                    </p>
+                  ) : (
+                    <span className="composition-admin-state">Disponível</span>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+
+          {videos.map((video) => {
+            const hasImage = Boolean(textOrEmpty(video.imageUrl));
+
+            return (
+              <article
+                className={`composition-admin-bank-item ${hasImage ? "has-image" : "no-image"}`}
+                data-composition-desk-item="true"
+                data-composition-desk-kind="video"
+                data-composition-desk-search-text={normalizeCandidateValue(
+                  `${video.label ?? ""} ${video.title}`,
+                )}
+                key={`video:${video.id}`}
+              >
+                <ImagePreview src={video.imageUrl} />
+
+                <div className="composition-admin-bank-copy">
+                  <span className="composition-admin-label">VÍDEO</span>
+                  <strong className="composition-admin-title">{video.title}</strong>
+
+                  {textOrEmpty(video.subtitle) ? (
+                    <p className="composition-admin-copy">{video.subtitle}</p>
+                  ) : null}
+
+                  <div className="composition-admin-meta">
+                    <span>A Jornada em Vídeo</span>
+                    {textOrEmpty(video.duration) ? <span>{video.duration}</span> : null}
+                  </div>
+
+                  <FieldLink href={video.videoUrl} />
+                </div>
+
+                <div className="composition-admin-bank-actions">
+                  <AssignRoundupVideoFromDeskForm
+                    alreadySelected={selectedRoundupSourceIds.has(video.id)}
+                    composition={composition}
+                    matchdayId={matchdayId}
+                    returnTo={returnTo}
+                    videoId={video.id}
+                  />
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <EmptyState>
+          Ainda não existem publicações disponíveis na Mesa desta jornada.
+        </EmptyState>
+      )}
+    </Card>
+  );
+}
 function LatestArticlePresentationForm({
   composition,
   item,
@@ -2635,56 +3005,50 @@ function CompositionItemActions({
 }
 
 function AssignHierarchicalSlotForm({
-  availableBankItems,
   composition,
   matchdayId,
   returnTo,
   slotKey,
 }: {
-  availableBankItems: MatchdayEditorialBankItem[];
   composition: ReferenceComposition;
   matchdayId: string;
   returnTo: string;
   slotKey: HierarchicalCompositionSlot["slot_key"];
 }) {
-  const selectableItems = availableBankItems.filter(
-    (item) => !isEditorialContentBankItem(item) || slotKey === "dominant_main",
-  );
-
-  if (composition.status !== "draft" || selectableItems.length === 0) {
+  if (composition.status !== "draft") {
     return null;
   }
 
   return (
-    <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
-      <HiddenField name="action_type" value="assign_bank_item_to_hierarchical_slot" />
-      <HiddenField name="matchday_id" value={matchdayId} />
-      <HiddenField name="composition_id" value={composition.id} />
-      <HiddenField name="slot_key" value={slotKey} />
-      <HiddenField name="return_to" value={returnTo} />
-      <HiddenField name="return_anchor" value={`hierarchical-${slotKey}`} />
-      <div className="composition-admin-field">
-        <label htmlFor={`hierarchical-direct-${slotKey}`}>Escolher publicação</label>
-        <select
-          className="composition-admin-input"
-          id={`hierarchical-direct-${slotKey}`}
+    <div className="composition-admin-form">
+      <p className="composition-admin-note">
+        Seleciona primeiro uma publicação no Banco da Mesa.
+      </p>
+      <form action="/api/admin/editorial/composicao" method="post">
+        <HiddenField name="action_type" value="assign_bank_item_to_hierarchical_slot" />
+        <HiddenField name="matchday_id" value={matchdayId} />
+        <HiddenField name="composition_id" value={composition.id} />
+        <HiddenField name="slot_key" value={slotKey} />
+        <HiddenField name="return_to" value={returnTo} />
+        <HiddenField name="return_anchor" value={`hierarchical-${slotKey}`} />
+        <input
+          data-composition-selected-bank-input="true"
           name="bank_item_id"
-          defaultValue=""
-          required
+          type="hidden"
+          value=""
+        />
+        <button
+          className="composition-admin-small-button"
+          data-composition-selected-submit="true"
+          disabled
+          type="submit"
         >
-          <option value="" disabled>Escolher publicação</option>
-          {selectableItems.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.title}
-            </option>
-          ))}
-        </select>
-      </div>
-      <button className="composition-admin-small-button" type="submit">Colocar</button>
-    </form>
+          Colocar selecionada
+        </button>
+      </form>
+    </div>
   );
 }
-
 function UnassignHierarchicalSlotForm({
   composition,
   matchdayId,
@@ -2710,13 +3074,11 @@ function UnassignHierarchicalSlotForm({
 }
 
 function HierarchicalCompositionEditor({
-  availableBankItems,
   composition,
   matchdayId,
   returnTo,
   slots,
 }: {
-  availableBankItems: MatchdayEditorialBankItem[];
   composition: ReferenceComposition;
   matchdayId: string;
   returnTo: string;
@@ -2730,12 +3092,17 @@ function HierarchicalCompositionEditor({
         <section className="composition-admin-section" key={section.key}>
           <div className="composition-admin-section-heading">
             <h4>{section.title}</h4>
-            <span>{section.slots.filter((slot) => slotsByKey.has(slot.key)).length}/{section.slots.length}</span>
+            <span>
+              {section.slots.filter((slot) => slotsByKey.has(slot.key)).length}/{section.slots.length}
+            </span>
           </div>
+
           <p className="composition-admin-note">{section.summary}</p>
+
           <div className="composition-admin-grid">
             {section.slots.map((definition) => {
               const slot = slotsByKey.get(definition.key) ?? null;
+
               return (
                 <div id={`hierarchical-${definition.key}`} key={definition.key}>
                   {slot ? (
@@ -2761,7 +3128,6 @@ function HierarchicalCompositionEditor({
                       <strong>{definition.label}</strong>
                       <span>Lugar ainda vazio</span>
                       <AssignHierarchicalSlotForm
-                        availableBankItems={availableBankItems}
                         composition={composition}
                         matchdayId={matchdayId}
                         returnTo={returnTo}
@@ -2778,7 +3144,6 @@ function HierarchicalCompositionEditor({
     </div>
   );
 }
-
 function RemoveHierarchicalReferenceItemForm({
   composition,
   item,
@@ -3004,6 +3369,50 @@ function PublishedSourceAuxiliaryForm({
   );
 }
 
+function AssignSelectedBankItemToHierarchicalAuxiliaryForm({
+  auxiliaryTarget,
+  composition,
+  label = "Colocar selecionada",
+  matchdayId,
+  returnAnchor,
+  returnTo,
+}: {
+  auxiliaryTarget: string;
+  composition: ReferenceComposition;
+  label?: string;
+  matchdayId: string;
+  returnAnchor: string;
+  returnTo: string;
+}) {
+  if (composition.status !== "draft") {
+    return null;
+  }
+
+  return (
+    <form action="/api/admin/editorial/composicao" method="post">
+      <HiddenField name="action_type" value="assign_bank_item_to_hierarchical_auxiliary" />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="auxiliary_target" value={auxiliaryTarget} />
+      <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value={returnAnchor} />
+      <input
+        data-composition-selected-bank-input="true"
+        name="bank_item_id"
+        type="hidden"
+        value=""
+      />
+      <button
+        className="composition-admin-small-button"
+        data-composition-selected-submit="true"
+        disabled
+        type="submit"
+      >
+        {label}
+      </button>
+    </form>
+  );
+}
 function HierarchicalAuxiliaryEditor({
   articles,
   contents,
@@ -3020,11 +3429,13 @@ function HierarchicalAuxiliaryEditor({
   returnTo: string;
 }) {
   const videoHighlight = items.find((item) => item.slot_type === "complement") ?? null;
+
   const beyondByOrder = new Map(
     items
       .filter((item) => item.slot_type === "beyond_matchday")
       .map((item) => [item.sort_order, item] as const),
   );
+
   const openTargets = [
     ...(videoHighlight ? [] : [{ value: "video_highlight", label: "Destaque da Jornada" }]),
     ...HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS
@@ -3042,20 +3453,28 @@ function HierarchicalAuxiliaryEditor({
         <span>Destaque opcional + atualidade 1+4</span>
       </div>
 
-      <PublishedSourceAuxiliaryForm
-        articles={articles}
-        contents={contents}
-        composition={composition}
-        matchdayId={matchdayId}
-        openTargets={openTargets}
-        returnTo={returnTo}
-      />
+      {composition.status === "draft" && openTargets.length > 0 ? (
+        <details className="composition-admin-candidates">
+          <summary>Opções avançadas — outras publicações</summary>
+          <div className="composition-admin-candidates-body">
+            <PublishedSourceAuxiliaryForm
+              articles={articles}
+              contents={contents}
+              composition={composition}
+              matchdayId={matchdayId}
+              openTargets={openTargets}
+              returnTo={returnTo}
+            />
+          </div>
+        </details>
+      ) : null}
 
       <section className="composition-admin-section">
         <div className="composition-admin-section-heading">
           <h4>Destaque da Jornada</h4>
           <span>Opcional, ao lado do vídeo</span>
         </div>
+
         {videoHighlight ? (
           <ItemCard
             imageUrl={videoHighlight.image_url_snapshot}
@@ -3075,7 +3494,17 @@ function HierarchicalAuxiliaryEditor({
             ) : null}
           </ItemCard>
         ) : (
-          <EmptyState>Sem destaque. A secção de vídeo pode ser publicada sem este artigo.</EmptyState>
+          <div className="composition-admin-hierarchical-empty">
+            <strong>Destaque da Jornada</strong>
+            <span>Seleciona uma publicação no Banco da Mesa.</span>
+            <AssignSelectedBankItemToHierarchicalAuxiliaryForm
+              auxiliaryTarget="video_highlight"
+              composition={composition}
+              matchdayId={matchdayId}
+              returnAnchor="hierarchical-auxiliary"
+              returnTo={returnTo}
+            />
+          </div>
         )}
       </section>
 
@@ -3084,10 +3513,15 @@ function HierarchicalAuxiliaryEditor({
           <h4>Para Lá da Jornada</h4>
           <span>{beyondByOrder.size}/5 posições</span>
         </div>
-        <p className="composition-admin-note">Seleção editorial manual da atualidade viva naquele momento; nunca é preenchida automaticamente por data.</p>
+
+        <p className="composition-admin-note">
+          Seleção editorial manual da atualidade viva naquele momento; nunca é preenchida automaticamente por data.
+        </p>
+
         <div className="composition-admin-grid">
           {HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS.map((position) => {
             const item = beyondByOrder.get(position.sortOrder) ?? null;
+
             return item ? (
               <ItemCard
                 imageUrl={item.image_url_snapshot}
@@ -3111,7 +3545,14 @@ function HierarchicalAuxiliaryEditor({
             ) : (
               <div className="composition-admin-hierarchical-empty" key={position.key}>
                 <strong>{position.label}</strong>
-                <span>Posição ainda vazia</span>
+                <span>Seleciona uma publicação no Banco da Mesa.</span>
+                <AssignSelectedBankItemToHierarchicalAuxiliaryForm
+                  auxiliaryTarget={`beyond_matchday_${position.sortOrder}`}
+                  composition={composition}
+                  matchdayId={matchdayId}
+                  returnAnchor="hierarchical-auxiliary"
+                  returnTo={returnTo}
+                />
               </div>
             );
           })}
@@ -3120,7 +3561,6 @@ function HierarchicalAuxiliaryEditor({
     </section>
   );
 }
-
 export default async function AdminEditorialCompositionPage({ params, searchParams }: CompositionPageProps) {
   const { matchdayId } = await params;
   const query = searchParams ? await searchParams : {};
@@ -3143,7 +3583,16 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const { matchday, season, competition, country } = context;
   const presentationMode: ReferenceCompositionPresentationMode =
     query.presentation_mode === "hierarchical" ? "hierarchical" : "standard";
-  const [modeDraftComposition, modePublishedComposition, bankItems, contextSelector, roundupItems, publishedArticles, publishedContents] = await Promise.all([
+  const [
+    modeDraftComposition,
+    modePublishedComposition,
+    bankItems,
+    contextSelector,
+    roundupItems,
+    publishedArticles,
+    publishedContents,
+    hierarchicalDeskSnapshot,
+  ] = await Promise.all([
     readDraftReferenceComposition(matchday.id, presentationMode),
     readPublishedReferenceComposition(matchday.id, presentationMode),
     readMatchdayEditorialBankItems(matchday.id),
@@ -3151,6 +3600,9 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     presentationMode === "hierarchical" ? readMatchdayRoundupItems(matchday.id) : Promise.resolve([]),
     presentationMode === "hierarchical" ? readPublishedEditorialArticles(matchday.id) : Promise.resolve([]),
     presentationMode === "hierarchical" ? readPublishedEditorialContents(matchday.id) : Promise.resolve([]),
+    presentationMode === "hierarchical"
+      ? readMatchdayEditorialDesk(matchday.id)
+      : Promise.resolve(null),
   ]);
   const draftComposition = modeDraftComposition ?? modePublishedComposition;
   const [compositionItems, hierarchicalSlots] = await Promise.all([
@@ -3159,6 +3611,11 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   ]);
   const hierarchicalAuxiliaryItems = compositionItems.filter(
     (item) => item.slot_type === "complement" || item.slot_type === "beyond_matchday",
+  );
+  const selectedRoundupSourceIds = new Set(
+    compositionItems
+      .filter((item) => item.slot_type === "roundup" && item.source_id)
+      .map((item) => item.source_id as string),
   );
   const hierarchicalPreviewRoundupItems = compositionItems
     .filter((item) => item.slot_type === "roundup")
@@ -3508,7 +3965,18 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           </header>
           <div className="composition-admin-stack">
             <div id="matchday-editorial-bank">
-              <Card title="Publicações da jornada">
+              {presentationMode === "hierarchical" ? (
+                <HierarchicalCompositionDeskBank
+                  bankItems={bankItems}
+                  bankPlacementById={bankPlacementById}
+                  composition={draftComposition}
+                  deskSnapshot={hierarchicalDeskSnapshot}
+                  matchdayId={matchday.id}
+                  returnTo={returnTo}
+                  selectedRoundupSourceIds={selectedRoundupSourceIds}
+                />
+              ) : (
+                <Card title="Publicações da jornada">
                 <div className="composition-admin-meta">
                   <span>{competition.name}</span>
                   <span>{season.label}</span>
@@ -3582,6 +4050,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                   </EmptyState>
                 )}
               </Card>
+              )}
             </div>
           </div>
         </section>
@@ -3698,7 +4167,6 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
               {draftComposition ? (
                 presentationMode === "hierarchical" ? (
                   <HierarchicalCompositionEditor
-                    availableBankItems={availableBankItems}
                     composition={draftComposition}
                     matchdayId={matchday.id}
                     returnTo={returnTo}
@@ -3842,6 +4310,138 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
               submitter.textContent = "A guardar...";
               submitter.setAttribute("aria-busy", "true");
             });
+
+            (function () {
+              var searchInput = document.querySelector("[data-composition-desk-search]");
+              var countNode = document.querySelector("[data-composition-desk-count]");
+              var summaryNode = document.querySelector("[data-composition-selected-summary]");
+              var filterButtons = Array.prototype.slice.call(
+                document.querySelectorAll("[data-composition-desk-filter]")
+              );
+              var items = Array.prototype.slice.call(
+                document.querySelectorAll("[data-composition-desk-item]")
+              );
+              var choices = Array.prototype.slice.call(
+                document.querySelectorAll("[data-composition-bank-choice]")
+              );
+              var selectedInputs = Array.prototype.slice.call(
+                document.querySelectorAll("[data-composition-selected-bank-input]")
+              );
+              var selectedButtons = Array.prototype.slice.call(
+                document.querySelectorAll("[data-composition-selected-submit]")
+              );
+
+              if (!searchInput) return;
+
+              var activeFilter = "all";
+
+              function matchesFilter(item) {
+                var kind = item.getAttribute("data-composition-desk-kind") || "";
+                var group = item.getAttribute("data-composition-desk-group") || "";
+                var inLatest =
+                  item.getAttribute("data-composition-desk-in-latest") === "1";
+
+                if (activeFilter === "all") return true;
+                if (activeFilter === "videos") return kind === "video";
+                if (kind !== "article") return false;
+
+                if (activeFilter === "latest") return inLatest;
+                if (activeFilter === "latest_without_zone") {
+                  return inLatest && !group;
+                }
+                if (activeFilter === "four_news") return group === "four_news";
+                if (activeFilter === "six_news") return group === "six_news";
+                if (activeFilter === "five_news_balanced") {
+                  return group === "five_news_balanced";
+                }
+                if (activeFilter === "five_news_secondary") {
+                  return group === "five_news_secondary";
+                }
+                if (activeFilter === "faixa") return group === "faixa";
+                if (activeFilter === "highlight") return group === "complement";
+                if (activeFilter === "unplaced") {
+                  return !inLatest && !group;
+                }
+
+                return true;
+              }
+
+              function refreshList() {
+                var query = (searchInput.value || "")
+                  .trim()
+                  .toLocaleLowerCase("pt-PT");
+                var visible = 0;
+
+                items.forEach(function (item) {
+                  var searchText =
+                    item.getAttribute("data-composition-desk-search-text") || "";
+                  var show =
+                    matchesFilter(item) &&
+                    (!query || searchText.indexOf(query) >= 0);
+
+                  item.hidden = !show;
+
+                  if (show) visible += 1;
+                });
+
+                if (countNode) {
+                  countNode.textContent = visible + "/" + items.length;
+                }
+              }
+
+              function selectBankItem(choice) {
+                var bankItemId = choice.value || "";
+                var title =
+                  choice.getAttribute("data-composition-bank-title") ||
+                  "Publicação selecionada";
+
+                items.forEach(function (item) {
+                  item.classList.remove("selected");
+                });
+
+                var selectedRow = choice.closest("[data-composition-desk-item]");
+
+                if (selectedRow) {
+                  selectedRow.classList.add("selected");
+                }
+
+                selectedInputs.forEach(function (input) {
+                  input.value = bankItemId;
+                });
+
+                selectedButtons.forEach(function (button) {
+                  button.disabled = !bankItemId;
+                });
+
+                if (summaryNode) {
+                  summaryNode.textContent = "Selecionada: " + title;
+                }
+              }
+
+              filterButtons.forEach(function (button) {
+                button.addEventListener("click", function () {
+                  activeFilter =
+                    button.getAttribute("data-composition-desk-filter") || "all";
+
+                  filterButtons.forEach(function (candidate) {
+                    candidate.classList.toggle("active", candidate === button);
+                  });
+
+                  refreshList();
+                });
+              });
+
+              choices.forEach(function (choice) {
+                choice.addEventListener("change", function () {
+                  if (choice.checked) {
+                    selectBankItem(choice);
+                  }
+                });
+              });
+
+              searchInput.addEventListener("input", refreshList);
+              refreshList();
+            })();
           `
         }}
       />

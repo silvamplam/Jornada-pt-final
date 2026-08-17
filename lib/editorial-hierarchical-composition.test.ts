@@ -149,8 +149,34 @@ test("a Mesa da Composição traduz os 15 lugares para a estrutura pública", ()
 
   assert.ok(deskStart >= 0 && deskEnd > deskStart);
   assert.match(compositionPage, /Mesa da Composição/);
+  assert.match(compositionPage, /Banco da Mesa/);
+  assert.match(compositionPage, /readMatchdayEditorialDesk/);
+
+  for (const label of [
+    "Todas",
+    "Últimas",
+    "Sem zona nas Últimas",
+    "4 notícias",
+    "6 notícias",
+    "5 notícias principais",
+    "5 notícias secundárias",
+    "Faixa",
+    "Vídeos",
+    "Destaque da Jornada",
+    "Sem colocação",
+  ]) {
+    assert.ok(compositionPage.includes(label), `falta o filtro ${label}`);
+  }
+
+  assert.match(compositionPage, /data-composition-desk-filter/);
+  assert.match(compositionPage, /data-composition-bank-choice/);
+  assert.match(compositionPage, /assign_roundup_item_to_hierarchical_composition/);
+  assert.match(compositionPage, /assign_bank_item_to_hierarchical_auxiliary/);
+
   assert.match(deskSource, /HIERARCHICAL_COMPOSITION_DESK_SECTIONS\.map/);
-  assert.match(deskSource, /Escolher publicação/);
+  assert.match(deskSource, /data-composition-selected-bank-input/);
+  assert.match(deskSource, /Colocar selecionada/);
+  assert.doesNotMatch(deskSource, /hierarchical-direct-/);
   assert.match(deskSource, /assign_bank_item_to_hierarchical_slot/);
   assert.match(deskSource, /Retirar deste lugar/);
 });
