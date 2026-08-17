@@ -86,7 +86,8 @@ test("o preview mantém o ecrã, apresenta Alterações e a aplicação conserva
   const source = await readFile(toolUrl, "utf8");
   assert.match(source, /Formato canónico/);
   assert.match(source, /CALENDAR_IMPORT_HEADER/);
-  assert.match(source, /Células vazias de DataHora, Estádio e CanalTV preservam o valor existente/);
+  assert.match(source, /DataHora e Estádio vazios preservam o valor existente/);
+  assert.match(source, /CanalTV vazio remove qualquer canal existente/);
   assert.match(source, /<th>Alterações<\/th>/);
   assert.match(source, /change\.currentLabel/);
   assert.match(source, /change\.nextLabel/);

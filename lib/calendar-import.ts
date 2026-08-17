@@ -29,6 +29,7 @@ export type CalendarImportRow = {
   kickoffAt: string | null;
   venue: string | null;
   broadcastChannelName: string | null;
+  broadcastChannelColumnPresent: boolean;
   inputState: CalendarImportState;
 };
 
@@ -75,7 +76,7 @@ export type CalendarMatchUpdatePatch = {
   scheduled_date?: string;
   kickoff_at?: string | null;
   venue?: string;
-  broadcast_channel_id?: string;
+  broadcast_channel_id?: string | null;
 };
 
 export type CalendarExistingMatchDetails = CalendarTemporalMatch & {
@@ -659,6 +660,7 @@ export function parseCalendarImport(rawList: string): CalendarImportParseResult 
       kickoffAt,
       venue: venueValue || null,
       broadcastChannelName: broadcastChannelValue || null,
+      broadcastChannelColumnPresent: format === "canonical",
       inputState
     });
   }
@@ -836,12 +838,19 @@ export function decideCalendarMatchAction(
         nextLabel: resolvedBroadcastChannel.name
       });
     }
+  } else if (incoming.broadcastChannelColumnPresent && existing.broadcastChannelId !== null) {
+    patch.broadcast_channel_id = null;
+    changes.push({
+      field: "broadcastChannel",
+      currentLabel: existing.broadcastChannelName ?? "Canal associado",
+      nextLabel: "Sem canal"
+    });
   }
 
   if (changes.length === 0) {
     return {
       action: "keep",
-      reason: "Os valores fornecidos já coincidem com os atuais; células vazias preservam os restantes campos.",
+      reason: "Os valores fornecidos já coincidem com os atuais; não há alterações a aplicar.",
       patch,
       changes
     };

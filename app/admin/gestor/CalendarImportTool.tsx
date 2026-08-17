@@ -266,8 +266,8 @@ export function CalendarImportTool({ countryId, competitionId, seasonId, writeCo
         <h3>Importar dados do calendário</h3>
         <p>
           Formato canónico: <code>{CALENDAR_IMPORT_HEADER}</code>. DataHora aceita ISO 8601 com offset, data e hora local, apenas
-          data ou campo vazio. Células vazias de DataHora, Estádio e CanalTV preservam o valor existente. Os campos não podem
-          conter ponto e vírgula.
+          data ou campo vazio. DataHora e Estádio vazios preservam o valor existente. CanalTV vazio remove qualquer canal existente.
+          Os campos não podem conter ponto e vírgula.
         </p>
       </header>
 

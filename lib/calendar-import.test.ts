@@ -25,6 +25,7 @@ function importRow(overrides: Partial<CalendarImportRow> = {}): CalendarImportRo
     kickoffAt: null,
     venue: null,
     broadcastChannelName: null,
+    broadcastChannelColumnPresent: false,
     inputState: "C",
     ...overrides
   };
@@ -52,6 +53,16 @@ test("formato canónico aceita BOM, Estádio, CanalTV e ISO com offset preservan
   assert.equal(parsed.rows[0].kickoffAt, "2026-08-28T19:15:00.000Z");
   assert.equal(parsed.rows[0].venue, "Estádio Municipal do Fontelo");
   assert.equal(parsed.rows[0].broadcastChannelName, "Sport TV 1");
+  assert.equal(parsed.rows[0].broadcastChannelColumnPresent, true);
+});
+
+test("CanalTV vazio no formato canónico é uma instrução explícita de remoção", () => {
+  const parsed = parseCalendarImport(
+    `${CALENDAR_IMPORT_HEADER}\n4;Jornada 04;Casa;Fora;2026-08-28T20:15:00+01:00;;`
+  );
+  assert.deepEqual(parsed.issues, []);
+  assert.equal(parsed.rows[0]?.broadcastChannelName, null);
+  assert.equal(parsed.rows[0]?.broadcastChannelColumnPresent, true);
 });
 
 test("cabeçalho novo exige exatamente CanalTV na sétima coluna", () => {
@@ -88,6 +99,7 @@ test("compatibilidade legacy aceita o cabeçalho histórico e linhas de cinco ou
   assert.equal(withHeader.format, "legacy");
   assert.equal(withHeader.rows[0]?.kickoffAt, "2026-08-28T19:15:00.000Z");
   assert.equal(withHeader.rows[0]?.broadcastChannelName, null);
+  assert.equal(withHeader.rows[0]?.broadcastChannelColumnPresent, false);
   assert.equal(fiveColumns.rows[0]?.venue, null);
   assert.equal(sixColumns.rows[0]?.venue, "Estádio com espaços");
   assert.equal(sixColumns.rows[0]?.inputState, "C");
@@ -135,8 +147,25 @@ test("catálogo de canais resolve um ID, rejeita desconhecidos e deteta nomes am
   });
 });
 
-test("células vazias preservam DataHora, Estádio e CanalTV mesmo num jogo finished", () => {
-  const decision = decideCalendarMatchAction(existingMatch({ status: "finished" }), importRow(), null);
+test("CanalTV vazio no formato canónico remove o canal sem apagar DataHora nem Estádio", () => {
+  const decision = decideCalendarMatchAction(
+    existingMatch({ status: "finished" }),
+    importRow({ broadcastChannelColumnPresent: true }),
+    null
+  );
+  assert.equal(decision.action, "update");
+  assert.deepEqual(decision.patch, { broadcast_channel_id: null });
+  assert.deepEqual(decision.changes, [
+    { field: "broadcastChannel", currentLabel: "Sport TV 1", nextLabel: "Sem canal" }
+  ]);
+});
+
+test("formato legacy sem coluna CanalTV preserva o canal existente", () => {
+  const decision = decideCalendarMatchAction(
+    existingMatch({ status: "finished" }),
+    importRow({ broadcastChannelColumnPresent: false }),
+    null
+  );
   assert.equal(decision.action, "keep");
   assert.deepEqual(decision.patch, {});
   assert.deepEqual(decision.changes, []);
