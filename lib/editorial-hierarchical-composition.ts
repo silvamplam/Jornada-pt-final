@@ -58,6 +58,53 @@ export const HIERARCHICAL_COMPOSITION_SLOT_KEYS = HIERARCHICAL_COMPOSITION_MOMEN
 export type HierarchicalCompositionSlotKey =
   (typeof HIERARCHICAL_COMPOSITION_SLOT_KEYS)[number];
 
+export const HIERARCHICAL_COMPOSITION_DESK_SECTIONS = [
+  {
+    key: "opening",
+    title: "Abertura",
+    summary: "Manchete e as três crónicas imediatamente abaixo.",
+    slots: [
+      { key: "dominant_main", label: "Manchete" },
+      { key: "other_chronicle_1", label: "Crónica 1" },
+      { key: "other_chronicle_2", label: "Crónica 2" },
+      { key: "other_chronicle_3", label: "Crónica 3" },
+    ],
+  },
+  {
+    key: "analysis",
+    title: "Arbitragem e Reações",
+    summary: "Uma dominante, três desenvolvimentos e dois complementares.",
+    slots: [
+      { key: "secondary_strong_1", label: "Dominante" },
+      { key: "secondary_strong_2", label: "Desenvolvimento 1" },
+      { key: "secondary_1", label: "Desenvolvimento 2" },
+      { key: "secondary_2", label: "Desenvolvimento 3" },
+      { key: "dominant_side_top", label: "Complementar 1" },
+      { key: "dominant_side_bottom", label: "Complementar 2" },
+    ],
+  },
+  {
+    key: "other-games",
+    title: "Outros jogos da Jornada",
+    summary: "Uma dominante, uma secundária e três notícias compactas.",
+    slots: [
+      { key: "secondary_3", label: "Dominante" },
+      { key: "secondary_4", label: "Secundária" },
+      { key: "closing_1", label: "Compacta 1" },
+      { key: "closing_2", label: "Compacta 2" },
+      { key: "closing_3", label: "Compacta 3" },
+    ],
+  },
+] as const satisfies ReadonlyArray<{
+  key: string;
+  title: string;
+  summary: string;
+  slots: ReadonlyArray<{
+    key: HierarchicalCompositionSlotKey;
+    label: string;
+  }>;
+}>;
+
 export type HierarchicalMediaKind = "embed" | "direct_video";
 
 export type HierarchicalCompositionMediaSnapshotSource = {

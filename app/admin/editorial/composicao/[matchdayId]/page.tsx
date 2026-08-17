@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { EDITORIAL_NEWS_FLOW_SLOT_TYPES } from "@/lib/editorial-zone-presentation";
 import {
   HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS,
+  HIERARCHICAL_COMPOSITION_DESK_SECTIONS,
   HIERARCHICAL_COMPOSITION_MOMENTS,
   HIERARCHICAL_COMPOSITION_EDITORIAL_FIELD_LABELS,
   hierarchicalBeyondMatchdayPositionLabel,
@@ -1349,6 +1350,17 @@ const compositionPageStyles = `
     text-transform: uppercase;
   }
 
+  .composition-admin-hierarchical-empty .composition-admin-form {
+    width: min(100%, 320px);
+    margin-top: 7px;
+    text-align: left;
+    text-transform: none;
+  }
+
+  .composition-admin-hierarchical-empty .composition-admin-small-button {
+    justify-self: center;
+  }
+
   .composition-admin-preview {
     width: 100%;
     max-width: 1200px;
@@ -1859,12 +1871,12 @@ function AssignBankItemForm({
   const isArticle = isEditorialArticleBankItem(item);
   const isEditorialContent = isEditorialContentBankItem(item);
   const slotOptions = isArticle ? editorialArticleFlowSlotOptions : bankAssignableSlotOptions;
-  const hierarchicalMoments = isEditorialContent
-    ? HIERARCHICAL_COMPOSITION_MOMENTS.map((moment) => ({
-        ...moment,
-        slots: moment.slots.filter((slot) => slot.key === "dominant_main"),
-      })).filter((moment) => moment.slots.length > 0)
-    : HIERARCHICAL_COMPOSITION_MOMENTS;
+  const hierarchicalDeskSections = isEditorialContent
+    ? HIERARCHICAL_COMPOSITION_DESK_SECTIONS.map((section) => ({
+        ...section,
+        slots: section.slots.filter((slot) => slot.key === "dominant_main"),
+      })).filter((section) => section.slots.length > 0)
+    : HIERARCHICAL_COMPOSITION_DESK_SECTIONS;
   const occupiedHierarchicalSlots = new Set(hierarchicalSlots.map((slot) => slot.slot_key));
   const occupiedBeyondOrders = new Set(
     hierarchicalAuxiliaryItems
@@ -1884,12 +1896,12 @@ function AssignBankItemForm({
           <HiddenField name="return_to" value={returnTo} />
           <HiddenField name="return_anchor" value="matchday-editorial-bank" />
           <div className="composition-admin-field">
-            <label htmlFor={`bank-hierarchical-slot-${item.id}`}>Usar num dos 15 lugares…</label>
+            <label htmlFor={`bank-hierarchical-slot-${item.id}`}>Colocar na Mesa da Composição…</label>
             <select className="composition-admin-input" id={`bank-hierarchical-slot-${item.id}`} name="slot_key" defaultValue="" required>
               <option value="" disabled>Escolher lugar</option>
-              {hierarchicalMoments.map((moment) => (
-                <optgroup key={moment.key} label={moment.title}>
-                  {moment.slots.map((slot) => (
+              {hierarchicalDeskSections.map((section) => (
+                <optgroup key={section.key} label={section.title}>
+                  {section.slots.map((slot) => (
                     <option disabled={occupiedHierarchicalSlots.has(slot.key)} key={slot.key} value={slot.key}>
                       {slot.label}{occupiedHierarchicalSlots.has(slot.key) ? " — ocupado" : ""}
                     </option>
@@ -2622,6 +2634,57 @@ function CompositionItemActions({
   );
 }
 
+function AssignHierarchicalSlotForm({
+  availableBankItems,
+  composition,
+  matchdayId,
+  returnTo,
+  slotKey,
+}: {
+  availableBankItems: MatchdayEditorialBankItem[];
+  composition: ReferenceComposition;
+  matchdayId: string;
+  returnTo: string;
+  slotKey: HierarchicalCompositionSlot["slot_key"];
+}) {
+  const selectableItems = availableBankItems.filter(
+    (item) => !isEditorialContentBankItem(item) || slotKey === "dominant_main",
+  );
+
+  if (composition.status !== "draft" || selectableItems.length === 0) {
+    return null;
+  }
+
+  return (
+    <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+      <HiddenField name="action_type" value="assign_bank_item_to_hierarchical_slot" />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="slot_key" value={slotKey} />
+      <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value={`hierarchical-${slotKey}`} />
+      <div className="composition-admin-field">
+        <label htmlFor={`hierarchical-direct-${slotKey}`}>Escolher publicação</label>
+        <select
+          className="composition-admin-input"
+          id={`hierarchical-direct-${slotKey}`}
+          name="bank_item_id"
+          defaultValue=""
+          required
+        >
+          <option value="" disabled>Escolher publicação</option>
+          {selectableItems.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.title}
+            </option>
+          ))}
+        </select>
+      </div>
+      <button className="composition-admin-small-button" type="submit">Colocar</button>
+    </form>
+  );
+}
+
 function UnassignHierarchicalSlotForm({
   composition,
   matchdayId,
@@ -2647,11 +2710,13 @@ function UnassignHierarchicalSlotForm({
 }
 
 function HierarchicalCompositionEditor({
+  availableBankItems,
   composition,
   matchdayId,
   returnTo,
   slots,
 }: {
+  availableBankItems: MatchdayEditorialBankItem[];
   composition: ReferenceComposition;
   matchdayId: string;
   returnTo: string;
@@ -2661,14 +2726,15 @@ function HierarchicalCompositionEditor({
 
   return (
     <div className="composition-admin-section-list">
-      {HIERARCHICAL_COMPOSITION_MOMENTS.map((moment) => (
-        <section className="composition-admin-section" key={moment.key}>
+      {HIERARCHICAL_COMPOSITION_DESK_SECTIONS.map((section) => (
+        <section className="composition-admin-section" key={section.key}>
           <div className="composition-admin-section-heading">
-            <h4>{moment.title}</h4>
-            <span>{moment.slots.filter((slot) => slotsByKey.has(slot.key)).length}/{moment.slots.length}</span>
+            <h4>{section.title}</h4>
+            <span>{section.slots.filter((slot) => slotsByKey.has(slot.key)).length}/{section.slots.length}</span>
           </div>
+          <p className="composition-admin-note">{section.summary}</p>
           <div className="composition-admin-grid">
-            {moment.slots.map((definition) => {
+            {section.slots.map((definition) => {
               const slot = slotsByKey.get(definition.key) ?? null;
               return (
                 <div id={`hierarchical-${definition.key}`} key={definition.key}>
@@ -2694,6 +2760,13 @@ function HierarchicalCompositionEditor({
                     <div className="composition-admin-hierarchical-empty">
                       <strong>{definition.label}</strong>
                       <span>Lugar ainda vazio</span>
+                      <AssignHierarchicalSlotForm
+                        availableBankItems={availableBankItems}
+                        composition={composition}
+                        matchdayId={matchdayId}
+                        returnTo={returnTo}
+                        slotKey={definition.key}
+                      />
                     </div>
                   )}
                 </div>
@@ -3621,10 +3694,11 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
               </Card>
             ) : null}
 
-            <Card title={presentationMode === "hierarchical" ? "Cinco momentos editoriais" : "Zonas da composição"}>
+            <Card title={presentationMode === "hierarchical" ? "Mesa da Composição" : "Zonas da composição"}>
               {draftComposition ? (
                 presentationMode === "hierarchical" ? (
                   <HierarchicalCompositionEditor
+                    availableBankItems={availableBankItems}
                     composition={draftComposition}
                     matchdayId={matchday.id}
                     returnTo={returnTo}

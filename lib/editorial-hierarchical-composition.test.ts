@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS,
+  HIERARCHICAL_COMPOSITION_DESK_SECTIONS,
   HIERARCHICAL_COMPOSITION_MOMENTS,
   HIERARCHICAL_COMPOSITION_SLOT_KEYS,
   incompleteHierarchicalBeyondMatchdayPositions,
@@ -103,6 +104,55 @@ test("a taxonomia hierárquica contém exclusivamente os 15 lugares aprovados", 
   for (const slotKey of HIERARCHICAL_COMPOSITION_SLOT_KEYS) {
     assert.match(applySql, new RegExp(`'${slotKey}'`));
   }
+});
+
+test("a Mesa da Composição traduz os 15 lugares para a estrutura pública", () => {
+  assert.deepEqual(
+    HIERARCHICAL_COMPOSITION_DESK_SECTIONS.map((section) => ({
+      title: section.title,
+      labels: section.slots.map((slot) => slot.label),
+      slots: section.slots.map((slot) => slot.key),
+    })),
+    [
+      {
+        title: "Abertura",
+        labels: ["Manchete", "Crónica 1", "Crónica 2", "Crónica 3"],
+        slots: ["dominant_main", "other_chronicle_1", "other_chronicle_2", "other_chronicle_3"],
+      },
+      {
+        title: "Arbitragem e Reações",
+        labels: ["Dominante", "Desenvolvimento 1", "Desenvolvimento 2", "Desenvolvimento 3", "Complementar 1", "Complementar 2"],
+        slots: ["secondary_strong_1", "secondary_strong_2", "secondary_1", "secondary_2", "dominant_side_top", "dominant_side_bottom"],
+      },
+      {
+        title: "Outros jogos da Jornada",
+        labels: ["Dominante", "Secundária", "Compacta 1", "Compacta 2", "Compacta 3"],
+        slots: ["secondary_3", "secondary_4", "closing_1", "closing_2", "closing_3"],
+      },
+    ],
+  );
+
+  const deskKeys = HIERARCHICAL_COMPOSITION_DESK_SECTIONS.flatMap(
+    (section) => section.slots.map((slot) => slot.key),
+  );
+
+  assert.equal(deskKeys.length, 15);
+  assert.equal(new Set(deskKeys).size, 15);
+  assert.deepEqual(
+    [...deskKeys].sort(),
+    [...HIERARCHICAL_COMPOSITION_SLOT_KEYS].sort(),
+  );
+
+  const deskStart = compositionPage.indexOf("function AssignHierarchicalSlotForm(");
+  const deskEnd = compositionPage.indexOf("function RemoveHierarchicalReferenceItemForm", deskStart);
+  const deskSource = compositionPage.slice(deskStart, deskEnd);
+
+  assert.ok(deskStart >= 0 && deskEnd > deskStart);
+  assert.match(compositionPage, /Mesa da Composição/);
+  assert.match(deskSource, /HIERARCHICAL_COMPOSITION_DESK_SECTIONS\.map/);
+  assert.match(deskSource, /Escolher publicação/);
+  assert.match(deskSource, /assign_bank_item_to_hierarchical_slot/);
+  assert.match(deskSource, /Retirar deste lugar/);
 });
 
 test("slots e origens não duplicam e apagar o banco não destrói snapshots", () => {
@@ -217,7 +267,7 @@ test("arquivar e reativar uma notícia livre repõe 15 lugares e momentos poster
   const bankCard = compositionPage.slice(bankCardStart, bankCardEnd);
 
   assert.match(assignForm, /composition\.status !== "draft" \|\| item\.status !== "active"/);
-  assert.match(assignForm, /Usar num dos 15 lugares…/);
+  assert.match(assignForm, /Colocar na Mesa da Composição…/);
   assert.match(assignForm, /Usar num momento posterior…/);
   assert.match(
     assignForm,
