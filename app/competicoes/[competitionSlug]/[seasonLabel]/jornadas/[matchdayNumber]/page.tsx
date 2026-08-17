@@ -2129,6 +2129,22 @@ const publicMatchdayStyles = `
     transform: translateY(10px);
   }
 
+  .public-club-identity {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .public-classification-team-badge {
+    display: inline-flex;
+    flex: 0 0 50px;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 28px;
+  }
+
   .public-club-name {
     min-width: 0;
     overflow: hidden;
@@ -3690,6 +3706,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
 
     return {
       ...row,
+      team,
       publicName: getPublicTeamName(nameInput, "compact"),
       fullName: getPublicTeamName(nameInput, "full")
     };
@@ -4311,7 +4328,12 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                   <td className="public-table-position"><span className="public-table-position-value">{index + 1}</span></td>
                   <td className="public-table-club">
                     <span className="public-club-cell">
-                    <span className="public-club-name" title={row.fullName}>{row.publicName}</span>
+                      <span className="public-club-identity">
+                        <span className="public-classification-team-badge">
+                          <TeamBadge team={row.team} variant="compact" />
+                        </span>
+                        <span className="public-club-name" title={row.fullName}>{row.publicName}</span>
+                      </span>
                     <span className="public-club-form">
                       <span>Últimos:</span>
                       {row.recentForm.length > 0 ? (
