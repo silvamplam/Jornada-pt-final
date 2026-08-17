@@ -70,9 +70,9 @@ export const MATCHDAY_DESK_GROUPS: MatchdayDeskGroupDefinition[] = [
   },
   {
     key: "complement",
-    label: "Ao lado do vídeo",
-    description: "Notícia complementar junto ao vídeo.",
-    slots: [{ key: "complement", label: "Ao lado do vídeo" }],
+    label: "Destaque da Jornada",
+    description: "Conteúdo de destaque ao lado do vídeo.",
+    slots: [{ key: "complement", label: "Destaque da Jornada" }],
   },
   {
     key: "four_news",
@@ -128,6 +128,18 @@ export type MatchdayDeskArticle = {
   placementConflictKeys: string[];
 };
 
+export type MatchdayDeskVideo = {
+  id: string;
+  label: string | null;
+  title: string;
+  subtitle: string | null;
+  imageUrl: string | null;
+  videoUrl: string | null;
+  duration: string | null;
+  type: string | null;
+  sortOrder: number;
+};
+
 export type MatchdayDeskBlockedKind =
   | "inactive"
   | "canonical_missing"
@@ -164,6 +176,7 @@ export type MatchdayDeskSnapshot = {
   revision: number;
   stateToken: string | null;
   articles: MatchdayDeskArticle[];
+  videos: MatchdayDeskVideo[];
   canonicalCandidates: MatchdayDeskCanonicalCandidate[];
   blockedPlacements: MatchdayDeskBlockedPlacement[];
 };

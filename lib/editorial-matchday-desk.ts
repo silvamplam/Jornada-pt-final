@@ -127,6 +127,19 @@ type LatestRow = {
   status: string | null;
 };
 
+type RoundupRow = {
+  id: string;
+  label: string | null;
+  title: string | null;
+  subtitle: string | null;
+  image_url: string | null;
+  video_url: string | null;
+  duration: string | null;
+  type: string | null;
+  sort_order: number;
+  status: string | null;
+};
+
 type HorizontalRow = {
   id: string;
   label: string | null;
@@ -271,6 +284,7 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
     editorialRows,
     highlights,
     latestRows,
+    roundupRows,
     horizontalRows,
     liveRows,
     controls,
@@ -297,6 +311,11 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
       `matchday_latest_news?select=id,article_id,time_label,title,subtitle,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
         matchdayId,
       )}&order=sort_order.asc&limit=1000`,
+    ).catch(() => []),
+    fetchSupabaseAdminTable<RoundupRow>(
+      `matchday_roundup_items?select=id,label,title,subtitle,image_url,video_url,duration,type,sort_order,status&matchday_id=eq.${encodeURIComponent(
+        matchdayId,
+      )}&status=eq.published&order=sort_order.asc&limit=100`,
     ).catch(() => []),
     fetchSupabaseAdminTable<HorizontalRow>(
       `matchday_horizontal_news?select=id,label,title,subtitle,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
@@ -645,6 +664,19 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
           placementConflictKeys: placementKeys.slice(1),
         };
       }),
+    videos: roundupRows
+      .filter((item) => Boolean(cleanText(item.title) || cleanText(item.label)))
+      .map((item) => ({
+        id: item.id,
+        label: cleanText(item.label),
+        title: cleanText(item.title) ?? cleanText(item.label) ?? "Vídeo",
+        subtitle: cleanText(item.subtitle),
+        imageUrl: cleanText(item.image_url),
+        videoUrl: cleanText(item.video_url),
+        duration: cleanText(item.duration),
+        type: cleanText(item.type),
+        sortOrder: Number.isSafeInteger(item.sort_order) ? item.sort_order : 0,
+      })),
     canonicalCandidates,
     blockedPlacements,
   };

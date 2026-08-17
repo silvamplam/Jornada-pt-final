@@ -92,7 +92,7 @@ test("as etiquetas da Mesa sao compactas e nao repetem a zona", () => {
     placementLabelForKey("highlight:2"),
     "3 not\u00edcias \u00b7 Posi\u00e7\u00e3o 2",
   );
-  assert.equal(placementLabelForKey("complement"), "Ao lado do v\u00eddeo");
+  assert.equal(placementLabelForKey("complement"), "Destaque da Jornada");
   assert.equal(
     placementLabelForKey("live_four_news:1"),
     "4 not\u00edcias \u00b7 Posi\u00e7\u00e3o 1",
