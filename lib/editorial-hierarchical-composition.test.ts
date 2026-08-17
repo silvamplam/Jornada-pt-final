@@ -321,6 +321,58 @@ test("a Mesa da Composição traduz os 15 lugares para a estrutura pública", ()
     auxiliarySource,
     /<span>Livre<\/span>/,
   );
+
+  const activeFilterControllers =
+    compositionPage.match(/var activeFilter = "all";/g) ?? [];
+
+  assert.equal(
+    activeFilterControllers.length,
+    1,
+    "a Mesa deve ter um unico controlador de filtros",
+  );
+
+  assert.match(
+    compositionPage,
+    /item\.style\.display = show \? "" : "none";/,
+  );
+
+  assert.match(
+    compositionPage,
+    /choices\.forEach\(function \(choice\) \{\s*choice\.checked = false;/,
+  );
+
+  const rightMesaIndex = compositionPage.indexOf(
+    '<Card title={presentationMode === "hierarchical" ? "Mesa da Composição" : "Zonas da composição"}>',
+  );
+
+  const rightStatusIndex = compositionPage.indexOf(
+    '<div id="composition-status">',
+  );
+
+  const rightMomentsIndex = compositionPage.indexOf(
+    '<Card title="Momentos posteriores aos 15 lugares">',
+  );
+
+  const rightEditorialIndex = compositionPage.indexOf(
+    '<Card title="Editorial da Jornada">',
+  );
+
+  assert.ok(
+    rightMesaIndex >= 0 &&
+      rightStatusIndex >= 0 &&
+      rightMesaIndex < rightStatusIndex,
+    "a Mesa da Composição deve surgir antes do estado do rascunho",
+  );
+
+  assert.ok(
+    rightEditorialIndex > rightMomentsIndex,
+    "o Editorial da Jornada deve ficar depois das zonas e dos momentos posteriores",
+  );
+
+  assert.match(
+    compositionPage,
+    /composition-admin-desk-toolbar[\s\S]*position: sticky/,
+  );
 });
 test("slots e origens não duplicam e apagar o banco não destrói snapshots", () => {
   assert.match(applySql, /unique \(composition_id, slot_key\)/i);

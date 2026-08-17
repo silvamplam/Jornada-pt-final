@@ -1046,6 +1046,18 @@ const compositionPageStyles = `
     gap: 7px;
   }
 
+  .composition-admin-desk-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    display: grid;
+    gap: 7px;
+    padding: 0 0 8px;
+    border-bottom: 1px solid #edf1f5;
+    background: rgba(255, 255, 255, .98);
+    backdrop-filter: blur(8px);
+  }
+
   .composition-admin-desk-bank .composition-admin-filter-link.active {
     border-color: #1d4ed8;
     background: #1d4ed8;
@@ -2360,7 +2372,8 @@ function HierarchicalCompositionDeskBank({
   return (
     <Card title="Banco da Mesa">
       <div className="composition-admin-desk-bank">
-        <div className="composition-admin-desk-search-row">
+        <div className="composition-admin-desk-toolbar">
+          <div className="composition-admin-desk-search-row">
           <input
             className="composition-admin-input"
             data-composition-desk-search="true"
@@ -2490,6 +2503,7 @@ function HierarchicalCompositionDeskBank({
             Reabre a composição para poderes selecionar e colocar publicações.
           </p>
         )}
+        </div>
 
         {!deskSnapshot ? (
           <p className="composition-admin-note">
@@ -4232,6 +4246,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                     (!query || searchText.indexOf(query) >= 0);
 
                   item.hidden = !show;
+                  item.style.display = show ? "" : "none";
 
                   if (show) {
                     visible += 1;
@@ -4424,6 +4439,14 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                 refreshList
               );
 
+              choices.forEach(function (choice) {
+                choice.checked = false;
+              });
+
+              if (destinationSelect) {
+                destinationSelect.value = "";
+              }
+
               refreshSelection();
               refreshList();
             })();          `
@@ -4540,6 +4563,92 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
             </p>
           </header>
           <div className="composition-admin-stack">
+            <Card title={presentationMode === "hierarchical" ? "Mesa da Composição" : "Zonas da composição"}>
+              {draftComposition ? (
+                presentationMode === "hierarchical" ? (
+                  <HierarchicalCompositionEditor
+                    composition={draftComposition}
+                    matchdayId={matchday.id}
+                    returnTo={returnTo}
+                    slots={hierarchicalSlots}
+                  />
+                ) : (
+                  <div className="composition-admin-section-list">
+                  {groupedCompositionItems.map((section) => {
+                    const sectionAnchor = compositionZoneAnchor(section.slotType);
+
+                    return (
+                    <section className="composition-admin-section" id={sectionAnchor} key={section.slotType}>
+                      <div className="composition-admin-section-heading">
+                        <h4>{compositionZoneHeading(section.slotType, section.title)}</h4>
+                        <span>
+                          {section.items.length} {section.items.length === 1 ? "item" : "itens"}
+                        </span>
+                      </div>
+                      {compositionFeedback && feedbackAnchor === sectionAnchor ? (
+                        <p className={`composition-admin-feedback ${compositionFeedbackKind}`}>{compositionFeedback}</p>
+                      ) : null}
+                      {section.items.length > 0 ? (
+                        <div className="composition-admin-grid">
+                          {section.items.map((item, index) => {
+                            const itemMeta = [`Ordem ${item.sort_order}`, statusLabel(item.status)];
+                            const actions = isDraftComposition ? (
+                              <CompositionItemActions
+                                articleSource={item.source_type === "matchday_editorial_bank_item" && Boolean(item.source_id && editorialArticleBankItemIds.has(item.source_id))}
+                                canMoveDown={index < section.items.length - 1}
+                                canMoveUp={index > 0}
+                                composition={draftComposition}
+                                item={item}
+                                matchdayId={matchday.id}
+                                returnAnchor={sectionAnchor}
+                                returnTo={returnTo}
+                              />
+                            ) : null;
+
+                            if (item.slot_type === "roundup") {
+                              return (
+                                <RoundupItemCard
+                                  key={item.id}
+                                  label={compositionItemDisplayLabel(item)}
+                                  title={item.title_snapshot}
+                                  subtitle={item.subtitle_snapshot}
+                                  linkUrl={item.link_url_snapshot}
+                                  meta={itemMeta}
+                                >
+                                  {actions}
+                                </RoundupItemCard>
+                              );
+                            }
+
+                            return (
+                              <ItemCard
+                                key={item.id}
+                                imageUrl={item.image_url_snapshot}
+                                label={compositionItemDisplayLabel(item)}
+                                labelColor={item.label_color_snapshot}
+                                title={item.title_snapshot}
+                                subtitle={item.subtitle_snapshot}
+                                linkUrl={item.link_url_snapshot}
+                                meta={itemMeta}
+                              >
+                                {actions}
+                              </ItemCard>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <EmptyState>Nenhuma notícia associada a esta zona.</EmptyState>
+                      )}
+                    </section>
+                    );
+                  })}
+                  </div>
+                )
+              ) : (
+                <EmptyState>Cria primeiro um rascunho para começar a composição.</EmptyState>
+              )}
+            </Card>
+
             <div id="composition-status">
               <Card title={isPublishedComposition ? "Composição publicada" : "Composição em rascunho"}>
               {draftComposition ? (
@@ -4628,105 +4737,6 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
             </div>
 
             {presentationMode === "hierarchical" && draftComposition ? (
-              <Card title="Editorial da Jornada">
-                {compositionFeedback && feedbackAnchor === "hierarchical-editorial" ? (
-                  <p className={`composition-admin-feedback ${compositionFeedbackKind}`}>{compositionFeedback}</p>
-                ) : null}
-                <HierarchicalEditorialEditor
-                  composition={draftComposition}
-                  matchdayId={matchday.id}
-                  returnTo={returnTo}
-                />
-              </Card>
-            ) : null}
-
-            <Card title={presentationMode === "hierarchical" ? "Mesa da Composição" : "Zonas da composição"}>
-              {draftComposition ? (
-                presentationMode === "hierarchical" ? (
-                  <HierarchicalCompositionEditor
-                    composition={draftComposition}
-                    matchdayId={matchday.id}
-                    returnTo={returnTo}
-                    slots={hierarchicalSlots}
-                  />
-                ) : (
-                  <div className="composition-admin-section-list">
-                  {groupedCompositionItems.map((section) => {
-                    const sectionAnchor = compositionZoneAnchor(section.slotType);
-
-                    return (
-                    <section className="composition-admin-section" id={sectionAnchor} key={section.slotType}>
-                      <div className="composition-admin-section-heading">
-                        <h4>{compositionZoneHeading(section.slotType, section.title)}</h4>
-                        <span>
-                          {section.items.length} {section.items.length === 1 ? "item" : "itens"}
-                        </span>
-                      </div>
-                      {compositionFeedback && feedbackAnchor === sectionAnchor ? (
-                        <p className={`composition-admin-feedback ${compositionFeedbackKind}`}>{compositionFeedback}</p>
-                      ) : null}
-                      {section.items.length > 0 ? (
-                        <div className="composition-admin-grid">
-                          {section.items.map((item, index) => {
-                            const itemMeta = [`Ordem ${item.sort_order}`, statusLabel(item.status)];
-                            const actions = isDraftComposition ? (
-                              <CompositionItemActions
-                                articleSource={item.source_type === "matchday_editorial_bank_item" && Boolean(item.source_id && editorialArticleBankItemIds.has(item.source_id))}
-                                canMoveDown={index < section.items.length - 1}
-                                canMoveUp={index > 0}
-                                composition={draftComposition}
-                                item={item}
-                                matchdayId={matchday.id}
-                                returnAnchor={sectionAnchor}
-                                returnTo={returnTo}
-                              />
-                            ) : null;
-
-                            if (item.slot_type === "roundup") {
-                              return (
-                                <RoundupItemCard
-                                  key={item.id}
-                                  label={compositionItemDisplayLabel(item)}
-                                  title={item.title_snapshot}
-                                  subtitle={item.subtitle_snapshot}
-                                  linkUrl={item.link_url_snapshot}
-                                  meta={itemMeta}
-                                >
-                                  {actions}
-                                </RoundupItemCard>
-                              );
-                            }
-
-                            return (
-                              <ItemCard
-                                key={item.id}
-                                imageUrl={item.image_url_snapshot}
-                                label={compositionItemDisplayLabel(item)}
-                                labelColor={item.label_color_snapshot}
-                                title={item.title_snapshot}
-                                subtitle={item.subtitle_snapshot}
-                                linkUrl={item.link_url_snapshot}
-                                meta={itemMeta}
-                              >
-                                {actions}
-                              </ItemCard>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <EmptyState>Nenhuma notícia associada a esta zona.</EmptyState>
-                      )}
-                    </section>
-                    );
-                  })}
-                  </div>
-                )
-              ) : (
-                <EmptyState>Cria primeiro um rascunho para começar a composição.</EmptyState>
-              )}
-            </Card>
-
-            {presentationMode === "hierarchical" && draftComposition ? (
               <Card title="Momentos posteriores aos 15 lugares">
                 <div className="composition-admin-section-list">
                   <HierarchicalVideoEditor
@@ -4747,6 +4757,19 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                 </div>
               </Card>
             ) : null}
+            {presentationMode === "hierarchical" && draftComposition ? (
+              <Card title="Editorial da Jornada">
+                {compositionFeedback && feedbackAnchor === "hierarchical-editorial" ? (
+                  <p className={`composition-admin-feedback ${compositionFeedbackKind}`}>{compositionFeedback}</p>
+                ) : null}
+                <HierarchicalEditorialEditor
+                  composition={draftComposition}
+                  matchdayId={matchday.id}
+                  returnTo={returnTo}
+                />
+              </Card>
+            ) : null}
+
           </div>
         </section>
       </div>
@@ -4788,137 +4811,6 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
               submitter.setAttribute("aria-busy", "true");
             });
 
-            (function () {
-              var searchInput = document.querySelector("[data-composition-desk-search]");
-              var countNode = document.querySelector("[data-composition-desk-count]");
-              var summaryNode = document.querySelector("[data-composition-selected-summary]");
-              var filterButtons = Array.prototype.slice.call(
-                document.querySelectorAll("[data-composition-desk-filter]")
-              );
-              var items = Array.prototype.slice.call(
-                document.querySelectorAll("[data-composition-desk-item]")
-              );
-              var choices = Array.prototype.slice.call(
-                document.querySelectorAll("[data-composition-bank-choice]")
-              );
-              var selectedInputs = Array.prototype.slice.call(
-                document.querySelectorAll("[data-composition-selected-bank-input]")
-              );
-              var selectedButtons = Array.prototype.slice.call(
-                document.querySelectorAll("[data-composition-selected-submit]")
-              );
-
-              if (!searchInput) return;
-
-              var activeFilter = "all";
-
-              function matchesFilter(item) {
-                var kind = item.getAttribute("data-composition-desk-kind") || "";
-                var group = item.getAttribute("data-composition-desk-group") || "";
-                var inLatest =
-                  item.getAttribute("data-composition-desk-in-latest") === "1";
-
-                if (activeFilter === "all") return true;
-                if (activeFilter === "videos") return kind === "video";
-                if (kind !== "article") return false;
-
-                if (activeFilter === "latest") return inLatest;
-                if (activeFilter === "latest_without_zone") {
-                  return inLatest && !group;
-                }
-                if (activeFilter === "four_news") return group === "four_news";
-                if (activeFilter === "six_news") return group === "six_news";
-                if (activeFilter === "five_news_balanced") {
-                  return group === "five_news_balanced";
-                }
-                if (activeFilter === "five_news_secondary") {
-                  return group === "five_news_secondary";
-                }
-                if (activeFilter === "faixa") return group === "faixa";
-                if (activeFilter === "highlight") return group === "complement";
-                if (activeFilter === "unplaced") {
-                  return !inLatest && !group;
-                }
-
-                return true;
-              }
-
-              function refreshList() {
-                var query = (searchInput.value || "")
-                  .trim()
-                  .toLocaleLowerCase("pt-PT");
-                var visible = 0;
-
-                items.forEach(function (item) {
-                  var searchText =
-                    item.getAttribute("data-composition-desk-search-text") || "";
-                  var show =
-                    matchesFilter(item) &&
-                    (!query || searchText.indexOf(query) >= 0);
-
-                  item.hidden = !show;
-
-                  if (show) visible += 1;
-                });
-
-                if (countNode) {
-                  countNode.textContent = visible + "/" + items.length;
-                }
-              }
-
-              function selectBankItem(choice) {
-                var bankItemId = choice.value || "";
-                var title =
-                  choice.getAttribute("data-composition-bank-title") ||
-                  "Publicação selecionada";
-
-                items.forEach(function (item) {
-                  item.classList.remove("selected");
-                });
-
-                var selectedRow = choice.closest("[data-composition-desk-item]");
-
-                if (selectedRow) {
-                  selectedRow.classList.add("selected");
-                }
-
-                selectedInputs.forEach(function (input) {
-                  input.value = bankItemId;
-                });
-
-                selectedButtons.forEach(function (button) {
-                  button.disabled = !bankItemId;
-                });
-
-                if (summaryNode) {
-                  summaryNode.textContent = "Selecionada: " + title;
-                }
-              }
-
-              filterButtons.forEach(function (button) {
-                button.addEventListener("click", function () {
-                  activeFilter =
-                    button.getAttribute("data-composition-desk-filter") || "all";
-
-                  filterButtons.forEach(function (candidate) {
-                    candidate.classList.toggle("active", candidate === button);
-                  });
-
-                  refreshList();
-                });
-              });
-
-              choices.forEach(function (choice) {
-                choice.addEventListener("change", function () {
-                  if (choice.checked) {
-                    selectBankItem(choice);
-                  }
-                });
-              });
-
-              searchInput.addEventListener("input", refreshList);
-              refreshList();
-            })();
           `
         }}
       />
