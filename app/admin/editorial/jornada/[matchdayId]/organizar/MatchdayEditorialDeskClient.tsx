@@ -22,7 +22,7 @@ type DeskHistoryEntry = {
   faixaVisible: boolean;
 };
 
-type DeskFilter = "all" | "latest" | "outside_latest" | "no_editorial" | "unplaced" | "faixa" | "layouts";
+type DeskFilter = "all" | "latest" | "latest_without_zone" | "four_news" | "six_news" | "five_news_balanced" | "five_news_secondary" | "faixa" | "videos" | "highlight" | "unplaced";
 type DeskDestinationChoice = MatchdayDeskDestination | `slot::${string}`;
 
 function initialDesiredState(snapshot: MatchdayDeskSnapshot): MatchdayDeskDesiredState {
@@ -49,12 +49,6 @@ function placementOrder(key?: string | null) {
   return Number.isInteger(value) && value > 0 ? value : Number.MAX_SAFE_INTEGER;
 }
 
-function isLayoutGroup(group: ReturnType<typeof placementGroupForKey>) {
-  return group === "four_news"
-    || group === "six_news"
-    || group === "five_news_balanced"
-    || group === "five_news_secondary";
-}
 
 export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: MatchdayDeskSnapshot }) {
   const initialDesired = useMemo(() => initialDesiredState(snapshot), [snapshot]);
@@ -407,23 +401,44 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
 
   const filteredArticles = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
+
     return snapshot.articles.filter((article) => {
       const state = desired[article.id];
       const group = placementGroupForKey(state?.placementKey);
       const searchMatches = !normalizedSearch
         || article.title.toLocaleLowerCase("pt-PT").includes(normalizedSearch)
         || (article.label ?? "").toLocaleLowerCase("pt-PT").includes(normalizedSearch);
+
       if (!searchMatches) return false;
 
+      if (filter === "videos") return false;
       if (filter === "latest") return Boolean(state?.inLatest);
-      if (filter === "outside_latest") return !state?.inLatest;
-      if (filter === "no_editorial") return !state?.placementKey;
-      if (filter === "unplaced") return !state?.inLatest && !state?.placementKey;
+      if (filter === "latest_without_zone") return Boolean(state?.inLatest) && !state?.placementKey;
+      if (filter === "four_news") return group === "four_news";
+      if (filter === "six_news") return group === "six_news";
+      if (filter === "five_news_balanced") return group === "five_news_balanced";
+      if (filter === "five_news_secondary") return group === "five_news_secondary";
       if (filter === "faixa") return group === "faixa";
-      if (filter === "layouts") return isLayoutGroup(group);
+      if (filter === "highlight") return group === "complement";
+      if (filter === "unplaced") return !state?.inLatest && !state?.placementKey;
+
       return true;
     });
   }, [desired, filter, search, snapshot.articles]);
+
+  const filteredVideos = useMemo(() => {
+    if (filter !== "all" && filter !== "videos") {
+      return [];
+    }
+
+    const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
+
+    return snapshot.videos.filter((video) =>
+      !normalizedSearch
+      || video.title.toLocaleLowerCase("pt-PT").includes(normalizedSearch)
+      || (video.label ?? "").toLocaleLowerCase("pt-PT").includes(normalizedSearch)
+    );
+  }, [filter, search, snapshot.videos]);
 
   const latestCount = Object.values(desired).filter((article) => article.inLatest).length;
   const noEditorialCount = Object.values(desired).filter((article) => !article.placementKey).length;
@@ -504,17 +519,21 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
               value={search}
               onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)}
             />
-            <strong>{filteredArticles.length}/{snapshot.articles.length}</strong>
+            <strong>{filteredArticles.length + filteredVideos.length}/{snapshot.articles.length + snapshot.videos.length}</strong>
           </div>
           <div className="desk-filters" aria-label="Filtros">
             {([
               ["all", "Todas"],
               ["latest", "Últimas"],
-              ["outside_latest", "Fora de Últimas"],
-              ["no_editorial", "Sem zona"],
-              ["unplaced", "Sem colocação"],
-              ["layouts", "Layouts"],
+              ["latest_without_zone", "Sem zona nas Últimas"],
+              ["four_news", "4 notícias"],
+              ["six_news", "6 notícias"],
+              ["five_news_balanced", "5 notícias principais"],
+              ["five_news_secondary", "5 notícias secundárias"],
               ["faixa", "Faixa"],
+              ["videos", "Vídeos"],
+              ["highlight", "Destaque da Jornada"],
+              ["unplaced", "Sem colocação"],
             ] as Array<[DeskFilter, string]>).map(([key, label]) => (
               <button className={filter === key ? "active" : ""} key={key} type="button" onClick={() => setFilter(key)}>
                 {label}
@@ -573,6 +592,27 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
               </label>
             );
           })}
+
+          {filteredVideos.map((video) => (
+            <article className="desk-article-row" key={`video:${video.id}`}>
+              <span />
+              <span className="desk-selection-rank empty">▶</span>
+              {video.imageUrl ? (
+                <img alt="" src={video.imageUrl} />
+              ) : (
+                <span className="desk-image-placeholder" />
+              )}
+              <span className="desk-article-copy">
+                <span className="desk-article-meta">
+                  <em>VÍDEO</em>
+                  {video.duration ? <span>{video.duration}</span> : null}
+                </span>
+                <strong>{video.title}</strong>
+                {video.subtitle ? <span>{video.subtitle}</span> : null}
+                <small>A JORNADA EM VÍDEO</small>
+              </span>
+            </article>
+          ))}
         </div>
       </section>
 

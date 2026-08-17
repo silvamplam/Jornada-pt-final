@@ -28,12 +28,61 @@ test("o Editorial atual apenas ganha uma porta para a Mesa Beta", () => {
 test("a Mesa lê artigos publicados, zonas vivas e o controlo de concorrência", () => {
   assert.ok(readerSource.includes("editorial_articles?select="));
   assert.ok(readerSource.includes("matchday_latest_news?select="));
+  assert.ok(readerSource.includes("matchday_roundup_items?select="));
   assert.ok(readerSource.includes("matchday_horizontal_news?select="));
   assert.ok(readerSource.includes("matchday_live_layout_items?select="));
   assert.ok(readerSource.includes("matchday_highlights?select="));
   assert.ok(readerSource.includes("matchday_editorial_desk_control?select="));
   assert.ok(readerSource.includes("matchday_editorial_desk_state_token"));
   assert.equal(readerSource.includes("writeSupabaseAdmin"), false);
+});
+
+test("os filtros da Mesa correspondem às zonas editoriais reais", () => {
+  for (const label of [
+    "Todas",
+    "Últimas",
+    "Sem zona nas Últimas",
+    "4 notícias",
+    "6 notícias",
+    "5 notícias principais",
+    "5 notícias secundárias",
+    "Faixa",
+    "Vídeos",
+    "Destaque da Jornada",
+    "Sem colocação",
+  ]) {
+    assert.ok(clientSource.includes(label), `falta o filtro ${label}`);
+  }
+
+  assert.equal(clientSource.includes('["outside_latest", "Fora de Últimas"]'), false);
+  assert.equal(clientSource.includes('["no_editorial", "Sem zona"]'), false);
+  assert.equal(clientSource.includes('["layouts", "Layouts"]'), false);
+
+  assert.match(
+    clientSource,
+    /filter === "latest_without_zone"\) return Boolean\(state\?\.inLatest\) && !state\?\.placementKey/,
+  );
+
+  assert.match(
+    clientSource,
+    /filter === "unplaced"\) return !state\?\.inLatest && !state\?\.placementKey/,
+  );
+
+  assert.match(clientSource, /filter === "four_news"\) return group === "four_news"/);
+  assert.match(clientSource, /filter === "six_news"\) return group === "six_news"/);
+  assert.match(
+    clientSource,
+    /filter === "five_news_balanced"\) return group === "five_news_balanced"/,
+  );
+  assert.match(
+    clientSource,
+    /filter === "five_news_secondary"\) return group === "five_news_secondary"/,
+  );
+  assert.match(clientSource, /filter === "highlight"\) return group === "complement"/);
+
+  assert.ok(readerSource.includes("matchday_roundup_items?select="));
+  assert.ok(clientSource.includes("filteredVideos.map"));
+  assert.ok(clientSource.includes("snapshot.videos"));
 });
 
 test("a interface inclui seleção em bloco, Últimas independente, ordenação e Sem colocação", () => {
