@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { adminRelativeRedirect, adminRelativeUrl } from "@/lib/admin-relative-redirect";
 import { syncCurrentPublishedReferenceCompositionNewsFlow } from "@/lib/editorial-current-reference-composition-sync";
 import {
@@ -1462,8 +1462,8 @@ async function saveMatchdayRoundupItems(formData: FormData) {
     throw new Error("matchday-invalid");
   }
 
-  const existingRoundupRows = await fetchSupabaseAdminTable<{ id: string; sort_order: number; image_url: string | null }>(
-    `matchday_roundup_items?select=id,sort_order,image_url&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=200`
+  const existingRoundupRows = await fetchSupabaseAdminTable<{ id: string; sort_order: number; image_url: string | null; title: string | null; video_url: string | null }>(
+    `matchday_roundup_items?select=id,sort_order,image_url,title,video_url&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=200`
   ).catch(() => []);
   const existingRoundupById = new Map(existingRoundupRows.map((item) => [item.id, item]));
   const existingRoundupBySortOrder = new Map(existingRoundupRows.map((item) => [item.sort_order, item]));
@@ -1474,9 +1474,10 @@ async function saveMatchdayRoundupItems(formData: FormData) {
     const title = cleanText(formData.get(`roundup_${sortOrder}_title`));
     const subtitle = cleanText(formData.get(`roundup_${sortOrder}_subtitle`));
     const imageUrlFieldName = `roundup_${sortOrder}_image_url`;
-    const existingImageUrl = itemId
-      ? existingRoundupById.get(itemId)?.image_url ?? null
-      : existingRoundupBySortOrder.get(sortOrder)?.image_url ?? null;
+    const existingRoundup = itemId
+      ? existingRoundupById.get(itemId) ?? null
+      : existingRoundupBySortOrder.get(sortOrder) ?? null;
+    const existingImageUrl = existingRoundup?.image_url ?? null;
     const submittedImageUrl = formData.has(imageUrlFieldName) ? cleanText(formData.get(imageUrlFieldName)) : null;
     const imageUrl = submittedImageUrl ?? existingImageUrl;
     const videoUrl = cleanText(formData.get(`roundup_${sortOrder}_video_url`));
@@ -1487,7 +1488,7 @@ async function saveMatchdayRoundupItems(formData: FormData) {
     const status = statusValue === "published" ? "published" : "draft";
     const hasContent = Boolean(label || title || subtitle || imageUrl || videoUrl || duration);
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       matchday_id: matchdayId,
       label,
       title,
@@ -1500,6 +1501,14 @@ async function saveMatchdayRoundupItems(formData: FormData) {
       status,
       updated_at: new Date().toISOString()
     };
+
+    if (existingRoundup && (existingRoundup.title !== title || existingRoundup.video_url !== videoUrl)) {
+      payload.match_id = null;
+      payload.youtube_video_id = null;
+      payload.youtube_channel_id = null;
+      payload.is_embeddable = null;
+      payload.source_candidate_id = null;
+    }
 
     if (!hasContent && status !== "published") {
       continue;
@@ -1550,11 +1559,11 @@ async function saveMatchdayRoundupItem(formData: FormData) {
   }
 
   const existingRows = itemId
-    ? await fetchSupabaseAdminTable<{ id: string; image_url: string | null; video_url: string | null }>(
-        `matchday_roundup_items?select=id,image_url,video_url&id=eq.${encodeURIComponent(itemId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
+    ? await fetchSupabaseAdminTable<{ id: string; image_url: string | null; video_url: string | null; title: string | null }>(
+        `matchday_roundup_items?select=id,image_url,video_url,title&id=eq.${encodeURIComponent(itemId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
       ).catch(() => [])
-    : await fetchSupabaseAdminTable<{ id: string; image_url: string | null; video_url: string | null }>(
-        `matchday_roundup_items?select=id,image_url,video_url&matchday_id=eq.${encodeURIComponent(matchdayId)}&sort_order=eq.${sortOrder}&limit=1`
+    : await fetchSupabaseAdminTable<{ id: string; image_url: string | null; video_url: string | null; title: string | null }>(
+        `matchday_roundup_items?select=id,image_url,video_url,title&matchday_id=eq.${encodeURIComponent(matchdayId)}&sort_order=eq.${sortOrder}&limit=1`
       ).catch(() => []);
 
   const existingItem = existingRows[0] ?? null;
@@ -1576,7 +1585,7 @@ async function saveMatchdayRoundupItem(formData: FormData) {
     return;
   }
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     matchday_id: matchdayId,
     label,
     title,
@@ -1589,6 +1598,14 @@ async function saveMatchdayRoundupItem(formData: FormData) {
     status,
     updated_at: new Date().toISOString()
   };
+
+  if (existingItem && (existingItem.title !== title || existingItem.video_url !== videoUrl)) {
+    payload.match_id = null;
+    payload.youtube_video_id = null;
+    payload.youtube_channel_id = null;
+    payload.is_embeddable = null;
+    payload.source_candidate_id = null;
+  }
 
   if (existingItem) {
     await writeSupabaseAdmin(
@@ -1915,7 +1932,7 @@ async function transferMatchdayNewsArticle(formData: FormData) {
   } else if (displacedTargetChoice) {
     throw new EditorialMatchdayNewsFlowError(
       "news-flow-invalid",
-      "O destino escolhido para a notícia substituída já não é válido.",
+      "O destino escolhido para a not├¡cia substitu├¡da j├í n├úo ├® v├ílido.",
     );
   }
 
@@ -1930,7 +1947,7 @@ async function transferMatchdayNewsArticle(formData: FormData) {
   ) {
     throw new EditorialMatchdayNewsFlowError(
       "news-flow-invalid",
-      "A transferência pedida já não é válida. Atualiza a página e tenta novamente.",
+      "A transfer├¬ncia pedida j├í n├úo ├® v├ílida. Atualiza a p├ígina e tenta novamente.",
     );
   }
 
@@ -2079,7 +2096,7 @@ function calendarRejectRow({
     inputState: null,
     scheduledDate: null,
     kickoffAt: null,
-    scheduleLabel: matchdayNumber ? `J${matchdayNumber} · DATA E HORA POR DEFINIR` : "DATA E HORA POR DEFINIR",
+    scheduleLabel: matchdayNumber ? `J${matchdayNumber} ┬À DATA E HORA POR DEFINIR` : "DATA E HORA POR DEFINIR",
     venue: null,
     broadcastChannelName: null,
     broadcastChannelId: null,
@@ -2091,21 +2108,21 @@ function calendarRejectRow({
 
 async function validateCalendarContext(countryId: string, competitionId: string, seasonId: string) {
   if (!(await hasRows(`countries?select=id&id=eq.${encodeURIComponent(countryId)}`))) {
-    throw new CalendarImportRequestError("country-not-found", "O país selecionado não existe.", 404);
+    throw new CalendarImportRequestError("country-not-found", "O pa├¡s selecionado n├úo existe.", 404);
   }
   if (
     !(await hasRows(
       `competitions?select=id&id=eq.${encodeURIComponent(competitionId)}&country_id=eq.${encodeURIComponent(countryId)}`
     ))
   ) {
-    throw new CalendarImportRequestError("competition-country-invalid", "A competição não pertence ao país selecionado.");
+    throw new CalendarImportRequestError("competition-country-invalid", "A competi├º├úo n├úo pertence ao pa├¡s selecionado.");
   }
   if (
     !(await hasRows(
       `seasons?select=id&id=eq.${encodeURIComponent(seasonId)}&competition_id=eq.${encodeURIComponent(competitionId)}`
     ))
   ) {
-    throw new CalendarImportRequestError("season-competition-invalid", "A época não pertence à competição selecionada.");
+    throw new CalendarImportRequestError("season-competition-invalid", "A ├®poca n├úo pertence ├á competi├º├úo selecionada.");
   }
 }
 
@@ -2117,7 +2134,7 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
   const rawList = typeof rawEntry === "string" ? rawEntry : null;
 
   if (!countryId || !competitionId || !seasonId || rawList === null) {
-    throw new CalendarImportRequestError("missing-fields", "Faltam o contexto ou a lista do calendário.");
+    throw new CalendarImportRequestError("missing-fields", "Faltam o contexto ou a lista do calend├írio.");
   }
 
   await validateCalendarContext(countryId, competitionId, seasonId);
@@ -2139,7 +2156,7 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
   );
   const participantTeamIds = Array.from(new Set(participants.map((participant) => participant.team_id)));
   if (participantTeamIds.length === 0) {
-    throw new CalendarImportRequestError("matchday-needs-participants", "A época não tem participantes ativos.");
+    throw new CalendarImportRequestError("matchday-needs-participants", "A ├®poca n├úo tem participantes ativos.");
   }
 
   const teamsQuery = participantTeamIds.map(encodeURIComponent).join(",");
@@ -2226,12 +2243,12 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
     const awayResolution = resolveCalendarTeam(teamLookup, row.awayName);
     if (homeResolution.status === "unresolved" || awayResolution.status === "unresolved") {
       unresolvedClubs += 1;
-      previewRows.push(calendarRejectRow({ ...row, note: "Clube não resolvido entre os participantes ativos da época." }));
+      previewRows.push(calendarRejectRow({ ...row, note: "Clube n├úo resolvido entre os participantes ativos da ├®poca." }));
       continue;
     }
     if (homeResolution.status === "ambiguous" || awayResolution.status === "ambiguous") {
       ambiguousClubs += 1;
-      previewRows.push(calendarRejectRow({ ...row, note: "Clube ambíguo: a chave corresponde a mais de um participante ativo." }));
+      previewRows.push(calendarRejectRow({ ...row, note: "Clube amb├¡guo: a chave corresponde a mais de um participante ativo." }));
       continue;
     }
 
@@ -2250,12 +2267,12 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
         continue;
       }
       if (channelResolution.status === "ambiguous") {
-        previewRows.push(calendarRejectRow({ ...row, note: `CanalTV ambíguo no catálogo: ${row.broadcastChannelName}.` }));
+        previewRows.push(calendarRejectRow({ ...row, note: `CanalTV amb├¡guo no cat├ílogo: ${row.broadcastChannelName}.` }));
         continue;
       }
       resolvedBroadcastChannel = broadcastChannelsById.get(channelResolution.channelId) ?? null;
       if (!resolvedBroadcastChannel) {
-        previewRows.push(calendarRejectRow({ ...row, note: "O CanalTV deixou de estar disponível no catálogo." }));
+        previewRows.push(calendarRejectRow({ ...row, note: "O CanalTV deixou de estar dispon├¡vel no cat├ílogo." }));
         continue;
       }
     }
@@ -2278,7 +2295,7 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
     pairingCounts.set(pairingKey, (pairingCounts.get(pairingKey) ?? 0) + 1);
     const existingForIdentity = matchday ? existingByIdentity.get(identity) ?? [] : [];
     if (existingForIdentity.length > 1) {
-      previewRows.push(calendarRejectRow({ ...row, note: "Existem vários jogos com a mesma identidade competitiva." }));
+      previewRows.push(calendarRejectRow({ ...row, note: "Existem v├írios jogos com a mesma identidade competitiva." }));
       continue;
     }
     const existing = existingForIdentity[0] ?? null;
@@ -2292,7 +2309,7 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
     });
     if (hasOtherUse) {
       repeatedTeamsInMatchday += 1;
-      previewRows.push(calendarRejectRow({ ...row, note: "Uma das equipas já tem outro jogo nesta jornada." }));
+      previewRows.push(calendarRejectRow({ ...row, note: "Uma das equipas j├í tem outro jogo nesta jornada." }));
       continue;
     }
 
@@ -2350,10 +2367,10 @@ async function buildCalendarServerPlan(formData: FormData): Promise<CalendarServ
       changes: action?.changes ?? [],
       existingMatchId: existing?.id ?? null,
       note: existing
-        ? action?.reason ?? "O jogo existente será preservado."
+        ? action?.reason ?? "O jogo existente ser├í preservado."
         : matchday
-          ? "A jornada existente será reutilizada."
-          : "Jornada a criar; starts_on e ends_on permanecerão nulos."
+          ? "A jornada existente ser├í reutilizada."
+          : "Jornada a criar; starts_on e ends_on permanecer├úo nulos."
     };
     previewRows.push(preview);
     writes.push({
@@ -2474,7 +2491,7 @@ async function createOrReadCalendarMatchday(seasonId: string, plan: CalendarMatc
     `matchdays?select=id,number,label&season_id=eq.${encodeURIComponent(seasonId)}&number=eq.${plan.number}&limit=1`
   );
   if (!existing[0]) {
-    throw new CalendarImportRequestError("matchday-create-failed", "Não foi possível criar ou reencontrar a jornada.", 409);
+    throw new CalendarImportRequestError("matchday-create-failed", "N├úo foi poss├¡vel criar ou reencontrar a jornada.", 409);
   }
   return { ...existing[0], created: false };
 }
@@ -2487,15 +2504,15 @@ function readCalendarCheckpoints(formData: FormData): CalendarMatchdayCheckpoint
   try {
     value = JSON.parse(raw) as unknown;
   } catch {
-    throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Os checkpoints enviados não são JSON válido.");
+    throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Os checkpoints enviados n├úo s├úo JSON v├ílido.");
   }
   if (!Array.isArray(value)) {
-    throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Os checkpoints enviados não formam uma lista.");
+    throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Os checkpoints enviados n├úo formam uma lista.");
   }
 
   return value.map((item) => {
     if (typeof item !== "object" || item === null) {
-      throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Existe um checkpoint inválido.");
+      throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Existe um checkpoint inv├ílido.");
     }
     const record = item as Record<string, unknown>;
     const numbers = [
@@ -2511,7 +2528,7 @@ function readCalendarCheckpoints(formData: FormData): CalendarMatchdayCheckpoint
       (record.status !== "completed" && record.status !== "failed") ||
       (record.message !== undefined && typeof record.message !== "string")
     ) {
-      throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Existe um checkpoint com campos inválidos.");
+      throw new CalendarImportRequestError("calendar-checkpoint-invalid", "Existe um checkpoint com campos inv├ílidos.");
     }
 
     return {
@@ -2538,13 +2555,13 @@ async function applyCalendarMatchday(formData: FormData): Promise<CalendarApplyR
 
   const plan = await buildCalendarServerPlan(formData);
   if (plan.response.rows.some((row) => row.status === "reject" || row.status === "duplicate")) {
-    throw new CalendarImportRequestError("calendar-plan-blocked", "A lista contém linhas rejeitadas ou duplicadas; é necessário novo preview.", 409);
+    throw new CalendarImportRequestError("calendar-plan-blocked", "A lista cont├®m linhas rejeitadas ou duplicadas; ├® necess├írio novo preview.", 409);
   }
 
   const matchdayNumber = Number(matchdayText);
   const matchdayPlan = plan.response.matchdays.find((matchday) => matchday.number === matchdayNumber);
   if (!matchdayPlan) {
-    throw new CalendarImportRequestError("matchday-not-in-plan", "A jornada não pertence ao plano validado.", 404);
+    throw new CalendarImportRequestError("matchday-not-in-plan", "A jornada n├úo pertence ao plano validado.", 404);
   }
   const currentCheckpoints = readCalendarCheckpoints(formData);
   const checkpointValidation = validateCalendarCheckpointSequence(plan.response.matchdays, currentCheckpoints);
@@ -2555,12 +2572,12 @@ async function applyCalendarMatchday(formData: FormData): Promise<CalendarApplyR
   if (!nextMatchday) {
     throw new CalendarImportRequestError(
       "calendar-checkpoint-stopped",
-      "A aplicação está concluída ou parada no primeiro checkpoint falhado; atualiza o preview antes de retomar.",
+      "A aplica├º├úo est├í conclu├¡da ou parada no primeiro checkpoint falhado; atualiza o preview antes de retomar.",
       409
     );
   }
   if (nextMatchday.number !== matchdayNumber) {
-    throw new CalendarImportRequestError("calendar-checkpoint-invalid", "A jornada pedida não é a próxima jornada aplicável.", 409);
+    throw new CalendarImportRequestError("calendar-checkpoint-invalid", "A jornada pedida n├úo ├® a pr├│xima jornada aplic├ível.", 409);
   }
 
   const fingerprintValidation = validateCalendarFingerprint(fingerprint, matchdayPlan.fingerprint);
@@ -2616,7 +2633,7 @@ async function applyCalendarMatchday(formData: FormData): Promise<CalendarApplyR
     const updates = matchdayWrites.filter((write) => write.preview.status === "update" && write.existingMatchId);
     for (const update of updates) {
       if (Object.keys(update.updatePatch).length === 0) {
-        throw new CalendarImportRequestError("calendar-update-invalid", "Uma atualização ficou sem campos efetivamente alterados.", 409, checkpoint);
+        throw new CalendarImportRequestError("calendar-update-invalid", "Uma atualiza├º├úo ficou sem campos efetivamente alterados.", 409, checkpoint);
       }
       const updated = await writeSupabaseAdminReturning<{ id: string }>(
         `matches?id=eq.${encodeURIComponent(update.existingMatchId ?? "")}&season_id=eq.${encodeURIComponent(
@@ -2630,12 +2647,12 @@ async function applyCalendarMatchday(formData: FormData): Promise<CalendarApplyR
         }
       );
       if (!updated[0]) {
-        throw new CalendarImportRequestError("match-update-stale", "Um jogo deixou de estar disponível para atualização.", 409, checkpoint);
+        throw new CalendarImportRequestError("match-update-stale", "Um jogo deixou de estar dispon├¡vel para atualiza├º├úo.", 409, checkpoint);
       }
       checkpoint.updatedMatches += 1;
     }
   } catch (error) {
-    const message = error instanceof CalendarImportRequestError ? error.message : "A aplicação da jornada falhou; atualiza o preview e retoma.";
+    const message = error instanceof CalendarImportRequestError ? error.message : "A aplica├º├úo da jornada falhou; atualiza o preview e retoma.";
     const failedTransition = applyCalendarCheckpointTransition(plan.response.matchdays, currentCheckpoints, {
       ...checkpoint,
       status: "failed",
@@ -2681,7 +2698,7 @@ function calendarErrorResponse(error: unknown) {
   const payload: CalendarErrorResponse = {
     ok: false,
     error: "calendar-unexpected-error",
-    message: "A operação do calendário falhou sem alterar o contexto selecionado."
+    message: "A opera├º├úo do calend├írio falhou sem alterar o contexto selecionado."
   };
   return NextResponse.json(payload, { status: 500 });
 }
@@ -3167,7 +3184,7 @@ export async function POST(request: Request) {
       const payload: CalendarErrorResponse = {
         ok: false,
         error: "missing-service",
-        message: "A escrita administrativa não está configurada."
+        message: "A escrita administrativa n├úo est├í configurada."
       };
       return NextResponse.json(payload, { status: 503 });
     }
@@ -3299,7 +3316,7 @@ export async function POST(request: Request) {
 
     if (actionType === "transfer_matchday_news_article") {
       return returnUrl(request, formData, "error", "news-flow-transfer-failed", {
-        news_flow_error_detail: error instanceof Error ? shortActionError(error) : "Não foi possível transferir a notícia."
+        news_flow_error_detail: error instanceof Error ? shortActionError(error) : "N├úo foi poss├¡vel transferir a not├¡cia."
       });
     }
 

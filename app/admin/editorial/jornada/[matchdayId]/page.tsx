@@ -1,5 +1,6 @@
 import EditorialColorPresets, { EditorialColorInput } from "@/components/admin/EditorialColorPresets";
 import EditorialHorizontalNewsEditor from "@/components/admin/EditorialHorizontalNewsEditor";
+import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
 import {
   EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
   EDITORIAL_CONTEXT_POST_TITLE_MIN_CHARS,
@@ -2793,6 +2794,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     Guardar vídeo
                   </button>
                 </form>
+                <MatchdayVideoSummarySync matchdayId={matchday.id} />
                 {roundupEditor}
         </section>
 

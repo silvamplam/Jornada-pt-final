@@ -1,4 +1,4 @@
-import { fetchSupabaseAdminTable, type SupabaseBroadcastChannel, type SupabaseCompetition, type SupabaseMatch, type SupabaseMatchday, type SupabaseMatchdayEditorial, type SupabaseMatchdayHighlight, type SupabaseMatchdayHorizontalNews, type SupabaseMatchdayLatestNews, type SupabaseMatchdayRoundupItem, type SupabaseSeason, type SupabaseSeasonTeam, type SupabaseTeam } from "@/lib/supabase";
+﻿import { fetchSupabaseAdminTable, type SupabaseBroadcastChannel, type SupabaseCompetition, type SupabaseMatch, type SupabaseMatchday, type SupabaseMatchdayEditorial, type SupabaseMatchdayHighlight, type SupabaseMatchdayHorizontalNews, type SupabaseMatchdayLatestNews, type SupabaseMatchdayRoundupItem, type SupabaseSeason, type SupabaseSeasonTeam, type SupabaseTeam } from "@/lib/supabase";
 import type { HierarchicalCompositionSlot, ReferenceCompositionPresentationMode } from "@/lib/editorial-hierarchical-composition";
 import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
 
@@ -228,7 +228,7 @@ async function readPublishedMatchdayHighlights(matchdayId: string) {
 async function readPublishedMatchdayRoundupItems(matchdayId: string) {
   try {
     return fetchSupabaseAdminTable<SupabaseMatchdayRoundupItem>(
-      `matchday_roundup_items?select=id,matchday_id,label,title,subtitle,image_url,video_url,duration,type,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_roundup_items?select=id,matchday_id,label,title,subtitle,image_url,video_url,duration,is_embeddable,type,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&status=eq.published&order=sort_order.asc&limit=50`
     );
@@ -419,7 +419,7 @@ async function readRoundupItemsByIds(matchdayId: string, ids: string[]) {
 
   try {
     return fetchSupabaseAdminTable<SupabaseMatchdayRoundupItem>(
-      `matchday_roundup_items?select=id,matchday_id,label,title,subtitle,image_url,video_url,duration,type,sort_order,status,created_at,updated_at&id=in.(${idList(
+      `matchday_roundup_items?select=id,matchday_id,label,title,subtitle,image_url,video_url,duration,is_embeddable,type,sort_order,status,created_at,updated_at&id=in.(${idList(
         uniqueIds
       )})&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=200`
     );

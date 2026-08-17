@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -14,6 +14,7 @@ export type RoundupVideoItem = {
   image_url?: string | null;
   video_url?: string | null;
   duration?: string | null;
+  is_embeddable?: boolean | null;
   type?: string | null;
   status?: string | null;
   sort_order?: number | null;
@@ -260,7 +261,7 @@ const roundupVideoListPolishStyles = `
   }
 
 
-  /* Jornada pública: tratamento editorial do resumo em vídeo sem alterar a Home. */
+  /* Jornada p├║blica: tratamento editorial do resumo em v├¡deo sem alterar a Home. */
   .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-roundup-video-layout {
     row-gap: 12px;
   }
@@ -557,7 +558,7 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
   const [activeItemKey, setActiveItemKey] = useState(initialItemEntry?.key ?? null);
   const activeItemEntry = itemEntries.find((entry) => entry.key === activeItemKey) ?? initialItemEntry;
   const activeItem = activeItemEntry?.item ?? null;
-  const embedUrl = videoEmbedUrl(activeItem?.video_url);
+  const embedUrl = activeItem?.is_embeddable === false ? null : videoEmbedUrl(activeItem?.video_url);
   const activeVideoUrl = activeItem?.video_url?.trim() || null;
   const activePreviewImageUrl = videoThumbnailUrl(activeItem);
   const hasScrollControls = items.length > 5;
@@ -637,7 +638,7 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
         </h3>
       ) : reserveHeadingSpace ? (
         <h3 aria-hidden="true" className="public-roundup-zone-heading public-depth-zone-heading-placeholder">
-          Vídeo
+          V├¡deo
         </h3>
       ) : null}
       <div className="public-roundup-video-content">
@@ -706,7 +707,7 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
                 <YouTubeEmbedWithFallback
                   embedUrl={embedUrl}
                   posterUrl={activePreviewImageUrl}
-                  title={activeItem.title ?? "Vídeo da jornada"}
+                  title={activeItem.title ?? "V├¡deo da jornada"}
                   videoUrl={activeVideoUrl}
                 />
               ) : activePreviewImageUrl ? (

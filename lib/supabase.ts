@@ -1,4 +1,4 @@
-import type { BroadcastOverride } from "@/lib/jornada";
+﻿import type { BroadcastOverride } from "@/lib/jornada";
 
 export type SupabaseConfig = {
   url: string;
@@ -159,6 +159,11 @@ export type SupabaseMatchdayRoundupItem = {
   image_url: string | null;
   video_url: string | null;
   duration: string | null;
+  match_id?: string | null;
+  youtube_video_id?: string | null;
+  youtube_channel_id?: string | null;
+  is_embeddable?: boolean | null;
+  source_candidate_id?: string | null;
   type: "video" | "golos" | "resumo" | "noticia";
   sort_order: number;
   status: "draft" | "published";
@@ -802,7 +807,7 @@ export async function getAdminTeamPublicNameManagement(): Promise<{
           : {
               key: "missing",
               id: null,
-              name: "Sem país",
+              name: "Sem pa├¡s",
               source: "missing"
             };
       countryOptions.set(resolvedCountry.key, resolvedCountry);
