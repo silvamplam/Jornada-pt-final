@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { ADMIN_SESSION_COOKIE, verifyAdminSession } from "@/lib/admin-session";
+import { isBlockedCrawlerUserAgent } from "@/lib/crawler-egress-policy";
 
 function redirectToAdminLogin(request: NextRequest, nextPath: string) {
   const url = request.nextUrl.clone();
@@ -12,7 +13,22 @@ function redirectToAdminLogin(request: NextRequest, nextPath: string) {
   return NextResponse.redirect(url, { status: 303 });
 }
 
+function blockCrawler() {
+  return new NextResponse("Forbidden", {
+    status: 403,
+    headers: {
+      "Cache-Control": "private, no-store",
+      "Content-Type": "text/plain; charset=utf-8",
+      "X-Robots-Tag": "noindex, nofollow",
+    },
+  });
+}
+
 export async function middleware(request: NextRequest) {
+  if (isBlockedCrawlerUserAgent(request.headers.get("user-agent"))) {
+    return blockCrawler();
+  }
+
   const { pathname, search } = request.nextUrl;
   const isAdminPage = pathname.startsWith("/admin");
   const isAdminApi = pathname.startsWith("/api/admin");
@@ -39,5 +55,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"]
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt).*)"]
 };
