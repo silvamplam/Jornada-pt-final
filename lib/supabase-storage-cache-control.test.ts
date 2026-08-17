@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -36,7 +36,7 @@ test("uploads editoriais novos ficam com cache persistente no Storage", () => {
   assert.doesNotMatch(importedImageRoute, /method:\s*"POST"/);
 });
 
-test("a polÃ­tica de cache acompanha uploads versionados, sem alterar URLs pÃºblicas", () => {
+test("a política de cache acompanha uploads versionados, sem alterar URLs públicas", () => {
   const articleUploadRoute = source("app/api/admin/editorial/artigos/upload-image/sign/route.ts");
   const contentImageUploadRoute = source("app/api/admin/editorial/conteudos/upload-image/sign/route.ts");
   const contentVideoUploadRoute = source("app/api/admin/editorial/conteudos/upload-video/sign/route.ts");
