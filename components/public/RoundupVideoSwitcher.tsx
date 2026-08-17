@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -261,7 +261,7 @@ const roundupVideoListPolishStyles = `
   }
 
 
-  /* Jornada p├║blica: tratamento editorial do resumo em v├¡deo sem alterar a Home. */
+  /* Jornada pública: tratamento editorial do resumo em vídeo sem alterar a Home. */
   .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-roundup-video-layout {
     row-gap: 12px;
   }
@@ -638,7 +638,7 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
         </h3>
       ) : reserveHeadingSpace ? (
         <h3 aria-hidden="true" className="public-roundup-zone-heading public-depth-zone-heading-placeholder">
-          V├¡deo
+          Vídeo
         </h3>
       ) : null}
       <div className="public-roundup-video-content">
@@ -707,7 +707,7 @@ export default function RoundupVideoSwitcher({ items, initialItemId, heading, he
                 <YouTubeEmbedWithFallback
                   embedUrl={embedUrl}
                   posterUrl={activePreviewImageUrl}
-                  title={activeItem.title ?? "V├¡deo da jornada"}
+                  title={activeItem.title ?? "Vídeo da jornada"}
                   videoUrl={activeVideoUrl}
                 />
               ) : activePreviewImageUrl ? (

@@ -1,4 +1,4 @@
-﻿import { fetchSupabaseAdminTable, type SupabaseBroadcastChannel, type SupabaseCompetition, type SupabaseMatch, type SupabaseMatchday, type SupabaseMatchdayEditorial, type SupabaseMatchdayHighlight, type SupabaseMatchdayHorizontalNews, type SupabaseMatchdayLatestNews, type SupabaseMatchdayRoundupItem, type SupabaseSeason, type SupabaseSeasonTeam, type SupabaseTeam } from "@/lib/supabase";
+import { fetchSupabaseAdminTable, type SupabaseBroadcastChannel, type SupabaseCompetition, type SupabaseMatch, type SupabaseMatchday, type SupabaseMatchdayEditorial, type SupabaseMatchdayHighlight, type SupabaseMatchdayHorizontalNews, type SupabaseMatchdayLatestNews, type SupabaseMatchdayRoundupItem, type SupabaseSeason, type SupabaseSeasonTeam, type SupabaseTeam } from "@/lib/supabase";
 import type { HierarchicalCompositionSlot, ReferenceCompositionPresentationMode } from "@/lib/editorial-hierarchical-composition";
 import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
 

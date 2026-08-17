@@ -1,4 +1,4 @@
-﻿import type { BroadcastOverride } from "@/lib/jornada";
+import type { BroadcastOverride } from "@/lib/jornada";
 
 export type SupabaseConfig = {
   url: string;
@@ -807,7 +807,7 @@ export async function getAdminTeamPublicNameManagement(): Promise<{
           : {
               key: "missing",
               id: null,
-              name: "Sem pa├¡s",
+              name: "Sem país",
               source: "missing"
             };
       countryOptions.set(resolvedCountry.key, resolvedCountry);
