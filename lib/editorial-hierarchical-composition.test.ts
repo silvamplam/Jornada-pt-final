@@ -143,11 +143,52 @@ test("a Mesa da Composição traduz os 15 lugares para a estrutura pública", ()
     [...HIERARCHICAL_COMPOSITION_SLOT_KEYS].sort(),
   );
 
-  const deskStart = compositionPage.indexOf("function AssignHierarchicalSlotForm(");
-  const deskEnd = compositionPage.indexOf("function RemoveHierarchicalReferenceItemForm", deskStart);
-  const deskSource = compositionPage.slice(deskStart, deskEnd);
+  const bankStart = compositionPage.indexOf(
+    "function HierarchicalCompositionDeskBank(",
+  );
 
-  assert.ok(deskStart >= 0 && deskEnd > deskStart);
+  const bankEnd = compositionPage.indexOf(
+    "function LatestArticlePresentationForm",
+    bankStart,
+  );
+
+  const bankSource = compositionPage.slice(
+    bankStart,
+    bankEnd,
+  );
+
+  const editorStart = compositionPage.indexOf(
+    "function HierarchicalCompositionEditor(",
+  );
+
+  const editorEnd = compositionPage.indexOf(
+    "function RemoveHierarchicalReferenceItemForm",
+    editorStart,
+  );
+
+  const editorSource = compositionPage.slice(
+    editorStart,
+    editorEnd,
+  );
+
+  const auxiliaryStart = compositionPage.indexOf(
+    "function HierarchicalAuxiliaryEditor(",
+  );
+
+  const auxiliaryEnd = compositionPage.indexOf(
+    "export default async function AdminEditorialCompositionPage",
+    auxiliaryStart,
+  );
+
+  const auxiliarySource = compositionPage.slice(
+    auxiliaryStart,
+    auxiliaryEnd,
+  );
+
+  assert.ok(bankStart >= 0 && bankEnd > bankStart);
+  assert.ok(editorStart >= 0 && editorEnd > editorStart);
+  assert.ok(auxiliaryStart >= 0 && auxiliaryEnd > auxiliaryStart);
+
   assert.match(compositionPage, /Mesa da Composição/);
   assert.match(compositionPage, /Banco da Mesa/);
   assert.match(compositionPage, /readMatchdayEditorialDesk/);
@@ -165,22 +206,122 @@ test("a Mesa da Composição traduz os 15 lugares para a estrutura pública", ()
     "Destaque da Jornada",
     "Sem colocação",
   ]) {
-    assert.ok(compositionPage.includes(label), `falta o filtro ${label}`);
+    assert.ok(
+      compositionPage.includes(label),
+      `falta o filtro ${label}`,
+    );
   }
 
-  assert.match(compositionPage, /data-composition-desk-filter/);
-  assert.match(compositionPage, /data-composition-bank-choice/);
-  assert.match(compositionPage, /assign_roundup_item_to_hierarchical_composition/);
-  assert.match(compositionPage, /assign_bank_item_to_hierarchical_auxiliary/);
+  assert.match(
+    bankSource,
+    /data-composition-desk-search/,
+  );
 
-  assert.match(deskSource, /HIERARCHICAL_COMPOSITION_DESK_SECTIONS\.map/);
-  assert.match(deskSource, /data-composition-selected-bank-input/);
-  assert.match(deskSource, /Colocar selecionada/);
-  assert.doesNotMatch(deskSource, /hierarchical-direct-/);
-  assert.match(deskSource, /assign_bank_item_to_hierarchical_slot/);
-  assert.match(deskSource, /Retirar deste lugar/);
+  assert.match(
+    bankSource,
+    /data-composition-desk-filter/,
+  );
+
+  assert.match(
+    bankSource,
+    /data-composition-bank-choice/,
+  );
+
+  assert.match(
+    bankSource,
+    /data-composition-destination/,
+  );
+
+  assert.match(
+    bankSource,
+    /data-composition-desk-place-form/,
+  );
+
+  assert.match(
+    bankSource,
+    /data-composition-place-button/,
+  );
+
+  assert.match(
+    bankSource,
+    /Colocar em…/,
+  );
+
+  assert.match(
+    bankSource,
+    />\s*Colocar\s*</,
+  );
+
+  assert.match(
+    bankSource,
+    /composition-admin-desk-thumbnail/,
+  );
+
+  assert.match(
+    bankSource,
+    /article\.imageUrl \|\| item\.image_url/,
+  );
+
+  assert.match(
+    bankSource,
+    /slot::\$\{slot\.key\}/,
+  );
+
+  assert.match(
+    bankSource,
+    /aux::video_highlight/,
+  );
+
+  assert.match(
+    bankSource,
+    /aux::beyond_matchday_/,
+  );
+
+  assert.match(
+    compositionPage,
+    /assign_bank_item_to_hierarchical_slot/,
+  );
+
+  assert.match(
+    compositionPage,
+    /assign_bank_item_to_hierarchical_auxiliary/,
+  );
+
+  assert.match(
+    compositionPage,
+    /assign_roundup_item_to_hierarchical_composition/,
+  );
+
+  assert.match(
+    editorSource,
+    /HIERARCHICAL_COMPOSITION_DESK_SECTIONS\.map/,
+  );
+
+  assert.match(
+    editorSource,
+    /<span>Livre<\/span>/,
+  );
+
+  assert.doesNotMatch(
+    editorSource,
+    /Colocar selecionada/,
+  );
+
+  assert.doesNotMatch(
+    compositionPage,
+    /function AssignHierarchicalSlotForm/,
+  );
+
+  assert.doesNotMatch(
+    compositionPage,
+    /function AssignSelectedBankItemToHierarchicalAuxiliaryForm/,
+  );
+
+  assert.match(
+    auxiliarySource,
+    /<span>Livre<\/span>/,
+  );
 });
-
 test("slots e origens não duplicam e apagar o banco não destrói snapshots", () => {
   assert.match(applySql, /unique \(composition_id, slot_key\)/i);
   assert.match(applySql, /unique \(composition_id, source_identity\)/i);
