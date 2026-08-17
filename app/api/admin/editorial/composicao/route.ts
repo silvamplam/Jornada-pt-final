@@ -2458,6 +2458,418 @@ async function saveCurrentPageState(formData: FormData) {
   }
 }
 
+type HierarchicalDeskPlanOperation =
+  | {
+      kind: "unassign_slot";
+      slotId: string;
+    }
+  | {
+      kind: "remove_auxiliary";
+      itemId: string;
+    }
+  | {
+      kind: "assign_slot";
+      slotKey: string;
+      bankItemId: string;
+    }
+  | {
+      kind: "assign_auxiliary";
+      target: string;
+      bankItemId: string;
+    };
+
+type HierarchicalDeskCurrentSlot = {
+  id: string;
+  slot_key: string;
+  bank_item_id: string | null;
+  source_identity: string | null;
+};
+
+type HierarchicalDeskCurrentAuxiliary = {
+  id: string;
+  slot_type: string;
+  sort_order: number;
+  source_type: string | null;
+  source_id: string | null;
+};
+
+function parseHierarchicalDeskPlanOperations(
+  raw: string,
+): HierarchicalDeskPlanOperation[] {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  }
+  catch {
+    throw new CompositionPublicationError(
+      "O plano da Mesa não é válido.",
+    );
+  }
+
+  if (!Array.isArray(parsed) || parsed.length > 60) {
+    throw new CompositionPublicationError(
+      "O plano da Mesa não é válido.",
+    );
+  }
+
+  return parsed.map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new CompositionPublicationError(
+        "O plano da Mesa contém uma operação inválida.",
+      );
+    }
+
+    const record = value as Record<string, unknown>;
+    const kind = typeof record.kind === "string" ? record.kind : "";
+
+    if (
+      kind === "unassign_slot" &&
+      typeof record.slotId === "string" &&
+      record.slotId.trim()
+    ) {
+      return {
+        kind,
+        slotId: record.slotId.trim(),
+      };
+    }
+
+    if (
+      kind === "remove_auxiliary" &&
+      typeof record.itemId === "string" &&
+      record.itemId.trim()
+    ) {
+      return {
+        kind,
+        itemId: record.itemId.trim(),
+      };
+    }
+
+    if (
+      kind === "assign_slot" &&
+      typeof record.slotKey === "string" &&
+      typeof record.bankItemId === "string" &&
+      record.slotKey.trim() &&
+      record.bankItemId.trim()
+    ) {
+      return {
+        kind,
+        slotKey: record.slotKey.trim(),
+        bankItemId: record.bankItemId.trim(),
+      };
+    }
+
+    if (
+      kind === "assign_auxiliary" &&
+      typeof record.target === "string" &&
+      typeof record.bankItemId === "string" &&
+      record.target.trim() &&
+      record.bankItemId.trim()
+    ) {
+      return {
+        kind,
+        target: record.target.trim(),
+        bankItemId: record.bankItemId.trim(),
+      };
+    }
+
+    throw new CompositionPublicationError(
+      "O plano da Mesa contém uma operação inválida.",
+    );
+  });
+}
+
+function hierarchicalDeskInternalForm(
+  values: Record<string, string>,
+) {
+  const data = new FormData();
+
+  Object.entries(values).forEach(([key, value]) => {
+    data.set(key, value);
+  });
+
+  return data;
+}
+
+async function applyHierarchicalDeskPlan(
+  formData: FormData,
+) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  const rawOperations =
+    cleanText(formData.get("operations_json")) ?? "[]";
+
+  if (
+    !matchdayId ||
+    !compositionId ||
+    !(await compositionBelongsToMatchday(
+      compositionId,
+      matchdayId,
+      "hierarchical",
+    ))
+  ) {
+    throw new CompositionPublicationError(
+      "A composição hierárquica já não está disponível para edição.",
+    );
+  }
+
+  const operations =
+    parseHierarchicalDeskPlanOperations(rawOperations);
+
+  if (operations.length === 0) {
+    return 0;
+  }
+
+  const [currentSlots, currentAuxiliary] = await Promise.all([
+    fetchSupabaseAdminTable<HierarchicalDeskCurrentSlot>(
+      `matchday_hierarchical_composition_slots?select=id,slot_key,bank_item_id,source_identity&composition_id=eq.${encodeURIComponent(
+        compositionId,
+      )}`,
+    ),
+    fetchSupabaseAdminTable<HierarchicalDeskCurrentAuxiliary>(
+      `matchday_reference_composition_items?select=id,slot_type,sort_order,source_type,source_id&composition_id=eq.${encodeURIComponent(
+        compositionId,
+      )}&slot_type=in.(complement,beyond_matchday)`,
+    ),
+  ]);
+
+  const removedSlotIds = new Set(
+    operations
+      .filter(
+        (
+          operation,
+        ): operation is Extract<
+          HierarchicalDeskPlanOperation,
+          { kind: "unassign_slot" }
+        > => operation.kind === "unassign_slot",
+      )
+      .map((operation) => operation.slotId),
+  );
+
+  const removedAuxiliaryIds = new Set(
+    operations
+      .filter(
+        (
+          operation,
+        ): operation is Extract<
+          HierarchicalDeskPlanOperation,
+          { kind: "remove_auxiliary" }
+        > => operation.kind === "remove_auxiliary",
+      )
+      .map((operation) => operation.itemId),
+  );
+
+  for (const slotId of removedSlotIds) {
+    if (!currentSlots.some((slot) => slot.id === slotId)) {
+      throw new CompositionPublicationError(
+        "A composição mudou entretanto. Recarrega a Mesa antes de aplicar.",
+      );
+    }
+  }
+
+  for (const itemId of removedAuxiliaryIds) {
+    if (!currentAuxiliary.some((item) => item.id === itemId)) {
+      throw new CompositionPublicationError(
+        "A composição mudou entretanto. Recarrega a Mesa antes de aplicar.",
+      );
+    }
+  }
+
+  const assignedTargets = new Set<string>();
+  const assignedBankItems = new Set<string>();
+  const bankDetails = new Map<string, BankItemForAssignment>();
+
+  for (const operation of operations) {
+    if (
+      operation.kind !== "assign_slot" &&
+      operation.kind !== "assign_auxiliary"
+    ) {
+      continue;
+    }
+
+    const targetKey =
+      operation.kind === "assign_slot"
+        ? `slot:${operation.slotKey}`
+        : `aux:${operation.target}`;
+
+    if (assignedTargets.has(targetKey)) {
+      throw new CompositionPublicationError(
+        "O plano tenta preencher o mesmo lugar mais de uma vez.",
+      );
+    }
+
+    assignedTargets.add(targetKey);
+
+    if (assignedBankItems.has(operation.bankItemId)) {
+      throw new CompositionPublicationError(
+        "A mesma notícia não pode ocupar dois lugares da Composição.",
+      );
+    }
+
+    assignedBankItems.add(operation.bankItemId);
+
+    const auxiliaryTarget =
+      operation.kind === "assign_auxiliary"
+        ? hierarchicalAuxiliaryTarget(operation.target)
+        : null;
+
+    if (
+      operation.kind === "assign_auxiliary" &&
+      !auxiliaryTarget
+    ) {
+      throw new CompositionPublicationError(
+        "O plano contém um destino posterior inválido.",
+      );
+    }
+
+    if (operation.kind === "assign_slot") {
+      if (!isHierarchicalCompositionSlotKey(operation.slotKey)) {
+        throw new CompositionPublicationError(
+          "O plano contém um lugar inválido.",
+        );
+      }
+
+      const slotKey = operation.slotKey;
+      const occupied = currentSlots.find(
+        (slot) =>
+          slot.slot_key === slotKey &&
+          !removedSlotIds.has(slot.id),
+      );
+
+      if (occupied) {
+        throw new CompositionPublicationError(
+          `${hierarchicalSlotLabel(slotKey)} já está ocupado.`,
+        );
+      }
+    }
+    else if (auxiliaryTarget) {
+      const occupied = currentAuxiliary.find(
+        (item) =>
+          item.slot_type === auxiliaryTarget.slotType &&
+          item.sort_order === auxiliaryTarget.sortOrder &&
+          !removedAuxiliaryIds.has(item.id),
+      );
+
+      if (occupied) {
+        throw new CompositionPublicationError(
+          `${auxiliaryTarget.label} já está ocupado.`,
+        );
+      }
+    }
+
+    const bankItem =
+      await readFirst<BankItemForAssignment>(
+        `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug&id=eq.${encodeURIComponent(
+          operation.bankItemId,
+        )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+      );
+
+    if (
+      !bankItem ||
+      bankItem.status !== "active" ||
+      !isEditorialArticleSourceType(bankItem.source_type) ||
+      !bankItem.source_id
+    ) {
+      throw new CompositionPublicationError(
+        "Uma das notícias selecionadas já não está disponível no Banco da Mesa.",
+      );
+    }
+
+    if (
+      operation.kind === "assign_auxiliary" &&
+      !cleanSnapshotValue(bankItem.image_url)
+    ) {
+      throw new CompositionPublicationError(
+        "Uma das notícias escolhidas para os momentos posteriores não tem imagem.",
+      );
+    }
+
+    bankDetails.set(operation.bankItemId, bankItem);
+
+    const remainingSlotUse = currentSlots.some(
+      (slot) =>
+        !removedSlotIds.has(slot.id) &&
+        (
+          slot.bank_item_id === operation.bankItemId ||
+          normalizeIdentityValue(slot.source_identity) ===
+            `editorial_article:${normalizeIdentityValue(bankItem.source_id)}`
+        ),
+    );
+
+    const remainingAuxiliaryUse = currentAuxiliary.some(
+      (item) =>
+        !removedAuxiliaryIds.has(item.id) &&
+        (
+          (
+            normalizeSourceType(item.source_type) ===
+              "matchday_editorial_bank_item" &&
+            item.source_id === operation.bankItemId
+          ) ||
+          (
+            isEditorialArticleSourceType(item.source_type) &&
+            normalizeIdentityValue(item.source_id) ===
+              normalizeIdentityValue(bankItem.source_id)
+          )
+        ),
+    );
+
+    if (remainingSlotUse || remainingAuxiliaryUse) {
+      throw new CompositionPublicationError(
+        "Uma das notícias já ocupa outro lugar da Composição. Retira-a primeiro.",
+      );
+    }
+  }
+
+  for (const operation of operations) {
+    if (operation.kind === "unassign_slot") {
+      await writeSupabaseAdmin(
+        `matchday_hierarchical_composition_slots?id=eq.${encodeURIComponent(
+          operation.slotId,
+        )}&composition_id=eq.${encodeURIComponent(compositionId)}`,
+        {
+          method: "DELETE",
+        },
+      );
+    }
+    else if (operation.kind === "remove_auxiliary") {
+      await writeSupabaseAdmin(
+        `matchday_reference_composition_items?id=eq.${encodeURIComponent(
+          operation.itemId,
+        )}&composition_id=eq.${encodeURIComponent(
+          compositionId,
+        )}&slot_type=in.(complement,beyond_matchday)`,
+        {
+          method: "DELETE",
+        },
+      );
+    }
+  }
+
+  for (const operation of operations) {
+    if (operation.kind === "assign_slot") {
+      await assignBankItemToHierarchicalSlot(
+        hierarchicalDeskInternalForm({
+          matchday_id: matchdayId,
+          composition_id: compositionId,
+          bank_item_id: operation.bankItemId,
+          slot_key: operation.slotKey,
+        }),
+      );
+    }
+    else if (operation.kind === "assign_auxiliary") {
+      await assignBankItemToHierarchicalAuxiliary(
+        hierarchicalDeskInternalForm({
+          matchday_id: matchdayId,
+          composition_id: compositionId,
+          bank_item_id: operation.bankItemId,
+          auxiliary_target: operation.target,
+        }),
+      );
+    }
+  }
+
+  return operations.length;
+}
 async function publishReferenceComposition(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const compositionId = cleanText(formData.get("composition_id"));
@@ -2549,6 +2961,38 @@ export async function POST(request: Request) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const returnTo = cleanText(formData.get("return_to")) ?? "/admin/gestor";
   const returnAnchor = cleanText(formData.get("return_anchor"));
+
+  if (actionType === "apply_hierarchical_desk_plan") {
+    try {
+      if (!matchdayId) {
+        throw new CompositionPublicationError(
+          "A jornada já não está disponível.",
+        );
+      }
+
+      const applied =
+        await applyHierarchicalDeskPlan(formData);
+
+      return Response.json({
+        ok: true,
+        applied,
+      });
+    }
+    catch (error) {
+      return Response.json(
+        {
+          ok: false,
+          message:
+            error instanceof CompositionPublicationError
+              ? error.message
+              : "Não foi possível aplicar o plano da Mesa.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+  }
 
   try {
     if (!matchdayId) throw new Error("missing-matchday");

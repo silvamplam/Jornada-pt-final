@@ -27,6 +27,7 @@ import {
   type ReferenceCompositionPresentationMode,
 } from "@/lib/editorial-hierarchical-composition";
 import HierarchicalCompositionInterpretivePreview from "@/components/admin/HierarchicalCompositionInterpretivePreview";
+import HierarchicalCompositionDeskClient from "./HierarchicalCompositionDeskClient";
 import {
   fetchSupabaseAdminTable,
   type SupabaseCompetition,
@@ -4005,8 +4006,73 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const compositionFeedbackKind = query.composition_error ? "error" : query.composition_saved ? "success" : "";
   const feedbackAnchor = query.feedback_anchor ?? "";
 
+  const hierarchicalDeskBankItemByArticleId = new Map(
+    bankItems
+      .filter(isEditorialArticleBankItem)
+      .filter((item) => item.source_id)
+      .map((item) => [item.source_id as string, item] as const),
+  );
+
+  const hierarchicalDeskArticles = presentationMode === "hierarchical"
+    ? (hierarchicalDeskSnapshot?.articles ?? []).flatMap((article) => {
+        const bankItem = hierarchicalDeskBankItemByArticleId.get(article.id);
+        if (!bankItem || bankItem.status === "archived") return [];
+
+        return [{
+          bankItemId: bankItem.id,
+          articleId: article.id,
+          label: article.label ?? bankItem.label,
+          title: article.title,
+          imageUrl: article.imageUrl ?? bankItem.image_url,
+          publishedAt: article.publishedAt,
+          inLatest: article.inLatest,
+          placementKey: article.placementKey,
+        }];
+      })
+    : [];
+
+  const hierarchicalDeskVideos = presentationMode === "hierarchical"
+    ? (hierarchicalDeskSnapshot?.videos ?? []).map((video) => ({
+        id: video.id,
+        label: video.label,
+        title: video.title,
+        imageUrl: video.imageUrl,
+        duration: video.duration,
+      }))
+    : [];
+
+  const hierarchicalDeskSlots = presentationMode === "hierarchical"
+    ? hierarchicalSlots.map((slot) => ({
+        id: slot.id,
+        slotKey: slot.slot_key,
+        bankItemId: slot.bank_item_id,
+        title: slot.title_snapshot ?? "Sem título",
+      }))
+    : [];
+
+  const hierarchicalDeskAuxiliary = presentationMode === "hierarchical"
+    ? hierarchicalAuxiliaryItems.map((item) => {
+        const bankItemId =
+          item.source_type === "matchday_editorial_bank_item"
+            ? item.source_id
+            : item.source_type === "editorial_article" && item.source_id
+              ? hierarchicalDeskBankItemByArticleId.get(item.source_id)?.id ?? null
+              : null;
+
+        return {
+          id: item.id,
+          target:
+            item.slot_type === "complement"
+              ? "video_highlight"
+              : `beyond_matchday_${item.sort_order}`,
+          bankItemId,
+          title: item.title_snapshot ?? "Sem título",
+        };
+      })
+    : [];
+
   return (
-    <main className="composition-admin-shell">
+    <main className={`composition-admin-shell${presentationMode === "hierarchical" && isDraftComposition ? " composition-admin-shell-desk" : ""}`}>
       <style>{compositionPageStyles}</style>
 
       <section className="composition-admin-hero">
@@ -4109,6 +4175,90 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         </nav>
       ) : null}
 
+      {presentationMode === "hierarchical" && isDraftComposition && draftComposition ? (
+        <HierarchicalCompositionDeskClient
+          articles={hierarchicalDeskArticles}
+          auxiliaryItems={hierarchicalDeskAuxiliary}
+          compositionId={draftComposition.id}
+          matchdayId={matchday.id}
+          slots={hierarchicalDeskSlots}
+          videos={hierarchicalDeskVideos}
+        >
+          <details className="hc-desk-tool">
+            <summary>A Jornada em Vídeo</summary>
+            <div className="hc-desk-tool-body">
+              <HierarchicalVideoEditor
+                composition={draftComposition}
+                matchdayId={matchday.id}
+                referenceItems={compositionItems}
+                returnTo={returnTo}
+                roundupItems={roundupItems}
+              />
+            </div>
+          </details>
+
+          <details className="hc-desk-tool">
+            <summary>Editorial da Jornada</summary>
+            <div className="hc-desk-tool-body">
+              {compositionFeedback && feedbackAnchor === "hierarchical-editorial" ? (
+                <p className={`composition-admin-feedback ${compositionFeedbackKind}`}>
+                  {compositionFeedback}
+                </p>
+              ) : null}
+
+              <HierarchicalEditorialEditor
+                composition={draftComposition}
+                matchdayId={matchday.id}
+                returnTo={returnTo}
+              />
+            </div>
+          </details>
+
+          <details className="hc-desk-tool">
+            <summary>Publicação e estado</summary>
+            <div className="hc-desk-tool-body composition-admin-stack">
+              <UpdateDraftForm
+                composition={draftComposition}
+                matchdayId={matchday.id}
+                returnTo={returnTo}
+              />
+
+              {publicationValidation.warnings.length > 0 ? (
+                <div className="composition-admin-note">
+                  {publicationValidation.warnings.map((warning) => (
+                    <p key={warning}>{warning}</p>
+                  ))}
+                </div>
+              ) : null}
+
+              {publicationValidation.canPublish ? (
+                <PublishCompositionForm
+                  composition={draftComposition}
+                  matchdayId={matchday.id}
+                  returnTo={returnTo}
+                  summary={compositionSummary}
+                  unusedCount={availableBankItems.length}
+                />
+              ) : null}
+            </div>
+          </details>
+
+          <details className="hc-desk-tool">
+            <summary>Pré-visualização</summary>
+            <div className="hc-desk-tool-body composition-admin-preview">
+              <HierarchicalCompositionInterpretivePreview
+                beyondMatchdayItems={hierarchicalPreviewBeyondMatchdayItems}
+                editorial={hierarchicalEditorial}
+                matchdayNumber={matchday.number}
+                roundupHeading="A JORNADA EM VÍDEO"
+                roundupItems={hierarchicalPreviewRoundupItems}
+                slots={hierarchicalSlots}
+                videoHighlight={hierarchicalPreviewVideoHighlight}
+              />
+            </div>
+          </details>
+        </HierarchicalCompositionDeskClient>
+      ) : null}
       <script
         dangerouslySetInnerHTML={{
           __html: `
@@ -4453,6 +4603,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         }}
       />
 
+      {presentationMode !== "hierarchical" || !isDraftComposition ? (
       <div className="composition-admin-layout">
         <section className="composition-admin-panel">
           <header>
@@ -4773,6 +4924,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           </div>
         </section>
       </div>
+      ) : null}
 
       {presentationMode === "hierarchical" && isDraftComposition && draftComposition ? (
         <section className="composition-admin-panel composition-admin-preview-section">

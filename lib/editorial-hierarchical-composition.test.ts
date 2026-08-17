@@ -553,7 +553,19 @@ test("o editor seleciona o modo, usa o banco, permite preview e não ativa o dra
   assert.match(compositionPage, /Usar apresentação Atual/);
   assert.match(
     compositionPage,
-    /<\/section>\s*<\/div>\s*\{presentationMode === "hierarchical"[\s\S]*className="composition-admin-panel composition-admin-preview-section"/,
+    /<HierarchicalCompositionDeskClient/,
+  );
+  assert.match(
+    compositionPage,
+    /presentationMode !== "hierarchical" \|\| !isDraftComposition/,
+  );
+  assert.match(
+    compositionPage,
+    /<summary>Pré-visualização<\/summary>/,
+  );
+  assert.match(
+    compositionPage,
+    /composition-admin-shell-desk/,
   );
   assert.match(
     compositionPage,
