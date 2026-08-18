@@ -308,16 +308,16 @@ test("o servidor deriva o contexto só a partir da Jornada", () => {
 test("a publicação vinda de pacote usa a hora da fonte mais recente por artigo", () => {
   assert.match(clientSource, /action: "preflight"[\s\S]*?\.\.\.\(sourcePackage \? \{ sourcePackage \} : \{\}\)/);
   assert.match(publicationRouteSource, /entry\.publishedAtPrecision === "instant"/);
-  assert.match(publicationRouteSource, /parsePublishedAt\(entry\.publishedAt\)/);
+  assert.match(publicationRouteSource, /parsePublishedAt\(\s*entry\.publishedAt,?\s*\)/);
   assert.doesNotMatch(publicationRouteSource, /type SourcePublicationRow/);
   assert.doesNotMatch(publicationRouteSource, /publishedAtBySourceId/);
-  assert.match(publicationRouteSource, /sourcePublishedAt\.get\(item\.article\.index\)/);
+  assert.match(publicationRouteSource, /sourcePublishedAt\.get\(\s*item\.article\.index,?\s*\)/);
   assert.match(publicationRouteSource, /missing-source-published-at/);
   assert.match(publicationRouteSource, /resume-source-time-mismatch/);
 });
 
 test("o lote manual sem pacote mantém uma ordem determinística independente do upload", () => {
-  assert.match(publicationRouteSource, /baseTimeMs - \(item\.article\.index - 1\)/);
+  assert.match(publicationRouteSource, /baseTimeMs\s*-\s*\(item\.article\.index\s*-\s*1\)/);
   assert.match(publicationRouteSource, /resume-order-mismatch/);
 });
 
@@ -336,7 +336,7 @@ test("uma falha pára o lote e deixa os artigos seguintes como não tentados", (
 
 test("o retry reutiliza imagem já carregada e reconcilia artigo publicado em Últimas", () => {
   assert.match(clientSource, /uploadedImageUrlsRef\.current\[planItem\.key\]/);
-  assert.match(clientSource, /publicationPlanRef\.current \?\? await requestPublicationPreflight\(\)/);
+  assert.match(clientSource, /publicationPlanRef\.current\s*\?\?\s*await requestPublicationPreflight\(\)/);
   assert.match(publicationRouteSource, /if \(existing\)/);
   assert.match(publicationRouteSource, /await ensurePublishedArticleInLatest\(matchdayId, existing\.id\)/);
   assert.match(clientSource, /published_missing_usage/);
@@ -362,5 +362,60 @@ test("o estado global do lote inclui artigos, contexto, imagens e autor", () => 
   assert.match(
     clientSource,
     /\{globallyPrepared \? "PRÉ-FLIGHT VÁLIDO" : "PRÉ-FLIGHT COM PROBLEMAS"\}/,
+  );
+});
+
+test("uma colisão de Dossiê exige confirmação explícita antes de atualizar o artigo canónico", () => {
+  assert.match(
+    clientSource,
+    /CONFIRMAR ATUALIZAÇÃO/,
+  );
+
+  assert.match(
+    clientSource,
+    /confirmedUpdates/,
+  );
+
+  assert.match(
+    clientSource,
+    /planItem\.mode === "update"/,
+  );
+
+  assert.match(
+    publicationRouteSource,
+    /"update_required"/,
+  );
+
+  assert.match(
+    publicationRouteSource,
+    /publicationMode === "update"/,
+  );
+
+  assert.match(
+    publicationRouteSource,
+    /updateEditorialArticle\(\s*existing\.id/,
+  );
+
+  assert.match(
+    publicationRouteSource,
+    /published_at:\s*existing\.published_at/,
+  );
+
+  assert.match(
+    publicationRouteSource,
+    /update-target-mismatch/,
+  );
+});
+
+
+test("saídas do mesmo Dossiê preservam a hora real da fonte sem offsets artificiais", () => {
+  assert.doesNotMatch(
+    publicationRouteSource,
+    /duplicateOffsetBySourceGroup/,
+  );
+
+  assert.match(
+    publicationRouteSource,
+    /publishedAtByArticle\.set\(\s*output\.position,\s*sourcePublishedAt,\s*\)/,
   );
 });

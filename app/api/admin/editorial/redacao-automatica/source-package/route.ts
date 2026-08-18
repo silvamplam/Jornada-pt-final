@@ -5,6 +5,7 @@ import {
   isEditorialSourcePackageLocation,
   normalizeEditorialSourcePackageEditorialInput,
   normalizeEditorialSourcePackageSelections,
+  type EditorialSourcePackageOutputInput,
   type EditorialSourcePackageSelection,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
@@ -102,6 +103,9 @@ export async function POST(request: Request) {
   );
 
   let selections = selectedAdditions;
+  let outputs:
+    readonly EditorialSourcePackageOutputInput[]
+    | undefined;
 
   if (reuseRequested) {
     const reuseLocation = {
@@ -178,6 +182,34 @@ export async function POST(request: Request) {
     }
 
     selections = normalized;
+
+    const selectedArticleIds =
+      new Set(
+        normalized.map(
+          (selection) =>
+            selection.newsroomArticleId,
+        ),
+      );
+
+    outputs =
+      previous.value.manifest.outputs
+        .filter(
+          (output) =>
+            output.sourceArticlePosition
+            === reuseArticlePosition,
+        )
+        .map((output, index) => ({
+          position: index + 1,
+          sourceArticlePosition: 1,
+          focus: output.focus,
+          imageNewsroomArticleId:
+            output.imageNewsroomArticleId
+            && selectedArticleIds.has(
+              output.imageNewsroomArticleId,
+            )
+              ? output.imageNewsroomArticleId
+              : null,
+        }));
   }
 
   const packageId = crypto.randomUUID();
@@ -185,6 +217,9 @@ export async function POST(request: Request) {
     packageId,
     selections,
     editorial,
+    ...(outputs?.length
+      ? { outputs }
+      : {}),
   });
 
   if (!result.ok) {

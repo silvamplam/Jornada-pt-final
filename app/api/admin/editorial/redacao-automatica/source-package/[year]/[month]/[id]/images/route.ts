@@ -49,6 +49,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const sources = editorialSourcePackageArticleImageSources(
     result.value.manifest.entries,
+    result.value.manifest.outputs,
   );
   const zip = await buildEditorialSourceImagesZip(sources);
 

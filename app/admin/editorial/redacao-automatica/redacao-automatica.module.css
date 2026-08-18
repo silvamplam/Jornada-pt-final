@@ -5429,3 +5429,196 @@
 }
 
 /* REDACAO-AUTOMATICA-DOSSIES-RECOLHIVEIS-FIM */
+
+.sourcePackageOutputPlanner {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #d8dde5;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.sourcePackageOutputPlannerHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.sourcePackageOutputPlannerHeader h3,
+.sourcePackageOutputPlannerHeader p {
+  margin: 0;
+}
+
+.sourcePackageOutputPlannerHeader > div > p:last-child {
+  margin-top: 8px;
+  max-width: 760px;
+  color: #5f6875;
+}
+
+.sourcePackageOutputPlannerHeader > label {
+  display: grid;
+  gap: 6px;
+  min-width: 120px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sourcePackageOutputPlannerHeader select,
+.sourcePackageOutputFocus input {
+  width: 100%;
+  border: 1px solid #c8ced8;
+  border-radius: 8px;
+  background: #fff;
+  padding: 9px 10px;
+  font: inherit;
+}
+
+.sourcePackageOutputForm {
+  margin-top: 18px;
+}
+
+.sourcePackageOutputRows {
+  display: grid;
+  gap: 16px;
+}
+
+.sourcePackageOutputCard {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 14px 16px;
+  padding: 16px;
+  border: 1px solid #e0e4ea;
+  border-radius: 12px;
+  background: #f8f9fb;
+}
+
+.sourcePackageOutputNumber {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  background: #171a1f;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.sourcePackageOutputFocus {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sourcePackageOutputImages {
+  grid-column: 2;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sourcePackageOutputImages legend {
+  margin-bottom: 9px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sourcePackageOutputImageGrid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.sourcePackageOutputImageOption {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.sourcePackageOutputImageOption:has(input:checked) {
+  border-color: #171a1f;
+}
+
+.sourcePackageOutputImageOption input {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+}
+
+.sourcePackageOutputImageOption img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 7px;
+  object-fit: cover;
+  background: #eceff3;
+}
+
+.sourcePackageOutputImageOption span {
+  display: grid;
+  gap: 3px;
+}
+
+.sourcePackageOutputImageOption strong,
+.sourcePackageOutputImageOption small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sourcePackageOutputImageOption small {
+  color: #697281;
+  white-space: nowrap;
+}
+
+.sourcePackageOutputNoImage {
+  margin: 0;
+  color: #697281;
+}
+
+.sourcePackageOutputActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.sourcePackageOutputActions button {
+  border: 0;
+  border-radius: 9px;
+  background: #171a1f;
+  color: #fff;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.sourcePackageOutputActions p {
+  margin: 0;
+  color: #697281;
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .sourcePackageOutputPlannerHeader,
+  .sourcePackageOutputActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sourcePackageOutputCard {
+    grid-template-columns: 1fr;
+  }
+
+  .sourcePackageOutputImages {
+    grid-column: 1;
+  }
+}

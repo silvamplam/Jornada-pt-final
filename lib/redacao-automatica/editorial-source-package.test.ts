@@ -31,7 +31,7 @@ test("o pacote de publicação automática produz apenas artigos para o fluxo de
 
   assert.doesNotMatch(prompt, /DESTINO EDITORIAL/);
   assert.doesNotMatch(prompt, /zona editorial Contexto/i);
-  assert.match(prompt, /um bloco \[JORNADA_ARTIGO_V1\] por grupo/i);
+  assert.match(prompt, /um bloco \[JORNADA_ARTIGO_V1\] por saída editorial/i);
   assert.match(prompt, /quatro campos são obrigatórios neste fluxo de publicação/i);
 });
 
@@ -219,7 +219,7 @@ test("define um ficheiro e uma instrução diferentes para cada género", () => 
     const prompt = editorialSourcePackagePrompt(genre);
     assert.match(prompt, /Leia integralmente e considere todas as fontes/);
     assert.match(prompt, /pesquise sempre fontes externas atuais e credíveis/i);
-    assert.match(prompt, /um bloco \[JORNADA_ARTIGO_V1\] por grupo/i);
+    assert.match(prompt, /um bloco \[JORNADA_ARTIGO_V1\] por saída editorial/i);
     assert.match(prompt, /Melhore-o ou substitua-o/);
     assert.match(prompt, /Não invente factos/);
     assert.match(prompt, /\[JORNADA_ARTIGO_V1\]/);
@@ -629,7 +629,7 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(packageService, /publishedAt: entry\.status === "prepared" \? entry\.publishedAt : null/);
   assert.match(packageService, /publishedAtPrecisionFromSourceMetadata\(snapshot\.source_metadata\)/);
   assert.match(packageService, /entry\.publishedAtPrecision \?\? null/);
-  assert.match(packageService, /version: 2/);
+  assert.match(packageService, /version: 4/);
   assert.match(packageService, /articleCount/);
   assert.match(packageService, /effectiveEditorial/);
   assert.match(packageService, /markEditorialSourcePackageArticleUsed/);

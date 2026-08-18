@@ -44,6 +44,9 @@ type BatchPublicationPayload = Readonly<{
   imageUrl?: unknown;
   publishedAt?: unknown;
   sourcePackage?: unknown;
+  confirmedUpdates?: unknown;
+  publicationMode?: unknown;
+  updateArticleId?: unknown;
 }>;
 
 type ExistingArticleRow = Readonly<{
@@ -65,6 +68,7 @@ type PreparedBatchItem = Readonly<{
   article: BatchArticlePayload;
   slug: string;
   existing: ExistingArticleRow | null;
+  updateCandidate: boolean;
 }>;
 
 type SourcePackagePayload = Readonly<{
@@ -116,6 +120,42 @@ async function markSourcePackageUsed(
   });
 
   return result.ok ? null : result.error.code;
+}
+
+function parseConfirmedUpdates(
+  value: unknown,
+): ReadonlyMap<string, string> | null {
+  if (
+    !value
+    || typeof value !== "object"
+    || Array.isArray(value)
+  ) {
+    return null;
+  }
+
+  const updates =
+    new Map<string, string>();
+
+  for (
+    const [key, rawArticleId]
+    of Object.entries(
+      value as Record<string, unknown>,
+    )
+  ) {
+    const articleId =
+      cleanText(rawArticleId).toLowerCase();
+
+    if (
+      !OFFICIAL_BATCH_KEY.test(key)
+      || !UUID_PATTERN.test(articleId)
+    ) {
+      return null;
+    }
+
+    updates.set(key, articleId);
+  }
+
+  return updates;
 }
 
 function normalizedBody(value: unknown) {
@@ -187,26 +227,76 @@ function parsePublishedAt(value: unknown) {
 async function sourcePublishedAtByArticle(
   sourcePackage: SourcePackagePayload,
 ) {
-  const sourcePackageResult = await readEditorialSourcePackage(sourcePackage);
+  const sourcePackageResult =
+    await readEditorialSourcePackage(
+      sourcePackage,
+    );
+
   if (!sourcePackageResult.ok) {
-    throw new Error(`source-package-read-failed:${sourcePackageResult.error.code}`);
+    throw new Error(
+      `source-package-read-failed:${sourcePackageResult.error.code}`,
+    );
   }
 
-  const preparedEntries = sourcePackageResult.value.manifest.entries.filter(
-    (entry) => entry.status === "prepared",
-  );
-  const publishedAtByArticle = new Map<number, string>();
+  const preparedEntries =
+    sourcePackageResult.value.manifest.entries
+      .filter(
+        (entry) =>
+          entry.status === "prepared",
+      );
+
+  const latestPublishedAtBySourceGroup =
+    new Map<number, string>();
 
   for (const entry of preparedEntries) {
-    const sourcePublishedAt = entry.publishedAtPrecision === "instant"
-      ? parsePublishedAt(entry.publishedAt)
-      : null;
-    if (!sourcePublishedAt) continue;
+    const sourcePublishedAt =
+      entry.publishedAtPrecision === "instant"
+        ? parsePublishedAt(
+            entry.publishedAt,
+          )
+        : null;
 
-    const current = publishedAtByArticle.get(entry.articlePosition);
-    if (!current || new Date(sourcePublishedAt).getTime() > new Date(current).getTime()) {
-      publishedAtByArticle.set(entry.articlePosition, sourcePublishedAt);
+    if (!sourcePublishedAt) {
+      continue;
     }
+
+    const current =
+      latestPublishedAtBySourceGroup.get(
+        entry.articlePosition,
+      );
+
+    if (
+      !current
+      || new Date(sourcePublishedAt).getTime()
+        > new Date(current).getTime()
+    ) {
+      latestPublishedAtBySourceGroup.set(
+        entry.articlePosition,
+        sourcePublishedAt,
+      );
+    }
+  }
+
+  const publishedAtByArticle =
+    new Map<number, string>();
+
+  for (
+    const output
+    of sourcePackageResult.value.manifest.outputs
+  ) {
+    const sourcePublishedAt =
+      latestPublishedAtBySourceGroup.get(
+        output.sourceArticlePosition,
+      );
+
+    if (!sourcePublishedAt) {
+      continue;
+    }
+
+    publishedAtByArticle.set(
+      output.position,
+      sourcePublishedAt,
+    );
   }
 
   return {
@@ -245,6 +335,7 @@ async function prepareBatch(
   articles: readonly BatchArticlePayload[],
   author: string,
   matchdayId: string,
+  allowUpdates: boolean,
 ) {
   const context = await resolveCanonicalArticleContext({ competition_id: null, season_id: null, matchday_id: matchdayId });
   if (!context.matchday_id || context.matchday_id !== matchdayId) {
@@ -266,12 +357,45 @@ async function prepareBatch(
     }
     seenSlugs.set(slug, article.key);
 
-    const existing = await readExistingArticleBySlug(slug);
-    if (existing && !existingArticleMatches(existing, article, author, matchdayId)) {
-      throw new Error(`slug-collision:${article.key}:${slug}`);
+    const existing =
+      await readExistingArticleBySlug(slug);
+
+    const existingMatches =
+      existing
+        ? existingArticleMatches(
+            existing,
+            article,
+            author,
+            matchdayId,
+          )
+        : false;
+
+    const updateCandidate =
+      Boolean(
+        existing
+        && !existingMatches
+        && allowUpdates
+        && existing.status === "published"
+        && cleanText(existing.matchday_id)
+          === matchdayId,
+      );
+
+    if (
+      existing
+      && !existingMatches
+      && !updateCandidate
+    ) {
+      throw new Error(
+        `slug-collision:${article.key}:${slug}`,
+      );
     }
 
-    prepared.push({ article, slug, existing });
+    prepared.push({
+      article,
+      slug,
+      existing,
+      updateCandidate,
+    });
   }
 
   return prepared;
@@ -279,79 +403,241 @@ async function prepareBatch(
 
 function publicationPlan(
   prepared: readonly PreparedBatchItem[],
-  sourcePublishedAt: ReadonlyMap<number, string> | null,
+  sourcePublishedAt:
+    ReadonlyMap<number, string> | null,
+  confirmedUpdates:
+    ReadonlyMap<string, string>,
 ) {
+  function itemMode(item: PreparedBatchItem) {
+    if (item.updateCandidate && item.existing) {
+      return confirmedUpdates.get(item.article.key)
+        === item.existing.id
+          ? "update" as const
+          : "update_required" as const;
+    }
+
+    return item.existing
+      ? "resume" as const
+      : "create" as const;
+  }
+
   if (sourcePublishedAt) {
     return prepared.map((item) => {
-      const publishedAt = sourcePublishedAt.get(item.article.index);
+      const publishedAt =
+        sourcePublishedAt.get(
+          item.article.index,
+        );
+
       if (!publishedAt) {
-        throw new Error(`missing-source-published-at:${item.article.key}`);
+        throw new Error(
+          `missing-source-published-at:${item.article.key}`,
+        );
       }
 
-      if (item.existing) {
-        const existingPublishedAt = parsePublishedAt(item.existing.published_at);
-        if (existingPublishedAt !== publishedAt) {
-          throw new Error(`resume-source-time-mismatch:${item.article.key}`);
+      const mode = itemMode(item);
+
+      if (
+        mode === "resume"
+        && item.existing
+      ) {
+        const existingPublishedAt =
+          parsePublishedAt(
+            item.existing.published_at,
+          );
+
+        if (
+          existingPublishedAt
+          !== publishedAt
+        ) {
+          throw new Error(
+            `resume-source-time-mismatch:${item.article.key}`,
+          );
         }
       }
 
       return {
         key: item.article.key,
         slug: item.slug,
-        mode: item.existing ? "resume" as const : "create" as const,
-        ...(item.existing ? { articleId: item.existing.id } : {}),
+        mode,
+        ...(item.existing
+          ? {
+              articleId:
+                item.existing.id,
+              existingTitle:
+                item.existing.title,
+              existingSlug:
+                item.existing.slug,
+            }
+          : {}),
         publishedAt,
       };
     });
   }
 
-  const anchor = prepared.find((item) => item.existing && parsePublishedAt(item.existing.published_at));
-  const anchorPublishedAt = anchor?.existing ? parsePublishedAt(anchor.existing.published_at) : null;
-  const anchorTime = anchorPublishedAt ? new Date(anchorPublishedAt).getTime() : Date.now();
-  const anchorIndex = anchor ? anchor.article.index - 1 : 0;
-  const baseTimeMs = anchorTime + anchorIndex;
+  const anchor =
+    prepared.find(
+      (item) =>
+        item.existing
+        && parsePublishedAt(
+          item.existing.published_at,
+        ),
+    );
+
+  const anchorPublishedAt =
+    anchor?.existing
+      ? parsePublishedAt(
+          anchor.existing.published_at,
+        )
+      : null;
+
+  const anchorTime =
+    anchorPublishedAt
+      ? new Date(
+          anchorPublishedAt,
+        ).getTime()
+      : Date.now();
+
+  const anchorIndex =
+    anchor
+      ? anchor.article.index - 1
+      : 0;
+
+  const baseTimeMs =
+    anchorTime + anchorIndex;
 
   for (const item of prepared) {
-    if (!item.existing) continue;
-    const existingPublishedAt = parsePublishedAt(item.existing.published_at);
-    const expectedPublishedAt = new Date(baseTimeMs - (item.article.index - 1)).toISOString();
-    if (!existingPublishedAt || existingPublishedAt !== expectedPublishedAt) {
-      throw new Error(`resume-order-mismatch:${item.article.key}`);
+    const mode = itemMode(item);
+
+    if (
+      mode !== "resume"
+      || !item.existing
+    ) {
+      continue;
+    }
+
+    const existingPublishedAt =
+      parsePublishedAt(
+        item.existing.published_at,
+      );
+
+    const expectedPublishedAt =
+      new Date(
+        baseTimeMs
+        - (item.article.index - 1),
+      ).toISOString();
+
+    if (
+      !existingPublishedAt
+      || existingPublishedAt
+        !== expectedPublishedAt
+    ) {
+      throw new Error(
+        `resume-order-mismatch:${item.article.key}`,
+      );
     }
   }
 
-  return prepared.map((item) => ({
-    key: item.article.key,
-    slug: item.slug,
-    mode: item.existing ? "resume" as const : "create" as const,
-    ...(item.existing ? { articleId: item.existing.id } : {}),
-    publishedAt: item.existing
-      ? parsePublishedAt(item.existing.published_at) as string
-      : new Date(baseTimeMs - (item.article.index - 1)).toISOString(),
-  }));
+  return prepared.map((item) => {
+    const mode = itemMode(item);
+
+    return {
+      key: item.article.key,
+      slug: item.slug,
+      mode,
+      ...(item.existing
+        ? {
+            articleId:
+              item.existing.id,
+            existingTitle:
+              item.existing.title,
+            existingSlug:
+              item.existing.slug,
+          }
+        : {}),
+      publishedAt:
+        mode === "resume"
+        && item.existing
+          ? parsePublishedAt(
+              item.existing.published_at,
+            ) as string
+          : new Date(
+              baseTimeMs
+              - (item.article.index - 1),
+            ).toISOString(),
+    };
+  });
 }
 
 async function preflightPublication(payload: BatchPublicationPayload) {
   const matchdayId = cleanText(payload.matchdayId);
   const author = cleanText(payload.author);
   const articles = parseBatchArticles(payload.articles);
-  const sourcePackage = payload.sourcePackage === undefined
-    ? null
-    : parseSourcePackage(payload.sourcePackage);
+  const sourcePackage =
+    payload.sourcePackage === undefined
+      ? null
+      : parseSourcePackage(
+          payload.sourcePackage,
+        );
 
-  if (!matchdayId) return jsonError("missing-matchday");
-  if (!author) return jsonError("missing-author");
-  if (!articles) return jsonError("invalid-batch");
-  if (payload.sourcePackage !== undefined && !sourcePackage) return jsonError("invalid-source-package");
+  const confirmedUpdates =
+    payload.confirmedUpdates === undefined
+      ? new Map<string, string>()
+      : parseConfirmedUpdates(
+          payload.confirmedUpdates,
+        );
+
+  if (!matchdayId) {
+    return jsonError("missing-matchday");
+  }
+
+  if (!author) {
+    return jsonError("missing-author");
+  }
+
+  if (!articles) {
+    return jsonError("invalid-batch");
+  }
+
+  if (
+    payload.sourcePackage !== undefined
+    && !sourcePackage
+  ) {
+    return jsonError(
+      "invalid-source-package",
+    );
+  }
+
+  if (!confirmedUpdates) {
+    return jsonError(
+      "invalid-confirmed-updates",
+    );
+  }
 
   try {
-    const prepared = await prepareBatch(articles, author, matchdayId);
-    const sourceTimes = sourcePackage
-      ? (await sourcePublishedAtByArticle(sourcePackage)).publishedAtByArticle
-      : null;
+    const prepared =
+      await prepareBatch(
+        articles,
+        author,
+        matchdayId,
+        Boolean(sourcePackage),
+      );
+
+    const sourceTimes =
+      sourcePackage
+        ? (
+            await sourcePublishedAtByArticle(
+              sourcePackage,
+            )
+          ).publishedAtByArticle
+        : null;
+
     return NextResponse.json({
       ok: true,
-      items: publicationPlan(prepared, sourceTimes),
+      items: publicationPlan(
+        prepared,
+        sourceTimes,
+        confirmedUpdates,
+      ),
     });
   } catch (error) {
     if (error instanceof EditorialArticleServiceError) {
@@ -417,15 +703,58 @@ async function publishItem(payload: BatchPublicationPayload) {
   const article = parseArticle(payload.article);
   const imageUrl = cleanText(payload.imageUrl);
   const publishedAt = parsePublishedAt(payload.publishedAt);
-  const sourcePackage = payload.sourcePackage === undefined
-    ? null
-    : parseSourcePackage(payload.sourcePackage);
+  const sourcePackage =
+    payload.sourcePackage === undefined
+      ? null
+      : parseSourcePackage(
+          payload.sourcePackage,
+        );
 
-  if (!matchdayId) return jsonError("missing-matchday");
-  if (!author) return jsonError("missing-author");
-  if (!article) return jsonError("invalid-article");
-  if (!publishedAt) return jsonError("invalid-published-at");
-  if (payload.sourcePackage !== undefined && !sourcePackage) return jsonError("invalid-source-package");
+  const publicationMode =
+    cleanText(payload.publicationMode);
+
+  const updateArticleId =
+    cleanText(
+      payload.updateArticleId,
+    ).toLowerCase();
+
+  if (!matchdayId) {
+    return jsonError("missing-matchday");
+  }
+
+  if (!author) {
+    return jsonError("missing-author");
+  }
+
+  if (!article) {
+    return jsonError("invalid-article");
+  }
+
+  if (!publishedAt) {
+    return jsonError(
+      "invalid-published-at",
+    );
+  }
+
+  if (
+    payload.sourcePackage !== undefined
+    && !sourcePackage
+  ) {
+    return jsonError(
+      "invalid-source-package",
+    );
+  }
+
+  if (
+    publicationMode
+    && publicationMode !== "create"
+    && publicationMode !== "resume"
+    && publicationMode !== "update"
+  ) {
+    return jsonError(
+      "invalid-publication-mode",
+    );
+  }
 
   try {
     const context = await resolveCanonicalArticleContext({ competition_id: null, season_id: null, matchday_id: matchdayId });
@@ -438,7 +767,124 @@ async function publishItem(payload: BatchPublicationPayload) {
       throw new EditorialArticleServiceError("missing-slug");
     }
 
-    const existing = await readExistingArticleBySlug(slug);
+    const existing =
+      await readExistingArticleBySlug(slug);
+
+    if (publicationMode === "update") {
+      if (!sourcePackage) {
+        return jsonError(
+          "update-requires-source-package",
+          409,
+          "A atualização automática só é permitida a partir de um Dossiê editorial.",
+        );
+      }
+
+      if (
+        !UUID_PATTERN.test(
+          updateArticleId,
+        )
+        || !existing
+        || existing.id
+          !== updateArticleId
+        || existing.status
+          !== "published"
+        || cleanText(
+          existing.matchday_id,
+        ) !== matchdayId
+      ) {
+        return jsonError(
+          "update-target-mismatch",
+          409,
+          "O artigo existente já não corresponde ao alvo confirmado para esta atualização.",
+        );
+      }
+
+      if (!imageUrl) {
+        return jsonError(
+          "missing-image-url",
+        );
+      }
+
+      const result =
+        await updateEditorialArticle(
+          existing.id,
+          {
+            label: article.label,
+            title: article.title,
+            subtitle:
+              article.subtitle,
+            body: article.body,
+            slug:
+              existing.slug
+              ?? slug,
+            image_url: imageUrl,
+            image_caption: null,
+            author,
+            published_at:
+              existing.published_at,
+            competition_id: null,
+            season_id: null,
+            matchday_id:
+              matchdayId,
+          },
+          {
+            action: "publish",
+            initialPlacement: "none",
+          },
+        );
+
+      try {
+        await ensurePublishedArticleInLatest(
+          matchdayId,
+          existing.id,
+        );
+      } catch (error) {
+        return NextResponse.json({
+          ok: false,
+          error:
+            "latest-placement-failed",
+          detail: safeDetail(
+            error instanceof Error
+              ? error.message
+              : "Falhou a manutenção do artigo atualizado em Últimas.",
+          ),
+          published: true,
+          articleId: existing.id,
+          slug: result.slug,
+        }, { status: 502 });
+      }
+
+      const usageError =
+        await markSourcePackageUsed(
+          sourcePackage,
+          article.index,
+          existing.id,
+          result.slug,
+        );
+
+      if (usageError) {
+        return NextResponse.json({
+          ok: false,
+          error:
+            "source-usage-mark-failed",
+          detail:
+            `O artigo foi atualizado em Últimas, mas as fontes não ficaram marcadas como utilizadas (${usageError}).`,
+          published: true,
+          latest: true,
+          articleId: existing.id,
+          slug: result.slug,
+        }, { status: 502 });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        updated: true,
+        articleId:
+          existing.id,
+        slug: result.slug,
+      });
+    }
+
     if (existing) {
       if (!existingArticleMatches(existing, article, author, matchdayId, publishedAt)) {
         return jsonError(

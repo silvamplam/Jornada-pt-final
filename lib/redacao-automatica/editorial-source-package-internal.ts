@@ -9,6 +9,9 @@ export const EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES = 20;
 export const EDITORIAL_SOURCE_PACKAGE_MANIFEST_FILE_NAME = "pacote-fontes.json";
 export const EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH = 240;
 export const EDITORIAL_SOURCE_PACKAGE_INSTRUCTIONS_MAX_LENGTH = 4000;
+export const EDITORIAL_SOURCE_PACKAGE_MAX_OUTPUTS = 30;
+export const EDITORIAL_SOURCE_PACKAGE_MAX_DOSSIER_OUTPUTS = 5;
+export const EDITORIAL_SOURCE_PACKAGE_OUTPUT_FOCUS_MAX_LENGTH = 240;
 
 export const EDITORIAL_SOURCE_PACKAGE_GENRES = [
   { value: "news", label: "Notícia", fileSlug: "noticia" },
@@ -26,6 +29,20 @@ export type EditorialSourcePackageEditorialInput = Readonly<{
   suggestedTitle: string | null;
   additionalInstructions: string | null;
 }>;
+
+export type EditorialSourcePackageOutputInput = Readonly<{
+  position: number;
+  sourceArticlePosition: number;
+  focus: string;
+  imageNewsroomArticleId: string | null;
+}>;
+
+export type EditorialSourcePackageOutput =
+  EditorialSourcePackageOutputInput & Readonly<{
+    usedAt?: string | null;
+    publishedArticleId?: string | null;
+    publishedSlug?: string | null;
+  }>;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const YEAR_PATTERN = /^\d{4}$/;
@@ -101,7 +118,7 @@ export type EditorialSourcePackageManifestEntry = Readonly<{
 }>;
 
 export type EditorialSourcePackageManifest = Readonly<{
-  version: 2 | 3;
+  version: 2 | 3 | 4;
   packageId: string;
   createdAt: string;
   year: string;
@@ -117,6 +134,7 @@ export type EditorialSourcePackageManifest = Readonly<{
   failedCount: number;
   imageCount: number;
   localDirectory: string | null;
+  outputs: readonly EditorialSourcePackageOutput[];
   entries: readonly EditorialSourcePackageManifestEntry[];
 }>;
 
@@ -278,6 +296,124 @@ export function normalizeEditorialSourcePackageSelections(
   return normalized;
 }
 
+
+export type EditorialSourcePackageOutputSourceEntry = Readonly<{
+  position: number;
+  articlePosition: number;
+  newsroomArticleId?: string | null;
+  status: "prepared" | "failed";
+  imageUrl?: string | null;
+  imagePreferred?: boolean;
+}>;
+
+export function defaultEditorialSourcePackageOutputs(
+  entries: readonly EditorialSourcePackageOutputSourceEntry[],
+  suggestedTitle: string | null = null,
+): readonly EditorialSourcePackageOutputInput[] {
+  const groups = [...new Set(entries.map((entry) => entry.articlePosition))]
+    .filter((position) => Number.isInteger(position) && position > 0)
+    .sort((left, right) => left - right);
+
+  return groups.map((sourceArticlePosition, index) => {
+    const groupEntries = entries.filter(
+      (entry) => entry.articlePosition === sourceArticlePosition,
+    );
+    const preferred = groupEntries.find((entry) => (
+      entry.status === "prepared"
+      && entry.imagePreferred
+      && typeof entry.newsroomArticleId === "string"
+      && Boolean(entry.newsroomArticleId.trim())
+      && typeof entry.imageUrl === "string"
+      && Boolean(entry.imageUrl.trim())
+    ));
+    const firstImage = groupEntries.find((entry) => (
+      entry.status === "prepared"
+      && typeof entry.newsroomArticleId === "string"
+      && Boolean(entry.newsroomArticleId.trim())
+      && typeof entry.imageUrl === "string"
+      && Boolean(entry.imageUrl.trim())
+    ));
+    const imageEntry = preferred ?? firstImage ?? null;
+    const position = index + 1;
+
+    return {
+      position,
+      sourceArticlePosition,
+      focus: groups.length === 1 && suggestedTitle?.trim()
+        ? suggestedTitle.trim()
+        : `Artigo ${String(position).padStart(2, "0")}`,
+      imageNewsroomArticleId: imageEntry?.newsroomArticleId
+        ? cleanId(imageEntry.newsroomArticleId)
+        : null,
+    };
+  });
+}
+
+export function normalizeEditorialSourcePackageOutputs(
+  outputs: readonly EditorialSourcePackageOutputInput[],
+  entries: readonly EditorialSourcePackageOutputSourceEntry[],
+): readonly EditorialSourcePackageOutputInput[] | null {
+  if (
+    outputs.length < 1
+    || outputs.length > EDITORIAL_SOURCE_PACKAGE_MAX_OUTPUTS
+  ) {
+    return null;
+  }
+
+  const sourceGroups = new Set(
+    entries.map((entry) => entry.articlePosition),
+  );
+  const normalized: EditorialSourcePackageOutputInput[] = [];
+
+  for (const [index, output] of outputs.entries()) {
+    const position = Number(output.position);
+    const sourceArticlePosition = Number(output.sourceArticlePosition);
+    const focus = cleanEditorialText(
+      typeof output.focus === "string" ? output.focus : "",
+      EDITORIAL_SOURCE_PACKAGE_OUTPUT_FOCUS_MAX_LENGTH,
+    );
+    const imageNewsroomArticleId =
+      typeof output.imageNewsroomArticleId === "string"
+      && output.imageNewsroomArticleId.trim()
+        ? cleanId(output.imageNewsroomArticleId)
+        : null;
+
+    if (
+      position !== index + 1
+      || !Number.isInteger(sourceArticlePosition)
+      || sourceArticlePosition < 1
+      || !sourceGroups.has(sourceArticlePosition)
+      || !focus
+    ) {
+      return null;
+    }
+
+    if (imageNewsroomArticleId) {
+      const imageEntry = entries.find((entry) => (
+        entry.articlePosition === sourceArticlePosition
+        && entry.status === "prepared"
+        && typeof entry.newsroomArticleId === "string"
+        && cleanId(entry.newsroomArticleId) === imageNewsroomArticleId
+        && typeof entry.imageUrl === "string"
+        && Boolean(entry.imageUrl.trim())
+      ));
+
+      if (!imageEntry) {
+        return null;
+      }
+    }
+
+    normalized.push({
+      position,
+      sourceArticlePosition,
+      focus,
+      imageNewsroomArticleId,
+    });
+  }
+
+  return normalized;
+}
+
 export type EditorialSourcePackageArticleImageSource = Readonly<{
   position: number;
   sourceCode: string;
@@ -287,22 +423,61 @@ export type EditorialSourcePackageArticleImageSource = Readonly<{
 
 export function editorialSourcePackageArticleImageSources(
   entries: readonly Readonly<{
+    position: number;
     articlePosition: number;
+    newsroomArticleId?: string | null;
     status: "prepared" | "failed";
     sourceCode: string | null;
     title: string | null;
     imageUrl?: string | null;
     imagePreferred?: boolean;
   }>[],
+  outputs?: readonly EditorialSourcePackageOutputInput[],
 ): readonly EditorialSourcePackageArticleImageSource[] {
-  const candidatesByArticle = new Map<number, EditorialSourcePackageArticleImageSource[]>();
-  const preferredByArticle = new Map<number, EditorialSourcePackageArticleImageSource>();
+  if (outputs?.length) {
+    return outputs.flatMap(
+      (output): EditorialSourcePackageArticleImageSource[] => {
+        if (!output.imageNewsroomArticleId) {
+          return [];
+        }
+
+        const selected = entries.find((entry) => (
+          entry.articlePosition === output.sourceArticlePosition
+          && entry.status === "prepared"
+          && typeof entry.newsroomArticleId === "string"
+          && cleanId(entry.newsroomArticleId)
+            === cleanId(output.imageNewsroomArticleId!)
+          && typeof entry.imageUrl === "string"
+          && Boolean(entry.imageUrl.trim())
+        ));
+
+        return selected && selected.imageUrl
+          ? [{
+              position: output.position,
+              sourceCode:
+                selected.sourceCode?.trim() || "fonte",
+              articleTitle:
+                output.focus
+                || selected.title?.trim()
+                || "Notícia",
+              imageUrl: selected.imageUrl.trim(),
+            }]
+          : [];
+      },
+    );
+  }
+
+  const candidatesByArticle =
+    new Map<number, EditorialSourcePackageArticleImageSource[]>();
+  const preferredByArticle =
+    new Map<number, EditorialSourcePackageArticleImageSource>();
 
   for (const entry of entries) {
-    const imageUrl = entry.status === "prepared"
+    const imageUrl =
+      entry.status === "prepared"
       && typeof entry.imageUrl === "string"
-      ? entry.imageUrl.trim()
-      : "";
+        ? entry.imageUrl.trim()
+        : "";
 
     if (!imageUrl) {
       continue;
@@ -314,18 +489,32 @@ export function editorialSourcePackageArticleImageSources(
       articleTitle: entry.title?.trim() || "Notícia",
       imageUrl,
     };
-    const candidates = candidatesByArticle.get(entry.articlePosition) ?? [];
+    const candidates =
+      candidatesByArticle.get(entry.articlePosition) ?? [];
+
     candidates.push(candidate);
     candidatesByArticle.set(entry.articlePosition, candidates);
 
-    if (entry.imagePreferred && !preferredByArticle.has(entry.articlePosition)) {
-      preferredByArticle.set(entry.articlePosition, candidate);
+    if (
+      entry.imagePreferred
+      && !preferredByArticle.has(entry.articlePosition)
+    ) {
+      preferredByArticle.set(
+        entry.articlePosition,
+        candidate,
+      );
     }
   }
 
   return [...candidatesByArticle.entries()]
-    .map(([articlePosition, candidates]) => preferredByArticle.get(articlePosition) ?? candidates[0])
-    .filter((candidate): candidate is EditorialSourcePackageArticleImageSource => Boolean(candidate))
+    .map(([articlePosition, candidates]) => (
+      preferredByArticle.get(articlePosition)
+      ?? candidates[0]
+    ))
+    .filter(
+      (candidate): candidate is EditorialSourcePackageArticleImageSource =>
+        Boolean(candidate),
+    )
     .sort((left, right) => left.position - right.position);
 }
 
@@ -595,27 +784,34 @@ function formatArticleGroup(
   articlePosition: number,
   articleTotal: number,
   entries: readonly EditorialSourcePackageEntry[],
+  dossierMode = false,
 ): string {
   const sourceSections = entries.map((entry, index) => (
     entry.status === "prepared"
       ? formatPreparedEntry(entry, index + 1, entries.length)
       : formatFailedEntry(entry, index + 1, entries.length)
   ));
+  const groupLabel =
+    dossierMode ? "DOSSIÊ DE FONTES" : "ARTIGO";
+  const sourcesLabel =
+    dossierMode ? "DOSSIÊ" : "ARTIGO";
 
   return [
-    `# ARTIGO ${String(articlePosition).padStart(2, "0")} DE ${String(articleTotal).padStart(2, "0")}`,
+    `# ${groupLabel} ${String(articlePosition).padStart(2, "0")} DE ${String(articleTotal).padStart(2, "0")}`,
     "",
-    `**FONTES NESTE ARTIGO:** ${entries.length}`,
+    `**FONTES NESTE ${sourcesLabel}:** ${entries.length}`,
     "",
     ...sourceSections.flatMap((section, index) => (
-      index === 0 ? [section] : ["---", "", section]
+      index === 0
+        ? [section]
+        : ["---", "", section]
     )),
   ].join("\n").trimEnd();
 }
 
 const EXTERNAL_ARTICLE_IMPORT_RULES = [
   "Cada artigo final deve ser devolvido dentro de um bloco que começa exatamente com [JORNADA_ARTIGO_V1] e termina exatamente com [/JORNADA_ARTIGO_V1].",
-  "Quando existirem vários grupos ARTIGO NN, devolva exatamente um bloco [JORNADA_ARTIGO_V1] por grupo, pela mesma ordem, sem fundir grupos nem criar artigos adicionais.",
+  "Devolva exatamente um bloco [JORNADA_ARTIGO_V1] por saída editorial definida em ARTIGOS A PRODUZIR, pela mesma ordem, sem fundir saídas nem criar artigos adicionais.",
   "Dentro de cada bloco, use exatamente esta ordem: ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO. Cada rótulo deve ocupar uma linha isolada.",
   "Preencha sempre ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO com conteúdo utilizável. Os quatro campos são obrigatórios neste fluxo de publicação.",
   "Não use JSON, tabelas, blocos de código ou comentários fora dos marcadores. Estes marcadores permitem levar a resposta diretamente para a Publicação em lote da Jornada.pt.",
@@ -623,7 +819,7 @@ const EXTERNAL_ARTICLE_IMPORT_RULES = [
 
 const COMMON_PROMPT_RULES = [
   "Produza o texto em português europeu, com linguagem jornalística eloquente, fluida, natural e rigorosa.",
-  "Leia integralmente e considere todas as fontes incluídas no respetivo grupo ARTIGO antes de escrever. Fontes de grupos diferentes pertencem a artigos diferentes e nunca devem ser misturadas.",
+  "Leia integralmente e considere todas as fontes do grupo indicado em cada saída editorial. Várias saídas podem partilhar o mesmo grupo de fontes e, nesse caso, podem utilizar as mesmas fontes; grupos diferentes não devem ser misturados.",
   "Além das fontes fornecidas, pesquise sempre fontes externas atuais e credíveis sobre o mesmo tema para complementar, contextualizar e atualizar a informação, salvo instrução expressa do editor para não fazer pesquisa externa.",
   "A pesquisa complementar deve acrescentar contexto e atualidade sem inventar factos nem apagar divergências relevantes. Quando existirem versões divergentes, apresente e atribua claramente cada uma, sem escolher arbitrariamente uma como verdadeira.",
   "O título sugerido pelo editor é uma orientação inicial. Melhore-o ou substitua-o quando existir uma formulação mais rigorosa, informativa e adequada ao conteúdo efetivamente sustentado pelas fontes.",
@@ -680,8 +876,30 @@ export function editorialSourcePackagePrompt(
   ].join("\n\n");
 }
 
+function formatEditorialOutputPlan(
+  outputs: readonly EditorialSourcePackageOutputInput[] | undefined,
+): string[] {
+  if (!outputs?.length) {
+    return [];
+  }
+
+  return [
+    "## ARTIGOS A PRODUZIR",
+    "",
+    `**TOTAL:** ${outputs.length}`,
+    "",
+    ...outputs.map((output) => (
+      `${String(output.position).padStart(2, "0")} — ${markdownText(output.focus)} — grupo de fontes ${String(output.sourceArticlePosition).padStart(2, "0")}`
+    )),
+    "",
+    "> Todos os artigos são saídas editoriais do Dossiê. Quando várias saídas apontam para o mesmo grupo de fontes, podem recorrer ao mesmo conjunto documental, respeitando o foco definido para cada artigo.",
+    "",
+  ];
+}
+
 function buildEditorialSourcePackageTaskMarkdown(
   editorial: EditorialSourcePackageEditorialInput,
+  outputs?: readonly EditorialSourcePackageOutputInput[],
 ): string {
   return [
     "# TAREFA EDITORIAL",
@@ -692,64 +910,156 @@ function buildEditorialSourcePackageTaskMarkdown(
     "",
     "## TÍTULO SUGERIDO PELO EDITOR",
     "",
-    ...markdownEditorValue(editorial.suggestedTitle, "Não indicado."),
+    ...markdownEditorValue(
+      editorial.suggestedTitle,
+      "Não indicado.",
+    ),
     "",
     "## INSTRUÇÕES ADICIONAIS DO EDITOR",
     "",
-    ...markdownEditorValue(editorial.additionalInstructions, "Sem instruções adicionais."),
+    ...markdownEditorValue(
+      editorial.additionalInstructions,
+      "Sem instruções adicionais.",
+    ),
     "",
+    ...formatEditorialOutputPlan(outputs),
     "## INSTRUÇÃO DE REDAÇÃO",
     "",
     editorialSourcePackagePrompt(editorial.genre),
   ].join("\n");
 }
 
-export function updateEditorialSourcePackageMarkdown(input: Readonly<{
-  markdown: string;
-  editorial: EditorialSourcePackageEditorialInput;
-}>): string | null {
-  const normalizedMarkdown = input.markdown.replace(/\r\n?/g, "\n");
+export function updateEditorialSourcePackageMarkdown(
+  input: Readonly<{
+    markdown: string;
+    editorial: EditorialSourcePackageEditorialInput;
+    outputs?: readonly EditorialSourcePackageOutputInput[];
+  }>,
+): string | null {
+  const normalizedMarkdown =
+    input.markdown.replace(/\r\n?/g, "\n");
   const sourcesMarker = "# FONTES INTEGRAIS";
-  const sourcesIndex = normalizedMarkdown.indexOf(sourcesMarker);
+  const sourcesIndex =
+    normalizedMarkdown.indexOf(sourcesMarker);
 
   if (sourcesIndex < 0) {
     return null;
   }
 
+  let sources =
+    normalizedMarkdown.slice(sourcesIndex);
+
+  if (input.outputs?.length) {
+    sources = sources.replace(
+      /\*\*ARTIGOS FINAIS:\*\* \d+/,
+      `**ARTIGOS FINAIS:** ${input.outputs.length}`,
+    );
+
+    const sharedSourceGroups =
+      input.outputs.length
+      > new Set(
+          input.outputs.map(
+            (output) => output.sourceArticlePosition,
+          ),
+        ).size;
+
+    if (sharedSourceGroups) {
+      sources = sources
+        .replace(
+          /^# ARTIGO (\d{2}) DE (\d{2})$/gm,
+          "# DOSSIÊ DE FONTES $1 DE $2",
+        )
+        .replace(
+          /\*\*FONTES NESTE ARTIGO:\*\*/g,
+          "**FONTES NESTE DOSSIÊ:**",
+        );
+    }
+  }
+
   return [
-    buildEditorialSourcePackageTaskMarkdown(input.editorial),
+    buildEditorialSourcePackageTaskMarkdown(
+      input.editorial,
+      input.outputs,
+    ),
     "",
     "---",
     "",
-    normalizedMarkdown.slice(sourcesIndex),
+    sources,
   ].join("\n");
 }
 
-export function buildEditorialSourcePackageMarkdown(input: Readonly<{
-  createdAt: string;
-  editorial: EditorialSourcePackageEditorialInput;
-  entries: readonly EditorialSourcePackageEntry[];
-}>): string {
+export function buildEditorialSourcePackageMarkdown(
+  input: Readonly<{
+    createdAt: string;
+    editorial: EditorialSourcePackageEditorialInput;
+    entries: readonly EditorialSourcePackageEntry[];
+    outputs?: readonly EditorialSourcePackageOutputInput[];
+  }>,
+): string {
   const selectedCount = input.entries.length;
-  const preparedCount = input.entries.filter((entry) => entry.status === "prepared").length;
-  const failedCount = selectedCount - preparedCount;
-  const groupedEntries = new Map<number, EditorialSourcePackageEntry[]>();
+  const preparedCount =
+    input.entries.filter(
+      (entry) => entry.status === "prepared",
+    ).length;
+  const failedCount =
+    selectedCount - preparedCount;
+  const groupedEntries =
+    new Map<number, EditorialSourcePackageEntry[]>();
 
   for (const entry of input.entries) {
-    const current = groupedEntries.get(entry.articlePosition) ?? [];
+    const current =
+      groupedEntries.get(entry.articlePosition) ?? [];
+
     current.push(entry);
-    groupedEntries.set(entry.articlePosition, current);
+    groupedEntries.set(
+      entry.articlePosition,
+      current,
+    );
   }
 
-  const articleGroups = [...groupedEntries.entries()]
-    .sort(([left], [right]) => left - right);
-  const articleCount = articleGroups.length;
-  const articleSections = articleGroups.map(([articlePosition, entries]) => (
-    formatArticleGroup(articlePosition, articleCount, entries)
-  ));
+  const articleGroups =
+    [...groupedEntries.entries()]
+      .sort(([left], [right]) => left - right);
+
+  const defaultOutputs =
+    defaultEditorialSourcePackageOutputs(
+      input.entries,
+      input.editorial.suggestedTitle,
+    );
+
+  const outputs = input.outputs
+    ? normalizeEditorialSourcePackageOutputs(
+        input.outputs,
+        input.entries,
+      ) ?? defaultOutputs
+    : defaultOutputs;
+
+  const articleCount = outputs.length;
+  const sharedSourceGroups =
+    outputs.length
+    > new Set(
+        outputs.map(
+          (output) => output.sourceArticlePosition,
+        ),
+      ).size;
+
+  const articleSections =
+    articleGroups.map(
+      ([articlePosition, entries]) => (
+        formatArticleGroup(
+          articlePosition,
+          articleGroups.length,
+          entries,
+          sharedSourceGroups,
+        )
+      ),
+    );
 
   return [
-    buildEditorialSourcePackageTaskMarkdown(input.editorial),
+    buildEditorialSourcePackageTaskMarkdown(
+      input.editorial,
+      outputs,
+    ),
     "",
     "---",
     "",
@@ -763,11 +1073,13 @@ export function buildEditorialSourcePackageMarkdown(input: Readonly<{
     "",
     "> Os textos abaixo correspondem aos snapshots editoriais selecionados. Não foram resumidos nem reescritos por IA.",
     "",
-    ...articleSections.flatMap((section, index) => (
-      index === 0
-        ? [section]
-        : ["---", "", section]
-    )),
+    ...articleSections.flatMap(
+      (section, index) => (
+        index === 0
+          ? [section]
+          : ["---", "", section]
+      ),
+    ),
     "",
   ].join("\n");
 }

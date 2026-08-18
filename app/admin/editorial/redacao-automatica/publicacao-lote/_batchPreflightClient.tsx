@@ -58,8 +58,14 @@ type ArticleResultRow = Readonly<{
 type BatchPublicationPlanItem = Readonly<{
   key: string;
   slug: string;
-  mode: "create" | "resume";
+  mode:
+    | "create"
+    | "resume"
+    | "update_required"
+    | "update";
   articleId?: string;
+  existingTitle?: string | null;
+  existingSlug?: string | null;
   publishedAt: string;
 }>;
 
@@ -468,6 +474,9 @@ function PublicationPanel({
   error,
   isPublishing,
   canPublish,
+  plan,
+  confirmedUpdates,
+  onConfirmUpdate,
   onPublish,
 }: Readonly<{
   articles: readonly EditorialBatchArticle[];
@@ -475,13 +484,25 @@ function PublicationPanel({
   error: string | null;
   isPublishing: boolean;
   canPublish: boolean;
+  plan: readonly BatchPublicationPlanItem[] | null;
+  confirmedUpdates: Readonly<Record<string, string>>;
+  onConfirmUpdate:
+    (key: string, articleId: string) => void;
   onPublish: () => void;
 }>) {
   const stateValues = Object.values(states);
   const hasRun = stateValues.length > 0;
   const allPublished = articles.length > 0
     && articles.every((article) => states[article.key]?.status === "published");
-  const hasIncompleteRun = hasRun && !allPublished;
+  const hasIncompleteRun =
+    hasRun && !allPublished;
+
+  const updateCandidates =
+    (plan ?? []).filter(
+      (item) =>
+        item.mode === "update_required"
+        && Boolean(item.articleId),
+    );
 
   return (
     <section className={styles.panel} aria-labelledby="batch-publication-title" aria-live="polite">
@@ -494,6 +515,88 @@ function PublicationPanel({
           {allPublished ? "LOTE PUBLICADO" : isPublishing ? "PUBLICAÇÃO EM CURSO" : "PRONTO"}
         </strong>
       </div>
+
+      {updateCandidates.length > 0 ? (
+        <section
+          className={styles.articleResults}
+          aria-labelledby="batch-update-confirmations-title"
+        >
+          <h3 id="batch-update-confirmations-title">
+            Atualizações a confirmar
+          </h3>
+
+          <ol>
+            {updateCandidates.map((item) => {
+              const confirmed =
+                Boolean(
+                  item.articleId
+                  && confirmedUpdates[item.key]
+                    === item.articleId,
+                );
+
+              return (
+                <li key={item.key}>
+                  <div className={styles.articleKey}>
+                    {item.key}
+                  </div>
+
+                  <div className={styles.articleCopy}>
+                    <div className={styles.articleHeading}>
+                      <h4>
+                        {firstText(
+                          item.existingTitle,
+                          item.existingSlug,
+                          "Artigo existente",
+                        )}
+                      </h4>
+
+                      <strong>
+                        {confirmed
+                          ? "ATUALIZAÇÃO CONFIRMADA"
+                          : "CONFIRMAÇÃO NECESSÁRIA"}
+                      </strong>
+                    </div>
+
+                    <p className={styles.validNote}>
+                      Esta saída do Dossiê corresponde a um
+                      artigo já publicado da mesma jornada.
+                      A atualização mantém o mesmo artigo e
+                      o mesmo URL.
+                    </p>
+
+                    <div className={styles.analysisActions}>
+                      <p className={styles.analysisNote}>
+                        {item.existingSlug ?? ""}
+                      </p>
+
+                      <button
+                        type="button"
+                        disabled={
+                          confirmed
+                          || isPublishing
+                          || !item.articleId
+                        }
+                        onClick={() => {
+                          if (item.articleId) {
+                            onConfirmUpdate(
+                              item.key,
+                              item.articleId,
+                            );
+                          }
+                        }}
+                      >
+                        {confirmed
+                          ? "ATUALIZAÇÃO CONFIRMADA"
+                          : "CONFIRMAR ATUALIZAÇÃO"}
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : null}
 
       <div className={styles.analysisActions}>
         <p className={styles.analysisNote}>
@@ -562,6 +665,14 @@ export default function BatchPreflightClient({
   const [isPublishing, setIsPublishing] = useState(false);
   const [publicationError, setPublicationError] = useState<string | null>(null);
   const [publicationStates, setPublicationStates] = useState<Readonly<Record<string, BatchPublicationItemState>>>({});
+  const [publicationPlan, setPublicationPlan] =
+    useState<readonly BatchPublicationPlanItem[] | null>(
+      null,
+    );
+  const [confirmedUpdates, setConfirmedUpdates] =
+    useState<Readonly<Record<string, string>>>(
+      {},
+    );
   const publicationStatesRef = useRef<Record<string, BatchPublicationItemState>>({});
   const publicationPlanRef = useRef<readonly BatchPublicationPlanItem[] | null>(null);
   const uploadedImageUrlsRef = useRef<Record<string, string>>({});
@@ -601,6 +712,25 @@ export default function BatchPreflightClient({
       && imagePreflight?.ready
       && author.trim(),
   );
+
+  const requiredUpdates =
+    (publicationPlan ?? []).filter(
+      (item) =>
+        item.mode === "update_required",
+    );
+
+  const updatesConfirmed =
+    requiredUpdates.every(
+      (item) =>
+        Boolean(
+          item.articleId
+          && confirmedUpdates[item.key]
+            === item.articleId,
+        ),
+    );
+
+  const publicationCanPublish =
+    canPublish && updatesConfirmed;
 
   useEffect(() => {
     const transferredText = window.sessionStorage.getItem(
@@ -645,9 +775,26 @@ export default function BatchPreflightClient({
 
   function resetPublicationRun() {
     publicationPlanRef.current = null;
+    setPublicationPlan(null);
+    setConfirmedUpdates({});
     uploadedImageUrlsRef.current = {};
     publicationStatesRef.current = {};
     setPublicationStates({});
+    setPublicationError(null);
+  }
+
+  function confirmExistingUpdate(
+    key: string,
+    articleId: string,
+  ) {
+    setConfirmedUpdates(
+      (current) => ({
+        ...current,
+        [key]: articleId,
+      }),
+    );
+
+    publicationPlanRef.current = null;
     setPublicationError(null);
   }
 
@@ -665,6 +812,9 @@ export default function BatchPreflightClient({
         author: author.trim(),
         articles: preflight.articles,
         ...(sourcePackage ? { sourcePackage } : {}),
+        ...(Object.keys(confirmedUpdates).length > 0
+          ? { confirmedUpdates }
+          : {}),
       }),
     });
     const payload = await response.json().catch(() => null) as BatchPublicationPreflightResponse | null;
@@ -726,6 +876,15 @@ export default function BatchPreflightClient({
         article,
         imageUrl,
         publishedAt: planItem.publishedAt,
+        publicationMode:
+          planItem.mode,
+        ...(planItem.mode === "update"
+          && planItem.articleId
+          ? {
+              updateArticleId:
+                planItem.articleId,
+            }
+          : {}),
         ...(sourcePackage ? { sourcePackage } : {}),
       }),
     });
@@ -750,8 +909,27 @@ export default function BatchPreflightClient({
     setPublicationError(null);
 
     try {
-      const plan = publicationPlanRef.current ?? await requestPublicationPreflight();
+      const plan =
+        publicationPlanRef.current
+        ?? await requestPublicationPreflight();
+
       publicationPlanRef.current = plan;
+      setPublicationPlan(plan);
+
+      const updateRequired =
+        plan.filter(
+          (item) =>
+            item.mode === "update_required",
+        );
+
+      if (updateRequired.length > 0) {
+        setPublicationError(
+          updateRequired.length === 1
+            ? `O artigo ${updateRequired[0].key} é uma atualização de um artigo existente. Confirma a atualização antes de publicar.`
+            : "Existem atualizações de artigos existentes que precisam de confirmação antes de publicar.",
+        );
+        return;
+      }
 
       if (Object.keys(publicationStatesRef.current).length === 0) {
         const initialStates = Object.fromEntries(
@@ -772,14 +950,32 @@ export default function BatchPreflightClient({
 
         const article = articleByKey.get(planItem.key);
         const file = imageByKey.get(planItem.key);
-        if (!article || (planItem.mode === "create" && !file)) {
-          throw new Error(`O artigo ${planItem.key} deixou de ter uma associação válida.`);
+        const requiresImage =
+          planItem.mode === "create"
+          || planItem.mode === "update";
+
+        if (
+          !article
+          || (
+            requiresImage
+            && !file
+          )
+        ) {
+          throw new Error(
+            `O artigo ${planItem.key} deixou de ter uma associação válida.`,
+          );
         }
 
         try {
           let imageUrl = uploadedImageUrlsRef.current[planItem.key] ?? null;
 
-          if (planItem.mode === "create" && !imageUrl) {
+          if (
+            (
+              planItem.mode === "create"
+              || planItem.mode === "update"
+            )
+            && !imageUrl
+          ) {
             setPublicationState(planItem.key, {
               status: "uploading",
               message: `A carregar ${file?.name ?? "imagem"}…`,
@@ -790,17 +986,23 @@ export default function BatchPreflightClient({
 
           setPublicationState(planItem.key, {
             status: "publishing",
-            message: planItem.mode === "resume"
-              ? "A confirmar o artigo existente e a garantir a entrada em Últimas…"
-              : "A criar o artigo canónico e a colocá-lo em Últimas…",
+            message:
+              planItem.mode === "resume"
+                ? "A confirmar o artigo existente e a garantir a entrada em Últimas…"
+                : planItem.mode === "update"
+                  ? "A atualizar o artigo canónico existente e a manter o mesmo URL…"
+                  : "A criar o artigo canónico e a colocá-lo em Últimas…",
           });
 
           const result = await publishPlannedItem(planItem, article, imageUrl);
           setPublicationState(planItem.key, {
             status: "published",
-            message: planItem.mode === "resume"
-              ? "Artigo existente confirmado e garantido em Últimas."
-              : "Artigo publicado e colocado em Últimas.",
+            message:
+              planItem.mode === "resume"
+                ? "Artigo existente confirmado e garantido em Últimas."
+                : planItem.mode === "update"
+                  ? "Artigo existente atualizado, com o mesmo URL, e mantido em Últimas."
+                  : "Artigo publicado e colocado em Últimas.",
             ...(result.articleId ? { articleId: result.articleId } : {}),
           });
         } catch (error) {
@@ -1029,7 +1231,12 @@ export default function BatchPreflightClient({
           states={publicationStates}
           error={publicationError}
           isPublishing={isPublishing}
-          canPublish={canPublish}
+          canPublish={publicationCanPublish}
+          plan={publicationPlan}
+          confirmedUpdates={confirmedUpdates}
+          onConfirmUpdate={
+            confirmExistingUpdate
+          }
           onPublish={publishBatch}
         />
       ) : null}

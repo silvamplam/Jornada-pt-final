@@ -11,6 +11,7 @@ import {
 } from "@/lib/redacao-automatica/editorial-source-package";
 
 import SourcePackageActions from "../../../../_sourcePackageActions";
+import SourcePackageOutputPlanner from "../../../../_sourcePackageOutputPlanner";
 import styles from "../../../../redacao-automatica.module.css";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ const updateErrorMessages: Record<string, string> = {
   package_not_found: "O pacote já não está disponível no armazenamento editorial.",
   package_read_failed: "Não foi possível ler o pacote editorial com segurança.",
   package_write_failed: "Não foi possível atualizar o pacote editorial.",
+  outputs_locked: "Os artigos deste pacote já começaram a ser publicados e o plano de saídas ficou bloqueado.",
 };
 
 function firstQueryValue(value: string | string[] | undefined): string | null {
@@ -74,14 +76,59 @@ export default async function SourcePackagePage({
   const contentUrl =
     `/api/admin/editorial/redacao-automatica/source-package/${year}/${month}/${id}`;
   const failedEntries = manifest.entries.filter((entry) => entry.status === "failed");
-  const articleImages = editorialSourcePackageArticleImageSources(manifest.entries);
-  const imageSourceCount = articleImages.length;
+  const articleImages =
+    editorialSourcePackageArticleImageSources(
+      manifest.entries,
+      manifest.outputs,
+    );
+
+  const imageSourceCount =
+    articleImages.length;
+
+  const sourceGroupPositions =
+    [...new Set(
+      manifest.entries.map(
+        (entry) => entry.articlePosition,
+      ),
+    )].sort((left, right) => left - right);
+
+  const sourceGroupCount =
+    sourceGroupPositions.length;
+
+  const outputImageCandidates =
+    manifest.entries.flatMap((entry) => (
+      entry.status === "prepared"
+      && typeof entry.newsroomArticleId === "string"
+      && Boolean(entry.newsroomArticleId)
+      && typeof entry.imageUrl === "string"
+      && Boolean(entry.imageUrl)
+        ? [{
+            newsroomArticleId:
+              entry.newsroomArticleId,
+            sourceName:
+              entry.sourceName
+              ?? entry.sourceCode
+              ?? "Fonte",
+            title:
+              entry.title
+              ?? "Notícia",
+            imageUrl:
+              entry.imageUrl,
+          }]
+        : []
+    ));
   const imagesUrl = `${contentUrl}/images`;
   const imagesFileName = editorialSourcePackageImagesFileName(
     manifest.genre,
     manifest.suggestedTitle,
   );
-  const packageUpdated = firstQueryValue(query.package_updated) === "1";
+  const packageUpdated =
+    firstQueryValue(query.package_updated) === "1";
+
+  const packageOutputsUpdated =
+    firstQueryValue(
+      query.package_outputs_updated,
+    ) === "1";
   const packageUpdateErrorCode = firstQueryValue(query.package_update_error);
   const packageUpdateError = packageUpdateErrorCode
     ? updateErrorMessages[packageUpdateErrorCode]
@@ -114,9 +161,13 @@ export default async function SourcePackagePage({
           <p className={styles.simpleFeedbackError} role="status">
             {packageUpdateError}
           </p>
+        ) : packageOutputsUpdated ? (
+          <p className={styles.simpleFeedbackSuccess} role="status">
+            O plano de artigos e as imagens foram atualizados. As fontes do Dossiê mantiveram-se.
+          </p>
         ) : packageUpdated ? (
           <p className={styles.simpleFeedbackSuccess} role="status">
-            {manifest.articleCount === 1
+            {sourceGroupCount === 1
               ? "O assunto principal e as instruções foram atualizados. As fontes e as imagens mantiveram-se."
               : "As instruções foram atualizadas. Os grupos, as fontes e as imagens mantiveram-se."}
           </p>
@@ -156,7 +207,7 @@ export default async function SourcePackagePage({
 
           <div className={styles.sourcePackageEditorialSummary}>
             <p><strong>Género:</strong> {manifest.genreLabel}</p>
-            {manifest.articleCount === 1 ? (
+            {sourceGroupCount === 1 ? (
               <p>
                 <strong>Assunto principal:</strong>{" "}
                 {manifest.suggestedTitle ?? "Não indicado"}
@@ -177,7 +228,7 @@ export default async function SourcePackagePage({
               <div>
                 <h3>Ajustar antes de copiar</h3>
                 <p>
-                  {manifest.articleCount === 1
+                  {sourceGroupCount === 1
                     ? "Ajusta o assunto principal ou as instruções sem voltar a recolher as fontes nem as imagens."
                     : "Ajusta as instruções sem voltar a recolher as fontes nem as imagens."}
                 </p>
@@ -185,7 +236,7 @@ export default async function SourcePackagePage({
               <p><strong>Género:</strong> {manifest.genreLabel}</p>
             </div>
 
-            {manifest.articleCount === 1 ? (
+            {sourceGroupCount === 1 ? (
               <label>
                 <span>Assunto principal</span>
                 <input
@@ -213,7 +264,7 @@ export default async function SourcePackagePage({
 
             <div className={styles.sourcePackageEditActions}>
               <button type="submit">
-                {manifest.articleCount === 1
+                {sourceGroupCount === 1
                   ? "Atualizar assunto e instruções"
                   : "Atualizar instruções"}
               </button>
@@ -222,6 +273,19 @@ export default async function SourcePackagePage({
               </p>
             </div>
           </form>
+
+          {sourceGroupCount === 1 ? (
+            <SourcePackageOutputPlanner
+              actionUrl={contentUrl}
+              sourceArticlePosition={
+                sourceGroupPositions[0] ?? 1
+              }
+              outputs={manifest.outputs}
+              imageCandidates={
+                outputImageCandidates
+              }
+            />
+          ) : null}
 
           <SourcePackageActions
             contentUrl={contentUrl}

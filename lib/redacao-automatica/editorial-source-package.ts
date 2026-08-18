@@ -9,16 +9,20 @@ import {
 } from "@/lib/supabase";
 import {
   buildEditorialSourcePackageMarkdown,
+  defaultEditorialSourcePackageOutputs,
   editorialSourceAnteTitle,
   editorialSourcePackageArticleImageSources,
   editorialSourcePackageFileName,
   isEditorialSourcePackageLocation,
   normalizeEditorialSourcePackageEditorialInput,
+  normalizeEditorialSourcePackageOutputs,
   normalizeEditorialSourcePackageSelections,
   updateEditorialSourcePackageMarkdown,
   type EditorialSourcePackageEditorialInput,
   type EditorialSourcePackageEntry,
   type EditorialSourcePackageManifest,
+  type EditorialSourcePackageOutput,
+  type EditorialSourcePackageOutputInput,
   type EditorialSourcePackagePreparedEntry,
   type EditorialSourcePackageSelection,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
@@ -68,10 +72,14 @@ type EditorialSourcePackageUpdateRow = {
   id: string;
 };
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export type CreateEditorialSourcePackageInput = Readonly<{
   packageId: string;
   selections: readonly EditorialSourcePackageSelection[];
   editorial: EditorialSourcePackageEditorialInput;
+  outputs?: readonly EditorialSourcePackageOutputInput[];
   now?: Date;
 }>;
 
@@ -121,6 +129,27 @@ export type UpdateEditorialSourcePackageEditorialResult =
       error: Readonly<{
         code:
           | "input_invalid"
+          | "location_invalid"
+          | "package_not_found"
+          | "package_read_failed"
+          | "package_write_failed";
+      }>;
+    }>;
+
+export type UpdateEditorialSourcePackageOutputsResult =
+  | Readonly<{
+      ok: true;
+      value: Readonly<{
+        manifest: EditorialSourcePackageManifest;
+        markdown: string;
+      }>;
+    }>
+  | Readonly<{
+      ok: false;
+      error: Readonly<{
+        code:
+          | "input_invalid"
+          | "outputs_locked"
           | "location_invalid"
           | "package_not_found"
           | "package_read_failed"
@@ -215,6 +244,126 @@ function manifestEntries(entries: readonly EditorialSourcePackageEntry[]) {
   }));
 }
 
+
+function persistedOutputs(
+  value: unknown,
+  entries: EditorialSourcePackageManifest["entries"],
+  suggestedTitle: string | null,
+): readonly EditorialSourcePackageOutput[] | null {
+  const rawOutputs =
+    Array.isArray(value) && value.length > 0
+      ? value
+      : defaultEditorialSourcePackageOutputs(
+          entries,
+          suggestedTitle,
+        );
+
+  const inputs: EditorialSourcePackageOutputInput[] = [];
+
+  for (const [index, rawOutput] of rawOutputs.entries()) {
+    if (
+      !rawOutput
+      || typeof rawOutput !== "object"
+      || Array.isArray(rawOutput)
+    ) {
+      return null;
+    }
+
+    const candidate =
+      rawOutput as Record<string, unknown>;
+
+    inputs.push({
+      position:
+        Number(candidate.position ?? index + 1),
+      sourceArticlePosition:
+        Number(
+          candidate.sourceArticlePosition
+          ?? candidate.position
+          ?? index + 1,
+        ),
+      focus:
+        typeof candidate.focus === "string"
+          ? candidate.focus
+          : `Artigo ${String(index + 1).padStart(2, "0")}`,
+      imageNewsroomArticleId:
+        typeof candidate.imageNewsroomArticleId === "string"
+          ? candidate.imageNewsroomArticleId
+          : null,
+    });
+  }
+
+  const normalized =
+    normalizeEditorialSourcePackageOutputs(
+      inputs,
+      entries,
+    );
+
+  if (!normalized) {
+    return null;
+  }
+
+  const outputs: EditorialSourcePackageOutput[] = [];
+
+  for (const [index, output] of normalized.entries()) {
+    const raw =
+      rawOutputs[index] as Record<string, unknown>;
+
+    const rawArticleId =
+      typeof raw.publishedArticleId === "string"
+        ? raw.publishedArticleId.trim().toLowerCase()
+        : "";
+
+    const publishedSlug =
+      typeof raw.publishedSlug === "string"
+        ? raw.publishedSlug.trim()
+        : "";
+
+    const rawUsedAt =
+      typeof raw.usedAt === "string"
+        ? raw.usedAt.trim()
+        : "";
+
+    if (
+      rawArticleId
+      && !UUID_PATTERN.test(rawArticleId)
+    ) {
+      return null;
+    }
+
+    if (
+      (rawArticleId && !publishedSlug)
+      || (!rawArticleId && publishedSlug)
+    ) {
+      return null;
+    }
+
+    if (
+      rawUsedAt
+      && Number.isNaN(Date.parse(rawUsedAt))
+    ) {
+      return null;
+    }
+
+    outputs.push({
+      ...output,
+      ...(rawArticleId
+        ? {
+            publishedArticleId: rawArticleId,
+            publishedSlug,
+          }
+        : {}),
+      ...(rawUsedAt
+        ? {
+            usedAt:
+              new Date(rawUsedAt).toISOString(),
+          }
+        : {}),
+    });
+  }
+
+  return outputs;
+}
+
 function persistedManifest(
   value: unknown,
   location: Readonly<{ year: string; month: string; packageId: string }>,
@@ -244,7 +393,7 @@ function persistedManifest(
   ]);
 
   if (
-    (manifest.version !== 2 && manifest.version !== 3)
+    (manifest.version !== 2 && manifest.version !== 3 && manifest.version !== 4)
     || manifest.genreLabel !== editorial.genreLabel
     || typeof manifest.markdownFileName !== "string"
     || !validMarkdownFileNames.has(manifest.markdownFileName)
@@ -282,15 +431,23 @@ function persistedManifest(
     return null;
   }
 
-  const normalizedEntries = entries as EditorialSourcePackageManifest["entries"];
-  const articleCount = Number.isInteger(manifest.articleCount)
-    && Number(manifest.articleCount) > 0
-    ? Number(manifest.articleCount)
-    : new Set(normalizedEntries.map((entry) => entry.articlePosition)).size;
+  const normalizedEntries =
+    entries as EditorialSourcePackageManifest["entries"];
+
+  const outputs = persistedOutputs(
+    (manifest as { outputs?: unknown }).outputs,
+    normalizedEntries,
+    editorial.suggestedTitle,
+  );
+
+  if (!outputs) {
+    return null;
+  }
 
   return {
     ...(manifest as EditorialSourcePackageManifest),
-    articleCount,
+    articleCount: outputs.length,
+    outputs,
     entries: normalizedEntries,
   };
 }
@@ -439,23 +596,70 @@ export async function createEditorialSourcePackage(
   });
 
   const preparedEntries = entries.filter(
-    (entry): entry is EditorialSourcePackagePreparedEntry => entry.status === "prepared",
+    (entry): entry is EditorialSourcePackagePreparedEntry =>
+      entry.status === "prepared",
   );
-  const articleCount = new Set(entries.map((entry) => entry.articlePosition)).size;
-  const effectiveEditorial: EditorialSourcePackageEditorialInput = articleCount > 1
-    ? { ...editorial, suggestedTitle: null }
-    : editorial;
+
+  const sourceGroupCount =
+    new Set(
+      entries.map(
+        (entry) => entry.articlePosition,
+      ),
+    ).size;
+
+  const effectiveEditorial:
+    EditorialSourcePackageEditorialInput =
+      sourceGroupCount > 1
+        ? {
+            ...editorial,
+            suggestedTitle: null,
+          }
+        : editorial;
+
+  const requestedOutputs =
+    input.outputs
+      ? normalizeEditorialSourcePackageOutputs(
+          input.outputs,
+          entries,
+        )
+      : null;
+
+  if (input.outputs && !requestedOutputs) {
+    return {
+      ok: false,
+      error: { code: "input_invalid" },
+    };
+  }
+
+  const outputs =
+    requestedOutputs
+    ?? defaultEditorialSourcePackageOutputs(
+      entries,
+      effectiveEditorial.suggestedTitle,
+    );
+
+  const articleCount = outputs.length;
   const createdAt = now.toISOString();
-  const markdownFileName = editorialSourcePackageFileName(
-    effectiveEditorial.genre,
-    effectiveEditorial.suggestedTitle,
-  );
-  const markdown = buildEditorialSourcePackageMarkdown({
-    createdAt,
-    editorial: effectiveEditorial,
-    entries,
-  });
-  const articleImageSources = editorialSourcePackageArticleImageSources(entries);
+
+  const markdownFileName =
+    editorialSourcePackageFileName(
+      effectiveEditorial.genre,
+      effectiveEditorial.suggestedTitle,
+    );
+
+  const markdown =
+    buildEditorialSourcePackageMarkdown({
+      createdAt,
+      editorial: effectiveEditorial,
+      entries,
+      outputs,
+    });
+
+  const articleImageSources =
+    editorialSourcePackageArticleImageSources(
+      entries,
+      outputs,
+    );
 
   const archivedImages = localDirectory
     ? await archiveEditorialSourceImagesLocally({
@@ -466,7 +670,7 @@ export async function createEditorialSourcePackage(
     : [];
 
   const manifest: EditorialSourcePackageManifest = {
-    version: 2,
+    version: 4,
     packageId: input.packageId,
     createdAt,
     year: location.year,
@@ -482,6 +686,7 @@ export async function createEditorialSourcePackage(
     failedCount: entries.length - preparedEntries.length,
     imageCount: archivedImages.length,
     localDirectory,
+    outputs,
     entries: manifestEntries(entries),
   };
 
@@ -583,38 +788,114 @@ export async function markEditorialSourcePackageArticleUsed(input: Readonly<{
     return { ok: false, error: { code: current.error.code } };
   }
 
-  const groupEntries = current.value.manifest.entries.filter(
-    (entry) => entry.articlePosition === input.articlePosition,
-  );
+  const output =
+    current.value.manifest.outputs.find(
+      (candidate) =>
+        candidate.position === input.articlePosition,
+    );
+
+  if (!output) {
+    return {
+      ok: false,
+      error: { code: "article_group_not_found" },
+    };
+  }
+
+  const groupEntries =
+    current.value.manifest.entries.filter(
+      (entry) =>
+        entry.articlePosition
+        === output.sourceArticlePosition,
+    );
+
   if (groupEntries.length === 0) {
-    return { ok: false, error: { code: "article_group_not_found" } };
+    return {
+      ok: false,
+      error: { code: "article_group_not_found" },
+    };
   }
 
-  const normalizedArticleId = input.publishedArticleId.trim().toLowerCase();
-  const normalizedSlug = input.publishedSlug.trim();
-  const conflict = groupEntries.some((entry) => (
-    (entry.publishedArticleId && entry.publishedArticleId !== normalizedArticleId)
-    || (entry.publishedSlug && entry.publishedSlug !== normalizedSlug)
-  ));
+  const normalizedArticleId =
+    input.publishedArticleId
+      .trim()
+      .toLowerCase();
+
+  const normalizedSlug =
+    input.publishedSlug.trim();
+
+  const conflict =
+    (
+      output.publishedArticleId
+      && output.publishedArticleId
+        !== normalizedArticleId
+    )
+    || (
+      output.publishedSlug
+      && output.publishedSlug
+        !== normalizedSlug
+    );
+
   if (conflict) {
-    return { ok: false, error: { code: "usage_conflict" } };
+    return {
+      ok: false,
+      error: { code: "usage_conflict" },
+    };
   }
 
-  const usedAt = input.usedAt && !Number.isNaN(Date.parse(input.usedAt))
-    ? new Date(input.usedAt).toISOString()
-    : new Date().toISOString();
+  const usedAt =
+    input.usedAt
+    && !Number.isNaN(Date.parse(input.usedAt))
+      ? new Date(input.usedAt).toISOString()
+      : new Date().toISOString();
+
+  const needsCompatibilityAlias =
+    groupEntries.every(
+      (entry) => !entry.publishedArticleId,
+    );
+
   const manifest: EditorialSourcePackageManifest = {
     ...current.value.manifest,
-    entries: current.value.manifest.entries.map((entry) => (
-      entry.articlePosition === input.articlePosition
-        ? {
-            ...entry,
-            usedAt: entry.usedAt ?? usedAt,
-            publishedArticleId: normalizedArticleId,
-            publishedSlug: normalizedSlug,
-          }
-        : entry
-    )),
+    version: 4,
+
+    outputs:
+      current.value.manifest.outputs.map(
+        (candidate) => (
+          candidate.position
+          === input.articlePosition
+            ? {
+                ...candidate,
+                usedAt:
+                  candidate.usedAt ?? usedAt,
+                publishedArticleId:
+                  normalizedArticleId,
+                publishedSlug:
+                  normalizedSlug,
+              }
+            : candidate
+        ),
+      ),
+
+    entries:
+      current.value.manifest.entries.map(
+        (entry) => (
+          entry.articlePosition
+          === output.sourceArticlePosition
+            ? {
+                ...entry,
+                usedAt:
+                  entry.usedAt ?? usedAt,
+                ...(needsCompatibilityAlias
+                  ? {
+                      publishedArticleId:
+                        normalizedArticleId,
+                      publishedSlug:
+                        normalizedSlug,
+                    }
+                  : {}),
+              }
+            : entry
+        ),
+      ),
   };
 
   try {
@@ -643,6 +924,142 @@ export async function markEditorialSourcePackageArticleUsed(input: Readonly<{
   return { ok: true };
 }
 
+
+export async function updateEditorialSourcePackageOutputs(
+  input: Readonly<{
+    year: string;
+    month: string;
+    packageId: string;
+    outputs: readonly EditorialSourcePackageOutputInput[];
+  }>,
+): Promise<UpdateEditorialSourcePackageOutputsResult> {
+  const current =
+    await readEditorialSourcePackage({
+      year: input.year,
+      month: input.month,
+      packageId: input.packageId,
+    });
+
+  if (!current.ok) {
+    return {
+      ok: false,
+      error: { code: current.error.code },
+    };
+  }
+
+  if (
+    current.value.manifest.outputs.some(
+      (output) => (
+        output.usedAt
+        || output.publishedArticleId
+        || output.publishedSlug
+      ),
+    )
+  ) {
+    return {
+      ok: false,
+      error: { code: "outputs_locked" },
+    };
+  }
+
+  const outputs =
+    normalizeEditorialSourcePackageOutputs(
+      input.outputs,
+      current.value.manifest.entries,
+    );
+
+  if (!outputs) {
+    return {
+      ok: false,
+      error: { code: "input_invalid" },
+    };
+  }
+
+  const editorial:
+    EditorialSourcePackageEditorialInput = {
+      genre:
+        current.value.manifest.genre,
+      genreLabel:
+        current.value.manifest.genreLabel,
+      suggestedTitle:
+        current.value.manifest.suggestedTitle,
+      additionalInstructions:
+        current.value.manifest.additionalInstructions,
+    };
+
+  const markdown =
+    updateEditorialSourcePackageMarkdown({
+      markdown:
+        current.value.markdown,
+      editorial,
+      outputs,
+    });
+
+  if (!markdown) {
+    return {
+      ok: false,
+      error: { code: "package_read_failed" },
+    };
+  }
+
+  const manifest:
+    EditorialSourcePackageManifest = {
+      ...current.value.manifest,
+      version: 4,
+      articleCount: outputs.length,
+      outputs,
+    };
+
+  try {
+    const rows =
+      await writeSupabaseAdminReturning<
+        EditorialSourcePackageUpdateRow
+      >(
+        "newsroom_editorial_source_packages"
+        + `?id=eq.${encodeURIComponent(input.packageId)}`
+        + `&package_year=eq.${encodeURIComponent(input.year)}`
+        + `&package_month=eq.${encodeURIComponent(input.month)}`
+        + "&select=id",
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            manifest,
+            markdown,
+            updated_at:
+              new Date().toISOString(),
+          }),
+        },
+      );
+
+    if (
+      rows.length !== 1
+      || rows[0].id !== input.packageId
+    ) {
+      return {
+        ok: false,
+        error: {
+          code: "package_write_failed",
+        },
+      };
+    }
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code: "package_write_failed",
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      manifest,
+      markdown,
+    },
+  };
+}
+
 export async function updateEditorialSourcePackageEditorial(input: Readonly<{
   year: string;
   month: string;
@@ -665,7 +1082,14 @@ export async function updateEditorialSourcePackageEditorial(input: Readonly<{
 
   const editorial = normalizeEditorialSourcePackageEditorialInput({
     genre: current.value.manifest.genre,
-    suggestedTitle: current.value.manifest.articleCount > 1 ? "" : input.suggestedTitle,
+    suggestedTitle:
+      new Set(
+        current.value.manifest.entries.map(
+          (entry) => entry.articlePosition,
+        ),
+      ).size > 1
+        ? ""
+        : input.suggestedTitle,
     additionalInstructions: input.additionalInstructions,
   });
   if (!editorial) {
@@ -675,6 +1099,7 @@ export async function updateEditorialSourcePackageEditorial(input: Readonly<{
   const markdown = updateEditorialSourcePackageMarkdown({
     markdown: current.value.markdown,
     editorial,
+    outputs: current.value.manifest.outputs,
   });
   if (!markdown) {
     return { ok: false, error: { code: "package_read_failed" } };
@@ -682,6 +1107,7 @@ export async function updateEditorialSourcePackageEditorial(input: Readonly<{
 
   const manifest: EditorialSourcePackageManifest = {
     ...current.value.manifest,
+    version: 4,
     markdownFileName: editorialSourcePackageFileName(
       editorial.genre,
       editorial.suggestedTitle,

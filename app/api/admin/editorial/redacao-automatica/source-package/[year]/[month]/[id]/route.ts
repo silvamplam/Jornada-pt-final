@@ -6,6 +6,7 @@ import {
 import {
   readEditorialSourcePackage,
   updateEditorialSourcePackageEditorial,
+  updateEditorialSourcePackageOutputs,
 } from "@/lib/redacao-automatica/editorial-source-package";
 
 export const runtime = "nodejs";
@@ -85,24 +86,130 @@ export async function GET(request: Request, context: RouteContext) {
   });
 }
 
-export async function POST(request: Request, context: RouteContext) {
-  const { year, month, id } = await context.params;
-  const formData = await request.formData();
-  const result = await updateEditorialSourcePackageEditorial({
-    year,
-    month,
-    packageId: id,
-    suggestedTitle: cleanText(formData.get("suggested_title")),
-    additionalInstructions: cleanText(formData.get("editorial_instructions")),
-  });
+export async function POST(
+  request: Request,
+  context: RouteContext,
+) {
+  const { year, month, id } =
+    await context.params;
 
-  if (!result.ok) {
-    return redirectTo(packagePath(year, month, id), {
-      package_update_error: result.error.code,
-    });
+  const formData =
+    await request.formData();
+
+  const updateMode =
+    cleanText(formData.get("update_mode"));
+
+  if (updateMode === "outputs") {
+    const outputCount =
+      Number(
+        cleanText(
+          formData.get("output_count"),
+        ),
+      );
+
+    if (
+      !Number.isInteger(outputCount)
+      || outputCount < 1
+      || outputCount > 5
+    ) {
+      return redirectTo(
+        packagePath(year, month, id),
+        {
+          package_update_error:
+            "input_invalid",
+        },
+      );
+    }
+
+    const outputs =
+      Array.from(
+        { length: outputCount },
+        (_, index) => {
+          const position = index + 1;
+
+          return {
+            position,
+            sourceArticlePosition:
+              Number(
+                cleanText(
+                  formData.get(
+                    `output_source_group_${position}`,
+                  ),
+                ),
+              ),
+            focus:
+              cleanText(
+                formData.get(
+                  `output_focus_${position}`,
+                ),
+              ),
+            imageNewsroomArticleId:
+              cleanText(
+                formData.get(
+                  `output_image_${position}`,
+                ),
+              ) || null,
+          };
+        },
+      );
+
+    const result =
+      await updateEditorialSourcePackageOutputs({
+        year,
+        month,
+        packageId: id,
+        outputs,
+      });
+
+    if (!result.ok) {
+      return redirectTo(
+        packagePath(year, month, id),
+        {
+          package_update_error:
+            result.error.code,
+        },
+      );
+    }
+
+    return redirectTo(
+      packagePath(year, month, id),
+      {
+        package_outputs_updated: "1",
+      },
+    );
   }
 
-  return redirectTo(packagePath(year, month, id), {
-    package_updated: "1",
-  });
+  const result =
+    await updateEditorialSourcePackageEditorial({
+      year,
+      month,
+      packageId: id,
+      suggestedTitle:
+        cleanText(
+          formData.get("suggested_title"),
+        ),
+      additionalInstructions:
+        cleanText(
+          formData.get(
+            "editorial_instructions",
+          ),
+        ),
+    });
+
+  if (!result.ok) {
+    return redirectTo(
+      packagePath(year, month, id),
+      {
+        package_update_error:
+          result.error.code,
+      },
+    );
+  }
+
+  return redirectTo(
+    packagePath(year, month, id),
+    {
+      package_updated: "1",
+    },
+  );
 }
