@@ -2925,7 +2925,16 @@ async function publishReferenceComposition(formData: FormData) {
     validatePublishableCompositionItems(compositionItems);
   }
 
-  await activateReferenceComposition(formData, true);
+  await writeSupabaseAdmin(
+    "rpc/publish_matchday_reference_composition_with_continuity",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_matchday_id: matchdayId,
+        p_composition_id: compositionId,
+      }),
+    },
+  );
 }
 
 async function reopenReferenceComposition(formData: FormData) {

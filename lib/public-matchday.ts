@@ -72,10 +72,43 @@ export type PublicMatchdayHeadlineMedia = {
   title: string | null;
 };
 
+export type PublicMatchdayEditorialCarryover = {
+  sourceMatchdayId: string;
+  sourceCompositionId: string;
+  headline: {
+    title: string | null;
+    summary: string | null;
+    imageUrl: string | null;
+    linkUrl: string | null;
+  } | null;
+  sideBlock: {
+    label: string | null;
+    labelColor: string | null;
+    title: string | null;
+    titleColor: string | null;
+    author: string | null;
+    text: string | null;
+    imageUrl: string | null;
+    linkUrl: string | null;
+  } | null;
+  highlights: Array<{
+    id: string;
+    sortOrder: number;
+    label: string | null;
+    labelColor: string | null;
+    title: string | null;
+    subtitle: string | null;
+    imageUrl: string | null;
+    linkUrl: string | null;
+  }>;
+  liveLayoutItems: MatchdayLiveLayoutItem[];
+};
+
 export type PublicMatchdayEditorialDeskControl = {
   isManaged: boolean;
   faixaVisible: boolean;
   revision: number;
+  carryover: PublicMatchdayEditorialCarryover | null;
 };
 
 export type PublicMatchdayContext = {
@@ -273,10 +306,140 @@ async function readMatchdayLiveLayoutItems(matchdayId: string) {
   ).catch(() => []);
 }
 
+function cleanCarryoverText(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function normalizeEditorialCarryover(
+  sourceCompositionId: string | null | undefined,
+  value: unknown,
+): PublicMatchdayEditorialCarryover | null {
+  if (
+    !sourceCompositionId ||
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value)
+  ) {
+    return null;
+  }
+
+  const snapshot = value as Record<string, unknown>;
+  const snapshotCompositionId =
+    cleanCarryoverText(snapshot.source_composition_id);
+  const sourceMatchdayId =
+    cleanCarryoverText(snapshot.source_matchday_id);
+
+  if (
+    snapshot.version !== 2 ||
+    snapshotCompositionId !== sourceCompositionId ||
+    !sourceMatchdayId
+  ) {
+    return null;
+  }
+
+  const objectValue = (candidate: unknown) =>
+    candidate &&
+    typeof candidate === "object" &&
+    !Array.isArray(candidate)
+      ? candidate as Record<string, unknown>
+      : null;
+
+  const headline = objectValue(snapshot.headline);
+  const sideBlock = objectValue(snapshot.side_block);
+
+  const highlights = Array.isArray(snapshot.highlights)
+    ? snapshot.highlights
+        .map((candidate) => objectValue(candidate))
+        .filter(
+          (candidate): candidate is Record<string, unknown> =>
+            Boolean(candidate)
+        )
+        .map((candidate) => ({
+          id: cleanCarryoverText(candidate.id) ?? "",
+          sortOrder:
+            typeof candidate.sort_order === "number"
+              ? candidate.sort_order
+              : 0,
+          label: cleanCarryoverText(candidate.label),
+          labelColor: cleanCarryoverText(candidate.label_color),
+          title: cleanCarryoverText(candidate.title),
+          subtitle: cleanCarryoverText(candidate.subtitle),
+          imageUrl: cleanCarryoverText(candidate.image_url),
+          linkUrl: cleanCarryoverText(candidate.link_url),
+        }))
+        .filter(
+          (candidate) =>
+            candidate.id &&
+            Number.isSafeInteger(candidate.sortOrder) &&
+            candidate.sortOrder > 0
+        )
+    : [];
+
+  return {
+    sourceMatchdayId,
+    sourceCompositionId,
+    headline: headline
+      ? {
+          title: cleanCarryoverText(headline.title),
+          summary: cleanCarryoverText(headline.summary),
+          imageUrl: cleanCarryoverText(headline.image_url),
+          linkUrl: cleanCarryoverText(headline.link_url),
+        }
+      : null,
+    sideBlock: sideBlock
+      ? {
+          label: cleanCarryoverText(sideBlock.label),
+          labelColor: cleanCarryoverText(sideBlock.label_color),
+          title: cleanCarryoverText(sideBlock.title),
+          titleColor: cleanCarryoverText(sideBlock.title_color),
+          author: cleanCarryoverText(sideBlock.author),
+          text: cleanCarryoverText(sideBlock.text),
+          imageUrl: cleanCarryoverText(sideBlock.image_url),
+          linkUrl: cleanCarryoverText(sideBlock.link_url),
+        }
+      : null,
+    highlights,
+    liveLayoutItems: Array.isArray(snapshot.live_layout_items)
+      ? snapshot.live_layout_items as MatchdayLiveLayoutItem[]
+      : [],
+  };
+}
+
 async function readMatchdayEditorialDeskControl(
   matchdayId: string,
 ): Promise<PublicMatchdayEditorialDeskControl> {
   const rows = await fetchSupabaseAdminTable<{
+    is_managed: boolean;
+    faixa_visible: boolean;
+    revision: number;
+    carryover_source_composition_id: string | null;
+    carryover_snapshot: unknown;
+  }>(
+    `matchday_editorial_desk_control?select=is_managed,faixa_visible,revision,carryover_source_composition_id,carryover_snapshot&matchday_id=eq.${encodeURIComponent(
+      matchdayId,
+    )}&limit=1`,
+  ).catch(() => []);
+
+  const control = rows[0] ?? null;
+
+  if (control) {
+    return {
+      isManaged: control.is_managed === true,
+      faixaVisible: control.faixa_visible !== false,
+      revision: Number.isSafeInteger(control.revision)
+        ? control.revision
+        : 0,
+      carryover: normalizeEditorialCarryover(
+        control.carryover_source_composition_id,
+        control.carryover_snapshot,
+      ),
+    };
+  }
+
+  // Compatibilidade enquanto a migra??o ainda n?o existir no ambiente.
+  const legacyRows = await fetchSupabaseAdminTable<{
     is_managed: boolean;
     faixa_visible: boolean;
     revision: number;
@@ -285,12 +448,16 @@ async function readMatchdayEditorialDeskControl(
       matchdayId,
     )}&limit=1`,
   ).catch(() => []);
-  const control = rows[0] ?? null;
+
+  const legacy = legacyRows[0] ?? null;
 
   return {
-    isManaged: control?.is_managed === true,
-    faixaVisible: control?.faixa_visible !== false,
-    revision: Number.isSafeInteger(control?.revision) ? control?.revision ?? 0 : 0,
+    isManaged: legacy?.is_managed === true,
+    faixaVisible: legacy?.faixa_visible !== false,
+    revision: Number.isSafeInteger(legacy?.revision)
+      ? legacy?.revision ?? 0
+      : 0,
+    carryover: null,
   };
 }
 

@@ -42,6 +42,12 @@ type MatchRow = {
   rollover_excluded?: boolean | null;
 };
 
+type EditorialContinuityControlRow = {
+  matchday_id: string;
+  is_managed: boolean;
+  carryover_source_composition_id: string | null;
+};
+
 function cleanText(value: string | null | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -77,17 +83,47 @@ async function readSeasonContext(competitionSlug: string, seasonLabel: string) {
   let matchday: MatchdayRow | null = matchdays[0] ?? null;
 
   if (matchdays.length > 0) {
-    const matches = await fetchSupabaseAdminTable<MatchRow>(
-      `matches?select=id,matchday_id,status,kickoff_at,rollover_excluded&season_id=eq.${encodeURIComponent(season.id)}&limit=1000`
-    ).catch(async () => {
-      const fallbackRows = await fetchSupabaseAdminTable<Omit<MatchRow, "rollover_excluded">>(
-        `matches?select=id,matchday_id,status,kickoff_at&season_id=eq.${encodeURIComponent(season.id)}&limit=1000`
-      ).catch(() => []);
+    const matchdayIds = matchdays
+      .map((item) => item.id)
+      .filter(Boolean)
+      .map((id) => encodeURIComponent(id))
+      .join(",");
 
-      return fallbackRows.map((row) => ({ ...row, rollover_excluded: false }));
-    });
+    const continuityControls =
+      matchdayIds.length > 0
+        ? await fetchSupabaseAdminTable<EditorialContinuityControlRow>(
+            `matchday_editorial_desk_control?select=matchday_id,is_managed,carryover_source_composition_id&matchday_id=in.(${matchdayIds})&is_managed=is.true&carryover_source_composition_id=not.is.null&limit=200`
+          ).catch(() => [])
+        : [];
 
-    matchday = selectPublicCompetitionEntryMatchday(matchdays, matches);
+    const continuityMatchdayIds = new Set(
+      continuityControls.map((item) => item.matchday_id)
+    );
+
+    const continuityMatchday =
+      [...matchdays]
+        .filter((item) => continuityMatchdayIds.has(item.id))
+        .sort((left, right) => (right.number ?? 0) - (left.number ?? 0))[0]
+      ?? null;
+
+    if (continuityMatchday) {
+      matchday = continuityMatchday;
+    } else {
+      const matches = await fetchSupabaseAdminTable<MatchRow>(
+        `matches?select=id,matchday_id,status,kickoff_at,rollover_excluded&season_id=eq.${encodeURIComponent(season.id)}&limit=1000`
+      ).catch(async () => {
+        const fallbackRows = await fetchSupabaseAdminTable<Omit<MatchRow, "rollover_excluded">>(
+          `matches?select=id,matchday_id,status,kickoff_at&season_id=eq.${encodeURIComponent(season.id)}&limit=1000`
+        ).catch(() => []);
+
+        return fallbackRows.map((row) => ({
+          ...row,
+          rollover_excluded: false,
+        }));
+      });
+
+      matchday = selectPublicCompetitionEntryMatchday(matchdays, matches);
+    }
   }
 
   return {

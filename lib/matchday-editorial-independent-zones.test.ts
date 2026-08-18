@@ -121,7 +121,7 @@ test("Resumo de video tem uma acao propria e guarda apenas a sua configuracao", 
 
 test("pagina publica controla as tres zonas de forma independente e permite simultaneidade", () => {
   assert.match(publicPageSource, /const effectiveRoundupItems = \([\s\S]*?useHierarchicalReferenceComposition[\s\S]*?\? context\.referenceRoundupItems[\s\S]*?: useReferenceRoundupItems[\s\S]*?\? context\.referenceRoundupItems[\s\S]*?: context\.roundupItems[\s\S]*?\)\.filter\(hasPublicMatchdayRoundupContent\);/);
-  assert.match(publicPageSource, /const highlightsAreActive = editorial[\s\S]*?\? editorial\.below_headline_mode !== "roundup"[\s\S]*?: referenceHighlightItems\.length > 0;/);
+  assert.match(publicPageSource, /const highlightsAreActive = editorial[\s\S]*?\? editorial\.below_headline_mode !== "roundup"[\s\S]*?: referenceHighlightItems\.length > 0 \|\|[\s\S]*?continuityHighlights\.length > 0;/);
   assert.match(publicPageSource, /const roundupIsActive = editorial[\s\S]*?\? complementaryMode === "roundup_video"[\s\S]*?: useReferenceRoundupItems;/);
   assert.match(publicPageSource, /const visibleHighlights = highlightsAreActive \? effectiveHighlights : \[\];/);
   assert.match(publicPageSource, /const visibleRoundupItems = roundupIsActive \? effectiveRoundupItems : \[\];/);
