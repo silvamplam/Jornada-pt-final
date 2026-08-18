@@ -370,6 +370,107 @@ export function editorialSourcePackageUsedSourceRefs(
   });
 }
 
+export type EditorialSourcePackageUsedDossierRef = Readonly<{
+  newsroomArticleId: string;
+  newsroomSnapshotId: string;
+  usedAt: string;
+  dossierKey: string;
+  packageId: string;
+  year: string;
+  month: string;
+  articlePosition: number;
+  sourcePosition: number;
+  publishedArticleId: string | null;
+  publishedSlug: string | null;
+}>;
+
+export function editorialSourcePackageUsedDossierRefs(
+  value: unknown,
+): readonly EditorialSourcePackageUsedDossierRef[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+
+  const manifest = value as Record<string, unknown>;
+  const packageId = typeof manifest.packageId === "string"
+    ? cleanId(manifest.packageId)
+    : "";
+  const year = typeof manifest.year === "string"
+    ? manifest.year.trim()
+    : "";
+  const month = typeof manifest.month === "string"
+    ? manifest.month.trim()
+    : "";
+  const entries = manifest.entries;
+
+  if (
+    !UUID_PATTERN.test(packageId)
+    || !YEAR_PATTERN.test(year)
+    || !MONTH_PATTERN.test(month)
+    || !Array.isArray(entries)
+  ) {
+    return [];
+  }
+
+  return entries.flatMap((entry, index): EditorialSourcePackageUsedDossierRef[] => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return [];
+    }
+
+    const candidate = entry as Record<string, unknown>;
+    const newsroomArticleId = typeof candidate.newsroomArticleId === "string"
+      ? cleanId(candidate.newsroomArticleId)
+      : "";
+    const newsroomSnapshotId = typeof candidate.newsroomSnapshotId === "string"
+      ? cleanId(candidate.newsroomSnapshotId)
+      : "";
+    const usedAt = typeof candidate.usedAt === "string"
+      ? candidate.usedAt.trim()
+      : "";
+    const articlePosition = Number(candidate.articlePosition);
+    const storedSourcePosition = Number(candidate.position);
+    const sourcePosition = Number.isInteger(storedSourcePosition) && storedSourcePosition > 0
+      ? storedSourcePosition
+      : index + 1;
+    const rawPublishedArticleId = typeof candidate.publishedArticleId === "string"
+      ? cleanId(candidate.publishedArticleId)
+      : "";
+    const publishedArticleId = UUID_PATTERN.test(rawPublishedArticleId)
+      ? rawPublishedArticleId
+      : null;
+    const publishedSlug = typeof candidate.publishedSlug === "string"
+      ? candidate.publishedSlug.trim() || null
+      : null;
+
+    if (
+      !UUID_PATTERN.test(newsroomArticleId)
+      || !UUID_PATTERN.test(newsroomSnapshotId)
+      || !usedAt
+      || Number.isNaN(Date.parse(usedAt))
+      || !Number.isInteger(articlePosition)
+      || articlePosition < 1
+    ) {
+      return [];
+    }
+
+    return [{
+      newsroomArticleId,
+      newsroomSnapshotId,
+      usedAt,
+      dossierKey: publishedArticleId
+        ? `article:${publishedArticleId}`
+        : `package:${packageId}:${articlePosition}`,
+      packageId,
+      year,
+      month,
+      articlePosition,
+      sourcePosition,
+      publishedArticleId,
+      publishedSlug,
+    }];
+  });
+}
+
 export function isEditorialSourcePackageLocation(input: Readonly<{
   year: string;
   month: string;

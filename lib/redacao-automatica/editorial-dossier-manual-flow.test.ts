@@ -17,7 +17,7 @@ const newsroomRepository = "lib/redacao-automatica/newsroom-article-repository.t
 test("a atualidade prepara um pacote manual de até vinte fontes sem IA", () => {
   const source = read(newsroomPage);
 
-  assert.match(source, /listCurrentNewsroomArticles/);
+  assert.match(source, /loadNewsroomEditorialInbox/);
   assert.match(source, />Atualizar<\/button>/);
   assert.match(source, /current-feed/);
   assert.match(source, /id="create-editorial-source-package"/);
@@ -25,7 +25,7 @@ test("a atualidade prepara um pacote manual de até vinte fontes sem IA", () => 
   assert.match(source, /name="newsroom_article_id"/);
   assert.match(source, /name={`source_snapshot_\$\{article\.id\}`}/);
   assert.match(source, /data-source-package-source/);
-  assert.match(source, /Preparar ficheiro Markdown/);
+  assert.match(source, /Preparar fontes/);
   assert.match(source, /Nada é enviado à IA/);
   assert.match(source, /name="query"/);
   assert.match(source, /ManualNewsEntryForm/);

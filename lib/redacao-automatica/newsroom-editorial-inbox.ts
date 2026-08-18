@@ -12,6 +12,7 @@ import {
   type NewsroomArticleSummary,
 } from "@/lib/redacao-automatica/newsroom-article-repository";
 import {
+  editorialSourcePackageUsedDossierRefs,
   editorialSourcePackageUsedSourceRefs,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
@@ -51,6 +52,13 @@ type ReviewStateRow = {
 
 type SourcePackageRow = {
   manifest: unknown;
+};
+
+type UsedPublishedArticleRow = {
+  id: string;
+  title: string | null;
+  slug: string | null;
+  status: string | null;
 };
 
 type ApplyReviewRpcRow = {
@@ -173,13 +181,37 @@ async function readAllUsedStates(): Promise<readonly NewsroomEditorialUsedState[
     );
 
     for (const row of rows) {
+      const dossierReferences = editorialSourcePackageUsedDossierRefs(row.manifest);
+      const dossierByIdentity = new Map(dossierReferences.map((reference) => [
+        `${reference.newsroomArticleId}\u0000${reference.newsroomSnapshotId}\u0000${reference.usedAt}`,
+        reference,
+      ]));
+
       for (const reference of editorialSourcePackageUsedSourceRefs(row.manifest)) {
         const current = newestByArticle.get(reference.newsroomArticleId);
+
         if (!current || Date.parse(reference.usedAt) > Date.parse(current.usedAt)) {
+          const dossierReference = dossierByIdentity.get(
+            `${reference.newsroomArticleId}\u0000${reference.newsroomSnapshotId}\u0000${reference.usedAt}`,
+          );
+
           newestByArticle.set(reference.newsroomArticleId, {
             articleId: reference.newsroomArticleId,
             snapshotId: reference.newsroomSnapshotId,
             usedAt: reference.usedAt,
+            dossier: dossierReference
+              ? {
+                  key: dossierReference.dossierKey,
+                  packageId: dossierReference.packageId,
+                  year: dossierReference.year,
+                  month: dossierReference.month,
+                  articlePosition: dossierReference.articlePosition,
+                  sourcePosition: dossierReference.sourcePosition,
+                  publishedArticleId: dossierReference.publishedArticleId,
+                  publishedSlug: dossierReference.publishedSlug,
+                  publishedArticleTitle: null,
+                }
+              : null,
           });
         }
       }
@@ -190,6 +222,34 @@ async function readAllUsedStates(): Promise<readonly NewsroomEditorialUsedState[
     }
     offset += PACKAGE_PAGE_SIZE;
   }
+}
+
+async function readUsedPublishedArticles(
+  states: readonly NewsroomEditorialUsedState[],
+): Promise<ReadonlyMap<string, UsedPublishedArticleRow>> {
+  const articleIds = [...new Set(states.flatMap((state) => (
+    state.dossier?.publishedArticleId ? [state.dossier.publishedArticleId] : []
+  )))];
+
+  const result = new Map<string, UsedPublishedArticleRow>();
+
+  for (let offset = 0; offset < articleIds.length; offset += 50) {
+    const batch = articleIds.slice(offset, offset + 50);
+
+    const rows = await fetchSupabaseAdminTable<UsedPublishedArticleRow>(
+      "editorial_articles?select=id,title,slug,status"
+      + `&id=in.(${batch.map((id) => encodeURIComponent(id)).join(",")})`
+      + `&limit=${batch.length}`,
+    );
+
+    for (const row of rows) {
+      if (row.status === "published") {
+        result.set(row.id, row);
+      }
+    }
+  }
+
+  return result;
 }
 
 async function readArticlesByStates(
@@ -265,6 +325,9 @@ export async function loadNewsroomEditorialInbox(
     const usedByArticleId = new Map(usedStates.map((state) => [state.articleId, state]));
     const currentUsedItems = await readCurrentUsedItems(usedStates);
     const currentUsedIds = new Set(currentUsedItems.map(({ article }) => article.id));
+    const usedPublishedArticles = options.view === "used"
+      ? await readUsedPublishedArticles(currentUsedItems.map(({ usedState }) => usedState))
+      : new Map<string, UsedPublishedArticleRow>();
     const currentResult = options.query
       ? await searchNewsroomArticles({
           query: options.query,
@@ -306,11 +369,29 @@ export async function loadNewsroomEditorialInbox(
           && periodMatches(article, options.periodDays)
           && (!options.query || currentItems.some((item) => item.id === article.id))
         ))
-        .map(({ article, usedState }) => decorateNewsroomEditorialInboxItem(
-          article,
-          statesByArticleId.get(article.id) ?? null,
-          usedState,
-        ))
+        .map(({ article, usedState }) => {
+          const publishedArticle = usedState.dossier?.publishedArticleId
+            ? usedPublishedArticles.get(usedState.dossier.publishedArticleId) ?? null
+            : null;
+
+          const enrichedUsedState = usedState.dossier
+            ? {
+                ...usedState,
+                dossier: {
+                  ...usedState.dossier,
+                  publishedArticleTitle: publishedArticle?.title?.trim() || null,
+                  publishedSlug: publishedArticle?.slug?.trim()
+                    || usedState.dossier.publishedSlug,
+                },
+              }
+            : usedState;
+
+          return decorateNewsroomEditorialInboxItem(
+            article,
+            statesByArticleId.get(article.id) ?? null,
+            enrichedUsedState,
+          );
+        })
         .sort((left, right) => (
           Date.parse(right.usedAt ?? "") - Date.parse(left.usedAt ?? "")
           || itemTimestamp(right) - itemTimestamp(left)

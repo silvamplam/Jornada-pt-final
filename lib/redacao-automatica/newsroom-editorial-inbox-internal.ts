@@ -26,10 +26,23 @@ export type NewsroomEditorialReviewState = Readonly<{
   reviewedAt: string;
 }>;
 
+export type NewsroomEditorialUsedDossierState = Readonly<{
+  key: string;
+  packageId: string;
+  year: string;
+  month: string;
+  articlePosition: number;
+  sourcePosition: number;
+  publishedArticleId: string | null;
+  publishedSlug: string | null;
+  publishedArticleTitle: string | null;
+}>;
+
 export type NewsroomEditorialUsedState = Readonly<{
   articleId: string;
   snapshotId: string;
   usedAt: string;
+  dossier?: NewsroomEditorialUsedDossierState | null;
 }>;
 
 export type NewsroomEditorialInboxClassification = Readonly<{
@@ -43,6 +56,7 @@ export type NewsroomEditorialInboxItem = NewsroomArticleSummary &
     editorial: NewsroomEditorialInboxClassification;
     reviewedAt: string | null;
     usedAt: string | null;
+    usedDossier: NewsroomEditorialUsedDossierState | null;
   }>;
 
 export function newsroomEditorialInboxView(
@@ -118,6 +132,7 @@ export function decorateNewsroomEditorialInboxItem(
     editorial: classifyNewsroomEditorialInboxItem(article, state, usedState),
     reviewedAt: state?.reviewedAt ?? null,
     usedAt: usedState?.usedAt ?? null,
+    usedDossier: usedState?.dossier ?? null,
   };
 }
 

@@ -520,7 +520,7 @@ test("a página mantém pesquisa por tema e integra fontes automáticas e manuai
   assert.match(source, /ManualNewsEntryForm/);
   assert.match(source, /article\.sourceUrl && !article\.isManualEntry/);
   assert.match(source, /create-editorial-source-package/);
-  assert.match(source, /Preparar ficheiro Markdown/);
+  assert.match(source, /Preparar fontes/);
   assert.doesNotMatch(source, /article\.usedInComposition/);
   assert.doesNotMatch(source, />Usada<\/span>/);
 });

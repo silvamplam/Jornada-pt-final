@@ -27,9 +27,14 @@ import {
   EDITORIAL_SOURCE_PACKAGE_GENRES,
   EDITORIAL_SOURCE_PACKAGE_INSTRUCTIONS_MAX_LENGTH,
   EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH,
+  isEditorialSourcePackageLocation,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
+import {
+  readEditorialSourcePackage,
+} from "@/lib/redacao-automatica/editorial-source-package";
 
 import SourcePackageSubmitEnhancer from "./_sourcePackageSubmitEnhancer";
+import UsedDossierList from "./_usedDossierList";
 import InboxBulkActions from "./_inboxBulkActions";
 import CurrentFeedReveal from "./_currentFeedReveal";
 import ManualNewsEntryForm from "./_manualNewsEntryForm";
@@ -68,13 +73,28 @@ function inboxHref(
   period: string,
   sourceCode: string | null,
   query: string,
+  reuse?: Readonly<{
+    year: string;
+    month: string;
+    packageId: string;
+    articlePosition: number;
+  }> | null,
 ): string {
   const params = new URLSearchParams({ view, period });
+
   if (sourceCode) {
     params.set("source", sourceCode);
   }
+
   if (query) {
     params.set("query", query);
+  }
+
+  if (view === "working" && reuse) {
+    params.set("reuse_year", reuse.year);
+    params.set("reuse_month", reuse.month);
+    params.set("reuse_package", reuse.packageId);
+    params.set("reuse_article", String(reuse.articlePosition));
   }
 
   return `/admin/editorial/redacao-automatica?${params.toString()}`;
@@ -112,7 +132,7 @@ function viewDescription(view: NewsroomEditorialInboxView): string {
     return "Notícias que decidiste trabalhar agora ou manter disponíveis para um artigo.";
   }
   if (view === "used") {
-    return "Fontes que já deram origem a artigos publicados. Mantêm-se acessíveis sem voltar à fila de trabalho.";
+    return "Fontes que já deram origem a artigos publicados, organizadas pelos Dossiês em que foram utilizadas.";
   }
   if (view === "archive") {
     return "Notícias que decidiste não trabalhar neste momento.";
@@ -124,6 +144,19 @@ const sourcePackageErrorMessages: Record<string, string> = {
   input_invalid: "Seleciona entre 1 e 20 notícias e confirma os dados editoriais do pacote.",
   source_read_failed: "Não foi possível ler as notícias selecionadas neste momento.",
   package_write_failed: "Não foi possível guardar o pacote editorial neste momento.",
+};
+
+const dossierJoinErrorMessages: Record<string, string> = {
+  input_invalid: "Seleciona pelo menos dois Dossiês válidos.",
+  canonical_invalid: "Escolhe qual dos artigos publicados deve ficar como principal.",
+  canonical_read_failed: "Não foi possível confirmar o artigo principal.",
+  package_read_failed: "Não foi possível recuperar um dos Dossiês selecionados.",
+  dossier_empty: "Um dos Dossiês selecionados já não contém fontes utilizáveis.",
+  source_limit_exceeded: "A união ultrapassa o limite atual de 20 fontes por Dossiê.",
+  source_normalization_failed: "As fontes dos Dossiês não puderam ser consolidadas com segurança.",
+  source_read_failed: "Não foi possível reler uma das fontes consolidadas.",
+  package_write_failed: "Não foi possível guardar o Dossiê consolidado.",
+  usage_mark_failed: "O novo Dossiê foi criado, mas não ficou associado ao artigo principal.",
 };
 
 const feedErrorMessages: Record<string, string> = {
@@ -165,6 +198,58 @@ export default async function AutomaticNewsroomPage({
   const query = firstQueryValue(params.query) ?? firstQueryValue(params.topic) ?? "";
   const view = newsroomEditorialInboxView(firstQueryValue(params.view));
   const requestedArticleId = firstQueryValue(params.articleId);
+
+  const reuseYear = firstQueryValue(params.reuse_year) ?? "";
+  const reuseMonth = firstQueryValue(params.reuse_month) ?? "";
+  const reusePackageId = firstQueryValue(params.reuse_package) ?? "";
+  const reuseArticlePosition = Number(firstQueryValue(params.reuse_article));
+
+  const reuseLocation = isEditorialSourcePackageLocation({
+    year: reuseYear,
+    month: reuseMonth,
+    packageId: reusePackageId,
+  }) && Number.isInteger(reuseArticlePosition) && reuseArticlePosition > 0
+    ? {
+        year: reuseYear,
+        month: reuseMonth,
+        packageId: reusePackageId,
+        articlePosition: reuseArticlePosition,
+      }
+    : null;
+
+  const reusePackageResult = view === "working" && reuseLocation
+    ? await readEditorialSourcePackage(reuseLocation)
+    : null;
+
+  const reuseManifest = reusePackageResult?.ok
+    ? reusePackageResult.value.manifest
+    : null;
+
+  const reuseEntries = reuseManifest && reuseLocation
+    ? reuseManifest.entries.filter(
+        (entry) => entry.articlePosition === reuseLocation.articlePosition,
+      )
+    : [];
+
+  const reuseState = reuseManifest
+    && reuseLocation
+    && reuseEntries.length > 0
+    ? {
+        ...reuseLocation,
+        genre: reuseManifest.genre,
+        suggestedTitle: reuseManifest.suggestedTitle,
+        additionalInstructions: reuseManifest.additionalInstructions,
+        entries: reuseEntries,
+      }
+    : null;
+
+  const reuseInstructions = reuseState
+    ? [
+        `ATUALIZAÇÃO DE DOSSIÊ: as primeiras ${reuseState.entries.length} fontes já pertenciam a este assunto. As fontes selecionadas agora são informação nova. Reavalie integralmente o assunto, preserve a informação anterior que continue relevante e integre o novo segundo a sua importância jornalística.`,
+        reuseState.additionalInstructions,
+      ].filter(Boolean).join("\n\n")
+    : "";
+
   const registeredSources = listRegisteredSources();
   const availableSources = registeredSources.filter((source) => (
     source.manualCollectionEnabled
@@ -186,11 +271,29 @@ export default async function AutomaticNewsroomPage({
   const visibleArticles = view === "pending"
     ? articles.slice(0, REVIEW_BLOCK_SIZE)
     : articles;
-  const returnTo = inboxHref(view, period, sourceCode, query);
+  const returnTo = inboxHref(
+    view,
+    period,
+    sourceCode,
+    query,
+    reuseState,
+  );
   const sourcePackageErrorCode = firstQueryValue(params.package_error);
   const sourcePackageErrorMessage = sourcePackageErrorCode
     ? sourcePackageErrorMessages[sourcePackageErrorCode] ?? "Não foi possível preparar as fontes."
     : null;
+  const dossierJoinErrorCode =
+    firstQueryValue(params.dossier_join_error);
+  const dossierJoinErrorMessage = dossierJoinErrorCode
+    ? dossierJoinErrorMessages[dossierJoinErrorCode]
+      ?? "Não foi possível juntar os Dossiês."
+    : null;
+
+  const dossiersJoined =
+    firstQueryValue(params.dossiers_joined) === "1";
+  const joinedSources =
+    nonNegativeIntegerQueryValue(params.joined_sources);
+
   const feedErrorCode = firstQueryValue(params.feed_error);
   const feedErrorMessage = feedErrorCode
     ? feedErrorMessages[feedErrorCode] ?? "Não foi possível atualizar a atualidade."
@@ -273,7 +376,22 @@ export default async function AutomaticNewsroomPage({
         </ol>
 
         {sourcePackageErrorMessage ? (
-          <p className={styles.simpleFeedbackError} role="status">{sourcePackageErrorMessage}</p>
+          <p className={styles.simpleFeedbackError} role="status">
+            {sourcePackageErrorMessage}
+          </p>
+        ) : null}
+
+        {dossierJoinErrorMessage ? (
+          <p className={styles.simpleFeedbackError} role="status">
+            {dossierJoinErrorMessage}
+          </p>
+        ) : dossiersJoined ? (
+          <p className={styles.simpleFeedbackSuccess} role="status">
+            Dossiês unidos num único assunto.
+            {joinedSources > 0
+              ? ` ${joinedSources} fontes únicas ficaram reunidas.`
+              : ""}
+          </p>
         ) : null}
         {manualEntryErrorMessage ? (
           <p className={styles.simpleFeedbackError} role="status">{manualEntryErrorMessage}</p>
@@ -298,7 +416,16 @@ export default async function AutomaticNewsroomPage({
           <a href={inboxHref("pending", period, sourceCode, query)} data-active={view === "pending"}>
             Por rever <span>{inboxResult.ok ? inboxResult.value.pendingCount : 0}</span>
           </a>
-          <a href={inboxHref("working", period, sourceCode, query)} data-active={view === "working"}>
+          <a
+            href={inboxHref(
+              "working",
+              period,
+              sourceCode,
+              query,
+              reuseState,
+            )}
+            data-active={view === "working"}
+          >
             Em trabalho <span>{inboxResult.ok ? inboxResult.value.workingCount : 0}</span>
           </a>
           <a href={inboxHref("archive", period, sourceCode, query)} data-active={view === "archive"}>
@@ -321,6 +448,31 @@ export default async function AutomaticNewsroomPage({
                 <input type="hidden" name="query" value={query} />
                 <input type="hidden" name="period" value={period} />
                 <input type="hidden" name="source" value={sourceCode ?? ""} />
+
+                {view === "working" && reuseState ? (
+                  <>
+                    <input
+                      type="hidden"
+                      name="reuse_year"
+                      value={reuseState.year}
+                    />
+                    <input
+                      type="hidden"
+                      name="reuse_month"
+                      value={reuseState.month}
+                    />
+                    <input
+                      type="hidden"
+                      name="reuse_package"
+                      value={reuseState.packageId}
+                    />
+                    <input
+                      type="hidden"
+                      name="reuse_article"
+                      value={reuseState.articlePosition}
+                    />
+                  </>
+                ) : null}
                 <button className={styles.simpleRefreshButton} type="submit">Atualizar</button>
               </form>
               <ManualNewsEntryForm
@@ -332,6 +484,31 @@ export default async function AutomaticNewsroomPage({
           </div>
           <form method="get" className={styles.simpleFilters}>
             <input type="hidden" name="view" value={view} />
+
+            {view === "working" && reuseState ? (
+              <>
+                <input
+                  type="hidden"
+                  name="reuse_year"
+                  value={reuseState.year}
+                />
+                <input
+                  type="hidden"
+                  name="reuse_month"
+                  value={reuseState.month}
+                />
+                <input
+                  type="hidden"
+                  name="reuse_package"
+                  value={reuseState.packageId}
+                />
+                <input
+                  type="hidden"
+                  name="reuse_article"
+                  value={reuseState.articlePosition}
+                />
+              </>
+            ) : null}
             <label className={styles.simpleSearchField}>
               <span>Tema</span>
               <input
@@ -384,8 +561,76 @@ export default async function AutomaticNewsroomPage({
             method="post"
             id="create-editorial-source-package"
             className={styles.simpleComposition}
+            data-source-package-reuse={reuseState ? "1" : undefined}
+            data-source-package-reuse-base-count={reuseState?.entries.length ?? 0}
           >
             <input type="hidden" name="inbox_return_to" value={returnTo} />
+
+            {reuseState ? (
+              <>
+                <input type="hidden" name="reuse_year" value={reuseState.year} />
+                <input type="hidden" name="reuse_month" value={reuseState.month} />
+                <input
+                  type="hidden"
+                  name="reuse_package"
+                  value={reuseState.packageId}
+                />
+                <input
+                  type="hidden"
+                  name="reuse_article"
+                  value={reuseState.articlePosition}
+                />
+
+                <section
+                  className={styles.reuseDossierBanner}
+                  aria-labelledby="reuse-dossier-title"
+                >
+                  <div className={styles.reuseDossierHeader}>
+                    <div>
+                      <p className={styles.sectionEyebrow}>Dossiê existente</p>
+                      <h2 id="reuse-dossier-title">Reutilizar Dossiê</h2>
+                      <p>
+                        As fontes anteriores já estão carregadas. Seleciona abaixo
+                        apenas a informação nova que queres acrescentar.
+                      </p>
+                    </div>
+
+                    <strong>
+                      {reuseState.entries.length}{" "}
+                      {reuseState.entries.length === 1
+                        ? "fonte anterior"
+                        : "fontes anteriores"}
+                    </strong>
+                  </div>
+
+                  <ol className={styles.reuseDossierSources}>
+                    {reuseState.entries.map((entry, index) => (
+                      <li
+                        key={`${entry.newsroomArticleId ?? "fonte"}-${index}`}
+                      >
+                        <span>
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <div>
+                          <strong>
+                            {entry.title ?? "Fonte anteriormente utilizada"}
+                          </strong>
+                          <small>
+                            {entry.sourceName ?? "Fonte"}
+                          </small>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+
+                  <p className={styles.reuseDossierNote}>
+                    A imagem anteriormente escolhida mantém-se por defeito nesta
+                    reutilização. A escolha de uma nova imagem será tratada depois
+                    na revisão da atualização.
+                  </p>
+                </section>
+              </>
+            ) : null}
             <div className={styles.inboxBlockSummary}>
               <strong>
                 {view === "pending"
@@ -397,6 +642,12 @@ export default async function AutomaticNewsroomPage({
               ) : null}
             </div>
 
+            {view === "used" ? (
+              <UsedDossierList
+                articles={visibleArticles}
+                sourceNames={sourceNames}
+              />
+            ) : (
             <ol className={styles.simpleFeedList} data-current-feed-list>
               {visibleArticles.map((article, index) => (
                 <li key={article.id} data-current-feed-item hidden={view !== "pending" && index >= REVIEW_BLOCK_SIZE}>
@@ -442,12 +693,12 @@ export default async function AutomaticNewsroomPage({
                         data-source-package-group-control
                         hidden
                       >
-                        <span>Artigo</span>
+                        <span>Dossiê</span>
                         <select
                           name={`source_group_${article.id}`}
                           data-source-package-group
                           disabled
-                          aria-label={`Artigo final para ${article.title}`}
+                          aria-label={`Dossiê para ${article.title}`}
                         />
                       </label>
                     </>
@@ -525,8 +776,11 @@ export default async function AutomaticNewsroomPage({
                 </li>
               ))}
             </ol>
+            )}
 
-            {view !== "pending" ? <CurrentFeedReveal total={visibleArticles.length} /> : null}
+            {view !== "pending" && view !== "used" ? (
+              <CurrentFeedReveal total={visibleArticles.length} />
+            ) : null}
 
             {view === "pending" ? <InboxBulkActions /> : null}
 
@@ -538,9 +792,23 @@ export default async function AutomaticNewsroomPage({
                 <p className={styles.sectionEyebrow}>Pacote editorial de fontes</p>
                 <h2 id="source-package-title">Preparar artigos</h2>
                 <p>
-                  Seleciona entre 1 e 20 fontes. Cada fonte começa num artigo próprio; quando duas
-                  ou mais tratam a mesma notícia, junta-as no mesmo artigo. O sistema prepara as
-                  fontes integrais e uma imagem por artigo final. Nada é enviado à IA.
+                  {reuseState ? (
+                    <>
+                      O Dossiê já contém {reuseState.entries.length}{" "}
+                      {reuseState.entries.length === 1 ? "fonte" : "fontes"}.
+                      Seleciona apenas as novas fontes a acrescentar. O pacote final
+                      voltará a incluir toda a informação anterior mais estas novas
+                      fontes. Nada é enviado automaticamente à IA.
+                    </>
+                  ) : (
+                    <>
+                      Seleciona entre 1 e 20 fontes. Cada fonte começa num Dossiê
+                      próprio; quando duas ou mais pertencem ao mesmo assunto,
+                      junta-as no mesmo Dossiê. Cada Dossiê continua a originar um
+                      artigo final, com as fontes integrais e uma imagem escolhida.
+                      Nada é enviado à IA.
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -554,7 +822,11 @@ export default async function AutomaticNewsroomPage({
                           type="radio"
                           name="editorial_genre"
                           value={genre.value}
-                          defaultChecked={index === 0}
+                          defaultChecked={
+                            reuseState
+                              ? genre.value === reuseState.genre
+                              : index === 0
+                          }
                         />
                         <span>{genre.label}</span>
                       </label>
@@ -579,6 +851,7 @@ export default async function AutomaticNewsroomPage({
                   <input
                     type="text"
                     name="suggested_title"
+                    defaultValue={reuseState?.suggestedTitle ?? ""}
                     maxLength={EDITORIAL_SOURCE_PACKAGE_SUGGESTED_TITLE_MAX_LENGTH}
                     placeholder="Indica o tema, protagonista ou foco principal da notícia"
                   />
@@ -588,6 +861,7 @@ export default async function AutomaticNewsroomPage({
                   <span>Instruções adicionais <small>opcional</small></span>
                   <textarea
                     name="editorial_instructions"
+                    defaultValue={reuseInstructions}
                     rows={5}
                     maxLength={EDITORIAL_SOURCE_PACKAGE_INSTRUCTIONS_MAX_LENGTH}
                     placeholder="Ex.: dar prioridade às declarações principais; evitar centrar o texto na arbitragem; usar tom crítico sem adjetivação excessiva."
@@ -595,7 +869,7 @@ export default async function AutomaticNewsroomPage({
                 </label>
 
                 <p className={styles.sourcePackageEditorialNote}>
-                  O ficheiro mantém cada grupo editorial separado. Um grupo gera um artigo final;
+                  O ficheiro mantém cada Dossiê separado. Cada Dossiê gera um artigo final;
                   as instruções adicionais aplicam-se ao lote inteiro.
                 </p>
               </div>

@@ -215,7 +215,7 @@ test("a rota de revisão legacy permanece protegida, mas já não integra o flux
   assert.doesNotMatch(page, /action="\/api\/admin\/editorial\/redacao-automatica\/review"/);
   assert.doesNotMatch(page, /Marcar como Por rever/);
   assert.doesNotMatch(page, /Criar rascunho editorial/);
-  assert.match(page, /Preparar ficheiro Markdown/);
+  assert.match(page, /Preparar fontes/);
   assert.match(route, /markNewsroomArticleReadyForReview/);
   assert.match(route, /review_state/);
   assert.doesNotMatch(route, /PageLoader|adapter|fetch\s*\(/i);

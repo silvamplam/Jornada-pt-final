@@ -35,11 +35,18 @@ function sourceImageUrl(source: HTMLInputElement) {
   return source.dataset.sourcePackageImageUrl?.trim() || null;
 }
 
+function sourceIsVisible(source: HTMLInputElement) {
+  const item = source.closest("li");
+  return !item || !item.hidden;
+}
+
 export function installSourcePackageSubmitEnhancer(
   form: HTMLFormElement,
   pageLifecycleTarget: EventTarget = window,
 ): () => void {
   const button = form.querySelector<HTMLButtonElement>("[data-source-package-submit]");
+  const selectAllButton = form.querySelector<HTMLButtonElement>("[data-source-package-select-all]");
+  const clearAllButton = form.querySelector<HTMLButtonElement>("[data-source-package-clear-all]");
   const status = form.querySelector<HTMLElement>("[data-source-package-submit-status]");
   const count = form.querySelector<HTMLElement>("[data-source-package-selection-count]");
   const suggestedTitleField = form.querySelector<HTMLElement>("[data-source-package-suggested-title]");
@@ -48,6 +55,10 @@ export function installSourcePackageSubmitEnhancer(
   const imageSummaryList = imageSummary?.querySelector<HTMLElement>("[data-source-package-image-summary-list]") ?? null;
   const sources = Array.from(
     form.querySelectorAll<HTMLInputElement>("[data-source-package-source]"),
+  );
+  const reuseMode = form.dataset.sourcePackageReuse === "1";
+  const reuseBaseSourceCount = Number(
+    form.dataset.sourcePackageReuseBaseCount ?? "0",
   );
   const groupBySource = new Map<string, number>();
   let submitting = false;
@@ -83,6 +94,19 @@ export function installSourcePackageSubmitEnhancer(
   };
 
   const ensureSelectedGroups = () => {
+    if (reuseMode) {
+      for (const source of sources) {
+        if (source.checked) {
+          groupBySource.set(source.value, 1);
+        } else {
+          groupBySource.delete(source.value);
+          const preference = imagePreferenceFor(source);
+          if (preference) preference.value = "";
+        }
+      }
+      return;
+    }
+
     for (const source of sources) {
       if (!source.checked) {
         groupBySource.delete(source.value);
@@ -100,6 +124,14 @@ export function installSourcePackageSubmitEnhancer(
   };
 
   const ensureImagePreferences = () => {
+    if (reuseMode) {
+      for (const source of sources) {
+        const preference = imagePreferenceFor(source);
+        if (preference) preference.value = "";
+      }
+      return;
+    }
+
     const selected = selectedSources();
     const groups = [...new Set(
       selected.map((source) => groupBySource.get(source.value)).filter((value): value is number => Boolean(value)),
@@ -135,7 +167,7 @@ export function installSourcePackageSubmitEnhancer(
         continue;
       }
 
-      if (!source.checked || selected.length < 2) {
+      if (reuseMode || !source.checked || selected.length < 2) {
         control.hidden = true;
         select.disabled = true;
         select.replaceChildren();
@@ -149,13 +181,13 @@ export function installSourcePackageSubmitEnhancer(
       const options = availableGroups.map((group) => {
         const option = document.createElement("option");
         option.value = String(group);
-        option.textContent = `Artigo ${String(group).padStart(2, "0")}`;
+        option.textContent = `Dossiê ${String(group).padStart(2, "0")}`;
         option.selected = group === currentGroup;
         return option;
       });
       const splitOption = document.createElement("option");
       splitOption.value = NEW_ARTICLE_VALUE;
-      splitOption.textContent = "Separar para novo artigo";
+      splitOption.textContent = "Separar para novo Dossiê";
 
       select.replaceChildren(
         ...options,
@@ -168,6 +200,12 @@ export function installSourcePackageSubmitEnhancer(
 
   const renderImageSummary = () => {
     if (!imageSummary || !imageSummaryList) {
+      return;
+    }
+
+    if (reuseMode) {
+      imageSummaryList.replaceChildren();
+      imageSummary.hidden = true;
       return;
     }
 
@@ -197,7 +235,7 @@ export function installSourcePackageSubmitEnhancer(
       const header = document.createElement("div");
       header.dataset.sourcePackageImageArticleHeader = "";
       const title = document.createElement("strong");
-      title.textContent = `Artigo ${String(group).padStart(2, "0")}`;
+      title.textContent = `Dossiê ${String(group).padStart(2, "0")}`;
       const detail = document.createElement("span");
       detail.textContent = `${groupSources.length} ${groupSources.length === 1 ? "fonte" : "fontes"} · ${candidates.length} imagens disponíveis`;
       header.append(title, detail);
@@ -254,19 +292,32 @@ export function installSourcePackageSubmitEnhancer(
     const articleCount = new Set(groupBySource.values()).size;
 
     if (count) {
-      count.textContent = selected === 0
-        ? "0 fontes selecionadas"
-        : `${selected} ${selected === 1 ? "fonte selecionada" : "fontes selecionadas"} · ${articleCount} ${articleCount === 1 ? "artigo final" : "artigos finais"}`;
+      count.textContent = reuseMode
+        ? selected === 0
+          ? `${reuseBaseSourceCount} ${reuseBaseSourceCount === 1 ? "fonte anterior" : "fontes anteriores"} · seleciona informação nova`
+          : `${reuseBaseSourceCount} anteriores + ${selected} ${selected === 1 ? "nova" : "novas"} · 1 Dossiê`
+        : selected === 0
+          ? "0 fontes selecionadas"
+          : `${selected} ${selected === 1 ? "fonte selecionada" : "fontes selecionadas"} · ${articleCount} ${articleCount === 1 ? "Dossiê" : "Dossiês"}`;
     }
 
     if (suggestedTitleField && suggestedTitleInput) {
-      const titleApplies = selected > 0 && articleCount === 1;
+      const titleApplies = reuseMode || (selected > 0 && articleCount === 1);
       suggestedTitleField.hidden = !titleApplies;
       suggestedTitleInput.disabled = !titleApplies;
     }
 
     if (button) {
       button.disabled = submitting || selected < 1;
+    }
+
+    if (selectAllButton) {
+      selectAllButton.disabled = submitting
+        || !sources.some((source) => !source.disabled && sourceIsVisible(source));
+    }
+
+    if (clearAllButton) {
+      clearAllButton.disabled = submitting || selected < 1;
     }
   };
 
@@ -318,14 +369,51 @@ export function installSourcePackageSubmitEnhancer(
 
   const handleClick = (event: Event) => {
     const target = event.target;
-    const button = target instanceof Element
-      ? target.closest<HTMLButtonElement>("[data-source-package-use-image]")
+    const element = target instanceof Element ? target : null;
+
+    if (element?.closest("[data-source-package-select-all]")) {
+      const eligible = sources.filter(
+        (source) => !source.disabled && sourceIsVisible(source),
+      );
+
+      for (const source of sources) {
+        source.checked = false;
+      }
+
+      for (const source of eligible.slice(0, EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES)) {
+        source.checked = true;
+      }
+
+      showStatus(
+        eligible.length > EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES
+          ? `Foram selecionadas as primeiras ${EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES} fontes visíveis.`
+          : "",
+      );
+
+      update();
+      return;
+    }
+
+    if (element?.closest("[data-source-package-clear-all]")) {
+      for (const source of sources) {
+        source.checked = false;
+      }
+
+      groupBySource.clear();
+      showStatus("");
+      update();
+      return;
+    }
+
+    const imageButton = element
+      ? element.closest<HTMLButtonElement>("[data-source-package-use-image]")
       : null;
-    const sourceId = button?.dataset.sourcePackageUseImage?.trim() ?? "";
+
+    const sourceId = imageButton?.dataset.sourcePackageUseImage?.trim() ?? "";
     const source = sources.find((candidate) => candidate.value === sourceId) ?? null;
     const group = source ? groupBySource.get(source.value) : null;
 
-    if (!button || !source?.checked || !group || !sourceHasImage(source)) {
+    if (!imageButton || !source?.checked || !group || !sourceHasImage(source)) {
       return;
     }
 
@@ -333,7 +421,9 @@ export function installSourcePackageSubmitEnhancer(
       if (groupBySource.get(candidate.value) !== group) {
         continue;
       }
+
       const preference = imagePreferenceFor(candidate);
+
       if (preference) {
         preference.value = candidate === source ? "1" : "";
       }

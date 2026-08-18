@@ -6,22 +6,41 @@ import styles from "./redacao-automatica.module.css";
 
 const FORM_ID = "create-editorial-source-package";
 
+function inboxInputs(): HTMLInputElement[] {
+  const form = document.getElementById(FORM_ID);
+
+  if (!(form instanceof HTMLFormElement)) {
+    return [];
+  }
+
+  return Array.from(
+    form.querySelectorAll<HTMLInputElement>("[data-inbox-bulk-item]"),
+  );
+}
+
 export default function InboxBulkActions() {
   const [selectedCount, setSelectedCount] = useState(0);
+  const [availableCount, setAvailableCount] = useState(0);
 
   useEffect(() => {
     const form = document.getElementById(FORM_ID);
+
     if (!(form instanceof HTMLFormElement)) {
       return;
     }
 
-    const inputs = Array.from(
-      form.querySelectorAll<HTMLInputElement>("[data-inbox-bulk-item]"),
-    );
-    const update = () => setSelectedCount(inputs.filter((input) => input.checked).length);
+    const update = () => {
+      const inputs = inboxInputs();
+
+      setAvailableCount(inputs.length);
+      setSelectedCount(
+        inputs.filter((input) => input.checked).length,
+      );
+    };
 
     form.addEventListener("change", update);
     window.addEventListener("pageshow", update);
+
     update();
 
     return () => {
@@ -30,37 +49,88 @@ export default function InboxBulkActions() {
     };
   }, []);
 
-  if (selectedCount < 1) {
+  const selectAll = () => {
+    const inputs = inboxInputs();
+
+    for (const input of inputs) {
+      input.checked = true;
+    }
+
+    setAvailableCount(inputs.length);
+    setSelectedCount(inputs.length);
+  };
+
+  const clearAll = () => {
+    const inputs = inboxInputs();
+
+    for (const input of inputs) {
+      input.checked = false;
+    }
+
+    setAvailableCount(inputs.length);
+    setSelectedCount(0);
+  };
+
+  if (availableCount < 1) {
     return null;
   }
 
   return (
     <div className={styles.inboxBulkActions} aria-live="polite">
-      <strong>{selectedCount} {selectedCount === 1 ? "notícia selecionada" : "notícias selecionadas"}</strong>
-      <div>
+      <div className={styles.inboxBulkSelectionActions}>
         <button
-          type="submit"
-          name="inbox_bulk_action"
-          value="dismissed"
-          form="create-editorial-source-package"
-          formAction="/api/admin/editorial/redacao-automatica/inbox"
-          formMethod="post"
-          formNoValidate
+          type="button"
+          onClick={selectAll}
+          disabled={selectedCount === availableCount}
         >
-          Sem interesse
+          Selecionar tudo
         </button>
+
         <button
-          type="submit"
-          name="inbox_bulk_action"
-          value="working"
-          form="create-editorial-source-package"
-          formAction="/api/admin/editorial/redacao-automatica/inbox"
-          formMethod="post"
-          formNoValidate
+          type="button"
+          onClick={clearAll}
+          disabled={selectedCount === 0}
         >
-          Em trabalho
+          Desselecionar tudo
         </button>
       </div>
+
+      {selectedCount > 0 ? (
+        <>
+          <strong>
+            {selectedCount}{" "}
+            {selectedCount === 1
+              ? "notícia selecionada"
+              : "notícias selecionadas"}
+          </strong>
+
+          <div>
+            <button
+              type="submit"
+              name="inbox_bulk_action"
+              value="dismissed"
+              form={FORM_ID}
+              formAction="/api/admin/editorial/redacao-automatica/inbox"
+              formMethod="post"
+              formNoValidate
+            >
+              Sem interesse
+            </button>
+
+            <button
+              type="submit"
+              name="inbox_bulk_action"
+              value="working"
+              form={FORM_ID}
+              formAction="/api/admin/editorial/redacao-automatica/inbox"
+              formMethod="post"
+              formNoValidate
+            >
+              Em trabalho
+            </button>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

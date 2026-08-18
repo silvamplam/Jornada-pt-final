@@ -539,7 +539,7 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(mainPage, /source_group_/);
   assert.match(mainPage, /data-source-package-suggested-title/);
   assert.match(submitEnhancer, /NEW_ARTICLE_VALUE/);
-  assert.match(submitEnhancer, /Separar para novo artigo/);
+  assert.match(submitEnhancer, /Separar para novo Dossiê/);
   assert.match(submitEnhancer, /selected\.length < 2/);
   assert.match(submitEnhancer, /groupBySource/);
   assert.match(submitEnhancer, /data-source-package-use-image/);
@@ -549,7 +549,7 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(mainPage, /data-source-package-image-summary-list/);
   assert.doesNotMatch(mainPage, /data-source-package-image-control/);
   assert.doesNotMatch(mainPage, />Usar esta imagem</);
-  assert.match(submitEnhancer, /artigos finais/);
+  assert.match(submitEnhancer, /Dossiês/);
   assert.match(submitEnhancer, /renderImageSummary/);
   assert.match(submitEnhancer, /Usar esta imagem/);
   assert.match(submitEnhancer, /suggestedTitleField\.hidden = !titleApplies/);
