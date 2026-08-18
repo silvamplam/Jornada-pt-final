@@ -17,12 +17,16 @@ function countCacheHeaders(value: string) {
 test("uploads editoriais novos ficam com cache persistente no Storage", () => {
   const articleForm = source("app/admin/editorial/artigos/_articleForm.tsx");
   const contentForm = source("app/admin/editorial/conteudos/_contentForm.tsx");
+  const batchPublicationClient = source(
+    "app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx",
+  );
   const importedImageRoute = source("app/api/admin/editorial/artigos/import-source-image/route.ts");
   const homeImageRoute = source("app/api/admin/editorial/home/image/route.ts");
   const matchdayImageRoute = source("app/api/admin/gestor/editorial-image/route.ts");
 
   assert.equal(countCacheHeaders(articleForm), 1);
   assert.equal(countCacheHeaders(contentForm), 2);
+  assert.equal(countCacheHeaders(batchPublicationClient), 1);
   assert.equal(countCacheHeaders(importedImageRoute), 0);
   assert.equal(countCacheHeaders(homeImageRoute), 1);
   assert.equal(countCacheHeaders(matchdayImageRoute), 1);

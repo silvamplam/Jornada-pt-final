@@ -697,6 +697,7 @@ export default function BatchPreflightClient({
       method: "PUT",
       headers: {
         "Content-Type": contentType,
+        "Cache-Control": "max-age=31536000",
         "x-upsert": "false",
       },
       body: file,
