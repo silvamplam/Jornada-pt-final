@@ -670,7 +670,7 @@ function initialPlan(
     auxiliary[`beyond_matchday_${position.sortOrder}`] = null;
   });
 
-  for (let position = 1; position <= 5; position += 1) {
+  for (let position = 1; position <= 10; position += 1) {
     auxiliary[`faixa_${position}`] = null;
   }
 
@@ -813,7 +813,7 @@ export default function HierarchicalCompositionDeskClient({
       },
     );
 
-    for (let position = 1; position <= 5; position += 1) {
+    for (let position = 1; position <= 10; position += 1) {
       const card =
         plan.auxiliary[`faixa_${position}`];
 
@@ -2048,7 +2048,7 @@ export default function HierarchicalCompositionDeskClient({
 
             <div>
               <span>Faixa</span>
-              <strong>{occupiedFaixa}/5</strong>
+              <strong>{occupiedFaixa}/10</strong>
             </div>
 
             <div>
@@ -2262,10 +2262,10 @@ export default function HierarchicalCompositionDeskClient({
             <header>
               <div>
                 <h3>Faixa de notícias</h3>
-                <p>Até cinco notícias. Todos os lugares são opcionais.</p>
+                <p>Até dez notícias. Todos os lugares são opcionais.</p>
               </div>
 
-              <span>{occupiedFaixa}/5</span>
+              <span>{occupiedFaixa}/10</span>
             </header>
 
             <div className="hc-desk-slots hc-desk-slots-5">

@@ -82,3 +82,60 @@ test("não existe mínimo obrigatório de notícias na Faixa", () => {
     /important_item[^\n]{0,120}(?:required|obrigat|min(?:imum|imo)|length\s*[<]=?\s*[1-9])/i,
   );
 });
+
+test("o plano base inclui as dez posições persistíveis da Faixa", () => {
+  const start = client.indexOf("function initialPlan(");
+  const end = client.indexOf("\nfunction samePlan", start);
+
+  assert.ok(start >= 0);
+  assert.ok(end > start);
+
+  const initialPlanSource = client.slice(start, end);
+
+  assert.match(
+    initialPlanSource,
+    /for \(let position = 1; position <= 10; position \+= 1\)/,
+  );
+
+  assert.doesNotMatch(
+    initialPlanSource,
+    /for \(let position = 1; position <= 5; position \+= 1\)/,
+  );
+});
+
+test("a identificação das colocações da Faixa cobre posições 1 a 10", () => {
+  const start = client.indexOf(
+    "const placementByBankItem = useMemo",
+  );
+  const end = client.indexOf(
+    "\n  const normalizedSearch",
+    start,
+  );
+
+  assert.ok(start >= 0);
+  assert.ok(end > start);
+
+  const placementSource = client.slice(start, end);
+
+  assert.match(
+    placementSource,
+    /for \(let position = 1; position <= 10; position \+= 1\)/,
+  );
+});
+
+test("os indicadores visuais da Faixa refletem dez lugares", () => {
+  assert.match(
+    client,
+    /<strong>\{occupiedFaixa\}\/10<\/strong>/,
+  );
+
+  assert.match(
+    client,
+    /<span>\{occupiedFaixa\}\/10<\/span>/,
+  );
+
+  assert.match(
+    client,
+    /Até dez notícias\. Todos os lugares são opcionais\./,
+  );
+});
