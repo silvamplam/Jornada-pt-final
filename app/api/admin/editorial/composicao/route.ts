@@ -894,12 +894,12 @@ function hierarchicalAuxiliaryTarget(value: string | null): HierarchicalAuxiliar
     return { slotType: "complement", sortOrder: 1, label: "Destaque da Jornada" };
   }
 
-  const faixaMatch = value?.match(/^faixa_([1-5])$/);
+  const faixaMatch = value?.match(/^faixa_((?:[1-9]|10))$/);
   const faixaSortOrder = faixaMatch?.[1]
     ? Number.parseInt(faixaMatch[1], 10)
     : 0;
 
-  if (faixaSortOrder >= 1 && faixaSortOrder <= 5) {
+  if (faixaSortOrder >= 1 && faixaSortOrder <= 10) {
     return {
       slotType: "important_item",
       sortOrder: faixaSortOrder,

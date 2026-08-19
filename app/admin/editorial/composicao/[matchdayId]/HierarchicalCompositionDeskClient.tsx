@@ -1066,7 +1066,7 @@ export default function HierarchicalCompositionDeskClient({
       }
       else if (zoneKey === "faixa") {
         targetKeys =
-          [1, 2, 3, 4, 5]
+          [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
             .map(
               (position) =>
                 `faixa_${position}`,
@@ -1599,7 +1599,7 @@ export default function HierarchicalCompositionDeskClient({
       .length;
 
   const occupiedFaixa =
-    [1, 2, 3, 4, 5]
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
       .filter(
         (position) =>
           Boolean(
@@ -1796,7 +1796,7 @@ export default function HierarchicalCompositionDeskClient({
                   <option value="zone::faixa">
                     Faixa de notícias — preencher por ordem
                   </option>
-                  {[1, 2, 3, 4, 5].map((position) => {
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((position) => {
                     const target = `faixa_${position}`;
                     const card =
                       plan.auxiliary[target];
@@ -2269,7 +2269,7 @@ export default function HierarchicalCompositionDeskClient({
             </header>
 
             <div className="hc-desk-slots hc-desk-slots-5">
-              {[1, 2, 3, 4, 5].map((position) => {
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((position) => {
                 const target = `faixa_${position}`;
 
                 return (

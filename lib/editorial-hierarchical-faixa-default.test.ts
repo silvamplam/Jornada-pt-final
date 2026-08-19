@@ -41,7 +41,7 @@ test("a Faixa não tem editor autónomo", () => {
   );
 });
 
-test("Colocar em oferece Faixa 1 a Faixa 5 após os momentos posteriores", () => {
+test("Colocar em oferece Faixa 1 a Faixa 10 após os momentos posteriores", () => {
   assert.match(
     desk,
     /<optgroup label="Momentos posteriores">[\s\S]*?<\/optgroup>[\s\S]*?<optgroup label="Faixa de notícias">/,
@@ -58,7 +58,7 @@ test("Colocar em oferece Faixa 1 a Faixa 5 após os momentos posteriores", () =>
   );
 });
 
-test("o mapa direito apresenta a Faixa com cinco lugares", () => {
+test("o mapa direito apresenta a Faixa com dez lugares", () => {
   assert.match(
     desk,
     /<h3>Para Lá da Jornada<\/h3>[\s\S]*?<h3>Faixa de notícias<\/h3>/,
@@ -83,7 +83,7 @@ test("faixa_N é persistida como important_item N", () => {
 
   assert.match(
     api,
-    /value\?\.match\(\/\^faixa_\(\[1-5\]\)\$\//,
+    /value\?\.match\(\/\^faixa_\(\(\?:\[1-9\]\|10\)\)\$\//,
   );
 
   assert.match(
