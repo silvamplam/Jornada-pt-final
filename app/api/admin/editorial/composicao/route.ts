@@ -220,7 +220,7 @@ type CurrentRoundupItem = {
 };
 
 type HierarchicalAuxiliaryTarget = {
-  slotType: "complement" | "beyond_matchday";
+  slotType: "complement" | "beyond_matchday" | "important_item";
   sortOrder: number;
   label: string;
 };
@@ -823,6 +823,34 @@ function projectHierarchicalAuxiliaryEditorialContent(
   };
 }
 
+function projectHierarchicalFaixaArticle(
+  article: EditorialArticleForZone,
+): HierarchicalArticleCardProjection {
+  const projection =
+    requireEditorialArticleZoneProjectionTitle(
+      projectEditorialArticleToZone(
+        article,
+        "important_item",
+      ),
+    );
+
+  const linkUrl = cleanText(projection.linkUrl);
+
+  if (!linkUrl) {
+    throw new CompositionPublicationError(
+      "O artigo-fonte não tem link público para entrar na Faixa.",
+    );
+  }
+
+  return {
+    ...projection,
+    subtitle: cleanText(projection.subtitle) ?? "",
+    imageUrl: cleanText(projection.imageUrl),
+    linkUrl,
+    label: cleanText(projection.label) ?? "",
+  };
+}
+
 function projectHierarchicalAuxiliaryArticle(
   article: EditorialArticleForZone,
 ): HierarchicalArticleCardProjection {
@@ -864,6 +892,19 @@ function projectHierarchicalAuxiliaryBankItem(
 function hierarchicalAuxiliaryTarget(value: string | null): HierarchicalAuxiliaryTarget | null {
   if (value === "video_highlight") {
     return { slotType: "complement", sortOrder: 1, label: "Destaque da Jornada" };
+  }
+
+  const faixaMatch = value?.match(/^faixa_([1-5])$/);
+  const faixaSortOrder = faixaMatch?.[1]
+    ? Number.parseInt(faixaMatch[1], 10)
+    : 0;
+
+  if (faixaSortOrder >= 1 && faixaSortOrder <= 5) {
+    return {
+      slotType: "important_item",
+      sortOrder: faixaSortOrder,
+      label: `Faixa de notícias — posição ${faixaSortOrder}`,
+    };
   }
 
   const match = value?.match(/^beyond_matchday_(\d+)$/);
@@ -1412,6 +1453,7 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
   }
 
   const articleId = isEditorialArticleSourceType(bankItem.source_type) ? bankItem.source_id : null;
+
   if (articleId && !articleNewsFlowSlotTypes.has(slotType)) {
     throw new CompositionPublicationError("Os artigos noticiosos só podem circular pelas cinco zonas noticiosas.");
   }
@@ -1661,7 +1703,7 @@ async function hierarchicalCompositionUsesCanonicalSource(
     }>(
       `matchday_reference_composition_items?select=source_type,source_id&composition_id=eq.${encodeURIComponent(
         compositionId
-      )}&slot_type=in.(complement,beyond_matchday)`,
+      )}&slot_type=in.(complement,beyond_matchday,important_item)`,
     ),
   ]);
 
@@ -1717,7 +1759,7 @@ async function hierarchicalCompositionUsesBankItem(
     readFirst<{ id: string }>(
       `matchday_reference_composition_items?select=id&composition_id=eq.${encodeURIComponent(
         compositionId
-      )}&slot_type=in.(complement,beyond_matchday)&source_type=eq.matchday_editorial_bank_item&source_id=eq.${encodeURIComponent(bankItemId)}`,
+      )}&slot_type=in.(complement,beyond_matchday,important_item)&source_type=eq.matchday_editorial_bank_item&source_id=eq.${encodeURIComponent(bankItemId)}`,
     ),
   ]);
 
@@ -1821,14 +1863,38 @@ async function assignBankItemToHierarchicalAuxiliary(formData: FormData) {
 
   const articleId = isEditorialArticleSourceType(bankItem.source_type) ? bankItem.source_id : null;
   const isEditorialContent = isEditorialContentSourceType(bankItem.source_type);
+
+  if (
+    target.slotType === "important_item" &&
+    !articleId
+  ) {
+    throw new CompositionPublicationError(
+      "A Faixa de notícias só aceita artigos publicados.",
+    );
+  }
   if (isEditorialContent && target.slotType !== "complement") {
     throw new CompositionPublicationError("O conteúdo audiovisual só pode ser usado no Destaque da Jornada neste momento posterior.");
   }
   const mediaSnapshot = isEditorialContent ? await hierarchicalBankItemMediaSnapshot(bankItem) : null;
   const projection = articleId
-    ? projectHierarchicalAuxiliaryArticle(await readPublishedEditorialArticleForHierarchicalAuxiliary(articleId))
+    ? target.slotType === "important_item"
+      ? projectHierarchicalFaixaArticle(
+          await readPublishedEditorialArticleForHierarchicalAuxiliary(
+            articleId,
+          ),
+        )
+      : projectHierarchicalAuxiliaryArticle(
+          await readPublishedEditorialArticleForHierarchicalAuxiliary(
+            articleId,
+          ),
+        )
     : projectHierarchicalAuxiliaryBankItem(bankItem);
-  if (!projection.imageUrl && !(mediaSnapshot && target.slotType === "complement")) {
+
+  if (
+    target.slotType !== "important_item" &&
+    !projection.imageUrl &&
+    !(mediaSnapshot && target.slotType === "complement")
+  ) {
     throw new CompositionPublicationError(
       "O conteúdo do banco não tem todos os campos necessários para esta posição da Composição.",
     );
@@ -2631,7 +2697,7 @@ async function applyHierarchicalDeskPlan(
     fetchSupabaseAdminTable<HierarchicalDeskCurrentAuxiliary>(
       `matchday_reference_composition_items?select=id,slot_type,sort_order,source_type,source_id&composition_id=eq.${encodeURIComponent(
         compositionId,
-      )}&slot_type=in.(complement,beyond_matchday)`,
+      )}&slot_type=in.(complement,beyond_matchday,important_item)`,
     ),
   ]);
 
@@ -2839,7 +2905,7 @@ async function applyHierarchicalDeskPlan(
           operation.itemId,
         )}&composition_id=eq.${encodeURIComponent(
           compositionId,
-        )}&slot_type=in.(complement,beyond_matchday)`,
+        )}&slot_type=in.(complement,beyond_matchday,important_item)`,
         {
           method: "DELETE",
         },
@@ -3032,6 +3098,7 @@ export async function POST(request: Request) {
       await updateBankItemStatus(formData, "active");
       return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_reactivated=1#matchday-editorial-bank`);
     }
+
     else if (actionType === "assign_bank_item_to_composition_slot") {
       await assignBankItemToCompositionSlot(formData);
       return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_assigned=1#matchday-editorial-bank`);

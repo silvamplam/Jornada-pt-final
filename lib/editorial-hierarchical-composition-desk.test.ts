@@ -49,19 +49,15 @@ test("a Composição hierárquica usa workspace tipo Mesa viva", () => {
   );
 });
 
-test("os filtros da Mesa são controlados por React", () => {
+test("os filtros da Mesa representam apenas a Composição e são controlados por React", () => {
   for (const label of [
     "Todas",
-    "Últimas",
-    "Sem zona nas Últimas",
-    "4 notícias",
-    "6 notícias",
-    "5 notícias principais",
-    "5 notícias secundárias",
+    "Na composição",
+    "Sem colocação",
     "Faixa",
     "Vídeos",
     "Destaque da Jornada",
-    "Sem colocação",
+    "Para Lá da Jornada",
   ]) {
     assert.ok(
       client.includes(label),
@@ -76,22 +72,22 @@ test("os filtros da Mesa são controlados por React", () => {
 
   assert.match(
     client,
-    /filter === "four_news"/,
+    /filter === "placed"/,
   );
 
   assert.match(
     client,
-    /filter === "six_news"/,
+    /filter === "unplaced"/,
   );
 
   assert.match(
     client,
-    /filter === "five_news_balanced"/,
+    /filter === "highlight"/,
   );
 
   assert.match(
     client,
-    /filter === "five_news_secondary"/,
+    /filter === "beyond"/,
   );
 
   assert.match(
@@ -101,7 +97,12 @@ test("os filtros da Mesa são controlados por React", () => {
 
   assert.match(
     client,
-    /filter === "unplaced"/,
+    /filter\.startsWith\("core:"\)/,
+  );
+
+  assert.doesNotMatch(
+    client,
+    /"latest_without_zone"/,
   );
 });
 
@@ -113,7 +114,7 @@ test("Colocar planeia, limpa a seleção e só Apply persiste", () => {
 
   assert.match(
     client,
-    /setSelectedBankItemId\(null\);[\s\S]*setDestination\(""\);/,
+    /setSelectedBankItemIds\(\[\]\);[\s\S]*setDestination\(""\);/,
   );
 
   assert.match(

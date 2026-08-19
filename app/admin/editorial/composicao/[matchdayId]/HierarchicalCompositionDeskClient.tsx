@@ -5,10 +5,6 @@ import {
   HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS,
   HIERARCHICAL_COMPOSITION_DESK_SECTIONS,
 } from "@/lib/editorial-hierarchical-composition";
-import {
-  placementGroupForKey,
-  placementLabelForKey,
-} from "@/lib/editorial-matchday-desk-model";
 
 export type HierarchicalCompositionDeskArticle = {
   bankItemId: string;
@@ -17,8 +13,6 @@ export type HierarchicalCompositionDeskArticle = {
   title: string;
   imageUrl: string | null;
   publishedAt: string | null;
-  inLatest: boolean;
-  placementKey: string | null;
 };
 
 export type HierarchicalCompositionDeskVideo = {
@@ -45,17 +39,13 @@ export type HierarchicalCompositionDeskAuxiliary = {
 
 type DeskFilter =
   | "all"
-  | "latest"
-  | "latest_without_zone"
-  | "four_news"
-  | "six_news"
-  | "five_news_balanced"
-  | "five_news_secondary"
-  | "faixa"
+  | "placed"
+  | "unplaced"
   | "videos"
   | "highlight"
-  | "unplaced";
-
+  | "beyond"
+  | "faixa"
+  | `core:${string}`;
 type TargetCard = {
   persistedId: string | null;
   bankItemId: string | null;
@@ -72,6 +62,12 @@ type PlanOperation =
   | { kind: "remove_auxiliary"; itemId: string }
   | { kind: "assign_slot"; slotKey: string; bankItemId: string }
   | { kind: "assign_auxiliary"; target: string; bankItemId: string };
+
+type DragLocation = {
+  kind: "slot" | "auxiliary";
+  zoneKey: string;
+  targetKey: string;
+};
 
 type Props = {
   articles: HierarchicalCompositionDeskArticle[];
@@ -502,6 +498,35 @@ const styles = `
     font-size: 9px;
   }
 
+  .hc-desk-card[draggable="true"] {
+    position: relative;
+    padding-left: 24px;
+    cursor: grab;
+    user-select: none;
+  }
+
+  .hc-desk-card[draggable="true"]:active {
+    cursor: grabbing;
+  }
+
+  .hc-desk-card[draggable="true"]::before {
+    content: "⋮⋮";
+    position: absolute;
+    top: 7px;
+    left: 6px;
+    color: #94a3b8;
+    font-size: 12px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -3px;
+  }
+
+  .hc-desk-slot[data-drop-active="true"] {
+    border-color: #2563eb;
+    background: #eff6ff;
+    box-shadow: inset 0 0 0 1px #2563eb;
+  }
+
   .hc-desk-tools {
     display: grid;
     gap: 7px;
@@ -645,6 +670,10 @@ function initialPlan(
     auxiliary[`beyond_matchday_${position.sortOrder}`] = null;
   });
 
+  for (let position = 1; position <= 5; position += 1) {
+    auxiliary[`faixa_${position}`] = null;
+  }
+
   auxiliaryItems.forEach((item) => {
     auxiliary[item.target] = {
       persistedId: item.id,
@@ -671,18 +700,6 @@ function samePlan(left: PlanState, right: PlanState) {
   );
 }
 
-function liveStatus(article: HierarchicalCompositionDeskArticle) {
-  if (!article.inLatest && !article.placementKey) {
-    return "SEM COLOCAÇÃO";
-  }
-
-  const latest = article.inLatest ? "ÚLTIMAS" : "FORA DE ÚLTIMAS";
-
-  return `${latest} + ${placementLabelForKey(
-    article.placementKey,
-  ).toUpperCase()}`;
-}
-
 export default function HierarchicalCompositionDeskClient({
   articles,
   auxiliaryItems,
@@ -699,13 +716,15 @@ export default function HierarchicalCompositionDeskClient({
     initialPlan(slots, auxiliaryItems),
   );
   const [history, setHistory] = useState<PlanState[]>([]);
-  const [selectedBankItemId, setSelectedBankItemId] =
-    useState<string | null>(null);
+  const [selectedBankItemIds, setSelectedBankItemIds] =
+    useState<string[]>([]);
   const [destination, setDestination] = useState("");
   const [filter, setFilter] = useState<DeskFilter>("all");
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [isApplying, setIsApplying] = useState(false);
+  const [draggedLocation, setDraggedLocation] =
+    useState<DragLocation | null>(null);
 
   const articleByBankId = useMemo(
     () =>
@@ -717,6 +736,39 @@ export default function HierarchicalCompositionDeskClient({
       ),
     [articles],
   );
+
+  const selectionRank = useMemo(
+    () =>
+      new Map(
+        selectedBankItemIds.map(
+          (bankItemId, index) =>
+            [bankItemId, index + 1] as const,
+        ),
+      ),
+    [selectedBankItemIds],
+  );
+
+  const selectedBankItemId =
+    selectedBankItemIds.length === 1
+      ? selectedBankItemIds[0]
+      : null;
+
+  function toggleSelection(
+    bankItemId: string,
+    checked: boolean,
+  ) {
+    setSelectedBankItemIds((current) => {
+      if (checked) {
+        return current.includes(bankItemId)
+          ? current
+          : [...current, bankItemId];
+      }
+
+      return current.filter(
+        (id) => id !== bankItemId,
+      );
+    });
+  }
 
   const placementByBankItem = useMemo(() => {
     const result = new Map<string, string>();
@@ -761,6 +813,19 @@ export default function HierarchicalCompositionDeskClient({
       },
     );
 
+    for (let position = 1; position <= 5; position += 1) {
+      const card =
+        plan.auxiliary[`faixa_${position}`];
+
+      if (card?.bankItemId) {
+        result.set(
+          card.bankItemId,
+          `Faixa de notícias · posição ${position}`,
+        );
+      }
+    }
+
+
     return result;
   }, [plan]);
 
@@ -781,49 +846,62 @@ export default function HierarchicalCompositionDeskClient({
 
         if (!searchMatches) return false;
 
-        const group =
-          placementGroupForKey(article.placementKey);
+        const placement =
+          placementByBankItem.get(
+            article.bankItemId,
+          ) ?? null;
 
+        if (filter === "all") return true;
         if (filter === "videos") return false;
-        if (filter === "latest") return article.inLatest;
+        if (filter === "placed") return Boolean(placement);
+        if (filter === "unplaced") return !placement;
 
-        if (filter === "latest_without_zone") {
-          return article.inLatest && !article.placementKey;
+        if (filter === "highlight") {
+          return placement?.startsWith(
+            "Destaque da Jornada",
+          ) ?? false;
         }
 
-        if (filter === "four_news") {
-          return group === "four_news";
-        }
-
-        if (filter === "six_news") {
-          return group === "six_news";
-        }
-
-        if (filter === "five_news_balanced") {
-          return group === "five_news_balanced";
-        }
-
-        if (filter === "five_news_secondary") {
-          return group === "five_news_secondary";
+        if (filter === "beyond") {
+          return placement?.startsWith(
+            "Para Lá",
+          ) ?? false;
         }
 
         if (filter === "faixa") {
-          return group === "faixa";
+          return placement?.startsWith(
+            "Faixa de notícias",
+          ) ?? false;
         }
 
-        if (filter === "highlight") {
-          return group === "complement";
-        }
+        if (filter.startsWith("core:")) {
+          const sectionKey =
+            filter.slice("core:".length);
 
-        if (filter === "unplaced") {
-          return !article.inLatest && !article.placementKey;
+          const section =
+            HIERARCHICAL_COMPOSITION_DESK_SECTIONS
+              .find(
+                (candidate) =>
+                  candidate.key === sectionKey,
+              );
+
+          return Boolean(
+            section &&
+            placement?.startsWith(
+              `${section.title} ·`,
+            ),
+          );
         }
 
         return true;
       }),
-    [articles, filter, normalizedSearch],
+    [
+      articles,
+      filter,
+      normalizedSearch,
+      placementByBankItem,
+    ],
   );
-
   const filteredVideos = useMemo(
     () =>
       filter === "all" || filter === "videos"
@@ -917,18 +995,176 @@ export default function HierarchicalCompositionDeskClient({
   }
 
   function placeSelected() {
-    if (!selectedBankItemId) {
-      setMessage("Seleciona primeiro uma notícia.");
+    if (selectedBankItemIds.length === 0) {
+      setMessage(
+        "Seleciona primeiro uma ou mais notícias.",
+      );
       return;
     }
 
     if (!destination) {
-      setMessage("Escolhe o lugar de destino.");
+      setMessage("Escolhe o lugar ou a zona de destino.");
       return;
     }
 
+    const selectedArticles =
+      selectedBankItemIds
+        .map((bankItemId) =>
+          articleByBankId.get(bankItemId),
+        )
+        .filter(
+          (
+            article,
+          ): article is HierarchicalCompositionDeskArticle =>
+            Boolean(article),
+        );
+
+    if (
+      selectedArticles.length !==
+      selectedBankItemIds.length
+    ) {
+      setMessage(
+        "Uma das notícias selecionadas já não está disponível.",
+      );
+      return;
+    }
+
+    if (destination.startsWith("zone::")) {
+      const zoneKey =
+        destination.slice("zone::".length);
+
+      let targetKeys: string[] = [];
+
+      if (zoneKey.startsWith("core:")) {
+        const sectionKey =
+          zoneKey.slice("core:".length);
+
+        const section =
+          HIERARCHICAL_COMPOSITION_DESK_SECTIONS
+            .find(
+              (candidate) =>
+                candidate.key === sectionKey,
+            );
+
+        if (!section) {
+          setMessage("Zona de destino inválida.");
+          return;
+        }
+
+        targetKeys =
+          section.slots.map(
+            (slot) => slot.key,
+          );
+      }
+      else if (zoneKey === "beyond") {
+        targetKeys =
+          HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS
+            .map(
+              (position) =>
+                `beyond_matchday_${position.sortOrder}`,
+            );
+      }
+      else if (zoneKey === "faixa") {
+        targetKeys =
+          [1, 2, 3, 4, 5]
+            .map(
+              (position) =>
+                `faixa_${position}`,
+            );
+      }
+      else {
+        setMessage("Zona de destino inválida.");
+        return;
+      }
+
+      const auxiliaryZone =
+        zoneKey === "beyond" ||
+        zoneKey === "faixa";
+
+      let next = plan;
+
+      selectedBankItemIds.forEach(
+        (bankItemId) => {
+          next =
+            removeBankItem(
+              next,
+              bankItemId,
+            );
+        },
+      );
+
+      const freeKeys =
+        targetKeys.filter((targetKey) =>
+          auxiliaryZone
+            ? !next.auxiliary[targetKey]
+            : !next.slots[targetKey],
+        );
+
+      if (
+        freeKeys.length <
+        selectedBankItemIds.length
+      ) {
+        setMessage(
+          `A zona só tem ${freeKeys.length} lugares livres para ${selectedBankItemIds.length} notícias selecionadas.`,
+        );
+        return;
+      }
+
+      selectedArticles.forEach(
+        (article, index) => {
+          const targetKey = freeKeys[index];
+
+          const card: TargetCard = {
+            persistedId: null,
+            bankItemId: article.bankItemId,
+            title: article.title,
+          };
+
+          if (auxiliaryZone) {
+            next = {
+              ...next,
+              auxiliary: {
+                ...next.auxiliary,
+                [targetKey]: card,
+              },
+            };
+          }
+          else {
+            next = {
+              ...next,
+              slots: {
+                ...next.slots,
+                [targetKey]: card,
+              },
+            };
+          }
+        },
+      );
+
+      commit(
+        next,
+        "Colocação planeada. A ordem de seleção definiu a ordem inicial da zona.",
+      );
+
+      setSelectedBankItemIds([]);
+      setDestination("");
+      return;
+    }
+
+    if (selectedBankItemIds.length !== 1) {
+      setMessage(
+        "Para escolher um lugar específico, seleciona apenas uma notícia. Para várias, escolhe a zona.",
+      );
+      return;
+    }
+
+    const selectedBankItemId =
+      selectedBankItemIds[0];
+
     const article =
-      articleByBankId.get(selectedBankItemId);
+      articleByBankId.get(
+        selectedBankItemId,
+      );
 
     if (!article) {
       setMessage(
@@ -938,7 +1174,10 @@ export default function HierarchicalCompositionDeskClient({
     }
 
     let next =
-      removeBankItem(plan, selectedBankItemId);
+      removeBankItem(
+        plan,
+        selectedBankItemId,
+      );
 
     const card: TargetCard = {
       persistedId: null,
@@ -950,10 +1189,7 @@ export default function HierarchicalCompositionDeskClient({
       const key =
         destination.slice("slot::".length);
 
-      if (
-        next.slots[key] &&
-        next.slots[key]?.bankItemId !== selectedBankItemId
-      ) {
+      if (next.slots[key]) {
         setMessage(
           "Esse lugar está ocupado. Retira primeiro o conteúdo atual.",
         );
@@ -972,10 +1208,7 @@ export default function HierarchicalCompositionDeskClient({
       const key =
         destination.slice("aux::".length);
 
-      if (
-        next.auxiliary[key] &&
-        next.auxiliary[key]?.bankItemId !== selectedBankItemId
-      ) {
+      if (next.auxiliary[key]) {
         setMessage(
           "Esse lugar está ocupado. Retira primeiro o conteúdo atual.",
         );
@@ -1000,7 +1233,102 @@ export default function HierarchicalCompositionDeskClient({
       "Colocação planeada. Usa Aplicar alterações para guardar.",
     );
 
-    setSelectedBankItemId(null);
+    setSelectedBankItemIds([]);
+    setDestination("");
+  }
+
+  function moveDraggedWithinZone(
+    target: DragLocation,
+  ) {
+    const source = draggedLocation;
+
+    if (!source) return;
+
+    if (
+      source.kind !== target.kind ||
+      source.zoneKey !== target.zoneKey
+    ) {
+      setDraggedLocation(null);
+      setMessage(
+        "Só podes arrastar notícias dentro da mesma zona. Para mudar de zona usa Colocar em…",
+      );
+      return;
+    }
+
+    if (source.targetKey === target.targetKey) {
+      setDraggedLocation(null);
+      return;
+    }
+
+    let next: PlanState;
+    let targetWasOccupied = false;
+
+    if (
+      source.kind === "slot" &&
+      target.kind === "slot"
+    ) {
+      const sourceCard =
+        plan.slots[source.targetKey] ?? null;
+
+      const targetCard =
+        plan.slots[target.targetKey] ?? null;
+
+      if (!sourceCard) {
+        setDraggedLocation(null);
+        return;
+      }
+
+      targetWasOccupied = Boolean(targetCard);
+
+      next = {
+        ...plan,
+        slots: {
+          ...plan.slots,
+          [source.targetKey]: targetCard,
+          [target.targetKey]: sourceCard,
+        },
+      };
+    }
+    else if (
+      source.kind === "auxiliary" &&
+      target.kind === "auxiliary"
+    ) {
+      const sourceCard =
+        plan.auxiliary[source.targetKey] ?? null;
+
+      const targetCard =
+        plan.auxiliary[target.targetKey] ?? null;
+
+      if (!sourceCard) {
+        setDraggedLocation(null);
+        return;
+      }
+
+      targetWasOccupied = Boolean(targetCard);
+
+      next = {
+        ...plan,
+        auxiliary: {
+          ...plan.auxiliary,
+          [source.targetKey]: targetCard,
+          [target.targetKey]: sourceCard,
+        },
+      };
+    }
+    else {
+      setDraggedLocation(null);
+      return;
+    }
+
+    commit(
+      next,
+      targetWasOccupied
+        ? "Troca de posição planeada. Usa Aplicar alterações para guardar."
+        : "Mudança de posição planeada. Usa Aplicar alterações para guardar.",
+    );
+
+    setDraggedLocation(null);
+    setSelectedBankItemIds([]);
     setDestination("");
   }
 
@@ -1016,7 +1344,7 @@ export default function HierarchicalCompositionDeskClient({
       "Retirada planeada.",
     );
 
-    setSelectedBankItemId(null);
+    setSelectedBankItemIds([]);
     setDestination("");
   }
 
@@ -1032,7 +1360,7 @@ export default function HierarchicalCompositionDeskClient({
       "Retirada planeada.",
     );
 
-    setSelectedBankItemId(null);
+    setSelectedBankItemIds([]);
     setDestination("");
   }
 
@@ -1043,7 +1371,7 @@ export default function HierarchicalCompositionDeskClient({
 
     setPlan(previous);
     setHistory((items) => items.slice(0, -1));
-    setSelectedBankItemId(null);
+    setSelectedBankItemIds([]);
     setDestination("");
     setMessage("Última alteração desfeita.");
   }
@@ -1053,7 +1381,7 @@ export default function HierarchicalCompositionDeskClient({
 
     setHistory((items) => [...items, plan]);
     setPlan(basePlan);
-    setSelectedBankItemId(null);
+    setSelectedBankItemIds([]);
     setDestination("");
     setMessage("Alterações planeadas eliminadas.");
   }
@@ -1170,7 +1498,7 @@ export default function HierarchicalCompositionDeskClient({
         return;
       }
 
-      setSelectedBankItemId(null);
+      setSelectedBankItemIds([]);
       setDestination("");
       window.location.reload();
     }
@@ -1187,6 +1515,7 @@ export default function HierarchicalCompositionDeskClient({
   function renderCard(
     card: TargetCard | null,
     onRemove: () => void,
+    location?: DragLocation,
   ) {
     if (!card) {
       return (
@@ -1197,7 +1526,33 @@ export default function HierarchicalCompositionDeskClient({
     }
 
     return (
-      <article className="hc-desk-card">
+      <article
+        className="hc-desk-card"
+        draggable={Boolean(location)}
+        title={
+          location
+            ? "Arrastar para mudar de lugar dentro desta zona"
+            : undefined
+        }
+        onDragStart={
+          location
+            ? (event) => {
+                setDraggedLocation(location);
+
+                event.dataTransfer.effectAllowed =
+                  "move";
+
+                event.dataTransfer.setData(
+                  "text/plain",
+                  JSON.stringify(location),
+                );
+              }
+            : undefined
+        }
+        onDragEnd={() =>
+          setDraggedLocation(null)
+        }
+      >
         <strong>{card.title}</strong>
 
         <button
@@ -1210,21 +1565,22 @@ export default function HierarchicalCompositionDeskClient({
     );
   }
 
-  const filters:
-    Array<[DeskFilter, string]> = [
-      ["all", "Todas"],
-      ["latest", "Últimas"],
-      ["latest_without_zone", "Sem zona nas Últimas"],
-      ["four_news", "4 notícias"],
-      ["six_news", "6 notícias"],
-      ["five_news_balanced", "5 notícias principais"],
-      ["five_news_secondary", "5 notícias secundárias"],
-      ["faixa", "Faixa"],
-      ["videos", "Vídeos"],
-      ["highlight", "Destaque da Jornada"],
-      ["unplaced", "Sem colocação"],
-    ];
-
+  const filters: Array<[DeskFilter, string]> = [
+    ["all", "Todas"],
+    ["placed", "Na composição"],
+    ["unplaced", "Sem colocação"],
+    ...HIERARCHICAL_COMPOSITION_DESK_SECTIONS.map(
+      (section) =>
+        [
+          `core:${section.key}` as DeskFilter,
+          section.title,
+        ] as [DeskFilter, string],
+    ),
+    ["highlight", "Destaque da Jornada"],
+    ["beyond", "Para Lá da Jornada"],
+    ["faixa", "Faixa"],
+    ["videos", "Vídeos"],
+  ];
   const occupiedCore =
     Object.values(plan.slots)
       .filter(Boolean)
@@ -1238,6 +1594,16 @@ export default function HierarchicalCompositionDeskClient({
             plan.auxiliary[
               `beyond_matchday_${position.sortOrder}`
             ],
+          ),
+      )
+      .length;
+
+  const occupiedFaixa =
+    [1, 2, 3, 4, 5]
+      .filter(
+        (position) =>
+          Boolean(
+            plan.auxiliary[`faixa_${position}`],
           ),
       )
       .length;
@@ -1311,9 +1677,9 @@ export default function HierarchicalCompositionDeskClient({
             <div className="hc-desk-bulk">
               <strong>
                 {
-                  selectedBankItemId
+                  selectedBankItemIds.length === 1
                     ? "1 selecionada"
-                    : "0 selecionadas"
+                    : `${selectedBankItemIds.length} selecionadas`
                 }
               </strong>
 
@@ -1339,6 +1705,11 @@ export default function HierarchicalCompositionDeskClient({
                         key={section.key}
                         label={section.title}
                       >
+                        <option
+                          value={`zone::core:${section.key}`}
+                        >
+                          {section.title} — preencher por ordem
+                        </option>
                         {
                           section.slots
                             .map((definition) => {
@@ -1369,6 +1740,9 @@ export default function HierarchicalCompositionDeskClient({
                 }
 
                 <optgroup label="Momentos posteriores">
+                  <option value="zone::beyond">
+                    Para Lá da Jornada — preencher por ordem
+                  </option>
                   <option
                     disabled={
                       Boolean(
@@ -1417,13 +1791,41 @@ export default function HierarchicalCompositionDeskClient({
                       })
                   }
                 </optgroup>
+
+                <optgroup label="Faixa de notícias">
+                  <option value="zone::faixa">
+                    Faixa de notícias — preencher por ordem
+                  </option>
+                  {[1, 2, 3, 4, 5].map((position) => {
+                    const target = `faixa_${position}`;
+                    const card =
+                      plan.auxiliary[target];
+
+                    const disabled =
+                      Boolean(card) &&
+                      card?.bankItemId !==
+                        selectedBankItemId;
+
+                    return (
+                      <option
+                        disabled={disabled}
+                        key={target}
+                        value={`aux::${target}`}
+                      >
+                        Faixa {position}
+                        {disabled ? " — ocupado" : ""}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+
               </select>
 
               <button
                 className="primary"
                 type="button"
                 disabled={
-                  !selectedBankItemId ||
+                  selectedBankItemIds.length === 0 ||
                   !destination
                 }
                 onClick={placeSelected}
@@ -1434,7 +1836,7 @@ export default function HierarchicalCompositionDeskClient({
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedBankItemId(null);
+                  setSelectedBankItemIds([]);
                   setDestination("");
                 }}
               >
@@ -1457,9 +1859,13 @@ export default function HierarchicalCompositionDeskClient({
             {
               filteredArticles
                 .map((article) => {
+                  const rank =
+                    selectionRank.get(
+                      article.bankItemId,
+                    ) ?? null;
+
                   const selected =
-                    selectedBankItemId ===
-                    article.bankItemId;
+                    rank !== null;
 
                   const compositionPlacement =
                     placementByBankItem.get(
@@ -1480,21 +1886,16 @@ export default function HierarchicalCompositionDeskClient({
                       <input
                         type="checkbox"
                         checked={selected}
-                        onChange={(event) => {
-                          setSelectedBankItemId(
-                            event.target.checked
-                              ? article.bankItemId
-                              : null,
-                          );
-
-                          if (!event.target.checked) {
-                            setDestination("");
-                          }
-                        }}
+                        onChange={(event) =>
+                          toggleSelection(
+                            article.bankItemId,
+                            event.target.checked,
+                          )
+                        }
                       />
 
                       <b className="hc-desk-rank">
-                        {selected ? "1" : "·"}
+                        {rank ?? "·"}
                       </b>
 
                       {
@@ -1554,7 +1955,7 @@ export default function HierarchicalCompositionDeskClient({
                           {
                             compositionPlacement
                               ? `COMPOSIÇÃO · ${compositionPlacement.toUpperCase()}`
-                              : liveStatus(article)
+                              : "COMPOSIÇÃO · SEM COLOCAÇÃO"
                           }
                         </small>
                       </span>
@@ -1646,6 +2047,11 @@ export default function HierarchicalCompositionDeskClient({
             </div>
 
             <div>
+              <span>Faixa</span>
+              <strong>{occupiedFaixa}/5</strong>
+            </div>
+
+            <div>
               <span>Alteradas</span>
               <strong>{pendingCount}</strong>
             </div>
@@ -1692,7 +2098,34 @@ export default function HierarchicalCompositionDeskClient({
                         .map((definition) => (
                           <div
                             className="hc-desk-slot"
+                            data-drag-core-target={definition.key}
+                            data-drop-active={
+                              draggedLocation?.kind === "slot" &&
+                              draggedLocation.zoneKey === `core:${section.key}`
+                                ? "true"
+                                : undefined
+                            }
                             key={definition.key}
+                            onDragOver={(event) => {
+                              if (
+                                draggedLocation?.kind !== "slot" ||
+                                draggedLocation.zoneKey !== `core:${section.key}`
+                              ) {
+                                return;
+                              }
+
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                            }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+
+                              moveDraggedWithinZone({
+                                kind: "slot",
+                                zoneKey: `core:${section.key}`,
+                                targetKey: definition.key,
+                              });
+                            }}
                           >
                             <small>
                               {definition.label}
@@ -1707,6 +2140,11 @@ export default function HierarchicalCompositionDeskClient({
                                   removeSlot(
                                     definition.key,
                                   ),
+                                {
+                                  kind: "slot",
+                                  zoneKey: `core:${section.key}`,
+                                  targetKey: definition.key,
+                                },
                               )
                             }
                           </div>
@@ -1770,7 +2208,34 @@ export default function HierarchicalCompositionDeskClient({
                     return (
                       <div
                         className="hc-desk-slot"
+                        data-drag-zone="beyond"
+                        data-drop-active={
+                          draggedLocation?.kind === "auxiliary" &&
+                          draggedLocation.zoneKey === "beyond"
+                            ? "true"
+                            : undefined
+                        }
                         key={position.key}
+                        onDragOver={(event) => {
+                          if (
+                            draggedLocation?.kind !== "auxiliary" ||
+                            draggedLocation.zoneKey !== "beyond"
+                          ) {
+                            return;
+                          }
+
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+
+                          moveDraggedWithinZone({
+                            kind: "auxiliary",
+                            zoneKey: "beyond",
+                            targetKey: target,
+                          });
+                        }}
                       >
                         <small>{position.label}</small>
 
@@ -1779,6 +2244,11 @@ export default function HierarchicalCompositionDeskClient({
                             plan.auxiliary[target] ?? null,
                             () =>
                               removeAuxiliary(target),
+                            {
+                              kind: "auxiliary",
+                              zoneKey: "beyond",
+                              targetKey: target,
+                            },
                           )
                         }
                       </div>
@@ -1787,6 +2257,73 @@ export default function HierarchicalCompositionDeskClient({
               }
             </div>
           </section>
+
+          <section className="hc-desk-zone">
+            <header>
+              <div>
+                <h3>Faixa de notícias</h3>
+                <p>Até cinco notícias. Todos os lugares são opcionais.</p>
+              </div>
+
+              <span>{occupiedFaixa}/5</span>
+            </header>
+
+            <div className="hc-desk-slots hc-desk-slots-5">
+              {[1, 2, 3, 4, 5].map((position) => {
+                const target = `faixa_${position}`;
+
+                return (
+                  <div
+                    className="hc-desk-slot"
+                    data-drag-zone="faixa"
+                    data-drop-active={
+                      draggedLocation?.kind === "auxiliary" &&
+                      draggedLocation.zoneKey === "faixa"
+                        ? "true"
+                        : undefined
+                    }
+                    key={target}
+                    onDragOver={(event) => {
+                      if (
+                        draggedLocation?.kind !== "auxiliary" ||
+                        draggedLocation.zoneKey !== "faixa"
+                      ) {
+                        return;
+                      }
+
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+
+                      moveDraggedWithinZone({
+                        kind: "auxiliary",
+                        zoneKey: "faixa",
+                        targetKey: target,
+                      });
+                    }}
+                  >
+                    <small>Faixa {position}</small>
+
+                    {
+                      renderCard(
+                        plan.auxiliary[target] ?? null,
+                        () =>
+                          removeAuxiliary(target),
+                        {
+                          kind: "auxiliary",
+                          zoneKey: "faixa",
+                          targetKey: target,
+                        },
+                      )
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
 
           {
             children

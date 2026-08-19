@@ -4227,7 +4227,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       })).filter((item) => item.title.length > 0);
   const importantNewsItems = resolveMatchdayHorizontalNewsItems({
     hasPublishedReferenceComposition: usePublishedReferenceComposition,
-    isManagedByDesk: isManagedByEditorialDesk,
+    isManagedByDesk: useHierarchicalReferenceComposition ? false : isManagedByEditorialDesk,
     faixaVisible: context.editorialDeskControl.faixaVisible,
     referenceItems: [...(context.referenceSlots.important_item ?? [])]
       .filter(hasReferenceSlotContent)
@@ -4629,9 +4629,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         </div>
       ) : null}
 
-      {!useHierarchicalReferenceComposition ? (
+      {importantNewsItems.length > 0 ? (
         <div className="public-matchday-editorial-region">
-          <PublicHorizontalNewsStrip items={importantNewsItems} ariaLabel="Faixa horizontal de noticias" scope="matchday" />
+          <PublicHorizontalNewsStrip
+            items={importantNewsItems}
+            ariaLabel="Faixa horizontal de noticias"
+            scope="matchday"
+          />
         </div>
       ) : null}
 

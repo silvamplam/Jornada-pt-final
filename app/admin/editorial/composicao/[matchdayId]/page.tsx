@@ -27,6 +27,7 @@ import {
   type ReferenceCompositionPresentationMode,
 } from "@/lib/editorial-hierarchical-composition";
 import HierarchicalCompositionInterpretivePreview from "@/components/admin/HierarchicalCompositionInterpretivePreview";
+import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
 import HierarchicalCompositionDeskClient from "./HierarchicalCompositionDeskClient";
 import {
   fetchSupabaseAdminTable,
@@ -3573,6 +3574,7 @@ function HierarchicalVideoEditor({
   );
 }
 
+
 function PublishedSourceAuxiliaryForm({
   articles,
   contents,
@@ -3797,7 +3799,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
 
   const { matchday, season, competition, country } = context;
   const presentationMode: ReferenceCompositionPresentationMode =
-    query.presentation_mode === "hierarchical" ? "hierarchical" : "standard";
+    query.presentation_mode === "standard" ? "standard" : "hierarchical";
   const [
     modeDraftComposition,
     modePublishedComposition,
@@ -3827,6 +3829,21 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const hierarchicalAuxiliaryItems = compositionItems.filter(
     (item) => item.slot_type === "complement" || item.slot_type === "beyond_matchday",
   );
+  const hierarchicalFaixaItems = compositionItems
+    .filter((item) => item.slot_type === "important_item")
+    .sort((left, right) => left.sort_order - right.sort_order);
+  const hierarchicalPreviewFaixaItems = hierarchicalFaixaItems
+    .map((item) => ({
+      id: item.id,
+      label: item.label_snapshot,
+      labelColor: item.label_color_snapshot,
+      title: item.title_snapshot ?? "",
+      subtitle: item.subtitle_snapshot,
+      imageUrl: item.image_url_snapshot,
+      linkUrl: item.link_url_snapshot,
+      sortOrder: item.sort_order,
+    }))
+    .filter((item) => item.title.length > 0);
   const selectedRoundupSourceIds = new Set(
     compositionItems
       .filter((item) => item.slot_type === "roundup" && item.source_id)
@@ -3912,7 +3929,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const bankFilter = ["all", "available", "in_use", "archived"].includes(query.bank_filter ?? "")
     ? (query.bank_filter as "all" | "available" | "in_use" | "archived")
     : "all";
-  const baseReturnTo = `/admin/editorial/composicao/${matchday.id}${presentationMode === "hierarchical" ? "?presentation_mode=hierarchical" : ""}`;
+  const baseReturnTo = `/admin/editorial/composicao/${matchday.id}${presentationMode === "standard" ? "?presentation_mode=standard" : ""}`;
   const returnTo = bankFilter === "all"
     ? baseReturnTo
     : `${baseReturnTo}${baseReturnTo.includes("?") ? "&" : "?"}bank_filter=${encodeURIComponent(bankFilter)}`;
@@ -3941,14 +3958,50 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           : `Para Lá da Jornada — ${hierarchicalBeyondMatchdayPositionLabel(item.sort_order)}`,
       ] as const),
   );
+
+  const hierarchicalFaixaPlacementByBankId = new Map(
+    hierarchicalFaixaItems
+      .filter(
+        (item) =>
+          item.source_type === "matchday_editorial_bank_item" &&
+          item.source_id,
+      )
+      .map(
+        (item) =>
+          [
+            item.source_id as string,
+            "Faixa de notícias · posição " + item.sort_order,
+          ] as const,
+      ),
+  );
+
+  const hierarchicalFaixaPlacementByArticleId = new Map(
+    hierarchicalFaixaItems
+      .filter(
+        (item) =>
+          item.source_type === "editorial_article" &&
+          item.source_id,
+      )
+      .map(
+        (item) =>
+          [
+            item.source_id as string,
+            "Faixa de notícias · posição " + item.sort_order,
+          ] as const,
+      ),
+  );
+
   const bankPlacementById = new Map(
     bankItems.map((item) => [
       item.id,
       presentationMode === "hierarchical"
         ? hierarchicalPlacementByBankId.get(item.id) ??
+          hierarchicalFaixaPlacementByBankId.get(item.id) ??
           hierarchicalAuxiliaryPlacementByBankId.get(item.id) ??
           (isEditorialArticleBankItem(item) && item.source_id
-            ? hierarchicalAuxiliaryPlacementByArticleId.get(item.source_id) ?? null
+            ? hierarchicalFaixaPlacementByArticleId.get(item.source_id) ??
+              hierarchicalAuxiliaryPlacementByArticleId.get(item.source_id) ??
+              null
             : null) ??
           hierarchicalAuxiliaryBankItemPlacementLabel(hierarchicalAuxiliaryItems, item)
         : bankItemPlacementLabel(compositionItems, item),
@@ -3990,6 +4043,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         { label: "A Jornada em Vídeo", count: compositionItems.filter((item) => item.slot_type === "roundup").length },
         { label: "Destaque da Jornada", count: compositionItems.filter((item) => item.slot_type === "complement").length },
         { label: "Para Lá da Jornada", count: compositionItems.filter((item) => item.slot_type === "beyond_matchday").length },
+        { label: "Faixa de notícias", count: hierarchicalFaixaItems.length },
       ]
     : standardCompositionSummary;
   const bankSavedCount = Math.max(0, Number.parseInt(query.bank_saved ?? "0", 10) || 0);
@@ -4043,8 +4097,6 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           title: article.title,
           imageUrl: article.imageUrl ?? bankItem.image_url,
           publishedAt: article.publishedAt,
-          inLatest: article.inLatest,
-          placementKey: article.placementKey,
         }];
       })
     : [];
@@ -4069,7 +4121,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     : [];
 
   const hierarchicalDeskAuxiliary = presentationMode === "hierarchical"
-    ? hierarchicalAuxiliaryItems.map((item) => {
+    ? [...hierarchicalAuxiliaryItems, ...hierarchicalFaixaItems].map((item) => {
         const bankItemId =
           item.source_type === "matchday_editorial_bank_item"
             ? item.source_id
@@ -4082,7 +4134,9 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           target:
             item.slot_type === "complement"
               ? "video_highlight"
-              : `beyond_matchday_${item.sort_order}`,
+              : item.slot_type === "important_item"
+                ? `faixa_${item.sort_order}`
+                : `beyond_matchday_${item.sort_order}`,
           bankItemId,
           title: item.title_snapshot ?? "Sem título",
         };
@@ -4173,10 +4227,10 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       </section>
 
       <nav className="composition-admin-mode-selector" aria-label="Apresentação da Composição da Jornada">
-        <a className={presentationMode === "standard" ? "active" : undefined} href={`/admin/editorial/composicao/${matchday.id}`}>
+        <a className={presentationMode === "standard" ? "active" : undefined} href={`/admin/editorial/composicao/${matchday.id}?presentation_mode=standard`}>
           Atual
         </a>
-        <a className={presentationMode === "hierarchical" ? "active" : undefined} href={`/admin/editorial/composicao/${matchday.id}?presentation_mode=hierarchical`}>
+        <a className={presentationMode === "hierarchical" ? "active" : undefined} href={`/admin/editorial/composicao/${matchday.id}`}>
           Hierárquica
         </a>
       </nav>
@@ -4272,6 +4326,11 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                 roundupItems={hierarchicalPreviewRoundupItems}
                 slots={hierarchicalSlots}
                 videoHighlight={hierarchicalPreviewVideoHighlight}
+              />
+              <PublicHorizontalNewsStrip
+                ariaLabel="Faixa de notícias da composição"
+                items={hierarchicalPreviewFaixaItems}
+                scope="matchday"
               />
             </div>
           </details>
