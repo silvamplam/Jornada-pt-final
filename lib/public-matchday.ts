@@ -1,6 +1,10 @@
 import { fetchSupabaseAdminTable, type SupabaseBroadcastChannel, type SupabaseCompetition, type SupabaseMatch, type SupabaseMatchday, type SupabaseMatchdayEditorial, type SupabaseMatchdayHighlight, type SupabaseMatchdayHorizontalNews, type SupabaseMatchdayLatestNews, type SupabaseMatchdayRoundupItem, type SupabaseSeason, type SupabaseSeasonTeam, type SupabaseTeam } from "@/lib/supabase";
 import type { HierarchicalCompositionSlot, ReferenceCompositionPresentationMode } from "@/lib/editorial-hierarchical-composition";
 import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
+import {
+  normalizeMatchdayLivePublicZoneOrder,
+  type MatchdayLivePublicZoneKey,
+} from "@/lib/editorial-matchday-live-zone-order";
 
 export type PublicSeasonParticipant = SupabaseSeasonTeam & {
   team: SupabaseTeam | null;
@@ -109,6 +113,7 @@ export type PublicMatchdayEditorialDeskControl = {
   isManaged: boolean;
   faixaVisible: boolean;
   revision: number;
+  liveZoneOrder: MatchdayLivePublicZoneKey[];
   carryover: PublicMatchdayEditorialCarryover | null;
 };
 
@@ -415,10 +420,11 @@ async function readMatchdayEditorialDeskControl(
     is_managed: boolean;
     faixa_visible: boolean;
     revision: number;
+    live_public_zone_order: unknown;
     carryover_source_composition_id: string | null;
     carryover_snapshot: unknown;
   }>(
-    `matchday_editorial_desk_control?select=is_managed,faixa_visible,revision,carryover_source_composition_id,carryover_snapshot&matchday_id=eq.${encodeURIComponent(
+    `matchday_editorial_desk_control?select=is_managed,faixa_visible,revision,live_public_zone_order,carryover_source_composition_id,carryover_snapshot&matchday_id=eq.${encodeURIComponent(
       matchdayId,
     )}&limit=1`,
   ).catch(() => []);
@@ -432,6 +438,9 @@ async function readMatchdayEditorialDeskControl(
       revision: Number.isSafeInteger(control.revision)
         ? control.revision
         : 0,
+      liveZoneOrder: normalizeMatchdayLivePublicZoneOrder(
+        control.live_public_zone_order,
+      ),
       carryover: normalizeEditorialCarryover(
         control.carryover_source_composition_id,
         control.carryover_snapshot,
@@ -439,7 +448,7 @@ async function readMatchdayEditorialDeskControl(
     };
   }
 
-  // Compatibilidade enquanto a migra??o ainda n?o existir no ambiente.
+  // Compatibilidade enquanto a migração ainda não existir no ambiente.
   const legacyRows = await fetchSupabaseAdminTable<{
     is_managed: boolean;
     faixa_visible: boolean;
@@ -458,6 +467,7 @@ async function readMatchdayEditorialDeskControl(
     revision: Number.isSafeInteger(legacy?.revision)
       ? legacy?.revision ?? 0
       : 0,
+    liveZoneOrder: normalizeMatchdayLivePublicZoneOrder(null),
     carryover: null,
   };
 }

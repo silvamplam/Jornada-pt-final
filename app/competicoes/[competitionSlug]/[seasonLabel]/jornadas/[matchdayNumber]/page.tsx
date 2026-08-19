@@ -3776,6 +3776,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   if (!context) {
     return <DiagnosticPanel diagnostic={diagnostic} />;
   }
+  const liveContext = context;
   const showLogoDiagnostic = query.debug_logos === "1";
   const competitionBarColor = publicCompetitionBarColor(context.competition.slug);
 
@@ -4423,6 +4424,162 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     && liveFourNewsItems.length === 4
     && latestNewsItems.length > 0;
 
+  function liveHierarchicalSlotsForGroup(
+    group: "six_news" | "five_news_balanced",
+  ) {
+    const slotKeys = new Set<string>(
+      LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.reduce<string[]>(
+        (keys, position) => {
+          if (
+            position.storage === "hierarchical" &&
+            position.group === group
+          ) {
+            keys.push(position.slotKey);
+          }
+          return keys;
+        },
+        [],
+      ),
+    );
+
+    return liveHierarchicalLayoutSlots.filter((slot) =>
+      slotKeys.has(slot.slot_key)
+    );
+  }
+
+  const liveSixNewsSlots = liveHierarchicalSlotsForGroup("six_news");
+  const liveFiveNewsBalancedSlots =
+    liveHierarchicalSlotsForGroup("five_news_balanced");
+
+  function renderLivePublicZone(
+    zone: PublicMatchdayContext["editorialDeskControl"]["liveZoneOrder"][number],
+  ) {
+    if (zone === "video") {
+      if (
+        !editorialVisibility.showRoundup &&
+        !hasPublishedComplementaryStory
+      ) {
+        return null;
+      }
+
+      return (
+        <PublicEditorialLayout
+          ariaLabel="A Jornada em Vídeo"
+          key={zone}
+          scope="matchday"
+          showHeadline={false}
+          showSideBlock={false}
+          showLatestNews={false}
+          sideBlock={{ isPublished: false }}
+          headline={{ fallbackTitle: "", fallbackSubtitle: "" }}
+          belowHeadline={{
+            highlightHeading: "",
+            highlights: [],
+            roundupItems: visibleRoundupItems,
+            showRoundupVideo: editorialVisibility.showRoundup,
+            roundupHeading: "A JORNADA EM VÍDEO",
+            roundupHeadingColor:
+              editorial?.roundup_video_heading_color ??
+              belowHeadlineHeadingColor ??
+              null,
+            initialRoundupItemId:
+              editorial?.complementary_roundup_item_id ?? null,
+            matchdayNumber: liveContext.matchday.number,
+            complementary: {
+              isPublished: hasPublishedComplementaryStory,
+              label: complementaryLabel,
+              labelColor: complementaryLabelColor,
+              title: complementaryTitle,
+              text: complementaryText,
+              imageUrl: complementaryImageUrl,
+              linkUrl: complementaryLinkUrl,
+              inlineMedia: complementMedia
+                ? {
+                    kind: complementMedia.kind,
+                    embedUrl: complementMedia.embed_url,
+                    videoUrl: complementMedia.video_url,
+                    posterUrl: complementMedia.poster_url,
+                    caption: complementMedia.caption,
+                    contentSlug: complementMedia.content_slug,
+                    contentType: complementMedia.content_type,
+                    title: complementMedia.title
+                  }
+                : null
+            }
+          }}
+          latestNews={[]}
+        />
+      );
+    }
+
+    if (zone === "four_news") {
+      if (!showFourNewsLatestLayout) return null;
+
+      return (
+        <div className="public-matchday-editorial-region" key={zone}>
+          <PublicFourNewsLatestLayout
+            items={liveFourNewsItems}
+            latestNews={latestNewsItems}
+            latestNewsTitle={latestZoneTitle}
+            latestNewsTitleColor={latestZoneTitleColor}
+          />
+        </div>
+      );
+    }
+
+    if (zone === "six_news") {
+      if (liveSixNewsSlots.length !== 6) return null;
+
+      return (
+        <div
+          className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region"
+          key={zone}
+        >
+          <PublicHierarchicalLiveLayouts
+            ariaLabel="Zona editorial de 6 notícias"
+            slots={liveSixNewsSlots}
+            matchdayNumber={liveContext.matchday.number}
+            beyondMatchdayItems={[]}
+          />
+        </div>
+      );
+    }
+
+    if (zone === "five_news_balanced") {
+      if (liveFiveNewsBalancedSlots.length !== 5) return null;
+
+      return (
+        <div
+          className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region"
+          key={zone}
+        >
+          <PublicHierarchicalLiveLayouts
+            ariaLabel="Zona editorial de 5 notícias equilibradas"
+            slots={liveFiveNewsBalancedSlots}
+            matchdayNumber={liveContext.matchday.number}
+            beyondMatchdayItems={[]}
+          />
+        </div>
+      );
+    }
+
+    if (liveBeyondMatchdayNews.length !== 5) return null;
+
+    return (
+      <div
+        className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region"
+        key={zone}
+      >
+        <PublicHierarchicalLiveLayouts
+          ariaLabel="Zona editorial de 5 notícias secundárias"
+          slots={[]}
+          matchdayNumber={liveContext.matchday.number}
+          beyondMatchdayItems={liveBeyondMatchdayNews}
+        />
+      </div>
+    );
+  }
+
   return (
     <main className="public-matchday-shell">
       <style>{publicMatchdayStyles}</style>
@@ -4533,21 +4690,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             </section>
           )}
         </div>
-      ) : (editorialVisibility.showCoverPanel || showFourNewsLatestLayout) ? (
+      ) : (
         <PublicEditorialLayout
           ariaLabel="Capa da jornada"
           scope="matchday"
           showHeadline={editorialVisibility.showHeadline}
           showSideBlock={editorialVisibility.showSideBlock}
           showLatestNews={editorialVisibility.showLatestZone}
-          midContent={showFourNewsLatestLayout ? (
-            <PublicFourNewsLatestLayout
-              items={liveFourNewsItems}
-              latestNews={latestNewsItems}
-              latestNewsTitle={latestZoneTitle}
-              latestNewsTitleColor={latestZoneTitleColor}
-            />
-          ) : null}
           sideBlock={{
             isPublished: hasPublishedSideBlock,
             label: sideBlockLabel,
@@ -4585,49 +4734,25 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             highlightHeading: belowHeadlineHeading,
             highlightHeadingColor: belowHeadlineHeadingColor ?? null,
             highlights: visibleHighlights,
-            roundupItems: visibleRoundupItems,
-            showRoundupVideo: editorialVisibility.showRoundup,
+            roundupItems: [],
+            showRoundupVideo: false,
             roundupHeading: "A JORNADA EM VÍDEO",
             roundupHeadingColor: editorial?.roundup_video_heading_color ?? belowHeadlineHeadingColor ?? null,
-            initialRoundupItemId: editorial?.complementary_roundup_item_id ?? null,
+            initialRoundupItemId: null,
             matchdayNumber: context.matchday.number,
             complementary: {
-              isPublished: hasPublishedComplementaryStory,
-              label: complementaryLabel,
-              labelColor: complementaryLabelColor,
-              title: complementaryTitle,
-              text: complementaryText,
-              imageUrl: complementaryImageUrl,
-              linkUrl: complementaryLinkUrl,
-              inlineMedia: complementMedia
-                ? {
-                    kind: complementMedia.kind,
-                    embedUrl: complementMedia.embed_url,
-                    videoUrl: complementMedia.video_url,
-                    posterUrl: complementMedia.poster_url,
-                    caption: complementMedia.caption,
-                    contentSlug: complementMedia.content_slug,
-                    contentType: complementMedia.content_type,
-                    title: complementMedia.title
-                  }
-                : null
+              isPublished: false
             }
           }}
           latestNews={latestNewsItems}
           latestNewsTitle={latestZoneTitle}
           latestNewsTitleColor={latestZoneTitleColor}
         />
-      ) : null}
+      )}
 
-      {!useHierarchicalReferenceComposition ? (
-        <div className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region">
-          <PublicHierarchicalLiveLayouts
-            slots={liveHierarchicalLayoutSlots}
-            matchdayNumber={context.matchday.number}
-            beyondMatchdayItems={liveBeyondMatchdayNews}
-          />
-        </div>
-      ) : null}
+      {!useHierarchicalReferenceComposition
+        ? context.editorialDeskControl.liveZoneOrder.map(renderLivePublicZone)
+        : null}
 
       {importantNewsItems.length > 0 ? (
         <div className="public-matchday-editorial-region">

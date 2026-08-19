@@ -12,6 +12,11 @@ import {
 } from "@/lib/editorial-matchday-news-flow";
 import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
 import {
+  isMatchdayLivePublicZoneKey,
+  moveMatchdayLivePublicZone,
+  normalizeMatchdayLivePublicZoneOrder,
+} from "@/lib/editorial-matchday-live-zone-order";
+import {
   applyCalendarCheckpointTransition,
   buildCalendarBroadcastChannelLookup,
   buildCalendarTeamLookup,
@@ -3119,6 +3124,69 @@ async function finishMatch(formData: FormData) {
   );
 }
 
+async function moveMatchdayLivePublicZoneOrder(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const zoneKey = cleanText(formData.get("live_zone_key"));
+  const direction = cleanText(formData.get("direction"));
+
+  if (
+    !matchdayId ||
+    !isMatchdayLivePublicZoneKey(zoneKey) ||
+    (direction !== "up" && direction !== "down")
+  ) {
+    throw new Error("missing-fields");
+  }
+
+  const rows = await fetchSupabaseAdminTable<{
+    matchday_id: string;
+    live_public_zone_order: unknown;
+  }>(
+    `matchday_editorial_desk_control?select=matchday_id,live_public_zone_order&matchday_id=eq.${encodeURIComponent(
+      matchdayId
+    )}&limit=1`
+  );
+
+  const currentOrder = normalizeMatchdayLivePublicZoneOrder(
+    rows[0]?.live_public_zone_order
+  );
+  const nextOrder = moveMatchdayLivePublicZone(
+    currentOrder,
+    zoneKey,
+    direction
+  );
+
+  if (nextOrder.join("|") === currentOrder.join("|")) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  if (rows[0]) {
+    await writeSupabaseAdmin(
+      `matchday_editorial_desk_control?matchday_id=eq.${encodeURIComponent(
+        matchdayId
+      )}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          live_public_zone_order: nextOrder,
+          updated_at: now,
+        }),
+      }
+    );
+    return;
+  }
+
+  await writeSupabaseAdmin("matchday_editorial_desk_control", {
+    method: "POST",
+    body: JSON.stringify({
+      matchday_id: matchdayId,
+      live_public_zone_order: nextOrder,
+      updated_at: now,
+    }),
+  });
+}
+
 async function removeSeason(formData: FormData) {
   const seasonId = cleanText(formData.get("season_id"));
 
@@ -3278,6 +3346,8 @@ export async function POST(request: Request) {
       }
     } else if (actionType === "move_matchday_horizontal_news_item") {
       await moveMatchdayHorizontalNewsOrder(formData);
+    } else if (actionType === "move_matchday_live_public_zone") {
+      await moveMatchdayLivePublicZoneOrder(formData);
     } else if (actionType === "transfer_matchday_news_article") {
       await transferMatchdayNewsArticle(formData);
     } else if (actionType === "match") {
@@ -3330,6 +3400,10 @@ export async function POST(request: Request) {
       return returnUrl(request, formData, "error", "horizontal-news-save-failed", {
         horizontal_news_error_detail: shortActionError(error)
       });
+    }
+
+    if (actionType === "move_matchday_live_public_zone") {
+      return returnUrl(request, formData, "error", "live-zone-order-save-failed");
     }
 
     return returnUrl(request, formData, "error", error instanceof Error ? error.message : "save");

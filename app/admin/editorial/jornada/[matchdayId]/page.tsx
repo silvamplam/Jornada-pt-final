@@ -13,6 +13,10 @@ import {
 } from "@/lib/editorial-hierarchical-composition";
 import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
 import {
+  MATCHDAY_LIVE_PUBLIC_ZONE_LABELS,
+  normalizeMatchdayLivePublicZoneOrder,
+} from "@/lib/editorial-matchday-live-zone-order";
+import {
   fetchSupabaseAdminTable,
   type SupabaseCompetition,
   type SupabaseCountry,
@@ -734,6 +738,58 @@ const editorialPageStyles = `
     color: #674a12;
   }
 
+  .editorial-admin-live-zone-order-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .editorial-admin-live-zone-order-row {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    min-height: 48px;
+    padding: 9px 11px;
+    border: 1px solid #dce3eb;
+    border-radius: 7px;
+    background: #f8fafc;
+  }
+
+  .editorial-admin-live-zone-order-row[data-fixed="true"] {
+    background: #eef2f6;
+  }
+
+  .editorial-admin-live-zone-order-position {
+    color: #687380;
+    font-size: 11px;
+    font-weight: 900;
+    text-align: center;
+  }
+
+  .editorial-admin-live-zone-order-label {
+    min-width: 0;
+    font-size: 13px;
+    line-height: 1.3;
+  }
+
+  .editorial-admin-live-zone-order-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .editorial-admin-live-zone-order-actions .editorial-admin-button {
+    min-width: 64px;
+    padding: 9px 10px;
+    font-size: 10px;
+  }
+
+  .editorial-admin-live-zone-order-actions .editorial-admin-button:disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
   #manchete,
   #ultimas-noticias,
   #contexto,
@@ -1219,6 +1275,20 @@ async function readMatchdayLiveLayoutItems(
   ).catch(() => []);
 }
 
+async function readMatchdayLivePublicZoneOrder(matchdayId: string) {
+  const rows = await fetchSupabaseAdminTable<{
+    live_public_zone_order: unknown;
+  }>(
+    `matchday_editorial_desk_control?select=live_public_zone_order&matchday_id=eq.${encodeURIComponent(
+      matchdayId
+    )}&limit=1`
+  ).catch(() => []);
+
+  return normalizeMatchdayLivePublicZoneOrder(
+    rows[0]?.live_public_zone_order
+  );
+}
+
 type FeedbackScope =
   | "manchete"
   | "bloco-lateral"
@@ -1228,7 +1298,8 @@ type FeedbackScope =
   | "faixa-horizontal"
   | "bloco-complementar"
   | "ultimas-noticias"
-  | "layouts-atualidade";
+  | "layouts-atualidade"
+  | "ordem-pagina-viva";
 
 function messageFor(created?: string, error?: string, scope?: FeedbackScope, detail?: string) {
   const createdLabels: Record<string, string> = {
@@ -1247,6 +1318,7 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     save_matchday_latest_news_item: "Notícia guardada. ✓",
     save_matchday_horizontal_news_item: "Notícia guardada. ✓",
     move_matchday_horizontal_news_item: "Ordem da Faixa atualizada. ✓",
+    move_matchday_live_public_zone: "Ordem da página viva atualizada. ✓",
     transfer_matchday_news_article: "Notícia transferida. ✓",
     upload_matchday_editorial_image: "Imagem da manchete carregada. ✓",
     upload_matchday_highlight_image: "Imagem da notícia carregada. ✓"
@@ -1295,6 +1367,9 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     },
     "layouts-atualidade": {
       transfer_matchday_news_article: "Notícia transferida. ✓"
+    },
+    "ordem-pagina-viva": {
+      move_matchday_live_public_zone: "Ordem da página viva atualizada. ✓"
     }
   };
   const errorLabels: Record<string, string> = {
@@ -1307,6 +1382,7 @@ function messageFor(created?: string, error?: string, scope?: FeedbackScope, det
     "latest-news-title-required": "Para publicar uma noticia, indica o titulo.",
     "horizontal-news-title-required": "Para publicar a notícia na faixa, indica o título.",
     "horizontal-news-save-failed": "Não foi possível guardar a faixa de notícias.",
+    "live-zone-order-save-failed": "Não foi possível alterar a ordem da página viva.",
     "context-post-title-too-long": "O pós-título do Contexto não pode ultrapassar 500 caracteres.",
     "editorial-image-type": "O ficheiro tem de ser uma imagem JPG, PNG ou WebP.",
     "editorial-image-size": "A imagem nao pode ter mais de 5MB.",
@@ -1377,6 +1453,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const latestNewsEditorSortOrders = buildLatestNewsEditorSortOrders(latestNews);
   const horizontalNews = await readMatchdayHorizontalNews(matchday.id);
   const liveLayoutItems = await readMatchdayLiveLayoutItems(matchday.id);
+  const livePublicZoneOrder = await readMatchdayLivePublicZoneOrder(matchday.id);
   const publishedEditorialArticles = await readPublishedEditorialArticles();
   const publishedSources = await getEditorialPublishedSources({
     competitionId: competition.id,
@@ -1412,6 +1489,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const returnToFaixaHorizontal = scopedReturnTo("faixa-horizontal", "faixa-noticias");
   const returnToUltimasNoticias = scopedReturnTo("ultimas-noticias");
   const returnToLiveLayouts = scopedReturnTo("layouts-atualidade", "layouts-atualidade");
+  const returnToLiveZoneOrder = scopedReturnTo("ordem-pagina-viva", "ordem-pagina-viva");
   const returnToHighlightItem = (order: number) =>
     `${returnTo}?feedback_scope=destaques&feedback_item=highlight-${paddedOrder(order)}#highlight-item-${paddedOrder(order)}`;
   const returnToResumoItem = (order: number) =>
@@ -2260,6 +2338,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
       </section>
 
       <nav className="editorial-admin-block-nav" aria-label="Zonas da Editorial da Jornada">
+        <a href="#ordem-pagina-viva">Ordem pública</a>
         <a href="#manchete">01 Manchete</a>
         <a href="#ultimas-noticias">02 Últimas</a>
         <a href="#contexto">03 Contexto</a>
@@ -2272,6 +2351,64 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         <a href="#layout-5-noticias-secundarias" title="1 dominante · 4 secundárias">10 5 notícias 1D+4S</a>
         <a href="#faixa-noticias">11 Faixa de notícias</a>
       </nav>
+
+      <section className="editorial-admin-panel editorial-admin-zone" id="ordem-pagina-viva" style={{ marginTop: 18, padding: 20 }}>
+        <header className="editorial-admin-zone-header">
+          <h2 className="editorial-admin-zone-title">Ordem da página viva</h2>
+        </header>
+        {scopedMessageFor(created, error, feedbackScope, "ordem-pagina-viva")}
+        <p className="editorial-admin-muted">
+          Altera a sequência dos blocos inteiros na página pública viva. A Abertura fica sempre primeiro e a Faixa fica sempre no fim.
+        </p>
+        <div className="editorial-admin-live-zone-order-list">
+          <div className="editorial-admin-live-zone-order-row" data-fixed="true">
+            <span className="editorial-admin-live-zone-order-position">01</span>
+            <strong className="editorial-admin-live-zone-order-label">Abertura · Manchete + 3 notícias + Contexto</strong>
+            <span className="editorial-admin-item-status">Fixa</span>
+          </div>
+          {livePublicZoneOrder.map((zone, index) => (
+            <div className="editorial-admin-live-zone-order-row" key={zone}>
+              <span className="editorial-admin-live-zone-order-position">
+                {String(index + 2).padStart(2, "0")}
+              </span>
+              <strong className="editorial-admin-live-zone-order-label">
+                {MATCHDAY_LIVE_PUBLIC_ZONE_LABELS[zone]}
+              </strong>
+              <form action="/api/admin/gestor" className="editorial-admin-live-zone-order-actions" method="post">
+                <input type="hidden" name="action_type" value="move_matchday_live_public_zone" />
+                <input type="hidden" name="return_to" value={returnToLiveZoneOrder} />
+                <input type="hidden" name="matchday_id" value={matchday.id} />
+                <input type="hidden" name="live_zone_key" value={zone} />
+                <button
+                  className="editorial-admin-button secondary"
+                  disabled={index === 0}
+                  name="direction"
+                  type="submit"
+                  value="up"
+                >
+                  Subir
+                </button>
+                <button
+                  className="editorial-admin-button secondary"
+                  disabled={index === livePublicZoneOrder.length - 1}
+                  name="direction"
+                  type="submit"
+                  value="down"
+                >
+                  Descer
+                </button>
+              </form>
+            </div>
+          ))}
+          <div className="editorial-admin-live-zone-order-row" data-fixed="true">
+            <span className="editorial-admin-live-zone-order-position">
+              {String(livePublicZoneOrder.length + 2).padStart(2, "0")}
+            </span>
+            <strong className="editorial-admin-live-zone-order-label">Faixa de notícias</strong>
+            <span className="editorial-admin-item-status">Fixa</span>
+          </div>
+        </div>
+      </section>
 
       <script
         dangerouslySetInnerHTML={{
