@@ -89,6 +89,7 @@ type DraftComposition = {
   use_roundup_items: boolean;
   presentation_mode: ReferenceCompositionPresentationMode;
   hierarchical_editorial_title: string | null;
+  hierarchical_editorial_excerpt: string | null;
   hierarchical_editorial_text: string | null;
   hierarchical_editorial_author: string | null;
 };
@@ -667,7 +668,7 @@ function filterNewCompositionSnapshots(snapshots: CompositionSnapshot[], existin
 
 async function readDraftComposition(compositionId: string, matchdayId: string) {
   return readFirst<DraftComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_text,hierarchical_editorial_author&id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author&id=eq.${encodeURIComponent(
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}&status=eq.draft`
   );
@@ -675,7 +676,7 @@ async function readDraftComposition(compositionId: string, matchdayId: string) {
 
 async function readReferenceCompositionState(compositionId: string, matchdayId: string) {
   return readFirst<ReferenceCompositionState>(
-    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_text,hierarchical_editorial_author,is_current,published_at&id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,is_current,published_at&id=eq.${encodeURIComponent(
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`
   );
@@ -2206,6 +2207,7 @@ async function updateHierarchicalEditorial(formData: FormData) {
       method: "PATCH",
       body: JSON.stringify({
         hierarchical_editorial_title: cleanText(formData.get("hierarchical_editorial_title")),
+        hierarchical_editorial_excerpt: cleanText(formData.get("hierarchical_editorial_excerpt")),
         hierarchical_editorial_text: cleanText(formData.get("hierarchical_editorial_text")),
         hierarchical_editorial_author: cleanText(formData.get("hierarchical_editorial_author")),
         updated_at: new Date().toISOString(),
@@ -2910,12 +2912,13 @@ async function publishReferenceComposition(formData: FormData) {
     }
     const hierarchicalEditorial = {
       title: composition.hierarchical_editorial_title,
+      excerpt: composition.hierarchical_editorial_excerpt,
       text: composition.hierarchical_editorial_text,
       author: composition.hierarchical_editorial_author,
     };
     if (!isPublishableHierarchicalCompositionEditorial(hierarchicalEditorial)) {
       throw new CompositionPublicationError(
-        "Completa o Editorial da Jornada antes de publicar: título, texto e autor são obrigatórios.",
+        "Completa o Editorial da Jornada antes de publicar: título, excerto de capa, texto e autor são obrigatórios.",
       );
     }
   } else {

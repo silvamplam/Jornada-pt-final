@@ -739,9 +739,9 @@ test("Outros jogos mantém 7+5 com duas peças à esquerda, três à direita e c
 test("o Editorial da Jornada é autónomo, persistido na composição e obrigatório nas novas publicações hierarchical", () => {
   const editorialMarkup = interpretivePreview.match(/<aside[\s\S]*?composition-interpretive-editorial[\s\S]*?>([\s\S]*?)<\/aside>/)?.[1] ?? "";
 
-  assert.deepEqual(missingHierarchicalCompositionEditorialFields(null), ["title", "text", "author"]);
-  assert.equal(isPublishableHierarchicalCompositionEditorial({ title: "Título", text: "Texto", author: "Autor" }), true);
-  assert.equal(isPublishableHierarchicalCompositionEditorial({ title: "Título", text: " ", author: "Autor" }), false);
+  assert.deepEqual(missingHierarchicalCompositionEditorialFields(null), ["title", "excerpt", "text", "author"]);
+  assert.equal(isPublishableHierarchicalCompositionEditorial({ title: "Título", excerpt: "Excerto", text: "Texto", author: "Autor" }), true);
+  assert.equal(isPublishableHierarchicalCompositionEditorial({ title: "Título", excerpt: "Excerto", text: " ", author: "Autor" }), false);
   assert.deepEqual(hierarchicalCompositionEditorialParagraphs("Primeiro.\n\nSegundo."), ["Primeiro.", "Segundo."]);
 
   assert.match(editorialPreflightSql, /matchday_reference_compositions/);

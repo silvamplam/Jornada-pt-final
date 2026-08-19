@@ -308,6 +308,7 @@ export type HierarchicalCompositionReferenceItem = {
 
 export type HierarchicalCompositionEditorial = {
   title: string | null;
+  excerpt: string | null;
   text: string | null;
   author: string | null;
 };
@@ -319,6 +320,7 @@ export const HIERARCHICAL_COMPOSITION_EDITORIAL_FIELD_LABELS: Record<
   string
 > = {
   title: "título",
+  excerpt: "excerto de capa",
   text: "texto",
   author: "autor",
 };
@@ -326,7 +328,7 @@ export const HIERARCHICAL_COMPOSITION_EDITORIAL_FIELD_LABELS: Record<
 export function missingHierarchicalCompositionEditorialFields(
   editorial?: HierarchicalCompositionEditorial | null,
 ): HierarchicalCompositionEditorialField[] {
-  return (["title", "text", "author"] as const).filter((field) => !editorial?.[field]?.trim());
+  return (["title", "excerpt", "text", "author"] as const).filter((field) => !editorial?.[field]?.trim());
 }
 
 export function isPublishableHierarchicalCompositionEditorial(

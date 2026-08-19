@@ -1,5 +1,4 @@
 import {
-  hierarchicalCompositionEditorialParagraphs,
   hierarchicalCompositionMediaSnapshot,
   type HierarchicalCompositionEditorial,
   type HierarchicalCompositionSlot,
@@ -329,6 +328,8 @@ const interpretivePreviewStyles = `
   .composition-interpretive-analysis-medium .composition-interpretive-subtitle {
     font-size: 11px;
     line-height: 1.46;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .composition-interpretive-analysis-side {
@@ -368,6 +369,8 @@ const interpretivePreviewStyles = `
   .composition-interpretive-analysis-side-item .composition-interpretive-subtitle {
     font-size: 10.5px;
     line-height: 1.45;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .composition-interpretive-other-games-layout {
@@ -702,7 +705,7 @@ export default function HierarchicalCompositionInterpretivePreview({
   videoHighlight,
 }: HierarchicalCompositionInterpretivePreviewProps) {
   const slotsByKey = new Map(slots.map((slot) => [slot.slot_key, slot] as const));
-  const editorialParagraphs = hierarchicalCompositionEditorialParagraphs(editorial?.text);
+  const editorialExcerpt = editorial?.excerpt?.trim() || "";
   const dominantSlot = slotsByKey.get(HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP.dominant) ?? null;
   const analysisMainKey = HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP.analysis.dominant;
   const analysisMainSlot = slotsByKey.get(analysisMainKey) ?? null;
@@ -744,14 +747,16 @@ export default function HierarchicalCompositionInterpretivePreview({
           {editorial?.title?.trim() ? <h3>{editorial.title}</h3> : (
             <p className="composition-interpretive-editorial-empty">Título por preencher.</p>
           )}
-          {editorialParagraphs.length > 0 ? (
+          {editorialExcerpt ? (
             <div className="composition-interpretive-editorial-body">
-              {editorialParagraphs.map((paragraph) => (
-                <p className="composition-interpretive-editorial-copy" key={paragraph}>{paragraph}</p>
-              ))}
+              <p className="composition-interpretive-editorial-copy">
+                {editorialExcerpt}
+              </p>
             </div>
           ) : (
-            <p className="composition-interpretive-editorial-empty">Texto por preencher.</p>
+            <p className="composition-interpretive-editorial-empty">
+              Excerto de capa por preencher.
+            </p>
           )}
           {editorial?.author?.trim() ? (
             <p className="composition-interpretive-editorial-signature">{editorial.author}</p>
@@ -781,7 +786,6 @@ export default function HierarchicalCompositionInterpretivePreview({
                 >
                   <PreviewMedia slot={slot} slotKey={slotKey} />
                   <PreviewNewsCopy
-                    showSubtitle={false}
                     slot={slot}
                     slotKey={slotKey}
                   />
@@ -797,7 +801,6 @@ export default function HierarchicalCompositionInterpretivePreview({
                 <article className="composition-interpretive-analysis-side-item" data-orientation="media-above" data-slot={slotKey} key={slotKey}>
                   <PreviewMedia slot={slot} slotKey={slotKey} />
                   <PreviewNewsCopy
-                    showSubtitle={false}
                     slot={slot}
                     slotKey={slotKey}
                   />

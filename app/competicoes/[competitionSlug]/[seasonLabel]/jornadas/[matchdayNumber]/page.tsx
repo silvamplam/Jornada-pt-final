@@ -23,6 +23,7 @@ import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsS
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
+import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
 import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/public/PublicTeamBadge";
 import { redirect } from "next/navigation";
 
@@ -2262,6 +2263,120 @@ const publicMatchdayStyles = `
     color: #b4232b;
   }
 
+  /* JORNADA-CLASSIFICACAO-COMPACTA-INICIO */
+
+  #classificacao .public-table-wrap {
+    padding-top: 10px;
+    padding-bottom: 12px;
+  }
+
+  #classificacao .public-table th {
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+  #classificacao .public-table td {
+    padding-top: 1px;
+    padding-bottom: 1px;
+    border-bottom: 0;
+  }
+
+  #classificacao .public-table-position-value {
+    min-height: 28px;
+  }
+
+  #classificacao .public-club-cell {
+    gap: 8px;
+    transform: none;
+  }
+
+  #classificacao .public-classification-team-badge {
+    height: 28px;
+  }
+
+  #classificacao .public-form-list span {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  /* JORNADA-CLASSIFICACAO-COMPACTA-FIM */
+
+  /* JORNADA-CLASSIFICACAO-ORIENTACAO-INICIO */
+
+  #classificacao {
+    overflow: hidden;
+  }
+
+  #classificacao::before {
+    content: "CLASSIFICAÇÃO";
+    display: block;
+    box-sizing: border-box;
+    margin: 0 20px;
+    padding: 11px 0 9px;
+    border-bottom: 1px solid #c8d3df;
+    color: #30465e;
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    font-size: 15px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0.025em;
+    text-transform: uppercase;
+  }
+
+  #classificacao .public-table thead tr:first-child th {
+    padding-top: 7px;
+    padding-bottom: 7px;
+    border-bottom: 1px solid #bdc9d5;
+    background: #e9eef4;
+    color: #40536a;
+  }
+
+  #classificacao .public-table thead tr:nth-child(2) th {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #9dabb9;
+    background: #f4f7fa;
+  }
+
+  #classificacao .public-table thead .public-table-group-total {
+    background: #e4eaf1;
+  }
+
+  #classificacao .public-table thead .public-table-group-home {
+    background: #edf2f6;
+  }
+
+  #classificacao .public-table thead .public-table-group-away {
+    background: #f3f6f9;
+  }
+
+  #classificacao .public-table tbody tr td {
+    transition:
+      box-shadow 120ms ease,
+      color 120ms ease;
+  }
+
+  #classificacao .public-table tbody tr:nth-child(even) td {
+    box-shadow:
+      inset 0 0 0 9999px rgba(42, 67, 94, 0.024);
+  }
+
+  #classificacao .public-table tbody tr:hover td {
+    box-shadow:
+      inset 0 0 0 9999px rgba(26, 72, 119, 0.065);
+  }
+
+  #classificacao .public-table tbody tr:hover .public-club-name {
+    color: #003f8f;
+  }
+
+  #classificacao .public-table tbody td {
+    border-bottom: 0;
+  }
+
+  /* JORNADA-CLASSIFICACAO-ORIENTACAO-FIM */
+
+
   .public-diagnostic {
     margin-top: 18px;
     padding: 18px 20px;
@@ -3775,10 +3890,16 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const hierarchicalEditorial = useHierarchicalReferenceComposition && context.referenceComposition
     ? {
         title: context.referenceComposition.hierarchical_editorial_title,
+        excerpt: context.referenceComposition.hierarchical_editorial_excerpt,
         text: context.referenceComposition.hierarchical_editorial_text,
         author: context.referenceComposition.hierarchical_editorial_author,
       }
     : null;
+
+  const hierarchicalEditorialHref =
+    useHierarchicalReferenceComposition
+      ? `${matchdayHref(context.matchday.number)}/editorial`
+      : null;
   const referenceBeyondMatchdayItems = usePublishedReferenceComposition
     ? context.referenceSlots.beyond_matchday ?? []
     : [];
@@ -4397,6 +4518,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           {hasValidHierarchicalReferenceComposition ? (
             <PublicHierarchicalComposition
               editorial={hierarchicalEditorial}
+              editorialHref={hierarchicalEditorialHref}
+              editorialAfter={<PublicSideAdvertisement />}
               slots={context.hierarchicalCompositionSlots}
               roundupItems={effectiveRoundupItems}
               roundupHeading="A JORNADA EM VÍDEO"

@@ -1,5 +1,6 @@
+﻿import type { ReactNode } from "react";
+
 import {
-  hierarchicalCompositionEditorialParagraphs,
   hierarchicalCompositionMediaSnapshot,
   isPublishableHierarchicalCompositionEditorial,
   type HierarchicalCompositionEditorial,
@@ -13,6 +14,8 @@ import type { RoundupVideoItem } from "./RoundupVideoSwitcher";
 
 type PublicHierarchicalCompositionProps = {
   editorial?: HierarchicalCompositionEditorial | null;
+  editorialHref?: string | null;
+  editorialAfter?: ReactNode;
   slots: HierarchicalCompositionSlot[];
   roundupItems?: RoundupVideoItem[];
   roundupHeading?: string | null;
@@ -157,15 +160,13 @@ const hierarchicalCompositionStyles = `
   .public-hierarchical-live-layouts::before {
     position: absolute;
     top: 5px;
-    right: 9%;
-    left: 16%;
+    right: 0;
+    left: 0;
     height: 1px;
     background: linear-gradient(
       90deg,
-      rgba(144, 162, 181, 0) 0%,
-      rgba(133, 153, 174, 0.10) 20%,
-      rgba(108, 130, 154, 0.22) 50%,
-      rgba(136, 156, 177, 0.10) 80%,
+      rgba(108, 130, 154, 0.22) 0%,
+      rgba(133, 153, 174, 0.10) 28%,
       rgba(144, 162, 181, 0) 100%
     );
     content: "";
@@ -175,13 +176,13 @@ const hierarchicalCompositionStyles = `
   .public-hierarchical-live-layouts::after {
     position: absolute;
     top: 4px;
-    right: 17%;
-    left: 24%;
+    right: 32%;
+    left: 0;
     height: 10px;
     background: linear-gradient(
       90deg,
-      rgba(182, 194, 208, 0) 0%,
-      rgba(178, 191, 205, 0.05) 50%,
+      rgba(178, 191, 205, 0.05) 0%,
+      rgba(178, 191, 205, 0.02) 35%,
       rgba(182, 194, 208, 0) 100%
     );
     content: "";
@@ -293,6 +294,67 @@ const hierarchicalCompositionStyles = `
     font-weight: 800;
   }
 
+  .composition-interpretive-editorial-title-link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .composition-interpretive-editorial-title-link:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  .composition-interpretive-editorial-more {
+    display: inline-block;
+    margin-top: 14px;
+    color: #c40012;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+
+  .composition-interpretive-editorial-more:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .composition-interpretive-editorial-ad-slot {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #dfe5eb;
+  }
+
+  .composition-interpretive-editorial-ad-slot {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 24px;
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #dfe5eb;
+    pointer-events: auto;
+  }
+
+  .composition-interpretive-editorial-ad-slot > a {
+    display: block;
+    overflow: hidden;
+    width: min(100%, 158px);
+    background: #ffffff;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .composition-interpretive-editorial-ad-slot img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
   .composition-interpretive-dominant {
     display: grid;
     grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
@@ -388,15 +450,13 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-preview > .public-beyond-matchday::before {
     position: absolute;
     top: 5px;
-    right: 9%;
-    left: 16%;
+    right: 0;
+    left: 0;
     height: 1px;
     background: linear-gradient(
       90deg,
-      rgba(144, 162, 181, 0) 0%,
-      rgba(133, 153, 174, 0.09) 20%,
-      rgba(108, 130, 154, 0.20) 50%,
-      rgba(136, 156, 177, 0.09) 80%,
+      rgba(108, 130, 154, 0.20) 0%,
+      rgba(133, 153, 174, 0.09) 28%,
       rgba(144, 162, 181, 0) 100%
     );
     content: "";
@@ -407,30 +467,19 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-preview > .public-beyond-matchday::after {
     position: absolute;
     top: 4px;
-    right: 17%;
-    left: 24%;
+    right: 32%;
+    left: 0;
     height: 10px;
     background: linear-gradient(
       90deg,
-      rgba(182, 194, 208, 0) 0%,
-      rgba(178, 191, 205, 0.045) 50%,
+      rgba(178, 191, 205, 0.045) 0%,
+      rgba(178, 191, 205, 0.018) 35%,
       rgba(182, 194, 208, 0) 100%
     );
     content: "";
     pointer-events: none;
   }
 
-  .composition-interpretive-preview > .composition-interpretive-section:nth-child(even)::before,
-  .composition-interpretive-preview > .public-beyond-matchday:nth-child(even)::before {
-    right: 16%;
-    left: 9%;
-  }
-
-  .composition-interpretive-preview > .composition-interpretive-section:nth-child(even)::after,
-  .composition-interpretive-preview > .public-beyond-matchday:nth-child(even)::after {
-    right: 24%;
-    left: 17%;
-  }
 
   .public-hierarchical-live-layouts .public-beyond-matchday {
     position: relative;
@@ -551,6 +600,8 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-analysis-medium .composition-interpretive-subtitle {
     font-size: 11px;
     line-height: 1.46;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .composition-interpretive-analysis-side {
@@ -590,6 +641,8 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-analysis-side-item .composition-interpretive-subtitle {
     font-size: 10.5px;
     line-height: 1.45;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .composition-interpretive-other-games-layout {
@@ -807,6 +860,34 @@ const hierarchicalCompositionStyles = `
   }
 
 
+
+  /* JORNADA-SEPARADORES-FADE-LINE-INICIO */
+
+  .public-hierarchical-live-layouts::before,
+  .composition-interpretive-preview > .composition-interpretive-section::before,
+  .composition-interpretive-preview > .public-beyond-matchday::before {
+    right: 0;
+    left: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(76, 101, 128, 0.34) 0%,
+      rgba(94, 118, 143, 0.25) 28%,
+      rgba(117, 138, 159, 0.15) 56%,
+      rgba(145, 162, 179, 0.07) 78%,
+      rgba(171, 184, 198, 0) 100%
+    );
+  }
+
+  .public-hierarchical-live-layouts::after,
+  .composition-interpretive-preview > .composition-interpretive-section::after,
+  .composition-interpretive-preview > .public-beyond-matchday::after {
+    display: none;
+    content: none;
+  }
+
+  /* JORNADA-SEPARADORES-FADE-LINE-FIM */
+
   @media (max-width: 980px) {
     .composition-interpretive-preview {
       gap: 50px;
@@ -1021,7 +1102,6 @@ function InterpretiveAnalysisSection({
                 <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
                 <InterpretiveNewsCopy
                   showEmptySlots={showEmptySlots}
-                  showSubtitle={false}
                   slot={slot}
                   slotKey={slotKey}
                 />
@@ -1038,7 +1118,6 @@ function InterpretiveAnalysisSection({
                 <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
                 <InterpretiveNewsCopy
                   showEmptySlots={showEmptySlots}
-                  showSubtitle={false}
                   slot={slot}
                   slotKey={slotKey}
                 />
@@ -1194,6 +1273,8 @@ export function PublicHierarchicalPosteriorMoments({
 
 export default function PublicHierarchicalComposition({
   editorial = null,
+  editorialHref = null,
+  editorialAfter = null,
   slots,
   roundupItems = [],
   roundupHeading,
@@ -1207,7 +1288,7 @@ export default function PublicHierarchicalComposition({
   const slotsByKey = new Map(slots.map((slot) => [slot.slot_key, slot] as const));
   const dominantSlot = slotsByKey.get(HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.dominant) ?? null;
   const hasEditorial = isPublishableHierarchicalCompositionEditorial(editorial);
-  const editorialParagraphs = hierarchicalCompositionEditorialParagraphs(editorial?.text);
+  const editorialExcerpt = editorial?.excerpt?.trim() || null;
 
   return (
     <section className="public-matchday-panel public-hierarchical-composition" aria-label={ariaLabel} data-public-hierarchical-layout="interpretive">
@@ -1248,13 +1329,43 @@ export default function PublicHierarchicalComposition({
               aria-label="Editorial da Jornada"
             >
               <span className="composition-interpretive-editorial-kicker">Editorial da Jornada</span>
-              <h3>{editorial?.title}</h3>
-              <div className="composition-interpretive-editorial-body">
-                {editorialParagraphs.map((paragraph) => (
-                  <p className="composition-interpretive-editorial-copy" key={paragraph}>{paragraph}</p>
-                ))}
-              </div>
-              <p className="composition-interpretive-editorial-signature">{editorial?.author}</p>
+              <h3>
+                {editorialHref ? (
+                  <a
+                    className="composition-interpretive-editorial-title-link"
+                    href={editorialHref}
+                  >
+                    {editorial?.title}
+                  </a>
+                ) : editorial?.title}
+              </h3>
+
+              {editorialExcerpt ? (
+                <div className="composition-interpretive-editorial-body">
+                  <p className="composition-interpretive-editorial-copy">
+                    {editorialExcerpt}
+                  </p>
+                </div>
+              ) : null}
+
+              <p className="composition-interpretive-editorial-signature">
+                {editorial?.author}
+              </p>
+
+              {editorialHref ? (
+                <a
+                  className="composition-interpretive-editorial-more"
+                  href={editorialHref}
+                >
+                  Ler editorial completo
+                </a>
+              ) : null}
+
+              {editorialAfter ? (
+                <div className="composition-interpretive-editorial-ad-slot">
+                  {editorialAfter}
+                </div>
+              ) : null}
             </aside>
           ) : null}
         </section>

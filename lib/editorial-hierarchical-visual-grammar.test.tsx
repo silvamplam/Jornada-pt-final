@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import test from "node:test";
 
 import { load } from "cheerio";
@@ -37,6 +37,7 @@ const beyondMatchdayItems: PublicBeyondMatchdayNewsItem[] = Array.from({ length:
 
 const editorial = {
   title: "Editorial autónomo da Jornada",
+  excerpt: "Excerto editorial para a capa.",
   text: "Primeiro parágrafo livre.\n\nSegundo parágrafo livre.",
   author: "Direção editorial",
 };
@@ -81,31 +82,33 @@ function assertDeclaration(rule: string, property: string, value: string) {
 
 function assertSubtitlePolicy(markup: string) {
   const $ = load(markup);
+
   const visibleSlots = [
     "dominant_main",
     "other_chronicle_1",
     "other_chronicle_2",
     "other_chronicle_3",
     "secondary_strong_1",
+    "secondary_strong_2",
+    "secondary_1",
+    "secondary_2",
+    "dominant_side_top",
+    "dominant_side_bottom",
     "secondary_3",
     "secondary_4",
     "closing_1",
     "closing_2",
     "closing_3",
   ];
-  const hiddenSlots = [
-    "secondary_strong_2",
-    "secondary_1",
-    "secondary_2",
-    "dominant_side_top",
-    "dominant_side_bottom",
-  ];
 
   for (const slotKey of visibleSlots) {
-    assert.equal($(`[data-slot="${slotKey}"] .composition-interpretive-subtitle`).length, 1, slotKey);
-  }
-  for (const slotKey of hiddenSlots) {
-    assert.equal($(`[data-slot="${slotKey}"] .composition-interpretive-subtitle`).length, 0, slotKey);
+    assert.equal(
+      $(
+        `[data-slot="${slotKey}"] .composition-interpretive-subtitle`
+      ).length,
+      1,
+      slotKey
+    );
   }
 }
 
@@ -156,7 +159,9 @@ test("os limites de linhas pertencem às variantes semânticas e usam ellipsis",
     [".composition-interpretive-analysis-main .composition-interpretive-title", "3"],
     [".composition-interpretive-analysis-main .composition-interpretive-subtitle", "4"],
     [".composition-interpretive-analysis-medium .composition-interpretive-title", "3"],
+    [".composition-interpretive-analysis-medium .composition-interpretive-subtitle", "2"],
     [".composition-interpretive-analysis-side-item .composition-interpretive-title", "3"],
+    [".composition-interpretive-analysis-side-item .composition-interpretive-subtitle", "2"],
     [".composition-interpretive-other-featured .composition-interpretive-title", "2"],
     [".composition-interpretive-other-featured .composition-interpretive-subtitle", "3"],
     [".composition-interpretive-other-second-featured .composition-interpretive-title", "3"],
@@ -207,7 +212,11 @@ test("a principal 2 elimina o corte silencioso e as compactas usam uma reserva c
 test("o Editorial continua livre e as inferiores de Para Lá não recebem altura artificial", () => {
   for (const markup of [publicMarkup, previewMarkup]) {
     const $ = load(markup);
-    assert.equal($(".composition-interpretive-editorial-body .composition-interpretive-editorial-copy").length, 2);
+    assert.equal($(".composition-interpretive-editorial-body .composition-interpretive-editorial-copy").length, 1);
+    assert.equal(
+      $(".composition-interpretive-editorial-body .composition-interpretive-editorial-copy").text(),
+      editorial.excerpt,
+    );
     assert.equal($(".composition-interpretive-editorial-signature").text(), editorial.author);
     const css = cssFrom(markup);
     const editorialBody = cssRule(css, ".composition-interpretive-editorial-body");

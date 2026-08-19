@@ -155,45 +155,79 @@ test("a manchete da Jornada viva não corta o título com line-clamp", () => {
   );
 });
 
-test("as zonas vivas ganham respiro editorial sem introduzir titulos", () => {
+test("as zonas vivas usam divisores com blur alinhado globalmente à esquerda", () => {
   assert.match(
     publicRenderer,
     /\.composition-interpretive-preview \{[\s\S]*?gap: 64px;/,
   );
+
   assert.match(
     publicRenderer,
     /\.composition-interpretive-section \{[\s\S]*?padding-top: 32px;[\s\S]*?border-top: 0;/,
   );
+
   assert.match(
     publicRenderer,
-    /\.public-hierarchical-live-layouts::before \{[\s\S]*?top: 5px;[\s\S]*?right: 9%;[\s\S]*?left: 16%;[\s\S]*?height: 1px;/,
+    /\.public-hierarchical-live-layouts::before \{[\s\S]*?top: 5px;[\s\S]*?right: 0;[\s\S]*?left: 0;[\s\S]*?height: 1px;[\s\S]*?rgba\(108, 130, 154, 0\.22\) 0%/,
   );
+
   assert.match(
     publicRenderer,
-    /\.public-hierarchical-live-layouts::after \{[\s\S]*?top: 4px;[\s\S]*?right: 17%;[\s\S]*?left: 24%;[\s\S]*?height: 10px;/,
+    /\.public-hierarchical-live-layouts::after \{[\s\S]*?top: 4px;[\s\S]*?right: 32%;[\s\S]*?left: 0;[\s\S]*?height: 10px;[\s\S]*?rgba\(178, 191, 205, 0\.05\) 0%/,
   );
+
   assert.match(
     publicRenderer,
-    /\.composition-interpretive-preview > \.composition-interpretive-section::before,[\s\S]*?top: 5px;[\s\S]*?right: 9%;[\s\S]*?left: 16%;[\s\S]*?height: 1px;/,
+    /\.composition-interpretive-preview > \.composition-interpretive-section::before,[\s\S]*?top: 5px;[\s\S]*?right: 0;[\s\S]*?left: 0;[\s\S]*?height: 1px;[\s\S]*?rgba\(108, 130, 154, 0\.20\) 0%/,
   );
+
   assert.match(
     publicRenderer,
-    /\.composition-interpretive-preview > \.composition-interpretive-section:nth-child\(even\)::before,[\s\S]*?right: 16%;[\s\S]*?left: 9%;/,
+    /\.composition-interpretive-preview > \.composition-interpretive-section::after,[\s\S]*?top: 4px;[\s\S]*?right: 32%;[\s\S]*?left: 0;[\s\S]*?height: 10px;[\s\S]*?rgba\(178, 191, 205, 0\.045\) 0%/,
   );
+
+  assert.doesNotMatch(
+    publicRenderer,
+    /composition-interpretive-section:nth-child\(even\)::before/,
+  );
+
+  assert.doesNotMatch(
+    publicRenderer,
+    /composition-interpretive-section:nth-child\(even\)::after/,
+  );
+
   assert.match(
     fourNewsRenderer,
-    /\.public-four-news-latest-layout::before \{[\s\S]*?top: 5px;[\s\S]*?right: 16%;[\s\S]*?left: 9%;[\s\S]*?height: 1px;/,
+    /\.public-four-news-latest-layout::before \{[\s\S]*?top: 5px;[\s\S]*?right: 0;[\s\S]*?left: 0;[\s\S]*?height: 1px;[\s\S]*?rgba\(108, 130, 154, 0\.22\) 0%/,
   );
+
   assert.match(
     fourNewsRenderer,
-    /\.public-four-news-latest-layout::after \{[\s\S]*?top: 4px;[\s\S]*?right: 24%;[\s\S]*?left: 17%;[\s\S]*?height: 10px;/,
+    /\.public-four-news-latest-layout::after \{[\s\S]*?top: 4px;[\s\S]*?right: 32%;[\s\S]*?left: 0;[\s\S]*?height: 10px;[\s\S]*?rgba\(178, 191, 205, 0\.05\) 0%/,
   );
+
   assert.match(
     publicRenderer,
     /\.composition-interpretive-preview > :first-child \{[\s\S]*?padding-top: 0;/,
   );
-  assert.match(publicRenderer, /@media \(max-width: 980px\) \{[\s\S]*?gap: 50px;/);
-  assert.match(publicRenderer, /@media \(max-width: 720px\) \{[\s\S]*?gap: 38px;/);
-  assert.match(publicRenderer, /<InterpretiveAnalysisSection heading=\{null\}/);
-  assert.match(publicRenderer, /<InterpretiveOtherGamesSection heading=\{null\}/);
+
+  assert.match(
+    publicRenderer,
+    /@media \(max-width: 980px\) \{[\s\S]*?gap: 50px;/,
+  );
+
+  assert.match(
+    publicRenderer,
+    /@media \(max-width: 720px\) \{[\s\S]*?gap: 38px;/,
+  );
+
+  assert.match(
+    publicRenderer,
+    /<InterpretiveAnalysisSection heading=\{null\}/,
+  );
+
+  assert.match(
+    publicRenderer,
+    /<InterpretiveOtherGamesSection heading=\{null\}/,
+  );
 });

@@ -582,9 +582,13 @@ const publicEditorialLayoutPolishStyles = `
     -webkit-line-clamp: 15;
   }
 
-  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-editorial-section-title,
-  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-complement-body p {
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-editorial-section-title {
     -webkit-line-clamp: 1;
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-complement-body p {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row .public-complement-body strong {

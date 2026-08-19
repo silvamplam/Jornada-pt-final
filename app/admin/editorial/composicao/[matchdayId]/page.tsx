@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { readMatchdayEditorialDesk } from "@/lib/editorial-matchday-desk";
 import {
   placementGroupForKey,
@@ -138,6 +138,7 @@ type ReferenceComposition = {
   use_roundup_items: boolean;
   presentation_mode: ReferenceCompositionPresentationMode;
   hierarchical_editorial_title: string | null;
+  hierarchical_editorial_excerpt: string | null;
   hierarchical_editorial_text: string | null;
   hierarchical_editorial_author: string | null;
   created_at: string;
@@ -1777,7 +1778,7 @@ function readDraftReferenceComposition(
   presentationMode: ReferenceCompositionPresentationMode,
 ): Promise<ReferenceComposition | null> {
   return readFirst<ReferenceComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_text,hierarchical_editorial_author,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&status=eq.draft&presentation_mode=eq.${encodeURIComponent(presentationMode)}&order=created_at.desc`
   ).catch(() => null);
@@ -1788,7 +1789,7 @@ function readPublishedReferenceComposition(
   presentationMode: ReferenceCompositionPresentationMode,
 ): Promise<ReferenceComposition | null> {
   return readFirst<ReferenceComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_text,hierarchical_editorial_author,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&status=eq.published&presentation_mode=eq.${encodeURIComponent(presentationMode)}&order=is_current.desc,published_at.desc.nullslast`
   ).catch(() => null);
@@ -1830,6 +1831,7 @@ function hierarchicalEditorialFromComposition(
   if (!composition) return null;
   return {
     title: composition.hierarchical_editorial_title,
+    excerpt: composition.hierarchical_editorial_excerpt,
     text: composition.hierarchical_editorial_text,
     author: composition.hierarchical_editorial_author,
   };
@@ -2955,7 +2957,23 @@ function HierarchicalEditorialEditor({
           />
         </div>
         <div className="composition-admin-field">
-          <label htmlFor="hierarchical-editorial-text">Texto</label>
+          <label htmlFor="hierarchical-editorial-excerpt">Excerto para a capa</label>
+          <textarea
+            className="composition-admin-input"
+            id="hierarchical-editorial-excerpt"
+            name="hierarchical_editorial_excerpt"
+            defaultValue={composition.hierarchical_editorial_excerpt ?? ""}
+            maxLength={600}
+            rows={4}
+            required
+          />
+          <span className="composition-admin-note">
+            Um parágrafo completo, até 600 caracteres. O sistema nunca corta o texto automaticamente.
+          </span>
+        </div>
+
+        <div className="composition-admin-field">
+          <label htmlFor="hierarchical-editorial-text">Texto completo</label>
           <textarea
             className="composition-admin-input"
             id="hierarchical-editorial-text"

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { publicArticleParagraphs } from "@/lib/public-article-paragraphs";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
@@ -1031,13 +1032,6 @@ function formatPreferredMatchdayDateContext(matches: PublicSeasonMatch[], starts
   return formatCivilDateRange(scheduledDates[0], scheduledDates[scheduledDates.length - 1]);
 }
 
-function articleParagraphs(body?: string | null) {
-  return (body ?? "")
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean);
-}
-
 async function readArticle(slug: string) {
   const rows = await fetchSupabaseAdminTable<EditorialArticle>(
     `editorial_articles?select=*&slug=eq.${encodeURIComponent(slug)}&status=eq.published&limit=1`
@@ -1169,7 +1163,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
   const subtitle = firstText(article.subtitle, article.summary, article.excerpt);
   const author = firstText(article.author, article.author_name);
   const publishedAt = formatDate(article.published_at ?? article.created_at);
-  const paragraphs = articleParagraphs(article.body);
+  const paragraphs = publicArticleParagraphs(article.body);
   const articleMatches = articleContext?.matchesForMatchday ?? [];
   const seasonSegment = articleContext ? seasonLabelToUrlSegment(articleContext.season.label) : null;
   const matchdayHref = (matchdayNumber: number) =>
