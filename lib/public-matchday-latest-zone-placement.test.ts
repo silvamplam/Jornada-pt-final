@@ -20,6 +20,10 @@ const publicPage = readFileSync(
 );
 const publicLoader = readFileSync("lib/public-matchday.ts", "utf8");
 const adminPage = readFileSync("app/admin/editorial/jornada/[matchdayId]/page.tsx", "utf8");
+const deskPage = readFileSync(
+  "app/admin/editorial/jornada/[matchdayId]/organizar/page.tsx",
+  "utf8",
+);
 const gestorRoute = readFileSync("app/api/admin/gestor/route.ts", "utf8");
 const newsFlow = readFileSync("lib/editorial-matchday-news-flow.ts", "utf8");
 
@@ -93,11 +97,13 @@ test("leitura pública aplica placement depois de montar dados vivos ou snapshot
   assert.doesNotMatch(publicPage, /referenceEditorialLineItems\.(?:splice|pop|shift)|matchday_reference_composition_items.*(?:DELETE|PATCH)/i);
 });
 
-test("backoffice escolhe top, four_news ou hidden sem editar notícias ou artigos canónicos", () => {
-  assert.match(adminPage, /name="action_type" value="set_matchday_latest_zone_placement"/);
-  assert.match(adminPage, /<option value="top">Ao lado da manchete<\/option>/);
-  assert.match(adminPage, /<option value="four_news">Na zona de 4 notícias<\/option>/);
-  assert.match(adminPage, /<option value="hidden">Ocultas<\/option>/);
+test("a posição de Últimas é controlada na Mesa e já não no Editorial", () => {
+  assert.doesNotMatch(adminPage, /name="action_type" value="set_matchday_latest_zone_placement"/);
+  assert.doesNotMatch(adminPage, /<select[^>]*name="latest_zone_placement"/);
+  assert.match(deskPage, /name="action_type" value="set_matchday_latest_zone_placement"/);
+  assert.match(deskPage, /<option value="top">Ao lado da manchete<\/option>/);
+  assert.match(deskPage, /<option value="four_news">Na zona de 4 notícias<\/option>/);
+  assert.match(deskPage, /<option value="hidden">Ocultas<\/option>/);
 
   const actionStart = gestorRoute.indexOf("async function setMatchdayLatestZonePlacement");
   const actionEnd = gestorRoute.indexOf("async function saveMatchdayLatestNewsItem", actionStart);

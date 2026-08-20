@@ -5,6 +5,7 @@ import type {
   MatchdayDeskSnapshot,
 } from "@/lib/editorial-matchday-desk-model";
 import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
+import { normalizeMatchdayLivePublicZoneOrder } from "@/lib/editorial-matchday-live-zone-order";
 import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
@@ -103,6 +104,7 @@ type EditorialRow = {
   complementary_text: string | null;
   complementary_image_url: string | null;
   complementary_link_url: string | null;
+  latest_zone_placement: string | null;
 };
 
 type HighlightRow = {
@@ -166,6 +168,7 @@ type LiveLayoutRow = {
 type DeskControlRow = {
   is_managed: boolean;
   faixa_visible: boolean;
+  live_public_zone_order: unknown;
   revision: number;
 };
 
@@ -299,7 +302,7 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
       `editorial_articles?select=${ARTICLE_SELECT}&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=1000`,
     ).catch(() => []),
     fetchSupabaseAdminTable<EditorialRow>(
-      `matchday_editorials?select=id,title,summary,image_url,headline_link_url,status,side_block_status,side_block_label,side_block_title,side_block_author,side_block_text,side_block_image_url,side_block_link_url,complementary_status,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url&matchday_id=eq.${encodeURIComponent(
+      `matchday_editorials?select=id,title,summary,image_url,headline_link_url,status,side_block_status,side_block_label,side_block_title,side_block_author,side_block_text,side_block_image_url,side_block_link_url,complementary_status,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url,latest_zone_placement&matchday_id=eq.${encodeURIComponent(
         matchdayId,
       )}&limit=1`,
     ).catch(() => []),
@@ -329,7 +332,7 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
       )}&order=created_at.asc&limit=1000`,
     ).catch(() => []),
     fetchSupabaseAdminTable<DeskControlRow>(
-      `matchday_editorial_desk_control?select=is_managed,faixa_visible,revision&matchday_id=eq.${encodeURIComponent(
+      `matchday_editorial_desk_control?select=is_managed,faixa_visible,live_public_zone_order,revision&matchday_id=eq.${encodeURIComponent(
         matchdayId,
       )}&limit=1`,
     ).catch(() => []),
@@ -640,6 +643,14 @@ async function readMatchdayEditorialDeskCore(matchdayId: string): Promise<Matchd
     competitionName: competition.name,
     isManaged: control?.is_managed === true,
     faixaVisible: control?.faixa_visible !== false,
+    latestZonePlacement: editorial?.latest_zone_placement === "hidden"
+      ? "hidden"
+      : editorial?.latest_zone_placement === "four_news"
+        ? "four_news"
+        : "top",
+    livePublicZoneOrder: normalizeMatchdayLivePublicZoneOrder(
+      control?.live_public_zone_order,
+    ),
     revision: Number.isSafeInteger(control?.revision) && (control?.revision ?? 0) >= 0
       ? control?.revision ?? 0
       : 0,

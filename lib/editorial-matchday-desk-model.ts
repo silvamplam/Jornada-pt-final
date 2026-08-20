@@ -1,6 +1,7 @@
 import {
   LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS,
 } from "@/lib/editorial-hierarchical-composition";
+import type { MatchdayLivePublicZoneKey } from "@/lib/editorial-matchday-live-zone-order";
 
 export type MatchdayDeskGroupKey =
   | "headline"
@@ -106,6 +107,27 @@ export const MATCHDAY_DESK_GROUPS: MatchdayDeskGroupDefinition[] = [
   },
 ];
 
+export const MATCHDAY_DESK_OPENING_GROUP = {
+  key: "opening",
+  label: "ABERTURA DA JORNADA",
+  description: "Manchete + 3 notícias + Contexto.",
+  slots: [
+    { key: "headline", label: "Manchete" },
+    { key: "highlight:1", label: "Notícia 1 abaixo da manchete" },
+    { key: "highlight:2", label: "Notícia 2 abaixo da manchete" },
+    { key: "highlight:3", label: "Notícia 3 abaixo da manchete" },
+    { key: "side_block", label: "Contexto" },
+  ],
+} as const;
+
+const matchdayDeskOpeningPlacementKeySet = new Set<string>(
+  MATCHDAY_DESK_OPENING_GROUP.slots.map((slot) => slot.key),
+);
+
+export function isMatchdayDeskOpeningPlacementKey(value?: string | null) {
+  return Boolean(value && matchdayDeskOpeningPlacementKeySet.has(value));
+}
+
 export type MatchdayDeskDesiredArticle = {
   inLatest: boolean;
   placementKey: string | null;
@@ -173,6 +195,8 @@ export type MatchdayDeskSnapshot = {
   competitionName: string;
   isManaged: boolean;
   faixaVisible: boolean;
+  latestZonePlacement: "top" | "four_news" | "hidden";
+  livePublicZoneOrder: MatchdayLivePublicZoneKey[];
   revision: number;
   stateToken: string | null;
   articles: MatchdayDeskArticle[];
@@ -446,7 +470,9 @@ export function swapDeskArticleToSlot(
   if (!current?.placementKey || current.placementKey === targetPlacementKey) return state;
   const sourceGroup = placementGroupForKey(current.placementKey);
   const targetGroup = placementGroupForKey(targetPlacementKey);
-  if (!sourceGroup || sourceGroup !== targetGroup) return state;
+  const isOpeningMove = isMatchdayDeskOpeningPlacementKey(current.placementKey)
+    && isMatchdayDeskOpeningPlacementKey(targetPlacementKey);
+  if (!sourceGroup || (sourceGroup !== targetGroup && !isOpeningMove)) return state;
 
   const next = cloneDesiredState(state);
   const targetOccupant = Object.entries(next).find(

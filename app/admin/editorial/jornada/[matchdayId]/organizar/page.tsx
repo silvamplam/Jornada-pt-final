@@ -1,10 +1,15 @@
 import MatchdayEditorialDeskClient from "./MatchdayEditorialDeskClient";
 import { readMatchdayEditorialDesk } from "@/lib/editorial-matchday-desk";
+import { MATCHDAY_LIVE_PUBLIC_ZONE_LABELS } from "@/lib/editorial-matchday-live-zone-order";
 
 export const dynamic = "force-dynamic";
 
 type MatchdayEditorialDeskPageProps = {
   params: Promise<{ matchdayId: string }>;
+  searchParams?: Promise<{
+    created?: string;
+    error?: string;
+  }>;
 };
 
 const deskStyles = `
@@ -129,6 +134,101 @@ const deskStyles = `
     color: #ffffff;
     text-decoration: none;
   }
+
+  .desk-live-organization {
+    display: grid;
+    gap: 8px;
+    max-width: 1920px;
+    margin: 8px auto 0;
+    padding: 10px;
+    border: 1px solid #d8e0e9;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 7px 18px rgba(12, 22, 34, .05);
+  }
+
+  .desk-live-organization > header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 16px;
+  }
+
+  .desk-live-organization h2,
+  .desk-live-organization p { margin: 0; }
+  .desk-live-organization h2 { font-size: 15px; }
+  .desk-live-organization p { color: #64748b; font-size: 10px; }
+
+  .desk-live-settings {
+    display: grid;
+    gap: 8px;
+  }
+
+  .desk-live-setting {
+    display: grid;
+    align-content: start;
+    gap: 7px;
+    padding: 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f8fafc;
+  }
+
+  .desk-live-setting h3 { margin: 0; font-size: 12px; }
+  .desk-latest-placement-setting {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding-block: 6px;
+  }
+
+  .desk-latest-placement-setting h3 { flex: 0 0 auto; }
+  .desk-latest-placement-form {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .desk-latest-placement-form select,
+  .desk-latest-placement-form button,
+  .desk-live-zone-order-actions button {
+    min-height: 30px;
+    border: 1px solid #cbd5df;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #10151b;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .desk-latest-placement-form select { min-width: 230px; padding: 0 8px; }
+  .desk-latest-placement-form button,
+  .desk-live-zone-order-actions button { padding: 4px 8px; cursor: pointer; }
+  .desk-live-zone-order-actions button:disabled { opacity: .4; cursor: default; }
+
+  .desk-live-zone-order-list { display: grid; gap: 4px; }
+  .desk-live-zone-order-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    gap: 7px;
+    align-items: center;
+    min-height: 34px;
+    padding: 4px 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    background: #ffffff;
+  }
+
+  .desk-live-zone-order-row[data-fixed="true"] { background: #eef2f6; }
+  .desk-live-zone-order-position { color: #64748b; font-size: 9px; font-weight: 900; }
+  .desk-live-zone-order-label { font-size: 11px; }
+  .desk-live-zone-order-fixed { color: #64748b; font-size: 9px; font-weight: 900; text-transform: uppercase; }
+  .desk-live-zone-order-actions { display: flex; gap: 4px; }
 
   .desk-workspace {
     position: relative;
@@ -410,6 +510,58 @@ const deskStyles = `
   .desk-zone-slots-5 { grid-template-columns: repeat(5, minmax(0,1fr)); }
   .desk-zone-slots-6 { grid-template-columns: repeat(3, minmax(0,1fr)); }
 
+  .desk-video-complement-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(220px, .65fr);
+    gap: 6px;
+  }
+
+  .desk-video-panel {
+    min-width: 0;
+    padding: 6px;
+    border: 1px solid #d8e0e9;
+    border-radius: 5px;
+    background: #ffffff;
+  }
+
+  .desk-video-panel > small {
+    display: block;
+    margin-bottom: 4px;
+    color: #64748b;
+    font-size: 8px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .desk-map-video-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 5px;
+  }
+
+  .desk-map-video-card {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+    padding: 6px;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    background: #f8fafc;
+  }
+
+  .desk-map-video-card > span {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    color: #64748b;
+    font-size: 8px;
+  }
+
+  .desk-map-video-card em { color: #c40012; font-style: normal; font-weight: 900; }
+  .desk-map-video-card b { font-weight: 800; }
+  .desk-map-video-card strong { font-size: 11px; line-height: 1.12; }
+  .desk-map-video-card p { color: #64748b; font-size: 9px; line-height: 1.2; }
+
   .desk-slot {
     position: relative;
     min-width: 0;
@@ -544,6 +696,10 @@ const deskStyles = `
     .desk-zone-slots-4,
     .desk-zone-slots-5,
     .desk-zone-slots-6 { grid-template-columns: 1fr; }
+    .desk-video-complement-layout { grid-template-columns: 1fr; }
+    .desk-latest-placement-setting { align-items: stretch; }
+    .desk-latest-placement-form { width: 100%; }
+    .desk-latest-placement-form select { flex: 1 1 200px; min-width: 0; max-width: 100%; }
     .desk-article-row { grid-template-columns: 18px 22px minmax(0,1fr); }
     .desk-article-row img,
     .desk-image-placeholder { display: none; }
@@ -551,8 +707,11 @@ const deskStyles = `
     .desk-pending-bar div { flex: 1 1 100%; }
   }`;
 
-export default async function MatchdayEditorialDeskPage({ params }: MatchdayEditorialDeskPageProps) {
-  const { matchdayId } = await params;
+export default async function MatchdayEditorialDeskPage({ params, searchParams }: MatchdayEditorialDeskPageProps) {
+  const [{ matchdayId }, query] = await Promise.all([
+    params,
+    searchParams ?? Promise.resolve<{ created?: string; error?: string }>({}),
+  ]);
   const snapshot = await readMatchdayEditorialDesk(matchdayId);
 
   if (!snapshot) {
@@ -570,6 +729,15 @@ export default async function MatchdayEditorialDeskPage({ params }: MatchdayEdit
       </main>
     );
   }
+
+  const organizationReturnTo = `/admin/editorial/jornada/${snapshot.matchdayId}/organizar#organizacao-pagina-viva`;
+  const organizationMessage = query.created === "set_matchday_latest_zone_placement"
+    ? "Posição de Últimas atualizada. ✓"
+    : query.created === "move_matchday_live_public_zone"
+      ? "Ordem da página viva atualizada. ✓"
+      : query.error
+        ? "Não foi possível atualizar a organização da página viva."
+        : null;
 
   return (
     <main className="desk-shell">
@@ -594,6 +762,61 @@ export default async function MatchdayEditorialDeskPage({ params }: MatchdayEdit
           <a href={`/admin/editorial/jornada/${snapshot.matchdayId}`}>Editorial atual</a>
           <a href="/admin">Backoffice</a>
         </nav>
+      </section>
+      <section className="desk-live-organization" id="organizacao-pagina-viva">
+        <header>
+          <div>
+            <h2>Organização da página viva</h2>
+            <p>A Abertura fica sempre em primeiro e a Faixa permanece fixa no fim.</p>
+          </div>
+          {organizationMessage ? <strong className="desk-message">{organizationMessage}</strong> : null}
+        </header>
+        <div className="desk-live-settings">
+          <section className="desk-live-setting desk-latest-placement-setting" aria-label="Posição de Últimas">
+            <h3>Posição de Últimas</h3>
+            <form className="desk-latest-placement-form" action="/api/admin/gestor" method="post">
+              <input type="hidden" name="action_type" value="set_matchday_latest_zone_placement" />
+              <input type="hidden" name="return_to" value={organizationReturnTo} />
+              <input type="hidden" name="matchday_id" value={snapshot.matchdayId} />
+              <select aria-label="Posição de Últimas" name="latest_zone_placement" defaultValue={snapshot.latestZonePlacement}>
+                <option value="top">Ao lado da manchete</option>
+                <option value="four_news">Na zona de 4 notícias</option>
+                <option value="hidden">Ocultas</option>
+              </select>
+              <button type="submit">Guardar</button>
+            </form>
+          </section>
+
+          <section className="desk-live-setting" aria-label="Ordem da página viva">
+            <h3>Ordem da página viva</h3>
+            <div className="desk-live-zone-order-list">
+              <div className="desk-live-zone-order-row" data-fixed="true">
+                <span className="desk-live-zone-order-position">01</span>
+                <strong className="desk-live-zone-order-label">Abertura · Manchete + 3 notícias + Contexto</strong>
+                <span className="desk-live-zone-order-fixed">Fixa</span>
+              </div>
+              {snapshot.livePublicZoneOrder.map((zone, index) => (
+                <div className="desk-live-zone-order-row" key={zone}>
+                  <span className="desk-live-zone-order-position">{String(index + 2).padStart(2, "0")}</span>
+                  <strong className="desk-live-zone-order-label">{MATCHDAY_LIVE_PUBLIC_ZONE_LABELS[zone]}</strong>
+                  <form action="/api/admin/gestor" className="desk-live-zone-order-actions" method="post">
+                    <input type="hidden" name="action_type" value="move_matchday_live_public_zone" />
+                    <input type="hidden" name="return_to" value={organizationReturnTo} />
+                    <input type="hidden" name="matchday_id" value={snapshot.matchdayId} />
+                    <input type="hidden" name="live_zone_key" value={zone} />
+                    <button disabled={index === 0} name="direction" type="submit" value="up">Subir</button>
+                    <button disabled={index === snapshot.livePublicZoneOrder.length - 1} name="direction" type="submit" value="down">Descer</button>
+                  </form>
+                </div>
+              ))}
+              <div className="desk-live-zone-order-row" data-fixed="true">
+                <span className="desk-live-zone-order-position">{String(snapshot.livePublicZoneOrder.length + 2).padStart(2, "0")}</span>
+                <strong className="desk-live-zone-order-label">Faixa de notícias</strong>
+                <span className="desk-live-zone-order-fixed">Fixa</span>
+              </div>
+            </div>
+          </section>
+        </div>
       </section>
       <MatchdayEditorialDeskClient snapshot={snapshot} />
     </main>

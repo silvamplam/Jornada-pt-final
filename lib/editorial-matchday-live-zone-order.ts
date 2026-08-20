@@ -21,11 +21,11 @@ export const MATCHDAY_LIVE_PUBLIC_ZONE_LABELS: Record<
   MatchdayLivePublicZoneKey,
   string
 > = {
-  video: "A Jornada em Vídeo + notícia ao lado",
+  video: "A Jornada em Vídeo + Destaque da Jornada",
   four_news: "4 notícias + Últimas",
   six_news: "6 notícias",
-  five_news_balanced: "5 notícias · 1D+1S+3C",
-  five_news_secondary: "5 notícias · 1D+4S",
+  five_news_balanced: "5 notícias — 1 destaque + 1 secundária + 3 complementares",
+  five_news_secondary: "5 notícias — 1 destaque + 4 secundárias",
 };
 
 const matchdayLivePublicZoneKeySet = new Set<string>(

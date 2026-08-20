@@ -3,8 +3,10 @@
 import { useMemo, useState, type ChangeEvent, type DragEvent } from "react";
 import {
   MATCHDAY_DESK_GROUPS,
+  MATCHDAY_DESK_OPENING_GROUP,
   applyDeskPlacementSelection,
   buildMatchdayDeskApplyArticles,
+  isMatchdayDeskOpeningPlacementKey,
   placementGroupForKey,
   placementLabelForKey,
   placeDeskArticleInSlot,
@@ -13,7 +15,6 @@ import {
   type MatchdayDeskBlockedPlacement,
   type MatchdayDeskDesiredState,
   type MatchdayDeskDestination,
-  type MatchdayDeskGroupDefinition,
   type MatchdayDeskSnapshot,
 } from "@/lib/editorial-matchday-desk-model";
 
@@ -22,8 +23,22 @@ type DeskHistoryEntry = {
   faixaVisible: boolean;
 };
 
-type DeskFilter = "all" | "latest" | "latest_without_zone" | "four_news" | "six_news" | "five_news_balanced" | "five_news_secondary" | "faixa" | "videos" | "highlight" | "unplaced";
+type DeskFilter = "all" | "latest" | "latest_without_zone" | "opening" | "four_news" | "six_news" | "five_news_balanced" | "five_news_secondary" | "faixa" | "video_highlight" | "unplaced";
 type DeskDestinationChoice = MatchdayDeskDestination | `slot::${string}`;
+
+type DeskMapGroupDefinition = {
+  key: string;
+  label: string;
+  description: string;
+  slots: readonly { key: string; label: string }[];
+};
+
+const openingSourceGroupKeys = new Set(["headline", "highlights", "side_block"]);
+const MATCHDAY_DESK_MAP_GROUPS: DeskMapGroupDefinition[] = MATCHDAY_DESK_GROUPS.filter(
+  (group) => group.key !== "faixa"
+    && group.key !== "complement"
+    && !openingSourceGroupKeys.has(group.key),
+);
 
 function initialDesiredState(snapshot: MatchdayDeskSnapshot): MatchdayDeskDesiredState {
   return Object.fromEntries(
@@ -411,15 +426,15 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
 
       if (!searchMatches) return false;
 
-      if (filter === "videos") return false;
       if (filter === "latest") return Boolean(state?.inLatest);
       if (filter === "latest_without_zone") return Boolean(state?.inLatest) && !state?.placementKey;
+      if (filter === "opening") return isMatchdayDeskOpeningPlacementKey(state?.placementKey);
       if (filter === "four_news") return group === "four_news";
       if (filter === "six_news") return group === "six_news";
       if (filter === "five_news_balanced") return group === "five_news_balanced";
       if (filter === "five_news_secondary") return group === "five_news_secondary";
       if (filter === "faixa") return group === "faixa";
-      if (filter === "highlight") return group === "complement";
+      if (filter === "video_highlight") return group === "complement";
       if (filter === "unplaced") return !state?.inLatest && !state?.placementKey;
 
       return true;
@@ -427,7 +442,7 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
   }, [desired, filter, search, snapshot.articles]);
 
   const filteredVideos = useMemo(() => {
-    if (filter !== "all" && filter !== "videos") {
+    if (filter !== "all" && filter !== "video_highlight") {
       return [];
     }
 
@@ -473,7 +488,7 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
     );
   }
 
-  function renderFixedGroup(group: MatchdayDeskGroupDefinition) {
+  function renderFixedGroup(group: DeskMapGroupDefinition) {
     return (
       <section className="desk-zone" key={group.key}>
         <header>
@@ -503,6 +518,55 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
     );
   }
 
+  function renderVideoComplementGroup() {
+    const complementArticleId = ownerByPlacement.get("complement") ?? null;
+
+    return (
+      <section className="desk-zone desk-video-complement-zone" aria-label="A Jornada em Vídeo + Destaque da Jornada">
+        <header>
+          <div>
+            <h3>A Jornada em Vídeo + Destaque da Jornada</h3>
+            <p>Vídeos publicados e destaque editorial da mesma zona viva.</p>
+          </div>
+          <span>
+            {snapshot.videos.length} {snapshot.videos.length === 1 ? "vídeo" : "vídeos"} · 1 posição
+          </span>
+        </header>
+        <div className="desk-video-complement-layout">
+          <section className="desk-video-panel" aria-label="Vídeos da Jornada">
+            <small>Vídeo(s) da Jornada</small>
+            {snapshot.videos.length > 0 ? (
+              <div className="desk-map-video-list">
+                {snapshot.videos.map((video) => (
+                  <article className="desk-map-video-card" key={`map-video:${video.id}`}>
+                    <span>
+                      <em>VÍDEO</em>
+                      {video.duration ? <b>{video.duration}</b> : null}
+                    </span>
+                    <strong>{video.title}</strong>
+                    {video.subtitle ? <p>{video.subtitle}</p> : null}
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <span className="desk-slot-empty">Sem vídeos publicados</span>
+            )}
+          </section>
+          <div
+            className="desk-slot desk-complement-slot"
+            onDragOver={(event: DragEvent<HTMLDivElement>) => event.preventDefault()}
+            onDrop={() => dropOnSlot("complement")}
+          >
+            <small>Destaque da Jornada</small>
+            {complementArticleId
+              ? renderPlacedArticle(complementArticleId, "complement")
+              : <span className="desk-slot-empty">Livre</span>}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const faixaArticleIds = Object.entries(desired)
     .filter(([, article]) => placementGroupForKey(article.placementKey) === "faixa")
     .sort((left, right) => placementOrder(left[1].placementKey) - placementOrder(right[1].placementKey))
@@ -526,13 +590,13 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
               ["all", "Todas"],
               ["latest", "Últimas"],
               ["latest_without_zone", "Sem zona nas Últimas"],
+              ["opening", "Abertura"],
               ["four_news", "4 notícias"],
               ["six_news", "6 notícias"],
               ["five_news_balanced", "5 notícias principais"],
               ["five_news_secondary", "5 notícias secundárias"],
               ["faixa", "Faixa"],
-              ["videos", "Vídeos"],
-              ["highlight", "Destaque da Jornada"],
+              ["video_highlight", "Vídeo + Destaque"],
               ["unplaced", "Sem colocação"],
             ] as Array<[DeskFilter, string]>).map(([key, label]) => (
               <button className={filter === key ? "active" : ""} key={key} type="button" onClick={() => setFilter(key)}>
@@ -547,7 +611,12 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
             <select value={destination} onChange={(event: ChangeEvent<HTMLSelectElement>) => setDestination(event.target.value as DeskDestinationChoice | "")}>
               <option value="">{"Colocar em\u2026"}</option>
               <option value="none">{"Sem coloca\u00e7\u00e3o editorial"}</option>
-              {MATCHDAY_DESK_GROUPS.map((group) => (
+              <optgroup label={MATCHDAY_DESK_OPENING_GROUP.label}>
+                {MATCHDAY_DESK_OPENING_GROUP.slots.map((slot) => (
+                  <option key={slot.key} value={`slot::${slot.key}`}>{slot.label}</option>
+                ))}
+              </optgroup>
+              {MATCHDAY_DESK_GROUPS.filter((group) => !openingSourceGroupKeys.has(group.key)).map((group) => (
                 <optgroup key={group.key} label={group.label}>
                   <option value={group.key}>
                     {group.slots.length > 1 ? "Preencher pela ordem de sele\u00e7\u00e3o" : group.label}
@@ -624,7 +693,8 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
           <div><span>Alteradas</span><strong>{pendingArticleCount}</strong></div>
         </div>
 
-        {MATCHDAY_DESK_GROUPS.filter((group) => group.key !== "faixa").map(renderFixedGroup)}
+        {renderFixedGroup(MATCHDAY_DESK_OPENING_GROUP)}
+        {MATCHDAY_DESK_MAP_GROUPS.map(renderFixedGroup)}
 
         <section aria-label="Faixa de notícias" className={`desk-zone desk-faixa ${faixaVisible ? "" : "hidden-zone"}`}>
           <header>
@@ -654,6 +724,8 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
             })}
           </div>
         </section>
+
+        {renderVideoComplementGroup()}
 
         {snapshot.blockedPlacements.length > 0 ? (
           <section className="desk-warning">

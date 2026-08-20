@@ -4,6 +4,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   DEFAULT_MATCHDAY_LIVE_PUBLIC_ZONE_ORDER,
+  MATCHDAY_LIVE_PUBLIC_ZONE_LABELS,
   moveMatchdayLivePublicZone,
   normalizeMatchdayLivePublicZoneOrder,
 } from "./editorial-matchday-live-zone-order";
@@ -16,6 +17,7 @@ function source(relativePath: string) {
 }
 
 const adminPage = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
+const deskPage = source("app/admin/editorial/jornada/[matchdayId]/organizar/page.tsx");
 const gestorRoute = source("app/api/admin/gestor/route.ts");
 const publicLoader = source("lib/public-matchday.ts");
 const publicPage = source(
@@ -62,17 +64,36 @@ test("a ordem viva tem cinco zonas móveis e fallback determinístico", () => {
       "five_news_secondary",
     ],
   );
+  assert.equal(
+    MATCHDAY_LIVE_PUBLIC_ZONE_LABELS.video,
+    "A Jornada em Vídeo + Destaque da Jornada",
+  );
+  assert.equal(
+    MATCHDAY_LIVE_PUBLIC_ZONE_LABELS.five_news_balanced,
+    "5 notícias — 1 destaque + 1 secundária + 3 complementares",
+  );
+  assert.equal(
+    MATCHDAY_LIVE_PUBLIC_ZONE_LABELS.five_news_secondary,
+    "5 notícias — 1 destaque + 4 secundárias",
+  );
 });
 
-test("o controlo existe na Editorial viva e mantém Abertura e Faixa fixas", () => {
-  assert.match(adminPage, /id="ordem-pagina-viva"/);
-  assert.match(adminPage, /Ordem da página viva/);
-  assert.match(adminPage, /Abertura · Manchete \+ 3 notícias \+ Contexto/);
-  assert.match(adminPage, /Faixa de notícias/);
-  assert.match(adminPage, /move_matchday_live_public_zone/);
-  assert.match(adminPage, /name="direction"[\s\S]*value="up"/);
-  assert.match(adminPage, /name="direction"[\s\S]*value="down"/);
-  assert.doesNotMatch(adminPage, /matchday_reference_compositions?select=.*live_public_zone_order/);
+test("o controlo passou do Editorial para a Mesa e mantém Abertura e Faixa fixas", () => {
+  assert.doesNotMatch(adminPage, /id="ordem-pagina-viva"/);
+  assert.doesNotMatch(adminPage, /name="action_type" value="move_matchday_live_public_zone"/);
+  assert.match(deskPage, /id="organizacao-pagina-viva"/);
+  assert.match(deskPage, /Ordem da página viva/);
+  assert.match(deskPage, /Abertura · Manchete \+ 3 notícias \+ Contexto/);
+  assert.match(deskPage, /Faixa de notícias/);
+  assert.match(deskPage, /name="action_type" value="move_matchday_live_public_zone"/);
+  assert.match(deskPage, /name="direction"[\s\S]*value="up"/);
+  assert.match(deskPage, /name="direction"[\s\S]*value="down"/);
+  assert.doesNotMatch(deskPage, /matchday_reference_compositions?select=.*live_public_zone_order/);
+
+  const openingIndex = deskPage.indexOf("Abertura · Manchete + 3 notícias + Contexto");
+  const movableZonesIndex = deskPage.indexOf("snapshot.livePublicZoneOrder.map", openingIndex);
+  const faixaIndex = deskPage.indexOf("Faixa de notícias", movableZonesIndex);
+  assert.ok(openingIndex >= 0 && movableZonesIndex > openingIndex && faixaIndex > movableZonesIndex);
 });
 
 test("a API grava a ordem apenas no controlo vivo da Jornada", () => {

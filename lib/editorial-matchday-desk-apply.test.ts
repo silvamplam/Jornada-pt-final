@@ -71,7 +71,7 @@ test("a API recebe o mapa inteiro, recusa snapshots antigos e a UI só confirma 
 });
 
 test("uma Jornada gerida usa zonas vivas e a visibilidade global da Faixa", () => {
-  assert.match(reader, /matchday_editorial_desk_control\?select=is_managed,faixa_visible,revision/);
+  assert.match(reader, /matchday_editorial_desk_control\?select=is_managed,faixa_visible,live_public_zone_order,revision/);
   assert.match(publicLoader, /readMatchdayEditorialDeskControl/);
   assert.match(publicLoader, /usePublishedReferenceForLivePage[\s\S]*?!editorialDeskControl\.isManaged/);
   assert.match(publicPage, /context\.hasPublishedReferenceComposition && !isManagedByEditorialDesk/);

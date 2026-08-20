@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   MATCHDAY_DESK_GROUPS,
+  MATCHDAY_DESK_OPENING_GROUP,
   applyDeskPlacementSelection,
+  isMatchdayDeskOpeningPlacementKey,
   moveDeskArticleWithinPlacementGroup,
   placementGroupForKey,
   placementLabelForKey,
@@ -29,6 +31,19 @@ test("a Mesa cobre todas as posições dos layouts vivos sem usar a composição
     .filter((key) => key.startsWith("live_"));
   const expected = LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.map((position) => position.transferSlotType);
   assert.deepEqual([...deskLiveSlots].sort(), [...expected].sort());
+});
+
+test("Abertura agrega Manchete, três notícias e Contexto sem criar slots", () => {
+  const openingSlotKeys = MATCHDAY_DESK_OPENING_GROUP.slots.map((slot) => slot.key);
+  const existingSlotKeys = new Set(
+    MATCHDAY_DESK_GROUPS.flatMap((group) => group.slots.map((slot) => slot.key)),
+  );
+  assert.deepEqual(openingSlotKeys, ["headline", "highlight:1", "highlight:2", "highlight:3", "side_block"]);
+  assert.equal(openingSlotKeys.every((placementKey) => existingSlotKeys.has(placementKey)), true);
+  assert.equal(isMatchdayDeskOpeningPlacementKey("headline"), true);
+  assert.equal(isMatchdayDeskOpeningPlacementKey("highlight:3"), true);
+  assert.equal(isMatchdayDeskOpeningPlacementKey("side_block"), true);
+  assert.equal(isMatchdayDeskOpeningPlacementKey("complement"), false);
 });
 
 test("Últimas é independente da única colocação editorial", () => {
@@ -74,6 +89,31 @@ test("arrastar dentro de uma zona troca as posições sem duplicar a notícia", 
   assert.equal(next.b.placementKey, "live_four_news:2");
   assert.equal(next.c.placementKey, "live_four_news:1");
   assert.equal(placementGroupForKey(next.b.placementKey), "four_news");
+});
+
+test("os cinco slots da Abertura continuam disponíveis para drag/drop individual", () => {
+  const openingState: MatchdayDeskDesiredState = {
+    a: { inLatest: true, placementKey: "headline" },
+    b: { inLatest: false, placementKey: "highlight:1" },
+  };
+  const next = swapDeskArticleToSlot(openingState, "a", "highlight:1");
+
+  assert.equal(next.a.placementKey, "highlight:1");
+  assert.equal(next.b.placementKey, "headline");
+});
+test("Destaque mantém complement como destino real e vídeos não são placements", () => {
+  const complementGroup = MATCHDAY_DESK_GROUPS.find((group) => group.key === "complement");
+  assert.deepEqual(complementGroup?.slots, [
+    { key: "complement", label: "Destaque da Jornada" },
+  ]);
+  assert.equal(
+    MATCHDAY_DESK_GROUPS.some((group) => String(group.key) === "videos"),
+    false,
+  );
+
+  const next = applyDeskPlacementSelection(state(), ["a"], "complement");
+  assert.equal(next.a.placementKey, "complement");
+  assert.equal(next.a.inLatest, true);
 });
 test("uma noticia pode ir diretamente para um slot especifico", () => {
   const highlight = placeDeskArticleInSlot(state(), "a", "highlight:2");
