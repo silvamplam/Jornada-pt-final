@@ -154,3 +154,42 @@ test("as etiquetas da Mesa sao compactas e nao repetem a zona", () => {
     "Faixa \u00b7 posi\u00e7\u00e3o 3",
   );
 });
+test("a ordem de seleção preenche a Abertura da Manchete ao Contexto", () => {
+  const openingState: MatchdayDeskDesiredState = {
+    a: { inLatest: true, placementKey: null },
+    b: { inLatest: false, placementKey: null },
+    c: { inLatest: true, placementKey: null },
+    d: { inLatest: false, placementKey: null },
+    e: { inLatest: true, placementKey: null },
+    oldHeadline: { inLatest: true, placementKey: "headline" },
+    oldHighlight: { inLatest: true, placementKey: "highlight:1" },
+  };
+
+  const next = applyDeskPlacementSelection(
+    openingState,
+    ["a", "b", "c", "d", "e"],
+    "opening",
+  );
+
+  assert.equal(next.a.placementKey, "headline");
+  assert.equal(next.b.placementKey, "highlight:1");
+  assert.equal(next.c.placementKey, "highlight:2");
+  assert.equal(next.d.placementKey, "highlight:3");
+  assert.equal(next.e.placementKey, "side_block");
+
+  assert.equal(next.oldHeadline.placementKey, null);
+  assert.equal(next.oldHighlight.placementKey, null);
+
+  assert.equal(next.a.inLatest, true);
+  assert.equal(next.b.inLatest, false);
+  assert.equal(next.c.inLatest, true);
+
+  assert.throws(
+    () => applyDeskPlacementSelection(
+      openingState,
+      ["a", "b", "c", "d", "e", "oldHeadline"],
+      "opening",
+    ),
+    /só tem 5 posições/,
+  );
+});

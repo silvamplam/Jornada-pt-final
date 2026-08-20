@@ -612,11 +612,14 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
               <option value="">{"Colocar em\u2026"}</option>
               <option value="none">{"Sem coloca\u00e7\u00e3o editorial"}</option>
               <optgroup label={MATCHDAY_DESK_OPENING_GROUP.label}>
+                <option value="opening">Preencher pela ordem de seleção</option>
                 {MATCHDAY_DESK_OPENING_GROUP.slots.map((slot) => (
                   <option key={slot.key} value={`slot::${slot.key}`}>{slot.label}</option>
                 ))}
               </optgroup>
-              {MATCHDAY_DESK_GROUPS.filter((group) => !openingSourceGroupKeys.has(group.key)).map((group) => (
+              {MATCHDAY_DESK_GROUPS.filter(
+                (group) => !openingSourceGroupKeys.has(group.key) && group.key !== "complement",
+              ).map((group) => (
                 <optgroup key={group.key} label={group.label}>
                   <option value={group.key}>
                     {group.slots.length > 1 ? "Preencher pela ordem de sele\u00e7\u00e3o" : group.label}
@@ -628,6 +631,9 @@ export default function MatchdayEditorialDeskClient({ snapshot }: { snapshot: Ma
                     : null}
                 </optgroup>
               ))}
+              <optgroup label="A JORNADA EM VÍDEO + DESTAQUE DA JORNADA">
+                <option value="complement">Destaque da Jornada</option>
+              </optgroup>
             </select>
             <button className="primary" type="button" onClick={placeSelected}>Colocar</button>
             <button type="button" onClick={makeTotallyUnplaced}>Sem colocação total</button>

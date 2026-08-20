@@ -14,7 +14,7 @@ export type MatchdayDeskGroupKey =
   | "five_news_secondary"
   | "faixa";
 
-export type MatchdayDeskDestination = MatchdayDeskGroupKey | "none";
+export type MatchdayDeskDestination = MatchdayDeskGroupKey | "opening" | "none";
 
 export type MatchdayDeskSlotDefinition = {
   key: string;
@@ -348,7 +348,9 @@ export function applyDeskPlacementSelection(
     return next;
   }
 
-  const group = matchdayDeskGroup(destination);
+  const group = destination === "opening"
+    ? MATCHDAY_DESK_OPENING_GROUP
+    : matchdayDeskGroup(destination);
   if (!group || group.slots.length === 0) return state;
   if (selected.length > group.slots.length) {
     throw new Error(`A zona ${group.label} só tem ${group.slots.length} posições.`);

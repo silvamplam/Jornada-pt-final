@@ -167,3 +167,39 @@ test("Colocar limpa a seleção e o destino depois de planear a colocação", ()
     3,
   );
 });
+test("o menu de colocação acompanha a organização lógica da Mesa", () => {
+  const openingIndex = clientSource.indexOf(
+    "<optgroup label={MATCHDAY_DESK_OPENING_GROUP.label}>",
+  );
+  const openingBulkIndex = clientSource.indexOf(
+    '<option value="opening">Preencher pela ordem de seleção</option>',
+    openingIndex,
+  );
+
+  assert.ok(openingIndex >= 0);
+  assert.ok(openingBulkIndex > openingIndex);
+
+  assert.match(
+    clientSource,
+    /group\.key !== "complement"/,
+  );
+
+  const genericGroupsIndex = clientSource.indexOf(
+    "MATCHDAY_DESK_GROUPS.filter",
+    openingIndex,
+  );
+
+  const videoHighlightIndex = clientSource.indexOf(
+    '<optgroup label="A JORNADA EM VÍDEO + DESTAQUE DA JORNADA">',
+    genericGroupsIndex,
+  );
+
+  const complementIndex = clientSource.indexOf(
+    '<option value="complement">Destaque da Jornada</option>',
+    videoHighlightIndex,
+  );
+
+  assert.ok(genericGroupsIndex > openingBulkIndex);
+  assert.ok(videoHighlightIndex > genericGroupsIndex);
+  assert.ok(complementIndex > videoHighlightIndex);
+});
