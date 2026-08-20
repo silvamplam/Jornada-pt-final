@@ -13,6 +13,7 @@ import {
   type EditorialArticlePlacementFailure,
 } from "@/lib/editorial-article-service";
 import type { EditorialInitialPlacement } from "@/lib/editorial-matchday-news-flow";
+import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
 import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
@@ -55,6 +56,7 @@ type LinkRemovalField =
 
 type LinkValueRow = {
   id: string;
+  matchday_id?: string | null;
   headline_link_url?: string | null;
   complementary_link_url?: string | null;
   side_block_link_url?: string | null;
@@ -78,6 +80,11 @@ const allowedLinkRemovalTargets: Record<LinkRemovalTarget, LinkRemovalField[]> =
   site_editorial_highlights: ["link_url"],
   site_editorial_latest_news: ["link_url"],
 };
+const liveMatchdayLinkRemovalTargets = new Set<LinkRemovalTarget>([
+  "matchday_editorials",
+  "matchday_highlights",
+  "matchday_latest_news",
+]);
 
 type ParsedSupabaseError = {
   code: string;
@@ -269,8 +276,9 @@ function publicArticlePath(slug: string) {
 }
 
 async function readLinkTargetValue(target: { table: LinkRemovalTarget; field: LinkRemovalField }, targetId: string) {
+  const matchdayIdSelection = liveMatchdayLinkRemovalTargets.has(target.table) ? ",matchday_id" : "";
   const rows = await fetchSupabaseAdminTable<LinkValueRow>(
-    `${target.table}?select=id,${target.field}&id=eq.${encodeURIComponent(targetId)}&limit=1`,
+    `${target.table}?select=id,${target.field}${matchdayIdSelection}&id=eq.${encodeURIComponent(targetId)}&limit=1`,
   );
 
   return rows[0] ?? null;
@@ -410,6 +418,9 @@ async function removeArticleLink(formData: FormData) {
       [target.field]: null,
     }),
   });
+  if (liveMatchdayLinkRemovalTargets.has(target.table) && row.matchday_id) {
+    await syncLatestFourNewsProjection(row.matchday_id);
+  }
 
   const returnTo = safeArticleAdminReturnTo(cleanText(formData.get("return_to"))) ?? ARTICLE_ADMIN_PATH;
   return articleAdminRedirect(returnTo, { link_removed: "1" });

@@ -81,6 +81,10 @@ test("leitura pública aplica placement depois de montar dados vivos ou snapshot
   assert.match(publicLoader, /latest_zone_mode,latest_zone_placement,latest_zone_title/);
   assert.match(publicPage, /editorial\?\.latest_zone_placement === "four_news"/);
   assert.match(publicPage, /latestNewsCount: latestNewsItems\.length,\s*latestZonePlacement,/);
+  assert.match(
+    publicPage,
+    /latestZonePlacement === "four_news"[\s\S]*liveFourNewsItems\.length === 4[\s\S]*<PublicFourNewsLatestLayout[\s\S]*items=\{liveFourNewsItems\}[\s\S]*latestNews=\{latestNewsItems\}/,
+  );
 
   const referenceItemsIndex = publicPage.indexOf("referenceEditorialLineItems.map");
   const visibilityIndex = publicPage.indexOf("buildPublicMatchdayEditorialVisibility({");
@@ -103,6 +107,7 @@ test("backoffice escolhe top, four_news ou hidden sem editar notícias ou artigo
   assert.match(action, /matchday_editorials\?on_conflict=matchday_id/);
   assert.match(action, /latest_zone_placement: latestZonePlacement/);
   assert.doesNotMatch(action, /editorial_articles|matchday_latest_news|latest_zone_mode|status:/);
+  assert.doesNotMatch(action, /syncLatestFourNewsProjection/);
 });
 
 test("transferências para Últimas não reativam a zona oculta", () => {

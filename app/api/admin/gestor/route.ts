@@ -10,6 +10,7 @@ import {
   isEditorialMatchdayTransferSlotType,
   type EditorialDisplacedTargetSlotType,
 } from "@/lib/editorial-matchday-news-flow";
+import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
 import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
 import {
   isMatchdayLivePublicZoneKey,
@@ -66,6 +67,15 @@ const NEWS_FLOW_REFERENCE_SYNC_ACTIONS = new Set([
   "save_matchday_latest_news_item",
   "save_matchday_horizontal_news_item",
   "move_matchday_horizontal_news_item",
+]);
+const LATEST_FOUR_CONFLICT_SYNC_ACTIONS = new Set([
+  "save_matchday_headline",
+  "save_matchday_side_block",
+  "save_matchday_complement",
+  "save_matchday_editorial",
+  "save_matchday_highlights",
+  "save_matchday_highlight_item",
+  "save_matchday_horizontal_news_item",
 ]);
 
 function cleanText(value: FormDataEntryValue | null): string | null {
@@ -3374,6 +3384,12 @@ export async function POST(request: Request) {
       const matchdayId = cleanText(formData.get("matchday_id"));
       if (matchdayId) {
         await syncCurrentPublishedReferenceCompositionNewsFlow(matchdayId);
+      }
+    }
+    if (actionType && LATEST_FOUR_CONFLICT_SYNC_ACTIONS.has(actionType)) {
+      const matchdayId = cleanText(formData.get("matchday_id"));
+      if (matchdayId) {
+        await syncLatestFourNewsProjection(matchdayId);
       }
     }
   } catch (error) {

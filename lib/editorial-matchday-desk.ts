@@ -4,6 +4,7 @@ import type {
   MatchdayDeskBlockedPlacement,
   MatchdayDeskSnapshot,
 } from "@/lib/editorial-matchday-desk-model";
+import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
 import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
@@ -717,7 +718,7 @@ export async function applyMatchdayEditorialDeskState(input: {
   faixaVisible: boolean;
   articles: MatchdayDeskApplyArticle[];
 }) {
-  return callDeskRpc<MatchdayDeskApplyResult>("apply_matchday_editorial_desk_state_v2", {
+  const result = await callDeskRpc<MatchdayDeskApplyResult>("apply_matchday_editorial_desk_state_v2", {
     p_matchday_id: input.matchdayId,
     p_expected_revision: input.expectedRevision,
     p_expected_state_token: input.expectedStateToken,
@@ -728,4 +729,6 @@ export async function applyMatchdayEditorialDeskState(input: {
       placement_key: article.placementKey,
     })),
   });
+  await syncLatestFourNewsProjection(input.matchdayId);
+  return result;
 }

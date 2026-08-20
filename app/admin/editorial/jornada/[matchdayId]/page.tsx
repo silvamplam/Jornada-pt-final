@@ -12,6 +12,7 @@ import {
   type LiveMatchdayHierarchicalTransferSlotType,
 } from "@/lib/editorial-hierarchical-composition";
 import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
+import { isLatestFourNewsSlotType } from "@/lib/editorial-matchday-latest-four-projection";
 import {
   MATCHDAY_LIVE_PUBLIC_ZONE_LABELS,
   normalizeMatchdayLivePublicZoneOrder,
@@ -1541,6 +1542,10 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
     const item = liveLayoutItems.find((candidate) => candidate.slot_type === position.transferSlotType);
     if (!item) return;
+    if (
+      isLatestFourNewsSlotType(position.transferSlotType)
+      && (!cleanText(item.title) || !cleanText(item.link_url))
+    ) return;
     liveLayoutOccupantBySlotType.set(position.transferSlotType, {
       id: item.id,
       articleId: item.article_id,
@@ -1634,6 +1639,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   });
 
   LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
+    if (isLatestFourNewsSlotType(position.transferSlotType)) return;
     const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
     newsTransferTargetOptions.push({
       targetSlotType: position.transferSlotType,
@@ -1715,6 +1721,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
     }
 
     LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
+      if (isLatestFourNewsSlotType(position.transferSlotType)) return;
       const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
       if (sourceSlotType === position.transferSlotType) {
         options.push({
@@ -3059,6 +3066,9 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                               <>
                                 {occupant.label ? <small>{occupant.label}</small> : null}
                                 <strong>{occupant.title ?? "Notícia sem título"}</strong>
+                                {isLatestFourNewsSlotType(position.transferSlotType) ? (
+                                  <small>Projeção automática das quatro primeiras notícias publicadas de Últimas.</small>
+                                ) : null}
                                 <NewsTransferControl
                                   matchdayId={matchday.id}
                                   articleId={articleIdForPlacement(occupant.linkUrl, occupant.articleId)}
@@ -3071,7 +3081,11 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                                 />
                               </>
                             ) : (
-                              <small>Posição livre. Usa “Transferir para…” em qualquer notícia do circuito editorial para a preencher.</small>
+                              <small>
+                                {isLatestFourNewsSlotType(position.transferSlotType)
+                                  ? "Sem notícia publicada correspondente em Últimas."
+                                  : "Posição livre. Usa “Transferir para…” em qualquer notícia do circuito editorial para a preencher."}
+                              </small>
                             )}
                           </div>
                         </details>

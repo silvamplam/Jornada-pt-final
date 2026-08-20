@@ -41,6 +41,25 @@ test("Últimas continua a ordenar sempre pela data/hora canónica mais recente",
   assert.ok(gestorRouteSource.includes("await normalizeLatestNewsOrder(matchdayId);"));
 });
 
+test("os quatro lugares junto de Últimas são origem manual, mas nunca destino independente", () => {
+  assert.ok(flowSource.includes("syncLatestFourNewsProjection(matchdayId)"));
+  assert.ok(flowSource.includes("news-flow-automatic-latest-projection"));
+  assert.ok(flowSource.includes("!isLatestFourNewsSlotType(slotType)"));
+  assert.doesNotMatch(
+    flowSource,
+    /isLatestFourNewsSlotType\(input\.sourceSlotType\)[\s\S]{0,200}news-flow-automatic-latest-projection/,
+  );
+  assert.match(
+    flowSource,
+    /isLatestFourNewsSlotType\(input\.targetSlotType\)[\s\S]{0,200}news-flow-automatic-latest-projection/,
+  );
+  assert.ok(editorialPageSource.includes("Projeção automática das quatro primeiras notícias publicadas de Últimas."));
+  assert.match(
+    editorialPageSource,
+    /Projeção automática das quatro primeiras notícias publicadas de Últimas\.<\/small>[\s\S]{0,500}<NewsTransferControl/,
+  );
+});
+
 test("Últimas não grava o UUID canónico na FK legada de articles", () => {
   assert.ok(flowSource.includes("article_id: null"));
   const canonicalLegacyGuard = 'const articleId = linkUrl?.startsWith("/noticias/") ? null : rawArticleId;';

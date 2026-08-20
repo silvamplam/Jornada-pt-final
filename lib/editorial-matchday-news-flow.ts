@@ -20,6 +20,10 @@ import {
 import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
 import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
 import {
+  isLatestFourNewsSlotType,
+  syncLatestFourNewsProjection,
+} from "@/lib/editorial-matchday-latest-four-projection";
+import {
   moveEditorialHorizontalNewsItem,
   prioritizeEditorialHorizontalNewsItem,
   type EditorialHorizontalNewsMoveDirection,
@@ -309,7 +313,10 @@ export async function normalizeLatestNewsOrder(matchdayId: string) {
     ).catch(() => []),
   ]);
 
-  if (rows.length < 2) return;
+  if (rows.length < 2) {
+    await syncLatestFourNewsProjection(matchdayId);
+    return;
+  }
 
   const orderByArticleId = new Map(
     articles.map((article) => [article.id, dateValue(article.published_at) || dateValue(article.created_at)] as const),
@@ -343,6 +350,7 @@ export async function normalizeLatestNewsOrder(matchdayId: string) {
       });
     }),
   );
+  await syncLatestFourNewsProjection(matchdayId);
 }
 
 export async function ensurePublishedArticleInLatest(matchdayId: string, articleId: string) {
@@ -410,6 +418,7 @@ export async function placePublishedArticleInitially(
 
   const article = await readPublishedCompleteArticle(articleId, matchdayId);
   await writeArticleToTargetZone(matchdayId, articleId, article, targetSlotType, null);
+  await syncLatestFourNewsProjection(matchdayId);
   await syncCurrentPublishedReferenceCompositionNewsFlow(matchdayId);
 }
 
@@ -1648,6 +1657,15 @@ export async function transferPublishedArticleBetweenMatchdayZones(input: Editor
   if (input.sourceSlotType === input.targetSlotType) {
     throw new EditorialMatchdayNewsFlowError("news-flow-same-zone", "Escolhe uma zona de destino diferente.");
   }
+  if (
+    isLatestFourNewsSlotType(input.targetSlotType)
+    || isLatestFourNewsSlotType(input.displacedTargetSlotType)
+  ) {
+    throw new EditorialMatchdayNewsFlowError(
+      "news-flow-automatic-latest-projection",
+      "Os quatro lugares junto de Últimas não podem ser escolhidos como destino porque são preenchidos automaticamente.",
+    );
+  }
 
   const article = await readPublishedCompleteArticle(input.articleId, input.matchdayId);
   const articlePath = publicArticlePath(article.slug);
@@ -1736,6 +1754,7 @@ export async function transferPublishedArticleBetweenMatchdayZones(input: Editor
     await clearArticleFromSourceZone(input.matchdayId, input.sourceSlotType, input.sourceId);
   }
 
+  await syncLatestFourNewsProjection(input.matchdayId);
   await syncCurrentPublishedReferenceCompositionNewsFlow(input.matchdayId);
 
   return {
@@ -1752,5 +1771,7 @@ export function editorialNewsFlowTransferTargets(sourceSlotType: EditorialMatchd
     "side_block",
     ...LIVE_MATCHDAY_HIERARCHICAL_TRANSFER_SLOT_TYPES,
   ];
-  return slotTypes.filter((slotType) => slotType !== sourceSlotType);
+  return slotTypes.filter(
+    (slotType) => slotType !== sourceSlotType && !isLatestFourNewsSlotType(slotType),
+  );
 }

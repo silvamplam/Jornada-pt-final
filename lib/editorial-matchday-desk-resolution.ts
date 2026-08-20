@@ -2,6 +2,7 @@ import {
   fetchSupabaseAdminTable,
   writeSupabaseAdmin,
 } from "@/lib/supabase";
+import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
 
 function positivePlacementOrder(placementKey: string, prefix: string) {
   if (!placementKey.startsWith(`${prefix}:`)) return null;
@@ -15,6 +16,20 @@ function positivePlacementOrder(placementKey: string, prefix: string) {
 
 function publicArticlePath(slug: string) {
   return `/noticias/${encodeURIComponent(slug)}`;
+}
+
+async function syncLatestProjectionAfterRelevantPlacement(matchdayId: string, placementKey: string) {
+  const isEditorialZone = placementKey === "headline"
+    || placementKey === "side_block"
+    || placementKey === "complement";
+  const isListZone = Boolean(
+    positivePlacementOrder(placementKey, "highlight")
+    || positivePlacementOrder(placementKey, "latest")
+    || positivePlacementOrder(placementKey, "important_item"),
+  );
+  if (isEditorialZone || isListZone || placementKey.startsWith("live_")) {
+    await syncLatestFourNewsProjection(matchdayId);
+  }
 }
 
 async function patchDeskEditorial(
@@ -259,6 +274,7 @@ export async function resolveMatchdayEditorialDeskInactivePlacement(input: {
 
   if (action === "remove") {
     await removePlacement(matchdayId, placementKey);
+    await syncLatestProjectionAfterRelevantPlacement(matchdayId, placementKey);
     return;
   }
 
@@ -266,6 +282,7 @@ export async function resolveMatchdayEditorialDeskInactivePlacement(input: {
     await patchDeskEditorial(matchdayId, {
       status: "published",
     });
+    await syncLatestFourNewsProjection(matchdayId);
     return;
   }
 
@@ -273,6 +290,7 @@ export async function resolveMatchdayEditorialDeskInactivePlacement(input: {
     await patchDeskEditorial(matchdayId, {
       side_block_status: "published",
     });
+    await syncLatestFourNewsProjection(matchdayId);
     return;
   }
 
@@ -280,6 +298,7 @@ export async function resolveMatchdayEditorialDeskInactivePlacement(input: {
     await patchDeskEditorial(matchdayId, {
       complementary_status: "published",
     });
+    await syncLatestFourNewsProjection(matchdayId);
     return;
   }
 
@@ -297,6 +316,7 @@ export async function resolveMatchdayEditorialDeskInactivePlacement(input: {
         body: JSON.stringify({ status: "published" }),
       },
     );
+    await syncLatestFourNewsProjection(matchdayId);
     return;
   }
 
@@ -314,6 +334,7 @@ export async function resolveMatchdayEditorialDeskInactivePlacement(input: {
         body: JSON.stringify({ status: "published" }),
       },
     );
+    await syncLatestFourNewsProjection(matchdayId);
     return;
   }
 
@@ -331,6 +352,7 @@ export async function resolveMatchdayEditorialDeskInactivePlacement(input: {
         body: JSON.stringify({ status: "published" }),
       },
     );
+    await syncLatestFourNewsProjection(matchdayId);
     return;
   }
 
@@ -354,6 +376,7 @@ export async function resolveMatchdayEditorialDeskCanonicalPlacement(input: {
 
   if (action === "remove") {
     await removePlacement(matchdayId, placementKey);
+    await syncLatestProjectionAfterRelevantPlacement(matchdayId, placementKey);
     return;
   }
 
@@ -367,4 +390,5 @@ export async function resolveMatchdayEditorialDeskCanonicalPlacement(input: {
     articleId,
     articleSlug,
   );
+  await syncLatestProjectionAfterRelevantPlacement(matchdayId, placementKey);
 }

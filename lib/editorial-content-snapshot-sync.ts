@@ -1,4 +1,5 @@
-import { writeSupabaseAdmin } from "@/lib/supabase";
+import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
+import { fetchSupabaseAdminTable, writeSupabaseAdmin } from "@/lib/supabase";
 
 export type EditorialContentSnapshotSource = {
   slug: string | null;
@@ -59,6 +60,28 @@ async function patchSnapshots(table: string, linkField: string, currentLink: str
   });
 }
 
+async function readAffectedLiveMatchdayIds(currentLink: string) {
+  const encodedLink = encodeURIComponent(currentLink);
+  const rows = await Promise.all([
+    fetchSupabaseAdminTable<{ matchday_id: string }>(
+      `matchday_editorials?select=matchday_id&headline_link_url=eq.${encodedLink}`,
+    ),
+    fetchSupabaseAdminTable<{ matchday_id: string }>(
+      `matchday_editorials?select=matchday_id&side_block_link_url=eq.${encodedLink}`,
+    ),
+    fetchSupabaseAdminTable<{ matchday_id: string }>(
+      `matchday_editorials?select=matchday_id&complementary_link_url=eq.${encodedLink}`,
+    ),
+    fetchSupabaseAdminTable<{ matchday_id: string }>(
+      `matchday_highlights?select=matchday_id&link_url=eq.${encodedLink}`,
+    ),
+    fetchSupabaseAdminTable<{ matchday_id: string }>(
+      `matchday_latest_news?select=matchday_id&link_url=eq.${encodedLink}`,
+    ),
+  ]);
+  return rows.flatMap((tableRows) => tableRows.map((row) => row.matchday_id));
+}
+
 export async function syncEditorialContentSnapshots({
   previousSlug,
   content,
@@ -78,8 +101,12 @@ export async function syncEditorialContentSnapshots({
   const imageUrl = contentImageUrl(content);
   const author = cleanText(content.author);
   const links = uniqueLinks(previousSlug, nextSlug);
+  const affectedLiveMatchdayIds = new Set<string>();
 
   for (const currentLink of links) {
+    const affectedMatchdayIds = await readAffectedLiveMatchdayIds(currentLink);
+    affectedMatchdayIds.forEach((matchdayId) => affectedLiveMatchdayIds.add(matchdayId));
+
     const homeHeadline: SnapshotPayload = { headline_title: title, headline_link_url: nextLink };
     addIfValue(homeHeadline, "headline_subtitle", subtitle);
     addIfValue(homeHeadline, "headline_image_url", imageUrl);
@@ -152,4 +179,8 @@ export async function syncEditorialContentSnapshots({
       patchSnapshots("matchday_reference_composition_items", "link_url_snapshot", currentLink, referenceItem),
     ]);
   }
+
+  await Promise.all(
+    Array.from(affectedLiveMatchdayIds, (matchdayId) => syncLatestFourNewsProjection(matchdayId)),
+  );
 }
