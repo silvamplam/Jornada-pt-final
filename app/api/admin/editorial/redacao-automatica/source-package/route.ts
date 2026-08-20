@@ -5,7 +5,7 @@ import {
   isEditorialSourcePackageLocation,
   normalizeEditorialSourcePackageEditorialInput,
   normalizeEditorialSourcePackageSelections,
-  type EditorialSourcePackageOutputInput,
+  type EditorialSourcePackageOutputCreationInput,
   type EditorialSourcePackageSelection,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
@@ -104,8 +104,9 @@ export async function POST(request: Request) {
 
   let selections = selectedAdditions;
   let outputs:
-    readonly EditorialSourcePackageOutputInput[]
+    readonly EditorialSourcePackageOutputCreationInput[]
     | undefined;
+  let allowMultipleSnapshotsPerArticle = false;
 
   if (reuseRequested) {
     const reuseLocation = {
@@ -148,15 +149,18 @@ export async function POST(request: Request) {
       });
     }
 
-    const newByArticleId = new Map(
+    const newSourceSnapshotIdentities = new Set(
       selectedAdditions.map((selection) => [
         selection.newsroomArticleId,
-        selection,
-      ]),
+        selection.newsroomSnapshotId,
+      ].join("\u0000")),
     );
 
     const previousSelections = previousEntries
-      .filter((entry) => !newByArticleId.has(entry.newsroomArticleId!))
+      .filter((entry) => !newSourceSnapshotIdentities.has([
+        entry.newsroomArticleId,
+        entry.newsroomSnapshotId,
+      ].join("\u0000")))
       .map((entry) => ({
         newsroomArticleId: entry.newsroomArticleId!,
         newsroomSnapshotId: entry.newsroomSnapshotId!,
@@ -173,7 +177,9 @@ export async function POST(request: Request) {
     const normalized = normalizeEditorialSourcePackageSelections([
       ...previousSelections,
       ...newSelections,
-    ]);
+    ], {
+      allowMultipleSnapshotsPerArticle: true,
+    });
 
     if (!normalized) {
       return redirectTo("/admin/editorial/redacao-automatica", {
@@ -182,6 +188,7 @@ export async function POST(request: Request) {
     }
 
     selections = normalized;
+    allowMultipleSnapshotsPerArticle = true;
 
     const selectedArticleIds =
       new Set(
@@ -209,6 +216,12 @@ export async function POST(request: Request) {
             )
               ? output.imageNewsroomArticleId
               : null,
+          ...(output.publishedArticleId && output.publishedSlug
+            ? {
+                publishedArticleId: output.publishedArticleId,
+                publishedSlug: output.publishedSlug,
+              }
+            : {}),
         }));
   }
 
@@ -219,6 +232,9 @@ export async function POST(request: Request) {
     editorial,
     ...(outputs?.length
       ? { outputs }
+      : {}),
+    ...(allowMultipleSnapshotsPerArticle
+      ? { allowMultipleSnapshotsPerArticle: true }
       : {}),
   });
 

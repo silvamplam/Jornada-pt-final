@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildEditorialSourcePackageMarkdown,
   editorialSourcePackageArticleImageSources,
+  normalizeEditorialSourcePackageCreationOutputs,
   normalizeEditorialSourcePackageOutputs,
   type EditorialSourcePackageEntry,
 } from "./editorial-source-package-internal";
@@ -177,6 +178,70 @@ test(
     assert.match(
       markdown,
       /# DOSSIÊ DE FONTES 01 DE 01/,
+    );
+  },
+);
+
+test(
+  "um pacote reutilizado preserva o alvo publicado sem nascer utilizado",
+  () => {
+    const outputs = normalizeEditorialSourcePackageCreationOutputs(
+      [{
+        position: 1,
+        sourceArticlePosition: 1,
+        focus: "Atualização integral",
+        imageNewsroomArticleId: ARTICLE_A,
+        publishedArticleId:
+          "93000000-0000-4000-8000-000000000001",
+        publishedSlug: "endereco-publico-original",
+      }],
+      entries(),
+    );
+
+    assert.deepEqual(outputs, [{
+      position: 1,
+      sourceArticlePosition: 1,
+      focus: "Atualização integral",
+      imageNewsroomArticleId: ARTICLE_A,
+      publishedArticleId:
+        "93000000-0000-4000-8000-000000000001",
+      publishedSlug: "endereco-publico-original",
+    }]);
+    assert.equal("usedAt" in outputs![0], false);
+  },
+);
+
+test(
+  "a criação rejeita alvos incompletos e usedAt transportado",
+  () => {
+    const base = {
+      position: 1,
+      sourceArticlePosition: 1,
+      focus: "Atualização integral",
+      imageNewsroomArticleId: ARTICLE_A,
+    };
+
+    assert.equal(
+      normalizeEditorialSourcePackageCreationOutputs(
+        [{ ...base, publishedArticleId: ARTICLE_A }],
+        entries(),
+      ),
+      null,
+    );
+    assert.equal(
+      normalizeEditorialSourcePackageCreationOutputs(
+        [{
+          ...base,
+          publishedArticleId: ARTICLE_A,
+          publishedSlug: "endereco-publico-original",
+          usedAt: "2026-08-20T19:00:00.000Z",
+        } as typeof base & {
+          publishedArticleId: string;
+          publishedSlug: string;
+        }],
+        entries(),
+      ),
+      null,
     );
   },
 );

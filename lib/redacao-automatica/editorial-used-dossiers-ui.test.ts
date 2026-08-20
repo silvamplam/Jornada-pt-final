@@ -126,3 +126,52 @@ test("os Dossiês em Utilizadas começam fechados e permitem abrir as fontes", (
   assert.match(styles, /\.usedDossierDetails/);
   assert.match(styles, /\.usedDossierDetails\[open\]/);
 });
+
+test("Utilizadas mantém o histórico e separa o snapshot atual já utilizado", () => {
+  const inbox = read(
+    "lib/redacao-automatica/newsroom-editorial-inbox.ts",
+  );
+
+  assert.match(inbox, /readAllHistoricalUsedStates/);
+  assert.match(inbox, /historicalUsedItems/);
+  assert.match(inbox, /currentSnapshotUsedByArticleId/);
+  assert.match(inbox, /currentSnapshotUsedIds/);
+  assert.match(inbox, /items = historicalUsedItems/);
+  assert.doesNotMatch(
+    inbox,
+    /article\.latestSnapshotId !== usedState\.snapshotId\) \{\s*return null/,
+  );
+});
+
+test("um Dossiê agrega e conta fontes com atualização disponível", () => {
+  const component = read(
+    "app/admin/editorial/redacao-automatica/_usedDossierList.tsx",
+  );
+  const styles = read(
+    "app/admin/editorial/redacao-automatica/redacao-automatica.module.css",
+  );
+
+  assert.match(component, /const key = dossier\?\.key/);
+  assert.match(component, /usageBySource/);
+  assert.match(component, /updates\.every\(Boolean\)/);
+  assert.match(component, /ATUALIZAÇÃO DISPONÍVEL/);
+  assert.match(component, /ATUALIZAÇÕES DISPONÍVEIS/);
+  assert.match(component, /group\.updateAvailableCount/);
+  assert.match(styles, /\.usedDossierUpdateBadge/);
+});
+
+test("Reutilizar Dossiê transporta fontes e alvo, mas não transporta usedAt", () => {
+  const route = read(
+    "app/api/admin/editorial/redacao-automatica/source-package/route.ts",
+  );
+  const reuseStart = route.indexOf("if (reuseRequested)");
+  const reuseEnd = route.indexOf("const packageId", reuseStart);
+  const reuse = route.slice(reuseStart, reuseEnd);
+
+  assert.ok(reuseStart >= 0 && reuseEnd > reuseStart);
+  assert.match(reuse, /\.\.\.previousSelections/);
+  assert.match(reuse, /\.\.\.newSelections/);
+  assert.match(reuse, /output\.publishedArticleId/);
+  assert.match(reuse, /output\.publishedSlug/);
+  assert.doesNotMatch(reuse, /usedAt/);
+});

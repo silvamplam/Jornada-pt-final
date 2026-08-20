@@ -20,6 +20,7 @@ type UsedDossierGroup = {
   reuseHref: string | null;
   selectionValue: string | null;
   latestUsedAt: string | null;
+  updateAvailableCount: number;
   articles: NewsroomEditorialInboxItem[];
 };
 
@@ -132,19 +133,33 @@ function dossierGroups(
       reuseHref: reuseDossierHref(article),
       selectionValue: dossierSelectionValue(article),
       latestUsedAt: article.usedAt,
+      updateAvailableCount: 0,
       articles: [article],
     });
   }
 
   return [...groups.values()]
-    .map((group) => ({
-      ...group,
-      articles: [...group.articles].sort((left, right) => (
-        (left.usedDossier?.sourcePosition ?? 0)
-        - (right.usedDossier?.sourcePosition ?? 0)
-        || left.id.localeCompare(right.id)
-      )),
-    }))
+    .map((group) => {
+      const usageBySource = new Map<string, boolean[]>();
+
+      for (const article of group.articles) {
+        const updates = usageBySource.get(article.id) ?? [];
+        updates.push(article.usedUpdateAvailable);
+        usageBySource.set(article.id, updates);
+      }
+
+      return {
+        ...group,
+        updateAvailableCount: [...usageBySource.values()].filter(
+          (updates) => updates.every(Boolean),
+        ).length,
+        articles: [...group.articles].sort((left, right) => (
+          (left.usedDossier?.sourcePosition ?? 0)
+          - (right.usedDossier?.sourcePosition ?? 0)
+          || left.id.localeCompare(right.id)
+        )),
+      };
+    })
     .sort((left, right) => (
       usedTimestamp(right.latestUsedAt)
       - usedTimestamp(left.latestUsedAt)
@@ -194,6 +209,14 @@ export default function UsedDossierList({
                   </div>
 
                   <h3>{group.title}</h3>
+
+                  {group.updateAvailableCount > 0 ? (
+                    <strong className={styles.usedDossierUpdateBadge}>
+                      {group.updateAvailableCount === 1
+                        ? "ATUALIZAÇÃO DISPONÍVEL"
+                        : `${group.updateAvailableCount} ATUALIZAÇÕES DISPONÍVEIS`}
+                    </strong>
+                  ) : null}
                 </div>
 
                 <div className={styles.usedDossierHeaderMeta}>
@@ -245,7 +268,12 @@ export default function UsedDossierList({
 
                 <ol className={styles.usedDossierSources}>
                   {group.articles.map((article, index) => (
-                    <li key={article.id}>
+                    <li key={[
+                      article.usedDossier?.packageId,
+                      article.usedDossier?.sourcePosition,
+                      article.id,
+                      article.usedAt,
+                    ].join(":")}>
                       <span className={styles.usedDossierSourceNumber}>
                         {String(index + 1).padStart(2, "0")}
                       </span>

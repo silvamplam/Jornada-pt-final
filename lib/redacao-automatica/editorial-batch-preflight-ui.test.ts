@@ -407,6 +407,64 @@ test("uma colisão de Dossiê exige confirmação explícita antes de atualizar 
   );
 });
 
+test("um Dossiê reutilizado resolve o artigo original por ID apesar de um título novo", () => {
+  assert.match(
+    publicationRouteSource,
+    /updateTarget\s*\?\s*await readExistingArticleById\(updateTarget\.publishedArticleId\)/,
+  );
+  assert.match(
+    publicationRouteSource,
+    /const slug = updateTarget\?\.publishedSlug\s*\?\?\s*normalizeEditorialArticleSlug\(article\.title\)/,
+  );
+  assert.match(
+    publicationRouteSource,
+    /updateTargetFromDossier: Boolean\(item\.updateTarget\)/,
+  );
+  assert.match(clientSource, /artigo publicado identificado pelo Dossiê reutilizado/);
+});
+
+test("o alvo herdado é revalidado e não admite confirmação ou criação arbitrária", () => {
+  assert.match(publicationRouteSource, /editorialBatchUpdateTargetIssue/);
+  assert.match(publicationRouteSource, /confirmed-update-target-mismatch/);
+  assert.match(publicationRouteSource, /invalid-dossier-update-target/);
+  assert.match(
+    publicationRouteSource,
+    /updateArticleId !== updateTarget\.publishedArticleId/,
+  );
+  assert.match(
+    publicationRouteSource,
+    /publicationMode !== "update" && publicationMode !== "resume"/,
+  );
+  assert.match(
+    publicationRouteSource,
+    /não pode criar automaticamente um segundo artigo/,
+  );
+});
+
+test("a atualização por alvo mantém identidade, URL, data e histórico de utilização", () => {
+  assert.match(
+    publicationRouteSource,
+    /updateEditorialArticle\(\s*existing\.id/,
+  );
+  assert.match(publicationRouteSource, /slug:\s*existing\.slug\s*\?\?\s*slug/);
+  assert.match(publicationRouteSource, /published_at:\s*existing\.published_at/);
+  assert.match(
+    publicationRouteSource,
+    /ensurePublishedArticleInLatest\(\s*matchdayId,\s*existing\.id/,
+  );
+  assert.match(
+    publicationRouteSource,
+    /markSourcePackageUsed\(\s*sourcePackage,\s*article\.index,\s*existing\.id/,
+  );
+});
+
+test("pacotes normais mantêm os caminhos create, resume e salvaguarda por slug", () => {
+  assert.match(publicationRouteSource, /readExistingArticleBySlug\(slug\)/);
+  assert.match(publicationRouteSource, /\? "resume" as const\s*: "create" as const/);
+  assert.match(publicationRouteSource, /createEditorialArticle/);
+  assert.match(publicationRouteSource, /slug-collision/);
+});
+
 
 test("saídas do mesmo Dossiê preservam a hora real da fonte sem offsets artificiais", () => {
   assert.doesNotMatch(

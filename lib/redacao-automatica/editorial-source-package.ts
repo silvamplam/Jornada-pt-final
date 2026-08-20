@@ -15,6 +15,7 @@ import {
   editorialSourcePackageFileName,
   isEditorialSourcePackageLocation,
   normalizeEditorialSourcePackageEditorialInput,
+  normalizeEditorialSourcePackageCreationOutputs,
   normalizeEditorialSourcePackageOutputs,
   normalizeEditorialSourcePackageSelections,
   updateEditorialSourcePackageMarkdown,
@@ -22,6 +23,7 @@ import {
   type EditorialSourcePackageEntry,
   type EditorialSourcePackageManifest,
   type EditorialSourcePackageOutput,
+  type EditorialSourcePackageOutputCreationInput,
   type EditorialSourcePackageOutputInput,
   type EditorialSourcePackagePreparedEntry,
   type EditorialSourcePackageSelection,
@@ -79,7 +81,8 @@ export type CreateEditorialSourcePackageInput = Readonly<{
   packageId: string;
   selections: readonly EditorialSourcePackageSelection[];
   editorial: EditorialSourcePackageEditorialInput;
-  outputs?: readonly EditorialSourcePackageOutputInput[];
+  outputs?: readonly EditorialSourcePackageOutputCreationInput[];
+  allowMultipleSnapshotsPerArticle?: boolean;
   now?: Date;
 }>;
 
@@ -455,7 +458,13 @@ function persistedManifest(
 export async function createEditorialSourcePackage(
   input: CreateEditorialSourcePackageInput,
 ): Promise<CreateEditorialSourcePackageResult> {
-  const selections = normalizeEditorialSourcePackageSelections(input.selections);
+  const selections = normalizeEditorialSourcePackageSelections(
+    input.selections,
+    {
+      allowMultipleSnapshotsPerArticle:
+        input.allowMultipleSnapshotsPerArticle,
+    },
+  );
   const editorial = normalizeEditorialSourcePackageEditorialInput({
     genre: input.editorial.genre,
     suggestedTitle: input.editorial.suggestedTitle ?? "",
@@ -618,7 +627,7 @@ export async function createEditorialSourcePackage(
 
   const requestedOutputs =
     input.outputs
-      ? normalizeEditorialSourcePackageOutputs(
+      ? normalizeEditorialSourcePackageCreationOutputs(
           input.outputs,
           entries,
         )
@@ -949,11 +958,7 @@ export async function updateEditorialSourcePackageOutputs(
 
   if (
     current.value.manifest.outputs.some(
-      (output) => (
-        output.usedAt
-        || output.publishedArticleId
-        || output.publishedSlug
-      ),
+      (output) => output.usedAt,
     )
   ) {
     return {
@@ -962,18 +967,46 @@ export async function updateEditorialSourcePackageOutputs(
     };
   }
 
-  const outputs =
+  const normalizedOutputs =
     normalizeEditorialSourcePackageOutputs(
       input.outputs,
       current.value.manifest.entries,
     );
 
-  if (!outputs) {
+  if (!normalizedOutputs) {
     return {
       ok: false,
       error: { code: "input_invalid" },
     };
   }
+
+  const updateTargetByPosition = new Map(
+    current.value.manifest.outputs.flatMap((output) => (
+      output.publishedArticleId && output.publishedSlug
+        ? [[output.position, {
+            publishedArticleId: output.publishedArticleId,
+            publishedSlug: output.publishedSlug,
+          }] as const]
+        : []
+    )),
+  );
+
+  if (
+    [...updateTargetByPosition.keys()].some(
+      (position) => !normalizedOutputs.some((output) => output.position === position),
+    )
+  ) {
+    return {
+      ok: false,
+      error: { code: "outputs_locked" },
+    };
+  }
+
+  const outputs: readonly EditorialSourcePackageOutput[] =
+    normalizedOutputs.map((output) => ({
+      ...output,
+      ...(updateTargetByPosition.get(output.position) ?? {}),
+    }));
 
   const editorial:
     EditorialSourcePackageEditorialInput = {

@@ -37,6 +37,12 @@ export type EditorialSourcePackageOutputInput = Readonly<{
   imageNewsroomArticleId: string | null;
 }>;
 
+export type EditorialSourcePackageOutputCreationInput =
+  EditorialSourcePackageOutputInput & Readonly<{
+    publishedArticleId?: string | null;
+    publishedSlug?: string | null;
+  }>;
+
 export type EditorialSourcePackageOutput =
   EditorialSourcePackageOutputInput & Readonly<{
     usedAt?: string | null;
@@ -237,6 +243,9 @@ export function normalizeEditorialSourcePackageEditorialInput(input: Readonly<{
 
 export function normalizeEditorialSourcePackageSelections(
   selections: readonly EditorialSourcePackageSelection[],
+  options: Readonly<{
+    allowMultipleSnapshotsPerArticle?: boolean;
+  }> = {},
 ): readonly EditorialSourcePackageSelection[] | null {
   if (
     selections.length < 1
@@ -247,6 +256,7 @@ export function normalizeEditorialSourcePackageSelections(
 
   const articleIds = new Set<string>();
   const snapshotIds = new Set<string>();
+  const sourceSnapshotIdentities = new Set<string>();
   const groupPositions = new Map<number, number>();
   const preferredImageGroups = new Set<number>();
   const normalized: EditorialSourcePackageSelection[] = [];
@@ -255,13 +265,19 @@ export function normalizeEditorialSourcePackageSelections(
   for (const [index, selection] of selections.entries()) {
     const newsroomArticleId = cleanId(selection.newsroomArticleId);
     const newsroomSnapshotId = cleanId(selection.newsroomSnapshotId);
+    const sourceSnapshotIdentity =
+      `${newsroomArticleId}\u0000${newsroomSnapshotId}`;
     const rawArticleGroup = selection.articleGroup ?? index + 1;
 
     if (
       !UUID_PATTERN.test(newsroomArticleId)
       || !UUID_PATTERN.test(newsroomSnapshotId)
-      || articleIds.has(newsroomArticleId)
+      || (
+        !options.allowMultipleSnapshotsPerArticle
+        && articleIds.has(newsroomArticleId)
+      )
       || snapshotIds.has(newsroomSnapshotId)
+      || sourceSnapshotIdentities.has(sourceSnapshotIdentity)
       || !Number.isInteger(rawArticleGroup)
       || rawArticleGroup < 1
       || rawArticleGroup > EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES
@@ -285,6 +301,7 @@ export function normalizeEditorialSourcePackageSelections(
 
     articleIds.add(newsroomArticleId);
     snapshotIds.add(newsroomSnapshotId);
+    sourceSnapshotIdentities.add(sourceSnapshotIdentity);
     normalized.push({
       newsroomArticleId,
       newsroomSnapshotId,
@@ -412,6 +429,53 @@ export function normalizeEditorialSourcePackageOutputs(
   }
 
   return normalized;
+}
+
+export function normalizeEditorialSourcePackageCreationOutputs(
+  outputs: readonly EditorialSourcePackageOutputCreationInput[],
+  entries: readonly EditorialSourcePackageOutputSourceEntry[],
+): readonly EditorialSourcePackageOutput[] | null {
+  const normalized = normalizeEditorialSourcePackageOutputs(
+    outputs,
+    entries,
+  );
+
+  if (!normalized) {
+    return null;
+  }
+
+  const creationOutputs: EditorialSourcePackageOutput[] = [];
+
+  for (const [index, output] of normalized.entries()) {
+    const input = outputs[index];
+    const publishedArticleId = typeof input.publishedArticleId === "string"
+      ? cleanId(input.publishedArticleId)
+      : "";
+    const publishedSlug = typeof input.publishedSlug === "string"
+      ? input.publishedSlug.trim()
+      : "";
+
+    if (
+      (publishedArticleId && !UUID_PATTERN.test(publishedArticleId))
+      || Boolean(publishedArticleId) !== Boolean(publishedSlug)
+      || (
+        "usedAt" in input
+        && typeof (input as { usedAt?: unknown }).usedAt === "string"
+        && Boolean((input as { usedAt: string }).usedAt.trim())
+      )
+    ) {
+      return null;
+    }
+
+    creationOutputs.push({
+      ...output,
+      ...(publishedArticleId
+        ? { publishedArticleId, publishedSlug }
+        : {}),
+    });
+  }
+
+  return creationOutputs;
 }
 
 export type EditorialSourcePackageArticleImageSource = Readonly<{

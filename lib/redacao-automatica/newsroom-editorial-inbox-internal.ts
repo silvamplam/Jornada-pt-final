@@ -57,7 +57,19 @@ export type NewsroomEditorialInboxItem = NewsroomArticleSummary &
     reviewedAt: string | null;
     usedAt: string | null;
     usedDossier: NewsroomEditorialUsedDossierState | null;
+    usedUpdateAvailable: boolean;
   }>;
+
+export function newsroomEditorialUsedUpdateAvailable(
+  article: NewsroomArticleSummary,
+  usedState: NewsroomEditorialUsedState | null,
+): boolean {
+  return Boolean(
+    usedState
+    && article.latestSnapshotId
+    && article.latestSnapshotId !== usedState.snapshotId,
+  );
+}
 
 export function newsroomEditorialInboxView(
   value: string | null | undefined,
@@ -133,6 +145,10 @@ export function decorateNewsroomEditorialInboxItem(
     reviewedAt: state?.reviewedAt ?? null,
     usedAt: usedState?.usedAt ?? null,
     usedDossier: usedState?.dossier ?? null,
+    usedUpdateAvailable: newsroomEditorialUsedUpdateAvailable(
+      article,
+      usedState,
+    ),
   };
 }
 

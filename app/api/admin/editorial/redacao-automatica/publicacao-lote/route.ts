@@ -22,6 +22,11 @@ import {
 import {
   isEditorialSourcePackageLocation,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
+import {
+  editorialBatchTargetPublicationMode,
+  editorialBatchUpdateTargetIssue,
+  type EditorialBatchUpdateTarget,
+} from "@/lib/redacao-automatica/editorial-batch-update-target";
 
 const MAX_BATCH_ARTICLES = 30;
 const OFFICIAL_BATCH_KEY = /^\d{2}$/;
@@ -69,6 +74,7 @@ type PreparedBatchItem = Readonly<{
   slug: string;
   existing: ExistingArticleRow | null;
   updateCandidate: boolean;
+  updateTarget: SourcePackageUpdateTarget | null;
 }>;
 
 type SourcePackagePayload = Readonly<{
@@ -76,6 +82,8 @@ type SourcePackagePayload = Readonly<{
   month: string;
   packageId: string;
 }>;
+
+type SourcePackageUpdateTarget = EditorialBatchUpdateTarget;
 
 type ReconcileArticleRow = ExistingArticleRow & Readonly<{
   image_caption: string | null;
@@ -279,11 +287,20 @@ async function sourcePublishedAtByArticle(
 
   const publishedAtByArticle =
     new Map<number, string>();
+  const updateTargetByArticle =
+    new Map<number, SourcePackageUpdateTarget>();
 
   for (
     const output
     of sourcePackageResult.value.manifest.outputs
   ) {
+    if (output.publishedArticleId && output.publishedSlug) {
+      updateTargetByArticle.set(output.position, {
+        publishedArticleId: output.publishedArticleId,
+        publishedSlug: output.publishedSlug,
+      });
+    }
+
     const sourcePublishedAt =
       latestPublishedAtBySourceGroup.get(
         output.sourceArticlePosition,
@@ -302,6 +319,7 @@ async function sourcePublishedAtByArticle(
   return {
     package: sourcePackageResult.value,
     publishedAtByArticle,
+    updateTargetByArticle,
   };
 }
 
@@ -312,15 +330,49 @@ async function readExistingArticleBySlug(slug: string) {
   return rows[0] ?? null;
 }
 
+async function readExistingArticleById(articleId: string) {
+  const rows = await fetchSupabaseAdminTable<ExistingArticleRow>(
+    "editorial_articles?select=id,slug,label,title,subtitle,body,image_url,author,published_at,matchday_id,status"
+    + `&id=eq.${encodeURIComponent(articleId)}&limit=1`,
+  );
+  return rows[0] ?? null;
+}
+
+function assertValidSourcePackageUpdateTarget(
+  existing: ExistingArticleRow | null,
+  target: SourcePackageUpdateTarget,
+  matchdayId: string,
+  articleKey: string,
+): asserts existing is ExistingArticleRow {
+  const issue = editorialBatchUpdateTargetIssue(
+    existing
+      ? {
+          id: existing.id,
+          slug: existing.slug,
+          status: existing.status,
+          matchdayId: existing.matchday_id,
+          publishedAt: existing.published_at,
+        }
+      : null,
+    target,
+    matchdayId,
+  );
+
+  if (issue) {
+    throw new Error(`update-target-${issue}:${articleKey}`);
+  }
+}
+
 function existingArticleMatches(
   existing: ExistingArticleRow,
   article: BatchArticlePayload,
   author: string,
   matchdayId: string,
   publishedAt?: string | null,
+  expectedSlug = normalizeEditorialArticleSlug(article.title),
 ) {
   if (existing.status !== "published") return false;
-  if (cleanText(existing.slug) !== normalizeEditorialArticleSlug(article.title)) return false;
+  if (cleanText(existing.slug) !== expectedSlug) return false;
   if (cleanText(existing.label) !== article.label) return false;
   if (cleanText(existing.title) !== article.title) return false;
   if (cleanText(existing.subtitle) !== article.subtitle) return false;
@@ -336,6 +388,7 @@ async function prepareBatch(
   author: string,
   matchdayId: string,
   allowUpdates: boolean,
+  updateTargetByArticle: ReadonlyMap<number, SourcePackageUpdateTarget>,
 ) {
   const context = await resolveCanonicalArticleContext({ competition_id: null, season_id: null, matchday_id: matchdayId });
   if (!context.matchday_id || context.matchday_id !== matchdayId) {
@@ -346,7 +399,9 @@ async function prepareBatch(
   const prepared: PreparedBatchItem[] = [];
 
   for (const article of articles) {
-    const slug = normalizeEditorialArticleSlug(article.title);
+    const updateTarget = updateTargetByArticle.get(article.index) ?? null;
+    const slug = updateTarget?.publishedSlug
+      ?? normalizeEditorialArticleSlug(article.title);
     if (!slug) {
       throw new EditorialArticleServiceError("missing-slug");
     }
@@ -357,8 +412,18 @@ async function prepareBatch(
     }
     seenSlugs.set(slug, article.key);
 
-    const existing =
-      await readExistingArticleBySlug(slug);
+    const existing = updateTarget
+      ? await readExistingArticleById(updateTarget.publishedArticleId)
+      : await readExistingArticleBySlug(slug);
+
+    if (updateTarget) {
+      assertValidSourcePackageUpdateTarget(
+        existing,
+        updateTarget,
+        matchdayId,
+        article.key,
+      );
+    }
 
     const existingMatches =
       existing
@@ -367,6 +432,8 @@ async function prepareBatch(
             article,
             author,
             matchdayId,
+            null,
+            updateTarget?.publishedSlug,
           )
         : false;
 
@@ -374,7 +441,7 @@ async function prepareBatch(
       Boolean(
         existing
         && !existingMatches
-        && allowUpdates
+        && (allowUpdates || Boolean(updateTarget))
         && existing.status === "published"
         && cleanText(existing.matchday_id)
           === matchdayId,
@@ -395,6 +462,7 @@ async function prepareBatch(
       slug,
       existing,
       updateCandidate,
+      updateTarget,
     });
   }
 
@@ -409,8 +477,24 @@ function publicationPlan(
     ReadonlyMap<string, string>,
 ) {
   function itemMode(item: PreparedBatchItem) {
+    const confirmedArticleId = confirmedUpdates.get(item.article.key);
+
+    if (item.updateTarget && item.existing) {
+      const targetMode = editorialBatchTargetPublicationMode({
+        targetArticleId: item.updateTarget.publishedArticleId,
+        existingMatches: !item.updateCandidate,
+        confirmedArticleId: confirmedArticleId ?? null,
+      });
+
+      if (targetMode === "confirmation_mismatch") {
+        throw new Error(`confirmed-update-target-mismatch:${item.article.key}`);
+      }
+
+      return targetMode;
+    }
+
     if (item.updateCandidate && item.existing) {
-      return confirmedUpdates.get(item.article.key)
+      return confirmedArticleId
         === item.existing.id
           ? "update" as const
           : "update_required" as const;
@@ -423,10 +507,9 @@ function publicationPlan(
 
   if (sourcePublishedAt) {
     return prepared.map((item) => {
-      const publishedAt =
-        sourcePublishedAt.get(
-          item.article.index,
-        );
+      const publishedAt = item.updateTarget && item.existing
+        ? parsePublishedAt(item.existing.published_at)
+        : sourcePublishedAt.get(item.article.index);
 
       if (!publishedAt) {
         throw new Error(
@@ -439,6 +522,7 @@ function publicationPlan(
       if (
         mode === "resume"
         && item.existing
+        && !item.updateTarget
       ) {
         const existingPublishedAt =
           parsePublishedAt(
@@ -459,6 +543,7 @@ function publicationPlan(
         key: item.article.key,
         slug: item.slug,
         mode,
+        updateTargetFromDossier: Boolean(item.updateTarget),
         ...(item.existing
           ? {
               articleId:
@@ -544,6 +629,7 @@ function publicationPlan(
       key: item.article.key,
       slug: item.slug,
       mode,
+      updateTargetFromDossier: Boolean(item.updateTarget),
       ...(item.existing
         ? {
             articleId:
@@ -614,28 +700,24 @@ async function preflightPublication(payload: BatchPublicationPayload) {
   }
 
   try {
+    const sourceContext = sourcePackage
+      ? await sourcePublishedAtByArticle(sourcePackage)
+      : null;
+
     const prepared =
       await prepareBatch(
         articles,
         author,
         matchdayId,
         Boolean(sourcePackage),
+        sourceContext?.updateTargetByArticle ?? new Map(),
       );
-
-    const sourceTimes =
-      sourcePackage
-        ? (
-            await sourcePublishedAtByArticle(
-              sourcePackage,
-            )
-          ).publishedAtByArticle
-        : null;
 
     return NextResponse.json({
       ok: true,
       items: publicationPlan(
         prepared,
-        sourceTimes,
+        sourceContext?.publishedAtByArticle ?? null,
         confirmedUpdates,
       ),
     });
@@ -690,6 +772,20 @@ async function preflightPublication(payload: BatchPublicationPayload) {
         "source-package-read-failed",
         409,
         "Não foi possível recuperar as horas das fontes deste pacote editorial.",
+      );
+    }
+    if (message.startsWith("confirmed-update-target-mismatch:")) {
+      return jsonError(
+        "update-target-mismatch",
+        409,
+        "A confirmação recebida não corresponde ao artigo publicado identificado pelo Dossiê.",
+      );
+    }
+    if (message.startsWith("update-target-")) {
+      return jsonError(
+        "invalid-dossier-update-target",
+        409,
+        "O artigo publicado identificado pelo Dossiê deixou de ser um alvo válido nesta Jornada.",
       );
     }
 
@@ -762,13 +858,37 @@ async function publishItem(payload: BatchPublicationPayload) {
       throw new EditorialArticleServiceError("invalid-context");
     }
 
-    const slug = normalizeEditorialArticleSlug(article.title);
+    const sourceContext = sourcePackage
+      ? await sourcePublishedAtByArticle(sourcePackage)
+      : null;
+    const updateTarget = sourceContext?.updateTargetByArticle.get(article.index)
+      ?? null;
+    const slug = updateTarget?.publishedSlug
+      ?? normalizeEditorialArticleSlug(article.title);
     if (!slug) {
       throw new EditorialArticleServiceError("missing-slug");
     }
 
-    const existing =
-      await readExistingArticleBySlug(slug);
+    const existing = updateTarget
+      ? await readExistingArticleById(updateTarget.publishedArticleId)
+      : await readExistingArticleBySlug(slug);
+
+    if (updateTarget) {
+      assertValidSourcePackageUpdateTarget(
+        existing,
+        updateTarget,
+        matchdayId,
+        article.key,
+      );
+
+      if (publicationMode !== "update" && publicationMode !== "resume") {
+        return jsonError(
+          "dossier-update-target-requires-existing-mode",
+          409,
+          "Este Dossiê identifica um artigo publicado e não pode criar automaticamente um segundo artigo.",
+        );
+      }
+    }
 
     if (publicationMode === "update") {
       if (!sourcePackage) {
@@ -786,6 +906,10 @@ async function publishItem(payload: BatchPublicationPayload) {
         || !existing
         || existing.id
           !== updateArticleId
+        || (
+          updateTarget
+          && updateArticleId !== updateTarget.publishedArticleId
+        )
         || existing.status
           !== "published"
         || cleanText(
@@ -886,7 +1010,14 @@ async function publishItem(payload: BatchPublicationPayload) {
     }
 
     if (existing) {
-      if (!existingArticleMatches(existing, article, author, matchdayId, publishedAt)) {
+      if (!existingArticleMatches(
+        existing,
+        article,
+        author,
+        matchdayId,
+        publishedAt,
+        updateTarget?.publishedSlug,
+      )) {
         return jsonError(
           "slug-collision",
           409,
@@ -1002,10 +1133,28 @@ async function publishItem(payload: BatchPublicationPayload) {
       return jsonError(error.code, 502, error.message);
     }
 
+    const message = error instanceof Error
+      ? error.message
+      : "A publicação do artigo falhou.";
+    if (message.startsWith("source-package-read-failed:")) {
+      return jsonError(
+        "source-package-read-failed",
+        409,
+        "Não foi possível validar o Dossiê desta publicação.",
+      );
+    }
+    if (message.startsWith("update-target-")) {
+      return jsonError(
+        "invalid-dossier-update-target",
+        409,
+        "O artigo publicado identificado pelo Dossiê deixou de ser um alvo válido nesta Jornada.",
+      );
+    }
+
     return jsonError(
       "batch-publication-failed",
       500,
-      error instanceof Error ? error.message : "A publicação do artigo falhou.",
+      message,
     );
   }
 }

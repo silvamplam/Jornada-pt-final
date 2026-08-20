@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   classifyNewsroomEditorialInboxItem,
+  decorateNewsroomEditorialInboxItem,
+  newsroomEditorialUsedUpdateAvailable,
   newsroomEditorialInboxView,
   type NewsroomEditorialReviewState,
   type NewsroomEditorialUsedState,
@@ -68,6 +70,10 @@ test("uma fonte usada no snapshot atual entra em Utilizadas", () => {
       changedAfterReview: false,
     },
   );
+  assert.equal(
+    newsroomEditorialUsedUpdateAvailable(article, usedState()),
+    false,
+  );
 });
 
 test("uma fonte utilizada volta ao fluxo normal quando recebe novo snapshot", () => {
@@ -83,6 +89,14 @@ test("uma fonte utilizada volta ao fluxo normal quando recebe novo snapshot", ()
       changedAfterReview: true,
     },
   );
+
+  const decorated = decorateNewsroomEditorialInboxItem(
+    article,
+    state("working", "33333333-3333-4333-8333-333333333333"),
+    usedState("33333333-3333-4333-8333-333333333333"),
+  );
+  assert.equal(decorated.editorial.view, "working");
+  assert.equal(decorated.usedUpdateAvailable, true);
 });
 
 test("uma notícia vista volta a Por rever quando surge novo snapshot", () => {

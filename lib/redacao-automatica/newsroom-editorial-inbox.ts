@@ -169,8 +169,8 @@ async function readAllReviewStates(): Promise<readonly NewsroomEditorialReviewSt
   }
 }
 
-async function readAllUsedStates(): Promise<readonly NewsroomEditorialUsedState[]> {
-  const newestByArticle = new Map<string, NewsroomEditorialUsedState>();
+async function readAllHistoricalUsedStates(): Promise<readonly NewsroomEditorialUsedState[]> {
+  const historicalStates: NewsroomEditorialUsedState[] = [];
   let offset = 0;
 
   while (true) {
@@ -188,37 +188,33 @@ async function readAllUsedStates(): Promise<readonly NewsroomEditorialUsedState[
       ]));
 
       for (const reference of editorialSourcePackageUsedSourceRefs(row.manifest)) {
-        const current = newestByArticle.get(reference.newsroomArticleId);
+        const dossierReference = dossierByIdentity.get(
+          `${reference.newsroomArticleId}\u0000${reference.newsroomSnapshotId}\u0000${reference.usedAt}`,
+        );
 
-        if (!current || Date.parse(reference.usedAt) > Date.parse(current.usedAt)) {
-          const dossierReference = dossierByIdentity.get(
-            `${reference.newsroomArticleId}\u0000${reference.newsroomSnapshotId}\u0000${reference.usedAt}`,
-          );
-
-          newestByArticle.set(reference.newsroomArticleId, {
-            articleId: reference.newsroomArticleId,
-            snapshotId: reference.newsroomSnapshotId,
-            usedAt: reference.usedAt,
-            dossier: dossierReference
-              ? {
-                  key: dossierReference.dossierKey,
-                  packageId: dossierReference.packageId,
-                  year: dossierReference.year,
-                  month: dossierReference.month,
-                  articlePosition: dossierReference.articlePosition,
-                  sourcePosition: dossierReference.sourcePosition,
-                  publishedArticleId: dossierReference.publishedArticleId,
-                  publishedSlug: dossierReference.publishedSlug,
-                  publishedArticleTitle: null,
-                }
-              : null,
-          });
-        }
+        historicalStates.push({
+          articleId: reference.newsroomArticleId,
+          snapshotId: reference.newsroomSnapshotId,
+          usedAt: reference.usedAt,
+          dossier: dossierReference
+            ? {
+                key: dossierReference.dossierKey,
+                packageId: dossierReference.packageId,
+                year: dossierReference.year,
+                month: dossierReference.month,
+                articlePosition: dossierReference.articlePosition,
+                sourcePosition: dossierReference.sourcePosition,
+                publishedArticleId: dossierReference.publishedArticleId,
+                publishedSlug: dossierReference.publishedSlug,
+                publishedArticleTitle: null,
+              }
+            : null,
+        });
       }
     }
 
     if (rows.length < PACKAGE_PAGE_SIZE) {
-      return [...newestByArticle.values()];
+      return historicalStates;
     }
     offset += PACKAGE_PAGE_SIZE;
   }
@@ -263,7 +259,7 @@ async function readArticlesByStates(
   return details.flatMap((detail) => detail ? [detail] : []);
 }
 
-async function readCurrentUsedItems(
+async function readHistoricalUsedItems(
   usedStates: readonly NewsroomEditorialUsedState[],
 ): Promise<readonly Readonly<{
   article: NewsroomArticleSummary;
@@ -274,25 +270,30 @@ async function readCurrentUsedItems(
     usedState: NewsroomEditorialUsedState;
   }>;
 
+  const articleIds = [...new Set(usedStates.map((state) => state.articleId))];
   const details = await Promise.all(
-    usedStates.map(async (usedState): Promise<CurrentUsedItem | null> => {
-      const result = await getNewsroomArticleById(usedState.articleId);
-      const article = result.ok ? result.value : null;
-
-      if (!article || article.latestSnapshotId !== usedState.snapshotId) {
-        return null;
-      }
-
-      return {
-        article,
-        usedState,
-      };
+    articleIds.map(async (articleId) => {
+      const result = await getNewsroomArticleById(articleId);
+      return result.ok ? result.value : null;
     }),
   );
-
-  return details.filter(
-    (detail): detail is CurrentUsedItem => detail !== null,
+  const articlesById = new Map(
+    details.flatMap((article) => article ? [[article.id, article]] : []),
   );
+
+  return usedStates.flatMap((usedState): CurrentUsedItem[] => {
+    const article = articlesById.get(usedState.articleId);
+    return article ? [{ article, usedState }] : [];
+  });
+}
+
+function newestUsedState(
+  current: NewsroomEditorialUsedState | undefined,
+  candidate: NewsroomEditorialUsedState,
+): NewsroomEditorialUsedState {
+  return !current || Date.parse(candidate.usedAt) > Date.parse(current.usedAt)
+    ? candidate
+    : current;
 }
 
 function itemTimestamp(item: NewsroomArticleSummary): number {
@@ -317,16 +318,42 @@ export async function loadNewsroomEditorialInbox(
   options: LoadNewsroomEditorialInboxOptions,
 ): Promise<NewsroomEditorialInboxResult> {
   try {
-    const [states, usedStates] = await Promise.all([
+    const [states, historicalUsedStates] = await Promise.all([
       readAllReviewStates(),
-      readAllUsedStates(),
+      readAllHistoricalUsedStates(),
     ]);
     const statesByArticleId = new Map(states.map((state) => [state.articleId, state]));
-    const usedByArticleId = new Map(usedStates.map((state) => [state.articleId, state]));
-    const currentUsedItems = await readCurrentUsedItems(usedStates);
-    const currentUsedIds = new Set(currentUsedItems.map(({ article }) => article.id));
+    const historicalUsedItems = await readHistoricalUsedItems(historicalUsedStates);
+    const newestHistoricalUsedByArticleId = new Map<string, NewsroomEditorialUsedState>();
+    const currentSnapshotUsedByArticleId = new Map<string, NewsroomEditorialUsedState>();
+
+    for (const { article, usedState } of historicalUsedItems) {
+      newestHistoricalUsedByArticleId.set(
+        article.id,
+        newestUsedState(
+          newestHistoricalUsedByArticleId.get(article.id),
+          usedState,
+        ),
+      );
+
+      if (article.latestSnapshotId === usedState.snapshotId) {
+        currentSnapshotUsedByArticleId.set(
+          article.id,
+          newestUsedState(
+            currentSnapshotUsedByArticleId.get(article.id),
+            usedState,
+          ),
+        );
+      }
+    }
+
+    const usedByArticleId = new Map([
+      ...newestHistoricalUsedByArticleId,
+      ...currentSnapshotUsedByArticleId,
+    ]);
+    const currentSnapshotUsedIds = new Set(currentSnapshotUsedByArticleId.keys());
     const usedPublishedArticles = options.view === "used"
-      ? await readUsedPublishedArticles(currentUsedItems.map(({ usedState }) => usedState))
+      ? await readUsedPublishedArticles(historicalUsedItems.map(({ usedState }) => usedState))
       : new Map<string, UsedPublishedArticleRow>();
     const currentResult = options.query
       ? await searchNewsroomArticles({
@@ -352,10 +379,10 @@ export async function loadNewsroomEditorialInbox(
     ));
     const pendingItems = currentItems.filter((item) => item.editorial.view === "pending");
     const workingStates = states.filter(
-      (state) => state.decision === "working" && !currentUsedIds.has(state.articleId),
+      (state) => state.decision === "working" && !currentSnapshotUsedIds.has(state.articleId),
     );
     const archivedStates = states.filter(
-      (state) => state.decision !== "working" && !currentUsedIds.has(state.articleId),
+      (state) => state.decision !== "working" && !currentSnapshotUsedIds.has(state.articleId),
     );
 
     let items: readonly NewsroomEditorialInboxItem[];
@@ -363,7 +390,7 @@ export async function loadNewsroomEditorialInbox(
     if (options.view === "pending") {
       items = pendingItems;
     } else if (options.view === "used") {
-      items = currentUsedItems
+      items = historicalUsedItems
         .filter(({ article }) => (
           sourceMatches(article, options.sourceCode)
           && periodMatches(article, options.periodDays)
@@ -430,7 +457,7 @@ export async function loadNewsroomEditorialInbox(
         total: items.length,
         pendingCount: pendingItems.length,
         workingCount: workingStates.length,
-        usedCount: currentUsedItems.length,
+        usedCount: historicalUsedItems.length,
         archiveCount: archivedStates.length,
       },
     };

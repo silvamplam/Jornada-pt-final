@@ -67,6 +67,56 @@ test("normaliza entre uma e vinte seleções e rejeita duplicados", () => {
   );
 });
 
+test("o reuse conserva snapshots antigo e novo da mesma fonte", () => {
+  const newerSnapshotId =
+    "91000000-0000-4000-8000-000000000003";
+
+  assert.deepEqual(
+    normalizeEditorialSourcePackageSelections([
+      {
+        newsroomArticleId: ARTICLE_ID,
+        newsroomSnapshotId: SNAPSHOT_ID,
+        articleGroup: 1,
+      },
+      {
+        newsroomArticleId: ARTICLE_ID,
+        newsroomSnapshotId: newerSnapshotId,
+        articleGroup: 1,
+      },
+    ], {
+      allowMultipleSnapshotsPerArticle: true,
+    }),
+    [
+      {
+        newsroomArticleId: ARTICLE_ID,
+        newsroomSnapshotId: SNAPSHOT_ID,
+        articleGroup: 1,
+      },
+      {
+        newsroomArticleId: ARTICLE_ID,
+        newsroomSnapshotId: newerSnapshotId,
+        articleGroup: 1,
+      },
+    ],
+  );
+
+  assert.equal(
+    normalizeEditorialSourcePackageSelections([
+      {
+        newsroomArticleId: ARTICLE_ID,
+        newsroomSnapshotId: SNAPSHOT_ID,
+      },
+      {
+        newsroomArticleId: ARTICLE_ID,
+        newsroomSnapshotId: SNAPSHOT_ID,
+      },
+    ], {
+      allowMultipleSnapshotsPerArticle: true,
+    }),
+    null,
+  );
+});
+
 test("normaliza grupos de fontes pela ordem do primeiro artigo", () => {
   const secondArticleId = "91000000-0000-4000-8000-000000000011";
   const secondSnapshotId = "91000000-0000-4000-8000-000000000012";

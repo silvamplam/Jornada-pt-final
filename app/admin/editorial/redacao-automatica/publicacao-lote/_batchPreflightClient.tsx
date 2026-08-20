@@ -66,6 +66,7 @@ type BatchPublicationPlanItem = Readonly<{
   articleId?: string;
   existingTitle?: string | null;
   existingSlug?: string | null;
+  updateTargetFromDossier?: boolean;
   publishedAt: string;
 }>;
 
@@ -558,8 +559,9 @@ function PublicationPanel({
                     </div>
 
                     <p className={styles.validNote}>
-                      Esta saída do Dossiê corresponde a um
-                      artigo já publicado da mesma jornada.
+                      {item.updateTargetFromDossier
+                        ? "Este é o artigo publicado identificado pelo Dossiê reutilizado. "
+                        : "Esta saída do Dossiê corresponde a um artigo já publicado da mesma jornada. "}
                       A atualização mantém o mesmo artigo e
                       o mesmo URL.
                     </p>
