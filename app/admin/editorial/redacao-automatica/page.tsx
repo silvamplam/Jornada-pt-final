@@ -624,9 +624,9 @@ export default async function AutomaticNewsroomPage({
                   </ol>
 
                   <p className={styles.reuseDossierNote}>
-                    A imagem anteriormente escolhida mantém-se por defeito nesta
-                    reutilização. A escolha de uma nova imagem será tratada depois
-                    na revisão da atualização.
+                    As fontes anteriores mantêm-se e aqui selecionam-se apenas as
+                    novas fontes. As imagens de cada peça são decididas ou revistas
+                    depois, em Saídas editoriais do Dossiê.
                   </p>
                 </section>
               </>
@@ -671,9 +671,6 @@ export default async function AutomaticNewsroomPage({
                           defaultChecked={article.id === requestedArticleId}
                           disabled={!canUseInSourcePackage(article)}
                           data-source-package-source
-                          data-source-package-has-image={article.imageUrl ? "1" : "0"}
-                          data-source-package-image-url={article.imageUrl ?? ""}
-                          data-source-package-title={article.title}
                         />
                         <span>Escolher</span>
                       </label>
@@ -681,12 +678,6 @@ export default async function AutomaticNewsroomPage({
                         type="hidden"
                         name={`source_snapshot_${article.id}`}
                         value={article.latestSnapshotId ?? ""}
-                      />
-                      <input
-                        type="hidden"
-                        name={`source_image_preferred_${article.id}`}
-                        value=""
-                        data-source-package-image-preference
                       />
                       <label
                         className={styles.sourcePackageGroupChoice}
@@ -804,8 +795,9 @@ export default async function AutomaticNewsroomPage({
                     <>
                       Seleciona entre 1 e 20 fontes. Cada fonte começa num Dossiê
                       próprio; quando duas ou mais pertencem ao mesmo assunto,
-                      junta-as no mesmo Dossiê. Cada Dossiê continua a originar um
-                      artigo final, com as fontes integrais e uma imagem escolhida.
+                      junta-as no mesmo Dossiê. Cada Dossiê pode dar origem a um ou
+                      mais artigos finais. O número de artigos, o foco de cada peça
+                      e as respetivas imagens são definidos depois de preparar as fontes.
                       Nada é enviado à IA.
                     </>
                   )}
@@ -834,18 +826,6 @@ export default async function AutomaticNewsroomPage({
                   </div>
                 </fieldset>
 
-                <div
-                  className={styles.sourcePackageArticleImages}
-                  data-source-package-image-summary
-                  hidden
-                >
-                  <div className={styles.sourcePackageArticleImagesHeader}>
-                    <strong>Imagens dos artigos</strong>
-                    <span>Quando um artigo tem várias imagens possíveis, podes trocar a escolha automática.</span>
-                  </div>
-                  <div data-source-package-image-summary-list />
-                </div>
-
                 <label data-source-package-suggested-title hidden>
                   <span>Assunto principal <small>opcional · apenas para um artigo</small></span>
                   <input
@@ -869,8 +849,10 @@ export default async function AutomaticNewsroomPage({
                 </label>
 
                 <p className={styles.sourcePackageEditorialNote}>
-                  O ficheiro mantém cada Dossiê separado. Cada Dossiê gera um artigo final;
-                  as instruções adicionais aplicam-se ao lote inteiro.
+                  O ficheiro mantém cada Dossiê separado. Cada Dossiê pode dar origem
+                  a um ou mais artigos finais; o número de artigos e as respetivas imagens
+                  são definidos depois de preparar as fontes. As instruções adicionais
+                  aplicam-se ao lote inteiro.
                 </p>
               </div>
 

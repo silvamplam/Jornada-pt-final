@@ -103,6 +103,8 @@ export default async function SourcePackagePage({
       && typeof entry.imageUrl === "string"
       && Boolean(entry.imageUrl)
         ? [{
+            sourceArticlePosition:
+              entry.articlePosition,
             newsroomArticleId:
               entry.newsroomArticleId,
             sourceName:
@@ -274,12 +276,10 @@ export default async function SourcePackagePage({
             </div>
           </form>
 
-          {sourceGroupCount === 1 ? (
+          {sourceGroupCount > 0 ? (
             <SourcePackageOutputPlanner
               actionUrl={contentUrl}
-              sourceArticlePosition={
-                sourceGroupPositions[0] ?? 1
-              }
+              sourceArticlePositions={sourceGroupPositions}
               outputs={manifest.outputs}
               imageCandidates={
                 outputImageCandidates
@@ -294,7 +294,16 @@ export default async function SourcePackagePage({
             imagesFileName={imagesFileName}
             imageSourceCount={imageSourceCount}
             articleCount={manifest.articleCount}
-            sourcePackage={{ year, month, packageId: id }}
+            sourcePackage={{
+              year,
+              month,
+              packageId: id,
+              outputImages: articleImages.map((image) => ({
+                position: image.position,
+                imageUrl: image.imageUrl,
+                label: image.fileName ?? image.articleTitle,
+              })),
+            }}
           />
         </section>
 

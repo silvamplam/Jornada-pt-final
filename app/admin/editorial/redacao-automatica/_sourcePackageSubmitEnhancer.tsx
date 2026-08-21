@@ -19,22 +19,6 @@ function groupSelectFor(source: HTMLInputElement) {
   return source.closest("li")?.querySelector<HTMLSelectElement>("[data-source-package-group]") ?? null;
 }
 
-function imagePreferenceFor(source: HTMLInputElement) {
-  return source.closest("li")?.querySelector<HTMLInputElement>("[data-source-package-image-preference]") ?? null;
-}
-
-function sourceHasImage(source: HTMLInputElement) {
-  return source.dataset.sourcePackageHasImage === "1";
-}
-
-function sourceTitle(source: HTMLInputElement) {
-  return source.dataset.sourcePackageTitle?.trim() || "Fonte selecionada";
-}
-
-function sourceImageUrl(source: HTMLInputElement) {
-  return source.dataset.sourcePackageImageUrl?.trim() || null;
-}
-
 function sourceIsVisible(source: HTMLInputElement) {
   const item = source.closest("li");
   return !item || !item.hidden;
@@ -51,8 +35,6 @@ export function installSourcePackageSubmitEnhancer(
   const count = form.querySelector<HTMLElement>("[data-source-package-selection-count]");
   const suggestedTitleField = form.querySelector<HTMLElement>("[data-source-package-suggested-title]");
   const suggestedTitleInput = suggestedTitleField?.querySelector<HTMLInputElement>('input[name="suggested_title"]') ?? null;
-  const imageSummary = form.querySelector<HTMLElement>("[data-source-package-image-summary]");
-  const imageSummaryList = imageSummary?.querySelector<HTMLElement>("[data-source-package-image-summary-list]") ?? null;
   const sources = Array.from(
     form.querySelectorAll<HTMLInputElement>("[data-source-package-source]"),
   );
@@ -100,8 +82,6 @@ export function installSourcePackageSubmitEnhancer(
           groupBySource.set(source.value, 1);
         } else {
           groupBySource.delete(source.value);
-          const preference = imagePreferenceFor(source);
-          if (preference) preference.value = "";
         }
       }
       return;
@@ -110,8 +90,6 @@ export function installSourcePackageSubmitEnhancer(
     for (const source of sources) {
       if (!source.checked) {
         groupBySource.delete(source.value);
-        const preference = imagePreferenceFor(source);
-        if (preference) preference.value = "";
         continue;
       }
 
@@ -121,37 +99,6 @@ export function installSourcePackageSubmitEnhancer(
     }
 
     normalizeGroups();
-  };
-
-  const ensureImagePreferences = () => {
-    if (reuseMode) {
-      for (const source of sources) {
-        const preference = imagePreferenceFor(source);
-        if (preference) preference.value = "";
-      }
-      return;
-    }
-
-    const selected = selectedSources();
-    const groups = [...new Set(
-      selected.map((source) => groupBySource.get(source.value)).filter((value): value is number => Boolean(value)),
-    )];
-
-    for (const group of groups) {
-      const candidates = selected.filter(
-        (source) => groupBySource.get(source.value) === group && sourceHasImage(source),
-      );
-      const preferred = candidates.find((source) => imagePreferenceFor(source)?.value === "1")
-        ?? candidates[0]
-        ?? null;
-
-      for (const source of selected.filter((candidate) => groupBySource.get(candidate.value) === group)) {
-        const preference = imagePreferenceFor(source);
-        if (preference) {
-          preference.value = preferred === source ? "1" : "";
-        }
-      }
-    }
   };
 
   const renderGroupControls = () => {
@@ -198,95 +145,9 @@ export function installSourcePackageSubmitEnhancer(
     }
   };
 
-  const renderImageSummary = () => {
-    if (!imageSummary || !imageSummaryList) {
-      return;
-    }
-
-    if (reuseMode) {
-      imageSummaryList.replaceChildren();
-      imageSummary.hidden = true;
-      return;
-    }
-
-    const selected = selectedSources();
-    const groups = [...new Set(
-      selected.map((source) => groupBySource.get(source.value)).filter((value): value is number => Boolean(value)),
-    )].sort((left, right) => left - right);
-    const articleCards: HTMLElement[] = [];
-
-    for (const group of groups) {
-      const groupSources = selected.filter(
-        (source) => groupBySource.get(source.value) === group,
-      );
-      const candidates = groupSources.filter(
-        (source) => sourceHasImage(source) && Boolean(sourceImageUrl(source)),
-      );
-
-      if (candidates.length < 2) {
-        continue;
-      }
-
-      const chosen = candidates.find((source) => imagePreferenceFor(source)?.value === "1")
-        ?? candidates[0];
-      const articleCard = document.createElement("section");
-      articleCard.dataset.sourcePackageImageArticle = String(group);
-
-      const header = document.createElement("div");
-      header.dataset.sourcePackageImageArticleHeader = "";
-      const title = document.createElement("strong");
-      title.textContent = `Dossiê ${String(group).padStart(2, "0")}`;
-      const detail = document.createElement("span");
-      detail.textContent = `${groupSources.length} ${groupSources.length === 1 ? "fonte" : "fontes"} · ${candidates.length} imagens disponíveis`;
-      header.append(title, detail);
-
-      const options = document.createElement("div");
-      options.dataset.sourcePackageImageOptions = "";
-
-      for (const candidate of candidates) {
-        const imageUrl = sourceImageUrl(candidate);
-        if (!imageUrl) {
-          continue;
-        }
-
-        const isChosen = candidate === chosen;
-        const option = isChosen ? document.createElement("div") : document.createElement("button");
-        option.dataset.sourcePackageImageOption = "";
-        option.dataset.selected = isChosen ? "true" : "false";
-
-        if (option instanceof HTMLButtonElement) {
-          option.type = "button";
-          option.dataset.sourcePackageUseImage = candidate.value;
-        }
-
-        const image = document.createElement("img");
-        image.src = imageUrl;
-        image.alt = "";
-        image.loading = "lazy";
-
-        const copy = document.createElement("span");
-        const sourceName = document.createElement("strong");
-        sourceName.textContent = sourceTitle(candidate);
-        const action = document.createElement("small");
-        action.textContent = isChosen ? "Imagem escolhida" : "Usar esta imagem";
-        copy.append(sourceName, action);
-        option.append(image, copy);
-        options.append(option);
-      }
-
-      articleCard.append(header, options);
-      articleCards.push(articleCard);
-    }
-
-    imageSummaryList.replaceChildren(...articleCards);
-    imageSummary.hidden = articleCards.length === 0;
-  };
-
   const update = () => {
     ensureSelectedGroups();
-    ensureImagePreferences();
     renderGroupControls();
-    renderImageSummary();
 
     const selected = selectedSources().length;
     const articleCount = new Set(groupBySource.values()).size;
@@ -405,32 +266,6 @@ export function installSourcePackageSubmitEnhancer(
       return;
     }
 
-    const imageButton = element
-      ? element.closest<HTMLButtonElement>("[data-source-package-use-image]")
-      : null;
-
-    const sourceId = imageButton?.dataset.sourcePackageUseImage?.trim() ?? "";
-    const source = sources.find((candidate) => candidate.value === sourceId) ?? null;
-    const group = source ? groupBySource.get(source.value) : null;
-
-    if (!imageButton || !source?.checked || !group || !sourceHasImage(source)) {
-      return;
-    }
-
-    for (const candidate of selectedSources()) {
-      if (groupBySource.get(candidate.value) !== group) {
-        continue;
-      }
-
-      const preference = imagePreferenceFor(candidate);
-
-      if (preference) {
-        preference.value = candidate === source ? "1" : "";
-      }
-    }
-
-    showStatus("");
-    renderImageSummary();
   };
 
   const handleSubmit = (event: Event) => {

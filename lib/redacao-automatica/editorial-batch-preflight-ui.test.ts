@@ -79,8 +79,9 @@ test("a página usa diretamente a função pura de pré-flight de imagens", () =
   assert.match(clientSource, /from "@\/lib\/redacao-automatica\/editorial-batch-image-preflight"/);
   assert.match(
     clientSource,
-    /preflightEditorialBatchImages\(analysedArticleKeys, selectedImages\)/,
+    /preflightEditorialBatchImages\(\s*analysedArticleKeys,\s*selectedImages,/,
   );
+  assert.match(clientSource, /sourcePackage\?\.outputImages/);
 });
 
 test("a UI não duplica a interpretação de JORNADA_ARTIGO_V1", () => {
@@ -244,7 +245,7 @@ test("a análise automática reaproveita os ficheiros já selecionados", () => {
   assert.doesNotMatch(clientFunction("resetPublicationRun"), /setSelectedImages/);
   assert.match(
     clientSource,
-    /const imagePreflight = useMemo\([\s\S]*?preflightEditorialBatchImages\(analysedArticleKeys, selectedImages\)/,
+    /const imagePreflight = useMemo\([\s\S]*?preflightEditorialBatchImages\(\s*analysedArticleKeys,\s*selectedImages,/,
   );
 });
 

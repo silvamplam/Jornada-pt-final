@@ -34,6 +34,14 @@ export type EditorialBatchImageArticleResult<
   file: TFile | null;
   candidates: readonly TFile[];
   message: string;
+  imageUrl?: string;
+  fileName?: string;
+}>;
+
+export type EditorialBatchPersistedImage = Readonly<{
+  key: string;
+  imageUrl: string;
+  fileName: string;
 }>;
 
 export type EditorialBatchImagePreflight<
@@ -91,11 +99,15 @@ export function preflightEditorialBatchImages<
 >(
   articleKeys: readonly string[],
   inputFiles: readonly TFile[],
+  persistedImages: readonly EditorialBatchPersistedImage[] = [],
 ): EditorialBatchImagePreflight<TFile> {
   const files = [...inputFiles].sort(compareFiles);
   const keys = [...new Set(articleKeys)];
   const matchableKeys = new Set(keys.filter((key) => OFFICIAL_ARTICLE_KEY.test(key)));
   const candidatesByKey = new Map<string, TFile[]>();
+  const persistedImageByKey = new Map(
+    persistedImages.map((image) => [image.key, image]),
+  );
   const fileProblems: EditorialBatchImageFileProblem<TFile>[] = [];
 
   for (const file of files) {
@@ -161,6 +173,19 @@ export function preflightEditorialBatchImages<
       };
     }
 
+    const persistedImage = persistedImageByKey.get(key);
+    if (persistedImage) {
+      return {
+        key,
+        status: "associated",
+        file: null,
+        candidates,
+        message: "IMAGEM DO DOSSIÊ ASSOCIADA",
+        imageUrl: persistedImage.imageUrl,
+        fileName: persistedImage.fileName,
+      };
+    }
+
     return {
       key,
       status: "missing",
@@ -176,7 +201,9 @@ export function preflightEditorialBatchImages<
   const problems = fileProblems.length + duplicateProblems;
 
   return {
-    selected: files.length,
+    selected:
+      files.length
+      + articles.filter((article) => Boolean(article.imageUrl)).length,
     associated,
     missing,
     problems,

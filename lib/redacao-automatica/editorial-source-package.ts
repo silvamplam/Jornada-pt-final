@@ -292,6 +292,21 @@ function persistedOutputs(
         typeof candidate.imageNewsroomArticleId === "string"
           ? candidate.imageNewsroomArticleId
           : null,
+      externalImage:
+        candidate.externalImage
+        && typeof candidate.externalImage === "object"
+        && !Array.isArray(candidate.externalImage)
+          ? {
+              url:
+                typeof (candidate.externalImage as Record<string, unknown>).url === "string"
+                  ? (candidate.externalImage as Record<string, unknown>).url as string
+                  : "",
+              fileName:
+                typeof (candidate.externalImage as Record<string, unknown>).fileName === "string"
+                  ? (candidate.externalImage as Record<string, unknown>).fileName as string
+                  : "",
+            }
+          : null,
     });
   }
 

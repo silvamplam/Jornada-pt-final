@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
 import {
+  EDITORIAL_SOURCE_PACKAGE_MAX_DOSSIER_OUTPUTS,
+  EDITORIAL_SOURCE_PACKAGE_MAX_OUTPUTS,
   editorialSourcePackageFileName,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
@@ -22,6 +24,24 @@ type RouteContext = Readonly<{
 
 function cleanText(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function isEditorialStorageImageUrl(value: string): boolean {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!supabaseUrl) {
+    return false;
+  }
+
+  try {
+    const candidate = new URL(value);
+    const expected = new URL(supabaseUrl);
+    return candidate.origin === expected.origin
+      && decodeURIComponent(candidate.pathname).includes(
+        "/storage/v1/object/public/editorial-images/",
+      );
+  } catch {
+    return false;
+  }
 }
 
 function packagePath(year: string, month: string, id: string): string {
@@ -110,7 +130,7 @@ export async function POST(
     if (
       !Number.isInteger(outputCount)
       || outputCount < 1
-      || outputCount > 5
+      || outputCount > EDITORIAL_SOURCE_PACKAGE_MAX_OUTPUTS
     ) {
       return redirectTo(
         packagePath(year, month, id),
@@ -149,9 +169,50 @@ export async function POST(
                   `output_image_${position}`,
                 ),
               ) || null,
+            externalImage:
+              cleanText(
+                formData.get(
+                  `output_external_image_url_${position}`,
+                ),
+              )
+                ? {
+                    url: cleanText(
+                      formData.get(
+                        `output_external_image_url_${position}`,
+                      ),
+                    ),
+                    fileName: cleanText(
+                      formData.get(
+                        `output_external_image_name_${position}`,
+                      ),
+                    ),
+                  }
+                : null,
           };
         },
       );
+
+    const outputCountBySourceGroup = new Map<number, number>();
+    for (const output of outputs) {
+      if (
+        output.externalImage
+        && !isEditorialStorageImageUrl(output.externalImage.url)
+      ) {
+        return redirectTo(
+          packagePath(year, month, id),
+          { package_update_error: "input_invalid" },
+        );
+      }
+
+      const count = (outputCountBySourceGroup.get(output.sourceArticlePosition) ?? 0) + 1;
+      if (count > EDITORIAL_SOURCE_PACKAGE_MAX_DOSSIER_OUTPUTS) {
+        return redirectTo(
+          packagePath(year, month, id),
+          { package_update_error: "input_invalid" },
+        );
+      }
+      outputCountBySourceGroup.set(output.sourceArticlePosition, count);
+    }
 
     const result =
       await updateEditorialSourcePackageOutputs({

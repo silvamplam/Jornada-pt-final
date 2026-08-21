@@ -35,6 +35,12 @@ export type EditorialSourcePackageOutputInput = Readonly<{
   sourceArticlePosition: number;
   focus: string;
   imageNewsroomArticleId: string | null;
+  externalImage?: EditorialSourcePackageExternalImage | null;
+}>;
+
+export type EditorialSourcePackageExternalImage = Readonly<{
+  url: string;
+  fileName: string;
 }>;
 
 export type EditorialSourcePackageOutputCreationInput =
@@ -53,6 +59,9 @@ export type EditorialSourcePackageOutput =
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const YEAR_PATTERN = /^\d{4}$/;
 const MONTH_PATTERN = /^(0[1-9]|1[0-2])$/;
+const EXTERNAL_IMAGE_FILE_NAME_MAX_LENGTH = 240;
+const EXTERNAL_IMAGE_EXTENSION_PATTERN = /\.(?:jpe?g|png|webp)$/i;
+const EDITORIAL_IMAGE_STORAGE_PATH = "/storage/v1/object/public/editorial-images/";
 
 export type EditorialSourcePackageSelection = Readonly<{
   newsroomArticleId: string;
@@ -159,6 +168,45 @@ function cleanEditorialText(value: string, maxLength: number): string | null {
   }
 
   return cleaned.length <= maxLength ? cleaned : null;
+}
+
+function normalizeEditorialSourcePackageExternalImage(
+  value: EditorialSourcePackageExternalImage | null | undefined,
+): EditorialSourcePackageExternalImage | null {
+  if (!value) {
+    return null;
+  }
+
+  const url = typeof value.url === "string" ? value.url.trim() : "";
+  const fileName = cleanEditorialText(
+    typeof value.fileName === "string" ? value.fileName : "",
+    EXTERNAL_IMAGE_FILE_NAME_MAX_LENGTH,
+  );
+
+  if (!url || !fileName || !EXTERNAL_IMAGE_EXTENSION_PATTERN.test(fileName)) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(url);
+    const decodedPath = decodeURIComponent(parsed.pathname);
+
+    if (
+      (parsed.protocol !== "https:" && parsed.protocol !== "http:")
+      || parsed.username
+      || parsed.password
+      || parsed.search
+      || parsed.hash
+      || !decodedPath.includes(EDITORIAL_IMAGE_STORAGE_PATH)
+      || !EXTERNAL_IMAGE_EXTENSION_PATTERN.test(decodedPath)
+    ) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  return { url, fileName };
 }
 
 export function editorialSourcePackageGenreDefinition(
@@ -394,6 +442,13 @@ export function normalizeEditorialSourcePackageOutputs(
       && output.imageNewsroomArticleId.trim()
         ? cleanId(output.imageNewsroomArticleId)
         : null;
+    const externalImage = normalizeEditorialSourcePackageExternalImage(
+      output.externalImage,
+    );
+
+    if (output.externalImage && !externalImage) {
+      return null;
+    }
 
     if (
       position !== index + 1
@@ -402,6 +457,10 @@ export function normalizeEditorialSourcePackageOutputs(
       || !sourceGroups.has(sourceArticlePosition)
       || !focus
     ) {
+      return null;
+    }
+
+    if (imageNewsroomArticleId && externalImage) {
       return null;
     }
 
@@ -425,6 +484,7 @@ export function normalizeEditorialSourcePackageOutputs(
       sourceArticlePosition,
       focus,
       imageNewsroomArticleId,
+      ...(externalImage ? { externalImage } : {}),
     });
   }
 
@@ -483,6 +543,7 @@ export type EditorialSourcePackageArticleImageSource = Readonly<{
   sourceCode: string;
   articleTitle: string;
   imageUrl: string;
+  fileName?: string;
 }>;
 
 export function editorialSourcePackageArticleImageSources(
@@ -501,6 +562,16 @@ export function editorialSourcePackageArticleImageSources(
   if (outputs?.length) {
     return outputs.flatMap(
       (output): EditorialSourcePackageArticleImageSource[] => {
+        if (output.externalImage) {
+          return [{
+            position: output.position,
+            sourceCode: "imagem-externa",
+            articleTitle: output.focus || output.externalImage.fileName,
+            imageUrl: output.externalImage.url,
+            fileName: output.externalImage.fileName,
+          }];
+        }
+
         if (!output.imageNewsroomArticleId) {
           return [];
         }

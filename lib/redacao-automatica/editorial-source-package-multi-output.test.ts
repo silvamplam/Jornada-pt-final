@@ -15,6 +15,9 @@ const ARTICLE_A =
 const ARTICLE_B =
   "91000000-0000-4000-8000-000000000002";
 
+const EXTERNAL_IMAGE_URL =
+  "https://project.supabase.co/storage/v1/object/public/editorial-images/editorial/2026/08/externa-c.webp";
+
 function entries(): readonly EditorialSourcePackageEntry[] {
   return [
     {
@@ -208,6 +211,94 @@ test(
       publishedSlug: "endereco-publico-original",
     }]);
     assert.equal("usedAt" in outputs![0], false);
+  },
+);
+
+test(
+  "três peças podem reutilizar duas imagens de fonte ou escolher uma externa",
+  () => {
+    const outputs = normalizeEditorialSourcePackageOutputs(
+      JSON.parse(JSON.stringify([
+        {
+          position: 1,
+          sourceArticlePosition: 1,
+          focus: "Peça A",
+          imageNewsroomArticleId: ARTICLE_A,
+        },
+        {
+          position: 2,
+          sourceArticlePosition: 1,
+          focus: "Peça B",
+          imageNewsroomArticleId: ARTICLE_A,
+        },
+        {
+          position: 3,
+          sourceArticlePosition: 1,
+          focus: "Peça C",
+          imageNewsroomArticleId: null,
+          externalImage: {
+            url: EXTERNAL_IMAGE_URL,
+            fileName: "externa-c.webp",
+          },
+        },
+      ])),
+      entries(),
+    );
+
+    assert.ok(outputs);
+    assert.equal(outputs.length, 3);
+    assert.deepEqual(
+      outputs.slice(0, 2).map((output) => output.imageNewsroomArticleId),
+      [ARTICLE_A, ARTICLE_A],
+    );
+    assert.deepEqual(outputs[2].externalImage, {
+      url: EXTERNAL_IMAGE_URL,
+      fileName: "externa-c.webp",
+    });
+
+    const images = editorialSourcePackageArticleImageSources(entries(), outputs);
+    assert.deepEqual(images.map((image) => image.imageUrl), [
+      "https://assets.example.invalid/a.jpg",
+      "https://assets.example.invalid/a.jpg",
+      EXTERNAL_IMAGE_URL,
+    ]);
+  },
+);
+
+test(
+  "duas saídas podem guardar imagens externas diferentes e a escolha é exclusiva por saída",
+  () => {
+    const secondUrl = EXTERNAL_IMAGE_URL.replace("externa-c.webp", "externa-d.png");
+    const outputs = normalizeEditorialSourcePackageOutputs([
+      {
+        position: 1,
+        sourceArticlePosition: 1,
+        focus: "Peça C",
+        imageNewsroomArticleId: null,
+        externalImage: { url: EXTERNAL_IMAGE_URL, fileName: "externa-c.webp" },
+      },
+      {
+        position: 2,
+        sourceArticlePosition: 1,
+        focus: "Peça D",
+        imageNewsroomArticleId: null,
+        externalImage: { url: secondUrl, fileName: "externa-d.png" },
+      },
+    ], entries());
+
+    assert.ok(outputs);
+    assert.equal(outputs[0].externalImage?.url, EXTERNAL_IMAGE_URL);
+    assert.equal(outputs[1].externalImage?.url, secondUrl);
+    assert.equal(outputs[0].imageNewsroomArticleId, null);
+    assert.equal(outputs[1].imageNewsroomArticleId, null);
+
+    assert.equal(normalizeEditorialSourcePackageOutputs([{
+      position: 1,
+      sourceArticlePosition: 1,
+      focus: "Escolha ambígua",
+      imageNewsroomArticleId: ARTICLE_A,
+      externalImage: { url: EXTERNAL_IMAGE_URL, fileName: "externa-c.webp" },
+    }], entries()), null);
   },
 );
 

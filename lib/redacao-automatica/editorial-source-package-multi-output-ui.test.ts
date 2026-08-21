@@ -38,6 +38,8 @@ test(
       page,
       /manifest.outputs/,
     );
+    assert.match(page, /sourceGroupCount > 0/);
+    assert.match(page, /sourceArticlePositions={sourceGroupPositions}/);
 
     assert.match(
       planner,
@@ -64,6 +66,18 @@ test(
       /Guardar artigos e imagens/,
     );
 
+    assert.match(planner, /Adicionar outra imagem/);
+    assert.match(planner, /Substituir/);
+    assert.match(planner, /Remover/);
+    assert.match(planner, /image\/jpeg,image\/png,image\/webp/);
+    assert.match(planner, /\/api\/admin\/editorial\/artigos\/upload-image\/sign/);
+    assert.match(planner, /output_external_image_url_/);
+    assert.match(planner, /output_external_image_name_/);
+    assert.match(planner, /externalImage/);
+    assert.match(planner, /Dossiê de fontes/);
+    assert.match(planner, /candidate\.sourceArticlePosition === sourceArticlePosition/);
+    assert.doesNotMatch(planner, /usedImage|availableImages|disabled=.*newsroomArticleId/);
+
     assert.match(
       route,
       /updateEditorialSourcePackageOutputs/,
@@ -73,6 +87,13 @@ test(
       route,
       /package_outputs_updated/,
     );
+
+    assert.match(route, /output_external_image_url_/);
+    assert.match(route, /output_external_image_name_/);
+    assert.match(route, /EDITORIAL_SOURCE_PACKAGE_MAX_DOSSIER_OUTPUTS/);
+    assert.match(route, /outputCountBySourceGroup/);
+    assert.match(route, /NEXT_PUBLIC_SUPABASE_URL/);
+    assert.match(route, /isEditorialStorageImageUrl/);
 
     assert.match(
       service,
@@ -93,5 +114,7 @@ test(
       publish,
       /publishedAtByArticle\.set\(\s*output\.position,\s*sourcePublishedAt,\s*\)/,
     );
+
+    assert.match(page, /outputImages: articleImages\.map/);
   },
 );

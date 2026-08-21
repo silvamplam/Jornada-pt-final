@@ -4718,129 +4718,6 @@
 }
 
 
-.sourcePackageArticleImages {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid #d8e0e8;
-  border-radius: 9px;
-  background: #ffffff;
-}
-
-.sourcePackageArticleImages[hidden] {
-  display: none;
-}
-
-.sourcePackageArticleImagesHeader {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.sourcePackageArticleImagesHeader strong {
-  color: #111827;
-  font-size: 0.88rem;
-}
-
-.sourcePackageArticleImagesHeader span {
-  color: #64748b;
-  font-size: 0.76rem;
-}
-
-.sourcePackageArticleImages [data-source-package-image-summary-list] {
-  display: grid;
-  gap: 12px;
-}
-
-.sourcePackageArticleImages [data-source-package-image-article] {
-  display: grid;
-  gap: 9px;
-  padding-top: 12px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.sourcePackageArticleImages [data-source-package-image-article-header] {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.sourcePackageArticleImages [data-source-package-image-article-header] strong {
-  color: #111827;
-  font-size: 0.82rem;
-}
-
-.sourcePackageArticleImages [data-source-package-image-article-header] span {
-  color: #64748b;
-  font-size: 0.74rem;
-}
-
-.sourcePackageArticleImages [data-source-package-image-options] {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px;
-}
-
-.sourcePackageArticleImages [data-source-package-image-option] {
-  display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
-  min-height: 88px;
-  overflow: hidden;
-  padding: 0;
-  border: 1px solid #d8e0e8;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #111827;
-  text-align: left;
-}
-
-.sourcePackageArticleImages button[data-source-package-image-option] {
-  cursor: pointer;
-  font: inherit;
-}
-
-.sourcePackageArticleImages [data-source-package-image-option][data-selected="true"] {
-  border-color: #8bc7a0;
-  background: #f0faf3;
-}
-
-.sourcePackageArticleImages [data-source-package-image-option] img {
-  width: 88px;
-  height: 100%;
-  min-height: 88px;
-  object-fit: cover;
-}
-
-.sourcePackageArticleImages [data-source-package-image-option] > span {
-  display: grid;
-  align-content: center;
-  gap: 6px;
-  min-width: 0;
-  padding: 10px;
-}
-
-.sourcePackageArticleImages [data-source-package-image-option] strong {
-  display: -webkit-box;
-  overflow: hidden;
-  color: #111827;
-  font-size: 0.76rem;
-  line-height: 1.3;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.sourcePackageArticleImages [data-source-package-image-option] small {
-  color: #176b36;
-  font-size: 0.68rem;
-  font-weight: 850;
-  text-transform: uppercase;
-}
-
-.sourcePackageArticleImages button[data-source-package-image-option] small {
-  color: #111827;
-}
-
 @media (max-width: 720px) {
   .inboxBulkActions {
     align-items: stretch;
@@ -5478,7 +5355,8 @@
 }
 
 .sourcePackageOutputPlannerHeader select,
-.sourcePackageOutputFocus input {
+.sourcePackageOutputFocus input,
+.sourcePackageOutputSourceGroup select {
   width: 100%;
   border: 1px solid #c8ced8;
   border-radius: 8px;
@@ -5520,6 +5398,14 @@
 
 .sourcePackageOutputFocus {
   display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sourcePackageOutputSourceGroup {
+  display: grid;
+  grid-column: 2;
   gap: 6px;
   font-size: 13px;
   font-weight: 700;
@@ -5592,6 +5478,75 @@
   white-space: nowrap;
 }
 
+.sourcePackageOutputExternalOption {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  padding: 8px;
+  border: 2px dashed #aeb7c3;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.sourcePackageOutputExternalOption > img,
+.sourcePackageOutputExternalPlaceholder {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  place-items: center;
+  border-radius: 7px;
+  object-fit: cover;
+  background: #eceff3;
+  color: #536170;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.sourcePackageOutputExternalOption > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sourcePackageOutputExternalOption strong,
+.sourcePackageOutputExternalOption small {
+  overflow-wrap: anywhere;
+}
+
+.sourcePackageOutputExternalOption label {
+  color: #22384b;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sourcePackageOutputExternalOption button {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: #7c2d36;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sourcePackageOutputExternalInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.sourcePackageOutputExternalError {
+  color: #a11f32 !important;
+}
+
 .sourcePackageOutputNoImage {
   margin: 0;
   color: #697281;
@@ -5614,6 +5569,11 @@
   cursor: pointer;
 }
 
+.sourcePackageOutputActions button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
 .sourcePackageOutputActions p {
   margin: 0;
   color: #697281;
@@ -5632,6 +5592,10 @@
   }
 
   .sourcePackageOutputImages {
+    grid-column: 1;
+  }
+
+  .sourcePackageOutputSourceGroup {
     grid-column: 1;
   }
 }

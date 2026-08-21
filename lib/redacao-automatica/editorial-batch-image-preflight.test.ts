@@ -202,3 +202,35 @@ test("ready é false perante qualquer problema", () => {
 
   assert.ok(scenarios.every((result) => result.ready === false));
 });
+
+test("imagens persistidas no Dossiê tornam o lote pronto sem nova seleção local", () => {
+  const result = preflightEditorialBatchImages(["01", "02", "03"], [], [
+    { key: "01", imageUrl: "https://assets.example/one.jpg", fileName: "Fonte A" },
+    { key: "02", imageUrl: "https://assets.example/two.jpg", fileName: "Fonte B" },
+    { key: "03", imageUrl: "https://assets.example/three.webp", fileName: "Externa C" },
+  ]);
+
+  assert.equal(result.ready, true);
+  assert.equal(result.associated, 3);
+  assert.equal(result.missing, 0);
+  assert.deepEqual(result.articles.map((article) => article.imageUrl), [
+    "https://assets.example/one.jpg",
+    "https://assets.example/two.jpg",
+    "https://assets.example/three.webp",
+  ]);
+  assert.ok(result.articles.every((article) => article.file === null));
+});
+
+test("um ficheiro local substitui apenas a imagem persistida com a mesma key", () => {
+  const result = preflightEditorialBatchImages(["01", "02"], [
+    image("02-substituta.png", "image/png"),
+  ], [
+    { key: "01", imageUrl: "https://assets.example/one.jpg", fileName: "Fonte A" },
+    { key: "02", imageUrl: "https://assets.example/two.jpg", fileName: "Fonte B" },
+  ]);
+
+  assert.equal(result.ready, true);
+  assert.equal(result.articles[0].imageUrl, "https://assets.example/one.jpg");
+  assert.equal(result.articles[1].file?.name, "02-substituta.png");
+  assert.equal(result.articles[1].imageUrl, undefined);
+});

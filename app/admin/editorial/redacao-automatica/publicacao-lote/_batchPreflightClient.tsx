@@ -221,13 +221,16 @@ function ImageSelectionPanel({
   const statusText = imagePreflight.ready
     ? "PRÉ-FLIGHT DE IMAGENS VÁLIDO"
     : "PRÉ-FLIGHT DE IMAGENS COM PROBLEMAS";
+  const dossierImageCount = imagePreflight.articles.filter(
+    (article) => Boolean(article.imageUrl),
+  ).length;
 
   return (
     <section className={styles.panel} aria-labelledby="batch-images-title">
       <div className={styles.sectionHeader}>
         <div>
           <p className={styles.sectionEyebrow}>Imagens</p>
-          <h2 id="batch-images-title">Associação local</h2>
+          <h2 id="batch-images-title">Imagens do lote</h2>
         </div>
         <strong className={imagePreflight.ready ? styles.readyBadge : styles.invalidBadge}>
           {statusText}
@@ -237,9 +240,15 @@ function ImageSelectionPanel({
       <div className={styles.imagePickerRow}>
         <div>
           <p className={styles.imageInstructions}>
-            Selecione todas as imagens de uma vez. A associação usa apenas o prefixo NN-.
+            {dossierImageCount > 0
+              ? "As escolhas guardadas no Dossiê já estão associadas. Selecione ficheiros locais apenas para as substituir."
+              : "Selecione todas as imagens de uma vez. A associação usa apenas o prefixo NN-."}
           </p>
-          <p className={styles.selectedCount}>Selecionadas: {selectedImages.length}</p>
+          <p className={styles.selectedCount}>
+            {dossierImageCount > 0
+              ? `${dossierImageCount} do Dossiê · ${selectedImages.length} locais`
+              : `Selecionadas: ${selectedImages.length}`}
+          </p>
         </div>
         <label className={styles.imagePicker} htmlFor="batch-images-input">
           SELECIONAR IMAGENS
@@ -398,7 +407,7 @@ function ResultSummary({
               const imageResult = imageResultByKey.get(row.key);
               const previewUrl = imageResult?.file
                 ? imagePreviewUrls.get(imageResult.file)
-                : undefined;
+                : imageResult?.imageUrl;
               const candidateNames = imageResult?.candidates
                 .map((file) => file.name)
                 .join(", ");
@@ -431,10 +440,10 @@ function ResultSummary({
                           ? styles.associatedImage
                           : styles.problemImage
                       }`}>
-                        {previewUrl && imageResult.file ? (
+                        {previewUrl ? (
                           <img
                             src={previewUrl}
-                            alt={`Pré-visualização local de ${imageResult.file.name}`}
+                            alt={`Pré-visualização de ${imageResult.file?.name ?? imageResult.fileName ?? `artigo ${row.key}`}`}
                           />
                         ) : (
                           <div className={styles.imagePlaceholder} aria-hidden="true">SEM IMAGEM</div>
@@ -442,6 +451,7 @@ function ResultSummary({
                         <div>
                           <p>
                             {imageResult.file?.name
+                              ?? imageResult.fileName
                               ?? candidateNames
                               ?? `Nenhum ficheiro ${row.key}-* selecionado`}
                           </p>
@@ -751,8 +761,16 @@ export default function BatchPreflightClient({
     [preflight],
   );
   const imagePreflight = useMemo(
-    () => preflightEditorialBatchImages(analysedArticleKeys, selectedImages),
-    [analysedArticleKeys, selectedImages],
+    () => preflightEditorialBatchImages(
+      analysedArticleKeys,
+      selectedImages,
+      sourcePackage?.outputImages?.map((image) => ({
+        key: String(image.position).padStart(2, "0"),
+        imageUrl: image.imageUrl,
+        fileName: image.label,
+      })) ?? [],
+    ),
+    [analysedArticleKeys, selectedImages, sourcePackage],
   );
   const canPublish = Boolean(
     preflight.ready
@@ -1107,7 +1125,7 @@ export default function BatchPreflightClient({
       }
 
       const articleByKey = new Map(preflight.articles.map((article) => [article.key, article]));
-      const imageByKey = new Map(imagePreflight.articles.map((image) => [image.key, image.file]));
+      const imageByKey = new Map(imagePreflight.articles.map((image) => [image.key, image]));
 
       for (let index = 0; index < plan.length; index += 1) {
         const planItem = plan[index];
@@ -1116,7 +1134,8 @@ export default function BatchPreflightClient({
         }
 
         const article = articleByKey.get(planItem.key);
-        const file = imageByKey.get(planItem.key);
+        const image = imageByKey.get(planItem.key);
+        const file = image?.file ?? null;
         const requiresImage =
           planItem.mode === "create"
           || planItem.mode === "update";
@@ -1126,6 +1145,7 @@ export default function BatchPreflightClient({
           || (
             requiresImage
             && !file
+            && !image?.imageUrl
           )
         ) {
           throw new Error(
@@ -1134,7 +1154,9 @@ export default function BatchPreflightClient({
         }
 
         try {
-          let imageUrl = uploadedImageUrlsRef.current[planItem.key] ?? null;
+          let imageUrl = uploadedImageUrlsRef.current[planItem.key]
+            ?? image?.imageUrl
+            ?? null;
 
           if (
             (
