@@ -639,6 +639,8 @@ export default async function AutomaticNewsroomPage({
               </strong>
               {view === "pending" ? (
                 <span>Marca uma ou várias notícias e decide em conjunto: Em trabalho ou Sem interesse.</span>
+              ) : view === "working" ? (
+                <span>Seleciona uma ou várias notícias e envia-as em conjunto para Sem interesse.</span>
               ) : null}
             </div>
 
@@ -663,17 +665,7 @@ export default async function AutomaticNewsroomPage({
                     </label>
                   ) : view === "working" ? (
                     <>
-                      <label className={styles.simpleFeedChoice}>
-                        <input
-                          type="checkbox"
-                          name="newsroom_article_id"
-                          value={article.id}
-                          defaultChecked={article.id === requestedArticleId}
-                          disabled={!canUseInSourcePackage(article)}
-                          data-source-package-source
-                        />
-                        <span>Escolher</span>
-                      </label>
+
                       <input
                         type="hidden"
                         name={`source_snapshot_${article.id}`}
@@ -700,6 +692,33 @@ export default async function AutomaticNewsroomPage({
                     </div>
                   ) : null}
                   <div className={styles.simpleFeedContent}>
+                    {view === "working" ? (
+                      <div className={styles.workingChoiceRow}>
+                        <label className={styles.workingChoice}>
+                          <input
+                            type="checkbox"
+                            name="newsroom_article_id"
+                            value={article.id}
+                            defaultChecked={article.id === requestedArticleId}
+                            disabled={!canUseInSourcePackage(article)}
+                            data-source-package-source
+                          />
+                          <span>Fonte</span>
+                        </label>
+
+                        {article.latestSnapshotId ? (
+                          <label className={styles.workingChoice}>
+                            <input
+                              type="checkbox"
+                              name="inbox_bulk_item"
+                              value={`${article.id}:${article.latestSnapshotId}`}
+                              data-inbox-bulk-item
+                            />
+                            <span>Sem interesse</span>
+                          </label>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <div className={styles.simpleFeedMeta}>
                       <strong>{sourceNames.get(article.sourceCode) ?? article.sourceCode}</strong>
                       <span className={styles.simpleFeedBadge} data-kind={article.editorial.label}>
@@ -727,24 +746,7 @@ export default async function AutomaticNewsroomPage({
                           Abrir fonte
                         </a>
                       ) : <span />}
-                      {article.latestSnapshotId && view === "working" ? (
-                        <div className={styles.inboxCardActions}>
-                          <button
-                            type="submit"
-                            name="inbox_action"
-                            value={newsroomEditorialInboxActionValue(
-                              "dismissed",
-                              article.id,
-                              article.latestSnapshotId,
-                            )}
-                            formAction="/api/admin/editorial/redacao-automatica/inbox"
-                            formMethod="post"
-                            formNoValidate
-                          >
-                            Sem interesse
-                          </button>
-                        </div>
-                      ) : article.latestSnapshotId && view === "archive" ? (
+                      {article.latestSnapshotId && view === "archive" ? (
                         <div className={styles.inboxCardActions}>
                           <button
                             type="submit"
@@ -773,7 +775,9 @@ export default async function AutomaticNewsroomPage({
               <CurrentFeedReveal total={visibleArticles.length} />
             ) : null}
 
-            {view === "pending" ? <InboxBulkActions /> : null}
+            {view === "pending" || view === "working" ? (
+              <InboxBulkActions view={view} />
+            ) : null}
 
 
             {view === "working" ? (

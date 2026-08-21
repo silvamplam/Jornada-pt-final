@@ -311,3 +311,87 @@ test("o Dossiê fica identificado como gestão avançada e a revisão permanece 
   assert.match(route, /editorial_action/);
   assert.match(service, /missing-body/);
 });
+
+test("Em trabalho separa a escolha de Fonte da seleção de Sem interesse em lote", () => {
+  const newsroom = readFileSync(
+    "app/admin/editorial/redacao-automatica/page.tsx",
+    "utf8",
+  );
+  const bulkActions = readFileSync(
+    "app/admin/editorial/redacao-automatica/_inboxBulkActions.tsx",
+    "utf8",
+  );
+  const styles = readFileSync(
+    "app/admin/editorial/redacao-automatica/redacao-automatica.module.css",
+    "utf8",
+  );
+  const inboxRoute = readFileSync(
+    "app/api/admin/editorial/redacao-automatica/inbox/route.ts",
+    "utf8",
+  );
+
+  assert.match(
+    newsroom,
+    /view === "pending" \|\| view === "working" \? \([\s\S]*?<InboxBulkActions view=\{view\} \/>/,
+  );
+
+  assert.match(
+    newsroom,
+    /workingChoiceRow[\s\S]*?name="newsroom_article_id"[\s\S]*?data-source-package-source[\s\S]*?<span>Fonte<\/span>/,
+  );
+
+  assert.match(
+    newsroom,
+    /workingChoiceRow[\s\S]*?name="inbox_bulk_item"[\s\S]*?data-inbox-bulk-item[\s\S]*?<span>Sem interesse<\/span>/,
+  );
+
+  assert.doesNotMatch(
+    newsroom,
+    /Selecionar para Sem interesse/,
+  );
+
+  assert.doesNotMatch(
+    newsroom,
+    /view === "working"[\s\S]{0,1200}?newsroomEditorialInboxActionValue\(\s*"dismissed"/,
+  );
+
+  assert.match(
+    bulkActions,
+    /view: "pending" \| "working";/,
+  );
+
+  assert.match(
+    bulkActions,
+    /querySelectorAll<HTMLInputElement>\("\[data-inbox-bulk-item\]"\)/,
+  );
+
+  assert.match(
+    bulkActions,
+    /\{view === "pending" \? \([\s\S]*?value="working"/,
+  );
+
+  assert.match(
+    styles,
+    /\.workingChoiceRow \{[\s\S]*?justify-content: space-between;/,
+  );
+
+  assert.match(
+    styles,
+    /\.workingChoice \{/,
+  );
+
+  assert.match(
+    inboxRoute,
+    /bulkActionValue !== "working" && bulkActionValue !== "dismissed"/,
+  );
+
+  assert.match(
+    inboxRoute,
+    /formData\.getAll\("inbox_bulk_item"\)/,
+  );
+
+  assert.match(
+    inboxRoute,
+    /items\.length < 1 \|\| items\.length > 100/,
+  );
+});

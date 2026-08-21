@@ -6,6 +6,10 @@ import styles from "./redacao-automatica.module.css";
 
 const FORM_ID = "create-editorial-source-package";
 
+type InboxBulkActionsProps = {
+  view: "pending" | "working";
+};
+
 function inboxInputs(): HTMLInputElement[] {
   const form = document.getElementById(FORM_ID);
 
@@ -18,7 +22,9 @@ function inboxInputs(): HTMLInputElement[] {
   );
 }
 
-export default function InboxBulkActions() {
+export default function InboxBulkActions({
+  view,
+}: InboxBulkActionsProps) {
   const [selectedCount, setSelectedCount] = useState(0);
   const [availableCount, setAvailableCount] = useState(0);
 
@@ -117,17 +123,19 @@ export default function InboxBulkActions() {
               Sem interesse
             </button>
 
-            <button
-              type="submit"
-              name="inbox_bulk_action"
-              value="working"
-              form={FORM_ID}
-              formAction="/api/admin/editorial/redacao-automatica/inbox"
-              formMethod="post"
-              formNoValidate
-            >
-              Em trabalho
-            </button>
+            {view === "pending" ? (
+              <button
+                type="submit"
+                name="inbox_bulk_action"
+                value="working"
+                form={FORM_ID}
+                formAction="/api/admin/editorial/redacao-automatica/inbox"
+                formMethod="post"
+                formNoValidate
+              >
+                Em trabalho
+              </button>
+            ) : null}
           </div>
         </>
       ) : null}
