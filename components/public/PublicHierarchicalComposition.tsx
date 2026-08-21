@@ -378,7 +378,7 @@ const hierarchicalCompositionStyles = `
     font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(28px, 1.7vw, 32px);
     font-weight: 700;
-    line-height: 1.03;
+    line-height: 1.15;
     letter-spacing: -0.015em;
     -webkit-line-clamp: 4;
     line-clamp: 4;
@@ -426,7 +426,7 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-chronicle .composition-interpretive-title {
     font-size: 19px;
     font-weight: 800;
-    line-height: 1.12;
+    line-height: 1.22;
     -webkit-line-clamp: 4;
     line-clamp: 4;
   }
@@ -535,7 +535,7 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-analysis-main .composition-interpretive-title {
     font-size: 24px;
     font-weight: 800;
-    line-height: 1.12;
+    line-height: 1.22;
     -webkit-line-clamp: 3;
     line-clamp: 3;
   }
@@ -592,7 +592,7 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-analysis-medium .composition-interpretive-title {
     font-size: 16px;
     font-weight: 800;
-    line-height: 1.12;
+    line-height: 1.22;
     -webkit-line-clamp: 3;
     line-clamp: 3;
   }
@@ -633,7 +633,7 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-analysis-side-item .composition-interpretive-title {
     font-size: 15px;
     font-weight: 800;
-    line-height: 1.15;
+    line-height: 1.22;
     -webkit-line-clamp: 3;
     line-clamp: 3;
   }
@@ -676,7 +676,7 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-other-featured .composition-interpretive-title {
     font-size: 22px;
     font-weight: 800;
-    line-height: 1.14;
+    line-height: 1.22;
     -webkit-line-clamp: 2;
     line-clamp: 2;
   }
@@ -710,7 +710,7 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-other-second-featured .composition-interpretive-title {
     font-size: 18px;
     font-weight: 800;
-    line-height: 1.15;
+    line-height: 1.22;
     -webkit-line-clamp: 3;
     line-clamp: 3;
   }
@@ -774,7 +774,7 @@ const hierarchicalCompositionStyles = `
     min-height: calc(3 * 15px * 1.17);
     font-size: 15px;
     font-weight: 750;
-    line-height: 1.17;
+    line-height: 1.22;
     -webkit-line-clamp: 3;
     line-clamp: 3;
   }
@@ -832,11 +832,17 @@ const hierarchicalCompositionStyles = `
   }
 
   .composition-interpretive-title {
-    display: -webkit-box;
-    overflow: hidden;
+    display: block !important;
+    overflow: visible !important;
     color: #10151b;
-    text-overflow: ellipsis;
-    -webkit-box-orient: vertical;
+    text-overflow: clip !important;
+    -webkit-box-orient: initial !important;
+    -webkit-line-clamp: unset !important;
+    line-clamp: unset !important;
+    height: auto;
+    max-height: none;
+    padding-block: 0.11em;
+    box-sizing: border-box;
   }
 
   .composition-interpretive-title a {

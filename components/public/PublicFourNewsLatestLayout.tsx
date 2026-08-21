@@ -134,17 +134,20 @@ const styles = `
   }
 
   .public-four-news-title {
-    display: -webkit-box;
-    overflow: hidden;
+    display: block;
+    overflow: visible;
     color: #10151b;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 17px;
     font-weight: 800;
-    line-height: 1.12;
+    line-height: 1.22;
+    padding-block: 0.11em;
+    box-sizing: border-box;
     text-decoration: none;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    text-overflow: clip;
+    -webkit-box-orient: initial;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
   }
 
   .public-four-news-subtitle {

@@ -107,7 +107,14 @@ const horizontalNewsStyles = `
     -webkit-line-clamp: 1;
   }
 
-  .public-horizontal-news[data-editorial-scope="matchday"] .public-horizontal-news-title,
+  .public-horizontal-news[data-editorial-scope="matchday"] .public-horizontal-news-title {
+    display: block;
+    -webkit-box-orient: initial;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   .public-horizontal-news[data-editorial-scope="matchday"] .public-horizontal-news-card p {
     -webkit-line-clamp: 3;
   }

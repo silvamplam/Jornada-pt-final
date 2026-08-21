@@ -827,7 +827,7 @@ export const publicEditorialStyles = `
     font-family: Georgia, "Times New Roman", serif;
     max-width: 100%;
     font-size: clamp(30px, 1.9vw, 34px);
-    line-height: 1.03;
+    line-height: 1.15;
     letter-spacing: -0.015em;
     text-transform: none;
   }
@@ -881,11 +881,12 @@ export const publicEditorialStyles = `
   }
 
   .public-matchday-editorial h1 {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 5;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: block;
+    -webkit-box-orient: initial;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.15;
   }
 
   .public-cover-headline p {

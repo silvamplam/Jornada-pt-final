@@ -90,7 +90,14 @@ const roundupVideoListPolishStyles = `
     pointer-events: none;
   }
 
-  .public-roundup-video-layout .public-roundup-active-body strong,
+  .public-roundup-video-layout .public-roundup-active-body strong {
+    display: block;
+    -webkit-box-orient: initial;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
   .public-roundup-video-layout .public-roundup-active-body p {
     display: -webkit-box;
     -webkit-box-orient: vertical;

@@ -115,22 +115,22 @@ const styles = `
   }
 
   .public-beyond-matchday-title {
-    display: -webkit-box;
-    overflow: hidden;
+    display: block;
+    overflow: visible;
     color: #10151b;
     font-family: Georgia, "Times New Roman", serif;
     font-weight: 700;
     text-decoration: none;
-    text-overflow: ellipsis;
-    -webkit-box-orient: vertical;
+    text-overflow: clip;
+    -webkit-box-orient: initial;
   }
 
   .public-beyond-matchday-lead .public-beyond-matchday-title {
     font-size: 29px;
-    line-height: 1.04;
+    line-height: 1.15;
     letter-spacing: -0.015em;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
   }
 
   .public-beyond-matchday-subtitle {
@@ -166,10 +166,10 @@ const styles = `
 
   .public-beyond-matchday-secondary-card .public-beyond-matchday-title {
     font-size: 18px;
-    line-height: 1.08;
+    line-height: 1.15;
     letter-spacing: -0.01em;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
   }
 
   .public-beyond-matchday-text-only {

@@ -104,3 +104,36 @@ test("PublicContextPostTitle mantém o limite visual dos Destaques", () => {
   assert.match(contextPostTitle, /paragraph\.style\.setProperty\("-webkit-line-clamp"/);
   assert.match(contextPostTitle, /window\.matchMedia\("\(max-width: 1180px\)"\)/);
 });
+
+test("os títulos de Últimas na Jornada não são cortados por line-clamp", () => {
+  assert.match(
+    layout,
+    /data-editorial-scope=\"matchday\"\] \.public-news-title \{\s*display: block;\s*-webkit-box-orient: initial;\s*-webkit-line-clamp: unset;\s*overflow: visible;\s*text-overflow: clip;/,
+  );
+  assert.doesNotMatch(
+    layout,
+    /data-editorial-scope=\"matchday\"\] \.public-news-title \{\s*-webkit-line-clamp: 4;/,
+  );
+});
+
+test("os títulos editoriais públicos da Jornada não são truncados", () => {
+  assert.match(layout, /public-below-headline-highlights \.public-cover-story strong \{[\s\S]*?-webkit-line-clamp: unset;/);
+  assert.match(layout, /public-side-editorial-copy strong \{[\s\S]*?-webkit-line-clamp: unset;/);
+  assert.match(layout, /public-complement-body strong \{[\s\S]*?-webkit-line-clamp: unset;/);
+  assert.doesNotMatch(layout, /public-below-headline-highlights \.public-cover-story strong \{[^}]*-webkit-line-clamp: 3;/);
+  assert.doesNotMatch(layout, /public-side-editorial-copy strong \{\s*-webkit-line-clamp: 6;/);
+  assert.doesNotMatch(layout, /public-complement-body strong \{\s*-webkit-line-clamp: 2;/);
+});
+
+test("a Faixa da Jornada também mostra os títulos completos", () => {
+  const horizontal = readFileSync("components/public/PublicHorizontalNewsStrip.tsx", "utf8");
+
+  assert.match(
+    horizontal,
+    /public-horizontal-news\[data-editorial-scope=\"matchday\"\] \.public-horizontal-news-title \{[^}]*-webkit-line-clamp: unset;/,
+  );
+  assert.doesNotMatch(
+    horizontal,
+    /public-horizontal-news\[data-editorial-scope=\"matchday\"\] \.public-horizontal-news-title \{[^}]*-webkit-line-clamp: 3;/,
+  );
+});

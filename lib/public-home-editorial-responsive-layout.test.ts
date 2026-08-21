@@ -372,7 +372,7 @@ test("video e complemento partilham uma geometria vertical unica em Home e Jorna
   );
 });
 
-test("os dois titulos de zona respeitam a capitalizacao escrita e o complemento usa duas linhas de titulo", () => {
+test("os dois titulos de zona respeitam a capitalizacao escrita e o titulo do complemento fica completo", () => {
   const layout = readFileSync("components/public/PublicEditorialLayout.tsx", "utf8");
   const roundup = readFileSync("components/public/RoundupVideoSwitcher.tsx", "utf8");
 
@@ -386,11 +386,11 @@ test("os dois titulos de zona respeitam a capitalizacao escrita e o complemento 
   );
   assert.match(
     layout,
-    /public-matchday-depth-row \.public-complement-body strong \{[\s\S]*?-webkit-line-clamp:\s*2;/
+    /public-matchday-depth-row \.public-complement-body strong \{[^}]*?-webkit-line-clamp:\s*unset;/
   );
   assert.match(
     layout,
-    /public-matchday-depth-row \.public-complement-body p \{[\s\S]*?-webkit-line-clamp:\s*1;/
+    /public-matchday-depth-row \.public-complement-body p \{[\s\S]*?-webkit-line-clamp:\s*3;/
   );
 });
 
