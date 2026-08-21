@@ -20,6 +20,14 @@ import {
   preflightEditorialBatchImages,
   type EditorialBatchImagePreflight,
 } from "@/lib/redacao-automatica/editorial-batch-image-preflight";
+import {
+  analyseEditorialBatchForPublication,
+  editorialBatchPublicationFingerprint,
+  editorialBatchPublicationUiState,
+  isEditorialBatchPreflightResponseCurrent,
+  requestEditorialBatchPublicationPreflight,
+  shouldRequestAutomaticEditorialBatchPreflight,
+} from "@/lib/redacao-automatica/editorial-batch-publication-client";
 
 import styles from "./publicacao-lote.module.css";
 
@@ -84,13 +92,6 @@ type BatchPublicationItemState = Readonly<{
   status: BatchPublicationItemStatus;
   message: string;
   articleId?: string;
-}>;
-
-type BatchPublicationPreflightResponse = Readonly<{
-  ok?: boolean;
-  error?: string;
-  detail?: string;
-  items?: readonly BatchPublicationPlanItem[];
 }>;
 
 type BatchPublicationItemResponse = Readonly<{
@@ -209,23 +210,17 @@ function articleResultRows(preflight: EditorialBatchPreflight): ArticleResultRow
 function ImageSelectionPanel({
   selectedImages,
   imagePreflight,
-  associationStale,
   onImagesSelected,
   disabled,
 }: Readonly<{
   selectedImages: readonly File[];
-  imagePreflight: EditorialBatchImagePreflight<File> | null;
-  associationStale: boolean;
+  imagePreflight: EditorialBatchImagePreflight<File>;
   onImagesSelected: (files: FileList | null) => void;
   disabled: boolean;
 }>) {
-  const statusText = imagePreflight
-    ? imagePreflight.ready
-      ? "PRÉ-FLIGHT DE IMAGENS VÁLIDO"
-      : "PRÉ-FLIGHT DE IMAGENS COM PROBLEMAS"
-    : associationStale
-      ? "ASSOCIAÇÃO DESATUALIZADA"
-      : "AGUARDA ANÁLISE DO LOTE";
+  const statusText = imagePreflight.ready
+    ? "PRÉ-FLIGHT DE IMAGENS VÁLIDO"
+    : "PRÉ-FLIGHT DE IMAGENS COM PROBLEMAS";
 
   return (
     <section className={styles.panel} aria-labelledby="batch-images-title">
@@ -234,7 +229,7 @@ function ImageSelectionPanel({
           <p className={styles.sectionEyebrow}>Imagens</p>
           <h2 id="batch-images-title">Associação local</h2>
         </div>
-        <strong className={imagePreflight?.ready ? styles.readyBadge : styles.invalidBadge}>
+        <strong className={imagePreflight.ready ? styles.readyBadge : styles.invalidBadge}>
           {statusText}
         </strong>
       </div>
@@ -260,48 +255,38 @@ function ImageSelectionPanel({
         />
       </div>
 
-      {imagePreflight ? (
-        <>
-          <dl className={styles.imageStats} aria-label="Resumo do pré-flight de imagens">
-            <div>
-              <dt>Selecionadas</dt>
-              <dd>{imagePreflight.selected}</dd>
-            </div>
-            <div>
-              <dt>Associadas</dt>
-              <dd>{imagePreflight.associated}</dd>
-            </div>
-            <div>
-              <dt>Em falta</dt>
-              <dd>{imagePreflight.missing}</dd>
-            </div>
-            <div>
-              <dt>Problemas</dt>
-              <dd>{imagePreflight.problems}</dd>
-            </div>
-          </dl>
+      <dl className={styles.imageStats} aria-label="Resumo do pré-flight de imagens">
+        <div>
+          <dt>Selecionadas</dt>
+          <dd>{imagePreflight.selected}</dd>
+        </div>
+        <div>
+          <dt>Associadas</dt>
+          <dd>{imagePreflight.associated}</dd>
+        </div>
+        <div>
+          <dt>Em falta</dt>
+          <dd>{imagePreflight.missing}</dd>
+        </div>
+        <div>
+          <dt>Problemas</dt>
+          <dd>{imagePreflight.problems}</dd>
+        </div>
+      </dl>
 
-          {imagePreflight.fileProblems.length > 0 ? (
-            <section className={styles.imageFileProblems} aria-labelledby="batch-image-files-title">
-              <h3 id="batch-image-files-title">Ficheiros com problemas</h3>
-              <ul>
-                {imagePreflight.fileProblems.map((problem, index) => (
-                  <li key={`${problem.code}-${problem.file.name}-${index}`}>
-                    <strong>{problem.file.name}</strong>
-                    <span>{problem.message}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-        </>
-      ) : (
-        <p className={styles.imagePendingNotice} role="status">
-          {associationStale
-            ? "Texto alterado — a validade das associações foi anulada. Analise o lote novamente."
-            : "Analise o lote para associar as imagens selecionadas às keys dos artigos."}
-        </p>
-      )}
+      {imagePreflight.fileProblems.length > 0 ? (
+        <section className={styles.imageFileProblems} aria-labelledby="batch-image-files-title">
+          <h3 id="batch-image-files-title">Ficheiros com problemas</h3>
+          <ul>
+            {imagePreflight.fileProblems.map((problem, index) => (
+              <li key={`${problem.code}-${problem.file.name}-${index}`}>
+                <strong>{problem.file.name}</strong>
+                <span>{problem.message}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -375,8 +360,16 @@ function ResultSummary({
         </article>
         <article>
           <span>Próxima etapa</span>
-          <strong>{globallyPrepared ? "Pronto para publicar" : "Ainda incompleto"}</strong>
-          <p>A publicação envia cada imagem, cria o artigo canónico e coloca-o em Últimas.</p>
+          <strong>
+            {globallyPrepared
+              ? "Preparação concluída"
+              : "Ainda incompleto"}
+          </strong>
+          <p>
+            {globallyPrepared
+              ? "O destino de cada artigo é verificado automaticamente no bloco Publicação."
+              : "Completa o lote, o contexto, a autoria e as imagens."}
+          </p>
         </article>
       </div>
 
@@ -473,22 +466,26 @@ function PublicationPanel({
   articles,
   states,
   error,
+  isChecking,
   isPublishing,
   canPublish,
   plan,
   confirmedUpdates,
   onConfirmUpdate,
+  onRetryPreflight,
   onPublish,
 }: Readonly<{
   articles: readonly EditorialBatchArticle[];
   states: Readonly<Record<string, BatchPublicationItemState>>;
   error: string | null;
+  isChecking: boolean;
   isPublishing: boolean;
   canPublish: boolean;
   plan: readonly BatchPublicationPlanItem[] | null;
   confirmedUpdates: Readonly<Record<string, string>>;
   onConfirmUpdate:
     (key: string, articleId: string) => void;
+  onRetryPreflight: () => void;
   onPublish: () => void;
 }>) {
   const stateValues = Object.values(states);
@@ -498,12 +495,26 @@ function PublicationPanel({
   const hasIncompleteRun =
     hasRun && !allPublished;
 
-  const updateCandidates =
-    (plan ?? []).filter(
-      (item) =>
-        item.mode === "update_required"
-        && Boolean(item.articleId),
-    );
+  const publicationUi = editorialBatchPublicationUiState({
+    plan,
+    confirmedUpdates,
+    canPublish,
+    isChecking,
+    isPublishing,
+    allPublished,
+    hasIncompleteRun,
+    hasError: Boolean(error),
+  });
+  const updateCandidates = publicationUi.updateCandidates;
+  const updatesConfirmedInPanel = publicationUi.updatesConfirmed;
+  const articleByKey = new Map(articles.map((article) => [article.key, article]));
+  const statusToneClass = publicationUi.statusTone === "success"
+    ? styles.publicationStatusSuccess
+    : publicationUi.statusTone === "warning"
+      ? styles.publicationStatusWarning
+      : publicationUi.statusTone === "error"
+        ? styles.publicationStatusError
+        : styles.publicationStatusNeutral;
 
   return (
     <section className={styles.panel} aria-labelledby="batch-publication-title" aria-live="polite">
@@ -512,28 +523,38 @@ function PublicationPanel({
           <p className={styles.sectionEyebrow}>Publicação</p>
           <h2 id="batch-publication-title">Publicar em Últimas</h2>
         </div>
-        <strong className={allPublished ? styles.readyBadge : styles.invalidBadge}>
-          {allPublished ? "LOTE PUBLICADO" : isPublishing ? "PUBLICAÇÃO EM CURSO" : "PRONTO"}
+        <strong className={`${styles.publicationStatus} ${statusToneClass}`} role="status">
+          {publicationUi.statusLabel}
         </strong>
       </div>
 
-      {updateCandidates.length > 0 ? (
+      {plan && (plan.length > 1 || publicationUi.hasUpdatePlan) ? (
         <section
           className={styles.articleResults}
-          aria-labelledby="batch-update-confirmations-title"
+          aria-labelledby="batch-publication-destinations-title"
         >
-          <h3 id="batch-update-confirmations-title">
-            Atualizações a confirmar
-          </h3>
+          <h3 id="batch-publication-destinations-title">Destino por artigo</h3>
 
           <ol>
-            {updateCandidates.map((item) => {
+            {plan.map((item) => {
+              const article = articleByKey.get(item.key);
               const confirmed =
                 Boolean(
                   item.articleId
                   && confirmedUpdates[item.key]
                     === item.articleId,
                 );
+              const updateRequired = item.mode === "update_required";
+              const updateConfirmed = item.mode === "update" || confirmed;
+              const destinationLabel = item.mode === "create"
+                ? "NOVO ARTIGO"
+                : item.mode === "resume"
+                  ? "PUBLICAÇÃO JÁ PREPARADA"
+                  : updateConfirmed
+                    ? "ATUALIZAÇÃO CONFIRMADA"
+                    : item.articleId
+                      ? "ATUALIZAÇÃO DETETADA"
+                      : "ATUALIZAÇÃO BLOQUEADA";
 
               return (
                 <li key={item.key}>
@@ -545,53 +566,58 @@ function PublicationPanel({
                     <div className={styles.articleHeading}>
                       <h4>
                         {firstText(
-                          item.existingTitle,
+                          updateRequired || item.mode === "update"
+                            ? item.existingTitle
+                            : article?.title,
                           item.existingSlug,
-                          "Artigo existente",
+                          article?.title,
+                          "Artigo",
                         )}
                       </h4>
 
-                      <strong>
-                        {confirmed
-                          ? "ATUALIZAÇÃO CONFIRMADA"
-                          : "CONFIRMAÇÃO NECESSÁRIA"}
-                      </strong>
+                      <strong>{destinationLabel}</strong>
                     </div>
 
                     <p className={styles.validNote}>
-                      {item.updateTargetFromDossier
-                        ? "Este é o artigo publicado identificado pelo Dossiê reutilizado. "
-                        : "Esta saída do Dossiê corresponde a um artigo já publicado da mesma jornada. "}
-                      A atualização mantém o mesmo artigo e
-                      o mesmo URL.
+                      {updateRequired || item.mode === "update"
+                        ? item.articleId
+                          ? "Este Dossiê corresponde a um artigo já publicado. A atualização manterá o mesmo artigo e o mesmo URL."
+                          : "O servidor identificou uma atualização, mas não devolveu um articleId válido. A publicação permanece bloqueada."
+                        : item.mode === "resume"
+                          ? "O artigo já processado será confirmado e mantido em Últimas."
+                          : "Será criado um novo artigo e publicado em Últimas."}
                     </p>
 
-                    <div className={styles.analysisActions}>
-                      <p className={styles.analysisNote}>
-                        {item.existingSlug ?? ""}
+                    {item.existingSlug ? (
+                      <p className={styles.existingUrl}>
+                        URL existente: {item.existingSlug}
                       </p>
+                    ) : null}
 
-                      <button
-                        type="button"
-                        disabled={
-                          confirmed
-                          || isPublishing
-                          || !item.articleId
-                        }
-                        onClick={() => {
-                          if (item.articleId) {
-                            onConfirmUpdate(
-                              item.key,
-                              item.articleId,
-                            );
-                          }
-                        }}
-                      >
-                        {confirmed
-                          ? "ATUALIZAÇÃO CONFIRMADA"
-                          : "CONFIRMAR ATUALIZAÇÃO"}
-                      </button>
-                    </div>
+                    {updateRequired ? (
+                      <div className={styles.confirmationAction}>
+                        {updateConfirmed ? (
+                          <span className={styles.confirmedState}>Atualização confirmada</span>
+                        ) : item.articleId ? (
+                          <button
+                            type="button"
+                            disabled={isPublishing || isChecking}
+                            onClick={() => {
+                              if (item.articleId) {
+                                onConfirmUpdate(
+                                  item.key,
+                                  item.articleId,
+                                );
+                              }
+                            }}
+                          >
+                            CONFIRMAR ATUALIZAÇÃO
+                          </button>
+                        ) : (
+                          <span className={styles.blockedState}>Confirmação indisponível</span>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 </li>
               );
@@ -601,26 +627,39 @@ function PublicationPanel({
       ) : null}
 
       <div className={styles.analysisActions}>
-        <p className={styles.analysisNote}>
-          {error
-            ? error
-            : allPublished
-              ? "Todos os artigos ficaram publicados e colocados em Últimas."
-              : "A publicação é sequencial e pára no primeiro erro, preservando o que já foi concluído."}
-        </p>
-        <button
-          type="button"
-          disabled={!canPublish || isPublishing || allPublished}
-          onClick={onPublish}
-        >
-          {isPublishing
-            ? "A PUBLICAR…"
-            : hasIncompleteRun
-              ? "RETOMAR PUBLICAÇÃO"
+        <p className={error ? styles.publicationError : styles.analysisNote} role={error ? "alert" : undefined}>
+          {isChecking
+            ? "A verificar destino editorial…"
+            : error
+              ? error
               : allPublished
-                ? "LOTE PUBLICADO"
-                : "PUBLICAR LOTE"}
-        </button>
+                ? "Todos os artigos concluíram a publicação em Últimas."
+                : !plan
+                  ? "A análise começa automaticamente assim que todos os dados necessários estiverem válidos."
+                : updateCandidates.length > 0
+                  ? updatesConfirmedInPanel
+                    ? "A atualização foi confirmada. O artigo existente e o mesmo URL serão preservados."
+                    : "Confirma explicitamente a atualização do artigo publicado antes de continuar."
+                  : "A publicação é sequencial e pára no primeiro erro, preservando o que já foi concluído."}
+        </p>
+
+        {publicationUi.showRetry ? (
+          <button
+            className={styles.retryAction}
+            type="button"
+            onClick={onRetryPreflight}
+          >
+            Tentar novamente
+          </button>
+        ) : publicationUi.actionLabel ? (
+          <button
+            type="button"
+            disabled={!canPublish || isPublishing || isChecking || allPublished}
+            onClick={onPublish}
+          >
+            {publicationUi.actionLabel}
+          </button>
+        ) : null}
       </div>
 
       {hasRun ? (
@@ -658,12 +697,12 @@ export default function BatchPreflightClient({
   const [seasonId, setSeasonId] = useState("");
   const [matchdayId, setMatchdayId] = useState("");
   const [articleText, setArticleText] = useState("");
-  const [preflight, setPreflight] = useState<EditorialBatchPreflight | null>(null);
-  const [textChangedAfterAnalysis, setTextChangedAfterAnalysis] = useState(false);
   const [selectedImages, setSelectedImages] = useState<readonly File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<ReadonlyMap<File, string>>(new Map());
   const [author, setAuthor] = useState(DEFAULT_BATCH_AUTHOR);
   const [sourcePackage, setSourcePackage] = useState<EditorialBatchTransferSourcePackage | null>(null);
+  const [isCheckingPublication, setIsCheckingPublication] = useState(false);
+  const [preflightRetryVersion, setPreflightRetryVersion] = useState(0);
   const [isPublishing, setIsPublishing] = useState(false);
   const [publicationError, setPublicationError] = useState<string | null>(null);
   const [publicationStates, setPublicationStates] = useState<Readonly<Record<string, BatchPublicationItemState>>>({});
@@ -679,6 +718,11 @@ export default function BatchPreflightClient({
   const publicationPlanRef = useRef<readonly BatchPublicationPlanItem[] | null>(null);
   const uploadedImageUrlsRef = useRef<Record<string, string>>({});
   const publishingRef = useRef(false);
+  const publicationRequestSequenceRef = useRef(0);
+  const latestPublicationFingerprintRef = useRef("");
+  const lastRequestedPublicationFingerprintRef = useRef<string | null>(null);
+  const activePublicationFingerprintRef = useRef<string | null>(null);
+  const publicationPreflightAbortRef = useRef<AbortController | null>(null);
 
   const availableSeasons = useMemo(
     () => seasons.filter((season) => season.competition_id === competitionId),
@@ -691,6 +735,10 @@ export default function BatchPreflightClient({
   const selectedCompetition = competitions.find((competition) => competition.id === competitionId) ?? null;
   const selectedSeason = seasons.find((season) => season.id === seasonId) ?? null;
   const selectedMatchday = matchdays.find((matchday) => matchday.id === matchdayId) ?? null;
+  const preflight = useMemo(
+    () => preflightEditorialArticleBatch(articleText),
+    [articleText],
+  );
   const contextComplete = Boolean(
     selectedCompetition
       && selectedSeason
@@ -699,21 +747,40 @@ export default function BatchPreflightClient({
       && selectedMatchday.season_id === selectedSeason.id,
   );
   const analysedArticleKeys = useMemo(
-    () => preflight ? articleResultRows(preflight).map((row) => row.key) : [],
+    () => articleResultRows(preflight).map((row) => row.key),
     [preflight],
   );
   const imagePreflight = useMemo(
-    () => preflight
-      ? preflightEditorialBatchImages(analysedArticleKeys, selectedImages)
-      : null,
-    [analysedArticleKeys, preflight, selectedImages],
+    () => preflightEditorialBatchImages(analysedArticleKeys, selectedImages),
+    [analysedArticleKeys, selectedImages],
   );
   const canPublish = Boolean(
-    preflight?.ready
+    preflight.ready
       && contextComplete
-      && imagePreflight?.ready
+      && imagePreflight.ready
       && author.trim(),
   );
+  const publicationFingerprint = useMemo(
+    () => editorialBatchPublicationFingerprint({
+      articleText,
+      competitionId,
+      seasonId,
+      matchdayId,
+      author,
+      images: selectedImages,
+      sourcePackage,
+    }),
+    [
+      articleText,
+      author,
+      competitionId,
+      matchdayId,
+      seasonId,
+      selectedImages,
+      sourcePackage,
+    ],
+  );
+  latestPublicationFingerprintRef.current = publicationFingerprint;
 
   const requiredUpdates =
     (publicationPlan ?? []).filter(
@@ -732,7 +799,17 @@ export default function BatchPreflightClient({
     );
 
   const publicationCanPublish =
-    canPublish && updatesConfirmed;
+    canPublish
+    && Boolean(publicationPlan)
+    && updatesConfirmed;
+
+  const publicationPanelVisible = Boolean(
+    canPublish
+    || isCheckingPublication
+    || publicationPlan
+    || publicationError
+    || Object.keys(publicationStates).length > 0,
+  );
 
   useEffect(() => {
     const transferredText = window.sessionStorage.getItem(
@@ -749,8 +826,6 @@ export default function BatchPreflightClient({
     window.sessionStorage.removeItem(EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY);
     setArticleText(transferredText);
     setSourcePackage(transferredSourcePackage);
-    setPreflight(preflightEditorialArticleBatch(transferredText));
-    setTextChangedAfterAnalysis(false);
   }, []);
 
   useEffect(() => {
@@ -767,6 +842,91 @@ export default function BatchPreflightClient({
     };
   }, [selectedImages]);
 
+  useEffect(() => {
+    const activeFingerprint = activePublicationFingerprintRef.current;
+    if (!shouldRequestAutomaticEditorialBatchPreflight({
+      ready: canPublish && !publishingRef.current,
+      fingerprint: publicationFingerprint,
+      lastRequestedFingerprint: lastRequestedPublicationFingerprintRef.current,
+      activeFingerprint,
+    })) {
+      return;
+    }
+
+    const requestId = publicationRequestSequenceRef.current + 1;
+    publicationRequestSequenceRef.current = requestId;
+    lastRequestedPublicationFingerprintRef.current = publicationFingerprint;
+    activePublicationFingerprintRef.current = publicationFingerprint;
+    const abortController = new AbortController();
+    publicationPreflightAbortRef.current = abortController;
+
+    publicationPlanRef.current = null;
+    setPublicationPlan(null);
+    setConfirmedUpdates({});
+    setPublicationError(null);
+
+    const responseIsCurrent = () => isEditorialBatchPreflightResponseCurrent({
+      requestId,
+      fingerprint: publicationFingerprint,
+      currentRequestId: publicationRequestSequenceRef.current,
+      currentFingerprint: latestPublicationFingerprintRef.current,
+    });
+
+    void analyseEditorialBatchForPublication({
+      articleText,
+      contextComplete,
+      imagesReady: imagePreflight.ready,
+      matchdayId,
+      author,
+      callbacks: {
+        onLocalPreflight: () => undefined,
+        onServerPreflightSkipped: () => undefined,
+        onServerPreflightStarted: () => {
+          if (!responseIsCurrent()) return;
+          setIsCheckingPublication(true);
+        },
+        requestServerPreflight: (nextPreflight) =>
+          requestEditorialBatchPublicationPreflight<BatchPublicationPlanItem>({
+            route: BATCH_PUBLICATION_ROUTE,
+            matchdayId,
+            author,
+            articles: nextPreflight.articles,
+            ...(sourcePackage ? { sourcePackage } : {}),
+            confirmedUpdates: {},
+            signal: abortController.signal,
+          }),
+        onServerPreflightSucceeded: (plan) => {
+          if (!responseIsCurrent()) return;
+          publicationPlanRef.current = plan;
+          setPublicationPlan(plan);
+          setPublicationError(null);
+        },
+        onServerPreflightFailed: (message) => {
+          if (!responseIsCurrent()) return;
+          publicationPlanRef.current = null;
+          setPublicationPlan(null);
+          setPublicationError(message);
+        },
+        onServerPreflightFinished: () => {
+          if (!responseIsCurrent()) return;
+          activePublicationFingerprintRef.current = null;
+          publicationPreflightAbortRef.current = null;
+          setIsCheckingPublication(false);
+        },
+      },
+    });
+  }, [
+    articleText,
+    author,
+    canPublish,
+    contextComplete,
+    imagePreflight.ready,
+    matchdayId,
+    preflightRetryVersion,
+    publicationFingerprint,
+    sourcePackage,
+  ]);
+
   function setPublicationState(key: string, state: BatchPublicationItemState) {
     publicationStatesRef.current = {
       ...publicationStatesRef.current,
@@ -775,7 +935,17 @@ export default function BatchPreflightClient({
     setPublicationStates(publicationStatesRef.current);
   }
 
+  function invalidatePublicationPreflightRequest() {
+    publicationRequestSequenceRef.current += 1;
+    publicationPreflightAbortRef.current?.abort();
+    publicationPreflightAbortRef.current = null;
+    activePublicationFingerprintRef.current = null;
+    lastRequestedPublicationFingerprintRef.current = null;
+    setIsCheckingPublication(false);
+  }
+
   function resetPublicationRun() {
+    invalidatePublicationPreflightRequest();
     publicationPlanRef.current = null;
     setPublicationPlan(null);
     setConfirmedUpdates({});
@@ -783,6 +953,11 @@ export default function BatchPreflightClient({
     publicationStatesRef.current = {};
     setPublicationStates({});
     setPublicationError(null);
+  }
+
+  function retryPublicationPreflight() {
+    resetPublicationRun();
+    setPreflightRetryVersion((current) => current + 1);
   }
 
   function confirmExistingUpdate(
@@ -800,32 +975,22 @@ export default function BatchPreflightClient({
     setPublicationError(null);
   }
 
-  async function requestPublicationPreflight() {
-    if (!preflight || !matchdayId || !author.trim()) {
+  async function requestPublicationPreflight(
+    analysedPreflight: EditorialBatchPreflight = preflight,
+    updateConfirmations: Readonly<Record<string, string>> = confirmedUpdates,
+  ) {
+    if (!matchdayId || !author.trim()) {
       throw new Error("O lote deixou de estar pronto para publicação.");
     }
 
-    const response = await fetch(BATCH_PUBLICATION_ROUTE, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "preflight",
-        matchdayId,
-        author: author.trim(),
-        articles: preflight.articles,
-        ...(sourcePackage ? { sourcePackage } : {}),
-        ...(Object.keys(confirmedUpdates).length > 0
-          ? { confirmedUpdates }
-          : {}),
-      }),
+    return requestEditorialBatchPublicationPreflight<BatchPublicationPlanItem>({
+      route: BATCH_PUBLICATION_ROUTE,
+      matchdayId,
+      author,
+      articles: analysedPreflight.articles,
+      ...(sourcePackage ? { sourcePackage } : {}),
+      confirmedUpdates: updateConfirmations,
     });
-    const payload = await response.json().catch(() => null) as BatchPublicationPreflightResponse | null;
-
-    if (!response.ok || !payload?.ok || !payload.items) {
-      throw new Error(responseDetail(payload, "A verificação final da publicação falhou."));
-    }
-
-    return payload.items;
   }
 
   async function uploadBatchImage(file: File) {
@@ -1062,15 +1227,6 @@ export default function BatchPreflightClient({
   function handleTextChange(nextText: string) {
     resetPublicationRun();
     setArticleText(nextText);
-    if (preflight) {
-      setPreflight(null);
-      setTextChangedAfterAnalysis(true);
-    }
-  }
-
-  function analyseBatch() {
-    setPreflight(preflightEditorialArticleBatch(articleText));
-    setTextChangedAfterAnalysis(false);
   }
 
   function handleImagesSelected(files: FileList | null) {
@@ -1192,29 +1348,20 @@ export default function BatchPreflightClient({
           />
         </label>
 
-        <div className={styles.analysisActions}>
-          <p className={styles.analysisNote}>
-            A análise é local e determinística. Não guarda nem publica artigos.
-          </p>
-          <button type="button" disabled={isPublishing} onClick={analyseBatch}>Analisar lote</button>
-        </div>
-
-        {textChangedAfterAnalysis ? (
-          <p className={styles.staleNotice} role="status">
-            Texto alterado — analisar novamente.
-          </p>
-        ) : null}
+        <p className={styles.automaticAnalysisNote}>
+          A análise é automática quando o lote, o contexto, a autoria e as imagens estão válidos.
+          Não guarda nem publica artigos.
+        </p>
       </section>
 
       <ImageSelectionPanel
         selectedImages={selectedImages}
         imagePreflight={imagePreflight}
-        associationStale={textChangedAfterAnalysis}
         onImagesSelected={handleImagesSelected}
         disabled={isPublishing}
       />
 
-      {preflight && imagePreflight ? (
+      {articleText.trim() || selectedImages.length > 0 ? (
         <ResultSummary
           preflight={preflight}
           imagePreflight={imagePreflight}
@@ -1227,11 +1374,12 @@ export default function BatchPreflightClient({
         />
       ) : null}
 
-      {preflight && imagePreflight && (canPublish || Object.keys(publicationStates).length > 0) ? (
+      {publicationPanelVisible ? (
         <PublicationPanel
           articles={preflight.articles}
           states={publicationStates}
           error={publicationError}
+          isChecking={isCheckingPublication}
           isPublishing={isPublishing}
           canPublish={publicationCanPublish}
           plan={publicationPlan}
@@ -1239,6 +1387,7 @@ export default function BatchPreflightClient({
           onConfirmUpdate={
             confirmExistingUpdate
           }
+          onRetryPreflight={retryPublicationPreflight}
           onPublish={publishBatch}
         />
       ) : null}

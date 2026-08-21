@@ -221,6 +221,7 @@
 .contextGrid select:focus-visible,
 .textareaField textarea:focus-visible,
 .analysisActions button:focus-visible,
+.confirmationAction button:focus-visible,
 .imagePickerRow:has(.fileInput:focus-visible) .imagePicker {
   outline: 3px solid rgba(229, 37, 42, 0.2);
   outline-offset: 2px;
@@ -250,7 +251,15 @@
   line-height: 1.45;
 }
 
-.analysisActions button {
+.automaticAnalysisNote {
+  margin: 14px 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.analysisActions button,
+.confirmationAction button {
   min-height: 42px;
   padding: 0 18px;
   border: 1px solid #10151b;
@@ -265,8 +274,99 @@
   text-transform: uppercase;
 }
 
-.analysisActions button:hover {
+.analysisActions button:hover,
+.confirmationAction button:hover {
   background: #2a323c;
+}
+
+.analysisActions button:disabled,
+.confirmationAction button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.analysisActions .retryAction {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  text-transform: none;
+}
+
+.analysisActions .retryAction:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.publicationError {
+  margin: 0;
+  color: #9f1239;
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.publicationStatus {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.publicationStatusSuccess {
+  border-color: #9dd7b2;
+  background: #edf9f1;
+  color: #166534;
+}
+
+.publicationStatusWarning {
+  border-color: #e7c46e;
+  background: #fff9e8;
+  color: #7a5200;
+}
+
+.publicationStatusError {
+  border-color: #efb0b4;
+  background: #fff2f3;
+  color: #9f1239;
+}
+
+.publicationStatusNeutral {
+  border-color: #d9e0e8;
+  background: #f8fafc;
+  color: #52606d;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.confirmationAction {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.confirmedState,
+.blockedState {
+  color: #166534;
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.blockedState {
+  color: #9f1239;
+}
+
+.existingUrl {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
 }
 
 .staleNotice {

@@ -12,6 +12,11 @@ export type EditorialNewsFlowSlotType = Extract<
   "headline" | "editorial_line_item" | "highlight" | "complement" | "important_item"
 >;
 
+export type EditorialArticleProjectionSlotType = Exclude<
+  EditorialZoneSlotType,
+  "roundup"
+>;
+
 export type EditorialAuthorMode = "hidden" | "visible" | "optional";
 
 export type EditorialZonePresentationProfile = {
@@ -198,7 +203,7 @@ export function buildLatestNewsAntetitle(source: EditorialArticleZoneSource) {
 
 export function projectEditorialArticleToZone(
   source: EditorialArticleZoneSource,
-  slotType: EditorialNewsFlowSlotType
+  slotType: EditorialArticleProjectionSlotType
 ): EditorialArticleZoneProjection {
   const profile = EDITORIAL_ZONE_PRESENTATION_PROFILES[slotType];
   const title = cleanText(source.title);

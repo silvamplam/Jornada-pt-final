@@ -241,6 +241,10 @@ test("todos os caminhos runtime que podem mudar Últimas voltam à sincronizaç�
     fileURLToPath(new URL("./editorial-content-snapshot-sync.ts", import.meta.url)),
     "utf8",
   );
+  const articleSnapshotSync = readFileSync(
+    fileURLToPath(new URL("./editorial-article-live-snapshot-sync.ts", import.meta.url)),
+    "utf8",
+  );
   const articleRoute = readFileSync(
     fileURLToPath(new URL("../app/api/admin/editorial/artigos/route.ts", import.meta.url)),
     "utf8",
@@ -255,6 +259,11 @@ test("todos os caminhos runtime que podem mudar Últimas voltam à sincronizaç�
   assert.match(desk, /applyMatchdayEditorialDeskState[\s\S]*syncLatestFourNewsProjection\(input\.matchdayId\)/);
   assert.match(deskResolution, /syncLatestProjectionAfterRelevantPlacement/);
   assert.match(contentSnapshotSync, /affectedLiveMatchdayIds[\s\S]*syncLatestFourNewsProjection/);
+  assert.match(articleSnapshotSync, /matchdayIds[\s\S]*syncLatestFourNewsProjection\(matchdayId\)/);
+  assert.doesNotMatch(
+    articleSnapshotSync,
+    /matchday_reference_composition_items|matchday_hierarchical_composition_slots/,
+  );
   assert.match(articleRoute, /liveMatchdayLinkRemovalTargets[\s\S]*syncLatestFourNewsProjection/);
   assert.match(gestorRoute, /LATEST_FOUR_CONFLICT_SYNC_ACTIONS[\s\S]*syncLatestFourNewsProjection/);
 });

@@ -81,6 +81,12 @@ export type EditorialArticleUpdatePayload = EditorialArticlePayload & Readonly<{
   updated_at: string;
 }>;
 
+export type EditorialArticlePublishedLiveSnapshotSyncInput = Readonly<{
+  articleId: string;
+  previousSlug: string | null;
+  article: EditorialArticleUpdatePayload;
+}>;
+
 export type EditorialArticleWriteOptions = Readonly<{
   action: EditorialArticleAction;
   initialPlacement: EditorialInitialPlacement;
@@ -138,6 +144,9 @@ export interface EditorialArticleServiceTransport {
   readMatchday(matchdayId: string): Promise<MatchdayContextRow | null>;
   insertArticle(payload: EditorialArticleInsertPayload): Promise<readonly CreatedArticleRow[]>;
   updateArticle(articleId: string, payload: EditorialArticleUpdatePayload): Promise<void>;
+  syncPublishedArticleLiveSnapshots?(
+    input: EditorialArticlePublishedLiveSnapshotSyncInput,
+  ): Promise<void>;
   placePublishedArticleInitially(
     matchdayId: string,
     articleId: string,
@@ -452,10 +461,18 @@ export function createEditorialArticleService(
           ? { ...input, slug: currentArticle.slug }
           : input;
       const payload = await buildPayload(stableInput, articleId, targetStatus, transport);
-      await transport.updateArticle(articleId, {
+      const updatePayload = {
         ...payload,
         updated_at: transport.now(),
-      });
+      };
+      await transport.updateArticle(articleId, updatePayload);
+      if (currentArticle.status === "published" && targetStatus === "published") {
+        await transport.syncPublishedArticleLiveSnapshots?.({
+          articleId,
+          previousSlug: currentArticle.slug,
+          article: updatePayload,
+        });
+      }
 
       const isFirstPublication = options.action === "publish"
         && currentArticle.status !== "published";

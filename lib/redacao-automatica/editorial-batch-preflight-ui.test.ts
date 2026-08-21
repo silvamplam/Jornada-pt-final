@@ -15,12 +15,15 @@ function source(relativePath: string) {
 
 const routeSource = source("app/admin/editorial/redacao-automatica/publicacao-lote/page.tsx");
 const clientSource = source("app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx");
+const publicationClientSource = source("lib/redacao-automatica/editorial-batch-publication-client.ts");
 const imagePreflightSource = source("lib/redacao-automatica/editorial-batch-image-preflight.ts");
 const newsroomSource = source("app/admin/editorial/redacao-automatica/page.tsx");
 const publicationRouteSource = source("app/api/admin/editorial/redacao-automatica/publicacao-lote/route.ts");
 
 function clientFunction(functionName: string) {
-  const start = clientSource.indexOf(`  function ${functionName}`);
+  const syncStart = clientSource.indexOf(`  function ${functionName}`);
+  const asyncStart = clientSource.indexOf(`  async function ${functionName}`);
+  const start = syncStart >= 0 ? syncStart : asyncStart;
   assert.notEqual(start, -1, `Função ${functionName} não encontrada`);
   const end = clientSource.indexOf("\n  }", start) + "\n  }".length;
   assert.ok(end >= start, `Fim da função ${functionName} não encontrado`);
@@ -55,7 +58,8 @@ test("a Redação Automática oferece acesso lateral à Publicação em lote", (
 
 test("a página usa diretamente o pré-flight batch existente", () => {
   assert.match(clientSource, /from "@\/lib\/redacao-automatica\/editorial-batch-parser"/);
-  assert.match(clientSource, /preflightEditorialArticleBatch\(articleText\)/);
+  assert.match(clientSource, /analyseEditorialBatchForPublication/);
+  assert.match(publicationClientSource, /preflightEditorialArticleBatch\(articleText\)/);
 });
 
 test("a Publicação em lote recebe diretamente o texto colado no pacote editorial", () => {
@@ -65,7 +69,10 @@ test("a Publicação em lote recebe diretamente o texto colado no pacote editori
   assert.match(clientSource, /window\.sessionStorage\.getItem/);
   assert.match(clientSource, /window\.sessionStorage\.removeItem/);
   assert.match(clientSource, /setArticleText\(transferredText\)/);
-  assert.match(clientSource, /setPreflight\(preflightEditorialArticleBatch\(transferredText\)\)/);
+  assert.match(
+    clientSource,
+    /const preflight = useMemo\([\s\S]*?preflightEditorialArticleBatch\(articleText\)/,
+  );
 });
 
 test("a página usa diretamente a função pura de pré-flight de imagens", () => {
@@ -116,8 +123,9 @@ test("existe textarea editorial acessível", () => {
   assert.match(clientSource, /<textarea[\s\S]*?id="batch-article-text"/);
 });
 
-test("existe botão semântico Analisar lote", () => {
-  assert.match(clientSource, /<button type="button"[^>]*onClick=\{analyseBatch\}>Analisar lote<\/button>/);
+test("a análise deixou de exigir o botão intermédio Analisar lote", () => {
+  assert.doesNotMatch(clientSource, /ANALISAR LOTE|analyseBatch/);
+  assert.ok(clientSource.includes("A análise é automática quando o lote"));
 });
 
 test("o contrato real fornece total, válidos, inválidos e chaves 01 02 03", () => {
@@ -162,12 +170,16 @@ test("artigo sem título utilizável recebe fallback neutro", () => {
   assert.match(clientSource, /\|\| "Sem título"/);
 });
 
-test("alterar o texto invalida a análise anterior e pede nova análise", () => {
+test("alterar o texto invalida imediatamente o plano anterior", () => {
   assert.match(
     clientSource,
-    /function handleTextChange[\s\S]*?if \(preflight\)[\s\S]*?setPreflight\(null\);[\s\S]*?setTextChangedAfterAnalysis\(true\);/,
+    /function handleTextChange[\s\S]*?resetPublicationRun\(\);[\s\S]*?setArticleText\(nextText\);/,
   );
-  assert.ok(clientSource.includes("Texto alterado — analisar novamente."));
+  assert.match(
+    clientSource,
+    /function resetPublicationRun[\s\S]*?setPublicationPlan\(null\);/,
+  );
+  assert.match(clientSource, /publicationPreflightAbortRef\.current\?\.abort\(\)/);
   assert.doesNotMatch(clientFunction("handleTextChange"), /setSelectedImages/);
   assert.match(clientSource, /imagePreflight={imagePreflight}/);
 });
@@ -228,8 +240,8 @@ test("a UI mostra ficheiros órfãos e inválidos sem os ignorar", () => {
   assert.ok(imagePreflightSource.includes("FORMATO NÃO SUPORTADO"));
 });
 
-test("uma nova análise reaproveita os ficheiros já selecionados", () => {
-  assert.doesNotMatch(clientFunction("analyseBatch"), /setSelectedImages/);
+test("a análise automática reaproveita os ficheiros já selecionados", () => {
+  assert.doesNotMatch(clientFunction("resetPublicationRun"), /setSelectedImages/);
   assert.match(
     clientSource,
     /const imagePreflight = useMemo\([\s\S]*?preflightEditorialBatchImages\(analysedArticleKeys, selectedImages\)/,
@@ -257,11 +269,15 @@ test("as previews são locais e os object URLs são sempre libertados", () => {
   assert.match(clientSource, /src={previewUrl}/);
 });
 
-test("a publicação só aparece depois do pré-flight global e suporta retoma", () => {
-  assert.match(clientSource, /"PUBLICAR LOTE"/);
-  assert.match(clientSource, /"RETOMAR PUBLICAÇÃO"/);
-  assert.match(clientSource, /preflight && imagePreflight && \(canPublish \|\| Object\.keys\(publicationStates\)\.length > 0\)/);
-  assert.match(clientSource, /disabled=\{!canPublish \|\| isPublishing \|\| allPublished\}/);
+test("o painel final mostra checking, erro/retry e publicação sem CTA técnico", () => {
+  assert.match(publicationClientSource, /"PUBLICAR EM ÚLTIMAS"/);
+  assert.match(publicationClientSource, /"RETOMAR PUBLICAÇÃO"/);
+  assert.match(clientSource, /const publicationPanelVisible = Boolean\(/);
+  assert.match(clientSource, /canPublish[\s\S]*?\|\| isCheckingPublication[\s\S]*?\|\| publicationPlan[\s\S]*?\|\| publicationError/);
+  assert.match(clientSource, /\{publicationPanelVisible \? \(/);
+  assert.ok(clientSource.includes("A verificar destino editorial…"));
+  assert.ok(clientSource.includes("Tentar novamente"));
+  assert.match(clientSource, /disabled=\{!canPublish \|\| isPublishing \|\| isChecking \|\| allPublished\}/);
   assert.match(clientSource, /publishingRef\.current/);
 });
 
@@ -306,7 +322,8 @@ test("o servidor deriva o contexto só a partir da Jornada", () => {
 });
 
 test("a publicação vinda de pacote usa a hora da fonte mais recente por artigo", () => {
-  assert.match(clientSource, /action: "preflight"[\s\S]*?\.\.\.\(sourcePackage \? \{ sourcePackage \} : \{\}\)/);
+  assert.match(clientSource, /requestEditorialBatchPublicationPreflight[\s\S]*?\.\.\.\(sourcePackage \? \{ sourcePackage \} : \{\}\)/);
+  assert.match(publicationClientSource, /action: "preflight"[\s\S]*?\.\.\.\(sourcePackage \? \{ sourcePackage \} : \{\}\)/);
   assert.match(publicationRouteSource, /entry\.publishedAtPrecision === "instant"/);
   assert.match(publicationRouteSource, /parsePublishedAt\(\s*entry\.publishedAt,?\s*\)/);
   assert.doesNotMatch(publicationRouteSource, /type SourcePublicationRow/);
@@ -420,7 +437,7 @@ test("um Dossiê reutilizado resolve o artigo original por ID apesar de um títu
     publicationRouteSource,
     /updateTargetFromDossier: Boolean\(item\.updateTarget\)/,
   );
-  assert.match(clientSource, /artigo publicado identificado pelo Dossiê reutilizado/);
+  assert.match(clientSource, /Este Dossiê corresponde a um artigo já publicado/);
 });
 
 test("o alvo herdado é revalidado e não admite confirmação ou criação arbitrária", () => {
@@ -476,4 +493,65 @@ test("saídas do mesmo Dossiê preservam a hora real da fonte sem offsets artifi
     publicationRouteSource,
     /publishedAtByArticle\.set\(\s*output\.position,\s*sourcePublishedAt,\s*\)/,
   );
+});
+test("o lote válido dispara automaticamente um único preflight server-side", () => {
+  assert.match(
+    clientSource,
+    /useEffect\(\(\) => \{[\s\S]*?shouldRequestAutomaticEditorialBatchPreflight\([\s\S]*?ready: canPublish[\s\S]*?analyseEditorialBatchForPublication\([\s\S]*?requestServerPreflight:[\s\S]*?requestEditorialBatchPublicationPreflight/,
+  );
+  assert.match(
+    clientSource,
+    /const publicationCanPublish =[\s\S]*?canPublish[\s\S]*?Boolean\(publicationPlan\)[\s\S]*?updatesConfirmed/,
+  );
+  assert.match(
+    clientSource,
+    /const canPublish = Boolean\([\s\S]*?preflight\.ready[\s\S]*?contextComplete[\s\S]*?imagePreflight\.ready[\s\S]*?author\.trim\(\)/,
+  );
+  assert.match(clientSource, /lastRequestedPublicationFingerprintRef/);
+  assert.match(clientSource, /activePublicationFingerprintRef/);
+  assert.match(clientSource, /publicationRequestSequenceRef/);
+  assert.match(clientSource, /isEditorialBatchPreflightResponseCurrent/);
+  assert.doesNotMatch(clientSource, /ANALISAR LOTE|analyseBatch/);
+});
+
+test("uma atualização fica explícita com um único CTA antes de publicar", () => {
+  assert.ok(publicationClientSource.includes("ATUALIZAÇÃO DETETADA"));
+  assert.ok(publicationClientSource.includes("ATUALIZAÇÃO CONFIRMADA"));
+  assert.ok(publicationClientSource.includes("ATUALIZAR ARTIGO"));
+  assert.ok(clientSource.includes("CONFIRMAR ATUALIZAÇÃO"));
+  assert.ok(
+    clientSource.includes(
+      "Este Dossiê corresponde a um artigo já publicado. A atualização manterá o mesmo artigo e o mesmo URL.",
+    ),
+  );
+  assert.ok(clientSource.includes("URL existente:"));
+  assert.doesNotMatch(publicationClientSource, /AGUARDA VERIFICAÇÃO|AGUARDA CONFIRMAÇÃO|CONFIRMAR ATUALIZAÇÃO ACIMA|PRONTO PARA ATUALIZAR/);
+});
+
+test("estados editoriais são texto ou badge e nunca botões falsos", () => {
+  const buttonBlocks = clientSource.match(/<button[\s\S]*?<\/button>/g) ?? [];
+
+  for (const label of [
+    "AGUARDA VERIFICAÇÃO",
+    "ATUALIZAÇÃO CONFIRMADA",
+    "LOTE PUBLICADO",
+  ]) {
+    assert.equal(
+      buttonBlocks.some((button) => button.includes(label)),
+      false,
+      `${label} não pode ser um botão`,
+    );
+  }
+
+  assert.match(clientSource, /<strong className=\{`\$\{styles\.publicationStatus\}/);
+  assert.match(clientSource, /<span className=\{styles\.confirmedState\}>Atualização confirmada<\/span>/);
+});
+
+test("todos os artigos do lote apresentam o destino determinado", () => {
+  assert.match(clientSource, /<h3 id="batch-publication-destinations-title">Destino por artigo<\/h3>/);
+  assert.match(clientSource, /\{plan\.map\(\(item\) => \{/);
+  assert.ok(clientSource.includes("NOVO ARTIGO"));
+  assert.ok(clientSource.includes("PUBLICAÇÃO JÁ PREPARADA"));
+  assert.ok(clientSource.includes("ATUALIZAÇÃO BLOQUEADA"));
+  assert.match(clientSource, /updateCandidates\.length > 0/);
 });

@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import { placePublishedArticleInitially } from "@/lib/editorial-matchday-news-flow";
+import { syncEditorialArticleLiveSnapshots } from "@/lib/editorial-article-live-snapshot-sync";
 import {
   createEditorialArticleService,
   type EditorialArticleContextInput,
@@ -114,6 +115,22 @@ const service = createEditorialArticleService({
         body: JSON.stringify(payload),
       },
     );
+  },
+
+  async syncPublishedArticleLiveSnapshots({ articleId, previousSlug, article }) {
+    await syncEditorialArticleLiveSnapshots({
+      previousSlug,
+      article: {
+        id: articleId,
+        slug: article.slug,
+        label: article.label,
+        title: article.title,
+        subtitle: article.subtitle,
+        image_url: article.image_url,
+        author: article.author,
+        published_at: article.published_at,
+      },
+    });
   },
 
   placePublishedArticleInitially,

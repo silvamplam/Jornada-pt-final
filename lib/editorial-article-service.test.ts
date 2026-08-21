@@ -7,6 +7,7 @@ import {
   EditorialArticleServiceError,
   type EditorialArticleInput,
   type EditorialArticleInsertPayload,
+  type EditorialArticlePublishedLiveSnapshotSyncInput,
   type EditorialArticleServiceTransport,
   type EditorialArticleUpdatePayload,
 } from "@/lib/editorial-article-service-internal";
@@ -58,6 +59,8 @@ function fixture() {
       articleId: string;
       payload: EditorialArticleUpdatePayload;
     }>,
+    snapshotSyncs: [] as EditorialArticlePublishedLiveSnapshotSyncInput[],
+    updateEvents: [] as string[],
     placements: [] as Array<{
       matchdayId: string;
       articleId: string;
@@ -90,6 +93,11 @@ function fixture() {
     },
     async updateArticle(articleId, payload) {
       state.updated.push({ articleId, payload });
+      state.updateEvents.push("article-updated");
+    },
+    async syncPublishedArticleLiveSnapshots(input) {
+      state.snapshotSyncs.push(structuredClone(input));
+      state.updateEvents.push("live-snapshots-synced");
     },
     async placePublishedArticleInitially(matchdayId, articleId, placement) {
       state.placements.push({ matchdayId, articleId, placement });
@@ -381,6 +389,39 @@ test("guardar artigo já published não o despublica", async () => {
   assert.equal(state.placements.length, 0);
 });
 
+test("atualização de artigo já publicado sincroniza snapshots depois da escrita canónica", async () => {
+  const { service, state } = fixture();
+  state.currentArticle = {
+    id: ARTICLE_ID,
+    status: "published",
+    matchday_id: null,
+    slug: "endereco-publicado-original",
+  };
+
+  await service.updateArticle(
+    ARTICLE_ID,
+    completeInput({
+      title: "Título canónico atualizado",
+      slug: "endereco-novo-ignorado",
+    }),
+    { action: "save", initialPlacement: "none" },
+  );
+
+  assert.deepEqual(state.updateEvents, [
+    "article-updated",
+    "live-snapshots-synced",
+  ]);
+  assert.equal(state.snapshotSyncs.length, 1);
+  assert.equal(state.snapshotSyncs[0].articleId, ARTICLE_ID);
+  assert.equal(state.snapshotSyncs[0].previousSlug, "endereco-publicado-original");
+  assert.equal(state.snapshotSyncs[0].article.slug, "endereco-publicado-original");
+  assert.equal(state.snapshotSyncs[0].article.title, "Título canónico atualizado");
+  assert.equal(
+    state.snapshotSyncs[0].article.published_at,
+    "2026-08-13T10:30:00.000Z",
+  );
+});
+
 test("primeira publicação com placement chama o circuito canónico", async () => {
   const { service, state } = fixture();
   addMatchdayContext(state);
@@ -403,6 +444,7 @@ test("primeira publicação com placement chama o circuito canónico", async () 
     articleId: ARTICLE_ID,
     placement: "highlight",
   }]);
+  assert.equal(state.snapshotSyncs.length, 0);
 });
 
 test("placement none não força entrada em Últimas nem noutra zona", async () => {
