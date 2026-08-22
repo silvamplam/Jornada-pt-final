@@ -50,7 +50,9 @@ test("Últimas é independente da única colocação editorial", () => {
   const placed = applyDeskPlacementSelection(state(), ["a"], "four_news");
   assert.equal(placed.a.inLatest, true);
   assert.equal(placed.a.placementKey, "live_four_news:1");
-  assert.equal(placed.b.placementKey, null);
+  assert.equal(placed.b.placementKey, "important_item:1");
+  assert.equal(placed.d.placementKey, "important_item:2");
+  assert.equal(placed.e.placementKey, "important_item:3");
 
   const outsideLatest = setDeskLatestMembership(placed, ["a"], false);
   assert.equal(outsideLatest.a.inLatest, false);
@@ -64,24 +66,68 @@ test("Sem colocação total é representável sem criar uma segunda zona", () =>
   assert.equal(unplaced.b.placementKey, null);
 });
 
-test("a ordem de seleção preenche uma zona e desaloja apenas os lugares usados", () => {
-  const next = applyDeskPlacementSelection(state(), ["f", "a"], "four_news");
+test("as ocupantes desalojadas entram juntas no topo da Faixa pela ordem dos lugares substituídos", () => {
+  const multiState: MatchdayDeskDesiredState = {
+    ...state(),
+    g: { inLatest: false, placementKey: "important_item:3" },
+  };
+  const next = applyDeskPlacementSelection(multiState, ["f", "a"], "four_news");
   assert.equal(next.f.placementKey, "live_four_news:1");
   assert.equal(next.a.placementKey, "live_four_news:2");
-  assert.equal(next.b.placementKey, null);
-  assert.equal(next.c.placementKey, null);
+  assert.equal(next.b.placementKey, "important_item:1");
+  assert.equal(next.c.placementKey, "important_item:2");
+  assert.equal(next.d.placementKey, "important_item:3");
+  assert.equal(next.e.placementKey, "important_item:4");
+  assert.equal(next.g.placementKey, "important_item:5");
 });
 
-test("a Faixa aceita várias notícias, preserva uma única colocação e normaliza a ordem", () => {
+test("uma ocupante X desalojada precede a Faixa existente A, B, C", () => {
+  const replacementState: MatchdayDeskDesiredState = {
+    incoming: { inLatest: false, placementKey: null },
+    x: { inLatest: true, placementKey: "headline" },
+    a: { inLatest: false, placementKey: "important_item:1" },
+    b: { inLatest: false, placementKey: "important_item:2" },
+    c: { inLatest: false, placementKey: "important_item:3" },
+  };
+
+  const next = placeDeskArticleInSlot(replacementState, "incoming", "headline");
+
+  assert.equal(next.x.placementKey, "important_item:1");
+  assert.equal(next.a.placementKey, "important_item:2");
+  assert.equal(next.b.placementKey, "important_item:3");
+  assert.equal(next.c.placementKey, "important_item:4");
+});
+
+test("a entrada explícita na Faixa põe o bloco selecionado no topo e normaliza a ordem", () => {
   const next = applyDeskPlacementSelection(state(), ["a", "b"], "faixa");
-  assert.equal(next.d.placementKey, "important_item:1");
-  assert.equal(next.e.placementKey, "important_item:2");
-  assert.equal(next.a.placementKey, "important_item:3");
-  assert.equal(next.b.placementKey, "important_item:4");
+  assert.equal(next.a.placementKey, "important_item:1");
+  assert.equal(next.b.placementKey, "important_item:2");
+  assert.equal(next.d.placementKey, "important_item:3");
+  assert.equal(next.e.placementKey, "important_item:4");
 
   const moved = moveDeskArticleWithinPlacementGroup(next, "b", "up");
-  assert.equal(moved.b.placementKey, "important_item:3");
-  assert.equal(moved.a.placementKey, "important_item:4");
+  assert.equal(moved.b.placementKey, "important_item:1");
+  assert.equal(moved.a.placementKey, "important_item:2");
+});
+
+test("a Mesa conserva uma sequência editorial de treze itens e mantém o item onze", () => {
+  const longState = Object.fromEntries([
+    ["incoming", { inLatest: false, placementKey: null }],
+    ...Array.from({ length: 12 }, (_, index) => [
+      `item-${index + 1}`,
+      { inLatest: false, placementKey: `important_item:${index + 1}` },
+    ]),
+  ]) as MatchdayDeskDesiredState;
+
+  const next = applyDeskPlacementSelection(longState, ["incoming"], "faixa");
+  const faixaArticles = Object.values(next).filter(
+    (article) => placementGroupForKey(article.placementKey) === "faixa",
+  );
+
+  assert.equal(faixaArticles.length, 13);
+  assert.equal(next.incoming.placementKey, "important_item:1");
+  assert.equal(next["item-10"].placementKey, "important_item:11");
+  assert.equal(next["item-12"].placementKey, "important_item:13");
 });
 
 test("arrastar dentro de uma zona troca as posições sem duplicar a notícia", () => {
@@ -122,7 +168,9 @@ test("uma noticia pode ir diretamente para um slot especifico", () => {
 
   const occupied = placeDeskArticleInSlot(state(), "a", "live_four_news:2");
   assert.equal(occupied.a.placementKey, "live_four_news:2");
-  assert.equal(occupied.c.placementKey, null);
+  assert.equal(occupied.c.placementKey, "important_item:1");
+  assert.equal(occupied.d.placementKey, "important_item:2");
+  assert.equal(occupied.e.placementKey, "important_item:3");
   assert.equal(occupied.a.inLatest, true);
 });
 test("as etiquetas da Mesa sao compactas e nao repetem a zona", () => {
@@ -177,8 +225,8 @@ test("a ordem de seleção preenche a Abertura da Manchete ao Contexto", () => {
   assert.equal(next.d.placementKey, "highlight:3");
   assert.equal(next.e.placementKey, "side_block");
 
-  assert.equal(next.oldHeadline.placementKey, null);
-  assert.equal(next.oldHighlight.placementKey, null);
+  assert.equal(next.oldHeadline.placementKey, "important_item:1");
+  assert.equal(next.oldHighlight.placementKey, "important_item:2");
 
   assert.equal(next.a.inLatest, true);
   assert.equal(next.b.inLatest, false);

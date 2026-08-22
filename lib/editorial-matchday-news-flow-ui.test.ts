@@ -39,7 +39,7 @@ test("publicar sem colocação editorial é uma opção explícita e não transf
 
 test("Últimas integra os destinos de transferência e continua a receber por cronologia", () => {
   const targetOptionsStart = editorialPageSource.indexOf("const newsTransferTargetOptions");
-  const targetOptionsEnd = editorialPageSource.indexOf("function newsDisplacedTargetOptionsForSource", targetOptionsStart);
+  const targetOptionsEnd = editorialPageSource.indexOf("const highlightsEditor", targetOptionsStart);
   assert.ok(targetOptionsStart >= 0 && targetOptionsEnd > targetOptionsStart);
   const targetOptionsBlock = editorialPageSource.slice(targetOptionsStart, targetOptionsEnd);
   assert.ok(targetOptionsBlock.includes('targetSlotType: "editorial_line_item"'));
@@ -49,35 +49,24 @@ test("Últimas integra os destinos de transferência e continua a receber por cr
 test("Últimas e Contexto podem iniciar transferências pelo mesmo controlo", () => {
   assert.ok(editorialPageSource.includes('sourceSlotType="editorial_line_item"'));
   assert.ok(editorialPageSource.includes('sourceSlotType="side_block"'));
-  assert.ok(editorialPageSource.includes("Se o destino estiver ocupado, escolhe para onde vai a notícia que sai."));
+  assert.ok(editorialPageSource.includes("Se o destino estiver ocupado, a notícia substituída entra automaticamente em primeiro na Faixa."));
 });
 
-test("qualquer transferência para destino ocupado exige escolher o destino da notícia substituída", () => {
-  assert.ok(editorialPageSource.includes('name="displaced_target_choice"'));
-  assert.ok(editorialPageSource.includes("Enviar a notícia substituída para"));
-  assert.ok(editorialPageSource.includes("data-displaced-target-field"));
-  assert.ok(editorialPageSource.includes("needsDisplacedDestination"));
-  assert.ok(editorialPageSource.includes("displacedSelect.required = needsDisplacedDestination"));
+test("o segundo seletor da notícia substituída deixa de existir", () => {
+  assert.equal(editorialPageSource.includes('name="displaced_target_choice"'), false);
+  assert.equal(editorialPageSource.includes("Enviar a notícia substituída para"), false);
+  assert.equal(editorialPageSource.includes("data-displaced-target-field"), false);
+  assert.equal(editorialPageSource.includes("data-target-occupied"), false);
+  assert.equal(editorialPageSource.includes("needsDisplacedDestination"), false);
+  assert.equal(editorialPageSource.includes("newsDisplacedTargetOptionsForSource"), false);
 });
 
-test("o destino da notícia substituída inclui sem colocação, Últimas, Contexto, posições livres e Faixa", () => {
-  assert.ok(editorialPageSource.includes('{ value: "unplaced::", label: "Sem colocação editorial" }'));
-  assert.ok(editorialPageSource.includes('value: "headline::"'));
-  assert.ok(editorialPageSource.includes('value: "editorial_line_item::"'));
-  assert.ok(editorialPageSource.includes('value: "side_block::"'));
-  assert.ok(editorialPageSource.includes('value: `highlight::${order}`'));
-  assert.ok(editorialPageSource.includes('value: "complement::"'));
-  assert.ok(editorialPageSource.includes('value: "important_item::"'));
-  assert.ok(editorialPageSource.includes("newsDisplacedTargetOptionsForSource"));
-});
-
-test("todas as seis zonas usam o mesmo controlo e a troca automática desaparece", () => {
+test("todas as seis zonas usam o mesmo controlo e informam o destino automático da desalojada", () => {
   for (const slotType of ["headline", "editorial_line_item", "side_block", "highlight", "complement", "important_item"]) {
     assert.ok(editorialPageSource.includes(`sourceSlotType="${slotType}"`), slotType);
-    assert.ok(editorialPageSource.includes(`newsDisplacedTargetOptionsForSource("${slotType}"`), slotType);
   }
-  assert.ok(editorialPageSource.includes("Nunca existe troca automática; o artigo original não é reescrito."));
-  assert.equal(editorialPageSource.includes("As duas mudam de zona; nenhum artigo original é reescrito."), false);
+  assert.ok(editorialPageSource.includes("A notícia atual entra automaticamente em primeiro na Faixa."));
+  assert.equal(editorialPageSource.includes("Escolhe para onde vai a notícia atual"), false);
 });
 
 
@@ -88,49 +77,11 @@ test("Últimas mantém o antetítulo com hora numa única linha", () => {
   );
 });
 
-test("o destino da notícia substituída não depende do primeiro binding JavaScript para ser submetido", () => {
-  assert.ok(
-    editorialPageSource.includes(
-      'className="editorial-admin-displaced-target" data-displaced-target-field',
-    ),
-  );
-
-  assert.ok(
-    editorialPageSource.includes(
-      '@supports selector(.editorial-admin-transfer:has(option:checked))',
-    ),
-  );
-
-  assert.ok(
-    editorialPageSource.includes(
-      ':has(option[data-target-occupied="1"]:checked)',
-    ),
-  );
-
-  assert.equal(
-    editorialPageSource.includes(
-      'name="displaced_target_choice" defaultValue="" disabled',
-    ),
-    false,
-  );
-
-  assert.equal(
-    editorialPageSource.includes(
-      "displacedSelect.disabled = !needsDisplacedDestination",
-    ),
-    false,
-  );
-
-  assert.equal(
-    editorialPageSource.includes(
-      "displacedField.hidden = !needsDisplacedDestination",
-    ),
-    false,
-  );
-
-  assert.ok(
-    editorialPageSource.includes(
-      "displacedSelect.required = needsDisplacedDestination",
-    ),
-  );
+test("a confirmação de substituição mantém apenas o seletor do destino", () => {
+  assert.ok(editorialPageSource.includes('select name="target_choice"'));
+  assert.ok(editorialPageSource.includes("option.getAttribute('data-confirm-message')"));
+  assert.ok(editorialPageSource.includes("window.confirm(message)"));
+  assert.equal(editorialPageSource.includes("editorial-admin-displaced-target"), false);
+  assert.equal(editorialPageSource.includes("updateDisplacedDestination"), false);
+  assert.equal(editorialPageSource.includes("displacedSelect"), false);
 });

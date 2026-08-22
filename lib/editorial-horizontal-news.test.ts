@@ -4,6 +4,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  PUBLIC_MATCHDAY_HORIZONTAL_NEWS_MAX_ITEMS,
   buildEditorialHorizontalNewsEditorOrders,
   buildEditorialHorizontalNewsItems,
   buildEditorialHorizontalNewsRows,
@@ -61,8 +62,8 @@ test("buildEditorialHorizontalNewsItems ordena, limpa e exclui linhas sem titulo
 
 
 
-test("buildEditorialHorizontalNewsItems nao limita a quantidade e preserva a cor do antetitulo", () => {
-  const sources = Array.from({ length: 10 }, (_, index) => ({
+test("o estado editorial conserva treze itens e a resolução pública mostra apenas os primeiros dez", () => {
+  const sources = Array.from({ length: 13 }, (_, index) => ({
     id: `item-${index + 1}`,
     label: `Etiqueta ${index + 1}`,
     labelColor: index === 0 ? "  #123456  " : null,
@@ -71,10 +72,20 @@ test("buildEditorialHorizontalNewsItems nao limita a quantidade e preserva a cor
   }));
 
   const items = buildEditorialHorizontalNewsItems(sources);
+  const publicItems = resolveMatchdayHorizontalNewsItems({
+    hasPublishedReferenceComposition: false,
+    referenceItems: [],
+    liveItems: sources,
+  });
 
-  assert.equal(items.length, 10);
+  assert.equal(PUBLIC_MATCHDAY_HORIZONTAL_NEWS_MAX_ITEMS, 10);
+  assert.equal(items.length, 13);
   assert.equal(items[0]?.labelColor, "#123456");
-  assert.equal(items[9]?.sortOrder, 10);
+  assert.equal(items[10]?.sortOrder, 11);
+  assert.equal(items[12]?.sortOrder, 13);
+  assert.equal(publicItems.length, 10);
+  assert.deepEqual(publicItems.map((item) => item.id), sources.slice(0, 10).map((item) => item.id));
+  assert.equal(items.some((item) => item.id === "item-11"), true);
 });
 
 test("buildEditorialHorizontalNewsRows equilibra as filas, limita a cinco e coloca o excedente em baixo", () => {
@@ -238,6 +249,10 @@ const compositionRouteSource = readFileSync(
   fileURLToPath(new URL("../app/api/admin/editorial/composicao/route.ts", import.meta.url)),
   "utf8"
 );
+const currentReferenceCompositionSyncSource = readFileSync(
+  fileURLToPath(new URL("./editorial-current-reference-composition-sync.ts", import.meta.url)),
+  "utf8"
+);
 const publicMatchdayLoaderSource = readFileSync(
   fileURLToPath(new URL("./public-matchday.ts", import.meta.url)),
   "utf8"
@@ -271,6 +286,16 @@ test("a faixa horizontal integra a composicao editorial e preserva a cor", () =>
   assert.match(compositionRouteSource, /sourceType:\s*"matchday_horizontal_news"/);
   assert.match(compositionRouteSource, /slot_type:\s*"important_item"/);
   assert.match(compositionRouteSource, /label_color_snapshot:\s*item\.label_color/);
+});
+
+test("a composição atual continua a sincronizar toda a Faixa sem aplicar a janela pública", () => {
+  assert.match(
+    currentReferenceCompositionSyncSource,
+    /matchday_horizontal_news\?select=[^`]*order=sort_order\.asc/,
+  );
+  assert.doesNotMatch(currentReferenceCompositionSyncSource, /matchday_horizontal_news[^`]*limit=10/);
+  assert.doesNotMatch(currentReferenceCompositionSyncSource, /slice\(0,\s*10\)/);
+  assert.doesNotMatch(currentReferenceCompositionSyncSource, /PUBLIC_MATCHDAY_HORIZONTAL_NEWS_MAX_ITEMS/);
 });
 
 test("as leituras publicas da faixa nao impõem o limite antigo de quatro itens", () => {

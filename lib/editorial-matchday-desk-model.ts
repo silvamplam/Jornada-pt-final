@@ -309,6 +309,29 @@ function normalizeFaixa(state: MatchdayDeskDesiredState) {
   });
 }
 
+function prependArticlesToFaixa(
+  state: MatchdayDeskDesiredState,
+  articleIds: readonly string[],
+) {
+  const prependedIds = articleIds.filter((articleId, index, ids) =>
+    Boolean(state[articleId]) && ids.indexOf(articleId) === index
+  );
+  const prependedIdSet = new Set(prependedIds);
+  const existingFaixaIds = Object.entries(state)
+    .filter(([articleId, article]) =>
+      !prependedIdSet.has(articleId) && placementGroupForKey(article.placementKey) === "faixa"
+    )
+    .sort((left, right) => faixaOrder(left[1].placementKey) - faixaOrder(right[1].placementKey))
+    .map(([articleId]) => articleId);
+
+  [...prependedIds, ...existingFaixaIds].forEach((articleId, index) => {
+    state[articleId] = {
+      ...state[articleId],
+      placementKey: `important_item:${index + 1}`,
+    };
+  });
+}
+
 export function applyDeskPlacementSelection(
   state: MatchdayDeskDesiredState,
   selectedArticleIds: string[],
@@ -334,17 +357,7 @@ export function applyDeskPlacementSelection(
   });
 
   if (destination === "faixa") {
-    const existingFaixaIds = Object.entries(next)
-      .filter(([, article]) => placementGroupForKey(article.placementKey) === "faixa")
-      .sort((left, right) => faixaOrder(left[1].placementKey) - faixaOrder(right[1].placementKey))
-      .map(([articleId]) => articleId);
-
-    [...existingFaixaIds, ...selected].forEach((articleId, index) => {
-      next[articleId] = {
-        ...next[articleId],
-        placementKey: `important_item:${index + 1}`,
-      };
-    });
+    prependArticlesToFaixa(next, selected);
     return next;
   }
 
@@ -356,18 +369,19 @@ export function applyDeskPlacementSelection(
     throw new Error(`A zona ${group.label} só tem ${group.slots.length} posições.`);
   }
 
+  const displacedArticleIds: string[] = [];
   selected.forEach((articleId, index) => {
     const targetKey = group.slots[index].key;
     const displaced = Object.entries(next).find(
       ([candidateId, article]) => candidateId !== articleId && article.placementKey === targetKey,
     );
     if (displaced) {
-      next[displaced[0]] = { ...next[displaced[0]], placementKey: null };
+      displacedArticleIds.push(displaced[0]);
     }
     next[articleId] = { ...next[articleId], placementKey: targetKey };
   });
 
-  normalizeFaixa(next);
+  prependArticlesToFaixa(next, displacedArticleIds);
   return next;
 }
 
@@ -390,13 +404,13 @@ export function placeDeskArticleInSlot(
       candidateId !== articleId && article.placementKey === targetPlacementKey,
   );
 
-  if (displaced) {
-    next[displaced[0]] = { ...next[displaced[0]], placementKey: null };
-  }
-
   next[articleId] = { ...next[articleId], placementKey: targetPlacementKey };
 
-  if (sourceWasFaixa) normalizeFaixa(next);
+  if (displaced) {
+    prependArticlesToFaixa(next, [displaced[0]]);
+  } else if (sourceWasFaixa) {
+    normalizeFaixa(next);
+  }
   return next;
 }
 export function setDeskLatestMembership(

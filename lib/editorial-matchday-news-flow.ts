@@ -114,7 +114,6 @@ export type EditorialMatchdayTransferSlotType =
   | EditorialNewsFlowSlotType
   | "side_block"
   | LiveMatchdayHierarchicalTransferSlotType;
-export type EditorialDisplacedTargetSlotType = EditorialMatchdayTransferSlotType | "unplaced";
 
 export function isEditorialMatchdayTransferSlotType(value: unknown): value is EditorialMatchdayTransferSlotType {
   return value === "side_block"
@@ -131,8 +130,6 @@ export type EditorialMatchdayNewsTransferInput = {
   sourceId: string;
   targetSlotType: EditorialMatchdayTransferSlotType;
   targetId?: string | null;
-  displacedTargetSlotType?: EditorialDisplacedTargetSlotType | null;
-  displacedTargetOrder?: number | null;
 };
 
 type PlacedProjection = {
@@ -857,20 +854,20 @@ async function projectionForDisplacedOccupant(
   return fallbackProjectionForZone(occupant, destinationSlotType);
 }
 
-async function writeProjectionToExistingSourceZone(
+async function writeProjectionToExistingZone(
   matchdayId: string,
-  sourceSlotType: EditorialMatchdayTransferSlotType,
+  slotType: EditorialMatchdayTransferSlotType,
   sourceId: string,
   projection: ZoneProjection,
 ) {
   const now = new Date().toISOString();
 
-  if (isLiveMatchdayHierarchicalTransferSlotType(sourceSlotType)) {
-    await writeProjectionToLiveLayoutSlot(matchdayId, sourceSlotType, projection, sourceId);
+  if (isLiveMatchdayHierarchicalTransferSlotType(slotType)) {
+    await writeProjectionToLiveLayoutSlot(matchdayId, slotType, projection, sourceId);
     return;
   }
 
-  if (sourceSlotType === "headline") {
+  if (slotType === "headline") {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`, {
       method: "PATCH",
       body: JSON.stringify({
@@ -885,7 +882,7 @@ async function writeProjectionToExistingSourceZone(
     return;
   }
 
-  if (sourceSlotType === "side_block") {
+  if (slotType === "side_block") {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`, {
       method: "PATCH",
       body: JSON.stringify({
@@ -902,7 +899,7 @@ async function writeProjectionToExistingSourceZone(
     return;
   }
 
-  if (sourceSlotType === "complement") {
+  if (slotType === "complement") {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`, {
       method: "PATCH",
       body: JSON.stringify({
@@ -918,7 +915,7 @@ async function writeProjectionToExistingSourceZone(
     return;
   }
 
-  if (sourceSlotType === "editorial_line_item") {
+  if (slotType === "editorial_line_item") {
     await setLatestNewsMode(matchdayId);
     await writeSupabaseAdmin(`matchday_latest_news?id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`, {
       method: "PATCH",
@@ -938,7 +935,7 @@ async function writeProjectionToExistingSourceZone(
     return;
   }
 
-  const table = sourceSlotType === "highlight" ? "matchday_highlights" : "matchday_horizontal_news";
+  const table = slotType === "highlight" ? "matchday_highlights" : "matchday_horizontal_news";
   await writeSupabaseAdmin(`${table}?id=eq.${encodeURIComponent(sourceId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`, {
     method: "PATCH",
     body: JSON.stringify({
@@ -954,32 +951,12 @@ async function writeProjectionToExistingSourceZone(
   });
 }
 
-async function restoreSourceArticleAfterFailedSwap(
-  matchdayId: string,
-  article: NewsFlowArticle,
-  sourceSlotType: EditorialMatchdayTransferSlotType,
-  sourceId: string,
-) {
-  try {
-    await writeProjectionToExistingSourceZone(
-      matchdayId,
-      sourceSlotType,
-      sourceId,
-      projectArticleToTransferZone(article, sourceSlotType),
-    );
-  } catch {
-    // Best-effort compensation. The original target was not changed yet.
-  }
-}
-
 async function placeProjectionInAvailableZone(
   matchdayId: string,
-  slotType: EditorialDisplacedTargetSlotType,
+  slotType: EditorialMatchdayTransferSlotType,
   projection: ZoneProjection,
   targetOrder?: number | null,
-): Promise<PlacedProjection | null> {
-  if (slotType === "unplaced") return null;
-
+): Promise<PlacedProjection> {
   if (isLiveMatchdayHierarchicalTransferSlotType(slotType)) {
     const sourceId = await writeProjectionToLiveLayoutSlot(matchdayId, slotType, projection, null);
     return { slotType, sourceId };
@@ -1657,10 +1634,7 @@ export async function transferPublishedArticleBetweenMatchdayZones(input: Editor
   if (input.sourceSlotType === input.targetSlotType) {
     throw new EditorialMatchdayNewsFlowError("news-flow-same-zone", "Escolhe uma zona de destino diferente.");
   }
-  if (
-    isLatestFourNewsSlotType(input.targetSlotType)
-    || isLatestFourNewsSlotType(input.displacedTargetSlotType)
-  ) {
+  if (isLatestFourNewsSlotType(input.targetSlotType)) {
     throw new EditorialMatchdayNewsFlowError(
       "news-flow-automatic-latest-projection",
       "Os quatro lugares junto de Últimas não podem ser escolhidos como destino porque são preenchidos automaticamente.",
@@ -1680,45 +1654,23 @@ export async function transferPublishedArticleBetweenMatchdayZones(input: Editor
     );
   }
 
-  let displacedPlacement: PlacedProjection | null = null;
-  let displacedMovedToSource = false;
-
   if (input.targetId) {
     const displacedOccupant = await readOccupiedTargetZone(input.matchdayId, input.targetSlotType, input.targetId);
-    const displacedTargetSlotType = input.displacedTargetSlotType ?? null;
-    if (!displacedTargetSlotType) {
-      throw new EditorialMatchdayNewsFlowError(
-        "news-flow-displaced-target-required",
-        "Escolhe para onde deve ir a notícia que será substituída.",
-      );
-    }
-
-    if (displacedTargetSlotType !== "unplaced") {
-      const displacedProjection = await projectionForDisplacedOccupant(
-        input.matchdayId,
-        displacedTargetSlotType,
-        displacedOccupant,
-      );
-
-      if (displacedTargetSlotType === input.sourceSlotType) {
-        // A posição de origem só recebe a notícia desalojada quando o editor
-        // escolhe explicitamente esse destino. Nunca existe troca automática.
-        await writeProjectionToExistingSourceZone(
-          input.matchdayId,
-          input.sourceSlotType,
-          input.sourceId,
-          displacedProjection,
-        );
-        displacedMovedToSource = true;
-      } else {
-        displacedPlacement = await placeProjectionInAvailableZone(
-          input.matchdayId,
-          displacedTargetSlotType,
-          displacedProjection,
-          input.displacedTargetOrder,
-        );
-      }
-    }
+    const displacedRestoreProjection = await projectionForDisplacedOccupant(
+      input.matchdayId,
+      input.targetSlotType,
+      displacedOccupant,
+    );
+    const displacedProjection = await projectionForDisplacedOccupant(
+      input.matchdayId,
+      "important_item",
+      displacedOccupant,
+    );
+    const displacedPlacement = await placeProjectionInAvailableZone(
+      input.matchdayId,
+      "important_item",
+      displacedProjection,
+    );
 
     try {
       await writeArticleToTargetZone(
@@ -1728,27 +1680,27 @@ export async function transferPublishedArticleBetweenMatchdayZones(input: Editor
         input.targetSlotType,
         input.targetId,
       );
+      await prioritizeMatchdayHorizontalNewsItem(input.matchdayId, displacedPlacement.sourceId);
     } catch (error) {
-      if (displacedMovedToSource) {
-        await restoreSourceArticleAfterFailedSwap(
+      try {
+        await writeProjectionToExistingZone(
           input.matchdayId,
-          article,
-          input.sourceSlotType,
-          input.sourceId,
+          input.targetSlotType,
+          input.targetId,
+          displacedRestoreProjection,
         );
-      } else if (displacedPlacement) {
         await clearArticleFromSourceZone(
           input.matchdayId,
           displacedPlacement.slotType,
           displacedPlacement.sourceId,
-        ).catch(() => undefined);
+        );
+      } catch {
+        // Mantém a cópia na Faixa quando não é possível confirmar a reposição do destino.
       }
       throw error;
     }
 
-    if (!displacedMovedToSource) {
-      await clearArticleFromSourceZone(input.matchdayId, input.sourceSlotType, input.sourceId);
-    }
+    await clearArticleFromSourceZone(input.matchdayId, input.sourceSlotType, input.sourceId);
   } else {
     await writeArticleToTargetZone(input.matchdayId, input.articleId, article, input.targetSlotType, null);
     await clearArticleFromSourceZone(input.matchdayId, input.sourceSlotType, input.sourceId);

@@ -109,7 +109,8 @@ test("as posições reutilizadas entram no mesmo motor de transferências já us
   assert.match(transferFlow, /LIVE_MATCHDAY_HIERARCHICAL_TRANSFER_SLOT_TYPES/);
   assert.match(editorialAdmin, /LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS/);
   assert.match(editorialAdmin, /sourceSlotType=\{position\.transferSlotType\}/);
-  assert.match(editorialAdmin, /newsDisplacedTargetOptionsForSource\(position\.transferSlotType, occupant\.id\)/);
+  assert.doesNotMatch(editorialAdmin, /newsDisplacedTargetOptionsForSource/);
+  assert.match(editorialAdmin, /A notícia atual entra automaticamente em primeiro na Faixa/);
 });
 
 test("o backoffice respeita a ordem hierárquica das zonas vivas e deixa a Faixa por último", () => {
@@ -124,13 +125,10 @@ test("o backoffice respeita a ordem hierárquica das zonas vivas e deixa a Faixa
   assert.match(hierarchyModel, /5 notícias \(1 dominante · 4 secundárias\)/);
 
   const transferStart = editorialAdmin.indexOf("const newsTransferTargetOptions");
-  const displacedStart = editorialAdmin.indexOf("function newsDisplacedTargetOptionsForSource", transferStart);
-  const transferBlock = editorialAdmin.slice(transferStart, displacedStart);
+  const transferEnd = editorialAdmin.indexOf("const highlightsEditor", transferStart);
+  const transferBlock = editorialAdmin.slice(transferStart, transferEnd);
   assert.ok(transferBlock.indexOf("LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach") < transferBlock.indexOf('targetSlotType: "important_item"'));
-
-  const displacedEnd = editorialAdmin.indexOf("const highlightsEditor", displacedStart);
-  const displacedBlock = editorialAdmin.slice(displacedStart, displacedEnd);
-  assert.ok(displacedBlock.indexOf("LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach") < displacedBlock.indexOf('sourceSlotType === "important_item"'));
+  assert.equal(transferBlock.includes("displaced"), false);
 });
 
 test("a página viva e a composição hierárquica anulam sombras nas zonas de conteúdo", () => {

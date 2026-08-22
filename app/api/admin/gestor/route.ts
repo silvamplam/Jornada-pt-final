@@ -8,7 +8,6 @@ import {
   normalizeMatchdayHorizontalNewsOrder,
   transferPublishedArticleBetweenMatchdayZones,
   isEditorialMatchdayTransferSlotType,
-  type EditorialDisplacedTargetSlotType,
 } from "@/lib/editorial-matchday-news-flow";
 import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
 import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
@@ -1931,28 +1930,6 @@ async function transferMatchdayNewsArticle(formData: FormData) {
   const targetSlotType = cleanText(rawTargetSlotType);
   const targetId = cleanText(rawTargetId);
 
-  const displacedTargetChoice = cleanText(formData.get("displaced_target_choice"));
-  const [rawDisplacedTargetSlotType = "", rawDisplacedTargetOrder = ""] =
-    (displacedTargetChoice ?? "").split("::", 2);
-  const cleanDisplacedTargetSlotType = cleanText(rawDisplacedTargetSlotType);
-  let displacedTargetSlotType: EditorialDisplacedTargetSlotType | null = null;
-
-  if (cleanDisplacedTargetSlotType === "unplaced") {
-    displacedTargetSlotType = "unplaced";
-  } else if (
-    cleanDisplacedTargetSlotType
-    && isEditorialMatchdayTransferSlotType(cleanDisplacedTargetSlotType)
-  ) {
-    displacedTargetSlotType = cleanDisplacedTargetSlotType;
-  } else if (displacedTargetChoice) {
-    throw new EditorialMatchdayNewsFlowError(
-      "news-flow-invalid",
-      "O destino escolhido para a notícia substituída já não é válido.",
-    );
-  }
-
-  const displacedTargetOrder = cleanInteger(rawDisplacedTargetOrder);
-
   if (
     !matchdayId
     || !articleId
@@ -1973,8 +1950,6 @@ async function transferMatchdayNewsArticle(formData: FormData) {
     sourceId,
     targetSlotType,
     targetId,
-    displacedTargetSlotType,
-    displacedTargetOrder,
   });
 }
 

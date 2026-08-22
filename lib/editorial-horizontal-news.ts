@@ -20,6 +20,8 @@ export type EditorialHorizontalNewsSource = {
   sortOrder: number;
 };
 
+export const PUBLIC_MATCHDAY_HORIZONTAL_NEWS_MAX_ITEMS = 10;
+
 function cleanText(value: string | null | undefined) {
   const trimmed = value?.trim();
   return trimmed || null;
@@ -138,5 +140,5 @@ export function resolveMatchdayHorizontalNewsItems({
 
   return buildEditorialHorizontalNewsItems(
     hasPublishedReferenceComposition && !isManagedByDesk ? referenceItems : liveItems
-  );
+  ).slice(0, PUBLIC_MATCHDAY_HORIZONTAL_NEWS_MAX_ITEMS);
 }

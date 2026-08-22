@@ -90,34 +90,48 @@ test("os três layouts vivos usam armazenamento próprio e não leem nem escreve
   assert.equal(editorialPageSource.includes("liveHierarchicalLayoutState.compositionId"), false);
 });
 
-test("qualquer destino ocupado exige escolher explicitamente o destino da notícia desalojada", () => {
-  assert.ok(flowSource.includes("displacedTargetSlotType?: EditorialDisplacedTargetSlotType | null"));
-  assert.ok(flowSource.includes("news-flow-displaced-target-required"));
-  assert.ok(flowSource.includes("Escolhe para onde deve ir a notícia que será substituída."));
-  assert.ok(gestorRouteSource.includes('formData.get("displaced_target_choice")'));
+test("qualquer destino ocupado envia automaticamente a notícia desalojada para o topo da Faixa", () => {
+  assert.equal(flowSource.includes("displacedTargetSlotType"), false);
+  assert.equal(flowSource.includes("displacedTargetOrder"), false);
+  assert.equal(flowSource.includes("news-flow-displaced-target-required"), false);
+  assert.equal(gestorRouteSource.includes('formData.get("displaced_target_choice")'), false);
   assert.ok(gestorRouteSource.includes("isEditorialMatchdayTransferSlotType"));
-  assert.ok(editorialPageSource.includes("Se o destino estiver ocupado, escolhe para onde vai a notícia que sai."));
-  assert.equal(editorialPageSource.includes("As duas mudam de zona"), false);
+  assert.match(
+    flowSource,
+    /projectionForDisplacedOccupant\(\s*input\.matchdayId,\s*"important_item",\s*displacedOccupant/,
+  );
+  assert.match(
+    flowSource,
+    /placeProjectionInAvailableZone\(\s*input\.matchdayId,\s*"important_item",\s*displacedProjection/,
+  );
+  assert.ok(flowSource.includes("await prioritizeMatchdayHorizontalNewsItem(input.matchdayId, displacedPlacement.sourceId);"));
+  assert.ok(editorialPageSource.includes("Se o destino estiver ocupado, a notícia substituída entra automaticamente em primeiro na Faixa."));
 });
 
-test("a troca automática desaparece e a posição de origem só é usada por escolha explícita", () => {
-  assert.equal(flowSource.includes("Entre zonas hierárquicas mantém-se a troca bidirecional já validada."), false);
-  assert.ok(flowSource.includes("Nunca existe troca automática."));
-  assert.ok(flowSource.includes("if (displacedTargetSlotType === input.sourceSlotType)"));
-  assert.ok(flowSource.includes("await writeProjectionToExistingSourceZone("));
-  assert.ok(editorialPageSource.includes("posição de origem"));
-});
+test("a escrita do destino precede a limpeza da origem e a desalojada termina em primeiro", () => {
+  const occupiedTransferStart = flowSource.indexOf("if (input.targetId) {");
+  const occupiedTransferEnd = flowSource.indexOf("} else {", occupiedTransferStart);
+  const occupiedTransfer = flowSource.slice(occupiedTransferStart, occupiedTransferEnd);
+  const writeTargetIndex = occupiedTransfer.indexOf("await writeArticleToTargetZone(");
+  const restoreTargetIndex = occupiedTransfer.indexOf("await writeProjectionToExistingZone(");
+  const removeBackupIndex = occupiedTransfer.indexOf(
+    "await clearArticleFromSourceZone(",
+    restoreTargetIndex,
+  );
+  const reprioritizeIndex = occupiedTransfer.indexOf(
+    "await prioritizeMatchdayHorizontalNewsItem(input.matchdayId, displacedPlacement.sourceId);",
+  );
+  const clearSourceIndex = occupiedTransfer.lastIndexOf(
+    "await clearArticleFromSourceZone(input.matchdayId, input.sourceSlotType, input.sourceId);",
+  );
 
-test("a notícia desalojada pode ficar sem colocação, entrar em Últimas, Contexto, Faixa ou posição livre", () => {
-  assert.ok(flowSource.includes('if (slotType === "unplaced") return null;'));
-  assert.ok(flowSource.includes('if (slotType === "editorial_line_item")'));
-  assert.ok(flowSource.includes('if (slotType === "side_block")'));
-  assert.ok(flowSource.includes("matchday_horizontal_news"));
-  assert.ok(flowSource.includes("news-flow-displaced-target-full"));
-  assert.ok(editorialPageSource.includes('{ value: "unplaced::", label: "Sem colocação editorial" }'));
-  assert.ok(editorialPageSource.includes('value: "editorial_line_item::"'));
-  assert.ok(editorialPageSource.includes('value: "side_block::"'));
-  assert.ok(editorialPageSource.includes('value: "important_item::"'));
+  assert.ok(writeTargetIndex >= 0);
+  assert.ok(restoreTargetIndex > writeTargetIndex);
+  assert.ok(removeBackupIndex > restoreTargetIndex);
+  assert.ok(reprioritizeIndex > writeTargetIndex);
+  assert.ok(clearSourceIndex > reprioritizeIndex);
+  assert.equal(flowSource.includes("displacedMovedToSource"), false);
+  assert.equal(flowSource.includes("writeProjectionToExistingSourceZone"), false);
 });
 
 test("Últimas recebe transferências como lista cronológica e nunca como posição única ocupada", () => {
@@ -136,13 +150,15 @@ test("Contexto transfere artigo canónico preservando autor e o perfil próprio 
   assert.ok(flowSource.includes("missingEditorialArticleCanonicalFields(article)"));
 });
 
-test("todos os controlos de transferência usam a mesma escolha de destino para a notícia desalojada", () => {
-  assert.ok(editorialPageSource.includes("newsDisplacedTargetOptionsForSource"));
+test("todos os controlos de transferência deixam de apresentar o segundo seletor", () => {
   for (const slotType of ["headline", "editorial_line_item", "side_block", "highlight", "complement", "important_item"]) {
-    assert.ok(editorialPageSource.includes(`newsDisplacedTargetOptionsForSource("${slotType}"`), slotType);
+    assert.ok(editorialPageSource.includes(`sourceSlotType="${slotType}"`), slotType);
   }
-  assert.ok(editorialPageSource.includes("data-displaced-target-field"));
-  assert.ok(editorialPageSource.includes("data-target-occupied"));
+  assert.equal(editorialPageSource.includes("NewsDisplacedTargetOption"), false);
+  assert.equal(editorialPageSource.includes("newsDisplacedTargetOptionsForSource"), false);
+  assert.equal(editorialPageSource.includes("displaced_target_choice"), false);
+  assert.equal(editorialPageSource.includes("data-displaced-target-field"), false);
+  assert.equal(editorialPageSource.includes("data-target-occupied"), false);
 });
 
 test("a composição publicada atual passa a sincronizar também Contexto", () => {
