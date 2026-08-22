@@ -1,6 +1,8 @@
 import MatchdayEditorialDeskClient from "./MatchdayEditorialDeskClient";
+import MatchdayEditorialThematicDesk from "./MatchdayEditorialThematicDesk";
 import { readMatchdayEditorialDesk } from "@/lib/editorial-matchday-desk";
 import { MATCHDAY_LIVE_PUBLIC_ZONE_LABELS } from "@/lib/editorial-matchday-live-zone-order";
+import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
 
 export const dynamic = "force-dynamic";
 
@@ -712,6 +714,12 @@ export default async function MatchdayEditorialDeskPage({ params, searchParams }
     params,
     searchParams ?? Promise.resolve<{ created?: string; error?: string }>({}),
   ]);
+  const thematicDesk = await readMatchdayEditorialProfileDesk(matchdayId);
+
+  if (thematicDesk) {
+    return <MatchdayEditorialThematicDesk desk={thematicDesk} />;
+  }
+
   const snapshot = await readMatchdayEditorialDesk(matchdayId);
 
   if (!snapshot) {
