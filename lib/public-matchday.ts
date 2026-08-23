@@ -1,3 +1,4 @@
+import type { ClassificationMatch } from "@/lib/classification";
 import { fetchSupabaseAdminTable, type SupabaseBroadcastChannel, type SupabaseCompetition, type SupabaseMatch, type SupabaseMatchday, type SupabaseMatchdayEditorial, type SupabaseMatchdayHighlight, type SupabaseMatchdayHorizontalNews, type SupabaseMatchdayLatestNews, type SupabaseMatchdayRoundupItem, type SupabaseSeason, type SupabaseSeasonTeam, type SupabaseTeam } from "@/lib/supabase";
 import type { HierarchicalCompositionSlot, ReferenceCompositionPresentationMode } from "@/lib/editorial-hierarchical-composition";
 import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
@@ -125,7 +126,7 @@ export type PublicMatchdayContext = {
   matchdays: SupabaseMatchday[];
   activeParticipantCount: number;
   participants: PublicSeasonParticipant[];
-  matchesForSeason: PublicSeasonMatch[];
+  matchesForSeason: ClassificationMatch[];
   matchesForMatchday: PublicSeasonMatch[];
   editorial: PublicMatchdayEditorial | null;
   highlights: PublicMatchdayHighlight[];
@@ -844,15 +845,12 @@ export async function getPublicMatchdayDiagnostic({
       };
     }
 
-    const [matchdays, participants, matches] = await Promise.all([
+    const [matchdays, participants] = await Promise.all([
       fetchSupabaseAdminTable<SupabaseMatchday>(
         `matchdays?select=id,season_id,number,label,starts_on,ends_on,status,context_summary&season_id=eq.${encodeURIComponent(season.id)}&order=number.asc&limit=100`
       ),
       fetchSupabaseAdminTable<SupabaseSeasonTeam>(
         `season_teams?select=id,season_id,team_id,display_order,status,data_source,sync_status,manual_override&season_id=eq.${encodeURIComponent(season.id)}&order=display_order.asc&limit=1000`
-      ),
-      fetchSupabaseAdminTable<PublicSeasonMatch>(
-        `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,live_started_at,live_base_minute,is_clock_running,scheduled_date,kickoff_at,home_score,away_score,venue,broadcast_channel_id&season_id=eq.${encodeURIComponent(season.id)}&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc&limit=1000`
       )
     ]);
     const matchday = matchdays.find((item) => item.number === matchdayNumber) ?? null;
@@ -879,12 +877,21 @@ export async function getPublicMatchdayDiagnostic({
         participant.sync_status === "manual" &&
         participant.manual_override === true
     );
+    const [matchesForSeason, matchdayMatches] = await Promise.all([
+      fetchSupabaseAdminTable<ClassificationMatch>(
+        `matches?select=season_id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,home_score,away_score&season_id=eq.${encodeURIComponent(season.id)}&limit=1000`
+      ),
+      fetchSupabaseAdminTable<PublicSeasonMatch>(
+        `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,live_started_at,live_base_minute,is_clock_running,scheduled_date,kickoff_at,home_score,away_score,venue,broadcast_channel_id&season_id=eq.${encodeURIComponent(season.id)}&matchday_id=eq.${encodeURIComponent(matchday.id)}&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc&limit=1000`
+      )
+    ]);
+
     const teams = await readTeams([
       ...manualParticipants.map((participant) => participant.team_id),
-      ...matches.flatMap((match) => [match.home_team_id, match.away_team_id])
+      ...matchdayMatches.flatMap((match) => [match.home_team_id, match.away_team_id])
     ]);
     const [broadcastChannels, editorial, highlights, roundupItems, latestNews, horizontalNews, liveLayoutItems, editorialDeskControl, referenceCompositionBundle] = await Promise.all([
-      readBroadcastChannels(matches.map((match) => match.broadcast_channel_id ?? "")),
+      readBroadcastChannels(matchdayMatches.map((match) => match.broadcast_channel_id ?? "")),
       readMatchdayEditorial(matchday.id),
       readPublishedMatchdayHighlights(matchday.id),
       readPublishedMatchdayRoundupItems(matchday.id),
@@ -896,10 +903,9 @@ export async function getPublicMatchdayDiagnostic({
     ]);
     const teamsById = byId(teams);
     const broadcastChannelsById = byId(broadcastChannels);
-    const matchdaysById = byId(matchdays);
-    const matchesForSeason = matches.map((match) => ({
+    const matchesForMatchday = matchdayMatches.map((match) => ({
       ...match,
-      matchday: match.matchday_id ? matchdaysById.get(match.matchday_id) ?? null : null,
+      matchday,
       homeTeam: teamsById.get(match.home_team_id) ?? null,
       awayTeam: teamsById.get(match.away_team_id) ?? null,
       broadcastChannel: match.broadcast_channel_id ? broadcastChannelsById.get(match.broadcast_channel_id) ?? null : null
@@ -941,7 +947,7 @@ export async function getPublicMatchdayDiagnostic({
           team: teamsById.get(participant.team_id) ?? null
         })),
         matchesForSeason,
-        matchesForMatchday: matchesForSeason.filter((match) => match.matchday_id === matchday.id),
+        matchesForMatchday,
         editorial,
         highlights,
         roundupItems,
@@ -967,7 +973,7 @@ export async function getPublicMatchdayDiagnostic({
         seasonsFound: seasons.length,
         matchdaysFound: matchdays.length,
         participantsFound: manualParticipants.length,
-        matchesFound: matches.length
+        matchesFound: matchesForSeason.length
       }
     };
   } catch (error) {
