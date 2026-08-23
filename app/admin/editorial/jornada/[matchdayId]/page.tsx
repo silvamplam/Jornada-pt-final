@@ -1,6 +1,7 @@
 import EditorialColorPresets, { EditorialColorInput } from "@/components/admin/EditorialColorPresets";
 import EditorialHorizontalNewsEditor from "@/components/admin/EditorialHorizontalNewsEditor";
 import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
+import EditorialCircuitSelector from "./EditorialCircuitSelector";
 import {
   EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
   EDITORIAL_CONTEXT_POST_TITLE_MIN_CHARS,
@@ -72,6 +73,10 @@ type EditorialArticleForSideBlock = {
   created_at: string | null;
   status: string | null;
 };
+
+type MatchdayEditorialProfileAssignmentRow = Readonly<{
+  profile_key: string;
+}>;
 
 const ROUNDUP_EDITOR_SORT_ORDERS = Array.from({ length: 10 }, (_, index) => index + 1);
 
@@ -1022,6 +1027,14 @@ async function readMatchdayContext(matchdayId: string): Promise<MatchdayContext 
   return { matchday, season, competition, country };
 }
 
+async function readMatchdayEditorialProfileAssignment(
+  matchdayId: string,
+): Promise<MatchdayEditorialProfileAssignmentRow | null> {
+  return readFirst<MatchdayEditorialProfileAssignmentRow>(
+    `matchday_editorial_profile_assignments?select=profile_key&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+  );
+}
+
 async function readContextSelectorData(): Promise<ContextSelectorData> {
   try {
     const [countries, competitions, seasons, matchdays] = await Promise.all([
@@ -1319,6 +1332,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   }
 
   const { matchday, season, competition, country } = context;
+  const editorialProfileAssignment = await readMatchdayEditorialProfileAssignment(matchday.id);
   const editorial = await readMatchdayEditorial(matchday.id);
   const highlights = await readMatchdayHighlights(matchday.id);
   const roundupItems = await readMatchdayRoundupItems(matchday.id);
@@ -2052,6 +2066,12 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
           </a>
         </nav>
       </section>
+
+      <EditorialCircuitSelector
+        activeProfileKey={editorialProfileAssignment?.profile_key ?? null}
+        competitionSlug={competition.slug}
+        matchdayId={matchday.id}
+      />
 
       <section className="editorial-context-selector" aria-label="Alterar jornada editorial">
         <div>
