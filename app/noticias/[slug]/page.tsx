@@ -1082,7 +1082,7 @@ function articleContextPriority(candidate: EditorialArticle, current: EditorialA
 
 async function readMoreArticles(currentArticle: EditorialArticle) {
   const rows = await fetchSupabaseAdminTable<EditorialArticle>(
-    `editorial_articles?select=*&status=eq.published&slug=neq.${encodeURIComponent(
+    `editorial_articles?select=id,slug,title,subtitle,summary,excerpt,image_url,label,category,type,status,competition_id,season_id,matchday_id,published_at&status=eq.published&slug=neq.${encodeURIComponent(
       currentArticle.slug
     )}&order=published_at.desc.nullslast&limit=80`
   ).catch(() => []);

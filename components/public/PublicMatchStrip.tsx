@@ -639,7 +639,7 @@ export default function PublicMatchStrip({
 
       controller?.abort();
       controller = new AbortController();
-      void refreshLiveState(controller.signal).catch(() => undefined);
+      // Browser polling disabled: final results are refreshed by the scheduled sync.
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") refresh();

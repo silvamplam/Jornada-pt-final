@@ -89,7 +89,7 @@ type LinkPlacement = {
 async function readEditorialArticles() {
   try {
     const articles = await fetchSupabaseAdminTable<EditorialArticle>(
-      "editorial_articles?select=*&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=100",
+      "editorial_articles?select=id,slug,title,subtitle,label,author,status,scope,image_url,published_at,created_at,updated_at,competition_id,season_id,matchday_id&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=100",
     );
 
     return { articles, error: null as string | null };

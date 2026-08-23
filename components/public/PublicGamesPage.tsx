@@ -59,11 +59,6 @@ type SeasonParticipantRow = {
   status: string | null;
 };
 
-type BroadcastLinkRow = {
-  match_id: string | null;
-  broadcast_channel_id: string | null;
-};
-
 type BroadcastChannelRow = {
   id: string;
   name: string | null;
@@ -868,35 +863,6 @@ async function readBroadcastChannelsByMatchId(matchIds: string[], matches: Match
     const channel = directChannelsById.get(channelId);
     if (channel) {
       channelsByMatchId.set(matchId, channel);
-    }
-  }
-
-  const matchFilter = inFilter(matchIds);
-  const relationQueries = [
-    `match_broadcast_channels?select=match_id,broadcast_channel_id&match_id=${matchFilter}`,
-    `match_broadcasts?select=match_id,broadcast_channel_id&match_id=${matchFilter}`,
-    `matches_broadcast_channels?select=match_id,broadcast_channel_id&match_id=${matchFilter}`
-  ];
-  let links: BroadcastLinkRow[] = [];
-
-  for (const query of relationQueries) {
-    links = await fetchSupabaseAdminTable<BroadcastLinkRow>(query).catch(() => []);
-    if (links.length > 0) break;
-  }
-
-  if (links.length === 0) return channelsByMatchId;
-
-  const channelsById = await readRowsById<BroadcastChannelRow>(
-    "broadcast_channels",
-    "id,name,logo_url",
-    uniqueValues(links.map((link) => link.broadcast_channel_id))
-  );
-
-  for (const link of links) {
-    if (!link.match_id || !link.broadcast_channel_id || channelsByMatchId.has(link.match_id)) continue;
-    const channel = channelsById.get(link.broadcast_channel_id);
-    if (channel) {
-      channelsByMatchId.set(link.match_id, channel);
     }
   }
 
