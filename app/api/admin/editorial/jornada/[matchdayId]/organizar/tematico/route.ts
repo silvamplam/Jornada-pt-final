@@ -2,7 +2,10 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { ADMIN_SESSION_COOKIE, verifyAdminSession } from "@/lib/admin-session";
-import { editorialProfile } from "@/lib/editorial-profiles";
+import {
+  editorialProfile,
+  editorialProfileWithZoneLayouts,
+} from "@/lib/editorial-profiles";
 import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
 import { validateMatchdayEditorialProfileManualOverrides } from "@/lib/editorial-matchday-profile-desk-operations";
 import {
@@ -84,6 +87,9 @@ function mutationErrorResponse(error: unknown) {
     || message.includes("profile-opening-")
     || message.includes("profile-page-controls-")
     || message.includes("profile-workspace-invalid-")
+    || message.includes("profile-workspace-v2-invalid-")
+    || message.includes("profile-workspace-v2-manual-")
+    || message.includes("profile-workspace-v2-zone-")
     || message.includes("profile-workspace-exclusive-")
   ) {
     return apiError("thematic-desk-invalid-reconcile", "A composição temática foi recusada integralmente.", 400);
@@ -139,13 +145,38 @@ export async function POST(
   let overrides;
   let opening;
   let pageControls;
+
   try {
-    overrides = validateMatchdayEditorialProfileManualOverrides(profile, input.overrides);
-    opening = validateMatchdayEditorialProfileOpening(input.opening);
-    pageControls = validateMatchdayEditorialProfilePageControls(input.pageControls);
+    opening =
+      validateMatchdayEditorialProfileOpening(
+        input.opening,
+      );
+
+    pageControls =
+      validateMatchdayEditorialProfilePageControls(
+        input.pageControls,
+      );
+
+    const effectiveProfile =
+      editorialProfileWithZoneLayouts(
+        profile,
+        pageControls.thematicZoneLayouts,
+      );
+
+    overrides =
+      validateMatchdayEditorialProfileManualOverrides(
+        effectiveProfile,
+        input.overrides,
+      );
   } catch (error) {
     return mutationErrorResponse(error);
   }
+
+  const effectiveProfile =
+    editorialProfileWithZoneLayouts(
+      profile,
+      pageControls.thematicZoneLayouts,
+    );
 
   if (!getSupabaseServiceConfig()) {
     return apiError("thematic-desk-service-unavailable", "A escrita administrativa não está configurada.", 503);
@@ -164,7 +195,7 @@ export async function POST(
     }
 
     const reconcile = reconcileMatchdayEditorialProfileWorkspace(
-      profile,
+      effectiveProfile,
       desk.automaticDistribution.activeItems,
       overrides,
       opening,
@@ -173,7 +204,7 @@ export async function POST(
       desk.currentFaixa,
     );
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_editorial_profile_workspace",
+      "rpc/apply_matchday_editorial_profile_workspace_v2",
       {
         method: "POST",
         body: JSON.stringify({
@@ -197,9 +228,15 @@ export async function POST(
           p_faixa_source_ids: reconcile.faixaAfter.map((item) => item.sourceId),
           p_opening: opening,
           p_page_controls: {
-            headline_title_color: pageControls.headlineTitleColor,
-            latest_zone_placement: pageControls.latestZonePlacement,
+            headline_title_color:
+              pageControls.headlineTitleColor,
+            latest_zone_placement:
+              pageControls.latestZonePlacement,
             thematic_zone_order: pageControls.thematicZoneOrder,
+            thematic_zone_layouts:
+              pageControls.thematicZoneLayouts,
+            thematic_block_order:
+              pageControls.thematicBlockOrder,
           },
         }),
       },

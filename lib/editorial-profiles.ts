@@ -7,6 +7,35 @@ export const EDITORIAL_VISUAL_FAMILIES = [
 export type EditorialVisualFamily =
   (typeof EDITORIAL_VISUAL_FAMILIES)[number];
 
+export const EDITORIAL_VISUAL_FAMILY_DEFINITIONS: Readonly<
+  Record<
+    EditorialVisualFamily,
+    Readonly<{
+      label: string;
+      capacity: number;
+    }>
+  >
+> = Object.freeze({
+  six_news: {
+    label: "6 notícias",
+    capacity: 6,
+  },
+  five_news_balanced: {
+    label: "5 notícias equilibradas",
+    capacity: 5,
+  },
+  five_news_secondary: {
+    label: "5 notícias secundárias",
+    capacity: 5,
+  },
+});
+
+export function editorialVisualFamilyCapacity(
+  family: EditorialVisualFamily,
+): number {
+  return EDITORIAL_VISUAL_FAMILY_DEFINITIONS[family].capacity;
+}
+
 export const EDITORIAL_PLACEMENT_MODES = ["automatic_actuality"] as const;
 
 export type EditorialPlacementMode =
@@ -69,28 +98,59 @@ export const EDITORIAL_PROFILES = {
 } as const satisfies Readonly<Record<string, EditorialProfileDefinitionShape>>;
 
 export type EditorialProfileKey = keyof typeof EDITORIAL_PROFILES;
-export type EditorialProfile =
-  (typeof EDITORIAL_PROFILES)[EditorialProfileKey];
-export type EditorialProfileZone = EditorialProfile["zones"][number];
-export type EditorialProfileZoneKey = EditorialProfileZone["key"];
 
-export const EDITORIAL_PROFILE_KEYS: readonly EditorialProfileKey[] = Object.freeze(
-  Object.keys(EDITORIAL_PROFILES) as EditorialProfileKey[],
-);
+export type EditorialProfileZoneKey =
+  (typeof EDITORIAL_PROFILES)[EditorialProfileKey]["zones"][number]["key"];
+
+export type EditorialProfileZone = Readonly<{
+  key: EditorialProfileZoneKey;
+  label: string;
+  capacity: number;
+  visualFamily: EditorialVisualFamily;
+  placementMode: EditorialPlacementMode;
+}>;
+
+export type EditorialProfile = Readonly<{
+  displayName: string;
+  competitionSlug: string;
+  zones: readonly EditorialProfileZone[];
+}>;
+
+export type EditorialProfileZoneLayouts = Readonly<
+  Record<EditorialProfileZoneKey, EditorialVisualFamily>
+>;
+
+export const EDITORIAL_PROFILE_KEYS: readonly EditorialProfileKey[] =
+  Object.freeze(
+    Object.keys(EDITORIAL_PROFILES) as EditorialProfileKey[],
+  );
 
 export function isEditorialProfileKey(
   value: unknown,
 ): value is EditorialProfileKey {
   return (
-    typeof value === "string" &&
-    Object.prototype.hasOwnProperty.call(EDITORIAL_PROFILES, value)
+    typeof value === "string"
+    && Object.prototype.hasOwnProperty.call(
+      EDITORIAL_PROFILES,
+      value,
+    )
   );
 }
 
-export function editorialProfile(key: EditorialProfileKey): EditorialProfile;
-export function editorialProfile(key: string): EditorialProfile | null;
-export function editorialProfile(key: string): EditorialProfile | null {
-  return isEditorialProfileKey(key) ? EDITORIAL_PROFILES[key] : null;
+export function editorialProfile(
+  key: EditorialProfileKey,
+): EditorialProfile;
+
+export function editorialProfile(
+  key: string,
+): EditorialProfile | null;
+
+export function editorialProfile(
+  key: string,
+): EditorialProfile | null {
+  return isEditorialProfileKey(key)
+    ? EDITORIAL_PROFILES[key]
+    : null;
 }
 
 export function editorialProfileZones(
@@ -105,5 +165,37 @@ export function editorialProfileZone(
 ): EditorialProfileZone | null {
   const profile = editorialProfile(profileKey);
 
-  return profile?.zones.find((zone) => zone.key === zoneKey) ?? null;
+  return profile?.zones.find(
+    (zone) => zone.key === zoneKey,
+  ) ?? null;
+}
+
+export function editorialProfileDefaultZoneLayouts(
+  profile: EditorialProfile,
+): EditorialProfileZoneLayouts {
+  return Object.fromEntries(
+    profile.zones.map(
+      (zone) => [zone.key, zone.visualFamily],
+    ),
+  ) as EditorialProfileZoneLayouts;
+}
+
+export function editorialProfileWithZoneLayouts(
+  profile: EditorialProfile,
+  layouts: EditorialProfileZoneLayouts,
+): EditorialProfile {
+  return {
+    ...profile,
+    zones: profile.zones.map((zone) => {
+      const visualFamily = layouts[zone.key];
+
+      return {
+        ...zone,
+        visualFamily,
+        capacity: editorialVisualFamilyCapacity(
+          visualFamily,
+        ),
+      };
+    }),
+  };
 }

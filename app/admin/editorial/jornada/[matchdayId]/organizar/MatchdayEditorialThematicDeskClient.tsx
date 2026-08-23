@@ -4,7 +4,14 @@ import Image, { type ImageLoaderProps } from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 
-import { EDITORIAL_PROFILES, type EditorialProfileZoneKey } from "@/lib/editorial-profiles";
+import {
+  EDITORIAL_PROFILES,
+  EDITORIAL_VISUAL_FAMILIES,
+  EDITORIAL_VISUAL_FAMILY_DEFINITIONS,
+  editorialProfileWithZoneLayouts,
+  type EditorialProfileZoneKey,
+  type EditorialVisualFamily,
+} from "@/lib/editorial-profiles";
 import type {
   MatchdayEditorialProfileDeskDiagnostic,
   MatchdayEditorialProfileDeskSnapshot,
@@ -17,6 +24,7 @@ import {
   reconcileMatchdayEditorialProfileDeskSnapshot,
   releaseMatchdayEditorialFixedPositions,
   returnMatchdayEditorialItemsToAutomatic,
+  compactMatchdayEditorialProfileManualOverridesForLayoutChange,
   thematicEditorialIdentity,
   type MatchdayEditorialProfileEffectiveItem,
   type MatchdayEditorialProfileManualOverride,
@@ -25,8 +33,9 @@ import {
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS,
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS,
   matchdayEditorialProfileOpeningSourceIds,
+  matchdayEditorialProfileThematicZoneOrderFromBlockOrder,
   moveMatchdayEditorialProfileItemToOpening,
-  moveMatchdayEditorialProfileThematicZone,
+  moveMatchdayEditorialProfileThematicBlock,
   reconcileMatchdayEditorialProfileWorkspace,
   removeMatchdayEditorialProfileItemFromOpening,
   withoutMatchdayEditorialProfileOpeningOverrides,
@@ -61,6 +70,11 @@ const styles = `
   .thematic-panel-head p { margin-top: 2px; color: #657487; font-size: 10px; }
   .thematic-meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
   .thematic-meta span { padding: 2px 5px; border-radius: 4px; background: #edf2f7; color: #5d6c7d; font-size: 8px; font-weight: 800; }
+  .thematic-layout-picker { display: grid; gap: 2px; min-width: 142px; color: #657487; font-size: 8px; font-weight: 900; text-transform: uppercase; }
+  .thematic-layout-picker select { min-height: 27px; padding: 3px 5px; border: 1px solid #c8d3df; border-radius: 4px; background: #fff; color: #172331; font-size: 9px; font-weight: 800; text-transform: none; }
+  .thematic-latest-block { border-style: dashed; }
+  .thematic-latest-body { display: grid; gap: 5px; padding: 0 10px 10px; color: #657487; font-size: 9px; line-height: 1.35; }
+  .thematic-latest-body strong { color: #172331; }
   .thematic-controls summary, .thematic-bulk summary, .thematic-movements summary { padding: 9px 10px; cursor: pointer; font-size: 11px; font-weight: 900; }
   .thematic-controls-grid { display: grid; grid-template-columns: minmax(180px,.65fr) minmax(190px,.75fr) minmax(360px,1.6fr); gap: 8px; padding: 0 10px 10px; }
   .thematic-control { display: grid; align-content: start; gap: 6px; padding: 8px; border: 1px solid #e0e7ef; border-radius: 6px; background: #f8fafc; }
@@ -102,7 +116,7 @@ const styles = `
   .thematic-card-menu summary { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid #d7e0e9; border-radius: 4px; cursor: pointer; list-style: none; font-weight: 900; }
   .thematic-card-menu summary::-webkit-details-marker { display: none; }
   .thematic-card-menu[open] { z-index: 15; }
-  .thematic-card-actions { position: absolute; top: 25px; right: 0; display: grid; gap: 3px; width: 158px; padding: 5px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.16); }
+  .thematic-card-actions { position: absolute; top: 22px; right: 0; display: grid; gap: 3px; width: 158px; padding: 5px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.16); }
   .thematic-card-actions button { width: 100%; text-align: left; }
   .thematic-bank-panel { min-width: 0; }
   .thematic-bank-panel .thematic-empty { min-height: 36px; }
@@ -115,6 +129,8 @@ const styles = `
   .thematic-bulk-body .thematic-field { min-width: 150px; }
   .thematic-message { margin: 0; padding: 7px 9px; border-radius: 5px; background: #eef5ff; color: #25456e; font-size: 10px; font-weight: 700; }
   .thematic-message.error { background: #fff0f1; color: #a61f29; }
+  .thematic-message.feedback { position: sticky; z-index: 26; top: 8px; box-shadow: 0 5px 16px rgba(15,23,42,.12); }
+  .thematic-zone-alert { margin: 0 7px 7px; padding: 7px 9px; border: 1px solid #f2b8bd; border-radius: 5px; background: #fff0f1; color: #a61f29; font-size: 9px; font-weight: 800; line-height: 1.35; }
   .thematic-movement-list, .thematic-diagnostics { display: grid; gap: 3px; margin: 0; padding: 0 10px 10px 26px; font-size: 9px; }
   .thematic-pending { position: fixed; z-index: 30; right: 10px; bottom: 8px; left: 10px; display: flex; align-items: center; gap: 6px; width: min(1900px,calc(100% - 20px)); min-height: 48px; margin: 0 auto; padding: 7px 9px; border: 1px solid #c5d0dc; border-radius: 8px; background: rgba(255,255,255,.97); box-shadow: 0 10px 28px rgba(15,23,42,.18); backdrop-filter: blur(10px); }
   .thematic-pending-copy { display: grid; gap: 1px; margin-right: auto; }
@@ -182,7 +198,7 @@ function manualLabel(mode: MatchdayEditorialProfileEffectiveItem["manualOverride
   return null;
 }
 
-function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onAutomatic, onFaixa, onBank, onReleasePosition, onProtectZone }: Readonly<{
+function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onAutomatic, onFaixa, onBank, onFixPosition, onReleasePosition, onProtectZone }: Readonly<{
   item: MatchdayEditorialProfileEffectiveItem;
   placement: Placement;
   selected: boolean;
@@ -193,6 +209,7 @@ function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStar
   onAutomatic: () => void;
   onFaixa: () => void;
   onBank: () => void;
+  onFixPosition: (() => void) | null;
   onReleasePosition: (() => void) | null;
   onProtectZone: (() => void) | null;
 }>) {
@@ -213,9 +230,38 @@ function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStar
         <strong className="thematic-card-title">{item.title ?? "Artigo sem título"}</strong>
         {publishedAt ? <time dateTime={item.publishedAt ?? undefined}>{publishedAt}</time> : null}
       </div>
-      <details className="thematic-card-menu" onClick={(event) => event.stopPropagation()}>
+      <details
+        className="thematic-card-menu"
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            event.currentTarget.open = false;
+          }
+        }}
+        onClick={(event) => event.stopPropagation()}
+        onMouseLeave={(event) => {
+          const details = event.currentTarget;
+
+          window.setTimeout(() => {
+            if (
+              !details.matches(":hover")
+              && !details.contains(document.activeElement)
+            ) {
+              details.open = false;
+            }
+          }, 220);
+        }}
+      >
         <summary aria-label={`Ações de ${item.title ?? item.sourceId}`}>···</summary>
-        <div className="thematic-card-actions">
+        <div
+          className="thematic-card-actions"
+          onClick={(event) => {
+            const details = event.currentTarget.closest("details");
+            if (details instanceof HTMLDetailsElement) {
+              details.open = false;
+            }
+          }}
+        >
+          {onFixPosition ? <button className="thematic-button" onClick={onFixPosition} type="button">Fixar nesta posição</button> : null}
           {onProtectZone ? <button className="thematic-button" onClick={onProtectZone} type="button">Proteger na zona</button> : null}
           {onReleasePosition ? <button className="thematic-button" onClick={onReleasePosition} type="button">Libertar posição</button> : null}
           {placement.kind !== "faixa" ? <button className="thematic-button" onClick={onFaixa} type="button">Mover para Faixa</button> : null}
@@ -242,10 +288,14 @@ function Diagnostics({ diagnostics }: Readonly<{ diagnostics: readonly MatchdayE
 export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{ desk: MatchdayEditorialProfileDeskSnapshot }>) {
   const router = useRouter();
   const profile = EDITORIAL_PROFILES[desk.profileKey];
+  const incomingProfile = editorialProfileWithZoneLayouts(
+    profile,
+    desk.pageControls.thematicZoneLayouts,
+  );
   const [editorState, setEditorState] = useState<WorkspaceEditorState>(() => ({
     persistedOverrides: desk.manualOverrides,
     draftOverrides: withoutMatchdayEditorialProfileOpeningOverrides(
-      profile,
+      incomingProfile,
       desk.manualOverrides,
       desk.opening,
     ),
@@ -265,10 +315,14 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   const [bankQuery, setBankQuery] = useState("");
   const [applyState, setApplyState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [zoneLayoutError, setZoneLayoutError] = useState<Readonly<{
+    zoneKey: EditorialProfileZoneKey;
+    message: string;
+  }> | null>(null);
 
   useEffect(() => {
     setEditorState((current) => {
-      const reconciledOverrides = reconcileMatchdayEditorialProfileDeskSnapshot(profile, {
+      const reconciledOverrides = reconcileMatchdayEditorialProfileDeskSnapshot(incomingProfile, {
         persistedOverrides: current.persistedOverrides,
         draftOverrides: current.draftOverrides,
         selectedIdentities: current.selectedIdentities,
@@ -278,7 +332,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
       const draftOpening = openingDirty ? current.draftOpening : desk.opening;
       return {
         persistedOverrides: reconciledOverrides.persistedOverrides,
-        draftOverrides: withoutMatchdayEditorialProfileOpeningOverrides(profile, reconciledOverrides.draftOverrides, draftOpening),
+        draftOverrides: withoutMatchdayEditorialProfileOpeningOverrides(incomingProfile, reconciledOverrides.draftOverrides, draftOpening),
         persistedOpening: desk.opening,
         draftOpening,
         persistedPageControls: desk.pageControls,
@@ -291,25 +345,33 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   const activeItems = desk.automaticDistribution.activeItems;
   const activeByIdentity = useMemo(() => new Map(activeItems.map((item) => [identity(item), item] as const)), [activeItems]);
   const activeIdentities = useMemo(() => new Set(activeByIdentity.keys()), [activeByIdentity]);
-  const operationalOverrides = useMemo(() => withoutMatchdayEditorialProfileOpeningOverrides(
+  const effectiveProfile = useMemo(() => editorialProfileWithZoneLayouts(
     profile,
+    editorState.draftPageControls.thematicZoneLayouts,
+  ), [editorState.draftPageControls.thematicZoneLayouts, profile]);
+  const persistedProfile = useMemo(() => editorialProfileWithZoneLayouts(
+    profile,
+    editorState.persistedPageControls.thematicZoneLayouts,
+  ), [editorState.persistedPageControls.thematicZoneLayouts, profile]);
+  const operationalOverrides = useMemo(() => withoutMatchdayEditorialProfileOpeningOverrides(
+    effectiveProfile,
     editorState.draftOverrides.filter((override) => activeIdentities.has(identity(override))),
     editorState.draftOpening,
-  ), [activeIdentities, editorState.draftOpening, editorState.draftOverrides, profile]);
+  ), [activeIdentities, editorState.draftOpening, editorState.draftOverrides, effectiveProfile]);
   const persistedOperationalOverrides = useMemo(() => withoutMatchdayEditorialProfileOpeningOverrides(
-    profile,
+    persistedProfile,
     editorState.persistedOverrides.filter((override) => activeIdentities.has(identity(override))),
     editorState.persistedOpening,
-  ), [activeIdentities, editorState.persistedOpening, editorState.persistedOverrides, profile]);
+  ), [activeIdentities, editorState.persistedOpening, editorState.persistedOverrides, persistedProfile]);
   const reconcile = useMemo(() => reconcileMatchdayEditorialProfileWorkspace(
-    profile,
+    effectiveProfile,
     activeItems,
     operationalOverrides,
     editorState.draftOpening,
     desk.appliedZoneItems,
     desk.hasAppliedSnapshot,
     desk.currentFaixa,
-  ), [activeItems, desk.appliedZoneItems, desk.currentFaixa, desk.hasAppliedSnapshot, editorState.draftOpening, operationalOverrides, profile]);
+  ), [activeItems, desk.appliedZoneItems, desk.currentFaixa, desk.hasAppliedSnapshot, editorState.draftOpening, effectiveProfile, operationalOverrides]);
   const pending = reconcile.hasChanges
     || !sameJson(operationalOverrides, persistedOperationalOverrides)
     || !sameJson(editorState.draftOpening, editorState.persistedOpening)
@@ -318,9 +380,18 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     const zone = reconcile.zonesAfter.find((candidate) => candidate.key === zoneKey);
     return zone ? [zone] : [];
   });
+  const blockOrderIndex = new Map(
+    editorState.draftPageControls.thematicBlockOrder.map(
+      (block, index) => [block, index] as const,
+    ),
+  );
   const selected = useMemo(() => new Set(editorState.selectedIdentities.filter((itemIdentity) => activeIdentities.has(itemIdentity))), [activeIdentities, editorState.selectedIdentities]);
   const selectedIdentities = [...selected];
-  const destination = profile.zones.find((zone) => zone.key === destinationZone) ?? profile.zones[0];
+  const destination = effectiveProfile.zones.find((zone) => zone.key === destinationZone) ?? effectiveProfile.zones[0];
+
+  useEffect(() => {
+    setStartPosition((current) => Math.min(current, destination.capacity));
+  }, [destination.capacity]);
   const openingIdentities = new Set(matchdayEditorialProfileOpeningSourceIds(editorState.draftOpening).map((sourceId) => thematicEditorialIdentity("editorial_article", sourceId)));
   const circuitActiveItems = activeItems.filter((item) => !openingIdentities.has(identity(item)));
 
@@ -342,7 +413,114 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     setHistory((current) => [...current, currentDraft()]);
     setEditorState((current) => ({ ...current, draftOverrides: next.overrides, draftOpening: next.opening, draftPageControls: next.pageControls, selectedIdentities: [] }));
     setApplyState("idle");
+    setZoneLayoutError(null);
     setMessage(successMessage);
+  }
+
+  function changeZoneLayout(
+    zoneKey: EditorialProfileZoneKey,
+    visualFamily: EditorialVisualFamily,
+  ) {
+    const thematicZoneLayouts = {
+      ...editorState.draftPageControls.thematicZoneLayouts,
+      [zoneKey]: visualFamily,
+    };
+
+    const nextProfile = editorialProfileWithZoneLayouts(
+      profile,
+      thematicZoneLayouts,
+    );
+
+    let nextOverrides:
+      readonly MatchdayEditorialProfileManualOverride[];
+
+    try {
+      nextOverrides =
+        compactMatchdayEditorialProfileManualOverridesForLayoutChange(
+          effectiveProfile,
+          nextProfile,
+          operationalOverrides,
+          zoneKey,
+        );
+    } catch (error) {
+      const code =
+        error instanceof Error
+          ? error.message
+          : "";
+
+      const layoutError =
+        code.endsWith(
+          "layout-compaction-manual-conflict",
+        )
+          ? "Não é possível reduzir este layout porque a última posição disponível já está fixa manualmente. Liberte ou mova uma das decisões manuais primeiro."
+          : code.endsWith(
+              "zone-capacity-exceeded",
+            )
+            ? "Não é possível reduzir este layout porque existem mais notícias protegidas manualmente na zona do que posições disponíveis."
+            : "Não é possível reduzir este layout sem violar decisões manuais existentes.";
+
+      setApplyState("error");
+      setMessage(null);
+      setZoneLayoutError({
+        zoneKey,
+        message: layoutError,
+      });
+      return;
+    }
+
+    const compactedManualPosition =
+      !sameJson(
+        nextOverrides,
+        operationalOverrides,
+      );
+
+    const nextCapacity =
+      nextProfile.zones.find(
+        (zone) => zone.key === zoneKey,
+      )?.capacity;
+
+    commitDraft(
+      {
+        ...currentDraft(),
+        overrides: nextOverrides,
+        pageControls: {
+          ...editorState.draftPageControls,
+          thematicZoneLayouts,
+        },
+      },
+      compactedManualPosition
+        ? `${profile.zones.find((zone) => zone.key === zoneKey)?.label ?? zoneKey}: layout alterado para ${EDITORIAL_VISUAL_FAMILY_DEFINITIONS[visualFamily].label}; a posição manual exterior foi compactada para ${nextCapacity ?? "a última posição disponível"}.`
+        : `${profile.zones.find((zone) => zone.key === zoneKey)?.label ?? zoneKey}: layout alterado em preview para ${EDITORIAL_VISUAL_FAMILY_DEFINITIONS[visualFamily].label}.`,
+    );
+  }
+
+  function moveContentBlock(
+    block: MatchdayEditorialProfilePageControls["thematicBlockOrder"][number],
+    direction: "up" | "down",
+  ) {
+    const thematicBlockOrder =
+      moveMatchdayEditorialProfileThematicBlock(
+        editorState.draftPageControls.thematicBlockOrder,
+        block,
+        direction,
+      );
+
+    const thematicZoneOrder =
+      matchdayEditorialProfileThematicZoneOrderFromBlockOrder(
+        thematicBlockOrder,
+      );
+
+    commitDraft(
+      {
+        ...currentDraft(),
+        pageControls: {
+          ...editorState.draftPageControls,
+          thematicBlockOrder,
+          thematicZoneOrder,
+        },
+      },
+      "Ordem dos blocos editoriais alterada em preview.",
+    );
   }
 
   function localOperation(operation: () => WorkspaceDraft, successMessage: string) {
@@ -383,19 +561,19 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
       const movement = moveMatchdayEditorialProfileItemToOpening(editorState.draftOpening, sourceIdForIdentity(itemIdentity), slot);
       const affected = [itemIdentity];
       if (movement.displacedSourceId) affected.push(thematicEditorialIdentity("editorial_article", movement.displacedSourceId));
-      return { overrides: returnMatchdayEditorialItemsToAutomatic(profile, operationalOverrides, affected), opening: movement.opening, pageControls: editorState.draftPageControls };
+      return { overrides: returnMatchdayEditorialItemsToAutomatic(effectiveProfile, operationalOverrides, affected), opening: movement.opening, pageControls: editorState.draftPageControls };
     }, `${MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS[slot]} atualizada em preview; a notícia desalojada regressou ao automático.`);
   }
 
   function placeInZone(itemIdentity: string, zoneKey: EditorialProfileZoneKey, position: number | null) {
     localOperation(() => {
       const opening = openingWithout(itemIdentity);
-      const cleanOverrides = returnMatchdayEditorialItemsToAutomatic(profile, operationalOverrides, [itemIdentity]);
+      const cleanOverrides = returnMatchdayEditorialItemsToAutomatic(effectiveProfile, operationalOverrides, [itemIdentity]);
       const candidates = activeItemsOutside(opening);
       return {
         overrides: position === null
-          ? fixMatchdayEditorialItemsInZone(profile, candidates, cleanOverrides, [itemIdentity], zoneKey)
-          : fixMatchdayEditorialItemsAtPosition(profile, candidates, cleanOverrides, [itemIdentity], zoneKey, position),
+          ? fixMatchdayEditorialItemsInZone(effectiveProfile, candidates, cleanOverrides, [itemIdentity], zoneKey)
+          : fixMatchdayEditorialItemsAtPosition(effectiveProfile, candidates, cleanOverrides, [itemIdentity], zoneKey, position),
         opening,
         pageControls: editorState.draftPageControls,
       };
@@ -405,9 +583,9 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   function placeInFaixa(itemIdentity: string, position: number) {
     localOperation(() => {
       const opening = openingWithout(itemIdentity);
-      const cleanOverrides = returnMatchdayEditorialItemsToAutomatic(profile, operationalOverrides, [itemIdentity]);
+      const cleanOverrides = returnMatchdayEditorialItemsToAutomatic(effectiveProfile, operationalOverrides, [itemIdentity]);
       return {
-        overrides: moveMatchdayEditorialItemsToFaixa(profile, activeItemsOutside(opening), cleanOverrides, [itemIdentity], Math.max(1, position)),
+        overrides: moveMatchdayEditorialItemsToFaixa(effectiveProfile, activeItemsOutside(opening), cleanOverrides, [itemIdentity], Math.max(1, position)),
         opening,
         pageControls: editorState.draftPageControls,
       };
@@ -417,14 +595,14 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   function placeInBank(itemIdentity: string) {
     localOperation(() => {
       const opening = openingWithout(itemIdentity);
-      const cleanOverrides = returnMatchdayEditorialItemsToAutomatic(profile, operationalOverrides, [itemIdentity]);
-      return { overrides: moveMatchdayEditorialItemsToBank(profile, activeItemsOutside(opening), cleanOverrides, [itemIdentity]), opening, pageControls: editorState.draftPageControls };
+      const cleanOverrides = returnMatchdayEditorialItemsToAutomatic(effectiveProfile, operationalOverrides, [itemIdentity]);
+      return { overrides: moveMatchdayEditorialItemsToBank(effectiveProfile, activeItemsOutside(opening), cleanOverrides, [itemIdentity]), opening, pageControls: editorState.draftPageControls };
     }, "Notícia enviada explicitamente para o Banco.");
   }
 
   function returnToAutomatic(itemIdentity: string) {
     localOperation(() => ({
-      overrides: returnMatchdayEditorialItemsToAutomatic(profile, operationalOverrides, [itemIdentity]),
+      overrides: returnMatchdayEditorialItemsToAutomatic(effectiveProfile, operationalOverrides, [itemIdentity]),
       opening: openingWithout(itemIdentity),
       pageControls: editorState.draftPageControls,
     }), "Decisão manual removida; classificação e atualidade voltaram a decidir.");
@@ -432,7 +610,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
 
   function releasePosition(itemIdentity: string) {
     localOperation(() => ({
-      overrides: releaseMatchdayEditorialFixedPositions(profile, operationalOverrides, [itemIdentity]),
+      overrides: releaseMatchdayEditorialFixedPositions(effectiveProfile, operationalOverrides, [itemIdentity]),
       opening: editorState.draftOpening,
       pageControls: editorState.draftPageControls,
     }), "Posição libertada; a proteção manual da zona foi mantida.");
@@ -514,6 +692,17 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
         onDragEnd={() => setDraggingIdentity(null)}
         onDragStart={dragStart}
         onFaixa={() => placeInFaixa(itemIdentity, reconcile.faixaAfter.length + 1)}
+        onFixPosition={
+          placement.kind === "zone"
+          && placement.zoneKey
+          && item.manualOverride !== "position"
+            ? () => placeInZone(
+                itemIdentity,
+                placement.zoneKey!,
+                item.sortOrder,
+              )
+            : null
+        }
         onProtectZone={placement.kind === "zone" && placement.zoneKey && item.manualOverride === null ? () => placeInZone(itemIdentity, placement.zoneKey!, null) : null}
         onReleasePosition={item.manualOverride === "position" ? () => releasePosition(itemIdentity) : null}
         onToggle={toggleSelection}
@@ -537,8 +726,17 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
           <nav><a href={`/admin/editorial/jornada/${desk.matchdayId}`}>Editorial atual</a><a href="/admin">Backoffice</a></nav>
         </header>
 
+        {message ? (
+          <p
+            aria-live={applyState === "error" ? "assertive" : "polite"}
+            className={`thematic-message feedback${applyState === "error" ? " error" : ""}`}
+          >
+            {message}
+          </p>
+        ) : null}
+
         <details className="thematic-panel thematic-controls">
-          <summary>Controlos da página viva · Últimas, ordem temática e cor da Manchete</summary>
+          <summary>Controlos da página viva · Últimas, layouts, ordem dos blocos e cor da Manchete</summary>
           <div className="thematic-controls-grid">
             <section className="thematic-control">
               <h3>Posição de Últimas</h3>
@@ -557,17 +755,26 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
               </div>
             </section>
             <section className="thematic-control order">
-              <h3>Ordem das zonas temáticas</h3>
+              <h3>Ordem dos blocos editoriais</h3>
               <div className="thematic-order">
-                {editorState.draftPageControls.thematicZoneOrder.map((zone, index) => (
-                  <div className="thematic-order-row" key={zone}>
-                    <span>{String(index + 1).padStart(2, "0")}</span><strong>{profile.zones.find((candidate) => candidate.key === zone)?.label ?? zone}</strong>
-                    <div className="thematic-order-actions">
-                      <button className="thematic-button" disabled={index === 0} onClick={() => commitDraft({ ...currentDraft(), pageControls: { ...editorState.draftPageControls, thematicZoneOrder: moveMatchdayEditorialProfileThematicZone(editorState.draftPageControls.thematicZoneOrder, zone, "up") } }, "Ordem temática alterada em preview.")} type="button">↑</button>
-                      <button className="thematic-button" disabled={index === editorState.draftPageControls.thematicZoneOrder.length - 1} onClick={() => commitDraft({ ...currentDraft(), pageControls: { ...editorState.draftPageControls, thematicZoneOrder: moveMatchdayEditorialProfileThematicZone(editorState.draftPageControls.thematicZoneOrder, zone, "down") } }, "Ordem temática alterada em preview.")} type="button">↓</button>
+                {editorState.draftPageControls.thematicBlockOrder.map((block, index) => {
+                  const label = block === "latest"
+                    ? editorState.draftPageControls.latestZonePlacement === "four_news"
+                      ? "Últimas + 4 notícias"
+                      : "Últimas"
+                    : profile.zones.find((candidate) => candidate.key === block)?.label ?? block;
+
+                  return (
+                    <div className="thematic-order-row" key={block}>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      <strong>{label}</strong>
+                      <div className="thematic-order-actions">
+                        <button className="thematic-button" disabled={index === 0} onClick={() => moveContentBlock(block, "up")} type="button">↑</button>
+                        <button className="thematic-button" disabled={index === editorState.draftPageControls.thematicBlockOrder.length - 1} onClick={() => moveContentBlock(block, "down")} type="button">↓</button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           </div>
@@ -589,10 +796,74 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
           </div>
         </section>
 
-        <section className="thematic-zones" aria-label="Cinco zonas temáticas e Banco explícito">
+        <section className="thematic-zones" aria-label="Cinco zonas temáticas, Últimas e Banco explícito">
+          <article
+            className="thematic-panel thematic-zone thematic-latest-block"
+            style={{ order: blockOrderIndex.get("latest") ?? 5 }}
+          >
+            <div className="thematic-panel-head">
+              <div>
+                <h2>
+                  {editorState.draftPageControls.latestZonePlacement === "four_news"
+                    ? "Últimas + 4 notícias"
+                    : "Últimas"}
+                </h2>
+                <p>
+                  {editorState.draftPageControls.latestZonePlacement === "four_news"
+                    ? "Bloco ordenável · quatro notícias são projetadas automaticamente a partir de Últimas"
+                    : editorState.draftPageControls.latestZonePlacement === "top"
+                      ? "Últimas está junto da Manchete · esta ordem fica guardada para o modo de 4 notícias"
+                      : "Últimas está oculta · esta ordem fica guardada para quando o bloco voltar a ser usado"}
+                </p>
+              </div>
+              <div className="thematic-meta">
+                <span>{editorState.draftPageControls.latestZonePlacement}</span>
+              </div>
+            </div>
+            <div className="thematic-latest-body">
+              <strong>Bloco automático</strong>
+              <span>Move-se como unidade. As quatro notícias não são escolhidas manualmente nesta Mesa e não criam storage paralelo.</span>
+            </div>
+          </article>
+
           {orderedZones.map((zone) => (
-            <article className="thematic-panel thematic-zone" key={zone.key}>
-              <div className="thematic-panel-head"><div><h2>{zone.label}</h2><p>{zone.items.length}/{zone.capacity} · arraste para reordenar</p></div><div className="thematic-meta"><span>{zone.visualFamily}</span></div></div>
+            <article
+              className="thematic-panel thematic-zone"
+              key={zone.key}
+              style={{ order: blockOrderIndex.get(zone.key) ?? 0 }}
+            >
+              <div className="thematic-panel-head">
+                <div>
+                  <h2>{zone.label}</h2>
+                  <p>{zone.items.length}/{zone.capacity} · arraste para reordenar</p>
+                </div>
+                <div className="thematic-meta">
+                  <label className="thematic-layout-picker">
+                    <span>Layout</span>
+                    <select
+                      aria-label={`Layout de ${zone.label}`}
+                      disabled={applyState === "saving"}
+                      onChange={(event) => changeZoneLayout(
+                        zone.key,
+                        event.target.value as EditorialVisualFamily,
+                      )}
+                      value={editorState.draftPageControls.thematicZoneLayouts[zone.key]}
+                    >
+                      {EDITORIAL_VISUAL_FAMILIES.map((family) => (
+                        <option key={family} value={family}>
+                          {EDITORIAL_VISUAL_FAMILY_DEFINITIONS[family].label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <span>{zone.capacity} posições</span>
+                </div>
+              </div>
+              {zoneLayoutError?.zoneKey === zone.key ? (
+                <p className="thematic-zone-alert" role="alert">
+                  {zoneLayoutError.message}
+                </p>
+              ) : null}
               <div className="thematic-dropbar" data-drag-active={draggingIdentity !== null} onDragOver={allowDrop} onDrop={(event) => { event.preventDefault(); const itemIdentity = dragged(event); if (itemIdentity) placeInZone(itemIdentity, zone.key, null); setDraggingIdentity(null); }}>Largar aqui · proteger na zona sem posição fixa</div>
               <div className="thematic-zone-list">
                 {Array.from({ length: zone.capacity }, (_, index) => index + 1).map((position) => {
@@ -606,7 +877,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
               </div>
             </article>
           ))}
-          <aside className="thematic-panel thematic-bank-panel" onDragOver={allowDrop} onDrop={(event) => { event.preventDefault(); const itemIdentity = dragged(event); if (itemIdentity) placeInBank(itemIdentity); setDraggingIdentity(null); }}>
+          <aside className="thematic-panel thematic-bank-panel" style={{ order: 100 }} onDragOver={allowDrop} onDrop={(event) => { event.preventDefault(); const itemIdentity = dragged(event); if (itemIdentity) placeInBank(itemIdentity); setDraggingIdentity(null); }}>
             <div className="thematic-panel-head"><div><h2>Banco explícito</h2><p>{reconcile.bankAfter.length} · nunca recebe overflow automático</p></div></div>
             <div className="thematic-faixa-tools"><input aria-label="Pesquisar no Banco" className="thematic-search" onChange={(event) => setBankQuery(event.target.value)} placeholder="Pesquisar…" type="search" value={bankQuery} /></div>
             <div className="thematic-dropbar" data-drag-active={draggingIdentity !== null}>Largar aqui · retirar explicitamente</div>
@@ -637,18 +908,18 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
             <label className="thematic-field">Zona<select value={destinationZone} onChange={(event) => { setDestinationZone(event.target.value as EditorialProfileZoneKey); setStartPosition(1); }}>{profile.zones.map((zone) => <option key={zone.key} value={zone.key}>{zone.label}</option>)}</select></label>
             <label className="thematic-field">Posição inicial<select value={startPosition} onChange={(event) => setStartPosition(Number(event.target.value))}>{Array.from({ length: destination.capacity }, (_, index) => index + 1).map((position) => <option key={position} value={position}>{position}</option>)}</select></label>
             <label className="thematic-field">Posição na Faixa<select value={faixaPosition} onChange={(event) => setFaixaPosition(Number(event.target.value))}>{Array.from({ length: Math.max(1, reconcile.faixaAfter.length + 1) }, (_, index) => index + 1).map((position) => <option key={position} value={position}>{position}</option>)}</select></label>
-            <button className="thematic-button" disabled={selected.size === 0} onClick={() => localOperation(() => ({ overrides: fixMatchdayEditorialItemsAtPosition(profile, circuitActiveItems, operationalOverrides, selectedIdentities, destinationZone, startPosition), opening: editorState.draftOpening, pageControls: editorState.draftPageControls }), "Seleção colocada em posições fixas.")} type="button">Fixar posição</button>
-            <button className="thematic-button" disabled={selected.size === 0} onClick={() => localOperation(() => ({ overrides: fixMatchdayEditorialItemsInZone(profile, circuitActiveItems, operationalOverrides, selectedIdentities, destinationZone), opening: editorState.draftOpening, pageControls: editorState.draftPageControls }), "Seleção protegida na zona.")} type="button">Proteger na zona</button>
-            <button className="thematic-button" disabled={selected.size === 0} onClick={() => localOperation(() => ({ overrides: moveMatchdayEditorialItemsToFaixa(profile, circuitActiveItems, operationalOverrides, selectedIdentities, faixaPosition), opening: editorState.draftOpening, pageControls: editorState.draftPageControls }), "Seleção protegida na Faixa.")} type="button">Mover para Faixa</button>
-            <button className="thematic-button" disabled={selected.size === 0} onClick={() => localOperation(() => ({ overrides: moveMatchdayEditorialItemsToBank(profile, circuitActiveItems, operationalOverrides, selectedIdentities), opening: editorState.draftOpening, pageControls: editorState.draftPageControls }), "Seleção enviada para Banco.")} type="button">Mover para Banco</button>
-            <button className="thematic-button" disabled={selected.size === 0} onClick={() => localOperation(() => ({ overrides: returnMatchdayEditorialItemsToAutomatic(profile, operationalOverrides, selectedIdentities), opening: editorState.draftOpening, pageControls: editorState.draftPageControls }), "Seleção devolvida ao automático.")} type="button">Devolver ao automático</button>
+            <button className="thematic-button" disabled={selected.size === 0} onClick={() => localOperation(() => ({ overrides: fixMatchdayEditorialItemsAtPosition(effectiveProfile, circuitActiveItems, operationalOverrides, selectedIdentities, destinationZone, startPosition), opening: editorState.draftOpening, pageControls: editorState.draftPageControls }), "Seleção colocada em posições fixas.")} type="button">Fixar posição</button>
+            <button className="thematic-button" disabled={selected.size === 0} onClick={() => localOperation(() => ({ overrides: fixMatchdayEditorialItemsInZone(effectiveProfile, circuitActiveItems, operationalOverrides, selectedIdentities, destinationZone), opening: editorState.draftOpening, pageControls: editorState.draftPageControls }), "Seleção protegida na zona.")} type="button">Proteger na zona</button>
+            <button className="thematic-button" disabled={selected.size === 0} onClick={() => localOperation(() => ({ overrides: moveMatchdayEditorialItemsToFaixa(effectiveProfile, circuitActiveItems, operationalOverrides, selectedIdentities, faixaPosition), opening: editorState.draftOpening, pageControls: editorState.draftPageControls }), "Seleção protegida na Faixa.")} type="button">Mover para Faixa</button>
+            <button className="thematic-button" disabled={selected.size === 0} onClick={() => localOperation(() => ({ overrides: moveMatchdayEditorialItemsToBank(effectiveProfile, circuitActiveItems, operationalOverrides, selectedIdentities), opening: editorState.draftOpening, pageControls: editorState.draftPageControls }), "Seleção enviada para Banco.")} type="button">Mover para Banco</button>
+            <button className="thematic-button" disabled={selected.size === 0} onClick={() => localOperation(() => ({ overrides: returnMatchdayEditorialItemsToAutomatic(effectiveProfile, operationalOverrides, selectedIdentities), opening: editorState.draftOpening, pageControls: editorState.draftPageControls }), "Seleção devolvida ao automático.")} type="button">Devolver ao automático</button>
           </div>
         </details>
 
         {reconcile.movements.length > 0 ? <details className="thematic-panel thematic-movements"><summary>Movimentos em preview · {reconcile.movements.length}</summary><ul className="thematic-movement-list">{reconcile.movements.map((movement) => <li key={thematicEditorialIdentity(movement.sourceType, movement.sourceId)}>{movement.title ?? movement.sourceId} · {movement.from.kind} → {movement.to.kind}</li>)}</ul></details> : null}
         {desk.inactiveHistoricalCount > 0 ? <p className="thematic-message">Estado histórico inativo: {desk.inactiveHistoricalCount}</p> : null}
         <Diagnostics diagnostics={desk.diagnostics} />
-        {message ? <p className={`thematic-message${applyState === "error" ? " error" : ""}`}>{message}</p> : null}
+
       </div>
 
       <footer className="thematic-pending" aria-live="polite">

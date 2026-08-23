@@ -475,6 +475,104 @@ function normalizedMapValues(
   return validateMatchdayEditorialProfileManualOverrides(profile, Array.from(map.values()));
 }
 
+export function compactMatchdayEditorialProfileManualOverridesForLayoutChange(
+  currentProfile: EditorialProfile,
+  nextProfile: EditorialProfile,
+  overrides: readonly MatchdayEditorialProfileManualOverride[],
+  zoneKey: EditorialProfileZoneKey,
+): readonly MatchdayEditorialProfileManualOverride[] {
+  const currentZone = currentProfile.zones.find(
+    (zone) => zone.key === zoneKey,
+  );
+
+  const nextZone = nextProfile.zones.find(
+    (zone) => zone.key === zoneKey,
+  );
+
+  if (!currentZone || !nextZone) {
+    throw new Error(
+      "matchday-editorial-profile-layout-compaction-invalid-zone",
+    );
+  }
+
+  const normalized =
+    validateMatchdayEditorialProfileManualOverrides(
+      currentProfile,
+      overrides,
+    );
+
+  if (nextZone.capacity >= currentZone.capacity) {
+    return validateMatchdayEditorialProfileManualOverrides(
+      nextProfile,
+      normalized,
+    );
+  }
+
+  const overflowFixed = normalized.filter(
+    (override) => (
+      override.placementTarget === "zone"
+      && override.zoneKey === zoneKey
+      && override.sortOrder !== null
+      && override.sortOrder > nextZone.capacity
+    ),
+  );
+
+  if (overflowFixed.length === 0) {
+    return validateMatchdayEditorialProfileManualOverrides(
+      nextProfile,
+      normalized,
+    );
+  }
+
+  /*
+   * Uma posição absoluta que desaparece é compactada para o último
+   * slot do novo layout. Conteúdo automático pode ser desalojado.
+   * Outra decisão manual nesse slot nunca é deslocada implicitamente.
+   */
+  if (overflowFixed.length > 1) {
+    throw new Error(
+      "matchday-editorial-profile-layout-compaction-manual-conflict",
+    );
+  }
+
+  const targetSlot = nextZone.capacity;
+
+  const targetHasManualPosition = normalized.some(
+    (override) => (
+      override.placementTarget === "zone"
+      && override.zoneKey === zoneKey
+      && override.sortOrder === targetSlot
+    ),
+  );
+
+  if (targetHasManualPosition) {
+    throw new Error(
+      "matchday-editorial-profile-layout-compaction-manual-conflict",
+    );
+  }
+
+  const overflowIdentity = thematicEditorialIdentity(
+    overflowFixed[0].sourceType,
+    overflowFixed[0].sourceId,
+  );
+
+  const compacted = normalized.map((override) => (
+    thematicEditorialIdentity(
+      override.sourceType,
+      override.sourceId,
+    ) === overflowIdentity
+      ? {
+          ...override,
+          sortOrder: targetSlot,
+        }
+      : override
+  ));
+
+  return validateMatchdayEditorialProfileManualOverrides(
+    nextProfile,
+    compacted,
+  );
+}
 export function fixMatchdayEditorialItemsInZone(
   profile: EditorialProfile,
   activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],

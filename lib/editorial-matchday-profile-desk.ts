@@ -1,5 +1,6 @@
 import {
   editorialProfile,
+  editorialProfileWithZoneLayouts,
   type EditorialPlacementMode,
   type EditorialProfile,
   type EditorialProfileKey,
@@ -20,6 +21,8 @@ import {
 } from "@/lib/editorial-matchday-profile-reconcile";
 import {
   emptyMatchdayEditorialProfileOpening,
+  normalizeMatchdayEditorialProfileThematicBlockOrder,
+  normalizeMatchdayEditorialProfileThematicZoneLayouts,
   normalizeMatchdayEditorialProfileThematicZoneOrder,
   reconcileMatchdayEditorialProfileWorkspace,
   type MatchdayEditorialProfileOpening,
@@ -222,7 +225,12 @@ type CompetitionRow = Readonly<{
   slug: string;
 }>;
 
-type ReconcileControlRow = Readonly<{ revision: number; thematic_zone_order: unknown }>;
+type ReconcileControlRow = Readonly<{
+  revision: number;
+  thematic_zone_order: unknown;
+  thematic_zone_layouts: unknown;
+  thematic_block_order: unknown;
+}>;
 type ReconcileTokenRow = Readonly<{ state_token: string }>;
 type OpeningEditorialRow = Readonly<{
   status: string | null;
@@ -610,7 +618,7 @@ export async function readMatchdayEditorialProfileDesk(
       `matchday_editorial_profile_zone_items?select=source_type,source_id,zone_key,sort_order&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&profile_key=eq.${encodeURIComponent(assignment.profile_key)}`,
     ),
     fetchTable<ReconcileControlRow>(
-      `matchday_editorial_profile_reconcile_control?select=revision,thematic_zone_order&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&profile_key=eq.${encodeURIComponent(assignment.profile_key)}&limit=1`,
+      `matchday_editorial_profile_reconcile_control?select=revision,thematic_zone_order,thematic_zone_layouts,thematic_block_order&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&profile_key=eq.${encodeURIComponent(assignment.profile_key)}&limit=1`,
     ),
     readAllRows<MatchdayEditorialProfileHorizontalRow>(
       fetchTable,
@@ -642,8 +650,31 @@ export async function readMatchdayEditorialProfileDesk(
   if (reconcileTokenBefore !== reconcileTokenAfter) {
     throw new Error("matchday-editorial-profile-desk-concurrent-read");
   }
+
+  const thematicZoneOrder =
+    normalizeMatchdayEditorialProfileThematicZoneOrder(
+      reconcileControlRows[0]?.thematic_zone_order,
+    );
+
+  const thematicZoneLayouts =
+    normalizeMatchdayEditorialProfileThematicZoneLayouts(
+      reconcileControlRows[0]?.thematic_zone_layouts,
+    );
+
+  const thematicBlockOrder =
+    normalizeMatchdayEditorialProfileThematicBlockOrder(
+      reconcileControlRows[0]?.thematic_block_order,
+      thematicZoneOrder,
+    );
+
+  const effectiveProfile =
+    editorialProfileWithZoneLayouts(
+      profile,
+      thematicZoneLayouts,
+    );
+
   const automaticDistribution = buildMatchdayEditorialProfileDeskDistribution(
-    profile,
+    effectiveProfile,
     stateRows,
     bankRows,
     articleRows,
@@ -716,12 +747,12 @@ export async function readMatchdayEditorialProfileDesk(
       : openingEditorial?.latest_zone_placement === "hidden"
         ? "hidden"
         : "top",
-    thematicZoneOrder: normalizeMatchdayEditorialProfileThematicZoneOrder(
-      reconcileControlRows[0]?.thematic_zone_order,
-    ),
+    thematicZoneOrder,
+    thematicZoneLayouts,
+    thematicBlockOrder,
   };
   const manualOverrides = validateMatchdayEditorialProfileManualOverrides(
-    profile,
+    effectiveProfile,
     manualOverrideRows
       .map((row): MatchdayEditorialProfileManualOverride => ({
         sourceType: SUPPORTED_SOURCE_TYPE,
@@ -806,7 +837,7 @@ export async function readMatchdayEditorialProfileDesk(
     });
   }
   const reconcile = reconcileMatchdayEditorialProfileWorkspace(
-    profile,
+    effectiveProfile,
     automaticDistribution.activeItems,
     manualOverrides,
     opening,
