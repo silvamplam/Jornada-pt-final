@@ -487,15 +487,23 @@ async function readLiveCarryovers(links: readonly string[]) {
     { version: 2, side_block: { link_url: link } },
     { version: 2, highlights: [{ link_url: link }] },
     { version: 2, live_layout_items: [{ link_url: link }] },
-  ]).map((value) => (
-    `carryover_snapshot.cs.${encodeURIComponent(JSON.stringify(value))}`
-  ));
+  ]);
+  const rows = await Promise.all(filters.map((value) => (
+    fetchSupabaseAdminTable<EditorialArticleLiveCarryoverRow>(
+      "matchday_editorial_desk_control"
+        + "?select=matchday_id,carryover_source_composition_id,carryover_snapshot"
+        + `&carryover_snapshot=cs.${encodeURIComponent(JSON.stringify(value))}`
+        + "&limit=1000",
+    )
+  )));
+  const seen = new Set<string>();
 
-  return fetchSupabaseAdminTable<EditorialArticleLiveCarryoverRow>(
-    "matchday_editorial_desk_control"
-      + "?select=matchday_id,carryover_source_composition_id,carryover_snapshot"
-      + `&or=(${filters.join(",")})&limit=1000`,
-  );
+  return rows.flat().filter((row) => {
+    const key = `${row.matchday_id}:${row.carryover_source_composition_id ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 const syncEditorialArticleLiveSnapshotsWithSupabase =
