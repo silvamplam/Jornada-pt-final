@@ -7,6 +7,7 @@ import {
   editorialProfileWithZoneLayouts,
 } from "@/lib/editorial-profiles";
 import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
+import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
 import { validateMatchdayEditorialProfileManualOverrides } from "@/lib/editorial-matchday-profile-desk-operations";
 import {
   reconcileMatchdayEditorialProfileWorkspace,
@@ -90,6 +91,8 @@ function mutationErrorResponse(error: unknown) {
     || message.includes("profile-workspace-v2-invalid-")
     || message.includes("profile-workspace-v2-manual-")
     || message.includes("profile-workspace-v2-zone-")
+    || message.includes("profile-workspace-v3-")
+    || message.includes("profile-workspace-v4-")
     || message.includes("profile-workspace-exclusive-")
   ) {
     return apiError("thematic-desk-invalid-reconcile", "A composição temática foi recusada integralmente.", 400);
@@ -204,7 +207,7 @@ export async function POST(
       desk.currentFaixa,
     );
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_editorial_profile_workspace_v2",
+      "rpc/apply_matchday_editorial_profile_workspace_v4",
       {
         method: "POST",
         body: JSON.stringify({
@@ -232,11 +235,15 @@ export async function POST(
               pageControls.headlineTitleColor,
             latest_zone_placement:
               pageControls.latestZonePlacement,
+            latest_zone_title:
+              pageControls.latestZoneTitle,
             thematic_zone_order: pageControls.thematicZoneOrder,
             thematic_zone_layouts:
               pageControls.thematicZoneLayouts,
             thematic_block_order:
               pageControls.thematicBlockOrder,
+            thematic_zone_titles:
+              pageControls.thematicZoneTitles,
           },
         }),
       },
@@ -254,6 +261,9 @@ export async function POST(
     ) {
       throw new Error("matchday-editorial-profile-reconcile-invalid-result");
     }
+
+    await syncLatestFourNewsProjection(matchdayId);
+
     return NextResponse.json({
       ok: true,
       revision: row.revision,

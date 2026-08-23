@@ -72,6 +72,8 @@ const styles = `
   .thematic-meta span { padding: 2px 5px; border-radius: 4px; background: #edf2f7; color: #5d6c7d; font-size: 8px; font-weight: 800; }
   .thematic-layout-picker { display: grid; gap: 2px; min-width: 142px; color: #657487; font-size: 8px; font-weight: 900; text-transform: uppercase; }
   .thematic-layout-picker select { min-height: 27px; padding: 3px 5px; border: 1px solid #c8d3df; border-radius: 4px; background: #fff; color: #172331; font-size: 9px; font-weight: 800; text-transform: none; }
+  .thematic-public-title { display: grid; gap: 3px; margin-top: 7px; max-width: 340px; color: #657487; font-size: 8px; font-weight: 900; text-transform: uppercase; }
+  .thematic-public-title input { width: 100%; min-height: 28px; padding: 4px 7px; border: 1px solid #c8d3df; border-radius: 4px; background: #fff; color: #172331; font-size: 10px; font-weight: 700; text-transform: none; }
   .thematic-latest-block { border-style: dashed; }
   .thematic-latest-body { display: grid; gap: 5px; padding: 0 10px 10px; color: #657487; font-size: 9px; line-height: 1.35; }
   .thematic-latest-body strong { color: #172331; }
@@ -96,6 +98,7 @@ const styles = `
   .thematic-slot-label { display: block; margin-bottom: 4px; color: #5e6d7d; font-size: 8px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
   .thematic-empty { display: grid; place-items: center; min-height: 55px; margin: 0; color: #8a98a8; font-size: 9px; font-weight: 700; text-align: center; }
   .thematic-zones { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; align-items: start; }
+  .thematic-zone-column { display: grid; min-width: 0; gap: 8px; align-content: start; }
   .thematic-zone { min-width: 0; }
   .thematic-zone-list { display: grid; gap: 4px; padding: 0 7px 7px; }
   .thematic-zone-slot { display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 4px; align-items: start; padding: 4px; }
@@ -376,10 +379,12 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     || !sameJson(operationalOverrides, persistedOperationalOverrides)
     || !sameJson(editorState.draftOpening, editorState.persistedOpening)
     || !sameJson(editorState.draftPageControls, editorState.persistedPageControls);
-  const orderedZones = editorState.draftPageControls.thematicZoneOrder.flatMap((zoneKey) => {
-    const zone = reconcile.zonesAfter.find((candidate) => candidate.key === zoneKey);
-    return zone ? [zone] : [];
-  });
+  const zoneByKey = new Map(
+    reconcile.zonesAfter.map(
+      (zone) => [zone.key, zone] as const,
+    ),
+  );
+
   const blockOrderIndex = new Map(
     editorState.draftPageControls.thematicBlockOrder.map(
       (block, index) => [block, index] as const,
@@ -712,6 +717,209 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     );
   }
 
+  function renderZonePanel(
+    zoneKey: EditorialProfileZoneKey,
+  ) {
+    const zone = zoneByKey.get(zoneKey);
+
+    if (!zone) {
+      return null;
+    }
+
+    const publicPosition =
+      (blockOrderIndex.get(zone.key) ?? 0) + 1;
+
+    return (
+      <article
+        className="thematic-panel thematic-zone"
+        key={zone.key}
+      >
+        <div className="thematic-panel-head">
+          <div>
+            <h2>{zone.label}</h2>
+            <p>
+              {zone.items.length}/{zone.capacity} · arraste para reordenar
+            </p>
+
+            <label className="thematic-public-title">
+              <span>Título público</span>
+              <input
+                aria-label={`Título público de ${zone.label}`}
+                disabled={applyState === "saving"}
+                maxLength={120}
+                onBlur={() =>
+                  setMessage(
+                    editorState.draftPageControls
+                      .thematicZoneTitles[zone.key]
+                      .trim()
+                      ? `${zone.label}: título público alterado em preview.`
+                      : `${zone.label}: sem título público; o leitor verá apenas o conteúdo.`,
+                  )
+                }
+                onChange={(event) => {
+                  const value = event.target.value;
+
+                  setEditorState((current) => ({
+                    ...current,
+                    draftPageControls: {
+                      ...current.draftPageControls,
+                      thematicZoneTitles: {
+                        ...current.draftPageControls
+                          .thematicZoneTitles,
+                        [zone.key]: value,
+                      },
+                    },
+                  }));
+
+                  setApplyState("idle");
+                }}
+                placeholder="Sem título público"
+                type="text"
+                value={
+                  editorState.draftPageControls
+                    .thematicZoneTitles[zone.key]
+                }
+              />
+            </label>
+          </div>
+
+          <div className="thematic-meta">
+            <label className="thematic-layout-picker">
+              <span>Layout</span>
+
+              <select
+                aria-label={`Layout de ${zone.label}`}
+                disabled={applyState === "saving"}
+                onChange={(event) =>
+                  changeZoneLayout(
+                    zone.key,
+                    (event.target.value as EditorialVisualFamily),
+                  )
+                }
+                value={
+                  editorState.draftPageControls
+                    .thematicZoneLayouts[zone.key]
+                }
+              >
+                {EDITORIAL_VISUAL_FAMILIES.map(
+                  (family) => (
+                    <option
+                      key={family}
+                      value={family}
+                    >
+                      {
+                        EDITORIAL_VISUAL_FAMILY_DEFINITIONS[
+                          family
+                        ].label
+                      }
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+
+            <span>{zone.capacity} posições</span>
+            <span>
+              público · {String(publicPosition).padStart(2, "0")}
+            </span>
+          </div>
+        </div>
+
+        {zoneLayoutError?.zoneKey === zone.key ? (
+          <p
+            className="thematic-zone-alert"
+            role="alert"
+          >
+            {zoneLayoutError.message}
+          </p>
+        ) : null}
+
+        <div
+          className="thematic-dropbar"
+          data-drag-active={draggingIdentity !== null}
+          onDragOver={allowDrop}
+          onDrop={(event) => {
+            event.preventDefault();
+
+            const itemIdentity =
+              dragged(event);
+
+            if (itemIdentity) {
+              placeInZone(
+                itemIdentity,
+                zone.key,
+                null,
+              );
+            }
+
+            setDraggingIdentity(null);
+          }}
+        >
+          Largar aqui · proteger na zona sem posição fixa
+        </div>
+
+        <div className="thematic-zone-list">
+          {Array.from(
+            { length: zone.capacity },
+            (_, index) => index + 1,
+          ).map((position) => {
+            const item =
+              zone.items.find(
+                (candidate) =>
+                  candidate.sortOrder === position,
+              );
+
+            return (
+              <div
+                className="thematic-zone-slot"
+                data-drag-active={
+                  draggingIdentity !== null
+                }
+                key={position}
+                onDragOver={allowDrop}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+
+                  const itemIdentity =
+                    dragged(event);
+
+                  if (itemIdentity) {
+                    placeInZone(
+                      itemIdentity,
+                      zone.key,
+                      position,
+                    );
+                  }
+
+                  setDraggingIdentity(null);
+                }}
+              >
+                <span className="thematic-position">
+                  {position}
+                </span>
+
+                {item
+                  ? cardFor(
+                      item,
+                      {
+                        kind: "zone",
+                        zoneKey: zone.key,
+                      },
+                    )
+                  : (
+                    <p className="thematic-empty">
+                      Posição livre
+                    </p>
+                  )}
+              </div>
+            );
+          })}
+        </div>
+      </article>
+    );
+  }
+
   return (
     <main className="thematic-shell">
       <style>{styles}</style>
@@ -736,7 +944,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
         ) : null}
 
         <details className="thematic-panel thematic-controls">
-          <summary>Controlos da página viva · Últimas, layouts, ordem dos blocos e cor da Manchete</summary>
+          <summary>Controlos da página viva · Últimas, títulos públicos, layouts, ordem dos blocos e cor da Manchete</summary>
           <div className="thematic-controls-grid">
             <section className="thematic-control">
               <h3>Posição de Últimas</h3>
@@ -796,95 +1004,180 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
           </div>
         </section>
 
-        <section className="thematic-zones" aria-label="Cinco zonas temáticas, Últimas e Banco explícito">
-          <article
-            className="thematic-panel thematic-zone thematic-latest-block"
-            style={{ order: blockOrderIndex.get("latest") ?? 5 }}
-          >
-            <div className="thematic-panel-head">
-              <div>
-                <h2>
-                  {editorState.draftPageControls.latestZonePlacement === "four_news"
-                    ? "Últimas + 4 notícias"
-                    : "Últimas"}
-                </h2>
-                <p>
-                  {editorState.draftPageControls.latestZonePlacement === "four_news"
-                    ? "Bloco ordenável · quatro notícias são projetadas automaticamente a partir de Últimas"
-                    : editorState.draftPageControls.latestZonePlacement === "top"
-                      ? "Últimas está junto da Manchete · esta ordem fica guardada para o modo de 4 notícias"
-                      : "Últimas está oculta · esta ordem fica guardada para quando o bloco voltar a ser usado"}
-                </p>
-              </div>
-              <div className="thematic-meta">
-                <span>{editorState.draftPageControls.latestZonePlacement}</span>
-              </div>
-            </div>
-            <div className="thematic-latest-body">
-              <strong>Bloco automático</strong>
-              <span>Move-se como unidade. As quatro notícias não são escolhidas manualmente nesta Mesa e não criam storage paralelo.</span>
-            </div>
-          </article>
+        <section
+          className="thematic-zones"
+          aria-label="Cinco zonas temáticas, Últimas e Banco explícito"
+        >
+          <div className="thematic-zone-column">
+            {renderZonePanel("benfica")}
+            {renderZonePanel("other_liga_clubs")}
 
-          {orderedZones.map((zone) => (
             <article
-              className="thematic-panel thematic-zone"
-              key={zone.key}
-              style={{ order: blockOrderIndex.get(zone.key) ?? 0 }}
+              className="thematic-panel thematic-zone thematic-latest-block"
             >
               <div className="thematic-panel-head">
                 <div>
-                  <h2>{zone.label}</h2>
-                  <p>{zone.items.length}/{zone.capacity} · arraste para reordenar</p>
+                  <h2>
+                    {
+                      editorState.draftPageControls
+                        .latestZonePlacement === "four_news"
+                        ? "Últimas + 4 notícias"
+                        : "Últimas"
+                    }
+                  </h2>
+
+                  <p>
+                    {
+                      editorState.draftPageControls
+                        .latestZonePlacement === "four_news"
+                        ? "Bloco ordenável · quatro notícias são projetadas automaticamente a partir de Últimas"
+                        : editorState.draftPageControls
+                            .latestZonePlacement === "top"
+                          ? "Últimas está junto da Manchete · esta ordem fica guardada para o modo de 4 notícias"
+                          : "Últimas está oculta · esta ordem fica guardada para quando o bloco voltar a ser usado"
+                    }
+                  </p>
                 </div>
+
                 <div className="thematic-meta">
-                  <label className="thematic-layout-picker">
-                    <span>Layout</span>
-                    <select
-                      aria-label={`Layout de ${zone.label}`}
-                      disabled={applyState === "saving"}
-                      onChange={(event) => changeZoneLayout(
-                        zone.key,
-                        event.target.value as EditorialVisualFamily,
-                      )}
-                      value={editorState.draftPageControls.thematicZoneLayouts[zone.key]}
-                    >
-                      {EDITORIAL_VISUAL_FAMILIES.map((family) => (
-                        <option key={family} value={family}>
-                          {EDITORIAL_VISUAL_FAMILY_DEFINITIONS[family].label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <span>{zone.capacity} posições</span>
+                  <span>
+                    {
+                      editorState.draftPageControls
+                        .latestZonePlacement
+                    }
+                  </span>
+
+                  <span>
+                    público · {
+                      String(
+                        (blockOrderIndex.get("latest") ?? 0)
+                          + 1,
+                      ).padStart(2, "0")
+                    }
+                  </span>
                 </div>
               </div>
-              {zoneLayoutError?.zoneKey === zone.key ? (
-                <p className="thematic-zone-alert" role="alert">
-                  {zoneLayoutError.message}
-                </p>
-              ) : null}
-              <div className="thematic-dropbar" data-drag-active={draggingIdentity !== null} onDragOver={allowDrop} onDrop={(event) => { event.preventDefault(); const itemIdentity = dragged(event); if (itemIdentity) placeInZone(itemIdentity, zone.key, null); setDraggingIdentity(null); }}>Largar aqui · proteger na zona sem posição fixa</div>
-              <div className="thematic-zone-list">
-                {Array.from({ length: zone.capacity }, (_, index) => index + 1).map((position) => {
-                  const item = zone.items.find((candidate) => candidate.sortOrder === position);
-                  return (
-                    <div className="thematic-zone-slot" data-drag-active={draggingIdentity !== null} key={position} onDragOver={allowDrop} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); const itemIdentity = dragged(event); if (itemIdentity) placeInZone(itemIdentity, zone.key, position); setDraggingIdentity(null); }}>
-                      <span className="thematic-position">{position}</span>{item ? cardFor(item, { kind: "zone", zoneKey: zone.key }) : <p className="thematic-empty">Posição livre</p>}
-                    </div>
-                  );
-                })}
+
+              <div className="thematic-latest-body">
+                <label className="thematic-public-title">
+                  <span>Título público</span>
+
+                  <input
+                    aria-label="Título público de Últimas"
+                    disabled={applyState === "saving"}
+                    maxLength={120}
+                    onChange={(event) => {
+                      const value = event.target.value;
+
+                      setEditorState((current) => ({
+                        ...current,
+                        draftPageControls: {
+                          ...current.draftPageControls,
+                          latestZoneTitle: value,
+                        },
+                      }));
+
+                      setApplyState("idle");
+                    }}
+                    placeholder="Sem título público"
+                    type="text"
+                    value={
+                      editorState.draftPageControls
+                        .latestZoneTitle
+                    }
+                  />
+                </label>
+                <strong>Bloco automático</strong>
+
+                <span>
+                  Move-se publicamente segundo a ordem definida
+                  nos controlos acima. Nesta Mesa fica aqui apenas
+                  para aproveitar melhor o espaço de trabalho.
+                </span>
+
+                <span>
+                  As quatro notícias não são escolhidas
+                  manualmente e não criam storage paralelo.
+                </span>
               </div>
             </article>
-          ))}
-          <aside className="thematic-panel thematic-bank-panel" style={{ order: 100 }} onDragOver={allowDrop} onDrop={(event) => { event.preventDefault(); const itemIdentity = dragged(event); if (itemIdentity) placeInBank(itemIdentity); setDraggingIdentity(null); }}>
-            <div className="thematic-panel-head"><div><h2>Banco explícito</h2><p>{reconcile.bankAfter.length} · nunca recebe overflow automático</p></div></div>
-            <div className="thematic-faixa-tools"><input aria-label="Pesquisar no Banco" className="thematic-search" onChange={(event) => setBankQuery(event.target.value)} placeholder="Pesquisar…" type="search" value={bankQuery} /></div>
-            <div className="thematic-dropbar" data-drag-active={draggingIdentity !== null}>Largar aqui · retirar explicitamente</div>
-            <div className="thematic-bank-list">{visibleBank.length > 0 ? visibleBank.map((item) => cardFor(item, { kind: "bank" })) : <p className="thematic-empty">Sem decisões explícitas de Banco.</p>}</div>
-          </aside>
-        </section>
+          </div>
 
+          <div className="thematic-zone-column">
+            {renderZonePanel("sporting")}
+            {renderZonePanel("outside_liga_other")}
+          </div>
+
+          <div className="thematic-zone-column">
+            {renderZonePanel("fc_porto")}
+
+            <aside
+              className="thematic-panel thematic-bank-panel"
+              onDragOver={allowDrop}
+              onDrop={(event) => {
+                event.preventDefault();
+
+                const itemIdentity =
+                  dragged(event);
+
+                if (itemIdentity) {
+                  placeInBank(itemIdentity);
+                }
+
+                setDraggingIdentity(null);
+              }}
+            >
+              <div className="thematic-panel-head">
+                <div>
+                  <h2>Banco explícito</h2>
+
+                  <p>
+                    {reconcile.bankAfter.length} · nunca recebe
+                    overflow automático
+                  </p>
+                </div>
+              </div>
+
+              <div className="thematic-faixa-tools">
+                <input
+                  aria-label="Pesquisar no Banco"
+                  className="thematic-search"
+                  onChange={(event) =>
+                    setBankQuery(event.target.value)
+                  }
+                  placeholder="Pesquisar…"
+                  type="search"
+                  value={bankQuery}
+                />
+              </div>
+
+              <div
+                className="thematic-dropbar"
+                data-drag-active={
+                  draggingIdentity !== null
+                }
+              >
+                Largar aqui · retirar explicitamente
+              </div>
+
+              <div className="thematic-bank-list">
+                {visibleBank.length > 0
+                  ? visibleBank.map(
+                      (item) =>
+                        cardFor(
+                          item,
+                          { kind: "bank" },
+                        ),
+                    )
+                  : (
+                    <p className="thematic-empty">
+                      Sem decisões explícitas de Banco.
+                    </p>
+                  )}
+              </div>
+            </aside>
+          </div>
+        </section>
         <article className="thematic-panel" aria-label="Faixa partilhada completa">
           <div className="thematic-panel-head"><div><h2>Faixa</h2><p>{reconcile.faixaAfter.length} notícias · primeiras 10 montadas inicialmente · fila completa preservada</p></div><div className="thematic-meta"><span>ilimitada internamente</span><span>público: primeiras 10</span></div></div>
           <div className="thematic-faixa-tools">

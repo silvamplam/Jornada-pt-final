@@ -126,8 +126,47 @@ type MatchdayLiveLayoutConflictRow = {
   link_url: string | null;
 };
 
+type MatchdayProfileAssignmentConflictRow = {
+  profile_key: string;
+};
+
+type MatchdayProfileZoneConflictRow = {
+  source_type: string;
+  source_id: string;
+  zone_key: string;
+};
+
 async function readPublishedLiveNewsConflicts(matchdayId: string) {
-  const [editorialRows, highlights, horizontalNews, liveLayoutItems] = await Promise.all([
+  const assignmentRows =
+    await fetchSupabaseAdminTable<MatchdayProfileAssignmentConflictRow>(
+      `matchday_editorial_profile_assignments?select=profile_key&matchday_id=eq.${encodeURIComponent(
+        matchdayId,
+      )}&limit=1`,
+    );
+
+  const assignedProfileKey =
+    cleanText(assignmentRows[0]?.profile_key);
+
+  const hasThematicAssignment =
+    Boolean(assignedProfileKey);
+
+  const thematicZoneItemsPromise = assignedProfileKey
+    ? fetchSupabaseAdminTable<MatchdayProfileZoneConflictRow>(
+        `matchday_editorial_profile_zone_items?select=source_type,source_id,zone_key&matchday_id=eq.${encodeURIComponent(
+          matchdayId,
+        )}&profile_key=eq.${encodeURIComponent(
+          assignedProfileKey,
+        )}`,
+      )
+    : Promise.resolve<MatchdayProfileZoneConflictRow[]>([]);
+
+  const [
+    editorialRows,
+    highlights,
+    horizontalNews,
+    liveLayoutItems,
+    thematicZoneItems,
+  ] = await Promise.all([
     fetchSupabaseAdminTable<MatchdayEditorialConflictRow>(
       `matchday_editorials?select=status,headline_link_url,side_block_status,side_block_link_url,complementary_status,complementary_link_url&matchday_id=eq.${encodeURIComponent(
         matchdayId,
@@ -142,29 +181,87 @@ async function readPublishedLiveNewsConflicts(matchdayId: string) {
     fetchSupabaseAdminTable<MatchdayLiveLayoutConflictRow>(
       `matchday_live_layout_items?select=slot_type,article_id,title,link_url&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
     ),
+    thematicZoneItemsPromise,
   ]);
+
   const conflicts: LatestFourNewsConflictRow[] = [];
   const editorial = editorialRows[0] ?? null;
 
   if (editorial?.status === "published") {
-    conflicts.push({ zone: "headline", article_id: null, link_url: editorial.headline_link_url });
+    conflicts.push({
+      zone: "headline",
+      article_id: null,
+      link_url: editorial.headline_link_url,
+    });
   }
+
   if (editorial?.side_block_status === "published") {
-    conflicts.push({ zone: "side_block", article_id: null, link_url: editorial.side_block_link_url });
+    conflicts.push({
+      zone: "side_block",
+      article_id: null,
+      link_url: editorial.side_block_link_url,
+    });
   }
+
   if (editorial?.complementary_status === "published") {
-    conflicts.push({ zone: "complement", article_id: null, link_url: editorial.complementary_link_url });
+    conflicts.push({
+      zone: "complement",
+      article_id: null,
+      link_url: editorial.complementary_link_url,
+    });
   }
+
   highlights.forEach((row) => {
-    conflicts.push({ zone: "highlight", article_id: null, link_url: row.link_url });
+    conflicts.push({
+      zone: "highlight",
+      article_id: null,
+      link_url: row.link_url,
+    });
   });
-  horizontalNews.forEach((row) => {
-    conflicts.push({ zone: "important_item", article_id: null, link_url: row.link_url });
+
+  if (!assignedProfileKey) {
+    horizontalNews.forEach((row) => {
+      conflicts.push({
+        zone: "important_item",
+        article_id: null,
+        link_url: row.link_url,
+      });
+    });
+  }
+
+  if (!hasThematicAssignment) {
+    liveLayoutItems.forEach((row) => {
+      if (
+        isLatestFourNewsSlotType(row.slot_type)
+        || !cleanText(row.title)
+      ) {
+        return;
+      }
+
+      conflicts.push({
+        zone: row.slot_type,
+        article_id: row.article_id,
+        link_url: row.link_url,
+      });
+    });
+  }
+
+  thematicZoneItems.forEach((row) => {
+    if (
+      cleanText(row.source_type)?.toLowerCase()
+        !== "editorial_article"
+      || !cleanText(row.source_id)
+    ) {
+      return;
+    }
+
+    conflicts.push({
+      zone: `thematic:${row.zone_key}`,
+      article_id: row.source_id,
+      link_url: null,
+    });
   });
-  liveLayoutItems.forEach((row) => {
-    if (isLatestFourNewsSlotType(row.slot_type) || !cleanText(row.title)) return;
-    conflicts.push({ zone: row.slot_type, article_id: row.article_id, link_url: row.link_url });
-  });
+
   return conflicts;
 }
 

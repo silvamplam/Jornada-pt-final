@@ -46,7 +46,7 @@ test("cada zona expõe seletor de layout independente", () => {
 
   assert.match(
     source,
-    /EDITORIAL_VISUAL_FAMILY_DEFINITIONS\[family\]\.label/,
+    /EDITORIAL_VISUAL_FAMILY_DEFINITIONS\[\s*family\s*\]\.label/,
   );
 
   assert.match(
@@ -107,7 +107,12 @@ test("Últimas é o sexto bloco ordenável da mesma composição", () => {
 test("Últimas continua sem storage manual paralelo", () => {
   assert.match(
     source,
-    /As quatro notícias não são escolhidas manualmente nesta Mesa/,
+    /As quatro notícias não são escolhidas\s+manualmente/,
+  );
+
+  assert.match(
+    source,
+    /não criam storage paralelo/,
   );
 
   assert.doesNotMatch(

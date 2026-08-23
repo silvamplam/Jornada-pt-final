@@ -1,6 +1,7 @@
 import { buildAccumulatedClassification, totalClassificationStats, type ClassificationSplit } from "@/lib/classification";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
+import { readPublicMatchdayThematicSnapshot } from "@/lib/public-matchday-thematic";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
@@ -17,6 +18,7 @@ import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import { PublicEditorialLayout } from "@/components/public/PublicEditorialLayout";
 import PublicFourNewsLatestLayout, { type PublicFourNewsLatestItem } from "@/components/public/PublicFourNewsLatestLayout";
+import PublicThematicLatestOnlyLayout from "@/components/public/PublicThematicLatestOnlyLayout";
 import type { PublicBeyondMatchdayNewsItem } from "@/components/public/PublicBeyondMatchdayNews";
 import PublicHierarchicalComposition, { PublicHierarchicalLiveLayouts } from "@/components/public/PublicHierarchicalComposition";
 import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
@@ -25,6 +27,7 @@ import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
 import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/public/PublicTeamBadge";
+import PublicThematicZoneLayout from "@/components/public/PublicThematicZoneLayout";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -3777,6 +3780,26 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     return <DiagnosticPanel diagnostic={diagnostic} />;
   }
   const liveContext = context;
+
+  const thematicRead =
+    await readPublicMatchdayThematicSnapshot(
+      context.matchday.id,
+    );
+
+  const hasThematicAssignment =
+    thematicRead !== null;
+
+  const thematicSnapshot =
+    thematicRead?.kind === "thematic"
+    && thematicRead.competitionSlug
+      === context.competition.slug
+      ? thematicRead
+      : null;
+
+  const thematicPublicUnavailable =
+    hasThematicAssignment
+    && thematicSnapshot === null;
+
   const showLogoDiagnostic = query.debug_logos === "1";
   const competitionBarColor = publicCompetitionBarColor(context.competition.slug);
 
@@ -3853,7 +3876,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const publishedHeadline = editorial?.status === "published" ? editorial : null;
   const isManagedByEditorialDesk = context.editorialDeskControl.isManaged;
   const editorialCarryover =
-    isManagedByEditorialDesk
+    !hasThematicAssignment
+    && isManagedByEditorialDesk
       ? context.editorialDeskControl.carryover
       : null;
 
@@ -3885,7 +3909,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     editorialCarryover?.sideBlock ?? null;
 
   const usePublishedReferenceComposition =
-    context.hasPublishedReferenceComposition && !isManagedByEditorialDesk;
+    !hasThematicAssignment
+    && context.hasPublishedReferenceComposition
+    && !isManagedByEditorialDesk;
   const useHierarchicalReferenceComposition =
     usePublishedReferenceComposition && context.referenceComposition?.presentation_mode === "hierarchical";
   const hierarchicalEditorial = useHierarchicalReferenceComposition && context.referenceComposition
@@ -4187,15 +4213,24 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     ? Boolean(sideBlockImageUrl || sideBlockTitle || sideBlockText)
     : hasCurrentSideBlock || useCarryoverSideBlock;
   const latestZoneMode = editorial?.latest_zone_mode === "editorial_line" ? "editorial_line" : "latest_news";
-  const latestZonePlacement = editorial?.latest_zone_placement === "hidden"
-    ? "hidden"
-    : editorial?.latest_zone_placement === "four_news"
-      ? "four_news"
-      : "top";
-  const configuredLatestZoneTitle = editorial?.latest_zone_title?.trim() ?? "";
-  const latestZoneTitle = usePublishedReferenceComposition
-    ? ""
-    : latestZoneMode === "latest_news" ? configuredLatestZoneTitle || "Últimas notícias" : configuredLatestZoneTitle;
+  const latestZonePlacement =
+    thematicSnapshot
+      ? thematicSnapshot.pageControls.latestZonePlacement
+      : editorial?.latest_zone_placement === "hidden"
+        ? "hidden"
+        : editorial?.latest_zone_placement === "four_news"
+          ? "four_news"
+          : "top";
+  const configuredLatestZoneTitle = thematicSnapshot
+    ? thematicSnapshot.pageControls.latestZoneTitle.trim()
+    : editorial?.latest_zone_title?.trim() ?? "";
+  const latestZoneTitle = thematicSnapshot
+    ? configuredLatestZoneTitle
+    : usePublishedReferenceComposition
+      ? ""
+      : latestZoneMode === "latest_news"
+        ? configuredLatestZoneTitle || "Últimas notícias"
+        : configuredLatestZoneTitle;
   const configuredLatestZoneTitleColor = editorial?.latest_zone_title_color?.trim() ?? "";
   const latestZoneTitleColor =
     !usePublishedReferenceComposition && /^#[0-9A-Fa-f]{6}$/.test(configuredLatestZoneTitleColor)
@@ -4228,8 +4263,16 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       })).filter((item) => item.title.length > 0);
   const importantNewsItems = resolveMatchdayHorizontalNewsItems({
     hasPublishedReferenceComposition: usePublishedReferenceComposition,
-    isManagedByDesk: useHierarchicalReferenceComposition ? false : isManagedByEditorialDesk,
-    faixaVisible: context.editorialDeskControl.faixaVisible,
+    isManagedByDesk:
+      hasThematicAssignment
+        ? false
+        : useHierarchicalReferenceComposition
+          ? false
+          : isManagedByEditorialDesk,
+    faixaVisible:
+      hasThematicAssignment
+        ? true
+        : context.editorialDeskControl.faixaVisible,
     referenceItems: [...(context.referenceSlots.important_item ?? [])]
       .filter(hasReferenceSlotContent)
       .map((item) => ({
@@ -4253,6 +4296,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       sortOrder: item.sort_order
     }))
   });
+  const visibleImportantNewsItems =
+    thematicSnapshot
+      ? importantNewsItems.slice(0, 10)
+      : importantNewsItems;
+
   const editorialVisibility = buildPublicMatchdayEditorialVisibility({
     hasHeadline: hasPublishedHeadline,
     hasSideBlock: hasPublishedSideBlock,
@@ -4261,7 +4309,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     hasComplementaryStory: hasPublishedComplementaryStory,
     latestNewsCount: latestNewsItems.length,
     latestZonePlacement,
-    importantNewsCount: importantNewsItems.length
+    importantNewsCount: visibleImportantNewsItems.length
   });
 
   const hierarchicalVideoHighlightMedia = hierarchicalCompositionMediaSnapshot(referenceComplement);
@@ -4419,10 +4467,20 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     },
     []
   );
-  const showFourNewsLatestLayout =
+  const showThematicLatestBlock =
     latestZonePlacement === "four_news"
-    && liveFourNewsItems.length === 4
     && latestNewsItems.length > 0;
+
+  const showFourNewsLatestLayout =
+    showThematicLatestBlock
+    && liveFourNewsItems.length === 4;
+
+  const thematicZoneByKey =
+    new Map(
+      thematicSnapshot?.zones.map(
+        (zone) => [zone.key, zone] as const,
+      ) ?? [],
+    );
 
   function liveHierarchicalSlotsForGroup(
     group: "six_news" | "five_news_balanced",
@@ -4670,7 +4728,17 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           variant="clean"
         />
       </div>
-      {useHierarchicalReferenceComposition ? (
+      {thematicPublicUnavailable ? (
+        <section
+          className="public-matchday-panel"
+          aria-label="Composição temática indisponível"
+          data-public-thematic-state="unavailable"
+        >
+          <p>
+            A composição editorial temática desta jornada está temporariamente indisponível.
+          </p>
+        </section>
+      ) : useHierarchicalReferenceComposition ? (
         <div className="public-matchday-hierarchical-region">
           {hasValidHierarchicalReferenceComposition ? (
             <PublicHierarchicalComposition
@@ -4726,7 +4794,12 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                   title: headlineMedia.title
                 }
               : null,
-            titleColor: !referenceHeadline ? publishedHeadline?.title_color ?? null : null,
+            titleColor:
+              thematicSnapshot
+                ? thematicSnapshot.pageControls.headlineTitleColor
+                : !referenceHeadline
+                  ? publishedHeadline?.title_color ?? null
+                  : null,
             fallbackTitle: "",
             fallbackSubtitle: ""
           }}
@@ -4750,14 +4823,60 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         />
       )}
 
-      {!useHierarchicalReferenceComposition
-        ? context.editorialDeskControl.liveZoneOrder.map(renderLivePublicZone)
-        : null}
+      {thematicSnapshot
+        ? thematicSnapshot.pageControls.thematicBlockOrder.map((block) => {
+            if (block === "latest") {
+              if (!showThematicLatestBlock) {
+                return null;
+              }
 
-      {importantNewsItems.length > 0 ? (
+              return (
+                <div
+                  className="public-matchday-editorial-region"
+                  data-public-thematic-block="latest"
+                  key="thematic-latest"
+                >
+                  {showFourNewsLatestLayout ? (
+                    <PublicFourNewsLatestLayout
+                      items={liveFourNewsItems}
+                      latestNews={latestNewsItems}
+                      latestNewsTitle={latestZoneTitle}
+                      latestNewsTitleColor={latestZoneTitleColor}
+                    />
+                  ) : (
+                    <PublicThematicLatestOnlyLayout
+                      items={latestNewsItems}
+                      title={latestZoneTitle}
+                      titleColor={latestZoneTitleColor}
+                    />
+                  )}
+                </div>
+              );
+            }
+
+            const zone =
+              thematicZoneByKey.get(block);
+
+            return zone ? (
+              <PublicThematicZoneLayout
+                key={`thematic-zone-${zone.key}`}
+                matchdayNumber={context.matchday.number}
+                zone={zone}
+              />
+            ) : null;
+          })
+        : !hasThematicAssignment
+          && !useHierarchicalReferenceComposition
+          ? context.editorialDeskControl.liveZoneOrder.map(
+              renderLivePublicZone,
+            )
+          : null}
+
+      {!thematicPublicUnavailable
+      && visibleImportantNewsItems.length > 0 ? (
         <div className="public-matchday-editorial-region">
           <PublicHorizontalNewsStrip
-            items={importantNewsItems}
+            items={visibleImportantNewsItems}
             ariaLabel="Faixa horizontal de noticias"
             scope="matchday"
           />

@@ -165,8 +165,12 @@ test("a rota pública não contém placeholders editoriais nem imagens fictícia
 });
 
 test("a capa editorial e a faixa horizontal ficam antes da classificação", () => {
-  const conditionalCoverIndex = publicMatchdayPageSource.indexOf(
-    "{useHierarchicalReferenceComposition ? ("
+  const editorialAuthorityIndex = publicMatchdayPageSource.indexOf(
+    "{thematicPublicUnavailable ? ("
+  );
+  const hierarchicalLegacyIndex = publicMatchdayPageSource.indexOf(
+    "useHierarchicalReferenceComposition ? (",
+    editorialAuthorityIndex
   );
   const horizontalNewsIndex = publicMatchdayPageSource.indexOf(
     "<PublicHorizontalNewsStrip"
@@ -175,10 +179,13 @@ test("a capa editorial e a faixa horizontal ficam antes da classificação", () 
     'id="classificacao"'
   );
 
-  assert.notEqual(conditionalCoverIndex, -1);
+  assert.notEqual(editorialAuthorityIndex, -1);
+  assert.notEqual(hierarchicalLegacyIndex, -1);
   assert.notEqual(horizontalNewsIndex, -1);
   assert.notEqual(classificationIndex, -1);
-  assert.ok(conditionalCoverIndex < horizontalNewsIndex);
+
+  assert.ok(editorialAuthorityIndex < hierarchicalLegacyIndex);
+  assert.ok(hierarchicalLegacyIndex < horizontalNewsIndex);
   assert.ok(horizontalNewsIndex < classificationIndex);
 });
 

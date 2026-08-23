@@ -1,0 +1,85 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import test from "node:test";
+
+const page = readFileSync(
+  path.join(
+    process.cwd(),
+    "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
+  ),
+  "utf8",
+);
+
+const fallback = readFileSync(
+  path.join(
+    process.cwd(),
+    "components/public/PublicThematicLatestOnlyLayout.tsx",
+  ),
+  "utf8",
+);
+
+test("Últimas tem autoridade independente das quatro", () => {
+  assert.match(
+    page,
+    /const showThematicLatestBlock =\s*latestZonePlacement === "four_news"\s*&& latestNewsItems\.length > 0/,
+  );
+
+  assert.match(
+    page,
+    /const showFourNewsLatestLayout =\s*showThematicLatestBlock\s*&& liveFourNewsItems\.length === 4/,
+  );
+});
+
+test("modo temático mantém Últimas quando não há quatro completas", () => {
+  assert.match(
+    page,
+    /if \(!showThematicLatestBlock\) \{\s*return null;/,
+  );
+
+  assert.match(
+    page,
+    /showFourNewsLatestLayout \? \(/,
+  );
+
+  assert.match(
+    page,
+    /<PublicThematicLatestOnlyLayout/,
+  );
+});
+
+test("não são publicadas quatro incompletas", () => {
+  assert.match(
+    page,
+    /liveFourNewsItems\.length === 4/,
+  );
+
+  assert.doesNotMatch(
+    fallback,
+    /liveFourNewsItems/,
+  );
+});
+
+test("fallback de Últimas é compacto e usa o título público", () => {
+  assert.match(
+    fallback,
+    /\.slice\(0, 6\)/,
+  );
+
+  assert.match(
+    fallback,
+    /title=\{title\}/,
+  );
+
+  assert.match(
+    fallback,
+    /titleColor=\{titleColor\}/,
+  );
+});
+
+test("Legacy continua dependente do layout completo de quatro", () => {
+  assert.match(
+    page,
+    /if \(zone === "four_news"\) \{\s*if \(!showFourNewsLatestLayout\) return null;/,
+  );
+});

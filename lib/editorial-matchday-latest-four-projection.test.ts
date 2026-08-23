@@ -217,6 +217,8 @@ test("a sincronização fica isolada da placement, das fontes e das tabelas de C
     "matchday_highlights",
     "matchday_horizontal_news",
     "matchday_live_layout_items",
+    "matchday_editorial_profile_assignments",
+    "matchday_editorial_profile_zone_items",
   ]) {
     assert.match(projectionSource, new RegExp(`${table}\\?select=`));
   }

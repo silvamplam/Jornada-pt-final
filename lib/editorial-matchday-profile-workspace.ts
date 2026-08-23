@@ -67,12 +67,18 @@ export const MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS =
     "latest",
   ] as readonly MatchdayEditorialProfileThematicBlockKey[];
 
+export type MatchdayEditorialProfileThematicZoneTitles = Readonly<
+  Record<EditorialProfileZoneKey, string>
+>;
+
 export type MatchdayEditorialProfilePageControls = Readonly<{
   headlineTitleColor: string | null;
   latestZonePlacement: MatchdayEditorialProfileLatestZonePlacement;
+  latestZoneTitle: string;
   thematicZoneOrder: readonly EditorialProfileZoneKey[];
   thematicZoneLayouts: EditorialProfileZoneLayouts;
   thematicBlockOrder: readonly MatchdayEditorialProfileThematicBlockKey[];
+  thematicZoneTitles: MatchdayEditorialProfileThematicZoneTitles;
 }>;
 export type MatchdayEditorialProfileOpeningMove = Readonly<{
   opening: MatchdayEditorialProfileOpening;
@@ -146,6 +152,16 @@ export function validateMatchdayEditorialProfileOpening(
   return opening;
 }
 
+export function emptyMatchdayEditorialProfileThematicZoneTitles(): MatchdayEditorialProfileThematicZoneTitles {
+  return {
+    benfica: "",
+    sporting: "",
+    fc_porto: "",
+    other_liga_clubs: "",
+    outside_liga_other: "",
+  };
+}
+
 export function validateMatchdayEditorialProfilePageControls(
   value: unknown,
 ): MatchdayEditorialProfilePageControls {
@@ -160,8 +176,17 @@ export function validateMatchdayEditorialProfilePageControls(
     "headlineTitleColor,latestZonePlacement,thematicZoneOrder";
   const flexibleKeys =
     "headlineTitleColor,latestZonePlacement,thematicBlockOrder,thematicZoneLayouts,thematicZoneOrder";
+  const titledKeys =
+    "headlineTitleColor,latestZonePlacement,thematicBlockOrder,thematicZoneLayouts,thematicZoneOrder,thematicZoneTitles";
+  const latestTitledKeys =
+    "headlineTitleColor,latestZonePlacement,latestZoneTitle,thematicBlockOrder,thematicZoneLayouts,thematicZoneOrder,thematicZoneTitles";
 
-  if (keys !== legacyKeys && keys !== flexibleKeys) {
+  if (
+    keys !== legacyKeys
+    && keys !== flexibleKeys
+    && keys !== titledKeys
+    && keys !== latestTitledKeys
+  ) {
     throw new Error(
       "matchday-editorial-profile-page-controls-invalid-payload",
     );
@@ -295,15 +320,71 @@ export function validateMatchdayEditorialProfilePageControls(
     }
   }
 
+  let latestZoneTitle = "";
+
+  if (keys === latestTitledKeys) {
+    if (
+      typeof value.latestZoneTitle !== "string"
+      || value.latestZoneTitle.trim().length > 120
+    ) {
+      throw new Error(
+        "matchday-editorial-profile-page-controls-invalid-latest-title",
+      );
+    }
+
+    latestZoneTitle =
+      value.latestZoneTitle.trim();
+  }
+
+  let thematicZoneTitles =
+    emptyMatchdayEditorialProfileThematicZoneTitles();
+
+  if (
+    keys === titledKeys
+    || keys === latestTitledKeys
+  ) {
+    const titles = value.thematicZoneTitles;
+
+    if (
+      !isRecord(titles)
+      || Object.keys(titles).sort().join(",")
+        !== [...MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS]
+          .sort()
+          .join(",")
+      || MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS.some(
+        (zoneKey) => (
+          typeof titles[zoneKey] !== "string"
+          || (titles[zoneKey] as string).trim().length > 120
+        ),
+      )
+    ) {
+      throw new Error(
+        "matchday-editorial-profile-page-controls-invalid-zone-titles",
+      );
+    }
+
+    thematicZoneTitles =
+      Object.fromEntries(
+        MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS.map(
+          (zoneKey) => [
+            zoneKey,
+            (titles[zoneKey] as string).trim(),
+          ],
+        ),
+      ) as MatchdayEditorialProfileThematicZoneTitles;
+  }
+
   return {
     headlineTitleColor:
       typeof headlineTitleColor === "string"
         ? headlineTitleColor.trim().toUpperCase()
         : null,
     latestZonePlacement: value.latestZonePlacement,
+    latestZoneTitle,
     thematicZoneOrder,
     thematicZoneLayouts,
     thematicBlockOrder,
+    thematicZoneTitles,
   };
 }
 
@@ -329,6 +410,38 @@ export function normalizeMatchdayEditorialProfileThematicZoneOrder(
   }
 
   return [...value] as EditorialProfileZoneKey[];
+}
+
+export function normalizeMatchdayEditorialProfileThematicZoneTitles(
+  value: unknown,
+): MatchdayEditorialProfileThematicZoneTitles {
+  const empty =
+    emptyMatchdayEditorialProfileThematicZoneTitles();
+
+  if (
+    !isRecord(value)
+    || Object.keys(value).sort().join(",")
+      !== [...MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS]
+        .sort()
+        .join(",")
+    || MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS.some(
+      (zoneKey) => (
+        typeof value[zoneKey] !== "string"
+        || (value[zoneKey] as string).trim().length > 120
+      ),
+    )
+  ) {
+    return empty;
+  }
+
+  return Object.fromEntries(
+    MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS.map(
+      (zoneKey) => [
+        zoneKey,
+        (value[zoneKey] as string).trim(),
+      ],
+    ),
+  ) as MatchdayEditorialProfileThematicZoneTitles;
 }
 
 export function normalizeMatchdayEditorialProfileThematicZoneLayouts(

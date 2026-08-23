@@ -248,7 +248,7 @@ test(
 
     assert.match(
       route,
-      /rpc\/apply_matchday_editorial_profile_workspace_v2/,
+      /rpc\/apply_matchday_editorial_profile_workspace_v4/,
     );
 
     assert.match(
@@ -259,6 +259,11 @@ test(
     assert.match(
       route,
       /thematic_block_order/,
+    );
+
+    assert.match(
+      route,
+      /thematic_zone_titles/,
     );
 
     assert.doesNotMatch(
