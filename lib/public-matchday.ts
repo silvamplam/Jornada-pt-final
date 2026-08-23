@@ -877,9 +877,12 @@ export async function getPublicMatchdayDiagnostic({
         participant.sync_status === "manual" &&
         participant.manual_override === true
     );
+    const classificationMatchdayIds = matchdays
+      .filter((item) => item.number <= matchday.number)
+      .map((item) => item.id);
     const [matchesForSeason, matchdayMatches] = await Promise.all([
       fetchSupabaseAdminTable<ClassificationMatch>(
-        `matches?select=season_id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,home_score,away_score&season_id=eq.${encodeURIComponent(season.id)}&limit=1000`
+        `matches?select=season_id,matchday_id,home_team_id,away_team_id,scheduled_date,kickoff_at,status,home_score,away_score&season_id=eq.${encodeURIComponent(season.id)}&matchday_id=in.(${classificationMatchdayIds.join(",")})&limit=1000`
       ),
       fetchSupabaseAdminTable<PublicSeasonMatch>(
         `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,live_started_at,live_base_minute,is_clock_running,scheduled_date,kickoff_at,home_score,away_score,venue,broadcast_channel_id&season_id=eq.${encodeURIComponent(season.id)}&matchday_id=eq.${encodeURIComponent(matchday.id)}&order=scheduled_date.asc.nullslast,kickoff_at.asc.nullslast,id.asc&limit=1000`
