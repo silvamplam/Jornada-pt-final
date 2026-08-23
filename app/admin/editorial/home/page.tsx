@@ -1866,7 +1866,7 @@ async function readHomeGameSelectionData(): Promise<HomeGameSelectionData> {
 
 async function readPublishedHomeEditorialArticles(): Promise<HomeEditorialArticleOption[]> {
   return fetchSupabaseAdminTable<HomeEditorialArticleOption>(
-    "editorial_articles?select=*&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=80"
+    "editorial_articles?select=id,slug,title,subtitle,label,image_url,author,status,published_at,created_at,updated_at,competition_id,season_id,matchday_id&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=80"
   ).catch(() => []);
 }
 
