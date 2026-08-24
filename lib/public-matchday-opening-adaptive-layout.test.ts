@@ -123,3 +123,20 @@ test("o percurso four_news continua a ser o único dono da sua própria publicid
     /data-public-ad-slot="thematic-latest-only"/,
   );
 });
+
+test("Manchete compacta apenas quando Últimas e Contexto coexistem na Abertura", () => {
+  assert.match(
+    layout,
+    /data-top-columns="3"\]\[data-has-latest="true"\]\[data-has-context="true"\][\s\S]*?\.public-cover-headline\s*\{[\s\S]*?grid-template-columns:\s*minmax\(300px, 1fr\) minmax\(0, 390px\)/,
+  );
+
+  assert.match(
+    layout,
+    /data-top-columns="3"\]\[data-has-latest="true"\]\[data-has-context="true"\][\s\S]*?\.public-cover-headline p\s*\{[\s\S]*?-webkit-line-clamp:\s*4;/,
+  );
+
+  assert.match(
+    layout,
+    /data-top-columns="3"\]\[data-has-latest="true"\]\[data-has-context="true"\][\s\S]*?font-size:\s*clamp\(28px, 1\.6vw, 30px\)/,
+  );
+});

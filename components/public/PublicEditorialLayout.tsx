@@ -247,6 +247,28 @@ const publicEditorialLayoutPolishStyles = `
       font-size: clamp(28px, 1.7vw, 32px);
     }
 
+    .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-lead-grid[data-top-columns="3"][data-has-latest="true"][data-has-context="true"] .public-cover-headline {
+      grid-template-columns: minmax(300px, 1fr) minmax(0, 390px);
+      gap: 16px;
+    }
+
+    .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-lead-grid[data-top-columns="3"][data-has-latest="true"][data-has-context="true"] .public-cover-headline-copy,
+    .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-lead-grid[data-top-columns="3"][data-has-latest="true"][data-has-context="true"] .public-cover-headline-copy-link {
+      gap: 8px;
+    }
+
+    .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-lead-grid[data-top-columns="3"][data-has-latest="true"][data-has-context="true"] .public-matchday-editorial h1,
+    .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-lead-grid[data-top-columns="3"][data-has-latest="true"][data-has-context="true"] .public-matchday-editorial h2 {
+      font-size: clamp(28px, 1.6vw, 30px);
+      line-height: 1.12;
+    }
+
+    .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-lead-grid[data-top-columns="3"][data-has-latest="true"][data-has-context="true"] .public-cover-headline p {
+      -webkit-line-clamp: 4;
+      font-size: 14px;
+      line-height: 1.38;
+    }
+
     .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-lead-grid[data-top-columns="2"][data-has-latest="false"][data-has-context="true"] > .public-side-editorial-block {
       grid-template-rows: minmax(0, 1fr);
       align-content: stretch;
