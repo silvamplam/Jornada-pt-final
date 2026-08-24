@@ -137,6 +137,54 @@ const styles = `
   .thematic-slot-label { display: block; margin-bottom: 4px; color: #5e6d7d; font-size: 8px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
   .thematic-empty { display: grid; place-items: center; min-height: 55px; margin: 0; color: #8a98a8; font-size: 9px; font-weight: 700; text-align: center; }
   .thematic-zones { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; align-items: start; }
+  .thematic-desk-view { display: flex; align-items: end; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid #d7e0e9; border-radius: 8px; background: #fff; }
+  .thematic-desk-view-main { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+  .thematic-desk-view-copy { display: grid; gap: 2px; min-width: 180px; }
+  .thematic-desk-view-copy strong { font-size: 11px; }
+  .thematic-desk-view-copy span { color: #657487; font-size: 9px; }
+  .thematic-desk-view-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+  .thematic-desk-view .thematic-field { min-width: 220px; }
+  .thematic-button.active { border-color: #101820; background: #101820; color: #fff; }
+  .thematic-focus-stack { display: grid; gap: 6px; min-width: 0; }
+  .thematic-focus-stack > .thematic-zone { width: 100%; }
+  .thematic-focus-stack .thematic-zone-list { grid-template-columns: minmax(0,1fr); gap: 2px; padding: 0 5px 5px; }
+  .thematic-focus-stack .thematic-zone-slot { gap: 3px; padding: 2px 3px; }
+  .thematic-focus-stack .thematic-panel-head { align-items: center; padding: 5px 7px; }
+  .thematic-focus-stack .thematic-panel-head p { margin-top: 1px; }
+  .thematic-focus-stack .thematic-public-title,
+  .thematic-focus-stack .thematic-layout-picker,
+  .thematic-focus-stack .thematic-dropbar { display: none; }
+
+  .thematic-faixa-focus .thematic-panel-head { padding: 6px 8px; }
+  .thematic-faixa-focus .thematic-faixa-tools { padding: 0 7px 5px; }
+  .thematic-faixa-focus .thematic-dropbar { margin: 0 7px 5px; padding: 4px 6px; }
+  .thematic-faixa-focus .thematic-faixa-grid {
+    grid-template-columns: minmax(0,1fr);
+    max-height: min(34vh, 320px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+    padding-right: 6px;
+  }
+  .thematic-faixa-batch { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; min-width: 0; }
+  .thematic-faixa-batch[data-column-count="1"] { grid-template-columns: minmax(0,1fr); }
+  .thematic-faixa-column { display: grid; gap: 4px; min-width: 0; align-content: start; }
+  .thematic-focus-stack .thematic-card,
+  .thematic-faixa-focus .thematic-card { min-height: 46px; padding: 3px; }
+  .thematic-focus-stack .thematic-image,
+  .thematic-focus-stack .thematic-image-placeholder,
+  .thematic-faixa-focus .thematic-image,
+  .thematic-faixa-focus .thematic-image-placeholder { width: 44px; height: 33px; }
+  .thematic-focus-stack .thematic-card,
+  .thematic-faixa-focus .thematic-card { grid-template-columns: 16px 44px minmax(0,1fr) 22px; gap: 4px; }
+  .thematic-focus-stack .thematic-card-title,
+  .thematic-faixa-focus .thematic-card-title { font-size: 10px; line-height: 1.14; -webkit-line-clamp: 2; }
+  .thematic-focus-stack .thematic-card-label,
+  .thematic-faixa-focus .thematic-card-label,
+  .thematic-focus-stack .thematic-manual,
+  .thematic-faixa-focus .thematic-manual { font-size: 6px; }
+  .thematic-focus-stack .thematic-card time,
+  .thematic-faixa-focus .thematic-card time { font-size: 6px; }
   .thematic-zone-column { display: grid; min-width: 0; gap: 8px; align-content: start; }
   .thematic-zone { min-width: 0; }
   .thematic-zone-list { display: grid; gap: 4px; padding: 0 7px 7px; }
@@ -187,7 +235,7 @@ const styles = `
   .thematic-pending-copy strong { font-size: 11px; }
   .thematic-pending-copy span { color: #667588; font-size: 8px; }
   @media (max-width: 1250px) { .thematic-opening-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } .thematic-zones { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-controls-grid { grid-template-columns: 1fr 1fr; } .thematic-control.order { grid-column: 1 / -1; } }
-  @media (max-width: 820px) { .thematic-opening-panel { position: static; } .thematic-shell { padding: 7px 7px 102px; } .thematic-hero { align-items: flex-start; flex-direction: column; } .thematic-opening-grid, .thematic-zones, .thematic-controls-grid { grid-template-columns: 1fr; } .thematic-control.order { grid-column: auto; } .thematic-faixa-grid { grid-template-columns: 1fr; } .thematic-pending { flex-wrap: wrap; } .thematic-pending-copy { flex: 1 1 100%; } }
+  @media (max-width: 820px) { .thematic-opening-panel { position: static; } .thematic-shell { padding: 7px 7px 102px; } .thematic-hero { align-items: flex-start; flex-direction: column; } .thematic-opening-grid, .thematic-zones, .thematic-controls-grid { grid-template-columns: 1fr; } .thematic-desk-view { align-items: stretch; flex-direction: column; } .thematic-desk-view .thematic-field { min-width: 0; } .thematic-control.order { grid-column: auto; } .thematic-faixa-grid, .thematic-faixa-batch { grid-template-columns: 1fr; } .thematic-pending { flex-wrap: wrap; } .thematic-pending-copy { flex: 1 1 100%; } }
 `;
 
 const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
@@ -358,6 +406,8 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   }));
   const [history, setHistory] = useState<readonly WorkspaceDraft[]>([]);
   const [draggingIdentity, setDraggingIdentity] = useState<string | null>(null);
+  const [deskView, setDeskView] = useState<"full" | "focus">("focus");
+  const [focusZone, setFocusZone] = useState<EditorialProfileZoneKey>(profile.zones[0].key);
   const [destinationZone, setDestinationZone] = useState<EditorialProfileZoneKey>(profile.zones[0].key);
   const [startPosition, setStartPosition] = useState(1);
   const [faixaPosition, setFaixaPosition] = useState(1);
@@ -388,6 +438,51 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     zoneKey: EditorialProfileZoneKey;
     message: string;
   }> | null>(null);
+
+  function alignFocusWorkspace() {
+    window.requestAnimationFrame(() => {
+      const opening =
+        document.querySelector<HTMLElement>(
+          ".thematic-opening-panel",
+        );
+      const focus =
+        document.querySelector<HTMLElement>(
+          ".thematic-focus-stack",
+        );
+
+      if (!opening || !focus) {
+        return;
+      }
+
+      focus.scrollIntoView({
+        block: "start",
+      });
+
+      window.requestAnimationFrame(() => {
+        const openingBottom =
+          opening.getBoundingClientRect().bottom;
+        const focusTop =
+          focus.getBoundingClientRect().top;
+        const gap = 6;
+        const delta =
+          focusTop - openingBottom - gap;
+
+        if (Math.abs(delta) > 1) {
+          window.scrollBy({
+            top: delta,
+          });
+        }
+      });
+    });
+  }
+
+  useEffect(() => {
+    if (deskView !== "focus") {
+      return;
+    }
+
+    alignFocusWorkspace();
+  }, [deskView, focusZone]);
 
   async function loadEditorialSelection() {
     try {
@@ -962,6 +1057,43 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     );
   }
 
+  function renderFaixaItem(
+    item: MatchdayEditorialProfileEffectiveItem,
+  ) {
+    return (
+      <div
+        className="thematic-zone-slot"
+        data-drag-active={draggingIdentity !== null}
+        key={identity(item)}
+        onDragOver={allowDrop}
+        onDrop={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          const itemIdentity = dragged(event);
+
+          if (itemIdentity) {
+            placeInFaixa(
+              itemIdentity,
+              item.sortOrder,
+            );
+          }
+
+          setDraggingIdentity(null);
+        }}
+      >
+        <span className="thematic-position">
+          {item.sortOrder}
+        </span>
+
+        {cardFor(
+          item,
+          { kind: "faixa" },
+        )}
+      </div>
+    );
+  }
+
   function renderZonePanel(
     zoneKey: EditorialProfileZoneKey,
   ) {
@@ -1410,6 +1542,70 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
         </section>
 
         <section
+          aria-label="Vista de trabalho da Mesa"
+          className="thematic-desk-view"
+        >
+          <div className="thematic-desk-view-main">
+            <div className="thematic-desk-view-copy">
+              <strong>Vista de trabalho</strong>
+              <span>
+                A Abertura mantém-se permanente. No foco, trabalhe uma zona contra a Faixa.
+              </span>
+            </div>
+
+            {deskView === "focus" ? (
+              <label className="thematic-field">
+                Trabalhar zona
+                <select
+                  aria-label="Zona temática em foco"
+                  onChange={(event) =>
+                    setFocusZone(
+                      event.target.value as EditorialProfileZoneKey,
+                    )
+                  }
+                  value={focusZone}
+                >
+                  {profile.zones.map((zone) => {
+                    const currentZone = zoneByKey.get(zone.key);
+
+                    return (
+                      <option
+                        key={zone.key}
+                        value={zone.key}
+                      >
+                        {zone.label} · {currentZone?.items.length ?? 0}/{currentZone?.capacity ?? zone.capacity}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+            ) : null}
+          </div>
+
+          <div
+            aria-label="Escolher vista da Mesa"
+            className="thematic-desk-view-actions"
+          >
+            <button
+              className={`thematic-button${deskView === "focus" ? " active" : ""}`}
+              onClick={() => setDeskView("focus")}
+              type="button"
+            >
+              Foco de zona
+            </button>
+
+            <button
+              className={`thematic-button${deskView === "full" ? " active" : ""}`}
+              onClick={() => setDeskView("full")}
+              type="button"
+            >
+              Mesa completa
+            </button>
+          </div>
+        </section>
+
+        {deskView === "full" ? (
+        <section
           className="thematic-zones"
           aria-label="Cinco zonas temáticas, Últimas e Banco explícito"
         >
@@ -1674,7 +1870,19 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
             </aside>
           </div>
         </section>
-        <article className="thematic-panel" aria-label="Faixa partilhada completa">
+        ) : (
+          <section
+            aria-label="Zona temática em foco"
+            className="thematic-focus-stack"
+          >
+            {renderZonePanel(focusZone)}
+          </section>
+        )}
+
+        <article
+          className={`thematic-panel${deskView === "focus" ? " thematic-faixa-focus" : ""}`}
+          aria-label="Faixa partilhada completa"
+        >
           <div className="thematic-panel-head"><div><h2>Faixa</h2><p>{reconcile.faixaAfter.length} notícias · primeiras 10 montadas inicialmente · fila completa preservada</p></div><div className="thematic-meta"><span>ilimitada internamente</span><span>público: primeiras 10</span></div></div>
           <div className="thematic-faixa-tools">
             <input aria-label="Pesquisar na Faixa completa" className="thematic-search" onChange={(event) => { setFaixaQuery(event.target.value); setFaixaVisibleCount(FAIXA_INITIAL_VISIBLE); }} placeholder="Pesquisar em toda a Faixa…" type="search" value={faixaQuery} />
@@ -1682,11 +1890,63 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
           </div>
           <div className="thematic-dropbar" data-drag-active={draggingIdentity !== null} onDragOver={allowDrop} onDrop={(event) => { event.preventDefault(); const itemIdentity = dragged(event); if (itemIdentity) placeInFaixa(itemIdentity, null); setDraggingIdentity(null); }}>Largar aqui · enviar para a Faixa por atualidade</div>
           <div className="thematic-faixa-grid">
-            {visibleFaixa.length > 0 ? visibleFaixa.map((item) => (
-              <div className="thematic-zone-slot" data-drag-active={draggingIdentity !== null} key={identity(item)} onDragOver={allowDrop} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); const itemIdentity = dragged(event); if (itemIdentity) placeInFaixa(itemIdentity, item.sortOrder); setDraggingIdentity(null); }}>
-                <span className="thematic-position">{item.sortOrder}</span>{cardFor(item, { kind: "faixa" })}
-              </div>
-            )) : <p className="thematic-empty">Faixa vazia ou sem resultados.</p>}
+            {visibleFaixa.length > 0
+              ? deskView === "focus"
+                ? Array.from(
+                    {
+                      length: Math.ceil(
+                        visibleFaixa.length / 10,
+                      ),
+                    },
+                    (_, batchIndex) => {
+                      const batch =
+                        visibleFaixa.slice(
+                          batchIndex * 10,
+                          batchIndex * 10 + 10,
+                        );
+                      const firstColumn =
+                        batch.slice(0, 5);
+                      const secondColumn =
+                        batch.slice(5, 10);
+
+                      return (
+                        <div
+                          className="thematic-faixa-batch"
+                          data-column-count={
+                            secondColumn.length > 0
+                              ? "2"
+                              : "1"
+                          }
+                          key={`faixa-batch-${batchIndex}`}
+                        >
+                          <div className="thematic-faixa-column">
+                            {firstColumn.map(
+                              (item) =>
+                                renderFaixaItem(item),
+                            )}
+                          </div>
+
+                          {secondColumn.length > 0 ? (
+                            <div className="thematic-faixa-column">
+                              {secondColumn.map(
+                                (item) =>
+                                  renderFaixaItem(item),
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    },
+                  )
+                : visibleFaixa.map(
+                    (item) =>
+                      renderFaixaItem(item),
+                  )
+              : (
+                <p className="thematic-empty">
+                  Faixa vazia ou sem resultados.
+                </p>
+              )}
           </div>
           {visibleFaixa.length < filteredFaixa.length ? <div className="thematic-more"><button className="thematic-button" onClick={() => setFaixaVisibleCount((count) => count + FAIXA_PAGE_SIZE)} type="button">Mostrar mais 10</button><span>{filteredFaixa.length - visibleFaixa.length} ainda não montadas</span></div> : null}
         </article>
