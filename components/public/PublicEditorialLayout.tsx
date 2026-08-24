@@ -362,6 +362,14 @@ const publicEditorialLayoutPolishStyles = `
     box-shadow: none !important;
   }
 
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-below-headline-highlights[data-highlight-count="1"] .public-cover-story-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-below-headline-highlights[data-highlight-count="2"] .public-cover-story-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .public-editorial-layout-panel .public-matchday-depth-row > .public-matchday-main-lower,
   .public-editorial-layout-panel .public-matchday-depth-row > .public-matchday-cover-side {
     padding-top: 0 !important;
@@ -678,6 +686,12 @@ const publicEditorialLayoutPolishStyles = `
       border-top: 1px solid #dbe4ee;
     }
   }
+  @media (max-width: 760px) {
+    .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-below-headline-highlights[data-highlight-count="2"] .public-cover-story-strip {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
   @media (max-width: 680px) {
     .public-editorial-layout-panel .public-cover-headline {
       grid-template-columns: minmax(0, 1fr);
@@ -918,6 +932,7 @@ function PublicHighlightsSection({ data }: { data: PublicBelowHeadlineData }) {
     <section
       className="public-matchday-roundup public-below-headline-highlights public-editorial-flex-block public-editorial-highlights-section"
       data-editorial-slot="destaques-da-manchete"
+      data-highlight-count={Math.min(data.highlights.length, 3)}
       aria-label={data.highlightHeading}
     >
       {data.highlightHeading.trim() ? (
@@ -1018,6 +1033,7 @@ export function PublicEditorialLayout({
             ) : null}
           </div>
         ) : null}
+
 
         {!hasRoundupSummary ? midContent : null}
 

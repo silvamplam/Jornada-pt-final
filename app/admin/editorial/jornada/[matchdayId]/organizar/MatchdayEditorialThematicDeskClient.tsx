@@ -98,6 +98,7 @@ const styles = `
   .thematic-hero nav { display: flex; flex-wrap: wrap; gap: 5px; }
   .thematic-hero a { padding: 6px 9px; border: 1px solid rgba(255,255,255,.25); border-radius: 5px; color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; }
   .thematic-panel { border: 1px solid #d7e0e9; border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(12,22,34,.035); }
+  .thematic-opening-panel { position: sticky; top: 8px; z-index: 18; align-self: start; }
   .thematic-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 9px 10px; }
   .thematic-panel-head h2, .thematic-panel-head p { margin: 0; }
   .thematic-panel-head h2 { font-size: 15px; }
@@ -186,7 +187,7 @@ const styles = `
   .thematic-pending-copy strong { font-size: 11px; }
   .thematic-pending-copy span { color: #667588; font-size: 8px; }
   @media (max-width: 1250px) { .thematic-opening-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } .thematic-zones { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-controls-grid { grid-template-columns: 1fr 1fr; } .thematic-control.order { grid-column: 1 / -1; } }
-  @media (max-width: 820px) { .thematic-shell { padding: 7px 7px 102px; } .thematic-hero { align-items: flex-start; flex-direction: column; } .thematic-opening-grid, .thematic-zones, .thematic-controls-grid { grid-template-columns: 1fr; } .thematic-control.order { grid-column: auto; } .thematic-faixa-grid { grid-template-columns: 1fr; } .thematic-pending { flex-wrap: wrap; } .thematic-pending-copy { flex: 1 1 100%; } }
+  @media (max-width: 820px) { .thematic-opening-panel { position: static; } .thematic-shell { padding: 7px 7px 102px; } .thematic-hero { align-items: flex-start; flex-direction: column; } .thematic-opening-grid, .thematic-zones, .thematic-controls-grid { grid-template-columns: 1fr; } .thematic-control.order { grid-column: auto; } .thematic-faixa-grid { grid-template-columns: 1fr; } .thematic-pending { flex-wrap: wrap; } .thematic-pending-copy { flex: 1 1 100%; } }
 `;
 
 const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
@@ -1392,7 +1393,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
           </div>
         </details>
 
-        <section className="thematic-panel" aria-label="Abertura editorial manual">
+        <section className="thematic-panel thematic-opening-panel" aria-label="Abertura editorial manual">
           <div className="thematic-panel-head"><div><h2>Abertura</h2><p>100% manual · nenhuma vaga é preenchida ou promovida automaticamente</p></div><div className="thematic-meta"><span>colocação exclusiva</span><span>desalojado → automático</span></div></div>
           <div className="thematic-opening-grid">
             {MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.map((slot) => {

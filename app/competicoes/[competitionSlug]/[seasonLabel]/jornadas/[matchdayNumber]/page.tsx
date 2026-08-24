@@ -4476,6 +4476,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     },
     []
   );
+
   const showThematicLatestBlock =
     latestZonePlacement === "four_news"
     && latestNewsItems.length > 0;
