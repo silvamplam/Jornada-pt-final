@@ -814,6 +814,15 @@ async function readArticleLinkPlacements(article: EditorialArticle, context: Con
     title: string | null;
     link_url: string | null;
   };
+  type MatchdaySelectionLinkRow = {
+    id: string;
+    matchday_id: string | null;
+    slot_type: string;
+    source_type: string | null;
+    source_id: string | null;
+    title: string | null;
+    link_url: string | null;
+  };
   type ReferenceItemLinkRow = {
     id: string;
     composition_id: string | null;
@@ -850,6 +859,7 @@ async function readArticleLinkPlacements(article: EditorialArticle, context: Con
     sideRows,
     highlightRows,
     latestRows,
+    selectionRows,
     referenceRows,
     siteHeadlineRows,
     siteComplementaryRows,
@@ -867,6 +877,9 @@ async function readArticleLinkPlacements(article: EditorialArticle, context: Con
     ),
     safeRead<MatchdayLatestLinkRow>(
       `matchday_latest_news?select=id,matchday_id,sort_order,time_label,title,link_url&link_url=eq.${encodedPath}&limit=100`,
+    ),
+    safeRead<MatchdaySelectionLinkRow>(
+      `matchday_live_layout_items?select=id,matchday_id,slot_type,source_type,source_id,title,link_url&source_type=eq.editorial_article&source_id=eq.${encodeURIComponent(article.id)}&limit=100`,
     ),
     safeRead<ReferenceItemLinkRow>(
       `matchday_reference_composition_items?select=id,composition_id,slot_type,source_type,sort_order,title_snapshot,link_url_snapshot&link_url_snapshot=eq.${encodedPath}&limit=100`,
@@ -955,6 +968,18 @@ async function readArticleLinkPlacements(article: EditorialArticle, context: Con
       row.title ?? undefined,
     ),
   );
+  selectionRows
+    .filter((row) => row.slot_type.startsWith("live_four_news:"))
+    .forEach((row) =>
+      pushMatchdayPlacement(
+        row,
+        "Seleção editorial",
+        `Posição ${row.slot_type.split(":")[1] ?? "sem ordem"}`,
+        "matchday_live_layout_items",
+        "link_url",
+        row.title ?? undefined,
+      ),
+    );
   referenceRows.forEach((row) => {
     const composition = row.composition_id ? compositionsById.get(row.composition_id) : null;
     pushPlacement({
