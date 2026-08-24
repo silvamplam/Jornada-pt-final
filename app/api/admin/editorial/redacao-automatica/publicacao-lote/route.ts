@@ -10,6 +10,7 @@ import {
 import {
   ensurePublishedArticleInLatest,
   EditorialMatchdayNewsFlowError,
+  finalizePublishedArticlesInLatestBatch,
 } from "@/lib/editorial-matchday-news-flow";
 import {
   fetchSupabaseAdminTable,
@@ -961,6 +962,7 @@ async function publishItem(payload: BatchPublicationPayload) {
         await ensurePublishedArticleInLatest(
           matchdayId,
           existing.id,
+          { deferGlobalSync: true },
         );
       } catch (error) {
         return NextResponse.json({
@@ -1026,7 +1028,11 @@ async function publishItem(payload: BatchPublicationPayload) {
       }
 
       try {
-        await ensurePublishedArticleInLatest(matchdayId, existing.id);
+        await ensurePublishedArticleInLatest(
+          matchdayId,
+          existing.id,
+          { deferGlobalSync: true },
+        );
       } catch (error) {
         return NextResponse.json({
           ok: false,
@@ -1083,16 +1089,22 @@ async function publishItem(payload: BatchPublicationPayload) {
       matchday_id: matchdayId,
     }, {
       action: "publish",
-      initialPlacement: "editorial_line_item",
+      initialPlacement: "none",
     });
 
-    if (result.placementFailure) {
+    try {
+      await ensurePublishedArticleInLatest(
+        matchdayId,
+        result.articleId,
+        { deferGlobalSync: true },
+      );
+    } catch (error) {
       return NextResponse.json({
         ok: false,
         error: "latest-placement-failed",
         detail: safeDetail(
-          result.placementFailure.cause instanceof Error
-            ? result.placementFailure.cause.message
+          error instanceof Error
+            ? error.message
             : "O artigo foi publicado, mas falhou a entrada em Últimas.",
         ),
         published: true,
@@ -1179,6 +1191,9 @@ async function reconcileSourcePackageTimes(payload: BatchPublicationPayload) {
       publishedAt: string;
     }>> = [];
 
+    const affectedMatchdayIds =
+      new Set<string>();
+
     for (const [articlePosition, entries] of [...groupedEntries.entries()].sort((a, b) => a[0] - b[0])) {
       const articleIds = [...new Set(entries.map((entry) => cleanText(entry.publishedArticleId)).filter(Boolean))];
       const slugs = [...new Set(entries.map((entry) => cleanText(entry.publishedSlug)).filter(Boolean))];
@@ -1227,7 +1242,16 @@ async function reconcileSourcePackageTimes(payload: BatchPublicationPayload) {
         });
       }
 
-      await ensurePublishedArticleInLatest(article.matchday_id, article.id);
+      await ensurePublishedArticleInLatest(
+        article.matchday_id,
+        article.id,
+        { deferGlobalSync: true },
+      );
+
+      affectedMatchdayIds.add(
+        article.matchday_id,
+      );
+
       reconciled.push({
         articlePosition,
         articleId: article.id,
@@ -1235,7 +1259,19 @@ async function reconcileSourcePackageTimes(payload: BatchPublicationPayload) {
       });
     }
 
-    return NextResponse.json({ ok: true, items: reconciled });
+    for (
+      const affectedMatchdayId
+      of affectedMatchdayIds
+    ) {
+      await finalizePublishedArticlesInLatestBatch(
+        affectedMatchdayId,
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      items: reconciled,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "source-time-reconcile-failed";
     if (message.startsWith("missing-source-published-at:")) {
@@ -1282,6 +1318,40 @@ export async function POST(request: Request) {
   }
   if (action === "publish_item") {
     return publishItem(payload);
+  }
+
+  if (action === "finalize_batch") {
+    const matchdayId =
+      cleanText(payload.matchdayId);
+
+    if (
+      !UUID_PATTERN.test(
+        matchdayId,
+      )
+    ) {
+      return jsonError(
+        "invalid-matchday",
+      );
+    }
+
+    try {
+      await finalizePublishedArticlesInLatestBatch(
+        matchdayId,
+      );
+
+      return NextResponse.json({
+        ok: true,
+        finalized: true,
+      });
+    } catch (error) {
+      return jsonError(
+        "batch-finalization-failed",
+        500,
+        error instanceof Error
+          ? error.message
+          : "Falhou a reconciliação editorial final do lote.",
+      );
+    }
   }
   if (action === "reconcile_source_times") {
     return reconcileSourcePackageTimes(payload);

@@ -58,13 +58,6 @@ type LatestNewsRow = {
   created_at: string | null;
 };
 
-type ArticleOrderRow = {
-  id: string;
-  slug: string | null;
-  published_at: string | null;
-  created_at: string | null;
-};
-
 type EditorialRow = {
   id: string;
   title?: string | null;
@@ -168,13 +161,6 @@ function publicArticlePath(slug?: string | null) {
 
 function hasContent(...values: Array<string | null | undefined>) {
   return values.some((value) => Boolean(cleanText(value)));
-}
-
-function dateValue(value?: string | null) {
-  const clean = cleanText(value);
-  if (!clean) return 0;
-  const date = new Date(clean);
-  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
 async function readHorizontalNewsOrderRows(matchdayId: string) {
@@ -300,57 +286,34 @@ async function readLatestNewsRows(matchdayId: string) {
   );
 }
 
-export async function normalizeLatestNewsOrder(matchdayId: string) {
-  const [rows, articles] = await Promise.all([
-    readLatestNewsRows(matchdayId),
-    fetchSupabaseAdminTable<ArticleOrderRow>(
-      `editorial_articles?select=id,slug,published_at,created_at&matchday_id=eq.${encodeURIComponent(
-        matchdayId,
-      )}&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast`,
-    ).catch(() => []),
-  ]);
-
-  if (rows.length < 2) {
-    await syncLatestFourNewsProjection(matchdayId);
-    return;
-  }
-
-  const orderByArticleId = new Map(
-    articles.map((article) => [article.id, dateValue(article.published_at) || dateValue(article.created_at)] as const),
-  );
-  const orderByLink = new Map(
-    articles
-      .map((article) => [publicArticlePath(article.slug), dateValue(article.published_at) || dateValue(article.created_at)] as const)
-      .filter((entry): entry is [string, number] => Boolean(entry[0])),
+export async function normalizeLatestNewsOrder(
+  matchdayId: string,
+) {
+  await writeSupabaseAdmin(
+    "rpc/normalize_matchday_latest_news_order",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_matchday_id: matchdayId,
+      }),
+    },
   );
 
-  const ordered = [...rows].sort((left, right) => {
-    const leftTime = (left.article_id ? orderByArticleId.get(left.article_id) : undefined)
-      ?? (left.link_url ? orderByLink.get(left.link_url) : undefined)
-      ?? 0;
-    const rightTime = (right.article_id ? orderByArticleId.get(right.article_id) : undefined)
-      ?? (right.link_url ? orderByLink.get(right.link_url) : undefined)
-      ?? 0;
-
-    if (leftTime !== rightTime) return rightTime - leftTime;
-    return left.sort_order - right.sort_order;
-  });
-
-  const now = new Date().toISOString();
-  await Promise.all(
-    ordered.map((row, index) => {
-      const nextOrder = index + 1;
-      if (row.sort_order === nextOrder) return Promise.resolve();
-      return writeSupabaseAdmin(`matchday_latest_news?id=eq.${encodeURIComponent(row.id)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ sort_order: nextOrder, updated_at: now }),
-      });
-    }),
+  await syncLatestFourNewsProjection(
+    matchdayId,
   );
-  await syncLatestFourNewsProjection(matchdayId);
 }
 
-export async function ensurePublishedArticleInLatest(matchdayId: string, articleId: string) {
+export type EnsurePublishedArticleInLatestOptions =
+  Readonly<{
+    deferGlobalSync?: boolean;
+  }>;
+
+export async function ensurePublishedArticleInLatest(
+  matchdayId: string,
+  articleId: string,
+  options: EnsurePublishedArticleInLatestOptions = {},
+) {
   const article = await readPublishedCompleteArticle(articleId, matchdayId);
   const projection = projectEditorialArticleToZone(article, "editorial_line_item");
   const articlePath = projection.linkUrl;
@@ -360,7 +323,11 @@ export async function ensurePublishedArticleInLatest(matchdayId: string, article
   );
   const now = new Date().toISOString();
 
-  await setLatestNewsMode(matchdayId);
+  if (!options.deferGlobalSync) {
+    await setLatestNewsMode(
+      matchdayId,
+    );
+  }
 
   const payload = {
     matchday_id: matchdayId,
@@ -394,8 +361,31 @@ export async function ensurePublishedArticleInLatest(matchdayId: string, article
     });
   }
 
-  await normalizeLatestNewsOrder(matchdayId);
-  await syncCurrentPublishedReferenceCompositionNewsFlow(matchdayId);
+  if (!options.deferGlobalSync) {
+    await normalizeLatestNewsOrder(
+      matchdayId,
+    );
+
+    await syncCurrentPublishedReferenceCompositionNewsFlow(
+      matchdayId,
+    );
+  }
+}
+
+export async function finalizePublishedArticlesInLatestBatch(
+  matchdayId: string,
+) {
+  await setLatestNewsMode(
+    matchdayId,
+  );
+
+  await normalizeLatestNewsOrder(
+    matchdayId,
+  );
+
+  await syncCurrentPublishedReferenceCompositionNewsFlow(
+    matchdayId,
+  );
 }
 
 export async function placePublishedArticleInitially(

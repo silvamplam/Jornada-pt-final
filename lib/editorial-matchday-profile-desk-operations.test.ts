@@ -123,19 +123,19 @@ test("fixação na zona vence atualidade, mas a posição livre continua ordenad
   assert.deepEqual(zoneIds(newerProtected, protectedInZone, "sporting"), ["c", "h", "g", "f", "a"]);
 });
 
-test("posição fixa reserva exatamente o slot e libertá-la mantém proteção na zona", () => {
+test("posição fixa reserva exatamente o slot e libertá-la devolve ao automático", () => {
   const activeItems = [
     automaticItem("h", "sporting", 1, 20),
     automaticItem("g", "sporting", 2, 19),
     automaticItem("f", "sporting", 3, 18),
     automaticItem("a", "sporting", 4, 17),
-    automaticItem("c", null, null, 10),
+    automaticItem("c", "sporting", 5, 10),
   ];
   const fixed = [override("c", "sporting", 3)];
   assert.deepEqual(zoneIds(activeItems, fixed, "sporting"), ["h", "g", "c", "f", "a"]);
 
   const released = releaseMatchdayEditorialFixedPositions(profile, fixed, [identity("c")]);
-  assert.deepEqual(released, [override("c", "sporting", null)]);
+  assert.deepEqual(released, []);
   assert.deepEqual(zoneIds(activeItems, released, "sporting"), ["h", "g", "f", "a", "c"]);
 });
 
@@ -216,11 +216,11 @@ test("uma inserção posterior a lacunas conserva slots absolutos", () => {
 
   assert.deepEqual(
     result.zones[1].items.map((item) => [item.sourceId, item.sortOrder]),
-    [["a", 1], ["x", 3], ["b", 5]],
+    [["a", 1], ["x", 3], ["b", 4]],
   );
 });
 
-test("slot fixo anterior fica intacto e slots fixos posteriores deslocam-se", () => {
+test("substituir um slot fixo liberta o ocupante e mantém os restantes slots fixos", () => {
   const activeItems = [
     automaticItem("before", null, null, 12),
     automaticItem("after", null, null, 11),
@@ -240,7 +240,6 @@ test("slot fixo anterior fica intacto e slots fixos posteriores deslocam-se", ()
   );
 
   assert.deepEqual(next, [
-    override("after", "sporting", 4),
     override("before", "sporting", 1),
     override("x", "sporting", 3),
   ]);
@@ -343,7 +342,51 @@ test("retirar conteúdo compacta a zona e cria banco explícito", () => {
   assert.equal(result.bank[0].manualOverride, "bank");
 });
 
-test("mover um bloco para a Faixa preserva a ordem da seleção e desloca posições manuais posteriores", () => {
+test("mover para a Faixa sem posição fixa apenas a pertença e deixa a atualidade ordenar", () => {
+  const activeItems = [
+    automaticItem("older", "benfica", 1, 10),
+    automaticItem("newer", "sporting", 1, 20),
+  ];
+  const next = moveMatchdayEditorialItemsToFaixa(
+    profile,
+    activeItems,
+    [],
+    [identity("older")],
+    null,
+  );
+
+  assert.deepEqual(next, [{
+    sourceType: "editorial_article",
+    sourceId: "older",
+    placementTarget: "faixa",
+    zoneKey: null,
+    sortOrder: null,
+  }]);
+});
+
+test("libertar posição fixa na Faixa preserva a pertença e remove apenas o slot", () => {
+  const fixedFaixa: MatchdayEditorialProfileManualOverride = {
+    sourceType: "editorial_article",
+    sourceId: "article",
+    placementTarget: "faixa",
+    zoneKey: null,
+    sortOrder: 4,
+  };
+
+  assert.deepEqual(
+    releaseMatchdayEditorialFixedPositions(
+      profile,
+      [fixedFaixa],
+      [identity("article")],
+    ),
+    [{
+      ...fixedFaixa,
+      sortOrder: null,
+    }],
+  );
+});
+
+test("mover um bloco para a Faixa fixa o destino e liberta apenas o slot substituído", () => {
   const activeItems = [
     automaticItem("x", "benfica", 1, 20),
     automaticItem("y", "sporting", 1, 19),
@@ -365,7 +408,6 @@ test("mover um bloco para a Faixa preserva a ordem da seleção e desloca posiç
   );
 
   assert.deepEqual(next, [
-    { ...existingFaixa, sortOrder: 4 },
     { sourceType: "editorial_article", sourceId: "x", placementTarget: "faixa", zoneKey: null, sortOrder: 3 },
     { sourceType: "editorial_article", sourceId: "y", placementTarget: "faixa", zoneKey: null, sortOrder: 2 },
   ]);

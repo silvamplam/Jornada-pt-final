@@ -4449,8 +4449,17 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const liveFourNewsItems = LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.reduce<PublicFourNewsLatestItem[]>(
     (items, position) => {
       if (position.storage !== "four_news") return items;
-      const item = liveLayoutItemBySlotType.get(position.transferSlotType)
-        ?? carryoverLiveLayoutItemBySlotType.get(position.transferSlotType);
+      const item =
+        thematicSnapshot
+          ? liveLayoutItemBySlotType.get(
+              position.transferSlotType,
+            )
+          : liveLayoutItemBySlotType.get(
+              position.transferSlotType,
+            )
+            ?? carryoverLiveLayoutItemBySlotType.get(
+              position.transferSlotType,
+            );
       const title = item?.title?.trim() || null;
       const linkUrl = item?.link_url?.trim() || null;
       if (!item || !title || !linkUrl) return items;
@@ -4472,8 +4481,12 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     && latestNewsItems.length > 0;
 
   const showFourNewsLatestLayout =
-    showThematicLatestBlock
-    && liveFourNewsItems.length === 4;
+    thematicSnapshot
+      ? showThematicLatestBlock
+        && liveFourNewsItems.length > 0
+      : latestZonePlacement === "four_news"
+        && latestNewsItems.length > 0
+        && liveFourNewsItems.length === 4;
 
   const thematicZoneByKey =
     new Map(

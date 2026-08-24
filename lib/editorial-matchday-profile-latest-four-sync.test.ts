@@ -3,110 +3,137 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const projectionSource = readFileSync(
-  path.join(
-    process.cwd(),
+function source(relativePath: string) {
+  return readFileSync(
+    path.join(
+      process.cwd(),
+      relativePath,
+    ),
+    "utf8",
+  );
+}
+
+const projection =
+  source(
     "lib/editorial-matchday-latest-four-projection.ts",
-  ),
-  "utf8",
-);
+  );
 
-const thematicRouteSource = readFileSync(
-  path.join(
-    process.cwd(),
+const thematicRoute =
+  source(
     "app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts",
-  ),
-  "utf8",
+  );
+
+const thematicClient =
+  source(
+    "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
+  );
+
+const publicPage =
+  source(
+    "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
+  );
+
+const publicLayout =
+  source(
+    "components/public/PublicFourNewsLatestLayout.tsx",
+  );
+
+test(
+  "perfil temático não executa a projeção automática dos quatro",
+  () => {
+    assert.match(
+      projection,
+      /matchday_editorial_profile_assignments\?select=profile_key/,
+    );
+
+    assert.match(
+      projection,
+      /if \([\s\S]*?assignmentRows\[0\]\?\.profile_key[\s\S]*?\) \{\s*return;/,
+    );
+
+    assert.doesNotMatch(
+      thematicRoute,
+      /syncLatestFourNewsProjection/,
+    );
+  },
 );
 
-test("projeção de quatro notícias lê apenas as zonas do perfil atribuído", () => {
-  assert.match(
-    projectionSource,
-    /matchday_editorial_profile_assignments\?select=profile_key/,
-  );
+test(
+  "sem assignment o sincronizador Legacy continua disponível",
+  () => {
+    assert.match(
+      projection,
+      /syncLatestFourNewsProjectionWithSupabase/,
+    );
 
-  assert.match(
-    projectionSource,
-    /matchday_editorial_profile_zone_items\?select=source_type,source_id,zone_key/,
-  );
+    assert.match(
+      projection,
+      /matchday_horizontal_news\?select=link_url/,
+    );
 
-  assert.match(
-    projectionSource,
-    /profile_key=eq\.\$\{encodeURIComponent\(\s*assignedProfileKey,/,
-  );
-});
+    assert.match(
+      projection,
+      /matchday_live_layout_items\?on_conflict=matchday_id,slot_type/,
+    );
+  },
+);
 
-test("artigos das zonas temáticas aplicadas tornam-se conflitos da projeção", () => {
-  assert.match(
-    projectionSource,
-    /zone: `thematic:\$\{row\.zone_key\}`/,
-  );
+test(
+  "Seleção editorial temática é manual e aceita artigo ou conteúdo",
+  () => {
+    assert.match(
+      thematicRoute,
+      /apply_matchday_editorial_profile_workspace_v5/,
+    );
 
-  assert.match(
-    projectionSource,
-    /article_id: row\.source_id/,
-  );
+    assert.match(
+      thematicRoute,
+      /p_selection_bank_item_ids/,
+    );
 
-  assert.match(
-    projectionSource,
-    /source_type\)\?\.toLowerCase\(\)\s*[\s\S]*?!== "editorial_article"/,
-  );
-});
+    assert.match(
+      thematicRoute,
+      /source_type=in\.\(editorial_article,editorial_content\)/,
+    );
 
-test("Apply temático resincroniza Últimas + 4 depois do RPC atómico", () => {
-  assert.match(
-    thematicRouteSource,
-    /syncLatestFourNewsProjection/,
-  );
+    assert.match(
+      thematicClient,
+      /Seleção editorial/,
+    );
 
-  const rpcIndex = thematicRouteSource.indexOf(
-    '"rpc/apply_matchday_editorial_profile_workspace_v4"',
-  );
+    assert.match(
+      thematicClient,
+      /\[Conteúdo\]/,
+    );
+  },
+);
 
-  const syncIndex = thematicRouteSource.indexOf(
-    "await syncLatestFourNewsProjection(matchdayId)",
-  );
+test(
+  "renderer temático aceita seleção parcial de um a quatro conteúdos",
+  () => {
+    assert.match(
+      publicLayout,
+      /visibleItems\.length === 0/,
+    );
 
-  const responseIndex = thematicRouteSource.indexOf(
-    "return NextResponse.json({",
-    syncIndex,
-  );
+    assert.doesNotMatch(
+      publicLayout,
+      /visibleItems\.length !== 4/,
+    );
 
-  assert.ok(rpcIndex >= 0);
-  assert.ok(syncIndex > rpcIndex);
-  assert.ok(responseIndex > syncIndex);
-});
+    assert.match(
+      publicPage,
+      /thematicSnapshot[\s\S]*?liveFourNewsItems\.length > 0/,
+    );
+  },
+);
 
-test("perfil temático ignora a Faixa e continua a excluir zonas temáticas", () => {
-  assert.match(
-    projectionSource,
-    /if \(!assignedProfileKey\)\s*\{\s*horizontalNews\.forEach/,
-  );
-
-  assert.match(
-    projectionSource,
-    /matchday_horizontal_news\?select=link_url/,
-  );
-
-  assert.match(
-    projectionSource,
-    /zone: `thematic:\$\{row\.zone_key\}`/,
-  );
-
-  assert.match(
-    projectionSource,
-    /article_id: row\.source_id/,
-  );
-});
-
-test("a projeção continua a escrever apenas nos quatro slots automáticos", () => {
-  assert.match(
-    projectionSource,
-    /matchday_live_layout_items\?on_conflict=matchday_id,slot_type/,
-  );
-
-  assert.doesNotMatch(
-    projectionSource,
-    /writeSupabaseAdmin\(\s*"matchday_editorial_profile_zone_items\?/,
-  );
-});
+test(
+  "Seleção temática não usa carryover; Legacy mantém carryover",
+  () => {
+    assert.match(
+      publicPage,
+      /thematicSnapshot[\s\S]*?liveLayoutItemBySlotType\.get[\s\S]*?: liveLayoutItemBySlotType\.get[\s\S]*?carryoverLiveLayoutItemBySlotType/,
+    );
+  },
+);

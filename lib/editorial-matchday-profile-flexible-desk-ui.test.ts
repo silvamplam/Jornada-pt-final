@@ -85,7 +85,7 @@ test("Últimas é o sexto bloco ordenável da mesma composição", () => {
 
   assert.match(
     source,
-    /Últimas \+ 4 notícias/,
+    /Seleção editorial \+ Últimas/,
   );
 
   assert.match(
@@ -104,26 +104,31 @@ test("Últimas é o sexto bloco ordenável da mesma composição", () => {
   );
 });
 
-test("Últimas continua sem storage manual paralelo", () => {
+test("Seleção editorial é manual, independente e aplicada no workspace V5", () => {
   assert.match(
     source,
-    /As quatro notícias não são escolhidas\s+manualmente/,
+    /draftEditorialSelection/,
   );
 
   assert.match(
     source,
-    /não criam storage paralelo/,
+    /selectionBankItemIds:\s*draftEditorialSelection/,
+  );
+
+  assert.match(
+    source,
+    /Seleção editorial é promoção manual independente/,
   );
 
   assert.doesNotMatch(
     source,
-    /matchday_live_layout_items/,
+    /selection_set|selection_clear/,
   );
 });
 
-test("preview mantém uma única chamada HTTP de Apply", () => {
+test("preview mantém um único write HTTP de Apply", () => {
   assert.equal(
-    (source.match(/fetch\(/g) ?? []).length,
+    (source.match(/method:\s*"POST"/g) ?? []).length,
     1,
   );
 });

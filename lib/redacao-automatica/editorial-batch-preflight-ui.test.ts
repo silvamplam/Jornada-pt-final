@@ -299,7 +299,12 @@ test("a API de lote é apenas orquestração sobre artigo canónico e Últimas",
   assert.match(publicationRouteSource, /ensurePublishedArticleInLatest/);
   assert.match(publicationRouteSource, /markEditorialSourcePackageArticleUsed/);
   assert.match(publicationRouteSource, /source-usage-mark-failed/);
-  assert.match(publicationRouteSource, /initialPlacement: "editorial_line_item"/);
+  assert.match(publicationRouteSource, /initialPlacement: "none"/);
+  assert.match(
+    publicationRouteSource,
+    /ensurePublishedArticleInLatest\([\s\S]{0,160}deferGlobalSync: true/,
+  );
+  assert.match(publicationRouteSource, /finalizePublishedArticlesInLatestBatch/);
   assert.doesNotMatch(publicationRouteSource, /writeSupabaseAdmin|writeSupabaseAdminReturning/);
   assert.doesNotMatch(publicationRouteSource, /matchday_latest_news/);
 });
@@ -342,13 +347,20 @@ test("o lote manual sem pacote mantém uma ordem determinística independente do
 test("existe reconciliação controlada para corrigir lotes já publicados com a hora das fontes", () => {
   assert.match(publicationRouteSource, /action === "reconcile_source_times"/);
   assert.match(publicationRouteSource, /updateEditorialArticle\(article\.id/);
-  assert.match(publicationRouteSource, /await ensurePublishedArticleInLatest\(article\.matchday_id, article\.id\)/);
+  assert.match(
+    publicationRouteSource,
+    /await ensurePublishedArticleInLatest\(\s*article\.matchday_id,\s*article\.id,\s*\{ deferGlobalSync: true \},?\s*\)/,
+  );
+  assert.match(publicationRouteSource, /for \([\s\S]{0,120}of affectedMatchdayIds[\s\S]{0,160}finalizePublishedArticlesInLatestBatch/);
 });
 
 test("uma falha pára o lote e deixa os artigos seguintes como não tentados", () => {
   assert.match(clientSource, /for \(const pendingItem of plan\.slice\(index \+ 1\)\)/);
   assert.match(clientSource, /status: "not_attempted"/);
-  assert.match(clientSource, /setPublicationError\(`Publicação interrompida no artigo/);
+  assert.match(
+    clientSource,
+    /await finalizeBatchEditorialFlow\(\)[\s\S]{0,700}setPublicationError\(\s*`Publicação interrompida no artigo/,
+  );
   assert.match(clientSource, /return;/);
 });
 
@@ -356,7 +368,10 @@ test("o retry reutiliza imagem já carregada e reconcilia artigo publicado em Ú
   assert.match(clientSource, /uploadedImageUrlsRef\.current\[planItem\.key\]/);
   assert.match(clientSource, /publicationPlanRef\.current\s*\?\?\s*await requestPublicationPreflight\(\)/);
   assert.match(publicationRouteSource, /if \(existing\)/);
-  assert.match(publicationRouteSource, /await ensurePublishedArticleInLatest\(matchdayId, existing\.id\)/);
+  assert.match(
+    publicationRouteSource,
+    /await ensurePublishedArticleInLatest\(\s*matchdayId,\s*existing\.id,\s*\{ deferGlobalSync: true \},?\s*\)/,
+  );
   assert.match(clientSource, /published_missing_usage/);
   assert.match(clientSource, /FALTA MARCAR FONTES/);
 });

@@ -248,7 +248,7 @@ test(
 
     assert.match(
       route,
-      /rpc\/apply_matchday_editorial_profile_workspace_v4/,
+      /rpc\/apply_matchday_editorial_profile_workspace_v5/,
     );
 
     assert.match(

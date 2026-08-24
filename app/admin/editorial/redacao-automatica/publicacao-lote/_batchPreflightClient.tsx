@@ -478,6 +478,7 @@ function PublicationPanel({
   error,
   isChecking,
   isPublishing,
+  batchFinalized,
   canPublish,
   plan,
   confirmedUpdates,
@@ -490,6 +491,7 @@ function PublicationPanel({
   error: string | null;
   isChecking: boolean;
   isPublishing: boolean;
+  batchFinalized: boolean;
   canPublish: boolean;
   plan: readonly BatchPublicationPlanItem[] | null;
   confirmedUpdates: Readonly<Record<string, string>>;
@@ -500,8 +502,17 @@ function PublicationPanel({
 }>) {
   const stateValues = Object.values(states);
   const hasRun = stateValues.length > 0;
-  const allPublished = articles.length > 0
-    && articles.every((article) => states[article.key]?.status === "published");
+  const allItemsPublished =
+    articles.length > 0
+    && articles.every(
+      (article) =>
+        states[article.key]?.status
+        === "published",
+    );
+
+  const allPublished =
+    allItemsPublished
+    && batchFinalized;
   const hasIncompleteRun =
     hasRun && !allPublished;
 
@@ -714,6 +725,10 @@ export default function BatchPreflightClient({
   const [isCheckingPublication, setIsCheckingPublication] = useState(false);
   const [preflightRetryVersion, setPreflightRetryVersion] = useState(0);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [
+    batchFinalized,
+    setBatchFinalized,
+  ] = useState(false);
   const [publicationError, setPublicationError] = useState<string | null>(null);
   const [publicationStates, setPublicationStates] = useState<Readonly<Record<string, BatchPublicationItemState>>>({});
   const [publicationPlan, setPublicationPlan] =
@@ -963,6 +978,7 @@ export default function BatchPreflightClient({
   }
 
   function resetPublicationRun() {
+    setBatchFinalized(false);
     invalidatePublicationPreflightRequest();
     publicationPlanRef.current = null;
     setPublicationPlan(null);
@@ -1084,6 +1100,48 @@ export default function BatchPreflightClient({
     return payload;
   }
 
+  async function finalizeBatchEditorialFlow() {
+    const response =
+      await fetch(
+        BATCH_PUBLICATION_ROUTE,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            action:
+              "finalize_batch",
+            matchdayId,
+          }),
+        },
+      );
+
+    const payload =
+      await response.json().catch(
+        () => null,
+      ) as
+        | {
+            ok?: boolean;
+            error?: string;
+            detail?: string;
+          }
+        | null;
+
+    if (
+      !response.ok
+      || !payload?.ok
+    ) {
+      throw new Error(
+        responseDetail(
+          payload,
+          "Falhou a reconciliação editorial final do lote.",
+        ),
+      );
+    }
+  }
+
   async function publishBatch() {
     if (publishingRef.current || !canPublish || !preflight || !imagePreflight) {
       return;
@@ -1091,6 +1149,7 @@ export default function BatchPreflightClient({
 
     publishingRef.current = true;
     setIsPublishing(true);
+    setBatchFinalized(false);
     setPublicationError(null);
 
     try {
@@ -1219,11 +1278,29 @@ export default function BatchPreflightClient({
             }
           }
 
-          setPublicationError(`Publicação interrompida no artigo ${planItem.key}: ${message}`);
+          try {
+            await finalizeBatchEditorialFlow();
+            setBatchFinalized(true);
+          } catch (finalizationError) {
+            setPublicationError(
+              `Publicação interrompida no artigo ${planItem.key}: ${message}. A reconciliação final também falhou: ${
+                finalizationError instanceof Error
+                  ? finalizationError.message
+                  : "erro desconhecido"
+              }`,
+            );
+            return;
+          }
+
+          setPublicationError(
+            `Publicação interrompida no artigo ${planItem.key}: ${message}`,
+          );
           return;
         }
       }
 
+      await finalizeBatchEditorialFlow();
+      setBatchFinalized(true);
       setPublicationError(null);
     } catch (error) {
       setPublicationError(error instanceof Error ? error.message : "A publicação do lote falhou.");
@@ -1403,6 +1480,7 @@ export default function BatchPreflightClient({
           error={publicationError}
           isChecking={isCheckingPublication}
           isPublishing={isPublishing}
+          batchFinalized={batchFinalized}
           canPublish={publicationCanPublish}
           plan={publicationPlan}
           confirmedUpdates={confirmedUpdates}

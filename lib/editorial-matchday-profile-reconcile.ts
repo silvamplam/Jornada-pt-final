@@ -126,25 +126,6 @@ function samePlacement(
     && left.sortOrder === right.sortOrder;
 }
 
-function compareAutomaticOverflow(
-  profile: EditorialProfile,
-  left: MatchdayEditorialProfileDeskAutomaticItem,
-  right: MatchdayEditorialProfileDeskAutomaticItem,
-): number {
-  const zoneOrder = new Map(profile.zones.map((zone, index) => [zone.key, index] as const));
-  const leftZoneOrder = left.classifiedZoneKey === null
-    ? profile.zones.length
-    : zoneOrder.get(left.classifiedZoneKey) ?? profile.zones.length;
-  const rightZoneOrder = right.classifiedZoneKey === null
-    ? profile.zones.length
-    : zoneOrder.get(right.classifiedZoneKey) ?? profile.zones.length;
-
-  return leftZoneOrder - rightZoneOrder
-    || (left.actualityOrder ?? Number.MAX_SAFE_INTEGER) - (right.actualityOrder ?? Number.MAX_SAFE_INTEGER)
-    || left.sourceType.localeCompare(right.sourceType)
-    || left.sourceId.localeCompare(right.sourceId);
-}
-
 export function reconcileMatchdayEditorialProfileDistribution(
   profile: EditorialProfile,
   activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
@@ -168,55 +149,52 @@ export function reconcileMatchdayEditorialProfileDistribution(
   const explicitBank = new Set(overrides
     .filter((override) => override.placementTarget === "bank")
     .map(itemIdentity));
-  const manualFaixa = overrides
-    .filter((override) => override.placementTarget === "faixa" && override.sortOrder !== null)
+  const faixaOverrides = overrides
+    .filter((override) => override.placementTarget === "faixa");
+  const fixedFaixa = faixaOverrides
+    .filter((override) => override.sortOrder !== null)
     .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
-  const manualFaixaIdentities = new Set(manualFaixa.map(itemIdentity));
+  const fixedFaixaIdentities = new Set(fixedFaixa.map(itemIdentity));
+  const actualityFaixaIdentities = new Set(
+    faixaOverrides
+      .filter((override) => override.sortOrder === null)
+      .map(itemIdentity),
+  );
   const faixaBefore = [...currentFaixa]
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((item, index) => ({ ...item, sortOrder: index + 1 }));
 
-  const displaced = zonesBefore.flatMap((zone) => zone.items)
-    .filter((item) => {
-      const identity = itemIdentity(item);
-      return activeByIdentity.has(identity)
-        && !placedAfter.has(identity)
-        && !explicitBank.has(identity)
-        && !manualFaixaIdentities.has(identity);
-    });
-  const automaticOverflow = [...activeItems]
+  // A Faixa sem slot manual tem um unico criterio de ordenacao: atualidade
+  // global. Um override Faixa com sortOrder null fixa apenas a pertença à Faixa.
+  // Apenas um sortOrder positivo reserva uma posição absoluta.
+  const automaticFaixa = [...activeItems]
     .filter((item) => {
       const identity = itemIdentity(item);
       return !placedAfter.has(identity)
         && !explicitBank.has(identity)
-        && !manualFaixaIdentities.has(identity);
+        && !fixedFaixaIdentities.has(identity);
     })
-    .sort((left, right) => compareAutomaticOverflow(profile, left, right))
-    .map((item): MatchdayEditorialProfileFaixaItem => ({
-      ...effectiveItem(item, 1, null),
-      sortOrder: 1,
-    }));
-
-  const faixaBase: MatchdayEditorialProfileFaixaItem[] = [];
-  const faixaIdentities = new Set<string>();
-  for (const item of [...displaced, ...faixaBefore, ...automaticOverflow]) {
-    const identity = itemIdentity(item);
-    if (
-      faixaIdentities.has(identity)
-      || placedAfter.has(identity)
-      || explicitBank.has(identity)
-      || manualFaixaIdentities.has(identity)
-    ) continue;
-    const active = activeByIdentity.get(identity);
-    if (!active) continue;
-    faixaIdentities.add(identity);
-    faixaBase.push({
-      ...effectiveItem(active, faixaBase.length + 1, item.manualOverride),
-      sortOrder: faixaBase.length + 1,
+    .sort(compareThematicItemsByActuality)
+    .map((item): MatchdayEditorialProfileFaixaItem => {
+      const identity = itemIdentity(item);
+      return {
+        ...effectiveItem(
+          item,
+          1,
+          actualityFaixaIdentities.has(identity)
+            ? "faixa"
+            : null,
+        ),
+        sortOrder: 1,
+      };
     });
-  }
 
-  for (const override of manualFaixa) {
+  const faixaBase = automaticFaixa.map((item, index) => ({
+    ...item,
+    sortOrder: index + 1,
+  }));
+
+  for (const override of fixedFaixa) {
     const identity = itemIdentity(override);
     const item = activeByIdentity.get(identity);
     if (!item || placedAfter.has(identity) || explicitBank.has(identity)) continue;
@@ -227,10 +205,13 @@ export function reconcileMatchdayEditorialProfileDistribution(
       ...effectiveItem(item, targetIndex + 1, "faixa"),
       sortOrder: targetIndex + 1,
     });
-    faixaIdentities.add(identity);
   }
 
-  const faixaAfter = faixaBase.map((item, index) => ({ ...item, sortOrder: index + 1 }));
+  const faixaAfter = faixaBase.map((item, index) => ({
+    ...item,
+    sortOrder: index + 1,
+  }));
+
   const bankAfter = activeItems
     .filter((item) => explicitBank.has(itemIdentity(item)))
     .map((item) => {

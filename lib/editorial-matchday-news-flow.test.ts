@@ -13,6 +13,9 @@ const articleServiceSource = source("lib/editorial-article-service.ts");
 const gestorRouteSource = source("app/api/admin/gestor/route.ts");
 const editorialPageSource = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
 const compositionSyncSource = source("lib/editorial-current-reference-composition-sync.ts");
+const latestOrderMigrationSource = source(
+  "supabase/migrations/20260823215153_batch_publication_latest_order_set_based.sql",
+);
 
 
 test("publicar deixou de significar entrada automática em Últimas", () => {
@@ -34,9 +37,14 @@ test("a primeira publicação pode ficar sem colocação ou escolher uma das cin
 });
 
 test("Últimas continua a ordenar sempre pela data/hora canónica mais recente", () => {
-  assert.ok(flowSource.includes("export async function normalizeLatestNewsOrder(matchdayId: string)"));
-  assert.ok(flowSource.includes("order=published_at.desc.nullslast,created_at.desc.nullslast"));
-  assert.ok(flowSource.includes("if (leftTime !== rightTime) return rightTime - leftTime;"));
+  assert.match(
+    flowSource,
+    /export async function normalizeLatestNewsOrder\(\s*matchdayId: string,?\s*\)/,
+  );
+  assert.match(flowSource, /rpc\/normalize_matchday_latest_news_order/);
+  assert.match(latestOrderMigrationSource, /row_number\(\) over \(\s*order by\s*resolved\.order_time desc/);
+  assert.match(latestOrderMigrationSource, /update public\.matchday_latest_news as latest_row\s*set sort_order = ranked\.next_sort_order/);
+  assert.doesNotMatch(flowSource, /Promise\.all\([\s\S]{0,300}sort_order/);
   assert.ok(flowSource.includes("await normalizeLatestNewsOrder(matchdayId);"));
   assert.ok(gestorRouteSource.includes("await normalizeLatestNewsOrder(matchdayId);"));
 });
@@ -138,7 +146,8 @@ test("Últimas recebe transferências como lista cronológica e nunca como posi�
   assert.ok(editorialPageSource.includes('label: "Últimas — acrescentar por cronologia"'));
   assert.ok(flowSource.includes("await ensurePublishedArticleInLatest(matchdayId, articleId);"));
   assert.ok(flowSource.includes("await normalizeLatestNewsOrder(matchdayId);"));
-  assert.ok(flowSource.includes("order=published_at.desc.nullslast,created_at.desc.nullslast"));
+  assert.match(flowSource, /rpc\/normalize_matchday_latest_news_order/);
+  assert.match(latestOrderMigrationSource, /resolved\.order_time desc/);
 });
 
 test("Contexto transfere artigo canónico preservando autor e o perfil próprio do pós-título", () => {

@@ -7,14 +7,17 @@ import {
   editorialProfileWithZoneLayouts,
 } from "@/lib/editorial-profiles";
 import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
-import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
 import { validateMatchdayEditorialProfileManualOverrides } from "@/lib/editorial-matchday-profile-desk-operations";
 import {
   reconcileMatchdayEditorialProfileWorkspace,
   validateMatchdayEditorialProfileOpening,
   validateMatchdayEditorialProfilePageControls,
 } from "@/lib/editorial-matchday-profile-workspace";
-import { getSupabaseServiceConfig, writeSupabaseAdminReturning } from "@/lib/supabase";
+import {
+  fetchSupabaseAdminTable,
+  getSupabaseServiceConfig,
+  writeSupabaseAdminReturning,
+} from "@/lib/supabase";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const BLOCKING_DIAGNOSTICS = new Set([
@@ -38,9 +41,40 @@ type ApplyResultRow = Readonly<{
   applied_zone_item_count: number;
   applied_faixa_count: number;
   applied_opening_count: number;
+  applied_selection_count: number;
 }>;
 
-type ApiError = Readonly<{ ok: false; error: string; message: string }>;
+type ApiError =
+  Readonly<{
+    ok: false;
+    error: string;
+    message: string;
+  }>;
+
+type EditorialSelectionBankRow =
+  Readonly<{
+    id: string;
+    source_type: string | null;
+    source_id: string | null;
+    label: string | null;
+    title: string;
+    subtitle: string | null;
+    image_url: string | null;
+    link_url: string | null;
+  }>;
+
+type EditorialSelectionLiveRow =
+  Readonly<{
+    id: string;
+    slot_type: string;
+    source_type: string | null;
+    source_id: string | null;
+    label: string | null;
+    title: string | null;
+    subtitle: string | null;
+    image_url: string | null;
+    link_url: string | null;
+  }>;
 
 function apiError(error: string, message: string, status: number) {
   return NextResponse.json<ApiError>({ ok: false, error, message }, { status });
@@ -93,12 +127,181 @@ function mutationErrorResponse(error: unknown) {
     || message.includes("profile-workspace-v2-zone-")
     || message.includes("profile-workspace-v3-")
     || message.includes("profile-workspace-v4-")
+    || message.includes("profile-workspace-v5-")
     || message.includes("profile-workspace-exclusive-")
   ) {
     return apiError("thematic-desk-invalid-reconcile", "A composição temática foi recusada integralmente.", 400);
   }
   console.error("[admin/editorial/thematic-desk] atomic reconcile failed");
   return apiError("thematic-desk-apply-failed", "Não foi possível aplicar a composição temática.", 500);
+}
+
+export async function GET(
+  _request: Request,
+  { params }: {
+    params: Promise<{
+      matchdayId: string;
+    }>;
+  },
+) {
+  const [
+    { matchdayId },
+    cookieStore,
+  ] = await Promise.all([
+    params,
+    cookies(),
+  ]);
+
+  if (!UUID_PATTERN.test(matchdayId)) {
+    return apiError(
+      "thematic-desk-invalid-matchday",
+      "A Jornada indicada não é válida.",
+      400,
+    );
+  }
+
+  const session =
+    cookieStore.get(
+      ADMIN_SESSION_COOKIE,
+    )?.value;
+
+  if (
+    !session
+    || !(await verifyAdminSession(session))
+  ) {
+    return apiError(
+      "thematic-desk-authentication-required",
+      "É necessária uma sessão administrativa válida.",
+      401,
+    );
+  }
+
+  if (!getSupabaseServiceConfig()) {
+    return apiError(
+      "thematic-desk-service-unavailable",
+      "A leitura administrativa não está configurada.",
+      503,
+    );
+  }
+
+  const [
+    candidates,
+    liveItems,
+  ] = await Promise.all([
+    fetchSupabaseAdminTable<EditorialSelectionBankRow>(
+      `matchday_editorial_bank_items?select=id,source_type,source_id,label,title,subtitle,image_url,link_url&matchday_id=eq.${encodeURIComponent(
+        matchdayId,
+      )}&status=eq.active&source_type=in.(editorial_article,editorial_content)&order=updated_at.desc`,
+    ),
+    fetchSupabaseAdminTable<EditorialSelectionLiveRow>(
+      `matchday_live_layout_items?select=id,slot_type,source_type,source_id,label,title,subtitle,image_url,link_url&matchday_id=eq.${encodeURIComponent(
+        matchdayId,
+      )}&slot_type=in.(live_four_news:1,live_four_news:2,live_four_news:3,live_four_news:4)`,
+    ),
+  ]);
+
+  const bankByIdentity =
+    new Map(
+      candidates.flatMap(
+        (item) => {
+          const sourceType =
+            item.source_type?.trim()
+              .toLowerCase();
+
+          const sourceId =
+            item.source_id?.trim();
+
+          return (
+            sourceType
+            && sourceId
+          )
+            ? [[
+                `${sourceType}:${sourceId}`,
+                item,
+              ] as const]
+            : [];
+        },
+      ),
+    );
+
+  const items =
+    liveItems
+      .flatMap((item) => {
+        const match =
+          /^live_four_news:([1-4])$/
+            .exec(item.slot_type);
+
+        if (!match) {
+          return [];
+        }
+
+        const sourceType =
+          item.source_type?.trim()
+            .toLowerCase()
+          ?? null;
+
+        const sourceId =
+          item.source_id?.trim()
+          ?? null;
+
+        const bank =
+          sourceType && sourceId
+            ? bankByIdentity.get(
+                `${sourceType}:${sourceId}`,
+              )
+              ?? null
+            : null;
+
+        return [{
+          position:
+            Number(match[1]),
+          liveItemId:
+            item.id,
+          bankItemId:
+            bank?.id ?? null,
+          sourceType,
+          sourceId,
+          label:
+            item.label,
+          title:
+            item.title,
+          subtitle:
+            item.subtitle,
+          imageUrl:
+            item.image_url,
+          linkUrl:
+            item.link_url,
+        }];
+      })
+      .sort(
+        (left, right) =>
+          left.position
+          - right.position,
+      );
+
+  return NextResponse.json({
+    ok: true,
+    candidates:
+      candidates.map((item) => ({
+        bankItemId:
+          item.id,
+        sourceType:
+          item.source_type,
+        sourceId:
+          item.source_id,
+        label:
+          item.label,
+        title:
+          item.title,
+        subtitle:
+          item.subtitle,
+        imageUrl:
+          item.image_url,
+        linkUrl:
+          item.link_url,
+      })),
+    items,
+  });
 }
 
 export async function POST(
@@ -124,7 +327,9 @@ export async function POST(
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return apiError("thematic-desk-invalid-payload", "O pedido tem uma estrutura inválida.", 400);
   }
-  const input = body as Record<string, unknown>;
+  const input =
+    body as Record<string, unknown>;
+
   if (
     typeof input.profileKey !== "string"
     || !Array.isArray(input.overrides)
@@ -136,6 +341,16 @@ export async function POST(
     || (input.expectedRevision as number) < 0
     || typeof input.expectedStateToken !== "string"
     || !input.expectedStateToken.trim()
+    || !Array.isArray(input.selectionBankItemIds)
+    || input.selectionBankItemIds.length !== 4
+    || input.selectionBankItemIds.some(
+      (value) =>
+        value !== null
+        && (
+          typeof value !== "string"
+          || !UUID_PATTERN.test(value.trim())
+        ),
+    )
   ) {
     return apiError("thematic-desk-invalid-payload", "Perfil, revisão, token e overrides completos são obrigatórios.", 400);
   }
@@ -171,6 +386,20 @@ export async function POST(
         effectiveProfile,
         input.overrides,
       );
+
+    if (
+      overrides.some(
+        (override) =>
+          override.placementTarget === "zone"
+          && override.sortOrder === null,
+      )
+    ) {
+      return apiError(
+        "thematic-desk-zone-position-required",
+        "Uma deslocação manual para uma zona exige uma posição fixa. Retire a decisão manual para voltar ao critério automático de atualidade.",
+        400,
+      );
+    }
   } catch (error) {
     return mutationErrorResponse(error);
   }
@@ -207,7 +436,7 @@ export async function POST(
       desk.currentFaixa,
     );
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_editorial_profile_workspace_v4",
+      "rpc/apply_matchday_editorial_profile_workspace_v5",
       {
         method: "POST",
         body: JSON.stringify({
@@ -245,6 +474,8 @@ export async function POST(
             thematic_zone_titles:
               pageControls.thematicZoneTitles,
           },
+          p_selection_bank_item_ids:
+            input.selectionBankItemIds,
         }),
       },
     );
@@ -258,11 +489,11 @@ export async function POST(
       || !Number.isInteger(row.applied_zone_item_count)
       || !Number.isInteger(row.applied_faixa_count)
       || !Number.isInteger(row.applied_opening_count)
+      || !Number.isInteger(row.applied_selection_count)
     ) {
       throw new Error("matchday-editorial-profile-reconcile-invalid-result");
     }
 
-    await syncLatestFourNewsProjection(matchdayId);
 
     return NextResponse.json({
       ok: true,
@@ -272,6 +503,8 @@ export async function POST(
       appliedZoneItemCount: row.applied_zone_item_count,
       appliedFaixaCount: row.applied_faixa_count,
       appliedOpeningCount: row.applied_opening_count,
+      appliedSelectionCount:
+        row.applied_selection_count,
     });
   } catch (error) {
     return mutationErrorResponse(error);

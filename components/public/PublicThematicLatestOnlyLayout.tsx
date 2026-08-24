@@ -1,6 +1,7 @@
 import PublicLatestNewsBlock, {
   type PublicLatestNewsItem,
 } from "./PublicLatestNewsBlock";
+import PublicSideAdvertisement from "./PublicSideAdvertisement";
 
 type PublicThematicLatestOnlyLayoutProps = {
   items: PublicLatestNewsItem[];
@@ -54,6 +55,35 @@ const styles = `
     display: none;
   }
 
+  .public-thematic-latest-only-ad-column {
+    display: flex;
+    width: min(100%, 320px);
+    min-width: 0;
+    margin: 24px 0 0 auto;
+    padding-top: 18px;
+    border-top: 1px solid #dfe5eb;
+  }
+
+  .public-thematic-latest-only-ad-column:empty {
+    display: none;
+  }
+
+  .public-thematic-latest-only-ad-slot {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .public-thematic-latest-only-ad-slot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    object-position: top center;
+  }
+
   @media (max-width: 680px) {
     .public-thematic-latest-only-layout
       .public-news-list {
@@ -85,6 +115,14 @@ export default function PublicThematicLatestOnlyLayout({
         title={title}
         titleColor={titleColor}
       />
+
+      <aside
+        className="public-thematic-latest-only-ad-column"
+        aria-label="Publicidade"
+        data-public-ad-slot="thematic-latest-only"
+      >
+        <PublicSideAdvertisement className="public-thematic-latest-only-ad-slot" />
+      </aside>
     </section>
   );
 }

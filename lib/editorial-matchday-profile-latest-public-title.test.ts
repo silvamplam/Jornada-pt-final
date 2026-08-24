@@ -129,7 +129,7 @@ test("Mesa expõe Título público em Últimas", () => {
   );
 });
 
-test("Apply usa V4 e envia latest_zone_title", () => {
+test("Apply usa o workspace atómico atual e envia latest_zone_title", () => {
   const source = readFileSync(
     path.join(
       process.cwd(),
@@ -140,7 +140,7 @@ test("Apply usa V4 e envia latest_zone_title", () => {
 
   assert.match(
     source,
-    /apply_matchday_editorial_profile_workspace_v4/,
+    /apply_matchday_editorial_profile_workspace_v5/,
   );
 
   assert.match(

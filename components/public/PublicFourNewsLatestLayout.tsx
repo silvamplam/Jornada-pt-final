@@ -1,5 +1,7 @@
 import PublicLatestNewsBlock from "./PublicLatestNewsBlock";
 import type { PublicEditorialLatestNews } from "./PublicEditorialLayout";
+import { excludeSelectedEditorialItemsFromLatest } from "@/lib/public-four-news-latest-dedup";
+
 import PublicSideAdvertisement from "./PublicSideAdvertisement";
 
 export type PublicFourNewsLatestItem = {
@@ -17,6 +19,24 @@ type PublicFourNewsLatestLayoutProps = {
   latestNewsTitle?: string;
   latestNewsTitleColor?: string | null;
 };
+
+export function resolvePublicFourNewsLatestLayoutItems({
+  items,
+  latestNews,
+}: Pick<PublicFourNewsLatestLayoutProps, "items" | "latestNews">) {
+  const visibleItems = items
+    .filter((item) => item.title.trim() && item.linkUrl.trim())
+    .slice(0, 4);
+
+  return {
+    visibleItems,
+    visibleLatestNews:
+      excludeSelectedEditorialItemsFromLatest(
+        latestNews,
+        visibleItems,
+      ),
+  };
+}
 
 const styles = `
   .public-four-news-latest-layout {
@@ -80,6 +100,17 @@ const styles = `
       minmax(250px, 1fr);
   }
 
+  .public-four-news-latest-grid[data-has-latest="false"] {
+    grid-template-columns:
+      minmax(0, 1.22fr)
+      minmax(0, 1.22fr)
+      minmax(220px, 0.88fr);
+  }
+
+  .public-four-news-latest-grid[data-has-latest="false"]:not(:has(.public-four-news-ad-slot)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .public-four-news-ad-column:empty {
     display: none;
   }
@@ -100,6 +131,11 @@ const styles = `
     gap: 7px;
     align-content: start;
     min-width: 0;
+  }
+
+  .public-four-news-grid[data-selection-count="1"] .public-four-news-card,
+  .public-four-news-grid[data-selection-count="3"] .public-four-news-card:last-child {
+    grid-column: 1 / -1;
   }
 
   .public-four-news-media {
@@ -242,7 +278,9 @@ const styles = `
   /* JORNADA-FOUR-NEWS-FADE-LINE-FIM */
 
   @media (max-width: 1100px) {
-    .public-four-news-latest-grid {
+    .public-four-news-latest-grid,
+    .public-four-news-latest-grid[data-has-latest="false"],
+    .public-four-news-latest-grid[data-has-latest="false"]:not(:has(.public-four-news-ad-slot)) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -270,16 +308,28 @@ const styles = `
       border-left: 0;
       border-top: 1px solid #dfe5eb;
     }
+
+    .public-four-news-latest-grid[data-has-latest="false"]
+      .public-four-news-ad-column {
+      grid-column: 2;
+    }
   }
 
   @media (max-width: 680px) {
-    .public-four-news-latest-grid {
+    .public-four-news-latest-grid,
+    .public-four-news-latest-grid[data-has-latest="false"],
+    .public-four-news-latest-grid[data-has-latest="false"]:not(:has(.public-four-news-ad-slot)) {
       grid-template-columns: minmax(0, 1fr);
     }
 
     .public-four-news-grid {
       grid-column: auto;
       grid-template-columns: minmax(0, 1fr);
+    }
+
+    .public-four-news-latest-grid[data-has-latest="false"]
+      .public-four-news-ad-column {
+      grid-column: auto;
     }
   }
 `;
@@ -290,21 +340,33 @@ export default function PublicFourNewsLatestLayout({
   latestNewsTitle,
   latestNewsTitleColor,
 }: PublicFourNewsLatestLayoutProps) {
-  const visibleItems = items
-    .filter((item) => item.title.trim() && item.linkUrl.trim())
-    .slice(0, 4);
+  const {
+    visibleItems,
+    visibleLatestNews,
+  } = resolvePublicFourNewsLatestLayoutItems({
+    items,
+    latestNews,
+  });
 
-  if (visibleItems.length !== 4 || latestNews.length === 0) return null;
+  if (visibleItems.length === 0) {
+    return null;
+  }
 
   return (
     <section
       className="public-four-news-latest-layout"
-      aria-label="Zona editorial de quatro notícias, Últimas e publicidade"
+      aria-label="Seleção editorial, Últimas e publicidade"
     >
       <style>{styles}</style>
 
-      <div className="public-four-news-latest-grid">
-        <div className="public-four-news-grid">
+      <div
+        className="public-four-news-latest-grid"
+        data-has-latest={visibleLatestNews.length > 0}
+      >
+        <div
+          className="public-four-news-grid"
+          data-selection-count={visibleItems.length}
+        >
           {visibleItems.map((item) => (
             <article className="public-four-news-card" key={item.id}>
               {item.imageUrl ? (
@@ -341,16 +403,18 @@ export default function PublicFourNewsLatestLayout({
           ))}
         </div>
 
-        <div className="public-four-news-latest-column">
-          <div className="public-four-news-latest-positioner">
-            <PublicLatestNewsBlock
-              items={latestNews}
-              title={latestNewsTitle}
-              titleColor={latestNewsTitleColor}
-              constrainToFourNewsGrid
-            />
+        {visibleLatestNews.length > 0 ? (
+          <div className="public-four-news-latest-column">
+            <div className="public-four-news-latest-positioner">
+              <PublicLatestNewsBlock
+                items={visibleLatestNews}
+                title={latestNewsTitle}
+                titleColor={latestNewsTitleColor}
+                constrainToFourNewsGrid
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <aside
           className="public-four-news-ad-column"

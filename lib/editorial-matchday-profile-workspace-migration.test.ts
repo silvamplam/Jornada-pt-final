@@ -100,14 +100,15 @@ test("UI monta só a janela visível da Faixa e mantém pesquisa/expansão sobre
   assert.doesNotMatch(client, /reconcile\.faixaAfter\.map\(\(item\) => \(/);
 });
 
-test("preview local não escreve e Apply usa uma única RPC temática", () => {
+test("preview local só lê a Seleção e Apply faz uma única escrita temática", () => {
   const client = source("app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx");
   const route = source("app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts");
   assert.match(client, /function commitDraft/);
   assert.match(client, /async function applyChanges\(\)/);
-  assert.equal((client.match(/fetch\(/g) ?? []).length, 1);
+  assert.equal((client.match(/method: "POST"/g) ?? []).length, 1);
+  assert.match(client, /method: "GET"/);
   assert.equal((route.match(/writeSupabaseAdminReturning/g) ?? []).length, 2);
-  assert.match(route, /rpc\/apply_matchday_editorial_profile_workspace/);
+  assert.match(route, /rpc\/apply_matchday_editorial_profile_workspace_v5/);
   assert.match(route, /expectedStateToken|p_expected_state_token/);
   assert.match(route, /thematic_zone_order: pageControls\.thematicZoneOrder/);
 });

@@ -117,9 +117,9 @@ test("84 candidatos sem decisões de Banco produzem exatamente 27 zonas e 57 ite
   assert.equal(result.bankAfter.length, 0);
   assert.equal(new Set(allIdentities).size, 84);
   assert.deepEqual(result.faixaAfter.slice(0, 3).map((entry) => entry.sourceId), [
-    "benfica-7",
-    "benfica-8",
-    "benfica-9",
+    "fc_porto-6",
+    "outside_liga_other-6",
+    "sporting-6",
   ]);
 });
 
@@ -137,6 +137,35 @@ test("um Bank override explícito retira apenas essa identidade dos 57 overflows
   assert.equal(result.zonesAfter.flatMap((zone) => zone.items).length, 27);
   assert.equal(result.faixaAfter.length, 56);
   assert.deepEqual(result.bankAfter.map((entry) => [entry.sourceId, entry.manualOverride]), [["benfica-7", "bank"]]);
+});
+
+test("pertença manual à Faixa sem slot usa a mesma atualidade global dos restantes itens", () => {
+  const forcedOlder = item("forced-older", "benfica", 1, 10);
+  const sportingZone = Array.from(
+    { length: profile.zones.find((zone) => zone.key === "sporting")?.capacity ?? 0 },
+    (_, index) => item(`sporting-zone-${index + 1}`, "sporting", index + 1, 23),
+  );
+  const automaticNewer = item("automatic-newer", "sporting", sportingZone.length + 1, 20);
+  const automaticOlder = item("automatic-older", "sporting", sportingZone.length + 2, 5);
+
+  const result = reconcileMatchdayEditorialProfileDistribution(
+    profile,
+    [forcedOlder, ...sportingZone, automaticNewer, automaticOlder],
+    [override("forced-older", "faixa", null, null)],
+    [],
+    false,
+    [],
+  );
+
+  assert.deepEqual(zoneIds(result, "sporting"), sportingZone.map((entry) => entry.sourceId));
+  assert.deepEqual(
+    result.faixaAfter.map((entry) => [entry.sourceId, entry.manualOverride]),
+    [
+      ["automatic-newer", null],
+      ["forced-older", "faixa"],
+      ["automatic-older", null],
+    ],
+  );
 });
 
 test("Faixa manual protege um top-N e devolver ao automático repõe classificação sem duplicação", () => {
@@ -207,7 +236,7 @@ test("ao devolver X ao automático, F regressa à zona e desaparece fisicamente 
   assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["g"]);
 });
 
-test("uma Faixa com 24 itens recebe overflow em 1 sem perder o item 11, 20 ou 24", () => {
+test("uma Faixa com 24 itens recebe overflow, reordena por atualidade e não perde qualquer item", () => {
   const benfica = ["a", "b", "c", "d", "e", "f"].map((id, index) => item(id, "benfica", index + 1));
   const x = item("x", "outside_liga_other", 1, 23);
   const faixaItems = Array.from({ length: 24 }, (_, index) => faixa(`q${index + 1}`, index + 1));
@@ -223,10 +252,25 @@ test("uma Faixa com 24 itens recebe overflow em 1 sem perder o item 11, 20 ou 24
   );
 
   assert.equal(result.faixaAfter.length, 25);
-  assert.deepEqual(result.faixaAfter.slice(0, 3).map((entry) => entry.sourceId), ["f", "q1", "q2"]);
-  assert.equal(result.faixaAfter[11].sourceId, "q11");
-  assert.equal(result.faixaAfter[20].sourceId, "q20");
-  assert.equal(result.faixaAfter[24].sourceId, "q24");
+  assert.deepEqual(
+    result.faixaAfter.slice(0, 5).map((entry) => entry.sourceId),
+    ["f", "q1", "q2", "q3", "q4"],
+  );
+  assert.deepEqual(
+    result.faixaAfter.map((entry) => entry.sortOrder),
+    Array.from({ length: 25 }, (_, index) => index + 1),
+  );
+  assert.equal(new Set(result.faixaAfter.map((entry) => entry.sourceId)).size, 25);
+  for (const expected of ["f", ...Array.from({ length: 24 }, (_, index) => `q${index + 1}`)]) {
+    assert.equal(result.faixaAfter.some((entry) => entry.sourceId === expected), true, expected);
+  }
+  for (let index = 1; index < result.faixaAfter.length; index += 1) {
+    const previous = Date.parse(result.faixaAfter[index - 1].publishedAt ?? "");
+    const current = Date.parse(result.faixaAfter[index].publishedAt ?? "");
+    assert.equal(Number.isNaN(previous), false);
+    assert.equal(Number.isNaN(current), false);
+    assert.ok(previous >= current, `${result.faixaAfter[index - 1].sourceId} antes de ${result.faixaAfter[index].sourceId}`);
+  }
 });
 
 test("um item na posição 17 que regressa à zona é removido e a Faixa compacta", () => {

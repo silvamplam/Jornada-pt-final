@@ -13,6 +13,9 @@ function source(path: string) {
 const model = source("lib/site-advertising.ts");
 const ad = source("components/public/PublicSideAdvertisement.tsx");
 const layout = source("components/public/PublicFourNewsLatestLayout.tsx");
+const thematicLatestOnlyLayout = source(
+  "components/public/PublicThematicLatestOnlyLayout.tsx",
+);
 const article = source("app/noticias/[slug]/page.tsx");
 const admin = source("app/admin/publicidade/page.tsx");
 const api = source("app/api/admin/publicidade/route.ts");
@@ -36,6 +39,11 @@ test("a publicidade pública usa uma única configuração", () => {
   );
 
   assert.match(
+    thematicLatestOnlyLayout,
+    /<PublicSideAdvertisement className="public-thematic-latest-only-ad-slot" \/>/,
+  );
+
+  assert.match(
     article,
     /<PublicSideAdvertisement className="news-article-ad news-article-ad-link" \/>/,
   );
@@ -55,6 +63,11 @@ test("a publicidade inativa não deixa a coluna publicitária vazia", () => {
   assert.match(
     layout,
     /:not\(:has\(\.public-four-news-ad-slot\)\)/,
+  );
+
+  assert.match(
+    thematicLatestOnlyLayout,
+    /\.public-thematic-latest-only-ad-column:empty/,
   );
 });
 

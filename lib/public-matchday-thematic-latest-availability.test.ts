@@ -27,7 +27,7 @@ test("Últimas tem autoridade independente das quatro", () => {
 
   assert.match(
     page,
-    /const showFourNewsLatestLayout =\s*showThematicLatestBlock\s*&& liveFourNewsItems\.length === 4/,
+    /const showFourNewsLatestLayout =\s*thematicSnapshot\s*\? showThematicLatestBlock\s*&& liveFourNewsItems\.length > 0\s*: latestZonePlacement[\s\S]{0,160}liveFourNewsItems\.length === 4/,
   );
 });
 
@@ -48,10 +48,15 @@ test("modo temático mantém Últimas quando não há quatro completas", () => {
   );
 });
 
-test("não são publicadas quatro incompletas", () => {
+test("Seleção temática aceita 1–4 itens e Legacy exige os quatro completos", () => {
   assert.match(
     page,
-    /liveFourNewsItems\.length === 4/,
+    /thematicSnapshot\s*\? showThematicLatestBlock\s*&& liveFourNewsItems\.length > 0/,
+  );
+
+  assert.match(
+    page,
+    /: latestZonePlacement === "four_news"[\s\S]{0,160}liveFourNewsItems\.length === 4/,
   );
 
   assert.doesNotMatch(

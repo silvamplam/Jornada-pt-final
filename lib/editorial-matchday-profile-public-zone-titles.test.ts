@@ -130,7 +130,7 @@ test("renderer não usa obrigatoriamente o nome semântico como cabeçalho públ
   );
 });
 
-test("Apply usa V3 e persiste thematic_zone_titles", () => {
+test("Apply usa o workspace atómico atual e persiste thematic_zone_titles", () => {
   const route = readFileSync(
     path.join(
       process.cwd(),
@@ -141,7 +141,7 @@ test("Apply usa V3 e persiste thematic_zone_titles", () => {
 
   assert.match(
     route,
-    /apply_matchday_editorial_profile_workspace_v4/,
+    /apply_matchday_editorial_profile_workspace_v5/,
   );
 
   assert.match(
