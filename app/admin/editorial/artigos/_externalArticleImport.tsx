@@ -29,6 +29,10 @@ type SourceImageImportResponse = Readonly<{
   error?: string;
 }>;
 
+type ExternalArticleImportProps = Readonly<{
+  mode?: "create" | "update";
+}>;
+
 function formField(
   form: HTMLFormElement,
   name: string,
@@ -80,21 +84,25 @@ function formContainsEditorialText(form: HTMLFormElement): boolean {
 function applyArticleToForm(
   form: HTMLFormElement,
   article: EditorialExternalArticle,
+  mode: "create" | "update",
 ): void {
   setFieldValue(formField(form, "label"), article.anteTitle ?? "");
   setFieldValue(formField(form, "title"), article.title);
   setFieldValue(formField(form, "subtitle"), article.postTitle ?? "");
   setFieldValue(formField(form, "body"), article.body);
-  setFieldValue(
-    formField(form, "editorial_destination"),
-    article.editorialDestination ?? "",
-  );
-  syncContextPostTitleProfile(form);
 
-  const slug = formField(form, "slug");
-  if (slug && !fieldValue(slug)) {
-    const title = formField(form, "title");
-    title?.dispatchEvent(new Event("blur"));
+  if (mode === "create") {
+    setFieldValue(
+      formField(form, "editorial_destination"),
+      article.editorialDestination ?? "",
+    );
+    syncContextPostTitleProfile(form);
+
+    const slug = formField(form, "slug");
+    if (slug && !fieldValue(slug)) {
+      const title = formField(form, "title");
+      title?.dispatchEvent(new Event("blur"));
+    }
   }
 
   formField(form, "title")?.focus();
@@ -147,7 +155,10 @@ function sourceImageErrorMessage(error: string | undefined): string {
   return "Não foi possível importar automaticamente esta imagem.";
 }
 
-export default function ExternalArticleImport() {
+export default function ExternalArticleImport({
+  mode = "create",
+}: ExternalArticleImportProps) {
+  const isUpdate = mode === "update";
   const rootRef = useRef<HTMLDivElement | null>(null);
   const manualResponseRef = useRef<HTMLTextAreaElement | null>(null);
   const preparedTransferHandledRef = useRef(false);
@@ -189,7 +200,15 @@ export default function ExternalArticleImport() {
       return false;
     }
 
-    applyArticleToForm(form, article);
+    applyArticleToForm(form, article, mode);
+
+    if (isUpdate) {
+      setStatus(
+        "Texto atualizado no formulário. A imagem e os restantes dados do artigo foram mantidos. Guarda as alterações para aplicar.",
+      );
+      return true;
+    }
+
     setStatus(
       article.editorialDestination === EDITORIAL_CONTEXT_DESTINATION
         ? "Notícia preenchida com destino Contexto identificado. Revê os campos e a imagem antes de guardar em revisão."
@@ -206,6 +225,11 @@ export default function ExternalArticleImport() {
     const form = editorForm();
     if (!form) {
       setStatus("Não foi possível localizar o formulário do artigo.");
+      return;
+    }
+
+    if (isUpdate) {
+      setStatus("A atualização por IA mantém a imagem existente.");
       return;
     }
 
@@ -281,6 +305,10 @@ export default function ExternalArticleImport() {
       return;
     }
     preparedTransferHandledRef.current = true;
+
+    if (isUpdate) {
+      return;
+    }
 
     const url = new URL(window.location.href);
     if (url.searchParams.get("import_external") !== "1") {
@@ -392,9 +420,11 @@ export default function ExternalArticleImport() {
     <div className="article-admin-external-import" ref={rootRef}>
       <div className="article-admin-external-import-heading">
         <div>
-          <strong>Importar notícia gerada</strong>
+          <strong>{isUpdate ? "Atualizar com IA" : "Importar notícia gerada"}</strong>
           <p>
-            Preenche antetítulo, título, pós-título e corpo. Nada é guardado ou publicado automaticamente.
+            {isUpdate
+              ? "Substitui apenas antetítulo, título, pós-título e corpo. Mantém imagem, legenda, autor, endereço, contexto e ligações editoriais."
+              : "Preenche antetítulo, título, pós-título e corpo. Nada é guardado ou publicado automaticamente."}
           </p>
         </div>
         <button type="button" onClick={importFromClipboard} disabled={reading}>
@@ -402,7 +432,7 @@ export default function ExternalArticleImport() {
         </button>
       </div>
 
-      {sourcePackage && imageCandidates.length > 0 ? (
+      {!isUpdate && sourcePackage && imageCandidates.length > 0 ? (
         <section className="article-admin-external-images" aria-label="Imagens do pacote de fontes">
           <div className="article-admin-external-images-heading">
             <strong>Imagem do pacote</strong>

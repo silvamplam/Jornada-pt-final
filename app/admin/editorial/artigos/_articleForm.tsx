@@ -451,7 +451,7 @@ export function ArticleEditorForm({
       {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
 
       {message ? <p className="article-admin-alert">{message}</p> : null}
-      {!isEdit ? <ExternalArticleImport /> : null}
+      <ExternalArticleImport mode={isEdit ? "update" : "create"} />
 
       <section className="article-admin-section article-admin-compact-section">
         <p className="article-admin-section-title">Imagem</p>
