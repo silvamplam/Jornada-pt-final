@@ -210,6 +210,9 @@ const styles = `
   .thematic-card-actions button { width: 100%; text-align: left; }
   .thematic-bank-panel { min-width: 0; }
   .thematic-bank-panel .thematic-empty { min-height: 36px; }
+  .thematic-faixa-zone-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 0 8px 6px; }
+  .thematic-faixa-zone-filter { display: inline-flex; align-items: center; gap: 4px; min-height: 22px; color: #344457; font-size: 9px; font-weight: 800; cursor: pointer; }
+  .thematic-faixa-zone-filter input { width: 13px; height: 13px; margin: 0; accent-color: #e43e48; cursor: pointer; }
   .thematic-faixa-tools { display: grid; grid-template-columns: minmax(180px,1fr) auto; gap: 6px; padding: 0 8px 7px; }
   .thematic-search { min-height: 31px; padding: 5px 8px; border: 1px solid #c8d3df; border-radius: 5px; }
   .thematic-faixa-grid, .thematic-bank-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; padding: 0 7px 7px; }
@@ -412,6 +415,9 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   const [startPosition, setStartPosition] = useState(1);
   const [faixaPosition, setFaixaPosition] = useState(1);
   const [faixaQuery, setFaixaQuery] = useState("");
+  const [faixaZoneFilters, setFaixaZoneFilters] = useState<
+    readonly EditorialProfileZoneKey[]
+  >([]);
   const [faixaVisibleCount, setFaixaVisibleCount] = useState(FAIXA_INITIAL_VISIBLE);
   const [bankQuery, setBankQuery] = useState("");
   const [applyState, setApplyState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -643,10 +649,46 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     setStartPosition((current) => Math.min(current, destination.capacity));
   }, [destination.capacity]);
   const normalizedFaixaQuery = faixaQuery.trim().toLocaleLowerCase("pt-PT");
-  const filteredFaixa = normalizedFaixaQuery
-    ? reconcile.faixaAfter.filter((item) => [item.label, item.title, item.subtitle].some((value) => value?.toLocaleLowerCase("pt-PT").includes(normalizedFaixaQuery)))
-    : reconcile.faixaAfter;
-  const visibleFaixa = filteredFaixa.slice(0, faixaVisibleCount);
+  const faixaZoneFilterSet = useMemo(
+    () => new Set(faixaZoneFilters),
+    [faixaZoneFilters],
+  );
+  const filteredFaixa = reconcile.faixaAfter.filter((item) => {
+    const classifiedZoneKey =
+      activeByIdentity.get(identity(item))?.classifiedZoneKey
+      ?? null;
+    const zoneMatches =
+      faixaZoneFilterSet.size === 0
+      || (
+        classifiedZoneKey !== null
+        && faixaZoneFilterSet.has(classifiedZoneKey)
+      );
+    const queryMatches =
+      !normalizedFaixaQuery
+      || [item.label, item.title, item.subtitle].some(
+        (value) =>
+          value
+            ?.toLocaleLowerCase("pt-PT")
+            .includes(normalizedFaixaQuery),
+      );
+
+    return zoneMatches && queryMatches;
+  });
+  const visibleFaixa =
+    deskView === "focus"
+      ? filteredFaixa
+      : filteredFaixa.slice(0, faixaVisibleCount);
+
+  function toggleFaixaZoneFilter(
+    zoneKey: EditorialProfileZoneKey,
+  ) {
+    setFaixaZoneFilters((current) =>
+      current.includes(zoneKey)
+        ? current.filter((candidate) => candidate !== zoneKey)
+        : [...current, zoneKey],
+    );
+    setFaixaVisibleCount(FAIXA_INITIAL_VISIBLE);
+  }
   const normalizedBankQuery = bankQuery.trim().toLocaleLowerCase("pt-PT");
   const visibleBank = normalizedBankQuery
     ? reconcile.bankAfter.filter((item) => [item.label, item.title, item.subtitle].some((value) => value?.toLocaleLowerCase("pt-PT").includes(normalizedBankQuery)))
@@ -790,6 +832,10 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
         setMessage("O bloco selecionado não cabe a partir dessa posição. Escolha uma posição anterior ou reduza a seleção.");
         return;
       }
+      if (error instanceof Error && error.message.endsWith("manual-insertion-exceeds-capacity")) {
+        setMessage("A operação foi recusada porque não há posições suficientes para inserir estas notícias e conservar todas as decisões manuais já existentes na zona. Mova ou liberte uma decisão manual, reduza a seleção ou escolha outra posição.");
+        return;
+      }
       setMessage(error instanceof Error ? error.message : "A operação local foi recusada.");
     }
   }
@@ -874,7 +920,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
         ),
         opening: transition.opening,
       };
-    }, `Notícia fixada em ${zoneKey}, posição ${position}; qualquer conteúdo substituído regressa ao automático.`);
+    }, `Notícia inserida em ${zoneKey}, posição ${position}; decisões manuais existentes são preservadas e deslocadas quando necessário.`);
   }
 
   function placeInFaixa(itemIdentity: string, position: number | null) {
@@ -1351,7 +1397,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
                       ),
                       opening: transition.opening,
                     };
-                  }, "Operação em lote movida para a zona e fixada nas posições escolhidas.")}
+                  }, "Operação em lote inserida na zona; decisões manuais existentes foram preservadas.")}
                   type="button"
                 >
                   Mover para zona
@@ -1383,7 +1429,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
                       ),
                       opening: transition.opening,
                     };
-                  }, "Operação em lote fixada nas posições escolhidas.")}
+                  }, "Operação em lote inserida a partir da posição escolhida; decisões manuais existentes foram preservadas.")}
                   type="button"
                 >
                   Fixar posição
@@ -1884,6 +1930,29 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
           aria-label="Faixa partilhada completa"
         >
           <div className="thematic-panel-head"><div><h2>Faixa</h2><p>{reconcile.faixaAfter.length} notícias · primeiras 10 montadas inicialmente · fila completa preservada</p></div><div className="thematic-meta"><span>ilimitada internamente</span><span>público: primeiras 10</span></div></div>
+
+          <div
+            aria-label="Filtrar Faixa por zona temática"
+            className="thematic-faixa-zone-filters"
+            role="group"
+          >
+            {profile.zones.map((zone) => (
+              <label
+                className="thematic-faixa-zone-filter"
+                key={zone.key}
+              >
+                <span>{zone.label}</span>
+                <input
+                  checked={faixaZoneFilterSet.has(zone.key)}
+                  onChange={() =>
+                    toggleFaixaZoneFilter(zone.key)
+                  }
+                  type="checkbox"
+                />
+              </label>
+            ))}
+          </div>
+
           <div className="thematic-faixa-tools">
             <input aria-label="Pesquisar na Faixa completa" className="thematic-search" onChange={(event) => { setFaixaQuery(event.target.value); setFaixaVisibleCount(FAIXA_INITIAL_VISIBLE); }} placeholder="Pesquisar em toda a Faixa…" type="search" value={faixaQuery} />
             <span className="thematic-meta"><span>{visibleFaixa.length}/{filteredFaixa.length} montadas</span></span>
@@ -1948,7 +2017,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
                 </p>
               )}
           </div>
-          {visibleFaixa.length < filteredFaixa.length ? <div className="thematic-more"><button className="thematic-button" onClick={() => setFaixaVisibleCount((count) => count + FAIXA_PAGE_SIZE)} type="button">Mostrar mais 10</button><span>{filteredFaixa.length - visibleFaixa.length} ainda não montadas</span></div> : null}
+          {deskView !== "focus" && visibleFaixa.length < filteredFaixa.length ? <div className="thematic-more"><button className="thematic-button" onClick={() => setFaixaVisibleCount((count) => count + FAIXA_PAGE_SIZE)} type="button">Mostrar mais 10</button><span>{filteredFaixa.length - visibleFaixa.length} ainda não montadas</span></div> : null}
         </article>
 
         {reconcile.movements.length > 0 ? <details className="thematic-panel thematic-movements"><summary>Movimentos em preview · {reconcile.movements.length}</summary><ul className="thematic-movement-list">{reconcile.movements.map((movement) => <li key={thematicEditorialIdentity(movement.sourceType, movement.sourceId)}>{movement.title ?? movement.sourceId} · {movement.from.kind} → {movement.to.kind}</li>)}</ul></details> : null}

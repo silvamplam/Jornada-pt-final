@@ -201,3 +201,149 @@ test("o alinhamento do Foco não cria um segundo sticky", () => {
     /\.thematic-opening-panel\s*\{\s*position:\s*sticky;/,
   );
 });
+
+test("a Faixa pode ser filtrada por várias zonas sem alterar o estado editorial", () => {
+  assert.match(
+    desk,
+    /const \[faixaZoneFilters, setFaixaZoneFilters\] = useState</,
+  );
+
+  assert.match(
+    desk,
+    /const faixaZoneFilterSet = useMemo\(/,
+  );
+
+  assert.match(
+    desk,
+    /activeByIdentity\.get\(identity\(item\)\)\?\.classifiedZoneKey/,
+  );
+
+  assert.match(
+    desk,
+    /faixaZoneFilterSet\.size === 0/,
+  );
+
+  assert.match(
+    desk,
+    /faixaZoneFilterSet\.has\(classifiedZoneKey\)/,
+  );
+
+  assert.match(
+    desk,
+    /current\.includes\(zoneKey\)/,
+  );
+
+  assert.match(
+    desk,
+    /\[\.\.\.current, zoneKey\]/,
+  );
+
+  assert.match(
+    desk,
+    /aria-label="Filtrar Faixa por zona temática"/,
+  );
+
+  assert.match(
+    desk,
+    /profile\.zones\.map\(\(zone\) => \(/,
+  );
+
+  assert.match(
+    desk,
+    /checked=\{faixaZoneFilterSet\.has\(zone\.key\)\}/,
+  );
+
+  assert.match(
+    desk,
+    /toggleFaixaZoneFilter\(zone\.key\)/,
+  );
+});
+
+test("pesquisa e zonas funcionam como filtros cumulativos da Faixa", () => {
+  assert.match(
+    desk,
+    /const zoneMatches =/,
+  );
+
+  assert.match(
+    desk,
+    /const queryMatches =/,
+  );
+
+  assert.match(
+    desk,
+    /return zoneMatches && queryMatches;/,
+  );
+});
+
+test("o filtro da Faixa não entra no estado editorial nem cria pending", () => {
+  const currentDraftStart =
+    desk.indexOf(
+      "function currentDraft(): WorkspaceDraft",
+    );
+
+  const currentDraftEnd =
+    desk.indexOf(
+      "function commitDraft",
+      currentDraftStart,
+    );
+
+  assert.ok(currentDraftStart >= 0);
+  assert.ok(currentDraftEnd > currentDraftStart);
+
+  const currentDraftBlock =
+    desk.slice(
+      currentDraftStart,
+      currentDraftEnd,
+    );
+
+  assert.doesNotMatch(
+    currentDraftBlock,
+    /faixaZoneFilters/,
+  );
+
+  const pendingStart =
+    desk.indexOf("const pending =");
+
+  const pendingEnd =
+    desk.indexOf(
+      "const zoneByKey",
+      pendingStart,
+    );
+
+  assert.ok(pendingStart >= 0);
+  assert.ok(pendingEnd > pendingStart);
+
+  const pendingBlock =
+    desk.slice(
+      pendingStart,
+      pendingEnd,
+    );
+
+  assert.doesNotMatch(
+    pendingBlock,
+    /faixaZoneFilters/,
+  );
+});
+
+test("a Faixa não tem limite de montagem quando a Mesa está em Foco de zona", () => {
+  assert.match(
+    desk,
+    /const visibleFaixa =\s*deskView === "focus"\s*\?\s*filteredFaixa\s*:\s*filteredFaixa\.slice\(0, faixaVisibleCount\);/,
+  );
+
+  assert.match(
+    desk,
+    /deskView !== "focus" && visibleFaixa\.length < filteredFaixa\.length/,
+  );
+
+  assert.match(
+    desk,
+    /\.thematic-faixa-focus \.thematic-faixa-grid\s*\{[\s\S]*?overflow-y:\s*auto;/,
+  );
+
+  assert.match(
+    desk,
+    /visibleFaixa\.slice\(\s*batchIndex \* 10,\s*batchIndex \* 10 \+ 10,\s*\)/,
+  );
+});

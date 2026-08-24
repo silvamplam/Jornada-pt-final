@@ -619,18 +619,93 @@ export function fixMatchdayEditorialItemsAtPosition(
   const targetPositions = new Set(selected.map((_, index) => startPosition + index));
   const next = overrideMap(overrides);
 
-  for (const identity of selectedIdentitySet) next.delete(identity);
+  /*
+   * A seleção que está a ser movida deixa primeiro a sua decisão anterior.
+   * Isto permite mover uma notícia já manual dentro da própria zona sem
+   * contar a posição antiga como uma decisão adicional.
+   */
+  for (const identity of selectedIdentitySet) {
+    next.delete(identity);
+  }
 
-  // A manual move owns the exact destination slots. Replacing a previous
-  // manual occupant ends that old fixation; every other fixed slot is untouched.
-  for (const [identity, current] of next) {
-    if (
+  const protectedTargetCount = Array.from(next.values()).filter((current) => (
+    current.placementTarget === "zone"
+    && current.zoneKey === zoneKey
+  )).length;
+
+  /*
+   * Uma nova decisão manual nunca destrói outra decisão manual.
+   * Se a zona não tiver capacidade para conservar todas, a operação inteira
+   * é recusada antes de alterar qualquer override.
+   */
+  if (protectedTargetCount + selected.length > zone.capacity) {
+    throw new Error(
+      "matchday-editorial-profile-manual-overrides-manual-insertion-exceeds-capacity",
+    );
+  }
+
+  const fixedInTarget = Array.from(next.entries())
+    .filter(([, current]) => (
       current.placementTarget === "zone"
       && current.zoneKey === zoneKey
       && current.sortOrder !== null
-      && targetPositions.has(current.sortOrder)
+    ))
+    .sort((left, right) => {
+      const leftPosition = left[1].sortOrder ?? 0;
+      const rightPosition = right[1].sortOrder ?? 0;
+
+      return leftPosition - rightPosition
+        || compareText(left[0], right[0]);
+    });
+
+  const occupiedPositions = new Set<number>(targetPositions);
+
+  /*
+   * Posições manuais anteriores ao ponto de inserção permanecem absolutas.
+   */
+  for (const [, current] of fixedInTarget) {
+    if (
+      current.sortOrder !== null
+      && current.sortOrder < startPosition
     ) {
-      next.delete(identity);
+      occupiedPositions.add(current.sortOrder);
+    }
+  }
+
+  /*
+   * A partir da posição de inserção, só deslocamos uma decisão manual quando
+   * o seu slot foi ocupado pela nova seleção ou por outra decisão manual já
+   * deslocada. O movimento é sempre para a frente e preserva a ordem relativa.
+   */
+  for (const [identity, current] of fixedInTarget) {
+    const originalPosition = current.sortOrder;
+
+    if (
+      originalPosition === null
+      || originalPosition < startPosition
+    ) {
+      continue;
+    }
+
+    let nextPosition = originalPosition;
+
+    while (occupiedPositions.has(nextPosition)) {
+      nextPosition += 1;
+    }
+
+    if (nextPosition > zone.capacity) {
+      throw new Error(
+        "matchday-editorial-profile-manual-overrides-manual-insertion-exceeds-capacity",
+      );
+    }
+
+    occupiedPositions.add(nextPosition);
+
+    if (nextPosition !== originalPosition) {
+      next.set(identity, {
+        ...current,
+        sortOrder: nextPosition,
+      });
     }
   }
 

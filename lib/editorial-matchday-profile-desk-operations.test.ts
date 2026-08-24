@@ -220,7 +220,7 @@ test("uma inserção posterior a lacunas conserva slots absolutos", () => {
   );
 });
 
-test("substituir um slot fixo liberta o ocupante e mantém os restantes slots fixos", () => {
+test("inserir num slot manual preserva e desloca a decisão existente", () => {
   const activeItems = [
     automaticItem("before", null, null, 12),
     automaticItem("after", null, null, 11),
@@ -230,6 +230,7 @@ test("substituir um slot fixo liberta o ocupante e mantém os restantes slots fi
     override("before", "sporting", 1),
     override("after", "sporting", 3),
   ];
+
   const next = fixMatchdayEditorialItemsAtPosition(
     profile,
     activeItems,
@@ -240,31 +241,79 @@ test("substituir um slot fixo liberta o ocupante e mantém os restantes slots fi
   );
 
   assert.deepEqual(next, [
+    override("after", "sporting", 4),
     override("before", "sporting", 1),
     override("x", "sporting", 3),
   ]);
+
+  assert.deepEqual(
+    zoneIds(activeItems, next, "sporting"),
+    ["before", "x", "after"],
+  );
 });
 
-test("deslocamento para além da capacidade liberta a decisão manual e nunca cria Banco implícito", () => {
+test("três novas entram à frente de duas decisões manuais e preservam as cinco", () => {
   const activeItems = [
-    automaticItem("last", null, null, 11),
-    automaticItem("x", null, null, 10),
+    automaticItem("old-1", null, null, 20),
+    automaticItem("old-2", null, null, 19),
+    automaticItem("x1", null, null, 18),
+    automaticItem("x2", null, null, 17),
+    automaticItem("x3", null, null, 16),
   ];
-  const current = [override("last", "sporting", 5)];
+
+  const current = [
+    override("old-1", "benfica", 1),
+    override("old-2", "benfica", 2),
+  ];
+
   const next = fixMatchdayEditorialItemsAtPosition(
     profile,
     activeItems,
     current,
-    [identity("x")],
-    "sporting",
-    5,
+    [identity("x1"), identity("x2"), identity("x3")],
+    "benfica",
+    1,
   );
-  const result = buildMatchdayEditorialProfileEffectiveDistribution(profile, activeItems, next);
 
-  assert.deepEqual(result.zones[1].items.map((item) => [item.sourceId, item.sortOrder]), [["x", 5]]);
-  assert.deepEqual(result.bank.map((item) => [item.sourceId, item.manualOverride]), [["last", null]]);
-  assert.deepEqual(next, [override("x", "sporting", 5)]);
-  assert.equal(next.some((item) => item.placementTarget === "bank"), false);
+  assert.deepEqual(next, [
+    override("old-1", "benfica", 4),
+    override("old-2", "benfica", 5),
+    override("x1", "benfica", 1),
+    override("x2", "benfica", 2),
+    override("x3", "benfica", 3),
+  ]);
+
+  assert.deepEqual(
+    zoneIds(activeItems, next, "benfica"),
+    ["x1", "x2", "x3", "old-1", "old-2"],
+  );
+});
+
+test("uma inserção é recusada se não houver espaço para preservar o manual desalojado", () => {
+  const activeItems = [
+    automaticItem("last", null, null, 11),
+    automaticItem("x", null, null, 10),
+  ];
+
+  const current = [
+    override("last", "sporting", 5),
+  ];
+
+  assert.throws(
+    () => fixMatchdayEditorialItemsAtPosition(
+      profile,
+      activeItems,
+      current,
+      [identity("x")],
+      "sporting",
+      5,
+    ),
+    /manual-insertion-exceeds-capacity/,
+  );
+
+  assert.deepEqual(current, [
+    override("last", "sporting", 5),
+  ]);
 });
 
 test("automático desalojado fica no banco efetivo sem ganhar exclusão manual", () => {
