@@ -92,7 +92,7 @@ test("funções privilegiadas têm search_path fechado e execução service_role
 test("UI monta só a janela visível da Faixa e mantém pesquisa/expansão sobre a fila completa", () => {
   const client = source("app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx");
   assert.match(client, /const FAIXA_INITIAL_VISIBLE = 10/);
-  assert.match(client, /const visibleFaixa = filteredFaixa\.slice\(0, faixaVisibleCount\)/);
+  assert.match(client, /const visibleFaixa =[\s\S]*deskView === "focus"[\s\S]*filteredFaixa\.slice\(0, faixaVisibleCount\)/);
   assert.match(client, /visibleFaixa\.map/);
   assert.match(client, /Mostrar mais 10/);
   assert.match(client, /Pesquisar em toda a Faixa/);
@@ -108,7 +108,7 @@ test("preview local só lê a Seleção e Apply faz uma única escrita temática
   assert.equal((client.match(/method: "POST"/g) ?? []).length, 1);
   assert.match(client, /method: "GET"/);
   assert.equal((route.match(/writeSupabaseAdminReturning/g) ?? []).length, 2);
-  assert.match(route, /rpc\/apply_matchday_editorial_profile_workspace_v5/);
+  assert.match(route, /rpc\/apply_matchday_editorial_profile_workspace_v6/);
   assert.match(route, /expectedStateToken|p_expected_state_token/);
   assert.match(route, /thematic_zone_order: pageControls\.thematicZoneOrder/);
 });

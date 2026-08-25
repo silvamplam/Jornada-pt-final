@@ -105,6 +105,18 @@ export type PublicMatchdayThematicDependencies = Readonly<{
   fetchTable?: PublicMatchdayThematicTableFetcher;
 }>;
 
+export function publicThematicVideoHighlightModuleIsVisible({
+  active,
+  hasPublishedHighlight,
+  hasPublishedVideo,
+}: Readonly<{
+  active: boolean;
+  hasPublishedHighlight: boolean;
+  hasPublishedVideo: boolean;
+}>): boolean {
+  return active && hasPublishedVideo && hasPublishedHighlight;
+}
+
 function cleanText(
   value: string | null | undefined,
 ): string | null {

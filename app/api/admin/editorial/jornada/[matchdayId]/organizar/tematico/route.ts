@@ -76,6 +76,12 @@ type EditorialSelectionLiveRow =
     link_url: string | null;
   }>;
 
+type VideoModuleInput = Readonly<{
+  active: boolean;
+  highlightAction: "preserve" | "remove" | "replace";
+  highlightBankItemId: string | null;
+}>;
+
 function apiError(error: string, message: string, status: number) {
   return NextResponse.json<ApiError>({ ok: false, error, message }, { status });
 }
@@ -90,8 +96,63 @@ function databaseMessage(error: unknown): string {
   }
 }
 
+function validateVideoModuleInput(value: unknown): VideoModuleInput {
+  if (
+    typeof value !== "object"
+    || value === null
+    || Array.isArray(value)
+  ) {
+    throw new Error("profile-workspace-v6-invalid-video-module");
+  }
+
+  const input = value as Record<string, unknown>;
+  const keys = Object.keys(input).sort().join(",");
+
+  if (
+    keys !== "active,highlightAction,highlightBankItemId"
+    || typeof input.active !== "boolean"
+    || (
+      input.highlightAction !== "preserve"
+      && input.highlightAction !== "remove"
+      && input.highlightAction !== "replace"
+    )
+    || (
+      input.highlightBankItemId !== null
+      && (
+        typeof input.highlightBankItemId !== "string"
+        || !UUID_PATTERN.test(input.highlightBankItemId.trim())
+      )
+    )
+    || (
+      input.highlightAction === "replace"
+      ? input.highlightBankItemId === null
+      : input.highlightBankItemId !== null
+    )
+  ) {
+    throw new Error("profile-workspace-v6-invalid-video-module");
+  }
+
+  return {
+    active: input.active,
+    highlightAction: input.highlightAction,
+    highlightBankItemId:
+      typeof input.highlightBankItemId === "string"
+        ? input.highlightBankItemId.trim().toLowerCase()
+        : null,
+  };
+}
+
 function mutationErrorResponse(error: unknown) {
   const message = databaseMessage(error);
+  if (message.includes("profile-workspace-v6-video-required")) {
+    return apiError("thematic-video-required", "Associe pelo menos um resumo publicado antes de ativar o módulo Vídeo + Destaque.", 409);
+  }
+  if (message.includes("profile-workspace-v6-highlight-required")) {
+    return apiError("thematic-highlight-required", "Defina e publique o Destaque da Jornada antes de ativar o módulo Vídeo + Destaque.", 409);
+  }
+  if (message.includes("profile-workspace-v6-highlight-source-not-found")) {
+    return apiError("thematic-highlight-source-changed", "A fonte escolhida para o Destaque deixou de estar disponível. Recarregue a Mesa.", 409);
+  }
   if (message.endsWith("matchday-not-found") || message.endsWith("assignment-not-found")) {
     return apiError("thematic-desk-context-not-found", "A Jornada ou a atribuição temática já não existe.", 404);
   }
@@ -128,6 +189,7 @@ function mutationErrorResponse(error: unknown) {
     || message.includes("profile-workspace-v3-")
     || message.includes("profile-workspace-v4-")
     || message.includes("profile-workspace-v5-")
+    || message.includes("profile-workspace-v6-")
     || message.includes("profile-workspace-exclusive-")
   ) {
     return apiError("thematic-desk-invalid-reconcile", "A composição temática foi recusada integralmente.", 400);
@@ -351,6 +413,8 @@ export async function POST(
           || !UUID_PATTERN.test(value.trim())
         ),
     )
+    || typeof input.videoModule !== "object"
+    || input.videoModule === null
   ) {
     return apiError("thematic-desk-invalid-payload", "Perfil, revisão, token e overrides completos são obrigatórios.", 400);
   }
@@ -363,6 +427,7 @@ export async function POST(
   let overrides;
   let opening;
   let pageControls;
+  let videoModule: VideoModuleInput;
 
   try {
     opening =
@@ -373,6 +438,11 @@ export async function POST(
     pageControls =
       validateMatchdayEditorialProfilePageControls(
         input.pageControls,
+      );
+
+    videoModule =
+      validateVideoModuleInput(
+        input.videoModule,
       );
 
     const effectiveProfile =
@@ -436,7 +506,7 @@ export async function POST(
       desk.currentFaixa,
     );
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_editorial_profile_workspace_v5",
+      "rpc/apply_matchday_editorial_profile_workspace_v6",
       {
         method: "POST",
         body: JSON.stringify({
@@ -476,6 +546,13 @@ export async function POST(
           },
           p_selection_bank_item_ids:
             input.selectionBankItemIds,
+          p_video_module: {
+            active: videoModule.active,
+            highlight_action:
+              videoModule.highlightAction,
+            highlight_bank_item_id:
+              videoModule.highlightBankItemId,
+          },
         }),
       },
     );

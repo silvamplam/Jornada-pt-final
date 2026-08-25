@@ -261,7 +261,7 @@ test("snapshot aplicado conserva layouts, ordem de blocos e revisão", async () 
   assert.deepEqual(
     result.pageControls
       .thematicBlockOrder,
-    blockOrder,
+    [...blockOrder, "video"],
   );
 
   assert.equal(

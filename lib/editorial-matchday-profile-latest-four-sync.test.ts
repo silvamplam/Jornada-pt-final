@@ -83,7 +83,7 @@ test(
   () => {
     assert.match(
       thematicRoute,
-      /apply_matchday_editorial_profile_workspace_v5/,
+      /apply_matchday_editorial_profile_workspace_v6/,
     );
 
     assert.match(
@@ -103,7 +103,7 @@ test(
 
     assert.match(
       thematicClient,
-      /\[Conteúdo\]/,
+      /Conteúdo editorial/,
     );
   },
 );

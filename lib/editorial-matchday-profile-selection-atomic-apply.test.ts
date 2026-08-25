@@ -70,7 +70,7 @@ test(
 
     assert.match(
       route,
-      /apply_matchday_editorial_profile_workspace_v5/,
+      /apply_matchday_editorial_profile_workspace_v6/,
     );
   },
 );

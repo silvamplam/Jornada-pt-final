@@ -141,7 +141,7 @@ test("Apply usa o workspace atómico atual e persiste thematic_zone_titles", () 
 
   assert.match(
     route,
-    /apply_matchday_editorial_profile_workspace_v5/,
+    /apply_matchday_editorial_profile_workspace_v6/,
   );
 
   assert.match(

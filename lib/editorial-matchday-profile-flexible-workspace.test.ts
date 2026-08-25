@@ -64,6 +64,7 @@ test(
         "fc_porto",
         "other_liga_clubs",
         "outside_liga_other",
+        "video",
       ],
     );
   },
@@ -99,6 +100,7 @@ test(
         "other_liga_clubs",
         "outside_liga_other",
         "latest",
+        "video",
       ],
     );
   },
@@ -130,6 +132,7 @@ test(
         "fc_porto",
         "other_liga_clubs",
         "outside_liga_other",
+        "video",
       ],
     );
 
@@ -176,6 +179,7 @@ test(
         "other_liga_clubs",
         "outside_liga_other",
         "latest",
+        "video",
       ],
     );
   },
@@ -248,7 +252,7 @@ test(
 
     assert.match(
       route,
-      /rpc\/apply_matchday_editorial_profile_workspace_v5/,
+      /rpc\/apply_matchday_editorial_profile_workspace_v6/,
     );
 
     assert.match(

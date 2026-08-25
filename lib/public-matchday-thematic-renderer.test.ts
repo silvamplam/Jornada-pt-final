@@ -54,7 +54,7 @@ test("sem assignment o percurso Legacy continua explícito", () => {
   );
 });
 
-test("assignment temático usa a ordem de seis blocos persistida", () => {
+test("assignment temático usa a ordem de sete blocos persistida", () => {
   assert.match(
     pageSource,
     /thematicSnapshot\.pageControls\.thematicBlockOrder\.map/,
@@ -63,6 +63,11 @@ test("assignment temático usa a ordem de seis blocos persistida", () => {
   assert.match(
     pageSource,
     /data-public-thematic-block="latest"/,
+  );
+
+  assert.match(
+    pageSource,
+    /block === "video"/,
   );
 
   assert.match(

@@ -1,7 +1,10 @@
 import { buildAccumulatedClassification, totalClassificationStats, type ClassificationSplit } from "@/lib/classification";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
-import { readPublicMatchdayThematicSnapshot } from "@/lib/public-matchday-thematic";
+import {
+  publicThematicVideoHighlightModuleIsVisible,
+  readPublicMatchdayThematicSnapshot,
+} from "@/lib/public-matchday-thematic";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
@@ -4839,6 +4842,22 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
 
       {thematicSnapshot
         ? thematicSnapshot.pageControls.thematicBlockOrder.map((block) => {
+            if (block === "video") {
+              if (
+                !publicThematicVideoHighlightModuleIsVisible({
+                  active: complementaryMode === "roundup_video",
+                  hasPublishedVideo:
+                    editorialVisibility.showRoundup,
+                  hasPublishedHighlight:
+                    hasPublishedComplementaryStory,
+                })
+              ) {
+                return null;
+              }
+
+              return renderLivePublicZone("video");
+            }
+
             if (block === "latest") {
               if (!showThematicLatestBlock) {
                 return null;

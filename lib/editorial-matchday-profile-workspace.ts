@@ -59,12 +59,20 @@ export const MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS =
 
 export type MatchdayEditorialProfileThematicBlockKey =
   | EditorialProfileZoneKey
-  | "latest";
+  | "latest"
+  | "video";
+
+const MATCHDAY_EDITORIAL_PROFILE_LEGACY_THEMATIC_BLOCK_ORDER_KEYS =
+  [
+    ...MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS,
+    "latest",
+  ] as const;
 
 export const MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS =
   [
     ...MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS,
     "latest",
+    "video",
   ] as readonly MatchdayEditorialProfileThematicBlockKey[];
 
 export type MatchdayEditorialProfileThematicZoneTitles = Readonly<
@@ -252,6 +260,7 @@ export function validateMatchdayEditorialProfilePageControls(
     thematicBlockOrder = [
       ...thematicZoneOrder,
       "latest",
+      "video",
     ];
   } else {
     const layouts = value.thematicZoneLayouts;
@@ -284,26 +293,45 @@ export function validateMatchdayEditorialProfilePageControls(
 
     const blocks = value.thematicBlockOrder;
 
-    if (
-      !Array.isArray(blocks)
-      || blocks.length
-        !== MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.length
-      || new Set(blocks).size
-        !== MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.length
-      || blocks.some((block) => (
-        typeof block !== "string"
-        || !MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.includes(
+    const isCurrentBlockOrder =
+      Array.isArray(blocks)
+      && blocks.length
+        === MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.length
+      && new Set(blocks).size
+        === MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.length
+      && blocks.every((block) => (
+        typeof block === "string"
+        && MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.includes(
           block as MatchdayEditorialProfileThematicBlockKey,
         )
-      ))
-    ) {
+      ));
+
+    const isLegacyBlockOrder =
+      Array.isArray(blocks)
+      && blocks.length
+        === MATCHDAY_EDITORIAL_PROFILE_LEGACY_THEMATIC_BLOCK_ORDER_KEYS.length
+      && new Set(blocks).size
+        === MATCHDAY_EDITORIAL_PROFILE_LEGACY_THEMATIC_BLOCK_ORDER_KEYS.length
+      && blocks.every((block) => (
+        typeof block === "string"
+        && MATCHDAY_EDITORIAL_PROFILE_LEGACY_THEMATIC_BLOCK_ORDER_KEYS.includes(
+          block as (typeof MATCHDAY_EDITORIAL_PROFILE_LEGACY_THEMATIC_BLOCK_ORDER_KEYS)[number],
+        )
+      ));
+
+    if (!isCurrentBlockOrder && !isLegacyBlockOrder) {
       throw new Error(
         "matchday-editorial-profile-page-controls-invalid-block-order",
       );
     }
 
     thematicBlockOrder =
-      [...blocks] as MatchdayEditorialProfileThematicBlockKey[];
+      isLegacyBlockOrder
+        ? [
+            ...blocks,
+            "video",
+          ] as MatchdayEditorialProfileThematicBlockKey[]
+        : [...blocks] as MatchdayEditorialProfileThematicBlockKey[];
 
     const derivedZoneOrder =
       matchdayEditorialProfileThematicZoneOrderFromBlockOrder(
@@ -487,27 +515,47 @@ export function normalizeMatchdayEditorialProfileThematicBlockOrder(
       thematicZoneOrder,
     );
 
-  if (
-    !Array.isArray(value)
-    || value.length
-      !== MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.length
-    || new Set(value).size
-      !== MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.length
-    || value.some((block) => (
-      typeof block !== "string"
-      || !MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.includes(
+  const isCurrentBlockOrder =
+    Array.isArray(value)
+    && value.length
+      === MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.length
+    && new Set(value).size
+      === MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.length
+    && value.every((block) => (
+      typeof block === "string"
+      && MATCHDAY_EDITORIAL_PROFILE_THEMATIC_BLOCK_ORDER_KEYS.includes(
         block as MatchdayEditorialProfileThematicBlockKey,
       )
-    ))
-  ) {
+    ));
+
+  const isLegacyBlockOrder =
+    Array.isArray(value)
+    && value.length
+      === MATCHDAY_EDITORIAL_PROFILE_LEGACY_THEMATIC_BLOCK_ORDER_KEYS.length
+    && new Set(value).size
+      === MATCHDAY_EDITORIAL_PROFILE_LEGACY_THEMATIC_BLOCK_ORDER_KEYS.length
+    && value.every((block) => (
+      typeof block === "string"
+      && MATCHDAY_EDITORIAL_PROFILE_LEGACY_THEMATIC_BLOCK_ORDER_KEYS.includes(
+        block as (typeof MATCHDAY_EDITORIAL_PROFILE_LEGACY_THEMATIC_BLOCK_ORDER_KEYS)[number],
+      )
+    ));
+
+  if (!isCurrentBlockOrder && !isLegacyBlockOrder) {
     return [
       ...zoneOrder,
       "latest",
+      "video",
     ];
   }
 
   const normalized =
-    [...value] as MatchdayEditorialProfileThematicBlockKey[];
+    isLegacyBlockOrder
+      ? [
+          ...value,
+          "video",
+        ] as MatchdayEditorialProfileThematicBlockKey[]
+      : [...value] as MatchdayEditorialProfileThematicBlockKey[];
 
   if (
     JSON.stringify(
@@ -519,6 +567,7 @@ export function normalizeMatchdayEditorialProfileThematicBlockOrder(
     return [
       ...zoneOrder,
       "latest",
+      "video",
     ];
   }
 
@@ -532,7 +581,7 @@ export function matchdayEditorialProfileThematicZoneOrderFromBlockOrder(
     (
       block,
     ): block is EditorialProfileZoneKey =>
-      block !== "latest",
+      block !== "latest" && block !== "video",
   );
 }
 
@@ -582,6 +631,7 @@ export function moveMatchdayEditorialProfileThematicBlock(
               candidate,
             ): candidate is EditorialProfileZoneKey =>
               candidate !== "latest"
+              && candidate !== "video"
               && typeof candidate === "string"
               && MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS.includes(
                 candidate as EditorialProfileZoneKey,

@@ -125,7 +125,15 @@ function statusLabel(status: MatchVideoSummaryState["rows"][number]["status"]) {
   return "Por encontrar";
 }
 
-export default function MatchdayVideoSummarySync({ matchdayId }: { matchdayId: string }) {
+export default function MatchdayVideoSummarySync({
+  matchdayId,
+  onStateChange,
+  reloadOnMutation = true,
+}: {
+  matchdayId: string;
+  onStateChange?: (state: MatchVideoSummaryState) => void;
+  reloadOnMutation?: boolean;
+}) {
   const [state, setState] = useState<MatchVideoSummaryState | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -142,11 +150,12 @@ export default function MatchdayVideoSummarySync({ matchdayId }: { matchdayId: s
         return;
       }
       setState(result.state);
+      onStateChange?.(result.state);
       setError("");
     } catch {
       setError("Não foi possível contactar a sincronização dos resumos.");
     }
-  }, [endpoint]);
+  }, [endpoint, onStateChange]);
 
   useEffect(() => {
     void loadState();
@@ -171,9 +180,10 @@ export default function MatchdayVideoSummarySync({ matchdayId }: { matchdayId: s
         return;
       }
       setState(result.state);
+      onStateChange?.(result.state);
       setMessage(result.state.message ?? (action === "sync" ? "Sincronização concluída." : "Estado atualizado."));
-      if (action === "confirm") window.location.reload();
-      if (action === "sync" && result.state.associatedCount > (state?.associatedCount ?? 0)) window.location.reload();
+      if (reloadOnMutation && action === "confirm") window.location.reload();
+      if (reloadOnMutation && action === "sync" && result.state.associatedCount > (state?.associatedCount ?? 0)) window.location.reload();
     } catch {
       setError("Não foi possível contactar a sincronização dos resumos.");
       setMessage("");

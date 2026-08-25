@@ -4,6 +4,8 @@ import Image, { type ImageLoaderProps } from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 
+import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
+
 import {
   EDITORIAL_PROFILES,
   EDITORIAL_VISUAL_FAMILIES,
@@ -16,6 +18,11 @@ import type {
   MatchdayEditorialProfileDeskDiagnostic,
   MatchdayEditorialProfileDeskSnapshot,
 } from "@/lib/editorial-matchday-profile-desk";
+import {
+  matchdayEditorialProfileDeskViewStorageKey,
+  parseMatchdayEditorialProfileDeskViewPreference,
+  type MatchdayEditorialProfileDeskView,
+} from "@/lib/editorial-matchday-profile-desk-view";
 import {
   fixMatchdayEditorialItemsAtPosition,
   moveMatchdayEditorialItemsToBank,
@@ -42,6 +49,16 @@ import {
   type MatchdayEditorialProfileOpeningSlotKey,
   type MatchdayEditorialProfilePageControls,
 } from "@/lib/editorial-matchday-profile-workspace";
+import {
+  MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS,
+  matchdayEditorialProfileSelectionBankItemByIdentity,
+  parseMatchdayEditorialProfileSelectionDrag,
+  promoteMatchdayEditorialProfileSelection,
+  removeMatchdayEditorialProfileSelection,
+  serializeMatchdayEditorialProfileSelectionDrag,
+  type MatchdayEditorialProfileSelectionPosition,
+} from "@/lib/editorial-matchday-profile-selection";
+import type { MatchVideoSummaryState } from "@/lib/match-video-summary-types";
 
 type EditorialSelectionCandidate =
   Readonly<{
@@ -78,6 +95,16 @@ type EditorialSelectionResponse =
     items?: readonly EditorialSelectionItem[];
   }>;
 
+type VideoHighlightDraft = Readonly<{
+  action: "preserve" | "remove" | "replace";
+  bankItemId: string | null;
+}>;
+
+type VideoModuleDraft = Readonly<{
+  active: boolean;
+  highlight: VideoHighlightDraft;
+}>;
+
 const FAIXA_INITIAL_VISIBLE = 10;
 const FAIXA_PAGE_SIZE = 10;
 
@@ -99,6 +126,7 @@ const styles = `
   .thematic-hero a { padding: 6px 9px; border: 1px solid rgba(255,255,255,.25); border-radius: 5px; color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; }
   .thematic-panel { border: 1px solid #d7e0e9; border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(12,22,34,.035); }
   .thematic-opening-panel { position: sticky; top: 8px; z-index: 18; align-self: start; }
+  .thematic-opening-panel.thematic-opening-panel-static { position: static; }
   .thematic-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 9px 10px; }
   .thematic-panel-head h2, .thematic-panel-head p { margin: 0; }
   .thematic-panel-head h2 { font-size: 15px; }
@@ -109,14 +137,29 @@ const styles = `
   .thematic-layout-picker select { min-height: 27px; padding: 3px 5px; border: 1px solid #c8d3df; border-radius: 4px; background: #fff; color: #172331; font-size: 9px; font-weight: 800; text-transform: none; }
   .thematic-public-title { display: grid; gap: 3px; margin-top: 7px; max-width: 340px; color: #657487; font-size: 8px; font-weight: 900; text-transform: uppercase; }
   .thematic-public-title input { width: 100%; min-height: 28px; padding: 4px 7px; border: 1px solid #c8d3df; border-radius: 4px; background: #fff; color: #172331; font-size: 10px; font-weight: 700; text-transform: none; }
-  .thematic-latest-block { border-style: dashed; }
   .thematic-latest-body { display: grid; gap: 5px; padding: 0 10px 10px; color: #657487; font-size: 9px; line-height: 1.35; }
   .thematic-latest-body strong { color: #172331; }
-  .thematic-editorial-selection { display: grid; gap: 6px; margin-top: 4px; }
-  .thematic-editorial-selection .thematic-field { padding: 6px; border: 1px solid #e0e7ef; border-radius: 5px; background: #f8fafc; }
-  .thematic-editorial-selection select { width: 100%; min-height: 31px; padding: 5px 7px; border: 1px solid #c8d3df; border-radius: 5px; background: #fff; color: #111820; font-size: 9px; }
-  .thematic-editorial-selection small { color: #657487; font-size: 8px; font-weight: 700; text-transform: none; }
+  .thematic-editorial-selection { display: grid; gap: 4px; padding: 0 7px 7px; }
+  .thematic-selection-head-tools { display: grid; justify-items: end; gap: 5px; }
+  .thematic-selection-pin { display: inline-flex; align-items: center; gap: 5px; min-height: 22px; color: #344457; font-size: 9px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  .thematic-selection-pin input { width: 13px; height: 13px; margin: 0; accent-color: #e43e48; cursor: pointer; }
+  .thematic-selection-dock { position: sticky; top: 8px; z-index: 18; min-width: 0; align-self: start; }
+  .thematic-selection-dock .thematic-panel-head { align-items: center; padding: 6px 8px; }
+  .thematic-selection-dock .thematic-editorial-selection { grid-template-columns: repeat(4,minmax(0,1fr)); padding: 0 6px 6px; }
+  .thematic-selection-dock .thematic-selection-slot { padding: 3px; }
+  .thematic-selection-slot[data-drag-active="true"] { border-color: #e43e48; background: #fff2f3; }
+  .thematic-card.thematic-selection-card { width: 100%; grid-template-columns: 50px minmax(0,1fr) 24px; }
+  .thematic-selection-card .thematic-card-copy small { overflow: hidden; color: #657487; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
   .thematic-controls summary, .thematic-movements summary { padding: 9px 10px; cursor: pointer; font-size: 11px; font-weight: 900; }
+  .thematic-video-module summary { padding: 9px 10px; cursor: pointer; font-size: 11px; font-weight: 900; }
+  .thematic-video-module-body { display: grid; grid-template-columns: minmax(180px,.55fr) minmax(260px,.8fr) minmax(420px,1.65fr); gap: 8px; padding: 0 10px 10px; }
+  .thematic-video-module-section { display: grid; align-content: start; gap: 6px; min-width: 0; padding: 8px; border: 1px solid #e0e7ef; border-radius: 6px; background: #f8fafc; }
+  .thematic-video-module-section h3, .thematic-video-module-section p { margin: 0; }
+  .thematic-video-module-section h3 { font-size: 11px; }
+  .thematic-video-module-section p { color: #657487; font-size: 9px; line-height: 1.35; }
+  .thematic-video-highlight-current { padding: 6px; border: 1px solid #d8e0e9; border-radius: 5px; background: #fff; }
+  .thematic-video-highlight-current strong { display: block; margin-top: 2px; font-size: 10px; }
+  .thematic-video-module .video-summary-sync { margin: 0; padding: 0; border: 0; background: transparent; }
   .thematic-controls-grid { display: grid; grid-template-columns: minmax(180px,.65fr) minmax(190px,.75fr) minmax(360px,1.6fr); gap: 8px; padding: 0 10px 10px; }
   .thematic-control { display: grid; align-content: start; gap: 6px; padding: 8px; border: 1px solid #e0e7ef; border-radius: 6px; background: #f8fafc; }
   .thematic-control h3 { margin: 0; font-size: 11px; }
@@ -237,8 +280,9 @@ const styles = `
   .thematic-pending-copy { display: grid; gap: 1px; margin-right: auto; }
   .thematic-pending-copy strong { font-size: 11px; }
   .thematic-pending-copy span { color: #667588; font-size: 8px; }
-  @media (max-width: 1250px) { .thematic-opening-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } .thematic-zones { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-controls-grid { grid-template-columns: 1fr 1fr; } .thematic-control.order { grid-column: 1 / -1; } }
-  @media (max-width: 820px) { .thematic-opening-panel { position: static; } .thematic-shell { padding: 7px 7px 102px; } .thematic-hero { align-items: flex-start; flex-direction: column; } .thematic-opening-grid, .thematic-zones, .thematic-controls-grid { grid-template-columns: 1fr; } .thematic-desk-view { align-items: stretch; flex-direction: column; } .thematic-desk-view .thematic-field { min-width: 0; } .thematic-control.order { grid-column: auto; } .thematic-faixa-grid, .thematic-faixa-batch { grid-template-columns: 1fr; } .thematic-pending { flex-wrap: wrap; } .thematic-pending-copy { flex: 1 1 100%; } }
+  @media (max-width: 1250px) { .thematic-opening-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } .thematic-zones { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-controls-grid, .thematic-video-module-body { grid-template-columns: 1fr 1fr; } .thematic-control.order, .thematic-video-module-section:last-child { grid-column: 1 / -1; } .thematic-selection-dock .thematic-editorial-selection { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+  @media (max-width: 820px) { .thematic-opening-panel { position: static; } .thematic-shell { padding: 7px 7px 102px; } .thematic-hero { align-items: flex-start; flex-direction: column; } .thematic-opening-grid, .thematic-zones, .thematic-controls-grid, .thematic-video-module-body { grid-template-columns: 1fr; } .thematic-desk-view { align-items: stretch; flex-direction: column; } .thematic-desk-view .thematic-field { min-width: 0; } .thematic-control.order, .thematic-video-module-section:last-child { grid-column: auto; } .thematic-faixa-grid, .thematic-faixa-batch { grid-template-columns: 1fr; } .thematic-pending { flex-wrap: wrap; } .thematic-pending-copy { flex: 1 1 100%; } }
+  @media (max-width: 520px) { .thematic-selection-dock .thematic-editorial-selection { grid-template-columns: minmax(0,1fr); } }
 `;
 
 const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
@@ -254,6 +298,8 @@ type WorkspaceEditorState = Readonly<{
   draftOpening: MatchdayEditorialProfileOpening;
   persistedPageControls: MatchdayEditorialProfilePageControls;
   draftPageControls: MatchdayEditorialProfilePageControls;
+  persistedVideoModuleActive: boolean;
+  draftVideoModule: VideoModuleDraft;
   selectedIdentities: readonly string[];
 }>;
 
@@ -262,6 +308,7 @@ type WorkspaceDraft = Readonly<{
   opening: MatchdayEditorialProfileOpening;
   pageControls: MatchdayEditorialProfilePageControls;
   editorialSelection: readonly (string | null)[];
+  videoModule: VideoModuleDraft;
 }>;
 
 type Placement = Readonly<{
@@ -375,6 +422,116 @@ function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStar
   );
 }
 
+function EditorialSelectionCard({
+  candidate,
+  dragging,
+  onDragEnd,
+  onDragStart,
+  onRemove,
+  position,
+}: Readonly<{
+  candidate: EditorialSelectionCandidate;
+  dragging: boolean;
+  onDragEnd: () => void;
+  onDragStart: (event: DragEvent<HTMLElement>) => void;
+  onRemove: () => void;
+  position: MatchdayEditorialProfileSelectionPosition;
+}>) {
+  return (
+    <article
+      aria-grabbed={dragging}
+      className="thematic-card thematic-selection-card"
+      draggable
+      onDragEnd={onDragEnd}
+      onDragStart={(event) => {
+        const target = event.target as HTMLElement;
+
+        if (target.closest("button,summary,details")) {
+          event.preventDefault();
+          return;
+        }
+
+        onDragStart(event);
+      }}
+    >
+      {renderableImageUrl(candidate.imageUrl) ? (
+        <Image
+          alt=""
+          className="thematic-image"
+          height={40}
+          loader={imageLoader}
+          loading="lazy"
+          src={candidate.imageUrl}
+          unoptimized
+          width={50}
+        />
+      ) : (
+        <span aria-hidden="true" className="thematic-image-placeholder" />
+      )}
+
+      <div className="thematic-card-copy">
+        <div className="thematic-card-top">
+          {candidate.label ? (
+            <span className="thematic-card-label">{candidate.label}</span>
+          ) : null}
+          <span className="thematic-manual">manual · independente</span>
+        </div>
+        <strong className="thematic-card-title">{candidate.title}</strong>
+        <small>
+          {candidate.sourceType === "editorial_content"
+            ? "Conteúdo editorial"
+            : "Artigo editorial"}
+          {candidate.subtitle ? ` · ${candidate.subtitle}` : ""}
+        </small>
+      </div>
+
+      <details
+        className="thematic-card-menu"
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            event.currentTarget.open = false;
+          }
+        }}
+        onClick={(event) => event.stopPropagation()}
+        onMouseLeave={(event) => {
+          const details = event.currentTarget;
+
+          window.setTimeout(() => {
+            if (
+              !details.matches(":hover")
+              && !details.contains(document.activeElement)
+            ) {
+              details.open = false;
+            }
+          }, 220);
+        }}
+      >
+        <summary aria-label={`Ações da Seleção ${position}: ${candidate.title}`}>
+          ···
+        </summary>
+        <div
+          className="thematic-card-actions"
+          onClick={(event) => {
+            const details = event.currentTarget.closest("details");
+
+            if (details instanceof HTMLDetailsElement) {
+              details.open = false;
+            }
+          }}
+        >
+          <button
+            className="thematic-button"
+            onClick={onRemove}
+            type="button"
+          >
+            Retirar da Seleção
+          </button>
+        </div>
+      </details>
+    </article>
+  );
+}
+
 function Diagnostics({ diagnostics }: Readonly<{ diagnostics: readonly MatchdayEditorialProfileDeskDiagnostic[] }>) {
   if (diagnostics.length === 0) return null;
   return (
@@ -405,12 +562,24 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     draftOpening: desk.opening,
     persistedPageControls: desk.pageControls,
     draftPageControls: desk.pageControls,
+    persistedVideoModuleActive: desk.videoModule.active,
+    draftVideoModule: {
+      active: desk.videoModule.active,
+      highlight: {
+        action: "preserve",
+        bankItemId: null,
+      },
+    },
     selectedIdentities: [],
   }));
   const [history, setHistory] = useState<readonly WorkspaceDraft[]>([]);
   const [draggingIdentity, setDraggingIdentity] = useState<string | null>(null);
-  const [deskView, setDeskView] = useState<"full" | "focus">("focus");
+  const [draggingEditorialSelectionPosition, setDraggingEditorialSelectionPosition] =
+    useState<MatchdayEditorialProfileSelectionPosition | null>(null);
+  const [selectionPinnedForDrag, setSelectionPinnedForDrag] = useState(false);
+  const [deskView, setDeskView] = useState<MatchdayEditorialProfileDeskView>("focus");
   const [focusZone, setFocusZone] = useState<EditorialProfileZoneKey>(profile.zones[0].key);
+  const [deskViewPreferenceReady, setDeskViewPreferenceReady] = useState(false);
   const [destinationZone, setDestinationZone] = useState<EditorialProfileZoneKey>(profile.zones[0].key);
   const [startPosition, setStartPosition] = useState(1);
   const [faixaPosition, setFaixaPosition] = useState(1);
@@ -422,6 +591,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   const [bankQuery, setBankQuery] = useState("");
   const [applyState, setApplyState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [videoSummaryState, setVideoSummaryState] = useState<MatchVideoSummaryState | null>(null);
   const [
     editorialSelectionCandidates,
     setEditorialSelectionCandidates,
@@ -445,11 +615,60 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     message: string;
   }> | null>(null);
 
+  const deskViewStorageKey =
+    matchdayEditorialProfileDeskViewStorageKey(
+      desk.matchdayId,
+      desk.profileKey,
+    );
+
+  useEffect(() => {
+    let storedPreference: string | null = null;
+
+    try {
+      storedPreference =
+        window.sessionStorage.getItem(deskViewStorageKey);
+    } catch {
+      storedPreference = null;
+    }
+
+    const preference =
+      parseMatchdayEditorialProfileDeskViewPreference(
+        storedPreference,
+        profile.zones.map((zone) => zone.key),
+      );
+
+    if (preference) {
+      setDeskView(preference.view);
+      setFocusZone(preference.focusZone as EditorialProfileZoneKey);
+    }
+
+    setDeskViewPreferenceReady(true);
+  }, [deskViewStorageKey, profile]);
+
+  function persistDeskViewPreference(
+    view: MatchdayEditorialProfileDeskView,
+    zoneKey: EditorialProfileZoneKey,
+  ) {
+    try {
+      window.sessionStorage.setItem(
+        deskViewStorageKey,
+        JSON.stringify({
+          view,
+          focusZone: zoneKey,
+        }),
+      );
+    } catch {
+      // A preferência de UI é best-effort e nunca bloqueia a Mesa.
+    }
+  }
+
   function alignFocusWorkspace() {
     window.requestAnimationFrame(() => {
       const opening =
         document.querySelector<HTMLElement>(
-          ".thematic-opening-panel",
+          selectionPinnedForDrag
+            ? ".thematic-selection-dock"
+            : ".thematic-opening-panel",
         );
       const focus =
         document.querySelector<HTMLElement>(
@@ -483,12 +702,12 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   }
 
   useEffect(() => {
-    if (deskView !== "focus") {
+    if (!deskViewPreferenceReady || deskView !== "focus") {
       return;
     }
 
     alignFocusWorkspace();
-  }, [deskView, focusZone]);
+  }, [deskView, deskViewPreferenceReady, focusZone, selectionPinnedForDrag]);
 
   async function loadEditorialSelection() {
     try {
@@ -542,22 +761,14 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   }
 
   function changeEditorialSelection(
-    position: number,
+    position: MatchdayEditorialProfileSelectionPosition,
     bankItemId: string,
   ) {
     const nextSelection =
-      draftEditorialSelection.map(
-        (value, index) => {
-          if (index === position - 1) {
-            return bankItemId || null;
-          }
-
-          if (bankItemId && value === bankItemId) {
-            return null;
-          }
-
-          return value;
-        },
+      promoteMatchdayEditorialProfileSelection(
+        draftEditorialSelection,
+        position,
+        bankItemId,
       );
 
     commitDraft(
@@ -566,6 +777,109 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
         editorialSelection: nextSelection,
       },
       "Seleção editorial alterada em preview. Clique em Aplicar para publicar a alteração.",
+    );
+  }
+
+  function removeEditorialSelection(
+    position: MatchdayEditorialProfileSelectionPosition,
+  ) {
+    commitDraft(
+      {
+        ...currentDraft(),
+        editorialSelection:
+          removeMatchdayEditorialProfileSelection(
+            draftEditorialSelection,
+            position,
+          ),
+      },
+      "Promoção retirada da Seleção; a colocação original foi preservada.",
+    );
+  }
+
+  function dropOnEditorialSelection(
+    event: DragEvent<HTMLElement>,
+    position: MatchdayEditorialProfileSelectionPosition,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const selectionDrag =
+      parseMatchdayEditorialProfileSelectionDrag(
+        event.dataTransfer.getData("text/plain"),
+      );
+
+    if (selectionDrag) {
+      changeEditorialSelection(
+        position,
+        selectionDrag.bankItemId,
+      );
+      setDraggingEditorialSelectionPosition(null);
+      return;
+    }
+
+    const itemIdentity = dragged(event);
+    const bankItemId = itemIdentity
+      ? bankItemIdByIdentity.get(itemIdentity) ?? null
+      : null;
+
+    if (!bankItemId) {
+      setApplyState("error");
+      setMessage(
+        "A notícia já não tem uma identidade canónica disponível para a Seleção.",
+      );
+      setDraggingIdentity(null);
+      return;
+    }
+
+    changeEditorialSelection(position, bankItemId);
+    setDraggingIdentity(null);
+  }
+
+  function changeVideoModuleActive(active: boolean) {
+    commitDraft(
+      {
+        ...currentDraft(),
+        videoModule: {
+          ...editorState.draftVideoModule,
+          active,
+        },
+      },
+      active
+        ? "Módulo Vídeo + Destaque ativado em preview."
+        : "Módulo Vídeo + Destaque desativado em preview; o conteúdo foi preservado.",
+    );
+  }
+
+  function changeVideoHighlight(value: string) {
+    const highlight: VideoHighlightDraft =
+      value === "remove"
+        ? {
+            action: "remove",
+            bankItemId: null,
+          }
+        : value.startsWith("replace:")
+          ? {
+              action: "replace",
+              bankItemId: value.slice("replace:".length),
+            }
+          : {
+              action: "preserve",
+              bankItemId: null,
+            };
+
+    commitDraft(
+      {
+        ...currentDraft(),
+        videoModule: {
+          ...editorState.draftVideoModule,
+          highlight,
+        },
+      },
+      highlight.action === "preserve"
+        ? "O Destaque atual será preservado no Apply."
+        : highlight.action === "remove"
+          ? "Remoção explícita do Destaque preparada em preview."
+          : "Substituição do Destaque preparada em preview.",
     );
   }
 
@@ -582,6 +896,10 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
       }, desk.manualOverrides, desk.automaticDistribution.activeItems);
       const openingDirty = !sameJson(current.persistedOpening, current.draftOpening);
       const controlsDirty = !sameJson(current.persistedPageControls, current.draftPageControls);
+      const videoModuleDirty =
+        current.draftVideoModule.active
+          !== current.persistedVideoModuleActive
+        || current.draftVideoModule.highlight.action !== "preserve";
       const draftOpening = openingDirty ? current.draftOpening : desk.opening;
       return {
         persistedOverrides: reconciledOverrides.persistedOverrides,
@@ -590,6 +908,16 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
         draftOpening,
         persistedPageControls: desk.pageControls,
         draftPageControls: controlsDirty ? current.draftPageControls : desk.pageControls,
+        persistedVideoModuleActive: desk.videoModule.active,
+        draftVideoModule: videoModuleDirty
+          ? current.draftVideoModule
+          : {
+              active: desk.videoModule.active,
+              highlight: {
+                action: "preserve",
+                bankItemId: null,
+              },
+            },
         selectedIdentities: reconciledOverrides.selectedIdentities,
       };
     });
@@ -598,6 +926,21 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   const activeItems = desk.automaticDistribution.activeItems;
   const activeByIdentity = useMemo(() => new Map(activeItems.map((item) => [identity(item), item] as const)), [activeItems]);
   const activeIdentities = useMemo(() => new Set(activeByIdentity.keys()), [activeByIdentity]);
+  const bankItemIdByIdentity = useMemo(
+    () =>
+      matchdayEditorialProfileSelectionBankItemByIdentity(
+        editorialSelectionCandidates,
+      ),
+    [editorialSelectionCandidates],
+  );
+  const editorialSelectionCandidateById = useMemo(
+    () => new Map(
+      editorialSelectionCandidates.map(
+        (candidate) => [candidate.bankItemId, candidate] as const,
+      ),
+    ),
+    [editorialSelectionCandidates],
+  );
   const effectiveProfile = useMemo(() => editorialProfileWithZoneLayouts(
     profile,
     editorState.draftPageControls.thematicZoneLayouts,
@@ -629,6 +972,9 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     || !sameJson(operationalOverrides, persistedOperationalOverrides)
     || !sameJson(editorState.draftOpening, editorState.persistedOpening)
     || !sameJson(editorState.draftPageControls, editorState.persistedPageControls)
+    || editorState.draftVideoModule.active
+      !== editorState.persistedVideoModuleActive
+    || editorState.draftVideoModule.highlight.action !== "preserve"
     || !sameJson(draftEditorialSelection, persistedEditorialSelection);
   const zoneByKey = new Map(
     reconcile.zonesAfter.map(
@@ -693,6 +1039,39 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   const visibleBank = normalizedBankQuery
     ? reconcile.bankAfter.filter((item) => [item.label, item.title, item.subtitle].some((value) => value?.toLocaleLowerCase("pt-PT").includes(normalizedBankQuery)))
     : reconcile.bankAfter;
+  const currentVideoHighlightDefined =
+    desk.videoModule.highlight.isPublished
+    && Boolean(
+      desk.videoModule.highlight.title
+      || desk.videoModule.highlight.text
+      || desk.videoModule.highlight.imageUrl
+      || desk.videoModule.highlight.linkUrl
+    );
+  const draftVideoHighlightCandidate =
+    editorState.draftVideoModule.highlight.action === "replace"
+    && editorState.draftVideoModule.highlight.bankItemId
+      ? editorialSelectionCandidates.find(
+          (candidate) =>
+            candidate.bankItemId
+            === editorState.draftVideoModule.highlight.bankItemId,
+        ) ?? null
+      : null;
+  const draftVideoHighlightDefined =
+    editorState.draftVideoModule.highlight.action === "remove"
+      ? false
+      : editorState.draftVideoModule.highlight.action === "replace"
+        ? draftVideoHighlightCandidate !== null
+        : currentVideoHighlightDefined;
+  const videoModuleSummary = [
+    "Vídeo + Destaque",
+    editorState.draftVideoModule.active ? "Ativo" : "Inativo",
+    videoSummaryState
+      ? `${videoSummaryState.associatedCount}/${videoSummaryState.totalGames} vídeos`
+      : "vídeos a carregar",
+    draftVideoHighlightDefined
+      ? "Destaque definido"
+      : "Destaque por definir",
+  ].join(" · ");
 
   function currentDraft(): WorkspaceDraft {
     return {
@@ -700,6 +1079,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
       opening: editorState.draftOpening,
       pageControls: editorState.draftPageControls,
       editorialSelection: draftEditorialSelection,
+      videoModule: editorState.draftVideoModule,
     };
   }
 
@@ -710,6 +1090,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
       draftOverrides: next.overrides,
       draftOpening: next.opening,
       draftPageControls: next.pageControls,
+      draftVideoModule: next.videoModule,
       selectedIdentities: [],
     }));
     setDraftEditorialSelection(next.editorialSelection);
@@ -987,7 +1368,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   function dragStart(event: DragEvent<HTMLElement>, itemIdentity: string) {
     const target = event.target as HTMLElement;
     if (target.closest("button,input,summary,details")) { event.preventDefault(); return; }
-    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.effectAllowed = "copyMove";
     event.dataTransfer.setData("text/plain", itemIdentity);
     setDraggingIdentity(itemIdentity);
   }
@@ -1005,6 +1386,7 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
       draftOverrides: previous.overrides,
       draftOpening: previous.opening,
       draftPageControls: previous.pageControls,
+      draftVideoModule: previous.videoModule,
       selectedIdentities: [],
     }));
     setDraftEditorialSelection(previous.editorialSelection);
@@ -1016,7 +1398,20 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
   function resetLocal() {
     if (!pending) return;
     setHistory((current) => [...current, currentDraft()]);
-    setEditorState((current) => ({ ...current, draftOverrides: persistedOperationalOverrides, draftOpening: current.persistedOpening, draftPageControls: current.persistedPageControls, selectedIdentities: [] }));
+    setEditorState((current) => ({
+      ...current,
+      draftOverrides: persistedOperationalOverrides,
+      draftOpening: current.persistedOpening,
+      draftPageControls: current.persistedPageControls,
+      draftVideoModule: {
+        active: current.persistedVideoModuleActive,
+        highlight: {
+          action: "preserve",
+          bankItemId: null,
+        },
+      },
+      selectedIdentities: [],
+    }));
     setDraftEditorialSelection(persistedEditorialSelection);
     setApplyState("idle");
     setMessage("Preview reposto para o último estado aplicado.");
@@ -1038,11 +1433,33 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
           opening: editorState.draftOpening,
           pageControls: editorState.draftPageControls,
           selectionBankItemIds: draftEditorialSelection,
+          videoModule: {
+            active: editorState.draftVideoModule.active,
+            highlightAction:
+              editorState.draftVideoModule.highlight.action,
+            highlightBankItemId:
+              editorState.draftVideoModule.highlight.bankItemId,
+          },
         }),
       });
       const payload = await response.json() as { ok?: boolean; message?: string };
       if (!response.ok || payload.ok !== true) throw new Error(payload.message ?? "O Apply temático foi recusado integralmente.");
-      setEditorState((current) => ({ ...current, persistedOverrides: operationalOverrides, draftOverrides: operationalOverrides, persistedOpening: current.draftOpening, persistedPageControls: current.draftPageControls, selectedIdentities: [] }));
+      setEditorState((current) => ({
+        ...current,
+        persistedOverrides: operationalOverrides,
+        draftOverrides: operationalOverrides,
+        persistedOpening: current.draftOpening,
+        persistedPageControls: current.draftPageControls,
+        persistedVideoModuleActive: current.draftVideoModule.active,
+        draftVideoModule: {
+          active: current.draftVideoModule.active,
+          highlight: {
+            action: "preserve",
+            bankItemId: null,
+          },
+        },
+        selectedIdentities: [],
+      }));
       setPersistedEditorialSelection(draftEditorialSelection);
       setHistory([]);
       setApplyState("saved");
@@ -1326,6 +1743,172 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
     );
   }
 
+  function renderEditorialSelectionPanel(compactPinned: boolean) {
+    const latestPlacement =
+      editorState.draftPageControls.latestZonePlacement;
+    const publicPosition =
+      (blockOrderIndex.get("latest") ?? 0) + 1;
+    const placementDescription = latestPlacement === "four_news"
+      ? "Seleção manual com Últimas cronológica no mesmo bloco público"
+      : latestPlacement === "top"
+        ? "Últimas está junto da Manchete; a Seleção fica preservada"
+        : "Últimas está oculta; a Seleção fica preservada";
+
+    return (
+      <article
+        className={`thematic-panel thematic-zone thematic-latest-block${compactPinned ? " thematic-selection-pinned" : ""}`}
+      >
+        <div className="thematic-panel-head">
+          <div>
+            <h2>Seleção editorial + Últimas</h2>
+            {!compactPinned ? (
+              <>
+                <p>{placementDescription}</p>
+
+                <label className="thematic-public-title">
+                  <span>Título público</span>
+                  <input
+                    aria-label="Título público de Últimas"
+                    disabled={applyState === "saving"}
+                    maxLength={120}
+                    onChange={(event) => {
+                      const value = event.target.value;
+
+                      setEditorState((current) => ({
+                        ...current,
+                        draftPageControls: {
+                          ...current.draftPageControls,
+                          latestZoneTitle: value,
+                        },
+                      }));
+
+                      setApplyState("idle");
+                    }}
+                    placeholder="Sem título público"
+                    type="text"
+                    value={
+                      editorState.draftPageControls.latestZoneTitle
+                    }
+                  />
+                </label>
+              </>
+            ) : null}
+          </div>
+
+          <div className="thematic-selection-head-tools">
+            <div className="thematic-meta">
+              <span>manual · independente</span>
+              <span>{latestPlacement}</span>
+              {!compactPinned ? (
+                <span>
+                  público · {String(publicPosition).padStart(2, "0")}
+                </span>
+              ) : null}
+            </div>
+
+            <label className="thematic-selection-pin">
+              <input
+                aria-label="Fixar Seleção editorial para arrastar"
+                checked={selectionPinnedForDrag}
+                onChange={(event) =>
+                  setSelectionPinnedForDrag(event.target.checked)
+                }
+                type="checkbox"
+              />
+              <span>Fixar para arrastar</span>
+            </label>
+          </div>
+        </div>
+
+        {!compactPinned ? (
+          <div className="thematic-latest-body">
+            <strong>
+              Últimas é automática · Seleção editorial é promoção manual independente
+            </strong>
+            <span>
+              Arrastar para estes slots cria apenas uma referência promocional.
+              Não alteram Abertura, zona temática, Faixa ou Banco.
+            </span>
+          </div>
+        ) : null}
+
+        <div
+          aria-label="Seleção editorial manual"
+          className="thematic-zone-list thematic-editorial-selection"
+        >
+          {MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS.map(
+            (position) => {
+              const bankItemId =
+                draftEditorialSelection[position - 1] ?? null;
+              const candidate = bankItemId
+                ? editorialSelectionCandidateById.get(bankItemId) ?? null
+                : null;
+
+              return (
+                <div
+                  aria-label={`Seleção editorial ${position}`}
+                  className="thematic-zone-slot thematic-selection-slot"
+                  data-drag-active={
+                    draggingIdentity !== null
+                    || draggingEditorialSelectionPosition !== null
+                  }
+                  key={position}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect =
+                      draggingEditorialSelectionPosition === null
+                        ? "copy"
+                        : "move";
+                  }}
+                  onDrop={(event) =>
+                    dropOnEditorialSelection(event, position)
+                  }
+                >
+                  <span className="thematic-position">
+                    {String(position).padStart(2, "0")}
+                  </span>
+
+                  {candidate ? (
+                    <EditorialSelectionCard
+                      candidate={candidate}
+                      dragging={
+                        draggingEditorialSelectionPosition === position
+                      }
+                      onDragEnd={() =>
+                        setDraggingEditorialSelectionPosition(null)
+                      }
+                      onDragStart={(event) => {
+                        event.stopPropagation();
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData(
+                          "text/plain",
+                          serializeMatchdayEditorialProfileSelectionDrag({
+                            bankItemId: candidate.bankItemId,
+                            sourcePosition: position,
+                          }),
+                        );
+                        setDraggingIdentity(null);
+                        setDraggingEditorialSelectionPosition(position);
+                      }}
+                      onRemove={() =>
+                        removeEditorialSelection(position)
+                      }
+                      position={position}
+                    />
+                  ) : (
+                    <p className="thematic-empty">
+                      Posição livre · largue um artigo
+                    </p>
+                  )}
+                </div>
+              );
+            },
+          )}
+        </div>
+      </article>
+    );
+  }
+
   return (
     <main className="thematic-shell">
       <style>{styles}</style>
@@ -1549,11 +2132,13 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
               <h3>Ordem dos blocos editoriais</h3>
               <div className="thematic-order">
                 {editorState.draftPageControls.thematicBlockOrder.map((block, index) => {
-                  const label = block === "latest"
-                    ? editorState.draftPageControls.latestZonePlacement === "four_news"
-                      ? "Seleção editorial + Últimas"
-                      : "Últimas"
-                    : profile.zones.find((candidate) => candidate.key === block)?.label ?? block;
+                  const label = block === "video"
+                    ? "A Jornada em Vídeo + Destaque da Jornada"
+                    : block === "latest"
+                      ? editorState.draftPageControls.latestZonePlacement === "four_news"
+                        ? "Seleção editorial + Últimas"
+                        : "Últimas"
+                      : profile.zones.find((candidate) => candidate.key === block)?.label ?? block;
 
                   return (
                     <div className="thematic-order-row" key={block}>
@@ -1571,7 +2156,112 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
           </div>
         </details>
 
-        <section className="thematic-panel thematic-opening-panel" aria-label="Abertura editorial manual">
+        <details
+          className="thematic-panel thematic-video-module"
+          data-collapsed-by-default="true"
+        >
+          <summary>{videoModuleSummary}</summary>
+          <div className="thematic-video-module-body">
+            <section className="thematic-video-module-section">
+              <h3>Estado</h3>
+              <label className="thematic-field">
+                Visibilidade pública
+                <select
+                  disabled={applyState === "saving"}
+                  onChange={(event) =>
+                    changeVideoModuleActive(
+                      event.target.value === "active",
+                    )
+                  }
+                  value={
+                    editorState.draftVideoModule.active
+                      ? "active"
+                      : "inactive"
+                  }
+                >
+                  <option value="active">Ativo</option>
+                  <option value="inactive">Inativo</option>
+                </select>
+              </label>
+              <p>
+                Desativar preserva todos os vídeos e o Destaque. A alteração
+                só é publicada no Apply da Mesa.
+              </p>
+            </section>
+
+            <section className="thematic-video-module-section">
+              <h3>Destaque da Jornada</h3>
+              <div className="thematic-video-highlight-current">
+                <span className="thematic-slot-label">Atualmente utilizado</span>
+                <strong>
+                  {desk.videoModule.highlight.title
+                    ?? (currentVideoHighlightDefined
+                      ? "Destaque publicado sem título"
+                      : "Sem Destaque publicado")}
+                </strong>
+                {desk.videoModule.highlight.text ? (
+                  <p>{desk.videoModule.highlight.text}</p>
+                ) : null}
+              </div>
+              <label className="thematic-field">
+                Decisão no próximo Apply
+                <select
+                  disabled={applyState === "saving"}
+                  onChange={(event) =>
+                    changeVideoHighlight(event.target.value)
+                  }
+                  value={
+                    editorState.draftVideoModule.highlight.action === "replace"
+                    && editorState.draftVideoModule.highlight.bankItemId
+                      ? `replace:${editorState.draftVideoModule.highlight.bankItemId}`
+                      : editorState.draftVideoModule.highlight.action
+                  }
+                >
+                  <option value="preserve">
+                    Preservar o Destaque atual
+                  </option>
+                  <option value="remove">
+                    Remover explicitamente o Destaque
+                  </option>
+                  {editorialSelectionCandidates.map((candidate) => (
+                    <option
+                      key={candidate.bankItemId}
+                      value={`replace:${candidate.bankItemId}`}
+                    >
+                      {candidate.sourceType === "editorial_content"
+                        ? "[Conteúdo] "
+                        : "[Artigo] "}
+                      {candidate.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {draftVideoHighlightCandidate ? (
+                <p>
+                  Novo Destaque em preview: {draftVideoHighlightCandidate.title}
+                </p>
+              ) : null}
+            </section>
+
+            <section className="thematic-video-module-section">
+              <h3>Resumos dos jogos</h3>
+              <p>
+                A procura e a confirmação preparam os dados técnicos; nunca
+                ativam automaticamente o módulo.
+              </p>
+              <MatchdayVideoSummarySync
+                matchdayId={desk.matchdayId}
+                onStateChange={setVideoSummaryState}
+                reloadOnMutation={false}
+              />
+            </section>
+          </div>
+        </details>
+
+        <section
+          aria-label="Abertura editorial manual"
+          className={`thematic-panel thematic-opening-panel${selectionPinnedForDrag ? " thematic-opening-panel-static" : ""}`}
+        >
           <div className="thematic-panel-head"><div><h2>Abertura</h2><p>100% manual · nenhuma vaga é preenchida ou promovida automaticamente</p></div><div className="thematic-meta"><span>colocação exclusiva</span><span>desalojado → automático</span></div></div>
           <div className="thematic-opening-grid">
             {MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.map((slot) => {
@@ -1586,6 +2276,16 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
             })}
           </div>
         </section>
+
+        {selectionPinnedForDrag ? (
+          <div
+            aria-label="Seleção editorial fixada para arrastar"
+            className="thematic-selection-dock"
+            data-selection-pinned="true"
+          >
+            {renderEditorialSelectionPanel(true)}
+          </div>
+        ) : null}
 
         <section
           aria-label="Vista de trabalho da Mesa"
@@ -1604,11 +2304,12 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
                 Trabalhar zona
                 <select
                   aria-label="Zona temática em foco"
-                  onChange={(event) =>
-                    setFocusZone(
-                      event.target.value as EditorialProfileZoneKey,
-                    )
-                  }
+                  onChange={(event) => {
+                    const zoneKey =
+                      event.target.value as EditorialProfileZoneKey;
+                    setFocusZone(zoneKey);
+                    persistDeskViewPreference("focus", zoneKey);
+                  }}
                   value={focusZone}
                 >
                   {profile.zones.map((zone) => {
@@ -1634,7 +2335,10 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
           >
             <button
               className={`thematic-button${deskView === "focus" ? " active" : ""}`}
-              onClick={() => setDeskView("focus")}
+              onClick={() => {
+                setDeskView("focus");
+                persistDeskViewPreference("focus", focusZone);
+              }}
               type="button"
             >
               Foco de zona
@@ -1642,7 +2346,10 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
 
             <button
               className={`thematic-button${deskView === "full" ? " active" : ""}`}
-              onClick={() => setDeskView("full")}
+              onClick={() => {
+                setDeskView("full");
+                persistDeskViewPreference("full", focusZone);
+              }}
               type="button"
             >
               Mesa completa
@@ -1658,196 +2365,6 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
           <div className="thematic-zone-column">
             {renderZonePanel("benfica")}
             {renderZonePanel("other_liga_clubs")}
-
-            <article
-              className="thematic-panel thematic-zone thematic-latest-block"
-            >
-              <div className="thematic-panel-head">
-                <div>
-                  <h2>
-                    {
-                      editorState.draftPageControls
-                        .latestZonePlacement === "four_news"
-                        ? "Seleção editorial + Últimas"
-                        : "Últimas"
-                    }
-                  </h2>
-
-                  <p>
-                    {
-                      editorState.draftPageControls
-                        .latestZonePlacement === "four_news"
-                        ? "Bloco ordenável · Seleção editorial manual independente da colocação temática e de Últimas"
-                        : editorState.draftPageControls
-                            .latestZonePlacement === "top"
-                          ? "Últimas está junto da Manchete · esta ordem fica guardada para o modo de 4 notícias"
-                          : "Últimas está oculta · esta ordem fica guardada para quando o bloco voltar a ser usado"
-                    }
-                  </p>
-                </div>
-
-                <div className="thematic-meta">
-                  <span>
-                    {
-                      editorState.draftPageControls
-                        .latestZonePlacement
-                    }
-                  </span>
-
-                  <span>
-                    público · {
-                      String(
-                        (blockOrderIndex.get("latest") ?? 0)
-                          + 1,
-                      ).padStart(2, "0")
-                    }
-                  </span>
-                </div>
-              </div>
-
-              <div className="thematic-latest-body">
-                <label className="thematic-public-title">
-                  <span>Título público</span>
-
-                  <input
-                    aria-label="Título público de Últimas"
-                    disabled={applyState === "saving"}
-                    maxLength={120}
-                    onChange={(event) => {
-                      const value = event.target.value;
-
-                      setEditorState((current) => ({
-                        ...current,
-                        draftPageControls: {
-                          ...current.draftPageControls,
-                          latestZoneTitle: value,
-                        },
-                      }));
-
-                      setApplyState("idle");
-                    }}
-                    placeholder="Sem título público"
-                    type="text"
-                    value={
-                      editorState.draftPageControls
-                        .latestZoneTitle
-                    }
-                  />
-                </label>
-                <strong>
-                  Últimas é automática · Seleção editorial é promoção manual independente
-                </strong>
-
-                <span>
-                  A lista de Últimas mantém a cronologia. Os quatro
-                  cartões ao lado são uma promoção independente para
-                  podcast, entrevista, reportagem, análise, vídeo
-                  ou outros conteúdos editoriais. Não alteram Abertura,
-                  zona temática, Faixa ou Banco.
-                </span>
-
-                {
-                  editorState.draftPageControls
-                    .latestZonePlacement === "four_news"
-                    ? (
-                      <div
-                        className="thematic-editorial-selection"
-                        aria-label="Seleção editorial manual"
-                      >
-                        {[1, 2, 3, 4].map(
-                          (position) => {
-                            const draftBankItemId =
-                              draftEditorialSelection[position - 1]
-                              ?? null;
-                            const current = draftBankItemId
-                              ? editorialSelectionCandidates.find(
-                                  (candidate) =>
-                                    candidate.bankItemId === draftBankItemId,
-                                ) ?? null
-                              : null;
-
-                            return (
-                              <label
-                                className="thematic-field"
-                                key={position}
-                              >
-                                <span>
-                                  Seleção {position}
-                                </span>
-
-                                <select
-                                  aria-label={`Seleção editorial ${position}`}
-                                  disabled={applyState === "saving"}
-                                  onChange={(event) =>
-                                    changeEditorialSelection(
-                                      position,
-                                      event.target.value,
-                                    )
-                                  }
-                                  value={
-                                    draftEditorialSelection[position - 1]
-                                    ?? ""
-                                  }
-                                >
-                                  <option value="">
-                                    Posição livre
-                                  </option>
-
-                                  {
-                                    editorialSelectionCandidates
-                                      .map(
-                                        (candidate) => (
-                                          <option
-                                            key={
-                                              candidate.bankItemId
-                                            }
-                                            value={
-                                              candidate.bankItemId
-                                            }
-                                          >
-                                            {
-                                              candidate.sourceType
-                                                === "editorial_content"
-                                                ? "[Conteúdo] "
-                                                : "[Artigo] "
-                                            }
-                                            {candidate.title}
-                                          </option>
-                                        ),
-                                      )
-                                  }
-                                </select>
-
-                                {
-                                  current?.title
-                                    ? (
-                                      <small>
-                                        Atual: {
-                                          current.title
-                                        }
-                                      </small>
-                                    )
-                                    : null
-                                }
-                              </label>
-                            );
-                          },
-                        )}
-                      </div>
-                    )
-                    : null
-                }
-              </div>
-            </article>
-          </div>
-
-          <div className="thematic-zone-column">
-            {renderZonePanel("sporting")}
-            {renderZonePanel("outside_liga_other")}
-          </div>
-
-          <div className="thematic-zone-column">
-            {renderZonePanel("fc_porto")}
 
             <aside
               className="thematic-panel thematic-bank-panel"
@@ -1914,6 +2431,19 @@ export default function MatchdayEditorialThematicDeskClient({ desk }: Readonly<{
                   )}
               </div>
             </aside>
+          </div>
+
+          <div className="thematic-zone-column">
+            {renderZonePanel("sporting")}
+            {renderZonePanel("outside_liga_other")}
+          </div>
+
+          <div className="thematic-zone-column">
+            {renderZonePanel("fc_porto")}
+
+            {!selectionPinnedForDrag
+              ? renderEditorialSelectionPanel(false)
+              : null}
           </div>
         </section>
         ) : (

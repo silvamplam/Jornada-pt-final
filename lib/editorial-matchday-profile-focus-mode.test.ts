@@ -7,7 +7,7 @@ const desk = readFileSync(
   "utf8",
 );
 
-test("a Abertura permanece sticky e independente do modo foco", () => {
+test("a Abertura mantém o sticky base e aceita a troca temporária de proprietário", () => {
   assert.match(
     desk,
     /\.thematic-opening-panel\s*\{\s*position:\s*sticky;\s*top:\s*8px;/,
@@ -15,14 +15,14 @@ test("a Abertura permanece sticky e independente do modo foco", () => {
 
   assert.match(
     desk,
-    /className="thematic-panel thematic-opening-panel"\s+aria-label="Abertura editorial manual"/,
+    /aria-label="Abertura editorial manual"[\s\S]*?className=\{`thematic-panel thematic-opening-panel\$\{selectionPinnedForDrag \? " thematic-opening-panel-static" : ""\}`\}/,
   );
 });
 
 test("o modo foco escolhe uma única zona sem criar nova lógica de colocação", () => {
   assert.match(
     desk,
-    /const \[deskView, setDeskView\] = useState<"full" \| "focus">\("focus"\)/,
+    /const \[deskView, setDeskView\] = useState<MatchdayEditorialProfileDeskView>\("focus"\)/,
   );
 
   assert.match(
@@ -158,7 +158,7 @@ test("os controlos retirados do Foco continuam presentes na Mesa completa", () =
   );
 });
 
-test("o Foco alinha dinamicamente a zona abaixo da Abertura sticky", () => {
+test("o Foco alinha dinamicamente a zona abaixo do proprietário sticky ativo", () => {
   assert.match(
     desk,
     /function alignFocusWorkspace\(\)/,
@@ -166,7 +166,7 @@ test("o Foco alinha dinamicamente a zona abaixo da Abertura sticky", () => {
 
   assert.match(
     desk,
-    /document\.querySelector<HTMLElement>\(\s*"\.thematic-opening-panel",\s*\)/,
+    /document\.querySelector<HTMLElement>\(\s*selectionPinnedForDrag\s*\? "\.thematic-selection-dock"\s*: "\.thematic-opening-panel",\s*\)/,
   );
 
   assert.match(
@@ -186,11 +186,11 @@ test("o Foco alinha dinamicamente a zona abaixo da Abertura sticky", () => {
 
   assert.match(
     desk,
-    /useEffect\(\(\) => \{[\s\S]*?deskView !== "focus"[\s\S]*?alignFocusWorkspace\(\);[\s\S]*?\}, \[deskView, focusZone\]\);/,
+    /useEffect\(\(\) => \{[\s\S]*?!deskViewPreferenceReady \|\| deskView !== "focus"[\s\S]*?alignFocusWorkspace\(\);[\s\S]*?\}, \[deskView, deskViewPreferenceReady, focusZone, selectionPinnedForDrag\]\);/,
   );
 });
 
-test("o alinhamento do Foco não cria um segundo sticky", () => {
+test("o alinhamento do Foco não torna a própria zona sticky", () => {
   assert.doesNotMatch(
     desk,
     /\.thematic-focus-stack\s*\{[^}]*position:\s*sticky;/,

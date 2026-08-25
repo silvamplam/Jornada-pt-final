@@ -14,7 +14,12 @@ export default function MatchdayEditorialThematicDesk({ desk }: Readonly<{
   desk: MatchdayEditorialProfileDeskReadResult;
 }>) {
   if (desk.kind === "thematic") {
-    return <MatchdayEditorialThematicDeskClient desk={desk} />;
+    return (
+      <MatchdayEditorialThematicDeskClient
+        desk={desk}
+        key={`${desk.matchdayId}:${desk.profileKey}`}
+      />
+    );
   }
 
   return (
