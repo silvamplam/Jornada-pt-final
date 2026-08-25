@@ -794,9 +794,9 @@ export async function getPublicMatchdayDiagnostic({
 
   try {
     const competitions = await fetchSupabaseAdminTable<SupabaseCompetition>(
-      "competitions?select=id,name,slug,country_id,country,logo_url,accent_color,is_active&order=name.asc&limit=500"
+      `competitions?select=id,name,slug,country_id,country,logo_url,accent_color,is_active&slug=eq.${encodeURIComponent(competitionSlug)}&limit=1`
     );
-    const competition = competitions.find((item) => item.slug === competitionSlug) ?? null;
+    const competition = competitions[0] ?? null;
 
     if (!competition) {
       return {

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { publicArticleParagraphs } from "@/lib/public-article-paragraphs";
+import { selectPublicMoreArticles } from "@/lib/public-article-more";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
@@ -25,25 +26,16 @@ type EditorialArticle = {
   slug: string;
   title: string;
   subtitle?: string | null;
-  summary?: string | null;
-  excerpt?: string | null;
   body?: string | null;
   image_url?: string | null;
   image_caption?: string | null;
   label?: string | null;
-  category?: string | null;
-  type?: string | null;
   author?: string | null;
-  author_name?: string | null;
-  status: string;
-  source_url?: string | null;
   competition_id?: string | null;
   season_id?: string | null;
   matchday_id?: string | null;
-  match_id?: string | null;
   published_at?: string | null;
   created_at?: string | null;
-  updated_at?: string | null;
 };
 
 type PageProps = {
@@ -1034,65 +1026,24 @@ function formatPreferredMatchdayDateContext(matches: PublicSeasonMatch[], starts
 
 async function readArticle(slug: string) {
   const rows = await fetchSupabaseAdminTable<EditorialArticle>(
-    `editorial_articles?select=*&slug=eq.${encodeURIComponent(slug)}&status=eq.published&limit=1`
+    `editorial_articles?select=id,slug,title,subtitle,body,image_url,image_caption,label,author,competition_id,season_id,matchday_id,published_at,created_at&slug=eq.${encodeURIComponent(slug)}&status=eq.published&limit=1`
   );
 
   return rows[0] ?? null;
 }
 
-function articleContextPriority(candidate: EditorialArticle, current: EditorialArticle) {
-  const currentCompetitionId = firstText(current.competition_id);
-  const currentSeasonId = firstText(current.season_id);
-  const currentMatchdayId = firstText(current.matchday_id);
-  const candidateCompetitionId = firstText(candidate.competition_id);
-  const candidateSeasonId = firstText(candidate.season_id);
-  const candidateMatchdayId = firstText(candidate.matchday_id);
-  const candidateIsGeneral = !candidateCompetitionId && !candidateSeasonId && !candidateMatchdayId;
-
-  if (currentMatchdayId && candidateMatchdayId === currentMatchdayId) {
-    return 1;
-  }
-
-  if (currentCompetitionId && currentSeasonId) {
-    if (
-      candidateCompetitionId === currentCompetitionId &&
-      candidateSeasonId === currentSeasonId &&
-      !candidateMatchdayId
-    ) {
-      return 2;
-    }
-
-    if (candidateCompetitionId === currentCompetitionId && !candidateSeasonId && !candidateMatchdayId) {
-      return 3;
-    }
-
-    return candidateIsGeneral ? 4 : null;
-  }
-
-  if (currentCompetitionId) {
-    if (candidateCompetitionId === currentCompetitionId && !candidateSeasonId && !candidateMatchdayId) {
-      return 3;
-    }
-
-    return candidateIsGeneral ? 4 : null;
-  }
-
-  return candidateIsGeneral ? 4 : null;
-}
-
 async function readMoreArticles(currentArticle: EditorialArticle) {
-  const rows = await fetchSupabaseAdminTable<EditorialArticle>(
-    `editorial_articles?select=id,slug,title,subtitle,summary,excerpt,image_url,label,category,type,status,competition_id,season_id,matchday_id,published_at&status=eq.published&slug=neq.${encodeURIComponent(
-      currentArticle.slug
-    )}&order=published_at.desc.nullslast&limit=80`
-  ).catch(() => []);
-
-  return rows
-    .map((article, index) => ({ article, index, priority: articleContextPriority(article, currentArticle) }))
-    .filter((item): item is { article: EditorialArticle; index: number; priority: number } => item.priority !== null)
-    .sort((a, b) => a.priority - b.priority || a.index - b.index)
-    .slice(0, 5)
-    .map((item) => item.article);
+  try {
+    return await selectPublicMoreArticles<EditorialArticle>(currentArticle, (scope, limit) =>
+      fetchSupabaseAdminTable<EditorialArticle>(
+        `editorial_articles?select=id,slug,title,subtitle,image_url,label,competition_id,season_id,matchday_id,published_at&status=eq.published&id=neq.${encodeURIComponent(
+          currentArticle.id
+        )}&${scope.filter}&order=published_at.desc.nullslast&limit=${limit}`
+      )
+    );
+  } catch {
+    return [];
+  }
 }
 
 async function readArticleMatchdayContext(article: EditorialArticle) {
@@ -1159,9 +1110,9 @@ export default async function NewsArticlePage({ params }: PageProps) {
     readArticleMatchdayContext(article),
     getPublicCompetitionMenu().catch(() => [])
   ]);
-  const label = firstText(article.label, article.category, article.type);
-  const subtitle = firstText(article.subtitle, article.summary, article.excerpt);
-  const author = firstText(article.author, article.author_name);
+  const label = firstText(article.label);
+  const subtitle = firstText(article.subtitle);
+  const author = firstText(article.author);
   const publishedAt = formatDate(article.published_at ?? article.created_at);
   const paragraphs = publicArticleParagraphs(article.body);
   const articleMatches = articleContext?.matchesForMatchday ?? [];
@@ -1345,8 +1296,8 @@ export default async function NewsArticlePage({ params }: PageProps) {
             <section className="news-article-side-panel" aria-label="Artigos relacionados">
               <ul className="news-article-side-list">
                 {moreArticles.map((item) => {
-                  const itemLabel = firstText(item.label, item.category, item.type);
-                  const itemSubtitle = firstText(item.subtitle, item.summary, item.excerpt);
+                  const itemLabel = firstText(item.label);
+                  const itemSubtitle = firstText(item.subtitle);
                   const itemDate = formatShortDate(item.published_at);
 
                   return (

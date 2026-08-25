@@ -60,20 +60,6 @@ type ContextSelectorData = {
   error: string;
 };
 
-type EditorialArticleForSideBlock = {
-  id: string;
-  slug: string | null;
-  title: string | null;
-  subtitle: string | null;
-  body: string | null;
-  label: string | null;
-  author: string | null;
-  image_url: string | null;
-  published_at: string | null;
-  created_at: string | null;
-  status: string | null;
-};
-
 type MatchdayEditorialProfileAssignmentRow = Readonly<{
   profile_key: string;
 }>;
@@ -837,28 +823,6 @@ function itemSummaryTitle(order: number, title: string | null | undefined, empty
   return `#${paddedOrder(order)} - ${cleanText(title) || emptyLabel}`;
 }
 
-function articlePublicHref(article: EditorialArticleForSideBlock) {
-  const slug = cleanText(article.slug);
-  return slug ? `/noticias/${encodeURIComponent(slug)}` : "";
-}
-
-function excerptFromBody(value: string | null | undefined) {
-  const text = cleanText(value)
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (text.length <= 180) {
-    return text;
-  }
-
-  return `${text.slice(0, 177).trim()}...`;
-}
-
-function sideBlockTextFromArticle(article: EditorialArticleForSideBlock) {
-  return cleanText(article.subtitle) || excerptFromBody(article.body);
-}
-
 function publishedSourceComplementLabel(source: EditorialPublishedSource) {
   if (source.source_type === "article") {
     return cleanText(source.label) || "Artigo";
@@ -1153,12 +1117,6 @@ async function readMatchdayLatestNews(matchdayId: string): Promise<SupabaseMatch
   }
 }
 
-async function readPublishedEditorialArticles(): Promise<EditorialArticleForSideBlock[]> {
-  return fetchSupabaseAdminTable<EditorialArticleForSideBlock>(
-    "editorial_articles?select=id,slug,title,subtitle,body,label,author,image_url,published_at,created_at,status&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=50"
-  ).catch(() => []);
-}
-
 type LiveLayoutAdminOccupant = {
   id: string;
   articleId: string | null;
@@ -1340,7 +1298,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   const latestNewsEditorSortOrders = buildLatestNewsEditorSortOrders(latestNews);
   const horizontalNews = await readMatchdayHorizontalNews(matchday.id);
   const liveLayoutItems = await readMatchdayLiveLayoutItems(matchday.id);
-  const publishedEditorialArticles = await readPublishedEditorialArticles();
   const publishedSources = await getEditorialPublishedSources({
     competitionId: competition.id,
     seasonId: season.id,
@@ -1354,7 +1311,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   );
   const articleIdForPlacement = (linkUrl?: string | null, explicitArticleId?: string | null) =>
     cleanText(explicitArticleId) || articleIdByLink.get(cleanText(linkUrl)) || null;
-  const sideBlockArticleOptions = publishedEditorialArticles.filter((article) => articlePublicHref(article));
   const belowHeadlineMode = editorial?.below_headline_mode === "roundup" ? "roundup" : "highlights";
   const roundupMode = editorial?.complementary_mode === "roundup_video" ? "roundup_video" : "none";
   const latestZoneMode = editorial?.latest_zone_mode === "editorial_line" ? "editorial_line" : "latest_news";

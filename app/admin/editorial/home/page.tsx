@@ -118,25 +118,6 @@ type SiteFeaturedMatch = {
   updated_at?: string | null;
 };
 
-type HomeEditorialArticleOption = {
-  id: string;
-  slug: string | null;
-  title: string | null;
-  subtitle?: string | null;
-  summary?: string | null;
-  excerpt?: string | null;
-  label?: string | null;
-  image_url?: string | null;
-  author?: string | null;
-  status?: string | null;
-  published_at?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  competition_id?: string | null;
-  season_id?: string | null;
-  matchday_id?: string | null;
-};
-
 type HomeCompetition = {
   id: string;
   name: string;
@@ -1399,15 +1380,6 @@ function textValue(...values: Array<string | null | undefined>) {
   return "";
 }
 
-function articlePublicHref(article: HomeEditorialArticleOption) {
-  const slug = textValue(article.slug);
-  return slug ? `/noticias/${encodeURIComponent(slug)}` : "";
-}
-
-function articleSnapshotSubtitle(article: HomeEditorialArticleOption) {
-  return textValue(article.subtitle, article.summary, article.excerpt);
-}
-
 function publishedSourceHighlightLabel(source: EditorialPublishedSource) {
   if (source.source_type === "article") {
     return textValue(source.label, "Artigo");
@@ -1864,23 +1836,15 @@ async function readHomeGameSelectionData(): Promise<HomeGameSelectionData> {
   }
 }
 
-async function readPublishedHomeEditorialArticles(): Promise<HomeEditorialArticleOption[]> {
-  return fetchSupabaseAdminTable<HomeEditorialArticleOption>(
-    "editorial_articles?select=id,slug,title,subtitle,label,image_url,author,status,published_at,created_at,updated_at,competition_id,season_id,matchday_id&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast&limit=80"
-  ).catch(() => []);
-}
-
 export default async function AdminEditorialHomePage({ searchParams }: PageProps) {
   const params = searchParams ? await searchParams : {};
   const [
     { editorial, highlights, latestNews, horizontalNews, roundupItems, featuredMatches, error },
     gameSelection,
-    publishedArticles,
     publishedSources
   ] = await Promise.all([
     readHomeEditorialData(),
     readHomeGameSelectionData(),
-    readPublishedHomeEditorialArticles(),
     getEditorialPublishedSources().catch(() => [])
   ]);
   const visibleRoundupItems = roundupItems.filter(roundupHasReadableContent);

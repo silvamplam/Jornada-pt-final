@@ -24,10 +24,16 @@ export type EditorialPublishedSource = {
   origin_label: string;
 };
 
-type EditorialPublishedSourceOptions = {
+export type EditorialPublishedSourceOptions = {
   competitionId?: string | null;
   seasonId?: string | null;
   matchdayId?: string | null;
+};
+
+type EditorialPublishedSourceContext = {
+  competitionId: string | null;
+  seasonId: string | null;
+  matchdayId: string | null;
 };
 
 type EditorialArticleRow = {
@@ -89,9 +95,9 @@ function publicContentHref(kind: "article" | "editorial_content", slug: string) 
   return kind === "article" ? `/noticias/${encodeURIComponent(slug)}` : `/conteudos/${encodeURIComponent(slug)}`;
 }
 
-function matchesContextScope(
+export function matchesContextScope(
   source: { competition_id?: string | null; season_id?: string | null; matchday_id?: string | null },
-  context: { competitionId: string | null; seasonId: string | null; matchdayId: string | null }
+  context: EditorialPublishedSourceContext
 ) {
   const sourceCompetitionId = cleanText(source.competition_id);
   const sourceSeasonId = cleanText(source.season_id);
@@ -102,6 +108,20 @@ function matchesContextScope(
   const matchesMatchday = !context.matchdayId || !sourceMatchdayId || sourceMatchdayId === context.matchdayId;
 
   return matchesCompetition && matchesSeason && matchesMatchday;
+}
+
+export function buildEditorialPublishedSourceContextFilter(
+  options: EditorialPublishedSourceOptions = {},
+) {
+  const filters = [
+    ["competition_id", cleanText(options.competitionId)],
+    ["season_id", cleanText(options.seasonId)],
+    ["matchday_id", cleanText(options.matchdayId)],
+  ]
+    .filter((entry): entry is [string, string] => Boolean(entry[1]))
+    .map(([column, value]) => `or(${column}.is.null,${column}.eq.${encodeURIComponent(value)})`);
+
+  return filters.length > 0 ? `&and=(${filters.join(",")})` : "";
 }
 
 function contentMediaKind(content: EditorialContentRow): EditorialPublishedSource["media_kind"] {
@@ -217,12 +237,13 @@ export async function getEditorialPublishedSources(options: EditorialPublishedSo
   const competitionId = cleanText(options.competitionId);
   const seasonId = cleanText(options.seasonId);
   const matchdayId = cleanText(options.matchdayId);
+  const contextFilter = buildEditorialPublishedSourceContextFilter({ competitionId, seasonId, matchdayId });
   const [articleRows, contentRows] = await Promise.all([
     fetchSupabaseAdminTable<EditorialArticleRow>(
-      "editorial_articles?select=id,slug,title,subtitle,label,author,image_url,status,published_at,created_at,competition_id,season_id,matchday_id&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast",
+      `editorial_articles?select=id,slug,title,subtitle,label,author,image_url,status,published_at,created_at,competition_id,season_id,matchday_id&status=eq.published${contextFilter}&order=published_at.desc.nullslast,created_at.desc.nullslast`,
     ).catch(() => []),
     fetchSupabaseAdminTable<EditorialContentRow>(
-      "editorial_contents?select=id,slug,status,content_type,label,author,title,subtitle,summary,body,image_url,thumbnail_url,video_url,embed_url,duration,published_at,created_at,competition_id,season_id,matchday_id&status=eq.published&order=published_at.desc.nullslast,created_at.desc.nullslast",
+      `editorial_contents?select=id,slug,status,content_type,label,author,title,subtitle,summary,body,image_url,thumbnail_url,video_url,embed_url,duration,published_at,created_at,competition_id,season_id,matchday_id&status=eq.published${contextFilter}&order=published_at.desc.nullslast,created_at.desc.nullslast`,
     ).catch(() => []),
   ]);
 
