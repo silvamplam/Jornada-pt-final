@@ -66,7 +66,7 @@ test("os modos são aditivos e os registos existentes ficam standard por default
   assert.match(applySql, /presentation_mode in \('standard', 'hierarchical'\)/i);
   assert.match(publicLoader, /presentation_mode: ReferenceCompositionPresentationMode/);
   assert.match(publicPage, /presentation_mode === "hierarchical"/);
-  assert.match(publicPage, /\(editorialVisibility\.showCoverPanel \|\| showFourNewsLatestLayout\) \? \(/);
+  assert.match(publicPage, /useHierarchicalReferenceComposition \? \(/);
 });
 
 test("um draft standard e um hierarchical coexistem, mas o mesmo modo não duplica", () => {
@@ -540,17 +540,14 @@ test("publicação e alternância usam uma única RPC transacional e preservam a
   assert.match(postflightSql, /RPC atómica incompleta/i);
 });
 
-test("o editor seleciona o modo, usa o banco, permite preview e não ativa o draft", () => {
-  assert.match(compositionPage, />\s*Atual\s*</);
-  assert.match(compositionPage, />\s*Hierárquica\s*</);
-  assert.match(compositionPage, /assign_bank_item_to_hierarchical_slot/);
-  assert.match(compositionPage, /HIERARCHICAL_COMPOSITION_MOMENTS\.map/);
+test("o editor abre diretamente a Mesa, usa o reservatório, permite preview e não ativa o draft", () => {
+  assert.match(compositionPage, /historicalCompositionDeskPresentationMode/);
+  assert.doesNotMatch(compositionPage, /composition-admin-mode-selector-link/);
+  assert.match(compositionPage, /hierarchicalDeskArticles/);
   assert.match(compositionPage, /<HierarchicalCompositionInterpretivePreview/);
   assert.match(compositionPage, /slots={hierarchicalSlots}/);
   assert.match(interpretivePreview, /composition-interpretive-slot-empty/);
-  assert.match(compositionPage, /O preview usa o draft e não altera publicação nem apresentação current/);
-  assert.match(compositionPage, /Publicar e usar esta apresentação/);
-  assert.match(compositionPage, /Usar apresentação Atual/);
+  assert.match(compositionPage, /publish_reference_composition/);
   assert.match(
     compositionPage,
     /<HierarchicalCompositionDeskClient/,
@@ -678,7 +675,7 @@ test("Arbitragem e reações mantém 4+5+3 com distribuição vertical matemáti
 
   assert.ok(openingIndex >= 0 && analysisIndex > openingIndex && otherGamesIndex > analysisIndex);
   assert.doesNotMatch(interpretivePreview, /composition-interpretive-statements|data-grid-span="(12|6)"/);
-  assert.match(interpretivePreview, />Arbitragem e reações<\/h2>/);
+  assert.match(interpretivePreview, /\{zone1Title\}<\/h2>/);
   assert.match(interpretivePreview, /composition-interpretive-analysis-grid[\s\S]*grid-template-columns: repeat\(12, minmax\(0, 1fr\)\);[\s\S]*align-items: stretch;[\s\S]*gap: 28px/);
   assert.match(interpretivePreview, /composition-interpretive-analysis-main \{[\s\S]*grid-column: span 4/);
   assert.match(interpretivePreview, /composition-interpretive-analysis-center \{[\s\S]*grid-column: span 5;[\s\S]*grid-template-rows: repeat\(3, auto\);[\s\S]*align-content: space-between;[\s\S]*height: 100%/);
@@ -709,7 +706,7 @@ test("Arbitragem e reações mantém 4+5+3 com distribuição vertical matemáti
 });
 
 test("Outros jogos mantém 7+5 com duas peças à esquerda, três à direita e compactos com altura alinhada ao título", () => {
-  assert.match(interpretivePreview, />Outros jogos da jornada<\/h2>/);
+  assert.match(interpretivePreview, /\{zone2Title\}<\/h2>/);
   assert.match(interpretivePreview, /primary: "secondary_3"/);
   assert.match(interpretivePreview, /second: "secondary_4"/);
   assert.match(interpretivePreview, /compact: \["closing_1", "closing_2", "closing_3"\]/);
@@ -803,8 +800,14 @@ test("hierarchical inválida falha controladamente e os vídeos permanecem depoi
 test("o renderer posterior existe apenas na composição hierárquica e conserva a ordem editorial 1+4", () => {
   assert.match(renderer, /<PublicBeyondMatchdayNews/);
   assert.match(renderer, /ATUALIDADE NO MOMENTO DA JORNADA/);
-  assert.match(publicPage, /beyondMatchdayItems=\{hierarchicalBeyondMatchdayNews\}/);
-  assert.match(publicPage, /useHierarchicalReferenceComposition\s*\? context\.referenceRoundupItems/);
+  assert.match(
+    publicPage,
+    /beyondMatchdayItems=\{[\s\S]*useHistoricalDynamicZones[\s\S]*hierarchicalBeyondMatchdayNews[\s\S]*\}/,
+  );
+  assert.match(
+    publicPage,
+    /useHierarchicalReferenceComposition\s*\? context\.referenceRoundupItems/,
+  );
   assert.doesNotMatch(publicPage, /<PublicBeyondMatchdayNews[\s/>]/);
 });
 
@@ -825,13 +828,22 @@ test("o preview do draft inclui Vídeo, Destaque e Para Lá sem alterar current"
   assert.match(compositionPage, /hierarchicalPreviewVideoHighlight/);
   assert.match(compositionPage, /hierarchicalPreviewBeyondMatchdayItems/);
   assert.match(compositionPage, /roundupHeading="A JORNADA EM VÍDEO"/);
-  assert.match(compositionPage, /videoHighlight={hierarchicalPreviewVideoHighlight}/);
-  assert.match(compositionPage, /beyondMatchdayItems={hierarchicalPreviewBeyondMatchdayItems}/);
+  assert.match(
+    compositionPage,
+    /videoHighlight=\{\s*hierarchicalPreviewVideoHighlight\s*\}/,
+  );
+  assert.match(
+    compositionPage,
+    /beyondMatchdayItems=\{\s*hierarchicalPreviewBeyondMatchdayItems\s*\}/,
+  );
   assert.match(interpretivePreview, /<PublicHierarchicalPosteriorMoments/);
   assert.match(renderer, /data-hierarchical-posterior-moments="true"/);
   assert.match(renderer, /<PublicEditorialLayout/);
   assert.match(renderer, /<PublicBeyondMatchdayNews/);
-  assert.doesNotMatch(interpretivePreview, /activate_matchday_reference_composition|is_current|writeSupabase/);
+  assert.doesNotMatch(
+    interpretivePreview,
+    /activate_matchday_reference_composition|is_current|writeSupabase/,
+  );
 });
 
 test("o preview de vídeo reutiliza o renderer V13 e não mantém markup visual paralelo", () => {

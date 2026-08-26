@@ -8,41 +8,36 @@ const client = readFileSync(
 );
 
 test("a seleção da Mesa é múltipla e preserva a ordem dos cliques", () => {
-  assert.match(
-    client,
-    /selectedBankItemIds, setSelectedBankItemIds/,
-  );
-
-  assert.match(
-    client,
-    /selectedBankItemIds\.map\([\s\S]*?index \+ 1/,
-  );
-
-  assert.match(
-    client,
-    /toggleSelection/,
-  );
-
-  assert.match(
-    client,
-    /rank \?\? "·"/,
-  );
+  assert.match(client, /selectedBankItemIds, setSelectedBankItemIds/);
+  assert.match(client, /selectedBankItemIds\.map\([\s\S]*?index \+ 1/);
+  assert.match(client, /toggleSelection/);
+  assert.match(client, /rank \?\? "·"/);
 });
 
 test("as zonas podem receber várias notícias pela ordem selecionada", () => {
   assert.match(
     client,
-    /zone::core:\$\{section\.key\}/,
+    /function placeSelectedInDynamicZone/,
   );
 
   assert.match(
     client,
-    /zone::beyond/,
+    /const freePositions = positions\.filter/,
   );
 
   assert.match(
     client,
-    /zone::faixa/,
+    /selectedBankItemIds\.forEach/,
+  );
+
+  assert.match(
+    client,
+    /placeSelectedInDynamicZone\(activeDynamicZone\.clientId\)/,
+  );
+
+  assert.match(
+    client,
+    /placeSelectedInZone\("faixa"\)/,
   );
 
   assert.match(
@@ -52,25 +47,12 @@ test("as zonas podem receber várias notícias pela ordem selecionada", () => {
 });
 
 test("a ocupação múltipla usa apenas lugares livres e valida capacidade", () => {
-  assert.match(
-    client,
-    /const freeKeys =/,
-  );
-
-  assert.match(
-    client,
-    /freeKeys\.length <[\s\S]*?selectedBankItemIds\.length/,
-  );
-
-  assert.match(
-    client,
-    /lugares livres/,
-  );
+  assert.match(client, /const freeKeys =/);
+  assert.match(client, /freeKeys\.length < selectedArticles\.length/);
+  assert.match(client, /lugares livres/);
 });
 
-test("posição específica continua reservada a uma única notícia", () => {
-  assert.match(
-    client,
-    /Para escolher um lugar específico, seleciona apenas uma notícia/,
-  );
+test("os lugares específicos são destinos visuais e não um dropdown paralelo", () => {
+  assert.match(client, /onDrop=\{\(event\) =>/);
+  assert.doesNotMatch(client, /data-composition-destination/);
 });

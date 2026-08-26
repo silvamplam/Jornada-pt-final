@@ -6,134 +6,66 @@ const client = readFileSync(
   "app/admin/editorial/composicao/[matchdayId]/HierarchicalCompositionDeskClient.tsx",
   "utf8",
 );
-
 const page = readFileSync(
   "app/admin/editorial/composicao/[matchdayId]/page.tsx",
   "utf8",
 );
 
-test("a Mesa não usa estado da página viva", () => {
-  assert.doesNotMatch(
-    client,
-    /liveStatus\(/,
-  );
-
-  assert.doesNotMatch(
-    client,
-    /article\.inLatest/,
-  );
-
-  assert.doesNotMatch(
-    client,
-    /article\.placementKey/,
-  );
-
-  assert.doesNotMatch(
-    client,
-    /placementGroupForKey/,
-  );
-
-  assert.doesNotMatch(
-    client,
-    /placementLabelForKey/,
-  );
+test("a Mesa não usa colocações da página viva como estado da composição", () => {
+  assert.doesNotMatch(client, /liveStatus\(/);
+  assert.doesNotMatch(client, /article\.inLatest/);
+  assert.doesNotMatch(client, /article\.placementKey/);
+  assert.doesNotMatch(client, /placementGroupForKey/);
+  assert.doesNotMatch(client, /placementLabelForKey/);
 });
 
-test("o estado da notícia é exclusivamente o plano da Composição", () => {
-  assert.match(
-    client,
-    /COMPOSIÇÃO · SEM COLOCAÇÃO/,
-  );
-
-  assert.match(
-    client,
-    /placementByBankItem\.get\([\s\S]*?article\.bankItemId/,
-  );
-
-  assert.match(
-    client,
-    /COMPOSIÇÃO · \$\{compositionPlacement\.toUpperCase\(\)\}/,
-  );
+test("o estado da peça é exclusivamente o plano local da Composição", () => {
+  assert.match(client, /placementByBankItem/);
+  assert.match(client, /placedBankItemIds/);
+  assert.match(client, /filterHistoricalCompositionReservoir/);
+  assert.match(client, /DISPONÍVEL/);
+  assert.match(client, /Retirada planeada/);
 });
 
-test("os filtros representam apenas a Composição", () => {
+test("os filtros são grupos naturais e não placements da Mesa viva", () => {
   assert.match(
     client,
-    /\["placed", "Na composição"\]/,
+    /HISTORICAL_DYNAMIC_ZONE_LAYOUTS/,
   );
 
   assert.match(
     client,
-    /\["unplaced", "Sem colocação"\]/,
+    /value="six_news"/,
   );
 
   assert.match(
     client,
-    /\["highlight", "Destaque da Jornada"\]/,
+    /value="five_news_balanced"/,
   );
 
   assert.match(
     client,
-    /\["beyond", "Para Lá da Jornada"\]/,
+    /value="five_news_secondary"/,
   );
 
   assert.match(
     client,
-    /\["faixa", "Faixa"\]/,
-  );
-
-  assert.match(
-    client,
-    /core:\$\{section\.key\}/,
+    /activeWorkspaceKey === `dynamic:\$\{zone\.clientId\}`/,
   );
 
   assert.doesNotMatch(
     client,
     /"latest_without_zone"/,
   );
-
-  assert.doesNotMatch(
-    client,
-    /"four_news"/,
-  );
-
-  assert.doesNotMatch(
-    client,
-    /"six_news"/,
-  );
-
-  assert.doesNotMatch(
-    client,
-    /"five_news_balanced"/,
-  );
-
-  assert.doesNotMatch(
-    client,
-    /"five_news_secondary"/,
-  );
 });
 
-test("o servidor não envia inLatest nem placementKey para a Mesa hierárquica", () => {
-  const start = page.indexOf(
-    "  const hierarchicalDeskArticles =",
-  );
-
-  const end = page.indexOf(
-    "  const hierarchicalDeskVideos =",
-    start,
-  );
-
+test("o servidor envia classificação natural, não placement atual, para a Mesa histórica", () => {
+  const start = page.indexOf("  const hierarchicalDeskArticles =");
+  const end = page.indexOf("  const hierarchicalDeskSlots =", start);
   assert.ok(start >= 0 && end > start);
-
   const block = page.slice(start, end);
 
-  assert.doesNotMatch(
-    block,
-    /inLatest:\s*article\.inLatest/,
-  );
-
-  assert.doesNotMatch(
-    block,
-    /placementKey:\s*article\.placementKey/,
-  );
+  assert.match(block, /naturalGroupKey/);
+  assert.doesNotMatch(block, /inLatest:\s*article\.inLatest/);
+  assert.doesNotMatch(block, /placementKey:\s*article\.placementKey/);
 });

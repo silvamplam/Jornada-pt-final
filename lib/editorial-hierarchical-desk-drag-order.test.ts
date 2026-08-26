@@ -7,61 +7,40 @@ const client = readFileSync(
   "utf8",
 );
 
-test("notícias colocadas podem ser arrastadas", () => {
-  assert.match(
-    client,
-    /draggable=\{Boolean\(location\)\}/,
-  );
-
-  assert.match(
-    client,
-    /setDraggedLocation\(location\)/,
-  );
-
-  assert.match(
-    client,
-    /dataTransfer\.effectAllowed =\s*"move"/,
-  );
+test("peças colocadas e artigos do reservatório podem ser arrastados", () => {
+  assert.match(client, /draggable=\{Boolean\(location\)\}/);
+  assert.match(client, /setDragged\(location\)/);
+  assert.match(client, /kind: "reservoir"/);
+  assert.match(client, /dataTransfer\.effectAllowed =\s*"move"/);
 });
 
-test("o drag só permite mudança dentro da mesma zona", () => {
-  assert.match(
-    client,
-    /source\.kind !== target\.kind \|\|[\s\S]*?source\.zoneKey !== target\.zoneKey/,
-  );
-
-  assert.match(
-    client,
-    /Só podes arrastar notícias dentro da mesma zona/,
-  );
+test("o drag move diretamente entre zonas e rejeita destino ocupado", () => {
+  assert.match(client, /moveHistoricalCompositionPiece\(plan, dragged, target\)/);
+  assert.match(client, /result\.occupied/);
+  assert.match(client, /O destino está ocupado\. A notícia atual não foi substituída/);
+  assert.match(client, /Mudança direta entre zonas planeada/);
+  assert.doesNotMatch(client, /Só podes arrastar notícias dentro da mesma zona/);
 });
 
-test("arrastar para posição vazia move e para ocupada troca", () => {
-  assert.match(
-    client,
-    /\[source\.targetKey\]: targetCard,[\s\S]*?\[target\.targetKey\]: sourceCard/,
-  );
-
-  assert.match(
-    client,
-    /Troca de posição planeada/,
-  );
-
-  assert.match(
-    client,
-    /Mudança de posição planeada/,
-  );
+test("a troca interna da mesma zona continua preservada", () => {
+  assert.match(client, /result\.swapped/);
+  assert.match(client, /Troca de posição planeada/);
 });
 
-test("as três famílias de zonas noticiosas aceitam drag", () => {
+test("todas as famílias históricas aceitam drag", () => {
   assert.match(
     client,
-    /zoneKey: `core:\$\{section\.key\}`/,
+    /type DynamicDragLocation/,
   );
 
   assert.match(
     client,
-    /zoneKey: "beyond"/,
+    /zoneKey: activeDynamicZone\.clientId/,
+  );
+
+  assert.match(
+    client,
+    /historicalDynamicZonePositions\(activeDynamicZone\.visualFamily\)\.map/,
   );
 
   assert.match(
@@ -70,14 +49,7 @@ test("as três famílias de zonas noticiosas aceitam drag", () => {
   );
 });
 
-test("o drag continua dependente de Aplicar alterações", () => {
-  assert.match(
-    client,
-    /commit\([\s\S]*?Usa Aplicar alterações para guardar/,
-  );
-
-  assert.match(
-    client,
-    /apply_hierarchical_desk_plan/,
-  );
+test("o drag continua dependente de Guardar montagem", () => {
+  assert.match(client, /Guardar montagem não publica/);
+  assert.match(client, /apply_hierarchical_desk_plan/);
 });

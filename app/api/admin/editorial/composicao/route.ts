@@ -28,6 +28,10 @@ import {
   type HierarchicalMediaKind,
   type ReferenceCompositionPresentationMode,
 } from "@/lib/editorial-hierarchical-composition";
+import {
+  HISTORICAL_COMPOSITION_BLOCK_KEYS,
+  type HistoricalCompositionBlockKey,
+} from "@/lib/editorial-historical-composition-workspace";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 function cleanText(value: FormDataEntryValue | null): string | null {
@@ -92,6 +96,13 @@ type DraftComposition = {
   hierarchical_editorial_excerpt: string | null;
   hierarchical_editorial_text: string | null;
   hierarchical_editorial_author: string | null;
+  hierarchical_editorial_source_type: string | null;
+  hierarchical_editorial_source_id: string | null;
+  hierarchical_headline_title_color: string | null;
+  hierarchical_zone_1_title: string | null;
+  hierarchical_zone_2_title: string | null;
+  hierarchical_block_order: unknown;
+  hierarchical_video_position: number | null;
 };
 
 type ReferenceCompositionState = DraftComposition & {
@@ -668,7 +679,7 @@ function filterNewCompositionSnapshots(snapshots: CompositionSnapshot[], existin
 
 async function readDraftComposition(compositionId: string, matchdayId: string) {
   return readFirst<DraftComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author&id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_block_order&id=eq.${encodeURIComponent(
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}&status=eq.draft`
   );
@@ -676,7 +687,7 @@ async function readDraftComposition(compositionId: string, matchdayId: string) {
 
 async function readReferenceCompositionState(compositionId: string, matchdayId: string) {
   return readFirst<ReferenceCompositionState>(
-    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,is_current,published_at&id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_block_order,hierarchical_video_position,is_current,published_at&id=eq.${encodeURIComponent(
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`
   );
@@ -2053,6 +2064,70 @@ async function assignRoundupItemToHierarchicalComposition(formData: FormData) {
   });
 }
 
+async function assignAllRoundupItemsToHierarchicalComposition(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+
+  if (
+    !matchdayId ||
+    !compositionId ||
+    !(await compositionBelongsToMatchday(compositionId, matchdayId, "hierarchical"))
+  ) {
+    throw new Error("hierarchical-roundup-assignment-invalid");
+  }
+
+  const [roundupItems, existingItems] = await Promise.all([
+    fetchSupabaseAdminTable<CurrentRoundupItem>(
+      `matchday_roundup_items?select=id,label,title,subtitle,image_url,video_url,duration,type,sort_order,status&matchday_id=eq.${encodeURIComponent(
+        matchdayId,
+      )}&status=eq.published&video_url=not.is.null&order=sort_order.asc,id.asc`,
+    ),
+    fetchSupabaseAdminTable<{ source_id: string | null; sort_order: number }>(
+      `matchday_reference_composition_items?select=source_id,sort_order&composition_id=eq.${encodeURIComponent(
+        compositionId,
+      )}&slot_type=eq.roundup&source_type=eq.matchday_roundup_item&order=sort_order.asc`,
+    ),
+  ]);
+
+  const existingSourceIds = new Set(
+    existingItems
+      .map((item) => item.source_id)
+      .filter((value): value is string => Boolean(value)),
+  );
+  const missingItems = roundupItems.filter(
+    (item) => cleanText(item.video_url) && !existingSourceIds.has(item.id),
+  );
+
+  if (missingItems.length === 0) return 0;
+
+  const maxSortOrder = existingItems.reduce(
+    (maximum, item) => Math.max(maximum, item.sort_order),
+    0,
+  );
+  await writeSupabaseAdmin("matchday_reference_composition_items", {
+    method: "POST",
+    body: JSON.stringify(
+      missingItems.map((item, index) => ({
+        composition_id: compositionId,
+        slot_type: "roundup",
+        source_type: "matchday_roundup_item",
+        source_id: item.id,
+        article_id: null,
+        sort_order: maxSortOrder + index + 1,
+        title_snapshot: item.title,
+        subtitle_snapshot: item.subtitle,
+        image_url_snapshot: item.image_url,
+        link_url_snapshot: item.video_url,
+        label_snapshot: item.label || item.type,
+        label_color_snapshot: null,
+        status: "draft",
+      })),
+    ),
+  });
+
+  return missingItems.length;
+}
+
 async function activateReferenceComposition(formData: FormData, publishDraft: boolean) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const compositionId = cleanText(formData.get("composition_id"));
@@ -2544,7 +2619,37 @@ type HierarchicalDeskPlanOperation =
       kind: "assign_auxiliary";
       target: string;
       bankItemId: string;
+    }
+  | {
+      kind: "remove_editorial";
+    }
+  | {
+      kind: "assign_editorial";
+      bankItemId: string;
     };
+
+type HistoricalDynamicZonePlan = {
+  publicTitle: string;
+  visualFamily: "six_news" | "five_news_balanced" | "five_news_secondary";
+  items: Array<{
+    position: number;
+    bankItemId: string;
+  }>;
+};
+
+const HISTORICAL_DYNAMIC_ZONE_CAPACITIES = {
+  six_news: 6,
+  five_news_balanced: 5,
+  five_news_secondary: 5,
+} as const;
+
+type HierarchicalDeskSettings = {
+  headlineTitleColor: string;
+  zone1Title: string;
+  zone2Title: string;
+  blockOrder: HistoricalCompositionBlockKey[];
+  videoPosition: number;
+};
 
 type HierarchicalDeskCurrentSlot = {
   id: string;
@@ -2575,7 +2680,7 @@ function parseHierarchicalDeskPlanOperations(
     );
   }
 
-  if (!Array.isArray(parsed) || parsed.length > 60) {
+  if (!Array.isArray(parsed) || parsed.length > 80) {
     throw new CompositionPublicationError(
       "O plano da Mesa não é válido.",
     );
@@ -2641,22 +2746,184 @@ function parseHierarchicalDeskPlanOperations(
       };
     }
 
+    if (kind === "remove_editorial") {
+      return { kind };
+    }
+
+    if (
+      kind === "assign_editorial"
+      && typeof record.bankItemId === "string"
+      && record.bankItemId.trim()
+    ) {
+      return {
+        kind,
+        bankItemId: record.bankItemId.trim(),
+      };
+    }
+
     throw new CompositionPublicationError(
       "O plano da Mesa contém uma operação inválida.",
     );
   });
 }
 
-function hierarchicalDeskInternalForm(
-  values: Record<string, string>,
-) {
-  const data = new FormData();
+function parseHistoricalDynamicZones(
+  raw: string | null,
+): HistoricalDynamicZonePlan[] | null {
+  if (!raw) return null;
 
-  Object.entries(values).forEach(([key, value]) => {
-    data.set(key, value);
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  }
+  catch {
+    throw new CompositionPublicationError("As zonas editoriais não são válidas.");
+  }
+
+  if (!Array.isArray(parsed) || parsed.length > 24) {
+    throw new CompositionPublicationError("As zonas editoriais não são válidas.");
+  }
+
+  const usedBankItems = new Set<string>();
+
+  return parsed.map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new CompositionPublicationError("Uma das zonas editoriais não é válida.");
+    }
+
+    const record = value as Record<string, unknown>;
+
+    const publicTitle =
+      typeof record.publicTitle === "string"
+        ? record.publicTitle.trim()
+        : "";
+
+    const visualFamily =
+      typeof record.visualFamily === "string"
+        ? record.visualFamily
+        : "";
+
+    const capacity =
+      HISTORICAL_DYNAMIC_ZONE_CAPACITIES[
+        visualFamily as keyof typeof HISTORICAL_DYNAMIC_ZONE_CAPACITIES
+      ];
+
+    const rawItems = record.items;
+
+    if (
+      publicTitle.length === 0
+      || publicTitle.length > 120
+      || !capacity
+      || !Array.isArray(rawItems)
+      || rawItems.length > capacity
+    ) {
+      throw new CompositionPublicationError(
+        "Revê o título, o layout e a capacidade das zonas editoriais.",
+      );
+    }
+
+    const usedPositions = new Set<number>();
+
+    const items = rawItems.map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        throw new CompositionPublicationError(
+          "Uma notícia de zona editorial não é válida.",
+        );
+      }
+
+      const itemRecord = item as Record<string, unknown>;
+
+      const position =
+        typeof itemRecord.position === "number"
+          ? itemRecord.position
+          : Number.NaN;
+
+      const bankItemId =
+        typeof itemRecord.bankItemId === "string"
+          ? itemRecord.bankItemId.trim()
+          : "";
+
+      if (
+        !Number.isInteger(position)
+        || position < 1
+        || position > capacity
+        || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(bankItemId)
+        || usedPositions.has(position)
+        || usedBankItems.has(bankItemId)
+      ) {
+        throw new CompositionPublicationError(
+          "Há posições ou notícias repetidas nas zonas editoriais.",
+        );
+      }
+
+      usedPositions.add(position);
+      usedBankItems.add(bankItemId);
+
+      return {
+        position,
+        bankItemId,
+      };
+    });
+
+    return {
+      publicTitle,
+      visualFamily:
+        visualFamily as HistoricalDynamicZonePlan["visualFamily"],
+      items,
+    };
   });
+}
 
-  return data;
+function parseHierarchicalDeskSettings(raw: string | null): HierarchicalDeskSettings | null {
+  if (!raw) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  }
+  catch {
+    throw new CompositionPublicationError("A configuração da página não é válida.");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new CompositionPublicationError("A configuração da página não é válida.");
+  }
+  const value = parsed as Record<string, unknown>;
+  const headlineTitleColor = typeof value.headlineTitleColor === "string"
+    ? value.headlineTitleColor.trim().toUpperCase()
+    : "";
+  const zone1Title = typeof value.zone1Title === "string" ? value.zone1Title.trim() : "";
+  const zone2Title = typeof value.zone2Title === "string" ? value.zone2Title.trim() : "";
+  const videoPosition =
+    typeof value.videoPosition === "number"
+      ? value.videoPosition
+      : Number.NaN;
+  const blockOrder = value.blockOrder;
+  const validBlockOrder = Array.isArray(blockOrder)
+    && blockOrder.length === HISTORICAL_COMPOSITION_BLOCK_KEYS.length
+    && blockOrder.every((key) => typeof key === "string" && HISTORICAL_COMPOSITION_BLOCK_KEYS.includes(key as HistoricalCompositionBlockKey))
+    && new Set(blockOrder).size === HISTORICAL_COMPOSITION_BLOCK_KEYS.length;
+
+  if (
+    !/^#[0-9A-F]{6}$/.test(headlineTitleColor)
+    || zone1Title.length === 0
+    || zone1Title.length > 120
+    || zone2Title.length === 0
+    || zone2Title.length > 120
+    || !Number.isInteger(videoPosition)
+    || videoPosition < 0
+    || videoPosition > 24
+    || !validBlockOrder
+  ) {
+    throw new CompositionPublicationError("Revê a cor, os títulos e a ordem pública dos blocos.");
+  }
+
+  return {
+    headlineTitleColor,
+    zone1Title,
+    zone2Title,
+    blockOrder: blockOrder as HistoricalCompositionBlockKey[],
+    videoPosition,
+  };
 }
 
 async function applyHierarchicalDeskPlan(
@@ -2666,6 +2933,13 @@ async function applyHierarchicalDeskPlan(
   const compositionId = cleanText(formData.get("composition_id"));
   const rawOperations =
     cleanText(formData.get("operations_json")) ?? "[]";
+  const settings = parseHierarchicalDeskSettings(
+    cleanText(formData.get("settings_json")),
+  );
+
+  const dynamicZones = parseHistoricalDynamicZones(
+    cleanText(formData.get("dynamic_zones_json")),
+  );
 
   if (
     !matchdayId ||
@@ -2684,8 +2958,19 @@ async function applyHierarchicalDeskPlan(
   const operations =
     parseHierarchicalDeskPlanOperations(rawOperations);
 
-  if (operations.length === 0) {
+  if (
+    operations.length === 0
+    && !settings
+    && dynamicZones === null
+  ) {
     return 0;
+  }
+
+  const composition = await readDraftComposition(compositionId, matchdayId);
+  if (!composition || composition.presentation_mode !== "hierarchical") {
+    throw new CompositionPublicationError(
+      "A composição hierárquica já não está disponível para edição.",
+    );
   }
 
   const [currentSlots, currentAuxiliary] = await Promise.all([
@@ -2746,11 +3031,18 @@ async function applyHierarchicalDeskPlan(
   const assignedTargets = new Set<string>();
   const assignedBankItems = new Set<string>();
   const bankDetails = new Map<string, BankItemForAssignment>();
+  const editorialWillChange = operations.some(
+    (operation) => operation.kind === "remove_editorial" || operation.kind === "assign_editorial",
+  );
+  const editorialWillBeRemoved = operations.some(
+    (operation) => operation.kind === "remove_editorial",
+  );
 
   for (const operation of operations) {
     if (
       operation.kind !== "assign_slot" &&
-      operation.kind !== "assign_auxiliary"
+      operation.kind !== "assign_auxiliary" &&
+      operation.kind !== "assign_editorial"
     ) {
       continue;
     }
@@ -2758,7 +3050,9 @@ async function applyHierarchicalDeskPlan(
     const targetKey =
       operation.kind === "assign_slot"
         ? `slot:${operation.slotKey}`
-        : `aux:${operation.target}`;
+        : operation.kind === "assign_auxiliary"
+          ? `aux:${operation.target}`
+          : "editorial";
 
     if (assignedTargets.has(targetKey)) {
       throw new CompositionPublicationError(
@@ -2776,15 +3070,11 @@ async function applyHierarchicalDeskPlan(
 
     assignedBankItems.add(operation.bankItemId);
 
-    const auxiliaryTarget =
-      operation.kind === "assign_auxiliary"
+    const auxiliaryTarget = operation.kind === "assign_auxiliary"
         ? hierarchicalAuxiliaryTarget(operation.target)
         : null;
 
-    if (
-      operation.kind === "assign_auxiliary" &&
-      !auxiliaryTarget
-    ) {
+    if (operation.kind === "assign_auxiliary" && !auxiliaryTarget) {
       throw new CompositionPublicationError(
         "O plano contém um destino posterior inválido.",
       );
@@ -2824,6 +3114,15 @@ async function applyHierarchicalDeskPlan(
         );
       }
     }
+    else if (
+      operation.kind === "assign_editorial"
+      && composition.hierarchical_editorial_source_id
+      && !editorialWillBeRemoved
+    ) {
+      throw new CompositionPublicationError(
+        "O Editorial da Jornada já está ocupado. Retira primeiro o artigo atual.",
+      );
+    }
 
     const bankItem =
       await readFirst<BankItemForAssignment>(
@@ -2843,10 +3142,7 @@ async function applyHierarchicalDeskPlan(
       );
     }
 
-    if (
-      operation.kind === "assign_auxiliary" &&
-      !cleanSnapshotValue(bankItem.image_url)
-    ) {
+    if (operation.kind === "assign_auxiliary" && !cleanSnapshotValue(bankItem.image_url)) {
       throw new CompositionPublicationError(
         "Uma das notícias escolhidas para os momentos posteriores não tem imagem.",
       );
@@ -2881,63 +3177,219 @@ async function applyHierarchicalDeskPlan(
         ),
     );
 
-    if (remainingSlotUse || remainingAuxiliaryUse) {
+    const remainingEditorialUse =
+      !editorialWillChange
+      && composition.hierarchical_editorial_source_type === "editorial_article"
+      && normalizeIdentityValue(composition.hierarchical_editorial_source_id)
+        === normalizeIdentityValue(bankItem.source_id);
+
+    if (remainingSlotUse || remainingAuxiliaryUse || remainingEditorialUse) {
       throw new CompositionPublicationError(
         "Uma das notícias já ocupa outro lugar da Composição. Retira-a primeiro.",
       );
     }
   }
 
+  // Resolve every canonical projection before entering the transaction so the
+  // existing field-level validation messages remain unchanged. No mutation is
+  // performed until the single RPC below starts.
   for (const operation of operations) {
-    if (operation.kind === "unassign_slot") {
-      await writeSupabaseAdmin(
-        `matchday_hierarchical_composition_slots?id=eq.${encodeURIComponent(
-          operation.slotId,
-        )}&composition_id=eq.${encodeURIComponent(compositionId)}`,
-        {
-          method: "DELETE",
-        },
-      );
+    if (operation.kind === "assign_auxiliary") {
+      const bankItem = bankDetails.get(operation.bankItemId);
+      if (!bankItem?.source_id) {
+        throw new CompositionPublicationError("O artigo já não está disponível.");
+      }
+      const article = await readPublishedEditorialArticleForHierarchicalAuxiliary(bankItem.source_id);
+      const target = hierarchicalAuxiliaryTarget(operation.target);
+      if (!target) {
+        throw new CompositionPublicationError("O plano contém um destino posterior inválido.");
+      }
+      if (target.slotType === "important_item") {
+        projectHierarchicalFaixaArticle(article);
+      }
+      else {
+        projectHierarchicalAuxiliaryArticle(article);
+      }
     }
-    else if (operation.kind === "remove_auxiliary") {
-      await writeSupabaseAdmin(
-        `matchday_reference_composition_items?id=eq.${encodeURIComponent(
-          operation.itemId,
-        )}&composition_id=eq.${encodeURIComponent(
-          compositionId,
-        )}&slot_type=in.(complement,beyond_matchday,important_item)`,
-        {
-          method: "DELETE",
-        },
-      );
+    else if (operation.kind === "assign_editorial") {
+      const bankItem = bankDetails.get(operation.bankItemId);
+      if (!bankItem?.source_id) {
+        throw new CompositionPublicationError("O artigo do Editorial já não está disponível.");
+      }
+      await readPublishedEditorialArticleForHierarchicalAuxiliary(bankItem.source_id);
     }
   }
 
-  for (const operation of operations) {
-    if (operation.kind === "assign_slot") {
-      await assignBankItemToHierarchicalSlot(
-        hierarchicalDeskInternalForm({
-          matchday_id: matchdayId,
-          composition_id: compositionId,
-          bank_item_id: operation.bankItemId,
-          slot_key: operation.slotKey,
-        }),
-      );
-    }
-    else if (operation.kind === "assign_auxiliary") {
-      await assignBankItemToHierarchicalAuxiliary(
-        hierarchicalDeskInternalForm({
-          matchday_id: matchdayId,
-          composition_id: compositionId,
-          bank_item_id: operation.bankItemId,
-          auxiliary_target: operation.target,
-        }),
-      );
-    }
-  }
+  await writeSupabaseAdmin("rpc/apply_historical_composition_workspace_plan_v3", {
+    method: "POST",
+    body: JSON.stringify({
+      p_matchday_id: matchdayId,
+      p_composition_id: compositionId,
+      p_operations: operations,
+      p_settings: settings,
+      p_dynamic_zones: dynamicZones,
+    }),
+  });
 
-  return operations.length;
+  return (
+    operations.length
+    + (settings ? 1 : 0)
+    + (dynamicZones?.length ?? 0)
+  );
 }
+type HistoricalDynamicPublicationZoneRow = {
+  id: string;
+  sort_order: number;
+  public_title: string;
+  visual_family:
+    | "six_news"
+    | "five_news_balanced"
+    | "five_news_secondary";
+};
+
+type HistoricalDynamicPublicationItemRow = {
+  zone_id: string;
+  position: number;
+  label_snapshot: string | null;
+  title_snapshot: string | null;
+  subtitle_snapshot: string | null;
+  image_url_snapshot: string | null;
+  link_url_snapshot: string | null;
+};
+
+const HISTORICAL_DYNAMIC_PUBLICATION_CAPACITY = {
+  six_news: 6,
+  five_news_balanced: 5,
+  five_news_secondary: 5,
+} as const;
+
+const HISTORICAL_DYNAMIC_OPENING_KEYS = [
+  "dominant_main",
+  "other_chronicle_1",
+  "other_chronicle_2",
+  "other_chronicle_3",
+] as const;
+
+async function validateHistoricalDynamicPublication(
+  composition: ReferenceCompositionState,
+  hierarchicalSlots: HierarchicalCompositionSlot[],
+) {
+  const zones =
+    await fetchSupabaseAdminTable<HistoricalDynamicPublicationZoneRow>(
+      `matchday_historical_composition_zones?select=id,sort_order,public_title,visual_family&composition_id=eq.${encodeURIComponent(
+        composition.id,
+      )}&order=sort_order.asc`,
+    );
+
+  if (zones.length === 0) {
+    return {
+      enabled: false,
+      zoneCount: 0,
+    };
+  }
+
+  const items =
+    await fetchSupabaseAdminTable<HistoricalDynamicPublicationItemRow>(
+      `matchday_historical_composition_zone_items?select=zone_id,position,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot&composition_id=eq.${encodeURIComponent(
+        composition.id,
+      )}&order=position.asc`,
+    );
+
+  const openingByKey =
+    new Map(
+      hierarchicalSlots.map(
+        (slot) => [slot.slot_key, slot] as const,
+      ),
+    );
+
+  const missingOpening =
+    HISTORICAL_DYNAMIC_OPENING_KEYS.filter(
+      (slotKey) => {
+        const slot =
+          openingByKey.get(slotKey);
+
+        return !(
+          slot
+          && slot.label_snapshot?.trim()
+          && slot.title_snapshot?.trim()
+          && slot.subtitle_snapshot?.trim()
+          && slot.image_url_snapshot?.trim()
+          && slot.link_url_snapshot?.trim()
+        );
+      },
+    );
+
+  if (missingOpening.length > 0) {
+    throw new CompositionPublicationError(
+      `Completa os 4 lugares da Abertura antes de publicar. Em falta: ${missingOpening.map(
+        hierarchicalSlotLabel,
+      ).join(", ")}.`,
+    );
+  }
+
+  zones.forEach((zone, zoneIndex) => {
+    const capacity =
+      HISTORICAL_DYNAMIC_PUBLICATION_CAPACITY[
+        zone.visual_family
+      ];
+
+    const zoneItems =
+      items
+        .filter((item) => item.zone_id === zone.id)
+        .sort(
+          (left, right) =>
+            left.position - right.position,
+        );
+
+    const validTitle =
+      Boolean(zone.public_title.trim());
+
+    const validOrder =
+      zone.sort_order === zoneIndex + 1;
+
+    const validItems =
+      zoneItems.length === capacity
+      && zoneItems.every(
+        (item, itemIndex) =>
+          item.position === itemIndex + 1
+          && Boolean(item.label_snapshot?.trim())
+          && Boolean(item.title_snapshot?.trim())
+          && Boolean(item.subtitle_snapshot?.trim())
+          && Boolean(item.image_url_snapshot?.trim())
+          && Boolean(item.link_url_snapshot?.trim()),
+      );
+
+    if (
+      !validTitle
+      || !validOrder
+      || !validItems
+    ) {
+      throw new CompositionPublicationError(
+        `Completa a zona editorial ${zoneIndex + 1} antes de publicar: título e ${capacity} notícias válidas são obrigatórios.`,
+      );
+    }
+  });
+
+  const videoPosition =
+    composition.hierarchical_video_position;
+
+  if (
+    !Number.isInteger(videoPosition)
+    || videoPosition === null
+    || videoPosition < 0
+    || videoPosition > zones.length
+  ) {
+    throw new CompositionPublicationError(
+      "Guarda a ordem do corpo editorial antes de publicar.",
+    );
+  }
+
+  return {
+    enabled: true,
+    zoneCount: zones.length,
+  };
+}
+
 async function publishReferenceComposition(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const compositionId = cleanText(formData.get("composition_id"));
@@ -2952,30 +3404,42 @@ async function publishReferenceComposition(formData: FormData) {
   if (composition.presentation_mode === "hierarchical") {
     const hierarchicalSlots = await readHierarchicalCompositionSlots(composition.id);
     const hierarchicalReferenceItems = await readHierarchicalCompositionReferenceItems(composition.id);
-    const missing = missingHierarchicalCompositionSlots(hierarchicalSlots);
-    const incomplete = incompleteHierarchicalCompositionSlots(hierarchicalSlots);
-    if (missing.length > 0 || incomplete.length > 0) {
-      const labels = Array.from(new Set([...missing, ...incomplete])).map(hierarchicalSlotLabel);
-      throw new CompositionPublicationError(`Completa os 15 lugares antes de publicar. Em falta: ${labels.join(", ")}.`);
-    }
-    if (!isPublishableHierarchicalBeyondMatchday(hierarchicalReferenceItems)) {
-      const missingBeyond = HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS
-        .filter((position) => {
-          const item = hierarchicalReferenceItems.find(
-            (candidate) => candidate.slot_type === "beyond_matchday" && candidate.sort_order === position.sortOrder,
-          );
-          return !item ||
-            !item.label_snapshot?.trim() ||
-            !item.title_snapshot?.trim() ||
-            !item.subtitle_snapshot?.trim() ||
-            !item.image_url_snapshot?.trim() ||
-            !item.link_url_snapshot?.trim();
-        })
-        .map((position) => position.label);
-      throw new CompositionPublicationError(
-        `Completa as 5 posições de Para Lá da Jornada antes de publicar. Em falta: ${missingBeyond.join(", ")}.`,
+
+    const dynamicPublication =
+      await validateHistoricalDynamicPublication(
+        composition,
+        hierarchicalSlots,
       );
+
+    if (!dynamicPublication.enabled) {
+      const missing = missingHierarchicalCompositionSlots(hierarchicalSlots);
+      const incomplete = incompleteHierarchicalCompositionSlots(hierarchicalSlots);
+
+      if (missing.length > 0 || incomplete.length > 0) {
+        const labels = Array.from(new Set([...missing, ...incomplete])).map(hierarchicalSlotLabel);
+        throw new CompositionPublicationError(`Completa os 15 lugares antes de publicar. Em falta: ${labels.join(", ")}.`);
+      }
+
+      if (!isPublishableHierarchicalBeyondMatchday(hierarchicalReferenceItems)) {
+        const missingBeyond = HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS
+          .filter((position) => {
+            const item = hierarchicalReferenceItems.find(
+              (candidate) => candidate.slot_type === "beyond_matchday" && candidate.sort_order === position.sortOrder,
+            );
+            return !item ||
+              !item.label_snapshot?.trim() ||
+              !item.title_snapshot?.trim() ||
+              !item.subtitle_snapshot?.trim() ||
+              !item.image_url_snapshot?.trim() ||
+              !item.link_url_snapshot?.trim();
+          })
+          .map((position) => position.label);
+        throw new CompositionPublicationError(
+          `Completa as 5 posições de Para Lá da Jornada antes de publicar. Em falta: ${missingBeyond.join(", ")}.`,
+        );
+      }
     }
+
     const hierarchicalEditorial = {
       title: composition.hierarchical_editorial_title,
       excerpt: composition.hierarchical_editorial_excerpt,
@@ -3125,6 +3589,10 @@ export async function POST(request: Request) {
     }
     else if (actionType === "assign_roundup_item_to_hierarchical_composition") {
       await assignRoundupItemToHierarchicalComposition(formData);
+      return redirectTo(request, compositionReturnTarget(returnTo, "composition_saved=1", returnAnchor));
+    }
+    else if (actionType === "assign_all_roundup_items_to_hierarchical_composition") {
+      await assignAllRoundupItemsToHierarchicalComposition(formData);
       return redirectTo(request, compositionReturnTarget(returnTo, "composition_saved=1", returnAnchor));
     }
     else if (actionType === "unassign_hierarchical_slot") {

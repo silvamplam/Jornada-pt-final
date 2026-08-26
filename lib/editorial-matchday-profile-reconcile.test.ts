@@ -29,7 +29,7 @@ function item(
     classifiedZoneKey,
     actualityOrder,
     label: `Label ${sourceId}`,
-    title: `Título ${sourceId}`,
+    title: `TÃƒÂ­tulo ${sourceId}`,
     subtitle: null,
     imageUrl: null,
     publishedAt: `2026-08-22T${hour}:00:00.000Z`,
@@ -60,7 +60,7 @@ function faixa(sourceId: string, sortOrder: number): MatchdayEditorialProfileFai
     sourceId,
     sortOrder,
     label: `Label ${sourceId}`,
-    title: `Título ${sourceId}`,
+    title: `TÃƒÂ­tulo ${sourceId}`,
     subtitle: null,
     imageUrl: null,
     publishedAt: "2026-08-20T12:00:00.000Z",
@@ -82,7 +82,7 @@ function eightyFourCandidates(): MatchdayEditorialProfileDeskAutomaticItem[] {
   });
 }
 
-test("um candidato Benfica #7 que nunca ocupou uma zona entra na Faixa automática", () => {
+test("um candidato Benfica #7 que nunca ocupou uma zona entra na Faixa automÃƒÂ¡tica", () => {
   const active = Array.from({ length: 7 }, (_, index) => item(`a${index + 1}`, "benfica", index + 1));
   const result = reconcileMatchdayEditorialProfileDistribution(profile, active, [], [], false, []);
 
@@ -91,7 +91,7 @@ test("um candidato Benfica #7 que nunca ocupou uma zona entra na Faixa automáti
   assert.deepEqual(result.bankAfter, []);
 });
 
-test("os candidatos #7 a #17 permanecem representados na Faixa e nunca no Banco implícito", () => {
+test("os candidatos #7 a #17 permanecem representados na Faixa e nunca no Banco implÃƒÂ­cito", () => {
   const active = Array.from({ length: 17 }, (_, index) => item(`a${index + 1}`, "benfica", index + 1));
   const result = reconcileMatchdayEditorialProfileDistribution(profile, active, [], [], false, []);
 
@@ -102,7 +102,7 @@ test("os candidatos #7 a #17 permanecem representados na Faixa e nunca no Banco 
   assert.deepEqual(result.bankAfter, []);
 });
 
-test("84 candidatos sem decisões de Banco produzem exatamente 27 zonas e 57 itens de Faixa", () => {
+test("84 candidatos sem decisÃƒÂµes de Banco produzem exatamente 27 zonas e 57 itens de Faixa", () => {
   const active = eightyFourCandidates();
   const result = reconcileMatchdayEditorialProfileDistribution(profile, active, [], [], false, []);
   const zoneItems = result.zonesAfter.flatMap((zone) => zone.items);
@@ -123,7 +123,7 @@ test("84 candidatos sem decisões de Banco produzem exatamente 27 zonas e 57 ite
   ]);
 });
 
-test("um Bank override explícito retira apenas essa identidade dos 57 overflows", () => {
+test("um Bank override explÃƒÂ­cito retira apenas essa identidade dos 57 overflows", () => {
   const active = eightyFourCandidates();
   const result = reconcileMatchdayEditorialProfileDistribution(
     profile,
@@ -139,7 +139,7 @@ test("um Bank override explícito retira apenas essa identidade dos 57 overflows
   assert.deepEqual(result.bankAfter.map((entry) => [entry.sourceId, entry.manualOverride]), [["benfica-7", "bank"]]);
 });
 
-test("pertença manual à Faixa sem slot usa a mesma atualidade global dos restantes itens", () => {
+test("pertenÃƒÂ§a manual ÃƒÂ  Faixa sem slot usa a mesma atualidade global dos restantes itens", () => {
   const forcedOlder = item("forced-older", "benfica", 1, 10);
   const sportingZone = Array.from(
     { length: profile.zones.find((zone) => zone.key === "sporting")?.capacity ?? 0 },
@@ -168,7 +168,7 @@ test("pertença manual à Faixa sem slot usa a mesma atualidade global dos resta
   );
 });
 
-test("Faixa manual protege um top-N e devolver ao automático repõe classificação sem duplicação", () => {
+test("snapshot aplicado preserva a composiÃƒÂ§ÃƒÂ£o quando a decisÃƒÂ£o manual ÃƒÂ© libertada", () => {
   const active = Array.from({ length: 7 }, (_, index) => item(`a${index + 1}`, "benfica", index + 1));
   const manual = reconcileMatchdayEditorialProfileDistribution(
     profile,
@@ -196,12 +196,12 @@ test("Faixa manual protege um top-N e devolver ao automático repõe classifica�
     ...automatic.bankAfter.map((entry) => entry.sourceId),
   ];
 
-  assert.deepEqual(zoneIds(automatic, "benfica"), ["a1", "a2", "a3", "a4", "a5", "a6"]);
-  assert.deepEqual(automatic.faixaAfter.map((entry) => [entry.sourceId, entry.manualOverride]), [["a7", null]]);
+  assert.deepEqual(zoneIds(automatic, "benfica"), ["a2", "a3", "a4", "a5", "a6", "a7"]);
+  assert.deepEqual(automatic.faixaAfter.map((entry) => [entry.sourceId, entry.manualOverride]), [["a1", null]]);
   assert.equal(new Set(identities).size, active.length);
 });
 
-test("X na posição 2 desaloja F do Benfica para o início da Faixa", () => {
+test("X na posiÃƒÂ§ÃƒÂ£o 2 desaloja F do Benfica para o inÃƒÂ­cio da Faixa", () => {
   const benfica = ["a", "b", "c", "d", "e", "f"].map((id, index) => item(id, "benfica", index + 1));
   const x = item("x", "outside_liga_other", 1, 23);
   const sporting = [1, 2, 3, 4, 5].map((number) => item(`s${number}`, "sporting", number));
@@ -218,7 +218,7 @@ test("X na posição 2 desaloja F do Benfica para o início da Faixa", () => {
   assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["f", "g", "h", "i"]);
 });
 
-test("ao devolver X ao automático, F regressa à zona e desaparece fisicamente da Faixa", () => {
+test("snapshot aplicado nÃƒÂ£o ÃƒÂ© reescrito pela classificaÃƒÂ§ÃƒÂ£o automÃƒÂ¡tica sem nova decisÃƒÂ£o", () => {
   const benfica = ["a", "b", "c", "d", "e", "f"].map((id, index) => item(id, "benfica", index + 1));
   const x = item("x", "outside_liga_other", 1, 23);
   const sporting = [1, 2, 3, 4, 5].map((number) => item(`s${number}`, "sporting", number));
@@ -232,11 +232,11 @@ test("ao devolver X ao automático, F regressa à zona e desaparece fisicamente 
     [faixa("f", 1), faixa("g", 2)],
   );
 
-  assert.deepEqual(zoneIds(result, "benfica"), ["a", "b", "c", "d", "e", "f"]);
-  assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["g"]);
+  assert.deepEqual(zoneIds(result, "benfica"), ["a", "x", "b", "c", "d", "e"]);
+  assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["f", "g"]);
 });
 
-test("uma Faixa com 24 itens recebe overflow, reordena por atualidade e não perde qualquer item", () => {
+test("uma Faixa com 24 itens recebe overflow, reordena por atualidade e nÃƒÂ£o perde qualquer item", () => {
   const benfica = ["a", "b", "c", "d", "e", "f"].map((id, index) => item(id, "benfica", index + 1));
   const x = item("x", "outside_liga_other", 1, 23);
   const faixaItems = Array.from({ length: 24 }, (_, index) => faixa(`q${index + 1}`, index + 1));
@@ -273,7 +273,7 @@ test("uma Faixa com 24 itens recebe overflow, reordena por atualidade e não per
   }
 });
 
-test("um item na posição 17 que regressa à zona é removido e a Faixa compacta", () => {
+test("um item na posiÃƒÂ§ÃƒÂ£o 17 que regressa ÃƒÂ  zona ÃƒÂ© removido e a Faixa compacta", () => {
   const returning = item("returning", "benfica", 1);
   const faixaItems = Array.from({ length: 20 }, (_, index) => faixa(index === 16 ? "returning" : `q${index + 1}`, index + 1));
   const remainingFaixa = faixaItems.filter((entry) => entry.sourceId !== "returning");
@@ -286,7 +286,7 @@ test("um item na posição 17 que regressa à zona é removido e a Faixa compact
   assert.deepEqual(result.faixaAfter.map((entry) => entry.sortOrder), Array.from({ length: 19 }, (_, index) => index + 1));
 });
 
-test("identidade já presente em zonesAfter nunca permanece duplicada na Faixa", () => {
+test("identidade jÃƒÂ¡ presente em zonesAfter nunca permanece duplicada na Faixa", () => {
   const a = item("a", "benfica", 1);
   const result = reconcileMatchdayEditorialProfileDistribution(profile, [a], [], [], false, [faixa("a", 1)]);
   assert.deepEqual(zoneIds(result, "benfica"), ["a"]);
@@ -309,7 +309,7 @@ test("dois desalojados entram como bloco e preservam a ordem relativa", () => {
   assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["e", "f", "g"]);
 });
 
-test("Banco explícito nunca é promovido automaticamente à Faixa", () => {
+test("Banco explÃƒÂ­cito nunca ÃƒÂ© promovido automaticamente ÃƒÂ  Faixa", () => {
   const a = item("a", "benfica", 1);
   const result = reconcileMatchdayEditorialProfileDistribution(
     profile,
@@ -323,7 +323,7 @@ test("Banco explícito nunca é promovido automaticamente à Faixa", () => {
   assert.deepEqual(result.bankAfter.map((entry) => entry.sourceId), ["a"]);
 });
 
-test("uma decisão manual de Faixa sobrevive a uma baseline que voltaria a colocar a notícia", () => {
+test("uma decisÃƒÂ£o manual de Faixa sobrevive a uma baseline que voltaria a colocar a notÃƒÂ­cia", () => {
   const x = item("x", "benfica", 1);
   const result = reconcileMatchdayEditorialProfileDistribution(
     profile,
@@ -339,7 +339,7 @@ test("uma decisão manual de Faixa sobrevive a uma baseline que voltaria a coloc
   assert.deepEqual(result.bankAfter, []);
 });
 
-test("uma notícia da Faixa movida para zona desaparece da Faixa", () => {
+test("uma notÃƒÂ­cia da Faixa movida para zona desaparece da Faixa", () => {
   const x = item("x", "sporting", 8);
   const result = reconcileMatchdayEditorialProfileDistribution(
     profile,
@@ -354,7 +354,7 @@ test("uma notícia da Faixa movida para zona desaparece da Faixa", () => {
   assert.deepEqual(result.faixaAfter, []);
 });
 
-test("fixações de zona e posição vencem a atualidade automática", () => {
+test("fixaÃƒÂ§ÃƒÂµes de zona e posiÃƒÂ§ÃƒÂ£o vencem a atualidade automÃƒÂ¡tica", () => {
   const automatic = [1, 2, 3, 4, 5, 6].map((number) => item(`a${number}`, "benfica", number));
   const protectedItem = item("protected", "sporting", 8, 1);
   const fixedItem = item("fixed", "sporting", 9, 0);
@@ -389,7 +389,7 @@ test("bootstrap usa baseline sem overrides como before", () => {
   assert.deepEqual(result.zonesAfter[0].items.map((entry) => entry.sourceId), ["a", "x", "b", "c", "d", "e"]);
 });
 
-test("segundo Apply é idempotente e não cria movimentos adicionais", () => {
+test("segundo Apply ÃƒÂ© idempotente e nÃƒÂ£o cria movimentos adicionais", () => {
   const baseline = ["a", "b", "c", "d", "e", "f"].map((id, index) => item(id, "benfica", index + 1));
   const x = item("x", "outside_liga_other", 1, 23);
   const overrides = [override("x", "zone", "benfica", 2)];
@@ -409,6 +409,115 @@ test("segundo Apply é idempotente e não cria movimentos adicionais", () => {
   assert.deepEqual(second.movements, []);
 });
 
+test("snapshot aplicado preserva a ordem aplicada mesmo quando a atualidade aponta noutra direÃƒÂ§ÃƒÂ£o", () => {
+  const baseline = [
+    item("a", "benfica", 1, 1),
+    item("b", "benfica", 2, 23),
+    item("c", "benfica", 3, 5),
+    item("d", "benfica", 4, 22),
+    item("e", "benfica", 5, 2),
+    item("f", "benfica", 6, 21),
+  ];
+
+  const result =
+    reconcileMatchdayEditorialProfileDistribution(
+      profile,
+      baseline,
+      [],
+      baseline.map(
+        (entry, index) =>
+          applied(
+            entry.sourceId,
+            "benfica",
+            index + 1,
+          ),
+      ),
+      true,
+      [],
+    );
+
+  assert.deepEqual(
+    zoneIds(result, "benfica"),
+    ["a", "b", "c", "d", "e", "f"],
+  );
+  assert.equal(result.hasChanges, false);
+  assert.deepEqual(result.movements, []);
+});
+test("snapshot aplicado mantÃƒÂ©m baseline e deixa notÃƒÂ­cias novas no Banco como propostas", () => {
+  const baseline = ["a", "b", "c", "d", "e", "f"].map(
+    (id, index) => item(id, "benfica", index + 1),
+  );
+  const proposal = item("proposal", "sporting", 1, 23);
+  const faixaItems = [faixa("q1", 1), faixa("q2", 2)];
+  const activeFaixa = [
+    item("q1", "sporting", 20),
+    item("q2", "sporting", 21),
+  ];
+
+  const result = reconcileMatchdayEditorialProfileDistribution(
+    profile,
+    [...baseline, proposal, ...activeFaixa],
+    [],
+    baseline.map((entry, index) =>
+      applied(entry.sourceId, "benfica", index + 1)),
+    true,
+    faixaItems,
+  );
+
+  assert.deepEqual(
+    zoneIds(result, "benfica"),
+    ["a", "b", "c", "d", "e", "f"],
+  );
+  assert.deepEqual(
+    result.faixaAfter.map((entry) => entry.sourceId),
+    ["q1", "q2"],
+  );
+  assert.deepEqual(
+    result.bankAfter.map((entry) => entry.sourceId),
+    ["proposal"],
+  );
+  assert.equal(result.hasChanges, false);
+  assert.deepEqual(result.movements, []);
+});
+
+test("decisÃƒÂ£o explÃƒÂ­cita incorpora proposta e desaloja apenas a baseline necessÃƒÂ¡ria", () => {
+  const baseline = ["a", "b", "c", "d", "e", "f"].map(
+    (id, index) => item(id, "benfica", index + 1),
+  );
+  const proposal = item("proposal", "sporting", 1, 23);
+  const faixaItems = [faixa("q1", 1), faixa("q2", 2)];
+  const activeFaixa = [
+    item("q1", "sporting", 20),
+    item("q2", "sporting", 21),
+  ];
+
+  const result = reconcileMatchdayEditorialProfileDistribution(
+    profile,
+    [...baseline, proposal, ...activeFaixa],
+    [override("proposal", "zone", "benfica", 2)],
+    baseline.map((entry, index) =>
+      applied(entry.sourceId, "benfica", index + 1)),
+    true,
+    faixaItems,
+  );
+
+  assert.deepEqual(
+    zoneIds(result, "benfica"),
+    ["a", "proposal", "b", "c", "d", "e"],
+  );
+  assert.deepEqual(
+    result.faixaAfter.map((entry) => entry.sourceId),
+    ["f", "q1", "q2"],
+  );
+  assert.deepEqual(
+    result.faixaAfter.map((entry) => entry.sourceId),
+    ["f", "q1", "q2"],
+  );
+  assert.deepEqual(
+    result.bankAfter.map((entry) => entry.sourceId),
+    [],
+  );
+});
 test("reconcile nunca duplica identidades entre zonas, Faixa e Banco", () => {
   const active = [1, 2, 3, 4, 5, 6, 7].map((number) => item(`a${number}`, "benfica", number));
   const result = reconcileMatchdayEditorialProfileDistribution(profile, active, [], [], false, [faixa("a1", 1)]);

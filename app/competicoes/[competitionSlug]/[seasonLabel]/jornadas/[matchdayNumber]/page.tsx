@@ -16,6 +16,10 @@ import {
   isPublishableHierarchicalComposition,
   type HierarchicalCompositionSlot,
 } from "@/lib/editorial-hierarchical-composition";
+import {
+  normalizeHistoricalCompositionBlockOrder,
+  normalizeHistoricalCompositionHeadlineTitleColor,
+} from "@/lib/editorial-historical-composition-workspace";
 import { getPublicTeamName } from "@/lib/public-team-name";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
@@ -23,7 +27,13 @@ import { PublicEditorialLayout } from "@/components/public/PublicEditorialLayout
 import PublicFourNewsLatestLayout, { type PublicFourNewsLatestItem } from "@/components/public/PublicFourNewsLatestLayout";
 import PublicThematicLatestOnlyLayout from "@/components/public/PublicThematicLatestOnlyLayout";
 import type { PublicBeyondMatchdayNewsItem } from "@/components/public/PublicBeyondMatchdayNews";
-import PublicHierarchicalComposition, { PublicHierarchicalLiveLayouts } from "@/components/public/PublicHierarchicalComposition";
+import PublicHierarchicalComposition, {
+  PublicHierarchicalLiveLayouts,
+  PublicHierarchicalPosteriorMoments,
+} from "@/components/public/PublicHierarchicalComposition";
+import PublicFlexibleZoneLayout, {
+  type PublicFlexibleZone,
+} from "@/components/public/PublicFlexibleZoneLayout";
 import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
@@ -56,6 +66,129 @@ const PUBLIC_STAT_COLUMNS: Array<{ key: keyof ClassificationSplit; label: string
   { key: "goalDifference", label: "DG" },
   { key: "points", label: "PTS" }
 ];
+
+type HistoricalDynamicZoneVisualFamily =
+  | "six_news"
+  | "five_news_balanced"
+  | "five_news_secondary";
+
+type HistoricalDynamicZoneRow = {
+  id: string;
+  composition_id: string;
+  sort_order: number;
+  public_title: string;
+  visual_family: HistoricalDynamicZoneVisualFamily;
+};
+
+type HistoricalDynamicZoneItemRow = {
+  id: string;
+  composition_id: string;
+  zone_id: string;
+  position: number;
+  bank_item_id: string | null;
+  source_identity: string;
+  label_snapshot: string | null;
+  title_snapshot: string | null;
+  subtitle_snapshot: string | null;
+  image_url_snapshot: string | null;
+  link_url_snapshot: string | null;
+};
+
+type HistoricalDynamicPublicZoneState = {
+  sortOrder: number;
+  complete: boolean;
+  zone: PublicFlexibleZone;
+};
+
+const HISTORICAL_DYNAMIC_ZONE_CAPACITY: Readonly<
+  Record<HistoricalDynamicZoneVisualFamily, number>
+> = {
+  six_news: 6,
+  five_news_balanced: 5,
+  five_news_secondary: 5,
+};
+
+async function readPublicHistoricalDynamicZones(
+  compositionId: string,
+): Promise<HistoricalDynamicPublicZoneState[]> {
+  const [zoneRows, itemRows] = await Promise.all([
+    fetchSupabaseAdminTable<HistoricalDynamicZoneRow>(
+      `matchday_historical_composition_zones?select=id,composition_id,sort_order,public_title,visual_family&composition_id=eq.${encodeURIComponent(
+        compositionId,
+      )}&order=sort_order.asc`,
+    ).catch(() => []),
+    fetchSupabaseAdminTable<HistoricalDynamicZoneItemRow>(
+      `matchday_historical_composition_zone_items?select=id,composition_id,zone_id,position,bank_item_id,source_identity,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot&composition_id=eq.${encodeURIComponent(
+        compositionId,
+      )}&order=position.asc`,
+    ).catch(() => []),
+  ]);
+
+  return zoneRows.map((row, zoneIndex) => {
+    const capacity =
+      HISTORICAL_DYNAMIC_ZONE_CAPACITY[
+        row.visual_family
+      ];
+
+    const sourceItems = itemRows
+      .filter((item) => item.zone_id === row.id)
+      .sort((left, right) => left.position - right.position);
+
+    const positions =
+      sourceItems.map((item) => item.position);
+
+    const complete =
+      row.sort_order === zoneIndex + 1
+      && Boolean(row.public_title.trim())
+      && sourceItems.length === capacity
+      && positions.every(
+        (position, index) =>
+          position === index + 1,
+      )
+      && sourceItems.every(
+        (item) =>
+          Boolean(item.label_snapshot?.trim())
+          && Boolean(item.title_snapshot?.trim())
+          && Boolean(item.subtitle_snapshot?.trim())
+          && Boolean(item.image_url_snapshot?.trim())
+          && Boolean(item.link_url_snapshot?.trim()),
+      );
+
+    return {
+      sortOrder: row.sort_order,
+      complete,
+      zone: {
+        key: `historical:${row.id}`,
+        capacity,
+        visualFamily: row.visual_family,
+        publicTitle: row.public_title.trim(),
+        items: sourceItems.map((item) => ({
+          id: item.id,
+          sourceId:
+            item.bank_item_id
+            ?? item.source_identity,
+          sortOrder: item.position,
+          label:
+            item.label_snapshot?.trim()
+            || null,
+          title:
+            item.title_snapshot?.trim()
+            || "",
+          subtitle:
+            item.subtitle_snapshot?.trim()
+            || "",
+          imageUrl:
+            item.image_url_snapshot?.trim()
+            || "",
+          linkUrl:
+            item.link_url_snapshot?.trim()
+            || "",
+          publishedAt: null,
+        })),
+      },
+    };
+  });
+}
 
 function publicCompetitionBarColor(competitionSlug: string) {
   if (competitionSlug === "liga-portugal") return "#00235a";
@@ -3799,8 +3932,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       ? thematicRead
       : null;
 
+  const isManagedByEditorialDesk = context.editorialDeskControl.isManaged;
+  const usePublishedReferenceComposition =
+    context.hasPublishedReferenceComposition
+    && !isManagedByEditorialDesk;
   const thematicPublicUnavailable =
-    hasThematicAssignment
+    !usePublishedReferenceComposition
+    && hasThematicAssignment
     && thematicSnapshot === null;
 
   const showLogoDiagnostic = query.debug_logos === "1";
@@ -3877,7 +4015,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   );
   const editorial = context.editorial;
   const publishedHeadline = editorial?.status === "published" ? editorial : null;
-  const isManagedByEditorialDesk = context.editorialDeskControl.isManaged;
   const editorialCarryover =
     !hasThematicAssignment
     && isManagedByEditorialDesk
@@ -3911,12 +4048,96 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const carryoverSideBlock =
     editorialCarryover?.sideBlock ?? null;
 
-  const usePublishedReferenceComposition =
-    !hasThematicAssignment
-    && context.hasPublishedReferenceComposition
-    && !isManagedByEditorialDesk;
   const useHierarchicalReferenceComposition =
     usePublishedReferenceComposition && context.referenceComposition?.presentation_mode === "hierarchical";
+
+  const historicalDynamicZoneStates =
+    useHierarchicalReferenceComposition
+    && context.referenceComposition
+      ? await readPublicHistoricalDynamicZones(
+          context.referenceComposition.id,
+        )
+      : [];
+
+  const useHistoricalDynamicZones =
+    historicalDynamicZoneStates.length > 0;
+
+  const hasValidHistoricalDynamicZones =
+    useHistoricalDynamicZones
+    && historicalDynamicZoneStates.every(
+      (state) => state.complete,
+    );
+
+  const historicalDynamicZones =
+    historicalDynamicZoneStates.map(
+      (state) => state.zone,
+    );
+
+  const historicalVideoPosition =
+    Math.min(
+      Math.max(
+        context.referenceComposition
+          ?.hierarchical_video_position
+          ?? historicalDynamicZones.length,
+        0,
+      ),
+      historicalDynamicZones.length,
+    );
+
+  const historicalDynamicBodyBlocks:
+    Array<
+      | {
+          kind: "zone";
+          zone: PublicFlexibleZone;
+        }
+      | {
+          kind: "video";
+        }
+    > =
+      historicalDynamicZones.map((zone) => ({
+        kind: "zone",
+        zone,
+      }));
+
+  if (useHistoricalDynamicZones) {
+    historicalDynamicBodyBlocks.splice(
+      historicalVideoPosition,
+      0,
+      {
+        kind: "video",
+      },
+    );
+  }
+
+  const historicalOpeningKeys = [
+    "dominant_main",
+    "other_chronicle_1",
+    "other_chronicle_2",
+    "other_chronicle_3",
+  ] as const;
+
+  const historicalOpeningSlotByKey =
+    new Map(
+      context.hierarchicalCompositionSlots.map(
+        (slot) => [slot.slot_key, slot] as const,
+      ),
+    );
+
+  const hasValidHistoricalOpening =
+    historicalOpeningKeys.every((slotKey) => {
+      const slot =
+        historicalOpeningSlotByKey.get(slotKey);
+
+      return Boolean(
+        slot
+        && slot.label_snapshot?.trim()
+        && slot.title_snapshot?.trim()
+        && slot.subtitle_snapshot?.trim()
+        && slot.image_url_snapshot?.trim()
+        && slot.link_url_snapshot?.trim(),
+      );
+    });
+
   const hierarchicalEditorial = useHierarchicalReferenceComposition && context.referenceComposition
     ? {
         title: context.referenceComposition.hierarchical_editorial_title,
@@ -3937,9 +4158,22 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     ? referenceBeyondMatchdayItems
     : [];
   const hasValidHierarchicalReferenceComposition =
-    useHierarchicalReferenceComposition &&
-    isPublishableHierarchicalComposition(context.hierarchicalCompositionSlots) &&
-    isPublishableHierarchicalBeyondMatchday(hierarchicalBeyondReferenceItems);
+    useHierarchicalReferenceComposition
+    && (
+      useHistoricalDynamicZones
+        ? (
+            hasValidHistoricalOpening
+            && hasValidHistoricalDynamicZones
+          )
+        : (
+            isPublishableHierarchicalComposition(
+              context.hierarchicalCompositionSlots,
+            )
+            && isPublishableHierarchicalBeyondMatchday(
+              hierarchicalBeyondReferenceItems,
+            )
+          )
+    );
   const referenceBankItemIds = usePublishedReferenceComposition
     ? Array.from(
         new Set(
@@ -4758,17 +4992,81 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       ) : useHierarchicalReferenceComposition ? (
         <div className="public-matchday-hierarchical-region">
           {hasValidHierarchicalReferenceComposition ? (
-            <PublicHierarchicalComposition
+            <>
+              <PublicHierarchicalComposition
+              blockOrder={
+                useHistoricalDynamicZones
+                  ? ["opening"]
+                  : context.referenceComposition?.hierarchical_block_order == null
+                    ? null
+                    : normalizeHistoricalCompositionBlockOrder(
+                        context.referenceComposition.hierarchical_block_order,
+                      )
+              }
               editorial={hierarchicalEditorial}
               editorialHref={hierarchicalEditorialHref}
               editorialAfter={<PublicSideAdvertisement />}
+              headlineTitleColor={
+                context.referenceComposition?.hierarchical_headline_title_color
+                  ? normalizeHistoricalCompositionHeadlineTitleColor(
+                      context.referenceComposition.hierarchical_headline_title_color,
+                    )
+                  : null
+              }
               slots={context.hierarchicalCompositionSlots}
-              roundupItems={effectiveRoundupItems}
+              roundupItems={
+                useHistoricalDynamicZones
+                  ? []
+                  : effectiveRoundupItems
+              }
               roundupHeading="A JORNADA EM VÍDEO"
               matchdayNumber={context.matchday.number}
-              videoHighlight={hierarchicalVideoHighlight}
-              beyondMatchdayItems={hierarchicalBeyondMatchdayNews}
+              videoHighlight={
+                useHistoricalDynamicZones
+                  ? null
+                  : hierarchicalVideoHighlight
+              }
+              beyondMatchdayItems={
+                useHistoricalDynamicZones
+                  ? []
+                  : hierarchicalBeyondMatchdayNews
+              }
+              zone1Title={context.referenceComposition?.hierarchical_zone_1_title}
+              zone2Title={context.referenceComposition?.hierarchical_zone_2_title}
             />
+
+            {useHistoricalDynamicZones
+              ? historicalDynamicBodyBlocks.map((block, index) => {
+                  if (block.kind === "video") {
+                    return (
+                      <PublicHierarchicalPosteriorMoments
+                        beyondMatchdayItems={[]}
+                        key="historical-dynamic-video"
+                        matchdayNumber={context.matchday.number}
+                        roundupHeading="A JORNADA EM VÍDEO"
+                        roundupItems={effectiveRoundupItems}
+                        style={{
+                          width: "min(100%, 1200px)",
+                          margin:
+                            index === 0
+                              ? "clamp(46px, 5vw, 68px) auto 0"
+                              : "clamp(46px, 5vw, 68px) auto 0",
+                        }}
+                        videoHighlight={hierarchicalVideoHighlight}
+                      />
+                    );
+                  }
+
+                  return (
+                    <PublicFlexibleZoneLayout
+                      key={block.zone.key}
+                      matchdayNumber={context.matchday.number}
+                      zone={block.zone}
+                    />
+                  );
+                })
+              : null}
+            </>
           ) : (
             <section className="public-matchday-panel" aria-label="Composição hierárquica indisponível">
               <p>A composição hierárquica desta jornada está temporariamente indisponível.</p>
@@ -4840,7 +5138,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         />
       )}
 
-      {thematicSnapshot
+      {!usePublishedReferenceComposition && thematicSnapshot
         ? thematicSnapshot.pageControls.thematicBlockOrder.map((block) => {
             if (block === "video") {
               if (

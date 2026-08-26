@@ -1,5 +1,6 @@
-﻿import type { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { readMatchdayEditorialDesk } from "@/lib/editorial-matchday-desk";
+import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
 import {
   placementGroupForKey,
   placementLabelForKey,
@@ -26,9 +27,23 @@ import {
   type HierarchicalCompositionSlot,
   type ReferenceCompositionPresentationMode,
 } from "@/lib/editorial-hierarchical-composition";
+import {
+  HISTORICAL_COMPOSITION_DEFAULT_HEADLINE_TITLE_COLOR,
+  HISTORICAL_COMPOSITION_DEFAULT_ZONE_TITLES,
+  normalizeHistoricalCompositionBlockOrder,
+  normalizeHistoricalCompositionHeadlineTitleColor,
+  normalizeHistoricalCompositionZoneTitle,
+} from "@/lib/editorial-historical-composition-workspace";
 import HierarchicalCompositionInterpretivePreview from "@/components/admin/HierarchicalCompositionInterpretivePreview";
+import PublicFlexibleZoneLayout, {
+  type PublicFlexibleZone,
+} from "@/components/public/PublicFlexibleZoneLayout";
+import PublicHierarchicalComposition, {
+  PublicHierarchicalPosteriorMoments,
+} from "@/components/public/PublicHierarchicalComposition";
+import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
 import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
-import HierarchicalCompositionDeskClient from "./HierarchicalCompositionDeskClient";
+import HierarchicalCompositionDeskClient, { type HierarchicalCompositionDeskDynamicZone } from "./HierarchicalCompositionDeskClient";
 import {
   fetchSupabaseAdminTable,
   type SupabaseCompetition,
@@ -43,6 +58,10 @@ import {
 } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
+
+function historicalCompositionDeskPresentationMode(): ReferenceCompositionPresentationMode {
+  return "hierarchical";
+}
 
 type CompositionPageProps = {
   params: Promise<{
@@ -142,6 +161,13 @@ type ReferenceComposition = {
   hierarchical_editorial_excerpt: string | null;
   hierarchical_editorial_text: string | null;
   hierarchical_editorial_author: string | null;
+  hierarchical_editorial_source_type: string | null;
+  hierarchical_editorial_source_id: string | null;
+  hierarchical_headline_title_color: string | null;
+  hierarchical_zone_1_title: string | null;
+  hierarchical_zone_2_title: string | null;
+  hierarchical_block_order: unknown;
+  hierarchical_video_position: number | null;
   created_at: string;
   updated_at: string;
   published_at: string | null;
@@ -167,6 +193,27 @@ type ReferenceCompositionItem = {
   status: string;
   created_at: string;
   updated_at: string;
+};
+
+type HistoricalCompositionDynamicZoneRow = {
+  id: string;
+  composition_id: string;
+  sort_order: number;
+  public_title: string;
+  visual_family: "six_news" | "five_news_balanced" | "five_news_secondary";
+};
+
+type HistoricalCompositionDynamicZoneItemRow = {
+  id: string;
+  composition_id: string;
+  zone_id: string;
+  position: number;
+  bank_item_id: string | null;
+  label_snapshot: string | null;
+  title_snapshot: string;
+  subtitle_snapshot: string | null;
+  image_url_snapshot: string | null;
+  link_url_snapshot: string | null;
 };
 
 type MatchdayEditorialBankItem = {
@@ -1779,7 +1826,7 @@ function readDraftReferenceComposition(
   presentationMode: ReferenceCompositionPresentationMode,
 ): Promise<ReferenceComposition | null> {
   return readFirst<ReferenceComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_block_order,hierarchical_video_position,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&status=eq.draft&presentation_mode=eq.${encodeURIComponent(presentationMode)}&order=created_at.desc`
   ).catch(() => null);
@@ -1790,7 +1837,7 @@ function readPublishedReferenceComposition(
   presentationMode: ReferenceCompositionPresentationMode,
 ): Promise<ReferenceComposition | null> {
   return readFirst<ReferenceComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_block_order,hierarchical_video_position,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&status=eq.published&presentation_mode=eq.${encodeURIComponent(presentationMode)}&order=is_current.desc,published_at.desc.nullslast`
   ).catch(() => null);
@@ -1825,6 +1872,50 @@ function readHierarchicalCompositionSlots(compositionId?: string | null): Promis
     )}`
   ).catch(() => []);
 }
+
+async function readHistoricalCompositionDynamicZones(
+  compositionId?: string | null,
+): Promise<HierarchicalCompositionDeskDynamicZone[]> {
+  if (!compositionId) return [];
+
+  const [zones, items] = await Promise.all([
+    fetchSupabaseAdminTable<HistoricalCompositionDynamicZoneRow>(
+      `matchday_historical_composition_zones?select=id,composition_id,sort_order,public_title,visual_family&composition_id=eq.${encodeURIComponent(
+        compositionId,
+      )}&order=sort_order.asc`,
+    ),
+    fetchSupabaseAdminTable<HistoricalCompositionDynamicZoneItemRow>(
+      `matchday_historical_composition_zone_items?select=id,composition_id,zone_id,position,bank_item_id,label_snapshot,title_snapshot,subtitle_snapshot,image_url_snapshot,link_url_snapshot&composition_id=eq.${encodeURIComponent(
+        compositionId,
+      )}&order=position.asc`,
+    ),
+  ]);
+
+  return zones.map((zone) => ({
+    id: zone.id,
+    sortOrder: zone.sort_order,
+    publicTitle: zone.public_title,
+    visualFamily: zone.visual_family,
+    items: items
+      .filter((item) => item.zone_id === zone.id)
+      .map((item) => ({
+        id: item.id,
+        position: item.position,
+        bankItemId: item.bank_item_id,
+        label: item.label_snapshot,
+        title: item.title_snapshot,
+        subtitle: item.subtitle_snapshot,
+        imageUrl: item.image_url_snapshot,
+        linkUrl: item.link_url_snapshot,
+      })),
+  }));
+}
+
+const HISTORICAL_DYNAMIC_ADMIN_ZONE_CAPACITY = {
+  six_news: 6,
+  five_news_balanced: 5,
+  five_news_secondary: 5,
+} as const;
 
 function hierarchicalEditorialFromComposition(
   composition?: ReferenceComposition | null,
@@ -3507,22 +3598,15 @@ function HierarchicalVideoEditor({
       <p className="composition-admin-note">Esta lista pertence apenas a esta versão da Composição. Podes escolher, ordenar e retirar vídeos sem alterar a página viva.</p>
 
       {composition.status === "draft" && availableVideos.length > 0 ? (
-        <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
-          <HiddenField name="action_type" value="assign_roundup_item_to_hierarchical_composition" />
+        <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post" data-insert-all-hierarchical-videos>
+          <HiddenField name="action_type" value="assign_all_roundup_items_to_hierarchical_composition" />
           <HiddenField name="matchday_id" value={matchdayId} />
           <HiddenField name="composition_id" value={composition.id} />
           <HiddenField name="return_to" value={returnTo} />
           <HiddenField name="return_anchor" value="hierarchical-video" />
-          <div className="composition-admin-field">
-            <label htmlFor="hierarchical-roundup-item">Adicionar vídeo publicado</label>
-            <select className="composition-admin-input" id="hierarchical-roundup-item" name="roundup_item_id" defaultValue="" required>
-              <option value="" disabled>Escolher vídeo</option>
-              {availableVideos.map((item) => (
-                <option key={item.id} value={item.id}>{item.title || item.label || item.type}</option>
-              ))}
-            </select>
-          </div>
-          <button className="composition-admin-small-button" type="submit">Adicionar vídeo</button>
+          <button className="composition-admin-small-button" type="submit">
+            INSERIR TODOS OS VÍDEOS DISPONÍVEIS ({availableVideos.length})
+          </button>
         </form>
       ) : null}
 
@@ -3651,6 +3735,7 @@ function HierarchicalAuxiliaryEditor({
   items,
   matchdayId,
   returnTo,
+  showBeyondMatchday = true,
 }: {
   articles: PublishedEditorialArticle[];
   contents: PublishedEditorialContent[];
@@ -3658,6 +3743,7 @@ function HierarchicalAuxiliaryEditor({
   items: ReferenceCompositionItem[];
   matchdayId: string;
   returnTo: string;
+  showBeyondMatchday?: boolean;
 }) {
   const videoHighlight = items.find((item) => item.slot_type === "complement") ?? null;
 
@@ -3669,20 +3755,22 @@ function HierarchicalAuxiliaryEditor({
 
   const openTargets = [
     ...(videoHighlight ? [] : [{ value: "video_highlight", label: "Destaque da Jornada" }]),
-    ...HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS
+    ...(showBeyondMatchday ? HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS
       .filter((position) => !beyondByOrder.has(position.sortOrder))
       .map((position) => ({
         value: `beyond_matchday_${position.sortOrder}`,
         label: `Para Lá da Jornada — ${position.label}`,
-      })),
+      })) : []),
   ];
 
   return (
     <section className="composition-admin-section" id="hierarchical-auxiliary">
-      <div className="composition-admin-section-heading">
-        <h4>Momentos posteriores</h4>
-        <span>Destaque opcional + atualidade 1+4</span>
-      </div>
+      {showBeyondMatchday ? (
+        <div className="composition-admin-section-heading">
+          <h4>Momentos posteriores</h4>
+          <span>Destaque opcional + atualidade 1+4</span>
+        </div>
+      ) : null}
 
       {composition.status === "draft" && openTargets.length > 0 ? (
         <details className="composition-admin-candidates">
@@ -3732,6 +3820,7 @@ function HierarchicalAuxiliaryEditor({
         )}
       </section>
 
+      {showBeyondMatchday ? (
       <section className="composition-admin-section">
         <div className="composition-admin-section-heading">
           <h4>Para Lá da Jornada</h4>
@@ -3775,6 +3864,7 @@ function HierarchicalAuxiliaryEditor({
           })}
         </div>
       </section>
+      ) : null}
     </section>
   );
 }
@@ -3798,8 +3888,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   }
 
   const { matchday, season, competition, country } = context;
-  const presentationMode: ReferenceCompositionPresentationMode =
-    query.presentation_mode === "standard" ? "standard" : "hierarchical";
+  const presentationMode = historicalCompositionDeskPresentationMode();
   const [
     modeDraftComposition,
     modePublishedComposition,
@@ -3809,6 +3898,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     publishedArticles,
     publishedContents,
     hierarchicalDeskSnapshot,
+    hierarchicalProfileSnapshot,
   ] = await Promise.all([
     readDraftReferenceComposition(matchday.id, presentationMode),
     readPublishedReferenceComposition(matchday.id, presentationMode),
@@ -3820,11 +3910,15 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     presentationMode === "hierarchical"
       ? readMatchdayEditorialDesk(matchday.id)
       : Promise.resolve(null),
+    presentationMode === "hierarchical"
+      ? readMatchdayEditorialProfileDesk(matchday.id).catch(() => null)
+      : Promise.resolve(null),
   ]);
   const draftComposition = modeDraftComposition ?? modePublishedComposition;
-  const [compositionItems, hierarchicalSlots] = await Promise.all([
+  const [compositionItems, hierarchicalSlots, historicalDynamicZones] = await Promise.all([
     readReferenceCompositionItems(draftComposition?.id),
     presentationMode === "hierarchical" ? readHierarchicalCompositionSlots(draftComposition?.id) : Promise.resolve([]),
+    presentationMode === "hierarchical" ? readHistoricalCompositionDynamicZones(draftComposition?.id) : Promise.resolve([]),
   ]);
   const hierarchicalAuxiliaryItems = compositionItems.filter(
     (item) => item.slot_type === "complement" || item.slot_type === "beyond_matchday",
@@ -3889,6 +3983,74 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       imageUrl: item.image_url_snapshot,
       linkUrl: item.link_url_snapshot ?? "",
     }));
+  const hasHistoricalDynamicZones = historicalDynamicZones.length > 0;
+
+  const historicalDynamicPreviewZones: PublicFlexibleZone[] =
+    historicalDynamicZones
+      .slice()
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .map((zone) => ({
+        key: `historical-preview:${zone.id}`,
+        capacity:
+          HISTORICAL_DYNAMIC_ADMIN_ZONE_CAPACITY[
+            zone.visualFamily
+          ],
+        visualFamily: zone.visualFamily,
+        publicTitle: zone.publicTitle.trim(),
+        items: zone.items
+          .slice()
+          .sort(
+            (left, right) =>
+              left.position - right.position,
+          )
+          .map((item) => ({
+            id: item.id,
+            sourceId: item.bankItemId ?? item.id,
+            sortOrder: item.position,
+            label: item.label?.trim() || null,
+            title: item.title?.trim() || "",
+            subtitle: item.subtitle?.trim() || "",
+            imageUrl: item.imageUrl?.trim() || "",
+            linkUrl: item.linkUrl?.trim() || "",
+            publishedAt: null,
+          })),
+      }));
+
+  const historicalDynamicPreviewVideoPosition =
+    Math.min(
+      Math.max(
+        draftComposition?.hierarchical_video_position
+          ?? historicalDynamicPreviewZones.length,
+        0,
+      ),
+      historicalDynamicPreviewZones.length,
+    );
+
+  const historicalDynamicPreviewBodyBlocks:
+    Array<
+      | {
+          kind: "zone";
+          zone: PublicFlexibleZone;
+        }
+      | {
+          kind: "video";
+        }
+    > =
+      historicalDynamicPreviewZones.map((zone) => ({
+        kind: "zone",
+        zone,
+      }));
+
+  if (hasHistoricalDynamicZones) {
+    historicalDynamicPreviewBodyBlocks.splice(
+      historicalDynamicPreviewVideoPosition,
+      0,
+      {
+        kind: "video",
+      },
+    );
+  }
+
   const groupedCompositionItems = groupCompositionItemsBySection(compositionItems);
   const missingHierarchicalSlots = missingHierarchicalCompositionSlots(hierarchicalSlots);
   const incompleteHierarchicalSlots = incompleteHierarchicalCompositionSlots(hierarchicalSlots);
@@ -3897,25 +4059,176 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     ? hierarchicalEditorialFromComposition(draftComposition)
     : null;
   const missingHierarchicalEditorialFields = missingHierarchicalCompositionEditorialFields(hierarchicalEditorial);
-  const publicationValidation = presentationMode === "hierarchical"
-    ? {
-        canPublish:
-          isPublishableHierarchicalComposition(hierarchicalSlots) &&
-          isPublishableHierarchicalBeyondMatchday(compositionItems) &&
-          isPublishableHierarchicalCompositionEditorial(hierarchicalEditorial),
-        warnings: [
-          ...(Array.from(new Set([...missingHierarchicalSlots, ...incompleteHierarchicalSlots])).length > 0
-            ? [`15 lugares — em falta: ${Array.from(new Set([...missingHierarchicalSlots, ...incompleteHierarchicalSlots])).map(hierarchicalSlotLabel).join(", ")}.`]
-            : []),
-          ...(incompleteBeyondPositions.length > 0
-            ? [`Para Lá da Jornada — em falta: ${incompleteBeyondPositions.map((position) => position.label).join(", ")}.`]
-            : []),
-          ...(missingHierarchicalEditorialFields.length > 0
-            ? [`Editorial da Jornada — em falta: ${missingHierarchicalEditorialFields.map((field) => HIERARCHICAL_COMPOSITION_EDITORIAL_FIELD_LABELS[field]).join(", ")}.`]
-            : []),
-        ],
-      }
-    : getCompositionPublicationValidation(compositionItems);
+  const historicalDynamicOpeningKeys = [
+    "dominant_main",
+    "other_chronicle_1",
+    "other_chronicle_2",
+    "other_chronicle_3",
+  ] as const;
+
+  const historicalDynamicOpeningByKey =
+    new Map(
+      hierarchicalSlots.map(
+        (slot) => [slot.slot_key, slot] as const,
+      ),
+    );
+
+  const historicalDynamicMissingOpening =
+    historicalDynamicOpeningKeys.filter((slotKey) => {
+      const slot =
+        historicalDynamicOpeningByKey.get(slotKey);
+
+      return !(
+        slot
+        && slot.label_snapshot?.trim()
+        && slot.title_snapshot?.trim()
+        && slot.subtitle_snapshot?.trim()
+        && slot.image_url_snapshot?.trim()
+        && slot.link_url_snapshot?.trim()
+      );
+    });
+
+  const historicalDynamicZoneWarnings =
+    historicalDynamicZones
+      .slice()
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .flatMap((zone, zoneIndex) => {
+        const capacity =
+          HISTORICAL_DYNAMIC_ADMIN_ZONE_CAPACITY[
+            zone.visualFamily
+          ];
+
+        const items =
+          zone.items
+            .slice()
+            .sort(
+              (left, right) =>
+                left.position - right.position,
+            );
+
+        const complete =
+          zone.sortOrder === zoneIndex + 1
+          && Boolean(zone.publicTitle.trim())
+          && items.length === capacity
+          && items.every(
+            (item, itemIndex) =>
+              item.position === itemIndex + 1
+              && Boolean(item.label?.trim())
+              && Boolean(item.title?.trim())
+              && Boolean(item.subtitle?.trim())
+              && Boolean(item.imageUrl?.trim())
+              && Boolean(item.linkUrl?.trim()),
+          );
+
+        return complete
+          ? []
+          : [
+              `${zone.publicTitle.trim() || `Zona editorial ${zoneIndex + 1}`} — incompleta: são obrigatórios título, ordem e ${capacity} notícias válidas.`,
+            ];
+      });
+
+  const historicalDynamicVideoPosition =
+    draftComposition?.hierarchical_video_position;
+
+  const historicalDynamicVideoPositionValid =
+    historicalDynamicVideoPosition !== null
+    && historicalDynamicVideoPosition !== undefined
+    && Number.isInteger(
+      historicalDynamicVideoPosition,
+    )
+    && historicalDynamicVideoPosition >= 0
+    && historicalDynamicVideoPosition
+      <= historicalDynamicZones.length;
+
+  const historicalDynamicPublicationWarnings = [
+    ...(historicalDynamicMissingOpening.length > 0
+      ? [
+          `Abertura — em falta: ${historicalDynamicMissingOpening.map(
+            hierarchicalSlotLabel,
+          ).join(", ")}.`,
+        ]
+      : []),
+    ...historicalDynamicZoneWarnings,
+    ...(!historicalDynamicVideoPositionValid
+      ? [
+          "Ordem do corpo editorial — guarda a posição de Vídeo + Destaque antes de publicar.",
+        ]
+      : []),
+    ...(missingHierarchicalEditorialFields.length > 0
+      ? [
+          `Editorial da Jornada — em falta: ${missingHierarchicalEditorialFields.map(
+            (field) =>
+              HIERARCHICAL_COMPOSITION_EDITORIAL_FIELD_LABELS[
+                field
+              ],
+          ).join(", ")}.`,
+        ]
+      : []),
+  ];
+
+  const publicationValidation =
+    presentationMode === "hierarchical"
+      ? hasHistoricalDynamicZones
+        ? {
+            canPublish:
+              historicalDynamicPublicationWarnings.length === 0
+              && isPublishableHierarchicalCompositionEditorial(
+                hierarchicalEditorial,
+              ),
+            warnings:
+              historicalDynamicPublicationWarnings,
+          }
+        : {
+            canPublish:
+              isPublishableHierarchicalComposition(
+                hierarchicalSlots,
+              )
+              && isPublishableHierarchicalBeyondMatchday(
+                compositionItems,
+              )
+              && isPublishableHierarchicalCompositionEditorial(
+                hierarchicalEditorial,
+              ),
+            warnings: [
+              ...(Array.from(
+                new Set([
+                  ...missingHierarchicalSlots,
+                  ...incompleteHierarchicalSlots,
+                ]),
+              ).length > 0
+                ? [
+                    `15 lugares — em falta: ${Array.from(
+                      new Set([
+                        ...missingHierarchicalSlots,
+                        ...incompleteHierarchicalSlots,
+                      ]),
+                    ).map(
+                      hierarchicalSlotLabel,
+                    ).join(", ")}.`,
+                  ]
+                : []),
+              ...(incompleteBeyondPositions.length > 0
+                ? [
+                    `Para Lá da Jornada — em falta: ${incompleteBeyondPositions.map(
+                      (position) => position.label,
+                    ).join(", ")}.`,
+                  ]
+                : []),
+              ...(missingHierarchicalEditorialFields.length > 0
+                ? [
+                    `Editorial da Jornada — em falta: ${missingHierarchicalEditorialFields.map(
+                      (field) =>
+                        HIERARCHICAL_COMPOSITION_EDITORIAL_FIELD_LABELS[
+                          field
+                        ],
+                    ).join(", ")}.`,
+                  ]
+                : []),
+            ],
+          }
+      : getCompositionPublicationValidation(
+          compositionItems,
+        );
   const isDraftComposition = draftComposition?.status === "draft";
   const isPublishedComposition = draftComposition?.status === "published";
   const publishedCompositionProblemMessage = isPublishedComposition && presentationMode === "standard"
@@ -3929,7 +4242,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const bankFilter = ["all", "available", "in_use", "archived"].includes(query.bank_filter ?? "")
     ? (query.bank_filter as "all" | "available" | "in_use" | "archived")
     : "all";
-  const baseReturnTo = `/admin/editorial/composicao/${matchday.id}${presentationMode === "standard" ? "?presentation_mode=standard" : ""}`;
+  const baseReturnTo = `/admin/editorial/composicao/${matchday.id}`;
   const returnTo = bankFilter === "all"
     ? baseReturnTo
     : `${baseReturnTo}${baseReturnTo.includes("?") ? "&" : "?"}bank_filter=${encodeURIComponent(bankFilter)}`;
@@ -4085,6 +4398,21 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       .map((item) => [item.source_id as string, item] as const),
   );
 
+  const hierarchicalNaturalGroupByArticleId = new Map(
+    hierarchicalProfileSnapshot?.kind === "thematic"
+      ? hierarchicalProfileSnapshot.automaticDistribution.activeItems.map((item) => [
+          item.sourceId,
+          item.classifiedZoneKey,
+        ] as const)
+      : [],
+  );
+  const hierarchicalDeskGroups = hierarchicalProfileSnapshot?.kind === "thematic"
+    ? hierarchicalProfileSnapshot.automaticDistribution.zones.map((zone) => ({
+        key: zone.key,
+        label: zone.label,
+      }))
+    : [];
+
   const hierarchicalDeskArticles = presentationMode === "hierarchical"
     ? (hierarchicalDeskSnapshot?.articles ?? []).flatMap((article) => {
         const bankItem = hierarchicalDeskBankItemByArticleId.get(article.id);
@@ -4095,20 +4423,12 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           articleId: article.id,
           label: article.label ?? bankItem.label,
           title: article.title,
+          subtitle: article.subtitle,
           imageUrl: article.imageUrl ?? bankItem.image_url,
           publishedAt: article.publishedAt,
+          naturalGroupKey: hierarchicalNaturalGroupByArticleId.get(article.id) ?? null,
         }];
       })
-    : [];
-
-  const hierarchicalDeskVideos = presentationMode === "hierarchical"
-    ? (hierarchicalDeskSnapshot?.videos ?? []).map((video) => ({
-        id: video.id,
-        label: video.label,
-        title: video.title,
-        imageUrl: video.imageUrl,
-        duration: video.duration,
-      }))
     : [];
 
   const hierarchicalDeskSlots = presentationMode === "hierarchical"
@@ -4142,6 +4462,26 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         };
       })
     : [];
+  const hierarchicalEditorialBankItemId =
+    draftComposition?.hierarchical_editorial_source_type === "editorial_article"
+    && draftComposition.hierarchical_editorial_source_id
+      ? hierarchicalDeskBankItemByArticleId.get(draftComposition.hierarchical_editorial_source_id)?.id ?? null
+      : null;
+  const hierarchicalHeadlineTitleColor = normalizeHistoricalCompositionHeadlineTitleColor(
+    draftComposition?.hierarchical_headline_title_color
+      ?? HISTORICAL_COMPOSITION_DEFAULT_HEADLINE_TITLE_COLOR,
+  );
+  const hierarchicalZone1Title = normalizeHistoricalCompositionZoneTitle(
+    draftComposition?.hierarchical_zone_1_title,
+    HISTORICAL_COMPOSITION_DEFAULT_ZONE_TITLES.zone_1,
+  );
+  const hierarchicalZone2Title = normalizeHistoricalCompositionZoneTitle(
+    draftComposition?.hierarchical_zone_2_title,
+    HISTORICAL_COMPOSITION_DEFAULT_ZONE_TITLES.zone_2,
+  );
+  const hierarchicalBlockOrder = normalizeHistoricalCompositionBlockOrder(
+    draftComposition?.hierarchical_block_order,
+  );
 
   return (
     <main className={`composition-admin-shell${presentationMode === "hierarchical" && isDraftComposition ? " composition-admin-shell-desk" : ""}`}>
@@ -4226,15 +4566,6 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         )}
       </section>
 
-      <nav className="composition-admin-mode-selector" aria-label="Apresentação da Composição da Jornada">
-        <a className={presentationMode === "standard" ? "active" : undefined} href={`/admin/editorial/composicao/${matchday.id}?presentation_mode=standard`}>
-          Atual
-        </a>
-        <a className={presentationMode === "hierarchical" ? "active" : undefined} href={`/admin/editorial/composicao/${matchday.id}`}>
-          Hierárquica
-        </a>
-      </nav>
-
       {presentationMode === "standard" ? (
         <nav className="composition-admin-zone-nav" aria-label="Zonas da Composição da Jornada">
           <a href="#manchete">01 Manchete</a>
@@ -4252,13 +4583,31 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           articles={hierarchicalDeskArticles}
           auxiliaryItems={hierarchicalDeskAuxiliary}
           compositionId={draftComposition.id}
+          editorial={{
+            bankItemId: hierarchicalEditorialBankItemId,
+            title: draftComposition.hierarchical_editorial_title,
+          }}
+          groups={hierarchicalDeskGroups}
+          initialDynamicZones={historicalDynamicZones}
+          initialBlockOrder={hierarchicalBlockOrder}
+          initialHeadlineTitleColor={hierarchicalHeadlineTitleColor}
+          initialVideoPosition={Math.min(
+            Math.max(
+              draftComposition.hierarchical_video_position
+                ?? historicalDynamicZones.length,
+              0,
+            ),
+            historicalDynamicZones.length,
+          )}
+          initialZone1Title={hierarchicalZone1Title}
+          initialZone2Title={hierarchicalZone2Title}
           matchdayId={matchday.id}
           slots={hierarchicalDeskSlots}
-          videos={hierarchicalDeskVideos}
         >
           <details className="hc-desk-tool">
-            <summary>A Jornada em Vídeo</summary>
+            <summary>Vídeo + Destaque</summary>
             <div className="hc-desk-tool-body">
+              <MatchdayVideoSummarySync matchdayId={matchday.id} reloadOnMutation={false} />
               <HierarchicalVideoEditor
                 composition={draftComposition}
                 matchdayId={matchday.id}
@@ -4270,24 +4619,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           </details>
 
           <details className="hc-desk-tool">
-            <summary>Editorial da Jornada</summary>
-            <div className="hc-desk-tool-body">
-              {compositionFeedback && feedbackAnchor === "hierarchical-editorial" ? (
-                <p className={`composition-admin-feedback ${compositionFeedbackKind}`}>
-                  {compositionFeedback}
-                </p>
-              ) : null}
-
-              <HierarchicalEditorialEditor
-                composition={draftComposition}
-                matchdayId={matchday.id}
-                returnTo={returnTo}
-              />
-            </div>
-          </details>
-
-          <details className="hc-desk-tool">
-            <summary>Publicação e estado</summary>
+            <summary>Publicar composição</summary>
             <div className="hc-desk-tool-body composition-admin-stack">
               <UpdateDraftForm
                 composition={draftComposition}
@@ -4318,16 +4650,77 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           <details className="hc-desk-tool">
             <summary>Pré-visualização</summary>
             <div className="hc-desk-tool-body composition-admin-preview">
-              <HierarchicalCompositionInterpretivePreview
-                beyondMatchdayItems={hierarchicalPreviewBeyondMatchdayItems}
-                editorial={hierarchicalEditorial}
-                matchdayNumber={matchday.number}
-                roundupHeading="A JORNADA EM VÍDEO"
-                roundupItems={hierarchicalPreviewRoundupItems}
-                slots={hierarchicalSlots}
-                videoHighlight={hierarchicalPreviewVideoHighlight}
-              />
-              <PublicHorizontalNewsStrip
+              {hasHistoricalDynamicZones ? (
+                <>
+                  <PublicHierarchicalComposition
+                    ariaLabel="Pré-visualização da composição histórica"
+                    blockOrder={["opening"]}
+                    beyondMatchdayItems={[]}
+                    editorial={hierarchicalEditorial}
+                    headlineTitleColor={hierarchicalHeadlineTitleColor}
+                    matchdayNumber={matchday.number}
+                    roundupItems={[]}
+                    slots={hierarchicalSlots}
+                    videoHighlight={null}
+                  />
+
+                  {historicalDynamicPreviewBodyBlocks.map(
+                    (block) => {
+                      if (block.kind === "video") {
+                        return (
+                          <PublicHierarchicalPosteriorMoments
+                            beyondMatchdayItems={[]}
+                            key="historical-preview-video"
+                            matchdayNumber={matchday.number}
+                            roundupHeading="A JORNADA EM VÍDEO"
+                            roundupItems={
+                              hierarchicalPreviewRoundupItems
+                            }
+                            style={{
+                              width: "min(100%, 1200px)",
+                              margin:
+                                "clamp(46px, 5vw, 68px) auto 0",
+                            }}
+                            videoHighlight={
+                              hierarchicalPreviewVideoHighlight
+                            }
+                          />
+                        );
+                      }
+
+                      return (
+                        <PublicFlexibleZoneLayout
+                          key={block.zone.key}
+                          matchdayNumber={matchday.number}
+                          zone={block.zone}
+                        />
+                      );
+                    },
+                  )}
+                </>
+              ) : (
+                <HierarchicalCompositionInterpretivePreview
+                  beyondMatchdayItems={
+                    hierarchicalPreviewBeyondMatchdayItems
+                  }
+                  editorial={hierarchicalEditorial}
+                  blockOrder={hierarchicalBlockOrder}
+                  headlineTitleColor={
+                    hierarchicalHeadlineTitleColor
+                  }
+                  matchdayNumber={matchday.number}
+                  roundupHeading="A JORNADA EM VÍDEO"
+                  roundupItems={
+                    hierarchicalPreviewRoundupItems
+                  }
+                  slots={hierarchicalSlots}
+                  videoHighlight={
+                    hierarchicalPreviewVideoHighlight
+                  }
+                  zone1Title={hierarchicalZone1Title}
+                  zone2Title={hierarchicalZone2Title}
+                />
+              )}              <PublicHorizontalNewsStrip
                 ariaLabel="Faixa de notícias da composição"
                 items={hierarchicalPreviewFaixaItems}
                 scope="matchday"
@@ -4794,12 +5187,36 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
             <Card title={presentationMode === "hierarchical" ? "Mesa da Composição" : "Zonas da composição"}>
               {draftComposition ? (
                 presentationMode === "hierarchical" ? (
+                  hasHistoricalDynamicZones ? (
+                  <div className="composition-admin-section-list">
+                    <PublicHierarchicalComposition
+                      ariaLabel="Composi��o hist�rica din�mica"
+                      blockOrder={["opening"]}
+                      beyondMatchdayItems={[]}
+                      editorial={hierarchicalEditorial}
+                      headlineTitleColor={hierarchicalHeadlineTitleColor}
+                      matchdayNumber={matchday.number}
+                      roundupItems={[]}
+                      slots={hierarchicalSlots}
+                      videoHighlight={null}
+                    />
+
+                    {historicalDynamicPreviewZones.map((zone) => (
+                      <PublicFlexibleZoneLayout
+                        key={zone.key}
+                        matchdayNumber={matchday.number}
+                        zone={zone}
+                      />
+                    ))}
+                  </div>
+                ) : (
                   <HierarchicalCompositionEditor
                     composition={draftComposition}
                     matchdayId={matchday.id}
                     returnTo={returnTo}
                     slots={hierarchicalSlots}
                   />
+                )
                 ) : (
                   <div className="composition-admin-section-list">
                   {groupedCompositionItems.map((section) => {
@@ -4965,7 +5382,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
             </div>
 
             {presentationMode === "hierarchical" && draftComposition ? (
-              <Card title="Momentos posteriores aos 15 lugares">
+              <Card title={hasHistoricalDynamicZones ? "Vídeo + Destaque" : "Momentos posteriores aos 15 lugares"}>
                 <div className="composition-admin-section-list">
                   <HierarchicalVideoEditor
                     composition={draftComposition}
@@ -4981,7 +5398,8 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                     items={hierarchicalAuxiliaryItems}
                     matchdayId={matchday.id}
                     returnTo={returnTo}
-                  />
+                  showBeyondMatchday={!hasHistoricalDynamicZones}
+                        />
                 </div>
               </Card>
             ) : null}
@@ -5001,26 +5419,6 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           </div>
         </section>
       </div>
-      ) : null}
-
-      {presentationMode === "hierarchical" && isDraftComposition && draftComposition ? (
-        <section className="composition-admin-panel composition-admin-preview-section">
-          <header>
-            <h2>Pré-visualização da apresentação Hierárquica</h2>
-          </header>
-          <p className="composition-admin-note">O preview usa o draft e não altera publicação nem apresentação current.</p>
-          <div className="composition-admin-preview">
-            <HierarchicalCompositionInterpretivePreview
-              beyondMatchdayItems={hierarchicalPreviewBeyondMatchdayItems}
-              editorial={hierarchicalEditorial}
-              matchdayNumber={matchday.number}
-              roundupHeading="A JORNADA EM VÍDEO"
-              roundupItems={hierarchicalPreviewRoundupItems}
-              slots={hierarchicalSlots}
-              videoHighlight={hierarchicalPreviewVideoHighlight}
-            />
-          </div>
-        </section>
       ) : null}
 
       <script

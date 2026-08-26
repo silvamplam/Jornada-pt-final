@@ -9,10 +9,15 @@ import {
   type PublicHierarchicalPosteriorMomentsProps,
 } from "@/components/public/PublicHierarchicalComposition";
 import { PublicInlineMediaPlayer } from "@/components/public/PublicEditorialLayout";
+import type { HistoricalCompositionBlockKey } from "@/lib/editorial-historical-composition-workspace";
 
 type HierarchicalCompositionInterpretivePreviewProps = {
+  blockOrder?: HistoricalCompositionBlockKey[];
   editorial?: HierarchicalCompositionEditorial | null;
+  headlineTitleColor?: string;
   slots: HierarchicalCompositionSlot[];
+  zone1Title?: string;
+  zone2Title?: string;
 } & Omit<PublicHierarchicalPosteriorMomentsProps, "includeV13PreviewStructure">;
 
 export const HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP = {
@@ -672,10 +677,12 @@ function PreviewNewsCopy({
   slot,
   slotKey,
   showSubtitle = true,
+  titleColor = null,
 }: {
   slot: HierarchicalCompositionSlot | null;
   slotKey: HierarchicalCompositionSlotKey;
   showSubtitle?: boolean;
+  titleColor?: string | null;
 }) {
   if (!slot) {
     return <div className="composition-interpretive-slot-empty">Lugar ainda vazio · {slotKey}</div>;
@@ -684,7 +691,7 @@ function PreviewNewsCopy({
   return (
     <div className="composition-interpretive-copy">
       <span className="composition-interpretive-label">{slot.label_snapshot}</span>
-      <h3 className="composition-interpretive-title">
+      <h3 className="composition-interpretive-title" style={titleColor ? { color: titleColor } : undefined}>
         {slot.link_url_snapshot ? <a href={slot.link_url_snapshot}>{slot.title_snapshot}</a> : slot.title_snapshot}
       </h3>
       {showSubtitle ? (
@@ -695,14 +702,18 @@ function PreviewNewsCopy({
 }
 
 export default function HierarchicalCompositionInterpretivePreview({
+  blockOrder = ["opening", "zone_1", "zone_2", "video", "beyond"],
   beyondMatchdayItems,
   editorial = null,
+  headlineTitleColor = "#10151B",
   matchdayNumber,
   roundupHeading,
   roundupHeadingColor,
   roundupItems,
   slots,
   videoHighlight,
+  zone1Title = "Arbitragem e Reações",
+  zone2Title = "Outros jogos da jornada",
 }: HierarchicalCompositionInterpretivePreviewProps) {
   const slotsByKey = new Map(slots.map((slot) => [slot.slot_key, slot] as const));
   const editorialExcerpt = editorial?.excerpt?.trim() || "";
@@ -713,15 +724,16 @@ export default function HierarchicalCompositionInterpretivePreview({
   const otherFeaturedSlot = slotsByKey.get(otherFeaturedKey) ?? null;
   const otherSecondKey = HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP.otherGames.second;
   const otherSecondSlot = slotsByKey.get(otherSecondKey) ?? null;
+  const blockOrderIndex = (blockKey: HistoricalCompositionBlockKey) => blockOrder.indexOf(blockKey);
 
   return (
     <div className="composition-interpretive-preview" data-preview-only="hierarchical-interpretive-opening">
       <style>{interpretivePreviewStyles}</style>
-      <section className="composition-interpretive-opening" aria-label="Abertura interpretativa da Jornada">
+      <section className="composition-interpretive-opening" aria-label="Abertura interpretativa da Jornada" style={{ order: blockOrderIndex("opening") }}>
         <div className="composition-interpretive-news">
           <article className="composition-interpretive-dominant" data-slot={HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP.dominant}>
             <PreviewMedia slot={dominantSlot} slotKey={HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP.dominant} />
-            <PreviewNewsCopy slot={dominantSlot} slotKey={HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP.dominant} />
+            <PreviewNewsCopy slot={dominantSlot} slotKey={HIERARCHICAL_INTERPRETIVE_PREVIEW_SLOT_MAP.dominant} titleColor={headlineTitleColor} />
           </article>
 
           <div className="composition-interpretive-chronicles" aria-label="Outras três crónicas">
@@ -766,8 +778,8 @@ export default function HierarchicalCompositionInterpretivePreview({
         </aside>
       </section>
 
-      <section className="composition-interpretive-section composition-interpretive-analysis" aria-labelledby="interpretive-analysis-title">
-        <h2 className="composition-interpretive-section-heading" id="interpretive-analysis-title">Arbitragem e reações</h2>
+      <section className="composition-interpretive-section composition-interpretive-analysis" aria-labelledby="interpretive-analysis-title" style={{ order: blockOrderIndex("zone_1") }}>
+        <h2 className="composition-interpretive-section-heading" id="interpretive-analysis-title">{zone1Title}</h2>
         <div className="composition-interpretive-analysis-grid">
           <article className="composition-interpretive-analysis-main" data-editorial-weight="main" data-slot={analysisMainKey}>
             <PreviewMedia slot={analysisMainSlot} slotKey={analysisMainKey} />
@@ -811,8 +823,8 @@ export default function HierarchicalCompositionInterpretivePreview({
         </div>
       </section>
 
-      <section className="composition-interpretive-section composition-interpretive-other-games" aria-labelledby="interpretive-other-games-title">
-        <h2 className="composition-interpretive-section-heading" id="interpretive-other-games-title">Outros jogos da jornada</h2>
+      <section className="composition-interpretive-section composition-interpretive-other-games" aria-labelledby="interpretive-other-games-title" style={{ order: blockOrderIndex("zone_2") }}>
+        <h2 className="composition-interpretive-section-heading" id="interpretive-other-games-title">{zone2Title}</h2>
         <div className="composition-interpretive-other-games-layout">
           <div className="composition-interpretive-other-left">
             <article className="composition-interpretive-other-featured" data-editorial-weight="featured-primary" data-slot={otherFeaturedKey}>
@@ -844,13 +856,22 @@ export default function HierarchicalCompositionInterpretivePreview({
       </section>
 
       <PublicHierarchicalPosteriorMoments
-        beyondMatchdayItems={beyondMatchdayItems}
+        beyondMatchdayItems={[]}
         includeV13PreviewStructure
         matchdayNumber={matchdayNumber}
         roundupHeading={roundupHeading}
         roundupHeadingColor={roundupHeadingColor}
         roundupItems={roundupItems}
+        style={{ order: blockOrderIndex("video") }}
         videoHighlight={videoHighlight}
+      />
+      <PublicHierarchicalPosteriorMoments
+        beyondMatchdayItems={beyondMatchdayItems}
+        includeV13PreviewStructure
+        matchdayNumber={matchdayNumber}
+        roundupItems={[]}
+        style={{ order: blockOrderIndex("beyond") }}
+        videoHighlight={null}
       />
     </div>
   );

@@ -47,6 +47,7 @@ export type MatchdayEditorialProfileActiveBankRow = Readonly<{
   source_type: string | null;
   source_id: string | null;
   status: string | null;
+  automatic_eligible?: boolean | null;
 }>;
 
 export type MatchdayEditorialProfileArticleRow = Readonly<{
@@ -370,7 +371,7 @@ export function buildMatchdayEditorialProfileDeskDistribution(
     const sourceType = cleanText(bankRow.source_type) ?? SUPPORTED_SOURCE_TYPE;
     const sourceId = cleanText(bankRow.source_id) ?? "";
     const state = stateByIdentity.get(identity);
-    if (!state) {
+    if (bankRow.automatic_eligible !== false && !state) {
       addDiagnostic({
         code: "active_bank_without_state",
         message: `A publicação ativa ${sourceType}:${sourceId} ainda não tem estado temático.`,
@@ -380,7 +381,7 @@ export function buildMatchdayEditorialProfileDeskDistribution(
     }
 
     const classification = classificationByIdentity.get(identity);
-    if (classificationRows !== undefined && !classification) {
+    if (bankRow.automatic_eligible !== false && classificationRows !== undefined && !classification) {
       addDiagnostic({
         code: "missing_classification",
         message: `A publicação ativa ${sourceType}:${sourceId} não tem classificação natural.`,
@@ -626,7 +627,7 @@ export async function readMatchdayEditorialProfileDesk(
     ),
     readAllRows<MatchdayEditorialProfileActiveBankRow>(
       fetchTable,
-      `matchday_editorial_bank_items?select=source_type,source_id,status&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&status=eq.active&source_type=eq.editorial_article`,
+      `matchday_editorial_bank_items?select=source_type,source_id,status,automatic_eligible&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&status=eq.active&source_type=eq.editorial_article`,
     ),
     readAllRows<MatchdayEditorialProfileManualOverrideRow>(
       fetchTable,

@@ -190,6 +190,7 @@ function mutationErrorResponse(error: unknown) {
     || message.includes("profile-workspace-v4-")
     || message.includes("profile-workspace-v5-")
     || message.includes("profile-workspace-v6-")
+    || message.includes("profile-workspace-v7-")
     || message.includes("profile-workspace-exclusive-")
   ) {
     return apiError("thematic-desk-invalid-reconcile", "A composição temática foi recusada integralmente.", 400);
@@ -506,7 +507,7 @@ export async function POST(
       desk.currentFaixa,
     );
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_editorial_profile_workspace_v6",
+      "rpc/apply_matchday_editorial_profile_workspace_v7",
       {
         method: "POST",
         body: JSON.stringify({

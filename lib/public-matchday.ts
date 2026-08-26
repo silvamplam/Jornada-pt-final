@@ -33,6 +33,13 @@ export type PublicReferenceComposition = {
   hierarchical_editorial_excerpt: string | null;
   hierarchical_editorial_text: string | null;
   hierarchical_editorial_author: string | null;
+  hierarchical_editorial_source_type: string | null;
+  hierarchical_editorial_source_id: string | null;
+  hierarchical_headline_title_color: string | null;
+  hierarchical_zone_1_title: string | null;
+  hierarchical_zone_2_title: string | null;
+  hierarchical_block_order: unknown;
+  hierarchical_video_position: number | null;
   published_at: string | null;
 };
 
@@ -641,7 +648,7 @@ async function buildReferenceRoundupItems(matchdayId: string, referenceItems: Pu
 async function readPublishedReferenceCompositionBundle(matchdayId: string) {
   try {
     const compositions = await fetchSupabaseAdminTable<PublicReferenceComposition>(
-      `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,published_at&matchday_id=eq.${encodeURIComponent(
+      `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_block_order,hierarchical_video_position,published_at&matchday_id=eq.${encodeURIComponent(
         matchdayId
       )}&status=eq.published&is_current=is.true&order=published_at.desc.nullslast&limit=1`
     );

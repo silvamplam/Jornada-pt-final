@@ -7,12 +7,15 @@ import {
   type HierarchicalCompositionSlot,
   type HierarchicalCompositionSlotKey,
 } from "@/lib/editorial-hierarchical-composition";
+import type { CSSProperties } from "react";
+import type { HistoricalCompositionBlockKey } from "@/lib/editorial-historical-composition-workspace";
 
 import PublicBeyondMatchdayNews, { type PublicBeyondMatchdayNewsItem } from "./PublicBeyondMatchdayNews";
 import { PublicEditorialLayout, PublicInlineMediaPlayer, type PublicComplementaryData } from "./PublicEditorialLayout";
 import type { RoundupVideoItem } from "./RoundupVideoSwitcher";
 
 type PublicHierarchicalCompositionProps = {
+  blockOrder?: HistoricalCompositionBlockKey[] | null;
   editorial?: HierarchicalCompositionEditorial | null;
   editorialHref?: string | null;
   editorialAfter?: ReactNode;
@@ -23,6 +26,9 @@ type PublicHierarchicalCompositionProps = {
   matchdayNumber?: number | null;
   videoHighlight?: PublicComplementaryData | null;
   beyondMatchdayItems?: PublicBeyondMatchdayNewsItem[];
+  headlineTitleColor?: string | null;
+  zone1Title?: string | null;
+  zone2Title?: string | null;
   showEmptySlots?: boolean;
   ariaLabel?: string;
 };
@@ -32,6 +38,7 @@ export type PublicHierarchicalPosteriorMomentsProps = Pick<
   "roundupItems" | "roundupHeading" | "roundupHeadingColor" | "matchdayNumber" | "videoHighlight" | "beyondMatchdayItems"
 > & {
   includeV13PreviewStructure?: boolean;
+  style?: CSSProperties;
 };
 
 const hierarchicalV13PreviewStructureStyles = `
@@ -1020,11 +1027,13 @@ function InterpretiveNewsCopy({
   slotKey,
   showEmptySlots,
   showSubtitle = true,
+  titleColor = null,
 }: {
   slot: HierarchicalCompositionSlot | null;
   slotKey: HierarchicalCompositionSlotKey;
   showEmptySlots: boolean;
   showSubtitle?: boolean;
+  titleColor?: string | null;
 }) {
   if (!slot) {
     return showEmptySlots ? <div className="composition-interpretive-slot-empty">Lugar ainda vazio · {slotKey}</div> : null;
@@ -1033,7 +1042,7 @@ function InterpretiveNewsCopy({
   return (
     <div className="composition-interpretive-copy">
       <span className="composition-interpretive-label">{slot.label_snapshot}</span>
-      <h3 className="composition-interpretive-title">
+      <h3 className="composition-interpretive-title" style={titleColor ? { color: titleColor } : undefined}>
         {slot.link_url_snapshot ? <a href={slot.link_url_snapshot}>{slot.title_snapshot}</a> : slot.title_snapshot}
       </h3>
       {showSubtitle ? <p className="composition-interpretive-subtitle">{slot.subtitle_snapshot}</p> : null}
@@ -1233,6 +1242,7 @@ export function PublicHierarchicalPosteriorMoments({
   videoHighlight = null,
   beyondMatchdayItems = [],
   includeV13PreviewStructure = false,
+  style,
 }: PublicHierarchicalPosteriorMomentsProps) {
   if (roundupItems.length === 0 && beyondMatchdayItems.length === 0) return null;
 
@@ -1240,6 +1250,7 @@ export function PublicHierarchicalPosteriorMoments({
     <div
       className={`public-hierarchical-posterior-moments${includeV13PreviewStructure ? " public-hierarchical-v13-preview" : ""}`}
       data-hierarchical-posterior-moments="true"
+      style={style}
     >
       <style>{hierarchicalPosteriorMomentsStyles}</style>
       {includeV13PreviewStructure ? <style>{hierarchicalV13PreviewStructureStyles}</style> : null}
@@ -1278,6 +1289,7 @@ export function PublicHierarchicalPosteriorMoments({
 }
 
 export default function PublicHierarchicalComposition({
+  blockOrder = null,
   editorial = null,
   editorialHref = null,
   editorialAfter = null,
@@ -1288,6 +1300,9 @@ export default function PublicHierarchicalComposition({
   matchdayNumber,
   videoHighlight = null,
   beyondMatchdayItems = [],
+  headlineTitleColor = null,
+  zone1Title = null,
+  zone2Title = null,
   showEmptySlots = false,
   ariaLabel = "Composição hierárquica da jornada",
 }: PublicHierarchicalCompositionProps) {
@@ -1295,99 +1310,150 @@ export default function PublicHierarchicalComposition({
   const dominantSlot = slotsByKey.get(HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.dominant) ?? null;
   const hasEditorial = isPublishableHierarchicalCompositionEditorial(editorial);
   const editorialExcerpt = editorial?.excerpt?.trim() || null;
+  const openingBlock = (
+    <section className="composition-interpretive-opening" aria-label="Abertura interpretativa da Jornada" key="opening">
+      <div className={`composition-interpretive-news${hasEditorial ? "" : " composition-interpretive-news-full"}`}>
+        <article className="composition-interpretive-dominant" data-slot={HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.dominant}>
+          <InterpretiveMedia
+            showEmptySlots={showEmptySlots}
+            slot={dominantSlot}
+            slotKey={HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.dominant}
+          />
+          <InterpretiveNewsCopy
+            showEmptySlots={showEmptySlots}
+            slot={dominantSlot}
+            slotKey={HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.dominant}
+            titleColor={headlineTitleColor}
+          />
+        </article>
 
-  return (
-    <section className="public-matchday-panel public-hierarchical-composition" aria-label={ariaLabel} data-public-hierarchical-layout="interpretive">
-      <style>{hierarchicalCompositionStyles}</style>
-      <div className="composition-interpretive-preview">
-        <section className="composition-interpretive-opening" aria-label="Abertura interpretativa da Jornada">
-          <div className={`composition-interpretive-news${hasEditorial ? "" : " composition-interpretive-news-full"}`}>
-            <article className="composition-interpretive-dominant" data-slot={HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.dominant}>
-              <InterpretiveMedia
-                showEmptySlots={showEmptySlots}
-                slot={dominantSlot}
-                slotKey={HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.dominant}
-              />
-              <InterpretiveNewsCopy
-                showEmptySlots={showEmptySlots}
-                slot={dominantSlot}
-                slotKey={HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.dominant}
-              />
-            </article>
+        <div className="composition-interpretive-chronicles" aria-label="Outras três crónicas">
+          {HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.chronicles.map((slotKey) => {
+            const slot = slotsByKey.get(slotKey) ?? null;
+            return (
+              <article className="composition-interpretive-chronicle" data-slot={slotKey} key={slotKey}>
+                <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
+                <InterpretiveNewsCopy showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
+              </article>
+            );
+          })}
+        </div>
+      </div>
 
-            <div className="composition-interpretive-chronicles" aria-label="Outras três crónicas">
-              {HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.chronicles.map((slotKey) => {
-                const slot = slotsByKey.get(slotKey) ?? null;
-                return (
-                  <article className="composition-interpretive-chronicle" data-slot={slotKey} key={slotKey}>
-                    <InterpretiveMedia showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
-                    <InterpretiveNewsCopy showEmptySlots={showEmptySlots} slot={slot} slotKey={slotKey} />
-                  </article>
-                );
-              })}
-            </div>
-          </div>
+      {hasEditorial ? (
+        <aside
+          className="composition-interpretive-editorial"
+          data-editorial-source="hierarchical-composition"
+          aria-label="Editorial da Jornada"
+        >
+          <span className="composition-interpretive-editorial-kicker">Editorial da Jornada</span>
+          <h3>
+            {editorialHref ? (
+              <a
+                className="composition-interpretive-editorial-title-link"
+                href={editorialHref}
+              >
+                {editorial?.title}
+              </a>
+            ) : editorial?.title}
+          </h3>
 
-          {hasEditorial ? (
-            <aside
-              className="composition-interpretive-editorial"
-              data-editorial-source="hierarchical-composition"
-              aria-label="Editorial da Jornada"
-            >
-              <span className="composition-interpretive-editorial-kicker">Editorial da Jornada</span>
-              <h3>
-                {editorialHref ? (
-                  <a
-                    className="composition-interpretive-editorial-title-link"
-                    href={editorialHref}
-                  >
-                    {editorial?.title}
-                  </a>
-                ) : editorial?.title}
-              </h3>
-
-              {editorialExcerpt ? (
-                <div className="composition-interpretive-editorial-body">
-                  <p className="composition-interpretive-editorial-copy">
-                    {editorialExcerpt}
-                  </p>
-                </div>
-              ) : null}
-
-              <p className="composition-interpretive-editorial-signature">
-                {editorial?.author}
+          {editorialExcerpt ? (
+            <div className="composition-interpretive-editorial-body">
+              <p className="composition-interpretive-editorial-copy">
+                {editorialExcerpt}
               </p>
-
-              {editorialHref ? (
-                <a
-                  className="composition-interpretive-editorial-more"
-                  href={editorialHref}
-                >
-                  Ler editorial completo
-                </a>
-              ) : null}
-
-              {editorialAfter ? (
-                <div className="composition-interpretive-editorial-ad-slot">
-                  {editorialAfter}
-                </div>
-              ) : null}
-            </aside>
+            </div>
           ) : null}
-        </section>
 
-        <InterpretiveAnalysisSection showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
+          <p className="composition-interpretive-editorial-signature">
+            {editorial?.author}
+          </p>
 
-        <InterpretiveOtherGamesSection showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
+          {editorialHref ? (
+            <a
+              className="composition-interpretive-editorial-more"
+              href={editorialHref}
+            >
+              Ler editorial completo
+            </a>
+          ) : null}
 
+          {editorialAfter ? (
+            <div className="composition-interpretive-editorial-ad-slot">
+              {editorialAfter}
+            </div>
+          ) : null}
+        </aside>
+      ) : null}
+    </section>
+  );
+
+  const configuredBlocks = blockOrder?.map((blockKey) => {
+    if (blockKey === "opening") return openingBlock;
+    if (blockKey === "zone_1") {
+      return (
+        <InterpretiveAnalysisSection
+          heading={zone1Title?.trim() || "Arbitragem e Reações"}
+          key={blockKey}
+          showEmptySlots={showEmptySlots}
+          slotsByKey={slotsByKey}
+        />
+      );
+    }
+    if (blockKey === "zone_2") {
+      return (
+        <InterpretiveOtherGamesSection
+          heading={zone2Title?.trim() || "Outros jogos da jornada"}
+          key={blockKey}
+          showEmptySlots={showEmptySlots}
+          slotsByKey={slotsByKey}
+        />
+      );
+    }
+    if (blockKey === "video") {
+      return (
         <PublicHierarchicalPosteriorMoments
-          beyondMatchdayItems={beyondMatchdayItems}
+          beyondMatchdayItems={[]}
+          key={blockKey}
           matchdayNumber={matchdayNumber}
           roundupHeading={roundupHeading}
           roundupHeadingColor={roundupHeadingColor}
           roundupItems={roundupItems}
           videoHighlight={videoHighlight}
         />
+      );
+    }
+    return (
+      <PublicHierarchicalPosteriorMoments
+        beyondMatchdayItems={beyondMatchdayItems}
+        key={blockKey}
+        matchdayNumber={matchdayNumber}
+        roundupItems={[]}
+        videoHighlight={null}
+      />
+    );
+  });
+
+  return (
+    <section className="public-matchday-panel public-hierarchical-composition" aria-label={ariaLabel} data-public-hierarchical-layout="interpretive">
+      <style>{hierarchicalCompositionStyles}</style>
+      <div className="composition-interpretive-preview">
+        {configuredBlocks ?? (
+          <>
+            {openingBlock}
+            <InterpretiveAnalysisSection showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
+            <InterpretiveOtherGamesSection showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
+            <PublicHierarchicalPosteriorMoments
+              beyondMatchdayItems={beyondMatchdayItems}
+              matchdayNumber={matchdayNumber}
+              roundupHeading={roundupHeading}
+              roundupHeadingColor={roundupHeadingColor}
+              roundupItems={roundupItems}
+              videoHighlight={videoHighlight}
+            />
+          </>
+        )}
       </div>
     </section>
   );
