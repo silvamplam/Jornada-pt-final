@@ -423,6 +423,25 @@ function sourceFilter(sourceCode: string | null): string {
   return sourceCode ? `&source_code=eq.${encodeURIComponent(sourceCode)}` : "";
 }
 
+function currentFeedPeriodFilter(
+  periodDays: number | null,
+  nowMs: number,
+): string {
+  if (periodDays === null) {
+    return "";
+  }
+
+  const periodStart = new Date(
+    nowMs - periodDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const encodedPeriodStart = encodeURIComponent(periodStart);
+
+  return "&or=("
+    + `published_at.gte.${encodedPeriodStart},`
+    + `and(published_at.is.null,detected_at.gte.${encodedPeriodStart})`
+    + ")";
+}
+
 async function readAllTopicSearchArticleRows(
   sourceCode: string | null,
 ): Promise<readonly NewsroomArticleRow[]> {
@@ -541,6 +560,8 @@ function currentFeedTimestamp(row: NewsroomArticleRow): number {
 
 async function readAllCurrentFeedArticleRows(
   sourceCode: string | null,
+  periodDays: number | null,
+  nowMs: number,
 ): Promise<readonly NewsroomArticleRow[]> {
   const rows: NewsroomArticleRow[] = [];
   let offset = 0;
@@ -549,6 +570,7 @@ async function readAllCurrentFeedArticleRows(
     const page = await fetchSupabaseAdminTable<NewsroomArticleRow>(
       "newsroom_articles?select=id,source_code,original_url,normalized_url,external_id,title,subtitle,summary,author,published_at,modified_at,detected_at,image_url,processing_status,first_detected_at,last_detected_at,created_at,updated_at"
       + sourceFilter(sourceCode)
+      + currentFeedPeriodFilter(periodDays, nowMs)
       + "&processing_status=in.(detected,normalized,ready_for_review)"
       + `&order=published_at.desc.nullslast,last_detected_at.desc,id.desc&offset=${offset}&limit=${TOPIC_SEARCH_PAGE_SIZE}`,
     );
@@ -566,16 +588,16 @@ export async function listCurrentNewsroomArticles(
 ): Promise<NewsroomRepositoryResult<NewsroomArticlePage>> {
   const sourceCode = normalizeSourceCode(options.sourceCode);
   const periodDays = normalizeTopicPeriodDays(options.periodDays ?? 7);
+  const nowMs = Date.now();
 
   try {
     const [rows, usedArticleIds] = await Promise.all([
-      readAllCurrentFeedArticleRows(sourceCode),
+      readAllCurrentFeedArticleRows(sourceCode, periodDays, nowMs),
       usedNewsroomArticleIds(),
     ]);
-    const now = Date.now();
     const periodStart = periodDays === null
       ? null
-      : now - periodDays * 24 * 60 * 60 * 1000;
+      : nowMs - periodDays * 24 * 60 * 60 * 1000;
     const availableRows = rows.filter((row) => (
       periodStart === null || currentFeedTimestamp(row) >= periodStart
     ));
@@ -921,6 +943,67 @@ export async function getNewsroomArticleById(
   }
 }
 
+
+export async function getNewsroomArticleSummariesByIds(
+  articleIds: readonly string[],
+): Promise<NewsroomRepositoryResult<readonly NewsroomArticleSummary[]>> {
+  const normalizedIds = articleIds
+    .map((value) => value.trim().toLowerCase())
+    .filter(
+      (value, index, values) => (
+        UUID_PATTERN.test(value)
+        && values.indexOf(value) === index
+      ),
+    );
+
+  if (normalizedIds.length === 0) {
+    return { ok: true, value: [] };
+  }
+
+  try {
+    const rows: NewsroomArticleRow[] = [];
+
+    for (
+      let start = 0;
+      start < normalizedIds.length;
+      start += SNAPSHOT_ARTICLE_CHUNK_SIZE
+    ) {
+      const chunk = normalizedIds.slice(
+        start,
+        start + SNAPSHOT_ARTICLE_CHUNK_SIZE,
+      );
+
+      const chunkRows = await fetchSupabaseAdminTable<NewsroomArticleRow>(
+        "newsroom_articles?select=id,source_code,original_url,normalized_url,external_id,title,subtitle,summary,author,published_at,modified_at,detected_at,image_url,processing_status,first_detected_at,last_detected_at,created_at,updated_at"
+        + `&id=in.(${uuidList(chunk)})&limit=${chunk.length}`,
+      );
+
+      rows.push(...chunkRows);
+    }
+
+    const rowsById = new Map(rows.map((row) => [row.id, row]));
+    const latestSnapshots = await latestSnapshotsByArticle(normalizedIds);
+
+    return {
+      ok: true,
+      value: normalizedIds.flatMap((id): NewsroomArticleSummary[] => {
+        const row = rowsById.get(id);
+        if (!row) {
+          return [];
+        }
+
+        return [
+          articleSummary(
+            row,
+            latestSnapshots.get(id) ?? null,
+          ),
+        ];
+      }),
+    };
+  } catch {
+    return readUnavailable();
+  }
+}
 
 export async function getNewsroomDossierSourceCandidates(
   articleIds: readonly string[],

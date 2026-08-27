@@ -6,7 +6,7 @@ import {
   writeSupabaseAdminReturning,
 } from "@/lib/supabase";
 import {
-  getNewsroomArticleById,
+  getNewsroomArticleSummariesByIds,
   listCurrentNewsroomArticles,
   searchNewsroomArticles,
   type NewsroomArticleSummary,
@@ -251,12 +251,11 @@ async function readUsedPublishedArticles(
 async function readArticlesByStates(
   states: readonly NewsroomEditorialReviewState[],
 ): Promise<readonly NewsroomArticleSummary[]> {
-  const details = await Promise.all(states.map(async (state) => {
-    const result = await getNewsroomArticleById(state.articleId);
-    return result.ok ? result.value : null;
-  }));
+  const result = await getNewsroomArticleSummariesByIds(
+    states.map((state) => state.articleId),
+  );
 
-  return details.flatMap((detail) => detail ? [detail] : []);
+  return result.ok ? result.value : [];
 }
 
 async function readHistoricalUsedItems(
@@ -271,14 +270,10 @@ async function readHistoricalUsedItems(
   }>;
 
   const articleIds = [...new Set(usedStates.map((state) => state.articleId))];
-  const details = await Promise.all(
-    articleIds.map(async (articleId) => {
-      const result = await getNewsroomArticleById(articleId);
-      return result.ok ? result.value : null;
-    }),
-  );
+  const result = await getNewsroomArticleSummariesByIds(articleIds);
+  const details = result.ok ? result.value : [];
   const articlesById = new Map(
-    details.flatMap((article) => article ? [[article.id, article]] : []),
+    details.map((article) => [article.id, article]),
   );
 
   return usedStates.flatMap((usedState): CurrentUsedItem[] => {
