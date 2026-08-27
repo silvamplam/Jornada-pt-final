@@ -190,13 +190,10 @@ const styles = `
   .thematic-zone-tabs button { min-height: 28px; padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 9px; font-weight: 850; cursor: pointer; }
   .thematic-zone-tabs button.active { border-color: #1d4ed8; background: #1d4ed8; color: #fff; }
   .thematic-workspace-body { display: grid; gap: 5px; padding: 5px; }
-  .thematic-zone-editor { display: grid; grid-template-columns: minmax(220px,1fr) minmax(210px,.55fr); gap: 5px; align-items: end; padding: 4px 5px; border: 1px solid #dce3eb; border-radius: 6px; background: #fbfcfd; }
-  .thematic-zone-editor label { display: grid; gap: 3px; color: #526173; font-size: 9px; font-weight: 800; text-transform: uppercase; }
-  .thematic-zone-editor input, .thematic-zone-editor select { min-height: 29px; padding: 0 7px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 10px; }
-  .thematic-workspace-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; }
-  .thematic-workspace-head h2, .thematic-workspace-head p { margin: 0; }
-  .thematic-workspace-head h2 { font-size: 13px; }
-  .thematic-workspace-head p { color: #64748b; font-size: 9px; }
+  .thematic-zone-editor { display: grid; grid-template-columns: minmax(220px,1fr) minmax(210px,.55fr) auto; gap: 5px; align-items: center; padding: 4px 5px; border: 1px solid #dce3eb; border-radius: 6px; background: #fbfcfd; }
+  .thematic-zone-editor label { min-width: 0; }
+  .thematic-zone-editor input, .thematic-zone-editor select { width: 100%; min-height: 29px; padding: 0 7px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 10px; }
+  .thematic-zone-editor-count { min-width: 34px; font-size: 11px; font-weight: 900; text-align: right; white-space: nowrap; }
   .thematic-slots { display: grid; gap: 4px; }
   .thematic-slots-4 { grid-template-columns: repeat(4,minmax(0,1fr)); }
   .thematic-slots-5 { grid-template-columns: repeat(5,minmax(0,1fr)); }
@@ -204,8 +201,10 @@ const styles = `
   .thematic-workspace-slot { min-width: 0; min-height: 64px; padding: 4px; border: 1px dashed #b8c4d2; border-radius: 5px; background: #fff; }
   .thematic-workspace-slot[data-drag-active="true"] { border-color: #2563eb; background: #eff6ff; }
   .thematic-workspace-slot .thematic-card { grid-template-columns: 16px 44px minmax(0,1fr) 22px; min-height: 52px; }
+  .thematic-workspace-slot .thematic-card.thematic-selection-card { grid-template-columns: 44px minmax(0,1fr) 22px; }
   .thematic-workspace-slot .thematic-image, .thematic-workspace-slot .thematic-image-placeholder { width: 44px; height: 34px; }
-  .thematic-highlight-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 7px; }
+  .thematic-highlight-row { display: grid; grid-template-columns: minmax(120px,160px) minmax(0,520px); gap: 5px; align-items: end; justify-content: start; }
+  .thematic-highlight-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 7px; min-width: 0; }
   .thematic-highlight-card { display: grid; grid-template-columns: 50px minmax(0,1fr) auto; gap: 7px; align-items: center; min-height: 58px; padding: 6px; border: 1px solid #dfe6ee; border-radius: 6px; background: #fff; }
   .thematic-highlight-card strong { font-size: 11px; line-height: 1.2; }
   .thematic-sources { min-width: 0; border: 1px solid #d7e0e9; border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(12,22,34,.035); }
@@ -250,15 +249,15 @@ const styles = `
   .thematic-reservoir-search span { color: #64748b; font-size: 9px; font-weight: 800; }
   .thematic-reservoir-search input { min-width: 0; min-height: 28px; border: 0; outline: 0; font: inherit; font-size: 10px; }
   .thematic-reservoir-count { display: inline-flex; align-items: baseline; gap: 3px; line-height: 1.1; }
-  .thematic-highlight-controls label { display: grid; gap: 3px; color: #526173; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+  .thematic-highlight-controls label { display: grid; width: 100%; gap: 3px; color: #526173; font-size: 9px; font-weight: 800; text-transform: uppercase; }
   .thematic-highlight-controls select { min-height: 30px; padding: 0 8px; border: 1px solid #cbd5df; border-radius: 6px; background: #fff; }
-  .thematic-highlight-slot { max-width: 520px; }
+  .thematic-highlight-slot { min-width: 0; max-width: none; }
   .thematic-highlight-card { grid-template-columns: 80px minmax(0,1fr); }
   .thematic-highlight-card img { width: 80px; height: 58px; border-radius: 5px; object-fit: cover; }
   .thematic-highlight-card > div { display: grid; gap: 5px; }
   .thematic-highlight-card span { color: #64748b; font-size: 9px; }
   @media (max-width: 1180px) { .thematic-sources-toolbar, .thematic-reservoir-filters { flex-wrap: wrap; } .thematic-slots-5, .thematic-slots-6, .thematic-sources-list { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-  @media (max-width: 760px) { .thematic-global-tools, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-sources-list { grid-template-columns: 1fr; } .thematic-page-row-actions { justify-content: flex-start; } }
+  @media (max-width: 760px) { .thematic-global-tools, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-sources-list { grid-template-columns: 1fr; } .thematic-page-row-actions { justify-content: flex-start; } }
 `;
 
 const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
@@ -1545,7 +1544,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       <article className="thematic-workspace-body" key={zone.key}>
         <div className="thematic-zone-editor">
           <label>
-            <span>Título público</span>
             <input
               aria-label={`Título público de ${zone.label}`}
               disabled={applyState === "saving"}
@@ -1579,7 +1577,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           </label>
 
           <label>
-            <span>Família</span>
             <select
               aria-label={`Layout de ${zone.label}`}
               disabled={applyState === "saving"}
@@ -1598,6 +1595,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
               ))}
             </select>
           </label>
+          <strong className="thematic-zone-editor-count">
+            {zone.items.length}/{zone.capacity}
+          </strong>
         </div>
 
         {zoneLayoutError?.zoneKey === zone.key ? (
@@ -1608,17 +1608,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             {zoneLayoutError.message}
           </p>
         ) : null}
-
-        <div className="thematic-workspace-head">
-          <div>
-            <h2>
-              {editorState.draftPageControls.thematicZoneTitles[zone.key].trim()
-                || zone.label}
-            </h2>
-            <p>{EDITORIAL_VISUAL_FAMILY_DEFINITIONS[zone.visualFamily].label}</p>
-          </div>
-          <strong>{zone.items.length}/{zone.capacity}</strong>
-        </div>
 
         <div className={`thematic-slots thematic-slots-${zone.capacity}`}>
           {Array.from(
@@ -1690,7 +1679,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       <article className="thematic-workspace-body">
         <div className="thematic-zone-editor">
           <label>
-            <span>Título público</span>
             <input
               aria-label="Título público de Últimas"
               disabled={applyState === "saving"}
@@ -1714,7 +1702,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           </label>
 
           <label>
-            <span>Apresentação</span>
             <select
               aria-label="Apresentação de Últimas"
               disabled={applyState === "saving"}
@@ -1740,18 +1727,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
               <option value="hidden">Oculto</option>
             </select>
           </label>
-        </div>
-
-        <div className="thematic-workspace-head">
-          <div>
-            <h2>
-              {latestPlacement === "four_news"
-                ? "Seleção editorial + Últimas"
-                : "Últimas"}
-            </h2>
-            <p>{latestPlacement === "hidden" ? "Oculto" : editorState.draftPageControls.latestZoneTitle || "Últimas"}</p>
-          </div>
-          <strong>{editorialSelectionOccupied}/4</strong>
+          <strong className="thematic-zone-editor-count">
+            {editorialSelectionOccupied}/4
+          </strong>
         </div>
 
         <div
@@ -1913,15 +1891,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   function renderOpeningWorkspace() {
     return (
       <article className="thematic-workspace-body">
-        <div className="thematic-workspace-head">
-          <div>
-            <h2>Abertura</h2>
-          </div>
-          <strong>
-            {openingOccupied}/{MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.length}
-          </strong>
-        </div>
-
         <div
           className={`thematic-slots thematic-slots-${MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.length}`}
         >
@@ -1974,11 +1943,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
     return (
       <article className="thematic-workspace-body">
-        <div className="thematic-workspace-head">
-          <div><h2>Destaque</h2></div>
-          <strong>{draftVideoHighlightDefined ? 1 : 0}/1</strong>
-        </div>
-
+        <div className="thematic-highlight-row">
         <div className="thematic-highlight-controls">
           <label>
             <span>Visibilidade</span>
@@ -2030,6 +1995,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           ) : (
             <p className="thematic-empty">Posição livre</p>
           )}
+        </div>
         </div>
 
       </article>

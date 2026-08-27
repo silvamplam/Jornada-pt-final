@@ -126,10 +126,17 @@ test("Seleção editorial é manual, independente e aplicada no mesmo workspace"
   );
 });
 
-test("zona ativa reúne título e layout e as tabs mantêm apenas Abertura fixa", () => {
+test("zona ativa mantém apenas os controlos funcionais numa linha", () => {
   assert.match(source, /function renderZonePanel/);
-  assert.match(source, /Título público/);
-  assert.match(source, /<span>Família<\/span>/);
+  assert.match(source, /aria-label={`Título público de \$\{zone\.label\}`}/);
+  assert.match(source, /aria-label={`Layout de \$\{zone\.label\}`}/);
+  assert.doesNotMatch(source, /<span>Título público<\/span>/);
+  assert.doesNotMatch(source, /<span>Família<\/span>/);
+  assert.match(source, /className="thematic-zone-editor-count"/);
+  assert.doesNotMatch(source, /thematic-workspace-head/);
+});
+
+test("tabs mantêm apenas Abertura fixa", () => {
   assert.match(source, /className="thematic-zone-tabs"/);
   assert.match(source, /Abertura \{openingOccupied\}/);
 
@@ -139,6 +146,33 @@ test("zona ativa reúne título e layout e as tabs mantêm apenas Abertura fixa"
   assert.doesNotMatch(source.slice(tabsStart, tabsEnd), /Faixa/);
   assert.match(source, /aria-label="Fontes editoriais"/);
   assert.match(source, /Faixa \{reconcile\.faixaAfter\.length\}/);
+});
+
+test("Últimas mantém só Título público, Apresentação e contador na faixa funcional", () => {
+  assert.match(source, /aria-label="Título público de Últimas"/);
+  assert.match(source, /aria-label="Apresentação de Últimas"/);
+  assert.doesNotMatch(source, /<span>Apresentação<\/span>/);
+  assert.match(
+    source,
+    /className="thematic-zone-editor-count"[\s\S]{0,80}\{editorialSelectionOccupied\}\/4/,
+  );
+});
+
+test("quatro Últimas corrigem a grelha específica dentro dos slots", () => {
+  assert.match(
+    source,
+    /\.thematic-workspace-slot \.thematic-card\.thematic-selection-card \{ grid-template-columns: 44px minmax\(0,1fr\) 22px; \}/,
+  );
+});
+
+test("Destaque coloca visibilidade e posição editorial lado a lado", () => {
+  assert.match(
+    source,
+    /\.thematic-highlight-row \{ display: grid; grid-template-columns: minmax\(120px,160px\) minmax\(0,520px\);/,
+  );
+  assert.match(source, /className="thematic-highlight-row"/);
+  assert.match(source, /className="thematic-highlight-controls"/);
+  assert.match(source, /aria-label="Destaque editorial"/);
 });
 
 test("as cinco zonas são fixas e não existe criação ou remoção de zona", () => {
