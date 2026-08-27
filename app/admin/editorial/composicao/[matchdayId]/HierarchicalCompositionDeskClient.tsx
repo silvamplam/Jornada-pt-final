@@ -1226,6 +1226,37 @@ function samePlan(left: PlanState, right: PlanState) {
     && dynamicZonesFingerprint(left.dynamicZones) === dynamicZonesFingerprint(right.dynamicZones);
 }
 
+function DynamicZoneTitleInput({
+  clientId,
+  value,
+  onCommit,
+}: {
+  clientId: string;
+  value: string;
+  onCommit: (clientId: string, publicTitle: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [clientId, value]);
+
+  return (
+    <input
+      aria-label="Título público da zona editorial"
+      maxLength={120}
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => onCommit(clientId, draft)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 export default function HierarchicalCompositionDeskClient({
   articles,
   auxiliaryItems,
@@ -1550,6 +1581,23 @@ export default function HierarchicalCompositionDeskClient({
       "Nova zona editorial planeada.",
     );
     setActiveWorkspaceKey(`dynamic:${clientId}`);
+  }
+
+  function commitDynamicZonePublicTitle(
+    clientId: string,
+    publicTitle: string,
+  ) {
+    const dynamicZones = plan.dynamicZones.map(
+      (zone) =>
+        zone.clientId === clientId
+          ? { ...zone, publicTitle }
+          : zone,
+    );
+
+    commitDynamicZones(
+      dynamicZones,
+      "Título público da zona alterado.",
+    );
   }
 
   function updateDynamicZone(clientId: string, patch: Partial<Pick<DynamicZonePlan, "publicTitle" | "visualFamily">>) {
@@ -2429,7 +2477,13 @@ export default function HierarchicalCompositionDeskClient({
           {activeDynamicZone ? (
             <>
               <div className="hc-dynamic-zone-editor">
-                <label><input aria-label="Título público da zona editorial" maxLength={120} value={activeDynamicZone.publicTitle} onChange={(event) => updateDynamicZone(activeDynamicZone.clientId, { publicTitle: event.target.value })} /></label>
+                <label>
+                  <DynamicZoneTitleInput
+                    clientId={activeDynamicZone.clientId}
+                    value={activeDynamicZone.publicTitle}
+                    onCommit={commitDynamicZonePublicTitle}
+                  />
+                </label>
                 <label><select aria-label="Layout da zona editorial" value={activeDynamicZone.visualFamily} onChange={(event) => updateDynamicZone(activeDynamicZone.clientId, { visualFamily: event.target.value as HistoricalDynamicZoneVisualFamily })}><option value="six_news">6 notícias</option><option value="five_news_balanced">5 notícias equilibradas</option><option value="five_news_secondary">5 notícias secundárias</option></select></label>
 
               </div>

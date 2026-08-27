@@ -931,6 +931,10 @@ const compositionPageStyles = `
     align-items: start;
   }
 
+  .composition-admin-layout-published-hierarchical {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .composition-admin-panel {
     overflow: hidden;
   }
@@ -5074,7 +5078,15 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       />
 
       {presentationMode !== "hierarchical" || !isDraftComposition ? (
-      <div className="composition-admin-layout">
+      <div
+        className={
+          `composition-admin-layout${
+            presentationMode === "hierarchical" && isPublishedComposition
+              ? " composition-admin-layout-published-hierarchical"
+              : ""
+          }`
+        }
+      >
         <section className="composition-admin-panel">
           <header>
             <h2>1. Banco da Jornada</h2>

@@ -2794,9 +2794,14 @@ function parseHistoricalDynamicZones(
 
     const record = value as Record<string, unknown>;
 
+    const rawPublicTitle = record.publicTitle;
+
+    const validPublicTitleType =
+      typeof rawPublicTitle === "string";
+
     const publicTitle =
-      typeof record.publicTitle === "string"
-        ? record.publicTitle.trim()
+      validPublicTitleType
+        ? rawPublicTitle.trim()
         : "";
 
     const visualFamily =
@@ -2812,7 +2817,7 @@ function parseHistoricalDynamicZones(
     const rawItems = record.items;
 
     if (
-      publicTitle.length === 0
+      !validPublicTitleType
       || publicTitle.length > 120
       || !capacity
       || !Array.isArray(rawItems)
@@ -3341,9 +3346,6 @@ async function validateHistoricalDynamicPublication(
             left.position - right.position,
         );
 
-    const validTitle =
-      Boolean(zone.public_title.trim());
-
     const validOrder =
       zone.sort_order === zoneIndex + 1;
 
@@ -3360,12 +3362,11 @@ async function validateHistoricalDynamicPublication(
       );
 
     if (
-      !validTitle
-      || !validOrder
+      !validOrder
       || !validItems
     ) {
       throw new CompositionPublicationError(
-        `Completa a zona editorial ${zoneIndex + 1} antes de publicar: título e ${capacity} notícias válidas são obrigatórios.`,
+        `Completa a zona editorial ${zoneIndex + 1} antes de publicar: ${capacity} notícias válidas são obrigatórias.`,
       );
     }
   });
