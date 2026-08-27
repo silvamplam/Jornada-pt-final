@@ -54,6 +54,17 @@ type SourcePackageRow = {
   manifest: unknown;
 };
 
+type UsedStateSummaryRow = {
+  newsroom_article_id: string;
+  newsroom_snapshot_id: string;
+  used_at: string;
+  is_current_snapshot: boolean;
+};
+
+type HistoricalUsedStateSummary = Readonly<{
+  usedState: NewsroomEditorialUsedState;
+  isCurrentSnapshot: boolean;
+}>;
 type UsedPublishedArticleRow = {
   id: string;
   title: string | null;
@@ -220,6 +231,43 @@ async function readAllHistoricalUsedStates(): Promise<readonly NewsroomEditorial
   }
 }
 
+async function readHistoricalUsedStateSummaries(): Promise<
+  readonly HistoricalUsedStateSummary[]
+> {
+  const rows = await writeSupabaseAdminReturning<UsedStateSummaryRow>(
+    "rpc/newsroom_editorial_used_state_summaries",
+    {
+      method: "POST",
+      body: "{}",
+    },
+  );
+
+  return rows.flatMap((row): HistoricalUsedStateSummary[] => {
+    const articleId = row.newsroom_article_id.trim().toLowerCase();
+    const snapshotId = row.newsroom_snapshot_id.trim().toLowerCase();
+    const usedAt = row.used_at.trim();
+
+    if (
+      !UUID_PATTERN.test(articleId)
+      || !UUID_PATTERN.test(snapshotId)
+      || !usedAt
+      || Number.isNaN(Date.parse(usedAt))
+    ) {
+      return [];
+    }
+
+    return [{
+      usedState: {
+        articleId,
+        snapshotId,
+        usedAt,
+        dossier: null,
+      },
+      isCurrentSnapshot: row.is_current_snapshot === true,
+    }];
+  });
+}
+
 async function readUsedPublishedArticles(
   states: readonly NewsroomEditorialUsedState[],
 ): Promise<ReadonlyMap<string, UsedPublishedArticleRow>> {
@@ -313,32 +361,86 @@ export async function loadNewsroomEditorialInbox(
   options: LoadNewsroomEditorialInboxOptions,
 ): Promise<NewsroomEditorialInboxResult> {
   try {
-    const [states, historicalUsedStates] = await Promise.all([
+    const historicalUsedStatesPromise:
+      Promise<readonly NewsroomEditorialUsedState[]> = options.view === "used"
+        ? readAllHistoricalUsedStates()
+        : Promise.resolve([]);
+
+    const historicalUsedSummariesPromise:
+      Promise<readonly HistoricalUsedStateSummary[]> = options.view === "used"
+        ? Promise.resolve([])
+        : readHistoricalUsedStateSummaries();
+
+    const [
+      states,
+      historicalUsedStates,
+      historicalUsedSummaries,
+    ] = await Promise.all([
       readAllReviewStates(),
-      readAllHistoricalUsedStates(),
+      historicalUsedStatesPromise,
+      historicalUsedSummariesPromise,
     ]);
-    const statesByArticleId = new Map(states.map((state) => [state.articleId, state]));
-    const historicalUsedItems = await readHistoricalUsedItems(historicalUsedStates);
-    const newestHistoricalUsedByArticleId = new Map<string, NewsroomEditorialUsedState>();
-    const currentSnapshotUsedByArticleId = new Map<string, NewsroomEditorialUsedState>();
 
-    for (const { article, usedState } of historicalUsedItems) {
-      newestHistoricalUsedByArticleId.set(
-        article.id,
-        newestUsedState(
-          newestHistoricalUsedByArticleId.get(article.id),
-          usedState,
-        ),
-      );
+    const statesByArticleId = new Map(
+      states.map((state) => [state.articleId, state]),
+    );
 
-      if (article.latestSnapshotId === usedState.snapshotId) {
-        currentSnapshotUsedByArticleId.set(
+    const historicalUsedItems = options.view === "used"
+      ? await readHistoricalUsedItems(historicalUsedStates)
+      : [];
+
+    const historicalUsedCount = options.view === "used"
+      ? historicalUsedItems.length
+      : historicalUsedSummaries.length;
+
+    const newestHistoricalUsedByArticleId =
+      new Map<string, NewsroomEditorialUsedState>();
+
+    const currentSnapshotUsedByArticleId =
+      new Map<string, NewsroomEditorialUsedState>();
+
+    if (options.view === "used") {
+      for (const { article, usedState } of historicalUsedItems) {
+        newestHistoricalUsedByArticleId.set(
           article.id,
           newestUsedState(
-            currentSnapshotUsedByArticleId.get(article.id),
+            newestHistoricalUsedByArticleId.get(article.id),
             usedState,
           ),
         );
+
+        if (article.latestSnapshotId === usedState.snapshotId) {
+          currentSnapshotUsedByArticleId.set(
+            article.id,
+            newestUsedState(
+              currentSnapshotUsedByArticleId.get(article.id),
+              usedState,
+            ),
+          );
+        }
+      }
+    } else {
+      for (const {
+        usedState,
+        isCurrentSnapshot,
+      } of historicalUsedSummaries) {
+        newestHistoricalUsedByArticleId.set(
+          usedState.articleId,
+          newestUsedState(
+            newestHistoricalUsedByArticleId.get(usedState.articleId),
+            usedState,
+          ),
+        );
+
+        if (isCurrentSnapshot) {
+          currentSnapshotUsedByArticleId.set(
+            usedState.articleId,
+            newestUsedState(
+              currentSnapshotUsedByArticleId.get(usedState.articleId),
+              usedState,
+            ),
+          );
+        }
       }
     }
 
@@ -452,7 +554,7 @@ export async function loadNewsroomEditorialInbox(
         total: items.length,
         pendingCount: pendingItems.length,
         workingCount: workingStates.length,
-        usedCount: historicalUsedItems.length,
+        usedCount: historicalUsedCount,
         archiveCount: archivedStates.length,
       },
     };
