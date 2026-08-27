@@ -24,9 +24,9 @@ import {
   type NewsroomEditorialUsedState,
 } from "@/lib/redacao-automatica/newsroom-editorial-inbox-internal";
 
-const STATE_PAGE_SIZE = 1000;
+
 const PACKAGE_PAGE_SIZE = 1000;
-const ARCHIVE_LIMIT = 100;
+
 const USED_LIMIT = 100;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -50,6 +50,26 @@ type ReviewStateRow = {
   reviewed_at: string;
 };
 
+type ReviewProjectionStateRow = {
+  newsroom_article_id: string;
+  decision: string;
+  reviewed_snapshot_id: string;
+  reviewed_at: string;
+  selected_for_view: boolean;
+};
+
+type ReviewProjectionRpcRow = {
+  working_count: number;
+  archive_count: number;
+  states: unknown;
+};
+
+type ReviewProjection = Readonly<{
+  states: readonly NewsroomEditorialReviewState[];
+  selectedStates: readonly NewsroomEditorialReviewState[];
+  workingCount: number;
+  archiveCount: number;
+}>;
 type SourcePackageRow = {
   manifest: unknown;
 };
@@ -157,27 +177,78 @@ function reviewState(row: ReviewStateRow): NewsroomEditorialReviewState | null {
   };
 }
 
-async function readAllReviewStates(): Promise<readonly NewsroomEditorialReviewState[]> {
-  const states: NewsroomEditorialReviewState[] = [];
-  let offset = 0;
+async function readReviewProjection(
+  articleIds: readonly string[],
+  currentUsedArticleIds: readonly string[],
+  selectedView: "working" | "archive" | null,
+): Promise<ReviewProjection> {
+  const rows = await writeSupabaseAdminReturning<ReviewProjectionRpcRow>(
+    "rpc/newsroom_editorial_review_projection",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_article_ids: articleIds,
+        p_current_used_article_ids: currentUsedArticleIds,
+        p_selected_view: selectedView,
+      }),
+    },
+  );
 
-  while (true) {
-    const rows = await fetchSupabaseAdminTable<ReviewStateRow>(
-      "newsroom_editorial_review_states"
-      + "?select=newsroom_article_id,decision,reviewed_snapshot_id,reviewed_at"
-      + `&order=reviewed_at.desc,newsroom_article_id.asc&offset=${offset}&limit=${STATE_PAGE_SIZE}`,
-    );
-
-    states.push(...rows.flatMap((row) => {
-      const normalized = reviewState(row);
-      return normalized ? [normalized] : [];
-    }));
-
-    if (rows.length < STATE_PAGE_SIZE) {
-      return states;
-    }
-    offset += STATE_PAGE_SIZE;
+  const row = rows[0];
+  if (!row || !Array.isArray(row.states)) {
+    throw new Error("review_projection_unavailable");
   }
+
+  const parsed = row.states.flatMap(
+    (value): Readonly<{
+      state: NewsroomEditorialReviewState;
+      selectedForView: boolean;
+    }>[] => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return [];
+      }
+
+      const candidate = value as Record<string, unknown>;
+      const normalized = reviewState({
+        newsroom_article_id:
+          typeof candidate.newsroom_article_id === "string"
+            ? candidate.newsroom_article_id
+            : "",
+        decision:
+          typeof candidate.decision === "string"
+            ? candidate.decision
+            : "",
+        reviewed_snapshot_id:
+          typeof candidate.reviewed_snapshot_id === "string"
+            ? candidate.reviewed_snapshot_id
+            : "",
+        reviewed_at:
+          typeof candidate.reviewed_at === "string"
+            ? candidate.reviewed_at
+            : "",
+      });
+
+      return normalized
+        ? [{
+            state: normalized,
+            selectedForView: candidate.selected_for_view === true,
+          }]
+        : [];
+    },
+  );
+
+  return {
+    states: parsed.map((item) => item.state),
+    selectedStates: parsed
+      .filter((item) => item.selectedForView)
+      .map((item) => item.state),
+    workingCount: Number.isInteger(row.working_count)
+      ? row.working_count
+      : 0,
+    archiveCount: Number.isInteger(row.archive_count)
+      ? row.archive_count
+      : 0,
+  };
 }
 
 async function readAllHistoricalUsedStates(): Promise<readonly NewsroomEditorialUsedState[]> {
@@ -371,19 +442,30 @@ export async function loadNewsroomEditorialInbox(
         ? Promise.resolve([])
         : readHistoricalUsedStateSummaries();
 
+    const currentResultPromise = options.query
+      ? searchNewsroomArticles({
+          query: options.query,
+          periodDays: options.periodDays,
+          sourceCode: options.sourceCode,
+        })
+      : listCurrentNewsroomArticles({
+          periodDays: options.periodDays,
+          sourceCode: options.sourceCode,
+        });
+
     const [
-      states,
       historicalUsedStates,
       historicalUsedSummaries,
+      currentResult,
     ] = await Promise.all([
-      readAllReviewStates(),
       historicalUsedStatesPromise,
       historicalUsedSummariesPromise,
+      currentResultPromise,
     ]);
 
-    const statesByArticleId = new Map(
-      states.map((state) => [state.articleId, state]),
-    );
+    if (!currentResult.ok) {
+      return readFailure();
+    }
 
     const historicalUsedItems = options.view === "used"
       ? await readHistoricalUsedItems(historicalUsedStates)
@@ -450,22 +532,35 @@ export async function loadNewsroomEditorialInbox(
     ]);
     const currentSnapshotUsedIds = new Set(currentSnapshotUsedByArticleId.keys());
     const usedPublishedArticles = options.view === "used"
-      ? await readUsedPublishedArticles(historicalUsedItems.map(({ usedState }) => usedState))
+      ? await readUsedPublishedArticles(
+          historicalUsedItems.map(({ usedState }) => usedState),
+        )
       : new Map<string, UsedPublishedArticleRow>();
-    const currentResult = options.query
-      ? await searchNewsroomArticles({
-          query: options.query,
-          periodDays: options.periodDays,
-          sourceCode: options.sourceCode,
-        })
-      : await listCurrentNewsroomArticles({
-          periodDays: options.periodDays,
-          sourceCode: options.sourceCode,
-        });
 
-    if (!currentResult.ok) {
-      return readFailure();
-    }
+    const reviewArticleIds = [
+      ...new Set([
+        ...currentResult.value.items.map((article) => article.id),
+        ...(options.view === "used"
+          ? historicalUsedItems.map(({ article }) => article.id)
+          : []),
+      ]),
+    ];
+
+    const selectedReviewView =
+      !options.query
+      && (options.view === "working" || options.view === "archive")
+        ? options.view
+        : null;
+
+    const reviewProjection = await readReviewProjection(
+      reviewArticleIds,
+      [...currentSnapshotUsedIds],
+      selectedReviewView,
+    );
+
+    const statesByArticleId = new Map(
+      reviewProjection.states.map((state) => [state.articleId, state]),
+    );
 
     const currentItems = currentResult.value.items.map((article) => (
       decorateNewsroomEditorialInboxItem(
@@ -474,12 +569,8 @@ export async function loadNewsroomEditorialInbox(
         usedByArticleId.get(article.id) ?? null,
       )
     ));
-    const pendingItems = currentItems.filter((item) => item.editorial.view === "pending");
-    const workingStates = states.filter(
-      (state) => state.decision === "working" && !currentSnapshotUsedIds.has(state.articleId),
-    );
-    const archivedStates = states.filter(
-      (state) => state.decision !== "working" && !currentSnapshotUsedIds.has(state.articleId),
+    const pendingItems = currentItems.filter(
+      (item) => item.editorial.view === "pending",
     );
 
     let items: readonly NewsroomEditorialInboxItem[];
@@ -525,9 +616,7 @@ export async function loadNewsroomEditorialInbox(
     } else if (options.query) {
       items = currentItems.filter((item) => item.editorial.view === options.view);
     } else {
-      const selectedStates = options.view === "working"
-        ? workingStates
-        : archivedStates.slice(0, ARCHIVE_LIMIT);
+      const selectedStates = reviewProjection.selectedStates;
       const selectedArticles = await readArticlesByStates(selectedStates);
       items = selectedArticles
         .filter((article) => (
@@ -553,9 +642,9 @@ export async function loadNewsroomEditorialInbox(
         items,
         total: items.length,
         pendingCount: pendingItems.length,
-        workingCount: workingStates.length,
+        workingCount: reviewProjection.workingCount,
         usedCount: historicalUsedCount,
-        archiveCount: archivedStates.length,
+        archiveCount: reviewProjection.archiveCount,
       },
     };
   } catch {
