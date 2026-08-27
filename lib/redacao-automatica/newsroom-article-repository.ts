@@ -1,6 +1,9 @@
 import "server-only";
 
-import { fetchSupabaseAdminTable } from "@/lib/supabase";
+import {
+  fetchSupabaseAdminTable,
+  writeSupabaseAdminReturning,
+} from "@/lib/supabase";
 import {
   NEWSROOM_TOPIC_ARCHIVE_OUTCOMES,
   classifyNewsroomTopicArchiveCandidate,
@@ -79,6 +82,13 @@ type NewsroomSnapshotRow = {
   created_at: string;
 };
 
+type NewsroomSnapshotSummaryRow = {
+  id: string;
+  article_id: string;
+  published_at_precision: string | null;
+  is_manual_origin: boolean;
+  has_usable_snapshot: boolean;
+};
 type NewsroomDossierSourceUsageRow = {
   newsroom_article_id: string;
 };
@@ -316,6 +326,42 @@ function articleSummary(
   };
 }
 
+function snapshotPublishedAtPrecision(
+  value: string | null | undefined,
+): PublishedAtPrecision | null {
+  return value === "date" || value === "instant"
+    ? value
+    : null;
+}
+
+function articleSummaryFromSnapshotSummary(
+  row: NewsroomArticleRow,
+  snapshotRow: NewsroomSnapshotSummaryRow | null = null,
+  usedInComposition = false,
+): NewsroomArticleSummary {
+  return {
+    id: row.id,
+    sourceCode: row.source_code,
+    title: row.title,
+    subtitle: row.subtitle,
+    summary: row.summary,
+    author: row.author,
+    publishedAt: row.published_at,
+    publishedAtPrecision: snapshotPublishedAtPrecision(
+      snapshotRow?.published_at_precision,
+    ),
+    detectedAt: row.detected_at,
+    lastDetectedAt: row.last_detected_at,
+    imageUrl: row.image_url,
+    processingStatus: processingStatus(row.processing_status),
+    latestSnapshotId: snapshotRow?.id ?? null,
+    hasUsableSnapshot: snapshotRow?.has_usable_snapshot ?? false,
+    sourceUrl: row.normalized_url || row.original_url,
+    isManualEntry: isManualNewsroomSource(row.source_code)
+      || snapshotRow?.is_manual_origin === true,
+    usedInComposition,
+  };
+}
 function canonicalArticleIdentity(row: NewsroomArticleRow): string {
   if (isManualNewsroomSource(row.source_code)) {
     return `${row.source_code.trim().toLowerCase()}\u0000${row.id}`;
@@ -380,6 +426,43 @@ function snapshot(row: NewsroomSnapshotRow): NewsroomArticleSnapshot {
 
 function uuidList(values: readonly string[]): string {
   return values.map((value) => encodeURIComponent(value)).join(",");
+}
+
+async function latestSnapshotSummariesByArticle(
+  articleIds: readonly string[],
+): Promise<Map<string, NewsroomSnapshotSummaryRow>> {
+  if (articleIds.length === 0) {
+    return new Map();
+  }
+
+  const latest = new Map<string, NewsroomSnapshotSummaryRow>();
+
+  for (
+    let start = 0;
+    start < articleIds.length;
+    start += SNAPSHOT_ARTICLE_CHUNK_SIZE
+  ) {
+    const articleIdChunk = articleIds.slice(
+      start,
+      start + SNAPSHOT_ARTICLE_CHUNK_SIZE,
+    );
+
+    const rows = await writeSupabaseAdminReturning<NewsroomSnapshotSummaryRow>(
+      "rpc/newsroom_latest_snapshot_summaries",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          p_article_ids: articleIdChunk,
+        }),
+      },
+    );
+
+    for (const row of rows) {
+      latest.set(row.article_id, row);
+    }
+  }
+
+  return latest;
 }
 
 async function latestSnapshotsByArticle(
@@ -506,12 +589,17 @@ export async function listNewsroomArticles(
       ),
       readArticleCounts(sourceCode),
     ]);
-    const latestSnapshots = await latestSnapshotsByArticle(rows.map((row) => row.id));
+    const latestSnapshots = await latestSnapshotSummariesByArticle(
+      rows.map((row) => row.id),
+    );
 
     return {
       ok: true,
       value: {
-        items: rows.map((row) => articleSummary(row, latestSnapshots.get(row.id) ?? null)),
+        items: rows.map((row) => articleSummaryFromSnapshotSummary(
+          row,
+          latestSnapshots.get(row.id) ?? null,
+        )),
         page,
         pageSize,
         total: counts.total,
@@ -601,18 +689,18 @@ export async function listCurrentNewsroomArticles(
     const availableRows = rows.filter((row) => (
       periodStart === null || currentFeedTimestamp(row) >= periodStart
     ));
-    const latestSnapshots = await latestSnapshotsByArticle(
+    const latestSnapshots = await latestSnapshotSummariesByArticle(
       availableRows.map((row) => row.id),
     );
     const canonicalArticles = new Map<string, {
       row: NewsroomArticleRow;
-      snapshot: NewsroomSnapshotRow;
+      snapshot: NewsroomSnapshotSummaryRow;
       usedInComposition: boolean;
     }>();
 
     for (const row of availableRows) {
       const snapshotRow = latestSnapshots.get(row.id);
-      if (!snapshotRow || !hasUsableBody(articleBody(snapshotRow.body))) {
+      if (!snapshotRow?.has_usable_snapshot) {
         continue;
       }
 
@@ -635,7 +723,11 @@ export async function listCurrentNewsroomArticles(
       ok: true,
       value: {
         items: selected.map(({ row, snapshot: snapshotRow, usedInComposition }) => (
-          articleSummary(row, snapshotRow, usedInComposition)
+          articleSummaryFromSnapshotSummary(
+            row,
+            snapshotRow,
+            usedInComposition,
+          )
         )),
         page: 1,
         pageSize: selected.length,
@@ -982,7 +1074,9 @@ export async function getNewsroomArticleSummariesByIds(
     }
 
     const rowsById = new Map(rows.map((row) => [row.id, row]));
-    const latestSnapshots = await latestSnapshotsByArticle(normalizedIds);
+    const latestSnapshots = await latestSnapshotSummariesByArticle(
+      normalizedIds,
+    );
 
     return {
       ok: true,
@@ -993,7 +1087,7 @@ export async function getNewsroomArticleSummariesByIds(
         }
 
         return [
-          articleSummary(
+          articleSummaryFromSnapshotSummary(
             row,
             latestSnapshots.get(id) ?? null,
           ),
