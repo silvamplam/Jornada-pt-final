@@ -9,6 +9,9 @@ import {
 import {
   readEditorialSourcePackage,
 } from "@/lib/redacao-automatica/editorial-source-package";
+import {
+  fetchSupabaseAdminTable,
+} from "@/lib/supabase";
 
 import SourcePackageActions from "../../../../_sourcePackageActions";
 import SourcePackageOutputPlanner from "../../../../_sourcePackageOutputPlanner";
@@ -56,6 +59,64 @@ function formatCreatedAt(value: string): string {
       }).format(new Date(timestamp));
 }
 
+type PublishedArticleContextRow = Readonly<{
+  id: string;
+  matchday_id: string | null;
+}>;
+
+async function resolveUpdateMatchdayId(
+  outputs: readonly Readonly<{
+    publishedArticleId?: string | null;
+    publishedSlug?: string | null;
+  }>[],
+) {
+  const articleIds = [
+    ...new Set(
+      outputs.flatMap((output) =>
+        output.publishedArticleId && output.publishedSlug
+          ? [output.publishedArticleId]
+          : [],
+      ),
+    ),
+  ];
+
+  if (articleIds.length === 0) {
+    return null;
+  }
+
+  try {
+    const rows =
+      await fetchSupabaseAdminTable<PublishedArticleContextRow>(
+        "editorial_articles?select=id,matchday_id"
+        + `&id=in.(${articleIds.join(",")})`
+        + `&limit=${articleIds.length}`,
+      );
+
+    if (
+      rows.length !== articleIds.length
+      || new Set(rows.map((row) => row.id)).size
+        !== articleIds.length
+    ) {
+      return null;
+    }
+
+    const matchdayIds = [
+      ...new Set(
+        rows.flatMap((row) => {
+          const matchdayId = row.matchday_id?.trim();
+          return matchdayId ? [matchdayId] : [];
+        }),
+      ),
+    ];
+
+    return matchdayIds.length === 1
+      ? matchdayIds[0]
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function SourcePackagePage({
   params,
   searchParams,
@@ -73,6 +134,23 @@ export default async function SourcePackagePage({
   }
 
   const { manifest } = result.value;
+
+  const updateArticleCount =
+    manifest.outputs.filter(
+      (output) =>
+        Boolean(
+          output.publishedArticleId
+          && output.publishedSlug,
+        ),
+    ).length;
+
+  const updateMatchdayId =
+    updateArticleCount > 0
+      ? await resolveUpdateMatchdayId(
+          manifest.outputs,
+        )
+      : null;
+
   const contentUrl =
     `/api/admin/editorial/redacao-automatica/source-package/${year}/${month}/${id}`;
   const failedEntries = manifest.entries.filter((entry) => entry.status === "failed");
@@ -298,6 +376,12 @@ export default async function SourcePackagePage({
               year,
               month,
               packageId: id,
+              ...(updateMatchdayId
+                ? { matchdayId: updateMatchdayId }
+                : {}),
+              ...(updateArticleCount > 0
+                ? { updateArticleCount }
+                : {}),
               outputImages: articleImages.map((image) => ({
                 position: image.position,
                 imageUrl: image.imageUrl,

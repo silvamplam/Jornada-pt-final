@@ -309,6 +309,7 @@ function ResultSummary({
   competitionLabel,
   seasonLabel,
   matchdayLabel: selectedMatchdayLabel,
+  preservesPublishedImages,
 }: Readonly<{
   preflight: EditorialBatchPreflight;
   imagePreflight: EditorialBatchImagePreflight<File>;
@@ -318,13 +319,21 @@ function ResultSummary({
   competitionLabel: string;
   seasonLabel: string;
   matchdayLabel: string;
+  preservesPublishedImages: boolean;
 }>) {
   const globalIssues = preflight.issues.filter((issue) => issue.index === undefined);
   const articleRows = articleResultRows(preflight);
   const imageResultByKey = new Map(
     imagePreflight.articles.map((article) => [article.key, article]),
   );
-  const globallyPrepared = preflight.ready && contextComplete && imagePreflight.ready && authorReady;
+  const globallyPrepared =
+    preflight.ready
+    && contextComplete
+    && (
+      preservesPublishedImages
+      || imagePreflight.ready
+    )
+    && authorReady;
 
   return (
     <section className={styles.results} aria-labelledby="batch-results-title" aria-live="polite">
@@ -434,7 +443,11 @@ function ResultSummary({
                     ) : (
                       <p className={styles.validNote}>Estrutura editorial válida.</p>
                     )}
-                    {imageResult ? (
+                    {preservesPublishedImages ? (
+                      <p className={styles.validNote}>
+                        IMAGEM PUBLICADA PRESERVADA
+                      </p>
+                    ) : imageResult ? (
                       <div className={`${styles.imageAssociation} ${
                         imageResult.status === "associated"
                           ? styles.associatedImage
@@ -602,7 +615,7 @@ function PublicationPanel({
                     <p className={styles.validNote}>
                       {updateRequired || item.mode === "update"
                         ? item.articleId
-                          ? "Este Dossiê corresponde a um artigo já publicado. A atualização manterá o mesmo artigo e o mesmo URL."
+                          ? "Este Dossiê corresponde a um artigo já publicado. A atualização manterá o mesmo artigo e o mesmo URL. A imagem atualmente publicada também será preservada."
                           : "O servidor identificou uma atualização, mas não devolveu um articleId válido. A publicação permanece bloqueada."
                         : item.mode === "resume"
                           ? "O artigo já processado será confirmado e mantido em Últimas."
@@ -659,8 +672,12 @@ function PublicationPanel({
                   ? "A análise começa automaticamente assim que todos os dados necessários estiverem válidos."
                 : updateCandidates.length > 0
                   ? updatesConfirmedInPanel
-                    ? "A atualização foi confirmada. O artigo existente e o mesmo URL serão preservados."
-                    : "Confirma explicitamente a atualização do artigo publicado antes de continuar."
+                    ? updateCandidates.length === 1
+                      ? "A atualização foi confirmada. O artigo existente e o mesmo URL serão preservados."
+                      : "As atualizações foram confirmadas. Os artigos existentes e os respetivos URLs serão preservados."
+                    : updateCandidates.length === 1
+                      ? "Confirma explicitamente a atualização do artigo publicado antes de continuar."
+                      : "Confirma explicitamente as atualizações dos artigos publicados antes de continuar."
                   : "A publicação é sequencial e pára no primeiro erro, preservando o que já foi concluído."}
         </p>
 
@@ -771,6 +788,24 @@ export default function BatchPreflightClient({
       && selectedMatchday
       && selectedMatchday.season_id === selectedSeason.id,
   );
+
+  const sourcePackageUpdateCount =
+    sourcePackage?.updateArticleCount ?? 0;
+
+  const sourcePackageContextLocked =
+    Boolean(
+      sourcePackageUpdateCount > 0
+      && sourcePackage?.matchdayId
+      && contextComplete,
+    );
+
+  const preservesPublishedImages =
+    Boolean(
+      sourcePackageUpdateCount > 0
+      && preflight.total > 0
+      && sourcePackageUpdateCount
+        === preflight.total,
+    );
   const analysedArticleKeys = useMemo(
     () => articleResultRows(preflight).map((row) => row.key),
     [preflight],
@@ -788,9 +823,11 @@ export default function BatchPreflightClient({
     [analysedArticleKeys, selectedImages, sourcePackage],
   );
   const canPublish = Boolean(
-    preflight.ready
-      && contextComplete
-      && imagePreflight.ready
+    preflight.ready && contextComplete
+      && (
+        preservesPublishedImages
+        || imagePreflight.ready
+      )
       && author.trim(),
   );
   const publicationFingerprint = useMemo(
@@ -855,11 +892,53 @@ export default function BatchPreflightClient({
     const transferredSourcePackage = parseEditorialBatchTransferSourcePackage(
       window.sessionStorage.getItem(EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY),
     );
-    window.sessionStorage.removeItem(EDITORIAL_BATCH_TRANSFER_STORAGE_KEY);
-    window.sessionStorage.removeItem(EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY);
+
     setArticleText(transferredText);
     setSourcePackage(transferredSourcePackage);
-  }, []);
+
+    if (!transferredSourcePackage?.matchdayId) {
+      return;
+    }
+
+    const transferredMatchday =
+      matchdays.find(
+        (matchday) =>
+          matchday.id
+          === transferredSourcePackage.matchdayId,
+      ) ?? null;
+
+    const transferredSeason =
+      transferredMatchday
+        ? seasons.find(
+            (season) =>
+              season.id === transferredMatchday.season_id,
+          ) ?? null
+        : null;
+
+    const transferredCompetition =
+      transferredSeason
+        ? competitions.find(
+            (competition) =>
+              competition.id
+              === transferredSeason.competition_id,
+          ) ?? null
+        : null;
+
+    if (
+      !transferredMatchday
+      || !transferredSeason
+      || !transferredCompetition
+    ) {
+      setPublicationError(
+        "O Dossiê identifica uma Jornada publicada, mas o contexto canónico não está disponível neste carregamento.",
+      );
+      return;
+    }
+
+    setCompetitionId(transferredCompetition.id);
+    setSeasonId(transferredSeason.id);
+    setMatchdayId(transferredMatchday.id);
+  }, [competitions, matchdays, seasons]);
 
   useEffect(() => {
     const nextPreviewUrls = new Map<File, string>();
@@ -908,7 +987,9 @@ export default function BatchPreflightClient({
     void analyseEditorialBatchForPublication({
       articleText,
       contextComplete,
-      imagesReady: imagePreflight.ready,
+      imagesReady:
+        preservesPublishedImages
+        || imagePreflight.ready,
       matchdayId,
       author,
       callbacks: {
@@ -955,6 +1036,7 @@ export default function BatchPreflightClient({
     contextComplete,
     imagePreflight.ready,
     matchdayId,
+    preservesPublishedImages,
     preflightRetryVersion,
     publicationFingerprint,
     sourcePackage,
@@ -975,6 +1057,15 @@ export default function BatchPreflightClient({
     activePublicationFingerprintRef.current = null;
     lastRequestedPublicationFingerprintRef.current = null;
     setIsCheckingPublication(false);
+  }
+
+  function clearTransferredBatch() {
+    window.sessionStorage.removeItem(
+      EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
+    );
+    window.sessionStorage.removeItem(
+      EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
+    );
   }
 
   function resetPublicationRun() {
@@ -1196,8 +1287,7 @@ export default function BatchPreflightClient({
         const image = imageByKey.get(planItem.key);
         const file = image?.file ?? null;
         const requiresImage =
-          planItem.mode === "create"
-          || planItem.mode === "update";
+          planItem.mode === "create";
 
         if (
           !article
@@ -1213,15 +1303,15 @@ export default function BatchPreflightClient({
         }
 
         try {
-          let imageUrl = uploadedImageUrlsRef.current[planItem.key]
-            ?? image?.imageUrl
-            ?? null;
+          let imageUrl =
+            planItem.mode === "update"
+              ? null
+              : uploadedImageUrlsRef.current[planItem.key]
+                ?? image?.imageUrl
+                ?? null;
 
           if (
-            (
-              planItem.mode === "create"
-              || planItem.mode === "update"
-            )
+            planItem.mode === "create"
             && !imageUrl
           ) {
             setPublicationState(planItem.key, {
@@ -1302,6 +1392,7 @@ export default function BatchPreflightClient({
       await finalizeBatchEditorialFlow();
       setBatchFinalized(true);
       setPublicationError(null);
+      clearTransferredBatch();
     } catch (error) {
       setPublicationError(error instanceof Error ? error.message : "A publicação do lote falhou.");
     } finally {
@@ -1326,6 +1417,13 @@ export default function BatchPreflightClient({
   function handleTextChange(nextText: string) {
     resetPublicationRun();
     setArticleText(nextText);
+
+    if (sourcePackage) {
+      window.sessionStorage.setItem(
+        EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
+        nextText,
+      );
+    }
   }
 
   function handleImagesSelected(files: FileList | null) {
@@ -1362,7 +1460,7 @@ export default function BatchPreflightClient({
             <select
               id="batch-competition"
               value={competitionId}
-              disabled={isPublishing}
+              disabled={sourcePackageContextLocked || isPublishing}
               onChange={(event) => handleCompetitionChange(event.target.value)}
             >
               <option value="">Escolher competição</option>
@@ -1379,7 +1477,11 @@ export default function BatchPreflightClient({
             <select
               id="batch-season"
               value={seasonId}
-              disabled={!competitionId || isPublishing}
+              disabled={
+                sourcePackageContextLocked
+                || !competitionId
+                || isPublishing
+              }
               onChange={(event) => handleSeasonChange(event.target.value)}
             >
               <option value="">
@@ -1398,7 +1500,11 @@ export default function BatchPreflightClient({
             <select
               id="batch-matchday"
               value={matchdayId}
-              disabled={!seasonId || isPublishing}
+              disabled={
+                sourcePackageContextLocked
+                || !seasonId
+                || isPublishing
+              }
               onChange={(event) => handleMatchdayChange(event.target.value)}
             >
               <option value="">
@@ -1412,6 +1518,31 @@ export default function BatchPreflightClient({
             </select>
           </label>
         </div>
+
+        {sourcePackageUpdateCount > 0 ? (
+          <p className={styles.automaticAnalysisNote}>
+            <strong>
+              {sourcePackageUpdateCount === 1
+                ? "ATUALIZAÇÃO DE 1 ARTIGO PUBLICADO"
+                : `ATUALIZAÇÃO DE ${sourcePackageUpdateCount} ARTIGOS PUBLICADOS`}
+            </strong>
+            {" · "}
+            {contextComplete
+              ? `${firstText(
+                  selectedCompetition?.name,
+                  selectedCompetition?.slug,
+                  selectedCompetition?.id,
+                )} · ${firstText(
+                  selectedSeason?.label,
+                  selectedSeason?.id,
+                )} · ${
+                  selectedMatchday
+                    ? matchdayLabel(selectedMatchday)
+                    : ""
+                }`
+              : "O Dossiê foi reconhecido como atualização. A Jornada canónica está a ser recuperada."}
+          </p>
+        ) : null}
 
         <label className={styles.textareaField} htmlFor="batch-author">
           <span>Autor do lote</span>
@@ -1453,12 +1584,38 @@ export default function BatchPreflightClient({
         </p>
       </section>
 
-      <ImageSelectionPanel
-        selectedImages={selectedImages}
-        imagePreflight={imagePreflight}
-        onImagesSelected={handleImagesSelected}
-        disabled={isPublishing}
-      />
+      {preservesPublishedImages ? (
+        <section
+          className={styles.panel}
+          aria-labelledby="batch-images-title"
+        >
+          <div className={styles.sectionHeader}>
+            <div>
+              <p className={styles.sectionEyebrow}>Imagens</p>
+              <h2 id="batch-images-title">
+                Imagens dos artigos
+              </h2>
+            </div>
+
+            <strong className={styles.readyBadge}>
+              IMAGENS PUBLICADAS PRESERVADAS
+            </strong>
+          </div>
+
+          <p className={styles.imageInstructions}>
+            Este lote atualiza artigos já publicados. As imagens atualmente
+            publicadas serão mantidas. As imagens guardadas no Dossiê não
+            substituirão automaticamente nenhuma delas.
+          </p>
+        </section>
+      ) : (
+        <ImageSelectionPanel
+          selectedImages={selectedImages}
+          imagePreflight={imagePreflight}
+          onImagesSelected={handleImagesSelected}
+          disabled={isPublishing}
+        />
+      )}
 
       {articleText.trim() || selectedImages.length > 0 ? (
         <ResultSummary
@@ -1470,6 +1627,7 @@ export default function BatchPreflightClient({
           competitionLabel={firstText(selectedCompetition?.name, selectedCompetition?.slug)}
           seasonLabel={firstText(selectedSeason?.label)}
           matchdayLabel={selectedMatchday ? matchdayLabel(selectedMatchday) : ""}
+          preservesPublishedImages={preservesPublishedImages}
         />
       ) : null}
 

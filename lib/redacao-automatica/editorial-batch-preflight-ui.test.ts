@@ -19,6 +19,7 @@ const publicationClientSource = source("lib/redacao-automatica/editorial-batch-p
 const imagePreflightSource = source("lib/redacao-automatica/editorial-batch-image-preflight.ts");
 const newsroomSource = source("app/admin/editorial/redacao-automatica/page.tsx");
 const publicationRouteSource = source("app/api/admin/editorial/redacao-automatica/publicacao-lote/route.ts");
+const sourcePackagePageSource = source("app/admin/editorial/redacao-automatica/pacotes/[year]/[month]/[id]/page.tsx");
 
 function clientFunction(functionName: string) {
   const syncStart = clientSource.indexOf(`  function ${functionName}`);
@@ -62,16 +63,128 @@ test("a página usa diretamente o pré-flight batch existente", () => {
   assert.match(publicationClientSource, /preflightEditorialArticleBatch\(articleText\)/);
 });
 
-test("a Publicação em lote recebe diretamente o texto colado no pacote editorial", () => {
+test("a Publicação em lote preserva o Dossiê até ao sucesso integral", () => {
   assert.match(clientSource, /EDITORIAL_BATCH_TRANSFER_STORAGE_KEY/);
   assert.match(clientSource, /EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY/);
   assert.match(clientSource, /parseEditorialBatchTransferSourcePackage/);
   assert.match(clientSource, /window\.sessionStorage\.getItem/);
-  assert.match(clientSource, /window\.sessionStorage\.removeItem/);
   assert.match(clientSource, /setArticleText\(transferredText\)/);
+  assert.match(clientSource, /setSourcePackage\(transferredSourcePackage\)/);
+
+  const loadedIndex =
+    clientSource.indexOf(
+      "setSourcePackage(transferredSourcePackage);",
+    );
+  const firstRemovalIndex =
+    clientSource.indexOf(
+      "window.sessionStorage.removeItem",
+    );
+
+  assert.ok(
+    loadedIndex >= 0
+    && firstRemovalIndex > loadedIndex,
+  );
+
   assert.match(
     clientSource,
-    /const preflight = useMemo\([\s\S]*?preflightEditorialArticleBatch\(articleText\)/,
+    /function clearTransferredBatch[\s\S]*?sessionStorage\.removeItem/,
+  );
+  assert.match(
+    clientSource,
+    /await finalizeBatchEditorialFlow\(\);[\s\S]*?clearTransferredBatch\(\);/,
+  );
+  assert.match(
+    clientSource,
+    /function handleTextChange[\s\S]*?sessionStorage\.setItem/,
+  );
+});
+
+test("uma atualização preserva obrigatoriamente a imagem publicada", () => {
+  assert.match(
+    publicationRouteSource,
+    /image_url:\s*existing\.image_url/,
+  );
+
+  assert.match(
+    publicationRouteSource,
+    /image_caption:\s*existing\.image_caption/,
+  );
+
+  const updateStart =
+    publicationRouteSource.indexOf(
+      'if (publicationMode === "update")',
+    );
+
+  const updateEnd =
+    publicationRouteSource.indexOf(
+      "\n    if (existing)",
+      updateStart,
+    );
+
+  assert.ok(
+    updateStart >= 0
+    && updateEnd > updateStart,
+  );
+
+  const updateSource =
+    publicationRouteSource.slice(
+      updateStart,
+      updateEnd,
+    );
+
+  assert.doesNotMatch(
+    updateSource,
+    /missing-image-url/,
+  );
+
+  assert.doesNotMatch(
+    updateSource,
+    /image_url:\s*imageUrl/,
+  );
+
+  assert.match(
+    clientSource,
+    /const requiresImage =\s*planItem\.mode === "create";/,
+  );
+
+  assert.match(
+    clientSource,
+    /planItem\.mode === "update"\s*\?\s*null/,
+  );
+
+  assert.match(
+    clientSource,
+    /planItem\.mode === "create"\s*&& !imageUrl/,
+  );
+
+  assert.match(
+    clientSource,
+    /IMAGENS PUBLICADAS PRESERVADAS/,
+  );
+
+  assert.match(
+    clientSource,
+    /IMAGEM PUBLICADA PRESERVADA/,
+  );
+
+  assert.match(
+    clientSource,
+    /A imagem atualmente publicada também será preservada/,
+  );
+});
+
+test("um Dossiê de atualização recupera e bloqueia a Jornada canónica", () => {
+  assert.match(sourcePackagePageSource, /resolveUpdateMatchdayId/);
+  assert.match(sourcePackagePageSource, /updateArticleCount/);
+  assert.match(sourcePackagePageSource, /matchdayId: updateMatchdayId/);
+  assert.match(clientSource, /transferredSourcePackage\?\.matchdayId/);
+  assert.match(clientSource, /setCompetitionId\(transferredCompetition\.id\)/);
+  assert.match(clientSource, /setSeasonId\(transferredSeason\.id\)/);
+  assert.match(clientSource, /setMatchdayId\(transferredMatchday\.id\)/);
+  assert.match(clientSource, /sourcePackageContextLocked/);
+  assert.match(
+    clientSource,
+    /ATUALIZAÇÃO DE \$\{sourcePackageUpdateCount\} ARTIGOS PUBLICADOS/,
   );
 });
 
@@ -383,10 +496,10 @@ test("o autor do lote mantém o valor editorial atual por defeito e é editável
   assert.match(clientSource, /onChange=\{\(event\) => handleAuthorChange\(event\.target\.value\)\}/);
 });
 
-test("o estado global do lote inclui artigos, contexto, imagens e autor", () => {
+test("o estado global aceita imagem nova ou preservação da imagem publicada", () => {
   assert.match(
     clientSource,
-    /const globallyPrepared = preflight\.ready && contextComplete && imagePreflight\.ready && authorReady;/,
+    /const globallyPrepared =[\s\S]*?preflight\.ready[\s\S]*?contextComplete[\s\S]*?preservesPublishedImages[\s\S]*?\|\| imagePreflight\.ready[\s\S]*?authorReady/,
   );
   assert.match(
     clientSource,

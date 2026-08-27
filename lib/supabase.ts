@@ -433,6 +433,23 @@ async function fetchSupabaseTable<T>(path: string): Promise<T[]> {
   return response.json() as Promise<T[]>;
 }
 
+const SUPABASE_ADMIN_READ_RETRY_DELAYS_MS = [250, 750] as const;
+
+function isTransientSupabaseAdminJwtFutureError(
+  status: number,
+  detail: string,
+) {
+  return status === 401
+    && detail.includes('"code":"PGRST303"')
+    && /JWT issued at future/i.test(detail);
+}
+
+function waitForSupabaseAdminReadRetry(delayMs: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
+
 export async function fetchSupabaseAdminTable<T>(path: string): Promise<T[]> {
   const config = getSupabaseServiceConfig();
 
@@ -441,20 +458,46 @@ export async function fetchSupabaseAdminTable<T>(path: string): Promise<T[]> {
   }
 
   const endpoint = `${config.url.replace(/\/$/, "")}/rest/v1/${path}`;
-  const response = await fetch(endpoint, {
-    cache: "no-store",
-    headers: {
-      apikey: config.serviceRoleKey,
-      Authorization: `Bearer ${config.serviceRoleKey}`
-    }
-  });
 
-  if (!response.ok) {
+  for (
+    let attempt = 0;
+    attempt <= SUPABASE_ADMIN_READ_RETRY_DELAYS_MS.length;
+    attempt += 1
+  ) {
+    const response = await fetch(endpoint, {
+      cache: "no-store",
+      headers: {
+        apikey: config.serviceRoleKey,
+        Authorization: `Bearer ${config.serviceRoleKey}`
+      }
+    });
+
+    if (response.ok) {
+      return response.json() as Promise<T[]>;
+    }
+
     const detail = await response.text();
-    throw new Error(detail || `Supabase request failed with status ${response.status}`);
+
+    if (
+      attempt < SUPABASE_ADMIN_READ_RETRY_DELAYS_MS.length
+      && isTransientSupabaseAdminJwtFutureError(
+        response.status,
+        detail,
+      )
+    ) {
+      await waitForSupabaseAdminReadRetry(
+        SUPABASE_ADMIN_READ_RETRY_DELAYS_MS[attempt],
+      );
+      continue;
+    }
+
+    throw new Error(
+      detail
+      || `Supabase request failed with status ${response.status}`,
+    );
   }
 
-  return response.json() as Promise<T[]>;
+  throw new Error("Supabase administrative read retry exhausted.");
 }
 
 export async function writeSupabaseAdmin(path: string, init: RequestInit): Promise<void> {

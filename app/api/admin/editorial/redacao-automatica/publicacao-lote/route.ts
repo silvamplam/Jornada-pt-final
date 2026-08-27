@@ -326,14 +326,14 @@ async function sourcePublishedAtByArticle(
 
 async function readExistingArticleBySlug(slug: string) {
   const rows = await fetchSupabaseAdminTable<ExistingArticleRow>(
-    `editorial_articles?select=id,slug,label,title,subtitle,body,image_url,author,published_at,matchday_id,status&slug=eq.${encodeURIComponent(slug)}&limit=1`,
+    `editorial_articles?select=id,slug,label,title,subtitle,body,image_url,image_caption,author,published_at,matchday_id,status&slug=eq.${encodeURIComponent(slug)}&limit=1`,
   );
   return rows[0] ?? null;
 }
 
 async function readExistingArticleById(articleId: string) {
   const rows = await fetchSupabaseAdminTable<ExistingArticleRow>(
-    "editorial_articles?select=id,slug,label,title,subtitle,body,image_url,author,published_at,matchday_id,status"
+    "editorial_articles?select=id,slug,label,title,subtitle,body,image_url,image_caption,author,published_at,matchday_id,status"
     + `&id=eq.${encodeURIComponent(articleId)}&limit=1`,
   );
   return rows[0] ?? null;
@@ -924,12 +924,6 @@ async function publishItem(payload: BatchPublicationPayload) {
         );
       }
 
-      if (!imageUrl) {
-        return jsonError(
-          "missing-image-url",
-        );
-      }
-
       const result =
         await updateEditorialArticle(
           existing.id,
@@ -942,8 +936,11 @@ async function publishItem(payload: BatchPublicationPayload) {
             slug:
               existing.slug
               ?? slug,
-            image_url: imageUrl,
-            image_caption: null,
+            image_url:
+              existing.image_url,
+            image_caption:
+              existing.image_caption
+              ?? null,
             author,
             published_at:
               existing.published_at,

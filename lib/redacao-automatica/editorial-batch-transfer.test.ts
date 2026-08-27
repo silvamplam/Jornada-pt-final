@@ -6,6 +6,7 @@ import {
 } from "./editorial-batch-transfer";
 
 const PACKAGE_ID = "91000000-0000-4000-8000-000000000001";
+const MATCHDAY_ID = "92000000-0000-4000-8000-000000000001";
 
 test("transferências antigas do Dossiê continuam legíveis", () => {
   assert.deepEqual(
@@ -19,6 +20,49 @@ test("transferências antigas do Dossiê continuam legíveis", () => {
       month: "08",
       packageId: PACKAGE_ID,
     },
+  );
+});
+
+test("a transferência preserva o contexto canónico de uma atualização", () => {
+  assert.deepEqual(
+    parseEditorialBatchTransferSourcePackage(JSON.stringify({
+      year: "2026",
+      month: "08",
+      packageId: PACKAGE_ID,
+      matchdayId: MATCHDAY_ID,
+      updateArticleCount: 3,
+    })),
+    {
+      year: "2026",
+      month: "08",
+      packageId: PACKAGE_ID,
+      matchdayId: MATCHDAY_ID,
+      updateArticleCount: 3,
+    },
+  );
+});
+
+test("a transferência rejeita contexto de atualização inválido", () => {
+  assert.equal(
+    parseEditorialBatchTransferSourcePackage(JSON.stringify({
+      year: "2026",
+      month: "08",
+      packageId: PACKAGE_ID,
+      matchdayId: "jornada-invalida",
+      updateArticleCount: 3,
+    })),
+    null,
+  );
+
+  assert.equal(
+    parseEditorialBatchTransferSourcePackage(JSON.stringify({
+      year: "2026",
+      month: "08",
+      packageId: PACKAGE_ID,
+      matchdayId: MATCHDAY_ID,
+      updateArticleCount: 0,
+    })),
+    null,
   );
 });
 

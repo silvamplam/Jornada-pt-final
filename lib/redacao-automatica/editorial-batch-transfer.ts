@@ -8,6 +8,8 @@ export type EditorialBatchTransferSourcePackage = Readonly<{
   year: string;
   month: string;
   packageId: string;
+  matchdayId?: string;
+  updateArticleCount?: number;
   outputImages?: readonly EditorialBatchTransferOutputImage[];
 }>;
 
@@ -59,8 +61,44 @@ export function parseEditorialBatchTransferSourcePackage(
       return null;
     }
 
+    const matchdayId =
+      parsed.matchdayId === undefined
+        ? undefined
+        : typeof parsed.matchdayId === "string"
+          ? parsed.matchdayId.trim().toLowerCase()
+          : "";
+
+    const updateArticleCount =
+      parsed.updateArticleCount === undefined
+        ? undefined
+        : Number(parsed.updateArticleCount);
+
+    if (
+      (matchdayId !== undefined && !UUID_PATTERN.test(matchdayId))
+      || (
+        updateArticleCount !== undefined
+        && (
+          !Number.isInteger(updateArticleCount)
+          || updateArticleCount < 1
+          || updateArticleCount > 30
+        )
+      )
+    ) {
+      return null;
+    }
+
+    const base = {
+      year,
+      month,
+      packageId,
+      ...(matchdayId ? { matchdayId } : {}),
+      ...(updateArticleCount !== undefined
+        ? { updateArticleCount }
+        : {}),
+    };
+
     if (parsed.outputImages === undefined) {
-      return { year, month, packageId };
+      return base;
     }
 
     if (!Array.isArray(parsed.outputImages)) {
@@ -97,7 +135,7 @@ export function parseEditorialBatchTransferSourcePackage(
       outputImages.push({ position, imageUrl, label });
     }
 
-    return { year, month, packageId, outputImages };
+    return { ...base, outputImages };
   } catch {
     return null;
   }

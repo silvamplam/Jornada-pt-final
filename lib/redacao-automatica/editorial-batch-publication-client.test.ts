@@ -378,6 +378,39 @@ test("os estados finais oferecem um único CTA editorial e nunca um pseudo-botã
   assert.equal(confirmedUpdate.actionLabel, "ATUALIZAR ARTIGO");
   assert.equal(confirmedUpdate.ready, true);
 
+  const threeConfirmedUpdates = editorialBatchPublicationUiState({
+    ...base,
+    plan: [
+      {
+        key: "01",
+        mode: "update_required" as const,
+        articleId: "article-1",
+      },
+      {
+        key: "02",
+        mode: "update_required" as const,
+        articleId: "article-2",
+      },
+      {
+        key: "03",
+        mode: "update_required" as const,
+        articleId: "article-3",
+      },
+    ],
+    confirmedUpdates: {
+      "01": "article-1",
+      "02": "article-2",
+      "03": "article-3",
+    },
+    canPublish: true,
+  });
+
+  assert.equal(
+    threeConfirmedUpdates.actionLabel,
+    "ATUALIZAR 3 ARTIGOS",
+  );
+  assert.equal(threeConfirmedUpdates.ready, true);
+
   for (const mode of ["create", "resume"] as const) {
     const normalPlan = editorialBatchPublicationUiState({
       ...base,

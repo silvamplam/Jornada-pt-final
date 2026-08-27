@@ -274,7 +274,9 @@ export function editorialBatchPublicationUiState<
         : hasUpdatePlan && hasCreateOrResumePlan
           ? "PUBLICAR E ATUALIZAR"
           : hasUpdatePlan
-            ? "ATUALIZAR ARTIGO"
+            ? updateCandidates.length === 1
+              ? "ATUALIZAR ARTIGO"
+              : `ATUALIZAR ${updateCandidates.length} ARTIGOS`
             : "PUBLICAR EM ÚLTIMAS";
 
   const statusTone = allPublished || Boolean(plan && canPublish && updatesConfirmed)
