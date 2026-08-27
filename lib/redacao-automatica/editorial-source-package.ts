@@ -26,6 +26,7 @@ import {
   type EditorialSourcePackageOutputCreationInput,
   type EditorialSourcePackageOutputInput,
   type EditorialSourcePackagePreparedEntry,
+  type EditorialSourcePackagePublishedArticleSnapshot,
   type EditorialSourcePackageSelection,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
@@ -60,6 +61,16 @@ type NewsroomSnapshotRow = {
   article_id: string;
   body: unknown;
   source_metadata: unknown;
+};
+
+type PublishedEditorialArticleRow = {
+  id: string;
+  slug: string | null;
+  label: string | null;
+  title: string | null;
+  subtitle: string | null;
+  body: string | null;
+  status: string | null;
 };
 
 type EditorialSourcePackageRow = {
@@ -100,6 +111,8 @@ export type CreateEditorialSourcePackageResult =
         code:
           | "input_invalid"
           | "source_read_failed"
+          | "update_target_read_failed"
+          | "update_target_invalid"
           | "package_write_failed";
       }>;
     }>;
@@ -655,12 +668,116 @@ export async function createEditorialSourcePackage(
     };
   }
 
-  const outputs =
+  const outputs: readonly EditorialSourcePackageOutput[] =
     requestedOutputs
     ?? defaultEditorialSourcePackageOutputs(
       entries,
       effectiveEditorial.suggestedTitle,
     );
+
+  const updateTargetIds =
+    [...new Set(
+      outputs.flatMap(
+        (output) =>
+          output.publishedArticleId
+            ? [output.publishedArticleId]
+            : [],
+      ),
+    )];
+
+  const publishedArticles:
+    EditorialSourcePackagePublishedArticleSnapshot[] = [];
+
+  if (updateTargetIds.length > 0) {
+    let publishedRows:
+      PublishedEditorialArticleRow[];
+
+    try {
+      publishedRows =
+        await fetchSupabaseAdminTable<
+          PublishedEditorialArticleRow
+        >(
+          "editorial_articles"
+          + "?select=id,slug,label,title,subtitle,body,status"
+          + `&id=in.(${uuidList(updateTargetIds)})`
+          + `&limit=${updateTargetIds.length}`,
+        );
+    } catch {
+      return {
+        ok: false,
+        error: {
+          code: "update_target_read_failed",
+        },
+      };
+    }
+
+    const publishedById =
+      new Map(
+        publishedRows.map(
+          (article) => [
+            article.id.trim().toLowerCase(),
+            article,
+          ],
+        ),
+      );
+
+    for (const output of outputs) {
+      if (
+        !output.publishedArticleId
+        || !output.publishedSlug
+      ) {
+        continue;
+      }
+
+      const article =
+        publishedById.get(
+          output.publishedArticleId,
+        );
+
+      const slug =
+        article?.slug?.trim() ?? "";
+      const anteTitle =
+        article?.label?.trim() ?? "";
+      const title =
+        article?.title?.trim() ?? "";
+      const postTitle =
+        article?.subtitle?.trim() ?? "";
+      const body =
+        article?.body
+          ?.replace(/\r\n?/g, "\n")
+          .trim()
+        ?? "";
+
+      if (
+        !article
+        || article.status !== "published"
+        || slug !== output.publishedSlug
+        || !anteTitle
+        || !title
+        || !postTitle
+        || !body
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "update_target_invalid",
+          },
+        };
+      }
+
+      publishedArticles.push({
+        position: output.position,
+        publishedArticleId:
+          output.publishedArticleId,
+        publishedSlug:
+          output.publishedSlug,
+        anteTitle,
+        title,
+        postTitle,
+        body,
+      });
+    }
+  }
 
   const articleCount = outputs.length;
   const createdAt = now.toISOString();
@@ -677,6 +794,7 @@ export async function createEditorialSourcePackage(
       editorial: effectiveEditorial,
       entries,
       outputs,
+      publishedArticles,
     });
 
   const articleImageSources =

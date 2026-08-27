@@ -56,6 +56,16 @@ export type EditorialSourcePackageOutput =
     publishedSlug?: string | null;
   }>;
 
+export type EditorialSourcePackagePublishedArticleSnapshot = Readonly<{
+  position: number;
+  publishedArticleId: string;
+  publishedSlug: string;
+  anteTitle: string;
+  title: string;
+  postTitle: string;
+  body: string;
+}>;
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const YEAR_PATTERN = /^\d{4}$/;
 const MONTH_PATTERN = /^(0[1-9]|1[0-2])$/;
@@ -505,6 +515,7 @@ export function normalizeEditorialSourcePackageCreationOutputs(
   }
 
   const creationOutputs: EditorialSourcePackageOutput[] = [];
+  const publishedArticleIds = new Set<string>();
 
   for (const [index, output] of normalized.entries()) {
     const input = outputs[index];
@@ -519,12 +530,20 @@ export function normalizeEditorialSourcePackageCreationOutputs(
       (publishedArticleId && !UUID_PATTERN.test(publishedArticleId))
       || Boolean(publishedArticleId) !== Boolean(publishedSlug)
       || (
+        publishedArticleId
+        && publishedArticleIds.has(publishedArticleId)
+      )
+      || (
         "usedAt" in input
         && typeof (input as { usedAt?: unknown }).usedAt === "string"
         && Boolean((input as { usedAt: string }).usedAt.trim())
       )
     ) {
       return null;
+    }
+
+    if (publishedArticleId) {
+      publishedArticleIds.add(publishedArticleId);
     }
 
     creationOutputs.push({
@@ -955,6 +974,7 @@ const EXTERNAL_ARTICLE_IMPORT_RULES = [
 const COMMON_PROMPT_RULES = [
   "Produza o texto em português europeu, com linguagem jornalística eloquente, fluida, natural e rigorosa.",
   "Leia integralmente e considere todas as fontes do grupo indicado em cada saída editorial. Várias saídas podem partilhar o mesmo grupo de fontes e, nesse caso, podem utilizar as mesmas fontes; grupos diferentes não devem ser misturados.",
+  "Quando existir a secção “ARTIGOS PUBLICADOS A ATUALIZAR”, cada saída editorial corresponde obrigatoriamente ao artigo publicado da mesma posição. Atualize esse artigo à luz das fontes antigas e novas, preservando o que continua válido; não o substitua por um foco editorial diferente.",
   "Além das fontes fornecidas, pesquise sempre fontes externas atuais e credíveis sobre o mesmo tema para complementar, contextualizar e atualizar a informação, salvo instrução expressa do editor para não fazer pesquisa externa.",
   "A pesquisa complementar deve acrescentar contexto e atualidade sem inventar factos nem apagar divergências relevantes. Quando existirem versões divergentes, apresente e atribua claramente cada uma, sem escolher arbitrariamente uma como verdadeira.",
   "O título sugerido pelo editor é uma orientação inicial. Melhore-o ou substitua-o quando existir uma formulação mais rigorosa, informativa e adequada ao conteúdo efetivamente sustentado pelas fontes.",
@@ -1009,6 +1029,71 @@ export function editorialSourcePackagePrompt(
     "",
     ...EXTERNAL_ARTICLE_IMPORT_RULES,
   ].join("\n\n");
+}
+
+function formatPublishedArticleSnapshot(
+  snapshot: EditorialSourcePackagePublishedArticleSnapshot,
+  total: number,
+): string {
+  return [
+    `## SAÍDA ${String(snapshot.position).padStart(2, "0")} DE ${String(total).padStart(2, "0")}`,
+    "",
+    ...markdownMetadata("ARTICLE_ID", snapshot.publishedArticleId),
+    ...markdownMetadata("SLUG", snapshot.publishedSlug),
+    "",
+    "### ANTETÍTULO",
+    "",
+    markdownText(snapshot.anteTitle),
+    "",
+    "### TÍTULO",
+    "",
+    markdownText(snapshot.title),
+    "",
+    "### PÓS-TÍTULO",
+    "",
+    markdownText(snapshot.postTitle),
+    "",
+    "### CORPO",
+    "",
+    markdownText(snapshot.body),
+  ].join("\n").trimEnd();
+}
+
+function formatPublishedArticleSnapshots(
+  snapshots:
+    readonly EditorialSourcePackagePublishedArticleSnapshot[]
+    | undefined,
+): string[] {
+  if (!snapshots?.length) {
+    return [];
+  }
+
+  const ordered =
+    [...snapshots].sort(
+      (left, right) =>
+        left.position - right.position,
+    );
+
+  return [
+    "# ARTIGOS PUBLICADOS A ATUALIZAR",
+    "",
+    "> Cada saída abaixo identifica o artigo atualmente publicado que deve ser atualizado. A posição é vinculativa: SAÍDA 01 atualiza o artigo 01, SAÍDA 02 atualiza o artigo 02, e assim sucessivamente.",
+    "",
+    ...ordered.flatMap(
+      (snapshot, index) => {
+        const section =
+          formatPublishedArticleSnapshot(
+            snapshot,
+            ordered.length,
+          );
+
+        return index === 0
+          ? [section]
+          : ["---", "", section];
+      },
+    ),
+    "",
+  ];
 }
 
 function formatEditorialOutputPlan(
@@ -1073,7 +1158,14 @@ export function updateEditorialSourcePackageMarkdown(
 ): string | null {
   const normalizedMarkdown =
     input.markdown.replace(/\r\n?/g, "\n");
+  const publishedArticlesMarker =
+    "# ARTIGOS PUBLICADOS A ATUALIZAR";
   const sourcesMarker = "# FONTES INTEGRAIS";
+
+  const publishedArticlesIndex =
+    normalizedMarkdown.indexOf(
+      publishedArticlesMarker,
+    );
   const sourcesIndex =
     normalizedMarkdown.indexOf(sourcesMarker);
 
@@ -1081,8 +1173,14 @@ export function updateEditorialSourcePackageMarkdown(
     return null;
   }
 
+  const preservedIndex =
+    publishedArticlesIndex >= 0
+    && publishedArticlesIndex < sourcesIndex
+      ? publishedArticlesIndex
+      : sourcesIndex;
+
   let sources =
-    normalizedMarkdown.slice(sourcesIndex);
+    normalizedMarkdown.slice(preservedIndex);
 
   if (input.outputs?.length) {
     sources = sources.replace(
@@ -1129,6 +1227,8 @@ export function buildEditorialSourcePackageMarkdown(
     editorial: EditorialSourcePackageEditorialInput;
     entries: readonly EditorialSourcePackageEntry[];
     outputs?: readonly EditorialSourcePackageOutputInput[];
+    publishedArticles?:
+      readonly EditorialSourcePackagePublishedArticleSnapshot[];
   }>,
 ): string {
   const selectedCount = input.entries.length;
@@ -1198,6 +1298,12 @@ export function buildEditorialSourcePackageMarkdown(
     "",
     "---",
     "",
+    ...formatPublishedArticleSnapshots(
+      input.publishedArticles,
+    ),
+    ...(input.publishedArticles?.length
+      ? ["---", ""]
+      : []),
     "# FONTES INTEGRAIS",
     "",
     `**FONTES SELECIONADAS:** ${selectedCount}`,

@@ -6,6 +6,7 @@ import {
   editorialSourcePackageArticleImageSources,
   normalizeEditorialSourcePackageCreationOutputs,
   normalizeEditorialSourcePackageOutputs,
+  updateEditorialSourcePackageMarkdown,
   type EditorialSourcePackageEntry,
 } from "./editorial-source-package-internal";
 
@@ -186,6 +187,186 @@ test(
 );
 
 test(
+  "um Dossie reutilizado transporta integralmente os tres artigos publicados a atualizar",
+  () => {
+    const sourceEntries = entries();
+
+    const outputs =
+      normalizeEditorialSourcePackageCreationOutputs(
+        [
+          {
+            position: 1,
+            sourceArticlePosition: 1,
+            focus: "Artigo 01",
+            imageNewsroomArticleId: ARTICLE_A,
+            publishedArticleId:
+              "93000000-0000-4000-8000-000000000001",
+            publishedSlug: "artigo-publicado-01",
+          },
+          {
+            position: 2,
+            sourceArticlePosition: 1,
+            focus: "Artigo 02",
+            imageNewsroomArticleId: ARTICLE_B,
+            publishedArticleId:
+              "93000000-0000-4000-8000-000000000002",
+            publishedSlug: "artigo-publicado-02",
+          },
+          {
+            position: 3,
+            sourceArticlePosition: 1,
+            focus: "Artigo 03",
+            imageNewsroomArticleId: ARTICLE_A,
+            publishedArticleId:
+              "93000000-0000-4000-8000-000000000003",
+            publishedSlug: "artigo-publicado-03",
+          },
+        ],
+        sourceEntries,
+      );
+
+    assert.ok(outputs);
+
+    const markdown =
+      buildEditorialSourcePackageMarkdown({
+        createdAt:
+          "2026-08-27T10:30:00.000Z",
+        editorial: {
+          genre: "news",
+          genreLabel: "Notícia",
+          suggestedTitle: null,
+          additionalInstructions:
+            "Atualizar o Dossiê.",
+        },
+        entries: sourceEntries,
+        outputs,
+        publishedArticles: [
+          {
+            position: 1,
+            publishedArticleId:
+              "93000000-0000-4000-8000-000000000001",
+            publishedSlug:
+              "artigo-publicado-01",
+            anteTitle: "FC Porto",
+            title:
+              "Título publicado 01",
+            postTitle:
+              "Pós-título publicado 01",
+            body:
+              "Corpo publicado 01.",
+          },
+          {
+            position: 2,
+            publishedArticleId:
+              "93000000-0000-4000-8000-000000000002",
+            publishedSlug:
+              "artigo-publicado-02",
+            anteTitle: "FC Porto",
+            title:
+              "Título publicado 02",
+            postTitle:
+              "Pós-título publicado 02",
+            body:
+              "Corpo publicado 02.",
+          },
+          {
+            position: 3,
+            publishedArticleId:
+              "93000000-0000-4000-8000-000000000003",
+            publishedSlug:
+              "artigo-publicado-03",
+            anteTitle: "FC Porto",
+            title:
+              "Título publicado 03",
+            postTitle:
+              "Pós-título publicado 03",
+            body:
+              "Corpo publicado 03.",
+          },
+        ],
+      });
+
+    assert.match(
+      markdown,
+      /# ARTIGOS PUBLICADOS A ATUALIZAR/,
+    );
+
+    const publishedArticlesIndex =
+      markdown.indexOf(
+        "# ARTIGOS PUBLICADOS A ATUALIZAR",
+      );
+    const sourcesIndex =
+      markdown.indexOf("# FONTES INTEGRAIS");
+
+    assert.ok(
+      publishedArticlesIndex >= 0
+      && sourcesIndex > publishedArticlesIndex,
+    );
+
+    assert.match(
+      markdown,
+      /A posição é vinculativa/,
+    );
+    assert.match(
+      markdown,
+      /## SAÍDA 01 DE 03[\s\S]*Título publicado 01[\s\S]*Corpo publicado 01/,
+    );
+    assert.match(
+      markdown,
+      /## SAÍDA 02 DE 03[\s\S]*Título publicado 02[\s\S]*Corpo publicado 02/,
+    );
+    assert.match(
+      markdown,
+      /## SAÍDA 03 DE 03[\s\S]*Título publicado 03[\s\S]*Corpo publicado 03/,
+    );
+
+    const first =
+      markdown.indexOf("## SAÍDA 01 DE 03");
+    const second =
+      markdown.indexOf("## SAÍDA 02 DE 03");
+    const third =
+      markdown.indexOf("## SAÍDA 03 DE 03");
+
+    assert.ok(
+      first >= 0
+      && first < second
+      && second < third,
+    );
+
+    const updated =
+      updateEditorialSourcePackageMarkdown({
+        markdown,
+        editorial: {
+          genre: "news",
+          genreLabel: "Notícia",
+          suggestedTitle: null,
+          additionalInstructions:
+            "Atualização revista.",
+        },
+        outputs,
+      });
+
+    assert.ok(updated);
+    assert.match(
+      updated,
+      /# ARTIGOS PUBLICADOS A ATUALIZAR/,
+    );
+    assert.match(
+      updated,
+      /Corpo publicado 01/,
+    );
+    assert.match(
+      updated,
+      /Corpo publicado 02/,
+    );
+    assert.match(
+      updated,
+      /Corpo publicado 03/,
+    );
+  },
+);
+
+test(
   "um pacote reutilizado preserva o alvo publicado sem nascer utilizado",
   () => {
     const outputs = normalizeEditorialSourcePackageCreationOutputs(
@@ -303,7 +484,7 @@ test(
 );
 
 test(
-  "a criação rejeita alvos incompletos e usedAt transportado",
+  "a criação rejeita alvos incompletos, duplicados e usedAt transportado",
   () => {
     const base = {
       position: 1,
@@ -319,6 +500,32 @@ test(
       ),
       null,
     );
+
+    assert.equal(
+      normalizeEditorialSourcePackageCreationOutputs(
+        [
+          {
+            ...base,
+            publishedArticleId:
+              "93000000-0000-4000-8000-000000000001",
+            publishedSlug:
+              "artigo-publicado-original",
+          },
+          {
+            ...base,
+            position: 2,
+            imageNewsroomArticleId: ARTICLE_B,
+            publishedArticleId:
+              "93000000-0000-4000-8000-000000000001",
+            publishedSlug:
+              "artigo-publicado-original",
+          },
+        ],
+        entries(),
+      ),
+      null,
+    );
+
     assert.equal(
       normalizeEditorialSourcePackageCreationOutputs(
         [{

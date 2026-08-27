@@ -615,6 +615,10 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(internal, /label: "Breve"/);
   assert.match(internal, /label: "Análise"/);
   assert.match(internal, /label: "Editorial"/);
+  assert.match(internal, /ARTIGOS PUBLICADOS A ATUALIZAR/);
+  assert.match(internal, /A posição é vinculativa/);
+  assert.match(mainPage, /update_target_read_failed/);
+  assert.match(mainPage, /update_target_invalid/);
   assert.doesNotMatch(actions, /Descarregar \.md —/);
   assert.match(actions, /Descarregar imagens \(\.zip\) —/);
   assert.match(actions, /Copiar pacote para ChatGPT —/);
@@ -690,13 +694,19 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(packageService, /markEditorialSourcePackageArticleUsed/);
   assert.match(packageService, /publishedArticleId/);
   assert.match(packageService, /usedAt/);
+  assert.match(packageService, /type PublishedEditorialArticleRow/);
+  assert.match(packageService, /editorial_articles/);
+  assert.match(packageService, /select=id,slug,label,title,subtitle,body,status/);
+  assert.match(packageService, /update_target_read_failed/);
+  assert.match(packageService, /update_target_invalid/);
+  assert.match(packageService, /publishedArticles/);
 
   const articleForm = read("app/admin/editorial/artigos/_articleForm.tsx");
   const articleImporter = read("app/admin/editorial/artigos/_externalArticleImport.tsx");
   const articleImageImportRoute = read(
     "app/api/admin/editorial/artigos/import-source-image/route.ts",
   );
-  assert.match(articleForm, /<ExternalArticleImport \/>/);
+  assert.match(articleForm, /<ExternalArticleImport mode=\{isEdit \? "update" : "create"\} \/>/);
   assert.match(articleImporter, /Preencher a partir do clipboard/);
   assert.match(articleImporter, /Resposta da IA/);
   assert.match(articleImporter, /onPaste=\{importPastedResponse\}/);

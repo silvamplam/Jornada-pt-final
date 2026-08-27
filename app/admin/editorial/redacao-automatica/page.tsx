@@ -143,6 +143,8 @@ function viewDescription(view: NewsroomEditorialInboxView): string {
 const sourcePackageErrorMessages: Record<string, string> = {
   input_invalid: "Seleciona entre 1 e 20 notícias e confirma os dados editoriais do pacote.",
   source_read_failed: "Não foi possível ler as notícias selecionadas neste momento.",
+  update_target_read_failed: "Não foi possível ler os artigos publicados que este Dossiê pretende atualizar.",
+  update_target_invalid: "Um dos artigos publicados associados ao Dossiê já não corresponde ao alvo esperado. A atualização foi bloqueada.",
   package_write_failed: "Não foi possível guardar o pacote editorial neste momento.",
 };
 
