@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 
 import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
+import { readAdminJsonResponse } from "@/lib/admin-json-response";
 
 import MatchdayEditorialContextSelector, {
   type MatchdayEditorialContextSelectorData,
@@ -611,15 +612,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         );
 
       const payload =
-        await response.json().catch(
-          () => null,
-        ) as
-          | EditorialSelectionResponse
-          | null;
+        await readAdminJsonResponse<EditorialSelectionResponse>(
+          response,
+        );
 
       if (
-        !response.ok
-        || !payload?.ok
+        !payload.ok
       ) {
         throw new Error(
           payload?.message
@@ -1416,8 +1414,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           },
         }),
       });
-      const payload = await response.json() as { ok?: boolean; message?: string };
-      if (!response.ok || payload.ok !== true) throw new Error(payload.message ?? "O Apply temático foi recusado integralmente.");
+      const payload = await readAdminJsonResponse<{
+        ok?: boolean;
+        message?: string;
+      }>(response);
+      if (payload.ok !== true) throw new Error(payload.message ?? "O Apply temático foi recusado integralmente.");
       setEditorState((current) => ({
         ...current,
         persistedOverrides: operationalOverrides,

@@ -433,7 +433,7 @@ async function fetchSupabaseTable<T>(path: string): Promise<T[]> {
   return response.json() as Promise<T[]>;
 }
 
-const SUPABASE_ADMIN_READ_RETRY_DELAYS_MS = [250, 750] as const;
+const SUPABASE_ADMIN_READ_RETRY_DELAYS_MS = [250, 750, 1500] as const;
 
 function isTransientSupabaseAdminJwtFutureError(
   status: number,
