@@ -568,3 +568,63 @@ test("snapshot confirmado após Apply torna-se baseline persistida sem recriar d
   assert.deepEqual(reconciled.draftOverrides, applied);
   assert.deepEqual(reconciled.persistedOverrides, reconciled.draftOverrides);
 });
+
+
+test("opening-return-position-1-shifts-existing-manual-without-creating-overflow-override", () => {
+  const activeItems = [
+    automaticItem("manual-1", "benfica", 1, 20),
+    automaticItem("auto-2", "benfica", 2, 19),
+    automaticItem("auto-3", "benfica", 3, 18),
+    automaticItem("auto-4", "benfica", 4, 17),
+    automaticItem("auto-5", "benfica", 5, 16),
+    automaticItem("auto-6", "benfica", 6, 15),
+    automaticItem("returned", "benfica", 7, 14),
+  ];
+
+  const current = [
+    override("manual-1", "benfica", 1),
+  ];
+
+  const next = fixMatchdayEditorialItemsAtPosition(
+    profile,
+    activeItems,
+    current,
+    [identity("returned")],
+    "benfica",
+    1,
+  );
+
+  assert.deepEqual(next, [
+    override("manual-1", "benfica", 2),
+    override("returned", "benfica", 1),
+  ]);
+
+  assert.deepEqual(
+    zoneIds(activeItems, next, "benfica"),
+    [
+      "returned",
+      "manual-1",
+      "auto-2",
+      "auto-3",
+      "auto-4",
+      "auto-5",
+    ],
+  );
+
+  const effective =
+    buildMatchdayEditorialProfileEffectiveDistribution(
+      profile,
+      activeItems,
+      next,
+    );
+
+  assert.deepEqual(
+    effective.bank.map((entry) => entry.sourceId),
+    ["auto-6"],
+  );
+
+  assert.equal(
+    next.some((entry) => entry.sourceId === "auto-6"),
+    false,
+  );
+});

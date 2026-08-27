@@ -1,8 +1,16 @@
 import MatchdayEditorialDeskClient from "./MatchdayEditorialDeskClient";
+import type { MatchdayEditorialContextSelectorData } from "./MatchdayEditorialContextSelector";
 import MatchdayEditorialThematicDesk from "./MatchdayEditorialThematicDesk";
 import { readMatchdayEditorialDesk } from "@/lib/editorial-matchday-desk";
 import { MATCHDAY_LIVE_PUBLIC_ZONE_LABELS } from "@/lib/editorial-matchday-live-zone-order";
 import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
+import { isEditorialProfileKey } from "@/lib/editorial-profiles";
+import {
+  fetchSupabaseAdminTable,
+  type SupabaseCompetition,
+  type SupabaseMatchday,
+  type SupabaseSeason,
+} from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +21,64 @@ type MatchdayEditorialDeskPageProps = {
     error?: string;
   }>;
 };
+
+type MatchdayEditorialProfileAssignmentRow = Readonly<{
+  matchday_id: string;
+  profile_key: string;
+}>;
+
+async function readThematicContextSelectorData(): Promise<MatchdayEditorialContextSelectorData> {
+  try {
+    const [competitions, seasons, matchdays, assignments] = await Promise.all([
+      fetchSupabaseAdminTable<SupabaseCompetition>(
+        "competitions?select=id,name&order=name.asc",
+      ),
+      fetchSupabaseAdminTable<SupabaseSeason>(
+        "seasons?select=id,competition_id,label&order=label.desc",
+      ),
+      fetchSupabaseAdminTable<SupabaseMatchday>(
+        "matchdays?select=id,season_id,number,label&order=number.asc",
+      ),
+      fetchSupabaseAdminTable<MatchdayEditorialProfileAssignmentRow>(
+        "matchday_editorial_profile_assignments?select=matchday_id,profile_key",
+      ),
+    ]);
+    const compatibleMatchdays = new Set(
+      assignments
+        .filter((assignment) => isEditorialProfileKey(assignment.profile_key))
+        .map((assignment) => assignment.matchday_id),
+    );
+
+    return {
+      competitions: competitions.map((competition) => ({
+        id: competition.id,
+        name: competition.name,
+      })),
+      seasons: seasons.map((season) => ({
+        id: season.id,
+        competitionId: season.competition_id,
+        label: season.label,
+      })),
+      matchdays: matchdays.map((matchday) => ({
+        id: matchday.id,
+        seasonId: matchday.season_id,
+        label: matchday.label?.trim()
+          || `Jornada ${String(matchday.number).padStart(2, "0")}`,
+        thematicCompatible: compatibleMatchdays.has(matchday.id),
+      })),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      competitions: [],
+      seasons: [],
+      matchdays: [],
+      error: error instanceof Error
+        ? `Não foi possível carregar o seletor de Jornadas: ${error.message}`
+        : "Não foi possível carregar o seletor de Jornadas.",
+    };
+  }
+}
 
 const deskStyles = `
   body {
@@ -714,10 +780,18 @@ export default async function MatchdayEditorialDeskPage({ params, searchParams }
     params,
     searchParams ?? Promise.resolve<{ created?: string; error?: string }>({}),
   ]);
-  const thematicDesk = await readMatchdayEditorialProfileDesk(matchdayId);
+  const [thematicDesk, contextSelector] = await Promise.all([
+    readMatchdayEditorialProfileDesk(matchdayId),
+    readThematicContextSelectorData(),
+  ]);
 
   if (thematicDesk) {
-    return <MatchdayEditorialThematicDesk desk={thematicDesk} />;
+    return (
+      <MatchdayEditorialThematicDesk
+        contextSelector={contextSelector}
+        desk={thematicDesk}
+      />
+    );
   }
 
   const snapshot = await readMatchdayEditorialDesk(matchdayId);

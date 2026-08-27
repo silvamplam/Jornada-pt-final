@@ -755,12 +755,16 @@ export function reconcileMatchdayEditorialProfileWorkspace(
     manualOverrides,
     opening,
   );
+  const circuitFaixa = currentFaixa.filter((item) => !openingIdentities.has(
+    thematicEditorialIdentity(item.sourceType, item.sourceId),
+  ));
+
   return reconcileMatchdayEditorialProfileDistribution(
     profile,
     circuitItems,
     circuitOverrides,
     appliedZoneItems,
     hasAppliedSnapshot,
-    currentFaixa,
+    circuitFaixa,
   );
 }

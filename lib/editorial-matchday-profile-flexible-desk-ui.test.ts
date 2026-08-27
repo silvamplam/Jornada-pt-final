@@ -67,7 +67,7 @@ test("reduzir layout preserva Manual > automático por compactação", () => {
   );
 });
 
-test("Últimas é o sexto bloco ordenável da mesma composição", () => {
+test("Últimas continua um bloco especial ordenável na mesma composição", () => {
   assert.match(
     source,
     /thematicBlockOrder\.map/,
@@ -90,12 +90,12 @@ test("Últimas é o sexto bloco ordenável da mesma composição", () => {
 
   assert.match(
     source,
-    /blockOrderIndex\.get\("latest"\)/,
+    /latestZonePlacement: event\.target\.value as/,
   );
 
   assert.match(
     source,
-    /blockOrderIndex\.get\(zone\.key\)/,
+    /<option value="top">Topo<\/option>[\s\S]*<option value="four_news">Seleção editorial \+ Últimas<\/option>[\s\S]*<option value="hidden">Oculto<\/option>/,
   );
 
   assert.doesNotMatch(
@@ -104,7 +104,7 @@ test("Últimas é o sexto bloco ordenável da mesma composição", () => {
   );
 });
 
-test("Seleção editorial é manual, independente e aplicada no workspace V5", () => {
+test("Seleção editorial é manual, independente e aplicada no mesmo workspace", () => {
   assert.match(
     source,
     /draftEditorialSelection/,
@@ -117,13 +117,33 @@ test("Seleção editorial é manual, independente e aplicada no workspace V5", (
 
   assert.match(
     source,
-    /Seleção editorial é promoção manual independente/,
+    /aria-label="Seleção editorial manual"/,
   );
 
   assert.doesNotMatch(
     source,
     /selection_set|selection_clear/,
   );
+});
+
+test("zona ativa reúne título e layout e as tabs mantêm apenas Abertura fixa", () => {
+  assert.match(source, /function renderZonePanel/);
+  assert.match(source, /Título público/);
+  assert.match(source, /<span>Família<\/span>/);
+  assert.match(source, /className="thematic-zone-tabs"/);
+  assert.match(source, /Abertura \{openingOccupied\}/);
+
+  const tabsStart = source.indexOf('className="thematic-zone-tabs"');
+  const tabsEnd = source.indexOf("{renderActiveWorkspace()}", tabsStart);
+  assert.ok(tabsStart >= 0 && tabsEnd > tabsStart);
+  assert.doesNotMatch(source.slice(tabsStart, tabsEnd), /Faixa/);
+  assert.match(source, /aria-label="Fontes editoriais"/);
+  assert.match(source, /Faixa \{reconcile\.faixaAfter\.length\}/);
+});
+
+test("as cinco zonas são fixas e não existe criação ou remoção de zona", () => {
+  assert.doesNotMatch(source, /\+ Adicionar zona|Remover zona/);
+  assert.doesNotMatch(source, /newZone|createZone|deleteZone/);
 });
 
 test("preview mantém um único write HTTP de Apply", () => {

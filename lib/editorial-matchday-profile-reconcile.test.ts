@@ -443,7 +443,7 @@ test("snapshot aplicado preserva a ordem aplicada mesmo quando a atualidade apon
   assert.equal(result.hasChanges, false);
   assert.deepEqual(result.movements, []);
 });
-test("snapshot aplicado mantÃƒÂ©m baseline e deixa notÃƒÂ­cias novas no Banco como propostas", () => {
+test("snapshot aplicado coloca artigo novo numa vaga livre da zona natural", () => {
   const baseline = ["a", "b", "c", "d", "e", "f"].map(
     (id, index) => item(id, "benfica", index + 1),
   );
@@ -468,16 +468,139 @@ test("snapshot aplicado mantÃƒÂ©m baseline e deixa notÃƒÂ­cias novas no 
     zoneIds(result, "benfica"),
     ["a", "b", "c", "d", "e", "f"],
   );
+  assert.deepEqual(zoneIds(result, "sporting"), ["proposal"]);
   assert.deepEqual(
     result.faixaAfter.map((entry) => entry.sourceId),
     ["q1", "q2"],
   );
+  assert.deepEqual(result.bankAfter, []);
+  assert.equal(result.hasChanges, true);
   assert.deepEqual(
-    result.bankAfter.map((entry) => entry.sourceId),
-    ["proposal"],
+    result.movements.map((movement) => [movement.sourceId, movement.to.kind]),
+    [["proposal", "zone"]],
   );
-  assert.equal(result.hasChanges, false);
-  assert.deepEqual(result.movements, []);
+});
+
+test("snapshot aplicado envia artigo novo para a Faixa quando a zona natural esta cheia", () => {
+  const baseline = ["a", "b", "c", "d", "e", "f"].map(
+    (id, index) => item(id, "benfica", index + 1),
+  );
+  const proposal = item("proposal", "benfica", 7, 23);
+  const result = reconcileMatchdayEditorialProfileDistribution(
+    profile,
+    [...baseline, proposal],
+    [],
+    baseline.map((entry, index) => applied(entry.sourceId, "benfica", index + 1)),
+    true,
+    [],
+  );
+
+  assert.deepEqual(zoneIds(result, "benfica"), ["a", "b", "c", "d", "e", "f"]);
+  assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["proposal"]);
+  assert.deepEqual(result.bankAfter, []);
+});
+
+test("snapshot aplicado reserva Banco exclusivamente para override explicito", () => {
+  const baseline = ["a", "b", "c", "d", "e", "f"].map(
+    (id, index) => item(id, "benfica", index + 1),
+  );
+  const proposal = item("proposal", "benfica", 7, 23);
+  const result = reconcileMatchdayEditorialProfileDistribution(
+    profile,
+    [...baseline, proposal],
+    [override("proposal", "bank", null, null)],
+    baseline.map((entry, index) => applied(entry.sourceId, "benfica", index + 1)),
+    true,
+    [],
+  );
+
+  assert.deepEqual(zoneIds(result, "benfica"), ["a", "b", "c", "d", "e", "f"]);
+  assert.deepEqual(result.faixaAfter, []);
+  assert.deepEqual(
+    result.bankAfter.map((entry) => [entry.sourceId, entry.manualOverride]),
+    [["proposal", "bank"]],
+  );
+});
+
+test("varias entradas novas com zonas cheias entram completas na Faixa por atualidade", () => {
+  const baseline = ["a", "b", "c", "d", "e", "f"].map(
+    (id, index) => item(id, "benfica", index + 1),
+  );
+  const newItems = [
+    item("new-old", "benfica", 7, 5),
+    item("new-newest", "benfica", 8, 23),
+    item("new-middle", "benfica", 9, 15),
+  ];
+  const result = reconcileMatchdayEditorialProfileDistribution(
+    profile,
+    [...baseline, ...newItems],
+    [],
+    baseline.map((entry, index) => applied(entry.sourceId, "benfica", index + 1)),
+    true,
+    [],
+  );
+
+  assert.deepEqual(
+    result.faixaAfter.map((entry) => entry.sourceId),
+    ["new-newest", "new-middle", "new-old"],
+  );
+  assert.deepEqual(result.bankAfter, []);
+  assert.equal(new Set(result.faixaAfter.map((entry) => entry.sourceId)).size, newItems.length);
+});
+
+test("snapshot e posicao manual permanecem intactos perante entrada nova", () => {
+  const baseline = ["a", "b", "c", "d", "e", "f"].map(
+    (id, index) => item(id, "benfica", index + 1),
+  );
+  const proposal = item("proposal", "benfica", 7, 23);
+  const result = reconcileMatchdayEditorialProfileDistribution(
+    profile,
+    [...baseline, proposal],
+    [override("c", "zone", "benfica", 3)],
+    baseline.map((entry, index) => applied(entry.sourceId, "benfica", index + 1)),
+    true,
+    [],
+  );
+
+  assert.deepEqual(zoneIds(result, "benfica"), ["a", "b", "c", "d", "e", "f"]);
+  assert.equal(
+    result.zonesAfter.find((zone) => zone.key === "benfica")?.items
+      .find((entry) => entry.sourceId === "c")?.manualOverride,
+    "position",
+  );
+  assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["proposal"]);
+  assert.deepEqual(result.bankAfter, []);
+});
+
+test("snapshot mantem particao exclusiva entre zona, Faixa e Banco", () => {
+  const baseline = ["a", "b", "c", "d", "e", "f"].map(
+    (id, index) => item(id, "benfica", index + 1),
+  );
+  const active = [
+    ...baseline,
+    item("faixa-new", "benfica", 7, 22),
+    item("bank-explicit", "benfica", 8, 23),
+    item("zone-free", "sporting", 1, 21),
+  ];
+  const result = reconcileMatchdayEditorialProfileDistribution(
+    profile,
+    active,
+    [override("bank-explicit", "bank", null, null)],
+    baseline.map((entry, index) => applied(entry.sourceId, "benfica", index + 1)),
+    true,
+    [],
+  );
+  const identities = [
+    ...result.zonesAfter.flatMap((zone) => zone.items.map((entry) => entry.sourceId)),
+    ...result.faixaAfter.map((entry) => entry.sourceId),
+    ...result.bankAfter.map((entry) => entry.sourceId),
+  ];
+
+  assert.equal(identities.length, active.length);
+  assert.equal(new Set(identities).size, active.length);
+  assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["faixa-new"]);
+  assert.deepEqual(result.bankAfter.map((entry) => entry.sourceId), ["bank-explicit"]);
+  assert.deepEqual(zoneIds(result, "sporting"), ["zone-free"]);
 });
 
 test("decisÃƒÂ£o explÃƒÂ­cita incorpora proposta e desaloja apenas a baseline necessÃƒÂ¡ria", () => {

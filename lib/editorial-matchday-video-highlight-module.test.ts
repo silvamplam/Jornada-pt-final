@@ -201,33 +201,54 @@ test("posição pública segue thematicBlockOrder e reutiliza o módulo Legacy",
   );
 });
 
-test("painel começa recolhido e usa sync existente sem reload destrutivo", () => {
-  assert.match(client, /className="thematic-panel thematic-video-module"/u);
-  assert.match(client, /data-collapsed-by-default="true"/u);
-  assert.doesNotMatch(
-    client,
-    /<details[\s\S]{0,160}className="thematic-panel thematic-video-module"[\s\S]{0,160}\sopen(?:=|\s|>)/u,
+test("Mesa temática separa o Destaque editorial da ferramenta técnica Vídeos", () => {
+  const videoToolStart = client.indexOf(
+    '<details className="thematic-global-tool thematic-video-tool">',
   );
-  assert.match(client, /<MatchdayVideoSummarySync/u);
-  assert.match(client, /reloadOnMutation=\{false\}/u);
+  const videoToolEnd = client.indexOf("</details>", videoToolStart);
+  const videoTool = client.slice(videoToolStart, videoToolEnd);
+
+  assert.ok(videoToolStart >= 0 && videoToolEnd > videoToolStart);
+  assert.match(videoTool, /<summary>Vídeos<\/summary>/u);
+  assert.match(videoTool, /<MatchdayVideoSummarySync/u);
+  assert.match(videoTool, /reloadOnMutation=\{false\}/u);
+  assert.doesNotMatch(client, /className="thematic-panel thematic-video-module"/u);
+  assert.doesNotMatch(client, /Vídeo \+ Destaque/u);
+  assert.match(client, /return "Destaque"/u);
+  assert.match(client, /draftVideoHighlightDefined \? 1 : 0\}\/1/u);
+  assert.match(client, /aria-label="Destaque editorial"/u);
+  assert.match(client, /changeVideoHighlight\("remove"\)/u);
+  assert.match(client, /changeVideoHighlight\(`replace:\$\{bankItemId\}`\)/u);
+  assert.match(
+    client,
+    /candidate\?\.sourceType\?\.trim\(\)\.toLowerCase\(\) !== "editorial_article"/u,
+  );
+  assert.doesNotMatch(client, /contentCandidates/u);
+  assert.match(client, /action: "preserve"/u);
+  assert.match(client, /changeVideoModuleActive/u);
 });
 
-test("Legacy conserva reload por defeito e a Mesa recebe estado sem nova API", () => {
+test("Legacy e API de sync continuam protegidos fora da Mesa temática", () => {
   const syncClient = source("components/admin/MatchdayVideoSummarySync.tsx");
   const syncRoute = source(
     "app/api/admin/editorial/jornada/[matchdayId]/video-summaries/route.ts",
   );
+  const legacyPage = source(
+    "app/admin/editorial/jornada/[matchdayId]/page.tsx",
+  );
 
   assert.match(syncClient, /reloadOnMutation = true/u);
   assert.match(syncClient, /reloadOnMutation && action === "confirm"/u);
-  assert.match(client, /onStateChange=\{setVideoSummaryState\}/u);
+  assert.match(legacyPage, /<MatchdayVideoSummarySync/u);
+  assert.doesNotMatch(client, /onStateChange=\{setVideoSummaryState\}/u);
   assert.match(syncRoute, /syncMatchVideoSummaries/u);
   assert.match(syncRoute, /confirmMatchVideoSummaryCandidate/u);
   assert.match(syncRoute, /rejectMatchVideoSummaryCandidate/u);
 });
 
-test("Apply v6 preserva conteúdo ao desativar e resolve substituição no servidor", () => {
-  assert.match(route, /apply_matchday_editorial_profile_workspace_v6/u);
+test("Apply v7 mantém o contrato de Destaque herdado da v6", () => {
+  assert.match(route, /apply_matchday_editorial_profile_workspace_v7/u);
+  assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v6/u);
   assert.match(route, /expectedStateToken|p_expected_state_token/u);
   assert.match(route, /highlightBankItemId/u);
   assert.doesNotMatch(route, /complementary_title:/u);

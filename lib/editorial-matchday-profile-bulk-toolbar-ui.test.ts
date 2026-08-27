@@ -18,11 +18,11 @@ test("bulk operation appears as contextual toolbar only after marking items", ()
   assert.doesNotMatch(source, /<details className="thematic-panel thematic-bulk">/);
 });
 
-test("bulk toolbar is placed before the editorial content instead of at page bottom", () => {
+test("bulk toolbar is placed before page structure and active workspace", () => {
   const toolbar = source.indexOf('className="thematic-bulk-context"');
-  const opening = source.indexOf('aria-label="Abertura editorial manual"');
+  const structure = source.indexOf('aria-label="Página e blocos"');
   assert.ok(toolbar >= 0);
-  assert.ok(opening > toolbar);
+  assert.ok(structure > toolbar);
 });
 
 test("bulk actions are grouped by clear destinations", () => {

@@ -70,7 +70,7 @@ test("mensagem global fica antes dos controlos e não no fim da Mesa", () => {
 
   const controls =
     source.indexOf(
-      '<details className="thematic-panel thematic-controls">',
+      '<section className="thematic-page-structure"',
     );
 
   const diagnostics =

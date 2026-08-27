@@ -77,6 +77,12 @@ export type MatchdayEditorialProfileClassificationRow = Readonly<{
   actuality_order: number;
 }>;
 
+export type MatchdayEditorialProfileContinuityClassificationRow = Readonly<{
+  source_type: string;
+  source_id: string;
+  classified_zone_key: string;
+}>;
+
 export type MatchdayEditorialProfileZoneItemRow = Readonly<{
   source_type: string;
   source_id: string;
@@ -309,6 +315,7 @@ export function buildMatchdayEditorialProfileDeskDistribution(
   activeBankRows: readonly MatchdayEditorialProfileActiveBankRow[],
   articleRows: readonly MatchdayEditorialProfileArticleRow[],
   classificationRows?: readonly MatchdayEditorialProfileClassificationRow[],
+  continuityClassificationRows?: readonly MatchdayEditorialProfileContinuityClassificationRow[],
 ): MatchdayEditorialProfileDeskDistribution {
   const articlesById = new Map(
     articleRows.map((article) => [article.id.trim().toLowerCase(), article] as const),
@@ -331,6 +338,17 @@ export function buildMatchdayEditorialProfileDeskDistribution(
     const identity = canonicalIdentity(classificationRow.source_type, classificationRow.source_id);
     if (identity && !classificationByIdentity.has(identity)) {
       classificationByIdentity.set(identity, classificationRow);
+    }
+  }
+
+  const continuityClassificationByIdentity = new Map<
+    string,
+    MatchdayEditorialProfileContinuityClassificationRow
+  >();
+  for (const classificationRow of continuityClassificationRows ?? []) {
+    const identity = canonicalIdentity(classificationRow.source_type, classificationRow.source_id);
+    if (identity && !continuityClassificationByIdentity.has(identity)) {
+      continuityClassificationByIdentity.set(identity, classificationRow);
     }
   }
 
@@ -381,7 +399,18 @@ export function buildMatchdayEditorialProfileDeskDistribution(
     }
 
     const classification = classificationByIdentity.get(identity);
-    if (bankRow.automatic_eligible !== false && classificationRows !== undefined && !classification) {
+    const continuityClassification =
+      continuityClassificationByIdentity.get(identity);
+    const naturalClassification =
+      classification ?? continuityClassification;
+
+    if (
+      (
+        classificationRows !== undefined
+        || continuityClassificationRows !== undefined
+      )
+      && !naturalClassification
+    ) {
       addDiagnostic({
         code: "missing_classification",
         message: `A publicação ativa ${sourceType}:${sourceId} não tem classificação natural.`,
@@ -406,9 +435,9 @@ export function buildMatchdayEditorialProfileDeskDistribution(
       && knownZoneKeys.has(state.zone_key)
       ? state.zone_key as EditorialProfileZoneKey
       : null;
-    const classifiedZoneKey = classification
-      && knownZoneKeys.has(classification.classified_zone_key)
-      ? classification.classified_zone_key as EditorialProfileZoneKey
+    const classifiedZoneKey = naturalClassification
+      && knownZoneKeys.has(naturalClassification.classified_zone_key)
+      ? naturalClassification.classified_zone_key as EditorialProfileZoneKey
       : fallbackZoneKey;
     const actualityOrder = classification?.actuality_order ?? state?.sort_order ?? null;
     activeItems.push({
@@ -611,6 +640,7 @@ export async function readMatchdayEditorialProfileDesk(
     bankRows,
     manualOverrideRows,
     classificationRows,
+    continuityClassificationRows,
     appliedZoneRows,
     reconcileControlRows,
     faixaRows,
@@ -636,6 +666,10 @@ export async function readMatchdayEditorialProfileDesk(
     readAllRows<MatchdayEditorialProfileClassificationRow>(
       fetchTable,
       `rpc/matchday_editorial_profile_classification_plan?p_matchday_id=${encodeURIComponent(cleanMatchdayId)}`,
+    ),
+    readAllRows<MatchdayEditorialProfileContinuityClassificationRow>(
+      fetchTable,
+      `rpc/matchday_editorial_profile_continuity_classification_plan?p_matchday_id=${encodeURIComponent(cleanMatchdayId)}`,
     ),
     readAllRows<MatchdayEditorialProfileZoneItemRow>(
       fetchTable,
@@ -708,6 +742,7 @@ export async function readMatchdayEditorialProfileDesk(
     bankRows,
     articleRows,
     classificationRows,
+    continuityClassificationRows,
   );
   const activeIdentities = new Set(automaticDistribution.activeItems.map((item) => (
     thematicEditorialIdentity(item.sourceType, item.sourceId)

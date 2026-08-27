@@ -1,4 +1,5 @@
 import MatchdayEditorialThematicDeskClient from "./MatchdayEditorialThematicDeskClient";
+import type { MatchdayEditorialContextSelectorData } from "./MatchdayEditorialContextSelector";
 
 import type { MatchdayEditorialProfileDeskReadResult } from "@/lib/editorial-matchday-profile-desk";
 
@@ -10,12 +11,14 @@ const unsupportedStyles = `
   .thematic-unsupported code { width: fit-content; padding: 4px 7px; border-radius: 4px; background: #eef2f6; }
 `;
 
-export default function MatchdayEditorialThematicDesk({ desk }: Readonly<{
+export default function MatchdayEditorialThematicDesk({ contextSelector, desk }: Readonly<{
+  contextSelector: MatchdayEditorialContextSelectorData;
   desk: MatchdayEditorialProfileDeskReadResult;
 }>) {
   if (desk.kind === "thematic") {
     return (
       <MatchdayEditorialThematicDeskClient
+        contextSelector={contextSelector}
         desk={desk}
         key={`${desk.matchdayId}:${desk.profileKey}`}
       />

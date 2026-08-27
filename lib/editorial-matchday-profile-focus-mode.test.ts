@@ -7,343 +7,185 @@ const desk = readFileSync(
   "utf8",
 );
 
-test("a Abertura mantém o sticky base e aceita a troca temporária de proprietário", () => {
-  assert.match(
-    desk,
-    /\.thematic-opening-panel\s*\{\s*position:\s*sticky;\s*top:\s*8px;/,
-  );
+test("a Mesa usa activeWorkspaceKey e apresenta um único bloco de cada vez", () => {
+  const workspaceTypeStart = desk.indexOf("type ActiveWorkspaceKey =");
+  const workspaceTypeEnd = desk.indexOf("type SourceViewKey", workspaceTypeStart);
+  const workspaceType = desk.slice(workspaceTypeStart, workspaceTypeEnd);
 
   assert.match(
     desk,
-    /aria-label="Abertura editorial manual"[\s\S]*?className=\{`thematic-panel thematic-opening-panel\$\{selectionPinnedForDrag \? " thematic-opening-panel-static" : ""\}`\}/,
+    /type ActiveWorkspaceKey =[\s\S]+"opening"[\s\S]+"latest"[\s\S]+"highlight"[\s\S]+EditorialProfileZoneKey;/,
   );
-});
-
-test("o modo foco escolhe uma única zona sem criar nova lógica de colocação", () => {
+  assert.doesNotMatch(workspaceType, /"faixa"/);
   assert.match(
     desk,
-    /const \[deskView, setDeskView\] = useState<MatchdayEditorialProfileDeskView>\("focus"\)/,
+    /const \[activeWorkspaceKey, setActiveWorkspaceKey\] =\s*useState<ActiveWorkspaceKey>\("opening"\)/,
   );
-
+  assert.match(desk, /function renderActiveWorkspace\(\)/);
   assert.match(
     desk,
-    /const \[focusZone, setFocusZone\] = useState<EditorialProfileZoneKey>\(profile\.zones\[0\]\.key\)/,
+    /activeWorkspaceKey === "opening"[\s\S]*activeWorkspaceKey === "latest"[\s\S]*activeWorkspaceKey === "highlight"/,
   );
-
   assert.match(
     desk,
-    /deskView === "full"[\s\S]*?className="thematic-zones"[\s\S]*?: \([\s\S]*?className="thematic-focus-stack"[\s\S]*?\{renderZonePanel\(focusZone\)\}/,
-  );
-
-  assert.match(
-    desk,
-    /onDrop=\{\(event\) => \{[\s\S]*?placeInZone\([\s\S]*?zone\.key,[\s\S]*?position,/,
+    /isZoneWorkspaceKey\(activeWorkspaceKey\)[\s\S]*renderZonePanel\(activeWorkspaceKey\)/,
   );
 });
 
-test("zona em foco e Faixa usam listas verticais", () => {
-  assert.match(
-    desk,
-    /\.thematic-focus-stack \.thematic-zone-list\s*\{\s*grid-template-columns:\s*minmax\(0,1fr\);/,
-  );
+test("tabs derivam da ordem real, com Abertura fixa e sem Faixa", () => {
+  const tabsStart = desk.indexOf('className="thematic-zone-tabs"');
+  const tabsEnd = desk.indexOf("{renderActiveWorkspace()}", tabsStart);
+  const tabs = desk.slice(tabsStart, tabsEnd);
 
+  assert.ok(tabsStart >= 0 && tabsEnd > tabsStart);
+  assert.match(tabs, /setActiveWorkspaceKey\("opening"\)/);
   assert.match(
-    desk,
-    /\.thematic-faixa-focus \.thematic-faixa-grid\s*\{\s*grid-template-columns:\s*minmax\(0,1fr\);/,
+    tabs,
+    /editorState\.draftPageControls\.thematicBlockOrder\.map\(\(block\)/,
   );
-
-  assert.match(
-    desk,
-    /className=\{`thematic-panel\$\{deskView === "focus" \? " thematic-faixa-focus" : ""\}`\}/,
-  );
-});
-
-test("a Mesa completa continua disponível", () => {
-  assert.match(
-    desk,
-    />\s*Foco de zona\s*<\/button>/,
-  );
-
-  assert.match(
-    desk,
-    />\s*Mesa completa\s*<\/button>/,
-  );
-
-  assert.match(
-    desk,
-    /setDeskView\("full"\)/,
+  assert.match(tabs, /workspaceKeyForBlock\(block\)/);
+  assert.doesNotMatch(tabs, /Faixa|setActiveWorkspaceKey\("faixa"\)/);
+  assert.ok(
+    tabs.indexOf('setActiveWorkspaceKey("opening")')
+      < tabs.indexOf("thematicBlockOrder.map"),
   );
 });
 
-test("a Faixa em foco preenche duas colunas verticalmente por blocos de dez", () => {
+test("Página e blocos é recolhível, fechado por defeito e fecha ao escolher", () => {
   assert.match(
     desk,
-    /visibleFaixa\.slice\(\s*batchIndex \* 10,\s*batchIndex \* 10 \+ 10,\s*\)/,
+    /<details className="thematic-global-tool" ref=\{pageStructureRef\}>\s*<summary>Página e blocos<\/summary>/,
   );
-
-  assert.match(
-    desk,
-    /const firstColumn =\s*batch\.slice\(0, 5\)/,
-  );
-
-  assert.match(
-    desk,
-    /const secondColumn =\s*batch\.slice\(5, 10\)/,
-  );
-
-  assert.match(
-    desk,
-    /data-column-count=\{\s*secondColumn\.length > 0\s*\? "2"\s*: "1"\s*\}/,
-  );
-});
-
-test("os cartões do modo foco ficam mais compactos sem alterar a Mesa completa", () => {
-  assert.match(
-    desk,
-    /\.thematic-focus-stack \.thematic-image,[\s\S]*?width:\s*44px;\s*height:\s*33px;/,
-  );
-
-  assert.match(
-    desk,
-    /\.thematic-focus-stack \.thematic-card,[\s\S]*?min-height:\s*46px;/,
-  );
-
-  assert.match(
-    desk,
-    /\.thematic-faixa-batch\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,minmax\(0,1fr\)\)/,
-  );
-
-  assert.match(
-    desk,
-    /@media \(max-width: 820px\)[\s\S]*?\.thematic-faixa-grid, \.thematic-faixa-batch\s*\{\s*grid-template-columns:\s*1fr;/,
-  );
-});
-
-test("o Foco mantém zona completa e Faixa navegável no mesmo workspace", () => {
-  assert.match(
-    desk,
-    /\.thematic-focus-stack \.thematic-public-title,[\s\S]*?\.thematic-focus-stack \.thematic-layout-picker,[\s\S]*?\.thematic-focus-stack \.thematic-dropbar\s*\{\s*display:\s*none;/,
-  );
-
-  assert.match(
-    desk,
-    /\.thematic-faixa-focus \.thematic-faixa-grid\s*\{[\s\S]*?max-height:\s*min\(34vh, 320px\);[\s\S]*?overflow-y:\s*auto;/,
-  );
-
-  assert.match(
-    desk,
-    /\.thematic-focus-stack \.thematic-card,[\s\S]*?min-height:\s*46px;/,
-  );
-
-  assert.match(
-    desk,
-    /\.thematic-focus-stack \.thematic-image,[\s\S]*?width:\s*44px;\s*height:\s*33px;/,
-  );
-});
-
-test("os controlos retirados do Foco continuam presentes na Mesa completa", () => {
-  assert.match(
-    desk,
-    /className="thematic-public-title"/,
-  );
-
-  assert.match(
-    desk,
-    /className="thematic-layout-picker"/,
-  );
-
-  assert.match(
-    desk,
-    />\s*Mesa completa\s*<\/button>/,
-  );
-});
-
-test("o Foco alinha dinamicamente a zona abaixo do proprietário sticky ativo", () => {
-  assert.match(
-    desk,
-    /function alignFocusWorkspace\(\)/,
-  );
-
-  assert.match(
-    desk,
-    /document\.querySelector<HTMLElement>\(\s*selectionPinnedForDrag\s*\? "\.thematic-selection-dock"\s*: "\.thematic-opening-panel",\s*\)/,
-  );
-
-  assert.match(
-    desk,
-    /document\.querySelector<HTMLElement>\(\s*"\.thematic-focus-stack",\s*\)/,
-  );
-
-  assert.match(
-    desk,
-    /const openingBottom =\s*opening\.getBoundingClientRect\(\)\.bottom;/,
-  );
-
-  assert.match(
-    desk,
-    /const focusTop =\s*focus\.getBoundingClientRect\(\)\.top;/,
-  );
-
-  assert.match(
-    desk,
-    /useEffect\(\(\) => \{[\s\S]*?!deskViewPreferenceReady \|\| deskView !== "focus"[\s\S]*?alignFocusWorkspace\(\);[\s\S]*?\}, \[deskView, deskViewPreferenceReady, focusZone, selectionPinnedForDrag\]\);/,
-  );
-});
-
-test("o alinhamento do Foco não torna a própria zona sticky", () => {
   assert.doesNotMatch(
     desk,
-    /\.thematic-focus-stack\s*\{[^}]*position:\s*sticky;/,
+    /<details className="thematic-global-tool" ref=\{pageStructureRef\} open/,
   );
-
   assert.match(
     desk,
-    /\.thematic-opening-panel\s*\{\s*position:\s*sticky;/,
+    /function activateWorkspaceFromStructure[\s\S]*pageStructureRef\.current\?\.removeAttribute\("open"\)/,
   );
+  assert.match(desk, /onClick=\{activateFaixaFromStructure\}/);
+});
+
+test("os dois modos antigos e as três colunas deixaram de ser contrato visual", () => {
+  assert.doesNotMatch(desk, />\s*Foco de zona\s*</);
+  assert.doesNotMatch(desk, />\s*Mesa completa\s*</);
+  assert.doesNotMatch(desk, /const \[deskView, setDeskView\]/);
+  assert.doesNotMatch(desk, /const \[focusZone, setFocusZone\]/);
+  assert.doesNotMatch(desk, /className="thematic-zone-column"/);
+  assert.doesNotMatch(desk, /renderZonePanel\("benfica"\)/);
+});
+
+test("Abertura e zonas apresentam slots horizontais pela capacidade efetiva", () => {
+  assert.match(desk, /MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS\.length/);
+  assert.match(
+    desk,
+    /MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS\.map\(\(slot\)/,
+  );
+  assert.match(
+    desk,
+    /className=\{`thematic-slots thematic-slots-\$\{zone\.capacity\}`\}/,
+  );
+  assert.match(desk, /\.thematic-slots-4 \{ grid-template-columns: repeat\(4/);
+  assert.match(desk, /\.thematic-slots-5 \{ grid-template-columns: repeat\(5/);
+  assert.match(desk, /\.thematic-slots-6 \{ grid-template-columns: repeat\(6/);
 });
 
 test("a Faixa pode ser filtrada por várias zonas sem alterar o estado editorial", () => {
-  assert.match(
-    desk,
-    /const \[faixaZoneFilters, setFaixaZoneFilters\] = useState</,
-  );
-
-  assert.match(
-    desk,
-    /const faixaZoneFilterSet = useMemo\(/,
-  );
-
+  assert.match(desk, /const \[faixaZoneFilters, setFaixaZoneFilters\] = useState</);
+  assert.match(desk, /const faixaZoneFilterSet = useMemo\(/);
   assert.match(
     desk,
     /activeByIdentity\.get\(identity\(item\)\)\?\.classifiedZoneKey/,
   );
-
+  assert.match(desk, /faixaZoneFilterSet\.size === 0/);
+  assert.match(desk, /faixaZoneFilterSet\.has\(classifiedZoneKey\)/);
+  assert.match(desk, /current\.includes\(zoneKey\)/);
+  assert.match(desk, /\[\.\.\.current, zoneKey\]/);
+  assert.match(desk, /aria-label="Filtrar fonte por zona natural"/);
   assert.match(
     desk,
-    /faixaZoneFilterSet\.size === 0/,
-  );
-
-  assert.match(
-    desk,
-    /faixaZoneFilterSet\.has\(classifiedZoneKey\)/,
-  );
-
-  assert.match(
-    desk,
-    /current\.includes\(zoneKey\)/,
-  );
-
-  assert.match(
-    desk,
-    /\[\.\.\.current, zoneKey\]/,
-  );
-
-  assert.match(
-    desk,
-    /aria-label="Filtrar Faixa por zona temática"/,
-  );
-
-  assert.match(
-    desk,
-    /profile\.zones\.map\(\(zone\) => \(/,
-  );
-
-  assert.match(
-    desk,
-    /checked=\{faixaZoneFilterSet\.has\(zone\.key\)\}/,
-  );
-
-  assert.match(
-    desk,
-    /toggleFaixaZoneFilter\(zone\.key\)/,
+    /activeSourceView === "available"[\s\S]*toggleReservoirZoneFilter\(zoneKey\)[\s\S]*toggleFaixaZoneFilter\(zoneKey\)/,
   );
 });
 
 test("pesquisa e zonas funcionam como filtros cumulativos da Faixa", () => {
-  assert.match(
-    desk,
-    /const zoneMatches =/,
-  );
-
-  assert.match(
-    desk,
-    /const queryMatches =/,
-  );
-
-  assert.match(
-    desk,
-    /return zoneMatches && queryMatches;/,
-  );
+  assert.match(desk, /const zoneMatches =/);
+  assert.match(desk, /const queryMatches =/);
+  assert.match(desk, /return zoneMatches && queryMatches;/);
 });
 
-test("o filtro da Faixa não entra no estado editorial nem cria pending", () => {
-  const currentDraftStart =
-    desk.indexOf(
-      "function currentDraft(): WorkspaceDraft",
-    );
+test("filtros e vista das Fontes não entram no estado editorial", () => {
+  const currentDraftStart = desk.indexOf("function currentDraft(): WorkspaceDraft");
+  const currentDraftEnd = desk.indexOf("function commitDraft", currentDraftStart);
+  const currentDraftBlock = desk.slice(currentDraftStart, currentDraftEnd);
+  const pendingStart = desk.indexOf("const pending =");
+  const pendingEnd = desk.indexOf("const zoneByKey", pendingStart);
+  const pendingBlock = desk.slice(pendingStart, pendingEnd);
 
-  const currentDraftEnd =
-    desk.indexOf(
-      "function commitDraft",
-      currentDraftStart,
-    );
-
-  assert.ok(currentDraftStart >= 0);
-  assert.ok(currentDraftEnd > currentDraftStart);
-
-  const currentDraftBlock =
-    desk.slice(
-      currentDraftStart,
-      currentDraftEnd,
-    );
-
+  assert.ok(currentDraftStart >= 0 && currentDraftEnd > currentDraftStart);
+  assert.ok(pendingStart >= 0 && pendingEnd > pendingStart);
   assert.doesNotMatch(
     currentDraftBlock,
-    /faixaZoneFilters/,
+    /faixaZoneFilters|reservoirZoneFilters|activeSourceView/,
   );
-
-  const pendingStart =
-    desk.indexOf("const pending =");
-
-  const pendingEnd =
-    desk.indexOf(
-      "const zoneByKey",
-      pendingStart,
-    );
-
-  assert.ok(pendingStart >= 0);
-  assert.ok(pendingEnd > pendingStart);
-
-  const pendingBlock =
-    desk.slice(
-      pendingStart,
-      pendingEnd,
-    );
-
   assert.doesNotMatch(
     pendingBlock,
-    /faixaZoneFilters/,
+    /faixaZoneFilters|reservoirZoneFilters|activeSourceView/,
   );
 });
 
-test("a Faixa não tem limite de montagem quando a Mesa está em Foco de zona", () => {
+test("a Faixa permanece completa com paginação local e contador real", () => {
   assert.match(
     desk,
-    /const visibleFaixa =\s*deskView === "focus"\s*\?\s*filteredFaixa\s*:\s*filteredFaixa\.slice\(0, faixaVisibleCount\);/,
+    /const visibleFaixa = filteredFaixa\.slice\(0, faixaVisibleCount\);/,
   );
-
+  assert.match(desk, /visibleCount < filteredCount/);
   assert.match(
     desk,
-    /deskView !== "focus" && visibleFaixa\.length < filteredFaixa\.length/,
+    /setFaixaVisibleCount\(\(count\) => count \+ FAIXA_PAGE_SIZE\)/,
   );
+  assert.match(desk, /Faixa \{reconcile\.faixaAfter\.length\}/);
+  assert.doesNotMatch(desk, /primeiras 10|público: primeiras 10/);
+});
 
-  assert.match(
-    desk,
-    /\.thematic-faixa-focus \.thematic-faixa-grid\s*\{[\s\S]*?overflow-y:\s*auto;/,
+test("Fontes alterna Banco e Faixa dentro de uma única toolbar", () => {
+  assert.match(desk, /type SourceViewKey = "available" \| "faixa"/);
+  assert.match(desk, /aria-label="Fontes editoriais"/);
+  assert.match(desk, /Banco \{reconcile\.bankAfter\.length\}/);
+  assert.match(desk, /Faixa \{reconcile\.faixaAfter\.length\}/);
+  assert.doesNotMatch(desk, /Disponíveis/);
+  assert.equal(
+    (desk.match(/<div className="thematic-sources-toolbar">/g) ?? []).length,
+    1,
   );
-
+  assert.equal(
+    (desk.match(/<label className="thematic-reservoir-search">/g) ?? []).length,
+    1,
+  );
+  assert.equal(
+    (desk.match(/<div className="thematic-reservoir-filters"/g) ?? []).length,
+    1,
+  );
+  const toolbarStart = desk.indexOf('<div className="thematic-sources-toolbar">');
+  const toolbarEnd = desk.indexOf("</div>\n\n        <div", toolbarStart);
+  const toolbar = desk.slice(toolbarStart, toolbarEnd);
+  assert.match(toolbar, /Banco \{reconcile\.bankAfter\.length\}/);
+  assert.match(toolbar, /Faixa \{reconcile\.faixaAfter\.length\}/);
+  assert.match(toolbar, /Filtrar fonte por zona natural/);
+  assert.match(toolbar, /Limpar seleção/);
+  assert.match(toolbar, /thematic-reservoir-search/);
+  assert.match(toolbar, /encontradas/);
   assert.match(
     desk,
-    /visibleFaixa\.slice\(\s*batchIndex \* 10,\s*batchIndex \* 10 \+ 10,\s*\)/,
+    /activeSourceView === "available"[\s\S]*visibleReservoir\.map[\s\S]*visibleFaixa\.map/,
+  );
+  assert.match(desk, /reconcile\.bankAfter\.length/);
+  assert.match(desk, /reconcile\.faixaAfter\.length/);
+  assert.match(desk, /\{selected\.size\}[\s\S]*selecionadas/);
+  assert.match(desk, /Limpar seleção/);
+  assert.match(
+    desk,
+    /\.thematic-sources-list \{ display: grid; grid-template-columns: repeat\(3/,
   );
 });

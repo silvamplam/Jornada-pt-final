@@ -1,7 +1,8 @@
+import { redirect } from "next/navigation";
+
 import EditorialColorPresets, { EditorialColorInput } from "@/components/admin/EditorialColorPresets";
 import EditorialHorizontalNewsEditor from "@/components/admin/EditorialHorizontalNewsEditor";
 import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
-import EditorialCircuitSelector from "./EditorialCircuitSelector";
 import {
   EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
   EDITORIAL_CONTEXT_POST_TITLE_MIN_CHARS,
@@ -1291,6 +1292,13 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
 
   const { matchday, season, competition, country } = context;
   const editorialProfileAssignment = await readMatchdayEditorialProfileAssignment(matchday.id);
+
+  if (editorialProfileAssignment) {
+    redirect(
+      `/admin/editorial/jornada/${encodeURIComponent(matchday.id)}/organizar`,
+    );
+  }
+
   const editorial = await readMatchdayEditorial(matchday.id);
   const highlights = await readMatchdayHighlights(matchday.id);
   const roundupItems = await readMatchdayRoundupItems(matchday.id);
@@ -2022,12 +2030,6 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
           </a>
         </nav>
       </section>
-
-      <EditorialCircuitSelector
-        activeProfileKey={editorialProfileAssignment?.profile_key ?? null}
-        competitionSlug={competition.slug}
-        matchdayId={matchday.id}
-      />
 
       <section className="editorial-context-selector" aria-label="Alterar jornada editorial">
         <div>

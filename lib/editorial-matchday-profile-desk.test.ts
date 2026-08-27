@@ -480,7 +480,7 @@ test("o ramo server-side preserva o legacy e delega a operação ao cliente tem�
   const legacyRead = pageSource.indexOf("const snapshot = await readMatchdayEditorialDesk");
 
   assert.ok(thematicDecision >= 0 && legacyRead > thematicDecision);
-  assert.match(pageSource, /if \(thematicDesk\) \{\s*return <MatchdayEditorialThematicDesk desk=\{thematicDesk\} \/>;\s*\}/);
+  assert.match(pageSource, /if \(thematicDesk\) \{\s*return \(\s*<MatchdayEditorialThematicDesk\s+contextSelector=\{contextSelector\}\s+desk=\{thematicDesk\}\s*\/>\s*\);\s*\}/);
   assert.doesNotMatch(readerSource, /refresh_matchday_editorial_profile_distribution|writeSupabaseAdmin/);
   assert.doesNotMatch(componentSource, /["']use client["']|next\/image|<Image/);
   assert.match(componentSource, /MatchdayEditorialThematicDeskClient/);

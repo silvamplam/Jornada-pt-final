@@ -77,7 +77,7 @@ test(
       "{selected.size > 0 ? (",
     );
     const bulkEnd = client.indexOf(
-      '<details className="thematic-panel thematic-controls">',
+      '<section className="thematic-page-structure"',
       bulkStart,
     );
 
@@ -210,11 +210,52 @@ test(
     );
     assert.match(
       client,
-      /Seleção editorial é promoção manual independente/,
+      /aria-label="Seleção editorial manual"/,
     );
     assert.match(
       client,
-      /Não alteram Abertura,[\s\S]*zona temática, Faixa ou Banco/,
+      /function changeEditorialSelection[\s\S]*editorialSelection: nextSelection/,
+    );
+    assert.doesNotMatch(
+      functionBody(client, "changeEditorialSelection", "currentDraft"),
+      /prepareExclusivePlacementTransition/,
+    );
+  },
+);
+
+
+test(
+  "opening-displaced-item-returns-to-classified-zone-position-1",
+  () => {
+    const opening = functionBody(
+      client,
+      "placeInOpening",
+      "placeInZone",
+    );
+
+    assert.match(
+      opening,
+      /displacedSourceId/,
+    );
+
+    assert.match(
+      opening,
+      /classifiedZoneKey/,
+    );
+
+    assert.match(
+      opening,
+      /fixMatchdayEditorialItemsAtPosition/,
+    );
+
+    assert.match(
+      opening,
+      /classifiedZoneKey[\s\S]*1[\s\S]*\)/,
+    );
+
+    assert.doesNotMatch(
+      opening,
+      /affected\.push[\s\S]*displacedSourceId[\s\S]*returnMatchdayEditorialItemsToAutomatic/,
     );
   },
 );

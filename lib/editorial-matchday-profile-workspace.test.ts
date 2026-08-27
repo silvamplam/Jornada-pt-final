@@ -111,23 +111,59 @@ test("Benfica para Manchete liberta a zona e promove apenas a próxima automáti
   assert.equal(result.faixaAfter.length, 0);
 });
 
-test("substituir Manchete devolve a antiga ao automático sem cascata para os outros slots", () => {
-  const active = Array.from({ length: 7 }, (_, index) => item(`a${index + 1}`, "benfica", index + 1));
+test("opening-replacement-displaced-returns-to-natural-zone-position-1", () => {
+  const active = Array.from({ length: 7 }, (_, index) =>
+    item(`a${index + 1}`, "benfica", index + 1),
+  );
+
   const first = moveMatchdayEditorialProfileItemToOpening(
     emptyMatchdayEditorialProfileOpening(),
     "a1",
     "headline",
   ).opening;
-  const movement = moveMatchdayEditorialProfileItemToOpening(first, "a2", "headline");
-  const result = reconcile(active, [], movement.opening);
+
+  const movement = moveMatchdayEditorialProfileItemToOpening(
+    first,
+    "a2",
+    "headline",
+  );
+
+  const candidates = active.filter(
+    (candidate) => candidate.sourceId !== "a2",
+  );
+
+  const overrides = fixMatchdayEditorialItemsAtPosition(
+    profile,
+    candidates,
+    [],
+    [identity("a1")],
+    "benfica",
+    1,
+  );
+
+  const result = reconcile(
+    active,
+    overrides,
+    movement.opening,
+  );
 
   assert.equal(movement.displacedSourceId, "a1");
-  assert.deepEqual(movement.opening, { ...emptyMatchdayEditorialProfileOpening(), headline: "a2" });
-  assert.deepEqual(zoneIds(result, "benfica").slice(0, 2), ["a1", "a3"]);
+  assert.equal(movement.opening.headline, "a2");
+  assert.deepEqual(
+    zoneIds(result, "benfica"),
+    ["a1", "a3", "a4", "a5", "a6", "a7"],
+  );
+  assert.deepEqual(
+    result.faixaAfter.map((entry) => entry.sourceId),
+    [],
+  );
 });
 
-test("Manchete para Notícia 2 ocupada respeita o movimento explícito e desalojada regressa", () => {
-  const active = Array.from({ length: 7 }, (_, index) => item(`a${index + 1}`, "benfica", index + 1));
+test("opening-item-moved-to-occupied-slot-displaced-returns-to-natural-zone-position-1", () => {
+  const active = Array.from({ length: 7 }, (_, index) =>
+    item(`a${index + 1}`, "benfica", index + 1),
+  );
+
   const opening = validateMatchdayEditorialProfileOpening({
     headline: "a1",
     highlight_1: null,
@@ -135,20 +171,49 @@ test("Manchete para Notícia 2 ocupada respeita o movimento explícito e desaloj
     highlight_3: null,
     context: null,
   });
-  const movement = moveMatchdayEditorialProfileItemToOpening(opening, "a1", "highlight_2");
-  const result = reconcile(active, [], movement.opening);
+
+  const movement = moveMatchdayEditorialProfileItemToOpening(
+    opening,
+    "a1",
+    "highlight_2",
+  );
+
+  const candidates = active.filter(
+    (candidate) => candidate.sourceId !== "a1",
+  );
+
+  const overrides = fixMatchdayEditorialItemsAtPosition(
+    profile,
+    candidates,
+    [],
+    [identity("a2")],
+    "benfica",
+    1,
+  );
+
+  const result = reconcile(
+    active,
+    overrides,
+    movement.opening,
+  );
 
   assert.equal(movement.opening.headline, null);
   assert.equal(movement.opening.highlight_2, "a1");
   assert.equal(movement.displacedSourceId, "a2");
-  assert.equal(zoneIds(result, "benfica").includes("a2"), true);
+  assert.deepEqual(
+    zoneIds(result, "benfica"),
+    ["a2", "a3", "a4", "a5", "a6", "a7"],
+  );
 });
 
-test("desalojada da Abertura fora do top-N regressa à Faixa", () => {
+test("opening-displaced-enters-full-natural-zone-at-1-and-automatic-overflow-goes-to-faixa", () => {
   const active = [
-    ...Array.from({ length: 7 }, (_, index) => item(`a${index + 1}`, "benfica", index + 1)),
+    ...Array.from({ length: 7 }, (_, index) =>
+      item(`a${index + 1}`, "benfica", index + 1),
+    ),
     item("x", "sporting", 1),
   ];
+
   const opening = validateMatchdayEditorialProfileOpening({
     headline: "a7",
     highlight_1: null,
@@ -156,11 +221,47 @@ test("desalojada da Abertura fora do top-N regressa à Faixa", () => {
     highlight_3: null,
     context: null,
   });
-  const movement = moveMatchdayEditorialProfileItemToOpening(opening, "x", "headline");
-  const result = reconcile(active, [], movement.opening);
+
+  const movement = moveMatchdayEditorialProfileItemToOpening(
+    opening,
+    "x",
+    "headline",
+  );
+
+  const candidates = active.filter(
+    (candidate) => candidate.sourceId !== "x",
+  );
+
+  const overrides = fixMatchdayEditorialItemsAtPosition(
+    profile,
+    candidates,
+    [],
+    [identity("a7")],
+    "benfica",
+    1,
+  );
+
+  const result = reconcile(
+    active,
+    overrides,
+    movement.opening,
+  );
 
   assert.equal(movement.displacedSourceId, "a7");
-  assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["a7"]);
+  assert.deepEqual(
+    zoneIds(result, "benfica"),
+    ["a7", "a1", "a2", "a3", "a4", "a5"],
+  );
+  assert.deepEqual(
+    result.faixaAfter.map((entry) => entry.sourceId),
+    ["a6"],
+  );
+  assert.equal(
+    overrides.some(
+      (entry) => entry.sourceId === "a6",
+    ),
+    false,
+  );
 });
 
 test("desalojada na Faixa pode ser protegida na zona e empurra a automática menos prioritária", () => {
@@ -280,3 +381,133 @@ test("ordem temática move equipas sem colapsar zonas que partilham layout", () 
     "outside_liga_other",
   ]);
 });
+
+
+for (const slot of Object.keys(emptyMatchdayEditorialProfileOpening()) as (keyof MatchdayEditorialProfileOpening)[]) {
+  test(`opening-faixa-exclusive-${slot}`, () => {
+    const moving = item("moving-from-faixa", "sporting", 1);
+
+    const opening = validateMatchdayEditorialProfileOpening({
+      ...emptyMatchdayEditorialProfileOpening(),
+      [slot]: moving.sourceId,
+    });
+
+    const currentFaixa = [{
+      sourceType: moving.sourceType,
+      sourceId: moving.sourceId,
+      sortOrder: 1,
+      label: moving.label,
+      title: moving.title,
+      subtitle: moving.subtitle,
+      imageUrl: moving.imageUrl,
+      publishedAt: moving.publishedAt,
+      updatedAt: moving.updatedAt,
+      manualOverride: null,
+    }];
+
+    const result = reconcileMatchdayEditorialProfileWorkspace(
+      profile,
+      [moving],
+      [],
+      opening,
+      [],
+      true,
+      currentFaixa,
+    );
+
+    assert.equal(
+      result.faixaAfter.some((entry) => entry.sourceId === moving.sourceId),
+      false,
+    );
+  });
+}
+
+
+for (const slot of Object.keys(emptyMatchdayEditorialProfileOpening()) as (keyof MatchdayEditorialProfileOpening)[]) {
+  test(`opening-bank-exclusive-${slot}`, () => {
+    const moving = item("moving-from-bank", "benfica", 1);
+
+    const opening = validateMatchdayEditorialProfileOpening({
+      ...emptyMatchdayEditorialProfileOpening(),
+      [slot]: moving.sourceId,
+    });
+
+    const bankOverride: MatchdayEditorialProfileManualOverride[] = [{
+      sourceType: "editorial_article",
+      sourceId: moving.sourceId,
+      placementTarget: "bank",
+      zoneKey: null,
+      sortOrder: null,
+    }];
+
+    const result = reconcileMatchdayEditorialProfileWorkspace(
+      profile,
+      [moving],
+      bankOverride,
+      opening,
+      [],
+      false,
+      [],
+    );
+
+    assert.equal(opening[slot], moving.sourceId);
+    assert.equal(
+      result.zonesAfter.flatMap((zone) => zone.items).some(
+        (entry) => entry.sourceId === moving.sourceId,
+      ),
+      false,
+    );
+    assert.equal(
+      result.faixaAfter.some((entry) => entry.sourceId === moving.sourceId),
+      false,
+    );
+    assert.equal(
+      result.bankAfter.some((entry) => entry.sourceId === moving.sourceId),
+      false,
+    );
+  });
+
+  test(`opening-manual-zone-exclusive-${slot}`, () => {
+    const moving = item("moving-from-manual-zone", "benfica", 1);
+
+    const opening = validateMatchdayEditorialProfileOpening({
+      ...emptyMatchdayEditorialProfileOpening(),
+      [slot]: moving.sourceId,
+    });
+
+    const zoneOverride = fixMatchdayEditorialItemsAtPosition(
+      profile,
+      [moving],
+      [],
+      [identity(moving.sourceId)],
+      "sporting",
+      1,
+    );
+
+    const result = reconcileMatchdayEditorialProfileWorkspace(
+      profile,
+      [moving],
+      zoneOverride,
+      opening,
+      [],
+      false,
+      [],
+    );
+
+    assert.equal(opening[slot], moving.sourceId);
+    assert.equal(
+      result.zonesAfter.flatMap((zone) => zone.items).some(
+        (entry) => entry.sourceId === moving.sourceId,
+      ),
+      false,
+    );
+    assert.equal(
+      result.faixaAfter.some((entry) => entry.sourceId === moving.sourceId),
+      false,
+    );
+    assert.equal(
+      result.bankAfter.some((entry) => entry.sourceId === moving.sourceId),
+      false,
+    );
+  });
+}

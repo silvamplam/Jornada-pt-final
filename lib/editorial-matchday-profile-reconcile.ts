@@ -163,6 +163,13 @@ function reconcileAppliedSnapshotDistribution(
       }),
     );
 
+  const appliedBaselineIdentities = new Set([
+    ...zonesBefore.flatMap(
+      (zone) => zone.items.map(itemIdentity),
+    ),
+    ...faixaBefore.map(itemIdentity),
+  ]);
+
   /*
    * Com snapshot aplicado, a ordem aplicada e soberana.
    * O automatico produz propostas, mas nao reordena
@@ -171,7 +178,7 @@ function reconcileAppliedSnapshotDistribution(
   const displacedFromZones:
     MatchdayEditorialProfileDeskAutomaticItem[] = [];
 
-  const zonesAfter = profile.zones.map((zone) => {
+  const baselineZonesAfter = profile.zones.map((zone) => {
     const baselineZone = zonesBefore.find(
       (candidate) => candidate.key === zone.key,
     );
@@ -359,6 +366,62 @@ function reconcileAppliedSnapshotDistribution(
     };
   });
 
+  const placedInBaselineZones = new Set(
+    baselineZonesAfter.flatMap(
+      (zone) => zone.items.map(itemIdentity),
+    ),
+  );
+
+  const newAutomaticCandidates = activeItems
+    .filter((item) => {
+      const identity = itemIdentity(item);
+
+      return (
+        !appliedBaselineIdentities.has(identity)
+        && !overrideByIdentity.has(identity)
+        && !placedInBaselineZones.has(identity)
+      );
+    })
+    .sort(compareThematicItemsByActuality);
+
+  const placedNewAutomaticIdentities = new Set<string>();
+
+  /*
+   * Uma publicação nova pode ocupar apenas um slot realmente livre da sua
+   * zona natural. A baseline aplicada e as decisões manuais conservam os
+   * seus slots; não são deslocadas nem reordenadas por esta entrada.
+   */
+  const zonesAfter = baselineZonesAfter.map((zone) => {
+    const usedSlots = new Set(
+      zone.items.map((item) => item.sortOrder),
+    );
+    const freeSlots = Array.from(
+      { length: zone.capacity },
+      (_, index) => index + 1,
+    ).filter((slot) => !usedSlots.has(slot));
+    const additions = newAutomaticCandidates
+      .filter((item) => item.classifiedZoneKey === zone.key)
+      .slice(0, freeSlots.length)
+      .map((item, index) => {
+        placedNewAutomaticIdentities.add(itemIdentity(item));
+
+        return {
+          ...effectiveItem(item, freeSlots[index], null),
+          sortOrder: freeSlots[index],
+        };
+      });
+
+    return {
+      ...zone,
+      items: [...zone.items, ...additions]
+        .sort((left, right) => left.sortOrder - right.sortOrder),
+    };
+  });
+
+  const newAutomaticFaixa = newAutomaticCandidates.filter(
+    (item) => !placedNewAutomaticIdentities.has(itemIdentity(item)),
+  );
+
   const placedAfter = new Set(
     zonesAfter.flatMap(
       (zone) => zone.items.map(itemIdentity),
@@ -443,15 +506,20 @@ function reconcileAppliedSnapshotDistribution(
   );
 
   /*
-   * Uma noticia desalojada de zona entra na Faixa.
-   * Nada desaparece silenciosamente.
+   * Uma noticia desalojada de zona ou uma entrada nova sem vaga natural
+   * entra na Faixa. Nada desaparece silenciosamente.
    */
-  const additions = displacedFromZones
+  const additionIdentities = new Set<string>();
+  const additions = [
+    ...displacedFromZones,
+    ...newAutomaticFaixa,
+  ]
     .filter((item) => {
       const identity = itemIdentity(item);
 
       return (
-        !placedAfter.has(identity)
+        !additionIdentities.has(identity)
+        && !placedAfter.has(identity)
         && !explicitBank.has(identity)
         && !explicitZone.has(identity)
         && !floatingFaixaIdentities.has(identity)
@@ -459,14 +527,18 @@ function reconcileAppliedSnapshotDistribution(
         && !existingFaixaIdentities.has(identity)
       );
     })
-    .map((item) => ({
-      ...effectiveItem(
-        item,
-        null,
-        null,
-      ),
-      sortOrder: 0,
-    }));
+    .map((item) => {
+      additionIdentities.add(itemIdentity(item));
+
+      return {
+        ...effectiveItem(
+          item,
+          null,
+          null,
+        ),
+        sortOrder: 0,
+      };
+    });
 
   for (const override of floatingFaixaOverrides) {
     const identity = itemIdentity(override);
@@ -552,29 +624,14 @@ function reconcileAppliedSnapshotDistribution(
     }),
   );
 
-  const faixaAfterIdentities = new Set(
-    faixaAfter.map(itemIdentity),
-  );
-
   const bankAfter = activeItems
-    .filter((item) => {
-      const identity = itemIdentity(item);
-
-      return (
-        !placedAfter.has(identity)
-        && !faixaAfterIdentities.has(identity)
-      );
-    })
+    .filter((item) => explicitBank.has(itemIdentity(item)))
     .map((item) => {
-      const identity = itemIdentity(item);
-
       return {
         ...effectiveItem(
           item,
           null,
-          explicitBank.has(identity)
-            ? "bank"
-            : null,
+          "bank",
         ),
         sortOrder: null,
       };
