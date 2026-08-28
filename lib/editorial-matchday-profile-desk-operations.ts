@@ -581,8 +581,108 @@ export function fixMatchdayEditorialItemsInZone(
   selectedIdentities: readonly string[],
   zoneKey: EditorialProfileZoneKey,
 ): readonly MatchdayEditorialProfileManualOverride[] {
+  const zone = profile.zones.find((candidate) => candidate.key === zoneKey);
+  if (!zone) {
+    throw new Error("matchday-editorial-profile-manual-overrides-invalid-zone");
+  }
+
   const selected = requireActiveItems(activeItems, selectedIdentities);
+  if (selected.length === 0) {
+    return validateMatchdayEditorialProfileManualOverrides(profile, overrides);
+  }
+  if (selected.length > zone.capacity) {
+    throw new Error(
+      "matchday-editorial-profile-manual-overrides-selection-exceeds-capacity",
+    );
+  }
+
+  const selectedIdentitySet = new Set(
+    selected.map((item) => thematicEditorialIdentity(item.sourceType, item.sourceId)),
+  );
   const next = overrideMap(overrides);
+
+  /*
+   * A seleção abandona primeiro qualquer decisão manual anterior.
+   * Assim mover novamente uma notícia já manual não aumenta artificialmente
+   * a ocupação protegida da zona de destino.
+   */
+  for (const identity of selectedIdentitySet) {
+    next.delete(identity);
+  }
+
+  const remainingActiveItems = activeItems.filter(
+    (item) => !selectedIdentitySet.has(
+      thematicEditorialIdentity(item.sourceType, item.sourceId),
+    ),
+  );
+
+  const targetBeforeInsertion = buildMatchdayEditorialProfileEffectiveDistribution(
+    profile,
+    remainingActiveItems,
+    Array.from(next.values()),
+  ).zones.find((candidate) => candidate.key === zoneKey);
+
+  if (!targetBeforeInsertion) {
+    throw new Error("matchday-editorial-profile-manual-overrides-invalid-zone");
+  }
+
+  const existingManualItems = targetBeforeInsertion.items.filter((item) => {
+    const current = next.get(
+      thematicEditorialIdentity(item.sourceType, item.sourceId),
+    );
+    return current?.placementTarget === "zone" && current.zoneKey === zoneKey;
+  });
+
+  const overflowCount = Math.max(
+    0,
+    existingManualItems.length + selected.length - zone.capacity,
+  );
+
+  const overflowedManualItems = overflowCount > 0
+    ? existingManualItems.slice(existingManualItems.length - overflowCount)
+    : [];
+
+  if (overflowedManualItems.length > 0) {
+    /*
+     * A nova decisão prevalece. As decisões manuais que deixam de caber saem
+     * pelo fim real da zona e entram no topo da Faixa, preservando a sua ordem.
+     * Posições fixas já existentes na Faixa são deslocadas, nunca destruídas.
+     */
+    for (const [identity, current] of Array.from(next.entries())) {
+      if (
+        current.placementTarget === "faixa"
+        && current.sortOrder !== null
+      ) {
+        next.set(identity, {
+          ...current,
+          sortOrder: current.sortOrder + overflowedManualItems.length,
+        });
+      }
+    }
+
+    overflowedManualItems.forEach((item, index) => {
+      const identity = thematicEditorialIdentity(item.sourceType, item.sourceId);
+      const current = next.get(identity);
+
+      if (
+        !current
+        || current.placementTarget !== "zone"
+        || current.zoneKey !== zoneKey
+      ) {
+        throw new Error(
+          "matchday-editorial-profile-manual-overrides-invalid-placement",
+        );
+      }
+
+      next.set(identity, {
+        ...current,
+        placementTarget: "faixa",
+        zoneKey: null,
+        sortOrder: index + 1,
+      });
+    });
+  }
+
   for (const item of selected) {
     next.set(thematicEditorialIdentity(item.sourceType, item.sourceId), {
       sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
@@ -592,9 +692,9 @@ export function fixMatchdayEditorialItemsInZone(
       sortOrder: null,
     });
   }
+
   return normalizedMapValues(profile, next);
 }
-
 export function fixMatchdayEditorialItemsAtPosition(
   profile: EditorialProfile,
   activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],

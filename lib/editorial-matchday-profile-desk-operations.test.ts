@@ -628,6 +628,120 @@ test("mover um bloco para a Faixa fixa o destino e liberta apenas o slot substit
   ]);
 });
 
+test("Mover para zona cheia em lote de 1 a 5 prevalece e envia o overflow manual para a Faixa", () => {
+  const previous = [1, 2, 3, 4, 5].map((position) =>
+    automaticItem(`old-${position}`, null, null, 20 - position));
+
+  for (const selectedCount of [1, 2, 3, 4, 5]) {
+    const incoming = Array.from(
+      { length: selectedCount },
+      (_, index) => automaticItem(
+        `new-${selectedCount}-${index + 1}`,
+        null,
+        null,
+        30 - index,
+      ),
+    );
+    const activeItems = [...previous, ...incoming];
+    const current = previous.map((item) =>
+      override(item.sourceId, "sporting", null));
+
+    const next = fixMatchdayEditorialItemsInZone(
+      profile,
+      activeItems,
+      current,
+      incoming.map((item) => identity(item.sourceId)),
+      "sporting",
+    );
+
+    const distribution =
+      buildMatchdayEditorialProfileEffectiveDistribution(
+        profile,
+        activeItems,
+        next,
+      );
+    const zone =
+      distribution.zones.find((candidate) => candidate.key === "sporting");
+    const faixa = next
+      .filter((entry) => entry.placementTarget === "faixa")
+      .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
+
+    assert.ok(zone);
+    assert.equal(zone.items.length, 5);
+    assert.equal(
+      incoming.every((item) =>
+        zone.items.some((zoneItem) => zoneItem.sourceId === item.sourceId)),
+      true,
+    );
+    assert.deepEqual(
+      faixa.map((entry) => entry.sourceId),
+      previous.slice(5 - selectedCount).map((item) => item.sourceId),
+    );
+    assert.deepEqual(
+      faixa.map((entry) => entry.sortOrder),
+      Array.from({ length: selectedCount }, (_, index) => index + 1),
+    );
+    assert.equal(new Set(next.map((entry) => entry.sourceId)).size, next.length);
+  }
+});
+
+test("Mover para zona cheia desloca posições fixas existentes na Faixa sem as destruir", () => {
+  const previous = [1, 2, 3, 4, 5].map((position) =>
+    automaticItem(`old-${position}`, null, null, 20 - position));
+  const incoming = [
+    automaticItem("new-1", null, null, 30),
+    automaticItem("new-2", null, null, 29),
+  ];
+  const faixaExisting = automaticItem("faixa-existing", null, null, 10);
+
+  const current: MatchdayEditorialProfileManualOverride[] = [
+    ...previous.map((item) => override(item.sourceId, "sporting", null)),
+    {
+      sourceType: "editorial_article",
+      sourceId: faixaExisting.sourceId,
+      placementTarget: "faixa",
+      zoneKey: null,
+      sortOrder: 1,
+    },
+  ];
+
+  const next = fixMatchdayEditorialItemsInZone(
+    profile,
+    [...previous, ...incoming, faixaExisting],
+    current,
+    incoming.map((item) => identity(item.sourceId)),
+    "sporting",
+  );
+
+  const faixa = next
+    .filter((entry) => entry.placementTarget === "faixa")
+    .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
+
+  assert.deepEqual(
+    faixa.map((entry) => [entry.sourceId, entry.sortOrder]),
+    [
+      ["old-4", 1],
+      ["old-5", 2],
+      ["faixa-existing", 3],
+    ],
+  );
+});
+
+test("Mover para zona rejeita apenas uma seleção que por si própria excede a capacidade", () => {
+  const incoming = [1, 2, 3, 4, 5, 6].map((position) =>
+    automaticItem(`new-${position}`, null, null, 30 - position));
+
+  assert.throws(
+    () => fixMatchdayEditorialItemsInZone(
+      profile,
+      incoming,
+      [],
+      incoming.map((item) => identity(item.sourceId)),
+      "sporting",
+    ),
+    /selection-exceeds-capacity/,
+  );
+});
 test("reset restaura a baseline e uma baseline nova não destrói fixação nem movimento manual", () => {
   const firstBaseline = [
     automaticItem("protected", "benfica", 1, 10),
