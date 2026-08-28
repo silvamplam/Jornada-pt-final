@@ -195,8 +195,13 @@ test("as cinco zonas são fixas e não existe criação ou remoção de zona", (
 });
 
 test("preview mantém um único write HTTP de Apply", () => {
+  const applyStart = source.indexOf("async function applyChanges()");
+  const applyEnd = source.indexOf("function cardFor", applyStart);
+  const apply = source.slice(applyStart, applyEnd);
+
+  assert.ok(applyStart >= 0 && applyEnd > applyStart);
   assert.equal(
-    (source.match(/method:\s*"POST"/g) ?? []).length,
+    (apply.match(/method:\s*"POST"/g) ?? []).length,
     1,
   );
 });

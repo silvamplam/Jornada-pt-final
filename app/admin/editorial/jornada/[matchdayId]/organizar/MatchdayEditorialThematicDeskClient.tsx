@@ -123,6 +123,53 @@ type ActiveWorkspaceKey =
 
 type SourceViewKey = "new" | "available" | "faixa";
 
+type AgendaTvPreviewStatus =
+  | "update"
+  | "unchanged"
+  | "source_not_found"
+  | "source_conflict"
+  | "channel_not_found";
+
+type AgendaTvPreviewRow = Readonly<{
+  matchId: string;
+  label: string;
+  status: AgendaTvPreviewStatus;
+  note: string;
+  currentDate: string | null;
+  currentKickoffAt: string | null;
+  currentChannel: string | null;
+  nextDate: string | null;
+  nextKickoffAt: string | null;
+  nextChannel: string | null;
+}>;
+
+type AgendaTvPreview = Readonly<{
+  rows: readonly AgendaTvPreviewRow[];
+  summary: Readonly<{
+    total: number;
+    update: number;
+    unchanged: number;
+    blockers: number;
+  }>;
+  canApply: boolean;
+}>;
+
+type AgendaTvResponse = Readonly<{
+  ok?: boolean;
+  preview?: AgendaTvPreview;
+  applied?: number;
+  message?: string;
+}>;
+
+type AgendaTvPanelState =
+  | "inactive"
+  | "searching"
+  | "no_changes"
+  | "changes"
+  | "blocked"
+  | "error"
+  | "applied";
+
 const styles = `
   body { margin: 0; background: #edf1f5; color: #111820; font-family: Arial, Helvetica, sans-serif; }
   * { box-sizing: border-box; }
@@ -230,12 +277,28 @@ const styles = `
   .thematic-sources-list .thematic-card { min-height: 60px; }
   .thematic-sources-list[data-drag-active="true"] { background: #fff8f8; box-shadow: inset 0 0 0 1px #e43e48; }
   .thematic-faixa-item { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 5px; align-items: start; min-width: 0; }
-  .thematic-global-tools { display: grid; grid-template-columns: max-content max-content minmax(0,1fr); align-items: start; gap: 5px; }
+  .thematic-global-tools { display: grid; grid-template-columns: max-content max-content max-content minmax(0,1fr); align-items: start; gap: 5px; }
   .thematic-global-tool { min-width: 0; border: 1px solid #d7e0e9; border-radius: 7px; background: #fff; box-shadow: 0 3px 10px rgba(12,22,34,.03); }
   .thematic-global-tool[open] { grid-column: 1 / -1; }
   .thematic-global-tool > summary { min-height: 30px; padding: 7px 9px; cursor: pointer; color: #243244; font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
   .thematic-global-tool-body { padding: 0 6px 6px; }
   .thematic-global-tool-body .video-summary-sync { margin: 0; padding: 7px; }
+  .agenda-tv-sync { display: grid; gap: 7px; padding: 7px; border: 1px solid #d8e0e9; border-radius: 7px; background: #f8fafc; }
+  .agenda-tv-sync-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; }
+  .agenda-tv-sync-copy { display: grid; gap: 2px; }
+  .agenda-tv-sync-copy strong { font-size: 12px; }
+  .agenda-tv-sync-copy span { color: #607086; font-size: 10px; font-weight: 700; }
+  .agenda-tv-sync-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+  .agenda-tv-sync-message { margin: 0; padding: 6px 8px; border-radius: 5px; background: #eef6ff; color: #1e3a8a; font-size: 10px; font-weight: 700; }
+  .agenda-tv-sync-message.error { background: #fff1f2; color: #9f1239; }
+  .agenda-tv-sync-rows { display: grid; gap: 4px; }
+  .agenda-tv-sync-row { display: grid; grid-template-columns: minmax(180px,.8fr) repeat(2,minmax(180px,1fr)); gap: 7px; align-items: center; padding: 6px 7px; border: 1px solid #e3e8ee; border-radius: 5px; background: #fff; }
+  .agenda-tv-sync-row.blocked { border-color: #f2b8bd; background: #fffafa; }
+  .agenda-tv-sync-row > strong { min-width: 0; font-size: 10px; overflow-wrap: anywhere; }
+  .agenda-tv-sync-value { display: grid; min-width: 0; gap: 2px; }
+  .agenda-tv-sync-value span { color: #64748b; font-size: 8px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
+  .agenda-tv-sync-value p { margin: 0; color: #243244; font-size: 10px; font-weight: 700; overflow-wrap: anywhere; }
+  .agenda-tv-sync-note { grid-column: 1 / -1; margin: 0; color: #9f1239; font-size: 9px; font-weight: 800; }
   .thematic-page-structure { display: grid; gap: 5px; padding: 0 6px 6px; }
   .thematic-page-structure-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
   .thematic-top-tools, .thematic-top-tools label { display: flex; align-items: center; gap: 5px; }
@@ -267,7 +330,7 @@ const styles = `
   .thematic-highlight-card > div { display: grid; gap: 5px; }
   .thematic-highlight-card span { color: #64748b; font-size: 9px; }
   @media (max-width: 1180px) { .thematic-sources-toolbar, .thematic-reservoir-filters { flex-wrap: wrap; } .thematic-slots-5, .thematic-slots-6, .thematic-sources-list { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-  @media (max-width: 760px) { .thematic-global-tools, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-sources-list { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .thematic-page-row-actions { justify-content: flex-start; } }
+  @media (max-width: 760px) { .thematic-global-tools, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-sources-list, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .thematic-page-row-actions, .agenda-tv-sync-actions { justify-content: flex-start; } }
 `;
 
 const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
@@ -528,6 +591,168 @@ function Diagnostics({ diagnostics }: Readonly<{ diagnostics: readonly MatchdayE
         {diagnostics.map((diagnostic, index) => <li key={`${diagnostic.code}:${diagnostic.sourceId ?? ""}:${index}`}><code>{diagnostic.code}</code> · {diagnostic.message}</li>)}
       </ul>
     </details>
+  );
+}
+
+function agendaTvValue(
+  date: string | null,
+  kickoffAt: string | null,
+  channel: string | null,
+) {
+  return [
+    formattedDate(kickoffAt) ?? date ?? "Data e hora por definir",
+    channel ?? "Canal por definir",
+  ].join(" · ");
+}
+
+function MatchdayAgendaTvSyncPanel({ matchdayId }: Readonly<{ matchdayId: string }>) {
+  const router = useRouter();
+  const [panelState, setPanelState] = useState<AgendaTvPanelState>("inactive");
+  const [preview, setPreview] = useState<AgendaTvPreview | null>(null);
+  const [message, setMessage] = useState("");
+  const [busyAction, setBusyAction] = useState<"preview" | "apply" | null>(null);
+
+  const relevantRows = preview?.rows.filter((row) => row.status !== "unchanged") ?? [];
+
+  async function runAgendaTvAction(action: "preview" | "apply") {
+    if (busyAction) return;
+
+    setBusyAction(action);
+    setPanelState("searching");
+    setMessage(action === "preview" ? "A procurar atualizações…" : "A confirmar alterações…");
+
+    try {
+      const response = await fetch(
+        `/api/admin/editorial/jornada/${encodeURIComponent(matchdayId)}/agenda-tv`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        },
+      );
+      const result = await response.json() as AgendaTvResponse;
+
+      if (result.preview) setPreview(result.preview);
+
+      if (!response.ok || !result.ok || !result.preview) {
+        setPanelState(result.preview?.summary.blockers ? "blocked" : "error");
+        setMessage(result.message ?? "Não foi possível concluir a operação.");
+        return;
+      }
+
+      if (action === "apply" && (result.applied ?? 0) > 0) {
+        setPanelState("applied");
+        setMessage(result.message ?? "Alterações confirmadas com sucesso.");
+        router.refresh();
+        return;
+      }
+
+      if (result.preview.summary.blockers > 0) {
+        setPanelState("blocked");
+        setMessage(
+          `${result.preview.summary.blockers} ${result.preview.summary.blockers === 1 ? "problema impede" : "problemas impedem"} a confirmação.`,
+        );
+        return;
+      }
+
+      if (result.preview.summary.update > 0) {
+        setPanelState("changes");
+        setMessage(
+          `${result.preview.summary.update} ${result.preview.summary.update === 1 ? "alteração segura encontrada" : "alterações seguras encontradas"}.`,
+        );
+        return;
+      }
+
+      setPanelState("no_changes");
+      setMessage(result.message ?? "A agenda e os canais já estão atualizados.");
+    } catch {
+      setPanelState("error");
+      setMessage("Não foi possível contactar a atualização da Agenda e TV.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  return (
+    <section
+      aria-busy={busyAction !== null}
+      aria-label="Atualização da Agenda e TV"
+      className="agenda-tv-sync"
+    >
+      <div className="agenda-tv-sync-head">
+        <div className="agenda-tv-sync-copy">
+          <strong>Agenda e TV</strong>
+          <span>
+            {panelState === "inactive"
+              ? "Procurar diferenças de data, hora e canal."
+              : panelState === "searching"
+                ? "A consultar a agenda da jornada…"
+                : preview
+                  ? `${preview.summary.update} alterações · ${preview.summary.blockers} problemas`
+                  : "Operação indisponível."}
+          </span>
+        </div>
+        <div className="agenda-tv-sync-actions">
+          <button
+            className="thematic-button"
+            disabled={busyAction !== null}
+            onClick={() => runAgendaTvAction("preview")}
+            type="button"
+          >
+            {busyAction === "preview" ? "A procurar…" : "Procurar atualizações"}
+          </button>
+          {preview?.canApply ? (
+            <button
+              className="thematic-button dark"
+              disabled={busyAction !== null}
+              onClick={() => runAgendaTvAction("apply")}
+              type="button"
+            >
+              {busyAction === "apply" ? "A confirmar…" : "Confirmar alterações"}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {message && panelState !== "searching" ? (
+        <p
+          aria-live={panelState === "blocked" || panelState === "error" ? "assertive" : "polite"}
+          className={`agenda-tv-sync-message${panelState === "blocked" || panelState === "error" ? " error" : ""}`}
+        >
+          {message}
+        </p>
+      ) : null}
+
+      {relevantRows.length > 0 ? (
+        <div className="agenda-tv-sync-rows">
+          {relevantRows.map((row) => {
+            const blocked = row.status !== "update";
+
+            return (
+              <article
+                className={`agenda-tv-sync-row${blocked ? " blocked" : ""}`}
+                key={row.matchId}
+              >
+                <strong>{row.label}</strong>
+                <div className="agenda-tv-sync-value">
+                  <span>Atual</span>
+                  <p>{agendaTvValue(row.currentDate, row.currentKickoffAt, row.currentChannel)}</p>
+                </div>
+                <div className="agenda-tv-sync-value">
+                  <span>Proposto</span>
+                  <p>
+                    {row.nextDate || row.nextKickoffAt || row.nextChannel
+                      ? agendaTvValue(row.nextDate, row.nextKickoffAt, row.nextChannel)
+                      : "Sem proposta segura"}
+                  </p>
+                </div>
+                {blocked ? <p className="agenda-tv-sync-note">{row.note}</p> : null}
+              </article>
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -2705,6 +2930,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 matchdayId={desk.matchdayId}
                 reloadOnMutation={false}
               />
+            </div>
+          </details>
+
+          <details className="thematic-global-tool thematic-agenda-tv-tool">
+            <summary>Agenda e TV</summary>
+            <div className="thematic-global-tool-body">
+              <MatchdayAgendaTvSyncPanel matchdayId={desk.matchdayId} />
             </div>
           </details>
 
