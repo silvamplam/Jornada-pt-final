@@ -27,16 +27,12 @@ test("Mesa deriva capacidade do layout em draft", () => {
     /reconcileMatchdayEditorialProfileWorkspace\(\s*effectiveProfile/,
   );
 
-  assert.match(
-    source,
-    /const destination = effectiveProfile\.zones\.find/,
-  );
 });
 
-test("cada zona expõe seletor de layout independente", () => {
+test("cada zona expõe seletor de apresentação independente", () => {
   assert.match(
     source,
-    /aria-label={`Layout de \$\{zone\.label\}`}/,
+    /aria-label={`Apresentação de \$\{zone\.label\}`}/,
   );
 
   assert.match(
@@ -129,10 +125,15 @@ test("Seleção editorial é manual, independente e aplicada no mesmo workspace"
 test("zona ativa mantém apenas os controlos funcionais numa linha", () => {
   assert.match(source, /function renderZonePanel/);
   assert.match(source, /aria-label={`Título público de \$\{zone\.label\}`}/);
-  assert.match(source, /aria-label={`Layout de \$\{zone\.label\}`}/);
-  assert.doesNotMatch(source, /<span>Título público<\/span>/);
+  assert.match(source, /aria-label={`Apresentação de \$\{zone\.label\}`}/);
+  assert.match(source, /<span>Título público<\/span>/);
+  assert.match(source, /<span>Apresentação<\/span>/);
   assert.doesNotMatch(source, /<span>Família<\/span>/);
   assert.match(source, /className="thematic-zone-editor-count"/);
+  assert.match(
+    source,
+    /\.thematic-zone-editor label \{ display: grid; grid-template-columns: auto minmax\(0,1fr\);/,
+  );
   assert.doesNotMatch(source, /thematic-workspace-head/);
 });
 
@@ -151,7 +152,8 @@ test("tabs mantêm apenas Abertura fixa", () => {
 test("Últimas mantém só Título público, Apresentação e contador na faixa funcional", () => {
   assert.match(source, /aria-label="Título público de Últimas"/);
   assert.match(source, /aria-label="Apresentação de Últimas"/);
-  assert.doesNotMatch(source, /<span>Apresentação<\/span>/);
+  assert.match(source, /<span>Título público<\/span>/);
+  assert.match(source, /<span>Apresentação<\/span>/);
   assert.match(
     source,
     /className="thematic-zone-editor-count"[\s\S]{0,80}\{editorialSelectionOccupied\}\/4/,
@@ -162,6 +164,18 @@ test("quatro Últimas corrigem a grelha específica dentro dos slots", () => {
   assert.match(
     source,
     /\.thematic-workspace-slot \.thematic-card\.thematic-selection-card \{ grid-template-columns: 44px minmax\(0,1fr\) 22px; \}/,
+  );
+  assert.match(
+    source,
+    /\.thematic-editorial-selection \.thematic-workspace-slot \{ display: grid; grid-template-rows: auto minmax\(0,1fr\);/,
+  );
+  assert.match(
+    source,
+    /\.thematic-card-title \{ display: -webkit-box;[\s\S]*?-webkit-line-clamp: 2; \}/,
+  );
+  assert.doesNotMatch(
+    source,
+    /\.thematic-card-title \{[^}]*white-space: nowrap/,
   );
 });
 

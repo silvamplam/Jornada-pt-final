@@ -127,6 +127,7 @@ function effectiveItem(
     imageUrl: item.imageUrl,
     publishedAt: item.publishedAt,
     updatedAt: item.updatedAt,
+    isNew: item.isNew === true,
     manualOverride: manualMode(override),
   };
 }
@@ -601,6 +602,10 @@ export function fixMatchdayEditorialItemsAtPosition(
   selectedIdentities: readonly string[],
   zoneKey: EditorialProfileZoneKey,
   startPosition: number,
+  currentZoneItems?: readonly (
+    MatchdayEditorialProfileEffectiveItem
+    & Readonly<{ sortOrder: number }>
+  )[],
 ): readonly MatchdayEditorialProfileManualOverride[] {
   const zone = profile.zones.find((candidate) => candidate.key === zoneKey);
   if (!zone || !Number.isInteger(startPosition) || startPosition <= 0 || startPosition > zone.capacity) {
@@ -616,7 +621,6 @@ export function fixMatchdayEditorialItemsAtPosition(
   const selectedIdentitySet = new Set(selected.map((item) => (
     thematicEditorialIdentity(item.sourceType, item.sourceId)
   )));
-  const targetPositions = new Set(selected.map((_, index) => startPosition + index));
   const next = overrideMap(overrides);
 
   /*
@@ -628,85 +632,154 @@ export function fixMatchdayEditorialItemsAtPosition(
     next.delete(identity);
   }
 
-  const protectedTargetCount = Array.from(next.values()).filter((current) => (
-    current.placementTarget === "zone"
-    && current.zoneKey === zoneKey
-  )).length;
-
   /*
-   * Uma nova decisão manual nunca destrói outra decisão manual.
-   * Se a zona não tiver capacidade para conservar todas, a operação inteira
-   * é recusada antes de alterar qualquer override.
+   * A cascata parte do estado efetivo depois de retirar a própria seleção da
+   * zona. Isto é importante quando se move uma notícia dentro da mesma zona:
+   * o lugar que ela libertou pode absorver a cascata e evitar um overflow.
    */
-  if (protectedTargetCount + selected.length > zone.capacity) {
+  const remainingActiveItems = activeItems.filter(
+    (item) =>
+      !selectedIdentitySet.has(
+        thematicEditorialIdentity(item.sourceType, item.sourceId),
+      ),
+  );
+  const targetBeforeInsertionItems = currentZoneItems
+    ? currentZoneItems.filter(
+        (item) =>
+          !selectedIdentitySet.has(
+            thematicEditorialIdentity(item.sourceType, item.sourceId),
+          ),
+      )
+    : buildMatchdayEditorialProfileEffectiveDistribution(
+        profile,
+        remainingActiveItems,
+        Array.from(next.values()),
+      ).zones.find(
+        (candidate) => candidate.key === zoneKey,
+      )?.items;
+
+  if (!targetBeforeInsertionItems) {
     throw new Error(
-      "matchday-editorial-profile-manual-overrides-manual-insertion-exceeds-capacity",
+      "matchday-editorial-profile-manual-overrides-invalid-zone",
     );
   }
 
-  const fixedInTarget = Array.from(next.entries())
-    .filter(([, current]) => (
-      current.placementTarget === "zone"
-      && current.zoneKey === zoneKey
-      && current.sortOrder !== null
-    ))
-    .sort((left, right) => {
-      const leftPosition = left[1].sortOrder ?? 0;
-      const rightPosition = right[1].sortOrder ?? 0;
+  const occupantBySlot = new Map(
+    targetBeforeInsertionItems.map(
+      (item) => [
+        item.sortOrder,
+        thematicEditorialIdentity(item.sourceType, item.sourceId),
+      ] as const,
+    ),
+  );
+  const finalSlotByIdentity = new Map(
+    targetBeforeInsertionItems.map(
+      (item) => [
+        thematicEditorialIdentity(item.sourceType, item.sourceId),
+        item.sortOrder,
+      ] as const,
+    ),
+  );
+  const displacedQueue: string[] = [];
 
-      return leftPosition - rightPosition
-        || compareText(left[0], right[0]);
-    });
+  for (
+    let slot = startPosition;
+    slot < startPosition + selected.length;
+    slot += 1
+  ) {
+    const displacedIdentity = occupantBySlot.get(slot);
 
-  const occupiedPositions = new Set<number>(targetPositions);
+    if (!displacedIdentity) continue;
+
+    finalSlotByIdentity.delete(displacedIdentity);
+    displacedQueue.push(displacedIdentity);
+  }
 
   /*
-   * Posições manuais anteriores ao ponto de inserção permanecem absolutas.
+   * Cada notícia desalojada ocupa o slot seguinte. Um espaço já livre absorve
+   * a cascata; caso contrário o ocupante desse slot passa para o fim da fila.
+   * Assim a ordem relativa real da zona é preservada, independentemente de a
+   * proveniência anterior ser automática ou manual.
    */
-  for (const [, current] of fixedInTarget) {
-    if (
-      current.sortOrder !== null
-      && current.sortOrder < startPosition
-    ) {
-      occupiedPositions.add(current.sortOrder);
+  for (
+    let slot = startPosition + selected.length;
+    slot <= zone.capacity && displacedQueue.length > 0;
+    slot += 1
+  ) {
+    const movingIdentity = displacedQueue.shift()!;
+    const displacedIdentity = occupantBySlot.get(slot);
+
+    finalSlotByIdentity.set(movingIdentity, slot);
+
+    if (displacedIdentity) {
+      finalSlotByIdentity.delete(displacedIdentity);
+      displacedQueue.push(displacedIdentity);
     }
   }
 
   /*
-   * A partir da posição de inserção, só deslocamos uma decisão manual quando
-   * o seu slot foi ocupado pela nova seleção ou por outra decisão manual já
-   * deslocada. O movimento é sempre para a frente e preserva a ordem relativa.
+   * Overrides de posição que participaram na cascata acompanham a sua nova
+   * posição. Um override de zona sem posição continua flutuante por atualidade.
    */
-  for (const [identity, current] of fixedInTarget) {
-    const originalPosition = current.sortOrder;
-
+  for (const [identity, current] of Array.from(next.entries())) {
     if (
-      originalPosition === null
-      || originalPosition < startPosition
+      current.placementTarget !== "zone"
+      || current.zoneKey !== zoneKey
+      || current.sortOrder === null
     ) {
       continue;
     }
 
-    let nextPosition = originalPosition;
+    const finalSlot = finalSlotByIdentity.get(identity);
 
-    while (occupiedPositions.has(nextPosition)) {
-      nextPosition += 1;
-    }
-
-    if (nextPosition > zone.capacity) {
-      throw new Error(
-        "matchday-editorial-profile-manual-overrides-manual-insertion-exceeds-capacity",
-      );
-    }
-
-    occupiedPositions.add(nextPosition);
-
-    if (nextPosition !== originalPosition) {
+    if (
+      finalSlot !== undefined
+      && finalSlot !== current.sortOrder
+    ) {
       next.set(identity, {
         ...current,
-        sortOrder: nextPosition,
+        sortOrder: finalSlot,
       });
     }
+  }
+
+  const overflowedManual = displacedQueue.flatMap((identity) => {
+    const current = next.get(identity);
+
+    return (
+      current?.placementTarget === "zone"
+      && current.zoneKey === zoneKey
+    )
+      ? [[identity, current] as const]
+      : [];
+  });
+
+  if (overflowedManual.length > 0) {
+    /*
+     * A decisão mais recente prevalece. Decisões manuais que atravessam o fim
+     * da zona entram no topo da Faixa pela ordem relativa do overflow, sem
+     * destruir posições fixas já existentes.
+     */
+    for (const [identity, current] of Array.from(next.entries())) {
+      if (
+        current.placementTarget === "faixa"
+        && current.sortOrder !== null
+      ) {
+        next.set(identity, {
+          ...current,
+          sortOrder: current.sortOrder + overflowedManual.length,
+        });
+      }
+    }
+
+    overflowedManual.forEach(([identity, current], index) => {
+      next.set(identity, {
+        ...current,
+        placementTarget: "faixa",
+        zoneKey: null,
+        sortOrder: index + 1,
+      });
+    });
   }
 
   selected.forEach((item, index) => {

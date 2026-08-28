@@ -30,6 +30,15 @@ const zoneSource =
     "utf8",
   );
 
+const flexibleZoneSource =
+  readFileSync(
+    path.join(
+      process.cwd(),
+      "components/public/PublicFlexibleZoneLayout.tsx",
+    ),
+    "utf8",
+  );
+
 test("página pública consulta assignment antes de escolher autoridade editorial", () => {
   assert.match(
     pageSource,
@@ -76,10 +85,10 @@ test("assignment temático usa a ordem de sete blocos persistida", () => {
   );
 });
 
-test("Faixa temática pública fica limitada às primeiras dez", () => {
+test("Faixa temática pública fica limitada às primeiras vinte", () => {
   assert.match(
     pageSource,
-    /thematicSnapshot[\s\S]*?importantNewsItems\.slice\(0, 10\)/,
+    /thematicSnapshot[\s\S]*?importantNewsItems\.slice\(0, 20\)/,
   );
 
   assert.match(
@@ -135,26 +144,31 @@ test("reader público só lê snapshot aplicado e nunca reconcilia ou escreve", 
 test("as três famílias visuais têm adapters públicos explícitos", () => {
   assert.match(
     zoneSource,
+    /PublicFlexibleZoneLayout/,
+  );
+
+  assert.match(
+    flexibleZoneSource,
     /zone\.visualFamily\s*===\s*"five_news_secondary"/,
   );
 
   assert.match(
-    zoneSource,
+    flexibleZoneSource,
     /zone\.visualFamily === "six_news"/,
   );
 
   assert.match(
-    zoneSource,
+    flexibleZoneSource,
     /FIVE_NEWS_BALANCED_SLOT_KEYS/,
   );
 
   assert.match(
-    zoneSource,
+    flexibleZoneSource,
     /PublicHierarchicalLiveLayouts/,
   );
 
   assert.match(
-    zoneSource,
+    flexibleZoneSource,
     /PublicBeyondMatchdayNews/,
   );
 });

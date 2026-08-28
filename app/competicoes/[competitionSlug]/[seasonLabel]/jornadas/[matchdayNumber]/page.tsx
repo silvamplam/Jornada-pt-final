@@ -4535,7 +4535,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   });
   const visibleImportantNewsItems =
     thematicSnapshot
-      ? importantNewsItems.slice(0, 10)
+      ? importantNewsItems.slice(0, 20)
       : importantNewsItems;
 
   const editorialVisibility = buildPublicMatchdayEditorialVisibility({

@@ -17,6 +17,10 @@ import {
   type MatchdayEditorialProfileManualOverride,
 } from "@/lib/editorial-matchday-profile-desk-operations";
 import { EDITORIAL_PROFILES } from "@/lib/editorial-profiles";
+import {
+  emptyMatchdayEditorialProfileOpening,
+  reconcileMatchdayEditorialProfileWorkspace,
+} from "@/lib/editorial-matchday-profile-workspace";
 
 const profile = EDITORIAL_PROFILES.liga_portugal_v1;
 
@@ -289,7 +293,7 @@ test("três novas entram à frente de duas decisões manuais e preservam as cinc
   );
 });
 
-test("uma inserção é recusada se não houver espaço para preservar o manual desalojado", () => {
+test("uma inserção prevalece sobre o último manual e envia-o para a Faixa", () => {
   const activeItems = [
     automaticItem("last", null, null, 11),
     automaticItem("x", null, null, 10),
@@ -299,24 +303,171 @@ test("uma inserção é recusada se não houver espaço para preservar o manual 
     override("last", "sporting", 5),
   ];
 
-  assert.throws(
-    () => fixMatchdayEditorialItemsAtPosition(
-      profile,
-      activeItems,
-      current,
-      [identity("x")],
-      "sporting",
-      5,
-    ),
-    /manual-insertion-exceeds-capacity/,
+  const next = fixMatchdayEditorialItemsAtPosition(
+    profile,
+    activeItems,
+    current,
+    [identity("x")],
+    "sporting",
+    5,
   );
 
-  assert.deepEqual(current, [
-    override("last", "sporting", 5),
+  assert.deepEqual(next, [
+    {
+      sourceType: "editorial_article",
+      sourceId: "last",
+      placementTarget: "faixa",
+      zoneKey: null,
+      sortOrder: 1,
+    },
+    override("x", "sporting", 5),
   ]);
 });
 
-test("automático desalojado fica no banco efetivo sem ganhar exclusão manual", () => {
+test("zona cheia de manuais aceita inserção na posição 1 por cascata sem perder notícias", () => {
+  const previous = [1, 2, 3, 4, 5].map((position) =>
+    automaticItem(`old-${position}`, null, null, 20 - position));
+  const incoming = automaticItem("new", null, null, 23);
+  const current = previous.map((item, index) =>
+    override(item.sourceId, "sporting", index + 1));
+
+  const next = fixMatchdayEditorialItemsAtPosition(
+    profile,
+    [...previous, incoming],
+    current,
+    [identity("new")],
+    "sporting",
+    1,
+  );
+
+  assert.deepEqual(
+    next.filter((entry) => entry.placementTarget === "zone")
+      .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0))
+      .map((entry) => entry.sourceId),
+    ["new", "old-1", "old-2", "old-3", "old-4"],
+  );
+  assert.deepEqual(
+    next.filter((entry) => entry.placementTarget === "faixa")
+      .map((entry) => entry.sourceId),
+    ["old-5"],
+  );
+  assert.equal(new Set(next.map((entry) => entry.sourceId)).size, 6);
+});
+
+test("zona cheia automática preserva a ordem relativa e envia o overflow para a Faixa", () => {
+  const previous = [1, 2, 3, 4, 5].map((position) =>
+    automaticItem(`old-${position}`, "sporting", position, 20 - position));
+  const incoming = automaticItem("new", null, null, 23);
+  const activeItems = [...previous, incoming];
+  const next = fixMatchdayEditorialItemsAtPosition(
+    profile,
+    activeItems,
+    [],
+    [identity("new")],
+    "sporting",
+    3,
+  );
+  const reconciled = reconcileMatchdayEditorialProfileWorkspace(
+    profile,
+    activeItems,
+    next,
+    emptyMatchdayEditorialProfileOpening(),
+    [],
+    false,
+    [],
+  );
+
+  assert.deepEqual(
+    reconciled.zonesAfter.find((zone) => zone.key === "sporting")?.items
+      .map((entry) => entry.sourceId),
+    ["old-1", "old-2", "new", "old-3", "old-4"],
+  );
+  assert.deepEqual(
+    reconciled.faixaAfter.map((entry) => entry.sourceId),
+    ["old-5"],
+  );
+  assert.equal(
+    next.some((entry) => entry.sourceId === "old-5"),
+    false,
+  );
+});
+
+test("zona mista faz cascata pela ocupação real e não protege manual antigo contra decisão mais recente", () => {
+  const activeItems = [
+    automaticItem("auto-1", "sporting", 1, 20),
+    automaticItem("auto-2", "sporting", 2, 19),
+    automaticItem("auto-3", "sporting", 3, 18),
+    automaticItem("manual-4", "sporting", 4, 17),
+    automaticItem("auto-5", "sporting", 5, 16),
+    automaticItem("new", null, null, 23),
+  ];
+  const next = fixMatchdayEditorialItemsAtPosition(
+    profile,
+    activeItems,
+    [override("manual-4", "sporting", 4)],
+    [identity("new")],
+    "sporting",
+    2,
+  );
+  const reconciled = reconcileMatchdayEditorialProfileWorkspace(
+    profile,
+    activeItems,
+    next,
+    emptyMatchdayEditorialProfileOpening(),
+    [],
+    false,
+    [],
+  );
+
+  assert.deepEqual(
+    reconciled.zonesAfter.find((zone) => zone.key === "sporting")?.items
+      .map((item) => item.sourceId),
+    ["auto-1", "new", "auto-2", "auto-3", "manual-4"],
+  );
+  assert.deepEqual(
+    reconciled.faixaAfter.map((item) => item.sourceId),
+    ["auto-5"],
+  );
+  assert.deepEqual(
+    next.find((item) => item.sourceId === "manual-4"),
+    override("manual-4", "sporting", 5),
+  );
+});
+
+test("cascata usa a ocupação efetiva fornecida e deixa um buraco absorver o movimento", () => {
+  const activeItems = [
+    automaticItem("auto-1", "sporting", 1, 20),
+    automaticItem("auto-2", "sporting", 2, 19),
+    automaticItem("manual-4", "sporting", 4, 17),
+    automaticItem("new", null, null, 23),
+  ];
+  const currentZoneItems = [
+    { ...activeItems[0], sortOrder: 1, manualOverride: null },
+    { ...activeItems[1], sortOrder: 2, manualOverride: null },
+    { ...activeItems[2], sortOrder: 4, manualOverride: "position" as const },
+  ];
+
+  const next = fixMatchdayEditorialItemsAtPosition(
+    profile,
+    activeItems,
+    [override("manual-4", "sporting", 4)],
+    [identity("new")],
+    "sporting",
+    2,
+    currentZoneItems,
+  );
+
+  assert.deepEqual(
+    next.find((item) => item.sourceId === "manual-4"),
+    override("manual-4", "sporting", 4),
+  );
+  assert.deepEqual(
+    next.find((item) => item.sourceId === "new"),
+    override("new", "sporting", 2),
+  );
+});
+
+test("automático desalojado vai para a Faixa sem ganhar override manual", () => {
   const baseline = [1, 2, 3, 4, 5].map((number) => (
     automaticItem(String.fromCharCode(96 + number), "sporting", number, 20 - number)
   ));
@@ -330,10 +481,25 @@ test("automático desalojado fica no banco efetivo sem ganhar exclusão manual",
     "sporting",
     2,
   );
-  const effective = buildMatchdayEditorialProfileEffectiveDistribution(profile, activeItems, placed);
+  const reconciled = reconcileMatchdayEditorialProfileWorkspace(
+    profile,
+    activeItems,
+    placed,
+    emptyMatchdayEditorialProfileOpening(),
+    [],
+    false,
+    [],
+  );
 
-  assert.deepEqual(effective.zones[1].items.map((item) => item.sourceId), ["a", "x", "b", "c", "d"]);
-  assert.equal(effective.bank.some((item) => item.sourceId === "e"), true);
+  assert.deepEqual(
+    reconciled.zonesAfter.find((zone) => zone.key === "sporting")?.items
+      .map((item) => item.sourceId),
+    ["a", "x", "b", "c", "d"],
+  );
+  assert.deepEqual(
+    reconciled.faixaAfter.map((item) => item.sourceId),
+    ["e"],
+  );
   assert.equal(placed.some((item) => item.sourceId === "e"), false);
 
   const returned = returnMatchdayEditorialItemsToAutomatic(profile, placed, [identity("x")]);
@@ -611,15 +777,19 @@ test("opening-return-position-1-shifts-existing-manual-without-creating-overflow
     ],
   );
 
-  const effective =
-    buildMatchdayEditorialProfileEffectiveDistribution(
+  const reconciled =
+    reconcileMatchdayEditorialProfileWorkspace(
       profile,
       activeItems,
       next,
+      emptyMatchdayEditorialProfileOpening(),
+      [],
+      false,
+      [],
     );
 
   assert.deepEqual(
-    effective.bank.map((entry) => entry.sourceId),
+    reconciled.faixaAfter.map((entry) => entry.sourceId),
     ["auto-6"],
   );
 

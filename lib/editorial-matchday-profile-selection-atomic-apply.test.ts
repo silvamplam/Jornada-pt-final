@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -70,7 +70,7 @@ test(
 
     assert.match(
       route,
-      /apply_matchday_editorial_profile_workspace_v6/,
+      /apply_matchday_editorial_profile_workspace_v9/,
     );
   },
 );

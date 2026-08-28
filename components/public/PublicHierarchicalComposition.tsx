@@ -680,6 +680,10 @@ const hierarchicalCompositionStyles = `
     aspect-ratio: 3 / 1;
   }
 
+  .composition-interpretive-other-featured .composition-interpretive-media img {
+    object-position: center 30%;
+  }
+
   .composition-interpretive-other-featured .composition-interpretive-title {
     font-size: 22px;
     font-weight: 800;

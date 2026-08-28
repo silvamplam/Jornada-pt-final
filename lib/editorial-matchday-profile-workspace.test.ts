@@ -511,3 +511,34 @@ for (const slot of Object.keys(emptyMatchdayEditorialProfileOpening()) as (keyof
     );
   });
 }
+test("fonte Nova sem decisão editorial fica fora do circuito público automático", () => {
+  const fresh = {
+    ...item("fresh-unworked", "benfica", 1),
+    isNew: true,
+  };
+
+  const result = reconcile(
+    [fresh],
+    [],
+    emptyMatchdayEditorialProfileOpening(),
+  );
+
+  assert.equal(
+    result.zonesAfter
+      .flatMap((zone) => zone.items)
+      .some((entry) => entry.sourceId === fresh.sourceId),
+    false,
+  );
+  assert.equal(
+    result.faixaAfter.some(
+      (entry) => entry.sourceId === fresh.sourceId,
+    ),
+    false,
+  );
+  assert.equal(
+    result.bankAfter.some(
+      (entry) => entry.sourceId === fresh.sourceId,
+    ),
+    false,
+  );
+});

@@ -1,4 +1,14 @@
-import { thematicEditorialIdentity } from "@/lib/editorial-matchday-profile-desk-operations";
+import type { EditorialProfile } from "@/lib/editorial-profiles";
+import type { MatchdayEditorialProfileDeskAutomaticItem } from "@/lib/editorial-matchday-profile-desk";
+import {
+  moveMatchdayEditorialItemsToBank,
+  thematicEditorialIdentity,
+  type MatchdayEditorialProfileManualOverride,
+} from "@/lib/editorial-matchday-profile-desk-operations";
+import {
+  removeMatchdayEditorialProfileItemFromOpening,
+  type MatchdayEditorialProfileOpening,
+} from "@/lib/editorial-matchday-profile-workspace";
 
 export const MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS =
   [1, 2, 3, 4] as const;
@@ -13,6 +23,19 @@ export type MatchdayEditorialProfileSelectionCandidateIdentity = Readonly<{
   bankItemId: string;
   sourceType: string | null;
   sourceId: string | null;
+}>;
+
+export type ExclusiveMatchdayEditorialProfileSelectionTransition = Readonly<{
+  selection: MatchdayEditorialProfileSelection;
+  overrides: readonly MatchdayEditorialProfileManualOverride[];
+  opening: MatchdayEditorialProfileOpening;
+  workedIdentity: string | null;
+}>;
+
+export type ExclusiveMatchdayEditorialProfileSelectionState = Readonly<{
+  selection: MatchdayEditorialProfileSelection;
+  overrides: readonly MatchdayEditorialProfileManualOverride[];
+  opening: MatchdayEditorialProfileOpening;
 }>;
 
 export type MatchdayEditorialProfileSelectionDrag = Readonly<{
@@ -59,6 +82,115 @@ export function promoteMatchdayEditorialProfileSelection(
   next[selectionIndex(targetPosition)] = cleanBankItemId;
 
   return next;
+}
+
+export function prepareExclusiveMatchdayEditorialProfileSelection(input: Readonly<{
+  profile: EditorialProfile;
+  activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[];
+  overrides: readonly MatchdayEditorialProfileManualOverride[];
+  opening: MatchdayEditorialProfileOpening;
+  selection: MatchdayEditorialProfileSelection;
+  candidates: readonly MatchdayEditorialProfileSelectionCandidateIdentity[];
+  targetPosition: MatchdayEditorialProfileSelectionPosition;
+  bankItemId: string;
+}>): ExclusiveMatchdayEditorialProfileSelectionTransition {
+  const bankItemId = input.bankItemId.trim();
+  const selection = promoteMatchdayEditorialProfileSelection(
+    input.selection,
+    input.targetPosition,
+    bankItemId,
+  );
+  const candidate = input.candidates.find(
+    (item) => item.bankItemId.trim() === bankItemId,
+  );
+  const sourceType = candidate?.sourceType?.trim().toLowerCase() ?? "";
+  const sourceId = candidate?.sourceId?.trim().toLowerCase() ?? "";
+
+  if (sourceType !== "editorial_article" || !sourceId) {
+    return {
+      selection,
+      overrides: input.overrides,
+      opening: input.opening,
+      workedIdentity: null,
+    };
+  }
+
+  const workedIdentity = thematicEditorialIdentity(sourceType, sourceId);
+  if (!input.activeItems.some((item) => (
+    thematicEditorialIdentity(item.sourceType, item.sourceId) === workedIdentity
+  ))) {
+    return {
+      selection,
+      overrides: input.overrides,
+      opening: input.opening,
+      workedIdentity: null,
+    };
+  }
+
+  return {
+    selection,
+    overrides: moveMatchdayEditorialItemsToBank(
+      input.profile,
+      input.activeItems,
+      input.overrides,
+      [workedIdentity],
+    ),
+    opening: removeMatchdayEditorialProfileItemFromOpening(
+      input.opening,
+      sourceId,
+    ),
+    workedIdentity,
+  };
+}
+
+export function prepareExclusiveMatchdayEditorialProfileSelectionState(input: Readonly<{
+  profile: EditorialProfile;
+  activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[];
+  overrides: readonly MatchdayEditorialProfileManualOverride[];
+  opening: MatchdayEditorialProfileOpening;
+  selection: MatchdayEditorialProfileSelection;
+  candidates: readonly MatchdayEditorialProfileSelectionCandidateIdentity[];
+}>): ExclusiveMatchdayEditorialProfileSelectionState {
+  let selection = validatedSelection(input.selection);
+  let overrides = input.overrides;
+  let opening = input.opening;
+
+  for (const position of MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS) {
+    const bankItemId = selection[selectionIndex(position)];
+
+    if (!bankItemId) continue;
+
+    const transition = prepareExclusiveMatchdayEditorialProfileSelection({
+      profile: input.profile,
+      activeItems: input.activeItems,
+      overrides,
+      opening,
+      selection,
+      candidates: input.candidates,
+      targetPosition: position,
+      bankItemId,
+    });
+
+    selection = [...transition.selection];
+    overrides = transition.overrides;
+    opening = transition.opening;
+  }
+
+  return {
+    selection,
+    overrides,
+    opening,
+  };
+}
+
+export function withoutMatchdayEditorialProfileSelectionBankItems(
+  selection: MatchdayEditorialProfileSelection,
+  bankItemIds: readonly string[],
+): MatchdayEditorialProfileSelection {
+  const removed = new Set(bankItemIds.map((value) => value.trim()).filter(Boolean));
+  return validatedSelection(selection).map((value) => (
+    value !== null && removed.has(value) ? null : value
+  ));
 }
 
 export function removeMatchdayEditorialProfileSelection(

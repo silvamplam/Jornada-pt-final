@@ -9,6 +9,9 @@ import {
 import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
 import { validateMatchdayEditorialProfileManualOverrides } from "@/lib/editorial-matchday-profile-desk-operations";
 import {
+  validateMatchdayEditorialProfileApplyState,
+} from "@/lib/editorial-matchday-profile-apply-guard";
+import {
   reconcileMatchdayEditorialProfileWorkspace,
   validateMatchdayEditorialProfileOpening,
   validateMatchdayEditorialProfilePageControls,
@@ -191,6 +194,8 @@ function mutationErrorResponse(error: unknown) {
     || message.includes("profile-workspace-v5-")
     || message.includes("profile-workspace-v6-")
     || message.includes("profile-workspace-v7-")
+    || message.includes("profile-workspace-v8-")
+    || message.includes("profile-workspace-v9-")
     || message.includes("profile-workspace-exclusive-")
   ) {
     return apiError("thematic-desk-invalid-reconcile", "A composição temática foi recusada integralmente.", 400);
@@ -414,6 +419,10 @@ export async function POST(
           || !UUID_PATTERN.test(value.trim())
         ),
     )
+    || !Array.isArray(input.workedSourceIds)
+    || input.workedSourceIds.some(
+      (value) => typeof value !== "string" || !UUID_PATTERN.test(value.trim()),
+    )
     || typeof input.videoModule !== "object"
     || input.videoModule === null
   ) {
@@ -458,19 +467,6 @@ export async function POST(
         input.overrides,
       );
 
-    if (
-      overrides.some(
-        (override) =>
-          override.placementTarget === "zone"
-          && override.sortOrder === null,
-      )
-    ) {
-      return apiError(
-        "thematic-desk-zone-position-required",
-        "Uma deslocação manual para uma zona exige uma posição fixa. Retire a decisão manual para voltar ao critério automático de atualidade.",
-        400,
-      );
-    }
   } catch (error) {
     return mutationErrorResponse(error);
   }
@@ -506,8 +502,55 @@ export async function POST(
       desk.hasAppliedSnapshot,
       desk.currentFaixa,
     );
+    const applyIssues =
+      validateMatchdayEditorialProfileApplyState(
+        reconcile,
+        input.selectionBankItemIds,
+      );
+
+    const zoneIssue = applyIssues.find(
+      (issue) =>
+        issue.code === "incomplete-zone"
+        || issue.code === "invalid-zone-positions",
+    );
+
+    if (zoneIssue) {
+      const zone = reconcile.zonesAfter.find(
+        (candidate) => candidate.key === zoneIssue.zoneKey,
+      );
+
+      return apiError(
+        "thematic-desk-incomplete-zone",
+        `${zoneIssue.zoneLabel} está incompleta (${zone?.items.length ?? 0}/${zone?.capacity ?? 0}). Complete a zona antes de aplicar.`,
+        409,
+      );
+    }
+
+    if (
+      applyIssues.some(
+        (issue) => issue.code === "incomplete-selection",
+      )
+    ) {
+      return apiError(
+        "thematic-desk-incomplete-selection",
+        "A Seleção editorial tem de ter quatro notícias antes de aplicar.",
+        409,
+      );
+    }
+
+    if (
+      applyIssues.some(
+        (issue) => issue.code === "duplicate-selection",
+      )
+    ) {
+      return apiError(
+        "thematic-desk-invalid-selection",
+        "A Seleção editorial tem de conter quatro notícias diferentes.",
+        409,
+      );
+    }
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_editorial_profile_workspace_v7",
+      "rpc/apply_matchday_editorial_profile_workspace_v9",
       {
         method: "POST",
         body: JSON.stringify({
@@ -547,6 +590,8 @@ export async function POST(
           },
           p_selection_bank_item_ids:
             input.selectionBankItemIds,
+          p_worked_source_ids:
+            Array.from(new Set((input.workedSourceIds as string[]).map((value) => value.trim().toLowerCase()))),
           p_video_module: {
             active: videoModule.active,
             highlight_action:

@@ -149,9 +149,10 @@ test("a Faixa permanece completa com paginação local e contador real", () => {
   assert.doesNotMatch(desk, /primeiras 10|público: primeiras 10/);
 });
 
-test("Fontes alterna Banco e Faixa dentro de uma única toolbar", () => {
-  assert.match(desk, /type SourceViewKey = "available" \| "faixa"/);
+test("Fontes alterna Novas, Banco e Faixa dentro de uma única toolbar", () => {
+  assert.match(desk, /type SourceViewKey = "new" \| "available" \| "faixa"/);
   assert.match(desk, /aria-label="Fontes editoriais"/);
+  assert.match(desk, /Novas \{newItems\.length\}/);
   assert.match(desk, /Banco \{reconcile\.bankAfter\.length\}/);
   assert.match(desk, /Faixa \{reconcile\.faixaAfter\.length\}/);
   assert.doesNotMatch(desk, /Disponíveis/);
@@ -170,20 +171,21 @@ test("Fontes alterna Banco e Faixa dentro de uma única toolbar", () => {
   const toolbarStart = desk.indexOf('<div className="thematic-sources-toolbar">');
   const toolbarEnd = desk.indexOf("</div>\n\n        <div", toolbarStart);
   const toolbar = desk.slice(toolbarStart, toolbarEnd);
+  assert.match(toolbar, /Novas \{newItems\.length\}/);
   assert.match(toolbar, /Banco \{reconcile\.bankAfter\.length\}/);
   assert.match(toolbar, /Faixa \{reconcile\.faixaAfter\.length\}/);
   assert.match(toolbar, /Filtrar fonte por zona natural/);
-  assert.match(toolbar, /Limpar seleção/);
   assert.match(toolbar, /thematic-reservoir-search/);
   assert.match(toolbar, /encontradas/);
   assert.match(
     desk,
-    /activeSourceView === "available"[\s\S]*visibleReservoir\.map[\s\S]*visibleFaixa\.map/,
+    /const visibleSourceItems = activeSourceView === "new"[\s\S]*visibleNewItems[\s\S]*visibleReservoir[\s\S]*visibleFaixa/,
   );
   assert.match(desk, /reconcile\.bankAfter\.length/);
   assert.match(desk, /reconcile\.faixaAfter\.length/);
-  assert.match(desk, /\{selected\.size\}[\s\S]*selecionadas/);
-  assert.match(desk, /Limpar seleção/);
+  assert.match(desk, /aria-label="Controlos de seleção"/);
+  assert.match(desk, /\{selected\.size\} notícias selecionadas/);
+  assert.match(desk, /Limpar marcação/);
   assert.match(
     desk,
     /\.thematic-sources-list \{ display: grid; grid-template-columns: repeat\(3/,

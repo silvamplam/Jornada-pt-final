@@ -747,17 +747,52 @@ export function reconcileMatchdayEditorialProfileWorkspace(
     }
   }
 
-  const circuitItems = activeItems.filter((item) => !openingIdentities.has(
-    thematicEditorialIdentity(item.sourceType, item.sourceId),
-  ));
+  const manualOverrideIdentities = new Set(
+    manualOverrides.map((override) => (
+      thematicEditorialIdentity(
+        override.sourceType,
+        override.sourceId,
+      )
+    )),
+  );
+  const passiveNewIdentities = new Set(
+    activeItems
+      .filter((item) => {
+        const identity = thematicEditorialIdentity(
+          item.sourceType,
+          item.sourceId,
+        );
+        return item.isNew === true
+          && !manualOverrideIdentities.has(identity);
+      })
+      .map((item) => (
+        thematicEditorialIdentity(
+          item.sourceType,
+          item.sourceId,
+        )
+      )),
+  );
+  const circuitItems = activeItems.filter((item) => {
+    const identity = thematicEditorialIdentity(
+      item.sourceType,
+      item.sourceId,
+    );
+    return !openingIdentities.has(identity)
+      && !passiveNewIdentities.has(identity);
+  });
   const circuitOverrides = withoutMatchdayEditorialProfileOpeningOverrides(
     profile,
     manualOverrides,
     opening,
   );
-  const circuitFaixa = currentFaixa.filter((item) => !openingIdentities.has(
-    thematicEditorialIdentity(item.sourceType, item.sourceId),
-  ));
+  const circuitFaixa = currentFaixa.filter((item) => {
+    const identity = thematicEditorialIdentity(
+      item.sourceType,
+      item.sourceId,
+    );
+    return !openingIdentities.has(identity)
+      && !passiveNewIdentities.has(identity);
+  });
 
   return reconcileMatchdayEditorialProfileDistribution(
     profile,

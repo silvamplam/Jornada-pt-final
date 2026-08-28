@@ -40,3 +40,27 @@ test("escolher um tab não muda a posição pública e reorder mantém o helper 
   );
   assert.doesNotMatch(source, /style=\{\{\s*order:/);
 });
+
+test("menu da Mesa permanece horizontal acima do workspace a toda a largura", () => {
+  assert.match(
+    source,
+    /\.thematic-workspace \{ display: grid; grid-template-columns: minmax\(0,1fr\);/,
+  );
+  assert.match(
+    source,
+    /\.thematic-zone-tabs \{ display: flex; flex-wrap: wrap;/,
+  );
+  assert.doesNotMatch(
+    source,
+    /\.thematic-zone-tabs \{[^}]*flex-direction: column/,
+  );
+  assert.doesNotMatch(
+    source,
+    /\.thematic-zone-tabs button \{[^}]*width: 100%/,
+  );
+  assert.doesNotMatch(source, /grid-template-columns: 150px/);
+  assert.doesNotMatch(
+    source,
+    /@media \(min-width: 1400px\)[^`]*\.thematic-workspace \{ grid-template-columns:/,
+  );
+});

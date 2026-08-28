@@ -48,6 +48,7 @@ export type MatchdayEditorialProfileActiveBankRow = Readonly<{
   source_id: string | null;
   status: string | null;
   automatic_eligible?: boolean | null;
+  editorially_worked_at?: string | null;
 }>;
 
 export type MatchdayEditorialProfileArticleRow = Readonly<{
@@ -136,6 +137,7 @@ export type MatchdayEditorialProfileDeskItem = Readonly<{
   imageUrl: string | null;
   publishedAt: string | null;
   updatedAt: string | null;
+  isNew?: boolean;
 }>;
 
 export type MatchdayEditorialProfileDeskAutomaticItem =
@@ -444,6 +446,7 @@ export function buildMatchdayEditorialProfileDeskDistribution(
       ...itemFromArticle(sourceType, sourceId, actualityOrder, article),
       classifiedZoneKey,
       actualityOrder,
+      isNew: bankRow.editorially_worked_at == null,
     });
   }
   activeItems.sort(compareThematicItemsByActuality);
@@ -657,7 +660,7 @@ export async function readMatchdayEditorialProfileDesk(
     ),
     readAllRows<MatchdayEditorialProfileActiveBankRow>(
       fetchTable,
-      `matchday_editorial_bank_items?select=source_type,source_id,status,automatic_eligible&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&status=eq.active&source_type=eq.editorial_article`,
+      `matchday_editorial_bank_items?select=source_type,source_id,status,automatic_eligible,editorially_worked_at&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&status=eq.active&source_type=eq.editorial_article`,
     ),
     readAllRows<MatchdayEditorialProfileManualOverrideRow>(
       fetchTable,

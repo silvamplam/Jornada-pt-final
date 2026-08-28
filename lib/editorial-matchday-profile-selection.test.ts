@@ -6,18 +6,28 @@ import {
   MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS,
   matchdayEditorialProfileSelectionBankItemByIdentity,
   parseMatchdayEditorialProfileSelectionDrag,
+  prepareExclusiveMatchdayEditorialProfileSelection,
+  prepareExclusiveMatchdayEditorialProfileSelectionState,
   promoteMatchdayEditorialProfileSelection,
   removeMatchdayEditorialProfileSelection,
   serializeMatchdayEditorialProfileSelectionDrag,
 } from "@/lib/editorial-matchday-profile-selection";
+import { EDITORIAL_PROFILES } from "@/lib/editorial-profiles";
 
 const client = readFileSync(
   "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
   "utf8",
 );
+const selectionPanelStart = client.indexOf(
+  "function renderEditorialSelectionPanel",
+);
+const selectionPanelEnd = client.indexOf(
+  "function activateWorkspaceFromStructure",
+  selectionPanelStart,
+);
 const selectionPanel = client.slice(
-  client.indexOf("function renderEditorialSelectionPanel"),
-  client.indexOf("\n  return (", client.indexOf("function renderEditorialSelectionPanel")),
+  selectionPanelStart,
+  selectionPanelEnd,
 );
 const selectionCard = client.slice(
   client.indexOf("function EditorialSelectionCard"),
@@ -31,50 +41,155 @@ test("Seleção expõe quatro posições canónicas", () => {
   );
 });
 
-test("promover preserva overrides, Opening e colocação real", () => {
-  const workspace = {
-    overrides: [{ sourceId: "article-a", placementTarget: "zone" }],
-    opening: { headline: "article-c" },
-    faixa: ["article-b"],
-    bank: ["article-d"],
-    selection: [null, null, null, null] as readonly (string | null)[],
+test("Zona, Faixa e Abertura passam deterministicamente para Banco ao entrar na Seleção", () => {
+  const profile = EDITORIAL_PROFILES.liga_portugal_v1;
+  const activeItem = {
+    sourceType: "editorial_article",
+    sourceId: "article-a",
+    sortOrder: 1,
+    classifiedZoneKey: "benfica",
+    actualityOrder: 1,
+    label: "BENFICA",
+    title: "Notícia A",
+    subtitle: null,
+    imageUrl: null,
+    publishedAt: null,
+    updatedAt: null,
+  } as const;
+  const candidate = {
+    bankItemId: "bank-a",
+    sourceType: "editorial_article",
+    sourceId: "article-a",
   };
-
-  const nextSelection = promoteMatchdayEditorialProfileSelection(
-    workspace.selection,
-    1,
-    "bank-a",
-  );
-
-  assert.deepEqual(nextSelection, ["bank-a", null, null, null]);
-  assert.deepEqual(
+  const emptyOpening = {
+    headline: null,
+    highlight_1: null,
+    highlight_2: null,
+    highlight_3: null,
+    context: null,
+  } as const;
+  const origins = [
+    { overrides: [], opening: emptyOpening },
     {
-      overrides: workspace.overrides,
-      opening: workspace.opening,
-      faixa: workspace.faixa,
-      bank: workspace.bank,
+      overrides: [{
+        sourceType: "editorial_article",
+        sourceId: "article-a",
+        placementTarget: "faixa",
+        zoneKey: null,
+        sortOrder: null,
+      }],
+      opening: emptyOpening,
     },
-    {
-      overrides: [{ sourceId: "article-a", placementTarget: "zone" }],
-      opening: { headline: "article-c" },
-      faixa: ["article-b"],
-      bank: ["article-d"],
-    },
-  );
+    { overrides: [], opening: { ...emptyOpening, headline: "article-a" } },
+  ] as const;
+
+  for (const origin of origins) {
+    const transition = prepareExclusiveMatchdayEditorialProfileSelection({
+      profile,
+      activeItems: [activeItem],
+      overrides: origin.overrides,
+      opening: origin.opening,
+      selection: [null, null, null, null],
+      candidates: [candidate],
+      targetPosition: 1,
+      bankItemId: "bank-a",
+    });
+
+    assert.deepEqual(transition.selection, ["bank-a", null, null, null]);
+    assert.equal(Object.values(transition.opening).includes("article-a"), false);
+    assert.deepEqual(transition.overrides, [{
+      sourceType: "editorial_article",
+      sourceId: "article-a",
+      placementTarget: "bank",
+      zoneKey: null,
+      sortOrder: null,
+    }]);
+    assert.equal(transition.workedIdentity, "editorial_article\u0000article-a");
+  }
 });
 
-test("Zona, Faixa, Abertura e Banco usam a mesma promoção não exclusiva", () => {
-  const origins = ["zone", "faixa", "opening", "bank"] as const;
+test("Seleção já persistida é normalizada de uma vez para placement exclusivo", () => {
+  const profile = EDITORIAL_PROFILES.liga_portugal_v1;
+  const activeItems = [
+    {
+      sourceType: "editorial_article",
+      sourceId: "article-a",
+      sortOrder: 1,
+      classifiedZoneKey: "benfica",
+      actualityOrder: 1,
+      label: "BENFICA",
+      title: "Notícia A",
+      subtitle: null,
+      imageUrl: null,
+      publishedAt: null,
+      updatedAt: null,
+    },
+    {
+      sourceType: "editorial_article",
+      sourceId: "article-b",
+      sortOrder: 1,
+      classifiedZoneKey: "sporting",
+      actualityOrder: 1,
+      label: "SPORTING",
+      title: "Notícia B",
+      subtitle: null,
+      imageUrl: null,
+      publishedAt: null,
+      updatedAt: null,
+    },
+  ] as const;
+  const transition = prepareExclusiveMatchdayEditorialProfileSelectionState({
+    profile,
+    activeItems,
+    overrides: [{
+      sourceType: "editorial_article",
+      sourceId: "article-b",
+      placementTarget: "zone",
+      zoneKey: "sporting",
+      sortOrder: 1,
+    }],
+    opening: {
+      headline: "article-a",
+      highlight_1: null,
+      highlight_2: null,
+      highlight_3: null,
+      context: null,
+    },
+    selection: ["bank-a", "bank-b", null, null],
+    candidates: [
+      {
+        bankItemId: "bank-a",
+        sourceType: "editorial_article",
+        sourceId: "article-a",
+      },
+      {
+        bankItemId: "bank-b",
+        sourceType: "editorial_article",
+        sourceId: "article-b",
+      },
+    ],
+  });
 
-  for (const [index, origin] of origins.entries()) {
-    const selection = promoteMatchdayEditorialProfileSelection(
-      [null, null, null, null],
-      (index + 1) as 1 | 2 | 3 | 4,
-      `bank-${origin}`,
-    );
-
-    assert.equal(selection[index], `bank-${origin}`);
-  }
+  assert.deepEqual(
+    transition.selection,
+    ["bank-a", "bank-b", null, null],
+  );
+  assert.equal(
+    Object.values(transition.opening).some(
+      (sourceId) => sourceId === "article-a" || sourceId === "article-b",
+    ),
+    false,
+  );
+  assert.deepEqual(
+    transition.overrides
+      .map((entry) => [entry.sourceId, entry.placementTarget])
+      .sort(),
+    [
+      ["article-a", "bank"],
+      ["article-b", "bank"],
+    ],
+  );
+  assert.equal("workedIdentities" in transition, false);
 });
 
 test("substituir e remover afetam apenas a referência promocional", () => {
@@ -134,20 +249,32 @@ test("identidade de origem resolve o bank item id canónico", () => {
   );
 });
 
-test("Mesa não mostra dropdowns nem catálogo textual da Seleção", () => {
+test("Mesa não mostra seletor de artigo nem catálogo textual da Seleção", () => {
   assert.doesNotMatch(selectionPanel, /Escolher artigo/u);
-  assert.doesNotMatch(selectionPanel, /<select/u);
-  assert.doesNotMatch(selectionPanel, /<option/u);
+  assert.match(
+    selectionPanel,
+    /aria-label="Apresentação de Últimas"/u,
+  );
+  assert.doesNotMatch(
+    selectionPanel,
+    /editorialSelectionCandidates\.map[\s\S]*<option/u,
+  );
 });
 
-test("quatro slots são drop targets promocionais", () => {
+test("quatro slots são drop targets da Seleção exclusiva", () => {
   assert.match(
     client,
     /MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS\.map/u,
   );
-  assert.match(client, /className="thematic-zone-slot thematic-selection-slot"/u);
-  assert.match(client, /onDrop=\{\(event\) =>[\s\S]*dropOnEditorialSelection/u);
-  assert.match(client, /Retirar da Seleção/u);
+  assert.match(
+    selectionPanel,
+    /className="thematic-workspace-slot thematic-selection-slot"/u,
+  );
+  assert.match(
+    selectionPanel,
+    /onDrop=\{\(event\) =>[\s\S]*dropOnEditorialSelection/u,
+  );
+  assert.match(selectionCard, /Retirar da Seleção/u);
 });
 
 test("cartão da Seleção usa menu compacto com uma única ação própria", () => {
@@ -165,139 +292,95 @@ test("cartão da Seleção usa menu compacto com uma única ação própria", ()
   );
 });
 
-test("drop promocional não usa transição de placement exclusivo", () => {
-  const start = client.indexOf("function dropOnEditorialSelection");
-  const end = client.indexOf("function changeVideoModuleActive", start);
-  const implementation = client.slice(start, end);
+test("drop da Seleção usa a transição exclusiva", () => {
+  const changeStart = client.indexOf("function changeEditorialSelection");
+  const dropStart = client.indexOf("function dropOnEditorialSelection", changeStart);
+  const end = client.indexOf("function changeVideoModuleActive", dropStart);
+  const implementation = client.slice(changeStart, end);
 
-  assert.ok(start >= 0 && end > start);
-  assert.doesNotMatch(implementation, /prepareExclusivePlacementTransition/u);
-  assert.doesNotMatch(implementation, /draftOverrides|draftOpening/u);
+  assert.ok(changeStart >= 0 && dropStart > changeStart && end > dropStart);
+  assert.match(
+    implementation,
+    /prepareExclusiveMatchdayEditorialProfileSelection/u,
+  );
+  assert.match(
+    implementation,
+    /function dropOnEditorialSelection[\s\S]*changeEditorialSelection/u,
+  );
   assert.match(implementation, /bankItemIdByIdentity/u);
 });
 
-test("painel fica sob FC Porto e separado do Banco na Mesa completa", () => {
-  const fullDeskStart = client.indexOf('{deskView === "full"');
-  const columnMarker = '<div className="thematic-zone-column">';
-  const leftStart = client.indexOf(columnMarker, fullDeskStart);
-  const centerStart = client.indexOf(columnMarker, leftStart + 1);
-  const rightStart = client.indexOf(columnMarker, centerStart + 1);
-  const fullDeskEnd = client.indexOf("</section>", rightStart);
-  const rightColumn = client.slice(rightStart, fullDeskEnd);
-
-  assert.match(
-    rightColumn,
-    /renderZonePanel\("fc_porto"\)[\s\S]*!selectionPinnedForDrag[\s\S]*renderEditorialSelectionPanel\(false\)/u,
-  );
-  assert.doesNotMatch(rightColumn, /Banco explícito|thematic-bank-panel/u);
-});
-
-test("pin da Seleção é local, momentâneo e começa desligado", () => {
+test("Seleção legada é normalizada no carregamento sem criar uma nova decisão editorial", () => {
   assert.match(
     client,
-    /const \[selectionPinnedForDrag, setSelectionPinnedForDrag\] = useState\(false\)/u,
+    /prepareExclusiveMatchdayEditorialProfileSelectionState/u,
   );
-  assert.match(selectionPanel, /Fixar para arrastar/u);
-
-  const pinLines = client
-    .split("\n")
-    .filter((line) => line.includes("selectionPinnedForDrag"));
-
-  assert.equal(
-    pinLines.some((line) => /sessionStorage|localStorage/u.test(line)),
-    false,
-  );
-
-  const currentDraft = client.slice(
-    client.indexOf("function currentDraft"),
-    client.indexOf("function commitDraft"),
-  );
-  const applyChanges = client.slice(
-    client.indexOf("async function applyChanges"),
-    client.indexOf("function renderZonePanel"),
-  );
-
-  assert.doesNotMatch(currentDraft, /selectionPinnedForDrag/u);
-  assert.doesNotMatch(applyChanges, /selectionPinnedForDrag/u);
-});
-
-test("pin alterna uma única instância funcional entre coluna e dock sticky", () => {
-  const dockStart = client.indexOf("{selectionPinnedForDrag ? (");
-  const deskViewStart = client.indexOf(
-    'aria-label="Vista de trabalho da Mesa"',
-    dockStart,
-  );
-  const dock = client.slice(dockStart, deskViewStart);
-
-  assert.ok(dockStart >= 0 && deskViewStart > dockStart);
-  assert.match(dock, /className="thematic-selection-dock"/u);
-  assert.doesNotMatch(dock, /style=\{\{ top:/u);
-  assert.match(dock, /renderEditorialSelectionPanel\(true\)/u);
   assert.match(
     client,
-    /!selectionPinnedForDrag[\s\S]*renderEditorialSelectionPanel\(false\)/u,
+    /selectionBootstrapMatchdayRef/u,
   );
+
+  const bootstrapStart = client.indexOf(
+    "prepareExclusiveMatchdayEditorialProfileSelectionState({",
+  );
+  const bootstrapEnd = client.indexOf(
+    "const reconcile = useMemo",
+    bootstrapStart,
+  );
+  const bootstrap = client.slice(bootstrapStart, bootstrapEnd);
+
+  assert.ok(bootstrapStart >= 0 && bootstrapEnd > bootstrapStart);
+  assert.doesNotMatch(bootstrap, /withWorkedIdentities/u);
+  assert.match(
+    bootstrap,
+    /A Seleção já existente foi preparada para colocação exclusiva/u,
+  );
+});
+
+test("Seleção é o workspace de Últimas e as fontes ficam separadas", () => {
+  const workspaceStart = client.indexOf(
+    "function renderActiveWorkspace",
+  );
+  const workspaceEnd = client.indexOf(
+    "\n  return (",
+    workspaceStart,
+  );
+  const workspace = client.slice(
+    workspaceStart,
+    workspaceEnd,
+  );
+
+  assert.ok(workspaceStart >= 0 && workspaceEnd > workspaceStart);
+  assert.match(
+    workspace,
+    /activeWorkspaceKey === "latest"[\s\S]*renderEditorialSelectionPanel\(\)/u,
+  );
+
+  const mainWorkspace = client.indexOf(
+    'className="thematic-panel thematic-workspace"',
+  );
+  const sources = client.indexOf(
+    "{renderSources()}",
+    mainWorkspace,
+  );
+
+  assert.ok(mainWorkspace >= 0 && sources > mainWorkspace);
+});
+
+test("Seleção mantém uma única grelha administrativa responsiva", () => {
   assert.equal(
-    client.match(/MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS\.map/gu)?.length,
+    client.match(
+      /MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS\.map/gu,
+    )?.length,
     1,
   );
-});
-
-test("pin troca deterministicamente o proprietário do sticky principal", () => {
   assert.match(
     client,
-    /\.thematic-opening-panel \{ position: sticky; top: 8px; z-index: 18;/u,
+    /\.thematic-slots-4 \{ grid-template-columns: repeat\(4,minmax\(0,1fr\)\); \}/u,
   );
   assert.match(
     client,
-    /\.thematic-opening-panel\.thematic-opening-panel-static \{ position: static; \}/u,
-  );
-  assert.match(
-    client,
-    /className=\{`thematic-panel thematic-opening-panel\$\{selectionPinnedForDrag \? " thematic-opening-panel-static" : ""\}`\}/u,
-  );
-  assert.match(
-    client,
-    /\.thematic-selection-dock \{ position: sticky; top: 8px; z-index: 18;/u,
-  );
-  assert.doesNotMatch(client, /ResizeObserver|selectionDockTop|openingPanelRef/u);
-});
-
-test("dock sticky conserva os quatro slots responsivos", () => {
-  assert.match(
-    client,
-    /\.thematic-selection-dock \.thematic-editorial-selection \{ grid-template-columns: repeat\(4,minmax\(0,1fr\)\)/u,
-  );
-  assert.match(
-    client,
-    /@media \(max-width: 1250px\)[\s\S]*?\.thematic-selection-dock \.thematic-editorial-selection \{ grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/u,
-  );
-});
-
-test("modo fixado é compacto e sobrevive à alternância de vista", () => {
-  assert.match(
-    selectionPanel,
-    /!compactPinned \? \([\s\S]*className="thematic-public-title"/u,
-  );
-  assert.match(
-    selectionPanel,
-    /!compactPinned \? \([\s\S]*className="thematic-latest-body"/u,
-  );
-
-  const viewControlsStart = client.indexOf('aria-label="Escolher vista da Mesa"');
-  const viewControlsEnd = client.indexOf("</section>", viewControlsStart);
-  const viewControls = client.slice(viewControlsStart, viewControlsEnd);
-
-  assert.doesNotMatch(viewControls, /setSelectionPinnedForDrag/u);
-  assert.match(viewControls, /setDeskView\("focus"\)/u);
-  assert.match(viewControls, /setDeskView\("full"\)/u);
-  assert.match(
-    client,
-    /selectionPinnedForDrag[\s\S]*?"\.thematic-selection-dock"[\s\S]*?: "\.thematic-opening-panel"/u,
-  );
-  assert.match(
-    client,
-    /\[deskView, deskViewPreferenceReady, focusZone, selectionPinnedForDrag\]/u,
+    /@media \(max-width: 760px\)[\s\S]*?\.thematic-slots-4[\s\S]*?grid-template-columns: 1fr/u,
   );
 });
 
@@ -314,17 +397,25 @@ test("posição administrativa não altera ordem ou contrato público", () => {
 });
 
 test("top, four_news e hidden não condicionam a montagem administrativa", () => {
-  const fullDesk = client.slice(
-    client.indexOf('{deskView === "full"'),
-    client.indexOf("<article\n          className={`thematic-panel", client.indexOf('{deskView === "full"')),
+  const workspaceStart = client.indexOf(
+    "function renderActiveWorkspace",
+  );
+  const workspaceEnd = client.indexOf(
+    "return null;",
+    workspaceStart,
+  );
+  const workspace = client.slice(
+    workspaceStart,
+    workspaceEnd,
   );
 
+  assert.ok(workspaceStart >= 0 && workspaceEnd > workspaceStart);
   assert.match(
-    fullDesk,
-    /!selectionPinnedForDrag[\s\S]*renderEditorialSelectionPanel\(false\)/u,
+    workspace,
+    /activeWorkspaceKey === "latest"[\s\S]*renderEditorialSelectionPanel\(\)/u,
   );
   assert.doesNotMatch(
-    fullDesk,
-    /latestZonePlacement\s*===\s*"four_news"[\s\S]*!selectionPinnedForDrag[\s\S]*renderEditorialSelectionPanel\(false\)/u,
+    workspace,
+    /latestZonePlacement/u,
   );
 });
