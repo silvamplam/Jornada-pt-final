@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { publicArticleParagraphs } from "@/lib/public-article-paragraphs";
 import { selectPublicMoreArticles } from "@/lib/public-article-more";
+import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
@@ -1280,7 +1281,11 @@ export default async function NewsArticlePage({ params }: PageProps) {
 
           {article.image_url ? (
             <figure className="news-article-image">
-              <img alt="" src={article.image_url} />
+              <img
+                {...editorialImageFramingProps("standard")}
+                alt=""
+                src={article.image_url}
+              />
               {article.image_caption ? <figcaption>{article.image_caption}</figcaption> : null}
             </figure>
           ) : null}
@@ -1303,7 +1308,11 @@ export default async function NewsArticlePage({ params }: PageProps) {
                   return (
                     <li className="news-article-side-item" key={item.id}>
                       {item.image_url ? (
-                        <img alt="" src={item.image_url} />
+                        <img
+                          {...editorialImageFramingProps("standard")}
+                          alt=""
+                          src={item.image_url}
+                        />
                       ) : (
                         <span className="news-article-side-thumb-placeholder" aria-hidden="true" />
                       )}

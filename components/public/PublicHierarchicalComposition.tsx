@@ -9,6 +9,9 @@ import {
 } from "@/lib/editorial-hierarchical-composition";
 import type { CSSProperties } from "react";
 import type { HistoricalCompositionBlockKey } from "@/lib/editorial-historical-composition-workspace";
+import {
+  hierarchicalEditorialImageFramingProps,
+} from "@/lib/editorial-image-framing";
 
 import PublicBeyondMatchdayNews, { type PublicBeyondMatchdayNewsItem } from "./PublicBeyondMatchdayNews";
 import { PublicEditorialLayout, PublicInlineMediaPlayer, type PublicComplementaryData } from "./PublicEditorialLayout";
@@ -680,10 +683,6 @@ const hierarchicalCompositionStyles = `
     aspect-ratio: 3 / 1;
   }
 
-  .composition-interpretive-other-featured .composition-interpretive-media img {
-    object-position: center 30%;
-  }
-
   .composition-interpretive-other-featured .composition-interpretive-title {
     font-size: 22px;
     font-weight: 800;
@@ -1014,7 +1013,11 @@ function InterpretiveMedia({
           media={inlineMedia}
         />
       ) : slot?.image_url_snapshot ? (
-        <img alt="" src={slot.image_url_snapshot} />
+        <img
+          {...hierarchicalEditorialImageFramingProps(slotKey)}
+          alt=""
+          src={slot.image_url_snapshot}
+        />
       ) : (
         <span className="composition-interpretive-media-missing">Imagem em falta · {slotKey}</span>
       )}

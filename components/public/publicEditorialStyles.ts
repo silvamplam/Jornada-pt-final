@@ -726,7 +726,6 @@ export const publicEditorialStyles = `
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
   }
 
   .public-side-editorial-copy {
@@ -904,7 +903,6 @@ export const publicEditorialStyles = `
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
   }
 
   .public-editorial-main-image iframe {
@@ -1268,7 +1266,6 @@ export const publicEditorialStyles = `
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
   }
 
   .public-below-headline-highlights .public-cover-story-strip {
@@ -1496,7 +1493,6 @@ export const publicEditorialStyles = `
   .public-complement-media img,
   .public-complement-media video {
     object-fit: cover;
-    object-position: center;
   }
 
   .public-complement-media video {
@@ -1614,7 +1610,6 @@ export const publicEditorialStyles = `
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
   }
 
   .public-cover-story span {
@@ -1727,7 +1722,6 @@ export const publicEditorialStyles = `
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
   }
 
   .public-news-copy {

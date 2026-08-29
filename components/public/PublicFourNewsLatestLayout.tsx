@@ -1,6 +1,7 @@
 import PublicLatestNewsBlock from "./PublicLatestNewsBlock";
 import type { PublicEditorialLatestNews } from "./PublicEditorialLayout";
 import { excludeSelectedEditorialItemsFromLatest } from "@/lib/public-four-news-latest-dedup";
+import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 
 import PublicSideAdvertisement from "./PublicSideAdvertisement";
 
@@ -375,7 +376,12 @@ export default function PublicFourNewsLatestLayout({
                   href={item.linkUrl}
                   aria-label={item.title}
                 >
-                  <img alt="" src={item.imageUrl} loading="lazy" />
+                  <img
+                    {...editorialImageFramingProps("wide")}
+                    alt=""
+                    src={item.imageUrl}
+                    loading="lazy"
+                  />
                 </a>
               ) : null}
 

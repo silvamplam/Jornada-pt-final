@@ -4,6 +4,7 @@ import {
   buildEditorialHorizontalNewsRows,
   type EditorialHorizontalNewsItem
 } from "@/lib/editorial-horizontal-news";
+import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 
 const horizontalNewsStyles = `
   .public-horizontal-news {
@@ -60,7 +61,6 @@ const horizontalNewsStyles = `
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center;
   }
 
   .public-horizontal-news-label {
@@ -199,11 +199,19 @@ export default function PublicHorizontalNewsStrip({
               <article className="public-horizontal-news-card" key={item.id}>
                 {item.imageUrl && item.linkUrl ? (
                   <a className="public-horizontal-news-image-link" href={item.linkUrl}>
-                    <img src={item.imageUrl} alt="" />
+                    <img
+                      {...editorialImageFramingProps("wide")}
+                      src={item.imageUrl}
+                      alt=""
+                    />
                   </a>
                 ) : item.imageUrl ? (
                   <span className="public-horizontal-news-image">
-                    <img src={item.imageUrl} alt="" />
+                    <img
+                      {...editorialImageFramingProps("wide")}
+                      src={item.imageUrl}
+                      alt=""
+                    />
                   </span>
                 ) : null}
                 {item.label ? (

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 import PublicContextPostTitle from "./PublicContextPostTitle";
 import PublicLatestNewsBlock from "./PublicLatestNewsBlock";
 import RoundupVideoSwitcher, { type RoundupVideoItem } from "./RoundupVideoSwitcher";
@@ -745,7 +746,11 @@ export function PublicSideBlock({
           <>
             {data.imageUrl ? (
               <div className="public-side-editorial-image">
-                <img alt="" src={data.imageUrl} />
+                <img
+                  {...editorialImageFramingProps("standard")}
+                  alt=""
+                  src={data.imageUrl}
+                />
               </div>
             ) : null}
             <div className="public-side-editorial-copy">
@@ -793,7 +798,11 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {
     </div>
   ) : data.imageUrl ? (
     <div className="public-editorial-main-image">
-      <img src={data.imageUrl} alt="" />
+      <img
+        {...editorialImageFramingProps("wide")}
+        src={data.imageUrl}
+        alt=""
+      />
     </div>
   ) : null;
 
@@ -855,7 +864,15 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {
 function PublicHighlightCard({ item }: { item: PublicEditorialHighlight }) {
   const body = (
     <>
-      <div className="public-highlight-image">{item.imageUrl ? <img src={item.imageUrl} alt="" /> : null}</div>
+      <div className="public-highlight-image">
+        {item.imageUrl ? (
+          <img
+            {...editorialImageFramingProps("wide")}
+            src={item.imageUrl}
+            alt=""
+          />
+        ) : null}
+      </div>
       {item.label ? <span style={item.labelColor ? { color: item.labelColor } : undefined}>{item.label}</span> : null}
       <strong>{item.title}</strong>
       {item.subtitle ? <small>{item.subtitle}</small> : null}
@@ -910,7 +927,11 @@ export function PublicComplementaryBlock({
     </div>
   ) : data.imageUrl ? (
     <div className="public-complement-media">
-      <img src={data.imageUrl} alt="" />
+      <img
+        {...editorialImageFramingProps("wide")}
+        src={data.imageUrl}
+        alt=""
+      />
     </div>
   ) : null;
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import YouTubeEmbedWithFallback from "@/components/public/YouTubeEmbedWithFallback";
+import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -234,7 +235,11 @@ export default async function PublicEditorialContentPage({ params }: PageProps) 
         ) : imageUrl ? (
           <figure className="editorial-content-media">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imageUrl} alt="" />
+            <img
+              {...editorialImageFramingProps("wide")}
+              src={imageUrl}
+              alt=""
+            />
             {imageCaption ? <figcaption>{imageCaption}</figcaption> : null}
           </figure>
         ) : null}

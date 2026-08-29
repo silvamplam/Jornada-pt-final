@@ -7,6 +7,7 @@ import {
   type PublicSeasonMatch
 } from "@/lib/public-matchday";
 import { getPublicTeamName } from "@/lib/public-team-name";
+import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicMatchdayNavigation from "@/components/public/PublicMatchdayNavigation";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
@@ -1522,7 +1523,11 @@ export default async function PublicMatchdayGamesPage({ params }: PublicMatchday
                       <>
                         {item.imageUrl ? (
                           <span className="public-games-news-thumb">
-                            <img alt="" src={item.imageUrl} />
+                            <img
+                              {...editorialImageFramingProps("standard")}
+                              alt=""
+                              src={item.imageUrl}
+                            />
                           </span>
                         ) : null}
                         <span className="public-games-news-copy">

@@ -1,3 +1,5 @@
+import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
+
 export type PublicBeyondMatchdayNewsItem = {
   id: string;
   label?: string | null;
@@ -261,7 +263,12 @@ function StoryMedia({ item }: { item: PublicBeyondMatchdayNewsItem }) {
 
   return (
     <a className="public-beyond-matchday-media" href={item.linkUrl} aria-label={item.title}>
-      <img src={item.imageUrl} alt="" loading="lazy" />
+      <img
+        {...editorialImageFramingProps("wide")}
+        src={item.imageUrl}
+        alt=""
+        loading="lazy"
+      />
     </a>
   );
 }
