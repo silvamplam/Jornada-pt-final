@@ -24,7 +24,6 @@ import type {
   MatchdayEditorialProfileDeskSnapshot,
 } from "@/lib/editorial-matchday-profile-desk";
 import {
-  fixMatchdayEditorialItemsInZone,
   fixMatchdayEditorialItemsAtPosition,
   moveMatchdayEditorialItemsToBank,
   moveMatchdayEditorialItemsToFaixa,
@@ -804,6 +803,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [editorialSelectionLoadedMatchdayId, setEditorialSelectionLoadedMatchdayId] =
     useState<string | null>(null);
   const [destinationZone, setDestinationZone] = useState<EditorialProfileZoneKey>(profile.zones[0].key);
+  const [zonePosition, setZonePosition] = useState(1);
   const [faixaPosition, setFaixaPosition] = useState(1);
   const [faixaQuery, setFaixaQuery] = useState("");
   const [faixaZoneFilters, setFaixaZoneFilters] = useState<
@@ -1236,6 +1236,17 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   const selected = useMemo(() => new Set(editorState.selectedIdentities.filter((itemIdentity) => activeIdentities.has(itemIdentity))), [activeIdentities, editorState.selectedIdentities]);
   const selectedIdentities = [...selected];
+  const destinationZoneCapacity = effectiveProfile.zones.find(
+    (zone) => zone.key === destinationZone,
+  )?.capacity ?? 1;
+  const maxZoneStartPosition = Math.max(
+    1,
+    destinationZoneCapacity - Math.max(1, selectedIdentities.length) + 1,
+  );
+  const effectiveZonePosition = Math.min(
+    zonePosition,
+    maxZoneStartPosition,
+  );
   const workedIdentitySet = useMemo(
     () => new Set(editorState.workedIdentities),
     [editorState.workedIdentities],
@@ -2818,18 +2829,30 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     ))}
                   </select>
                 </label>
+                <label className="thematic-field">
+                  Posição na zona
+                  <select
+                    value={effectiveZonePosition}
+                    onChange={(event) => setZonePosition(Number(event.target.value))}
+                  >
+                    {Array.from({ length: maxZoneStartPosition }, (_, index) => index + 1).map((position) => (
+                      <option key={position} value={position}>{position}</option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   className="thematic-button"
                   onClick={() => localOperation(() => {
                     const transition = prepareExclusivePlacementTransition(selectedIdentities);
                     return withWorkedIdentities({
                       ...currentDraft(),
-                      overrides: fixMatchdayEditorialItemsInZone(
+                      overrides: fixMatchdayEditorialItemsAtPosition(
                         effectiveProfile,
                         transition.candidates,
                         transition.overrides,
                         selectedIdentities,
                         destinationZone,
+                        effectiveZonePosition,
                         reconcile.zonesAfter.find(
                           (zone) => zone.key === destinationZone,
                         )?.items,
@@ -2837,7 +2860,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                       opening: transition.opening,
                       editorialSelection: transition.editorialSelection,
                     }, selectedIdentities);
-                  }, "Operação em lote inserida desde a posição 1; o conteúdo existente desce e o excesso passa para o topo da Faixa.")}
+                  }, "Operação em lote inserida desde a posição escolhida; o conteúdo existente desce e o excesso passa para o topo da Faixa.")}
                   type="button"
                 >
                   Mover para zona

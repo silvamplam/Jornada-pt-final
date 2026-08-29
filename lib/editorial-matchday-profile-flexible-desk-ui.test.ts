@@ -222,3 +222,23 @@ test("operações de zona não usam o perfil estático", () => {
     );
   }
 });
+
+test("Mover para zona respeita a posição escolhida", () => {
+  assert.ok(source.includes('Posição na zona'));
+  assert.ok(
+    source.includes('const [zonePosition, setZonePosition] = useState(1)'),
+  );
+  assert.ok(source.includes('const maxZoneStartPosition = Math.max('));
+  assert.ok(source.includes('selectedIdentities.length'));
+  assert.ok(
+    source.includes(
+      'Array.from({ length: maxZoneStartPosition }, (_, index) => index + 1)',
+    ),
+  );
+  assert.ok(source.includes('effectiveZonePosition'));
+  assert.ok(source.includes('fixMatchdayEditorialItemsAtPosition('));
+  assert.equal(
+    source.includes('fixMatchdayEditorialItemsInZone('),
+    false,
+  );
+});

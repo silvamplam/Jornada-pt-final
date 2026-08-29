@@ -48,7 +48,7 @@ test("bulk actions are grouped by clear destinations", () => {
     normalized.indexOf('className="thematic-bulk-context"'),
     normalized.indexOf('className="thematic-global-tools"'),
   );
-  assert.equal(toolbar.includes("Posicao na zona"), false);
+  assert.equal(toolbar.includes("Posicao na zona"), true);
   assert.equal(toolbar.includes("Fixar posicao"), false);
   assert.equal(toolbar.includes("Fixar na Faixa"), false);
 });

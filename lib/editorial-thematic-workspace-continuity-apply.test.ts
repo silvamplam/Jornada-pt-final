@@ -104,3 +104,40 @@ test("workspace sources exige classificaÃƒÂ§ÃƒÂ£o automÃƒÂ¡tica ou t
     /target_matchday_id = p_matchday_id/,
   );
 });
+const readDedupMigration = readFileSync(
+  "supabase/migrations/20260829190443_thematic_workspace_read_dedup.sql",
+  "utf8",
+);
+
+test("workspace read dedup otimiza sÃ³ helpers de leitura sem alterar Apply, classificador ou timeout", () => {
+  assert.equal(
+    (readDedupMigration.match(/create or replace function public\./g) ?? []).length,
+    3,
+  );
+
+  assert.match(
+    readDedupMigration,
+    /create or replace function public\.matchday_editorial_profile_workspace_sources/,
+  );
+  assert.match(
+    readDedupMigration,
+    /create or replace function public\.matchday_editorial_profile_reconcile_token/,
+  );
+  assert.match(
+    readDedupMigration,
+    /create or replace function public\.matchday_editorial_profile_workspace_token/,
+  );
+
+  assert.match(readDedupMigration, /with classification as materialized/);
+  assert.match(readDedupMigration, /with workspace_sources as materialized/);
+
+  assert.doesNotMatch(
+    readDedupMigration,
+    /create or replace function public\.matchday_editorial_profile_classification_plan/,
+  );
+  assert.doesNotMatch(
+    readDedupMigration,
+    /create or replace function public\.apply_matchday_editorial_profile_workspace_v9/,
+  );
+  assert.doesNotMatch(readDedupMigration, /statement_timeout/i);
+});
