@@ -207,7 +207,7 @@ function mutationErrorResponse(error: unknown) {
   ) {
     return apiError("thematic-desk-invalid-reconcile", "A composição temática foi recusada integralmente.", 400);
   }
-  console.error("[admin/editorial/thematic-desk] atomic reconcile failed");
+  console.error("[admin/editorial/thematic-desk] atomic reconcile failed", error);
   return apiError("thematic-desk-apply-failed", "Não foi possível aplicar a composição temática.", 500);
 }
 
