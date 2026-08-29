@@ -112,7 +112,11 @@ test("a página pública lê a ordem viva e intercala os cinco blocos", () => {
   assert.match(publicLoader, /live_public_zone_order/);
   assert.match(
     publicPage,
-    /context\.editorialDeskControl\.liveZoneOrder\.map\(renderLivePublicZone\)/,
+    /thematicSnapshot\.pageControls\.thematicBlockOrder\.map/,
+  );
+  assert.match(
+    publicPage,
+    /context\.editorialDeskControl\.liveZoneOrder\.map\([\s\S]*?renderLivePublicZone/,
   );
   assert.match(publicPage, /zone === "video"/);
   assert.match(publicPage, /zone === "four_news"/);
@@ -120,11 +124,18 @@ test("a página pública lê a ordem viva e intercala os cinco blocos", () => {
   assert.match(publicPage, /zone === "five_news_balanced"/);
   assert.match(publicPage, /liveBeyondMatchdayNews.length !== 5/);
 
-  const orderedIndex = publicPage.indexOf(
-    "context.editorialDeskControl.liveZoneOrder.map(renderLivePublicZone)",
+  const thematicOrderedIndex = publicPage.indexOf(
+    "thematicSnapshot.pageControls.thematicBlockOrder.map",
   );
+  const legacyOrderedIndex = publicPage.indexOf(
+    "context.editorialDeskControl.liveZoneOrder.map",
+  );
+  const orderedIndex = Math.max(thematicOrderedIndex, legacyOrderedIndex);
   const faixaIndex = publicPage.indexOf("<PublicHorizontalNewsStrip", orderedIndex);
-  assert.ok(orderedIndex >= 0 && faixaIndex > orderedIndex);
+
+  assert.ok(thematicOrderedIndex >= 0);
+  assert.ok(legacyOrderedIndex >= 0);
+  assert.ok(faixaIndex > orderedIndex);
 });
 
 test("a migration guarda a ordem no estado vivo e não toca na Composição", () => {

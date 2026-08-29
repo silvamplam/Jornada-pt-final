@@ -11,12 +11,12 @@ import {
 import { EDITORIAL_PROFILES } from "@/lib/editorial-profiles";
 
 const PAGE_PATH = "app/admin/editorial/jornada/[matchdayId]/page.tsx";
-const COMPONENT_PATH = "app/admin/editorial/jornada/[matchdayId]/EditorialCircuitSelector.tsx";
+
 const ROUTE_PATH = "app/api/admin/editorial/jornada/[matchdayId]/circuito-editorial/route.ts";
 const ASSIGNMENT_MIGRATION_PATH = "supabase/migrations/20260822154500_matchday_editorial_profile_assignment.sql";
 
 const pageSource = readFileSync(PAGE_PATH, "utf8");
-const componentSource = readFileSync(COMPONENT_PATH, "utf8");
+
 const routeSource = readFileSync(ROUTE_PATH, "utf8");
 const assignmentMigration = readFileSync(ASSIGNMENT_MIGRATION_PATH, "utf8");
 
@@ -59,14 +59,16 @@ test("competição incompatível não oferece nem aceita liga_portugal_v1", () =
   assert.match(routeSource, /isEditorialProfileCompatibleWithCompetition\(profileKey, competitionSlug\)/);
 });
 
-test("a página da Jornada lê a assignment e apresenta o controlo explícito", () => {
-  assert.match(pageSource, /matchday_editorial_profile_assignments\?select=profile_key/);
-  assert.match(pageSource, /<EditorialCircuitSelector/);
-  assert.match(componentSource, />Circuito editorial</);
-  assert.match(componentSource, /Atual \/ Legacy/);
-  assert.match(componentSource, /window\.confirm/);
-  assert.match(componentSource, /router\.push\(`\/admin\/editorial\/jornada\/\$\{encodeURIComponent\(matchdayId\)\}\/organizar`\)/);
-  assert.match(componentSource, /router\.refresh\(\)/);
+test("a página Legacy lê a assignment e encaminha Jornadas temáticas para a Mesa", () => {
+  assert.match(
+    pageSource,
+    /matchday_editorial_profile_assignments\?select=profile_key/,
+  );
+  assert.match(
+    pageSource,
+    /if \(editorialProfileAssignment\) \{[\s\S]*?redirect\([\s\S]*?\/organizar/,
+  );
+  assert.doesNotMatch(pageSource, /<EditorialCircuitSelector/);
 });
 
 test("a rota usa apenas a RPC de assignment existente para mudar o circuito", () => {

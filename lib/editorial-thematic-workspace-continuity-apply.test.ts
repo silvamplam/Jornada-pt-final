@@ -80,10 +80,10 @@ test("token inclui fontes utilizÃƒÂ¡veis e artigos herdados", () => {
   );
 });
 
-test("endpoint administrativo usa apenas o Apply v7", () => {
+test("endpoint administrativo usa o Apply v9 preservando compatibilidade de erros anteriores", () => {
   assert.match(
     route,
-    /rpc\/apply_matchday_editorial_profile_workspace_v7/,
+    /rpc\/apply_matchday_editorial_profile_workspace_v9/,
   );
   assert.match(
     route,

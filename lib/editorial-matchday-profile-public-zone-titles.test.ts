@@ -109,7 +109,7 @@ test("renderer não usa obrigatoriamente o nome semântico como cabeçalho públ
   const source = readFileSync(
     path.join(
       process.cwd(),
-      "components/public/PublicThematicZoneLayout.tsx",
+      "components/public/PublicFlexibleZoneLayout.tsx",
     ),
     "utf8",
   );
@@ -141,7 +141,7 @@ test("Apply usa o workspace atómico atual e persiste thematic_zone_titles", () 
 
   assert.match(
     route,
-    /apply_matchday_editorial_profile_workspace_v6/,
+    /apply_matchday_editorial_profile_workspace_v9/,
   );
 
   assert.match(
