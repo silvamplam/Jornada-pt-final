@@ -62,47 +62,40 @@ export function thematicEditorialIdentity(sourceType: string, sourceId: string):
   return `${cleanText(sourceType).toLowerCase()}\u0000${cleanText(sourceId).toLowerCase()}`;
 }
 
-function timestamp(value: string | null): number | null {
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-function compareTimestampDescNullLast(left: string | null, right: string | null): number {
-  const leftTime = timestamp(left);
-  const rightTime = timestamp(right);
-  if (leftTime === null && rightTime === null) return 0;
-  if (leftTime === null) return 1;
-  if (rightTime === null) return -1;
-  return rightTime - leftTime;
-}
-
 function compareText(left: string, right: string): number {
   if (left < right) return -1;
   if (left > right) return 1;
   return 0;
 }
 
-export function compareThematicItemsByActuality(
-  left: Pick<MatchdayEditorialProfileDeskItem, "publishedAt" | "updatedAt" | "sourceType" | "sourceId">,
-  right: Pick<MatchdayEditorialProfileDeskItem, "publishedAt" | "updatedAt" | "sourceType" | "sourceId">,
+export function compareThematicItemsByCircuitOrder(
+  left: Readonly<{
+    sourceType: string;
+    sourceId: string;
+    circuitOrder?: number | null;
+  }>,
+  right: Readonly<{
+    sourceType: string;
+    sourceId: string;
+    circuitOrder?: number | null;
+  }>,
 ): number {
-  return (
-    compareTimestampDescNullLast(left.publishedAt, right.publishedAt)
-    || compareTimestampDescNullLast(left.updatedAt, right.updatedAt)
-    || compareText(left.sourceType, right.sourceType)
-    || compareText(left.sourceId, right.sourceId)
-  );
-}
+  const leftOrder =
+    left.circuitOrder ?? Number.MAX_SAFE_INTEGER;
+  const rightOrder =
+    right.circuitOrder ?? Number.MAX_SAFE_INTEGER;
 
-function automaticOrder(
-  left: MatchdayEditorialProfileDeskAutomaticItem,
-  right: MatchdayEditorialProfileDeskAutomaticItem,
-): number {
-  const leftOrder = left.actualityOrder ?? Number.MAX_SAFE_INTEGER;
-  const rightOrder = right.actualityOrder ?? Number.MAX_SAFE_INTEGER;
   return leftOrder - rightOrder
-    || compareText(thematicEditorialIdentity(left.sourceType, left.sourceId), thematicEditorialIdentity(right.sourceType, right.sourceId));
+    || compareText(
+      thematicEditorialIdentity(
+        left.sourceType,
+        left.sourceId,
+      ),
+      thematicEditorialIdentity(
+        right.sourceType,
+        right.sourceId,
+      ),
+    );
 }
 
 function manualMode(override: MatchdayEditorialProfileManualOverride | undefined): MatchdayEditorialProfileManualOverrideMode | null {
@@ -128,6 +121,7 @@ function effectiveItem(
     publishedAt: item.publishedAt,
     updatedAt: item.updatedAt,
     isNew: item.isNew === true,
+    circuitOrder: item.circuitOrder,
     manualOverride: manualMode(override),
   };
 }
@@ -286,13 +280,17 @@ export function buildMatchdayEditorialProfileEffectiveDistribution(
         const identity = thematicEditorialIdentity(item.sourceType, item.sourceId);
         return item.classifiedZoneKey === zone.key && !overrideByIdentity.has(identity);
       })
-      .sort(automaticOrder);
+      .sort(compareThematicItemsByCircuitOrder);
     const freeSlotCount = zone.capacity - fixedBySlot.size;
     const automaticCount = Math.max(0, freeSlotCount - protectedWithoutPosition.length);
     const freeContents = [
       ...protectedWithoutPosition,
       ...automaticCandidates.slice(0, automaticCount).map((item) => ({ item, override: undefined })),
-    ].sort((left, right) => compareThematicItemsByActuality(left.item, right.item));
+    ].sort((left, right) =>
+      compareThematicItemsByCircuitOrder(
+        left.item,
+        right.item,
+      ));
 
     let freeIndex = 0;
     const items: Array<MatchdayEditorialProfileEffectiveItem & { sortOrder: number }> = [];
@@ -332,7 +330,7 @@ export function buildMatchdayEditorialProfileEffectiveDistribution(
         sortOrder: null,
       };
     })
-    .sort(compareThematicItemsByActuality);
+    .sort(compareThematicItemsByCircuitOrder);
 
   return { zones, bank };
 }
@@ -584,120 +582,20 @@ export function fixMatchdayEditorialItemsInZone(
   overrides: readonly MatchdayEditorialProfileManualOverride[],
   selectedIdentities: readonly string[],
   zoneKey: EditorialProfileZoneKey,
+  currentZoneItems?: readonly (
+    MatchdayEditorialProfileEffectiveItem
+    & Readonly<{ sortOrder: number }>
+  )[],
 ): readonly MatchdayEditorialProfileManualOverride[] {
-  const zone = profile.zones.find((candidate) => candidate.key === zoneKey);
-  if (!zone) {
-    throw new Error("matchday-editorial-profile-manual-overrides-invalid-zone");
-  }
-
-  const selected = requireActiveItems(activeItems, selectedIdentities);
-  if (selected.length === 0) {
-    return validateMatchdayEditorialProfileManualOverrides(profile, overrides);
-  }
-  if (selected.length > zone.capacity) {
-    throw new Error(
-      "matchday-editorial-profile-manual-overrides-selection-exceeds-capacity",
-    );
-  }
-
-  const selectedIdentitySet = new Set(
-    selected.map((item) => thematicEditorialIdentity(item.sourceType, item.sourceId)),
-  );
-  const next = overrideMap(overrides);
-
-  /*
-   * A seleção abandona primeiro qualquer decisão manual anterior.
-   * Assim mover novamente uma notícia já manual não aumenta artificialmente
-   * a ocupação protegida da zona de destino.
-   */
-  for (const identity of selectedIdentitySet) {
-    next.delete(identity);
-  }
-
-  const remainingActiveItems = activeItems.filter(
-    (item) => !selectedIdentitySet.has(
-      thematicEditorialIdentity(item.sourceType, item.sourceId),
-    ),
-  );
-
-  const targetBeforeInsertion = buildMatchdayEditorialProfileEffectiveDistribution(
+  return fixMatchdayEditorialItemsAtPosition(
     profile,
-    remainingActiveItems,
-    Array.from(next.values()),
-  ).zones.find((candidate) => candidate.key === zoneKey);
-
-  if (!targetBeforeInsertion) {
-    throw new Error("matchday-editorial-profile-manual-overrides-invalid-zone");
-  }
-
-  const existingManualItems = targetBeforeInsertion.items.filter((item) => {
-    const current = next.get(
-      thematicEditorialIdentity(item.sourceType, item.sourceId),
-    );
-    return current?.placementTarget === "zone" && current.zoneKey === zoneKey;
-  });
-
-  const overflowCount = Math.max(
-    0,
-    existingManualItems.length + selected.length - zone.capacity,
+    activeItems,
+    overrides,
+    selectedIdentities,
+    zoneKey,
+    1,
+    currentZoneItems,
   );
-
-  const overflowedManualItems = overflowCount > 0
-    ? existingManualItems.slice(existingManualItems.length - overflowCount)
-    : [];
-
-  if (overflowedManualItems.length > 0) {
-    /*
-     * A nova decisão prevalece. As decisões manuais que deixam de caber saem
-     * pelo fim real da zona e entram no topo da Faixa, preservando a sua ordem.
-     * Posições fixas já existentes na Faixa são deslocadas, nunca destruídas.
-     */
-    for (const [identity, current] of Array.from(next.entries())) {
-      if (
-        current.placementTarget === "faixa"
-        && current.sortOrder !== null
-      ) {
-        next.set(identity, {
-          ...current,
-          sortOrder: current.sortOrder + overflowedManualItems.length,
-        });
-      }
-    }
-
-    overflowedManualItems.forEach((item, index) => {
-      const identity = thematicEditorialIdentity(item.sourceType, item.sourceId);
-      const current = next.get(identity);
-
-      if (
-        !current
-        || current.placementTarget !== "zone"
-        || current.zoneKey !== zoneKey
-      ) {
-        throw new Error(
-          "matchday-editorial-profile-manual-overrides-invalid-placement",
-        );
-      }
-
-      next.set(identity, {
-        ...current,
-        placementTarget: "faixa",
-        zoneKey: null,
-        sortOrder: index + 1,
-      });
-    });
-  }
-
-  for (const item of selected) {
-    next.set(thematicEditorialIdentity(item.sourceType, item.sourceId), {
-      sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
-      sourceId: item.sourceId,
-      placementTarget: "zone",
-      zoneKey,
-      sortOrder: null,
-    });
-  }
-
-  return normalizedMapValues(profile, next);
 }
 export function fixMatchdayEditorialItemsAtPosition(
   profile: EditorialProfile,
@@ -822,14 +720,13 @@ export function fixMatchdayEditorialItemsAtPosition(
   }
 
   /*
-   * Overrides de posição que participaram na cascata acompanham a sua nova
-   * posição. Um override de zona sem posição continua flutuante por atualidade.
+   * Toda a decisão manual que permanece na zona termina a operação com uma
+   * posição concreta. Isto normaliza também os antigos overrides zone/null.
    */
   for (const [identity, current] of Array.from(next.entries())) {
     if (
       current.placementTarget !== "zone"
       || current.zoneKey !== zoneKey
-      || current.sortOrder === null
     ) {
       continue;
     }
@@ -846,6 +743,7 @@ export function fixMatchdayEditorialItemsAtPosition(
       });
     }
   }
+
 
   const overflowedManual = displacedQueue.flatMap((identity) => {
     const current = next.get(identity);
@@ -1006,23 +904,22 @@ export function moveMatchdayEditorialItemsToFaixa(
   activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
   overrides: readonly MatchdayEditorialProfileManualOverride[],
   selectedIdentities: readonly string[],
-  startPosition: number | null,
+  startPosition: number,
+  currentFaixaItems?: readonly MatchdayEditorialProfileEffectiveItem[],
 ): readonly MatchdayEditorialProfileManualOverride[] {
   if (
-    startPosition !== null
-    && (
-      !Number.isInteger(startPosition)
-      || startPosition <= 0
-    )
+    !Number.isInteger(startPosition)
+    || startPosition <= 0
   ) {
-    throw new Error("matchday-editorial-profile-manual-overrides-invalid-sort-order");
+    throw new Error(
+      "matchday-editorial-profile-manual-overrides-invalid-sort-order",
+    );
   }
 
-  const selected =
-    requireActiveItems(
-      activeItems,
-      selectedIdentities,
-    );
+  const selected = requireActiveItems(
+    activeItems,
+    selectedIdentities,
+  );
 
   if (selected.length === 0) {
     return validateMatchdayEditorialProfileManualOverrides(
@@ -1031,72 +928,88 @@ export function moveMatchdayEditorialItemsToFaixa(
     );
   }
 
-  const selectedSet =
-    new Set(
-      selected.map(
-        (item) =>
-          thematicEditorialIdentity(
-            item.sourceType,
-            item.sourceId,
-          ),
-      ),
-    );
+  const selectedSet = new Set(
+    selected.map((item) =>
+      thematicEditorialIdentity(
+        item.sourceType,
+        item.sourceId,
+      )),
+  );
 
-  const next =
-    overrideMap(overrides);
+  const next = overrideMap(overrides);
 
   for (const identity of selectedSet) {
     next.delete(identity);
   }
 
-  if (startPosition !== null) {
-    const targetPositions =
-      new Set(
-        selected.map(
-          (_, index) =>
-            startPosition + index,
-        ),
-      );
-
-    // Fixar uma posição concreta na Faixa substitui apenas a fixação que
-    // ocupava esse slot. As restantes posições manuais permanecem intactas.
-    for (const [identity, current] of next) {
-      if (
-        current.placementTarget === "faixa"
-        && current.sortOrder !== null
-        && targetPositions.has(
-          current.sortOrder,
-        )
-      ) {
-        next.delete(identity);
-      }
-    }
-  }
-
-  selected.forEach(
-    (item, index) => {
-      next.set(
+  const visiblePositionByIdentity = new Map(
+    (currentFaixaItems ?? [])
+      .filter(
+        (item) =>
+          item.sortOrder !== null
+          && !selectedSet.has(
+            thematicEditorialIdentity(
+              item.sourceType,
+              item.sourceId,
+            ),
+          ),
+      )
+      .map((item) => [
         thematicEditorialIdentity(
           item.sourceType,
           item.sourceId,
         ),
-        {
-          sourceType:
-            THEMATIC_EDITORIAL_SOURCE_TYPE,
-          sourceId:
-            item.sourceId,
-          placementTarget:
-            "faixa",
-          zoneKey:
-            null,
-          sortOrder:
-            startPosition === null
-              ? null
-              : startPosition + index,
-        },
-      );
-    },
+        item.sortOrder as number,
+      ] as const),
   );
+
+  /*
+   * Uma entrada externa na Faixa é uma inserção posicional, nunca uma
+   * substituição nem uma pertença flutuante. O conteúdo existente desce.
+   * Overrides legacy faixa/null que estejam visíveis são normalizados.
+   */
+  for (const [identity, current] of Array.from(next.entries())) {
+    if (current.placementTarget !== "faixa") {
+      continue;
+    }
+
+    const visiblePosition =
+      current.sortOrder
+      ?? visiblePositionByIdentity.get(identity)
+      ?? null;
+
+    if (visiblePosition === null) {
+      continue;
+    }
+
+    const finalPosition =
+      visiblePosition >= startPosition
+        ? visiblePosition + selected.length
+        : visiblePosition;
+
+    if (current.sortOrder !== finalPosition) {
+      next.set(identity, {
+        ...current,
+        sortOrder: finalPosition,
+      });
+    }
+  }
+
+  selected.forEach((item, index) => {
+    next.set(
+      thematicEditorialIdentity(
+        item.sourceType,
+        item.sourceId,
+      ),
+      {
+        sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
+        sourceId: item.sourceId,
+        placementTarget: "faixa",
+        zoneKey: null,
+        sortOrder: startPosition + index,
+      },
+    );
+  });
 
   return normalizedMapValues(
     profile,
@@ -1184,6 +1097,7 @@ export function releaseMatchdayEditorialFixedPositions(
   selectedIdentities: readonly string[],
 ): readonly MatchdayEditorialProfileManualOverride[] {
   const selected = new Set(selectedIdentities);
+
   return validateMatchdayEditorialProfileManualOverrides(
     profile,
     overrides.flatMap((override) => {
@@ -1192,19 +1106,15 @@ export function releaseMatchdayEditorialFixedPositions(
         override.sourceId,
       );
 
-      if (!selected.has(identity) || override.sortOrder === null) {
+      if (!selected.has(identity)) {
         return [override];
       }
 
-      if (override.placementTarget === "zone") {
+      if (
+        override.placementTarget === "zone"
+        || override.placementTarget === "faixa"
+      ) {
         return [];
-      }
-
-      if (override.placementTarget === "faixa") {
-        return [{
-          ...override,
-          sortOrder: null,
-        }];
       }
 
       return [override];

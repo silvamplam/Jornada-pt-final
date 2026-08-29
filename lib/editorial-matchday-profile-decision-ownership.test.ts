@@ -105,7 +105,7 @@ test(
 
     assert.equal(
       calls.length,
-      5,
+      4,
     );
   },
 );

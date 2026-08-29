@@ -28,15 +28,15 @@ const profile = EDITORIAL_PROFILES.liga_portugal_v1;
 function item(
   sourceId: string,
   classifiedZoneKey: EditorialProfileZoneKey,
-  actualityOrder: number,
+  circuitOrder: number,
 ): MatchdayEditorialProfileDeskAutomaticItem {
-  const hour = String(Math.max(0, 23 - actualityOrder)).padStart(2, "0");
+  const hour = String(Math.max(0, 23 - circuitOrder)).padStart(2, "0");
   return {
     sourceType: "editorial_article",
     sourceId,
-    sortOrder: actualityOrder,
+    sortOrder: circuitOrder,
     classifiedZoneKey,
-    actualityOrder,
+    circuitOrder,
     label: `Label ${sourceId}`,
     title: `Título ${sourceId}`,
     subtitle: null,

@@ -85,7 +85,7 @@ test("notícia herdada mantém zona natural sem ganhar ordem automática na nova
 
   assert.ok(item);
   assert.equal(item.classifiedZoneKey, "sporting");
-  assert.equal(item.actualityOrder, null);
+  assert.equal(item.circuitOrder, null);
   assert.equal(
     result.diagnostics.some(
       (diagnostic) => diagnostic.code === "missing_classification",
@@ -131,7 +131,7 @@ test("notícia própria mantém classificação e ordem automática já existent
 
   assert.ok(item);
   assert.equal(item.classifiedZoneKey, "benfica");
-  assert.equal(item.actualityOrder, 1);
+  assert.equal(item.circuitOrder, 1);
   assert.deepEqual(
     result.zones[0].items.map((candidate) => candidate.sourceId),
     [sourceId],

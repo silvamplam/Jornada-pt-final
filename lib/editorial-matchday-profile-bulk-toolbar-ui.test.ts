@@ -31,7 +31,6 @@ test("bulk actions are grouped by clear destinations", () => {
     "Mover para zona",
     "Posicao na Faixa",
     "Mover para Faixa",
-    "Fixar na Faixa",
     "Mover para Banco",
     "Automatico",
     "Limpar marcacao",
@@ -51,6 +50,7 @@ test("bulk actions are grouped by clear destinations", () => {
   );
   assert.equal(toolbar.includes("Posicao na zona"), false);
   assert.equal(toolbar.includes("Fixar posicao"), false);
+  assert.equal(toolbar.includes("Fixar na Faixa"), false);
 });
 
 test("selecionar todos e limpar marcação existem mesmo com zero selecionados", () => {

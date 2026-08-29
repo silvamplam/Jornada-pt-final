@@ -8,7 +8,7 @@ import {
   type EditorialVisualFamily,
 } from "@/lib/editorial-profiles";
 import {
-  compareThematicItemsByActuality,
+  compareThematicItemsByCircuitOrder,
   thematicEditorialIdentity,
   validateMatchdayEditorialProfileManualOverrides,
   type MatchdayEditorialProfileEffectiveDistribution,
@@ -138,13 +138,14 @@ export type MatchdayEditorialProfileDeskItem = Readonly<{
   publishedAt: string | null;
   updatedAt: string | null;
   isNew?: boolean;
+  circuitOrder?: number | null;
 }>;
 
 export type MatchdayEditorialProfileDeskAutomaticItem =
   & MatchdayEditorialProfileDeskItem
   & Readonly<{
     classifiedZoneKey: EditorialProfileZoneKey | null;
-    actualityOrder: number | null;
+    circuitOrder: number | null;
   }>;
 
 export type MatchdayEditorialProfileDeskZone = Readonly<{
@@ -441,15 +442,15 @@ export function buildMatchdayEditorialProfileDeskDistribution(
       && knownZoneKeys.has(naturalClassification.classified_zone_key)
       ? naturalClassification.classified_zone_key as EditorialProfileZoneKey
       : fallbackZoneKey;
-    const actualityOrder = classification?.actuality_order ?? state?.sort_order ?? null;
+    const circuitOrder = classification?.actuality_order ?? state?.sort_order ?? null;
     activeItems.push({
-      ...itemFromArticle(sourceType, sourceId, actualityOrder, article),
+      ...itemFromArticle(sourceType, sourceId, state?.sort_order ?? null, article),
       classifiedZoneKey,
-      actualityOrder,
+      circuitOrder,
       isNew: bankRow.editorially_worked_at == null,
     });
   }
-  activeItems.sort(compareThematicItemsByActuality);
+  activeItems.sort(compareThematicItemsByCircuitOrder);
 
   const activeItemsByIdentity = new Map(activeItems.map((item) => [
     thematicEditorialIdentity(item.sourceType, item.sourceId),
@@ -460,9 +461,11 @@ export function buildMatchdayEditorialProfileDeskDistribution(
   );
   const overflow: Array<MatchdayEditorialProfileDeskItem & { sortOrder: null }> = [];
 
+  const nextPositionByZone = new Map<EditorialProfileZoneKey, number>();
+
   for (const item of activeItemsByIdentity.values()) {
     const zone = profile.zones.find((candidate) => candidate.key === item.classifiedZoneKey);
-    if (!zone || item.actualityOrder === null || item.actualityOrder > zone.capacity) {
+    if (!zone || item.circuitOrder === null) {
       overflow.push({ ...itemFromArticle(
         item.sourceType,
         item.sourceId,
@@ -471,14 +474,28 @@ export function buildMatchdayEditorialProfileDeskDistribution(
       ), sortOrder: null });
       continue;
     }
+
+    const position = (nextPositionByZone.get(zone.key) ?? 0) + 1;
+    nextPositionByZone.set(zone.key, position);
+
+    if (position > zone.capacity) {
+      overflow.push({ ...itemFromArticle(
+        item.sourceType,
+        item.sourceId,
+        null,
+        articlesById.get(item.sourceId.toLowerCase())!,
+      ), sortOrder: null });
+      continue;
+    }
+
     zoneItems.get(zone.key)?.push({
       ...itemFromArticle(
         item.sourceType,
         item.sourceId,
-        item.actualityOrder,
+        position,
         articlesById.get(item.sourceId.toLowerCase())!,
       ),
-      sortOrder: item.actualityOrder,
+      sortOrder: position,
     });
   }
 
@@ -490,8 +507,6 @@ export function buildMatchdayEditorialProfileDeskDistribution(
     placementMode: zone.placementMode,
     items: (zoneItems.get(zone.key) ?? []).sort((left, right) => left.sortOrder - right.sortOrder),
   }));
-  overflow.sort(compareThematicItemsByActuality);
-
   return {
     zones,
     overflow,

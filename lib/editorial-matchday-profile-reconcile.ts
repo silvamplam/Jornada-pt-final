@@ -5,7 +5,7 @@ import type {
 } from "@/lib/editorial-matchday-profile-desk";
 import {
   buildMatchdayEditorialProfileEffectiveDistribution,
-  compareThematicItemsByActuality,
+  compareThematicItemsByCircuitOrder,
   thematicEditorialIdentity,
   validateMatchdayEditorialProfileManualOverrides,
   type MatchdayEditorialProfileEffectiveItem,
@@ -67,6 +67,7 @@ function effectiveItem(
     imageUrl: item.imageUrl,
     publishedAt: item.publishedAt,
     updatedAt: item.updatedAt,
+    circuitOrder: item.circuitOrder,
     manualOverride,
   };
 }
@@ -186,14 +187,29 @@ function reconcileAppliedSnapshotDistribution(
     const baselineItems = baselineZone?.items ?? [];
 
     const sequence: Array<MatchdayEditorialProfileEffectiveItem & Readonly<{ sortOrder: number }>> = baselineItems
-      .filter(
-        (item) =>
-          !overrideByIdentity.has(itemIdentity(item)),
-      )
-      .map((item) => ({
-        ...item,
-        manualOverride: null,
-      }));
+      .filter((item) => {
+        const override = overrideByIdentity.get(itemIdentity(item));
+
+        return !override
+          || (
+            override.placementTarget === "zone"
+            && override.zoneKey === zone.key
+            && override.sortOrder === null
+          );
+      })
+      .map((item) => {
+        const override = overrideByIdentity.get(itemIdentity(item));
+
+        return {
+          ...item,
+          manualOverride:
+            override?.placementTarget === "zone"
+            && override.zoneKey === zone.key
+            && override.sortOrder === null
+              ? "zone" as const
+              : null,
+        };
+      });
 
     const fixedBySlot = new Map<
       number,
@@ -202,6 +218,12 @@ function reconcileAppliedSnapshotDistribution(
     >();
 
     const floatingIdentities = new Set<string>();
+
+    for (const item of sequence) {
+      if (item.manualOverride === "zone") {
+        floatingIdentities.add(itemIdentity(item));
+      }
+    }
 
     const targetOverrides = overrides.filter(
       (override) =>
@@ -217,7 +239,7 @@ function reconcileAppliedSnapshotDistribution(
       const identity = itemIdentity(override);
       const item = activeByIdentity.get(identity);
 
-      if (!item) continue;
+      if (!item || floatingIdentities.has(identity)) continue;
 
       floatingIdentities.add(identity);
 
@@ -238,7 +260,7 @@ function reconcileAppliedSnapshotDistribution(
         index += 1
       ) {
         if (
-          compareThematicItemsByActuality(
+          compareThematicItemsByCircuitOrder(
             item,
             sequence[index],
           ) < 0
@@ -382,7 +404,7 @@ function reconcileAppliedSnapshotDistribution(
         && !placedInBaselineZones.has(identity)
       );
     })
-    .sort(compareThematicItemsByActuality);
+    .sort(compareThematicItemsByCircuitOrder);
 
   const placedNewAutomaticIdentities = new Set<string>();
 
@@ -569,7 +591,7 @@ function reconcileAppliedSnapshotDistribution(
     });
   }
 
-  additions.sort(compareThematicItemsByActuality);
+  additions.sort(compareThematicItemsByCircuitOrder);
 
   faixaBase = [
     ...additions,
@@ -636,7 +658,7 @@ function reconcileAppliedSnapshotDistribution(
         sortOrder: null,
       };
     })
-    .sort(compareThematicItemsByActuality);
+    .sort(compareThematicItemsByCircuitOrder);
 
   const beforePlacements = placementMap(
     activeItems,
@@ -731,7 +753,7 @@ export function reconcileMatchdayEditorialProfileDistribution(
     .filter((override) => override.sortOrder !== null)
     .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
   const fixedFaixaIdentities = new Set(fixedFaixa.map(itemIdentity));
-  const actualityFaixaIdentities = new Set(
+  const floatingFaixaIdentities = new Set(
     faixaOverrides
       .filter((override) => override.sortOrder === null)
       .map(itemIdentity),
@@ -740,9 +762,9 @@ export function reconcileMatchdayEditorialProfileDistribution(
     .sort((left, right) => left.sortOrder - right.sortOrder)
     .map((item, index) => ({ ...item, sortOrder: index + 1 }));
 
-  // A Faixa sem slot manual tem um unico criterio de ordenacao: atualidade
-  // global. Um override Faixa com sortOrder null fixa apenas a pertenÃ§a Ã  Faixa.
-  // Apenas um sortOrder positivo reserva uma posiÃ§Ã£o absoluta.
+  // Overrides legacy Faixa/null continuam legiveis. Sem snapshot, a ordem
+  // segue a entrada estavel no circuito. Apenas um sortOrder positivo reserva
+  // uma posicao absoluta; nenhuma operacao nova cria pertenÃ§a flutuante.
   const automaticFaixa = [...activeItems]
     .filter((item) => {
       const identity = itemIdentity(item);
@@ -750,14 +772,14 @@ export function reconcileMatchdayEditorialProfileDistribution(
         && !explicitBank.has(identity)
         && !fixedFaixaIdentities.has(identity);
     })
-    .sort(compareThematicItemsByActuality)
+    .sort(compareThematicItemsByCircuitOrder)
     .map((item): MatchdayEditorialProfileFaixaItem => {
       const identity = itemIdentity(item);
       return {
         ...effectiveItem(
           item,
           1,
-          actualityFaixaIdentities.has(identity)
+          floatingFaixaIdentities.has(identity)
             ? "faixa"
             : null,
         ),
@@ -793,7 +815,7 @@ export function reconcileMatchdayEditorialProfileDistribution(
     .map((item) => {
       return { ...effectiveItem(item, null, "bank"), sortOrder: null };
     })
-    .sort(compareThematicItemsByActuality);
+    .sort(compareThematicItemsByCircuitOrder);
 
   const beforePlacements = placementMap(activeItems, zonesBefore, faixaBefore);
   const afterPlacements = placementMap(activeItems, zonesAfter, faixaAfter);

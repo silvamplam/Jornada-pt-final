@@ -1812,9 +1812,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     }, `Posição ${position} fixada em ${zoneKey}.`);
   }
 
-  function placeInFaixa(itemIdentity: string, position: number | null) {
-    const isInternalSwap = position !== null
-      && reconcile.faixaAfter.some((item) => identity(item) === itemIdentity);
+  function placeInFaixa(itemIdentity: string, position: number) {
+    const targetPosition = Math.max(1, position);
+    const isInternalSwap =
+      reconcile.faixaAfter.some(
+        (item) => identity(item) === itemIdentity,
+      );
 
     localOperation(() => {
       if (isInternalSwap) {
@@ -1825,7 +1828,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             activeItems,
             operationalOverrides,
             itemIdentity,
-            Math.max(1, position),
+            targetPosition,
             reconcile.faixaAfter,
           ),
         }, [itemIdentity]);
@@ -1838,13 +1841,20 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
       return withWorkedIdentities({
         ...currentDraft(),
-        overrides: moveMatchdayEditorialItemsToFaixa(effectiveProfile, transition.candidates, transition.overrides, [itemIdentity], position === null ? null : Math.max(1, position)),
+        overrides: moveMatchdayEditorialItemsToFaixa(
+          effectiveProfile,
+          transition.candidates,
+          transition.overrides,
+          [itemIdentity],
+          targetPosition,
+          reconcile.faixaAfter,
+        ),
         opening: transition.opening,
         editorialSelection: transition.editorialSelection,
       }, [itemIdentity]);
     }, isInternalSwap
       ? "Posições trocadas diretamente na Faixa."
-      : "Notícia enviada para a Faixa; sem posição fixa, a atualidade decide a ordem.");
+      : `Notícia inserida na Faixa na posição ${targetPosition}; o conteúdo existente foi deslocado sem reordenação cronológica.`);
   }
 
   function placeInBank(itemIdentity: string) {
@@ -1876,7 +1886,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         opening: transition.opening,
         editorialSelection: transition.editorialSelection,
       }, [itemIdentity]);
-    }, "Decisão manual removida; classificação e atualidade voltaram a decidir.");
+    }, "Decisão manual removida; a classificação volta a decidir o destino, sem reordenação cronológica.");
   }
 
   function releasePosition(itemIdentity: string) {
@@ -1887,7 +1897,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         operationalOverrides,
         [itemIdentity],
       ),
-    }, [itemIdentity]), "Posição manual libertada; na zona regressa ao automático e na Faixa mantém apenas a pertença por atualidade.");
+    }, [itemIdentity]), "Posição manual libertada; a decisão manual é removida e o conteúdo regressa ao circuito automático sem posição flutuante.");
   }
 
   function dragged(event: DragEvent<HTMLElement>): string | null {
@@ -2040,7 +2050,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         onBank={() => placeInBank(itemIdentity)}
         onDragEnd={() => setDraggingIdentity(null)}
         onDragStart={dragStart}
-        onFaixa={() => placeInFaixa(itemIdentity, null)}
+        onFaixa={() => placeInFaixa(itemIdentity, 1)}
         onFixPosition={
           placement.kind === "zone"
           && placement.zoneKey
@@ -2096,7 +2106,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           if (itemIdentity) {
             placeInFaixa(
               itemIdentity,
-              item.sortOrder,
+              item.sortOrder ?? 1,
             );
           }
 
@@ -2650,7 +2660,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         if (activeSourceView === "available") {
           placeInBank(itemIdentity);
         } else if (activeSourceView === "faixa") {
-          placeInFaixa(itemIdentity, null);
+          placeInFaixa(itemIdentity, 1);
         }
       }
       setDraggingIdentity(null);
@@ -2820,11 +2830,14 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                         transition.overrides,
                         selectedIdentities,
                         destinationZone,
+                        reconcile.zonesAfter.find(
+                          (zone) => zone.key === destinationZone,
+                        )?.items,
                       ),
                       opening: transition.opening,
                       editorialSelection: transition.editorialSelection,
                     }, selectedIdentities);
-                  }, "Operação em lote movida para a zona; a atualidade decide a ordem interna.")}
+                  }, "Operação em lote inserida desde a posição 1; o conteúdo existente desce e o excesso passa para o topo da Faixa.")}
                   type="button"
                 >
                   Mover para zona
@@ -2851,36 +2864,16 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                         transition.candidates,
                         transition.overrides,
                         selectedIdentities,
-                        null,
+                        faixaPosition,
+                        reconcile.faixaAfter,
                       ),
                       opening: transition.opening,
                       editorialSelection: transition.editorialSelection,
                     }, selectedIdentities);
-                  }, "Operação em lote enviada para a Faixa; a atualidade decide a ordem.")}
+                  }, "Operação em lote inserida na Faixa a partir da posição escolhida; o conteúdo existente foi deslocado sem reordenação cronológica.")}
                   type="button"
                 >
                   Mover para Faixa
-                </button>
-                <button
-                  className="thematic-button"
-                  onClick={() => localOperation(() => {
-                    const transition = prepareExclusivePlacementTransition(selectedIdentities);
-                    return withWorkedIdentities({
-                      ...currentDraft(),
-                      overrides: moveMatchdayEditorialItemsToFaixa(
-                        effectiveProfile,
-                        transition.candidates,
-                        transition.overrides,
-                        selectedIdentities,
-                        faixaPosition,
-                      ),
-                      opening: transition.opening,
-                      editorialSelection: transition.editorialSelection,
-                    }, selectedIdentities);
-                  }, "Operação em lote fixada na Faixa a partir da posição escolhida.")}
-                  type="button"
-                >
-                  Fixar na Faixa
                 </button>
               </div>
 

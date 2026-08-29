@@ -25,21 +25,21 @@ const latestMatchdayId = "00000000-0000-4000-8000-000000000001";
 
 function item(
   sourceId: string,
-  actualityOrder: number,
+  circuitOrder: number,
   isNew = false,
 ): MatchdayEditorialProfileDeskAutomaticItem {
   return {
     sourceType: "editorial_article",
     sourceId,
-    sortOrder: actualityOrder,
+    sortOrder: circuitOrder,
     classifiedZoneKey: "benfica",
-    actualityOrder,
+    circuitOrder,
     label: "BENFICA",
     title: `Notícia ${sourceId}`,
     subtitle: null,
     imageUrl: null,
-    publishedAt: `2026-08-28T${String(23 - actualityOrder).padStart(2, "0")}:00:00.000Z`,
-    updatedAt: `2026-08-28T${String(23 - actualityOrder).padStart(2, "0")}:00:00.000Z`,
+    publishedAt: `2026-08-28T${String(23 - circuitOrder).padStart(2, "0")}:00:00.000Z`,
+    updatedAt: `2026-08-28T${String(23 - circuitOrder).padStart(2, "0")}:00:00.000Z`,
     isNew,
   };
 }

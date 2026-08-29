@@ -43,6 +43,7 @@ function activeBank(sourceId: string, status = "active"): MatchdayEditorialProfi
     source_type: "editorial_article",
     source_id: sourceId,
     status,
+    editorially_worked_at: "2026-08-22T09:00:00.000Z",
   };
 }
 
@@ -107,7 +108,7 @@ test("a transformação deriva zonas do registry e observa apenas a colocação 
   assert.equal(result.zones[1].items.some((item) => item.sourceId === "article-a"), false);
   assert.deepEqual(
     result.overflow.map((item) => item.sourceId),
-    ["without-state", "overflow-new", "unknown", "overflow-null"],
+    ["unknown", "overflow-new", "overflow-null", "without-state"],
   );
   assert.equal(result.overflow.some((item) => item.sourceId === "historical"), false);
   assert.equal(result.inactiveHistoricalCount, 1);
@@ -117,7 +118,7 @@ test("a transformação deriva zonas do registry e observa apenas a colocação 
   );
 });
 
-test("o overflow usa atualidade, NULLS LAST e identidade estável sem recalcular zonas", () => {
+test("o overflow ignora datas editoriais e conserva uma ordem estrutural estável", () => {
   const ids = [
     "00000000-0000-4000-8000-000000000001",
     "00000000-0000-4000-8000-000000000002",
@@ -142,8 +143,42 @@ test("o overflow usa atualidade, NULLS LAST e identidade estável sem recalcular
     ],
   );
 
-  assert.deepEqual(result.overflow.map((item) => item.sourceId), [ids[1], ids[0], ids[2], ids[3]]);
+  assert.deepEqual(result.overflow.map((item) => item.sourceId), [ids[0], ids[1], ids[2], ids[3]]);
   assert.equal(result.zones.every((zone) => zone.items.length === 0), true);
+});
+
+test("circuitOrder global is converted into local zone positions", () => {
+  const ids = [
+    "00000000-0000-4000-8000-000000000021",
+    "00000000-0000-4000-8000-000000000022",
+    "00000000-0000-4000-8000-000000000023",
+  ];
+  const stateRows: MatchdayEditorialProfileStateRow[] = [
+    { source_type: "editorial_article", source_id: ids[0], zone_key: "benfica", sort_order: 1 },
+    { source_type: "editorial_article", source_id: ids[1], zone_key: "sporting", sort_order: 1 },
+    { source_type: "editorial_article", source_id: ids[2], zone_key: "benfica", sort_order: 2 },
+  ];
+  const result = buildMatchdayEditorialProfileDeskDistribution(
+    profile,
+    stateRows,
+    ids.map((id) => activeBank(id)),
+    ids.map((id) => article(id, "2026-08-22T12:00:00.000Z")),
+    [
+      { source_type: "editorial_article", source_id: ids[0], classified_zone_key: "benfica", actuality_order: 10 },
+      { source_type: "editorial_article", source_id: ids[1], classified_zone_key: "sporting", actuality_order: 20 },
+      { source_type: "editorial_article", source_id: ids[2], classified_zone_key: "benfica", actuality_order: 30 },
+    ],
+  );
+
+  assert.deepEqual(
+    result.zones[0].items.map((item) => [item.sourceId, item.sortOrder]),
+    [[ids[0], 1], [ids[2], 2]],
+  );
+  assert.deepEqual(
+    result.zones[1].items.map((item) => [item.sourceId, item.sortOrder]),
+    [[ids[1], 1]],
+  );
+  assert.deepEqual(result.overflow, []);
 });
 
 test("sem assignment o leitor retorna null e não inicia outras leituras", async () => {

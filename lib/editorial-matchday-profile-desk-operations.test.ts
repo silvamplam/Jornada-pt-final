@@ -38,7 +38,7 @@ function automaticItem(
     sourceId,
     sortOrder: automaticSortOrder,
     classifiedZoneKey: automaticZoneKey,
-    actualityOrder: automaticSortOrder,
+    circuitOrder: automaticSortOrder,
     label: `Label ${sourceId}`,
     title: `Título ${sourceId}`,
     subtitle: null,
@@ -106,7 +106,7 @@ test("um override move para outra zona sem duplicar e um override NULL/NULL move
   assert.equal(new Set(allVisible).size, allVisible.length);
 });
 
-test("fixação na zona vence atualidade, mas a posição livre continua ordenada por atualidade", () => {
+test("fixação na zona vence e a posição livre mantém a ordem estável do circuito", () => {
   const baseline = [
     automaticItem("h", "sporting", 1, 20),
     automaticItem("g", "sporting", 2, 19),
@@ -126,7 +126,7 @@ test("fixação na zona vence atualidade, mas a posição livre continua ordenad
   const newerProtected = baseline.map((item) => item.sourceId === "c"
     ? automaticItem("c", null, null, 21)
     : item);
-  assert.deepEqual(zoneIds(newerProtected, protectedInZone, "sporting"), ["c", "h", "g", "f", "a"]);
+  assert.deepEqual(zoneIds(newerProtected, protectedInZone, "sporting"), ["h", "g", "f", "a", "c"]);
 });
 
 test("posição fixa reserva exatamente o slot e libertá-la devolve ao automático", () => {
@@ -654,29 +654,55 @@ test("retirar conteúdo compacta a zona e cria banco explícito", () => {
   assert.equal(result.bank[0].manualOverride, "bank");
 });
 
-test("mover para a Faixa sem posição fixa apenas a pertença e deixa a atualidade ordenar", () => {
-  const activeItems = [
-    automaticItem("older", "benfica", 1, 10),
-    automaticItem("newer", "sporting", 1, 20),
-  ];
-  const next = moveMatchdayEditorialItemsToFaixa(
-    profile,
-    activeItems,
-    [],
-    [identity("older")],
-    null,
-  );
+test("mover para a Faixa cria sempre posições concretas e desloca o conteúdo existente", () => {
+  const x = automaticItem("x", "benfica", 1, 20);
+  const y = automaticItem("y", "sporting", 1, 19);
+  const existing = automaticItem("existing", null, null, 18);
 
-  assert.deepEqual(next, [{
+  const current: MatchdayEditorialProfileManualOverride[] = [{
     sourceType: "editorial_article",
-    sourceId: "older",
+    sourceId: "existing",
     placementTarget: "faixa",
     zoneKey: null,
-    sortOrder: null,
-  }]);
+    sortOrder: 1,
+  }];
+
+  const currentFaixa = [{
+    ...existing,
+    sortOrder: 1,
+    manualOverride: "faixa" as const,
+  }];
+
+  const next = moveMatchdayEditorialItemsToFaixa(
+    profile,
+    [x, y, existing],
+    current,
+    [identity("y"), identity("x")],
+    1,
+    currentFaixa,
+  );
+
+  const faixa = next
+    .filter((entry) => entry.placementTarget === "faixa")
+    .sort((left, right) =>
+      (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
+
+  assert.deepEqual(
+    faixa.map((entry) => [entry.sourceId, entry.sortOrder]),
+    [
+      ["y", 1],
+      ["x", 2],
+      ["existing", 3],
+    ],
+  );
+
+  assert.equal(
+    faixa.every((entry) => entry.sortOrder !== null),
+    true,
+  );
 });
 
-test("libertar posição fixa na Faixa preserva a pertença e remove apenas o slot", () => {
+test("libertar uma posição manual da Faixa remove a decisão em vez de recriar pertença flutuante", () => {
   const fixedFaixa: MatchdayEditorialProfileManualOverride = {
     sourceType: "editorial_article",
     sourceId: "article",
@@ -691,38 +717,58 @@ test("libertar posição fixa na Faixa preserva a pertença e remove apenas o sl
       [fixedFaixa],
       [identity("article")],
     ),
-    [{
-      ...fixedFaixa,
-      sortOrder: null,
-    }],
+    [],
   );
 });
 
-test("mover um bloco para a Faixa fixa o destino e liberta apenas o slot substituído", () => {
-  const activeItems = [
-    automaticItem("x", "benfica", 1, 20),
-    automaticItem("y", "sporting", 1, 19),
-    automaticItem("existing", null, null, 18),
-  ];
-  const existingFaixa: MatchdayEditorialProfileManualOverride = {
+test("uma Faixa legacy sem sortOrder é normalizada quando participa numa inserção posicional", () => {
+  const incoming = automaticItem("incoming", "benfica", 1, 20);
+  const legacy = automaticItem("legacy", null, null, 18);
+
+  const current: MatchdayEditorialProfileManualOverride[] = [{
     sourceType: "editorial_article",
-    sourceId: "existing",
+    sourceId: "legacy",
     placementTarget: "faixa",
     zoneKey: null,
+    sortOrder: null,
+  }];
+
+  const currentFaixa = [{
+    ...legacy,
     sortOrder: 2,
-  };
+    manualOverride: "faixa" as const,
+  }];
+
   const next = moveMatchdayEditorialItemsToFaixa(
     profile,
-    activeItems,
-    [existingFaixa],
-    [identity("y"), identity("x")],
-    2,
+    [incoming, legacy],
+    current,
+    [identity("incoming")],
+    1,
+    currentFaixa,
   );
 
-  assert.deepEqual(next, [
-    { sourceType: "editorial_article", sourceId: "x", placementTarget: "faixa", zoneKey: null, sortOrder: 3 },
-    { sourceType: "editorial_article", sourceId: "y", placementTarget: "faixa", zoneKey: null, sortOrder: 2 },
-  ]);
+  assert.deepEqual(
+    next.find((entry) => entry.sourceId === "legacy"),
+    {
+      sourceType: "editorial_article",
+      sourceId: "legacy",
+      placementTarget: "faixa",
+      zoneKey: null,
+      sortOrder: 3,
+    },
+  );
+
+  assert.deepEqual(
+    next.find((entry) => entry.sourceId === "incoming"),
+    {
+      sourceType: "editorial_article",
+      sourceId: "incoming",
+      placementTarget: "faixa",
+      zoneKey: null,
+      sortOrder: 1,
+    },
+  );
 });
 
 test("Mover para zona cheia em lote de 1 a 5 prevalece e envia o overflow manual para a Faixa", () => {

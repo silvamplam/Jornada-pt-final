@@ -18,16 +18,16 @@ const profile = EDITORIAL_PROFILES.liga_portugal_v1;
 function item(
   sourceId: string,
   classifiedZoneKey: EditorialProfileZoneKey,
-  actualityOrder: number,
-  actuality = 24 - actualityOrder,
+  circuitOrder: number,
+  actuality = 24 - circuitOrder,
 ): MatchdayEditorialProfileDeskAutomaticItem {
   const hour = String(Math.max(0, actuality)).padStart(2, "0");
   return {
     sourceType: "editorial_article",
     sourceId,
-    sortOrder: actualityOrder,
+    sortOrder: circuitOrder,
     classifiedZoneKey,
-    actualityOrder,
+    circuitOrder,
     label: `Label ${sourceId}`,
     title: `TÃƒÂ­tulo ${sourceId}`,
     subtitle: null,
@@ -139,7 +139,7 @@ test("um Bank override explÃƒÂ­cito retira apenas essa identidade dos 57 ove
   assert.deepEqual(result.bankAfter.map((entry) => [entry.sourceId, entry.manualOverride]), [["benfica-7", "bank"]]);
 });
 
-test("pertenÃƒÂ§a manual ÃƒÂ  Faixa sem slot usa a mesma atualidade global dos restantes itens", () => {
+test("pertenÃƒÂ§a legacy ÃƒÂ  Faixa sem slot usa a ordem estÃ¡vel do circuito", () => {
   const forcedOlder = item("forced-older", "benfica", 1, 10);
   const sportingZone = Array.from(
     { length: profile.zones.find((zone) => zone.key === "sporting")?.capacity ?? 0 },
@@ -161,8 +161,8 @@ test("pertenÃƒÂ§a manual ÃƒÂ  Faixa sem slot usa a mesma atualidade glob
   assert.deepEqual(
     result.faixaAfter.map((entry) => [entry.sourceId, entry.manualOverride]),
     [
-      ["automatic-newer", null],
       ["forced-older", "faixa"],
+      ["automatic-newer", null],
       ["automatic-older", null],
     ],
   );
@@ -236,7 +236,35 @@ test("snapshot aplicado nÃƒÂ£o ÃƒÂ© reescrito pela classificaÃƒÂ§Ã�
   assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["f", "g"]);
 });
 
-test("uma Faixa com 24 itens recebe overflow, reordena por atualidade e nÃƒÂ£o perde qualquer item", () => {
+test("snapshot aplicado conserva no lugar um override legacy zone/null", () => {
+  const active = [
+    item("a", "benfica", 3, 23),
+    item("b", "benfica", 1, 1),
+    item("c", "benfica", 2, 12),
+  ];
+  const result = reconcileMatchdayEditorialProfileDistribution(
+    profile,
+    active,
+    [override("a", "zone", "benfica", null)],
+    [
+      applied("a", "benfica", 1),
+      applied("b", "benfica", 2),
+      applied("c", "benfica", 3),
+    ],
+    true,
+    [],
+  );
+
+  assert.deepEqual(zoneIds(result, "benfica"), ["a", "b", "c"]);
+  assert.equal(
+    result.zonesAfter[0].items.find((entry) => entry.sourceId === "a")
+      ?.manualOverride,
+    "zone",
+  );
+  assert.equal(result.hasChanges, false);
+});
+
+test("uma Faixa com 24 itens recebe overflow no topo sem reordenar o existente", () => {
   const benfica = ["a", "b", "c", "d", "e", "f"].map((id, index) => item(id, "benfica", index + 1));
   const x = item("x", "outside_liga_other", 1, 23);
   const faixaItems = Array.from({ length: 24 }, (_, index) => faixa(`q${index + 1}`, index + 1));
@@ -264,13 +292,10 @@ test("uma Faixa com 24 itens recebe overflow, reordena por atualidade e nÃƒÂ�
   for (const expected of ["f", ...Array.from({ length: 24 }, (_, index) => `q${index + 1}`)]) {
     assert.equal(result.faixaAfter.some((entry) => entry.sourceId === expected), true, expected);
   }
-  for (let index = 1; index < result.faixaAfter.length; index += 1) {
-    const previous = Date.parse(result.faixaAfter[index - 1].publishedAt ?? "");
-    const current = Date.parse(result.faixaAfter[index].publishedAt ?? "");
-    assert.equal(Number.isNaN(previous), false);
-    assert.equal(Number.isNaN(current), false);
-    assert.ok(previous >= current, `${result.faixaAfter[index - 1].sourceId} antes de ${result.faixaAfter[index].sourceId}`);
-  }
+  assert.deepEqual(
+    result.faixaAfter.slice(1).map((entry) => entry.sourceId),
+    faixaItems.map((entry) => entry.sourceId),
+  );
 });
 
 test("um item na posiÃƒÂ§ÃƒÂ£o 17 que regressa ÃƒÂ  zona ÃƒÂ© removido e a Faixa compacta", () => {
@@ -354,7 +379,7 @@ test("uma notÃƒÂ­cia da Faixa movida para zona desaparece da Faixa", () => {
   assert.deepEqual(result.faixaAfter, []);
 });
 
-test("fixaÃƒÂ§ÃƒÂµes de zona e posiÃƒÂ§ÃƒÂ£o vencem a atualidade automÃƒÂ¡tica", () => {
+test("fixaÃƒÂ§ÃƒÂµes de zona e posiÃƒÂ§ÃƒÂ£o vencem a ordem automÃ¡tica do circuito", () => {
   const automatic = [1, 2, 3, 4, 5, 6].map((number) => item(`a${number}`, "benfica", number));
   const protectedItem = item("protected", "sporting", 8, 1);
   const fixedItem = item("fixed", "sporting", 9, 0);
@@ -409,7 +434,7 @@ test("segundo Apply ÃƒÂ© idempotente e nÃƒÂ£o cria movimentos adicionais
   assert.deepEqual(second.movements, []);
 });
 
-test("snapshot aplicado preserva a ordem aplicada mesmo quando a atualidade aponta noutra direÃƒÂ§ÃƒÂ£o", () => {
+test("snapshot aplicado preserva a ordem aplicada perante datas editoriais divergentes", () => {
   const baseline = [
     item("a", "benfica", 1, 1),
     item("b", "benfica", 2, 23),
@@ -522,7 +547,7 @@ test("snapshot aplicado reserva Banco exclusivamente para override explicito", (
   );
 });
 
-test("varias entradas novas com zonas cheias entram completas na Faixa por atualidade", () => {
+test("varias entradas novas com zonas cheias entram completas na Faixa por ordem do circuito", () => {
   const baseline = ["a", "b", "c", "d", "e", "f"].map(
     (id, index) => item(id, "benfica", index + 1),
   );
@@ -542,7 +567,7 @@ test("varias entradas novas com zonas cheias entram completas na Faixa por atual
 
   assert.deepEqual(
     result.faixaAfter.map((entry) => entry.sourceId),
-    ["new-newest", "new-middle", "new-old"],
+    ["new-old", "new-newest", "new-middle"],
   );
   assert.deepEqual(result.bankAfter, []);
   assert.equal(new Set(result.faixaAfter.map((entry) => entry.sourceId)).size, newItems.length);

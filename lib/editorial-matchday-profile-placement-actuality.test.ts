@@ -2,113 +2,142 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const client = readFileSync(
-  "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
-  "utf8",
-);
-const route = readFileSync(
-  "app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts",
-  "utf8",
-);
 const operations = readFileSync(
   "lib/editorial-matchday-profile-desk-operations.ts",
   "utf8",
 );
+
 const reconcile = readFileSync(
   "lib/editorial-matchday-profile-reconcile.ts",
   "utf8",
 );
-const actualityMigration = readFileSync(
-  "supabase/migrations/20260824010021_thematic_actuality_batch_circuit_safe.sql",
-  "utf8",
-);
-const faixaMembershipMigration = readFileSync(
-  "supabase/migrations/20260824014112_thematic_faixa_membership_by_actuality.sql",
+
+const desk = readFileSync(
+  "lib/editorial-matchday-profile-desk.ts",
   "utf8",
 );
 
-function body(source: string, name: string, nextName: string): string {
-  const start = source.indexOf(`export function ${name}`);
-  const end = source.indexOf(`export function ${nextName}`, start + 1);
-  assert.ok(start >= 0, `${name} não encontrado`);
-  assert.ok(end > start, `${nextName} não encontrado depois de ${name}`);
-  return source.slice(start, end);
-}
+const client = readFileSync(
+  "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
+  "utf8",
+);
 
-test("Zona separa troca interna de entrada externa com posição exata", () => {
-  assert.match(client, /function placeInZone\(itemIdentity: string, zoneKey: EditorialProfileZoneKey, position: number\)/);
-  assert.match(client, /function placeInZone[\s\S]*swapMatchdayEditorialItemsInZone/);
-  assert.match(client, /function fixCurrentZonePosition[\s\S]*fixMatchdayEditorialItemsAtPosition/);
-  assert.match(client, /fixMatchdayEditorialItemsInZone/);
-  assert.doesNotMatch(client, /proteger na zona sem posição fixa/i);
-  assert.match(route, /validateMatchdayEditorialProfileManualOverrides/);
-});
+const migration = readFileSync(
+  "supabase/migrations/20260829160000_thematic_positional_order_without_actuality.sql",
+  "utf8",
+);
 
-test("troca interna fixa só origem e destino e nunca usa cascata", () => {
-  const functionSource = body(
-    operations,
-    "swapMatchdayEditorialItemsInZone",
-    "moveMatchdayEditorialItemsToBank",
-  );
-  assert.match(functionSource, /currentItem/);
-  assert.match(functionSource, /targetItem/);
-  assert.match(functionSource, /sortOrder: currentItem\.sortOrder/);
-  assert.match(functionSource, /sortOrder: targetPosition/);
-  assert.doesNotMatch(functionSource, /displacedQueue|targetSlot:\s*item\.sortOrder \+ selected\.length/);
-});
-
-test("libertar posição fixa distingue zona de Faixa", () => {
-  const functionSource = body(
-    operations,
-    "releaseMatchdayEditorialFixedPositions",
-    "returnMatchdayEditorialItemsToAutomatic",
-  );
-  assert.match(functionSource, /override\.placementTarget === "zone"[\s\S]*return \[\];/);
-  assert.match(functionSource, /override\.placementTarget === "faixa"[\s\S]*sortOrder:\s*null/);
-  assert.match(client, /function releasePosition\(itemIdentity: string\)[\s\S]*releaseMatchdayEditorialFixedPositions/);
-});
-
-test("Faixa sem slot usa atualidade global e só posições explícitas permanecem fixas", () => {
-  assert.match(reconcile, /const faixaOverrides = overrides[\s\S]*placementTarget === "faixa"/);
-  assert.match(reconcile, /const fixedFaixa = faixaOverrides[\s\S]*override\.sortOrder !== null/);
-  assert.match(reconcile, /const actualityFaixaIdentities = new Set/);
-  assert.match(reconcile, /const automaticFaixa = \[\.\.\.activeItems\][\s\S]*\.sort\(compareThematicItemsByActuality\)/);
-  assert.match(reconcile, /actualityFaixaIdentities\.has\(identity\)[\s\S]*\? "faixa"/);
-  assert.doesNotMatch(reconcile, /\[\.\.\.displaced, \.\.\.faixaBefore, \.\.\.automaticOverflow\]/);
-  assert.match(reconcile, /for \(const override of fixedFaixa\)/);
-  assert.match(reconcile, /faixaBase\.splice\(targetIndex, 0,/);
-});
-
-test("Latest não volta a tocar no banco quando a publicação canónica já está sincronizada", () => {
-  assert.match(actualityMigration, /create or replace function public\.sync_matchday_zone_publication_to_bank/);
-  assert.match(actualityMigration, /v_candidate_count = 1 and v_exact_count = 1/);
-  assert.match(actualityMigration, /return v_existing_bank_id/);
-  assert.match(actualityMigration, /return public\.upsert_matchday_editorial_bank_publication/);
-});
-
-test("normalização histórica da Faixa preserva slots manuais e ordena o resto por publicação", () => {
-  assert.match(actualityMigration, /placement_target = 'faixa'/);
-  assert.match(actualityMigration, /published_at desc nulls last/);
-  assert.match(actualityMigration, /updated_at desc nulls last/);
-  assert.match(actualityMigration, /fixed_positions/);
-  assert.match(actualityMigration, /free_positions/);
-});
-
-test("migration da Faixa distingue pertença por atualidade de slot fixo", () => {
-  assert.match(
-    faixaMembershipMigration,
-    /placement_target = 'faixa'[\s\S]*sort_order is null or sort_order > 0/,
-  );
-  assert.match(
-    faixaMembershipMigration,
-    /where placement_target = 'faixa'[\s\S]*sort_order is not null/,
-  );
-  assert.match(
-    faixaMembershipMigration,
-    /jsonb_typeof\(payload\.value -> 'sort_order'\) = 'null'/,
-  );
+test("Mesa deixa de ordenar zonas e Faixa por publishedAt ou updatedAt", () => {
   assert.doesNotMatch(
-    route,
-    /placementTarget === "faixa"[\s\S]{0,160}sortOrder === null/,
+    operations,
+    /compareThematicItemsByActuality/,
+  );
+
+  assert.doesNotMatch(
+    reconcile,
+    /compareThematicItemsByActuality/,
+  );
+
+  assert.doesNotMatch(
+    operations,
+    /compareTimestampDescNullLast/,
+  );
+
+  assert.match(
+    operations,
+    /compareThematicItemsByCircuitOrder/,
+  );
+});
+
+test("ordem automática interna usa circuitOrder", () => {
+  assert.match(
+    desk,
+    /circuitOrder/,
+  );
+
+  assert.match(
+    operations,
+    /left\.circuitOrder/,
+  );
+
+  assert.match(
+    operations,
+    /right\.circuitOrder/,
+  );
+
+  assert.doesNotMatch(
+    operations,
+    /publishedAt[\s\S]{0,160}rightTime/,
+  );
+});
+
+test("Faixa manual não volta a criar pertença sem posição", () => {
+  assert.doesNotMatch(
+    client,
+    /atualidade decide a ordem/,
+  );
+
+  assert.doesNotMatch(
+    client,
+    /placeInFaixa\([^)]*,\s*null\)/,
+  );
+
+  assert.match(
+    client,
+    /conteúdo existente foi deslocado sem reordenação cronológica/,
+  );
+});
+
+test("migration conserva a classificação e troca apenas o critério de ordem", () => {
+  assert.match(
+    migration,
+    /rename to matchday_editorial_profile_classification_plan_actuality_v1/,
+  );
+
+  assert.match(
+    migration,
+    /matchday_editorial_profile_state_items as state_row/,
+  );
+
+  assert.match(
+    migration,
+    /state_row\.created_at/,
+  );
+
+  assert.match(
+    migration,
+    /entered_row\.entered_at asc nulls last/,
+  );
+
+  assert.match(
+    migration,
+    /matchday_editorial_profile_classification_plan_actuality_v1/,
+  );
+
+  assert.match(
+    migration,
+    /matchday_editorial_profile_distribution_plan/,
+  );
+
+  assert.match(
+    migration,
+    /partition by classified_row\.classified_zone_key[\s\S]*as zone_order/,
+  );
+
+  assert.doesNotMatch(
+    migration,
+    /editorially_worked_at/,
+  );
+
+  assert.doesNotMatch(
+    migration,
+    /published_at desc|updated_at desc/,
+  );
+});
+
+test("Últimas fica fora desta alteração estrutural", () => {
+  assert.doesNotMatch(
+    migration,
+    /live_four_news|latest_four|latest_news/,
   );
 });
