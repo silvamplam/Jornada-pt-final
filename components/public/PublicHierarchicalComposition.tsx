@@ -587,7 +587,7 @@ const hierarchicalCompositionStyles = `
   }
 
   .composition-interpretive-analysis-medium .composition-interpretive-media {
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 4 / 3;
     height: auto;
     min-height: 0;
   }
@@ -768,7 +768,7 @@ const hierarchicalCompositionStyles = `
   }
 
   .composition-interpretive-other-compact .composition-interpretive-media {
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 16 / 9;
     height: auto;
     min-height: 0;
   }
@@ -953,7 +953,7 @@ const hierarchicalCompositionStyles = `
       grid-column: 1;
     }
 
-    .composition-interpretive-other-compact .composition-interpretive-media {
+    .composition-interpretive-analysis-medium .composition-interpretive-media {
       aspect-ratio: 16 / 9;
     }
   }
