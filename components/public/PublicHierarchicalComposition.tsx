@@ -768,7 +768,7 @@ const hierarchicalCompositionStyles = `
   }
 
   .composition-interpretive-other-compact .composition-interpretive-media {
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 4 / 3;
     height: auto;
     min-height: 0;
   }
@@ -951,6 +951,10 @@ const hierarchicalCompositionStyles = `
     .composition-interpretive-other-left,
     .composition-interpretive-other-compact-column {
       grid-column: 1;
+    }
+
+    .composition-interpretive-other-compact .composition-interpretive-media {
+      aspect-ratio: 16 / 9;
     }
   }
 

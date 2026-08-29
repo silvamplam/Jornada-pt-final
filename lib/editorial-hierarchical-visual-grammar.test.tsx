@@ -129,8 +129,8 @@ test("Para Lá apresenta pós-título nas quatro secundárias e mantém as infer
   }
 });
 
-test("as variantes públicas e de preview protegem as razões editoriais das imagens", () => {
-  const expectedRatios = new Map([
+test("as compactas públicas ganham verticalidade sem alterar o preview ou os breakpoints", () => {
+  const sharedExpectedRatios = new Map([
     [".composition-interpretive-dominant .composition-interpretive-media", "3 / 2"],
     [".composition-interpretive-chronicle .composition-interpretive-media", "16 / 9"],
     [".composition-interpretive-analysis-main .composition-interpretive-media", "2 / 1"],
@@ -138,16 +138,27 @@ test("as variantes públicas e de preview protegem as razões editoriais das ima
     [".composition-interpretive-analysis-side-item .composition-interpretive-media", "2.45 / 1"],
     [".composition-interpretive-other-featured .composition-interpretive-media", "3 / 1"],
     [".composition-interpretive-other-second-featured .composition-interpretive-media", "16 / 9"],
-    [".composition-interpretive-other-compact .composition-interpretive-media", "16 / 9"],
   ]);
 
   for (const css of [cssFrom(publicMarkup), cssFrom(previewMarkup)]) {
-    for (const [selector, ratio] of expectedRatios) {
+    for (const [selector, ratio] of sharedExpectedRatios) {
       assertDeclaration(cssRule(css, selector), "aspect-ratio", ratio);
     }
     assertDeclaration(cssRule(css, ".public-beyond-matchday-lead .public-beyond-matchday-media"), "aspect-ratio", "16 / 9");
     assertDeclaration(cssRule(css, ".public-beyond-matchday-secondary-card .public-beyond-matchday-media"), "aspect-ratio", "16 / 9");
   }
+
+  const publicCss = cssFrom(publicMarkup);
+  const previewCss = cssFrom(previewMarkup);
+  const tabletStart = publicCss.indexOf("@media (max-width: 980px)");
+  const mobileStart = publicCss.indexOf("@media (max-width: 720px)", tabletStart);
+  const tabletCss = publicCss.slice(tabletStart, mobileStart);
+  const compactMediaSelector = ".composition-interpretive-other-compact .composition-interpretive-media";
+
+  assertDeclaration(cssRule(publicCss, compactMediaSelector), "aspect-ratio", "4 / 3");
+  assertDeclaration(cssRule(previewCss, compactMediaSelector), "aspect-ratio", "16 / 9");
+  assert.ok(tabletStart >= 0 && mobileStart > tabletStart);
+  assertDeclaration(cssRule(tabletCss, compactMediaSelector), "aspect-ratio", "16 / 9");
 });
 
 test("a página pública liberta títulos e o preview preserva os clamps semânticos", () => {
