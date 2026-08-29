@@ -320,7 +320,11 @@ export function buildMatchdayEditorialProfileEffectiveDistribution(
   });
 
   const bank = activeItems
-    .filter((item) => !placed.has(thematicEditorialIdentity(item.sourceType, item.sourceId)))
+    .filter((item) => {
+      const identity = thematicEditorialIdentity(item.sourceType, item.sourceId);
+      return !placed.has(identity)
+        && overrideByIdentity.get(identity)?.placementTarget === "bank";
+    })
     .map((item) => {
       const override = overrideByIdentity.get(thematicEditorialIdentity(item.sourceType, item.sourceId));
       return {
@@ -894,6 +898,89 @@ export function fixMatchdayEditorialItemsAtPosition(
 
   return normalizedMapValues(profile, next);
 }
+export function swapMatchdayEditorialItemsInZone(
+  profile: EditorialProfile,
+  activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
+  overrides: readonly MatchdayEditorialProfileManualOverride[],
+  movingIdentity: string,
+  zoneKey: EditorialProfileZoneKey,
+  targetPosition: number,
+  currentZoneItems: readonly (
+    MatchdayEditorialProfileEffectiveItem
+    & Readonly<{ sortOrder: number }>
+  )[],
+): readonly MatchdayEditorialProfileManualOverride[] {
+  const zone = profile.zones.find((candidate) => candidate.key === zoneKey);
+  if (
+    !zone
+    || !Number.isInteger(targetPosition)
+    || targetPosition <= 0
+    || targetPosition > zone.capacity
+  ) {
+    throw new Error("matchday-editorial-profile-manual-overrides-invalid-sort-order");
+  }
+
+  const movingItem = requireActiveItems(
+    activeItems,
+    [movingIdentity],
+  )[0];
+  if (!movingItem) {
+    throw new Error(
+      "matchday-editorial-profile-manual-overrides-source-not-active",
+    );
+  }
+  const normalizedMovingIdentity = thematicEditorialIdentity(
+    movingItem.sourceType,
+    movingItem.sourceId,
+  );
+  const currentItem = currentZoneItems.find((item) => (
+    thematicEditorialIdentity(item.sourceType, item.sourceId)
+      === normalizedMovingIdentity
+  ));
+
+  if (!currentItem) {
+    throw new Error(
+      "matchday-editorial-profile-manual-overrides-swap-source-not-in-zone",
+    );
+  }
+  if (currentItem.sortOrder === targetPosition) {
+    return validateMatchdayEditorialProfileManualOverrides(
+      profile,
+      overrides,
+    );
+  }
+
+  const targetItem = currentZoneItems.find(
+    (item) => item.sortOrder === targetPosition,
+  );
+  const next = overrideMap(overrides);
+  next.delete(normalizedMovingIdentity);
+
+  if (targetItem) {
+    const targetIdentity = thematicEditorialIdentity(
+      targetItem.sourceType,
+      targetItem.sourceId,
+    );
+    next.delete(targetIdentity);
+    next.set(targetIdentity, {
+      sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
+      sourceId: targetItem.sourceId,
+      placementTarget: "zone",
+      zoneKey,
+      sortOrder: currentItem.sortOrder,
+    });
+  }
+
+  next.set(normalizedMovingIdentity, {
+    sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
+    sourceId: movingItem.sourceId,
+    placementTarget: "zone",
+    zoneKey,
+    sortOrder: targetPosition,
+  });
+
+  return normalizedMapValues(profile, next);
+}
 export function moveMatchdayEditorialItemsToBank(
   profile: EditorialProfile,
   activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
@@ -1015,6 +1102,81 @@ export function moveMatchdayEditorialItemsToFaixa(
     profile,
     next,
   );
+}
+export function swapMatchdayEditorialItemsInFaixa(
+  profile: EditorialProfile,
+  activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
+  overrides: readonly MatchdayEditorialProfileManualOverride[],
+  movingIdentity: string,
+  targetPosition: number,
+  currentFaixaItems: readonly MatchdayEditorialProfileEffectiveItem[],
+): readonly MatchdayEditorialProfileManualOverride[] {
+  if (!Number.isInteger(targetPosition) || targetPosition <= 0) {
+    throw new Error(
+      "matchday-editorial-profile-manual-overrides-invalid-sort-order",
+    );
+  }
+
+  const movingItem = requireActiveItems(
+    activeItems,
+    [movingIdentity],
+  )[0];
+  if (!movingItem) {
+    throw new Error(
+      "matchday-editorial-profile-manual-overrides-source-not-active",
+    );
+  }
+  const normalizedMovingIdentity = thematicEditorialIdentity(
+    movingItem.sourceType,
+    movingItem.sourceId,
+  );
+  const currentItem = currentFaixaItems.find((item) => (
+    thematicEditorialIdentity(item.sourceType, item.sourceId)
+      === normalizedMovingIdentity
+  ));
+
+  if (!currentItem || currentItem.sortOrder === null) {
+    throw new Error(
+      "matchday-editorial-profile-manual-overrides-swap-source-not-in-faixa",
+    );
+  }
+  if (currentItem.sortOrder === targetPosition) {
+    return validateMatchdayEditorialProfileManualOverrides(
+      profile,
+      overrides,
+    );
+  }
+
+  const targetItem = currentFaixaItems.find(
+    (item) => item.sortOrder === targetPosition,
+  );
+  const next = overrideMap(overrides);
+  next.delete(normalizedMovingIdentity);
+
+  if (targetItem) {
+    const targetIdentity = thematicEditorialIdentity(
+      targetItem.sourceType,
+      targetItem.sourceId,
+    );
+    next.delete(targetIdentity);
+    next.set(targetIdentity, {
+      sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
+      sourceId: targetItem.sourceId,
+      placementTarget: "faixa",
+      zoneKey: null,
+      sortOrder: currentItem.sortOrder,
+    });
+  }
+
+  next.set(normalizedMovingIdentity, {
+    sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
+    sourceId: movingItem.sourceId,
+    placementTarget: "faixa",
+    zoneKey: null,
+    sortOrder: targetPosition,
+  });
+
+  return normalizedMapValues(profile, next);
 }
 export function releaseMatchdayEditorialFixedPositions(
   profile: EditorialProfile,

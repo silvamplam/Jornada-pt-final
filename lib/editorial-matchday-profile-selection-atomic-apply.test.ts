@@ -76,6 +76,32 @@ test(
 );
 
 test(
+  "Apply recompõe a exclusividade da Seleção no servidor sem override técnico de Banco",
+  () => {
+    assert.match(
+      route,
+      /matchdayEditorialProfileSelectionIdentities/,
+    );
+    assert.match(
+      route,
+      /const circuitOverrides = withoutMatchdayEditorialProfileOpeningOverrides/,
+    );
+    assert.match(
+      route,
+      /returnMatchdayEditorialItemsToAutomatic\([\s\S]*selectionIdentities/,
+    );
+    assert.match(
+      route,
+      /selectionIdentities,[\s\S]*workedIdentities/,
+    );
+    assert.match(
+      route,
+      /p_overrides: circuitOverrides\.map/,
+    );
+  },
+);
+
+test(
   "V5 inclui Seleção no mesmo workspace atómico",
   () => {
     assert.match(

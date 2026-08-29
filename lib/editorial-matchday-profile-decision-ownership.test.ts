@@ -105,13 +105,13 @@ test(
 
     assert.equal(
       calls.length,
-      6,
+      5,
     );
   },
 );
 
 test(
-  "Selecao editorial e independente da colocacao mas participa no mesmo undo local",
+  "Selecao editorial e destino exclusivo e participa no mesmo undo local",
   () => {
     assert.match(
       client,
@@ -172,7 +172,7 @@ test(
 
     assert.match(
       selection,
-      /const nextSelection/,
+      /prepareExclusiveMatchdayEditorialProfileSelection/,
     );
     assert.match(
       selection,
@@ -180,7 +180,7 @@ test(
     );
     assert.match(
       selection,
-      /editorialSelection: nextSelection/,
+      /editorialSelection: transition\.selection/,
     );
     assert.doesNotMatch(
       selection,
@@ -214,7 +214,7 @@ test(
     );
     assert.match(
       client,
-      /function changeEditorialSelection[\s\S]*editorialSelection: nextSelection/,
+      /function changeEditorialSelection[\s\S]*editorialSelection: transition\.selection/,
     );
     assert.doesNotMatch(
       functionBody(client, "changeEditorialSelection", "currentDraft"),

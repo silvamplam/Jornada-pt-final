@@ -31,6 +31,8 @@ import {
   reconcileMatchdayEditorialProfileDeskSnapshot,
   releaseMatchdayEditorialFixedPositions,
   returnMatchdayEditorialItemsToAutomatic,
+  swapMatchdayEditorialItemsInFaixa,
+  swapMatchdayEditorialItemsInZone,
   compactMatchdayEditorialProfileManualOverridesForLayoutChange,
   thematicEditorialIdentity,
   type MatchdayEditorialProfileEffectiveItem,
@@ -54,10 +56,11 @@ import {
 import {
   MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS,
   matchdayEditorialProfileSelectionBankItemByIdentity,
+  matchdayEditorialProfileSelectionIdentities,
   parseMatchdayEditorialProfileSelectionDrag,
   prepareExclusiveMatchdayEditorialProfileSelection,
   prepareExclusiveMatchdayEditorialProfileSelectionState,
-  removeMatchdayEditorialProfileSelection,
+  removeExclusiveMatchdayEditorialProfileSelection,
   serializeMatchdayEditorialProfileSelectionDrag,
   withoutMatchdayEditorialProfileSelectionBankItems,
   type MatchdayEditorialProfileSelectionPosition,
@@ -362,7 +365,7 @@ type WorkspaceDraft = Readonly<{
 }>;
 
 type Placement = Readonly<{
-  kind: "opening" | "zone" | "faixa" | "bank";
+  kind: "new" | "opening" | "zone" | "faixa" | "bank";
   zoneKey?: EditorialProfileZoneKey;
 }>;
 
@@ -925,23 +928,21 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   function removeEditorialSelection(
     position: MatchdayEditorialProfileSelectionPosition,
   ) {
-    const bankItemId = draftEditorialSelection[position - 1] ?? null;
-    const candidate = bankItemId
-      ? editorialSelectionCandidateById.get(bankItemId) ?? null
-      : null;
-    const workedIdentity = candidate?.sourceType && candidate.sourceId
-      ? thematicEditorialIdentity(candidate.sourceType, candidate.sourceId)
-      : null;
+    const transition =
+      removeExclusiveMatchdayEditorialProfileSelection({
+        profile: effectiveProfile,
+        overrides: operationalOverrides,
+        selection: draftEditorialSelection,
+        candidates: editorialSelectionCandidates,
+        position,
+      });
     commitDraft(
       withWorkedIdentities({
         ...currentDraft(),
-        editorialSelection:
-          removeMatchdayEditorialProfileSelection(
-            draftEditorialSelection,
-            position,
-          ),
-      }, workedIdentity ? [workedIdentity] : []),
-      "Promoção retirada da Seleção; a notícia permanece no Banco.",
+        overrides: transition.overrides,
+        editorialSelection: transition.selection,
+      }, transition.workedIdentity ? [transition.workedIdentity] : []),
+      "Promoção retirada da Seleção; a notícia regressou automaticamente à sua zona ou à Faixa.",
     );
   }
 
@@ -1119,11 +1120,28 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     profile,
     editorState.persistedPageControls.thematicZoneLayouts,
   ), [editorState.persistedPageControls.thematicZoneLayouts, profile]);
+  const draftSelectionIdentities = useMemo(
+    () => matchdayEditorialProfileSelectionIdentities(
+      draftEditorialSelection,
+      editorialSelectionCandidates,
+    ),
+    [draftEditorialSelection, editorialSelectionCandidates],
+  );
+  const activeDraftOverrides = useMemo(
+    () => editorState.draftOverrides.filter(
+      (override) => activeIdentities.has(identity(override)),
+    ),
+    [activeIdentities, editorState.draftOverrides],
+  );
   const operationalOverrides = useMemo(() => withoutMatchdayEditorialProfileOpeningOverrides(
     effectiveProfile,
-    editorState.draftOverrides.filter((override) => activeIdentities.has(identity(override))),
+    returnMatchdayEditorialItemsToAutomatic(
+      effectiveProfile,
+      activeDraftOverrides,
+      draftSelectionIdentities,
+    ),
     editorState.draftOpening,
-  ), [activeIdentities, editorState.draftOpening, editorState.draftOverrides, effectiveProfile]);
+  ), [activeDraftOverrides, draftSelectionIdentities, editorState.draftOpening, effectiveProfile]);
   const persistedOperationalOverrides = useMemo(() => withoutMatchdayEditorialProfileOpeningOverrides(
     persistedProfile,
     editorState.persistedOverrides.filter((override) => activeIdentities.has(identity(override))),
@@ -1143,7 +1161,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         prepareExclusiveMatchdayEditorialProfileSelectionState({
           profile: effectiveProfile,
           activeItems,
-          overrides: operationalOverrides,
+          overrides: activeDraftOverrides,
           opening: editorState.draftOpening,
           selection: draftEditorialSelection,
           candidates: editorialSelectionCandidates,
@@ -1152,7 +1170,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       selectionBootstrapMatchdayRef.current = desk.matchdayId;
 
       const changed =
-        !sameJson(exclusive.overrides, operationalOverrides)
+        !sameJson(exclusive.overrides, activeDraftOverrides)
         || !sameJson(exclusive.opening, editorState.draftOpening)
         || !sameJson(exclusive.selection, draftEditorialSelection);
 
@@ -1179,13 +1197,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     }
   }, [
     activeItems,
+    activeDraftOverrides,
     desk.matchdayId,
     draftEditorialSelection,
     editorState.draftOpening,
     editorialSelectionCandidates,
     editorialSelectionLoadedMatchdayId,
     effectiveProfile,
-    operationalOverrides,
   ]);
 
   const reconcile = useMemo(() => reconcileMatchdayEditorialProfileWorkspace(
@@ -1196,7 +1214,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     desk.appliedZoneItems,
     desk.hasAppliedSnapshot,
     desk.currentFaixa,
-  ), [activeItems, desk.appliedZoneItems, desk.currentFaixa, desk.hasAppliedSnapshot, editorState.draftOpening, effectiveProfile, operationalOverrides]);
+    {
+      selectionIdentities: draftSelectionIdentities,
+      workedIdentities: editorState.workedIdentities,
+    },
+  ), [activeItems, desk.appliedZoneItems, desk.currentFaixa, desk.hasAppliedSnapshot, draftSelectionIdentities, editorState.draftOpening, editorState.workedIdentities, effectiveProfile, operationalOverrides]);
   const pending = reconcile.hasChanges
     || !sameJson(operationalOverrides, persistedOperationalOverrides)
     || !sameJson(editorState.draftOpening, editorState.persistedOpening)
@@ -1223,8 +1245,17 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     ...reconcile.faixaAfter,
     ...reconcile.bankAfter,
   ].map((item) => [identity(item), item] as const)), [reconcile]);
+  const exclusivePlacedIdentitySet = useMemo(() => new Set([
+    ...effectiveItemByIdentity.keys(),
+    ...matchdayEditorialProfileOpeningSourceIds(editorState.draftOpening).map(
+      (sourceId) => thematicEditorialIdentity("editorial_article", sourceId),
+    ),
+    ...draftSelectionIdentities,
+  ]), [draftSelectionIdentities, editorState.draftOpening, effectiveItemByIdentity]);
   const newItems = activeItems.filter((item) =>
-    item.isNew === true && !workedIdentitySet.has(identity(item)));
+    item.isNew === true
+    && !workedIdentitySet.has(identity(item))
+    && !exclusivePlacedIdentitySet.has(identity(item)));
   const normalizedNewItemsQuery = newItemsQuery
     .trim()
     .toLocaleLowerCase("pt-PT");
@@ -1361,6 +1392,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (zone) return { kind: "zone", zoneKey: zone.key };
     if (reconcile.faixaAfter.some((entry) => identity(entry) === identity(item))) {
       return { kind: "faixa" };
+    }
+    if (reconcile.bankAfter.some((entry) => identity(entry) === identity(item))) {
+      return { kind: "bank" };
+    }
+    if (item.isNew === true && !workedIdentitySet.has(identity(item))) {
+      return { kind: "new" };
     }
     return { kind: "bank" };
   }
@@ -1628,6 +1665,15 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         [bankItemIdByIdentity.get(itemIdentity) ?? ""],
       );
 
+      if (movement.previousSlot !== null) {
+        return withWorkedIdentities({
+          ...currentDraft(),
+          overrides: incomingOverrides,
+          opening: movement.opening,
+          editorialSelection: incomingSelection,
+        }, [itemIdentity]);
+      }
+
       if (!movement.displacedSourceId) {
         return withWorkedIdentities({
           ...currentDraft(),
@@ -1667,6 +1713,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
       const candidates =
         activeItemsOutside(movement.opening);
+      const candidateIdentities = new Set(
+        candidates.map((item) => identity(item)),
+      );
+      const currentNaturalZoneItems = reconcile.zonesAfter.find(
+        (zone) => zone.key === displacedItem.classifiedZoneKey,
+      )?.items.filter((item) => candidateIdentities.has(identity(item)));
 
       return withWorkedIdentities({
         ...currentDraft(),
@@ -1677,18 +1729,36 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           [displacedIdentity],
           displacedItem.classifiedZoneKey,
           1,
-          reconcile.zonesAfter.find(
-            (zone) => zone.key === displacedItem.classifiedZoneKey,
-          )?.items,
+          currentNaturalZoneItems,
         ),
         opening: movement.opening,
         editorialSelection: incomingSelection,
       }, [itemIdentity]);
-    }, `${MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS[slot]} atualizada em preview; eventual not\u00edcia substitu\u00edda regressou \u00e0 sua zona natural na posi\u00e7\u00e3o 1.`);
+    }, `${MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS[slot]} atualizada em preview; movimentos internos trocam diretamente os dois lugares e entradas externas devolvem a notícia substituída à sua zona natural.`);
   }
 
   function placeInZone(itemIdentity: string, zoneKey: EditorialProfileZoneKey, position: number) {
+    const currentZone = reconcile.zonesAfter.find((zone) => (
+      zone.key === zoneKey
+      && zone.items.some((item) => identity(item) === itemIdentity)
+    ));
+
     localOperation(() => {
+      if (currentZone) {
+        return withWorkedIdentities({
+          ...currentDraft(),
+          overrides: swapMatchdayEditorialItemsInZone(
+            effectiveProfile,
+            activeItems,
+            operationalOverrides,
+            itemIdentity,
+            zoneKey,
+            position,
+            currentZone.items,
+          ),
+        }, [itemIdentity]);
+      }
+
       const transition =
         prepareExclusivePlacementTransition(
           [itemIdentity],
@@ -1710,11 +1780,57 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         opening: transition.opening,
         editorialSelection: transition.editorialSelection,
       }, [itemIdentity]);
-    }, `Notícia inserida em ${zoneKey}, posição ${position}; a sequência existente foi deslocada e eventual excesso passou para a Faixa.`);
+    }, currentZone
+      ? `Posições trocadas diretamente em ${zoneKey}.`
+      : `Notícia inserida em ${zoneKey}, posição ${position}; eventual excesso passou para o topo da Faixa.`);
+  }
+
+  function fixCurrentZonePosition(
+    itemIdentity: string,
+    zoneKey: EditorialProfileZoneKey,
+    position: number,
+  ) {
+    localOperation(() => {
+      const transition = prepareExclusivePlacementTransition([itemIdentity]);
+
+      return withWorkedIdentities({
+        ...currentDraft(),
+        overrides: fixMatchdayEditorialItemsAtPosition(
+          effectiveProfile,
+          transition.candidates,
+          transition.overrides,
+          [itemIdentity],
+          zoneKey,
+          position,
+          reconcile.zonesAfter.find(
+            (zone) => zone.key === zoneKey,
+          )?.items,
+        ),
+        opening: transition.opening,
+        editorialSelection: transition.editorialSelection,
+      }, [itemIdentity]);
+    }, `Posição ${position} fixada em ${zoneKey}.`);
   }
 
   function placeInFaixa(itemIdentity: string, position: number | null) {
+    const isInternalSwap = position !== null
+      && reconcile.faixaAfter.some((item) => identity(item) === itemIdentity);
+
     localOperation(() => {
+      if (isInternalSwap) {
+        return withWorkedIdentities({
+          ...currentDraft(),
+          overrides: swapMatchdayEditorialItemsInFaixa(
+            effectiveProfile,
+            activeItems,
+            operationalOverrides,
+            itemIdentity,
+            Math.max(1, position),
+            reconcile.faixaAfter,
+          ),
+        }, [itemIdentity]);
+      }
+
       const transition =
         prepareExclusivePlacementTransition(
           [itemIdentity],
@@ -1726,7 +1842,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         opening: transition.opening,
         editorialSelection: transition.editorialSelection,
       }, [itemIdentity]);
-    }, "Notícia enviada para a Faixa; sem posição fixa, a atualidade decide a ordem.");
+    }, isInternalSwap
+      ? "Posições trocadas diretamente na Faixa."
+      : "Notícia enviada para a Faixa; sem posição fixa, a atualidade decide a ordem.");
   }
 
   function placeInBank(itemIdentity: string) {
@@ -1928,7 +2046,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           && placement.zoneKey
           && itemSortOrder !== null
           && item.manualOverride !== "position"
-            ? () => placeInZone(
+            ? () => fixCurrentZonePosition(
                 itemIdentity,
                 placement.zoneKey!,
                 itemSortOrder,

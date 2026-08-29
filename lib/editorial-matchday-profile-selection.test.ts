@@ -41,7 +41,7 @@ test("Seleção expõe quatro posições canónicas", () => {
   );
 });
 
-test("Zona, Faixa e Abertura passam deterministicamente para Banco ao entrar na Seleção", () => {
+test("Zona, Faixa e Abertura deixam de coexistir ao entrar na Seleção sem criar Banco", () => {
   const profile = EDITORIAL_PROFILES.liga_portugal_v1;
   const activeItem = {
     sourceType: "editorial_article",
@@ -97,18 +97,12 @@ test("Zona, Faixa e Abertura passam deterministicamente para Banco ao entrar na 
 
     assert.deepEqual(transition.selection, ["bank-a", null, null, null]);
     assert.equal(Object.values(transition.opening).includes("article-a"), false);
-    assert.deepEqual(transition.overrides, [{
-      sourceType: "editorial_article",
-      sourceId: "article-a",
-      placementTarget: "bank",
-      zoneKey: null,
-      sortOrder: null,
-    }]);
+    assert.deepEqual(transition.overrides, []);
     assert.equal(transition.workedIdentity, "editorial_article\u0000article-a");
   }
 });
 
-test("Seleção já persistida é normalizada de uma vez para placement exclusivo", () => {
+test("Seleção já persistida remove placements concorrentes sem os converter em Banco", () => {
   const profile = EDITORIAL_PROFILES.liga_portugal_v1;
   const activeItems = [
     {
@@ -180,15 +174,7 @@ test("Seleção já persistida é normalizada de uma vez para placement exclusiv
     ),
     false,
   );
-  assert.deepEqual(
-    transition.overrides
-      .map((entry) => [entry.sourceId, entry.placementTarget])
-      .sort(),
-    [
-      ["article-a", "bank"],
-      ["article-b", "bank"],
-    ],
-  );
+  assert.deepEqual(transition.overrides, []);
   assert.equal("workedIdentities" in transition, false);
 });
 

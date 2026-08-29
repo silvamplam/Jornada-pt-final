@@ -12,6 +12,8 @@ import {
   reconcileMatchdayEditorialProfileDeskSnapshot,
   releaseMatchdayEditorialFixedPositions,
   returnMatchdayEditorialItemsToAutomatic,
+  swapMatchdayEditorialItemsInFaixa,
+  swapMatchdayEditorialItemsInZone,
   thematicEditorialIdentity,
   validateMatchdayEditorialProfileManualOverrides,
   type MatchdayEditorialProfileManualOverride,
@@ -73,7 +75,7 @@ function zoneIds(
   return distribution.zones.find((zone) => zone.key === zoneKey)?.items.map((item) => item.sourceId) ?? [];
 }
 
-test("sem overrides, a distribuição efetiva reproduz a baseline automática", () => {
+test("sem overrides, a distribuição efetiva não inventa Banco para o overflow automático", () => {
   const activeItems = [
     automaticItem("a", "benfica", 1, 12),
     automaticItem("b", "benfica", 2, 11),
@@ -82,7 +84,7 @@ test("sem overrides, a distribuição efetiva reproduz a baseline automática", 
   const result = buildMatchdayEditorialProfileEffectiveDistribution(profile, activeItems, []);
 
   assert.deepEqual(result.zones[0].items.map((item) => item.sourceId), ["a", "b"]);
-  assert.deepEqual(result.bank.map((item) => item.sourceId), ["overflow"]);
+  assert.deepEqual(result.bank.map((item) => item.sourceId), []);
   assert.equal(result.zones.flatMap((zone) => zone.items).every((item) => item.manualOverride === null), true);
 });
 
@@ -118,7 +120,7 @@ test("fixação na zona vence atualidade, mas a posição livre continua ordenad
   assert.deepEqual(zoneIds(baseline, protectedInZone, "sporting"), ["h", "g", "f", "a", "c"]);
   assert.deepEqual(
     buildMatchdayEditorialProfileEffectiveDistribution(profile, baseline, protectedInZone).bank.map((item) => item.sourceId),
-    ["b"],
+    [],
   );
 
   const newerProtected = baseline.map((item) => item.sourceId === "c"
@@ -153,6 +155,101 @@ test("remover completamente o override devolve a notícia à zona automática", 
   assert.deepEqual(zoneIds(activeItems, automatic, "sporting"), []);
 });
 
+test("movimento interno da Zona 2 -> 4 troca apenas as posições 2 e 4", () => {
+  const activeItems = [1, 2, 3, 4, 5].map((position) =>
+    automaticItem(`a${position}`, "sporting", position, 20 - position));
+  const currentZone = buildMatchdayEditorialProfileEffectiveDistribution(
+    profile,
+    activeItems,
+    [],
+  ).zones.find((zone) => zone.key === "sporting");
+  assert.ok(currentZone);
+
+  const next = swapMatchdayEditorialItemsInZone(
+    profile,
+    activeItems,
+    [],
+    identity("a2"),
+    "sporting",
+    4,
+    currentZone.items,
+  );
+
+  assert.deepEqual(
+    zoneIds(activeItems, next, "sporting"),
+    ["a1", "a4", "a3", "a2", "a5"],
+  );
+});
+
+test("movimento interno da Zona 2 -> 5 troca apenas as posições 2 e 5", () => {
+  const activeItems = [1, 2, 3, 4, 5].map((position) =>
+    automaticItem(`a${position}`, "sporting", position, 20 - position));
+  const currentZone = buildMatchdayEditorialProfileEffectiveDistribution(
+    profile,
+    activeItems,
+    [],
+  ).zones.find((zone) => zone.key === "sporting");
+  assert.ok(currentZone);
+
+  const next = swapMatchdayEditorialItemsInZone(
+    profile,
+    activeItems,
+    [],
+    identity("a2"),
+    "sporting",
+    5,
+    currentZone.items,
+  );
+
+  assert.deepEqual(
+    zoneIds(activeItems, next, "sporting"),
+    ["a1", "a5", "a3", "a4", "a2"],
+  );
+});
+
+test("movimento interno da Faixa 2 -> 4 troca apenas as posições 2 e 4", () => {
+  const activeItems = [1, 2, 3, 4].map((position) =>
+    automaticItem(`f${position}`, "benfica", position, 20 - position));
+  const faixaOverrides = moveMatchdayEditorialItemsToFaixa(
+    profile,
+    activeItems,
+    [],
+    activeItems.map((item) => identity(item.sourceId)),
+    1,
+  );
+  const before = reconcileMatchdayEditorialProfileWorkspace(
+    profile,
+    activeItems,
+    faixaOverrides,
+    emptyMatchdayEditorialProfileOpening(),
+    [],
+    false,
+    [],
+  );
+  const next = swapMatchdayEditorialItemsInFaixa(
+    profile,
+    activeItems,
+    faixaOverrides,
+    identity("f2"),
+    4,
+    before.faixaAfter,
+  );
+  const after = reconcileMatchdayEditorialProfileWorkspace(
+    profile,
+    activeItems,
+    next,
+    emptyMatchdayEditorialProfileOpening(),
+    [],
+    false,
+    [],
+  );
+
+  assert.deepEqual(
+    after.faixaAfter.map((item) => item.sourceId),
+    ["f1", "f4", "f3", "f2"],
+  );
+});
+
 test("todos os lugares protegidos impedem entrada automática e várias fixações livres coexistem", () => {
   const pinned = [1, 2, 3, 4, 5].map((number) => automaticItem(`p${number}`, null, null, number));
   const automatic = automaticItem("new", "sporting", 1, 23);
@@ -161,7 +258,7 @@ test("todos os lugares protegidos impedem entrada automática e várias fixaçõ
 
   assert.equal(result.zones[1].items.length, 5);
   assert.equal(result.zones[1].items.some((item) => item.sourceId === "new"), false);
-  assert.equal(result.bank.some((item) => item.sourceId === "new"), true);
+  assert.equal(result.bank.some((item) => item.sourceId === "new"), false);
   assert.equal(overrides.every((item) => item.sortOrder === null), true);
 });
 

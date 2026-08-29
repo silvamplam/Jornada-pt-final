@@ -7,7 +7,11 @@ import {
   editorialProfileWithZoneLayouts,
 } from "@/lib/editorial-profiles";
 import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
-import { validateMatchdayEditorialProfileManualOverrides } from "@/lib/editorial-matchday-profile-desk-operations";
+import {
+  returnMatchdayEditorialItemsToAutomatic,
+  thematicEditorialIdentity,
+  validateMatchdayEditorialProfileManualOverrides,
+} from "@/lib/editorial-matchday-profile-desk-operations";
 import {
   validateMatchdayEditorialProfileApplyState,
 } from "@/lib/editorial-matchday-profile-apply-guard";
@@ -15,7 +19,9 @@ import {
   reconcileMatchdayEditorialProfileWorkspace,
   validateMatchdayEditorialProfileOpening,
   validateMatchdayEditorialProfilePageControls,
+  withoutMatchdayEditorialProfileOpeningOverrides,
 } from "@/lib/editorial-matchday-profile-workspace";
+import { matchdayEditorialProfileSelectionIdentities } from "@/lib/editorial-matchday-profile-selection";
 import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
@@ -197,6 +203,7 @@ function mutationErrorResponse(error: unknown) {
     || message.includes("profile-workspace-v8-")
     || message.includes("profile-workspace-v9-")
     || message.includes("profile-workspace-exclusive-")
+    || message.includes("profile-selection-")
   ) {
     return apiError("thematic-desk-invalid-reconcile", "A composição temática foi recusada integralmente.", 400);
   }
@@ -493,14 +500,61 @@ export async function POST(
       return apiError("thematic-desk-blocked-diagnostics", "Existem diagnósticos bloqueantes na classificação, snapshot ou Faixa.", 409);
     }
 
+    const selectionBankItemIds = (input.selectionBankItemIds as (string | null)[])
+      .flatMap((value) => value ? [value.trim().toLowerCase()] : []);
+    const selectionBankItemIdSet = new Set(selectionBankItemIds);
+    const selectionRows = selectionBankItemIds.length > 0
+      ? await fetchSupabaseAdminTable<EditorialSelectionBankRow>(
+          `matchday_editorial_bank_items?select=id,source_type,source_id,label,title,subtitle,image_url,link_url&matchday_id=eq.${encodeURIComponent(
+            matchdayId,
+          )}&status=eq.active&id=in.(${Array.from(selectionBankItemIdSet).map((value) => encodeURIComponent(value)).join(",")})`,
+        )
+      : [];
+
+    if (
+      selectionRows.length !== selectionBankItemIdSet.size
+      || selectionRows.some((row) => !selectionBankItemIdSet.has(row.id.trim().toLowerCase()))
+    ) {
+      throw new Error("matchday-editorial-profile-selection-source-not-active");
+    }
+
+    const selectionIdentities = matchdayEditorialProfileSelectionIdentities(
+      input.selectionBankItemIds as (string | null)[],
+      selectionRows.map((row) => ({
+        bankItemId: row.id,
+        sourceType: row.source_type,
+        sourceId: row.source_id,
+      })),
+    );
+    if (selectionIdentities.length !== selectionRows.length) {
+      throw new Error("matchday-editorial-profile-selection-duplicate-source");
+    }
+
+    const circuitOverrides = withoutMatchdayEditorialProfileOpeningOverrides(
+      effectiveProfile,
+      returnMatchdayEditorialItemsToAutomatic(
+        effectiveProfile,
+        overrides,
+        selectionIdentities,
+      ),
+      opening,
+    );
+    const workedIdentities = (input.workedSourceIds as string[]).map(
+      (sourceId) => thematicEditorialIdentity("editorial_article", sourceId),
+    );
+
     const reconcile = reconcileMatchdayEditorialProfileWorkspace(
       effectiveProfile,
       desk.automaticDistribution.activeItems,
-      overrides,
+      circuitOverrides,
       opening,
       desk.appliedZoneItems,
       desk.hasAppliedSnapshot,
       desk.currentFaixa,
+      {
+        selectionIdentities,
+        workedIdentities,
+      },
     );
     const applyIssues =
       validateMatchdayEditorialProfileApplyState(
@@ -558,7 +612,7 @@ export async function POST(
           p_profile_key: input.profileKey,
           p_expected_revision: input.expectedRevision,
           p_expected_state_token: input.expectedStateToken,
-          p_overrides: overrides.map((override) => ({
+          p_overrides: circuitOverrides.map((override) => ({
             source_type: override.sourceType,
             source_id: override.sourceId,
             placement_target: override.placementTarget,

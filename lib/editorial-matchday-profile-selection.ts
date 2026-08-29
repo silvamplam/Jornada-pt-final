@@ -1,7 +1,7 @@
 import type { EditorialProfile } from "@/lib/editorial-profiles";
 import type { MatchdayEditorialProfileDeskAutomaticItem } from "@/lib/editorial-matchday-profile-desk";
 import {
-  moveMatchdayEditorialItemsToBank,
+  returnMatchdayEditorialItemsToAutomatic,
   thematicEditorialIdentity,
   type MatchdayEditorialProfileManualOverride,
 } from "@/lib/editorial-matchday-profile-desk-operations";
@@ -38,6 +38,12 @@ export type ExclusiveMatchdayEditorialProfileSelectionState = Readonly<{
   opening: MatchdayEditorialProfileOpening;
 }>;
 
+export type ExclusiveMatchdayEditorialProfileSelectionRemoval = Readonly<{
+  selection: MatchdayEditorialProfileSelection;
+  overrides: readonly MatchdayEditorialProfileManualOverride[];
+  workedIdentity: string | null;
+}>;
+
 export type MatchdayEditorialProfileSelectionDrag = Readonly<{
   bankItemId: string;
   sourcePosition: MatchdayEditorialProfileSelectionPosition;
@@ -62,6 +68,34 @@ function validatedSelection(
   }
 
   return [...selection];
+}
+
+function selectionCandidateIdentity(
+  candidate: MatchdayEditorialProfileSelectionCandidateIdentity | undefined,
+): string | null {
+  const sourceType = candidate?.sourceType?.trim().toLowerCase() ?? "";
+  const sourceId = candidate?.sourceId?.trim().toLowerCase() ?? "";
+  return sourceType === "editorial_article" && sourceId
+    ? thematicEditorialIdentity(sourceType, sourceId)
+    : null;
+}
+
+export function matchdayEditorialProfileSelectionIdentities(
+  selection: MatchdayEditorialProfileSelection,
+  candidates: readonly MatchdayEditorialProfileSelectionCandidateIdentity[],
+): readonly string[] {
+  const candidateByBankItemId = new Map(
+    candidates.map((candidate) => [candidate.bankItemId.trim().toLowerCase(), candidate] as const),
+  );
+  return Array.from(new Set(
+    validatedSelection(selection).flatMap((bankItemId) => {
+      if (!bankItemId) return [];
+      const itemIdentity = selectionCandidateIdentity(
+        candidateByBankItemId.get(bankItemId.trim().toLowerCase()),
+      );
+      return itemIdentity ? [itemIdentity] : [];
+    }),
+  ));
 }
 
 export function promoteMatchdayEditorialProfileSelection(
@@ -101,12 +135,12 @@ export function prepareExclusiveMatchdayEditorialProfileSelection(input: Readonl
     bankItemId,
   );
   const candidate = input.candidates.find(
-    (item) => item.bankItemId.trim() === bankItemId,
+    (item) => item.bankItemId.trim().toLowerCase() === bankItemId.toLowerCase(),
   );
-  const sourceType = candidate?.sourceType?.trim().toLowerCase() ?? "";
+  const workedIdentity = selectionCandidateIdentity(candidate);
   const sourceId = candidate?.sourceId?.trim().toLowerCase() ?? "";
 
-  if (sourceType !== "editorial_article" || !sourceId) {
+  if (!workedIdentity || !sourceId) {
     return {
       selection,
       overrides: input.overrides,
@@ -115,7 +149,6 @@ export function prepareExclusiveMatchdayEditorialProfileSelection(input: Readonl
     };
   }
 
-  const workedIdentity = thematicEditorialIdentity(sourceType, sourceId);
   if (!input.activeItems.some((item) => (
     thematicEditorialIdentity(item.sourceType, item.sourceId) === workedIdentity
   ))) {
@@ -127,18 +160,38 @@ export function prepareExclusiveMatchdayEditorialProfileSelection(input: Readonl
     };
   }
 
+  const selectionIdentities = Array.from(new Set([
+    ...matchdayEditorialProfileSelectionIdentities(
+      input.selection,
+      input.candidates,
+    ),
+    ...matchdayEditorialProfileSelectionIdentities(
+      selection,
+      input.candidates,
+    ),
+  ]));
+  const activeByIdentity = new Map(input.activeItems.map((item) => [
+    thematicEditorialIdentity(item.sourceType, item.sourceId),
+    item,
+  ] as const));
+  const opening = selectionIdentities.reduce((current, itemIdentity) => {
+    const selectedItem = activeByIdentity.get(itemIdentity);
+    return selectedItem
+      ? removeMatchdayEditorialProfileItemFromOpening(
+          current,
+          selectedItem.sourceId,
+        )
+      : current;
+  }, input.opening);
+
   return {
     selection,
-    overrides: moveMatchdayEditorialItemsToBank(
+    overrides: returnMatchdayEditorialItemsToAutomatic(
       input.profile,
-      input.activeItems,
       input.overrides,
-      [workedIdentity],
+      selectionIdentities,
     ),
-    opening: removeMatchdayEditorialProfileItemFromOpening(
-      input.opening,
-      sourceId,
-    ),
+    opening,
     workedIdentity,
   };
 }
@@ -151,35 +204,64 @@ export function prepareExclusiveMatchdayEditorialProfileSelectionState(input: Re
   selection: MatchdayEditorialProfileSelection;
   candidates: readonly MatchdayEditorialProfileSelectionCandidateIdentity[];
 }>): ExclusiveMatchdayEditorialProfileSelectionState {
-  let selection = validatedSelection(input.selection);
-  let overrides = input.overrides;
-  let opening = input.opening;
-
-  for (const position of MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS) {
-    const bankItemId = selection[selectionIndex(position)];
-
-    if (!bankItemId) continue;
-
-    const transition = prepareExclusiveMatchdayEditorialProfileSelection({
-      profile: input.profile,
-      activeItems: input.activeItems,
-      overrides,
-      opening,
-      selection,
-      candidates: input.candidates,
-      targetPosition: position,
-      bankItemId,
-    });
-
-    selection = [...transition.selection];
-    overrides = transition.overrides;
-    opening = transition.opening;
-  }
+  const selection = validatedSelection(input.selection);
+  const selectedIdentities = matchdayEditorialProfileSelectionIdentities(
+    selection,
+    input.candidates,
+  );
+  const activeByIdentity = new Map(input.activeItems.map((item) => [
+    thematicEditorialIdentity(item.sourceType, item.sourceId),
+    item,
+  ] as const));
+  const opening = selectedIdentities.reduce((current, itemIdentity) => {
+    const selectedItem = activeByIdentity.get(itemIdentity);
+    return selectedItem
+      ? removeMatchdayEditorialProfileItemFromOpening(
+          current,
+          selectedItem.sourceId,
+        )
+      : current;
+  }, input.opening);
 
   return {
     selection,
-    overrides,
+    overrides: returnMatchdayEditorialItemsToAutomatic(
+      input.profile,
+      input.overrides,
+      selectedIdentities,
+    ),
     opening,
+  };
+}
+
+export function removeExclusiveMatchdayEditorialProfileSelection(input: Readonly<{
+  profile: EditorialProfile;
+  overrides: readonly MatchdayEditorialProfileManualOverride[];
+  selection: MatchdayEditorialProfileSelection;
+  candidates: readonly MatchdayEditorialProfileSelectionCandidateIdentity[];
+  position: MatchdayEditorialProfileSelectionPosition;
+}>): ExclusiveMatchdayEditorialProfileSelectionRemoval {
+  const bankItemId = validatedSelection(input.selection)[selectionIndex(input.position)];
+  const candidate = bankItemId
+    ? input.candidates.find((item) => (
+        item.bankItemId.trim().toLowerCase() === bankItemId.trim().toLowerCase()
+      ))
+    : undefined;
+  const workedIdentity = selectionCandidateIdentity(candidate);
+
+  return {
+    selection: removeMatchdayEditorialProfileSelection(
+      input.selection,
+      input.position,
+    ),
+    overrides: workedIdentity
+      ? returnMatchdayEditorialItemsToAutomatic(
+          input.profile,
+          input.overrides,
+          [workedIdentity],
+        )
+      : input.overrides,
+    workedIdentity,
   };
 }
 

@@ -687,7 +687,7 @@ export function moveMatchdayEditorialProfileItemToOpening(
 
   const displacedSourceId = opening[targetSlot];
   const next = { ...opening };
-  if (previousSlot !== null) next[previousSlot] = null;
+  if (previousSlot !== null) next[previousSlot] = displacedSourceId;
   next[targetSlot] = sourceId;
   return {
     opening: validateMatchdayEditorialProfileOpening(next),
@@ -733,6 +733,10 @@ export function reconcileMatchdayEditorialProfileWorkspace(
   appliedZoneItems: readonly MatchdayEditorialProfileAppliedZoneItem[],
   hasAppliedSnapshot: boolean,
   currentFaixa: readonly MatchdayEditorialProfileFaixaItem[],
+  options: Readonly<{
+    selectionIdentities?: readonly string[];
+    workedIdentities?: readonly string[];
+  }> = {},
 ): MatchdayEditorialProfileReconcileResult {
   const opening = validateMatchdayEditorialProfileOpening(openingValue);
   const activeIdentitySet = new Set(activeItems.map((item) => (
@@ -746,6 +750,24 @@ export function reconcileMatchdayEditorialProfileWorkspace(
       throw new Error("matchday-editorial-profile-opening-source-not-active");
     }
   }
+  const selectionIdentities = new Set(
+    options.selectionIdentities ?? [],
+  );
+  for (const itemIdentity of selectionIdentities) {
+    if (!activeIdentitySet.has(itemIdentity)) {
+      throw new Error(
+        "matchday-editorial-profile-selection-source-not-active",
+      );
+    }
+    if (openingIdentities.has(itemIdentity)) {
+      throw new Error(
+        "matchday-editorial-profile-selection-duplicate-opening",
+      );
+    }
+  }
+  const workedIdentities = new Set(
+    options.workedIdentities ?? [],
+  );
 
   const manualOverrideIdentities = new Set(
     manualOverrides.map((override) => (
@@ -755,6 +777,17 @@ export function reconcileMatchdayEditorialProfileWorkspace(
       )
     )),
   );
+  const alreadyPlacedIdentities = new Set([
+    ...openingIdentities,
+    ...selectionIdentities,
+    ...manualOverrideIdentities,
+    ...appliedZoneItems.map((item) => (
+      thematicEditorialIdentity(item.sourceType, item.sourceId)
+    )),
+    ...currentFaixa.map((item) => (
+      thematicEditorialIdentity(item.sourceType, item.sourceId)
+    )),
+  ]);
   const passiveNewIdentities = new Set(
     activeItems
       .filter((item) => {
@@ -763,7 +796,8 @@ export function reconcileMatchdayEditorialProfileWorkspace(
           item.sourceId,
         );
         return item.isNew === true
-          && !manualOverrideIdentities.has(identity);
+          && !alreadyPlacedIdentities.has(identity)
+          && !workedIdentities.has(identity);
       })
       .map((item) => (
         thematicEditorialIdentity(
@@ -778,12 +812,18 @@ export function reconcileMatchdayEditorialProfileWorkspace(
       item.sourceId,
     );
     return !openingIdentities.has(identity)
+      && !selectionIdentities.has(identity)
       && !passiveNewIdentities.has(identity);
   });
-  const circuitOverrides = withoutMatchdayEditorialProfileOpeningOverrides(
+  const circuitOverrides = validateMatchdayEditorialProfileManualOverrides(
     profile,
-    manualOverrides,
-    opening,
+    withoutMatchdayEditorialProfileOpeningOverrides(
+      profile,
+      manualOverrides,
+      opening,
+    ).filter((override) => !selectionIdentities.has(
+      thematicEditorialIdentity(override.sourceType, override.sourceId),
+    )),
   );
   const circuitFaixa = currentFaixa.filter((item) => {
     const identity = thematicEditorialIdentity(
@@ -791,6 +831,7 @@ export function reconcileMatchdayEditorialProfileWorkspace(
       item.sourceId,
     );
     return !openingIdentities.has(identity)
+      && !selectionIdentities.has(identity)
       && !passiveNewIdentities.has(identity);
   });
 

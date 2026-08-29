@@ -24,7 +24,7 @@ test("posição fixa tem ação explícita no menu da notícia", () => {
 
   assert.match(
     source,
-    /placeInZone\(\s*itemIdentity,\s*placement\.zoneKey!,\s*itemSortOrder/,
+    /fixCurrentZonePosition\(\s*itemIdentity,\s*placement\.zoneKey!,\s*itemSortOrder/,
   );
 
   assert.match(

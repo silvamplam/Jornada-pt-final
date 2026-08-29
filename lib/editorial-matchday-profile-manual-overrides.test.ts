@@ -125,7 +125,9 @@ test("a API temática recompõe no servidor e chama uma única RPC atómica", ()
   assert.match(route, /validateMatchdayEditorialProfileManualOverrides/);
   assert.match(route, /readMatchdayEditorialProfileDesk[\s\S]*reconcileMatchdayEditorialProfileWorkspace/);
   assert.match(route, /writeSupabaseAdminReturning<ApplyResultRow>[\s\S]*rpc\/apply_matchday_editorial_profile_workspace/);
-  assert.match(route, /p_overrides: overrides\.map/);
+  assert.match(route, /const circuitOverrides = withoutMatchdayEditorialProfileOpeningOverrides/);
+  assert.match(route, /returnMatchdayEditorialItemsToAutomatic\([\s\S]*selectionIdentities/);
+  assert.match(route, /p_overrides: circuitOverrides\.map/);
   assert.match(route, /p_zone_items: reconcile\.zonesAfter/);
   assert.match(route, /p_faixa_source_ids: reconcile\.faixaAfter/);
   assert.doesNotMatch(route, /refresh_matchday_editorial_profile_distribution|matchday_editorial_profile_state_items/);

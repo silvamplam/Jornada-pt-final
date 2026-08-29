@@ -35,24 +35,26 @@ function body(source: string, name: string, nextName: string): string {
   return source.slice(start, end);
 }
 
-test("movimento manual para zona exige sempre zona e posição exatas", () => {
-  assert.doesNotMatch(client, /fixMatchdayEditorialItemsInZone/);
+test("Zona separa troca interna de entrada externa com posição exata", () => {
   assert.match(client, /function placeInZone\(itemIdentity: string, zoneKey: EditorialProfileZoneKey, position: number\)/);
-  assert.match(client, /fixMatchdayEditorialItemsAtPosition\([\s\S]*zoneKey,[\s\S]*position/);
+  assert.match(client, /function placeInZone[\s\S]*swapMatchdayEditorialItemsInZone/);
+  assert.match(client, /function fixCurrentZonePosition[\s\S]*fixMatchdayEditorialItemsAtPosition/);
+  assert.match(client, /fixMatchdayEditorialItemsInZone/);
   assert.doesNotMatch(client, /proteger na zona sem posição fixa/i);
-  assert.match(route, /thematic-desk-zone-position-required/);
-  assert.match(route, /override\.placementTarget === "zone"[\s\S]*override\.sortOrder === null/);
+  assert.match(route, /validateMatchdayEditorialProfileManualOverrides/);
 });
 
-test("substituir um slot fixo liberta apenas a fixação ocupante e não desloca outras fixações", () => {
+test("troca interna fixa só origem e destino e nunca usa cascata", () => {
   const functionSource = body(
     operations,
-    "fixMatchdayEditorialItemsAtPosition",
+    "swapMatchdayEditorialItemsInZone",
     "moveMatchdayEditorialItemsToBank",
   );
-  assert.match(functionSource, /targetPositions/);
-  assert.match(functionSource, /next\.delete\(identity\)/);
-  assert.doesNotMatch(functionSource, /targetSlot:\s*item\.sortOrder \+ selected\.length/);
+  assert.match(functionSource, /currentItem/);
+  assert.match(functionSource, /targetItem/);
+  assert.match(functionSource, /sortOrder: currentItem\.sortOrder/);
+  assert.match(functionSource, /sortOrder: targetPosition/);
+  assert.doesNotMatch(functionSource, /displacedQueue|targetSlot:\s*item\.sortOrder \+ selected\.length/);
 });
 
 test("libertar posição fixa distingue zona de Faixa", () => {
@@ -105,7 +107,6 @@ test("migration da Faixa distingue pertença por atualidade de slot fixo", () =>
     faixaMembershipMigration,
     /jsonb_typeof\(payload\.value -> 'sort_order'\) = 'null'/,
   );
-  assert.match(route, /thematic-desk-zone-position-required/);
   assert.doesNotMatch(
     route,
     /placementTarget === "faixa"[\s\S]{0,160}sortOrder === null/,

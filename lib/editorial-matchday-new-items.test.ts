@@ -88,6 +88,7 @@ test("Novas reutiliza pesquisa, classificação, seleção e paginação das fon
   assert.match(client, /type SourceViewKey = "new" \| "available" \| "faixa"/u);
   assert.match(client, /Novas \{newItems\.length\}/u);
   assert.match(client, /item\.isNew === true/u);
+  assert.match(client, /exclusivePlacedIdentitySet/u);
   assert.match(client, /classifiedZoneKey/u);
   assert.match(client, /filteredNewItems\.slice\(/u);
   assert.doesNotMatch(client, /localStorage|sessionStorage/u);
