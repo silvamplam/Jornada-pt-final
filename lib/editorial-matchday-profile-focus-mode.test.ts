@@ -7,7 +7,7 @@ const desk = readFileSync(
   "utf8",
 );
 
-test("a Mesa usa activeWorkspaceKey e apresenta um único bloco de cada vez", () => {
+test("a Mesa mantém activeWorkspaceKey como seletor do workspace ativo", () => {
   const workspaceTypeStart = desk.indexOf("type ActiveWorkspaceKey =");
   const workspaceTypeEnd = desk.indexOf("type SourceViewKey", workspaceTypeStart);
   const workspaceType = desk.slice(workspaceTypeStart, workspaceTypeEnd);
@@ -29,6 +29,101 @@ test("a Mesa usa activeWorkspaceKey e apresenta um único bloco de cada vez", ()
   assert.match(
     desk,
     /isZoneWorkspaceKey\(activeWorkspaceKey\)[\s\S]*renderZonePanel\(activeWorkspaceKey\)/,
+  );
+});
+
+test("existe controlo local Fixar abertura, desligado por defeito", () => {
+  assert.match(
+    desk,
+    /const \[openingPinned, setOpeningPinned\] = useState\(false\)/,
+  );
+  assert.match(
+    desk,
+    /<label className="thematic-opening-pin">[\s\S]*checked=\{openingPinned\}[\s\S]*setOpeningPinned\(event\.target\.checked\)[\s\S]*type="checkbox"[\s\S]*<span>Fixar abertura<\/span>/,
+  );
+});
+
+test("a composição fixa a Abertura acima do workspace ativo sem a duplicar", () => {
+  const workspaceStart = desk.indexOf(
+    '<section className="thematic-panel thematic-workspace">',
+  );
+  const workspaceEnd = desk.indexOf("{renderSources()}", workspaceStart);
+  const workspace = desk.slice(workspaceStart, workspaceEnd);
+
+  assert.ok(workspaceStart >= 0 && workspaceEnd > workspaceStart);
+  assert.match(
+    workspace,
+    /\{openingPinned && activeWorkspaceKey !== "opening"\s*\? renderOpeningWorkspace\(\)\s*:\s*null\}\s*\{renderActiveWorkspace\(\)\}/,
+  );
+  assert.equal(
+    (workspace.match(/renderOpeningWorkspace\(\)/g) ?? []).length,
+    1,
+  );
+  assert.equal(
+    (workspace.match(/renderActiveWorkspace\(\)/g) ?? []).length,
+    1,
+  );
+});
+
+test("Fixar abertura não entra no draft, pending ou payload", () => {
+  const currentDraftStart = desk.indexOf("function currentDraft(): WorkspaceDraft");
+  const currentDraftEnd = desk.indexOf("function withWorkedIdentities", currentDraftStart);
+  const currentDraft = desk.slice(currentDraftStart, currentDraftEnd);
+  const pendingStart = desk.indexOf("const pending =");
+  const pendingEnd = desk.indexOf("const zoneByKey", pendingStart);
+  const pending = desk.slice(pendingStart, pendingEnd);
+  const applyStart = desk.indexOf("async function applyChanges()");
+  const payloadStart = desk.indexOf("body: JSON.stringify({", applyStart);
+  const payloadEnd = desk.indexOf("const payload =", payloadStart);
+  const payload = desk.slice(payloadStart, payloadEnd);
+
+  assert.ok(currentDraftStart >= 0 && currentDraftEnd > currentDraftStart);
+  assert.ok(pendingStart >= 0 && pendingEnd > pendingStart);
+  assert.ok(applyStart >= 0);
+  assert.ok(payloadStart >= 0 && payloadEnd > payloadStart);
+  assert.match(currentDraft, /opening: editorState\.draftOpening/);
+  assert.match(pending, /editorState\.draftOpening/);
+  assert.match(payload, /opening: editorState\.draftOpening/);
+
+  for (const editorialState of [currentDraft, pending, payload]) {
+    assert.doesNotMatch(editorialState, /openingPinned|setOpeningPinned/);
+  }
+});
+
+test("drag de uma zona para a Abertura reutiliza os handlers e regras existentes", () => {
+  const zoneStart = desk.indexOf("function renderZonePanel(");
+  const zoneEnd = desk.indexOf("function renderEditorialSelectionPanel", zoneStart);
+  const zoneRenderer = desk.slice(zoneStart, zoneEnd);
+  const openingStart = desk.indexOf("function renderOpeningWorkspace()");
+  const openingEnd = desk.indexOf("function renderHighlightWorkspace", openingStart);
+  const openingRenderer = desk.slice(openingStart, openingEnd);
+  const placementStart = desk.indexOf("function placeInOpening(");
+  const placementEnd = desk.indexOf("function placeInZone(", placementStart);
+  const openingPlacement = desk.slice(placementStart, placementEnd);
+
+  assert.ok(zoneStart >= 0 && zoneEnd > zoneStart);
+  assert.ok(openingStart >= 0 && openingEnd > openingStart);
+  assert.ok(placementStart >= 0 && placementEnd > placementStart);
+  assert.match(
+    desk,
+    /function dragStart[\s\S]*dataTransfer\.setData\("text\/plain", itemIdentity\)/,
+  );
+  assert.match(
+    zoneRenderer,
+    /cardFor\([\s\S]*kind: "zone"[\s\S]*zoneKey: zone\.key/,
+  );
+  assert.match(
+    openingRenderer,
+    /onDrop=\{\(event\) => \{[\s\S]*dragged\(event\)[\s\S]*placeInOpening\(itemIdentity, slot\)/,
+  );
+  assert.match(
+    openingPlacement,
+    /moveMatchdayEditorialProfileItemToOpening\([\s\S]*editorState\.draftOpening[\s\S]*sourceIdForIdentity\(itemIdentity\)[\s\S]*slot/,
+  );
+  assert.equal((desk.match(/function placeInOpening\(/g) ?? []).length, 1);
+  assert.equal(
+    (desk.match(/moveMatchdayEditorialProfileItemToOpening\(/g) ?? []).length,
+    1,
   );
 });
 

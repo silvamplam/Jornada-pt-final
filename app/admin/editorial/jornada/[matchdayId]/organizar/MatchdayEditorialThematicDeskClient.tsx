@@ -247,6 +247,8 @@ const styles = `
   .thematic-zone-tabs { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 4px; padding: 4px; border-bottom: 1px solid #dce3eb; background: #f7f9fb; }
   .thematic-zone-tabs button { min-height: 28px; padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 9px; font-weight: 850; cursor: pointer; }
   .thematic-zone-tabs button.active { border-color: #1d4ed8; background: #1d4ed8; color: #fff; }
+  .thematic-opening-pin { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; margin-left: auto; padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; color: #10151b; font-size: 9px; font-weight: 850; cursor: pointer; }
+  .thematic-opening-pin input { margin: 0; accent-color: #1d4ed8; }
   .thematic-workspace-body { display: grid; min-width: 0; gap: 5px; padding: 5px; }
   .thematic-zone-editor { display: grid; grid-template-columns: minmax(320px,1.2fr) minmax(260px,.8fr) auto; gap: 7px; align-items: center; padding: 4px 5px; border: 1px solid #dce3eb; border-radius: 6px; background: #fbfcfd; }
   .thematic-zone-editor label { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 5px; align-items: center; min-width: 0; }
@@ -796,6 +798,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     useState<MatchdayEditorialProfileSelectionPosition | null>(null);
   const [activeWorkspaceKey, setActiveWorkspaceKey] =
     useState<ActiveWorkspaceKey>("opening");
+  const [openingPinned, setOpeningPinned] = useState(false);
   const [activeSourceView, setActiveSourceView] =
     useState<SourceViewKey>("new");
   const pageStructureRef = useRef<HTMLDetailsElement>(null);
@@ -3124,8 +3127,19 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 </button>
               );
             })}
+            <label className="thematic-opening-pin">
+              <input
+                checked={openingPinned}
+                onChange={(event) => setOpeningPinned(event.target.checked)}
+                type="checkbox"
+              />
+              <span>Fixar abertura</span>
+            </label>
           </nav>
 
+          {openingPinned && activeWorkspaceKey !== "opening"
+            ? renderOpeningWorkspace()
+            : null}
           {renderActiveWorkspace()}
         </section>
 
