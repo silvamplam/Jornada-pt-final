@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { NextResponse } from "next/server";
+import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
 
 import { PRIMARY_SIDE_ADVERTISING_SLOT_KEY } from "@/lib/site-advertising";
 import { writeSupabaseAdmin } from "@/lib/supabase";
@@ -39,10 +39,13 @@ function validUrl(value: string, code: string) {
   throw new AdvertisingError(code);
 }
 
-function redirect(request: Request, key: string, value: string) {
-  const url = new URL("/admin/publicidade", request.url);
-  url.searchParams.set(key, value);
-  return NextResponse.redirect(url, 303);
+function redirect(_request: Request, key: string, value: string) {
+  const params = new URLSearchParams();
+  params.set(key, value);
+
+  return adminRelativeRedirect(
+    `/admin/publicidade?${params.toString()}`,
+  );
 }
 
 function codeFor(error: unknown) {
