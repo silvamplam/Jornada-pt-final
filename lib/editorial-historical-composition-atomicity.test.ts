@@ -20,7 +20,7 @@ const applyPlan = route.slice(
 test("Guardar montagem executa uma única escrita através da RPC transacional", () => {
   assert.match(
     applyPlan,
-    /writeSupabaseAdmin\("rpc\/apply_historical_composition_workspace_plan"/,
+    /writeSupabaseAdmin\("rpc\/apply_historical_composition_workspace_plan_v3"/,
   );
   assert.equal((applyPlan.match(/await writeSupabaseAdmin\(/g) ?? []).length, 1);
   assert.doesNotMatch(applyPlan, /method:\s*"DELETE"/);

@@ -22,10 +22,10 @@ const publicPage = readFileSync(
   "utf8",
 );
 
-test("a Hierárquica continua a abrir por defeito", () => {
+test("a Composição abre diretamente no modo hierárquico", () => {
   assert.match(
     admin,
-    /query\.presentation_mode === "standard" \? "standard" : "hierarchical"/,
+    /function historicalCompositionDeskPresentationMode\(\): ReferenceCompositionPresentationMode \{[\s\S]*?return "hierarchical";[\s\S]*?\}/,
   );
 });
 
@@ -41,37 +41,37 @@ test("a Faixa não tem editor autónomo", () => {
   );
 });
 
-test("Colocar em oferece Faixa 1 a Faixa 10 após os momentos posteriores", () => {
+test("a Faixa é um workspace próprio com colocação em lote", () => {
   assert.match(
     desk,
-    /<optgroup label="Momentos posteriores">[\s\S]*?<\/optgroup>[\s\S]*?<optgroup label="Faixa de notícias">/,
+    /setActiveWorkspaceKey\("faixa"\)/,
   );
 
   assert.match(
     desk,
-    /Faixa \{position\}/,
+    /placeSelectedInZone\("faixa"\)/,
   );
 
   assert.match(
     desk,
-    /faixa_\$\{position\}/,
+    /\[1,2,3,4,5,6,7,8,9,10\]\.map/,
   );
 });
 
-test("o mapa direito apresenta a Faixa com dez lugares", () => {
+test("o workspace da Faixa apresenta dez lugares opcionais", () => {
   assert.match(
     desk,
-    /<h3>Para Lá da Jornada<\/h3>[\s\S]*?<h3>Faixa de notícias<\/h3>/,
+    /activeWorkspaceKey === "faixa"/,
   );
 
   assert.match(
     desk,
-    /Até cinco notícias\. Todos os lugares são opcionais\./,
+    /Até dez notícias\. Todos os lugares são opcionais\./,
   );
 
   assert.match(
     desk,
-    /occupiedFaixa\}\/5/,
+    /occupiedFaixa\}\/10/,
   );
 });
 
@@ -107,6 +107,6 @@ test("a Faixa é opcional para publicação", () => {
 test("a Faixa continua disponível na página pública hierárquica", () => {
   assert.match(
     publicPage,
-    /importantNewsItems\.length > 0[\s\S]*?<PublicHorizontalNewsStrip/,
+    /visibleImportantNewsItems\.length > 0[\s\S]*?<PublicHorizontalNewsStrip/,
   );
 });

@@ -13,20 +13,14 @@ const route = readFileSync(
 );
 
 test("a Faixa da Composição aceita dez posições", () => {
-  for (let position = 1; position <= 10; position += 1) {
-    assert.ok(
-      client.includes(`faixa_${position}`) ||
-        client.includes("length: 10") ||
-        client.includes(
-          "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]",
-        ),
-      `falta suporte à Faixa ${position}`,
-    );
-  }
+  assert.match(
+    client,
+    /for \(let position = 1; position <= 10; position \+= 1\)/,
+  );
 
   assert.match(
     client,
-    /(?:length:\s*10|1, 2, 3, 4, 5, 6, 7, 8, 9, 10)/,
+    /\[1,2,3,4,5,6,7,8,9,10\]\.map/,
   );
 });
 
@@ -108,7 +102,7 @@ test("a identificação das colocações da Faixa cobre posições 1 a 10", () =
     "const placementByBankItem = useMemo",
   );
   const end = client.indexOf(
-    "\n  const normalizedSearch",
+    "\n  const placedBankItemIds = useMemo",
     start,
   );
 
@@ -126,7 +120,7 @@ test("a identificação das colocações da Faixa cobre posições 1 a 10", () =
 test("os indicadores visuais da Faixa refletem dez lugares", () => {
   assert.match(
     client,
-    /<strong>\{occupiedFaixa\}\/10<\/strong>/,
+    /Faixa \{occupiedFaixa\}\/10/,
   );
 
   assert.match(

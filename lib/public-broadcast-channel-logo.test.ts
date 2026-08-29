@@ -649,7 +649,10 @@ test("layout aprovado não depende de query parameter e a notícia sem jornada n
   for (const source of [homeSource, matchdaySource, newsSource, stripSource]) {
     assert.doesNotMatch(source, /layoutJogos|layoutVariant|adjusted-preview|adjustedPreview/);
   }
-  assert.match(homeSource, /<PublicMatchStrip[\s\S]*?matches=\{featuredMatches\}/);
+  assert.match(
+    homeSource,
+    /<PublicMatchStrip[\s\S]*?matches=\{featuredMatches\.slice\(0, 8\)\}/,
+  );
   assert.match(matchdaySource, /<PublicMatchStrip[\s\S]*?matches=\{context\.matchesForMatchday\.map/);
   assert.doesNotMatch(matchdaySource, /showActiveCompetitionLogo=\{false\}/);
   assert.doesNotMatch(matchdaySource, /className="public-season-competition-emblem"/);

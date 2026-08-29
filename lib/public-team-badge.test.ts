@@ -244,7 +244,10 @@ test("a jornada mostra oito jogos no desktop e navega sem scrollbar visível", a
   ]);
 
   assert.match(matchStrip, /import PublicMatchStripCarousel/);
-  assert.match(matchStrip, /variant === "clean" \? \([\s\S]*?<PublicMatchStripCarousel>/);
+  assert.match(
+    matchStrip,
+    /variant === "clean" \? \([\s\S]*?<PublicMatchStripCarousel layout=\{carouselLayout\}>/,
+  );
   assert.match(matchStrip, /data-public-match-card/);
   assert.match(carousel, /aria-label="Ver jogo anterior"/);
   assert.match(carousel, /aria-label="Ver jogo seguinte"/);

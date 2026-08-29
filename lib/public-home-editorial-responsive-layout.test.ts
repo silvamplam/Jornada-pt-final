@@ -156,7 +156,10 @@ test("o cabeÃ§alho das Ãšltimas fica vazio quando o campo do backoffice est�
   const latestBlock = readFileSync("components/public/PublicLatestNewsBlock.tsx", "utf8");
 
   assert.match(latestBlock, /const visibleTitle = title\?\.trim\(\) \?\? "";/);
-  assert.match(latestBlock, /\{visibleTitle \? <h3[^>]*>\{visibleTitle\}<\/h3> : null\}/);
+  assert.match(
+    latestBlock,
+    /\{visibleTitle \? \([\s\S]*?<h3[\s\S]*?\{visibleTitle\}[\s\S]*?<\/h3>[\s\S]*?\) : null\}/,
+  );
   assert.match(layout, /<PublicLatestNewsBlock items=\{latestNews\} title=\{latestNewsTitle\} titleColor=\{latestNewsTitleColor\} constrainToMainColumn=\{scope === "matchday"\} \/>/);
   assert.doesNotMatch(layout, /latestNewsTitle \|\| "Ãšltimas"/);
   assert.doesNotMatch(latestBlock, /title = "Ãšltimas notÃ­cias"/);

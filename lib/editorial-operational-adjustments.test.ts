@@ -34,14 +34,12 @@ test("a paleta editorial oferece cores principais sem retirar a entrada hexadeci
   assert.match(horizontal, /<EditorialColorInput/);
 });
 
-test("Redação automática aparece nas navegações principais existentes sem refatorar os menus", () => {
+test("Redação automática permanece nas navegações editoriais enquanto a entrada da Jornada resolve a Mesa gerida", () => {
   for (const relativePath of [
     "app/admin/page.tsx",
     "app/admin/gestor/page.tsx",
     "app/admin/editorial/home/page.tsx",
     "app/admin/editorial/artigos/page.tsx",
-    "app/admin/editorial/jornada/page.tsx",
-    "app/admin/editorial/jornada/[matchdayId]/page.tsx",
     "app/admin/editorial/composicao/page.tsx",
     "app/admin/editorial/composicao/[matchdayId]/page.tsx",
   ]) {
@@ -50,17 +48,43 @@ test("Redação automática aparece nas navegações principais existentes sem r
       relativePath,
     );
   }
+
+  const jornadaEntry = source("app/admin/editorial/jornada/page.tsx");
+
+  assert.match(
+    jornadaEntry,
+    /resolveManagedMatchdayEditorialDesk/,
+  );
+  assert.match(
+    jornadaEntry,
+    /\/organizar/,
+  );
 });
 
-test("o botão da Redação Automática explicita que lê o clipboard e o paste mantém o caminho privilegiado do browser", () => {
+test("a Redação Automática importa a resposta por colagem explícita e abre a Publicação em lote", () => {
   const actions = source("app/admin/editorial/redacao-automatica/_sourcePackageActions.tsx");
 
-  assert.match(actions, /Ler clipboard e abrir Artigos/);
-  assert.match(actions, /navigator\.clipboard\.readText\(\)/);
-  assert.match(actions, /event\.clipboardData\.getData\("text"\)/);
-  assert.match(actions, /window\.location\.assign\(articlesUrl\(\)\)/);
-  assert.doesNotMatch(actions, /window\.open\("about:blank"/);
-  assert.match(actions, /O botão principal tenta ler o clipboard; se o navegador bloquear, cola aqui/);
+  assert.match(
+    actions,
+    /event\.clipboardData\.getData\("text"\)/,
+  );
+  assert.match(actions, /preflightEditorialArticleBatch\(text\)/);
+  assert.match(
+    actions,
+    /window\.sessionStorage\.setItem\(EDITORIAL_BATCH_TRANSFER_STORAGE_KEY, text\)/,
+  );
+  assert.match(
+    actions,
+    /window\.location\.assign\(batchPublicationUrl\(\)\)/,
+  );
+  assert.match(
+    actions,
+    /\(event\.ctrlKey \|\| event\.metaKey\) && event\.key === "Enter"/,
+  );
+  assert.doesNotMatch(
+    actions,
+    /navigator\.clipboard\.readText\(\)/,
+  );
 });
 
 test("Últimas usa o fundo real dos três destaques, esconde apenas itens inteiros e liberta o limite fora do desktop", () => {
@@ -70,14 +94,27 @@ test("Últimas usa o fundo real dos três destaques, esconde apenas itens inteir
   const layout = source("components/public/PublicEditorialLayout.tsx");
 
   assert.match(layout, /constrainToMainColumn=\{scope === "matchday"\}/);
-  assert.match(latestBlock, /querySelector<HTMLElement>\("\.public-matchday-main-column"\)/);
+  assert.match(
+    latestBlock,
+    /querySelector<HTMLElement>\(\s*"\.public-matchday-main-column",?\s*\)/,
+  );
   assert.match(latestBlock, /data-editorial-slot="destaques-da-manchete"/);
   assert.match(latestBlock, /editorialBoundary\.getBoundingClientRect\(\)\.bottom/);
-  assert.match(latestBlock, /availableHeight = Math\.max\(0, Math\.floor\(editorialBottom - rootTop\)\)/);
+  assert.match(
+    latestBlock,
+    /availableHeight = Math\.max\(\s*0,\s*Math\.floor\(editorialBottom - rootTop\),?\s*\)/,
+  );
   assert.match(latestBlock, /observer\.observe\(editorialBoundary\)/);
   assert.match(latestBlock, /item\.getBoundingClientRect\(\)\.bottom > limit/);
   assert.match(latestBlock, /item\.style\.display = "none"/);
-  assert.match(latestBlock, /window\.matchMedia\("\(max-width: 1180px\)"\)/);
+  assert.match(
+    latestBlock,
+    /const collapseBreakpoint = constrainToFourNewsGrid/,
+  );
+  assert.match(
+    latestBlock,
+    /window\.matchMedia\(collapseBreakpoint\)\.matches/,
+  );
   assert.match(styles, /\.public-news-list time \{[\s\S]*?line-height:\s*1\.2;/);
   assert.match(matchdayPage, /\.public-news-list time \{[\s\S]*?line-height:\s*1\.2;/);
   assert.match(

@@ -85,7 +85,14 @@ test("UUID inexistente não abre criação e ausência de articleId mantém o co
 
 test("a lista continua limitada apenas para navegação e não recebe uma cópia do artigo direto", () => {
   const page = readFileSync("app/admin/editorial/artigos/page.tsx", "utf8");
-  assert.match(page, /editorial_articles\?select=\*&order=.*&limit=100/);
+  assert.match(
+    page,
+    /editorial_articles\?select=id,slug,title,subtitle,label,author,status,scope,image_url,published_at,created_at,updated_at,competition_id,season_id,matchday_id&order=.*&limit=100/,
+  );
+  assert.doesNotMatch(
+    page,
+    /editorial_articles\?select=\*/,
+  );
   assert.match(page, /const sidebarItems = articles\.map/);
   assert.doesNotMatch(page, /articles\.(push|unshift)\(selectedArticle/);
 });

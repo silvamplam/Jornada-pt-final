@@ -14,7 +14,10 @@ test("Por rever permite selecionar e desselecionar todo o bloco", () => {
     "app/admin/editorial/redacao-automatica/_inboxBulkActions.tsx",
   );
 
-  assert.match(page, /view === "pending" \? <InboxBulkActions/);
+  assert.match(
+    page,
+    /view === "pending" \|\| view === "working"[\s\S]*?<InboxBulkActions view=\{view\}/,
+  );
   assert.match(bulk, /Selecionar tudo/);
   assert.match(bulk, /Desselecionar tudo/);
   assert.match(bulk, /data-inbox-bulk-item/);
