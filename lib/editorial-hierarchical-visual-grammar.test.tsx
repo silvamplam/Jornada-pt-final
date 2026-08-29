@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import test from "node:test";
 
 import { load } from "cheerio";
@@ -150,41 +150,106 @@ test("as variantes públicas e de preview protegem as razões editoriais das ima
   }
 });
 
-test("os limites de linhas pertencem às variantes semânticas e usam ellipsis", () => {
-  const expectedClamps = new Map([
+test("a página pública liberta títulos e o preview preserva os clamps semânticos", () => {
+  const titleClamps = new Map([
     [".composition-interpretive-dominant .composition-interpretive-title", "4"],
-    [".composition-interpretive-dominant .composition-interpretive-subtitle", "6"],
     [".composition-interpretive-chronicle .composition-interpretive-title", "4"],
-    [".composition-interpretive-chronicle .composition-interpretive-subtitle", "3"],
     [".composition-interpretive-analysis-main .composition-interpretive-title", "3"],
-    [".composition-interpretive-analysis-main .composition-interpretive-subtitle", "4"],
     [".composition-interpretive-analysis-medium .composition-interpretive-title", "3"],
-    [".composition-interpretive-analysis-medium .composition-interpretive-subtitle", "2"],
     [".composition-interpretive-analysis-side-item .composition-interpretive-title", "3"],
-    [".composition-interpretive-analysis-side-item .composition-interpretive-subtitle", "2"],
     [".composition-interpretive-other-featured .composition-interpretive-title", "2"],
-    [".composition-interpretive-other-featured .composition-interpretive-subtitle", "3"],
     [".composition-interpretive-other-second-featured .composition-interpretive-title", "3"],
-    [".composition-interpretive-other-second-featured .composition-interpretive-subtitle", "3"],
     [".composition-interpretive-other-compact .composition-interpretive-title", "3"],
+  ]);
+
+  const subtitleClamps = new Map([
+    [".composition-interpretive-dominant .composition-interpretive-subtitle", "6"],
+    [".composition-interpretive-chronicle .composition-interpretive-subtitle", "3"],
+    [".composition-interpretive-analysis-main .composition-interpretive-subtitle", "4"],
+    [".composition-interpretive-analysis-medium .composition-interpretive-subtitle", "2"],
+    [".composition-interpretive-analysis-side-item .composition-interpretive-subtitle", "2"],
+    [".composition-interpretive-other-featured .composition-interpretive-subtitle", "3"],
+    [".composition-interpretive-other-second-featured .composition-interpretive-subtitle", "3"],
     [".composition-interpretive-other-compact > .composition-interpretive-subtitle", "2"],
   ]);
 
-  for (const css of [cssFrom(publicMarkup), cssFrom(previewMarkup)]) {
-    for (const [selector, lines] of expectedClamps) {
-      assertDeclaration(cssRule(css, selector), "-webkit-line-clamp", lines);
-    }
-    assertDeclaration(cssRule(css, ".composition-interpretive-title"), "text-overflow", "ellipsis");
-    assertDeclaration(cssRule(css, ".composition-interpretive-subtitle"), "text-overflow", "ellipsis");
-    assertDeclaration(cssRule(css, ".public-beyond-matchday-lead .public-beyond-matchday-title"), "-webkit-line-clamp", "3");
-    assertDeclaration(cssRule(css, ".public-beyond-matchday-secondary-card .public-beyond-matchday-title"), "-webkit-line-clamp", "3");
-    assertDeclaration(cssRule(css, ".public-beyond-matchday-subtitle"), "-webkit-line-clamp", "4");
+  const publicCss = cssFrom(publicMarkup);
+  const previewCss = cssFrom(previewMarkup);
+
+  for (const [selector, lines] of titleClamps) {
     assertDeclaration(
-      cssRule(css, ".public-beyond-matchday-secondary-card[data-secondary-presentation=\"image\"] .public-beyond-matchday-subtitle"),
+      cssRule(previewCss, selector),
+      "-webkit-line-clamp",
+      lines,
+    );
+  }
+
+  for (const [selector, lines] of subtitleClamps) {
+    for (const css of [publicCss, previewCss]) {
+      assertDeclaration(
+        cssRule(css, selector),
+        "-webkit-line-clamp",
+        lines,
+      );
+    }
+  }
+
+  const publicTitleRule = cssRule(
+    publicCss,
+    ".composition-interpretive-title",
+  );
+
+  assertDeclaration(publicTitleRule, "display", "block !important");
+  assertDeclaration(publicTitleRule, "overflow", "visible !important");
+  assertDeclaration(publicTitleRule, "text-overflow", "clip !important");
+  assertDeclaration(publicTitleRule, "-webkit-box-orient", "initial !important");
+  assertDeclaration(publicTitleRule, "-webkit-line-clamp", "unset !important");
+
+  assertDeclaration(
+    cssRule(previewCss, ".composition-interpretive-title"),
+    "text-overflow",
+    "ellipsis",
+  );
+
+  for (const css of [publicCss, previewCss]) {
+    assertDeclaration(
+      cssRule(css, ".composition-interpretive-subtitle"),
+      "text-overflow",
+      "ellipsis",
+    );
+    assertDeclaration(
+      cssRule(css, ".public-beyond-matchday-title"),
+      "text-overflow",
+      "clip",
+    );
+    assertDeclaration(
+      cssRule(css, ".public-beyond-matchday-lead .public-beyond-matchday-title"),
+      "-webkit-line-clamp",
+      "unset",
+    );
+    assertDeclaration(
+      cssRule(css, ".public-beyond-matchday-secondary-card .public-beyond-matchday-title"),
+      "-webkit-line-clamp",
+      "unset",
+    );
+    assertDeclaration(
+      cssRule(css, ".public-beyond-matchday-subtitle"),
+      "-webkit-line-clamp",
+      "4",
+    );
+    assertDeclaration(
+      cssRule(
+        css,
+        ".public-beyond-matchday-secondary-card[data-secondary-presentation=\"image\"] .public-beyond-matchday-subtitle",
+      ),
       "-webkit-line-clamp",
       "3",
     );
-    assertDeclaration(cssRule(css, ".public-beyond-matchday-text-only .public-beyond-matchday-subtitle"), "-webkit-line-clamp", "2");
+    assertDeclaration(
+      cssRule(css, ".public-beyond-matchday-text-only .public-beyond-matchday-subtitle"),
+      "-webkit-line-clamp",
+      "2",
+    );
   }
 });
 

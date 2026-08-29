@@ -44,7 +44,7 @@ test("a jornada usa faixa compacta sem boneco e os restantes contextos preservam
   assert.match(competitionSource, /public-matchday-date-row/);
   assert.match(competitionSource, /<strong>Data:<\/strong>/);
   assert.match(competitionSource, /className="public-matchday-nav-compact"/);
-  assert.match(competitionSource, /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#44152f/);
+  assert.match(competitionSource, /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#262626/);
   assert.match(competitionSource, /showMessageTicker=\{false\}/);
   assert.match(competitionSource, /flex-wrap:\s*wrap/);
   assert.match(competitionSource, /public-season-competition-emblem\[data-logo-variant="premier-league-lockup"\][\s\S]*?background:\s*#ffffff/);

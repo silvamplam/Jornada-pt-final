@@ -14,16 +14,16 @@ const matchdayPage = source("app/competicoes/[competitionSlug]/[seasonLabel]/jor
 const compositionPage = source("app/admin/editorial/composicao/[matchdayId]/page.tsx");
 const compositionRoute = source("app/api/admin/editorial/composicao/route.ts");
 
-test("a Jornada aplica os limites visuais definidos sem alterar a Home", () => {
+test("a Jornada liberta títulos e mantém limites dos pós-títulos sem alterar a Home", () => {
   assert.match(layout, /data-editorial-scope=\{scope\}/);
   assert.match(matchdayPage, /<PublicEditorialLayout[\s\S]*?scope="matchday"/);
-  assert.match(layout, /data-editorial-scope="matchday"[\s\S]*?public-matchday-editorial h1[\s\S]*?-webkit-line-clamp:\s*5/);
+  assert.match(layout, /data-editorial-scope="matchday"\] \.public-matchday-editorial h1,[\s\S]*?-webkit-line-clamp:\s*unset;[\s\S]*?overflow:\s*visible;[\s\S]*?text-overflow:\s*clip;/);
   assert.match(layout, /public-below-headline-highlights[\s\S]*?-webkit-line-clamp:\s*3/);
-  assert.match(layout, /public-news-title[\s\S]*?-webkit-line-clamp:\s*4/);
+  assert.match(layout, /data-editorial-scope="matchday"\] \.public-news-title \{[\s\S]*?display:\s*block;[\s\S]*?-webkit-line-clamp:\s*unset;[\s\S]*?overflow:\s*visible;[\s\S]*?text-overflow:\s*clip;/);
   assert.match(layout, /public-side-editorial-label[\s\S]*?-webkit-line-clamp:\s*2/);
-  assert.match(layout, /public-side-editorial-copy strong[\s\S]*?-webkit-line-clamp:\s*6/);
+  assert.match(layout, /data-editorial-scope="matchday"\] \.public-side-editorial-copy strong \{[\s\S]*?display:\s*block;[\s\S]*?-webkit-line-clamp:\s*unset;[\s\S]*?overflow:\s*visible;[\s\S]*?text-overflow:\s*clip;/);
   assert.match(layout, /public-side-editorial-copy p[\s\S]*?-webkit-line-clamp:\s*15/);
-  assert.match(layout, /public-matchday-depth-row[\s\S]*?public-complement-body strong[\s\S]*?-webkit-line-clamp:\s*1/);
+  assert.match(layout, /data-editorial-scope="matchday"\] \.public-matchday-depth-row \.public-complement-body strong \{[\s\S]*?display:\s*block;[\s\S]*?-webkit-line-clamp:\s*unset;[\s\S]*?overflow:\s*visible;[\s\S]*?text-overflow:\s*clip;/);
 });
 
 test("Últimas não apresenta imagem e a Faixa usa 1/3/3 linhas na Jornada", () => {
@@ -33,8 +33,9 @@ test("Últimas não apresenta imagem e a Faixa usa 1/3/3 linhas na Jornada", () 
   assert.match(horizontal, /public-horizontal-news-title[\s\S]*?public-horizontal-news-card p[\s\S]*?-webkit-line-clamp:\s*3/);
 });
 
-test("o Vídeo usa uma linha e a Jornada alinha estruturalmente sem mexer no alinhamento validado das outras páginas", () => {
-  assert.match(roundup, /public-roundup-active-body strong,[\s\S]*?public-roundup-active-body p[\s\S]*?-webkit-line-clamp:\s*1/);
+test("o Vídeo mantém o título livre, limita o pós-título a uma linha e conserva o alinhamento validado", () => {
+  assert.match(roundup, /public-roundup-active-body strong \{[\s\S]*?-webkit-line-clamp:\s*unset;[\s\S]*?overflow:\s*visible;[\s\S]*?text-overflow:\s*clip;/);
+  assert.match(roundup, /public-roundup-active-body p \{[\s\S]*?-webkit-line-clamp:\s*1;[\s\S]*?overflow:\s*hidden;[\s\S]*?text-overflow:\s*ellipsis;/);
   assert.match(layout, /reserveHeadingSpace=\{hasRoundupSummary && hasComplementary\}/);
   assert.match(layout, /public-depth-zone-heading-placeholder/);
   assert.doesNotMatch(layout, /margin-top:\s*-6px/);

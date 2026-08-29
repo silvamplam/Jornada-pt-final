@@ -104,7 +104,7 @@ test("a grelha mantÃ©m Ãºltimas e contexto nas posiÃ§Ãµes atuais e prese
   const headlineSummaryStart = styles.indexOf(".public-cover-headline p {");
   const headlineSummaryEnd = styles.indexOf(".public-matchday-main-lower", headlineSummaryStart);
 
-  assert.match(styles, /\.public-matchday-editorial h1 \{[\s\S]*?-webkit-line-clamp:\s*5;/);
+  assert.match(styles, /\.public-matchday-editorial h1 \{[\s\S]*?display:\s*block;[\s\S]*?-webkit-line-clamp:\s*unset;[\s\S]*?overflow:\s*visible;[\s\S]*?text-overflow:\s*clip;/);
   assert.match(styles, /\.public-cover-headline p \{[\s\S]*?-webkit-line-clamp:\s*6;/);
 });
 

@@ -475,7 +475,7 @@ test("PublicMatchStrip usa carrossel limpo e mantém o layout partilhado nos res
   assert.match(styleSource, /\.carousel\[data-can-move-back="true"\]::before\s*\{[\s\S]*?left:\s*max\(0px, calc\(\(100% - var\(--match-carousel-viewport-width\)\) \/ 2\)\)[\s\S]*?width:\s*72px[\s\S]*?linear-gradient[\s\S]*?rgba\(255, 255, 255, 0\.88\)/);
   assert.match(styleSource, /\.carouselButtonBack\s*\{[\s\S]*?left:\s*0/);
   assert.match(styleSource, /\.carouselButtonForward\s*\{[\s\S]*?right:\s*0/);
-  assert.match(styleSource, /\.panel\[data-visual-variant="clean"\] \.row > \.card \{[\s\S]*?box-sizing:\s*border-box[\s\S]*?flex:\s*0 0 var\(--match-card-width\)[\s\S]*?grid-template-rows:\s*13px 10px 28px 8px 14px 13px 18px[\s\S]*?width:\s*var\(--match-card-width\)[\s\S]*?min-width:\s*var\(--match-card-width\)[\s\S]*?max-width:\s*var\(--match-card-width\)[\s\S]*?height:\s*var\(--match-card-height\)[\s\S]*?max-height:\s*var\(--match-card-height\)[\s\S]*?padding:\s*12px var\(--match-card-inline-padding\)[\s\S]*?background:\s*#ffffff/);
+  assert.match(styleSource, /\.panel\[data-visual-variant="clean"\] \.row > \.card \{[\s\S]*?box-sizing:\s*border-box[\s\S]*?flex:\s*0 0 var\(--match-card-width\)[\s\S]*?grid-template-rows:\s*13px 10px 28px 8px 14px 13px 18px[\s\S]*?width:\s*var\(--match-card-width\)[\s\S]*?min-width:\s*var\(--match-card-width\)[\s\S]*?max-width:\s*var\(--match-card-width\)[\s\S]*?height:\s*var\(--match-card-height\)[\s\S]*?max-height:\s*var\(--match-card-height\)[\s\S]*?padding:\s*12px var\(--match-card-inline-padding\)[\s\S]*?background:\s*rgba\(0, 0, 0, 0\.02\)/);
   assert.match(styleSource, /> \.status\s*\{[\s\S]*?grid-row:\s*1[\s\S]*?width:\s*100%[\s\S]*?height:\s*13px[\s\S]*?font-size:\s*11px[\s\S]*?font-weight:\s*500[\s\S]*?line-height:\s*13px/);
   assert.match(styleSource, /> \.broadcast\s*\{[\s\S]*?grid-row:\s*7[\s\S]*?align-self:\s*end[\s\S]*?justify-content:\s*flex-end[\s\S]*?width:\s*calc\(100% \+ var\(--match-card-inline-padding\)\)[\s\S]*?margin:\s*0 calc\(-1 \* var\(--match-card-inline-padding\)\) 0 0[\s\S]*?padding:\s*0 6px 0 0[\s\S]*?transform:\s*translateY\(-2px\)[\s\S]*?text-align:\s*right/);
   assert.match(styleSource, /> \.broadcast > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?justify-content:\s*flex-end[\s\S]*?height:\s*18px[\s\S]*?padding:\s*0[\s\S]*?border:\s*0[\s\S]*?text-align:\s*right/);
@@ -498,7 +498,7 @@ test("fluid-peek preserva sete jogos claros, esbate o oitavo e alinha o canal pe
 
   assert.match(homeSource, /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"/);
   assert.match(matchdaySource, /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"/);
-  assert.doesNotMatch(newsSource, /carouselLayout="fluid-peek"/);
+  assert.match(newsSource, /carouselLayout="fluid-peek"/);
   assert.match(stripSource, /carouselLayout = "fixed"/);
   assert.match(stripSource, /<PublicMatchStripCarousel layout=\{carouselLayout\}>/);
   assert.doesNotMatch(carouselSource, /PEEK_LEADING_OFFSET/);
@@ -578,7 +578,7 @@ test("fluid-peek preserva sete jogos claros, esbate o oitavo e alinha o canal pe
   const fluidCardRule = styleSource.match(
     /\.panel\[data-visual-variant="clean"\]\[data-carousel-layout="fluid-peek"\] \.row > \.card\s*\{([^}]*)\}/
   )?.[1] ?? "";
-  assert.match(fluidCardRule, /background:\s*rgba\(68, 21, 47, 0\.13\)/);
+  assert.match(fluidCardRule, /background:\s*rgba\(0, 0, 0, 0\.02\)/);
   assert.match(fluidCardRule, /grid-template-rows:\s*13px 5px 28px 4px 14px 5px 18px/);
   assert.match(fluidCardRule, /height:\s*var\(--match-carousel-peek-card-height\)/);
   assert.match(
@@ -617,7 +617,7 @@ test("fluid-peek preserva sete jogos claros, esbate o oitavo e alinha o canal pe
   assert.match(styleSource, /rgba\(255, 255, 255, 0\.96\)/);
   assert.match(
     matchdaySource,
-    /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#44152f[\s\S]*?box-shadow:\s*0 8px 18px rgba\(68, 21, 47, 0\.16\)[\s\S]*?\}\s*\.public-season-nav-inner\s*\{[\s\S]*?box-sizing:\s*border-box[\s\S]*?align-items:\s*center[\s\S]*?height:\s*74px[\s\S]*?min-height:\s*74px[\s\S]*?padding:\s*8px 0/
+    /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#262626[\s\S]*?box-shadow:\s*0 8px 18px rgba\(68, 21, 47, 0\.16\)[\s\S]*?\}\s*\.public-season-nav-inner\s*\{[\s\S]*?box-sizing:\s*border-box[\s\S]*?align-items:\s*center[\s\S]*?height:\s*74px[\s\S]*?min-height:\s*74px[\s\S]*?padding:\s*8px 0/
   );
 });
 
