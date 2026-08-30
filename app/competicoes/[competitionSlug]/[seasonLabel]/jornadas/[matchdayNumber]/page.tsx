@@ -10,6 +10,11 @@ import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navi
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import { buildPublicMatchdayEditorialVisibility, hasPublicMatchdayRoundupContent } from "@/lib/public-matchday-editorial-visibility";
 import {
+  composeHistoricalPublicEditorialBody,
+  composeLivePublicEditorialBody,
+  composeThematicPublicEditorialBody,
+} from "@/lib/public-matchday-editorial-body";
+import {
   LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS,
   hierarchicalCompositionMediaSnapshot,
   isPublishableHierarchicalBeyondMatchday,
@@ -4067,41 +4072,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       (state) => state.zone,
     );
 
-  const historicalVideoPosition =
-    Math.min(
-      Math.max(
-        context.referenceComposition
-          ?.hierarchical_video_position
-          ?? historicalDynamicZones.length,
-        0,
-      ),
-      historicalDynamicZones.length,
+  const historicalDynamicBodyBlocks =
+    composeHistoricalPublicEditorialBody(
+      historicalDynamicZones,
+      context.referenceComposition
+        ?.hierarchical_video_position
+        ?? historicalDynamicZones.length,
     );
-
-  const historicalDynamicBodyBlocks:
-    Array<
-      | {
-          kind: "zone";
-          zone: PublicFlexibleZone;
-        }
-      | {
-          kind: "video";
-        }
-    > =
-      historicalDynamicZones.map((zone) => ({
-        kind: "zone",
-        zone,
-      }));
-
-  if (useHistoricalDynamicZones) {
-    historicalDynamicBodyBlocks.splice(
-      historicalVideoPosition,
-      0,
-      {
-        kind: "video",
-      },
-    );
-  }
 
   const historicalOpeningKeys = [
     "dominant_main",
@@ -4720,11 +4697,18 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         && latestNewsItems.length > 0
         && liveFourNewsItems.length === 4;
 
-  const thematicZoneByKey =
-    new Map(
-      thematicSnapshot?.zones.map(
-        (zone) => [zone.key, zone] as const,
-      ) ?? [],
+  const thematicEditorialBodyBlocks =
+    thematicSnapshot
+      ? composeThematicPublicEditorialBody(
+          thematicSnapshot.pageControls
+            .thematicBlockOrder,
+          thematicSnapshot.zones,
+        )
+      : [];
+
+  const liveEditorialBodyBlocks =
+    composeLivePublicEditorialBody(
+      context.editorialDeskControl.liveZoneOrder,
     );
 
   function liveHierarchicalSlotsForGroup(
@@ -5133,8 +5117,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       )}
 
       {!usePublishedReferenceComposition && thematicSnapshot
-        ? thematicSnapshot.pageControls.thematicBlockOrder.map((block) => {
-            if (block === "video") {
+        ? thematicEditorialBodyBlocks.map((block) => {
+            if (block.kind === "video") {
               if (
                 !publicThematicVideoHighlightModuleIsVisible({
                   active: complementaryMode === "roundup_video",
@@ -5150,7 +5134,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               return renderLivePublicZone("video");
             }
 
-            if (block === "latest") {
+            if (block.kind === "latest") {
               if (!showThematicLatestBlock) {
                 return null;
               }
@@ -5179,22 +5163,27 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               );
             }
 
-            const zone =
-              thematicZoneByKey.get(block);
-
-            return zone ? (
+            return (
               <PublicThematicZoneLayout
-                key={`thematic-zone-${zone.key}`}
+                key={`thematic-zone-${block.zone.key}`}
                 matchdayNumber={context.matchday.number}
-                zone={zone}
+                zone={block.zone}
               />
-            ) : null;
+            );
           })
         : !hasThematicAssignment
           && !useHierarchicalReferenceComposition
-          ? context.editorialDeskControl.liveZoneOrder.map(
-              renderLivePublicZone,
-            )
+          ? liveEditorialBodyBlocks.map((block) => {
+              if (block.kind === "video") {
+                return renderLivePublicZone("video");
+              }
+
+              if (block.kind === "latest") {
+                return renderLivePublicZone("four_news");
+              }
+
+              return renderLivePublicZone(block.zone.key);
+            })
           : null}
 
       {!thematicPublicUnavailable

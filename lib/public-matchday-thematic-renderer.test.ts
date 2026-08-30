@@ -59,14 +59,19 @@ test("página pública consulta assignment antes de escolher autoridade editoria
 test("sem assignment o percurso Legacy continua explícito", () => {
   assert.match(
     pageSource,
-    /!hasThematicAssignment[\s\S]*?!useHierarchicalReferenceComposition[\s\S]*?liveZoneOrder\.map/,
+    /!hasThematicAssignment[\s\S]*?!useHierarchicalReferenceComposition[\s\S]*?liveEditorialBodyBlocks\.map/,
   );
 });
 
 test("assignment temático usa a ordem de sete blocos persistida", () => {
   assert.match(
     pageSource,
-    /thematicSnapshot\.pageControls\.thematicBlockOrder\.map/,
+    /composeThematicPublicEditorialBody\([\s\S]*?thematicBlockOrder/,
+  );
+
+  assert.match(
+    pageSource,
+    /thematicEditorialBodyBlocks\.map/,
   );
 
   assert.match(
@@ -76,7 +81,7 @@ test("assignment temático usa a ordem de sete blocos persistida", () => {
 
   assert.match(
     pageSource,
-    /block === "video"/,
+    /block\.kind === "video"/,
   );
 
   assert.match(

@@ -189,7 +189,7 @@ test("módulo público tem integridade Vídeo + Destaque", () => {
 test("posição pública segue thematicBlockOrder e reutiliza o módulo Legacy", () => {
   assert.match(
     publicPage,
-    /thematicBlockOrder\.map\(\(block\)[\s\S]*block === "video"[\s\S]*renderLivePublicZone\("video"\)/u,
+    /thematicEditorialBodyBlocks\.map\(\(block\)[\s\S]*block\.kind === "video"[\s\S]*renderLivePublicZone\("video"\)/u,
   );
   assert.match(
     publicPage,

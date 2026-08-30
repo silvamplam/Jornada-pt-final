@@ -85,6 +85,10 @@ test("em modo dinâmico o topo legacy fica só com Abertura e o corpo é variáv
   );
   assert.match(
     publicPage,
+    /composeHistoricalPublicEditorialBody/,
+  );
+  assert.match(
+    publicPage,
     /PublicHierarchicalPosteriorMoments/,
   );
 });

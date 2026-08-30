@@ -112,11 +112,15 @@ test("a página pública lê a ordem viva e intercala os cinco blocos", () => {
   assert.match(publicLoader, /live_public_zone_order/);
   assert.match(
     publicPage,
-    /thematicSnapshot\.pageControls\.thematicBlockOrder\.map/,
+    /composeThematicPublicEditorialBody\([\s\S]*?thematicBlockOrder/,
   );
   assert.match(
     publicPage,
-    /context\.editorialDeskControl\.liveZoneOrder\.map\([\s\S]*?renderLivePublicZone/,
+    /composeLivePublicEditorialBody\([\s\S]*?liveZoneOrder/,
+  );
+  assert.match(
+    publicPage,
+    /liveEditorialBodyBlocks\.map\([\s\S]*?renderLivePublicZone/,
   );
   assert.match(publicPage, /zone === "video"/);
   assert.match(publicPage, /zone === "four_news"/);
@@ -125,10 +129,10 @@ test("a página pública lê a ordem viva e intercala os cinco blocos", () => {
   assert.match(publicPage, /liveBeyondMatchdayNews.length !== 5/);
 
   const thematicOrderedIndex = publicPage.indexOf(
-    "thematicSnapshot.pageControls.thematicBlockOrder.map",
+    "thematicEditorialBodyBlocks.map",
   );
   const legacyOrderedIndex = publicPage.indexOf(
-    "context.editorialDeskControl.liveZoneOrder.map",
+    "liveEditorialBodyBlocks.map",
   );
   const orderedIndex = Math.max(thematicOrderedIndex, legacyOrderedIndex);
   const faixaIndex = publicPage.indexOf("<PublicHorizontalNewsStrip", orderedIndex);
