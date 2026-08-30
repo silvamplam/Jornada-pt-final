@@ -114,7 +114,7 @@ test("preview local só lê a Seleção e Apply faz uma única escrita temática
   assert.match(applyBlock, /\/organizar\/tematico/);
   assert.match(client, /method: "GET"/);
   assert.equal((route.match(/writeSupabaseAdminReturning/g) ?? []).length, 2);
-  assert.match(route, /rpc\/apply_matchday_editorial_profile_workspace_v9/);
+  assert.match(route, /rpc\/apply_matchday_editorial_profile_workspace_v10/);
   assert.match(route, /expectedStateToken|p_expected_state_token/);
   assert.match(route, /thematic_zone_order: pageControls\.thematicZoneOrder/);
 });

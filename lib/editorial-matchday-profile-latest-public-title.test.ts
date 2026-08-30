@@ -140,7 +140,7 @@ test("Apply usa o workspace atómico atual e envia latest_zone_title", () => {
 
   assert.match(
     source,
-    /apply_matchday_editorial_profile_workspace_v9/,
+    /apply_matchday_editorial_profile_workspace_v10/,
   );
 
   assert.match(

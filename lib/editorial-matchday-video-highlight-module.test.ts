@@ -247,7 +247,7 @@ test("Legacy e API de sync continuam protegidos fora da Mesa temática", () => {
 });
 
 test("Apply v9 mantém o contrato de Destaque herdado da v6", () => {
-  assert.match(route, /apply_matchday_editorial_profile_workspace_v9/u);
+  assert.match(route, /apply_matchday_editorial_profile_workspace_v10/u);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v6/u);
   assert.match(route, /expectedStateToken|p_expected_state_token/u);
   assert.match(route, /highlightBankItemId/u);

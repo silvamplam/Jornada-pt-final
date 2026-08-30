@@ -62,7 +62,7 @@ test("Apply marca apenas decisões explícitas e nunca reabre uma notícia traba
 test("Apply v9 preserva o v8, que fecha duplicações públicas da Seleção", () => {
   assert.match(
     route,
-    /rpc\/apply_matchday_editorial_profile_workspace_v9/u,
+    /rpc\/apply_matchday_editorial_profile_workspace_v10/u,
   );
   assert.match(
     migration,

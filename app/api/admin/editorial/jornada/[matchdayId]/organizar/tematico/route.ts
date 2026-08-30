@@ -604,7 +604,7 @@ export async function POST(
       );
     }
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_editorial_profile_workspace_v9",
+      "rpc/apply_matchday_editorial_profile_workspace_v10",
       {
         method: "POST",
         body: JSON.stringify({
