@@ -684,3 +684,41 @@ test("todos os artigos do lote apresentam o destino determinado", () => {
   assert.ok(clientSource.includes("ATUALIZAÇÃO BLOQUEADA"));
   assert.match(clientSource, /updateCandidates\.length > 0/);
 });
+test("imagens sem prefixo podem ser associadas explicitamente aos artigos", () => {
+  const first = {
+    name: "Alverca-Santa clara.webp",
+    type: "image/webp",
+    size: 101,
+  };
+
+  const second = {
+    name: "Arouca-Mar.webp",
+    type: "image/webp",
+    size: 202,
+  };
+
+  const result = preflightEditorialBatchImages(
+    ["01", "02"],
+    [second, first],
+    [],
+    [
+      { key: "01", file: first },
+      { key: "02", file: second },
+    ],
+  );
+
+  assert.equal(result.ready, true);
+  assert.equal(result.associated, 2);
+  assert.equal(result.missing, 0);
+  assert.equal(result.problems, 0);
+
+  assert.deepEqual(
+    result.articles.map((item) => item.file?.name),
+    [
+      "Alverca-Santa clara.webp",
+      "Arouca-Mar.webp",
+    ],
+  );
+
+  assert.deepEqual(result.fileProblems, []);
+});

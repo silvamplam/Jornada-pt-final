@@ -208,14 +208,21 @@ function articleResultRows(preflight: EditorialBatchPreflight): ArticleResultRow
 }
 
 function ImageSelectionPanel({
+  articles,
   selectedImages,
   imagePreflight,
+  manualImageAssignments,
   onImagesSelected,
+  onManualImageAssignment,
   disabled,
 }: Readonly<{
+  articles: readonly EditorialBatchArticle[];
   selectedImages: readonly File[];
   imagePreflight: EditorialBatchImagePreflight<File>;
+  manualImageAssignments: Readonly<Record<string, number>>;
   onImagesSelected: (files: FileList | null) => void;
+  onManualImageAssignment:
+    (key: string, fileIndex: number | null) => void;
   disabled: boolean;
 }>) {
   const statusText = imagePreflight.ready
@@ -242,7 +249,7 @@ function ImageSelectionPanel({
           <p className={styles.imageInstructions}>
             {dossierImageCount > 0
               ? "As escolhas guardadas no Dossiê já estão associadas. Selecione ficheiros locais apenas para as substituir."
-              : "Selecione todas as imagens de uma vez. A associação usa apenas o prefixo NN-."}
+              : "Selecione as imagens de uma vez. O prefixo NN- associa automaticamente; os restantes ficheiros podem ser associados manualmente abaixo."}
           </p>
           <p className={styles.selectedCount}>
             {dossierImageCount > 0
@@ -282,6 +289,77 @@ function ImageSelectionPanel({
           <dd>{imagePreflight.problems}</dd>
         </div>
       </dl>
+
+      {selectedImages.length > 0 && articles.length > 0 ? (
+        <section
+          className={styles.articleResults}
+          aria-labelledby="batch-manual-images-title"
+        >
+          <h3 id="batch-manual-images-title">
+            Associação manual
+          </h3>
+
+          <p className={styles.imageInstructions}>
+            Para imagens sem prefixo NN-, escolha explicitamente o ficheiro
+            de cada artigo. A ordem dos ficheiros não é usada.
+          </p>
+
+          <ol>
+            {articles.map((article) => (
+              <li key={article.key}>
+                <div className={styles.articleKey}>
+                  {article.key}
+                </div>
+
+                <div className={styles.articleCopy}>
+                  <div className={styles.articleHeading}>
+                    <h4>{article.title}</h4>
+                  </div>
+
+                  <label>
+                    <span>Imagem</span>
+                    <select
+                      value={manualImageAssignments[article.key] ?? ""}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+
+                        onManualImageAssignment(
+                          article.key,
+                          value === "" ? null : Number(value),
+                        );
+                      }}
+                    >
+                      <option value="">
+                        Automática por NN- / Dossiê
+                      </option>
+
+                      {selectedImages.map((file, index) => {
+                        const assignedElsewhere =
+                          Object.entries(manualImageAssignments).some(
+                            ([key, assignedIndex]) =>
+                              key !== article.key
+                              && assignedIndex === index,
+                          );
+
+                        return (
+                          <option
+                            key={`${file.name}-${file.size}-${index}`}
+                            value={index}
+                            disabled={assignedElsewhere}
+                          >
+                            {file.name}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </label>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
       {imagePreflight.fileProblems.length > 0 ? (
         <section className={styles.imageFileProblems} aria-labelledby="batch-image-files-title">
@@ -736,6 +814,10 @@ export default function BatchPreflightClient({
   const [matchdayId, setMatchdayId] = useState("");
   const [articleText, setArticleText] = useState("");
   const [selectedImages, setSelectedImages] = useState<readonly File[]>([]);
+  const [
+    manualImageAssignments,
+    setManualImageAssignments,
+  ] = useState<Readonly<Record<string, number>>>({});
   const [imagePreviewUrls, setImagePreviewUrls] = useState<ReadonlyMap<File, string>>(new Map());
   const [author, setAuthor] = useState(DEFAULT_BATCH_AUTHOR);
   const [sourcePackage, setSourcePackage] = useState<EditorialBatchTransferSourcePackage | null>(null);
@@ -810,6 +892,19 @@ export default function BatchPreflightClient({
     () => articleResultRows(preflight).map((row) => row.key),
     [preflight],
   );
+  const manualImageFiles = useMemo(
+    () =>
+      Object.entries(manualImageAssignments)
+        .flatMap(([key, fileIndex]) => {
+          const file = selectedImages[fileIndex];
+
+          return file
+            ? [{ key, file }]
+            : [];
+        }),
+    [manualImageAssignments, selectedImages],
+  );
+
   const imagePreflight = useMemo(
     () => preflightEditorialBatchImages(
       analysedArticleKeys,
@@ -819,8 +914,14 @@ export default function BatchPreflightClient({
         imageUrl: image.imageUrl,
         fileName: image.label,
       })) ?? [],
+      manualImageFiles,
     ),
-    [analysedArticleKeys, selectedImages, sourcePackage],
+    [
+      analysedArticleKeys,
+      manualImageFiles,
+      selectedImages,
+      sourcePackage,
+    ],
   );
   const canPublish = Boolean(
     preflight.ready && contextComplete
@@ -1035,6 +1136,7 @@ export default function BatchPreflightClient({
     canPublish,
     contextComplete,
     imagePreflight.ready,
+    manualImageAssignments,
     matchdayId,
     preservesPublishedImages,
     preflightRetryVersion,
@@ -1417,6 +1519,7 @@ export default function BatchPreflightClient({
   function handleTextChange(nextText: string) {
     resetPublicationRun();
     setArticleText(nextText);
+    setManualImageAssignments({});
 
     if (sourcePackage) {
       window.sessionStorage.setItem(
@@ -1428,7 +1531,35 @@ export default function BatchPreflightClient({
 
   function handleImagesSelected(files: FileList | null) {
     resetPublicationRun();
+    setManualImageAssignments({});
     setSelectedImages(files ? Array.from(files) : []);
+  }
+
+  function handleManualImageAssignment(
+    key: string,
+    fileIndex: number | null,
+  ) {
+    resetPublicationRun();
+
+    setManualImageAssignments((current) => {
+      const next = {
+        ...current,
+      } as Record<string, number>;
+
+      if (fileIndex === null) {
+        delete next[key];
+        return next;
+      }
+
+      for (const [currentKey, assignedIndex] of Object.entries(next)) {
+        if (currentKey !== key && assignedIndex === fileIndex) {
+          delete next[currentKey];
+        }
+      }
+
+      next[key] = fileIndex;
+      return next;
+    });
   }
 
   function handleMatchdayChange(nextMatchdayId: string) {
@@ -1610,9 +1741,12 @@ export default function BatchPreflightClient({
         </section>
       ) : (
         <ImageSelectionPanel
+          articles={preflight.articles}
           selectedImages={selectedImages}
           imagePreflight={imagePreflight}
+          manualImageAssignments={manualImageAssignments}
           onImagesSelected={handleImagesSelected}
+          onManualImageAssignment={handleManualImageAssignment}
           disabled={isPublishing}
         />
       )}

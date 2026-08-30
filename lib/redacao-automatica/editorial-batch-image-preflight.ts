@@ -44,6 +44,13 @@ export type EditorialBatchPersistedImage = Readonly<{
   fileName: string;
 }>;
 
+export type EditorialBatchManualImageAssignment<
+  TFile extends EditorialBatchImageFile = EditorialBatchImageFile,
+> = Readonly<{
+  key: string;
+  file: TFile;
+}>;
+
 export type EditorialBatchImagePreflight<
   TFile extends EditorialBatchImageFile = EditorialBatchImageFile,
 > = Readonly<{
@@ -100,6 +107,8 @@ export function preflightEditorialBatchImages<
   articleKeys: readonly string[],
   inputFiles: readonly TFile[],
   persistedImages: readonly EditorialBatchPersistedImage[] = [],
+  manualAssignments:
+    readonly EditorialBatchManualImageAssignment<TFile>[] = [],
 ): EditorialBatchImagePreflight<TFile> {
   const files = [...inputFiles].sort(compareFiles);
   const keys = [...new Set(articleKeys)];
@@ -108,9 +117,42 @@ export function preflightEditorialBatchImages<
   const persistedImageByKey = new Map(
     persistedImages.map((image) => [image.key, image]),
   );
+  const manualImageByKey = new Map<string, TFile>();
+  const manuallyAssignedFiles = new Set(
+    manualAssignments.map((assignment) => assignment.file),
+  );
   const fileProblems: EditorialBatchImageFileProblem<TFile>[] = [];
 
+  for (const assignment of manualAssignments) {
+    const key = assignment.key.trim();
+
+    if (!matchableKeys.has(key)) {
+      fileProblems.push({
+        code: "unknown_article",
+        file: assignment.file,
+        key,
+        message: `NÃO EXISTE ARTIGO ${key}`,
+      });
+      continue;
+    }
+
+    if (!supportedImage(assignment.file)) {
+      fileProblems.push({
+        code: "unsupported_format",
+        file: assignment.file,
+        key,
+        message: "FORMATO NÃO SUPORTADO",
+      });
+      continue;
+    }
+
+    manualImageByKey.set(key, assignment.file);
+  }
+
   for (const file of files) {
+    if (manuallyAssignedFiles.has(file)) {
+      continue;
+    }
     const prefixMatch = FILE_PREFIX.exec(file.name);
     const key = prefixMatch?.[1];
     const formatSupported = supportedImage(file);
@@ -151,6 +193,18 @@ export function preflightEditorialBatchImages<
   }
 
   const articles: EditorialBatchImageArticleResult<TFile>[] = keys.map((key) => {
+    const manualFile = manualImageByKey.get(key);
+
+    if (manualFile) {
+      return {
+        key,
+        status: "associated",
+        file: manualFile,
+        candidates: [manualFile],
+        message: "IMAGEM ASSOCIADA MANUALMENTE",
+      };
+    }
+
     const candidates = candidatesByKey.get(key) ?? [];
 
     if (candidates.length === 1) {
