@@ -131,6 +131,7 @@ type PublicEditorialLayoutProps = {
   showSideBlock?: boolean;
   showLatestNews?: boolean;
   midContent?: ReactNode;
+  ownsSectionBoundary?: boolean;
 };
 
 const publicEditorialLayoutPolishStyles = `
@@ -148,6 +149,10 @@ const publicEditorialLayoutPolishStyles = `
   .public-editorial-layout-panel,
   .public-editorial-layout-panel * {
     box-shadow: none !important;
+  }
+
+  .public-matchday-panel.public-editorial-layout-panel[data-owns-section-boundary="false"] {
+    margin-top: 0;
   }
 
   .public-editorial-layout-panel .public-matchday-lead-grid > .public-matchday-news,
@@ -422,6 +427,15 @@ const publicEditorialLayoutPolishStyles = `
     min-width: 0;
     padding-top: 18px;
     border-top: 1px solid #dbe4ee;
+  }
+
+  .public-editorial-layout-panel[data-owns-section-boundary="false"] .public-matchday-cover {
+    padding-top: 0;
+  }
+
+  .public-editorial-layout-panel[data-owns-section-boundary="false"] .public-matchday-depth-row {
+    padding-top: 0;
+    border-top: 0;
   }
 
   .public-editorial-layout-panel .public-matchday-depth-row-single {
@@ -1024,7 +1038,8 @@ export function PublicEditorialLayout({
   showHeadline = true,
   showSideBlock = true,
   showLatestNews = true,
-  midContent = null
+  midContent = null,
+  ownsSectionBoundary = true,
 }: PublicEditorialLayoutProps) {
   const hasHighlights = belowHeadline.highlights.length > 0;
   const hasMainColumn = showHeadline || hasHighlights;
@@ -1048,7 +1063,12 @@ export function PublicEditorialLayout({
   }
 
   return (
-    <section className="public-matchday-panel public-editorial-layout-panel" data-editorial-scope={scope} aria-label={ariaLabel}>
+    <section
+      className="public-matchday-panel public-editorial-layout-panel"
+      data-editorial-scope={scope}
+      data-owns-section-boundary={ownsSectionBoundary ? "true" : "false"}
+      aria-label={ariaLabel}
+    >
       <style>{publicEditorialLayoutPolishStyles}</style>
       <div className="public-matchday-cover">
         {topColumnCount > 0 ? (

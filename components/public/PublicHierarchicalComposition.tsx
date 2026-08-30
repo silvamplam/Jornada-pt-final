@@ -34,6 +34,7 @@ type PublicHierarchicalCompositionProps = {
   zone2Title?: string | null;
   showEmptySlots?: boolean;
   ariaLabel?: string;
+  wrapVideoSection?: (children: ReactNode, key: string) => ReactNode;
 };
 
 export type PublicHierarchicalPosteriorMomentsProps = Pick<
@@ -41,6 +42,7 @@ export type PublicHierarchicalPosteriorMomentsProps = Pick<
   "roundupItems" | "roundupHeading" | "roundupHeadingColor" | "matchdayNumber" | "videoHighlight" | "beyondMatchdayItems"
 > & {
   includeV13PreviewStructure?: boolean;
+  ownsSectionBoundary?: boolean;
   style?: CSSProperties;
 };
 
@@ -112,6 +114,11 @@ const hierarchicalPosteriorMomentsStyles = `
     border-top: 2px solid #10151b;
   }
 
+  .public-hierarchical-posterior-moments[data-owns-section-boundary="false"] .public-hierarchical-videos {
+    padding-top: 0;
+    border-top: 0;
+  }
+
   @media (max-width: 840px) {
     .public-hierarchical-posterior-moments {
       gap: 28px;
@@ -166,8 +173,10 @@ const hierarchicalCompositionStyles = `
     padding-top: 0;
   }
   .composition-interpretive-preview {
+    --composition-interpretive-preview-gap: 64px;
+
     display: grid;
-    gap: 64px;
+    gap: var(--composition-interpretive-preview-gap);
     width: 100%;
     max-width: 1200px;
     min-width: 0;
@@ -175,6 +184,14 @@ const hierarchicalCompositionStyles = `
     margin-inline: auto;
     background: #ffffff;
     color: #10151b;
+  }
+
+  .composition-interpretive-preview[data-video-section-framed="true"] > [data-public-editorial-section-frame="video"] {
+    margin-top: calc(var(--public-editorial-section-transition) - var(--composition-interpretive-preview-gap));
+  }
+
+  .composition-interpretive-preview[data-video-section-framed="true"] > .public-hierarchical-framed-video-group {
+    margin-top: calc(0px - var(--composition-interpretive-preview-gap));
   }
 
   .composition-interpretive-opening {
@@ -865,7 +882,7 @@ const hierarchicalCompositionStyles = `
 
   @media (max-width: 980px) {
     .composition-interpretive-preview {
-      gap: 50px;
+      --composition-interpretive-preview-gap: 50px;
     }
 
     .composition-interpretive-section {
@@ -918,7 +935,7 @@ const hierarchicalCompositionStyles = `
 
   @media (max-width: 720px) {
     .composition-interpretive-preview {
-      gap: 38px;
+      --composition-interpretive-preview-gap: 38px;
     }
 
     .composition-interpretive-section {
@@ -1211,6 +1228,7 @@ export function PublicHierarchicalPosteriorMoments({
   videoHighlight = null,
   beyondMatchdayItems = [],
   includeV13PreviewStructure = false,
+  ownsSectionBoundary = true,
   style,
 }: PublicHierarchicalPosteriorMomentsProps) {
   if (roundupItems.length === 0 && beyondMatchdayItems.length === 0) return null;
@@ -1219,6 +1237,7 @@ export function PublicHierarchicalPosteriorMoments({
     <div
       className={`public-hierarchical-posterior-moments${includeV13PreviewStructure ? " public-hierarchical-v13-preview" : ""}`}
       data-hierarchical-posterior-moments="true"
+      data-owns-section-boundary={ownsSectionBoundary ? "true" : "false"}
       style={style}
     >
       <style>{hierarchicalPosteriorMomentsStyles}</style>
@@ -1227,6 +1246,7 @@ export function PublicHierarchicalPosteriorMoments({
         <div className="public-hierarchical-videos">
           <PublicEditorialLayout
             ariaLabel="A Jornada em Vídeo"
+            ownsSectionBoundary={ownsSectionBoundary}
             scope="matchday"
             showHeadline={false}
             showLatestNews={false}
@@ -1274,6 +1294,7 @@ export default function PublicHierarchicalComposition({
   zone2Title = null,
   showEmptySlots = false,
   ariaLabel = "Composição hierárquica da jornada",
+  wrapVideoSection,
 }: PublicHierarchicalCompositionProps) {
   const slotsByKey = new Map(slots.map((slot) => [slot.slot_key, slot] as const));
   const dominantSlot = slotsByKey.get(HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.dominant) ?? null;
@@ -1358,6 +1379,27 @@ export default function PublicHierarchicalComposition({
     </section>
   );
 
+  const hasVideoBlock = roundupItems.length > 0;
+
+  const renderVideoBlock = (key: string) => {
+    if (!hasVideoBlock) return null;
+
+    const videoBlock = (
+      <PublicHierarchicalPosteriorMoments
+        beyondMatchdayItems={[]}
+        key={wrapVideoSection ? undefined : key}
+        matchdayNumber={matchdayNumber}
+        ownsSectionBoundary={!wrapVideoSection}
+        roundupHeading={roundupHeading}
+        roundupHeadingColor={roundupHeadingColor}
+        roundupItems={roundupItems}
+        videoHighlight={videoHighlight}
+      />
+    );
+
+    return wrapVideoSection ? wrapVideoSection(videoBlock, key) : videoBlock;
+  };
+
   const configuredBlocks = blockOrder?.map((blockKey) => {
     if (blockKey === "opening") return openingBlock;
     if (blockKey === "zone_1") {
@@ -1381,17 +1423,7 @@ export default function PublicHierarchicalComposition({
       );
     }
     if (blockKey === "video") {
-      return (
-        <PublicHierarchicalPosteriorMoments
-          beyondMatchdayItems={[]}
-          key={blockKey}
-          matchdayNumber={matchdayNumber}
-          roundupHeading={roundupHeading}
-          roundupHeadingColor={roundupHeadingColor}
-          roundupItems={roundupItems}
-          videoHighlight={videoHighlight}
-        />
-      );
+      return renderVideoBlock(blockKey);
     }
     return (
       <PublicHierarchicalPosteriorMoments
@@ -1407,20 +1439,38 @@ export default function PublicHierarchicalComposition({
   return (
     <section className="public-matchday-panel public-hierarchical-composition" aria-label={ariaLabel} data-public-hierarchical-layout="interpretive">
       <style>{hierarchicalCompositionStyles}</style>
-      <div className="composition-interpretive-preview">
+      <div
+        className="composition-interpretive-preview"
+        data-video-section-framed={wrapVideoSection && hasVideoBlock ? "true" : undefined}
+      >
         {configuredBlocks ?? (
           <>
             {openingBlock}
             <InterpretiveAnalysisSection showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
             <InterpretiveOtherGamesSection showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
-            <PublicHierarchicalPosteriorMoments
-              beyondMatchdayItems={beyondMatchdayItems}
-              matchdayNumber={matchdayNumber}
-              roundupHeading={roundupHeading}
-              roundupHeadingColor={roundupHeadingColor}
-              roundupItems={roundupItems}
-              videoHighlight={videoHighlight}
-            />
+            {wrapVideoSection && hasVideoBlock ? (
+              <div
+                className="public-hierarchical-posterior-moments public-hierarchical-framed-video-group"
+                key="posterior"
+              >
+                {renderVideoBlock("video")}
+                <PublicHierarchicalPosteriorMoments
+                  beyondMatchdayItems={beyondMatchdayItems}
+                  matchdayNumber={matchdayNumber}
+                  roundupItems={[]}
+                  videoHighlight={null}
+                />
+              </div>
+            ) : (
+              <PublicHierarchicalPosteriorMoments
+                beyondMatchdayItems={beyondMatchdayItems}
+                matchdayNumber={matchdayNumber}
+                roundupHeading={roundupHeading}
+                roundupHeadingColor={roundupHeadingColor}
+                roundupItems={roundupItems}
+                videoHighlight={videoHighlight}
+              />
+            )}
           </>
         )}
       </div>

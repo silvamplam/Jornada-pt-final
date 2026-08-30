@@ -4751,52 +4751,54 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       }
 
       return (
-        <PublicEditorialLayout
-          ariaLabel="A Jornada em Vídeo"
-          key={zone}
-          scope="matchday"
-          showHeadline={false}
-          showSideBlock={false}
-          showLatestNews={false}
-          sideBlock={{ isPublished: false }}
-          headline={{ fallbackTitle: "", fallbackSubtitle: "" }}
-          belowHeadline={{
-            highlightHeading: "",
-            highlights: [],
-            roundupItems: visibleRoundupItems,
-            showRoundupVideo: editorialVisibility.showRoundup,
-            roundupHeading: "A JORNADA EM VÍDEO",
-            roundupHeadingColor:
-              editorial?.roundup_video_heading_color ??
-              belowHeadlineHeadingColor ??
-              null,
-            initialRoundupItemId:
-              editorial?.complementary_roundup_item_id ?? null,
-            matchdayNumber: liveContext.matchday.number,
-            complementary: {
-              isPublished: hasPublishedComplementaryStory,
-              label: complementaryLabel,
-              labelColor: complementaryLabelColor,
-              title: complementaryTitle,
-              text: complementaryText,
-              imageUrl: complementaryImageUrl,
-              linkUrl: complementaryLinkUrl,
-              inlineMedia: complementMedia
-                ? {
-                    kind: complementMedia.kind,
-                    embedUrl: complementMedia.embed_url,
-                    videoUrl: complementMedia.video_url,
-                    posterUrl: complementMedia.poster_url,
-                    caption: complementMedia.caption,
-                    contentSlug: complementMedia.content_slug,
-                    contentType: complementMedia.content_type,
-                    title: complementMedia.title
-                  }
-                : null
-            }
-          }}
-          latestNews={[]}
-        />
+        <PublicMatchdayEditorialSectionFrame kind="video" key={zone}>
+          <PublicEditorialLayout
+            ariaLabel="A Jornada em Vídeo"
+            ownsSectionBoundary={false}
+            scope="matchday"
+            showHeadline={false}
+            showSideBlock={false}
+            showLatestNews={false}
+            sideBlock={{ isPublished: false }}
+            headline={{ fallbackTitle: "", fallbackSubtitle: "" }}
+            belowHeadline={{
+              highlightHeading: "",
+              highlights: [],
+              roundupItems: visibleRoundupItems,
+              showRoundupVideo: editorialVisibility.showRoundup,
+              roundupHeading: "A JORNADA EM VÍDEO",
+              roundupHeadingColor:
+                editorial?.roundup_video_heading_color ??
+                belowHeadlineHeadingColor ??
+                null,
+              initialRoundupItemId:
+                editorial?.complementary_roundup_item_id ?? null,
+              matchdayNumber: liveContext.matchday.number,
+              complementary: {
+                isPublished: hasPublishedComplementaryStory,
+                label: complementaryLabel,
+                labelColor: complementaryLabelColor,
+                title: complementaryTitle,
+                text: complementaryText,
+                imageUrl: complementaryImageUrl,
+                linkUrl: complementaryLinkUrl,
+                inlineMedia: complementMedia
+                  ? {
+                      kind: complementMedia.kind,
+                      embedUrl: complementMedia.embed_url,
+                      videoUrl: complementMedia.video_url,
+                      posterUrl: complementMedia.poster_url,
+                      caption: complementMedia.caption,
+                      contentSlug: complementMedia.content_slug,
+                      contentType: complementMedia.content_type,
+                      title: complementMedia.title
+                    }
+                  : null
+              }
+            }}
+            latestNews={[]}
+          />
+        </PublicMatchdayEditorialSectionFrame>
       );
     }
 
@@ -5009,27 +5011,39 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               }
               zone1Title={context.referenceComposition?.hierarchical_zone_1_title}
               zone2Title={context.referenceComposition?.hierarchical_zone_2_title}
+              wrapVideoSection={
+                useHistoricalDynamicZones
+                  ? undefined
+                  : (children, key) => (
+                      <PublicMatchdayEditorialSectionFrame
+                        kind="video"
+                        key={`historical-legacy-${key}`}
+                      >
+                        {children}
+                      </PublicMatchdayEditorialSectionFrame>
+                    )
+              }
             />
 
             {useHistoricalDynamicZones
-              ? historicalDynamicBodyBlocks.map((block, index) => {
+              ? historicalDynamicBodyBlocks.map((block) => {
                   if (block.kind === "video") {
+                    if (effectiveRoundupItems.length === 0) return null;
+
                     return (
-                      <PublicHierarchicalPosteriorMoments
-                        beyondMatchdayItems={[]}
+                      <PublicMatchdayEditorialSectionFrame
+                        kind="video"
                         key="historical-dynamic-video"
-                        matchdayNumber={context.matchday.number}
-                        roundupHeading="A JORNADA EM VÍDEO"
-                        roundupItems={effectiveRoundupItems}
-                        style={{
-                          width: "min(100%, 1200px)",
-                          margin:
-                            index === 0
-                              ? "clamp(46px, 5vw, 68px) auto 0"
-                              : "clamp(46px, 5vw, 68px) auto 0",
-                        }}
-                        videoHighlight={hierarchicalVideoHighlight}
-                      />
+                      >
+                        <PublicHierarchicalPosteriorMoments
+                          beyondMatchdayItems={[]}
+                          matchdayNumber={context.matchday.number}
+                          ownsSectionBoundary={false}
+                          roundupHeading="A JORNADA EM VÍDEO"
+                          roundupItems={effectiveRoundupItems}
+                          videoHighlight={hierarchicalVideoHighlight}
+                        />
+                      </PublicMatchdayEditorialSectionFrame>
                     );
                   }
 
