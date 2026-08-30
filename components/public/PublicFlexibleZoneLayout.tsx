@@ -3,12 +3,14 @@ import type {
   HierarchicalCompositionSlotKey,
 } from "@/lib/editorial-hierarchical-composition";
 import type { EditorialVisualFamily } from "@/lib/editorial-profiles";
+import type { ReactNode } from "react";
 
 import PublicBeyondMatchdayNews from "./PublicBeyondMatchdayNews";
 import {
   HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP,
   PublicHierarchicalLiveLayouts,
 } from "./PublicHierarchicalComposition";
+import PublicMatchdayEditorialSectionFrame from "./PublicMatchdayEditorialSectionFrame";
 
 export type PublicFlexibleZoneItem = Readonly<{
   id: string;
@@ -52,13 +54,9 @@ const FIVE_NEWS_BALANCED_SLOT_KEYS:
 
 const styles = `
   .public-flexible-zone {
-    width: min(100%, 1200px);
-    max-width: 1200px;
+    width: 100%;
     min-width: 0;
     box-sizing: border-box;
-    margin: clamp(46px, 5vw, 68px) auto 0;
-    padding-top: clamp(24px, 2.6vw, 34px);
-    border-top: 1px solid #dbe4ee;
   }
 
   .public-flexible-zone-heading {
@@ -72,36 +70,7 @@ const styles = `
     text-transform: uppercase;
   }
 
-  .public-flexible-zone >
-  .public-hierarchical-live-layouts {
-    margin-top: 0;
-    padding-top: 0;
-  }
-
-  .public-flexible-zone >
-  .public-hierarchical-live-layouts::before,
-  .public-flexible-zone >
-  .public-hierarchical-live-layouts::after {
-    display: none;
-    content: none;
-  }
-
-  .public-flexible-zone-secondary {
-    padding-top: 0;
-    border-top: 0;
-  }
-
-  .public-flexible-zone-secondary
-  .public-beyond-matchday {
-    padding-top: clamp(24px, 2.6vw, 34px);
-  }
-
   @media (max-width: 680px) {
-    .public-flexible-zone {
-      margin-top: 36px;
-      padding-top: 20px;
-    }
-
     .public-flexible-zone-heading {
       font-size: 16px;
     }
@@ -154,13 +123,12 @@ export default function PublicFlexibleZoneLayout({
     return null;
   }
 
-  if (
-    zone.visualFamily
-      === "five_news_secondary"
-  ) {
-    return (
+  let zoneContent: ReactNode;
+
+  if (zone.visualFamily === "five_news_secondary") {
+    zoneContent = (
       <div
-        className="public-flexible-zone public-flexible-zone-secondary"
+        className="public-flexible-zone"
         data-public-flexible-zone={zone.key}
         data-public-visual-family={zone.visualFamily}
       >
@@ -170,6 +138,7 @@ export default function PublicFlexibleZoneLayout({
           ariaLabel={publicAriaLabel}
           contextLabel=""
           heading={publicTitle || null}
+          ownsSectionBoundary={false}
           items={items.map((item) => ({
             id: item.id,
             label: item.label,
@@ -182,41 +151,47 @@ export default function PublicFlexibleZoneLayout({
         />
       </div>
     );
-  }
+  } else {
+    const slotKeys =
+      zone.visualFamily === "six_news"
+        ? SIX_NEWS_SLOT_KEYS
+        : FIVE_NEWS_BALANCED_SLOT_KEYS;
 
-  const slotKeys =
-    zone.visualFamily === "six_news"
-      ? SIX_NEWS_SLOT_KEYS
-      : FIVE_NEWS_BALANCED_SLOT_KEYS;
+    if (slotKeys.length !== zone.capacity) {
+      return null;
+    }
 
-  if (slotKeys.length !== zone.capacity) {
-    return null;
+    zoneContent = (
+      <section
+        className="public-flexible-zone"
+        aria-label={publicAriaLabel}
+        data-public-flexible-zone={zone.key}
+        data-public-visual-family={zone.visualFamily}
+      >
+        <style>{styles}</style>
+
+        {publicTitle ? (
+          <h2 className="public-flexible-zone-heading">
+            {publicTitle}
+          </h2>
+        ) : null}
+
+        <PublicHierarchicalLiveLayouts
+          ariaLabel={publicAriaLabel}
+          beyondMatchdayItems={[]}
+          matchdayNumber={matchdayNumber}
+          slots={flexibleSlots(
+            items,
+            slotKeys,
+          )}
+        />
+      </section>
+    );
   }
 
   return (
-    <section
-      className="public-flexible-zone"
-      aria-label={publicAriaLabel}
-      data-public-flexible-zone={zone.key}
-      data-public-visual-family={zone.visualFamily}
-    >
-      <style>{styles}</style>
-
-      {publicTitle ? (
-        <h2 className="public-flexible-zone-heading">
-          {publicTitle}
-        </h2>
-      ) : null}
-
-      <PublicHierarchicalLiveLayouts
-        ariaLabel={publicAriaLabel}
-        beyondMatchdayItems={[]}
-        matchdayNumber={matchdayNumber}
-        slots={flexibleSlots(
-          items,
-          slotKeys,
-        )}
-      />
-    </section>
+    <PublicMatchdayEditorialSectionFrame kind="zone">
+      {zoneContent}
+    </PublicMatchdayEditorialSectionFrame>
   );
 }

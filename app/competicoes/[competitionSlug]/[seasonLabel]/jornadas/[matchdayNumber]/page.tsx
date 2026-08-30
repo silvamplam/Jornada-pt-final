@@ -41,6 +41,7 @@ import PublicFlexibleZoneLayout, {
 } from "@/components/public/PublicFlexibleZoneLayout";
 import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
+import PublicMatchdayEditorialSectionFrame from "@/components/public/PublicMatchdayEditorialSectionFrame";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
@@ -4818,17 +4819,16 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       if (liveSixNewsSlots.length !== 6) return null;
 
       return (
-        <div
-          className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region"
-          key={zone}
-        >
-          <PublicHierarchicalLiveLayouts
-            ariaLabel="Zona editorial de 6 notícias"
-            slots={liveSixNewsSlots}
-            matchdayNumber={liveContext.matchday.number}
-            beyondMatchdayItems={[]}
-          />
-        </div>
+        <PublicMatchdayEditorialSectionFrame kind="zone" key={zone}>
+          <div className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region">
+            <PublicHierarchicalLiveLayouts
+              ariaLabel="Zona editorial de 6 notícias"
+              slots={liveSixNewsSlots}
+              matchdayNumber={liveContext.matchday.number}
+              beyondMatchdayItems={[]}
+            />
+          </div>
+        </PublicMatchdayEditorialSectionFrame>
       );
     }
 
@@ -4836,34 +4836,32 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       if (liveFiveNewsBalancedSlots.length !== 5) return null;
 
       return (
-        <div
-          className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region"
-          key={zone}
-        >
-          <PublicHierarchicalLiveLayouts
-            ariaLabel="Zona editorial de 5 notícias equilibradas"
-            slots={liveFiveNewsBalancedSlots}
-            matchdayNumber={liveContext.matchday.number}
-            beyondMatchdayItems={[]}
-          />
-        </div>
+        <PublicMatchdayEditorialSectionFrame kind="zone" key={zone}>
+          <div className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region">
+            <PublicHierarchicalLiveLayouts
+              ariaLabel="Zona editorial de 5 notícias equilibradas"
+              slots={liveFiveNewsBalancedSlots}
+              matchdayNumber={liveContext.matchday.number}
+              beyondMatchdayItems={[]}
+            />
+          </div>
+        </PublicMatchdayEditorialSectionFrame>
       );
     }
 
     if (liveBeyondMatchdayNews.length !== 5) return null;
 
     return (
-      <div
-        className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region"
-        key={zone}
-      >
-        <PublicHierarchicalLiveLayouts
-          ariaLabel="Zona editorial de 5 notícias secundárias"
-          slots={[]}
-          matchdayNumber={liveContext.matchday.number}
-          beyondMatchdayItems={liveBeyondMatchdayNews}
-        />
-      </div>
+      <PublicMatchdayEditorialSectionFrame kind="zone" key={zone}>
+        <div className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region">
+          <PublicHierarchicalLiveLayouts
+            ariaLabel="Zona editorial de 5 notícias secundárias"
+            slots={[]}
+            matchdayNumber={liveContext.matchday.number}
+            beyondMatchdayItems={liveBeyondMatchdayNews}
+          />
+        </div>
+      </PublicMatchdayEditorialSectionFrame>
     );
   }
 

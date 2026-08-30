@@ -12,15 +12,15 @@ const fourNews = readFileSync(
   "utf8",
 );
 
+const sectionFrame = readFileSync(
+  "components/public/PublicMatchdayEditorialSectionFrame.module.css",
+  "utf8",
+);
+
 test("todos os divisores com blur nascem à esquerda", () => {
   assert.match(
-    hierarchical,
-    /\.public-hierarchical-live-layouts::before \{[\s\S]*?right: 0;[\s\S]*?left: 0;[\s\S]*?rgba\(108, 130, 154, 0\.22\) 0%/,
-  );
-
-  assert.match(
-    hierarchical,
-    /\.public-hierarchical-live-layouts::after \{[\s\S]*?left: 0;[\s\S]*?rgba\(178, 191, 205, 0\.05\) 0%/,
+    sectionFrame,
+    /\.frame::before \{[\s\S]*?right: 0;[\s\S]*?left: 0;[\s\S]*?rgba\(76, 101, 128, 0\.34\) 0%/,
   );
 
   assert.match(
@@ -45,11 +45,11 @@ test("todos os divisores com blur nascem à esquerda", () => {
 
   assert.match(
     fourNews,
-    /\.public-four-news-latest-layout::before \{[\s\S]*?right: 0;[\s\S]*?left: 0;[\s\S]*?rgba\(108, 130, 154, 0\.22\) 0%/,
+    /<PublicMatchdayEditorialSectionFrame kind="latest">/,
   );
 
-  assert.match(
+  assert.doesNotMatch(
     fourNews,
-    /\.public-four-news-latest-layout::after \{[\s\S]*?left: 0;[\s\S]*?rgba\(178, 191, 205, 0\.05\) 0%/,
+    /public-four-news-latest-layout::(?:before|after)/,
   );
 });

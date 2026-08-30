@@ -162,41 +162,8 @@ const hierarchicalCompositionStyles = `
   }
 
   .public-hierarchical-live-layouts {
-    position: relative;
-    margin-top: clamp(46px, 5vw, 68px);
-    padding-top: clamp(24px, 2.6vw, 34px);
-  }
-
-  .public-hierarchical-live-layouts::before {
-    position: absolute;
-    top: 5px;
-    right: 0;
-    left: 0;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      rgba(108, 130, 154, 0.22) 0%,
-      rgba(133, 153, 174, 0.10) 28%,
-      rgba(144, 162, 181, 0) 100%
-    );
-    content: "";
-    pointer-events: none;
-  }
-
-  .public-hierarchical-live-layouts::after {
-    position: absolute;
-    top: 4px;
-    right: 32%;
-    left: 0;
-    height: 10px;
-    background: linear-gradient(
-      90deg,
-      rgba(178, 191, 205, 0.05) 0%,
-      rgba(178, 191, 205, 0.02) 35%,
-      rgba(182, 194, 208, 0) 100%
-    );
-    content: "";
-    pointer-events: none;
+    margin-top: 0;
+    padding-top: 0;
   }
   .composition-interpretive-preview {
     display: grid;
@@ -490,12 +457,6 @@ const hierarchicalCompositionStyles = `
     pointer-events: none;
   }
 
-
-  .public-hierarchical-live-layouts .public-beyond-matchday {
-    position: relative;
-    padding-top: 32px;
-    border-top: 0;
-  }
 
   .composition-interpretive-preview > :first-child {
     padding-top: 0;
@@ -879,7 +840,6 @@ const hierarchicalCompositionStyles = `
 
   /* JORNADA-SEPARADORES-FADE-LINE-INICIO */
 
-  .public-hierarchical-live-layouts::before,
   .composition-interpretive-preview > .composition-interpretive-section::before,
   .composition-interpretive-preview > .public-beyond-matchday::before {
     right: 0;
@@ -895,7 +855,6 @@ const hierarchicalCompositionStyles = `
     );
   }
 
-  .public-hierarchical-live-layouts::after,
   .composition-interpretive-preview > .composition-interpretive-section::after,
   .composition-interpretive-preview > .public-beyond-matchday::after {
     display: none;
@@ -909,8 +868,7 @@ const hierarchicalCompositionStyles = `
       gap: 50px;
     }
 
-    .composition-interpretive-section,
-    .public-hierarchical-live-layouts .public-beyond-matchday {
+    .composition-interpretive-section {
       padding-top: 26px;
     }
 
@@ -963,8 +921,7 @@ const hierarchicalCompositionStyles = `
       gap: 38px;
     }
 
-    .composition-interpretive-section,
-    .public-hierarchical-live-layouts .public-beyond-matchday {
+    .composition-interpretive-section {
       padding-top: 22px;
     }
 
@@ -1238,6 +1195,7 @@ export function PublicHierarchicalLiveLayouts({
             contextLabel=""
             heading={null}
             items={beyondMatchdayItems}
+            ownsSectionBoundary={false}
           />
         ) : null}
       </div>

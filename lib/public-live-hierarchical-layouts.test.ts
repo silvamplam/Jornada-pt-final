@@ -16,6 +16,7 @@ const publicLoader = source("lib/public-matchday.ts");
 const publicPage = source("app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx");
 const publicRenderer = source("components/public/PublicHierarchicalComposition.tsx");
 const fourNewsRenderer = source("components/public/PublicFourNewsLatestLayout.tsx");
+const editorialSectionFrame = source("components/public/PublicMatchdayEditorialSectionFrame.module.css");
 const latestNewsRenderer = source("components/public/PublicLatestNewsBlock.tsx");
 const publicEditorial = source("components/public/PublicEditorialLayout.tsx");
 const editorialAdmin = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
@@ -153,7 +154,7 @@ test("a manchete da Jornada viva não corta o título com line-clamp", () => {
   );
 });
 
-test("as zonas vivas usam divisores com blur alinhado globalmente à esquerda", () => {
+test("as zonas vivas entregam a fronteira ao frame editorial comum", () => {
   assert.match(
     publicRenderer,
     /\.composition-interpretive-preview \{[\s\S]*?gap: 64px;/,
@@ -166,12 +167,12 @@ test("as zonas vivas usam divisores com blur alinhado globalmente à esquerda", 
 
   assert.match(
     publicRenderer,
-    /\.public-hierarchical-live-layouts::before \{[\s\S]*?top: 5px;[\s\S]*?right: 0;[\s\S]*?left: 0;[\s\S]*?height: 1px;[\s\S]*?rgba\(108, 130, 154, 0\.22\) 0%/,
+    /\.public-hierarchical-live-layouts \{[\s\S]*?margin-top: 0;[\s\S]*?padding-top: 0;/,
   );
 
-  assert.match(
+  assert.doesNotMatch(
     publicRenderer,
-    /\.public-hierarchical-live-layouts::after \{[\s\S]*?top: 4px;[\s\S]*?right: 32%;[\s\S]*?left: 0;[\s\S]*?height: 10px;[\s\S]*?rgba\(178, 191, 205, 0\.05\) 0%/,
+    /\.public-hierarchical-live-layouts::(?:before|after)/,
   );
 
   assert.match(
@@ -195,13 +196,13 @@ test("as zonas vivas usam divisores com blur alinhado globalmente à esquerda", 
   );
 
   assert.match(
-    fourNewsRenderer,
-    /\.public-four-news-latest-layout::before \{[\s\S]*?top: 5px;[\s\S]*?right: 0;[\s\S]*?left: 0;[\s\S]*?height: 1px;[\s\S]*?rgba\(108, 130, 154, 0\.22\) 0%/,
+    editorialSectionFrame,
+    /\.frame::before \{[\s\S]*?top: 5px;[\s\S]*?right: 0;[\s\S]*?left: 0;[\s\S]*?height: 1px;/,
   );
 
   assert.match(
     fourNewsRenderer,
-    /\.public-four-news-latest-layout::after \{[\s\S]*?top: 4px;[\s\S]*?right: 32%;[\s\S]*?left: 0;[\s\S]*?height: 10px;[\s\S]*?rgba\(178, 191, 205, 0\.05\) 0%/,
+    /<PublicMatchdayEditorialSectionFrame kind="latest">/,
   );
 
   assert.match(

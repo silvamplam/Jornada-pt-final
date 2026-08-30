@@ -1,9 +1,10 @@
 import PublicLatestNewsBlock from "./PublicLatestNewsBlock";
 import type { PublicEditorialLatestNews } from "./PublicEditorialLayout";
-import { excludeSelectedEditorialItemsFromLatest } from "@/lib/public-four-news-latest-dedup";
+import { resolvePublicFourNewsLatestLayoutItems } from "@/lib/public-four-news-latest-dedup";
 import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 
 import PublicSideAdvertisement from "./PublicSideAdvertisement";
+import PublicMatchdayEditorialSectionFrame from "./PublicMatchdayEditorialSectionFrame";
 
 export type PublicFourNewsLatestItem = {
   id: string;
@@ -21,65 +22,11 @@ type PublicFourNewsLatestLayoutProps = {
   latestNewsTitleColor?: string | null;
 };
 
-export function resolvePublicFourNewsLatestLayoutItems({
-  items,
-  latestNews,
-}: Pick<PublicFourNewsLatestLayoutProps, "items" | "latestNews">) {
-  const visibleItems = items
-    .filter((item) => item.title.trim() && item.linkUrl.trim())
-    .slice(0, 4);
-
-  return {
-    visibleItems,
-    visibleLatestNews:
-      excludeSelectedEditorialItemsFromLatest(
-        latestNews,
-        visibleItems,
-      ),
-  };
-}
-
 const styles = `
   .public-four-news-latest-layout {
-    position: relative;
     width: 100%;
     min-width: 0;
     box-sizing: border-box;
-    margin-top: clamp(46px, 5vw, 68px);
-    padding-top: clamp(24px, 2.6vw, 34px);
-    border-top: 0;
-  }
-
-  .public-four-news-latest-layout::before {
-    position: absolute;
-    top: 5px;
-    right: 0;
-    left: 0;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      rgba(108, 130, 154, 0.22) 0%,
-      rgba(133, 153, 174, 0.10) 28%,
-      rgba(144, 162, 181, 0) 100%
-    );
-    content: "";
-    pointer-events: none;
-  }
-
-  .public-four-news-latest-layout::after {
-    position: absolute;
-    top: 4px;
-    right: 32%;
-    left: 0;
-    height: 10px;
-    background: linear-gradient(
-      90deg,
-      rgba(178, 191, 205, 0.05) 0%,
-      rgba(178, 191, 205, 0.02) 35%,
-      rgba(182, 194, 208, 0) 100%
-    );
-    content: "";
-    pointer-events: none;
   }
 
   .public-four-news-latest-grid {
@@ -254,30 +201,6 @@ const styles = `
     object-position: top center;
   }
 
-
-  /* JORNADA-FOUR-NEWS-FADE-LINE-INICIO */
-
-  .public-four-news-latest-layout::before {
-    right: 0;
-    left: 0;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      rgba(76, 101, 128, 0.34) 0%,
-      rgba(94, 118, 143, 0.25) 28%,
-      rgba(117, 138, 159, 0.15) 56%,
-      rgba(145, 162, 179, 0.07) 78%,
-      rgba(171, 184, 198, 0) 100%
-    );
-  }
-
-  .public-four-news-latest-layout::after {
-    display: none;
-    content: none;
-  }
-
-  /* JORNADA-FOUR-NEWS-FADE-LINE-FIM */
-
   @media (max-width: 1100px) {
     .public-four-news-latest-grid,
     .public-four-news-latest-grid[data-has-latest="false"],
@@ -354,82 +277,84 @@ export default function PublicFourNewsLatestLayout({
   }
 
   return (
-    <section
-      className="public-four-news-latest-layout"
-      aria-label="Seleção editorial, Últimas e publicidade"
-    >
-      <style>{styles}</style>
-
-      <div
-        className="public-four-news-latest-grid"
-        data-has-latest={visibleLatestNews.length > 0}
+    <PublicMatchdayEditorialSectionFrame kind="latest">
+      <section
+        className="public-four-news-latest-layout"
+        aria-label="Seleção editorial, Últimas e publicidade"
       >
+        <style>{styles}</style>
+
         <div
-          className="public-four-news-grid"
-          data-selection-count={visibleItems.length}
+          className="public-four-news-latest-grid"
+          data-has-latest={visibleLatestNews.length > 0}
         >
-          {visibleItems.map((item) => (
-            <article className="public-four-news-card" key={item.id}>
-              {item.imageUrl ? (
-                <a
-                  className="public-four-news-media"
-                  href={item.linkUrl}
-                  aria-label={item.title}
-                >
-                  <img
-                    {...editorialImageFramingProps("wide")}
-                    alt=""
-                    src={item.imageUrl}
-                    loading="lazy"
-                  />
-                </a>
-              ) : null}
-
-              <div className="public-four-news-copy">
-                {item.label ? (
-                  <span className="public-four-news-label">
-                    {item.label}
-                  </span>
+          <div
+            className="public-four-news-grid"
+            data-selection-count={visibleItems.length}
+          >
+            {visibleItems.map((item) => (
+              <article className="public-four-news-card" key={item.id}>
+                {item.imageUrl ? (
+                  <a
+                    className="public-four-news-media"
+                    href={item.linkUrl}
+                    aria-label={item.title}
+                  >
+                    <img
+                      {...editorialImageFramingProps("wide")}
+                      alt=""
+                      src={item.imageUrl}
+                      loading="lazy"
+                    />
+                  </a>
                 ) : null}
 
-                <a
-                  className="public-four-news-title"
-                  href={item.linkUrl}
-                >
-                  {item.title}
-                </a>
+                <div className="public-four-news-copy">
+                  {item.label ? (
+                    <span className="public-four-news-label">
+                      {item.label}
+                    </span>
+                  ) : null}
 
-                {item.subtitle ? (
-                  <p className="public-four-news-subtitle">
-                    {item.subtitle}
-                  </p>
-                ) : null}
-              </div>
-            </article>
-          ))}
-        </div>
+                  <a
+                    className="public-four-news-title"
+                    href={item.linkUrl}
+                  >
+                    {item.title}
+                  </a>
 
-        {visibleLatestNews.length > 0 ? (
-          <div className="public-four-news-latest-column">
-            <div className="public-four-news-latest-positioner">
-              <PublicLatestNewsBlock
-                items={visibleLatestNews}
-                title={latestNewsTitle}
-                titleColor={latestNewsTitleColor}
-                constrainToFourNewsGrid
-              />
-            </div>
+                  {item.subtitle ? (
+                    <p className="public-four-news-subtitle">
+                      {item.subtitle}
+                    </p>
+                  ) : null}
+                </div>
+              </article>
+            ))}
           </div>
-        ) : null}
 
-        <aside
-          className="public-four-news-ad-column"
-          aria-label="Publicidade"
-          data-public-ad-slot="four-news-latest"
-        >
-          <PublicSideAdvertisement className="public-four-news-ad-slot" />
-        </aside>
-      </div>
-    </section>
+          {visibleLatestNews.length > 0 ? (
+            <div className="public-four-news-latest-column">
+              <div className="public-four-news-latest-positioner">
+                <PublicLatestNewsBlock
+                  items={visibleLatestNews}
+                  title={latestNewsTitle}
+                  titleColor={latestNewsTitleColor}
+                  constrainToFourNewsGrid
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <aside
+            className="public-four-news-ad-column"
+            aria-label="Publicidade"
+            data-public-ad-slot="four-news-latest"
+          >
+            <PublicSideAdvertisement className="public-four-news-ad-slot" />
+          </aside>
+        </div>
+      </section>
+    </PublicMatchdayEditorialSectionFrame>
   );
 }

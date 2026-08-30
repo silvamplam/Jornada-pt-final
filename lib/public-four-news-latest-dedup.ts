@@ -3,6 +3,11 @@ type PublicEditorialLinkItem = Readonly<{
   linkUrl?: string | null;
 }>;
 
+type PublicFourNewsLatestResolvableItem = Readonly<{
+  title: string;
+  linkUrl: string;
+}>;
+
 function normalizedEditorialTitle(
   title: string | null | undefined,
 ) {
@@ -122,4 +127,31 @@ export function excludeSelectedEditorialItemsFromLatest<
       && selectedTitles.has(titleKey)
     );
   });
+}
+
+export function resolvePublicFourNewsLatestLayoutItems<
+  TItem extends PublicFourNewsLatestResolvableItem,
+  TLatest extends PublicEditorialLinkItem,
+>({
+  items,
+  latestNews,
+}: Readonly<{
+  items: readonly TItem[];
+  latestNews: readonly TLatest[];
+}>) {
+  const visibleItems = items
+    .filter((item) =>
+      item.title.trim()
+      && item.linkUrl.trim(),
+    )
+    .slice(0, 4);
+
+  return {
+    visibleItems,
+    visibleLatestNews:
+      excludeSelectedEditorialItemsFromLatest(
+        latestNews,
+        visibleItems,
+      ),
+  };
 }

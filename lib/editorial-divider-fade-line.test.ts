@@ -12,6 +12,11 @@ const fourNews = readFileSync(
   "utf8",
 );
 
+const sectionFrame = readFileSync(
+  "components/public/PublicMatchdayEditorialSectionFrame.module.css",
+  "utf8",
+);
+
 test("os separadores usam apenas linha fina com fade esquerda-direita", () => {
   assert.match(
     hierarchical,
@@ -25,16 +30,21 @@ test("os separadores usam apenas linha fina com fade esquerda-direita", () => {
 
   assert.match(
     hierarchical,
-    /\.public-hierarchical-live-layouts::after,[\s\S]*?display: none;[\s\S]*?content: none;/,
+    /\.composition-interpretive-preview > \.composition-interpretive-section::after,[\s\S]*?display: none;[\s\S]*?content: none;/,
+  );
+
+  assert.match(
+    sectionFrame,
+    /\.frame::before \{[\s\S]*?height: 1px;[\s\S]*?rgba\(76, 101, 128, 0\.34\) 0%[\s\S]*?rgba\(171, 184, 198, 0\) 100%/,
+  );
+
+  assert.doesNotMatch(
+    sectionFrame,
+    /\.frame::after|border-top/,
   );
 
   assert.match(
     fourNews,
-    /JORNADA-FOUR-NEWS-FADE-LINE-INICIO/,
-  );
-
-  assert.match(
-    fourNews,
-    /\.public-four-news-latest-layout::after \{[\s\S]*?display: none;[\s\S]*?content: none;/,
+    /<PublicMatchdayEditorialSectionFrame kind="latest">/,
   );
 });

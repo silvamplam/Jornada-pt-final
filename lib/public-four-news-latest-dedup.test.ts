@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolvePublicFourNewsLatestLayoutItems } from "@/components/public/PublicFourNewsLatestLayout";
 import {
   excludeSelectedEditorialItemsFromLatest,
   publicEditorialLinkKey,
+  resolvePublicFourNewsLatestLayoutItems,
 } from "@/lib/public-four-news-latest-dedup";
 
 test(

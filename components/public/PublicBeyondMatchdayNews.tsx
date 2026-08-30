@@ -15,6 +15,7 @@ type PublicBeyondMatchdayNewsProps = {
   contextLabel: string;
   heading?: string | null;
   ariaLabel?: string;
+  ownsSectionBoundary?: boolean;
 };
 
 const styles = `
@@ -23,6 +24,12 @@ const styles = `
     box-sizing: border-box;
     padding: 28px 0 30px;
     border-top: 1px solid #dbe4ee;
+  }
+
+  .public-beyond-matchday[data-owns-section-boundary="false"] {
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top: 0;
   }
 
   .public-beyond-matchday-header {
@@ -300,6 +307,7 @@ export default function PublicBeyondMatchdayNews({
   contextLabel,
   heading = "PARA LÁ DA JORNADA",
   ariaLabel = "Para lá da jornada",
+  ownsSectionBoundary = true,
 }: PublicBeyondMatchdayNewsProps) {
   const visibleItems = items.filter((item) => item.title.trim() && item.linkUrl.trim()).slice(0, 5);
   if (visibleItems.length === 0) return null;
@@ -311,7 +319,11 @@ export default function PublicBeyondMatchdayNews({
   const showHeader = Boolean(visibleHeading || visibleContextLabel);
 
   return (
-    <section className="public-beyond-matchday" aria-label={ariaLabel}>
+    <section
+      className="public-beyond-matchday"
+      aria-label={ariaLabel}
+      data-owns-section-boundary={ownsSectionBoundary}
+    >
       <style>{styles}</style>
       {showHeader ? (
         <header className="public-beyond-matchday-header">
