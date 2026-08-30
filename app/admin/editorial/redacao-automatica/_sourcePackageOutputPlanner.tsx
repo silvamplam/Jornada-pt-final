@@ -558,7 +558,7 @@ export default function SourcePackageOutputPlanner({
           })}
         </div>
 
-        <div className={styles.sourcePackageOutputActions}>
+        <div id="source-package-output-actions" className={styles.sourcePackageOutputActions}>
           <button type="submit" disabled={uploading}>Guardar artigos e imagens</button>
           <p>
             Depois de guardar, o pacote enviado ao ChatGPT exigirá exatamente este número de artigos.

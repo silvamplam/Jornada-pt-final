@@ -59,7 +59,7 @@ function redirectTo(path: string, params: Record<string, string> = {}) {
 
   return new NextResponse(null, {
     status: 303,
-    headers: { Location: `${url.pathname}${url.search}` },
+    headers: { Location: `${url.pathname}${url.search}${url.hash}` },
   });
 }
 
@@ -233,7 +233,7 @@ export async function POST(
     }
 
     return redirectTo(
-      packagePath(year, month, id),
+      `${packagePath(year, month, id)}#source-package-output-actions`,
       {
         package_outputs_updated: "1",
       },
