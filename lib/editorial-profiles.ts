@@ -1,40 +1,18 @@
-export const EDITORIAL_VISUAL_FAMILIES = [
-  "six_news",
-  "five_news_balanced",
-  "five_news_secondary",
-] as const;
+import type {
+  ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
+import {
+  editorialVisualFamilyCapacity,
+  type EditorialVisualFamily,
+} from "@/lib/editorial-visual-families";
 
-export type EditorialVisualFamily =
-  (typeof EDITORIAL_VISUAL_FAMILIES)[number];
-
-export const EDITORIAL_VISUAL_FAMILY_DEFINITIONS: Readonly<
-  Record<
-    EditorialVisualFamily,
-    Readonly<{
-      label: string;
-      capacity: number;
-    }>
-  >
-> = Object.freeze({
-  six_news: {
-    label: "6 notícias",
-    capacity: 6,
-  },
-  five_news_balanced: {
-    label: "5 notícias equilibradas",
-    capacity: 5,
-  },
-  five_news_secondary: {
-    label: "5 notícias secundárias",
-    capacity: 5,
-  },
-});
-
-export function editorialVisualFamilyCapacity(
-  family: EditorialVisualFamily,
-): number {
-  return EDITORIAL_VISUAL_FAMILY_DEFINITIONS[family].capacity;
-}
+export {
+  EDITORIAL_VISUAL_FAMILIES,
+  EDITORIAL_VISUAL_FAMILY_DEFINITIONS,
+  editorialVisualFamilyCapacity,
+  type EditorialVisualFamily,
+  type EditorialVisualFamilyDefinition,
+} from "@/lib/editorial-visual-families";
 
 export const EDITORIAL_PLACEMENT_MODES = ["automatic_actuality"] as const;
 
@@ -45,7 +23,7 @@ type EditorialProfileDefinitionShape = Readonly<{
   displayName: string;
   competitionSlug: string;
   zones: readonly Readonly<{
-    key: string;
+    key: ArticleClassificationKey;
     label: string;
     capacity: number;
     visualFamily: EditorialVisualFamily;
@@ -99,8 +77,14 @@ export const EDITORIAL_PROFILES = {
 
 export type EditorialProfileKey = keyof typeof EDITORIAL_PROFILES;
 
-export type EditorialProfileZoneKey =
-  (typeof EDITORIAL_PROFILES)[EditorialProfileKey]["zones"][number]["key"];
+/**
+ * Legacy compatibility alias.
+ *
+ * Neste contrato antigo "zone key" ainda coincide com a classificação
+ * semântica. Novos contratos de classificação devem usar
+ * ArticleClassificationKey diretamente.
+ */
+export type EditorialProfileZoneKey = ArticleClassificationKey;
 
 export type EditorialProfileZone = Readonly<{
   key: EditorialProfileZoneKey;
