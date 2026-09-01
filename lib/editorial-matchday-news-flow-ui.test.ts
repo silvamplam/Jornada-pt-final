@@ -25,9 +25,10 @@ test("na primeira publicação escolhe-se a colocação inicial em vez de entrar
   assert.ok(articleFormSource.includes('value="none"'));
   assert.ok(articleFormSource.includes('value="editorial_line_item"'));
   assert.ok(articleFormSource.includes('value="headline"'));
-  assert.ok(articleFormSource.includes('value="highlight"'));
   assert.ok(articleFormSource.includes('value="complement"'));
-  assert.ok(articleFormSource.includes('value="important_item"'));
+  assert.equal(articleFormSource.includes('value="highlight"'), false);
+  assert.equal(articleFormSource.includes('value="important_item"'), false);
+  assert.ok(articleFormSource.includes("As posições variáveis são escolhidas explicitamente na Mesa Viva."));
   assert.equal(articleFormSource.includes("entra automaticamente em Últimas"), false);
 });
 
@@ -37,19 +38,22 @@ test("publicar sem colocação editorial é uma opção explícita e não transf
   assert.ok(articlePageSource.includes("O artigo continua disponível para colocação manual"));
 });
 
-test("Últimas integra os destinos de transferência e continua a receber por cronologia", () => {
+test("Últimas permanece funcional e não é destino de movement", () => {
   const targetOptionsStart = editorialPageSource.indexOf("const newsTransferTargetOptions");
   const targetOptionsEnd = editorialPageSource.indexOf("const highlightsEditor", targetOptionsStart);
   assert.ok(targetOptionsStart >= 0 && targetOptionsEnd > targetOptionsStart);
   const targetOptionsBlock = editorialPageSource.slice(targetOptionsStart, targetOptionsEnd);
-  assert.ok(targetOptionsBlock.includes('targetSlotType: "editorial_line_item"'));
-  assert.ok(targetOptionsBlock.includes('label: "Últimas — acrescentar por cronologia"'));
+  assert.equal(targetOptionsBlock.includes('targetSlotType: "editorial_line_item"'), false);
+  for (const target of ["headline", "side_block", "highlight", "complement", "important_item"]) {
+    assert.ok(targetOptionsBlock.includes(`targetSlotType: "${target}"`), target);
+  }
 });
 
 test("Últimas e Contexto podem iniciar transferências pelo mesmo controlo", () => {
   assert.ok(editorialPageSource.includes('sourceSlotType="editorial_line_item"'));
   assert.ok(editorialPageSource.includes('sourceSlotType="side_block"'));
-  assert.ok(editorialPageSource.includes("Se o destino estiver ocupado, a notícia substituída entra automaticamente em primeiro na Faixa."));
+  assert.ok(editorialPageSource.includes("a notícia substituída fica Desalojada quando perder o seu último placement"));
+  assert.equal(editorialPageSource.includes("entra automaticamente em primeiro na Faixa"), false);
 });
 
 test("o segundo seletor da notícia substituída deixa de existir", () => {
@@ -61,11 +65,12 @@ test("o segundo seletor da notícia substituída deixa de existir", () => {
   assert.equal(editorialPageSource.includes("newsDisplacedTargetOptionsForSource"), false);
 });
 
-test("todas as seis zonas usam o mesmo controlo e informam o destino automático da desalojada", () => {
+test("todas as seis zonas usam o mesmo controlo sem destino automático para a desalojada", () => {
   for (const slotType of ["headline", "editorial_line_item", "side_block", "highlight", "complement", "important_item"]) {
     assert.ok(editorialPageSource.includes(`sourceSlotType="${slotType}"`), slotType);
   }
-  assert.ok(editorialPageSource.includes("A notícia atual entra automaticamente em primeiro na Faixa."));
+  assert.ok(editorialPageSource.includes("ficará Desalojada se este for o seu último placement"));
+  assert.equal(editorialPageSource.includes("entra automaticamente em primeiro na Faixa"), false);
   assert.equal(editorialPageSource.includes("Escolhe para onde vai a notícia atual"), false);
 });
 

@@ -32,98 +32,106 @@ async function syncLatestProjectionAfterRelevantPlacement(matchdayId: string, pl
   }
 }
 
-async function patchDeskEditorial(
-  matchdayId: string,
-  body: Record<string, unknown>,
-) {
-  await writeSupabaseAdmin(
-    `matchday_editorials?matchday_id=eq.${encodeURIComponent(matchdayId)}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    },
-  );
+type AuthoritativeTarget = {
+  placementType: "opening" | "faixa" | "selection" | "video_highlight";
+  slotPosition: number;
+};
+
+function authoritativeTarget(placementKey: string): AuthoritativeTarget | null {
+  if (placementKey === "headline") {
+    return { placementType: "opening", slotPosition: 1 };
+  }
+  if (placementKey === "side_block") {
+    return { placementType: "opening", slotPosition: 5 };
+  }
+  if (placementKey === "complement") {
+    return { placementType: "video_highlight", slotPosition: 1 };
+  }
+
+  const highlightOrder = positivePlacementOrder(placementKey, "highlight");
+  if (highlightOrder && highlightOrder <= 3) {
+    return { placementType: "opening", slotPosition: highlightOrder + 1 };
+  }
+
+  const faixaOrder = positivePlacementOrder(placementKey, "important_item");
+  if (faixaOrder) {
+    return { placementType: "faixa", slotPosition: faixaOrder };
+  }
+
+  const selectionOrder = positivePlacementOrder(placementKey, "live_four_news");
+  if (selectionOrder && selectionOrder <= 4) {
+    return { placementType: "selection", slotPosition: selectionOrder };
+  }
+
+  return null;
 }
 
-async function normalizeHorizontalNewsOrder(matchdayId: string) {
-  const rows = await fetchSupabaseAdminTable<{
-    id: string;
-    sort_order: number;
-  }>(
-    `matchday_horizontal_news?select=id,sort_order`
-      + `&matchday_id=eq.${encodeURIComponent(matchdayId)}`
-      + `&order=sort_order.asc,id.asc&limit=1000`,
-  );
+async function applyAuthoritativePlacement(
+  matchdayId: string,
+  placementKey: string,
+  action: "place" | "clear",
+  sourceLinkUrl: string | null = null,
+) {
+  const target = authoritativeTarget(placementKey);
+  if (!target) return false;
 
-  for (let index = 0; index < rows.length; index += 1) {
-    const expectedOrder = index + 1;
-    const row = rows[index];
+  await writeSupabaseAdmin("rpc/apply_matchday_live_layout_legacy_slot", {
+    method: "POST",
+    body: JSON.stringify({
+      p_matchday_id: matchdayId,
+      p_action: action,
+      p_placement_type: target.placementType,
+      p_zone_id: null,
+      p_slot_position: target.slotPosition,
+      p_source_link_url: sourceLinkUrl,
+    }),
+  });
+  return true;
+}
 
-    if (row.sort_order === expectedOrder) continue;
-
-    await writeSupabaseAdmin(
-      `matchday_horizontal_news?id=eq.${encodeURIComponent(row.id)}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ sort_order: expectedOrder }),
-      },
+async function readInactivePlacementLink(matchdayId: string, placementKey: string) {
+  if (placementKey === "headline" || placementKey === "side_block" || placementKey === "complement") {
+    const rows = await fetchSupabaseAdminTable<{
+      headline_link_url: string | null;
+      side_block_link_url: string | null;
+      complementary_link_url: string | null;
+    }>(
+      "matchday_editorials?select=headline_link_url,side_block_link_url,complementary_link_url"
+        + `&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`,
     );
+    if (placementKey === "headline") return rows[0]?.headline_link_url ?? null;
+    if (placementKey === "side_block") return rows[0]?.side_block_link_url ?? null;
+    return rows[0]?.complementary_link_url ?? null;
   }
+
+  const highlightOrder = positivePlacementOrder(placementKey, "highlight");
+  if (highlightOrder) {
+    const rows = await fetchSupabaseAdminTable<{ link_url: string | null }>(
+      "matchday_highlights?select=link_url"
+        + `&matchday_id=eq.${encodeURIComponent(matchdayId)}`
+        + `&sort_order=eq.${highlightOrder}&limit=1`,
+    );
+    return rows[0]?.link_url ?? null;
+  }
+
+  const faixaOrder = positivePlacementOrder(placementKey, "important_item");
+  if (faixaOrder) {
+    const rows = await fetchSupabaseAdminTable<{ link_url: string | null }>(
+      "matchday_horizontal_news?select=link_url"
+        + `&matchday_id=eq.${encodeURIComponent(matchdayId)}`
+        + `&sort_order=eq.${faixaOrder}&limit=1`,
+    );
+    return rows[0]?.link_url ?? null;
+  }
+
+  return null;
 }
 
 async function removePlacement(
   matchdayId: string,
   placementKey: string,
 ) {
-  if (placementKey === "headline") {
-    await patchDeskEditorial(matchdayId, {
-      title: null,
-      summary: null,
-      image_url: null,
-      headline_link_url: null,
-      status: "draft",
-    });
-    return;
-  }
-
-  if (placementKey === "side_block") {
-    await patchDeskEditorial(matchdayId, {
-      side_block_label: null,
-      side_block_title: null,
-      side_block_author: null,
-      side_block_text: null,
-      side_block_image_url: null,
-      side_block_link_url: null,
-      side_block_status: "draft",
-    });
-    return;
-  }
-
-  if (placementKey === "complement") {
-    await patchDeskEditorial(matchdayId, {
-      complementary_label: null,
-      complementary_title: null,
-      complementary_text: null,
-      complementary_image_url: null,
-      complementary_link_url: null,
-      complementary_status: "draft",
-    });
-    return;
-  }
-
-  const highlightOrder = positivePlacementOrder(
-    placementKey,
-    "highlight",
-  );
-
-  if (highlightOrder) {
-    await writeSupabaseAdmin(
-      `matchday_highlights?matchday_id=eq.${encodeURIComponent(matchdayId)}`
-        + `&sort_order=eq.${highlightOrder}`,
-      { method: "DELETE" },
-    );
-    return;
-  }
+  if (await applyAuthoritativePlacement(matchdayId, placementKey, "clear")) return;
 
   const latestOrder = positivePlacementOrder(
     placementKey,
@@ -136,22 +144,6 @@ async function removePlacement(
         + `&sort_order=eq.${latestOrder}`,
       { method: "DELETE" },
     );
-    return;
-  }
-
-  const faixaOrder = positivePlacementOrder(
-    placementKey,
-    "important_item",
-  );
-
-  if (faixaOrder) {
-    await writeSupabaseAdmin(
-      `matchday_horizontal_news?matchday_id=eq.${encodeURIComponent(matchdayId)}`
-        + `&sort_order=eq.${faixaOrder}`,
-      { method: "DELETE" },
-    );
-
-    await normalizeHorizontalNewsOrder(matchdayId);
     return;
   }
 
@@ -174,44 +166,7 @@ async function associatePlacement(
   articleSlug: string,
 ) {
   const linkUrl = publicArticlePath(articleSlug);
-
-  if (placementKey === "headline") {
-    await patchDeskEditorial(matchdayId, {
-      headline_link_url: linkUrl,
-    });
-    return;
-  }
-
-  if (placementKey === "side_block") {
-    await patchDeskEditorial(matchdayId, {
-      side_block_link_url: linkUrl,
-    });
-    return;
-  }
-
-  if (placementKey === "complement") {
-    await patchDeskEditorial(matchdayId, {
-      complementary_link_url: linkUrl,
-    });
-    return;
-  }
-
-  const highlightOrder = positivePlacementOrder(
-    placementKey,
-    "highlight",
-  );
-
-  if (highlightOrder) {
-    await writeSupabaseAdmin(
-      `matchday_highlights?matchday_id=eq.${encodeURIComponent(matchdayId)}`
-        + `&sort_order=eq.${highlightOrder}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ link_url: linkUrl }),
-      },
-    );
-    return;
-  }
+  if (await applyAuthoritativePlacement(matchdayId, placementKey, "place", linkUrl)) return;
 
   const latestOrder = positivePlacementOrder(
     placementKey,
@@ -222,23 +177,6 @@ async function associatePlacement(
     await writeSupabaseAdmin(
       `matchday_latest_news?matchday_id=eq.${encodeURIComponent(matchdayId)}`
         + `&sort_order=eq.${latestOrder}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ link_url: linkUrl }),
-      },
-    );
-    return;
-  }
-
-  const faixaOrder = positivePlacementOrder(
-    placementKey,
-    "important_item",
-  );
-
-  if (faixaOrder) {
-    await writeSupabaseAdmin(
-      `matchday_horizontal_news?matchday_id=eq.${encodeURIComponent(matchdayId)}`
-        + `&sort_order=eq.${faixaOrder}`,
       {
         method: "PATCH",
         body: JSON.stringify({ link_url: linkUrl }),
@@ -278,44 +216,10 @@ export async function resolveMatchdayEditorialDeskInactivePlacement(input: {
     return;
   }
 
-  if (placementKey === "headline") {
-    await patchDeskEditorial(matchdayId, {
-      status: "published",
-    });
-    await syncLatestFourNewsProjection(matchdayId);
-    return;
-  }
-
-  if (placementKey === "side_block") {
-    await patchDeskEditorial(matchdayId, {
-      side_block_status: "published",
-    });
-    await syncLatestFourNewsProjection(matchdayId);
-    return;
-  }
-
-  if (placementKey === "complement") {
-    await patchDeskEditorial(matchdayId, {
-      complementary_status: "published",
-    });
-    await syncLatestFourNewsProjection(matchdayId);
-    return;
-  }
-
-  const highlightOrder = positivePlacementOrder(
-    placementKey,
-    "highlight",
-  );
-
-  if (highlightOrder) {
-    await writeSupabaseAdmin(
-      `matchday_highlights?matchday_id=eq.${encodeURIComponent(matchdayId)}`
-        + `&sort_order=eq.${highlightOrder}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ status: "published" }),
-      },
-    );
+  if (authoritativeTarget(placementKey)) {
+    const sourceLinkUrl = await readInactivePlacementLink(matchdayId, placementKey);
+    if (!sourceLinkUrl) throw new Error("editorial-desk-placement-link-required");
+    await applyAuthoritativePlacement(matchdayId, placementKey, "place", sourceLinkUrl);
     await syncLatestFourNewsProjection(matchdayId);
     return;
   }
@@ -329,24 +233,6 @@ export async function resolveMatchdayEditorialDeskInactivePlacement(input: {
     await writeSupabaseAdmin(
       `matchday_latest_news?matchday_id=eq.${encodeURIComponent(matchdayId)}`
         + `&sort_order=eq.${latestOrder}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ status: "published" }),
-      },
-    );
-    await syncLatestFourNewsProjection(matchdayId);
-    return;
-  }
-
-  const faixaOrder = positivePlacementOrder(
-    placementKey,
-    "important_item",
-  );
-
-  if (faixaOrder) {
-    await writeSupabaseAdmin(
-      `matchday_horizontal_news?matchday_id=eq.${encodeURIComponent(matchdayId)}`
-        + `&sort_order=eq.${faixaOrder}`,
       {
         method: "PATCH",
         body: JSON.stringify({ status: "published" }),

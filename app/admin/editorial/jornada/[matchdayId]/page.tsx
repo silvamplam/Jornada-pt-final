@@ -946,7 +946,7 @@ function NewsTransferControl({
         </label>
         <button className="editorial-admin-button secondary" type="submit">Transferir</button>
       </div>
-      <small>Se o destino estiver ocupado, a notícia substituída entra automaticamente em primeiro na Faixa.</small>
+      <small>Se o destino estiver ocupado, a notícia substituída fica Desalojada quando perder o seu último placement.</small>
     </form>
   );
 }
@@ -1414,15 +1414,8 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
       ? `Manchete — substituir “${shortTransferTitle(editorial?.title)}”`
       : "Manchete",
     confirmMessage: headlineOccupied
-      ? "A Manchete está ocupada. A notícia atual entra automaticamente em primeiro na Faixa."
+      ? "A Manchete está ocupada. A notícia atual ficará Desalojada se este for o seu último placement."
       : null
-  });
-
-  newsTransferTargetOptions.push({
-    targetSlotType: "editorial_line_item",
-    targetId: null,
-    label: "Últimas — acrescentar por cronologia",
-    confirmMessage: null
   });
 
   const contextOccupied = Boolean(
@@ -1438,30 +1431,33 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
       ? `Contexto — substituir “${shortTransferTitle(editorial?.side_block_title)}”`
       : "Contexto",
     confirmMessage: contextOccupied
-      ? "Contexto está ocupado. A notícia atual entra automaticamente em primeiro na Faixa."
+      ? "Contexto está ocupado. A notícia atual ficará Desalojada se este for o seu último placement."
       : null
   });
 
-  const occupiedHighlights = highlights.filter(
-    (item) => Boolean(cleanText(item.label) || cleanText(item.title) || cleanText(item.subtitle) || cleanText(item.image_url) || cleanText(item.link_url))
-  );
-  if (occupiedHighlights.length < 3) {
+  [1, 2, 3].forEach((sortOrder) => {
+    const item = highlights.find((candidate) => candidate.sort_order === sortOrder);
+    const occupied = Boolean(
+      item
+      && (
+        cleanText(item.label)
+        || cleanText(item.title)
+        || cleanText(item.subtitle)
+        || cleanText(item.image_url)
+        || cleanText(item.link_url)
+      )
+    );
     newsTransferTargetOptions.push({
       targetSlotType: "highlight",
-      targetId: null,
-      label: "3 notícias abaixo da manchete — posição livre",
-      confirmMessage: null
+      targetId: occupied && item ? item.id : `slot:${sortOrder + 1}`,
+      label: occupied && item
+        ? `3 notícias — substituir #${paddedOrder(sortOrder)} “${shortTransferTitle(item.title)}”`
+        : `3 notícias — posição #${paddedOrder(sortOrder)} vazia`,
+      confirmMessage: occupied
+        ? "A posição escolhida está ocupada. A notícia atual ficará Desalojada se este for o seu último placement."
+        : null
     });
-  } else {
-    occupiedHighlights.forEach((item) => {
-      newsTransferTargetOptions.push({
-        targetSlotType: "highlight",
-        targetId: item.id,
-        label: `3 notícias — substituir #${paddedOrder(item.sort_order)} “${shortTransferTitle(item.title)}”`,
-        confirmMessage: "A posição escolhida está ocupada. A notícia atual entra automaticamente em primeiro na Faixa."
-      });
-    });
-  }
+  });
 
   const complementOccupied = Boolean(
     cleanText(editorial?.complementary_label)
@@ -1477,29 +1473,14 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
       ? `Notícia ao lado do vídeo — substituir “${shortTransferTitle(editorial?.complementary_title)}”`
       : "Notícia ao lado do vídeo",
     confirmMessage: complementOccupied
-      ? "A notícia ao lado do vídeo está ocupada. A notícia atual entra automaticamente em primeiro na Faixa."
+      ? "A notícia ao lado do vídeo está ocupada. A notícia atual ficará Desalojada se este for o seu último placement."
       : null
-  });
-
-  LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.forEach((position) => {
-    if (isLatestFourNewsSlotType(position.transferSlotType)) return;
-    const occupant = liveLayoutOccupantBySlotType.get(position.transferSlotType) ?? null;
-    newsTransferTargetOptions.push({
-      targetSlotType: position.transferSlotType,
-      targetId: occupant?.id ?? null,
-      label: occupant
-        ? `${position.publicName} — substituir “${shortTransferTitle(occupant.title)}”`
-        : position.publicName,
-      confirmMessage: occupant
-        ? "Esta posição do layout da atualidade está ocupada. A notícia atual entra automaticamente em primeiro na Faixa."
-        : null,
-    });
   });
 
   newsTransferTargetOptions.push({
     targetSlotType: "important_item",
-    targetId: null,
-    label: "Faixa de notícias — acrescentar",
+    targetId: `slot:${Math.max(0, ...horizontalNews.map((item) => item.sort_order)) + 1}`,
+    label: `Faixa de notícias — nova posição #${paddedOrder(Math.max(0, ...horizontalNews.map((item) => item.sort_order)) + 1)}`,
     confirmMessage: null
   });
   horizontalNews
@@ -1509,7 +1490,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
         targetSlotType: "important_item",
         targetId: item.id,
         label: `Faixa de notícias — substituir #${paddedOrder(item.sort_order)} “${shortTransferTitle(item.title)}”`,
-        confirmMessage: "A posição escolhida na Faixa está ocupada. A notícia atual entra automaticamente em primeiro na Faixa."
+        confirmMessage: "A posição escolhida está ocupada. A notícia atual ficará Desalojada se este for o seu último placement."
       });
     });
 
@@ -2826,26 +2807,7 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
                     targetOptions={newsTransferTargetOptions}
                   />
                 )}
-                reorderControlForOrder={(_order, item) => {
-                  if (!item) return null;
-                  const index = horizontalNewsEditorItems.findIndex((candidate) => candidate.id === item.id);
-                  const isFirst = index <= 0;
-                  const isLast = index < 0 || index >= horizontalNewsEditorItems.length - 1;
-                  return (
-                    <form action="/api/admin/gestor" className="horizontal-news-admin-order-form" method="post">
-                      <input type="hidden" name="action_type" value="move_matchday_horizontal_news_item" />
-                      <input type="hidden" name="return_to" value={returnToFaixaHorizontal} />
-                      <input type="hidden" name="matchday_id" value={matchday.id} />
-                      <input type="hidden" name="horizontal_news_id" value={item.id} />
-                      <button className="secondary" type="submit" name="horizontal_news_direction" value="up" disabled={isFirst}>
-                        Subir / esquerda
-                      </button>
-                      <button className="secondary" type="submit" name="horizontal_news_direction" value="down" disabled={isLast}>
-                        Descer / direita
-                      </button>
-                    </form>
-                  );
-                }}
+                reorderControlForOrder={() => null}
                 openOrder={horizontalNewsOpenOrder}
               />
         </section>

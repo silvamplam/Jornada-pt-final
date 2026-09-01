@@ -226,7 +226,11 @@ test("a sincronização fica isolada da placement, das fontes e das tabelas de C
   assert.doesNotMatch(projectionSource, /writeSupabaseAdmin\([\s\S]*?matchday_latest_news/);
 });
 
-test("todos os caminhos runtime que podem mudar Últimas voltam à sincronização central", () => {
+test("refresh de compatibility parte sempre dos placements autoritativos", () => {
+  const projectionSource = readFileSync(
+    fileURLToPath(new URL("./editorial-matchday-latest-four-projection.ts", import.meta.url)),
+    "utf8",
+  );
   const flow = readFileSync(
     fileURLToPath(new URL("./editorial-matchday-news-flow.ts", import.meta.url)),
     "utf8",
@@ -256,8 +260,15 @@ test("todos os caminhos runtime que podem mudar Últimas voltam à sincronizaç�
     "utf8",
   );
 
-  assert.match(flow, /normalizeLatestNewsOrder[\s\S]*syncLatestFourNewsProjection\(matchdayId\)/);
-  assert.match(flow, /transferPublishedArticleBetweenMatchdayZones[\s\S]*syncLatestFourNewsProjection\(input\.matchdayId\)/);
+  const exportedSync = projectionSource.slice(
+    projectionSource.indexOf("export async function syncLatestFourNewsProjection"),
+  );
+  assert.match(exportedSync, /rpc\/refresh_matchday_live_layout_legacy/);
+  assert.doesNotMatch(exportedSync, /matchday_live_layout_items/);
+  assert.doesNotMatch(
+    flow.slice(flow.indexOf("export async function transferPublishedArticleBetweenMatchdayZones")),
+    /syncLatestFourNewsProjection|matchday_live_layout_items/,
+  );
   assert.match(desk, /applyMatchdayEditorialDeskState[\s\S]*syncLatestFourNewsProjection\(input\.matchdayId\)/);
   assert.match(deskResolution, /syncLatestProjectionAfterRelevantPlacement/);
   assert.match(contentSnapshotSync, /affectedLiveMatchdayIds[\s\S]*syncLatestFourNewsProjection/);
@@ -267,5 +278,6 @@ test("todos os caminhos runtime que podem mudar Últimas voltam à sincronizaç�
     /matchday_reference_composition_items|matchday_hierarchical_composition_slots/,
   );
   assert.match(articleRoute, /liveMatchdayLinkRemovalTargets[\s\S]*syncLatestFourNewsProjection/);
-  assert.match(gestorRoute, /LATEST_FOUR_CONFLICT_SYNC_ACTIONS[\s\S]*syncLatestFourNewsProjection/);
+  assert.match(gestorRoute, /rpc\/apply_matchday_live_layout_legacy_slot/);
+  assert.doesNotMatch(gestorRoute, /LATEST_FOUR_CONFLICT_SYNC_ACTIONS/);
 });

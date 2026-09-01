@@ -3471,32 +3471,6 @@ async function publishReferenceComposition(formData: FormData) {
   );
 }
 
-async function reopenReferenceComposition(formData: FormData) {
-  const matchdayId = cleanText(formData.get("matchday_id"));
-  const compositionId = cleanText(formData.get("composition_id"));
-  if (!matchdayId || !compositionId) throw new Error("composition-invalid");
-
-  const composition = await readReferenceCompositionState(compositionId, matchdayId);
-  if (!composition) throw new Error("composition-invalid");
-  if (composition.status !== "published" || !composition.is_current) throw new Error("composition-invalid");
-
-  const now = new Date().toISOString();
-  await writeSupabaseAdmin(
-    `matchday_reference_compositions?id=eq.${encodeURIComponent(composition.id)}&matchday_id=eq.${encodeURIComponent(
-      matchdayId
-    )}&status=eq.published&is_current=is.true`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        status: "draft",
-        is_current: false,
-        published_at: null,
-        updated_at: now
-      })
-    }
-  );
-}
-
 export async function POST(request: Request) {
   if (!getSupabaseServiceConfig()) return redirectTo(request, "/admin?error=missing-service");
   const formData = await request.formData();
@@ -3602,7 +3576,6 @@ export async function POST(request: Request) {
     }
     else if (actionType === "publish_reference_composition") await publishReferenceComposition(formData);
     else if (actionType === "activate_reference_composition") await activateReferenceComposition(formData, false);
-    else if (actionType === "reopen_reference_composition") await reopenReferenceComposition(formData);
     else throw new Error("unknown-action");
   } catch (error) {
     if (actionType === "save_matchday_editorial_bank_current") {

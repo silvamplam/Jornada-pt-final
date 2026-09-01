@@ -26,14 +26,14 @@ test("publicar deixou de significar entrada automática em Últimas", () => {
   assert.ok(articleRouteSource.includes('placement_error: "1"'));
 });
 
-test("a primeira publicação pode ficar sem colocação ou escolher uma das cinco zonas", () => {
-  for (const value of ["none", "editorial_line_item", "headline", "highlight", "complement", "important_item"]) {
-    assert.ok(articleRouteSource.includes(`case "${value}"`) || value === "none", value);
-  }
+test("a primeira publicação separa Últimas funcional de placements com slot inequívoco", () => {
   assert.ok(flowSource.includes("export async function placePublishedArticleInitially"));
   assert.ok(flowSource.includes('if (targetSlotType === "none") return;'));
   assert.ok(flowSource.includes('if (targetSlotType === "editorial_line_item")'));
   assert.ok(flowSource.includes("await ensurePublishedArticleInLatest(matchdayId, articleId);"));
+  assert.ok(flowSource.includes('targetSlotType === "highlight" || targetSlotType === "important_item"'));
+  assert.ok(flowSource.includes('"news-flow-explicit-slot-required"'));
+  assert.ok(flowSource.includes("await applyAuthoritativePlacementMovement("));
 });
 
 test("Últimas continua a ordenar sempre pela data/hora canónica mais recente", () => {
@@ -50,22 +50,16 @@ test("Últimas continua a ordenar sempre pela data/hora canónica mais recente",
 });
 
 test("os quatro lugares junto de Últimas são origem manual, mas nunca destino independente", () => {
-  assert.ok(flowSource.includes("syncLatestFourNewsProjection(matchdayId)"));
-  assert.ok(flowSource.includes("news-flow-automatic-latest-projection"));
-  assert.ok(flowSource.includes("!isLatestFourNewsSlotType(slotType)"));
-  assert.doesNotMatch(
-    flowSource,
-    /isLatestFourNewsSlotType\(input\.sourceSlotType\)[\s\S]{0,200}news-flow-automatic-latest-projection/,
-  );
   assert.match(
     flowSource,
-    /isLatestFourNewsSlotType\(input\.targetSlotType\)[\s\S]{0,200}news-flow-automatic-latest-projection/,
+    /isLatestFourNewsSlotType\(input\.targetSlotType\)[\s\S]{0,320}news-flow-placement-target-invalid/,
   );
-  assert.ok(editorialPageSource.includes("Projeção automática das quatro primeiras notícias publicadas de Últimas."));
-  assert.match(
-    editorialPageSource,
-    /Projeção automática das quatro primeiras notícias publicadas de Últimas\.<\/small>[\s\S]{0,500}<NewsTransferControl/,
+  assert.ok(editorialPageSource.includes('sourceSlotType={position.transferSlotType}'));
+  const targetOptions = editorialPageSource.slice(
+    editorialPageSource.indexOf("const newsTransferTargetOptions"),
+    editorialPageSource.indexOf("const highlightsEditor"),
   );
+  assert.equal(targetOptions.includes('targetSlotType: "live_four_news'), false);
 });
 
 test("Últimas não grava o UUID canónico na FK legada de articles", () => {
@@ -74,16 +68,18 @@ test("Últimas não grava o UUID canónico na FK legada de articles", () => {
   assert.equal(gestorRouteSource.split(canonicalLegacyGuard).length - 1, 2);
 });
 
-test("as seis zonas base mantêm o mesmo circuito e aceitam os lugares hierárquicos vivos", () => {
+test("as superfícies legacy continuam origem mas apenas targets placement entram no core", () => {
   assert.ok(flowSource.includes('| "side_block"'));
   assert.ok(flowSource.includes('| LiveMatchdayHierarchicalTransferSlotType'));
   assert.ok(flowSource.includes('isEditorialNewsFlowSlotType(value)'));
   assert.ok(flowSource.includes('isLiveMatchdayHierarchicalTransferSlotType(value)'));
   assert.ok(flowSource.includes('"side_block",'));
-  assert.ok(flowSource.includes('...LIVE_MATCHDAY_HIERARCHICAL_TRANSFER_SLOT_TYPES'));
-  assert.equal(flowSource.includes("Últimas só recebe novidades escolhidas no momento da publicação."), false);
-  assert.equal(flowSource.includes('slotType !== "editorial_line_item"'), false);
-  assert.ok(editorialPageSource.includes('targetSlotType: "editorial_line_item"'));
+  assert.ok(flowSource.includes('isLatestFourNewsSlotType(input.targetSlotType)'));
+  assert.match(
+    flowSource,
+    /input\.targetSlotType === "editorial_line_item"[\s\S]{0,360}news-flow-placement-target-invalid/,
+  );
+  assert.equal(editorialPageSource.includes('targetSlotType: "editorial_line_item"'), false);
   assert.ok(editorialPageSource.includes('targetSlotType: "side_block"'));
   assert.ok(editorialPageSource.includes('sourceSlotType="side_block"'));
 });
@@ -98,54 +94,34 @@ test("os três layouts vivos usam armazenamento próprio e não leem nem escreve
   assert.equal(editorialPageSource.includes("liveHierarchicalLayoutState.compositionId"), false);
 });
 
-test("qualquer destino ocupado envia automaticamente a notícia desalojada para o topo da Faixa", () => {
+test("destino ocupado desalojará apenas o ocupante substituído sem auto-Faixa", () => {
   assert.equal(flowSource.includes("displacedTargetSlotType"), false);
   assert.equal(flowSource.includes("displacedTargetOrder"), false);
   assert.equal(flowSource.includes("news-flow-displaced-target-required"), false);
   assert.equal(gestorRouteSource.includes('formData.get("displaced_target_choice")'), false);
-  assert.ok(gestorRouteSource.includes("isEditorialMatchdayTransferSlotType"));
-  assert.match(
-    flowSource,
-    /projectionForDisplacedOccupant\(\s*input\.matchdayId,\s*"important_item",\s*displacedOccupant/,
+  const transfer = flowSource.slice(
+    flowSource.indexOf("export async function transferPublishedArticleBetweenMatchdayZones"),
   );
-  assert.match(
-    flowSource,
-    /placeProjectionInAvailableZone\(\s*input\.matchdayId,\s*"important_item",\s*displacedProjection/,
-  );
-  assert.ok(flowSource.includes("await prioritizeMatchdayHorizontalNewsItem(input.matchdayId, displacedPlacement.sourceId);"));
-  assert.ok(editorialPageSource.includes("Se o destino estiver ocupado, a notícia substituída entra automaticamente em primeiro na Faixa."));
+  assert.match(transfer, /applyAuthoritativePlacementMovement\(/);
+  assert.doesNotMatch(transfer, /projectionForDisplacedOccupant|placeProjectionInAvailableZone|prioritizeMatchdayHorizontalNewsItem/);
+  assert.ok(editorialPageSource.includes("fica Desalojada quando perder o seu último placement"));
+  assert.equal(editorialPageSource.includes("entra automaticamente em primeiro na Faixa"), false);
 });
 
-test("a escrita do destino precede a limpeza da origem e a desalojada termina em primeiro", () => {
-  const occupiedTransferStart = flowSource.indexOf("if (input.targetId) {");
-  const occupiedTransferEnd = flowSource.indexOf("} else {", occupiedTransferStart);
-  const occupiedTransfer = flowSource.slice(occupiedTransferStart, occupiedTransferEnd);
-  const writeTargetIndex = occupiedTransfer.indexOf("await writeArticleToTargetZone(");
-  const restoreTargetIndex = occupiedTransfer.indexOf("await writeProjectionToExistingZone(");
-  const removeBackupIndex = occupiedTransfer.indexOf(
-    "await clearArticleFromSourceZone(",
-    restoreTargetIndex,
+test("movement chega ao core numa única request transacional", () => {
+  const transfer = flowSource.slice(
+    flowSource.indexOf("export async function transferPublishedArticleBetweenMatchdayZones"),
   );
-  const reprioritizeIndex = occupiedTransfer.indexOf(
-    "await prioritizeMatchdayHorizontalNewsItem(input.matchdayId, displacedPlacement.sourceId);",
-  );
-  const clearSourceIndex = occupiedTransfer.lastIndexOf(
-    "await clearArticleFromSourceZone(input.matchdayId, input.sourceSlotType, input.sourceId);",
-  );
-
-  assert.ok(writeTargetIndex >= 0);
-  assert.ok(restoreTargetIndex > writeTargetIndex);
-  assert.ok(removeBackupIndex > restoreTargetIndex);
-  assert.ok(reprioritizeIndex > writeTargetIndex);
-  assert.ok(clearSourceIndex > reprioritizeIndex);
-  assert.equal(flowSource.includes("displacedMovedToSource"), false);
-  assert.equal(flowSource.includes("writeProjectionToExistingSourceZone"), false);
+  assert.equal((transfer.match(/applyAuthoritativePlacementMovement\(/g) ?? []).length, 1);
+  assert.doesNotMatch(transfer, /writeArticleToTargetZone|clearArticleFromSourceZone/);
+  assert.match(transfer, /expectedTargetBankItemId/);
+  assert.match(transfer, /expectTargetEmpty/);
 });
 
-test("Últimas recebe transferências como lista cronológica e nunca como posição única ocupada", () => {
-  assert.ok(editorialPageSource.includes('label: "Últimas — acrescentar por cronologia"'));
-  assert.ok(flowSource.includes("await ensurePublishedArticleInLatest(matchdayId, articleId);"));
-  assert.ok(flowSource.includes("await normalizeLatestNewsOrder(matchdayId);"));
+test("Últimas continua funcional e cronológica mas não recebe movement", () => {
+  assert.equal(editorialPageSource.includes('label: "Últimas — acrescentar por cronologia"'), false);
+  assert.match(flowSource, /targetSlotType === "editorial_line_item"[\s\S]{0,360}news-flow-placement-target-invalid/);
+  assert.ok(flowSource.includes("await normalizeLatestNewsOrder("));
   assert.match(flowSource, /rpc\/normalize_matchday_latest_news_order/);
   assert.match(latestOrderMigrationSource, /resolved\.order_time desc/);
 });
@@ -178,35 +154,32 @@ test("a composição publicada atual passa a sincronizar também Contexto", () =
   assert.ok(compositionSyncSource.includes("side_block_link_url"));
 });
 
-test("a transferência continua a preservar o artigo canónico e a projetar o perfil da zona", () => {
+test("a transferência resolve a participação contextual e não reescreve histórico", () => {
   assert.ok(flowSource.includes("const article = await readPublishedCompleteArticle(input.articleId, input.matchdayId);"));
-  assert.ok(flowSource.includes("projectEditorialArticleToZone"));
-  assert.ok(flowSource.includes("projectArticleToTransferZone"));
+  assert.match(flowSource, /readContextualArticleBankItemId\(\s*input\.matchdayId,\s*input\.articleId/);
   assert.ok(flowSource.includes("missingEditorialArticleCanonicalFields(article)"));
-  assert.ok(flowSource.includes("syncCurrentPublishedReferenceCompositionNewsFlow"));
+  const transfer = flowSource.slice(
+    flowSource.indexOf("export async function transferPublishedArticleBetweenMatchdayZones"),
+  );
+  assert.doesNotMatch(transfer, /syncCurrentPublishedReferenceCompositionNewsFlow/);
 });
 
-test("uma nova chegada à Faixa sobe para primeiro e a ordem manual fica disponível no backoffice", () => {
-  const horizontalEditorSource = source("components/admin/EditorialHorizontalNewsEditor.tsx");
-
-  assert.ok(flowSource.includes("prioritizeMatchdayHorizontalNewsItem"));
-  assert.ok(flowSource.includes("persistHorizontalNewsOrder"));
-  assert.ok(flowSource.includes("temporaryStart"));
-  assert.ok(flowSource.includes("await prioritizeMatchdayHorizontalNewsItem(matchdayId, incomingId);"));
-  assert.ok(flowSource.includes("export async function moveMatchdayHorizontalNewsItem"));
-  assert.ok(flowSource.includes("export async function normalizeMatchdayHorizontalNewsOrder"));
+test("Faixa usa slots sparse e o reorder legacy fica recusado", () => {
+  assert.ok(editorialPageSource.includes("nova posição #"));
+  assert.ok(editorialPageSource.includes("Math.max(0, ...horizontalNews.map"));
   assert.ok(gestorRouteSource.includes('actionType === "move_matchday_horizontal_news_item"'));
-  assert.ok(gestorRouteSource.includes("await normalizeMatchdayHorizontalNewsOrder(matchdayId);"));
-  assert.ok(editorialPageSource.includes('value="move_matchday_horizontal_news_item"'));
-  assert.ok(editorialPageSource.includes("Subir / esquerda"));
-  assert.ok(editorialPageSource.includes("Descer / direita"));
-  assert.ok(horizontalEditorSource.includes("Uma transferência nova entra em primeiro."));
+  assert.ok(gestorRouteSource.includes('"authoritative-placements-do-not-reorder"'));
+  assert.equal(editorialPageSource.includes('value="move_matchday_horizontal_news_item"'), false);
+  assert.equal(editorialPageSource.includes("Subir / esquerda"), false);
+  assert.equal(editorialPageSource.includes("Descer / direita"), false);
 });
 
-test("a composição publicada atual continua sincronizada depois das mudanças de posição", () => {
-  assert.ok(flowSource.includes("syncCurrentPublishedReferenceCompositionNewsFlow"));
-  assert.ok(flowSource.includes("await syncCurrentPublishedReferenceCompositionNewsFlow(input.matchdayId);"));
-  assert.ok(gestorRouteSource.includes("NEWS_FLOW_REFERENCE_SYNC_ACTIONS"));
+test("movement não altera a composição histórica publicada", () => {
+  const transfer = flowSource.slice(
+    flowSource.indexOf("export async function transferPublishedArticleBetweenMatchdayZones"),
+  );
+  assert.doesNotMatch(transfer, /syncCurrentPublishedReferenceCompositionNewsFlow/);
+  assert.doesNotMatch(gestorRouteSource, /NEWS_FLOW_REFERENCE_SYNC_ACTIONS/);
 });
 
 test("Últimas deixa de ter um teto editorial fixo de 20 notícias", () => {

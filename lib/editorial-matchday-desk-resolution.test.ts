@@ -38,7 +38,10 @@ test("o reader da Mesa continua estritamente read-only", () => {
 
 test("conteúdo canónico inativo pode ser ativado ou retirado sem libertar o Apply silenciosamente", () => {
   assert.match(resolution, /resolveMatchdayEditorialDeskInactivePlacement/);
-  assert.match(resolution, /complementary_status: "published"/);
+  assert.match(resolution, /rpc\/apply_matchday_live_layout_legacy_slot/);
+  assert.match(resolution, /readInactivePlacementLink/);
+  assert.match(resolution, /p_action: action/);
+  assert.doesNotMatch(resolution, /complementary_status: "published"/);
   assert.match(resolution, /matchday_latest_news\?matchday_id=/);
   assert.match(resolution, /removePlacement/);
 
@@ -87,16 +90,12 @@ test("identidade em falta ou contraditória pode ser associada explicitamente", 
   assert.match(client, /suggestedArticleIds/);
 });
 
-test("a retirada explícita de uma posição canónica preserva uma Faixa contínua", () => {
-  assert.match(resolution, /normalizeHorizontalNewsOrder/);
-  assert.match(
-    resolution,
-    /matchday_horizontal_news\?select=id,sort_order/,
-  );
-  assert.match(
-    resolution,
-    /body: JSON\.stringify\(\{ sort_order: expectedOrder \}\)/,
-  );
+test("a retirada explícita preserva slots sparse e não compacta a Faixa", () => {
+  assert.match(resolution, /placementKey,\s*"important_item"/);
+  assert.match(resolution, /placementType: "faixa"/);
+  assert.match(resolution, /rpc\/apply_matchday_live_layout_legacy_slot/);
+  assert.doesNotMatch(resolution, /normalizeHorizontalNewsOrder/);
+  assert.doesNotMatch(resolution, /sort_order: expectedOrder/);
 });
 
 test("a própria Mesa continua a resolver também conteúdo inativo", () => {

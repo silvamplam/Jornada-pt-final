@@ -625,13 +625,11 @@ export function ArticleEditorForm({
               <select name="initial_placement" data-article-initial-placement defaultValue="none" disabled={!showMatchday}>
                 <option value="none">Publicar sem colocação editorial</option>
                 <option value="headline">Manchete</option>
-                <option value="highlight">3 notícias abaixo da manchete</option>
                 <option value="editorial_line_item">Últimas</option>
                 <option value="complement">Notícia ao lado do vídeo</option>
-                <option value="important_item">Faixa de notícias</option>
               </select>
               <small>
-                A colocação é independente do artigo. Se a zona escolhida estiver ocupada, o artigo permanece publicado e podes colocá-lo manualmente sem perder conteúdo.
+                A colocação é independente do artigo. As posições variáveis são escolhidas explicitamente na Mesa Viva.
               </small>
             </label>
           ) : null}

@@ -361,29 +361,8 @@ const syncLatestFourNewsProjectionWithSupabase = createLatestFourNewsProjectionS
 export async function syncLatestFourNewsProjection(
   matchdayId: string,
 ) {
-  const assignmentRows =
-    await fetchSupabaseAdminTable<MatchdayProfileAssignmentConflictRow>(
-      `matchday_editorial_profile_assignments?select=profile_key&matchday_id=eq.${encodeURIComponent(
-        matchdayId,
-      )}&limit=1`,
-    );
-
-  /*
-   * Com perfil editorial atribuído, os quatro lugares
-   * são Seleção editorial manual. Últimas nunca os
-   * recalcula nem os substitui.
-   *
-   * Sem assignment mantém-se integralmente o Legacy.
-   */
-  if (
-    cleanText(
-      assignmentRows[0]?.profile_key,
-    )
-  ) {
-    return;
-  }
-
-  await syncLatestFourNewsProjectionWithSupabase(
-    matchdayId,
-  );
+  await writeSupabaseAdmin("rpc/refresh_matchday_live_layout_legacy", {
+    method: "POST",
+    body: JSON.stringify({ p_matchday_id: matchdayId }),
+  });
 }

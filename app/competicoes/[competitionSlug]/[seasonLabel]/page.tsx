@@ -92,7 +92,7 @@ async function readSeasonContext(competitionSlug: string, seasonLabel: string) {
     const continuityControls =
       matchdayIds.length > 0
         ? await fetchSupabaseAdminTable<EditorialContinuityControlRow>(
-            `matchday_editorial_desk_control?select=matchday_id,is_managed,carryover_source_composition_id&matchday_id=in.(${matchdayIds})&is_managed=is.true&carryover_source_composition_id=not.is.null&limit=200`
+            `matchday_editorial_desk_control?select=matchday_id,is_managed,carryover_source_composition_id&matchday_id=in.(${matchdayIds})&is_managed=is.true&limit=200`
           ).catch(() => [])
         : [];
 

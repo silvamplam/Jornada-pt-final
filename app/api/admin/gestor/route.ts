@@ -1,15 +1,11 @@
 import { NextResponse } from "next/server";
 import { adminRelativeRedirect, adminRelativeUrl } from "@/lib/admin-relative-redirect";
-import { syncCurrentPublishedReferenceCompositionNewsFlow } from "@/lib/editorial-current-reference-composition-sync";
 import {
   EditorialMatchdayNewsFlowError,
-  moveMatchdayHorizontalNewsItem,
   normalizeLatestNewsOrder,
-  normalizeMatchdayHorizontalNewsOrder,
   transferPublishedArticleBetweenMatchdayZones,
   isEditorialMatchdayTransferSlotType,
 } from "@/lib/editorial-matchday-news-flow";
-import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
 import { EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS } from "@/lib/editorial-context-post-title";
 import {
   isMatchdayLivePublicZoneKey,
@@ -55,28 +51,6 @@ import {
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 const ROUNDUP_EDITOR_SORT_ORDERS = Array.from({ length: 10 }, (_, index) => index + 1);
-const NEWS_FLOW_REFERENCE_SYNC_ACTIONS = new Set([
-  "save_matchday_headline",
-  "save_matchday_side_block",
-  "save_matchday_complement",
-  "save_matchday_editorial",
-  "save_matchday_highlights",
-  "save_matchday_highlight_item",
-  "save_matchday_latest_news",
-  "save_matchday_latest_news_item",
-  "save_matchday_horizontal_news_item",
-  "move_matchday_horizontal_news_item",
-]);
-const LATEST_FOUR_CONFLICT_SYNC_ACTIONS = new Set([
-  "save_matchday_headline",
-  "save_matchday_side_block",
-  "save_matchday_complement",
-  "save_matchday_editorial",
-  "save_matchday_highlights",
-  "save_matchday_highlight_item",
-  "save_matchday_horizontal_news_item",
-]);
-
 function cleanText(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
     return null;
@@ -109,6 +83,26 @@ function cleanInteger(value: FormDataEntryValue | null): number | null {
 
   const parsed = Number.parseInt(text, 10);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+async function applyLegacySlotAuthority(
+  matchdayId: string,
+  placementType: "opening" | "faixa" | "video_highlight",
+  slotPosition: number,
+  published: boolean,
+  sourceLinkUrl: string | null,
+) {
+  return writeSupabaseAdmin("rpc/apply_matchday_live_layout_legacy_slot", {
+    method: "POST",
+    body: JSON.stringify({
+      p_matchday_id: matchdayId,
+      p_action: published ? "place" : "clear",
+      p_placement_type: placementType,
+      p_zone_id: null,
+      p_slot_position: slotPosition,
+      p_source_link_url: sourceLinkUrl,
+    }),
+  });
 }
 
 function latestNewsSortOrdersFromFormData(formData: FormData) {
@@ -1060,6 +1054,14 @@ async function saveMatchdayHeadline(formData: FormData) {
     updated_at: new Date().toISOString()
   };
 
+  await applyLegacySlotAuthority(
+    matchdayId,
+    "opening",
+    1,
+    statusValue === "published",
+    headlineLinkUrl,
+  );
+
   if (existing) {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existing.id)}`, {
       method: "PATCH",
@@ -1124,6 +1126,14 @@ async function saveMatchdaySideBlock(formData: FormData) {
     updated_at: new Date().toISOString()
   };
 
+  await applyLegacySlotAuthority(
+    matchdayId,
+    "opening",
+    5,
+    sideBlockStatusValue === "published",
+    sideBlockLinkUrl,
+  );
+
   if (existing) {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existing.id)}`, {
       method: "PATCH",
@@ -1183,6 +1193,14 @@ async function saveMatchdayComplement(formData: FormData) {
     complementary_status: complementaryStatus,
     updated_at: new Date().toISOString()
   };
+
+  await applyLegacySlotAuthority(
+    matchdayId,
+    "video_highlight",
+    1,
+    complementaryStatus === "published",
+    complementaryLinkUrl,
+  );
 
   if (existing) {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existing.id)}`, {
@@ -1421,6 +1439,13 @@ async function saveMatchdayHighlightItem(formData: FormData) {
   }
 
   if (!hasContent && status !== "published") {
+    await applyLegacySlotAuthority(
+      matchdayId,
+      "opening",
+      sortOrder + 1,
+      false,
+      null,
+    );
     return;
   }
 
@@ -1438,14 +1463,28 @@ async function saveMatchdayHighlightItem(formData: FormData) {
   };
 
   const existingRows = highlightId
-    ? await fetchSupabaseAdminTable<{ id: string }>(
-        `matchday_highlights?select=id&id=eq.${encodeURIComponent(highlightId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
+    ? await fetchSupabaseAdminTable<{ id: string; link_url: string | null; status: string | null }>(
+        `matchday_highlights?select=id,link_url,status&id=eq.${encodeURIComponent(highlightId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
       ).catch(() => [])
-    : await fetchSupabaseAdminTable<{ id: string }>(
-        `matchday_highlights?select=id&matchday_id=eq.${encodeURIComponent(matchdayId)}&sort_order=eq.${sortOrder}&limit=1`
+    : await fetchSupabaseAdminTable<{ id: string; link_url: string | null; status: string | null }>(
+        `matchday_highlights?select=id,link_url,status&matchday_id=eq.${encodeURIComponent(matchdayId)}&sort_order=eq.${sortOrder}&limit=1`
       ).catch(() => []);
 
   const existingItem = existingRows[0] ?? null;
+
+  if (
+    existingItem?.status !== "published"
+    || cleanText(existingItem.link_url) !== linkUrl
+  ) {
+    await applyLegacySlotAuthority(
+      matchdayId,
+      "opening",
+      sortOrder + 1,
+      status === "published",
+      linkUrl,
+    );
+    return;
+  }
 
   if (existingItem) {
     await writeSupabaseAdmin(
@@ -1844,11 +1883,11 @@ async function saveMatchdayHorizontalNewsItem(formData: FormData) {
   }
 
   const existingRows = newsId
-    ? await fetchSupabaseAdminTable<{ id: string; sort_order: number }>(
-        `matchday_horizontal_news?select=id,sort_order&id=eq.${encodeURIComponent(newsId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
+    ? await fetchSupabaseAdminTable<{ id: string; sort_order: number; link_url: string | null; status: string | null }>(
+        `matchday_horizontal_news?select=id,sort_order,link_url,status&id=eq.${encodeURIComponent(newsId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
       ).catch(() => [])
-    : await fetchSupabaseAdminTable<{ id: string; sort_order: number }>(
-        `matchday_horizontal_news?select=id,sort_order&matchday_id=eq.${encodeURIComponent(matchdayId)}&sort_order=eq.${sortOrder}&limit=1`
+    : await fetchSupabaseAdminTable<{ id: string; sort_order: number; link_url: string | null; status: string | null }>(
+        `matchday_horizontal_news?select=id,sort_order,link_url,status&matchday_id=eq.${encodeURIComponent(matchdayId)}&sort_order=eq.${sortOrder}&limit=1`
       ).catch(() => []);
   const existingItem = existingRows[0] ?? null;
   if (newsId && (!existingItem || existingItem.sort_order !== sortOrder)) {
@@ -1866,12 +1905,7 @@ async function saveMatchdayHorizontalNewsItem(formData: FormData) {
   const hasContent = Boolean(label || labelColor || title || subtitle || imageUrl || linkUrl);
 
   if (cleanText(formData.get("horizontal_news_delete")) === "1") {
-    if (existingItem) {
-      await writeSupabaseAdmin(
-        `matchday_horizontal_news?id=eq.${encodeURIComponent(existingItem.id)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
-        { method: "DELETE" }
-      );
-    }
+    await applyLegacySlotAuthority(matchdayId, "faixa", sortOrder, false, null);
     return;
   }
 
@@ -1891,6 +1925,21 @@ async function saveMatchdayHorizontalNewsItem(formData: FormData) {
     status,
     updated_at: new Date().toISOString()
   };
+
+  if (
+    status !== "published"
+    || existingItem?.status !== "published"
+    || cleanText(existingItem.link_url) !== linkUrl
+  ) {
+    await applyLegacySlotAuthority(
+      matchdayId,
+      "faixa",
+      sortOrder,
+      status === "published",
+      linkUrl,
+    );
+    return;
+  }
 
   if (existingItem) {
     await writeSupabaseAdmin(
@@ -1917,7 +1966,8 @@ async function moveMatchdayHorizontalNewsOrder(formData: FormData) {
     throw new Error("missing-fields");
   }
 
-  await moveMatchdayHorizontalNewsItem(matchdayId, newsId, direction);
+  void direction;
+  throw new Error("authoritative-placements-do-not-reorder");
 }
 
 async function transferMatchdayNewsArticle(formData: FormData) {
@@ -3300,9 +3350,9 @@ export async function POST(request: Request) {
     } else if (actionType === "save_matchday_below_headline") {
       await saveMatchdayBelowHeadline(formData);
     } else if (actionType === "save_matchday_editorial") {
-      await saveMatchdayEditorial(formData);
+      throw new Error("authoritative-placements-use-slot-writers");
     } else if (actionType === "save_matchday_highlights") {
-      await saveMatchdayHighlights(formData);
+      throw new Error("authoritative-placements-use-individual-slots");
     } else if (actionType === "save_matchday_highlight_item") {
       await saveMatchdayHighlightItem(formData);
     } else if (actionType === "save_matchday_roundup_items") {
@@ -3325,10 +3375,6 @@ export async function POST(request: Request) {
       }
     } else if (actionType === "save_matchday_horizontal_news_item") {
       await saveMatchdayHorizontalNewsItem(formData);
-      const matchdayId = cleanText(formData.get("matchday_id"));
-      if (matchdayId) {
-        await normalizeMatchdayHorizontalNewsOrder(matchdayId);
-      }
     } else if (actionType === "move_matchday_horizontal_news_item") {
       await moveMatchdayHorizontalNewsOrder(formData);
     } else if (actionType === "move_matchday_live_public_zone") {
@@ -3355,18 +3401,6 @@ export async function POST(request: Request) {
       return returnUrl(request, formData, "error", "unknown-action");
     }
 
-    if (actionType && NEWS_FLOW_REFERENCE_SYNC_ACTIONS.has(actionType)) {
-      const matchdayId = cleanText(formData.get("matchday_id"));
-      if (matchdayId) {
-        await syncCurrentPublishedReferenceCompositionNewsFlow(matchdayId);
-      }
-    }
-    if (actionType && LATEST_FOUR_CONFLICT_SYNC_ACTIONS.has(actionType)) {
-      const matchdayId = cleanText(formData.get("matchday_id"));
-      if (matchdayId) {
-        await syncLatestFourNewsProjection(matchdayId);
-      }
-    }
   } catch (error) {
     if (error instanceof ClearSeasonCalendarError) {
       console.error("[admin/gestor] clear_season_calendar failed:", error.detail);
