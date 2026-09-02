@@ -112,7 +112,10 @@ test("a composição usa as sete zonas editoriais pela mesma ordem da página p�
   assert.match(compositionPageSource, /href="#noticia-ao-lado-video">06 Ao lado do vídeo<\/a>/);
   assert.match(compositionPageSource, /href="#faixa-noticias">07 Faixa de notícias<\/a>/);
   assert.match(compositionPageSource, /\.composition-admin-zone-nav\s*\{[\s\S]*?position:\s*sticky;/);
-  assert.match(compositionPageSource, /Abrir editorial/);
+  assert.match(
+    compositionPageSource,
+    /href="\/admin\/editorial\/jornada"[\s\S]*Abrir Mesa Viva/,
+  );
 });
 
 test("a composição mantém a posição e apresenta o resultado da gravação no local", () => {

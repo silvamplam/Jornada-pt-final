@@ -87,7 +87,7 @@ export default function MatchdayEditorialContextSelector({
     }
 
     if (!selectedMatchday.thematicCompatible) {
-      setMessage("Esta Jornada não tem assignment/perfil temático compatível com a Mesa viva.");
+      setMessage("Esta Jornada não é a Mesa Viva atual com perfil temático compatível.");
       return;
     }
 

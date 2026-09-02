@@ -53,6 +53,10 @@ type ApplyResultRow = Readonly<{
   applied_selection_count: number;
 }>;
 
+type ManagedMatchdayEditorialDeskRow = Readonly<{
+  matchday_id: string;
+}>;
+
 type ApiError =
   Readonly<{
     ok: false;
@@ -103,6 +107,16 @@ function databaseMessage(error: unknown): string {
   } catch {
     return rawMessage;
   }
+}
+
+async function isManagedMatchdayEditorialDesk(matchdayId: string) {
+  const rows = await fetchSupabaseAdminTable<ManagedMatchdayEditorialDeskRow>(
+    `matchday_editorial_desk_control?select=matchday_id&matchday_id=eq.${encodeURIComponent(
+      matchdayId,
+    )}&is_managed=eq.true&limit=1`,
+  );
+
+  return rows.length === 1;
 }
 
 function validateVideoModuleInput(value: unknown): VideoModuleInput {
@@ -256,6 +270,14 @@ export async function GET(
       "thematic-desk-service-unavailable",
       "A leitura administrativa não está configurada.",
       503,
+    );
+  }
+
+  if (!(await isManagedMatchdayEditorialDesk(matchdayId))) {
+    return apiError(
+      "thematic-desk-not-live",
+      "Esta Jornada não é a Mesa Viva atual.",
+      409,
     );
   }
 
@@ -486,6 +508,14 @@ export async function POST(
 
   if (!getSupabaseServiceConfig()) {
     return apiError("thematic-desk-service-unavailable", "A escrita administrativa não está configurada.", 503);
+  }
+
+  if (!(await isManagedMatchdayEditorialDesk(matchdayId))) {
+    return apiError(
+      "thematic-desk-not-live",
+      "Esta Jornada não é a Mesa Viva atual.",
+      409,
+    );
   }
 
   try {

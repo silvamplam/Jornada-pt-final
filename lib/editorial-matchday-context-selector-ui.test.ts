@@ -32,14 +32,19 @@ test("Mesa inclui seletor compacto de Competicao, Epoca e Jornada", () => {
   assert.match(thematicClient, /<MatchdayEditorialContextSelector/u);
 });
 
-test("seletor navega apenas para uma Mesa tematica explicitamente compativel", () => {
+test("seletor navega apenas para a Mesa Viva tematica explicitamente compativel", () => {
   assert.match(
     organizerPage,
     /matchday_editorial_profile_assignments\?select=matchday_id,profile_key/u,
   );
+  assert.match(
+    organizerPage,
+    /matchday_editorial_desk_control\?select=matchday_id&is_managed=eq\.true&limit=2/u,
+  );
+  assert.match(organizerPage, /managedMatchdays\.has\(assignment\.matchday_id\)/u);
   assert.match(organizerPage, /isEditorialProfileKey\(assignment\.profile_key\)/u);
   assert.match(selector, /if \(!selectedMatchday\.thematicCompatible\)/u);
-  assert.match(selector, /não tem assignment\/perfil temático compatível/u);
+  assert.match(selector, /não é a Mesa Viva atual com perfil temático compatível/u);
   assert.match(
     selector,
     /function changeCompetition[\s\S]*setSeasonId\(""\);[\s\S]*setMatchdayId\(""\);/u,

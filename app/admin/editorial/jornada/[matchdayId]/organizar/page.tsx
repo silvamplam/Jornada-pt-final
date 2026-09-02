@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import MatchdayEditorialDeskClient from "./MatchdayEditorialDeskClient";
 import type { MatchdayEditorialContextSelectorData } from "./MatchdayEditorialContextSelector";
 import MatchdayEditorialThematicDesk from "./MatchdayEditorialThematicDesk";
@@ -27,9 +29,21 @@ type MatchdayEditorialProfileAssignmentRow = Readonly<{
   profile_key: string;
 }>;
 
+type ManagedMatchdayEditorialDeskRow = Readonly<{
+  matchday_id: string;
+}>;
+
+async function readManagedDesk(matchdayId: string) {
+  return fetchSupabaseAdminTable<ManagedMatchdayEditorialDeskRow>(
+    `matchday_editorial_desk_control?select=matchday_id&matchday_id=eq.${encodeURIComponent(
+      matchdayId,
+    )}&is_managed=eq.true&limit=1`,
+  );
+}
+
 async function readThematicContextSelectorData(): Promise<MatchdayEditorialContextSelectorData> {
   try {
-    const [competitions, seasons, matchdays, assignments] = await Promise.all([
+    const [competitions, seasons, matchdays, assignments, managedDesks] = await Promise.all([
       fetchSupabaseAdminTable<SupabaseCompetition>(
         "competitions?select=id,name&order=name.asc",
       ),
@@ -42,10 +56,20 @@ async function readThematicContextSelectorData(): Promise<MatchdayEditorialConte
       fetchSupabaseAdminTable<MatchdayEditorialProfileAssignmentRow>(
         "matchday_editorial_profile_assignments?select=matchday_id,profile_key",
       ),
+      fetchSupabaseAdminTable<ManagedMatchdayEditorialDeskRow>(
+        "matchday_editorial_desk_control?select=matchday_id&is_managed=eq.true&limit=2",
+      ),
     ]);
+    const managedMatchdays = new Set(
+      managedDesks.map((desk) => desk.matchday_id),
+    );
     const compatibleMatchdays = new Set(
       assignments
-        .filter((assignment) => isEditorialProfileKey(assignment.profile_key))
+        .filter(
+          (assignment) =>
+            managedMatchdays.has(assignment.matchday_id)
+            && isEditorialProfileKey(assignment.profile_key),
+        )
         .map((assignment) => assignment.matchday_id),
     );
 
@@ -780,6 +804,12 @@ export default async function MatchdayEditorialDeskPage({ params, searchParams }
     params,
     searchParams ?? Promise.resolve<{ created?: string; error?: string }>({}),
   ]);
+  const managedDesk = await readManagedDesk(matchdayId);
+
+  if (managedDesk.length !== 1) {
+    redirect("/admin/editorial/jornada");
+  }
+
   const [thematicDesk, contextSelector] = await Promise.all([
     readMatchdayEditorialProfileDesk(matchdayId),
     readThematicContextSelectorData(),

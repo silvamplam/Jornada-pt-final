@@ -3460,7 +3460,7 @@ async function publishReferenceComposition(formData: FormData) {
   }
 
   await writeSupabaseAdmin(
-    "rpc/publish_matchday_reference_composition_with_continuity",
+    "rpc/publish_matchday_reference_composition",
     {
       method: "POST",
       body: JSON.stringify({
@@ -3469,6 +3469,20 @@ async function publishReferenceComposition(formData: FormData) {
       }),
     },
   );
+}
+
+async function reopenReferenceComposition(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const compositionId = cleanText(formData.get("composition_id"));
+  if (!matchdayId || !compositionId) throw new Error("composition-invalid");
+
+  await writeSupabaseAdmin("rpc/reopen_matchday_reference_composition", {
+    method: "POST",
+    body: JSON.stringify({
+      p_matchday_id: matchdayId,
+      p_composition_id: compositionId,
+    }),
+  });
 }
 
 export async function POST(request: Request) {
@@ -3576,6 +3590,7 @@ export async function POST(request: Request) {
     }
     else if (actionType === "publish_reference_composition") await publishReferenceComposition(formData);
     else if (actionType === "activate_reference_composition") await activateReferenceComposition(formData, false);
+    else if (actionType === "reopen_reference_composition") await reopenReferenceComposition(formData);
     else throw new Error("unknown-action");
   } catch (error) {
     if (actionType === "save_matchday_editorial_bank_current") {

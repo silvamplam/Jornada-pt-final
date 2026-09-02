@@ -7,6 +7,8 @@ const bridgeMigrationPath =
   "supabase/migrations/20260901201453_matchday_live_layout_cutover_bridge.sql";
 const activationMigrationPath =
   "supabase/migrations/20260901201455_matchday_live_layout_authoritative_activation.sql";
+const historicalRepublishMigrationPath =
+  "supabase/migrations/20260902053337_matchday_historical_republish_independence.sql";
 const bridgeMigration = readFileSync(bridgeMigrationPath, "utf8");
 const activationMigration = readFileSync(activationMigrationPath, "utf8");
 
@@ -185,7 +187,8 @@ test("recovery explicito materializa carryover existente sem usar J03", () => {
   assert.doesNotMatch(recovery, /6f826bbe-88ef-42e2-8e4d-350e97752ade/);
 });
 
-test("composicao publicada e filhos ficam imutaveis", () => {
+test("Activation conserva byte-identico o erro de imutabilidade que a correcao posterior remove", () => {
+  const correction = source(historicalRepublishMigrationPath);
   assert.match(activationMigration, /guard_published_reference_composition\(\)/);
   assert.match(activationMigration, /old\.status = 'published'/);
   for (const table of [
@@ -196,6 +199,8 @@ test("composicao publicada e filhos ficam imutaveis", () => {
   ]) {
     assert.match(activationMigration, new RegExp(`on public\\.${table}`));
   }
+  assert.match(correction, /drop function if exists\s+jornada_private\.guard_published_reference_composition\(\)/);
+  assert.match(correction, /drop function if exists\s+jornada_private\.guard_published_reference_composition_child\(\)/);
 });
 
 test("RPCs publicas de cutover sao exclusivas do service_role", () => {
@@ -248,12 +253,13 @@ test("landing usa is_managed sem depender de carryover", () => {
   assert.doesNotMatch(landing, /carryover_source_composition_id=not\.is\.null/);
 });
 
-test("reopen foi retirado e Latest four so faz forward refresh", () => {
+test("reopen historico volta por RPC independente e Latest four so faz forward refresh", () => {
   const route = source("app/api/admin/editorial/composicao/route.ts");
   const page = source("app/admin/editorial/composicao/[matchdayId]/page.tsx");
   const projection = source("lib/editorial-matchday-latest-four-projection.ts");
-  assert.doesNotMatch(route, /reopenReferenceComposition|reopen_reference_composition/);
-  assert.doesNotMatch(page, /Reabrir composicao|reopen_reference_composition/);
+  assert.match(route, /rpc\/reopen_matchday_reference_composition/);
+  assert.match(page, /reopen_reference_composition/);
+  assert.match(page, /Reabrir para edi/);
   assert.match(projection, /rpc\/refresh_matchday_live_layout_legacy/);
 });
 
@@ -264,11 +270,22 @@ test("working tree fica limitado ao cutover e artefactos protegidos", () => {
     "supabase/.temp/",
     bridgeMigrationPath,
     activationMigrationPath,
+    historicalRepublishMigrationPath,
     "lib/matchday-live-layout-authoritative-cutover.test.ts",
+    "lib/matchday-live-layout-displaced-state-shadow.test.ts",
+    "lib/matchday-historical-republish-independence.test.ts",
+    "lib/matchday-live-desk-historical-bank-delta.test.ts",
+    "lib/editorial-matchday-context-selector-ui.test.ts",
+    "lib/editorial-historical-composition.test.ts",
+    "supabase/sql/test-matchday-historical-republish-independence-pg17.sql",
+    "supabase/sql/test-matchday-live-desk-historical-bank-delta-pg17.sql",
     "app/admin/editorial/artigos/_articleForm.tsx",
     "app/admin/editorial/composicao/[matchdayId]/page.tsx",
     "app/admin/editorial/jornada/[matchdayId]/page.tsx",
+    "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialContextSelector.tsx",
+    "app/admin/editorial/jornada/[matchdayId]/organizar/page.tsx",
     "app/api/admin/editorial/composicao/route.ts",
+    "app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts",
     "app/api/admin/gestor/route.ts",
     "app/competicoes/[competitionSlug]/[seasonLabel]/page.tsx",
     "lib/editorial-matchday-desk-resolution.ts",

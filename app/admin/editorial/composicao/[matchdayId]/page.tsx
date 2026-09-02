@@ -3164,6 +3164,32 @@ function ActivateCompositionForm({
   );
 }
 
+function ReopenCompositionForm({
+  composition,
+  matchdayId,
+  returnTo
+}: {
+  composition: ReferenceComposition;
+  matchdayId: string;
+  returnTo: string;
+}) {
+  return (
+    <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+      <HiddenField name="action_type" value="reopen_reference_composition" />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="composition_id" value={composition.id} />
+      <HiddenField name="return_to" value={returnTo} />
+      <HiddenField name="return_anchor" value="composition-status" />
+      <p className="composition-admin-note">
+        A versão publicada continua pública enquanto trabalhas num rascunho histórico independente.
+      </p>
+      <button className="composition-admin-small-button secondary" type="submit">
+        Reabrir para edição
+      </button>
+    </form>
+  );
+}
+
 function AddCandidateForm({
   composition,
   matchdayId,
@@ -4484,8 +4510,8 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           <a className="composition-admin-button" href="/admin/editorial/conteudos">
             VÍDEO
           </a>
-          <a className="composition-admin-button" href={`/admin/editorial/jornada/${encodeURIComponent(matchday.id)}`}>
-            Abrir editorial
+          <a className="composition-admin-button" href="/admin/editorial/jornada">
+            Abrir Mesa Viva
           </a>
           <a className="composition-admin-button" href="/admin/gestor">
             Centro de Gestão
@@ -5341,9 +5367,11 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                       <p className="composition-admin-note">
                         Esta é a versão pública e histórica ativa desta jornada.
                       </p>
-                      <p className="composition-admin-note">
-                        Uma composição publicada fica congelada. Cria um novo rascunho para preparar outra apresentação.
-                      </p>
+                      <ReopenCompositionForm
+                        composition={draftComposition}
+                        matchdayId={matchday.id}
+                        returnTo={returnTo}
+                      />
                     </>
                   ) : null}
 

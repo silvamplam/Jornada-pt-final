@@ -65,6 +65,10 @@ type MatchdayEditorialProfileAssignmentRow = Readonly<{
   profile_key: string;
 }>;
 
+type MatchdayEditorialDeskControlRow = Readonly<{
+  is_managed: boolean;
+}>;
+
 const ROUNDUP_EDITOR_SORT_ORDERS = Array.from({ length: 10 }, (_, index) => index + 1);
 
 function buildLatestNewsEditorSortOrders(items: SupabaseMatchdayLatestNews[]) {
@@ -1000,6 +1004,14 @@ async function readMatchdayEditorialProfileAssignment(
   );
 }
 
+async function readMatchdayEditorialDeskControl(
+  matchdayId: string,
+): Promise<MatchdayEditorialDeskControlRow | null> {
+  return readFirst<MatchdayEditorialDeskControlRow>(
+    `matchday_editorial_desk_control?select=is_managed&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+  );
+}
+
 async function readContextSelectorData(): Promise<ContextSelectorData> {
   try {
     const [countries, competitions, seasons, matchdays] = await Promise.all([
@@ -1291,11 +1303,20 @@ export default async function AdminMatchdayEditorialPage({ params, searchParams 
   }
 
   const { matchday, season, competition, country } = context;
-  const editorialProfileAssignment = await readMatchdayEditorialProfileAssignment(matchday.id);
+  const [editorialProfileAssignment, editorialDeskControl] = await Promise.all([
+    readMatchdayEditorialProfileAssignment(matchday.id),
+    readMatchdayEditorialDeskControl(matchday.id),
+  ]);
 
-  if (editorialProfileAssignment) {
+  if (editorialProfileAssignment && editorialDeskControl?.is_managed === true) {
     redirect(
       `/admin/editorial/jornada/${encodeURIComponent(matchday.id)}/organizar`,
+    );
+  }
+
+  if (editorialProfileAssignment && editorialDeskControl?.is_managed === false) {
+    redirect(
+      `/admin/editorial/composicao/${encodeURIComponent(matchday.id)}`,
     );
   }
 
