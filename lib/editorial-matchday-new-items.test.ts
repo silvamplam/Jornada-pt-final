@@ -64,7 +64,7 @@ test("Apply marca apenas decisões explícitas e nunca reabre uma notícia traba
 test("Apply v9 preserva o v8, que fecha duplicações públicas da Seleção", () => {
   assert.match(
     route,
-    /rpc\/apply_matchday_editorial_profile_workspace_v10/u,
+    /rpc\/apply_matchday_editorial_profile_workspace_v11/u,
   );
   assert.match(
     migration,
@@ -90,7 +90,8 @@ test("Novas integra o tracking simultâneo sem inferência por worked_at", () =>
   assert.match(client, /TRACKING_STATES = \["NOVA", "FAIXA", "DESALOJADA"\]/u);
   assert.match(client, /desk\.tracking\.items/u);
   assert.match(client, /trackingItem\.editorialState === state/u);
-  assert.match(client, /trackingItem\.classifiedZoneKey === trackingZoneKey/u);
+  assert.match(client, /item\.classifiedZoneKey === trackingClassFilter/u);
+  assert.match(client, /selectMatchdayEditorialTrackingItems\([\s\S]*desk\.tracking\.items,[\s\S]*"all"/u);
   assert.doesNotMatch(client, /item\.isNew === true/u);
   assert.doesNotMatch(client, /SourceViewKey|activeSourceView/u);
   assert.doesNotMatch(client, /localStorage|sessionStorage/u);

@@ -237,9 +237,10 @@ test("Mover para zona respeita a posição escolhida", () => {
     ),
   );
   assert.ok(source.includes('effectiveZonePosition'));
-  assert.ok(source.includes('fixMatchdayEditorialItemsAtPosition('));
+  assert.ok(source.includes('placeMatchdayEditorialItemsInZoneWithoutCascade('));
   assert.equal(
     source.includes('fixMatchdayEditorialItemsInZone('),
     false,
   );
+  assert.equal(source.includes('swapMatchdayEditorialItemsInZone('), false);
 });

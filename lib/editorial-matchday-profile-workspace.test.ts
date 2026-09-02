@@ -7,8 +7,8 @@ import {
   fixMatchdayEditorialItemsAtPosition,
   fixMatchdayEditorialItemsInZone,
   moveMatchdayEditorialItemsToFaixa,
+  placeMatchdayEditorialItemsInZoneWithoutCascade,
   returnMatchdayEditorialItemsToAutomatic,
-  swapMatchdayEditorialItemsInZone,
   thematicEditorialIdentity,
   type MatchdayEditorialProfileManualOverride,
 } from "@/lib/editorial-matchday-profile-desk-operations";
@@ -82,7 +82,7 @@ function placedIds(result: ReturnType<typeof reconcile>, opening: MatchdayEditor
   ];
 }
 
-test("drag dentro da zona troca diretamente #5 com #2 e não duplica", () => {
+test("drag dentro da zona ocupa #2, deixa #5 vaga e desaloja a ocupante", () => {
   const active = ["a", "b", "c", "d", "e", "f"].map((sourceId, index) => item(sourceId, "benfica", index + 1));
   const before = reconcile(
     active,
@@ -91,22 +91,42 @@ test("drag dentro da zona troca diretamente #5 com #2 e não duplica", () => {
   );
   const zoneBefore = before.zonesAfter.find((zone) => zone.key === "benfica");
   assert.ok(zoneBefore);
-  const overrides = swapMatchdayEditorialItemsInZone(
+  const overrides = placeMatchdayEditorialItemsInZoneWithoutCascade(
     profile,
     active,
     [],
-    identity("e"),
+    [identity("e")],
     "benfica",
     2,
     zoneBefore.items,
   );
-  const result = reconcile(active, overrides, emptyMatchdayEditorialProfileOpening());
+  const appliedZoneItems = before.zonesAfter.flatMap((zone) => (
+    zone.items.map((entry) => ({
+      sourceType: entry.sourceType,
+      sourceId: entry.sourceId,
+      zoneKey: zone.key,
+      sortOrder: entry.sortOrder,
+    }))
+  ));
+  const result = reconcileMatchdayEditorialProfileWorkspace(
+    profile,
+    active,
+    overrides,
+    emptyMatchdayEditorialProfileOpening(),
+    appliedZoneItems,
+    true,
+    before.faixaAfter,
+    {
+      displacedIdentities: [identity("b")],
+      vacantZoneSlots: [{ zoneKey: "benfica", slotPosition: 5 }],
+    },
+  );
 
-  assert.deepEqual(zoneIds(result, "benfica"), ["a", "e", "c", "d", "b", "f"]);
-  assert.equal(new Set(zoneIds(result, "benfica")).size, 6);
+  assert.deepEqual(zoneIds(result, "benfica"), ["a", "e", "c", "d", "f"]);
+  assert.equal(zoneIds(result, "benfica").includes("b"), false);
 });
 
-test("troca interna da Zona preserva apenas as duas posições num snapshot aplicado", () => {
+test("movimento interno da Zona não troca as duas posições num snapshot aplicado", () => {
   const active = ["a", "b", "c", "d", "e", "f"].map(
     (sourceId, index) => item(sourceId, "benfica", index + 1),
   );
@@ -122,11 +142,11 @@ test("troca interna da Zona preserva apenas as duas posições num snapshot apli
       sortOrder: entry.sortOrder,
     }))
   ));
-  const overrides = swapMatchdayEditorialItemsInZone(
+  const overrides = placeMatchdayEditorialItemsInZoneWithoutCascade(
     profile,
     active,
     [],
-    identity("b"),
+    [identity("b")],
     "benfica",
     4,
     zoneBefore.items,
@@ -140,80 +160,51 @@ test("troca interna da Zona preserva apenas as duas posições num snapshot apli
     appliedZoneItems,
     true,
     before.faixaAfter,
+    {
+      displacedIdentities: [identity("d")],
+      vacantZoneSlots: [{ zoneKey: "benfica", slotPosition: 2 }],
+    },
   );
 
-  assert.deepEqual(zoneIds(after, "benfica"), ["a", "d", "c", "b", "e", "f"]);
+  assert.deepEqual(zoneIds(after, "benfica"), ["a", "c", "b", "e", "f"]);
   assert.equal(after.faixaAfter.length, 0);
-  assert.equal(new Set(placedIds(after, opening)).size, active.length);
+  assert.equal(new Set(placedIds(after, opening)).size, active.length - 1);
 });
 
-test("Benfica para Manchete liberta a zona e promove apenas a próxima automática elegível", () => {
+test("Benfica para Manchete deixa a origem vazia sem autofill", () => {
   const active = Array.from({ length: 7 }, (_, index) => item(`a${index + 1}`, "benfica", index + 1));
+  const before = reconcile(
+    active,
+    [],
+    emptyMatchdayEditorialProfileOpening(),
+  );
   const opening = moveMatchdayEditorialProfileItemToOpening(
     emptyMatchdayEditorialProfileOpening(),
     "a1",
     "headline",
   ).opening;
-  const result = reconcile(active, [], opening);
+  const result = reconcileMatchdayEditorialProfileWorkspace(
+    profile,
+    active,
+    [],
+    opening,
+    before.zonesAfter.flatMap((zone) => zone.items.map((entry) => ({
+      sourceType: entry.sourceType,
+      sourceId: entry.sourceId,
+      zoneKey: zone.key,
+      sortOrder: entry.sortOrder,
+    }))),
+    true,
+    before.faixaAfter,
+    { vacantZoneSlots: [{ zoneKey: "benfica", slotPosition: 1 }] },
+  );
 
   assert.equal(opening.headline, "a1");
-  assert.deepEqual(zoneIds(result, "benfica"), ["a2", "a3", "a4", "a5", "a6", "a7"]);
-  assert.equal(result.faixaAfter.length, 0);
+  assert.deepEqual(zoneIds(result, "benfica"), ["a2", "a3", "a4", "a5", "a6"]);
+  assert.deepEqual(result.faixaAfter.map((entry) => entry.sourceId), ["a7"]);
 });
 
-test("opening-replacement-displaced-returns-to-natural-zone-position-1", () => {
-  const active = Array.from({ length: 7 }, (_, index) =>
-    item(`a${index + 1}`, "benfica", index + 1),
-  );
-
-  const first = moveMatchdayEditorialProfileItemToOpening(
-    emptyMatchdayEditorialProfileOpening(),
-    "a1",
-    "headline",
-  ).opening;
-
-  const movement = moveMatchdayEditorialProfileItemToOpening(
-    first,
-    "a2",
-    "headline",
-  );
-
-  const candidates = active.filter(
-    (candidate) => candidate.sourceId !== "a2",
-  );
-
-  const overrides = fixMatchdayEditorialItemsAtPosition(
-    profile,
-    candidates,
-    [],
-    [identity("a1")],
-    "benfica",
-    1,
-  );
-
-  const result = reconcile(
-    active,
-    overrides,
-    movement.opening,
-  );
-
-  assert.equal(movement.displacedSourceId, "a1");
-  assert.equal(movement.opening.headline, "a2");
-  assert.deepEqual(
-    zoneIds(result, "benfica"),
-    ["a1", "a3", "a4", "a5", "a6", "a7"],
-  );
-  assert.deepEqual(
-    result.faixaAfter.map((entry) => entry.sourceId),
-    [],
-  );
-});
-
-test("opening-item-moved-to-occupied-slot swaps only the two opening positions", () => {
-  const active = Array.from({ length: 7 }, (_, index) =>
-    item(`a${index + 1}`, "benfica", index + 1),
-  );
-
+test("entrada na Abertura deixa a substituída explicitamente desalojada", () => {
   const opening = validateMatchdayEditorialProfileOpening({
     headline: "a1",
     highlight_1: null,
@@ -228,22 +219,12 @@ test("opening-item-moved-to-occupied-slot swaps only the two opening positions",
     "highlight_2",
   );
 
-  const result = reconcile(
-    active,
-    [],
-    movement.opening,
-  );
-
-  assert.equal(movement.opening.headline, "a2");
+  assert.equal(movement.opening.headline, null);
   assert.equal(movement.opening.highlight_2, "a1");
   assert.equal(movement.displacedSourceId, "a2");
-  assert.deepEqual(
-    zoneIds(result, "benfica"),
-    ["a3", "a4", "a5", "a6", "a7"],
-  );
 });
 
-test("Abertura 2 -> 4 troca diretamente apenas as posições 2 e 4", () => {
+test("Abertura 2 -> 4 deixa a origem vazia em vez de trocar", () => {
   const opening = validateMatchdayEditorialProfileOpening({
     headline: "a",
     highlight_1: "b",
@@ -260,121 +241,13 @@ test("Abertura 2 -> 4 troca diretamente apenas as posições 2 e 4", () => {
 
   assert.deepEqual(movement.opening, {
     headline: "a",
-    highlight_1: "d",
+    highlight_1: null,
     highlight_2: "c",
     highlight_3: "b",
     context: null,
   });
   assert.equal(movement.displacedSourceId, "d");
   assert.equal(movement.previousSlot, "highlight_1");
-});
-
-test("opening-displaced-enters-full-natural-zone-at-1-and-automatic-overflow-goes-to-faixa", () => {
-  const active = [
-    ...Array.from({ length: 7 }, (_, index) =>
-      item(`a${index + 1}`, "benfica", index + 1),
-    ),
-    item("x", "sporting", 1),
-  ];
-
-  const opening = validateMatchdayEditorialProfileOpening({
-    headline: "a7",
-    highlight_1: null,
-    highlight_2: null,
-    highlight_3: null,
-    context: null,
-  });
-
-  const movement = moveMatchdayEditorialProfileItemToOpening(
-    opening,
-    "x",
-    "headline",
-  );
-
-  const candidates = active.filter(
-    (candidate) => candidate.sourceId !== "x",
-  );
-
-  const overrides = fixMatchdayEditorialItemsAtPosition(
-    profile,
-    candidates,
-    [],
-    [identity("a7")],
-    "benfica",
-    1,
-  );
-
-  const result = reconcile(
-    active,
-    overrides,
-    movement.opening,
-  );
-
-  assert.equal(movement.displacedSourceId, "a7");
-  assert.deepEqual(
-    zoneIds(result, "benfica"),
-    ["a7", "a1", "a2", "a3", "a4", "a5"],
-  );
-  assert.deepEqual(
-    result.faixaAfter.map((entry) => entry.sourceId),
-    ["a6"],
-  );
-  assert.equal(
-    overrides.some(
-      (entry) => entry.sourceId === "a6",
-    ),
-    false,
-  );
-});
-
-test("entrada externa na Abertura vinda da mesma Zona devolve a desalojada ao topo sem duplicar a entrada", () => {
-  const active = Array.from({ length: 7 }, (_, index) =>
-    item(`a${index + 1}`, "benfica", index + 1));
-  const opening = validateMatchdayEditorialProfileOpening({
-    headline: "a7",
-    highlight_1: null,
-    highlight_2: null,
-    highlight_3: null,
-    context: null,
-  });
-  const before = reconcile(active, [], opening);
-  const movement = moveMatchdayEditorialProfileItemToOpening(
-    opening,
-    "a1",
-    "headline",
-  );
-  const candidates = active.filter((candidate) =>
-    !Object.values(movement.opening).includes(candidate.sourceId));
-  const candidateIdentities = new Set(candidates.map((candidate) =>
-    identity(candidate.sourceId)));
-  const currentNaturalZoneItems = before.zonesAfter.find(
-    (zone) => zone.key === "benfica",
-  )?.items.filter((candidate) =>
-    candidateIdentities.has(identity(candidate.sourceId)));
-  const overrides = fixMatchdayEditorialItemsAtPosition(
-    profile,
-    candidates,
-    [],
-    [identity("a7")],
-    "benfica",
-    1,
-    currentNaturalZoneItems,
-  );
-  const after = reconcile(active, overrides, movement.opening);
-
-  assert.deepEqual(movement.opening, {
-    headline: "a1",
-    highlight_1: null,
-    highlight_2: null,
-    highlight_3: null,
-    context: null,
-  });
-  assert.deepEqual(
-    zoneIds(after, "benfica"),
-    ["a7", "a2", "a3", "a4", "a5", "a6"],
-  );
-  assert.deepEqual(after.faixaAfter, []);
-  assert.equal(new Set(placedIds(after, movement.opening)).size, active.length);
 });
 
 test("desalojada na Faixa pode ser protegida na zona e empurra a automática menos prioritária", () => {

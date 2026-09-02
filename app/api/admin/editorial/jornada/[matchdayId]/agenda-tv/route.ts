@@ -599,8 +599,12 @@ export async function POST(
       || detail === "invalid-kickoff-date"
       || detail === "unsupported-portugal-offset"
     ) {
+      console.warn("[agenda-tv] external source unavailable", {
+        matchdayId,
+        detail,
+      });
       return responseError(
-        "Não foi possível obter uma agenda externa completa e segura. Nada foi alterado.",
+        "Agenda externa indisponível neste momento. Nenhuma alteração foi efetuada.",
         502,
         "source-unavailable",
       );

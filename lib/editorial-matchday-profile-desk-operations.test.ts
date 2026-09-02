@@ -9,11 +9,11 @@ import {
   fixMatchdayEditorialItemsInZone,
   moveMatchdayEditorialItemsToBank,
   moveMatchdayEditorialItemsToFaixa,
+  placeMatchdayEditorialItemsInFaixaWithoutCascade,
+  placeMatchdayEditorialItemsInZoneWithoutCascade,
   reconcileMatchdayEditorialProfileDeskSnapshot,
   releaseMatchdayEditorialFixedPositions,
   returnMatchdayEditorialItemsToAutomatic,
-  swapMatchdayEditorialItemsInFaixa,
-  swapMatchdayEditorialItemsInZone,
   thematicEditorialIdentity,
   validateMatchdayEditorialProfileManualOverrides,
   type MatchdayEditorialProfileManualOverride,
@@ -155,7 +155,7 @@ test("remover completamente o override devolve a notícia à zona automática", 
   assert.deepEqual(zoneIds(activeItems, automatic, "sporting"), []);
 });
 
-test("movimento interno da Zona 2 -> 4 troca apenas as posições 2 e 4", () => {
+test("movimento interno da Zona 2 -> 4 não cria swap para a ocupante", () => {
   const activeItems = [1, 2, 3, 4, 5].map((position) =>
     automaticItem(`a${position}`, "sporting", position, 20 - position));
   const currentZone = buildMatchdayEditorialProfileEffectiveDistribution(
@@ -165,23 +165,27 @@ test("movimento interno da Zona 2 -> 4 troca apenas as posições 2 e 4", () => 
   ).zones.find((zone) => zone.key === "sporting");
   assert.ok(currentZone);
 
-  const next = swapMatchdayEditorialItemsInZone(
+  const next = placeMatchdayEditorialItemsInZoneWithoutCascade(
     profile,
     activeItems,
     [],
-    identity("a2"),
+    [identity("a2")],
     "sporting",
     4,
     currentZone.items,
   );
 
-  assert.deepEqual(
-    zoneIds(activeItems, next, "sporting"),
-    ["a1", "a4", "a3", "a2", "a5"],
-  );
+  assert.deepEqual(next, [{
+    sourceType: "editorial_article",
+    sourceId: "a2",
+    placementTarget: "zone",
+    zoneKey: "sporting",
+    sortOrder: 4,
+  }]);
+  assert.equal(next.some((entry) => entry.sourceId === "a4"), false);
 });
 
-test("movimento interno da Zona 2 -> 5 troca apenas as posições 2 e 5", () => {
+test("movimento interno da Zona 2 -> 5 deixa a origem para o preview marcar como vaga", () => {
   const activeItems = [1, 2, 3, 4, 5].map((position) =>
     automaticItem(`a${position}`, "sporting", position, 20 - position));
   const currentZone = buildMatchdayEditorialProfileEffectiveDistribution(
@@ -191,23 +195,23 @@ test("movimento interno da Zona 2 -> 5 troca apenas as posições 2 e 5", () => 
   ).zones.find((zone) => zone.key === "sporting");
   assert.ok(currentZone);
 
-  const next = swapMatchdayEditorialItemsInZone(
+  const next = placeMatchdayEditorialItemsInZoneWithoutCascade(
     profile,
     activeItems,
     [],
-    identity("a2"),
+    [identity("a2")],
     "sporting",
     5,
     currentZone.items,
   );
 
-  assert.deepEqual(
-    zoneIds(activeItems, next, "sporting"),
-    ["a1", "a5", "a3", "a4", "a2"],
-  );
+  assert.deepEqual(next.map((entry) => [entry.sourceId, entry.sortOrder]), [
+    ["a2", 5],
+  ]);
+  assert.equal(next.some((entry) => entry.sourceId === "a5"), false);
 });
 
-test("movimento interno da Faixa 2 -> 4 troca apenas as posições 2 e 4", () => {
+test("movimento interno da Faixa 2 -> 4 não cria swap para a ocupante", () => {
   const activeItems = [1, 2, 3, 4].map((position) =>
     automaticItem(`f${position}`, "benfica", position, 20 - position));
   const faixaOverrides = moveMatchdayEditorialItemsToFaixa(
@@ -226,28 +230,20 @@ test("movimento interno da Faixa 2 -> 4 troca apenas as posições 2 e 4", () =>
     false,
     [],
   );
-  const next = swapMatchdayEditorialItemsInFaixa(
+  const next = placeMatchdayEditorialItemsInFaixaWithoutCascade(
     profile,
     activeItems,
     faixaOverrides,
-    identity("f2"),
+    [identity("f2")],
     4,
     before.faixaAfter,
   );
-  const after = reconcileMatchdayEditorialProfileWorkspace(
-    profile,
-    activeItems,
-    next,
-    emptyMatchdayEditorialProfileOpening(),
-    [],
-    false,
-    [],
-  );
-
-  assert.deepEqual(
-    after.faixaAfter.map((item) => item.sourceId),
-    ["f1", "f4", "f3", "f2"],
-  );
+  assert.deepEqual(next.map((entry) => [entry.sourceId, entry.sortOrder]), [
+    ["f1", 1],
+    ["f2", 4],
+    ["f3", 3],
+  ]);
+  assert.equal(next.some((entry) => entry.sourceId === "f4"), false);
 });
 
 test("todos os lugares protegidos impedem entrada automática e várias fixações livres coexistem", () => {

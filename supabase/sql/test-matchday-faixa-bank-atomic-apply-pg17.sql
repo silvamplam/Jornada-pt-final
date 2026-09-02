@@ -213,7 +213,9 @@ insert into jornada_private.matchday_live_layout_cutover_control (
   scope,
   authority_mode
 )
-values ('live_layout', 'authoritative');
+values ('live_layout', 'authoritative')
+on conflict (scope) do update
+set authority_mode = excluded.authority_mode;
 
 insert into public.countries (id, name, slug)
 values (
@@ -789,6 +791,31 @@ begin
     'a selected Faixa item retained a public placement'
   );
   perform pg_temp.assert_true(
+    (select pg_catalog.count(*) = 12
+     from public.matchday_editorial_profile_manual_overrides as override_row
+     join faixa_bank_fixture_items as fixture
+       on override_row.source_type = 'editorial_article'
+      and override_row.source_id = fixture.article_id::text
+     where override_row.matchday_id =
+           '42000000-0000-4000-8000-000000000002'
+       and override_row.profile_key = 'liga_portugal_v1'
+       and override_row.placement_target = 'bank'
+       and fixture.item_kind = 'faixa'),
+    'selected Faixa items did not retain explicit Banco intent'
+  );
+  perform pg_temp.assert_true(
+    not exists (
+      select 1
+      from public.matchday_live_layout_bank_item_state_memory as memory_row
+      join faixa_bank_fixture_items as fixture
+        on fixture.bank_item_id = memory_row.bank_item_id
+      where memory_row.matchday_id =
+            '42000000-0000-4000-8000-000000000002'
+        and fixture.item_kind = 'faixa'
+    ),
+    'explicit Faixa to Banco left governing state memory'
+  );
+  perform pg_temp.assert_true(
     (select pg_catalog.count(*) = 49
      from public.matchday_editorial_bank_items
      where matchday_id =
@@ -857,6 +884,260 @@ $test$;
 
 do $test$
 declare
+  v_matchday_id constant uuid :=
+    '42000000-0000-4000-8000-000000000002';
+  v_revision bigint;
+  v_token text;
+  v_incoming_article_id uuid;
+  v_incoming_bank_item_id uuid;
+  v_outgoing_article_id uuid;
+  v_outgoing_bank_item_id uuid;
+  v_overrides jsonb;
+  v_zone_items jsonb;
+  v_opening jsonb;
+  v_page_controls jsonb;
+  v_selection jsonb;
+  v_apply record;
+  v_classification_before text;
+  v_zones_before text;
+  v_selection_before text;
+  v_video_before text;
+begin
+  select fixture.article_id, fixture.bank_item_id
+  into v_incoming_article_id, v_incoming_bank_item_id
+  from faixa_bank_fixture_items as fixture
+  where fixture.item_kind = 'faixa'
+    and fixture.slot_position = 12;
+
+  select fixture.article_id, fixture.bank_item_id
+  into v_outgoing_article_id, v_outgoing_bank_item_id
+  from faixa_bank_fixture_items as fixture
+  where fixture.item_kind = 'opening'
+    and fixture.slot_position = 5;
+
+  select control_row.revision
+  into v_revision
+  from public.matchday_editorial_profile_reconcile_control as control_row
+  where control_row.matchday_id = v_matchday_id
+    and control_row.profile_key = 'liga_portugal_v1';
+
+  select token_row.state_token
+  into v_token
+  from public.matchday_editorial_profile_workspace_token(
+    v_matchday_id,
+    'liga_portugal_v1'
+  ) as token_row;
+
+  select coalesce(
+    pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+      'source_type', override_row.source_type,
+      'source_id', override_row.source_id,
+      'placement_target', override_row.placement_target,
+      'zone_key', override_row.zone_key,
+      'sort_order', override_row.sort_order
+    ) order by override_row.source_id),
+    '[]'::jsonb
+  )
+  into v_overrides
+  from public.matchday_editorial_profile_manual_overrides as override_row
+  where override_row.matchday_id = v_matchday_id
+    and override_row.profile_key = 'liga_portugal_v1'
+    and not (
+      override_row.source_type = 'editorial_article'
+      and override_row.source_id = v_incoming_article_id::text
+    );
+
+  select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+    'source_type', 'editorial_article',
+    'source_id', fixture.article_id,
+    'zone_key', fixture.zone_key,
+    'sort_order', fixture.slot_position
+  ) order by fixture.zone_key, fixture.slot_position)
+  into v_zone_items
+  from faixa_bank_fixture_items as fixture
+  where fixture.item_kind = 'zone';
+
+  select pg_catalog.jsonb_build_object(
+    'headline', pg_catalog.max(article_id::text)
+      filter (where slot_position = 1),
+    'highlight_1', pg_catalog.max(article_id::text)
+      filter (where slot_position = 2),
+    'highlight_2', pg_catalog.max(article_id::text)
+      filter (where slot_position = 3),
+    'highlight_3', pg_catalog.max(article_id::text)
+      filter (where slot_position = 4),
+    'context', v_incoming_article_id::text
+  )
+  into v_opening
+  from faixa_bank_fixture_items
+  where item_kind = 'opening';
+
+  v_page_controls := pg_catalog.jsonb_build_object(
+    'headline_title_color', null,
+    'latest_zone_placement', 'top',
+    'latest_zone_title', '',
+    'thematic_zone_order', pg_catalog.to_jsonb(array[
+      'benfica', 'sporting', 'fc_porto',
+      'other_liga_clubs', 'outside_liga_other'
+    ]::text[]),
+    'thematic_zone_layouts', pg_catalog.jsonb_build_object(
+      'benfica', 'six_news',
+      'sporting', 'five_news_balanced',
+      'fc_porto', 'five_news_balanced',
+      'other_liga_clubs', 'six_news',
+      'outside_liga_other', 'five_news_secondary'
+    ),
+    'thematic_block_order', pg_catalog.to_jsonb(array[
+      'benfica', 'sporting', 'fc_porto',
+      'other_liga_clubs', 'outside_liga_other',
+      'latest', 'video'
+    ]::text[]),
+    'thematic_zone_titles', pg_catalog.jsonb_build_object(
+      'benfica', '',
+      'sporting', '',
+      'fc_porto', '',
+      'other_liga_clubs', '',
+      'outside_liga_other', ''
+    )
+  );
+
+  select pg_catalog.jsonb_agg(
+    pg_catalog.to_jsonb(fixture.bank_item_id::text)
+    order by fixture.slot_position
+  )
+  into v_selection
+  from faixa_bank_fixture_items as fixture
+  where fixture.item_kind = 'selection';
+
+  v_classification_before := pg_temp.classification_hash(v_matchday_id);
+  v_zones_before := pg_temp.logical_placement_hash(
+    v_matchday_id,
+    array['zone']
+  );
+  v_selection_before := pg_temp.logical_placement_hash(
+    v_matchday_id,
+    array['selection']
+  );
+  v_video_before := pg_temp.logical_placement_hash(
+    v_matchday_id,
+    array['video_highlight']
+  );
+
+  select *
+  into v_apply
+  from public.apply_matchday_editorial_profile_workspace_v11(
+    v_matchday_id,
+    'liga_portugal_v1',
+    v_revision,
+    v_token,
+    v_overrides,
+    v_zone_items,
+    pg_catalog.jsonb_build_array(v_outgoing_article_id::text),
+    v_opening,
+    v_page_controls,
+    v_selection,
+    pg_catalog.jsonb_build_object(
+      'active', true,
+      'highlight_action', 'preserve',
+      'highlight_bank_item_id', null
+    ),
+    pg_catalog.jsonb_build_array(
+      v_incoming_article_id::text,
+      v_outgoing_article_id::text
+    ),
+    v_zone_items,
+    '[]'::jsonb,
+    pg_catalog.jsonb_build_array(v_outgoing_bank_item_id::text)
+  );
+
+  perform pg_temp.assert_true(
+    exists (
+      select 1
+      from public.matchday_live_layout_placements
+      where matchday_id = v_matchday_id
+        and bank_item_id = v_incoming_bank_item_id
+        and placement_type = 'opening'
+        and slot_position = 5
+    ),
+    'v11 did not place incoming item at the exact preview target'
+  );
+  perform pg_temp.assert_true(
+    not exists (
+      select 1
+      from public.matchday_live_layout_placements
+      where matchday_id = v_matchday_id
+        and bank_item_id = v_outgoing_bank_item_id
+    ),
+    'v11 returned the replaced item to another placement'
+  );
+  perform pg_temp.assert_true(
+    exists (
+      select 1
+      from public.matchday_live_layout_bank_item_state_memory
+      where matchday_id = v_matchday_id
+        and bank_item_id = v_outgoing_bank_item_id
+        and memory_kind = 'displaced'
+    ),
+    'v11 did not persist the replaced item as displaced'
+  );
+  perform pg_temp.assert_true(
+    not exists (
+      select 1
+      from public.matchday_editorial_profile_manual_overrides
+      where matchday_id = v_matchday_id
+        and profile_key = 'liga_portugal_v1'
+        and source_type = 'editorial_article'
+        and source_id in (
+          v_incoming_article_id::text,
+          v_outgoing_article_id::text
+        )
+        and placement_target = 'bank'
+    ),
+    'preview movement retained explicit Bank intent'
+  );
+  perform pg_temp.assert_true(
+    v_zones_before = pg_temp.logical_placement_hash(
+      v_matchday_id,
+      array['zone']
+    )
+    and v_selection_before = pg_temp.logical_placement_hash(
+      v_matchday_id,
+      array['selection']
+    )
+    and v_video_before = pg_temp.logical_placement_hash(
+      v_matchday_id,
+      array['video_highlight']
+    ),
+    'v11 changed an unrelated placement surface'
+  );
+  perform pg_temp.assert_true(
+    v_classification_before = pg_temp.classification_hash(v_matchday_id),
+    'v11 changed contextual classification'
+  );
+  perform pg_temp.assert_true(
+    not exists (
+      select 1
+      from public.matchday_live_layout_placements
+      where matchday_id = v_matchday_id
+      group by bank_item_id
+      having pg_catalog.count(*) > 1
+    ),
+    'v11 violated transversal uniqueness'
+  );
+
+  insert into faixa_bank_results values (
+    '4 PREVIEW EXACT APPLY WITHOUT CASCADE',
+    'PASS',
+    pg_catalog.format(
+      'revision=%s incoming=context outgoing=displaced unrelated=preserved',
+      v_apply.revision
+    )
+  );
+end;
+$test$;
+
+do $test$
+declare
   v_displaced_bank_item_id uuid;
   v_incoming_bank_item_id uuid;
   v_result jsonb;
@@ -872,6 +1153,19 @@ begin
   from faixa_bank_fixture_items as fixture
   where fixture.item_kind = 'faixa'
     and fixture.slot_position = 2;
+
+  delete from public.matchday_editorial_profile_manual_overrides
+  where matchday_id = '42000000-0000-4000-8000-000000000002'
+    and profile_key = 'liga_portugal_v1'
+    and source_type = 'editorial_article'
+    and source_id in (
+      select fixture.article_id::text
+      from faixa_bank_fixture_items as fixture
+      where fixture.bank_item_id in (
+        v_displaced_bank_item_id,
+        v_incoming_bank_item_id
+      )
+    );
 
   v_result := public.apply_matchday_live_layout_movement(
     '42000000-0000-4000-8000-000000000002',
@@ -930,7 +1224,7 @@ begin
   );
 
   insert into faixa_bank_results values (
-    '4 MOVEMENT AND DISPLACED',
+    '5 MOVEMENT AND DISPLACED',
     'PASS',
     v_result::text
   );
@@ -1071,7 +1365,7 @@ begin
 
   begin
     perform *
-    from public.apply_matchday_editorial_profile_workspace_v10(
+    from public.apply_matchday_editorial_profile_workspace_v11(
       '42000000-0000-4000-8000-000000000002',
       'liga_portugal_v1',
       v_revision,
@@ -1087,6 +1381,9 @@ begin
         'highlight_action', 'preserve',
         'highlight_bank_item_id', null
       ),
+      '[]'::jsonb,
+      v_zone_items,
+      '[]'::jsonb,
       '[]'::jsonb
     );
   exception
@@ -1117,7 +1414,7 @@ begin
   );
 
   insert into faixa_bank_results values (
-    '5 FORCED APPLY ROLLBACK',
+    '6 FORCED APPLY ROLLBACK',
     'PASS',
     'faixa-bank-forced-rollback; before=after'
   );

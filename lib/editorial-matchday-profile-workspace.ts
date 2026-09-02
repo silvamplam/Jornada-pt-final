@@ -21,6 +21,9 @@ import {
   type MatchdayEditorialProfileFaixaItem,
   type MatchdayEditorialProfileReconcileResult,
 } from "@/lib/editorial-matchday-profile-reconcile";
+import type {
+  MatchdayEditorialVacantZoneSlot,
+} from "@/lib/editorial-matchday-movement-preview";
 
 export const MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS = [
   "headline",
@@ -687,7 +690,7 @@ export function moveMatchdayEditorialProfileItemToOpening(
 
   const displacedSourceId = opening[targetSlot];
   const next = { ...opening };
-  if (previousSlot !== null) next[previousSlot] = displacedSourceId;
+  if (previousSlot !== null) next[previousSlot] = null;
   next[targetSlot] = sourceId;
   return {
     opening: validateMatchdayEditorialProfileOpening(next),
@@ -737,6 +740,9 @@ export function reconcileMatchdayEditorialProfileWorkspace(
     selectionIdentities?: readonly string[];
     workedIdentities?: readonly string[];
     independentPlacementIdentities?: readonly string[];
+    displacedIdentities?: readonly string[];
+    vacantZoneSlots?: readonly MatchdayEditorialVacantZoneSlot[];
+    vacantFaixaSlots?: readonly number[];
   }> = {},
 ): MatchdayEditorialProfileReconcileResult {
   const opening = validateMatchdayEditorialProfileOpening(openingValue);
@@ -772,6 +778,9 @@ export function reconcileMatchdayEditorialProfileWorkspace(
   const independentPlacementIdentities = new Set(
     options.independentPlacementIdentities ?? [],
   );
+  const displacedIdentities = new Set(
+    options.displacedIdentities ?? [],
+  );
   for (const itemIdentity of independentPlacementIdentities) {
     if (!activeIdentitySet.has(itemIdentity)) {
       throw new Error(
@@ -786,6 +795,52 @@ export function reconcileMatchdayEditorialProfileWorkspace(
         "matchday-editorial-profile-independent-placement-conflict",
       );
     }
+  }
+  for (const itemIdentity of displacedIdentities) {
+    if (!activeIdentitySet.has(itemIdentity)) {
+      throw new Error(
+        "matchday-editorial-profile-displaced-source-not-active",
+      );
+    }
+    if (
+      openingIdentities.has(itemIdentity)
+      || selectionIdentities.has(itemIdentity)
+      || independentPlacementIdentities.has(itemIdentity)
+    ) {
+      throw new Error(
+        "matchday-editorial-profile-displaced-placement-conflict",
+      );
+    }
+  }
+
+  const vacantZoneSlots = options.vacantZoneSlots ?? [];
+  const vacantSlotKeys = new Set<string>();
+  for (const vacant of vacantZoneSlots) {
+    const zone = profile.zones.find((candidate) => candidate.key === vacant.zoneKey);
+    const vacantKey = `${vacant.zoneKey}:${vacant.slotPosition}`;
+    if (
+      !zone
+      || !Number.isInteger(vacant.slotPosition)
+      || vacant.slotPosition <= 0
+      || vacant.slotPosition > zone.capacity
+      || vacantSlotKeys.has(vacantKey)
+    ) {
+      throw new Error(
+        "matchday-editorial-profile-vacant-zone-slot-invalid",
+      );
+    }
+    vacantSlotKeys.add(vacantKey);
+  }
+  const vacantFaixaSlots = options.vacantFaixaSlots ?? [];
+  if (
+    vacantFaixaSlots.some((position) => (
+      !Number.isInteger(position) || position <= 0
+    ))
+    || new Set(vacantFaixaSlots).size !== vacantFaixaSlots.length
+  ) {
+    throw new Error(
+      "matchday-editorial-profile-vacant-faixa-slot-invalid",
+    );
   }
 
   const manualOverrideIdentities = new Set(
@@ -834,6 +889,7 @@ export function reconcileMatchdayEditorialProfileWorkspace(
     return !openingIdentities.has(identity)
       && !selectionIdentities.has(identity)
       && !independentPlacementIdentities.has(identity)
+      && !displacedIdentities.has(identity)
       && !passiveNewIdentities.has(identity);
   });
   const circuitOverrides = validateMatchdayEditorialProfileManualOverrides(
@@ -846,6 +902,8 @@ export function reconcileMatchdayEditorialProfileWorkspace(
       thematicEditorialIdentity(override.sourceType, override.sourceId),
     )).filter((override) => !independentPlacementIdentities.has(
       thematicEditorialIdentity(override.sourceType, override.sourceId),
+    )).filter((override) => !displacedIdentities.has(
+      thematicEditorialIdentity(override.sourceType, override.sourceId),
     )),
   );
   const circuitFaixa = currentFaixa.filter((item) => {
@@ -856,6 +914,7 @@ export function reconcileMatchdayEditorialProfileWorkspace(
     return !openingIdentities.has(identity)
       && !selectionIdentities.has(identity)
       && !independentPlacementIdentities.has(identity)
+      && !displacedIdentities.has(identity)
       && !passiveNewIdentities.has(identity);
   });
 
@@ -866,5 +925,6 @@ export function reconcileMatchdayEditorialProfileWorkspace(
     appliedZoneItems,
     hasAppliedSnapshot,
     circuitFaixa,
+    { vacantZoneSlots, vacantFaixaSlots },
   );
 }

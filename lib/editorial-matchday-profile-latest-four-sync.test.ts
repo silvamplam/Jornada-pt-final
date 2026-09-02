@@ -83,7 +83,7 @@ test(
   () => {
     assert.match(
       thematicRoute,
-      /apply_matchday_editorial_profile_workspace_v10/,
+      /apply_matchday_editorial_profile_workspace_v11/,
     );
 
     assert.match(
@@ -91,10 +91,7 @@ test(
       /p_selection_bank_item_ids/,
     );
 
-    assert.match(
-      thematicRoute,
-      /source_type=in\.\(editorial_article,editorial_content\)/,
-    );
+    assert.match(thematicRoute, /desk\.selectionCandidates/);
 
     assert.match(
       thematicClient,

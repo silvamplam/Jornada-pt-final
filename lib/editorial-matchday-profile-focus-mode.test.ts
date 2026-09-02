@@ -186,20 +186,22 @@ test("Abertura e zonas apresentam slots horizontais pela capacidade efetiva", ()
   assert.match(desk, /\.thematic-slots-6 \{ grid-template-columns: repeat\(6/);
 });
 
-test("o tracking seleciona uma classe contextual sem alterar o estado editorial", () => {
-  assert.match(desk, /const \[trackingZoneKey, setTrackingZoneKey\] = useState</);
+test("o tracking seleciona Todas ou uma classe contextual sem alterar o estado editorial", () => {
+  assert.match(desk, /useState<MatchdayEditorialTrackingClassFilter>\("all"\)/);
   assert.match(desk, /aria-label="Escolher classe contextual"/);
+  assert.match(desk, /Todas \{trackableItems\.length\}/);
   assert.match(desk, /profile\.zones\.map\(\(zone\)/);
-  assert.match(desk, /trackingItem\.classifiedZoneKey === trackingZoneKey/);
-  assert.match(desk, /setTrackingZoneKey\(zone\.key\)/);
+  assert.match(desk, /item\.classifiedZoneKey === trackingClassFilter/);
+  assert.match(desk, /setTrackingClassFilter\(zone\.key\)/);
 });
 
 test("pesquisa e classe funcionam como filtros cumulativos do tracking", () => {
   assert.match(desk, /const normalizedTrackingQuery = trackingQuery/);
   assert.match(
     desk,
-    /trackingItem\.classifiedZoneKey === trackingZoneKey[\s\S]*!normalizedTrackingQuery/,
+    /const classTrackingItems[\s\S]*item\.classifiedZoneKey === trackingClassFilter/,
   );
+  assert.match(desk, /const matchesTrackingQuery[\s\S]*!normalizedTrackingQuery/);
 });
 
 test("filtros e vista das Fontes não entram no estado editorial", () => {
@@ -214,11 +216,11 @@ test("filtros e vista das Fontes não entram no estado editorial", () => {
   assert.ok(pendingStart >= 0 && pendingEnd > pendingStart);
   assert.doesNotMatch(
     currentDraftBlock,
-    /trackingZoneKey|trackingQuery|trackingVisibleCounts/,
+    /trackingClassFilter|trackingQuery|trackingVisibleCounts|bankClassFilter|bankOpen|bankVisibleCount/,
   );
   assert.doesNotMatch(
     pendingBlock,
-    /trackingZoneKey|trackingQuery|trackingVisibleCounts/,
+    /trackingClassFilter|trackingQuery|trackingVisibleCounts|bankClassFilter|bankOpen|bankVisibleCount/,
   );
 });
 
@@ -235,7 +237,7 @@ test("cada linha de tracking mantém paginação local e contador real", () => {
   assert.match(desk, /<span>\{entries\.length\}<\/span>/);
 });
 
-test("Tracking apresenta Novas, Faixa e Desalojadas em simultâneo sem linha Banco", () => {
+test("Tracking apresenta Novas, Faixa e Desalojadas; Banco permanece um pool separado", () => {
   assert.match(desk, /TRACKING_STATES = \["NOVA", "FAIXA", "DESALOJADA"\]/);
   assert.match(desk, /aria-label="Tracking editorial por classe"/);
   assert.match(desk, /data-tracking-state=\{state\}/);
@@ -252,7 +254,9 @@ test("Tracking apresenta Novas, Faixa e Desalojadas em simultâneo sem linha Ban
   const toolbarStart = desk.indexOf('<div className="thematic-sources-toolbar">');
   const toolbarEnd = desk.indexOf('<div className="thematic-tracking-rows">', toolbarStart);
   const toolbar = desk.slice(toolbarStart, toolbarEnd);
-  assert.doesNotMatch(toolbar, />\s*Banco(?:\s|\{)/);
+  assert.match(toolbar, /className="thematic-bank-access"/);
+  assert.match(toolbar, /Banco \{explicitBankEntries\.length\}/);
+  assert.doesNotMatch(desk, /data-tracking-state=[^\n]*BANCO/);
   assert.match(toolbar, /thematic-reservoir-search/);
   assert.match(toolbar, /em tracking/);
   assert.match(desk, /aria-label="Controlos de seleção"/);
@@ -260,6 +264,33 @@ test("Tracking apresenta Novas, Faixa e Desalojadas em simultâneo sem linha Ban
   assert.match(desk, /Limpar marcação/);
   assert.match(
     desk,
-    /\.thematic-sources-list \{ display: grid; grid-template-columns: repeat\(3/,
+    /\.thematic-tracking-rows \{ display: grid; grid-template-columns: repeat\(3/,
   );
+  assert.match(desk, /className="thematic-tracking-row-label"/);
+  assert.match(
+    desk,
+    /className="thematic-tracking-row-label"[\s\S]*\{entries\.length > 0 \? \([\s\S]*Selecionar linha[\s\S]*className="thematic-sources-list"/,
+  );
+  assert.doesNotMatch(desk, /className="thematic-tracking-row-actions"/);
+  assert.doesNotMatch(desk, /\.thematic-tracking-row > header/);
+  assert.match(desk, /@media \(max-width: 900px\) \{ \.thematic-tracking-rows \{ grid-template-columns: 1fr; \} \}/);
+});
+
+test("Banco filtra independentemente por Todas e pelas classes contextuais", () => {
+  assert.match(desk, /useState<MatchdayEditorialTrackingClassFilter>\("all"\);[\s\S]*const \[bankClassFilter/);
+  assert.match(desk, /aria-label="Filtrar Banco por classe contextual"/);
+  assert.match(desk, /selectMatchdayEditorialExplicitBankItems\([\s\S]*explicitBankEntries,[\s\S]*bankClassFilter/);
+  assert.match(desk, /setBankClassFilter\("all"\)/);
+  assert.match(desk, /setBankClassFilter\(zone\.key\)/);
+  assert.match(desk, /Todas \{explicitBankEntries\.length\}/);
+  assert.match(desk, /entry\.classifiedZoneKey === zone\.key/);
+  assert.match(desk, /filteredBankEntries\.map\(\(\{ item \}\) => identity\(item\)\)/);
+  assert.match(desk, /const trackableItems = useMemo\([\s\S]*!draftExplicitBankIdentities\.has\(itemIdentity\)/);
+  assert.match(desk, /\{zone\.label\} \{trackableItems\.filter/);
+  const bankStart = desk.indexOf('aria-label="Banco editorial"');
+  const bankEnd = desk.indexOf('<div className="thematic-tracking-rows">', bankStart);
+  const bank = desk.slice(bankStart, bankEnd);
+  assert.ok(bankStart >= 0 && bankEnd > bankStart);
+  assert.doesNotMatch(bank, /<header>/);
+  assert.match(bank, /className="thematic-bank-class-filters"[\s\S]*Selecionar Banco/);
 });

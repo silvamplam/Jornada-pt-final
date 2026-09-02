@@ -5,11 +5,17 @@ import test from "node:test";
 import { EDITORIAL_PROFILES } from "@/lib/editorial-profiles";
 import {
   buildMatchdayEditorialTrackingSnapshot,
+  selectMatchdayEditorialExplicitBankItems,
+  selectMatchdayEditorialTrackingItems,
   type MatchdayLiveDeskAggregateRow,
 } from "@/lib/editorial-matchday-profile-desk";
 
 const migration = readFileSync(
   "supabase/migrations/20260902110327_matchday_live_desk_aggregate_tracking_reader.sql",
+  "utf8",
+);
+const explicitBankMigration = readFileSync(
+  "supabase/migrations/20260902130518_matchday_explicit_bank_displaced_semantics.sql",
   "utf8",
 );
 const reader = readFileSync("lib/editorial-matchday-profile-desk.ts", "utf8");
@@ -54,6 +60,8 @@ function row(
     memory_kind: editorialState === "DESALOJADA" ? "displaced" : null,
     history_unknown: false,
     memory_placement_conflict: false,
+    is_explicit_bank: false,
+    bank_placement_conflict: false,
     editorial_state: editorialState,
     placement_id: placed ? `20000000-0000-4000-8000-${suffix.padStart(12, "0")}` : null,
     placement_type: placed ? editorialState === "FAIXA" ? "faixa" : "zone" : null,
@@ -108,6 +116,55 @@ test("COLOCADA e legacy_unknown ficam fora e conflitos são fail-closed", () => 
   );
 });
 
+test("Banco explícito fica fora do tracking e tem prioridade sobre memória antiga", () => {
+  const overlap = row("11", null, {
+    is_explicit_bank: true,
+    memory_kind: "displaced",
+  });
+  const placementConflict = row("12", null, {
+    bank_placement_conflict: true,
+    is_explicit_bank: true,
+    placement_count: 1,
+    placement_type: "faixa",
+  });
+  const result = buildMatchdayEditorialTrackingSnapshot(
+    EDITORIAL_PROFILES.liga_portugal_v1,
+    [overlap, placementConflict],
+  );
+
+  assert.deepEqual(result.tracking.items, []);
+  assert.equal(result.tracking.conflictCount, 1);
+  assert.deepEqual(
+    result.diagnostics.map((diagnostic) => diagnostic.code).sort(),
+    ["explicit_bank_memory_overlap", "explicit_bank_placement_conflict"],
+  );
+});
+
+test("Todas agrega classes válidas e deduplica pela identidade contextual do Bank", () => {
+  const snapshot = buildMatchdayEditorialTrackingSnapshot(
+    EDITORIAL_PROFILES.liga_portugal_v1,
+    [
+      row("8", "NOVA"),
+      row("9", "FAIXA", { classification_key: "benfica" }),
+      row("10", "DESALOJADA", { classification_key: "fc_porto" }),
+    ],
+  ).tracking.items;
+  const duplicatedInput = [...snapshot, snapshot[0]];
+
+  assert.deepEqual(
+    selectMatchdayEditorialTrackingItems(duplicatedInput, "all").map((item) => item.bankItemId),
+    snapshot.map((item) => item.bankItemId),
+  );
+  assert.deepEqual(
+    selectMatchdayEditorialTrackingItems(duplicatedInput, "sporting").map((item) => item.editorialState),
+    ["NOVA"],
+  );
+  assert.equal(
+    selectMatchdayEditorialTrackingItems(duplicatedInput, "all").length,
+    3,
+  );
+});
+
 test("o wrapper público é read-only, reutiliza a projeção privada e só service_role executa", () => {
   assert.match(migration, /create function public\.read_matchday_live_desk_aggregate_tracking/u);
   assert.match(migration, /language sql[\s\S]*stable[\s\S]*security definer[\s\S]*set search_path = ''/u);
@@ -116,6 +173,20 @@ test("o wrapper público é read-only, reutiliza a projeção privada e só serv
   assert.match(migration, /revoke all on function[\s\S]*from public, anon, authenticated, service_role/u);
   assert.match(migration, /grant execute on function[\s\S]*to service_role/u);
   assert.doesNotMatch(migration, /\b(?:insert into|update|delete from|truncate)\b/iu);
+});
+
+test("o reader forward-only expõe Banco separadamente e mantém conflitos fail-closed", () => {
+  assert.match(explicitBankMigration, /is_explicit_bank boolean/u);
+  assert.match(explicitBankMigration, /bank_placement_conflict boolean/u);
+  assert.match(explicitBankMigration, /override_row\.placement_target = 'bank'/u);
+  assert.match(
+    explicitBankMigration,
+    /when explicit_bank\.bank_item_id is not null[\s\S]*then null::text/u,
+  );
+  assert.match(
+    explicitBankMigration,
+    /grant execute on function[\s\S]*read_matchday_live_desk_aggregate_tracking\(uuid, text\)[\s\S]*to service_role/u,
+  );
 });
 
 test("o reader troca oito leituras fragmentadas por um contrato compacto sem body", () => {
@@ -138,18 +209,82 @@ test("o reader troca oito leituras fragmentadas por um contrato compacto sem bod
   assert.doesNotMatch(route, /matchday_editorial_bank_items\?select=id,source_type,source_id/u);
 });
 
-test("a UI mostra três linhas simultâneas e não promove Banco a estado", () => {
+test("a UI mostra Todas primeiro, três colunas simultâneas e Banco separado", () => {
   assert.match(client, /TRACKING_STATES = \["NOVA", "FAIXA", "DESALOJADA"\]/u);
   assert.match(client, /TRACKING_STATES\.map\(\(state\)/u);
   assert.match(client, /data-tracking-state=\{state\}/u);
+  assert.match(client, /useState<MatchdayEditorialTrackingClassFilter>\("all"\)/u);
+  assert.match(client, /selectMatchdayEditorialTrackingItems\([\s\S]*desk\.tracking\.items,[\s\S]*"all"/u);
+  assert.match(client, /Todas \{trackableItems\.length\}/u);
   assert.match(client, /Sem notícias novas nesta classe/u);
   assert.match(client, /Sem notícias na Faixa nesta classe/u);
   assert.match(client, /Sem notícias desalojadas nesta classe/u);
+  assert.match(client, /\.thematic-tracking-rows \{[^}]*grid-template-columns: repeat\(3,minmax\(0,1fr\)\);[^}]*align-items: start/u);
+  assert.match(client, /@media \(max-width: 900px\) \{ \.thematic-tracking-rows \{ grid-template-columns: 1fr; \} \}/u);
+  assert.match(client, /\.thematic-tracking-row \.thematic-sources-list \{ grid-template-columns: 1fr;/u);
+  assert.match(client, /\.thematic-tracking-row \.thematic-empty \{ min-height: 44px; \}/u);
+  assert.match(client, /className="thematic-tracking-row-label"/u);
+  assert.match(
+    client,
+    /className="thematic-tracking-row-label"[\s\S]*\{entries\.length > 0 \? \([\s\S]*Selecionar linha[\s\S]*className="thematic-sources-list"/u,
+  );
+  assert.doesNotMatch(client, /className="thematic-tracking-row-actions"/u);
+  assert.doesNotMatch(client, /\.thematic-tracking-row > header/u);
   assert.doesNotMatch(client, /SourceViewKey|activeSourceView/u);
 
   const start = client.indexOf('aria-label="Tracking editorial por classe"');
   const end = client.indexOf("function renderActiveWorkspace", start);
   const trackingUi = client.slice(start, end);
   assert.ok(start >= 0 && end > start);
-  assert.doesNotMatch(trackingUi, />\s*Banco(?:\s|\{)/u);
+  assert.ok(trackingUi.indexOf("Todas") < trackingUi.indexOf("profile.zones.map"));
+  assert.doesNotMatch(client, /data-tracking-state=[^\n]*BANCO/u);
+  assert.match(trackingUi, /className="thematic-bank-access"/u);
+  assert.match(trackingUi, /aria-label="Banco editorial"/u);
+});
+
+test("Banco tem Todas e filtros contextuais independentes com contadores próprios", () => {
+  assert.match(client, /const \[bankClassFilter, setBankClassFilter\][\s\S]*useState<MatchdayEditorialTrackingClassFilter>\("all"\)/u);
+  assert.match(client, /aria-label="Filtrar Banco por classe contextual"/u);
+  assert.match(client, /selectMatchdayEditorialExplicitBankItems\([\s\S]*explicitBankEntries,[\s\S]*bankClassFilter/u);
+  assert.match(client, /Todas \{explicitBankEntries\.length\}/u);
+  assert.match(client, /entry\.classifiedZoneKey === zone\.key/u);
+  assert.match(client, /filteredBankEntries\.map\(\(\{ item \}\) => identity\(item\)\)/u);
+  assert.match(client, /visibleBankEntries = filteredBankEntries\.slice\(0, bankVisibleCount\)/u);
+  assert.match(client, /aria-label="Pesquisar Tracking e Banco"/u);
+  assert.doesNotMatch(client, /setTrackingClassFilter\(bankClassFilter\)/u);
+
+  const bankStart = client.indexOf('aria-label="Banco editorial"');
+  const bankEnd = client.indexOf('<div className="thematic-tracking-rows">', bankStart);
+  const bankUi = client.slice(bankStart, bankEnd);
+  assert.ok(bankStart >= 0 && bankEnd > bankStart);
+  assert.doesNotMatch(bankUi, /<header>/u);
+  assert.match(bankUi, /className="thematic-bank-class-filters"[\s\S]*Selecionar Banco/u);
+  assert.doesNotMatch(bankUi, /disponíveis/u);
+});
+
+test("contadores do Tracking excluem Banco explícito no snapshot e no draft", () => {
+  const explicitBank = row("13", null, {
+    classification_key: "sporting",
+    is_explicit_bank: true,
+    memory_kind: "displaced",
+  });
+  const tracking = buildMatchdayEditorialTrackingSnapshot(
+    EDITORIAL_PROFILES.liga_portugal_v1,
+    [row("14", "NOVA"), explicitBank],
+  ).tracking.items;
+  const bank = selectMatchdayEditorialExplicitBankItems([
+    { bankItemId: explicitBank.bank_item_id, classifiedZoneKey: "sporting" },
+    { bankItemId: explicitBank.bank_item_id, classifiedZoneKey: "sporting" },
+  ], "all");
+
+  assert.equal(selectMatchdayEditorialTrackingItems(tracking, "all").length, 1);
+  assert.equal(selectMatchdayEditorialTrackingItems(tracking, "sporting").length, 1);
+  assert.equal(bank.length, 1);
+  assert.equal(selectMatchdayEditorialExplicitBankItems(bank, "sporting").length, 1);
+  assert.equal(selectMatchdayEditorialExplicitBankItems(bank, "benfica").length, 0);
+  assert.match(client, /const trackableItems = useMemo\([\s\S]*!draftExplicitBankIdentities\.has\(itemIdentity\)/u);
+  assert.match(client, /Todas \{trackableItems\.length\}/u);
+  assert.match(client, /\{zone\.label\} \{trackableItems\.filter/u);
+  assert.match(client, /Banco \{explicitBankEntries\.length\}/u);
+  assert.match(client, /Todas \{explicitBankEntries\.length\}/u);
 });

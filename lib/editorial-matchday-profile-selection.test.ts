@@ -274,7 +274,7 @@ test("cartão da Seleção usa menu compacto com uma única ação própria", ()
   assert.doesNotMatch(selectionCard, /thematic-selection-remove/u);
   assert.doesNotMatch(
     selectionCard,
-    /Mover para Faixa|Mover para Banco|Devolver ao automático|Fixar nesta posição|Proteger na zona/u,
+    /Mover para Faixa|Mover para Banco|Fixar nesta posição|Proteger na zona/u,
   );
 });
 

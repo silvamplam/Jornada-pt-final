@@ -22,6 +22,7 @@ import {
   withoutMatchdayEditorialProfileOpeningOverrides,
 } from "@/lib/editorial-matchday-profile-workspace";
 import { matchdayEditorialProfileSelectionIdentities } from "@/lib/editorial-matchday-profile-selection";
+import type { MatchdayEditorialVacantZoneSlot } from "@/lib/editorial-matchday-movement-preview";
 import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
@@ -191,6 +192,9 @@ function mutationErrorResponse(error: unknown) {
     || message.includes("profile-workspace-v7-")
     || message.includes("profile-workspace-v8-")
     || message.includes("profile-workspace-v9-")
+    || message.includes("profile-workspace-v11-")
+    || message.includes("matchday-editorial-profile-vacant-")
+    || message.includes("matchday-editorial-profile-displaced-")
     || message.includes("profile-workspace-exclusive-")
     || message.includes("profile-selection-")
   ) {
@@ -323,6 +327,12 @@ export async function POST(
     || input.workedSourceIds.some(
       (value) => typeof value !== "string" || !UUID_PATTERN.test(value.trim()),
     )
+    || !Array.isArray(input.displacedBankItemIds)
+    || input.displacedBankItemIds.some(
+      (value) => typeof value !== "string" || !UUID_PATTERN.test(value.trim()),
+    )
+    || !Array.isArray(input.vacantZoneSlots)
+    || !Array.isArray(input.vacantFaixaSlots)
     || typeof input.videoModule !== "object"
     || input.videoModule === null
   ) {
@@ -376,6 +386,66 @@ export async function POST(
       profile,
       pageControls.thematicZoneLayouts,
     );
+  const displacedBankItemIds = Array.from(new Set(
+    (input.displacedBankItemIds as string[]).map(
+      (value) => value.trim().toLowerCase(),
+    ),
+  ));
+  if (displacedBankItemIds.length !== input.displacedBankItemIds.length) {
+    return apiError(
+      "thematic-desk-invalid-displacement",
+      "A lista de notícias desalojadas contém identidades repetidas.",
+      400,
+    );
+  }
+  let vacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[];
+  let vacantFaixaSlots: readonly number[];
+  try {
+    const seen = new Set<string>();
+    vacantZoneSlots = (input.vacantZoneSlots as unknown[]).map((value) => {
+      if (
+        typeof value !== "object"
+        || value === null
+        || Array.isArray(value)
+      ) {
+        throw new Error("matchday-editorial-profile-vacant-zone-slot-invalid");
+      }
+      const slot = value as Record<string, unknown>;
+      if (Object.keys(slot).sort().join(",") !== "slotPosition,zoneKey") {
+        throw new Error("matchday-editorial-profile-vacant-zone-slot-invalid");
+      }
+      const zone = effectiveProfile.zones.find(
+        (candidate) => candidate.key === slot.zoneKey,
+      );
+      const slotPosition = slot.slotPosition;
+      const key = `${String(slot.zoneKey)}:${String(slotPosition)}`;
+      if (
+        !zone
+        || !Number.isInteger(slotPosition)
+        || (slotPosition as number) <= 0
+        || (slotPosition as number) > zone.capacity
+        || seen.has(key)
+      ) {
+        throw new Error("matchday-editorial-profile-vacant-zone-slot-invalid");
+      }
+      seen.add(key);
+      return {
+        zoneKey: zone.key,
+        slotPosition: slotPosition as number,
+      };
+    });
+    vacantFaixaSlots = (input.vacantFaixaSlots as unknown[]).map((value) => {
+      if (!Number.isInteger(value) || (value as number) <= 0) {
+        throw new Error("matchday-editorial-profile-vacant-faixa-slot-invalid");
+      }
+      return value as number;
+    });
+    if (new Set(vacantFaixaSlots).size !== vacantFaixaSlots.length) {
+      throw new Error("matchday-editorial-profile-vacant-faixa-slot-invalid");
+    }
+  } catch (error) {
+    return mutationErrorResponse(error);
+  }
 
   if (!getSupabaseServiceConfig()) {
     return apiError("thematic-desk-service-unavailable", "A escrita administrativa não está configurada.", 503);
@@ -451,6 +521,25 @@ export async function POST(
     const independentPlacementIdentities = independentPlacementIdentity
       ? [independentPlacementIdentity]
       : [];
+    const displacedBankItemIdSet = new Set(displacedBankItemIds);
+    const displacedRows = desk.selectionCandidates.filter((row) => (
+      displacedBankItemIdSet.has(row.bankItemId.trim().toLowerCase())
+    ));
+    if (displacedRows.length !== displacedBankItemIds.length) {
+      throw new Error(
+        "matchday-editorial-profile-displaced-source-not-active",
+      );
+    }
+    const displacedIdentities = displacedRows.map((row) => {
+      const sourceType = row.sourceType?.trim().toLowerCase();
+      const sourceId = row.sourceId?.trim().toLowerCase();
+      if (sourceType !== "editorial_article" || !sourceId) {
+        throw new Error(
+          "matchday-editorial-profile-displaced-source-not-active",
+        );
+      }
+      return thematicEditorialIdentity(sourceType, sourceId);
+    });
 
     const circuitOverrides = withoutMatchdayEditorialProfileOpeningOverrides(
       effectiveProfile,
@@ -477,12 +566,30 @@ export async function POST(
         selectionIdentities,
         workedIdentities,
         independentPlacementIdentities,
+        displacedIdentities,
+        vacantZoneSlots,
+        vacantFaixaSlots,
+      },
+    );
+    const compatibilityReconcile = reconcileMatchdayEditorialProfileWorkspace(
+      effectiveProfile,
+      desk.automaticDistribution.activeItems,
+      circuitOverrides,
+      opening,
+      desk.appliedZoneItems,
+      desk.hasAppliedSnapshot,
+      desk.currentFaixa,
+      {
+        selectionIdentities,
+        workedIdentities,
+        independentPlacementIdentities,
       },
     );
     const applyIssues =
       validateMatchdayEditorialProfileApplyState(
         reconcile,
         input.selectionBankItemIds,
+        { vacantZoneSlots },
       );
 
     const zoneIssue = applyIssues.find(
@@ -527,7 +634,7 @@ export async function POST(
       );
     }
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_editorial_profile_workspace_v10",
+      "rpc/apply_matchday_editorial_profile_workspace_v11",
       {
         method: "POST",
         body: JSON.stringify({
@@ -542,13 +649,25 @@ export async function POST(
             zone_key: override.zoneKey,
             sort_order: override.sortOrder,
           })),
-          p_zone_items: reconcile.zonesAfter.flatMap((zone) => zone.items.map((item) => ({
+          p_zone_items: compatibilityReconcile.zonesAfter.flatMap((zone) => zone.items.map((item) => ({
             source_type: item.sourceType,
             source_id: item.sourceId,
             zone_key: zone.key,
             sort_order: item.sortOrder,
           }))),
-          p_faixa_source_ids: reconcile.faixaAfter.map((item) => item.sourceId),
+          p_faixa_source_ids: compatibilityReconcile.faixaAfter.map((item) => item.sourceId),
+          p_authoritative_zone_items: reconcile.zonesAfter.flatMap((zone) => zone.items.map((item) => ({
+            source_type: item.sourceType,
+            source_id: item.sourceId,
+            zone_key: zone.key,
+            sort_order: item.sortOrder,
+          }))),
+          p_authoritative_faixa_items: reconcile.faixaAfter.map((item) => ({
+            source_type: item.sourceType,
+            source_id: item.sourceId,
+            sort_order: item.sortOrder,
+          })),
+          p_displaced_bank_item_ids: displacedBankItemIds,
           p_opening: opening,
           p_page_controls: {
             headline_title_color:

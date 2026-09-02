@@ -89,19 +89,17 @@ test("funções privilegiadas têm search_path fechado e execução service_role
   assert.match(normalized, /grant execute on function public\.apply_matchday_editorial_profile_workspace[\s\S]*to service_role/);
 });
 
-test("UI monta só a janela visível da Faixa e mantém pesquisa/expansão sobre a fila completa", () => {
+test("UI pagina a Faixa dentro do tracking agregado", () => {
   const client = source("app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx");
-  assert.match(client, /const FAIXA_INITIAL_VISIBLE = 30/);
-  assert.match(client, /const FAIXA_PAGE_SIZE = 30/);
-  assert.match(client, /const visibleFaixa = filteredFaixa\.slice\(0, faixaVisibleCount\);/);
-  assert.match(client, /visibleFaixa\.map/);
-  assert.match(client, /setFaixaVisibleCount\(\(count\) => count \+ FAIXA_PAGE_SIZE\)/);
-  assert.match(client, /const filteredFaixa = reconcile\.faixaAfter\.filter/);
+  assert.match(client, /const TRACKING_INITIAL_VISIBLE = 30/);
+  assert.match(client, /const TRACKING_PAGE_SIZE = 30/);
+  assert.match(client, /trackingVisibleCounts/);
+  assert.match(client, /trackingEntriesForState/);
+  assert.match(client, /setTrackingVisibleCounts/);
   assert.match(client, /loading="lazy"/);
-  assert.doesNotMatch(client, /reconcile\.faixaAfter\.map\(\(item\) => \(/);
 });
 
-test("preview local só lê a Seleção e Apply faz uma única escrita temática", () => {
+test("preview usa o snapshot agregado e Apply faz uma única escrita temática", () => {
   const client = source("app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx");
   const route = source("app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts");
   assert.match(client, /function commitDraft/);
@@ -112,9 +110,9 @@ test("preview local só lê a Seleção e Apply faz uma única escrita temática
   assert.ok(applyStart >= 0 && applyEnd > applyStart);
   assert.equal((applyBlock.match(/method: "POST"/g) ?? []).length, 1);
   assert.match(applyBlock, /\/organizar\/tematico/);
-  assert.match(client, /method: "GET"/);
+  assert.doesNotMatch(client, /method: "GET"/);
   assert.equal((route.match(/writeSupabaseAdminReturning/g) ?? []).length, 2);
-  assert.match(route, /rpc\/apply_matchday_editorial_profile_workspace_v10/);
+  assert.match(route, /rpc\/apply_matchday_editorial_profile_workspace_v11/);
   assert.match(route, /expectedStateToken|p_expected_state_token/);
   assert.match(route, /thematic_zone_order: pageControls\.thematicZoneOrder/);
 });

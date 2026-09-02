@@ -303,12 +303,30 @@ export function zerozeroPageHasContext(
   const $ = load(html);
   const text = normalizeAgendaTvText($.root().text());
   const season = normalizeAgendaTvText(input.seasonLabel);
+  const matchdayNumber = String(input.matchdayNumber);
+  const selectedMatchday = $(
+    'select[name="jornada_in"] option[selected], select[name="jornada"] option[selected]',
+  ).toArray().some((option) => {
+    const value = ($(option).attr("value") ?? "").trim();
+    const label = normalizeAgendaTvText($(option).text());
+
+    return (
+      value === matchdayNumber
+      || label === `jornada ${matchdayNumber}`
+    );
+  });
+  const inputMatchday = $(
+    'input[name="jornada_in"], input[name="jornada"]',
+  ).toArray().some((inputElement) => (
+    ($(inputElement).attr("value") ?? "").trim() === matchdayNumber
+  ));
+  const headingMatchday = new RegExp(
+    `\\bjornada\\s+${input.matchdayNumber}\\b`,
+  ).test(text);
 
   return (
     text.includes(season)
-    && new RegExp(
-      `\\bjornada\\s+${input.matchdayNumber}\\b`,
-    ).test(text)
+    && (selectedMatchday || inputMatchday || headingMatchday)
   );
 }
 

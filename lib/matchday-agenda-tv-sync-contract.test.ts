@@ -74,3 +74,9 @@ test("endpoint bloqueia quando não há correspondência ou canal exato", () => 
     /source_conflict/,
   );
 });
+
+test("indisponibilidade externa permanece fail-safe e é distinguida no diagnóstico", () => {
+  assert.match(route, /console\.warn\("\[agenda-tv\] external source unavailable"/u);
+  assert.match(route, /Agenda externa indisponível neste momento\. Nenhuma alteração foi efetuada\./u);
+  assert.match(route, /"source-unavailable"/u);
+});

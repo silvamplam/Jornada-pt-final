@@ -2,7 +2,7 @@
 
 import Image, { type ImageLoaderProps } from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 
 import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
 import { readAdminJsonResponse } from "@/lib/admin-json-response";
@@ -19,26 +19,35 @@ import {
   type EditorialProfileZoneKey,
   type EditorialVisualFamily,
 } from "@/lib/editorial-profiles";
-import type {
-  MatchdayEditorialSelectionCandidate,
-  MatchdayEditorialProfileDeskDiagnostic,
-  MatchdayEditorialProfileDeskSnapshot,
-  MatchdayEditorialTrackingState,
+import {
+  selectMatchdayEditorialExplicitBankItems,
+  selectMatchdayEditorialTrackingItems,
+  type MatchdayEditorialTrackingClassFilter,
+  type MatchdayEditorialSelectionCandidate,
+  type MatchdayEditorialProfileDeskDiagnostic,
+  type MatchdayEditorialProfileDeskSnapshot,
+  type MatchdayEditorialTrackingState,
 } from "@/lib/editorial-matchday-profile-desk";
 import {
-  fixMatchdayEditorialItemsAtPosition,
   moveMatchdayEditorialItemsToBank,
-  moveMatchdayEditorialItemsToFaixa,
+  placeMatchdayEditorialItemInFaixaWithoutCascade,
+  placeMatchdayEditorialItemsInFaixaWithoutCascade,
+  placeMatchdayEditorialItemsInZoneWithoutCascade,
   reconcileMatchdayEditorialProfileDeskSnapshot,
   releaseMatchdayEditorialFixedPositions,
   returnMatchdayEditorialItemsToAutomatic,
-  swapMatchdayEditorialItemsInFaixa,
-  swapMatchdayEditorialItemsInZone,
   compactMatchdayEditorialProfileManualOverridesForLayoutChange,
   thematicEditorialIdentity,
   type MatchdayEditorialProfileEffectiveItem,
   type MatchdayEditorialProfileManualOverride,
 } from "@/lib/editorial-matchday-profile-desk-operations";
+import {
+  applyMatchdayEditorialMovementPreview,
+  type MatchdayEditorialMovementPreviewState,
+  type MatchdayEditorialPreviewMovement,
+  type MatchdayEditorialPreviewPlacement,
+  type MatchdayEditorialVacantZoneSlot,
+} from "@/lib/editorial-matchday-movement-preview";
 import {
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS,
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS,
@@ -124,6 +133,7 @@ type AgendaTvResponse = Readonly<{
   ok?: boolean;
   preview?: AgendaTvPreview;
   applied?: number;
+  code?: string;
   message?: string;
 }>;
 
@@ -133,6 +143,7 @@ type AgendaTvPanelState =
   | "no_changes"
   | "changes"
   | "blocked"
+  | "unavailable"
   | "error"
   | "applied";
 
@@ -244,12 +255,23 @@ const styles = `
   .thematic-sources-list { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; padding: 6px; }
   .thematic-sources-list .thematic-card { min-height: 60px; }
   .thematic-sources-list[data-drag-active="true"] { background: #fff8f8; box-shadow: inset 0 0 0 1px #e43e48; }
-  .thematic-tracking-rows { display: grid; gap: 6px; padding: 6px; }
+  .thematic-tracking-rows { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); align-items: start; gap: 6px; padding: 6px; }
   .thematic-tracking-row { min-width: 0; overflow: hidden; border: 1px solid #dfe6ee; border-radius: 6px; background: #fff; }
-  .thematic-tracking-row > header { display: flex; gap: 7px; align-items: center; min-height: 30px; padding: 4px 6px; border-bottom: 1px solid #e5ebf1; background: #f8fafc; }
-  .thematic-tracking-row > header strong { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
-  .thematic-tracking-row > header span { display: inline-grid; place-items: center; min-width: 23px; min-height: 20px; border-radius: 999px; background: #e8eef6; color: #334155; font-size: 9px; font-weight: 900; }
-  .thematic-tracking-row > header .thematic-button { margin-left: auto; }
+  .thematic-tracking-row-label { display: flex; gap: 5px; align-items: center; min-height: 22px; padding: 3px 6px 1px; }
+  .thematic-tracking-row-label strong { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+  .thematic-tracking-row-label span { color: #64748b; font-size: 9px; font-weight: 900; }
+  .thematic-tracking-row-label .thematic-button { min-height: 24px; margin-left: auto; padding: 2px 6px; }
+  .thematic-tracking-row .thematic-sources-list { grid-template-columns: 1fr; align-content: start; }
+  .thematic-tracking-row .thematic-empty { min-height: 44px; }
+  .thematic-bank-access { display: flex; flex: 0 0 auto; align-items: center; padding-left: 5px; border-left: 1px solid #d7e0e9; }
+  .thematic-bank-access .thematic-button.active { border-color: #334155; background: #334155; color: #fff; }
+  .thematic-bank-pool { margin: 6px 6px 0; overflow: hidden; border: 1px solid #dfe6ee; border-radius: 6px; background: #fff; }
+  .thematic-bank-class-filters { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 5px 6px 0; }
+  .thematic-bank-class-filters nav { display: flex; flex: 1 1 auto; flex-wrap: wrap; gap: 4px; }
+  .thematic-bank-class-filters nav button { min-height: 25px; padding: 2px 7px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 9px; font-weight: 850; cursor: pointer; }
+  .thematic-bank-class-filters nav button.active { border-color: #334155; background: #334155; color: #fff; }
+  .thematic-bank-class-filters > .thematic-button { flex: 0 0 auto; margin-left: auto; }
+  .thematic-bank-pool .thematic-empty { min-height: 44px; }
   .thematic-faixa-item { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 5px; align-items: start; min-width: 0; }
   .thematic-global-tools { display: grid; grid-template-columns: max-content max-content max-content minmax(0,1fr); align-items: start; gap: 5px; }
   .thematic-global-tool { min-width: 0; border: 1px solid #d7e0e9; border-radius: 7px; background: #fff; box-shadow: 0 3px 10px rgba(12,22,34,.03); }
@@ -264,15 +286,16 @@ const styles = `
   .agenda-tv-sync-copy span { color: #607086; font-size: 10px; font-weight: 700; }
   .agenda-tv-sync-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
   .agenda-tv-sync-message { margin: 0; padding: 6px 8px; border-radius: 5px; background: #eef6ff; color: #1e3a8a; font-size: 10px; font-weight: 700; }
+  .agenda-tv-sync-message.warning { background: #fff8e6; color: #684b0e; }
   .agenda-tv-sync-message.error { background: #fff1f2; color: #9f1239; }
   .agenda-tv-sync-rows { display: grid; gap: 4px; }
   .agenda-tv-sync-row { display: grid; grid-template-columns: minmax(180px,.8fr) repeat(2,minmax(180px,1fr)); gap: 7px; align-items: center; padding: 6px 7px; border: 1px solid #e3e8ee; border-radius: 5px; background: #fff; }
-  .agenda-tv-sync-row.blocked { border-color: #f2b8bd; background: #fffafa; }
+  .agenda-tv-sync-row.blocked { border-color: #ead7a2; background: #fffdf5; }
   .agenda-tv-sync-row > strong { min-width: 0; font-size: 10px; overflow-wrap: anywhere; }
   .agenda-tv-sync-value { display: grid; min-width: 0; gap: 2px; }
   .agenda-tv-sync-value span { color: #64748b; font-size: 8px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
   .agenda-tv-sync-value p { margin: 0; color: #243244; font-size: 10px; font-weight: 700; overflow-wrap: anywhere; }
-  .agenda-tv-sync-note { grid-column: 1 / -1; margin: 0; color: #9f1239; font-size: 9px; font-weight: 800; }
+  .agenda-tv-sync-note { grid-column: 1 / -1; margin: 0; color: #765000; font-size: 9px; font-weight: 800; }
   .thematic-page-structure { display: grid; gap: 5px; padding: 0 6px 6px; }
   .thematic-page-structure-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
   .thematic-top-tools, .thematic-top-tools label { display: flex; align-items: center; gap: 5px; }
@@ -304,6 +327,7 @@ const styles = `
   .thematic-highlight-card > div { display: grid; gap: 5px; }
   .thematic-highlight-card span { color: #64748b; font-size: 9px; }
   @media (max-width: 1180px) { .thematic-sources-toolbar, .thematic-reservoir-filters { flex-wrap: wrap; } .thematic-slots-5, .thematic-slots-6, .thematic-sources-list { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+  @media (max-width: 900px) { .thematic-tracking-rows { grid-template-columns: 1fr; } }
   @media (max-width: 760px) { .thematic-global-tools, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-sources-list, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .thematic-page-row-actions, .agenda-tv-sync-actions { justify-content: flex-start; } }
 `;
 
@@ -324,6 +348,12 @@ type WorkspaceEditorState = Readonly<{
   draftVideoModule: VideoModuleDraft;
   selectedIdentities: readonly string[];
   workedIdentities: readonly string[];
+  persistedDisplacedIdentities: readonly string[];
+  draftDisplacedIdentities: readonly string[];
+  persistedVacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[];
+  draftVacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[];
+  persistedVacantFaixaSlots: readonly number[];
+  draftVacantFaixaSlots: readonly number[];
 }>;
 
 type WorkspaceDraft = Readonly<{
@@ -333,12 +363,50 @@ type WorkspaceDraft = Readonly<{
   editorialSelection: readonly (string | null)[];
   videoModule: VideoModuleDraft;
   workedIdentities: readonly string[];
+  displacedIdentities: readonly string[];
+  vacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[];
+  vacantFaixaSlots: readonly number[];
 }>;
 
 type Placement = Readonly<{
   kind: "new" | "opening" | "zone" | "faixa" | "bank";
   zoneKey?: EditorialProfileZoneKey;
 }>;
+
+function displacedIdentitiesFromDesk(
+  desk: MatchdayEditorialProfileDeskSnapshot,
+): readonly string[] {
+  return desk.tracking.items
+    .filter((item) => item.editorialState === "DESALOJADA")
+    .map((item) => thematicEditorialIdentity(item.sourceType, item.sourceId));
+}
+
+function vacantZoneSlotsFromDesk(
+  profile: ReturnType<typeof editorialProfileWithZoneLayouts>,
+  desk: MatchdayEditorialProfileDeskSnapshot,
+): readonly MatchdayEditorialVacantZoneSlot[] {
+  return profile.zones.flatMap((zone) => {
+    const occupied = new Set(
+      desk.appliedZoneItems
+        .filter((item) => item.zoneKey === zone.key)
+        .map((item) => item.sortOrder),
+    );
+    return Array.from({ length: zone.capacity }, (_, index) => index + 1)
+      .filter((slotPosition) => !occupied.has(slotPosition))
+      .map((slotPosition) => ({ zoneKey: zone.key, slotPosition }));
+  });
+}
+
+function vacantFaixaSlotsFromDesk(
+  desk: MatchdayEditorialProfileDeskSnapshot,
+): readonly number[] {
+  const occupied = new Set(
+    desk.currentFaixa.map((item) => item.sortOrder),
+  );
+  const lastOccupied = Math.max(0, ...occupied);
+  return Array.from({ length: lastOccupied }, (_, index) => index + 1)
+    .filter((slotPosition) => !occupied.has(slotPosition));
+}
 
 function imageLoader({ src }: ImageLoaderProps): string { return src; }
 
@@ -371,7 +439,7 @@ function manualLabel(mode: MatchdayEditorialProfileEffectiveItem["manualOverride
   return null;
 }
 
-function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onAutomatic, onFaixa, onBank, onFixPosition, onReleasePosition, onProtectZone }: Readonly<{
+function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onFaixa, onBank, onFixPosition, onReleasePosition, onProtectZone }: Readonly<{
   item: MatchdayEditorialProfileEffectiveItem;
   placement: Placement;
   selected: boolean;
@@ -379,7 +447,6 @@ function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStar
   onToggle: (itemIdentity: string) => void;
   onDragStart: (event: DragEvent<HTMLElement>, itemIdentity: string) => void;
   onDragEnd: () => void;
-  onAutomatic: () => void;
   onFaixa: () => void;
   onBank: () => void;
   onFixPosition: (() => void) | null;
@@ -439,7 +506,6 @@ function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStar
           {onReleasePosition ? <button className="thematic-button" onClick={onReleasePosition} type="button">Libertar posição</button> : null}
           {placement.kind !== "faixa" ? <button className="thematic-button" onClick={onFaixa} type="button">Mover para Faixa</button> : null}
           {placement.kind !== "bank" ? <button className="thematic-button" onClick={onBank} type="button">Mover para Banco</button> : null}
-          {(manual || placement.kind === "opening") ? <button className="thematic-button" onClick={onAutomatic} type="button">Devolver ao automático</button> : null}
         </div>
       </details>
     </article>
@@ -609,6 +675,15 @@ function MatchdayAgendaTvSyncPanel({ matchdayId }: Readonly<{ matchdayId: string
       if (result.preview) setPreview(result.preview);
 
       if (!response.ok || !result.ok || !result.preview) {
+        if (result.code === "source-unavailable") {
+          setPanelState("unavailable");
+          setMessage(
+            result.message
+            ?? "Agenda externa indisponível neste momento. Nenhuma alteração foi efetuada.",
+          );
+          return;
+        }
+
         setPanelState(result.preview?.summary.blockers ? "blocked" : "error");
         setMessage(result.message ?? "Não foi possível concluir a operação.");
         return;
@@ -661,9 +736,11 @@ function MatchdayAgendaTvSyncPanel({ matchdayId }: Readonly<{ matchdayId: string
               ? "Procurar diferenças de data, hora e canal."
               : panelState === "searching"
                 ? "A consultar a agenda da jornada…"
+                : panelState === "unavailable"
+                  ? "Origem externa temporariamente indisponível."
                 : preview
                   ? `${preview.summary.update} alterações · ${preview.summary.blockers} problemas`
-                  : "Operação indisponível."}
+                  : "Não foi possível concluir a operação."}
           </span>
         </div>
         <div className="agenda-tv-sync-actions">
@@ -690,8 +767,8 @@ function MatchdayAgendaTvSyncPanel({ matchdayId }: Readonly<{ matchdayId: string
 
       {message && panelState !== "searching" ? (
         <p
-          aria-live={panelState === "blocked" || panelState === "error" ? "assertive" : "polite"}
-          className={`agenda-tv-sync-message${panelState === "blocked" || panelState === "error" ? " error" : ""}`}
+          aria-live={panelState === "error" ? "assertive" : "polite"}
+          className={`agenda-tv-sync-message${panelState === "blocked" ? " warning" : panelState === "error" ? " error" : ""}`}
         >
           {message}
         </p>
@@ -761,6 +838,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     },
     selectedIdentities: [],
     workedIdentities: [],
+    persistedDisplacedIdentities: displacedIdentitiesFromDesk(desk),
+    draftDisplacedIdentities: displacedIdentitiesFromDesk(desk),
+    persistedVacantZoneSlots: vacantZoneSlotsFromDesk(incomingProfile, desk),
+    draftVacantZoneSlots: vacantZoneSlotsFromDesk(incomingProfile, desk),
+    persistedVacantFaixaSlots: vacantFaixaSlotsFromDesk(desk),
+    draftVacantFaixaSlots: vacantFaixaSlotsFromDesk(desk),
   }));
   const [history, setHistory] = useState<readonly WorkspaceDraft[]>([]);
   const [draggingIdentity, setDraggingIdentity] = useState<string | null>(null);
@@ -776,8 +859,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [destinationZone, setDestinationZone] = useState<EditorialProfileZoneKey>(profile.zones[0].key);
   const [zonePosition, setZonePosition] = useState(1);
   const [faixaPosition, setFaixaPosition] = useState(1);
-  const [trackingZoneKey, setTrackingZoneKey] = useState<EditorialProfileZoneKey>(profile.zones[0].key);
+  const [trackingClassFilter, setTrackingClassFilter] =
+    useState<MatchdayEditorialTrackingClassFilter>("all");
+  const [bankClassFilter, setBankClassFilter] =
+    useState<MatchdayEditorialTrackingClassFilter>("all");
   const [trackingQuery, setTrackingQuery] = useState("");
+  const [bankOpen, setBankOpen] = useState(false);
+  const [bankVisibleCount, setBankVisibleCount] = useState(TRACKING_INITIAL_VISIBLE);
   const [trackingVisibleCounts, setTrackingVisibleCounts] = useState<
     Readonly<Record<MatchdayEditorialTrackingState, number>>
   >({
@@ -818,6 +906,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     position: MatchdayEditorialProfileSelectionPosition,
     bankItemId: string,
   ) {
+    const incomingIdentity = identityForBankItemId(bankItemId);
+    const displacedIdentity = identityForBankItemId(
+      draftEditorialSelection[position - 1] ?? null,
+    );
+    const source = incomingIdentity
+      ? previewPlacementForIdentity(incomingIdentity)
+      : null;
     const transition = prepareExclusiveMatchdayEditorialProfileSelection({
       profile: effectiveProfile,
       activeItems,
@@ -829,13 +924,29 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       bankItemId,
     });
 
-    commitDraft(
-      withWorkedIdentities({
+    const nextDraft = withWorkedIdentities({
         ...currentDraft(),
         overrides: transition.overrides,
         opening: transition.opening,
         editorialSelection: transition.selection,
-      }, transition.workedIdentity ? [transition.workedIdentity] : []),
+      }, [
+        ...(transition.workedIdentity ? [transition.workedIdentity] : []),
+        ...(displacedIdentity && displacedIdentity !== incomingIdentity
+          ? [displacedIdentity]
+          : []),
+      ]);
+    commitDraft(
+      incomingIdentity
+        ? withPreviewMovements(nextDraft, [{
+            incomingIdentity,
+            source,
+            target: { kind: "selection", slotPosition: position },
+            displacedIdentity:
+              displacedIdentity !== incomingIdentity
+                ? displacedIdentity
+                : null,
+          }])
+        : nextDraft,
       "Seleção editorial alterada em preview. Clique em Aplicar para publicar a alteração.",
     );
   }
@@ -851,13 +962,23 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         candidates: editorialSelectionCandidates,
         position,
       });
-    commitDraft(
-      withWorkedIdentities({
+    const removedIdentity = transition.workedIdentity;
+    const nextDraft = withWorkedIdentities({
         ...currentDraft(),
         overrides: transition.overrides,
         editorialSelection: transition.selection,
-      }, transition.workedIdentity ? [transition.workedIdentity] : []),
-      "Promoção retirada da Seleção; a notícia regressou automaticamente à sua zona ou à Faixa.",
+      }, removedIdentity ? [removedIdentity] : []);
+    commitDraft(
+      removedIdentity
+        ? {
+            ...nextDraft,
+            displacedIdentities: Array.from(new Set([
+              ...nextDraft.displacedIdentities,
+              removedIdentity,
+            ])).sort(),
+          }
+        : nextDraft,
+      "Promoção retirada da Seleção; a notícia fica desalojada.",
     );
   }
 
@@ -916,6 +1037,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   }
 
   function changeVideoHighlight(value: string) {
+    const previousHighlightIdentity = draftVideoHighlightIdentity;
     const highlight: VideoHighlightDraft =
       value === "remove"
         ? {
@@ -952,8 +1074,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     const transition = highlightWorkedIdentity
       ? prepareExclusivePlacementTransition([highlightWorkedIdentity])
       : null;
-    commitDraft(
-      withWorkedIdentities({
+    const displacedIdentity =
+      highlight.action !== "preserve"
+      && previousHighlightIdentity !== highlightWorkedIdentity
+        ? previousHighlightIdentity
+        : null;
+    const nextDraft = withWorkedIdentities({
         ...currentDraft(),
         ...(transition
           ? {
@@ -966,7 +1092,28 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           ...editorState.draftVideoModule,
           highlight,
         },
-      }, highlightWorkedIdentity ? [highlightWorkedIdentity] : []),
+      }, [
+        ...(highlightWorkedIdentity ? [highlightWorkedIdentity] : []),
+        ...(displacedIdentity ? [displacedIdentity] : []),
+      ]);
+    const previewDraft = highlightWorkedIdentity
+      ? withPreviewMovements(nextDraft, [{
+          incomingIdentity: highlightWorkedIdentity,
+          source: previewPlacementForIdentity(highlightWorkedIdentity),
+          target: { kind: "video_highlight", slotPosition: 1 },
+          displacedIdentity,
+        }])
+      : displacedIdentity
+        ? {
+            ...nextDraft,
+            displacedIdentities: Array.from(new Set([
+              ...nextDraft.displacedIdentities,
+              displacedIdentity,
+            ])).sort(),
+          }
+        : nextDraft;
+    commitDraft(
+      previewDraft,
       highlight.action === "preserve"
         ? "Destaque reposto para o estado aplicado."
         : highlight.action === "remove"
@@ -995,11 +1142,27 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       }, desk.manualOverrides, desk.automaticDistribution.activeItems);
       const openingDirty = !sameJson(current.persistedOpening, current.draftOpening);
       const controlsDirty = !sameJson(current.persistedPageControls, current.draftPageControls);
+      const displacementDirty =
+        !sameJson(
+          current.persistedDisplacedIdentities,
+          current.draftDisplacedIdentities,
+        )
+        || !sameJson(
+          current.persistedVacantZoneSlots,
+          current.draftVacantZoneSlots,
+        )
+        || !sameJson(
+          current.persistedVacantFaixaSlots,
+          current.draftVacantFaixaSlots,
+        );
       const videoModuleDirty =
         current.draftVideoModule.active
           !== current.persistedVideoModuleActive
         || current.draftVideoModule.highlight.action !== "preserve";
       const draftOpening = openingDirty ? current.draftOpening : desk.opening;
+      const nextDisplacedIdentities = displacedIdentitiesFromDesk(desk);
+      const nextVacantZoneSlots = vacantZoneSlotsFromDesk(incomingProfile, desk);
+      const nextVacantFaixaSlots = vacantFaixaSlotsFromDesk(desk);
       return {
         persistedOverrides: reconciledOverrides.persistedOverrides,
         draftOverrides: withoutMatchdayEditorialProfileOpeningOverrides(incomingProfile, reconciledOverrides.draftOverrides, draftOpening),
@@ -1020,6 +1183,19 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         selectedIdentities: reconciledOverrides.selectedIdentities,
         workedIdentities: current.workedIdentities.filter((itemIdentity) =>
           desk.automaticDistribution.activeItems.some((item) => identity(item) === itemIdentity)),
+        persistedDisplacedIdentities: nextDisplacedIdentities,
+        draftDisplacedIdentities: displacementDirty
+          ? current.draftDisplacedIdentities.filter((itemIdentity) =>
+              desk.automaticDistribution.activeItems.some((item) => identity(item) === itemIdentity))
+          : nextDisplacedIdentities,
+        persistedVacantZoneSlots: nextVacantZoneSlots,
+        draftVacantZoneSlots: displacementDirty
+          ? current.draftVacantZoneSlots
+          : nextVacantZoneSlots,
+        persistedVacantFaixaSlots: nextVacantFaixaSlots,
+        draftVacantFaixaSlots: displacementDirty
+          ? current.draftVacantFaixaSlots
+          : nextVacantFaixaSlots,
       };
     });
   }, [desk, profile]);
@@ -1176,8 +1352,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       selectionIdentities: draftSelectionIdentities,
       workedIdentities: editorState.workedIdentities,
       independentPlacementIdentities,
+      displacedIdentities: editorState.draftDisplacedIdentities,
+      vacantZoneSlots: editorState.draftVacantZoneSlots,
+      vacantFaixaSlots: editorState.draftVacantFaixaSlots,
     },
-  ), [activeItems, desk.appliedZoneItems, desk.currentFaixa, desk.hasAppliedSnapshot, draftSelectionIdentities, editorState.draftOpening, editorState.workedIdentities, effectiveProfile, independentPlacementIdentities, operationalOverrides]);
+  ), [activeItems, desk.appliedZoneItems, desk.currentFaixa, desk.hasAppliedSnapshot, draftSelectionIdentities, editorState.draftDisplacedIdentities, editorState.draftOpening, editorState.draftVacantFaixaSlots, editorState.draftVacantZoneSlots, editorState.workedIdentities, effectiveProfile, independentPlacementIdentities, operationalOverrides]);
   const pending = reconcile.hasChanges
     || !sameJson(operationalOverrides, persistedOperationalOverrides)
     || !sameJson(editorState.draftOpening, editorState.persistedOpening)
@@ -1186,6 +1365,18 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       !== editorState.persistedVideoModuleActive
     || editorState.draftVideoModule.highlight.action !== "preserve"
     || !sameJson(draftEditorialSelection, persistedEditorialSelection)
+    || !sameJson(
+      editorState.draftDisplacedIdentities,
+      editorState.persistedDisplacedIdentities,
+    )
+    || !sameJson(
+      editorState.draftVacantZoneSlots,
+      editorState.persistedVacantZoneSlots,
+    )
+    || !sameJson(
+      editorState.draftVacantFaixaSlots,
+      editorState.persistedVacantFaixaSlots,
+    )
     || editorState.workedIdentities.length > 0;
   const zoneByKey = new Map(
     reconcile.zonesAfter.map(
@@ -1214,7 +1405,113 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const normalizedTrackingQuery = trackingQuery
     .trim()
     .toLocaleLowerCase("pt-PT");
-  const trackingEntries = useMemo(() => desk.tracking.items.flatMap((trackingItem) => {
+  const matchesTrackingQuery = (
+    item: Pick<MatchdayEditorialProfileEffectiveItem, "label" | "title" | "subtitle">,
+  ) => (
+    !normalizedTrackingQuery
+    || [item.label, item.title, item.subtitle].some((value) =>
+      value?.toLocaleLowerCase("pt-PT").includes(normalizedTrackingQuery))
+  );
+  const explicitBankEntries = useMemo(() => {
+    const entries = reconcile.bankAfter.flatMap((item) => {
+      const itemIdentity = identity(item);
+      const bankItemId = bankItemIdByIdentity.get(itemIdentity)
+        ?.trim()
+        .toLowerCase();
+      if (!bankItemId) return [];
+
+      return [{
+        bankItemId,
+        classifiedZoneKey:
+          activeByIdentity.get(itemIdentity)?.classifiedZoneKey ?? null,
+        item,
+      }];
+    });
+
+    return selectMatchdayEditorialExplicitBankItems(entries, "all");
+  }, [activeByIdentity, bankItemIdByIdentity, reconcile.bankAfter]);
+  const classBankEntries = selectMatchdayEditorialExplicitBankItems(
+    explicitBankEntries,
+    bankClassFilter,
+  );
+  const filteredBankEntries = classBankEntries.filter(({ item }) => (
+    matchesTrackingQuery(item)
+  ));
+  const visibleBankEntries = filteredBankEntries.slice(0, bankVisibleCount);
+  const draftExplicitBankIdentities = useMemo(() => new Set(
+    reconcile.bankAfter.map(identity),
+  ), [reconcile.bankAfter]);
+  const draftPlacedOutsideTrackingIdentities = useMemo(() => new Set([
+    ...matchdayEditorialProfileOpeningSourceIds(editorState.draftOpening).map(
+      (sourceId) => thematicEditorialIdentity("editorial_article", sourceId),
+    ),
+    ...reconcile.zonesAfter.flatMap((zone) => zone.items.map(identity)),
+    ...draftSelectionIdentities,
+    ...independentPlacementIdentities,
+  ]), [draftSelectionIdentities, editorState.draftOpening, independentPlacementIdentities, reconcile.zonesAfter]);
+  const uniqueTrackingItems = useMemo(() => {
+    const persisted = selectMatchdayEditorialTrackingItems(
+      desk.tracking.items,
+      "all",
+    );
+    const byBankItemId = new Map(
+      persisted.map((item) => [item.bankItemId.trim().toLowerCase(), item] as const),
+    );
+
+    for (const faixaItem of reconcile.faixaAfter) {
+      const itemIdentity = identity(faixaItem);
+      const activeItem = activeByIdentity.get(itemIdentity);
+      const bankItemId = bankItemIdByIdentity.get(itemIdentity)?.trim().toLowerCase();
+      if (!activeItem?.classifiedZoneKey || !bankItemId) continue;
+      byBankItemId.set(bankItemId, {
+        ...activeItem,
+        bankItemId,
+        classifiedZoneKey: activeItem.classifiedZoneKey,
+        classificationSource: "preview",
+        classifiedAt: "",
+        editorialState: "FAIXA",
+        memoryKind: null,
+      });
+    }
+
+    for (const itemIdentity of editorState.draftDisplacedIdentities) {
+      const activeItem = activeByIdentity.get(itemIdentity);
+      const bankItemId = bankItemIdByIdentity.get(itemIdentity)?.trim().toLowerCase();
+      if (!activeItem?.classifiedZoneKey || !bankItemId) continue;
+      byBankItemId.set(bankItemId, {
+        ...activeItem,
+        bankItemId,
+        classifiedZoneKey: activeItem.classifiedZoneKey,
+        classificationSource: "preview",
+        classifiedAt: "",
+        editorialState: "DESALOJADA",
+        memoryKind: "displaced",
+      });
+    }
+
+    return selectMatchdayEditorialTrackingItems(
+      Array.from(byBankItemId.values()),
+      "all",
+    );
+  }, [activeByIdentity, bankItemIdByIdentity, desk.tracking.items, editorState.draftDisplacedIdentities, reconcile.faixaAfter]);
+  const trackableItems = useMemo(() => uniqueTrackingItems.filter((item) => {
+    const itemIdentity = identity(item);
+    return activeByIdentity.has(itemIdentity)
+      && !draftExplicitBankIdentities.has(itemIdentity)
+      && !draftPlacedOutsideTrackingIdentities.has(itemIdentity)
+      && (
+        item.editorialState !== "DESALOJADA"
+        || editorState.draftDisplacedIdentities.includes(itemIdentity)
+      );
+  }), [activeByIdentity, draftExplicitBankIdentities, draftPlacedOutsideTrackingIdentities, editorState.draftDisplacedIdentities, uniqueTrackingItems]);
+  const classTrackingItems = useMemo(() => (
+    trackingClassFilter === "all"
+      ? trackableItems
+      : trackableItems.filter((item) => (
+          item.classifiedZoneKey === trackingClassFilter
+        ))
+  ), [trackableItems, trackingClassFilter]);
+  const trackingEntries = useMemo(() => classTrackingItems.flatMap((trackingItem) => {
     const itemIdentity = identity(trackingItem);
     const activeItem = activeByIdentity.get(itemIdentity);
     if (!activeItem) return [];
@@ -1224,14 +1521,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       manualOverride: null,
     };
     return [{ trackingItem, item: effectiveItem }];
-  }), [activeByIdentity, desk.tracking.items, effectiveItemByIdentity]);
+  }), [activeByIdentity, classTrackingItems, effectiveItemByIdentity]);
   const filteredTrackingEntries = trackingEntries.filter(({ trackingItem }) => (
-    trackingItem.classifiedZoneKey === trackingZoneKey
-    && (
-      !normalizedTrackingQuery
-      || [trackingItem.label, trackingItem.title, trackingItem.subtitle].some((value) =>
-        value?.toLocaleLowerCase("pt-PT").includes(normalizedTrackingQuery))
-    )
+    matchesTrackingQuery(trackingItem)
   ));
   const filteredSourceItems = filteredTrackingEntries.map(({ item }) => item);
 
@@ -1293,6 +1585,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       editorialSelection: draftEditorialSelection,
       videoModule: editorState.draftVideoModule,
       workedIdentities: editorState.workedIdentities,
+      displacedIdentities: editorState.draftDisplacedIdentities,
+      vacantZoneSlots: editorState.draftVacantZoneSlots,
+      vacantFaixaSlots: editorState.draftVacantFaixaSlots,
     };
   }
 
@@ -1309,6 +1604,86 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     };
   }
 
+  function previewPlacementForIdentity(
+    itemIdentity: string,
+  ): MatchdayEditorialPreviewPlacement | null {
+    const sourceId = activeByIdentity.get(itemIdentity)?.sourceId ?? null;
+    if (sourceId) {
+      const openingIndex = MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.findIndex(
+        (slot) => editorState.draftOpening[slot] === sourceId,
+      );
+      if (openingIndex >= 0) {
+        return { kind: "opening", slotPosition: openingIndex + 1 };
+      }
+    }
+
+    for (const zone of reconcile.zonesAfter) {
+      const item = zone.items.find((candidate) => identity(candidate) === itemIdentity);
+      if (item) {
+        return {
+          kind: "zone",
+          zoneKey: zone.key,
+          slotPosition: item.sortOrder,
+        };
+      }
+    }
+
+    const faixaItem = reconcile.faixaAfter.find(
+      (candidate) => identity(candidate) === itemIdentity,
+    );
+    if (faixaItem) {
+      return { kind: "faixa", slotPosition: faixaItem.sortOrder };
+    }
+
+    const selectionBankItemId = bankItemIdByIdentity.get(itemIdentity);
+    const selectionPosition = selectionBankItemId
+      ? draftEditorialSelection.findIndex((value) => value === selectionBankItemId)
+      : -1;
+    if (selectionPosition >= 0) {
+      return { kind: "selection", slotPosition: selectionPosition + 1 };
+    }
+
+    if (draftVideoHighlightIdentity === itemIdentity) {
+      return { kind: "video_highlight", slotPosition: 1 };
+    }
+
+    if (reconcile.bankAfter.some((item) => identity(item) === itemIdentity)) {
+      return { kind: "bank" };
+    }
+
+    return { kind: "tracking" };
+  }
+
+  function withPreviewMovements(
+    draft: WorkspaceDraft,
+    movements: readonly MatchdayEditorialPreviewMovement[],
+  ): WorkspaceDraft {
+    const next = applyMatchdayEditorialMovementPreview(
+      {
+        displacedIdentities: draft.displacedIdentities,
+        vacantZoneSlots: draft.vacantZoneSlots,
+        vacantFaixaSlots: draft.vacantFaixaSlots,
+      },
+      movements,
+    );
+    return {
+      ...draft,
+      displacedIdentities: next.displacedIdentities,
+      vacantZoneSlots: next.vacantZoneSlots,
+      vacantFaixaSlots: next.vacantFaixaSlots,
+    };
+  }
+
+  function identityForBankItemId(bankItemId: string | null): string | null {
+    if (!bankItemId) return null;
+    const candidate = editorialSelectionCandidateById.get(bankItemId);
+    const sourceId = candidate?.sourceId?.trim().toLowerCase() ?? "";
+    return candidate?.sourceType?.trim().toLowerCase() === "editorial_article"
+      && sourceId
+      ? thematicEditorialIdentity("editorial_article", sourceId)
+      : null;
+  }
+
   function commitDraft(next: WorkspaceDraft, successMessage: string) {
     setHistory((current) => [...current, currentDraft()]);
     setEditorState((current) => ({
@@ -1319,6 +1694,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       draftVideoModule: next.videoModule,
       selectedIdentities: [],
       workedIdentities: next.workedIdentities,
+      draftDisplacedIdentities: next.displacedIdentities,
+      draftVacantZoneSlots: next.vacantZoneSlots,
+      draftVacantFaixaSlots: next.vacantFaixaSlots,
     }));
     setDraftEditorialSelection(next.editorialSelection);
     setApplyState("idle");
@@ -1501,6 +1879,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   function placeInOpening(itemIdentity: string, slot: MatchdayEditorialProfileOpeningSlotKey) {
     localOperation(() => {
+      const source = previewPlacementForIdentity(itemIdentity);
       const movement = moveMatchdayEditorialProfileItemToOpening(
         editorState.draftOpening,
         sourceIdForIdentity(itemIdentity),
@@ -1511,131 +1890,98 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         returnMatchdayEditorialItemsToAutomatic(
           effectiveProfile,
           operationalOverrides,
-          [itemIdentity],
+          [
+            itemIdentity,
+            ...(movement.displacedSourceId
+              ? [thematicEditorialIdentity(
+                  "editorial_article",
+                  movement.displacedSourceId,
+                )]
+              : []),
+          ],
         );
       const incomingSelection = withoutMatchdayEditorialProfileSelectionBankItems(
         draftEditorialSelection,
         [bankItemIdByIdentity.get(itemIdentity) ?? ""],
       );
 
-      if (movement.previousSlot !== null) {
-        return withWorkedIdentities({
-          ...currentDraft(),
-          overrides: incomingOverrides,
-          opening: movement.opening,
-          editorialSelection: incomingSelection,
-        }, [itemIdentity]);
-      }
-
-      if (!movement.displacedSourceId) {
-        return withWorkedIdentities({
-          ...currentDraft(),
-          overrides: incomingOverrides,
-          opening: movement.opening,
-          editorialSelection: incomingSelection,
-        }, [itemIdentity]);
-      }
-
-      const displacedIdentity =
-        thematicEditorialIdentity(
-          "editorial_article",
-          movement.displacedSourceId,
-        );
-
-      const displacedItem =
-        activeByIdentity.get(displacedIdentity);
-
-      if (!displacedItem) {
-        throw new Error(
-          "A not\u00edcia desalojada j\u00e1 n\u00e3o est\u00e1 ativa.",
-        );
-      }
-
-      if (!displacedItem.classifiedZoneKey) {
-        throw new Error(
-          "A not\u00edcia desalojada n\u00e3o tem zona tem\u00e1tica classificada para regressar \u00e0 posi\u00e7\u00e3o 1.",
-        );
-      }
-
-      const overridesWithoutDisplaced =
-        returnMatchdayEditorialItemsToAutomatic(
-          effectiveProfile,
-          incomingOverrides,
-          [displacedIdentity],
-        );
-
-      const candidates =
-        activeItemsOutside(movement.opening);
-      const candidateIdentities = new Set(
-        candidates.map((item) => identity(item)),
-      );
-      const currentNaturalZoneItems = reconcile.zonesAfter.find(
-        (zone) => zone.key === displacedItem.classifiedZoneKey,
-      )?.items.filter((item) => candidateIdentities.has(identity(item)));
-
-      return withWorkedIdentities({
+      const displacedIdentity = movement.displacedSourceId
+        ? thematicEditorialIdentity(
+            "editorial_article",
+            movement.displacedSourceId,
+          )
+        : null;
+      const nextDraft = withWorkedIdentities({
         ...currentDraft(),
-        overrides: fixMatchdayEditorialItemsAtPosition(
-          effectiveProfile,
-          candidates,
-          overridesWithoutDisplaced,
-          [displacedIdentity],
-          displacedItem.classifiedZoneKey,
-          1,
-          currentNaturalZoneItems,
-        ),
+        overrides: incomingOverrides,
         opening: movement.opening,
         editorialSelection: incomingSelection,
-      }, [itemIdentity]);
-    }, `${MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS[slot]} atualizada em preview; movimentos internos trocam diretamente os dois lugares e entradas externas devolvem a notícia substituída à sua zona natural.`);
+      }, [
+        itemIdentity,
+        ...(displacedIdentity && displacedIdentity !== itemIdentity
+          ? [displacedIdentity]
+          : []),
+      ]);
+
+      return withPreviewMovements(nextDraft, [{
+        incomingIdentity: itemIdentity,
+        source,
+        target: {
+          kind: "opening",
+          slotPosition:
+            MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.indexOf(slot) + 1,
+        },
+        displacedIdentity:
+          displacedIdentity !== itemIdentity ? displacedIdentity : null,
+      }]);
+    }, `${MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS[slot]} atualizada em preview. Se o destino estava ocupado, a notícia substituída fica desalojada.`);
   }
 
   function placeInZone(itemIdentity: string, zoneKey: EditorialProfileZoneKey, position: number) {
-    const currentZone = reconcile.zonesAfter.find((zone) => (
-      zone.key === zoneKey
-      && zone.items.some((item) => identity(item) === itemIdentity)
-    ));
+    const source = previewPlacementForIdentity(itemIdentity);
+    const targetZone = reconcile.zonesAfter.find((zone) => zone.key === zoneKey);
+    const displacedIdentity = targetZone?.items.find(
+      (item) => item.sortOrder === position,
+    );
+    const displacedItemIdentity = displacedIdentity
+      ? identity(displacedIdentity)
+      : null;
 
     localOperation(() => {
-      if (currentZone) {
-        return withWorkedIdentities({
-          ...currentDraft(),
-          overrides: swapMatchdayEditorialItemsInZone(
-            effectiveProfile,
-            activeItems,
-            operationalOverrides,
-            itemIdentity,
-            zoneKey,
-            position,
-            currentZone.items,
-          ),
-        }, [itemIdentity]);
-      }
-
       const transition =
         prepareExclusivePlacementTransition(
           [itemIdentity],
         );
-
-      return withWorkedIdentities({
+      const nextDraft = withWorkedIdentities({
         ...currentDraft(),
-        overrides: fixMatchdayEditorialItemsAtPosition(
+        overrides: placeMatchdayEditorialItemsInZoneWithoutCascade(
           effectiveProfile,
           transition.candidates,
           transition.overrides,
           [itemIdentity],
           zoneKey,
           position,
-          reconcile.zonesAfter.find(
-            (zone) => zone.key === zoneKey,
-          )?.items,
+          targetZone?.items ?? [],
         ),
         opening: transition.opening,
         editorialSelection: transition.editorialSelection,
-      }, [itemIdentity]);
-    }, currentZone
-      ? `Posições trocadas diretamente em ${zoneKey}.`
-      : `Notícia inserida em ${zoneKey}, posição ${position}; eventual excesso passou para o topo da Faixa.`);
+      }, [
+        itemIdentity,
+        ...(displacedItemIdentity && displacedItemIdentity !== itemIdentity
+          ? [displacedItemIdentity]
+          : []),
+      ]);
+
+      return withPreviewMovements(nextDraft, [{
+        incomingIdentity: itemIdentity,
+        source,
+        target: { kind: "zone", zoneKey, slotPosition: position },
+        displacedIdentity:
+          displacedItemIdentity !== itemIdentity
+            ? displacedItemIdentity
+            : null,
+      }]);
+    }, `Notícia colocada em ${zoneKey}, posição ${position}. Se o destino estava ocupado, a notícia substituída fica desalojada.`);
   }
 
   function fixCurrentZonePosition(
@@ -1643,103 +1989,73 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     zoneKey: EditorialProfileZoneKey,
     position: number,
   ) {
-    localOperation(() => {
-      const transition = prepareExclusivePlacementTransition([itemIdentity]);
-
-      return withWorkedIdentities({
-        ...currentDraft(),
-        overrides: fixMatchdayEditorialItemsAtPosition(
-          effectiveProfile,
-          transition.candidates,
-          transition.overrides,
-          [itemIdentity],
-          zoneKey,
-          position,
-          reconcile.zonesAfter.find(
-            (zone) => zone.key === zoneKey,
-          )?.items,
-        ),
-        opening: transition.opening,
-        editorialSelection: transition.editorialSelection,
-      }, [itemIdentity]);
-    }, `Posição ${position} fixada em ${zoneKey}.`);
+    placeInZone(itemIdentity, zoneKey, position);
   }
 
   function placeInFaixa(itemIdentity: string, position: number) {
     const targetPosition = Math.max(1, position);
-    const isInternalSwap =
-      reconcile.faixaAfter.some(
-        (item) => identity(item) === itemIdentity,
-      );
+    const source = previewPlacementForIdentity(itemIdentity);
+    const targetItem = reconcile.faixaAfter.find(
+      (item) => item.sortOrder === targetPosition,
+    );
+    const displacedIdentity = targetItem ? identity(targetItem) : null;
 
     localOperation(() => {
-      if (isInternalSwap) {
-        return withWorkedIdentities({
-          ...currentDraft(),
-          overrides: swapMatchdayEditorialItemsInFaixa(
-            effectiveProfile,
-            activeItems,
-            operationalOverrides,
-            itemIdentity,
-            targetPosition,
-            reconcile.faixaAfter,
-          ),
-        }, [itemIdentity]);
-      }
-
       const transition =
         prepareExclusivePlacementTransition(
           [itemIdentity],
         );
-
-      return withWorkedIdentities({
+      const nextDraft = withWorkedIdentities({
         ...currentDraft(),
-        overrides: moveMatchdayEditorialItemsToFaixa(
+        overrides: placeMatchdayEditorialItemInFaixaWithoutCascade(
           effectiveProfile,
           transition.candidates,
           transition.overrides,
-          [itemIdentity],
+          itemIdentity,
           targetPosition,
           reconcile.faixaAfter,
         ),
         opening: transition.opening,
         editorialSelection: transition.editorialSelection,
-      }, [itemIdentity]);
-    }, isInternalSwap
-      ? "Posições trocadas diretamente na Faixa."
-      : `Notícia inserida na Faixa na posição ${targetPosition}; o conteúdo existente foi deslocado sem reordenação cronológica.`);
+      }, [
+        itemIdentity,
+        ...(displacedIdentity && displacedIdentity !== itemIdentity
+          ? [displacedIdentity]
+          : []),
+      ]);
+
+      return withPreviewMovements(nextDraft, [{
+        incomingIdentity: itemIdentity,
+        source,
+        target: { kind: "faixa", slotPosition: targetPosition },
+        displacedIdentity:
+          displacedIdentity !== itemIdentity ? displacedIdentity : null,
+      }]);
+    }, `Notícia colocada na Faixa na posição ${targetPosition}. Se o destino estava ocupado, a notícia substituída fica desalojada.`);
   }
 
   function placeInBank(itemIdentity: string) {
     localOperation(() => {
+      const source = previewPlacementForIdentity(itemIdentity);
       const transition =
         prepareExclusivePlacementTransition(
           [itemIdentity],
         );
 
-      return withWorkedIdentities({
+      const nextDraft = withWorkedIdentities({
         ...currentDraft(),
         overrides: moveMatchdayEditorialItemsToBank(effectiveProfile, transition.candidates, transition.overrides, [itemIdentity]),
         opening: transition.opening,
         editorialSelection: transition.editorialSelection,
       }, [itemIdentity]);
+
+      return withPreviewMovements(nextDraft, [{
+        incomingIdentity: itemIdentity,
+        source,
+        target: { kind: "bank" },
+        displacedIdentity: null,
+      }]);
     }, "Notícia enviada explicitamente para o Banco.");
-  }
-
-  function returnToAutomatic(itemIdentity: string) {
-    localOperation(() => {
-      const transition =
-        prepareExclusivePlacementTransition(
-          [itemIdentity],
-        );
-
-      return withWorkedIdentities({
-        ...currentDraft(),
-        overrides: transition.overrides,
-        opening: transition.opening,
-        editorialSelection: transition.editorialSelection,
-      }, [itemIdentity]);
-    }, "Decisão manual removida; a classificação volta a decidir o destino, sem reordenação cronológica.");
   }
 
   function releasePosition(itemIdentity: string) {
@@ -1750,7 +2066,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         operationalOverrides,
         [itemIdentity],
       ),
-    }, [itemIdentity]), "Posição manual libertada; a decisão manual é removida e o conteúdo regressa ao circuito automático sem posição flutuante.");
+    }, [itemIdentity]), "Proteção manual removida; a notícia mantém a ocupação atual até um novo movimento editorial.");
   }
 
   function dragged(event: DragEvent<HTMLElement>): string | null {
@@ -1782,6 +2098,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       draftVideoModule: previous.videoModule,
       selectedIdentities: [],
       workedIdentities: previous.workedIdentities,
+      draftDisplacedIdentities: previous.displacedIdentities,
+      draftVacantZoneSlots: previous.vacantZoneSlots,
+      draftVacantFaixaSlots: previous.vacantFaixaSlots,
     }));
     setDraftEditorialSelection(previous.editorialSelection);
     setHistory((current) => current.slice(0, -1));
@@ -1817,6 +2136,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       },
       selectedIdentities: [],
       workedIdentities: [],
+      draftDisplacedIdentities: current.persistedDisplacedIdentities,
+      draftVacantZoneSlots: current.persistedVacantZoneSlots,
+      draftVacantFaixaSlots: current.persistedVacantFaixaSlots,
     }));
     setDraftEditorialSelection(exclusive.selection);
     setApplyState("idle");
@@ -1838,6 +2160,17 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         const item = activeByIdentity.get(itemIdentity);
         return item ? [item.sourceId] : [];
       });
+      const displacedBankItemIds = editorState.draftDisplacedIdentities.map(
+        (itemIdentity) => {
+          const bankItemId = bankItemIdByIdentity.get(itemIdentity);
+          if (!bankItemId) {
+            throw new Error(
+              "Uma notícia desalojada já não tem identidade canónica no Bank.",
+            );
+          }
+          return bankItemId;
+        },
+      );
       const response = await fetch(`/api/admin/editorial/jornada/${desk.matchdayId}/organizar/tematico`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1850,6 +2183,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           pageControls: editorState.draftPageControls,
           selectionBankItemIds: draftEditorialSelection,
           workedSourceIds,
+          displacedBankItemIds,
+          vacantZoneSlots: editorState.draftVacantZoneSlots,
+          vacantFaixaSlots: editorState.draftVacantFaixaSlots,
           videoModule: {
             active: editorState.draftVideoModule.active,
             highlightAction:
@@ -1880,6 +2216,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         },
         selectedIdentities: [],
         workedIdentities: [],
+        persistedDisplacedIdentities: current.draftDisplacedIdentities,
+        draftDisplacedIdentities: current.draftDisplacedIdentities,
+        persistedVacantZoneSlots: current.draftVacantZoneSlots,
+        draftVacantZoneSlots: current.draftVacantZoneSlots,
+        persistedVacantFaixaSlots: current.draftVacantFaixaSlots,
+        draftVacantFaixaSlots: current.draftVacantFaixaSlots,
       }));
       setPersistedEditorialSelection(draftEditorialSelection);
       setHistory([]);
@@ -1899,7 +2241,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       <ArticleCard
         dragging={draggingIdentity === itemIdentity}
         item={item}
-        onAutomatic={() => returnToAutomatic(itemIdentity)}
         onBank={() => placeInBank(itemIdentity)}
         onDragEnd={() => setDraggingIdentity(null)}
         onDragStart={dragStart}
@@ -2474,12 +2815,26 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         <div className="thematic-sources-toolbar">
           <h2>Tracking</h2>
           <nav aria-label="Escolher classe contextual">
+            <button
+              className={trackingClassFilter === "all" ? "active" : ""}
+              onClick={() => {
+                setTrackingClassFilter("all");
+                setTrackingVisibleCounts({
+                  NOVA: TRACKING_INITIAL_VISIBLE,
+                  FAIXA: TRACKING_INITIAL_VISIBLE,
+                  DESALOJADA: TRACKING_INITIAL_VISIBLE,
+                });
+              }}
+              type="button"
+            >
+              Todas {trackableItems.length}
+            </button>
             {profile.zones.map((zone) => (
               <button
-                className={trackingZoneKey === zone.key ? "active" : ""}
+                className={trackingClassFilter === zone.key ? "active" : ""}
                 key={zone.key}
                 onClick={() => {
-                  setTrackingZoneKey(zone.key);
+                  setTrackingClassFilter(zone.key);
                   setTrackingVisibleCounts({
                     NOVA: TRACKING_INITIAL_VISIBLE,
                     FAIXA: TRACKING_INITIAL_VISIBLE,
@@ -2488,16 +2843,27 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 }}
                 type="button"
               >
-                {zone.label} {desk.tracking.items.filter((item) => (
+                {zone.label} {trackableItems.filter((item) => (
                   item.classifiedZoneKey === zone.key
                 )).length}
               </button>
             ))}
           </nav>
+          <div className="thematic-bank-access">
+            <button
+              aria-controls="thematic-bank-pool"
+              aria-expanded={bankOpen}
+              className={`thematic-button${bankOpen ? " active" : ""}`}
+              onClick={() => setBankOpen((current) => !current)}
+              type="button"
+            >
+              Banco {explicitBankEntries.length}
+            </button>
+          </div>
           <label className="thematic-reservoir-search">
             <span>Pesquisa</span>
             <input
-              aria-label={`Pesquisar tracking ${trackingZoneKey}`}
+              aria-label="Pesquisar Tracking e Banco"
               onChange={(event) => {
                 setTrackingQuery(event.target.value);
                 setTrackingVisibleCounts({
@@ -2505,6 +2871,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   FAIXA: TRACKING_INITIAL_VISIBLE,
                   DESALOJADA: TRACKING_INITIAL_VISIBLE,
                 });
+                setBankVisibleCount(TRACKING_INITIAL_VISIBLE);
               }}
               placeholder="Título ou antetítulo"
               type="search"
@@ -2516,6 +2883,84 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             <span>em tracking</span>
           </div>
         </div>
+
+        {bankOpen ? (
+          <section
+            aria-label="Banco editorial"
+            className="thematic-bank-pool"
+            id="thematic-bank-pool"
+          >
+            <div className="thematic-bank-class-filters">
+              <nav aria-label="Filtrar Banco por classe contextual">
+                <button
+                  className={bankClassFilter === "all" ? "active" : ""}
+                  onClick={() => {
+                    setBankClassFilter("all");
+                    setBankVisibleCount(TRACKING_INITIAL_VISIBLE);
+                  }}
+                  type="button"
+                >
+                  Todas {explicitBankEntries.length}
+                </button>
+                {profile.zones.map((zone) => (
+                  <button
+                    className={bankClassFilter === zone.key ? "active" : ""}
+                    key={zone.key}
+                    onClick={() => {
+                      setBankClassFilter(zone.key);
+                      setBankVisibleCount(TRACKING_INITIAL_VISIBLE);
+                    }}
+                    type="button"
+                  >
+                    {zone.label} {explicitBankEntries.filter((entry) => (
+                      entry.classifiedZoneKey === zone.key
+                    )).length}
+                  </button>
+                ))}
+              </nav>
+              <button
+                className="thematic-button"
+                disabled={filteredBankEntries.length === 0}
+                onClick={() => setEditorState((current) => ({
+                  ...current,
+                  selectedIdentities: Array.from(new Set([
+                    ...current.selectedIdentities,
+                    ...filteredBankEntries.map(({ item }) => identity(item)),
+                  ])),
+                }))}
+                type="button"
+              >
+                Selecionar Banco
+              </button>
+            </div>
+            <div className="thematic-sources-list">
+              {visibleBankEntries.length > 0
+                ? visibleBankEntries.map(({ bankItemId, item }) => (
+                    <Fragment key={bankItemId}>
+                      {cardFor(item, { kind: "bank" })}
+                    </Fragment>
+                  ))
+                : <p className="thematic-empty">Sem notícias estacionadas no Banco.</p>}
+            </div>
+            {visibleBankEntries.length < filteredBankEntries.length ? (
+              <div className="thematic-more">
+                <button
+                  className="thematic-button"
+                  onClick={() => setBankVisibleCount((current) => (
+                    current + TRACKING_PAGE_SIZE
+                  ))}
+                  type="button"
+                >
+                  Mostrar mais {Math.min(
+                    TRACKING_PAGE_SIZE,
+                    filteredBankEntries.length - visibleBankEntries.length,
+                  )}
+                </button>
+                <span>{visibleBankEntries.length}/{filteredBankEntries.length}</span>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <div className="thematic-tracking-rows">
           {TRACKING_STATES.map((state) => {
@@ -2534,29 +2979,30 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
             return (
               <section
-                aria-label={`${label} · ${trackingZoneKey}`}
+                aria-label={`${label} · ${trackingClassFilter === "all" ? "todas" : trackingClassFilter}`}
                 className="thematic-tracking-row"
                 data-tracking-state={state}
                 key={state}
               >
-                <header>
+                <div className="thematic-tracking-row-label">
                   <strong>{label}</strong>
                   <span>{entries.length}</span>
-                  <button
-                    className="thematic-button"
-                    disabled={entries.length === 0}
-                    onClick={() => setEditorState((current) => ({
-                      ...current,
-                      selectedIdentities: Array.from(new Set([
-                        ...current.selectedIdentities,
-                        ...entries.map(({ item }) => identity(item)),
-                      ])),
-                    }))}
-                    type="button"
-                  >
-                    Selecionar linha
-                  </button>
-                </header>
+                  {entries.length > 0 ? (
+                    <button
+                      className="thematic-button"
+                      onClick={() => setEditorState((current) => ({
+                        ...current,
+                        selectedIdentities: Array.from(new Set([
+                          ...current.selectedIdentities,
+                          ...entries.map(({ item }) => identity(item)),
+                        ])),
+                      }))}
+                      type="button"
+                    >
+                      Selecionar linha
+                    </button>
+                  ) : null}
+                </div>
                 <div
                   className="thematic-sources-list"
                   data-drag-active={draggingIdentity !== null}
@@ -2671,23 +3117,51 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   className="thematic-button"
                   onClick={() => localOperation(() => {
                     const transition = prepareExclusivePlacementTransition(selectedIdentities);
-                    return withWorkedIdentities({
+                    const targetZone = reconcile.zonesAfter.find(
+                      (zone) => zone.key === destinationZone,
+                    );
+                    const selectedSet = new Set(selectedIdentities);
+                    const movements = selectedIdentities.map((itemIdentity, index) => {
+                      const targetPosition = effectiveZonePosition + index;
+                      const targetItem = targetZone?.items.find(
+                        (item) => item.sortOrder === targetPosition,
+                      );
+                      const displacedIdentity = targetItem
+                        ? identity(targetItem)
+                        : null;
+                      return {
+                        incomingIdentity: itemIdentity,
+                        source: previewPlacementForIdentity(itemIdentity),
+                        target: {
+                          kind: "zone" as const,
+                          zoneKey: destinationZone,
+                          slotPosition: targetPosition,
+                        },
+                        displacedIdentity:
+                          displacedIdentity && !selectedSet.has(displacedIdentity)
+                            ? displacedIdentity
+                            : null,
+                      };
+                    });
+                    const displacedIdentities = movements.flatMap((movement) => (
+                      movement.displacedIdentity ? [movement.displacedIdentity] : []
+                    ));
+                    const nextDraft = withWorkedIdentities({
                       ...currentDraft(),
-                      overrides: fixMatchdayEditorialItemsAtPosition(
+                      overrides: placeMatchdayEditorialItemsInZoneWithoutCascade(
                         effectiveProfile,
                         transition.candidates,
                         transition.overrides,
                         selectedIdentities,
                         destinationZone,
                         effectiveZonePosition,
-                        reconcile.zonesAfter.find(
-                          (zone) => zone.key === destinationZone,
-                        )?.items,
+                        targetZone?.items ?? [],
                       ),
                       opening: transition.opening,
                       editorialSelection: transition.editorialSelection,
-                    }, selectedIdentities);
-                  }, "Operação em lote inserida desde a posição escolhida; o conteúdo existente desce e o excesso passa para o topo da Faixa.")}
+                    }, [...selectedIdentities, ...displacedIdentities]);
+                    return withPreviewMovements(nextDraft, movements);
+                  }, "Operação em lote colocada diretamente nos destinos; notícias substituídas ficam desalojadas.")}
                   type="button"
                 >
                   Mover para zona
@@ -2707,9 +3181,34 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   className="thematic-button"
                   onClick={() => localOperation(() => {
                     const transition = prepareExclusivePlacementTransition(selectedIdentities);
-                    return withWorkedIdentities({
+                    const selectedSet = new Set(selectedIdentities);
+                    const movements = selectedIdentities.map((itemIdentity, index) => {
+                      const targetPosition = faixaPosition + index;
+                      const targetItem = reconcile.faixaAfter.find(
+                        (item) => item.sortOrder === targetPosition,
+                      );
+                      const displacedIdentity = targetItem
+                        ? identity(targetItem)
+                        : null;
+                      return {
+                        incomingIdentity: itemIdentity,
+                        source: previewPlacementForIdentity(itemIdentity),
+                        target: {
+                          kind: "faixa" as const,
+                          slotPosition: targetPosition,
+                        },
+                        displacedIdentity:
+                          displacedIdentity && !selectedSet.has(displacedIdentity)
+                            ? displacedIdentity
+                            : null,
+                      };
+                    });
+                    const displacedIdentities = movements.flatMap((movement) => (
+                      movement.displacedIdentity ? [movement.displacedIdentity] : []
+                    ));
+                    const nextDraft = withWorkedIdentities({
                       ...currentDraft(),
-                      overrides: moveMatchdayEditorialItemsToFaixa(
+                      overrides: placeMatchdayEditorialItemsInFaixaWithoutCascade(
                         effectiveProfile,
                         transition.candidates,
                         transition.overrides,
@@ -2719,8 +3218,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                       ),
                       opening: transition.opening,
                       editorialSelection: transition.editorialSelection,
-                    }, selectedIdentities);
-                  }, "Operação em lote inserida na Faixa a partir da posição escolhida; o conteúdo existente foi deslocado sem reordenação cronológica.")}
+                    }, [...selectedIdentities, ...displacedIdentities]);
+                    return withPreviewMovements(nextDraft, movements);
+                  }, "Operação em lote colocada diretamente na Faixa; notícias substituídas ficam desalojadas.")}
                   type="button"
                 >
                   Mover para Faixa
@@ -2732,7 +3232,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   className="thematic-button"
                   onClick={() => localOperation(() => {
                     const transition = prepareExclusivePlacementTransition(selectedIdentities);
-                    return withWorkedIdentities({
+                    const nextDraft = withWorkedIdentities({
                       ...currentDraft(),
                       overrides: moveMatchdayEditorialItemsToBank(
                         effectiveProfile,
@@ -2743,25 +3243,19 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                       opening: transition.opening,
                       editorialSelection: transition.editorialSelection,
                     }, selectedIdentities);
+                    return withPreviewMovements(
+                      nextDraft,
+                      selectedIdentities.map((itemIdentity) => ({
+                        incomingIdentity: itemIdentity,
+                        source: previewPlacementForIdentity(itemIdentity),
+                        target: { kind: "bank" },
+                        displacedIdentity: null,
+                      })),
+                    );
                   }, "Operação em lote movida para o Banco.")}
                   type="button"
                 >
                   Mover para Banco
-                </button>
-                <button
-                  className="thematic-button"
-                  onClick={() => localOperation(() => {
-                    const transition = prepareExclusivePlacementTransition(selectedIdentities);
-                    return withWorkedIdentities({
-                      ...currentDraft(),
-                      overrides: transition.overrides,
-                      opening: transition.opening,
-                      editorialSelection: transition.editorialSelection,
-                    }, selectedIdentities);
-                  }, "Operação em lote devolvida ao automático.")}
-                  type="button"
-                >
-                  Automático
                 </button>
               </div>
             </div>

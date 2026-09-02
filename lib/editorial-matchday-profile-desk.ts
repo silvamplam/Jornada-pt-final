@@ -36,6 +36,10 @@ const READ_PAGE_SIZE = 1_000;
 
 export type MatchdayEditorialTrackingState = "NOVA" | "FAIXA" | "DESALOJADA";
 
+export type MatchdayEditorialTrackingClassFilter =
+  | "all"
+  | EditorialProfileZoneKey;
+
 export type MatchdayEditorialProfileStateRow = Readonly<{
   source_type: string;
   source_id: string;
@@ -78,6 +82,8 @@ export type MatchdayLiveDeskAggregateRow = Readonly<{
   memory_kind: "legacy_unknown" | "displaced" | null;
   history_unknown: boolean;
   memory_placement_conflict: boolean;
+  is_explicit_bank: boolean;
+  bank_placement_conflict: boolean;
   editorial_state: "NOVA" | "FAIXA" | "DESALOJADA" | "COLOCADA" | null;
   placement_id: string | null;
   placement_type: string | null;
@@ -148,6 +154,8 @@ export type MatchdayEditorialProfileDeskDiagnosticCode =
   | "legacy_unknown_state"
   | "transversal_state_conflict"
   | "memory_placement_state_conflict"
+  | "explicit_bank_placement_conflict"
+  | "explicit_bank_memory_overlap"
   | "invalid_applied_snapshot";
 
 export type MatchdayEditorialProfileDeskDiagnostic = Readonly<{
@@ -189,6 +197,60 @@ export type MatchdayEditorialTrackingSnapshot = Readonly<{
   legacyUnknownCount: number;
   conflictCount: number;
 }>;
+
+export function selectMatchdayEditorialTrackingItems(
+  items: readonly MatchdayEditorialTrackingItem[],
+  classFilter: MatchdayEditorialTrackingClassFilter,
+) {
+  const seenBankItemIds = new Set<string>();
+
+  return items.filter((item) => {
+    if (
+      classFilter !== "all"
+      && item.classifiedZoneKey !== classFilter
+    ) {
+      return false;
+    }
+
+    const bankItemId = item.bankItemId.trim().toLowerCase();
+
+    if (!bankItemId || seenBankItemIds.has(bankItemId)) {
+      return false;
+    }
+
+    seenBankItemIds.add(bankItemId);
+    return true;
+  });
+}
+
+export type MatchdayEditorialExplicitBankFilterItem = Readonly<{
+  bankItemId: string;
+  classifiedZoneKey: EditorialProfileZoneKey | null;
+}>;
+
+export function selectMatchdayEditorialExplicitBankItems<
+  T extends MatchdayEditorialExplicitBankFilterItem,
+>(
+  items: readonly T[],
+  classFilter: MatchdayEditorialTrackingClassFilter,
+): T[] {
+  const seenBankItemIds = new Set<string>();
+
+  return items.filter((item) => {
+    if (
+      classFilter !== "all"
+      && item.classifiedZoneKey !== classFilter
+    ) {
+      return false;
+    }
+
+    const bankItemId = item.bankItemId.trim().toLowerCase();
+    if (!bankItemId || seenBankItemIds.has(bankItemId)) return false;
+
+    seenBankItemIds.add(bankItemId);
+    return true;
+  });
+}
 
 export type MatchdayEditorialSelectionCandidate = Readonly<{
   bankItemId: string;
@@ -646,8 +708,31 @@ export function buildMatchdayEditorialTrackingSnapshot(
       continue;
     }
 
+    if (row.bank_placement_conflict) {
+      conflictCount += 1;
+      diagnostics.push({
+        code: "explicit_bank_placement_conflict",
+        message: `A participação ${sourceType}:${sourceId} tem intenção Banco e placement autoritativo simultâneos; nenhum estado foi escolhido.`,
+        sourceType,
+        sourceId,
+      });
+      continue;
+    }
+
     if (cleanText(row.bank_status)?.toLowerCase() !== "active") continue;
     if (sourceType !== SUPPORTED_SOURCE_TYPE || !sourceId) continue;
+
+    if (row.is_explicit_bank) {
+      if (row.memory_kind !== null) {
+        diagnostics.push({
+          code: "explicit_bank_memory_overlap",
+          message: `A participação ${sourceType}:${sourceId} está explicitamente no Banco; a memória ${row.memory_kind} não governa o estado atual.`,
+          sourceType,
+          sourceId,
+        });
+      }
+      continue;
+    }
 
     if (row.history_unknown || row.memory_kind === "legacy_unknown") {
       legacyUnknownCount += 1;

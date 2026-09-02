@@ -145,14 +145,14 @@ test("otimização não aumenta timeout nem altera schema editorial", () => {
   assert.doesNotMatch(migration, /create\s+(unique\s+)?index/i);
 });
 
-test("rota administrativa usa apenas a v10", () => {
+test("rota administrativa usa a v11 sobre o contrato v10", () => {
   assert.match(
     route,
-    /rpc\/apply_matchday_editorial_profile_workspace_v10/,
+    /rpc\/apply_matchday_editorial_profile_workspace_v11/,
   );
 
   assert.doesNotMatch(
     route,
-    /rpc\/apply_matchday_editorial_profile_workspace_v9/,
+    /rpc\/apply_matchday_editorial_profile_workspace_v(?:9|10)/,
   );
 });

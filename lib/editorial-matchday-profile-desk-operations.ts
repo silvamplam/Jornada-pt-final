@@ -796,85 +796,59 @@ export function fixMatchdayEditorialItemsAtPosition(
 
   return normalizedMapValues(profile, next);
 }
-export function swapMatchdayEditorialItemsInZone(
+export function placeMatchdayEditorialItemsInZoneWithoutCascade(
   profile: EditorialProfile,
   activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
   overrides: readonly MatchdayEditorialProfileManualOverride[],
-  movingIdentity: string,
+  movingIdentities: readonly string[],
   zoneKey: EditorialProfileZoneKey,
-  targetPosition: number,
+  startPosition: number,
   currentZoneItems: readonly (
     MatchdayEditorialProfileEffectiveItem
     & Readonly<{ sortOrder: number }>
   )[],
 ): readonly MatchdayEditorialProfileManualOverride[] {
   const zone = profile.zones.find((candidate) => candidate.key === zoneKey);
+  const movingItems = requireActiveItems(activeItems, movingIdentities);
+
   if (
     !zone
-    || !Number.isInteger(targetPosition)
-    || targetPosition <= 0
-    || targetPosition > zone.capacity
+    || !Number.isInteger(startPosition)
+    || startPosition <= 0
+    || startPosition + movingItems.length - 1 > zone.capacity
   ) {
-    throw new Error("matchday-editorial-profile-manual-overrides-invalid-sort-order");
-  }
-
-  const movingItem = requireActiveItems(
-    activeItems,
-    [movingIdentity],
-  )[0];
-  if (!movingItem) {
     throw new Error(
-      "matchday-editorial-profile-manual-overrides-source-not-active",
+      "matchday-editorial-profile-manual-overrides-invalid-sort-order",
     );
   }
-  const normalizedMovingIdentity = thematicEditorialIdentity(
-    movingItem.sourceType,
-    movingItem.sourceId,
-  );
-  const currentItem = currentZoneItems.find((item) => (
+
+  const movingSet = new Set(movingItems.map((item) => (
     thematicEditorialIdentity(item.sourceType, item.sourceId)
-      === normalizedMovingIdentity
-  ));
-
-  if (!currentItem) {
-    throw new Error(
-      "matchday-editorial-profile-manual-overrides-swap-source-not-in-zone",
-    );
-  }
-  if (currentItem.sortOrder === targetPosition) {
-    return validateMatchdayEditorialProfileManualOverrides(
-      profile,
-      overrides,
-    );
-  }
-
-  const targetItem = currentZoneItems.find(
-    (item) => item.sortOrder === targetPosition,
+  )));
+  const targetPositions = new Set(
+    movingItems.map((_, index) => startPosition + index),
   );
   const next = overrideMap(overrides);
-  next.delete(normalizedMovingIdentity);
 
-  if (targetItem) {
+  for (const itemIdentity of movingSet) next.delete(itemIdentity);
+
+  for (const targetItem of currentZoneItems) {
+    if (!targetPositions.has(targetItem.sortOrder)) continue;
     const targetIdentity = thematicEditorialIdentity(
       targetItem.sourceType,
       targetItem.sourceId,
     );
-    next.delete(targetIdentity);
-    next.set(targetIdentity, {
-      sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
-      sourceId: targetItem.sourceId,
-      placementTarget: "zone",
-      zoneKey,
-      sortOrder: currentItem.sortOrder,
-    });
+    if (!movingSet.has(targetIdentity)) next.delete(targetIdentity);
   }
 
-  next.set(normalizedMovingIdentity, {
-    sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
-    sourceId: movingItem.sourceId,
-    placementTarget: "zone",
-    zoneKey,
-    sortOrder: targetPosition,
+  movingItems.forEach((item, index) => {
+    next.set(thematicEditorialIdentity(item.sourceType, item.sourceId), {
+      sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
+      sourceId: item.sourceId,
+      placementTarget: "zone",
+      zoneKey,
+      sortOrder: startPosition + index,
+    });
   });
 
   return normalizedMapValues(profile, next);
@@ -1016,11 +990,29 @@ export function moveMatchdayEditorialItemsToFaixa(
     next,
   );
 }
-export function swapMatchdayEditorialItemsInFaixa(
+export function placeMatchdayEditorialItemInFaixaWithoutCascade(
   profile: EditorialProfile,
   activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
   overrides: readonly MatchdayEditorialProfileManualOverride[],
   movingIdentity: string,
+  targetPosition: number,
+  currentFaixaItems: readonly MatchdayEditorialProfileEffectiveItem[],
+): readonly MatchdayEditorialProfileManualOverride[] {
+  return placeMatchdayEditorialItemsInFaixaWithoutCascade(
+    profile,
+    activeItems,
+    overrides,
+    [movingIdentity],
+    targetPosition,
+    currentFaixaItems,
+  );
+}
+
+export function placeMatchdayEditorialItemsInFaixaWithoutCascade(
+  profile: EditorialProfile,
+  activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
+  overrides: readonly MatchdayEditorialProfileManualOverride[],
+  movingIdentities: readonly string[],
   targetPosition: number,
   currentFaixaItems: readonly MatchdayEditorialProfileEffectiveItem[],
 ): readonly MatchdayEditorialProfileManualOverride[] {
@@ -1030,63 +1022,36 @@ export function swapMatchdayEditorialItemsInFaixa(
     );
   }
 
-  const movingItem = requireActiveItems(
-    activeItems,
-    [movingIdentity],
-  )[0];
-  if (!movingItem) {
-    throw new Error(
-      "matchday-editorial-profile-manual-overrides-source-not-active",
-    );
-  }
-  const normalizedMovingIdentity = thematicEditorialIdentity(
-    movingItem.sourceType,
-    movingItem.sourceId,
-  );
-  const currentItem = currentFaixaItems.find((item) => (
+  const movingItems = requireActiveItems(activeItems, movingIdentities);
+  const movingSet = new Set(movingItems.map((item) => (
     thematicEditorialIdentity(item.sourceType, item.sourceId)
-      === normalizedMovingIdentity
-  ));
-
-  if (!currentItem || currentItem.sortOrder === null) {
-    throw new Error(
-      "matchday-editorial-profile-manual-overrides-swap-source-not-in-faixa",
-    );
-  }
-  if (currentItem.sortOrder === targetPosition) {
-    return validateMatchdayEditorialProfileManualOverrides(
-      profile,
-      overrides,
-    );
-  }
-
-  const targetItem = currentFaixaItems.find(
-    (item) => item.sortOrder === targetPosition,
+  )));
+  const targetPositions = new Set(
+    movingItems.map((_, index) => targetPosition + index),
   );
   const next = overrideMap(overrides);
-  next.delete(normalizedMovingIdentity);
 
-  if (targetItem) {
+  for (const itemIdentity of movingSet) next.delete(itemIdentity);
+  for (const targetItem of currentFaixaItems) {
+    if (!targetPositions.has(targetItem.sortOrder ?? -1)) continue;
     const targetIdentity = thematicEditorialIdentity(
       targetItem.sourceType,
       targetItem.sourceId,
     );
-    next.delete(targetIdentity);
-    next.set(targetIdentity, {
-      sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
-      sourceId: targetItem.sourceId,
-      placementTarget: "faixa",
-      zoneKey: null,
-      sortOrder: currentItem.sortOrder,
-    });
+    if (!movingSet.has(targetIdentity)) next.delete(targetIdentity);
   }
 
-  next.set(normalizedMovingIdentity, {
-    sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
-    sourceId: movingItem.sourceId,
-    placementTarget: "faixa",
-    zoneKey: null,
-    sortOrder: targetPosition,
+  movingItems.forEach((movingItem, index) => {
+    next.set(
+      thematicEditorialIdentity(movingItem.sourceType, movingItem.sourceId),
+      {
+        sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
+        sourceId: movingItem.sourceId,
+        placementTarget: "faixa",
+        zoneKey: null,
+        sortOrder: targetPosition + index,
+      },
+    );
   });
 
   return normalizedMapValues(profile, next);

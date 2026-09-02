@@ -199,3 +199,38 @@ test("URL inclui jornada e contexto valida época e jornada", () => {
     false,
   );
 });
+
+test("contexto aceita a jornada selecionada sem depender do texto concatenado do seletor", () => {
+  const html = `
+    <html>
+      <body>
+        <h1>Liga Portugal Betclic 2026/27</h1>
+        <select name="jornada_in">
+          <option value="4">Jornada 4</option><option selected value="5">Jornada 5</option><option value="6">Jornada 6</option>
+        </select>
+      </body>
+    </html>
+  `;
+
+  assert.equal(
+    zerozeroPageHasContext(html, {
+      matchdayNumber: 5,
+      seasonLabel: "2026/27",
+    }),
+    true,
+  );
+  assert.equal(
+    zerozeroPageHasContext(html, {
+      matchdayNumber: 4,
+      seasonLabel: "2026/27",
+    }),
+    false,
+  );
+  assert.equal(
+    zerozeroPageHasContext(html, {
+      matchdayNumber: 5,
+      seasonLabel: "2025/26",
+    }),
+    false,
+  );
+});

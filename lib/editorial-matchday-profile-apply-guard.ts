@@ -1,6 +1,9 @@
 import type {
   MatchdayEditorialProfileReconcileResult,
 } from "@/lib/editorial-matchday-profile-reconcile";
+import type {
+  MatchdayEditorialVacantZoneSlot,
+} from "@/lib/editorial-matchday-movement-preview";
 
 export type MatchdayEditorialProfileApplyIssue =
   | Readonly<{
@@ -29,17 +32,27 @@ export type MatchdayEditorialProfileApplyIssue =
 export function validateMatchdayEditorialProfileApplyState(
   reconcile: Pick<MatchdayEditorialProfileReconcileResult, "zonesAfter">,
   selectionBankItemIds: readonly (string | null)[],
+  options: Readonly<{
+    vacantZoneSlots?: readonly MatchdayEditorialVacantZoneSlot[];
+  }> = {},
 ): readonly MatchdayEditorialProfileApplyIssue[] {
   const issues: MatchdayEditorialProfileApplyIssue[] = [];
 
   for (const zone of reconcile.zonesAfter) {
-    if (zone.items.length !== zone.capacity) {
+    const vacantPositions = new Set(
+      (options.vacantZoneSlots ?? [])
+        .filter((slot) => slot.zoneKey === zone.key)
+        .map((slot) => slot.slotPosition),
+    );
+    const expectedCount = zone.capacity - vacantPositions.size;
+
+    if (zone.items.length !== expectedCount) {
       issues.push({
         code: "incomplete-zone",
         zoneKey: zone.key,
         zoneLabel: zone.label,
         actual: zone.items.length,
-        expected: zone.capacity,
+        expected: expectedCount,
       });
     }
 
@@ -50,7 +63,7 @@ export function validateMatchdayEditorialProfileApplyState(
     const expectedPositions = Array.from(
       { length: zone.capacity },
       (_, index) => index + 1,
-    );
+    ).filter((position) => !vacantPositions.has(position));
 
     if (
       actualPositions.length !== expectedPositions.length

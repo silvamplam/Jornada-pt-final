@@ -94,6 +94,8 @@ function aggregateRow(
     memory_kind: null,
     history_unknown: false,
     memory_placement_conflict: false,
+    is_explicit_bank: false,
+    bank_placement_conflict: false,
     editorial_state: options.editorialState
       ?? (placementType === "faixa" ? "FAIXA" : placementType ? "COLOCADA" : "NOVA"),
     placement_id: placementType ? `placement-${options.bankItemId ?? sourceId}` : null,
@@ -714,11 +716,13 @@ test("o ramo server-side preserva o legacy e delega a operação ao cliente tem�
   assert.match(clientSource, /useRouter[\s\S]*router\.refresh\(\)/);
   assert.match(clientSource, /expectedRevision: desk\.reconcileRevision[\s\S]*expectedStateToken: desk\.reconcileStateToken[\s\S]*overrides: operationalOverrides/);
   assert.match(clientSource, /next\/image[\s\S]*<Image/);
-  assert.match(clientSource, /Fixar na zona|Colocar e fixar posição|Libertar posição|Devolver ao automático/);
+  assert.match(clientSource, /Fixar na zona|Colocar e fixar posição|Libertar posição/);
+  assert.doesNotMatch(clientSource, /Devolver ao automático/);
   assert.match(clientSource, /draggable[\s\S]*onDragStart[\s\S]*onDrop/);
   assert.match(routeSource, /reconcileMatchdayEditorialProfileWorkspace/);
   assert.match(routeSource, /rpc\/apply_matchday_editorial_profile_workspace/);
-  assert.match(routeSource, /p_zone_items: reconcile\.zonesAfter/);
-  assert.match(routeSource, /p_faixa_source_ids: reconcile\.faixaAfter/);
+  assert.match(routeSource, /p_zone_items: compatibilityReconcile\.zonesAfter/);
+  assert.match(routeSource, /p_authoritative_zone_items: reconcile\.zonesAfter/);
+  assert.match(routeSource, /p_authoritative_faixa_items: reconcile\.faixaAfter/);
   assert.doesNotMatch(routeSource, /refresh_matchday_editorial_profile_distribution|profile_state_items/);
 });

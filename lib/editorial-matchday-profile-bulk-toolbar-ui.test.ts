@@ -32,7 +32,6 @@ test("bulk actions are grouped by clear destinations", () => {
     "Posicao na Faixa",
     "Mover para Faixa",
     "Mover para Banco",
-    "Automatico",
     "Limpar marcacao",
   ]) {
     const normalized = source
@@ -51,6 +50,7 @@ test("bulk actions are grouped by clear destinations", () => {
   assert.equal(toolbar.includes("Posicao na zona"), true);
   assert.equal(toolbar.includes("Fixar posicao"), false);
   assert.equal(toolbar.includes("Fixar na Faixa"), false);
+  assert.equal(toolbar.includes("Automatico"), false);
 });
 
 test("selecionar todos e limpar marcação existem mesmo com zero selecionados", () => {
@@ -87,5 +87,9 @@ test("Agenda e TV usa o endpoint autónomo sem entrar no estado editorial", () =
   assert.match(panel, /row\.status !== "unchanged"/u);
   assert.match(panel, /<span>Atual<\/span>/u);
   assert.match(panel, /<span>Proposto<\/span>/u);
+  assert.match(panel, /result\.code === "source-unavailable"/u);
+  assert.match(panel, /setPanelState\("unavailable"\)/u);
+  assert.match(panel, /Origem externa temporariamente indisponível/u);
+  assert.doesNotMatch(panel, /useEffect/u);
   assert.doesNotMatch(panel, /commitDraft|currentDraft|applyChanges|setEditorState|pending/u);
 });

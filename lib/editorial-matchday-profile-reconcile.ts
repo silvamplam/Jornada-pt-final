@@ -12,6 +12,9 @@ import {
   type MatchdayEditorialProfileEffectiveZone,
   type MatchdayEditorialProfileManualOverride,
 } from "@/lib/editorial-matchday-profile-desk-operations";
+import type {
+  MatchdayEditorialVacantZoneSlot,
+} from "@/lib/editorial-matchday-movement-preview";
 
 export type MatchdayEditorialProfileAppliedZoneItem = Readonly<{
   sourceType: string;
@@ -133,6 +136,8 @@ function reconcileAppliedSnapshotDistribution(
   overrides: readonly MatchdayEditorialProfileManualOverride[],
   appliedZoneItems: readonly MatchdayEditorialProfileAppliedZoneItem[],
   currentFaixa: readonly MatchdayEditorialProfileFaixaItem[],
+  vacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[],
+  vacantFaixaSlots: readonly number[],
 ): MatchdayEditorialProfileReconcileResult {
   const activeByIdentity = new Map(
     activeItems.map(
@@ -185,6 +190,11 @@ function reconcileAppliedSnapshotDistribution(
     );
 
     const baselineItems = baselineZone?.items ?? [];
+    const reservedVacantSlots = new Set(
+      vacantZoneSlots
+        .filter((slot) => slot.zoneKey === zone.key)
+        .map((slot) => slot.slotPosition),
+    );
 
     const sequence: Array<MatchdayEditorialProfileEffectiveItem & Readonly<{ sortOrder: number }>> = baselineItems
       .filter((item) => {
@@ -304,7 +314,7 @@ function reconcileAppliedSnapshotDistribution(
 
     const freeSlotCount = Math.max(
       0,
-      zone.capacity - fixedBySlot.size,
+      zone.capacity - fixedBySlot.size - reservedVacantSlots.size,
     );
 
     while (sequence.length > freeSlotCount) {
@@ -367,6 +377,8 @@ function reconcileAppliedSnapshotDistribution(
         continue;
       }
 
+      if (reservedVacantSlots.has(slot)) continue;
+
       const next = sequence[freeIndex];
       freeIndex += 1;
 
@@ -409,9 +421,10 @@ function reconcileAppliedSnapshotDistribution(
   const placedNewAutomaticIdentities = new Set<string>();
 
   /*
-   * Uma publicação nova pode ocupar apenas um slot realmente livre da sua
-   * zona natural. A baseline aplicada e as decisões manuais conservam os
-   * seus slots; não são deslocadas nem reordenadas por esta entrada.
+   * Esta projeção automática existe apenas para compatibilidade do contrato
+   * anterior. O preview autoritativo declara as vagas reservadas e a v11
+   * reaplica exatamente o plano editorial, sem promover a classificação a
+   * destino nem deslocar/reordenar a baseline.
    */
   const zonesAfter = baselineZonesAfter.map((zone) => {
     const usedSlots = new Set(
@@ -420,7 +433,13 @@ function reconcileAppliedSnapshotDistribution(
     const freeSlots = Array.from(
       { length: zone.capacity },
       (_, index) => index + 1,
-    ).filter((slot) => !usedSlots.has(slot));
+    ).filter((slot) => (
+      !usedSlots.has(slot)
+      && !vacantZoneSlots.some((vacant) => (
+        vacant.zoneKey === zone.key
+        && vacant.slotPosition === slot
+      ))
+    ));
     const additions = newAutomaticCandidates
       .filter((item) => item.classifiedZoneKey === zone.key)
       .slice(0, freeSlots.length)
@@ -639,12 +658,33 @@ function reconcileAppliedSnapshotDistribution(
     );
   }
 
-  const faixaAfter = faixaBase.map(
-    (item, index) => ({
-      ...item,
-      sortOrder: index + 1,
-    }),
+  const fixedFaixaPositionByIdentity = new Map(
+    fixedFaixaOverrides.flatMap((override) => (
+      override.sortOrder === null
+        ? []
+        : [[itemIdentity(override), override.sortOrder] as const]
+    )),
   );
+  const occupiedFaixaSlots = new Set(
+    fixedFaixaPositionByIdentity.values(),
+  );
+  const reservedFaixaSlots = new Set(vacantFaixaSlots);
+  const faixaAfter = faixaBase.map((item) => {
+    const fixedPosition = fixedFaixaPositionByIdentity.get(itemIdentity(item));
+    if (fixedPosition !== undefined) {
+      return { ...item, sortOrder: fixedPosition };
+    }
+
+    let sortOrder = 1;
+    while (
+      occupiedFaixaSlots.has(sortOrder)
+      || reservedFaixaSlots.has(sortOrder)
+    ) {
+      sortOrder += 1;
+    }
+    occupiedFaixaSlots.add(sortOrder);
+    return { ...item, sortOrder };
+  }).sort((left, right) => left.sortOrder - right.sortOrder);
 
   const bankAfter = activeItems
     .filter((item) => explicitBank.has(itemIdentity(item)))
@@ -717,6 +757,10 @@ export function reconcileMatchdayEditorialProfileDistribution(
   appliedZoneItems: readonly MatchdayEditorialProfileAppliedZoneItem[],
   hasAppliedSnapshot: boolean,
   currentFaixa: readonly MatchdayEditorialProfileFaixaItem[],
+  options: Readonly<{
+    vacantZoneSlots?: readonly MatchdayEditorialVacantZoneSlot[];
+    vacantFaixaSlots?: readonly number[];
+  }> = {},
 ): MatchdayEditorialProfileReconcileResult {
   const overrides = validateMatchdayEditorialProfileManualOverrides(profile, manualOverrides);
   const activeByIdentity = new Map(activeItems.map((item) => [itemIdentity(item), item] as const));
@@ -728,6 +772,17 @@ export function reconcileMatchdayEditorialProfileDistribution(
       overrides,
       appliedZoneItems,
       currentFaixa,
+      options.vacantZoneSlots ?? [],
+      options.vacantFaixaSlots ?? [],
+    );
+  }
+
+  if (
+    (options.vacantZoneSlots?.length ?? 0) > 0
+    || (options.vacantFaixaSlots?.length ?? 0) > 0
+  ) {
+    throw new Error(
+      "matchday-editorial-profile-vacant-zone-requires-applied-snapshot",
     );
   }
 
