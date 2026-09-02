@@ -76,17 +76,11 @@ type EditorialSelectionBankRow =
     link_url: string | null;
   }>;
 
-type EditorialSelectionLiveRow =
+type EditorialSelectionPlacementRow =
   Readonly<{
     id: string;
-    slot_type: string;
-    source_type: string | null;
-    source_id: string | null;
-    label: string | null;
-    title: string | null;
-    subtitle: string | null;
-    image_url: string | null;
-    link_url: string | null;
+    bank_item_id: string;
+    slot_position: number;
   }>;
 
 type VideoModuleInput = Readonly<{
@@ -283,91 +277,55 @@ export async function GET(
 
   const [
     candidates,
-    liveItems,
+    selectionPlacements,
   ] = await Promise.all([
     fetchSupabaseAdminTable<EditorialSelectionBankRow>(
       `matchday_editorial_bank_items?select=id,source_type,source_id,label,title,subtitle,image_url,link_url&matchday_id=eq.${encodeURIComponent(
         matchdayId,
       )}&status=eq.active&source_type=in.(editorial_article,editorial_content)&order=updated_at.desc`,
     ),
-    fetchSupabaseAdminTable<EditorialSelectionLiveRow>(
-      `matchday_live_layout_items?select=id,slot_type,source_type,source_id,label,title,subtitle,image_url,link_url&matchday_id=eq.${encodeURIComponent(
+    fetchSupabaseAdminTable<EditorialSelectionPlacementRow>(
+      `matchday_live_layout_placements?select=id,bank_item_id,slot_position&matchday_id=eq.${encodeURIComponent(
         matchdayId,
-      )}&slot_type=in.(live_four_news:1,live_four_news:2,live_four_news:3,live_four_news:4)`,
+      )}&placement_type=eq.selection&order=slot_position.asc`,
     ),
   ]);
 
-  const bankByIdentity =
+  const bankById =
     new Map(
-      candidates.flatMap(
-        (item) => {
-          const sourceType =
-            item.source_type?.trim()
-              .toLowerCase();
-
-          const sourceId =
-            item.source_id?.trim();
-
-          return (
-            sourceType
-            && sourceId
-          )
-            ? [[
-                `${sourceType}:${sourceId}`,
-                item,
-              ] as const]
-            : [];
-        },
-      ),
+      candidates.map((item) => [item.id.trim().toLowerCase(), item] as const),
     );
 
   const items =
-    liveItems
-      .flatMap((item) => {
-        const match =
-          /^live_four_news:([1-4])$/
-            .exec(item.slot_type);
-
-        if (!match) {
+    selectionPlacements
+      .flatMap((placement) => {
+        if (
+          !Number.isInteger(placement.slot_position)
+          || placement.slot_position < 1
+          || placement.slot_position > 4
+        ) {
           return [];
         }
-
-        const sourceType =
-          item.source_type?.trim()
-            .toLowerCase()
-          ?? null;
-
-        const sourceId =
-          item.source_id?.trim()
-          ?? null;
-
-        const bank =
-          sourceType && sourceId
-            ? bankByIdentity.get(
-                `${sourceType}:${sourceId}`,
-              )
-              ?? null
-            : null;
+        const bank = bankById.get(
+          placement.bank_item_id.trim().toLowerCase(),
+        );
+        if (!bank) return [];
 
         return [{
-          position:
-            Number(match[1]),
+          position: placement.slot_position,
           liveItemId:
-            item.id,
+            placement.id,
           bankItemId:
-            bank?.id ?? null,
-          sourceType,
-          sourceId,
-          label:
-            item.label,
-          title:
-            item.title,
-          subtitle:
-            item.subtitle,
-          imageUrl:
-            item.image_url,
-          linkUrl:
-            item.link_url,
+            bank.id,
+          sourceType:
+            bank.source_type?.trim().toLowerCase() ?? null,
+          sourceId:
+            bank.source_id?.trim().toLowerCase() ?? null,
+          label: bank.label,
+          title: bank.title,
+          subtitle: bank.subtitle,
+          imageUrl: bank.image_url,
+          linkUrl: bank.link_url,
         }];
       })
       .sort(
@@ -559,6 +517,37 @@ export async function POST(
     if (selectionIdentities.length !== selectionRows.length) {
       throw new Error("matchday-editorial-profile-selection-duplicate-source");
     }
+    const replacementVideoRows = videoModule.highlightAction === "replace"
+      && videoModule.highlightBankItemId
+      ? await fetchSupabaseAdminTable<EditorialSelectionBankRow>(
+          `matchday_editorial_bank_items?select=id,source_type,source_id,label,title,subtitle,image_url,link_url&matchday_id=eq.${encodeURIComponent(
+            matchdayId,
+          )}&status=eq.active&id=eq.${encodeURIComponent(videoModule.highlightBankItemId)}&limit=1`,
+        )
+      : [];
+    let independentPlacementIdentity: string | null = null;
+    if (videoModule.highlightAction === "preserve") {
+      const placement = desk.videoModule.highlight.placement;
+      if (placement?.sourceType === "editorial_article") {
+        independentPlacementIdentity = thematicEditorialIdentity(
+          placement.sourceType,
+          placement.sourceId,
+        );
+      }
+    } else if (videoModule.highlightAction === "replace") {
+      const replacement = replacementVideoRows[0];
+      const sourceType = replacement?.source_type?.trim().toLowerCase();
+      const sourceId = replacement?.source_id?.trim().toLowerCase();
+      if (sourceType === "editorial_article" && sourceId) {
+        independentPlacementIdentity = thematicEditorialIdentity(
+          sourceType,
+          sourceId,
+        );
+      }
+    }
+    const independentPlacementIdentities = independentPlacementIdentity
+      ? [independentPlacementIdentity]
+      : [];
 
     const circuitOverrides = withoutMatchdayEditorialProfileOpeningOverrides(
       effectiveProfile,
@@ -584,6 +573,7 @@ export async function POST(
       {
         selectionIdentities,
         workedIdentities,
+        independentPlacementIdentities,
       },
     );
     const applyIssues =

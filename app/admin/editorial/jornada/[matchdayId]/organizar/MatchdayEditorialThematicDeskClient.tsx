@@ -1037,9 +1037,19 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           )
         : null;
 
+    const transition = highlightWorkedIdentity
+      ? prepareExclusivePlacementTransition([highlightWorkedIdentity])
+      : null;
     commitDraft(
       withWorkedIdentities({
         ...currentDraft(),
+        ...(transition
+          ? {
+              overrides: transition.overrides,
+              opening: transition.opening,
+              editorialSelection: transition.editorialSelection,
+            }
+          : {}),
         videoModule: {
           ...editorState.draftVideoModule,
           highlight,
@@ -1129,6 +1139,34 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       editorialSelectionCandidates,
     ),
     [draftEditorialSelection, editorialSelectionCandidates],
+  );
+  const draftVideoHighlightIdentity = useMemo(() => {
+    if (editorState.draftVideoModule.highlight.action === "remove") {
+      return null;
+    }
+    if (editorState.draftVideoModule.highlight.action === "preserve") {
+      const placement = desk.videoModule.highlight.placement;
+      return placement?.sourceType === "editorial_article"
+        ? thematicEditorialIdentity(placement.sourceType, placement.sourceId)
+        : null;
+    }
+    const bankItemId = editorState.draftVideoModule.highlight.bankItemId;
+    const candidate = bankItemId
+      ? editorialSelectionCandidateById.get(bankItemId)
+      : null;
+    const sourceId = candidate?.sourceId?.trim().toLowerCase() ?? "";
+    return candidate?.sourceType?.trim().toLowerCase() === "editorial_article"
+      && sourceId
+      ? thematicEditorialIdentity("editorial_article", sourceId)
+      : null;
+  }, [
+    desk.videoModule.highlight.placement,
+    editorState.draftVideoModule.highlight,
+    editorialSelectionCandidateById,
+  ]);
+  const independentPlacementIdentities = useMemo(
+    () => draftVideoHighlightIdentity ? [draftVideoHighlightIdentity] : [],
+    [draftVideoHighlightIdentity],
   );
   const activeDraftOverrides = useMemo(
     () => editorState.draftOverrides.filter(
@@ -1220,8 +1258,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     {
       selectionIdentities: draftSelectionIdentities,
       workedIdentities: editorState.workedIdentities,
+      independentPlacementIdentities,
     },
-  ), [activeItems, desk.appliedZoneItems, desk.currentFaixa, desk.hasAppliedSnapshot, draftSelectionIdentities, editorState.draftOpening, editorState.workedIdentities, effectiveProfile, operationalOverrides]);
+  ), [activeItems, desk.appliedZoneItems, desk.currentFaixa, desk.hasAppliedSnapshot, draftSelectionIdentities, editorState.draftOpening, editorState.workedIdentities, effectiveProfile, independentPlacementIdentities, operationalOverrides]);
   const pending = reconcile.hasChanges
     || !sameJson(operationalOverrides, persistedOperationalOverrides)
     || !sameJson(editorState.draftOpening, editorState.persistedOpening)
@@ -1265,7 +1304,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       (sourceId) => thematicEditorialIdentity("editorial_article", sourceId),
     ),
     ...draftSelectionIdentities,
-  ]), [draftSelectionIdentities, editorState.draftOpening, effectiveItemByIdentity]);
+    ...independentPlacementIdentities,
+  ]), [draftSelectionIdentities, editorState.draftOpening, effectiveItemByIdentity, independentPlacementIdentities]);
   const newItems = activeItems.filter((item) =>
     item.isNew === true
     && !workedIdentitySet.has(identity(item))

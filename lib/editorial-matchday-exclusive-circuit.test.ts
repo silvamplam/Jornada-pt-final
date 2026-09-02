@@ -123,6 +123,47 @@ test("Novas, Abertura, Seleção, Zona, Faixa e Banco formam uma partição excl
   assert.equal(reconciled.bankAfter.some((entry) => entry.sourceId === "selection"), false);
 });
 
+test("um placement independente de Vídeo não pode ser reintroduzido pela Faixa compatibility", () => {
+  const faixa = item("faixa-authority", 1);
+  const video = item("video-authority", 2);
+  const selection = item("selection-authority", 3);
+  const reconciled = reconcileMatchdayEditorialProfileWorkspace(
+    profile,
+    [faixa, video, selection],
+    [],
+    emptyMatchdayEditorialProfileOpening(),
+    [],
+    true,
+    [faixa, video].map((entry, index) => ({
+      ...entry,
+      sortOrder: index + 1,
+      manualOverride: null,
+    })),
+    {
+      selectionIdentities: [identity(selection.sourceId)],
+      independentPlacementIdentities: [identity(video.sourceId)],
+    },
+  );
+
+  assert.deepEqual(
+    reconciled.faixaAfter.map((entry) => entry.sourceId),
+    [faixa.sourceId],
+  );
+  const thematicCircuit = [
+    ...reconciled.zonesAfter.flatMap((zone) => zone.items),
+    ...reconciled.faixaAfter,
+    ...reconciled.bankAfter,
+  ];
+  assert.equal(
+    thematicCircuit.some((entry) => entry.sourceId === video.sourceId),
+    false,
+  );
+  assert.equal(
+    thematicCircuit.some((entry) => entry.sourceId === selection.sourceId),
+    false,
+  );
+});
+
 test("Últimas mantém uma notícia cronológica na Abertura sem alterar o seu lugar exclusivo", async () => {
   const opening = validateMatchdayEditorialProfileOpening({
     headline: "article-a",

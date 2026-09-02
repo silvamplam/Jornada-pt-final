@@ -44,6 +44,7 @@ export type MatchdayEditorialProfileStateRow = Readonly<{
 }>;
 
 export type MatchdayEditorialProfileActiveBankRow = Readonly<{
+  id?: string;
   source_type: string | null;
   source_id: string | null;
   status: string | null;
@@ -91,18 +92,11 @@ export type MatchdayEditorialProfileZoneItemRow = Readonly<{
   sort_order: number;
 }>;
 
-export type MatchdayEditorialProfileHorizontalRow = Readonly<{
-  id: string;
-  label: string | null;
-  label_color: string | null;
-  title: string | null;
-  subtitle: string | null;
-  image_url: string | null;
-  link_url: string | null;
-  sort_order: number;
-  status: string;
-  created_at: string;
-  updated_at: string;
+export type MatchdayEditorialProfileLivePlacementRow = Readonly<{
+  bank_item_id: string;
+  placement_type: string;
+  zone_id: string | null;
+  slot_position: number;
 }>;
 
 export type MatchdayEditorialProfileDeskDiagnosticCode =
@@ -184,6 +178,11 @@ export type MatchdayEditorialProfileVideoModule = Readonly<{
     text: string | null;
     imageUrl: string | null;
     linkUrl: string | null;
+    placement: Readonly<{
+      bankItemId: string;
+      sourceType: string;
+      sourceId: string;
+    }> | null;
   }>;
 }>;
 
@@ -570,22 +569,6 @@ function faixaSlug(linkUrl: string | null): string | null {
   return slug && !slug.includes("/") && !slug.includes("?") && !slug.includes("#") ? slug : null;
 }
 
-async function readFaixaArticles(
-  fetchTable: MatchdayEditorialProfileDeskTableFetcher,
-  faixaRows: readonly MatchdayEditorialProfileHorizontalRow[],
-): Promise<MatchdayEditorialProfileArticleRow[]> {
-  const slugs = Array.from(new Set(faixaRows.map((row) => faixaSlug(row.link_url)).filter(
-    (slug): slug is string => slug !== null,
-  )));
-  if (slugs.length === 0) return [];
-  const batches = await Promise.all(chunks(slugs, ARTICLE_BATCH_SIZE).map((batch) => (
-    fetchTable<MatchdayEditorialProfileArticleRow>(
-      `editorial_articles?select=id,slug,status,label,title,subtitle,image_url,published_at,updated_at&slug=in.(${batch.map(encodeURIComponent).join(",")})`,
-    )
-  )));
-  return batches.flat();
-}
-
 async function readContext(
   fetchTable: MatchdayEditorialProfileDeskTableFetcher,
   matchday: MatchdayRow,
@@ -661,7 +644,7 @@ export async function readMatchdayEditorialProfileDesk(
     continuityClassificationRows,
     appliedZoneRows,
     reconcileControlRows,
-    faixaRows,
+    placementRows,
     openingEditorialRows,
     openingHighlightRows,
   ] = await Promise.all([
@@ -675,7 +658,7 @@ export async function readMatchdayEditorialProfileDesk(
     ),
     readAllRows<MatchdayEditorialProfileActiveBankRow>(
       fetchTable,
-      `matchday_editorial_bank_items?select=source_type,source_id,status,automatic_eligible,editorially_worked_at&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&status=eq.active&source_type=eq.editorial_article`,
+      `matchday_editorial_bank_items?select=id,source_type,source_id,status,automatic_eligible,editorially_worked_at&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&status=eq.active&source_type=eq.editorial_article`,
     ),
     readAllRows<MatchdayEditorialProfileManualOverrideRow>(
       fetchTable,
@@ -696,9 +679,9 @@ export async function readMatchdayEditorialProfileDesk(
     fetchTable<ReconcileControlRow>(
       `matchday_editorial_profile_reconcile_control?select=revision,thematic_zone_order,thematic_zone_layouts,thematic_block_order,thematic_zone_titles&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&profile_key=eq.${encodeURIComponent(assignment.profile_key)}&limit=1`,
     ),
-    readAllRows<MatchdayEditorialProfileHorizontalRow>(
+    readAllRows<MatchdayEditorialProfileLivePlacementRow>(
       fetchTable,
-      `matchday_horizontal_news?select=id,label,label_color,title,subtitle,image_url,link_url,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&order=sort_order.asc`,
+      `matchday_live_layout_placements?select=bank_item_id,placement_type,zone_id,slot_position&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&order=placement_type.asc,slot_position.asc`,
     ),
     fetchTable<OpeningEditorialRow>(
       `matchday_editorials?select=status,title_color,headline_link_url,side_block_status,side_block_link_url,latest_zone_placement,latest_zone_title,complementary_mode,complementary_status,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&limit=1`,
@@ -713,14 +696,10 @@ export async function readMatchdayEditorialProfileDesk(
     throw new Error("matchday-editorial-profile-desk-concurrent-read");
   }
 
-  const [context, activeArticleRows, faixaArticleRows] = await Promise.all([
+  const [context, articleRows] = await Promise.all([
     readContext(fetchTable, matchday),
     readArticles(fetchTable, stateRows, bankRows),
-    readFaixaArticles(fetchTable, faixaRows),
   ]);
-  const articleRows = Array.from(new Map(
-    [...activeArticleRows, ...faixaArticleRows].map((article) => [article.id.toLowerCase(), article] as const),
-  ).values());
   const reconcileTokenAfter = (await fetchTable<ReconcileTokenRow>(reconcileTokenPath))[0]?.state_token;
   if (!reconcileTokenAfter) throw new Error("matchday-editorial-profile-desk-reconcile-token-not-found");
   if (reconcileTokenBefore !== reconcileTokenAfter) {
@@ -765,6 +744,29 @@ export async function readMatchdayEditorialProfileDesk(
   const activeIdentities = new Set(automaticDistribution.activeItems.map((item) => (
     thematicEditorialIdentity(item.sourceType, item.sourceId)
   )));
+  const activeBankRowsById = new Map(bankRows.flatMap((row) => {
+    const bankItemId = cleanText(row.id)?.toLowerCase();
+    return bankItemId ? [[bankItemId, row] as const] : [];
+  }));
+  const articleRowsById = new Map(articleRows.map((row) => (
+    [row.id.trim().toLowerCase(), row] as const
+  )));
+  const placementSource = (placement: MatchdayEditorialProfileLivePlacementRow) => {
+    const bank = activeBankRowsById.get(
+      placement.bank_item_id.trim().toLowerCase(),
+    );
+    const sourceType = cleanText(bank?.source_type)?.toLowerCase() ?? null;
+    const sourceId = cleanText(bank?.source_id)?.toLowerCase() ?? null;
+    return bank && sourceType && sourceId
+      ? {
+          bank,
+          bankItemId: placement.bank_item_id.trim().toLowerCase(),
+          sourceType,
+          sourceId,
+          identity: thematicEditorialIdentity(sourceType, sourceId),
+        }
+      : null;
+  };
   const activeSourceIdsBySlug = new Map<string, string[]>();
   for (const article of articleRows) {
     const slug = cleanText(article.slug);
@@ -835,6 +837,12 @@ export async function readMatchdayEditorialProfileDesk(
     thematicBlockOrder,
     thematicZoneTitles,
   };
+  const videoHighlightPlacement = placementRows.find(
+    (placement) => placement.placement_type === "video_highlight",
+  );
+  const videoHighlightSource = videoHighlightPlacement
+    ? placementSource(videoHighlightPlacement)
+    : null;
   const videoModule: MatchdayEditorialProfileVideoModule = {
     active:
       cleanText(openingEditorial?.complementary_mode)?.toLowerCase()
@@ -848,6 +856,13 @@ export async function readMatchdayEditorialProfileDesk(
       text: cleanText(openingEditorial?.complementary_text),
       imageUrl: cleanText(openingEditorial?.complementary_image_url),
       linkUrl: cleanText(openingEditorial?.complementary_link_url),
+      placement: videoHighlightSource
+        ? {
+            bankItemId: videoHighlightSource.bankItemId,
+            sourceType: videoHighlightSource.sourceType,
+            sourceId: videoHighlightSource.sourceId,
+          }
+        : null,
     },
   };
   const manualOverrides = validateMatchdayEditorialProfileManualOverrides(
@@ -864,58 +879,68 @@ export async function readMatchdayEditorialProfileDesk(
         thematicEditorialIdentity(override.sourceType, override.sourceId),
       )),
   );
-  const articleRowsBySlug = new Map<string, MatchdayEditorialProfileArticleRow[]>();
-  for (const article of faixaArticleRows) {
-    const slug = cleanText(article.slug);
-    if (!slug || cleanText(article.status)?.toLowerCase() !== "published") continue;
-    const current = articleRowsBySlug.get(slug) ?? [];
-    current.push(article);
-    articleRowsBySlug.set(slug, current);
-  }
   const faixaDiagnostics: MatchdayEditorialProfileDeskDiagnostic[] = [];
   const currentFaixa: MatchdayEditorialProfileFaixaItem[] = [];
   const currentFaixaIdentities = new Set<string>();
-  for (const faixaRow of [...faixaRows].sort((left, right) => left.sort_order - right.sort_order)) {
-    const slug = faixaSlug(faixaRow.link_url);
-    const matches = slug ? articleRowsBySlug.get(slug) ?? [] : [];
-    if (matches.length !== 1) {
+  const authoritativeFaixa = placementRows
+    .filter((placement) => placement.placement_type === "faixa")
+    .sort((left, right) => left.slot_position - right.slot_position);
+  for (const placement of authoritativeFaixa) {
+    const source = placementSource(placement);
+    const article = source?.sourceType === SUPPORTED_SOURCE_TYPE
+      ? articleRowsById.get(source.sourceId)
+      : null;
+    if (!source || !article) {
       faixaDiagnostics.push({
-        code: matches.length > 1 ? "ambiguous_faixa" : "unresolved_faixa",
-        message: matches.length > 1
-          ? `A Faixa ${faixaRow.sort_order} resolve para vários artigos canónicos.`
-          : `A Faixa ${faixaRow.sort_order} não resolve univocamente para um artigo canónico.`,
-        sourceType: "matchday_horizontal_news",
-        sourceId: faixaRow.id,
+        code: "unresolved_faixa",
+        message: `O placement autoritativo Faixa ${placement.slot_position} não resolve para um artigo canónico ativo.`,
+        sourceType: "matchday_live_layout_placement",
+        sourceId: placement.bank_item_id.trim().toLowerCase(),
       });
       continue;
     }
-    const article = matches[0];
-    const articleIdentity = thematicEditorialIdentity(SUPPORTED_SOURCE_TYPE, article.id.toLowerCase());
+    const articleIdentity = source.identity;
     if (currentFaixaIdentities.has(articleIdentity)) {
       faixaDiagnostics.push({
         code: "duplicate_faixa_identity",
-        message: `A Faixa ${faixaRow.sort_order} repete uma publicação canónica já colocada.`,
+        message: `A Faixa ${placement.slot_position} repete uma publicação canónica já colocada.`,
         sourceType: SUPPORTED_SOURCE_TYPE,
-        sourceId: article.id.toLowerCase(),
+        sourceId: source.sourceId,
       });
       continue;
     }
     if (!activeIdentities.has(articleIdentity)) {
       faixaDiagnostics.push({
         code: "inactive_faixa",
-        message: `A Faixa ${faixaRow.sort_order} aponta para um artigo que não está no banco temático ativo.`,
+        message: `A Faixa ${placement.slot_position} aponta para um artigo que não está no banco temático ativo.`,
         sourceType: SUPPORTED_SOURCE_TYPE,
-        sourceId: article.id.toLowerCase(),
+        sourceId: source.sourceId,
       });
       continue;
     }
     currentFaixaIdentities.add(articleIdentity);
     currentFaixa.push({
-      ...itemFromArticle(SUPPORTED_SOURCE_TYPE, article.id.toLowerCase(), faixaRow.sort_order, article),
-      sortOrder: faixaRow.sort_order,
+      ...itemFromArticle(SUPPORTED_SOURCE_TYPE, source.sourceId, placement.slot_position, article),
+      sortOrder: placement.slot_position,
       manualOverride: null,
     });
   }
+  const authoritativeSelectionIdentities = Array.from(new Set(
+    placementRows
+      .filter((placement) => placement.placement_type === "selection")
+      .flatMap((placement) => {
+        const source = placementSource(placement);
+        return source?.sourceType === SUPPORTED_SOURCE_TYPE
+          && activeIdentities.has(source.identity)
+          ? [source.identity]
+          : [];
+      }),
+  ));
+  const independentPlacementIdentities = videoHighlightSource?.sourceType
+    === SUPPORTED_SOURCE_TYPE
+    && activeIdentities.has(videoHighlightSource.identity)
+    ? [videoHighlightSource.identity]
+    : [];
 
   const knownZones = new Set<string>(profile.zones.map((zone) => zone.key));
   const appliedZoneItems = appliedZoneRows.flatMap((row): MatchdayEditorialProfileAppliedZoneItem[] => {
@@ -943,6 +968,10 @@ export async function readMatchdayEditorialProfileDesk(
     appliedZoneItems,
     hasAppliedSnapshot,
     currentFaixa,
+    {
+      selectionIdentities: authoritativeSelectionIdentities,
+      independentPlacementIdentities,
+    },
   );
   const diagnostics = [
     ...automaticDistribution.diagnostics,

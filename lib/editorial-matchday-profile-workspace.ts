@@ -736,6 +736,7 @@ export function reconcileMatchdayEditorialProfileWorkspace(
   options: Readonly<{
     selectionIdentities?: readonly string[];
     workedIdentities?: readonly string[];
+    independentPlacementIdentities?: readonly string[];
   }> = {},
 ): MatchdayEditorialProfileReconcileResult {
   const opening = validateMatchdayEditorialProfileOpening(openingValue);
@@ -768,6 +769,24 @@ export function reconcileMatchdayEditorialProfileWorkspace(
   const workedIdentities = new Set(
     options.workedIdentities ?? [],
   );
+  const independentPlacementIdentities = new Set(
+    options.independentPlacementIdentities ?? [],
+  );
+  for (const itemIdentity of independentPlacementIdentities) {
+    if (!activeIdentitySet.has(itemIdentity)) {
+      throw new Error(
+        "matchday-editorial-profile-independent-placement-source-not-active",
+      );
+    }
+    if (
+      openingIdentities.has(itemIdentity)
+      || selectionIdentities.has(itemIdentity)
+    ) {
+      throw new Error(
+        "matchday-editorial-profile-independent-placement-conflict",
+      );
+    }
+  }
 
   const manualOverrideIdentities = new Set(
     manualOverrides.map((override) => (
@@ -780,6 +799,7 @@ export function reconcileMatchdayEditorialProfileWorkspace(
   const alreadyPlacedIdentities = new Set([
     ...openingIdentities,
     ...selectionIdentities,
+    ...independentPlacementIdentities,
     ...manualOverrideIdentities,
     ...appliedZoneItems.map((item) => (
       thematicEditorialIdentity(item.sourceType, item.sourceId)
@@ -813,6 +833,7 @@ export function reconcileMatchdayEditorialProfileWorkspace(
     );
     return !openingIdentities.has(identity)
       && !selectionIdentities.has(identity)
+      && !independentPlacementIdentities.has(identity)
       && !passiveNewIdentities.has(identity);
   });
   const circuitOverrides = validateMatchdayEditorialProfileManualOverrides(
@@ -823,6 +844,8 @@ export function reconcileMatchdayEditorialProfileWorkspace(
       opening,
     ).filter((override) => !selectionIdentities.has(
       thematicEditorialIdentity(override.sourceType, override.sourceId),
+    )).filter((override) => !independentPlacementIdentities.has(
+      thematicEditorialIdentity(override.sourceType, override.sourceId),
     )),
   );
   const circuitFaixa = currentFaixa.filter((item) => {
@@ -832,6 +855,7 @@ export function reconcileMatchdayEditorialProfileWorkspace(
     );
     return !openingIdentities.has(identity)
       && !selectionIdentities.has(identity)
+      && !independentPlacementIdentities.has(identity)
       && !passiveNewIdentities.has(identity);
   });
 
