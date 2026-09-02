@@ -9,7 +9,7 @@ const desk = readFileSync(
 
 test("a Mesa mantém activeWorkspaceKey como seletor do workspace ativo", () => {
   const workspaceTypeStart = desk.indexOf("type ActiveWorkspaceKey =");
-  const workspaceTypeEnd = desk.indexOf("type SourceViewKey", workspaceTypeStart);
+  const workspaceTypeEnd = desk.indexOf("type AgendaTvPreviewStatus", workspaceTypeStart);
   const workspaceType = desk.slice(workspaceTypeStart, workspaceTypeEnd);
 
   assert.match(
@@ -186,28 +186,20 @@ test("Abertura e zonas apresentam slots horizontais pela capacidade efetiva", ()
   assert.match(desk, /\.thematic-slots-6 \{ grid-template-columns: repeat\(6/);
 });
 
-test("a Faixa pode ser filtrada por várias zonas sem alterar o estado editorial", () => {
-  assert.match(desk, /const \[faixaZoneFilters, setFaixaZoneFilters\] = useState</);
-  assert.match(desk, /const faixaZoneFilterSet = useMemo\(/);
-  assert.match(
-    desk,
-    /activeByIdentity\.get\(identity\(item\)\)\?\.classifiedZoneKey/,
-  );
-  assert.match(desk, /faixaZoneFilterSet\.size === 0/);
-  assert.match(desk, /faixaZoneFilterSet\.has\(classifiedZoneKey\)/);
-  assert.match(desk, /current\.includes\(zoneKey\)/);
-  assert.match(desk, /\[\.\.\.current, zoneKey\]/);
-  assert.match(desk, /aria-label="Filtrar fonte por zona natural"/);
-  assert.match(
-    desk,
-    /activeSourceView === "available"[\s\S]*toggleReservoirZoneFilter\(zoneKey\)[\s\S]*toggleFaixaZoneFilter\(zoneKey\)/,
-  );
+test("o tracking seleciona uma classe contextual sem alterar o estado editorial", () => {
+  assert.match(desk, /const \[trackingZoneKey, setTrackingZoneKey\] = useState</);
+  assert.match(desk, /aria-label="Escolher classe contextual"/);
+  assert.match(desk, /profile\.zones\.map\(\(zone\)/);
+  assert.match(desk, /trackingItem\.classifiedZoneKey === trackingZoneKey/);
+  assert.match(desk, /setTrackingZoneKey\(zone\.key\)/);
 });
 
-test("pesquisa e zonas funcionam como filtros cumulativos da Faixa", () => {
-  assert.match(desk, /const zoneMatches =/);
-  assert.match(desk, /const queryMatches =/);
-  assert.match(desk, /return zoneMatches && queryMatches;/);
+test("pesquisa e classe funcionam como filtros cumulativos do tracking", () => {
+  assert.match(desk, /const normalizedTrackingQuery = trackingQuery/);
+  assert.match(
+    desk,
+    /trackingItem\.classifiedZoneKey === trackingZoneKey[\s\S]*!normalizedTrackingQuery/,
+  );
 });
 
 test("filtros e vista das Fontes não entram no estado editorial", () => {
@@ -222,35 +214,33 @@ test("filtros e vista das Fontes não entram no estado editorial", () => {
   assert.ok(pendingStart >= 0 && pendingEnd > pendingStart);
   assert.doesNotMatch(
     currentDraftBlock,
-    /faixaZoneFilters|reservoirZoneFilters|activeSourceView/,
+    /trackingZoneKey|trackingQuery|trackingVisibleCounts/,
   );
   assert.doesNotMatch(
     pendingBlock,
-    /faixaZoneFilters|reservoirZoneFilters|activeSourceView/,
+    /trackingZoneKey|trackingQuery|trackingVisibleCounts/,
   );
 });
 
-test("a Faixa permanece completa com paginação local e contador real", () => {
+test("cada linha de tracking mantém paginação local e contador real", () => {
   assert.match(
     desk,
-    /const visibleFaixa = filteredFaixa\.slice\(0, faixaVisibleCount\);/,
+    /const visibleEntries = entries\.slice\(0, trackingVisibleCounts\[state\]\);/,
   );
-  assert.match(desk, /visibleCount < filteredCount/);
+  assert.match(desk, /visibleEntries\.length < entries\.length/);
   assert.match(
     desk,
-    /setFaixaVisibleCount\(\(count\) => count \+ FAIXA_PAGE_SIZE\)/,
+    /\[state\]: current\[state\] \+ TRACKING_PAGE_SIZE/,
   );
-  assert.match(desk, /Faixa \{reconcile\.faixaAfter\.length\}/);
-  assert.doesNotMatch(desk, /primeiras 10|público: primeiras 10/);
+  assert.match(desk, /<span>\{entries\.length\}<\/span>/);
 });
 
-test("Fontes alterna Novas, Banco e Faixa dentro de uma única toolbar", () => {
-  assert.match(desk, /type SourceViewKey = "new" \| "available" \| "faixa"/);
-  assert.match(desk, /aria-label="Fontes editoriais"/);
-  assert.match(desk, /Novas \{newItems\.length\}/);
-  assert.match(desk, /Banco \{reconcile\.bankAfter\.length\}/);
-  assert.match(desk, /Faixa \{reconcile\.faixaAfter\.length\}/);
-  assert.doesNotMatch(desk, /Disponíveis/);
+test("Tracking apresenta Novas, Faixa e Desalojadas em simultâneo sem linha Banco", () => {
+  assert.match(desk, /TRACKING_STATES = \["NOVA", "FAIXA", "DESALOJADA"\]/);
+  assert.match(desk, /aria-label="Tracking editorial por classe"/);
+  assert.match(desk, /data-tracking-state=\{state\}/);
+  assert.match(desk, /\? "Novas"[\s\S]*\? "Faixa"[\s\S]*: "Desalojadas"/);
+  assert.doesNotMatch(desk, /type SourceViewKey|activeSourceView/);
   assert.equal(
     (desk.match(/<div className="thematic-sources-toolbar">/g) ?? []).length,
     1,
@@ -259,25 +249,12 @@ test("Fontes alterna Novas, Banco e Faixa dentro de uma única toolbar", () => {
     (desk.match(/<label className="thematic-reservoir-search">/g) ?? []).length,
     1,
   );
-  assert.equal(
-    (desk.match(/<div className="thematic-reservoir-filters"/g) ?? []).length,
-    1,
-  );
   const toolbarStart = desk.indexOf('<div className="thematic-sources-toolbar">');
-  const toolbarEnd = desk.indexOf("</div>\n\n        <div", toolbarStart);
+  const toolbarEnd = desk.indexOf('<div className="thematic-tracking-rows">', toolbarStart);
   const toolbar = desk.slice(toolbarStart, toolbarEnd);
-  assert.match(toolbar, /Novas \{newItems\.length\}/);
-  assert.match(toolbar, /Banco \{reconcile\.bankAfter\.length\}/);
-  assert.match(toolbar, /Faixa \{reconcile\.faixaAfter\.length\}/);
-  assert.match(toolbar, /Filtrar fonte por zona natural/);
+  assert.doesNotMatch(toolbar, />\s*Banco(?:\s|\{)/);
   assert.match(toolbar, /thematic-reservoir-search/);
-  assert.match(toolbar, /encontradas/);
-  assert.match(
-    desk,
-    /const visibleSourceItems = activeSourceView === "new"[\s\S]*visibleNewItems[\s\S]*visibleReservoir[\s\S]*visibleFaixa/,
-  );
-  assert.match(desk, /reconcile\.bankAfter\.length/);
-  assert.match(desk, /reconcile\.faixaAfter\.length/);
+  assert.match(toolbar, /em tracking/);
   assert.match(desk, /aria-label="Controlos de seleção"/);
   assert.match(desk, /\{selected\.size\} notícias selecionadas/);
   assert.match(desk, /Limpar marcação/);

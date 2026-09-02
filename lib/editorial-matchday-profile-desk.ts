@@ -33,8 +33,8 @@ import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
 const SUPPORTED_SOURCE_TYPE = "editorial_article";
 const READ_PAGE_SIZE = 1_000;
-const ARTICLE_BATCH_SIZE = 100;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type MatchdayEditorialTrackingState = "NOVA" | "FAIXA" | "DESALOJADA";
 
 export type MatchdayEditorialProfileStateRow = Readonly<{
   source_type: string;
@@ -50,6 +50,41 @@ export type MatchdayEditorialProfileActiveBankRow = Readonly<{
   status: string | null;
   automatic_eligible?: boolean | null;
   editorially_worked_at?: string | null;
+  editorial_state?: MatchdayEditorialTrackingState | null;
+}>;
+
+export type MatchdayLiveDeskAggregateRow = Readonly<{
+  bank_item_id: string;
+  source_type: string | null;
+  source_id: string | null;
+  label: string | null;
+  title: string;
+  subtitle: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  bank_status: string | null;
+  automatic_eligible: boolean | null;
+  classification_key: string | null;
+  classification_source: string | null;
+  classified_at: string | null;
+  article_id: string | null;
+  article_published_at: string | null;
+  article_updated_at: string | null;
+  has_automatic_state: boolean;
+  automatic_zone_key: string | null;
+  automatic_sort_order: number | null;
+  placement_count: number;
+  transversal_conflict: boolean;
+  memory_kind: "legacy_unknown" | "displaced" | null;
+  history_unknown: boolean;
+  memory_placement_conflict: boolean;
+  editorial_state: "NOVA" | "FAIXA" | "DESALOJADA" | "COLOCADA" | null;
+  placement_id: string | null;
+  placement_type: string | null;
+  zone_id: string | null;
+  placement_zone_key: string | null;
+  slot_position: number | null;
+  inactive_historical_count: number;
 }>;
 
 export type MatchdayEditorialProfileArticleRow = Readonly<{
@@ -110,6 +145,9 @@ export type MatchdayEditorialProfileDeskDiagnosticCode =
   | "inactive_faixa"
   | "duplicate_faixa_identity"
   | "unresolved_opening"
+  | "legacy_unknown_state"
+  | "transversal_state_conflict"
+  | "memory_placement_state_conflict"
   | "invalid_applied_snapshot";
 
 export type MatchdayEditorialProfileDeskDiagnostic = Readonly<{
@@ -133,6 +171,47 @@ export type MatchdayEditorialProfileDeskItem = Readonly<{
   updatedAt: string | null;
   isNew?: boolean;
   circuitOrder?: number | null;
+}>;
+
+export type MatchdayEditorialTrackingItem =
+  & MatchdayEditorialProfileDeskItem
+  & Readonly<{
+    bankItemId: string;
+    classifiedZoneKey: EditorialProfileZoneKey;
+    classificationSource: string;
+    classifiedAt: string;
+    editorialState: MatchdayEditorialTrackingState;
+    memoryKind: "displaced" | null;
+  }>;
+
+export type MatchdayEditorialTrackingSnapshot = Readonly<{
+  items: readonly MatchdayEditorialTrackingItem[];
+  legacyUnknownCount: number;
+  conflictCount: number;
+}>;
+
+export type MatchdayEditorialSelectionCandidate = Readonly<{
+  bankItemId: string;
+  sourceType: string | null;
+  sourceId: string | null;
+  label: string | null;
+  title: string;
+  subtitle: string | null;
+  imageUrl: string | null;
+  linkUrl: string | null;
+}>;
+
+export type MatchdayEditorialSelectionItem = Readonly<{
+  position: number;
+  liveItemId: string;
+  bankItemId: string;
+  sourceType: string | null;
+  sourceId: string | null;
+  label: string | null;
+  title: string;
+  subtitle: string | null;
+  imageUrl: string | null;
+  linkUrl: string | null;
 }>;
 
 export type MatchdayEditorialProfileDeskAutomaticItem =
@@ -202,6 +281,9 @@ export type MatchdayEditorialProfileDeskSnapshot =
     opening: MatchdayEditorialProfileOpening;
     pageControls: MatchdayEditorialProfilePageControls;
     videoModule: MatchdayEditorialProfileVideoModule;
+    tracking: MatchdayEditorialTrackingSnapshot;
+    selectionCandidates: readonly MatchdayEditorialSelectionCandidate[];
+    editorialSelection: readonly MatchdayEditorialSelectionItem[];
     reconcile: MatchdayEditorialProfileReconcileResult;
     zones: MatchdayEditorialProfileEffectiveDistribution["zones"];
     bank: MatchdayEditorialProfileEffectiveDistribution["bank"];
@@ -257,11 +339,7 @@ type ReconcileControlRow = Readonly<{
 }>;
 type ReconcileTokenRow = Readonly<{ state_token: string }>;
 type OpeningEditorialRow = Readonly<{
-  status: string | null;
   title_color: string | null;
-  headline_link_url: string | null;
-  side_block_status: string | null;
-  side_block_link_url: string | null;
   latest_zone_placement: string | null;
   latest_zone_title: string | null;
   complementary_mode: string | null;
@@ -271,11 +349,6 @@ type OpeningEditorialRow = Readonly<{
   complementary_text: string | null;
   complementary_image_url: string | null;
   complementary_link_url: string | null;
-}>;
-type OpeningHighlightRow = Readonly<{
-  sort_order: number;
-  status: string | null;
-  link_url: string | null;
 }>;
 
 function cleanText(value: string | null | undefined): string | null {
@@ -446,7 +519,7 @@ export function buildMatchdayEditorialProfileDeskDistribution(
       ...itemFromArticle(sourceType, sourceId, state?.sort_order ?? null, article),
       classifiedZoneKey,
       circuitOrder,
-      isNew: bankRow.editorially_worked_at == null,
+      isNew: bankRow.editorial_state === "NOVA",
     });
   }
   activeItems.sort(compareThematicItemsByCircuitOrder);
@@ -534,39 +607,108 @@ async function readAllRows<T>(
   }
 }
 
-function chunks<T>(values: readonly T[], size: number): T[][] {
-  const result: T[][] = [];
-  for (let index = 0; index < values.length; index += size) {
-    result.push(values.slice(index, index + size));
+export function buildMatchdayEditorialTrackingSnapshot(
+  profile: EditorialProfile,
+  aggregateRows: readonly MatchdayLiveDeskAggregateRow[],
+): Readonly<{
+  tracking: MatchdayEditorialTrackingSnapshot;
+  diagnostics: readonly MatchdayEditorialProfileDeskDiagnostic[];
+}> {
+  const knownZoneKeys = new Set<string>(profile.zones.map((zone) => zone.key));
+  const diagnostics: MatchdayEditorialProfileDeskDiagnostic[] = [];
+  const items: MatchdayEditorialTrackingItem[] = [];
+  let legacyUnknownCount = 0;
+  let conflictCount = 0;
+
+  for (const row of aggregateRows) {
+    const sourceType = cleanText(row.source_type)?.toLowerCase() ?? "";
+    const sourceId = cleanText(row.source_id)?.toLowerCase() ?? "";
+
+    if (row.transversal_conflict) {
+      conflictCount += 1;
+      diagnostics.push({
+        code: "transversal_state_conflict",
+        message: `A participação ${sourceType}:${sourceId} tem ${row.placement_count} placements autoritativos; nenhum estado foi escolhido.`,
+        sourceType,
+        sourceId,
+      });
+      continue;
+    }
+
+    if (row.memory_placement_conflict) {
+      conflictCount += 1;
+      diagnostics.push({
+        code: "memory_placement_state_conflict",
+        message: `A participação ${sourceType}:${sourceId} tem placement e memória simultâneos; nenhum estado foi escolhido.`,
+        sourceType,
+        sourceId,
+      });
+      continue;
+    }
+
+    if (cleanText(row.bank_status)?.toLowerCase() !== "active") continue;
+    if (sourceType !== SUPPORTED_SOURCE_TYPE || !sourceId) continue;
+
+    if (row.history_unknown || row.memory_kind === "legacy_unknown") {
+      legacyUnknownCount += 1;
+      continue;
+    }
+
+    if (
+      row.editorial_state !== "NOVA"
+      && row.editorial_state !== "FAIXA"
+      && row.editorial_state !== "DESALOJADA"
+    ) {
+      continue;
+    }
+
+    if (
+      !row.classification_key
+      || !knownZoneKeys.has(row.classification_key)
+      || !row.classification_source
+      || !row.classified_at
+      || !row.article_id
+    ) {
+      continue;
+    }
+
+    items.push({
+      bankItemId: row.bank_item_id.trim().toLowerCase(),
+      sourceType,
+      sourceId,
+      sortOrder: row.automatic_sort_order,
+      label: cleanText(row.label),
+      title: cleanText(row.title),
+      subtitle: cleanText(row.subtitle),
+      imageUrl: cleanText(row.image_url),
+      publishedAt: row.article_published_at,
+      updatedAt: row.article_updated_at,
+      circuitOrder: row.automatic_sort_order,
+      classifiedZoneKey: row.classification_key as EditorialProfileZoneKey,
+      classificationSource: row.classification_source,
+      classifiedAt: row.classified_at,
+      editorialState: row.editorial_state,
+      memoryKind: row.memory_kind === "displaced" ? "displaced" : null,
+    });
   }
-  return result;
-}
 
-async function readArticles(
-  fetchTable: MatchdayEditorialProfileDeskTableFetcher,
-  stateRows: readonly MatchdayEditorialProfileStateRow[],
-  bankRows: readonly MatchdayEditorialProfileActiveBankRow[],
-): Promise<MatchdayEditorialProfileArticleRow[]> {
-  const articleIds = Array.from(new Set(
-    [...stateRows.map((row) => row.source_id), ...bankRows.map((row) => row.source_id ?? "")]
-      .map((id) => id.trim())
-      .filter((id) => UUID_PATTERN.test(id)),
-  ));
-  if (articleIds.length === 0) return [];
+  items.sort(compareThematicItemsByCircuitOrder);
 
-  const batches = await Promise.all(chunks(articleIds, ARTICLE_BATCH_SIZE).map((batch) => (
-    fetchTable<MatchdayEditorialProfileArticleRow>(
-      `editorial_articles?select=id,slug,status,label,title,subtitle,image_url,published_at,updated_at&id=in.(${batch.join(",")})`,
-    )
-  )));
-  return batches.flat();
-}
+  if (legacyUnknownCount > 0) {
+    diagnostics.push({
+      code: "legacy_unknown_state",
+      message: `${legacyUnknownCount} participação(ões) mantém baseline histórico indeterminado e ficam fora do tracking.`,
+    });
+  }
 
-function faixaSlug(linkUrl: string | null): string | null {
-  const clean = cleanText(linkUrl);
-  if (!clean?.startsWith("/noticias/")) return null;
-  const slug = clean.slice("/noticias/".length);
-  return slug && !slug.includes("/") && !slug.includes("?") && !slug.includes("#") ? slug : null;
+  return {
+    tracking: {
+      items,
+      legacyUnknownCount,
+      conflictCount,
+    },
+    diagnostics,
+  };
 }
 
 async function readContext(
@@ -637,57 +779,28 @@ export async function readMatchdayEditorialProfileDesk(
   const [
     matchdayRows,
     verifiedAssignmentRows,
-    stateRows,
-    bankRows,
+    aggregateRows,
     manualOverrideRows,
-    classificationRows,
-    continuityClassificationRows,
-    appliedZoneRows,
     reconcileControlRows,
-    placementRows,
     openingEditorialRows,
-    openingHighlightRows,
   ] = await Promise.all([
     matchdayRowsPromise,
     fetchTable<AssignmentRow>(
       `matchday_editorial_profile_assignments?select=profile_key&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&limit=1`,
     ),
-    readAllRows<MatchdayEditorialProfileStateRow>(
+    readAllRows<MatchdayLiveDeskAggregateRow>(
       fetchTable,
-      `matchday_editorial_profile_state_items?select=source_type,source_id,zone_key,sort_order&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&profile_key=eq.${encodeURIComponent(assignment.profile_key)}`,
-    ),
-    readAllRows<MatchdayEditorialProfileActiveBankRow>(
-      fetchTable,
-      `matchday_editorial_bank_items?select=id,source_type,source_id,status,automatic_eligible,editorially_worked_at&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&status=eq.active&source_type=eq.editorial_article`,
+      `rpc/read_matchday_live_desk_aggregate_tracking?p_matchday_id=${encodeURIComponent(cleanMatchdayId)}&p_profile_key=${encodeURIComponent(assignment.profile_key)}`,
     ),
     readAllRows<MatchdayEditorialProfileManualOverrideRow>(
       fetchTable,
       `matchday_editorial_profile_manual_overrides?select=source_type,source_id,placement_target,zone_key,sort_order&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&profile_key=eq.${encodeURIComponent(assignment.profile_key)}`,
     ),
-    readAllRows<MatchdayEditorialProfileClassificationRow>(
-      fetchTable,
-      `rpc/matchday_editorial_profile_classification_plan?p_matchday_id=${encodeURIComponent(cleanMatchdayId)}`,
-    ),
-    readAllRows<MatchdayEditorialProfileContinuityClassificationRow>(
-      fetchTable,
-      `rpc/matchday_editorial_profile_continuity_classification_plan?p_matchday_id=${encodeURIComponent(cleanMatchdayId)}`,
-    ),
-    readAllRows<MatchdayEditorialProfileZoneItemRow>(
-      fetchTable,
-      `matchday_editorial_profile_zone_items?select=source_type,source_id,zone_key,sort_order&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&profile_key=eq.${encodeURIComponent(assignment.profile_key)}`,
-    ),
     fetchTable<ReconcileControlRow>(
       `matchday_editorial_profile_reconcile_control?select=revision,thematic_zone_order,thematic_zone_layouts,thematic_block_order,thematic_zone_titles&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&profile_key=eq.${encodeURIComponent(assignment.profile_key)}&limit=1`,
     ),
-    readAllRows<MatchdayEditorialProfileLivePlacementRow>(
-      fetchTable,
-      `matchday_live_layout_placements?select=bank_item_id,placement_type,zone_id,slot_position&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&order=placement_type.asc,slot_position.asc`,
-    ),
     fetchTable<OpeningEditorialRow>(
-      `matchday_editorials?select=status,title_color,headline_link_url,side_block_status,side_block_link_url,latest_zone_placement,latest_zone_title,complementary_mode,complementary_status,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&limit=1`,
-    ),
-    fetchTable<OpeningHighlightRow>(
-      `matchday_highlights?select=sort_order,status,link_url&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&order=sort_order.asc&limit=3`,
+      `matchday_editorials?select=title_color,latest_zone_placement,latest_zone_title,complementary_mode,complementary_status,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&limit=1`,
     ),
   ]);
   const matchday = matchdayRows[0];
@@ -696,10 +809,7 @@ export async function readMatchdayEditorialProfileDesk(
     throw new Error("matchday-editorial-profile-desk-concurrent-read");
   }
 
-  const [context, articleRows] = await Promise.all([
-    readContext(fetchTable, matchday),
-    readArticles(fetchTable, stateRows, bankRows),
-  ]);
+  const context = await readContext(fetchTable, matchday);
   const reconcileTokenAfter = (await fetchTable<ReconcileTokenRow>(reconcileTokenPath))[0]?.state_token;
   if (!reconcileTokenAfter) throw new Error("matchday-editorial-profile-desk-reconcile-token-not-found");
   if (reconcileTokenBefore !== reconcileTokenAfter) {
@@ -733,13 +843,106 @@ export async function readMatchdayEditorialProfileDesk(
       thematicZoneLayouts,
     );
 
+  const stateRows: MatchdayEditorialProfileStateRow[] = aggregateRows
+    .filter((row) => (
+      row.has_automatic_state
+      && cleanText(row.source_type)?.toLowerCase() === SUPPORTED_SOURCE_TYPE
+      && cleanText(row.source_id)
+    ))
+    .map((row) => ({
+      source_type: SUPPORTED_SOURCE_TYPE,
+      source_id: row.source_id!.trim().toLowerCase(),
+      zone_key: row.automatic_zone_key,
+      sort_order: row.automatic_sort_order,
+    }));
+  const bankRows: MatchdayEditorialProfileActiveBankRow[] = aggregateRows
+    .filter((row) => cleanText(row.source_type)?.toLowerCase() === SUPPORTED_SOURCE_TYPE)
+    .map((row) => ({
+      id: row.bank_item_id,
+      source_type: row.source_type,
+      source_id: row.source_id,
+      status: row.bank_status,
+      automatic_eligible: row.automatic_eligible,
+      editorial_state:
+        row.editorial_state === "NOVA"
+        || row.editorial_state === "FAIXA"
+        || row.editorial_state === "DESALOJADA"
+          ? row.editorial_state
+          : null,
+    }));
+  const articleRows: MatchdayEditorialProfileArticleRow[] = aggregateRows
+    .filter((row) => (
+      cleanText(row.source_type)?.toLowerCase() === SUPPORTED_SOURCE_TYPE
+      && row.article_id !== null
+    ))
+    .map((row) => ({
+      id: row.article_id!,
+      label: row.label,
+      title: row.title,
+      subtitle: row.subtitle,
+      image_url: row.image_url,
+      published_at: row.article_published_at,
+      updated_at: row.article_updated_at,
+    }));
+  const classificationRows: MatchdayEditorialProfileClassificationRow[] = aggregateRows
+    .flatMap((row, index) => {
+      const sourceId = cleanText(row.source_id)?.toLowerCase();
+      const classificationKey = cleanText(row.classification_key);
+      if (
+        cleanText(row.source_type)?.toLowerCase() !== SUPPORTED_SOURCE_TYPE
+        || !sourceId
+        || !classificationKey
+      ) return [];
+      return [{
+        source_type: SUPPORTED_SOURCE_TYPE,
+        source_id: sourceId,
+        classified_zone_key: classificationKey,
+        actuality_order: row.automatic_sort_order ?? index + 1,
+      }];
+    });
+  const placementRows: MatchdayEditorialProfileLivePlacementRow[] = aggregateRows
+    .flatMap((row) => (
+      row.placement_count === 1
+      && row.placement_id
+      && row.placement_type
+      && row.slot_position !== null
+        ? [{
+            bank_item_id: row.bank_item_id,
+            placement_type: row.placement_type,
+            zone_id: row.zone_id,
+            slot_position: row.slot_position,
+          }]
+        : []
+    ));
+  const appliedZoneRows: MatchdayEditorialProfileZoneItemRow[] = aggregateRows
+    .flatMap((row) => {
+      const sourceType = cleanText(row.source_type)?.toLowerCase();
+      const sourceId = cleanText(row.source_id)?.toLowerCase();
+      return row.placement_count === 1
+        && row.placement_type === "zone"
+        && row.placement_zone_key
+        && row.slot_position !== null
+        && sourceType
+        && sourceId
+        ? [{
+            source_type: sourceType,
+            source_id: sourceId,
+            zone_key: row.placement_zone_key,
+            sort_order: row.slot_position,
+          }]
+        : [];
+    });
+  const trackingProjection = buildMatchdayEditorialTrackingSnapshot(
+    effectiveProfile,
+    aggregateRows,
+  );
+
   const automaticDistribution = buildMatchdayEditorialProfileDeskDistribution(
     effectiveProfile,
     stateRows,
     bankRows,
     articleRows,
     classificationRows,
-    continuityClassificationRows,
   );
   const activeIdentities = new Set(automaticDistribution.activeItems.map((item) => (
     thematicEditorialIdentity(item.sourceType, item.sourceId)
@@ -767,60 +970,37 @@ export async function readMatchdayEditorialProfileDesk(
         }
       : null;
   };
-  const activeSourceIdsBySlug = new Map<string, string[]>();
-  for (const article of articleRows) {
-    const slug = cleanText(article.slug);
-    const sourceId = article.id.trim().toLowerCase();
-    if (
-      !slug
-      || cleanText(article.status)?.toLowerCase() !== "published"
-      || !activeIdentities.has(thematicEditorialIdentity(SUPPORTED_SOURCE_TYPE, sourceId))
-    ) continue;
-    const current = activeSourceIdsBySlug.get(slug) ?? [];
-    current.push(sourceId);
-    activeSourceIdsBySlug.set(slug, current);
-  }
   const openingDiagnostics: MatchdayEditorialProfileDeskDiagnostic[] = [];
-  const openingSourceId = (linkUrl: string | null, label: string): string | null => {
-    const slug = faixaSlug(linkUrl);
-    if (!slug) {
-      if (cleanText(linkUrl)) {
-        openingDiagnostics.push({
-          code: "unresolved_opening",
-          message: `${label} não resolve para uma notícia canónica ativa.`,
-        });
-      }
-      return null;
-    }
-    const matches = activeSourceIdsBySlug.get(slug) ?? [];
-    if (matches.length !== 1) {
+  const openingSourceId = (slotPosition: number, label: string): string | null => {
+    const placement = placementRows.find((row) => (
+      row.placement_type === "opening" && row.slot_position === slotPosition
+    ));
+    if (!placement) return null;
+    const source = placementSource(placement);
+    if (
+      !source
+      || source.sourceType !== SUPPORTED_SOURCE_TYPE
+      || !activeIdentities.has(source.identity)
+      || !articleRowsById.has(source.sourceId)
+    ) {
       openingDiagnostics.push({
         code: "unresolved_opening",
-        message: `${label} não resolve univocamente para uma notícia canónica ativa.`,
+        message: `${label} não resolve para uma notícia canónica ativa.`,
+        sourceType: "matchday_live_layout_placement",
+        sourceId: placement.bank_item_id,
       });
       return null;
     }
-    return matches[0];
+    return source.sourceId;
   };
   const openingEditorial = openingEditorialRows[0];
-  const highlightByOrder = new Map(openingHighlightRows.map((row) => [row.sort_order, row] as const));
   const opening = {
     ...emptyMatchdayEditorialProfileOpening(),
-    headline: cleanText(openingEditorial?.status)?.toLowerCase() === "published"
-      ? openingSourceId(openingEditorial?.headline_link_url ?? null, "A Manchete")
-      : null,
-    highlight_1: cleanText(highlightByOrder.get(1)?.status)?.toLowerCase() === "published"
-      ? openingSourceId(highlightByOrder.get(1)?.link_url ?? null, "A Notícia 1")
-      : null,
-    highlight_2: cleanText(highlightByOrder.get(2)?.status)?.toLowerCase() === "published"
-      ? openingSourceId(highlightByOrder.get(2)?.link_url ?? null, "A Notícia 2")
-      : null,
-    highlight_3: cleanText(highlightByOrder.get(3)?.status)?.toLowerCase() === "published"
-      ? openingSourceId(highlightByOrder.get(3)?.link_url ?? null, "A Notícia 3")
-      : null,
-    context: cleanText(openingEditorial?.side_block_status)?.toLowerCase() === "published"
-      ? openingSourceId(openingEditorial?.side_block_link_url ?? null, "O Contexto")
-      : null,
+    headline: openingSourceId(1, "A Manchete"),
+    highlight_1: openingSourceId(2, "A Notícia 1"),
+    highlight_2: openingSourceId(3, "A Notícia 2"),
+    highlight_3: openingSourceId(4, "A Notícia 3"),
+    context: openingSourceId(5, "O Contexto"),
   } satisfies MatchdayEditorialProfileOpening;
   const pageControls: MatchdayEditorialProfilePageControls = {
     headlineTitleColor: /^#[0-9a-f]{6}$/i.test(cleanText(openingEditorial?.title_color) ?? "")
@@ -954,6 +1134,20 @@ export async function readMatchdayEditorialProfileDesk(
   });
   const hasAppliedSnapshot = reconcileControlRows.length > 0;
   const snapshotDiagnostics: MatchdayEditorialProfileDeskDiagnostic[] = [];
+  for (const row of aggregateRows) {
+    if (
+      row.placement_count === 1
+      && row.placement_type === "zone"
+      && !row.placement_zone_key
+    ) {
+      snapshotDiagnostics.push({
+        code: "unknown_zone",
+        message: `O placement autoritativo ${row.placement_id ?? row.bank_item_id} aponta para uma zona sem projeção semântica.`,
+        sourceType: cleanText(row.source_type)?.toLowerCase(),
+        sourceId: cleanText(row.source_id)?.toLowerCase(),
+      });
+    }
+  }
   if (!hasAppliedSnapshot && appliedZoneRows.length > 0) {
     snapshotDiagnostics.push({
       code: "invalid_applied_snapshot",
@@ -975,10 +1169,50 @@ export async function readMatchdayEditorialProfileDesk(
   );
   const diagnostics = [
     ...automaticDistribution.diagnostics,
+    ...trackingProjection.diagnostics,
     ...faixaDiagnostics,
     ...openingDiagnostics,
     ...snapshotDiagnostics,
   ];
+  const selectionCandidates: MatchdayEditorialSelectionCandidate[] = aggregateRows
+    .filter((row) => {
+      const sourceType = cleanText(row.source_type)?.toLowerCase();
+      return cleanText(row.bank_status)?.toLowerCase() === "active"
+        && (sourceType === "editorial_article" || sourceType === "editorial_content");
+    })
+    .map((row) => ({
+      bankItemId: row.bank_item_id.trim().toLowerCase(),
+      sourceType: cleanText(row.source_type)?.toLowerCase() ?? null,
+      sourceId: cleanText(row.source_id)?.toLowerCase() ?? null,
+      label: cleanText(row.label),
+      title: cleanText(row.title) ?? row.bank_item_id,
+      subtitle: cleanText(row.subtitle),
+      imageUrl: cleanText(row.image_url),
+      linkUrl: cleanText(row.link_url),
+    }));
+  const selectionCandidateById = new Map(
+    selectionCandidates.map((item) => [item.bankItemId, item] as const),
+  );
+  const editorialSelection: MatchdayEditorialSelectionItem[] = aggregateRows
+    .flatMap((row) => {
+      if (
+        row.placement_count !== 1
+        || row.placement_type !== "selection"
+        || row.placement_id === null
+        || row.slot_position === null
+        || row.slot_position < 1
+        || row.slot_position > 4
+      ) return [];
+      const bankItemId = row.bank_item_id.trim().toLowerCase();
+      const candidate = selectionCandidateById.get(bankItemId);
+      return candidate ? [{
+        position: row.slot_position,
+        liveItemId: row.placement_id,
+        ...candidate,
+        bankItemId,
+      }] : [];
+    })
+    .sort((left, right) => left.position - right.position);
 
   return {
     kind: "thematic",
@@ -995,10 +1229,15 @@ export async function readMatchdayEditorialProfileDesk(
     opening,
     pageControls,
     videoModule,
+    tracking: trackingProjection.tracking,
+    selectionCandidates,
+    editorialSelection,
     reconcile,
     zones: reconcile.zonesAfter,
     bank: reconcile.bankAfter,
     diagnostics,
-    inactiveHistoricalCount: automaticDistribution.inactiveHistoricalCount,
+    inactiveHistoricalCount:
+      aggregateRows[0]?.inactive_historical_count
+      ?? automaticDistribution.inactiveHistoricalCount,
   };
 }

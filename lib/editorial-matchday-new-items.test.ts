@@ -18,7 +18,7 @@ const route = readFileSync(
   "utf8",
 );
 
-function distribution(workedAt: string | null) {
+function distribution(editorialState: "NOVA" | "DESALOJADA" | null) {
   return buildMatchdayEditorialProfileDeskDistribution(
     EDITORIAL_PROFILES.liga_portugal_v1,
     [{ source_type: "editorial_article", source_id: "article-a", zone_key: "benfica", sort_order: 1 }],
@@ -27,7 +27,8 @@ function distribution(workedAt: string | null) {
       source_id: "article-a",
       status: "active",
       automatic_eligible: true,
-      editorially_worked_at: workedAt,
+      editorially_worked_at: null,
+      editorial_state: editorialState,
     }],
     [{
       id: "article-a",
@@ -42,9 +43,10 @@ function distribution(workedAt: string | null) {
   );
 }
 
-test("Novas deriva do estado persistente da linha canónica da jornada", () => {
-  assert.equal(distribution(null).activeItems[0]?.isNew, true);
-  assert.equal(distribution("2026-08-28T08:30:00.000Z").activeItems[0]?.isNew, false);
+test("Novas deriva apenas do estado editorial projetado", () => {
+  assert.equal(distribution("NOVA").activeItems[0]?.isNew, true);
+  assert.equal(distribution("DESALOJADA").activeItems[0]?.isNew, false);
+  assert.equal(distribution(null).activeItems[0]?.isNew, false);
   assert.match(migration, /add column editorially_worked_at timestamptz/i);
   assert.match(migration, /update public\.matchday_editorial_bank_items[\s\S]*set editorially_worked_at = statement_timestamp\(\)/i);
   assert.match(migration, /old\.editorially_worked_at is not null[\s\S]*new\.editorially_worked_at := old\.editorially_worked_at/i);
@@ -84,12 +86,12 @@ test("usar uma notícia como Destaque editorial também conta como decisão expl
   assert.match(implementation, /withWorkedIdentities/u);
 });
 
-test("Novas reutiliza pesquisa, classificação, seleção e paginação das fontes", () => {
-  assert.match(client, /type SourceViewKey = "new" \| "available" \| "faixa"/u);
-  assert.match(client, /Novas \{newItems\.length\}/u);
-  assert.match(client, /item\.isNew === true/u);
-  assert.match(client, /exclusivePlacedIdentitySet/u);
-  assert.match(client, /classifiedZoneKey/u);
-  assert.match(client, /filteredNewItems\.slice\(/u);
+test("Novas integra o tracking simultâneo sem inferência por worked_at", () => {
+  assert.match(client, /TRACKING_STATES = \["NOVA", "FAIXA", "DESALOJADA"\]/u);
+  assert.match(client, /desk\.tracking\.items/u);
+  assert.match(client, /trackingItem\.editorialState === state/u);
+  assert.match(client, /trackingItem\.classifiedZoneKey === trackingZoneKey/u);
+  assert.doesNotMatch(client, /item\.isNew === true/u);
+  assert.doesNotMatch(client, /SourceViewKey|activeSourceView/u);
   assert.doesNotMatch(client, /localStorage|sessionStorage/u);
 });

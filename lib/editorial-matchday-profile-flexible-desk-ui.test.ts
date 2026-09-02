@@ -137,7 +137,7 @@ test("zona ativa mantém apenas os controlos funcionais numa linha", () => {
   assert.doesNotMatch(source, /thematic-workspace-head/);
 });
 
-test("tabs mantêm apenas Abertura fixa", () => {
+test("tabs mantêm apenas Abertura fixa e deixam o tracking simultâneo separado", () => {
   assert.match(source, /className="thematic-zone-tabs"/);
   assert.match(source, /Abertura \{openingOccupied\}/);
 
@@ -145,8 +145,9 @@ test("tabs mantêm apenas Abertura fixa", () => {
   const tabsEnd = source.indexOf("{renderActiveWorkspace()}", tabsStart);
   assert.ok(tabsStart >= 0 && tabsEnd > tabsStart);
   assert.doesNotMatch(source.slice(tabsStart, tabsEnd), /Faixa/);
-  assert.match(source, /aria-label="Fontes editoriais"/);
-  assert.match(source, /Faixa \{reconcile\.faixaAfter\.length\}/);
+  assert.match(source, /aria-label="Tracking editorial por classe"/);
+  assert.match(source, /const TRACKING_STATES = \["NOVA", "FAIXA", "DESALOJADA"\]/);
+  assert.doesNotMatch(source, /aria-label="Fontes editoriais"/);
 });
 
 test("Últimas mantém só Título público, Apresentação e contador na faixa funcional", () => {

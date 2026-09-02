@@ -64,25 +64,6 @@ type ApiError =
     message: string;
   }>;
 
-type EditorialSelectionBankRow =
-  Readonly<{
-    id: string;
-    source_type: string | null;
-    source_id: string | null;
-    label: string | null;
-    title: string;
-    subtitle: string | null;
-    image_url: string | null;
-    link_url: string | null;
-  }>;
-
-type EditorialSelectionPlacementRow =
-  Readonly<{
-    id: string;
-    bank_item_id: string;
-    slot_position: number;
-  }>;
-
 type VideoModuleInput = Readonly<{
   active: boolean;
   highlightAction: "preserve" | "remove" | "replace";
@@ -275,87 +256,19 @@ export async function GET(
     );
   }
 
-  const [
-    candidates,
-    selectionPlacements,
-  ] = await Promise.all([
-    fetchSupabaseAdminTable<EditorialSelectionBankRow>(
-      `matchday_editorial_bank_items?select=id,source_type,source_id,label,title,subtitle,image_url,link_url&matchday_id=eq.${encodeURIComponent(
-        matchdayId,
-      )}&status=eq.active&source_type=in.(editorial_article,editorial_content)&order=updated_at.desc`,
-    ),
-    fetchSupabaseAdminTable<EditorialSelectionPlacementRow>(
-      `matchday_live_layout_placements?select=id,bank_item_id,slot_position&matchday_id=eq.${encodeURIComponent(
-        matchdayId,
-      )}&placement_type=eq.selection&order=slot_position.asc`,
-    ),
-  ]);
-
-  const bankById =
-    new Map(
-      candidates.map((item) => [item.id.trim().toLowerCase(), item] as const),
+  const desk = await readMatchdayEditorialProfileDesk(matchdayId);
+  if (!desk || desk.kind !== "thematic") {
+    return apiError(
+      "thematic-desk-context-not-found",
+      "A Mesa temática já não está disponível.",
+      404,
     );
-
-  const items =
-    selectionPlacements
-      .flatMap((placement) => {
-        if (
-          !Number.isInteger(placement.slot_position)
-          || placement.slot_position < 1
-          || placement.slot_position > 4
-        ) {
-          return [];
-        }
-        const bank = bankById.get(
-          placement.bank_item_id.trim().toLowerCase(),
-        );
-        if (!bank) return [];
-
-        return [{
-          position: placement.slot_position,
-          liveItemId:
-            placement.id,
-          bankItemId:
-            bank.id,
-          sourceType:
-            bank.source_type?.trim().toLowerCase() ?? null,
-          sourceId:
-            bank.source_id?.trim().toLowerCase() ?? null,
-          label: bank.label,
-          title: bank.title,
-          subtitle: bank.subtitle,
-          imageUrl: bank.image_url,
-          linkUrl: bank.link_url,
-        }];
-      })
-      .sort(
-        (left, right) =>
-          left.position
-          - right.position,
-      );
+  }
 
   return NextResponse.json({
     ok: true,
-    candidates:
-      candidates.map((item) => ({
-        bankItemId:
-          item.id,
-        sourceType:
-          item.source_type,
-        sourceId:
-          item.source_id,
-        label:
-          item.label,
-        title:
-          item.title,
-        subtitle:
-          item.subtitle,
-        imageUrl:
-          item.image_url,
-        linkUrl:
-          item.link_url,
-      })),
-    items,
+    candidates: desk.selectionCandidates,
+    items: desk.editorialSelection,
   });
 }
 
@@ -491,39 +404,29 @@ export async function POST(
     const selectionBankItemIds = (input.selectionBankItemIds as (string | null)[])
       .flatMap((value) => value ? [value.trim().toLowerCase()] : []);
     const selectionBankItemIdSet = new Set(selectionBankItemIds);
-    const selectionRows = selectionBankItemIds.length > 0
-      ? await fetchSupabaseAdminTable<EditorialSelectionBankRow>(
-          `matchday_editorial_bank_items?select=id,source_type,source_id,label,title,subtitle,image_url,link_url&matchday_id=eq.${encodeURIComponent(
-            matchdayId,
-          )}&status=eq.active&id=in.(${Array.from(selectionBankItemIdSet).map((value) => encodeURIComponent(value)).join(",")})`,
-        )
-      : [];
+    const selectionRows = desk.selectionCandidates.filter((row) => (
+      selectionBankItemIdSet.has(row.bankItemId.trim().toLowerCase())
+    ));
 
     if (
       selectionRows.length !== selectionBankItemIdSet.size
-      || selectionRows.some((row) => !selectionBankItemIdSet.has(row.id.trim().toLowerCase()))
+      || selectionRows.some((row) => !selectionBankItemIdSet.has(row.bankItemId.trim().toLowerCase()))
     ) {
       throw new Error("matchday-editorial-profile-selection-source-not-active");
     }
 
     const selectionIdentities = matchdayEditorialProfileSelectionIdentities(
       input.selectionBankItemIds as (string | null)[],
-      selectionRows.map((row) => ({
-        bankItemId: row.id,
-        sourceType: row.source_type,
-        sourceId: row.source_id,
-      })),
+      selectionRows,
     );
     if (selectionIdentities.length !== selectionRows.length) {
       throw new Error("matchday-editorial-profile-selection-duplicate-source");
     }
     const replacementVideoRows = videoModule.highlightAction === "replace"
       && videoModule.highlightBankItemId
-      ? await fetchSupabaseAdminTable<EditorialSelectionBankRow>(
-          `matchday_editorial_bank_items?select=id,source_type,source_id,label,title,subtitle,image_url,link_url&matchday_id=eq.${encodeURIComponent(
-            matchdayId,
-          )}&status=eq.active&id=eq.${encodeURIComponent(videoModule.highlightBankItemId)}&limit=1`,
-        )
+      ? desk.selectionCandidates.filter((row) => (
+          row.bankItemId.trim().toLowerCase() === videoModule.highlightBankItemId
+        ))
       : [];
     let independentPlacementIdentity: string | null = null;
     if (videoModule.highlightAction === "preserve") {
@@ -536,8 +439,8 @@ export async function POST(
       }
     } else if (videoModule.highlightAction === "replace") {
       const replacement = replacementVideoRows[0];
-      const sourceType = replacement?.source_type?.trim().toLowerCase();
-      const sourceId = replacement?.source_id?.trim().toLowerCase();
+      const sourceType = replacement?.sourceType?.trim().toLowerCase();
+      const sourceId = replacement?.sourceId?.trim().toLowerCase();
       if (sourceType === "editorial_article" && sourceId) {
         independentPlacementIdentity = thematicEditorialIdentity(
           sourceType,

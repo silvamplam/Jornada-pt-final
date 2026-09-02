@@ -20,8 +20,10 @@ import {
   type EditorialVisualFamily,
 } from "@/lib/editorial-profiles";
 import type {
+  MatchdayEditorialSelectionCandidate,
   MatchdayEditorialProfileDeskDiagnostic,
   MatchdayEditorialProfileDeskSnapshot,
+  MatchdayEditorialTrackingState,
 } from "@/lib/editorial-matchday-profile-desk";
 import {
   fixMatchdayEditorialItemsAtPosition,
@@ -65,40 +67,7 @@ import {
   type MatchdayEditorialProfileSelectionPosition,
 } from "@/lib/editorial-matchday-profile-selection";
 
-type EditorialSelectionCandidate =
-  Readonly<{
-    bankItemId: string;
-    sourceType: string | null;
-    sourceId: string | null;
-    label: string | null;
-    title: string;
-    subtitle: string | null;
-    imageUrl: string | null;
-    linkUrl: string | null;
-  }>;
-
-type EditorialSelectionItem =
-  Readonly<{
-    position: number;
-    liveItemId: string;
-    bankItemId: string | null;
-    sourceType: string | null;
-    sourceId: string | null;
-    label: string | null;
-    title: string | null;
-    subtitle: string | null;
-    imageUrl: string | null;
-    linkUrl: string | null;
-  }>;
-
-type EditorialSelectionResponse =
-  Readonly<{
-    ok?: boolean;
-    error?: string;
-    message?: string;
-    candidates?: readonly EditorialSelectionCandidate[];
-    items?: readonly EditorialSelectionItem[];
-  }>;
+type EditorialSelectionCandidate = MatchdayEditorialSelectionCandidate;
 
 type VideoHighlightDraft = Readonly<{
   action: "preserve" | "remove" | "replace";
@@ -110,20 +79,15 @@ type VideoModuleDraft = Readonly<{
   highlight: VideoHighlightDraft;
 }>;
 
-const FAIXA_INITIAL_VISIBLE = 30;
-const FAIXA_PAGE_SIZE = 30;
-const NEW_ITEMS_INITIAL_VISIBLE = 30;
-const NEW_ITEMS_PAGE_SIZE = 30;
-const RESERVOIR_INITIAL_VISIBLE = 30;
-const RESERVOIR_PAGE_SIZE = 30;
+const TRACKING_INITIAL_VISIBLE = 30;
+const TRACKING_PAGE_SIZE = 30;
+const TRACKING_STATES = ["NOVA", "FAIXA", "DESALOJADA"] as const;
 
 type ActiveWorkspaceKey =
   | "opening"
   | "latest"
   | "highlight"
   | EditorialProfileZoneKey;
-
-type SourceViewKey = "new" | "available" | "faixa";
 
 type AgendaTvPreviewStatus =
   | "update"
@@ -280,6 +244,12 @@ const styles = `
   .thematic-sources-list { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; padding: 6px; }
   .thematic-sources-list .thematic-card { min-height: 60px; }
   .thematic-sources-list[data-drag-active="true"] { background: #fff8f8; box-shadow: inset 0 0 0 1px #e43e48; }
+  .thematic-tracking-rows { display: grid; gap: 6px; padding: 6px; }
+  .thematic-tracking-row { min-width: 0; overflow: hidden; border: 1px solid #dfe6ee; border-radius: 6px; background: #fff; }
+  .thematic-tracking-row > header { display: flex; gap: 7px; align-items: center; min-height: 30px; padding: 4px 6px; border-bottom: 1px solid #e5ebf1; background: #f8fafc; }
+  .thematic-tracking-row > header strong { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+  .thematic-tracking-row > header span { display: inline-grid; place-items: center; min-width: 23px; min-height: 20px; border-radius: 999px; background: #e8eef6; color: #334155; font-size: 9px; font-weight: 900; }
+  .thematic-tracking-row > header .thematic-button { margin-left: auto; }
   .thematic-faixa-item { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 5px; align-items: start; min-width: 0; }
   .thematic-global-tools { display: grid; grid-template-columns: max-content max-content max-content minmax(0,1fr); align-items: start; gap: 5px; }
   .thematic-global-tool { min-width: 0; border: 1px solid #d7e0e9; border-radius: 7px; background: #fff; box-shadow: 0 3px 10px rgba(12,22,34,.03); }
@@ -799,34 +769,22 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [activeWorkspaceKey, setActiveWorkspaceKey] =
     useState<ActiveWorkspaceKey>("opening");
   const [openingPinned, setOpeningPinned] = useState(false);
-  const [activeSourceView, setActiveSourceView] =
-    useState<SourceViewKey>("new");
   const pageStructureRef = useRef<HTMLDetailsElement>(null);
   const selectionBootstrapMatchdayRef = useRef<string | null>(null);
   const [editorialSelectionLoadedMatchdayId, setEditorialSelectionLoadedMatchdayId] =
-    useState<string | null>(null);
+    useState<string | null>(desk.matchdayId);
   const [destinationZone, setDestinationZone] = useState<EditorialProfileZoneKey>(profile.zones[0].key);
   const [zonePosition, setZonePosition] = useState(1);
   const [faixaPosition, setFaixaPosition] = useState(1);
-  const [faixaQuery, setFaixaQuery] = useState("");
-  const [faixaZoneFilters, setFaixaZoneFilters] = useState<
-    readonly EditorialProfileZoneKey[]
-  >([]);
-  const [faixaVisibleCount, setFaixaVisibleCount] = useState(FAIXA_INITIAL_VISIBLE);
-  const [newItemsQuery, setNewItemsQuery] = useState("");
-  const [newItemsZoneFilters, setNewItemsZoneFilters] = useState<
-    readonly EditorialProfileZoneKey[]
-  >([]);
-  const [newItemsVisibleCount, setNewItemsVisibleCount] = useState(
-    NEW_ITEMS_INITIAL_VISIBLE,
-  );
-  const [reservoirQuery, setReservoirQuery] = useState("");
-  const [reservoirZoneFilters, setReservoirZoneFilters] = useState<
-    readonly EditorialProfileZoneKey[]
-  >([]);
-  const [reservoirVisibleCount, setReservoirVisibleCount] = useState(
-    RESERVOIR_INITIAL_VISIBLE,
-  );
+  const [trackingZoneKey, setTrackingZoneKey] = useState<EditorialProfileZoneKey>(profile.zones[0].key);
+  const [trackingQuery, setTrackingQuery] = useState("");
+  const [trackingVisibleCounts, setTrackingVisibleCounts] = useState<
+    Readonly<Record<MatchdayEditorialTrackingState, number>>
+  >({
+    NOVA: TRACKING_INITIAL_VISIBLE,
+    FAIXA: TRACKING_INITIAL_VISIBLE,
+    DESALOJADA: TRACKING_INITIAL_VISIBLE,
+  });
   const [applyState, setApplyState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [
@@ -834,73 +792,27 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     setEditorialSelectionCandidates,
   ] = useState<
     readonly EditorialSelectionCandidate[]
-  >([]);
+  >(desk.selectionCandidates);
   const [
     persistedEditorialSelection,
     setPersistedEditorialSelection,
   ] = useState<
     readonly (string | null)[]
-  >([null, null, null, null]);
+  >([1, 2, 3, 4].map((position) => (
+    desk.editorialSelection.find((item) => item.position === position)?.bankItemId ?? null
+  )));
   const [
     draftEditorialSelection,
     setDraftEditorialSelection,
   ] = useState<
     readonly (string | null)[]
-  >([null, null, null, null]);
+  >([1, 2, 3, 4].map((position) => (
+    desk.editorialSelection.find((item) => item.position === position)?.bankItemId ?? null
+  )));
   const [zoneLayoutError, setZoneLayoutError] = useState<Readonly<{
     zoneKey: EditorialProfileZoneKey;
     message: string;
   }> | null>(null);
-
-  async function loadEditorialSelection() {
-    try {
-      const response =
-        await fetch(
-          `/api/admin/editorial/jornada/${desk.matchdayId}/organizar/tematico`,
-          {
-            method: "GET",
-            cache: "no-store",
-          },
-        );
-
-      const payload =
-        await readAdminJsonResponse<EditorialSelectionResponse>(
-          response,
-        );
-
-      if (
-        !payload.ok
-      ) {
-        throw new Error(
-          payload?.message
-          ?? "Não foi possível ler a Seleção editorial.",
-        );
-      }
-
-      setEditorialSelectionCandidates(
-        payload.candidates ?? [],
-      );
-
-      const nextSelection = [1, 2, 3, 4].map(
-        (position) =>
-          payload.items?.find(
-            (item) => item.position === position,
-          )?.bankItemId ?? null,
-      );
-
-      setPersistedEditorialSelection(nextSelection);
-      setDraftEditorialSelection(nextSelection);
-      setEditorialSelectionLoadedMatchdayId(desk.matchdayId);
-    } catch (error) {
-      setEditorialSelectionLoadedMatchdayId(null);
-      setApplyState("error");
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível ler a Seleção editorial.",
-      );
-    }
-  }
 
   function changeEditorialSelection(
     position: MatchdayEditorialProfileSelectionPosition,
@@ -1065,9 +977,14 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   useEffect(() => {
     selectionBootstrapMatchdayRef.current = null;
-    setEditorialSelectionLoadedMatchdayId(null);
-    void loadEditorialSelection();
-  }, [desk.matchdayId]);
+    const nextSelection = [1, 2, 3, 4].map((position) => (
+      desk.editorialSelection.find((item) => item.position === position)?.bankItemId ?? null
+    ));
+    setEditorialSelectionCandidates(desk.selectionCandidates);
+    setPersistedEditorialSelection(nextSelection);
+    setDraftEditorialSelection(nextSelection);
+    setEditorialSelectionLoadedMatchdayId(desk.matchdayId);
+  }, [desk.editorialSelection, desk.matchdayId, desk.selectionCandidates]);
 
   useEffect(() => {
     setEditorState((current) => {
@@ -1289,172 +1206,54 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     zonePosition,
     maxZoneStartPosition,
   );
-  const workedIdentitySet = useMemo(
-    () => new Set(editorState.workedIdentities),
-    [editorState.workedIdentities],
-  );
   const effectiveItemByIdentity = useMemo(() => new Map([
     ...reconcile.zonesAfter.flatMap((zone) => zone.items),
     ...reconcile.faixaAfter,
     ...reconcile.bankAfter,
   ].map((item) => [identity(item), item] as const)), [reconcile]);
-  const exclusivePlacedIdentitySet = useMemo(() => new Set([
-    ...effectiveItemByIdentity.keys(),
-    ...matchdayEditorialProfileOpeningSourceIds(editorState.draftOpening).map(
-      (sourceId) => thematicEditorialIdentity("editorial_article", sourceId),
-    ),
-    ...draftSelectionIdentities,
-    ...independentPlacementIdentities,
-  ]), [draftSelectionIdentities, editorState.draftOpening, effectiveItemByIdentity, independentPlacementIdentities]);
-  const newItems = activeItems.filter((item) =>
-    item.isNew === true
-    && !workedIdentitySet.has(identity(item))
-    && !exclusivePlacedIdentitySet.has(identity(item)));
-  const normalizedNewItemsQuery = newItemsQuery
+  const normalizedTrackingQuery = trackingQuery
     .trim()
     .toLocaleLowerCase("pt-PT");
-  const newItemsZoneFilterSet = useMemo(
-    () => new Set(newItemsZoneFilters),
-    [newItemsZoneFilters],
-  );
-  const filteredNewItems = newItems
-    .filter((item) => {
-      const zoneMatches = newItemsZoneFilterSet.size === 0
-        || (
-          item.classifiedZoneKey !== null
-          && newItemsZoneFilterSet.has(item.classifiedZoneKey)
-        );
-      const queryMatches = !normalizedNewItemsQuery
-        || [item.label, item.title, item.subtitle].some((value) =>
-          value?.toLocaleLowerCase("pt-PT").includes(normalizedNewItemsQuery));
-      return zoneMatches && queryMatches;
-    })
-    .map((item): MatchdayEditorialProfileEffectiveItem =>
-      effectiveItemByIdentity.get(identity(item)) ?? {
-        ...item,
-        manualOverride: null,
-      });
-  const visibleNewItems = filteredNewItems.slice(0, newItemsVisibleCount);
+  const trackingEntries = useMemo(() => desk.tracking.items.flatMap((trackingItem) => {
+    const itemIdentity = identity(trackingItem);
+    const activeItem = activeByIdentity.get(itemIdentity);
+    if (!activeItem) return [];
+    const effectiveItem = effectiveItemByIdentity.get(itemIdentity) ?? {
+      ...activeItem,
+      sortOrder: null,
+      manualOverride: null,
+    };
+    return [{ trackingItem, item: effectiveItem }];
+  }), [activeByIdentity, desk.tracking.items, effectiveItemByIdentity]);
+  const filteredTrackingEntries = trackingEntries.filter(({ trackingItem }) => (
+    trackingItem.classifiedZoneKey === trackingZoneKey
+    && (
+      !normalizedTrackingQuery
+      || [trackingItem.label, trackingItem.title, trackingItem.subtitle].some((value) =>
+        value?.toLocaleLowerCase("pt-PT").includes(normalizedTrackingQuery))
+    )
+  ));
+  const filteredSourceItems = filteredTrackingEntries.map(({ item }) => item);
 
-  function toggleNewItemsZoneFilter(zoneKey: EditorialProfileZoneKey) {
-    setNewItemsZoneFilters((current) =>
-      current.includes(zoneKey)
-        ? current.filter((candidate) => candidate !== zoneKey)
-        : [...current, zoneKey]);
-    setNewItemsVisibleCount(NEW_ITEMS_INITIAL_VISIBLE);
+  function trackingEntriesForState(state: MatchdayEditorialTrackingState) {
+    return filteredTrackingEntries.filter(({ trackingItem }) => (
+      trackingItem.editorialState === state
+    ));
   }
-  const normalizedFaixaQuery = faixaQuery.trim().toLocaleLowerCase("pt-PT");
-  const faixaZoneFilterSet = useMemo(
-    () => new Set(faixaZoneFilters),
-    [faixaZoneFilters],
-  );
-  const filteredFaixa = reconcile.faixaAfter.filter((item) => {
-    const classifiedZoneKey =
-      activeByIdentity.get(identity(item))?.classifiedZoneKey
-      ?? null;
-    const zoneMatches =
-      faixaZoneFilterSet.size === 0
-      || (
-        classifiedZoneKey !== null
-        && faixaZoneFilterSet.has(classifiedZoneKey)
-      );
-    const queryMatches =
-      !normalizedFaixaQuery
-      || [item.label, item.title, item.subtitle].some(
-        (value) =>
-          value
-            ?.toLocaleLowerCase("pt-PT")
-            .includes(normalizedFaixaQuery),
-      );
 
-    return zoneMatches && queryMatches;
-  });
-  const visibleFaixa = filteredFaixa.slice(0, faixaVisibleCount);
-
-  function toggleFaixaZoneFilter(
-    zoneKey: EditorialProfileZoneKey,
-  ) {
-    setFaixaZoneFilters((current) =>
-      current.includes(zoneKey)
-        ? current.filter((candidate) => candidate !== zoneKey)
-        : [...current, zoneKey],
-    );
-    setFaixaVisibleCount(FAIXA_INITIAL_VISIBLE);
+  function showMoreTracking(state: MatchdayEditorialTrackingState) {
+    setTrackingVisibleCounts((current) => ({
+      ...current,
+      [state]: current[state] + TRACKING_PAGE_SIZE,
+    }));
   }
-  const normalizedReservoirQuery = reservoirQuery
-    .trim()
-    .toLocaleLowerCase("pt-PT");
-  const reservoirZoneFilterSet = useMemo(
-    () => new Set(reservoirZoneFilters),
-    [reservoirZoneFilters],
-  );
-  const filteredReservoir = reconcile.bankAfter.filter((item) => {
-    const classifiedZoneKey =
-      activeByIdentity.get(identity(item))?.classifiedZoneKey
-      ?? null;
-    const zoneMatches =
-      reservoirZoneFilterSet.size === 0
-      || (
-        classifiedZoneKey !== null
-        && reservoirZoneFilterSet.has(classifiedZoneKey)
-      );
-    const queryMatches =
-      !normalizedReservoirQuery
-      || [item.label, item.title, item.subtitle].some(
-        (value) =>
-          value
-            ?.toLocaleLowerCase("pt-PT")
-            .includes(normalizedReservoirQuery),
-      );
 
-    return zoneMatches && queryMatches;
-  });
-  const visibleReservoir = filteredReservoir.slice(
-    0,
-    reservoirVisibleCount,
-  );
-
-  function toggleReservoirZoneFilter(
-    zoneKey: EditorialProfileZoneKey,
-  ) {
-    setReservoirZoneFilters((current) =>
-      current.includes(zoneKey)
-        ? current.filter((candidate) => candidate !== zoneKey)
-        : [...current, zoneKey],
-    );
-    setReservoirVisibleCount(RESERVOIR_INITIAL_VISIBLE);
-  }
-  const filteredSourceItems = activeSourceView === "new"
-    ? filteredNewItems
-    : activeSourceView === "available"
-      ? filteredReservoir
-      : filteredFaixa;
-  const visibleSourceItems = activeSourceView === "new"
-    ? visibleNewItems
-    : activeSourceView === "available"
-      ? visibleReservoir
-      : visibleFaixa;
-
-  function placementForItem(
-    item: MatchdayEditorialProfileEffectiveItem,
-  ): Placement {
-    if (matchdayEditorialProfileOpeningSourceIds(editorState.draftOpening).includes(item.sourceId)) {
-      return { kind: "opening" };
-    }
-    const zone = reconcile.zonesAfter.find((candidate) =>
-      candidate.items.some((entry) => identity(entry) === identity(item)));
-    if (zone) return { kind: "zone", zoneKey: zone.key };
-    if (reconcile.faixaAfter.some((entry) => identity(entry) === identity(item))) {
-      return { kind: "faixa" };
-    }
-    if (reconcile.bankAfter.some((entry) => identity(entry) === identity(item))) {
-      return { kind: "bank" };
-    }
-    if (item.isNew === true && !workedIdentitySet.has(identity(item))) {
-      return { kind: "new" };
-    }
+  function trackingPlacement(state: MatchdayEditorialTrackingState): Placement {
+    if (state === "NOVA") return { kind: "new" };
+    if (state === "FAIXA") return { kind: "faixa" };
     return { kind: "bank" };
   }
+
   const currentVideoHighlightDefined =
     desk.videoModule.highlight.isPublished
     && Boolean(
@@ -2467,7 +2266,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   }
 
   function activateFaixaFromStructure() {
-    setActiveSourceView("faixa");
     pageStructureRef.current?.removeAttribute("open");
   }
 
@@ -2655,65 +2453,16 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   }
 
   function renderSources() {
-    const sourceZoneFilters = activeSourceView === "new"
-      ? newItemsZoneFilters
-      : activeSourceView === "available"
-        ? reservoirZoneFilters
-        : faixaZoneFilters;
-    const sourceQuery = activeSourceView === "new"
-      ? newItemsQuery
-      : activeSourceView === "available"
-        ? reservoirQuery
-        : faixaQuery;
-    const filteredCount = filteredSourceItems.length;
-    const visibleCount = visibleSourceItems.length;
-
-    function toggleSourceZoneFilter(zoneKey: EditorialProfileZoneKey) {
-      if (activeSourceView === "new") {
-        toggleNewItemsZoneFilter(zoneKey);
-        return;
-      }
-      if (activeSourceView === "available") {
-        toggleReservoirZoneFilter(zoneKey);
-        return;
-      }
-      toggleFaixaZoneFilter(zoneKey);
-    }
-
-    function changeSourceQuery(value: string) {
-      if (activeSourceView === "new") {
-        setNewItemsQuery(value);
-        setNewItemsVisibleCount(NEW_ITEMS_INITIAL_VISIBLE);
-        return;
-      }
-      if (activeSourceView === "available") {
-        setReservoirQuery(value);
-        setReservoirVisibleCount(RESERVOIR_INITIAL_VISIBLE);
-        return;
-      }
-      setFaixaQuery(value);
-      setFaixaVisibleCount(FAIXA_INITIAL_VISIBLE);
-    }
-
-    function showMoreSources() {
-      if (activeSourceView === "new") {
-        setNewItemsVisibleCount((count) => count + NEW_ITEMS_PAGE_SIZE);
-        return;
-      }
-      if (activeSourceView === "available") {
-        setReservoirVisibleCount((count) => count + RESERVOIR_PAGE_SIZE);
-        return;
-      }
-      setFaixaVisibleCount((count) => count + FAIXA_PAGE_SIZE);
-    }
-
-    function dropOnActiveSource(event: DragEvent<HTMLElement>) {
+    function dropOnTrackingState(
+      event: DragEvent<HTMLElement>,
+      state: MatchdayEditorialTrackingState,
+    ) {
       event.preventDefault();
       const itemIdentity = dragged(event);
       if (itemIdentity) {
-        if (activeSourceView === "available") {
+        if (state === "DESALOJADA") {
           placeInBank(itemIdentity);
-        } else if (activeSourceView === "faixa") {
+        } else if (state === "FAIXA") {
           placeInFaixa(itemIdentity, 1);
         }
       }
@@ -2721,86 +2470,121 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     }
 
     return (
-      <section className="thematic-sources" aria-label="Fontes editoriais">
+      <section className="thematic-sources" aria-label="Tracking editorial por classe">
         <div className="thematic-sources-toolbar">
-          <h2>Fontes</h2>
-          <nav aria-label="Escolher fonte editorial">
-            <button
-              className={activeSourceView === "new" ? "active" : ""}
-              onClick={() => setActiveSourceView("new")}
-              type="button"
-            >
-              Novas {newItems.length}
-            </button>
-            <button
-              className={activeSourceView === "available" ? "active" : ""}
-              onClick={() => setActiveSourceView("available")}
-              type="button"
-            >
-              Banco {reconcile.bankAfter.length}
-            </button>
-            <button
-              className={activeSourceView === "faixa" ? "active" : ""}
-              onClick={() => setActiveSourceView("faixa")}
-              type="button"
-            >
-              Faixa {reconcile.faixaAfter.length}
-            </button>
-          </nav>
-          <div className="thematic-reservoir-filters" aria-label="Filtrar fonte por zona natural">
+          <h2>Tracking</h2>
+          <nav aria-label="Escolher classe contextual">
             {profile.zones.map((zone) => (
-              <label key={zone.key}>
-                <input
-                  checked={sourceZoneFilters.includes(zone.key)}
-                  onChange={() => toggleSourceZoneFilter(zone.key)}
-                  type="checkbox"
-                />
-                <span>{zone.label}</span>
-              </label>
+              <button
+                className={trackingZoneKey === zone.key ? "active" : ""}
+                key={zone.key}
+                onClick={() => {
+                  setTrackingZoneKey(zone.key);
+                  setTrackingVisibleCounts({
+                    NOVA: TRACKING_INITIAL_VISIBLE,
+                    FAIXA: TRACKING_INITIAL_VISIBLE,
+                    DESALOJADA: TRACKING_INITIAL_VISIBLE,
+                  });
+                }}
+                type="button"
+              >
+                {zone.label} {desk.tracking.items.filter((item) => (
+                  item.classifiedZoneKey === zone.key
+                )).length}
+              </button>
             ))}
-          </div>
+          </nav>
           <label className="thematic-reservoir-search">
             <span>Pesquisa</span>
             <input
-              aria-label={`Pesquisar em ${activeSourceView === "new" ? "Novas" : activeSourceView === "available" ? "Banco" : "Faixa"}`}
-              onChange={(event) => changeSourceQuery(event.target.value)}
+              aria-label={`Pesquisar tracking ${trackingZoneKey}`}
+              onChange={(event) => {
+                setTrackingQuery(event.target.value);
+                setTrackingVisibleCounts({
+                  NOVA: TRACKING_INITIAL_VISIBLE,
+                  FAIXA: TRACKING_INITIAL_VISIBLE,
+                  DESALOJADA: TRACKING_INITIAL_VISIBLE,
+                });
+              }}
               placeholder="Título ou antetítulo"
               type="search"
-              value={sourceQuery}
+              value={trackingQuery}
             />
           </label>
           <div className="thematic-reservoir-count">
-            <strong>{filteredCount}</strong>
-            <span>encontradas</span>
+            <strong>{filteredSourceItems.length}</strong>
+            <span>em tracking</span>
           </div>
         </div>
 
-        <div
-          className="thematic-sources-list"
-          data-drag-active={draggingIdentity !== null}
-          data-source-view={activeSourceView}
-          onDragOver={allowDrop}
-          onDrop={dropOnActiveSource}
-        >
-          {visibleSourceItems.length > 0
-            ? activeSourceView === "faixa"
-              ? visibleFaixa.map(renderFaixaItem)
-              : visibleSourceItems.map((item) => cardFor(item, placementForItem(item)))
-            : <p className="thematic-empty">Sem resultados.</p>}
-        </div>
+        <div className="thematic-tracking-rows">
+          {TRACKING_STATES.map((state) => {
+            const entries = trackingEntriesForState(state);
+            const visibleEntries = entries.slice(0, trackingVisibleCounts[state]);
+            const label = state === "NOVA"
+              ? "Novas"
+              : state === "FAIXA"
+                ? "Faixa"
+                : "Desalojadas";
+            const emptyLabel = state === "NOVA"
+              ? "Sem notícias novas nesta classe."
+              : state === "FAIXA"
+                ? "Sem notícias na Faixa nesta classe."
+                : "Sem notícias desalojadas nesta classe.";
 
-        {visibleCount < filteredCount ? (
-          <div className="thematic-more">
-            <button
-              className="thematic-button"
-              onClick={showMoreSources}
-              type="button"
-            >
-              Mostrar mais
-            </button>
-            <span>{filteredCount - visibleCount} por mostrar</span>
-          </div>
-        ) : null}
+            return (
+              <section
+                aria-label={`${label} · ${trackingZoneKey}`}
+                className="thematic-tracking-row"
+                data-tracking-state={state}
+                key={state}
+              >
+                <header>
+                  <strong>{label}</strong>
+                  <span>{entries.length}</span>
+                  <button
+                    className="thematic-button"
+                    disabled={entries.length === 0}
+                    onClick={() => setEditorState((current) => ({
+                      ...current,
+                      selectedIdentities: Array.from(new Set([
+                        ...current.selectedIdentities,
+                        ...entries.map(({ item }) => identity(item)),
+                      ])),
+                    }))}
+                    type="button"
+                  >
+                    Selecionar linha
+                  </button>
+                </header>
+                <div
+                  className="thematic-sources-list"
+                  data-drag-active={draggingIdentity !== null}
+                  onDragOver={state === "NOVA" ? undefined : allowDrop}
+                  onDrop={state === "NOVA"
+                    ? undefined
+                    : (event) => dropOnTrackingState(event, state)}
+                >
+                  {visibleEntries.length > 0
+                    ? visibleEntries.map(({ item }) => cardFor(item, trackingPlacement(state)))
+                    : <p className="thematic-empty">{emptyLabel}</p>}
+                </div>
+                {visibleEntries.length < entries.length ? (
+                  <div className="thematic-more">
+                    <button
+                      className="thematic-button"
+                      onClick={() => showMoreTracking(state)}
+                      type="button"
+                    >
+                      Mostrar mais
+                    </button>
+                    <span>{entries.length - visibleEntries.length} por mostrar</span>
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
+        </div>
       </section>
     );
   }
@@ -3088,7 +2872,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 })}
 
                 <button
-                  className={`thematic-page-row${activeSourceView === "faixa" ? " active" : ""}`}
+                  className="thematic-page-row"
                   onClick={activateFaixaFromStructure}
                   type="button"
                 >

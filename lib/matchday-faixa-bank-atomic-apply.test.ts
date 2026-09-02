@@ -6,6 +6,10 @@ const migration = readFileSync(
   "supabase/migrations/20260902095825_matchday_faixa_bank_atomic_apply_fix.sql",
   "utf8",
 );
+const aggregateReaderMigration = readFileSync(
+  "supabase/migrations/20260902110327_matchday_live_desk_aggregate_tracking_reader.sql",
+  "utf8",
+);
 const reader = readFileSync(
   "lib/editorial-matchday-profile-desk.ts",
   "utf8",
@@ -22,13 +26,16 @@ const route = readFileSync(
 test("Faixa e Seleção são lidas da autoridade transversal", () => {
   assert.match(
     reader,
-    /matchday_live_layout_placements\?select=bank_item_id,placement_type,zone_id,slot_position/u,
+    /rpc\/read_matchday_live_desk_aggregate_tracking/u,
   );
   assert.doesNotMatch(reader, /matchday_horizontal_news\?/u);
   assert.match(
-    route,
-    /matchday_live_layout_placements\?select=id,bank_item_id,slot_position[\s\S]*placement_type=eq\.selection/u,
+    aggregateReaderMigration,
+    /project_matchday_live_layout_bank_item_states[\s\S]*matchday_live_layout_placements/u,
   );
+  assert.match(reader, /placement\.placement_type === "video_highlight"/u);
+  assert.match(reader, /placement\.placement_type === "selection"/u);
+  assert.doesNotMatch(route, /matchday_live_layout_placements\?/u);
 });
 
 test("reader, preview e POST reservam o Vídeo fora do circuito temático", () => {

@@ -10,6 +10,7 @@ import {
   type MatchdayEditorialProfileArticleRow,
   type MatchdayEditorialProfileDeskTableFetcher,
   type MatchdayEditorialProfileStateRow,
+  type MatchdayLiveDeskAggregateRow,
 } from "@/lib/editorial-matchday-profile-desk";
 import { fixMatchdayEditorialItemsInZone } from "@/lib/editorial-matchday-profile-desk-operations";
 import { EDITORIAL_PROFILES } from "@/lib/editorial-profiles";
@@ -45,6 +46,62 @@ function activeBank(sourceId: string, status = "active"): MatchdayEditorialProfi
     source_id: sourceId,
     status,
     editorially_worked_at: "2026-08-22T09:00:00.000Z",
+  };
+}
+
+function aggregateRow(
+  sourceId: string,
+  options: Readonly<{
+    bankItemId?: string;
+    bankStatus?: string;
+    zoneKey?: string;
+    sortOrder?: number;
+    automaticEligible?: boolean;
+    editorialState?: MatchdayLiveDeskAggregateRow["editorial_state"];
+    placementType?: string | null;
+    placementZoneKey?: string | null;
+    slotPosition?: number | null;
+  }> = {},
+): MatchdayLiveDeskAggregateRow {
+  const placementType = options.placementType ?? null;
+  const placementCount = placementType ? 1 : 0;
+  const zoneKey = options.zoneKey ?? "benfica";
+  const baseArticle = article(sourceId, "2026-08-22T12:00:00.000Z");
+  return {
+    bank_item_id: options.bankItemId ?? `bank-${sourceId}`,
+    source_type: "editorial_article",
+    source_id: sourceId,
+    label: baseArticle.label,
+    title: baseArticle.title ?? sourceId,
+    subtitle: baseArticle.subtitle,
+    image_url: baseArticle.image_url,
+    link_url: `/noticias/${baseArticle.slug}`,
+    bank_status: options.bankStatus ?? "active",
+    automatic_eligible: options.automaticEligible ?? true,
+    classification_key: zoneKey,
+    classification_source: options.automaticEligible === false
+      ? "continuity_assisted"
+      : "automatic",
+    classified_at: "2026-08-22T12:00:00.000Z",
+    article_id: sourceId,
+    article_published_at: baseArticle.published_at,
+    article_updated_at: baseArticle.updated_at,
+    has_automatic_state: true,
+    automatic_zone_key: zoneKey,
+    automatic_sort_order: options.sortOrder ?? 1,
+    placement_count: placementCount,
+    transversal_conflict: false,
+    memory_kind: null,
+    history_unknown: false,
+    memory_placement_conflict: false,
+    editorial_state: options.editorialState
+      ?? (placementType === "faixa" ? "FAIXA" : placementType ? "COLOCADA" : "NOVA"),
+    placement_id: placementType ? `placement-${options.bankItemId ?? sourceId}` : null,
+    placement_type: placementType,
+    zone_id: placementType === "zone" ? `zone-${zoneKey}` : null,
+    placement_zone_key: options.placementZoneKey ?? (placementType === "zone" ? zoneKey : null),
+    slot_position: placementType ? options.slotPosition ?? 1 : null,
+    inactive_historical_count: 0,
   };
 }
 
@@ -204,6 +261,8 @@ test("uma assignment liga_portugal_v1 produz snapshot temático exclusivamente p
       rows = [{ profile_key: "liga_portugal_v1" }];
     } else if (path.startsWith("matchdays?")) {
       rows = [{ id: "matchday-1", season_id: "season-1", number: 3, label: "3.ª Jornada" }];
+    } else if (path.startsWith("rpc/read_matchday_live_desk_aggregate_tracking?")) {
+      rows = [aggregateRow(articleId, { zoneKey: "fc_porto" })];
     } else if (path.startsWith("matchday_editorial_profile_state_items?")) {
       rows = [{ source_type: "editorial_article", source_id: articleId, zone_key: "fc_porto", sort_order: 1 }];
     } else if (path.startsWith("matchday_editorial_bank_items?")) {
@@ -236,10 +295,20 @@ test("uma assignment liga_portugal_v1 produz snapshot temático exclusivamente p
   assert.equal(result.profileDisplayName, profile.displayName);
   assert.equal(result.competitionName, "Liga Portugal");
   assert.deepEqual(result.zones.map((zone) => zone.key), profile.zones.map((zone) => zone.key));
-  assert.deepEqual(result.zones[2].items.map((item) => item.sourceId), [articleId]);
+  assert.deepEqual(result.zones[2].items, []);
+  assert.deepEqual(
+    result.tracking.items.map((item) => [
+      item.sourceId,
+      item.classifiedZoneKey,
+      item.editorialState,
+    ]),
+    [[articleId, "fc_porto", "NOVA"]],
+  );
   assert.equal(paths.some((path) => path.startsWith("rpc/apply_")), false);
-  assert.equal(paths.some((path) => path.startsWith("rpc/matchday_editorial_profile_classification_plan?")), true);
+  assert.equal(paths.some((path) => path.startsWith("rpc/read_matchday_live_desk_aggregate_tracking?")), true);
+  assert.equal(paths.some((path) => path.startsWith("rpc/matchday_editorial_profile_classification_plan?")), false);
   assert.equal(paths.every((path) => path.includes("?")), true);
+  assert.equal(paths.length, 11);
 });
 
 test("o leitor falha fechado se o token mudar durante a construção do snapshot", async () => {
@@ -307,6 +376,8 @@ test("o leitor sobrepõe overrides persistidos sem alterar a baseline automátic
       rows = [{ profile_key: "liga_portugal_v1" }];
     } else if (path.startsWith("matchdays?")) {
       rows = [{ id: "matchday-1", season_id: "season-1", number: 3, label: "3.ª Jornada" }];
+    } else if (path.startsWith("rpc/read_matchday_live_desk_aggregate_tracking?")) {
+      rows = [aggregateRow(articleId, { zoneKey: "fc_porto" })];
     } else if (path.startsWith("matchday_editorial_profile_state_items?")) {
       rows = [{ source_type: "editorial_article", source_id: articleId, zone_key: "fc_porto", sort_order: 1 }];
     } else if (path.startsWith("matchday_editorial_profile_manual_overrides?")) {
@@ -353,6 +424,11 @@ test("overrides inativos ficam históricos e não bloqueiam a Mesa operacional",
       rows = [{ profile_key: "liga_portugal_v1" }];
     } else if (path.startsWith("matchdays?")) {
       rows = [{ id: "matchday-1", season_id: "season-1", number: 3, label: "3.ª Jornada" }];
+    } else if (path.startsWith("rpc/read_matchday_live_desk_aggregate_tracking?")) {
+      rows = [
+        aggregateRow(activeArticleId, { zoneKey: "benfica", sortOrder: 1 }),
+        aggregateRow(secondActiveArticleId, { zoneKey: "benfica", sortOrder: 2 }),
+      ];
     } else if (path.startsWith("matchday_editorial_profile_state_items?")) {
       rows = [
         { source_type: "editorial_article", source_id: activeArticleId, zone_key: "benfica", sort_order: 1 },
@@ -430,6 +506,24 @@ test("o reader usa placements autoritativos e não reinsere o Vídeo na Faixa", 
       rows = [{ profile_key: "liga_portugal_v1" }];
     } else if (path.startsWith("matchdays?")) {
       rows = [{ id: "matchday-1", season_id: "season-1", number: 5, label: "5.ª Jornada" }];
+    } else if (path.startsWith("rpc/read_matchday_live_desk_aggregate_tracking?")) {
+      rows = [
+        aggregateRow(faixaArticleId, {
+          bankItemId: faixaBankItemId,
+          zoneKey: "benfica",
+          sortOrder: 1,
+          placementType: "faixa",
+          slotPosition: 1,
+        }),
+        aggregateRow(videoArticleId, {
+          bankItemId: videoBankItemId,
+          zoneKey: "sporting",
+          sortOrder: 2,
+          automaticEligible: false,
+          placementType: "video_highlight",
+          slotPosition: 1,
+        }),
+      ];
     } else if (path.startsWith("matchday_editorial_profile_state_items?")) {
       rows = [faixaArticleId, videoArticleId].map((sourceId, index) => ({
         source_type: "editorial_article",
@@ -512,12 +606,24 @@ test("o reader usa placements autoritativos e não reinsere o Vídeo na Faixa", 
 
 test("um placement Faixa fora do banco ativo bloqueia o Apply sem ser apagado durante GET", async () => {
   const activeArticleId = "00000000-0000-4000-8000-000000000014";
+  const inactiveArticleId = "00000000-0000-4000-8000-000000000015";
   const fetchTable: MatchdayEditorialProfileDeskTableFetcher = async <T>(path: string) => {
     let rows: unknown[] = [];
     if (path.startsWith("matchday_editorial_profile_assignments?")) {
       rows = [{ profile_key: "liga_portugal_v1" }];
     } else if (path.startsWith("matchdays?")) {
       rows = [{ id: "matchday-1", season_id: "season-1", number: 3, label: "3.ª Jornada" }];
+    } else if (path.startsWith("rpc/read_matchday_live_desk_aggregate_tracking?")) {
+      rows = [
+        aggregateRow(activeArticleId, { zoneKey: "benfica" }),
+        aggregateRow(inactiveArticleId, {
+          bankItemId: "inactive-bank-item",
+          bankStatus: "archived",
+          zoneKey: "sporting",
+          placementType: "faixa",
+          slotPosition: 1,
+        }),
+      ];
     } else if (path.startsWith("matchday_editorial_profile_state_items?")) {
       rows = [{ source_type: "editorial_article", source_id: activeArticleId, zone_key: "benfica", sort_order: 1 }];
     } else if (path.startsWith("matchday_editorial_bank_items?")) {
@@ -552,7 +658,7 @@ test("um placement Faixa fora do banco ativo bloqueia o Apply sem ser apagado du
   if (!result || result.kind !== "thematic") return;
   assert.deepEqual(result.currentFaixa, []);
   assert.equal(result.diagnostics.some((diagnostic) => (
-    diagnostic.code === "unresolved_faixa" && diagnostic.sourceId === "inactive-bank-item"
+    diagnostic.code === "inactive_faixa" && diagnostic.sourceId === inactiveArticleId
   )), true);
 });
 
