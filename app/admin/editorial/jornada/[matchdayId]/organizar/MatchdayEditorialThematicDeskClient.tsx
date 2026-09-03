@@ -34,7 +34,7 @@ import {
   placeMatchdayEditorialItemsInFaixaWithoutCascade,
   placeMatchdayEditorialItemsInZoneWithoutCascade,
   reconcileMatchdayEditorialProfileDeskSnapshot,
-  releaseMatchdayEditorialFixedPositions,
+
   returnMatchdayEditorialItemsToAutomatic,
   compactMatchdayEditorialProfileManualOverridesForLayoutChange,
   thematicEditorialIdentity,
@@ -189,7 +189,7 @@ const styles = `
   .thematic-card-copy { display: grid; min-width: 0; gap: 1px; }
   .thematic-card-top { display: flex; min-width: 0; flex-wrap: wrap; gap: 3px; align-items: center; }
   .thematic-card-label { overflow: hidden; color: #cc2732; font-size: 7px; font-weight: 900; letter-spacing: .03em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
-  .thematic-manual { padding: 1px 4px; border-radius: 999px; background: #fff0b8; color: #765000; font-size: 7px; font-weight: 900; }
+
   .thematic-card-title { display: -webkit-box; overflow: hidden; font-size: 10px; line-height: 1.14; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   .thematic-card time { color: #6c7a8b; font-size: 7px; }
   .thematic-card-menu { position: relative; align-self: start; }
@@ -431,15 +431,8 @@ function identity(item: Pick<MatchdayEditorialProfileEffectiveItem, "sourceType"
 
 function sameJson(left: unknown, right: unknown): boolean { return JSON.stringify(left) === JSON.stringify(right); }
 
-function manualLabel(mode: MatchdayEditorialProfileEffectiveItem["manualOverride"]): string | null {
-  if (mode === "bank") return "manual · Banco";
-  if (mode === "zone") return "manual · zona";
-  if (mode === "position") return "manual · posição";
-  if (mode === "faixa") return "manual · Faixa";
-  return null;
-}
 
-function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onFaixa, onBank, onFixPosition, onReleasePosition, onProtectZone }: Readonly<{
+function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onFaixa, onBank }: Readonly<{
   item: MatchdayEditorialProfileEffectiveItem;
   placement: Placement;
   selected: boolean;
@@ -449,13 +442,10 @@ function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStar
   onDragEnd: () => void;
   onFaixa: () => void;
   onBank: () => void;
-  onFixPosition: (() => void) | null;
-  onReleasePosition: (() => void) | null;
-  onProtectZone: (() => void) | null;
 }>) {
   const itemIdentity = identity(item);
   const publishedAt = formattedDate(item.publishedAt);
-  const manual = placement.kind === "opening" ? "manual · Abertura" : manualLabel(item.manualOverride);
+
   return (
     <article aria-grabbed={dragging} className={`thematic-card${selected ? " selected" : ""}`} draggable onDragEnd={onDragEnd} onDragStart={(event) => onDragStart(event, itemIdentity)}>
       <input aria-label={`Marcar para operação em lote: ${item.title ?? item.sourceId}`} checked={selected} onChange={() => onToggle(itemIdentity)} onClick={(event) => event.stopPropagation()} type="checkbox" />
@@ -465,7 +455,7 @@ function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStar
       <div className="thematic-card-copy">
         <div className="thematic-card-top">
           {item.label ? <span className="thematic-card-label">{item.label}</span> : null}
-          {manual ? <span className="thematic-manual">{manual}</span> : null}
+
         </div>
         <strong className="thematic-card-title">{item.title ?? "Artigo sem título"}</strong>
         {publishedAt ? <time dateTime={item.publishedAt ?? undefined}>{publishedAt}</time> : null}
@@ -501,9 +491,7 @@ function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStar
             }
           }}
         >
-          {onFixPosition ? <button className="thematic-button" onClick={onFixPosition} type="button">Fixar nesta posição</button> : null}
-          {onProtectZone ? <button className="thematic-button" onClick={onProtectZone} type="button">Proteger na zona</button> : null}
-          {onReleasePosition ? <button className="thematic-button" onClick={onReleasePosition} type="button">Libertar posição</button> : null}
+
           {placement.kind !== "faixa" ? <button className="thematic-button" onClick={onFaixa} type="button">Mover para Faixa</button> : null}
           {placement.kind !== "bank" ? <button className="thematic-button" onClick={onBank} type="button">Mover para Banco</button> : null}
         </div>
@@ -564,7 +552,7 @@ function EditorialSelectionCard({
           {candidate.label ? (
             <span className="thematic-card-label">{candidate.label}</span>
           ) : null}
-          <span className="thematic-manual">manual · independente</span>
+
         </div>
         <strong className="thematic-card-title">{candidate.title}</strong>
         <small>
@@ -1463,6 +1451,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       const activeItem = activeByIdentity.get(itemIdentity);
       const bankItemId = bankItemIdByIdentity.get(itemIdentity)?.trim().toLowerCase();
       if (!activeItem?.classifiedZoneKey || !bankItemId) continue;
+      const previousTrackingItem = byBankItemId.get(bankItemId);
       byBankItemId.set(bankItemId, {
         ...activeItem,
         bankItemId,
@@ -1471,6 +1460,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         classifiedAt: "",
         editorialState: "FAIXA",
         memoryKind: null,
+        placementCreatedAt:
+          previousTrackingItem?.editorialState === "FAIXA"
+            ? previousTrackingItem.placementCreatedAt
+            : new Date().toISOString(),
+        stateRecordedAt: null,
       });
     }
 
@@ -1478,6 +1472,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       const activeItem = activeByIdentity.get(itemIdentity);
       const bankItemId = bankItemIdByIdentity.get(itemIdentity)?.trim().toLowerCase();
       if (!activeItem?.classifiedZoneKey || !bankItemId) continue;
+      const previousTrackingItem = byBankItemId.get(bankItemId);
       byBankItemId.set(bankItemId, {
         ...activeItem,
         bankItemId,
@@ -1486,6 +1481,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         classifiedAt: "",
         editorialState: "DESALOJADA",
         memoryKind: "displaced",
+        placementCreatedAt: null,
+        stateRecordedAt:
+          previousTrackingItem?.editorialState === "DESALOJADA"
+            ? previousTrackingItem.stateRecordedAt
+            : new Date().toISOString(),
       });
     }
 
@@ -1984,13 +1984,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     }, `Notícia colocada em ${zoneKey}, posição ${position}. Se o destino estava ocupado, a notícia substituída fica desalojada.`);
   }
 
-  function fixCurrentZonePosition(
-    itemIdentity: string,
-    zoneKey: EditorialProfileZoneKey,
-    position: number,
-  ) {
-    placeInZone(itemIdentity, zoneKey, position);
-  }
 
   function placeInFaixa(itemIdentity: string, position: number) {
     const targetPosition = Math.max(1, position);
@@ -2058,16 +2051,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     }, "Notícia enviada explicitamente para o Banco.");
   }
 
-  function releasePosition(itemIdentity: string) {
-    localOperation(() => withWorkedIdentities({
-      ...currentDraft(),
-      overrides: releaseMatchdayEditorialFixedPositions(
-        effectiveProfile,
-        operationalOverrides,
-        [itemIdentity],
-      ),
-    }, [itemIdentity]), "Proteção manual removida; a notícia mantém a ocupação atual até um novo movimento editorial.");
-  }
 
   function dragged(event: DragEvent<HTMLElement>): string | null {
     const candidate = draggingIdentity ?? event.dataTransfer.getData("text/plain");
@@ -2236,7 +2219,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   function cardFor(item: MatchdayEditorialProfileEffectiveItem, placement: Placement) {
     const itemIdentity = identity(item);
-    const itemSortOrder = item.sortOrder;
     return (
       <ArticleCard
         dragging={draggingIdentity === itemIdentity}
@@ -2245,36 +2227,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         onDragEnd={() => setDraggingIdentity(null)}
         onDragStart={dragStart}
         onFaixa={() => placeInFaixa(itemIdentity, 1)}
-        onFixPosition={
-          placement.kind === "zone"
-          && placement.zoneKey
-          && itemSortOrder !== null
-          && item.manualOverride !== "position"
-            ? () => fixCurrentZonePosition(
-                itemIdentity,
-                placement.zoneKey!,
-                itemSortOrder,
-              )
-            : null
-        }
-        onProtectZone={null}
-        onReleasePosition={
-          item.manualOverride === "position"
-          || (
-            placement.kind === "faixa"
-            && operationalOverrides.some(
-              (override) =>
-                thematicEditorialIdentity(
-                  override.sourceType,
-                  override.sourceId,
-                ) === itemIdentity
-                && override.placementTarget === "faixa"
-                && override.sortOrder !== null,
-            )
-          )
-            ? () => releasePosition(itemIdentity)
-            : null
-        }
         onToggle={toggleSelection}
         placement={placement}
         selected={selected.has(itemIdentity)}

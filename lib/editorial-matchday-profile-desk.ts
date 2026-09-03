@@ -90,6 +90,8 @@ export type MatchdayLiveDeskAggregateRow = Readonly<{
   zone_id: string | null;
   placement_zone_key: string | null;
   slot_position: number | null;
+  placement_created_at?: string | null;
+  state_recorded_at?: string | null;
   inactive_historical_count: number;
 }>;
 
@@ -190,6 +192,8 @@ export type MatchdayEditorialTrackingItem =
     classifiedAt: string;
     editorialState: MatchdayEditorialTrackingState;
     memoryKind: "displaced" | null;
+    placementCreatedAt: string | null;
+    stateRecordedAt: string | null;
   }>;
 
 export type MatchdayEditorialTrackingSnapshot = Readonly<{
@@ -198,29 +202,99 @@ export type MatchdayEditorialTrackingSnapshot = Readonly<{
   conflictCount: number;
 }>;
 
+function trackingStateOrder(
+  state: MatchdayEditorialTrackingState,
+): number {
+  if (state === "NOVA") return 0;
+  if (state === "FAIXA") return 1;
+  return 2;
+}
+
+function trackingTimestamp(
+  value: string | null | undefined,
+): number {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return Number.NEGATIVE_INFINITY;
+  return parsed;
+}
+
+function trackingEventTime(
+  item: MatchdayEditorialTrackingItem,
+): number {
+  if (item.editorialState === "NOVA") {
+    return trackingTimestamp(item.publishedAt);
+  }
+
+  if (item.editorialState === "FAIXA") {
+    return trackingTimestamp(item.placementCreatedAt);
+  }
+
+  return trackingTimestamp(item.stateRecordedAt);
+}
+
+export function compareMatchdayEditorialTrackingItems(
+  left: MatchdayEditorialTrackingItem,
+  right: MatchdayEditorialTrackingItem,
+): number {
+  const stateOrder =
+    trackingStateOrder(left.editorialState)
+    - trackingStateOrder(right.editorialState);
+
+  if (stateOrder !== 0) return stateOrder;
+
+  const leftEventTime = trackingEventTime(left);
+  const rightEventTime = trackingEventTime(right);
+
+  if (leftEventTime !== rightEventTime) {
+    return rightEventTime - leftEventTime;
+  }
+
+  const leftIdentity =
+    thematicEditorialIdentity(
+      left.sourceType,
+      left.sourceId,
+    );
+
+  const rightIdentity =
+    thematicEditorialIdentity(
+      right.sourceType,
+      right.sourceId,
+    );
+
+  if (leftIdentity < rightIdentity) return -1;
+  if (leftIdentity > rightIdentity) return 1;
+  return 0;
+}
+
 export function selectMatchdayEditorialTrackingItems(
   items: readonly MatchdayEditorialTrackingItem[],
   classFilter: MatchdayEditorialTrackingClassFilter,
 ) {
   const seenBankItemIds = new Set<string>();
+  const selected: MatchdayEditorialTrackingItem[] = [];
 
-  return items.filter((item) => {
+  for (const item of items) {
     if (
       classFilter !== "all"
       && item.classifiedZoneKey !== classFilter
     ) {
-      return false;
+      continue;
     }
 
     const bankItemId = item.bankItemId.trim().toLowerCase();
 
     if (!bankItemId || seenBankItemIds.has(bankItemId)) {
-      return false;
+      continue;
     }
 
     seenBankItemIds.add(bankItemId);
-    return true;
-  });
+    selected.push(item);
+  }
+
+  return selected.sort(
+    compareMatchdayEditorialTrackingItems,
+  );
 }
 
 export type MatchdayEditorialExplicitBankFilterItem = Readonly<{
@@ -774,10 +848,12 @@ export function buildMatchdayEditorialTrackingSnapshot(
       classifiedAt: row.classified_at,
       editorialState: row.editorial_state,
       memoryKind: row.memory_kind === "displaced" ? "displaced" : null,
+      placementCreatedAt: row.placement_created_at ?? null,
+      stateRecordedAt: row.state_recorded_at ?? null,
     });
   }
 
-  items.sort(compareThematicItemsByCircuitOrder);
+  items.sort(compareMatchdayEditorialTrackingItems);
 
   if (legacyUnknownCount > 0) {
     diagnostics.push({

@@ -11,26 +11,20 @@ const source = readFileSync(
   "utf8",
 );
 
-test("posição fixa tem ação explícita no menu da notícia", () => {
-  assert.match(
-    source,
-    /Fixar nesta posição/,
-  );
-
-  assert.match(
-    source,
-    /onFixPosition/,
-  );
-
-  assert.match(
-    source,
-    /fixCurrentZonePosition\(\s*itemIdentity,\s*placement\.zoneKey!,\s*itemSortOrder/,
-  );
-
-  assert.match(
-    source,
-    /Libertar posição/,
-  );
+test("posição manual deixou de ser uma semântica visível da notícia", () => {
+  for (const legacyCopy of [
+    "manual · posição",
+    "manual · zona",
+    "manual · Faixa",
+    "manual · Banco",
+    "manual · Abertura",
+    "manual · independente",
+    "Fixar nesta posição",
+    "Proteger na zona",
+    "Libertar posição",
+  ]) {
+    assert.equal(source.includes(legacyCopy), false, legacyCopy);
+  }
 });
 
 test("erro de redução aparece dentro da própria zona", () => {
