@@ -81,7 +81,7 @@ test("Últimas continua um bloco especial ordenável na mesma composição", () 
 
   assert.match(
     source,
-    /Seleção editorial \+ Últimas/,
+    /Últimas \+ quatro ao lado/,
   );
 
   assert.match(
@@ -91,7 +91,7 @@ test("Últimas continua um bloco especial ordenável na mesma composição", () 
 
   assert.match(
     source,
-    /<option value="top">Topo<\/option>[\s\S]*<option value="four_news">Seleção editorial \+ Últimas<\/option>[\s\S]*<option value="hidden">Oculto<\/option>/,
+    /<option value="top">Topo<\/option>[\s\S]*<option value="four_news">Últimas \+ quatro ao lado<\/option>[\s\S]*<option value="hidden">Oculto<\/option>/,
   );
 
   assert.doesNotMatch(
@@ -100,7 +100,7 @@ test("Últimas continua um bloco especial ordenável na mesma composição", () 
   );
 });
 
-test("Seleção editorial é manual, independente e aplicada no mesmo workspace", () => {
+test("As quatro ao lado das Últimas são manuais, independentes e aplicadas no mesmo workspace", () => {
   assert.match(
     source,
     /draftEditorialSelection/,
@@ -113,7 +113,7 @@ test("Seleção editorial é manual, independente e aplicada no mesmo workspace"
 
   assert.match(
     source,
-    /aria-label="Seleção editorial manual"/,
+    /aria-label="Quatro ao lado das Últimas"/,
   );
 
   assert.doesNotMatch(

@@ -260,21 +260,23 @@ test("quatro slots são drop targets da Seleção exclusiva", () => {
     selectionPanel,
     /onDrop=\{\(event\) =>[\s\S]*dropOnEditorialSelection/u,
   );
-  assert.match(selectionCard, /Retirar da Seleção/u);
+  assert.match(selectionCard, /Retirar das quatro/u);
 });
 
-test("cartão da Seleção usa menu compacto com uma única ação própria", () => {
+test("cartão das quatro usa menu compacto com saídas transversais", () => {
   assert.match(
     client,
     /\.thematic-selection-card \{ width: 100%; grid-template-columns: 50px minmax\(0,1fr\) 24px; \}/u,
   );
   assert.match(selectionCard, /className="thematic-card-menu"/u);
   assert.match(selectionCard, />\s*···\s*<\/summary>/u);
-  assert.match(selectionCard, /Retirar da Seleção/u);
+  assert.match(selectionCard, /Retirar das quatro/u);
   assert.doesNotMatch(selectionCard, /thematic-selection-remove/u);
+  assert.match(selectionCard, /Mover para Faixa/u);
+  assert.match(selectionCard, /Mover para Banco/u);
   assert.doesNotMatch(
     selectionCard,
-    /Mover para Faixa|Mover para Banco|Fixar nesta posição|Proteger na zona/u,
+    /Fixar nesta posição|Proteger na zona/u,
   );
 });
 
@@ -319,7 +321,7 @@ test("Seleção legada é normalizada no carregamento sem criar uma nova decisã
   assert.doesNotMatch(bootstrap, /withWorkedIdentities/u);
   assert.match(
     bootstrap,
-    /A Seleção já existente foi preparada para colocação exclusiva/u,
+    /As quatro ao lado das Últimas já existentes foram preparadas para colocação exclusiva/u,
   );
 });
 

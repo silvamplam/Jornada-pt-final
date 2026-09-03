@@ -209,7 +209,7 @@ test(
     );
     assert.match(
       client,
-      /aria-label="Seleção editorial manual"/,
+      /aria-label="Quatro ao lado das Últimas"/,
     );
     assert.match(
       client,

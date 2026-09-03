@@ -1397,7 +1397,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       setDraftEditorialSelection(exclusive.selection);
       setApplyState("idle");
       setMessage(
-        "A Seleção já existente foi preparada para colocação exclusiva. Clique em Aplicar para consolidar a normalização.",
+        "As quatro ao lado das Últimas já existentes foram preparadas para colocação exclusiva. Clique em Aplicar para consolidar a normalização.",
       );
     } catch (error) {
       selectionBootstrapMatchdayRef.current = desk.matchdayId;
@@ -1405,7 +1405,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       setMessage(
         error instanceof Error
           ? error.message
-          : "Não foi possível normalizar a Seleção editorial existente.",
+          : "Não foi possível normalizar as quatro ao lado das Últimas existentes.",
       );
     }
   }, [
@@ -2587,7 +2587,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         && sameJson(exclusive.opening, editorState.persistedOpening)
         && sameJson(exclusive.selection, persistedEditorialSelection)
         ? "Preview reposto para o último estado aplicado."
-        : "Preview reposto; a Seleção existente continua preparada para colocação exclusiva e requer Aplicar.",
+        : "Preview reposto; as quatro ao lado das Últimas continuam preparadas para colocação exclusiva e requerem Aplicar.",
     );
   }
 
@@ -2952,7 +2952,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
               value={latestPlacement}
             >
               <option value="top">Topo</option>
-              <option value="four_news">Seleção editorial + Últimas</option>
+              <option value="four_news">Últimas + quatro ao lado</option>
               <option value="hidden">Oculto</option>
             </select>
           </label>

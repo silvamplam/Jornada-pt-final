@@ -79,7 +79,7 @@ test(
 );
 
 test(
-  "Seleção editorial temática é manual e aceita artigo ou conteúdo",
+  "As quatro ao lado das Últimas são manuais e aceitam artigo ou conteúdo",
   () => {
     assert.match(
       thematicRoute,
@@ -95,7 +95,7 @@ test(
 
     assert.match(
       thematicClient,
-      /Seleção editorial/,
+      /Quatro ao lado das Últimas/,
     );
 
     assert.match(
@@ -106,7 +106,7 @@ test(
 );
 
 test(
-  "renderer temático aceita seleção parcial de um a quatro conteúdos",
+  "renderer temático aceita ocupação de zero a quatro conteúdos",
   () => {
     assert.match(
       publicLayout,
@@ -126,7 +126,7 @@ test(
 );
 
 test(
-  "Seleção temática não usa carryover; Legacy mantém carryover",
+  "As quatro ao lado das Últimas não usam carryover; Legacy mantém carryover",
   () => {
     assert.match(
       publicPage,

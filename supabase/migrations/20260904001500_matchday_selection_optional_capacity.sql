@@ -39,9 +39,9 @@ begin
       'matchday-selection-optional-v9-public-cutover-wrapper-missing';
   end if;
 
-  if pg_catalog.position(
+  if pg_catalog.strpos(
+    v_pre_cutover,
     'jornada_private.apply_matchday_editorial_profile_workspace_v9_pre_bridge'
-    in v_pre_cutover
   ) = 0
   then
     raise exception
@@ -364,18 +364,18 @@ begin
   )
   into v_public_v9;
 
-  if pg_catalog.position(
+  if pg_catalog.strpos(
+    v_private_v9,
     'matchday-editorial-profile-workspace-v9-incomplete-selection'
-    in v_private_v9
   ) > 0
   then
     raise exception
       'matchday-selection-optional-v9-incomplete-guard-survived';
   end if;
 
-  if pg_catalog.position(
+  if pg_catalog.strpos(
+    v_private_v9,
     'matchday-editorial-profile-workspace-v9-invalid-selection-shape'
-    in v_private_v9
   ) = 0
   then
     raise exception

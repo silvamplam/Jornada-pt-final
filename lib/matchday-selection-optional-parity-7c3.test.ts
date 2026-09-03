@@ -96,6 +96,22 @@ test("7C3: drag genérico reconhece também o payload das quatro", () => {
 });
 
 test("7C3: migration altera apenas o V9 privado pré-bridge", () => {
+  const privateV9Start = migration.indexOf(
+    "create or replace function jornada_private.apply_matchday_editorial_profile_workspace_v9_pre_bridge(",
+  );
+  const privateV9End = migration.indexOf(
+    "\n$function$;",
+    privateV9Start,
+  );
+
+  assert.ok(
+    privateV9Start >= 0 && privateV9End > privateV9Start,
+  );
+
+  const privateV9 = migration.slice(
+    privateV9Start,
+    privateV9End,
+  );
   assert.match(
     migration,
     /create or replace function jornada_private\.apply_matchday_editorial_profile_workspace_v9_pre_bridge/u,
@@ -115,12 +131,20 @@ test("7C3: migration altera apenas o V9 privado pré-bridge", () => {
   );
 
   assert.doesNotMatch(
-    migration,
+    privateV9,
     /matchday-editorial-profile-workspace-v9-incomplete-selection/u,
   );
   assert.match(
-    migration,
+    privateV9,
     /matchday-editorial-profile-workspace-v9-invalid-selection-shape/u,
+  );
+  assert.doesNotMatch(
+    migration,
+    /pg_catalog\.position\(/u,
+  );
+  assert.match(
+    migration,
+    /pg_catalog\.strpos\(/u,
   );
 
   assert.match(
