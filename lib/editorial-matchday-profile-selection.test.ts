@@ -197,7 +197,7 @@ test("substituir e remover afetam apenas a referência promocional", () => {
   );
 });
 
-test("reordenar move só a promoção e não cria cascata", () => {
+test("reordenar dentro das quatro faz swap puro e não cria cascata", () => {
   const drag = parseMatchdayEditorialProfileSelectionDrag(
     serializeMatchdayEditorialProfileSelectionDrag({
       bankItemId: "bank-a",
@@ -215,7 +215,7 @@ test("reordenar move só a promoção e não cria cascata", () => {
       3,
       drag!.bankItemId,
     ),
-    [null, null, "bank-a", null],
+    ["bank-b", null, "bank-a", null],
   );
 });
 

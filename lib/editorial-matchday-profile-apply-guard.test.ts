@@ -110,28 +110,22 @@ test("buraco posicional bloqueia Apply mesmo com cardinalidade completa", () => 
   );
 });
 
-test("revisão 28: Seleção 3/4 bloqueia Apply", () => {
-  const issues =
-    validateMatchdayEditorialProfileApplyState(
-      { zonesAfter: validZones },
-      [
-        null,
-        validSelection[1],
-        validSelection[2],
-        validSelection[3],
-      ],
+test("as quatro aceitam ocupação de 0/4 a 4/4", () => {
+  for (let occupied = 0; occupied <= 4; occupied += 1) {
+    const selection = validSelection.map(
+      (bankItemId, index) =>
+        index < occupied ? bankItemId : null,
     );
 
-  assert.deepEqual(
-    issues,
-    [{
-      code: "incomplete-selection",
-      actual: 3,
-      expected: 4,
-    }],
-  );
+    assert.deepEqual(
+      validateMatchdayEditorialProfileApplyState(
+        { zonesAfter: validZones },
+        selection,
+      ),
+      [],
+    );
+  }
 });
-
 test("Seleção repetida bloqueia Apply", () => {
   const issues =
     validateMatchdayEditorialProfileApplyState(

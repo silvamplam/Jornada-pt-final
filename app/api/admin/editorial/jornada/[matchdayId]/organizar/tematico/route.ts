@@ -651,17 +651,6 @@ export async function POST(
       );
     }
 
-    if (
-      applyIssues.some(
-        (issue) => issue.code === "incomplete-selection",
-      )
-    ) {
-      return apiError(
-        "thematic-desk-incomplete-selection",
-        "A Seleção editorial tem de ter quatro notícias antes de aplicar.",
-        409,
-      );
-    }
 
     if (
       applyIssues.some(
@@ -670,7 +659,7 @@ export async function POST(
     ) {
       return apiError(
         "thematic-desk-invalid-selection",
-        "A Seleção editorial tem de conter quatro notícias diferentes.",
+        "As quatro ao lado das Últimas não podem conter a mesma notícia em mais de uma posição.",
         409,
       );
     }

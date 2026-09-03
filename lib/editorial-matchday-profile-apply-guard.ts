@@ -20,11 +20,7 @@ export type MatchdayEditorialProfileApplyIssue =
       actualPositions: readonly number[];
       expectedPositions: readonly number[];
     }>
-  | Readonly<{
-      code: "incomplete-selection";
-      actual: number;
-      expected: 4;
-    }>
+
   | Readonly<{
       code: "duplicate-selection";
     }>;
@@ -86,17 +82,10 @@ export function validateMatchdayEditorialProfileApplyState(
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
 
-  if (selected.length !== 4) {
-    issues.push({
-      code: "incomplete-selection",
-      actual: selected.length,
-      expected: 4,
-    });
-  } else if (new Set(selected).size !== 4) {
+  if (new Set(selected).size !== selected.length) {
     issues.push({
       code: "duplicate-selection",
     });
   }
-
   return issues;
 }

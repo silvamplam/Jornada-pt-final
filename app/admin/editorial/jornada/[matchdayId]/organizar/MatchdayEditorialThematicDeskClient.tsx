@@ -527,6 +527,8 @@ function EditorialSelectionCard({
   dragging,
   onDragEnd,
   onDragStart,
+  onFaixa,
+  onBank,
   onRemove,
   position,
 }: Readonly<{
@@ -534,6 +536,8 @@ function EditorialSelectionCard({
   dragging: boolean;
   onDragEnd: () => void;
   onDragStart: (event: DragEvent<HTMLElement>) => void;
+  onFaixa: () => void;
+  onBank: () => void;
   onRemove: () => void;
   position: MatchdayEditorialProfileSelectionPosition;
 }>) {
@@ -606,7 +610,7 @@ function EditorialSelectionCard({
           }, 220);
         }}
       >
-        <summary aria-label={`Ações da Seleção ${position}: ${candidate.title}`}>
+        <summary aria-label={`Ações das quatro ${position}: ${candidate.title}`}>
           ···
         </summary>
         <div
@@ -621,10 +625,24 @@ function EditorialSelectionCard({
         >
           <button
             className="thematic-button"
+            onClick={onFaixa}
+            type="button"
+          >
+            Mover para Faixa
+          </button>
+          <button
+            className="thematic-button"
+            onClick={onBank}
+            type="button"
+          >
+            Mover para Banco
+          </button>
+          <button
+            className="thematic-button"
             onClick={onRemove}
             type="button"
           >
-            Retirar da Seleção
+            Retirar das quatro
           </button>
         </div>
       </details>
@@ -947,19 +965,56 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           ? [displacedIdentity]
           : []),
       ]);
-    commitDraft(
+
+    const previewDraft =
       incomingIdentity
-        ? withPreviewMovements(nextDraft, [{
-            incomingIdentity,
-            source,
-            target: { kind: "selection", slotPosition: position },
-            displacedIdentity:
-              displacedIdentity !== incomingIdentity
-                ? displacedIdentity
-                : null,
-          }])
-        : nextDraft,
-      "Seleção editorial alterada em preview. Clique em Aplicar para publicar a alteração.",
+      && source?.kind === "selection"
+      && source.slotPosition !== position
+      && displacedIdentity
+      && displacedIdentity !== incomingIdentity
+        ? withPreviewMovements(nextDraft, [
+            {
+              incomingIdentity,
+              source,
+              target: {
+                kind: "selection",
+                slotPosition: position,
+              },
+              displacedIdentity: null,
+            },
+            {
+              incomingIdentity: displacedIdentity,
+              source: {
+                kind: "selection",
+                slotPosition: position,
+              },
+              target: source,
+              displacedIdentity: null,
+            },
+          ])
+        : incomingIdentity
+          ? withPreviewMovements(nextDraft, [{
+              incomingIdentity,
+              source,
+              target: {
+                kind: "selection",
+                slotPosition: position,
+              },
+              displacedIdentity:
+                displacedIdentity !== incomingIdentity
+                  ? displacedIdentity
+                  : null,
+            }])
+          : nextDraft;
+
+    commitDraft(
+      previewDraft,
+      source?.kind === "selection"
+        && source.slotPosition !== position
+        && displacedIdentity
+        && displacedIdentity !== incomingIdentity
+        ? "As duas notícias trocaram de posição nas quatro ao lado das Últimas."
+        : "As quatro ao lado das Últimas foram alteradas em preview. Clique em Aplicar para publicar a alteração.",
     );
   }
 
@@ -975,22 +1030,25 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         position,
       });
     const removedIdentity = transition.workedIdentity;
+    const source = removedIdentity
+      ? previewPlacementForIdentity(removedIdentity)
+      : null;
     const nextDraft = withWorkedIdentities({
         ...currentDraft(),
         overrides: transition.overrides,
         editorialSelection: transition.selection,
       }, removedIdentity ? [removedIdentity] : []);
+
     commitDraft(
       removedIdentity
-        ? {
-            ...nextDraft,
-            displacedIdentities: Array.from(new Set([
-              ...nextDraft.displacedIdentities,
-              removedIdentity,
-            ])).sort(),
-          }
+        ? withPreviewMovements(nextDraft, [{
+            incomingIdentity: removedIdentity,
+            source,
+            target: { kind: "displaced" },
+            displacedIdentity: null,
+          }])
         : nextDraft,
-      "Promoção retirada da Seleção; a notícia fica desalojada.",
+      "Notícia retirada das quatro ao lado das Últimas; fica em Desalojadas.",
     );
   }
 
@@ -1011,6 +1069,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         position,
         selectionDrag.bankItemId,
       );
+      setDraggingIdentity(null);
       setDraggingEditorialSelectionPosition(null);
       return;
     }
@@ -1023,7 +1082,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (!bankItemId) {
       setApplyState("error");
       setMessage(
-        "A notícia já não tem uma identidade canónica disponível para a Seleção.",
+        "A notícia já não tem uma identidade canónica disponível para as quatro ao lado das Últimas.",
       );
       setDraggingIdentity(null);
       return;
@@ -2421,8 +2480,33 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
 
   function dragged(event: DragEvent<HTMLElement>): string | null {
-    const candidate = draggingIdentity ?? event.dataTransfer.getData("text/plain");
-    return candidate && activeByIdentity.has(candidate) ? candidate : null;
+    if (
+      draggingIdentity
+      && activeByIdentity.has(draggingIdentity)
+    ) {
+      return draggingIdentity;
+    }
+
+    const raw = event.dataTransfer.getData("text/plain");
+
+    if (raw && activeByIdentity.has(raw)) {
+      return raw;
+    }
+
+    const selectionDrag =
+      parseMatchdayEditorialProfileSelectionDrag(raw);
+
+    if (!selectionDrag) {
+      return null;
+    }
+
+    const selectionIdentity =
+      identityForBankItemId(selectionDrag.bankItemId);
+
+    return selectionIdentity
+      && activeByIdentity.has(selectionIdentity)
+        ? selectionIdentity
+        : null;
   }
 
   function dragStart(event: DragEvent<HTMLElement>, itemIdentity: string) {
@@ -2878,7 +2962,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         </div>
 
         <div
-          aria-label="Seleção editorial manual"
+          aria-label="Quatro ao lado das Últimas"
           className="thematic-slots thematic-slots-4 thematic-editorial-selection"
         >
           {MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS.map(
@@ -2891,7 +2975,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
               return (
                 <div
-                  aria-label={`Seleção editorial ${position}`}
+                  aria-label={`Quatro ao lado das Últimas ${position}`}
                   className="thematic-workspace-slot thematic-selection-slot"
                   data-drag-active={
                     draggingIdentity !== null
@@ -2919,11 +3003,24 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                       dragging={
                         draggingEditorialSelectionPosition === position
                       }
-                      onDragEnd={() =>
-                        setDraggingEditorialSelectionPosition(null)
-                      }
+                      onDragEnd={() => {
+                        setDraggingIdentity(null);
+                        setDraggingEditorialSelectionPosition(null);
+                      }}
                       onDragStart={(event) => {
                         event.stopPropagation();
+                        const itemIdentity =
+                          identityForBankItemId(candidate.bankItemId);
+
+                        if (!itemIdentity) {
+                          event.preventDefault();
+                          setApplyState("error");
+                          setMessage(
+                            "A notícia das quatro já não tem identidade editorial canónica.",
+                          );
+                          return;
+                        }
+
                         event.dataTransfer.effectAllowed = "move";
                         event.dataTransfer.setData(
                           "text/plain",
@@ -2932,8 +3029,22 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                             sourcePosition: position,
                           }),
                         );
-                        setDraggingIdentity(null);
+                        setDraggingIdentity(itemIdentity);
                         setDraggingEditorialSelectionPosition(position);
+                      }}
+                      onFaixa={() => {
+                        const itemIdentity =
+                          identityForBankItemId(candidate.bankItemId);
+                        if (itemIdentity) {
+                          placeAtFaixaTop(itemIdentity);
+                        }
+                      }}
+                      onBank={() => {
+                        const itemIdentity =
+                          identityForBankItemId(candidate.bankItemId);
+                        if (itemIdentity) {
+                          placeInBank(itemIdentity);
+                        }
                       }}
                       onRemove={() =>
                         removeEditorialSelection(position)
@@ -2985,7 +3096,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (block === "video") return "Destaque";
     if (block === "latest") {
       return editorState.draftPageControls.latestZonePlacement === "four_news"
-        ? "Seleção editorial + Últimas"
+        ? "Últimas + quatro ao lado"
         : "Últimas";
     }
     return publicZoneTitle(block);

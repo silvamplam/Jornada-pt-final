@@ -109,11 +109,24 @@ export function promoteMatchdayEditorialProfileSelection(
     throw new Error("matchday-editorial-profile-selection-invalid-bank-item");
   }
 
-  const next = validatedSelection(selection).map(
-    (value) => value === cleanBankItemId ? null : value,
+  const next = validatedSelection(selection);
+  const targetIndex = selectionIndex(targetPosition);
+  const sourceIndex = next.findIndex(
+    (value) => value === cleanBankItemId,
   );
 
-  next[selectionIndex(targetPosition)] = cleanBankItemId;
+  if (sourceIndex === targetIndex) {
+    return next;
+  }
+
+  if (sourceIndex >= 0) {
+    const targetBankItemId = next[targetIndex];
+    next[targetIndex] = cleanBankItemId;
+    next[sourceIndex] = targetBankItemId;
+    return next;
+  }
+
+  next[targetIndex] = cleanBankItemId;
 
   return next;
 }
