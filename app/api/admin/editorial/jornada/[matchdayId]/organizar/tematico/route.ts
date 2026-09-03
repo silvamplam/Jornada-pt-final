@@ -193,6 +193,7 @@ function mutationErrorResponse(error: unknown) {
     || message.includes("profile-workspace-v8-")
     || message.includes("profile-workspace-v9-")
     || message.includes("profile-workspace-v11-")
+    || message.includes("profile-workspace-v12-")
     || message.includes("matchday-editorial-profile-vacant-")
     || message.includes("matchday-editorial-profile-displaced-")
     || message.includes("profile-workspace-exclusive-")
@@ -331,6 +332,14 @@ export async function POST(
     || input.displacedBankItemIds.some(
       (value) => typeof value !== "string" || !UUID_PATTERN.test(value.trim()),
     )
+    || !Array.isArray(input.faixaArrivalBankItemIds)
+    || input.faixaArrivalBankItemIds.some(
+      (value) => typeof value !== "string" || !UUID_PATTERN.test(value.trim()),
+    )
+    || !Array.isArray(input.displacedArrivalBankItemIds)
+    || input.displacedArrivalBankItemIds.some(
+      (value) => typeof value !== "string" || !UUID_PATTERN.test(value.trim()),
+    )
     || !Array.isArray(input.vacantZoneSlots)
     || !Array.isArray(input.vacantFaixaSlots)
     || typeof input.videoModule !== "object"
@@ -395,6 +404,37 @@ export async function POST(
     return apiError(
       "thematic-desk-invalid-displacement",
       "A lista de notícias desalojadas contém identidades repetidas.",
+      400,
+    );
+  }
+  const faixaArrivalBankItemIds = Array.from(new Set(
+    (input.faixaArrivalBankItemIds as string[]).map(
+      (value) => value.trim().toLowerCase(),
+    ),
+  ));
+  const displacedArrivalBankItemIds = Array.from(new Set(
+    (input.displacedArrivalBankItemIds as string[]).map(
+      (value) => value.trim().toLowerCase(),
+    ),
+  ));
+  if (
+    faixaArrivalBankItemIds.length
+      !== input.faixaArrivalBankItemIds.length
+    || displacedArrivalBankItemIds.length
+      !== input.displacedArrivalBankItemIds.length
+  ) {
+    return apiError(
+      "thematic-desk-invalid-movement-events",
+      "Os eventos editoriais de movimento contêm identidades repetidas.",
+      400,
+    );
+  }
+  if (displacedArrivalBankItemIds.some(
+    (bankItemId) => !displacedBankItemIds.includes(bankItemId),
+  )) {
+    return apiError(
+      "thematic-desk-invalid-movement-events",
+      "Uma chegada a Desalojadas não pertence ao estado desalojado final.",
       400,
     );
   }
@@ -569,6 +609,7 @@ export async function POST(
         displacedIdentities,
         vacantZoneSlots,
         vacantFaixaSlots,
+        allowAutomaticPlacement: false,
       },
     );
     const compatibilityReconcile = reconcileMatchdayEditorialProfileWorkspace(
@@ -633,8 +674,9 @@ export async function POST(
         409,
       );
     }
+    // V12 extends the previous rpc/apply_matchday_editorial_profile_workspace_v11 contract.
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_editorial_profile_workspace_v11",
+      "rpc/apply_matchday_editorial_profile_workspace_v12",
       {
         method: "POST",
         body: JSON.stringify({
@@ -668,6 +710,9 @@ export async function POST(
             sort_order: item.sortOrder,
           })),
           p_displaced_bank_item_ids: displacedBankItemIds,
+          p_faixa_arrival_bank_item_ids: faixaArrivalBankItemIds,
+          p_displaced_arrival_bank_item_ids:
+            displacedArrivalBankItemIds,
           p_opening: opening,
           p_page_controls: {
             headline_title_color:

@@ -22,7 +22,7 @@ function functionBody(
 }
 
 test(
-  "colocacao exclusiva tem um unico preparador para Abertura, zona, Faixa, Banco e automatico",
+  "colocacao exclusiva tem um unico preparador para Abertura, zona, Faixa e Banco",
   () => {
     const transition = functionBody(
       client,
@@ -47,7 +47,6 @@ test(
       "placeInZone",
       "placeInFaixa",
       "placeInBank",
-      "returnToAutomatic",
     ]) {
       const start = client.indexOf(`function ${name}`);
       const next = client.indexOf("\n  function ", start + 1);
@@ -105,7 +104,7 @@ test(
 
     assert.equal(
       calls.length,
-      4,
+      3,
     );
   },
 );
@@ -216,8 +215,14 @@ test(
       client,
       /function changeEditorialSelection[\s\S]*editorialSelection: transition\.selection/,
     );
+    const selectionStart =
+      client.indexOf("function changeEditorialSelection");
+    const selectionSetupEnd =
+      client.indexOf("const nextDraft =", selectionStart);
+    assert.ok(selectionStart >= 0);
+    assert.ok(selectionSetupEnd > selectionStart);
     assert.doesNotMatch(
-      functionBody(client, "changeEditorialSelection", "currentDraft"),
+      client.slice(selectionStart, selectionSetupEnd),
       /prepareExclusivePlacementTransition/,
     );
   },
@@ -225,7 +230,7 @@ test(
 
 
 test(
-  "opening-displaced-item-returns-to-classified-zone-position-1",
+  "opening-displaced-item-stays-displaced-without-automatic-zone-return",
   () => {
     const opening = functionBody(
       client,
@@ -235,27 +240,22 @@ test(
 
     assert.match(
       opening,
-      /displacedSourceId/,
+      /displacedIdentity/,
     );
 
     assert.match(
       opening,
-      /classifiedZoneKey/,
-    );
-
-    assert.match(
-      opening,
-      /fixMatchdayEditorialItemsAtPosition/,
-    );
-
-    assert.match(
-      opening,
-      /classifiedZoneKey[\s\S]*1[\s\S]*\)/,
+      /withPreviewMovements/,
     );
 
     assert.doesNotMatch(
       opening,
-      /affected\.push[\s\S]*displacedSourceId[\s\S]*returnMatchdayEditorialItemsToAutomatic/,
+      /classifiedZoneKey/,
+    );
+
+    assert.doesNotMatch(
+      opening,
+      /fixMatchdayEditorialItemsAtPosition/,
     );
   },
 );

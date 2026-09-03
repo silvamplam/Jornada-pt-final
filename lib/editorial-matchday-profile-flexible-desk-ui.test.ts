@@ -242,5 +242,5 @@ test("Mover para zona respeita a posição escolhida", () => {
     source.includes('fixMatchdayEditorialItemsInZone('),
     false,
   );
-  assert.equal(source.includes('swapMatchdayEditorialItemsInZone('), false);
+  assert.equal(source.includes('swapMatchdayEditorialItemsInZone('), true);
 });

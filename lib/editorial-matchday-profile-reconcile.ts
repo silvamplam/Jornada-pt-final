@@ -138,6 +138,7 @@ function reconcileAppliedSnapshotDistribution(
   currentFaixa: readonly MatchdayEditorialProfileFaixaItem[],
   vacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[],
   vacantFaixaSlots: readonly number[],
+  allowAutomaticPlacement: boolean,
 ): MatchdayEditorialProfileReconcileResult {
   const activeByIdentity = new Map(
     activeItems.map(
@@ -426,7 +427,8 @@ function reconcileAppliedSnapshotDistribution(
    * reaplica exatamente o plano editorial, sem promover a classificação a
    * destino nem deslocar/reordenar a baseline.
    */
-  const zonesAfter = baselineZonesAfter.map((zone) => {
+  const zonesAfter = allowAutomaticPlacement
+    ? baselineZonesAfter.map((zone) => {
     const usedSlots = new Set(
       zone.items.map((item) => item.sortOrder),
     );
@@ -457,7 +459,8 @@ function reconcileAppliedSnapshotDistribution(
       items: [...zone.items, ...additions]
         .sort((left, right) => left.sortOrder - right.sortOrder),
     };
-  });
+  })
+    : baselineZonesAfter;
 
   const newAutomaticFaixa = newAutomaticCandidates.filter(
     (item) => !placedNewAutomaticIdentities.has(itemIdentity(item)),
@@ -551,10 +554,14 @@ function reconcileAppliedSnapshotDistribution(
    * entra na Faixa. Nada desaparece silenciosamente.
    */
   const additionIdentities = new Set<string>();
-  const additions = [
-    ...displacedFromZones,
-    ...newAutomaticFaixa,
-  ]
+  const additions = (
+    allowAutomaticPlacement
+      ? [
+          ...displacedFromZones,
+          ...newAutomaticFaixa,
+        ]
+      : []
+  )
     .filter((item) => {
       const identity = itemIdentity(item);
 
@@ -760,6 +767,7 @@ export function reconcileMatchdayEditorialProfileDistribution(
   options: Readonly<{
     vacantZoneSlots?: readonly MatchdayEditorialVacantZoneSlot[];
     vacantFaixaSlots?: readonly number[];
+    allowAutomaticPlacement?: boolean;
   }> = {},
 ): MatchdayEditorialProfileReconcileResult {
   const overrides = validateMatchdayEditorialProfileManualOverrides(profile, manualOverrides);
@@ -774,6 +782,7 @@ export function reconcileMatchdayEditorialProfileDistribution(
       currentFaixa,
       options.vacantZoneSlots ?? [],
       options.vacantFaixaSlots ?? [],
+      options.allowAutomaticPlacement ?? true,
     );
   }
 

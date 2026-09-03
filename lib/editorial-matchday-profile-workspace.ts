@@ -673,6 +673,38 @@ export function matchdayEditorialProfileOpeningSourceIds(
   });
 }
 
+
+export function swapMatchdayEditorialProfileOpeningItems(
+  current: MatchdayEditorialProfileOpening,
+  sourceIdValue: string,
+  targetSlot: MatchdayEditorialProfileOpeningSlotKey,
+): MatchdayEditorialProfileOpening {
+  const sourceId = cleanSourceId(sourceIdValue);
+  if (!sourceId) {
+    throw new Error("matchday-editorial-profile-opening-invalid-source");
+  }
+
+  const opening = validateMatchdayEditorialProfileOpening(current);
+  const previousSlot = MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.find(
+    (slot) => opening[slot] === sourceId,
+  ) ?? null;
+  const targetSourceId = opening[targetSlot];
+
+  if (
+    previousSlot === null
+    || previousSlot === targetSlot
+    || targetSourceId === null
+  ) {
+    throw new Error("matchday-editorial-profile-opening-swap-invalid");
+  }
+
+  return validateMatchdayEditorialProfileOpening({
+    ...opening,
+    [previousSlot]: targetSourceId,
+    [targetSlot]: sourceId,
+  });
+}
+
 export function moveMatchdayEditorialProfileItemToOpening(
   current: MatchdayEditorialProfileOpening,
   sourceIdValue: string,
@@ -743,6 +775,7 @@ export function reconcileMatchdayEditorialProfileWorkspace(
     displacedIdentities?: readonly string[];
     vacantZoneSlots?: readonly MatchdayEditorialVacantZoneSlot[];
     vacantFaixaSlots?: readonly number[];
+    allowAutomaticPlacement?: boolean;
   }> = {},
 ): MatchdayEditorialProfileReconcileResult {
   const opening = validateMatchdayEditorialProfileOpening(openingValue);
@@ -925,6 +958,10 @@ export function reconcileMatchdayEditorialProfileWorkspace(
     appliedZoneItems,
     hasAppliedSnapshot,
     circuitFaixa,
-    { vacantZoneSlots, vacantFaixaSlots },
+    {
+      vacantZoneSlots,
+      vacantFaixaSlots,
+      allowAutomaticPlacement: options.allowAutomaticPlacement,
+    },
   );
 }

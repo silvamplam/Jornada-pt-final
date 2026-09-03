@@ -11,6 +11,7 @@ export type MatchdayEditorialPreviewPlacement =
   | Readonly<{ kind: "selection"; slotPosition: number }>
   | Readonly<{ kind: "video_highlight"; slotPosition: 1 }>
   | Readonly<{ kind: "bank" }>
+  | Readonly<{ kind: "displaced" }>
   | Readonly<{ kind: "tracking" }>;
 
 export type MatchdayEditorialVacantZoneSlot = Readonly<{
@@ -33,6 +34,37 @@ export type MatchdayEditorialPreviewMovement = Readonly<{
 
 function cleanIdentity(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function uniqueIdentities(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    const identity = cleanIdentity(value);
+    if (!identity || seen.has(identity)) continue;
+    seen.add(identity);
+    result.push(identity);
+  }
+
+  return result;
+}
+
+function withoutIdentity(
+  values: readonly string[],
+  identity: string,
+): string[] {
+  return values.filter((value) => value !== identity);
+}
+
+function prependIdentity(
+  values: readonly string[],
+  identity: string,
+): string[] {
+  return [
+    identity,
+    ...withoutIdentity(values, identity),
+  ];
 }
 
 function zoneSlotKey(slot: MatchdayEditorialVacantZoneSlot): string {
@@ -64,9 +96,7 @@ export function applyMatchdayEditorialMovementPreview(
   state: MatchdayEditorialMovementPreviewState,
   movements: readonly MatchdayEditorialPreviewMovement[],
 ): MatchdayEditorialMovementPreviewState {
-  const displaced = new Set(
-    state.displacedIdentities.map(cleanIdentity).filter(Boolean),
-  );
+  let displaced = uniqueIdentities(state.displacedIdentities);
   const vacantByKey = new Map(
     state.vacantZoneSlots.map((slot) => [zoneSlotKey(slot), slot] as const),
   );
@@ -82,14 +112,7 @@ export function applyMatchdayEditorialMovementPreview(
       throw new Error("matchday-editorial-preview-movement-invalid-incoming");
     }
 
-    displaced.delete(incomingIdentity);
-
-    if (
-      displacedIdentity
-      && displacedIdentity !== incomingIdentity
-    ) {
-      displaced.add(displacedIdentity);
-    }
+    displaced = withoutIdentity(displaced, incomingIdentity);
 
     if (
       movement.source?.kind === "zone"
@@ -108,10 +131,19 @@ export function applyMatchdayEditorialMovementPreview(
     ) {
       vacantFaixaSlots.add(movement.source.slotPosition);
     }
+
+    if (
+      displacedIdentity
+      && displacedIdentity !== incomingIdentity
+    ) {
+      displaced = prependIdentity(displaced, displacedIdentity);
+    }
+
+    if (movement.target.kind === "displaced") {
+      displaced = prependIdentity(displaced, incomingIdentity);
+    }
   }
 
-  // All sources are vacated first. A target in the same batch then occupies
-  // its slot, so the final preview never exposes a false empty position.
   for (const movement of movements) {
     if (movement.target.kind === "zone") {
       vacantByKey.delete(zoneSlotKey({
@@ -125,7 +157,7 @@ export function applyMatchdayEditorialMovementPreview(
   }
 
   return {
-    displacedIdentities: Array.from(displaced).sort(),
+    displacedIdentities: displaced,
     vacantZoneSlots: Array.from(vacantByKey.values()).sort((left, right) => (
       left.zoneKey.localeCompare(right.zoneKey)
       || left.slotPosition - right.slotPosition

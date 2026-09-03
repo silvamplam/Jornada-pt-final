@@ -853,6 +853,190 @@ export function placeMatchdayEditorialItemsInZoneWithoutCascade(
 
   return normalizedMapValues(profile, next);
 }
+
+export function swapMatchdayEditorialItemsInZone(
+  profile: EditorialProfile,
+  activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
+  overrides: readonly MatchdayEditorialProfileManualOverride[],
+  movingIdentity: string,
+  targetIdentity: string,
+  zoneKey: EditorialProfileZoneKey,
+  currentZoneItems: readonly MatchdayEditorialProfileEffectiveItem[],
+): readonly MatchdayEditorialProfileManualOverride[] {
+  const [movingItem, targetItem] = requireActiveItems(
+    activeItems,
+    [movingIdentity, targetIdentity],
+  );
+  const movingCurrent = currentZoneItems.find(
+    (item) => thematicEditorialIdentity(item.sourceType, item.sourceId)
+      === movingIdentity,
+  );
+  const targetCurrent = currentZoneItems.find(
+    (item) => thematicEditorialIdentity(item.sourceType, item.sourceId)
+      === targetIdentity,
+  );
+
+  if (
+    !movingCurrent
+    || !targetCurrent
+    || movingCurrent.sortOrder === null
+    || targetCurrent.sortOrder === null
+    || movingCurrent.sortOrder === targetCurrent.sortOrder
+  ) {
+    throw new Error("matchday-editorial-profile-zone-swap-invalid");
+  }
+
+  const next = overrideMap(overrides);
+  next.delete(movingIdentity);
+  next.delete(targetIdentity);
+  next.set(movingIdentity, {
+    sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
+    sourceId: movingItem.sourceId.trim().toLowerCase(),
+    placementTarget: "zone",
+    zoneKey,
+    sortOrder: targetCurrent.sortOrder,
+  });
+  next.set(targetIdentity, {
+    sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
+    sourceId: targetItem.sourceId.trim().toLowerCase(),
+    placementTarget: "zone",
+    zoneKey,
+    sortOrder: movingCurrent.sortOrder,
+  });
+
+  return normalizedMapValues(profile, next);
+}
+
+function setMatchdayEditorialFaixaOrder(
+  profile: EditorialProfile,
+  activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
+  overrides: readonly MatchdayEditorialProfileManualOverride[],
+  orderedIdentities: readonly string[],
+  currentFaixaItems: readonly MatchdayEditorialProfileEffectiveItem[],
+): readonly MatchdayEditorialProfileManualOverride[] {
+  const orderedItems = requireActiveItems(activeItems, orderedIdentities);
+  const next = overrideMap(overrides);
+
+  for (const item of currentFaixaItems) {
+    next.delete(thematicEditorialIdentity(item.sourceType, item.sourceId));
+  }
+  for (const identity of orderedIdentities) {
+    next.delete(identity);
+  }
+
+  orderedItems.forEach((item, index) => {
+    const itemIdentity = thematicEditorialIdentity(
+      item.sourceType,
+      item.sourceId,
+    );
+    next.set(itemIdentity, {
+      sourceType: THEMATIC_EDITORIAL_SOURCE_TYPE,
+      sourceId: item.sourceId.trim().toLowerCase(),
+      placementTarget: "faixa",
+      zoneKey: null,
+      sortOrder: index + 1,
+    });
+  });
+
+  return normalizedMapValues(profile, next);
+}
+
+function currentFaixaIdentities(
+  currentFaixaItems: readonly MatchdayEditorialProfileEffectiveItem[],
+): string[] {
+  return [...currentFaixaItems]
+    .filter((item) => item.sortOrder !== null)
+    .sort((left, right) => (
+      (left.sortOrder ?? 0) - (right.sortOrder ?? 0)
+    ))
+    .map((item) => thematicEditorialIdentity(item.sourceType, item.sourceId));
+}
+
+export function placeMatchdayEditorialItemAtFaixaTop(
+  profile: EditorialProfile,
+  activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
+  overrides: readonly MatchdayEditorialProfileManualOverride[],
+  movingIdentity: string,
+  currentFaixaItems: readonly MatchdayEditorialProfileEffectiveItem[],
+): readonly MatchdayEditorialProfileManualOverride[] {
+  const current = currentFaixaIdentities(currentFaixaItems);
+  const ordered = [
+    movingIdentity,
+    ...current.filter((identity) => identity !== movingIdentity),
+  ];
+
+  return setMatchdayEditorialFaixaOrder(
+    profile,
+    activeItems,
+    overrides,
+    ordered,
+    currentFaixaItems,
+  );
+}
+
+export function swapMatchdayEditorialItemsInFaixa(
+  profile: EditorialProfile,
+  activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
+  overrides: readonly MatchdayEditorialProfileManualOverride[],
+  movingIdentity: string,
+  targetIdentity: string,
+  currentFaixaItems: readonly MatchdayEditorialProfileEffectiveItem[],
+): readonly MatchdayEditorialProfileManualOverride[] {
+  const ordered = currentFaixaIdentities(currentFaixaItems);
+  const movingIndex = ordered.indexOf(movingIdentity);
+  const targetIndex = ordered.indexOf(targetIdentity);
+
+  if (
+    movingIndex < 0
+    || targetIndex < 0
+    || movingIndex === targetIndex
+  ) {
+    throw new Error("matchday-editorial-profile-faixa-swap-invalid");
+  }
+
+  [ordered[movingIndex], ordered[targetIndex]] = [
+    ordered[targetIndex],
+    ordered[movingIndex],
+  ];
+
+  return setMatchdayEditorialFaixaOrder(
+    profile,
+    activeItems,
+    overrides,
+    ordered,
+    currentFaixaItems,
+  );
+}
+
+export function replaceMatchdayEditorialItemInFaixa(
+  profile: EditorialProfile,
+  activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],
+  overrides: readonly MatchdayEditorialProfileManualOverride[],
+  movingIdentity: string,
+  targetIdentity: string,
+  currentFaixaItems: readonly MatchdayEditorialProfileEffectiveItem[],
+): readonly MatchdayEditorialProfileManualOverride[] {
+  const ordered = currentFaixaIdentities(currentFaixaItems);
+  const withoutMoving = ordered.filter(
+    (identity) => identity !== movingIdentity,
+  );
+  const targetIndex = withoutMoving.indexOf(targetIdentity);
+
+  if (targetIndex < 0) {
+    throw new Error("matchday-editorial-profile-faixa-replace-invalid");
+  }
+
+  withoutMoving[targetIndex] = movingIdentity;
+
+  return setMatchdayEditorialFaixaOrder(
+    profile,
+    activeItems,
+    overrides,
+    withoutMoving,
+    currentFaixaItems,
+  );
+}
+
 export function moveMatchdayEditorialItemsToBank(
   profile: EditorialProfile,
   activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[],

@@ -71,7 +71,7 @@ test("ordem automática interna usa circuitOrder", () => {
   );
 });
 
-test("Faixa manual não volta a criar pertença sem posição", () => {
+test("Faixa editorial usa posição explícita, entrada no topo e swap", () => {
   assert.doesNotMatch(
     client,
     /atualidade decide a ordem/,
@@ -84,7 +84,17 @@ test("Faixa manual não volta a criar pertença sem posição", () => {
 
   assert.match(
     client,
-    /conteúdo existente foi deslocado sem reordenação cronológica/,
+    /placeMatchdayEditorialItemAtFaixaTop/,
+  );
+
+  assert.match(
+    client,
+    /swapMatchdayEditorialItemsInFaixa/,
+  );
+
+  assert.match(
+    client,
+    /replaceMatchdayEditorialItemInFaixa/,
   );
 });
 

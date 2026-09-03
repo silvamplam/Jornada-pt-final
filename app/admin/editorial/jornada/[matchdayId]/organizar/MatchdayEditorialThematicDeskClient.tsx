@@ -30,9 +30,12 @@ import {
 } from "@/lib/editorial-matchday-profile-desk";
 import {
   moveMatchdayEditorialItemsToBank,
-  placeMatchdayEditorialItemInFaixaWithoutCascade,
+  placeMatchdayEditorialItemAtFaixaTop,
   placeMatchdayEditorialItemsInFaixaWithoutCascade,
   placeMatchdayEditorialItemsInZoneWithoutCascade,
+  replaceMatchdayEditorialItemInFaixa,
+  swapMatchdayEditorialItemsInFaixa,
+  swapMatchdayEditorialItemsInZone,
   reconcileMatchdayEditorialProfileDeskSnapshot,
 
   returnMatchdayEditorialItemsToAutomatic,
@@ -55,6 +58,7 @@ import {
   matchdayEditorialProfileThematicZoneOrderFromBlockOrder,
   moveMatchdayEditorialProfileItemToOpening,
   moveMatchdayEditorialProfileThematicBlock,
+  swapMatchdayEditorialProfileOpeningItems,
   reconcileMatchdayEditorialProfileWorkspace,
   removeMatchdayEditorialProfileItemFromOpening,
   withoutMatchdayEditorialProfileOpeningOverrides,
@@ -273,6 +277,8 @@ const styles = `
   .thematic-bank-class-filters > .thematic-button { flex: 0 0 auto; margin-left: auto; }
   .thematic-bank-pool .thematic-empty { min-height: 44px; }
   .thematic-faixa-item { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 5px; align-items: start; min-width: 0; }
+  .thematic-tracking-drop-target { margin: 0 6px 6px; padding: 7px 8px; border: 1px dashed #9aaabc; border-radius: 6px; background: #f8fafc; color: #526173; font-size: 9px; font-weight: 900; text-align: center; }
+  .thematic-tracking-drop-target[data-drag-active="true"] { border-color: #e43e48; background: #fff2f3; color: #9f1d27; }
   .thematic-global-tools { display: grid; grid-template-columns: max-content max-content max-content minmax(0,1fr); align-items: start; gap: 5px; }
   .thematic-global-tool { min-width: 0; border: 1px solid #d7e0e9; border-radius: 7px; background: #fff; box-shadow: 0 3px 10px rgba(12,22,34,.03); }
   .thematic-global-tool[open] { grid-column: 1 / -1; }
@@ -350,6 +356,8 @@ type WorkspaceEditorState = Readonly<{
   workedIdentities: readonly string[];
   persistedDisplacedIdentities: readonly string[];
   draftDisplacedIdentities: readonly string[];
+  draftFaixaArrivalIdentities: readonly string[];
+  draftDisplacedArrivalIdentities: readonly string[];
   persistedVacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[];
   draftVacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[];
   persistedVacantFaixaSlots: readonly number[];
@@ -364,12 +372,14 @@ type WorkspaceDraft = Readonly<{
   videoModule: VideoModuleDraft;
   workedIdentities: readonly string[];
   displacedIdentities: readonly string[];
+  faixaArrivalIdentities: readonly string[];
+  displacedArrivalIdentities: readonly string[];
   vacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[];
   vacantFaixaSlots: readonly number[];
 }>;
 
 type Placement = Readonly<{
-  kind: "new" | "opening" | "zone" | "faixa" | "bank";
+  kind: "new" | "opening" | "zone" | "faixa" | "bank" | "displaced";
   zoneKey?: EditorialProfileZoneKey;
 }>;
 
@@ -398,14 +408,9 @@ function vacantZoneSlotsFromDesk(
 }
 
 function vacantFaixaSlotsFromDesk(
-  desk: MatchdayEditorialProfileDeskSnapshot,
+  _desk: MatchdayEditorialProfileDeskSnapshot,
 ): readonly number[] {
-  const occupied = new Set(
-    desk.currentFaixa.map((item) => item.sortOrder),
-  );
-  const lastOccupied = Math.max(0, ...occupied);
-  return Array.from({ length: lastOccupied }, (_, index) => index + 1)
-    .filter((slotPosition) => !occupied.has(slotPosition));
+  return [];
 }
 
 function imageLoader({ src }: ImageLoaderProps): string { return src; }
@@ -430,6 +435,23 @@ function identity(item: Pick<MatchdayEditorialProfileEffectiveItem, "sourceType"
 }
 
 function sameJson(left: unknown, right: unknown): boolean { return JSON.stringify(left) === JSON.stringify(right); }
+
+function prependRecentIdentity(
+  values: readonly string[],
+  itemIdentity: string,
+): readonly string[] {
+  return [
+    itemIdentity,
+    ...values.filter((candidate) => candidate !== itemIdentity),
+  ];
+}
+
+function withoutRecentIdentity(
+  values: readonly string[],
+  itemIdentity: string,
+): readonly string[] {
+  return values.filter((candidate) => candidate !== itemIdentity);
+}
 
 
 function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onFaixa, onBank }: Readonly<{
@@ -828,6 +850,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     workedIdentities: [],
     persistedDisplacedIdentities: displacedIdentitiesFromDesk(desk),
     draftDisplacedIdentities: displacedIdentitiesFromDesk(desk),
+    draftFaixaArrivalIdentities: [],
+    draftDisplacedArrivalIdentities: [],
     persistedVacantZoneSlots: vacantZoneSlotsFromDesk(incomingProfile, desk),
     draftVacantZoneSlots: vacantZoneSlotsFromDesk(incomingProfile, desk),
     persistedVacantFaixaSlots: vacantFaixaSlotsFromDesk(desk),
@@ -1171,6 +1195,14 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         selectedIdentities: reconciledOverrides.selectedIdentities,
         workedIdentities: current.workedIdentities.filter((itemIdentity) =>
           desk.automaticDistribution.activeItems.some((item) => identity(item) === itemIdentity)),
+        draftFaixaArrivalIdentities:
+          current.workedIdentities.length > 0
+            ? current.draftFaixaArrivalIdentities
+            : [],
+        draftDisplacedArrivalIdentities:
+          current.workedIdentities.length > 0
+            ? current.draftDisplacedArrivalIdentities
+            : [],
         persistedDisplacedIdentities: nextDisplacedIdentities,
         draftDisplacedIdentities: displacementDirty
           ? current.draftDisplacedIdentities.filter((itemIdentity) =>
@@ -1343,6 +1375,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       displacedIdentities: editorState.draftDisplacedIdentities,
       vacantZoneSlots: editorState.draftVacantZoneSlots,
       vacantFaixaSlots: editorState.draftVacantFaixaSlots,
+      allowAutomaticPlacement: false,
     },
   ), [activeItems, desk.appliedZoneItems, desk.currentFaixa, desk.hasAppliedSnapshot, draftSelectionIdentities, editorState.draftDisplacedIdentities, editorState.draftOpening, editorState.draftVacantFaixaSlots, editorState.draftVacantZoneSlots, editorState.workedIdentities, effectiveProfile, independentPlacementIdentities, operationalOverrides]);
   const pending = reconcile.hasChanges
@@ -1365,7 +1398,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       editorState.draftVacantFaixaSlots,
       editorState.persistedVacantFaixaSlots,
     )
-    || editorState.workedIdentities.length > 0;
+    || editorState.workedIdentities.length > 0
+    || editorState.draftFaixaArrivalIdentities.length > 0
+    || editorState.draftDisplacedArrivalIdentities.length > 0;
   const zoneByKey = new Map(
     reconcile.zonesAfter.map(
       (zone) => [zone.key, zone] as const,
@@ -1528,9 +1563,35 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const filteredSourceItems = filteredTrackingEntries.map(({ item }) => item);
 
   function trackingEntriesForState(state: MatchdayEditorialTrackingState) {
-    return filteredTrackingEntries.filter(({ trackingItem }) => (
+    const entries = filteredTrackingEntries.filter(({ trackingItem }) => (
       trackingItem.editorialState === state
     ));
+
+    if (state === "FAIXA") {
+      return [...entries].sort((left, right) => (
+        (left.item.sortOrder ?? Number.MAX_SAFE_INTEGER)
+        - (right.item.sortOrder ?? Number.MAX_SAFE_INTEGER)
+      ));
+    }
+
+    const recent = state === "DESALOJADA"
+      ? editorState.draftDisplacedArrivalIdentities
+      : [];
+
+    if (recent.length === 0) return entries;
+
+    const rank = new Map(
+      recent.map((itemIdentity, index) => [itemIdentity, index] as const),
+    );
+
+    return [...entries].sort((left, right) => {
+      const leftRank = rank.get(identity(left.item));
+      const rightRank = rank.get(identity(right.item));
+      if (leftRank === undefined && rightRank === undefined) return 0;
+      if (leftRank === undefined) return 1;
+      if (rightRank === undefined) return -1;
+      return leftRank - rightRank;
+    });
   }
 
   function showMoreTracking(state: MatchdayEditorialTrackingState) {
@@ -1543,7 +1604,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   function trackingPlacement(state: MatchdayEditorialTrackingState): Placement {
     if (state === "NOVA") return { kind: "new" };
     if (state === "FAIXA") return { kind: "faixa" };
-    return { kind: "bank" };
+    return { kind: "displaced" };
   }
 
   const currentVideoHighlightDefined =
@@ -1588,6 +1649,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       displacedIdentities: editorState.draftDisplacedIdentities,
       vacantZoneSlots: editorState.draftVacantZoneSlots,
       vacantFaixaSlots: editorState.draftVacantFaixaSlots,
+      faixaArrivalIdentities: editorState.draftFaixaArrivalIdentities,
+      displacedArrivalIdentities:
+        editorState.draftDisplacedArrivalIdentities,
     };
   }
 
@@ -1647,6 +1711,10 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       return { kind: "video_highlight", slotPosition: 1 };
     }
 
+    if (editorState.draftDisplacedIdentities.includes(itemIdentity)) {
+      return { kind: "displaced" };
+    }
+
     if (reconcile.bankAfter.some((item) => identity(item) === itemIdentity)) {
       return { kind: "bank" };
     }
@@ -1666,11 +1734,87 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       },
       movements,
     );
+    let faixaArrivalIdentities = [
+      ...draft.faixaArrivalIdentities,
+    ];
+    let displacedArrivalIdentities = [
+      ...draft.displacedArrivalIdentities,
+    ];
+
+    for (const movement of movements) {
+      const incomingIdentity = movement.incomingIdentity;
+
+      if (
+        movement.source?.kind === "faixa"
+        && movement.target.kind !== "faixa"
+      ) {
+        faixaArrivalIdentities = [
+          ...withoutRecentIdentity(
+            faixaArrivalIdentities,
+            incomingIdentity,
+          ),
+        ];
+      }
+
+      if (
+        movement.target.kind === "faixa"
+        && movement.source?.kind !== "faixa"
+      ) {
+        faixaArrivalIdentities = [
+          ...prependRecentIdentity(
+            faixaArrivalIdentities,
+            incomingIdentity,
+          ),
+        ];
+      }
+
+      if (
+        movement.source?.kind === "displaced"
+        && movement.target.kind !== "displaced"
+      ) {
+        displacedArrivalIdentities = [
+          ...withoutRecentIdentity(
+            displacedArrivalIdentities,
+            incomingIdentity,
+          ),
+        ];
+      }
+
+      if (movement.target.kind === "displaced") {
+        displacedArrivalIdentities = [
+          ...prependRecentIdentity(
+            displacedArrivalIdentities,
+            incomingIdentity,
+          ),
+        ];
+      }
+
+      if (movement.displacedIdentity) {
+        displacedArrivalIdentities = [
+          ...prependRecentIdentity(
+            displacedArrivalIdentities,
+            movement.displacedIdentity,
+          ),
+        ];
+
+        if (movement.target.kind === "faixa") {
+          faixaArrivalIdentities = [
+            ...withoutRecentIdentity(
+              faixaArrivalIdentities,
+              movement.displacedIdentity,
+            ),
+          ];
+        }
+      }
+    }
+
     return {
       ...draft,
       displacedIdentities: next.displacedIdentities,
       vacantZoneSlots: next.vacantZoneSlots,
-      vacantFaixaSlots: next.vacantFaixaSlots,
+      vacantFaixaSlots: [],
+      faixaArrivalIdentities,
+      displacedArrivalIdentities,
     };
   }
 
@@ -1695,6 +1839,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       selectedIdentities: [],
       workedIdentities: next.workedIdentities,
       draftDisplacedIdentities: next.displacedIdentities,
+      draftFaixaArrivalIdentities: next.faixaArrivalIdentities,
+      draftDisplacedArrivalIdentities:
+        next.displacedArrivalIdentities,
       draftVacantZoneSlots: next.vacantZoneSlots,
       draftVacantFaixaSlots: next.vacantFaixaSlots,
     }));
@@ -1877,9 +2024,65 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     };
   }
 
-  function placeInOpening(itemIdentity: string, slot: MatchdayEditorialProfileOpeningSlotKey) {
+  function placeInOpening(
+    itemIdentity: string,
+    slot: MatchdayEditorialProfileOpeningSlotKey,
+  ) {
+    const source = previewPlacementForIdentity(itemIdentity);
+    const targetSlotPosition =
+      MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.indexOf(slot) + 1;
+    const targetSourceId = editorState.draftOpening[slot];
+    const targetIdentity = targetSourceId
+      ? thematicEditorialIdentity(
+          "editorial_article",
+          targetSourceId,
+        )
+      : null;
+
+    if (
+      source?.kind === "opening"
+      && targetIdentity
+      && targetIdentity !== itemIdentity
+    ) {
+      localOperation(() => {
+        const opening = swapMatchdayEditorialProfileOpeningItems(
+          editorState.draftOpening,
+          sourceIdForIdentity(itemIdentity),
+          slot,
+        );
+        const nextDraft = withWorkedIdentities(
+          {
+            ...currentDraft(),
+            opening,
+          },
+          [itemIdentity, targetIdentity],
+        );
+
+        return withPreviewMovements(nextDraft, [
+          {
+            incomingIdentity: itemIdentity,
+            source,
+            target: {
+              kind: "opening",
+              slotPosition: targetSlotPosition,
+            },
+            displacedIdentity: null,
+          },
+          {
+            incomingIdentity: targetIdentity,
+            source: {
+              kind: "opening",
+              slotPosition: targetSlotPosition,
+            },
+            target: source,
+            displacedIdentity: null,
+          },
+        ]);
+      }, "As duas notícias trocaram de posição na Abertura.");
+      return;
+    }
+
     localOperation(() => {
-      const source = previewPlacementForIdentity(itemIdentity);
       const movement = moveMatchdayEditorialProfileItemToOpening(
         editorState.draftOpening,
         sourceIdForIdentity(itemIdentity),
@@ -1900,10 +2103,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
               : []),
           ],
         );
-      const incomingSelection = withoutMatchdayEditorialProfileSelectionBankItems(
-        draftEditorialSelection,
-        [bankItemIdByIdentity.get(itemIdentity) ?? ""],
-      );
+      const incomingSelection =
+        withoutMatchdayEditorialProfileSelectionBankItems(
+          draftEditorialSelection,
+          [bankItemIdByIdentity.get(itemIdentity) ?? ""],
+        );
 
       const displacedIdentity = movement.displacedSourceId
         ? thematicEditorialIdentity(
@@ -1928,8 +2132,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         source,
         target: {
           kind: "opening",
-          slotPosition:
-            MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.indexOf(slot) + 1,
+          slotPosition: targetSlotPosition,
         },
         displacedIdentity:
           displacedIdentity !== itemIdentity ? displacedIdentity : null,
@@ -1937,21 +2140,78 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     }, `${MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS[slot]} atualizada em preview. Se o destino estava ocupado, a notícia substituída fica desalojada.`);
   }
 
-  function placeInZone(itemIdentity: string, zoneKey: EditorialProfileZoneKey, position: number) {
+  function placeInZone(
+    itemIdentity: string,
+    zoneKey: EditorialProfileZoneKey,
+    position: number,
+  ) {
     const source = previewPlacementForIdentity(itemIdentity);
-    const targetZone = reconcile.zonesAfter.find((zone) => zone.key === zoneKey);
-    const displacedIdentity = targetZone?.items.find(
+    const targetZone = reconcile.zonesAfter.find(
+      (zone) => zone.key === zoneKey,
+    );
+    const targetItem = targetZone?.items.find(
       (item) => item.sortOrder === position,
     );
-    const displacedItemIdentity = displacedIdentity
-      ? identity(displacedIdentity)
+    const targetIdentity = targetItem
+      ? identity(targetItem)
       : null;
 
-    localOperation(() => {
-      const transition =
-        prepareExclusivePlacementTransition(
-          [itemIdentity],
+    if (
+      source?.kind === "zone"
+      && source.zoneKey === zoneKey
+      && targetIdentity
+      && targetIdentity !== itemIdentity
+    ) {
+      localOperation(() => {
+        const transition = prepareExclusivePlacementTransition(
+          [itemIdentity, targetIdentity],
         );
+        const overrides = swapMatchdayEditorialItemsInZone(
+          effectiveProfile,
+          transition.candidates,
+          transition.overrides,
+          itemIdentity,
+          targetIdentity,
+          zoneKey,
+          targetZone?.items ?? [],
+        );
+        const nextDraft = withWorkedIdentities({
+          ...currentDraft(),
+          overrides,
+          opening: transition.opening,
+          editorialSelection: transition.editorialSelection,
+        }, [itemIdentity, targetIdentity]);
+
+        return withPreviewMovements(nextDraft, [
+          {
+            incomingIdentity: itemIdentity,
+            source,
+            target: {
+              kind: "zone",
+              zoneKey,
+              slotPosition: position,
+            },
+            displacedIdentity: null,
+          },
+          {
+            incomingIdentity: targetIdentity,
+            source: {
+              kind: "zone",
+              zoneKey,
+              slotPosition: position,
+            },
+            target: source,
+            displacedIdentity: null,
+          },
+        ]);
+      }, `As notícias trocaram de posição em ${zoneKey}.`);
+      return;
+    }
+
+    localOperation(() => {
+      const transition = prepareExclusivePlacementTransition(
+        [itemIdentity],
+      );
       const nextDraft = withWorkedIdentities({
         ...currentDraft(),
         overrides: placeMatchdayEditorialItemsInZoneWithoutCascade(
@@ -1967,64 +2227,167 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         editorialSelection: transition.editorialSelection,
       }, [
         itemIdentity,
-        ...(displacedItemIdentity && displacedItemIdentity !== itemIdentity
-          ? [displacedItemIdentity]
+        ...(targetIdentity && targetIdentity !== itemIdentity
+          ? [targetIdentity]
           : []),
       ]);
 
       return withPreviewMovements(nextDraft, [{
         incomingIdentity: itemIdentity,
         source,
-        target: { kind: "zone", zoneKey, slotPosition: position },
+        target: {
+          kind: "zone",
+          zoneKey,
+          slotPosition: position,
+        },
         displacedIdentity:
-          displacedItemIdentity !== itemIdentity
-            ? displacedItemIdentity
-            : null,
+          targetIdentity !== itemIdentity ? targetIdentity : null,
       }]);
     }, `Notícia colocada em ${zoneKey}, posição ${position}. Se o destino estava ocupado, a notícia substituída fica desalojada.`);
   }
 
+  function placeAtFaixaTop(itemIdentity: string) {
+    const source = previewPlacementForIdentity(itemIdentity);
 
-  function placeInFaixa(itemIdentity: string, position: number) {
+    localOperation(() => {
+      const transition = prepareExclusivePlacementTransition(
+        [itemIdentity],
+      );
+      const nextDraft = withWorkedIdentities({
+        ...currentDraft(),
+        overrides: placeMatchdayEditorialItemAtFaixaTop(
+          effectiveProfile,
+          transition.candidates,
+          transition.overrides,
+          itemIdentity,
+          reconcile.faixaAfter,
+        ),
+        opening: transition.opening,
+        editorialSelection: transition.editorialSelection,
+      }, [itemIdentity]);
+
+      return withPreviewMovements(nextDraft, [{
+        incomingIdentity: itemIdentity,
+        source,
+        target: { kind: "faixa", slotPosition: 1 },
+        displacedIdentity: null,
+      }]);
+    }, "Notícia colocada no topo da Faixa. Nenhuma notícia foi desalojada.");
+  }
+
+  function placeInFaixa(
+    itemIdentity: string,
+    position: number,
+  ) {
     const targetPosition = Math.max(1, position);
     const source = previewPlacementForIdentity(itemIdentity);
     const targetItem = reconcile.faixaAfter.find(
       (item) => item.sortOrder === targetPosition,
     );
-    const displacedIdentity = targetItem ? identity(targetItem) : null;
+    const targetIdentity = targetItem
+      ? identity(targetItem)
+      : null;
 
-    localOperation(() => {
-      const transition =
-        prepareExclusivePlacementTransition(
-          [itemIdentity],
+    if (!targetIdentity || targetIdentity === itemIdentity) {
+      if (!targetIdentity) placeAtFaixaTop(itemIdentity);
+      return;
+    }
+
+    if (source?.kind === "faixa") {
+      localOperation(() => {
+        const transition = prepareExclusivePlacementTransition(
+          [itemIdentity, targetIdentity],
         );
-      const nextDraft = withWorkedIdentities({
-        ...currentDraft(),
-        overrides: placeMatchdayEditorialItemInFaixaWithoutCascade(
+        const overrides = swapMatchdayEditorialItemsInFaixa(
           effectiveProfile,
           transition.candidates,
           transition.overrides,
           itemIdentity,
-          targetPosition,
+          targetIdentity,
+          reconcile.faixaAfter,
+        );
+        const nextDraft = withWorkedIdentities({
+          ...currentDraft(),
+          overrides,
+          opening: transition.opening,
+          editorialSelection: transition.editorialSelection,
+        }, [itemIdentity, targetIdentity]);
+
+        return withPreviewMovements(nextDraft, [
+          {
+            incomingIdentity: itemIdentity,
+            source,
+            target: {
+              kind: "faixa",
+              slotPosition: targetPosition,
+            },
+            displacedIdentity: null,
+          },
+          {
+            incomingIdentity: targetIdentity,
+            source: {
+              kind: "faixa",
+              slotPosition: targetPosition,
+            },
+            target: source,
+            displacedIdentity: null,
+          },
+        ]);
+      }, "As duas notícias trocaram de posição na Faixa.");
+      return;
+    }
+
+    localOperation(() => {
+      const transition = prepareExclusivePlacementTransition(
+        [itemIdentity],
+      );
+      const nextDraft = withWorkedIdentities({
+        ...currentDraft(),
+        overrides: replaceMatchdayEditorialItemInFaixa(
+          effectiveProfile,
+          transition.candidates,
+          transition.overrides,
+          itemIdentity,
+          targetIdentity,
           reconcile.faixaAfter,
         ),
         opening: transition.opening,
         editorialSelection: transition.editorialSelection,
-      }, [
-        itemIdentity,
-        ...(displacedIdentity && displacedIdentity !== itemIdentity
-          ? [displacedIdentity]
-          : []),
-      ]);
+      }, [itemIdentity, targetIdentity]);
 
       return withPreviewMovements(nextDraft, [{
         incomingIdentity: itemIdentity,
         source,
-        target: { kind: "faixa", slotPosition: targetPosition },
-        displacedIdentity:
-          displacedIdentity !== itemIdentity ? displacedIdentity : null,
+        target: {
+          kind: "faixa",
+          slotPosition: targetPosition,
+        },
+        displacedIdentity: targetIdentity,
       }]);
-    }, `Notícia colocada na Faixa na posição ${targetPosition}. Se o destino estava ocupado, a notícia substituída fica desalojada.`);
+    }, `Notícia colocada na Faixa na posição ${targetPosition}; a notícia substituída passou para Desalojadas.`);
+  }
+
+  function placeInDisplaced(itemIdentity: string) {
+    const source = previewPlacementForIdentity(itemIdentity);
+
+    localOperation(() => {
+      const transition = prepareExclusivePlacementTransition(
+        [itemIdentity],
+      );
+      const nextDraft = withWorkedIdentities({
+        ...currentDraft(),
+        overrides: transition.overrides,
+        opening: transition.opening,
+        editorialSelection: transition.editorialSelection,
+      }, [itemIdentity]);
+
+      return withPreviewMovements(nextDraft, [{
+        incomingIdentity: itemIdentity,
+        source,
+        target: { kind: "displaced" },
+        displacedIdentity: null,
+      }]);
+    }, "Notícia enviada para Desalojadas.");
   }
 
   function placeInBank(itemIdentity: string) {
@@ -2037,7 +2400,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
       const nextDraft = withWorkedIdentities({
         ...currentDraft(),
-        overrides: moveMatchdayEditorialItemsToBank(effectiveProfile, transition.candidates, transition.overrides, [itemIdentity]),
+        overrides: moveMatchdayEditorialItemsToBank(
+          effectiveProfile,
+          transition.candidates,
+          transition.overrides,
+          [itemIdentity],
+        ),
         opening: transition.opening,
         editorialSelection: transition.editorialSelection,
       }, [itemIdentity]);
@@ -2082,6 +2450,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       selectedIdentities: [],
       workedIdentities: previous.workedIdentities,
       draftDisplacedIdentities: previous.displacedIdentities,
+      draftFaixaArrivalIdentities: previous.faixaArrivalIdentities,
+      draftDisplacedArrivalIdentities:
+        previous.displacedArrivalIdentities,
       draftVacantZoneSlots: previous.vacantZoneSlots,
       draftVacantFaixaSlots: previous.vacantFaixaSlots,
     }));
@@ -2120,6 +2491,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       selectedIdentities: [],
       workedIdentities: [],
       draftDisplacedIdentities: current.persistedDisplacedIdentities,
+      draftFaixaArrivalIdentities: [],
+      draftDisplacedArrivalIdentities: [],
       draftVacantZoneSlots: current.persistedVacantZoneSlots,
       draftVacantFaixaSlots: current.persistedVacantFaixaSlots,
     }));
@@ -2154,6 +2527,30 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           return bankItemId;
         },
       );
+      const faixaArrivalBankItemIds =
+        editorState.draftFaixaArrivalIdentities.map(
+          (itemIdentity) => {
+            const bankItemId = bankItemIdByIdentity.get(itemIdentity);
+            if (!bankItemId) {
+              throw new Error(
+                "Uma chegada à Faixa já não tem identidade canónica no Bank.",
+              );
+            }
+            return bankItemId;
+          },
+        );
+      const displacedArrivalBankItemIds =
+        editorState.draftDisplacedArrivalIdentities.map(
+          (itemIdentity) => {
+            const bankItemId = bankItemIdByIdentity.get(itemIdentity);
+            if (!bankItemId) {
+              throw new Error(
+                "Uma chegada a Desalojadas já não tem identidade canónica no Bank.",
+              );
+            }
+            return bankItemId;
+          },
+        );
       const response = await fetch(`/api/admin/editorial/jornada/${desk.matchdayId}/organizar/tematico`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2167,6 +2564,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           selectionBankItemIds: draftEditorialSelection,
           workedSourceIds,
           displacedBankItemIds,
+          faixaArrivalBankItemIds,
+          displacedArrivalBankItemIds,
           vacantZoneSlots: editorState.draftVacantZoneSlots,
           vacantFaixaSlots: editorState.draftVacantFaixaSlots,
           videoModule: {
@@ -2201,6 +2600,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         workedIdentities: [],
         persistedDisplacedIdentities: current.draftDisplacedIdentities,
         draftDisplacedIdentities: current.draftDisplacedIdentities,
+        draftFaixaArrivalIdentities: [],
+        draftDisplacedArrivalIdentities: [],
         persistedVacantZoneSlots: current.draftVacantZoneSlots,
         draftVacantZoneSlots: current.draftVacantZoneSlots,
         persistedVacantFaixaSlots: current.draftVacantFaixaSlots,
@@ -2226,7 +2627,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         onBank={() => placeInBank(itemIdentity)}
         onDragEnd={() => setDraggingIdentity(null)}
         onDragStart={dragStart}
-        onFaixa={() => placeInFaixa(itemIdentity, 1)}
+        onFaixa={() => placeAtFaixaTop(itemIdentity)}
         onToggle={toggleSelection}
         placement={placement}
         selected={selected.has(itemIdentity)}
@@ -2754,9 +3155,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       const itemIdentity = dragged(event);
       if (itemIdentity) {
         if (state === "DESALOJADA") {
-          placeInBank(itemIdentity);
+          placeInDisplaced(itemIdentity);
         } else if (state === "FAIXA") {
-          placeInFaixa(itemIdentity, 1);
+          placeAtFaixaTop(itemIdentity);
         }
       }
       setDraggingIdentity(null);
@@ -2955,6 +3356,20 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     </button>
                   ) : null}
                 </div>
+                {state !== "NOVA" ? (
+                  <div
+                    className="thematic-tracking-drop-target"
+                    data-drag-active={draggingIdentity !== null}
+                    onDragOver={allowDrop}
+                    onDrop={(event) =>
+                      dropOnTrackingState(event, state)
+                    }
+                  >
+                    {state === "FAIXA"
+                      ? "Largar aqui · entra no topo da Faixa"
+                      : "Largar aqui · passa para Desalojadas"}
+                  </div>
+                ) : null}
                 <div
                   className="thematic-sources-list"
                   data-drag-active={draggingIdentity !== null}
@@ -2964,7 +3379,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     : (event) => dropOnTrackingState(event, state)}
                 >
                   {visibleEntries.length > 0
-                    ? visibleEntries.map(({ item }) => cardFor(item, trackingPlacement(state)))
+                    ? visibleEntries.map(({ item }) => (
+                        state === "FAIXA"
+                          ? renderFaixaItem(item)
+                          : cardFor(item, trackingPlacement(state))
+                      ))
                     : <p className="thematic-empty">{emptyLabel}</p>}
                 </div>
                 {visibleEntries.length < entries.length ? (

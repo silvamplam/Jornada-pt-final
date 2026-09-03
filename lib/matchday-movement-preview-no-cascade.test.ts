@@ -293,5 +293,5 @@ test("cliente e Apply usam o mesmo preview sem regra textual legacy", () => {
   assert.match(route, /rpc\/apply_matchday_editorial_profile_workspace_v11/);
   assert.match(migration, /apply_matchday_live_layout_placement_plan\([\s\S]*true/);
   assert.match(migration, /placement_type in \('selection', 'video_highlight'\)/);
-  assert.doesNotMatch(operations, /export function swapMatchdayEditorialItems/u);
+  assert.match(operations, /export function swapMatchdayEditorialItemsInZone/u);
 });
