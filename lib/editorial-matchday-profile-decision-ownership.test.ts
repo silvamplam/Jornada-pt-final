@@ -6,256 +6,53 @@ const client = readFileSync(
   "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
   "utf8",
 );
-
-function functionBody(
-  source: string,
-  name: string,
-  nextName: string,
-) {
-  const start = source.indexOf(`function ${name}`);
-  const end = source.indexOf(`function ${nextName}`, start + 1);
-
-  assert.ok(start >= 0, `${name} nao encontrado`);
-  assert.ok(end > start, `${nextName} nao encontrado depois de ${name}`);
-
-  return source.slice(start, end);
-}
-
-test(
-  "colocacao exclusiva tem um unico preparador para Abertura, zona, Faixa e Banco",
-  () => {
-    const transition = functionBody(
-      client,
-      "prepareExclusivePlacementTransition",
-      "placeInOpening",
-    );
-
-    assert.match(
-      transition,
-      /openingWithoutMany\(itemIdentities\)/,
-    );
-    assert.match(
-      transition,
-      /returnMatchdayEditorialItemsToAutomatic[\s\S]*itemIdentities/,
-    );
-    assert.match(
-      transition,
-      /activeItemsOutside\(opening\)/,
-    );
-
-    for (const name of [
-      "placeInZone",
-      "placeInFaixa",
-      "placeInBank",
-    ]) {
-      const start = client.indexOf(`function ${name}`);
-      const next = client.indexOf("\n  function ", start + 1);
-      const body = client.slice(
-        start,
-        next > start ? next : client.length,
-      );
-
-      assert.match(
-        body,
-        /prepareExclusivePlacementTransition/,
-        `${name} deve usar a mesma transicao exclusiva`,
-      );
-    }
-  },
+const state = readFileSync(
+  "lib/editorial-matchday-live-layout-desk-state.ts",
+  "utf8",
 );
 
-test(
-  "operacao em lote usa a mesma transicao e aceita itens vindos da Abertura",
-  () => {
-    assert.doesNotMatch(
-      client,
-      /const circuitActiveItems/,
-    );
+test("colocação exclusiva tem uma única coleção física de placements", () => {
+  assert.match(state, /placements: readonly PhysicalDeskPlacement\[\]/);
+  assert.match(state, /function withPlacement/);
+  assert.match(state, /withoutBankItem\(current\.placements, bankItemId\)/);
+  assert.doesNotMatch(client, /prepareExclusivePlacementTransition/);
+});
 
-    const bulkStart = client.indexOf(
-      "{selected.size > 0 ? (",
-    );
-    const bulkEnd = client.indexOf(
-      '<section className="thematic-page-structure"',
-      bulkStart,
-    );
+test("operação em lote usa helpers físicos e LiveLayoutZoneId", () => {
+  assert.match(client, /bulkMovePhysicalDeskItemsToZone\(state, selectedBankItemIds, destinationZoneId/);
+  assert.match(client, /bulkMovePhysicalDeskItemsToFaixa\(state, selectedBankItemIds, faixaPosition\)/);
+  assert.match(client, /bulkMovePhysicalDeskItemsToBank\(state, selectedBankItemIds\)/);
+  assert.match(client, /useState<LiveLayoutZoneId \| null>/);
+});
 
-    assert.ok(bulkStart >= 0, "toolbar contextual da operacao em lote nao encontrada");
-    assert.ok(bulkEnd > bulkStart, "fim da toolbar contextual nao encontrado");
+test("Seleção editorial participa no mesmo history físico", () => {
+  assert.match(client, /placeInSelection\(bankItemId, position\)/);
+  assert.match(state, /placementType: "opening" \| "faixa" \| "selection" \| "video_highlight"/);
+  assert.match(state, /history: \[\.\.\.state\.history, state\.current\]/);
+  assert.match(client, /undoPhysicalDeskState/);
+  assert.doesNotMatch(client, /WorkspaceDraft|draftEditorialSelection/);
+});
 
-    const bulk = client.slice(
-      bulkStart,
-      bulkEnd,
-    );
+test("alterar Seleção fica local até ao Apply", () => {
+  const start = client.indexOf("function placeInSelection");
+  const end = client.indexOf("function placeAtFaixaTop", start);
+  assert.ok(start >= 0 && end > start);
+  const body = client.slice(start, end);
+  assert.match(body, /movePhysicalDeskItemToSlot/);
+  assert.doesNotMatch(body, /fetch\(/);
+});
 
-    assert.match(
-      bulk,
-      /className="thematic-bulk-context"/,
-    );
-    assert.match(
-      bulk,
-      /prepareExclusivePlacementTransition[\s\S]*selectedIdentities/,
-    );
+test("UI separa operação em lote de Seleção editorial", () => {
+  assert.match(client, /className="thematic-bulk-context"/);
+  assert.match(client, /selected\.size > 0/);
+  assert.match(client, /aria-label="Quatro ao lado das Últimas"/);
+  assert.match(client, /Limpar marcação/);
+});
 
-    const calls =
-      bulk.match(
-        /prepareExclusivePlacementTransition/g,
-      ) ?? [];
-
-    assert.equal(
-      calls.length,
-      3,
-    );
-  },
-);
-
-test(
-  "Selecao editorial e destino exclusivo e participa no mesmo undo local",
-  () => {
-    assert.match(
-      client,
-      /type WorkspaceDraft[\s\S]*editorialSelection: readonly \(string \| null\)\[\]/,
-    );
-
-    const currentDraft = functionBody(
-      client,
-      "currentDraft",
-      "commitDraft",
-    );
-    assert.match(
-      currentDraft,
-      /editorialSelection: draftEditorialSelection/,
-    );
-
-    const commitDraft = functionBody(
-      client,
-      "commitDraft",
-      "changeZoneLayout",
-    );
-    assert.match(
-      commitDraft,
-      /setDraftEditorialSelection\(next\.editorialSelection\)/,
-    );
-
-    const undo = functionBody(
-      client,
-      "undo",
-      "resetLocal",
-    );
-    assert.match(
-      undo,
-      /setDraftEditorialSelection\(previous\.editorialSelection\)/,
-    );
-
-    const transition = functionBody(
-      client,
-      "prepareExclusivePlacementTransition",
-      "placeInOpening",
-    );
-
-    assert.doesNotMatch(
-      transition,
-      /setDraftEditorialSelection|setPersistedEditorialSelection/,
-    );
-  },
-);
-
-test(
-  "alterar Selecao editorial fica em preview e entra no historico antes do Apply",
-  () => {
-    const selection = functionBody(
-      client,
-      "changeEditorialSelection",
-      "currentDraft",
-    );
-
-    assert.match(
-      selection,
-      /prepareExclusiveMatchdayEditorialProfileSelection/,
-    );
-    assert.match(
-      selection,
-      /commitDraft/,
-    );
-    assert.match(
-      selection,
-      /editorialSelection: transition\.selection/,
-    );
-    assert.doesNotMatch(
-      selection,
-      /fetch\(|selection_set|selection_clear/,
-    );
-  },
-);
-
-test(
-  "UI separa Operacao em lote de Selecao editorial",
-  () => {
-    assert.match(
-      client,
-      /className="thematic-bulk-context"/,
-    );
-    assert.match(
-      client,
-      /selected\.size > 0/,
-    );
-    assert.match(
-      client,
-      /Limpar marcação/,
-    );
-    assert.doesNotMatch(
-      client,
-      /Seleção múltipla e fallback acessível/,
-    );
-    assert.match(
-      client,
-      /aria-label="Quatro ao lado das Últimas"/,
-    );
-    assert.match(
-      client,
-      /function changeEditorialSelection[\s\S]*editorialSelection: transition\.selection/,
-    );
-    const selectionStart =
-      client.indexOf("function changeEditorialSelection");
-    const selectionSetupEnd =
-      client.indexOf("const nextDraft =", selectionStart);
-    assert.ok(selectionStart >= 0);
-    assert.ok(selectionSetupEnd > selectionStart);
-    assert.doesNotMatch(
-      client.slice(selectionStart, selectionSetupEnd),
-      /prepareExclusivePlacementTransition/,
-    );
-  },
-);
-
-
-test(
-  "opening-displaced-item-stays-displaced-without-automatic-zone-return",
-  () => {
-    const opening = functionBody(
-      client,
-      "placeInOpening",
-      "placeInZone",
-    );
-
-    assert.match(
-      opening,
-      /displacedIdentity/,
-    );
-
-    assert.match(
-      opening,
-      /withPreviewMovements/,
-    );
-
-    assert.doesNotMatch(
-      opening,
-      /classifiedZoneKey/,
-    );
-
-    assert.doesNotMatch(
-      opening,
-      /fixMatchdayEditorialItemsAtPosition/,
-    );
-  },
-);
+test("movimentos não consultam classificação para escolher destinos", () => {
+  const start = state.indexOf("function withPlacement");
+  const end = state.indexOf("export function movePhysicalDeskItemToSlot", start);
+  assert.ok(start >= 0 && end > start);
+  assert.doesNotMatch(state.slice(start, end), /classification|classifiedZoneKey/);
+  assert.match(state, /displacedBankItemIds/);
+});

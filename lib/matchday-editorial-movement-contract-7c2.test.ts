@@ -260,9 +260,9 @@ test("cliente expõe destinos explícitos e mantém Novas sem drop", () => {
 
   assert.match(client, /function placeInDisplaced/u);
   assert.match(client, /function placeAtFaixaTop/u);
-  assert.match(client, /swapMatchdayEditorialItemsInZone/u);
-  assert.match(client, /swapMatchdayEditorialItemsInFaixa/u);
-  assert.match(client, /swapMatchdayEditorialProfileOpeningItems/u);
+  assert.match(client, /movePhysicalDeskItemToSlot/u);
+  assert.match(client, /placementType: "zone"/u);
+  assert.match(client, /placementType: "opening"/u);
   assert.match(
     client,
     /Largar aqui · entra no topo da Faixa/u,
@@ -271,15 +271,9 @@ test("cliente expõe destinos explícitos e mantém Novas sem drop", () => {
     client,
     /Largar aqui · passa para Desalojadas/u,
   );
-  assert.equal(
-    client.includes('onDragOver={state === "NOVA" ? undefined : allowDrop}'),
-    true,
-  );
-  assert.match(client, /allowAutomaticPlacement: false/u);
-  assert.equal(
-    client.includes('if (state === "FAIXA") {'),
-    true,
-  );
+  assert.match(client, /state !== "NOVA" \? \(/u);
+  assert.doesNotMatch(client, /allowAutomaticPlacement: true/u);
+  assert.match(client, /if \(state === "FAIXA"\) placeAtFaixaTop/u);
   assert.equal(
     client.includes('(left.item.sortOrder ?? Number.MAX_SAFE_INTEGER)'),
     true,

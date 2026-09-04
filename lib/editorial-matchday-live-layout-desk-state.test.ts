@@ -1,0 +1,268 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  bulkMovePhysicalDeskItemsToZone,
+  changePhysicalDeskZone,
+  createPhysicalDeskState,
+  movePhysicalDeskBlock,
+  movePhysicalDeskItemToBank,
+  movePhysicalDeskItemToDisplaced,
+  movePhysicalDeskItemToFaixaTop,
+  movePhysicalDeskItemToSlot,
+  physicalDeskFaixaSlots,
+  physicalDeskHasChanges,
+  physicalDeskPlacementForBankItem,
+  physicalDeskPlacementsOfType,
+  physicalDeskZoneSlots,
+  resetPhysicalDeskState,
+  undoPhysicalDeskState,
+} from "./editorial-matchday-live-layout-desk-state";
+import { parseLiveLayoutZoneId } from "./editorial-matchday-live-layout-physical";
+import type { LiveLayoutWorkspaceState } from "./editorial-matchday-live-layout-workspace";
+
+const MATCHDAY_ID = "10000000-0000-4000-8000-000000000001";
+const NOW = "2026-09-04T13:00:00.000Z";
+
+function zoneId(index: number) {
+  return parseLiveLayoutZoneId(
+    `20000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+  );
+}
+
+function bankId(index: number) {
+  return `30000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+}
+
+function workspace(zoneCount: number, itemCount = 3): LiveLayoutWorkspaceState {
+  const zones = Array.from({ length: zoneCount }, (_, index) => ({
+    id: zoneId(index + 1),
+    publicTitle: `Zona física ${index + 1}`,
+    visualFamily: "six_news" as const,
+    capacity: 6,
+    sortOrder: index + 2,
+    items: [],
+  }));
+  const blocks = [
+    { kind: "latest" as const, sortOrder: zoneCount + 2 },
+    ...zones.map((zone, index) => ({
+      kind: "zone" as const,
+      zoneId: zone.id,
+      sortOrder: zoneCount - index + 1,
+    })),
+    { kind: "video" as const, sortOrder: 1 },
+  ];
+  const bankItems = Array.from({ length: itemCount }, (_, index) => ({
+    id: bankId(index + 1),
+    sourceType: "editorial_article",
+    sourceId: `40000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    status: "active",
+    label: `Item ${index + 1}`,
+    title: `Notícia ${index + 1}`,
+    subtitle: null,
+    imageUrl: null,
+    linkUrl: null,
+    automaticEligible: true,
+    editoriallyWorkedAt: null,
+    classification: {
+      key: "benfica" as const,
+      source: "test",
+      classifiedAt: NOW,
+    },
+    continuitySourceMatchdayId: null,
+    continuitySourceCompositionId: null,
+    isExplicitBank: false,
+  }));
+  return {
+    matchdayId: MATCHDAY_ID,
+    stateToken: "physical-token",
+    zones,
+    blocks,
+    placements: [],
+    bankItems,
+    memory: [],
+    explicitBankItemIds: [],
+    displacedBankItemIds: [],
+    workedBankItemIds: [],
+  };
+}
+
+function state(zoneCount: number, itemCount = 3) {
+  return createPhysicalDeskState(workspace(zoneCount, itemCount), {
+    headlineTitleColor: null,
+    latestZonePlacement: "top",
+    latestZoneTitle: "Últimas",
+    videoModuleActive: true,
+  });
+}
+
+test("aceita cardinalidade física 0, 1, 5, 6 e superior a 6", () => {
+  for (const count of [0, 1, 5, 6, 8]) {
+    const current = state(count);
+    assert.equal(current.current.zones.length, count);
+    assert.equal(
+      current.current.blocks.filter((block) => block.kind === "zone").length,
+      count,
+    );
+  }
+});
+
+test("preserva a ordem arbitrária dos blocks físicos", () => {
+  const current = state(3);
+  assert.deepEqual(
+    current.current.blocks.map((block) => block.kind),
+    ["video", "zone", "zone", "zone", "latest"],
+  );
+  const moved = movePhysicalDeskBlock(current, current.current.blocks[1], "down");
+  assert.notDeepEqual(moved.current.blocks, current.current.blocks);
+});
+
+test("movimento usa LiveLayoutZoneId e vagas são ausência de placement", () => {
+  const initial = state(2);
+  const moved = movePhysicalDeskItemToSlot(initial, bankId(1), {
+    placementType: "zone",
+    zoneId: zoneId(2),
+    slotPosition: 3,
+  });
+  assert.equal(physicalDeskPlacementForBankItem(moved, bankId(1))?.zoneId, zoneId(2));
+  assert.equal(physicalDeskZoneSlots(moved, zoneId(2))[1].placement, null);
+  assert.equal(physicalDeskZoneSlots(moved, zoneId(2))[2].placement?.bankItemId, bankId(1));
+  assert.equal(physicalDeskZoneSlots(moved, zoneId(2))[5].placement, null);
+  assert.equal("vacantZoneSlots" in moved.current, false);
+});
+
+test("swap físico não compacta nem redistribui", () => {
+  let current = state(1);
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 1,
+  });
+  current = movePhysicalDeskItemToSlot(current, bankId(2), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 4,
+  });
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 4,
+  });
+  assert.equal(physicalDeskZoneSlots(current, zoneId(1))[0].placement?.bankItemId, bankId(2));
+  assert.equal(physicalDeskZoneSlots(current, zoneId(1))[3].placement?.bankItemId, bankId(1));
+  assert.equal(physicalDeskZoneSlots(current, zoneId(1))[1].placement, null);
+  assert.equal(physicalDeskZoneSlots(current, zoneId(1))[2].placement, null);
+});
+
+test("bulk move mantém buracos e desaloja apenas ocupantes dos destinos", () => {
+  let current = state(2);
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 1,
+  });
+  current = movePhysicalDeskItemToSlot(current, bankId(2), {
+    placementType: "zone", zoneId: zoneId(2), slotPosition: 3,
+  });
+  current = movePhysicalDeskItemToSlot(current, bankId(3), {
+    placementType: "zone", zoneId: zoneId(2), slotPosition: 4,
+  });
+  current = bulkMovePhysicalDeskItemsToZone(
+    current,
+    [bankId(1), bankId(2)],
+    zoneId(2),
+    3,
+  );
+  assert.equal(physicalDeskZoneSlots(current, zoneId(1))[0].placement, null);
+  assert.equal(physicalDeskZoneSlots(current, zoneId(2))[2].placement?.bankItemId, bankId(1));
+  assert.equal(physicalDeskZoneSlots(current, zoneId(2))[3].placement?.bankItemId, bankId(2));
+  assert.deepEqual(current.current.displacedBankItemIds, [bankId(3)]);
+});
+
+test("Bank e Desalojadas são estados exclusivos", () => {
+  let current = state(1);
+  current = movePhysicalDeskItemToBank(current, bankId(1));
+  assert.deepEqual(current.current.explicitBankItemIds, [bankId(1)]);
+  current = movePhysicalDeskItemToDisplaced(current, bankId(1));
+  assert.deepEqual(current.current.explicitBankItemIds, []);
+  assert.deepEqual(current.current.displacedBankItemIds, [bankId(1)]);
+  assert.deepEqual(current.current.memory, [{
+    bankItemId: bankId(1),
+    memoryKind: "displaced",
+    recordedAt: null,
+  }]);
+});
+
+test("layout shrink ocupado e título vazio falham fechados", () => {
+  let current = state(1);
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 6,
+  });
+  assert.throws(
+    () => changePhysicalDeskZone(current, zoneId(1), { visualFamily: "five_news_balanced" }),
+    /zone-layout-shrink-occupied/,
+  );
+  assert.throws(
+    () => changePhysicalDeskZone(current, zoneId(1), { publicTitle: "   " }),
+    /zone-public-title-empty/,
+  );
+});
+
+test("movimentos não alteram a classificação observada", () => {
+  const initial = state(1);
+  const before = initial.current.bankItems[0].classification;
+  const moved = movePhysicalDeskItemToSlot(initial, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 2,
+  });
+  assert.deepEqual(moved.current.bankItems[0].classification, before);
+});
+
+test("undo e reset restauram checkpoints físicos", () => {
+  const initial = state(1);
+  const first = movePhysicalDeskItemToSlot(initial, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 2,
+  });
+  const second = movePhysicalDeskItemToBank(first, bankId(1));
+  assert.equal(physicalDeskPlacementForBankItem(undoPhysicalDeskState(second), bankId(1))?.slotPosition, 2);
+  const reset = resetPhysicalDeskState(first);
+  assert.equal(physicalDeskPlacementForBankItem(reset, bankId(1)), null);
+  assert.equal(physicalDeskHasChanges(reset), false);
+});
+
+test("Faixa conserva vagas intermédias e finais sem lista paralela", () => {
+  let current = state(1);
+  current = movePhysicalDeskItemToFaixaTop(current, bankId(1));
+  current = movePhysicalDeskItemToFaixaTop(current, bankId(2));
+  current = movePhysicalDeskItemToFaixaTop(current, bankId(3));
+  current = movePhysicalDeskItemToBank(current, bankId(2));
+
+  assert.equal(physicalDeskFaixaSlots(current)[1].placement, null);
+  assert.equal(physicalDeskFaixaSlots(current)[2].placement?.bankItemId, bankId(1));
+
+  current = movePhysicalDeskItemToBank(current, bankId(1));
+  assert.equal(physicalDeskFaixaSlots(current)[2].placement, null);
+  assert.equal("vacantFaixaSlots" in current.current, false);
+});
+
+test("Abertura, Faixa, Seleção e Destaque partilham a autoridade de placements", () => {
+  let current = state(1, 5);
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "opening", zoneId: null, slotPosition: 1,
+  });
+  current = movePhysicalDeskItemToSlot(current, bankId(2), {
+    placementType: "opening", zoneId: null, slotPosition: 2,
+  });
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "opening", zoneId: null, slotPosition: 2,
+  });
+  current = movePhysicalDeskItemToFaixaTop(current, bankId(3));
+  current = movePhysicalDeskItemToSlot(current, bankId(4), {
+    placementType: "selection", zoneId: null, slotPosition: 4,
+  });
+  current = movePhysicalDeskItemToSlot(current, bankId(5), {
+    placementType: "video_highlight", zoneId: null, slotPosition: 1,
+  });
+
+  assert.deepEqual(
+    physicalDeskPlacementsOfType(current, "opening").map((item) => [
+      item.bankItemId,
+      item.slotPosition,
+    ]),
+    [[bankId(2), 1], [bankId(1), 2]],
+  );
+  assert.equal(physicalDeskPlacementsOfType(current, "faixa")[0].bankItemId, bankId(3));
+  assert.equal(physicalDeskPlacementsOfType(current, "selection")[0].slotPosition, 4);
+  assert.equal(physicalDeskPlacementsOfType(current, "video_highlight")[0].bankItemId, bankId(5));
+});

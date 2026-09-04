@@ -1,247 +1,112 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 import test from "node:test";
 
-const source = readFileSync(
-  path.join(
-    process.cwd(),
-    "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
-  ),
+const client = readFileSync(
+  "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
+  "utf8",
+);
+const state = readFileSync(
+  "lib/editorial-matchday-live-layout-desk-state.ts",
   "utf8",
 );
 
-test("Mesa deriva capacidade do layout em draft", () => {
-  assert.match(
-    source,
-    /editorialProfileWithZoneLayouts\(\s*profile,\s*editorState\.draftPageControls\.thematicZoneLayouts/,
-  );
+function body(name: string, nextName: string) {
+  const start = client.indexOf(`function ${name}`);
+  const end = client.indexOf(`function ${nextName}`, start + 1);
+  assert.ok(start >= 0 && end > start);
+  return client.slice(start, end);
+}
 
-  assert.match(
-    source,
-    /const effectiveProfile = useMemo/,
-  );
-
-  assert.match(
-    source,
-    /reconcileMatchdayEditorialProfileWorkspace\(\s*effectiveProfile/,
-  );
-
+test("Mesa deriva capacidade da zona física em draft", () => {
+  assert.match(client, /const slots = physicalDeskZoneSlots\(physicalDesk, zoneId\)/);
+  assert.match(client, /thematic-slots-\$\{zone\.capacity\}/);
+  assert.match(state, /editorialVisualFamilyCapacity\(visualFamily\)/);
 });
 
-test("cada zona expõe seletor de apresentação independente", () => {
-  assert.match(
-    source,
-    /aria-label={`Apresentação de \$\{zone\.label\}`}/,
-  );
-
-  assert.match(
-    source,
-    /EDITORIAL_VISUAL_FAMILIES\.map/,
-  );
-
-  assert.match(
-    source,
-    /EDITORIAL_VISUAL_FAMILY_DEFINITIONS\[\s*family\s*\]\.label/,
-  );
-
-  assert.match(
-    source,
-    /changeZoneLayout/,
-  );
+test("cada zona expõe apresentação independente por LiveLayoutZoneId", () => {
+  const zonePanel = body("renderZonePanel", "renderOpeningWorkspace");
+  assert.match(zonePanel, /data-zone-id=\{zone\.id\}/);
+  assert.match(zonePanel, /changePhysicalDeskZone\(state, zone\.id/);
+  assert.match(zonePanel, /value=\{zone\.visualFamily\}/);
 });
 
-test("reduzir layout preserva Manual > automático por compactação", () => {
-  assert.match(
-    source,
-    /compactMatchdayEditorialProfileManualOverridesForLayoutChange\(\s*effectiveProfile,\s*nextProfile,\s*operationalOverrides,\s*zoneKey/,
-  );
-
-  assert.match(
-    source,
-    /Não é possível reduzir este layout/,
-  );
+test("reduzir layout ocupado falha sem compactação", () => {
+  assert.match(state, /zone-layout-shrink-occupied/);
+  assert.match(state, /placement\.slotPosition > capacity/);
+  assert.doesNotMatch(state, /compact/i);
 });
 
-test("Últimas continua um bloco especial ordenável na mesma composição", () => {
-  assert.match(
-    source,
-    /thematicBlockOrder\.map/,
-  );
-
-  assert.match(
-    source,
-    /moveMatchdayEditorialProfileThematicBlock/,
-  );
-
-  assert.match(
-    source,
-    /matchdayEditorialProfileThematicZoneOrderFromBlockOrder/,
-  );
-
-  assert.match(
-    source,
-    /Últimas \+ quatro ao lado/,
-  );
-
-  assert.match(
-    source,
-    /latestZonePlacement: event\.target\.value as/,
-  );
-
-  assert.match(
-    source,
-    /<option value="top">Topo<\/option>[\s\S]*<option value="four_news">Últimas \+ quatro ao lado<\/option>[\s\S]*<option value="hidden">Oculto<\/option>/,
-  );
-
-  assert.doesNotMatch(
-    source,
-    /moveMatchdayEditorialProfileThematicZone\(/,
-  );
+test("Últimas continua um block físico ordenável", () => {
+  assert.match(client, /block\.kind === "latest"/);
+  assert.match(client, /movePhysicalDeskBlock\(state, block, "up"\)/);
+  assert.match(client, /latestZonePlacement/);
 });
 
-test("As quatro ao lado das Últimas são manuais, independentes e aplicadas no mesmo workspace", () => {
-  assert.match(
-    source,
-    /draftEditorialSelection/,
-  );
-
-  assert.match(
-    source,
-    /selectionBankItemIds:\s*draftEditorialSelection/,
-  );
-
-  assert.match(
-    source,
-    /aria-label="Quatro ao lado das Últimas"/,
-  );
-
-  assert.doesNotMatch(
-    source,
-    /selection_set|selection_clear/,
-  );
+test("quatro ao lado são placements na mesma autoridade física", () => {
+  assert.match(client, /physicalDeskPlacementsOfType\(physicalDesk, "selection"\)/);
+  assert.match(client, /placeInSelection\(bankItemId, position\)/);
+  assert.doesNotMatch(client, /draftEditorialSelection|persistedEditorialSelection/);
 });
 
-test("zona ativa mantém apenas os controlos funcionais numa linha", () => {
-  assert.match(source, /function renderZonePanel/);
-  assert.match(source, /aria-label={`Título público de \$\{zone\.label\}`}/);
-  assert.match(source, /aria-label={`Apresentação de \$\{zone\.label\}`}/);
-  assert.match(source, /<span>Título público<\/span>/);
-  assert.match(source, /<span>Apresentação<\/span>/);
-  assert.doesNotMatch(source, /<span>Família<\/span>/);
-  assert.match(source, /className="thematic-zone-editor-count"/);
-  assert.match(
-    source,
-    /\.thematic-zone-editor label \{ display: grid; grid-template-columns: auto minmax\(0,1fr\);/,
-  );
-  assert.doesNotMatch(source, /thematic-workspace-head/);
+test("zona ativa mantém título layout e contador", () => {
+  const zonePanel = body("renderZonePanel", "renderOpeningWorkspace");
+  assert.match(zonePanel, /Título público/);
+  assert.match(zonePanel, /Apresentação/);
+  assert.match(zonePanel, /thematic-zone-editor-count/);
 });
 
-test("tabs mantêm apenas Abertura fixa e deixam o tracking simultâneo separado", () => {
-  assert.match(source, /className="thematic-zone-tabs"/);
-  assert.match(source, /Abertura \{openingOccupied\}/);
-
-  const tabsStart = source.indexOf('className="thematic-zone-tabs"');
-  const tabsEnd = source.indexOf("{renderActiveWorkspace()}", tabsStart);
-  assert.ok(tabsStart >= 0 && tabsEnd > tabsStart);
-  assert.doesNotMatch(source.slice(tabsStart, tabsEnd), /Faixa/);
-  assert.match(source, /aria-label="Tracking editorial por classe"/);
-  assert.match(source, /const TRACKING_STATES = \["NOVA", "FAIXA", "DESALOJADA"\]/);
-  assert.doesNotMatch(source, /aria-label="Fontes editoriais"/);
+test("tabs mantêm Abertura e derivam todos os blocks físicos", () => {
+  assert.match(client, /Foco da Mesa/);
+  assert.match(client, /current\.blocks\.map\(\(block\)/);
+  assert.match(client, />Abertura \{openingOccupied\}</);
 });
 
-test("Últimas mantém só Título público, Apresentação e contador na faixa funcional", () => {
-  assert.match(source, /aria-label="Título público de Últimas"/);
-  assert.match(source, /aria-label="Apresentação de Últimas"/);
-  assert.match(source, /<span>Título público<\/span>/);
-  assert.match(source, /<span>Apresentação<\/span>/);
-  assert.match(
-    source,
-    /className="thematic-zone-editor-count"[\s\S]{0,80}\{editorialSelectionOccupied\}\/4/,
-  );
+test("Últimas mantém título apresentação e contador", () => {
+  const latest = body("renderEditorialSelectionPanel", "renderHighlightWorkspace");
+  assert.match(latest, /Título público de Últimas/);
+  assert.match(latest, /Apresentação de Últimas/);
+  assert.match(latest, /editorialSelectionOccupied/);
 });
 
-test("quatro Últimas alinham os cards sem numeração visual dos slots", () => {
-  assert.match(
-    source,
-    /\.thematic-workspace-slot \.thematic-card\.thematic-selection-card \{ grid-template-columns: 16px 44px minmax\(0,1fr\) 22px; \}/,
-  );
-  assert.match(
-    source,
-    /\.thematic-editorial-selection \.thematic-workspace-slot \{ display: grid; grid-template-rows: minmax\(0,1fr\); gap: 0; \}/,
-  );
-  assert.doesNotMatch(source, /thematic-position/);
-  assert.match(
-    source,
-    /\.thematic-card-title \{ display: -webkit-box;[\s\S]*?-webkit-line-clamp: 2; \}/,
-  );
-  assert.doesNotMatch(
-    source,
-    /\.thematic-card-title \{[^}]*white-space: nowrap/,
-  );
+test("quatro Últimas derivam as quatro posições sem numeração visual", () => {
+  assert.match(client, /MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS\.map/);
+  assert.match(client, /thematic-slots-4 thematic-editorial-selection/);
+  assert.doesNotMatch(client, /thematic-slot-number/);
 });
 
-test("Destaque coloca visibilidade e posição editorial lado a lado", () => {
-  assert.match(
-    source,
-    /\.thematic-highlight-row \{ display: grid; grid-template-columns: minmax\(120px,160px\) minmax\(0,520px\);/,
-  );
-  assert.match(source, /className="thematic-highlight-row"/);
-  assert.match(source, /className="thematic-highlight-controls"/);
-  assert.match(source, /aria-label="Destaque editorial"/);
+test("Destaque usa placement físico e apresentação local", () => {
+  assert.match(client, /physicalDeskPlacementsOfType\(physicalDesk, "video_highlight"\)/);
+  assert.match(client, /videoModuleActive/);
+  assert.match(client, /placementType: "video_highlight"/);
 });
 
-test("as cinco zonas são fixas e não existe criação ou remoção de zona", () => {
-  assert.doesNotMatch(source, /\+ Adicionar zona|Remover zona/);
-  assert.doesNotMatch(source, /newZone|createZone|deleteZone/);
+test("zonas são variáveis e não existe CRUD neste corte", () => {
+  assert.match(client, /current\.zones\.map\(\(zone\)/);
+  assert.doesNotMatch(client, /Criar zona|Apagar zona|removePhysicalDeskZone|addPhysicalDeskZone/);
+  assert.doesNotMatch(client, /zones\.length === 5|zones\.slice\(0, 5\)/);
 });
 
 test("preview mantém um único write HTTP de Apply", () => {
-  const applyStart = source.indexOf("async function applyChanges()");
-  const applyEnd = source.indexOf("function cardFor", applyStart);
-  const apply = source.slice(applyStart, applyEnd);
-
-  assert.ok(applyStart >= 0 && applyEnd > applyStart);
-  assert.equal(
-    (apply.match(/method:\s*"POST"/g) ?? []).length,
-    1,
-  );
+  const start = client.indexOf("async function applyChanges");
+  const end = client.indexOf("\n  return (", start);
+  assert.ok(start >= 0 && end > start);
+  const apply = client.slice(start, end);
+  assert.equal((apply.match(/fetch\(/g) ?? []).length, 1);
+  assert.match(apply, /buildPhysicalDeskLegacyApplyProjection/);
+  assert.match(apply, /body: JSON\.stringify\(projection\)/);
 });
 
-test("operações de zona não usam o perfil estático", () => {
-  for (const forbidden of [
-    "fixMatchdayEditorialItemsAtPosition(profile,",
-    "fixMatchdayEditorialItemsInZone(profile,",
-    "moveMatchdayEditorialItemsToFaixa(profile,",
-    "moveMatchdayEditorialItemsToBank(profile,",
-    "returnMatchdayEditorialItemsToAutomatic(profile,",
-    "releaseMatchdayEditorialFixedPositions(profile,",
-  ]) {
-    assert.equal(
-      source.includes(forbidden),
-      false,
-      forbidden,
-    );
-  }
+test("operações de zona não usam perfil estático como identidade", () => {
+  const zonePanel = body("renderZonePanel", "renderOpeningWorkspace");
+  assert.doesNotMatch(zonePanel, /profile\.zones|zone\.key|zoneKey/);
+  assert.match(zonePanel, /zone\.id/);
 });
 
-test("Mover para zona respeita a posição escolhida", () => {
-  assert.ok(source.includes('Posição na zona'));
-  assert.ok(
-    source.includes('const [zonePosition, setZonePosition] = useState(1)'),
+test("Mover para zona respeita posição e zone_id escolhidos", () => {
+  assert.match(
+    client,
+    /bulkMovePhysicalDeskItemsToZone\(state, selectedBankItemIds, destinationZoneId, effectiveZonePosition\)/,
   );
-  assert.ok(source.includes('const maxZoneStartPosition = Math.max('));
-  assert.ok(source.includes('selectedIdentities.length'));
-  assert.ok(
-    source.includes(
-      'Array.from({ length: maxZoneStartPosition }, (_, index) => index + 1)',
-    ),
-  );
-  assert.ok(source.includes('effectiveZonePosition'));
-  assert.ok(source.includes('placeMatchdayEditorialItemsInZoneWithoutCascade('));
-  assert.equal(
-    source.includes('fixMatchdayEditorialItemsInZone('),
-    false,
-  );
-  assert.equal(source.includes('swapMatchdayEditorialItemsInZone('), true);
+  assert.match(client, /setDestinationZoneId\(next\?\.id \?\? null\)/);
 });

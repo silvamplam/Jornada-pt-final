@@ -279,14 +279,18 @@ test("cliente e Apply usam o mesmo preview sem regra textual legacy", () => {
     "lib/editorial-matchday-profile-desk-operations.ts",
     "utf8",
   );
+  const physicalState = readFileSync(
+    "lib/editorial-matchday-live-layout-desk-state.ts",
+    "utf8",
+  );
 
   assert.doesNotMatch(client, /trocam diretamente|zona natural|eventual excesso passou/i);
-  assert.match(client, /draftDisplacedIdentities/);
-  assert.match(client, /draftPlacedOutsideTrackingIdentities/);
-  assert.match(client, /!draftPlacedOutsideTrackingIdentities\.has\(itemIdentity\)/);
-  assert.match(client, /draftVacantZoneSlots/);
-  assert.match(client, /draftVacantFaixaSlots/);
-  assert.match(client, /displacedBankItemIds/);
+  assert.match(client, /physicalDesk\.current/);
+  assert.match(client, /current\.displacedBankItemIds/);
+  assert.match(client, /physicalDeskZoneSlots/);
+  assert.doesNotMatch(client, /draftVacantZoneSlots|draftVacantFaixaSlots/);
+  assert.match(physicalState, /faixaSlotCount/);
+  assert.match(physicalState, /placement: PhysicalDeskPlacement \| null/);
   assert.match(route, /compatibilityReconcile/);
   assert.match(route, /p_authoritative_zone_items/);
   assert.match(route, /p_authoritative_faixa_items/);

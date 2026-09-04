@@ -41,8 +41,9 @@ test("Faixa e Seleção são lidas da autoridade transversal", () => {
 test("reader, preview e POST reservam o Vídeo fora do circuito temático", () => {
   assert.match(reader, /placement_type === "video_highlight"/u);
   assert.match(reader, /independentPlacementIdentities/u);
-  assert.match(client, /draftVideoHighlightIdentity/u);
-  assert.match(client, /independentPlacementIdentities/u);
+  assert.match(client, /physicalDeskPlacementsOfType\(physicalDesk, "video_highlight"\)/u);
+  assert.match(client, /placementType: "video_highlight"/u);
+  assert.doesNotMatch(client, /draftVideoHighlightIdentity/u);
   assert.match(route, /independentPlacementIdentity/u);
   assert.match(
     route,

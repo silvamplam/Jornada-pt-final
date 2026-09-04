@@ -1,90 +1,37 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 import test from "node:test";
 
-const source = readFileSync(
-  path.join(
-    process.cwd(),
-    "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
-  ),
+const client = readFileSync(
+  "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
+  "utf8",
+);
+const state = readFileSync(
+  "lib/editorial-matchday-live-layout-desk-state.ts",
   "utf8",
 );
 
-test("posição manual deixou de ser uma semântica visível da notícia", () => {
-  for (const legacyCopy of [
-    "manual · posição",
-    "manual · zona",
-    "manual · Faixa",
-    "manual · Banco",
-    "manual · Abertura",
-    "manual · independente",
-    "Fixar nesta posição",
-    "Proteger na zona",
-    "Libertar posição",
-  ]) {
-    assert.equal(source.includes(legacyCopy), false, legacyCopy);
-  }
+test("posição manual legacy deixou de ser semântica visível", () => {
+  assert.doesNotMatch(client, /Fixar nesta posição|Proteger na zona|Devolver ao automático/);
+  assert.match(client, /Posição livre/);
 });
 
-test("erro de redução aparece dentro da própria zona", () => {
-  assert.match(
-    source,
-    /zoneLayoutError/,
-  );
-
-  assert.match(
-    source,
-    /thematic-zone-alert/,
-  );
-
-  assert.match(
-    source,
-    /zoneLayoutError\?\.zoneKey === zone\.key/,
-  );
-
-  assert.match(
-    source,
-    /role="alert"/,
-  );
+test("redução inválida falha fechada no domínio físico", () => {
+  assert.match(state, /placement\.slotPosition > capacity/);
+  assert.match(state, /zone-layout-shrink-occupied/);
+  assert.doesNotMatch(state, /compactMatchdayEditorialProfileManualOverrides/);
 });
 
-test("erro de layout não é duplicado como mensagem global", () => {
-  assert.match(
-    source,
-    /setMessage\(null\);\s*setZoneLayoutError/,
-  );
+test("erro físico é explícito e não existe estado paralelo de erro legacy", () => {
+  assert.match(client, /error instanceof Error \? error\.message/);
+  assert.doesNotMatch(client, /zoneLayoutError|setZoneLayoutError/);
+  assert.doesNotMatch(client, /draftVacantZoneSlots/);
 });
 
-test("mensagem global fica antes dos controlos e não no fim da Mesa", () => {
-  const feedback =
-    source.indexOf(
-      'className={`thematic-message feedback',
-    );
-
-  const controls =
-    source.indexOf(
-      '<section className="thematic-page-structure"',
-    );
-
-  const diagnostics =
-    source.indexOf(
-      "<Diagnostics diagnostics={desk.diagnostics} />",
-    );
-
-  assert.ok(feedback >= 0);
-  assert.ok(controls >= 0);
-  assert.ok(diagnostics >= 0);
-
-  assert.ok(
-    feedback < controls,
-    "feedback deve ficar imediatamente abaixo do cabeçalho",
-  );
-
-  assert.equal(
-    source.slice(diagnostics).includes(
-      'className={`thematic-message${',
-    ),
-    false,
-  );
+test("mensagem global fica antes dos controlos e o bloqueio é assertivo", () => {
+  const message = client.indexOf("{message ?");
+  const controls = client.indexOf('className="thematic-global-tools"');
+  assert.ok(message >= 0 && controls > message);
+  assert.match(client, /data-legacy-apply-blocked="true"/);
+  assert.match(client, /aria-live="assertive"/);
 });

@@ -82,20 +82,10 @@ test("Faixa editorial usa posição explícita, entrada no topo e swap", () => {
     /placeInFaixa\([^)]*,\s*null\)/,
   );
 
-  assert.match(
-    client,
-    /placeMatchdayEditorialItemAtFaixaTop/,
-  );
-
-  assert.match(
-    client,
-    /swapMatchdayEditorialItemsInFaixa/,
-  );
-
-  assert.match(
-    client,
-    /replaceMatchdayEditorialItemInFaixa/,
-  );
+  assert.match(client, /movePhysicalDeskItemToFaixaTop/);
+  assert.match(client, /function placeInFaixa\(bankItemId: string, slotPosition: number\)/);
+  assert.match(client, /placementType: "faixa", zoneId: null, slotPosition/);
+  assert.match(client, /current\.faixaSlotCount \+ 1/);
 });
 
 test("migration conserva a classificação e troca apenas o critério de ordem", () => {

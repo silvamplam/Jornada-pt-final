@@ -16,13 +16,10 @@ import {
   EDITORIAL_PROFILES,
   EDITORIAL_VISUAL_FAMILIES,
   EDITORIAL_VISUAL_FAMILY_DEFINITIONS,
-  editorialProfileWithZoneLayouts,
-  type EditorialProfileZoneKey,
   type EditorialVisualFamily,
 } from "@/lib/editorial-profiles";
 import {
   selectMatchdayEditorialExplicitBankItems,
-  selectMatchdayEditorialTrackingItems,
   type MatchdayEditorialTrackingClassFilter,
   type MatchdayEditorialSelectionCandidate,
   type MatchdayEditorialProfileDeskDiagnostic,
@@ -30,68 +27,48 @@ import {
   type MatchdayEditorialTrackingState,
 } from "@/lib/editorial-matchday-profile-desk";
 import {
-  moveMatchdayEditorialItemsToBank,
-  placeMatchdayEditorialItemAtFaixaTop,
-  placeMatchdayEditorialItemsInFaixaWithoutCascade,
-  placeMatchdayEditorialItemsInZoneWithoutCascade,
-  replaceMatchdayEditorialItemInFaixa,
-  swapMatchdayEditorialItemsInFaixa,
-  swapMatchdayEditorialItemsInZone,
-  reconcileMatchdayEditorialProfileDeskSnapshot,
-
-  returnMatchdayEditorialItemsToAutomatic,
-  compactMatchdayEditorialProfileManualOverridesForLayoutChange,
   thematicEditorialIdentity,
   type MatchdayEditorialProfileEffectiveItem,
-  type MatchdayEditorialProfileManualOverride,
 } from "@/lib/editorial-matchday-profile-desk-operations";
 import {
-  applyMatchdayEditorialMovementPreview,
-  type MatchdayEditorialMovementPreviewState,
-  type MatchdayEditorialPreviewMovement,
-  type MatchdayEditorialPreviewPlacement,
-  type MatchdayEditorialVacantZoneSlot,
-} from "@/lib/editorial-matchday-movement-preview";
+  bulkMovePhysicalDeskItemsToBank,
+  bulkMovePhysicalDeskItemsToFaixa,
+  bulkMovePhysicalDeskItemsToZone,
+  changePhysicalDeskPresentation,
+  changePhysicalDeskZone,
+  createPhysicalDeskState,
+  movePhysicalDeskBlock,
+  movePhysicalDeskItemToBank,
+  movePhysicalDeskItemToDisplaced,
+  movePhysicalDeskItemToFaixaTop,
+  movePhysicalDeskItemToSlot,
+  physicalDeskHasChanges,
+  physicalDeskPlacementForBankItem,
+  physicalDeskPlacementsOfType,
+  physicalDeskZoneSlots,
+  resetPhysicalDeskState,
+  selectPhysicalDeskItems,
+  togglePhysicalDeskSelection,
+  undoPhysicalDeskState,
+  type PhysicalDeskState,
+} from "@/lib/editorial-matchday-live-layout-desk-state";
+import {
+  buildPhysicalDeskLegacyApplyProjection,
+  physicalDeskLegacyApplyBlockReason,
+} from "@/lib/editorial-matchday-live-layout-legacy-apply-adapter";
+import type { LiveLayoutZoneId } from "@/lib/editorial-matchday-live-layout-physical";
 import {
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS,
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS,
-  matchdayEditorialProfileOpeningSourceIds,
-  matchdayEditorialProfileThematicZoneOrderFromBlockOrder,
-  moveMatchdayEditorialProfileItemToOpening,
-  moveMatchdayEditorialProfileThematicBlock,
-  swapMatchdayEditorialProfileOpeningItems,
-  reconcileMatchdayEditorialProfileWorkspace,
-  removeMatchdayEditorialProfileItemFromOpening,
-  withoutMatchdayEditorialProfileOpeningOverrides,
-  type MatchdayEditorialProfileOpening,
-  type MatchdayEditorialProfileOpeningSlotKey,
-  type MatchdayEditorialProfilePageControls,
-  type MatchdayEditorialProfileThematicBlockKey,
 } from "@/lib/editorial-matchday-profile-workspace";
 import {
   MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS,
-  matchdayEditorialProfileSelectionBankItemByIdentity,
-  matchdayEditorialProfileSelectionIdentities,
   parseMatchdayEditorialProfileSelectionDrag,
-  prepareExclusiveMatchdayEditorialProfileSelection,
-  prepareExclusiveMatchdayEditorialProfileSelectionState,
-  removeExclusiveMatchdayEditorialProfileSelection,
   serializeMatchdayEditorialProfileSelectionDrag,
-  withoutMatchdayEditorialProfileSelectionBankItems,
   type MatchdayEditorialProfileSelectionPosition,
 } from "@/lib/editorial-matchday-profile-selection";
 
 type EditorialSelectionCandidate = MatchdayEditorialSelectionCandidate;
-
-type VideoHighlightDraft = Readonly<{
-  action: "preserve" | "remove" | "replace";
-  bankItemId: string | null;
-}>;
-
-type VideoModuleDraft = Readonly<{
-  active: boolean;
-  highlight: VideoHighlightDraft;
-}>;
 
 const TRACKING_INITIAL_VISIBLE = 30;
 const TRACKING_PAGE_SIZE = 30;
@@ -101,7 +78,7 @@ type ActiveWorkspaceKey =
   | "opening"
   | "latest"
   | "highlight"
-  | EditorialProfileZoneKey;
+  | LiveLayoutZoneId;
 
 type AgendaTvPreviewStatus =
   | "update"
@@ -358,75 +335,10 @@ const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
   timeZone: "Europe/Lisbon",
 });
 
-type WorkspaceEditorState = Readonly<{
-  persistedOverrides: readonly MatchdayEditorialProfileManualOverride[];
-  draftOverrides: readonly MatchdayEditorialProfileManualOverride[];
-  persistedOpening: MatchdayEditorialProfileOpening;
-  draftOpening: MatchdayEditorialProfileOpening;
-  persistedPageControls: MatchdayEditorialProfilePageControls;
-  draftPageControls: MatchdayEditorialProfilePageControls;
-  persistedVideoModuleActive: boolean;
-  draftVideoModule: VideoModuleDraft;
-  selectedIdentities: readonly string[];
-  workedIdentities: readonly string[];
-  persistedDisplacedIdentities: readonly string[];
-  draftDisplacedIdentities: readonly string[];
-  draftFaixaArrivalIdentities: readonly string[];
-  draftDisplacedArrivalIdentities: readonly string[];
-  persistedVacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[];
-  draftVacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[];
-  persistedVacantFaixaSlots: readonly number[];
-  draftVacantFaixaSlots: readonly number[];
-}>;
-
-type WorkspaceDraft = Readonly<{
-  overrides: readonly MatchdayEditorialProfileManualOverride[];
-  opening: MatchdayEditorialProfileOpening;
-  pageControls: MatchdayEditorialProfilePageControls;
-  editorialSelection: readonly (string | null)[];
-  videoModule: VideoModuleDraft;
-  workedIdentities: readonly string[];
-  displacedIdentities: readonly string[];
-  faixaArrivalIdentities: readonly string[];
-  displacedArrivalIdentities: readonly string[];
-  vacantZoneSlots: readonly MatchdayEditorialVacantZoneSlot[];
-  vacantFaixaSlots: readonly number[];
-}>;
-
 type Placement = Readonly<{
   kind: "new" | "opening" | "zone" | "faixa" | "bank" | "displaced";
-  zoneKey?: EditorialProfileZoneKey;
+  zoneId?: LiveLayoutZoneId;
 }>;
-
-function displacedIdentitiesFromDesk(
-  desk: MatchdayEditorialProfileDeskSnapshot,
-): readonly string[] {
-  return desk.tracking.items
-    .filter((item) => item.editorialState === "DESALOJADA")
-    .map((item) => thematicEditorialIdentity(item.sourceType, item.sourceId));
-}
-
-function vacantZoneSlotsFromDesk(
-  profile: ReturnType<typeof editorialProfileWithZoneLayouts>,
-  desk: MatchdayEditorialProfileDeskSnapshot,
-): readonly MatchdayEditorialVacantZoneSlot[] {
-  return profile.zones.flatMap((zone) => {
-    const occupied = new Set(
-      desk.appliedZoneItems
-        .filter((item) => item.zoneKey === zone.key)
-        .map((item) => item.sortOrder),
-    );
-    return Array.from({ length: zone.capacity }, (_, index) => index + 1)
-      .filter((slotPosition) => !occupied.has(slotPosition))
-      .map((slotPosition) => ({ zoneKey: zone.key, slotPosition }));
-  });
-}
-
-function vacantFaixaSlotsFromDesk(
-  _desk: MatchdayEditorialProfileDeskSnapshot,
-): readonly number[] {
-  return [];
-}
 
 function imageLoader({ src }: ImageLoaderProps): string { return src; }
 
@@ -449,43 +361,23 @@ function identity(item: Pick<MatchdayEditorialProfileEffectiveItem, "sourceType"
   return thematicEditorialIdentity(item.sourceType, item.sourceId);
 }
 
-function sameJson(left: unknown, right: unknown): boolean { return JSON.stringify(left) === JSON.stringify(right); }
-
-function prependRecentIdentity(
-  values: readonly string[],
-  itemIdentity: string,
-): readonly string[] {
-  return [
-    itemIdentity,
-    ...values.filter((candidate) => candidate !== itemIdentity),
-  ];
-}
-
-function withoutRecentIdentity(
-  values: readonly string[],
-  itemIdentity: string,
-): readonly string[] {
-  return values.filter((candidate) => candidate !== itemIdentity);
-}
-
-
-function ArticleCard({ item, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onFaixa, onBank }: Readonly<{
+function ArticleCard({ bankItemId, item, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onFaixa, onBank }: Readonly<{
+  bankItemId: string;
   item: MatchdayEditorialProfileEffectiveItem;
   placement: Placement;
   selected: boolean;
   dragging: boolean;
-  onToggle: (itemIdentity: string) => void;
-  onDragStart: (event: DragEvent<HTMLElement>, itemIdentity: string) => void;
+  onToggle: (bankItemId: string) => void;
+  onDragStart: (event: DragEvent<HTMLElement>, bankItemId: string) => void;
   onDragEnd: () => void;
   onFaixa: () => void;
   onBank: () => void;
 }>) {
-  const itemIdentity = identity(item);
   const publishedAt = formattedDate(item.publishedAt);
 
   return (
-    <article aria-grabbed={dragging} className={`thematic-card${selected ? " selected" : ""}`} draggable onDragEnd={onDragEnd} onDragStart={(event) => onDragStart(event, itemIdentity)}>
-      <input aria-label={`Marcar para operação em lote: ${item.title ?? item.sourceId}`} checked={selected} onChange={() => onToggle(itemIdentity)} onClick={(event) => event.stopPropagation()} type="checkbox" />
+    <article aria-grabbed={dragging} className={`thematic-card${selected ? " selected" : ""}`} draggable onDragEnd={onDragEnd} onDragStart={(event) => onDragStart(event, bankItemId)}>
+      <input aria-label={`Marcar para operação em lote: ${item.title ?? item.sourceId}`} checked={selected} onChange={() => onToggle(bankItemId)} onClick={(event) => event.stopPropagation()} type="checkbox" />
       {renderableImageUrl(item.imageUrl) ? (
         <Image alt="" className="thematic-image" height={40} loader={imageLoader} loading="lazy" src={item.imageUrl} unoptimized width={50} />
       ) : <span aria-hidden="true" className="thematic-image-placeholder" />}
@@ -861,52 +753,28 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 }>) {
   const router = useRouter();
   const profile = EDITORIAL_PROFILES[desk.profileKey];
-  const incomingProfile = editorialProfileWithZoneLayouts(
-    profile,
-    desk.pageControls.thematicZoneLayouts,
-  );
-  const [editorState, setEditorState] = useState<WorkspaceEditorState>(() => ({
-    persistedOverrides: desk.manualOverrides,
-    draftOverrides: withoutMatchdayEditorialProfileOpeningOverrides(
-      incomingProfile,
-      desk.manualOverrides,
-      desk.opening,
-    ),
-    persistedOpening: desk.opening,
-    draftOpening: desk.opening,
-    persistedPageControls: desk.pageControls,
-    draftPageControls: desk.pageControls,
-    persistedVideoModuleActive: desk.videoModule.active,
-    draftVideoModule: {
-      active: desk.videoModule.active,
-      highlight: {
-        action: "preserve",
-        bankItemId: null,
-      },
-    },
-    selectedIdentities: [],
-    workedIdentities: [],
-    persistedDisplacedIdentities: displacedIdentitiesFromDesk(desk),
-    draftDisplacedIdentities: displacedIdentitiesFromDesk(desk),
-    draftFaixaArrivalIdentities: [],
-    draftDisplacedArrivalIdentities: [],
-    persistedVacantZoneSlots: vacantZoneSlotsFromDesk(incomingProfile, desk),
-    draftVacantZoneSlots: vacantZoneSlotsFromDesk(incomingProfile, desk),
-    persistedVacantFaixaSlots: vacantFaixaSlotsFromDesk(desk),
-    draftVacantFaixaSlots: vacantFaixaSlotsFromDesk(desk),
-  }));
-  const [history, setHistory] = useState<readonly WorkspaceDraft[]>([]);
-  const [draggingIdentity, setDraggingIdentity] = useState<string | null>(null);
+  const physicalPresentation = useMemo(() => ({
+    headlineTitleColor: desk.pageControls.headlineTitleColor,
+    latestZonePlacement: desk.pageControls.latestZonePlacement,
+    latestZoneTitle: desk.pageControls.latestZoneTitle,
+    videoModuleActive: desk.videoModule.active,
+  }), [
+    desk.pageControls.headlineTitleColor,
+    desk.pageControls.latestZonePlacement,
+    desk.pageControls.latestZoneTitle,
+    desk.videoModule.active,
+  ]);
+  const [physicalDesk, setPhysicalDesk] = useState<PhysicalDeskState>(() => (
+    createPhysicalDeskState(desk.physicalWorkspace, physicalPresentation)
+  ));
+  const [draggingBankItemId, setDraggingBankItemId] = useState<string | null>(null);
   const [draggingEditorialSelectionPosition, setDraggingEditorialSelectionPosition] =
     useState<MatchdayEditorialProfileSelectionPosition | null>(null);
-  const [activeWorkspaceKey, setActiveWorkspaceKey] =
-    useState<ActiveWorkspaceKey>("opening");
+  const [activeWorkspaceKey, setActiveWorkspaceKey] = useState<ActiveWorkspaceKey>("opening");
   const [openingPinned, setOpeningPinned] = useState(false);
-  const pageStructureRef = useRef<HTMLDetailsElement>(null);
-  const selectionBootstrapMatchdayRef = useRef<string | null>(null);
-  const [editorialSelectionLoadedMatchdayId, setEditorialSelectionLoadedMatchdayId] =
-    useState<string | null>(desk.matchdayId);
-  const [destinationZone, setDestinationZone] = useState<EditorialProfileZoneKey>(profile.zones[0].key);
+  const [destinationZoneId, setDestinationZoneId] = useState<LiveLayoutZoneId | null>(
+    desk.physicalWorkspace.zones[0]?.id ?? null,
+  );
   const [zonePosition, setZonePosition] = useState(1);
   const [faixaPosition, setFaixaPosition] = useState(1);
   const [trackingClassFilter, setTrackingClassFilter] =
@@ -918,2285 +786,389 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [bankVisibleCount, setBankVisibleCount] = useState(TRACKING_INITIAL_VISIBLE);
   const [trackingVisibleCounts, setTrackingVisibleCounts] = useState<
     Readonly<Record<MatchdayEditorialTrackingState, number>>
-  >({
-    NOVA: TRACKING_INITIAL_VISIBLE,
-    FAIXA: TRACKING_INITIAL_VISIBLE,
-    DESALOJADA: TRACKING_INITIAL_VISIBLE,
-  });
+  >({ NOVA: TRACKING_INITIAL_VISIBLE, FAIXA: TRACKING_INITIAL_VISIBLE, DESALOJADA: TRACKING_INITIAL_VISIBLE });
   const [applyState, setApplyState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const [
-    editorialSelectionCandidates,
-    setEditorialSelectionCandidates,
-  ] = useState<
-    readonly EditorialSelectionCandidate[]
-  >(desk.selectionCandidates);
-  const [
-    persistedEditorialSelection,
-    setPersistedEditorialSelection,
-  ] = useState<
-    readonly (string | null)[]
-  >([1, 2, 3, 4].map((position) => (
-    desk.editorialSelection.find((item) => item.position === position)?.bankItemId ?? null
-  )));
-  const [
-    draftEditorialSelection,
-    setDraftEditorialSelection,
-  ] = useState<
-    readonly (string | null)[]
-  >([1, 2, 3, 4].map((position) => (
-    desk.editorialSelection.find((item) => item.position === position)?.bankItemId ?? null
-  )));
-  const [zoneLayoutError, setZoneLayoutError] = useState<Readonly<{
-    zoneKey: EditorialProfileZoneKey;
-    message: string;
-  }> | null>(null);
-
-  function changeEditorialSelection(
-    position: MatchdayEditorialProfileSelectionPosition,
-    bankItemId: string,
-  ) {
-    const incomingIdentity = identityForBankItemId(bankItemId);
-    const displacedIdentity = identityForBankItemId(
-      draftEditorialSelection[position - 1] ?? null,
-    );
-    const source = incomingIdentity
-      ? previewPlacementForIdentity(incomingIdentity)
-      : null;
-    const transition = prepareExclusiveMatchdayEditorialProfileSelection({
-      profile: effectiveProfile,
-      activeItems,
-      overrides: operationalOverrides,
-      opening: editorState.draftOpening,
-      selection: draftEditorialSelection,
-      candidates: editorialSelectionCandidates,
-      targetPosition: position,
-      bankItemId,
-    });
-
-    const nextDraft = withWorkedIdentities({
-        ...currentDraft(),
-        overrides: transition.overrides,
-        opening: transition.opening,
-        editorialSelection: transition.selection,
-      }, [
-        ...(transition.workedIdentity ? [transition.workedIdentity] : []),
-        ...(displacedIdentity && displacedIdentity !== incomingIdentity
-          ? [displacedIdentity]
-          : []),
-      ]);
-
-    const previewDraft =
-      incomingIdentity
-      && source?.kind === "selection"
-      && source.slotPosition !== position
-      && displacedIdentity
-      && displacedIdentity !== incomingIdentity
-        ? withPreviewMovements(nextDraft, [
-            {
-              incomingIdentity,
-              source,
-              target: {
-                kind: "selection",
-                slotPosition: position,
-              },
-              displacedIdentity: null,
-            },
-            {
-              incomingIdentity: displacedIdentity,
-              source: {
-                kind: "selection",
-                slotPosition: position,
-              },
-              target: source,
-              displacedIdentity: null,
-            },
-          ])
-        : incomingIdentity
-          ? withPreviewMovements(nextDraft, [{
-              incomingIdentity,
-              source,
-              target: {
-                kind: "selection",
-                slotPosition: position,
-              },
-              displacedIdentity:
-                displacedIdentity !== incomingIdentity
-                  ? displacedIdentity
-                  : null,
-            }])
-          : nextDraft;
-
-    commitDraft(
-      previewDraft,
-      source?.kind === "selection"
-        && source.slotPosition !== position
-        && displacedIdentity
-        && displacedIdentity !== incomingIdentity
-        ? "As duas notícias trocaram de posição nas quatro ao lado das Últimas."
-        : "As quatro ao lado das Últimas foram alteradas em preview. Clique em Aplicar para publicar a alteração.",
-    );
-  }
-
-  function removeEditorialSelection(
-    position: MatchdayEditorialProfileSelectionPosition,
-  ) {
-    const transition =
-      removeExclusiveMatchdayEditorialProfileSelection({
-        profile: effectiveProfile,
-        overrides: operationalOverrides,
-        selection: draftEditorialSelection,
-        candidates: editorialSelectionCandidates,
-        position,
-      });
-    const removedIdentity = transition.workedIdentity;
-    const source = removedIdentity
-      ? previewPlacementForIdentity(removedIdentity)
-      : null;
-    const nextDraft = withWorkedIdentities({
-        ...currentDraft(),
-        overrides: transition.overrides,
-        editorialSelection: transition.selection,
-      }, removedIdentity ? [removedIdentity] : []);
-
-    commitDraft(
-      removedIdentity
-        ? withPreviewMovements(nextDraft, [{
-            incomingIdentity: removedIdentity,
-            source,
-            target: { kind: "displaced" },
-            displacedIdentity: null,
-          }])
-        : nextDraft,
-      "Notícia retirada das quatro ao lado das Últimas; fica em Desalojadas.",
-    );
-  }
-
-  function dropOnEditorialSelection(
-    event: DragEvent<HTMLElement>,
-    position: MatchdayEditorialProfileSelectionPosition,
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const selectionDrag =
-      parseMatchdayEditorialProfileSelectionDrag(
-        event.dataTransfer.getData("text/plain"),
-      );
-
-    if (selectionDrag) {
-      changeEditorialSelection(
-        position,
-        selectionDrag.bankItemId,
-      );
-      setDraggingIdentity(null);
-      setDraggingEditorialSelectionPosition(null);
-      return;
-    }
-
-    const itemIdentity = dragged(event);
-    const bankItemId = itemIdentity
-      ? bankItemIdByIdentity.get(itemIdentity) ?? null
-      : null;
-
-    if (!bankItemId) {
-      setApplyState("error");
-      setMessage(
-        "A notícia já não tem uma identidade canónica disponível para as quatro ao lado das Últimas.",
-      );
-      setDraggingIdentity(null);
-      return;
-    }
-
-    changeEditorialSelection(position, bankItemId);
-    setDraggingIdentity(null);
-  }
-
-  function changeVideoModuleActive(active: boolean) {
-    commitDraft(
-      {
-        ...currentDraft(),
-        videoModule: {
-          ...editorState.draftVideoModule,
-          active,
-        },
-      },
-      active
-        ? "Destaque visível em preview."
-        : "Destaque oculto em preview.",
-    );
-  }
-
-  function changeVideoHighlight(value: string) {
-    const previousHighlightIdentity = draftVideoHighlightIdentity;
-    const highlight: VideoHighlightDraft =
-      value === "remove"
-        ? {
-            action: "remove",
-            bankItemId: null,
-          }
-        : value.startsWith("replace:")
-          ? {
-              action: "replace",
-              bankItemId: value.slice("replace:".length),
-            }
-          : {
-              action: "preserve",
-              bankItemId: null,
-            };
-
-    const highlightCandidate =
-      highlight.action === "replace" && highlight.bankItemId
-        ? editorialSelectionCandidates.find(
-            (candidate) => candidate.bankItemId === highlight.bankItemId,
-          ) ?? null
-        : null;
-    const highlightSourceId =
-      highlightCandidate?.sourceId?.trim().toLowerCase() ?? "";
-    const highlightWorkedIdentity =
-      highlightCandidate?.sourceType?.trim().toLowerCase() === "editorial_article"
-      && highlightSourceId
-        ? thematicEditorialIdentity(
-            "editorial_article",
-            highlightSourceId,
-          )
-        : null;
-
-    const transition = highlightWorkedIdentity
-      ? prepareExclusivePlacementTransition([highlightWorkedIdentity])
-      : null;
-    const displacedIdentity =
-      highlight.action !== "preserve"
-      && previousHighlightIdentity !== highlightWorkedIdentity
-        ? previousHighlightIdentity
-        : null;
-    const nextDraft = withWorkedIdentities({
-        ...currentDraft(),
-        ...(transition
-          ? {
-              overrides: transition.overrides,
-              opening: transition.opening,
-              editorialSelection: transition.editorialSelection,
-            }
-          : {}),
-        videoModule: {
-          ...editorState.draftVideoModule,
-          highlight,
-        },
-      }, [
-        ...(highlightWorkedIdentity ? [highlightWorkedIdentity] : []),
-        ...(displacedIdentity ? [displacedIdentity] : []),
-      ]);
-    const previewDraft = highlightWorkedIdentity
-      ? withPreviewMovements(nextDraft, [{
-          incomingIdentity: highlightWorkedIdentity,
-          source: previewPlacementForIdentity(highlightWorkedIdentity),
-          target: { kind: "video_highlight", slotPosition: 1 },
-          displacedIdentity,
-        }])
-      : displacedIdentity
-        ? {
-            ...nextDraft,
-            displacedIdentities: Array.from(new Set([
-              ...nextDraft.displacedIdentities,
-              displacedIdentity,
-            ])).sort(),
-          }
-        : nextDraft;
-    commitDraft(
-      previewDraft,
-      highlight.action === "preserve"
-        ? "Destaque reposto para o estado aplicado."
-        : highlight.action === "remove"
-          ? "Destaque retirado em preview."
-          : "Destaque atualizado em preview.",
-    );
-  }
+  const pageStructureRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => {
-    selectionBootstrapMatchdayRef.current = null;
-    const nextSelection = [1, 2, 3, 4].map((position) => (
-      desk.editorialSelection.find((item) => item.position === position)?.bankItemId ?? null
-    ));
-    setEditorialSelectionCandidates(desk.selectionCandidates);
-    setPersistedEditorialSelection(nextSelection);
-    setDraftEditorialSelection(nextSelection);
-    setEditorialSelectionLoadedMatchdayId(desk.matchdayId);
-  }, [desk.editorialSelection, desk.matchdayId, desk.selectionCandidates]);
+    setPhysicalDesk((current) => {
+      if (current.physicalStateToken === desk.physicalWorkspace.stateToken) return current;
+      return createPhysicalDeskState(desk.physicalWorkspace, physicalPresentation);
+    });
+    setApplyState("idle");
+  }, [desk.physicalWorkspace, physicalPresentation]);
+
+  const current = physicalDesk.current;
+  const bankItemById = useMemo(
+    () => new Map(current.bankItems.map((item) => [item.id, item] as const)),
+    [current.bankItems],
+  );
+  const activeByIdentity = useMemo(() => new Map(
+    desk.automaticDistribution.activeItems.map((item) => [identity(item), item] as const),
+  ), [desk.automaticDistribution.activeItems]);
+  const placementByBankItemId = useMemo(
+    () => new Map(current.placements.map((placement) => [placement.bankItemId, placement] as const)),
+    [current.placements],
+  );
+  const zoneById = useMemo(
+    () => new Map(current.zones.map((zone) => [zone.id, zone] as const)),
+    [current.zones],
+  );
+  const selected = useMemo(
+    () => new Set(physicalDesk.selectedBankItemIds),
+    [physicalDesk.selectedBankItemIds],
+  );
+  const selectedBankItemIds = [...selected];
+  const pending = physicalDeskHasChanges(physicalDesk);
+  const legacyApplyBlockReason = physicalDeskLegacyApplyBlockReason(
+    physicalDesk,
+    desk.physicalCompatibility,
+  );
+  const mutationBlocked = legacyApplyBlockReason !== null;
 
   useEffect(() => {
-    setEditorState((current) => {
-      const reconciledOverrides = reconcileMatchdayEditorialProfileDeskSnapshot(incomingProfile, {
-        persistedOverrides: current.persistedOverrides,
-        draftOverrides: current.draftOverrides,
-        selectedIdentities: current.selectedIdentities,
-      }, desk.manualOverrides, desk.automaticDistribution.activeItems);
-      const openingDirty = !sameJson(current.persistedOpening, current.draftOpening);
-      const controlsDirty = !sameJson(current.persistedPageControls, current.draftPageControls);
-      const displacementDirty =
-        !sameJson(
-          current.persistedDisplacedIdentities,
-          current.draftDisplacedIdentities,
-        )
-        || !sameJson(
-          current.persistedVacantZoneSlots,
-          current.draftVacantZoneSlots,
-        )
-        || !sameJson(
-          current.persistedVacantFaixaSlots,
-          current.draftVacantFaixaSlots,
-        );
-      const videoModuleDirty =
-        current.draftVideoModule.active
-          !== current.persistedVideoModuleActive
-        || current.draftVideoModule.highlight.action !== "preserve";
-      const draftOpening = openingDirty ? current.draftOpening : desk.opening;
-      const nextDisplacedIdentities = displacedIdentitiesFromDesk(desk);
-      const nextVacantZoneSlots = vacantZoneSlotsFromDesk(incomingProfile, desk);
-      const nextVacantFaixaSlots = vacantFaixaSlotsFromDesk(desk);
-      return {
-        persistedOverrides: reconciledOverrides.persistedOverrides,
-        draftOverrides: withoutMatchdayEditorialProfileOpeningOverrides(incomingProfile, reconciledOverrides.draftOverrides, draftOpening),
-        persistedOpening: desk.opening,
-        draftOpening,
-        persistedPageControls: desk.pageControls,
-        draftPageControls: controlsDirty ? current.draftPageControls : desk.pageControls,
-        persistedVideoModuleActive: desk.videoModule.active,
-        draftVideoModule: videoModuleDirty
-          ? current.draftVideoModule
-          : {
-              active: desk.videoModule.active,
-              highlight: {
-                action: "preserve",
-                bankItemId: null,
-              },
-            },
-        selectedIdentities: reconciledOverrides.selectedIdentities,
-        workedIdentities: current.workedIdentities.filter((itemIdentity) =>
-          desk.automaticDistribution.activeItems.some((item) => identity(item) === itemIdentity)),
-        draftFaixaArrivalIdentities:
-          current.workedIdentities.length > 0
-            ? current.draftFaixaArrivalIdentities
-            : [],
-        draftDisplacedArrivalIdentities:
-          current.workedIdentities.length > 0
-            ? current.draftDisplacedArrivalIdentities
-            : [],
-        persistedDisplacedIdentities: nextDisplacedIdentities,
-        draftDisplacedIdentities: displacementDirty
-          ? current.draftDisplacedIdentities.filter((itemIdentity) =>
-              desk.automaticDistribution.activeItems.some((item) => identity(item) === itemIdentity))
-          : nextDisplacedIdentities,
-        persistedVacantZoneSlots: nextVacantZoneSlots,
-        draftVacantZoneSlots: displacementDirty
-          ? current.draftVacantZoneSlots
-          : nextVacantZoneSlots,
-        persistedVacantFaixaSlots: nextVacantFaixaSlots,
-        draftVacantFaixaSlots: displacementDirty
-          ? current.draftVacantFaixaSlots
-          : nextVacantFaixaSlots,
-      };
-    });
-  }, [desk, profile]);
+    if (destinationZoneId && zoneById.has(destinationZoneId)) return;
+    setDestinationZoneId(current.zones[0]?.id ?? null);
+  }, [current.zones, destinationZoneId, zoneById]);
 
-  const activeItems = desk.automaticDistribution.activeItems;
-  const activeByIdentity = useMemo(() => new Map(activeItems.map((item) => [identity(item), item] as const)), [activeItems]);
-  const activeIdentities = useMemo(() => new Set(activeByIdentity.keys()), [activeByIdentity]);
-  const bankItemIdByIdentity = useMemo(
-    () =>
-      matchdayEditorialProfileSelectionBankItemByIdentity(
-        editorialSelectionCandidates,
-      ),
-    [editorialSelectionCandidates],
-  );
-  const editorialSelectionCandidateById = useMemo(
-    () => new Map(
-      editorialSelectionCandidates.map(
-        (candidate) => [candidate.bankItemId, candidate] as const,
-      ),
-    ),
-    [editorialSelectionCandidates],
-  );
-  const effectiveProfile = useMemo(() => editorialProfileWithZoneLayouts(
-    profile,
-    editorState.draftPageControls.thematicZoneLayouts,
-  ), [editorState.draftPageControls.thematicZoneLayouts, profile]);
-  const persistedProfile = useMemo(() => editorialProfileWithZoneLayouts(
-    profile,
-    editorState.persistedPageControls.thematicZoneLayouts,
-  ), [editorState.persistedPageControls.thematicZoneLayouts, profile]);
-  const draftSelectionIdentities = useMemo(
-    () => matchdayEditorialProfileSelectionIdentities(
-      draftEditorialSelection,
-      editorialSelectionCandidates,
-    ),
-    [draftEditorialSelection, editorialSelectionCandidates],
-  );
-  const draftVideoHighlightIdentity = useMemo(() => {
-    if (editorState.draftVideoModule.highlight.action === "remove") {
-      return null;
-    }
-    if (editorState.draftVideoModule.highlight.action === "preserve") {
-      const placement = desk.videoModule.highlight.placement;
-      return placement?.sourceType === "editorial_article"
-        ? thematicEditorialIdentity(placement.sourceType, placement.sourceId)
-        : null;
-    }
-    const bankItemId = editorState.draftVideoModule.highlight.bankItemId;
-    const candidate = bankItemId
-      ? editorialSelectionCandidateById.get(bankItemId)
-      : null;
-    const sourceId = candidate?.sourceId?.trim().toLowerCase() ?? "";
-    return candidate?.sourceType?.trim().toLowerCase() === "editorial_article"
-      && sourceId
-      ? thematicEditorialIdentity("editorial_article", sourceId)
-      : null;
-  }, [
-    desk.videoModule.highlight.placement,
-    editorState.draftVideoModule.highlight,
-    editorialSelectionCandidateById,
-  ]);
-  const independentPlacementIdentities = useMemo(
-    () => draftVideoHighlightIdentity ? [draftVideoHighlightIdentity] : [],
-    [draftVideoHighlightIdentity],
-  );
-  const activeDraftOverrides = useMemo(
-    () => editorState.draftOverrides.filter(
-      (override) => activeIdentities.has(identity(override)),
-    ),
-    [activeIdentities, editorState.draftOverrides],
-  );
-  const operationalOverrides = useMemo(() => withoutMatchdayEditorialProfileOpeningOverrides(
-    effectiveProfile,
-    returnMatchdayEditorialItemsToAutomatic(
-      effectiveProfile,
-      activeDraftOverrides,
-      draftSelectionIdentities,
-    ),
-    editorState.draftOpening,
-  ), [activeDraftOverrides, draftSelectionIdentities, editorState.draftOpening, effectiveProfile]);
-  const persistedOperationalOverrides = useMemo(() => withoutMatchdayEditorialProfileOpeningOverrides(
-    persistedProfile,
-    editorState.persistedOverrides.filter((override) => activeIdentities.has(identity(override))),
-    editorState.persistedOpening,
-  ), [activeIdentities, editorState.persistedOpening, editorState.persistedOverrides, persistedProfile]);
-
-  useEffect(() => {
-    if (
-      editorialSelectionLoadedMatchdayId !== desk.matchdayId
-      || selectionBootstrapMatchdayRef.current === desk.matchdayId
-    ) {
-      return;
-    }
-
-    try {
-      const exclusive =
-        prepareExclusiveMatchdayEditorialProfileSelectionState({
-          profile: effectiveProfile,
-          activeItems,
-          overrides: activeDraftOverrides,
-          opening: editorState.draftOpening,
-          selection: draftEditorialSelection,
-          candidates: editorialSelectionCandidates,
-        });
-
-      selectionBootstrapMatchdayRef.current = desk.matchdayId;
-
-      const changed =
-        !sameJson(exclusive.overrides, activeDraftOverrides)
-        || !sameJson(exclusive.opening, editorState.draftOpening)
-        || !sameJson(exclusive.selection, draftEditorialSelection);
-
-      if (!changed) return;
-
-      setEditorState((current) => ({
-        ...current,
-        draftOverrides: exclusive.overrides,
-        draftOpening: exclusive.opening,
-      }));
-      setDraftEditorialSelection(exclusive.selection);
-      setApplyState("idle");
-      setMessage(
-        "As quatro ao lado das Últimas já existentes foram preparadas para colocação exclusiva. Clique em Aplicar para consolidar a normalização.",
-      );
-    } catch (error) {
-      selectionBootstrapMatchdayRef.current = desk.matchdayId;
-      setApplyState("error");
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível normalizar as quatro ao lado das Últimas existentes.",
-      );
-    }
-  }, [
-    activeItems,
-    activeDraftOverrides,
-    desk.matchdayId,
-    draftEditorialSelection,
-    editorState.draftOpening,
-    editorialSelectionCandidates,
-    editorialSelectionLoadedMatchdayId,
-    effectiveProfile,
-  ]);
-
-  const reconcile = useMemo(() => reconcileMatchdayEditorialProfileWorkspace(
-    effectiveProfile,
-    activeItems,
-    operationalOverrides,
-    editorState.draftOpening,
-    desk.appliedZoneItems,
-    desk.hasAppliedSnapshot,
-    desk.currentFaixa,
-    {
-      selectionIdentities: draftSelectionIdentities,
-      workedIdentities: editorState.workedIdentities,
-      independentPlacementIdentities,
-      displacedIdentities: editorState.draftDisplacedIdentities,
-      vacantZoneSlots: editorState.draftVacantZoneSlots,
-      vacantFaixaSlots: editorState.draftVacantFaixaSlots,
-      allowAutomaticPlacement: false,
-    },
-  ), [activeItems, desk.appliedZoneItems, desk.currentFaixa, desk.hasAppliedSnapshot, draftSelectionIdentities, editorState.draftDisplacedIdentities, editorState.draftOpening, editorState.draftVacantFaixaSlots, editorState.draftVacantZoneSlots, editorState.workedIdentities, effectiveProfile, independentPlacementIdentities, operationalOverrides]);
-  const pending = reconcile.hasChanges
-    || !sameJson(operationalOverrides, persistedOperationalOverrides)
-    || !sameJson(editorState.draftOpening, editorState.persistedOpening)
-    || !sameJson(editorState.draftPageControls, editorState.persistedPageControls)
-    || editorState.draftVideoModule.active
-      !== editorState.persistedVideoModuleActive
-    || editorState.draftVideoModule.highlight.action !== "preserve"
-    || !sameJson(draftEditorialSelection, persistedEditorialSelection)
-    || !sameJson(
-      editorState.draftDisplacedIdentities,
-      editorState.persistedDisplacedIdentities,
-    )
-    || !sameJson(
-      editorState.draftVacantZoneSlots,
-      editorState.persistedVacantZoneSlots,
-    )
-    || !sameJson(
-      editorState.draftVacantFaixaSlots,
-      editorState.persistedVacantFaixaSlots,
-    )
-    || editorState.workedIdentities.length > 0
-    || editorState.draftFaixaArrivalIdentities.length > 0
-    || editorState.draftDisplacedArrivalIdentities.length > 0;
-  const zoneByKey = new Map(
-    reconcile.zonesAfter.map(
-      (zone) => [zone.key, zone] as const,
-    ),
-  );
-
-  const selected = useMemo(() => new Set(editorState.selectedIdentities.filter((itemIdentity) => activeIdentities.has(itemIdentity))), [activeIdentities, editorState.selectedIdentities]);
-  const selectedIdentities = [...selected];
-  const destinationZoneCapacity = effectiveProfile.zones.find(
-    (zone) => zone.key === destinationZone,
-  )?.capacity ?? 1;
-  const maxZoneStartPosition = Math.max(
-    1,
-    destinationZoneCapacity - Math.max(1, selectedIdentities.length) + 1,
-  );
-  const effectiveZonePosition = Math.min(
-    zonePosition,
-    maxZoneStartPosition,
-  );
-  const effectiveItemByIdentity = useMemo(() => new Map([
-    ...reconcile.zonesAfter.flatMap((zone) => zone.items),
-    ...reconcile.faixaAfter,
-    ...reconcile.bankAfter,
-  ].map((item) => [identity(item), item] as const)), [reconcile]);
-  const normalizedTrackingQuery = trackingQuery
-    .trim()
-    .toLocaleLowerCase("pt-PT");
-  const matchesTrackingQuery = (
-    item: Pick<MatchdayEditorialProfileEffectiveItem, "label" | "title" | "subtitle">,
-  ) => (
-    !normalizedTrackingQuery
-    || [item.label, item.title, item.subtitle].some((value) =>
-      value?.toLocaleLowerCase("pt-PT").includes(normalizedTrackingQuery))
-  );
-  const explicitBankEntries = useMemo(() => {
-    const entries = reconcile.bankAfter.flatMap((item) => {
-      const itemIdentity = identity(item);
-      const bankItemId = bankItemIdByIdentity.get(itemIdentity)
-        ?.trim()
-        .toLowerCase();
-      if (!bankItemId) return [];
-
-      return [{
-        bankItemId,
-        classifiedZoneKey:
-          activeByIdentity.get(itemIdentity)?.classifiedZoneKey ?? null,
-        item,
-      }];
-    });
-
-    return selectMatchdayEditorialExplicitBankItems(entries, "all");
-  }, [activeByIdentity, bankItemIdByIdentity, reconcile.bankAfter]);
-  const classBankEntries = selectMatchdayEditorialExplicitBankItems(
-    explicitBankEntries,
-    bankClassFilter,
-  );
-  const filteredBankEntries = classBankEntries.filter(({ item }) => (
-    matchesTrackingQuery(item)
-  ));
-  const visibleBankEntries = filteredBankEntries.slice(0, bankVisibleCount);
-  const draftExplicitBankIdentities = useMemo(() => new Set(
-    reconcile.bankAfter.map(identity),
-  ), [reconcile.bankAfter]);
-  const draftPlacedOutsideTrackingIdentities = useMemo(() => new Set([
-    ...matchdayEditorialProfileOpeningSourceIds(editorState.draftOpening).map(
-      (sourceId) => thematicEditorialIdentity("editorial_article", sourceId),
-    ),
-    ...reconcile.zonesAfter.flatMap((zone) => zone.items.map(identity)),
-    ...draftSelectionIdentities,
-    ...independentPlacementIdentities,
-  ]), [draftSelectionIdentities, editorState.draftOpening, independentPlacementIdentities, reconcile.zonesAfter]);
-  const uniqueTrackingItems = useMemo(() => {
-    const persisted = selectMatchdayEditorialTrackingItems(
-      desk.tracking.items,
-      "all",
+  function effectiveItem(bankItemId: string, sortOrder: number | null = null): MatchdayEditorialProfileEffectiveItem {
+    const bankItem = bankItemById.get(bankItemId);
+    if (!bankItem) throw new Error("A notícia já não existe no workspace físico.");
+    const active = activeByIdentity.get(
+      thematicEditorialIdentity(bankItem.sourceType, bankItem.sourceId),
     );
-    const byBankItemId = new Map(
-      persisted.map((item) => [item.bankItemId.trim().toLowerCase(), item] as const),
-    );
-
-    for (const faixaItem of reconcile.faixaAfter) {
-      const itemIdentity = identity(faixaItem);
-      const activeItem = activeByIdentity.get(itemIdentity);
-      const bankItemId = bankItemIdByIdentity.get(itemIdentity)?.trim().toLowerCase();
-      if (!activeItem?.classifiedZoneKey || !bankItemId) continue;
-      const previousTrackingItem = byBankItemId.get(bankItemId);
-      byBankItemId.set(bankItemId, {
-        ...activeItem,
-        bankItemId,
-        classifiedZoneKey: activeItem.classifiedZoneKey,
-        classificationSource: "preview",
-        classifiedAt: "",
-        editorialState: "FAIXA",
-        memoryKind: null,
-        placementCreatedAt:
-          previousTrackingItem?.editorialState === "FAIXA"
-            ? previousTrackingItem.placementCreatedAt
-            : new Date().toISOString(),
-        stateRecordedAt: null,
-      });
-    }
-
-    for (const itemIdentity of editorState.draftDisplacedIdentities) {
-      const activeItem = activeByIdentity.get(itemIdentity);
-      const bankItemId = bankItemIdByIdentity.get(itemIdentity)?.trim().toLowerCase();
-      if (!activeItem?.classifiedZoneKey || !bankItemId) continue;
-      const previousTrackingItem = byBankItemId.get(bankItemId);
-      byBankItemId.set(bankItemId, {
-        ...activeItem,
-        bankItemId,
-        classifiedZoneKey: activeItem.classifiedZoneKey,
-        classificationSource: "preview",
-        classifiedAt: "",
-        editorialState: "DESALOJADA",
-        memoryKind: "displaced",
-        placementCreatedAt: null,
-        stateRecordedAt:
-          previousTrackingItem?.editorialState === "DESALOJADA"
-            ? previousTrackingItem.stateRecordedAt
-            : new Date().toISOString(),
-      });
-    }
-
-    return selectMatchdayEditorialTrackingItems(
-      Array.from(byBankItemId.values()),
-      "all",
-    );
-  }, [activeByIdentity, bankItemIdByIdentity, desk.tracking.items, editorState.draftDisplacedIdentities, reconcile.faixaAfter]);
-  const trackableItems = useMemo(() => uniqueTrackingItems.filter((item) => {
-    const itemIdentity = identity(item);
-    return activeByIdentity.has(itemIdentity)
-      && !draftExplicitBankIdentities.has(itemIdentity)
-      && !draftPlacedOutsideTrackingIdentities.has(itemIdentity)
-      && (
-        item.editorialState !== "DESALOJADA"
-        || editorState.draftDisplacedIdentities.includes(itemIdentity)
-      );
-  }), [activeByIdentity, draftExplicitBankIdentities, draftPlacedOutsideTrackingIdentities, editorState.draftDisplacedIdentities, uniqueTrackingItems]);
-  const classTrackingItems = useMemo(() => (
-    trackingClassFilter === "all"
-      ? trackableItems
-      : trackableItems.filter((item) => (
-          item.classifiedZoneKey === trackingClassFilter
-        ))
-  ), [trackableItems, trackingClassFilter]);
-  const trackingEntries = useMemo(() => classTrackingItems.flatMap((trackingItem) => {
-    const itemIdentity = identity(trackingItem);
-    const activeItem = activeByIdentity.get(itemIdentity);
-    if (!activeItem) return [];
-    const effectiveItem = effectiveItemByIdentity.get(itemIdentity) ?? {
-      ...activeItem,
-      sortOrder: null,
+    return {
+      sourceType: bankItem.sourceType,
+      sourceId: bankItem.sourceId,
+      sortOrder,
+      label: bankItem.label,
+      title: bankItem.title,
+      subtitle: bankItem.subtitle,
+      imageUrl: bankItem.imageUrl,
+      publishedAt: active?.publishedAt ?? null,
+      updatedAt: active?.updatedAt ?? null,
+      isNew: active?.isNew,
+      circuitOrder: active?.circuitOrder ?? null,
       manualOverride: null,
     };
-    return [{ trackingItem, item: effectiveItem }];
-  }), [activeByIdentity, classTrackingItems, effectiveItemByIdentity]);
-  const filteredTrackingEntries = trackingEntries.filter(({ trackingItem }) => (
-    matchesTrackingQuery(trackingItem)
-  ));
-  const filteredSourceItems = filteredTrackingEntries.map(({ item }) => item);
-
-  function trackingEntriesForState(state: MatchdayEditorialTrackingState) {
-    const entries = filteredTrackingEntries.filter(({ trackingItem }) => (
-      trackingItem.editorialState === state
-    ));
-
-    if (state === "FAIXA") {
-      return [...entries].sort((left, right) => (
-        (left.item.sortOrder ?? Number.MAX_SAFE_INTEGER)
-        - (right.item.sortOrder ?? Number.MAX_SAFE_INTEGER)
-      ));
-    }
-
-    const recent = state === "DESALOJADA"
-      ? editorState.draftDisplacedArrivalIdentities
-      : [];
-
-    if (recent.length === 0) return entries;
-
-    const rank = new Map(
-      recent.map((itemIdentity, index) => [itemIdentity, index] as const),
-    );
-
-    return [...entries].sort((left, right) => {
-      const leftRank = rank.get(identity(left.item));
-      const rightRank = rank.get(identity(right.item));
-      if (leftRank === undefined && rightRank === undefined) return 0;
-      if (leftRank === undefined) return 1;
-      if (rightRank === undefined) return -1;
-      return leftRank - rightRank;
-    });
   }
 
-  function showMoreTracking(state: MatchdayEditorialTrackingState) {
-    setTrackingVisibleCounts((current) => ({
-      ...current,
-      [state]: current[state] + TRACKING_PAGE_SIZE,
-    }));
-  }
-
-  function trackingPlacement(state: MatchdayEditorialTrackingState): Placement {
-    if (state === "NOVA") return { kind: "new" };
-    if (state === "FAIXA") return { kind: "faixa" };
-    return { kind: "displaced" };
-  }
-
-  const currentVideoHighlightDefined =
-    desk.videoModule.highlight.isPublished
-    && Boolean(
-      desk.videoModule.highlight.title
-      || desk.videoModule.highlight.text
-      || desk.videoModule.highlight.imageUrl
-      || desk.videoModule.highlight.linkUrl
-    );
-  const draftVideoHighlightCandidate =
-    editorState.draftVideoModule.highlight.action === "replace"
-    && editorState.draftVideoModule.highlight.bankItemId
-      ? editorialSelectionCandidates.find(
-          (candidate) =>
-            candidate.bankItemId
-            === editorState.draftVideoModule.highlight.bankItemId,
-        ) ?? null
-      : null;
-  const draftVideoHighlightDefined =
-    editorState.draftVideoModule.highlight.action === "remove"
-      ? false
-      : editorState.draftVideoModule.highlight.action === "replace"
-        ? draftVideoHighlightCandidate !== null
-        : currentVideoHighlightDefined;
-  const openingOccupied = MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.filter(
-    (slot) => Boolean(editorState.draftOpening[slot]),
-  ).length;
-  const editorialSelectionOccupied = draftEditorialSelection.filter(Boolean).length;
-  const pendingCount = pending
-    ? Math.max(1, history.length)
-    : 0;
-
-  function currentDraft(): WorkspaceDraft {
+  function candidateForBankItem(bankItemId: string): EditorialSelectionCandidate {
+    const item = bankItemById.get(bankItemId);
+    if (!item) throw new Error("A notícia já não existe no workspace físico.");
     return {
-      overrides: operationalOverrides,
-      opening: editorState.draftOpening,
-      pageControls: editorState.draftPageControls,
-      editorialSelection: draftEditorialSelection,
-      videoModule: editorState.draftVideoModule,
-      workedIdentities: editorState.workedIdentities,
-      displacedIdentities: editorState.draftDisplacedIdentities,
-      vacantZoneSlots: editorState.draftVacantZoneSlots,
-      vacantFaixaSlots: editorState.draftVacantFaixaSlots,
-      faixaArrivalIdentities: editorState.draftFaixaArrivalIdentities,
-      displacedArrivalIdentities:
-        editorState.draftDisplacedArrivalIdentities,
+      bankItemId: item.id,
+      sourceType: item.sourceType,
+      sourceId: item.sourceId,
+      label: item.label,
+      title: item.title,
+      subtitle: item.subtitle,
+      imageUrl: item.imageUrl,
+      linkUrl: item.linkUrl,
     };
   }
 
-  function withWorkedIdentities(
-    draft: WorkspaceDraft,
-    itemIdentities: readonly string[],
-  ): WorkspaceDraft {
-    return {
-      ...draft,
-      workedIdentities: Array.from(new Set([
-        ...draft.workedIdentities,
-        ...itemIdentities,
-      ])),
-    };
-  }
-
-  function previewPlacementForIdentity(
-    itemIdentity: string,
-  ): MatchdayEditorialPreviewPlacement | null {
-    const sourceId = activeByIdentity.get(itemIdentity)?.sourceId ?? null;
-    if (sourceId) {
-      const openingIndex = MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.findIndex(
-        (slot) => editorState.draftOpening[slot] === sourceId,
-      );
-      if (openingIndex >= 0) {
-        return { kind: "opening", slotPosition: openingIndex + 1 };
-      }
-    }
-
-    for (const zone of reconcile.zonesAfter) {
-      const item = zone.items.find((candidate) => identity(candidate) === itemIdentity);
-      if (item) {
-        return {
-          kind: "zone",
-          zoneKey: zone.key,
-          slotPosition: item.sortOrder,
-        };
-      }
-    }
-
-    const faixaItem = reconcile.faixaAfter.find(
-      (candidate) => identity(candidate) === itemIdentity,
-    );
-    if (faixaItem) {
-      return { kind: "faixa", slotPosition: faixaItem.sortOrder };
-    }
-
-    const selectionBankItemId = bankItemIdByIdentity.get(itemIdentity);
-    const selectionPosition = selectionBankItemId
-      ? draftEditorialSelection.findIndex((value) => value === selectionBankItemId)
-      : -1;
-    if (selectionPosition >= 0) {
-      return { kind: "selection", slotPosition: selectionPosition + 1 };
-    }
-
-    if (draftVideoHighlightIdentity === itemIdentity) {
-      return { kind: "video_highlight", slotPosition: 1 };
-    }
-
-    if (editorState.draftDisplacedIdentities.includes(itemIdentity)) {
-      return { kind: "displaced" };
-    }
-
-    if (reconcile.bankAfter.some((item) => identity(item) === itemIdentity)) {
-      return { kind: "bank" };
-    }
-
-    return { kind: "tracking" };
-  }
-
-  function withPreviewMovements(
-    draft: WorkspaceDraft,
-    movements: readonly MatchdayEditorialPreviewMovement[],
-  ): WorkspaceDraft {
-    const next = applyMatchdayEditorialMovementPreview(
-      {
-        displacedIdentities: draft.displacedIdentities,
-        vacantZoneSlots: draft.vacantZoneSlots,
-        vacantFaixaSlots: draft.vacantFaixaSlots,
-      },
-      movements,
-    );
-    let faixaArrivalIdentities = [
-      ...draft.faixaArrivalIdentities,
-    ];
-    let displacedArrivalIdentities = [
-      ...draft.displacedArrivalIdentities,
-    ];
-
-    for (const movement of movements) {
-      const incomingIdentity = movement.incomingIdentity;
-
-      if (
-        movement.source?.kind === "faixa"
-        && movement.target.kind !== "faixa"
-      ) {
-        faixaArrivalIdentities = [
-          ...withoutRecentIdentity(
-            faixaArrivalIdentities,
-            incomingIdentity,
-          ),
-        ];
-      }
-
-      if (
-        movement.target.kind === "faixa"
-        && movement.source?.kind !== "faixa"
-      ) {
-        faixaArrivalIdentities = [
-          ...prependRecentIdentity(
-            faixaArrivalIdentities,
-            incomingIdentity,
-          ),
-        ];
-      }
-
-      if (
-        movement.source?.kind === "displaced"
-        && movement.target.kind !== "displaced"
-      ) {
-        displacedArrivalIdentities = [
-          ...withoutRecentIdentity(
-            displacedArrivalIdentities,
-            incomingIdentity,
-          ),
-        ];
-      }
-
-      if (movement.target.kind === "displaced") {
-        displacedArrivalIdentities = [
-          ...prependRecentIdentity(
-            displacedArrivalIdentities,
-            incomingIdentity,
-          ),
-        ];
-      }
-
-      if (movement.displacedIdentity) {
-        displacedArrivalIdentities = [
-          ...prependRecentIdentity(
-            displacedArrivalIdentities,
-            movement.displacedIdentity,
-          ),
-        ];
-
-        if (movement.target.kind === "faixa") {
-          faixaArrivalIdentities = [
-            ...withoutRecentIdentity(
-              faixaArrivalIdentities,
-              movement.displacedIdentity,
-            ),
-          ];
-        }
-      }
-    }
-
-    return {
-      ...draft,
-      displacedIdentities: next.displacedIdentities,
-      vacantZoneSlots: next.vacantZoneSlots,
-      vacantFaixaSlots: [],
-      faixaArrivalIdentities,
-      displacedArrivalIdentities,
-    };
-  }
-
-  function identityForBankItemId(bankItemId: string | null): string | null {
-    if (!bankItemId) return null;
-    const candidate = editorialSelectionCandidateById.get(bankItemId);
-    const sourceId = candidate?.sourceId?.trim().toLowerCase() ?? "";
-    return candidate?.sourceType?.trim().toLowerCase() === "editorial_article"
-      && sourceId
-      ? thematicEditorialIdentity("editorial_article", sourceId)
-      : null;
-  }
-
-  function commitDraft(next: WorkspaceDraft, successMessage: string) {
-    setHistory((current) => [...current, currentDraft()]);
-    setEditorState((current) => ({
-      ...current,
-      draftOverrides: next.overrides,
-      draftOpening: next.opening,
-      draftPageControls: next.pageControls,
-      draftVideoModule: next.videoModule,
-      selectedIdentities: [],
-      workedIdentities: next.workedIdentities,
-      draftDisplacedIdentities: next.displacedIdentities,
-      draftFaixaArrivalIdentities: next.faixaArrivalIdentities,
-      draftDisplacedArrivalIdentities:
-        next.displacedArrivalIdentities,
-      draftVacantZoneSlots: next.vacantZoneSlots,
-      draftVacantFaixaSlots: next.vacantFaixaSlots,
-    }));
-    setDraftEditorialSelection(next.editorialSelection);
-    setApplyState("idle");
-    setZoneLayoutError(null);
-    setMessage(successMessage);
-  }
-
-  function changeZoneLayout(
-    zoneKey: EditorialProfileZoneKey,
-    visualFamily: EditorialVisualFamily,
+  function runPhysicalOperation(
+    operation: (state: PhysicalDeskState) => PhysicalDeskState,
+    successMessage: string,
   ) {
-    const thematicZoneLayouts = {
-      ...editorState.draftPageControls.thematicZoneLayouts,
-      [zoneKey]: visualFamily,
-    };
-
-    const nextProfile = editorialProfileWithZoneLayouts(
-      profile,
-      thematicZoneLayouts,
-    );
-
-    let nextOverrides:
-      readonly MatchdayEditorialProfileManualOverride[];
-
+    if (mutationBlocked) {
+      setApplyState("error");
+      setMessage("A Mesa física não é representável pelo writer v12. Toda a edição e o Apply estão bloqueados.");
+      return;
+    }
     try {
-      nextOverrides =
-        compactMatchdayEditorialProfileManualOverridesForLayoutChange(
-          effectiveProfile,
-          nextProfile,
-          operationalOverrides,
-          zoneKey,
-        );
+      setPhysicalDesk(operation(physicalDesk));
+      setApplyState("idle");
+      setMessage(successMessage);
     } catch (error) {
-      const code =
-        error instanceof Error
-          ? error.message
-          : "";
-
-      const layoutError =
-        code.endsWith(
-          "layout-compaction-manual-conflict",
-        )
-          ? "Não é possível reduzir este layout porque a última posição disponível já está fixa manualmente. Liberte ou mova uma das decisões manuais primeiro."
-          : code.endsWith(
-              "zone-capacity-exceeded",
-            )
-            ? "Não é possível reduzir este layout porque existem mais notícias protegidas manualmente na zona do que posições disponíveis."
-            : "Não é possível reduzir este layout sem violar decisões manuais existentes.";
-
       setApplyState("error");
-      setMessage(null);
-      setZoneLayoutError({
-        zoneKey,
-        message: layoutError,
-      });
-      return;
-    }
-
-    const compactedManualPosition =
-      !sameJson(
-        nextOverrides,
-        operationalOverrides,
-      );
-
-    const nextCapacity =
-      nextProfile.zones.find(
-        (zone) => zone.key === zoneKey,
-      )?.capacity;
-
-    commitDraft(
-      {
-        ...currentDraft(),
-        overrides: nextOverrides,
-        pageControls: {
-          ...editorState.draftPageControls,
-          thematicZoneLayouts,
-        },
-      },
-      compactedManualPosition
-        ? `${profile.zones.find((zone) => zone.key === zoneKey)?.label ?? zoneKey}: layout alterado para ${EDITORIAL_VISUAL_FAMILY_DEFINITIONS[visualFamily].label}; a posição manual exterior foi compactada para ${nextCapacity ?? "a última posição disponível"}.`
-        : `${profile.zones.find((zone) => zone.key === zoneKey)?.label ?? zoneKey}: layout alterado em preview para ${EDITORIAL_VISUAL_FAMILY_DEFINITIONS[visualFamily].label}.`,
-    );
-  }
-
-  function moveContentBlock(
-    block: MatchdayEditorialProfilePageControls["thematicBlockOrder"][number],
-    direction: "up" | "down",
-  ) {
-    const thematicBlockOrder =
-      moveMatchdayEditorialProfileThematicBlock(
-        editorState.draftPageControls.thematicBlockOrder,
-        block,
-        direction,
-      );
-
-    const thematicZoneOrder =
-      matchdayEditorialProfileThematicZoneOrderFromBlockOrder(
-        thematicBlockOrder,
-      );
-
-    commitDraft(
-      {
-        ...currentDraft(),
-        pageControls: {
-          ...editorState.draftPageControls,
-          thematicBlockOrder,
-          thematicZoneOrder,
-        },
-      },
-      "Ordem dos blocos editoriais alterada em preview.",
-    );
-  }
-
-  function localOperation(operation: () => WorkspaceDraft, successMessage: string) {
-    try { commitDraft(operation(), successMessage); }
-    catch (error) {
-      setApplyState("error");
-      if (error instanceof Error && error.message.endsWith("selection-exceeds-capacity")) {
-        setMessage("O bloco selecionado não cabe a partir dessa posição. Escolha uma posição anterior ou reduza a seleção.");
-        return;
-      }
-      setMessage(error instanceof Error ? error.message : "A operação local foi recusada.");
+      setMessage(error instanceof Error ? error.message : "A operação física foi recusada.");
     }
   }
 
-  function toggleSelection(itemIdentity: string) {
-    setEditorState((current) => ({ ...current, selectedIdentities: current.selectedIdentities.includes(itemIdentity)
-      ? current.selectedIdentities.filter((candidate) => candidate !== itemIdentity)
-      : [...current.selectedIdentities, itemIdentity] }));
+  function toggleSelection(bankItemId: string) {
+    setPhysicalDesk((state) => togglePhysicalDeskSelection(state, bankItemId));
   }
 
-  function sourceIdForIdentity(itemIdentity: string): string {
-    const item = activeByIdentity.get(itemIdentity);
-    if (!item) throw new Error("A notícia arrastada já não está ativa.");
-    return item.sourceId;
+  function selectItems(bankItemIds: readonly string[]) {
+    setPhysicalDesk((state) => selectPhysicalDeskItems(state, bankItemIds));
   }
 
-  function openingWithoutMany(
-    itemIdentities: readonly string[],
-  ): MatchdayEditorialProfileOpening {
-    return itemIdentities.reduce(
-      (opening, itemIdentity) =>
-        removeMatchdayEditorialProfileItemFromOpening(
-          opening,
-          sourceIdForIdentity(itemIdentity),
-        ),
-      editorState.draftOpening,
+  function placeInZone(bankItemId: string, zoneId: LiveLayoutZoneId, position: number) {
+    runPhysicalOperation(
+      (state) => movePhysicalDeskItemToSlot(state, bankItemId, {
+        placementType: "zone", zoneId, slotPosition: position,
+      }),
+      `Notícia colocada na zona física ${zoneId}, posição ${position}.`,
     );
   }
 
-  function activeItemsOutside(opening: MatchdayEditorialProfileOpening) {
-    const excluded = new Set(matchdayEditorialProfileOpeningSourceIds(opening).map((sourceId) => thematicEditorialIdentity("editorial_article", sourceId)));
-    return activeItems.filter((item) => !excluded.has(identity(item)));
-  }
-
-  function prepareExclusivePlacementTransition(
-    itemIdentities: readonly string[],
-  ) {
-    const opening = openingWithoutMany(itemIdentities);
-    const overrides =
-      returnMatchdayEditorialItemsToAutomatic(
-        effectiveProfile,
-        operationalOverrides,
-        itemIdentities,
-      );
-
-    return {
-      opening,
-      overrides,
-      candidates: activeItemsOutside(opening),
-      editorialSelection: withoutMatchdayEditorialProfileSelectionBankItems(
-        draftEditorialSelection,
-        itemIdentities.flatMap((itemIdentity) => {
-          const bankItemId = bankItemIdByIdentity.get(itemIdentity);
-          return bankItemId ? [bankItemId] : [];
-        }),
-      ),
-    };
-  }
-
-  function placeInOpening(
-    itemIdentity: string,
-    slot: MatchdayEditorialProfileOpeningSlotKey,
-  ) {
-    const source = previewPlacementForIdentity(itemIdentity);
-    const targetSlotPosition =
-      MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.indexOf(slot) + 1;
-    const targetSourceId = editorState.draftOpening[slot];
-    const targetIdentity = targetSourceId
-      ? thematicEditorialIdentity(
-          "editorial_article",
-          targetSourceId,
-        )
-      : null;
-
-    if (
-      source?.kind === "opening"
-      && targetIdentity
-      && targetIdentity !== itemIdentity
-    ) {
-      localOperation(() => {
-        const opening = swapMatchdayEditorialProfileOpeningItems(
-          editorState.draftOpening,
-          sourceIdForIdentity(itemIdentity),
-          slot,
-        );
-        const nextDraft = withWorkedIdentities(
-          {
-            ...currentDraft(),
-            opening,
-          },
-          [itemIdentity, targetIdentity],
-        );
-
-        return withPreviewMovements(nextDraft, [
-          {
-            incomingIdentity: itemIdentity,
-            source,
-            target: {
-              kind: "opening",
-              slotPosition: targetSlotPosition,
-            },
-            displacedIdentity: null,
-          },
-          {
-            incomingIdentity: targetIdentity,
-            source: {
-              kind: "opening",
-              slotPosition: targetSlotPosition,
-            },
-            target: source,
-            displacedIdentity: null,
-          },
-        ]);
-      }, "As duas notícias trocaram de posição na Abertura.");
-      return;
-    }
-
-    localOperation(() => {
-      const movement = moveMatchdayEditorialProfileItemToOpening(
-        editorState.draftOpening,
-        sourceIdForIdentity(itemIdentity),
-        slot,
-      );
-
-      const incomingOverrides =
-        returnMatchdayEditorialItemsToAutomatic(
-          effectiveProfile,
-          operationalOverrides,
-          [
-            itemIdentity,
-            ...(movement.displacedSourceId
-              ? [thematicEditorialIdentity(
-                  "editorial_article",
-                  movement.displacedSourceId,
-                )]
-              : []),
-          ],
-        );
-      const incomingSelection =
-        withoutMatchdayEditorialProfileSelectionBankItems(
-          draftEditorialSelection,
-          [bankItemIdByIdentity.get(itemIdentity) ?? ""],
-        );
-
-      const displacedIdentity = movement.displacedSourceId
-        ? thematicEditorialIdentity(
-            "editorial_article",
-            movement.displacedSourceId,
-          )
-        : null;
-      const nextDraft = withWorkedIdentities({
-        ...currentDraft(),
-        overrides: incomingOverrides,
-        opening: movement.opening,
-        editorialSelection: incomingSelection,
-      }, [
-        itemIdentity,
-        ...(displacedIdentity && displacedIdentity !== itemIdentity
-          ? [displacedIdentity]
-          : []),
-      ]);
-
-      return withPreviewMovements(nextDraft, [{
-        incomingIdentity: itemIdentity,
-        source,
-        target: {
-          kind: "opening",
-          slotPosition: targetSlotPosition,
-        },
-        displacedIdentity:
-          displacedIdentity !== itemIdentity ? displacedIdentity : null,
-      }]);
-    }, `${MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS[slot]} atualizada em preview. Se o destino estava ocupado, a notícia substituída fica desalojada.`);
-  }
-
-  function placeInZone(
-    itemIdentity: string,
-    zoneKey: EditorialProfileZoneKey,
-    position: number,
-  ) {
-    const source = previewPlacementForIdentity(itemIdentity);
-    const targetZone = reconcile.zonesAfter.find(
-      (zone) => zone.key === zoneKey,
+  function placeInOpening(bankItemId: string, slotPosition: number) {
+    runPhysicalOperation(
+      (state) => movePhysicalDeskItemToSlot(state, bankItemId, {
+        placementType: "opening", zoneId: null, slotPosition,
+      }),
+      "Abertura atualizada em preview físico.",
     );
-    const targetItem = targetZone?.items.find(
-      (item) => item.sortOrder === position,
+  }
+
+  function placeInSelection(bankItemId: string, slotPosition: number) {
+    runPhysicalOperation(
+      (state) => movePhysicalDeskItemToSlot(state, bankItemId, {
+        placementType: "selection", zoneId: null, slotPosition,
+      }),
+      "Quatro ao lado das Últimas atualizadas em preview físico.",
     );
-    const targetIdentity = targetItem
-      ? identity(targetItem)
-      : null;
-
-    if (
-      source?.kind === "zone"
-      && source.zoneKey === zoneKey
-      && targetIdentity
-      && targetIdentity !== itemIdentity
-    ) {
-      localOperation(() => {
-        const transition = prepareExclusivePlacementTransition(
-          [itemIdentity, targetIdentity],
-        );
-        const overrides = swapMatchdayEditorialItemsInZone(
-          effectiveProfile,
-          transition.candidates,
-          transition.overrides,
-          itemIdentity,
-          targetIdentity,
-          zoneKey,
-          targetZone?.items ?? [],
-        );
-        const nextDraft = withWorkedIdentities({
-          ...currentDraft(),
-          overrides,
-          opening: transition.opening,
-          editorialSelection: transition.editorialSelection,
-        }, [itemIdentity, targetIdentity]);
-
-        return withPreviewMovements(nextDraft, [
-          {
-            incomingIdentity: itemIdentity,
-            source,
-            target: {
-              kind: "zone",
-              zoneKey,
-              slotPosition: position,
-            },
-            displacedIdentity: null,
-          },
-          {
-            incomingIdentity: targetIdentity,
-            source: {
-              kind: "zone",
-              zoneKey,
-              slotPosition: position,
-            },
-            target: source,
-            displacedIdentity: null,
-          },
-        ]);
-      }, `As notícias trocaram de posição em ${zoneKey}.`);
-      return;
-    }
-
-    localOperation(() => {
-      const transition = prepareExclusivePlacementTransition(
-        [itemIdentity],
-      );
-      const nextDraft = withWorkedIdentities({
-        ...currentDraft(),
-        overrides: placeMatchdayEditorialItemsInZoneWithoutCascade(
-          effectiveProfile,
-          transition.candidates,
-          transition.overrides,
-          [itemIdentity],
-          zoneKey,
-          position,
-          targetZone?.items ?? [],
-        ),
-        opening: transition.opening,
-        editorialSelection: transition.editorialSelection,
-      }, [
-        itemIdentity,
-        ...(targetIdentity && targetIdentity !== itemIdentity
-          ? [targetIdentity]
-          : []),
-      ]);
-
-      return withPreviewMovements(nextDraft, [{
-        incomingIdentity: itemIdentity,
-        source,
-        target: {
-          kind: "zone",
-          zoneKey,
-          slotPosition: position,
-        },
-        displacedIdentity:
-          targetIdentity !== itemIdentity ? targetIdentity : null,
-      }]);
-    }, `Notícia colocada em ${zoneKey}, posição ${position}. Se o destino estava ocupado, a notícia substituída fica desalojada.`);
   }
 
-  function placeAtFaixaTop(itemIdentity: string) {
-    const source = previewPlacementForIdentity(itemIdentity);
-
-    localOperation(() => {
-      const transition = prepareExclusivePlacementTransition(
-        [itemIdentity],
-      );
-      const nextDraft = withWorkedIdentities({
-        ...currentDraft(),
-        overrides: placeMatchdayEditorialItemAtFaixaTop(
-          effectiveProfile,
-          transition.candidates,
-          transition.overrides,
-          itemIdentity,
-          reconcile.faixaAfter,
-        ),
-        opening: transition.opening,
-        editorialSelection: transition.editorialSelection,
-      }, [itemIdentity]);
-
-      return withPreviewMovements(nextDraft, [{
-        incomingIdentity: itemIdentity,
-        source,
-        target: { kind: "faixa", slotPosition: 1 },
-        displacedIdentity: null,
-      }]);
-    }, "Notícia colocada no topo da Faixa. Nenhuma notícia foi desalojada.");
-  }
-
-  function placeInFaixa(
-    itemIdentity: string,
-    position: number,
-  ) {
-    const targetPosition = Math.max(1, position);
-    const source = previewPlacementForIdentity(itemIdentity);
-    const targetItem = reconcile.faixaAfter.find(
-      (item) => item.sortOrder === targetPosition,
+  function placeAtFaixaTop(bankItemId: string) {
+    runPhysicalOperation(
+      (state) => movePhysicalDeskItemToFaixaTop(state, bankItemId),
+      "Notícia colocada no topo da Faixa. Nenhuma notícia foi desalojada.",
     );
-    const targetIdentity = targetItem
-      ? identity(targetItem)
-      : null;
-
-    if (!targetIdentity || targetIdentity === itemIdentity) {
-      if (!targetIdentity) placeAtFaixaTop(itemIdentity);
-      return;
-    }
-
-    if (source?.kind === "faixa") {
-      localOperation(() => {
-        const transition = prepareExclusivePlacementTransition(
-          [itemIdentity, targetIdentity],
-        );
-        const overrides = swapMatchdayEditorialItemsInFaixa(
-          effectiveProfile,
-          transition.candidates,
-          transition.overrides,
-          itemIdentity,
-          targetIdentity,
-          reconcile.faixaAfter,
-        );
-        const nextDraft = withWorkedIdentities({
-          ...currentDraft(),
-          overrides,
-          opening: transition.opening,
-          editorialSelection: transition.editorialSelection,
-        }, [itemIdentity, targetIdentity]);
-
-        return withPreviewMovements(nextDraft, [
-          {
-            incomingIdentity: itemIdentity,
-            source,
-            target: {
-              kind: "faixa",
-              slotPosition: targetPosition,
-            },
-            displacedIdentity: null,
-          },
-          {
-            incomingIdentity: targetIdentity,
-            source: {
-              kind: "faixa",
-              slotPosition: targetPosition,
-            },
-            target: source,
-            displacedIdentity: null,
-          },
-        ]);
-      }, "As duas notícias trocaram de posição na Faixa.");
-      return;
-    }
-
-    localOperation(() => {
-      const transition = prepareExclusivePlacementTransition(
-        [itemIdentity],
-      );
-      const nextDraft = withWorkedIdentities({
-        ...currentDraft(),
-        overrides: replaceMatchdayEditorialItemInFaixa(
-          effectiveProfile,
-          transition.candidates,
-          transition.overrides,
-          itemIdentity,
-          targetIdentity,
-          reconcile.faixaAfter,
-        ),
-        opening: transition.opening,
-        editorialSelection: transition.editorialSelection,
-      }, [itemIdentity, targetIdentity]);
-
-      return withPreviewMovements(nextDraft, [{
-        incomingIdentity: itemIdentity,
-        source,
-        target: {
-          kind: "faixa",
-          slotPosition: targetPosition,
-        },
-        displacedIdentity: targetIdentity,
-      }]);
-    }, `Notícia colocada na Faixa na posição ${targetPosition}; a notícia substituída passou para Desalojadas.`);
   }
 
-  function placeInDisplaced(itemIdentity: string) {
-    const source = previewPlacementForIdentity(itemIdentity);
-
-    localOperation(() => {
-      const transition = prepareExclusivePlacementTransition(
-        [itemIdentity],
-      );
-      const nextDraft = withWorkedIdentities({
-        ...currentDraft(),
-        overrides: transition.overrides,
-        opening: transition.opening,
-        editorialSelection: transition.editorialSelection,
-      }, [itemIdentity]);
-
-      return withPreviewMovements(nextDraft, [{
-        incomingIdentity: itemIdentity,
-        source,
-        target: { kind: "displaced" },
-        displacedIdentity: null,
-      }]);
-    }, "Notícia enviada para Desalojadas.");
+  function placeInFaixa(bankItemId: string, slotPosition: number) {
+    runPhysicalOperation(
+      (state) => movePhysicalDeskItemToSlot(state, bankItemId, {
+        placementType: "faixa", zoneId: null, slotPosition,
+      }),
+      "Faixa atualizada em preview físico.",
+    );
   }
 
-  function placeInBank(itemIdentity: string) {
-    localOperation(() => {
-      const source = previewPlacementForIdentity(itemIdentity);
-      const transition =
-        prepareExclusivePlacementTransition(
-          [itemIdentity],
-        );
-
-      const nextDraft = withWorkedIdentities({
-        ...currentDraft(),
-        overrides: moveMatchdayEditorialItemsToBank(
-          effectiveProfile,
-          transition.candidates,
-          transition.overrides,
-          [itemIdentity],
-        ),
-        opening: transition.opening,
-        editorialSelection: transition.editorialSelection,
-      }, [itemIdentity]);
-
-      return withPreviewMovements(nextDraft, [{
-        incomingIdentity: itemIdentity,
-        source,
-        target: { kind: "bank" },
-        displacedIdentity: null,
-      }]);
-    }, "Notícia enviada explicitamente para o Banco.");
+  function placeInDisplaced(bankItemId: string) {
+    runPhysicalOperation(
+      (state) => movePhysicalDeskItemToDisplaced(state, bankItemId),
+      "Notícia enviada para Desalojadas.",
+    );
   }
 
+  function placeInBank(bankItemId: string) {
+    runPhysicalOperation(
+      (state) => movePhysicalDeskItemToBank(state, bankItemId),
+      "Notícia enviada explicitamente para o Banco.",
+    );
+  }
 
   function dragged(event: DragEvent<HTMLElement>): string | null {
-    if (
-      draggingIdentity
-      && activeByIdentity.has(draggingIdentity)
-    ) {
-      return draggingIdentity;
-    }
-
+    if (draggingBankItemId && bankItemById.has(draggingBankItemId)) return draggingBankItemId;
     const raw = event.dataTransfer.getData("text/plain");
-
-    if (raw && activeByIdentity.has(raw)) {
-      return raw;
-    }
-
-    const selectionDrag =
-      parseMatchdayEditorialProfileSelectionDrag(raw);
-
-    if (!selectionDrag) {
-      return null;
-    }
-
-    const selectionIdentity =
-      identityForBankItemId(selectionDrag.bankItemId);
-
-    return selectionIdentity
-      && activeByIdentity.has(selectionIdentity)
-        ? selectionIdentity
-        : null;
+    if (bankItemById.has(raw)) return raw;
+    const selectionDrag = parseMatchdayEditorialProfileSelectionDrag(raw);
+    return selectionDrag && bankItemById.has(selectionDrag.bankItemId)
+      ? selectionDrag.bankItemId
+      : null;
   }
 
-  function dragStart(event: DragEvent<HTMLElement>, itemIdentity: string) {
+  function dragStart(event: DragEvent<HTMLElement>, bankItemId: string) {
+    if (mutationBlocked) {
+      event.preventDefault();
+      return;
+    }
     const target = event.target as HTMLElement;
-    if (target.closest("button,input,summary,details")) { event.preventDefault(); return; }
+    if (target.closest("button,input,summary,details")) {
+      event.preventDefault();
+      return;
+    }
     event.dataTransfer.effectAllowed = "copyMove";
-    event.dataTransfer.setData("text/plain", itemIdentity);
-    setDraggingIdentity(itemIdentity);
+    event.dataTransfer.setData("text/plain", bankItemId);
+    setDraggingBankItemId(bankItemId);
   }
 
   function allowDrop(event: DragEvent<HTMLElement>) {
+    if (mutationBlocked) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
   }
 
-  function undo() {
-    const previous = history.at(-1);
-    if (!previous) return;
-    setEditorState((current) => ({
-      ...current,
-      draftOverrides: previous.overrides,
-      draftOpening: previous.opening,
-      draftPageControls: previous.pageControls,
-      draftVideoModule: previous.videoModule,
-      selectedIdentities: [],
-      workedIdentities: previous.workedIdentities,
-      draftDisplacedIdentities: previous.displacedIdentities,
-      draftFaixaArrivalIdentities: previous.faixaArrivalIdentities,
-      draftDisplacedArrivalIdentities:
-        previous.displacedArrivalIdentities,
-      draftVacantZoneSlots: previous.vacantZoneSlots,
-      draftVacantFaixaSlots: previous.vacantFaixaSlots,
-    }));
-    setDraftEditorialSelection(previous.editorialSelection);
-    setHistory((current) => current.slice(0, -1));
-    setApplyState("idle");
-    setMessage("Última alteração local desfeita.");
-  }
-
-  function resetLocal() {
-    if (!pending) return;
-
-    const exclusive =
-      prepareExclusiveMatchdayEditorialProfileSelectionState({
-        profile: persistedProfile,
-        activeItems,
-        overrides: persistedOperationalOverrides,
-        opening: editorState.persistedOpening,
-        selection: persistedEditorialSelection,
-        candidates: editorialSelectionCandidates,
-      });
-
-    setHistory((current) => [...current, currentDraft()]);
-    setEditorState((current) => ({
-      ...current,
-      draftOverrides: exclusive.overrides,
-      draftOpening: exclusive.opening,
-      draftPageControls: current.persistedPageControls,
-      draftVideoModule: {
-        active: current.persistedVideoModuleActive,
-        highlight: {
-          action: "preserve",
-          bankItemId: null,
-        },
-      },
-      selectedIdentities: [],
-      workedIdentities: [],
-      draftDisplacedIdentities: current.persistedDisplacedIdentities,
-      draftFaixaArrivalIdentities: [],
-      draftDisplacedArrivalIdentities: [],
-      draftVacantZoneSlots: current.persistedVacantZoneSlots,
-      draftVacantFaixaSlots: current.persistedVacantFaixaSlots,
-    }));
-    setDraftEditorialSelection(exclusive.selection);
-    setApplyState("idle");
-    setMessage(
-      sameJson(exclusive.overrides, persistedOperationalOverrides)
-        && sameJson(exclusive.opening, editorState.persistedOpening)
-        && sameJson(exclusive.selection, persistedEditorialSelection)
-        ? "Preview reposto para o último estado aplicado."
-        : "Preview reposto; as quatro ao lado das Últimas continuam preparadas para colocação exclusiva e requerem Aplicar.",
-    );
-  }
-
-  async function applyChanges() {
-    if (!pending || applyState === "saving") return;
-    setApplyState("saving");
-    setMessage("A validar e aplicar numa única transação…");
-    try {
-      const workedSourceIds = editorState.workedIdentities.flatMap((itemIdentity) => {
-        const item = activeByIdentity.get(itemIdentity);
-        return item ? [item.sourceId] : [];
-      });
-      const displacedBankItemIds = editorState.draftDisplacedIdentities.map(
-        (itemIdentity) => {
-          const bankItemId = bankItemIdByIdentity.get(itemIdentity);
-          if (!bankItemId) {
-            throw new Error(
-              "Uma notícia desalojada já não tem identidade canónica no Bank.",
-            );
-          }
-          return bankItemId;
-        },
-      );
-      const faixaArrivalBankItemIds =
-        editorState.draftFaixaArrivalIdentities.map(
-          (itemIdentity) => {
-            const bankItemId = bankItemIdByIdentity.get(itemIdentity);
-            if (!bankItemId) {
-              throw new Error(
-                "Uma chegada à Faixa já não tem identidade canónica no Bank.",
-              );
-            }
-            return bankItemId;
-          },
-        );
-      const displacedArrivalBankItemIds =
-        editorState.draftDisplacedArrivalIdentities.map(
-          (itemIdentity) => {
-            const bankItemId = bankItemIdByIdentity.get(itemIdentity);
-            if (!bankItemId) {
-              throw new Error(
-                "Uma chegada a Desalojadas já não tem identidade canónica no Bank.",
-              );
-            }
-            return bankItemId;
-          },
-        );
-      const response = await fetch(`/api/admin/editorial/jornada/${desk.matchdayId}/organizar/tematico`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          profileKey: desk.profileKey,
-          expectedRevision: desk.reconcileRevision,
-          expectedStateToken: desk.reconcileStateToken,
-          overrides: operationalOverrides,
-          opening: editorState.draftOpening,
-          pageControls: editorState.draftPageControls,
-          selectionBankItemIds: draftEditorialSelection,
-          workedSourceIds,
-          displacedBankItemIds,
-          faixaArrivalBankItemIds,
-          displacedArrivalBankItemIds,
-          vacantZoneSlots: editorState.draftVacantZoneSlots,
-          vacantFaixaSlots: editorState.draftVacantFaixaSlots,
-          videoModule: {
-            active: editorState.draftVideoModule.active,
-            highlightAction:
-              editorState.draftVideoModule.highlight.action,
-            highlightBankItemId:
-              editorState.draftVideoModule.highlight.bankItemId,
-          },
-        }),
-      });
-      const payload = await readAdminJsonResponse<{
-        ok?: boolean;
-        message?: string;
-      }>(response);
-      if (payload.ok !== true) throw new Error(payload.message ?? "O Apply temático foi recusado integralmente.");
-      setEditorState((current) => ({
-        ...current,
-        persistedOverrides: operationalOverrides,
-        draftOverrides: operationalOverrides,
-        persistedOpening: current.draftOpening,
-        persistedPageControls: current.draftPageControls,
-        persistedVideoModuleActive: current.draftVideoModule.active,
-        draftVideoModule: {
-          active: current.draftVideoModule.active,
-          highlight: {
-            action: "preserve",
-            bankItemId: null,
-          },
-        },
-        selectedIdentities: [],
-        workedIdentities: [],
-        persistedDisplacedIdentities: current.draftDisplacedIdentities,
-        draftDisplacedIdentities: current.draftDisplacedIdentities,
-        draftFaixaArrivalIdentities: [],
-        draftDisplacedArrivalIdentities: [],
-        persistedVacantZoneSlots: current.draftVacantZoneSlots,
-        draftVacantZoneSlots: current.draftVacantZoneSlots,
-        persistedVacantFaixaSlots: current.draftVacantFaixaSlots,
-        draftVacantFaixaSlots: current.draftVacantFaixaSlots,
-      }));
-      setPersistedEditorialSelection(draftEditorialSelection);
-      setHistory([]);
-      setApplyState("saved");
-      setMessage("Aplicado. A confirmar o estado autoritativo do servidor…");
-      router.refresh();
-    } catch (error) {
-      setApplyState("error");
-      setMessage(error instanceof Error ? error.message : "Não foi possível aplicar as alterações.");
-    }
-  }
-
-  function cardFor(item: MatchdayEditorialProfileEffectiveItem, placement: Placement) {
-    const itemIdentity = identity(item);
+  function cardFor(bankItemId: string, placement: Placement) {
+    const physicalPlacement = placementByBankItemId.get(bankItemId);
     return (
       <ArticleCard
-        dragging={draggingIdentity === itemIdentity}
-        item={item}
-        onBank={() => placeInBank(itemIdentity)}
-        onDragEnd={() => setDraggingIdentity(null)}
+        bankItemId={bankItemId}
+        dragging={draggingBankItemId === bankItemId}
+        item={effectiveItem(bankItemId, physicalPlacement?.slotPosition ?? null)}
+        onBank={() => placeInBank(bankItemId)}
+        onDragEnd={() => setDraggingBankItemId(null)}
         onDragStart={dragStart}
-        onFaixa={() => placeAtFaixaTop(itemIdentity)}
+        onFaixa={() => placeAtFaixaTop(bankItemId)}
         onToggle={toggleSelection}
         placement={placement}
-        selected={selected.has(itemIdentity)}
+        selected={selected.has(bankItemId)}
       />
     );
   }
 
-  function renderFaixaItem(
-    item: MatchdayEditorialProfileEffectiveItem,
-  ) {
-    return (
-      <div
-        className="thematic-faixa-item"
-        data-drag-active={draggingIdentity !== null}
-        key={identity(item)}
-        onDragOver={allowDrop}
-        onDrop={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
+  const explicitBankEntries = useMemo(() => current.explicitBankItemIds.flatMap((bankItemId) => {
+    const item = bankItemById.get(bankItemId);
+    return item ? [{
+      bankItemId,
+      classifiedZoneKey: item.classification?.key ?? null,
+      item: effectiveItem(bankItemId),
+    }] : [];
+  }), [bankItemById, current.explicitBankItemIds]);
+  const classBankEntries = selectMatchdayEditorialExplicitBankItems(explicitBankEntries, bankClassFilter);
 
-          const itemIdentity = dragged(event);
-
-          if (itemIdentity) {
-            placeInFaixa(
-              itemIdentity,
-              item.sortOrder ?? 1,
-            );
-          }
-
-          setDraggingIdentity(null);
-        }}
-      >
-        {cardFor(
-          item,
-          { kind: "faixa" },
-        )}
-      </div>
-    );
+  const normalizedTrackingQuery = trackingQuery.trim().toLocaleLowerCase("pt-PT");
+  function matchesTrackingQuery(item: MatchdayEditorialProfileEffectiveItem) {
+    return !normalizedTrackingQuery
+      || [item.label, item.title, item.subtitle].some((value) => (
+        value?.toLocaleLowerCase("pt-PT").includes(normalizedTrackingQuery)
+      ));
   }
 
-  function renderZonePanel(
-    zoneKey: EditorialProfileZoneKey,
-  ) {
-    const zone = zoneByKey.get(zoneKey);
+  const trackingEntries = useMemo(() => current.bankItems.flatMap((bankItem) => {
+    if (!bankItem.classification || current.explicitBankItemIds.includes(bankItem.id)) return [];
+    const placement = placementByBankItemId.get(bankItem.id);
+    if (placement && placement.placementType !== "faixa") return [];
+    const editorialState: MatchdayEditorialTrackingState = placement?.placementType === "faixa"
+      ? "FAIXA"
+      : current.displacedBankItemIds.includes(bankItem.id)
+        ? "DESALOJADA"
+        : "NOVA";
+    return [{
+      bankItemId: bankItem.id,
+      classifiedZoneKey: bankItem.classification.key,
+      editorialState,
+      item: effectiveItem(bankItem.id, placement?.slotPosition ?? null),
+    }];
+  }), [current.bankItems, current.displacedBankItemIds, current.explicitBankItemIds, placementByBankItemId]);
+  const classTrackingEntries = trackingEntries.filter((entry) => (
+    trackingClassFilter === "all" || entry.classifiedZoneKey === trackingClassFilter
+  ));
+  const filteredTrackingEntries = classTrackingEntries.filter(({ item }) => matchesTrackingQuery(item));
+  const filteredBankEntries = classBankEntries.filter(({ item }) => matchesTrackingQuery(item));
+  const visibleBankEntries = filteredBankEntries.slice(0, bankVisibleCount);
 
-    if (!zone) {
-      return null;
-    }
+  function trackingEntriesForState(state: MatchdayEditorialTrackingState) {
+    const entries = filteredTrackingEntries.filter((entry) => entry.editorialState === state);
+    if (state === "FAIXA") return [...entries].sort((left, right) => (
+      (left.item.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.item.sortOrder ?? Number.MAX_SAFE_INTEGER)
+    ));
+    if (state !== "DESALOJADA") return entries;
+    const rank = new Map(current.displacedArrivalBankItemIds.map((id, index) => [id, index] as const));
+    return [...entries].sort((left, right) => (
+      (rank.get(left.bankItemId) ?? Number.MAX_SAFE_INTEGER)
+      - (rank.get(right.bankItemId) ?? Number.MAX_SAFE_INTEGER)
+    ));
+  }
 
+  const openingPlacements = physicalDeskPlacementsOfType(physicalDesk, "opening");
+  const selectionPlacements = physicalDeskPlacementsOfType(physicalDesk, "selection");
+  const faixaPlacements = physicalDeskPlacementsOfType(physicalDesk, "faixa");
+  const highlightPlacement = physicalDeskPlacementsOfType(physicalDesk, "video_highlight")[0] ?? null;
+  const openingOccupied = openingPlacements.length;
+  const editorialSelectionOccupied = selectionPlacements.length;
+  const pendingCount = pending ? Math.max(1, physicalDesk.history.length) : 0;
+  const destinationZoneCapacity = destinationZoneId
+    ? zoneById.get(destinationZoneId)?.capacity ?? 1
+    : 1;
+  const maxZoneStartPosition = Math.max(
+    1,
+    destinationZoneCapacity - Math.max(1, selectedBankItemIds.length) + 1,
+  );
+  const effectiveZonePosition = Math.min(zonePosition, maxZoneStartPosition);
+
+  function renderZonePanel(zoneId: LiveLayoutZoneId) {
+    const zone = zoneById.get(zoneId);
+    if (!zone) return null;
+    const slots = physicalDeskZoneSlots(physicalDesk, zoneId);
+    const additional = desk.physicalCompatibility.additionalPhysicalZoneIds.includes(zoneId);
     return (
-      <article className="thematic-workspace-body" key={zone.key}>
+      <article className="thematic-workspace-body" key={zone.id} data-zone-id={zone.id}>
         <div className="thematic-zone-editor">
           <label>
             <span>Título público</span>
             <input
-              aria-label={`Título público de ${zone.label}`}
-              disabled={applyState === "saving"}
+              aria-label={`Título público de ${zone.publicTitle}`}
+              defaultValue={zone.publicTitle}
+              disabled={mutationBlocked || applyState === "saving"}
+              key={`${zone.id}:${zone.publicTitle}`}
               maxLength={120}
-              onBlur={() =>
-                setMessage(
-                  editorState.draftPageControls.thematicZoneTitles[zone.key].trim()
-                    ? `${zone.label}: título público alterado em preview.`
-                    : `${zone.label}: título público limpo em preview.`,
-                )
-              }
-              onChange={(event) => {
-                const value = event.target.value;
-
-                setEditorState((current) => ({
-                  ...current,
-                  draftPageControls: {
-                    ...current.draftPageControls,
-                    thematicZoneTitles: {
-                      ...current.draftPageControls.thematicZoneTitles,
-                      [zone.key]: value,
-                    },
-                  },
-                }));
-                setApplyState("idle");
-              }}
-              placeholder={zone.label}
+              onBlur={(event) => runPhysicalOperation(
+                (state) => changePhysicalDeskZone(state, zone.id, { publicTitle: event.target.value }),
+                `${zone.publicTitle}: título físico alterado em preview.`,
+              )}
               type="text"
-              value={editorState.draftPageControls.thematicZoneTitles[zone.key]}
             />
           </label>
-
           <label>
             <span>Apresentação</span>
             <select
-              aria-label={`Apresentação de ${zone.label}`}
-              disabled={applyState === "saving"}
-              onChange={(event) =>
-                changeZoneLayout(
-                  zone.key,
-                  event.target.value as EditorialVisualFamily,
-                )
-              }
-              value={editorState.draftPageControls.thematicZoneLayouts[zone.key]}
+              aria-label={`Apresentação de ${zone.publicTitle}`}
+              disabled={mutationBlocked || applyState === "saving"}
+              onChange={(event) => runPhysicalOperation(
+                (state) => changePhysicalDeskZone(state, zone.id, {
+                  visualFamily: event.target.value as EditorialVisualFamily,
+                }),
+                `${zone.publicTitle}: layout físico alterado em preview.`,
+              )}
+              value={zone.visualFamily}
             >
               {EDITORIAL_VISUAL_FAMILIES.map((family) => (
-                <option key={family} value={family}>
-                  {EDITORIAL_VISUAL_FAMILY_DEFINITIONS[family].label}
-                </option>
+                <option key={family} value={family}>{EDITORIAL_VISUAL_FAMILY_DEFINITIONS[family].label}</option>
               ))}
             </select>
           </label>
           <strong className="thematic-zone-editor-count">
-            {zone.items.length}/{zone.capacity}
+            {slots.filter((slot) => slot.placement !== null).length}/{zone.capacity}
           </strong>
         </div>
-
-        {zoneLayoutError?.zoneKey === zone.key ? (
-          <p
-            className="thematic-zone-alert"
-            role="alert"
-          >
-            {zoneLayoutError.message}
+        {additional ? (
+          <p className="thematic-zone-alert" role="alert">
+            Zona física adicional. Continua visível, mas todo o Apply v12 está bloqueado.
           </p>
         ) : null}
-
         <div className={`thematic-slots thematic-slots-${zone.capacity}`}>
-          {Array.from(
-            { length: zone.capacity },
-            (_, index) => index + 1,
-          ).map((position) => {
-            const item =
-              zone.items.find(
-                (candidate) =>
-                  candidate.sortOrder === position,
-              );
-
-            return (
-              <div
-                className="thematic-workspace-slot"
-                data-drag-active={
-                  draggingIdentity !== null
-                }
-                key={position}
-                onDragOver={allowDrop}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-
-                  const itemIdentity =
-                    dragged(event);
-
-                  if (itemIdentity) {
-                    placeInZone(
-                      itemIdentity,
-                      zone.key,
-                      position,
-                    );
-                  }
-
-                  setDraggingIdentity(null);
-                }}
-              >
-                {item
-                  ? cardFor(
-                      item,
-                      {
-                        kind: "zone",
-                        zoneKey: zone.key,
-                      },
-                    )
-                    : (
-                      <p className="thematic-empty">
-                        Posição livre
-                      </p>
-                    )}
-              </div>
-            );
-          })}
-        </div>
-      </article>
-    );
-  }
-
-  function renderEditorialSelectionPanel() {
-    const latestPlacement =
-      editorState.draftPageControls.latestZonePlacement;
-
-    return (
-      <article className="thematic-workspace-body">
-        <div className="thematic-zone-editor">
-          <label>
-            <span>Título público</span>
-            <input
-              aria-label="Título público de Últimas"
-              disabled={applyState === "saving"}
-              maxLength={120}
-              onChange={(event) => {
-                const value = event.target.value;
-
-                setEditorState((current) => ({
-                  ...current,
-                  draftPageControls: {
-                    ...current.draftPageControls,
-                    latestZoneTitle: value,
-                  },
-                }));
-                setApplyState("idle");
+          {slots.map((slot) => (
+            <div
+              className="thematic-workspace-slot"
+              data-drag-active={draggingBankItemId !== null && !mutationBlocked}
+              key={slot.slotPosition}
+              onDragOver={allowDrop}
+              onDrop={(event) => {
+                event.preventDefault();
+                const bankItemId = dragged(event);
+                if (bankItemId) placeInZone(bankItemId, zone.id, slot.slotPosition);
+                setDraggingBankItemId(null);
               }}
-              placeholder="Últimas"
-              type="text"
-              value={editorState.draftPageControls.latestZoneTitle}
-            />
-          </label>
-
-          <label>
-            <span>Apresentação</span>
-            <select
-              aria-label="Apresentação de Últimas"
-              disabled={applyState === "saving"}
-              onChange={(event) =>
-                commitDraft(
-                  {
-                    ...currentDraft(),
-                    pageControls: {
-                      ...editorState.draftPageControls,
-                      latestZonePlacement: event.target.value as
-                        | "top"
-                        | "four_news"
-                        | "hidden",
-                    },
-                  },
-                  "Últimas alterada em preview.",
-                )
-              }
-              value={latestPlacement}
             >
-              <option value="top">Topo</option>
-              <option value="four_news">Últimas + quatro ao lado</option>
-              <option value="hidden">Oculto</option>
-            </select>
-          </label>
-          <strong className="thematic-zone-editor-count">
-            {editorialSelectionOccupied}/4
-          </strong>
-        </div>
-
-        <div
-          aria-label="Quatro ao lado das Últimas"
-          className="thematic-slots thematic-slots-4 thematic-editorial-selection"
-        >
-          {MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS.map(
-            (position) => {
-              const bankItemId =
-                draftEditorialSelection[position - 1] ?? null;
-              const candidate = bankItemId
-                ? editorialSelectionCandidateById.get(bankItemId) ?? null
-                : null;
-              const candidateIdentity = candidate
-                ? identityForBankItemId(candidate.bankItemId)
-                : null;
-
-              return (
-                <div
-                  aria-label={`Quatro ao lado das Últimas ${position}`}
-                  className="thematic-workspace-slot thematic-selection-slot"
-                  data-drag-active={
-                    draggingIdentity !== null
-                    || draggingEditorialSelectionPosition !== null
-                  }
-                  key={position}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect =
-                      draggingEditorialSelectionPosition === null
-                        ? "copy"
-                        : "move";
-                  }}
-                  onDrop={(event) =>
-                    dropOnEditorialSelection(event, position)
-                  }
-                >
-                  {candidate ? (
-                    <EditorialSelectionCard
-                      candidate={candidate}
-                      dragging={
-                        draggingEditorialSelectionPosition === position
-                      }
-                      onDragEnd={() => {
-                        setDraggingIdentity(null);
-                        setDraggingEditorialSelectionPosition(null);
-                      }}
-                      onDragStart={(event) => {
-                        event.stopPropagation();
-                        const itemIdentity =
-                          identityForBankItemId(candidate.bankItemId);
-
-                        if (!itemIdentity) {
-                          event.preventDefault();
-                          setApplyState("error");
-                          setMessage(
-                            "A notícia das quatro já não tem identidade editorial canónica.",
-                          );
-                          return;
-                        }
-
-                        event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData(
-                          "text/plain",
-                          serializeMatchdayEditorialProfileSelectionDrag({
-                            bankItemId: candidate.bankItemId,
-                            sourcePosition: position,
-                          }),
-                        );
-                        setDraggingIdentity(itemIdentity);
-                        setDraggingEditorialSelectionPosition(position);
-                      }}
-                      onFaixa={() => {
-                        const itemIdentity =
-                          identityForBankItemId(candidate.bankItemId);
-                        if (itemIdentity) {
-                          placeAtFaixaTop(itemIdentity);
-                        }
-                      }}
-                      onBank={() => {
-                        const itemIdentity =
-                          identityForBankItemId(candidate.bankItemId);
-                        if (itemIdentity) {
-                          placeInBank(itemIdentity);
-                        }
-                      }}
-                      onRemove={() =>
-                        removeEditorialSelection(position)
-                      }
-                      onToggle={() => {
-                        if (candidateIdentity) {
-                          toggleSelection(candidateIdentity);
-                        }
-                      }}
-                      position={position}
-                      selected={candidateIdentity
-                        ? selected.has(candidateIdentity)
-                        : false}
-                    />
-                  ) : (
-                    <p className="thematic-empty">
-                      Posição livre
-                    </p>
-                  )}
-                </div>
-              );
-            },
-          )}
+              {slot.placement
+                ? cardFor(slot.placement.bankItemId, { kind: "zone", zoneId: zone.id })
+                : <p className="thematic-empty">Posição livre</p>}
+            </div>
+          ))}
         </div>
       </article>
     );
-  }
-
-  function activateWorkspaceFromStructure(workspaceKey: ActiveWorkspaceKey) {
-    setActiveWorkspaceKey(workspaceKey);
-    pageStructureRef.current?.removeAttribute("open");
-  }
-
-  function activateFaixaFromStructure() {
-    pageStructureRef.current?.removeAttribute("open");
-  }
-
-  function workspaceKeyForBlock(
-    block: MatchdayEditorialProfileThematicBlockKey,
-  ): ActiveWorkspaceKey {
-    return block === "video" ? "highlight" : block;
-  }
-
-  function isZoneWorkspaceKey(
-    workspaceKey: ActiveWorkspaceKey,
-  ): workspaceKey is EditorialProfileZoneKey {
-    return effectiveProfile.zones.some((zone) => zone.key === workspaceKey);
-  }
-
-  function publicZoneTitle(zoneKey: EditorialProfileZoneKey) {
-    return editorState.draftPageControls.thematicZoneTitles[zoneKey].trim()
-      || effectiveProfile.zones.find((zone) => zone.key === zoneKey)?.label
-      || zoneKey;
-  }
-
-  function blockLabel(block: MatchdayEditorialProfileThematicBlockKey) {
-    if (block === "video") return "Destaque";
-    if (block === "latest") {
-      return editorState.draftPageControls.latestZonePlacement === "four_news"
-        ? "Últimas + quatro ao lado"
-        : "Últimas";
-    }
-    return publicZoneTitle(block);
-  }
-
-  function blockCount(block: MatchdayEditorialProfileThematicBlockKey) {
-    if (block === "video") return `${draftVideoHighlightDefined ? 1 : 0}/1`;
-    if (block === "latest") {
-      return editorState.draftPageControls.latestZonePlacement === "hidden"
-        ? `${editorialSelectionOccupied}/4 · oculto`
-        : `${editorialSelectionOccupied}/4`;
-    }
-    const zone = zoneByKey.get(block);
-    return zone ? `${zone.items.length}/${zone.capacity}` : "0/0";
-  }
-
-  function dropOnHighlight(event: DragEvent<HTMLElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const selectionDrag = parseMatchdayEditorialProfileSelectionDrag(
-      event.dataTransfer.getData("text/plain"),
-    );
-    const itemIdentity = dragged(event);
-    const bankItemId = selectionDrag?.bankItemId
-      || (itemIdentity ? bankItemIdByIdentity.get(itemIdentity) : null);
-    const candidate = bankItemId
-      ? editorialSelectionCandidateById.get(bankItemId) ?? null
-      : null;
-
-    if (
-      !bankItemId
-      || candidate?.sourceType?.trim().toLowerCase() !== "editorial_article"
-    ) {
-      setApplyState("error");
-      setMessage("O Destaque aceita apenas artigos editoriais disponíveis.");
-      setDraggingIdentity(null);
-      setDraggingEditorialSelectionPosition(null);
-      return;
-    }
-
-    changeVideoHighlight(`replace:${bankItemId}`);
-    setDraggingIdentity(null);
-    setDraggingEditorialSelectionPosition(null);
   }
 
   function renderOpeningWorkspace() {
     return (
       <article className="thematic-workspace-body">
-        <div
-          className={`thematic-slots thematic-slots-${MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.length}`}
-        >
-          {MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.map((slot) => {
-            const sourceId = editorState.draftOpening[slot];
-            const item = sourceId
-              ? activeByIdentity.get(
-                  thematicEditorialIdentity("editorial_article", sourceId),
-                )
-              : null;
-
+        <div className="thematic-slots thematic-slots-5">
+          {MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.map((slot, index) => {
+            const position = index + 1;
+            const placement = openingPlacements.find((candidate) => candidate.slotPosition === position);
             return (
               <div
                 className="thematic-workspace-slot"
-                data-drag-active={draggingIdentity !== null}
+                data-drag-active={draggingBankItemId !== null && !mutationBlocked}
                 key={slot}
                 onDragOver={allowDrop}
                 onDrop={(event) => {
                   event.preventDefault();
-                  const itemIdentity = dragged(event);
-                  if (itemIdentity) placeInOpening(itemIdentity, slot);
-                  setDraggingIdentity(null);
+                  const bankItemId = dragged(event);
+                  if (bankItemId) placeInOpening(bankItemId, position);
+                  setDraggingBankItemId(null);
                 }}
               >
-                <span className="thematic-slot-label">
-                  {MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS[slot]}
-                </span>
-                {item
-                  ? cardFor(
-                      { ...item, manualOverride: null },
-                      { kind: "opening" },
-                    )
+                <span className="thematic-slot-label">{MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS[slot]}</span>
+                {placement
+                  ? cardFor(placement.bankItemId, { kind: "opening" })
                   : <p className="thematic-empty">Posição livre</p>}
               </div>
             );
@@ -3206,327 +1178,258 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     );
   }
 
-  function renderHighlightWorkspace() {
-    const highlightTitle = draftVideoHighlightCandidate?.title
-      ?? desk.videoModule.highlight.title
-      ?? "Destaque";
-    const highlightSubtitle = draftVideoHighlightCandidate?.subtitle
-      ?? desk.videoModule.highlight.text;
-    const highlightImageUrl = draftVideoHighlightCandidate?.imageUrl
-      ?? desk.videoModule.highlight.imageUrl;
-
+  function renderEditorialSelectionPanel() {
     return (
       <article className="thematic-workspace-body">
-        <div className="thematic-highlight-row">
-        <div className="thematic-highlight-controls">
+        <div className="thematic-zone-editor">
           <label>
-            <span>Visibilidade</span>
+            <span>Título público</span>
+            <input
+              aria-label="Título público de Últimas"
+              defaultValue={current.presentation.latestZoneTitle}
+              disabled={mutationBlocked || applyState === "saving"}
+              key={current.presentation.latestZoneTitle}
+              maxLength={120}
+              onBlur={(event) => runPhysicalOperation(
+                (state) => changePhysicalDeskPresentation(state, { latestZoneTitle: event.target.value.trim() }),
+                "Título de Últimas alterado em preview.",
+              )}
+              type="text"
+            />
+          </label>
+          <label>
+            <span>Apresentação</span>
             <select
-              disabled={applyState === "saving"}
-              onChange={(event) =>
-                changeVideoModuleActive(event.target.value === "active")
-              }
-              value={editorState.draftVideoModule.active ? "active" : "hidden"}
+              aria-label="Apresentação de Últimas"
+              disabled={mutationBlocked || applyState === "saving"}
+              onChange={(event) => runPhysicalOperation(
+                (state) => changePhysicalDeskPresentation(state, {
+                  latestZonePlacement: event.target.value === "four_news"
+                    ? "four_news"
+                    : event.target.value === "hidden"
+                      ? "hidden"
+                      : "top",
+                }),
+                "Últimas alterada em preview.",
+              )}
+              value={current.presentation.latestZonePlacement}
             >
-              <option value="active">Ativo</option>
+              <option value="top">Topo</option>
+              <option value="four_news">Últimas + quatro ao lado</option>
               <option value="hidden">Oculto</option>
             </select>
           </label>
+          <strong className="thematic-zone-editor-count">{editorialSelectionOccupied}/4</strong>
         </div>
-
-        <div
-          aria-label="Destaque editorial"
-          className="thematic-workspace-slot thematic-highlight-slot"
-          data-drag-active={draggingIdentity !== null}
-          onDragOver={allowDrop}
-          onDrop={dropOnHighlight}
-        >
-          {draftVideoHighlightDefined ? (
-            <article className="thematic-highlight-card">
-              {renderableImageUrl(highlightImageUrl) ? (
-                <Image
-                  alt=""
-                  height={220}
-                  loader={imageLoader}
-                  src={highlightImageUrl!}
-                  unoptimized
-                  width={420}
-                />
-              ) : null}
-              <div>
-                <strong>{highlightTitle}</strong>
-                {highlightSubtitle ? <span>{highlightSubtitle}</span> : null}
-                <button
-                  className="thematic-button danger"
-                  disabled={applyState === "saving"}
-                  onClick={() => changeVideoHighlight("remove")}
-                  type="button"
-                >
-                  Retirar
-                </button>
+        <div aria-label="Quatro ao lado das Últimas" className="thematic-slots thematic-slots-4 thematic-editorial-selection">
+          {MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS.map((position) => {
+            const placement = selectionPlacements.find((candidate) => candidate.slotPosition === position);
+            const candidate = placement ? candidateForBankItem(placement.bankItemId) : null;
+            return (
+              <div
+                aria-label={`Quatro ao lado das Últimas ${position}`}
+                className="thematic-workspace-slot thematic-selection-slot"
+                data-drag-active={(draggingBankItemId !== null || draggingEditorialSelectionPosition !== null) && !mutationBlocked}
+                key={position}
+                onDragOver={allowDrop}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const bankItemId = dragged(event);
+                  if (bankItemId) placeInSelection(bankItemId, position);
+                  setDraggingBankItemId(null);
+                  setDraggingEditorialSelectionPosition(null);
+                }}
+              >
+                {candidate ? (
+                  <EditorialSelectionCard
+                    candidate={candidate}
+                    dragging={draggingEditorialSelectionPosition === position}
+                    onBank={() => placeInBank(candidate.bankItemId)}
+                    onDragEnd={() => {
+                      setDraggingBankItemId(null);
+                      setDraggingEditorialSelectionPosition(null);
+                    }}
+                    onDragStart={(event) => {
+                      if (mutationBlocked) {
+                        event.preventDefault();
+                        return;
+                      }
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", serializeMatchdayEditorialProfileSelectionDrag({
+                        bankItemId: candidate.bankItemId,
+                        sourcePosition: position,
+                      }));
+                      setDraggingBankItemId(candidate.bankItemId);
+                      setDraggingEditorialSelectionPosition(position);
+                    }}
+                    onFaixa={() => placeAtFaixaTop(candidate.bankItemId)}
+                    onRemove={() => placeInDisplaced(candidate.bankItemId)}
+                    onToggle={() => toggleSelection(candidate.bankItemId)}
+                    position={position}
+                    selected={selected.has(candidate.bankItemId)}
+                  />
+                ) : <p className="thematic-empty">Posição livre</p>}
               </div>
-            </article>
-          ) : (
-            <p className="thematic-empty">Posição livre</p>
-          )}
+            );
+          })}
         </div>
-        </div>
+      </article>
+    );
+  }
 
+  function renderHighlightWorkspace() {
+    const highlighted = highlightPlacement ? bankItemById.get(highlightPlacement.bankItemId) : null;
+    return (
+      <article className="thematic-workspace-body">
+        <div className="thematic-highlight-row">
+          <div className="thematic-highlight-controls">
+            <label className="thematic-field">
+              Módulo
+              <select
+                disabled={mutationBlocked || applyState === "saving"}
+                onChange={(event) => runPhysicalOperation(
+                  (state) => changePhysicalDeskPresentation(state, {
+                    videoModuleActive: event.target.value === "active",
+                  }),
+                  "Visibilidade do Destaque alterada em preview.",
+                )}
+                value={current.presentation.videoModuleActive ? "active" : "hidden"}
+              >
+                <option value="active">Ativo</option>
+                <option value="hidden">Oculto</option>
+              </select>
+            </label>
+          </div>
+          <div
+            aria-label="Destaque editorial"
+            className="thematic-highlight-slot"
+            data-drag-active={draggingBankItemId !== null && !mutationBlocked}
+            onDragOver={allowDrop}
+            onDrop={(event) => {
+              event.preventDefault();
+              const bankItemId = dragged(event);
+              if (bankItemId) runPhysicalOperation(
+                (state) => movePhysicalDeskItemToSlot(state, bankItemId, {
+                  placementType: "video_highlight", zoneId: null, slotPosition: 1,
+                }),
+                "Destaque atualizado em preview físico.",
+              );
+              setDraggingBankItemId(null);
+            }}
+          >
+            {highlighted ? (
+              <article className="thematic-highlight-card">
+                {renderableImageUrl(highlighted.imageUrl) ? (
+                  <Image alt="" height={220} loader={imageLoader} src={highlighted.imageUrl} unoptimized width={420} />
+                ) : null}
+                <div>
+                  <strong>{highlighted.title}</strong>
+                  {highlighted.subtitle ? <span>{highlighted.subtitle}</span> : null}
+                  <button
+                    className="thematic-button danger"
+                    disabled={mutationBlocked || applyState === "saving"}
+                    onClick={() => placeInDisplaced(highlighted.id)}
+                    type="button"
+                  >
+                    Retirar
+                  </button>
+                </div>
+              </article>
+            ) : <p className="thematic-empty">Posição livre</p>}
+          </div>
+        </div>
       </article>
     );
   }
 
   function renderSources() {
-    function dropOnTrackingState(
-      event: DragEvent<HTMLElement>,
-      state: MatchdayEditorialTrackingState,
-    ) {
-      event.preventDefault();
-      const itemIdentity = dragged(event);
-      if (itemIdentity) {
-        if (state === "DESALOJADA") {
-          placeInDisplaced(itemIdentity);
-        } else if (state === "FAIXA") {
-          placeAtFaixaTop(itemIdentity);
-        }
-      }
-      setDraggingIdentity(null);
-    }
-
     return (
       <section className="thematic-sources" aria-label="Tracking editorial por classe">
         <div className="thematic-sources-toolbar">
           <h2>Tracking</h2>
           <nav aria-label="Escolher classe contextual">
-            <button
-              className={trackingClassFilter === "all" ? "active" : ""}
-              onClick={() => {
-                setTrackingClassFilter("all");
-                setTrackingVisibleCounts({
-                  NOVA: TRACKING_INITIAL_VISIBLE,
-                  FAIXA: TRACKING_INITIAL_VISIBLE,
-                  DESALOJADA: TRACKING_INITIAL_VISIBLE,
-                });
-              }}
-              type="button"
-            >
-              Todas {trackableItems.length}
+            <button className={trackingClassFilter === "all" ? "active" : ""} onClick={() => setTrackingClassFilter("all")} type="button">
+              Todas {filteredTrackingEntries.length}
             </button>
             {profile.zones.map((zone) => (
-              <button
-                className={trackingClassFilter === zone.key ? "active" : ""}
-                key={zone.key}
-                onClick={() => {
-                  setTrackingClassFilter(zone.key);
-                  setTrackingVisibleCounts({
-                    NOVA: TRACKING_INITIAL_VISIBLE,
-                    FAIXA: TRACKING_INITIAL_VISIBLE,
-                    DESALOJADA: TRACKING_INITIAL_VISIBLE,
-                  });
-                }}
-                type="button"
-              >
-                {zone.label} {trackableItems.filter((item) => (
-                  item.classifiedZoneKey === zone.key
-                )).length}
+              <button className={trackingClassFilter === zone.key ? "active" : ""} key={zone.key} onClick={() => setTrackingClassFilter(zone.key)} type="button">
+                {zone.label} {trackingEntries.filter((item) => item.classifiedZoneKey === zone.key).length}
               </button>
             ))}
           </nav>
           <div className="thematic-bank-access">
-            <button
-              aria-controls="thematic-bank-pool"
-              aria-expanded={bankOpen}
-              className={`thematic-button${bankOpen ? " active" : ""}`}
-              onClick={() => setBankOpen((current) => !current)}
-              type="button"
-            >
+            <button aria-controls="thematic-bank-pool" aria-expanded={bankOpen} className={`thematic-button${bankOpen ? " active" : ""}`} onClick={() => setBankOpen((value) => !value)} type="button">
               Banco {explicitBankEntries.length}
             </button>
           </div>
           <label className="thematic-reservoir-search">
             <span>Pesquisa</span>
-            <input
-              aria-label="Pesquisar Tracking e Banco"
-              onChange={(event) => {
-                setTrackingQuery(event.target.value);
-                setTrackingVisibleCounts({
-                  NOVA: TRACKING_INITIAL_VISIBLE,
-                  FAIXA: TRACKING_INITIAL_VISIBLE,
-                  DESALOJADA: TRACKING_INITIAL_VISIBLE,
-                });
-                setBankVisibleCount(TRACKING_INITIAL_VISIBLE);
-              }}
-              placeholder="Título ou antetítulo"
-              type="search"
-              value={trackingQuery}
-            />
+            <input aria-label="Pesquisar Tracking e Banco" onChange={(event) => setTrackingQuery(event.target.value)} placeholder="Título ou antetítulo" type="search" value={trackingQuery} />
           </label>
-          <div className="thematic-reservoir-count">
-            <strong>{filteredSourceItems.length}</strong>
-            <span>em tracking</span>
-          </div>
         </div>
-
         {bankOpen ? (
-          <section
-            aria-label="Banco editorial"
-            className="thematic-bank-pool"
-            id="thematic-bank-pool"
-          >
+          <section aria-label="Banco editorial" className="thematic-bank-pool" id="thematic-bank-pool">
             <div className="thematic-bank-class-filters">
               <nav aria-label="Filtrar Banco por classe contextual">
-                <button
-                  className={bankClassFilter === "all" ? "active" : ""}
-                  onClick={() => {
-                    setBankClassFilter("all");
-                    setBankVisibleCount(TRACKING_INITIAL_VISIBLE);
-                  }}
-                  type="button"
-                >
-                  Todas {explicitBankEntries.length}
-                </button>
+                <button className={bankClassFilter === "all" ? "active" : ""} onClick={() => setBankClassFilter("all")} type="button">Todas {explicitBankEntries.length}</button>
                 {profile.zones.map((zone) => (
-                  <button
-                    className={bankClassFilter === zone.key ? "active" : ""}
-                    key={zone.key}
-                    onClick={() => {
-                      setBankClassFilter(zone.key);
-                      setBankVisibleCount(TRACKING_INITIAL_VISIBLE);
-                    }}
-                    type="button"
-                  >
-                    {zone.label} {explicitBankEntries.filter((entry) => (
-                      entry.classifiedZoneKey === zone.key
-                    )).length}
+                  <button className={bankClassFilter === zone.key ? "active" : ""} key={zone.key} onClick={() => setBankClassFilter(zone.key)} type="button">
+                    {zone.label} {explicitBankEntries.filter((entry) => entry.classifiedZoneKey === zone.key).length}
                   </button>
                 ))}
               </nav>
-              <button
-                className="thematic-button"
-                disabled={filteredBankEntries.length === 0}
-                onClick={() => setEditorState((current) => ({
-                  ...current,
-                  selectedIdentities: Array.from(new Set([
-                    ...current.selectedIdentities,
-                    ...filteredBankEntries.map(({ item }) => identity(item)),
-                  ])),
-                }))}
-                type="button"
-              >
-                Selecionar Banco
-              </button>
+              <button className="thematic-button" disabled={filteredBankEntries.length === 0} onClick={() => selectItems(filteredBankEntries.map((entry) => entry.bankItemId))} type="button">Selecionar Banco</button>
             </div>
             <div className="thematic-sources-list">
               {visibleBankEntries.length > 0
-                ? visibleBankEntries.map(({ bankItemId, item }) => (
-                    <Fragment key={bankItemId}>
-                      {cardFor(item, { kind: "bank" })}
-                    </Fragment>
-                  ))
+                ? visibleBankEntries.map((entry) => <Fragment key={entry.bankItemId}>{cardFor(entry.bankItemId, { kind: "bank" })}</Fragment>)
                 : <p className="thematic-empty">Sem notícias estacionadas no Banco.</p>}
             </div>
             {visibleBankEntries.length < filteredBankEntries.length ? (
-              <div className="thematic-more">
-                <button
-                  className="thematic-button"
-                  onClick={() => setBankVisibleCount((current) => (
-                    current + TRACKING_PAGE_SIZE
-                  ))}
-                  type="button"
-                >
-                  Mostrar mais {Math.min(
-                    TRACKING_PAGE_SIZE,
-                    filteredBankEntries.length - visibleBankEntries.length,
-                  )}
-                </button>
-                <span>{visibleBankEntries.length}/{filteredBankEntries.length}</span>
-              </div>
+              <div className="thematic-more"><button className="thematic-button" onClick={() => setBankVisibleCount((value) => value + TRACKING_PAGE_SIZE)} type="button">Mostrar mais</button></div>
             ) : null}
           </section>
         ) : null}
-
         <div className="thematic-tracking-rows">
           {TRACKING_STATES.map((state) => {
             const entries = trackingEntriesForState(state);
-            const visibleEntries = entries.slice(0, trackingVisibleCounts[state]);
-            const label = state === "NOVA"
-              ? "Novas"
-              : state === "FAIXA"
-                ? "Faixa"
-                : "Desalojadas";
-            const emptyLabel = state === "NOVA"
-              ? "Sem notícias novas nesta classe."
-              : state === "FAIXA"
-                ? "Sem notícias na Faixa nesta classe."
-                : "Sem notícias desalojadas nesta classe.";
-
+            const visible = entries.slice(0, trackingVisibleCounts[state]);
+            const label = state === "NOVA" ? "Novas" : state === "FAIXA" ? "Faixa" : "Desalojadas";
             return (
-              <section
-                aria-label={`${label} · ${trackingClassFilter === "all" ? "todas" : trackingClassFilter}`}
-                className="thematic-tracking-row"
-                data-tracking-state={state}
-                key={state}
-              >
+              <section aria-label={`${label} · ${trackingClassFilter}`} className="thematic-tracking-row" data-tracking-state={state} key={state}>
                 <div className="thematic-tracking-row-label">
-                  <strong>{label}</strong>
-                  <span>{entries.length}</span>
-                  {entries.length > 0 ? (
-                    <button
-                      className="thematic-button"
-                      onClick={() => setEditorState((current) => ({
-                        ...current,
-                        selectedIdentities: Array.from(new Set([
-                          ...current.selectedIdentities,
-                          ...entries.map(({ item }) => identity(item)),
-                        ])),
-                      }))}
-                      type="button"
-                    >
-                      Selecionar linha
-                    </button>
-                  ) : null}
+                  <strong>{label}</strong><span>{entries.length}</span>
+                  {entries.length > 0 ? <button className="thematic-button" onClick={() => selectItems(entries.map((entry) => entry.bankItemId))} type="button">Selecionar linha</button> : null}
                 </div>
                 {state !== "NOVA" ? (
                   <div
                     className="thematic-tracking-drop-target"
-                    data-drag-active={draggingIdentity !== null}
+                    data-drag-active={draggingBankItemId !== null && !mutationBlocked}
                     onDragOver={allowDrop}
-                    onDrop={(event) =>
-                      dropOnTrackingState(event, state)
-                    }
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const bankItemId = dragged(event);
+                      if (bankItemId) {
+                        if (state === "FAIXA") placeAtFaixaTop(bankItemId);
+                        else placeInDisplaced(bankItemId);
+                      }
+                      setDraggingBankItemId(null);
+                    }}
                   >
-                    {state === "FAIXA"
-                      ? "Largar aqui · entra no topo da Faixa"
-                      : "Largar aqui · passa para Desalojadas"}
+                    {state === "FAIXA" ? "Largar aqui · entra no topo da Faixa" : "Largar aqui · passa para Desalojadas"}
                   </div>
                 ) : null}
-                <div
-                  className="thematic-sources-list"
-                  data-drag-active={draggingIdentity !== null}
-                  onDragOver={state === "NOVA" ? undefined : allowDrop}
-                  onDrop={state === "NOVA"
-                    ? undefined
-                    : (event) => dropOnTrackingState(event, state)}
-                >
-                  {visibleEntries.length > 0
-                    ? visibleEntries.map(({ item }) => (
-                        state === "FAIXA"
-                          ? renderFaixaItem(item)
-                          : cardFor(item, trackingPlacement(state))
+                <div className="thematic-sources-list">
+                  {visible.length > 0
+                    ? visible.map((entry) => (
+                        <Fragment key={entry.bankItemId}>
+                          {cardFor(entry.bankItemId, state === "FAIXA" ? { kind: "faixa" } : state === "DESALOJADA" ? { kind: "displaced" } : { kind: "new" })}
+                        </Fragment>
                       ))
-                    : <p className="thematic-empty">{emptyLabel}</p>}
+                    : <p className="thematic-empty">Sem notícias neste estado.</p>}
                 </div>
-                {visibleEntries.length < entries.length ? (
-                  <div className="thematic-more">
-                    <button
-                      className="thematic-button"
-                      onClick={() => showMoreTracking(state)}
-                      type="button"
-                    >
-                      Mostrar mais
-                    </button>
-                    <span>{entries.length - visibleEntries.length} por mostrar</span>
-                  </div>
+                {visible.length < entries.length ? (
+                  <div className="thematic-more"><button className="thematic-button" onClick={() => setTrackingVisibleCounts((values) => ({ ...values, [state]: values[state] + TRACKING_PAGE_SIZE }))} type="button">Mostrar mais</button></div>
                 ) : null}
               </section>
             );
@@ -3536,14 +1439,84 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     );
   }
 
+  function isZoneWorkspaceKey(workspaceKey: ActiveWorkspaceKey): workspaceKey is LiveLayoutZoneId {
+    return current.zones.some((zone) => zone.id === workspaceKey);
+  }
+
+  function workspaceKeyForBlock(block: PhysicalDeskState["current"]["blocks"][number]): ActiveWorkspaceKey {
+    return block.kind === "zone" ? block.zoneId : block.kind === "video" ? "highlight" : "latest";
+  }
+
+  function blockLabel(block: PhysicalDeskState["current"]["blocks"][number]) {
+    if (block.kind === "latest") return current.presentation.latestZoneTitle;
+    if (block.kind === "video") return "Destaque";
+    return zoneById.get(block.zoneId)?.publicTitle ?? "Zona física inválida";
+  }
+
+  function blockCount(block: PhysicalDeskState["current"]["blocks"][number]) {
+    if (block.kind === "latest") return `${editorialSelectionOccupied}/4`;
+    if (block.kind === "video") return `${highlightPlacement ? 1 : 0}/1`;
+    const zone = zoneById.get(block.zoneId);
+    if (!zone) return "0/0";
+    return `${physicalDeskZoneSlots(physicalDesk, zone.id).filter((slot) => slot.placement).length}/${zone.capacity}`;
+  }
+
+  function activateWorkspaceFromStructure(workspaceKey: ActiveWorkspaceKey) {
+    setActiveWorkspaceKey(workspaceKey);
+    pageStructureRef.current?.removeAttribute("open");
+  }
+
   function renderActiveWorkspace() {
     if (activeWorkspaceKey === "opening") return renderOpeningWorkspace();
     if (activeWorkspaceKey === "latest") return renderEditorialSelectionPanel();
     if (activeWorkspaceKey === "highlight") return renderHighlightWorkspace();
-    if (isZoneWorkspaceKey(activeWorkspaceKey)) {
-      return renderZonePanel(activeWorkspaceKey);
-    }
+    if (isZoneWorkspaceKey(activeWorkspaceKey)) return renderZonePanel(activeWorkspaceKey);
     return null;
+  }
+
+  function undo() {
+    if (mutationBlocked) return;
+    setPhysicalDesk((state) => undoPhysicalDeskState(state));
+    setApplyState("idle");
+    setMessage("Última alteração física desfeita.");
+  }
+
+  function resetLocal() {
+    if (mutationBlocked) return;
+    setPhysicalDesk((state) => resetPhysicalDeskState(state));
+    setApplyState("idle");
+    setMessage("Preview físico reposto para o último estado aplicado.");
+  }
+
+  async function applyChanges() {
+    if (!pending || applyState === "saving") return;
+    if (legacyApplyBlockReason) {
+      setApplyState("error");
+      setMessage("Apply v12 bloqueado: o workspace físico não é integralmente representável no legacy.");
+      return;
+    }
+    setApplyState("saving");
+    setMessage("A validar o round-trip legacy e aplicar numa única transação…");
+    try {
+      const projection = buildPhysicalDeskLegacyApplyProjection(
+        physicalDesk,
+        desk,
+        desk.physicalCompatibility,
+      );
+      const response = await fetch(`/api/admin/editorial/jornada/${desk.matchdayId}/organizar/tematico`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(projection),
+      });
+      const payload = await readAdminJsonResponse<{ ok?: boolean; message?: string }>(response);
+      if (payload.ok !== true) throw new Error(payload.message ?? "O Apply temático foi recusado integralmente.");
+      setApplyState("saved");
+      setMessage("Aplicado. A confirmar o estado autoritativo do servidor…");
+      router.refresh();
+    } catch (error) {
+      setApplyState("error");
+      setMessage(error instanceof Error ? error.message : "Não foi possível aplicar as alterações.");
+    }
   }
 
   return (
@@ -3560,204 +1533,48 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           <nav><a href="/admin">Backoffice</a></nav>
         </header>
 
-        <MatchdayEditorialContextSelector
-          currentCompetitionId={desk.competitionId}
-          currentMatchdayId={desk.matchdayId}
-          currentSeasonId={desk.seasonId}
-          data={contextSelector}
-        />
+        <MatchdayEditorialContextSelector currentCompetitionId={desk.competitionId} currentMatchdayId={desk.matchdayId} currentSeasonId={desk.seasonId} data={contextSelector} />
 
-        {message ? (
-          <p
-            aria-live={applyState === "error" ? "assertive" : "polite"}
-            className={`thematic-message feedback${applyState === "error" ? " error" : ""}`}
-          >
-            {message}
+        {legacyApplyBlockReason ? (
+          <p aria-live="assertive" className="thematic-message error" data-legacy-apply-blocked="true">
+            Workspace físico não representável no legacy. Toda a edição e o Apply v12 estão bloqueados; nenhuma zona foi ocultada.
           </p>
         ) : null}
+        {message ? <p aria-live={applyState === "error" ? "assertive" : "polite"} className={`thematic-message feedback${applyState === "error" ? " error" : ""}`}>{message}</p> : null}
 
         {selected.size > 0 ? (
           <section className="thematic-bulk-context" aria-label="Operação em lote">
-            <div className="thematic-bulk-context-head">
-              <div className="thematic-bulk-context-copy">
-                <strong>
-                  Operação em lote · {selected.size === 1
-                    ? "1 notícia selecionada"
-                    : `${selected.size} notícias selecionadas`}
-                </strong>
-              </div>
-            </div>
-
+            <div className="thematic-bulk-context-head"><strong>Operação em lote · {selected.size} notícias selecionadas</strong></div>
             <div className="thematic-bulk-context-actions">
               <div className="thematic-bulk-group">
                 <label className="thematic-field zone">
                   Zona de destino
-                  <select
-                    value={destinationZone}
-                    onChange={(event) => {
-                      setDestinationZone(event.target.value as EditorialProfileZoneKey);
-                    }}
-                  >
-                    {profile.zones.map((zone) => (
-                      <option key={zone.key} value={zone.key}>{zone.label}</option>
-                    ))}
+                  <select disabled={mutationBlocked} value={destinationZoneId ?? ""} onChange={(event) => {
+                    const next = current.zones.find((zone) => zone.id === event.target.value);
+                    setDestinationZoneId(next?.id ?? null);
+                  }}>
+                    {current.zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.publicTitle}</option>)}
                   </select>
                 </label>
-                <label className="thematic-field">
-                  Posição na zona
-                  <select
-                    value={effectiveZonePosition}
-                    onChange={(event) => setZonePosition(Number(event.target.value))}
-                  >
-                    {Array.from({ length: maxZoneStartPosition }, (_, index) => index + 1).map((position) => (
-                      <option key={position} value={position}>{position}</option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  className="thematic-button"
-                  onClick={() => localOperation(() => {
-                    const transition = prepareExclusivePlacementTransition(selectedIdentities);
-                    const targetZone = reconcile.zonesAfter.find(
-                      (zone) => zone.key === destinationZone,
-                    );
-                    const selectedSet = new Set(selectedIdentities);
-                    const movements = selectedIdentities.map((itemIdentity, index) => {
-                      const targetPosition = effectiveZonePosition + index;
-                      const targetItem = targetZone?.items.find(
-                        (item) => item.sortOrder === targetPosition,
-                      );
-                      const displacedIdentity = targetItem
-                        ? identity(targetItem)
-                        : null;
-                      return {
-                        incomingIdentity: itemIdentity,
-                        source: previewPlacementForIdentity(itemIdentity),
-                        target: {
-                          kind: "zone" as const,
-                          zoneKey: destinationZone,
-                          slotPosition: targetPosition,
-                        },
-                        displacedIdentity:
-                          displacedIdentity && !selectedSet.has(displacedIdentity)
-                            ? displacedIdentity
-                            : null,
-                      };
-                    });
-                    const displacedIdentities = movements.flatMap((movement) => (
-                      movement.displacedIdentity ? [movement.displacedIdentity] : []
-                    ));
-                    const nextDraft = withWorkedIdentities({
-                      ...currentDraft(),
-                      overrides: placeMatchdayEditorialItemsInZoneWithoutCascade(
-                        effectiveProfile,
-                        transition.candidates,
-                        transition.overrides,
-                        selectedIdentities,
-                        destinationZone,
-                        effectiveZonePosition,
-                        targetZone?.items ?? [],
-                      ),
-                      opening: transition.opening,
-                      editorialSelection: transition.editorialSelection,
-                    }, [...selectedIdentities, ...displacedIdentities]);
-                    return withPreviewMovements(nextDraft, movements);
-                  }, "Operação em lote colocada diretamente nos destinos; notícias substituídas ficam desalojadas.")}
-                  type="button"
-                >
-                  Mover para zona
-                </button>
+                <label className="thematic-field">Posição na zona<select disabled={mutationBlocked} value={effectiveZonePosition} onChange={(event) => setZonePosition(Number(event.target.value))}>{Array.from({ length: maxZoneStartPosition }, (_, index) => index + 1).map((position) => <option key={position} value={position}>{position}</option>)}</select></label>
+                <button className="thematic-button" disabled={mutationBlocked || !destinationZoneId} onClick={() => {
+                  if (!destinationZoneId) return;
+                  runPhysicalOperation(
+                    (state) => bulkMovePhysicalDeskItemsToZone(state, selectedBankItemIds, destinationZoneId, effectiveZonePosition),
+                    "Operação em lote aplicada ao draft físico.",
+                  );
+                }} type="button">Mover para zona</button>
               </div>
-
               <div className="thematic-bulk-group">
-                <label className="thematic-field">
-                  Posição na Faixa
-                  <select value={faixaPosition} onChange={(event) => setFaixaPosition(Number(event.target.value))}>
-                    {Array.from({ length: Math.max(1, reconcile.faixaAfter.length + 1) }, (_, index) => index + 1).map((position) => (
-                      <option key={position} value={position}>{position}</option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  className="thematic-button"
-                  onClick={() => localOperation(() => {
-                    const transition = prepareExclusivePlacementTransition(selectedIdentities);
-                    const selectedSet = new Set(selectedIdentities);
-                    const movements = selectedIdentities.map((itemIdentity, index) => {
-                      const targetPosition = faixaPosition + index;
-                      const targetItem = reconcile.faixaAfter.find(
-                        (item) => item.sortOrder === targetPosition,
-                      );
-                      const displacedIdentity = targetItem
-                        ? identity(targetItem)
-                        : null;
-                      return {
-                        incomingIdentity: itemIdentity,
-                        source: previewPlacementForIdentity(itemIdentity),
-                        target: {
-                          kind: "faixa" as const,
-                          slotPosition: targetPosition,
-                        },
-                        displacedIdentity:
-                          displacedIdentity && !selectedSet.has(displacedIdentity)
-                            ? displacedIdentity
-                            : null,
-                      };
-                    });
-                    const displacedIdentities = movements.flatMap((movement) => (
-                      movement.displacedIdentity ? [movement.displacedIdentity] : []
-                    ));
-                    const nextDraft = withWorkedIdentities({
-                      ...currentDraft(),
-                      overrides: placeMatchdayEditorialItemsInFaixaWithoutCascade(
-                        effectiveProfile,
-                        transition.candidates,
-                        transition.overrides,
-                        selectedIdentities,
-                        faixaPosition,
-                        reconcile.faixaAfter,
-                      ),
-                      opening: transition.opening,
-                      editorialSelection: transition.editorialSelection,
-                    }, [...selectedIdentities, ...displacedIdentities]);
-                    return withPreviewMovements(nextDraft, movements);
-                  }, "Operação em lote colocada diretamente na Faixa; notícias substituídas ficam desalojadas.")}
-                  type="button"
-                >
-                  Mover para Faixa
-                </button>
-              </div>
-
-              <div className="thematic-bulk-group">
-                <button
-                  className="thematic-button"
-                  onClick={() => localOperation(() => {
-                    const transition = prepareExclusivePlacementTransition(selectedIdentities);
-                    const nextDraft = withWorkedIdentities({
-                      ...currentDraft(),
-                      overrides: moveMatchdayEditorialItemsToBank(
-                        effectiveProfile,
-                        transition.candidates,
-                        transition.overrides,
-                        selectedIdentities,
-                      ),
-                      opening: transition.opening,
-                      editorialSelection: transition.editorialSelection,
-                    }, selectedIdentities);
-                    return withPreviewMovements(
-                      nextDraft,
-                      selectedIdentities.map((itemIdentity) => ({
-                        incomingIdentity: itemIdentity,
-                        source: previewPlacementForIdentity(itemIdentity),
-                        target: { kind: "bank" },
-                        displacedIdentity: null,
-                      })),
-                    );
-                  }, "Operação em lote movida para o Banco.")}
-                  type="button"
-                >
-                  Mover para Banco
-                </button>
+                <label className="thematic-field">Posição na Faixa<select disabled={mutationBlocked} value={faixaPosition} onChange={(event) => setFaixaPosition(Number(event.target.value))}>{Array.from({ length: current.faixaSlotCount + 1 }, (_, index) => index + 1).map((position) => <option key={position} value={position}>{position}</option>)}</select></label>
+                <button className="thematic-button" disabled={mutationBlocked} onClick={() => runPhysicalOperation(
+                  (state) => bulkMovePhysicalDeskItemsToFaixa(state, selectedBankItemIds, faixaPosition),
+                  "Operação em lote aplicada à Faixa física.",
+                )} type="button">Mover para Faixa</button>
+                <button className="thematic-button" disabled={mutationBlocked} onClick={() => runPhysicalOperation(
+                  (state) => bulkMovePhysicalDeskItemsToBank(state, selectedBankItemIds),
+                  "Operação em lote enviada para o Banco.",
+                )} type="button">Mover para Banco</button>
               </div>
             </div>
           </section>
@@ -3769,112 +1586,24 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             <section className="thematic-page-structure" aria-label="Página e blocos">
               <div className="thematic-page-structure-head">
                 <div className="thematic-top-tools">
-                  <label>
-                    <span>Cor da Manchete</span>
-                    <input
-                      aria-label="Cor do texto da Manchete"
-                      onChange={(event) =>
-                        commitDraft(
-                          {
-                            ...currentDraft(),
-                            pageControls: {
-                              ...editorState.draftPageControls,
-                              headlineTitleColor: event.target.value.toUpperCase(),
-                            },
-                          },
-                          "Cor da Manchete alterada em preview.",
-                        )
-                      }
-                      type="color"
-                      value={editorState.draftPageControls.headlineTitleColor ?? "#FFFFFF"}
-                    />
-                  </label>
-                  <button
-                    className="thematic-button"
-                    disabled={editorState.draftPageControls.headlineTitleColor === null}
-                    onClick={() =>
-                      commitDraft(
-                        {
-                          ...currentDraft(),
-                          pageControls: {
-                            ...editorState.draftPageControls,
-                            headlineTitleColor: null,
-                          },
-                        },
-                        "Cor da Manchete devolvida ao valor automático.",
-                      )
-                    }
-                    type="button"
-                  >
-                    Automática
-                  </button>
+                  <label><span>Cor da Manchete</span><input aria-label="Cor do texto da Manchete" disabled={mutationBlocked} onChange={(event) => runPhysicalOperation((state) => changePhysicalDeskPresentation(state, { headlineTitleColor: event.target.value.toUpperCase() }), "Cor da Manchete alterada em preview.")} type="color" value={current.presentation.headlineTitleColor ?? "#FFFFFF"} /></label>
                 </div>
               </div>
-
               <div className="thematic-page-structure-list">
-                <button
-                  className={`thematic-page-row${activeWorkspaceKey === "opening" ? " active" : ""}`}
-                  onClick={() => activateWorkspaceFromStructure("opening")}
-                  type="button"
-                >
-                  <span>Fixo</span>
-                  <strong>Abertura</strong>
-                  <small>{openingOccupied}/{MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.length}</small>
-                </button>
-
-                {editorState.draftPageControls.thematicBlockOrder.map((block, index) => {
+                <button className={`thematic-page-row${activeWorkspaceKey === "opening" ? " active" : ""}`} onClick={() => activateWorkspaceFromStructure("opening")} type="button"><span>Fixo</span><strong>Abertura</strong><small>{openingOccupied}/{MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.length}</small></button>
+                {current.blocks.map((block, index) => {
                   const workspaceKey = workspaceKeyForBlock(block);
-                  const zone = block === "latest" || block === "video"
-                    ? null
-                    : zoneByKey.get(block);
-
                   return (
-                    <div className={`thematic-page-row${activeWorkspaceKey === workspaceKey ? " active" : ""}`} key={block}>
-                      <button
-                        className="thematic-page-row-main"
-                        onClick={() => activateWorkspaceFromStructure(workspaceKey)}
-                        type="button"
-                      >
-                        <span>{String(index + 1).padStart(2, "0")}</span>
-                        <strong>{blockLabel(block)}</strong>
-                        <small>
-                          {zone
-                            ? `${EDITORIAL_VISUAL_FAMILY_DEFINITIONS[zone.visualFamily].label} · `
-                            : null}
-                          {blockCount(block)}
-                        </small>
-                      </button>
+                    <div className={`thematic-page-row${activeWorkspaceKey === workspaceKey ? " active" : ""}`} key={block.kind === "zone" ? block.zoneId : block.kind}>
+                      <button className="thematic-page-row-main" onClick={() => activateWorkspaceFromStructure(workspaceKey)} type="button"><span>{String(index + 1).padStart(2, "0")}</span><strong>{blockLabel(block)}</strong><small>{blockCount(block)}</small></button>
                       <div className="thematic-page-row-actions">
-                        <button
-                          aria-label={`Subir ${blockLabel(block)}`}
-                          disabled={index === 0}
-                          onClick={() => moveContentBlock(block, "up")}
-                          type="button"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          aria-label={`Descer ${blockLabel(block)}`}
-                          disabled={index === editorState.draftPageControls.thematicBlockOrder.length - 1}
-                          onClick={() => moveContentBlock(block, "down")}
-                          type="button"
-                        >
-                          ↓
-                        </button>
+                        <button aria-label={`Subir ${blockLabel(block)}`} disabled={mutationBlocked || index === 0} onClick={() => runPhysicalOperation((state) => movePhysicalDeskBlock(state, block, "up"), "Ordem física dos blocos alterada.")} type="button">↑</button>
+                        <button aria-label={`Descer ${blockLabel(block)}`} disabled={mutationBlocked || index === current.blocks.length - 1} onClick={() => runPhysicalOperation((state) => movePhysicalDeskBlock(state, block, "down"), "Ordem física dos blocos alterada.")} type="button">↓</button>
                       </div>
                     </div>
                   );
                 })}
-
-                <button
-                  className="thematic-page-row"
-                  onClick={activateFaixaFromStructure}
-                  type="button"
-                >
-                  <span>Fixo</span>
-                  <strong>Faixa</strong>
-                  <small>{reconcile.faixaAfter.length}</small>
-                </button>
+                <button className="thematic-page-row" type="button"><span>Fixo</span><strong>Faixa</strong><small>{faixaPlacements.length}</small></button>
               </div>
             </section>
           </details>
@@ -3910,85 +1639,55 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             </details>
 
             <section className="thematic-selection-controls" aria-label="Controlos de seleção">
-            <strong>
-              {selected.size === 1
-                ? "1 notícia selecionada"
-                : `${selected.size} notícias selecionadas`}
-            </strong>
-            <button
-              className="thematic-button"
-              disabled={filteredSourceItems.length === 0}
-              onClick={() => setEditorState((current) => ({
-                ...current,
-                selectedIdentities: filteredSourceItems.map(identity),
-              }))}
-              type="button"
-            >
-              Selecionar todos
-            </button>
-            <button
-              className="thematic-button"
-              disabled={selected.size === 0}
-              onClick={() => setEditorState((current) => ({ ...current, selectedIdentities: [] }))}
-              type="button"
-            >
-              Limpar marcação
-            </button>
-          </section>
+              <strong>
+                {selected.size === 1
+                  ? "1 notícia selecionada"
+                  : `${selected.size} notícias selecionadas`}
+              </strong>
+              <button
+                className="thematic-button"
+                disabled={trackingEntries.length === 0}
+                onClick={() => selectItems(trackingEntries.map((entry) => entry.bankItemId))}
+                type="button"
+              >
+                Selecionar todos
+              </button>
+              <button
+                className="thematic-button"
+                disabled={selected.size === 0}
+                onClick={() => selectItems([])}
+                type="button"
+              >
+                Limpar marcação
+              </button>
+            </section>
           </div>
         </div>
 
-        <section className="thematic-panel thematic-workspace">
-          <nav className="thematic-zone-tabs" aria-label="Blocos da Mesa viva">
-            <button
-              className={activeWorkspaceKey === "opening" ? "active" : ""}
-              onClick={() => setActiveWorkspaceKey("opening")}
-              type="button"
-            >
-              Abertura {openingOccupied}/{MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.length}
-            </button>
-            {editorState.draftPageControls.thematicBlockOrder.map((block) => {
+        <section className="thematic-panel thematic-workspace" aria-label="Workspace editorial físico">
+          <nav className="thematic-zone-tabs" aria-label="Foco da Mesa">
+            <button className={activeWorkspaceKey === "opening" ? "active" : ""} onClick={() => setActiveWorkspaceKey("opening")} type="button">Abertura {openingOccupied}</button>
+            {current.blocks.map((block) => {
               const workspaceKey = workspaceKeyForBlock(block);
-              return (
-                <button
-                  className={activeWorkspaceKey === workspaceKey ? "active" : ""}
-                  key={block}
-                  onClick={() => setActiveWorkspaceKey(workspaceKey)}
-                  type="button"
-                >
-                  {blockLabel(block)} {blockCount(block)}
-                </button>
-              );
+              return <button className={activeWorkspaceKey === workspaceKey ? "active" : ""} key={block.kind === "zone" ? block.zoneId : block.kind} onClick={() => setActiveWorkspaceKey(workspaceKey)} type="button">{blockLabel(block)} {blockCount(block)}</button>;
             })}
-            <label className="thematic-opening-pin">
-              <input
-                checked={openingPinned}
-                onChange={(event) => setOpeningPinned(event.target.checked)}
-                type="checkbox"
-              />
-              <span>Fixar abertura</span>
-            </label>
+            <label className="thematic-opening-pin"><input checked={openingPinned} onChange={(event) => setOpeningPinned(event.target.checked)} type="checkbox" /><span>Fixar abertura</span></label>
           </nav>
-
-          {openingPinned && activeWorkspaceKey !== "opening"
-            ? renderOpeningWorkspace()
-            : null}
+          {openingPinned && activeWorkspaceKey !== "opening" ? renderOpeningWorkspace() : null}
           {renderActiveWorkspace()}
         </section>
 
         {renderSources()}
-
-        {reconcile.movements.length > 0 ? <details className="thematic-panel thematic-movements"><summary>Movimentos em preview · {reconcile.movements.length}</summary><ul className="thematic-movement-list">{reconcile.movements.map((movement) => <li key={thematicEditorialIdentity(movement.sourceType, movement.sourceId)}>{movement.title ?? movement.sourceId} · {movement.from.kind} → {movement.to.kind}</li>)}</ul></details> : null}
+        {physicalDesk.history.length > 0 ? <details className="thematic-panel thematic-movements"><summary>Movimentos em preview · {physicalDesk.history.length}</summary><p className="thematic-message">O histórico contém checkpoints físicos; nenhuma projection legacy é armazenada.</p></details> : null}
         {desk.inactiveHistoricalCount > 0 ? <p className="thematic-message">Estado histórico inativo: {desk.inactiveHistoricalCount}</p> : null}
         <Diagnostics diagnostics={desk.diagnostics} />
-
       </div>
 
       <footer className="thematic-pending" aria-live="polite">
-        <div className="thematic-pending-copy"><strong>{pendingCount} alterações pendentes</strong></div>
-        <button className="thematic-button" disabled={history.length === 0} onClick={undo} type="button">Desfazer última</button>
-        <button className="thematic-button" disabled={!pending} onClick={resetLocal} type="button">Limpar alterações</button>
-        <button className="thematic-button dark" disabled={!pending || applyState === "saving"} onClick={applyChanges} type="button">{applyState === "saving" ? "A aplicar…" : "Aplicar alterações"}</button>
+        <div className="thematic-pending-copy"><strong>{pendingCount} alterações pendentes</strong>{legacyApplyBlockReason ? <span>Apply v12 bloqueado globalmente</span> : null}</div>
+        <button className="thematic-button" disabled={mutationBlocked || physicalDesk.history.length === 0} onClick={undo} type="button">Desfazer última</button>
+        <button className="thematic-button" disabled={mutationBlocked || !pending} onClick={resetLocal} type="button">Limpar alterações</button>
+        <button className="thematic-button dark" disabled={!pending || applyState === "saving" || legacyApplyBlockReason !== null} onClick={applyChanges} type="button">{applyState === "saving" ? "A aplicar…" : "Aplicar alterações"}</button>
       </footer>
     </main>
   );

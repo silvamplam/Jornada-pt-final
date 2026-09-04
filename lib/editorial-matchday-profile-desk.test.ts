@@ -770,9 +770,12 @@ test("o ramo server-side preserva o legacy e delega a operação ao cliente tem�
   assert.doesNotMatch(componentSource, /["']use client["']|next\/image|<Image/);
   assert.match(componentSource, /MatchdayEditorialThematicDeskClient/);
   assert.match(clientSource, /^"use client";/);
-  assert.match(clientSource, /reconcileMatchdayEditorialProfileDeskSnapshot/);
+  assert.match(clientSource, /useState<PhysicalDeskState>/);
+  assert.match(clientSource, /createPhysicalDeskState\(desk\.physicalWorkspace/);
+  assert.doesNotMatch(clientSource, /WorkspaceEditorState|reconcile\.zonesAfter/);
   assert.match(clientSource, /useRouter[\s\S]*router\.refresh\(\)/);
-  assert.match(clientSource, /expectedRevision: desk\.reconcileRevision[\s\S]*expectedStateToken: desk\.reconcileStateToken[\s\S]*overrides: operationalOverrides/);
+  assert.match(clientSource, /buildPhysicalDeskLegacyApplyProjection\([\s\S]*physicalDesk,[\s\S]*desk\.physicalCompatibility/);
+  assert.match(clientSource, /body: JSON\.stringify\(projection\)/);
   assert.match(clientSource, /next\/image[\s\S]*<Image/);
   assert.doesNotMatch(clientSource, /manual · posição|manual · zona|manual · Faixa|manual · Banco|manual · Abertura|Fixar nesta posição|Proteger na zona|Libertar posição/);
   assert.doesNotMatch(clientSource, /Devolver ao automático/);
