@@ -18,7 +18,10 @@ import {
   resetPhysicalDeskState,
   undoPhysicalDeskState,
 } from "./editorial-matchday-live-layout-desk-state";
-import { parseLiveLayoutZoneId } from "./editorial-matchday-live-layout-physical";
+import {
+  parseLiveLayoutBlockId,
+  parseLiveLayoutZoneId,
+} from "./editorial-matchday-live-layout-physical";
 import type { LiveLayoutWorkspaceState } from "./editorial-matchday-live-layout-workspace";
 
 const MATCHDAY_ID = "10000000-0000-4000-8000-000000000001";
@@ -44,13 +47,26 @@ function workspace(zoneCount: number, itemCount = 3): LiveLayoutWorkspaceState {
     items: [],
   }));
   const blocks = [
-    { kind: "latest" as const, sortOrder: zoneCount + 2 },
+    {
+      id: parseLiveLayoutBlockId("50000000-0000-4000-8000-000000000001"),
+      kind: "latest" as const,
+      sortOrder: zoneCount + 2,
+    },
     ...zones.map((zone, index) => ({
+      id: parseLiveLayoutBlockId(
+        `50000000-0000-4000-8000-${String(index + 2).padStart(12, "0")}`,
+      ),
       kind: "zone" as const,
       zoneId: zone.id,
       sortOrder: zoneCount - index + 1,
     })),
-    { kind: "video" as const, sortOrder: 1 },
+    {
+      id: parseLiveLayoutBlockId(
+        `50000000-0000-4000-8000-${String(zoneCount + 2).padStart(12, "0")}`,
+      ),
+      kind: "video" as const,
+      sortOrder: 1,
+    },
   ];
   const bankItems = Array.from({ length: itemCount }, (_, index) => ({
     id: bankId(index + 1),
@@ -84,6 +100,8 @@ function workspace(zoneCount: number, itemCount = 3): LiveLayoutWorkspaceState {
     explicitBankItemIds: [],
     displacedBankItemIds: [],
     workedBankItemIds: [],
+    workspaceSettings: null,
+    physicalCutover: null,
   };
 }
 
@@ -234,6 +252,53 @@ test("Faixa conserva vagas intermédias e finais sem lista paralela", () => {
   current = movePhysicalDeskItemToBank(current, bankId(1));
   assert.equal(physicalDeskFaixaSlots(current)[2].placement, null);
   assert.equal("vacantFaixaSlots" in current.current, false);
+});
+
+test("settings físicos preservam vaga final da Faixa no reload model", () => {
+  const source = workspace(1);
+  const physicalWorkspace: LiveLayoutWorkspaceState = {
+    ...source,
+    placements: [{
+      id: "60000000-0000-4000-8000-000000000001",
+      bankItemId: bankId(1),
+      placementType: "faixa",
+      zoneId: null,
+      slotPosition: 1,
+      createdAt: NOW,
+      updatedAt: NOW,
+    }],
+    workspaceSettings: {
+      matchdayId: MATCHDAY_ID,
+      faixaSlotCount: 4,
+      headlineTitleColor: "#112233",
+      latestZonePlacement: "hidden",
+      latestZoneTitle: "Estado físico",
+      videoModuleActive: false,
+      createdAt: NOW,
+      updatedAt: NOW,
+    },
+    physicalCutover: {
+      matchdayId: MATCHDAY_ID,
+      profileKey: "liga_portugal_v1",
+      cutoverAt: NOW,
+    },
+  };
+  const current = createPhysicalDeskState(physicalWorkspace, {
+    headlineTitleColor: null,
+    latestZonePlacement: "top",
+    latestZoneTitle: "Legacy ignorado",
+    videoModuleActive: true,
+  });
+
+  assert.equal(current.current.faixaSlotCount, 4);
+  assert.equal(physicalDeskFaixaSlots(current)[3].placement, null);
+  assert.deepEqual(current.current.presentation, {
+    headlineTitleColor: "#112233",
+    latestZonePlacement: "hidden",
+    latestZoneTitle: "Estado físico",
+    videoModuleActive: false,
+  });
+  assert.equal(current.physicalCutover?.profileKey, "liga_portugal_v1");
 });
 
 test("Abertura, Faixa, Seleção e Destaque partilham a autoridade de placements", () => {

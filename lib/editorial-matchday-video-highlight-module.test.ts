@@ -35,6 +35,7 @@ const route = source(
 const client = source(
   "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
 );
+const serializer = source("lib/editorial-matchday-live-layout-physical-apply.ts");
 const publicPage = source(
   "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
 );
@@ -215,17 +216,12 @@ test("Mesa temática separa o Destaque editorial da ferramenta técnica Vídeos"
   assert.doesNotMatch(client, /className="thematic-panel thematic-video-module"/u);
   assert.doesNotMatch(client, /Vídeo \+ Destaque/u);
   assert.match(client, /return "Destaque"/u);
-  assert.match(client, /draftVideoHighlightDefined \? 1 : 0\}\/1/u);
+  assert.match(client, /highlightPlacement \? 1 : 0/u);
   assert.match(client, /aria-label="Destaque editorial"/u);
-  assert.match(client, /changeVideoHighlight\("remove"\)/u);
-  assert.match(client, /changeVideoHighlight\(`replace:\$\{bankItemId\}`\)/u);
-  assert.match(
-    client,
-    /candidate\?\.sourceType\?\.trim\(\)\.toLowerCase\(\) !== "editorial_article"/u,
-  );
+  assert.match(client, /placementType: "video_highlight"/u);
+  assert.match(client, /placeInDisplaced\(highlighted\.id\)/u);
   assert.doesNotMatch(client, /contentCandidates/u);
-  assert.match(client, /action: "preserve"/u);
-  assert.match(client, /changeVideoModuleActive/u);
+  assert.match(client, /changePhysicalDeskPresentation/u);
 });
 
 test("Legacy e API de sync continuam protegidos fora da Mesa temática", () => {
@@ -246,11 +242,12 @@ test("Legacy e API de sync continuam protegidos fora da Mesa temática", () => {
   assert.match(syncRoute, /rejectMatchVideoSummaryCandidate/u);
 });
 
-test("Apply v9 mantém o contrato de Destaque herdado da v6", () => {
-  assert.match(route, /apply_matchday_editorial_profile_workspace_v11/u);
+test("Apply físico v14 transporta o Destaque e preserva o contrato SQL histórico", () => {
+  assert.match(route, /apply_matchday_live_layout_physical_workspace_v14/u);
+  assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v11/u);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v6/u);
-  assert.match(route, /expectedStateToken|p_expected_state_token/u);
-  assert.match(route, /highlightBankItemId/u);
+  assert.match(serializer, /expectedPhysicalStateToken/u);
+  assert.match(serializer, /video_highlight/u);
   assert.doesNotMatch(route, /complementary_title:/u);
   assert.match(migration, /from public\.matchday_editorial_bank_items as bank_row/u);
   assert.match(migration, /when v_highlight_action = 'replace'[\s\S]*v_bank\.title/u);

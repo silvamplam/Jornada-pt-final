@@ -55,6 +55,8 @@ function physicalWorkspaceReaderRow(
       legacy_zone_key: zone.key,
       zone_id: PHYSICAL_ZONE_IDS[index],
     })),
+    workspace_settings: null,
+    physical_cutover: null,
   };
 }
 
@@ -749,7 +751,7 @@ test("uma assignment desconhecida devolve unsupported_profile e nunca cai no leg
   assert.equal(paths.some((path) => path.startsWith("matchday_editorial_bank_items?")), false);
 });
 
-test("o ramo server-side preserva o legacy e delega a operação ao cliente temático isolado", () => {
+test("o ramo server-side preserva a leitura e delega o Apply físico ao cliente temático isolado", () => {
   const readerSource = source("lib/editorial-matchday-profile-desk.ts");
   const pageSource = source("app/admin/editorial/jornada/[matchdayId]/organizar/page.tsx");
   const componentSource = source(
@@ -774,16 +776,14 @@ test("o ramo server-side preserva o legacy e delega a operação ao cliente tem�
   assert.match(clientSource, /createPhysicalDeskState\(desk\.physicalWorkspace/);
   assert.doesNotMatch(clientSource, /WorkspaceEditorState|reconcile\.zonesAfter/);
   assert.match(clientSource, /useRouter[\s\S]*router\.refresh\(\)/);
-  assert.match(clientSource, /buildPhysicalDeskLegacyApplyProjection\([\s\S]*physicalDesk,[\s\S]*desk\.physicalCompatibility/);
-  assert.match(clientSource, /body: JSON\.stringify\(projection\)/);
+  assert.match(clientSource, /buildPhysicalDeskApplyPayload\(desk\.profileKey, physicalDesk\)/);
+  assert.match(clientSource, /body: JSON\.stringify\(payload\)/);
   assert.match(clientSource, /next\/image[\s\S]*<Image/);
   assert.doesNotMatch(clientSource, /manual · posição|manual · zona|manual · Faixa|manual · Banco|manual · Abertura|Fixar nesta posição|Proteger na zona|Libertar posição/);
   assert.doesNotMatch(clientSource, /Devolver ao automático/);
   assert.match(clientSource, /draggable[\s\S]*onDragStart[\s\S]*onDrop/);
-  assert.match(routeSource, /reconcileMatchdayEditorialProfileWorkspace/);
-  assert.match(routeSource, /rpc\/apply_matchday_editorial_profile_workspace/);
-  assert.match(routeSource, /p_zone_items: compatibilityReconcile\.zonesAfter/);
-  assert.match(routeSource, /p_authoritative_zone_items: reconcile\.zonesAfter/);
-  assert.match(routeSource, /p_authoritative_faixa_items: reconcile\.faixaAfter/);
+  assert.doesNotMatch(routeSource, /reconcileMatchdayEditorialProfileWorkspace|compatibilityReconcile/);
+  assert.match(routeSource, /rpc\/apply_matchday_live_layout_physical_workspace_v14/);
+  assert.doesNotMatch(routeSource, /apply_matchday_editorial_profile_workspace_v12/);
   assert.doesNotMatch(routeSource, /refresh_matchday_editorial_profile_distribution|profile_state_items/);
 });

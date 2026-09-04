@@ -22,6 +22,10 @@ const route = readFileSync(
   "app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts",
   "utf8",
 );
+const serializer = readFileSync(
+  "lib/editorial-matchday-live-layout-physical-apply.ts",
+  "utf8",
+);
 
 test("Faixa e Seleção são lidas da autoridade transversal", () => {
   assert.match(
@@ -38,17 +42,16 @@ test("Faixa e Seleção são lidas da autoridade transversal", () => {
   assert.doesNotMatch(route, /matchday_live_layout_placements\?/u);
 });
 
-test("reader, preview e POST reservam o Vídeo fora do circuito temático", () => {
+test("reader, preview e Apply físico transportam o Vídeo como placement independente", () => {
   assert.match(reader, /placement_type === "video_highlight"/u);
   assert.match(reader, /independentPlacementIdentities/u);
   assert.match(client, /physicalDeskPlacementsOfType\(physicalDesk, "video_highlight"\)/u);
   assert.match(client, /placementType: "video_highlight"/u);
   assert.doesNotMatch(client, /draftVideoHighlightIdentity/u);
-  assert.match(route, /independentPlacementIdentity/u);
-  assert.match(
-    route,
-    /reconcileMatchdayEditorialProfileWorkspace\([\s\S]*independentPlacementIdentities/u,
-  );
+  assert.match(serializer, /placementType: LiveLayoutWorkspacePlacementType/u);
+  assert.match(serializer, /video_highlight/u);
+  assert.match(route, /apply_matchday_live_layout_physical_workspace_v14/u);
+  assert.doesNotMatch(route, /reconcileMatchdayEditorialProfileWorkspace/u);
 });
 
 test("v7 conta Selection e o vídeo efetivo exatamente uma vez", () => {

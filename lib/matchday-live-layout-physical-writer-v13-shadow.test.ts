@@ -262,12 +262,13 @@ test("fixture cobre sexta zona sem projection e falhas criticas", () => {
   assert.match(fixture, /slots-empty/);
 });
 
-test("v12 e route administrativa permanecem no contrato atual", () => {
+test("v12 histórico não é refeito e a route corrente usa a facade física", () => {
   assert.doesNotMatch(
     migration,
     /create (?:or replace )?function\s+public\.apply_matchday_editorial_profile_workspace_v12/i,
   );
-  assert.match(route, /apply_matchday_editorial_profile_workspace_v12/);
+  assert.match(route, /apply_matchday_live_layout_physical_workspace_v14/);
+  assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v12/);
   assert.doesNotMatch(route, /workspace_token_v13|physical_state_v13_shadow/);
 });
 

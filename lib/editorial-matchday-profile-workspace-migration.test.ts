@@ -99,20 +99,21 @@ test("UI pagina a Faixa dentro do tracking agregado", () => {
   assert.match(client, /loading="lazy"/);
 });
 
-test("preview usa o snapshot agregado e Apply faz uma única escrita temática", () => {
+test("preview usa o estado físico e Apply faz uma única escrita v14", () => {
   const client = source("app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx");
   const route = source("app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts");
-  assert.match(client, /function commitDraft/);
+  assert.match(client, /useState<PhysicalDeskState>/);
   assert.match(client, /async function applyChanges\(\)/);
   const applyStart = client.indexOf("async function applyChanges()");
-  const applyEnd = client.indexOf("function cardFor", applyStart);
+  const applyEnd = client.indexOf("\n  return (", applyStart);
   const applyBlock = client.slice(applyStart, applyEnd);
   assert.ok(applyStart >= 0 && applyEnd > applyStart);
   assert.equal((applyBlock.match(/method: "POST"/g) ?? []).length, 1);
   assert.match(applyBlock, /\/organizar\/tematico/);
   assert.doesNotMatch(client, /method: "GET"/);
   assert.equal((route.match(/writeSupabaseAdminReturning/g) ?? []).length, 2);
-  assert.match(route, /rpc\/apply_matchday_editorial_profile_workspace_v11/);
-  assert.match(route, /expectedStateToken|p_expected_state_token/);
-  assert.match(route, /thematic_zone_order: pageControls\.thematicZoneOrder/);
+  assert.match(route, /rpc\/apply_matchday_live_layout_physical_workspace_v14/);
+  assert.match(route, /physicalDeskApplyRpcArguments/);
+  assert.doesNotMatch(route, /expectedRevision|p_expected_state_token/);
+  assert.doesNotMatch(route, /thematic_zone_order|pageControls/);
 });

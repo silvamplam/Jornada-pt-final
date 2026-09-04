@@ -102,6 +102,8 @@ function readerRow(
     displaced_bank_item_ids: [],
     worked_bank_item_ids: [],
     legacy_zone_projection: [],
+    workspace_settings: null,
+    physical_cutover: null,
     ...overrides,
   };
 }
@@ -127,6 +129,88 @@ test("ordem vertical vem exclusivamente dos blocks e pode ser arbitraria", () =>
     [uuid(20, 2), uuid(20, 3), uuid(20, 1)],
   );
   assert.deepEqual(state.zones.map((current) => current.sortOrder), [10, 20, 30]);
+  assert.deepEqual(
+    state.blocks.map((current) => current.id),
+    [uuid(30, 2), uuid(30, 3), uuid(30, 1)],
+  );
+});
+
+test("reader interpreta settings e marker físicos sem defaults legacy", () => {
+  const state = buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+    workspace_settings: {
+      matchday_id: MATCHDAY_ID,
+      faixa_slot_count: 4,
+      headline_title_color: "#AABBCC",
+      latest_zone_placement: "four_news",
+      latest_zone_title: "Últimas",
+      video_module_active: true,
+      created_at: NOW,
+      updated_at: NOW,
+    },
+    physical_cutover: {
+      matchday_id: MATCHDAY_ID,
+      profile_key: "liga_portugal_v1",
+      cutover_at: NOW,
+    },
+  }));
+
+  assert.equal(state.workspaceSettings?.faixaSlotCount, 4);
+  assert.equal(state.workspaceSettings?.latestZonePlacement, "four_news");
+  assert.equal(state.workspaceSettings?.videoModuleActive, true);
+  assert.equal(state.physicalCutover?.profileKey, "liga_portugal_v1");
+});
+
+test("settings e physical_cutover incoerentes falham fechados", () => {
+  const settings = {
+    matchday_id: MATCHDAY_ID,
+    faixa_slot_count: 4,
+    headline_title_color: null,
+    latest_zone_placement: "top",
+    latest_zone_title: "Últimas",
+    video_module_active: false,
+    created_at: NOW,
+    updated_at: NOW,
+  };
+  const cutover = {
+    matchday_id: MATCHDAY_ID,
+    profile_key: "liga_portugal_v1",
+    cutover_at: NOW,
+  };
+  assert.throws(
+    () => buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+      workspace_settings: settings,
+      physical_cutover: null,
+    })),
+    /physical-authority-state-incoherent/,
+  );
+  assert.throws(
+    () => buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+      workspace_settings: null,
+      physical_cutover: cutover,
+    })),
+    /physical-authority-state-incoherent/,
+  );
+  assert.throws(
+    () => buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+      workspace_settings: { ...settings, faixa_slot_count: -1 },
+      physical_cutover: cutover,
+    })),
+    /workspace-settings-faixa-count-invalid/,
+  );
+  assert.throws(
+    () => buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+      workspace_settings: { ...settings, unexpected: true },
+      physical_cutover: cutover,
+    })),
+    /workspace-settings-shape-invalid/,
+  );
+  assert.throws(
+    () => buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+      workspace_settings: settings,
+      physical_cutover: { matchday_id: MATCHDAY_ID, cutover_at: NOW },
+    })),
+    /physical-cutover-shape-invalid/,
+  );
 });
 
 test("vagas intermédias e finais permanecem ausencias sem compactacao", () => {

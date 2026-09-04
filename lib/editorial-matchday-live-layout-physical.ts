@@ -5,9 +5,14 @@ import {
 } from "@/lib/editorial-visual-families";
 
 declare const liveLayoutZoneIdBrand: unique symbol;
+declare const liveLayoutBlockIdBrand: unique symbol;
 
 export type LiveLayoutZoneId = string & {
   readonly [liveLayoutZoneIdBrand]: true;
+};
+
+export type LiveLayoutBlockId = string & {
+  readonly [liveLayoutBlockIdBrand]: true;
 };
 
 export type MatchdayLiveLayoutZoneRow = Readonly<{
@@ -18,7 +23,7 @@ export type MatchdayLiveLayoutZoneRow = Readonly<{
 }>;
 
 export type MatchdayLiveLayoutBlockRow = Readonly<{
-  id: string;
+  id: LiveLayoutBlockId;
   matchday_id: string;
   block_type: "zone" | "latest" | "video";
   zone_id: LiveLayoutZoneId | null;
@@ -55,15 +60,18 @@ export type MatchdayLiveLayoutZone = Readonly<{
 
 export type MatchdayLiveLayoutBlock =
   | Readonly<{
+      id: LiveLayoutBlockId;
       kind: "zone";
       zoneId: LiveLayoutZoneId;
       sortOrder: number;
     }>
   | Readonly<{
+      id: LiveLayoutBlockId;
       kind: "latest";
       sortOrder: number;
     }>
   | Readonly<{
+      id: LiveLayoutBlockId;
       kind: "video";
       sortOrder: number;
     }>;
@@ -105,6 +113,12 @@ export function parseLiveLayoutZoneId(value: unknown): LiveLayoutZoneId {
   return candidate as LiveLayoutZoneId;
 }
 
+export function parseLiveLayoutBlockId(value: unknown): LiveLayoutBlockId {
+  const candidate = requiredText(value, "block-id-invalid").toLowerCase();
+  if (!UUID_PATTERN.test(candidate)) return snapshotError("block-id-invalid");
+  return candidate as LiveLayoutBlockId;
+}
+
 export function parseMatchdayLiveLayoutZoneRow(
   value: unknown,
 ): MatchdayLiveLayoutZoneRow {
@@ -141,7 +155,7 @@ export function parseMatchdayLiveLayoutBlockRow(
       : snapshotError("block-zone-shape-invalid");
 
   return {
-    id: requiredText(row.id, "block-id-invalid"),
+    id: parseLiveLayoutBlockId(row.id),
     matchday_id: requiredText(row.matchday_id, "block-matchday-invalid"),
     block_type: blockType,
     zone_id: zoneId,
@@ -169,6 +183,7 @@ export function buildMatchdayLiveLayoutPhysicalSnapshot(
   }
 
   const sortOrders = new Set<number>();
+  const blockIds = new Set<LiveLayoutBlockId>();
   const zoneBlockCounts = new Map<LiveLayoutZoneId, number>();
   const zoneSortOrders = new Map<LiveLayoutZoneId, number>();
   let latestCount = 0;
@@ -178,6 +193,8 @@ export function buildMatchdayLiveLayoutPhysicalSnapshot(
     if (block.matchday_id !== cleanMatchdayId) {
       return snapshotError("block-matchday-mismatch");
     }
+    if (blockIds.has(block.id)) return snapshotError("block-id-duplicate");
+    blockIds.add(block.id);
     if (sortOrders.has(block.sort_order)) {
       return snapshotError("block-sort-order-duplicate");
     }
@@ -275,11 +292,13 @@ export function buildMatchdayLiveLayoutPhysicalSnapshot(
   const blocks: MatchdayLiveLayoutBlock[] = blockRows
     .map((block) => block.block_type === "zone"
       ? {
+          id: block.id,
           kind: "zone" as const,
           zoneId: block.zone_id!,
           sortOrder: block.sort_order,
         }
       : {
+          id: block.id,
           kind: block.block_type,
           sortOrder: block.sort_order,
         })

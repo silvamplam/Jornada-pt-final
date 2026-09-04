@@ -63,44 +63,38 @@ test("zonas e movimentos usam LiveLayoutZoneId e vagas são derivadas", () => {
   assert.doesNotMatch(source, /vacantZoneSlots\s*:/);
 });
 
-test("incompatibilidade física bloqueia globalmente mutações e Apply v12", () => {
+test("incompatibilidade legacy não bloqueia mutações nem Apply físico v14", () => {
   assert.match(
     source,
-    /const mutationBlocked = legacyApplyBlockReason !== null/,
+    /const mutationBlocked = applyState === "saving" \|\| applyState === "refreshing"/,
   );
   assert.match(source, /if \(mutationBlocked\)/);
-  assert.match(source, /Apply v12 bloqueado globalmente/);
-  assert.match(
-    source,
-    /disabled=\{!pending \|\| applyState === "saving" \|\| legacyApplyBlockReason !== null\}/,
-  );
+  assert.doesNotMatch(source, /legacyApplyBlockReason|Apply v12 bloqueado/);
+  assert.match(source, /disabled=\{!pending \|\| mutationBlocked\}/);
   assert.match(
     source,
     /additionalPhysicalZoneIds\.includes\(zoneId\)/,
   );
 });
 
-test("projection legacy nasce apenas na fronteira efémera de Apply", () => {
+test("Apply nasce diretamente do PhysicalDeskState sem projection legacy", () => {
   const applyFunction = source.indexOf("async function applyChanges()");
-  const adapterCall = source.indexOf(
-    "buildPhysicalDeskLegacyApplyProjection(",
+  const serializerCall = source.indexOf(
+    "buildPhysicalDeskApplyPayload(",
     applyFunction,
   );
 
   assert.ok(applyFunction >= 0);
-  assert.ok(adapterCall > applyFunction);
-  assert.equal(
-    source.indexOf("buildPhysicalDeskLegacyApplyProjection({", adapterCall + 1),
-    -1,
-  );
-  assert.match(source, /body: JSON\.stringify\(projection\)/);
+  assert.ok(serializerCall > applyFunction);
+  assert.match(source, /body: JSON\.stringify\(payload\)/);
+  assert.doesNotMatch(source, /buildPhysicalDeskLegacyApplyProjection/);
   assert.doesNotMatch(source, /useState[^\n]*projection/i);
   assert.doesNotMatch(deskStateSource, /history[^\n]*projection/i);
 });
 
-test("a route temática continua no contrato v12 e não conhece v13", () => {
-  assert.match(routeSource, /apply_matchday_editorial_profile_workspace_v12/);
-  assert.doesNotMatch(routeSource, /workspace_v13|writer_v13|apply_.*v13/i);
+test("a route temática chama exclusivamente a facade física v14", () => {
+  assert.match(routeSource, /apply_matchday_live_layout_physical_workspace_v14/);
+  assert.doesNotMatch(routeSource, /apply_matchday_editorial_profile_workspace_v12/);
 });
 
 test("o bloco Agenda\/TV permanece byte-equivalente ao HEAD inicial", () => {

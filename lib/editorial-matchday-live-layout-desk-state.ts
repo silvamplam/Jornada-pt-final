@@ -7,6 +7,7 @@ import type {
   MatchdayLiveLayoutBlock,
 } from "@/lib/editorial-matchday-live-layout-physical";
 import type {
+  LiveLayoutPhysicalCutover,
   LiveLayoutWorkspaceBankItem,
   LiveLayoutWorkspaceMemory,
   LiveLayoutWorkspacePlacementType,
@@ -61,6 +62,7 @@ export type PhysicalDeskSnapshot = Readonly<{
 export type PhysicalDeskState = Readonly<{
   matchdayId: string;
   physicalStateToken: string;
+  physicalCutover: LiveLayoutPhysicalCutover | null;
   baseline: PhysicalDeskSnapshot;
   current: PhysicalDeskSnapshot;
   history: readonly PhysicalDeskSnapshot[];
@@ -248,9 +250,39 @@ function validateSnapshot(snapshot: PhysicalDeskSnapshot): PhysicalDeskSnapshot 
     if (!memoryBankItemIds.has(id)) stateError("memory-displaced-missing");
   }
 
+  const faixaArrivals = new Set(snapshot.faixaArrivalBankItemIds);
+  const displacedArrivals = new Set(snapshot.displacedArrivalBankItemIds);
+  if (faixaArrivals.size !== snapshot.faixaArrivalBankItemIds.length) {
+    stateError("faixa-arrival-duplicate");
+  }
+  if (displacedArrivals.size !== snapshot.displacedArrivalBankItemIds.length) {
+    stateError("displaced-arrival-duplicate");
+  }
+  for (const id of faixaArrivals) {
+    if (
+      !bankItemIds.has(id)
+      || !snapshot.placements.some((placement) => (
+        placement.bankItemId === id && placement.placementType === "faixa"
+      ))
+    ) {
+      stateError("faixa-arrival-state-invalid");
+    }
+  }
+  for (const id of displacedArrivals) {
+    if (!bankItemIds.has(id) || !displaced.has(id)) {
+      stateError("displaced-arrival-state-invalid");
+    }
+  }
+
   const blockZoneIds = new Set<LiveLayoutZoneId>();
+  const blockIds = new Set<string>();
   const blockOrders = new Set<number>();
   for (const block of snapshot.blocks) {
+    if (blockIds.has(block.id)) stateError("block-id-duplicate");
+    if (!Number.isInteger(block.sortOrder) || block.sortOrder <= 0) {
+      stateError("block-order-invalid");
+    }
+    blockIds.add(block.id);
     if (blockOrders.has(block.sortOrder)) stateError("block-order-duplicate");
     blockOrders.add(block.sortOrder);
     if (block.kind === "zone") {
@@ -277,13 +309,22 @@ function validateSnapshot(snapshot: PhysicalDeskSnapshot): PhysicalDeskSnapshot 
 
 export function createPhysicalDeskState(
   workspace: LiveLayoutWorkspaceState,
-  presentation: PhysicalDeskPresentation,
+  legacyBootstrapPresentation?: PhysicalDeskPresentation,
 ): PhysicalDeskState {
-  const faixaSlotCount = workspace.placements.reduce((maximum, placement) => (
-    placement.placementType === "faixa"
-      ? Math.max(maximum, placement.slotPosition)
-      : maximum
-  ), 0);
+  const faixaSlotCount = workspace.workspaceSettings?.faixaSlotCount
+    ?? workspace.placements.reduce((maximum, placement) => (
+      placement.placementType === "faixa"
+        ? Math.max(maximum, placement.slotPosition)
+        : maximum
+    ), 0);
+  const presentation: PhysicalDeskPresentation = workspace.workspaceSettings
+    ? {
+        headlineTitleColor: workspace.workspaceSettings.headlineTitleColor,
+        latestZonePlacement: workspace.workspaceSettings.latestZonePlacement,
+        latestZoneTitle: workspace.workspaceSettings.latestZoneTitle,
+        videoModuleActive: workspace.workspaceSettings.videoModuleActive,
+      }
+    : legacyBootstrapPresentation ?? stateError("legacy-bootstrap-presentation-missing");
   const snapshot = validateSnapshot({
     zones: workspace.zones.map((zone) => ({
       id: zone.id,
@@ -312,6 +353,7 @@ export function createPhysicalDeskState(
   return {
     matchdayId: workspace.matchdayId,
     physicalStateToken: workspace.stateToken,
+    physicalCutover: workspace.physicalCutover,
     baseline: snapshot,
     current: snapshot,
     history: [],
@@ -784,16 +826,13 @@ export function movePhysicalDeskBlock(
   direction: "up" | "down",
 ): PhysicalDeskState {
   const blocks = sortBlocks(state.current.blocks);
-  const index = blocks.findIndex((candidate) => (
-    candidate.kind === block.kind
-    && (candidate.kind !== "zone" || (block.kind === "zone" && candidate.zoneId === block.zoneId))
-  ));
+  const index = blocks.findIndex((candidate) => candidate.id === block.id);
   const targetIndex = direction === "up" ? index - 1 : index + 1;
   if (index < 0 || targetIndex < 0 || targetIndex >= blocks.length) return state;
   const target = blocks[targetIndex];
   const nextBlocks = blocks.map((candidate, candidateIndex) => {
     if (candidateIndex === index) return { ...candidate, sortOrder: target.sortOrder };
-    if (candidateIndex === targetIndex) return { ...candidate, sortOrder: block.sortOrder };
+    if (candidateIndex === targetIndex) return { ...candidate, sortOrder: blocks[index].sortOrder };
     return candidate;
   });
   return commitSnapshot(state, { ...state.current, blocks: nextBlocks });

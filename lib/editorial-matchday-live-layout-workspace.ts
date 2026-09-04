@@ -70,6 +70,23 @@ export type LiveLayoutWorkspaceMemory = Readonly<{
   recordedAt: string;
 }>;
 
+export type LiveLayoutWorkspaceSettings = Readonly<{
+  matchdayId: string;
+  faixaSlotCount: number;
+  headlineTitleColor: string | null;
+  latestZonePlacement: "top" | "four_news" | "hidden";
+  latestZoneTitle: string;
+  videoModuleActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type LiveLayoutPhysicalCutover = Readonly<{
+  matchdayId: string;
+  profileKey: string;
+  cutoverAt: string;
+}>;
+
 export type LiveLayoutWorkspaceState = Readonly<{
   matchdayId: string;
   stateToken: string;
@@ -81,6 +98,8 @@ export type LiveLayoutWorkspaceState = Readonly<{
   explicitBankItemIds: readonly string[];
   displacedBankItemIds: readonly string[];
   workedBankItemIds: readonly string[];
+  workspaceSettings: LiveLayoutWorkspaceSettings | null;
+  physicalCutover: LiveLayoutPhysicalCutover | null;
 }>;
 
 export type MatchdayLiveLayoutWorkspaceReaderRow = Readonly<{
@@ -94,6 +113,8 @@ export type MatchdayLiveLayoutWorkspaceReaderRow = Readonly<{
   displaced_bank_item_ids: unknown;
   worked_bank_item_ids: unknown;
   legacy_zone_projection: unknown;
+  workspace_settings: unknown;
+  physical_cutover: unknown;
 }>;
 
 const UUID_PATTERN =
@@ -114,6 +135,21 @@ function recordValue(value: unknown, code: string): Record<string, unknown> {
 function arrayValue(value: unknown, code: string): readonly unknown[] {
   if (!Array.isArray(value)) return workspaceError(code);
   return value;
+}
+
+function exactKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[],
+  code: string,
+): void {
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  if (
+    actual.length !== wanted.length
+    || actual.some((key, index) => key !== wanted[index])
+  ) {
+    workspaceError(code);
+  }
 }
 
 function requiredText(value: unknown, code: string): string {
@@ -140,6 +176,13 @@ function positiveInteger(value: unknown, code: string): number {
   return value as number;
 }
 
+function nonNegativeInteger(value: unknown, code: string): number {
+  if (!Number.isInteger(value) || (value as number) < 0) {
+    return workspaceError(code);
+  }
+  return value as number;
+}
+
 function requiredBoolean(value: unknown, code: string): boolean {
   if (typeof value !== "boolean") return workspaceError(code);
   return value;
@@ -153,6 +196,110 @@ function timestampText(value: unknown, code: string): string {
 
 function optionalTimestamp(value: unknown, code: string): string | null {
   return value === null ? null : timestampText(value, code);
+}
+
+function parseWorkspaceSettings(
+  value: unknown,
+  matchdayId: string,
+): LiveLayoutWorkspaceSettings | null {
+  if (value === null) return null;
+  const row = recordValue(value, "workspace-settings-invalid");
+  exactKeys(row, [
+    "matchday_id",
+    "faixa_slot_count",
+    "headline_title_color",
+    "latest_zone_placement",
+    "latest_zone_title",
+    "video_module_active",
+    "created_at",
+    "updated_at",
+  ], "workspace-settings-shape-invalid");
+  const settingsMatchdayId = uuidText(
+    row.matchday_id,
+    "workspace-settings-matchday-invalid",
+  );
+  if (settingsMatchdayId !== matchdayId) {
+    return workspaceError("workspace-settings-matchday-mismatch");
+  }
+  const headlineTitleColor = optionalText(
+    row.headline_title_color,
+    "workspace-settings-headline-color-invalid",
+  );
+  if (
+    headlineTitleColor !== null
+    && !/^#[0-9a-f]{6}$/i.test(headlineTitleColor)
+  ) {
+    return workspaceError("workspace-settings-headline-color-invalid");
+  }
+  const latestZonePlacement = requiredText(
+    row.latest_zone_placement,
+    "workspace-settings-latest-placement-invalid",
+  );
+  if (
+    latestZonePlacement !== "top"
+    && latestZonePlacement !== "four_news"
+    && latestZonePlacement !== "hidden"
+  ) {
+    return workspaceError("workspace-settings-latest-placement-invalid");
+  }
+  if (typeof row.latest_zone_title !== "string") {
+    return workspaceError("workspace-settings-latest-title-invalid");
+  }
+  const latestZoneTitle = row.latest_zone_title;
+  if (
+    latestZoneTitle !== latestZoneTitle.trim()
+    || latestZoneTitle.length > 120
+  ) {
+    return workspaceError("workspace-settings-latest-title-invalid");
+  }
+
+  return {
+    matchdayId: settingsMatchdayId,
+    faixaSlotCount: nonNegativeInteger(
+      row.faixa_slot_count,
+      "workspace-settings-faixa-count-invalid",
+    ),
+    headlineTitleColor,
+    latestZonePlacement,
+    latestZoneTitle,
+    videoModuleActive: requiredBoolean(
+      row.video_module_active,
+      "workspace-settings-video-active-invalid",
+    ),
+    createdAt: timestampText(
+      row.created_at,
+      "workspace-settings-created-at-invalid",
+    ),
+    updatedAt: timestampText(
+      row.updated_at,
+      "workspace-settings-updated-at-invalid",
+    ),
+  };
+}
+
+function parsePhysicalCutover(
+  value: unknown,
+  matchdayId: string,
+): LiveLayoutPhysicalCutover | null {
+  if (value === null) return null;
+  const row = recordValue(value, "physical-cutover-invalid");
+  exactKeys(row, [
+    "matchday_id",
+    "profile_key",
+    "cutover_at",
+  ], "physical-cutover-shape-invalid");
+  const cutoverMatchdayId = uuidText(
+    row.matchday_id,
+    "physical-cutover-matchday-invalid",
+  );
+  if (cutoverMatchdayId !== matchdayId) {
+    return workspaceError("physical-cutover-matchday-mismatch");
+  }
+  return {
+    matchdayId: cutoverMatchdayId,
+    profileKey: requiredText(row.profile_key, "physical-cutover-profile-invalid"),
+    cutoverAt: timestampText(row.cutover_at, "physical-cutover-time-invalid"),
+  };
 }
 
 function parseBankItem(
@@ -325,6 +472,17 @@ export function buildLiveLayoutWorkspaceState(
 ): LiveLayoutWorkspaceState {
   const cleanMatchdayId = requiredText(matchdayId, "matchday-invalid");
   const stateToken = requiredText(raw.state_token, "state-token-invalid");
+  const workspaceSettings = parseWorkspaceSettings(
+    raw.workspace_settings,
+    cleanMatchdayId,
+  );
+  const physicalCutover = parsePhysicalCutover(
+    raw.physical_cutover,
+    cleanMatchdayId,
+  );
+  if ((workspaceSettings === null) !== (physicalCutover === null)) {
+    return workspaceError("physical-authority-state-incoherent");
+  }
   const rawZones = arrayValue(raw.zones, "zones-invalid");
   const rawBlocks = arrayValue(raw.blocks, "blocks-invalid");
   const bankItems = arrayValue(raw.bank_items, "bank-items-invalid")
@@ -466,5 +624,7 @@ export function buildLiveLayoutWorkspaceState(
     explicitBankItemIds,
     displacedBankItemIds,
     workedBankItemIds,
+    workspaceSettings,
+    physicalCutover,
   };
 }

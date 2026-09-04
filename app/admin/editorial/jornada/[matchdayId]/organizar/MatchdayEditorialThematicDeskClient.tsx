@@ -53,9 +53,8 @@ import {
   type PhysicalDeskState,
 } from "@/lib/editorial-matchday-live-layout-desk-state";
 import {
-  buildPhysicalDeskLegacyApplyProjection,
-  physicalDeskLegacyApplyBlockReason,
-} from "@/lib/editorial-matchday-live-layout-legacy-apply-adapter";
+  buildPhysicalDeskApplyPayload,
+} from "@/lib/editorial-matchday-live-layout-physical-apply";
 import type { LiveLayoutZoneId } from "@/lib/editorial-matchday-live-layout-physical";
 import {
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS,
@@ -787,7 +786,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [trackingVisibleCounts, setTrackingVisibleCounts] = useState<
     Readonly<Record<MatchdayEditorialTrackingState, number>>
   >({ NOVA: TRACKING_INITIAL_VISIBLE, FAIXA: TRACKING_INITIAL_VISIBLE, DESALOJADA: TRACKING_INITIAL_VISIBLE });
-  const [applyState, setApplyState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [applyState, setApplyState] = useState<"idle" | "saving" | "refreshing" | "error">("idle");
+  const [awaitedPhysicalStateToken, setAwaitedPhysicalStateToken] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const pageStructureRef = useRef<HTMLDetailsElement>(null);
 
@@ -796,8 +796,14 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       if (current.physicalStateToken === desk.physicalWorkspace.stateToken) return current;
       return createPhysicalDeskState(desk.physicalWorkspace, physicalPresentation);
     });
-    setApplyState("idle");
-  }, [desk.physicalWorkspace, physicalPresentation]);
+    if (awaitedPhysicalStateToken === desk.physicalWorkspace.stateToken) {
+      setAwaitedPhysicalStateToken(null);
+      setApplyState("idle");
+      setMessage("Estado físico autoritativo confirmado pelo servidor.");
+    } else if (awaitedPhysicalStateToken === null) {
+      setApplyState("idle");
+    }
+  }, [awaitedPhysicalStateToken, desk.physicalWorkspace, physicalPresentation]);
 
   const current = physicalDesk.current;
   const bankItemById = useMemo(
@@ -821,11 +827,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   );
   const selectedBankItemIds = [...selected];
   const pending = physicalDeskHasChanges(physicalDesk);
-  const legacyApplyBlockReason = physicalDeskLegacyApplyBlockReason(
-    physicalDesk,
-    desk.physicalCompatibility,
-  );
-  const mutationBlocked = legacyApplyBlockReason !== null;
+  const mutationBlocked = applyState === "saving" || applyState === "refreshing";
 
   useEffect(() => {
     if (destinationZoneId && zoneById.has(destinationZoneId)) return;
@@ -875,7 +877,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   ) {
     if (mutationBlocked) {
       setApplyState("error");
-      setMessage("A Mesa física não é representável pelo writer v12. Toda a edição e o Apply estão bloqueados.");
+      setMessage("A Mesa está a confirmar o Apply físico; aguarde a reconstrução pelo servidor.");
       return;
     }
     try {
@@ -1085,7 +1087,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             <input
               aria-label={`Título público de ${zone.publicTitle}`}
               defaultValue={zone.publicTitle}
-              disabled={mutationBlocked || applyState === "saving"}
+              disabled={mutationBlocked}
               key={`${zone.id}:${zone.publicTitle}`}
               maxLength={120}
               onBlur={(event) => runPhysicalOperation(
@@ -1099,7 +1101,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             <span>Apresentação</span>
             <select
               aria-label={`Apresentação de ${zone.publicTitle}`}
-              disabled={mutationBlocked || applyState === "saving"}
+              disabled={mutationBlocked}
               onChange={(event) => runPhysicalOperation(
                 (state) => changePhysicalDeskZone(state, zone.id, {
                   visualFamily: event.target.value as EditorialVisualFamily,
@@ -1187,7 +1189,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             <input
               aria-label="Título público de Últimas"
               defaultValue={current.presentation.latestZoneTitle}
-              disabled={mutationBlocked || applyState === "saving"}
+              disabled={mutationBlocked}
               key={current.presentation.latestZoneTitle}
               maxLength={120}
               onBlur={(event) => runPhysicalOperation(
@@ -1201,7 +1203,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             <span>Apresentação</span>
             <select
               aria-label="Apresentação de Últimas"
-              disabled={mutationBlocked || applyState === "saving"}
+              disabled={mutationBlocked}
               onChange={(event) => runPhysicalOperation(
                 (state) => changePhysicalDeskPresentation(state, {
                   latestZonePlacement: event.target.value === "four_news"
@@ -1286,7 +1288,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             <label className="thematic-field">
               Módulo
               <select
-                disabled={mutationBlocked || applyState === "saving"}
+                disabled={mutationBlocked}
                 onChange={(event) => runPhysicalOperation(
                   (state) => changePhysicalDeskPresentation(state, {
                     videoModuleActive: event.target.value === "active",
@@ -1327,7 +1329,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   {highlighted.subtitle ? <span>{highlighted.subtitle}</span> : null}
                   <button
                     className="thematic-button danger"
-                    disabled={mutationBlocked || applyState === "saving"}
+                    disabled={mutationBlocked}
                     onClick={() => placeInDisplaced(highlighted.id)}
                     type="button"
                   >
@@ -1489,29 +1491,31 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   }
 
   async function applyChanges() {
-    if (!pending || applyState === "saving") return;
-    if (legacyApplyBlockReason) {
-      setApplyState("error");
-      setMessage("Apply v12 bloqueado: o workspace físico não é integralmente representável no legacy.");
-      return;
-    }
+    if (!pending || mutationBlocked) return;
     setApplyState("saving");
-    setMessage("A validar o round-trip legacy e aplicar numa única transação…");
+    setMessage("A aplicar o workspace físico numa única transação…");
     try {
-      const projection = buildPhysicalDeskLegacyApplyProjection(
-        physicalDesk,
-        desk,
-        desk.physicalCompatibility,
-      );
+      const payload = buildPhysicalDeskApplyPayload(desk.profileKey, physicalDesk);
       const response = await fetch(`/api/admin/editorial/jornada/${desk.matchdayId}/organizar/tematico`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(projection),
+        body: JSON.stringify(payload),
       });
-      const payload = await readAdminJsonResponse<{ ok?: boolean; message?: string }>(response);
-      if (payload.ok !== true) throw new Error(payload.message ?? "O Apply temático foi recusado integralmente.");
-      setApplyState("saved");
-      setMessage("Aplicado. A confirmar o estado autoritativo do servidor…");
+      const result = await readAdminJsonResponse<{
+        ok?: boolean;
+        message?: string;
+        stateToken?: string;
+      }>(response);
+      if (
+        result.ok !== true
+        || typeof result.stateToken !== "string"
+        || !/^[0-9a-f]{32}$/.test(result.stateToken)
+      ) {
+        throw new Error(result.message ?? "O Apply físico foi recusado integralmente.");
+      }
+      setAwaitedPhysicalStateToken(result.stateToken);
+      setApplyState("refreshing");
+      setMessage("Aplicado. A reconstruir a Mesa pelo reader físico…");
       router.refresh();
     } catch (error) {
       setApplyState("error");
@@ -1535,11 +1539,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
         <MatchdayEditorialContextSelector currentCompetitionId={desk.competitionId} currentMatchdayId={desk.matchdayId} currentSeasonId={desk.seasonId} data={contextSelector} />
 
-        {legacyApplyBlockReason ? (
-          <p aria-live="assertive" className="thematic-message error" data-legacy-apply-blocked="true">
-            Workspace físico não representável no legacy. Toda a edição e o Apply v12 estão bloqueados; nenhuma zona foi ocultada.
-          </p>
-        ) : null}
         {message ? <p aria-live={applyState === "error" ? "assertive" : "polite"} className={`thematic-message feedback${applyState === "error" ? " error" : ""}`}>{message}</p> : null}
 
         {selected.size > 0 ? (
@@ -1684,10 +1683,10 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       </div>
 
       <footer className="thematic-pending" aria-live="polite">
-        <div className="thematic-pending-copy"><strong>{pendingCount} alterações pendentes</strong>{legacyApplyBlockReason ? <span>Apply v12 bloqueado globalmente</span> : null}</div>
+        <div className="thematic-pending-copy"><strong>{pendingCount} alterações pendentes</strong>{applyState === "refreshing" ? <span>A reconstruir pelo estado físico autoritativo</span> : null}</div>
         <button className="thematic-button" disabled={mutationBlocked || physicalDesk.history.length === 0} onClick={undo} type="button">Desfazer última</button>
         <button className="thematic-button" disabled={mutationBlocked || !pending} onClick={resetLocal} type="button">Limpar alterações</button>
-        <button className="thematic-button dark" disabled={!pending || applyState === "saving" || legacyApplyBlockReason !== null} onClick={applyChanges} type="button">{applyState === "saving" ? "A aplicar…" : "Aplicar alterações"}</button>
+        <button className="thematic-button dark" disabled={!pending || mutationBlocked} onClick={applyChanges} type="button">{applyState === "saving" ? "A aplicar…" : applyState === "refreshing" ? "A reconstruir…" : "Aplicar alterações"}</button>
       </footer>
     </main>
   );

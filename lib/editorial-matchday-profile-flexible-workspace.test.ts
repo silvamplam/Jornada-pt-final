@@ -215,7 +215,7 @@ test(
 );
 
 test(
-  "reader e route usam exclusivamente o novo contrato temático",
+  "reader preserva o template temático e a route aplica exclusivamente o físico v14",
   () => {
     const root = process.cwd();
 
@@ -252,22 +252,17 @@ test(
 
     assert.match(
       route,
-      /rpc\/apply_matchday_editorial_profile_workspace_v11/,
+      /rpc\/apply_matchday_live_layout_physical_workspace_v14/,
     );
 
-    assert.match(
+    assert.doesNotMatch(
       route,
-      /thematic_zone_layouts/,
+      /apply_matchday_editorial_profile_workspace_v(?:11|12)/,
     );
 
-    assert.match(
+    assert.doesNotMatch(
       route,
-      /thematic_block_order/,
-    );
-
-    assert.match(
-      route,
-      /thematic_zone_titles/,
+      /thematic_zone_(?:layouts|titles)|thematic_block_order/,
     );
 
     assert.doesNotMatch(

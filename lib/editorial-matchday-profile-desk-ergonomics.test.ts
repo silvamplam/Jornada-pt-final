@@ -28,10 +28,10 @@ test("erro físico é explícito e não existe estado paralelo de erro legacy", 
   assert.doesNotMatch(client, /draftVacantZoneSlots/);
 });
 
-test("mensagem global fica antes dos controlos e o bloqueio é assertivo", () => {
+test("feedback global fica antes dos controlos sem bloqueio legacy", () => {
   const message = client.indexOf("{message ?");
   const controls = client.indexOf('className="thematic-global-tools"');
   assert.ok(message >= 0 && controls > message);
-  assert.match(client, /data-legacy-apply-blocked="true"/);
-  assert.match(client, /aria-live="assertive"/);
+  assert.doesNotMatch(client, /data-legacy-apply-blocked="true"/);
+  assert.match(client, /aria-live=\{applyState === "error" \? "assertive" : "polite"\}/);
 });

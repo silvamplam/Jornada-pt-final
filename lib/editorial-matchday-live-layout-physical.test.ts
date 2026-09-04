@@ -15,6 +15,10 @@ const ZONE_IDS = Array.from({ length: 7 }, (_, index) => (
   `00000000-0000-4000-9000-${String(index + 1).padStart(12, "0")}`
 ));
 
+function blockId(index: number) {
+  return `00000000-0000-4000-a000-${String(index).padStart(12, "0")}`;
+}
+
 function zoneRow(index: number, matchdayId = MATCHDAY_ID) {
   const templateZone = EDITORIAL_PROFILES.liga_portugal_v1.zones[
     index % EDITORIAL_PROFILES.liga_portugal_v1.zones.length
@@ -29,7 +33,7 @@ function zoneRow(index: number, matchdayId = MATCHDAY_ID) {
 
 function zoneBlock(index: number, sortOrder = index + 1, matchdayId = MATCHDAY_ID) {
   return {
-    id: `block-${index + 1}`,
+    id: blockId(index + 1),
     matchday_id: matchdayId,
     block_type: "zone",
     zone_id: ZONE_IDS[index],
@@ -61,14 +65,14 @@ test("as cinco zonas atuais são representadas pelo snapshot físico", () => {
   const blocks = [
     ...Array.from({ length: 5 }, (_, index) => zoneBlock(index)),
     {
-      id: "block-latest",
+      id: blockId(10),
       matchday_id: MATCHDAY_ID,
       block_type: "latest",
       zone_id: null,
       sort_order: 6,
     },
     {
-      id: "block-video",
+      id: blockId(11),
       matchday_id: MATCHDAY_ID,
       block_type: "video",
       zone_id: null,
@@ -227,7 +231,7 @@ test("zonas e blocos inválidos falham fechado", () => {
     () => buildMatchdayLiveLayoutPhysicalSnapshot(
       MATCHDAY_ID,
       [zoneRow(0)],
-      [zoneBlock(0), { ...zoneBlock(0, 2), id: "block-zone-duplicate" }],
+      [zoneBlock(0), { ...zoneBlock(0, 2), id: blockId(12) }],
       [],
     ),
     /matchday-live-layout-physical-zone-block-duplicate/,
@@ -263,14 +267,14 @@ test("zonas e blocos inválidos falham fechado", () => {
 
 test("unicidade de latest, video e sort_order é validada", () => {
   const latest = {
-    id: "latest-1",
+    id: blockId(20),
     matchday_id: MATCHDAY_ID,
     block_type: "latest",
     zone_id: null,
     sort_order: 2,
   };
   const video = {
-    id: "video-1",
+    id: blockId(30),
     matchday_id: MATCHDAY_ID,
     block_type: "video",
     zone_id: null,
@@ -281,7 +285,7 @@ test("unicidade de latest, video e sort_order é validada", () => {
     () => buildMatchdayLiveLayoutPhysicalSnapshot(
       MATCHDAY_ID,
       [zoneRow(0)],
-      [zoneBlock(0), latest, { ...latest, id: "latest-2", sort_order: 3 }],
+      [zoneBlock(0), latest, { ...latest, id: blockId(21), sort_order: 3 }],
       [],
     ),
     /matchday-live-layout-physical-latest-block-duplicate/,
@@ -290,7 +294,7 @@ test("unicidade de latest, video e sort_order é validada", () => {
     () => buildMatchdayLiveLayoutPhysicalSnapshot(
       MATCHDAY_ID,
       [zoneRow(0)],
-      [zoneBlock(0), video, { ...video, id: "video-2", sort_order: 3 }],
+      [zoneBlock(0), video, { ...video, id: blockId(31), sort_order: 3 }],
       [],
     ),
     /matchday-live-layout-physical-video-block-duplicate/,

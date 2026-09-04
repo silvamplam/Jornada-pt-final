@@ -15,7 +15,10 @@ import {
   physicalDeskLegacyApplyBlockReason,
   type PhysicalDeskLegacyApplyBaseline,
 } from "./editorial-matchday-live-layout-legacy-apply-adapter";
-import { parseLiveLayoutZoneId } from "./editorial-matchday-live-layout-physical";
+import {
+  parseLiveLayoutBlockId,
+  parseLiveLayoutZoneId,
+} from "./editorial-matchday-live-layout-physical";
 import type { LiveLayoutWorkspaceState } from "./editorial-matchday-live-layout-workspace";
 
 const MATCHDAY_ID = "10000000-0000-4000-8000-000000000001";
@@ -73,10 +76,13 @@ function workspace(zoneCount = 5): LiveLayoutWorkspaceState {
     stateToken: "physical-token-v13",
     zones,
     blocks: [
-      { kind: "video", sortOrder: 1 },
-      { kind: "zone", zoneId: zoneId(2), sortOrder: 2 },
-      { kind: "latest", sortOrder: 3 },
+      { id: parseLiveLayoutBlockId("50000000-0000-4000-8000-000000000001"), kind: "video", sortOrder: 1 },
+      { id: parseLiveLayoutBlockId("50000000-0000-4000-8000-000000000002"), kind: "zone", zoneId: zoneId(2), sortOrder: 2 },
+      { id: parseLiveLayoutBlockId("50000000-0000-4000-8000-000000000003"), kind: "latest", sortOrder: 3 },
       ...zones.filter((zone) => zone.id !== zoneId(2)).map((zone, index) => ({
+        id: parseLiveLayoutBlockId(
+          `50000000-0000-4000-8000-${String(index + 4).padStart(12, "0")}`,
+        ),
         kind: "zone" as const,
         zoneId: zone.id,
         sortOrder: index + 4,
@@ -94,6 +100,8 @@ function workspace(zoneCount = 5): LiveLayoutWorkspaceState {
     explicitBankItemIds: [bankId(6)],
     displacedBankItemIds: [bankId(7)],
     workedBankItemIds: [bankId(1)],
+    workspaceSettings: null,
+    physicalCutover: null,
   };
 }
 

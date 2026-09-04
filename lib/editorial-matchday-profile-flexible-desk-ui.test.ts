@@ -93,8 +93,9 @@ test("preview mantém um único write HTTP de Apply", () => {
   assert.ok(start >= 0 && end > start);
   const apply = client.slice(start, end);
   assert.equal((apply.match(/fetch\(/g) ?? []).length, 1);
-  assert.match(apply, /buildPhysicalDeskLegacyApplyProjection/);
-  assert.match(apply, /body: JSON\.stringify\(projection\)/);
+  assert.match(apply, /buildPhysicalDeskApplyPayload/);
+  assert.match(apply, /body: JSON\.stringify\(payload\)/);
+  assert.doesNotMatch(apply, /LegacyApplyProjection|compatibilityReconcile/);
 });
 
 test("operações de zona não usam perfil estático como identidade", () => {
