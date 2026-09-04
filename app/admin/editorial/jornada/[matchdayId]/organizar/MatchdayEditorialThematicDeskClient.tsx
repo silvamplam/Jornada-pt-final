@@ -10,6 +10,7 @@ import { readAdminJsonResponse } from "@/lib/admin-json-response";
 import MatchdayEditorialContextSelector, {
   type MatchdayEditorialContextSelectorData,
 } from "./MatchdayEditorialContextSelector";
+import MatchdayContextualClassificationCorrectionPanel from "./MatchdayContextualClassificationCorrectionPanel";
 
 import {
   EDITORIAL_PROFILES,
@@ -203,6 +204,9 @@ const styles = `
   .thematic-card-actions { position: absolute; top: 22px; right: 0; display: grid; gap: 3px; width: 158px; padding: 5px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.16); }
   .thematic-card-actions button { width: 100%; text-align: left; }
   .thematic-more { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 8px 8px; color: #64748b; font-size: 9px; }
+  .thematic-global-actions { display: flex; min-width: 0; align-items: flex-start; justify-content: flex-end; gap: 6px; }
+  .thematic-global-actions > .thematic-classification-tool { flex: 0 0 auto; }
+  .thematic-global-actions > .thematic-selection-controls { flex: 1 1 auto; }
   .thematic-selection-controls { display: flex; min-width: 0; min-height: 30px; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; padding: 1px 0 1px 8px; }
   .thematic-selection-controls strong { font-size: 10px; }
   .thematic-bulk-context { position: sticky; z-index: 25; top: 44px; display: grid; gap: 7px; padding: 8px 10px; border: 1px solid #9fb2c5; border-radius: 8px; background: rgba(255,255,255,.98); box-shadow: 0 8px 22px rgba(15,23,42,.14); backdrop-filter: blur(10px); }
@@ -3877,7 +3881,20 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             </div>
           </details>
 
-          <section className="thematic-selection-controls" aria-label="Controlos de seleção">
+          <div className="thematic-global-actions">
+            <details className="thematic-global-tool thematic-classification-tool">
+              <summary>Corrigir classificação</summary>
+              <div className="thematic-global-tool-body">
+                <MatchdayContextualClassificationCorrectionPanel
+                  activeItems={desk.automaticDistribution.activeItems}
+                  candidates={desk.selectionCandidates}
+                  matchdayId={desk.matchdayId}
+                  zones={profile.zones}
+                />
+              </div>
+            </details>
+
+            <section className="thematic-selection-controls" aria-label="Controlos de seleção">
             <strong>
               {selected.size === 1
                 ? "1 notícia selecionada"
@@ -3903,6 +3920,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
               Limpar marcação
             </button>
           </section>
+          </div>
         </div>
 
         <section className="thematic-panel thematic-workspace">
