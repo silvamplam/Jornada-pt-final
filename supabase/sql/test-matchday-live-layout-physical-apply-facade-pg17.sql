@@ -731,6 +731,31 @@ on public.matchday_live_layout_workspace_settings;
 insert into physical_v14_results values
   (2, 'late error total rollback', 'PASS');
 
+insert into public.matchday_roundup_items (
+  id,
+  matchday_id,
+  label,
+  title,
+  subtitle,
+  image_url,
+  video_url,
+  type,
+  sort_order,
+  status
+)
+values (
+  '88000000-0000-4000-8000-000000000001',
+  '48000000-0000-4000-8000-000000000001',
+  'Video',
+  'Physical V14 Fixture Roundup',
+  'Published roundup required by the physical video guard',
+  'https://example.test/physical-v14-roundup.jpg',
+  'https://example.test/physical-v14-roundup.mp4',
+  'resumo',
+  1,
+  'published'
+);
+
 insert into physical_v14_evidence (key, value)
 select
   'classification_before',
