@@ -29,6 +29,10 @@ import {
   type MatchdayEditorialProfileOpening,
   type MatchdayEditorialProfilePageControls,
 } from "@/lib/editorial-matchday-profile-workspace";
+import {
+  buildMatchdayLiveLayoutPhysicalSnapshot,
+  type MatchdayLiveLayoutPhysicalSnapshot,
+} from "@/lib/editorial-matchday-live-layout-physical";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
 const SUPPORTED_SOURCE_TYPE = "editorial_article";
@@ -420,6 +424,7 @@ export type MatchdayEditorialProfileDeskSnapshot =
     tracking: MatchdayEditorialTrackingSnapshot;
     selectionCandidates: readonly MatchdayEditorialSelectionCandidate[];
     editorialSelection: readonly MatchdayEditorialSelectionItem[];
+    physicalLayout: MatchdayLiveLayoutPhysicalSnapshot;
     reconcile: MatchdayEditorialProfileReconcileResult;
     zones: MatchdayEditorialProfileEffectiveDistribution["zones"];
     bank: MatchdayEditorialProfileEffectiveDistribution["bank"];
@@ -944,6 +949,8 @@ export async function readMatchdayEditorialProfileDesk(
     manualOverrideRows,
     reconcileControlRows,
     openingEditorialRows,
+    physicalZoneRows,
+    physicalBlockRows,
   ] = await Promise.all([
     matchdayRowsPromise,
     fetchTable<AssignmentRow>(
@@ -962,6 +969,14 @@ export async function readMatchdayEditorialProfileDesk(
     ),
     fetchTable<OpeningEditorialRow>(
       `matchday_editorials?select=title_color,latest_zone_placement,latest_zone_title,complementary_mode,complementary_status,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&limit=1`,
+    ),
+    readAllRows<unknown>(
+      fetchTable,
+      `matchday_live_layout_zones?select=id,matchday_id,public_title,visual_family&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&order=id.asc`,
+    ),
+    readAllRows<unknown>(
+      fetchTable,
+      `matchday_live_layout_blocks?select=id,matchday_id,block_type,zone_id,sort_order&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&order=sort_order.asc,id.asc`,
     ),
   ]);
   const matchday = matchdayRows[0];
@@ -1075,6 +1090,12 @@ export async function readMatchdayEditorialProfileDesk(
           }]
         : []
     ));
+  const physicalLayout = buildMatchdayLiveLayoutPhysicalSnapshot(
+    cleanMatchdayId,
+    physicalZoneRows,
+    physicalBlockRows,
+    aggregateRows,
+  );
   const appliedZoneRows: MatchdayEditorialProfileZoneItemRow[] = aggregateRows
     .flatMap((row) => {
       const sourceType = cleanText(row.source_type)?.toLowerCase();
@@ -1393,6 +1414,7 @@ export async function readMatchdayEditorialProfileDesk(
     tracking: trackingProjection.tracking,
     selectionCandidates,
     editorialSelection,
+    physicalLayout,
     reconcile,
     zones: reconcile.zonesAfter,
     bank: reconcile.bankAfter,

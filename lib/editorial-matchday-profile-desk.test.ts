@@ -308,9 +308,12 @@ test("uma assignment liga_portugal_v1 produz snapshot temático exclusivamente p
   );
   assert.equal(paths.some((path) => path.startsWith("rpc/apply_")), false);
   assert.equal(paths.some((path) => path.startsWith("rpc/read_matchday_live_desk_aggregate_tracking?")), true);
+  assert.equal(paths.some((path) => path.startsWith("matchday_live_layout_zones?")), true);
+  assert.equal(paths.some((path) => path.startsWith("matchday_live_layout_blocks?")), true);
   assert.equal(paths.some((path) => path.startsWith("rpc/matchday_editorial_profile_classification_plan?")), false);
   assert.equal(paths.every((path) => path.includes("?")), true);
-  assert.equal(paths.length, 11);
+  assert.deepEqual(result.physicalLayout, { zones: [], blocks: [] });
+  assert.equal(paths.length, 13);
 });
 
 test("o leitor falha fechado se o token mudar durante a construção do snapshot", async () => {
