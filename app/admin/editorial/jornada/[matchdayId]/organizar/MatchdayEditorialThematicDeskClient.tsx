@@ -170,9 +170,9 @@ const styles = `
   .thematic-hero a { padding: 6px 9px; border: 1px solid rgba(255,255,255,.25); border-radius: 5px; color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; }
   .thematic-panel { border: 1px solid #d7e0e9; border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(12,22,34,.035); }
   .thematic-editorial-selection { display: grid; align-items: stretch; gap: 4px; padding: 0; }
-  .thematic-editorial-selection .thematic-workspace-slot { display: grid; grid-template-rows: auto minmax(0,1fr); gap: 4px; }
+  .thematic-editorial-selection .thematic-workspace-slot { display: grid; grid-template-rows: minmax(0,1fr); gap: 0; }
   .thematic-selection-slot[data-drag-active="true"] { border-color: #e43e48; background: #fff2f3; }
-  .thematic-card.thematic-selection-card { width: 100%; grid-template-columns: 50px minmax(0,1fr) 24px; }
+  .thematic-card.thematic-selection-card { width: 100%; grid-template-columns: 18px 50px minmax(0,1fr) 24px; }
   .thematic-selection-card .thematic-card-copy small { overflow: hidden; color: #657487; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
   .thematic-movements summary { padding: 9px 10px; cursor: pointer; font-size: 11px; font-weight: 900; }
   .thematic-field { display: grid; gap: 3px; color: #5f6e80; font-size: 9px; font-weight: 800; text-transform: uppercase; }
@@ -184,7 +184,6 @@ const styles = `
   .thematic-dropbar[data-drag-active="true"] { border-color: #e43e48; background: #fff2f3; }
   .thematic-slot-label { display: block; margin-bottom: 4px; color: #5e6d7d; font-size: 8px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
   .thematic-empty { display: grid; place-items: center; min-height: 55px; margin: 0; color: #8a98a8; font-size: 9px; font-weight: 700; text-align: center; }
-  .thematic-position { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 999px; background: #172331; color: #fff; font-size: 8px; font-weight: 900; }
   .thematic-dropbar { margin: 0 7px 7px; padding: 6px; border: 1px dashed #b9c6d4; border-radius: 5px; color: #69788a; font-size: 8px; font-weight: 800; text-align: center; }
   .thematic-card { position: relative; display: grid; grid-template-columns: 18px 50px minmax(0,1fr) 24px; gap: 5px; align-items: center; min-width: 0; min-height: 58px; padding: 4px; border: 1px solid #dfe6ee; border-radius: 5px; background: #fff; cursor: grab; box-shadow: 0 1px 4px rgba(15,23,42,.04); }
   .thematic-card:active { cursor: grabbing; }
@@ -204,11 +203,13 @@ const styles = `
   .thematic-card-actions { position: absolute; top: 22px; right: 0; display: grid; gap: 3px; width: 158px; padding: 5px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; box-shadow: 0 8px 20px rgba(15,23,42,.16); }
   .thematic-card-actions button { width: 100%; text-align: left; }
   .thematic-more { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 8px 8px; color: #64748b; font-size: 9px; }
-  .thematic-global-actions { display: flex; min-width: 0; align-items: flex-start; justify-content: flex-end; gap: 6px; }
+  .thematic-global-actions { position: relative; display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 0; }
   .thematic-global-actions > .thematic-classification-tool { flex: 0 0 auto; }
   .thematic-global-actions > .thematic-selection-controls { flex: 1 1 auto; }
-  .thematic-selection-controls { display: flex; min-width: 0; min-height: 30px; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; padding: 1px 0 1px 8px; }
-  .thematic-selection-controls strong { font-size: 10px; }
+  .thematic-selection-controls { display: flex; min-width: 0; min-height: 30px; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 2px; padding: 0 3px 0 10px; }
+  .thematic-selection-controls strong { color: #657487; font-size: 9px; white-space: nowrap; }
+  .thematic-selection-controls .thematic-button { min-height: 24px; padding: 3px 7px; border: 0; border-radius: 4px; background: transparent; }
+  .thematic-selection-controls .thematic-button + .thematic-button { border-left: 1px solid #dce3eb; border-radius: 0 4px 4px 0; }
   .thematic-bulk-context { position: sticky; z-index: 25; top: 44px; display: grid; gap: 7px; padding: 8px 10px; border: 1px solid #9fb2c5; border-radius: 8px; background: rgba(255,255,255,.98); box-shadow: 0 8px 22px rgba(15,23,42,.14); backdrop-filter: blur(10px); }
   .thematic-bulk-context-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .thematic-bulk-context-copy { display: grid; gap: 1px; }
@@ -245,7 +246,7 @@ const styles = `
   .thematic-workspace-slot { min-width: 0; min-height: 64px; padding: 4px; border: 1px dashed #b8c4d2; border-radius: 5px; background: #fff; }
   .thematic-workspace-slot[data-drag-active="true"] { border-color: #2563eb; background: #eff6ff; }
   .thematic-workspace-slot .thematic-card { grid-template-columns: 16px 44px minmax(0,1fr) 22px; min-height: 52px; }
-  .thematic-workspace-slot .thematic-card.thematic-selection-card { grid-template-columns: 44px minmax(0,1fr) 22px; }
+  .thematic-workspace-slot .thematic-card.thematic-selection-card { grid-template-columns: 16px 44px minmax(0,1fr) 22px; }
   .thematic-workspace-slot .thematic-image, .thematic-workspace-slot .thematic-image-placeholder { width: 44px; height: 34px; }
   .thematic-highlight-row { display: grid; grid-template-columns: minmax(120px,160px) minmax(0,520px); gap: 5px; align-items: end; justify-content: start; }
   .thematic-highlight-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 7px; min-width: 0; }
@@ -280,14 +281,24 @@ const styles = `
   .thematic-bank-class-filters nav button.active { border-color: #334155; background: #334155; color: #fff; }
   .thematic-bank-class-filters > .thematic-button { flex: 0 0 auto; margin-left: auto; }
   .thematic-bank-pool .thematic-empty { min-height: 44px; }
-  .thematic-faixa-item { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 5px; align-items: start; min-width: 0; }
+  .thematic-faixa-item { min-width: 0; }
   .thematic-tracking-drop-target { margin: 0 6px 6px; padding: 7px 8px; border: 1px dashed #9aaabc; border-radius: 6px; background: #f8fafc; color: #526173; font-size: 9px; font-weight: 900; text-align: center; }
   .thematic-tracking-drop-target[data-drag-active="true"] { border-color: #e43e48; background: #fff2f3; color: #9f1d27; }
-  .thematic-global-tools { display: grid; grid-template-columns: max-content max-content max-content minmax(0,1fr); align-items: start; gap: 5px; }
-  .thematic-global-tool { min-width: 0; border: 1px solid #d7e0e9; border-radius: 7px; background: #fff; box-shadow: 0 3px 10px rgba(12,22,34,.03); }
-  .thematic-global-tool[open] { grid-column: 1 / -1; }
-  .thematic-global-tool > summary { min-height: 30px; padding: 7px 9px; cursor: pointer; color: #243244; font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
-  .thematic-global-tool-body { padding: 0 6px 6px; }
+  .thematic-global-tools { position: relative; z-index: 20; display: grid; grid-template-columns: max-content max-content max-content minmax(0,1fr); align-items: center; min-height: 38px; gap: 0; padding: 3px; border: 1px solid #d7e0e9; border-radius: 7px; background: #fff; }
+  .thematic-global-tool { position: relative; min-width: 0; border: 0; background: transparent; }
+  .thematic-global-tool[open] { z-index: 2; }
+  .thematic-global-tool > summary { display: flex; min-height: 30px; align-items: center; gap: 7px; padding: 0 10px; border-radius: 4px; cursor: pointer; list-style: none; color: #334155; font-size: 9px; font-weight: 900; letter-spacing: .055em; text-transform: uppercase; user-select: none; white-space: nowrap; }
+  .thematic-global-tool > summary::-webkit-details-marker { display: none; }
+  .thematic-global-tool > summary::after { width: 5px; height: 5px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; content: ""; opacity: .6; transform: rotate(45deg) translateY(-1px); transition: transform .14s ease; }
+  .thematic-global-tool[open] > summary { background: #edf2f6; color: #172331; box-shadow: inset 0 -2px 0 #526173; }
+  .thematic-global-tool[open] > summary::after { transform: rotate(225deg) translate(-1px,-1px); }
+  .thematic-global-tools > .thematic-global-tool + .thematic-global-tool > summary, .thematic-global-actions > .thematic-classification-tool > summary { border-left: 1px solid #e1e7ed; }
+  .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { position: absolute; z-index: 40; top: calc(100% + 5px); left: 0; max-height: min(72vh,720px); overflow: auto; overscroll-behavior: contain; border: 1px solid #ccd6e0; border-radius: 7px; background: #fff; box-shadow: 0 9px 24px rgba(15,23,42,.11); }
+  .thematic-global-tool-body { padding: 7px; }
+  .thematic-global-tools > .thematic-global-tool:first-child > .thematic-page-structure { width: clamp(600px,70vw,960px); max-width: calc(100vw - 24px); }
+  .thematic-video-tool > .thematic-global-tool-body { width: clamp(420px,50vw,720px); max-width: calc(100vw - 170px); }
+  .thematic-agenda-tv-tool > .thematic-global-tool-body { width: clamp(500px,56vw,860px); max-width: calc(100vw - 250px); }
+  .thematic-classification-tool > .thematic-global-tool-body { width: clamp(560px,52vw,700px); max-width: calc(100vw - 310px); }
   .thematic-global-tool-body .video-summary-sync { margin: 0; padding: 7px; }
   .agenda-tv-sync { display: grid; gap: 7px; padding: 7px; border: 1px solid #d8e0e9; border-radius: 7px; background: #f8fafc; }
   .agenda-tv-sync-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; }
@@ -306,7 +317,7 @@ const styles = `
   .agenda-tv-sync-value span { color: #64748b; font-size: 8px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
   .agenda-tv-sync-value p { margin: 0; color: #243244; font-size: 10px; font-weight: 700; overflow-wrap: anywhere; }
   .agenda-tv-sync-note { grid-column: 1 / -1; margin: 0; color: #765000; font-size: 9px; font-weight: 800; }
-  .thematic-page-structure { display: grid; gap: 5px; padding: 0 6px 6px; }
+  .thematic-page-structure { display: grid; gap: 5px; padding: 8px; }
   .thematic-page-structure-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
   .thematic-top-tools, .thematic-top-tools label { display: flex; align-items: center; gap: 5px; }
   .thematic-top-tools span { color: #64748b; font-size: 9px; font-weight: 800; }
@@ -338,7 +349,7 @@ const styles = `
   .thematic-highlight-card span { color: #64748b; font-size: 9px; }
   @media (max-width: 1180px) { .thematic-sources-toolbar, .thematic-reservoir-filters { flex-wrap: wrap; } .thematic-slots-5, .thematic-slots-6, .thematic-sources-list { grid-template-columns: repeat(2,minmax(0,1fr)); } }
   @media (max-width: 900px) { .thematic-tracking-rows { grid-template-columns: 1fr; } }
-  @media (max-width: 760px) { .thematic-global-tools, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-sources-list, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .thematic-page-row-actions, .agenda-tv-sync-actions { justify-content: flex-start; } }
+  @media (max-width: 760px) { .thematic-global-tools { display: flex; flex-wrap: wrap; } .thematic-global-tools > .thematic-global-tool { flex: 0 0 auto; } .thematic-global-actions { flex: 1 1 100%; min-width: 100%; border-top: 1px solid #e1e7ed; } .thematic-selection-controls { flex-wrap: wrap; } .thematic-global-tool { position: static; } .thematic-global-actions > .thematic-classification-tool > summary { border-left: 0; } .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { top: calc(100% + 5px); right: 3px; left: 3px; width: auto; max-width: none; max-height: calc(100vh - 80px); } .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-sources-list, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .thematic-page-row-actions, .agenda-tv-sync-actions { justify-content: flex-start; } }
 `;
 
 const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
@@ -534,7 +545,9 @@ function EditorialSelectionCard({
   onFaixa,
   onBank,
   onRemove,
+  onToggle,
   position,
+  selected,
 }: Readonly<{
   candidate: EditorialSelectionCandidate;
   dragging: boolean;
@@ -543,12 +556,14 @@ function EditorialSelectionCard({
   onFaixa: () => void;
   onBank: () => void;
   onRemove: () => void;
+  onToggle: () => void;
   position: MatchdayEditorialProfileSelectionPosition;
+  selected: boolean;
 }>) {
   return (
     <article
       aria-grabbed={dragging}
-      className="thematic-card thematic-selection-card"
+      className={`thematic-card thematic-selection-card${selected ? " selected" : ""}`}
       draggable
       onDragEnd={onDragEnd}
       onDragStart={(event) => {
@@ -562,6 +577,7 @@ function EditorialSelectionCard({
         onDragStart(event);
       }}
     >
+      <input aria-label={`Marcar para operação em lote: ${candidate.title}`} checked={selected} onChange={onToggle} onClick={(event) => event.stopPropagation()} type="checkbox" />
       {renderableImageUrl(candidate.imageUrl) ? (
         <Image
           alt=""
@@ -2748,10 +2764,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           setDraggingIdentity(null);
         }}
       >
-        <span className="thematic-position">
-          {item.sortOrder}
-        </span>
-
         {cardFor(
           item,
           { kind: "faixa" },
@@ -2877,10 +2889,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   setDraggingIdentity(null);
                 }}
               >
-                <span className="thematic-position">
-                  {String(position).padStart(2, "0")}
-                </span>
-
                 {item
                   ? cardFor(
                       item,
@@ -2976,6 +2984,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
               const candidate = bankItemId
                 ? editorialSelectionCandidateById.get(bankItemId) ?? null
                 : null;
+              const candidateIdentity = candidate
+                ? identityForBankItemId(candidate.bankItemId)
+                : null;
 
               return (
                 <div
@@ -2997,10 +3008,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     dropOnEditorialSelection(event, position)
                   }
                 >
-                  <span className="thematic-position">
-                    {String(position).padStart(2, "0")}
-                  </span>
-
                   {candidate ? (
                     <EditorialSelectionCard
                       candidate={candidate}
@@ -3053,7 +3060,15 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                       onRemove={() =>
                         removeEditorialSelection(position)
                       }
+                      onToggle={() => {
+                        if (candidateIdentity) {
+                          toggleSelection(candidateIdentity);
+                        }
+                      }}
                       position={position}
+                      selected={candidateIdentity
+                        ? selected.has(candidateIdentity)
+                        : false}
                     />
                   ) : (
                     <p className="thematic-empty">

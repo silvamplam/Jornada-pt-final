@@ -266,8 +266,13 @@ test("quatro slots são drop targets da Seleção exclusiva", () => {
 test("cartão das quatro usa menu compacto com saídas transversais", () => {
   assert.match(
     client,
-    /\.thematic-selection-card \{ width: 100%; grid-template-columns: 50px minmax\(0,1fr\) 24px; \}/u,
+    /\.thematic-selection-card \{ width: 100%; grid-template-columns: 18px 50px minmax\(0,1fr\) 24px; \}/u,
   );
+  assert.match(selectionCard, /type="checkbox"/u);
+  assert.match(selectionCard, /checked=\{selected\}/u);
+  assert.match(selectionCard, /onChange=\{onToggle\}/u);
+  assert.match(selectionPanel, /onToggle=\{\(\) => \{[\s\S]*toggleSelection\(candidateIdentity\)/u);
+  assert.match(selectionPanel, /selected=\{candidateIdentity[\s\S]*selected\.has\(candidateIdentity\)/u);
   assert.match(selectionCard, /className="thematic-card-menu"/u);
   assert.match(selectionCard, />\s*···\s*<\/summary>/u);
   assert.match(selectionCard, /Retirar das quatro/u);

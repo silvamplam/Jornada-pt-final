@@ -32,6 +32,19 @@ type CorrectionResponse = Readonly<{
   message?: string;
 }>;
 
+function normalizeSearchText(
+  value: string,
+) {
+  return value
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      "",
+    )
+    .toLocaleLowerCase("pt-PT")
+    .trim();
+}
+
 export default function MatchdayContextualClassificationCorrectionPanel({
   activeItems,
   candidates,
@@ -131,9 +144,7 @@ export default function MatchdayContextualClassificationCorrectionPanel({
   const [
     bankItemId,
     setBankItemId,
-  ] = useState(
-    firstItem?.bankItemId ?? "",
-  );
+  ] = useState("");
 
   const [
     classificationKey,
@@ -157,6 +168,39 @@ export default function MatchdayContextualClassificationCorrectionPanel({
     message,
     setMessage,
   ] = useState("");
+
+  const [
+    searchQuery,
+    setSearchQuery,
+  ] = useState("");
+
+  const filteredItems =
+    useMemo(
+      () => {
+        const query =
+          normalizeSearchText(
+            searchQuery,
+          );
+
+        if (!query) {
+          return items;
+        }
+
+        return items.filter(
+          (item) =>
+            normalizeSearchText(
+              [
+                item.label ?? "",
+                item.title,
+              ].join(" "),
+            ).includes(query),
+        );
+      },
+      [
+        items,
+        searchQuery,
+      ],
+    );
 
   const selectedItem =
     items.find(
@@ -274,6 +318,39 @@ export default function MatchdayContextualClassificationCorrectionPanel({
       {items.length > 0 ? (
         <>
           <label className="thematic-field">
+            Pesquisar notícia
+            <input
+              aria-label="Pesquisar notícias para corrigir classificação"
+              disabled={state === "saving"}
+              onChange={(event) => {
+                setSearchQuery(
+                  event.target.value,
+                );
+                setBankItemId("");
+                setState("idle");
+                setMessage("");
+              }}
+              placeholder="Título ou etiqueta"
+              type="search"
+              value={searchQuery}
+            />
+          </label>
+
+          <p
+            style={{
+              margin: 0,
+              color: "#64748b",
+              fontSize: 9,
+              fontWeight: 700,
+            }}
+          >
+            <strong>{filteredItems.length}</strong>
+            {" de "}
+            {items.length}
+            {" notícias"}
+          </p>
+
+          <label className="thematic-field">
             Notícia
             <select
               disabled={state === "saving"}
@@ -284,7 +361,13 @@ export default function MatchdayContextualClassificationCorrectionPanel({
               }
               value={bankItemId}
             >
-              {items.map((item) => (
+              <option disabled value="">
+                {filteredItems.length > 0
+                  ? "Escolher notícia"
+                  : "Nenhuma notícia encontrada"}
+              </option>
+
+              {filteredItems.map((item) => (
                 <option
                   key={item.bankItemId}
                   value={item.bankItemId}

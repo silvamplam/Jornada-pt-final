@@ -209,3 +209,44 @@ test("7D: classificação e controlos partilham apenas a quarta coluna", () => {
     /\.thematic-global-actions \{[^}]*display: flex/u,
   );
 });
+test("7D: pesquisa contextual exige escolha explícita", () => {
+  assert.match(
+    panel,
+    /aria-label="Pesquisar notícias para corrigir classificação"/u,
+  );
+
+  assert.match(
+    panel,
+    /\.normalize\("NFD"\)/u,
+  );
+
+  assert.match(
+    panel,
+    /filteredItems/u,
+  );
+
+  assert.match(
+    panel,
+    /item\.label \?\? ""[\s\S]*item\.title/u,
+  );
+
+  assert.match(
+    panel,
+    /filteredItems\.map\(\(item\)/u,
+  );
+
+  assert.match(
+    panel,
+    /const \[\s*bankItemId,\s*setBankItemId,\s*\] = useState\(""\);/u,
+  );
+
+  assert.match(
+    panel,
+    /setBankItemId\(""\)/u,
+  );
+
+  assert.match(
+    panel,
+    /state === "saving"[\s\S]*\|\| !selectedItem/u,
+  );
+});

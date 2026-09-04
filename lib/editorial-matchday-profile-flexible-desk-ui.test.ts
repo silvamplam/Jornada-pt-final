@@ -161,15 +161,16 @@ test("Últimas mantém só Título público, Apresentação e contador na faixa 
   );
 });
 
-test("quatro Últimas corrigem a grelha específica dentro dos slots", () => {
+test("quatro Últimas alinham os cards sem numeração visual dos slots", () => {
   assert.match(
     source,
-    /\.thematic-workspace-slot \.thematic-card\.thematic-selection-card \{ grid-template-columns: 44px minmax\(0,1fr\) 22px; \}/,
+    /\.thematic-workspace-slot \.thematic-card\.thematic-selection-card \{ grid-template-columns: 16px 44px minmax\(0,1fr\) 22px; \}/,
   );
   assert.match(
     source,
-    /\.thematic-editorial-selection \.thematic-workspace-slot \{ display: grid; grid-template-rows: auto minmax\(0,1fr\);/,
+    /\.thematic-editorial-selection \.thematic-workspace-slot \{ display: grid; grid-template-rows: minmax\(0,1fr\); gap: 0; \}/,
   );
+  assert.doesNotMatch(source, /thematic-position/);
   assert.match(
     source,
     /\.thematic-card-title \{ display: -webkit-box;[\s\S]*?-webkit-line-clamp: 2; \}/,
