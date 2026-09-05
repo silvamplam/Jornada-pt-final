@@ -1819,7 +1819,7 @@
   transform: translateY(0.5px);
 }
 
-/* Afinação vertical efetiva: direto/intervalo/agendados. */
+/* Afinaï¿½ï¿½o vertical efetiva: direto/intervalo/agendados. */
 .panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) > .team:first-of-type,
 .panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .teamNames > .teamName:first-child,
 .panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="home"] { transform: translateY(-0.5px); }
@@ -1845,7 +1845,7 @@
 .panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="home"] { transform: translate(-9px, -0.5px); }
 .panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translate(-9px, 1.5px); }
 
-/* Afinação final: cabeçalho agendado e logótipo TV. */
+/* Afinaï¿½ï¿½o final: cabeï¿½alho agendado e logï¿½tipo TV. */
 .panel[data-visual-variant="clean"] .cleanScheduleHeader { translate: 0 -1px; }
 .panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) { translate: -7px 1px; }
 
@@ -1859,9 +1859,268 @@
 
 .panel[data-visual-variant="clean"] .cleanScheduleTime { translate: -3px 0; }
 
-/* Afinação global final: todo o conteúdo interno desce 1 px. */
+/* Afinaï¿½ï¿½o global final: todo o conteï¿½do interno desce 1 px. */
 .panel[data-visual-variant="clean"] .row > .card > .status,
 .panel[data-visual-variant="clean"] .row > .card > .team,
 .panel[data-visual-variant="clean"] .row > .card .teamNames > .teamName,
 .panel[data-visual-variant="clean"] .row > .card > .cleanTeamScore,
 .panel[data-visual-variant="clean"] .row > .card > .broadcast { position: relative; top: 1px; }
+
+/* Ajuste vertical 2: conteÃºdo do card +1px; data e hora mantÃªm posiÃ§Ã£o. */
+.panel[data-visual-variant="clean"] .row > .card > .team,
+.panel[data-visual-variant="clean"] .row > .card .teamNames > .teamName,
+.panel[data-visual-variant="clean"] .row > .card > .cleanTeamScore,
+.panel[data-visual-variant="clean"] .row > .card > .broadcast {
+  top: 2px;
+}
+
+/* Ajuste TV: logÃ³tipo desce 1px. */
+.panel[data-visual-variant="clean"] .row > .card > .broadcast img {
+  position: relative;
+  top: 1px;
+}
+
+/* Finalizados: placard 6px para a esquerda. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .cleanTeamScore {
+  translate: -6px 0;
+}
+
+/* Finalizados: nomes 6px mais perto dos emblemas. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .teamNames > .teamName {
+  translate: -6px 0;
+}
+
+/* Finalizados: alinhamento horizontal idÃªntico aos agendados. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .teamNames > .teamName {
+  translate: -6px 0;
+}
+
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .cleanTeamScore {
+  translate: -9px 0;
+}
+
+/* Finalizados: verticalidade idÃªntica aos agendados. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team:first-of-type,
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .teamNames > .teamName:first-child,
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .cleanTeamScore[data-public-match-team-score="home"] {
+  transform: translateY(-0.5px);
+}
+
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team:nth-of-type(2),
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .teamNames > .teamName:nth-child(2),
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .cleanTeamScore[data-public-match-team-score="away"] {
+  transform: translateY(1.5px);
+}
+
+/* Finalizados: mesma geometria vertical dos agendados. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) {
+  grid-template-rows: 14px 7px 24px 2px 24px 1fr 19px;
+}
+
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team {
+  width: 24px;
+  height: 24px;
+  grid-template-columns: 24px;
+  grid-template-rows: 24px;
+}
+
+/* Direto / intervalo: cabeÃ§alho alinhado com data / hora dos agendados. */
+.panel[data-visual-variant="clean"] .cleanStatusLine {
+  justify-content: space-between;
+  translate: 0 -1px;
+}
+
+.panel[data-visual-variant="clean"] .cleanStatusLead {
+  transform: none;
+}
+
+.panel[data-visual-variant="clean"] .cleanStateBadgeLive,
+.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
+  margin-inline-start: auto;
+  margin-inline-end: 0;
+  transform: none;
+  translate: -6px 0;
+}
+
+/* Direto / intervalo: centros iguais aos da data e da hora dos agendados. */
+.panel[data-visual-variant="clean"] .cleanStatusLine {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 40px;
+  align-items: center;
+  justify-content: initial;
+  width: 100%;
+  translate: 0 -1px;
+}
+
+.panel[data-visual-variant="clean"] .cleanStatusLead {
+  grid-column: 1;
+  justify-self: center;
+  margin: 0;
+  transform: none;
+}
+
+.panel[data-visual-variant="clean"] .cleanStateBadgeLive,
+.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
+  grid-column: 3;
+  justify-self: center;
+  margin: 0;
+  transform: none;
+  translate: 0 0;
+}
+
+/* Direto / intervalo: alinhamento pela margem direita de data e hora. */
+.panel[data-visual-variant="clean"] .cleanScheduleHeader > :global(.public-matchday-mini-time) {
+  flex: 0 0 36px;
+  width: 36px;
+  text-align: right;
+}
+
+.panel[data-visual-variant="clean"] .cleanStatusLine {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  translate: 0 -1px;
+}
+
+.panel[data-visual-variant="clean"] .cleanStatusLead {
+  grid-column: 1;
+  justify-self: end;
+  margin: 0;
+  text-align: right;
+  transform: none;
+}
+
+.panel[data-visual-variant="clean"] .cleanStateBadgeLive,
+.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
+  grid-column: 3;
+  justify-self: end;
+  margin: 0;
+  transform: none;
+  translate: -6px 0;
+}
+
+/* Direto / intervalo: margem direita exatamente igual Ã  hora dos agendados. */
+.panel[data-visual-variant="clean"] .cleanStatusLine {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.panel[data-visual-variant="clean"] .cleanStatusLead {
+  margin: 0;
+}
+
+.panel[data-visual-variant="clean"] .cleanStateBadgeLive,
+.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
+  margin-inline-start: auto;
+  margin-inline-end: 0;
+  transform: none;
+  translate: -9px 0;
+}
+
+/* INTERVALO: mesmo comportamento visual do AGORA. */
+.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
+  border-color: #16a34a;
+  background: #16a34a;
+  box-shadow: 0 1px 2px rgba(22, 101, 52, 0.32);
+  color: #ffffff;
+  animation: public-match-now-fade 2.6s ease-in-out infinite;
+}
+
+/* Direto / intervalo: minuto a 9px do estado; conjunto alinhado com a hora. */
+.panel[data-visual-variant="clean"] .cleanStatusLine {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  width: 100%;
+  translate: -6px 0;
+}
+
+.panel[data-visual-variant="clean"] .cleanStatusLead {
+  margin: 0;
+  transform: none;
+}
+
+.panel[data-visual-variant="clean"] .cleanStateBadgeLive,
+.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
+  margin: 0;
+  transform: none;
+  translate: 0 0;
+}
+
+/* Teste: hora sem caixa, distinta da data apenas por tipografia. */
+.panel[data-visual-variant="clean"] .cleanScheduleTime {
+  height: 14px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #17283b;
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 14px;
+  letter-spacing: 0.015em;
+}
+
+/* Hora: bold e ligeiramente alongada na vertical. */
+.panel[data-visual-variant="clean"] .cleanScheduleTime {
+  font-weight: 850;
+  transform: scaleY(1.14);
+  transform-origin: center;
+}
+
+/* Finalizados: FINAL no lugar da hora, com tipografia da data. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status > :global(.public-matchday-mini-time) {
+  display: inline-block;
+  width: auto;
+  height: 14px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 14px;
+  letter-spacing: 0;
+  transform: none;
+  translate: -6px 0;
+}
+
+/* FINAL: termina exatamente 6px antes da margem direita do card. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status > :global(.public-matchday-mini-time) {
+  translate: 0 0;
+}
+
+/* FINAL: margem direita real de 6px relativamente ao card. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status > :global(.public-matchday-mini-time) {
+  translate: 7px 0;
+}
+
+/* FINAL: margem direita exatamente alinhada com o placard. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status > :global(.public-matchday-mini-time) {
+  translate: -9px 0;
+}
+
+/* Hora: escura, bold delicada e mais alta. */
+.panel[data-visual-variant="clean"] .cleanScheduleTime {
+  background: transparent;
+  color: #17283b;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  letter-spacing: 0;
+  transform: scaleY(1.18);
+  transform-origin: center;
+}

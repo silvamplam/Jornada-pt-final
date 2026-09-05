@@ -792,8 +792,10 @@ const articlePageStyles = `
 
   .public-matchday-nav-compact a[aria-current="page"] {
     align-self: flex-end;
-    min-width: 31px;
-    min-height: 29px;
+    min-width: 36px;
+    min-height: 28px;
+    position: relative;
+    top: 2px;
     border-color: var(--public-season-accent, #17283b);
     background: var(--public-season-accent, #17283b);
     color: #ffffff;

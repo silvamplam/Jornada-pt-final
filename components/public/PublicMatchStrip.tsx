@@ -301,7 +301,21 @@ function CompactMatchCard({
   const scheduledDateTimeMatch = presentation.kind === "scheduled"
     ? /^(.*) · (\d{2}:\d{2})$/.exec(schedule.visual)
     : null;
-  const scheduleDateVisual = scheduledDateTimeMatch?.[1] ?? null;
+  const scheduledCivilDate = parseCivilDate(match.scheduled_date)
+    ?? kickoffCivilDate(match.kickoff_at);
+  const todayCivilDate = kickoffCivilDate(now.toISOString());
+  const scheduleIsToday = Boolean(
+    scheduledCivilDate
+      && todayCivilDate
+      && scheduledCivilDate.year === todayCivilDate.year
+      && scheduledCivilDate.month === todayCivilDate.month
+      && scheduledCivilDate.day === todayCivilDate.day
+  );
+  const scheduleDateVisual = scheduledDateTimeMatch?.[1]
+    ? scheduleIsToday
+      ? "HOJE"
+      : scheduledDateTimeMatch[1]
+    : null;
   const scheduleTimeVisual = scheduledDateTimeMatch?.[2] ?? null;
   const hasScheduledHeaderTime = Boolean(
     visualVariant === "clean"
