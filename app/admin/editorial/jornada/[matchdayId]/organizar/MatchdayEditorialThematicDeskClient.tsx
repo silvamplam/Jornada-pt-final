@@ -20,7 +20,9 @@ import {
 } from "@/lib/editorial-profiles";
 import {
   selectMatchdayEditorialExplicitBankItems,
+  selectMatchdayEditorialTrackingItems,
   type MatchdayEditorialTrackingClassFilter,
+  type MatchdayEditorialTrackingItem,
   type MatchdayEditorialSelectionCandidate,
   type MatchdayEditorialProfileDeskDiagnostic,
   type MatchdayEditorialProfileDeskSnapshot,
@@ -1015,14 +1017,14 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const classBankEntries = selectMatchdayEditorialExplicitBankItems(explicitBankEntries, bankClassFilter);
 
   const normalizedTrackingQuery = trackingQuery.trim().toLocaleLowerCase("pt-PT");
-  function matchesTrackingQuery(item: MatchdayEditorialProfileEffectiveItem) {
+  function matchesTrackingQuery(item: Pick<MatchdayEditorialProfileEffectiveItem, "label" | "title" | "subtitle">) {
     return !normalizedTrackingQuery
       || [item.label, item.title, item.subtitle].some((value) => (
         value?.toLocaleLowerCase("pt-PT").includes(normalizedTrackingQuery)
       ));
   }
 
-  const trackingEntries = useMemo(() => current.bankItems.flatMap((bankItem) => {
+  const trackingEntries = useMemo(() => current.bankItems.flatMap<MatchdayEditorialTrackingItem>((bankItem) => {
     if (!bankItem.classification || current.explicitBankItemIds.includes(bankItem.id)) return [];
     const placement = placementByBankItemId.get(bankItem.id);
     if (placement && placement.placementType !== "faixa") return [];
@@ -1032,23 +1034,29 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         ? "DESALOJADA"
         : "NOVA";
     return [{
+      ...effectiveItem(bankItem.id, placement?.slotPosition ?? null),
       bankItemId: bankItem.id,
       classifiedZoneKey: bankItem.classification.key,
+      classificationSource: bankItem.classification.source,
+      classifiedAt: bankItem.classification.classifiedAt,
       editorialState,
-      item: effectiveItem(bankItem.id, placement?.slotPosition ?? null),
+      memoryKind: editorialState === "DESALOJADA" ? "displaced" : null,
+      placementCreatedAt: desk.physicalWorkspace.placements.find((candidate) => candidate.bankItemId === bankItem.id)?.createdAt ?? null,
+      stateRecordedAt: current.memory.find((candidate) => candidate.bankItemId === bankItem.id)?.recordedAt ?? null,
     }];
-  }), [current.bankItems, current.displacedBankItemIds, current.explicitBankItemIds, placementByBankItemId]);
+  }), [activeByIdentity, current.bankItems, current.displacedBankItemIds, current.explicitBankItemIds, current.memory, desk.physicalWorkspace.placements, placementByBankItemId]);
   const classTrackingEntries = trackingEntries.filter((entry) => (
     trackingClassFilter === "all" || entry.classifiedZoneKey === trackingClassFilter
   ));
-  const filteredTrackingEntries = classTrackingEntries.filter(({ item }) => matchesTrackingQuery(item));
+  const filteredTrackingEntries = classTrackingEntries.filter(matchesTrackingQuery);
   const filteredBankEntries = classBankEntries.filter(({ item }) => matchesTrackingQuery(item));
   const visibleBankEntries = filteredBankEntries.slice(0, bankVisibleCount);
 
   function trackingEntriesForState(state: MatchdayEditorialTrackingState) {
     const entries = filteredTrackingEntries.filter((entry) => entry.editorialState === state);
+    if (state === "NOVA") return selectMatchdayEditorialTrackingItems(entries, trackingClassFilter);
     if (state === "FAIXA") return [...entries].sort((left, right) => (
-      (left.item.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.item.sortOrder ?? Number.MAX_SAFE_INTEGER)
+      (left.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.sortOrder ?? Number.MAX_SAFE_INTEGER)
     ));
     if (state !== "DESALOJADA") return entries;
     const rank = new Map(current.displacedArrivalBankItemIds.map((id, index) => [id, index] as const));

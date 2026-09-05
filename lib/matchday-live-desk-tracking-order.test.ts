@@ -23,6 +23,8 @@ function trackingItem(
   state: MatchdayEditorialTrackingState,
   options: Readonly<{
     publishedAt?: string | null;
+    updatedAt?: string | null;
+    classifiedAt?: string;
     circuitOrder?: number | null;
     placementCreatedAt?: string | null;
     stateRecordedAt?: string | null;
@@ -38,11 +40,11 @@ function trackingItem(
     subtitle: null,
     imageUrl: null,
     publishedAt: options.publishedAt ?? null,
-    updatedAt: null,
+    updatedAt: options.updatedAt ?? null,
     circuitOrder: options.circuitOrder ?? null,
     classifiedZoneKey: "benfica",
     classificationSource: "automatic",
-    classifiedAt: "2026-09-03T10:00:00.000Z",
+    classifiedAt: options.classifiedAt ?? "2026-09-03T10:00:00.000Z",
     editorialState: state,
     memoryKind: state === "DESALOJADA" ? "displaced" : null,
     placementCreatedAt: options.placementCreatedAt ?? null,
@@ -50,24 +52,70 @@ function trackingItem(
   };
 }
 
-test("NOVAS usam publicação decrescente e ignoram circuitOrder", () => {
-  const older = trackingItem("1", "NOVA", {
-    publishedAt: "2026-09-03T10:00:00.000Z",
-    circuitOrder: 1,
-  });
-
-  const newer = trackingItem("2", "NOVA", {
-    publishedAt: "2026-09-03T12:00:00.000Z",
-    circuitOrder: 99,
-  });
+test("NOVAS usam publicação decrescente apesar da entrada e de outros eventos fora de ordem", () => {
+  const publications = [
+    "2026-09-05T15:21:00.000Z",
+    "2026-09-03T23:59:00.000Z",
+    "2026-09-05T17:23:00.000Z",
+    "2026-09-05T14:25:00.000Z",
+    "2026-09-05T19:43:00.000Z",
+  ];
+  const items = publications.map((publishedAt, index) => trackingItem(
+    String(index + 1),
+    "NOVA",
+    {
+      publishedAt,
+      circuitOrder: index + 1,
+      updatedAt: `2026-09-06T0${index}:00:00.000Z`,
+      classifiedAt: `2026-09-06T0${4 - index}:00:00.000Z`,
+      placementCreatedAt: `2026-09-06T0${index}:30:00.000Z`,
+      stateRecordedAt: `2026-09-06T0${4 - index}:30:00.000Z`,
+    },
+  ));
 
   assert.deepEqual(
-    selectMatchdayEditorialTrackingItems(
-      [older, newer],
-      "all",
-    ).map((item) => item.bankItemId),
-    [newer.bankItemId, older.bankItemId],
+    selectMatchdayEditorialTrackingItems(items, "all").map((item) => item.publishedAt),
+    [
+      "2026-09-05T19:43:00.000Z",
+      "2026-09-05T17:23:00.000Z",
+      "2026-09-05T15:21:00.000Z",
+      "2026-09-05T14:25:00.000Z",
+      "2026-09-03T23:59:00.000Z",
+    ],
   );
+  assert.deepEqual(items.map((item) => item.publishedAt), publications);
+});
+
+test("empates exatos de publicação usam identidade técnica estável e ignoram outros eventos", () => {
+  const first = trackingItem("1", "NOVA", {
+    publishedAt: "2026-09-05T19:43:00.000Z",
+    circuitOrder: 99,
+    updatedAt: "2026-09-05T20:00:00.000Z",
+    classifiedAt: "2026-09-05T20:00:00.000Z",
+    placementCreatedAt: "2026-09-05T20:00:00.000Z",
+    stateRecordedAt: "2026-09-05T20:00:00.000Z",
+  });
+  const second = trackingItem("2", "NOVA", {
+    publishedAt: first.publishedAt,
+    circuitOrder: 1,
+    updatedAt: "2026-09-06T20:00:00.000Z",
+    classifiedAt: "2026-09-06T20:00:00.000Z",
+    placementCreatedAt: "2026-09-06T20:00:00.000Z",
+    stateRecordedAt: "2026-09-06T20:00:00.000Z",
+  });
+  const items = [
+    { ...first, bankItemId: second.bankItemId },
+    { ...second, bankItemId: first.bankItemId },
+  ];
+
+  for (const input of [items, [...items].reverse()]) {
+    for (const classFilter of ["all", "benfica"] as const) {
+      assert.deepEqual(
+        selectMatchdayEditorialTrackingItems(input, classFilter).map((item) => item.sourceId),
+        [first.sourceId, second.sourceId],
+      );
+    }
+  }
 });
 
 test("FAIXA usa chegada à Faixa decrescente e ignora publicação e slot legado", () => {

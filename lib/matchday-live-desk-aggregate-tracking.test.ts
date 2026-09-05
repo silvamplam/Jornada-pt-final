@@ -165,6 +165,45 @@ test("Todas agrega classes válidas e deduplica pela identidade contextual do Ba
   );
 });
 
+test("snapshot agregado e filtros de classe mantêm NOVAS por publicação decrescente", () => {
+  const rows = [
+    row("1", "NOVA", { article_published_at: "2026-09-05T15:21:00.000Z" }),
+    row("6", "NOVA", { article_published_at: "2026-09-03T23:59:00.000Z" }),
+    row("2", "NOVA", { article_published_at: "2026-09-05T17:23:00.000Z" }),
+    row("3", "NOVA", { article_published_at: "2026-09-05T14:25:00.000Z" }),
+    row("5", "NOVA", {
+      article_published_at: "2026-09-05T20:00:00.000Z",
+      classification_key: "benfica",
+    }),
+    row("4", "NOVA", { article_published_at: "2026-09-05T19:43:00.000Z" }),
+  ];
+  const result = buildMatchdayEditorialTrackingSnapshot(
+    EDITORIAL_PROFILES.liga_portugal_v1,
+    rows,
+  );
+  const bankIds = (suffixes: string[]) => suffixes.map((suffix) => row(suffix, "NOVA").bank_item_id);
+
+  assert.deepEqual(result.diagnostics, []);
+  assert.deepEqual(
+    result.tracking.items.map((item) => item.bankItemId),
+    bankIds(["5", "4", "2", "1", "3", "6"]),
+  );
+
+  const reorderedItems = [...result.tracking.items].reverse();
+  assert.deepEqual(
+    selectMatchdayEditorialTrackingItems(reorderedItems, "all").map((item) => item.bankItemId),
+    bankIds(["5", "4", "2", "1", "3", "6"]),
+  );
+  assert.deepEqual(
+    selectMatchdayEditorialTrackingItems(reorderedItems, "sporting").map((item) => item.bankItemId),
+    bankIds(["4", "2", "1", "3", "6"]),
+  );
+  assert.deepEqual(
+    selectMatchdayEditorialTrackingItems(reorderedItems, "benfica").map((item) => item.bankItemId),
+    bankIds(["5"]),
+  );
+});
+
 test("o wrapper público é read-only, reutiliza a projeção privada e só service_role executa", () => {
   assert.match(migration, /create function public\.read_matchday_live_desk_aggregate_tracking/u);
   assert.match(migration, /language sql[\s\S]*stable[\s\S]*security definer[\s\S]*set search_path = ''/u);
@@ -214,11 +253,8 @@ test("a UI mostra Todas primeiro, três colunas simultâneas e Banco separado", 
   assert.match(client, /TRACKING_STATES\.map\(\(state\)/u);
   assert.match(client, /data-tracking-state=\{state\}/u);
   assert.match(client, /useState<MatchdayEditorialTrackingClassFilter>\("all"\)/u);
-  assert.match(client, /selectMatchdayEditorialTrackingItems\([\s\S]*desk\.tracking\.items,[\s\S]*"all"/u);
-  assert.match(client, /Todas \{trackableItems\.length\}/u);
-  assert.match(client, /Sem notícias novas nesta classe/u);
-  assert.match(client, /Sem notícias na Faixa nesta classe/u);
-  assert.match(client, /Sem notícias desalojadas nesta classe/u);
+  assert.match(client, /Todas \{filteredTrackingEntries\.length\}/u);
+  assert.match(client, /Sem notícias neste estado/u);
   assert.match(client, /\.thematic-tracking-rows \{[^}]*grid-template-columns: repeat\(3,minmax\(0,1fr\)\);[^}]*align-items: start/u);
   assert.match(client, /@media \(max-width: 900px\) \{ \.thematic-tracking-rows \{ grid-template-columns: 1fr; \} \}/u);
   assert.match(client, /\.thematic-tracking-row \.thematic-sources-list \{ grid-template-columns: 1fr;/u);
@@ -226,7 +262,7 @@ test("a UI mostra Todas primeiro, três colunas simultâneas e Banco separado", 
   assert.match(client, /className="thematic-tracking-row-label"/u);
   assert.match(
     client,
-    /className="thematic-tracking-row-label"[\s\S]*\{entries\.length > 0 \? \([\s\S]*Selecionar linha[\s\S]*className="thematic-sources-list"/u,
+    /className="thematic-tracking-row-label"[\s\S]*\{entries\.length > 0 \? (?:\(\s*)?<button[\s\S]*Selecionar linha[\s\S]*className="thematic-sources-list"/u,
   );
   assert.doesNotMatch(client, /className="thematic-tracking-row-actions"/u);
   assert.doesNotMatch(client, /\.thematic-tracking-row > header/u);
@@ -242,13 +278,29 @@ test("a UI mostra Todas primeiro, três colunas simultâneas e Banco separado", 
   assert.match(trackingUi, /aria-label="Banco editorial"/u);
 });
 
+test("o draft de NOVAS reutiliza o seletor canónico depois dos filtros e antes da paginação", () => {
+  const start = client.indexOf("const trackingEntries = useMemo");
+  const end = client.indexOf("const openingPlacements", start);
+  assert.ok(start >= 0 && end > start);
+  const trackingDraft = client.slice(start, end);
+
+  assert.match(trackingDraft, /current\.bankItems\.flatMap<MatchdayEditorialTrackingItem>/u);
+  assert.match(trackingDraft, /\.\.\.effectiveItem\(bankItem\.id, placement\?\.slotPosition \?\? null\)/u);
+  assert.match(trackingDraft, /\[activeByIdentity,[^\]]*current\.bankItems[^\]]*placementByBankItemId\]/u);
+  assert.match(trackingDraft, /trackingClassFilter === "all" \|\| entry\.classifiedZoneKey === trackingClassFilter/u);
+  assert.match(trackingDraft, /const filteredTrackingEntries = classTrackingEntries\.filter\(matchesTrackingQuery\)/u);
+  assert.match(trackingDraft, /const entries = filteredTrackingEntries\.filter\(\(entry\) => entry\.editorialState === state\)/u);
+  assert.match(trackingDraft, /if \(state === "NOVA"\) return selectMatchdayEditorialTrackingItems\(entries, trackingClassFilter\)/u);
+  assert.match(client, /const entries = trackingEntriesForState\(state\);\s*const visible = entries\.slice\(0, trackingVisibleCounts\[state\]\)/u);
+});
+
 test("Banco tem Todas e filtros contextuais independentes com contadores próprios", () => {
   assert.match(client, /const \[bankClassFilter, setBankClassFilter\][\s\S]*useState<MatchdayEditorialTrackingClassFilter>\("all"\)/u);
   assert.match(client, /aria-label="Filtrar Banco por classe contextual"/u);
   assert.match(client, /selectMatchdayEditorialExplicitBankItems\([\s\S]*explicitBankEntries,[\s\S]*bankClassFilter/u);
   assert.match(client, /Todas \{explicitBankEntries\.length\}/u);
   assert.match(client, /entry\.classifiedZoneKey === zone\.key/u);
-  assert.match(client, /filteredBankEntries\.map\(\(\{ item \}\) => identity\(item\)\)/u);
+  assert.match(client, /filteredBankEntries\.map\(\(entry\) => entry\.bankItemId\)/u);
   assert.match(client, /visibleBankEntries = filteredBankEntries\.slice\(0, bankVisibleCount\)/u);
   assert.match(client, /aria-label="Pesquisar Tracking e Banco"/u);
   assert.doesNotMatch(client, /setTrackingClassFilter\(bankClassFilter\)/u);
@@ -282,9 +334,9 @@ test("contadores do Tracking excluem Banco explícito no snapshot e no draft", (
   assert.equal(bank.length, 1);
   assert.equal(selectMatchdayEditorialExplicitBankItems(bank, "sporting").length, 1);
   assert.equal(selectMatchdayEditorialExplicitBankItems(bank, "benfica").length, 0);
-  assert.match(client, /const trackableItems = useMemo\([\s\S]*!draftExplicitBankIdentities\.has\(itemIdentity\)/u);
-  assert.match(client, /Todas \{trackableItems\.length\}/u);
-  assert.match(client, /\{zone\.label\} \{trackableItems\.filter/u);
+  assert.match(client, /const trackingEntries = useMemo\([\s\S]*current\.explicitBankItemIds\.includes\(bankItem\.id\)\) return \[\]/u);
+  assert.match(client, /Todas \{filteredTrackingEntries\.length\}/u);
+  assert.match(client, /\{zone\.label\} \{trackingEntries\.filter/u);
   assert.match(client, /Banco \{explicitBankEntries\.length\}/u);
   assert.match(client, /Todas \{explicitBankEntries\.length\}/u);
 });
