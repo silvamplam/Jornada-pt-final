@@ -43,11 +43,11 @@ test("Desvincular Seleção elimina o slot e valida a identidade do artigo", () 
   );
   assert.match(
     routeSource,
-    /matchday_live_layout_items\?id=eq\.\$\{encodeURIComponent\(targetId\)\}/,
+    /placementType: "selection" as const/,
   );
   assert.match(
     routeSource,
-    /\{ method: "DELETE" \}/,
+    /applyMatchdayPlacementByLink\(\{[\s\S]*?action: "clear"/,
   );
 });
 

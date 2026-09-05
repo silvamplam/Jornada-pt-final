@@ -210,20 +210,15 @@ test("a sincronização fica isolada da placement, das fontes e das tabelas de C
     projectionSource,
     /matchday_reference_compositions|matchday_reference_composition_items|matchday_hierarchical_composition_slots/,
   );
-  assert.match(projectionSource, /status=eq\.published&order=sort_order\.asc/);
-  assert.match(projectionSource, /matchday_live_layout_items\?on_conflict=matchday_id,slot_type/);
-  for (const table of [
-    "matchday_editorials",
-    "matchday_highlights",
-    "matchday_horizontal_news",
-    "matchday_live_layout_items",
-    "matchday_editorial_profile_assignments",
-    "matchday_editorial_profile_zone_items",
-  ]) {
-    assert.match(projectionSource, new RegExp(`${table}\\?select=`));
-  }
-  assert.match(projectionSource, /isLatestFourNewsSlotType\(row\.slot_type\)/);
-  assert.doesNotMatch(projectionSource, /writeSupabaseAdmin\([\s\S]*?matchday_latest_news/);
+  const runtime = projectionSource.slice(
+    projectionSource.indexOf("export async function syncLatestFourNewsProjection"),
+  );
+  assert.match(runtime, /rpc\/refresh_matchday_live_layout_legacy/);
+  assert.doesNotMatch(runtime, /matchday_live_layout_items|matchday_latest_news/);
+  assert.doesNotMatch(
+    projectionSource,
+    /matchday_live_layout_items\?on_conflict=matchday_id,slot_type/,
+  );
 });
 
 test("refresh de compatibility parte sempre dos placements autoritativos", () => {
@@ -259,6 +254,10 @@ test("refresh de compatibility parte sempre dos placements autoritativos", () =>
     fileURLToPath(new URL("../app/api/admin/gestor/route.ts", import.meta.url)),
     "utf8",
   );
+  const boundaryMigration = readFileSync(
+    fileURLToPath(new URL("../supabase/migrations/20260905110018_matchday_publication_physical_placement_boundary_v15.sql", import.meta.url)),
+    "utf8",
+  );
 
   const exportedSync = projectionSource.slice(
     projectionSource.indexOf("export async function syncLatestFourNewsProjection"),
@@ -271,13 +270,18 @@ test("refresh de compatibility parte sempre dos placements autoritativos", () =>
   );
   assert.match(desk, /applyMatchdayEditorialDeskState[\s\S]*syncLatestFourNewsProjection\(input\.matchdayId\)/);
   assert.match(deskResolution, /syncLatestProjectionAfterRelevantPlacement/);
-  assert.match(contentSnapshotSync, /affectedLiveMatchdayIds[\s\S]*syncLatestFourNewsProjection/);
-  assert.match(articleSnapshotSync, /matchdayIds[\s\S]*syncLatestFourNewsProjection\(matchdayId\)/);
+  assert.match(contentSnapshotSync, /rpc\/sync_editorial_content_live_snapshots_v15/);
+  assert.doesNotMatch(contentSnapshotSync, /Promise\.all|matchday_editorials\?/);
+  assert.match(articleSnapshotSync, /rpc\/sync_editorial_article_live_snapshots_v15/);
+  assert.match(
+    boundaryMigration,
+    /create function public\.sync_editorial_article_live_snapshots_v15\([\s\S]*?refresh_matchday_live_layout_legacy/,
+  );
   assert.doesNotMatch(
     articleSnapshotSync,
     /matchday_reference_composition_items|matchday_hierarchical_composition_slots/,
   );
   assert.match(articleRoute, /liveMatchdayLinkRemovalTargets[\s\S]*syncLatestFourNewsProjection/);
-  assert.match(gestorRoute, /rpc\/apply_matchday_live_layout_legacy_slot/);
+  assert.match(gestorRoute, /applyMatchdayPlacementByLink/);
   assert.doesNotMatch(gestorRoute, /LATEST_FOUR_CONFLICT_SYNC_ACTIONS/);
 });

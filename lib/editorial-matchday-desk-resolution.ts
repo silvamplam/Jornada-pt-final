@@ -3,6 +3,7 @@ import {
   writeSupabaseAdmin,
 } from "@/lib/supabase";
 import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
+import { applyMatchdayPlacementByLink } from "@/lib/editorial-matchday-physical-placement";
 
 function positivePlacementOrder(placementKey: string, prefix: string) {
   if (!placementKey.startsWith(`${prefix}:`)) return null;
@@ -75,16 +76,15 @@ async function applyAuthoritativePlacement(
   const target = authoritativeTarget(placementKey);
   if (!target) return false;
 
-  await writeSupabaseAdmin("rpc/apply_matchday_live_layout_legacy_slot", {
-    method: "POST",
-    body: JSON.stringify({
-      p_matchday_id: matchdayId,
-      p_action: action,
-      p_placement_type: target.placementType,
-      p_zone_id: null,
-      p_slot_position: target.slotPosition,
-      p_source_link_url: sourceLinkUrl,
-    }),
+  await applyMatchdayPlacementByLink({
+    matchdayId,
+    action,
+    sourceLinkUrl,
+    target: {
+      placementType: target.placementType,
+      zoneId: null,
+      slotPosition: target.slotPosition,
+    },
   });
   return true;
 }

@@ -323,41 +323,6 @@ export function createLatestFourNewsProjectionSync(
   };
 }
 
-const syncLatestFourNewsProjectionWithSupabase = createLatestFourNewsProjectionSync({
-  readLatestNews(matchdayId) {
-    return fetchSupabaseAdminTable<LatestFourNewsSourceRow>(
-      `matchday_latest_news?select=id,article_id,time_label,title,subtitle,image_url,link_url,sort_order,status&matchday_id=eq.${encodeURIComponent(
-        matchdayId,
-      )}&status=eq.published&order=sort_order.asc`,
-    );
-  },
-  readConflictingNews(matchdayId) {
-    return readPublishedLiveNewsConflicts(matchdayId);
-  },
-  readCanonicalArticles(slugs) {
-    if (slugs.length === 0) return Promise.resolve([]);
-    const filter = slugs.map((slug) => encodeURIComponent(slug)).join(",");
-    return fetchSupabaseAdminTable<LatestFourNewsCanonicalArticle>(
-      `editorial_articles?select=id,slug,subtitle,image_url&slug=in.(${filter})&status=eq.published`,
-    );
-  },
-  writeProjection(rows) {
-    return writeSupabaseAdmin(
-      "matchday_live_layout_items?on_conflict=matchday_id,slot_type",
-      {
-        method: "POST",
-        headers: {
-          Prefer: "resolution=merge-duplicates,return=minimal",
-        },
-        body: JSON.stringify(rows),
-      },
-    );
-  },
-  now() {
-    return new Date().toISOString();
-  },
-});
-
 export async function syncLatestFourNewsProjection(
   matchdayId: string,
 ) {

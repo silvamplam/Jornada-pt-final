@@ -110,8 +110,8 @@ test("a posição de Últimas é controlada na Mesa e já não no Editorial", ()
   const action = gestorRoute.slice(actionStart, actionEnd);
 
   assert.match(action, /latestZonePlacement !== "top" && latestZonePlacement !== "hidden" && latestZonePlacement !== "four_news"/);
-  assert.match(action, /matchday_editorials\?on_conflict=matchday_id/);
-  assert.match(action, /latest_zone_placement: latestZonePlacement/);
+  assert.match(action, /rpc\/set_matchday_latest_zone_placement_v15/);
+  assert.match(action, /p_latest_zone_placement: latestZonePlacement/);
   assert.doesNotMatch(action, /editorial_articles|matchday_latest_news|latest_zone_mode|status:/);
   assert.doesNotMatch(action, /syncLatestFourNewsProjection/);
 });

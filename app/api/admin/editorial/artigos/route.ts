@@ -14,6 +14,7 @@ import {
 } from "@/lib/editorial-article-service";
 import type { EditorialInitialPlacement } from "@/lib/editorial-matchday-news-flow";
 import { syncLatestFourNewsProjection } from "@/lib/editorial-matchday-latest-four-projection";
+import { applyMatchdayPlacementByLink } from "@/lib/editorial-matchday-physical-placement";
 import {
   fetchSupabaseAdminTable,
   getSupabaseServiceConfig,
@@ -67,6 +68,7 @@ type LinkValueRow = {
   source_id?: string | null;
   article_id?: string | null;
   slot_type?: string | null;
+  sort_order?: number | null;
 };
 
 class ArticleAdminError extends Error {
@@ -285,6 +287,8 @@ async function readLinkTargetValue(target: { table: LinkRemovalTarget; field: Li
   const selectionFields =
     target.table === "matchday_live_layout_items"
       ? ",matchday_id,source_type,source_id,article_id,slot_type"
+      : target.table === "matchday_highlights"
+        ? ",matchday_id,sort_order"
       : liveMatchdayLinkRemovalTargets.has(target.table)
         ? ",matchday_id"
         : "";
@@ -316,6 +320,49 @@ async function articleHasActiveLinks(articleId: string, slug: string) {
 
   const linkRows = await Promise.all(queries.map((query) => fetchSupabaseAdminTable<ArticleIdRow>(query)));
   return linkRows.some((rows) => rows.length > 0);
+}
+
+function physicalPlacementTargetForLinkRemoval(
+  target: { table: LinkRemovalTarget; field: LinkRemovalField },
+  row: LinkValueRow,
+) {
+  if (target.table === "matchday_live_layout_items") {
+    const match = row.slot_type?.match(/^live_four_news:([1-4])$/);
+    if (!match) {
+      throw new ArticleAdminError("invalid-link-target");
+    }
+    return {
+      placementType: "selection" as const,
+      zoneId: null,
+      slotPosition: Number(match[1]),
+    };
+  }
+  if (target.table === "matchday_highlights") {
+    const sortOrder = row.sort_order;
+    if (!sortOrder || ![1, 2, 3].includes(sortOrder)) {
+      throw new ArticleAdminError("invalid-link-target");
+    }
+    return {
+      placementType: "opening" as const,
+      zoneId: null,
+      slotPosition: sortOrder + 1,
+    };
+  }
+  if (target.table !== "matchday_editorials") return null;
+  if (target.field === "headline_link_url") {
+    return { placementType: "opening" as const, zoneId: null, slotPosition: 1 };
+  }
+  if (target.field === "side_block_link_url") {
+    return { placementType: "opening" as const, zoneId: null, slotPosition: 5 };
+  }
+  if (target.field === "complementary_link_url") {
+    return {
+      placementType: "video_highlight" as const,
+      zoneId: null,
+      slotPosition: 1,
+    };
+  }
+  return null;
 }
 
 async function createArticle(formData: FormData) {
@@ -428,10 +475,15 @@ async function removeArticleLink(formData: FormData) {
       throw new ArticleAdminError("link-mismatch");
     }
 
-    await writeSupabaseAdmin(
-      `matchday_live_layout_items?id=eq.${encodeURIComponent(targetId)}`,
-      { method: "DELETE" },
-    );
+    if (!row.matchday_id) {
+      throw new ArticleAdminError("invalid-link-target");
+    }
+    await applyMatchdayPlacementByLink({
+      matchdayId: row.matchday_id,
+      action: "clear",
+      sourceLinkUrl: expectedUrl,
+      target: physicalPlacementTargetForLinkRemoval(target, row)!,
+    });
   } else if (target.table === "matchday_latest_news") {
     const currentValue = row[target.field];
     if (currentValue !== expectedUrl) {
@@ -448,12 +500,22 @@ async function removeArticleLink(formData: FormData) {
       throw new ArticleAdminError("link-mismatch");
     }
 
-    await writeSupabaseAdmin(`${target.table}?id=eq.${encodeURIComponent(targetId)}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        [target.field]: null,
-      }),
-    });
+    const physicalTarget = physicalPlacementTargetForLinkRemoval(target, row);
+    if (physicalTarget && row.matchday_id) {
+      await applyMatchdayPlacementByLink({
+        matchdayId: row.matchday_id,
+        action: "clear",
+        sourceLinkUrl: expectedUrl,
+        target: physicalTarget,
+      });
+    } else {
+      await writeSupabaseAdmin(`${target.table}?id=eq.${encodeURIComponent(targetId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          [target.field]: null,
+        }),
+      });
+    }
   }
   if (liveMatchdayLinkRemovalTargets.has(target.table) && row.matchday_id) {
     await syncLatestFourNewsProjection(row.matchday_id);

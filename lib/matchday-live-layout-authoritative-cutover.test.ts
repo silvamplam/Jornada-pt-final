@@ -224,14 +224,14 @@ test("RPCs publicas de cutover sao exclusivas do service_role", () => {
 test("transferencia de artigo chega ao movement RPC uma unica vez", () => {
   const flow = source("lib/editorial-matchday-news-flow.ts");
   const transfer = flow.slice(flow.indexOf("export async function transferPublishedArticleBetweenMatchdayZones"));
-  assert.match(transfer, /applyAuthoritativePlacementMovement\(/);
+  assert.match(transfer, /applyMatchdaySinglePlacement\(\{/);
   assert.doesNotMatch(transfer, /normalizeHorizontalNewsOrder|movePublishedArticleToFaixa/);
-  assert.match(flow, /!input\.targetId \|\| explicitSlotTargetId\(input\.targetId\) !== null/);
+  assert.match(flow, /resolvePlacementTarget\(/);
 });
 
 test("Desk resolve placement pelo adapter atomico e nao compacta Faixa", () => {
   const resolution = source("lib/editorial-matchday-desk-resolution.ts");
-  assert.match(resolution, /rpc\/apply_matchday_live_layout_legacy_slot/);
+  assert.match(resolution, /applyMatchdayPlacementByLink/);
   assert.match(resolution, /live_four_news[\s\S]*placementType: "selection"/);
   assert.doesNotMatch(resolution, /normalizeHorizontalNewsOrder/);
 });
@@ -239,7 +239,7 @@ test("Desk resolve placement pelo adapter atomico e nao compacta Faixa", () => {
 test("Gestor delega slots unitarios e recusa bulk/reorder legacy", () => {
   const gestor = source("app/api/admin/gestor/route.ts");
   const page = source("app/admin/editorial/jornada/[matchdayId]/page.tsx");
-  assert.match(gestor, /rpc\/apply_matchday_live_layout_legacy_slot/);
+  assert.match(gestor, /applyMatchdayPlacementByLink/);
   assert.match(gestor, /authoritative-placements-do-not-reorder/);
   assert.match(gestor, /authoritative-placements-use-(?:slot-writers|individual-slots)/);
   assert.doesNotMatch(page, /value="move_matchday_horizontal_news_item"/);
@@ -265,8 +265,10 @@ test("reopen historico volta por RPC independente e Latest four so faz forward r
 
 test("working tree fica limitado ao cutover e artefactos protegidos", () => {
   const allowed = new Set([
+    "({alt",
     "baseline-testes-20260829.txt",
     "jornada-codex-parcial.zip",
+    "jornada-lote-7b-codex-parcial-20260902.zip",
     "supabase/.temp/",
     bridgeMigrationPath,
     activationMigrationPath,
@@ -285,6 +287,9 @@ test("working tree fica limitado ao cutover e artefactos protegidos", () => {
     "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialContextSelector.tsx",
     "app/admin/editorial/jornada/[matchdayId]/organizar/page.tsx",
     "app/api/admin/editorial/composicao/route.ts",
+    "app/api/admin/editorial/artigos/route.ts",
+    "app/api/admin/editorial/conteudos/route.ts",
+    "app/api/admin/gestor/editorial-image/route.ts",
     "app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts",
     "app/api/admin/gestor/route.ts",
     "app/competicoes/[competitionSlug]/[seasonLabel]/page.tsx",
@@ -294,7 +299,22 @@ test("working tree fica limitado ao cutover e artefactos protegidos", () => {
     "lib/editorial-matchday-latest-four-projection.test.ts",
     "lib/editorial-matchday-news-flow.ts",
     "lib/editorial-matchday-news-flow.test.ts",
+    "lib/editorial-matchday-news-flow-runtime.test.ts",
     "lib/editorial-matchday-news-flow-ui.test.ts",
+    "lib/editorial-article-canonical-delete.test.ts",
+    "lib/editorial-article-live-snapshot-sync.ts",
+    "lib/editorial-article-live-snapshot-sync.test.ts",
+    "lib/editorial-article-live-snapshot-postgrest.test.ts",
+    "lib/editorial-content-snapshot-sync.ts",
+    "lib/editorial-matchday-latest-four-projection.test.ts",
+    "lib/editorial-matchday-physical-placement.ts",
+    "lib/matchday-live-layout-physical-apply-facade.test.ts",
+    "lib/matchday-live-layout-physical-apply-video-guard.test.ts",
+    "lib/matchday-live-layout-physical-writer-v13-shadow.test.ts",
+    "lib/matchday-publication-physical-placement-boundary.test.ts",
+    "lib/public-matchday-latest-zone-placement.test.ts",
+    "supabase/migrations/20260905110018_matchday_publication_physical_placement_boundary_v15.sql",
+    "supabase/sql/test-matchday-publication-physical-placement-boundary-pg17.sql",
   ]);
   const status = execFileSync(
     "git",

@@ -11,7 +11,9 @@ test("carryover evita JSON dentro da gramática lógica or do PostgREST", () => 
 
   assert.doesNotMatch(source, /carryover_snapshot\.cs\./);
   assert.doesNotMatch(source, /&or=\(/);
-  assert.match(source, /&carryover_snapshot=cs\./);
-  assert.match(source, /Promise\.all\(filters\.map/);
-  assert.match(source, /const seen = new Set<string>\(\)/);
+  const runtime = source.slice(
+    source.indexOf("export async function syncEditorialArticleLiveSnapshots"),
+  );
+  assert.match(runtime, /rpc\/sync_editorial_article_live_snapshots_v15/);
+  assert.doesNotMatch(runtime, /carryover_snapshot|Promise\.all|method:\s*"PATCH"/);
 });

@@ -305,7 +305,10 @@ async function updateContent(formData: FormData) {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
-  await syncEditorialContentSnapshots({ previousSlug: existing.slug, content: payload });
+  await syncEditorialContentSnapshots({
+    contentId,
+    previousSlug: existing.slug,
+  });
 
   return { contentId, status: payload.status };
 }
@@ -346,7 +349,7 @@ export async function POST(request: Request) {
     if (!created?.id) {
       throw new EditorialContentAdminError("save-failed");
     }
-    await syncEditorialContentSnapshots({ content: payload });
+    await syncEditorialContentSnapshots({ contentId: created.id });
 
     return redirectTo(request, "/admin/editorial/conteudos", { created: "1", contentId: created.id });
   } catch (error) {

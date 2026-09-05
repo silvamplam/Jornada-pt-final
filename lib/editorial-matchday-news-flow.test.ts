@@ -8,6 +8,7 @@ function source(relativePath: string) {
 }
 
 const flowSource = source("lib/editorial-matchday-news-flow.ts");
+const physicalPlacementSource = source("lib/editorial-matchday-physical-placement.ts");
 const articleRouteSource = source("app/api/admin/editorial/artigos/route.ts");
 const articleServiceSource = source("lib/editorial-article-service.ts");
 const gestorRouteSource = source("app/api/admin/gestor/route.ts");
@@ -33,7 +34,7 @@ test("a primeira publicação separa Últimas funcional de placements com slot i
   assert.ok(flowSource.includes("await ensurePublishedArticleInLatest(matchdayId, articleId);"));
   assert.ok(flowSource.includes('targetSlotType === "highlight" || targetSlotType === "important_item"'));
   assert.ok(flowSource.includes('"news-flow-explicit-slot-required"'));
-  assert.ok(flowSource.includes("await applyAuthoritativePlacementMovement("));
+  assert.ok(flowSource.includes("await applyMatchdaySinglePlacement({"));
 });
 
 test("Últimas continua a ordenar sempre pela data/hora canónica mais recente", () => {
@@ -102,7 +103,7 @@ test("destino ocupado desalojará apenas o ocupante substituído sem auto-Faixa"
   const transfer = flowSource.slice(
     flowSource.indexOf("export async function transferPublishedArticleBetweenMatchdayZones"),
   );
-  assert.match(transfer, /applyAuthoritativePlacementMovement\(/);
+  assert.match(transfer, /applyMatchdaySinglePlacement\(\{/);
   assert.doesNotMatch(transfer, /projectionForDisplacedOccupant|placeProjectionInAvailableZone|prioritizeMatchdayHorizontalNewsItem/);
   assert.ok(editorialPageSource.includes("fica Desalojada quando perder o seu último placement"));
   assert.equal(editorialPageSource.includes("entra automaticamente em primeiro na Faixa"), false);
@@ -112,10 +113,12 @@ test("movement chega ao core numa única request transacional", () => {
   const transfer = flowSource.slice(
     flowSource.indexOf("export async function transferPublishedArticleBetweenMatchdayZones"),
   );
-  assert.equal((transfer.match(/applyAuthoritativePlacementMovement\(/g) ?? []).length, 1);
+  assert.equal((transfer.match(/applyMatchdaySinglePlacement\(\{/g) ?? []).length, 1);
   assert.doesNotMatch(transfer, /writeArticleToTargetZone|clearArticleFromSourceZone/);
-  assert.match(transfer, /expectedTargetBankItemId/);
-  assert.match(transfer, /expectTargetEmpty/);
+  assert.match(physicalPlacementSource, /rpc\/apply_matchday_live_layout_single_placement_v15/);
+  assert.match(physicalPlacementSource, /p_expected_physical_state_token/);
+  assert.match(physicalPlacementSource, /p_expected_target_bank_item_id/);
+  assert.match(physicalPlacementSource, /p_expect_target_empty/);
 });
 
 test("Últimas continua funcional e cronológica mas não recebe movement", () => {

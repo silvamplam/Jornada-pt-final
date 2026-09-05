@@ -316,9 +316,8 @@ test("o patch nao altera migrations anteriores, route, cliente ou Agenda TV", ()
     .filter(Boolean);
   assert.deepEqual(changedMigrations, []);
 
-  assert.match(route, /apply_matchday_editorial_profile_workspace_v12/);
-  assert.doesNotMatch(route, /physical_workspace_v14/);
-  assert.doesNotMatch(client, /physical_workspace_v14/);
+  assert.match(route, /apply_matchday_live_layout_physical_workspace_v14/);
+  assert.match(client, /editorial-matchday-live-layout-physical-apply/);
 
   const status = execFileSync(
     "git",

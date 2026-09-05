@@ -24,6 +24,10 @@ import {
   prioritizeEditorialHorizontalNewsItem,
   type EditorialHorizontalNewsMoveDirection,
 } from "@/lib/editorial-horizontal-news";
+import {
+  applyMatchdaySinglePlacement,
+  isMatchdayPhysicalPlacementAuthority,
+} from "@/lib/editorial-matchday-physical-placement";
 import { fetchSupabaseAdminTable, writeSupabaseAdmin } from "@/lib/supabase";
 
 const HIGHLIGHT_SORT_ORDERS = [1, 2, 3] as const;
@@ -100,10 +104,6 @@ type HorizontalNewsRow = {
 
 type ContextualBankItemRow = {
   id: string;
-};
-
-type AuthoritativePlacementRow = {
-  bank_item_id: string;
 };
 
 type PlacementTarget = {
@@ -213,6 +213,13 @@ async function persistHorizontalNewsOrder(
 }
 
 export async function normalizeMatchdayHorizontalNewsOrder(matchdayId: string) {
+  if (await isMatchdayPhysicalPlacementAuthority(matchdayId)) {
+    throw new EditorialMatchdayNewsFlowError(
+      "news-flow-legacy-reorder-after-physical-cutover",
+      "A Faixa física só pode ser reordenada pela autoridade física da Mesa.",
+    );
+  }
+
   const rows = await readHorizontalNewsOrderRows(matchdayId);
   await persistHorizontalNewsOrder(matchdayId, rows);
 }
@@ -228,6 +235,13 @@ export async function moveMatchdayHorizontalNewsItem(
   itemId: string,
   direction: EditorialHorizontalNewsMoveDirection,
 ) {
+  if (await isMatchdayPhysicalPlacementAuthority(matchdayId)) {
+    throw new EditorialMatchdayNewsFlowError(
+      "news-flow-legacy-reorder-after-physical-cutover",
+      "A Faixa física só pode ser reordenada pela autoridade física da Mesa.",
+    );
+  }
+
   const rows = await readHorizontalNewsOrderRows(matchdayId);
   if (!rows.some((row) => row.id === itemId)) {
     throw new EditorialMatchdayNewsFlowError(
@@ -274,15 +288,12 @@ async function readPublishedCompleteArticle(articleId: string, matchdayId: strin
 }
 
 async function setLatestNewsMode(matchdayId: string) {
-  await writeSupabaseAdmin("matchday_editorials?on_conflict=matchday_id", {
+  await writeSupabaseAdmin("rpc/set_matchday_latest_news_settings_v15", {
     method: "POST",
-    headers: {
-      Prefer: "resolution=merge-duplicates,return=minimal",
-    },
     body: JSON.stringify({
-      matchday_id: matchdayId,
-      latest_zone_mode: "latest_news",
-      updated_at: new Date().toISOString(),
+      p_matchday_id: matchdayId,
+      p_latest_zone_mode: "latest_news",
+      p_write_title: false,
     }),
   });
 }
@@ -413,13 +424,13 @@ export async function placePublishedArticleInitially(
   await readPublishedCompleteArticle(articleId, matchdayId);
   const bankItemId = await readContextualArticleBankItemId(matchdayId, articleId);
   const target = fixedPlacementTarget(targetSlotType);
-  await applyAuthoritativePlacementMovement(
+  await applyMatchdaySinglePlacement({
     matchdayId,
+    action: "place",
     bankItemId,
     target,
-    null,
-    true,
-  );
+    expectTargetEmpty: true,
+  });
 }
 
 async function readContextualArticleBankItemId(matchdayId: string, articleId: string) {
@@ -514,40 +525,6 @@ async function resolvePlacementTarget(
     "news-flow-placement-target-invalid",
     "A zona escolhida não corresponde a um placement transversal.",
   );
-}
-
-async function readAuthoritativeTargetOccupant(
-  matchdayId: string,
-  target: PlacementTarget,
-) {
-  const rows = await fetchSupabaseAdminTable<AuthoritativePlacementRow>(
-    `matchday_live_layout_placements?select=bank_item_id&matchday_id=eq.${encodeURIComponent(
-      matchdayId,
-    )}&placement_type=eq.${encodeURIComponent(target.placementType)}&zone_id=is.null&slot_position=eq.${target.slotPosition}&limit=1`,
-  );
-  return rows[0]?.bank_item_id ?? null;
-}
-
-async function applyAuthoritativePlacementMovement(
-  matchdayId: string,
-  bankItemId: string,
-  target: PlacementTarget,
-  expectedTargetBankItemId: string | null,
-  expectTargetEmpty: boolean,
-) {
-  return writeSupabaseAdmin("rpc/apply_matchday_live_layout_movement", {
-    method: "POST",
-    body: JSON.stringify({
-      p_matchday_id: matchdayId,
-      p_action: "place",
-      p_bank_item_id: bankItemId,
-      p_placement_type: target.placementType,
-      p_zone_id: null,
-      p_slot_position: target.slotPosition,
-      p_expected_target_bank_item_id: expectedTargetBankItemId,
-      p_expect_target_empty: expectTargetEmpty,
-    }),
-  });
 }
 
 async function sourceContainsArticle(
@@ -1795,20 +1772,12 @@ export async function transferPublishedArticleBetweenMatchdayZones(input: Editor
     input.targetSlotType,
     input.targetId,
   );
-  const expectedTargetBankItemId = await readAuthoritativeTargetOccupant(
-    input.matchdayId,
-    target,
-  );
-  const expectTargetEmpty =
-    !input.targetId || explicitSlotTargetId(input.targetId) !== null;
-
-  await applyAuthoritativePlacementMovement(
-    input.matchdayId,
+  await applyMatchdaySinglePlacement({
+    matchdayId: input.matchdayId,
+    action: "place",
     bankItemId,
     target,
-    expectedTargetBankItemId,
-    expectTargetEmpty,
-  );
+  });
 
   return {
     articleId: input.articleId,

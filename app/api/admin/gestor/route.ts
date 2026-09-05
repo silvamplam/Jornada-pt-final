@@ -44,6 +44,10 @@ import {
 } from "@/lib/calendar-import";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import {
+  applyMatchdayPlacementByLink,
+  isMatchdayPhysicalPlacementAuthority,
+} from "@/lib/editorial-matchday-physical-placement";
+import {
   buildSeasonParticipantPlan,
   type SeasonParticipantPlan,
   type SeasonParticipantPlanSummary
@@ -85,23 +89,22 @@ function cleanInteger(value: FormDataEntryValue | null): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-async function applyLegacySlotAuthority(
+async function applySingleSlotAuthority(
   matchdayId: string,
   placementType: "opening" | "faixa" | "video_highlight",
   slotPosition: number,
   published: boolean,
   sourceLinkUrl: string | null,
 ) {
-  return writeSupabaseAdmin("rpc/apply_matchday_live_layout_legacy_slot", {
-    method: "POST",
-    body: JSON.stringify({
-      p_matchday_id: matchdayId,
-      p_action: published ? "place" : "clear",
-      p_placement_type: placementType,
-      p_zone_id: null,
-      p_slot_position: slotPosition,
-      p_source_link_url: sourceLinkUrl,
-    }),
+  return applyMatchdayPlacementByLink({
+    matchdayId,
+    action: published ? "place" : "clear",
+    sourceLinkUrl,
+    target: {
+      placementType,
+      zoneId: null,
+      slotPosition,
+    },
   });
 }
 
@@ -1054,13 +1057,14 @@ async function saveMatchdayHeadline(formData: FormData) {
     updated_at: new Date().toISOString()
   };
 
-  await applyLegacySlotAuthority(
+  const placementAuthority = await applySingleSlotAuthority(
     matchdayId,
     "opening",
     1,
     statusValue === "published",
     headlineLinkUrl,
   );
+  if (placementAuthority.isPhysical) return;
 
   if (existing) {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existing.id)}`, {
@@ -1126,13 +1130,14 @@ async function saveMatchdaySideBlock(formData: FormData) {
     updated_at: new Date().toISOString()
   };
 
-  await applyLegacySlotAuthority(
+  const placementAuthority = await applySingleSlotAuthority(
     matchdayId,
     "opening",
     5,
     sideBlockStatusValue === "published",
     sideBlockLinkUrl,
   );
+  if (placementAuthority.isPhysical) return;
 
   if (existing) {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existing.id)}`, {
@@ -1194,13 +1199,14 @@ async function saveMatchdayComplement(formData: FormData) {
     updated_at: new Date().toISOString()
   };
 
-  await applyLegacySlotAuthority(
+  const placementAuthority = await applySingleSlotAuthority(
     matchdayId,
     "video_highlight",
     1,
     complementaryStatus === "published",
     complementaryLinkUrl,
   );
+  if (placementAuthority.isPhysical) return;
 
   if (existing) {
     await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existing.id)}`, {
@@ -1243,31 +1249,14 @@ async function saveMatchdayRoundupSettings(formData: FormData) {
     throw new Error("roundup-item-invalid");
   }
 
-  const existingRows = await fetchSupabaseAdminTable<{ id: string }>(
-    `matchday_editorials?select=id&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
-  );
-  const payload: Record<string, string | null> = {
-    complementary_mode: complementaryMode,
-    complementary_roundup_item_id: complementaryRoundupItemId,
-    roundup_video_heading: roundupVideoHeading,
-    roundup_video_heading_color: roundupVideoHeadingColor,
-    updated_at: new Date().toISOString()
-  };
-
-  if (existingRows[0]) {
-    await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existingRows[0].id)}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload)
-    });
-    return;
-  }
-
-  await writeSupabaseAdmin("matchday_editorials", {
+  await writeSupabaseAdmin("rpc/set_matchday_roundup_presentation_v15", {
     method: "POST",
     body: JSON.stringify({
-      matchday_id: matchdayId,
-      status: "draft",
-      ...payload
+      p_matchday_id: matchdayId,
+      p_complementary_mode: complementaryMode,
+      p_complementary_roundup_item_id: complementaryRoundupItemId,
+      p_roundup_video_heading: roundupVideoHeading,
+      p_roundup_video_heading_color: roundupVideoHeadingColor
     })
   });
 }
@@ -1287,57 +1276,23 @@ async function saveMatchdayBelowHeadline(formData: FormData) {
     throw new Error("matchday-invalid");
   }
 
-  const existingRows = await fetchSupabaseAdminTable<{ id: string }>(
-    `matchday_editorials?select=id&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
-  );
-  const belowHeadlinePayload: Record<string, string | null> = {
-    below_headline_mode: belowHeadlineMode,
-    below_headline_heading: belowHeadlineHeading,
-    below_headline_heading_color: belowHeadlineHeadingColor,
-    updated_at: new Date().toISOString()
-  };
-
-  if (existingRows[0]) {
-    await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existingRows[0].id)}`, {
-      method: "PATCH",
-      body: JSON.stringify(belowHeadlinePayload)
-    });
-    return;
-  }
-
-  await writeSupabaseAdmin("matchday_editorials", {
+  await writeSupabaseAdmin("rpc/set_matchday_below_headline_presentation_v15", {
     method: "POST",
     body: JSON.stringify({
-      matchday_id: matchdayId,
-      status: "draft",
-      ...belowHeadlinePayload
+      p_matchday_id: matchdayId,
+      p_below_headline_mode: belowHeadlineMode,
+      p_below_headline_heading: belowHeadlineHeading,
+      p_below_headline_heading_color: belowHeadlineHeadingColor
     })
   });
 }
 
 async function setMatchdayBelowHeadlineMode(matchdayId: string, mode: "highlights" | "roundup") {
-  const existingRows = await fetchSupabaseAdminTable<{ id: string }>(
-    `matchday_editorials?select=id&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=1`
-  );
-
-  if (existingRows[0]) {
-    await writeSupabaseAdmin(`matchday_editorials?id=eq.${encodeURIComponent(existingRows[0].id)}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        below_headline_mode: mode,
-        updated_at: new Date().toISOString()
-      })
-    });
-    return;
-  }
-
-  await writeSupabaseAdmin("matchday_editorials", {
+  await writeSupabaseAdmin("rpc/set_matchday_below_headline_presentation_v15", {
     method: "POST",
     body: JSON.stringify({
-      matchday_id: matchdayId,
-      below_headline_mode: mode,
-      status: "draft",
-      updated_at: new Date().toISOString()
+      p_matchday_id: matchdayId,
+      p_below_headline_mode: mode
     })
   });
 }
@@ -1439,7 +1394,7 @@ async function saveMatchdayHighlightItem(formData: FormData) {
   }
 
   if (!hasContent && status !== "published") {
-    await applyLegacySlotAuthority(
+    await applySingleSlotAuthority(
       matchdayId,
       "opening",
       sortOrder + 1,
@@ -1472,11 +1427,22 @@ async function saveMatchdayHighlightItem(formData: FormData) {
 
   const existingItem = existingRows[0] ?? null;
 
+  if (await isMatchdayPhysicalPlacementAuthority(matchdayId)) {
+    await applySingleSlotAuthority(
+      matchdayId,
+      "opening",
+      sortOrder + 1,
+      status === "published",
+      linkUrl,
+    );
+    return;
+  }
+
   if (
     existingItem?.status !== "published"
     || cleanText(existingItem.link_url) !== linkUrl
   ) {
-    await applyLegacySlotAuthority(
+    await applySingleSlotAuthority(
       matchdayId,
       "opening",
       sortOrder + 1,
@@ -1693,17 +1659,14 @@ async function saveMatchdayLatestNews(formData: FormData) {
     throw new Error("matchday-invalid");
   }
 
-  await writeSupabaseAdmin("matchday_editorials?on_conflict=matchday_id", {
+  await writeSupabaseAdmin("rpc/set_matchday_latest_news_settings_v15", {
     method: "POST",
-    headers: {
-      Prefer: "resolution=merge-duplicates,return=minimal"
-    },
     body: JSON.stringify({
-      matchday_id: matchdayId,
-      latest_zone_mode: latestZoneMode,
-      latest_zone_title: latestZoneTitle,
-      latest_zone_title_color: latestZoneTitleColor,
-      updated_at: new Date().toISOString()
+      p_matchday_id: matchdayId,
+      p_latest_zone_mode: latestZoneMode,
+      p_latest_zone_title: latestZoneTitle,
+      p_latest_zone_title_color: latestZoneTitleColor,
+      p_write_title: true,
     })
   });
 
@@ -1784,15 +1747,11 @@ async function setMatchdayLatestZonePlacement(formData: FormData) {
     throw new Error("matchday-invalid");
   }
 
-  await writeSupabaseAdmin("matchday_editorials?on_conflict=matchday_id", {
+  await writeSupabaseAdmin("rpc/set_matchday_latest_zone_placement_v15", {
     method: "POST",
-    headers: {
-      Prefer: "resolution=merge-duplicates,return=minimal"
-    },
     body: JSON.stringify({
-      matchday_id: matchdayId,
-      latest_zone_placement: latestZonePlacement,
-      updated_at: new Date().toISOString()
+      p_matchday_id: matchdayId,
+      p_latest_zone_placement: latestZonePlacement,
     })
   });
 }
@@ -1905,7 +1864,7 @@ async function saveMatchdayHorizontalNewsItem(formData: FormData) {
   const hasContent = Boolean(label || labelColor || title || subtitle || imageUrl || linkUrl);
 
   if (cleanText(formData.get("horizontal_news_delete")) === "1") {
-    await applyLegacySlotAuthority(matchdayId, "faixa", sortOrder, false, null);
+    await applySingleSlotAuthority(matchdayId, "faixa", sortOrder, false, null);
     return;
   }
 
@@ -1926,12 +1885,23 @@ async function saveMatchdayHorizontalNewsItem(formData: FormData) {
     updated_at: new Date().toISOString()
   };
 
+  if (await isMatchdayPhysicalPlacementAuthority(matchdayId)) {
+    await applySingleSlotAuthority(
+      matchdayId,
+      "faixa",
+      sortOrder,
+      status === "published",
+      linkUrl,
+    );
+    return;
+  }
+
   if (
     status !== "published"
     || existingItem?.status !== "published"
     || cleanText(existingItem.link_url) !== linkUrl
   ) {
-    await applyLegacySlotAuthority(
+    await applySingleSlotAuthority(
       matchdayId,
       "faixa",
       sortOrder,

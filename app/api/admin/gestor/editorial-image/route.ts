@@ -1,4 +1,5 @@
 import { adminRelativeRedirect, adminRelativeUrl } from "@/lib/admin-relative-redirect";
+import { isMatchdayPhysicalPlacementAuthority } from "@/lib/editorial-matchday-physical-placement";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -166,6 +167,10 @@ export async function POST(request: Request) {
       throw new Error("missing-fields");
     }
 
+    if (await isMatchdayPhysicalPlacementAuthority(matchdayId)) {
+      throw new Error("editorial-image-canonical-required-after-physical-cutover");
+    }
+
     const storagePath =
       target === "highlight"
         ? `highlights/${matchdayId}/highlight-${sortOrder}-${Date.now()}-${crypto.randomUUID()}.${extension}`
@@ -186,7 +191,8 @@ export async function POST(request: Request) {
       "matchday-invalid",
       "editorial-image-type",
       "editorial-image-size",
-      "editorial-image-upload"
+      "editorial-image-upload",
+      "editorial-image-canonical-required-after-physical-cutover"
     ]);
 
     return redirectTo(request, returnTo, "error", knownErrors.has(message) ? message : "editorial-image-upload");
