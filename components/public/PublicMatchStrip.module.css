@@ -867,12 +867,6 @@
   row-gap: 1px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .panel[data-visual-variant="clean"] .cleanStateBadgeLive {
-    animation: none;
-  }
-}
-
 @media (max-width: 760px) {
   .shell.shell {
     padding-inline: 0;
@@ -931,25 +925,28 @@
   top: 1px;
 }
 
-/* Variante experimental da pÃƒÂ¡gina de jornada: carrossel limpo, sem barra de scroll visÃƒÂ­vel. */
+/* Public scoreboard: one continuous rail, with a shared grid for every state. */
 .panel[data-visual-variant="clean"] {
-  width: 100vw;
-  max-width: none;
-  margin: 0 calc(50% - 50vw);
-  padding: 6px 0 8px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1232px;
+  margin: 0 auto;
+  padding: 0;
   border: 0;
+  border-bottom: 1px solid #cdd2d7;
   border-radius: 0;
-  background: transparent;
+  background: #ffffff;
   box-shadow: none;
 }
 
-.panel[data-visual-variant="clean"] .shell {
+.panel[data-visual-variant="clean"] .shell.shell {
+  min-height: 0;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  overflow: visible;
 }
 
 .carouselMeasure {
@@ -965,54 +962,43 @@
   margin-inline: auto;
 }
 
-.carousel[data-can-move-forward="true"]::after {
+/* Fades soften the edges without hiding a complete match or intercepting input. */
+.carousel::before,
+.carousel::after {
   position: absolute;
   inset-block: 0;
-  right: max(0px, calc((100% - var(--match-carousel-viewport-width)) / 2));
   z-index: 1;
-  width: 72px;
+  width: calc(var(--match-carousel-arrow-zone-width) + var(--match-carousel-edge-fade-width));
   content: "";
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.42) 32%, rgba(255, 255, 255, 0.88) 72%, #ffffff 100%);
   pointer-events: none;
 }
 
-.carousel[data-can-move-back="true"]::before {
-  position: absolute;
-  inset-block: 0;
-  left: max(0px, calc((100% - var(--match-carousel-viewport-width)) / 2));
-  z-index: 1;
-  width: 72px;
-  content: "";
-  background: linear-gradient(90deg, #ffffff 0%, rgba(255, 255, 255, 0.88) 28%, rgba(255, 255, 255, 0.42) 68%, rgba(255, 255, 255, 0) 100%);
-  pointer-events: none;
+.carousel::before {
+  left: 0;
+  background: linear-gradient(90deg, #ffffff var(--match-carousel-arrow-zone-width), rgba(255, 255, 255, 0) 100%);
 }
 
+.carousel::after {
+  right: 0;
+  background: linear-gradient(270deg, #ffffff var(--match-carousel-arrow-zone-width), rgba(255, 255, 255, 0) 100%);
+}
 .carouselViewport {
+  position: relative;
   width: var(--match-carousel-viewport-width);
-  max-width: var(--match-carousel-viewport-width);
+  max-width: calc(100% - (2 * var(--match-carousel-arrow-zone-width)));
   min-width: 0;
   margin-inline: auto;
-  padding-inline: 0;
-  padding-block: 3px 5px;
-  overflow-x: hidden;
+  padding: 0;
+  overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-inline: contain;
   scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
   scrollbar-width: none;
-  -ms-overflow-style: none;
 }
 
 .carouselViewport::-webkit-scrollbar {
   display: none;
-  width: 0;
-  height: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .carouselViewport {
-    scroll-behavior: auto;
-  }
 }
 
 .carouselViewport > .row {
@@ -1029,23 +1015,18 @@
 
 .carouselButton {
   position: absolute;
-  top: 50%;
+  top: 0;
+  bottom: 0;
   z-index: 2;
   display: grid;
   place-items: center;
   width: var(--match-carousel-arrow-zone-width);
-  height: 42px;
   padding: 0;
   border: 0;
   background: transparent;
-  color: #44152f;
+  color: #20262c;
   cursor: pointer;
-  font-family: Arial, sans-serif;
-  font-size: 31px;
-  font-weight: 400;
-  line-height: 1;
-  transform: translateY(-50%);
-  transition: opacity 120ms ease, transform 120ms ease;
+  font: 400 26px/1 Arial, sans-serif;
 }
 
 .carouselButtonBack {
@@ -1056,27 +1037,27 @@
   right: 0;
 }
 
-.carouselButton:hover:not(:disabled),
-.carouselButton:focus-visible:not(:disabled) {
-  outline: none;
-  transform: translateY(-50%) scale(1.06);
+.carouselButton:hover:not(:disabled) {
+  background: #f3f4f5;
+  color: #a61925;
+}
+
+.carouselButton:focus-visible {
+  outline: 2px solid #a61925;
+  outline-offset: -3px;
 }
 
 .carouselButton:disabled {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.carouselButton span {
-  transform: translateY(-1px);
+  opacity: 0.2;
+  cursor: default;
 }
 
 .panel[data-visual-variant="clean"] .row > .card {
   box-sizing: border-box;
-  isolation: isolate;
   flex: 0 0 var(--match-card-width);
-  grid-template-columns: 24px minmax(0, 1fr);
-  grid-template-rows: 14px 8px 24px 2px 24px 1fr 19px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 18px;
+  grid-template-rows: 16px 24px 24px 18px;
   align-content: start;
   align-items: center;
   width: var(--match-card-width);
@@ -1085,21 +1066,24 @@
   height: var(--match-card-height);
   min-height: var(--match-card-height);
   max-height: var(--match-card-height);
-  padding: 9px 12px;
-  column-gap: 6px;
-  border: 1px solid #cfd6de;
-  border-radius: 9px;
+  padding: 3px var(--match-card-inline-padding);
+  column-gap: 4px;
+  row-gap: 0;
+  border: 0;
+  border-inline: 1px solid transparent;
+  border-inline-end-color: #e0e3e6;
+  border-radius: 0;
   background: #ffffff;
-  /* Solid lower edge stays outside the white card and follows its rounded corners. */
-  box-shadow: 0 1px 0 #a8bac9 !important;
-  color: #111820;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  box-shadow: none;
+  color: #17212b;
+  font-family: Arial, Helvetica, sans-serif;
   scroll-snap-align: start;
 }
 
 .panel[data-visual-variant="clean"] .row > .card[data-live-focus="true"] {
-  border-color: #cfd6de;
-  box-shadow: 0 1px 0 #a8bac9 !important;
+  border-color: transparent;
+  border-inline-end-color: #e0e3e6;
+  box-shadow: none;
 }
 
 .panel[data-visual-variant="clean"] .row > .card::before,
@@ -1109,381 +1093,135 @@
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .status {
+  box-sizing: border-box;
   display: block;
   grid-column: 1 / -1;
   grid-row: 1;
-  align-self: stretch;
-  box-sizing: border-box;
-  width: calc(100% - var(--match-card-status-inline-start, 14px));
-  height: 14px;
-  margin-left: var(--match-card-status-inline-start, 14px);
+  align-self: center;
+  width: 100%;
+  height: 16px;
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
-  overflow: visible;
-  color: #111820;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 14px;
-  letter-spacing: 0;
+  color: #626b74;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.03em;
   text-align: left;
+  white-space: nowrap;
   transform: none;
+}
+
+.panel[data-visual-variant="clean"] .status > :global(.public-matchday-mini-time) {
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
 }
 
 .panel[data-visual-variant="clean"] .cleanScheduleHeader {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
+  gap: 6px;
   width: 100%;
-  min-width: 0;
-  height: 14px;
-  translate: 0 1px;
+  height: 16px;
 }
 
-.panel[data-visual-variant="clean"] .cleanScheduleHeader > :global(.public-matchday-mini-time),
-.panel[data-visual-variant="clean"] .cleanScheduleTime {
+.panel[data-visual-variant="clean"] .cleanScheduleHeader > :global(.public-matchday-mini-time) {
   color: inherit;
   font: inherit;
+  letter-spacing: inherit;
+}
+
+.panel[data-visual-variant="clean"] .cleanScheduleTime {
+  color: #26313b;
+  font-size: 11px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: inherit;
-  line-height: 14px;
-  white-space: nowrap;
+  letter-spacing: 0;
 }
 
-.panel[data-visual-variant="clean"] .cleanScheduleTime {
-  box-sizing: border-box;
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  height: 18px;
-  margin-left: auto;
-  padding: 0 5px;
-  border-radius: 3px;
-  background: #17283b;
-  color: #ffffff;
-  font-weight: 700;
-  text-align: right;
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .status > :global(.public-matchday-mini-time) {
-  display: block;
-  width: 100%;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-align: inherit;
-  white-space: nowrap;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status > :global(.public-matchday-mini-time) {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: max-content;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 3px;
-  background: #111111;
-  color: #ffffff;
-  font-weight: 700;
-  transform: translateY(-2px);
-}
-
-.panel[data-visual-variant="clean"] .cleanStatusLine {
+.panel[data-visual-variant="clean"] .status > .cleanStatusLine {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  width: 100%;
-  min-width: 0;
-  height: 15px;
-  gap: 5px;
+  gap: 6px;
+  height: 16px;
+  color: #187043;
 }
 
 .panel[data-visual-variant="clean"] .cleanStatusLead {
-  display: inline-flex;
-  min-width: 0;
-  height: 15px;
-  align-items: center;
-  overflow: hidden;
-  color: #15803d;
-  font: inherit;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  font-weight: 900;
-  line-height: 15px;
-  text-overflow: clip;
-  white-space: nowrap;
-  transform: translateY(-1px);
+  font-weight: 700;
 }
 
 .panel[data-visual-variant="clean"] .cleanStateBadge {
-  box-sizing: border-box;
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  height: 15px;
-  padding-inline: 6px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  font-size: 8.5px;
-  font-weight: 900;
-  line-height: 13px;
-  letter-spacing: 0.045em;
-  white-space: nowrap;
-  transform: none;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.05em;
 }
 
 .panel[data-visual-variant="clean"] .cleanStateBadgeLive {
-  margin-inline-start: auto;
-  margin-inline-end: 13px;
-  border-color: #16a34a;
-  background: #16a34a;
-  box-shadow: 0 1px 2px rgba(22, 101, 52, 0.32);
-  color: #ffffff;
-  animation: public-match-now-fade 2.6s ease-in-out infinite;
+  color: #187043;
+}
+
+.panel[data-visual-variant="clean"] .cleanStateBadgeLive::before {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+  vertical-align: 1px;
 }
 
 .panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
-  border-color: #15803d;
-  background: #15803d;
-  box-shadow: 0 1px 2px rgba(22, 101, 52, 0.24);
-  color: #ffffff;
+  color: #187043;
 }
 
 .panel[data-visual-variant="clean"] .cleanStateBadgePostponed {
-  border-color: #a8b0ba;
-  background: #eef1f4;
-  box-shadow: none;
-  color: #44505c;
-}
-
-.panel[data-visual-variant="clean"] .cleanStateBadgeFinished {
-  border-color: #111820;
-  background: #111820;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.28);
-  color: #ffffff;
-}
-
-@keyframes public-match-now-fade {
-  0%,
-  100% {
-    box-shadow: 0 1px 2px rgba(22, 101, 52, 0.28);
-    opacity: 1;
-  }
-
-  50% {
-    box-shadow: 0 1px 2px rgba(22, 101, 52, 0.08);
-    opacity: 0.52;
-  }
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast {
-  box-sizing: border-box;
-  display: flex;
-  grid-column: 1 / -1;
-  grid-row: 7;
-  align-self: end;
-  align-items: flex-end;
-  justify-content: flex-end;
-  width: 100%;
-  height: 19px;
-  min-height: 19px;
-  margin: 0;
-  padding: 0;
-  overflow: visible;
-  transform: translateY(-1px);
-  color: #596779;
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 12px;
-  text-align: right;
-  opacity: 1;
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  width: 100%;
-  height: 18px;
-  min-height: 18px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  overflow: visible;
-  text-align: right;
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) > :first-child {
-  display: none;
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) > :not(:first-child) {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  width: 100%;
-  height: 18px;
-  margin: 0;
-  padding: 0;
-  color: inherit;
-  font: inherit;
-  line-height: inherit;
-  text-align: right;
-  opacity: 1;
-  transform: scale(0.94);
-  transform-origin: right bottom;
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) > :not(:first-child) > span {
-  justify-content: flex-end;
-  transform-origin: right bottom;
-}
-.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanScheduledFooterWithTime {
-  box-sizing: border-box;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: flex-end;
-  justify-content: stretch;
-  width: 100%;
-  margin-inline: 0;
-  padding: 0;
-  column-gap: 6px;
-  overflow: visible;
-  text-align: left;
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanScheduledFooterWithTime > .cleanScheduledTime {
-  display: inline-flex;
-  align-items: flex-end;
-  justify-self: start;
-  min-width: 0;
-  height: 18px;
-  margin-left: 0;
-  color: #40536b;
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 18px;
-  letter-spacing: 0;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanScheduledFooterWithTime > :global([data-public-match-meta]) {
-  grid-column: 2;
-  justify-self: end;
-  width: max-content;
-  transform: translateY(-2px);
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanScheduledFooterWithTime > :global([data-public-match-meta]) > :not(:first-child) {
-  width: max-content;
-}
-
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast img {
-  object-position: right bottom;
-}
-
-.panel[data-visual-variant="clean"] .cleanScheduleTime,
-.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) {
-  translate: -7px 0;
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanActiveFooter {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  justify-content: stretch;
-  width: 100%;
-  margin-inline: 0;
-  padding-inline: 0;
-  column-gap: 8px;
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .broadcast.cleanActiveFooter > :global([data-public-match-meta]) {
-  grid-column: 2;
-  justify-self: end;
-}
-
-.panel[data-visual-variant="clean"] .cleanActiveFooter > :global([data-public-match-meta]),
-.panel[data-visual-variant="clean"] .cleanActiveFooter > :global([data-public-match-meta]) > :not(:first-child) {
-  flex: 0 0 auto;
-  width: max-content;
-}
-
-.panel[data-visual-variant="clean"] .row > .card[data-has-team-scores="true"] {
-  grid-template-columns: 24px minmax(0, 1fr) max-content;
-}
-
-.panel[data-visual-variant="clean"] .cleanTeamScore {
-  box-sizing: border-box;
-  display: inline-flex;
-  grid-column: 3;
-  grid-row: 3;
-  align-self: center;
-  justify-self: end;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  min-width: 24px;
-  height: 24px;
-  border: 1px solid #d9e0e8;
-  border-radius: 2px;
-  background: #f1f4f8;
-  color: #263244;
-  font-size: 15px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 14px;
-  letter-spacing: 0.03em;
-  text-align: center;
-}
-
-.panel[data-visual-variant="clean"] .cleanTeamScore[data-public-match-team-score="away"] {
-  grid-row: 5;
+  color: #915c22;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .team {
   display: grid;
   grid-column: 1;
-  grid-template-columns: 24px;
-  grid-template-rows: 24px;
-  place-items: center start;
-  align-self: stretch;
+  grid-row: 2;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  place-items: center;
+  align-self: center;
   width: 24px;
   height: 24px;
   margin: 0;
-}
-
-.panel[data-visual-variant="clean"] .row > .card > .team:first-of-type {
-  grid-row: 3;
+  padding: 0;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .team:nth-of-type(2) {
-  grid-row: 5;
+  grid-column: 1;
+  grid-row: 3;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .team > :global([data-public-team-badge]) {
-  --public-match-team-badge-width: 24px;
-  --public-match-team-badge-height: 26px;
-
+  --public-match-team-badge-width: 20px;
+  --public-match-team-badge-height: 20px;
   width: 24px;
-  height: 26px;
-  filter: none;
+  height: 24px;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .team > :global([data-public-team-badge][data-logo-shape="tall"]) {
-  --public-match-team-badge-width: 22px;
-  --public-match-team-badge-height: 26px;
+  --public-match-team-badge-width: 18px;
+  --public-match-team-badge-height: 22px;
 }
 
 .panel[data-visual-variant="clean"] .row > .card > .team > :global([data-public-team-badge][data-logo-shape="wide"]) {
-  --public-match-team-badge-width: 26px;
-  --public-match-team-badge-height: 21px;
+  --public-match-team-badge-width: 24px;
+  --public-match-team-badge-height: 18px;
 }
 
 .panel[data-visual-variant="clean"] .teamNames {
@@ -1492,635 +1230,133 @@
 
 .panel[data-visual-variant="clean"] .teamNames > .teamName {
   grid-column: 2;
+  grid-row: 2;
   align-self: center;
   justify-self: start;
   width: 100%;
   min-width: 0;
-  max-width: 100%;
   overflow: hidden;
-  color: #111820;
+  color: #17212b;
   font-size: 12px;
   font-weight: 600;
-  line-height: 14px;
-  letter-spacing: 0;
+  line-height: 24px;
+  letter-spacing: -0.1px;
   text-align: left;
-  text-overflow: ellipsis;
   text-shadow: none;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.panel[data-visual-variant="clean"] .teamNames > .teamName:first-child {
+.panel[data-visual-variant="clean"] .teamNames > .teamName:nth-child(2) {
   grid-row: 3;
 }
 
-.panel[data-visual-variant="clean"] .teamNames > .teamName:nth-child(2) {
-  grid-row: 5;
+.panel[data-visual-variant="clean"] .row > .card:not([data-has-team-scores]) .teamName {
+  grid-column: 2 / -1;
+}
+
+.panel[data-visual-variant="clean"] .cleanTeamScore {
+  grid-column: 3;
+  grid-row: 2;
+  align-self: center;
+  justify-self: end;
+  color: #17212b;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 24px;
+  letter-spacing: -0.5px;
+  text-shadow: none;
+}
+
+.panel[data-visual-variant="clean"] .cleanTeamScore[data-public-match-team-score="away"] {
+  grid-row: 3;
 }
 
 .panel[data-visual-variant="clean"] .center {
   display: none;
 }
 
-.panel[data-visual-variant="clean"] .finishedScore,
-.panel[data-visual-variant="clean"] .statusScore {
-  color: #111820;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.03em;
-  text-shadow: none;
-}
-
-.panel[data-visual-variant="clean"] .liveStatus,
-.panel[data-visual-variant="clean"] .halftimeStatus {
-  justify-content: flex-start;
-}
-
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] {
-  position: relative;
-  width: calc(100% + 48px);
-  margin-inline: -24px;
-  padding-top: 0;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .shell {
+.panel[data-visual-variant="clean"] .row > .card > .broadcast {
+  display: flex;
+  grid-column: 1 / -1;
+  grid-row: 4;
+  align-items: center;
+  justify-content: flex-end;
   width: 100%;
+  min-width: 0;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  color: #626b74;
+  font-size: 10px;
+  line-height: 18px;
+}
+
+.panel[data-visual-variant="clean"] .broadcast > :global([data-public-match-meta]) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.panel[data-visual-variant="clean"] .broadcast > :global([data-public-match-meta]) > :first-child {
+  display: none;
+}
+
+.panel[data-visual-variant="clean"] .broadcast > :global([data-public-match-meta]) > :not(:first-child) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: auto;
+  max-width: 100%;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+}
+
+.panel[data-visual-variant="clean"] .cleanScheduledTime {
+  font: inherit;
 }
 
 .carousel[data-carousel-layout="fluid-peek"] {
-  position: relative;
-  width: min(
-    100%,
-    calc(var(--match-carousel-peek-viewport-width) + (2 * var(--match-carousel-arrow-zone-width)))
-  );
-  max-width: calc(var(--match-carousel-peek-viewport-width) + (2 * var(--match-carousel-arrow-zone-width)));
-  margin-inline: auto;
-}
-
-.carousel[data-carousel-layout="fluid-peek"]::before,
-.carousel[data-carousel-layout="fluid-peek"]::after {
-  display: none;
-  content: "";
-  pointer-events: none;
-}
-
-@media (min-width: 761px) {
-  .carousel[data-carousel-layout="fluid-peek"][data-can-move-back="true"]::before,
-  .carousel[data-carousel-layout="fluid-peek"][data-can-move-forward="true"]::after {
-    position: absolute;
-    inset-block: 0;
-    z-index: 1;
-    display: block;
-    width: var(--match-carousel-edge-fade-width);
-  }
-
-  .carousel[data-carousel-layout="fluid-peek"][data-can-move-back="true"]::before {
-    left: var(--match-carousel-arrow-zone-width);
-    background: linear-gradient(
-      90deg,
-      #ffffff 0%,
-      rgba(255, 255, 255, 0.88) 28%,
-      rgba(255, 255, 255, 0.42) 68%,
-      rgba(255, 255, 255, 0) 100%
-    );
-  }
-
-  .carousel[data-carousel-layout="fluid-peek"][data-can-move-forward="true"]::after {
-    right: var(--match-carousel-arrow-zone-width);
-    background: linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.42) 32%,
-      rgba(255, 255, 255, 0.88) 72%,
-      #ffffff 100%
-    );
-  }
+  width: 100%;
 }
 
 .carousel[data-carousel-layout="fluid-peek"] .carouselViewport {
-  width: min(
-    var(--match-carousel-peek-viewport-width),
-    calc(100% - (2 * var(--match-carousel-arrow-zone-width)))
-  );
-  max-width: var(--match-carousel-peek-viewport-width);
-  margin-inline: auto;
-  overflow: hidden;
-  overscroll-behavior: contain;
-  scroll-padding-inline: 0;
-}
-
-.carousel[data-carousel-layout="fluid-peek"] .carouselViewport > .row {
-  box-sizing: content-box;
-  padding-inline: 0;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast {
-  position: static;
-  right: auto;
-  bottom: auto;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  transform: translateY(-1px);
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast > :global([data-public-match-meta]),
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast > :global([data-public-match-meta]) > :not(:first-child) {
-  width: max-content;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast.cleanActiveFooter {
-  position: static;
-  right: auto;
-  bottom: auto;
-  width: 100%;
-  transform: translateY(-2px);
-}
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast.cleanScheduledFooterWithTime {
-  position: static;
-  right: auto;
-  bottom: auto;
-  width: 100%;
-  transform: translateY(-1px);
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card > .broadcast.cleanScheduledFooterWithTime > :global([data-public-match-meta]) {
-  transform: none;
-}
-
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card {
-  height: var(--match-carousel-peek-card-height);
-  min-height: var(--match-carousel-peek-card-height);
-  max-height: var(--match-carousel-peek-card-height);
-  padding: 9px 12px;
-  border-color: #cfd6de;
-  border-radius: 9px;
-  background: #ffffff;
-  box-shadow: 0 1px 0 #a8bac9 !important;
-  animation: public-match-card-emerge 320ms cubic-bezier(0.22, 0.72, 0.26, 1) both;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) {
-  grid-template-rows: 14px 5px 24px 6px 24px 1fr 17px;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) {
-  grid-template-rows: 14px 8px minmax(0, 1fr) 4px minmax(0, 1fr) 10px;
-  padding-inline-end: 6px;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team {
-  align-self: center;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled),
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-live),
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-halftime) {
-  grid-template-rows: 14px 7px 24px 2px 24px 1fr 19px;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled),
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-live),
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-halftime) {
-  padding-inline-end: 6px;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) > .status,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) > .broadcast,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-live) > .broadcast,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-halftime) > .broadcast {
-  padding-inline-end: 6px;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(2) {
-  animation-delay: 20ms;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(3) {
-  animation-delay: 40ms;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(4) {
-  animation-delay: 60ms;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(5) {
-  animation-delay: 80ms;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(6) {
-  animation-delay: 100ms;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(7) {
-  animation-delay: 120ms;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(8) {
-  animation-delay: 140ms;
-}
-
-.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card:nth-child(n + 9) {
-  animation-delay: 160ms;
-}
-
-@keyframes public-match-card-emerge {
-  from {
-    opacity: 0.78;
-    transform: translateY(-7px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card {
-    animation: none;
-  }
+  width: calc(100% - (2 * var(--match-carousel-arrow-zone-width)));
 }
 
 @media (max-width: 760px) {
-  .panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] {
-    width: calc(100% + 32px);
-    margin-inline: -16px;
-  }
-
-  .carousel[data-carousel-layout="fluid-peek"] {
-    display: block;
-    width: 100%;
-    max-width: none;
-  }
-
   .carousel[data-carousel-layout="fluid-peek"]::before,
-  .carousel[data-carousel-layout="fluid-peek"]::after,
+  .carousel[data-carousel-layout="fluid-peek"]::after {
+    width: var(--match-carousel-edge-fade-width);
+  }
+
+  .carousel[data-carousel-layout="fluid-peek"]::before {
+    background: linear-gradient(90deg, #ffffff, rgba(255, 255, 255, 0));
+  }
+
+  .carousel[data-carousel-layout="fluid-peek"]::after {
+    background: linear-gradient(270deg, #ffffff, rgba(255, 255, 255, 0));
+  }
+
   .carousel[data-carousel-layout="fluid-peek"] .carouselButton {
     display: none;
-    content: none;
   }
 
   .carousel[data-carousel-layout="fluid-peek"] .carouselViewport {
     width: 100%;
-    max-width: none;
-    margin-inline: 0;
-    overflow-x: auto;
-    scroll-padding-inline: 16px;
-    scroll-snap-type: x proximity;
-  }
-
-  .carousel[data-carousel-layout="fluid-peek"] .carouselViewport > .row {
-    padding-inline: 16px;
+    max-width: 100%;
   }
 }
 
-/* Agenda: afina��o vertical da primeira equipa. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) > .team:first-of-type,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) .teamNames > .teamName:first-child,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) .cleanTeamScore[data-public-match-team-score="home"] {
-  transform: translateY(1px);
-}
-
-/* Finalizados: sem r�tulo FINAL, emblemas maiores e distribui��o vertical sim�trica. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) {
-  grid-template-columns: 30px minmax(0, 1fr) max-content;
-  grid-template-rows: 0 1fr 30px 1fr 30px 1fr 19px;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status {
-  display: none;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team {
-  width: 30px;
-  height: 30px;
-  grid-template-columns: 30px;
-  grid-template-rows: 30px;
-}
-
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .teamNames > .teamName,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .cleanTeamScore {
-  transform: translateY(7px);
-}
-
-/* micro-ajuste: jogos em direto e agendados */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-live) > .team:first-of-type,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) > .team:first-of-type {
-  transform: translateY(-0.5px);
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-live) > .team:last-of-type,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) > .team:last-of-type {
-  transform: translateY(0.5px);
-}
-
-/* Afina��o vertical efetiva: direto/intervalo/agendados. */
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) > .team:first-of-type,
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .teamNames > .teamName:first-child,
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="home"] { transform: translateY(-0.5px); }
-
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) > .team:nth-of-type(2),
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .teamNames > .teamName:nth-child(2),
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translateY(0.5px); }
-
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) > .team:nth-of-type(2),
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .teamNames > .teamName:nth-child(2),
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translateY(1px); }
-
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) > .team:nth-of-type(2),
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .teamNames > .teamName:nth-child(2),
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translateY(1.5px); }
-
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="home"] { transform: translate(-3px, -0.5px); }
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translate(-3px, 1.5px); }
-
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="home"] { transform: translate(-6px, -0.5px); }
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translate(-6px, 1.5px); }
-
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="home"] { transform: translate(-9px, -0.5px); }
-.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translate(-9px, 1.5px); }
-
-/* Afina��o final: cabe�alho agendado e log�tipo TV. */
-.panel[data-visual-variant="clean"] .cleanScheduleHeader { translate: 0 -1px; }
-.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) { translate: -7px 1px; }
-
-.panel[data-visual-variant="clean"] .cleanScheduleTime { translate: -5px 0; }
-.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) { translate: -5px 1px; }
-
-.panel[data-visual-variant="clean"] .cleanScheduleTime { translate: -4px 0; }
-.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) { translate: -4px 1px; }
-
-.panel[data-visual-variant="clean"] .cleanStateBadgeLive { transform: translateX(2px); }
-
-.panel[data-visual-variant="clean"] .cleanScheduleTime { translate: -3px 0; }
-
-/* Afina��o global final: todo o conte�do interno desce 1 px. */
-.panel[data-visual-variant="clean"] .row > .card > .status,
-.panel[data-visual-variant="clean"] .row > .card > .team,
-.panel[data-visual-variant="clean"] .row > .card .teamNames > .teamName,
-.panel[data-visual-variant="clean"] .row > .card > .cleanTeamScore,
-.panel[data-visual-variant="clean"] .row > .card > .broadcast { position: relative; top: 1px; }
-
-/* Ajuste vertical 2: conteúdo do card +1px; data e hora mantêm posição. */
-.panel[data-visual-variant="clean"] .row > .card > .team,
-.panel[data-visual-variant="clean"] .row > .card .teamNames > .teamName,
-.panel[data-visual-variant="clean"] .row > .card > .cleanTeamScore,
-.panel[data-visual-variant="clean"] .row > .card > .broadcast {
-  top: 2px;
-}
-
-/* Ajuste TV: logótipo desce 1px. */
-.panel[data-visual-variant="clean"] .row > .card > .broadcast img {
-  position: relative;
-  top: 1px;
-}
-
-/* Finalizados: placard 6px para a esquerda. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .cleanTeamScore {
-  translate: -6px 0;
-}
-
-/* Finalizados: nomes 6px mais perto dos emblemas. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .teamNames > .teamName {
-  translate: -6px 0;
-}
-
-/* Finalizados: alinhamento horizontal idêntico aos agendados. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .teamNames > .teamName {
-  translate: -6px 0;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .cleanTeamScore {
-  translate: -9px 0;
-}
-
-/* Finalizados: verticalidade idêntica aos agendados. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team:first-of-type,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .teamNames > .teamName:first-child,
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .cleanTeamScore[data-public-match-team-score="home"] {
-  transform: translateY(-0.5px);
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team:nth-of-type(2),
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .teamNames > .teamName:nth-child(2),
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .cleanTeamScore[data-public-match-team-score="away"] {
-  transform: translateY(1.5px);
-}
-
-/* Finalizados: mesma geometria vertical dos agendados. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) {
-  grid-template-rows: 14px 7px 24px 2px 24px 1fr 19px;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team {
-  width: 24px;
-  height: 24px;
-  grid-template-columns: 24px;
-  grid-template-rows: 24px;
-}
-
-/* Direto / intervalo: cabeçalho alinhado com data / hora dos agendados. */
-.panel[data-visual-variant="clean"] .cleanStatusLine {
-  justify-content: space-between;
-  translate: 0 -1px;
-}
-
-.panel[data-visual-variant="clean"] .cleanStatusLead {
-  transform: none;
-}
-
-.panel[data-visual-variant="clean"] .cleanStateBadgeLive,
-.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
-  margin-inline-start: auto;
-  margin-inline-end: 0;
-  transform: none;
-  translate: -6px 0;
-}
-
-/* Direto / intervalo: centros iguais aos da data e da hora dos agendados. */
-.panel[data-visual-variant="clean"] .cleanStatusLine {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 40px;
-  align-items: center;
-  justify-content: initial;
-  width: 100%;
-  translate: 0 -1px;
-}
-
-.panel[data-visual-variant="clean"] .cleanStatusLead {
-  grid-column: 1;
-  justify-self: center;
-  margin: 0;
-  transform: none;
-}
-
-.panel[data-visual-variant="clean"] .cleanStateBadgeLive,
-.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
-  grid-column: 3;
-  justify-self: center;
-  margin: 0;
-  transform: none;
-  translate: 0 0;
-}
-
-/* Direto / intervalo: alinhamento pela margem direita de data e hora. */
-.panel[data-visual-variant="clean"] .cleanScheduleHeader > :global(.public-matchday-mini-time) {
-  flex: 0 0 36px;
-  width: 36px;
-  text-align: right;
-}
-
-.panel[data-visual-variant="clean"] .cleanStatusLine {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  align-items: center;
-  width: 100%;
-  translate: 0 -1px;
-}
-
-.panel[data-visual-variant="clean"] .cleanStatusLead {
-  grid-column: 1;
-  justify-self: end;
-  margin: 0;
-  text-align: right;
-  transform: none;
-}
-
-.panel[data-visual-variant="clean"] .cleanStateBadgeLive,
-.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
-  grid-column: 3;
-  justify-self: end;
-  margin: 0;
-  transform: none;
-  translate: -6px 0;
-}
-
-/* Direto / intervalo: margem direita exatamente igual à hora dos agendados. */
-.panel[data-visual-variant="clean"] .cleanStatusLine {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-}
-
-.panel[data-visual-variant="clean"] .cleanStatusLead {
-  margin: 0;
-}
-
-.panel[data-visual-variant="clean"] .cleanStateBadgeLive,
-.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
-  margin-inline-start: auto;
-  margin-inline-end: 0;
-  transform: none;
-  translate: -9px 0;
-}
-
-/* INTERVALO: mesmo comportamento visual do AGORA. */
-.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
-  border-color: #16a34a;
-  background: #16a34a;
-  box-shadow: 0 1px 2px rgba(22, 101, 52, 0.32);
-  color: #ffffff;
-  animation: public-match-now-fade 2.6s ease-in-out infinite;
-}
-
-/* Direto / intervalo: minuto a 9px do estado; conjunto alinhado com a hora. */
-.panel[data-visual-variant="clean"] .cleanStatusLine {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 9px;
-  width: 100%;
-  translate: -6px 0;
-}
-
-.panel[data-visual-variant="clean"] .cleanStatusLead {
-  margin: 0;
-  transform: none;
-}
-
-.panel[data-visual-variant="clean"] .cleanStateBadgeLive,
-.panel[data-visual-variant="clean"] .cleanStateBadgeHalftime {
-  margin: 0;
-  transform: none;
-  translate: 0 0;
-}
-
-/* Teste: hora sem caixa, distinta da data apenas por tipografia. */
-.panel[data-visual-variant="clean"] .cleanScheduleTime {
-  height: 14px;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #17283b;
-  font-size: 11px;
-  font-weight: 850;
-  line-height: 14px;
-  letter-spacing: 0.015em;
-}
-
-/* Hora: bold e ligeiramente alongada na vertical. */
-.panel[data-visual-variant="clean"] .cleanScheduleTime {
-  font-weight: 850;
-  transform: scaleY(1.14);
-  transform-origin: center;
-}
-
-/* Finalizados: FINAL no lugar da hora, com tipografia da data. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  grid-column: 1 / -1;
-  grid-row: 1;
-}
-
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status > :global(.public-matchday-mini-time) {
-  display: inline-block;
-  width: auto;
-  height: 14px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 14px;
-  letter-spacing: 0;
-  transform: none;
-  translate: -6px 0;
-}
-
-/* FINAL: termina exatamente 6px antes da margem direita do card. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status > :global(.public-matchday-mini-time) {
-  translate: 0 0;
-}
-
-/* FINAL: margem direita real de 6px relativamente ao card. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status > :global(.public-matchday-mini-time) {
-  translate: 7px 0;
-}
-
-/* FINAL: margem direita exatamente alinhada com o placard. */
-.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status > :global(.public-matchday-mini-time) {
-  translate: -9px 0;
-}
-
-/* Hora: escura, bold delicada e mais alta. */
-.panel[data-visual-variant="clean"] .cleanScheduleTime {
-  background: transparent;
-  color: #17283b;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 14px;
-  letter-spacing: 0;
-  transform: scaleY(1.18);
-  transform-origin: center;
+@media (prefers-reduced-motion: reduce) {
+  .carouselViewport {
+    scroll-behavior: auto;
+  }
 }

@@ -88,52 +88,29 @@ type PublicGamesPageContentProps = {
 };
 
 const gamesPageStyles = `
-  .public-games-season-nav .public-season-nav-inner {
-    flex-wrap: nowrap;
-    overflow: hidden;
+  .public-games-season-nav [data-phase] {
+    grid-template-rows: auto;
+    min-width: 0;
   }
 
-  .public-games-season-nav .public-season-select-wrap {
-    font-size: 11px;
+  .public-games-season-nav [data-phase] > [aria-hidden="true"] {
+    display: none;
   }
 
-  .public-games-season-nav .public-matchday-nav {
-    flex: 1 1 auto;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
+  .public-games-season-nav [data-phase] .public-matchday-nav {
+    grid-column: auto;
+    grid-row: auto;
   }
 
-  .public-games-season-nav .public-matchday-nav a {
-    font-size: 11px;
-    white-space: nowrap;
+  .public-games-season-nav [data-phase] .public-matchday-nav a[data-active="true"] {
+    color: #202428;
   }
 
-  .public-games-season-nav .public-matchday-leg-nav {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 0;
-    border-top: 2px solid #10151b;
-    background: #ffffff;
-    white-space: nowrap;
-  }
-
-  .public-games-season-nav .public-matchday-leg-nav a {
-    display: inline-block;
-    padding: 8px 11px;
-    border-right: 1px solid #dfe5ec;
-    background: #ffffff;
-    color: #263241;
-    font-size: 11px;
-    font-weight: 900;
-    text-decoration: none;
-    text-transform: uppercase;
-  }
-
-  .public-games-season-nav .public-matchday-leg-nav a[aria-current="true"] {
-    background: #10151b;
-    color: #ffffff;
+  @media (max-width: 980px) {
+    .public-games-season-nav [data-phase] {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
   }
 
   .public-games-page {
@@ -439,203 +416,6 @@ const gamesPageStyles = `
       min-height: 180px;
     }
   }
-
-
-  /* JORNADA-CABECALHO-COMPETITIVO-INICIO */
-  .public-season-nav-bar {
-    border-top: 1px solid #e1e6ec;
-    border-bottom: 1px solid #d7dee7;
-    background: #ffffff;
-  }
-
-  .public-season-nav-inner {
-    display: grid;
-    grid-template-columns: max-content minmax(0, 1fr) max-content;
-    gap: 18px;
-    align-items: end;
-    min-height: 78px;
-    max-width: 1512px;
-    margin: 0 auto;
-    padding: 6px 0 0;
-    overflow: hidden;
-  }
-
-  .public-season-context-card {
-    display: grid;
-    align-self: stretch;
-    align-content: end;
-    gap: 6px;
-    min-width: 220px;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .public-season-context-card .public-season-select-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    width: max-content;
-    max-width: 100%;
-    min-height: 30px;
-    padding: 5px 8px 5px 10px;
-    border: 1px solid #cfd7e1;
-    background: #f8fafc;
-    color: #263241;
-    font-size: 11px;
-    font-weight: 900;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-
-  .public-season-context-card .public-season-select {
-    width: auto;
-    min-width: 112px;
-    max-width: 138px;
-    border: 0;
-    background: transparent;
-    color: #10151b;
-    font: inherit;
-    outline: none;
-    cursor: pointer;
-  }
-
-  .public-season-context-card .public-matchday-leg-nav {
-    display: flex;
-    width: max-content;
-    max-width: 100%;
-    align-items: center;
-    gap: 0;
-    padding: 0;
-    border-top: 2px solid #10151b;
-    background: #ffffff;
-    white-space: nowrap;
-  }
-
-  .public-season-context-card .public-matchday-leg-nav a {
-    display: inline-block;
-    min-width: 0;
-    padding: 8px 11px;
-    border: 0;
-    border-right: 1px solid #dfe5ec;
-    border-radius: 0;
-    background: #ffffff;
-    color: #263241;
-    font-size: 11px;
-    font-weight: 900;
-    text-align: center;
-    text-decoration: none;
-    text-transform: uppercase;
-  }
-
-  .public-season-context-card .public-matchday-leg-nav a[aria-current="true"] {
-    background: #10151b;
-    color: #ffffff;
-  }
-
-  .public-matchday-date-row {
-    display: flex;
-    align-self: end;
-    align-items: center;
-    justify-content: flex-end;
-    min-height: 32px;
-    padding: 0 2px 8px 0;
-    border: 0;
-    background: transparent;
-    white-space: nowrap;
-  }
-
-  .public-matchday-date-row .public-matchday-date-context {
-    display: inline;
-    color: #607086;
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1.25;
-    text-align: right;
-  }
-
-  .public-matchday-date-row .public-matchday-date-context strong {
-    color: #263241;
-    font-weight: 900;
-  }
-
-  @media (max-width: 1180px) {
-    .public-season-nav-inner {
-      grid-template-columns: minmax(194px, max-content) minmax(0, 1fr) max-content;
-      gap: 10px;
-    }
-
-    .public-season-context-card {
-      min-width: 194px;
-    }
-
-    .public-season-context-card .public-season-select-wrap {
-      gap: 6px;
-      padding: 5px 7px;
-    }
-
-    .public-season-context-card .public-season-select {
-      min-width: 96px;
-    }
-
-    .public-season-context-card .public-matchday-leg-nav a {
-      padding: 7px 10px;
-      font-size: 10.5px;
-    }
-
-    .public-matchday-date-row .public-matchday-date-context {
-      font-size: 9.5px;
-    }
-  }
-
-  @media (max-width: 900px) {
-    .public-season-nav-inner {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 8px;
-      align-items: stretch;
-      min-height: 0;
-      padding: 8px 16px 9px;
-      overflow: visible;
-    }
-
-    .public-season-context-card {
-      align-content: start;
-      min-width: 0;
-    }
-
-    .public-matchday-date-row {
-      justify-content: flex-start;
-      min-height: 0;
-      padding: 0;
-    }
-
-    .public-matchday-date-row .public-matchday-date-context {
-      text-align: left;
-    }
-  }
-
-  @media (max-width: 620px) {
-    .public-season-context-card .public-season-select-wrap,
-    .public-season-context-card .public-matchday-leg-nav {
-      width: 100%;
-    }
-
-    .public-season-context-card .public-season-select {
-      flex: 1 1 auto;
-      min-width: 0;
-    }
-
-    .public-season-context-card .public-matchday-leg-nav a {
-      flex: 1 1 50%;
-    }
-
-    .public-matchday-date-row {
-      white-space: normal;
-    }
-  }
-  /* JORNADA-CABECALHO-COMPETITIVO-FIM */
 `;
 
 function cleanText(value: string | null | undefined) {

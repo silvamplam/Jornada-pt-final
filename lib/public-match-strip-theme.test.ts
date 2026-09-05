@@ -3,41 +3,39 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { getPublicMatchStripTheme } from "./public-match-strip-theme";
 
-test("a barra neutra conserva o fundo branco com rebordo exterior solido apenas inferior", () => {
+test("a barra neutra usa branco contínuo e divisórias discretas entre jogos", () => {
   const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
-  const selectors = [
-    '.panel[data-visual-variant="clean"] .row > .card',
-    '.panel[data-visual-variant="clean"] .row > .card[data-live-focus="true"]',
-    '.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card'
-  ];
+  const cleanCss = css.slice(css.indexOf('.panel[data-visual-variant="clean"]'));
+  const panelRule = cleanCss.match(/\.panel\[data-visual-variant="clean"\]\s*\{([^}]*)\}/)?.[1] ?? "";
+  const cardRule = cleanCss.match(/\.panel\[data-visual-variant="clean"\] \.row > \.card\s*\{([^}]*)\}/)?.[1] ?? "";
+  const focusRule = cleanCss.match(/\.row > \.card\[data-live-focus="true"\]\s*\{([^}]*)\}/)?.[1] ?? "";
 
-  for (const selector of selectors) {
-    const start = css.indexOf(selector + " {");
-    assert.ok(start >= 0, selector);
-    const rule = css.slice(start).split("{")[1]?.split("}")[0] ?? "";
-    assert.match(rule, /box-shadow:\s*0 1px 0 #a8bac9 !important;/);
-    assert.doesNotMatch(rule, /inset|gradient\(/);
-    if (selector.includes("data-live-focus")) {
-      assert.doesNotMatch(rule, /background(?:-color)?:/);
-    } else {
-      assert.match(rule, /background:\s*#ffffff;/);
-      assert.match(rule, /border-radius:\s*9px;/);
-    }
+  for (const rule of [panelRule, cardRule]) {
+    assert.match(rule, /background:\s*#ffffff;/);
+    assert.match(rule, /border-radius:\s*0;/);
+    assert.match(rule, /box-shadow:\s*none;/);
   }
-
-  const viewportRule = css.match(/\.carouselViewport\s*\{([^}]*)\}/)?.[1] ?? "";
-  assert.match(viewportRule, /padding-block:\s*3px 5px;/);
+  assert.match(panelRule, /border-bottom:\s*1px solid/);
+  assert.match(cardRule, /border-inline-end-color:\s*#e0e3e6;/);
+  assert.match(focusRule, /box-shadow:\s*none;/);
+  assert.doesNotMatch(panelRule + cardRule, /gradient\(/);
+  const viewportRule = cleanCss.match(/\.carouselViewport\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(viewportRule, /padding:\s*0;/);
 });
 
-test("a hora e o canal recuam juntos apenas na variante clean sem substituir os transforms", () => {
+
+test("a hora e o canal alinham pela grelha sem deslocamentos locais", () => {
   const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
-  const rule = css.match(
-    /\.panel\[data-visual-variant="clean"\] \.cleanScheduleTime,\s*\.panel\[data-visual-variant="clean"\] \.row > \.card > \.broadcast > :global\(\[data-public-match-meta\]\)\s*\{([^}]*)\}/
-  )?.[1] ?? "";
+  const cleanCss = css.slice(css.indexOf('.panel[data-visual-variant="clean"]'));
+  const scheduleRule = cleanCss.match(/\.cleanScheduleHeader\s*\{([^}]*)\}/)?.[1] ?? "";
+  const footerRule = cleanCss.match(/> \.broadcast\s*\{([^}]*)\}/)?.[1] ?? "";
 
-  assert.match(rule, /translate:\s*-7px 0;/);
-  assert.doesNotMatch(rule, /transform:|margin|padding|width|height/);
+  assert.match(scheduleRule, /justify-content:\s*space-between;/);
+  assert.match(footerRule, /grid-row:\s*4;/);
+  assert.match(footerRule, /justify-content:\s*flex-end;/);
+  assert.doesNotMatch(cleanCss, /translate:|translate(?:X|Y)?\(/);
 });
+
 
 test("ativa as identidades próprias apenas nas competições suportadas", () => {
   assert.equal(getPublicMatchStripTheme("liga-portugal"), "liga-portugal");
@@ -141,56 +139,39 @@ test("os cards Liga Portugal usam territórios cromáticos irregulares sem hífe
   assert.match(css, /rgba\(var\(--public-liga-portugal-away-rgb\),\s*0\.23\)/);
 });
 
-test("os minutos ao vivo ficam centrados na mesma linha da caixa AGORA", () => {
+test("os minutos ao vivo e o estado partilham a mesma linha compacta", () => {
   const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
+  const cleanCss = css.slice(css.indexOf('.panel[data-visual-variant="clean"]'));
+  const statusRule = cleanCss.match(/\.status > \.cleanStatusLine\s*\{([^}]*)\}/)?.[1] ?? "";
+  const badgeRule = cleanCss.match(/\.cleanStateBadge\s*\{([^}]*)\}/)?.[1] ?? "";
 
-  assert.match(
-    css,
-    /\.panel\[data-visual-variant="clean"\] \.cleanStatusLine \{[\s\S]*?align-items:\s*center;[\s\S]*?height:\s*15px;/
-  );
-  assert.match(
-    css,
-    /\.panel\[data-visual-variant="clean"\] \.cleanStatusLead \{[\s\S]*?height:\s*15px;[\s\S]*?align-items:\s*center;[\s\S]*?line-height:\s*15px;[\s\S]*?transform:\s*translateY\(-1px\);/
-  );
-  assert.match(
-    css,
-    /\.panel\[data-visual-variant="clean"\] \.cleanStateBadge \{[\s\S]*?height:\s*15px;[\s\S]*?transform:\s*none;/
-  );
+  assert.match(statusRule, /display:\s*flex;/);
+  assert.match(statusRule, /align-items:\s*center;/);
+  assert.match(statusRule, /height:\s*16px;/);
+  assert.match(badgeRule, /line-height:\s*16px;/);
+  assert.doesNotMatch(badgeRule, /background:|border:|box-shadow:/);
 });
 
-test("os resultados ao vivo alinham com as equipas e o rodape conserva apenas TV", () => {
+
+test("os resultados reais alinham com as equipas e o rodapé conserva apenas TV", () => {
   const component = readFileSync("components/public/PublicMatchStrip.tsx", "utf8");
   const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
+  const cleanCss = css.slice(css.indexOf('.panel[data-visual-variant="clean"]'));
 
   assert.match(component, /const hasCleanBroadcast = Boolean\(/);
   assert.match(component, /const cleanTeamScores = visualVariant === "clean"[\s\S]*?presentation\.finishedScore \?\? \(activeScore/);
-  assert.match(component, /kind === "scheduled" && presentation\.center\.kind === "placeholder"\s*\? \{ left: "0", right: "0" \}/);
-  assert.match(component, /<span className=\{cleanFooterClassName\}[\s\S]*?\{hasCleanBroadcast \? \(\s*<PublicMatchMeta/);
+  assert.doesNotMatch(component, /\{ left: "0", right: "0" \}/);
+  assert.match(component, /<span className=\{styles\.broadcast\}[\s\S]*?\{hasCleanBroadcast \? \(\s*<PublicMatchMeta/);
   assert.doesNotMatch(component, /cleanScoreContent|cleanActiveFooterWithoutBroadcast/);
-  assert.match(
-    css,
-    /\.panel\[data-visual-variant="clean"\] \.row > \.card > \.broadcast\.cleanActiveFooter \{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto;[\s\S]*?column-gap:\s*8px;/
-  );
-  assert.match(
-    css,
-    /\.broadcast\.cleanActiveFooter > :global\(\[data-public-match-meta\]\) \{[\s\S]*?grid-column:\s*2;[\s\S]*?justify-self:\s*end;/
-  );
-  assert.doesNotMatch(css, /\.cleanScore\b|\.cleanScoreActive\b|\.cleanActiveFooterWithoutBroadcast\b/);
-  assert.match(css, /\.cleanStateBadgeLive\s*\{[^}]*margin-inline-start:\s*auto;[^}]*margin-inline-end:\s*13px/);
-  assert.match(
-    css,
-    /\[data-carousel-layout="fluid-peek"\][\s\S]*?\.broadcast\.cleanActiveFooter \{[\s\S]*?position:\s*static;[\s\S]*?width:\s*100%;/
-  );
-  assert.match(
-    css,
-    /\.panel\[data-visual-variant="clean"\] \.cleanTeamScore \{[^}]*grid-column:\s*3;[^}]*grid-row:\s*3;[^}]*align-self:\s*center;[^}]*justify-self:\s*end;/
-  );
-  assert.match(
-    css,
-    /\.panel\[data-visual-variant="clean"\] \.cleanTeamScore \{[^}]*width:\s*24px;[^}]*height:\s*24px;[^}]*background:\s*#f1f4f8;/
-  );
-  assert.match(
-    css,
-    /\.panel\[data-visual-variant="clean"\] \.row > \.card:global\(\.public-matchday-mini-card-finished\) > \.status > :global\(\.public-matchday-mini-time\)\s*\{[^}]*background:\s*#111111;[^}]*color:\s*#ffffff;/
-  );
+
+  const scoreRule = cleanCss.match(/\.cleanTeamScore\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(scoreRule, /grid-column:\s*3;/);
+  assert.match(scoreRule, /grid-row:\s*2;/);
+  assert.match(scoreRule, /align-self:\s*center;/);
+  assert.match(scoreRule, /justify-self:\s*end;/);
+  assert.match(scoreRule, /font-size:\s*18px;/);
+  assert.doesNotMatch(scoreRule, /border:|background:|box-shadow:/);
+  assert.match(cleanCss, /\.cleanTeamScore\[data-public-match-team-score="away"\]\s*\{\s*grid-row:\s*3;/);
+  assert.match(cleanCss, /> \.broadcast\s*\{[^}]*grid-row:\s*4;/);
+  assert.doesNotMatch(cleanCss, /\.cleanScore\b|\.cleanScoreActive\b|\.cleanActiveFooterWithoutBroadcast\b/);
 });

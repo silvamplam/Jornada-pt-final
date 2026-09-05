@@ -14,9 +14,7 @@ import { getPublicTeamName } from "@/lib/public-team-name";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
-  useRef,
   useState,
   type CSSProperties
 } from "react";
@@ -257,8 +255,6 @@ function CompactMatchCard({
   now: Date;
   visualVariant: PublicMatchStripVariant;
 }) {
-  const cardRef = useRef<HTMLElement>(null);
-  const homeTeamNameRef = useRef<HTMLSpanElement>(null);
   const presentation = getPublicMatchStripPresentation(match, now);
   const kind = presentation.kind;
   const broadcastChannelName = match.broadcastChannel?.name?.trim();
@@ -427,69 +423,16 @@ function CompactMatchCard({
   const cleanTeamScores = visualVariant === "clean"
     ? presentation.finishedScore ?? (activeScore
       ? { left: String(match.home_score), right: String(match.away_score) }
-      : kind === "scheduled" && presentation.center.kind === "placeholder"
-        ? { left: "0", right: "0" }
-        : null)
+      : null)
     : null;
   const hasCleanBroadcast = Boolean(
     (kind === "live" || kind === "halftime")
       && presentation.showChannel
       && broadcastChannelName
   );
-  const cleanFooterClassName = kind === "live" || kind === "halftime"
-    ? `${styles.broadcast} ${styles.cleanActiveFooter}`
-    : kind === "postponed"
-      ? `${styles.broadcast} ${styles.cleanScheduledFooterWithTime}`
-      : styles.broadcast;
-
-  const syncCleanHeaderAlignment = useCallback(() => {
-    if (visualVariant !== "clean") return;
-
-    const card = cardRef.current;
-    const homeName = homeTeamNameRef.current;
-    if (!card || !homeName) return;
-
-    const cardRect = card.getBoundingClientRect();
-    const homeNameRect = homeName.getBoundingClientRect();
-    const cardStyle = window.getComputedStyle(card);
-    const borderLeft = Number.parseFloat(cardStyle.borderLeftWidth) || 0;
-    const paddingLeft = Number.parseFloat(cardStyle.paddingLeft) || 0;
-    const contentLeft = cardRect.left + borderLeft + paddingLeft;
-    const inlineStart = homeNameRect.left - contentLeft;
-
-    card.style.setProperty(
-      "--match-card-status-inline-start",
-      `${Math.round(inlineStart * 100) / 100}px`
-    );
-  }, [homeCompactName, visualVariant]);
-
-  useLayoutEffect(() => {
-    if (visualVariant !== "clean") return;
-
-    syncCleanHeaderAlignment();
-
-    const card = cardRef.current;
-    const homeName = homeTeamNameRef.current;
-    const observer = typeof ResizeObserver === "undefined"
-      ? null
-      : new ResizeObserver(syncCleanHeaderAlignment);
-
-    if (card) observer?.observe(card);
-    if (homeName) observer?.observe(homeName);
-
-    if (!observer) {
-      window.addEventListener("resize", syncCleanHeaderAlignment);
-    }
-
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", syncCleanHeaderAlignment);
-    };
-  }, [syncCleanHeaderAlignment, visualVariant]);
 
   return (
     <article
-      ref={cardRef}
       className={`${styles.card} public-matchday-mini-card public-matchday-mini-card-${kind}`}
       data-live-focus={focus ? "true" : undefined}
       data-public-match-card
@@ -504,7 +447,7 @@ function CompactMatchCard({
         <TeamBadge team={match.awayTeam} />
       </span>
       <span className={styles.teamNames} data-public-match-team-names="coordinated">
-        <span ref={homeTeamNameRef} className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
+        <span className={styles.teamName} title={homeFullName}>{homeCompactName}</span>
         <span
           className={styles.teamName}
           data-public-match-away-name
@@ -567,7 +510,7 @@ function CompactMatchCard({
         )}
       </span>
       {visualVariant === "clean" && kind !== "finished" ? (
-        <span className={cleanFooterClassName} data-public-match-broadcast>
+        <span className={styles.broadcast} data-public-match-broadcast>
           {kind === "postponed" ? (
             <span className={styles.cleanScheduledTime}>Nova data por definir</span>
           ) : kind === "scheduled" ? (

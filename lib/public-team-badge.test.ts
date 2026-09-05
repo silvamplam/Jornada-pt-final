@@ -192,9 +192,8 @@ test("as linhas de equipa usam alturas fixas e nao recortam o emblema", async ()
   assert.doesNotMatch(combined, /\.public-team-badge\s*\{|\.public-game-team-badge/);
   assert.match(combined, /span:not\(\[data-public-team-badge\]\)/);
 
-  for (const source of [editorialStyles, matchdayPage]) {
-    assert.match(source, /\.public-matchday-mini-team\s*\{[\s\S]*?height:\s*28px[\s\S]*?gap:\s*6px[\s\S]*?overflow:\s*visible/);
-  }
+  const cleanStyles = stripStyles.slice(stripStyles.indexOf('.panel[data-visual-variant="clean"]'));
+  assert.match(cleanStyles, /> \.team > :global\(\[data-public-team-badge\]\)\s*\{[^}]*--public-match-team-badge-width:\s*20px;[^}]*--public-match-team-badge-height:\s*20px/);
   assert.match(matchdayGamesPage, /\.public-games-team-line\s*\{[\s\S]*?height:\s*28px[\s\S]*?gap:\s*6px[\s\S]*?overflow:\s*visible/);
   assert.match(newsPage, /<PublicMatchStrip/);
   assert.doesNotMatch(newsPage, /\.news-article-game-team|text-overflow:\s*ellipsis/);
@@ -205,37 +204,33 @@ test("as linhas de equipa usam alturas fixas e nao recortam o emblema", async ()
   assert.match(gamesPage, /grid-template-columns:\s*60px minmax\(120px, 180px\) 70px minmax\(120px, 180px\) 60px/);
 });
 
-test("nomes públicos ficam numa linha sem ellipsis ou line-clamp em todas as superfícies", async () => {
-  const [stripStyles, editorialStyles, gamesPage, matchdayPage, matchdayGamesPage, newsPage] = await Promise.all([
+test("nomes compactos usam ellipsis e as grelhas grandes preservam o nome completo", async () => {
+  const [stripStyles, gamesPage, matchdayGamesPage, newsPage] = await Promise.all([
     readFile(matchStripStylesUrl, "utf8"),
-    readFile(publicEditorialStylesUrl, "utf8"),
     readFile(integrations[1], "utf8"),
-    readFile(integrations[2], "utf8"),
     readFile(integrations[3], "utf8"),
     readFile(integrations[4], "utf8")
   ]);
 
-  const stripNameRule = stripStyles.match(/\.teamNames > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
+  const cleanStyles = stripStyles.slice(stripStyles.indexOf('.panel[data-visual-variant="clean"]'));
+  const stripNameRule = cleanStyles.match(/\.teamNames > \.teamName\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(stripNameRule, /white-space:\s*nowrap/);
+  assert.match(stripNameRule, /text-overflow:\s*ellipsis/);
+  assert.match(stripNameRule, /overflow:\s*hidden/);
   const detailedGamesNameRule = gamesPage.match(/^\s{2}\.public-game-team-name\s*\{([^}]*)\}/m)?.[1] ?? "";
   const matchdayGamesNameRule = matchdayGamesPage.match(/\.public-games-team-line > span:not\(\[data-public-team-badge\]\)\s*\{([^}]*)\}/)?.[1] ?? "";
-  for (const rule of [stripNameRule, detailedGamesNameRule, matchdayGamesNameRule]) {
+  for (const rule of [detailedGamesNameRule, matchdayGamesNameRule]) {
     assert.match(rule, /white-space:\s*nowrap/);
     assert.match(rule, /text-overflow:\s*clip/);
     assert.doesNotMatch(rule, /ellipsis|line-clamp|overflow:\s*hidden/);
   }
 
-  for (const sharedSource of [editorialStyles, matchdayPage]) {
-    const legacyOverride = sharedSource.match(/\.public-matchday-mini-team > span:not\(\[data-public-team-badge\]\)\s*\{([^}]*)\}/)?.[1] ?? "";
-    assert.match(legacyOverride, /overflow:\s*visible/);
-    assert.match(legacyOverride, /text-overflow:\s*clip/);
-    assert.doesNotMatch(legacyOverride, /ellipsis|line-clamp/);
-  }
 
   assert.match(newsPage, /<PublicMatchStrip/);
   assert.doesNotMatch(newsPage, /news-article-game-team|ArticleMatchCard/);
 });
 
-test("a jornada mostra oito jogos no desktop e navega sem scrollbar visível", async () => {
+test("a jornada navega por células de largura fixa sem scrollbar visível", async () => {
   const [matchStrip, carousel, stripStyles, matchdayPage] = await Promise.all([
     readFile(integrations[0], "utf8"),
     readFile(new URL("../components/public/PublicMatchStripCarousel.tsx", import.meta.url), "utf8"),
@@ -260,7 +255,6 @@ test("a jornada mostra oito jogos no desktop e navega sem scrollbar visível", a
   assert.doesNotMatch(stripStyles, /@media \(max-width:\s*(?:1591|1211|831|451)px\)/);
   assert.match(stripStyles, /scrollbar-width:\s*none/);
   assert.match(stripStyles, /::-webkit-scrollbar\s*\{[\s\S]*?display:\s*none/);
-  assert.match(stripStyles, /\.carouselButton\s*\{[\s\S]*?color:\s*#44152f/);
   assert.match(stripStyles, /flex:\s*0 0 var\(--match-card-width\);[\s\S]*?width:\s*var\(--match-card-width\);[\s\S]*?min-width:\s*var\(--match-card-width\);[\s\S]*?max-width:\s*var\(--match-card-width\);[\s\S]*?height:\s*var\(--match-card-height\);[\s\S]*?min-height:\s*var\(--match-card-height\);[\s\S]*?max-height:\s*var\(--match-card-height\)/);
   assert.match(matchdayPage, /<PublicMatchStrip/);
   assert.doesNotMatch(matchdayPage, /function CompactMatchCard/);

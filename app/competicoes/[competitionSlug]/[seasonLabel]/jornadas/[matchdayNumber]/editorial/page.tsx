@@ -1,5 +1,7 @@
+import type { CSSProperties } from "react";
 import { notFound } from "next/navigation";
 
+import { publicTopNavigationStyles } from "@/components/public/publicEditorialStyles";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
@@ -149,6 +151,8 @@ function formatPreferredMatchdayDateContext(
 }
 
 const styles = `
+  ${publicTopNavigationStyles}
+
   body {
     margin: 0;
     overflow-x: hidden;
@@ -161,241 +165,6 @@ const styles = `
     background: #ffffff;
     color: #111820;
     font-family: Arial, Helvetica, sans-serif;
-  }
-
-  .public-top-stack {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    margin: 0 -24px;
-    padding: 0 24px;
-    border-bottom: 1px solid #d8dee6;
-    background: rgba(255,255,255,.98);
-    box-shadow: 0 10px 24px rgba(12,22,34,.08);
-  }
-
-  .public-site-topbar {
-    display: grid;
-    grid-template-columns: auto minmax(0,1fr) auto;
-    gap: 22px;
-    align-items: center;
-    min-height: 56px;
-    max-width: 1512px;
-    margin: 0 auto;
-    border-bottom: 1px solid #dfe5ec;
-  }
-
-  .public-site-brand {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 2px;
-    color: #2f343b;
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 29px;
-    font-weight: 900;
-    line-height: 1;
-    letter-spacing: -.02em;
-    text-decoration: none;
-  }
-
-  .public-site-brand span {
-    color: #6b7480;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 13px;
-    font-weight: 900;
-  }
-
-  .public-site-menu {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 16px;
-    font-size: 12px;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-
-  .public-site-menu a,
-  .public-site-actions a {
-    color: #10151b;
-    text-decoration: none;
-  }
-
-  .public-site-menu a[aria-current="page"] {
-    color: #c40012;
-  }
-
-  .public-site-actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 13px;
-    font-weight: 900;
-  }
-
-  .public-site-search {
-    display: inline-flex;
-    min-width: 170px;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 11px;
-    border: 1px solid #d8dee6;
-    border-radius: 999px;
-    background: #ffffff;
-    color: #66717f;
-    font-size: 12px;
-    font-weight: 900;
-  }
-
-  .public-site-search::before {
-    display: grid;
-    place-items: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 999px;
-    background: #ffe04f;
-    color: #10151b;
-    content: "⌕";
-  }
-
-  .public-season-nav-bar {
-    margin: 0 -24px;
-    padding: 0 24px;
-    color: #ffffff;
-    box-shadow: 0 8px 18px rgba(68,21,47,.16);
-  }
-
-  .public-hidden-heading {
-    display: none;
-  }
-
-  .public-season-nav-inner {
-    box-sizing: border-box;
-    display: grid;
-    grid-template-columns: max-content minmax(0,1fr) max-content;
-    align-items: center;
-    gap: 12px;
-    height: 74px;
-    min-height: 74px;
-    max-width: 1512px;
-    margin: 0 auto;
-    padding: 8px 0;
-  }
-
-  .public-season-context-card {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .public-season-select-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 30px;
-    padding: 4px 7px 4px 9px;
-    border: 1px solid rgba(255,255,255,.42);
-    border-radius: 3px;
-    background: rgba(255,255,255,.12);
-    color: #ffffff;
-    font-size: 10px;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
-
-  .public-season-select {
-    min-width: 96px;
-    border: 0;
-    background: transparent;
-    color: #ffffff;
-    font: inherit;
-  }
-
-  .public-season-select option {
-    color: #10151b;
-  }
-
-  .public-matchday-leg-nav {
-    display: flex;
-    gap: 2px;
-  }
-
-  .public-matchday-leg-nav a {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 30px;
-    padding: 5px 8px;
-    border: 1px solid rgba(255,255,255,.36);
-    border-radius: 3px;
-    background: rgba(255,255,255,.1);
-    color: #ffffff;
-    font-size: 10px;
-    font-weight: 900;
-    text-decoration: none;
-    text-transform: uppercase;
-  }
-
-  .public-matchday-leg-nav a[aria-current="true"] {
-    border-color: #ffffff;
-    background: #ffffff;
-    color: #44152f;
-  }
-
-  .public-matchday-nav-compact {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  .public-matchday-nav-compact a {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 34px;
-    min-height: 28px;
-    padding: 4px 5px;
-    border: 1px solid transparent;
-    border-radius: 3px;
-    color: rgba(255,255,255,.82);
-    font-size: 10px;
-    font-weight: 850;
-    line-height: 1;
-    text-decoration: none;
-  }
-
-  .public-matchday-nav-compact a[aria-current="page"] {
-    border-color: #ffffff;
-    background: #ffffff;
-    color: #44152f;
-    font-weight: 950;
-  }
-
-  .public-matchday-date-row {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    min-height: 34px;
-    padding: 6px 11px;
-    border: 1px solid #ffffff;
-    border-radius: 3px;
-    background: #ffffff;
-    white-space: nowrap;
-  }
-
-  .public-matchday-date-context {
-    color: #44152f;
-    font-size: 11px;
-    font-weight: 850;
-  }
-
-  .public-league-match-strip-scroll {
-    width: 100%;
-    max-width: 1512px;
-    margin: 0 auto;
   }
 
   .news-article-layout {
@@ -479,47 +248,9 @@ const styles = `
     height: auto;
   }
 
-  @media (max-width: 1180px) {
-    .public-season-nav-inner {
-      grid-template-columns: minmax(0,1fr) max-content;
-      gap: 6px 10px;
-      padding: 7px 16px;
-    }
-
-    .public-matchday-nav-compact {
-      grid-column: 1 / -1;
-      grid-row: 2;
-    }
-
-    .public-matchday-date-row {
-      grid-column: 2;
-      grid-row: 1;
-    }
-  }
-
   @media (max-width: 900px) {
     .news-article-shell {
       padding: 0 14px 26px;
-    }
-
-    .public-top-stack {
-      margin: 0 -14px;
-      padding: 0 14px;
-    }
-
-    .public-site-topbar {
-      grid-template-columns: 1fr;
-      padding: 10px 0;
-    }
-
-    .public-site-menu,
-    .public-site-actions {
-      justify-content: flex-start;
-    }
-
-    .public-season-nav-bar {
-      margin: 0 -14px;
-      padding: 0 14px;
     }
 
     .news-article-layout {
@@ -749,10 +480,7 @@ export default async function EditorialDaJornadaPage({
         <section
           className="public-season-nav-bar"
           aria-label="Navegação de jornadas"
-          style={{
-            background:
-              competitionBarColor,
-          }}
+          style={{ "--public-season-accent": competitionBarColor } as CSSProperties}
         >
           <div className="public-hidden-heading">
             <h2>Jornadas</h2>
