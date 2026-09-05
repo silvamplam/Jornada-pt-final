@@ -20,6 +20,25 @@ export const HISTORICAL_COMPOSITION_DEFAULT_ZONE_TITLES = {
 } as const;
 
 export const HISTORICAL_COMPOSITION_DEFAULT_HEADLINE_TITLE_COLOR = "#10151B";
+
+function historicalDynamicZoneLayout(
+  visualFamily: EditorialVisualFamily,
+) {
+  const definition =
+    EDITORIAL_VISUAL_FAMILY_DEFINITIONS[visualFamily];
+
+  return Object.freeze({
+    label: definition.label,
+    capacity: definition.slots.length,
+    positions: Object.freeze(
+      definition.slots.map((slot) => ({
+        position: slot.position,
+        label: slot.role,
+      })),
+    ),
+  });
+}
+
 export const HISTORICAL_DYNAMIC_ZONE_LAYOUTS: Readonly<
   Record<
     EditorialVisualFamily,
@@ -33,40 +52,13 @@ export const HISTORICAL_DYNAMIC_ZONE_LAYOUTS: Readonly<
     }>
   >
 > = Object.freeze({
-  six_news: {
-    label: EDITORIAL_VISUAL_FAMILY_DEFINITIONS.six_news.label,
-    capacity: EDITORIAL_VISUAL_FAMILY_DEFINITIONS.six_news.capacity,
-    positions: [
-      { position: 1, label: "Dominante" },
-      { position: 2, label: "Secundária 1" },
-      { position: 3, label: "Secundária 2" },
-      { position: 4, label: "Secundária 3" },
-      { position: 5, label: "Complementar 1" },
-      { position: 6, label: "Complementar 2" },
-    ],
-  },
-  five_news_balanced: {
-    label: EDITORIAL_VISUAL_FAMILY_DEFINITIONS.five_news_balanced.label,
-    capacity: EDITORIAL_VISUAL_FAMILY_DEFINITIONS.five_news_balanced.capacity,
-    positions: [
-      { position: 1, label: "Dominante" },
-      { position: 2, label: "Secundária" },
-      { position: 3, label: "Complementar 1" },
-      { position: 4, label: "Complementar 2" },
-      { position: 5, label: "Complementar 3" },
-    ],
-  },
-  five_news_secondary: {
-    label: EDITORIAL_VISUAL_FAMILY_DEFINITIONS.five_news_secondary.label,
-    capacity: EDITORIAL_VISUAL_FAMILY_DEFINITIONS.five_news_secondary.capacity,
-    positions: [
-      { position: 1, label: "Dominante" },
-      { position: 2, label: "Secundária 1" },
-      { position: 3, label: "Secundária 2" },
-      { position: 4, label: "Secundária 3" },
-      { position: 5, label: "Secundária 4" },
-    ],
-  },
+  six_news: historicalDynamicZoneLayout("six_news"),
+  five_news_balanced: historicalDynamicZoneLayout(
+    "five_news_balanced",
+  ),
+  five_news_secondary: historicalDynamicZoneLayout(
+    "five_news_secondary",
+  ),
 });
 
 export type HistoricalDynamicZoneVisualFamily = EditorialVisualFamily;

@@ -20,6 +20,9 @@ const frameStyles = source(
 const flexibleZone = source(
   "components/public/PublicFlexibleZoneLayout.tsx",
 );
+const flexibleZoneRenderers = source(
+  "components/public/PublicFlexibleZoneRenderers.tsx",
+);
 const fourNewsLatest = source(
   "components/public/PublicFourNewsLatestLayout.tsx",
 );
@@ -61,15 +64,15 @@ test("zona, Últimas e vídeo pertencem ao mesmo contrato exterior", () => {
 });
 
 test("a família visual não altera o contrato exterior", () => {
-  assert.match(flexibleZone, /zone\.visualFamily === "five_news_secondary"/);
-  assert.match(flexibleZone, /zone\.visualFamily === "six_news"/);
-  assert.match(flexibleZone, /FIVE_NEWS_BALANCED_SLOT_KEYS/);
+  assert.doesNotMatch(flexibleZoneRenderers, /zone\.visualFamily\s*===/);
+  assert.match(flexibleZoneRenderers, /PUBLIC_FLEXIBLE_ZONE_RENDERERS/);
+  assert.match(flexibleZoneRenderers, /definition\.rendererKey/);
   assert.doesNotMatch(
     frameStyles,
     /six_news|five_news_balanced|five_news_secondary|data-public-visual-family/,
   );
 
-  const flexibleExterior = cssRule(flexibleZone, ".public-flexible-zone");
+  const flexibleExterior = cssRule(flexibleZoneRenderers, ".public-flexible-zone");
   assert.doesNotMatch(
     flexibleExterior,
     /margin-(?:top|bottom)|padding-(?:top|bottom)|border-(?:top|bottom)/,
@@ -78,7 +81,7 @@ test("a família visual não altera o contrato exterior", () => {
 
 test("secondary abdica da segunda fronteira mas conserva separadores internos", () => {
   assert.match(
-    flexibleZone,
+    flexibleZoneRenderers,
     /<PublicBeyondMatchdayNews[\s\S]*?ownsSectionBoundary=\{false\}/,
   );
   assert.match(

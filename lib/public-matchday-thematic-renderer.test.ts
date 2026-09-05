@@ -39,6 +39,33 @@ const flexibleZoneSource =
     "utf8",
   );
 
+const flexibleZoneRenderersSource =
+  readFileSync(
+    path.join(
+      process.cwd(),
+      "components/public/PublicFlexibleZoneRenderers.tsx",
+    ),
+    "utf8",
+  );
+
+const visualFamilySource =
+  readFileSync(
+    path.join(
+      process.cwd(),
+      "lib/editorial-visual-families.ts",
+    ),
+    "utf8",
+  );
+
+const rendererRegistrySource =
+  readFileSync(
+    path.join(
+      process.cwd(),
+      "components/public/public-flexible-zone-renderer-registry.ts",
+    ),
+    "utf8",
+  );
+
 test("página pública consulta assignment antes de escolher autoridade editorial", () => {
   assert.match(
     pageSource,
@@ -146,34 +173,54 @@ test("reader público só lê snapshot aplicado e nunca reconcilia ou escreve", 
   );
 });
 
-test("as três famílias visuais têm adapters públicos explícitos", () => {
+test("as três famílias visuais usam o registry e o dispatch públicos centrais", () => {
   assert.match(
     zoneSource,
     /PublicFlexibleZoneLayout/,
   );
 
-  assert.match(
-    flexibleZoneSource,
-    /zone\.visualFamily\s*===\s*"five_news_secondary"/,
+  assert.doesNotMatch(
+    flexibleZoneRenderersSource,
+    /zone\.visualFamily\s*===/,
   );
 
   assert.match(
-    flexibleZoneSource,
-    /zone\.visualFamily === "six_news"/,
+    visualFamilySource,
+    /"six_news"[\s\S]*?"hierarchical_analysis"/,
   );
 
   assert.match(
-    flexibleZoneSource,
-    /FIVE_NEWS_BALANCED_SLOT_KEYS/,
+    visualFamilySource,
+    /"five_news_balanced"[\s\S]*?"hierarchical_other_games"/,
   );
 
   assert.match(
-    flexibleZoneSource,
+    visualFamilySource,
+    /"five_news_secondary"[\s\S]*?"secondary_news"/,
+  );
+
+  assert.match(
+    flexibleZoneRenderersSource,
+    /PUBLIC_FLEXIBLE_ZONE_RENDERERS/,
+  );
+
+  assert.match(
+    flexibleZoneRenderersSource,
+    /definition\.rendererKey/,
+  );
+
+  assert.match(
+    flexibleZoneRenderersSource,
     /PublicHierarchicalLiveLayouts/,
   );
 
   assert.match(
-    flexibleZoneSource,
+    flexibleZoneRenderersSource,
     /PublicBeyondMatchdayNews/,
+  );
+
+  assert.match(
+    rendererRegistrySource,
+    /Unknown public flexible zone renderer/,
   );
 });

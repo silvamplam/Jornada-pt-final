@@ -36,8 +36,10 @@ import {
 } from "@/lib/editorial-historical-composition-workspace";
 import HierarchicalCompositionInterpretivePreview from "@/components/admin/HierarchicalCompositionInterpretivePreview";
 import PublicFlexibleZoneLayout, {
+  createPublicFlexibleZone,
   type PublicFlexibleZone,
 } from "@/components/public/PublicFlexibleZoneLayout";
+import { editorialVisualFamilyCapacity } from "@/lib/editorial-visual-families";
 import PublicHierarchicalComposition, {
   PublicHierarchicalPosteriorMoments,
 } from "@/components/public/PublicHierarchicalComposition";
@@ -1914,12 +1916,6 @@ async function readHistoricalCompositionDynamicZones(
       })),
   }));
 }
-
-const HISTORICAL_DYNAMIC_ADMIN_ZONE_CAPACITY = {
-  six_news: 6,
-  five_news_balanced: 5,
-  five_news_secondary: 5,
-} as const;
 
 function hierarchicalEditorialFromComposition(
   composition?: ReferenceComposition | null,
@@ -3993,12 +3989,8 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     historicalDynamicZones
       .slice()
       .sort((left, right) => left.sortOrder - right.sortOrder)
-      .map((zone) => ({
+      .map((zone) => createPublicFlexibleZone({
         key: `historical-preview:${zone.id}`,
-        capacity:
-          HISTORICAL_DYNAMIC_ADMIN_ZONE_CAPACITY[
-            zone.visualFamily
-          ],
         visualFamily: zone.visualFamily,
         publicTitle: zone.publicTitle.trim(),
         items: zone.items
@@ -4098,9 +4090,9 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       .sort((left, right) => left.sortOrder - right.sortOrder)
       .flatMap((zone, zoneIndex) => {
         const capacity =
-          HISTORICAL_DYNAMIC_ADMIN_ZONE_CAPACITY[
-            zone.visualFamily
-          ];
+          editorialVisualFamilyCapacity(
+            zone.visualFamily,
+          );
 
         const items =
           zone.items

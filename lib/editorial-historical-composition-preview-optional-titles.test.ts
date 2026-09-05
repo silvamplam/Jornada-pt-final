@@ -18,7 +18,7 @@ const route = readFileSync(
 );
 
 const publicFlexibleZone = readFileSync(
-  "components/public/PublicFlexibleZoneLayout.tsx",
+  "components/public/PublicFlexibleZoneRenderers.tsx",
   "utf8",
 );
 

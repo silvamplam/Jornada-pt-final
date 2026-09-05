@@ -11,7 +11,7 @@ export type PublicBeyondMatchdayNewsItem = {
 };
 
 type PublicBeyondMatchdayNewsProps = {
-  items: PublicBeyondMatchdayNewsItem[];
+  items: readonly (PublicBeyondMatchdayNewsItem | null)[];
   contextLabel: string;
   heading?: string | null;
   ariaLabel?: string;
@@ -72,6 +72,10 @@ const styles = `
 
   .public-beyond-matchday-grid[data-secondary-count="0"] {
     grid-template-columns: minmax(0, 760px);
+  }
+
+  .public-beyond-matchday-grid[data-lead-occupied="false"] {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .public-beyond-matchday-lead,
@@ -166,6 +170,10 @@ const styles = `
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 22px 18px;
+  }
+
+  .public-beyond-matchday-slot-empty {
+    min-width: 0;
   }
 
   .public-beyond-matchday-secondary-card .public-beyond-matchday-copy {
@@ -309,11 +317,19 @@ export default function PublicBeyondMatchdayNews({
   ariaLabel = "Para lá da jornada",
   ownsSectionBoundary = true,
 }: PublicBeyondMatchdayNewsProps) {
-  const visibleItems = items.filter((item) => item.title.trim() && item.linkUrl.trim()).slice(0, 5);
-  if (visibleItems.length === 0) return null;
+  const visibleSlots = items
+    .slice(0, 5)
+    .map((item) =>
+      item?.title.trim() && item.linkUrl.trim()
+        ? item
+        : null
+    );
 
-  const lead = visibleItems[0];
-  const secondary = visibleItems.slice(1, 5);
+  if (!visibleSlots.some(Boolean)) return null;
+
+  const lead = visibleSlots[0] ?? null;
+  const secondary = visibleSlots.slice(1, 5);
+  const secondaryCount = secondary.filter(Boolean).length;
   const visibleHeading = heading?.trim() ?? "";
   const visibleContextLabel = contextLabel.trim();
   const showHeader = Boolean(visibleHeading || visibleContextLabel);
@@ -332,20 +348,38 @@ export default function PublicBeyondMatchdayNews({
         </header>
       ) : null}
 
-      <div className="public-beyond-matchday-grid" data-secondary-count={secondary.length}>
-        <article className="public-beyond-matchday-lead">
-          <StoryMedia item={lead} />
-          <StoryCopy item={lead} lead />
-        </article>
+      <div
+        className="public-beyond-matchday-grid"
+        data-lead-occupied={Boolean(lead)}
+        data-secondary-count={secondaryCount}
+      >
+        {lead ? (
+          <article className="public-beyond-matchday-lead" data-public-slot-position="1">
+            <StoryMedia item={lead} />
+            <StoryCopy item={lead} lead />
+          </article>
+        ) : null}
 
-        {secondary.length > 0 ? (
+        {secondaryCount > 0 ? (
           <div className="public-beyond-matchday-secondary-grid">
             {secondary.map((item, index) => {
               const isTextOnly = index >= 2;
 
+              if (!item) {
+                return (
+                  <div
+                    aria-hidden="true"
+                    className="public-beyond-matchday-slot-empty"
+                    data-public-slot-position={index + 2}
+                    key={`empty:${index + 2}`}
+                  />
+                );
+              }
+
               return (
                 <article
                   className={`public-beyond-matchday-secondary-card${isTextOnly ? " public-beyond-matchday-text-only" : ""}`}
+                  data-public-slot-position={index + 2}
                   data-secondary-presentation={isTextOnly ? "text" : "image"}
                   key={item.id}
                 >

@@ -43,19 +43,19 @@ test(
   () => {
     assert.equal(
       EDITORIAL_VISUAL_FAMILY_DEFINITIONS
-        .six_news.capacity,
+        .six_news.slots.length,
       6,
     );
 
     assert.equal(
       EDITORIAL_VISUAL_FAMILY_DEFINITIONS
-        .five_news_balanced.capacity,
+        .five_news_balanced.slots.length,
       5,
     );
 
     assert.equal(
       EDITORIAL_VISUAL_FAMILY_DEFINITIONS
-        .five_news_secondary.capacity,
+        .five_news_secondary.slots.length,
       5,
     );
 

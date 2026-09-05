@@ -91,15 +91,15 @@ test("adapter legacy mantém exatamente o perfil atual", () => {
 
 test("famílias visuais mantêm capacidades atuais", () => {
   assert.equal(
-    EDITORIAL_VISUAL_FAMILY_DEFINITIONS.six_news.capacity,
+    EDITORIAL_VISUAL_FAMILY_DEFINITIONS.six_news.slots.length,
     6,
   );
   assert.equal(
-    EDITORIAL_VISUAL_FAMILY_DEFINITIONS.five_news_balanced.capacity,
+    EDITORIAL_VISUAL_FAMILY_DEFINITIONS.five_news_balanced.slots.length,
     5,
   );
   assert.equal(
-    EDITORIAL_VISUAL_FAMILY_DEFINITIONS.five_news_secondary.capacity,
+    EDITORIAL_VISUAL_FAMILY_DEFINITIONS.five_news_secondary.slots.length,
     5,
   );
 });

@@ -7,6 +7,16 @@ const flexible = readFileSync(
   "utf8",
 );
 
+const visualFamilies = readFileSync(
+  "lib/editorial-visual-families.ts",
+  "utf8",
+);
+
+const flexibleRenderers = readFileSync(
+  "components/public/PublicFlexibleZoneRenderers.tsx",
+  "utf8",
+);
+
 const thematic = readFileSync(
   "components/public/PublicThematicZoneLayout.tsx",
   "utf8",
@@ -34,15 +44,15 @@ const client = readFileSync(
 
 test("Mesa viva e composição histórica usam o mesmo renderer das três famílias", () => {
   assert.match(
-    flexible,
+    visualFamilies,
     /six_news/,
   );
   assert.match(
-    flexible,
-    /FIVE_NEWS_BALANCED_SLOT_KEYS/,
+    flexibleRenderers,
+    /PUBLIC_FLEXIBLE_ZONE_RENDERERS/,
   );
   assert.match(
-    flexible,
+    visualFamilies,
     /five_news_secondary/,
   );
   assert.match(

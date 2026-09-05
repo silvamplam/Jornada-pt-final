@@ -33,6 +33,7 @@ type PublicHierarchicalCompositionProps = {
   zone1Title?: string | null;
   zone2Title?: string | null;
   showEmptySlots?: boolean;
+  allowPartialSlots?: boolean;
   ariaLabel?: string;
   wrapVideoSection?: (children: ReactNode, key: string) => ReactNode;
 };
@@ -1064,6 +1065,15 @@ function hasCompleteInterpretiveSlots(
   });
 }
 
+function hasAnyInterpretiveSlot(
+  slotsByKey: InterpretiveSlotsByKey,
+  slotKeys: readonly HierarchicalCompositionSlotKey[],
+) {
+  return slotKeys.some((slotKey) =>
+    slotsByKey.has(slotKey)
+  );
+}
+
 function InterpretiveAnalysisSection({
   slotsByKey,
   showEmptySlots,
@@ -1188,10 +1198,15 @@ export function PublicHierarchicalLiveLayouts({
   beyondMatchdayItems = [],
   matchdayNumber,
   ariaLabel = "Layouts editoriais da atualidade",
-}: Pick<PublicHierarchicalCompositionProps, "slots" | "beyondMatchdayItems" | "matchdayNumber" | "ariaLabel">) {
+  allowPartialSlots = false,
+}: Pick<PublicHierarchicalCompositionProps, "slots" | "beyondMatchdayItems" | "matchdayNumber" | "ariaLabel" | "allowPartialSlots">) {
   const slotsByKey = new Map(slots.map((slot) => [slot.slot_key, slot] as const));
-  const showAnalysis = hasCompleteInterpretiveSlots(slotsByKey, LIVE_ANALYSIS_SLOT_KEYS);
-  const showOtherGames = hasCompleteInterpretiveSlots(slotsByKey, LIVE_OTHER_GAMES_SLOT_KEYS);
+  const showAnalysis = allowPartialSlots
+    ? hasAnyInterpretiveSlot(slotsByKey, LIVE_ANALYSIS_SLOT_KEYS)
+    : hasCompleteInterpretiveSlots(slotsByKey, LIVE_ANALYSIS_SLOT_KEYS);
+  const showOtherGames = allowPartialSlots
+    ? hasAnyInterpretiveSlot(slotsByKey, LIVE_OTHER_GAMES_SLOT_KEYS)
+    : hasCompleteInterpretiveSlots(slotsByKey, LIVE_OTHER_GAMES_SLOT_KEYS);
   const showBeyondMatchday = beyondMatchdayItems.length === 5;
 
   if (!showAnalysis && !showOtherGames && !showBeyondMatchday) return null;

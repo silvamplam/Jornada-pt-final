@@ -38,6 +38,7 @@ import PublicHierarchicalComposition, {
   PublicHierarchicalPosteriorMoments,
 } from "@/components/public/PublicHierarchicalComposition";
 import PublicFlexibleZoneLayout, {
+  createPublicFlexibleZone,
   type PublicFlexibleZone,
 } from "@/components/public/PublicFlexibleZoneLayout";
 import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
@@ -108,14 +109,6 @@ type HistoricalDynamicPublicZoneState = {
   zone: PublicFlexibleZone;
 };
 
-const HISTORICAL_DYNAMIC_ZONE_CAPACITY: Readonly<
-  Record<HistoricalDynamicZoneVisualFamily, number>
-> = {
-  six_news: 6,
-  five_news_balanced: 5,
-  five_news_secondary: 5,
-};
-
 async function readPublicHistoricalDynamicZones(
   compositionId: string,
 ): Promise<HistoricalDynamicPublicZoneState[]> {
@@ -133,14 +126,40 @@ async function readPublicHistoricalDynamicZones(
   ]);
 
   return zoneRows.map((row, zoneIndex) => {
-    const capacity =
-      HISTORICAL_DYNAMIC_ZONE_CAPACITY[
-        row.visual_family
-      ];
-
     const sourceItems = itemRows
       .filter((item) => item.zone_id === row.id)
       .sort((left, right) => left.position - right.position);
+
+    const zone = createPublicFlexibleZone({
+      key: `historical:${row.id}`,
+      visualFamily: row.visual_family,
+      publicTitle: row.public_title.trim(),
+      items: sourceItems.map((item) => ({
+        id: item.id,
+        sourceId:
+          item.bank_item_id
+          ?? item.source_identity,
+        sortOrder: item.position,
+        label:
+          item.label_snapshot?.trim()
+          || null,
+        title:
+          item.title_snapshot?.trim()
+          || "",
+        subtitle:
+          item.subtitle_snapshot?.trim()
+          || "",
+        imageUrl:
+          item.image_url_snapshot?.trim()
+          || "",
+        linkUrl:
+          item.link_url_snapshot?.trim()
+          || "",
+        publishedAt: null,
+      })),
+    });
+
+    const capacity = zone.slots.length;
 
     const positions =
       sourceItems.map((item) => item.position);
@@ -165,35 +184,7 @@ async function readPublicHistoricalDynamicZones(
     return {
       sortOrder: row.sort_order,
       complete,
-      zone: {
-        key: `historical:${row.id}`,
-        capacity,
-        visualFamily: row.visual_family,
-        publicTitle: row.public_title.trim(),
-        items: sourceItems.map((item) => ({
-          id: item.id,
-          sourceId:
-            item.bank_item_id
-            ?? item.source_identity,
-          sortOrder: item.position,
-          label:
-            item.label_snapshot?.trim()
-            || null,
-          title:
-            item.title_snapshot?.trim()
-            || "",
-          subtitle:
-            item.subtitle_snapshot?.trim()
-            || "",
-          imageUrl:
-            item.image_url_snapshot?.trim()
-            || "",
-          linkUrl:
-            item.link_url_snapshot?.trim()
-            || "",
-          publishedAt: null,
-        })),
-      },
+      zone,
     };
   });
 }

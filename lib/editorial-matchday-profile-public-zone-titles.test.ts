@@ -109,7 +109,7 @@ test("renderer não usa obrigatoriamente o nome semântico como cabeçalho públ
   const source = readFileSync(
     path.join(
       process.cwd(),
-      "components/public/PublicFlexibleZoneLayout.tsx",
+      "components/public/PublicFlexibleZoneRenderers.tsx",
     ),
     "utf8",
   );

@@ -121,7 +121,7 @@ test("PublicEditorialLayout enquadra capa, side block, destaques e complemento",
 
 test("zonas flexíveis herdam a política dos renderers base sem a duplicar", () => {
   const fileSource = source(
-    "components/public/PublicFlexibleZoneLayout.tsx",
+    "components/public/PublicFlexibleZoneRenderers.tsx",
   );
 
   assert.match(fileSource, /<PublicHierarchicalLiveLayouts/u);
