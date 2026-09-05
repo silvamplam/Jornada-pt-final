@@ -99,7 +99,7 @@ test("UI pagina a Faixa dentro do tracking agregado", () => {
   assert.match(client, /loading="lazy"/);
 });
 
-test("preview usa o estado físico e Apply faz uma única escrita v14", () => {
+test("preview usa o estado físico e Apply faz uma única escrita v20", () => {
   const client = source("app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx");
   const route = source("app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts");
   assert.match(client, /useState<PhysicalDeskState>/);
@@ -112,7 +112,8 @@ test("preview usa o estado físico e Apply faz uma única escrita v14", () => {
   assert.match(applyBlock, /\/organizar\/tematico/);
   assert.doesNotMatch(client, /method: "GET"/);
   assert.equal((route.match(/writeSupabaseAdminReturning/g) ?? []).length, 2);
-  assert.match(route, /rpc\/apply_matchday_live_layout_physical_workspace_v14/);
+  assert.match(route, /rpc\/apply_matchday_live_layout_physical_v20/);
+  assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.match(route, /physicalDeskApplyRpcArguments/);
   assert.doesNotMatch(route, /expectedRevision|p_expected_state_token/);
   assert.doesNotMatch(route, /thematic_zone_order|pageControls/);

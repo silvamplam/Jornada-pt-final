@@ -63,7 +63,7 @@ test("zonas e movimentos usam LiveLayoutZoneId e vagas são derivadas", () => {
   assert.doesNotMatch(source, /vacantZoneSlots\s*:/);
 });
 
-test("incompatibilidade legacy não bloqueia mutações nem Apply físico v14", () => {
+test("incompatibilidade legacy não bloqueia mutações nem Apply físico v20", () => {
   assert.match(
     source,
     /const mutationBlocked = applyState === "saving" \|\| applyState === "refreshing"/,
@@ -92,8 +92,9 @@ test("Apply nasce diretamente do PhysicalDeskState sem projection legacy", () =>
   assert.doesNotMatch(deskStateSource, /history[^\n]*projection/i);
 });
 
-test("a route temática chama exclusivamente a facade física v14", () => {
-  assert.match(routeSource, /apply_matchday_live_layout_physical_workspace_v14/);
+test("a route temática chama exclusivamente a facade física v20", () => {
+  assert.match(routeSource, /apply_matchday_live_layout_physical_v20/);
+  assert.doesNotMatch(routeSource, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.doesNotMatch(routeSource, /apply_matchday_editorial_profile_workspace_v12/);
 });
 

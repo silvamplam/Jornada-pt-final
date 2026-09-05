@@ -7,19 +7,22 @@ const routePath =
   "app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts";
 const clientPath =
   "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx";
+const legacyAdapterPath =
+  "lib/editorial-matchday-live-layout-legacy-apply-adapter.ts";
 const route = readFileSync(routePath, "utf8");
 const client = readFileSync(clientPath, "utf8");
 const post = route.slice(route.indexOf("export async function POST("));
 
-test("POST corrente chama uma única RPC física v14 e nenhum writer legacy", () => {
+test("POST físico chama uma única RPC v20 e não contém fallback v14", () => {
   assert.equal(
     (post.match(/writeSupabaseAdminReturning</g) ?? []).length,
     1,
   );
   assert.equal(
-    (post.match(/rpc\/apply_matchday_live_layout_physical_workspace_v14/g) ?? []).length,
+    (post.match(/rpc\/apply_matchday_live_layout_physical_v20/g) ?? []).length,
     1,
   );
+  assert.doesNotMatch(post, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.doesNotMatch(post, /apply_matchday_editorial_profile_workspace_v12/);
   assert.doesNotMatch(post, /apply_matchday_editorial_profile_workspace_v11/);
   assert.doesNotMatch(post, /apply_matchday_editorial_desk_state_v2/);
@@ -32,13 +35,14 @@ test("route valida o payload físico sem reler nem substituir o token recebido",
   assert.match(post, /physicalDeskApplyRpcArguments\(matchdayId, payload\)/);
   assert.doesNotMatch(post, /readMatchdayEditorialProfileDesk/);
   assert.doesNotMatch(post, /expectedRevision|expectedStateToken|vacantZoneSlots/);
-  assert.match(route, /matchday-live-layout-physical-v14-concurrent-write/);
+  assert.match(route, /matchday-live-layout-physical-v20-concurrent-write/);
   assert.match(
     route,
     /thematic-physical-concurrent-write[\s\S]*?409/,
   );
-  assert.match(route, /matchday-live-layout-physical-v14-video-required/);
-  assert.match(route, /matchday-live-layout-physical-v14-highlight-required/);
+  assert.match(route, /matchday-live-layout-physical-v20-video-required/);
+  assert.match(route, /matchday-live-layout-physical-v20-highlight-required/);
+  assert.doesNotMatch(route, /matchday-live-layout-physical-v14-/);
 });
 
 test("route devolve state_token final e cliente reconstrói pelo reader", () => {
@@ -65,13 +69,20 @@ test("zonas adicionais não são bloqueadas pela compatibilidade legacy", () => 
   assert.doesNotMatch(client, /Apply v12 bloqueado/);
 });
 
-test("6B não altera migrations nem Agenda/TV", () => {
+test("4B preserva o caminho legacy, migrations, cliente e Agenda/TV", () => {
   const migrationDiff = execFileSync(
     "git",
     ["diff", "--name-only", "--", "supabase/migrations"],
     { encoding: "utf8" },
   ).trim();
   assert.equal(migrationDiff, "");
+
+  const protectedDiff = execFileSync(
+    "git",
+    ["diff", "--name-only", "--", clientPath, legacyAdapterPath],
+    { encoding: "utf8" },
+  ).trim();
+  assert.equal(protectedDiff, "");
 
   const changed = execFileSync(
     "git",

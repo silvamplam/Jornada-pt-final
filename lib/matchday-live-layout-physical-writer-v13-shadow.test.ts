@@ -267,7 +267,8 @@ test("v12 histórico não é refeito e a route corrente usa a facade física", (
     migration,
     /create (?:or replace )?function\s+public\.apply_matchday_editorial_profile_workspace_v12/i,
   );
-  assert.match(route, /apply_matchday_live_layout_physical_workspace_v14/);
+  assert.match(route, /apply_matchday_live_layout_physical_v20/);
+  assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v12/);
   assert.doesNotMatch(route, /workspace_token_v13|physical_state_v13_shadow/);
 });

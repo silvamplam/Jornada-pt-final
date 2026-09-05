@@ -64,28 +64,28 @@ async function isManagedMatchdayEditorialDesk(matchdayId: string) {
 
 function mutationErrorResponse(error: unknown) {
   const message = databaseMessage(error);
-  if (message.includes("matchday-live-layout-physical-v14-concurrent-write")) {
+  if (message.includes("matchday-live-layout-physical-v20-concurrent-write")) {
     return apiError(
       "thematic-physical-concurrent-write",
       "O workspace físico mudou. Recarregue a Mesa antes de voltar a aplicar.",
       409,
     );
   }
-  if (message.includes("matchday-live-layout-physical-v14-video-required")) {
+  if (message.includes("matchday-live-layout-physical-v20-video-required")) {
     return apiError(
       "thematic-video-required",
       "Associe pelo menos um resumo publicado antes de ativar o módulo Vídeo + Destaque.",
       409,
     );
   }
-  if (message.includes("matchday-live-layout-physical-v14-highlight-required")) {
+  if (message.includes("matchday-live-layout-physical-v20-highlight-required")) {
     return apiError(
       "thematic-highlight-required",
       "Defina e publique o Destaque da Jornada antes de ativar o módulo Vídeo + Destaque.",
       409,
     );
   }
-  if (message.includes("matchday-live-layout-physical-v14-matchday-not-found")) {
+  if (message.includes("matchday-live-layout-physical-v20-matchday-not-found")) {
     return apiError(
       "thematic-desk-context-not-found",
       "A Jornada já não existe.",
@@ -93,9 +93,9 @@ function mutationErrorResponse(error: unknown) {
     );
   }
   if (
-    message.includes("matchday-live-layout-physical-v14-matchday-not-live")
-    || message.includes("matchday-live-layout-physical-v14-profile-mismatch")
-    || message.includes("matchday-live-layout-physical-v14-cutover-profile-mismatch")
+    message.includes("matchday-live-layout-physical-v20-matchday-not-live")
+    || message.includes("matchday-live-layout-physical-v20-profile-mismatch")
+    || message.includes("matchday-live-layout-physical-v20-cutover-profile-mismatch")
   ) {
     return apiError(
       "thematic-desk-context-changed",
@@ -104,7 +104,7 @@ function mutationErrorResponse(error: unknown) {
     );
   }
   if (
-    message.includes("matchday-live-layout-physical-v14-")
+    message.includes("matchday-live-layout-physical-v20-")
     || message.includes("matchday-live-layout-physical-apply-")
   ) {
     return apiError(
@@ -233,7 +233,7 @@ export async function POST(
 
   try {
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_live_layout_physical_workspace_v14",
+      "rpc/apply_matchday_live_layout_physical_v20",
       {
         method: "POST",
         body: JSON.stringify(physicalDeskApplyRpcArguments(matchdayId, payload)),
@@ -254,7 +254,7 @@ export async function POST(
       || !STATE_TOKEN_PATTERN.test(row.state_token)
       || counts.some((count) => !Number.isInteger(count) || count < 0)
     ) {
-      throw new Error("matchday-live-layout-physical-v14-invalid-result");
+      throw new Error("matchday-live-layout-physical-v20-invalid-result");
     }
 
     return NextResponse.json({

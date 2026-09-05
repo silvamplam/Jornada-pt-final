@@ -50,7 +50,8 @@ test("reader, preview e Apply físico transportam o Vídeo como placement indepe
   assert.doesNotMatch(client, /draftVideoHighlightIdentity/u);
   assert.match(serializer, /placementType: LiveLayoutWorkspacePlacementType/u);
   assert.match(serializer, /video_highlight/u);
-  assert.match(route, /apply_matchday_live_layout_physical_workspace_v14/u);
+  assert.match(route, /apply_matchday_live_layout_physical_v20/u);
+  assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/u);
   assert.doesNotMatch(route, /reconcileMatchdayEditorialProfileWorkspace/u);
 });
 

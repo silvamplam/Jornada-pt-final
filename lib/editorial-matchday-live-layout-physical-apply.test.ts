@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   bulkMovePhysicalDeskItemsToFaixa,
   changePhysicalDeskPresentation,
+  createPhysicalDeskZone,
   createPhysicalDeskState,
+  deletePhysicalDeskZone,
   movePhysicalDeskItemToDisplaced,
   movePhysicalDeskItemToSlot,
 } from "./editorial-matchday-live-layout-desk-state";
@@ -127,6 +129,72 @@ test("serializer usa token físico e conserva IDs reais de zonas e blocks", () =
       /latestZoneMode|latestZoneTitleColor|latest_zone_mode|latest_zone_title_color/,
     );
   }
+});
+
+test("serializer representa create como topologia final completa", () => {
+  const initial = createPhysicalDeskState(workspace(5));
+  const created = createPhysicalDeskZone(initial, {
+    publicTitle: "Zona criada no draft",
+    visualFamily: "five_news_secondary",
+  });
+  const createdZone = created.current.zones.find((zone) => (
+    !initial.current.zones.some((candidate) => candidate.id === zone.id)
+  ));
+  assert.ok(createdZone);
+  const createdBlock = created.current.blocks.find((block) => (
+    block.kind === "zone" && block.zoneId === createdZone.id
+  ));
+  assert.ok(createdBlock);
+
+  const payload = buildPhysicalDeskApplyPayload("liga_portugal_v1", created);
+  assert.deepEqual(payload.zones.find((zone) => zone.id === createdZone.id), {
+    id: createdZone.id,
+    publicTitle: "Zona criada no draft",
+    visualFamily: "five_news_secondary",
+  });
+  assert.deepEqual(payload.blocks.find((block) => block.id === createdBlock.id), {
+    id: createdBlock.id,
+    blockType: "zone",
+    zoneId: createdZone.id,
+    sortOrder: createdBlock.sortOrder,
+  });
+  assert.equal(
+    payload.placements.some((placement) => placement.zoneId === createdZone.id),
+    false,
+  );
+  assert.deepEqual(
+    payload.blocks.map((block) => block.id),
+    created.current.blocks.map((block) => block.id),
+  );
+});
+
+test("serializer representa delete, DESALOJADA e worked no estado final", () => {
+  const initial = createPhysicalDeskState(workspace(5));
+  const deletedZoneId = initial.current.zones[0].id;
+  const deletedBlockId = initial.current.blocks.find((block) => (
+    block.kind === "zone" && block.zoneId === deletedZoneId
+  ))?.id;
+  assert.ok(deletedBlockId);
+
+  const deleted = deletePhysicalDeskZone(initial, deletedZoneId);
+  const payload = buildPhysicalDeskApplyPayload("liga_portugal_v1", deleted);
+
+  assert.equal(payload.zones.some((zone) => zone.id === deletedZoneId), false);
+  assert.equal(payload.blocks.some((block) => block.id === deletedBlockId), false);
+  assert.equal(
+    payload.placements.some((placement) => (
+      placement.zoneId === deletedZoneId
+      || placement.bankItemId === id(40, 2)
+    )),
+    false,
+  );
+  assert.deepEqual(payload.displacedBankItemIds, [id(40, 2), id(40, 11)]);
+  assert.deepEqual(payload.displacedArrivalBankItemIds, [id(40, 2)]);
+  assert.deepEqual(payload.workedBankItemIds, [id(40, 2), id(40, 9)]);
+  assert.deepEqual(
+    payload.blocks.map((block) => block.id),
+    deleted.current.blocks.map((block) => block.id),
+  );
 });
 
 test("serializer transporta todos os placements sem compactar Faixa esparsa", () => {

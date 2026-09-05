@@ -229,15 +229,14 @@ test("public facade is service-role-only and preserves the video guard", () => {
   );
 });
 
-test("route intentionally remains on v14 until Lote 4", () => {
-  assert.match(route, /apply_matchday_live_layout_physical_workspace_v14/u);
-  assert.doesNotMatch(route, /apply_matchday_live_layout_physical_v20/u);
-  const routeChanges = execFileSync(
-    "git",
-    ["diff", "--name-only", "--", routePath],
-    { encoding: "utf8" },
+test("Lote 4 routes physical Apply exclusively to v20", () => {
+  const post = route.slice(route.indexOf("export async function POST("));
+  assert.equal(
+    occurrences(post, "rpc/apply_matchday_live_layout_physical_v20"),
+    1,
   );
-  assert.equal(routeChanges.trim(), "");
+  assert.doesNotMatch(post, /apply_matchday_live_layout_physical_workspace_v14/u);
+  assert.doesNotMatch(post, /fallback|retry/iu);
 });
 
 test("PG17 fixture covers the 26 required behavioral proofs and rolls back", () => {

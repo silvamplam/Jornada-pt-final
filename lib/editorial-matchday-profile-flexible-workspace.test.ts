@@ -215,7 +215,7 @@ test(
 );
 
 test(
-  "reader preserva o template temático e a route aplica exclusivamente o físico v14",
+  "reader preserva o template temático e a route aplica exclusivamente o físico v20",
   () => {
     const root = process.cwd();
 
@@ -252,7 +252,11 @@ test(
 
     assert.match(
       route,
-      /rpc\/apply_matchday_live_layout_physical_workspace_v14/,
+      /rpc\/apply_matchday_live_layout_physical_v20/,
+    );
+    assert.doesNotMatch(
+      route,
+      /apply_matchday_live_layout_physical_workspace_v14/,
     );
 
     assert.doesNotMatch(

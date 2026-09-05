@@ -783,7 +783,8 @@ test("o ramo server-side preserva a leitura e delega o Apply físico ao cliente 
   assert.doesNotMatch(clientSource, /Devolver ao automático/);
   assert.match(clientSource, /draggable[\s\S]*onDragStart[\s\S]*onDrop/);
   assert.doesNotMatch(routeSource, /reconcileMatchdayEditorialProfileWorkspace|compatibilityReconcile/);
-  assert.match(routeSource, /rpc\/apply_matchday_live_layout_physical_workspace_v14/);
+  assert.match(routeSource, /rpc\/apply_matchday_live_layout_physical_v20/);
+  assert.doesNotMatch(routeSource, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.doesNotMatch(routeSource, /apply_matchday_editorial_profile_workspace_v12/);
   assert.doesNotMatch(routeSource, /refresh_matchday_editorial_profile_distribution|profile_state_items/);
 });

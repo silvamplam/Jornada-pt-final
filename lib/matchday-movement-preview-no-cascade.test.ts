@@ -291,7 +291,8 @@ test("cliente e Apply usam o mesmo preview sem regra textual legacy", () => {
   assert.doesNotMatch(client, /draftVacantZoneSlots|draftVacantFaixaSlots/);
   assert.match(physicalState, /faixaSlotCount/);
   assert.match(physicalState, /placement: PhysicalDeskPlacement \| null/);
-  assert.match(route, /rpc\/apply_matchday_live_layout_physical_workspace_v14/);
+  assert.match(route, /rpc\/apply_matchday_live_layout_physical_v20/);
+  assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.doesNotMatch(route, /compatibilityReconcile|p_authoritative_zone_items|p_authoritative_faixa_items/);
   assert.doesNotMatch(route, /rpc\/apply_matchday_editorial_profile_workspace_v11/);
   assert.match(migration, /apply_matchday_live_layout_placement_plan\([\s\S]*true/);

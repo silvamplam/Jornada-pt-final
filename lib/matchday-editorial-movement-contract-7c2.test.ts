@@ -280,7 +280,7 @@ test("cliente expõe destinos explícitos e mantém Novas sem drop", () => {
   );
 });
 
-test("rota usa v14 e o serializer transporta relógios editoriais de chegada", () => {
+test("rota usa v20 e o serializer transporta relógios editoriais de chegada", () => {
   const route = readFileSync(
     "app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts",
     "utf8",
@@ -292,8 +292,9 @@ test("rota usa v14 e o serializer transporta relógios editoriais de chegada", (
 
   assert.match(
     route,
-    /rpc\/apply_matchday_live_layout_physical_workspace_v14/u,
+    /rpc\/apply_matchday_live_layout_physical_v20/u,
   );
+  assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/u);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v12/u);
   assert.match(serializer, /p_faixa_arrival_bank_item_ids/u);
   assert.match(serializer, /p_displaced_arrival_bank_item_ids/u);
