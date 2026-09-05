@@ -74,8 +74,10 @@ export type LiveLayoutWorkspaceSettings = Readonly<{
   matchdayId: string;
   faixaSlotCount: number;
   headlineTitleColor: string | null;
+  latestZoneMode: "latest_news" | "editorial_line";
   latestZonePlacement: "top" | "four_news" | "hidden";
   latestZoneTitle: string;
+  latestZoneTitleColor: string | null;
   videoModuleActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -208,8 +210,10 @@ function parseWorkspaceSettings(
     "matchday_id",
     "faixa_slot_count",
     "headline_title_color",
+    "latest_zone_mode",
     "latest_zone_placement",
     "latest_zone_title",
+    "latest_zone_title_color",
     "video_module_active",
     "created_at",
     "updated_at",
@@ -230,6 +234,13 @@ function parseWorkspaceSettings(
     && !/^#[0-9a-f]{6}$/i.test(headlineTitleColor)
   ) {
     return workspaceError("workspace-settings-headline-color-invalid");
+  }
+  const latestZoneMode = row.latest_zone_mode;
+  if (
+    latestZoneMode !== "latest_news"
+    && latestZoneMode !== "editorial_line"
+  ) {
+    return workspaceError("workspace-settings-latest-mode-invalid");
   }
   const latestZonePlacement = requiredText(
     row.latest_zone_placement,
@@ -252,6 +263,16 @@ function parseWorkspaceSettings(
   ) {
     return workspaceError("workspace-settings-latest-title-invalid");
   }
+  const latestZoneTitleColor = optionalText(
+    row.latest_zone_title_color,
+    "workspace-settings-latest-title-color-invalid",
+  );
+  if (
+    latestZoneTitleColor !== null
+    && !/^#[0-9a-f]{6}$/i.test(latestZoneTitleColor)
+  ) {
+    return workspaceError("workspace-settings-latest-title-color-invalid");
+  }
 
   return {
     matchdayId: settingsMatchdayId,
@@ -260,8 +281,10 @@ function parseWorkspaceSettings(
       "workspace-settings-faixa-count-invalid",
     ),
     headlineTitleColor,
+    latestZoneMode,
     latestZonePlacement,
     latestZoneTitle,
+    latestZoneTitleColor,
     videoModuleActive: requiredBoolean(
       row.video_module_active,
       "workspace-settings-video-active-invalid",

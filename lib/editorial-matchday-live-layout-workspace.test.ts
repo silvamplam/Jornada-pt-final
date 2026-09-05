@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { createPhysicalDeskState } from "@/lib/editorial-matchday-live-layout-desk-state";
 import {
   buildLiveLayoutWorkspaceState,
   type MatchdayLiveLayoutWorkspaceReaderRow,
@@ -108,6 +109,24 @@ function readerRow(
   };
 }
 
+function workspaceSettings(
+  overrides: Readonly<Record<string, unknown>> = {},
+): Record<string, unknown> {
+  return {
+    matchday_id: MATCHDAY_ID,
+    faixa_slot_count: 4,
+    headline_title_color: "#AABBCC",
+    latest_zone_mode: "latest_news",
+    latest_zone_placement: "four_news",
+    latest_zone_title: "Últimas",
+    latest_zone_title_color: null,
+    video_module_active: true,
+    created_at: NOW,
+    updated_at: NOW,
+    ...overrides,
+  };
+}
+
 test("workspace fisico aceita zero, uma, cinco, seis e mais de seis zonas", () => {
   for (const zoneCount of [0, 1, 5, 6, 8]) {
     const state = buildLiveLayoutWorkspaceState(
@@ -141,8 +160,10 @@ test("reader interpreta settings e marker físicos sem defaults legacy", () => {
       matchday_id: MATCHDAY_ID,
       faixa_slot_count: 4,
       headline_title_color: "#AABBCC",
+      latest_zone_mode: "editorial_line",
       latest_zone_placement: "four_news",
       latest_zone_title: "Últimas",
+      latest_zone_title_color: "#DDEEFF",
       video_module_active: true,
       created_at: NOW,
       updated_at: NOW,
@@ -155,9 +176,86 @@ test("reader interpreta settings e marker físicos sem defaults legacy", () => {
   }));
 
   assert.equal(state.workspaceSettings?.faixaSlotCount, 4);
+  assert.equal(state.workspaceSettings?.latestZoneMode, "editorial_line");
   assert.equal(state.workspaceSettings?.latestZonePlacement, "four_news");
+  assert.equal(state.workspaceSettings?.latestZoneTitleColor, "#DDEEFF");
   assert.equal(state.workspaceSettings?.videoModuleActive, true);
   assert.equal(state.physicalCutover?.profileKey, "liga_portugal_v1");
+  const deskState = createPhysicalDeskState(state);
+  assert.deepEqual(deskState.current.presentation, {
+    headlineTitleColor: "#AABBCC",
+    latestZonePlacement: "four_news",
+    latestZoneTitle: "Últimas",
+    videoModuleActive: true,
+  });
+});
+
+test("workspace settings aceita os dois modos v15 e cor nula ou hexadecimal completo", () => {
+  for (const [latestZoneMode, latestZoneTitleColor] of [
+    ["latest_news", null],
+    ["editorial_line", "#AABBCC"],
+  ] as const) {
+    const state = buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+      workspace_settings: workspaceSettings({
+        latest_zone_mode: latestZoneMode,
+        latest_zone_title_color: latestZoneTitleColor,
+      }),
+      physical_cutover: {
+        matchday_id: MATCHDAY_ID,
+        profile_key: "liga_portugal_v1",
+        cutover_at: NOW,
+      },
+    }));
+
+    assert.equal(Object.keys(workspaceSettings()).length, 10);
+    assert.equal(state.workspaceSettings?.latestZoneMode, latestZoneMode);
+    assert.equal(
+      state.workspaceSettings?.latestZoneTitleColor,
+      latestZoneTitleColor,
+    );
+  }
+});
+
+test("workspace settings v15 falha fechado para modo, cor e shapes incompletos", () => {
+  const cutover = {
+    matchday_id: MATCHDAY_ID,
+    profile_key: "liga_portugal_v1",
+    cutover_at: NOW,
+  };
+  assert.throws(
+    () => buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+      workspace_settings: workspaceSettings({ latest_zone_mode: "automatic" }),
+      physical_cutover: cutover,
+    })),
+    /workspace-settings-latest-mode-invalid/,
+  );
+  assert.throws(
+    () => buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+      workspace_settings: workspaceSettings({ latest_zone_title_color: "#ABC" }),
+      physical_cutover: cutover,
+    })),
+    /workspace-settings-latest-title-color-invalid/,
+  );
+
+  const withoutLatestZoneMode = workspaceSettings();
+  delete withoutLatestZoneMode.latest_zone_mode;
+  assert.throws(
+    () => buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+      workspace_settings: withoutLatestZoneMode,
+      physical_cutover: cutover,
+    })),
+    /workspace-settings-shape-invalid/,
+  );
+
+  const withoutLatestZoneTitleColor = workspaceSettings();
+  delete withoutLatestZoneTitleColor.latest_zone_title_color;
+  assert.throws(
+    () => buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+      workspace_settings: withoutLatestZoneTitleColor,
+      physical_cutover: cutover,
+    })),
+    /workspace-settings-shape-invalid/,
+  );
 });
 
 test("settings e physical_cutover incoerentes falham fechados", () => {
@@ -165,8 +263,10 @@ test("settings e physical_cutover incoerentes falham fechados", () => {
     matchday_id: MATCHDAY_ID,
     faixa_slot_count: 4,
     headline_title_color: null,
+    latest_zone_mode: "latest_news",
     latest_zone_placement: "top",
     latest_zone_title: "Últimas",
+    latest_zone_title_color: null,
     video_module_active: false,
     created_at: NOW,
     updated_at: NOW,

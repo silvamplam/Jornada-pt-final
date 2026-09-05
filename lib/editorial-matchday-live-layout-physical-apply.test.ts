@@ -97,8 +97,10 @@ function workspace(zoneCount: number, itemCount = 12): LiveLayoutWorkspaceState 
       matchdayId: MATCHDAY_ID,
       faixaSlotCount: 4,
       headlineTitleColor: "#AABBCC",
+      latestZoneMode: "editorial_line",
       latestZonePlacement: "four_news",
       latestZoneTitle: "Últimas",
+      latestZoneTitleColor: "#DDEEFF",
       videoModuleActive: true,
       createdAt: NOW,
       updatedAt: NOW,
@@ -120,6 +122,10 @@ test("serializer usa token físico e conserva IDs reais de zonas e blocks", () =
     assert.deepEqual(payload.blocks.map((block) => block.id), state.current.blocks.map((block) => block.id));
     assert.equal(payload.zones.length, zoneCount);
     assert.doesNotMatch(JSON.stringify(payload), /zoneKey|classification/i);
+    assert.doesNotMatch(
+      JSON.stringify(payload),
+      /latestZoneMode|latestZoneTitleColor|latest_zone_mode|latest_zone_title_color/,
+    );
   }
 });
 

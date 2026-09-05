@@ -271,8 +271,10 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
       matchdayId: MATCHDAY_ID,
       faixaSlotCount: 4,
       headlineTitleColor: "#112233",
+      latestZoneMode: "editorial_line",
       latestZonePlacement: "hidden",
       latestZoneTitle: "Estado físico",
+      latestZoneTitleColor: "#AABBCC",
       videoModuleActive: false,
       createdAt: NOW,
       updatedAt: NOW,
@@ -291,6 +293,8 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
   });
 
   assert.equal(current.current.faixaSlotCount, 4);
+  assert.equal(physicalWorkspace.workspaceSettings?.latestZoneMode, "editorial_line");
+  assert.equal(physicalWorkspace.workspaceSettings?.latestZoneTitleColor, "#AABBCC");
   assert.equal(physicalDeskFaixaSlots(current)[3].placement, null);
   assert.deepEqual(current.current.presentation, {
     headlineTitleColor: "#112233",
@@ -298,6 +302,8 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
     latestZoneTitle: "Estado físico",
     videoModuleActive: false,
   });
+  assert.equal("latestZoneMode" in current.current.presentation, false);
+  assert.equal("latestZoneTitleColor" in current.current.presentation, false);
   assert.equal(current.physicalCutover?.profileKey, "liga_portugal_v1");
 });
 
