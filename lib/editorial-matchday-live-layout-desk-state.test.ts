@@ -4,7 +4,9 @@ import test from "node:test";
 import {
   bulkMovePhysicalDeskItemsToZone,
   changePhysicalDeskZone,
+  createPhysicalDeskZone,
   createPhysicalDeskState,
+  deletePhysicalDeskZone,
   movePhysicalDeskBlock,
   movePhysicalDeskItemToBank,
   movePhysicalDeskItemToDisplaced,
@@ -106,13 +108,200 @@ function workspace(zoneCount: number, itemCount = 3): LiveLayoutWorkspaceState {
 }
 
 function state(zoneCount: number, itemCount = 3) {
-  return createPhysicalDeskState(workspace(zoneCount, itemCount), {
+  return stateFromWorkspace(workspace(zoneCount, itemCount));
+}
+
+function stateFromWorkspace(source: LiveLayoutWorkspaceState) {
+  return createPhysicalDeskState(source, {
     headlineTitleColor: null,
     latestZonePlacement: "top",
     latestZoneTitle: "Últimas",
     videoModuleActive: true,
   });
 }
+
+function stateWithBaselinePlacement() {
+  const source = workspace(2);
+  return stateFromWorkspace({
+    ...source,
+    placements: [{
+      id: "60000000-0000-4000-8000-000000000001",
+      bankItemId: bankId(1),
+      placementType: "zone",
+      zoneId: zoneId(1),
+      slotPosition: 3,
+      createdAt: NOW,
+      updatedAt: NOW,
+    }],
+    bankItems: source.bankItems.map((item) => item.id === bankId(1)
+      ? { ...item, editoriallyWorkedAt: NOW }
+      : item),
+    workedBankItemIds: [bankId(1)],
+  });
+}
+
+function stateWithBaselineDisplaced() {
+  const source = workspace(1);
+  return stateFromWorkspace({
+    ...source,
+    memory: [{
+      bankItemId: bankId(1),
+      memoryKind: "displaced",
+      recordedAt: NOW,
+    }],
+    bankItems: source.bankItems.map((item) => item.id === bankId(1)
+      ? { ...item, editoriallyWorkedAt: NOW }
+      : item),
+    displacedBankItemIds: [bankId(1)],
+    workedBankItemIds: [bankId(1)],
+  });
+}
+
+test("create gera UUIDs, nasce vazio, entra no fim e fica dirty", () => {
+  const initial = state(1);
+  const previousMaximumOrder = Math.max(
+    ...initial.current.blocks.map((block) => block.sortOrder),
+  );
+  const created = createPhysicalDeskZone(initial, {
+    publicTitle: "  Nova zona física  ",
+    visualFamily: "five_news_balanced",
+  });
+  const createdZone = created.current.zones.find((zone) => (
+    !initial.current.zones.some((candidate) => candidate.id === zone.id)
+  ));
+  assert.ok(createdZone);
+  const createdBlock = created.current.blocks.find((block) => (
+    block.kind === "zone" && block.zoneId === createdZone.id
+  ));
+  assert.ok(createdBlock);
+  assert.match(createdZone.id, /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u);
+  assert.match(createdBlock.id, /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u);
+  assert.notEqual(createdZone.id, createdBlock.id);
+  assert.equal(createdZone.publicTitle, "Nova zona física");
+  assert.equal(createdZone.visualFamily, "five_news_balanced");
+  assert.equal(createdZone.capacity, 5);
+  assert.equal(createdBlock.sortOrder, previousMaximumOrder + 1);
+  assert.equal(
+    created.current.placements.some((placement) => placement.zoneId === createdZone.id),
+    false,
+  );
+  assert.equal(physicalDeskHasChanges(created), true);
+  assert.deepEqual(created.current.bankItems, initial.current.bankItems);
+});
+
+test("Undo e Reset removem uma zona acabada de criar", () => {
+  const initial = state(1);
+  const created = createPhysicalDeskZone(initial, {
+    publicTitle: "Nova zona",
+    visualFamily: "six_news",
+  });
+  const undone = undoPhysicalDeskState(created);
+  const reset = resetPhysicalDeskState(created);
+
+  assert.deepEqual(undone.current, initial.current);
+  assert.equal(physicalDeskHasChanges(undone), false);
+  assert.deepEqual(reset.current, initial.baseline);
+  assert.equal(physicalDeskHasChanges(reset), false);
+});
+
+test("delete de zona vazia remove zona e block sem referências internas", () => {
+  const initial = state(2);
+  const deleted = deletePhysicalDeskZone(initial, zoneId(2));
+
+  assert.equal(deleted.current.zones.some((zone) => zone.id === zoneId(2)), false);
+  assert.equal(deleted.current.blocks.some((block) => (
+    block.kind === "zone" && block.zoneId === zoneId(2)
+  )), false);
+  assert.equal(deleted.current.placements.some((placement) => (
+    placement.zoneId === zoneId(2)
+  )), false);
+  assert.deepEqual(deleted.current.displacedBankItemIds, []);
+  assert.equal(physicalDeskHasChanges(deleted), true);
+});
+
+test("delete ocupado transforma o item em DESALOJADA, nunca Banco nem NOVA", () => {
+  const initial = stateWithBaselinePlacement();
+  const deleted = deletePhysicalDeskZone(initial, zoneId(1));
+
+  assert.equal(physicalDeskPlacementForBankItem(deleted, bankId(1)), null);
+  assert.deepEqual(deleted.current.displacedBankItemIds, [bankId(1)]);
+  assert.deepEqual(deleted.current.displacedArrivalBankItemIds, [bankId(1)]);
+  assert.equal(deleted.current.explicitBankItemIds.includes(bankId(1)), false);
+  assert.equal(deleted.current.workedBankItemIds.includes(bankId(1)), true);
+  assert.deepEqual(deleted.current.memory, [{
+    bankItemId: bankId(1),
+    memoryKind: "displaced",
+    recordedAt: null,
+  }]);
+  assert.deepEqual(deleted.current.bankItems, initial.current.bankItems);
+});
+
+test("mover antes do delete preserva o destino final sobrevivente", () => {
+  let current = state(2);
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 1,
+  });
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "zone", zoneId: zoneId(2), slotPosition: 4,
+  });
+  current = deletePhysicalDeskZone(current, zoneId(1));
+
+  assert.deepEqual(physicalDeskPlacementForBankItem(current, bankId(1)), {
+    bankItemId: bankId(1),
+    placementType: "zone",
+    zoneId: zoneId(2),
+    slotPosition: 4,
+  });
+  assert.equal(current.current.displacedBankItemIds.includes(bankId(1)), false);
+  assert.equal(current.current.displacedArrivalBankItemIds.includes(bankId(1)), false);
+});
+
+test("Bank para zona e delete termina em DESALOJADA", () => {
+  let current = movePhysicalDeskItemToBank(state(1), bankId(1));
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 2,
+  });
+  current = deletePhysicalDeskZone(current, zoneId(1));
+
+  assert.deepEqual(current.current.displacedBankItemIds, [bankId(1)]);
+  assert.deepEqual(current.current.displacedArrivalBankItemIds, [bankId(1)]);
+  assert.equal(current.current.explicitBankItemIds.includes(bankId(1)), false);
+  assert.equal(current.current.workedBankItemIds.includes(bankId(1)), true);
+});
+
+test("baseline DESALOJADA regressa sem arrival falsa e recupera a memória", () => {
+  const initial = stateWithBaselineDisplaced();
+  const placed = movePhysicalDeskItemToSlot(initial, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 5,
+  });
+  const deleted = deletePhysicalDeskZone(placed, zoneId(1));
+
+  assert.deepEqual(deleted.current.displacedBankItemIds, [bankId(1)]);
+  assert.deepEqual(deleted.current.displacedArrivalBankItemIds, []);
+  assert.deepEqual(deleted.current.memory, [{
+    bankItemId: bankId(1),
+    memoryKind: "displaced",
+    recordedAt: NOW,
+  }]);
+});
+
+test("Undo delete recupera o draft anterior e Reset recupera o baseline", () => {
+  const initial = stateWithBaselineDisplaced();
+  const placed = movePhysicalDeskItemToSlot(initial, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 5,
+  });
+  const deleted = deletePhysicalDeskZone(placed, zoneId(1));
+  const undone = undoPhysicalDeskState(deleted);
+  const reset = resetPhysicalDeskState(deleted);
+
+  assert.deepEqual(undone.current, placed.current);
+  assert.equal(
+    physicalDeskPlacementForBankItem(undone, bankId(1))?.slotPosition,
+    5,
+  );
+  assert.deepEqual(reset.current, initial.baseline);
+  assert.equal(physicalDeskHasChanges(reset), false);
+});
 
 test("aceita cardinalidade física 0, 1, 5, 6 e superior a 6", () => {
   for (const count of [0, 1, 5, 6, 8]) {

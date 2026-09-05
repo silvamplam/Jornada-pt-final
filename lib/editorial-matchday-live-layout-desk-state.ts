@@ -2,9 +2,11 @@ import {
   editorialVisualFamilyCapacity,
   type EditorialVisualFamily,
 } from "@/lib/editorial-visual-families";
-import type {
-  LiveLayoutZoneId,
-  MatchdayLiveLayoutBlock,
+import {
+  parseLiveLayoutBlockId,
+  parseLiveLayoutZoneId,
+  type LiveLayoutZoneId,
+  type MatchdayLiveLayoutBlock,
 } from "@/lib/editorial-matchday-live-layout-physical";
 import type {
   LiveLayoutPhysicalCutover,
@@ -818,6 +820,98 @@ export function changePhysicalDeskZone(
       ? { ...candidate, publicTitle, visualFamily, capacity }
       : candidate),
   });
+}
+
+export function createPhysicalDeskZone(
+  state: PhysicalDeskState,
+  zone: Readonly<{
+    publicTitle: string;
+    visualFamily: EditorialVisualFamily;
+  }>,
+): PhysicalDeskState {
+  const publicTitle = zone.publicTitle.trim();
+  if (!publicTitle) return stateError("zone-public-title-empty");
+  if (publicTitle.length > 120) return stateError("zone-public-title-too-long");
+
+  const current = state.current;
+  const zoneId = parseLiveLayoutZoneId(crypto.randomUUID());
+  const blockId = parseLiveLayoutBlockId(crypto.randomUUID());
+  const sortOrder = current.blocks.reduce(
+    (maximum, block) => Math.max(maximum, block.sortOrder),
+    0,
+  ) + 1;
+
+  return commitSnapshot(state, {
+    ...current,
+    zones: [...current.zones, {
+      id: zoneId,
+      publicTitle,
+      visualFamily: zone.visualFamily,
+      capacity: editorialVisualFamilyCapacity(zone.visualFamily),
+    }],
+    blocks: [...current.blocks, {
+      id: blockId,
+      kind: "zone",
+      zoneId,
+      sortOrder,
+    }],
+  });
+}
+
+export function deletePhysicalDeskZone(
+  state: PhysicalDeskState,
+  zoneId: LiveLayoutZoneId,
+): PhysicalDeskState {
+  const current = state.current;
+  if (!current.zones.some((zone) => zone.id === zoneId)) {
+    return stateError("zone-unknown");
+  }
+
+  const removedBankItemIds = current.placements
+    .filter((placement) => (
+      placement.placementType === "zone"
+      && placement.zoneId === zoneId
+    ))
+    .map((placement) => placement.bankItemId);
+  const removedBankItems = new Set(removedBankItemIds);
+  const baselineDisplaced = new Set(state.baseline.displacedBankItemIds);
+  const restoredBaselineMemory = state.baseline.memory.filter((memory) => (
+    removedBankItems.has(memory.bankItemId)
+    && baselineDisplaced.has(memory.bankItemId)
+    && memory.memoryKind === "displaced"
+  ));
+  const displacedArrivalBankItemIds = removedBankItemIds.reduce<readonly string[]>(
+    (arrivals, bankItemId) => baselineDisplaced.has(bankItemId)
+      ? arrivals
+      : prependArrival(arrivals, bankItemId),
+    current.displacedArrivalBankItemIds.filter((id) => !removedBankItems.has(id)),
+  );
+
+  return commitSnapshot(state, {
+    ...current,
+    zones: current.zones.filter((zone) => zone.id !== zoneId),
+    blocks: current.blocks.filter((block) => (
+      block.kind !== "zone" || block.zoneId !== zoneId
+    )),
+    placements: current.placements.filter((placement) => (
+      placement.placementType !== "zone" || placement.zoneId !== zoneId
+    )),
+    explicitBankItemIds: current.explicitBankItemIds.filter(
+      (id) => !removedBankItems.has(id),
+    ),
+    displacedBankItemIds: uniqueSorted([
+      ...current.displacedBankItemIds,
+      ...removedBankItemIds,
+    ]),
+    memory: [
+      ...current.memory.filter((memory) => !removedBankItems.has(memory.bankItemId)),
+      ...restoredBaselineMemory,
+    ],
+    faixaArrivalBankItemIds: current.faixaArrivalBankItemIds.filter(
+      (id) => !removedBankItems.has(id),
+    ),
+    displacedArrivalBankItemIds,
+  }, removedBankItemIds);
 }
 
 export function movePhysicalDeskBlock(
