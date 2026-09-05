@@ -180,7 +180,13 @@ begin
     0,
     '[]'::jsonb,
     p_displaced,
-    '[]'::jsonb,
+    (
+      select coalesce(pg_catalog.jsonb_agg(
+        item_row.bank_item_id order by item_row.bank_item_id
+      ), '[]'::jsonb)
+      from pg_temp.physical_v20_items as item_row
+      where item_row.bank_item_id is not null
+    ),
     '[]'::jsonb,
     p_displaced_arrivals,
     pg_catalog.jsonb_build_object(
@@ -218,10 +224,10 @@ values (
   'a0000000-0000-4000-8000-000000000010'
 );
 
-insert into public.seasons (id, competition_id, label, slug)
+insert into public.seasons (id, competition_id, label)
 values
-  ('a0000000-0000-4000-8000-000000000030','a0000000-0000-4000-8000-000000000020','V20 2026/27','v20-2026-27'),
-  ('a0000000-0000-4000-8000-000000000031','a0000000-0000-4000-8000-000000000020','V20 foreign','v20-foreign');
+  ('a0000000-0000-4000-8000-000000000030','a0000000-0000-4000-8000-000000000020','V20 2026/27'),
+  ('a0000000-0000-4000-8000-000000000031','a0000000-0000-4000-8000-000000000020','V20 foreign');
 
 insert into public.matchdays (id, season_id, number, label)
 values
@@ -299,6 +305,83 @@ select
   'a0000000-0000-4000-8000-000000000030',
   'a0000000-0000-4000-8000-000000000001'
 from physical_v20_items as item_row;
+
+select jornada_private.begin_matchday_live_layout_downstream_v14(
+  'a0000000-0000-4000-8000-000000000001'
+);
+
+select jornada_private.authorize_matchday_editorial_bank_classification_writes(
+  array[
+    'a0000000-0000-4000-8000-000000000201'::uuid,
+    'a0000000-0000-4000-8000-000000000202'::uuid,
+    'a0000000-0000-4000-8000-000000000203'::uuid
+  ]
+);
+
+insert into public.matchday_editorial_bank_items (
+  id,
+  matchday_id,
+  label,
+  title,
+  subtitle,
+  image_url,
+  link_url,
+  source_type,
+  source_id,
+  source_slug,
+  origin_slot_type,
+  sort_order,
+  status,
+  automatic_eligible,
+  editorially_worked_at,
+  classification_key,
+  classification_source,
+  classified_at
+)
+select
+  case item_row.item_kind
+    when 'mapped' then 'a0000000-0000-4000-8000-000000000201'::uuid
+    when 'deleted_displaced' then 'a0000000-0000-4000-8000-000000000202'::uuid
+    else 'a0000000-0000-4000-8000-000000000203'::uuid
+  end,
+  'a0000000-0000-4000-8000-000000000001'::uuid,
+  'V20',
+  'Physical CRUD V20 ' || item_row.item_kind,
+  'Fixture',
+  'https://example.test/' || item_row.item_kind || '.jpg',
+  '/noticias/physical-crud-v20-' || item_row.item_kind,
+  'editorial_article',
+  item_row.article_id::text,
+  'physical-crud-v20-' || item_row.item_kind,
+  'fixture',
+  case item_row.item_kind
+    when 'mapped' then 1
+    when 'deleted_displaced' then 2
+    else 3
+  end,
+  'active',
+  item_row.item_kind <> 'deleted_displaced',
+  '2026-09-05 12:30:00+00'::timestamptz,
+  case item_row.item_kind
+    when 'mapped' then 'benfica'
+    when 'deleted_displaced' then 'sporting'
+    else 'fc_porto'
+  end,
+  'manual',
+  '2026-09-05 12:20:00+00'::timestamptz
+from physical_v20_items as item_row;
+
+select jornada_private.revoke_matchday_editorial_bank_classification_writes(
+  array[
+    'a0000000-0000-4000-8000-000000000201'::uuid,
+    'a0000000-0000-4000-8000-000000000202'::uuid,
+    'a0000000-0000-4000-8000-000000000203'::uuid
+  ]
+);
+
+select jornada_private.end_matchday_live_layout_downstream_v14(
+  'a0000000-0000-4000-8000-000000000001'
+);
 
 update physical_v20_items as item_row
 set bank_item_id = bank_row.id
@@ -805,6 +888,16 @@ as $function$
 $function$;
 
 -- 14. Any unique positive block order is accepted and becomes authoritative.
+create temp table physical_v20_expected_block_order as
+select
+  block_row.id,
+  block_row.block_type,
+  block_row.zone_id,
+  100 - block_row.sort_order as sort_order
+from public.matchday_live_layout_blocks as block_row
+where block_row.matchday_id =
+      'a0000000-0000-4000-8000-000000000001';
+
 select pg_temp.apply_v20(
   pg_temp.zones_payload(),
   (
@@ -812,22 +905,27 @@ select pg_temp.apply_v20(
       'id', block_row.id,
       'block_type', block_row.block_type,
       'zone_id', block_row.zone_id,
-      'sort_order', 100 - block_row.sort_order
+      'sort_order', block_row.sort_order
     ) order by block_row.id)
-    from public.matchday_live_layout_blocks as block_row
-    where block_row.matchday_id =
-          'a0000000-0000-4000-8000-000000000001'
+    from physical_v20_expected_block_order as block_row
   ),
   pg_temp.final_placements(),
   pg_catalog.jsonb_build_array(pg_temp.bank_id('deleted_displaced'))
 );
 
 select pg_temp.assert_true(
-  exists (
+  not exists (
     select 1
-    from public.matchday_live_layout_blocks
-    where id = 'a0000000-0000-4000-8000-000000000072'
-      and sort_order = 92
+    from physical_v20_expected_block_order as expected_row
+    full join public.matchday_live_layout_blocks as actual_row
+      on actual_row.id = expected_row.id
+     and actual_row.matchday_id =
+         'a0000000-0000-4000-8000-000000000001'
+    where expected_row.id is null
+       or actual_row.id is null
+       or actual_row.block_type is distinct from expected_row.block_type
+       or actual_row.zone_id is distinct from expected_row.zone_id
+       or actual_row.sort_order is distinct from expected_row.sort_order
   ),
   'arbitrary block order was not persisted'
 );
@@ -984,7 +1082,7 @@ select pg_temp.assert_true(
 set constraints all deferred;
 
 insert into physical_v20_results values
-  (11, 'classification before and after is identical', 'PASS');
+  (11, 'classification and eligibility remain identical', 'PASS');
 
 -- 20-24. Remove every optional legacy mapping, re-project best-effort, then
 -- exercise the real v17 constructor and v18 physical carryover.
@@ -1106,7 +1204,7 @@ select pg_temp.assert_true(
 insert into physical_v20_results values
   (12, 'v17/v18 arbitrary topology without legacy projection', 'PASS');
 
--- 25. v19 remains marker-first and fails closed on unmarked physical evidence.
+-- 26. v19 remains marker-first and fails closed on unmarked physical evidence.
 select pg_temp.assert_true(
   jornada_private.matchday_live_layout_continuity_authority_v19(
     'a0000000-0000-4000-8000-000000000001'

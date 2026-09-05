@@ -240,7 +240,7 @@ test("route intentionally remains on v14 until Lote 4", () => {
   assert.equal(routeChanges.trim(), "");
 });
 
-test("PG17 fixture covers the 25 required behavioral proofs and rolls back", () => {
+test("PG17 fixture covers the 26 required behavioral proofs and rolls back", () => {
   for (const evidence of [
     "normal zone update preserves identity",
     "sixth empty zone and block without projection",
@@ -252,7 +252,7 @@ test("PG17 fixture covers the 25 required behavioral proofs and rolls back", () 
     "arbitrary block order",
     "stale token fails without writes",
     "mid-transaction error rolls back",
-    "classification before and after is identical",
+    "classification and eligibility remain identical",
     "v17/v18 arbitrary topology without legacy projection",
     "v19 remains marker-first and fail-closed",
     "service-role-only facade",
@@ -267,6 +267,7 @@ test("PG17 fixture covers the 25 required behavioral proofs and rolls back", () 
     "inherited_placement_count = 2",
     "source-physical-incoherent",
     "classification_hash",
+    "automatic_eligible",
   ]) {
     assert.match(fixture, new RegExp(evidence, "iu"));
   }
