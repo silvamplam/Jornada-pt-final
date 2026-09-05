@@ -1675,6 +1675,7 @@
   align-self: center;
 }
 
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled),
 .panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-live),
 .panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-halftime) {
   grid-template-rows: 14px 7px 24px 2px 24px 1fr 19px;
@@ -1775,3 +1776,85 @@
     padding-inline: 16px;
   }
 }
+
+/* Agenda: afinaï¿½ï¿½o vertical da primeira equipa. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) > .team:first-of-type,
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) .teamNames > .teamName:first-child,
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) .cleanTeamScore[data-public-match-team-score="home"] {
+  transform: translateY(1px);
+}
+
+/* Finalizados: sem rï¿½tulo FINAL, emblemas maiores e distribuiï¿½ï¿½o vertical simï¿½trica. */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) {
+  grid-template-columns: 30px minmax(0, 1fr) max-content;
+  grid-template-rows: 0 1fr 30px 1fr 30px 1fr 19px;
+}
+
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .status {
+  display: none;
+}
+
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team {
+  width: 30px;
+  height: 30px;
+  grid-template-columns: 30px;
+  grid-template-rows: 30px;
+}
+
+
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) > .team,
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .teamNames > .teamName,
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-finished) .cleanTeamScore {
+  transform: translateY(7px);
+}
+
+/* micro-ajuste: jogos em direto e agendados */
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-live) > .team:first-of-type,
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) > .team:first-of-type {
+  transform: translateY(-0.5px);
+}
+
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-live) > .team:last-of-type,
+.panel[data-visual-variant="clean"] .row > .card:global(.public-matchday-mini-card-scheduled) > .team:last-of-type {
+  transform: translateY(0.5px);
+}
+
+/* Afinação vertical efetiva: direto/intervalo/agendados. */
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) > .team:first-of-type,
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .teamNames > .teamName:first-child,
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="home"] { transform: translateY(-0.5px); }
+
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) > .team:nth-of-type(2),
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .teamNames > .teamName:nth-child(2),
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translateY(0.5px); }
+
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) > .team:nth-of-type(2),
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .teamNames > .teamName:nth-child(2),
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translateY(1px); }
+
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) > .team:nth-of-type(2),
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .teamNames > .teamName:nth-child(2),
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translateY(1.5px); }
+
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="home"] { transform: translate(-3px, -0.5px); }
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translate(-3px, 1.5px); }
+
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="home"] { transform: translate(-6px, -0.5px); }
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translate(-6px, 1.5px); }
+
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="home"] { transform: translate(-9px, -0.5px); }
+.panel[data-visual-variant="clean"] .row > .card:is(:global(.public-matchday-mini-card-scheduled),:global(.public-matchday-mini-card-live),:global(.public-matchday-mini-card-halftime)) .cleanTeamScore[data-public-match-team-score="away"] { transform: translate(-9px, 1.5px); }
+
+/* Afinação final: cabeçalho agendado e logótipo TV. */
+.panel[data-visual-variant="clean"] .cleanScheduleHeader { translate: 0 -1px; }
+.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) { translate: -7px 1px; }
+
+.panel[data-visual-variant="clean"] .cleanScheduleTime { translate: -5px 0; }
+.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) { translate: -5px 1px; }
+
+.panel[data-visual-variant="clean"] .cleanScheduleTime { translate: -4px 0; }
+.panel[data-visual-variant="clean"] .row > .card > .broadcast > :global([data-public-match-meta]) { translate: -4px 1px; }
+
+.panel[data-visual-variant="clean"] .cleanStateBadgeLive { transform: translateX(2px); }
+
+.panel[data-visual-variant="clean"] .cleanScheduleTime { translate: -3px 0; }
