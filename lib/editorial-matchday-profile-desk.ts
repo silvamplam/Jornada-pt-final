@@ -542,6 +542,7 @@ export function buildMatchdayEditorialProfileDeskDistribution(
   articleRows: readonly MatchdayEditorialProfileArticleRow[],
   classificationRows?: readonly MatchdayEditorialProfileClassificationRow[],
   continuityClassificationRows?: readonly MatchdayEditorialProfileContinuityClassificationRow[],
+  options: Readonly<{ expectLegacyAutomaticState?: boolean }> = {},
 ): MatchdayEditorialProfileDeskDistribution {
   const articlesById = new Map(
     articleRows.map((article) => [article.id.trim().toLowerCase(), article] as const),
@@ -615,7 +616,11 @@ export function buildMatchdayEditorialProfileDeskDistribution(
     const sourceType = cleanText(bankRow.source_type) ?? SUPPORTED_SOURCE_TYPE;
     const sourceId = cleanText(bankRow.source_id) ?? "";
     const state = stateByIdentity.get(identity);
-    if (bankRow.automatic_eligible !== false && !state) {
+    if (
+      options.expectLegacyAutomaticState !== false
+      && bankRow.automatic_eligible !== false
+      && !state
+    ) {
       addDiagnostic({
         code: "active_bank_without_state",
         message: `A publicação ativa ${sourceType}:${sourceId} ainda não tem estado temático.`,
@@ -1140,6 +1145,10 @@ export async function readMatchdayEditorialProfileDesk(
     bankRows,
     articleRows,
     classificationRows,
+    undefined,
+    {
+      expectLegacyAutomaticState: physicalWorkspace.physicalCutover === null,
+    },
   );
   const activeIdentities = new Set(automaticDistribution.activeItems.map((item) => (
     thematicEditorialIdentity(item.sourceType, item.sourceId)
