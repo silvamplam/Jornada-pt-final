@@ -22,19 +22,19 @@ const fallback = readFileSync(
 test("Últimas tem autoridade independente das quatro", () => {
   assert.match(
     page,
-    /const showThematicLatestBlock =\s*latestZonePlacement === "four_news"\s*&& latestNewsItems\.length > 0/,
+    /const showBodyLatestBlock =\s*latestZonePlacement === "four_news"\s*&& latestNewsItems\.length > 0/,
   );
 
   assert.match(
     page,
-    /const showFourNewsLatestLayout =\s*thematicSnapshot\s*\? showThematicLatestBlock\s*&& liveFourNewsItems\.length > 0\s*: latestZonePlacement[\s\S]{0,160}liveFourNewsItems\.length === 4/,
+    /const showFourNewsLatestLayout =\s*physicalSnapshot \|\| thematicSnapshot\s*\? showBodyLatestBlock\s*&& liveFourNewsItems\.length > 0\s*: latestZonePlacement[\s\S]{0,160}liveFourNewsItems\.length === 4/,
   );
 });
 
 test("modo temático mantém Últimas quando não há quatro completas", () => {
   assert.match(
     page,
-    /if \(!showThematicLatestBlock\) \{\s*return null;/,
+    /if \(!showBodyLatestBlock\) \{\s*return null;/,
   );
 
   assert.match(
@@ -44,14 +44,14 @@ test("modo temático mantém Últimas quando não há quatro completas", () => {
 
   assert.match(
     page,
-    /<PublicThematicLatestOnlyLayout/,
+    /<PublicLatestOnlyLayout/,
   );
 });
 
 test("Seleção temática aceita 1–4 itens e Legacy exige os quatro completos", () => {
   assert.match(
     page,
-    /thematicSnapshot\s*\? showThematicLatestBlock\s*&& liveFourNewsItems\.length > 0/,
+    /physicalSnapshot \|\| thematicSnapshot\s*\? showBodyLatestBlock\s*&& liveFourNewsItems\.length > 0/,
   );
 
   assert.match(

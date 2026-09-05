@@ -2,10 +2,7 @@ import { publicTopNavigationStyles } from "@/components/public/publicEditorialSt
 import { buildAccumulatedClassification, totalClassificationStats, type ClassificationSplit } from "@/lib/classification";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
-import {
-  publicThematicVideoHighlightModuleIsVisible,
-  readPublicMatchdayThematicSnapshot,
-} from "@/lib/public-matchday-thematic";
+import { readPublicMatchdayEditorialSnapshot } from "@/lib/public-matchday-editorial";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
@@ -31,7 +28,7 @@ import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import { PublicEditorialLayout } from "@/components/public/PublicEditorialLayout";
 import PublicFourNewsLatestLayout, { type PublicFourNewsLatestItem } from "@/components/public/PublicFourNewsLatestLayout";
-import PublicThematicLatestOnlyLayout from "@/components/public/PublicThematicLatestOnlyLayout";
+import PublicLatestOnlyLayout from "@/components/public/PublicThematicLatestOnlyLayout";
 import type { PublicBeyondMatchdayNewsItem } from "@/components/public/PublicBeyondMatchdayNews";
 import PublicHierarchicalComposition, {
   PublicHierarchicalLiveLayouts,
@@ -3020,29 +3017,45 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   }
   const liveContext = context;
 
-  const thematicRead =
-    await readPublicMatchdayThematicSnapshot(
+  const editorialRead =
+    await readPublicMatchdayEditorialSnapshot(
       context.matchday.id,
     );
 
-  const hasThematicAssignment =
-    thematicRead !== null;
+  const physicalSnapshot =
+    editorialRead.kind === "physical"
+      ? editorialRead
+      : null;
 
   const thematicSnapshot =
-    thematicRead?.kind === "thematic"
-    && thematicRead.competitionSlug
+    editorialRead.kind === "legacy_thematic"
+    && editorialRead.snapshot.competitionSlug
       === context.competition.slug
-      ? thematicRead
+      ? editorialRead.snapshot
       : null;
+
+  const hasLegacyThematicAuthority =
+    editorialRead.kind === "legacy_thematic"
+    || editorialRead.kind === "invalid_legacy_snapshot";
+
+  const isGenuineLegacy =
+    editorialRead.kind === "legacy";
 
   const isManagedByEditorialDesk = context.editorialDeskControl.isManaged;
   const usePublishedReferenceComposition =
-    context.hasPublishedReferenceComposition
+    isGenuineLegacy
+    && context.hasPublishedReferenceComposition
     && !isManagedByEditorialDesk;
-  const thematicPublicUnavailable =
+  const publicEditorialUnavailable =
     !usePublishedReferenceComposition
-    && hasThematicAssignment
-    && thematicSnapshot === null;
+    && (
+      editorialRead.kind === "invalid_physical_snapshot"
+      || editorialRead.kind === "invalid_legacy_snapshot"
+      || (
+        editorialRead.kind === "legacy_thematic"
+        && thematicSnapshot === null
+      )
+    );
 
   const showLogoDiagnostic = query.debug_logos === "1";
   const competitionBarColor = publicCompetitionBarColor(context.competition.slug);
@@ -3119,10 +3132,17 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const editorial = context.editorial;
   const publishedHeadline = editorial?.status === "published" ? editorial : null;
   const editorialCarryover =
-    !hasThematicAssignment
+    isGenuineLegacy
     && isManagedByEditorialDesk
       ? context.editorialDeskControl.carryover
       : null;
+
+  const physicalOpeningItem = (position: number) =>
+    physicalSnapshot?.opening.slots.find(
+      (slot) => slot.position === position,
+    )?.item ?? null;
+  const physicalHeadline = physicalOpeningItem(1);
+  const physicalContext = physicalOpeningItem(5);
 
   const carryoverLiveLayoutItemBySlotType = new Map(
     (editorialCarryover?.liveLayoutItems ?? []).map(
@@ -3131,7 +3151,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   );
 
   const hasCurrentHeadline = Boolean(
-    publishedHeadline &&
+    !physicalSnapshot
+    && publishedHeadline &&
       (
         publishedHeadline.title?.trim() ||
         publishedHeadline.summary?.trim() ||
@@ -3288,37 +3309,49 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         ? context.referenceRoundupItems
         : context.roundupItems
   ).filter(hasPublicMatchdayRoundupContent);
-  const headlineTitle = referenceHeadline
-    ? cleanReferenceSnapshotText(referenceHeadline.title_snapshot)
-    : currentHeadline
-      ? currentHeadline.title?.trim() || null
-      : inheritedHeadline?.title ?? null;
-  const headlineSummary = referenceHeadline
-    ? cleanReferenceSnapshotText(referenceHeadline.subtitle_snapshot)
-    : currentHeadline
-      ? currentHeadline.summary?.trim() || null
-      : inheritedHeadline?.summary ?? null;
-  const headlineImageUrl = referenceHeadline
-    ? cleanReferenceSnapshotText(referenceHeadline.image_url_snapshot)
-    : currentHeadline
-      ? currentHeadline.image_url?.trim() || null
-      : inheritedHeadline?.imageUrl ?? null;
-  const headlineLinkUrl = referenceHeadline
-    ? cleanReferenceSnapshotText(referenceHeadline.link_url_snapshot)
-    : currentHeadline
-      ? cleanReferenceSnapshotText(currentHeadline.headline_link_url)
-      : inheritedHeadline?.linkUrl ?? null;
+  const headlineTitle = physicalSnapshot
+    ? physicalHeadline?.title ?? null
+    : referenceHeadline
+      ? cleanReferenceSnapshotText(referenceHeadline.title_snapshot)
+      : currentHeadline
+        ? currentHeadline.title?.trim() || null
+        : inheritedHeadline?.title ?? null;
+  const headlineSummary = physicalSnapshot
+    ? physicalHeadline?.subtitle ?? null
+    : referenceHeadline
+      ? cleanReferenceSnapshotText(referenceHeadline.subtitle_snapshot)
+      : currentHeadline
+        ? currentHeadline.summary?.trim() || null
+        : inheritedHeadline?.summary ?? null;
+  const headlineImageUrl = physicalSnapshot
+    ? physicalHeadline?.imageUrl ?? null
+    : referenceHeadline
+      ? cleanReferenceSnapshotText(referenceHeadline.image_url_snapshot)
+      : currentHeadline
+        ? currentHeadline.image_url?.trim() || null
+        : inheritedHeadline?.imageUrl ?? null;
+  const headlineLinkUrl = physicalSnapshot
+    ? physicalHeadline?.linkUrl ?? null
+    : referenceHeadline
+      ? cleanReferenceSnapshotText(referenceHeadline.link_url_snapshot)
+      : currentHeadline
+        ? cleanReferenceSnapshotText(currentHeadline.headline_link_url)
+        : inheritedHeadline?.linkUrl ?? null;
   const referenceHeadlineEditorialArticleId =
     referenceHeadline?.source_type === "matchday_editorial_bank_item" && referenceHeadline.source_id
       ? editorialArticleIdByBankItemId.get(referenceHeadline.source_id) ?? null
       : null;
-  const headlineAuthor = referenceHeadlineEditorialArticleId
-    ? referenceEditorialArticleById.get(referenceHeadlineEditorialArticleId)?.author?.trim() || null
-    : null;
-  const headlineMedia =
-    usePublishedReferenceComposition || currentHeadline
-      ? context.headlineMedia
+  const headlineAuthor = physicalSnapshot
+    ? physicalHeadline?.author ?? null
+    : referenceHeadlineEditorialArticleId
+      ? referenceEditorialArticleById.get(referenceHeadlineEditorialArticleId)?.author?.trim() || null
       : null;
+  const headlineMedia =
+    physicalSnapshot
+      ? null
+      : usePublishedReferenceComposition || currentHeadline
+        ? context.headlineMedia
+        : null;
   const hasPublishedHeadline = usePublishedReferenceComposition
     ? Boolean(
         headlineTitle ||
@@ -3326,8 +3359,14 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         headlineImageUrl ||
         headlineMedia
       )
-    : Boolean(currentHeadline || inheritedHeadline);
-  const complementaryMode = editorial?.complementary_mode ?? "none";
+    : physicalSnapshot
+      ? physicalHeadline !== null
+      : Boolean(currentHeadline || inheritedHeadline);
+  const complementaryMode = physicalSnapshot
+    ? physicalSnapshot.video.active
+      ? "roundup_video"
+      : "none"
+    : editorial?.complementary_mode ?? "none";
   const highlightColorById = new Map(
     context.highlights.map((item) => [item.id, item.label_color?.trim() || null])
   );
@@ -3393,50 +3432,89 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         Boolean(item?.title)
     );
 
-  const highlightsAreActive = editorial
-    ? editorial.below_headline_mode !== "roundup"
-    : referenceHighlightItems.length > 0 ||
-      continuityHighlights.length > 0;
-  const roundupIsActive = editorial
-    ? complementaryMode === "roundup_video"
-    : useReferenceRoundupItems;
+  const physicalHighlights = physicalSnapshot
+    ? physicalSnapshot.opening.slots.flatMap((slot) => {
+        if (slot.role !== "highlight" || !slot.item) return [];
+        return [{
+          id: slot.item.id,
+          label: slot.item.label,
+          labelColor: null,
+          title: slot.item.title,
+          subtitle: slot.item.subtitle,
+          imageUrl: slot.item.imageUrl,
+          linkUrl: slot.item.linkUrl,
+        }];
+      })
+    : [];
+  const highlightsAreActive = physicalSnapshot
+    ? physicalHighlights.length > 0
+    : editorial
+      ? editorial.below_headline_mode !== "roundup"
+      : referenceHighlightItems.length > 0 ||
+        continuityHighlights.length > 0;
+  const roundupIsActive = physicalSnapshot
+    ? physicalSnapshot.video.active
+    : editorial
+      ? complementaryMode === "roundup_video"
+      : useReferenceRoundupItems;
   const belowHeadlineHeading =
-    editorial?.below_headline_heading?.trim() ?? "";
+    physicalSnapshot
+      ? ""
+      : editorial?.below_headline_heading?.trim() ?? "";
   const belowHeadlineHeadingColor =
-    editorial?.below_headline_heading_color?.trim();
-  const effectiveHighlights =
-    referenceHighlightItems.length > 0
+    physicalSnapshot
+      ? undefined
+      : editorial?.below_headline_heading_color?.trim();
+  const effectiveHighlights = physicalSnapshot
+    ? physicalHighlights
+    : referenceHighlightItems.length > 0
       ? referenceHighlightItems
       : continuityHighlights;
   const visibleHighlights = highlightsAreActive ? effectiveHighlights : [];
   const visibleRoundupItems = roundupIsActive ? effectiveRoundupItems : [];
-  const complementaryImageUrl = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceComplement?.image_url_snapshot)
-    : editorial?.complementary_image_url?.trim() || null;
-  const complementaryLabel = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceComplement?.label_snapshot)
-    : editorial?.complementary_label?.trim() || null;
-  const complementaryLabelColor = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceComplement?.label_color_snapshot)
-    : editorial?.complementary_text_color?.trim() || null;
-  const complementaryTitle = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceComplement?.title_snapshot)
-    : editorial?.complementary_title?.trim() || null;
-  const complementaryText = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceComplement?.subtitle_snapshot)
-    : editorial?.complementary_text?.trim() || null;
-  const complementaryLinkUrl = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceComplement?.link_url_snapshot)
-    : editorial?.complementary_link_url?.trim() || null;
-  const complementMedia = context.complementMedia;
-  const complementaryIsActive = editorial
-    ? editorial.complementary_status === "published"
-    : Boolean(referenceComplement);
+  const physicalVideoHighlight = physicalSnapshot?.video.highlight ?? null;
+  const complementaryImageUrl = physicalSnapshot
+    ? physicalVideoHighlight?.imageUrl ?? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceComplement?.image_url_snapshot)
+      : editorial?.complementary_image_url?.trim() || null;
+  const complementaryLabel = physicalSnapshot
+    ? physicalVideoHighlight?.label ?? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceComplement?.label_snapshot)
+      : editorial?.complementary_label?.trim() || null;
+  const complementaryLabelColor = physicalSnapshot
+    ? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceComplement?.label_color_snapshot)
+      : editorial?.complementary_text_color?.trim() || null;
+  const complementaryTitle = physicalSnapshot
+    ? physicalVideoHighlight?.title ?? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceComplement?.title_snapshot)
+      : editorial?.complementary_title?.trim() || null;
+  const complementaryText = physicalSnapshot
+    ? physicalVideoHighlight?.subtitle ?? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceComplement?.subtitle_snapshot)
+      : editorial?.complementary_text?.trim() || null;
+  const complementaryLinkUrl = physicalSnapshot
+    ? physicalVideoHighlight?.linkUrl ?? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceComplement?.link_url_snapshot)
+      : editorial?.complementary_link_url?.trim() || null;
+  const complementMedia = physicalSnapshot ? null : context.complementMedia;
+  const complementaryIsActive = physicalSnapshot
+    ? physicalSnapshot.video.active && physicalVideoHighlight !== null
+    : editorial
+      ? editorial.complementary_status === "published"
+      : Boolean(referenceComplement);
   const hasPublishedComplementaryStory =
     complementaryIsActive &&
     Boolean(complementaryTitle || complementaryText || complementaryImageUrl || complementMedia);
   const hasCurrentSideBlock = Boolean(
-    editorial?.side_block_status === "published" &&
+    !physicalSnapshot
+    && editorial?.side_block_status === "published" &&
       (
         editorial.side_block_title?.trim() ||
         editorial.side_block_text?.trim() ||
@@ -3456,24 +3534,30 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       )
   );
 
-  const sideBlockImageUrl = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceSideBlock?.image_url_snapshot)
-    : useCarryoverSideBlock
-      ? carryoverSideBlock?.imageUrl ?? null
-      : editorial?.side_block_image_url?.trim() || null;
+  const sideBlockImageUrl = physicalSnapshot
+    ? physicalContext?.imageUrl ?? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceSideBlock?.image_url_snapshot)
+      : useCarryoverSideBlock
+        ? carryoverSideBlock?.imageUrl ?? null
+        : editorial?.side_block_image_url?.trim() || null;
 
-  const explicitSideBlockLabel = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceSideBlock?.label_snapshot)
-    : useCarryoverSideBlock
-      ? carryoverSideBlock?.label ?? null
-      : cleanPublicSideBlockText(editorial?.side_block_label);
+  const explicitSideBlockLabel = physicalSnapshot
+    ? physicalContext?.label ?? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceSideBlock?.label_snapshot)
+      : useCarryoverSideBlock
+        ? carryoverSideBlock?.label ?? null
+        : cleanPublicSideBlockText(editorial?.side_block_label);
 
-  const sideBlockLabel = usePublishedReferenceComposition
+  const sideBlockLabel = physicalSnapshot
     ? explicitSideBlockLabel
-    : useCarryoverSideBlock
+    : usePublishedReferenceComposition
       ? explicitSideBlockLabel
-      : explicitSideBlockLabel ||
-        sideBlockTypeLabel(editorial?.side_block_type);
+      : useCarryoverSideBlock
+        ? explicitSideBlockLabel
+        : explicitSideBlockLabel ||
+          sideBlockTypeLabel(editorial?.side_block_type);
 
   const referenceSideBlockUsesEditorialColor = Boolean(
     usePublishedReferenceComposition
@@ -3483,67 +3567,91 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       )
   );
 
-  const sideBlockLabelColor = usePublishedReferenceComposition
-    ? referenceSideBlockUsesEditorialColor
-      ? editorial?.side_block_label_color?.trim() || null
-      : null
-    : useCarryoverSideBlock
-      ? carryoverSideBlock?.labelColor ?? null
-      : editorial?.side_block_label_color?.trim() || null;
-
-  const sideBlockTitle = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceSideBlock?.title_snapshot)
-    : useCarryoverSideBlock
-      ? carryoverSideBlock?.title ?? null
-      : cleanPublicSideBlockText(editorial?.side_block_title);
-
-  const sideBlockTitleColor = usePublishedReferenceComposition
+  const sideBlockLabelColor = physicalSnapshot
     ? null
-    : useCarryoverSideBlock
-      ? carryoverSideBlock?.titleColor ?? null
-      : editorial?.side_block_title_color?.trim() || null;
+    : usePublishedReferenceComposition
+      ? referenceSideBlockUsesEditorialColor
+        ? editorial?.side_block_label_color?.trim() || null
+        : null
+      : useCarryoverSideBlock
+        ? carryoverSideBlock?.labelColor ?? null
+        : editorial?.side_block_label_color?.trim() || null;
 
-  const sideBlockAuthor = usePublishedReferenceComposition
+  const sideBlockTitle = physicalSnapshot
+    ? physicalContext?.title ?? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceSideBlock?.title_snapshot)
+      : useCarryoverSideBlock
+        ? carryoverSideBlock?.title ?? null
+        : cleanPublicSideBlockText(editorial?.side_block_title);
+
+  const sideBlockTitleColor = physicalSnapshot
     ? null
-    : useCarryoverSideBlock
-      ? carryoverSideBlock?.author ?? null
-      : cleanPublicSideBlockText(editorial?.side_block_author);
+    : usePublishedReferenceComposition
+      ? null
+      : useCarryoverSideBlock
+        ? carryoverSideBlock?.titleColor ?? null
+        : editorial?.side_block_title_color?.trim() || null;
 
-  const sideBlockText = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceSideBlock?.subtitle_snapshot)
-    : useCarryoverSideBlock
-      ? carryoverSideBlock?.text ?? null
-      : cleanPublicSideBlockText(editorial?.side_block_text);
+  const sideBlockAuthor = physicalSnapshot
+    ? physicalContext?.author ?? null
+    : usePublishedReferenceComposition
+      ? null
+      : useCarryoverSideBlock
+        ? carryoverSideBlock?.author ?? null
+        : cleanPublicSideBlockText(editorial?.side_block_author);
 
-  const sideBlockLinkUrl = usePublishedReferenceComposition
-    ? cleanReferenceSnapshotText(referenceSideBlock?.link_url_snapshot)
-    : useCarryoverSideBlock
-      ? carryoverSideBlock?.linkUrl ?? null
-      : editorial?.side_block_link_url?.trim() || null;
+  const sideBlockText = physicalSnapshot
+    ? physicalContext?.subtitle ?? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceSideBlock?.subtitle_snapshot)
+      : useCarryoverSideBlock
+        ? carryoverSideBlock?.text ?? null
+        : cleanPublicSideBlockText(editorial?.side_block_text);
 
-  const hasPublishedSideBlock = usePublishedReferenceComposition
-    ? Boolean(sideBlockImageUrl || sideBlockTitle || sideBlockText)
-    : hasCurrentSideBlock || useCarryoverSideBlock;
-  const latestZoneMode = editorial?.latest_zone_mode === "editorial_line" ? "editorial_line" : "latest_news";
+  const sideBlockLinkUrl = physicalSnapshot
+    ? physicalContext?.linkUrl ?? null
+    : usePublishedReferenceComposition
+      ? cleanReferenceSnapshotText(referenceSideBlock?.link_url_snapshot)
+      : useCarryoverSideBlock
+        ? carryoverSideBlock?.linkUrl ?? null
+        : editorial?.side_block_link_url?.trim() || null;
+
+  const hasPublishedSideBlock = physicalSnapshot
+    ? physicalContext !== null
+    : usePublishedReferenceComposition
+      ? Boolean(sideBlockImageUrl || sideBlockTitle || sideBlockText)
+      : hasCurrentSideBlock || useCarryoverSideBlock;
+  const latestZoneMode = physicalSnapshot
+    ? physicalSnapshot.latest.mode
+    : editorial?.latest_zone_mode === "editorial_line"
+      ? "editorial_line"
+      : "latest_news";
   const latestZonePlacement =
-    thematicSnapshot
-      ? thematicSnapshot.pageControls.latestZonePlacement
-      : editorial?.latest_zone_placement === "hidden"
-        ? "hidden"
-        : editorial?.latest_zone_placement === "four_news"
-          ? "four_news"
-          : "top";
-  const configuredLatestZoneTitle = thematicSnapshot
-    ? thematicSnapshot.pageControls.latestZoneTitle.trim()
-    : editorial?.latest_zone_title?.trim() ?? "";
-  const latestZoneTitle = thematicSnapshot
+    physicalSnapshot
+      ? physicalSnapshot.latest.placement
+      : thematicSnapshot
+        ? thematicSnapshot.pageControls.latestZonePlacement
+        : editorial?.latest_zone_placement === "hidden"
+          ? "hidden"
+          : editorial?.latest_zone_placement === "four_news"
+            ? "four_news"
+            : "top";
+  const configuredLatestZoneTitle = physicalSnapshot
+    ? physicalSnapshot.latest.title.trim()
+    : thematicSnapshot
+      ? thematicSnapshot.pageControls.latestZoneTitle.trim()
+      : editorial?.latest_zone_title?.trim() ?? "";
+  const latestZoneTitle = physicalSnapshot || thematicSnapshot
     ? configuredLatestZoneTitle
     : usePublishedReferenceComposition
       ? ""
       : latestZoneMode === "latest_news"
         ? configuredLatestZoneTitle || "Últimas notícias"
         : configuredLatestZoneTitle;
-  const configuredLatestZoneTitleColor = editorial?.latest_zone_title_color?.trim() ?? "";
+  const configuredLatestZoneTitleColor = physicalSnapshot
+    ? physicalSnapshot.latest.titleColor ?? ""
+    : editorial?.latest_zone_title_color?.trim() ?? "";
   const latestZoneTitleColor =
     !usePublishedReferenceComposition && /^#[0-9A-Fa-f]{6}$/.test(configuredLatestZoneTitleColor)
       ? configuredLatestZoneTitleColor
@@ -3573,41 +3681,54 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         imageUrl: item.image_url?.trim() || null,
         linkUrl: item.link_url?.trim() || null
       })).filter((item) => item.title.length > 0);
-  const importantNewsItems = resolveMatchdayHorizontalNewsItems({
-    hasPublishedReferenceComposition: usePublishedReferenceComposition,
-    isManagedByDesk:
-      hasThematicAssignment
-        ? false
-        : useHierarchicalReferenceComposition
-          ? false
-          : isManagedByEditorialDesk,
-    faixaVisible:
-      hasThematicAssignment
-        ? true
-        : context.editorialDeskControl.faixaVisible,
-    referenceItems: [...(context.referenceSlots.important_item ?? [])]
-      .filter(hasReferenceSlotContent)
-      .map((item) => ({
-        id: item.id,
-        label: publicFreeZoneReferenceLabel(item),
-        labelColor: cleanReferenceSnapshotText(item.label_color_snapshot),
-        title: cleanReferenceSnapshotText(item.title_snapshot),
-        subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot),
-        imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
-        linkUrl: cleanReferenceSnapshotText(item.link_url_snapshot),
-        sortOrder: item.sort_order
-      })),
-    liveItems: context.horizontalNews.map((item) => ({
-      id: item.id,
-      label: item.label,
-      labelColor: item.label_color ?? null,
-      title: item.title,
-      subtitle: item.subtitle,
-      imageUrl: item.image_url,
-      linkUrl: item.link_url,
-      sortOrder: item.sort_order
-    }))
-  });
+  const importantNewsItems = physicalSnapshot
+    ? physicalSnapshot.faixa.slots.flatMap((slot) => slot.item
+      ? [{
+          id: slot.item.id,
+          label: slot.item.label,
+          labelColor: null,
+          title: slot.item.title,
+          subtitle: slot.item.subtitle,
+          imageUrl: slot.item.imageUrl,
+          linkUrl: slot.item.linkUrl,
+          sortOrder: slot.position,
+        }]
+      : [])
+    : resolveMatchdayHorizontalNewsItems({
+        hasPublishedReferenceComposition: usePublishedReferenceComposition,
+        isManagedByDesk:
+          hasLegacyThematicAuthority
+            ? false
+            : useHierarchicalReferenceComposition
+              ? false
+              : isManagedByEditorialDesk,
+        faixaVisible:
+          hasLegacyThematicAuthority
+            ? true
+            : context.editorialDeskControl.faixaVisible,
+        referenceItems: [...(context.referenceSlots.important_item ?? [])]
+          .filter(hasReferenceSlotContent)
+          .map((item) => ({
+            id: item.id,
+            label: publicFreeZoneReferenceLabel(item),
+            labelColor: cleanReferenceSnapshotText(item.label_color_snapshot),
+            title: cleanReferenceSnapshotText(item.title_snapshot),
+            subtitle: cleanReferenceSnapshotText(item.subtitle_snapshot),
+            imageUrl: cleanReferenceSnapshotText(item.image_url_snapshot),
+            linkUrl: cleanReferenceSnapshotText(item.link_url_snapshot),
+            sortOrder: item.sort_order
+          })),
+        liveItems: context.horizontalNews.map((item) => ({
+          id: item.id,
+          label: item.label,
+          labelColor: item.label_color ?? null,
+          title: item.title,
+          subtitle: item.subtitle,
+          imageUrl: item.image_url,
+          linkUrl: item.link_url,
+          sortOrder: item.sort_order
+        }))
+      });
   const visibleImportantNewsItems =
     thematicSnapshot
       ? importantNewsItems.slice(0, 20)
@@ -3758,44 +3879,57 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       []
     );
 
-  const liveFourNewsItems = LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.reduce<PublicFourNewsLatestItem[]>(
-    (items, position) => {
-      if (position.storage !== "four_news") return items;
-      const item =
-        thematicSnapshot
-          ? liveLayoutItemBySlotType.get(
-              position.transferSlotType,
-            )
-          : liveLayoutItemBySlotType.get(
-              position.transferSlotType,
-            )
-            ?? carryoverLiveLayoutItemBySlotType.get(
-              position.transferSlotType,
-            );
-      const title = item?.title?.trim() || null;
-      const linkUrl = item?.link_url?.trim() || null;
-      if (!item || !title || !linkUrl) return items;
+  const liveFourNewsItems = physicalSnapshot
+    ? physicalSnapshot.latest.slots.flatMap<PublicFourNewsLatestItem>((slot) =>
+        slot.item
+          ? [{
+              id: slot.item.id,
+              label: slot.item.label,
+              title: slot.item.title,
+              subtitle: slot.item.subtitle,
+              imageUrl: slot.item.imageUrl,
+              linkUrl: slot.item.linkUrl,
+            }]
+          : [],
+      )
+    : LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.reduce<PublicFourNewsLatestItem[]>(
+        (items, position) => {
+          if (position.storage !== "four_news") return items;
+          const item =
+            thematicSnapshot
+              ? liveLayoutItemBySlotType.get(
+                  position.transferSlotType,
+                )
+              : liveLayoutItemBySlotType.get(
+                  position.transferSlotType,
+                )
+                ?? carryoverLiveLayoutItemBySlotType.get(
+                  position.transferSlotType,
+                );
+          const title = item?.title?.trim() || null;
+          const linkUrl = item?.link_url?.trim() || null;
+          if (!item || !title || !linkUrl) return items;
 
-      items.push({
-        id: item.id,
-        label: item.label?.trim() || null,
-        title,
-        subtitle: item.subtitle?.trim() || null,
-        imageUrl: item.image_url?.trim() || null,
-        linkUrl,
-      });
-      return items;
-    },
-    []
-  );
+          items.push({
+            id: item.id,
+            label: item.label?.trim() || null,
+            title,
+            subtitle: item.subtitle?.trim() || null,
+            imageUrl: item.image_url?.trim() || null,
+            linkUrl,
+          });
+          return items;
+        },
+        [],
+      );
 
-  const showThematicLatestBlock =
+  const showBodyLatestBlock =
     latestZonePlacement === "four_news"
     && latestNewsItems.length > 0;
 
   const showFourNewsLatestLayout =
-    thematicSnapshot
-      ? showThematicLatestBlock
+    physicalSnapshot || thematicSnapshot
+      ? showBodyLatestBlock
         && liveFourNewsItems.length > 0
       : latestZonePlacement === "four_news"
         && latestNewsItems.length > 0
@@ -3809,6 +3943,10 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           thematicSnapshot.zones,
         )
       : [];
+
+  const physicalZoneById = new Map(
+    physicalSnapshot?.zones.map((zone) => [zone.zoneId, zone] as const) ?? [],
+  );
 
   const liveEditorialBodyBlocks =
     composeLivePublicEditorialBody(
@@ -3871,11 +4009,15 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               showRoundupVideo: editorialVisibility.showRoundup,
               roundupHeading: "A JORNADA EM VÍDEO",
               roundupHeadingColor:
-                editorial?.roundup_video_heading_color ??
-                belowHeadlineHeadingColor ??
-                null,
+                physicalSnapshot
+                  ? null
+                  : editorial?.roundup_video_heading_color ??
+                    belowHeadlineHeadingColor ??
+                    null,
               initialRoundupItemId:
-                editorial?.complementary_roundup_item_id ?? null,
+                physicalSnapshot
+                  ? null
+                  : editorial?.complementary_roundup_item_id ?? null,
               matchdayNumber: liveContext.matchday.number,
               complementary: {
                 isPublished: hasPublishedComplementaryStory,
@@ -4060,14 +4202,14 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           variant="clean"
         />
       </div>
-      {thematicPublicUnavailable ? (
+      {publicEditorialUnavailable ? (
         <section
           className="public-matchday-panel"
-          aria-label="Composição temática indisponível"
-          data-public-thematic-state="unavailable"
+          aria-label="Composição editorial indisponível"
+          data-public-editorial-state={editorialRead.kind}
         >
           <p>
-            A composição editorial temática desta jornada está temporariamente indisponível.
+            A composição editorial desta jornada está temporariamente indisponível.
           </p>
         </section>
       ) : useHierarchicalReferenceComposition ? (
@@ -4203,11 +4345,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                 }
               : null,
             titleColor:
-              thematicSnapshot
-                ? thematicSnapshot.pageControls.headlineTitleColor
-                : !referenceHeadline
-                  ? publishedHeadline?.title_color ?? null
-                  : null,
+              physicalSnapshot
+                ? physicalSnapshot.settings.headlineTitleColor
+                : thematicSnapshot
+                  ? thematicSnapshot.pageControls.headlineTitleColor
+                  : !referenceHeadline
+                    ? publishedHeadline?.title_color ?? null
+                    : null,
             fallbackTitle: "",
             fallbackSubtitle: ""
           }}
@@ -4218,7 +4362,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             roundupItems: [],
             showRoundupVideo: false,
             roundupHeading: "A JORNADA EM VÍDEO",
-            roundupHeadingColor: editorial?.roundup_video_heading_color ?? belowHeadlineHeadingColor ?? null,
+            roundupHeadingColor: physicalSnapshot
+              ? null
+              : editorial?.roundup_video_heading_color ?? belowHeadlineHeadingColor ?? null,
             initialRoundupItemId: null,
             matchdayNumber: context.matchday.number,
             complementary: {
@@ -4231,17 +4377,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         />
       )}
 
-      {!usePublishedReferenceComposition && thematicSnapshot
-        ? thematicEditorialBodyBlocks.map((block) => {
+      {!usePublishedReferenceComposition && physicalSnapshot
+        ? physicalSnapshot.blocks.map((block) => {
             if (block.kind === "video") {
               if (
-                !publicThematicVideoHighlightModuleIsVisible({
-                  active: complementaryMode === "roundup_video",
-                  hasPublishedVideo:
-                    editorialVisibility.showRoundup,
-                  hasPublishedHighlight:
-                    hasPublishedComplementaryStory,
-                })
+                !physicalSnapshot.video.active
+                || !editorialVisibility.showRoundup
+                || !hasPublishedComplementaryStory
               ) {
                 return null;
               }
@@ -4250,7 +4392,66 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             }
 
             if (block.kind === "latest") {
-              if (!showThematicLatestBlock) {
+              if (!showBodyLatestBlock) return null;
+
+              return (
+                <div
+                  className="public-matchday-editorial-region"
+                  data-public-physical-block="latest"
+                  key={block.blockId}
+                >
+                  {showFourNewsLatestLayout ? (
+                    <PublicFourNewsLatestLayout
+                      items={liveFourNewsItems}
+                      latestNews={latestNewsItems}
+                      latestNewsTitle={latestZoneTitle}
+                      latestNewsTitleColor={latestZoneTitleColor}
+                    />
+                  ) : (
+                    <PublicLatestOnlyLayout
+                      items={latestNewsItems}
+                      title={latestZoneTitle}
+                      titleColor={latestZoneTitleColor}
+                    />
+                  )}
+                </div>
+              );
+            }
+
+            const zone = physicalZoneById.get(block.zoneId);
+            if (!zone) {
+              throw new Error("public-matchday-physical-zone-block-unresolved");
+            }
+
+            return (
+              <PublicFlexibleZoneLayout
+                key={block.blockId}
+                matchdayNumber={context.matchday.number}
+                zone={{
+                  key: zone.zoneId,
+                  visualFamily: zone.layoutId,
+                  publicTitle: zone.publicTitle,
+                  slots: zone.slots,
+                }}
+              />
+            );
+          })
+        : !usePublishedReferenceComposition && thematicSnapshot
+          ? thematicEditorialBodyBlocks.map((block) => {
+            if (block.kind === "video") {
+              if (
+                complementaryMode !== "roundup_video"
+                || !editorialVisibility.showRoundup
+                || !hasPublishedComplementaryStory
+              ) {
+                return null;
+              }
+
+              return renderLivePublicZone("video");
+            }
+
+            if (block.kind === "latest") {
+              if (!showBodyLatestBlock) {
                 return null;
               }
 
@@ -4268,7 +4469,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                       latestNewsTitleColor={latestZoneTitleColor}
                     />
                   ) : (
-                    <PublicThematicLatestOnlyLayout
+                    <PublicLatestOnlyLayout
                       items={latestNewsItems}
                       title={latestZoneTitle}
                       titleColor={latestZoneTitleColor}
@@ -4285,8 +4486,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                 zone={block.zone}
               />
             );
-          })
-        : !hasThematicAssignment
+            })
+          : isGenuineLegacy
           && !useHierarchicalReferenceComposition
           ? liveEditorialBodyBlocks.map((block) => {
               if (block.kind === "video") {
@@ -4301,7 +4502,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             })
           : null}
 
-      {!thematicPublicUnavailable
+      {!publicEditorialUnavailable
       && visibleImportantNewsItems.length > 0 ? (
         <div className="public-matchday-editorial-region">
           <PublicHorizontalNewsStrip
