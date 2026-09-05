@@ -1858,3 +1858,10 @@
 .panel[data-visual-variant="clean"] .cleanStateBadgeLive { transform: translateX(2px); }
 
 .panel[data-visual-variant="clean"] .cleanScheduleTime { translate: -3px 0; }
+
+/* Afinação global final: todo o conteúdo interno desce 1 px. */
+.panel[data-visual-variant="clean"] .row > .card > .status,
+.panel[data-visual-variant="clean"] .row > .card > .team,
+.panel[data-visual-variant="clean"] .row > .card .teamNames > .teamName,
+.panel[data-visual-variant="clean"] .row > .card > .cleanTeamScore,
+.panel[data-visual-variant="clean"] .row > .card > .broadcast { position: relative; top: 1px; }
