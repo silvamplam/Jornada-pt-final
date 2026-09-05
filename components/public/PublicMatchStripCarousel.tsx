@@ -42,7 +42,7 @@ const EMPTY_EDGE_GEOMETRY: CarouselEdgeGeometry = {
 const PEEK_TOTAL_CARD_COUNT = 8;
 const PEEK_CLEAR_CARD_COUNT = 7;
 const PEEK_EDGE_FADE_WIDTH = CARD_WIDTH / 2;
-const PEEK_CARD_HEIGHT = 98;
+const PEEK_CARD_HEIGHT = CARD_HEIGHT;
 const PEEK_CONTENT_WIDTH =
   (PEEK_TOTAL_CARD_COUNT * CARD_WIDTH) +
   ((PEEK_TOTAL_CARD_COUNT - 1) * CARD_GAP);
@@ -142,20 +142,6 @@ export default function PublicMatchStripCarousel({
     );
     const cardRects = cards.map((card) => card.getBoundingClientRect());
 
-    for (const card of cards) {
-      const awayName = card.querySelector<HTMLElement>("[data-public-match-away-name]");
-      const logoVisual = card.querySelector<Element>("[data-public-broadcast-logo-visual]");
-      if (!awayName || !logoVisual) {
-        card.style.removeProperty("--public-match-broadcast-shift-x");
-        continue;
-      }
-
-      card.style.setProperty("--public-match-broadcast-shift-x", "0px");
-      const awayNameRect = awayName.getBoundingClientRect();
-      const logoVisualRect = logoVisual.getBoundingClientRect();
-      const shiftX = Number((awayNameRect.right - logoVisualRect.right).toFixed(2));
-      card.style.setProperty("--public-match-broadcast-shift-x", `${shiftX}px`);
-    }
     const insetTolerance = 1;
     const completeCardCount = cardRects.filter((rect) => (
       rect.left >= viewportRect.left - insetTolerance &&
@@ -201,13 +187,6 @@ export default function PublicMatchStripCarousel({
       : new ResizeObserver(updateNavigation);
     observer?.observe(viewport);
     if (trackRef.current) observer?.observe(trackRef.current);
-    viewport.querySelectorAll<HTMLElement>("[data-public-match-away-name]").forEach((name) => {
-      observer?.observe(name);
-    });
-    viewport.querySelectorAll<Element>("[data-public-broadcast-logo-visual]").forEach((logo) => {
-      observer?.observe(logo);
-    });
-
     return () => {
       viewport.removeEventListener("scroll", updateNavigation);
       window.removeEventListener("resize", updateNavigation);

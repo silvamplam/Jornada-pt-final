@@ -437,11 +437,26 @@ test("noticias contextuais usam o mesmo cabecalho competitivo da pagina publica 
   };
 
   assert.equal(competitiveStyles(newsSource), competitiveStyles(matchdaySource));
+  const matchdayStyles = competitiveStyles(matchdaySource);
+  const matchdayNavigationRule = cssRule(matchdayStyles, ".public-matchday-nav-compact");
+  const matchdayLinkRule = cssRule(matchdayStyles, ".public-matchday-nav-compact a");
+  const activeMatchdayLinkRule = cssRule(matchdayStyles, '.public-matchday-nav-compact a[aria-current="page"]');
+  const mobileStyles = matchdayStyles.slice(matchdayStyles.indexOf("@media (max-width: 620px)"));
+  const mobileMatchdayNavigationRule = cssRule(mobileStyles, ".public-matchday-nav-compact");
+
+  assert.match(matchdayNavigationRule, /gap:\s*6px 10px;/);
+  assert.match(matchdayNavigationRule, /flex-wrap:\s*wrap;/);
+  assert.match(mobileMatchdayNavigationRule, /column-gap:\s*8px;/);
+  assert.match(matchdayLinkRule, /min-width:\s*30px;/);
+  assert.match(matchdayLinkRule, /min-height:\s*30px;/);
+  assert.match(activeMatchdayLinkRule, /align-self:\s*flex-end;/);
+  assert.match(activeMatchdayLinkRule, /min-width:\s*31px;/);
+  assert.match(activeMatchdayLinkRule, /min-height:\s*29px;/);
   assert.match(
     newsSource,
     /<PublicCompetitionNavigation[\s\S]*?classificationHref=\{classificationHref\}[\s\S]*?showMessageTicker=\{false\}/
   );
-  assert.match(newsSource, /style=\{\{ background: competitionBarColor \}\}/);
+  assert.match(newsSource, /style=\{\{ "--public-season-accent": competitionBarColor \} as CSSProperties\}/);
   assert.match(newsSource, /<nav className="public-matchday-nav-compact" aria-label="Jornadas da época">/);
   assert.doesNotMatch(newsSource, /PublicMatchdayNavigation/);
   assert.match(

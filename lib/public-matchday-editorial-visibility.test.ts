@@ -201,17 +201,19 @@ test("a rota publica reutiliza o layout editorial da Home e separa Destaques de 
   assert.doesNotMatch(publicMatchdayPageSource, /readBelowHeadlineSubtitle/);
 });
 
-test("a classificação pública respeita 1200 px e a barra usa a cor da competição", () => {
+test("a classificação pública respeita 1200 px e a faixa clara reserva a cor da competição para a jornada ativa", () => {
   assert.match(
     publicMatchdayPageSource,
     /#classificacao \{[\s\S]*?width:\s*min\(100%,\s*1200px\);[\s\S]*?max-width:\s*1200px;[\s\S]*?margin-left:\s*auto;[\s\S]*?margin-right:\s*auto;/
   );
   assert.match(
     publicMatchdayPageSource,
-    /\.public-season-nav-bar \{[\s\S]*?background:\s*#262626;[\s\S]*?color:\s*#ffffff;/
+    /\.public-season-nav-bar \{[\s\S]*?background:\s*#f7f9fb;[\s\S]*?color:\s*#263244;/
   );
   assert.match(publicMatchdayPageSource, /competitionSlug === "liga-portugal"\) return "#00235a";/);
   assert.match(publicMatchdayPageSource, /competitionSlug === "premier-league"\) return "#3d195b";/);
   assert.match(publicMatchdayPageSource, /competitionSlug === "la-liga"\) return "#1d2230";/);
-  assert.match(publicMatchdayPageSource, /style=\{\{ background: competitionBarColor \}\}/);
+  assert.match(publicMatchdayPageSource, /style=\{\{ "--public-season-accent": competitionBarColor \} as CSSProperties\}/);
+  assert.match(publicMatchdayPageSource, /\.public-matchday-nav-compact a\[aria-current="page"\] \{[\s\S]*?background:\s*var\(--public-season-accent, #17283b\);[\s\S]*?color:\s*#ffffff;/);
+  assert.match(publicMatchdayPageSource, /\.public-season-select-wrap:focus-within,[\s\S]*?outline:\s*2px solid #59718a;/);
 });

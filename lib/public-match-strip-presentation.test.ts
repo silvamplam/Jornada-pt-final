@@ -25,40 +25,40 @@ import {
 const NOW = new Date("2026-07-26T20:05:30.000Z");
 
 test("geometria do carrossel deriva todas as larguras da mesma formula", () => {
-  assert.equal(CARD_WIDTH, 144);
-  assert.equal(CARD_HEIGHT, 104);
+  assert.equal(CARD_WIDTH, 148);
+  assert.equal(CARD_HEIGHT, 112);
   assert.equal(CARD_GAP, 8);
-  assert.equal(CARD_STEP, 152);
+  assert.equal(CARD_STEP, 156);
   assert.equal(CARD_INLINE_PADDING, 10);
   assert.equal(CARD_BORDER_WIDTH, 1);
-  assert.equal(CARD_TEAM_COLUMN_WIDTH, 57);
+  assert.equal(CARD_TEAM_COLUMN_WIDTH, 59);
   assert.equal(ARROW_ZONE_WIDTH, 32);
   assert.deepEqual(VISIBLE_CARD_COUNTS, [8, 6, 4, 2, 1]);
   assert.deepEqual(
     VISIBLE_CARD_COUNTS.map((count) => getMatchCarouselViewportWidth(count)),
-    [1208, 904, 600, 296, 144]
+    [1240, 928, 616, 304, 148]
   );
   assert.deepEqual(
     VISIBLE_CARD_COUNTS.map((count) => getMatchCarouselShellWidth(count)),
-    [1272, 968, 664, 360, 208]
+    [1304, 992, 680, 368, 212]
   );
 
   for (const [availableWidth, expectedCount] of [
     [1920, 8],
     [1914, 8],
     [1536, 8],
-    [1272, 8],
-    [1208, 8],
-    [1207, 6],
-    [968, 6],
-    [904, 6],
-    [903, 4],
-    [664, 4],
-    [600, 4],
-    [599, 2],
-    [360, 2],
-    [296, 2],
-    [295, 1]
+    [1304, 8],
+    [1240, 8],
+    [1239, 6],
+    [992, 6],
+    [928, 6],
+    [927, 4],
+    [680, 4],
+    [616, 4],
+    [615, 2],
+    [368, 2],
+    [304, 2],
+    [303, 1]
   ] as const) {
     assert.equal(selectMatchCarouselVisibleCardCount(availableWidth), expectedCount);
   }
@@ -326,39 +326,43 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.match(cleanStyles, /\.carouselViewport > \.row\s*\{[\s\S]*?display:\s*flex[\s\S]*?flex-wrap:\s*nowrap[\s\S]*?justify-content:\s*flex-start[\s\S]*?width:\s*max-content[\s\S]*?gap:\s*var\(--match-card-gap\)[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0/);
   assert.doesNotMatch(cleanStyles, /grid-auto-columns/);
   assert.doesNotMatch(cleanStyles, /@media \(max-width:\s*(?:1591|1211|831|451)px\)/);
-  assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?flex:\s*0 0 var\(--match-card-width\);[\s\S]*?width:\s*var\(--match-card-width\);[\s\S]*?min-width:\s*var\(--match-card-width\);[\s\S]*?max-width:\s*var\(--match-card-width\);[\s\S]*?height:\s*var\(--match-card-height\);[\s\S]*?min-height:\s*var\(--match-card-height\);[\s\S]*?max-height:\s*var\(--match-card-height\);[\s\S]*?background:\s*rgba\(0,\s*0,\s*0,\s*0\.02\)/);
-  assert.match(cleanStyles, /> \.status\s*\{[\s\S]*?grid-row:\s*1[\s\S]*?box-sizing:\s*border-box[\s\S]*?width:\s*calc\(100% - var\(--match-card-status-inline-start, 14px\)\)[\s\S]*?height:\s*13px[\s\S]*?margin-left:\s*var\(--match-card-status-inline-start, 14px\)[\s\S]*?padding:\s*0[\s\S]*?font-size:\s*11px[\s\S]*?font-weight:\s*500[\s\S]*?line-height:\s*13px/);
+  assert.match(cleanStyles, /\.row > \.card \{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?flex:\s*0 0 var\(--match-card-width\);[\s\S]*?width:\s*var\(--match-card-width\);[\s\S]*?min-width:\s*var\(--match-card-width\);[\s\S]*?max-width:\s*var\(--match-card-width\);[\s\S]*?height:\s*var\(--match-card-height\);[\s\S]*?min-height:\s*var\(--match-card-height\);[\s\S]*?max-height:\s*var\(--match-card-height\);[\s\S]*?background:\s*#ffffff/);
+  assert.match(cleanStyles, /> \.status\s*\{[\s\S]*?grid-row:\s*1[\s\S]*?box-sizing:\s*border-box[\s\S]*?width:\s*calc\(100% - var\(--match-card-status-inline-start, 14px\)\)[\s\S]*?height:\s*14px[\s\S]*?margin-left:\s*var\(--match-card-status-inline-start, 14px\)[\s\S]*?padding:\s*0[\s\S]*?font-size:\s*11px[\s\S]*?font-weight:\s*500[\s\S]*?line-height:\s*14px/);
   assert.match(componentSource, /ref=\{cardRef\}/);
   assert.match(componentSource, /ref=\{homeTeamNameRef\}/);
   assert.match(componentSource, /const syncCleanHeaderAlignment = useCallback/);
   assert.match(componentSource, /homeNameRect\.left - contentLeft/);
   assert.match(componentSource, /--match-card-status-inline-start/);
   assert.match(componentSource, /new ResizeObserver\(syncCleanHeaderAlignment\)/);
-  assert.match(componentSource, /const hasScheduledFooterTime = Boolean\([\s\S]*?visualVariant === "clean"[\s\S]*?broadcastChannelName[\s\S]*?scheduleTimeVisual/);
-  assert.match(componentSource, /const cleanHeaderContent =[\s\S]*?hasScheduledFooterTime \? scheduleDateOnlyContent : scheduleContent/);
+  assert.match(componentSource, /const hasScheduledHeaderTime = Boolean\([\s\S]*?visualVariant === "clean"[\s\S]*?kind === "scheduled"[\s\S]*?scheduleTimeVisual/);
+  assert.match(componentSource, /const cleanScheduledHeader = hasScheduledHeaderTime \? \([\s\S]*?cleanScheduleHeader[\s\S]*?scheduleDateOnlyContent[\s\S]*?cleanScheduleTime[\s\S]*?scheduleTimeVisual/);
+  assert.match(componentSource, /const cleanHeaderContent =[\s\S]*?: cleanScheduledHeader/);
   assert.match(componentSource, /const statusContent =[\s\S]*?presentation\.status\.kind === "label"[\s\S]*?: scheduleContent;/);
-  assert.match(componentSource, /hasScheduledFooterTime \? \([\s\S]*?cleanScheduledTime[\s\S]*?scheduleTimeVisual[\s\S]*?<PublicMatchMeta/);
-  assert.match(stylesSource, /\.cleanScheduledFooterWithTime\s*\{[\s\S]*?box-sizing:\s*border-box;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto;[\s\S]*?width:\s*100%/);
-  assert.match(stylesSource, /\[data-carousel-layout="fluid-peek"\][\s\S]*?\.broadcast\.cleanScheduledFooterWithTime\s*\{[\s\S]*?transform:\s*translateY\(-2px\)/);
-  assert.match(stylesSource, /\.broadcast\.cleanScheduledFooterWithTime > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?transform:\s*translate\(var\(--public-match-broadcast-shift-x, 0px\), -2px\)/);
-  assert.match(cleanStyles, /> \.broadcast\s*\{[\s\S]*?grid-row:\s*7[\s\S]*?align-self:\s*end[\s\S]*?justify-content:\s*flex-end[\s\S]*?height:\s*18px[\s\S]*?padding:\s*0 6px 0 0[\s\S]*?transform:\s*translateY\(-2px\)[\s\S]*?text-align:\s*right/);
-  assert.match(cleanStyles, /\.teamNames \{[\s\S]*?grid-row:\s*5[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)[\s\S]*?align-self:\s*stretch[\s\S]*?width:\s*100%[\s\S]*?margin:\s*0[\s\S]*?column-gap:\s*var\(--match-card-gap\)/);
-  assert.match(cleanStyles, /\.teamNames > \.teamName\s*\{[\s\S]*?justify-self:\s*center[\s\S]*?width:\s*max-content[\s\S]*?overflow:\s*visible/);
+  assert.match(componentSource, /kind === "scheduled" \? \(\s*<PublicMatchMeta[\s\S]*?channelLogoUrl=\{presentation\.showChannel[\s\S]*?variant="compact"/);
+  assert.match(stylesSource, /\.cleanScheduleHeader\s*\{[\s\S]*?display:\s*flex;[\s\S]*?justify-content:\s*space-between;[\s\S]*?height:\s*14px/);
+  assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.cleanScheduleHeader\s*\{[^}]*translate:\s*0 1px;/);
+  assert.match(stylesSource, /\.cleanScheduleTime\s*\{[\s\S]*?margin-left:\s*auto;[\s\S]*?background:\s*#17283b;[\s\S]*?color:\s*#ffffff;[\s\S]*?text-align:\s*right/);
+  assert.match(cleanStyles, /> \.broadcast\s*\{[\s\S]*?grid-row:\s*7[\s\S]*?align-self:\s*end[\s\S]*?justify-content:\s*flex-end[\s\S]*?width:\s*100%[\s\S]*?height:\s*19px[\s\S]*?padding:\s*0[\s\S]*?transform:\s*translateY\(-1px\)[\s\S]*?text-align:\s*right/);
+  assert.match(cleanStyles, /\.teamNames \{\s*display:\s*contents/);
+  assert.match(cleanStyles, /\.teamNames > \.teamName\s*\{[\s\S]*?grid-column:\s*2[\s\S]*?justify-self:\s*start[\s\S]*?width:\s*100%[\s\S]*?overflow:\s*hidden[\s\S]*?text-align:\s*left/);
+  assert.match(cleanStyles, /\.teamNames > \.teamName:first-child\s*\{[\s\S]*?grid-row:\s*3/);
+  assert.match(cleanStyles, /\.teamNames > \.teamName:nth-child\(2\)\s*\{[\s\S]*?grid-row:\s*5/);
   const trackRule = cleanStyles.match(/\.carouselViewport > \.row\s*\{([^}]*)\}/)?.[1] ?? "";
   const cleanCardRule = cleanStyles.match(/\.panel\[data-visual-variant="clean"\] \.row > \.card\s*\{([^}]*)\}/)?.[1] ?? "";
-  for (const rule of [trackRule, cleanCardRule]) {
-    assert.doesNotMatch(rule, /flex-grow|flex:\s*1|\b1fr\b|space-between|space-around|%/);
-  }
+  assert.doesNotMatch(trackRule, /flex-grow|flex:\s*1|\b1fr\b|space-between|space-around|%/);
+  assert.doesNotMatch(cleanCardRule, /flex-grow|flex:\s*1|space-between|space-around|%/);
+  assert.match(cleanCardRule, /grid-template-columns:\s*24px minmax\(0, 1fr\)/);
+  assert.match(cleanCardRule, /grid-template-rows:\s*14px 8px 24px 2px 24px 1fr 19px/);
   assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.center \{\s*display:\s*none/);
   assert.match(componentSource, /const schedule = miniCardSchedule\(match\);/);
   assert.doesNotMatch(componentSource, /miniCardSchedule\(match,\s*visualVariant === "clean"\)/);
   assert.match(
     componentSource,
-    /const hasScheduledFooterTime = Boolean\(\s*visualVariant === "clean"\s*&& kind === "scheduled"\s*&& scheduleTimeVisual\s*\);/
+    /const hasScheduledHeaderTime = Boolean\(\s*visualVariant === "clean"\s*&& kind === "scheduled"\s*&& scheduleTimeVisual\s*\);/
   );
   assert.match(
     componentSource,
-    /hasScheduledFooterTime \? \([\s\S]*?className=\{styles\.cleanScheduledTime\}[\s\S]*?\{scheduleTimeVisual\}[\s\S]*?presentation\.showChannel && broadcastChannelName \? \(/
+    /const cleanScheduledHeader = hasScheduledHeaderTime \? \([\s\S]*?className=\{styles\.cleanScheduleTime\}[\s\S]*?\{scheduleTimeVisual\}/
   );
   const compactCardSource = componentSource.split("function CompactMatchCard")[1]?.split("export default function PublicMatchStrip")[0] ?? "";
   assert.doesNotMatch(compactCardSource, /Liga Portugal|La Liga|Premier League|competitionSlug/);
@@ -389,26 +393,43 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
   assert.doesNotMatch(componentSource, /const cleanKickoffLabel|cleanHeaderLead = kind === "finished" \? schedule\.visual/);
   assert.match(componentSource, /kind === "finished" \? \(\s*<span className="public-matchday-mini-time" aria-label="Finalizado">FINAL<\/span>/);
   assert.match(componentSource, /className=\{`\$\{styles\.cleanStateBadge\} \$\{cleanStateLabelClass\}`\}/);
-  assert.match(componentSource, /className=\{`\$\{styles\.cleanScore\} \$\{[\s\S]*?styles\.cleanScoreFinished[\s\S]*?styles\.cleanScoreActive/);
+  assert.match(componentSource, /const cleanTeamScores = visualVariant === "clean"\s*\? presentation\.finishedScore \?\? \(activeScore\s*\? \{ left: String\(match\.home_score\), right: String\(match\.away_score\) \}\s*: kind === "scheduled" && presentation\.center\.kind === "placeholder"\s*\? \{ left: "0", right: "0" \}\s*: null\)\s*: null/);
+  assert.match(componentSource, /data-has-team-scores=\{cleanTeamScores \? "true" : undefined\}/);
+  assert.match(componentSource, /\{cleanTeamScores \? \(\s*<>\s*<strong/);
+  assert.doesNotMatch(componentSource, /cleanScoreContent|cleanFinishedScore|cleanActiveFooterWithoutBroadcast/);
+  assert.doesNotMatch(componentSource, /cleanFinalScoreBox/);
+  assert.match(componentSource, /data-public-match-team-score="home"[\s\S]*?\{cleanTeamScores\.left\}/);
+  assert.match(componentSource, /data-public-match-team-score="away"[\s\S]*?\{cleanTeamScores\.right\}/);
+  assert.match(componentSource, /visualVariant === "clean" && kind !== "finished" \? \(\s*<span className=\{cleanFooterClassName\}/);
   assert.match(componentSource, /\(kind === "live" \|\| kind === "halftime"\)\s*&&\s*presentation\.showChannel[\s\S]*?<PublicMatchMeta/);
   assert.match(stylesSource, /\.cleanStateBadgeLive\s*\{[\s\S]*?background:\s*#16a34a;[\s\S]*?animation:\s*public-match-now-fade 2\.6s/);
   assert.match(stylesSource, /\.cleanStateBadgeHalftime\s*\{[\s\S]*?background:\s*#15803d;[\s\S]*?color:\s*#ffffff/);
   assert.match(stylesSource, /\.cleanStateBadgeFinished\s*\{[\s\S]*?background:\s*#111820;[\s\S]*?color:\s*#ffffff/);
   assert.match(stylesSource, /\.cleanStatusLine\s*\{[\s\S]*?justify-content:\s*flex-start;[\s\S]*?gap:\s*5px/);
   assert.match(stylesSource, /@keyframes public-match-now-fade[\s\S]*?opacity:\s*0\.52/);
-  assert.match(stylesSource, /\.cleanActiveFooter\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\);[\s\S]*?column-gap:\s*var\(--match-card-gap\)/);
-  assert.match(stylesSource, /\.broadcast\.cleanActiveFooter > \.cleanScore\s*\{[\s\S]*?grid-column:\s*1;[\s\S]*?justify-self:\s*center/);
-  assert.match(stylesSource, /\.broadcast\.cleanActiveFooter:not\(\.cleanActiveFooterWithoutBroadcast\) > \.cleanScore\s*\{[\s\S]*?transform:\s*translateY\(2px\)/);
-  assert.match(stylesSource, /\.broadcast\.cleanActiveFooter > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-column:\s*2;[\s\S]*?justify-self:\s*center/);
-  assert.match(stylesSource, /\.broadcast\.cleanActiveFooterWithoutBroadcast > \.cleanScore\s*\{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?justify-self:\s*center/);
+  assert.match(stylesSource, /\.cleanActiveFooter\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto;[\s\S]*?column-gap:\s*8px/);
+  assert.match(stylesSource, /\.broadcast\.cleanActiveFooter > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?grid-column:\s*2;[\s\S]*?justify-self:\s*end/);
   assert.match(stylesSource, /\[data-carousel-layout="fluid-peek"\][\s\S]*?\.broadcast\.cleanActiveFooter\s*\{[\s\S]*?position:\s*static;[\s\S]*?width:\s*100%/);
-  assert.match(stylesSource, /\.cleanFinishedFooter\s*\{[\s\S]*?display:\s*flex;[\s\S]*?justify-content:\s*center/);
+  assert.match(stylesSource, /\.card\[data-has-team-scores="true"\]\s*\{[\s\S]*?grid-template-columns:\s*24px minmax\(0, 1fr\) max-content/);
+  assert.match(stylesSource, /\.card:global\(\.public-matchday-mini-card-finished\)\s*\{[^}]*grid-template-rows:\s*14px 8px minmax\(0, 1fr\) 4px minmax\(0, 1fr\) 10px/);
+  assert.match(stylesSource, /\.card:global\(\.public-matchday-mini-card-finished\) > \.team\s*\{[^}]*align-self:\s*center/);
+  assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.row > \.card:global\(\.public-matchday-mini-card-finished\) > \.status > :global\(\.public-matchday-mini-time\)\s*\{[^}]*display:\s*inline-flex;[^}]*width:\s*max-content;[^}]*height:\s*18px;[^}]*padding:\s*0 5px;[^}]*border-radius:\s*3px;[^}]*background:\s*#111111;[^}]*color:\s*#ffffff;[^}]*font-weight:\s*700;[^}]*transform:\s*translateY\(-2px\)/);
+  assert.match(stylesSource, /\.card:global\(\.public-matchday-mini-card-scheduled\)\s*\{[^}]*grid-template-rows:\s*14px 5px 24px 6px 24px 1fr 17px/);
+  assert.doesNotMatch(stylesSource, /\.cleanFinalScoreBox\b/);
+  assert.match(stylesSource, /\.cleanTeamScore\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*3;[^}]*align-self:\s*center;[^}]*justify-self:\s*end/);
+  assert.match(stylesSource, /\.cleanTeamScore\s*\{[^}]*width:\s*24px;[^}]*height:\s*24px;[^}]*border:\s*1px solid #d9e0e8;[^}]*border-radius:\s*2px;[^}]*background:\s*#f1f4f8/);
+  assert.match(stylesSource, /\.cleanTeamScore\[data-public-match-team-score="away"\]\s*\{\s*grid-row:\s*5/);
   assert.match(componentSource, /const hasCleanBroadcast = Boolean\(/);
-  assert.match(componentSource, /<span className=\{cleanFooterClassName\}[\s\S]*?\{cleanScoreContent\}[\s\S]*?\{hasCleanBroadcast \? \(/);
-  assert.doesNotMatch(stylesSource, /\.cleanScore\s*\{[^}]*grid-row:\s*3/);
-  assert.match(stylesSource, /\.cleanScoreActive\s*\{[\s\S]*?font-size:\s*13px;[\s\S]*?font-weight:\s*700;[\s\S]*?letter-spacing:\s*0\.03em/);
+  assert.match(componentSource, /<span className=\{cleanFooterClassName\}[\s\S]*?\{hasCleanBroadcast \? \(\s*<PublicMatchMeta/);
+  assert.doesNotMatch(stylesSource, /\.cleanScore\b|\.cleanScoreActive\b|\.cleanActiveFooterWithoutBroadcast\b/);
+  assert.match(stylesSource, /\.cleanStateBadgeLive\s*\{[^}]*margin-inline-start:\s*auto;[^}]*margin-inline-end:\s*13px/);
+  assert.match(stylesSource, /\.card:global\(\.public-matchday-mini-card-live\),\s*\.panel\[data-visual-variant="clean"\] \.row > \.card:global\(\.public-matchday-mini-card-halftime\)\s*\{\s*padding-inline-end:\s*6px;/);
+  assert.match(stylesSource, /\.panel\[data-visual-variant="clean"\] \.row > \.card:global\(\.public-matchday-mini-card-live\),\s*\.panel\[data-visual-variant="clean"\] \.row > \.card:global\(\.public-matchday-mini-card-halftime\)\s*\{\s*grid-template-rows:\s*14px 7px 24px 2px 24px 1fr 19px;/);
+  assert.match(stylesSource, /\.card:global\(\.public-matchday-mini-card-live\) > \.broadcast,\s*\.panel\[data-visual-variant="clean"\] \.row > \.card:global\(\.public-matchday-mini-card-halftime\) > \.broadcast\s*\{\s*padding-inline-end:\s*6px;/);
+  assert.match(stylesSource, /\.card:global\(\.public-matchday-mini-card-scheduled\),[^{}]*\.public-matchday-mini-card-halftime\)\s*\{\s*padding-inline-end:\s*6px;/);
+  assert.match(stylesSource, /\.card:global\(\.public-matchday-mini-card-scheduled\) > \.status,[^{}]*\.card:global\(\.public-matchday-mini-card-scheduled\) > \.broadcast,[^{}]*\{\s*padding-inline-end:\s*6px;/);
   assert.match(stylesSource, /\.cleanStatusLead\s*\{[\s\S]*?color:\s*#15803d/);
-  assert.match(stylesSource, /\.cleanScoreFinished\s*\{[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*700;[\s\S]*?letter-spacing:\s*0\.03em/);
+  assert.match(stylesSource, /\.cleanTeamScore\s*\{[\s\S]*?font-size:\s*15px;[\s\S]*?font-weight:\s*700;[\s\S]*?letter-spacing:\s*0\.03em/);
   assert.doesNotMatch(componentSource, /homeCompactName.*home_score|awayCompactName.*away_score/);
   assert.doesNotMatch(componentSource, /Versus|>\s*VS\s*</);
   assert.doesNotMatch(stylesSource, /\.versus\b/);

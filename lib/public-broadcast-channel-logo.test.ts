@@ -475,17 +475,19 @@ test("PublicMatchStrip usa carrossel limpo e mantém o layout partilhado nos res
   assert.match(styleSource, /\.carousel\[data-can-move-back="true"\]::before\s*\{[\s\S]*?left:\s*max\(0px, calc\(\(100% - var\(--match-carousel-viewport-width\)\) \/ 2\)\)[\s\S]*?width:\s*72px[\s\S]*?linear-gradient[\s\S]*?rgba\(255, 255, 255, 0\.88\)/);
   assert.match(styleSource, /\.carouselButtonBack\s*\{[\s\S]*?left:\s*0/);
   assert.match(styleSource, /\.carouselButtonForward\s*\{[\s\S]*?right:\s*0/);
-  assert.match(styleSource, /\.panel\[data-visual-variant="clean"\] \.row > \.card \{[\s\S]*?box-sizing:\s*border-box[\s\S]*?flex:\s*0 0 var\(--match-card-width\)[\s\S]*?grid-template-rows:\s*13px 10px 28px 8px 14px 13px 18px[\s\S]*?width:\s*var\(--match-card-width\)[\s\S]*?min-width:\s*var\(--match-card-width\)[\s\S]*?max-width:\s*var\(--match-card-width\)[\s\S]*?height:\s*var\(--match-card-height\)[\s\S]*?max-height:\s*var\(--match-card-height\)[\s\S]*?padding:\s*12px var\(--match-card-inline-padding\)[\s\S]*?background:\s*rgba\(0, 0, 0, 0\.02\)/);
-  assert.match(styleSource, /> \.status\s*\{[\s\S]*?grid-row:\s*1[\s\S]*?width:\s*100%[\s\S]*?height:\s*13px[\s\S]*?font-size:\s*11px[\s\S]*?font-weight:\s*500[\s\S]*?line-height:\s*13px/);
-  assert.match(styleSource, /> \.broadcast\s*\{[\s\S]*?grid-row:\s*7[\s\S]*?align-self:\s*end[\s\S]*?justify-content:\s*flex-end[\s\S]*?width:\s*calc\(100% \+ var\(--match-card-inline-padding\)\)[\s\S]*?margin:\s*0 calc\(-1 \* var\(--match-card-inline-padding\)\) 0 0[\s\S]*?padding:\s*0 6px 0 0[\s\S]*?transform:\s*translateY\(-2px\)[\s\S]*?text-align:\s*right/);
+  assert.match(styleSource, /\.panel\[data-visual-variant="clean"\] \.row > \.card \{[\s\S]*?box-sizing:\s*border-box[\s\S]*?flex:\s*0 0 var\(--match-card-width\)[\s\S]*?grid-template-rows:\s*14px 8px 24px 2px 24px 1fr 19px[\s\S]*?width:\s*var\(--match-card-width\)[\s\S]*?min-width:\s*var\(--match-card-width\)[\s\S]*?max-width:\s*var\(--match-card-width\)[\s\S]*?height:\s*var\(--match-card-height\)[\s\S]*?max-height:\s*var\(--match-card-height\)[\s\S]*?padding:\s*9px 12px[\s\S]*?background:\s*#ffffff/);
+  assert.match(styleSource, /> \.status\s*\{[\s\S]*?grid-row:\s*1[\s\S]*?height:\s*14px[\s\S]*?font-size:\s*11px[\s\S]*?font-weight:\s*500[\s\S]*?line-height:\s*14px/);
+  assert.match(styleSource, /> \.broadcast\s*\{[\s\S]*?grid-row:\s*7[\s\S]*?align-self:\s*end[\s\S]*?justify-content:\s*flex-end[\s\S]*?width:\s*100%[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0[\s\S]*?transform:\s*translateY\(-1px\)[\s\S]*?text-align:\s*right/);
   assert.match(styleSource, /> \.broadcast > :global\(\[data-public-match-meta\]\)\s*\{[\s\S]*?justify-content:\s*flex-end[\s\S]*?height:\s*18px[\s\S]*?padding:\s*0[\s\S]*?border:\s*0[\s\S]*?text-align:\s*right/);
   assert.match(styleSource, /> \.broadcast > :global\(\[data-public-match-meta\]\) > :not\(:first-child\) > span\s*\{[\s\S]*?justify-content:\s*flex-end[\s\S]*?transform-origin:\s*right bottom/);
-  assert.match(styleSource, /\.teamNames\s*\{[\s\S]*?grid-row:\s*5[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\)[\s\S]*?align-self:\s*stretch[\s\S]*?width:\s*100%[\s\S]*?margin:\s*0[\s\S]*?column-gap:\s*var\(--match-card-gap\)[\s\S]*?height:\s*14px/);
-  assert.match(styleSource, /\.teamNames > \.teamName\s*\{[\s\S]*?justify-self:\s*center[\s\S]*?width:\s*max-content[\s\S]*?max-width:\s*none[\s\S]*?overflow:\s*visible[\s\S]*?font-size:\s*12px[\s\S]*?font-weight:\s*600[\s\S]*?line-height:\s*14px[\s\S]*?white-space:\s*nowrap/);
+  assert.match(styleSource, /\.panel\[data-visual-variant="clean"\] \.teamNames\s*\{\s*display:\s*contents/);
+  assert.match(styleSource, /\.panel\[data-visual-variant="clean"\] \.teamNames > \.teamName\s*\{[\s\S]*?grid-column:\s*2[\s\S]*?justify-self:\s*start[\s\S]*?width:\s*100%[\s\S]*?font-size:\s*12px[\s\S]*?font-weight:\s*600[\s\S]*?line-height:\s*14px[\s\S]*?text-align:\s*left[\s\S]*?white-space:\s*nowrap/);
+  assert.match(styleSource, /\.teamNames > \.teamName:first-child\s*\{\s*grid-row:\s*3/);
+  assert.match(styleSource, /\.teamNames > \.teamName:nth-child\(2\)\s*\{\s*grid-row:\s*5/);
   assert.doesNotMatch(styleSource, /> :not\(:first-child\) :is\(img, picture, svg\)\s*\{[\s\S]*?height:\s*12px/);
 });
 
-test("fluid-peek preserva sete jogos claros, esbate o oitavo e alinha o canal pela equipa da direita", async () => {
+test("fluid-peek preserva a navegação e fixa o canal no canto inferior direito do card", async () => {
   const [homeSource, matchdaySource, newsSource, stripSource, carouselSource, styleSource] =
     await Promise.all([
       readFile(homePageUrl, "utf8"),
@@ -505,7 +507,7 @@ test("fluid-peek preserva sete jogos claros, esbate o oitavo e alinha o canal pe
   assert.match(carouselSource, /const PEEK_TOTAL_CARD_COUNT = 8;/);
   assert.match(carouselSource, /const PEEK_CLEAR_CARD_COUNT = 7;/);
   assert.match(carouselSource, /const PEEK_EDGE_FADE_WIDTH = CARD_WIDTH \/ 2;/);
-  assert.match(carouselSource, /const PEEK_CARD_HEIGHT = 98;/);
+  assert.match(carouselSource, /const PEEK_CARD_HEIGHT = CARD_HEIGHT;/);
   assert.match(carouselSource, /\(PEEK_TOTAL_CARD_COUNT \* CARD_WIDTH\)[\s\S]*?\(\(PEEK_TOTAL_CARD_COUNT - 1\) \* CARD_GAP\)/);
   assert.match(carouselSource, /const PEEK_VIEWPORT_WIDTH = PEEK_CONTENT_WIDTH;/);
 
@@ -515,13 +517,8 @@ test("fluid-peek preserva sete jogos claros, esbate o oitavo e alinha o canal pe
     /useLayoutEffect\(\(\) => \{\s*if \(layout === "fluid-peek"\) return;[\s\S]*?new ResizeObserver\(updateVisibleCardCount\)/
   );
   assert.match(carouselSource, /querySelectorAll<HTMLElement>\("\[data-public-match-card\]"\)/);
-  assert.match(carouselSource, /querySelector<HTMLElement>\("\[data-public-match-away-name\]"\)/);
-  assert.match(carouselSource, /querySelector<Element>\("\[data-public-broadcast-logo-visual\]"\)/);
-  assert.match(carouselSource, /setProperty\("--public-match-broadcast-shift-x", "0px"\)/);
-  assert.match(carouselSource, /Number\(\(awayNameRect\.right - logoVisualRect\.right\)\.toFixed\(2\)\)/);
-  assert.match(carouselSource, /setProperty\("--public-match-broadcast-shift-x", `\$\{shiftX\}px`\)/);
-  assert.match(carouselSource, /querySelectorAll<Element>\("\[data-public-broadcast-logo-visual\]"\)/);
-  assert.match(carouselSource, /observer\?\.observe\(logo\)/);
+  assert.doesNotMatch(carouselSource, /public-match-broadcast-shift-x|awayNameRect|logoVisualRect/);
+  assert.doesNotMatch(styleSource, /public-match-broadcast-shift-x/);
   assert.match(carouselSource, /const completeCardCount = cardRects\.filter/);
   assert.doesNotMatch(carouselSource, /forwardPartialCard|fallbackPartialWidth|nextCardVisibleFraction/);
   assert.match(carouselSource, /data-complete-card-count=/);
@@ -578,19 +575,17 @@ test("fluid-peek preserva sete jogos claros, esbate o oitavo e alinha o canal pe
   const fluidCardRule = styleSource.match(
     /\.panel\[data-visual-variant="clean"\]\[data-carousel-layout="fluid-peek"\] \.row > \.card\s*\{([^}]*)\}/
   )?.[1] ?? "";
-  assert.match(fluidCardRule, /background:\s*rgba\(0, 0, 0, 0\.02\)/);
-  assert.match(fluidCardRule, /grid-template-rows:\s*13px 5px 28px 4px 14px 5px 18px/);
+  assert.match(fluidCardRule, /background:\s*#ffffff/);
+  assert.doesNotMatch(fluidCardRule, /grid-template-rows|gradient|clip-path/);
   assert.match(fluidCardRule, /height:\s*var\(--match-carousel-peek-card-height\)/);
   assert.match(
     styleSource,
-    /data-carousel-layout="fluid-peek"\] \.row > \.card > \.broadcast\s*\{[\s\S]*?position:\s*absolute[\s\S]*?right:\s*0[\s\S]*?bottom:\s*4px[\s\S]*?width:\s*max-content[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0[\s\S]*?transform:\s*translate\(var\(--public-match-broadcast-shift-x, 0px\), -2px\)/
+    /data-carousel-layout="fluid-peek"\] \.row > \.card > \.broadcast\s*\{[\s\S]*?position:\s*static[\s\S]*?right:\s*auto[\s\S]*?bottom:\s*auto[\s\S]*?width:\s*100%[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0[\s\S]*?transform:\s*translateY\(-1px\)/
   );
-  assert.match(fluidCardRule, /padding:\s*6px var\(--match-card-inline-padding\) 3px/);
+  assert.match(fluidCardRule, /padding:\s*9px 12px/);
   assert.match(fluidCardRule, /animation:\s*public-match-card-emerge 320ms/);
-  assert.match(fluidCardRule, /border-top-left-radius:\s*0/);
-  assert.match(fluidCardRule, /border-top-right-radius:\s*0/);
-  assert.match(fluidCardRule, /border-bottom-right-radius:\s*10px/);
-  assert.match(fluidCardRule, /border-bottom-left-radius:\s*10px/);
+  assert.match(fluidCardRule, /border-radius:\s*9px/);
+  assert.doesNotMatch(fluidCardRule, /border-(?:top|bottom)-(?:left|right)-radius/);
   assert.doesNotMatch(fluidCardRule, /\bopacity\s*:/);
   assert.doesNotMatch(styleSource, /match-carousel-peek-inline-gutter|match-carousel-forward-fade|match-carousel-back-fade/);
   assert.match(styleSource, /\.carouselButton\s*\{[\s\S]*?position:\s*absolute[\s\S]*?top:\s*50%[\s\S]*?width:\s*var\(--match-carousel-arrow-zone-width\)[\s\S]*?background:\s*transparent/);
@@ -617,7 +612,7 @@ test("fluid-peek preserva sete jogos claros, esbate o oitavo e alinha o canal pe
   assert.match(styleSource, /rgba\(255, 255, 255, 0\.96\)/);
   assert.match(
     matchdaySource,
-    /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#262626[\s\S]*?box-shadow:\s*0 8px 18px rgba\(68, 21, 47, 0\.16\)[\s\S]*?\}\s*\.public-season-nav-inner\s*\{[\s\S]*?box-sizing:\s*border-box[\s\S]*?align-items:\s*center[\s\S]*?height:\s*74px[\s\S]*?min-height:\s*74px[\s\S]*?padding:\s*8px 0/
+    /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#f7f9fb[\s\S]*?box-shadow:\s*none[\s\S]*?\}\s*\.public-season-nav-inner\s*\{[\s\S]*?box-sizing:\s*border-box[\s\S]*?align-items:\s*center[\s\S]*?height:\s*auto[\s\S]*?min-height:\s*54px[\s\S]*?padding:\s*10px 0/
   );
 });
 

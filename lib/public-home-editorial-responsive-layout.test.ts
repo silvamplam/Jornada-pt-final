@@ -191,7 +191,7 @@ test("o titulo da zona editorial final preserva a capitalizacao definida no back
   );
 });
 
-test("a barra usa cinzento 85% e os cartões dos jogos usam cinzento 2%", () => {
+test("a barra mantém cinzento 85% e os cartões dos jogos são brancos", () => {
   const styles = readFileSync("components/public/publicEditorialStyles.ts", "utf8");
   const matchStripStyles = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
 
@@ -201,7 +201,7 @@ test("a barra usa cinzento 85% e os cartões dos jogos usam cinzento 2%", () => 
   );
   assert.match(
     matchStripStyles,
-    /\.panel\[data-visual-variant="clean"\]\[data-carousel-layout="fluid-peek"\] \.row > \.card \{[\s\S]*?border-color:\s*rgba\(68, 21, 47, 0\.24\);[\s\S]*?background:\s*rgba\(0, 0, 0, 0\.02\);[\s\S]*?box-shadow:\s*none;/
+    /\.panel\[data-visual-variant="clean"\]\[data-carousel-layout="fluid-peek"\] \.row > \.card \{[\s\S]*?border-color:\s*#cfd6de;[\s\S]*?background:\s*#ffffff;[\s\S]*?box-shadow:\s*0 1px 0 #a8bac9 !important;/
   );
 });
 

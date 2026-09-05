@@ -3,6 +3,42 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { getPublicMatchStripTheme } from "./public-match-strip-theme";
 
+test("a barra neutra conserva o fundo branco com rebordo exterior solido apenas inferior", () => {
+  const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
+  const selectors = [
+    '.panel[data-visual-variant="clean"] .row > .card',
+    '.panel[data-visual-variant="clean"] .row > .card[data-live-focus="true"]',
+    '.panel[data-visual-variant="clean"][data-carousel-layout="fluid-peek"] .row > .card'
+  ];
+
+  for (const selector of selectors) {
+    const start = css.indexOf(selector + " {");
+    assert.ok(start >= 0, selector);
+    const rule = css.slice(start).split("{")[1]?.split("}")[0] ?? "";
+    assert.match(rule, /box-shadow:\s*0 1px 0 #a8bac9 !important;/);
+    assert.doesNotMatch(rule, /inset|gradient\(/);
+    if (selector.includes("data-live-focus")) {
+      assert.doesNotMatch(rule, /background(?:-color)?:/);
+    } else {
+      assert.match(rule, /background:\s*#ffffff;/);
+      assert.match(rule, /border-radius:\s*9px;/);
+    }
+  }
+
+  const viewportRule = css.match(/\.carouselViewport\s*\{([^}]*)\}/)?.[1] ?? "";
+  assert.match(viewportRule, /padding-block:\s*3px 5px;/);
+});
+
+test("a hora e o canal recuam juntos apenas na variante clean sem substituir os transforms", () => {
+  const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
+  const rule = css.match(
+    /\.panel\[data-visual-variant="clean"\] \.cleanScheduleTime,\s*\.panel\[data-visual-variant="clean"\] \.row > \.card > \.broadcast > :global\(\[data-public-match-meta\]\)\s*\{([^}]*)\}/
+  )?.[1] ?? "";
+
+  assert.match(rule, /translate:\s*-7px 0;/);
+  assert.doesNotMatch(rule, /transform:|margin|padding|width|height/);
+});
+
 test("ativa as identidades próprias apenas nas competições suportadas", () => {
   assert.equal(getPublicMatchStripTheme("liga-portugal"), "liga-portugal");
   assert.equal(getPublicMatchStripTheme(" LIGA-PORTUGAL "), "liga-portugal");
@@ -122,39 +158,39 @@ test("os minutos ao vivo ficam centrados na mesma linha da caixa AGORA", () => {
   );
 });
 
-test("o rodape ao vivo alinha resultado e TV pelas colunas dos emblemas e centra o resultado sem TV", () => {
+test("os resultados ao vivo alinham com as equipas e o rodape conserva apenas TV", () => {
   const component = readFileSync("components/public/PublicMatchStrip.tsx", "utf8");
   const css = readFileSync("components/public/PublicMatchStrip.module.css", "utf8");
 
   assert.match(component, /const hasCleanBroadcast = Boolean\(/);
-  assert.match(component, /hasCleanBroadcast \? "" : styles\.cleanActiveFooterWithoutBroadcast/);
-  assert.match(component, /<span className=\{cleanFooterClassName\}[\s\S]*?\{cleanScoreContent\}[\s\S]*?\{hasCleanBroadcast \? \(/);
+  assert.match(component, /const cleanTeamScores = visualVariant === "clean"[\s\S]*?presentation\.finishedScore \?\? \(activeScore/);
+  assert.match(component, /kind === "scheduled" && presentation\.center\.kind === "placeholder"\s*\? \{ left: "0", right: "0" \}/);
+  assert.match(component, /<span className=\{cleanFooterClassName\}[\s\S]*?\{hasCleanBroadcast \? \(\s*<PublicMatchMeta/);
+  assert.doesNotMatch(component, /cleanScoreContent|cleanActiveFooterWithoutBroadcast/);
   assert.match(
     css,
-    /\.panel\[data-visual-variant="clean"\] \.row > \.card > \.broadcast\.cleanActiveFooter \{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(2, var\(--match-card-team-column-width\)\);[\s\S]*?column-gap:\s*var\(--match-card-gap\);/
+    /\.panel\[data-visual-variant="clean"\] \.row > \.card > \.broadcast\.cleanActiveFooter \{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\) auto;[\s\S]*?column-gap:\s*8px;/
   );
   assert.match(
     css,
-    /\.broadcast\.cleanActiveFooter > \.cleanScore \{[\s\S]*?grid-column:\s*1;[\s\S]*?justify-self:\s*center;/
+    /\.broadcast\.cleanActiveFooter > :global\(\[data-public-match-meta\]\) \{[\s\S]*?grid-column:\s*2;[\s\S]*?justify-self:\s*end;/
   );
-  assert.match(
-    css,
-    /\.broadcast\.cleanActiveFooter:not\(\.cleanActiveFooterWithoutBroadcast\) > \.cleanScore \{[\s\S]*?transform:\s*translateY\(2px\);/
-  );
-  assert.match(
-    css,
-    /\.broadcast\.cleanActiveFooter > :global\(\[data-public-match-meta\]\) \{[\s\S]*?grid-column:\s*2;[\s\S]*?justify-self:\s*center;/
-  );
-  assert.match(
-    css,
-    /\.broadcast\.cleanActiveFooterWithoutBroadcast > \.cleanScore \{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?justify-self:\s*center;/
-  );
+  assert.doesNotMatch(css, /\.cleanScore\b|\.cleanScoreActive\b|\.cleanActiveFooterWithoutBroadcast\b/);
+  assert.match(css, /\.cleanStateBadgeLive\s*\{[^}]*margin-inline-start:\s*auto;[^}]*margin-inline-end:\s*13px/);
   assert.match(
     css,
     /\[data-carousel-layout="fluid-peek"\][\s\S]*?\.broadcast\.cleanActiveFooter \{[\s\S]*?position:\s*static;[\s\S]*?width:\s*100%;/
   );
   assert.match(
     css,
-    /\.panel\[data-visual-variant="clean"\] \.cleanFinishedFooter \{[\s\S]*?display:\s*flex;[\s\S]*?justify-content:\s*center;/
+    /\.panel\[data-visual-variant="clean"\] \.cleanTeamScore \{[^}]*grid-column:\s*3;[^}]*grid-row:\s*3;[^}]*align-self:\s*center;[^}]*justify-self:\s*end;/
+  );
+  assert.match(
+    css,
+    /\.panel\[data-visual-variant="clean"\] \.cleanTeamScore \{[^}]*width:\s*24px;[^}]*height:\s*24px;[^}]*background:\s*#f1f4f8;/
+  );
+  assert.match(
+    css,
+    /\.panel\[data-visual-variant="clean"\] \.row > \.card:global\(\.public-matchday-mini-card-finished\) > \.status > :global\(\.public-matchday-mini-time\)\s*\{[^}]*background:\s*#111111;[^}]*color:\s*#ffffff;/
   );
 });

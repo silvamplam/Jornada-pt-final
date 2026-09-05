@@ -1,5 +1,6 @@
-export const CARD_WIDTH = 144;
-export const CARD_HEIGHT = 104;
+// Eight cards plus seven 8px gaps extend 20px past each editorial edge.
+export const CARD_WIDTH = 148;
+export const CARD_HEIGHT = 112;
 export const CARD_GAP = 8;
 export const CARD_STEP = CARD_WIDTH + CARD_GAP;
 export const CARD_INLINE_PADDING = 10;

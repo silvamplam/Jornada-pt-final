@@ -303,7 +303,7 @@ function CompactMatchCard({
     : null;
   const scheduleDateVisual = scheduledDateTimeMatch?.[1] ?? null;
   const scheduleTimeVisual = scheduledDateTimeMatch?.[2] ?? null;
-  const hasScheduledFooterTime = Boolean(
+  const hasScheduledHeaderTime = Boolean(
     visualVariant === "clean"
       && kind === "scheduled"
       && scheduleTimeVisual
@@ -376,6 +376,14 @@ function CompactMatchCard({
       ? Math.max(0, Math.floor(halftimeMinuteValue))
       : null;
   const cleanHeaderLead = cleanMinute !== null ? `${cleanMinute}'` : null;
+  const cleanScheduledHeader = hasScheduledHeaderTime ? (
+    <span className={styles.cleanScheduleHeader}>
+      {scheduleDateOnlyContent}
+      <span className={styles.cleanScheduleTime} aria-hidden="true">
+        {scheduleTimeVisual}
+      </span>
+    </span>
+  ) : scheduleContent;
   const cleanHeaderContent = kind === "finished" ? (
     <span className="public-matchday-mini-time" aria-label="Finalizado">FINAL</span>
   ) : cleanStateLabel ? (
@@ -401,32 +409,24 @@ function CompactMatchCard({
         {cleanStateLabel}
       </span>
     </span>
-  ) : hasScheduledFooterTime ? scheduleDateOnlyContent : scheduleContent;
-  const cleanScoreText = activeScore ?? finishedScoreText;
-  const cleanScoreContent = cleanScoreText ? (
-    <strong
-      aria-label={`Resultado ${match.home_score} a ${match.away_score}`}
-      className={`${styles.cleanScore} ${
-        kind === "finished" ? styles.cleanScoreFinished : styles.cleanScoreActive
-      }`}
-    >
-      {cleanScoreText}
-    </strong>
-  ) : null;
+  ) : cleanScheduledHeader;
+  const cleanTeamScores = visualVariant === "clean"
+    ? presentation.finishedScore ?? (activeScore
+      ? { left: String(match.home_score), right: String(match.away_score) }
+      : kind === "scheduled" && presentation.center.kind === "placeholder"
+        ? { left: "0", right: "0" }
+        : null)
+    : null;
   const hasCleanBroadcast = Boolean(
     (kind === "live" || kind === "halftime")
       && presentation.showChannel
       && broadcastChannelName
   );
-  const cleanFooterClassName = kind === "finished"
-    ? `${styles.broadcast} ${styles.cleanFinishedFooter}`
-    : kind === "live" || kind === "halftime"
-      ? `${styles.broadcast} ${styles.cleanActiveFooter} ${
-          hasCleanBroadcast ? "" : styles.cleanActiveFooterWithoutBroadcast
-        }`
-      : kind === "postponed" || hasScheduledFooterTime
-        ? `${styles.broadcast} ${styles.cleanScheduledFooterWithTime}`
-        : styles.broadcast;
+  const cleanFooterClassName = kind === "live" || kind === "halftime"
+    ? `${styles.broadcast} ${styles.cleanActiveFooter}`
+    : kind === "postponed"
+      ? `${styles.broadcast} ${styles.cleanScheduledFooterWithTime}`
+      : styles.broadcast;
 
   const syncCleanHeaderAlignment = useCallback(() => {
     if (visualVariant !== "clean") return;
@@ -479,6 +479,7 @@ function CompactMatchCard({
       className={`${styles.card} public-matchday-mini-card public-matchday-mini-card-${kind}`}
       data-live-focus={focus ? "true" : undefined}
       data-public-match-card
+      data-has-team-scores={cleanTeamScores ? "true" : undefined}
       data-visual-variant={visualVariant}
       style={visualStyle}
     >
@@ -498,6 +499,24 @@ function CompactMatchCard({
           {awayCompactName}
         </span>
       </span>
+      {cleanTeamScores ? (
+        <>
+          <strong
+            aria-label={`${homeFullName}: ${cleanTeamScores.left}`}
+            className={styles.cleanTeamScore}
+            data-public-match-team-score="home"
+          >
+            {cleanTeamScores.left}
+          </strong>
+          <strong
+            aria-label={`${awayFullName}: ${cleanTeamScores.right}`}
+            className={styles.cleanTeamScore}
+            data-public-match-team-score="away"
+          >
+            {cleanTeamScores.right}
+          </strong>
+        </>
+      ) : null}
       {presentation.center.kind === "placeholder" && visualVariant !== "home" ? (
         <span aria-label={presentation.statusLabel} className={styles.center}>
           <strong aria-hidden="true" className={`${styles.score} ${styles.scheduledSeparator}`}>
@@ -533,36 +552,19 @@ function CompactMatchCard({
           />
         )}
       </span>
-      {visualVariant === "clean" ? (
+      {visualVariant === "clean" && kind !== "finished" ? (
         <span className={cleanFooterClassName} data-public-match-broadcast>
           {kind === "postponed" ? (
             <span className={styles.cleanScheduledTime}>Nova data por definir</span>
           ) : kind === "scheduled" ? (
-            hasScheduledFooterTime ? (
-              <>
-                <span className={styles.cleanScheduledTime} aria-hidden="true">
-                  {scheduleTimeVisual}
-                </span>
-                {presentation.showChannel && broadcastChannelName ? (
-                  <PublicMatchMeta
-                    channelLogoUrl={match.broadcastChannel?.logo_url}
-                    channelName={broadcastChannelName}
-                    dateTime={<span aria-hidden="true" />}
-                    variant="compact"
-                  />
-                ) : null}
-              </>
-            ) : (
-              <PublicMatchMeta
-                channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
-                channelName={presentation.showChannel ? broadcastChannelName : null}
-                dateTime={<span aria-hidden="true" />}
-                variant="compact"
-              />
-            )
+            <PublicMatchMeta
+              channelLogoUrl={presentation.showChannel ? match.broadcastChannel?.logo_url : null}
+              channelName={presentation.showChannel ? broadcastChannelName : null}
+              dateTime={<span aria-hidden="true" />}
+              variant="compact"
+            />
           ) : (
             <>
-              {cleanScoreContent}
               {hasCleanBroadcast ? (
                 <PublicMatchMeta
                   channelLogoUrl={match.broadcastChannel?.logo_url}
