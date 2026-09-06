@@ -12,6 +12,7 @@ import {
 import type { ComponentType } from "react";
 
 import PublicBeyondMatchdayNews from "./PublicBeyondMatchdayNews";
+import PublicFourNewsGrid from "./PublicFourNewsGrid";
 import {
   PublicHierarchicalLiveLayouts,
 } from "./PublicHierarchicalComposition";
@@ -220,10 +221,38 @@ function SecondaryNewsZoneRenderer({
   );
 }
 
+function FourNewsZoneRenderer({
+  ariaLabel,
+  publicTitle,
+  slots,
+  visualFamily,
+  zoneKey,
+}: PublicFlexibleZoneRendererProps) {
+  return (
+    <section
+      className="public-flexible-zone"
+      aria-label={ariaLabel}
+      data-public-flexible-zone={zoneKey}
+      data-public-visual-family={visualFamily}
+    >
+      <style>{styles}</style>
+
+      {publicTitle ? (
+        <h2 className="public-flexible-zone-heading">
+          {publicTitle}
+        </h2>
+      ) : null}
+
+      <PublicFourNewsGrid slots={slots} />
+    </section>
+  );
+}
+
 const PUBLIC_FLEXIBLE_ZONE_RENDERERS = Object.freeze({
   hierarchical_analysis: HierarchicalZoneRenderer,
   hierarchical_other_games: HierarchicalZoneRenderer,
   secondary_news: SecondaryNewsZoneRenderer,
+  four_news_grid: FourNewsZoneRenderer,
 }) satisfies Readonly<
   Record<
     EditorialVisualFamilyRendererKey,

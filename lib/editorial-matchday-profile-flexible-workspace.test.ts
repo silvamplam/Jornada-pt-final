@@ -161,6 +161,17 @@ test(
       "six_news",
     );
 
+    assert.equal(
+      normalizeMatchdayEditorialProfileThematicZoneLayouts({
+        benfica: "four_news",
+        sporting: "five_news_balanced",
+        fc_porto: "five_news_balanced",
+        other_liga_clubs: "six_news",
+        outside_liga_other: "five_news_secondary",
+      }).benfica,
+      "six_news",
+    );
+
     assert.deepEqual(
       normalizeMatchdayEditorialProfileThematicBlockOrder(
         ["latest", "latest"],

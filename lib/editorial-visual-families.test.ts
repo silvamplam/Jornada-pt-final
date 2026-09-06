@@ -14,6 +14,7 @@ import {
 import {
   EDITORIAL_VISUAL_FAMILIES,
   EDITORIAL_VISUAL_FAMILY_DEFINITIONS,
+  LEGACY_EDITORIAL_VISUAL_FAMILIES,
   editorialVisualFamilyCapacity,
   materializeEditorialVisualFamilySlots,
   type EditorialVisualFamily,
@@ -30,6 +31,7 @@ const expectedCapacity: Readonly<
   six_news: 6,
   five_news_balanced: 5,
   five_news_secondary: 5,
+  four_news: 4,
 };
 
 function publicItem(
@@ -82,6 +84,17 @@ for (const family of EDITORIAL_VISUAL_FAMILIES) {
     );
   });
 }
+
+test("perfil legacy continua limitado às três famílias anteriores", () => {
+  assert.deepEqual(
+    LEGACY_EDITORIAL_VISUAL_FAMILIES,
+    [
+      "six_news",
+      "five_news_balanced",
+      "five_news_secondary",
+    ],
+  );
+});
 
 test("slots 1 e 3 ocupados preservam o gap 2", () => {
   const result = materializeEditorialVisualFamilySlots(
@@ -206,6 +219,36 @@ test("posição duplicada é estruturalmente inválida", () => {
   );
 });
 
+test("four_news preserva posições físicas vazias", () => {
+  const html = renderZone("four_news", [1, 3]);
+
+  assert.match(
+    html,
+    /data-public-visual-family="four_news"/,
+  );
+  assert.match(
+    html,
+    /data-preserve-slots="true"/,
+  );
+  assert.match(
+    html,
+    /data-public-four-news-slot-position="1"/,
+  );
+  assert.match(
+    html,
+    /data-public-four-news-slot-position="2"/,
+  );
+  assert.match(
+    html,
+    /data-public-four-news-slot-position="3"/,
+  );
+  assert.match(
+    html,
+    /public-four-news-vacancy/,
+  );
+  assert.doesNotMatch(html, /Artigo 2/);
+});
+
 test("renderer desconhecido falha de forma explícita", () => {
   const renderers: Readonly<
     Record<EditorialVisualFamilyRendererKey, string>
@@ -213,6 +256,7 @@ test("renderer desconhecido falha de forma explícita", () => {
     hierarchical_analysis: "analysis",
     hierarchical_other_games: "other-games",
     secondary_news: "secondary",
+    four_news_grid: "four-news",
   };
 
   assert.throws(
@@ -225,13 +269,14 @@ test("renderer desconhecido falha de forma explícita", () => {
   );
 });
 
-test("os três layouts preservam o contrato público atual", () => {
+test("os quatro layouts preservam o contrato público atual", () => {
   assert.deepEqual(
     EDITORIAL_VISUAL_FAMILIES,
     [
       "six_news",
       "five_news_balanced",
       "five_news_secondary",
+      "four_news",
     ],
   );
 
@@ -254,6 +299,10 @@ test("os três layouts preservam o contrato público atual", () => {
         id: "five_news_secondary",
         rendererKey: "secondary_news",
       },
+      {
+        id: "four_news",
+        rendererKey: "four_news_grid",
+      },
     ],
   );
 
@@ -268,5 +317,9 @@ test("os três layouts preservam o contrato público atual", () => {
   assert.match(
     renderZone("five_news_secondary", [1, 2, 3, 4, 5]),
     /public-beyond-matchday/,
+  );
+  assert.match(
+    renderZone("four_news", [1, 2, 3, 4]),
+    /public-four-news-grid/,
   );
 });

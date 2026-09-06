@@ -1,12 +1,14 @@
 import {
   EDITORIAL_PROFILES,
-  EDITORIAL_VISUAL_FAMILIES,
   editorialProfileDefaultZoneLayouts,
   type EditorialProfile,
   type EditorialProfileZoneKey,
   type EditorialProfileZoneLayouts,
   type EditorialVisualFamily,
 } from "@/lib/editorial-profiles";
+import {
+  LEGACY_EDITORIAL_VISUAL_FAMILIES,
+} from "@/lib/editorial-visual-families";
 import type {
   MatchdayEditorialProfileDeskAutomaticItem,
 } from "@/lib/editorial-matchday-profile-desk";
@@ -107,13 +109,17 @@ function cleanSourceId(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function isEditorialVisualFamily(
+function isLegacyEditorialVisualFamily(
   value: unknown,
-): value is EditorialVisualFamily {
+): value is (
+  typeof LEGACY_EDITORIAL_VISUAL_FAMILIES
+)[number] {
   return (
     typeof value === "string"
-    && EDITORIAL_VISUAL_FAMILIES.includes(
-      value as EditorialVisualFamily,
+    && LEGACY_EDITORIAL_VISUAL_FAMILIES.includes(
+      value as (
+        typeof LEGACY_EDITORIAL_VISUAL_FAMILIES
+      )[number],
     )
   );
 }
@@ -275,7 +281,7 @@ export function validateMatchdayEditorialProfilePageControls(
           .sort()
           .join(",")
       || MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS.some(
-        (zoneKey) => !isEditorialVisualFamily(
+        (zoneKey) => !isLegacyEditorialVisualFamily(
           layouts[zoneKey],
         ),
       )
@@ -490,7 +496,7 @@ export function normalizeMatchdayEditorialProfileThematicZoneLayouts(
         .sort()
         .join(",")
     || MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS.some(
-      (zoneKey) => !isEditorialVisualFamily(
+      (zoneKey) => !isLegacyEditorialVisualFamily(
         value[zoneKey],
       ),
     )

@@ -2,7 +2,7 @@ import {
   EDITORIAL_VISUAL_FAMILIES,
   EDITORIAL_VISUAL_FAMILY_DEFINITIONS,
   type EditorialVisualFamily,
-} from "./editorial-profiles";
+} from "./editorial-visual-families";
 export const HISTORICAL_COMPOSITION_BLOCK_KEYS = [
   "opening",
   "zone_1",
@@ -58,6 +58,9 @@ export const HISTORICAL_DYNAMIC_ZONE_LAYOUTS: Readonly<
   ),
   five_news_secondary: historicalDynamicZoneLayout(
     "five_news_secondary",
+  ),
+  four_news: historicalDynamicZoneLayout(
+    "four_news",
   ),
 });
 

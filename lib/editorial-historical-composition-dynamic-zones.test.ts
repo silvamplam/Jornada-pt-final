@@ -9,13 +9,14 @@ import {
   normalizeHistoricalDynamicZoneTitle,
 } from "./editorial-historical-composition-workspace";
 
-test("as zonas históricas reutilizam exatamente as três famílias visuais da Mesa viva", () => {
+test("as zonas históricas reutilizam as quatro famílias visuais suportadas", () => {
   assert.deepEqual(
     Object.keys(HISTORICAL_DYNAMIC_ZONE_LAYOUTS),
     [
       "six_news",
       "five_news_balanced",
       "five_news_secondary",
+      "four_news",
     ],
   );
 
@@ -33,6 +34,11 @@ test("as zonas históricas reutilizam exatamente as três famílias visuais da M
     historicalDynamicZoneCapacity("five_news_secondary"),
     5,
   );
+
+  assert.equal(
+    historicalDynamicZoneCapacity("four_news"),
+    4,
+  );
 });
 
 test("cada família expõe apenas as posições compatíveis com a sua capacidade", () => {
@@ -49,6 +55,11 @@ test("cada família expõe apenas as posições compatíveis com a sua capacidad
   assert.equal(
     historicalDynamicZonePositions("five_news_secondary").length,
     5,
+  );
+
+  assert.equal(
+    historicalDynamicZonePositions("four_news").length,
+    4,
   );
 
   assert.equal(
@@ -70,6 +81,11 @@ test("qualquer zona pode escolher independentemente qualquer família visual sup
 
   assert.equal(
     isHistoricalDynamicZoneVisualFamily("five_news_secondary"),
+    true,
+  );
+
+  assert.equal(
+    isHistoricalDynamicZoneVisualFamily("four_news"),
     true,
   );
 

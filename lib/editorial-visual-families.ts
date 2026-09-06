@@ -1,7 +1,12 @@
-export const EDITORIAL_VISUAL_FAMILIES = [
+export const LEGACY_EDITORIAL_VISUAL_FAMILIES = [
   "six_news",
   "five_news_balanced",
   "five_news_secondary",
+] as const;
+
+export const EDITORIAL_VISUAL_FAMILIES = [
+  ...LEGACY_EDITORIAL_VISUAL_FAMILIES,
+  "four_news",
 ] as const;
 
 export type EditorialVisualFamily =
@@ -11,6 +16,7 @@ export const EDITORIAL_VISUAL_FAMILY_RENDERER_KEYS = [
   "hierarchical_analysis",
   "hierarchical_other_games",
   "secondary_news",
+  "four_news_grid",
 ] as const;
 
 export type EditorialVisualFamilyRendererKey =
@@ -133,6 +139,17 @@ export const EDITORIAL_VISUAL_FAMILY_DEFINITIONS: Readonly<
       { position: 3, key: "secondary_2", role: "Secundária 2" },
       { position: 4, key: "secondary_3", role: "Secundária 3" },
       { position: 5, key: "secondary_4", role: "Secundária 4" },
+    ],
+  ),
+  four_news: defineEditorialVisualFamily(
+    "four_news",
+    "4 notícias",
+    "four_news_grid",
+    [
+      { position: 1, key: "four_news_1", role: "Notícia 1" },
+      { position: 2, key: "four_news_2", role: "Notícia 2" },
+      { position: 3, key: "four_news_3", role: "Notícia 3" },
+      { position: 4, key: "four_news_4", role: "Notícia 4" },
     ],
   ),
 });

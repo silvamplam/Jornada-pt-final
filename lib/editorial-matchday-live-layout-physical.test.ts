@@ -117,6 +117,38 @@ test("uma sexta zona sem legacy_zone_key é aceite sem cardinalidade fixa", () =
   assert.equal(snapshot.zones[5].publicTitle, "Zona física 6");
 });
 
+test("four_news é uma zona física normal com capacidade 4", () => {
+  const zone = {
+    ...zoneRow(5),
+    public_title: "Quatro",
+    visual_family: "four_news",
+  };
+
+  const snapshot = buildMatchdayLiveLayoutPhysicalSnapshot(
+    MATCHDAY_ID,
+    [zone],
+    [zoneBlock(5, 1)],
+    [placement("bank-1", "article-1", ZONE_IDS[5], 3)],
+  );
+
+  assert.equal(snapshot.zones[0].visualFamily, "four_news");
+  assert.equal(snapshot.zones[0].capacity, 4);
+  assert.deepEqual(
+    snapshot.zones[0].items.map((item) => item.slotPosition),
+    [3],
+  );
+
+  assert.throws(
+    () => buildMatchdayLiveLayoutPhysicalSnapshot(
+      MATCHDAY_ID,
+      [zone],
+      [zoneBlock(5, 1)],
+      [placement("bank-1", "article-1", ZONE_IDS[5], 5)],
+    ),
+    /placement-slot-out-of-capacity/,
+  );
+});
+
 test("classification_key não é convertida na identidade física da zona", () => {
   const snapshot = buildMatchdayLiveLayoutPhysicalSnapshot(
     MATCHDAY_ID,
