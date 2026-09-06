@@ -118,6 +118,11 @@ function requiredText(value: unknown, code: string): string {
   return value.trim();
 }
 
+function trimmedText(value: unknown, code: string): string {
+  if (typeof value !== "string") return applyError(code);
+  return value.trim();
+}
+
 function uuidText(value: unknown, code: string): string {
   const candidate = requiredText(value, code).toLowerCase();
   if (!UUID_PATTERN.test(candidate)) return applyError(code);
@@ -282,7 +287,7 @@ export function parsePhysicalDeskApplyPayload(
   const zones = arrayValue(input.zones, "zones-invalid").map((value) => {
     const zone = recordValue(value, "zone-invalid");
     exactKeys(zone, ["id", "publicTitle", "visualFamily"], "zone-shape-invalid");
-    const publicTitle = requiredText(zone.publicTitle, "zone-title-invalid");
+    const publicTitle = trimmedText(zone.publicTitle, "zone-title-invalid");
     if (publicTitle.length > 120) return applyError("zone-title-invalid");
     const visualFamily = requiredText(
       zone.visualFamily,

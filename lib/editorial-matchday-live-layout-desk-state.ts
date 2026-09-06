@@ -159,7 +159,12 @@ function validateSnapshot(snapshot: PhysicalDeskSnapshot): PhysicalDeskSnapshot 
   const zoneIds = new Set<LiveLayoutZoneId>();
   for (const zone of snapshot.zones) {
     if (zoneIds.has(zone.id)) stateError("zone-duplicate");
-    if (!zone.publicTitle.trim()) stateError("zone-public-title-empty");
+    if (
+      zone.publicTitle !== zone.publicTitle.trim()
+      || zone.publicTitle.length > 120
+    ) {
+      stateError("zone-public-title-invalid");
+    }
     if (zone.capacity !== editorialVisualFamilyCapacity(zone.visualFamily)) {
       stateError("zone-capacity-inconsistent");
     }
@@ -797,7 +802,7 @@ export function changePhysicalDeskZone(
   const publicTitle = change.publicTitle === undefined
     ? zone.publicTitle
     : change.publicTitle.trim();
-  if (!publicTitle) return stateError("zone-public-title-empty");
+
   if (publicTitle.length > 120) return stateError("zone-public-title-too-long");
   const visualFamily = change.visualFamily ?? zone.visualFamily;
   const capacity = editorialVisualFamilyCapacity(visualFamily);
@@ -830,7 +835,7 @@ export function createPhysicalDeskZone(
   }>,
 ): PhysicalDeskState {
   const publicTitle = zone.publicTitle.trim();
-  if (!publicTitle) return stateError("zone-public-title-empty");
+
   if (publicTitle.length > 120) return stateError("zone-public-title-too-long");
 
   const current = state.current;

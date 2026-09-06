@@ -89,6 +89,33 @@ test("zonas são variáveis e CRUD usa operações físicas", () => {
   assert.doesNotMatch(client, /zones\.length === 5|zones\.slice\(0, 5\)/);
 });
 
+test("zona física pode existir sem título público", () => {
+  assert.doesNotMatch(
+    client,
+    /mutationBlocked \|\| !newZoneTitle\.trim\(\)/,
+  );
+
+  const start = client.indexOf(
+    '<details className="thematic-global-tool" ref={pageStructureRef}>',
+  );
+  const end = client.indexOf(
+    '<details className="thematic-global-tool thematic-video-tool">',
+    start,
+  );
+
+  assert.ok(start >= 0 && end > start);
+
+  const pageStructure = client.slice(start, end);
+
+  assert.doesNotMatch(
+    pageStructure,
+    /if \(!value\) \{[\s\S]*?event\.currentTarget\.value = activeStructureTitle/,
+  );
+
+  assert.match(client, /Zona sem título/);
+  assert.match(client, /current\.presentation\.latestZoneTitle \|\| "Últimas"/);
+});
+
 test("Página e blocos mantém largura estável em todos os estados", () => {
   assert.match(client, /width: clamp\(660px,50vw,760px\)/);
   assert.doesNotMatch(client, /new-zone-open|zone-editor-open/);

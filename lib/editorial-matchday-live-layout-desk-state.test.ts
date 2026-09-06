@@ -189,6 +189,23 @@ test("create gera UUIDs, nasce vazio, entra no fim e fica dirty", () => {
   assert.deepEqual(created.current.bankItems, initial.current.bankItems);
 });
 
+test("create aceita zona sem título público", () => {
+  const initial = state(1);
+  const created = createPhysicalDeskZone(initial, {
+    publicTitle: "   ",
+    visualFamily: "four_news",
+  });
+
+  const createdZone = created.current.zones.find((zone) => (
+    !initial.current.zones.some((candidate) => candidate.id === zone.id)
+  ));
+
+  assert.ok(createdZone);
+  assert.equal(createdZone.publicTitle, "");
+  assert.equal(createdZone.visualFamily, "four_news");
+  assert.equal(createdZone.capacity, 4);
+});
+
 test("Undo e Reset removem uma zona acabada de criar", () => {
   const initial = state(1);
   const created = createPhysicalDeskZone(initial, {
@@ -392,7 +409,7 @@ test("Bank e Desalojadas são estados exclusivos", () => {
   }]);
 });
 
-test("layout shrink ocupado e título vazio falham fechados", () => {
+test("layout shrink ocupado falha e título vazio é válido", () => {
   let current = state(1);
   current = movePhysicalDeskItemToSlot(current, bankId(1), {
     placementType: "zone", zoneId: zoneId(1), slotPosition: 6,
@@ -401,9 +418,16 @@ test("layout shrink ocupado e título vazio falham fechados", () => {
     () => changePhysicalDeskZone(current, zoneId(1), { visualFamily: "five_news_balanced" }),
     /zone-layout-shrink-occupied/,
   );
-  assert.throws(
-    () => changePhysicalDeskZone(current, zoneId(1), { publicTitle: "   " }),
-    /zone-public-title-empty/,
+
+  const untitled = changePhysicalDeskZone(
+    current,
+    zoneId(1),
+    { publicTitle: "   " },
+  );
+
+  assert.equal(
+    untitled.current.zones.find((zone) => zone.id === zoneId(1))?.publicTitle,
+    "",
   );
 });
 

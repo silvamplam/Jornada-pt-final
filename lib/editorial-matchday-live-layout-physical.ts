@@ -102,6 +102,11 @@ function requiredText(value: unknown, code: string): string {
   return value.trim();
 }
 
+function trimmedText(value: unknown, code: string): string {
+  if (typeof value !== "string") return snapshotError(code);
+  return value.trim();
+}
+
 function positiveInteger(value: unknown, code: string): number {
   if (!Number.isInteger(value) || (value as number) <= 0) return snapshotError(code);
   return value as number;
@@ -131,10 +136,19 @@ export function parseMatchdayLiveLayoutZoneRow(
     return snapshotError("zone-visual-family-invalid");
   }
 
+  const publicTitle = trimmedText(
+    row.public_title,
+    "zone-public-title-invalid",
+  );
+
+  if (publicTitle.length > 120) {
+    return snapshotError("zone-public-title-invalid");
+  }
+
   return {
     id: parseLiveLayoutZoneId(row.id),
     matchday_id: requiredText(row.matchday_id, "zone-matchday-invalid"),
-    public_title: requiredText(row.public_title, "zone-public-title-invalid"),
+    public_title: publicTitle,
     visual_family: visualFamily as EditorialVisualFamily,
   };
 }

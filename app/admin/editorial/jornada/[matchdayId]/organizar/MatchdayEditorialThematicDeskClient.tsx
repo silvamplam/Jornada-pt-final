@@ -881,6 +881,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const activeStructureTitle = activeLatest
     ? current.presentation.latestZoneTitle
     : activeZone?.publicTitle ?? "";
+  const activeStructureLabel = activeStructureTitle
+    || (activeLatest ? "Últimas" : "Zona sem título");
   const selected = useMemo(
     () => new Set(physicalDesk.selectedBankItemIds),
     [physicalDesk.selectedBankItemIds],
@@ -977,7 +979,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         publicTitle: newZoneTitle,
         visualFamily: newZoneVisualFamily,
       }),
-      `${newZoneTitle.trim()}: zona física criada em preview.`,
+      `${newZoneTitle.trim() || "Zona sem título"}: zona física criada em preview.`,
     );
     if (!nextState) return;
     const createdZone = nextState.current.zones.find((zone) => (
@@ -1001,7 +1003,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
     const nextState = runPhysicalOperation(
       (state) => deletePhysicalDeskZone(state, zoneId),
-      `${zone.publicTitle}: zona física apagada em preview.`,
+      `${zone.publicTitle || "Zona sem título"}: zona física apagada em preview.`,
     );
 
     if (!nextState) return;
@@ -1208,20 +1210,21 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (!zone) return null;
     const slots = physicalDeskZoneSlots(physicalDesk, zoneId);
     const additional = desk.physicalCompatibility.additionalPhysicalZoneIds.includes(zoneId);
+    const zoneLabel = zone.publicTitle || "Zona sem título";
     return (
       <article className="thematic-workspace-body" key={zone.id} data-zone-id={zone.id}>
         <div className="thematic-zone-editor">
           <label>
             <span>Título público</span>
             <input
-              aria-label={`Título público de ${zone.publicTitle}`}
+              aria-label={`Título público de ${zoneLabel}`}
               defaultValue={zone.publicTitle}
               disabled={mutationBlocked}
               key={`${zone.id}:${zone.publicTitle}`}
               maxLength={120}
               onBlur={(event) => runPhysicalOperation(
                 (state) => changePhysicalDeskZone(state, zone.id, { publicTitle: event.target.value }),
-                `${zone.publicTitle}: título físico alterado em preview.`,
+                `${zoneLabel}: título físico alterado em preview.`,
               )}
               type="text"
             />
@@ -1229,13 +1232,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           <label>
             <span>Apresentação</span>
             <select
-              aria-label={`Apresentação de ${zone.publicTitle}`}
+              aria-label={`Apresentação de ${zoneLabel}`}
               disabled={mutationBlocked}
               onChange={(event) => runPhysicalOperation(
                 (state) => changePhysicalDeskZone(state, zone.id, {
                   visualFamily: event.target.value as EditorialVisualFamily,
                 }),
-                `${zone.publicTitle}: layout físico alterado em preview.`,
+                `${zoneLabel}: layout físico alterado em preview.`,
               )}
               value={zone.visualFamily}
             >
@@ -1579,9 +1582,14 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   }
 
   function blockLabel(block: PhysicalDeskState["current"]["blocks"][number]) {
-    if (block.kind === "latest") return current.presentation.latestZoneTitle;
+    if (block.kind === "latest") {
+      return current.presentation.latestZoneTitle || "Últimas";
+    }
     if (block.kind === "video") return "Destaque";
-    return zoneById.get(block.zoneId)?.publicTitle ?? "Zona física inválida";
+    const zone = zoneById.get(block.zoneId);
+    return zone
+      ? zone.publicTitle || "Zona sem título"
+      : "Zona física inválida";
   }
 
   function blockCount(block: PhysicalDeskState["current"]["blocks"][number]) {
@@ -1681,7 +1689,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     const next = current.zones.find((zone) => zone.id === event.target.value);
                     setDestinationZoneId(next?.id ?? null);
                   }}>
-                    {current.zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.publicTitle}</option>)}
+                    {current.zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.publicTitle || "Zona sem título"}</option>)}
                   </select>
                 </label>
                 <label className="thematic-field">Posição na zona<select disabled={mutationBlocked} value={effectiveZonePosition} onChange={(event) => setZonePosition(Number(event.target.value))}>{Array.from({ length: maxZoneStartPosition }, (_, index) => index + 1).map((position) => <option key={position} value={position}>{position}</option>)}</select></label>
@@ -1754,7 +1762,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     </select>
                   </label>
                   <div className="thematic-new-zone-actions">
-                    <button className="thematic-button dark" disabled={mutationBlocked || !newZoneTitle.trim()} type="submit">Criar</button>
+                    <button className="thematic-button dark" disabled={mutationBlocked} type="submit">Criar</button>
                     <button className="thematic-button" disabled={mutationBlocked} onClick={cancelNewZone} type="button">Cancelar</button>
                   </div>
                 </form>
@@ -1801,14 +1809,14 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 {activeStructureEditorOpen ? (
                   <aside
                     className="thematic-page-zone-editor-panel"
-                    aria-label={"Editar zona " + activeStructureTitle}
+                    aria-label={"Editar zona " + activeStructureLabel}
                   >
                     <strong>Editar zona</strong>
 
                     <label className="thematic-page-zone-field">
                       <span>Nome público</span>
                       <input
-                        aria-label={"Nome público de " + activeStructureTitle}
+                        aria-label={"Nome público de " + activeStructureLabel}
                         defaultValue={activeStructureTitle}
                         disabled={mutationBlocked}
                         key={
@@ -1819,10 +1827,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                         onBlur={(event) => {
                           const value = event.currentTarget.value.trim();
 
-                          if (!value) {
-                            event.currentTarget.value = activeStructureTitle;
-                            return;
-                          }
 
                           if (value === activeStructureTitle) return;
 
@@ -1831,7 +1835,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                               (state) => changePhysicalDeskPresentation(state, {
                                 latestZoneTitle: value,
                               }),
-                              activeStructureTitle
+                              activeStructureLabel
                                 + ": título alterado em preview.",
                             );
                             return;
@@ -1845,7 +1849,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                               activeZone.id,
                               { publicTitle: value },
                             ),
-                            activeStructureTitle
+                            activeStructureLabel
                               + ": título físico alterado em preview.",
                           );
                         }}
@@ -1857,7 +1861,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
                       {activeLatest ? (
                         <select
-                          aria-label={"Layout de " + activeStructureTitle}
+                          aria-label={"Layout de " + activeStructureLabel}
                           disabled
                           value="four_news"
                         >
@@ -1867,7 +1871,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                         </select>
                       ) : activeZone ? (
                         <select
-                          aria-label={"Layout de " + activeStructureTitle}
+                          aria-label={"Layout de " + activeStructureLabel}
                           disabled={mutationBlocked}
                           onChange={(event) => runPhysicalOperation(
                             (state) => changePhysicalDeskZone(
@@ -1878,7 +1882,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                                   event.target.value as EditorialVisualFamily,
                               },
                             ),
-                            activeStructureTitle
+                            activeStructureLabel
                               + ": layout físico alterado em preview.",
                           )}
                           value={activeZone.visualFamily}

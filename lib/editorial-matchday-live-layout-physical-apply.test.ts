@@ -168,6 +168,39 @@ test("serializer representa create como topologia final completa", () => {
   );
 });
 
+test("serializer transporta zona sem título público", () => {
+  const initial = createPhysicalDeskState(workspace(5));
+  const created = createPhysicalDeskZone(initial, {
+    publicTitle: "   ",
+    visualFamily: "four_news",
+  });
+
+  const createdZone = created.current.zones.find((zone) => (
+    !initial.current.zones.some((candidate) => candidate.id === zone.id)
+  ));
+
+  assert.ok(createdZone);
+
+  const payload = buildPhysicalDeskApplyPayload(
+    "liga_portugal_v1",
+    created,
+  );
+
+  const serialized = payload.zones.find(
+    (zone) => zone.id === createdZone.id,
+  );
+
+  assert.equal(serialized?.publicTitle, "");
+  assert.equal(serialized?.visualFamily, "four_news");
+
+  const parsed = parsePhysicalDeskApplyPayload(payload);
+
+  assert.equal(
+    parsed.zones.find((zone) => zone.id === createdZone.id)?.publicTitle,
+    "",
+  );
+});
+
 test("serializer representa delete, DESALOJADA e worked no estado final", () => {
   const initial = createPhysicalDeskState(workspace(5));
   const deletedZoneId = initial.current.zones[0].id;

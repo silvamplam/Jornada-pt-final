@@ -149,6 +149,33 @@ test("four_news é uma zona física normal com capacidade 4", () => {
   );
 });
 
+test("título público físico pode ser vazio e é normalizado", () => {
+  const snapshot = buildMatchdayLiveLayoutPhysicalSnapshot(
+    MATCHDAY_ID,
+    [{
+      ...zoneRow(0),
+      public_title: "   ",
+    }],
+    [zoneBlock(0)],
+    [],
+  );
+
+  assert.equal(snapshot.zones[0].publicTitle, "");
+
+  assert.throws(
+    () => buildMatchdayLiveLayoutPhysicalSnapshot(
+      MATCHDAY_ID,
+      [{
+        ...zoneRow(0),
+        public_title: "x".repeat(121),
+      }],
+      [zoneBlock(0)],
+      [],
+    ),
+    /zone-public-title-invalid/,
+  );
+});
+
 test("classification_key não é convertida na identidade física da zona", () => {
   const snapshot = buildMatchdayLiveLayoutPhysicalSnapshot(
     MATCHDAY_ID,
