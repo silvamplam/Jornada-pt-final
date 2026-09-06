@@ -81,10 +81,44 @@ test("Destaque usa placement físico e apresentação local", () => {
   assert.match(client, /placementType: "video_highlight"/);
 });
 
-test("zonas são variáveis e não existe CRUD neste corte", () => {
-  assert.match(client, /current\.zones\.map\(\(zone\)/);
-  assert.doesNotMatch(client, /Criar zona|Apagar zona|removePhysicalDeskZone|addPhysicalDeskZone/);
+test("zonas são variáveis e CRUD usa operações físicas", () => {
+  assert.match(client, /createPhysicalDeskZone/);
+  assert.match(client, /deletePhysicalDeskZone/);
+  assert.match(client, /\+ Nova zona/);
+  assert.match(client, /Apagar zona/);
   assert.doesNotMatch(client, /zones\.length === 5|zones\.slice\(0, 5\)/);
+});
+
+test("Página e blocos mantém largura estável em todos os estados", () => {
+  assert.match(client, /width: clamp\(660px,50vw,760px\)/);
+  assert.doesNotMatch(client, /new-zone-open|zone-editor-open/);
+});
+
+test("Últimas abre no editor estrutural sem deixar de ser block físico", () => {
+  const start = client.indexOf(
+    '<details className="thematic-global-tool" ref={pageStructureRef}>',
+  );
+  const end = client.indexOf(
+    '<details className="thematic-global-tool thematic-video-tool">',
+    start,
+  );
+
+  assert.ok(start >= 0 && end > start);
+
+  const pageStructure = client.slice(start, end);
+
+  assert.match(
+    pageStructure,
+    /block\.kind === "zone" \|\| block\.kind === "latest"/,
+  );
+  assert.match(pageStructure, /setActiveWorkspaceKey\(workspaceKey\)/);
+  assert.match(pageStructure, /activeLatest/);
+  assert.match(pageStructure, /latestZoneTitle: value/);
+});
+
+test("apagar zona usa confirmação inline e nunca window.confirm", () => {
+  assert.match(client, /thematic-page-delete-confirm/);
+  assert.doesNotMatch(client, /window\.confirm/);
 });
 
 test("preview mantém um único write HTTP de Apply", () => {

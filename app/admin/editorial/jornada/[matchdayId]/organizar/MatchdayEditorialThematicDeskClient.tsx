@@ -2,7 +2,15 @@
 
 import Image, { type ImageLoaderProps } from "next/image";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type FormEvent,
+} from "react";
 
 import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
 import { readAdminJsonResponse } from "@/lib/admin-json-response";
@@ -14,10 +22,12 @@ import MatchdayContextualClassificationCorrectionPanel from "./MatchdayContextua
 
 import {
   EDITORIAL_PROFILES,
+} from "@/lib/editorial-profiles";
+import {
   EDITORIAL_VISUAL_FAMILIES,
   EDITORIAL_VISUAL_FAMILY_DEFINITIONS,
   type EditorialVisualFamily,
-} from "@/lib/editorial-profiles";
+} from "@/lib/editorial-visual-families";
 import {
   selectMatchdayEditorialExplicitBankItems,
   selectMatchdayEditorialTrackingItems,
@@ -38,7 +48,9 @@ import {
   bulkMovePhysicalDeskItemsToZone,
   changePhysicalDeskPresentation,
   changePhysicalDeskZone,
+  createPhysicalDeskZone,
   createPhysicalDeskState,
+  deletePhysicalDeskZone,
   movePhysicalDeskBlock,
   movePhysicalDeskItemToBank,
   movePhysicalDeskItemToDisplaced,
@@ -74,6 +86,9 @@ type EditorialSelectionCandidate = MatchdayEditorialSelectionCandidate;
 const TRACKING_INITIAL_VISIBLE = 30;
 const TRACKING_PAGE_SIZE = 30;
 const TRACKING_STATES = ["NOVA", "FAIXA", "DESALOJADA"] as const;
+const PERSISTABLE_PHYSICAL_LAYOUTS = EDITORIAL_VISUAL_FAMILIES.map((id) => (
+  EDITORIAL_VISUAL_FAMILY_DEFINITIONS[id]
+));
 
 type ActiveWorkspaceKey =
   | "opening"
@@ -273,7 +288,7 @@ const styles = `
   .thematic-global-tools > .thematic-global-tool + .thematic-global-tool > summary, .thematic-global-actions > .thematic-classification-tool > summary { border-left: 1px solid #e1e7ed; }
   .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { position: absolute; z-index: 40; top: calc(100% + 5px); left: 0; max-height: min(72vh,720px); overflow: auto; overscroll-behavior: contain; border: 1px solid #ccd6e0; border-radius: 7px; background: #fff; box-shadow: 0 9px 24px rgba(15,23,42,.11); }
   .thematic-global-tool-body { padding: 7px; }
-  .thematic-global-tools > .thematic-global-tool:first-child > .thematic-page-structure { width: clamp(600px,70vw,960px); max-width: calc(100vw - 24px); }
+  .thematic-global-tools > .thematic-global-tool:first-child > .thematic-page-structure { width: clamp(660px,50vw,760px); max-width: calc(100vw - 24px); }
   .thematic-video-tool > .thematic-global-tool-body { width: clamp(420px,50vw,720px); max-width: calc(100vw - 170px); }
   .thematic-agenda-tv-tool > .thematic-global-tool-body { width: clamp(500px,56vw,860px); max-width: calc(100vw - 250px); }
   .thematic-classification-tool > .thematic-global-tool-body { width: clamp(560px,52vw,700px); max-width: calc(100vw - 310px); }
@@ -300,6 +315,26 @@ const styles = `
   .thematic-top-tools, .thematic-top-tools label { display: flex; align-items: center; gap: 5px; }
   .thematic-top-tools span { color: #64748b; font-size: 9px; font-weight: 800; }
   .thematic-top-tools input[type="color"] { width: 36px; height: 28px; padding: 2px; border: 1px solid #cbd5df; border-radius: 5px; }
+  .thematic-new-zone-form { display: grid; grid-template-columns: minmax(300px,1.55fr) minmax(150px,.72fr) auto; gap: 6px; align-items: end; padding: 6px; border: 1px solid #cbd9e6; border-radius: 6px; background: #f4f8fc; }
+  .thematic-new-zone-form label, .thematic-page-zone-field { display: grid; min-width: 0; gap: 2px; }
+  .thematic-new-zone-form label > span, .thematic-page-zone-field > span { color: #64748b; font-size: 8px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
+  .thematic-new-zone-form input, .thematic-new-zone-form select, .thematic-page-zone-field input, .thematic-page-zone-field select { width: 100%; min-width: 0; min-height: 27px; padding: 3px 6px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 9px; }
+  .thematic-new-zone-actions { display: flex; gap: 4px; }
+  .thematic-page-structure-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; align-items: start; }
+  .thematic-page-structure-grid.has-zone-editor { grid-template-columns: minmax(0,1fr) 228px; }
+  .thematic-page-map { min-width: 0; }
+  .thematic-page-zone-editor-panel { display: grid; gap: 8px; padding: 9px; border: 1px solid #d7e0e9; border-radius: 7px; background: #fbfcfd; }
+  .thematic-page-zone-editor-panel > strong { font-size: 13px; }
+  .thematic-page-zone-editor-panel .thematic-page-zone-field > span { font-size: 8px; }
+  .thematic-page-zone-editor-panel .thematic-page-zone-field input,
+  .thematic-page-zone-editor-panel .thematic-page-zone-field select { min-height: 30px; font-size: 10px; }
+  .thematic-page-zone-delete-trigger { min-height: 30px; border: 1px solid #e8b4b8; border-radius: 5px; background: #fff; color: #a61f29; font-size: 9px; font-weight: 900; cursor: pointer; }
+  .thematic-page-delete-confirm { display: grid; gap: 7px; padding: 8px; border: 1px solid #f0b8bd; border-radius: 6px; background: #fff4f5; color: #8f1d26; }
+  .thematic-page-delete-confirm p { margin: 0; font-size: 9px; line-height: 1.35; }
+  .thematic-page-delete-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .thematic-page-delete-confirm-actions button { min-height: 28px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; font-size: 9px; font-weight: 900; cursor: pointer; }
+  .thematic-page-delete-confirm-actions button:last-child { border-color: #d92f3b; background: #d92f3b; color: #fff; }
+  @media (max-width: 760px) { .thematic-page-structure-grid.has-zone-editor { grid-template-columns: 1fr; } }
   .thematic-page-structure-list { display: grid; gap: 3px; }
   .thematic-page-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; min-height: 32px; padding: 3px 5px; border: 1px solid #e0e6ed; border-radius: 5px; background: #f8fafc; color: #10151b; font: inherit; text-align: left; }
   button.thematic-page-row { grid-template-columns: 56px minmax(0,1fr) auto; cursor: pointer; }
@@ -327,7 +362,7 @@ const styles = `
   .thematic-highlight-card span { color: #64748b; font-size: 9px; }
   @media (max-width: 1180px) { .thematic-sources-toolbar, .thematic-reservoir-filters { flex-wrap: wrap; } .thematic-slots-5, .thematic-slots-6, .thematic-sources-list { grid-template-columns: repeat(2,minmax(0,1fr)); } }
   @media (max-width: 900px) { .thematic-tracking-rows { grid-template-columns: 1fr; } }
-  @media (max-width: 760px) { .thematic-global-tools { display: flex; flex-wrap: wrap; } .thematic-global-tools > .thematic-global-tool { flex: 0 0 auto; } .thematic-global-actions { flex: 1 1 100%; min-width: 100%; border-top: 1px solid #e1e7ed; } .thematic-selection-controls { flex-wrap: wrap; } .thematic-global-tool { position: static; } .thematic-global-actions > .thematic-classification-tool > summary { border-left: 0; } .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { top: calc(100% + 5px); right: 3px; left: 3px; width: auto; max-width: none; max-height: calc(100vh - 80px); } .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-sources-list, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .thematic-page-row-actions, .agenda-tv-sync-actions { justify-content: flex-start; } }
+  @media (max-width: 760px) { .thematic-global-tools { display: flex; flex-wrap: wrap; } .thematic-global-tools > .thematic-global-tool { flex: 0 0 auto; } .thematic-global-actions { flex: 1 1 100%; min-width: 100%; border-top: 1px solid #e1e7ed; } .thematic-selection-controls { flex-wrap: wrap; } .thematic-global-tool { position: static; } .thematic-global-actions > .thematic-classification-tool > summary { border-left: 0; } .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { top: calc(100% + 5px); right: 3px; left: 3px; width: auto; max-width: none; max-height: calc(100vh - 80px); } .thematic-new-zone-form, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-sources-list, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .thematic-page-row-actions, .agenda-tv-sync-actions { justify-content: flex-start; } }
 `;
 
 const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
@@ -773,6 +808,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     useState<MatchdayEditorialProfileSelectionPosition | null>(null);
   const [activeWorkspaceKey, setActiveWorkspaceKey] = useState<ActiveWorkspaceKey>("opening");
   const [openingPinned, setOpeningPinned] = useState(false);
+  const [newZoneFormOpen, setNewZoneFormOpen] = useState(false);
+  const [newZoneTitle, setNewZoneTitle] = useState("");
+  const [newZoneVisualFamily, setNewZoneVisualFamily] =
+    useState<EditorialVisualFamily>(EDITORIAL_VISUAL_FAMILIES[0]);
+  const [deleteZoneId, setDeleteZoneId] = useState<LiveLayoutZoneId | null>(null);
   const [destinationZoneId, setDestinationZoneId] = useState<LiveLayoutZoneId | null>(
     desk.physicalWorkspace.zones[0]?.id ?? null,
   );
@@ -823,6 +863,24 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     () => new Map(current.zones.map((zone) => [zone.id, zone] as const)),
     [current.zones],
   );
+  const activeZone =
+    zoneById.get(activeWorkspaceKey as LiveLayoutZoneId) ?? null;
+  const activeLatest = activeWorkspaceKey === "latest";
+  const activeStructureEditorOpen = activeZone !== null || activeLatest;
+  const activeZonePlacedArticleCount = activeZone
+    ? current.placements.filter((placement) => (
+        placement.placementType === "zone"
+        && placement.zoneId === activeZone.id
+      )).length
+    : 0;
+  const activeLatestPlacedArticleCount = activeLatest
+    ? current.placements.filter(
+        (placement) => placement.placementType === "selection",
+      ).length
+    : 0;
+  const activeStructureTitle = activeLatest
+    ? current.presentation.latestZoneTitle
+    : activeZone?.publicTitle ?? "";
   const selected = useMemo(
     () => new Set(physicalDesk.selectedBankItemIds),
     [physicalDesk.selectedBankItemIds],
@@ -835,6 +893,18 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (destinationZoneId && zoneById.has(destinationZoneId)) return;
     setDestinationZoneId(current.zones[0]?.id ?? null);
   }, [current.zones, destinationZoneId, zoneById]);
+
+  useEffect(() => {
+    if (
+      activeWorkspaceKey === "opening"
+      || activeWorkspaceKey === "latest"
+      || activeWorkspaceKey === "highlight"
+      || zoneById.has(activeWorkspaceKey)
+    ) {
+      return;
+    }
+    setActiveWorkspaceKey("opening");
+  }, [activeWorkspaceKey, zoneById]);
 
   function effectiveItem(bankItemId: string, sortOrder: number | null = null): MatchdayEditorialProfileEffectiveItem {
     const bankItem = bankItemById.get(bankItemId);
@@ -876,19 +946,70 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   function runPhysicalOperation(
     operation: (state: PhysicalDeskState) => PhysicalDeskState,
     successMessage: string,
-  ) {
+  ): PhysicalDeskState | null {
     if (mutationBlocked) {
       setApplyState("error");
       setMessage("A Mesa está a confirmar o Apply físico; aguarde a reconstrução pelo servidor.");
-      return;
+      return null;
     }
     try {
-      setPhysicalDesk(operation(physicalDesk));
+      const nextState = operation(physicalDesk);
+      setPhysicalDesk(nextState);
       setApplyState("idle");
       setMessage(successMessage);
+      return nextState;
     } catch (error) {
       setApplyState("error");
-      setMessage(error instanceof Error ? error.message : "A operação física foi recusada.");
+      const errorMessage = error instanceof Error
+        ? error.message
+        : "A operação física foi recusada.";
+      setMessage(errorMessage.includes("zone-layout-shrink-occupied")
+        ? "Este layout não comporta as posições atualmente ocupadas. Mova primeiro os artigos dessas posições."
+        : errorMessage);
+      return null;
+    }
+  }
+
+  function createZone(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextState = runPhysicalOperation(
+      (state) => createPhysicalDeskZone(state, {
+        publicTitle: newZoneTitle,
+        visualFamily: newZoneVisualFamily,
+      }),
+      `${newZoneTitle.trim()}: zona física criada em preview.`,
+    );
+    if (!nextState) return;
+    const createdZone = nextState.current.zones.find((zone) => (
+      !physicalDesk.current.zones.some((candidate) => candidate.id === zone.id)
+    ));
+    if (createdZone) setActiveWorkspaceKey(createdZone.id);
+    setNewZoneTitle("");
+    setNewZoneVisualFamily(EDITORIAL_VISUAL_FAMILIES[0]);
+    setNewZoneFormOpen(false);
+  }
+
+  function cancelNewZone() {
+    setNewZoneTitle("");
+    setNewZoneVisualFamily(EDITORIAL_VISUAL_FAMILIES[0]);
+    setNewZoneFormOpen(false);
+  }
+
+  function deleteZone(zoneId: LiveLayoutZoneId) {
+    const zone = zoneById.get(zoneId);
+    if (!zone) return;
+
+    const nextState = runPhysicalOperation(
+      (state) => deletePhysicalDeskZone(state, zoneId),
+      `${zone.publicTitle}: zona física apagada em preview.`,
+    );
+
+    if (!nextState) return;
+
+    setDeleteZoneId(null);
+
+    if (activeWorkspaceKey === zoneId) {
+      setActiveWorkspaceKey("opening");
     }
   }
 
@@ -1595,22 +1716,240 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 <div className="thematic-top-tools">
                   <label><span>Cor da Manchete</span><input aria-label="Cor do texto da Manchete" disabled={mutationBlocked} onChange={(event) => runPhysicalOperation((state) => changePhysicalDeskPresentation(state, { headlineTitleColor: event.target.value.toUpperCase() }), "Cor da Manchete alterada em preview.")} type="color" value={current.presentation.headlineTitleColor ?? "#FFFFFF"} /></label>
                 </div>
+                <button
+                  className="thematic-button"
+                  disabled={mutationBlocked}
+                  onClick={() => {
+                    setDeleteZoneId(null);
+                    setNewZoneFormOpen((open) => !open);
+                  }}
+                  type="button"
+                >
+                  + Nova zona
+                </button>
               </div>
-              <div className="thematic-page-structure-list">
-                <button className={`thematic-page-row${activeWorkspaceKey === "opening" ? " active" : ""}`} onClick={() => activateWorkspaceFromStructure("opening")} type="button"><span>Fixo</span><strong>Abertura</strong><small>{openingOccupied}/{MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.length}</small></button>
-                {current.blocks.map((block, index) => {
-                  const workspaceKey = workspaceKeyForBlock(block);
-                  return (
-                    <div className={`thematic-page-row${activeWorkspaceKey === workspaceKey ? " active" : ""}`} key={block.kind === "zone" ? block.zoneId : block.kind}>
-                      <button className="thematic-page-row-main" onClick={() => activateWorkspaceFromStructure(workspaceKey)} type="button"><span>{String(index + 1).padStart(2, "0")}</span><strong>{blockLabel(block)}</strong><small>{blockCount(block)}</small></button>
-                      <div className="thematic-page-row-actions">
-                        <button aria-label={`Subir ${blockLabel(block)}`} disabled={mutationBlocked || index === 0} onClick={() => runPhysicalOperation((state) => movePhysicalDeskBlock(state, block, "up"), "Ordem física dos blocos alterada.")} type="button">↑</button>
-                        <button aria-label={`Descer ${blockLabel(block)}`} disabled={mutationBlocked || index === current.blocks.length - 1} onClick={() => runPhysicalOperation((state) => movePhysicalDeskBlock(state, block, "down"), "Ordem física dos blocos alterada.")} type="button">↓</button>
-                      </div>
-                    </div>
-                  );
-                })}
-                <button className="thematic-page-row" type="button"><span>Fixo</span><strong>Faixa</strong><small>{faixaPlacements.length}</small></button>
+
+              {newZoneFormOpen ? (
+                <form className="thematic-new-zone-form" onSubmit={createZone}>
+                  <label>
+                    <span>Nome</span>
+                    <input
+                      autoFocus
+                      disabled={mutationBlocked}
+                      onChange={(event) => setNewZoneTitle(event.target.value)}
+                      placeholder="Ex.: Mercado"
+                      value={newZoneTitle}
+                    />
+                  </label>
+                  <label>
+                    <span>Layout</span>
+                    <select
+                      disabled={mutationBlocked}
+                      onChange={(event) => setNewZoneVisualFamily(event.target.value as EditorialVisualFamily)}
+                      value={newZoneVisualFamily}
+                    >
+                      {PERSISTABLE_PHYSICAL_LAYOUTS.map((layout) => (
+                        <option key={layout.id} value={layout.id}>{layout.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="thematic-new-zone-actions">
+                    <button className="thematic-button dark" disabled={mutationBlocked || !newZoneTitle.trim()} type="submit">Criar</button>
+                    <button className="thematic-button" disabled={mutationBlocked} onClick={cancelNewZone} type="button">Cancelar</button>
+                  </div>
+                </form>
+              ) : null}
+
+              <div className={"thematic-page-structure-grid" + (activeStructureEditorOpen ? " has-zone-editor" : "")}>
+                <div className="thematic-page-map">
+                  <div className="thematic-page-structure-list">
+                    <button className={"thematic-page-row" + (activeWorkspaceKey === "opening" ? " active" : "")} onClick={() => activateWorkspaceFromStructure("opening")} type="button"><span>Fixo</span><strong>Abertura</strong><small>{openingOccupied}/{MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.length}</small></button>
+                    {current.blocks.map((block, index) => {
+                      const workspaceKey = workspaceKeyForBlock(block);
+                      const editableInStructure =
+                        block.kind === "zone" || block.kind === "latest";
+
+                      return (
+                        <div className={"thematic-page-row" + (activeWorkspaceKey === workspaceKey ? " active" : "")} key={block.kind === "zone" ? block.zoneId : block.kind}>
+                          <button
+                            className="thematic-page-row-main"
+                            onClick={() => {
+                              if (editableInStructure) {
+                                setDeleteZoneId(null);
+                                setActiveWorkspaceKey(workspaceKey);
+                                return;
+                              }
+                              activateWorkspaceFromStructure(workspaceKey);
+                            }}
+                            type="button"
+                          >
+                            <span>{String(index + 1).padStart(2, "0")}</span>
+                            <strong>{blockLabel(block)}</strong>
+                            <small>{blockCount(block)}</small>
+                          </button>
+                          <div className="thematic-page-row-actions">
+                            <button aria-label={"Subir " + blockLabel(block)} disabled={mutationBlocked || index === 0} onClick={() => runPhysicalOperation((state) => movePhysicalDeskBlock(state, block, "up"), "Ordem física dos blocos alterada.")} type="button">↑</button>
+                            <button aria-label={"Descer " + blockLabel(block)} disabled={mutationBlocked || index === current.blocks.length - 1} onClick={() => runPhysicalOperation((state) => movePhysicalDeskBlock(state, block, "down"), "Ordem física dos blocos alterada.")} type="button">↓</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <button className="thematic-page-row" type="button"><span>Fixo</span><strong>Faixa</strong><small>{faixaPlacements.length}</small></button>
+                  </div>
+                </div>
+
+                {activeStructureEditorOpen ? (
+                  <aside
+                    className="thematic-page-zone-editor-panel"
+                    aria-label={"Editar zona " + activeStructureTitle}
+                  >
+                    <strong>Editar zona</strong>
+
+                    <label className="thematic-page-zone-field">
+                      <span>Nome público</span>
+                      <input
+                        aria-label={"Nome público de " + activeStructureTitle}
+                        defaultValue={activeStructureTitle}
+                        disabled={mutationBlocked}
+                        key={
+                          activeLatest
+                            ? "latest:" + current.presentation.latestZoneTitle
+                            : activeZone!.id + ":" + activeZone!.publicTitle
+                        }
+                        onBlur={(event) => {
+                          const value = event.currentTarget.value.trim();
+
+                          if (!value) {
+                            event.currentTarget.value = activeStructureTitle;
+                            return;
+                          }
+
+                          if (value === activeStructureTitle) return;
+
+                          if (activeLatest) {
+                            runPhysicalOperation(
+                              (state) => changePhysicalDeskPresentation(state, {
+                                latestZoneTitle: value,
+                              }),
+                              activeStructureTitle
+                                + ": título alterado em preview.",
+                            );
+                            return;
+                          }
+
+                          if (!activeZone) return;
+
+                          runPhysicalOperation(
+                            (state) => changePhysicalDeskZone(
+                              state,
+                              activeZone.id,
+                              { publicTitle: value },
+                            ),
+                            activeStructureTitle
+                              + ": título físico alterado em preview.",
+                          );
+                        }}
+                      />
+                    </label>
+
+                    <label className="thematic-page-zone-field">
+                      <span>Layout</span>
+
+                      {activeLatest ? (
+                        <select
+                          aria-label={"Layout de " + activeStructureTitle}
+                          disabled
+                          value="four_news"
+                        >
+                          <option value="four_news">
+                            4 notícias
+                          </option>
+                        </select>
+                      ) : activeZone ? (
+                        <select
+                          aria-label={"Layout de " + activeStructureTitle}
+                          disabled={mutationBlocked}
+                          onChange={(event) => runPhysicalOperation(
+                            (state) => changePhysicalDeskZone(
+                              state,
+                              activeZone.id,
+                              {
+                                visualFamily:
+                                  event.target.value as EditorialVisualFamily,
+                              },
+                            ),
+                            activeStructureTitle
+                              + ": layout físico alterado em preview.",
+                          )}
+                          value={activeZone.visualFamily}
+                        >
+                          {PERSISTABLE_PHYSICAL_LAYOUTS.map((layout) => (
+                            <option key={layout.id} value={layout.id}>
+                              {layout.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : null}
+                    </label>
+
+                    <small>
+                      {activeLatest
+                        ? activeLatestPlacedArticleCount + "/4"
+                        : activeZone
+                          ? activeZonePlacedArticleCount
+                            + "/" + activeZone.capacity
+                          : ""}
+                    </small>
+
+                    {activeZone ? (
+                      <>
+                        <button
+                          className="thematic-page-zone-delete-trigger"
+                          disabled={mutationBlocked}
+                          onClick={() => setDeleteZoneId(activeZone.id)}
+                          type="button"
+                        >
+                          Apagar zona
+                        </button>
+
+                        {deleteZoneId === activeZone.id ? (
+                          <div
+                            className="thematic-page-delete-confirm"
+                            role="alert"
+                          >
+                            <p>
+                              Esta zona contém{" "}
+                              <strong>{activeZonePlacedArticleCount}</strong>{" "}
+                              {activeZonePlacedArticleCount === 1
+                                ? "artigo"
+                                : "artigos"}.
+                            </p>
+                            <p>
+                              Os artigos sem outro destino passam para{" "}
+                              <strong>Desalojadas</strong>.
+                            </p>
+                            <div className="thematic-page-delete-confirm-actions">
+                              <button
+                                disabled={mutationBlocked}
+                                onClick={() => setDeleteZoneId(null)}
+                                type="button"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                disabled={mutationBlocked}
+                                onClick={() => deleteZone(activeZone.id)}
+                                type="button"
+                              >
+                                Apagar zona
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </aside>
+                ) : null}
               </div>
             </section>
           </details>
