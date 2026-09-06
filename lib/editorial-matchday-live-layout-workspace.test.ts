@@ -389,13 +389,15 @@ test("zona fisica adicional nunca e descartada", () => {
   );
 });
 
-test("titulo fisico vazio e erro explicito sem fallback", () => {
-  assert.throws(
-    () => buildLiveLayoutWorkspaceState(MATCHDAY_ID, readerRow(1, {
+test("titulo fisico vazio e valido e normalizado sem fallback", () => {
+  const state = buildLiveLayoutWorkspaceState(
+    MATCHDAY_ID,
+    readerRow(1, {
       zones: [zone(0, "   ")],
-    })),
-    /matchday-live-layout-physical-zone-public-title-invalid/,
+    }),
   );
+
+  assert.equal(state.zones[0].publicTitle, "");
 });
 
 test("classification e apenas observada e estados redundantes falham fechado", () => {
