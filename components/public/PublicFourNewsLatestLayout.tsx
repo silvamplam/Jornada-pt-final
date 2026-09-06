@@ -1,19 +1,14 @@
 import PublicLatestNewsBlock from "./PublicLatestNewsBlock";
 import type { PublicEditorialLatestNews } from "./PublicEditorialLayout";
 import { resolvePublicFourNewsLatestLayoutItems } from "@/lib/public-four-news-latest-dedup";
-import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 
+import PublicFourNewsGrid, {
+  type PublicFourNewsItem,
+} from "./PublicFourNewsGrid";
 import PublicSideAdvertisement from "./PublicSideAdvertisement";
 import PublicMatchdayEditorialSectionFrame from "./PublicMatchdayEditorialSectionFrame";
 
-export type PublicFourNewsLatestItem = {
-  id: string;
-  label?: string | null;
-  title: string;
-  subtitle?: string | null;
-  imageUrl?: string | null;
-  linkUrl: string;
-};
+export type PublicFourNewsLatestItem = PublicFourNewsItem;
 
 type PublicFourNewsLatestLayoutProps = {
   items: PublicFourNewsLatestItem[];
@@ -59,91 +54,12 @@ const styles = `
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .public-four-news-latest-grid > .public-four-news-grid {
+    grid-column: span 2;
+  }
+
   .public-four-news-ad-column:empty {
     display: none;
-  }
-
-  .public-four-news-grid {
-    grid-column: span 2;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px 18px;
-    align-content: start;
-    align-self: start;
-    min-width: 0;
-  }
-
-  .public-four-news-card {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 7px;
-    align-content: start;
-    min-width: 0;
-  }
-
-  .public-four-news-grid[data-selection-count="1"] .public-four-news-card,
-  .public-four-news-grid[data-selection-count="3"] .public-four-news-card:last-child {
-    grid-column: 1 / -1;
-  }
-
-  .public-four-news-media {
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
-    background: #eef2f5;
-    text-decoration: none;
-  }
-
-  .public-four-news-media img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .public-four-news-copy {
-    display: grid;
-    gap: 4px;
-    align-content: start;
-    min-width: 0;
-  }
-
-  .public-four-news-label {
-    color: #526174;
-    font-size: 10px;
-    font-weight: 900;
-    line-height: 1.1;
-    text-transform: uppercase;
-  }
-
-  .public-four-news-title {
-    display: block;
-    overflow: visible;
-    color: #10151b;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 17px;
-    font-weight: 800;
-    line-height: 1.22;
-    padding-block: 0.11em;
-    box-sizing: border-box;
-    text-decoration: none;
-    text-overflow: clip;
-    -webkit-box-orient: initial;
-    -webkit-line-clamp: unset;
-    line-clamp: unset;
-  }
-
-  .public-four-news-subtitle {
-    display: -webkit-box;
-    overflow: hidden;
-    margin: 0;
-    color: #607086;
-    font-size: 12px;
-    line-height: 1.35;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
   }
 
   .public-four-news-latest-column {
@@ -208,7 +124,7 @@ const styles = `
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .public-four-news-grid {
+    .public-four-news-latest-grid > .public-four-news-grid {
       grid-column: 1 / -1;
     }
 
@@ -246,9 +162,8 @@ const styles = `
       grid-template-columns: minmax(0, 1fr);
     }
 
-    .public-four-news-grid {
+    .public-four-news-latest-grid > .public-four-news-grid {
       grid-column: auto;
-      grid-template-columns: minmax(0, 1fr);
     }
 
     .public-four-news-latest-grid[data-has-latest="false"]
@@ -288,50 +203,7 @@ export default function PublicFourNewsLatestLayout({
           className="public-four-news-latest-grid"
           data-has-latest={visibleLatestNews.length > 0}
         >
-          <div
-            className="public-four-news-grid"
-            data-selection-count={visibleItems.length}
-          >
-            {visibleItems.map((item) => (
-              <article className="public-four-news-card" key={item.id}>
-                {item.imageUrl ? (
-                  <a
-                    className="public-four-news-media"
-                    href={item.linkUrl}
-                    aria-label={item.title}
-                  >
-                    <img
-                      {...editorialImageFramingProps("wide")}
-                      alt=""
-                      src={item.imageUrl}
-                      loading="lazy"
-                    />
-                  </a>
-                ) : null}
-
-                <div className="public-four-news-copy">
-                  {item.label ? (
-                    <span className="public-four-news-label">
-                      {item.label}
-                    </span>
-                  ) : null}
-
-                  <a
-                    className="public-four-news-title"
-                    href={item.linkUrl}
-                  >
-                    {item.title}
-                  </a>
-
-                  {item.subtitle ? (
-                    <p className="public-four-news-subtitle">
-                      {item.subtitle}
-                    </p>
-                  ) : null}
-                </div>
-              </article>
-            ))}
-          </div>
+          <PublicFourNewsGrid items={visibleItems} />
 
           {visibleLatestNews.length > 0 ? (
             <div className="public-four-news-latest-column">
