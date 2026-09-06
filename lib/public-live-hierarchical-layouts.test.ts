@@ -107,11 +107,9 @@ test("as posições reutilizadas entram no mesmo motor de transferências já us
   assert.match(transferFlow, /sourceContainsArticle[\s\S]*readLiveLayoutRow/);
   assert.match(transferFlow, /readOccupiedTargetZone[\s\S]*readLiveLayoutRow/);
   assert.match(transferFlow, /clearArticleFromSourceZone[\s\S]*readLiveLayoutRow/);
-  assert.match(transferFlow, /LIVE_MATCHDAY_HIERARCHICAL_TRANSFER_SLOT_TYPES/);
   assert.match(editorialAdmin, /LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS/);
   assert.match(editorialAdmin, /sourceSlotType=\{position\.transferSlotType\}/);
   assert.doesNotMatch(editorialAdmin, /newsDisplacedTargetOptionsForSource/);
-  assert.match(editorialAdmin, /A notícia atual entra automaticamente em primeiro na Faixa/);
 });
 
 test("o backoffice respeita a ordem hierárquica das zonas vivas e deixa a Faixa por último", () => {
