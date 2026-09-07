@@ -156,6 +156,13 @@ const publicMatchdayPagePath = fileURLToPath(
   )
 );
 const publicMatchdayPageSource = readFileSync(publicMatchdayPagePath, "utf8");
+const publicTopNavigationStylesPath = fileURLToPath(
+  new URL("../components/public/publicEditorialStyles.ts", import.meta.url)
+);
+const publicTopNavigationStylesSource = readFileSync(
+  publicTopNavigationStylesPath,
+  "utf8"
+);
 
 test("a rota pública não contém placeholders editoriais nem imagens fictícias", () => {
   assert.doesNotMatch(publicMatchdayPageSource, /Espaco editorial por definir/i);
@@ -207,13 +214,19 @@ test("a classificação pública respeita 1200 px e a faixa clara reserva a cor 
     /#classificacao \{[\s\S]*?width:\s*min\(100%,\s*1200px\);[\s\S]*?max-width:\s*1200px;[\s\S]*?margin-left:\s*auto;[\s\S]*?margin-right:\s*auto;/
   );
   assert.match(
-    publicMatchdayPageSource,
-    /\.public-season-nav-bar \{[\s\S]*?background:\s*#f7f9fb;[\s\S]*?color:\s*#263244;/
+    publicTopNavigationStylesSource,
+    /\.public-season-nav-bar \{[\s\S]*?background:\s*#ffffff;[\s\S]*?color:\s*#202428;/
   );
   assert.match(publicMatchdayPageSource, /competitionSlug === "liga-portugal"\) return "#00235a";/);
   assert.match(publicMatchdayPageSource, /competitionSlug === "premier-league"\) return "#3d195b";/);
   assert.match(publicMatchdayPageSource, /competitionSlug === "la-liga"\) return "#1d2230";/);
   assert.match(publicMatchdayPageSource, /style=\{\{ "--public-season-accent": competitionBarColor \} as CSSProperties\}/);
-  assert.match(publicMatchdayPageSource, /\.public-matchday-nav-compact a\[aria-current="page"\] \{[\s\S]*?background:\s*var\(--public-season-accent, #17283b\);[\s\S]*?color:\s*#ffffff;/);
-  assert.match(publicMatchdayPageSource, /\.public-season-select-wrap:focus-within,[\s\S]*?outline:\s*2px solid #59718a;/);
+  assert.match(
+    publicTopNavigationStylesSource,
+    /\.public-matchday-leg-nav a\[aria-current="true"\],[\s\S]*?\.public-matchday-nav-compact a\[aria-current="page"\] \{[\s\S]*?border-bottom-color:\s*var\(--public-season-accent, #b51220\);[\s\S]*?color:\s*#202428;/
+  );
+  assert.match(
+    publicTopNavigationStylesSource,
+    /\.public-top-stack a:focus-visible,[\s\S]*?\.public-season-select:focus-visible \{[\s\S]*?outline:\s*2px solid #202428;[\s\S]*?outline-offset:\s*-2px;/
+  );
 });

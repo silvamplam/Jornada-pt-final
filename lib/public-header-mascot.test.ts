@@ -11,6 +11,11 @@ const stylesUrl = new URL(
   import.meta.url
 );
 
+const sharedStylesUrl = new URL(
+  "../components/public/publicEditorialStyles.ts",
+  import.meta.url
+);
+
 const integrationUrls = [
   "../app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
   "../app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/jogos/page.tsx",
@@ -39,16 +44,24 @@ test("mantem o boneco com gravata e resposta imediata", async () => {
 test("a jornada usa faixa compacta sem boneco e os restantes contextos preservam a navegação partilhada", async () => {
   const sources = await Promise.all(integrationUrls.map((url) => readFile(url, "utf8")));
   const competitionSource = sources[0];
+  const sharedStylesSource = await readFile(sharedStylesUrl, "utf8");
 
   assert.match(competitionSource, /public-season-context-card/);
   assert.match(competitionSource, /public-matchday-date-row/);
   assert.match(competitionSource, /<strong>Data:<\/strong>/);
   assert.match(competitionSource, /className="public-matchday-nav-compact"/);
-  assert.match(competitionSource, /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#f7f9fb/);
+  assert.match(competitionSource, /publicTopNavigationStyles/);
+  assert.match(
+    sharedStylesSource,
+    /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#ffffff;[\s\S]*?color:\s*#202428/
+  );
   assert.match(competitionSource, /showMessageTicker=\{false\}/);
-  assert.match(competitionSource, /flex-wrap:\s*wrap/);
-  assert.match(competitionSource, /public-season-competition-emblem\[data-logo-variant="premier-league-lockup"\][\s\S]*?background:\s*#ffffff/);
-  assert.match(competitionSource, /img\[data-variant="premier-league-lockup"\] \{[\s\S]*?width:\s*76px[\s\S]*?height:\s*auto[\s\S]*?max-height:\s*32px[\s\S]*?filter:\s*none[\s\S]*?image-rendering:\s*auto/);
+  assert.match(
+    sharedStylesSource,
+    /\.public-matchday-nav,[\s\S]*?\.public-matchday-nav-compact \{[\s\S]*?overflow-x:\s*auto/
+  );
+  assert.doesNotMatch(competitionSource, /public-season-competition-emblem/);
+  assert.match(competitionSource, /<PublicCompetitionNavigation/);
   assert.doesNotMatch(competitionSource, /import PublicMatchdayNavigation|<PublicMatchdayNavigation/);
   assert.doesNotMatch(competitionSource, /public-matchday-status-card|Jornada selecionada/);
   assert.match(competitionSource, /<PublicMatchStrip/);

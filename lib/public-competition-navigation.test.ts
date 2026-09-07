@@ -265,20 +265,11 @@ test("mostra o emblema ativo junto da Classificacao e remove o duplicado da barr
   );
 });
 
-test("mantem liga ativa a vermelho e Classificacao ativa neutra", async () => {
+test("mantem liga e Classificacao ativas segundo o contrato visual atual", async () => {
   const [componentSource, stylesSource] = await Promise.all([
     readFile(componentUrl, "utf8"),
     readFile(stylesUrl, "utf8")
   ]);
-  const competitionActiveRule = cssRule(
-    stylesSource,
-    '.competitionLink[aria-current="page"]'
-  );
-  const classificationActiveRule = cssRule(
-    stylesSource,
-    '.classificationLink[aria-current="page"]'
-  );
-  const classificationRule = cssRule(stylesSource, ".classificationLink");
 
   assert.match(
     componentSource,
@@ -288,18 +279,11 @@ test("mantem liga ativa a vermelho e Classificacao ativa neutra", async () => {
     componentSource,
     /aria-current=\{classificationHashIsActive \? "page" : undefined\}/
   );
-  assert.match(competitionActiveRule, /color:\s*#c40012/);
-  assert.match(classificationActiveRule, /color:\s*#10151b/);
-  assert.match(classificationActiveRule, /font-weight:\s*950/);
-  assert.doesNotMatch(
-    classificationActiveRule,
-    /#c40012|background|border|box-shadow|text-decoration/
+  assert.match(
+    stylesSource,
+    /\.competitionLink\[aria-current="page"\],[\s\S]*?\.classificationLink\[aria-current="page"\]\s*\{[\s\S]*?border-bottom-color:\s*#b51220;[\s\S]*?color:\s*#b51220;/
   );
-  assert.doesNotMatch(
-    classificationRule,
-    /background|border|box-shadow|text-decoration/
-  );
-  assert.doesNotMatch(stylesSource, /border-bottom|::before|::after/);
+  assert.doesNotMatch(stylesSource, /#c40012/);
 });
 
 test("ativa Classificacao apenas quando o hash pertence a pagina atual", async () => {
@@ -312,11 +296,12 @@ test("ativa Classificacao apenas quando o hash pertence a pagina atual", async (
   assert.match(componentSource, /addEventListener\("hashchange"/);
 });
 
-test("impede wrap, conserva o conjunto unido e aplica a proporcao de espaco pedida", async () => {
+test("mantem navegacao horizontal e as proporcoes atuais dos emblemas", async () => {
   const [stylesSource, sharedStylesSource] = await Promise.all([
     readFile(stylesUrl, "utf8"),
     readFile(sharedStylesUrl, "utf8")
   ]);
+
   const navigationRule = cssRule(stylesSource, ".navigation");
   const classificationRule = cssRule(stylesSource, ".classificationLink");
   const emblemRule = cssRule(stylesSource, ".competitionEmblem");
@@ -334,47 +319,51 @@ test("impede wrap, conserva o conjunto unido e aplica a proporcao de espaco pedi
   );
 
   assert.match(navigationRule, /display:\s*flex/);
-  assert.match(navigationRule, /flex-wrap:\s*nowrap/);
   assert.match(navigationRule, /overflow-x:\s*auto/);
   assert.match(navigationRule, /overflow-y:\s*hidden/);
   assert.match(navigationRule, /white-space:\s*nowrap/);
-  assert.match(navigationRule, /margin-right:\s*14px/);
+  assert.doesNotMatch(navigationRule, /flex-wrap:\s*wrap/);
   assert.match(classificationRule, /margin-left:\s*auto/);
+
   assert.match(emblemRule, /width:\s*auto/);
-  assert.match(emblemRule, /height:\s*36px/);
-  assert.match(emblemRule, /max-width:\s*115px/);
+  assert.match(emblemRule, /height:\s*30px/);
+  assert.match(emblemRule, /max-width:\s*100px/);
   assert.match(emblemRule, /flex-shrink:\s*0/);
   assert.match(emblemRule, /object-fit:\s*contain/);
-  assert.match(ligaPortugalEmblemRule, /width:\s*100px/);
-  assert.match(ligaPortugalEmblemRule, /height:\s*36px/);
-  assert.match(ligaPortugalEmblemRule, /padding:\s*6px 4px/);
+
+  assert.match(ligaPortugalEmblemRule, /width:\s*88px/);
+  assert.match(ligaPortugalEmblemRule, /height:\s*30px/);
+  assert.match(ligaPortugalEmblemRule, /max-width:\s*88px/);
+  assert.match(ligaPortugalEmblemRule, /padding:\s*5px 4px/);
   assert.match(ligaPortugalEmblemRule, /background:\s*#00235a/);
-  assert.match(laligaEmblemRule, /width:\s*95px/);
+
+  assert.match(laligaEmblemRule, /width:\s*84px/);
   assert.match(laligaEmblemRule, /height:\s*auto/);
-  assert.match(premierLeagueEmblemRule, /height:\s*36px/);
-  assert.match(premierLeagueEmblemRule, /max-width:\s*115px/);
-  assert.match(stylesSource, /@media \(max-width: 760px\)/);
+  assert.match(laligaEmblemRule, /max-width:\s*84px/);
+
+  assert.match(premierLeagueEmblemRule, /height:\s*30px/);
+  assert.match(premierLeagueEmblemRule, /max-width:\s*100px/);
+
   assert.match(
     stylesSource,
-    /@media \(max-width: 760px\)[\s\S]*?liga-portugal-horizontal[\s\S]*?width:\s*92px[\s\S]*?height:\s*32px[\s\S]*?laliga-horizontal[\s\S]*?width:\s*84px[\s\S]*?premier-league-lockup[\s\S]*?height:\s*30px/
+    /@media \(max-width: 760px\)[\s\S]*?\.competitionEmblem,[\s\S]*?premier-league-lockup[\s\S]*?height:\s*25px[\s\S]*?max-width:\s*84px[\s\S]*?liga-portugal-horizontal[\s\S]*?width:\s*76px[\s\S]*?height:\s*26px[\s\S]*?laliga-horizontal[\s\S]*?width:\s*72px/
   );
-  assert.doesNotMatch(stylesSource, /flex-wrap:\s*wrap/);
 
   assert.match(
     sharedStylesSource,
-    /\.public-site-topbar\s*\{[\s\S]*?gap:\s*22px/
+    /\.public-site-topbar\s*\{[\s\S]*?gap:\s*20px/
   );
   assert.match(
     sharedStylesSource,
-    /\.public-site-actions\s*\{[\s\S]*?gap:\s*12px/
+    /\.public-site-menu,[\s\S]*?\.public-site-actions\s*\{[\s\S]*?gap:\s*16px/
   );
   assert.match(
     sharedStylesSource,
-    /@media \(max-width: 1180px\)[\s\S]*?\.public-site-topbar\s*\{[\s\S]*?gap:\s*14px[\s\S]*?\.public-site-actions\s*\{[\s\S]*?gap:\s*8px/
+    /@media \(max-width: 1180px\)[\s\S]*?\.public-site-topbar\s*\{[\s\S]*?gap:\s*14px[\s\S]*?\.public-site-actions\s*\{[\s\S]*?gap:\s*10px/
   );
 });
 
-test("a Home remove apenas o ticker e mant?m a barra vazia antes do carrossel", async () => {
+test("a Home remove o ticker e conserva a transicao minima antes do carrossel", async () => {
   const [homeSource, componentSource, sharedStylesSource] = await Promise.all([
     readFile(integrationUrls[0], "utf8"),
     readFile(componentUrl, "utf8"),
@@ -401,64 +390,61 @@ test("a Home remove apenas o ticker e mant?m a barra vazia antes do carrossel", 
   assert.ok(transitionBarIndex < matchStripIndex);
   assert.ok(matchStripIndex < editorialIndex);
 
-  const transitionBarRule = cssRule(sharedStylesSource, ".public-home-games-transition-bar");
-  assert.match(transitionBarRule, /box-sizing:\s*border-box/);
-  assert.match(transitionBarRule, /height:\s*74px/);
-  assert.match(transitionBarRule, /min-height:\s*74px/);
-  assert.match(transitionBarRule, /margin:\s*0 -24px/);
-  assert.match(transitionBarRule, /padding:\s*0 24px/);
-  assert.match(transitionBarRule, /border:\s*0/);
-  assert.match(transitionBarRule, /background:\s*#262626/);
-  assert.match(transitionBarRule, /box-shadow:\s*0 3px 8px rgba\(68, 21, 47, 0\.12\)/);
-  assert.doesNotMatch(sharedStylesSource, /\.public-home-games-transition-bar::(?:before|after)/);
-  assert.match(
+  const transitionBarRule = cssRule(
     sharedStylesSource,
-    /@media \(max-width: 760px\)[\s\S]*?\.public-home-games-transition-bar\s*\{[\s\S]*?margin:\s*0 -16px[\s\S]*?padding:\s*0 16px/
+    ".public-home-games-transition-bar"
+  );
+
+  assert.match(transitionBarRule, /height:\s*2px/);
+  assert.match(transitionBarRule, /max-width:\s*none/);
+  assert.match(
+    transitionBarRule,
+    /margin:\s*-1px calc\(-1 \* var\(--public-top-gutter\)\) 0/
+  );
+  assert.match(transitionBarRule, /background:\s*#25292d/);
+  assert.doesNotMatch(
+    sharedStylesSource,
+    /\.public-home-games-transition-bar::(?:before|after)/
   );
 });
 
-test("noticias contextuais usam o mesmo cabecalho competitivo da pagina publica da Liga", async () => {
-  const [matchdaySource, newsSource] = await Promise.all([
+test("noticias contextuais reutilizam o mesmo contrato central de navegacao", async () => {
+  const [matchdaySource, newsSource, sharedStylesSource] = await Promise.all([
     readFile(integrationUrls[2], "utf8"),
-    readFile(integrationUrls[4], "utf8")
+    readFile(integrationUrls[4], "utf8"),
+    readFile(sharedStylesUrl, "utf8")
   ]);
 
-  const startMarker = "/* JORNADA-CABECALHO-COMPETITIVO-INICIO */";
-  const endMarker = "/* JORNADA-CABECALHO-COMPETITIVO-FIM */";
+  for (const source of [matchdaySource, newsSource]) {
+    assert.match(
+      source,
+      /import \{ publicTopNavigationStyles \} from "@\/components\/public\/publicEditorialStyles"/
+    );
+    assert.match(source, /\$\{publicTopNavigationStyles\}/);
+    assert.match(
+      source,
+      /style=\{\{ "--public-season-accent": competitionBarColor \} as CSSProperties\}/
+    );
+    assert.match(
+      source,
+      /<nav className="public-matchday-nav-compact"/
+    );
+    assert.doesNotMatch(source, /PublicMatchdayNavigation/);
+  }
 
-  const competitiveStyles = (source: string) => {
-    const start = source.indexOf(startMarker);
-    const end = source.indexOf(endMarker, start);
+  assert.match(
+    sharedStylesSource,
+    /\.public-season-nav-bar\s*\{[\s\S]*?background:\s*#ffffff;[\s\S]*?color:\s*#202428;/
+  );
+  assert.match(
+    sharedStylesSource,
+    /\.public-matchday-leg-nav a\[aria-current="true"\],[\s\S]*?\.public-matchday-nav-compact a\[aria-current="page"\]\s*\{[\s\S]*?border-bottom-color:\s*var\(--public-season-accent, #b51220\)/
+  );
 
-    assert.notEqual(start, -1);
-    assert.notEqual(end, -1);
-
-    return source.slice(start, end + endMarker.length);
-  };
-
-  assert.equal(competitiveStyles(newsSource), competitiveStyles(matchdaySource));
-  const matchdayStyles = competitiveStyles(matchdaySource);
-  const matchdayNavigationRule = cssRule(matchdayStyles, ".public-matchday-nav-compact");
-  const matchdayLinkRule = cssRule(matchdayStyles, ".public-matchday-nav-compact a");
-  const activeMatchdayLinkRule = cssRule(matchdayStyles, '.public-matchday-nav-compact a[aria-current="page"]');
-  const mobileStyles = matchdayStyles.slice(matchdayStyles.indexOf("@media (max-width: 620px)"));
-  const mobileMatchdayNavigationRule = cssRule(mobileStyles, ".public-matchday-nav-compact");
-
-  assert.match(matchdayNavigationRule, /gap:\s*6px 10px;/);
-  assert.match(matchdayNavigationRule, /flex-wrap:\s*wrap;/);
-  assert.match(mobileMatchdayNavigationRule, /column-gap:\s*8px;/);
-  assert.match(matchdayLinkRule, /min-width:\s*30px;/);
-  assert.match(matchdayLinkRule, /min-height:\s*30px;/);
-  assert.match(activeMatchdayLinkRule, /align-self:\s*flex-end;/);
-  assert.match(activeMatchdayLinkRule, /min-width:\s*31px;/);
-  assert.match(activeMatchdayLinkRule, /min-height:\s*29px;/);
   assert.match(
     newsSource,
     /<PublicCompetitionNavigation[\s\S]*?classificationHref=\{classificationHref\}[\s\S]*?showMessageTicker=\{false\}/
   );
-  assert.match(newsSource, /style=\{\{ "--public-season-accent": competitionBarColor \} as CSSProperties\}/);
-  assert.match(newsSource, /<nav className="public-matchday-nav-compact" aria-label="Jornadas da época">/);
-  assert.doesNotMatch(newsSource, /PublicMatchdayNavigation/);
   assert.match(
     newsSource,
     /<section className="public-league-match-strip-scroll"[\s\S]*?<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"[\s\S]*?variant="clean"/

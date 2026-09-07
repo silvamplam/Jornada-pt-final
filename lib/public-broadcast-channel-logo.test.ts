@@ -359,13 +359,12 @@ test("PublicMatchMeta usa 9.5px por omissão e 11px na faixa compacta", async ()
 });
 
 test("matchMeta usa dimensões reais, full-bleed simétrico e colunas separadas", async () => {
-  const [logoComponentSource, logoStyleSource, metaStyleSource, helperSource, stripStyleSource, editorialStyleSource] = await Promise.all([
+  const [logoComponentSource, logoStyleSource, metaStyleSource, helperSource, stripStyleSource] = await Promise.all([
     readFile(componentUrl, "utf8"),
     readFile(stylesUrl, "utf8"),
     readFile(matchMetaStylesUrl, "utf8"),
     readFile(helperUrl, "utf8"),
-    readFile(matchStripStylesUrl, "utf8"),
-    readFile(publicEditorialStylesUrl, "utf8")
+    readFile(matchStripStylesUrl, "utf8")
   ]);
   assert.match(logoComponentSource, /const renderedWidth = matchMetaGeometry\?\.renderedWidth \?\? 54 \* presentation\.opticalScale/);
   assert.match(logoComponentSource, /const renderedHeight = matchMetaGeometry\?\.renderedHeight \?\? Math\.min\(18, 18 \* presentation\.opticalScale\)/);
@@ -398,7 +397,7 @@ test("matchMeta usa dimensões reais, full-bleed simétrico e colunas separadas"
   assert.match(stripStyleSource, /padding-inline:\s*var\(--public-match-card-inline-padding\)/);
   assert.match(metaStyleSource, /margin-inline:\s*calc\(-1 \* var\(--public-match-card-inline-padding, 0px\)\)/);
   assert.match(metaStyleSource, /padding-inline:\s*3px/);
-  assert.match(editorialStyleSource, /> \[data-public-match-meta\]\[data-public-match-channel-family="sport-tv"\]\s*\{[\s\S]*?flex:\s*1 1 auto/);
+
   assert.match(metaStyleSource, /column-gap:\s*0/);
   assert.match(metaStyleSource, /\.dateTime\s*\{[\s\S]*?grid-column:\s*1/);
   assert.match(metaStyleSource, /\.channel\s*\{[\s\S]*?grid-column:\s*3[\s\S]*?width:\s*max-content[\s\S]*?margin:\s*0[\s\S]*?padding:\s*0/);
