@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { buildLiveLayoutWorkspaceState } from "@/lib/editorial-matchday-live-layout-workspace";
+import { buildLiveLayoutWorkspaceStateV22 } from "@/lib/editorial-matchday-live-layout-workspace-v22";
 import { readPublicMatchdayEditorialSnapshot } from "@/lib/public-matchday-editorial";
 import {
   buildPublicMatchdayPhysicalSnapshot,
@@ -150,6 +150,7 @@ function fixture({
       profile_key: PROFILE_KEY,
       cutover_at: NOW,
     } : null,
+    latest_companion: null,
   };
 
   return { raw, articles };
@@ -157,7 +158,7 @@ function fixture({
 
 function buildFixture(input: Parameters<typeof fixture>[0] = {}) {
   const current = fixture(input);
-  const workspace = buildLiveLayoutWorkspaceState(MATCHDAY_ID, current.raw);
+  const workspace = buildLiveLayoutWorkspaceStateV22(MATCHDAY_ID, current.raw);
   return buildPublicMatchdayPhysicalSnapshot(workspace, current.articles);
 }
 
@@ -167,7 +168,7 @@ function fetcherFor(
 ): PublicMatchdayPhysicalTableFetcher {
   return async <T>(path: string) => {
     paths.push(path);
-    if (path.startsWith("rpc/read_matchday_live_layout_workspace_v13?")) {
+    if (path.startsWith("rpc/read_matchday_live_layout_workspace_v22?")) {
       return [structuredClone(current.raw)] as T[];
     }
     if (path.startsWith("matchday_editorial_profile_assignments?")) {
@@ -228,7 +229,7 @@ test("Jornada genuinamente legacy preserva o percurso legacy", async () => {
   const result = await readPublicMatchdayEditorialSnapshot(MATCHDAY_ID, {
     fetchTable: async <T>(path: string) => {
       paths.push(path);
-      if (path.startsWith("rpc/read_matchday_live_layout_workspace_v13?")) {
+      if (path.startsWith("rpc/read_matchday_live_layout_workspace_v22?")) {
         return [structuredClone(current.raw)] as T[];
       }
       if (path.startsWith("matchday_editorial_profile_assignments?")) {
@@ -267,7 +268,7 @@ test("sort_order dos blocks é a única autoridade da ordem pública", () => {
   current.raw.blocks[0]!.sort_order = 3;
   current.raw.blocks[1]!.sort_order = 1;
   current.raw.blocks[2]!.sort_order = 2;
-  const workspace = buildLiveLayoutWorkspaceState(MATCHDAY_ID, current.raw);
+  const workspace = buildLiveLayoutWorkspaceStateV22(MATCHDAY_ID, current.raw);
   const snapshot = buildPublicMatchdayPhysicalSnapshot(workspace, current.articles);
 
   assert.deepEqual(
@@ -373,7 +374,7 @@ test("Abertura, Faixa, Últimas e Vídeo conservam placements e settings físico
     ["context", true],
   ]);
   assert.deepEqual(snapshot.faixa.slots.map((slot) => Boolean(slot.item)), [false, true, false]);
-  assert.deepEqual(snapshot.latest.slots.map((slot) => Boolean(slot.item)), [true, false, true, false]);
+  assert.equal(snapshot.latest.companionZoneId, null);
   assert.equal(snapshot.latest.placement, "four_news");
   assert.equal(snapshot.video.active, true);
   assert.equal(snapshot.video.highlight?.title, "Título 7");

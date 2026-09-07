@@ -29,6 +29,7 @@ import BroadcastChannelLogo from "@/components/public/BroadcastChannelLogo";
 import { PublicEditorialLayout } from "@/components/public/PublicEditorialLayout";
 import PublicFourNewsLatestLayout, { type PublicFourNewsLatestItem } from "@/components/public/PublicFourNewsLatestLayout";
 import PublicLatestOnlyLayout from "@/components/public/PublicThematicLatestOnlyLayout";
+import PublicLatestCompanionLayout from "@/components/public/PublicLatestCompanionLayout";
 import type { PublicBeyondMatchdayNewsItem } from "@/components/public/PublicBeyondMatchdayNews";
 import PublicHierarchicalComposition, {
   PublicHierarchicalLiveLayouts,
@@ -3881,18 +3882,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     );
 
   const liveFourNewsItems = physicalSnapshot
-    ? physicalSnapshot.latest.slots.flatMap<PublicFourNewsLatestItem>((slot) =>
-        slot.item
-          ? [{
-              id: slot.item.id,
-              label: slot.item.label,
-              title: slot.item.title,
-              subtitle: slot.item.subtitle,
-              imageUrl: slot.item.imageUrl,
-              linkUrl: slot.item.linkUrl,
-            }]
-          : [],
-      )
+    ? []
     : LIVE_MATCHDAY_HIERARCHICAL_LAYOUT_POSITIONS.reduce<PublicFourNewsLatestItem[]>(
         (items, position) => {
           if (position.storage !== "four_news") return items;
@@ -3948,6 +3938,16 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const physicalZoneById = new Map(
     physicalSnapshot?.zones.map((zone) => [zone.zoneId, zone] as const) ?? [],
   );
+
+  const physicalLatestCompanionZone =
+    physicalSnapshot?.latest.companionZoneId
+      ? physicalZoneById.get(physicalSnapshot.latest.companionZoneId) ?? null
+      : null;
+
+  const showPhysicalLatestCompanion =
+    Boolean(physicalSnapshot)
+    && showBodyLatestBlock
+    && physicalLatestCompanionZone !== null;
 
   const liveEditorialBodyBlocks =
     composeLivePublicEditorialBody(
@@ -4401,9 +4401,15 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                   data-public-physical-block="latest"
                   key={block.blockId}
                 >
-                  {showFourNewsLatestLayout ? (
-                    <PublicFourNewsLatestLayout
-                      items={liveFourNewsItems}
+                  {showPhysicalLatestCompanion && physicalLatestCompanionZone ? (
+                    <PublicLatestCompanionLayout
+                      zone={{
+                        key: physicalLatestCompanionZone.zoneId,
+                        visualFamily: physicalLatestCompanionZone.layoutId,
+                        publicTitle: physicalLatestCompanionZone.publicTitle,
+                        slots: physicalLatestCompanionZone.slots,
+                      }}
+                      matchdayNumber={context.matchday.number}
                       latestNews={latestNewsItems}
                       latestNewsTitle={latestZoneTitle}
                       latestNewsTitleColor={latestZoneTitleColor}
@@ -4417,6 +4423,13 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                   )}
                 </div>
               );
+            }
+
+            if (
+              showPhysicalLatestCompanion
+              && physicalSnapshot.latest.companionZoneId === block.zoneId
+            ) {
+              return null;
             }
 
             const zone = physicalZoneById.get(block.zoneId);

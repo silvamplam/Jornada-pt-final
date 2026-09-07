@@ -19,6 +19,7 @@ type PublicLatestNewsBlockProps = {
   titleColor?: string | null;
   constrainToMainColumn?: boolean;
   constrainToFourNewsGrid?: boolean;
+  constrainToCompanionZone?: boolean;
 };
 
 export default function PublicLatestNewsBlock({
@@ -27,6 +28,7 @@ export default function PublicLatestNewsBlock({
   titleColor,
   constrainToMainColumn = false,
   constrainToFourNewsGrid = false,
+  constrainToCompanionZone = false,
 }: PublicLatestNewsBlockProps) {
   const rootRef = useRef<HTMLElement | null>(null);
   const visibleTitle = title?.trim() ?? "";
@@ -36,22 +38,30 @@ export default function PublicLatestNewsBlock({
 
     if (
       !root ||
-      (!constrainToMainColumn && !constrainToFourNewsGrid)
+      (!constrainToMainColumn && !constrainToFourNewsGrid && !constrainToCompanionZone)
     ) {
       return;
     }
 
-    const grid = constrainToFourNewsGrid
-      ? root.closest(".public-four-news-latest-grid")
-      : root.closest(".public-matchday-lead-grid");
+    const grid = constrainToCompanionZone
+      ? root.closest(".public-latest-companion-grid")
+      : constrainToFourNewsGrid
+        ? root.closest(".public-four-news-latest-grid")
+        : root.closest(".public-matchday-lead-grid");
 
-    const mainColumn = constrainToFourNewsGrid
+    const mainColumn = constrainToFourNewsGrid || constrainToCompanionZone
       ? null
       : grid?.querySelector<HTMLElement>(
           ".public-matchday-main-column",
         );
 
-    const editorialBoundary = constrainToFourNewsGrid
+    const editorialBoundary = constrainToCompanionZone
+      ? (
+          grid?.querySelector<HTMLElement>(
+            ".public-latest-companion-zone",
+          ) ?? null
+        )
+      : constrainToFourNewsGrid
       ? (
           grid?.querySelector<HTMLElement>(
             ".public-four-news-grid",
@@ -72,7 +82,9 @@ export default function PublicLatestNewsBlock({
       return;
     }
 
-    const collapseBreakpoint = constrainToFourNewsGrid
+    const collapseBreakpoint = constrainToCompanionZone
+      ? "(max-width: 1100px)"
+      : constrainToFourNewsGrid
       ? "(max-width: 1100px)"
       : "(max-width: 1180px)";
 
@@ -160,6 +172,7 @@ export default function PublicLatestNewsBlock({
   }, [
     constrainToMainColumn,
     constrainToFourNewsGrid,
+    constrainToCompanionZone,
     items,
     visibleTitle,
   ]);

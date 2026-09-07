@@ -4,12 +4,14 @@ import {
   type EditorialVisualFamilySlot,
 } from "@/lib/editorial-visual-families";
 import {
-  buildLiveLayoutWorkspaceState,
   type LiveLayoutWorkspaceBankItem,
   type LiveLayoutWorkspacePlacement,
-  type LiveLayoutWorkspaceState,
-  type MatchdayLiveLayoutWorkspaceReaderRow,
 } from "@/lib/editorial-matchday-live-layout-workspace";
+import {
+  buildLiveLayoutWorkspaceStateV22,
+  type LiveLayoutWorkspaceStateV22,
+  type MatchdayLiveLayoutWorkspaceReaderRowV22,
+} from "@/lib/editorial-matchday-live-layout-workspace-v22";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
 const SUPPORTED_SOURCE_TYPE = "editorial_article";
@@ -58,7 +60,7 @@ export type PublicMatchdayPhysicalZone = Readonly<{
 
 export type PublicMatchdayPhysicalSpecialSlot = Readonly<{
   position: number;
-  role: "headline" | "highlight" | "context" | "faixa" | "selection";
+  role: "headline" | "highlight" | "context" | "faixa";
   item: PublicMatchdayPhysicalItem | null;
 }>;
 
@@ -97,7 +99,7 @@ export type PublicMatchdayPhysicalSnapshot = Readonly<{
     placement: "top" | "four_news" | "hidden";
     title: string;
     titleColor: string | null;
-    slots: readonly PublicMatchdayPhysicalSpecialSlot[];
+    companionZoneId: string | null;
   }>;
   video: Readonly<{
     active: boolean;
@@ -175,7 +177,7 @@ function projectionZoneId(value: unknown): string | null {
 }
 
 function hasPhysicalEvidenceWithoutMarker(
-  row: MatchdayLiveLayoutWorkspaceReaderRow,
+  row: MatchdayLiveLayoutWorkspaceReaderRowV22,
 ): boolean {
   if (row.workspace_settings !== null) return true;
   if (!Array.isArray(row.zones) || !Array.isArray(row.legacy_zone_projection)) {
@@ -227,7 +229,7 @@ function materializeSpecialSlots(
 }
 
 function resolvePublicItems(
-  workspace: LiveLayoutWorkspaceState,
+  workspace: LiveLayoutWorkspaceStateV22,
   articleRows: readonly PublicMatchdayPhysicalArticleRow[],
 ): ReadonlyMap<string, PublicMatchdayPhysicalItem> {
   const articleById = new Map<string, PublicMatchdayPhysicalArticleRow>();
@@ -289,7 +291,7 @@ function resolvePublicItems(
 }
 
 export function buildPublicMatchdayPhysicalSnapshot(
-  workspace: LiveLayoutWorkspaceState,
+  workspace: LiveLayoutWorkspaceStateV22,
   articleRows: readonly PublicMatchdayPhysicalArticleRow[],
 ): PublicMatchdayPhysicalSnapshot {
   const settings = workspace.workspaceSettings;
@@ -309,7 +311,6 @@ export function buildPublicMatchdayPhysicalSnapshot(
 
   const openingPlacements = placementsOfType("opening");
   const faixaPlacements = placementsOfType("faixa");
-  const selectionPlacements = placementsOfType("selection");
   const videoPlacements = placementsOfType("video_highlight");
 
   if (faixaPlacements.some((placement) => placement.slotPosition > settings.faixaSlotCount)) {
@@ -393,12 +394,7 @@ export function buildPublicMatchdayPhysicalSnapshot(
       placement: settings.latestZonePlacement,
       title: settings.latestZoneTitle,
       titleColor: settings.latestZoneTitleColor,
-      slots: materializeSpecialSlots(
-        4,
-        () => "selection",
-        selectionPlacements,
-        itemByPlacementId,
-      ),
+      companionZoneId: workspace.latestCompanion?.zoneId ?? null,
     },
     video: {
       active: settings.videoModuleActive,
@@ -423,11 +419,11 @@ export async function readPublicMatchdayPhysicalSnapshot(
   }
 
   const fetchTable = dependencies.fetchTable ?? fetchSupabaseAdminTable;
-  let row: MatchdayLiveLayoutWorkspaceReaderRow | undefined;
+  let row: MatchdayLiveLayoutWorkspaceReaderRowV22 | undefined;
 
   try {
-    [row] = await fetchTable<MatchdayLiveLayoutWorkspaceReaderRow>(
-      `rpc/read_matchday_live_layout_workspace_v13?p_matchday_id=${encodeURIComponent(
+    [row] = await fetchTable<MatchdayLiveLayoutWorkspaceReaderRowV22>(
+      `rpc/read_matchday_live_layout_workspace_v22?p_matchday_id=${encodeURIComponent(
         cleanMatchdayId,
       )}&p_profile_key=${encodeURIComponent(PUBLIC_READER_PROFILE_PROBE)}`,
     );
@@ -452,7 +448,7 @@ export async function readPublicMatchdayPhysicalSnapshot(
   }
 
   try {
-    const workspace = buildLiveLayoutWorkspaceState(cleanMatchdayId, row);
+    const workspace = buildLiveLayoutWorkspaceStateV22(cleanMatchdayId, row);
     if (!workspace.physicalCutover) return physicalError("authority-missing");
 
     const assignments = await fetchTable<AssignmentRow>(
