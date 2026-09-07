@@ -1,4 +1,5 @@
 import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
+import { isMatchdayPhysicalPlacementAuthority } from "@/lib/editorial-matchday-physical-placement";
 import {
   editorialArticleCanonicalMissingLabel,
   missingEditorialArticleCanonicalFields,
@@ -3402,7 +3403,13 @@ async function publishReferenceComposition(formData: FormData) {
   if (composition.status === "published") return;
   if (composition.status !== "draft") throw new Error("composition-invalid");
 
-  if (composition.presentation_mode === "hierarchical") {
+  const physicalAuthority = await isMatchdayPhysicalPlacementAuthority(matchdayId);
+
+  if (physicalAuthority && composition.presentation_mode !== "standard") {
+    throw new CompositionPublicationError("A publicação física usa uma composição de referência standard.");
+  }
+
+  if (!physicalAuthority && composition.presentation_mode === "hierarchical") {
     const hierarchicalSlots = await readHierarchicalCompositionSlots(composition.id);
     const hierarchicalReferenceItems = await readHierarchicalCompositionReferenceItems(composition.id);
 
@@ -3452,7 +3459,7 @@ async function publishReferenceComposition(formData: FormData) {
         "Completa o Editorial da Jornada antes de publicar: título, excerto de capa, texto e autor são obrigatórios.",
       );
     }
-  } else {
+  } else if (!physicalAuthority) {
     const compositionItems = await fetchSupabaseAdminTable<CompositionPublicationItem>(
       `matchday_reference_composition_items?select=slot_type&composition_id=eq.${encodeURIComponent(composition.id)}&limit=500`
     );
