@@ -210,28 +210,26 @@ export function parseLigaPortugalMatchHtml(
 
   if (!titleMatch) return null;
 
-  const body = cleanText($("body").text());
+  const dateText = cleanText(
+    $(".container-date").first().text(),
+  );
+  const timeText = cleanText(
+    $(".match-item-row-score").first().text(),
+  );
   const parsedDate = parsePortugueseNamedDate(
-    body,
+    dateText,
     input.seasonStartsOn,
   );
 
   if (!parsedDate) return null;
 
-  const afterDate = body.slice(
-    parsedDate.endIndex,
-    parsedDate.endIndex + 180,
-  );
-  const rawUtcTime = parseHourTime(afterDate);
+  // A Liga Portugal atual j? exp?e no HTML a hora local de Portugal.
+  // N?o voltar a converter este valor como se estivesse em UTC.
+  const localTime =
+    parseHourTime(timeText)
+    ?? parseColonTime(timeText);
 
-  if (!rawUtcTime) return null;
-
-  // The Liga Portugal HTML exposes the fixture instant in UTC. The browser
-  // renders Portugal local time. Convert before the Jornada stores it.
-  const local = portugalLocalFromUtc(
-    parsedDate.date,
-    rawUtcTime,
-  );
+  if (!localTime) return null;
 
   const bodyChannelCandidates = uniqueTexts([
     ...$("body img[alt]")
@@ -249,8 +247,8 @@ export function parseLigaPortugalMatchHtml(
   return {
     home: cleanText(titleMatch[1]),
     away: cleanText(titleMatch[2]),
-    date: local.date,
-    time: local.time,
+    date: parsedDate.date,
+    time: localTime,
     channel,
     sourceUrl: input.sourceUrl,
   };

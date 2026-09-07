@@ -24,15 +24,15 @@ test("Liga Portugal usa URL estável por época, jornada e índice", () => {
   );
 });
 
-test("Liga Portugal converte a hora UTC exposta no HTML para hora de Portugal", () => {
+test("Liga Portugal l? diretamente a hora portuguesa exposta no HTML", () => {
   const row = parseLigaPortugalMatchHtml(
     `
       <html>
         <head><title>Liga Portugal - FC Porto - Moreirense FC</title></head>
         <body>
           <main>
-            <div>sex. 04 set</div>
-            <div>19h15</div>
+            <div class="container-date">sex. 04 set</div>
+            <div class="match-item-row-score">19h15</div>
             <img alt="SportTV" />
           </main>
         </body>
@@ -48,7 +48,7 @@ test("Liga Portugal converte a hora UTC exposta no HTML para hora de Portugal", 
     home: "FC Porto",
     away: "Moreirense FC",
     date: "2026-09-04",
-    time: "20:15",
+    time: "19:15",
     channel: "SportTV",
     sourceUrl: "https://www.ligaportugal.pt/match/20262027/ligaportugalbetclic/5/6",
   });
