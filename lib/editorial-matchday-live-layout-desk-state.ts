@@ -175,14 +175,13 @@ function validateSnapshot(snapshot: PhysicalDeskSnapshot): PhysicalDeskSnapshot 
     zoneIds.add(zone.id);
   }
 
-  if (snapshot.latestCompanionZoneId !== null) {
-    const hostZone = snapshot.zones.find(
+  if (
+    snapshot.latestCompanionZoneId !== null
+    && !snapshot.zones.some(
       (zone) => zone.id === snapshot.latestCompanionZoneId,
-    );
-
-    if (!hostZone || hostZone.visualFamily !== "four_news") {
-      stateError("latest-companion-host-invalid");
-    }
+    )
+  ) {
+    stateError("latest-companion-host-invalid");
   }
 
   const bankItemIds = new Set(snapshot.bankItems.map((item) => item.id));
@@ -958,6 +957,10 @@ export function deletePhysicalDeskZone(
   return commitSnapshot(state, {
     ...current,
     zones: current.zones.filter((zone) => zone.id !== zoneId),
+    latestCompanionZoneId:
+      current.latestCompanionZoneId === zoneId
+        ? null
+        : current.latestCompanionZoneId,
     blocks: current.blocks.filter((block) => (
       block.kind !== "zone" || block.zoneId !== zoneId
     )),
@@ -1004,14 +1007,13 @@ export function changePhysicalDeskLatestCompanion(
   state: PhysicalDeskState,
   zoneId: LiveLayoutZoneId | null,
 ): PhysicalDeskState {
-  if (zoneId !== null) {
-    const hostZone = state.current.zones.find(
+  if (
+    zoneId !== null
+    && !state.current.zones.some(
       (zone) => zone.id === zoneId,
-    );
-
-    if (!hostZone || hostZone.visualFamily !== "four_news") {
-      return stateError("latest-companion-host-invalid");
-    }
+    )
+  ) {
+    return stateError("latest-companion-host-invalid");
   }
 
   if (state.current.latestCompanionZoneId === zoneId) {

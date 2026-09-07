@@ -128,13 +128,37 @@ test(
 );
 
 test(
-  "host associado tem obrigatoriamente four_news",
+  "host associado pode usar qualquer layout físico",
+  () => {
+    const workspace =
+      buildLiveLayoutWorkspaceStateV22(
+        MATCHDAY_ID,
+        readerRow("six_news"),
+      );
+
+    assert.equal(
+      workspace.latestCompanion?.zoneId,
+      ZONE_B,
+    );
+
+    assert.equal(
+      workspace.zones[1].visualFamily,
+      "six_news",
+    );
+  },
+);
+
+test(
+  "companion continua obrigado a referenciar uma zona existente",
   () => {
     assert.throws(
       () =>
         buildLiveLayoutWorkspaceStateV22(
           MATCHDAY_ID,
-          readerRow("six_news"),
+          readerRow(
+            "six_news",
+            "29999999-0000-4000-8000-000000000999",
+          ),
         ),
       /latest-companion-host-invalid/,
     );

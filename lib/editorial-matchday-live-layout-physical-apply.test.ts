@@ -165,7 +165,29 @@ test("serializer transporta Latest companion até à RPC v22", () => {
   assert.equal(rpc.p_latest_companion_zone_id, hostZone.id);
 });
 
-test("parser rejeita companion em layout incompatível", () => {
+test("parser aceita companion em qualquer layout físico existente", () => {
+  const payload = buildPhysicalDeskApplyPayload(
+    "liga_portugal_v1",
+    createPhysicalDeskState(workspace(5)),
+  );
+
+  const parsed = parsePhysicalDeskApplyPayload({
+    ...payload,
+    latestCompanionZoneId: payload.zones[0].id,
+  });
+
+  assert.equal(
+    parsed.latestCompanionZoneId,
+    payload.zones[0].id,
+  );
+
+  assert.equal(
+    payload.zones[0].visualFamily,
+    "six_news",
+  );
+});
+
+test("parser rejeita companion para zona inexistente", () => {
   const payload = buildPhysicalDeskApplyPayload(
     "liga_portugal_v1",
     createPhysicalDeskState(workspace(5)),
@@ -174,7 +196,8 @@ test("parser rejeita companion em layout incompatível", () => {
   assert.throws(
     () => parsePhysicalDeskApplyPayload({
       ...payload,
-      latestCompanionZoneId: payload.zones[0].id,
+      latestCompanionZoneId:
+        "99999999-0000-4000-8000-000000000999",
     }),
     /latest-companion-host-invalid/,
   );

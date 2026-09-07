@@ -151,19 +151,15 @@ export function buildLiveLayoutWorkspaceStateV22(
     workspace.matchdayId,
   );
 
-  if (latestCompanion !== null) {
-    const hostZone = workspace.zones.find(
+  if (
+    latestCompanion !== null
+    && !workspace.zones.some(
       (zone) => zone.id === latestCompanion.zoneId,
+    )
+  ) {
+    return v22Error(
+      "latest-companion-host-invalid",
     );
-
-    if (
-      !hostZone
-      || hostZone.visualFamily !== "four_news"
-    ) {
-      return v22Error(
-        "latest-companion-host-invalid",
-      );
-    }
   }
 
   return {

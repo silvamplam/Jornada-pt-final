@@ -118,7 +118,7 @@ test(
 );
 
 test(
-  "host associado não pode tornar-se layout incompatível",
+  "host associado pode mudar layout sem perder a relação",
   () => {
     const desk = createPhysicalDeskState(
       buildLiveLayoutWorkspaceStateV22(
@@ -128,19 +128,26 @@ test(
       presentation,
     );
 
-    assert.throws(
-      () => changePhysicalDeskZone(
-        desk,
-        desk.current.zones[0].id,
-        { visualFamily: "six_news" },
-      ),
-      /latest-companion-host-invalid/,
+    const relayout = changePhysicalDeskZone(
+      desk,
+      desk.current.zones[0].id,
+      { visualFamily: "six_news" },
+    );
+
+    assert.equal(
+      relayout.current.zones[0].visualFamily,
+      "six_news",
+    );
+
+    assert.equal(
+      relayout.current.latestCompanionZoneId,
+      ZONE_ID,
     );
   },
 );
 
 test(
-  "host associado não pode ser apagado enquanto a relação existir",
+  "apagar host associado limpa a relação automaticamente",
   () => {
     const desk = createPhysicalDeskState(
       buildLiveLayoutWorkspaceStateV22(
@@ -150,12 +157,19 @@ test(
       presentation,
     );
 
-    assert.throws(
-      () => deletePhysicalDeskZone(
-        desk,
-        desk.current.zones[0].id,
-      ),
-      /latest-companion-host-invalid/,
+    const deleted = deletePhysicalDeskZone(
+      desk,
+      desk.current.zones[0].id,
+    );
+
+    assert.equal(
+      deleted.current.latestCompanionZoneId,
+      null,
+    );
+
+    assert.equal(
+      deleted.current.zones.length,
+      0,
     );
   },
 );
@@ -244,7 +258,7 @@ test(
 );
 
 test(
-  "associar rejeita zona incompatível",
+  "associar aceita qualquer layout físico existente",
   () => {
     const initial = createPhysicalDeskState(
       buildLiveLayoutWorkspaceStateV22(
@@ -257,18 +271,20 @@ test(
       presentation,
     );
 
-    assert.throws(
-      () =>
-        changePhysicalDeskLatestCompanion(
-          initial,
-          initial.current.zones[0].id,
-        ),
-      /latest-companion-host-invalid/,
+    const associated =
+      changePhysicalDeskLatestCompanion(
+        initial,
+        initial.current.zones[0].id,
+      );
+
+    assert.equal(
+      associated.current.latestCompanionZoneId,
+      ZONE_ID,
     );
 
     assert.equal(
-      initial.current.latestCompanionZoneId,
-      null,
+      associated.current.zones[0].visualFamily,
+      "six_news",
     );
   },
 );

@@ -318,14 +318,11 @@ export function parsePhysicalDeskApplyPayload(
           "latest-companion-zone-id-invalid",
         );
 
-  if (latestCompanionZoneId !== null) {
-    const hostZone = zones.find(
-      (zone) => zone.id === latestCompanionZoneId,
-    );
-
-    if (!hostZone || hostZone.visualFamily !== "four_news") {
-      return applyError("latest-companion-host-invalid");
-    }
+  if (
+    latestCompanionZoneId !== null
+    && !zoneIds.has(latestCompanionZoneId)
+  ) {
+    return applyError("latest-companion-host-invalid");
   }
 
   const blocks = arrayValue(input.blocks, "blocks-invalid").map((value) => {
