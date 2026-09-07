@@ -326,9 +326,9 @@ begin
   into v_apply_definition;
 
   if v_apply_definition is null
-    or pg_catalog.position(
+    or pg_catalog.strpos(
+      v_apply_definition,
       'visual_family = ''four_news'''
-      in v_apply_definition
     ) > 0
   then
     raise exception
