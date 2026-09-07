@@ -41,6 +41,17 @@ test("página pública usa um único dispatch marker-first", () => {
   assert.ok(physicalDecision >= 0 && legacyRead > physicalDecision);
 });
 
+test("histórico publicado prevalece sobre resíduos legacy sem enfraquecer autoridade física", () => {
+  assert.match(
+    pageSource,
+    /const usePublishedReferenceComposition =\s*editorialRead\.kind !== "physical"\s*&& editorialRead\.kind !== "invalid_physical_snapshot"\s*&& context\.hasPublishedReferenceComposition\s*&& !isManagedByEditorialDesk;/,
+  );
+  assert.doesNotMatch(
+    pageSource,
+    /const usePublishedReferenceComposition =\s*isGenuineLegacy/,
+  );
+});
+
 test("apenas a Jornada genuinamente legacy conserva o renderer live antigo", () => {
   assert.match(
     pageSource,

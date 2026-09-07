@@ -3043,7 +3043,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
 
   const isManagedByEditorialDesk = context.editorialDeskControl.isManaged;
   const usePublishedReferenceComposition =
-    isGenuineLegacy
+    editorialRead.kind !== "physical"
+    && editorialRead.kind !== "invalid_physical_snapshot"
     && context.hasPublishedReferenceComposition
     && !isManagedByEditorialDesk;
   const publicEditorialUnavailable =
