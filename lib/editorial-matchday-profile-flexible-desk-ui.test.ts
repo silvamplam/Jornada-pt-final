@@ -45,10 +45,11 @@ test("Últimas continua um block físico ordenável", () => {
   assert.match(client, /latestZonePlacement/);
 });
 
-test("quatro ao lado são placements na mesma autoridade física", () => {
-  assert.match(client, /physicalDeskPlacementsOfType\(physicalDesk, "selection"\)/);
-  assert.match(client, /placeInSelection\(bankItemId, position\)/);
-  assert.doesNotMatch(client, /draftEditorialSelection|persistedEditorialSelection/);
+test("selection legacy esta retirado da superficie fisica da Mesa", () => {
+  assert.doesNotMatch(client, /physicalDeskPlacementsOfType\(physicalDesk, "selection"\)/);
+  assert.doesNotMatch(client, /placeInSelection/);
+  assert.doesNotMatch(client, /renderEditorialSelectionPanel/);
+  assert.doesNotMatch(client, /MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS/);
 });
 
 test("zona ativa mantém título layout e contador", () => {
@@ -64,28 +65,27 @@ test("tabs mantêm Abertura e derivam todos os blocks físicos", () => {
   assert.match(client, />Abertura \{openingOccupied\}</);
 });
 
-test("Últimas abrem como bloco de apresentação sem pseudo-zona 2/4", () => {
+test("Ultimas abrem como bloco de apresentacao sem pseudo-zona", () => {
   const latest = body("renderLatestBlockPanel", "renderHighlightWorkspace");
   const activeWorkspace = body("renderActiveWorkspace", "undo");
 
-  assert.match(latest, /Bloco editorial de apresentação/);
-  assert.match(latest, /não constituem uma zona/);
-  assert.match(latest, /editorialSelectionOccupied/);
+  assert.match(latest, /data-latest-block="presentation"/);
+  assert.match(latest, /current\.latestCompanionZoneId/);
+  assert.match(latest, /Zona associada:/);
+  assert.doesNotMatch(latest, /editorialSelectionOccupied|selectionPlacements/);
 
   assert.match(
     activeWorkspace,
     /activeWorkspaceKey === "latest"\) return renderLatestBlockPanel\(\)/,
   );
-  assert.doesNotMatch(
-    activeWorkspace,
-    /renderEditorialSelectionPanel/,
-  );
+  assert.doesNotMatch(activeWorkspace, /renderEditorialSelectionPanel/);
 });
 
-test("quatro Últimas derivam as quatro posições sem numeração visual", () => {
-  assert.match(client, /MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS\.map/);
-  assert.match(client, /thematic-slots-4 thematic-editorial-selection/);
-  assert.doesNotMatch(client, /thematic-slot-number/);
+test("Ultimas associam uma zona fisica por zone_id sem posicoes legacy", () => {
+  const latest = body("renderLatestBlockPanel", "renderHighlightWorkspace");
+  assert.match(latest, /current\.latestCompanionZoneId/);
+  assert.match(latest, /zoneById\.get\(current\.latestCompanionZoneId\)/);
+  assert.doesNotMatch(latest, /MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS/);
 });
 
 test("Destaque usa placement físico e apresentação local", () => {

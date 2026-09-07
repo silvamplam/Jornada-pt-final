@@ -82,7 +82,6 @@ function workspace(zoneCount: number, itemCount = 12): LiveLayoutWorkspaceState 
     { id: id(60, 1), bankItemId: id(40, 1), placementType: "faixa" as const, zoneId: null, slotPosition: 1, createdAt: NOW, updatedAt: NOW },
     { id: id(60, 2), bankItemId: id(40, 2), placementType: "zone" as const, zoneId: zones[0].id, slotPosition: 2, createdAt: NOW, updatedAt: NOW },
     { id: id(60, 3), bankItemId: id(40, 3), placementType: "opening" as const, zoneId: null, slotPosition: 1, createdAt: NOW, updatedAt: NOW },
-    { id: id(60, 4), bankItemId: id(40, 4), placementType: "selection" as const, zoneId: null, slotPosition: 4, createdAt: NOW, updatedAt: NOW },
     { id: id(60, 5), bankItemId: id(40, 5), placementType: "video_highlight" as const, zoneId: null, slotPosition: 1, createdAt: NOW, updatedAt: NOW },
   ];
   return {
@@ -132,6 +131,29 @@ test("serializer usa token físico e conserva IDs reais de zonas e blocks", () =
   }
 });
 
+test("serializer rejeita selection retirado da arquitetura física", () => {
+  const initial = createPhysicalDeskState(workspace(5));
+  const invalid = {
+    ...initial,
+    current: {
+      ...initial.current,
+      placements: [
+        ...initial.current.placements,
+        {
+          bankItemId: id(40, 4),
+          placementType: "selection" as const,
+          zoneId: null,
+          slotPosition: 1,
+        },
+      ],
+    },
+  };
+
+  assert.throws(
+    () => buildPhysicalDeskApplyPayload("liga_portugal_v1", invalid),
+    /selection-retired/,
+  );
+});
 test("serializer transporta Latest companion até à RPC v22", () => {
   const initial = createPhysicalDeskState(workspace(5));
 
@@ -313,7 +335,7 @@ test("serializer transporta todos os placements sem compactar Faixa esparsa", ()
   assert.equal(payload.placements.length, state.current.placements.length);
   assert.deepEqual(
     new Set(payload.placements.map((placement) => placement.placementType)),
-    new Set(["zone", "faixa", "opening", "selection", "video_highlight"]),
+    new Set(["zone", "faixa", "opening", "video_highlight"]),
   );
   assert.equal(payload.faixaSlotCount, 4);
   assert.deepEqual(

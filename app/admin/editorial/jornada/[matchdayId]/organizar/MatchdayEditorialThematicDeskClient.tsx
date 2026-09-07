@@ -75,12 +75,6 @@ import {
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS,
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS,
 } from "@/lib/editorial-matchday-profile-workspace";
-import {
-  MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS,
-  parseMatchdayEditorialProfileSelectionDrag,
-  serializeMatchdayEditorialProfileSelectionDrag,
-  type MatchdayEditorialProfileSelectionPosition,
-} from "@/lib/editorial-matchday-profile-selection";
 
 type EditorialSelectionCandidate = MatchdayEditorialSelectionCandidate;
 
@@ -466,139 +460,6 @@ function ArticleCard({ bankItemId, item, placement, selected, dragging, onToggle
   );
 }
 
-function EditorialSelectionCard({
-  candidate,
-  dragging,
-  onDragEnd,
-  onDragStart,
-  onFaixa,
-  onBank,
-  onRemove,
-  onToggle,
-  position,
-  selected,
-}: Readonly<{
-  candidate: EditorialSelectionCandidate;
-  dragging: boolean;
-  onDragEnd: () => void;
-  onDragStart: (event: DragEvent<HTMLElement>) => void;
-  onFaixa: () => void;
-  onBank: () => void;
-  onRemove: () => void;
-  onToggle: () => void;
-  position: MatchdayEditorialProfileSelectionPosition;
-  selected: boolean;
-}>) {
-  return (
-    <article
-      aria-grabbed={dragging}
-      className={`thematic-card thematic-selection-card${selected ? " selected" : ""}`}
-      draggable
-      onDragEnd={onDragEnd}
-      onDragStart={(event) => {
-        const target = event.target as HTMLElement;
-
-        if (target.closest("button,summary,details")) {
-          event.preventDefault();
-          return;
-        }
-
-        onDragStart(event);
-      }}
-    >
-      <input aria-label={`Marcar para operação em lote: ${candidate.title}`} checked={selected} onChange={onToggle} onClick={(event) => event.stopPropagation()} type="checkbox" />
-      {renderableImageUrl(candidate.imageUrl) ? (
-        <Image
-          alt=""
-          className="thematic-image"
-          height={40}
-          loader={imageLoader}
-          loading="lazy"
-          src={candidate.imageUrl}
-          unoptimized
-          width={50}
-        />
-      ) : (
-        <span aria-hidden="true" className="thematic-image-placeholder" />
-      )}
-
-      <div className="thematic-card-copy">
-        <div className="thematic-card-top">
-          {candidate.label ? (
-            <span className="thematic-card-label">{candidate.label}</span>
-          ) : null}
-
-        </div>
-        <strong className="thematic-card-title">{candidate.title}</strong>
-        <small>
-          {candidate.sourceType === "editorial_content"
-            ? "Conteúdo editorial"
-            : "Artigo editorial"}
-          {candidate.subtitle ? ` · ${candidate.subtitle}` : ""}
-        </small>
-      </div>
-
-      <details
-        className="thematic-card-menu"
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-            event.currentTarget.open = false;
-          }
-        }}
-        onClick={(event) => event.stopPropagation()}
-        onMouseLeave={(event) => {
-          const details = event.currentTarget;
-
-          window.setTimeout(() => {
-            if (
-              !details.matches(":hover")
-              && !details.contains(document.activeElement)
-            ) {
-              details.open = false;
-            }
-          }, 220);
-        }}
-      >
-        <summary aria-label={`Ações das quatro ${position}: ${candidate.title}`}>
-          ···
-        </summary>
-        <div
-          className="thematic-card-actions"
-          onClick={(event) => {
-            const details = event.currentTarget.closest("details");
-
-            if (details instanceof HTMLDetailsElement) {
-              details.open = false;
-            }
-          }}
-        >
-          <button
-            className="thematic-button"
-            onClick={onFaixa}
-            type="button"
-          >
-            Mover para Faixa
-          </button>
-          <button
-            className="thematic-button"
-            onClick={onBank}
-            type="button"
-          >
-            Mover para Banco
-          </button>
-          <button
-            className="thematic-button"
-            onClick={onRemove}
-            type="button"
-          >
-            Retirar das quatro
-          </button>
-        </div>
-      </details>
-    </article>
-  );
-}
-
 function Diagnostics({ diagnostics }: Readonly<{ diagnostics: readonly MatchdayEditorialProfileDeskDiagnostic[] }>) {
   if (diagnostics.length === 0) return null;
   return (
@@ -805,8 +666,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     createPhysicalDeskState(desk.physicalWorkspace, physicalPresentation)
   ));
   const [draggingBankItemId, setDraggingBankItemId] = useState<string | null>(null);
-  const [draggingEditorialSelectionPosition, setDraggingEditorialSelectionPosition] =
-    useState<MatchdayEditorialProfileSelectionPosition | null>(null);
   const [activeWorkspaceKey, setActiveWorkspaceKey] = useState<ActiveWorkspaceKey>("opening");
   const [openingPinned, setOpeningPinned] = useState(false);
   const [newZoneFormOpen, setNewZoneFormOpen] = useState(false);
@@ -1042,15 +901,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     );
   }
 
-  function placeInSelection(bankItemId: string, slotPosition: number) {
-    runPhysicalOperation(
-      (state) => movePhysicalDeskItemToSlot(state, bankItemId, {
-        placementType: "selection", zoneId: null, slotPosition,
-      }),
-      "Quatro ao lado das Últimas atualizadas em preview físico.",
-    );
-  }
-
   function placeAtFaixaTop(bankItemId: string) {
     runPhysicalOperation(
       (state) => movePhysicalDeskItemToFaixaTop(state, bankItemId),
@@ -1085,10 +935,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (draggingBankItemId && bankItemById.has(draggingBankItemId)) return draggingBankItemId;
     const raw = event.dataTransfer.getData("text/plain");
     if (bankItemById.has(raw)) return raw;
-    const selectionDrag = parseMatchdayEditorialProfileSelectionDrag(raw);
-    return selectionDrag && bankItemById.has(selectionDrag.bankItemId)
-      ? selectionDrag.bankItemId
-      : null;
+    return null;
   }
 
   function dragStart(event: DragEvent<HTMLElement>, bankItemId: string) {
@@ -1191,11 +1038,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   }
 
   const openingPlacements = physicalDeskPlacementsOfType(physicalDesk, "opening");
-  const selectionPlacements = physicalDeskPlacementsOfType(physicalDesk, "selection");
   const faixaPlacements = physicalDeskPlacementsOfType(physicalDesk, "faixa");
   const highlightPlacement = physicalDeskPlacementsOfType(physicalDesk, "video_highlight")[0] ?? null;
   const openingOccupied = openingPlacements.length;
-  const editorialSelectionOccupied = selectionPlacements.length;
   const pendingCount = pending ? Math.max(1, physicalDesk.history.length) : 0;
   const destinationZoneCapacity = destinationZoneId
     ? zoneById.get(destinationZoneId)?.capacity ?? 1
@@ -1313,105 +1158,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     );
   }
 
-  function renderEditorialSelectionPanel() {
-    return (
-      <article className="thematic-workspace-body">
-        <div className="thematic-zone-editor">
-          <label>
-            <span>Título público</span>
-            <input
-              aria-label="Título público de Últimas"
-              defaultValue={current.presentation.latestZoneTitle}
-              disabled={mutationBlocked}
-              key={current.presentation.latestZoneTitle}
-              maxLength={120}
-              onBlur={(event) => runPhysicalOperation(
-                (state) => changePhysicalDeskPresentation(state, { latestZoneTitle: event.target.value.trim() }),
-                "Título de Últimas alterado em preview.",
-              )}
-              type="text"
-            />
-          </label>
-          <label>
-            <span>Apresentação</span>
-            <select
-              aria-label="Apresentação de Últimas"
-              disabled={mutationBlocked}
-              onChange={(event) => runPhysicalOperation(
-                (state) => changePhysicalDeskPresentation(state, {
-                  latestZonePlacement: event.target.value === "four_news"
-                    ? "four_news"
-                    : event.target.value === "hidden"
-                      ? "hidden"
-                      : "top",
-                }),
-                "Últimas alterada em preview.",
-              )}
-              value={current.presentation.latestZonePlacement}
-            >
-              <option value="top">Topo</option>
-              <option value="four_news">Últimas + quatro ao lado</option>
-              <option value="hidden">Oculto</option>
-            </select>
-          </label>
-          <strong className="thematic-zone-editor-count">{editorialSelectionOccupied}/4</strong>
-        </div>
-        <div aria-label="Quatro ao lado das Últimas" className="thematic-slots thematic-slots-4 thematic-editorial-selection">
-          {MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS.map((position) => {
-            const placement = selectionPlacements.find((candidate) => candidate.slotPosition === position);
-            const candidate = placement ? candidateForBankItem(placement.bankItemId) : null;
-            return (
-              <div
-                aria-label={`Quatro ao lado das Últimas ${position}`}
-                className="thematic-workspace-slot thematic-selection-slot"
-                data-drag-active={(draggingBankItemId !== null || draggingEditorialSelectionPosition !== null) && !mutationBlocked}
-                key={position}
-                onDragOver={allowDrop}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const bankItemId = dragged(event);
-                  if (bankItemId) placeInSelection(bankItemId, position);
-                  setDraggingBankItemId(null);
-                  setDraggingEditorialSelectionPosition(null);
-                }}
-              >
-                {candidate ? (
-                  <EditorialSelectionCard
-                    candidate={candidate}
-                    dragging={draggingEditorialSelectionPosition === position}
-                    onBank={() => placeInBank(candidate.bankItemId)}
-                    onDragEnd={() => {
-                      setDraggingBankItemId(null);
-                      setDraggingEditorialSelectionPosition(null);
-                    }}
-                    onDragStart={(event) => {
-                      if (mutationBlocked) {
-                        event.preventDefault();
-                        return;
-                      }
-                      event.dataTransfer.effectAllowed = "move";
-                      event.dataTransfer.setData("text/plain", serializeMatchdayEditorialProfileSelectionDrag({
-                        bankItemId: candidate.bankItemId,
-                        sourcePosition: position,
-                      }));
-                      setDraggingBankItemId(candidate.bankItemId);
-                      setDraggingEditorialSelectionPosition(position);
-                    }}
-                    onFaixa={() => placeAtFaixaTop(candidate.bankItemId)}
-                    onRemove={() => placeInDisplaced(candidate.bankItemId)}
-                    onToggle={() => toggleSelection(candidate.bankItemId)}
-                    position={position}
-                    selected={selected.has(candidate.bankItemId)}
-                  />
-                ) : <p className="thematic-empty">Posição livre</p>}
-              </div>
-            );
-          })}
-        </div>
-      </article>
-    );
-  }
-
   function renderLatestBlockPanel() {
     const companionZone =
       current.latestCompanionZoneId
@@ -1443,17 +1189,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             ? `Zona associada: ${companionZone.publicTitle || "Zona sem título"}.`
             : "Sem zona associada."}
         </p>
-
-        {editorialSelectionOccupied > 0 ? (
-          <p className="thematic-zone-alert" role="status">
-            {editorialSelectionOccupied}{" "}
-            {editorialSelectionOccupied === 1
-              ? "artigo permanece"
-              : "artigos permanecem"}{" "}
-            no storage antigo de seleção até à migração física.
-            Estes artigos não constituem uma zona.
-          </p>
-        ) : null}
       </article>
     );
   }

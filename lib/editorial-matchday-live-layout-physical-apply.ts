@@ -185,6 +185,9 @@ export function buildPhysicalDeskApplyPayload(
   physicalDesk: PhysicalDeskState,
 ): PhysicalDeskApplyPayload {
   const cleanProfileKey = requiredText(profileKey, "profile-key-invalid");
+  if (physicalDesk.current.placements.some((placement) => placement.placementType === "selection")) {
+    return applyError("selection-retired");
+  }
   const expectedPhysicalStateToken = physicalStateToken(
     physicalDesk.physicalStateToken,
   );
