@@ -46,6 +46,7 @@ import {
   bulkMovePhysicalDeskItemsToBank,
   bulkMovePhysicalDeskItemsToFaixa,
   bulkMovePhysicalDeskItemsToZone,
+  changePhysicalDeskLatestCompanion,
   changePhysicalDeskPresentation,
   changePhysicalDeskZone,
   createPhysicalDeskZone,
@@ -873,11 +874,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         && placement.zoneId === activeZone.id
       )).length
     : 0;
-  const activeLatestPlacedArticleCount = activeLatest
-    ? current.placements.filter(
-        (placement) => placement.placementType === "selection",
-      ).length
-    : 0;
+
   const activeStructureTitle = activeLatest
     ? current.presentation.latestZoneTitle
     : activeZone?.publicTitle ?? "";
@@ -965,9 +962,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       const errorMessage = error instanceof Error
         ? error.message
         : "A operação física foi recusada.";
-      setMessage(errorMessage.includes("zone-layout-shrink-occupied")
-        ? "Este layout não comporta as posições atualmente ocupadas. Mova primeiro os artigos dessas posições."
-        : errorMessage);
+      setMessage(
+        errorMessage.includes("zone-layout-shrink-occupied")
+          ? "Este layout não comporta as posições atualmente ocupadas. Mova primeiro os artigos dessas posições."
+          : errorMessage.includes("latest-companion-host-invalid")
+            ? "Desassocie primeiro as Últimas desta zona."
+            : errorMessage,
+      );
       return null;
     }
   }
@@ -1857,17 +1858,54 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     </label>
 
                     <label className="thematic-page-zone-field">
-                      <span>Layout</span>
+                      <span>
+                        {activeLatest ? "Últimas ao lado de" : "Layout"}
+                      </span>
 
                       {activeLatest ? (
                         <select
-                          aria-label={"Layout de " + activeStructureLabel}
-                          disabled
-                          value="four_news"
+                          aria-label={"Últimas ao lado de " + activeStructureLabel}
+                          disabled={mutationBlocked}
+                          onChange={(event) => {
+                            const requestedZoneId = event.target.value;
+
+                            if (!requestedZoneId) {
+                              runPhysicalOperation(
+                                (state) => changePhysicalDeskLatestCompanion(
+                                  state,
+                                  null,
+                                ),
+                                "Últimas sem zona associada em preview.",
+                              );
+                              return;
+                            }
+
+                            const nextZone = current.zones.find((zone) => (
+                              zone.id === requestedZoneId
+                              && zone.visualFamily === "four_news"
+                            ));
+
+                            if (!nextZone) return;
+
+                            runPhysicalOperation(
+                              (state) => changePhysicalDeskLatestCompanion(
+                                state,
+                                nextZone.id,
+                              ),
+                              "Associação das Últimas alterada em preview.",
+                            );
+                          }}
+                          value={current.latestCompanionZoneId ?? ""}
                         >
-                          <option value="four_news">
-                            4 notícias
-                          </option>
+                          <option value="">Sem zona associada</option>
+
+                          {current.zones
+                            .filter((zone) => zone.visualFamily === "four_news")
+                            .map((zone) => (
+                              <option key={zone.id} value={zone.id}>
+                                {zone.publicTitle || "Zona sem título"}
+                              </option>
+                            ))}
                         </select>
                       ) : activeZone ? (
                         <select
@@ -1898,7 +1936,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
                     <small>
                       {activeLatest
-                        ? activeLatestPlacedArticleCount + "/4"
+                        ? current.latestCompanionZoneId
+                          ? "Zona associada"
+                          : "Sem zona associada"
                         : activeZone
                           ? activeZonePlacedArticleCount
                             + "/" + activeZone.capacity

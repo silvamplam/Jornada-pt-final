@@ -13,8 +13,8 @@ import {
   type MatchdayLiveDeskAggregateRow,
 } from "@/lib/editorial-matchday-profile-desk";
 import type {
-  MatchdayLiveLayoutWorkspaceReaderRow,
-} from "@/lib/editorial-matchday-live-layout-workspace";
+  MatchdayLiveLayoutWorkspaceReaderRowV22,
+} from "@/lib/editorial-matchday-live-layout-workspace-v22";
 import { fixMatchdayEditorialItemsInZone } from "@/lib/editorial-matchday-profile-desk-operations";
 import { EDITORIAL_PROFILES } from "@/lib/editorial-profiles";
 
@@ -25,7 +25,7 @@ const PHYSICAL_ZONE_IDS = profile.zones.map((_, index) => (
 
 function physicalWorkspaceReaderRow(
   zoneCount = 5,
-): MatchdayLiveLayoutWorkspaceReaderRow {
+): MatchdayLiveLayoutWorkspaceReaderRowV22 {
   const zones = Array.from({ length: zoneCount }, (_, index) => ({
     id: index < PHYSICAL_ZONE_IDS.length
       ? PHYSICAL_ZONE_IDS[index]
@@ -55,6 +55,7 @@ function physicalWorkspaceReaderRow(
       legacy_zone_key: zone.key,
       zone_id: PHYSICAL_ZONE_IDS[index],
     })),
+    latest_companion: null,
     workspace_settings: null,
     physical_cutover: null,
   };
@@ -308,7 +309,7 @@ test("uma assignment liga_portugal_v1 produz snapshot temático exclusivamente p
       rows = [{ id: "matchday-1", season_id: "season-1", number: 3, label: "3.ª Jornada" }];
     } else if (path.startsWith("rpc/read_matchday_live_desk_aggregate_tracking?")) {
       rows = [aggregateRow(articleId, { zoneKey: "fc_porto" })];
-    } else if (path.startsWith("rpc/read_matchday_live_layout_workspace_v13?")) {
+    } else if (path.startsWith("rpc/read_matchday_live_layout_workspace_v22?")) {
       rows = [physicalWorkspaceReaderRow(6)];
     } else if (path.startsWith("matchday_editorial_profile_state_items?")) {
       rows = [{ source_type: "editorial_article", source_id: articleId, zone_key: "fc_porto", sort_order: 1 }];
@@ -353,7 +354,7 @@ test("uma assignment liga_portugal_v1 produz snapshot temático exclusivamente p
   );
   assert.equal(paths.some((path) => path.startsWith("rpc/apply_")), false);
   assert.equal(paths.some((path) => path.startsWith("rpc/read_matchday_live_desk_aggregate_tracking?")), true);
-  assert.equal(paths.some((path) => path.startsWith("rpc/read_matchday_live_layout_workspace_v13?")), true);
+  assert.equal(paths.some((path) => path.startsWith("rpc/read_matchday_live_layout_workspace_v22?")), true);
   assert.equal(paths.some((path) => path.startsWith("matchday_live_layout_zones?")), false);
   assert.equal(paths.some((path) => path.startsWith("matchday_live_layout_blocks?")), false);
   assert.equal(paths.some((path) => path.startsWith("rpc/matchday_editorial_profile_classification_plan?")), false);
@@ -432,7 +433,7 @@ test("o leitor sobrepõe overrides persistidos sem alterar a baseline automátic
       rows = [{ id: "matchday-1", season_id: "season-1", number: 3, label: "3.ª Jornada" }];
     } else if (path.startsWith("rpc/read_matchday_live_desk_aggregate_tracking?")) {
       rows = [aggregateRow(articleId, { zoneKey: "fc_porto" })];
-    } else if (path.startsWith("rpc/read_matchday_live_layout_workspace_v13?")) {
+    } else if (path.startsWith("rpc/read_matchday_live_layout_workspace_v22?")) {
       rows = [physicalWorkspaceReaderRow()];
     } else if (path.startsWith("matchday_editorial_profile_state_items?")) {
       rows = [{ source_type: "editorial_article", source_id: articleId, zone_key: "fc_porto", sort_order: 1 }];
@@ -485,7 +486,7 @@ test("overrides inativos ficam históricos e não bloqueiam a Mesa operacional",
         aggregateRow(activeArticleId, { zoneKey: "benfica", sortOrder: 1 }),
         aggregateRow(secondActiveArticleId, { zoneKey: "benfica", sortOrder: 2 }),
       ];
-    } else if (path.startsWith("rpc/read_matchday_live_layout_workspace_v13?")) {
+    } else if (path.startsWith("rpc/read_matchday_live_layout_workspace_v22?")) {
       rows = [physicalWorkspaceReaderRow()];
     } else if (path.startsWith("matchday_editorial_profile_state_items?")) {
       rows = [
@@ -582,7 +583,7 @@ test("o reader usa placements autoritativos e não reinsere o Vídeo na Faixa", 
           slotPosition: 1,
         }),
       ];
-    } else if (path.startsWith("rpc/read_matchday_live_layout_workspace_v13?")) {
+    } else if (path.startsWith("rpc/read_matchday_live_layout_workspace_v22?")) {
       rows = [physicalWorkspaceReaderRow()];
     } else if (path.startsWith("matchday_editorial_profile_state_items?")) {
       rows = [faixaArticleId, videoArticleId].map((sourceId, index) => ({
@@ -684,7 +685,7 @@ test("um placement Faixa fora do banco ativo bloqueia o Apply sem ser apagado du
           slotPosition: 1,
         }),
       ];
-    } else if (path.startsWith("rpc/read_matchday_live_layout_workspace_v13?")) {
+    } else if (path.startsWith("rpc/read_matchday_live_layout_workspace_v22?")) {
       rows = [physicalWorkspaceReaderRow()];
     } else if (path.startsWith("matchday_editorial_profile_state_items?")) {
       rows = [{ source_type: "editorial_article", source_id: activeArticleId, zone_key: "benfica", sort_order: 1 }];
@@ -783,7 +784,7 @@ test("o ramo server-side preserva a leitura e delega o Apply físico ao cliente 
   assert.doesNotMatch(clientSource, /Devolver ao automático/);
   assert.match(clientSource, /draggable[\s\S]*onDragStart[\s\S]*onDrop/);
   assert.doesNotMatch(routeSource, /reconcileMatchdayEditorialProfileWorkspace|compatibilityReconcile/);
-  assert.match(routeSource, /rpc\/apply_matchday_live_layout_physical_v20/);
+  assert.match(routeSource, /rpc\/apply_matchday_live_layout_physical_v22/);
   assert.doesNotMatch(routeSource, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.doesNotMatch(routeSource, /apply_matchday_editorial_profile_workspace_v12/);
   assert.doesNotMatch(routeSource, /refresh_matchday_editorial_profile_distribution|profile_state_items/);

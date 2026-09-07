@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   bulkMovePhysicalDeskItemsToFaixa,
+  changePhysicalDeskLatestCompanion,
   changePhysicalDeskPresentation,
   createPhysicalDeskZone,
   createPhysicalDeskState,
@@ -129,6 +130,54 @@ test("serializer usa token físico e conserva IDs reais de zonas e blocks", () =
       /latestZoneMode|latestZoneTitleColor|latest_zone_mode|latest_zone_title_color/,
     );
   }
+});
+
+test("serializer transporta Latest companion até à RPC v22", () => {
+  const initial = createPhysicalDeskState(workspace(5));
+
+  const withZone = createPhysicalDeskZone(initial, {
+    publicTitle: "",
+    visualFamily: "four_news",
+  });
+
+  const hostZone = withZone.current.zones.find((zone) => (
+    !initial.current.zones.some((candidate) => candidate.id === zone.id)
+  ));
+
+  assert.ok(hostZone);
+
+  const associated = changePhysicalDeskLatestCompanion(
+    withZone,
+    hostZone.id,
+  );
+
+  const payload = buildPhysicalDeskApplyPayload(
+    "liga_portugal_v1",
+    associated,
+  );
+
+  assert.equal(payload.latestCompanionZoneId, hostZone.id);
+
+  const parsed = parsePhysicalDeskApplyPayload(payload);
+  assert.equal(parsed.latestCompanionZoneId, hostZone.id);
+
+  const rpc = physicalDeskApplyRpcArguments(MATCHDAY_ID, parsed);
+  assert.equal(rpc.p_latest_companion_zone_id, hostZone.id);
+});
+
+test("parser rejeita companion em layout incompatível", () => {
+  const payload = buildPhysicalDeskApplyPayload(
+    "liga_portugal_v1",
+    createPhysicalDeskState(workspace(5)),
+  );
+
+  assert.throws(
+    () => parsePhysicalDeskApplyPayload({
+      ...payload,
+      latestCompanionZoneId: payload.zones[0].id,
+    }),
+    /latest-companion-host-invalid/,
+  );
 });
 
 test("serializer representa create como topologia final completa", () => {
@@ -347,6 +396,7 @@ test("parser físico recusa campos legacy e RPC faz apenas tradução de casing"
   );
   const rpc = physicalDeskApplyRpcArguments(MATCHDAY_ID, payload);
   assert.equal(rpc.p_expected_physical_state_token, TOKEN);
+  assert.equal(rpc.p_latest_companion_zone_id, null);
   assert.deepEqual(rpc.p_zones[0], {
     id: id(20, 1),
     public_title: "Zona física 1",

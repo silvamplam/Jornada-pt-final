@@ -16,6 +16,9 @@ import type {
   LiveLayoutWorkspaceState,
 } from "@/lib/editorial-matchday-live-layout-workspace";
 import type {
+  LiveLayoutWorkspaceStateV22,
+} from "@/lib/editorial-matchday-live-layout-workspace-v22";
+import type {
   MatchdayEditorialProfileLatestZonePlacement,
 } from "@/lib/editorial-matchday-profile-workspace";
 
@@ -58,6 +61,7 @@ export type PhysicalDeskSnapshot = Readonly<{
   memory: readonly PhysicalDeskMemory[];
   faixaArrivalBankItemIds: readonly string[];
   displacedArrivalBankItemIds: readonly string[];
+  latestCompanionZoneId: LiveLayoutZoneId | null;
   presentation: PhysicalDeskPresentation;
 }>;
 
@@ -169,6 +173,16 @@ function validateSnapshot(snapshot: PhysicalDeskSnapshot): PhysicalDeskSnapshot 
       stateError("zone-capacity-inconsistent");
     }
     zoneIds.add(zone.id);
+  }
+
+  if (snapshot.latestCompanionZoneId !== null) {
+    const hostZone = snapshot.zones.find(
+      (zone) => zone.id === snapshot.latestCompanionZoneId,
+    );
+
+    if (!hostZone || hostZone.visualFamily !== "four_news") {
+      stateError("latest-companion-host-invalid");
+    }
   }
 
   const bankItemIds = new Set(snapshot.bankItems.map((item) => item.id));
@@ -315,7 +329,7 @@ function validateSnapshot(snapshot: PhysicalDeskSnapshot): PhysicalDeskSnapshot 
 }
 
 export function createPhysicalDeskState(
-  workspace: LiveLayoutWorkspaceState,
+  workspace: LiveLayoutWorkspaceState | LiveLayoutWorkspaceStateV22,
   legacyBootstrapPresentation?: PhysicalDeskPresentation,
 ): PhysicalDeskState {
   const faixaSlotCount = workspace.workspaceSettings?.faixaSlotCount
@@ -354,6 +368,10 @@ export function createPhysicalDeskState(
     memory: workspace.memory,
     faixaArrivalBankItemIds: [],
     displacedArrivalBankItemIds: [],
+    latestCompanionZoneId:
+      "latestCompanion" in workspace
+        ? workspace.latestCompanion?.zoneId ?? null
+        : null,
     presentation,
   });
 
@@ -937,6 +955,29 @@ export function movePhysicalDeskBlock(
   return commitSnapshot(state, { ...state.current, blocks: nextBlocks });
 }
 
+export function changePhysicalDeskLatestCompanion(
+  state: PhysicalDeskState,
+  zoneId: LiveLayoutZoneId | null,
+): PhysicalDeskState {
+  if (zoneId !== null) {
+    const hostZone = state.current.zones.find(
+      (zone) => zone.id === zoneId,
+    );
+
+    if (!hostZone || hostZone.visualFamily !== "four_news") {
+      return stateError("latest-companion-host-invalid");
+    }
+  }
+
+  if (state.current.latestCompanionZoneId === zoneId) {
+    return state;
+  }
+
+  return commitSnapshot(state, {
+    ...state.current,
+    latestCompanionZoneId: zoneId,
+  });
+}
 export function changePhysicalDeskPresentation(
   state: PhysicalDeskState,
   change: Partial<PhysicalDeskPresentation>,

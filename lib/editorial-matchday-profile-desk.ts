@@ -33,10 +33,10 @@ import {
   type MatchdayLiveLayoutPhysicalSnapshot,
 } from "@/lib/editorial-matchday-live-layout-physical";
 import {
-  buildLiveLayoutWorkspaceState,
-  type LiveLayoutWorkspaceState,
-  type MatchdayLiveLayoutWorkspaceReaderRow,
-} from "@/lib/editorial-matchday-live-layout-workspace";
+  buildLiveLayoutWorkspaceStateV22,
+  type LiveLayoutWorkspaceStateV22,
+  type MatchdayLiveLayoutWorkspaceReaderRowV22,
+} from "@/lib/editorial-matchday-live-layout-workspace-v22";
 import {
   buildLiveLayoutLegacyCompatibility,
   type LiveLayoutLegacyCompatibility,
@@ -433,7 +433,7 @@ export type MatchdayEditorialProfileDeskSnapshot =
     selectionCandidates: readonly MatchdayEditorialSelectionCandidate[];
     editorialSelection: readonly MatchdayEditorialSelectionItem[];
     physicalLayout: MatchdayLiveLayoutPhysicalSnapshot;
-    physicalWorkspace: LiveLayoutWorkspaceState;
+    physicalWorkspace: LiveLayoutWorkspaceStateV22;
     physicalCompatibility: LiveLayoutLegacyCompatibility;
     reconcile: MatchdayEditorialProfileReconcileResult;
     zones: MatchdayEditorialProfileEffectiveDistribution["zones"];
@@ -984,8 +984,8 @@ export async function readMatchdayEditorialProfileDesk(
     fetchTable<OpeningEditorialRow>(
       `matchday_editorials?select=title_color,latest_zone_placement,latest_zone_title,complementary_mode,complementary_status,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&limit=1`,
     ),
-    fetchTable<MatchdayLiveLayoutWorkspaceReaderRow>(
-      `rpc/read_matchday_live_layout_workspace_v13?p_matchday_id=${encodeURIComponent(cleanMatchdayId)}&p_profile_key=${encodeURIComponent(assignment.profile_key)}`,
+    fetchTable<MatchdayLiveLayoutWorkspaceReaderRowV22>(
+      `rpc/read_matchday_live_layout_workspace_v22?p_matchday_id=${encodeURIComponent(cleanMatchdayId)}&p_profile_key=${encodeURIComponent(assignment.profile_key)}`,
     ),
   ]);
   const matchday = matchdayRows[0];
@@ -1004,7 +1004,7 @@ export async function readMatchdayEditorialProfileDesk(
   if (!physicalWorkspaceRow) {
     throw new Error("matchday-editorial-profile-desk-physical-workspace-not-found");
   }
-  const physicalWorkspace = buildLiveLayoutWorkspaceState(
+  const physicalWorkspace = buildLiveLayoutWorkspaceStateV22(
     cleanMatchdayId,
     physicalWorkspaceRow,
   );

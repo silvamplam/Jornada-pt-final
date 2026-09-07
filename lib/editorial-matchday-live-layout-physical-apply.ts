@@ -15,6 +15,7 @@ import {
 export type PhysicalDeskApplyPayload = Readonly<{
   profileKey: string;
   expectedPhysicalStateToken: string;
+  latestCompanionZoneId: string | null;
   zones: readonly Readonly<{
     id: string;
     publicTitle: string;
@@ -50,6 +51,7 @@ export type PhysicalDeskApplyRpcArguments = Readonly<{
   p_matchday_id: string;
   p_profile_key: string;
   p_expected_physical_state_token: string;
+  p_latest_companion_zone_id: string | null;
   p_zones: readonly Readonly<{
     id: string;
     public_title: string;
@@ -224,6 +226,8 @@ export function buildPhysicalDeskApplyPayload(
   return parsePhysicalDeskApplyPayload({
     profileKey: cleanProfileKey,
     expectedPhysicalStateToken,
+    latestCompanionZoneId:
+      physicalDesk.current.latestCompanionZoneId,
     zones: physicalDesk.current.zones.map((zone) => ({
       id: zone.id,
       publicTitle: zone.publicTitle,
@@ -267,6 +271,7 @@ export function parsePhysicalDeskApplyPayload(
   exactKeys(input, [
     "profileKey",
     "expectedPhysicalStateToken",
+    "latestCompanionZoneId",
     "zones",
     "blocks",
     "placements",
@@ -304,6 +309,24 @@ export function parsePhysicalDeskApplyPayload(
   });
   const zoneIds = new Set(zones.map((zone) => zone.id));
   if (zoneIds.size !== zones.length) return applyError("zone-duplicate");
+
+  const latestCompanionZoneId =
+    input.latestCompanionZoneId === null
+      ? null
+      : uuidText(
+          input.latestCompanionZoneId,
+          "latest-companion-zone-id-invalid",
+        );
+
+  if (latestCompanionZoneId !== null) {
+    const hostZone = zones.find(
+      (zone) => zone.id === latestCompanionZoneId,
+    );
+
+    if (!hostZone || hostZone.visualFamily !== "four_news") {
+      return applyError("latest-companion-host-invalid");
+    }
+  }
 
   const blocks = arrayValue(input.blocks, "blocks-invalid").map((value) => {
     const block = recordValue(value, "block-invalid");
@@ -494,6 +517,7 @@ export function parsePhysicalDeskApplyPayload(
   return {
     profileKey,
     expectedPhysicalStateToken,
+    latestCompanionZoneId,
     zones,
     blocks,
     placements,
@@ -521,6 +545,7 @@ export function physicalDeskApplyRpcArguments(
     p_matchday_id: cleanMatchdayId,
     p_profile_key: payload.profileKey,
     p_expected_physical_state_token: payload.expectedPhysicalStateToken,
+    p_latest_companion_zone_id: payload.latestCompanionZoneId,
     p_zones: payload.zones.map((zone) => ({
       id: zone.id,
       public_title: zone.publicTitle,

@@ -64,7 +64,12 @@ async function isManagedMatchdayEditorialDesk(matchdayId: string) {
 
 function mutationErrorResponse(error: unknown) {
   const message = databaseMessage(error);
-  if (message.includes("matchday-live-layout-physical-v20-concurrent-write")) {
+  if (
+    message.includes("matchday-live-layout-physical-v20-concurrent-write")
+    || message.includes(
+      "matchday-live-layout-latest-companion-v22-concurrent-write",
+    )
+  ) {
     return apiError(
       "thematic-physical-concurrent-write",
       "O workspace físico mudou. Recarregue a Mesa antes de voltar a aplicar.",
@@ -106,6 +111,7 @@ function mutationErrorResponse(error: unknown) {
   if (
     message.includes("matchday-live-layout-physical-v20-")
     || message.includes("matchday-live-layout-physical-apply-")
+    || message.includes("matchday-live-layout-latest-companion-v22-")
   ) {
     return apiError(
       "thematic-physical-invalid-state",
@@ -233,7 +239,7 @@ export async function POST(
 
   try {
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_live_layout_physical_v20",
+      "rpc/apply_matchday_live_layout_physical_v22",
       {
         method: "POST",
         body: JSON.stringify(physicalDeskApplyRpcArguments(matchdayId, payload)),

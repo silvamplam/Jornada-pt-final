@@ -13,13 +13,13 @@ const route = readFileSync(routePath, "utf8");
 const client = readFileSync(clientPath, "utf8");
 const post = route.slice(route.indexOf("export async function POST("));
 
-test("POST físico chama uma única RPC v20 e não contém fallback v14", () => {
+test("POST físico chama uma única RPC v22 e não contém fallback v14", () => {
   assert.equal(
     (post.match(/writeSupabaseAdminReturning</g) ?? []).length,
     1,
   );
   assert.equal(
-    (post.match(/rpc\/apply_matchday_live_layout_physical_v20/g) ?? []).length,
+    (post.match(/rpc\/apply_matchday_live_layout_physical_v22/g) ?? []).length,
     1,
   );
   assert.doesNotMatch(post, /apply_matchday_live_layout_physical_workspace_v14/);
@@ -36,6 +36,10 @@ test("route valida o payload físico sem reler nem substituir o token recebido",
   assert.doesNotMatch(post, /readMatchdayEditorialProfileDesk/);
   assert.doesNotMatch(post, /expectedRevision|expectedStateToken|vacantZoneSlots/);
   assert.match(route, /matchday-live-layout-physical-v20-concurrent-write/);
+  assert.match(
+    route,
+    /matchday-live-layout-latest-companion-v22-concurrent-write/,
+  );
   assert.match(
     route,
     /thematic-physical-concurrent-write[\s\S]*?409/,
@@ -69,17 +73,10 @@ test("zonas adicionais não são bloqueadas pela compatibilidade legacy", () => 
   assert.doesNotMatch(client, /Apply v12 bloqueado/);
 });
 
-test("4B preserva o caminho legacy, migrations, cliente e Agenda/TV", () => {
-  const migrationDiff = execFileSync(
-    "git",
-    ["diff", "--name-only", "--", "supabase/migrations"],
-    { encoding: "utf8" },
-  ).trim();
-  assert.equal(migrationDiff, "");
-
+test("5B1 preserva o caminho legacy e Agenda/TV", () => {
   const protectedDiff = execFileSync(
     "git",
-    ["diff", "--name-only", "--", clientPath, legacyAdapterPath],
+    ["diff", "--name-only", "--", legacyAdapterPath],
     { encoding: "utf8" },
   ).trim();
   assert.equal(protectedDiff, "");
