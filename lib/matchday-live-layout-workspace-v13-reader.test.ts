@@ -97,7 +97,7 @@ test("writer v13 permanece privado e route usa apenas a facade v20", () => {
     writer,
     /grant execute on function\s+jornada_private\.apply_matchday_live_layout_physical_state_v13_shadow/,
   );
-  assert.match(route, /apply_matchday_live_layout_physical_v20/);
+  assert.match(route, /apply_matchday_live_layout_physical_v22/);
   assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v12/);
   assert.doesNotMatch(route, /read_matchday_live_layout_workspace_v13|physical_state_v13_shadow/);

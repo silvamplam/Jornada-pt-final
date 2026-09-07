@@ -11,7 +11,7 @@ const baseStyles = readFileSync(
   "utf8",
 );
 const fourNews = readFileSync(
-  "components/public/PublicFourNewsLatestLayout.tsx",
+  "components/public/PublicFourNewsGrid.tsx",
   "utf8",
 );
 const beyond = readFileSync(

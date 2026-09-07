@@ -79,7 +79,7 @@ for (const file of [
 }
 
 for (const file of [
-  "components/public/PublicFourNewsLatestLayout.tsx",
+  "components/public/PublicFourNewsGrid.tsx",
   "components/public/PublicHorizontalNewsStrip.tsx",
   "components/public/PublicBeyondMatchdayNews.tsx",
 ]) {

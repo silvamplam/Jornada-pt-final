@@ -198,7 +198,7 @@ test("posição pública segue thematicBlockOrder e reutiliza o módulo Legacy",
   );
   assert.match(
     publicPage,
-    /publicThematicVideoHighlightModuleIsVisible/u,
+    /thematicEditorialBodyBlocks\.map\(\(block\)[\s\S]*?complementaryMode !== "roundup_video"[\s\S]*?!editorialVisibility\.showRoundup[\s\S]*?!hasPublishedComplementaryStory[\s\S]*?renderLivePublicZone\("video"\)/u,
   );
 });
 
@@ -243,7 +243,7 @@ test("Legacy e API de sync continuam protegidos fora da Mesa temática", () => {
 });
 
 test("Apply físico v20 transporta o Destaque e preserva o contrato SQL histórico", () => {
-  assert.match(route, /apply_matchday_live_layout_physical_v20/u);
+  assert.match(route, /apply_matchday_live_layout_physical_v22/u);
   assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/u);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v11/u);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v6/u);

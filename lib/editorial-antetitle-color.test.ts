@@ -69,7 +69,7 @@ test("a jornada permite editar, gravar e publicar a cor do titulo da zona comple
   assert.match(route, /complementaryLabelColor = cleanHexColor\(formData\.get\("complementary_text_color"\)\)/);
   assert.match(route, /complementary_text_color: complementaryLabelColor/);
   assert.match(publicData, /complementary_text_color/);
-  assert.match(publicPage, /const complementaryLabelColor = usePublishedReferenceComposition/);
+  assert.match(publicPage, /const complementaryLabelColor = physicalSnapshot[\s\S]*?\? null[\s\S]*?: usePublishedReferenceComposition/);
   assert.match(publicPage, /referenceComplement\?\.label_color_snapshot/);
   assert.match(publicPage, /editorial\?\.complementary_text_color\?\.trim\(\) \|\| null/);
   assert.match(publicPage, /labelColor: complementaryLabelColor/);

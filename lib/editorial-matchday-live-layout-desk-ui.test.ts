@@ -93,7 +93,7 @@ test("Apply nasce diretamente do PhysicalDeskState sem projection legacy", () =>
 });
 
 test("a route temática chama exclusivamente a facade física v20", () => {
-  assert.match(routeSource, /apply_matchday_live_layout_physical_v20/);
+  assert.match(routeSource, /apply_matchday_live_layout_physical_v22/);
   assert.doesNotMatch(routeSource, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.doesNotMatch(routeSource, /apply_matchday_editorial_profile_workspace_v12/);
 });

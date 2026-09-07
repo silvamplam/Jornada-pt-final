@@ -232,7 +232,7 @@ test("public facade is service-role-only and preserves the video guard", () => {
 test("Lote 4 routes physical Apply exclusively to v20", () => {
   const post = route.slice(route.indexOf("export async function POST("));
   assert.equal(
-    occurrences(post, "rpc/apply_matchday_live_layout_physical_v20"),
+    occurrences(post, "rpc/apply_matchday_live_layout_physical_v22"),
     1,
   );
   assert.doesNotMatch(post, /apply_matchday_live_layout_physical_workspace_v14/u);
