@@ -1932,7 +1932,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
                             const nextZone = current.zones.find((zone) => (
                               zone.id === requestedZoneId
-                              && zone.visualFamily === "four_news"
                             ));
 
                             if (!nextZone) return;
@@ -1950,7 +1949,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                           <option value="">Sem zona associada</option>
 
                           {current.zones
-                            .filter((zone) => zone.visualFamily === "four_news")
                             .map((zone) => (
                               <option key={zone.id} value={zone.id}>
                                 {zone.publicTitle || "Zona sem título"}
