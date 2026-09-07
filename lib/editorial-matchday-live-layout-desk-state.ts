@@ -824,25 +824,70 @@ export function changePhysicalDeskZone(
   if (publicTitle.length > 120) return stateError("zone-public-title-too-long");
   const visualFamily = change.visualFamily ?? zone.visualFamily;
   const capacity = editorialVisualFamilyCapacity(visualFamily);
-  if (current.placements.some((placement) => (
-    placement.placementType === "zone"
-    && placement.zoneId === zoneId
-    && placement.slotPosition > capacity
-  ))) {
-    return stateError("zone-layout-shrink-occupied");
-  }
+  const overflowPlacements = current.placements
+    .filter((placement) => (
+      placement.placementType === "zone"
+      && placement.zoneId === zoneId
+      && placement.slotPosition > capacity
+    ))
+    .sort((left, right) => left.slotPosition - right.slotPosition);
+  const overflowBankItemIds =
+    overflowPlacements.map((placement) => placement.bankItemId);
+  const overflowBankItems = new Set(overflowBankItemIds);
+  const baselineDisplaced =
+    new Set(state.baseline.displacedBankItemIds);
+  const restoredBaselineMemory =
+    state.baseline.memory.filter((memory) => (
+      overflowBankItems.has(memory.bankItemId)
+      && baselineDisplaced.has(memory.bankItemId)
+      && memory.memoryKind === "displaced"
+    ));
+  const displacedArrivalBankItemIds =
+    overflowBankItemIds.reduce<readonly string[]>(
+      (arrivals, bankItemId) =>
+        baselineDisplaced.has(bankItemId)
+          ? arrivals
+          : prependArrival(arrivals, bankItemId),
+      current.displacedArrivalBankItemIds.filter(
+        (id) => !overflowBankItems.has(id),
+      ),
+    );
+
   if (
     publicTitle === zone.publicTitle
     && visualFamily === zone.visualFamily
+    && overflowBankItemIds.length === 0
   ) {
     return state;
   }
+
   return commitSnapshot(state, {
     ...current,
     zones: current.zones.map((candidate) => candidate.id === zoneId
       ? { ...candidate, publicTitle, visualFamily, capacity }
       : candidate),
-  });
+    placements: current.placements.filter(
+      (placement) => !overflowBankItems.has(placement.bankItemId),
+    ),
+    explicitBankItemIds: current.explicitBankItemIds.filter(
+      (id) => !overflowBankItems.has(id),
+    ),
+    displacedBankItemIds: uniqueSorted([
+      ...current.displacedBankItemIds,
+      ...overflowBankItemIds,
+    ]),
+    memory: [
+      ...current.memory.filter(
+        (memory) => !overflowBankItems.has(memory.bankItemId),
+      ),
+      ...restoredBaselineMemory,
+    ],
+    faixaArrivalBankItemIds:
+      current.faixaArrivalBankItemIds.filter(
+        (id) => !overflowBankItems.has(id),
+      ),
+    displacedArrivalBankItemIds,
+  }, overflowBankItemIds);
 }
 
 export function createPhysicalDeskZone(

@@ -409,18 +409,48 @@ test("Bank e Desalojadas são estados exclusivos", () => {
   }]);
 });
 
-test("layout shrink ocupado falha e título vazio é válido", () => {
+test("layout shrink desaloja posições excedentes e título vazio é válido", () => {
   let current = state(1);
   current = movePhysicalDeskItemToSlot(current, bankId(1), {
     placementType: "zone", zoneId: zoneId(1), slotPosition: 6,
   });
-  assert.throws(
-    () => changePhysicalDeskZone(current, zoneId(1), { visualFamily: "five_news_balanced" }),
-    /zone-layout-shrink-occupied/,
+
+  const shrunk = changePhysicalDeskZone(
+    current,
+    zoneId(1),
+    { visualFamily: "five_news_balanced" },
   );
 
+  assert.equal(
+    physicalDeskPlacementForBankItem(shrunk, bankId(1)),
+    null,
+  );
+  assert.deepEqual(
+    shrunk.current.displacedBankItemIds,
+    [bankId(1)],
+  );
+  assert.deepEqual(
+    shrunk.current.displacedArrivalBankItemIds,
+    [bankId(1)],
+  );
+  assert.equal(
+    shrunk.current.workedBankItemIds.includes(bankId(1)),
+    true,
+  );
+  assert.deepEqual(shrunk.current.memory, [{
+    bankItemId: bankId(1),
+    memoryKind: "displaced",
+    recordedAt: null,
+  }]);
+
+  const shrunkZone =
+    shrunk.current.zones.find((zone) => zone.id === zoneId(1));
+
+  assert.equal(shrunkZone?.visualFamily, "five_news_balanced");
+  assert.equal(shrunkZone?.capacity, 5);
+
   const untitled = changePhysicalDeskZone(
-    current,
+    shrunk,
     zoneId(1),
     { publicTitle: "   " },
   );
@@ -429,6 +459,40 @@ test("layout shrink ocupado falha e título vazio é válido", () => {
     untitled.current.zones.find((zone) => zone.id === zoneId(1))?.publicTitle,
     "",
   );
+});
+
+test("layout shrink restaura baseline DESALOJADA sem arrival falsa", () => {
+  const initial = stateWithBaselineDisplaced();
+
+  const placed = movePhysicalDeskItemToSlot(
+    initial,
+    bankId(1),
+    {
+      placementType: "zone",
+      zoneId: zoneId(1),
+      slotPosition: 6,
+    },
+  );
+
+  const shrunk = changePhysicalDeskZone(
+    placed,
+    zoneId(1),
+    { visualFamily: "five_news_balanced" },
+  );
+
+  assert.deepEqual(
+    shrunk.current.displacedBankItemIds,
+    [bankId(1)],
+  );
+  assert.deepEqual(
+    shrunk.current.displacedArrivalBankItemIds,
+    [],
+  );
+  assert.deepEqual(shrunk.current.memory, [{
+    bankItemId: bankId(1),
+    memoryKind: "displaced",
+    recordedAt: NOW,
+  }]);
 });
 
 test("movimentos não alteram a classificação observada", () => {
