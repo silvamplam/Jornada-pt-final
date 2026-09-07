@@ -31,9 +31,11 @@ test("cada zona expõe apresentação independente por LiveLayoutZoneId", () => 
   assert.match(zonePanel, /value=\{zone\.visualFamily\}/);
 });
 
-test("reduzir layout ocupado falha sem compactação", () => {
-  assert.match(state, /zone-layout-shrink-occupied/);
+test("reduzir layout desaloja overflow sem compactação", () => {
+  assert.match(state, /const overflowPlacements = current\.placements/);
   assert.match(state, /placement\.slotPosition > capacity/);
+  assert.match(state, /displacedBankItemIds: uniqueSorted/);
+  assert.doesNotMatch(state, /zone-layout-shrink-occupied/);
   assert.doesNotMatch(state, /compact/i);
 });
 
@@ -62,11 +64,22 @@ test("tabs mantêm Abertura e derivam todos os blocks físicos", () => {
   assert.match(client, />Abertura \{openingOccupied\}</);
 });
 
-test("Últimas mantém título apresentação e contador", () => {
-  const latest = body("renderEditorialSelectionPanel", "renderHighlightWorkspace");
-  assert.match(latest, /Título público de Últimas/);
-  assert.match(latest, /Apresentação de Últimas/);
+test("Últimas abrem como bloco de apresentação sem pseudo-zona 2/4", () => {
+  const latest = body("renderLatestBlockPanel", "renderHighlightWorkspace");
+  const activeWorkspace = body("renderActiveWorkspace", "undo");
+
+  assert.match(latest, /Bloco editorial de apresentação/);
+  assert.match(latest, /não constituem uma zona/);
   assert.match(latest, /editorialSelectionOccupied/);
+
+  assert.match(
+    activeWorkspace,
+    /activeWorkspaceKey === "latest"\) return renderLatestBlockPanel\(\)/,
+  );
+  assert.doesNotMatch(
+    activeWorkspace,
+    /renderEditorialSelectionPanel/,
+  );
 });
 
 test("quatro Últimas derivam as quatro posições sem numeração visual", () => {

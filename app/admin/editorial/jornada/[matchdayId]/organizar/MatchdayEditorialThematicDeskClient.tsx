@@ -1412,6 +1412,52 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     );
   }
 
+  function renderLatestBlockPanel() {
+    const companionZone =
+      current.latestCompanionZoneId
+        ? zoneById.get(current.latestCompanionZoneId) ?? null
+        : null;
+
+    return (
+      <article
+        className="thematic-workspace-body"
+        data-latest-block="presentation"
+      >
+        <div className="thematic-zone-editor">
+          <div className="thematic-card-copy">
+            <strong>Últimas</strong>
+            <small>
+              Bloco editorial de apresentação. Não é uma zona de notícias.
+            </small>
+          </div>
+
+          <strong className="thematic-zone-editor-count">
+            {current.presentation.latestZonePlacement === "hidden"
+              ? "Oculto"
+              : "Ativo"}
+          </strong>
+        </div>
+
+        <p className="thematic-message">
+          {companionZone
+            ? `Zona associada: ${companionZone.publicTitle || "Zona sem título"}.`
+            : "Sem zona associada."}
+        </p>
+
+        {editorialSelectionOccupied > 0 ? (
+          <p className="thematic-zone-alert" role="status">
+            {editorialSelectionOccupied}{" "}
+            {editorialSelectionOccupied === 1
+              ? "artigo permanece"
+              : "artigos permanecem"}{" "}
+            no storage antigo de seleção até à migração física.
+            Estes artigos não constituem uma zona.
+          </p>
+        ) : null}
+      </article>
+    );
+  }
+
   function renderHighlightWorkspace() {
     const highlighted = highlightPlacement ? bankItemById.get(highlightPlacement.bankItemId) : null;
     return (
@@ -1594,7 +1640,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   }
 
   function blockCount(block: PhysicalDeskState["current"]["blocks"][number]) {
-    if (block.kind === "latest") return `${editorialSelectionOccupied}/4`;
+    if (block.kind === "latest") {
+      if (current.presentation.latestZonePlacement === "hidden") return "Oculto";
+      if (current.presentation.latestZonePlacement === "top") return "Topo";
+      return current.latestCompanionZoneId ? "Associada" : "Sem zona";
+    }
     if (block.kind === "video") return `${highlightPlacement ? 1 : 0}/1`;
     const zone = zoneById.get(block.zoneId);
     if (!zone) return "0/0";
@@ -1608,7 +1658,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   function renderActiveWorkspace() {
     if (activeWorkspaceKey === "opening") return renderOpeningWorkspace();
-    if (activeWorkspaceKey === "latest") return renderEditorialSelectionPanel();
+    if (activeWorkspaceKey === "latest") return renderLatestBlockPanel();
     if (activeWorkspaceKey === "highlight") return renderHighlightWorkspace();
     if (isZoneWorkspaceKey(activeWorkspaceKey)) return renderZonePanel(activeWorkspaceKey);
     return null;
@@ -1810,12 +1860,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 {activeStructureEditorOpen ? (
                   <aside
                     className="thematic-page-zone-editor-panel"
-                    aria-label={"Editar zona " + activeStructureLabel}
+                    aria-label={(activeLatest ? "Editar bloco " : "Editar zona ") + activeStructureLabel}
                   >
-                    <strong>Editar zona</strong>
+                    <strong>{activeLatest ? "Editar Últimas" : "Editar zona"}</strong>
 
                     <label className="thematic-page-zone-field">
-                      <span>Nome público</span>
+                      <span>{activeLatest ? "Título das Últimas" : "Nome público"}</span>
                       <input
                         aria-label={"Nome público de " + activeStructureLabel}
                         defaultValue={activeStructureTitle}
@@ -1859,12 +1909,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
                     <label className="thematic-page-zone-field">
                       <span>
-                        {activeLatest ? "Últimas ao lado de" : "Layout"}
+                        {activeLatest ? "Zona associada" : "Layout"}
                       </span>
 
                       {activeLatest ? (
                         <select
-                          aria-label={"Últimas ao lado de " + activeStructureLabel}
+                          aria-label="Zona associada às Últimas"
                           disabled={mutationBlocked}
                           onChange={(event) => {
                             const requestedZoneId = event.target.value;
@@ -1934,16 +1984,14 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                       ) : null}
                     </label>
 
-                    <small>
-                      {activeLatest
-                        ? current.latestCompanionZoneId
-                          ? "Zona associada"
-                          : "Sem zona associada"
-                        : activeZone
+                    {!activeLatest ? (
+                      <small>
+                        {activeZone
                           ? activeZonePlacedArticleCount
                             + "/" + activeZone.capacity
                           : ""}
-                    </small>
+                      </small>
+                    ) : null}
 
                     {activeZone ? (
                       <>
