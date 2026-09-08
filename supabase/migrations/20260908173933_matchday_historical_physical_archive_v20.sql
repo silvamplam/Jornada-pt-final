@@ -751,16 +751,23 @@ begin
     raise exception 'matchday-live-layout-historical-v20-invalid-envelope';
   end if;
 
-  select certificate_row, handoff_row
-  into v_certificate, v_handoff
+  select certificate_row.*
+  into v_certificate
   from jornada_private
     .matchday_historical_physical_archive_certificates_v20
     as certificate_row
-  join jornada_private.matchday_live_layout_physical_handoffs as handoff_row
-    on handoff_row.id = certificate_row.handoff_id
   where certificate_row.source_matchday_id = p_source_matchday_id
     and certificate_row.target_matchday_id = p_target_matchday_id
-    and certificate_row.source_composition_id = p_source_composition_id
+    and certificate_row.source_composition_id = p_source_composition_id;
+
+  if not found then
+    raise exception 'matchday-live-layout-historical-v20-certificate-missing';
+  end if;
+
+  select handoff_row.*
+  into v_handoff
+  from jornada_private.matchday_live_layout_physical_handoffs as handoff_row
+  where handoff_row.id = v_certificate.handoff_id
     and handoff_row.source_matchday_id = p_source_matchday_id
     and handoff_row.target_matchday_id = p_target_matchday_id
     and handoff_row.source_composition_id = p_source_composition_id;
