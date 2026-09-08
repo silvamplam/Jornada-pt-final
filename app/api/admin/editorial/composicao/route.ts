@@ -1,6 +1,10 @@
 import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
 import { isMatchdayPhysicalPlacementAuthority } from "@/lib/editorial-matchday-physical-placement";
 import {
+  isHistoricalReferenceCompositionRepublishContext,
+  shouldRejectNonStandardPhysicalReferenceComposition,
+} from "@/lib/editorial-reference-composition-publication";
+import {
   editorialArticleCanonicalMissingLabel,
   missingEditorialArticleCanonicalFields,
 } from "@/lib/editorial-article-canonical";
@@ -109,6 +113,14 @@ type DraftComposition = {
 type ReferenceCompositionState = DraftComposition & {
   is_current: boolean;
   published_at: string | null;
+};
+
+type HistoricalReferenceCompositionTransition = {
+  source_matchday_id: string;
+};
+
+type HistoricalReferenceCompositionDeskControl = {
+  is_managed: boolean;
 };
 
 type CurrentEditorial = {
@@ -692,6 +704,22 @@ async function readReferenceCompositionState(compositionId: string, matchdayId: 
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`
   );
+}
+
+async function readHistoricalReferenceCompositionRepublishContext(matchdayId: string) {
+  const [transition, deskControl] = await Promise.all([
+    readFirst<HistoricalReferenceCompositionTransition>(
+      `matchday_editorial_continuity_transitions?select=source_matchday_id&source_matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+    ),
+    readFirst<HistoricalReferenceCompositionDeskControl>(
+      `matchday_editorial_desk_control?select=is_managed&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+    ),
+  ]);
+
+  return {
+    hasContinuityTransition: transition !== null,
+    sourceDeskIsManaged: deskControl?.is_managed ?? null,
+  };
 }
 
 async function readMaxSortOrder(compositionId: string) {
@@ -3404,12 +3432,26 @@ async function publishReferenceComposition(formData: FormData) {
   if (composition.status !== "draft") throw new Error("composition-invalid");
 
   const physicalAuthority = await isMatchdayPhysicalPlacementAuthority(matchdayId);
+  const historicalContext = physicalAuthority && composition.presentation_mode !== "standard"
+    ? await readHistoricalReferenceCompositionRepublishContext(matchdayId)
+    : {
+        hasContinuityTransition: false,
+        sourceDeskIsManaged: null,
+      };
+  const publicationAuthority = {
+    physicalAuthority,
+    ...historicalContext,
+  };
+  const historicalRepublish = isHistoricalReferenceCompositionRepublishContext(publicationAuthority);
 
-  if (physicalAuthority && composition.presentation_mode !== "standard") {
+  if (shouldRejectNonStandardPhysicalReferenceComposition({
+    ...publicationAuthority,
+    presentationMode: composition.presentation_mode,
+  })) {
     throw new CompositionPublicationError("A publicação física usa uma composição de referência standard.");
   }
 
-  if (!physicalAuthority && composition.presentation_mode === "hierarchical") {
+  if ((!physicalAuthority || historicalRepublish) && composition.presentation_mode === "hierarchical") {
     const hierarchicalSlots = await readHierarchicalCompositionSlots(composition.id);
     const hierarchicalReferenceItems = await readHierarchicalCompositionReferenceItems(composition.id);
 
