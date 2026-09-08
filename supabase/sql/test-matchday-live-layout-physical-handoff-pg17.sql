@@ -1049,15 +1049,161 @@ select jornada_private
   );
 
 insert into public.matchday_reference_compositions (
-  id, matchday_id, status, is_current, internal_name
+  id,
+  matchday_id,
+  status,
+  is_current,
+  internal_name,
+  presentation_mode,
+  hierarchical_editorial_title,
+  hierarchical_editorial_excerpt,
+  hierarchical_editorial_text,
+  hierarchical_editorial_author,
+  hierarchical_headline_title_color,
+  hierarchical_zone_1_title,
+  hierarchical_zone_2_title,
+  hierarchical_block_order,
+  hierarchical_video_position
 )
 values (
   '9d000000-0000-4000-8000-000000000702',
   '9d000000-0000-4000-8000-000000000001',
   'draft',
   false,
-  'v19 historical republication'
+  'v19 historical republication',
+  'hierarchical',
+  'Historical editorial',
+  'Historical editorial excerpt',
+  'Historical editorial text',
+  'Historical author',
+  '#123456',
+  'Historical zone 1',
+  'Historical zone 2',
+  '["opening","zone_1","zone_2","video","beyond"]'::jsonb,
+  1
 );
+
+insert into public.matchday_reference_composition_items (
+  id,
+  composition_id,
+  slot_type,
+  source_type,
+  source_id,
+  sort_order,
+  title_snapshot,
+  subtitle_snapshot,
+  image_url_snapshot,
+  link_url_snapshot,
+  label_snapshot,
+  status,
+  label_color_snapshot,
+  media_kind_snapshot,
+  media_embed_url_snapshot,
+  media_video_url_snapshot
+)
+values (
+  '9d000000-0000-4000-8000-000000000720',
+  '9d000000-0000-4000-8000-000000000702',
+  'headline',
+  'manual_link',
+  '9d000000-0000-4000-8000-000000000719',
+  1,
+  'Historical reference item',
+  'Historical reference subtitle',
+  'https://example.test/historical-reference.jpg',
+  'https://example.test/historical-reference',
+  'REFERENCE',
+  'published',
+  '#654321',
+  'embed',
+  'https://example.test/historical-reference-embed',
+  null
+);
+
+insert into public.matchday_hierarchical_composition_slots (
+  id,
+  composition_id,
+  slot_key,
+  bank_item_id,
+  source_identity,
+  label_snapshot,
+  title_snapshot,
+  subtitle_snapshot,
+  image_url_snapshot,
+  link_url_snapshot,
+  media_kind_snapshot,
+  media_embed_url_snapshot,
+  media_video_url_snapshot
+)
+select
+  ('9d000000-0000-4000-8000-' ||
+    pg_catalog.lpad((720 + value)::text, 12, '0'))::uuid,
+  '9d000000-0000-4000-8000-000000000702'::uuid,
+  (array[
+    'dominant_main',
+    'other_chronicle_1',
+    'other_chronicle_2',
+    'other_chronicle_3'
+  ])[value],
+  ('9d000000-0000-4000-8000-' ||
+    pg_catalog.lpad((200 + value)::text, 12, '0'))::uuid,
+  'historical-slot-' || value::text,
+  'HS' || value::text,
+  'Historical slot ' || value::text,
+  'Historical slot subtitle ' || value::text,
+  'https://example.test/historical-slot-' || value::text || '.jpg',
+  'https://example.test/historical-slot-' || value::text,
+  case when value = 1 then 'direct_video' else null end,
+  null,
+  case when value = 1
+    then 'https://example.test/historical-slot-video.mp4'
+    else null
+  end
+from pg_catalog.generate_series(1, 4) as slot_value(value);
+
+insert into public.matchday_historical_composition_zones (
+  id,
+  composition_id,
+  sort_order,
+  public_title,
+  visual_family
+)
+values (
+  '9d000000-0000-4000-8000-000000000730',
+  '9d000000-0000-4000-8000-000000000702',
+  1,
+  'Historical dynamic zone',
+  'five_news_balanced'
+);
+
+insert into public.matchday_historical_composition_zone_items (
+  id,
+  composition_id,
+  zone_id,
+  position,
+  bank_item_id,
+  source_identity,
+  label_snapshot,
+  title_snapshot,
+  subtitle_snapshot,
+  image_url_snapshot,
+  link_url_snapshot
+)
+select
+  ('9d000000-0000-4000-8000-' ||
+    pg_catalog.lpad((730 + value)::text, 12, '0'))::uuid,
+  '9d000000-0000-4000-8000-000000000702'::uuid,
+  '9d000000-0000-4000-8000-000000000730'::uuid,
+  value,
+  ('9d000000-0000-4000-8000-' ||
+    pg_catalog.lpad((204 + value)::text, 12, '0'))::uuid,
+  'historical-zone-item-' || value::text,
+  'HZ' || value::text,
+  'Historical zone item ' || value::text,
+  'Historical zone subtitle ' || value::text,
+  'https://example.test/historical-zone-' || value::text || '.jpg',
+  'https://example.test/historical-zone-' || value::text
+from pg_catalog.generate_series(1, 5) as zone_item_value(value);
 
 create temp table republish_handoff_token as
 select handoff_row.target_state_token
@@ -1145,6 +1291,349 @@ insert into handoff_v19_results values
 
 insert into handoff_v19_results values
   (7, 'v20 accepts evolved Bank Latest Highlights and Roundup', 'PASS');
+
+-- The current public composition is now a later hierarchical republication,
+-- not the original source_composition_id certified by the handoff. Archived
+-- source placements and memory remain present and are not retirement guards.
+create temp table historical_reopen_before as
+select
+  pg_catalog.to_jsonb(handoff_row) as handoff_payload,
+  pg_catalog.to_jsonb(transition_row) as transition_payload,
+  jornada_private.matchday_historical_physical_archive_hash_v20(
+    handoff_row.source_matchday_id
+  ) as physical_source_hash,
+  pg_temp.target_live_state_v19(
+    handoff_row.target_matchday_id,
+    handoff_row.profile_key
+  ) as target_state
+from jornada_private.matchday_live_layout_physical_handoffs as handoff_row
+join public.matchday_editorial_continuity_transitions as transition_row
+  on transition_row.source_matchday_id = handoff_row.source_matchday_id
+ and transition_row.target_matchday_id = handoff_row.target_matchday_id
+ and transition_row.source_composition_id = handoff_row.source_composition_id
+where handoff_row.source_matchday_id =
+      '9d000000-0000-4000-8000-000000000001';
+
+do $test$
+declare
+  v_draft_id uuid;
+  v_idempotent_draft_id uuid;
+  v_error text;
+begin
+  perform pg_temp.assert_true(
+    exists (
+      select 1
+      from jornada_private.matchday_live_layout_physical_handoffs as handoff_row
+      join public.matchday_reference_compositions as current_composition
+        on current_composition.matchday_id = handoff_row.source_matchday_id
+       and current_composition.status = 'published'
+       and current_composition.is_current
+      where handoff_row.source_matchday_id =
+            '9d000000-0000-4000-8000-000000000001'
+        and handoff_row.source_composition_id =
+            '9d000000-0000-4000-8000-000000000701'
+        and current_composition.id =
+            '9d000000-0000-4000-8000-000000000702'
+        and current_composition.id <> handoff_row.source_composition_id
+    ) and exists (
+      select 1
+      from public.matchday_live_layout_placements as placement_row
+      where placement_row.matchday_id =
+            '9d000000-0000-4000-8000-000000000001'
+    ) and exists (
+      select 1
+      from public.matchday_live_layout_bank_item_state_memory as memory_row
+      where memory_row.matchday_id =
+            '9d000000-0000-4000-8000-000000000001'
+    ),
+    'historical reopen fixture lacks republished current or archived state'
+  );
+
+  v_draft_id := public.reopen_matchday_reference_composition(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000702'
+  );
+
+  v_idempotent_draft_id := public.reopen_matchday_reference_composition(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000702'
+  );
+
+  perform pg_temp.assert_true(
+    v_idempotent_draft_id = v_draft_id
+      and (select status = 'draft'
+                    and not is_current
+                    and presentation_mode = 'hierarchical'
+             from public.matchday_reference_compositions
+             where id = v_draft_id)
+      and (select status = 'published' and is_current
+             from public.matchday_reference_compositions
+             where id = '9d000000-0000-4000-8000-000000000702'),
+    'historical reopen was not independent and idempotent'
+  );
+
+  perform pg_temp.assert_true(
+    (select pg_catalog.jsonb_build_array(
+              internal_name,
+              use_roundup_items,
+              presentation_mode,
+              hierarchical_editorial_title,
+              hierarchical_editorial_excerpt,
+              hierarchical_editorial_text,
+              hierarchical_editorial_author,
+              hierarchical_headline_title_color,
+              hierarchical_zone_1_title,
+              hierarchical_zone_2_title,
+              hierarchical_block_order,
+              hierarchical_video_position
+            )
+       from public.matchday_reference_compositions
+       where id = v_draft_id) =
+    (select pg_catalog.jsonb_build_array(
+              internal_name,
+              use_roundup_items,
+              presentation_mode,
+              hierarchical_editorial_title,
+              hierarchical_editorial_excerpt,
+              hierarchical_editorial_text,
+              hierarchical_editorial_author,
+              hierarchical_headline_title_color,
+              hierarchical_zone_1_title,
+              hierarchical_zone_2_title,
+              hierarchical_block_order,
+              hierarchical_video_position
+            )
+       from public.matchday_reference_compositions
+       where id = '9d000000-0000-4000-8000-000000000702'),
+    'historical reopen did not copy composition properties'
+  );
+
+  perform pg_temp.assert_true(
+    (select pg_catalog.count(*) = 1
+       from public.matchday_reference_composition_items
+       where composition_id = v_draft_id)
+      and (select pg_catalog.count(*) = 4
+             from public.matchday_hierarchical_composition_slots
+             where composition_id = v_draft_id)
+      and (select pg_catalog.count(*) = 1
+             from public.matchday_historical_composition_zones
+             where composition_id = v_draft_id)
+      and (select pg_catalog.count(*) = 5
+             from public.matchday_historical_composition_zone_items
+             where composition_id = v_draft_id)
+      and exists (
+        select 1
+        from public.matchday_reference_composition_items as item_row
+        where item_row.composition_id = v_draft_id
+          and item_row.media_kind_snapshot = 'embed'
+          and item_row.media_embed_url_snapshot =
+              'https://example.test/historical-reference-embed'
+      ) and exists (
+        select 1
+        from public.matchday_hierarchical_composition_slots as slot_row
+        where slot_row.composition_id = v_draft_id
+          and slot_row.slot_key = 'dominant_main'
+          and slot_row.media_kind_snapshot = 'direct_video'
+          and slot_row.media_video_url_snapshot =
+              'https://example.test/historical-slot-video.mp4'
+      ),
+    'historical reopen did not copy children and media snapshots'
+  );
+
+  perform pg_temp.assert_true(
+    not exists (
+      select
+        slot_key,
+        bank_item_id,
+        source_identity,
+        label_snapshot,
+        title_snapshot,
+        subtitle_snapshot,
+        image_url_snapshot,
+        link_url_snapshot,
+        media_kind_snapshot,
+        media_embed_url_snapshot,
+        media_video_url_snapshot
+      from public.matchday_hierarchical_composition_slots
+      where composition_id =
+            '9d000000-0000-4000-8000-000000000702'
+      except
+      select
+        slot_key,
+        bank_item_id,
+        source_identity,
+        label_snapshot,
+        title_snapshot,
+        subtitle_snapshot,
+        image_url_snapshot,
+        link_url_snapshot,
+        media_kind_snapshot,
+        media_embed_url_snapshot,
+        media_video_url_snapshot
+      from public.matchday_hierarchical_composition_slots
+      where composition_id = v_draft_id
+    ) and not exists (
+      select
+        zone_row.sort_order,
+        zone_row.public_title,
+        zone_row.visual_family,
+        item_row.position,
+        item_row.bank_item_id,
+        item_row.source_identity,
+        item_row.label_snapshot,
+        item_row.title_snapshot,
+        item_row.subtitle_snapshot,
+        item_row.image_url_snapshot,
+        item_row.link_url_snapshot
+      from public.matchday_historical_composition_zones as zone_row
+      join public.matchday_historical_composition_zone_items as item_row
+        on item_row.zone_id = zone_row.id
+       and item_row.composition_id = zone_row.composition_id
+      where zone_row.composition_id =
+            '9d000000-0000-4000-8000-000000000702'
+      except
+      select
+        zone_row.sort_order,
+        zone_row.public_title,
+        zone_row.visual_family,
+        item_row.position,
+        item_row.bank_item_id,
+        item_row.source_identity,
+        item_row.label_snapshot,
+        item_row.title_snapshot,
+        item_row.subtitle_snapshot,
+        item_row.image_url_snapshot,
+        item_row.link_url_snapshot
+      from public.matchday_historical_composition_zones as zone_row
+      join public.matchday_historical_composition_zone_items as item_row
+        on item_row.zone_id = zone_row.id
+       and item_row.composition_id = zone_row.composition_id
+      where zone_row.composition_id = v_draft_id
+    ),
+    'historical reopen changed slot or remapped zone-item snapshots'
+  );
+
+  begin
+    perform public.reopen_matchday_reference_composition(
+      '9d000000-0000-4000-8000-000000000001',
+      '9d000000-0000-4000-8000-000000000701'
+    );
+    raise exception 'assertion-failed: non-current composition reopened';
+  exception when others then
+    v_error := sqlerrm;
+    if pg_catalog.position('composition_current_published_not_found' in v_error)
+       = 0 then
+      raise;
+    end if;
+  end;
+
+  begin
+    perform public.reopen_matchday_reference_composition(
+      '9d000000-0000-4000-8000-000000000001',
+      v_draft_id
+    );
+    raise exception 'assertion-failed: draft composition reopened';
+  exception when others then
+    v_error := sqlerrm;
+    if pg_catalog.position('composition_current_published_not_found' in v_error)
+       = 0 then
+      raise;
+    end if;
+  end;
+
+  begin
+    perform public.reopen_matchday_reference_composition(
+      '9d000000-0000-4000-8000-000000000001',
+      '9d000000-0000-4000-8000-000000000703'
+    );
+    raise exception 'assertion-failed: incoherent matchday/composition reopened';
+  exception when others then
+    v_error := sqlerrm;
+    if pg_catalog.position('composition_current_published_not_found' in v_error)
+       = 0 then
+      raise;
+    end if;
+  end;
+
+  update public.matchday_reference_compositions
+  set status = 'published',
+      is_current = true,
+      published_at = pg_catalog.statement_timestamp()
+  where id = '9d000000-0000-4000-8000-000000000703';
+
+  begin
+    perform public.reopen_matchday_reference_composition(
+      '9d000000-0000-4000-8000-000000000003',
+      '9d000000-0000-4000-8000-000000000703'
+    );
+    raise exception 'assertion-failed: managed source reopened';
+  exception when others then
+    v_error := sqlerrm;
+    if pg_catalog.position('composition_historical_source_not_retired' in v_error)
+       = 0 then
+      raise;
+    end if;
+  end;
+
+  update public.matchday_editorial_desk_control
+  set is_managed = false,
+      carryover_source_composition_id = null,
+      carryover_snapshot = null
+  where matchday_id = '9d000000-0000-4000-8000-000000000003';
+
+  begin
+    perform public.reopen_matchday_reference_composition(
+      '9d000000-0000-4000-8000-000000000003',
+      '9d000000-0000-4000-8000-000000000703'
+    );
+    raise exception 'assertion-failed: source without handoff reopened';
+  exception when others then
+    v_error := sqlerrm;
+    if pg_catalog.position(
+         'composition_historical_physical_handoff_not_found' in v_error
+       ) = 0 then
+      raise;
+    end if;
+  end;
+
+  update public.matchday_editorial_desk_control
+  set is_managed = true
+  where matchday_id = '9d000000-0000-4000-8000-000000000003';
+
+  update public.matchday_reference_compositions
+  set status = 'draft',
+      is_current = false,
+      published_at = null
+  where id = '9d000000-0000-4000-8000-000000000703';
+
+  perform pg_temp.assert_true(
+    (select pg_catalog.to_jsonb(handoff_row) = before_row.handoff_payload
+       from jornada_private.matchday_live_layout_physical_handoffs
+         as handoff_row
+       cross join historical_reopen_before as before_row
+       where handoff_row.source_matchday_id =
+             '9d000000-0000-4000-8000-000000000001')
+      and (select pg_catalog.to_jsonb(transition_row) =
+                  before_row.transition_payload
+             from public.matchday_editorial_continuity_transitions
+               as transition_row
+             cross join historical_reopen_before as before_row
+             where transition_row.source_matchday_id =
+                   '9d000000-0000-4000-8000-000000000001')
+      and jornada_private.matchday_historical_physical_archive_hash_v20(
+            '9d000000-0000-4000-8000-000000000001'
+          ) = (select physical_source_hash from historical_reopen_before)
+      and pg_temp.target_live_state_v19(
+            '9d000000-0000-4000-8000-000000000002',
+            'liga_portugal_v1'
+          ) = (select target_state from historical_reopen_before),
+    'historical reopen changed physical archive, handoff, transition or target'
+  );
+end;
+$test$;
+
+insert into handoff_v19_results values
+  (10, 'historical reopen uses durable handoff authority', 'PASS');
 
 -- Each corruption attempt is rolled back by its exception subtransaction.
 -- The validator names the first physical component that diverged.
