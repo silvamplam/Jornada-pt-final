@@ -944,6 +944,29 @@ select pg_temp.assert_true(
 insert into handoff_v19_results values
   (1, 'normal physical handoff with seven zones', 'PASS');
 
+select pg_temp.assert_true(
+  exists (
+    select 1
+    from jornada_private
+      .matchday_historical_physical_archive_certificates_v20
+      as certificate_row
+    join jornada_private.matchday_live_layout_physical_handoffs as handoff_row
+      on handoff_row.id = certificate_row.handoff_id
+    where certificate_row.source_matchday_id =
+          '9d000000-0000-4000-8000-000000000001'
+      and certificate_row.target_matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+      and certificate_row.certification_basis = 'atomic_handoff'
+      and certificate_row.v19_source_archive_hash =
+          handoff_row.source_archive_hash
+      and certificate_row.physical_core_hash = jornada_private
+            .matchday_historical_physical_archive_hash_v20(
+              '9d000000-0000-4000-8000-000000000001'
+            )
+  ),
+  'completed handoff did not receive its atomic v20 certificate'
+);
+
 do $test$
 begin
   begin
@@ -964,6 +987,66 @@ $test$;
 -- ============================================================
 -- B. HISTORICAL REPUBLICATION DOES NOT REPLAY HANDOFF
 -- ============================================================
+
+create temp table source_archive_before_editorial_evolution as
+select
+  handoff_row.source_archive_hash as certified_v19_hash,
+  jornada_private.matchday_live_layout_physical_archive_hash_v19(
+    handoff_row.source_matchday_id
+  ) as current_v19_hash,
+  jornada_private.matchday_historical_physical_archive_hash_v20(
+    handoff_row.source_matchday_id
+  ) as current_v20_hash
+from jornada_private.matchday_live_layout_physical_handoffs as handoff_row
+where handoff_row.source_matchday_id =
+      '9d000000-0000-4000-8000-000000000001';
+
+-- These are matchday-owned editorial/catalog projections. Their ordinary
+-- writers remain valid after retirement and must not redefine physical shape.
+update public.matchday_editorial_bank_items as bank_row
+set title = bank_row.title || ' - editorial evolution',
+    updated_at = pg_catalog.statement_timestamp()
+where bank_row.id = '9d000000-0000-4000-8000-000000000201';
+
+update public.matchday_latest_news as latest_row
+set title = latest_row.title || ' - editorial evolution',
+    updated_at = pg_catalog.statement_timestamp()
+where latest_row.id = '9d000000-0000-4000-8000-000000000401';
+
+update public.matchday_highlights as highlight_row
+set title = highlight_row.title || ' - editorial evolution',
+    updated_at = pg_catalog.statement_timestamp()
+where highlight_row.matchday_id =
+      '9d000000-0000-4000-8000-000000000001'
+  and highlight_row.sort_order = 1;
+
+update public.matchday_roundup_items as roundup_row
+set title = roundup_row.title || ' - editorial evolution',
+    updated_at = pg_catalog.statement_timestamp()
+where roundup_row.id = '9d000000-0000-4000-8000-000000000501';
+
+select pg_temp.assert_true(
+  jornada_private.matchday_live_layout_physical_archive_hash_v19(
+    '9d000000-0000-4000-8000-000000000001'
+  ) is distinct from (
+    select certified_v19_hash
+    from source_archive_before_editorial_evolution
+  )
+  and jornada_private.matchday_historical_physical_archive_hash_v20(
+        '9d000000-0000-4000-8000-000000000001'
+      ) = (
+        select current_v20_hash
+        from source_archive_before_editorial_evolution
+      ),
+  'editorial evolution did not diverge v19 while preserving physical v20'
+);
+
+select jornada_private
+  .assert_matchday_live_layout_historical_physical_archive_v20(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000002',
+    '9d000000-0000-4000-8000-000000000701'
+  );
 
 insert into public.matchday_reference_compositions (
   id, matchday_id, status, is_current, internal_name
@@ -1017,6 +1100,9 @@ select
   jornada_private.matchday_live_layout_physical_archive_hash_v19(
     '9d000000-0000-4000-8000-000000000001'
   ) as source_hash,
+  jornada_private.matchday_historical_physical_archive_hash_v20(
+    '9d000000-0000-4000-8000-000000000001'
+  ) as physical_source_hash,
   pg_temp.target_live_state_v19(
     '9d000000-0000-4000-8000-000000000002',
     'liga_portugal_v1'
@@ -1038,6 +1124,9 @@ select pg_temp.assert_true(
   and jornada_private.matchday_live_layout_physical_archive_hash_v19(
         '9d000000-0000-4000-8000-000000000001'
       ) = (select source_hash from republish_before)
+  and jornada_private.matchday_historical_physical_archive_hash_v20(
+        '9d000000-0000-4000-8000-000000000001'
+      ) = (select physical_source_hash from republish_before)
   and pg_temp.target_live_state_v19(
         '9d000000-0000-4000-8000-000000000002',
         'liga_portugal_v1'
@@ -1053,6 +1142,152 @@ select pg_temp.assert_true(
 
 insert into handoff_v19_results values
   (2, 'historical republication accepts evolved target without writes', 'PASS');
+
+insert into handoff_v19_results values
+  (7, 'v20 accepts evolved Bank Latest Highlights and Roundup', 'PASS');
+
+-- Each corruption attempt is rolled back by its exception subtransaction.
+-- The validator names the first physical component that diverged.
+do $test$
+begin
+  begin
+    update public.matchday_live_layout_zones as zone_row
+    set public_title = zone_row.public_title || ' changed'
+    where zone_row.id = '9d000000-0000-4000-8000-000000000061';
+
+    perform jornada_private
+      .assert_matchday_live_layout_historical_physical_archive_v20(
+        '9d000000-0000-4000-8000-000000000001',
+        '9d000000-0000-4000-8000-000000000002',
+        '9d000000-0000-4000-8000-000000000701'
+      );
+    raise exception 'assertion-failed: topology mutation passed v20';
+  exception when others then
+    if pg_catalog.position(
+         'matchday-live-layout-historical-v20-zones-changed' in sqlerrm
+       ) = 0
+    then
+      raise;
+    end if;
+  end;
+
+  begin
+    update public.matchday_live_layout_workspace_settings as settings_row
+    set headline_title_color = '#123456'
+    where settings_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000001';
+
+    perform jornada_private
+      .assert_matchday_live_layout_historical_physical_archive_v20(
+        '9d000000-0000-4000-8000-000000000001',
+        '9d000000-0000-4000-8000-000000000002',
+        '9d000000-0000-4000-8000-000000000701'
+      );
+    raise exception 'assertion-failed: settings mutation passed v20';
+  exception when others then
+    if pg_catalog.position(
+         'matchday-live-layout-historical-v20-settings-changed' in sqlerrm
+       ) = 0
+    then
+      raise;
+    end if;
+  end;
+
+  begin
+    update public.matchday_live_layout_placements as placement_row
+    set slot_position = 3
+    where placement_row.id = '9d000000-0000-4000-8000-000000000301';
+
+    perform jornada_private
+      .assert_matchday_live_layout_historical_physical_archive_v20(
+        '9d000000-0000-4000-8000-000000000001',
+        '9d000000-0000-4000-8000-000000000002',
+        '9d000000-0000-4000-8000-000000000701'
+      );
+    raise exception 'assertion-failed: placement mutation passed v20';
+  exception when others then
+    if pg_catalog.position(
+         'matchday-live-layout-historical-v20-placements-changed' in sqlerrm
+       ) = 0
+    then
+      raise;
+    end if;
+  end;
+end;
+$test$;
+
+select pg_temp.assert_true(
+  jornada_private.matchday_historical_physical_archive_hash_v20(
+    '9d000000-0000-4000-8000-000000000001'
+  ) = (select physical_source_hash from republish_before),
+  'physical corruption probes escaped their rollback subtransactions'
+);
+
+insert into handoff_v19_results values
+  (8, 'v20 rejects topology settings and placement mutations', 'PASS');
+
+do $test$
+declare
+  v_certificate_count_before bigint;
+begin
+  select pg_catalog.count(*)
+  into v_certificate_count_before
+  from jornada_private
+    .matchday_historical_physical_archive_certificates_v20;
+
+  begin
+    perform jornada_private
+      .assert_matchday_live_layout_historical_physical_archive_v20(
+        '9d000000-0000-4000-8000-000000000003',
+        '9d000000-0000-4000-8000-000000000004',
+        '9d000000-0000-4000-8000-000000000703'
+      );
+    raise exception 'assertion-failed: source without v20 certificate passed';
+  exception when others then
+    if pg_catalog.position(
+         'matchday-live-layout-historical-v20-certificate-missing' in sqlerrm
+       ) = 0
+    then
+      raise;
+    end if;
+  end;
+
+  begin
+    update public.matchday_editorial_desk_control as source_desk
+    set is_managed = false
+    where source_desk.matchday_id =
+          '9d000000-0000-4000-8000-000000000003';
+
+    perform jornada_private
+      .assert_matchday_live_layout_historical_physical_archive_v20(
+        '9d000000-0000-4000-8000-000000000003',
+        '9d000000-0000-4000-8000-000000000004',
+        '9d000000-0000-4000-8000-000000000703'
+      );
+    raise exception
+      'assertion-failed: retired source without handoff passed v20';
+  exception when others then
+    if pg_catalog.position(
+         'matchday-live-layout-historical-v20-certificate-missing' in sqlerrm
+       ) = 0
+    then
+      raise;
+    end if;
+  end;
+
+  perform pg_temp.assert_true(
+    (
+      select pg_catalog.count(*)
+      from jornada_private
+        .matchday_historical_physical_archive_certificates_v20
+    ) = v_certificate_count_before,
+    'strict v20 validation fabricated a runtime certificate'
+  );
+end;
+$test$;
+
+insert into handoff_v19_results values
+  (9, 'v20 never fabricates historical authority at runtime', 'PASS');
 
 
 -- ============================================================
