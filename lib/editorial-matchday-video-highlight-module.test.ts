@@ -243,7 +243,7 @@ test("Legacy e API de sync continuam protegidos fora da Mesa temática", () => {
 });
 
 test("Apply físico v20 transporta o Destaque e preserva o contrato SQL histórico", () => {
-  assert.match(route, /apply_matchday_live_layout_physical_v22/u);
+  assert.match(route, /apply_matchday_live_layout_physical_v29/u);
   assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/u);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v11/u);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v6/u);

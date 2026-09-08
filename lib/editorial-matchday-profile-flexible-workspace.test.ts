@@ -263,7 +263,7 @@ test(
 
     assert.match(
       route,
-      /rpc\/apply_matchday_live_layout_physical_v22/,
+      /rpc\/apply_matchday_live_layout_physical_v29/,
     );
     assert.doesNotMatch(
       route,

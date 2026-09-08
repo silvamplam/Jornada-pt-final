@@ -11,6 +11,9 @@ import {
   LIVE_LAYOUT_WORKSPACE_PLACEMENT_TYPES,
   type LiveLayoutWorkspacePlacementType,
 } from "@/lib/editorial-matchday-live-layout-workspace";
+import {
+  resolveMatchdayLatestPlacement,
+} from "@/lib/editorial-matchday-latest-placement";
 
 export type PhysicalDeskApplyPayload = Readonly<{
   profileKey: string;
@@ -496,6 +499,14 @@ export function parsePhysicalDeskApplyPayload(
     && latestZonePlacement !== "hidden"
   ) {
     return applyError("presentation-latest-placement-invalid");
+  }
+  if (
+    resolveMatchdayLatestPlacement(
+      latestZonePlacement,
+      latestCompanionZoneId,
+    ).kind === "legacy_incomplete"
+  ) {
+    return applyError("presentation-latest-destination-incomplete");
   }
   if (
     typeof presentation.latest_zone_title !== "string"

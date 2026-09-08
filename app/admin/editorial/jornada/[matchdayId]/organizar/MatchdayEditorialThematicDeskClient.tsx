@@ -46,7 +46,7 @@ import {
   bulkMovePhysicalDeskItemsToBank,
   bulkMovePhysicalDeskItemsToFaixa,
   bulkMovePhysicalDeskItemsToZone,
-  changePhysicalDeskLatestCompanion,
+  changePhysicalDeskLatestPlacement,
   changePhysicalDeskPresentation,
   changePhysicalDeskZone,
   createPhysicalDeskZone,
@@ -67,6 +67,9 @@ import {
   undoPhysicalDeskState,
   type PhysicalDeskState,
 } from "@/lib/editorial-matchday-live-layout-desk-state";
+import {
+  resolveMatchdayLatestPlacement,
+} from "@/lib/editorial-matchday-latest-placement";
 import {
   buildPhysicalDeskApplyPayload,
 } from "@/lib/editorial-matchday-live-layout-physical-apply";
@@ -723,6 +726,15 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     () => new Map(current.zones.map((zone) => [zone.id, zone] as const)),
     [current.zones],
   );
+  const latestDestination = resolveMatchdayLatestPlacement(
+    current.presentation.latestZonePlacement,
+    current.latestCompanionZoneId,
+  );
+  const latestDestinationSelectValue = latestDestination.kind === "zone"
+    ? `zone:${latestDestination.zoneId}`
+    : latestDestination.kind === "headline" || latestDestination.kind === "hidden"
+      ? latestDestination.kind
+      : "legacy_incomplete";
   const activeZone =
     zoneById.get(activeWorkspaceKey as LiveLayoutZoneId) ?? null;
   const activeLatest = activeWorkspaceKey === "latest";
@@ -824,9 +836,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       setMessage(
         errorMessage.includes("zone-layout-shrink-occupied")
           ? "Este layout não comporta as posições atualmente ocupadas. Mova primeiro os artigos dessas posições."
-          : errorMessage.includes("latest-companion-host-invalid")
-            ? "Desassocie primeiro as Últimas desta zona."
-            : errorMessage,
+          : errorMessage.includes("latest-companion-zone-associated")
+            ? "Escolha Manchete, Ocultas ou outra zona para as Últimas antes de apagar esta zona."
+            : errorMessage.includes("latest-companion-host-invalid")
+              ? "A zona escolhida para as Últimas já não existe."
+              : errorMessage,
       );
       return null;
     }
@@ -1160,8 +1174,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   function renderLatestBlockPanel() {
     const companionZone =
-      current.latestCompanionZoneId
-        ? zoneById.get(current.latestCompanionZoneId) ?? null
+      latestDestination.kind === "zone"
+        ? zoneById.get(latestDestination.zoneId as LiveLayoutZoneId) ?? null
         : null;
 
     return (
@@ -1178,16 +1192,24 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           </div>
 
           <strong className="thematic-zone-editor-count">
-            {current.presentation.latestZonePlacement === "hidden"
-              ? "Oculto"
-              : "Ativo"}
+            {latestDestination.kind === "headline"
+              ? "Manchete"
+              : latestDestination.kind === "hidden"
+                ? "Ocultas"
+                : latestDestination.kind === "zone"
+                  ? "Zona física"
+                  : "Associação necessária"}
           </strong>
         </div>
 
         <p className="thematic-message">
-          {companionZone
-            ? `Zona associada: ${companionZone.publicTitle || "Zona sem título"}.`
-            : "Sem zona associada."}
+          {latestDestination.kind === "legacy_incomplete"
+            ? "Estado legado incompleto: escolha explicitamente Manchete, Ocultas ou uma zona física."
+            : companionZone
+              ? `Zona associada: ${companionZone.publicTitle || "Zona sem título"}.`
+              : latestDestination.kind === "headline"
+                ? "As Últimas aparecem junto da manchete."
+                : "As Últimas não aparecem na página pública."}
         </p>
       </article>
     );
@@ -1376,9 +1398,10 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   function blockCount(block: PhysicalDeskState["current"]["blocks"][number]) {
     if (block.kind === "latest") {
-      if (current.presentation.latestZonePlacement === "hidden") return "Oculto";
-      if (current.presentation.latestZonePlacement === "top") return "Topo";
-      return current.latestCompanionZoneId ? "Associada" : "Sem zona";
+      if (latestDestination.kind === "hidden") return "Ocultas";
+      if (latestDestination.kind === "headline") return "Manchete";
+      if (latestDestination.kind === "zone") return "Zona física";
+      return "Associação necessária";
     }
     if (block.kind === "video") return `${highlightPlacement ? 1 : 0}/1`;
     const zone = zoneById.get(block.zoneId);
@@ -1644,27 +1667,40 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
                     <label className="thematic-page-zone-field">
                       <span>
-                        {activeLatest ? "Zona associada" : "Layout"}
+                        {activeLatest ? "Posição das Últimas" : "Layout"}
                       </span>
 
                       {activeLatest ? (
                         <select
-                          aria-label="Zona associada às Últimas"
+                          aria-label="Posição das Últimas"
                           disabled={mutationBlocked}
                           onChange={(event) => {
-                            const requestedZoneId = event.target.value;
+                            const requestedDestination = event.target.value;
 
-                            if (!requestedZoneId) {
+                            if (requestedDestination === "headline") {
                               runPhysicalOperation(
-                                (state) => changePhysicalDeskLatestCompanion(
+                                (state) => changePhysicalDeskLatestPlacement(
                                   state,
-                                  null,
+                                  { kind: "headline" },
                                 ),
-                                "Últimas sem zona associada em preview.",
+                                "Últimas colocadas junto da manchete em preview.",
+                              );
+                              return;
+                            }
+                            if (requestedDestination === "hidden") {
+                              runPhysicalOperation(
+                                (state) => changePhysicalDeskLatestPlacement(
+                                  state,
+                                  { kind: "hidden" },
+                                ),
+                                "Últimas ocultadas em preview.",
                               );
                               return;
                             }
 
+                            const requestedZoneId = requestedDestination.startsWith("zone:")
+                              ? requestedDestination.slice("zone:".length)
+                              : "";
                             const nextZone = current.zones.find((zone) => (
                               zone.id === requestedZoneId
                             ));
@@ -1672,23 +1708,30 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                             if (!nextZone) return;
 
                             runPhysicalOperation(
-                              (state) => changePhysicalDeskLatestCompanion(
+                              (state) => changePhysicalDeskLatestPlacement(
                                 state,
-                                nextZone.id,
+                                { kind: "zone", zoneId: nextZone.id },
                               ),
                               "Associação das Últimas alterada em preview.",
                             );
                           }}
-                          value={current.latestCompanionZoneId ?? ""}
+                          value={latestDestinationSelectValue}
                         >
-                          <option value="">Sem zona associada</option>
+                          {latestDestination.kind === "legacy_incomplete" ? (
+                            <option disabled value="legacy_incomplete">
+                              Sem associação válida — escolha uma posição
+                            </option>
+                          ) : null}
+                          <option value="headline">Manchete</option>
+                          <option value="hidden">Ocultas</option>
 
-                          {current.zones
-                            .map((zone) => (
-                              <option key={zone.id} value={zone.id}>
+                          <optgroup label="Zona física">
+                            {current.zones.map((zone) => (
+                              <option key={zone.id} value={`zone:${zone.id}`}>
                                 {zone.publicTitle || "Zona sem título"}
                               </option>
                             ))}
+                          </optgroup>
                         </select>
                       ) : activeZone ? (
                         <select
@@ -1728,9 +1771,17 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
                     {activeZone ? (
                       <>
+                        {current.latestCompanionZoneId === activeZone.id ? (
+                          <p className="thematic-message" role="alert">
+                            Esta zona recebe as Últimas. Escolha outra posição antes de a apagar.
+                          </p>
+                        ) : null}
                         <button
                           className="thematic-page-zone-delete-trigger"
-                          disabled={mutationBlocked}
+                          disabled={
+                            mutationBlocked
+                            || current.latestCompanionZoneId === activeZone.id
+                          }
                           onClick={() => setDeleteZoneId(activeZone.id)}
                           type="button"
                         >

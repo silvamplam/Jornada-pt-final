@@ -41,6 +41,8 @@ function fixture({
   faixaSlotCount = 4,
   marker = true,
   projectedZoneIds = zones.map((item) => item.id),
+  latestPlacement = "top",
+  latestCompanionZoneId = null,
 }: Readonly<{
   zones?: readonly ZoneSpec[];
   placements?: readonly PlacementSpec[];
@@ -48,6 +50,8 @@ function fixture({
   faixaSlotCount?: number;
   marker?: boolean;
   projectedZoneIds?: readonly string[];
+  latestPlacement?: "top" | "four_news" | "hidden";
+  latestCompanionZoneId?: string | null;
 }> = {}) {
   const articles: PublicMatchdayPhysicalArticleRow[] = placements.map((placement, index) => ({
     id: id(40, index + 1),
@@ -138,7 +142,7 @@ function fixture({
       faixa_slot_count: faixaSlotCount,
       headline_title_color: "#123456",
       latest_zone_mode: "latest_news",
-      latest_zone_placement: "four_news",
+      latest_zone_placement: latestPlacement,
       latest_zone_title: "Últimas",
       latest_zone_title_color: "#654321",
       video_module_active: videoActive,
@@ -150,7 +154,14 @@ function fixture({
       profile_key: PROFILE_KEY,
       cutover_at: NOW,
     } : null,
-    latest_companion: null,
+    latest_companion: latestCompanionZoneId === null
+      ? null
+      : {
+          matchday_id: MATCHDAY_ID,
+          zone_id: latestCompanionZoneId,
+          created_at: NOW,
+          updated_at: NOW,
+        },
   };
 
   return { raw, articles };
@@ -355,6 +366,7 @@ test("Abertura, Faixa, Últimas e Vídeo conservam placements e settings físico
   const snapshot = buildFixture({
     videoActive: true,
     faixaSlotCount: 3,
+    latestPlacement: "four_news",
     placements: [
       { type: "opening", position: 1 },
       { type: "opening", position: 3 },
@@ -374,11 +386,48 @@ test("Abertura, Faixa, Últimas e Vídeo conservam placements e settings físico
     ["context", true],
   ]);
   assert.deepEqual(snapshot.faixa.slots.map((slot) => Boolean(slot.item)), [false, true, false]);
-  assert.equal(snapshot.latest.companionZoneId, null);
-  assert.equal(snapshot.latest.placement, "four_news");
+  assert.deepEqual(snapshot.latest.destination, {
+    kind: "legacy_incomplete",
+    storagePlacement: "four_news",
+    companionZoneId: null,
+  });
+  assert.equal("placement" in snapshot.latest, false);
+  assert.equal("companionZoneId" in snapshot.latest, false);
   assert.equal(snapshot.video.active, true);
   assert.equal(snapshot.video.highlight?.title, "Título 7");
   assert.deepEqual(snapshot.blocks.map((block) => block.kind), ["zone", "latest", "video"]);
+});
+
+test("reader público resolve Manchete, Ocultas e Zona pela mesma autoridade", () => {
+  const zones = [
+    zone(1, "five_news_balanced", "Zona A"),
+    zone(2, "six_news", "Zona B"),
+  ];
+
+  assert.deepEqual(
+    buildFixture({ zones, latestPlacement: "top" }).latest.destination,
+    { kind: "headline" },
+  );
+  assert.deepEqual(
+    buildFixture({ zones, latestPlacement: "hidden" }).latest.destination,
+    { kind: "hidden" },
+  );
+  assert.deepEqual(
+    buildFixture({
+      zones,
+      latestPlacement: "four_news",
+      latestCompanionZoneId: zones[0].id,
+    }).latest.destination,
+    { kind: "zone", zoneId: zones[0].id },
+  );
+  assert.deepEqual(
+    buildFixture({
+      zones,
+      latestPlacement: "four_news",
+      latestCompanionZoneId: zones[1].id,
+    }).latest.destination,
+    { kind: "zone", zoneId: zones[1].id },
+  );
 });
 
 test("singletons físicos incoerentes falham explicitamente", async () => {

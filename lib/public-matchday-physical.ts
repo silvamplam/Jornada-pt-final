@@ -12,6 +12,10 @@ import {
   type LiveLayoutWorkspaceStateV22,
   type MatchdayLiveLayoutWorkspaceReaderRowV22,
 } from "@/lib/editorial-matchday-live-layout-workspace-v22";
+import {
+  resolveMatchdayLatestPlacement,
+  type MatchdayLatestPlacementResolution,
+} from "@/lib/editorial-matchday-latest-placement";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
 const SUPPORTED_SOURCE_TYPE = "editorial_article";
@@ -96,10 +100,9 @@ export type PublicMatchdayPhysicalSnapshot = Readonly<{
   zones: readonly PublicMatchdayPhysicalZone[];
   latest: Readonly<{
     mode: "latest_news" | "editorial_line";
-    placement: "top" | "four_news" | "hidden";
+    destination: MatchdayLatestPlacementResolution;
     title: string;
     titleColor: string | null;
-    companionZoneId: string | null;
   }>;
   video: Readonly<{
     active: boolean;
@@ -391,10 +394,12 @@ export function buildPublicMatchdayPhysicalSnapshot(
     zones,
     latest: {
       mode: settings.latestZoneMode,
-      placement: settings.latestZonePlacement,
+      destination: resolveMatchdayLatestPlacement(
+        settings.latestZonePlacement,
+        workspace.latestCompanion?.zoneId ?? null,
+      ),
       title: settings.latestZoneTitle,
       titleColor: settings.latestZoneTitleColor,
-      companionZoneId: workspace.latestCompanion?.zoneId ?? null,
     },
     video: {
       active: settings.videoModuleActive,

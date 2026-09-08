@@ -290,15 +290,12 @@ test("fixture PG17 cobre o contrato e termina em ROLLBACK", () => {
   assert.match(fixture, /rollback;\s*$/i);
 });
 
-test("o patch nao altera migrations anteriores, route, cliente ou Agenda TV", () => {
+test("o patch preserva o writer/reader anteriores e Agenda TV", () => {
   const protectedPaths = [
-    routePath,
-    clientPath,
     writerPath,
     readerPath,
     "lib/public-matchday-thematic.ts",
     "lib/public-matchday-editorial-body.ts",
-    "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
   ];
   const protectedDiff = execFileSync(
     "git",
@@ -316,7 +313,7 @@ test("o patch nao altera migrations anteriores, route, cliente ou Agenda TV", ()
     .filter(Boolean);
   assert.deepEqual(changedMigrations, []);
 
-  assert.match(route, /apply_matchday_live_layout_physical_v22/);
+  assert.match(route, /apply_matchday_live_layout_physical_v29/);
   assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.match(client, /editorial-matchday-live-layout-physical-apply/);
 

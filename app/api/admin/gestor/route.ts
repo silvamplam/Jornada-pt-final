@@ -1739,7 +1739,7 @@ async function setMatchdayLatestZonePlacement(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const latestZonePlacement = cleanText(formData.get("latest_zone_placement"));
 
-  if (!matchdayId || (latestZonePlacement !== "top" && latestZonePlacement !== "hidden" && latestZonePlacement !== "four_news")) {
+  if (!matchdayId || (latestZonePlacement !== "top" && latestZonePlacement !== "hidden")) {
     throw new Error("missing-fields");
   }
 
@@ -1747,7 +1747,7 @@ async function setMatchdayLatestZonePlacement(formData: FormData) {
     throw new Error("matchday-invalid");
   }
 
-  await writeSupabaseAdmin("rpc/set_matchday_latest_zone_placement_v15", {
+  await writeSupabaseAdmin("rpc/set_matchday_latest_zone_placement_v29", {
     method: "POST",
     body: JSON.stringify({
       p_matchday_id: matchdayId,

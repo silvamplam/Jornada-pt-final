@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  changePhysicalDeskLatestCompanion,
+  changePhysicalDeskLatestPlacement,
   changePhysicalDeskZone,
+  createPhysicalDeskZone,
   createPhysicalDeskState,
   deletePhysicalDeskZone,
+  movePhysicalDeskBlock,
   physicalDeskHasChanges,
 } from "./editorial-matchday-live-layout-desk-state";
 import {
@@ -86,7 +88,7 @@ function readerRow(
 
 const presentation = {
   headlineTitleColor: null,
-  latestZonePlacement: "top" as const,
+  latestZonePlacement: "four_news" as const,
   latestZoneTitle: "Últimas",
   videoModuleActive: false,
 };
@@ -147,7 +149,7 @@ test(
 );
 
 test(
-  "apagar host associado limpa a relação automaticamente",
+  "apagar host associado falha até existir escolha editorial explícita",
   () => {
     const desk = createPhysicalDeskState(
       buildLiveLayoutWorkspaceStateV22(
@@ -157,19 +159,12 @@ test(
       presentation,
     );
 
-    const deleted = deletePhysicalDeskZone(
-      desk,
-      desk.current.zones[0].id,
-    );
-
-    assert.equal(
-      deleted.current.latestCompanionZoneId,
-      null,
-    );
-
-    assert.equal(
-      deleted.current.zones.length,
-      0,
+    assert.throws(
+      () => deletePhysicalDeskZone(
+        desk,
+        desk.current.zones[0].id,
+      ),
+      /latest-companion-zone-associated/,
     );
   },
 );
@@ -185,9 +180,9 @@ test(
     );
 
     const associated =
-      changePhysicalDeskLatestCompanion(
+      changePhysicalDeskLatestPlacement(
         initial,
-        initial.current.zones[0].id,
+        { kind: "zone", zoneId: initial.current.zones[0].id },
       );
 
     assert.equal(
@@ -198,6 +193,10 @@ test(
     assert.equal(
       associated.current.latestCompanionZoneId,
       ZONE_ID,
+    );
+    assert.equal(
+      associated.current.presentation.latestZonePlacement,
+      "four_news",
     );
 
     assert.equal(
@@ -213,7 +212,7 @@ test(
 );
 
 test(
-  "desassociar liberta a zona para relayout e delete",
+  "Manchete liberta a zona para relayout e delete",
   () => {
     const initial = createPhysicalDeskState(
       buildLiveLayoutWorkspaceStateV22(
@@ -224,14 +223,18 @@ test(
     );
 
     const detached =
-      changePhysicalDeskLatestCompanion(
+      changePhysicalDeskLatestPlacement(
         initial,
-        null,
+        { kind: "headline" },
       );
 
     assert.equal(
       detached.current.latestCompanionZoneId,
       null,
+    );
+    assert.equal(
+      detached.current.presentation.latestZonePlacement,
+      "top",
     );
 
     const relayout = changePhysicalDeskZone(
@@ -272,9 +275,9 @@ test(
     );
 
     const associated =
-      changePhysicalDeskLatestCompanion(
+      changePhysicalDeskLatestPlacement(
         initial,
-        initial.current.zones[0].id,
+        { kind: "zone", zoneId: initial.current.zones[0].id },
       );
 
     assert.equal(
@@ -288,3 +291,59 @@ test(
     );
   },
 );
+
+test("trocar Zona A por Zona B mantém uma única associação por UUID", () => {
+  const initial = createPhysicalDeskState(
+    buildLiveLayoutWorkspaceStateV22(
+      MATCHDAY_ID,
+      readerRow(),
+    ),
+    presentation,
+  );
+  const withSecondZone = createPhysicalDeskZone(initial, {
+    publicTitle: "Zona B",
+    visualFamily: "five_news_balanced",
+  });
+  const zoneB = withSecondZone.current.zones.find((zone) => zone.id !== ZONE_ID);
+  assert.ok(zoneB);
+
+  const associated = changePhysicalDeskLatestPlacement(
+    withSecondZone,
+    { kind: "zone", zoneId: zoneB.id },
+  );
+
+  assert.equal(associated.current.latestCompanionZoneId, zoneB.id);
+  assert.equal(associated.current.presentation.latestZonePlacement, "four_news");
+});
+
+test("título, visual_family e ordem não alteram a associação UUID", () => {
+  const initial = createPhysicalDeskState(
+    buildLiveLayoutWorkspaceStateV22(
+      MATCHDAY_ID,
+      readerRow({ visualFamily: "six_news" }),
+    ),
+    presentation,
+  );
+  const renamed = changePhysicalDeskZone(initial, initial.current.zones[0].id, {
+    publicTitle: "Novo título",
+    visualFamily: "five_news_balanced",
+  });
+  const zoneBlock = renamed.current.blocks.find((block) => block.kind === "zone");
+  assert.ok(zoneBlock);
+  const reordered = movePhysicalDeskBlock(renamed, zoneBlock, "down");
+
+  assert.equal(reordered.current.latestCompanionZoneId, ZONE_ID);
+  assert.equal(reordered.current.zones[0].publicTitle, "Novo título");
+  assert.equal(reordered.current.zones[0].visualFamily, "five_news_balanced");
+});
+
+test("Ocultas limpa companion atomicamente", () => {
+  const initial = createPhysicalDeskState(
+    buildLiveLayoutWorkspaceStateV22(MATCHDAY_ID, readerRow()),
+    presentation,
+  );
+  const hidden = changePhysicalDeskLatestPlacement(initial, { kind: "hidden" });
+
+  assert.equal(hidden.current.presentation.latestZonePlacement, "hidden");
+  assert.equal(hidden.current.latestCompanionZoneId, null);
+});

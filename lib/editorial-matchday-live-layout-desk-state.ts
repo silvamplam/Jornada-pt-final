@@ -21,6 +21,10 @@ import type {
 import type {
   MatchdayEditorialProfileLatestZonePlacement,
 } from "@/lib/editorial-matchday-profile-workspace";
+import {
+  storeMatchdayLatestPlacement,
+  type MatchdayLatestPlacement,
+} from "@/lib/editorial-matchday-latest-placement";
 
 export type PhysicalDeskZone = Readonly<{
   id: LiveLayoutZoneId;
@@ -933,6 +937,9 @@ export function deletePhysicalDeskZone(
   if (!current.zones.some((zone) => zone.id === zoneId)) {
     return stateError("zone-unknown");
   }
+  if (current.latestCompanionZoneId === zoneId) {
+    return stateError("latest-companion-zone-associated");
+  }
 
   const removedBankItemIds = current.placements
     .filter((placement) => (
@@ -957,10 +964,6 @@ export function deletePhysicalDeskZone(
   return commitSnapshot(state, {
     ...current,
     zones: current.zones.filter((zone) => zone.id !== zoneId),
-    latestCompanionZoneId:
-      current.latestCompanionZoneId === zoneId
-        ? null
-        : current.latestCompanionZoneId,
     blocks: current.blocks.filter((block) => (
       block.kind !== "zone" || block.zoneId !== zoneId
     )),
@@ -1003,10 +1006,14 @@ export function movePhysicalDeskBlock(
   return commitSnapshot(state, { ...state.current, blocks: nextBlocks });
 }
 
-export function changePhysicalDeskLatestCompanion(
+export function changePhysicalDeskLatestPlacement(
   state: PhysicalDeskState,
-  zoneId: LiveLayoutZoneId | null,
+  placement: MatchdayLatestPlacement,
 ): PhysicalDeskState {
+  const stored = storeMatchdayLatestPlacement(placement);
+  const zoneId = stored.latestCompanionZoneId === null
+    ? null
+    : parseLiveLayoutZoneId(stored.latestCompanionZoneId);
   if (
     zoneId !== null
     && !state.current.zones.some(
@@ -1017,17 +1024,26 @@ export function changePhysicalDeskLatestCompanion(
   }
 
   if (state.current.latestCompanionZoneId === zoneId) {
-    return state;
+    if (
+      state.current.presentation.latestZonePlacement
+      === stored.latestZonePlacement
+    ) {
+      return state;
+    }
   }
 
   return commitSnapshot(state, {
     ...state.current,
     latestCompanionZoneId: zoneId,
+    presentation: {
+      ...state.current.presentation,
+      latestZonePlacement: stored.latestZonePlacement,
+    },
   });
 }
 export function changePhysicalDeskPresentation(
   state: PhysicalDeskState,
-  change: Partial<PhysicalDeskPresentation>,
+  change: Partial<Omit<PhysicalDeskPresentation, "latestZonePlacement">>,
 ): PhysicalDeskState {
   const presentation = { ...state.current.presentation, ...change };
   if (sameJson(state.current.presentation, presentation)) return state;

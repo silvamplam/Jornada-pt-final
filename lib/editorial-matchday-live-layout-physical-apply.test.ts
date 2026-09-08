@@ -3,7 +3,7 @@ import test from "node:test";
 
 import {
   bulkMovePhysicalDeskItemsToFaixa,
-  changePhysicalDeskLatestCompanion,
+  changePhysicalDeskLatestPlacement,
   changePhysicalDeskPresentation,
   createPhysicalDeskZone,
   createPhysicalDeskState,
@@ -100,7 +100,7 @@ function workspace(zoneCount: number, itemCount = 12): LiveLayoutWorkspaceState 
       faixaSlotCount: 4,
       headlineTitleColor: "#AABBCC",
       latestZoneMode: "editorial_line",
-      latestZonePlacement: "four_news",
+      latestZonePlacement: "top",
       latestZoneTitle: "Últimas",
       latestZoneTitleColor: "#DDEEFF",
       videoModuleActive: true,
@@ -168,9 +168,9 @@ test("serializer transporta Latest companion até à RPC v22", () => {
 
   assert.ok(hostZone);
 
-  const associated = changePhysicalDeskLatestCompanion(
+  const associated = changePhysicalDeskLatestPlacement(
     withZone,
-    hostZone.id,
+    { kind: "zone", zoneId: hostZone.id },
   );
 
   const payload = buildPhysicalDeskApplyPayload(
@@ -179,6 +179,7 @@ test("serializer transporta Latest companion até à RPC v22", () => {
   );
 
   assert.equal(payload.latestCompanionZoneId, hostZone.id);
+  assert.equal(payload.presentation.latest_zone_placement, "four_news");
 
   const parsed = parsePhysicalDeskApplyPayload(payload);
   assert.equal(parsed.latestCompanionZoneId, hostZone.id);
@@ -196,6 +197,10 @@ test("parser aceita companion em qualquer layout físico existente", () => {
   const parsed = parsePhysicalDeskApplyPayload({
     ...payload,
     latestCompanionZoneId: payload.zones[0].id,
+    presentation: {
+      ...payload.presentation,
+      latest_zone_placement: "four_news",
+    },
   });
 
   assert.equal(
@@ -223,6 +228,50 @@ test("parser rejeita companion para zona inexistente", () => {
     }),
     /latest-companion-host-invalid/,
   );
+});
+
+test("parser rejeita qualquer novo destino físico incompleto", () => {
+  const payload = buildPhysicalDeskApplyPayload(
+    "liga_portugal_v1",
+    createPhysicalDeskState(workspace(5)),
+  );
+
+  assert.throws(
+    () => parsePhysicalDeskApplyPayload({
+      ...payload,
+      presentation: {
+        ...payload.presentation,
+        latest_zone_placement: "four_news",
+      },
+    }),
+    /latest-destination-incomplete/,
+  );
+
+  assert.throws(
+    () => parsePhysicalDeskApplyPayload({
+      ...payload,
+      latestCompanionZoneId: payload.zones[0].id,
+    }),
+    /latest-destination-incomplete/,
+  );
+});
+
+test("Manchete e Ocultas serializam sempre companion null", () => {
+  const initial = createPhysicalDeskState(workspace(5));
+  const zoned = changePhysicalDeskLatestPlacement(initial, {
+    kind: "zone",
+    zoneId: initial.current.zones[0].id,
+  });
+
+  for (const kind of ["headline", "hidden"] as const) {
+    const state = changePhysicalDeskLatestPlacement(zoned, { kind });
+    const payload = buildPhysicalDeskApplyPayload("liga_portugal_v1", state);
+    assert.equal(payload.latestCompanionZoneId, null);
+    assert.equal(
+      payload.presentation.latest_zone_placement,
+      kind === "headline" ? "top" : "hidden",
+    );
+  }
 });
 
 test("serializer representa create como topologia final completa", () => {
@@ -347,7 +396,7 @@ test("serializer transporta todos os placements sem compactar Faixa esparsa", ()
   assert.deepEqual(payload.workedBankItemIds, [id(40, 6), id(40, 9)]);
   assert.deepEqual(payload.presentation, {
     headline_title_color: "#AABBCC",
-    latest_zone_placement: "four_news",
+    latest_zone_placement: "top",
     latest_zone_title: "Últimas",
     video_module_active: true,
   });

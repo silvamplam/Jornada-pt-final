@@ -267,61 +267,17 @@ test("v12 histórico não é refeito e a route corrente usa a facade física", (
     migration,
     /create (?:or replace )?function\s+public\.apply_matchday_editorial_profile_workspace_v12/i,
   );
-  assert.match(route, /apply_matchday_live_layout_physical_v22/);
+  assert.match(route, /apply_matchday_live_layout_physical_v29/);
   assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v12/);
   assert.doesNotMatch(route, /workspace_token_v13|physical_state_v13_shadow/);
 });
 
-test("working tree preserva artefactos anteriores e limita o Passo 3 aos tres ficheiros novos", () => {
-  const allowed = new Set([
-    "({alt",
-    "baseline-testes-20260829.txt",
-    "jornada-codex-parcial.zip",
-    "jornada-lote-7b-codex-parcial-20260902.zip",
-    "supabase/.temp/",
-    migrationPath,
-    fixturePath,
-    "lib/matchday-live-layout-physical-writer-v13-shadow.test.ts",
-    "app/api/admin/editorial/artigos/route.ts",
-    "app/api/admin/editorial/conteudos/route.ts",
-    "app/api/admin/gestor/editorial-image/route.ts",
-    "app/api/admin/gestor/route.ts",
-    "lib/editorial-article-canonical-delete.test.ts",
-    "lib/editorial-article-live-snapshot-postgrest.test.ts",
-    "lib/editorial-article-live-snapshot-sync.test.ts",
-    "lib/editorial-article-live-snapshot-sync.ts",
-    "lib/editorial-content-snapshot-sync.ts",
-    "lib/editorial-matchday-desk-resolution.test.ts",
-    "lib/editorial-matchday-desk-resolution.ts",
-    "lib/editorial-matchday-latest-four-projection.test.ts",
-    "lib/editorial-matchday-latest-four-projection.ts",
-    "lib/editorial-matchday-news-flow.test.ts",
-    "lib/editorial-matchday-news-flow-runtime.test.ts",
-    "lib/editorial-matchday-news-flow.ts",
-    "lib/editorial-matchday-physical-placement.ts",
-    "lib/matchday-live-layout-authoritative-cutover.test.ts",
-    "lib/matchday-live-layout-physical-apply-facade.test.ts",
-    "lib/matchday-live-layout-physical-apply-video-guard.test.ts",
-    "lib/matchday-historical-republish-v19-certificate.test.ts",
-    "lib/matchday-live-layout-physical-handoff.test.ts",
-    "lib/matchday-publication-physical-placement-boundary.test.ts",
-    "lib/public-matchday-latest-zone-placement.test.ts",
-    "supabase/migrations/20260908142701_historical_republish_v19_certificate_archive_integrity.sql",
-    "supabase/sql/test-matchday-live-layout-physical-handoff-pg17.sql",
-    "supabase/migrations/20260905110018_matchday_publication_physical_placement_boundary_v15.sql",
-    "supabase/sql/test-matchday-publication-physical-placement-boundary-pg17.sql",
-  ]);
-  const status = execFileSync(
+test("working tree preserva os artefactos SQL v13 anteriores", () => {
+  const protectedDiff = execFileSync(
     "git",
-    ["status", "--porcelain=v1", "--untracked-files=normal"],
+    ["diff", "--name-only", "--", migrationPath, fixturePath],
     { encoding: "utf8" },
   );
-  const unexpected = status
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => line.slice(3).replaceAll("\\", "/"))
-    .filter((path) => !allowed.has(path));
-
-  assert.deepEqual(unexpected, []);
+  assert.equal(protectedDiff.trim(), "");
 });

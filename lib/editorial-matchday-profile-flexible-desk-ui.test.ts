@@ -70,7 +70,7 @@ test("Ultimas abrem como bloco de apresentacao sem pseudo-zona", () => {
   const activeWorkspace = body("renderActiveWorkspace", "undo");
 
   assert.match(latest, /data-latest-block="presentation"/);
-  assert.match(latest, /current\.latestCompanionZoneId/);
+  assert.match(latest, /latestDestination\.kind === "zone"/);
   assert.match(latest, /Zona associada:/);
   assert.doesNotMatch(latest, /editorialSelectionOccupied|selectionPlacements/);
 
@@ -83,9 +83,28 @@ test("Ultimas abrem como bloco de apresentacao sem pseudo-zona", () => {
 
 test("Ultimas associam uma zona fisica por zone_id sem posicoes legacy", () => {
   const latest = body("renderLatestBlockPanel", "renderHighlightWorkspace");
-  assert.match(latest, /current\.latestCompanionZoneId/);
-  assert.match(latest, /zoneById\.get\(current\.latestCompanionZoneId\)/);
+  assert.match(latest, /latestDestination\.zoneId/);
+  assert.match(latest, /zoneById\.get\(latestDestination\.zoneId/);
   assert.doesNotMatch(latest, /MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS/);
+});
+
+test("Mesa expõe uma única escolha Manchete, Ocultas ou Zona por UUID", () => {
+  assert.match(client, /aria-label="Posição das Últimas"/);
+  assert.match(client, /<option value="headline">Manchete<\/option>/);
+  assert.match(client, /<option value="hidden">Ocultas<\/option>/);
+  assert.match(client, /<optgroup label="Zona física">/);
+  assert.match(client, /value=\{`zone:\$\{zone\.id\}`\}/);
+  assert.doesNotMatch(client, /option value="four_news"/);
+});
+
+test("estado legacy sem UUID exige escolha e delete do host falha fechado", () => {
+  assert.match(client, /latestDestination\.kind === "legacy_incomplete"/);
+  assert.match(client, /Sem associação válida — escolha uma posição/);
+  assert.match(state, /latest-companion-zone-associated/);
+  assert.doesNotMatch(
+    state,
+    /latestCompanionZoneId:\s*current\.latestCompanionZoneId === zoneId\s*\? null/,
+  );
 });
 
 test("Destaque usa placement físico e apresentação local", () => {

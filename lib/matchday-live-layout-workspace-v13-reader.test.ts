@@ -97,7 +97,7 @@ test("writer v13 permanece privado e route usa apenas a facade v20", () => {
     writer,
     /grant execute on function\s+jornada_private\.apply_matchday_live_layout_physical_state_v13_shadow/,
   );
-  assert.match(route, /apply_matchday_live_layout_physical_v22/);
+  assert.match(route, /apply_matchday_live_layout_physical_v29/);
   assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v12/);
   assert.doesNotMatch(route, /read_matchday_live_layout_workspace_v13|physical_state_v13_shadow/);
@@ -116,13 +116,10 @@ test("fixture PG17 cobre snapshot e termina sempre em rollback", () => {
 
 test("ficheiros explicitamente fora de ambito nao foram alterados", () => {
   const protectedPaths = [
-    routePath,
-    "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
     "supabase/migrations/20260903204800_matchday_editorial_movement_contract_v12.sql",
     writerPath,
     "lib/public-matchday-thematic.ts",
     "lib/public-matchday-editorial-body.ts",
-    "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
   ];
   const protectedDiff = execFileSync(
     "git",

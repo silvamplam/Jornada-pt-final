@@ -112,7 +112,7 @@ test("preview usa o estado físico e Apply faz uma única escrita v20", () => {
   assert.match(applyBlock, /\/organizar\/tematico/);
   assert.doesNotMatch(client, /method: "GET"/);
   assert.equal((route.match(/writeSupabaseAdminReturning/g) ?? []).length, 2);
-  assert.match(route, /rpc\/apply_matchday_live_layout_physical_v22/);
+  assert.match(route, /rpc\/apply_matchday_live_layout_physical_v29/);
   assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/);
   assert.match(route, /physicalDeskApplyRpcArguments/);
   assert.doesNotMatch(route, /expectedRevision|p_expected_state_token/);

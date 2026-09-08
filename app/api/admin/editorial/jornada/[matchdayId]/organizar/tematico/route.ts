@@ -112,6 +112,7 @@ function mutationErrorResponse(error: unknown) {
     message.includes("matchday-live-layout-physical-v20-")
     || message.includes("matchday-live-layout-physical-apply-")
     || message.includes("matchday-live-layout-latest-companion-v22-")
+    || message.includes("matchday-live-layout-latest-destination-v29-")
   ) {
     return apiError(
       "thematic-physical-invalid-state",
@@ -239,7 +240,7 @@ export async function POST(
 
   try {
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_live_layout_physical_v22",
+      "rpc/apply_matchday_live_layout_physical_v29",
       {
         method: "POST",
         body: JSON.stringify(physicalDeskApplyRpcArguments(matchdayId, payload)),

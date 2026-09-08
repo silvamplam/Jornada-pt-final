@@ -3642,9 +3642,17 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     : editorial?.latest_zone_mode === "editorial_line"
       ? "editorial_line"
       : "latest_news";
+  const physicalLatestDestination = physicalSnapshot?.latest.destination ?? null;
   const latestZonePlacement =
     physicalSnapshot
-      ? physicalSnapshot.latest.placement
+      ? physicalLatestDestination?.kind === "headline"
+        ? "top"
+        : physicalLatestDestination?.kind === "hidden"
+          ? "hidden"
+          : physicalLatestDestination?.kind === "zone"
+            ? "four_news"
+            : physicalLatestDestination?.storagePlacement
+              ?? "top"
       : thematicSnapshot
         ? thematicSnapshot.pageControls.latestZonePlacement
         : editorial?.latest_zone_placement === "hidden"
@@ -3953,14 +3961,19 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   );
 
   const physicalLatestCompanionZone =
-    physicalSnapshot?.latest.companionZoneId
-      ? physicalZoneById.get(physicalSnapshot.latest.companionZoneId) ?? null
+    physicalLatestDestination?.kind === "zone"
+      ? physicalZoneById.get(physicalLatestDestination.zoneId) ?? null
       : null;
 
   const showPhysicalLatestCompanion =
     Boolean(physicalSnapshot)
     && showBodyLatestBlock
     && physicalLatestCompanionZone !== null;
+
+  const showPhysicalLegacyLatestBlock =
+    physicalLatestDestination?.kind === "legacy_incomplete"
+    && physicalLatestDestination.storagePlacement === "four_news"
+    && latestNewsItems.length > 0;
 
   const liveEditorialBodyBlocks =
     composeLivePublicEditorialBody(
@@ -4406,7 +4419,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             }
 
             if (block.kind === "latest") {
-              if (!showBodyLatestBlock) return null;
+              if (!showPhysicalLegacyLatestBlock) return null;
 
               return (
                 <div
@@ -4414,35 +4427,36 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                   data-public-physical-block="latest"
                   key={block.blockId}
                 >
-                  {showPhysicalLatestCompanion && physicalLatestCompanionZone ? (
-                    <PublicLatestCompanionLayout
-                      zone={{
-                        key: physicalLatestCompanionZone.zoneId,
-                        visualFamily: physicalLatestCompanionZone.layoutId,
-                        publicTitle: physicalLatestCompanionZone.publicTitle,
-                        slots: physicalLatestCompanionZone.slots,
-                      }}
-                      matchdayNumber={context.matchday.number}
-                      latestNews={latestNewsItems}
-                      latestNewsTitle={latestZoneTitle}
-                      latestNewsTitleColor={latestZoneTitleColor}
-                    />
-                  ) : (
-                    <PublicLatestOnlyLayout
-                      items={latestNewsItems}
-                      title={latestZoneTitle}
-                      titleColor={latestZoneTitleColor}
-                    />
-                  )}
+                  <PublicLatestOnlyLayout
+                    items={latestNewsItems}
+                    title={latestZoneTitle}
+                    titleColor={latestZoneTitleColor}
+                  />
                 </div>
               );
             }
 
             if (
               showPhysicalLatestCompanion
-              && physicalSnapshot.latest.companionZoneId === block.zoneId
+              && physicalLatestDestination?.kind === "zone"
+              && physicalLatestDestination.zoneId === block.zoneId
+              && physicalLatestCompanionZone
             ) {
-              return null;
+              return (
+                <PublicLatestCompanionLayout
+                  zone={{
+                    key: physicalLatestCompanionZone.zoneId,
+                    visualFamily: physicalLatestCompanionZone.layoutId,
+                    publicTitle: physicalLatestCompanionZone.publicTitle,
+                    slots: physicalLatestCompanionZone.slots,
+                  }}
+                  key={block.blockId}
+                  matchdayNumber={context.matchday.number}
+                  latestNews={latestNewsItems}
+                  latestNewsTitle={latestZoneTitle}
+                  latestNewsTitleColor={latestZoneTitleColor}
+                />
+              );
             }
 
             const zone = physicalZoneById.get(block.zoneId);

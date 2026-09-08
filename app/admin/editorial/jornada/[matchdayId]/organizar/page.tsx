@@ -891,8 +891,10 @@ export default async function MatchdayEditorialDeskPage({ params, searchParams }
               <input type="hidden" name="return_to" value={organizationReturnTo} />
               <input type="hidden" name="matchday_id" value={snapshot.matchdayId} />
               <select aria-label="Posição de Últimas" name="latest_zone_placement" defaultValue={snapshot.latestZonePlacement}>
+                {snapshot.latestZonePlacement === "four_news" ? (
+                  <option disabled value="four_news">Estado legado — escolha uma posição</option>
+                ) : null}
                 <option value="top">Ao lado da manchete</option>
-                <option value="four_news">Na zona de 4 notícias</option>
                 <option value="hidden">Ocultas</option>
               </select>
               <button type="submit">Guardar</button>

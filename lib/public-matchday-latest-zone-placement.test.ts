@@ -102,15 +102,16 @@ test("a posição de Últimas é controlada na Mesa e já não no Editorial", ()
   assert.doesNotMatch(adminPage, /<select[^>]*name="latest_zone_placement"/);
   assert.match(deskPage, /name="action_type" value="set_matchday_latest_zone_placement"/);
   assert.match(deskPage, /<option value="top">Ao lado da manchete<\/option>/);
-  assert.match(deskPage, /<option value="four_news">Na zona de 4 notícias<\/option>/);
+  assert.match(deskPage, /<option disabled value="four_news">Estado legado — escolha uma posição<\/option>/);
+  assert.doesNotMatch(deskPage, /Na zona de 4 notícias/);
   assert.match(deskPage, /<option value="hidden">Ocultas<\/option>/);
 
   const actionStart = gestorRoute.indexOf("async function setMatchdayLatestZonePlacement");
   const actionEnd = gestorRoute.indexOf("async function saveMatchdayLatestNewsItem", actionStart);
   const action = gestorRoute.slice(actionStart, actionEnd);
 
-  assert.match(action, /latestZonePlacement !== "top" && latestZonePlacement !== "hidden" && latestZonePlacement !== "four_news"/);
-  assert.match(action, /rpc\/set_matchday_latest_zone_placement_v15/);
+  assert.match(action, /latestZonePlacement !== "top" && latestZonePlacement !== "hidden"/);
+  assert.match(action, /rpc\/set_matchday_latest_zone_placement_v29/);
   assert.match(action, /p_latest_zone_placement: latestZonePlacement/);
   assert.doesNotMatch(action, /editorial_articles|matchday_latest_news|latest_zone_mode|status:/);
   assert.doesNotMatch(action, /syncLatestFourNewsProjection/);

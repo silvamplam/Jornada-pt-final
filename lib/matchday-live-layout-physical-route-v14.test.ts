@@ -19,7 +19,7 @@ test("POST físico chama uma única RPC v22 e não contém fallback v14", () => 
     1,
   );
   assert.equal(
-    (post.match(/rpc\/apply_matchday_live_layout_physical_v22/g) ?? []).length,
+    (post.match(/rpc\/apply_matchday_live_layout_physical_v29/g) ?? []).length,
     1,
   );
   assert.doesNotMatch(post, /apply_matchday_live_layout_physical_workspace_v14/);
