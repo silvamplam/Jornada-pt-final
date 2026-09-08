@@ -6,6 +6,7 @@ import {
   normalizeMatchdayLivePublicZoneOrder,
   type MatchdayLivePublicZoneKey,
 } from "@/lib/editorial-matchday-live-zone-order";
+import { isHistoricalPublishedReferenceCompositionAuthority } from "@/lib/editorial-reference-composition-publication";
 
 export type PublicSeasonParticipant = SupabaseSeasonTeam & {
   team: SupabaseTeam | null;
@@ -119,6 +120,7 @@ export type PublicMatchdayEditorialCarryover = {
 
 export type PublicMatchdayEditorialDeskControl = {
   isManaged: boolean;
+  authorityIsManaged: boolean | null;
   faixaVisible: boolean;
   revision: number;
   liveZoneOrder: MatchdayLivePublicZoneKey[];
@@ -151,6 +153,7 @@ export type PublicMatchdayContext = {
   referenceRoundupItems: SupabaseMatchdayRoundupItem[];
   hasPublishedReferenceComposition: boolean;
   hasReferenceRoundupItems: boolean;
+  historicalRepublishedReferenceComposition: boolean;
 };
 
 export type PublicMatchdayDiagnostic = {
@@ -442,6 +445,7 @@ async function readMatchdayEditorialDeskControl(
   if (control) {
     return {
       isManaged: control.is_managed === true,
+      authorityIsManaged: control.is_managed,
       faixaVisible: control.faixa_visible !== false,
       revision: Number.isSafeInteger(control.revision)
         ? control.revision
@@ -471,6 +475,7 @@ async function readMatchdayEditorialDeskControl(
 
   return {
     isManaged: legacy?.is_managed === true,
+    authorityIsManaged: legacy?.is_managed ?? null,
     faixaVisible: legacy?.faixa_visible !== false,
     revision: Number.isSafeInteger(legacy?.revision)
       ? legacy?.revision ?? 0
@@ -703,6 +708,22 @@ async function readPublishedReferenceCompositionBundle(matchdayId: string) {
   }
 }
 
+type PublicHistoricalReferenceCompositionTransition = Readonly<{
+  source_composition_id: string;
+}>;
+
+async function readHistoricalReferenceCompositionTransition(
+  matchdayId: string,
+): Promise<PublicHistoricalReferenceCompositionTransition | null> {
+  const rows = await fetchSupabaseAdminTable<PublicHistoricalReferenceCompositionTransition>(
+    `matchday_editorial_continuity_transitions?select=source_composition_id&source_matchday_id=eq.${encodeURIComponent(
+      matchdayId,
+    )}&limit=1`,
+  ).catch(() => []);
+
+  return rows[0] ?? null;
+}
+
 export async function getPublicSeasonContext({
   competitionSlug,
   seasonLabel
@@ -900,7 +921,7 @@ export async function getPublicMatchdayDiagnostic({
       ...manualParticipants.map((participant) => participant.team_id),
       ...matchdayMatches.flatMap((match) => [match.home_team_id, match.away_team_id])
     ]);
-    const [broadcastChannels, editorial, highlights, roundupItems, latestNews, horizontalNews, liveLayoutItems, editorialDeskControl, referenceCompositionBundle] = await Promise.all([
+    const [broadcastChannels, editorial, highlights, roundupItems, latestNews, horizontalNews, liveLayoutItems, editorialDeskControl, referenceCompositionBundle, historicalTransition] = await Promise.all([
       readBroadcastChannels(matchdayMatches.map((match) => match.broadcast_channel_id ?? "")),
       readMatchdayEditorial(matchday.id),
       readPublishedMatchdayHighlights(matchday.id),
@@ -909,7 +930,8 @@ export async function getPublicMatchdayDiagnostic({
       readPublishedMatchdayHorizontalNews(matchday.id),
       readMatchdayLiveLayoutItems(matchday.id),
       readMatchdayEditorialDeskControl(matchday.id),
-      readPublishedReferenceCompositionBundle(matchday.id)
+      readPublishedReferenceCompositionBundle(matchday.id),
+      readHistoricalReferenceCompositionTransition(matchday.id),
     ]);
     const teamsById = byId(teams);
     const broadcastChannelsById = byId(broadcastChannels);
@@ -922,6 +944,14 @@ export async function getPublicMatchdayDiagnostic({
     }));
     const usePublishedReferenceForLivePage =
       referenceCompositionBundle.hasPublishedReferenceComposition && !editorialDeskControl.isManaged;
+    const historicalRepublishedReferenceComposition =
+      isHistoricalPublishedReferenceCompositionAuthority({
+        hasContinuityTransition: historicalTransition !== null,
+        sourceDeskIsManaged: editorialDeskControl.authorityIsManaged,
+        sourceCompositionId: historicalTransition?.source_composition_id ?? null,
+        currentPublishedCompositionId:
+          referenceCompositionBundle.referenceComposition?.id ?? null,
+      });
     const referenceSlots = usePublishedReferenceForLivePage
       ? (referenceCompositionBundle.referenceSlots as PublicReferenceCompositionSlots)
       : null;
@@ -973,7 +1003,8 @@ export async function getPublicMatchdayDiagnostic({
         referenceSlots: referenceCompositionBundle.referenceSlots,
         referenceRoundupItems: referenceCompositionBundle.referenceRoundupItems,
         hasPublishedReferenceComposition: referenceCompositionBundle.hasPublishedReferenceComposition,
-        hasReferenceRoundupItems: referenceCompositionBundle.hasReferenceRoundupItems
+        hasReferenceRoundupItems: referenceCompositionBundle.hasReferenceRoundupItems,
+        historicalRepublishedReferenceComposition,
       },
       diagnostic: {
         ...baseDiagnostic,

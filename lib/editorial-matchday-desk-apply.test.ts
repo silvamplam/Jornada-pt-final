@@ -74,7 +74,7 @@ test("uma Jornada gerida usa zonas vivas e a visibilidade global da Faixa", () =
   assert.match(reader, /matchday_editorial_desk_control\?select=is_managed,faixa_visible,live_public_zone_order,revision/);
   assert.match(publicLoader, /readMatchdayEditorialDeskControl/);
   assert.match(publicLoader, /usePublishedReferenceForLivePage[\s\S]*?!editorialDeskControl\.isManaged/);
-  assert.match(publicPage, /isGenuineLegacy[\s\S]*?context\.hasPublishedReferenceComposition[\s\S]*?&& !isManagedByEditorialDesk/);
+  assert.match(publicPage, /hasAvailablePublishedReferenceComposition\s*=\s*context\.hasPublishedReferenceComposition && !isManagedByEditorialDesk/);
   assert.match(
     publicPage,
     /isManagedByDesk:\s*hasLegacyThematicAuthority\s*\?\s*false\s*:\s*useHierarchicalReferenceComposition\s*\?\s*false\s*:\s*isManagedByEditorialDesk/,

@@ -44,7 +44,15 @@ test("página pública usa um único dispatch marker-first", () => {
 test("histórico publicado prevalece sobre resíduos legacy sem enfraquecer autoridade física", () => {
   assert.match(
     pageSource,
-    /const usePublishedReferenceComposition =\s*editorialRead\.kind !== "physical"\s*&& editorialRead\.kind !== "invalid_physical_snapshot"\s*&& context\.hasPublishedReferenceComposition\s*&& !isManagedByEditorialDesk;/,
+    /const publicEditorialAuthority = resolvePublicMatchdayEditorialAuthority/,
+  );
+  assert.match(
+    pageSource,
+    /const physicalSnapshot =\s*publicEditorialAuthority === "editorial_snapshot"\s*&& editorialRead\.kind === "physical"/,
+  );
+  assert.match(
+    pageSource,
+    /const usePublishedReferenceComposition =\s*publicEditorialAuthority === "published_reference_composition"/,
   );
   assert.doesNotMatch(
     pageSource,
@@ -87,8 +95,8 @@ test("reader legacy continua aplicado, read-only e isolado", () => {
   assert.doesNotMatch(legacyReaderSource, /writeSupabase|\bPOST\b|\bPATCH\b|\bDELETE\b/);
 });
 
-test("reader físico usa v13 e não consulta fontes temáticas", () => {
-  assert.match(physicalReaderSource, /rpc\/read_matchday_live_layout_workspace_v13/);
+test("reader físico usa v22 e não consulta fontes temáticas", () => {
+  assert.match(physicalReaderSource, /rpc\/read_matchday_live_layout_workspace_v22/);
   assert.doesNotMatch(
     physicalReaderSource,
     /matchday_editorial_profile_zone_items|reconcile_control|EditorialProfileZoneKey/,

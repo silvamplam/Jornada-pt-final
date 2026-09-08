@@ -2,7 +2,10 @@ import { publicTopNavigationStyles } from "@/components/public/publicEditorialSt
 import { buildAccumulatedClassification, totalClassificationStats, type ClassificationSplit } from "@/lib/classification";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
-import { readPublicMatchdayEditorialSnapshot } from "@/lib/public-matchday-editorial";
+import {
+  readPublicMatchdayEditorialSnapshot,
+  resolvePublicMatchdayEditorialAuthority,
+} from "@/lib/public-matchday-editorial";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
@@ -3017,19 +3020,35 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     return <DiagnosticPanel diagnostic={diagnostic} />;
   }
   const liveContext = context;
+  const isManagedByEditorialDesk = context.editorialDeskControl.isManaged;
 
   const editorialRead =
     await readPublicMatchdayEditorialSnapshot(
       context.matchday.id,
     );
 
+  const hasAvailablePublishedReferenceComposition =
+    context.hasPublishedReferenceComposition && !isManagedByEditorialDesk;
+  const publicEditorialAuthority = resolvePublicMatchdayEditorialAuthority({
+    editorialReadKind: editorialRead.kind,
+    hasPublishedReferenceComposition:
+      hasAvailablePublishedReferenceComposition,
+    historicalRepublishedReferenceComposition:
+      context.historicalRepublishedReferenceComposition,
+    sourceDeskIsManaged: isManagedByEditorialDesk,
+  });
+  const usePublishedReferenceComposition =
+    publicEditorialAuthority === "published_reference_composition";
+
   const physicalSnapshot =
-    editorialRead.kind === "physical"
+    publicEditorialAuthority === "editorial_snapshot"
+    && editorialRead.kind === "physical"
       ? editorialRead
       : null;
 
   const thematicSnapshot =
-    editorialRead.kind === "legacy_thematic"
+    publicEditorialAuthority === "editorial_snapshot"
+    && editorialRead.kind === "legacy_thematic"
     && editorialRead.snapshot.competitionSlug
       === context.competition.slug
       ? editorialRead.snapshot
@@ -3042,12 +3061,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const isGenuineLegacy =
     editorialRead.kind === "legacy";
 
-  const isManagedByEditorialDesk = context.editorialDeskControl.isManaged;
-  const usePublishedReferenceComposition =
-    editorialRead.kind !== "physical"
-    && editorialRead.kind !== "invalid_physical_snapshot"
-    && context.hasPublishedReferenceComposition
-    && !isManagedByEditorialDesk;
   const publicEditorialUnavailable =
     !usePublishedReferenceComposition
     && (

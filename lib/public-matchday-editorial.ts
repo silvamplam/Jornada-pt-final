@@ -25,6 +25,38 @@ export type PublicMatchdayEditorialReadResult =
       reason: string;
     }>;
 
+export type PublicMatchdayEditorialAuthority =
+  | "editorial_snapshot"
+  | "published_reference_composition";
+
+export function resolvePublicMatchdayEditorialAuthority({
+  editorialReadKind,
+  hasPublishedReferenceComposition,
+  historicalRepublishedReferenceComposition,
+  sourceDeskIsManaged,
+}: Readonly<{
+  editorialReadKind: PublicMatchdayEditorialReadResult["kind"];
+  hasPublishedReferenceComposition: boolean;
+  historicalRepublishedReferenceComposition: boolean;
+  sourceDeskIsManaged: boolean | null;
+}>): PublicMatchdayEditorialAuthority {
+  if (
+    !hasPublishedReferenceComposition
+    || sourceDeskIsManaged !== false
+  ) {
+    return "editorial_snapshot";
+  }
+
+  if (historicalRepublishedReferenceComposition) {
+    return "published_reference_composition";
+  }
+
+  return editorialReadKind === "physical"
+    || editorialReadKind === "invalid_physical_snapshot"
+    ? "editorial_snapshot"
+    : "published_reference_composition";
+}
+
 export async function readPublicMatchdayEditorialSnapshot(
   matchdayId: string,
   dependencies: PublicMatchdayPhysicalDependencies = {},
