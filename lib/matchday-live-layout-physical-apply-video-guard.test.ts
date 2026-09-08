@@ -224,8 +224,12 @@ test("apenas os tres ficheiros autorizados mudam e Agenda TV fica intacta", () =
     "lib/matchday-live-layout-authoritative-cutover.test.ts",
     "lib/matchday-live-layout-physical-apply-facade.test.ts",
     "lib/matchday-live-layout-physical-writer-v13-shadow.test.ts",
+    "lib/matchday-historical-republish-v19-certificate.test.ts",
+    "lib/matchday-live-layout-physical-handoff.test.ts",
     "lib/matchday-publication-physical-placement-boundary.test.ts",
     "lib/public-matchday-latest-zone-placement.test.ts",
+    "supabase/migrations/20260908142701_historical_republish_v19_certificate_archive_integrity.sql",
+    "supabase/sql/test-matchday-live-layout-physical-handoff-pg17.sql",
     "supabase/migrations/20260905110018_matchday_publication_physical_placement_boundary_v15.sql",
     "supabase/sql/test-matchday-publication-physical-placement-boundary-pg17.sql",
   ]);

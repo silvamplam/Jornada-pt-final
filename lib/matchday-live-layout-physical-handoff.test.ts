@@ -168,7 +168,8 @@ test("PG17 fixture exercises real publication, seven zones and rollback/recovery
     "physical corruption fell back to legacy",
     "topology-only recovery did not converge",
     "carryover-complete recovery did not converge",
-    "historical republication duplicated physical materialization",
+    "target did not evolve after the completed handoff",
+    "historical republication changed the evolved target or durable handoff",
   ]) {
     assert.match(fixture, new RegExp(proof));
   }

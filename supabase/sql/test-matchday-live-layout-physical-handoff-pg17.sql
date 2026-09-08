@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
--- Run on PostgreSQL 17 after migrations through v19. Everything is rolled
--- back; no fixture state can escape this session.
+-- Run on PostgreSQL 17 after the historical v19 republication correction.
+-- Everything is rolled back; no fixture state can escape this session.
 begin;
 
 create function pg_temp.assert_true(p_condition boolean, p_message text)
@@ -13,6 +13,135 @@ begin
     raise exception 'assertion-failed: %', p_message;
   end if;
 end;
+$function$;
+
+create function pg_temp.target_live_state_v19(
+  p_target_matchday_id uuid,
+  p_profile_key text
+)
+returns jsonb
+language sql
+stable
+set search_path = ''
+as $function$
+  select pg_catalog.jsonb_build_object(
+    'transition', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.source_matchday_id
+      )
+      from public.matchday_editorial_continuity_transitions as row_value
+      where row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'topology', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.id
+      )
+      from jornada_private.matchday_live_layout_physical_topology_transitions
+        as row_value
+      where row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'zone_maps', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.source_zone_id
+      )
+      from jornada_private.matchday_live_layout_physical_zone_maps
+        as row_value
+      where row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'carryover', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.id
+      )
+      from jornada_private.matchday_live_layout_physical_carryovers
+        as row_value
+      where row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'bank_maps', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.source_bank_item_id
+      )
+      from jornada_private.matchday_live_layout_physical_bank_maps
+        as row_value
+      where row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'handoff', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.id
+      )
+      from jornada_private.matchday_live_layout_physical_handoffs
+        as row_value
+      where row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'desk', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.matchday_id
+      )
+      from public.matchday_editorial_desk_control as row_value
+      where row_value.matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'settings', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.matchday_id
+      )
+      from public.matchday_live_layout_workspace_settings as row_value
+      where row_value.matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'zones', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.id
+      )
+      from public.matchday_live_layout_zones as row_value
+      where row_value.matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'blocks', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.id
+      )
+      from public.matchday_live_layout_blocks as row_value
+      where row_value.matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'bank', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.id
+      )
+      from public.matchday_editorial_bank_items as row_value
+      where row_value.matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'placements', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.id
+      )
+      from public.matchday_live_layout_placements as row_value
+      where row_value.matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'latest', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.id
+      )
+      from public.matchday_latest_news as row_value
+      where row_value.matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'state_token', (
+      select workspace_row.state_token
+      from public.read_matchday_live_layout_workspace_v13(
+        p_target_matchday_id,
+        p_profile_key
+      ) as workspace_row
+    )
+  );
 $function$;
 
 create function pg_temp.inject_v19_failure()
@@ -847,11 +976,51 @@ values (
   'v19 historical republication'
 );
 
+create temp table republish_handoff_token as
+select handoff_row.target_state_token
+from jornada_private.matchday_live_layout_physical_handoffs as handoff_row
+where handoff_row.source_matchday_id =
+      '9d000000-0000-4000-8000-000000000001';
+
+-- J06 evolves legitimately after the one-time handoff. The historical J05
+-- republication must not require this current workspace to equal the frozen
+-- handoff token.
+update public.matchday_live_layout_workspace_settings as target_settings
+set latest_zone_title = 'Últimas J06 depois do handoff',
+    updated_at = pg_catalog.statement_timestamp()
+where target_settings.matchday_id =
+      '9d000000-0000-4000-8000-000000000002';
+
+select pg_temp.assert_true(
+  exists (
+    select 1
+    from public.read_matchday_live_layout_workspace_v13(
+      '9d000000-0000-4000-8000-000000000002',
+      'liga_portugal_v1'
+    ) as workspace_row
+    cross join republish_handoff_token as handoff_row
+    where workspace_row.state_token is distinct from
+          handoff_row.target_state_token
+  ) and exists (
+    select 1
+    from public.matchday_live_layout_workspace_settings as settings_row
+    where settings_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+      and settings_row.latest_zone_title =
+          'Últimas J06 depois do handoff'
+  ),
+  'target did not evolve after the completed handoff'
+);
+
 create temp table republish_before as
 select
   jornada_private.matchday_live_layout_physical_archive_hash_v19(
     '9d000000-0000-4000-8000-000000000001'
   ) as source_hash,
+  pg_temp.target_live_state_v19(
+    '9d000000-0000-4000-8000-000000000002',
+    'liga_portugal_v1'
+  ) as target_state,
   (select pg_catalog.count(*) from jornada_private.matchday_live_layout_physical_topology_transitions) as topology_count,
   (select pg_catalog.count(*) from jornada_private.matchday_live_layout_physical_carryovers) as carryover_count,
   (select pg_catalog.count(*) from jornada_private.matchday_live_layout_physical_handoffs) as handoff_count;
@@ -869,17 +1038,21 @@ select pg_temp.assert_true(
   and jornada_private.matchday_live_layout_physical_archive_hash_v19(
         '9d000000-0000-4000-8000-000000000001'
       ) = (select source_hash from republish_before)
+  and pg_temp.target_live_state_v19(
+        '9d000000-0000-4000-8000-000000000002',
+        'liga_portugal_v1'
+      ) = (select target_state from republish_before)
   and (select pg_catalog.count(*) from jornada_private.matchday_live_layout_physical_topology_transitions) =
       (select topology_count from republish_before)
   and (select pg_catalog.count(*) from jornada_private.matchday_live_layout_physical_carryovers) =
       (select carryover_count from republish_before)
   and (select pg_catalog.count(*) from jornada_private.matchday_live_layout_physical_handoffs) =
       (select handoff_count from republish_before),
-  'historical republication duplicated physical materialization'
+  'historical republication changed the evolved target or durable handoff'
 );
 
 insert into handoff_v19_results values
-  (2, 'physical historical republication is independent', 'PASS');
+  (2, 'historical republication accepts evolved target without writes', 'PASS');
 
 
 -- ============================================================
