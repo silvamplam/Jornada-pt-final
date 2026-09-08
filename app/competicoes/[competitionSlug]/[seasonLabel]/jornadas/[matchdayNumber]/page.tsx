@@ -7,6 +7,7 @@ import {
   resolvePublicMatchdayEditorialAuthority,
 } from "@/lib/public-matchday-editorial";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
+import { resolvePublicCompetitionLogoPresentation } from "@/lib/public-competition-navigation";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import { buildPublicMatchdayEditorialVisibility, hasPublicMatchdayRoundupContent } from "@/lib/public-matchday-editorial-visibility";
@@ -52,6 +53,7 @@ import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/publi
 import PublicThematicZoneLayout from "@/components/public/PublicThematicZoneLayout";
 import { redirect } from "next/navigation";
 import type { CSSProperties } from "react";
+import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -3089,6 +3091,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     logoUrl: context.competition.logo_url
   };
   const publicCompetitionMenuBase = await getPublicCompetitionMenu().catch(() => []);
+  const competitionLogo = resolvePublicCompetitionLogoPresentation(currentCompetitionMenuItem);
   const publicCompetitionMenu = publicCompetitionMenuBase.map((item) =>
     item.slug === currentCompetitionMenuItem.slug ? currentCompetitionMenuItem : item
   );
@@ -4143,10 +4146,23 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     <main className="public-matchday-shell">
       <style>{publicMatchdayStyles}</style>
       {showLogoDiagnostic ? <LogoDiagnosticPanel context={context} /> : null}
-      <div className="public-top-stack">
+      <div className={`public-top-stack ${styles.topStack}`}>
       <header className="public-site-topbar" aria-label="Topo do Jornada.pt">
-        <a className="public-site-brand" href="/">
-          Jornada<span>.pt</span>
+        <a className={styles.competitionIdentity} href={currentCompetitionMenuItem.href}>
+          {competitionLogo ? (
+            <img
+              alt=""
+              data-variant={competitionLogo.variant}
+              height={competitionLogo.intrinsicHeight}
+              src={competitionLogo.logoUrl}
+              width={competitionLogo.intrinsicWidth}
+            />
+          ) : null}
+          <span>{context.competition.name}</span>
+        </a>
+        <a className={styles.matchdayBrand} href="/" aria-label={`Jornada.pt — Jornada ${context.matchday.number}`}>
+          <span>ajornada</span>
+          <strong>{String(context.matchday.number).padStart(2, "0")}</strong>
         </a>
         <PublicCompetitionNavigation
           competitions={publicCompetitionMenu}
@@ -4154,6 +4170,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           classificationHref="#classificacao"
           showMessageTicker={false}
         />
+        <div className="public-matchday-date-row">
+          <span className="public-matchday-date-context">
+            <strong>Data:</strong> {selectedMatchdayDateContext}
+          </span>
+        </div>
         <div className="public-site-actions" aria-label="Ações">
           <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>
           <a href="/admin/gestor">Entrar</a>
@@ -4198,11 +4219,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               </a>
             ))}
           </nav>
-          <div className="public-matchday-date-row">
-            <span className="public-matchday-date-context">
-              <strong>Data:</strong> {selectedMatchdayDateContext}
-            </span>
-          </div>
         </div>
       </section>
       </div>
@@ -4219,7 +4235,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           `
         }}
       />
-      <div className="public-league-match-strip-scroll">
+      <div className={`public-league-match-strip-scroll ${styles.matchStrip}`}>
         <PublicMatchStrip
           carouselLayout="fluid-peek"
           matches={context.matchesForMatchday.map((match) => ({

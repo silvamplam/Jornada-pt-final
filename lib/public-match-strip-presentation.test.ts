@@ -288,7 +288,10 @@ test("a barra partilhada permanece nos contextos validos e o separador Jogos man
     homeSource,
     /<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"[\s\S]*?matches=\{featuredMatches\.slice\(0, 8\)\}[\s\S]*?variant="clean"/
   );
-  assert.match(competitionSource, /className="public-league-match-strip-scroll"[\s\S]*?<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"/);
+  assert.match(
+    competitionSource,
+    /className=\{`public-league-match-strip-scroll \$\{styles\.matchStrip\}`\}[\s\S]*?<PublicMatchStrip[\s\S]*?carouselLayout="fluid-peek"/
+  );
   assert.match(competitionSource, /<PublicMatchStrip[\s\S]*?variant="clean"/);
   assert.doesNotMatch(competitionSource, /<PublicMatchStrip[\s\S]*?competitionSlug=/);
   assert.doesNotMatch(competitionSource, /className="public-home-match-strip-static"/);

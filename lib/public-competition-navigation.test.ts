@@ -253,15 +253,31 @@ test("mantem emblema e Classificacao na mesma ligacao acessivel", async () => {
 });
 
 
-test("mostra o emblema ativo junto da Classificacao e remove o duplicado da barra de epoca", async () => {
-  const matchdaySource = await readFile(integrationUrls[2], "utf8");
+test("a jornada isola a identidade da competicao no topo e preserva a navegacao partilhada", async () => {
+  const [matchdaySource, matchdayStyles] = await Promise.all([
+    readFile(integrationUrls[2], "utf8"),
+    readFile(new URL("./page.module.css", integrationUrls[2]), "utf8")
+  ]);
 
   assert.doesNotMatch(matchdaySource, /showActiveCompetitionLogo=\{false\}/);
   assert.doesNotMatch(matchdaySource, /className="public-season-competition-emblem"/);
-  assert.doesNotMatch(matchdaySource, /resolvePublicCompetitionLogoPresentation/);
+  assert.match(matchdaySource, /import styles from "\.\/page\.module\.css"/);
+  assert.match(matchdaySource, /className=\{`public-top-stack \$\{styles\.topStack\}`\}/);
   assert.match(
     matchdaySource,
-    /<PublicCompetitionNavigation[\s\S]*?classificationHref="#classificacao"[\s\S]*?showMessageTicker=\{false\}/
+    /const competitionLogo = resolvePublicCompetitionLogoPresentation\(currentCompetitionMenuItem\)/
+  );
+  assert.match(
+    matchdaySource,
+    /<a className=\{styles\.competitionIdentity\} href=\{currentCompetitionMenuItem\.href\}>[\s\S]*?src=\{competitionLogo\.logoUrl\}[\s\S]*?<span>\{context\.competition\.name\}<\/span>/
+  );
+  assert.match(
+    matchdayStyles,
+    /\.topStack :global\(nav\[aria-label="Navegação pública"\] img\)\s*\{\s*display:\s*none;/
+  );
+  assert.match(
+    matchdaySource,
+    /<PublicCompetitionNavigation[\s\S]*?competitions=\{publicCompetitionMenu\}[\s\S]*?activeCompetitionSlug=\{context\.competition\.slug\}[\s\S]*?classificationHref="#classificacao"[\s\S]*?showMessageTicker=\{false\}/
   );
 });
 
