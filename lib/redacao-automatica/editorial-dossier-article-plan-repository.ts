@@ -5,14 +5,24 @@ import type {
   EditorialDossierArticleKind,
   EditorialDossierLengthMode,
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
+import type {
+  EditorialDossierArticlePlanDestination,
+  EditorialDossierArticlePlanImageChoice,
+} from "@/lib/redacao-automatica/editorial-dossier-production-workspace-service-internal";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PUBLISHED_CONTEXT_PAGE_SIZE = 200;
 
 export type EditorialDossierArticlePlanStatus = "planned" | "ready" | "cancelled";
 
 export type EditorialDossierArticlePlanSource = Readonly<{
   id: string;
   dossierSourceId: string;
+  sortOrder: number;
+}>;
+
+export type EditorialDossierArticlePlanPublishedContext = Readonly<{
+  dossierPublishedContextId: string;
   sortOrder: number;
 }>;
 
@@ -47,6 +57,9 @@ export type EditorialDossierArticlePlan = Readonly<{
   articleKind: EditorialDossierArticleKind;
   lengthMode: EditorialDossierLengthMode;
   editorialInstructions: string;
+  destination: EditorialDossierArticlePlanDestination;
+  updateTargetEditorialArticleId: string | null;
+  imageChoice: EditorialDossierArticlePlanImageChoice;
   editorialArticleId: string | null;
   editorialArticleStatus: "draft" | "published" | null;
   editorialArticleHasBody: boolean;
@@ -55,6 +68,7 @@ export type EditorialDossierArticlePlan = Readonly<{
   createdAt: string;
   updatedAt: string;
   sources: readonly EditorialDossierArticlePlanSource[];
+  publishedContexts: readonly EditorialDossierArticlePlanPublishedContext[];
 }>;
 
 type ArticlePlanRow = {
@@ -66,6 +80,10 @@ type ArticlePlanRow = {
   article_kind: string;
   length_mode: string;
   editorial_instructions: string;
+  destination: string;
+  update_target_editorial_article_id: string | null;
+  image_choice: string;
+  dossier_image_id: string | null;
   editorial_article_id: string | null;
   editorial_profile_id: string | null;
   editorial_profile_version_id: string | null;
@@ -79,6 +97,13 @@ type ArticlePlanSourceRow = {
   dossier_id: string;
   article_plan_id: string;
   dossier_source_id: string;
+  sort_order: number;
+};
+
+type ArticlePlanPublishedContextRow = {
+  dossier_id: string;
+  article_plan_id: string;
+  dossier_published_context_id: string;
   sort_order: number;
 };
 
@@ -158,8 +183,47 @@ function articleStatus(value: string): "draft" | "published" {
   return value === "published" ? "published" : "draft";
 }
 
+function destination(value: string): EditorialDossierArticlePlanDestination {
+  return value === "update" ? "update" : "new";
+}
+
+function imageChoice(
+  value: string,
+  dossierImageId: string | null,
+): EditorialDossierArticlePlanImageChoice {
+  if (value === "preserve_published") {
+    return { mode: "preserve_published" };
+  }
+  if (value === "dossier_image" && dossierImageId) {
+    return { mode: "dossier_image", dossierImageId };
+  }
+  return { mode: "unselected" };
+}
+
 function uuidList(values: readonly string[]): string {
   return values.map((value) => encodeURIComponent(value)).join(",");
+}
+
+async function readAllPublishedContextAssignments(
+  dossierId: string,
+): Promise<ArticlePlanPublishedContextRow[]> {
+  const rows: ArticlePlanPublishedContextRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchSupabaseAdminTable<ArticlePlanPublishedContextRow>(
+      "newsroom_editorial_dossier_article_plan_published_contexts"
+      + "?select=dossier_id,article_plan_id,dossier_published_context_id,sort_order"
+      + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
+      + "&order=article_plan_id.asc,sort_order.asc,dossier_published_context_id.asc"
+      + `&limit=${PUBLISHED_CONTEXT_PAGE_SIZE}&offset=${offset}`,
+    );
+    rows.push(...page);
+    if (page.length < PUBLISHED_CONTEXT_PAGE_SIZE) break;
+    offset += PUBLISHED_CONTEXT_PAGE_SIZE;
+  }
+
+  return rows;
 }
 
 export async function listEditorialDossierArticlePlans(
@@ -171,9 +235,9 @@ export async function listEditorialDossierArticlePlans(
   }
 
   try {
-    const [plans, assignments, generations] = await Promise.all([
+    const [plans, assignments, generations, publishedContextAssignments] = await Promise.all([
       fetchSupabaseAdminTable<ArticlePlanRow>(
-        "newsroom_editorial_dossier_article_plans?select=id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,editorial_article_id,editorial_profile_id,editorial_profile_version_id,editorial_profile_pinned_at,created_at,updated_at"
+        "newsroom_editorial_dossier_article_plans?select=id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,destination,update_target_editorial_article_id,image_choice,dossier_image_id,editorial_article_id,editorial_profile_id,editorial_profile_version_id,editorial_profile_pinned_at,created_at,updated_at"
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + "&order=sort_order.asc,id.asc&limit=20",
       ),
@@ -188,9 +252,14 @@ export async function listEditorialDossierArticlePlans(
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + "&order=created_at.desc,id.desc&limit=20",
       ),
+      readAllPublishedContextAssignments(dossierId),
     ]);
     const planIds = new Set(plans.map((plan) => plan.id));
     const sourcesByPlanId = new Map<string, EditorialDossierArticlePlanSource[]>();
+    const publishedContextsByPlanId = new Map<
+      string,
+      EditorialDossierArticlePlanPublishedContext[]
+    >();
 
     for (const assignment of assignments) {
       if (assignment.dossier_id !== dossierId || !planIds.has(assignment.article_plan_id)) {
@@ -204,6 +273,19 @@ export async function listEditorialDossierArticlePlans(
         sortOrder: assignment.sort_order,
       });
       sourcesByPlanId.set(assignment.article_plan_id, sources);
+    }
+
+    for (const assignment of publishedContextAssignments) {
+      if (assignment.dossier_id !== dossierId || !planIds.has(assignment.article_plan_id)) {
+        continue;
+      }
+
+      const contexts = publishedContextsByPlanId.get(assignment.article_plan_id) ?? [];
+      contexts.push({
+        dossierPublishedContextId: assignment.dossier_published_context_id,
+        sortOrder: assignment.sort_order,
+      });
+      publishedContextsByPlanId.set(assignment.article_plan_id, contexts);
     }
 
     const articleIds = plans.flatMap((plan) => (
@@ -302,6 +384,9 @@ export async function listEditorialDossierArticlePlans(
         articleKind: articleKind(plan.article_kind),
         lengthMode: lengthMode(plan.length_mode),
         editorialInstructions: plan.editorial_instructions,
+        destination: destination(plan.destination),
+        updateTargetEditorialArticleId: plan.update_target_editorial_article_id,
+        imageChoice: imageChoice(plan.image_choice, plan.dossier_image_id),
         editorialArticleId: plan.editorial_article_id,
         editorialArticleStatus: editorialArticle
           ? articleStatus(editorialArticle.status)
@@ -323,6 +408,12 @@ export async function listEditorialDossierArticlePlans(
         sources: (sourcesByPlanId.get(plan.id) ?? [])
           .slice()
           .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id)),
+        publishedContexts: (publishedContextsByPlanId.get(plan.id) ?? [])
+          .slice()
+          .sort((left, right) => (
+            left.sortOrder - right.sortOrder
+            || left.dossierPublishedContextId.localeCompare(right.dossierPublishedContextId)
+          )),
       };
     });
 
