@@ -19,6 +19,7 @@ export type PrepareEditorialDossierWorkspaceSource = Readonly<{
 
 export type PrepareEditorialDossierWorkspaceInput = Readonly<{
   preparationKey: string;
+  themeId?: string;
   title: string;
   sources: readonly PrepareEditorialDossierWorkspaceSource[];
   publishedContextArticleIds: readonly string[];
@@ -43,6 +44,7 @@ export type AddEditorialDossierUploadImageInput = Readonly<{
 
 export type PrepareEditorialDossierWorkspaceRpcInput = Readonly<{
   p_preparation_key: string;
+  p_theme_id?: string;
   p_title: string;
   p_newsroom_article_ids: readonly string[];
   p_newsroom_snapshot_ids: readonly string[];
@@ -208,6 +210,7 @@ export function prepareEditorialDossierWorkspaceService(
 
     if (
       !preparationKey
+      || (input.themeId !== undefined && !normalizedUuid(input.themeId))
       || title.length < 1
       || title.length > MAX_TITLE_LENGTH
       || !sources
@@ -223,6 +226,7 @@ export function prepareEditorialDossierWorkspaceService(
 
     const payload: PrepareEditorialDossierWorkspaceRpcInput = {
       p_preparation_key: preparationKey,
+      ...(input.themeId ? { p_theme_id: normalizedUuid(input.themeId)! } : {}),
       p_title: title,
       p_newsroom_article_ids: sources.map((source) => source.newsroomArticleId),
       p_newsroom_snapshot_ids: sources.map((source) => source.newsroomSnapshotId),

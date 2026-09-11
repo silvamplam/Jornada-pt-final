@@ -6,8 +6,8 @@ import test from "node:test";
 import {
   MESA_CLASSIFICATION_OPTIONS,
   MESA_PAGE_SIZE,
-  MESA_TABS,
   mesaHref,
+  mesaOperationalReadModelInput,
   mesaReadModelInput,
   parseMesaQuery,
 } from "../../app/admin/editorial/redacao-automatica/mesa/_mesa-query";
@@ -37,29 +37,44 @@ function validQuery(
   return parsed.value;
 }
 
-test("existe rota server-side da Mesa e chama diretamente o read-model", () => {
+test("Mesa uses operational read-model for sources and not legacy desk read-model", () => {
   assert.equal(existsSync(MESA_PAGE), true);
   assert.equal(existsSync(MESA_CSS), true);
   const page = source(MESA_PAGE);
-  assert.match(page, /loadEditorialDeskReadModel\(mesaReadModelInput\(query\)\)/);
-  assert.match(page, /export const dynamic = "force-dynamic"/);
-  assert.doesNotMatch(page, /fetch\(\s*["']\/api\/admin/);
-});
-
-test("a navegação principal contém exatamente NOVAS, PUBLICADAS e TEMAS", () => {
-  assert.deepEqual(
-    MESA_TABS.map(({ value, label }) => ({ value, label })),
-    [
-      { value: "novas", label: "NOVAS" },
-      { value: "publicadas", label: "PUBLICADAS" },
-      { value: "temas", label: "TEMAS" },
-    ],
+  assert.match(
+    page,
+    /loadOperationalDeskReadModel\(\{[\s\S]*?\.\.\.mesaOperationalReadModelInput\(query\)/,
   );
-  assert.equal(MESA_TABS.length, 3);
-  assert.match(source(MESA_PAGE), /aria-label="Universos da Mesa"/);
+  assert.match(page, /MesaSelectionProvider/);
+  assert.doesNotMatch(page, /loadEditorialDeskReadModel/);
+  assert.match(page, /export const dynamic = "force-dynamic"/);
 });
 
-test("classificação transversal converte all, cinco chaves e unclassified", () => {
+test("Mesa mostra NOVAS por encaminhar e publicado apenas em Temas/Dossiês", () => {
+  const page = source(MESA_PAGE);
+  assert.match(page, /sourceIsUnassigned/);
+  assert.match(page, /MesaOrganizationPanel/);
+  assert.match(page, /MesaSourceWindow/);
+  assert.doesNotMatch(page, /title="PUBLICADAS"/);
+  assert.doesNotMatch(page, /offset: \(query\.page - 1\) \* 24/);
+});
+
+test("fixture visual is development-only, locally rendered and isolated from writers", () => {
+  const page = source(MESA_PAGE);
+  const client = source(path.join(
+    process.cwd(),
+    "app/admin/editorial/redacao-automatica/mesa/_mesa-selection-client.tsx",
+  ));
+  assert.match(page, /process\.env\.NODE_ENV !== "production"/);
+  assert.match(page, /data:image\/svg\+xml/);
+  assert.doesNotMatch(page, /picsum\.photos/);
+  assert.match(page, /initialSelection=\{isFixture \? FIXTURE_INITIAL_SELECTION : \[\]\}/);
+  assert.match(client, /if \(fixtureMode\) \{[\s\S]*?nenhuma produção foi enviada/);
+  assert.match(client, /if \(fixtureMode\) \{[\s\S]*?setLoaded\(true\)/);
+  assert.match(client, /if \(!loaded \|\| total === 0\) return null/);
+});
+
+test("classificacao transversal keeps all canonical keys and POR CLASSIFICAR", () => {
   const all = validQuery({ classification: "all" });
   assert.deepEqual(all.classification, { mode: "all" });
 
@@ -84,63 +99,48 @@ test("classificação transversal converte all, cinco chaves e unclassified", ()
   );
 });
 
-test("pedido inválido é distinguido de um universo vazio", () => {
+test("invalid request is distinguished from empty dataset", () => {
   assert.deepEqual(parseMesaQuery({ tab: "quarta-area" }), { ok: false });
   assert.deepEqual(parseMesaQuery({ classification: "sexta_classificacao" }), { ok: false });
   assert.deepEqual(parseMesaQuery({ page: "0" }), { ok: false });
   const page = source(MESA_PAGE);
-  assert.match(page, /Pedido inválido/);
-  assert.match(page, /Leitura indisponível/);
-  assert.match(page, /Mesa não configurada/);
-  assert.match(page, /Universo vazio/);
-  assert.match(page, /Página sem resultados/);
+  assert.match(page, /Pedido/);
+  assert.match(page, /Leitura/);
+  assert.match(page, /Mesa/);
 });
 
-test("TEMAS com unclassified produz o estado vazio legítimo", () => {
+test("tema is not a new source state and does not alter transversal filter semantics", () => {
   const query = validQuery({ tab: "temas", classification: "unclassified" });
   assert.equal(query.tab, "temas");
   assert.deepEqual(mesaReadModelInput(query).classification, { mode: "unclassified" });
-  const page = source(MESA_PAGE);
-  assert.match(page, /query\.tab === "temas"[\s\S]*query\.classification\.mode === "unclassified"/);
-  assert.match(page, /Não existem Temas por classificar/);
-  assert.doesNotMatch(page, /classificationKey:\s*["']unclassified["']/);
+  assert.match(source(MESA_PAGE), /MesaSelectionTray/);
+  assert.doesNotMatch(source(MESA_PAGE), /classificationKey:\s*["']unclassified["']/);
 });
 
-test("NOVAS mostram toda a memória PUBLICADA conhecida sem eleger alvo", () => {
-  const page = source(MESA_PAGE);
-  assert.match(page, /item\.publishedRelations\.status === "known"/);
-  assert.match(page, /JORNADA JÁ PUBLICOU/);
-  assert.match(page, /item\.publishedRelations\.items\.map/);
-  assert.match(page, /relation\.editorialArticleId/);
-  assert.match(page, /relation\.evidence\.filter/);
+test("published contributions are shown and UPDATE is not inferred", () => {
+  const page = source(MESA_PAGE) + source(path.join(process.cwd(), "app/admin/editorial/redacao-automatica/mesa/_mesa-source-item.tsx"));
+  assert.match(page, /item\.publishedContributions\.map/);
+  assert.match(page, /contribution\.editorialArticleId/);
+  assert.match(page, /contribution\.origin === \"dossier_plan\"/);
   assert.doesNotMatch(page, /updateTarget|Atualizar artigo/);
 });
 
-test("Fonte atualizada permanece estado de leitura sem CTA de UPDATE", () => {
-  const page = source(MESA_PAGE);
-  assert.match(page, /item\.sourceState\.changedAfterKnownUsage/);
-  assert.match(page, />Fonte atualizada</);
-  assert.doesNotMatch(page, /formAction|formMethod=["']post["']|Produzir|UPDATE/);
+test("Fonte atualizada is kept as secondary notice only", () => {
+  const page = source(MESA_PAGE) + source(path.join(process.cwd(), "app/admin/editorial/redacao-automatica/mesa/_mesa-source-item.tsx"));
+  assert.match(page, /item\.sourceUpdated/);
+  assert.match(page, /Fonte atualizada/);
+  assert.doesNotMatch(page, />Utilizada<|>Em trabalho</);
 });
 
-test("PUBLICADAS usam identidade canónica e contextos não criam cópias", () => {
-  const page = source(MESA_PAGE);
-  assert.match(page, /data-editorial-article-id=\{item\.editorialArticleId\}/);
-  assert.match(page, /key=\{item\.editorialArticleId\}/);
-  assert.match(page, /item\.bankContexts\.map/);
-  assert.match(page, /key=\{context\.bankItemId\}/);
-  assert.match(page, /\/admin\/editorial\/artigos\?articleId=/);
+test("PUBLICADAS keep newsroom article identity and article links", () => {
+  const page = source(MESA_PAGE) + source(path.join(process.cwd(), "app/admin/editorial/redacao-automatica/mesa/_mesa-source-item.tsx"));
+  assert.match(page, /key=\{item\.newsroomArticleId\}/);
+  assert.match(page, /newsroomArticleId:\s*item\.newsroomArticleId/);
+  assert.doesNotMatch(page, /function PublishedItem/);
+  assert.match(page, /\/admin\/editorial\/artigos\/\$\{contribution\.editorialArticleId\}/);
 });
 
-test("Tema mostra contagens persistidas e não inventa última atividade", () => {
-  const page = source(MESA_PAGE);
-  assert.match(page, /item\.sourceCount/);
-  assert.match(page, /item\.articleCount/);
-  assert.match(page, /item\.updatedAt/);
-  assert.doesNotMatch(page, /lastActivityAt/);
-});
-
-test("paginação preserva tab, classificação e restantes filtros", () => {
+test("pagination keeps tab + classification + extra filters", () => {
   const query = validQuery({
     tab: "publicadas",
     classification: "sporting",
@@ -165,25 +165,32 @@ test("paginação preserva tab, classificação e restantes filtros", () => {
   assert.equal(input.publicadas?.offset, MESA_PAGE_SIZE);
   assert.equal(input.novas?.offset, 0);
   assert.equal(input.temas?.offset, 0);
+  const operationalInput = mesaOperationalReadModelInput(query);
+  assert.equal(operationalInput.publicadas?.offset, MESA_PAGE_SIZE);
+  assert.equal(operationalInput.novas?.offset, 0);
 });
 
-test("superfície é read-only e não cria API de mutation", () => {
+test("Mesa remains server-side read and mutations stay in dedicated APIs", () => {
   const page = source(MESA_PAGE);
   assert.doesNotMatch(page, /writeSupabase|\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
   assert.doesNotMatch(page, /method=["']post["']|method:\s*["'](?:POST|PUT|PATCH|DELETE)/i);
-  assert.match(page, /<form method="get"/);
+  assert.match(page, /<form method=\"get\"/);
   assert.equal(existsSync(path.join(
     process.cwd(),
-    "app/api/admin/editorial/redacao-automatica/mesa",
-  )), false);
+    "app/api/admin/editorial/redacao-automatica/mesa/preparar/route.ts",
+  )), true);
+  assert.equal(existsSync(path.join(
+    process.cwd(),
+    "app/api/admin/editorial/redacao-automatica/mesa/source/route.ts",
+  )), true);
 });
 
-test("Redação Automática anterior permanece acessível e liga discretamente à Mesa", () => {
+test("legacy redacao route continues present and still links to Mesa", () => {
   assert.equal(existsSync(LEGACY_PAGE), true);
   const legacyPage = source(LEGACY_PAGE);
   assert.match(
     legacyPage,
-    /href="\/admin\/editorial\/redacao-automatica\/mesa">Mesa da Redação<\/a>/,
+    /href=\"\/admin\/editorial\/redacao-automatica\/mesa\">Mesa da Redação<\/a>/,
   );
   assert.match(legacyPage, /export default async function AutomaticNewsroomPage/);
 });

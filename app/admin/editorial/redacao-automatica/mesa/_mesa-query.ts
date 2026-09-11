@@ -6,6 +6,9 @@ import type {
   EditorialDeskClassificationFilter,
   EditorialDeskReadModelInput,
 } from "@/lib/redacao-automatica/newsroom-desk-read-model";
+import type {
+  OperationalDeskReadModelInput,
+} from "@/lib/redacao-automatica/newsroom-operational-desk-read-model-internal";
 
 export const MESA_PAGE_SIZE = 24;
 
@@ -132,6 +135,24 @@ export function mesaReadModelInput(query: MesaQuery): EditorialDeskReadModelInpu
       limit: MESA_PAGE_SIZE,
       offset: query.tab === "temas" ? offset : 0,
       status: query.themeStatus,
+    },
+  };
+}
+
+export function mesaOperationalReadModelInput(
+  query: MesaQuery,
+): OperationalDeskReadModelInput {
+  const offset = (query.page - 1) * MESA_PAGE_SIZE;
+  return {
+    classification: query.classification,
+    sourceCode: query.sourceCode,
+    novas: {
+      limit: MESA_PAGE_SIZE,
+      offset: query.tab === "novas" ? offset : 0,
+    },
+    publicadas: {
+      limit: MESA_PAGE_SIZE,
+      offset: query.tab === "publicadas" ? offset : 0,
     },
   };
 }

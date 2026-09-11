@@ -1,0 +1,654 @@
+.shell {
+  min-height: 100vh;
+  padding: 22px;
+  color: #182019;
+  background: #eef2ec;
+}
+
+.container {
+  width: min(1520px, 100%);
+  margin: 0 auto;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px;
+  border: 1px solid #c4d0c3;
+  border-radius: 14px 14px 0 0;
+  background: #fbfdf9;
+}
+
+.hero p,
+.hero h1,
+.hero span {
+  margin: 0;
+}
+
+.hero p,
+.sectionHeader p {
+  color: #387047;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin-top: 4px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-weight: 550;
+}
+
+.hero span {
+  display: block;
+  margin-top: 6px;
+  color: #69736b;
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.hero nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.hero a,
+.sourceList a,
+.publishedList a,
+.errorState a {
+  color: #175f32;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.hero nav a,
+.errorState a {
+  padding: 7px 10px;
+  border: 1px solid #afbeaf;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-right: 1px solid #c4d0c3;
+  border-bottom: 1px solid #c4d0c3;
+  border-left: 1px solid #c4d0c3;
+  background: #e4ebe1;
+}
+
+.summary div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  border-right: 1px solid #c4d0c3;
+}
+
+.summary div:last-child {
+  border-right: 0;
+}
+
+.summary span {
+  color: #59655b;
+  font-size: 0.67rem;
+  font-weight: 800;
+}
+
+.summary strong {
+  font-size: 1.05rem;
+}
+
+.section {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid #c8d3c6;
+  border-radius: 11px;
+  background: #fbfdf9;
+  box-shadow: 0 7px 20px rgb(28 50 33 / 5%);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #dde4db;
+}
+
+.sectionHeader p,
+.sectionHeader h2 {
+  margin: 0;
+}
+
+.sectionHeader h2 {
+  margin-top: 2px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.sectionHeader > span {
+  max-width: 600px;
+  color: #677169;
+  font-size: 0.73rem;
+  text-align: right;
+}
+
+.sourceList,
+.publishedList,
+.imageBank {
+  display: grid;
+  gap: 8px;
+  margin: 11px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sourceList > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid #d4ddd2;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.sourceList > li > img {
+  width: 150px;
+  height: 100%;
+  min-height: 150px;
+  object-fit: cover;
+  background: #dfe5dc;
+}
+
+.sourceList > li > div {
+  min-width: 0;
+  padding: 11px 13px;
+}
+
+.sourceList header {
+  display: grid;
+  gap: 3px;
+}
+
+.sourceList header span,
+.publishedList span,
+.planCard header span {
+  color: #397149;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sourceList header strong,
+.publishedList strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05rem;
+}
+
+.sourceList dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 8px 0;
+}
+
+.sourceList dl div {
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: #f0f3ee;
+}
+
+.sourceList dt,
+.sourceList dd {
+  margin: 0;
+  color: #626d64;
+  font-size: 0.61rem;
+  overflow-wrap: anywhere;
+}
+
+.sourceList dt {
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.snapshotDetails {
+  margin: 8px 0;
+  font-size: 0.76rem;
+}
+
+.snapshotDetails summary {
+  width: max-content;
+  color: #275f37;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.snapshotDetails > div {
+  max-height: 310px;
+  margin-top: 7px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  border-left: 3px solid #9eb9a3;
+  color: #465048;
+  line-height: 1.5;
+  background: #f5f7f3;
+}
+
+.snapshotDetails h3,
+.snapshotDetails p {
+  margin: 0 0 7px;
+  font: inherit;
+}
+
+.snapshotDetails h3 {
+  font-weight: 850;
+}
+
+.publishedList {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.publishedList li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid #d4ddd2;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.publishedList img {
+  width: 115px;
+  height: 100%;
+  min-height: 110px;
+  object-fit: cover;
+  background: #dfe5dc;
+}
+
+.publishedList li > div {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.publishedList small {
+  color: #6b756d;
+  font-size: 0.64rem;
+  overflow-wrap: anywhere;
+}
+
+.imageBank {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.imageBank li {
+  overflow: hidden;
+  border: 1px solid #d1dbcf;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.imageBank img {
+  display: block;
+  width: 100%;
+  height: 125px;
+  object-fit: cover;
+  background: #dfe5dc;
+}
+
+.imageBank div {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+}
+
+.imageBank strong {
+  font-size: 0.7rem;
+}
+
+.imageBank small {
+  color: #6d776f;
+  font-size: 0.59rem;
+  overflow-wrap: anywhere;
+}
+
+.uploadBar {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid #dde4db;
+}
+
+.uploadBar label {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  color: #556159;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.uploadBar input,
+.uploadBar button,
+.planCard input,
+.planCard select,
+.planCard textarea,
+.planActions button {
+  border: 1px solid #abb9ac;
+  border-radius: 7px;
+  color: #1a251d;
+  font: inherit;
+  background: #fff;
+}
+
+.uploadBar input {
+  min-height: 38px;
+  padding: 7px;
+}
+
+.uploadBar button,
+.planActions button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-color: #176937;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 850;
+  background: #17763d;
+  cursor: pointer;
+}
+
+.uploadBar button:disabled,
+.planActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.planList {
+  display: grid;
+  gap: 10px;
+  margin-top: 11px;
+}
+
+.planCard {
+  padding: 13px;
+  border: 1px solid #ccd7ca;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.planCard[data-destination="update"] {
+  box-shadow: inset 4px 0 #a46819;
+}
+
+.planCard[data-materialized="true"] {
+  background: #f0f2ef;
+}
+
+.planCard > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.planCard h3 {
+  margin: 2px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+}
+
+.planCard > header > strong {
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: #285c37;
+  font-size: 0.66rem;
+  background: #e6f1e6;
+}
+
+.planCard form {
+  display: grid;
+  gap: 10px;
+  margin-top: 11px;
+}
+
+.planFields {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(110px, 0.65fr));
+  gap: 8px;
+}
+
+.planCard label,
+.instructionsField {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.planCard label > span,
+.instructionsField > span,
+.destinationFields label > span {
+  color: #566259;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.planCard input,
+.planCard select,
+.planCard textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 8px;
+}
+
+.planCard textarea {
+  resize: vertical;
+}
+
+.planCard fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 9px 10px 10px;
+  border: 1px solid #d6ded4;
+  border-radius: 7px;
+}
+
+.planCard legend {
+  padding: 0 5px;
+  color: #2c5c39;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.planCard fieldset > p {
+  margin: 0 0 7px;
+  color: #6a746c;
+  font-size: 0.68rem;
+}
+
+.choiceList {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choiceList li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70px;
+  gap: 7px;
+  align-items: center;
+  padding: 6px 7px;
+  border-radius: 6px;
+  background: #f3f6f1;
+}
+
+.choiceList li > label {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.choiceList input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  margin-top: 3px;
+}
+
+.choiceList label > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: inherit;
+  text-transform: none;
+}
+
+.choiceList strong {
+  font-size: 0.74rem;
+}
+
+.choiceList small {
+  color: #6b756d;
+  font-size: 0.62rem;
+  overflow-wrap: anywhere;
+}
+
+.destinationFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.planActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.planActions span,
+.commandMessage,
+.empty,
+.limitNotice {
+  color: #68726a;
+  font-size: 0.7rem;
+}
+
+.commandMessage {
+  margin: 0;
+  color: #72440c;
+  font-weight: 750;
+}
+
+.empty,
+.limitNotice {
+  display: block;
+  margin: 10px 0 0;
+  padding: 10px;
+  border-radius: 7px;
+  background: #f0f3ee;
+}
+
+.limitNotice {
+  color: #734a10;
+  background: #fff1d8;
+}
+
+.errorState {
+  width: min(760px, calc(100% - 24px));
+  margin: 50px auto;
+  padding: 32px;
+  border: 1px solid #d9b1a8;
+  border-radius: 12px;
+  text-align: center;
+  background: #fff8f5;
+}
+
+.errorState p:first-child {
+  color: #8c3d2e;
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1050px) {
+  .hero,
+  .sectionHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sectionHeader > span {
+    text-align: left;
+  }
+
+  .planFields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wideField {
+    grid-column: 1 / -1;
+  }
+
+  .imageBank {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    padding: 9px;
+  }
+
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .summary div:nth-child(-n + 2) {
+    border-bottom: 1px solid #c4d0c3;
+  }
+
+  .sourceList > li,
+  .publishedList,
+  .publishedList li,
+  .imageBank,
+  .planFields,
+  .destinationFields {
+    grid-template-columns: 1fr;
+  }
+
+  .sourceList > li > img,
+  .publishedList img {
+    width: 100%;
+    height: 145px;
+    min-height: 0;
+  }
+
+  .uploadBar,
+  .planActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

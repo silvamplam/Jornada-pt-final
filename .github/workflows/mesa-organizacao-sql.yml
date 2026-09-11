@@ -1,0 +1,32 @@
+name: Mesa - PostgreSQL 17 isolado
+"on":
+  push:
+    branches: [jornada-redacao-mesa-preparar-workspace-1-20260909]
+    paths:
+      - '.ci/mesa-sql/**'
+      - '.github/workflows/mesa-organizacao-sql.yml'
+      - 'supabase/migrations/20260910223000_newsroom_mesa_theme_organization_v1.sql'
+      - 'supabase/sql/jornada-mesa-organizacao-v1-smoke-rollback.sql'
+permissions:
+  contents: read
+jobs:
+  sql:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_DB: mesa_organization_test
+          POSTGRES_PASSWORD: ephemeral-test-only
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mesa_organization_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: SQL real, permissoes, rollback e concorrencia
+        env:
+          MESA_TEST_CONTAINER: ${{ job.services.postgres.id }}
+        run: python3 .ci/mesa-sql/run.py

@@ -1,7 +1,10 @@
 import "server-only";
 
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
-import type { ArticleProcessingStatus } from "@/lib/redacao-automatica/types";
+import type {
+  ArticleBodyBlock,
+  ArticleProcessingStatus,
+} from "@/lib/redacao-automatica/types";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_LIST_LIMIT = 50;
@@ -36,6 +39,8 @@ type DossierSourceRow = {
   sort_order: number;
   editorial_note: string | null;
   included: boolean;
+  title_snapshot: string | null;
+  published_at_snapshot: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -45,6 +50,8 @@ type ArticleRow = {
   source_code: string;
   title: string;
   processing_status: string;
+  original_url: string | null;
+  normalized_url: string | null;
 };
 
 type SnapshotRow = {
@@ -72,6 +79,8 @@ export type EditorialDossierSource = Readonly<{
   newsroomSnapshotId: string;
   sourceCode: string;
   articleTitle: string;
+  articleUrl: string | null;
+  publishedAt: string | null;
   processingStatus: ArticleProcessingStatus;
   sourceRole: EditorialDossierSourceRole;
   sortOrder: number;
@@ -80,6 +89,7 @@ export type EditorialDossierSource = Readonly<{
   snapshotContentHash: string;
   snapshotExtractedAt: string;
   snapshotBodyBlockCount: number;
+  snapshotBody: readonly ArticleBodyBlock[];
 }>;
 
 export type EditorialDossierDetail = Readonly<{
@@ -152,21 +162,20 @@ function processingStatus(value: string): ArticleProcessingStatus {
     : "failed";
 }
 
-function bodyBlockCount(value: unknown): number {
-  if (!Array.isArray(value)) {
-    return 0;
-  }
-
-  return value.filter((candidate) => {
+function bodyBlocks(value: unknown): readonly ArticleBodyBlock[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((candidate): ArticleBodyBlock[] => {
     if (!candidate || typeof candidate !== "object") {
-      return false;
+      return [];
     }
 
     const block = candidate as { type?: unknown; text?: unknown };
     return (block.type === "paragraph" || block.type === "heading")
       && typeof block.text === "string"
-      && block.text.trim().length > 0;
-  }).length;
+      && block.text.trim().length > 0
+      ? [{ type: block.type, text: block.text }]
+      : [];
+  });
 }
 
 function uuidList(values: readonly string[]): string {
@@ -245,7 +254,7 @@ export async function getEditorialDossierById(
     }
 
     const sources = await fetchSupabaseAdminTable<DossierSourceRow>(
-      "newsroom_editorial_dossier_sources?select=id,dossier_id,newsroom_article_id,newsroom_snapshot_id,source_role,sort_order,editorial_note,included,created_at,updated_at"
+      "newsroom_editorial_dossier_sources?select=id,dossier_id,newsroom_article_id,newsroom_snapshot_id,source_role,sort_order,editorial_note,included,title_snapshot,published_at_snapshot,created_at,updated_at"
       + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
       + "&order=included.desc,sort_order.asc,id.asc&limit=100",
     );
@@ -255,7 +264,7 @@ export async function getEditorialDossierById(
     const [articles, snapshots] = await Promise.all([
       articleIds.length > 0
         ? fetchSupabaseAdminTable<ArticleRow>(
-            "newsroom_articles?select=id,source_code,title,processing_status"
+            "newsroom_articles?select=id,source_code,title,processing_status,original_url,normalized_url"
             + `&id=in.(${uuidList(articleIds)})&limit=${articleIds.length}`,
           )
         : Promise.resolve([]),
@@ -292,12 +301,16 @@ export async function getEditorialDossierById(
             return [];
           }
 
+          const snapshotBody = bodyBlocks(frozenSnapshot.body);
+
           return [{
             id: source.id,
             newsroomArticleId: article.id,
             newsroomSnapshotId: frozenSnapshot.id,
             sourceCode: article.source_code,
-            articleTitle: article.title,
+            articleTitle: source.title_snapshot?.trim() || article.title,
+            articleUrl: article.normalized_url || article.original_url,
+            publishedAt: source.published_at_snapshot,
             processingStatus: processingStatus(article.processing_status),
             sourceRole: sourceRole(source.source_role),
             sortOrder: source.sort_order,
@@ -305,7 +318,8 @@ export async function getEditorialDossierById(
             included: source.included,
             snapshotContentHash: frozenSnapshot.content_hash,
             snapshotExtractedAt: frozenSnapshot.extracted_at,
-            snapshotBodyBlockCount: bodyBlockCount(frozenSnapshot.body),
+            snapshotBodyBlockCount: snapshotBody.length,
+            snapshotBody,
           }];
         }),
       },

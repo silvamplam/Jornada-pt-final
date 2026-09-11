@@ -1,4 +1,9 @@
 {
   "installCommand": "npm install",
-  "buildCommand": "npm run build"
+  "buildCommand": "npm run build",
+  "git": {
+    "deploymentEnabled": {
+      "jornada-redacao-mesa-preparar-workspace-1-20260909": false
+    }
+  }
 }

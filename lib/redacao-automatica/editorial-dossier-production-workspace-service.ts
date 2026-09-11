@@ -81,7 +81,9 @@ const transport = {
 
   async prepareWorkspace(payload: PrepareEditorialDossierWorkspaceRpcInput) {
     const rows = await writeSupabaseAdminReturning<PrepareRow>(
-      "rpc/newsroom_prepare_editorial_dossier_workspace_v1",
+      payload.p_theme_id
+        ? "rpc/newsroom_prepare_theme_dossier_v1"
+        : "rpc/newsroom_prepare_editorial_dossier_workspace_v1",
       { method: "POST", body: JSON.stringify(payload) },
     );
     const row = rows[0];

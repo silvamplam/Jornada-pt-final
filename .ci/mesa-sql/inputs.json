@@ -1,0 +1,50 @@
+[
+  {
+    "path": "supabase/migrations/20260908112602_newsroom_editorial_themes_foundation.sql",
+    "sha256Lf": "703b6af813d3829da742eb57e5c291a37c209244625675002cd4267194aebbbf"
+  },
+  {
+    "path": "supabase/migrations/20260909100000_newsroom_editorial_production_workspace_foundation.sql",
+    "sha256Lf": "a05b5c62fe86e370f69adc2437af3ed57e7404a9bf10214121fb3e63923ee0c0"
+  },
+  {
+    "path": "supabase/migrations/20260910223000_newsroom_mesa_theme_organization_v1.sql",
+    "sha256Lf": "c49b69fe04b5163f4437d45fbb18b991bb3bffc3d09423e45eca39859724ccba"
+  },
+  {
+    "path": "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigo-planeado-rascunho-controlado-1-aplicar.sql",
+    "sha256Lf": "ea77b98fa09b717e8d6de3dcc9bbd4bfcb4b6886b4203a51c69fd0fade10ec94"
+  },
+  {
+    "path": "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigos-planeados-schema-1-aplicar.sql",
+    "sha256Lf": "d0db66a9c62755b54c1519c5684576d92a6de905682dec0d5afb3106fcb9fc6b"
+  },
+  {
+    "path": "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-rascunho-geracao-controlada-1-aplicar.sql",
+    "sha256Lf": "fb81f442a3ff314bce7ea6a8b08f7d75f3de39cf1557505a3b3b3b7a43500e0d"
+  },
+  {
+    "path": "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-schema-1-aplicar.sql",
+    "sha256Lf": "15a35c69875f9a0df3f64ecfeb5134e01fafa23ebcd0524dfe658e38165f7c06"
+  },
+  {
+    "path": "supabase/sql/jornada-mesa-organizacao-v1-smoke-rollback.sql",
+    "sha256Lf": "97c9f377e353e732dc14301b49b6121419ce59f78866b5d410337fa21f92c3c0"
+  },
+  {
+    "path": "supabase/sql/jornada-redacao-workspace-producao-fundacao-1-smoke-rollback.sql",
+    "sha256Lf": "3d3b45235fa8b5b396e15f5b0b37d9bad7daa4fb11aa378a68d1a53372371e6f"
+  },
+  {
+    "path": "supabase/steps/15-redacao-automatica-newsroom-apply.sql",
+    "sha256Lf": "7340659810078d671a325af6a89c3059697a66e7e9cc232d3f10c7ebadb597b9"
+  },
+  {
+    "path": "supabase/steps/31-redacao-automatica-compose-idempotencia-proveniencia-apply.sql",
+    "sha256Lf": "3c5021b4533972af28544b99230805afb941ef98fc15add1192adf90162c34fb"
+  },
+  {
+    "path": "supabase/steps/53-redacao-automatica-pacotes-fontes-persistentes-apply.sql",
+    "sha256Lf": "dc56e7f7839df0f2427a86b04d56d789f3d3f81666193664145fb80fc85ef74a"
+  }
+]

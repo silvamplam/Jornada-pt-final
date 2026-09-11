@@ -9,6 +9,9 @@ import {
   type PersistNewsroomArticleInput,
   type PersistNewsroomArticleResult,
 } from "@/lib/redacao-automatica/newsroom-article-persistence-internal";
+import {
+  attemptOperationalDeskAutomaticClassification,
+} from "@/lib/redacao-automatica/newsroom-operational-desk-classification";
 
 export type {
   NewsroomArticleWriteOutcome,
@@ -38,5 +41,12 @@ const persistWithSupabaseServiceRole = createNewsroomArticlePersistence({
 export async function persistNewsroomArticle(
   input: PersistNewsroomArticleInput,
 ): Promise<PersistNewsroomArticleResult> {
-  return persistWithSupabaseServiceRole(input);
+  const result = await persistWithSupabaseServiceRole(input);
+  if (result.ok) {
+    await attemptOperationalDeskAutomaticClassification({
+      newsroomArticleId: result.value.article.id,
+      articleAction: result.value.article.action,
+    });
+  }
+  return result;
 }

@@ -1,0 +1,5 @@
+{
+  "packageId": "jornada-mesa-sql17-20260911",
+  "purpose": "checkpoint de desenvolvimento; SQL isolado pendente; nao aprovado para producao",
+  "baseHead": "79f8c20c8768894f4d00bb3ab197c9290559dfb9"
+}
