@@ -32,6 +32,47 @@ revoke all on public.newsroom_editorial_theme_dossiers from public, anon, authen
 revoke all on public.newsroom_mesa_organization_requests from public, anon, authenticated, service_role;
 grant select on public.newsroom_editorial_theme_dossiers to service_role;
 
+-- All membership writers, including legacy/direct DML, enter the same
+-- transaction gate BEFORE row locks. RPC-only advisory locks cannot protect
+-- an older DELETE racing a dossier-source INSERT. The guard row is updated
+-- as well: REPEATABLE READ/SERIALIZABLE must reject a stale transaction rather
+-- than evaluate containment against an outdated transaction snapshot.
+-- This is private synchronization state, not editorial content or membership.
+create table public.newsroom_mesa_containment_guard (
+  singleton boolean primary key default true check (singleton),
+  revision boolean not null default false
+);
+insert into public.newsroom_mesa_containment_guard(singleton) values (true);
+alter table public.newsroom_mesa_containment_guard enable row level security;
+alter table public.newsroom_mesa_containment_guard force row level security;
+revoke all on public.newsroom_mesa_containment_guard
+  from public, anon, authenticated, service_role;
+
+create function public.newsroom_mesa_containment_write_lock_v1()
+returns trigger language plpgsql volatile security definer set search_path = '' as $function$
+begin
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('newsroom-mesa-organization-v1', 0)
+  );
+  update public.newsroom_mesa_containment_guard
+    set revision = not revision where singleton;
+  if not found then raise exception 'mesa-organization-containment-guard-missing'; end if;
+  return null;
+end;
+$function$;
+revoke all on function public.newsroom_mesa_containment_write_lock_v1()
+  from public, anon, authenticated, service_role;
+
+create trigger newsroom_mesa_theme_sources_write_lock_v1
+  before insert or update or delete on public.newsroom_editorial_theme_sources
+  for each statement execute function public.newsroom_mesa_containment_write_lock_v1();
+create trigger newsroom_mesa_dossier_sources_write_lock_v1
+  before insert or update or delete on public.newsroom_editorial_dossier_sources
+  for each statement execute function public.newsroom_mesa_containment_write_lock_v1();
+create trigger newsroom_mesa_theme_dossiers_write_lock_v1
+  before insert or update or delete on public.newsroom_editorial_theme_dossiers
+  for each statement execute function public.newsroom_mesa_containment_write_lock_v1();
+
 create function public.newsroom_mesa_theme_source_reference_v1()
 returns trigger language plpgsql security definer set search_path = '' as $function$
 begin

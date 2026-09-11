@@ -126,6 +126,77 @@ SELECT pg_sleep(3); COMMIT;"""
           'CONTAINMENT BROKEN: committed dossier source missing from its parent Theme')
 
 
+def membership_count(theme, source=1):
+    return scalar(f"select count(*) from public.newsroom_editorial_theme_sources where theme_id='{theme}' and newsroom_article_id='{uid(source)}'")
+
+
+def during_paused_transaction(statement, concurrent_sql, name, *, allow_first_failure=False):
+    # A named session barrier prevents unrelated sleeping sessions from matching.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(sql, "SET application_name='" + name + "';\n" + statement,
+                             allow_failure=allow_first_failure)
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline:
+            if scalar("select count(*) from pg_stat_activity where datname=current_database() "
+                      + "and application_name='" + name + "' and wait_event='PgSleep'") == '1':
+                break
+            time.sleep(.05)
+        else:
+            raise AssertionError('named concurrency barrier not reached: ' + name)
+        other = sql(concurrent_sql, allow_failure=True)
+        first = future.result()
+    return first, other
+
+
+def removal_before_insertion():
+    theme = row(organize(520, sources=(1, 2)))['theme_id']
+    dossier = row(prepare(theme, 620, source=2))['dossier_id']
+    first, addition = during_paused_transaction(
+        f"BEGIN; SET LOCAL ROLE service_role; select * from public.newsroom_set_editorial_theme_source_membership_v1('{theme}','{uid(1)}',false); SELECT pg_sleep(3); COMMIT;",
+        f"SET ROLE service_role; INSERT INTO public.newsroom_editorial_dossier_sources(dossier_id,newsroom_article_id,newsroom_snapshot_id) VALUES('{dossier}','{uid(1)}','{uid(101)}');",
+        'mesa-removal-first')
+    check(addition.returncode == 0, addition.stderr)
+    check(membership_count(theme) == '1', 'later insertion did not restore membership')
+
+
+def inclusion_update_delete_race():
+    theme = row(organize(521, sources=(1, 2)))['theme_id']
+    dossier = row(prepare(theme, 621, source=2))['dossier_id']
+    sql(f"SET ROLE service_role; INSERT INTO public.newsroom_editorial_dossier_sources(dossier_id,newsroom_article_id,newsroom_snapshot_id,included) VALUES('{dossier}','{uid(1)}','{uid(101)}',false);")
+    _, removal = during_paused_transaction(
+        f"BEGIN; SET LOCAL ROLE service_role; UPDATE public.newsroom_editorial_dossier_sources SET included=true WHERE dossier_id='{dossier}' AND newsroom_article_id='{uid(1)}'; SELECT pg_sleep(3); COMMIT;",
+        f"SET ROLE service_role; select * from public.newsroom_set_editorial_theme_source_membership_v1('{theme}','{uid(1)}',false);",
+        'mesa-inclusion-first')
+    check(removal.returncode != 0 and 'source-in-dossier' in removal.stderr, 'removal was not rejected: ' + removal.stderr)
+    check(membership_count(theme) == '1', 'included source disappeared from parent')
+
+
+def legacy_insertion_before_attachment():
+    theme = row(organize(522, sources=(2,)))['theme_id']
+    dossier = row(f"select row_to_json(r) from public.newsroom_prepare_editorial_dossier_workspace_v1('{uid(622)}','Unlinked dossier',array['{uid(2)}']::uuid[],array['{uid(102)}']::uuid[],'{{}}'::uuid[]) r;")['dossier_id']
+    _, attachment = during_paused_transaction(
+        f"BEGIN; SET LOCAL ROLE service_role; INSERT INTO public.newsroom_editorial_dossier_sources(dossier_id,newsroom_article_id,newsroom_snapshot_id) VALUES('{dossier}','{uid(1)}','{uid(101)}'); SELECT pg_sleep(3); COMMIT;",
+        f"SET ROLE service_role; select * from public.newsroom_attach_dossier_to_theme_v1('{dossier}','{theme}');",
+        'mesa-insert-before-link')
+    check(attachment.returncode == 0, attachment.stderr)
+    check(membership_count(theme) == '1', 'attachment missed a concurrent legacy source')
+
+
+def stale_isolation_cannot_remove(isolation, token):
+    theme = row(organize(530 + token, sources=(1, 2)))['theme_id']
+    dossier = row(prepare(theme, 630 + token, source=2))['dossier_id']
+    # Freeze the reader before the other transaction adds the dossier source.
+    deletion, addition = during_paused_transaction(
+        "\\set VERBOSITY verbose\n" +
+        f"BEGIN ISOLATION LEVEL {isolation}; SET LOCAL ROLE service_role; SELECT count(*) FROM public.newsroom_editorial_theme_sources WHERE theme_id='{theme}'; SELECT pg_sleep(3); select * from public.newsroom_set_editorial_theme_source_membership_v1('{theme}','{uid(1)}',false); COMMIT;",
+        f"SET ROLE service_role; INSERT INTO public.newsroom_editorial_dossier_sources(dossier_id,newsroom_article_id,newsroom_snapshot_id) VALUES('{dossier}','{uid(1)}','{uid(101)}');",
+        f'mesa-stale-isolation-{token}', allow_first_failure=True)
+    check(addition.returncode == 0, addition.stderr)
+    check(deletion.returncode != 0 and '40001' in deletion.stderr,
+          'stale transaction must fail serialization: ' + deletion.stderr)
+    check(membership_count(theme) == '1', 'stale snapshot removed required source')
+
+
 try:
     for entry in json.loads(text('.ci/mesa-sql/inputs.json')):
         check(hashlib.sha256(text(entry['path']).encode()).hexdigest() == entry['sha256Lf'], 'SQL input differs from the approved snapshot: ' + entry['path'])
@@ -161,6 +232,11 @@ values('{uid(100+n)}','{uid(n)}',repeat('{n}',64),'[{{"type":"paragraph","text":
     case('Six simultaneous preparations produce one Dossier', parallel_preparation)
     case('Same preparation cannot acquire two parents', cross_theme_conflict)
     case('Legacy deletion cannot race committed dossier membership', legacy_delete_race)
+    case('Removal before insertion restores containment', removal_before_insertion)
+    case('Legacy inclusion update blocks concurrent removal', inclusion_update_delete_race)
+    case('Attachment includes concurrently inserted legacy source', legacy_insertion_before_attachment)
+    case('Repeatable read rejects stale containment deletion', lambda: stale_isolation_cannot_remove('REPEATABLE READ', 1))
+    case('Serializable rejects stale containment deletion', lambda: stale_isolation_cannot_remove('SERIALIZABLE', 2))
 except Exception as exc:
     RESULTS.append({'test': 'Test environment or migration load', 'result': 'FAIL', 'detail': str(exc)})
     print('FAIL:', exc, flush=True)

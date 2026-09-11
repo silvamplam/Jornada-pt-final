@@ -25,7 +25,7 @@ BEGIN
    END IF;
   END LOOP;
  END LOOP;
- FOREACH t IN ARRAY ARRAY['newsroom_editorial_theme_dossiers','newsroom_mesa_organization_requests'] LOOP
+ FOREACH t IN ARRAY ARRAY['newsroom_editorial_theme_dossiers','newsroom_mesa_organization_requests','newsroom_mesa_containment_guard'] LOOP
   IF NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
     WHERE n.nspname='public' AND c.relname=t AND c.relrowsecurity AND c.relforcerowsecurity)
   THEN RAISE EXCEPTION 'RLS not forced on %',t; END IF;
@@ -37,6 +37,20 @@ BEGIN
  END LOOP;
  IF has_table_privilege('service_role','public.newsroom_mesa_organization_requests','SELECT')
  THEN RAISE EXCEPTION 'private request journal exposed'; END IF;
+ FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
+  IF has_table_privilege(r,'public.newsroom_mesa_containment_guard','SELECT')
+    OR has_function_privilege(r,'public.newsroom_mesa_containment_write_lock_v1()','EXECUTE')
+  THEN RAISE EXCEPTION 'private containment gate exposed to %',r; END IF;
+ END LOOP;
+ FOREACH t IN ARRAY ARRAY['newsroom_editorial_theme_sources','newsroom_editorial_dossier_sources','newsroom_editorial_theme_dossiers'] LOOP
+  IF NOT EXISTS (
+   SELECT 1 FROM pg_trigger tr JOIN pg_proc fn ON fn.oid=tr.tgfoid
+   WHERE tr.tgrelid=('public.'||t)::regclass
+     AND fn.proname='newsroom_mesa_containment_write_lock_v1'
+     AND (tr.tgtype::integer & 1)=0 AND (tr.tgtype::integer & 2)=2
+     AND (tr.tgtype::integer & 28)=28 AND tr.tgenabled='O'
+  ) THEN RAISE EXCEPTION 'missing BEFORE STATEMENT gate on %',t; END IF;
+ END LOOP;
 END;
 $privileges$;
 -- Force a failure after the first member was successfully inserted.

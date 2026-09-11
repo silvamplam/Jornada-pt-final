@@ -9,7 +9,7 @@
   },
   {
     "path": "supabase/migrations/20260910223000_newsroom_mesa_theme_organization_v1.sql",
-    "sha256Lf": "c49b69fe04b5163f4437d45fbb18b991bb3bffc3d09423e45eca39859724ccba"
+    "sha256Lf": "cd2be37a85e5f66b200d75c8a38805affed23da2517285002b76bb8730bd08da"
   },
   {
     "path": "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigo-planeado-rascunho-controlado-1-aplicar.sql",
