@@ -55,6 +55,7 @@ export type OperationalDeskPublishedContribution =
       title: string;
       publishedAt: string | null;
       packageId: string;
+      packageGroup?: number;
       packageYear?: string;
       packageMonth?: string;
       usedAt: string;
@@ -214,6 +215,7 @@ export type OperationalDeskLegacyUsageRecord = Readonly<{
   newsroom_snapshot_id: string;
   used_at: string;
   package_id: string;
+  package_group?: number;
   package_year?: string;
   package_month?: string;
   published_article_id: string | null;
@@ -611,6 +613,7 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
             title: article.title,
             publishedAt: article.published_at,
             packageId: usage.package_id,
+            packageGroup: usage.package_group,
             packageYear: usage.package_year,
             packageMonth: usage.package_month,
             usedAt: usage.used_at,

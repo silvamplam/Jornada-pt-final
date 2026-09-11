@@ -5,8 +5,8 @@ import {
   getSupabaseServiceConfig,
 } from "@/lib/supabase";
 import {
-  editorialSourcePackageUsedDossierRefs,
-} from "@/lib/redacao-automatica/editorial-source-package-internal";
+  mesaPackageUsage,
+} from "@/lib/redacao-automatica/newsroom-mesa-editorial-groups";
 import { findRegisteredSource } from "@/lib/redacao-automatica/source-registry";
 import {
   MESA_OPERATIONAL_CYCLE_STARTED_AT,
@@ -182,13 +182,14 @@ const transport = {
           + "&order=id.asc",
         );
         return packages.flatMap((row): OperationalDeskLegacyUsageRecord[] => (
-          editorialSourcePackageUsedDossierRefs(row.manifest)
+          mesaPackageUsage(row.manifest)
             .filter((reference) => requested.has(reference.newsroomArticleId))
             .map((reference) => ({
               newsroom_article_id: reference.newsroomArticleId,
               newsroom_snapshot_id: reference.newsroomSnapshotId,
               used_at: reference.usedAt,
               package_id: reference.packageId,
+              package_group: reference.articlePosition,
               package_year: reference.year,
               package_month: reference.month,
               published_article_id: reference.publishedArticleId,

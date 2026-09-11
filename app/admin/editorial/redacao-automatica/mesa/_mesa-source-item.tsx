@@ -83,7 +83,7 @@ export function MesaSourceItem({
       <article className={styles.sourceBody}>
         <div className={styles.sourceMeta}>
           <span className={styles.lifecycleBadge} data-lifecycle={item.lifecycle}>
-            {themeId ? (item.lifecycle === "published" ? "COM PUBLICAÇÃO" : "POR PRODUZIR") : "NOVA"}
+            {themeId ? (item.lifecycle === "published" ? "COM PUBLICAÇÃO" : "POR PRODUZIR") : item.lifecycle === "published" ? "PUBLICADA" : "NOVA"}
           </span>
           {formattedDate ? <time dateTime={dateValue}>{formattedDate}</time> : null}
           <span>{formatSourceLabel(item)}</span>
@@ -110,7 +110,7 @@ export function MesaSourceItem({
               >
                 {contribution.title}
                 <small>
-                  {contribution.origin === "dossier_plan" ? "Dossiê" : "Dossiê anterior"}
+                  Artigo publicado
                 </small>
               </Link>
             ))}

@@ -121,7 +121,8 @@ test("published contributions are shown and UPDATE is not inferred", () => {
   const page = source(MESA_PAGE) + source(path.join(process.cwd(), "app/admin/editorial/redacao-automatica/mesa/_mesa-source-item.tsx"));
   assert.match(page, /item\.publishedContributions\.map/);
   assert.match(page, /contribution\.editorialArticleId/);
-  assert.match(page, /contribution\.origin === \"dossier_plan\"/);
+  assert.match(page, /<small>\s*Artigo publicado\s*<\/small>/);
+  assert.doesNotMatch(page, /Dossiê anterior/);
   assert.doesNotMatch(page, /updateTarget|Atualizar artigo/);
 });
 

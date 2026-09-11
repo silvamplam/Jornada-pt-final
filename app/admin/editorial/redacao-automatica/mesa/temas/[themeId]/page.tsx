@@ -24,14 +24,16 @@ export default async function MesaThemePage({ params }: Readonly<{ params: Promi
   const members = records.themeSources.filter((member) => member.theme_id === themeId);
   const dossierIds = new Set(records.themeDossiers.filter((link) => link.theme_id === themeId).map((link) => link.dossier_id));
   const dossierMembers = records.dossierSources.filter((source) => dossierIds.has(source.dossier_id) && source.included);
-  const sourceIds = [...new Set([...members.map((member) => member.newsroom_article_id), ...dossierMembers.map((source) => source.newsroom_article_id)])];
+  const pinnedVersionIds = new Set(records.themeMaterials?.filter((row) => row.theme_id === themeId).map((row) => row.version_id));
+  const pinnedSources = records.materialVersions?.filter((row) => pinnedVersionIds.has(row.id)).flatMap((row) => row.source_refs) ?? [];
+  const sourceIds = [...new Set([...pinnedSources.map((ref) => ref.newsroomArticleId), ...members.map((member) => member.newsroom_article_id), ...dossierMembers.map((source) => source.newsroom_article_id)])];
   const material = await loadOperationalDeskReadModel({ sourceIds });
   if (!material.ok) return <main className={styles.shell}><section className={styles.errorState} role="alert">
     <h1>Material indisponível</h1><p>{material.error.message}</p><Link href="/admin/editorial/redacao-automatica/mesa">Voltar à Mesa</Link>
   </section></main>;
   const organization = buildMesaOrganization(records, material.value.sources);
   const context = organization.themes.find((item) => item.id === themeId)!;
-  const inDossier = new Set(dossierMembers.map((source) => source.newsroom_article_id));
+  const inDossier = new Set(context.dossiers.flatMap((card) => card.material?.sources.map((ref) => ref.newsroomArticleId) ?? []));
   const sources = material.value.sources.map((source) => {
     const reference = members.find((member) => member.newsroom_article_id === source.newsroomArticleId)?.reference_snapshot_id ?? null;
     const changed = Boolean(reference && source.snapshot && reference !== source.snapshot.id);
@@ -61,9 +63,14 @@ export default async function MesaThemePage({ params }: Readonly<{ params: Promi
             </section>
             <section className={styles.sourcePanel} data-organization="true"><header className={styles.panelHeader}><h2>DOSSIÊS</h2></header>
               <MesaSourceWindow storageKey={`jornada.mesa.tema.${themeId}.dossies`} empty="Seleciona fontes deste Tema para preparar a primeira produção."
-                items={context.dossiers.map((card) => <li key={card.id} className={styles.organizationItem}><MesaDossierCardView card={card} /></li>)} />
+                items={context.dossiers.map((card) => <li key={card.id} className={styles.organizationItem}><MesaDossierCardView card={card} themes={organization.themes} /></li>)} />
             </section>
           </section>
+          {(organization.preparedProductions ?? []).some((card) => card.themeId === themeId) ? <details className={styles.themeAllSources}>
+            <summary>Produções preparadas deste Tema</summary>
+            {(organization.preparedProductions ?? []).filter((card) => card.themeId === themeId).map((card) =>
+              <MesaDossierCardView key={card.id} card={{ ...card, material: undefined }} />)}
+          </details> : null}
           <MesaSelectionTray />
         </section>
       </MesaSelectionProvider>

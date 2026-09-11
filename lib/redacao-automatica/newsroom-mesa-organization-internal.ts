@@ -1,3 +1,5 @@
+import { mergeMesaSourceRefs, type MesaEditorialGroup, type MesaMaterialRef, type MesaMaterialVersion,
+  type MesaThemeMaterial, type MesaProductionContext } from "@/lib/redacao-automatica/newsroom-mesa-editorial-groups";
 import { isArticleClassificationKey, type ArticleClassificationKey } from "@/lib/editorial-classifications";
 import type { OperationalDeskSourceItem } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model-internal";
 
@@ -17,7 +19,10 @@ export type MesaDossierSourceRow = Readonly<{
 }>;
 export type MesaPublishedLink = Readonly<{ dossier_id: string; editorial_article_id: string }>;
 export type MesaDossierCard = Readonly<{
-  id: string; kind: "dossier" | "package"; title: string; status: string;
+  id: string; kind: "dossier" | "package_group" | "production";
+  material?: MesaMaterialRef;
+  themeIds?: readonly string[];
+  articleIds?: readonly string[]; title: string; status: string;
   href?: string;
   classificationKeys?: readonly ArticleClassificationKey[];
   hasUnclassified?: boolean;
@@ -31,8 +36,16 @@ export type MesaThemeCard = Readonly<{
 export type MesaOrganization = Readonly<{
   themes: readonly MesaThemeCard[];
   unlinkedDossiers: readonly MesaDossierCard[];
+  availableDossiers?: readonly MesaDossierCard[];
+  preparedProductions?: readonly MesaDossierCard[];
+  groupedSourceIds?: readonly string[];
 }>;
 export type MesaOrganizationRecords = Readonly<{
+  completedProductionIds?: readonly string[];
+  packageGroups?: readonly MesaEditorialGroup[];
+  materialVersions?: readonly MesaMaterialVersion[];
+  themeMaterials?: readonly MesaThemeMaterial[];
+  productionContexts?: readonly MesaProductionContext[];
   themes: readonly MesaThemeRow[]; dossiers: readonly MesaDossierRow[];
   themeDossiers: readonly MesaThemeDossierRow[]; themeSources: readonly MesaThemeSourceRow[];
   dossierSources: readonly MesaDossierSourceRow[]; publishedLinks: readonly MesaPublishedLink[];
@@ -47,81 +60,107 @@ export function buildMesaOrganization(
   sources: readonly OperationalDeskSourceItem[],
 ): MesaOrganization {
   const sourceById = new Map(sources.map((source) => [source.newsroomArticleId, source]));
-  const themeIds = new Set(records.themes.map((theme) => theme.id));
-  const dossierParents = new Map<string, string>();
-  for (const link of records.themeDossiers) {
-    if (!themeIds.has(link.theme_id) || dossierParents.has(link.dossier_id)) {
-      throw new Error("mesa-organization-relation-invalid");
-    }
-    dossierParents.set(link.dossier_id, link.theme_id);
+  const themesById = new Map(records.themes.map((theme) => [theme.id, theme]));
+  const bases = new Map<string, MesaEditorialGroup>();
+  for (const dossier of records.dossiers) {
+    bases.set(`dossier:${dossier.id}`, {
+      key: `dossier:${dossier.id}`, versionId: null, title: dossier.title,
+      href: `/admin/editorial/redacao-automatica/mesa/producao/${dossier.id}`,
+      sources: mergeMesaSourceRefs([records.dossierSources.filter((row) => row.dossier_id === dossier.id && row.included)
+        .map((row) => ({ newsroomArticleId: row.newsroom_article_id, newsroomSnapshotId: row.newsroom_snapshot_id }))]),
+      articleIds: [...new Set(records.publishedLinks.filter((row) => row.dossier_id === dossier.id).map((row) => row.editorial_article_id))],
+    });
   }
-  const nativeCards = records.dossiers.map((dossier): MesaDossierCard => {
-    const rows = records.dossierSources.filter((source) => source.dossier_id === dossier.id && source.included);
-    return {
-      id: dossier.id, kind: "dossier", title: dossier.title, status: dossier.status,
-      themeId: dossierParents.get(dossier.id) ?? null,
-      sourceCount: uniqueCount(rows.map((source) => source.newsroom_article_id)),
-      classificationKeys: [...new Set(rows.flatMap((row) => {
-        const key = sourceById.get(row.newsroom_article_id)?.classification.classificationKey;
-        return key ? [key] : [];
-      }))],
-      hasUnclassified: rows.some((row) => sourceById.get(row.newsroom_article_id)?.classification.status === "unclassified"),
-      articleCount: uniqueCount(records.publishedLinks.filter((link) => link.dossier_id === dossier.id)
-        .map((link) => link.editorial_article_id)),
-      updatedSourceCount: uniqueCount(rows.filter((row) => {
-        const current = sourceById.get(row.newsroom_article_id)?.snapshot?.id;
-        return current && current !== row.newsroom_snapshot_id;
-      }).map((row) => row.newsroom_article_id)),
-    };
+  for (const group of records.packageGroups ?? []) bases.set(group.key, group);
+  const versions = new Map((records.materialVersions ?? []).map((version) => [version.id, version]));
+  const fromVersion = (version: MesaMaterialVersion): MesaEditorialGroup => ({
+    key: version.material_key, versionId: version.id, title: version.title,
+    href: bases.get(version.material_key)?.href ?? `/admin/editorial/redacao-automatica/mesa/producao/${version.production_dossier_id}`,
+    sources: mergeMesaSourceRefs([version.source_refs]), articleIds: version.article_ids,
   });
-  // Earlier Source Packages stay in their actual groups. Never infer their parent Theme.
-  const packages = new Map<string, { sourceIds: Set<string>; articleIds: Set<string>; updated: Set<string>; href?: string; title?: string }>();
-  for (const source of sources) {
-    for (const contribution of source.publishedContributions) {
-      if (contribution.origin !== "legacy_source_package") continue;
-      const group = packages.get(contribution.packageId) ?? {
-        sourceIds: new Set<string>(), articleIds: new Set<string>(), updated: new Set<string>(),
-      };
-      if (contribution.packageYear && contribution.packageMonth && /^\d{4}$/.test(contribution.packageYear)
-        && /^(0[1-9]|1[0-2])$/.test(contribution.packageMonth)) {
-        group.href = `/admin/editorial/redacao-automatica/pacotes/${contribution.packageYear}/${contribution.packageMonth}/${contribution.packageId}`;
-      }
-      group.title ??= contribution.title;
-      group.sourceIds.add(source.newsroomArticleId);
-      group.articleIds.add(contribution.editorialArticleId);
-      if (source.snapshot && source.snapshot.id !== contribution.newsroomSnapshotId) group.updated.add(source.newsroomArticleId);
-      packages.set(contribution.packageId, group);
-    }
+  const contextIds = new Set(records.productionContexts?.map((row) => row.dossier_id));
+  const completedIds = new Set(records.completedProductionIds ?? []);
+  const latest = new Map([...bases].filter(([key, group]) => group.articleIds.length > 0
+    && (!key.startsWith("dossier:") || !contextIds.has(key.slice(8)))));
+  // A baseline captured later must never replace an already-published revision in the catalogue.
+  for (const version of [...versions.values()].sort((a, b) =>
+    Number(Boolean(a.publication_event_id)) - Number(Boolean(b.publication_event_id)) || a.revision - b.revision)) {
+    latest.set(version.material_key, fromVersion(version));
   }
-  const packageCards = [...packages].map(([id, group]): MesaDossierCard => ({
-    id, kind: "package", title: group.title ? `Dossiê · ${group.title}` : "Dossiê do circuito anterior", status: "published", themeId: null,
-    href: group.href,
-    classificationKeys: [...new Set([...group.sourceIds].flatMap((id) => {
-      const key = sourceById.get(id)?.classification.classificationKey;
+  // Links pin a version. A newer publication never expands another Theme by shared identity.
+  const members = new Map<string, Map<string, MesaEditorialGroup>>();
+  const associate = (themeId: string, group: MesaEditorialGroup | undefined) => {
+    if (!themesById.has(themeId) || !group) throw new Error("mesa-organization-relation-invalid");
+    const linked = members.get(themeId) ?? new Map<string, MesaEditorialGroup>();
+    linked.set(group.key, group); members.set(themeId, linked);
+  };
+  for (const link of records.themeDossiers) associate(link.theme_id, bases.get(`dossier:${link.dossier_id}`));
+  for (const link of records.themeMaterials ?? []) {
+    const version = versions.get(link.version_id);
+    if (!version || version.material_key !== link.material_key) throw new Error("mesa-organization-relation-invalid");
+    associate(link.theme_id, fromVersion(version));
+  }
+  const parentIds = (key: string) => [...members].filter(([, groups]) => groups.has(key)).map(([id]) => id);
+  const card = (group: MesaEditorialGroup, themeId: string | null = null): MesaDossierCard => ({
+    id: group.key.startsWith("dossier:") ? group.key.slice(8) : group.key,
+    kind: group.sources.length < 2 ? "production" : group.key.startsWith("package:") ? "package_group" : "dossier",
+    title: group.title, status: group.articleIds.length ? "published" : "draft", href: group.href,
+    themeId, themeIds: parentIds(group.key), articleIds: group.articleIds,
+    ...(group.sources.length >= 2 ? { material: { key: group.key, versionId: group.versionId, sources: group.sources } } : {}),
+    sourceCount: group.sources.length, articleCount: uniqueCount(group.articleIds),
+    classificationKeys: [...new Set(group.sources.flatMap((ref) => {
+      const key = sourceById.get(ref.newsroomArticleId)?.classification.classificationKey;
       return key ? [key] : [];
     }))],
-    hasUnclassified: [...group.sourceIds].some((id) => sourceById.get(id)?.classification.status === "unclassified"),
-    sourceCount: group.sourceIds.size, articleCount: group.articleIds.size, updatedSourceCount: group.updated.size,
-  }));
+    hasUnclassified: group.sources.some((ref) => !sourceById.get(ref.newsroomArticleId)?.classification.classificationKey),
+    updatedSourceCount: group.sources.filter((ref) => {
+      const current = sourceById.get(ref.newsroomArticleId)?.snapshot?.id;
+      return current && current !== ref.newsroomSnapshotId;
+    }).length,
+  });
+  // One successful consolidation is shown once; origin identities remain in the historical links.
+  // Never collapse different events, baselines, or different frozen source sets.
+  const collapsedCards = (groups: readonly MesaEditorialGroup[], themeId: string | null = null) => {
+    const sets = new Map<string, { group: MesaEditorialGroup; keys: string[] }>();
+    for (const group of groups.filter((item) => item.sources.length >= 2 && item.articleIds.length > 0)) {
+      const version = group.versionId ? versions.get(group.versionId) : undefined;
+      const key = version?.publication_event_id ? `event:${version.publication_event_id}` : group.key;
+      const old = sets.get(key);
+      if (!old) { sets.set(key, { group, keys: [group.key] }); continue; }
+      if (JSON.stringify(old.group.sources) !== JSON.stringify(group.sources)) throw new Error("mesa-organization-revision-conflict");
+      const chosen = group.key === `dossier:${version?.production_dossier_id}` ? group : old.group;
+      sets.set(key, { keys: [...old.keys, group.key], group: { ...chosen,
+        articleIds: [...new Set([...old.group.articleIds, ...group.articleIds])].sort() } });
+    }
+    return [...sets.values()].map(({ group, keys }) => ({ ...card(group, themeId),
+      themeIds: [...new Set(keys.flatMap(parentIds))] }));
+  };
+  const allCards = collapsedCards([...latest.values()]);
   return {
     themes: records.themes.map((theme) => {
-      const members = records.themeSources.filter((member) => member.theme_id === theme.id);
-      const dossiers = nativeCards.filter((card) => card.themeId === theme.id);
-      const publishedIds = records.themeArticles.filter((article) => article.theme_id === theme.id)
-        .map((article) => article.editorial_article_id);
-      for (const dossier of dossiers) publishedIds.push(...records.publishedLinks
-        .filter((link) => link.dossier_id === dossier.id).map((link) => link.editorial_article_id));
-      return {
-        id: theme.id, title: theme.title, classificationKey: theme.classification_key, status: theme.status,
-        sourceCount: uniqueCount(members.map((member) => member.newsroom_article_id)),
-        articleCount: uniqueCount(publishedIds), dossiers,
-        updatedSourceCount: uniqueCount(members.filter((member) => {
-          const current = sourceById.get(member.newsroom_article_id)?.snapshot?.id;
-          return member.reference_snapshot_id && current && current !== member.reference_snapshot_id;
-        }).map((member) => member.newsroom_article_id)),
+      const linked = [...(members.get(theme.id)?.values() ?? [])];
+      const sourceMembers = records.themeSources.filter((member) => member.theme_id === theme.id);
+      const articleIds = [...records.themeArticles.filter((row) => row.theme_id === theme.id).map((row) => row.editorial_article_id),
+        ...linked.flatMap((group) => group.articleIds)];
+      return { id: theme.id, title: theme.title, classificationKey: theme.classification_key, status: theme.status,
+        dossiers: collapsedCards(linked, theme.id),
+        sourceCount: uniqueCount([...sourceMembers.map((row) => row.newsroom_article_id), ...linked.flatMap((group) => group.sources.map((ref) => ref.newsroomArticleId))]),
+        articleCount: uniqueCount(articleIds),
+        updatedSourceCount: uniqueCount(sourceMembers.filter((row) => {
+          const current = sourceById.get(row.newsroom_article_id)?.snapshot?.id;
+          return row.reference_snapshot_id && current && current !== row.reference_snapshot_id;
+        }).map((row) => row.newsroom_article_id)),
       };
     }),
-    unlinkedDossiers: [...nativeCards.filter((card) => card.themeId === null), ...packageCards],
+    availableDossiers: allCards,
+    unlinkedDossiers: allCards.filter((item) => !item.themeIds?.length),
+    preparedProductions: records.dossiers.filter((dossier) => contextIds.has(dossier.id)
+      ? !completedIds.has(dossier.id) : !records.publishedLinks.some((link) => link.dossier_id === dossier.id))
+      .map((dossier) => ({ ...card(bases.get(`dossier:${dossier.id}`)!), kind: "production" as const,
+        themeId: records.productionContexts?.find((row) => row.dossier_id === dossier.id)?.theme_id
+          ?? records.themeDossiers.find((row) => row.dossier_id === dossier.id)?.theme_id ?? null })),
+    groupedSourceIds: [...new Set([...latest.values()].filter((group) => group.sources.length >= 2)
+      .flatMap((group) => group.sources.map((ref) => ref.newsroomArticleId)))],
   };
 }
 
@@ -145,9 +184,12 @@ export function visibleMesaItems<T>(items: readonly T[], visibleCount: number): 
 
 export function filterMesaOrganization(organization: MesaOrganization, classification: string): MesaOrganization {
   if (classification === "all") return organization;
-  return {
+  const matches = (dossier: MesaDossierCard) => classification === "unclassified"
+    ? dossier.hasUnclassified : dossier.classificationKeys?.some((key) => key === classification);
+  return { ...organization,
     themes: organization.themes.filter((theme) => theme.classificationKey === classification),
-    unlinkedDossiers: organization.unlinkedDossiers.filter((dossier) => classification === "unclassified"
-      ? dossier.hasUnclassified : dossier.classificationKeys?.some((key) => key === classification)),
+    unlinkedDossiers: organization.unlinkedDossiers.filter(matches),
+    availableDossiers: organization.availableDossiers?.filter(matches),
+    preparedProductions: organization.preparedProductions?.filter(matches),
   };
 }

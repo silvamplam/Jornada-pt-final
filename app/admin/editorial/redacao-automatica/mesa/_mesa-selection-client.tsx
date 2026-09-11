@@ -27,6 +27,8 @@ import {
   changeMesaPreparationTheme,
   mesaPreparationStorageKey,
   writeMesaPreparationBuffer,
+  selectMesaDossierMaterial, removeMesaDossierMaterial,
+  type MesaDossierSelection,
   type MesaMaterialSelection,
   type MesaPreparationBuffer,
 } from "./_mesa-selection-state";
@@ -66,6 +68,8 @@ type MesaSelectionContextValue = Readonly<{
   setTheme: (id: string, title: string) => void;
   storageKey: string;
   moveToTheme: (id: string, title: string, sourceIds: readonly string[]) => void;
+  selectDossier: (material: MesaDossierSelection) => void;
+  removeDossier: (key: string) => void;
   select: (material: MesaMaterialSelection) => void;
   remove: (newsroomArticleId: string) => void;
   changeTitle: (title: string) => void;
@@ -170,18 +174,25 @@ export function MesaSelectionProvider({
           try {
             const destination = readMesaPreparationBuffer(window.sessionStorage.getItem(mesaPreparationStorageKey(id)));
             // Never overwrite another selection already being worked on in that Theme.
-            if (destination.sources.length === 0) {
+            if (destination.sources.length + (destination.dossiers?.length ?? 0) === 0) {
               window.sessionStorage.setItem(mesaPreparationStorageKey(id), writeMesaPreparationBuffer({
                 ...current, themeId: id, themeTitle: title, sources: transferred,
-                preparationKey: transferred.length ? createPreparationKey() : null,
+                preparationKey: transferred.length + (current.dossiers?.length ?? 0) ? createPreparationKey() : null,
               }));
             }
           } catch { /* The persisted Theme remains available even if browser storage fails. */ }
         }
-        return remaining.length ? { ...current, sources: remaining, preparationKey: createPreparationKey() }
+        return remaining.length ? { ...current, dossiers: [], sources: remaining, preparationKey: createPreparationKey() }
           : clearMesaPreparationBuffer();
       });
     },
+    selectDossier(material) {
+      persist((current) => {
+        const next = selectMesaDossierMaterial(current, material, createPreparationKey);
+        return themeContext ? changeMesaPreparationTheme(next, themeContext.id, themeContext.title, createPreparationKey) : next;
+      });
+    },
+    removeDossier(key) { persist((current) => removeMesaDossierMaterial(current, key, createPreparationKey)); },
     observe(material) { persist((current) => observeMesaMaterial(current, material)); },
     setTheme(id, title) { persist((current) => changeMesaPreparationTheme(current, id, title, createPreparationKey)); },
     select(material) {
@@ -472,12 +483,25 @@ export function MesaClassificationEditor({
   );
 }
 
+export function MesaDossierSelectionToggle({ material }: Readonly<{ material: MesaDossierSelection }>) {
+  const { buffer, loaded, selectDossier, removeDossier } = useMesaSelection();
+  const saved = (buffer.dossiers ?? []).find((row) => row.key === material.key);
+  const selected = Boolean(saved);
+  const differentVersion = saved && (saved.versionId !== material.versionId || JSON.stringify(saved.sources) !== JSON.stringify(material.sources));
+  return <button type="button" className={styles.selectionActionLink} aria-pressed={selected} disabled={!loaded}
+    title={differentVersion ? "A seleção conserva outra versão. Retira o Dossiê da seleção e seleciona-o novamente para a substituir." : undefined}
+    onClick={() => selected ? removeDossier(material.key) : selectDossier(material)}>
+    {selected ? `Dossiê selecionado${differentVersion ? " · versão conservada" : ""}` : "Selecionar Dossiê inteiro"}
+  </button>;
+}
+
 export function MesaSelectionTray() {
   const {
     buffer,
     loaded,
     fixtureMode,
     remove,
+    removeDossier,
     changeTitle,
     clear,
     discard,
@@ -496,20 +520,29 @@ export function MesaSelectionTray() {
   const [message, setMessage] = useState("");
   const payload = mesaPreparationPayload(buffer);
   const publicadas = buffer.sources.filter((source) => source.lifecycle === "published");
-  const total = buffer.sources.length;
+  const dossiers = buffer.dossiers ?? [];
+  const total = buffer.sources.length + dossiers.length;
+  const distinctSources = new Set([...buffer.sources.map((row) => row.newsroomArticleId),
+    ...dossiers.flatMap((row) => row.sources.map((ref) => ref.newsroomArticleId))]).size;
   const unclassifiedCount = buffer.sources.filter(
     (source) => source.classificationKey === null,
   ).length;
   const missingSnapshotCount = buffer.sources.filter(
     (source) => source.newsroomSnapshotId === null,
   ).length;
-  const selectionBlocked = unclassifiedCount > 0 || missingSnapshotCount > 0;
+  const selectionBlocked = unclassifiedCount > 0 || missingSnapshotCount > 0 || !payload;
 
   async function prepare() {
     if (!payload) {
       setMessage(
         total === 0
           ? "Seleciona pelo menos uma fonte NOVA ou PUBLICADA."
+          : dossiers.length > 0 && distinctSources > MESA_MAX_NEWSROOM_SOURCES
+            ? `O motor existente aceita até ${MESA_MAX_NEWSROOM_SOURCES} fontes por produção. O Tema pode guardar toda a seleção.`
+          : !buffer.title.trim()
+            ? "Indica um título de trabalho para a produção."
+          : dossiers.length > 0 && !payload
+            ? "Há versões diferentes da mesma fonte na seleção. A preparação foi bloqueada; nenhum Dossiê foi dividido ou alterado."
           : unclassifiedCount > 0
             ? "Resolve as fontes POR CLASSIFICAR antes de preparar a producao."
             : missingSnapshotCount > 0
@@ -531,7 +564,7 @@ export function MesaSelectionTray() {
       const response = await fetch(PREPARE_ROUTE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, mesaVersion: 2, materials: payload.materials ?? [] }),
       });
       const result = await response.json().catch(() => null) as PrepareResponse | null;
 
@@ -557,9 +590,10 @@ export function MesaSelectionTray() {
 
   async function organize() {
     if (fixtureMode) { setMessage("Fixture visual: ação de Tema não enviada."); return; }
-    const classification = themeClassification || suggestedThemeClassification(buffer.sources) || "";
+    const classification = themeClassification || suggestedThemeClassification([...buffer.sources, ...dossiers]) || "";
     const command = { action: "organize_sources", themeId: targetTheme || null, title: buffer.title,
-      classificationKey: classification, sourceIds: buffer.sources.map((source) => source.newsroomArticleId) };
+      classificationKey: classification, sourceIds: buffer.sources.map((source) => source.newsroomArticleId),
+      materials: dossiers.map(({ key, versionId, sources }) => ({ key, versionId, sources })) };
     if (!targetTheme && (!buffer.title.trim() || !classification)) {
       setMessage("Indica o título e a classificação do Tema. Não é necessário classificar cada fonte para a organizar."); return;
     }
@@ -608,7 +642,7 @@ export function MesaSelectionTray() {
           <h2 id="mesa-selection-title">
             {total} selecionadas
           </h2>
-          <p>{total} fontes · {publicadas.length} com publicação</p>
+          <p>{distinctSources} fontes distintas · {dossiers.length} Dossiês inteiros · {publicadas.length} fontes publicadas avulsas</p>
         </div>
         <button type="button" onClick={clear} disabled={submitting}>
           Limpar
@@ -618,6 +652,9 @@ export function MesaSelectionTray() {
       <details className={styles.selectionDetails}>
         <summary>Ver seleção</summary>
         <ul>
+          {dossiers.map((selection) => <li key={selection.key}><span><strong>{selection.title}</strong>
+            <small>Dossiê inteiro · {selection.sources.length} fontes</small></span>
+            <button type="button" onClick={() => removeDossier(selection.key)} disabled={submitting}>Remover Dossiê</button></li>)}
           {buffer.sources.map((selection) => (
             <li key={selection.newsroomArticleId}>
               <span>
@@ -653,7 +690,7 @@ export function MesaSelectionTray() {
           type="button"
           className={styles.discardSelectionButton}
           onClick={() => void discardSelection()}
-          disabled={submitting || missingSnapshotCount > 0}
+          disabled={submitting || missingSnapshotCount > 0 || dossiers.length > 0}
           title={missingSnapshotCount > 0 ? "Existem fontes sem snapshot elegível" : undefined}
         >
           DESCARTAR
@@ -681,7 +718,7 @@ export function MesaSelectionTray() {
           </select>
         </label>
         {!targetTheme ? <label>Classificação do Tema
-          <select value={themeClassification || suggestedThemeClassification(buffer.sources) || ""}
+          <select value={themeClassification || suggestedThemeClassification([...buffer.sources, ...dossiers]) || ""}
             onChange={(event) => setThemeClassification(event.target.value)} disabled={submitting}>
             <option value="">Escolher classificação do conjunto</option>
             {classificationOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -699,7 +736,11 @@ export function MesaSelectionTray() {
           {missingSnapshotCount > 0
             ? `${missingSnapshotCount} sem snapshot elegivel. `
             : ""}
-          A seleção permanece e deve ser resolvida antes da preparação.
+          {distinctSources > MESA_MAX_NEWSROOM_SOURCES ? `O motor aceita até ${MESA_MAX_NEWSROOM_SOURCES} fontes por produção. ` : ""}
+          {!buffer.title.trim() ? "Indica um título de trabalho. " : ""}
+          {buffer.title.trim() && dossiers.length > 0 && !payload && distinctSources <= MESA_MAX_NEWSROOM_SOURCES && !unclassifiedCount && !missingSnapshotCount
+            ? "Conflito de versões: há snapshots diferentes da mesma fonte. " : ""}
+          A seleção permanece; organizar em Tema não divide nem altera os Dossiês.
         </p>
       ) : null}
 

@@ -37,7 +37,7 @@ import {
 } from "./_mesa-selection-client";
 import type { MesaMaterialSelection } from "./_mesa-selection-state";
 import { MesaSourceItem } from "./_mesa-source-item";
-import { MesaSourceWindow, MesaOrganizationPanel } from "./_mesa-organization-client";
+import { MesaSourceWindow, MesaOrganizationPanel, MesaLooseSourcesPanel } from "./_mesa-organization-client";
 import { loadMesaOrganization } from "@/lib/redacao-automatica/newsroom-mesa-organization";
 import { sourceIsUnassigned, filterMesaOrganization, type MesaOrganization } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
 import styles from "./mesa.module.css";
@@ -908,6 +908,11 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
   const inboxItems = sourceResult.ok ? sourceResult.value.sources.filter((item) => sourceIsUnassigned(item)
     && matchesClassificationFilter(item, query.classification)) : [];
 
+  const groupedSourceIds = new Set(organization.groupedSourceIds ?? []);
+  const publishedItems = sourceResult.ok ? sourceResult.value.sources.filter((item) => item.lifecycle === "published"
+    && item.themeMembership.themeIds.length === 0 && !groupedSourceIds.has(item.newsroomArticleId)
+    && matchesClassificationFilter(item, query.classification)) : [];
+
   const sourceOptions = isFixture
     ? [...new Map(FIXTURE_SOURCES.map((item) => [item.sourceCode, {
       code: item.sourceCode,
@@ -1011,13 +1016,9 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
 
             {sourceResult.ok ? (
               <section className={styles.sourcesWorkspace}>
-                <section className={styles.sourcePanel} data-lifecycle="new">
-                  <header className={styles.panelHeader}><h2>NOVAS</h2><span><MesaLiveCount initial={inboxItems.length} lifecycle="new"
-                    classificationKey={query.classificationValue === "all" ? undefined : query.classificationValue} /> por encaminhar</span></header>
-                  <MesaSourceWindow storageKey={`jornada.mesa.novas.${query.classificationValue}.${query.sourceCode ?? "all"}`}
-                    empty="Sem fontes por encaminhar neste filtro. O material organizado está nos Temas e Dossiês."
-                    items={inboxItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} />)} />
-                </section>
+                <MesaLooseSourcesPanel storageKey={`jornada.mesa.fontes.${query.classificationValue}.${query.sourceCode ?? "all"}`}
+                  newItems={inboxItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} />)}
+                  publishedItems={publishedItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} allowDiscard={false} />)} />
                 {organizationError ? <section className={styles.errorState} role="alert">
                   <h2>Organização indisponível</h2>
                   <p>Não foi possível ler os Temas/Dossiês. Confirma a migration de organização antes de usar esta versão.</p>

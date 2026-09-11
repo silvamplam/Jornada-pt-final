@@ -78,7 +78,7 @@ test("estado de Tema conta apenas IDs publicados provados e não duplica o Dossi
     themeArticles: [{ theme_id: id(10), editorial_article_id: id(201) }],
   };
   const organization = buildMesaOrganization(data, [source()]);
-  assert.equal(organization.themes[0].articleCount, 3); assert.equal(organization.themes[0].dossiers.length, 1);
+  assert.equal(organization.themes[0].articleCount, 3); assert.equal(organization.themes[0].dossiers.length, 0); // Uma fonte, mesmo com três artigos, não é Dossiê.
   assert.equal(organization.unlinkedDossiers.length, 0); assert.equal(organization.themes[0].sourceCount, 1);
 });
 
@@ -86,7 +86,8 @@ test("fontes partilhadas não inventam uma relação Tema/Dossiê", () => {
   const data = { ...records(), themeSources: [{ theme_id: id(10), newsroom_article_id: id(1), reference_snapshot_id: null }],
     dossierSources: [{ dossier_id: id(20), newsroom_article_id: id(1), newsroom_snapshot_id: id(101), included: true }] };
   const organization = buildMesaOrganization(data, [source()]);
-  assert.equal(organization.themes[0].dossiers.length, 0); assert.equal(organization.unlinkedDossiers.length, 1);
+  assert.equal(organization.themes[0].dossiers.length, 0); assert.equal(organization.unlinkedDossiers.length, 0);
+  assert.equal(organization.preparedProductions?.length, 1);
 });
 
 test("visto no Tema não significa incorporado na produção: contagens distintas", () => {
@@ -95,7 +96,7 @@ test("visto no Tema não significa incorporado na produção: contagens distinta
     dossierSources: [{ dossier_id: id(20), newsroom_article_id: id(1), newsroom_snapshot_id: id(99), included: true }] };
   const organization = buildMesaOrganization(data, [source()]);
   assert.equal(organization.themes[0].updatedSourceCount, 0);
-  assert.equal(organization.themes[0].dossiers[0].updatedSourceCount, 1);
+  assert.equal(organization.preparedProductions?.[0].updatedSourceCount, 1);
 });
 
 test("sem referência anterior não inventa aviso de alteração", () => {
@@ -103,14 +104,14 @@ test("sem referência anterior não inventa aviso de alteração", () => {
   assert.equal(buildMesaOrganization(data, [source()]).themes[0].updatedSourceCount, 0);
 });
 
-test("Source Package antigo permanece agrupado e abre a localização real", () => {
+test("uso isolado de uma fonte não promove o Source Package inteiro a Dossiê", () => {
   const item: OperationalDeskSourceItem = { ...source(), lifecycle: "published", publishedContributions: [{
     origin: "legacy_source_package", editorialArticleId: id(201), title: "Crónica", slug: "cronica", publishedAt: when,
     packageId: id(30), packageYear: "2026", packageMonth: "09", usedAt: when, newsroomSnapshotId: id(101),
   }] };
   const organization = buildMesaOrganization({ ...records(), dossiers: [] }, [item]);
-  assert.equal(organization.unlinkedDossiers.length, 1);
-  assert.equal(organization.unlinkedDossiers[0].href, `/admin/editorial/redacao-automatica/pacotes/2026/09/${id(30)}`);
+  assert.equal(organization.unlinkedDossiers.length, 0);
+  assert.equal(item.publishedContributions[0].origin, "legacy_source_package");
 });
 
 test("leitura da Mesa não transfere corpo integral das fontes", () => {
@@ -216,7 +217,7 @@ test("SQL aditivo conserva authorities e não publica nem reescreve produções"
 test("a seleção geral não fica contaminada pela seleção de um Tema", () => {
   const client = readFileSync("app/admin/editorial/redacao-automatica/mesa/_mesa-selection-client.tsx", "utf8");
   assert.match(client, /mesaPreparationStorageKey\(themeContext\?\.id\)/);
-  assert.match(client, /destination\.sources\.length === 0/);
+  assert.match(client, /destination\.sources\.length \+ \(destination\.dossiers\?\.length \?\? 0\) === 0/);
   assert.match(client, /mesaPreparationStorageKey\(id\) === storageKey/);
   assert.match(client, /current\.sources\.filter\(\(source\) => !requested\.has/);
 });

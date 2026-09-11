@@ -68,15 +68,18 @@ export default async function ProductionWorkspacePage({
   const production = productionResult.value;
   let parentRows: { theme_id: string }[] = [];
   let parentReadFailed = false;
-  const [parentResult, currentSources] = await Promise.all([
+  const [parentResult, contextResult, currentSources] = await Promise.all([
     fetchSupabaseAdminTable<{ theme_id: string }>(
       `newsroom_editorial_theme_dossiers?select=theme_id&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=1`,
+    ).then((rows) => ({ ok: true as const, rows })).catch(() => ({ ok: false as const, rows: [] })),
+    fetchSupabaseAdminTable<{ theme_id: string | null }>(
+      `newsroom_mesa_production_contexts?select=theme_id&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=1`,
     ).then((rows) => ({ ok: true as const, rows })).catch(() => ({ ok: false as const, rows: [] })),
     loadOperationalDeskReadModel({ sourceIds: dossier.sources.map((source) => source.newsroomArticleId) }),
   ]);
   parentRows = parentResult.rows;
-  parentReadFailed = !parentResult.ok;
-  const parentThemeId = parentRows[0]?.theme_id ?? null;
+  parentReadFailed = !parentResult.ok || !contextResult.ok;
+  const parentThemeId = contextResult.rows.length ? contextResult.rows[0].theme_id : parentRows[0]?.theme_id ?? null;
   const latestSources = new Map(currentSources.ok ? currentSources.value.sources.map((source) => [source.newsroomArticleId, source]) : []);
 
   const sourceNames = new Map(
@@ -91,7 +94,7 @@ export default async function ProductionWorkspacePage({
             <p>Mesa · Produção persistente</p>
             <h1>{dossier.title}</h1>
             <span>
-              Dossiê {dossier.id} · atualizado {formatDate(dossier.updatedAt)}
+              Produção {dossier.id} · atualizado {formatDate(dossier.updatedAt)}
             </span>
           </div>
           <nav aria-label="Navegação do workspace">
@@ -111,7 +114,7 @@ export default async function ProductionWorkspacePage({
           <div><span>ARTICLE PLANS</span><strong>{plans.length}</strong></div>
         </section>
 
-        {parentReadFailed ? <p role="alert">Não foi possível verificar o Tema deste Dossiê. Confirma a migration de organização; não foi alterada nenhuma relação.</p> : null}
+        {parentReadFailed ? <p role="alert">Não foi possível verificar o Tema desta produção. Confirma a migration de organização; não foi alterada nenhuma relação.</p> : null}
         {!currentSources.ok ? <p role="alert">Não foi possível verificar novas versões das fontes. Os snapshots desta produção foram preservados.</p> : null}
         <section className={styles.section} aria-labelledby="workspace-sources-title">
           <header className={styles.sectionHeader}>

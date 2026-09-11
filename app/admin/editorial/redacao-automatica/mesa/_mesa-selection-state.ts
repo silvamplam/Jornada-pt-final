@@ -1,3 +1,4 @@
+import { isMesaMaterialRef, mesaSelectedSources, type MesaMaterialRef } from "@/lib/redacao-automatica/newsroom-mesa-editorial-groups";
 import {
   isArticleClassificationKey,
   type ArticleClassificationKey,
@@ -24,18 +25,21 @@ export type MesaSourceSelection = Readonly<{
 }>;
 
 export type MesaMaterialSelection = MesaSourceSelection;
+export type MesaDossierSelection = MesaMaterialRef & Readonly<{ title: string; classificationKey: ArticleClassificationKey | null }>;
 
 export type MesaPreparationBuffer = Readonly<{
   version: 2;
   preparationKey: string | null;
   title: string;
   sources: readonly MesaSourceSelection[];
+  dossiers?: readonly MesaDossierSelection[];
   themeId?: string | null;
   themeTitle?: string;
 
 }>;
 
 export type MesaPreparationPayload = Readonly<{
+  materials?: readonly MesaMaterialRef[];
   preparationKey: string;
   title: string;
   sources: readonly Readonly<{
@@ -77,22 +81,34 @@ function isSourceSelection(value: unknown): value is MesaSourceSelection {
     && isOptionalText(selection.imageUrl);
 }
 
+function isDossierSelection(value: unknown): value is MesaDossierSelection {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Partial<MesaDossierSelection>;
+  return isMesaMaterialRef(value) && typeof row.title === "string" && Boolean(row.title.trim())
+    && (row.classificationKey === null || isArticleClassificationKey(row.classificationKey));
+}
+
 export function readMesaPreparationBuffer(value: string | null): MesaPreparationBuffer {
   if (!value) return EMPTY_MESA_PREPARATION_BUFFER;
 
   try {
     const parsed = JSON.parse(value) as Partial<MesaPreparationBuffer>;
     const sources = Array.isArray(parsed.sources) ? parsed.sources : [];
+    const dossiers = parsed.dossiers ?? [];
+    const count = sources.length + (Array.isArray(dossiers) ? dossiers.length : 0);
     if (
       parsed.version !== 2
+      || !Array.isArray(dossiers) || dossiers.length > 50
+      || !dossiers.every(isDossierSelection)
+      || new Set(dossiers.map((row) => row.key)).size !== dossiers.length
       || (parsed.themeId != null && !isUuid(parsed.themeId))
       || (parsed.themeTitle !== undefined && typeof parsed.themeTitle !== "string")
       || typeof parsed.title !== "string"
       || sources.length > MESA_MAX_NEWSROOM_SOURCES
       || !sources.every(isSourceSelection)
       || new Set(sources.map((selection) => selection.newsroomArticleId)).size !== sources.length
-      || (sources.length > 0 && !isUuid(parsed.preparationKey))
-      || (sources.length === 0 && parsed.preparationKey !== null)
+      || (count > 0 && !isUuid(parsed.preparationKey))
+      || (count === 0 && parsed.preparationKey !== null)
     ) return EMPTY_MESA_PREPARATION_BUFFER;
 
     return {
@@ -100,6 +116,7 @@ export function readMesaPreparationBuffer(value: string | null): MesaPreparation
       preparationKey: parsed.preparationKey ?? null,
       title: parsed.title,
       sources,
+      ...(parsed.dossiers !== undefined ? { dossiers } : {}),
       ...(parsed.themeId ? { themeId: parsed.themeId, themeTitle: parsed.themeTitle ?? "Tema" } : {}),
     };
   } catch {
@@ -150,7 +167,7 @@ export function selectMesaMaterial(
   return {
     ...buffer,
     preparationKey: nextPreparationKey(createPreparationKey),
-    title: buffer.sources.length > 0 ? buffer.title : material.title.slice(0, 180),
+    title: buffer.sources.length + (buffer.dossiers?.length ?? 0) > 0 ? buffer.title : material.title.slice(0, 180),
     sources: [...buffer.sources, material],
   };
 }
@@ -166,7 +183,7 @@ export function removeMesaMaterial(
   if (sources.length === buffer.sources.length) return buffer;
   return {
     ...buffer,
-    preparationKey: sources.length > 0 ? nextPreparationKey(createPreparationKey) : null,
+    preparationKey: sources.length + (buffer.dossiers?.length ?? 0) > 0 ? nextPreparationKey(createPreparationKey) : null,
     sources,
   };
 }
@@ -180,7 +197,7 @@ export function changeMesaPreparationTitle(
   return {
     ...buffer,
     title,
-    preparationKey: buffer.sources.length > 0
+    preparationKey: buffer.sources.length + (buffer.dossiers?.length ?? 0) > 0
       ? nextPreparationKey(createPreparationKey)
       : null,
   };
@@ -208,12 +225,19 @@ export function mesaPreparationPayload(
     || !isUuid(buffer.preparationKey)
     || title.length < 1
     || title.length > 180
-    || buffer.sources.length < 1
+    || buffer.sources.length + (buffer.dossiers?.length ?? 0) < 1
     || buffer.sources.some((selection) => selection.classificationKey === null)
     || buffer.sources.some((selection) => selection.newsroomSnapshotId === null)
   ) return null;
 
+  try {
+    const refs = mesaSelectedSources(buffer.sources.map((source) => ({
+      newsroomArticleId: source.newsroomArticleId, newsroomSnapshotId: source.newsroomSnapshotId!,
+    })), buffer.dossiers ?? []);
+    if (refs.length > MESA_MAX_NEWSROOM_SOURCES) return null;
+  } catch { return null; }
   return {
+    ...(buffer.dossiers?.length ? { materials: buffer.dossiers.map(({ key, versionId, sources }) => ({ key, versionId, sources })) } : {}),
     preparationKey: buffer.preparationKey,
     title,
     sources: buffer.sources.map((selection) => ({
@@ -248,9 +272,26 @@ export function changeMesaPreparationTheme(
   if (!isUuid(themeId)) throw new Error("mesa_theme_invalid");
   if (buffer.themeId === themeId && buffer.themeTitle === themeTitle) return buffer;
   return { ...buffer, themeId, themeTitle,
-    preparationKey: buffer.sources.length ? nextPreparationKey(createPreparationKey) : null };
+    preparationKey: buffer.sources.length + (buffer.dossiers?.length ?? 0) ? nextPreparationKey(createPreparationKey) : null };
 }
 
 export function mesaPreparationStorageKey(themeId?: string | null): string {
   return themeId ? `${MESA_PREPARATION_STORAGE_KEY}.theme.${themeId}` : MESA_PREPARATION_STORAGE_KEY;
+}
+
+export function selectMesaDossierMaterial(buffer: MesaPreparationBuffer, material: MesaDossierSelection,
+  createPreparationKey: () => string): MesaPreparationBuffer {
+  if (!isMesaMaterialRef(material)) throw new Error("mesa-material-selection-invalid");
+  const dossiers = buffer.dossiers ?? [];
+  if (dossiers.some((row) => row.key === material.key)) return buffer;
+  if (dossiers.length >= 50) return buffer;
+  return { ...buffer, dossiers: [...dossiers, material], preparationKey: nextPreparationKey(createPreparationKey),
+    title: buffer.sources.length + dossiers.length ? buffer.title : material.title.slice(0, 180) };
+}
+
+export function removeMesaDossierMaterial(buffer: MesaPreparationBuffer, key: string,
+  createPreparationKey: () => string): MesaPreparationBuffer {
+  const dossiers = (buffer.dossiers ?? []).filter((row) => row.key !== key);
+  if (dossiers.length === (buffer.dossiers?.length ?? 0)) return buffer;
+  return { ...buffer, dossiers, preparationKey: dossiers.length + buffer.sources.length ? nextPreparationKey(createPreparationKey) : null };
 }

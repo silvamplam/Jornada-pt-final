@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { MesaOrganization, MesaDossierCard, MesaThemeCard } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
+import { MesaDossierSelectionToggle } from "./_mesa-selection-client";
 import styles from "./mesa.module.css";
 
 const ORGANIZATION_ROUTE = "/api/admin/editorial/redacao-automatica/mesa/organizacao";
@@ -61,15 +62,18 @@ export function MesaDossierCardView({ card, themes = [], fixtureMode = false }: 
   const [themeId, setThemeId] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const href = card.href ?? (card.kind === "dossier"
+  const href = card.material
+    ? `/admin/editorial/redacao-automatica/mesa/dossies?material=${encodeURIComponent(card.material.key)}${card.material.versionId ? `&version=${card.material.versionId}` : ""}`
+    : card.href ?? (card.kind === "dossier"
     ? `/admin/editorial/redacao-automatica/mesa/producao/${card.id}`
     : "/admin/editorial/redacao-automatica?view=used");
   async function attach() {
-    if (!themeId || fixtureMode) return;
+    if (!themeId || fixtureMode || !card.material) return;
     setBusy(true); setMessage("");
     try {
       const response = await fetch(ORGANIZATION_ROUTE, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "attach_dossier", dossierId: card.id, themeId }) });
+        body: JSON.stringify({ action: "organize_sources", requestId: window.crypto.randomUUID(),
+          sourceIds: [], materials: [card.material], themeId }) });
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.message ?? "Não foi possível associar o Dossiê.");
       router.refresh();
@@ -77,14 +81,17 @@ export function MesaDossierCardView({ card, themes = [], fixtureMode = false }: 
     finally { setBusy(false); }
   }
   return <article className={styles.organizationCard}>
+    {card.material ? <MesaDossierSelectionToggle material={{ ...card.material, title: card.title,
+      classificationKey: card.classificationKeys?.length === 1 && !card.hasUnclassified ? card.classificationKeys[0] : null }} /> : null}
     <Link href={href} prefetch={false}>{card.title}</Link>
     <p>{card.sourceCount} fontes · {card.articleCount} artigos publicados</p>
     {card.updatedSourceCount > 0 ? <strong className={styles.updatedNotice}>{card.updatedSourceCount} fontes mais recentes que a produção</strong> : null}
-    {card.themeId === null && card.kind === "dossier" && themes.some((theme) => theme.status === "open") ? <details>
+    {card.themeIds && card.themeIds.length > 1 ? <p>Associado a {card.themeIds.length} Temas independentes</p> : null}
+    {card.material && themes.some((theme) => theme.status === "open" && !card.themeIds?.includes(theme.id)) ? <details>
       <summary>Associar a um Tema</summary>
       <select aria-label={`Tema para ${card.title}`} value={themeId} onChange={(event) => setThemeId(event.target.value)} disabled={busy}>
         <option value="">Escolher Tema</option>
-        {themes.filter((theme) => theme.status === "open").map((theme) => <option key={theme.id} value={theme.id}>{theme.title}</option>)}
+        {themes.filter((theme) => theme.status === "open" && !card.themeIds?.includes(theme.id)).map((theme) => <option key={theme.id} value={theme.id}>{theme.title}</option>)}
       </select>
       <button type="button" onClick={() => void attach()} disabled={busy || !themeId || fixtureMode}>Associar</button>
       {message ? <p role="alert">{message}</p> : null}
@@ -96,17 +103,22 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
   organization: MesaOrganization; fixtureMode?: boolean;
 }>) {
   const [status, setStatus] = useState("open");
+  const [tab, setTab] = useState("themes");
   const themes = organization.themes.filter((theme) => status === "all" || theme.status === status);
   return <section id="mesa-organizacao" className={styles.sourcePanel} data-organization="true">
     <header className={styles.panelHeader}>
-      <h2>TEMAS E DOSSIÊS</h2>
+      <nav aria-label="Organização editorial">
+        <button type="button" aria-pressed={tab === "themes"} onClick={() => setTab("themes")}>TEMAS</button>
+        <button type="button" aria-pressed={tab === "dossiers"} onClick={() => setTab("dossiers")}>DOSSIÊS</button>
+        <button type="button" aria-pressed={tab === "productions"} onClick={() => setTab("productions")}>PRODUÇÕES</button>
+      </nav>
       <select aria-label="Temas visíveis" value={status} onChange={(event) => setStatus(event.target.value)}>
         <option value="open">Abertos</option><option value="archived">Arquivados</option><option value="all">Todos</option>
       </select>
     </header>
-    <MesaSourceWindow storageKey={`jornada.mesa.organizacao.${status}`} empty="Organiza uma seleção num Tema. Os Dossiês existentes continuam acessíveis aqui."
+    <MesaSourceWindow storageKey={`jornada.mesa.organizacao.${tab}.${status}`} empty="Organiza uma seleção num Tema. Os Dossiês existentes continuam acessíveis aqui."
       items={[
-        ...themes.map((theme) => <li key={`theme:${theme.id}`} className={styles.organizationItem}>
+        ...(tab === "themes" ? themes : []).map((theme) => <li key={`theme:${theme.id}`} className={styles.organizationItem}>
           <article className={styles.organizationCard}>
             <Link href={`/admin/editorial/redacao-automatica/mesa/temas/${theme.id}`} prefetch={false}>{theme.title}</Link>
             <p>{theme.sourceCount} fontes · {theme.dossiers.length} dossiês · {theme.articleCount} artigos publicados</p>
@@ -116,10 +128,29 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
             </details> : null}
           </article>
         </li>),
-        ...(status !== "archived" ? organization.unlinkedDossiers.map((card) => <li key={`${card.kind}:${card.id}`} className={styles.organizationItem}>
-          <span className={styles.unlinkedLabel}>Dossiê sem Tema · memória preservada</span>
+        ...(tab === "dossiers" ? (organization.availableDossiers ?? organization.unlinkedDossiers).map((card) => <li key={`${card.kind}:${card.id}`} className={styles.organizationItem}>
+          <span className={styles.unlinkedLabel}>{card.themeIds?.length ? `${card.themeIds.length} Temas · associação não exclusiva` : "Dossiê sem Tema"}</span>
           <MesaDossierCardView card={card} themes={organization.themes} fixtureMode={fixtureMode} />
         </li>) : []),
+        ...(tab === "productions" ? (organization.preparedProductions ?? []).map((card) => <li key={`production:${card.id}`} className={styles.organizationItem}>
+          <span className={styles.unlinkedLabel}>Produção preparada · versões conservadas</span>
+          <MesaDossierCardView card={{ ...card, material: undefined }} fixtureMode={fixtureMode} />
+        </li>) : []),
       ]} />
+  </section>;
+}
+
+export function MesaLooseSourcesPanel({ newItems, publishedItems, storageKey }: Readonly<{
+  newItems: readonly ReactNode[]; publishedItems: readonly ReactNode[]; storageKey: string;
+}>) {
+  const [tab, setTab] = useState("new");
+  return <section className={styles.sourcePanel} data-lifecycle={tab}>
+    <header className={styles.panelHeader}><nav aria-label="Fontes avulsas">
+      <button type="button" aria-pressed={tab === "new"} onClick={() => setTab("new")}>NOVAS ({newItems.length})</button>
+      <button type="button" aria-pressed={tab === "published"} onClick={() => setTab("published")}>PUBLICADAS ({publishedItems.length})</button>
+    </nav></header>
+    <MesaSourceWindow key={tab} storageKey={`${storageKey}.${tab}`}
+      empty={tab === "new" ? "Sem fontes por encaminhar neste filtro." : "Sem fontes publicadas avulsas neste filtro."}
+      items={tab === "new" ? newItems : publishedItems} />
   </section>;
 }
