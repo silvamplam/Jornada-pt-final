@@ -94,3 +94,22 @@ test("indisponibilidade total externa permanece fail-safe", () => {
   assert.match(route, /Agenda externa indisponível neste momento\. Nenhuma alteração foi efetuada\./u);
   assert.match(route, /"source-unavailable"/u);
 });
+
+test("TV incompleta consulta fallback e nao pode ser declarada unchanged", () => {
+  assert.match(
+    route,
+    /schedule\.status !== "ok"[\s\S]*match\.broadcast_channel_id === null/u,
+  );
+  assert.match(
+    route,
+    /zerozero && !isGenericAgendaTvChannel\(zerozero\.channel\)/u,
+  );
+  assert.match(
+    route,
+    /match\.broadcast_channel_id === null[\s\S]*"channel_not_found" as const/u,
+  );
+  assert.match(
+    route,
+    /row\.status === "channel_not_found"/u,
+  );
+});

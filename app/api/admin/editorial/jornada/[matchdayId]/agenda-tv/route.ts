@@ -380,6 +380,12 @@ function resolveChannelEvidence(input: Readonly<{
     liga && !isGenericAgendaTvChannel(liga.channel)
       ? { row: liga, source: input.liga!.source }
       : null,
+    ondebola && !isGenericAgendaTvChannel(ondebola.channel)
+      ? { row: ondebola, source: input.ondebola!.source }
+      : null,
+    zerozero && !isGenericAgendaTvChannel(zerozero.channel)
+      ? { row: zerozero, source: input.zerozero!.source }
+      : null,
     ondebola
       ? { row: ondebola, source: input.ondebola!.source }
       : null,
@@ -514,7 +520,10 @@ async function buildPreview(
       evidenceForMatch(ondebola, homeNames, awayNames),
     ]);
 
-    return schedule.status !== "ok";
+    return (
+      schedule.status !== "ok"
+      || match.broadcast_channel_id === null
+    );
   });
 
   const zerozero = unresolvedWithoutLegacy
@@ -663,9 +672,14 @@ async function buildPreview(
       return {
         ...base,
         status:
-          unchanged
-            ? "unchanged" as const
-            : "update" as const,
+          scheduleChanged
+            ? "update" as const
+            : !channelEvidence.channel
+              && match.broadcast_channel_id === null
+              ? "channel_not_found" as const
+              : unchanged
+                ? "unchanged" as const
+                : "update" as const,
         note:
           unchanged
             ? `${sourceNote}${channelNote}`
@@ -792,6 +806,14 @@ export async function POST(
         ok: true,
         preview,
         applied: 0,
+        message:
+          preview.summary.update === 0
+          && preview.summary.blockers === 0
+          && preview.rows.some(
+            (row) => row.status === "channel_not_found",
+          )
+            ? "A agenda está atualizada, mas há canais de TV por confirmar."
+            : undefined,
       });
     }
 
@@ -815,7 +837,11 @@ export async function POST(
         preview,
         applied: 0,
         message:
-          "A agenda e os canais já estavam atualizados.",
+          preview.rows.some(
+            (row) => row.status === "channel_not_found",
+          )
+            ? "A agenda está atualizada, mas há canais de TV por confirmar."
+            : "A agenda e os canais já estavam atualizados.",
       });
     }
 
