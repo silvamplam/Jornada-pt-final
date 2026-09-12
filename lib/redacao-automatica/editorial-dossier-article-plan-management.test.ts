@@ -186,7 +186,7 @@ test("cancelar preserva no payload as atribuições existentes", async () => {
   assert.equal(payloads[0]?.p_status, "cancelled");
 });
 
-test("não permite criar ou reativar um quinto plano ativo", async () => {
+test("permite criar um quinto plano ativo sem teto editorial arbitrário", async () => {
   const state = dossierState({
     plans: [1, 2, 3, 4].map((index) => ({
       id: `00000000-0000-4000-8000-00000000010${index}`,
@@ -199,11 +199,8 @@ test("não permite criar ou reativar um quinto plano ativo", async () => {
   const save = saveEditorialDossierArticlePlanService(transport);
   const result = await save(baseInput());
 
-  assert.equal(result.ok, false);
-  if (!result.ok) {
-    assert.equal(result.error.code, "article_plan_limit_exceeded");
-  }
-  assert.equal(payloads.length, 0);
+  assert.equal(result.ok, true);
+  assert.equal(payloads.length, 1);
 });
 
 test("a página apresenta criação, edição, estados e atribuição de fontes", () => {
@@ -218,8 +215,9 @@ test("a página apresenta criação, edição, estados e atribuição de fontes"
   assert.match(page, /Em preparação/);
   assert.match(page, /Pronto/);
   assert.match(page, /Cancelado/);
-  assert.match(page, /activeArticlePlanCount < 4/);
-  assert.doesNotMatch(page, /<option value="5">5<\/option>/);
+  assert.doesNotMatch(page, /activeArticlePlanCount < 4/);
+  assert.doesNotMatch(page, /\/ 4 ativos/);
+  assert.match(page, /type="number"[\s\S]*name="output_count"/);
 });
 
 test("o plano mostra a versão editorial fixada sem permitir escolhê-la", () => {
@@ -246,11 +244,24 @@ test("a rota preserva redirect relativo e distingue a gravação dos planos", ()
   assert.match(route, /article_plan_cancelled/);
   assert.match(route, /headers: \{ Location: `\$\{url\.pathname\}\$\{url\.search\}` \}/);
   assert.doesNotMatch(route, /NextResponse\.redirect\(/);
-  assert.match(route, /Math\.min\(Math\.max\(Math\.trunc\(requestedOutputCount\), 2\), 4\)/);
+  assert.match(route, /Math\.min\(Math\.max\(Math\.trunc\(requestedOutputCount\), 2\), 2147483647\)/);
   assert.match(
     read("lib/redacao-automatica/editorial-dossier-service-internal.ts"),
-    /outputCount >= 2 && outputCount <= 4/,
+    /outputCount >= 2 && outputCount <= 2147483647/,
   );
+  assert.doesNotMatch(route, /requestedOutputCount\), 2\), 4/);
+});
+
+test("a leitura dos planos percorre páginas em vez de truncar no vigésimo artigo", () => {
+  const service = read("lib/redacao-automatica/editorial-dossier-article-plan-service.ts");
+  const repository = read("lib/redacao-automatica/editorial-dossier-article-plan-repository.ts");
+
+  assert.match(service, /ARTICLE_PLAN_PAGE_SIZE = 200/);
+  assert.match(service, /offset=\$\{offset\}/);
+  assert.match(repository, /ARTICLE_PLAN_PAGE_SIZE = 200/);
+  assert.match(repository, /offset=\$\{offset\}/);
+  assert.doesNotMatch(service, /limit=20/);
+  assert.doesNotMatch(repository, /limit=20/);
 });
 
 test("a aplicação usa uma RPC transacional e não escreve diretamente nos planos", () => {

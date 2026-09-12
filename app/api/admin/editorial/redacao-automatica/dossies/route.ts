@@ -406,7 +406,7 @@ export async function POST(request: Request) {
     const requestedOutputCount = numberValue(formData.get("output_count"), 2);
     const canonicalOutputCount = mode === "single"
       ? 1
-      : Math.min(Math.max(Math.trunc(requestedOutputCount), 2), 4);
+      : Math.min(Math.max(Math.trunc(requestedOutputCount), 2), 2147483647);
     const result = await updateEditorialDossier({
       dossierId,
       title: cleanText(formData.get("title")),

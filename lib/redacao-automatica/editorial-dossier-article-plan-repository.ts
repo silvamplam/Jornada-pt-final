@@ -11,6 +11,7 @@ import type {
 } from "@/lib/redacao-automatica/editorial-dossier-production-workspace-service-internal";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ARTICLE_PLAN_PAGE_SIZE = 200;
 const PUBLISHED_CONTEXT_PAGE_SIZE = 200;
 
 export type EditorialDossierArticlePlanStatus = "planned" | "ready" | "cancelled";
@@ -204,6 +205,70 @@ function uuidList(values: readonly string[]): string {
   return values.map((value) => encodeURIComponent(value)).join(",");
 }
 
+async function readAllArticlePlanRows(
+  dossierId: string,
+): Promise<ArticlePlanRow[]> {
+  const rows: ArticlePlanRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchSupabaseAdminTable<ArticlePlanRow>(
+      "newsroom_editorial_dossier_article_plans?select=id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,destination,update_target_editorial_article_id,image_choice,dossier_image_id,editorial_article_id,editorial_profile_id,editorial_profile_version_id,editorial_profile_pinned_at,created_at,updated_at"
+      + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
+      + "&order=sort_order.asc,id.asc"
+      + `&limit=${ARTICLE_PLAN_PAGE_SIZE}&offset=${offset}`,
+    );
+    rows.push(...page);
+    if (page.length < ARTICLE_PLAN_PAGE_SIZE) break;
+    offset += ARTICLE_PLAN_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+async function readAllArticlePlanSourceRows(
+  dossierId: string,
+): Promise<ArticlePlanSourceRow[]> {
+  const rows: ArticlePlanSourceRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchSupabaseAdminTable<ArticlePlanSourceRow>(
+      "newsroom_editorial_dossier_article_plan_sources?select=id,dossier_id,article_plan_id,dossier_source_id,sort_order"
+      + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
+      + "&order=article_plan_id.asc,sort_order.asc,id.asc"
+      + `&limit=${ARTICLE_PLAN_PAGE_SIZE}&offset=${offset}`,
+    );
+    rows.push(...page);
+    if (page.length < ARTICLE_PLAN_PAGE_SIZE) break;
+    offset += ARTICLE_PLAN_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+async function readAllGenerationRows(
+  dossierId: string,
+): Promise<GenerationRow[]> {
+  const rows: GenerationRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchSupabaseAdminTable<GenerationRow>(
+      "newsroom_editorial_dossier_article_plan_generations"
+      + "?select=id,dossier_id,article_plan_id,editorial_article_id,provider,model,prompt_version,generated_body_hash,created_at"
+      + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
+      + "&order=created_at.desc,id.desc"
+      + `&limit=${ARTICLE_PLAN_PAGE_SIZE}&offset=${offset}`,
+    );
+    rows.push(...page);
+    if (page.length < ARTICLE_PLAN_PAGE_SIZE) break;
+    offset += ARTICLE_PLAN_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
 async function readAllPublishedContextAssignments(
   dossierId: string,
 ): Promise<ArticlePlanPublishedContextRow[]> {
@@ -236,22 +301,9 @@ export async function listEditorialDossierArticlePlans(
 
   try {
     const [plans, assignments, generations, publishedContextAssignments] = await Promise.all([
-      fetchSupabaseAdminTable<ArticlePlanRow>(
-        "newsroom_editorial_dossier_article_plans?select=id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,destination,update_target_editorial_article_id,image_choice,dossier_image_id,editorial_article_id,editorial_profile_id,editorial_profile_version_id,editorial_profile_pinned_at,created_at,updated_at"
-        + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
-        + "&order=sort_order.asc,id.asc&limit=20",
-      ),
-      fetchSupabaseAdminTable<ArticlePlanSourceRow>(
-        "newsroom_editorial_dossier_article_plan_sources?select=id,dossier_id,article_plan_id,dossier_source_id,sort_order"
-        + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
-        + "&order=sort_order.asc,id.asc&limit=500",
-      ),
-      fetchSupabaseAdminTable<GenerationRow>(
-        "newsroom_editorial_dossier_article_plan_generations"
-        + "?select=id,dossier_id,article_plan_id,editorial_article_id,provider,model,prompt_version,generated_body_hash,created_at"
-        + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
-        + "&order=created_at.desc,id.desc&limit=20",
-      ),
+      readAllArticlePlanRows(dossierId),
+      readAllArticlePlanSourceRows(dossierId),
+      readAllGenerationRows(dossierId),
       readAllPublishedContextAssignments(dossierId),
     ]);
     const planIds = new Set(plans.map((plan) => plan.id));

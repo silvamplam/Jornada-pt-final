@@ -386,12 +386,15 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
                 </label>
                 <label>
                   <span>Quantidade</span>
-                  <select name="output_count" defaultValue={String(dossier.outputCount)}>
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
-                  </select>
+                  <input
+                    type="number"
+                    name="output_count"
+                    min={1}
+                    max={2147483647}
+                    step={1}
+                    defaultValue={dossier.outputCount}
+                    required
+                  />
                 </label>
                 <label>
                   <span>Extensão</span>
@@ -547,7 +550,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
           </div>
 
           <div className={styles.dossierArticlePlanSummary}>
-            <strong>{activeArticlePlanCount} / 4 ativos</strong>
+            <strong>{activeArticlePlanCount} ativos</strong>
             <span>
               Em preparação permite completar dados. Pronto para avançar exige orientação e pelo menos uma fonte.
             </span>
@@ -853,7 +856,7 @@ export default async function EditorialDossierPage({ params, searchParams }: Dos
             </div>
           )}
 
-          {articlePlansResult.ok && activeArticlePlanCount < 4 ? (
+          {articlePlansResult.ok ? (
             <div className={styles.dossierArticlePlanCreate}>
               <div>
                 <h3>Planear novo artigo</h3>

@@ -5,7 +5,6 @@ import type {
 import type { EditorialDossierArticlePlanStatus } from "@/lib/redacao-automatica/editorial-dossier-article-plan-repository";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MAX_ACTIVE_PLANS = 4;
 const MAX_SOURCES = 20;
 const MAX_TITLE_LENGTH = 180;
 const MAX_EDITORIAL_INSTRUCTIONS_LENGTH = 12000;
@@ -219,17 +218,6 @@ export function saveEditorialDossierArticlePlanService(
 
     if (!existingPlan && input.status === "cancelled") {
       return failure("input_invalid", "Um novo artigo planeado não pode ser criado como cancelado.");
-    }
-
-    const activePlanCount = dossierState.plans.filter((plan) => plan.status !== "cancelled").length;
-    const activatesPlan = input.status !== "cancelled"
-      && (!existingPlan || existingPlan.status === "cancelled");
-
-    if (activatesPlan && activePlanCount >= MAX_ACTIVE_PLANS) {
-      return failure(
-        "article_plan_limit_exceeded",
-        `Um Dossiê pode ter no máximo ${MAX_ACTIVE_PLANS} artigos planeados ativos.`,
-      );
     }
 
     const dossierSourcesById = new Map(dossierState.sources.map((source) => [source.id, source]));

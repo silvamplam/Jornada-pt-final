@@ -48,6 +48,50 @@ type ArticlePlanWriteRow = {
   article_plan_id: string;
 };
 
+const ARTICLE_PLAN_PAGE_SIZE = 200;
+
+async function readAllArticlePlanStateRows(
+  dossierId: string,
+): Promise<ArticlePlanStateRow[]> {
+  const rows: ArticlePlanStateRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchSupabaseAdminTable<ArticlePlanStateRow>(
+      "newsroom_editorial_dossier_article_plans?select=id,dossier_id,status,editorial_article_id"
+      + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
+      + "&order=sort_order.asc,id.asc"
+      + `&limit=${ARTICLE_PLAN_PAGE_SIZE}&offset=${offset}`,
+    );
+    rows.push(...page);
+    if (page.length < ARTICLE_PLAN_PAGE_SIZE) break;
+    offset += ARTICLE_PLAN_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+async function readAllArticlePlanSourceStateRows(
+  dossierId: string,
+): Promise<ArticlePlanSourceStateRow[]> {
+  const rows: ArticlePlanSourceStateRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchSupabaseAdminTable<ArticlePlanSourceStateRow>(
+      "newsroom_editorial_dossier_article_plan_sources?select=article_plan_id,dossier_source_id,sort_order"
+      + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
+      + "&order=article_plan_id.asc,sort_order.asc,dossier_source_id.asc"
+      + `&limit=${ARTICLE_PLAN_PAGE_SIZE}&offset=${offset}`,
+    );
+    rows.push(...page);
+    if (page.length < ARTICLE_PLAN_PAGE_SIZE) break;
+    offset += ARTICLE_PLAN_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
 function planStatus(value: string): EditorialDossierArticlePlanStatus {
   return ["planned", "ready", "cancelled"].includes(value)
     ? value as EditorialDossierArticlePlanStatus
@@ -72,16 +116,8 @@ async function readDossierState(
       + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
       + "&order=sort_order.asc,id.asc&limit=100",
     ),
-    fetchSupabaseAdminTable<ArticlePlanStateRow>(
-      "newsroom_editorial_dossier_article_plans?select=id,dossier_id,status,editorial_article_id"
-      + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
-      + "&order=sort_order.asc,id.asc&limit=20",
-    ),
-    fetchSupabaseAdminTable<ArticlePlanSourceStateRow>(
-      "newsroom_editorial_dossier_article_plan_sources?select=article_plan_id,dossier_source_id,sort_order"
-      + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
-      + "&order=sort_order.asc&limit=500",
-    ),
+    readAllArticlePlanStateRows(dossierId),
+    readAllArticlePlanSourceStateRows(dossierId),
   ]);
   const assignmentsByPlanId = new Map<string, Array<{
     dossierSourceId: string;
