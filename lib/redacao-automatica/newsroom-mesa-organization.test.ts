@@ -44,14 +44,156 @@ test("associar a Tema retira de NOVAS sem falsificar publicação", async () => 
   assert.deepEqual(result.value.sources[0].themeMembership.themeIds, [id(10)]);
 });
 
-test("Dossiê em preparação também retira de NOVAS sem publicar", async () => {
+test("preparation_key não apaga um Dossiê editorial histórico legítimo", async () => {
   const result = await createOperationalDeskReadModel(transport({
     readDossierSources: async () => [{ id: id(40), dossier_id: id(20), newsroom_article_id: id(1), newsroom_snapshot_id: id(101), included: true }],
-    readDossiers: async () => [{ id: id(20), title: "Cobertura", preparation_key: null }],
+    readDossiers: async () => [{ id: id(20), title: "Cobertura", preparation_key: id(90) }],
   }))();
   assert.ok(result.ok); if (!result.ok) return;
   assert.equal(result.value.novas.items.length, 0); assert.equal(result.value.sources[0].lifecycle, "new");
   assert.deepEqual(result.value.sources[0].dossierMembership, [id(20)]);
+});
+
+test("workspace técnico ativo não retira a fonte de NOVAS nem conta como Dossiê", async () => {
+  const result = await createOperationalDeskReadModel(transport({
+    readDossierSources: async () => [{ id: id(40), dossier_id: id(20), newsroom_article_id: id(1), newsroom_snapshot_id: id(101), included: true }],
+    readDossiers: async () => [{ id: id(20), title: "Contentor", preparation_key: id(90) }],
+    readProductionContexts: async () => [{
+      dossier_id: id(20),
+      theme_id: null,
+      source_refs: [{ newsroomArticleId: id(1), newsroomSnapshotId: id(101) }],
+      created_at: when,
+      workspace_role: "technical",
+      workspace_contract_version: 2,
+      workspace_state: "active",
+    }],
+  }))();
+  assert.ok(result.ok); if (!result.ok) return;
+  assert.equal(result.value.novas.items.length, 1);
+  assert.equal(result.value.sources[0].lifecycle, "new");
+  assert.deepEqual(result.value.sources[0].dossierMembership, []);
+});
+
+test("efeito lateral antigo de PREPARAR no Tema é ignorado, sem apagar a relação", async () => {
+  const result = await createOperationalDeskReadModel(transport({
+    readThemeSources: async () => [{
+      theme_id: id(10),
+      newsroom_article_id: id(1),
+      reference_snapshot_id: id(101),
+      added_at: when,
+    }],
+    readDossierSources: async () => [{ id: id(40), dossier_id: id(20), newsroom_article_id: id(1), newsroom_snapshot_id: id(101), included: true }],
+    readDossiers: async () => [{ id: id(20), title: "Contentor", preparation_key: id(90) }],
+    readProductionContexts: async () => [{
+      dossier_id: id(20),
+      theme_id: id(10),
+      source_refs: [{ newsroomArticleId: id(1), newsroomSnapshotId: id(101) }],
+      created_at: when,
+      workspace_role: "technical",
+      workspace_contract_version: 2,
+      workspace_state: "active",
+    }],
+  }))();
+  assert.ok(result.ok); if (!result.ok) return;
+  assert.equal(result.value.novas.items.length, 1);
+  assert.deepEqual(result.value.sources[0].themeMembership, { status: "none", themeIds: [] });
+});
+
+test("relação de Tema anterior a PREPARAR é preservada exatamente", async () => {
+  const result = await createOperationalDeskReadModel(transport({
+    readThemeSources: async () => [{
+      theme_id: id(10),
+      newsroom_article_id: id(1),
+      reference_snapshot_id: id(101),
+      added_at: "2026-09-09T12:00:00Z",
+    }],
+    readDossierSources: async () => [{ id: id(40), dossier_id: id(20), newsroom_article_id: id(1), newsroom_snapshot_id: id(101), included: true }],
+    readDossiers: async () => [{ id: id(20), title: "Contentor", preparation_key: id(90) }],
+    readProductionContexts: async () => [{
+      dossier_id: id(20),
+      theme_id: id(10),
+      source_refs: [{ newsroomArticleId: id(1), newsroomSnapshotId: id(101) }],
+      created_at: when,
+      workspace_role: "technical",
+      workspace_contract_version: 2,
+      workspace_state: "active",
+    }],
+  }))();
+  assert.ok(result.ok); if (!result.ok) return;
+  assert.equal(result.value.novas.items.length, 0);
+  assert.deepEqual(result.value.sources[0].themeMembership.themeIds, [id(10)]);
+});
+
+test("assignments técnicos não publicam fontes; só a proveniência final usada muda o ciclo", async () => {
+  const baseArticles = [1, 2].map((n) => ({
+    id: id(n),
+    title: `Fonte ${n}`,
+    source_code: "record",
+    source_name: "Record",
+    original_url: null,
+    normalized_url: null,
+    subtitle: null,
+    summary: null,
+    image_url: null,
+    published_at: when,
+    first_detected_at: when,
+    last_detected_at: when,
+    processing_status: "ready_for_review",
+  }));
+  const result = await createOperationalDeskReadModel(transport({
+    listCycleArticles: async () => baseArticles,
+    readLatestSnapshots: async () => [1, 2].map((n) => ({
+      id: id(100 + n),
+      article_id: id(n),
+      content_hash: `hash-${n}`,
+      body: [],
+      source_metadata: {},
+      created_at: when,
+      extracted_at: when,
+      has_usable_snapshot: true,
+    })),
+    readDossierSources: async () => [1, 2].map((n) => ({
+      id: id(39 + n),
+      dossier_id: id(20),
+      newsroom_article_id: id(n),
+      newsroom_snapshot_id: id(100 + n),
+      included: true,
+    })),
+    readPlanAssignments: async () => [1, 2].map((n) => ({
+      dossier_id: id(20),
+      article_plan_id: id(50),
+      dossier_source_id: id(39 + n),
+    })),
+    readFinalUsage: async () => [{
+      dossier_id: id(20),
+      article_plan_id: id(50),
+      dossier_source_id: id(40),
+      editorial_article_id: id(201),
+    }],
+    readProductionContexts: async () => [{
+      dossier_id: id(20),
+      theme_id: null,
+      source_refs: [1, 2].map((n) => ({ newsroomArticleId: id(n), newsroomSnapshotId: id(100 + n) })),
+      created_at: when,
+      workspace_role: "technical",
+      workspace_contract_version: 2,
+      workspace_state: "consolidated",
+    }],
+    readPlans: async () => [{ id: id(50), dossier_id: id(20), editorial_article_id: id(201) }],
+    readDossiers: async () => [{ id: id(20), title: "Contentor", preparation_key: id(90) }],
+    readPublishedArticles: async () => [{
+      id: id(201),
+      slug: "artigo-publicado",
+      title: "Artigo publicado",
+      status: "published",
+      published_at: when,
+    }],
+  }))();
+  assert.ok(result.ok); if (!result.ok) return;
+  assert.equal(result.value.sources.find((item) => item.newsroomArticleId === id(1))?.lifecycle, "published");
+  assert.equal(result.value.sources.find((item) => item.newsroomArticleId === id(2))?.lifecycle, "new");
+  assert.deepEqual(result.value.publicadas.items.map((item) => item.newsroomArticleId), [id(1)]);
+  assert.deepEqual(result.value.novas.items.map((item) => item.newsroomArticleId), [id(2)]);
 });
 
 test("fonte retirada de todos os contextos e sem publicação volta a ficar por encaminhar", () => {
@@ -82,21 +224,21 @@ test("estado de Tema conta apenas IDs publicados provados e não duplica o Dossi
   assert.equal(organization.unlinkedDossiers.length, 0); assert.equal(organization.themes[0].sourceCount, 1);
 });
 
-test("fontes partilhadas não inventam uma relação Tema/Dossiê", () => {
+test("fontes num contentor técnico não inventam Tema, Dossiê ou Produção editorial", () => {
   const data = { ...records(), themeSources: [{ theme_id: id(10), newsroom_article_id: id(1), reference_snapshot_id: null }],
     dossierSources: [{ dossier_id: id(20), newsroom_article_id: id(1), newsroom_snapshot_id: id(101), included: true }] };
   const organization = buildMesaOrganization(data, [source()]);
   assert.equal(organization.themes[0].dossiers.length, 0); assert.equal(organization.unlinkedDossiers.length, 0);
-  assert.equal(organization.preparedProductions?.length, 1);
+  assert.equal("preparedProductions" in organization, false);
 });
 
-test("visto no Tema não significa incorporado na produção: contagens distintas", () => {
+test("visto no Tema usa apenas a revisão editorial do Tema", () => {
   const data = { ...records(), themeDossiers: [{ theme_id: id(10), dossier_id: id(20) }],
     themeSources: [{ theme_id: id(10), newsroom_article_id: id(1), reference_snapshot_id: id(101) }],
     dossierSources: [{ dossier_id: id(20), newsroom_article_id: id(1), newsroom_snapshot_id: id(99), included: true }] };
   const organization = buildMesaOrganization(data, [source()]);
   assert.equal(organization.themes[0].updatedSourceCount, 0);
-  assert.equal(organization.preparedProductions?.[0].updatedSourceCount, 1);
+  assert.equal("preparedProductions" in organization, false);
 });
 
 test("sem referência anterior não inventa aviso de alteração", () => {
@@ -229,9 +371,18 @@ test("relação de Dossiê no SQL não usa o conflito de coluna ambígua", () =>
 });
 
 
-test("contadores da classificação não voltam a somar fontes publicadas ao trabalho por encaminhar", () => {
+test("contadores acompanham explicitamente o universo NOVAS ou PUBLICADAS visível", () => {
   const page = readFileSync("app/admin/editorial/redacao-automatica/mesa/page.tsx", "utf8");
   const count = page.slice(page.indexOf("function sumVisibleCount("), page.indexOf("function fixtureClassification("));
-  assert.match(count, /counts\.novas\.total/);
-  assert.doesNotMatch(count, /counts\.publicadas/);
+  const visibleUniverse = page.slice(page.indexOf("const groupedSourceIds"), page.indexOf("const activeLifecycle"));
+  assert.match(count, /lifecycle === "published" \? counts\.publicadas : counts\.novas/);
+  assert.match(count, /return universe\.total/);
+  assert.match(visibleUniverse, /const looseNewItems = [\s\S]*?filter\(sourceIsUnassigned\)/);
+  assert.match(visibleUniverse, /const loosePublishedItems = [\s\S]*?item\.lifecycle === "published"[\s\S]*?themeIds\.length === 0[\s\S]*?!groupedSourceIds\.has/);
+  assert.match(visibleUniverse, /novas: countFor\(looseNewItems\)/);
+  assert.match(visibleUniverse, /publicadas: countFor\(loosePublishedItems\)/);
+  assert.doesNotMatch(visibleUniverse, /sourceResult\.value\.counts/);
+  assert.match(page, /activeLifecycle === "published"/);
+  assert.match(page, /activeLifecycle === "published" \? counts\?\.publicadas\.total/);
+  assert.match(page, /activeLifecycle === "published" \? "publicadas" : "novas"/);
 });

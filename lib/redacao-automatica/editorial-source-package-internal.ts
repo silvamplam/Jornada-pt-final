@@ -30,12 +30,37 @@ export type EditorialSourcePackageEditorialInput = Readonly<{
   additionalInstructions: string | null;
 }>;
 
+export type EditorialSourcePackageArticlePlan = Readonly<{
+  dossierId: string;
+  articlePlanId: string;
+  workingTitle: string;
+  articleKind: "news" | "analysis" | "preview" | "summary";
+  articleKindLabel: string;
+  lengthMode: "brief" | "standard" | "developed";
+  lengthModeLabel: string;
+  editorialInstructions: string;
+  destination: "new" | "update";
+  workspaceContractVersion?: 2;
+  sourceScope?: "workspace";
+  origin?: EditorialSourcePackageOutputOrigin | null;
+}>;
+
+export type EditorialSourcePackageOutputOrigin = Readonly<{
+  kind: "source" | "material";
+  dossierSourceId: string | null;
+  materialKey: string | null;
+  materialVersionId: string | null;
+}>;
+
 export type EditorialSourcePackageOutputInput = Readonly<{
   position: number;
+  outputId?: string | null;
+  startingPointSourceId?: string | null;
   sourceArticlePosition: number;
   focus: string;
   imageNewsroomArticleId: string | null;
   externalImage?: EditorialSourcePackageExternalImage | null;
+  articlePlan?: EditorialSourcePackageArticlePlan | null;
 }>;
 
 export type EditorialSourcePackageExternalImage = Readonly<{
@@ -66,6 +91,15 @@ export type EditorialSourcePackagePublishedArticleSnapshot = Readonly<{
   body: string;
 }>;
 
+export type EditorialSourcePackagePublishedContextSnapshot = Readonly<{
+  publishedArticleId: string;
+  publishedSlug: string;
+  anteTitle: string;
+  title: string;
+  postTitle: string;
+  body: string;
+}>;
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const YEAR_PATTERN = /^\d{4}$/;
 const MONTH_PATTERN = /^(0[1-9]|1[0-2])$/;
@@ -76,6 +110,7 @@ const EDITORIAL_IMAGE_STORAGE_PATH = "/storage/v1/object/public/editorial-images
 export type EditorialSourcePackageSelection = Readonly<{
   newsroomArticleId: string;
   newsroomSnapshotId: string;
+  provenanceSourceId?: string;
   articleGroup?: number;
   imagePreferred?: boolean;
 }>;
@@ -85,6 +120,7 @@ export type EditorialSourcePackagePreparedEntry = Readonly<{
   articlePosition: number;
   newsroomArticleId?: string;
   newsroomSnapshotId?: string;
+  provenanceSourceId?: string;
   imagePreferred?: boolean;
   status: "prepared";
   sourceCode: string;
@@ -105,6 +141,7 @@ export type EditorialSourcePackageFailedEntry = Readonly<{
   articlePosition: number;
   newsroomArticleId?: string;
   newsroomSnapshotId?: string;
+  provenanceSourceId?: string;
   imagePreferred?: boolean;
   status: "failed";
   sourceCode: string | null;
@@ -128,6 +165,7 @@ export type EditorialSourcePackageManifestEntry = Readonly<{
   articlePosition: number;
   newsroomArticleId?: string | null;
   newsroomSnapshotId?: string | null;
+  provenanceSourceId?: string | null;
   imagePreferred?: boolean;
   usedAt?: string | null;
   publishedArticleId?: string | null;
@@ -143,7 +181,9 @@ export type EditorialSourcePackageManifestEntry = Readonly<{
 }>;
 
 export type EditorialSourcePackageManifest = Readonly<{
-  version: 2 | 3 | 4;
+  version: 2 | 3 | 4 | 5;
+  provenanceContract?: "mesa-v2";
+  publishedContextArticleIds?: readonly string[];
   packageId: string;
   createdAt: string;
   year: string;
@@ -178,6 +218,100 @@ function cleanEditorialText(value: string, maxLength: number): string | null {
   }
 
   return cleaned.length <= maxLength ? cleaned : null;
+}
+
+function normalizeEditorialSourcePackageArticlePlan(
+  value: EditorialSourcePackageArticlePlan | null | undefined,
+): EditorialSourcePackageArticlePlan | null {
+  if (!value) return null;
+  const dossierId = cleanId(value.dossierId);
+  const articlePlanId = cleanId(value.articlePlanId);
+  const workingTitle = cleanEditorialText(value.workingTitle, 180);
+  const articleKindLabel = cleanEditorialText(value.articleKindLabel, 80);
+  const lengthModeLabel = cleanEditorialText(value.lengthModeLabel, 80);
+  const editorialInstructions = value.editorialInstructions
+    .replace(/\r\n?/g, "\n")
+    .replace(/\u0000/g, "")
+    .trim();
+  const workspaceContractVersion = value.workspaceContractVersion;
+  const sourceScope = value.sourceScope;
+  const rawOrigin = value.origin;
+  const origin = rawOrigin
+    ? {
+        kind: rawOrigin.kind,
+        dossierSourceId: rawOrigin.dossierSourceId?.trim().toLowerCase() || null,
+        materialKey: rawOrigin.materialKey?.trim().toLowerCase() || null,
+        materialVersionId: rawOrigin.materialVersionId?.trim().toLowerCase() || null,
+      }
+    : null;
+  if (
+    !UUID_PATTERN.test(dossierId)
+    || !UUID_PATTERN.test(articlePlanId)
+    || !workingTitle
+    || !articleKindLabel
+    || !lengthModeLabel
+    || !["news", "analysis", "preview", "summary"].includes(value.articleKind)
+    || !["brief", "standard", "developed"].includes(value.lengthMode)
+    || !["new", "update"].includes(value.destination)
+    || editorialInstructions.length > 12000
+    || (workspaceContractVersion !== undefined && workspaceContractVersion !== 2)
+    || (sourceScope !== undefined && sourceScope !== "workspace")
+    || (
+      workspaceContractVersion === 2
+      && (
+        (
+          sourceScope === "workspace"
+          && origin !== null
+        )
+        || (
+          sourceScope !== "workspace"
+          && !origin
+        )
+        || (
+          origin !== null
+          && !["source", "material"].includes(origin.kind)
+        )
+        || (
+          origin?.kind === "source"
+          && (
+            !origin.dossierSourceId
+            || !UUID_PATTERN.test(origin.dossierSourceId)
+            || origin.materialKey !== null
+            || origin.materialVersionId !== null
+          )
+        )
+        || (
+          origin?.kind === "material"
+          && (
+            origin.dossierSourceId !== null
+            || !origin.materialKey
+            || !origin.materialVersionId
+            || !UUID_PATTERN.test(origin.materialVersionId)
+          )
+        )
+      )
+    )
+  ) return null;
+
+  return {
+    dossierId,
+    articlePlanId,
+    workingTitle,
+    articleKind: value.articleKind,
+    articleKindLabel,
+    lengthMode: value.lengthMode,
+    lengthModeLabel,
+    editorialInstructions,
+    destination: value.destination,
+    ...(workspaceContractVersion === 2
+      ? {
+          workspaceContractVersion,
+          ...(sourceScope === "workspace"
+            ? { sourceScope }
+            : { origin: origin! }),
+        }
+      : {}),
+  };
 }
 
 function normalizeEditorialSourcePackageExternalImage(
@@ -315,6 +449,7 @@ export function normalizeEditorialSourcePackageSelections(
   const articleIds = new Set<string>();
   const snapshotIds = new Set<string>();
   const sourceSnapshotIdentities = new Set<string>();
+  const provenanceSourceIds = new Set<string>();
   const groupPositions = new Map<number, number>();
   const preferredImageGroups = new Set<number>();
   const normalized: EditorialSourcePackageSelection[] = [];
@@ -323,6 +458,9 @@ export function normalizeEditorialSourcePackageSelections(
   for (const [index, selection] of selections.entries()) {
     const newsroomArticleId = cleanId(selection.newsroomArticleId);
     const newsroomSnapshotId = cleanId(selection.newsroomSnapshotId);
+    const provenanceSourceId = selection.provenanceSourceId
+      ? cleanId(selection.provenanceSourceId)
+      : null;
     const sourceSnapshotIdentity =
       `${newsroomArticleId}\u0000${newsroomSnapshotId}`;
     const rawArticleGroup = selection.articleGroup ?? index + 1;
@@ -330,6 +468,8 @@ export function normalizeEditorialSourcePackageSelections(
     if (
       !UUID_PATTERN.test(newsroomArticleId)
       || !UUID_PATTERN.test(newsroomSnapshotId)
+      || (provenanceSourceId !== null && !UUID_PATTERN.test(provenanceSourceId))
+      || (provenanceSourceId !== null && provenanceSourceIds.has(provenanceSourceId))
       || (
         !options.allowMultipleSnapshotsPerArticle
         && articleIds.has(newsroomArticleId)
@@ -360,9 +500,11 @@ export function normalizeEditorialSourcePackageSelections(
     articleIds.add(newsroomArticleId);
     snapshotIds.add(newsroomSnapshotId);
     sourceSnapshotIdentities.add(sourceSnapshotIdentity);
+    if (provenanceSourceId) provenanceSourceIds.add(provenanceSourceId);
     normalized.push({
       newsroomArticleId,
       newsroomSnapshotId,
+      ...(provenanceSourceId ? { provenanceSourceId } : {}),
       articleGroup,
       ...(selection.imagePreferred ? { imagePreferred: true } : {}),
     });
@@ -376,6 +518,7 @@ export type EditorialSourcePackageOutputSourceEntry = Readonly<{
   position: number;
   articlePosition: number;
   newsroomArticleId?: string | null;
+  provenanceSourceId?: string | null;
   status: "prepared" | "failed";
   imageUrl?: string | null;
   imagePreferred?: boolean;
@@ -442,6 +585,13 @@ export function normalizeEditorialSourcePackageOutputs(
 
   for (const [index, output] of outputs.entries()) {
     const position = Number(output.position);
+    const outputId = typeof output.outputId === "string" && output.outputId.trim()
+      ? cleanId(output.outputId)
+      : null;
+    const startingPointSourceId = typeof output.startingPointSourceId === "string"
+      && output.startingPointSourceId.trim()
+      ? cleanId(output.startingPointSourceId)
+      : null;
     const sourceArticlePosition = Number(output.sourceArticlePosition);
     const focus = cleanEditorialText(
       typeof output.focus === "string" ? output.focus : "",
@@ -455,8 +605,11 @@ export function normalizeEditorialSourcePackageOutputs(
     const externalImage = normalizeEditorialSourcePackageExternalImage(
       output.externalImage,
     );
+    const articlePlan = normalizeEditorialSourcePackageArticlePlan(
+      output.articlePlan,
+    );
 
-    if (output.externalImage && !externalImage) {
+    if ((output.externalImage && !externalImage) || (output.articlePlan && !articlePlan)) {
       return null;
     }
 
@@ -466,11 +619,24 @@ export function normalizeEditorialSourcePackageOutputs(
       || sourceArticlePosition < 1
       || !sourceGroups.has(sourceArticlePosition)
       || !focus
+      || (outputId !== null && !UUID_PATTERN.test(outputId))
+      || (startingPointSourceId !== null && !UUID_PATTERN.test(startingPointSourceId))
+      || (
+        articlePlan?.workspaceContractVersion === 2
+        && outputId !== articlePlan.articlePlanId
+      )
     ) {
       return null;
     }
 
     if (imageNewsroomArticleId && externalImage) {
+      return null;
+    }
+
+    if (startingPointSourceId && !entries.some((entry) => (
+      entry.status === "prepared"
+      && entry.provenanceSourceId === startingPointSourceId
+    ))) {
       return null;
     }
 
@@ -491,10 +657,13 @@ export function normalizeEditorialSourcePackageOutputs(
 
     normalized.push({
       position,
+      ...(outputId ? { outputId } : {}),
+      ...(startingPointSourceId ? { startingPointSourceId } : {}),
       sourceArticlePosition,
       focus,
       imageNewsroomArticleId,
       ...(externalImage ? { externalImage } : {}),
+      ...(articlePlan ? { articlePlan } : {}),
     });
   }
 
@@ -511,6 +680,15 @@ export function normalizeEditorialSourcePackageCreationOutputs(
   );
 
   if (!normalized) {
+    return null;
+  }
+
+  // Leitura continua a aceitar pacotes v5 anteriores a esta âncora; apenas a
+  // criação de novos outputs Mesa v2 passa a exigi-la.
+  if (normalized.some((output) => (
+    output.articlePlan?.workspaceContractVersion === 2
+    && !output.startingPointSourceId
+  ))) {
     return null;
   }
 
@@ -890,6 +1068,7 @@ function formatPreparedEntry(
   const lines = [
     `## FONTE ${String(sourcePosition).padStart(2, "0")} DE ${String(sourceTotal).padStart(2, "0")}`,
     "",
+    ...markdownMetadata("ID DA FONTE", entry.provenanceSourceId ?? null),
     ...markdownMetadata("FONTE", entry.sourceName),
     ...markdownMetadata("URL", entry.sourceUrl),
     ...markdownMetadata("PUBLICADA EM", entry.publishedAt),
@@ -920,6 +1099,7 @@ function formatFailedEntry(
   return [
     `## FONTE ${String(sourcePosition).padStart(2, "0")} DE ${String(sourceTotal).padStart(2, "0")}`,
     "",
+    ...markdownMetadata("ID DA FONTE", entry.provenanceSourceId ?? null),
     ...markdownMetadata("FONTE", entry.sourceName),
     ...markdownMetadata("URL", entry.sourceUrl),
     ...markdownMetadata("TÍTULO IDENTIFICADO", entry.title),
@@ -966,14 +1146,14 @@ function formatArticleGroup(
 const EXTERNAL_ARTICLE_IMPORT_RULES = [
   "Cada artigo final deve ser devolvido dentro de um bloco que começa exatamente com [JORNADA_ARTIGO_V1] e termina exatamente com [/JORNADA_ARTIGO_V1].",
   "Devolva exatamente um bloco [JORNADA_ARTIGO_V1] por saída editorial definida em ARTIGOS A PRODUZIR, pela mesma ordem, sem fundir saídas nem criar artigos adicionais.",
-  "Dentro de cada bloco, use exatamente esta ordem: ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO. Cada rótulo deve ocupar uma linha isolada.",
+  "Quando o pacote não apresentar um CONTRATO DE PROVENIÊNCIA adicional, use dentro de cada bloco exatamente esta ordem: ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO. Cada rótulo deve ocupar uma linha isolada.",
   "Preencha sempre ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO com conteúdo utilizável. Os quatro campos são obrigatórios neste fluxo de publicação.",
   "Não use JSON, tabelas, blocos de código ou comentários fora dos marcadores. Estes marcadores permitem levar a resposta diretamente para a Publicação em lote da Jornada.pt.",
 ];
 
 const COMMON_PROMPT_RULES = [
   "Produza o texto em português europeu, com linguagem jornalística eloquente, fluida, natural e rigorosa.",
-  "Leia integralmente e considere todas as fontes do grupo indicado em cada saída editorial. Várias saídas podem partilhar o mesmo grupo de fontes e, nesse caso, podem utilizar as mesmas fontes; grupos diferentes não devem ser misturados.",
+  "Leia integralmente e considere todo o material disponível da produção em cada saída editorial. Cada saída pode usar qualquer subconjunto das fontes autorizadas; a mesma fonte pode sustentar vários artigos e uma fonte pode não ser usada.",
   "Quando existir a secção “ARTIGOS PUBLICADOS A ATUALIZAR”, cada saída editorial corresponde obrigatoriamente ao artigo publicado da mesma posição. Atualize esse artigo à luz das fontes antigas e novas, preservando o que continua válido; não o substitua por um foco editorial diferente.",
   "Além das fontes fornecidas, pesquise sempre fontes externas atuais e credíveis sobre o mesmo tema para complementar, contextualizar e atualizar a informação, salvo instrução expressa do editor para não fazer pesquisa externa.",
   "A pesquisa complementar deve acrescentar contexto e atualidade sem inventar factos nem apagar divergências relevantes. Quando existirem versões divergentes, apresente e atribua claramente cada uma, sem escolher arbitrariamente uma como verdadeira.",
@@ -1096,6 +1276,33 @@ function formatPublishedArticleSnapshots(
   ];
 }
 
+function formatPublishedContextSnapshots(
+  snapshots: readonly EditorialSourcePackagePublishedContextSnapshot[] | undefined,
+): string[] {
+  if (!snapshots?.length) return [];
+  return [
+    "# CONTEXTO PUBLICADO DISPONÍVEL",
+    "",
+    "> Este contexto é apenas memória editorial. Não implica UPDATE e não altera o destino definido para qualquer output.",
+    "",
+    ...snapshots.flatMap((snapshot, index) => {
+      const section = [
+        `## CONTEXTO ${String(index + 1).padStart(2, "0")} DE ${String(snapshots.length).padStart(2, "0")}`,
+        "",
+        `- **ARTIGO_ID:** ${snapshot.publishedArticleId}`,
+        `- **URL:** /${snapshot.publishedSlug}`,
+        "",
+        "### ANTETÍTULO", "", snapshot.anteTitle, "",
+        "### TÍTULO", "", snapshot.title, "",
+        "### PÓS-TÍTULO", "", snapshot.postTitle, "",
+        "### CORPO", "", snapshot.body,
+      ].join("\n");
+      return index === 0 ? [section] : ["---", "", section];
+    }),
+    "",
+  ];
+}
+
 function formatEditorialOutputPlan(
   outputs: readonly EditorialSourcePackageOutputInput[] | undefined,
 ): string[] {
@@ -1108,11 +1315,63 @@ function formatEditorialOutputPlan(
     "",
     `**TOTAL:** ${outputs.length}`,
     "",
-    ...outputs.map((output) => (
-      `${String(output.position).padStart(2, "0")} — ${markdownText(output.focus)} — grupo de fontes ${String(output.sourceArticlePosition).padStart(2, "0")}`
-    )),
+    ...outputs.flatMap((output) => {
+      const line = `${String(output.position).padStart(2, "0")} — ${markdownText(output.focus)}`;
+      if (!output.articlePlan) return [line];
+      return [
+        line,
+        ...(output.articlePlan.workspaceContractVersion === 2 && output.outputId
+          ? [
+              `   - OUTPUT_ID: ${output.outputId}`,
+              ...(output.startingPointSourceId
+                ? [`   - PONTO_DE_PARTIDA: ${output.startingPointSourceId}`]
+                : []),
+            ]
+          : []),
+        `   - Título de trabalho: ${markdownText(output.articlePlan.workingTitle)}`,
+        `   - Género: ${markdownText(output.articlePlan.articleKindLabel)}`,
+        `   - Extensão: ${markdownText(output.articlePlan.lengthModeLabel)}`,
+        `   - Foco editorial: ${output.articlePlan.editorialInstructions
+          ? markdownText(output.articlePlan.editorialInstructions)
+          : "Sem foco adicional."}`,
+        `   - Destino: ${output.articlePlan.destination === "update" ? "UPDATE confirmado pelo utilizador" : "NOVO"}`,
+      ];
+    }),
     "",
-    "> Todos os artigos são saídas editoriais do Dossiê. Quando várias saídas apontam para o mesmo grupo de fontes, podem recorrer ao mesmo conjunto documental, respeitando o foco definido para cada artigo.",
+    ...(outputs.some((output) => output.articlePlan)
+      ? ["> Quando um artigo tem género ou extensão individual, essa indicação do respetivo plano prevalece sobre a indicação geral do pacote.", ""]
+      : []),
+    "> Todos os outputs têm acesso ao conjunto completo de fontes autorizadas desta produção. A utilização efetiva é declarada separadamente em FONTES_UTILIZADAS.",
+    "",
+  ];
+}
+
+function formatMesaV2ProvenanceContract(
+  outputs: readonly EditorialSourcePackageOutputInput[] | undefined,
+): string[] {
+  if (
+    !outputs?.length
+    || outputs.some((output) => (
+      output.articlePlan?.workspaceContractVersion !== 2
+      || output.outputId !== output.articlePlan.articlePlanId
+    ))
+  ) {
+    return [];
+  }
+
+  return [
+    "## CONTRATO DE PROVENIÊNCIA · MESA V2",
+    "",
+    "Este contrato é obrigatório e não admite o formato histórico como alternativa.",
+    "Em cada bloco [JORNADA_ARTIGO_V1], devolva primeiro OUTPUT_ID e FONTES_UTILIZADAS, seguidos dos quatro campos editoriais existentes.",
+    "Use exatamente esta ordem: OUTPUT_ID, FONTES_UTILIZADAS, ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO. Cada rótulo ocupa uma linha isolada.",
+    "OUTPUT_ID deve repetir exatamente o UUID da saída indicada em ARTIGOS A PRODUZIR.",
+    "PONTO_DE_PARTIDA identifica a fonte que fixa o assunto e a âncora principal daquele OUTPUT_ID. Preserve esse assunto no artigo correspondente.",
+    "Pode cruzar qualquer outra fonte autorizada do workspace para completar ou enriquecer o artigo, sem trocar o assunto principal entre OUTPUT_IDs.",
+    "PONTO_DE_PARTIDA não prova utilização e não deve ser copiado automaticamente para FONTES_UTILIZADAS.",
+    "FONTES_UTILIZADAS deve listar, uma por linha, apenas os UUIDs ID DA FONTE dos snapshots efetivamente usados nesse artigo.",
+    "Não liste uma fonte apenas por estar disponível. Não repita IDs, não invente IDs e não use fontes de outro workspace.",
+    "A pesquisa externa pode complementar o texto, mas não entra em FONTES_UTILIZADAS.",
     "",
   ];
 }
@@ -1143,6 +1402,7 @@ function buildEditorialSourcePackageTaskMarkdown(
     ),
     "",
     ...formatEditorialOutputPlan(outputs),
+    ...formatMesaV2ProvenanceContract(outputs),
     "## INSTRUÇÃO DE REDAÇÃO",
     "",
     editorialSourcePackagePrompt(editorial.genre),
@@ -1160,6 +1420,8 @@ export function updateEditorialSourcePackageMarkdown(
     input.markdown.replace(/\r\n?/g, "\n");
   const publishedArticlesMarker =
     "# ARTIGOS PUBLICADOS A ATUALIZAR";
+  const publishedContextMarker =
+    "# CONTEXTO PUBLICADO DISPONÍVEL";
   const sourcesMarker = "# FONTES INTEGRAIS";
 
   const publishedArticlesIndex =
@@ -1168,16 +1430,17 @@ export function updateEditorialSourcePackageMarkdown(
     );
   const sourcesIndex =
     normalizedMarkdown.indexOf(sourcesMarker);
+  const publishedContextIndex =
+    normalizedMarkdown.indexOf(publishedContextMarker);
 
   if (sourcesIndex < 0) {
     return null;
   }
 
-  const preservedIndex =
-    publishedArticlesIndex >= 0
-    && publishedArticlesIndex < sourcesIndex
-      ? publishedArticlesIndex
-      : sourcesIndex;
+  const preservedIndex = Math.min(
+    sourcesIndex,
+    ...[publishedArticlesIndex, publishedContextIndex].filter((index) => index >= 0),
+  );
 
   let sources =
     normalizedMarkdown.slice(preservedIndex);
@@ -1229,6 +1492,8 @@ export function buildEditorialSourcePackageMarkdown(
     outputs?: readonly EditorialSourcePackageOutputInput[];
     publishedArticles?:
       readonly EditorialSourcePackagePublishedArticleSnapshot[];
+    publishedContexts?:
+      readonly EditorialSourcePackagePublishedContextSnapshot[];
   }>,
 ): string {
   const selectedCount = input.entries.length;
@@ -1304,6 +1569,8 @@ export function buildEditorialSourcePackageMarkdown(
     ...(input.publishedArticles?.length
       ? ["---", ""]
       : []),
+    ...formatPublishedContextSnapshots(input.publishedContexts),
+    ...(input.publishedContexts?.length ? ["---", ""] : []),
     "# FONTES INTEGRAIS",
     "",
     `**FONTES SELECIONADAS:** ${selectedCount}`,

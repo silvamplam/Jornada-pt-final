@@ -17,9 +17,11 @@ import {
   type OperationalDeskClassificationRecord,
   type OperationalDeskDossierRecord,
   type OperationalDeskDossierSourceRecord,
+  type OperationalDeskFinalUsageRecord,
   type OperationalDeskLegacyUsageRecord,
   type OperationalDeskPlanAssignmentRecord,
   type OperationalDeskPlanRecord,
+  type OperationalDeskProductionContextRecord,
   type OperationalDeskPublishedArticleRecord,
   type OperationalDeskReadModelInput,
   type OperationalDeskReviewRecord,
@@ -161,7 +163,7 @@ const transport = {
 
   readThemeSources(articleIds: readonly string[]) {
     return readByIds<OperationalDeskThemeSourceRecord>(articleIds, (ids) => (
-      "newsroom_editorial_theme_sources?select=theme_id,newsroom_article_id,reference_snapshot_id"
+      "newsroom_editorial_theme_sources?select=theme_id,newsroom_article_id,reference_snapshot_id,added_at"
       + `&newsroom_article_id=in.(${idList(ids)})`
       + "&order=newsroom_article_id.asc,theme_id.asc"
     ));
@@ -215,6 +217,23 @@ const transport = {
       + "?select=dossier_id,article_plan_id,dossier_source_id"
       + `&dossier_source_id=in.(${idList(ids)})`
       + "&order=dossier_source_id.asc,article_plan_id.asc"
+    ));
+  },
+
+  readFinalUsage(dossierSourceIds: readonly string[]) {
+    return readByIds<OperationalDeskFinalUsageRecord>(dossierSourceIds, (ids) => (
+      "newsroom_mesa_output_source_usage"
+      + "?select=dossier_id,article_plan_id,dossier_source_id,editorial_article_id"
+      + `&dossier_source_id=in.(${idList(ids)})`
+      + "&order=dossier_source_id.asc,article_plan_id.asc"
+    ));
+  },
+
+  readProductionContexts(dossierIds: readonly string[]) {
+    return readByIds<OperationalDeskProductionContextRecord>(dossierIds, (ids) => (
+      "newsroom_mesa_production_contexts"
+      + "?select=dossier_id,theme_id,source_refs,created_at,workspace_role,workspace_contract_version,workspace_state"
+      + `&dossier_id=in.(${idList(ids)})&order=dossier_id.asc`
     ));
   },
 

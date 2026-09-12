@@ -17,17 +17,26 @@ import {
   getSupabaseServiceConfig,
 } from "@/lib/supabase";
 import {
+  linkEditorialDossierArticlePlanPublishedOutput,
+  publishEditorialMesaOutput,
+} from "@/lib/redacao-automatica/editorial-dossier-article-plan-service";
+import {
   markEditorialSourcePackageArticleUsed,
   readEditorialSourcePackage,
 } from "@/lib/redacao-automatica/editorial-source-package";
 import {
   isEditorialSourcePackageLocation,
+  type EditorialSourcePackageArticlePlan,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
   editorialBatchTargetPublicationMode,
   editorialBatchUpdateTargetIssue,
   type EditorialBatchUpdateTarget,
 } from "@/lib/redacao-automatica/editorial-batch-update-target";
+import {
+  validateEditorialMesaOutputProvenance,
+  validateEditorialMesaSingleOutputProvenance,
+} from "@/lib/redacao-automatica/editorial-mesa-provenance";
 
 const MAX_BATCH_ARTICLES = 30;
 const OFFICIAL_BATCH_KEY = /^\d{2}$/;
@@ -35,6 +44,8 @@ const OFFICIAL_BATCH_KEY = /^\d{2}$/;
 type BatchArticlePayload = Readonly<{
   index: number;
   key: string;
+  outputId: string | null;
+  sourceIds: readonly string[];
   label: string;
   title: string;
   subtitle: string;
@@ -131,6 +142,19 @@ async function markSourcePackageUsed(
   return result.ok ? null : result.error.code;
 }
 
+async function linkSourcePackageArticlePlan(
+  reference: EditorialSourcePackageArticlePlan | null | undefined,
+  updateTarget: SourcePackageUpdateTarget | null,
+  editorialArticleId: string,
+): Promise<string | null> {
+  if (!reference) return null;
+  return linkEditorialDossierArticlePlanPublishedOutput({
+    reference,
+    updateTargetEditorialArticleId: updateTarget?.publishedArticleId ?? null,
+    editorialArticleId,
+  });
+}
+
 function parseConfirmedUpdates(
   value: unknown,
 ): ReadonlyMap<string, string> | null {
@@ -191,6 +215,12 @@ function parseArticle(value: unknown, expectedPosition?: number): BatchArticlePa
   const candidate = value as Record<string, unknown>;
   const index = Number(candidate.index);
   const key = cleanText(candidate.key);
+  const rawOutputId = candidate.outputId === null || candidate.outputId === undefined
+    ? null
+    : cleanText(candidate.outputId).toLowerCase();
+  const sourceIds = Array.isArray(candidate.sourceIds)
+    ? candidate.sourceIds.map((value) => cleanText(value).toLowerCase())
+    : [];
   const label = cleanText(candidate.label);
   const title = cleanText(candidate.title);
   const subtitle = cleanText(candidate.subtitle);
@@ -208,8 +238,14 @@ function parseArticle(value: unknown, expectedPosition?: number): BatchArticlePa
   if (!label || !title || !subtitle || !body) {
     return null;
   }
+  if (
+    (rawOutputId !== null && !UUID_PATTERN.test(rawOutputId))
+    || sourceIds.some((sourceId) => !UUID_PATTERN.test(sourceId))
+    || new Set(sourceIds).size !== sourceIds.length
+    || Boolean(rawOutputId) !== Boolean(sourceIds.length)
+  ) return null;
 
-  return { index, key, label, title, subtitle, body };
+  return { index, key, outputId: rawOutputId, sourceIds, label, title, subtitle, body };
 }
 
 function parseBatchArticles(value: unknown) {
@@ -256,6 +292,7 @@ async function sourcePublishedAtByArticle(
 
   const latestPublishedAtBySourceGroup =
     new Map<number, string>();
+  const publishedAtBySourceId = new Map<string, string>();
 
   for (const entry of preparedEntries) {
     const sourcePublishedAt =
@@ -267,6 +304,10 @@ async function sourcePublishedAtByArticle(
 
     if (!sourcePublishedAt) {
       continue;
+    }
+
+    if (entry.provenanceSourceId) {
+      publishedAtBySourceId.set(entry.provenanceSourceId, sourcePublishedAt);
     }
 
     const current =
@@ -320,8 +361,53 @@ async function sourcePublishedAtByArticle(
   return {
     package: sourcePackageResult.value,
     publishedAtByArticle,
+    publishedAtBySourceId,
     updateTargetByArticle,
   };
+}
+
+type SourcePackageArticleContext = Awaited<ReturnType<typeof sourcePublishedAtByArticle>>;
+
+function sourcePackageOutputForArticle(
+  sourceContext: SourcePackageArticleContext,
+  article: BatchArticlePayload,
+) {
+  const manifest = sourceContext.package.manifest;
+  return manifest.version === 5 && article.outputId
+    ? manifest.outputs.find((output) => output.outputId === article.outputId) ?? null
+    : manifest.outputs.find((output) => output.position === article.index) ?? null;
+}
+
+function sourcePackageUpdateTargetForArticle(
+  sourceContext: SourcePackageArticleContext | null,
+  article: BatchArticlePayload,
+): SourcePackageUpdateTarget | null {
+  if (!sourceContext) return null;
+  const output = sourcePackageOutputForArticle(sourceContext, article);
+  return output?.publishedArticleId && output.publishedSlug
+    ? {
+        publishedArticleId: output.publishedArticleId,
+        publishedSlug: output.publishedSlug,
+      }
+    : null;
+}
+
+function sourcePackagePublishedAtForArticle(
+  sourceContext: SourcePackageArticleContext | null,
+  article: BatchArticlePayload,
+): string | null {
+  if (!sourceContext) return null;
+  if (sourceContext.package.manifest.version !== 5) {
+    return sourceContext.publishedAtByArticle.get(article.index) ?? null;
+  }
+  let latest: string | null = null;
+  for (const sourceId of article.sourceIds) {
+    const candidate = sourceContext.publishedAtBySourceId.get(sourceId);
+    if (candidate && (!latest || new Date(candidate).getTime() > new Date(latest).getTime())) {
+      latest = candidate;
+    }
+  }
+  return latest;
 }
 
 async function readExistingArticleBySlug(slug: string) {
@@ -389,7 +475,7 @@ async function prepareBatch(
   author: string,
   matchdayId: string,
   allowUpdates: boolean,
-  updateTargetByArticle: ReadonlyMap<number, SourcePackageUpdateTarget>,
+  sourceContext: SourcePackageArticleContext | null,
 ) {
   const context = await resolveCanonicalArticleContext({ competition_id: null, season_id: null, matchday_id: matchdayId });
   if (!context.matchday_id || context.matchday_id !== matchdayId) {
@@ -400,7 +486,7 @@ async function prepareBatch(
   const prepared: PreparedBatchItem[] = [];
 
   for (const article of articles) {
-    const updateTarget = updateTargetByArticle.get(article.index) ?? null;
+    const updateTarget = sourcePackageUpdateTargetForArticle(sourceContext, article);
     const slug = updateTarget?.publishedSlug
       ?? normalizeEditorialArticleSlug(article.title);
     if (!slug) {
@@ -472,8 +558,7 @@ async function prepareBatch(
 
 function publicationPlan(
   prepared: readonly PreparedBatchItem[],
-  sourcePublishedAt:
-    ReadonlyMap<number, string> | null,
+  sourceContext: SourcePackageArticleContext | null,
   confirmedUpdates:
     ReadonlyMap<string, string>,
 ) {
@@ -506,11 +591,11 @@ function publicationPlan(
       : "create" as const;
   }
 
-  if (sourcePublishedAt) {
+  if (sourceContext) {
     return prepared.map((item) => {
       const publishedAt = item.updateTarget && item.existing
         ? parsePublishedAt(item.existing.published_at)
-        : sourcePublishedAt.get(item.article.index);
+        : sourcePackagePublishedAtForArticle(sourceContext, item.article);
 
       if (!publishedAt) {
         throw new Error(
@@ -704,6 +789,21 @@ async function preflightPublication(payload: BatchPublicationPayload) {
     const sourceContext = sourcePackage
       ? await sourcePublishedAtByArticle(sourcePackage)
       : null;
+    if (sourceContext) {
+      const provenance = validateEditorialMesaOutputProvenance(
+        sourceContext.package.manifest,
+        articles,
+      );
+      if (!provenance.ok) {
+        return jsonError(
+          provenance.code,
+          409,
+          provenance.articleKey
+            ? `A proveniência do artigo ${provenance.articleKey} não pertence a este workspace.`
+            : "A resposta não identifica integralmente os outputs e as fontes desta produção.",
+        );
+      }
+    }
 
     const prepared =
       await prepareBatch(
@@ -711,14 +811,14 @@ async function preflightPublication(payload: BatchPublicationPayload) {
         author,
         matchdayId,
         Boolean(sourcePackage),
-        sourceContext?.updateTargetByArticle ?? new Map(),
+        sourceContext,
       );
 
     return NextResponse.json({
       ok: true,
       items: publicationPlan(
         prepared,
-        sourceContext?.publishedAtByArticle ?? null,
+        sourceContext,
         confirmedUpdates,
       ),
     });
@@ -862,8 +962,11 @@ async function publishItem(payload: BatchPublicationPayload) {
     const sourceContext = sourcePackage
       ? await sourcePublishedAtByArticle(sourcePackage)
       : null;
-    const updateTarget = sourceContext?.updateTargetByArticle.get(article.index)
-      ?? null;
+    const packageOutput = sourceContext
+      ? sourcePackageOutputForArticle(sourceContext, article)
+      : null;
+    const updateTarget = sourcePackageUpdateTargetForArticle(sourceContext, article);
+    const articlePlanReference = packageOutput?.articlePlan ?? null;
     const slug = updateTarget?.publishedSlug
       ?? normalizeEditorialArticleSlug(article.title);
     if (!slug) {
@@ -889,6 +992,110 @@ async function publishItem(payload: BatchPublicationPayload) {
           "Este Dossiê identifica um artigo publicado e não pode criar automaticamente um segundo artigo.",
         );
       }
+    }
+
+    const mesaProvenance = sourceContext
+      ? validateEditorialMesaSingleOutputProvenance(
+          sourceContext.package.manifest,
+          article,
+        )
+      : { ok: true as const, contract: "historical" as const, outputs: [] as const };
+    if (!mesaProvenance.ok) {
+      return jsonError(
+        mesaProvenance.code,
+        409,
+        `A proveniência do artigo ${article.key} não corresponde ao material autorizado desta produção.`,
+      );
+    }
+
+    if (mesaProvenance.contract === "mesa-v2") {
+      const provenance = mesaProvenance.outputs[0];
+      const reference = provenance.output.articlePlan;
+      if (
+        !sourcePackage
+        || !article.outputId
+        || !reference
+        || reference.workspaceContractVersion !== 2
+        || reference.articlePlanId !== article.outputId
+      ) {
+        return jsonError("mesa-v2-provenance-missing", 409);
+      }
+      if (
+        updateTarget
+        && (publicationMode !== "update" || updateArticleId !== updateTarget.publishedArticleId)
+      ) {
+        return jsonError(
+          "dossier-update-target-requires-existing-mode",
+          409,
+          "Este UPDATE continua a exigir a confirmação explícita do utilizador.",
+        );
+      }
+      if (!updateTarget && publicationMode !== "create" && publicationMode !== "resume") {
+        return jsonError("invalid-publication-mode", 409);
+      }
+
+      const atomicArticleId = updateTarget?.publishedArticleId
+        ?? existing?.id
+        ?? crypto.randomUUID();
+      const atomicPublishedAt = updateTarget && existing?.published_at
+        ? parsePublishedAt(existing.published_at) ?? publishedAt
+        : publishedAt;
+      const atomicResult = await publishEditorialMesaOutput({
+        dossierId: reference.dossierId,
+        outputId: article.outputId,
+        packageId: sourcePackage.packageId,
+        dossierSourceIds: article.sourceIds,
+        article: {
+          id: atomicArticleId,
+          slug,
+          label: article.label,
+          title: article.title,
+          subtitle: article.subtitle,
+          body: article.body,
+          imageUrl: imageUrl || existing?.image_url || null,
+          author,
+          publishedAt: atomicPublishedAt,
+          matchdayId,
+          mode: updateTarget ? "update" : "create",
+        },
+      });
+      if (!atomicResult.ok) {
+        const conflict = atomicResult.code.includes("conflict")
+          || atomicResult.code.includes("invalid");
+        return jsonError(
+          atomicResult.code,
+          conflict ? 409 : 502,
+          atomicResult.code === "mesa-publication-provenance-conflict"
+            ? "Este output já foi consolidado com uma proveniência diferente. Nada foi substituído."
+            : "A publicação transacional foi integralmente revertida.",
+        );
+      }
+
+      try {
+        await ensurePublishedArticleInLatest(
+          matchdayId,
+          atomicResult.articleId,
+          { deferGlobalSync: true },
+        );
+      } catch (error) {
+        return NextResponse.json({
+          ok: false,
+          error: "latest-placement-failed",
+          detail: safeDetail(error instanceof Error ? error.message : "Falhou a entrada em Últimas."),
+          published: true,
+          provenance: true,
+          articleId: atomicResult.articleId,
+          slug: atomicResult.slug,
+        }, { status: 502 });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        updated: atomicResult.action === "updated",
+        resumed: atomicResult.action === "reused",
+        articleId: atomicResult.articleId,
+        slug: atomicResult.slug,
+      });
     }
 
     if (publicationMode === "update") {
@@ -977,6 +1184,23 @@ async function publishItem(payload: BatchPublicationPayload) {
         }, { status: 502 });
       }
 
+      const articlePlanLinkError = await linkSourcePackageArticlePlan(
+        articlePlanReference,
+        updateTarget,
+        existing.id,
+      );
+      if (articlePlanLinkError) {
+        return NextResponse.json({
+          ok: false,
+          error: articlePlanLinkError,
+          detail: "O artigo foi atualizado, mas o Article Plan mudou ou não pôde ser ligado ao resultado.",
+          published: true,
+          latest: true,
+          articleId: existing.id,
+          slug: result.slug,
+        }, { status: 409 });
+      }
+
       const usageError =
         await markSourcePackageUsed(
           sourcePackage,
@@ -1039,6 +1263,23 @@ async function publishItem(payload: BatchPublicationPayload) {
           articleId: existing.id,
           slug,
         }, { status: 502 });
+      }
+
+      const articlePlanLinkError = await linkSourcePackageArticlePlan(
+        articlePlanReference,
+        updateTarget,
+        existing.id,
+      );
+      if (articlePlanLinkError) {
+        return NextResponse.json({
+          ok: false,
+          error: articlePlanLinkError,
+          detail: "O artigo já estava publicado, mas o Article Plan mudou ou não pôde ser ligado ao resultado.",
+          published: true,
+          latest: true,
+          articleId: existing.id,
+          slug,
+        }, { status: 409 });
       }
 
       const usageError = await markSourcePackageUsed(
@@ -1108,6 +1349,23 @@ async function publishItem(payload: BatchPublicationPayload) {
         articleId: result.articleId,
         slug: result.slug,
       }, { status: 502 });
+    }
+
+    const articlePlanLinkError = await linkSourcePackageArticlePlan(
+      articlePlanReference,
+      updateTarget,
+      result.articleId,
+    );
+    if (articlePlanLinkError) {
+      return NextResponse.json({
+        ok: false,
+        error: articlePlanLinkError,
+        detail: "O artigo foi publicado, mas o Article Plan mudou ou não pôde ser ligado ao resultado.",
+        published: true,
+        latest: true,
+        articleId: result.articleId,
+        slug: result.slug,
+      }, { status: 409 });
     }
 
     const usageError = await markSourcePackageUsed(

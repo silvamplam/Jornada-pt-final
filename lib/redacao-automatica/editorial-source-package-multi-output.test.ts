@@ -161,18 +161,20 @@ test(
 
     assert.match(
       markdown,
-      /01 — Cronica do jogo — grupo de fontes 01/,
+      /01 — Cronica do jogo/,
     );
 
     assert.match(
       markdown,
-      /02 — Reacoes — grupo de fontes 01/,
+      /02 — Reacoes/,
     );
 
     assert.match(
       markdown,
-      /03 — Arbitragem — grupo de fontes 01/,
+      /03 — Arbitragem/,
     );
+    assert.match(markdown, /Todos os outputs têm acesso ao conjunto completo/);
+    assert.doesNotMatch(markdown, /grupo de fontes/);
 
     assert.match(
       markdown,
@@ -185,6 +187,112 @@ test(
     );
   },
 );
+
+test("pacote Mesa v2 expõe IDs estáveis, proveniência obrigatória e contexto sem inferir UPDATE", () => {
+  const dossierId = "94000000-0000-4000-8000-000000000001";
+  const outputId = "94000000-0000-4000-8000-000000000002";
+  const sourceIdA = "94000000-0000-4000-8000-000000000003";
+  const sourceIdB = "94000000-0000-4000-8000-000000000004";
+  const sourceEntries = entries().map((entry, index) => ({
+    ...entry,
+    provenanceSourceId: index === 0 ? sourceIdA : sourceIdB,
+  }));
+  const markdown = buildEditorialSourcePackageMarkdown({
+    createdAt: "2026-09-12T12:00:00.000Z",
+    editorial: {
+      genre: "news",
+      genreLabel: "Notícia",
+      suggestedTitle: "Produção Mesa",
+      additionalInstructions: null,
+    },
+    entries: sourceEntries,
+    outputs: [{
+      position: 1,
+      outputId,
+      startingPointSourceId: sourceIdA,
+      sourceArticlePosition: 1,
+      focus: "Foco editorial",
+      imageNewsroomArticleId: ARTICLE_A,
+      articlePlan: {
+        dossierId,
+        articlePlanId: outputId,
+        workingTitle: "Título interno",
+        articleKind: "news",
+        articleKindLabel: "Notícia",
+        lengthMode: "standard",
+        lengthModeLabel: "Normal",
+        editorialInstructions: "",
+        destination: "new",
+        workspaceContractVersion: 2,
+        sourceScope: "workspace",
+      },
+    }],
+    publishedContexts: [{
+      publishedArticleId: "94000000-0000-4000-8000-000000000006",
+      publishedSlug: "contexto-anterior",
+      anteTitle: "Contexto",
+      title: "Artigo anterior",
+      postTitle: "Memória editorial",
+      body: "Corpo publicado.",
+    }],
+  });
+
+  assert.match(markdown, new RegExp(`OUTPUT_ID: ${outputId}`));
+  assert.match(markdown, new RegExp(`PONTO_DE_PARTIDA: ${sourceIdA}`));
+  assert.match(markdown, new RegExp(`ID DA FONTE:\\*\\* ${sourceIdA}`));
+  assert.match(markdown, new RegExp(`ID DA FONTE:\\*\\* ${sourceIdB}`));
+  assert.match(markdown, /CONTRATO DE PROVENIÊNCIA · MESA V2/);
+  assert.match(markdown, /OUTPUT_ID e FONTES_UTILIZADAS/);
+  assert.match(markdown, /PONTO_DE_PARTIDA identifica a fonte que fixa o assunto/);
+  assert.match(markdown, /sem trocar o assunto principal entre OUTPUT_IDs/);
+  assert.match(markdown, /não prova utilização/);
+  assert.match(markdown, /apenas os UUIDs ID DA FONTE dos snapshots efetivamente usados/);
+  assert.match(markdown, /CONTEXTO PUBLICADO DISPONÍVEL/);
+  assert.match(markdown, /Não implica UPDATE/);
+
+  const valid = normalizeEditorialSourcePackageCreationOutputs([{
+    position: 1,
+    outputId,
+    startingPointSourceId: sourceIdA,
+    sourceArticlePosition: 1,
+    focus: "Foco editorial",
+    imageNewsroomArticleId: ARTICLE_A,
+    articlePlan: {
+      dossierId,
+      articlePlanId: outputId,
+      workingTitle: "Título interno",
+      articleKind: "news",
+      articleKindLabel: "Notícia",
+      lengthMode: "standard",
+      lengthModeLabel: "Normal",
+      editorialInstructions: "",
+      destination: "new",
+      workspaceContractVersion: 2,
+      sourceScope: "workspace",
+    },
+  }], sourceEntries);
+  assert.equal(valid?.[0].startingPointSourceId, sourceIdA);
+  assert.equal(normalizeEditorialSourcePackageCreationOutputs([{
+    position: 1,
+    outputId,
+    sourceArticlePosition: 1,
+    focus: "Foco editorial",
+    imageNewsroomArticleId: ARTICLE_A,
+    articlePlan: {
+      dossierId,
+      articlePlanId: outputId,
+      workingTitle: "Título interno",
+      articleKind: "news",
+      articleKindLabel: "Notícia",
+      lengthMode: "standard",
+      lengthModeLabel: "Normal",
+      editorialInstructions: "",
+      destination: "new",
+      workspaceContractVersion: 2,
+      sourceScope: "workspace",
+    },
+  }], sourceEntries), null);
+});
 
 test(
   "um Dossie reutilizado transporta integralmente os tres artigos publicados a atualizar",

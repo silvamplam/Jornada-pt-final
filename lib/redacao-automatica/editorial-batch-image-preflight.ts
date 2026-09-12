@@ -234,7 +234,7 @@ export function preflightEditorialBatchImages<
         status: "associated",
         file: null,
         candidates,
-        message: "IMAGEM DO DOSSIÊ ASSOCIADA",
+        message: "IMAGEM DA PRODUÇÃO ASSOCIADA",
         imageUrl: persistedImage.imageUrl,
         fileName: persistedImage.fileName,
       };

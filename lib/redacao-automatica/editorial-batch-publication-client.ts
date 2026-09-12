@@ -1,7 +1,8 @@
+import type { EditorialBatchPreflight } from "./editorial-batch-parser";
 import {
-  preflightEditorialArticleBatch,
-  type EditorialBatchPreflight,
-} from "./editorial-batch-parser";
+  preflightEditorialArticleBatchForSourcePackage,
+  type EditorialBatchTransferSourcePackage,
+} from "./editorial-batch-transfer";
 
 export type EditorialBatchPublicationPlanLike = Readonly<{
   key: string;
@@ -82,6 +83,7 @@ export async function analyseEditorialBatchForPublication<TPlan>({
   imagesReady,
   matchdayId,
   author,
+  sourcePackage,
   callbacks,
 }: Readonly<{
   articleText: string;
@@ -89,9 +91,13 @@ export async function analyseEditorialBatchForPublication<TPlan>({
   imagesReady: boolean;
   matchdayId: string;
   author: string;
+  sourcePackage?: EditorialBatchTransferSourcePackage | null;
   callbacks: AnalyseEditorialBatchCallbacks<TPlan>;
 }>) {
-  const preflight = preflightEditorialArticleBatch(articleText);
+  const preflight = preflightEditorialArticleBatchForSourcePackage(
+    articleText,
+    sourcePackage,
+  );
   callbacks.onLocalPreflight(preflight);
 
   if (!preflight.ready) {

@@ -267,7 +267,7 @@ test("define um ficheiro e uma instrução diferentes para cada género", () => 
 
   for (const genre of ["news", "brief", "analysis", "editorial"] as const) {
     const prompt = editorialSourcePackagePrompt(genre);
-    assert.match(prompt, /Leia integralmente e considere todas as fontes/);
+    assert.match(prompt, /Leia integralmente e considere todo o material disponível da produção/);
     assert.match(prompt, /pesquise sempre fontes externas atuais e credíveis/i);
     assert.match(prompt, /um bloco \[JORNADA_ARTIGO_V1\] por saída editorial/i);
     assert.match(prompt, /Melhore-o ou substitua-o/);

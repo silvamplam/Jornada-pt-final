@@ -22,6 +22,7 @@ import {
   type EditorialDossierWorkspaceArticlePlanTransport,
   type SaveEditorialDossierWorkspaceArticlePlanInput,
 } from "@/lib/redacao-automatica/editorial-dossier-workspace-editor-service-internal";
+import { preflightEditorialArticleBatchForSourcePackage } from "@/lib/redacao-automatica/editorial-batch-transfer";
 
 const dossierId = "00000000-0000-4000-8000-000000000001";
 const sourceId = "00000000-0000-4000-8000-000000000002";
@@ -221,14 +222,183 @@ test("PREPARAR chama só o serviço foundation com snapshot explícito e expõe 
 
 test("workspace recompõe material, PUBLICADAS, planos e imagens só por readers persistentes", () => {
   const page = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/page.tsx");
+  const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
   assert.match(page, /getEditorialDossierById\(dossierId\)/);
   assert.match(page, /listEditorialDossierArticlePlans\(dossierId\)/);
   assert.match(page, /getEditorialDossierProductionWorkspace\(dossierId\)/);
-  assert.match(page, /source\.newsroomSnapshotId/);
-  assert.match(page, /context\.editorialArticleId/);
-  assert.match(page, /candidate\.origin === "newsroom"/);
-  assert.match(page, /candidate\.origin === "published"/);
+  assert.match(route, /newsroomSnapshotId:\s*source\.newsroomSnapshotId/);
+  assert.match(page, /if \(!contextResult\.ok\) return <ReadError \/>/);
+  assert.match(route, /!contextResult\.ok/);
+  assert.match(page, /images=\{production\.images\}/);
+  assert.match(page, /publishedContexts=\{production\.publishedContexts\}/);
   assert.doesNotMatch(page, /sessionStorage|localStorage/);
+});
+
+test("Produção usa um total global e disponibiliza o workspace completo a todos os outputs", () => {
+  const page = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/page.tsx");
+  const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
+
+  assert.match(page, /selection_payload,source_refs,material_refs/);
+  assert.match(client, /Artigos a produzir/);
+  assert.match(client, /aria-label="Número total de artigos a produzir"/);
+  assert.doesNotMatch(client, /Distribuição da produção|NucleusIdentity|nucleusId|Artigos para /);
+  assert.doesNotMatch(page, /buildNuclei|WorkspaceNucleus/);
+  assert.match(client, /action:\s*"update_output_count"/);
+  assert.match(client, /articlePlanIds:\s*visibleCards\.map/);
+  assert.doesNotMatch(client, />Prioridade</);
+  assert.match(client, /priority:\s*card\.position/);
+  assert.match(route, /workingTitle,\s*status:\s*"planned"/);
+  assert.match(route, /status:\s*"planned"/);
+  assert.match(route, /priority:\s*index \+ 1/);
+  assert.match(route, /const technicalSources = includedSources/);
+  assert.match(route, /articleGroup:\s*1/);
+  assert.match(route, /sourceArticlePosition:\s*1/);
+  assert.match(route, /sourceScope:\s*"workspace"/);
+  assert.match(route, /synchronizeEditorialMesaSharedOutputs/);
+  assert.doesNotMatch(route, /setEditorialMesaOutputOrigin|newsroom_mesa_output_origins/);
+  assert.doesNotMatch(client, /activePlanCount\s*<\s*4/);
+});
+
+test("defaults visuais derivam da seleção sem voltar a distribuir fontes por output", () => {
+  const page = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/page.tsx");
+  const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
+  const defaults = read("lib/redacao-automatica/editorial-mesa-workspace-defaults.ts");
+
+  assert.match(defaults, /const selectedNucleusCount = selectedSourceCount \+ selectedMaterialCount/);
+  assert.match(page, /initialOutputCount:\s*editorialMesaWorkspaceInitialOutputCount\(/);
+  assert.match(page, /visualSourceOrder=\{editorialMesaWorkspaceVisualSourceOrder\(/);
+  assert.match(client, /activePlanCount > 0[\s\S]*?dossier\.initialOutputCount/);
+  assert.match(client, /image\.origin === "newsroom"/);
+  assert.match(client, /newsroomImageByArticleId\.get\(source\.newsroomArticleId\)/);
+  assert.match(client, /defaultImageId \? `dossier_image:\$\{defaultImageId\}` : "unselected"/);
+  assert.match(client, /Ponto de partida visual/);
+  assert.match(client, /setCardCapacity\(\(current\) => Math\.max\(current, next\)\)/);
+  assert.match(client, /hidden=\{card\.position > outputCount\}/);
+  assert.doesNotMatch(client, /Distribuição da produção|quantidade por fonte|Artigos para /i);
+  assert.match(route, /sources:\s*technicalSources\.map/);
+  assert.match(route, /sourceScope:\s*"workspace"/);
+  assert.match(route, /editorialMesaWorkspaceStartingPointSourceIds\(/);
+  assert.match(route, /startingPointSourceId:\s*startingPointSourceIds\[index\]/);
+  assert.doesNotMatch(route, /startingPointSourceId:\s*selectedSourceImage/);
+});
+
+test("defaults textuais seguem o ponto de partida sem dar nome editorial ao lote", () => {
+  const page = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/page.tsx");
+  const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const publication = read("app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx");
+  const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
+
+  assert.match(route, /editorialMesaWorkspaceOutputWorkingTitle\(\s*priority,\s*startingPointSourceIds\[priority - 1\]/);
+  assert.match(route, /context\?\.material_refs,[\s\S]*?technicalSources\.map[\s\S]*?\),\s*priority,\s*\)/);
+  assert.match(route, /editorialMesaWorkspaceOutputWorkingTitle\(\s*index \+ 1,\s*startingPointSourceIds\[index\]/);
+  assert.match(route, /focus:\s*\(plan\.editorialInstructions \|\| outputWorkingTitle\)/);
+  assert.match(route, /workingTitle:\s*outputWorkingTitle/);
+  assert.match(route, /suggestedTitle:\s*workspaceContractVersion === 2 \? null : dossier\.title/);
+  assert.match(route, /sources:\s*technicalSources\.map/);
+  assert.doesNotMatch(page, /<small>\{dossier\.title\}<\/small>/);
+  assert.doesNotMatch(
+    page + client + publication,
+    /Nome do lote|Título da produção|<input[^>]+\bname=["'][^"']*(?:batch|production)[^"']*title/i,
+  );
+});
+
+test("colar resposta Mesa v2 usa o package real, fica ready e abre Publicação em lote", () => {
+  const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
+  const publicationClient = read("app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx");
+  const outputIds = [planOneId, planTwoId];
+  const sourceIds = [sourceId, publishedSourceId];
+  const sourcePackage = {
+    year: "2026",
+    month: "09",
+    packageId: dossierId,
+    batchContract: {
+      manifestVersion: 5 as const,
+      provenanceContract: "mesa-v2" as const,
+      workspaceContractVersion: 2 as const,
+      outputIds,
+      sourceIds,
+    },
+  };
+  const article = (position: number) => `[JORNADA_ARTIGO_V1]
+OUTPUT_ID
+${outputIds[position - 1]}
+FONTES_UTILIZADAS
+${sourceIds[position - 1]}
+ANTETÍTULO
+Liga Portugal
+TÍTULO
+Artigo ${position}
+PÓS-TÍTULO
+Pós-título ${position}.
+CORPO
+Corpo ${position}.
+[/JORNADA_ARTIGO_V1]`;
+  const valid = `${article(1)}\n${article(2)}`;
+
+  const preflight = preflightEditorialArticleBatchForSourcePackage(valid, sourcePackage);
+  assert.equal(preflight.ready, true);
+  assert.equal(preflight.total, 2);
+  assert.deepEqual(preflight.articles.map((item) => item.outputId), outputIds);
+  assert.equal(
+    preflightEditorialArticleBatchForSourcePackage(
+      valid.replace(`OUTPUT_ID\n${outputIds[0]}\n`, ""),
+      sourcePackage,
+    ).ready,
+    false,
+  );
+  assert.equal(
+    preflightEditorialArticleBatchForSourcePackage(
+      valid.replace(`FONTES_UTILIZADAS\n${sourceIds[0]}\n`, ""),
+      sourcePackage,
+    ).ready,
+    false,
+  );
+
+  const importStart = client.indexOf("  async function importText(text: string)");
+  const importEnd = client.indexOf("\n  function importPastedResponse", importStart);
+  const importSource = client.slice(importStart, importEnd);
+  assert.ok(importStart >= 0 && importEnd > importStart);
+  assert.match(importSource, /const value = await ensurePackage\(\)/);
+  assert.match(importSource, /preflightEditorialArticleBatchForSourcePackage\(\s*text,\s*value\.sourcePackage/);
+  assert.match(importSource, /if \(!preflight\.ready\)/);
+  assert.match(importSource, /EDITORIAL_BATCH_TRANSFER_STORAGE_KEY/);
+  assert.match(importSource, /window\.location\.assign\("\/admin\/editorial\/redacao-automatica\/publicacao-lote"\)/);
+  assert.match(route, /editorialMesaPackageBatchContract\(manifest\)/);
+  assert.match(route, /batchContract:\s*packageBatchContract\.value/);
+  assert.match(publicationClient, /preflightEditorialArticleBatchForSourcePackage\(articleText, sourcePackage\)/);
+});
+
+test("Produção herda a tipografia da Jornada e não introduz gradientes", () => {
+  const css = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/workspace.module.css");
+  assert.doesNotMatch(css, /linear-gradient\(/);
+  assert.doesNotMatch(css, /font-family:\s*Arial|Helvetica/);
+});
+
+test("Mesa apresenta apenas TEMAS e DOSSIÊS e uniformiza NOVAS/PUBLICADAS no desktop", () => {
+  const organization = read("app/admin/editorial/redacao-automatica/mesa/_mesa-organization-client.tsx");
+  const theme = read("app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/page.tsx");
+  const css = read("app/admin/editorial/redacao-automatica/mesa/mesa.module.css");
+  assert.match(organization, />TEMAS<\/button>/);
+  assert.match(organization, />DOSSIÊS<\/button>/);
+  assert.doesNotMatch(organization + theme, /PRODUÇÕES|preparedProductions|Produção preparada/);
+  assert.match(
+    css,
+    /\.sourcePanel:is\(\[data-lifecycle="new"\], \[data-lifecycle="published"\]\) \.sourceGrid \{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 1260px\)[\s\S]*?\.sourcePanel:is\(\[data-lifecycle="new"\], \[data-lifecycle="published"\]\) \.sourceGrid \{\s*grid-template-columns: 1fr/,
+  );
+});
+
+test("layout compacto conserva Foco largo, três decisões na linha e breakpoint para 390 px", () => {
+  const css = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/workspace.module.css");
+  assert.match(css, /\.planEditor \{[\s\S]*?grid-template-columns: minmax\(360px, 1\.6fr\) minmax\(390px, 1fr\)/);
+  assert.match(css, /\.planEditor \.planFields \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(130px, 1fr\)\)/);
+  assert.match(css, /@media \(max-width: 440px\)[\s\S]*?\.planEditor \.planFields \{\s*grid-template-columns: 1fr/);
 });
 
 test("banco comum reúne origens e upload reutiliza signer e writer da foundation", () => {
@@ -244,19 +414,35 @@ test("banco comum reúne origens e upload reutiliza signer e writer da foundatio
   assert.match(route, /storageBucket:\s*textValue\(payload\?\.bucket\)/);
 });
 
-test("Article Plans separam fontes, contextos, destino, target e decisão de imagem", () => {
+test("Article Plans são automáticos e a UI conserva apenas decisões editoriais", () => {
   const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
-  assert.match(client, /Fontes concretas do Dossiê/);
-  assert.match(client, /A mesma fonte pode sustentar vários Article Plans/);
-  assert.match(client, /PUBLICADAS usadas como contexto/);
-  assert.match(client, /Esta seleção é independente do target de UPDATE/);
-  assert.match(client, /UPDATE nunca é inferido/);
+  assert.doesNotMatch(client, /Mais opções|Título de trabalho|Fontes concretas do Dossiê|PUBLICADAS usadas como contexto/);
+  assert.doesNotMatch(client, /name=\{planField\(cardKey, "status"\)\}|name=\{planField\(cardKey, "source"\)\}/);
+  assert.match(client, /Foco editorial/);
+  assert.match(client, /Género/);
+  assert.match(client, /Extensão/);
+  assert.match(client, /Destino/);
+  assert.match(client, /disabled=\{eligibleTargets\.length === 0\}/);
+  assert.match(client, /Record<"new" \| "update", string>/);
   assert.match(client, /MANTER IMAGEM PUBLICADA/);
   assert.match(client, /destination === "update"/);
+  assert.match(route, /const contexts = workspaceResult\.value\.publishedContexts\.map/);
+  assert.match(route, /sources:\s*technicalSources\.map/);
   assert.match(route, /destination === "new" && rawTarget !== null/);
   assert.match(route, /destination === "update" && !target/);
   assert.match(route, /destination === "new" && selectedImage\.mode === "preserve_published"/);
+});
+
+test("Produção não mostra material/contexto técnico e permite abandono ao nível do workspace", () => {
+  const page = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/page.tsx");
+  const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
+  assert.doesNotMatch(page + client, /MATERIAL E CONTEXTO DA PRODUÇÃO/);
+  assert.match(client, /Abandonar produção/);
+  assert.match(route, /action === "preview_abandon" \|\| action === "abandon_production"/);
+  assert.match(route, /newsroom_preview_abandon_mesa_production_v2/);
+  assert.match(route, /newsroom_abandon_mesa_production_v2/);
 });
 
 test("guardar plano não chama circuito legacy de draft, IA ou Package", () => {

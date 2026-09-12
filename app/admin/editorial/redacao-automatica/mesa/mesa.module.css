@@ -325,7 +325,7 @@
   scrollbar-width: thin;
 }
 
-.sourcePanel[data-lifecycle="new"] .sourceGrid {
+.sourcePanel:is([data-lifecycle="new"], [data-lifecycle="published"]) .sourceGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -977,7 +977,7 @@
     grid-template-columns: minmax(540px, 1.45fr) minmax(330px, 0.9fr);
   }
 
-  .sourcePanel[data-lifecycle="new"] .sourceGrid {
+  .sourcePanel:is([data-lifecycle="new"], [data-lifecycle="published"]) .sourceGrid {
     grid-template-columns: 1fr;
   }
 
@@ -1135,9 +1135,9 @@
 
 /* Compact, keyboard-accessible tabs reuse the existing panel header. */
 .panelHeader nav { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
-.panelHeader nav button { border: 0; border-bottom: 2px solid transparent; padding: 3px 4px; background: transparent; color: #405249; font: inherit; font-size: 0.61rem; font-weight: 800; cursor: pointer; }
-.panelHeader nav button[aria-pressed="true"] { color: #163d25; border-bottom-color: #26824a; }
-.panelHeader nav button:focus-visible { outline: 2px solid #26824a; outline-offset: 2px; }
+.panelHeader nav :is(button, a) { border: 0; border-bottom: 2px solid transparent; padding: 3px 4px; background: transparent; color: #405249; font: inherit; font-size: 0.61rem; font-weight: 800; cursor: pointer; text-decoration: none; }
+.panelHeader nav :is(button[aria-pressed="true"], a[aria-current="page"]) { color: #163d25; border-bottom-color: #26824a; }
+.panelHeader nav :is(button, a):focus-visible { outline: 2px solid #26824a; outline-offset: 2px; }
 
 /* O leitor de um grupo não distribui o histórico pela grelha de duas colunas da Mesa. */
 .dossierReader { display: flex; flex-direction: column; overflow-y: auto; }

@@ -100,11 +100,13 @@ function formatDate(value: string | null): string | null {
 function sumVisibleCount(
   counts: OperationalDeskSourceCounts | null,
   classification: MesaClassificationValue,
+  lifecycle: "new" | "published",
 ): number {
   if (!counts) return 0;
-  if (classification === "all") return counts.novas.total;
-  if (classification === "unclassified") return counts.novas.unclassified;
-  return counts.novas[classification];
+  const universe = lifecycle === "published" ? counts.publicadas : counts.novas;
+  if (classification === "all") return universe.total;
+  if (classification === "unclassified") return universe.unclassified;
+  return universe[classification];
 }
 
 function fixtureClassification(
@@ -838,12 +840,10 @@ function createMesaFixtureReadModel(query: MesaQuery): OperationalDeskReadModelR
       counts: {
         novas: countFor(FIXTURE_SOURCES.filter((item) => (
           sourceIsUnassigned(item)
-          && matchesClassificationFilter(item, query.classification)
           && matchesSourceFilter(item, query.sourceCode)
         ))),
         publicadas: countFor(FIXTURE_SOURCES.filter((item) => (
           item.lifecycle === "published"
-          && matchesClassificationFilter(item, query.classification)
           && matchesSourceFilter(item, query.sourceCode)
         ))),
       },
@@ -905,13 +905,15 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
       catch { organizationError = true; }
     }
   }
-  const inboxItems = sourceResult.ok ? sourceResult.value.sources.filter((item) => sourceIsUnassigned(item)
-    && matchesClassificationFilter(item, query.classification)) : [];
-
   const groupedSourceIds = new Set(organization.groupedSourceIds ?? []);
-  const publishedItems = sourceResult.ok ? sourceResult.value.sources.filter((item) => item.lifecycle === "published"
-    && item.themeMembership.themeIds.length === 0 && !groupedSourceIds.has(item.newsroomArticleId)
-    && matchesClassificationFilter(item, query.classification)) : [];
+  const looseNewItems = sourceResult.ok ? sourceResult.value.sources.filter(sourceIsUnassigned) : [];
+  const loosePublishedItems = sourceResult.ok ? sourceResult.value.sources.filter((item) => (
+    item.lifecycle === "published"
+    && item.themeMembership.themeIds.length === 0
+    && !groupedSourceIds.has(item.newsroomArticleId)
+  )) : [];
+  const inboxItems = looseNewItems.filter((item) => matchesClassificationFilter(item, query.classification));
+  const publishedItems = loosePublishedItems.filter((item) => matchesClassificationFilter(item, query.classification));
 
   const sourceOptions = isFixture
     ? [...new Map(FIXTURE_SOURCES.map((item) => [item.sourceCode, {
@@ -926,7 +928,11 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
   const hasCurrentSource = query.sourceCode
     ? sourceOptions.some((source) => source.code === query.sourceCode)
     : true;
-  const counts = sourceResult.ok ? sourceResult.value.counts : null;
+  const counts = sourceResult.ok ? {
+    novas: countFor(looseNewItems),
+    publicadas: countFor(loosePublishedItems),
+  } : null;
+  const activeLifecycle = query.tab === "publicadas" ? "published" : "new";
 
   return (
     <main className={styles.shell} data-fixture={isFixture ? "visual" : undefined}>
@@ -953,8 +959,13 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
             <div className={styles.heroOperations}>
               <div className={styles.universeCounter} aria-label="Totais da Mesa">
                 <span>
-                  <strong><MesaLiveCount initial={counts?.novas.total ?? 0} lifecycle="new" /></strong>
-                  novas
+                  <strong>
+                    <MesaLiveCount
+                      initial={activeLifecycle === "published" ? counts?.publicadas.total ?? 0 : counts?.novas.total ?? 0}
+                      lifecycle={activeLifecycle}
+                    />
+                  </strong>
+                  {activeLifecycle === "published" ? "publicadas" : "novas"}
                 </span>
                 <span>
                   <strong>{organization.themes.length}</strong>
@@ -979,9 +990,10 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
                     aria-current={query.classificationValue === option.value ? "true" : undefined}
                     className={query.classificationValue === option.value ? styles.classificationActive : undefined}
                   >
-                    <span title="Contador de fontes por encaminhar">{option.label}</span>
+                    <span title={`Contador de fontes ${activeLifecycle === "published" ? "publicadas" : "novas"}`}>{option.label}</span>
                     <MesaLiveCount
-                      initial={sumVisibleCount(counts, option.value)}
+                      initial={sumVisibleCount(counts, option.value, activeLifecycle)}
+                      lifecycle={activeLifecycle}
                       classificationKey={option.value === "all" ? undefined : option.value}
                     />
                   </Link>
@@ -1017,6 +1029,9 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
             {sourceResult.ok ? (
               <section className={styles.sourcesWorkspace}>
                 <MesaLooseSourcesPanel storageKey={`jornada.mesa.fontes.${query.classificationValue}.${query.sourceCode ?? "all"}`}
+                  initialTab={activeLifecycle}
+                  newHref={mesaHref(query, { tab: "novas", page: 1 })}
+                  publishedHref={mesaHref(query, { tab: "publicadas", page: 1 })}
                   newItems={inboxItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} />)}
                   publishedItems={publishedItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} allowDiscard={false} />)} />
                 {organizationError ? <section className={styles.errorState} role="alert">

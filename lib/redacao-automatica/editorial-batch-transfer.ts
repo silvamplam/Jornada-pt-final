@@ -1,3 +1,9 @@
+import {
+  preflightEditorialArticleBatch,
+  preflightEditorialMesaV2ArticleBatch,
+  type EditorialBatchPreflight,
+} from "./editorial-batch-parser";
+
 export const EDITORIAL_BATCH_TRANSFER_STORAGE_KEY =
   "jornada.editorial.batch-transfer.v1";
 
@@ -11,6 +17,15 @@ export type EditorialBatchTransferSourcePackage = Readonly<{
   matchdayId?: string;
   updateArticleCount?: number;
   outputImages?: readonly EditorialBatchTransferOutputImage[];
+  batchContract?: EditorialBatchTransferMesaV2Contract;
+}>;
+
+export type EditorialBatchTransferMesaV2Contract = Readonly<{
+  manifestVersion: 5;
+  provenanceContract: "mesa-v2";
+  workspaceContractVersion: 2;
+  outputIds: readonly string[];
+  sourceIds: readonly string[];
 }>;
 
 export type EditorialBatchTransferOutputImage = Readonly<{
@@ -22,6 +37,34 @@ export type EditorialBatchTransferOutputImage = Readonly<{
 const YEAR_PATTERN = /^\d{4}$/;
 const MONTH_PATTERN = /^(0[1-9]|1[0-2])$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function uuidList(value: unknown, maximum: number): readonly string[] | null {
+  if (!Array.isArray(value) || value.length < 1 || value.length > maximum) return null;
+  const ids = value.map((item) => typeof item === "string" ? item.trim().toLowerCase() : "");
+  return ids.every((id) => UUID_PATTERN.test(id)) && new Set(ids).size === ids.length
+    ? ids
+    : null;
+}
+
+function mesaV2Contract(value: unknown): EditorialBatchTransferMesaV2Contract | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Record<string, unknown>;
+  const outputIds = uuidList(candidate.outputIds, 30);
+  const sourceIds = uuidList(candidate.sourceIds, 20);
+  return candidate.manifestVersion === 5
+    && candidate.provenanceContract === "mesa-v2"
+    && candidate.workspaceContractVersion === 2
+    && outputIds
+    && sourceIds
+    ? {
+        manifestVersion: 5,
+        provenanceContract: "mesa-v2",
+        workspaceContractVersion: 2,
+        outputIds,
+        sourceIds,
+      }
+    : null;
+}
 
 function httpUrl(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) {
@@ -72,9 +115,13 @@ export function parseEditorialBatchTransferSourcePackage(
       parsed.updateArticleCount === undefined
         ? undefined
         : Number(parsed.updateArticleCount);
+    const batchContract = parsed.batchContract === undefined
+      ? undefined
+      : mesaV2Contract(parsed.batchContract);
 
     if (
       (matchdayId !== undefined && !UUID_PATTERN.test(matchdayId))
+      || (parsed.batchContract !== undefined && !batchContract)
       || (
         updateArticleCount !== undefined
         && (
@@ -95,6 +142,7 @@ export function parseEditorialBatchTransferSourcePackage(
       ...(updateArticleCount !== undefined
         ? { updateArticleCount }
         : {}),
+      ...(batchContract ? { batchContract } : {}),
     };
 
     if (parsed.outputImages === undefined) {
@@ -139,4 +187,16 @@ export function parseEditorialBatchTransferSourcePackage(
   } catch {
     return null;
   }
+}
+
+export function preflightEditorialArticleBatchForSourcePackage(
+  input: string,
+  sourcePackage: EditorialBatchTransferSourcePackage | null | undefined,
+): EditorialBatchPreflight {
+  return sourcePackage?.batchContract
+    ? preflightEditorialMesaV2ArticleBatch(input, {
+        outputIds: sourcePackage.batchContract.outputIds,
+        sourceIds: sourcePackage.batchContract.sourceIds,
+      })
+    : preflightEditorialArticleBatch(input);
 }

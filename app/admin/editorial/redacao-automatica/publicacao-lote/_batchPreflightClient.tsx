@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   EDITORIAL_BATCH_ARTICLE_START_MARKER,
-  preflightEditorialArticleBatch,
   type EditorialBatchArticle,
   type EditorialBatchIssue,
   type EditorialBatchPreflight,
@@ -13,6 +12,7 @@ import {
   EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
   EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
   parseEditorialBatchTransferSourcePackage,
+  preflightEditorialArticleBatchForSourcePackage,
   type EditorialBatchTransferSourcePackage,
 } from "@/lib/redacao-automatica/editorial-batch-transfer";
 import {
@@ -248,12 +248,12 @@ function ImageSelectionPanel({
         <div>
           <p className={styles.imageInstructions}>
             {dossierImageCount > 0
-              ? "As escolhas guardadas no Dossiê já estão associadas. Selecione ficheiros locais apenas para as substituir."
+              ? "As imagens escolhidas na Produção já estão associadas. Selecione ficheiros locais apenas para as substituir."
               : "Selecione as imagens de uma vez. O prefixo NN- associa automaticamente; os restantes ficheiros podem ser associados manualmente abaixo."}
           </p>
           <p className={styles.selectedCount}>
             {dossierImageCount > 0
-              ? `${dossierImageCount} do Dossiê · ${selectedImages.length} locais`
+              ? `${dossierImageCount} da Produção · ${selectedImages.length} locais`
               : `Selecionadas: ${selectedImages.length}`}
           </p>
         </div>
@@ -331,7 +331,7 @@ function ImageSelectionPanel({
                       }}
                     >
                       <option value="">
-                        Automática por NN- / Dossiê
+                        Automática por NN- / Produção
                       </option>
 
                       {selectedImages.map((file, index) => {
@@ -860,8 +860,8 @@ export default function BatchPreflightClient({
   const selectedSeason = seasons.find((season) => season.id === seasonId) ?? null;
   const selectedMatchday = matchdays.find((matchday) => matchday.id === matchdayId) ?? null;
   const preflight = useMemo(
-    () => preflightEditorialArticleBatch(articleText),
-    [articleText],
+    () => preflightEditorialArticleBatchForSourcePackage(articleText, sourcePackage),
+    [articleText, sourcePackage],
   );
   const contextComplete = Boolean(
     selectedCompetition
@@ -1093,6 +1093,7 @@ export default function BatchPreflightClient({
         || imagePreflight.ready,
       matchdayId,
       author,
+      sourcePackage,
       callbacks: {
         onLocalPreflight: () => undefined,
         onServerPreflightSkipped: () => undefined,
@@ -1735,7 +1736,7 @@ export default function BatchPreflightClient({
 
           <p className={styles.imageInstructions}>
             Este lote atualiza artigos já publicados. As imagens atualmente
-            publicadas serão mantidas. As imagens guardadas no Dossiê não
+            publicadas serão mantidas. As imagens associadas à Produção não
             substituirão automaticamente nenhuma delas.
           </p>
         </section>

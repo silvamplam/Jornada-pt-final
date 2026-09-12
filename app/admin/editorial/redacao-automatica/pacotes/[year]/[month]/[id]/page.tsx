@@ -9,6 +9,7 @@ import {
 import {
   readEditorialSourcePackage,
 } from "@/lib/redacao-automatica/editorial-source-package";
+import { editorialMesaPackageBatchContract } from "@/lib/redacao-automatica/editorial-mesa-provenance";
 import {
   fetchSupabaseAdminTable,
 } from "@/lib/supabase";
@@ -134,6 +135,8 @@ export default async function SourcePackagePage({
   }
 
   const { manifest } = result.value;
+  const packageBatchContract = editorialMesaPackageBatchContract(manifest);
+  if (packageBatchContract.kind === "invalid") notFound();
 
   const updateArticleCount =
     manifest.outputs.filter(
@@ -376,6 +379,9 @@ export default async function SourcePackagePage({
               year,
               month,
               packageId: id,
+              ...(packageBatchContract.kind === "mesa-v2"
+                ? { batchContract: packageBatchContract.value }
+                : {}),
               ...(updateMatchdayId
                 ? { matchdayId: updateMatchdayId }
                 : {}),

@@ -10,7 +10,14 @@ export type MesaMaterialVersion = Readonly<{
   article_ids: readonly string[]; revision: number; production_dossier_id: string | null; publication_event_id?: string | null; parent_version_id?: string | null;
 }>;
 export type MesaThemeMaterial = Readonly<{ theme_id: string; material_key: string; version_id: string }>;
-export type MesaProductionContext = Readonly<{ dossier_id: string; theme_id: string | null; material_refs: readonly MesaMaterialRef[] }>;
+export type MesaProductionContext = Readonly<{
+  dossier_id: string;
+  theme_id: string | null;
+  material_refs: readonly MesaMaterialRef[];
+  workspace_role?: string | null;
+  workspace_contract_version?: number | null;
+  workspace_state?: string | null;
+}>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const uuid = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 const object = (v: unknown): Record<string, unknown> | null => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : null;
@@ -21,8 +28,11 @@ const used = (v: unknown): v is string => typeof v === "string" && Number.isFini
 export function isMesaMaterialKey(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const parts = value.split(":");
-  return uuid(parts[1]) && (parts[0] === "dossier" ? parts.length === 2
-    : parts[0] === "package" && parts.length === 3 && /^(?:[1-9]|[12][0-9]|30)$/.test(parts[2]));
+  return uuid(parts[1]) && (
+    (parts[0] === "dossier" || parts[0] === "output")
+      ? parts.length === 2
+      : parts[0] === "package" && parts.length === 3 && /^(?:[1-9]|[12][0-9]|30)$/.test(parts[2])
+  );
 }
 
 /** A conflicting version of the same source needs an explicit editorial decision. */
@@ -56,6 +66,9 @@ export function mesaPackageUsage(manifestValue: unknown): readonly MesaPackageUs
   const manifest = object(manifestValue);
   if (!manifest || !uuid(manifest.packageId) || !/^\d{4}$/.test(String(manifest.year))
     || !/^(0[1-9]|1[0-2])$/.test(String(manifest.month)) || !Array.isArray(manifest.entries)) return [];
+  // In Mesa v2, articlePosition/sourceArticlePosition are package layout only.
+  // Publication proof lives exclusively in newsroom_mesa_output_source_usage.
+  if (manifest.version === 5 && manifest.provenanceContract === "mesa-v2") return [];
   const entries = manifest.entries.map(object).filter((row): row is Record<string, unknown> => row !== null);
   const outputs = Array.isArray(manifest.outputs) ? manifest.outputs.map(object).filter((row): row is Record<string, unknown> => row !== null) : [];
   const result = new Map<string, MesaPackageUsage>();
@@ -84,6 +97,7 @@ export function mesaPackageUsage(manifestValue: unknown): readonly MesaPackageUs
 export function recoverMesaPackageGroups(manifestValue: unknown, publishedArticleIds: ReadonlySet<string>): readonly MesaEditorialGroup[] {
   const manifest = object(manifestValue);
   if (!manifest) return [];
+  if (manifest.version === 5 && manifest.provenanceContract === "mesa-v2") return [];
   const usage = mesaPackageUsage(manifest).filter((ref) => publishedArticleIds.has(ref.publishedArticleId));
   const positions = [...new Set(usage.map((ref) => ref.articlePosition))].sort((a, b) => a - b);
   return positions.map((position) => {

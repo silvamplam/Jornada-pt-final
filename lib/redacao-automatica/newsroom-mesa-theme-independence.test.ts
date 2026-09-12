@@ -50,7 +50,7 @@ test("publicação parcial de uma nova produção não aparece como Dossiê cons
     dossierSources:[1,2].map(n=>({dossier_id:id(70),newsroom_article_id:id(n),newsroom_snapshot_id:id(100+n),included:true})),
     publishedLinks:[{dossier_id:id(70),editorial_article_id:id(201)}],
     productionContexts:[{dossier_id:id(70),theme_id:id(10),material_refs:[]}],completedProductionIds:[]},[]);
-  assert.equal(org.availableDossiers?.length,0);assert.equal(org.preparedProductions?.length,1);
+  assert.equal(org.availableDossiers?.length,0);assert.equal("preparedProductions" in org,false);
 });
 test("seleção mista sobrevive ao armazenamento sem alterar snapshots ou chave",()=>{
   const one=selectMesaDossierMaterial(EMPTY_MESA_PREPARATION_BUFFER,selection,()=>id(90));

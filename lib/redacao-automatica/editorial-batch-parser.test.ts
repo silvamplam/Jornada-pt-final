@@ -8,10 +8,13 @@ import {
   EDITORIAL_BATCH_MAX_ARTICLES,
   parseEditorialArticleBatch,
   preflightEditorialArticleBatch,
+  preflightEditorialMesaV2ArticleBatch,
   type EditorialBatchIssueCode,
 } from "./editorial-batch-parser";
 
 type ArticleFixture = Readonly<{
+  outputId?: string;
+  sourceIds?: readonly string[];
   label?: string;
   title?: string;
   subtitle?: string;
@@ -20,6 +23,8 @@ type ArticleFixture = Readonly<{
 }>;
 
 function articleBlock({
+  outputId,
+  sourceIds,
   label = "LIGA PORTUGAL",
   title = "Título do artigo",
   subtitle = "Pós-título do artigo.",
@@ -27,6 +32,8 @@ function articleBlock({
   omit,
 }: ArticleFixture = {}) {
   const lines = [EDITORIAL_BATCH_ARTICLE_START_MARKER];
+  if (outputId !== undefined) lines.push("OUTPUT_ID", outputId);
+  if (sourceIds !== undefined) lines.push("FONTES_UTILIZADAS", sourceIds.join("\n"));
   if (omit !== "label") lines.push("ANTETÍTULO", label);
   if (omit !== "title") lines.push("TÍTULO", title);
   if (omit !== "subtitle") lines.push("PÓS-TÍTULO", subtitle);
@@ -53,6 +60,14 @@ function issueFor(
   return result.issues.find((batchIssue) => batchIssue.code === code);
 }
 
+function mesaV2Preflight(
+  input: string,
+  outputIds: readonly string[],
+  sourceIds: readonly string[],
+) {
+  return preflightEditorialMesaV2ArticleBatch(input, { outputIds, sourceIds });
+}
+
 test("interpreta um artigo válido e pronto para publicação", () => {
   const result = preflightEditorialArticleBatch(articleBlock());
 
@@ -60,6 +75,8 @@ test("interpreta um artigo válido e pronto para publicação", () => {
     articles: [{
       index: 1,
       key: "01",
+      outputId: null,
+      sourceIds: [],
       label: "LIGA PORTUGAL",
       title: "Título do artigo",
       subtitle: "Pós-título do artigo.",
@@ -315,7 +332,91 @@ test("preserva conteúdo sem reescrita, capitalização ou alteração de aspas"
   };
   const result = preflightEditorialArticleBatch(articleBlock(fixture));
 
-  assert.deepEqual(result.articles[0], { index: 1, key: "01", ...fixture });
+  assert.deepEqual(result.articles[0], {
+    index: 1,
+    key: "01",
+    outputId: null,
+    sourceIds: [],
+    ...fixture,
+  });
+});
+
+test("Mesa v2 preserva OUTPUT_ID e dossier_source_id estáveis por output", () => {
+  const outputId = "10000000-0000-4000-8000-000000000001";
+  const sourceIds = [
+    "10000000-0000-4000-8000-000000000101",
+    "10000000-0000-4000-8000-000000000102",
+  ];
+  const result = mesaV2Preflight(articleBlock({ outputId, sourceIds }), [outputId], sourceIds);
+
+  assert.equal(result.ready, true);
+  assert.equal(result.articles[0].outputId, outputId);
+  assert.deepEqual(result.articles[0].sourceIds, sourceIds);
+});
+
+test("proveniência Mesa v2 incompleta, inválida ou duplicada é recusada sem inferência", () => {
+  const outputId = "10000000-0000-4000-8000-000000000001";
+  const sourceId = "10000000-0000-4000-8000-000000000101";
+  const incomplete = mesaV2Preflight(articleBlock({ outputId }), [outputId], [sourceId]);
+  const invalid = mesaV2Preflight(articleBlock({
+    outputId,
+    sourceIds: ["fonte-externa"],
+  }), [outputId], [sourceId]);
+  const duplicate = mesaV2Preflight(articleBlock({
+    outputId,
+    sourceIds: [sourceId, sourceId],
+  }), [outputId], [sourceId]);
+
+  assert.equal(incomplete.ready, false);
+  assert.ok(issueCodes(incomplete).includes("incomplete_provenance"));
+  assert.equal(invalid.ready, false);
+  assert.ok(issueCodes(invalid).includes("invalid_source_id"));
+  assert.equal(duplicate.ready, false);
+  assert.ok(issueCodes(duplicate).includes("duplicate_source_id"));
+});
+
+test("Mesa v2 exige os cabeçalhos de proveniência antes dos quatro campos históricos", () => {
+  const outputId = "10000000-0000-4000-8000-000000000001";
+  const sourceId = "10000000-0000-4000-8000-000000000101";
+  const valid = articleBlock({ outputId, sourceIds: [sourceId] });
+  const wrong = valid.replace(
+    `OUTPUT_ID\n${outputId}\nFONTES_UTILIZADAS\n${sourceId}`,
+    `FONTES_UTILIZADAS\n${sourceId}\nOUTPUT_ID\n${outputId}`,
+  );
+  const result = mesaV2Preflight(wrong, [outputId], [sourceId]);
+  assert.equal(result.ready, false);
+  assert.ok(issueCodes(result).includes("wrong_field_order"));
+});
+
+test("o parser histórico não reinterpreta cabeçalhos Mesa v2", () => {
+  const result = preflightEditorialArticleBatch(articleBlock({
+    outputId: "10000000-0000-4000-8000-000000000001",
+    sourceIds: ["10000000-0000-4000-8000-000000000101"],
+  }));
+  assert.equal(result.ready, false);
+  assert.ok(issueCodes(result).includes("unexpected_block_text"));
+});
+
+test("Mesa v2 exige conjunto exato de outputs e fontes autorizadas", () => {
+  const outputA = "10000000-0000-4000-8000-000000000001";
+  const outputB = "10000000-0000-4000-8000-000000000002";
+  const sourceA = "10000000-0000-4000-8000-000000000101";
+  const sourceB = "10000000-0000-4000-8000-000000000102";
+  const duplicate = mesaV2Preflight([
+    articleBlock({ outputId: outputA, sourceIds: [sourceA], title: "A" }),
+    articleBlock({ outputId: outputA, sourceIds: [sourceB], title: "B" }),
+  ].join("\n"), [outputA, outputB], [sourceA, sourceB]);
+  const external = mesaV2Preflight(
+    articleBlock({ outputId: outputA, sourceIds: ["10000000-0000-4000-8000-000000000999"] }),
+    [outputA],
+    [sourceA],
+  );
+
+  assert.equal(duplicate.ready, false);
+  assert.ok(issueCodes(duplicate).includes("duplicate_output_id"));
+  assert.ok(issueCodes(duplicate).includes("missing_expected_output"));
+  assert.equal(external.ready, false);
+  assert.ok(issueCodes(external).includes("unknown_source_id"));
 });
 
 test("preserva acentos portugueses", () => {

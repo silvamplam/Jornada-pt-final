@@ -394,6 +394,10 @@
   background: #fff;
 }
 
+.planCard[hidden] {
+  display: none;
+}
+
 .planCard[data-destination="update"] {
   box-shadow: inset 4px 0 #a46819;
 }
@@ -650,5 +654,1265 @@
   .planActions {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
+/* Produção editorial compacta: mantém o workspace persistente e reduz o ruído técnico. */
+.shell {
+  padding: 24px 28px 44px;
+  color: #172235;
+  background: #f5f7fa;
+}
+
+.container {
+  width: min(1440px, 100%);
+}
+
+.hero {
+  align-items: center;
+  padding: 0 2px 20px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.heroCopy {
+  min-width: 0;
+}
+
+.hero .breadcrumb {
+  margin-bottom: 12px;
+  color: #6f7d90;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 2.55rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.heroCopy > span {
+  margin-top: 5px;
+  color: #738095;
+  font-size: 0.86rem;
+}
+
+.hero nav {
+  position: relative;
+  align-items: center;
+}
+
+.hero nav .backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid #d7dee8;
+  border-radius: 7px;
+  color: #172235;
+  background: #ffffff;
+  box-shadow: 0 7px 18px rgb(27 47 75 / 6%);
+}
+
+.moreNavigation {
+  position: relative;
+}
+
+.moreNavigation > summary {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid #d7dee8;
+  border-radius: 7px;
+  background: #ffffff;
+  cursor: pointer;
+  list-style: none;
+}
+
+.moreNavigation > summary::-webkit-details-marker {
+  display: none;
+}
+
+.moreNavigation > div {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 12;
+  display: grid;
+  width: 190px;
+  padding: 6px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgb(27 47 75 / 14%);
+}
+
+.moreNavigation > div a {
+  padding: 9px 10px;
+  border: 0;
+  background: transparent;
+}
+
+.alert {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #e9cc91;
+  border-radius: 7px;
+  color: #73510e;
+  font-size: 0.76rem;
+  background: #fff9e9;
+}
+
+.outputCount,
+.articlesSection,
+.materialDetails {
+  border: 1px solid #dce2ea;
+  border-radius: 9px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(35 55 82 / 4%);
+}
+
+.outputCount {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  background: #f5f7f3;
+}
+
+.outputCount label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.outputCount strong {
+  font-size: 1.08rem;
+}
+
+.outputCount input {
+  width: 96px;
+  min-height: 44px;
+  padding: 7px 12px;
+  border: 1px solid #cfd7e2;
+  border-radius: 7px;
+  color: #172235;
+  font-size: 1.12rem;
+  font-weight: 800;
+  background: #ffffff;
+}
+
+.outputCount label > span {
+  color: #788497;
+  font-size: 0.78rem;
+}
+
+.articlesSection {
+  margin-top: 14px;
+  padding: 18px 20px;
+}
+
+.articlesHeader h2 {
+  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.articlesHeader p {
+  margin: 4px 0 0;
+  color: #778397;
+  font-size: 0.76rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.outputIdentity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+}
+
+.outputIdentity > img,
+.outputFallback {
+  width: 52px;
+  height: 45px;
+  flex: 0 0 52px;
+  border: 1px solid #dce3eb;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #eef2f6;
+}
+
+.outputFallback {
+  display: grid;
+  place-items: center;
+  color: #1d5b92;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.outputIdentity > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.outputIdentity strong {
+  overflow: hidden;
+  font-size: 0.77rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+}
+
+.outputIdentity small {
+  overflow: hidden;
+  color: #778397;
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.articlesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 12px;
+}
+
+.imageBankPanel {
+  position: relative;
+}
+
+.imageBankPanel > summary {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.imageBankPanel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.imageBankPanel > summary > span:first-child {
+  display: grid;
+  gap: 3px;
+  text-align: right;
+}
+
+.imageBankPanel > summary strong {
+  font-size: 0.73rem;
+}
+
+.imageBankPanel > summary small {
+  color: #788497;
+  font-size: 0.65rem;
+}
+
+.imageBankPanel > summary > span:last-child {
+  padding: 9px 12px;
+  border: 1px solid #aeb9c8;
+  border-radius: 7px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: #ffffff;
+}
+
+.imageBankBody {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  z-index: 10;
+  width: min(820px, calc(100vw - 72px));
+  padding: 14px;
+  border: 1px solid #d8dfe8;
+  border-radius: 9px;
+  background: #ffffff;
+  box-shadow: 0 22px 50px rgb(21 39 66 / 18%);
+}
+
+.imageBankBody > p {
+  margin: 0;
+  color: #707d91;
+  font-size: 0.7rem;
+}
+
+.imageBank {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.imageBank img {
+  height: 94px;
+}
+
+.imageBank div {
+  padding: 7px;
+}
+
+.imageBank strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planList {
+  gap: 9px;
+  margin-top: 0;
+}
+
+.planCard {
+  display: grid;
+  grid-template-columns: 54px 220px minmax(0, 1fr);
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border-color: #dce2ea;
+  border-radius: 8px;
+  box-shadow: 0 5px 14px rgb(37 58 88 / 4%);
+}
+
+.planCard[data-destination="update"] {
+  box-shadow: inset 4px 0 #3372b5, 0 5px 14px rgb(37 58 88 / 4%);
+}
+
+.articleNumber {
+  display: grid;
+  min-height: 112px;
+  place-items: center;
+  border-right: 1px solid #e4e9ef;
+  color: #1c2b41;
+  font-size: 1.1rem;
+  font-weight: 850;
+}
+
+.planCard > .outputIdentity {
+  min-width: 0;
+  align-content: center;
+  padding: 12px;
+  border-right: 1px solid #e4e9ef;
+}
+
+.planCard > .outputIdentity > img,
+.planCard > .outputIdentity > .outputFallback {
+  width: 58px;
+  height: 58px;
+  flex-basis: 58px;
+}
+
+.planCard form {
+  display: grid;
+  grid-template-columns: minmax(230px, 1.5fr) repeat(3, minmax(105px, 0.55fr));
+  gap: 9px;
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+}
+
+.planFields {
+  display: contents;
+}
+
+.planFields > label:nth-child(1) {
+  grid-column: 1 / 3;
+  grid-row: 2;
+}
+
+.planFields > label:nth-child(2) {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.planFields > label:nth-child(3) {
+  grid-column: 4;
+  grid-row: 2;
+}
+
+.planFields > label:nth-child(4) {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.planFields > label:nth-child(5) {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.planFields > label:nth-child(6) {
+  grid-column: 4;
+  grid-row: 1;
+}
+
+.wideField {
+  grid-column: auto;
+}
+
+.instructionsField {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.planCard label > span,
+.instructionsField > span,
+.targetPanel label > span {
+  color: #5e6b7e;
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.planCard input,
+.planCard select,
+.planCard textarea {
+  min-height: 39px;
+  border-color: #d3dae4;
+  border-radius: 6px;
+  color: #1d293a;
+  font-size: 0.75rem;
+}
+
+.planCard textarea {
+  height: 39px;
+  min-height: 39px;
+  resize: vertical;
+}
+
+.updateHint {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 5px;
+  color: #245b8e;
+  font-size: 0.68rem;
+  background: #edf5fd;
+}
+
+.planOptions,
+.targetPanel,
+.imageChoices,
+.planActions,
+.planCard > form > .commandMessage,
+.srOnly {
+  grid-column: 1 / -1;
+}
+
+.planOptions {
+  border-top: 1px solid #e8ecf1;
+}
+
+.planOptions > summary {
+  width: max-content;
+  padding: 8px 0 2px;
+  color: #5c6b80;
+  font-size: 0.68rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.planOptions > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  padding-top: 7px;
+}
+
+.planCard .planOptions fieldset {
+  padding: 9px;
+}
+
+.choiceList {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.choiceList small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.targetPanel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.7fr);
+  gap: 8px 14px;
+  align-items: end;
+  padding: 9px 10px;
+  border-color: #b9d2eb;
+  background: #f5f9fe;
+}
+
+.targetPanel legend {
+  color: #215b91;
+}
+
+.targetPanel p {
+  margin: 0 0 8px;
+  color: #627187;
+  font-size: 0.66rem;
+}
+
+.imageChoices {
+  padding: 7px 9px 9px;
+}
+
+.imageChoices > div {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.imageChoices > div > label,
+.addImageChoice {
+  position: relative;
+  display: grid;
+  width: 64px;
+  height: 62px;
+  flex: 0 0 64px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #d8dfe8;
+  border-radius: 6px;
+  background: #f1f4f8;
+  cursor: pointer;
+}
+
+.imageChoices > div > label[data-selected="true"] {
+  border: 2px solid #1572d3;
+  box-shadow: 0 0 0 2px rgb(21 114 211 / 12%);
+}
+
+.imageChoices input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  opacity: 0;
+}
+
+.imageChoices img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imageChoices small,
+.addImageChoice small {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  left: 2px;
+  padding: 2px 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  color: #ffffff;
+  font-size: 0.48rem;
+  font-weight: 750;
+  line-height: 1.1;
+  background: rgb(16 26 40 / 68%);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.noImageChoice {
+  color: #6d798b;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.addImageChoice {
+  color: #526177;
+  text-decoration: none;
+}
+
+.addImageChoice > span {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.planActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.planActions button {
+  min-height: 36px;
+  border-radius: 6px;
+}
+
+.materializedState {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 14px;
+}
+
+.materializedState span {
+  color: #5b7b62;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.materializedState strong {
+  font-size: 0.8rem;
+}
+
+.materializedState a {
+  width: max-content;
+  color: #1465a5;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.showMorePlans {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 10px;
+  border: 1px solid #cfd8e3;
+  border-radius: 7px;
+  color: #38506b;
+  font-size: 0.73rem;
+  font-weight: 800;
+  background: #f6f8fb;
+}
+
+.cancelledPlans {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e3e8ee;
+}
+
+.cancelledPlans > summary {
+  color: #6c788a;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.materialDetails {
+  margin-top: 14px;
+}
+
+.materialDetails > summary {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.materialDetails > summary::-webkit-details-marker {
+  display: none;
+}
+
+.materialDetails > summary > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.materialDetails > summary strong {
+  font-size: 0.86rem;
+}
+
+.materialDetails > summary small {
+  color: #768397;
+  font-size: 0.68rem;
+}
+
+.materialGroup {
+  padding: 16px 18px 18px;
+  border-top: 1px solid #e1e6ed;
+}
+
+.materialGroup .sectionHeader {
+  align-items: center;
+}
+
+.materialGroup .sectionHeader h2 {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.sourceList,
+.publishedList {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sourceList > li,
+.publishedList li {
+  grid-template-columns: 86px minmax(0, 1fr);
+  min-height: 90px;
+}
+
+.sourceList > li > img,
+.publishedList img,
+.sourceList > li > .imageFallback,
+.publishedList li > .imageFallback {
+  width: 86px;
+  height: 100%;
+  min-height: 90px;
+  object-fit: cover;
+}
+
+.imageFallback {
+  display: grid;
+  place-items: center;
+  color: #1d5b92;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.65rem;
+  font-weight: 800;
+  background: #edf2f7;
+}
+
+.sourceList > li > div {
+  padding: 10px 11px;
+}
+
+.sourceList header strong,
+.publishedList strong {
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.sourceList header small {
+  color: #7b8798;
+  font-size: 0.62rem;
+}
+
+.snapshotDetails {
+  margin: 6px 0 4px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 1180px) {
+  .planCard {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .planCard > .outputIdentity {
+    border-right: 0;
+  }
+
+  .planCard form,
+  .materializedState {
+    grid-column: 2;
+    border-top: 1px solid #e4e9ef;
+  }
+
+  .articleNumber {
+    grid-row: 1 / 3;
+  }
+}
+
+@media (max-width: 860px) {
+  .shell {
+    padding: 16px 14px 32px;
+  }
+
+  .hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hero nav {
+    justify-content: space-between;
+  }
+
+  .articlesHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .imageBankPanel {
+    width: 100%;
+  }
+
+  .imageBankPanel > summary {
+    justify-content: space-between;
+  }
+
+  .imageBankPanel > summary > span:first-child {
+    text-align: left;
+  }
+
+  .imageBankBody {
+    right: auto;
+    left: 0;
+    width: min(680px, calc(100vw - 54px));
+  }
+
+  .sourceList,
+  .publishedList {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .outputCount,
+  .outputCount label {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .outputCount input {
+    width: 100%;
+  }
+
+  .articlesSection {
+    padding: 14px;
+  }
+
+  .outputIdentity > img,
+  .outputFallback {
+    width: 44px;
+    height: 42px;
+    flex-basis: 44px;
+  }
+
+  .outputIdentity small {
+    white-space: normal;
+  }
+
+  .planCard {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .articleNumber {
+    font-size: 0.85rem;
+  }
+
+  .planCard form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .instructionsField {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .planFields > label:nth-child(4) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .planFields > label:nth-child(5) {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .planFields > label:nth-child(6) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .planFields > label:nth-child(1) {
+    grid-column: 1 / -1;
+    grid-row: 4;
+  }
+
+  .planFields > label:nth-child(2) {
+    grid-column: 1;
+    grid-row: 5;
+  }
+
+  .planFields > label:nth-child(3) {
+    grid-column: 2;
+    grid-row: 5;
+  }
+
+  .planOptions > div,
+  .targetPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .planActions {
+    align-items: stretch;
+  }
+
+  .imageBank {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Ajuste funcional da produção: uma linha compacta por plano e ações globais. */
+.outputCount > label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.outputCount > label > span {
+  color: #788497;
+  font-size: 0.78rem;
+}
+
+.planCard {
+  grid-template-columns: 46px 190px minmax(0, 1fr);
+}
+
+.articleNumber {
+  min-height: 94px;
+}
+
+.planCard > .outputIdentity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  align-items: stretch;
+  gap: 7px;
+  padding: 9px;
+}
+
+.planCard > .outputIdentity > img,
+.planCard > .outputIdentity > .outputFallback {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  flex-basis: auto;
+}
+
+.planCard > .outputIdentity > span {
+  gap: 3px;
+}
+
+.planCard > .outputIdentity small {
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.planEditor {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.6fr) minmax(390px, 1fr);
+  gap: 7px;
+  min-width: 0;
+  padding: 9px;
+}
+
+.planEditor .instructionsField {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.planEditor .planFields {
+  display: grid;
+  grid-column: 2;
+  grid-row: 1;
+  grid-template-columns: repeat(3, minmax(130px, 1fr));
+  gap: 7px;
+}
+
+.planEditor .planFields > label {
+  grid-row: 1;
+}
+
+.planEditor .planFields > label:nth-child(1) {
+  grid-column: 1;
+}
+
+.planEditor .planFields > label:nth-child(2) {
+  grid-column: 2;
+}
+
+.planEditor .planFields > label:nth-child(3) {
+  grid-column: 3;
+}
+
+.planEditor input,
+.planEditor select,
+.planEditor textarea {
+  min-height: 34px;
+  padding: 5px 7px;
+}
+
+.planEditor textarea {
+  height: 34px;
+  min-height: 34px;
+}
+
+.planEditor .updateHint,
+.planEditor .targetPanel,
+.planEditor .imageChoices,
+.planEditor .planOptions,
+.planEditor .srOnly {
+  grid-column: 1 / -1;
+}
+
+.planEditor .updateHint {
+  padding: 5px 8px;
+}
+
+.planEditor .targetPanel {
+  display: block;
+  padding: 7px 9px 8px;
+}
+
+.planEditor .targetPanel label {
+  grid-template-columns: 170px minmax(0, 1fr);
+  align-items: center;
+}
+
+.planEditor .imageChoices {
+  padding: 5px 7px 7px;
+}
+
+.planEditor .imageChoices > div > label,
+.planEditor .addImageChoice {
+  width: 76px;
+  height: 66px;
+  flex-basis: 76px;
+}
+
+.planEditor .planOptions {
+  border-top: 0;
+}
+
+.planEditor .planOptions > summary {
+  padding: 2px 0;
+}
+
+.planOptionsGrid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.3fr) 150px;
+  gap: 7px;
+  padding-top: 6px;
+}
+
+.planOptionsGrid > fieldset {
+  grid-column: 1 / -1;
+}
+
+.productionActions {
+  margin-top: 14px;
+  padding: 16px 18px;
+  border: 1px solid #dce2ea;
+  border-radius: 9px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(35 55 82 / 4%);
+}
+
+.productionActions header h2,
+.productionActions header p {
+  margin: 0;
+}
+
+.productionActions header h2 {
+  font-size: 1.05rem;
+}
+
+.productionActions header p {
+  margin-top: 3px;
+  color: #778397;
+  font-size: 0.72rem;
+}
+
+.productionActionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.productionActionButtons button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #9eabbc;
+  border-radius: 6px;
+  color: #1d293a;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.productionActionButtons .primaryAction {
+  border-color: #176937;
+  color: #ffffff;
+  background: #17763d;
+}
+
+.productionActionButtons button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.responseField {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.responseField > span {
+  color: #344257;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.responseField textarea {
+  width: 100%;
+  min-height: 108px;
+  padding: 9px 10px;
+  resize: vertical;
+  border: 1px solid #cfd7e2;
+  border-radius: 7px;
+  color: #1d293a;
+  font: inherit;
+  font-size: 0.75rem;
+  background: #ffffff;
+}
+
+.productionMessage {
+  margin: 8px 2px 0;
+  color: #5c6879;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.abandonProduction {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+  color: #5c6879;
+  font-size: 0.72rem;
+}
+
+.abandonProduction > div {
+  max-width: 620px;
+  padding: 12px;
+  border: 1px solid #dce2ea;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.abandonProduction p {
+  margin: 0 0 8px;
+}
+
+.abandonProduction button {
+  min-height: 34px;
+  margin-left: 8px;
+  padding: 0 12px;
+  border: 1px solid #cbd3df;
+  border-radius: 6px;
+  background: #fff;
+  color: #36445a;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.cancelledPlans ul {
+  margin: 7px 0 0;
+  color: #6c788a;
+  font-size: 0.7rem;
+}
+
+@media (max-width: 1180px) {
+  .planCard {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .planCard > .outputIdentity {
+    grid-column: 2;
+    width: 190px;
+  }
+
+  .planEditor,
+  .materializedState {
+    grid-column: 2;
+    border-top: 1px solid #e4e9ef;
+  }
+
+  .articleNumber {
+    grid-row: 1 / 3;
+  }
+}
+
+@media (max-width: 760px) {
+  .planCard > .outputIdentity {
+    width: min(100%, 260px);
+  }
+
+  .planEditor {
+    grid-template-columns: 1fr;
+  }
+
+  .planEditor .instructionsField {
+    grid-column: 1 / -1;
+  }
+
+  .planEditor .planFields > label {
+    grid-column: auto !important;
+    grid-row: auto;
+  }
+
+  .planEditor .planFields {
+    grid-column: 1;
+    grid-row: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .planOptionsGrid,
+  .planEditor .targetPanel label {
+    grid-template-columns: 1fr;
+  }
+
+  .productionActionButtons {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 440px) {
+  .outputCount > label {
+    flex-wrap: wrap;
+  }
+
+  .planEditor {
+    grid-template-columns: 1fr;
+  }
+
+  .planEditor .planFields {
+    grid-template-columns: 1fr;
+  }
+
+  .planEditor .instructionsField,
+  .planEditor .planFields > label,
+  .planEditor .updateHint,
+  .planEditor .targetPanel,
+  .planEditor .imageChoices,
+  .planEditor .planOptions {
+    grid-column: 1;
   }
 }

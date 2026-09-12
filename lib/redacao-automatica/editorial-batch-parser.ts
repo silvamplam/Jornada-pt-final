@@ -1,12 +1,16 @@
 export const EDITORIAL_BATCH_ARTICLE_START_MARKER = "[JORNADA_ARTIGO_V1]";
 export const EDITORIAL_BATCH_ARTICLE_END_MARKER = "[/JORNADA_ARTIGO_V1]";
 export const EDITORIAL_BATCH_MAX_ARTICLES = 30;
+export const EDITORIAL_BATCH_PROVENANCE_OUTPUT_HEADING = "OUTPUT_ID";
+export const EDITORIAL_BATCH_PROVENANCE_SOURCES_HEADING = "FONTES_UTILIZADAS";
 
 export type EditorialBatchArticleField = "label" | "title" | "subtitle" | "body";
 
 export type EditorialBatchArticle = Readonly<{
   index: number;
   key: string;
+  outputId: string | null;
+  sourceIds: readonly string[];
   label: string;
   title: string;
   subtitle: string;
@@ -29,6 +33,16 @@ export type EditorialBatchIssueCode =
   | "empty_title"
   | "empty_subtitle"
   | "empty_body"
+  | "incomplete_provenance"
+  | "invalid_output_id"
+  | "missing_source_id"
+  | "invalid_source_id"
+  | "duplicate_source_id"
+  | "invalid_mesa_v2_contract"
+  | "unknown_output_id"
+  | "duplicate_output_id"
+  | "missing_expected_output"
+  | "unknown_source_id"
   | "duplicate_title";
 
 export type EditorialBatchIssue = Readonly<{
@@ -91,6 +105,30 @@ const EMPTY_CODE_BY_FIELD: Readonly<
   body: "empty_body",
 };
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type ProvenanceField = "outputId" | "sourceIds";
+type CapturedField = EditorialBatchArticleField | ProvenanceField;
+type EditorialBatchParserContract = "historical" | "mesa-v2";
+
+export type EditorialBatchMesaV2PreflightContract = Readonly<{
+  outputIds: readonly string[];
+  sourceIds: readonly string[];
+}>;
+
+const PROVENANCE_FIELD_BY_HEADING: Readonly<Record<string, ProvenanceField>> = {
+  [EDITORIAL_BATCH_PROVENANCE_OUTPUT_HEADING]: "outputId",
+  [EDITORIAL_BATCH_PROVENANCE_SOURCES_HEADING]: "sourceIds",
+};
+
+function parseSourceIds(lines: readonly string[]): readonly string[] {
+  return lines
+    .flatMap((line) => line.split(/[\s,;]+/u))
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 function batchKey(index: number) {
   return String(index).padStart(2, "0");
 }
@@ -143,7 +181,10 @@ function withoutStructuralBoundaryLines(lines: readonly string[]) {
   return lines.slice(start, end).join("\n");
 }
 
-function parseCapturedBlock(block: CapturedArticleBlock) {
+function parseCapturedBlock(
+  block: CapturedArticleBlock,
+  contract: EditorialBatchParserContract,
+) {
   const values: Record<EditorialBatchArticleField, string[]> = {
     label: [],
     title: [],
@@ -158,15 +199,46 @@ function parseCapturedBlock(block: CapturedArticleBlock) {
     body: 0,
   };
   const issues: EditorialBatchIssue[] = [];
-  let currentField: EditorialBatchArticleField | null = null;
+  const provenanceValues: Record<ProvenanceField, string[]> = {
+    outputId: [],
+    sourceIds: [],
+  };
+  const provenanceSequence: ProvenanceField[] = [];
+  const provenanceCounts: Record<ProvenanceField, number> = {
+    outputId: 0,
+    sourceIds: 0,
+  };
+  const capturedSequence: CapturedField[] = [];
+  let currentField: CapturedField | null = null;
   let bodyStarted = false;
   let hasUnexpectedText = false;
 
   for (const line of block.lines) {
-    const heading = bodyStarted ? null : FIELD_BY_HEADING[line.trim()] ?? null;
+    const structuralHeading = line.trim();
+    const detectedProvenanceHeading = bodyStarted
+      ? null
+      : PROVENANCE_FIELD_BY_HEADING[structuralHeading] ?? null;
+    if (contract === "historical" && detectedProvenanceHeading) {
+      hasUnexpectedText = true;
+      currentField = null;
+      continue;
+    }
+    const provenanceHeading = contract === "mesa-v2"
+      ? detectedProvenanceHeading
+      : null;
+    const heading = bodyStarted ? null : FIELD_BY_HEADING[structuralHeading] ?? null;
+
+    if (provenanceHeading) {
+      provenanceSequence.push(provenanceHeading);
+      capturedSequence.push(provenanceHeading);
+      provenanceCounts[provenanceHeading] += 1;
+      currentField = provenanceHeading;
+      continue;
+    }
 
     if (heading) {
       headingSequence.push(heading);
+      capturedSequence.push(heading);
       headingCounts[heading] += 1;
       currentField = heading;
       if (heading === "body") {
@@ -176,10 +248,50 @@ function parseCapturedBlock(block: CapturedArticleBlock) {
     }
 
     if (currentField) {
-      values[currentField].push(line);
+      if (currentField === "outputId" || currentField === "sourceIds") {
+        provenanceValues[currentField].push(line);
+      } else {
+        values[currentField].push(line);
+      }
     } else if (line.trim() !== "") {
       hasUnexpectedText = true;
     }
+  }
+
+  const hasAnyProvenanceHeading = provenanceCounts.outputId > 0
+    || provenanceCounts.sourceIds > 0;
+  const hasCompleteProvenanceHeadings = provenanceCounts.outputId === 1
+    && provenanceCounts.sourceIds === 1;
+
+  if ((contract === "mesa-v2" || hasAnyProvenanceHeading) && !hasCompleteProvenanceHeadings) {
+    issues.push(indexedIssue(
+      block,
+      "incomplete_provenance",
+      `O artigo ${block.key} tem proveniência incompleta: OUTPUT_ID e FONTES_UTILIZADAS são inseparáveis.`,
+    ));
+  }
+  if (provenanceCounts.outputId > 1 || provenanceCounts.sourceIds > 1) {
+    issues.push(indexedIssue(
+      block,
+      "incomplete_provenance",
+      `O artigo ${block.key} repete um cabeçalho de proveniência.`,
+    ));
+  }
+  if (
+    hasCompleteProvenanceHeadings
+    && (
+      provenanceSequence[0] !== "outputId"
+      || provenanceSequence[1] !== "sourceIds"
+      || capturedSequence.some((field, index) => (
+        field !== (["outputId", "sourceIds", ...FIELD_ORDER] as const)[index]
+      ))
+    )
+  ) {
+    issues.push(indexedIssue(
+      block,
+      "wrong_field_order",
+      `Os cabeçalhos de proveniência do artigo ${block.key} não estão na ordem obrigatória.`,
+    ));
   }
 
   if (hasUnexpectedText) {
@@ -224,10 +336,52 @@ function parseCapturedBlock(block: CapturedArticleBlock) {
     return { article: null, issues } as const;
   }
 
+  const outputId = withoutStructuralBoundaryLines(provenanceValues.outputId)
+    .trim()
+    .toLowerCase();
+  const sourceIds = parseSourceIds(provenanceValues.sourceIds);
+
+  if (hasCompleteProvenanceHeadings) {
+    if (!UUID_PATTERN.test(outputId)) {
+      issues.push(indexedIssue(
+        block,
+        "invalid_output_id",
+        `O OUTPUT_ID do artigo ${block.key} não é um UUID válido.`,
+      ));
+    }
+    if (sourceIds.length === 0) {
+      issues.push(indexedIssue(
+        block,
+        "missing_source_id",
+        `O artigo ${block.key} não identifica nenhuma fonte utilizada.`,
+      ));
+    }
+    if (sourceIds.some((sourceId) => !UUID_PATTERN.test(sourceId))) {
+      issues.push(indexedIssue(
+        block,
+        "invalid_source_id",
+        `FONTES_UTILIZADAS do artigo ${block.key} contém um UUID inválido.`,
+      ));
+    }
+    if (new Set(sourceIds).size !== sourceIds.length) {
+      issues.push(indexedIssue(
+        block,
+        "duplicate_source_id",
+        `FONTES_UTILIZADAS do artigo ${block.key} repete uma fonte.`,
+      ));
+    }
+  }
+
+  if (issues.length > 0) {
+    return { article: null, issues } as const;
+  }
+
   return {
     article: {
       index: block.index,
       key: block.key,
+      outputId: hasCompleteProvenanceHeadings ? outputId : null,
+      sourceIds: hasCompleteProvenanceHeadings ? sourceIds : [],
       label: withoutStructuralBoundaryLines(values.label),
       title: withoutStructuralBoundaryLines(values.title),
       subtitle: withoutStructuralBoundaryLines(values.subtitle),
@@ -237,7 +391,10 @@ function parseCapturedBlock(block: CapturedArticleBlock) {
   } as const;
 }
 
-export function parseEditorialArticleBatch(input: string): EditorialBatchParseResult {
+function parseEditorialArticleBatchWithContract(
+  input: string,
+  contract: EditorialBatchParserContract,
+): EditorialBatchParseResult {
   const normalizedInput = normalizeLineEndings(input);
   if (normalizedInput.trim() === "") {
     return {
@@ -334,7 +491,7 @@ export function parseEditorialArticleBatch(input: string): EditorialBatchParseRe
 
   const candidates: EditorialBatchArticle[] = [];
   for (const block of blocks) {
-    const parsedBlock = parseCapturedBlock(block);
+    const parsedBlock = parseCapturedBlock(block, contract);
     issues.push(...parsedBlock.issues);
     if (parsedBlock.article) {
       candidates.push(parsedBlock.article);
@@ -354,13 +511,19 @@ export function parseEditorialArticleBatch(input: string): EditorialBatchParseRe
   };
 }
 
+export function parseEditorialArticleBatch(input: string): EditorialBatchParseResult {
+  return parseEditorialArticleBatchWithContract(input, "historical");
+}
+
 function comparableTitle(value: string) {
   return value.trim().replace(/\s+/gu, " ");
 }
 
-export function preflightEditorialArticleBatch(input: string): EditorialBatchPreflight {
-  const parsed = parseEditorialArticleBatch(input);
-  const issues = [...parsed.issues];
+function preflightEditorialArticleBatchResult(
+  parsed: EditorialBatchParseResult,
+  additionalIssues: readonly EditorialBatchIssue[] = [],
+): EditorialBatchPreflight {
+  const issues = [...parsed.issues, ...additionalIssues];
   const firstArticleByTitle = new Map<string, EditorialBatchArticle>();
 
   for (const article of parsed.articles) {
@@ -419,4 +582,73 @@ export function preflightEditorialArticleBatch(input: string): EditorialBatchPre
       && parsed.total <= EDITORIAL_BATCH_MAX_ARTICLES
       && !hasErrors,
   };
+}
+
+export function preflightEditorialArticleBatch(input: string): EditorialBatchPreflight {
+  return preflightEditorialArticleBatchResult(
+    parseEditorialArticleBatchWithContract(input, "historical"),
+  );
+}
+
+export function preflightEditorialMesaV2ArticleBatch(
+  input: string,
+  contract: EditorialBatchMesaV2PreflightContract,
+): EditorialBatchPreflight {
+  const parsed = parseEditorialArticleBatchWithContract(input, "mesa-v2");
+  const additionalIssues: EditorialBatchIssue[] = [];
+  const outputIds = contract.outputIds.map((value) => value.trim().toLowerCase());
+  const sourceIds = contract.sourceIds.map((value) => value.trim().toLowerCase());
+  const expectedOutputIds = new Set(outputIds);
+  const authorizedSourceIds = new Set(sourceIds);
+
+  if (
+    outputIds.length < 1
+    || sourceIds.length < 1
+    || outputIds.some((value) => !UUID_PATTERN.test(value))
+    || sourceIds.some((value) => !UUID_PATTERN.test(value))
+    || expectedOutputIds.size !== outputIds.length
+    || authorizedSourceIds.size !== sourceIds.length
+  ) {
+    additionalIssues.push(issue(
+      "invalid_mesa_v2_contract",
+      "O pacote Mesa v2 não contém um contrato de outputs e fontes válido.",
+    ));
+    return preflightEditorialArticleBatchResult(parsed, additionalIssues);
+  }
+
+  const seenOutputIds = new Set<string>();
+  for (const article of parsed.articles) {
+    if (!article.outputId) continue;
+    if (!expectedOutputIds.has(article.outputId)) {
+      additionalIssues.push(indexedIssue(
+        article,
+        "unknown_output_id",
+        `O OUTPUT_ID do artigo ${article.key} não pertence a este pacote.`,
+      ));
+    } else if (seenOutputIds.has(article.outputId)) {
+      additionalIssues.push(indexedIssue(
+        article,
+        "duplicate_output_id",
+        `O OUTPUT_ID do artigo ${article.key} já foi usado noutro bloco.`,
+      ));
+    } else {
+      seenOutputIds.add(article.outputId);
+    }
+    if (article.sourceIds.some((sourceId) => !authorizedSourceIds.has(sourceId))) {
+      additionalIssues.push(indexedIssue(
+        article,
+        "unknown_source_id",
+        `FONTES_UTILIZADAS do artigo ${article.key} refere material externo a este workspace.`,
+      ));
+    }
+  }
+
+  if ([...expectedOutputIds].some((outputId) => !seenOutputIds.has(outputId))) {
+    additionalIssues.push(issue(
+      "missing_expected_output",
+      "A resposta não contém exatamente uma vez todos os OUTPUT_ID esperados.",
+    ));
+  }
+
+  return preflightEditorialArticleBatchResult(parsed, additionalIssues);
 }

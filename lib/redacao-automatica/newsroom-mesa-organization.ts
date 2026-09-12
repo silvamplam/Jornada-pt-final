@@ -46,7 +46,7 @@ export async function readMesaOrganizationRecords(): Promise<MesaOrganizationRec
     readMesaRows<{ id: string; manifest: unknown }>("newsroom_editorial_source_packages?select=id,manifest&order=id.asc"),
     readMesaRows<MesaMaterialVersion>("newsroom_mesa_material_versions?select=id,material_key,title,source_refs,article_ids,revision,production_dossier_id,publication_event_id,parent_version_id&order=revision.asc"),
     readMesaRows<MesaThemeMaterial>("newsroom_mesa_theme_materials?select=theme_id,material_key,version_id&order=theme_id.asc,material_key.asc"),
-    readMesaRows<MesaProductionContext>("newsroom_mesa_production_contexts?select=dossier_id,theme_id,material_refs&order=dossier_id.asc"),
+    readMesaRows<MesaProductionContext>("newsroom_mesa_production_contexts?select=dossier_id,theme_id,material_refs,workspace_role,workspace_contract_version,workspace_state&order=dossier_id.asc"),
     readMesaRows<{ dossier_id: string }>("newsroom_mesa_publication_events?select=dossier_id&order=created_at.asc,id.asc"),
   ]);
   const published = new Set((await readMesaRowsByIds<{ id: string }>([

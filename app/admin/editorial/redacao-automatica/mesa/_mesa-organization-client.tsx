@@ -110,7 +110,6 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
       <nav aria-label="Organização editorial">
         <button type="button" aria-pressed={tab === "themes"} onClick={() => setTab("themes")}>TEMAS</button>
         <button type="button" aria-pressed={tab === "dossiers"} onClick={() => setTab("dossiers")}>DOSSIÊS</button>
-        <button type="button" aria-pressed={tab === "productions"} onClick={() => setTab("productions")}>PRODUÇÕES</button>
       </nav>
       <select aria-label="Temas visíveis" value={status} onChange={(event) => setStatus(event.target.value)}>
         <option value="open">Abertos</option><option value="archived">Arquivados</option><option value="all">Todos</option>
@@ -132,22 +131,23 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
           <span className={styles.unlinkedLabel}>{card.themeIds?.length ? `${card.themeIds.length} Temas · associação não exclusiva` : "Dossiê sem Tema"}</span>
           <MesaDossierCardView card={card} themes={organization.themes} fixtureMode={fixtureMode} />
         </li>) : []),
-        ...(tab === "productions" ? (organization.preparedProductions ?? []).map((card) => <li key={`production:${card.id}`} className={styles.organizationItem}>
-          <span className={styles.unlinkedLabel}>Produção preparada · versões conservadas</span>
-          <MesaDossierCardView card={{ ...card, material: undefined }} fixtureMode={fixtureMode} />
-        </li>) : []),
       ]} />
   </section>;
 }
 
-export function MesaLooseSourcesPanel({ newItems, publishedItems, storageKey }: Readonly<{
-  newItems: readonly ReactNode[]; publishedItems: readonly ReactNode[]; storageKey: string;
+export function MesaLooseSourcesPanel({ newItems, publishedItems, storageKey, initialTab, newHref, publishedHref }: Readonly<{
+  newItems: readonly ReactNode[];
+  publishedItems: readonly ReactNode[];
+  storageKey: string;
+  initialTab: "new" | "published";
+  newHref: string;
+  publishedHref: string;
 }>) {
-  const [tab, setTab] = useState("new");
+  const tab = initialTab;
   return <section className={styles.sourcePanel} data-lifecycle={tab}>
     <header className={styles.panelHeader}><nav aria-label="Fontes avulsas">
-      <button type="button" aria-pressed={tab === "new"} onClick={() => setTab("new")}>NOVAS ({newItems.length})</button>
-      <button type="button" aria-pressed={tab === "published"} onClick={() => setTab("published")}>PUBLICADAS ({publishedItems.length})</button>
+      <Link href={newHref} aria-current={tab === "new" ? "page" : undefined}>NOVAS ({newItems.length})</Link>
+      <Link href={publishedHref} aria-current={tab === "published" ? "page" : undefined}>PUBLICADAS ({publishedItems.length})</Link>
     </nav></header>
     <MesaSourceWindow key={tab} storageKey={`${storageKey}.${tab}`}
       empty={tab === "new" ? "Sem fontes por encaminhar neste filtro." : "Sem fontes publicadas avulsas neste filtro."}

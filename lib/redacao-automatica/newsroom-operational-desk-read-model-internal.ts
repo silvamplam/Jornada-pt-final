@@ -182,6 +182,7 @@ export type OperationalDeskThemeSourceRecord = Readonly<{
   theme_id: string;
   newsroom_article_id: string;
   reference_snapshot_id?: string | null;
+  added_at?: string | null;
 }>;
 
 export type OperationalDeskDossierSourceRecord = Readonly<{
@@ -202,6 +203,23 @@ export type OperationalDeskPlanRecord = Readonly<{
   id: string;
   dossier_id: string;
   editorial_article_id: string | null;
+}>;
+
+export type OperationalDeskFinalUsageRecord = Readonly<{
+  dossier_id: string;
+  article_plan_id: string;
+  dossier_source_id: string;
+  editorial_article_id: string;
+}>;
+
+export type OperationalDeskProductionContextRecord = Readonly<{
+  dossier_id: string;
+  theme_id: string | null;
+  source_refs: unknown;
+  created_at: string;
+  workspace_role: string | null;
+  workspace_contract_version: number | null;
+  workspace_state: string | null;
 }>;
 
 export type OperationalDeskDossierRecord = Readonly<{
@@ -239,6 +257,8 @@ export interface OperationalDeskReadTransport {
   readLegacyUsage(articleIds: readonly string[]): Promise<readonly OperationalDeskLegacyUsageRecord[]>;
   readDossierSources(articleIds: readonly string[]): Promise<readonly OperationalDeskDossierSourceRecord[]>;
   readPlanAssignments(dossierSourceIds: readonly string[]): Promise<readonly OperationalDeskPlanAssignmentRecord[]>;
+  readFinalUsage?(dossierSourceIds: readonly string[]): Promise<readonly OperationalDeskFinalUsageRecord[]>;
+  readProductionContexts?(dossierIds: readonly string[]): Promise<readonly OperationalDeskProductionContextRecord[]>;
   readPlans(planIds: readonly string[]): Promise<readonly OperationalDeskPlanRecord[]>;
   readDossiers(dossierIds: readonly string[]): Promise<readonly OperationalDeskDossierRecord[]>;
   readPublishedArticles(articleIds: readonly string[]): Promise<readonly OperationalDeskPublishedArticleRecord[]>;
@@ -467,11 +487,16 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
         (row) => row.newsroom_article_id,
       );
       const dossierSourceById = uniqueBy(dossierSources, (row) => row.id);
-      const assignments = await transport.readPlanAssignments(
-        dossierSources.map((row) => row.id),
-      );
+      const [assignments, finalUsage, productionContexts] = await Promise.all([
+        transport.readPlanAssignments(dossierSources.map((row) => row.id)),
+        transport.readFinalUsage?.(dossierSources.map((row) => row.id)) ?? Promise.resolve([]),
+        transport.readProductionContexts?.(idsFor(dossierSources, (row) => row.dossier_id)) ?? Promise.resolve([]),
+      ]);
       const [plans, dossiers] = await Promise.all([
-        transport.readPlans(idsFor(assignments, (row) => row.article_plan_id)),
+        transport.readPlans([...new Set([
+          ...idsFor(assignments, (row) => row.article_plan_id),
+          ...idsFor(finalUsage, (row) => row.article_plan_id),
+        ])]),
         transport.readDossiers(idsFor(dossierSources, (row) => row.dossier_id)),
       ]);
       const planById = uniqueBy(plans, (row) => row.id);
@@ -479,6 +504,7 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
       const publishedArticles = await transport.readPublishedArticles(
         [...new Set([
           ...idsFor(plans, (row) => row.editorial_article_id),
+          ...idsFor(finalUsage, (row) => row.editorial_article_id),
           ...idsFor(legacyUsage, (row) => row.published_article_id),
         ])],
       );
@@ -506,6 +532,22 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
         if (!articleIds.includes(row.newsroom_article_id) || !isUuid(row.theme_id)) {
           throw new OperationalDeskRelationInvalidError();
         }
+      }
+      for (const row of finalUsage) {
+        const source = dossierSourceById.get(row.dossier_source_id);
+        if (
+          !source
+          || source.dossier_id !== row.dossier_id
+          || !isUuid(row.article_plan_id)
+          || !isUuid(row.editorial_article_id)
+        ) throw new OperationalDeskRelationInvalidError();
+      }
+      for (const row of productionContexts) {
+        if (
+          !isUuid(row.dossier_id)
+          || (row.theme_id !== null && !isUuid(row.theme_id))
+          || !validDate(row.created_at)
+        ) throw new OperationalDeskRelationInvalidError();
       }
       for (const row of legacyUsage) {
         if (
@@ -552,12 +594,52 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
         ) throw new OperationalDeskRelationInvalidError();
       }
 
+      const publishedDossierIds = new Set([
+        ...finalUsage.flatMap((usage) => (
+          publishedById.has(usage.editorial_article_id) ? [usage.dossier_id] : []
+        )),
+        ...plans.flatMap((plan) => (
+          plan.editorial_article_id && publishedById.has(plan.editorial_article_id)
+            ? [plan.dossier_id]
+            : []
+        )),
+      ]);
+      const technicalDossierIds = new Set(productionContexts.flatMap((context) => (
+        context.workspace_role === "technical"
+        || context.workspace_contract_version === 2
+        || !publishedDossierIds.has(context.dossier_id)
+          ? [context.dossier_id]
+          : []
+      )));
+      const hiddenPreparationThemeMemberships = new Set<string>();
+      for (const context of productionContexts) {
+        if (!context.theme_id || context.workspace_state === "abandoned") continue;
+        const refs = Array.isArray(context.source_refs) ? context.source_refs : [];
+        for (const rawRef of refs) {
+          const ref = jsonObject(rawRef);
+          const articleId = typeof ref.newsroomArticleId === "string"
+            ? ref.newsroomArticleId.toLowerCase()
+            : "";
+          const membership = themeSources.find((candidate) => (
+            candidate.theme_id === context.theme_id
+            && candidate.newsroom_article_id === articleId
+            && candidate.added_at === context.created_at
+          ));
+          if (membership) hiddenPreparationThemeMemberships.add(`${membership.theme_id}:${articleId}`);
+        }
+      }
+
       const items = records.flatMap((row): OperationalDeskSourceItem[] => {
         const snapshot = snapshotByArticle.get(row.id) ?? null;
         const review = reviewByArticle.get(row.id) ?? null;
-        const memberships = themeSources.filter((member) => member.newsroom_article_id === row.id);
+        const memberships = themeSources.filter((member) => (
+          member.newsroom_article_id === row.id
+          && !hiddenPreparationThemeMemberships.has(`${member.theme_id}:${row.id}`)
+        ));
         const organizedDossierIds = idsFor(dossierSources.filter(
-          (source) => source.newsroom_article_id === row.id && source.included !== false,
+          (source) => source.newsroom_article_id === row.id
+            && source.included !== false
+            && !technicalDossierIds.has(source.dossier_id),
         ), (source) => source.dossier_id);
         if (
           normalized.sourceIds === undefined
@@ -572,6 +654,28 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
         );
         const sourceIds = new Set(sourceRows.map((source) => source.id));
         const contributionsByArticle = new Map<string, OperationalDeskPublishedContribution>();
+        for (const usage of finalUsage) {
+          if (!sourceIds.has(usage.dossier_source_id)) continue;
+          const source = dossierSourceById.get(usage.dossier_source_id)!;
+          const plan = planById.get(usage.article_plan_id);
+          const dossier = dossierById.get(usage.dossier_id);
+          const article = publishedById.get(usage.editorial_article_id);
+          if (!plan || !dossier || !article || plan.dossier_id !== source.dossier_id) {
+            throw new OperationalDeskRelationInvalidError();
+          }
+          contributionsByArticle.set(article.id, {
+            origin: "dossier_plan",
+            editorialArticleId: article.id,
+            slug: article.slug,
+            title: article.title,
+            publishedAt: article.published_at,
+            dossierId: dossier.id,
+            dossierTitle: dossier.title,
+            articlePlanId: plan.id,
+            dossierSourceId: source.id,
+            newsroomSnapshotId: source.newsroom_snapshot_id,
+          });
+        }
         for (const assignment of assignments) {
           if (!sourceIds.has(assignment.dossier_source_id)) continue;
           const source = dossierSourceById.get(assignment.dossier_source_id)!;
@@ -581,6 +685,7 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
             throw new OperationalDeskRelationInvalidError();
           }
           if (!plan.editorial_article_id) continue;
+          if (technicalDossierIds.has(assignment.dossier_id)) continue;
           const article = publishedById.get(plan.editorial_article_id);
           if (!article) continue;
           if (!contributionsByArticle.has(article.id)) {
@@ -628,7 +733,8 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
         const knownReferences = [
           review?.reviewed_snapshot_id,
           ...memberships.map((member) => member.reference_snapshot_id),
-          ...sourceRows.filter((source) => source.included !== false).map((source) => source.newsroom_snapshot_id),
+          ...sourceRows.filter((source) => source.included !== false && !technicalDossierIds.has(source.dossier_id))
+            .map((source) => source.newsroom_snapshot_id),
           ...publishedContributions.map((contribution) => contribution.newsroomSnapshotId),
         ].filter((id): id is string => Boolean(id));
         const comparisonSnapshotId = knownReferences.find((id) => id !== snapshot?.id) ?? null;
@@ -661,15 +767,14 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
             sourceMetadata: jsonObject(snapshot.source_metadata),
             hasUsableBody: snapshot.has_usable_snapshot ?? articleBody(snapshot.body).length > 0,
           } : null,
-          classification: classification(classificationByArticle.get(row.id)),
-          themeMembership: {
-            status: themeSources.some((source) => source.newsroom_article_id === row.id)
-              ? "associated"
-              : "none",
-            themeIds: themeSources
-              .filter((source) => source.newsroom_article_id === row.id)
-              .map((source) => source.theme_id)
-              .sort(),
+              classification: classification(classificationByArticle.get(row.id)),
+              themeMembership: {
+                status: memberships.length > 0
+                  ? "associated"
+                  : "none",
+                themeIds: memberships
+                  .map((member) => member.theme_id)
+                  .sort(),
           },
           publishedContributions,
           sourceUpdated,

@@ -66,11 +66,6 @@ export default async function MesaThemePage({ params }: Readonly<{ params: Promi
                 items={context.dossiers.map((card) => <li key={card.id} className={styles.organizationItem}><MesaDossierCardView card={card} themes={organization.themes} /></li>)} />
             </section>
           </section>
-          {(organization.preparedProductions ?? []).some((card) => card.themeId === themeId) ? <details className={styles.themeAllSources}>
-            <summary>Produções preparadas deste Tema</summary>
-            {(organization.preparedProductions ?? []).filter((card) => card.themeId === themeId).map((card) =>
-              <MesaDossierCardView key={card.id} card={{ ...card, material: undefined }} />)}
-          </details> : null}
           <MesaSelectionTray />
         </section>
       </MesaSelectionProvider>

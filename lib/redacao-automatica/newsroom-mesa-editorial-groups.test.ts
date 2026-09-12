@@ -43,6 +43,17 @@ test("publicação só no manifesto sem prova canónica não é publicação", (
   assert.deepEqual(recoverMesaPackageGroups(manifest, new Set()), []);
   assert.deepEqual(mesaPackageUsage({ ...manifest, outputs: [output(1, 1, false)] }), []);
 });
+test("grupo documental único de Mesa v2 nunca recupera um Dossiê editorial", () => {
+  const mesaV2 = {
+    ...manifest,
+    version: 5,
+    provenanceContract: "mesa-v2",
+    entries: [entry(1, 1), entry(2, 1), entry(3, 1)],
+    outputs: [output(1, 1), output(2, 1)],
+  };
+  assert.deepEqual(mesaPackageUsage(mesaV2), []);
+  assert.deepEqual(recoverMesaPackageGroups(mesaV2, published), []);
+});
 test("v2 sem outputs recupera o grupo persistido por articlePosition", () => {
   const group = recoverMesaPackageGroups({ ...manifest, outputs: undefined, entries: [1, 2].map((n) => ({ ...entry(n, 5), usedAt: "2026-09-11", publishedArticleId: id(201) })) }, published);
   assert.equal(group[0].key, `package:${id(900)}:5`); assert.equal(group[0].sources.length, 2);

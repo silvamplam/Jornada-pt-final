@@ -19,7 +19,7 @@ export type MesaDossierSourceRow = Readonly<{
 }>;
 export type MesaPublishedLink = Readonly<{ dossier_id: string; editorial_article_id: string }>;
 export type MesaDossierCard = Readonly<{
-  id: string; kind: "dossier" | "package_group" | "production";
+  id: string; kind: "dossier" | "package_group";
   material?: MesaMaterialRef;
   themeIds?: readonly string[];
   articleIds?: readonly string[]; title: string; status: string;
@@ -37,7 +37,6 @@ export type MesaOrganization = Readonly<{
   themes: readonly MesaThemeCard[];
   unlinkedDossiers: readonly MesaDossierCard[];
   availableDossiers?: readonly MesaDossierCard[];
-  preparedProductions?: readonly MesaDossierCard[];
   groupedSourceIds?: readonly string[];
 }>;
 export type MesaOrganizationRecords = Readonly<{
@@ -78,10 +77,15 @@ export function buildMesaOrganization(
     href: bases.get(version.material_key)?.href ?? `/admin/editorial/redacao-automatica/mesa/producao/${version.production_dossier_id}`,
     sources: mergeMesaSourceRefs([version.source_refs]), articleIds: version.article_ids,
   });
-  const contextIds = new Set(records.productionContexts?.map((row) => row.dossier_id));
-  const completedIds = new Set(records.completedProductionIds ?? []);
+  const completedProductionIds = new Set(records.completedProductionIds ?? []);
+  const technicalContextIds = new Set((records.productionContexts ?? []).flatMap((row) => {
+    const isExplicitTechnical = row.workspace_role === "technical"
+      || row.workspace_contract_version === 2;
+    const isUnpublishedHistoricalWorkspace = !completedProductionIds.has(row.dossier_id);
+    return isExplicitTechnical || isUnpublishedHistoricalWorkspace ? [row.dossier_id] : [];
+  }));
   const latest = new Map([...bases].filter(([key, group]) => group.articleIds.length > 0
-    && (!key.startsWith("dossier:") || !contextIds.has(key.slice(8)))));
+    && (!key.startsWith("dossier:") || !technicalContextIds.has(key.slice(8)))));
   // A baseline captured later must never replace an already-published revision in the catalogue.
   for (const version of [...versions.values()].sort((a, b) =>
     Number(Boolean(a.publication_event_id)) - Number(Boolean(b.publication_event_id)) || a.revision - b.revision)) {
@@ -94,7 +98,11 @@ export function buildMesaOrganization(
     const linked = members.get(themeId) ?? new Map<string, MesaEditorialGroup>();
     linked.set(group.key, group); members.set(themeId, linked);
   };
-  for (const link of records.themeDossiers) associate(link.theme_id, bases.get(`dossier:${link.dossier_id}`));
+  for (const link of records.themeDossiers) {
+    if (!technicalContextIds.has(link.dossier_id)) {
+      associate(link.theme_id, bases.get(`dossier:${link.dossier_id}`));
+    }
+  }
   for (const link of records.themeMaterials ?? []) {
     const version = versions.get(link.version_id);
     if (!version || version.material_key !== link.material_key) throw new Error("mesa-organization-relation-invalid");
@@ -103,7 +111,7 @@ export function buildMesaOrganization(
   const parentIds = (key: string) => [...members].filter(([, groups]) => groups.has(key)).map(([id]) => id);
   const card = (group: MesaEditorialGroup, themeId: string | null = null): MesaDossierCard => ({
     id: group.key.startsWith("dossier:") ? group.key.slice(8) : group.key,
-    kind: group.sources.length < 2 ? "production" : group.key.startsWith("package:") ? "package_group" : "dossier",
+    kind: group.key.startsWith("package:") ? "package_group" : "dossier",
     title: group.title, status: group.articleIds.length ? "published" : "draft", href: group.href,
     themeId, themeIds: parentIds(group.key), articleIds: group.articleIds,
     ...(group.sources.length >= 2 ? { material: { key: group.key, versionId: group.versionId, sources: group.sources } } : {}),
@@ -154,11 +162,6 @@ export function buildMesaOrganization(
     }),
     availableDossiers: allCards,
     unlinkedDossiers: allCards.filter((item) => !item.themeIds?.length),
-    preparedProductions: records.dossiers.filter((dossier) => contextIds.has(dossier.id)
-      ? !completedIds.has(dossier.id) : !records.publishedLinks.some((link) => link.dossier_id === dossier.id))
-      .map((dossier) => ({ ...card(bases.get(`dossier:${dossier.id}`)!), kind: "production" as const,
-        themeId: records.productionContexts?.find((row) => row.dossier_id === dossier.id)?.theme_id
-          ?? records.themeDossiers.find((row) => row.dossier_id === dossier.id)?.theme_id ?? null })),
     groupedSourceIds: [...new Set([...latest.values()].filter((group) => group.sources.length >= 2)
       .flatMap((group) => group.sources.map((ref) => ref.newsroomArticleId)))],
   };
@@ -190,6 +193,5 @@ export function filterMesaOrganization(organization: MesaOrganization, classific
     themes: organization.themes.filter((theme) => theme.classificationKey === classification),
     unlinkedDossiers: organization.unlinkedDossiers.filter(matches),
     availableDossiers: organization.availableDossiers?.filter(matches),
-    preparedProductions: organization.preparedProductions?.filter(matches),
   };
 }

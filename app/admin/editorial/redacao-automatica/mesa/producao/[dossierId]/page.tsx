@@ -10,12 +10,16 @@ import {
 import {
   getEditorialDossierById,
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
+import {
+  editorialMesaWorkspaceInitialOutputCount,
+  editorialMesaWorkspaceVisualSourceOrder,
+} from "@/lib/redacao-automatica/editorial-mesa-workspace-defaults";
 import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
 
-import { MesaProductionWorkspaceClient } from "./_workspace-client";
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
-import { loadOperationalDeskReadModel } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
-import { MesaSourceChanges } from "../../_mesa-source-changes";
+import {
+  MesaProductionWorkspaceClient,
+} from "./_workspace-client";
 import styles from "./workspace.module.css";
 
 export const dynamic = "force-dynamic";
@@ -24,16 +28,14 @@ type ProductionWorkspacePageProps = Readonly<{
   params: Promise<{ dossierId: string }>;
 }>;
 
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("pt-PT", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Europe/Lisbon",
-  }).format(date);
-}
+type ProductionContextRow = Readonly<{
+  theme_id: string | null;
+  selection_payload: unknown;
+  source_refs: unknown;
+  material_refs: unknown;
+  workspace_contract_version?: number | null;
+  workspace_state?: string | null;
+}>;
 
 function ReadError() {
   return (
@@ -66,164 +68,71 @@ export default async function ProductionWorkspacePage({
   const dossier = dossierResult.value;
   const plans = plansResult.value;
   const production = productionResult.value;
-  let parentRows: { theme_id: string }[] = [];
-  let parentReadFailed = false;
-  const [parentResult, contextResult, currentSources] = await Promise.all([
+  const [parentResult, contextResult] = await Promise.all([
     fetchSupabaseAdminTable<{ theme_id: string }>(
-      `newsroom_editorial_theme_dossiers?select=theme_id&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=1`,
+      "newsroom_editorial_theme_dossiers?select=theme_id&dossier_id=eq."
+      + encodeURIComponent(dossierId) + "&limit=1",
     ).then((rows) => ({ ok: true as const, rows })).catch(() => ({ ok: false as const, rows: [] })),
-    fetchSupabaseAdminTable<{ theme_id: string | null }>(
-      `newsroom_mesa_production_contexts?select=theme_id&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=1`,
+    fetchSupabaseAdminTable<ProductionContextRow>(
+      "newsroom_mesa_production_contexts?select=theme_id,selection_payload,source_refs,material_refs,workspace_contract_version,workspace_state"
+      + "&dossier_id=eq." + encodeURIComponent(dossierId) + "&limit=1",
     ).then((rows) => ({ ok: true as const, rows })).catch(() => ({ ok: false as const, rows: [] })),
-    loadOperationalDeskReadModel({ sourceIds: dossier.sources.map((source) => source.newsroomArticleId) }),
   ]);
-  parentRows = parentResult.rows;
-  parentReadFailed = !parentResult.ok || !contextResult.ok;
-  const parentThemeId = contextResult.rows.length ? contextResult.rows[0].theme_id : parentRows[0]?.theme_id ?? null;
-  const latestSources = new Map(currentSources.ok ? currentSources.value.sources.map((source) => [source.newsroomArticleId, source]) : []);
-
+  const context = contextResult.rows[0] ?? null;
+  if (!contextResult.ok) return <ReadError />;
+  if (context?.workspace_state && context.workspace_state !== "active") notFound();
+  const parentThemeId = context?.theme_id ?? parentResult.rows[0]?.theme_id ?? null;
   const sourceNames = new Map(
     listRegisteredSources().map((source) => [source.code, source.name]),
   );
+  const includedSourceCount = dossier.sources.filter((source) => source.included).length;
 
   return (
     <main className={styles.shell}>
       <div className={styles.container}>
         <header className={styles.hero}>
-          <div>
-            <p>Mesa · Produção persistente</p>
-            <h1>{dossier.title}</h1>
-            <span>
-              Produção {dossier.id} · atualizado {formatDate(dossier.updatedAt)}
-            </span>
+          <div className={styles.heroCopy}>
+            <p className={styles.breadcrumb}>Admin · Editorial · Redação automática · Mesa</p>
+            <h1>Produção</h1>
+            <span>Preparar artigos a partir do material selecionado.</span>
           </div>
           <nav aria-label="Navegação do workspace">
-            <Link href="/admin/editorial/redacao-automatica/mesa">Voltar à Mesa</Link>
-            {parentThemeId ? <Link href={`/admin/editorial/redacao-automatica/mesa/temas/${parentThemeId}`}>Voltar ao Tema</Link> : null}
-            <Link href={`/admin/editorial/redacao-automatica/dossies/${encodeURIComponent(dossier.id)}`}>
-              Gestão legacy
+            <Link className={styles.backLink} href="/admin/editorial/redacao-automatica/mesa">
+              <span aria-hidden="true">←</span> Voltar à Mesa
             </Link>
-            <Link href="/admin/editorial/artigos">Artigos</Link>
+            <details className={styles.moreNavigation}>
+              <summary aria-label="Mais destinos">•••</summary>
+              <div>
+                {parentThemeId ? (
+                  <Link href={"/admin/editorial/redacao-automatica/mesa/temas/" + parentThemeId}>
+                    Abrir Tema
+                  </Link>
+                ) : null}
+                <Link href={"/admin/editorial/redacao-automatica/dossies/" + encodeURIComponent(dossier.id)}>
+                  Gestão avançada
+                </Link>
+                <Link href="/admin/editorial/artigos">Artigos</Link>
+              </div>
+            </details>
           </nav>
         </header>
 
-        <section className={styles.summary} aria-label="Resumo da produção">
-          <div><span>FONTES REUNIDAS</span><strong>{dossier.sources.length}</strong></div>
-          <div><span>ARTIGOS DE CONTEXTO</span><strong>{production.publishedContexts.length}</strong></div>
-          <div><span>IMAGENS</span><strong>{production.images.length}</strong></div>
-          <div><span>ARTICLE PLANS</span><strong>{plans.length}</strong></div>
-        </section>
-
-        {parentReadFailed ? <p role="alert">Não foi possível verificar o Tema desta produção. Confirma a migration de organização; não foi alterada nenhuma relação.</p> : null}
-        {!currentSources.ok ? <p role="alert">Não foi possível verificar novas versões das fontes. Os snapshots desta produção foram preservados.</p> : null}
-        <section className={styles.section} aria-labelledby="workspace-sources-title">
-          <header className={styles.sectionHeader}>
-            <div>
-              <p>Material reunido</p>
-              <h2 id="workspace-sources-title">Fontes desta produção</h2>
-            </div>
-            <span>O texto abaixo vem do snapshot explicitamente congelado em PREPARAR.</span>
-          </header>
-
-          {dossier.sources.length > 0 ? (
-            <ol className={styles.sourceList}>
-              {dossier.sources.map((source) => {
-                const image = production.images.find(
-                  (candidate) => candidate.origin === "newsroom"
-                    && candidate.newsroomArticleId === source.newsroomArticleId,
-                );
-                const latest = latestSources.get(source.newsroomArticleId);
-                return (
-                  <li key={source.id}>
-                    {image ? (
-                      <img
-                        src={image.frozenUrl}
-                        alt=""
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : null}
-                    <div>
-                      <header>
-                        <span>{sourceNames.get(source.sourceCode) ?? source.sourceCode}</span>
-                        <strong>{source.articleTitle}</strong>
-                      </header>
-                      <dl>
-                        <div><dt>newsroom_article</dt><dd>{source.newsroomArticleId}</dd></div>
-                        <div><dt>snapshot congelado</dt><dd>{source.newsroomSnapshotId}</dd></div>
-                        <div><dt>hash</dt><dd>{source.snapshotContentHash}</dd></div>
-                        <div><dt>extraído</dt><dd>{formatDate(source.snapshotExtractedAt)}</dd></div>
-                        <div><dt>blocos úteis</dt><dd>{source.snapshotBodyBlockCount}</dd></div>
-                      </dl>
-                      {latest?.snapshot && latest.snapshot.id !== source.newsroomSnapshotId ? (
-                        <MesaSourceChanges sourceId={source.newsroomArticleId} beforeId={source.newsroomSnapshotId}
-                          afterId={latest.snapshot.id} title={source.articleTitle} detectedAt={latest.snapshot.extractedAt} />
-                      ) : null}
-                      <details className={styles.snapshotDetails}>
-                        <summary>Ver conteúdo do snapshot</summary>
-                        <div>
-                          {source.snapshotBody.map((block, index) => block.type === "heading"
-                            ? <h3 key={`${source.id}:block:${index}`}>{block.text}</h3>
-                            : <p key={`${source.id}:block:${index}`}>{block.text}</p>)}
-                        </div>
-                      </details>
-                      {source.articleUrl ? (
-                        <a href={source.articleUrl} target="_blank" rel="noopener noreferrer">
-                          Abrir fonte original
-                        </a>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          ) : (
-            <p className={styles.empty}>Esta produção foi preparada apenas com contexto publicado.</p>
-          )}
-        </section>
-
-        <section className={styles.section} aria-labelledby="workspace-published-title">
-          <header className={styles.sectionHeader}>
-            <div>
-              <p>Memória editorial canónica</p>
-              <h2 id="workspace-published-title">PUBLICADAS de contexto</h2>
-            </div>
-            <span>Contexto não significa UPDATE. O destino é decidido por cada Article Plan.</span>
-          </header>
-
-          {production.publishedContexts.length > 0 ? (
-            <ol className={styles.publishedList}>
-              {production.publishedContexts.map((context) => {
-                const image = production.images.find(
-                  (candidate) => candidate.origin === "published"
-                    && candidate.editorialArticleId === context.editorialArticleId,
-                );
-                return (
-                  <li key={context.id}>
-                    {image ? <img src={image.frozenUrl} alt="" loading="lazy" /> : null}
-                    <div>
-                      <span>editorial_article · {context.status}</span>
-                      <strong>{context.title}</strong>
-                      <small>{context.editorialArticleId}</small>
-                      <small>Publicada {formatDate(context.publishedAt)}</small>
-                      <Link href={`/admin/editorial/artigos?articleId=${encodeURIComponent(context.editorialArticleId)}`}>
-                        Abrir artigo existente
-                      </Link>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          ) : (
-            <p className={styles.empty}>Sem PUBLICADAS de contexto nesta produção.</p>
-          )}
-        </section>
-
+        {!parentResult.ok ? (
+          <p className={styles.alert} role="alert">
+            Não foi possível verificar toda a organização da Mesa. As relações persistidas não foram alteradas.
+          </p>
+        ) : null}
         <MesaProductionWorkspaceClient
           dossier={{
             id: dossier.id,
             articleKind: dossier.articleKind,
             lengthMode: dossier.lengthMode,
+            outputCount: dossier.outputCount,
+            initialOutputCount: editorialMesaWorkspaceInitialOutputCount(
+              context?.selection_payload,
+              includedSourceCount,
+            ),
+            workspaceContractVersion: context?.workspace_contract_version === 2 ? 2 : 1,
           }}
           sources={dossier.sources.map((source) => ({
             id: source.id,
@@ -235,6 +144,11 @@ export default async function ProductionWorkspacePage({
           publishedContexts={production.publishedContexts}
           images={production.images}
           plans={plans}
+          visualSourceOrder={editorialMesaWorkspaceVisualSourceOrder(
+            context?.selection_payload,
+            context?.material_refs,
+            dossier.sources.filter((source) => source.included).map((source) => source.newsroomArticleId),
+          )}
         />
       </div>
     </main>

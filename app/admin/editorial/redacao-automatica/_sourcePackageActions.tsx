@@ -3,11 +3,9 @@
 import { useState, type ClipboardEvent, type KeyboardEvent } from "react";
 
 import {
-  preflightEditorialArticleBatch,
-} from "@/lib/redacao-automatica/editorial-batch-parser";
-import {
   EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
   EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
+  preflightEditorialArticleBatchForSourcePackage,
   type EditorialBatchTransferSourcePackage,
 } from "@/lib/redacao-automatica/editorial-batch-transfer";
 
@@ -94,7 +92,7 @@ export default function SourcePackageActions({
   };
 
   const importText = (text: string): boolean => {
-    const preflight = preflightEditorialArticleBatch(text);
+    const preflight = preflightEditorialArticleBatchForSourcePackage(text, sourcePackage);
 
     if (!preflight.ready) {
       setStatus("A resposta ainda não respeita integralmente o formato JORNADA_ARTIGO_V1.");

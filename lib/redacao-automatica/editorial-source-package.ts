@@ -20,6 +20,7 @@ import {
   normalizeEditorialSourcePackageSelections,
   updateEditorialSourcePackageMarkdown,
   type EditorialSourcePackageEditorialInput,
+  type EditorialSourcePackageArticlePlan,
   type EditorialSourcePackageEntry,
   type EditorialSourcePackageManifest,
   type EditorialSourcePackageOutput,
@@ -27,6 +28,7 @@ import {
   type EditorialSourcePackageOutputInput,
   type EditorialSourcePackagePreparedEntry,
   type EditorialSourcePackagePublishedArticleSnapshot,
+  type EditorialSourcePackagePublishedContextSnapshot,
   type EditorialSourcePackageSelection,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
@@ -93,6 +95,7 @@ export type CreateEditorialSourcePackageInput = Readonly<{
   selections: readonly EditorialSourcePackageSelection[];
   editorial: EditorialSourcePackageEditorialInput;
   outputs?: readonly EditorialSourcePackageOutputCreationInput[];
+  publishedContextArticleIds?: readonly string[];
   allowMultipleSnapshotsPerArticle?: boolean;
   now?: Date;
 }>;
@@ -246,6 +249,7 @@ function manifestEntries(entries: readonly EditorialSourcePackageEntry[]) {
     articlePosition: entry.articlePosition,
     newsroomArticleId: entry.newsroomArticleId,
     newsroomSnapshotId: entry.newsroomSnapshotId,
+    provenanceSourceId: entry.provenanceSourceId,
     imagePreferred: entry.imagePreferred,
     status: entry.status,
     sourceCode: entry.sourceCode,
@@ -291,6 +295,14 @@ function persistedOutputs(
     inputs.push({
       position:
         Number(candidate.position ?? index + 1),
+      outputId:
+        typeof candidate.outputId === "string"
+          ? candidate.outputId
+          : null,
+      startingPointSourceId:
+        typeof candidate.startingPointSourceId === "string"
+          ? candidate.startingPointSourceId
+          : null,
       sourceArticlePosition:
         Number(
           candidate.sourceArticlePosition
@@ -319,6 +331,12 @@ function persistedOutputs(
                   ? (candidate.externalImage as Record<string, unknown>).fileName as string
                   : "",
             }
+          : null,
+      articlePlan:
+        candidate.articlePlan
+        && typeof candidate.articlePlan === "object"
+        && !Array.isArray(candidate.articlePlan)
+          ? candidate.articlePlan as EditorialSourcePackageArticlePlan
           : null,
     });
   }
@@ -424,7 +442,7 @@ function persistedManifest(
   ]);
 
   if (
-    (manifest.version !== 2 && manifest.version !== 3 && manifest.version !== 4)
+    (manifest.version !== 2 && manifest.version !== 3 && manifest.version !== 4 && manifest.version !== 5)
     || manifest.genreLabel !== editorial.genreLabel
     || typeof manifest.markdownFileName !== "string"
     || !validMarkdownFileNames.has(manifest.markdownFileName)
@@ -437,6 +455,14 @@ function persistedManifest(
     || !Number.isInteger(manifest.preparedCount)
     || !Number.isInteger(manifest.failedCount)
     || !Number.isInteger(manifest.imageCount)
+    || (
+      manifest.publishedContextArticleIds !== undefined
+      && (
+        !Array.isArray(manifest.publishedContextArticleIds)
+        || manifest.publishedContextArticleIds.some((id) => !UUID_PATTERN.test(id))
+        || new Set(manifest.publishedContextArticleIds).size !== manifest.publishedContextArticleIds.length
+      )
+    )
   ) {
     return null;
   }
@@ -472,6 +498,30 @@ function persistedManifest(
   );
 
   if (!outputs) {
+    return null;
+  }
+
+  const isMesaV2 = manifest.version === 5
+    && manifest.provenanceContract === "mesa-v2";
+  if (
+    (manifest.version === 5 && !isMesaV2)
+    || (
+      isMesaV2
+      && (
+        outputs.some((output) => (
+          output.articlePlan?.workspaceContractVersion !== 2
+          || output.outputId !== output.articlePlan.articlePlanId
+        ))
+        || normalizedEntries.some((entry) => (
+          entry.status === "prepared"
+          && !UUID_PATTERN.test(entry.provenanceSourceId ?? "")
+        ))
+        || new Set(normalizedEntries.flatMap((entry) => (
+          entry.provenanceSourceId ? [entry.provenanceSourceId] : []
+        ))).size !== normalizedEntries.filter((entry) => entry.provenanceSourceId).length
+      )
+    )
+  ) {
     return null;
   }
 
@@ -545,6 +595,7 @@ export async function createEditorialSourcePackage(
         articlePosition,
         newsroomArticleId: selection.newsroomArticleId,
         newsroomSnapshotId: selection.newsroomSnapshotId,
+        provenanceSourceId: selection.provenanceSourceId,
         imagePreferred: Boolean(selection.imagePreferred),
         status: "failed",
         sourceCode: null,
@@ -565,6 +616,7 @@ export async function createEditorialSourcePackage(
         articlePosition,
         newsroomArticleId: selection.newsroomArticleId,
         newsroomSnapshotId: selection.newsroomSnapshotId,
+        provenanceSourceId: selection.provenanceSourceId,
         imagePreferred: Boolean(selection.imagePreferred),
         status: "failed",
         sourceCode: article.source_code,
@@ -582,6 +634,7 @@ export async function createEditorialSourcePackage(
         articlePosition,
         newsroomArticleId: selection.newsroomArticleId,
         newsroomSnapshotId: selection.newsroomSnapshotId,
+        provenanceSourceId: selection.provenanceSourceId,
         imagePreferred: Boolean(selection.imagePreferred),
         status: "failed",
         sourceCode: article.source_code,
@@ -600,6 +653,7 @@ export async function createEditorialSourcePackage(
         articlePosition,
         newsroomArticleId: selection.newsroomArticleId,
         newsroomSnapshotId: selection.newsroomSnapshotId,
+        provenanceSourceId: selection.provenanceSourceId,
         imagePreferred: Boolean(selection.imagePreferred),
         status: "failed",
         sourceCode: article.source_code,
@@ -616,6 +670,7 @@ export async function createEditorialSourcePackage(
       articlePosition,
       newsroomArticleId: selection.newsroomArticleId,
       newsroomSnapshotId: selection.newsroomSnapshotId,
+      provenanceSourceId: selection.provenanceSourceId,
       imagePreferred: Boolean(selection.imagePreferred),
       status: "prepared",
       sourceCode: article.source_code,
@@ -779,8 +834,60 @@ export async function createEditorialSourcePackage(
     }
   }
 
+  const publishedContextArticleIds = [...new Set(
+    input.publishedContextArticleIds?.map((value) => value.trim().toLowerCase()) ?? [],
+  )];
+  if (
+    publishedContextArticleIds.length > 20
+    || publishedContextArticleIds.some((value) => !UUID_PATTERN.test(value))
+  ) {
+    return { ok: false, error: { code: "input_invalid" } };
+  }
+  const publishedContexts: EditorialSourcePackagePublishedContextSnapshot[] = [];
+  if (publishedContextArticleIds.length > 0) {
+    let contextRows: PublishedEditorialArticleRow[];
+    try {
+      contextRows = await fetchSupabaseAdminTable<PublishedEditorialArticleRow>(
+        "editorial_articles?select=id,slug,label,title,subtitle,body,status"
+        + `&id=in.(${uuidList(publishedContextArticleIds)})`
+        + `&limit=${publishedContextArticleIds.length}`,
+      );
+    } catch {
+      return { ok: false, error: { code: "update_target_read_failed" } };
+    }
+    const byId = new Map(contextRows.map((row) => [row.id.toLowerCase(), row]));
+    for (const articleId of publishedContextArticleIds) {
+      const article = byId.get(articleId);
+      const snapshot = article ? {
+        publishedArticleId: articleId,
+        publishedSlug: article.slug?.trim() ?? "",
+        anteTitle: article.label?.trim() ?? "",
+        title: article.title?.trim() ?? "",
+        postTitle: article.subtitle?.trim() ?? "",
+        body: article.body?.replace(/\r\n?/g, "\n").trim() ?? "",
+      } : null;
+      if (
+        !article
+        || article.status !== "published"
+        || !snapshot?.publishedSlug
+        || !snapshot.anteTitle
+        || !snapshot.title
+        || !snapshot.postTitle
+        || !snapshot.body
+      ) return { ok: false, error: { code: "update_target_invalid" } };
+      publishedContexts.push(snapshot);
+    }
+  }
+
   const articleCount = outputs.length;
   const createdAt = now.toISOString();
+  const mesaV2Contract = outputs.length > 0
+    && outputs.every((output) => (
+      output.articlePlan?.workspaceContractVersion === 2
+      && output.outputId === output.articlePlan.articlePlanId
+      && UUID_PATTERN.test(output.startingPointSourceId ?? "")
+    ))
+    && preparedEntries.every((entry) => UUID_PATTERN.test(entry.provenanceSourceId ?? ""));
 
   const markdownFileName =
     editorialSourcePackageFileName(
@@ -795,6 +902,7 @@ export async function createEditorialSourcePackage(
       entries,
       outputs,
       publishedArticles,
+      publishedContexts,
     });
 
   const articleImageSources =
@@ -812,7 +920,9 @@ export async function createEditorialSourcePackage(
     : [];
 
   const manifest: EditorialSourcePackageManifest = {
-    version: 4,
+    version: mesaV2Contract ? 5 : 4,
+    ...(mesaV2Contract ? { provenanceContract: "mesa-v2" as const } : {}),
+    ...(publishedContextArticleIds.length > 0 ? { publishedContextArticleIds } : {}),
     packageId: input.packageId,
     createdAt,
     year: location.year,
@@ -928,6 +1038,13 @@ export async function markEditorialSourcePackageArticleUsed(input: Readonly<{
   const current = await readEditorialSourcePackage(input);
   if (!current.ok) {
     return { ok: false, error: { code: current.error.code } };
+  }
+
+  // Mesa v2 usage is persisted only by newsroom_publish_mesa_output_v2 in
+  // the same transaction as the article. The legacy manifest marker must
+  // never infer that every technically assigned source was used.
+  if (current.value.manifest.version === 5) {
+    return { ok: false, error: { code: "input_invalid" } };
   }
 
   const output =
@@ -1123,6 +1240,13 @@ export async function updateEditorialSourcePackageOutputs(
         : []
     )),
   );
+  const articlePlanByPosition = new Map(
+    current.value.manifest.outputs.flatMap((output) => (
+      output.articlePlan
+        ? [[output.position, output.articlePlan] as const]
+        : []
+    )),
+  );
 
   if (
     [...updateTargetByPosition.keys()].some(
@@ -1139,6 +1263,9 @@ export async function updateEditorialSourcePackageOutputs(
     normalizedOutputs.map((output) => ({
       ...output,
       ...(updateTargetByPosition.get(output.position) ?? {}),
+      ...(articlePlanByPosition.has(output.position)
+        ? { articlePlan: articlePlanByPosition.get(output.position)! }
+        : {}),
     }));
 
   const editorial:
@@ -1171,7 +1298,7 @@ export async function updateEditorialSourcePackageOutputs(
   const manifest:
     EditorialSourcePackageManifest = {
       ...current.value.manifest,
-      version: 4,
+      version: current.value.manifest.version === 5 ? 5 : 4,
       articleCount: outputs.length,
       outputs,
     };
@@ -1273,7 +1400,7 @@ export async function updateEditorialSourcePackageEditorial(input: Readonly<{
 
   const manifest: EditorialSourcePackageManifest = {
     ...current.value.manifest,
-    version: 4,
+    version: current.value.manifest.version === 5 ? 5 : 4,
     markdownFileName: editorialSourcePackageFileName(
       editorial.genre,
       editorial.suggestedTitle,

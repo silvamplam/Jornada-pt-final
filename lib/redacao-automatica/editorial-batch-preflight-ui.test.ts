@@ -57,10 +57,11 @@ test("a Redação Automática oferece acesso lateral à Publicação em lote", (
   assert.ok(newsroomSource.includes('>Publicação em lote</a>'));
 });
 
-test("a página usa diretamente o pré-flight batch existente", () => {
+test("a página escolhe o pré-flight pelo contrato transferido do package", () => {
   assert.match(clientSource, /from "@\/lib\/redacao-automatica\/editorial-batch-parser"/);
   assert.match(clientSource, /analyseEditorialBatchForPublication/);
-  assert.match(publicationClientSource, /preflightEditorialArticleBatch\(articleText\)/);
+  assert.match(publicationClientSource, /preflightEditorialArticleBatchForSourcePackage\(\s*articleText,\s*sourcePackage/);
+  assert.match(clientSource, /preflightEditorialArticleBatchForSourcePackage\(articleText, sourcePackage\)/);
 });
 
 test("a Publicação em lote preserva o Dossiê até ao sucesso integral", () => {
@@ -345,6 +346,18 @@ test("a UI mostra associação, falta e duplicados por artigo", () => {
   assert.ok(imagePreflightSource.includes("DUAS IMAGENS COM O PREFIXO"));
 });
 
+test("imagens do workspace usam linguagem de Produção sem reclassificar o lote como Dossiê", () => {
+  assert.match(clientSource, /As imagens escolhidas na Produção já estão associadas/);
+  assert.match(clientSource, /\$\{dossierImageCount\} da Produção/);
+  assert.match(clientSource, /Automática por NN- \/ Produção/);
+  assert.match(clientSource, /As imagens associadas à Produção não/);
+  assert.ok(imagePreflightSource.includes('message: "IMAGEM DA PRODUÇÃO ASSOCIADA"'));
+  assert.doesNotMatch(
+    clientSource + imagePreflightSource,
+    /As escolhas guardadas no Dossiê|do Dossiê ·|Automática por NN- \/ Dossiê|IMAGEM DO DOSSIÊ ASSOCIADA|imagens guardadas no Dossiê/,
+  );
+});
+
 test("a UI mostra ficheiros órfãos e inválidos sem os ignorar", () => {
   assert.match(clientSource, /imagePreflight\.fileProblems\.map/);
   assert.match(clientSource, /<strong>{problem\.file\.name}<\/strong>/);
@@ -440,14 +453,15 @@ test("o servidor deriva o contexto só a partir da Jornada", () => {
   assert.match(publicationRouteSource, /season_id: null/);
 });
 
-test("a publicação vinda de pacote usa a hora da fonte mais recente por artigo", () => {
+test("a publicação histórica usa o grupo e Mesa v2 usa apenas as fontes declaradas por output", () => {
   assert.match(clientSource, /requestEditorialBatchPublicationPreflight[\s\S]*?\.\.\.\(sourcePackage \? \{ sourcePackage \} : \{\}\)/);
   assert.match(publicationClientSource, /action: "preflight"[\s\S]*?\.\.\.\(sourcePackage \? \{ sourcePackage \} : \{\}\)/);
   assert.match(publicationRouteSource, /entry\.publishedAtPrecision === "instant"/);
   assert.match(publicationRouteSource, /parsePublishedAt\(\s*entry\.publishedAt,?\s*\)/);
   assert.doesNotMatch(publicationRouteSource, /type SourcePublicationRow/);
-  assert.doesNotMatch(publicationRouteSource, /publishedAtBySourceId/);
-  assert.match(publicationRouteSource, /sourcePublishedAt\.get\(\s*item\.article\.index,?\s*\)/);
+  assert.match(publicationRouteSource, /publishedAtBySourceId/);
+  assert.match(publicationRouteSource, /for \(const sourceId of article\.sourceIds\)/);
+  assert.match(publicationRouteSource, /sourceContext\.publishedAtByArticle\.get\(article\.index\)/);
   assert.match(publicationRouteSource, /missing-source-published-at/);
   assert.match(publicationRouteSource, /resume-source-time-mismatch/);
 });
