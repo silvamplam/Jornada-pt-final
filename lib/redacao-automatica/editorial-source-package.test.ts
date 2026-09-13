@@ -700,6 +700,10 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(packageService, /update_target_read_failed/);
   assert.match(packageService, /update_target_invalid/);
   assert.match(packageService, /publishedArticles/);
+  assert.match(
+    packageService,
+    /contextSourceIds:\s*Array\.isArray\(candidate\.contextSourceIds\)/,
+  );
 
   const articleForm = read("app/admin/editorial/artigos/_articleForm.tsx");
   const articleImporter = read("app/admin/editorial/artigos/_externalArticleImport.tsx");

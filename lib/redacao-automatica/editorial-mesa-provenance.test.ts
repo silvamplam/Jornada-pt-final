@@ -78,6 +78,37 @@ function manifest(version: 4 | 5 = 5): EditorialSourcePackageManifest {
   };
 }
 
+function contextManifest(shared = false): EditorialSourcePackageManifest {
+  const base = manifest();
+  const firstContextId = id(701);
+  const secondContextId = shared ? firstContextId : id(702);
+  const firstSources = shared ? [id(301), id(302)] : [id(301)];
+  const secondSources = shared ? [id(301), id(302)] : [id(302), id(303)];
+  return {
+    ...base,
+    outputs: [
+      {
+        ...output(1),
+        contextSourceIds: firstSources,
+        articlePlan: {
+          ...output(1).articlePlan!,
+          sourceScope: "context",
+          contextId: firstContextId,
+        },
+      },
+      {
+        ...output(2),
+        contextSourceIds: secondSources,
+        articlePlan: {
+          ...output(2).articlePlan!,
+          sourceScope: "context",
+          contextId: secondContextId,
+        },
+      },
+    ],
+  };
+}
+
 function article(
   index: number,
   outputId: string | null,
@@ -119,6 +150,60 @@ test("manifesto Mesa v2 produz descritor fechado para o preflight do importador"
     },
   });
   assert.deepEqual(editorialMesaPackageBatchContract(manifest(4)), { kind: "historical" });
+});
+
+test("manifesto 2C fecha as fontes autorizadas por OUTPUT_ID", () => {
+  assert.deepEqual(editorialMesaPackageBatchContract(contextManifest()), {
+    kind: "mesa-v2",
+    value: {
+      manifestVersion: 5,
+      provenanceContract: "mesa-v2",
+      workspaceContractVersion: 2,
+      outputIds: [id(401), id(402)],
+      sourceIds: [id(301), id(302), id(303)],
+      sourceIdsByOutput: {
+        [id(401)]: [id(301)],
+        [id(402)]: [id(302), id(303)],
+      },
+    },
+  });
+});
+
+test("dois contextos da mesma Produção não misturam fontes", () => {
+  const result = validateEditorialMesaOutputProvenance(contextManifest(), [
+    article(1, id(401), [id(302)]),
+    article(2, id(402), [id(302)]),
+  ]);
+  assert.deepEqual(result, {
+    ok: false,
+    code: "mesa-v2-source-unknown",
+    articleKey: "01",
+  });
+});
+
+test("dois artigos com o mesmo contexto reutilizam o mesmo âmbito factual congelado", () => {
+  const result = validateEditorialMesaOutputProvenance(contextManifest(true), [
+    article(1, id(401), [id(301)]),
+    article(2, id(402), [id(302)]),
+  ]);
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    editorialMesaPackageBatchContract(contextManifest(true)),
+    {
+      kind: "mesa-v2",
+      value: {
+        manifestVersion: 5,
+        provenanceContract: "mesa-v2",
+        workspaceContractVersion: 2,
+        outputIds: [id(401), id(402)],
+        sourceIds: [id(301), id(302), id(303)],
+        sourceIdsByOutput: {
+          [id(401)]: [id(301), id(302)],
+          [id(402)]: [id(301), id(302)],
+        },
+      },
+    },
+  );
 });
 
 test("PONTO_DE_PARTIDA orienta o assunto mas não prova utilização", () => {

@@ -15,6 +15,8 @@ import {
 import type { EditorialDossierArticlePlanStatus } from "@/lib/redacao-automatica/editorial-dossier-article-plan-repository";
 import type { EditorialSourcePackageArticlePlan } from "@/lib/redacao-automatica/editorial-source-package-internal";
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export type {
   EditorialDossierArticlePlanErrorCode,
   EditorialDossierArticlePlanSaveResult,
@@ -196,6 +198,33 @@ export function saveEditorialDossierArticlePlan(
   return saveArticlePlanWithSupabase(input);
 }
 
+export function saveEditorialMesaContextArticlePlan(
+  input: SaveEditorialDossierArticlePlanInput,
+  productionContextId: string,
+) {
+  const contextId = productionContextId.trim().toLowerCase();
+  const saveContextArticlePlan = saveEditorialDossierArticlePlanService({
+    isConfigured() {
+      return Boolean(getSupabaseServiceConfig()) && UUID_PATTERN.test(contextId);
+    },
+    readDossierState,
+    async saveArticlePlan(payload) {
+      const rows = await writeSupabaseAdminReturning<ArticlePlanWriteRow>(
+        "rpc/newsroom_save_mesa_context_article_plan_v1",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            ...payload,
+            p_production_context_id: contextId,
+          }),
+        },
+      );
+      return rows[0]?.article_plan_id ?? null;
+    },
+  });
+  return saveContextArticlePlan(input);
+}
+
 export async function setEditorialMesaOutputOrigin(input: Readonly<{
   dossierId: string;
   articlePlanId: string;
@@ -240,6 +269,7 @@ export type SynchronizeEditorialMesaSharedOutputsResult =
         | "mesa-shared-outputs-input-invalid"
         | "mesa-shared-outputs-workspace-invalid"
         | "mesa-shared-outputs-plan-invalid"
+        | "mesa-shared-outputs-plan-context-invalid"
         | "mesa-shared-outputs-write-failed";
     }>;
 
@@ -272,6 +302,7 @@ export async function synchronizeEditorialMesaSharedOutputs(input: Readonly<{
       "mesa-shared-outputs-input-invalid",
       "mesa-shared-outputs-workspace-invalid",
       "mesa-shared-outputs-plan-invalid",
+      "mesa-shared-outputs-plan-context-invalid",
     ] as const;
     return {
       ok: false,

@@ -1632,6 +1632,10 @@
   gap: 7px;
 }
 
+.planEditor .planFields[data-context-mode="contexts"] {
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
+}
+
 .planEditor .planFields > label {
   grid-row: 1;
 }
@@ -1646,6 +1650,10 @@
 
 .planEditor .planFields > label:nth-child(3) {
   grid-column: 3;
+}
+
+.planEditor .planFields > label:nth-child(4) {
+  grid-column: 4;
 }
 
 .planEditor input,
@@ -1883,6 +1891,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .planEditor .planFields[data-context-mode="contexts"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .planOptionsGrid,
   .planEditor .targetPanel label {
     grid-template-columns: 1fr;
@@ -1904,6 +1916,10 @@
   }
 
   .planEditor .planFields {
+    grid-template-columns: 1fr;
+  }
+
+  .planEditor .planFields[data-context-mode="contexts"] {
     grid-template-columns: 1fr;
   }
 

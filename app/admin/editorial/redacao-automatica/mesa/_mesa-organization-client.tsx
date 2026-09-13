@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { MesaOrganization, MesaDossierCard, MesaThemeCard } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
-import { MesaDossierSelectionToggle } from "./_mesa-selection-client";
+import { MesaThemeSelectionToggle } from "./_mesa-selection-client";
 import styles from "./mesa.module.css";
 
 const ORGANIZATION_ROUTE = "/api/admin/editorial/redacao-automatica/mesa/organizacao";
@@ -81,8 +81,6 @@ export function MesaDossierCardView({ card, themes = [], fixtureMode = false }: 
     finally { setBusy(false); }
   }
   return <article className={styles.organizationCard}>
-    {card.material ? <MesaDossierSelectionToggle material={{ ...card.material, title: card.title,
-      classificationKey: card.classificationKeys?.length === 1 && !card.hasUnclassified ? card.classificationKeys[0] : null }} /> : null}
     <Link href={href} prefetch={false}>{card.title}</Link>
     <p>{card.sourceCount} fontes · {card.articleCount} artigos publicados</p>
     {card.updatedSourceCount > 0 ? <strong className={styles.updatedNotice}>{card.updatedSourceCount} fontes mais recentes que a produção</strong> : null}
@@ -103,34 +101,26 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
   organization: MesaOrganization; fixtureMode?: boolean;
 }>) {
   const [status, setStatus] = useState("open");
-  const [tab, setTab] = useState("themes");
   const themes = organization.themes.filter((theme) => status === "all" || theme.status === status);
   return <section id="mesa-organizacao" className={styles.sourcePanel} data-organization="true">
     <header className={styles.panelHeader}>
       <nav aria-label="Organização editorial">
-        <button type="button" aria-pressed={tab === "themes"} onClick={() => setTab("themes")}>TEMAS</button>
-        <button type="button" aria-pressed={tab === "dossiers"} onClick={() => setTab("dossiers")}>DOSSIÊS</button>
+        <button type="button" aria-pressed={true}>TEMAS</button>
       </nav>
       <select aria-label="Temas visíveis" value={status} onChange={(event) => setStatus(event.target.value)}>
         <option value="open">Abertos</option><option value="archived">Arquivados</option><option value="all">Todos</option>
       </select>
     </header>
-    <MesaSourceWindow storageKey={`jornada.mesa.organizacao.${tab}.${status}`} empty="Organiza uma seleção num Tema. Os Dossiês existentes continuam acessíveis aqui."
+    <MesaSourceWindow storageKey={`jornada.mesa.organizacao.themes.${status}`} empty="Organiza uma seleção num Tema."
       items={[
-        ...(tab === "themes" ? themes : []).map((theme) => <li key={`theme:${theme.id}`} className={styles.organizationThemeItem}>
+        ...themes.map((theme) => <li key={`theme:${theme.id}`} className={styles.organizationThemeItem}>
           <article className={styles.organizationCard}>
+            <MesaThemeSelectionToggle theme={theme} />
             <Link href={`/admin/editorial/redacao-automatica/mesa/temas/${theme.id}`} prefetch={false}>{theme.title}</Link>
-            <p>{theme.sourceCount} fontes · {theme.dossiers.length} dossiês · {theme.articleCount} artigos publicados</p>
+            <p>{theme.sourceCount} fontes · {theme.articleCount} artigos publicados</p>
             {theme.updatedSourceCount > 0 ? <strong className={styles.updatedNotice}>{theme.updatedSourceCount} fontes atualizadas</strong> : null}
-            {theme.dossiers.length > 0 ? <details><summary>Ver Dossiês</summary>
-              {theme.dossiers.map((card) => <MesaDossierCardView key={card.id} card={card} fixtureMode={fixtureMode} />)}
-            </details> : null}
           </article>
-        </li>),
-        ...(tab === "dossiers" ? (organization.availableDossiers ?? organization.unlinkedDossiers).map((card) => <li key={`${card.kind}:${card.id}`} className={styles.organizationItem}>
-          <span className={styles.unlinkedLabel}>{card.themeIds?.length ? `${card.themeIds.length} Temas · associação não exclusiva` : "Dossiê sem Tema"}</span>
-          <MesaDossierCardView card={card} themes={organization.themes} fixtureMode={fixtureMode} />
-        </li>) : []),
+        </li>)
       ]} />
   </section>;
 }

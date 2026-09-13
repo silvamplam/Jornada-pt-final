@@ -234,7 +234,7 @@ test("workspace recompõe material, PUBLICADAS, planos e imagens só por readers
   assert.doesNotMatch(page, /sessionStorage|localStorage/);
 });
 
-test("Produção usa um total global e disponibiliza o workspace completo a todos os outputs", () => {
+test("Produção mantém o total global e limita cada output 2C ao contexto escolhido", () => {
   const page = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/page.tsx");
   const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
@@ -251,10 +251,12 @@ test("Produção usa um total global e disponibiliza o workspace completo a todo
   assert.match(route, /workingTitle,\s*status:\s*"planned"/);
   assert.match(route, /status:\s*"planned"/);
   assert.match(route, /priority:\s*index \+ 1/);
-  assert.match(route, /const technicalSources = includedSources/);
+  assert.match(route, /const technicalSources = productionContext/);
   assert.match(route, /articleGroup:\s*1/);
   assert.match(route, /sourceArticlePosition:\s*1/);
   assert.match(route, /sourceScope:\s*"workspace"/);
+  assert.match(route, /sourceScope:\s*"context"/);
+  assert.match(route, /contextSourceIds:\s*productionContext\.sources\.map/);
   assert.match(route, /synchronizeEditorialMesaSharedOutputs/);
   assert.doesNotMatch(route, /setEditorialMesaOutputOrigin|newsroom_mesa_output_origins/);
   assert.doesNotMatch(client, /activePlanCount\s*<\s*4/);
@@ -267,7 +269,7 @@ test("defaults visuais derivam da seleção sem voltar a distribuir fontes por o
   const defaults = read("lib/redacao-automatica/editorial-mesa-workspace-defaults.ts");
 
   assert.match(defaults, /const selectedNucleusCount = selectedSourceCount \+ selectedMaterialCount/);
-  assert.match(page, /initialOutputCount:\s*editorialMesaWorkspaceInitialOutputCount\(/);
+  assert.match(page, /initialOutputCount:\s*production\.contextMode === "contexts"[\s\S]*?production\.productionContexts\.length[\s\S]*?editorialMesaWorkspaceInitialOutputCount\(/);
   assert.match(page, /visualSourceOrder=\{editorialMesaWorkspaceVisualSourceOrder\(/);
   assert.match(client, /activePlanCount > 0[\s\S]*?dossier\.initialOutputCount/);
   assert.match(client, /image\.origin === "newsroom"/);
@@ -279,6 +281,7 @@ test("defaults visuais derivam da seleção sem voltar a distribuir fontes por o
   assert.doesNotMatch(client, /Distribuição da produção|quantidade por fonte|Artigos para /i);
   assert.match(route, /sources:\s*technicalSources\.map/);
   assert.match(route, /sourceScope:\s*"workspace"/);
+  assert.match(route, /sourceScope:\s*"context"/);
   assert.match(route, /editorialMesaWorkspaceStartingPointSourceIds\(/);
   assert.match(route, /startingPointSourceId:\s*startingPointSourceIds\[index\]/);
   assert.doesNotMatch(route, /startingPointSourceId:\s*selectedSourceImage/);
@@ -377,12 +380,12 @@ test("Produção herda a tipografia da Jornada e não introduz gradientes", () =
   assert.doesNotMatch(css, /font-family:\s*Arial|Helvetica/);
 });
 
-test("Mesa apresenta apenas TEMAS e DOSSIÊS e uniformiza NOVAS/PUBLICADAS no desktop", () => {
+test("Mesa apresenta apenas TEMAS e uniformiza NOVAS/PUBLICADAS no desktop", () => {
   const organization = read("app/admin/editorial/redacao-automatica/mesa/_mesa-organization-client.tsx");
   const theme = read("app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/page.tsx");
   const css = read("app/admin/editorial/redacao-automatica/mesa/mesa.module.css");
   assert.match(organization, />TEMAS<\/button>/);
-  assert.match(organization, />DOSSIÊS<\/button>/);
+  assert.doesNotMatch(organization, />DOSSIÊS<\/button>/);
   assert.doesNotMatch(organization + theme, /PRODUÇÕES|preparedProductions|Produção preparada/);
   assert.match(
     css,
@@ -394,10 +397,11 @@ test("Mesa apresenta apenas TEMAS e DOSSIÊS e uniformiza NOVAS/PUBLICADAS no de
   );
 });
 
-test("layout compacto conserva Foco largo, três decisões na linha e breakpoint para 390 px", () => {
+test("layout compacto conserva o histórico, acrescenta Contexto e tem breakpoint para 390 px", () => {
   const css = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/workspace.module.css");
   assert.match(css, /\.planEditor \{[\s\S]*?grid-template-columns: minmax\(360px, 1\.6fr\) minmax\(390px, 1fr\)/);
   assert.match(css, /\.planEditor \.planFields \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(130px, 1fr\)\)/);
+  assert.match(css, /\.planEditor \.planFields\[data-context-mode="contexts"\] \{[\s\S]*?grid-template-columns: repeat\(4, minmax\(90px, 1fr\)\)/);
   assert.match(css, /@media \(max-width: 440px\)[\s\S]*?\.planEditor \.planFields \{\s*grid-template-columns: 1fr/);
 });
 

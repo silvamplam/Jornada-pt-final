@@ -19,11 +19,15 @@ import {
   changeMesaPreparationTitle,
   clearMesaPreparationBuffer,
   mesaMaterialIsSelected,
+  mesaContextPreparationPayload,
   mesaPreparationPayload,
+  mesaThemeIsSelected,
   readMesaPreparationBuffer,
   removeMesaMaterial,
   removeMesaMaterials,
   selectMesaMaterial,
+  selectMesaTheme,
+  removeMesaTheme,
   observeMesaMaterial,
   changeMesaPreparationTheme,
   mesaPreparationStorageKey,
@@ -32,6 +36,7 @@ import {
   type MesaDossierSelection,
   type MesaMaterialSelection,
   type MesaPreparationBuffer,
+  type MesaThemeSelection,
 } from "./_mesa-selection-state";
 import type { MesaThemeCard } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
 import { suggestedThemeClassification } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
@@ -72,6 +77,8 @@ type MesaSelectionContextValue = Readonly<{
   selectDossier: (material: MesaDossierSelection) => void;
   removeDossier: (key: string) => void;
   select: (material: MesaMaterialSelection) => void;
+  selectTheme: (theme: MesaThemeSelection) => void;
+  removeTheme: (themeId: string) => void;
   remove: (newsroomArticleId: string) => void;
   removeSources: (newsroomArticleIds: readonly string[]) => void;
   changeTitle: (title: string) => void;
@@ -112,7 +119,7 @@ export function MesaSelectionProvider({
   const [buffer, setBuffer] = useState<MesaPreparationBuffer>(
     fixtureMode && initialSelection.length > 0
       ? {
-          version: 2,
+          version: 3,
           preparationKey: FIXTURE_PREPARATION_KEY,
           title: "Seleção visual da Mesa",
           sources: initialSelection,
@@ -202,6 +209,12 @@ export function MesaSelectionProvider({
         const next = selectMesaMaterial(current, material, createPreparationKey);
         return themeContext ? changeMesaPreparationTheme(next, themeContext.id, themeContext.title, createPreparationKey) : next;
       });
+    },
+    selectTheme(theme) {
+      persist((current) => selectMesaTheme(current, theme, createPreparationKey));
+    },
+    removeTheme(themeId) {
+      persist((current) => removeMesaTheme(current, themeId, createPreparationKey));
     },
     remove(newsroomArticleId) {
       persist((current) => removeMesaMaterial(
@@ -504,6 +517,101 @@ export function MesaDossierSelectionToggle({ material }: Readonly<{ material: Me
   </button>;
 }
 
+export function MesaThemeSelectionToggle({ theme }: Readonly<{ theme: MesaThemeCard }>) {
+  const { buffer, loaded, selectTheme, removeTheme } = useMesaSelection();
+  const selected = mesaThemeIsSelected(buffer, theme.id);
+  const available = theme.status === "open" && theme.productionReady !== false && theme.sourceRefs.length > 0;
+  return (
+    <label className={styles.themeSelectionToggle} title={available
+      ? `Usar ${theme.title} como contexto de produção`
+      : "Este Tema não tem fontes atuais elegíveis para Produção"}>
+      <input
+        type="checkbox"
+        checked={selected}
+        disabled={!loaded || !available}
+        onChange={() => selected
+          ? removeTheme(theme.id)
+          : selectTheme({
+              kind: "theme",
+              themeId: theme.id,
+              title: theme.title,
+              classificationKey: theme.classificationKey,
+              sources: theme.sourceRefs,
+            })}
+      />
+      <span>{selected ? "Tema selecionado" : "Selecionar Tema"}</span>
+    </label>
+  );
+}
+
+export function MesaSourceThemeMenu({
+  newsroomArticleId,
+  themeIds,
+}: Readonly<{
+  newsroomArticleId: string;
+  themeIds: readonly string[];
+}>) {
+  const { fixtureMode, themes, removeSources } = useMesaSelection();
+  const router = useRouter();
+  const [targetThemeId, setTargetThemeId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const availableThemes = themes.filter((theme) => (
+    theme.status === "open" && !themeIds.includes(theme.id)
+  ));
+  if (availableThemes.length === 0) return null;
+
+  async function attach() {
+    if (!targetThemeId || busy) return;
+    if (fixtureMode) {
+      setMessage("Fixture visual: associação não enviada.");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/admin/editorial/redacao-automatica/mesa/organizacao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "organize_sources",
+          requestId: window.crypto.randomUUID(),
+          themeId: targetThemeId,
+          sourceIds: [newsroomArticleId],
+        }),
+      });
+      const result = await response.json().catch(() => null) as PrepareResponse | null;
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.message || "Não foi possível adicionar a fonte ao Tema.");
+      }
+      removeSources([newsroomArticleId]);
+      setMessage("Fonte adicionada ao Tema.");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Associação não guardada.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <details className={styles.sourceThemeMenu}>
+      <summary>Tema</summary>
+      <div>
+        <select aria-label="Tema de destino" value={targetThemeId} disabled={busy}
+          onChange={(event) => setTargetThemeId(event.currentTarget.value)}>
+          <option value="">Escolher Tema</option>
+          {availableThemes.map((theme) => <option key={theme.id} value={theme.id}>{theme.title}</option>)}
+        </select>
+        <button type="button" disabled={busy || !targetThemeId} onClick={() => void attach()}>
+          {busy ? "A adicionar…" : "Adicionar"}
+        </button>
+      </div>
+      {message ? <small role="status">{message}</small> : null}
+    </details>
+  );
+}
+
 type MesaThemeAction = "create" | "add";
 
 export function MesaSelectionTray({
@@ -517,6 +625,7 @@ export function MesaSelectionTray({
     fixtureMode,
     remove,
     removeSources,
+    removeTheme,
     removeDossier,
     changeTitle,
     clear,
@@ -536,11 +645,21 @@ export function MesaSelectionTray({
   const organizationRequest = useRef({ fingerprint: "", id: "" });
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
-  const payload = mesaPreparationPayload(buffer);
-  const publicadas = buffer.sources.filter((source) => source.lifecycle === "published");
+  const [incorporateSources, setIncorporateSources] = useState(false);
+  const selectedThemes = buffer.themes ?? [];
+  const incorporationAvailable = sourceThemeActions
+    && selectedThemes.length === 1
+    && buffer.sources.length > 0;
+  useEffect(() => {
+    if (!incorporationAvailable) setIncorporateSources(false);
+  }, [incorporationAvailable]);
+  const payload = sourceThemeActions
+    ? mesaContextPreparationPayload(buffer, incorporationAvailable && incorporateSources)
+    : mesaPreparationPayload(buffer);
   const dossiers = buffer.dossiers ?? [];
-  const total = buffer.sources.length + dossiers.length;
+  const total = buffer.sources.length + selectedThemes.length + dossiers.length;
   const distinctSources = new Set([...buffer.sources.map((row) => row.newsroomArticleId),
+    ...selectedThemes.flatMap((theme) => theme.sources.map((ref) => ref.newsroomArticleId)),
     ...dossiers.flatMap((row) => row.sources.map((ref) => ref.newsroomArticleId))]).size;
   const unclassifiedCount = buffer.sources.filter(
     (source) => source.classificationKey === null,
@@ -582,7 +701,9 @@ export function MesaSelectionTray({
       const response = await fetch(PREPARE_ROUTE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, mesaVersion: 2, materials: payload.materials ?? [] }),
+        body: JSON.stringify(sourceThemeActions
+          ? { ...payload, mesaVersion: 3 }
+          : { ...payload, mesaVersion: 2, materials: "materials" in payload ? payload.materials ?? [] : [] }),
       });
       const result = await response.json().catch(() => null) as PrepareResponse | null;
 
@@ -618,6 +739,9 @@ export function MesaSelectionTray({
       ...(!sourceOnly ? { materials: dossiers.map(({ key, versionId, sources }) => ({ key, versionId, sources })) } : {}) };
     if (sourceOnly && command.sourceIds.length === 0) {
       setMessage("Seleciona pelo menos uma fonte para organizar num Tema."); return;
+    }
+    if (sourceOnly && action === "create" && command.sourceIds.length < 2) {
+      setMessage("Seleciona pelo menos duas fontes para criar um Tema."); return;
     }
     if (!selectedTheme && (!title.trim() || !classification)) {
       setMessage("Indica o título e a classificação do Tema. Não é necessário classificar cada fonte para a organizar."); return;
@@ -671,41 +795,46 @@ export function MesaSelectionTray({
   return (
     <section className={styles.selectionTray} aria-labelledby="mesa-selection-title"
       data-source-theme-actions={sourceThemeActions ? "true" : undefined}>
-      <div className={styles.selectionSummary}>
-        <div>
-          <h2 id="mesa-selection-title">
-            {total} selecionadas
-          </h2>
-          <p>{distinctSources} fontes distintas · {dossiers.length} Dossiês inteiros · {publicadas.length} fontes publicadas avulsas</p>
-        </div>
-        <button type="button" onClick={() => {
-          setThemeAction(null); setOrganizing(false); setTargetTheme(""); setMessage(""); clear();
-        }} disabled={submitting}>
-          Limpar
-        </button>
-      </div>
+      <div className={styles.selectionTrayHeader}>
+        <div className={styles.selectionSummary}>
+          <div className={styles.selectionSummaryHeader}>
+            <h2 id="mesa-selection-title">
+              {total} selecionadas
+            </h2>
+            <button type="button" onClick={() => {
+              setThemeAction(null); setOrganizing(false); setTargetTheme(""); setMessage(""); clear();
+            }} disabled={submitting}>
+              Limpar
+            </button>
 
-      <details className={styles.selectionDetails}>
-        <summary>Ver seleção</summary>
-        <ul>
-          {dossiers.map((selection) => <li key={selection.key}><span><strong>{selection.title}</strong>
-            <small>Dossiê inteiro · {selection.sources.length} fontes</small></span>
-            <button type="button" onClick={() => removeDossier(selection.key)} disabled={submitting}>Remover Dossiê</button></li>)}
-          {buffer.sources.map((selection) => (
-            <li key={selection.newsroomArticleId}>
-              <span>
-                <strong>{selection.title}</strong>
-                <small>
-                  {selection.sourceLabel} · {selection.lifecycle === "new" ? "NOVA" : "PUBLICADA"}
-                </small>
-              </span>
-              <button type="button" onClick={() => remove(selection.newsroomArticleId)} disabled={submitting}>
-                Remover
-              </button>
-            </li>
-          ))}
-        </ul>
-      </details>
+            <details className={styles.selectionDetails}>
+              <summary>Ver seleção</summary>
+              <ul>
+                {selectedThemes.map((selection) => <li key={`theme:${selection.themeId}`}><span>
+                  <strong>{selection.title}</strong>
+                  <small>Tema · {selection.sources.length} fontes</small>
+                </span><button type="button" onClick={() => removeTheme(selection.themeId)} disabled={submitting}>Remover Tema</button></li>)}
+                {dossiers.map((selection) => <li key={selection.key}><span><strong>{selection.title}</strong>
+                  <small>Dossiê inteiro · {selection.sources.length} fontes</small></span>
+                  <button type="button" onClick={() => removeDossier(selection.key)} disabled={submitting}>Remover Dossiê</button></li>)}
+                {buffer.sources.map((selection) => (
+                  <li key={selection.newsroomArticleId}>
+                    <span>
+                      <strong>{selection.title}</strong>
+                      <small>
+                        {selection.sourceLabel} · {selection.lifecycle === "new" ? "NOVA" : "PUBLICADA"}
+                      </small>
+                    </span>
+                    <button type="button" onClick={() => remove(selection.newsroomArticleId)} disabled={submitting}>
+                      Remover
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </div>
+          <p>{buffer.sources.length} fontes soltas · {selectedThemes.length} Temas · {distinctSources} fontes congeláveis</p>
+        </div>
 
       <div className={styles.selectionActions}>
         <label>
@@ -719,7 +848,7 @@ export function MesaSelectionTray({
           />
         </label>
         {sourceThemeActions ? <div className={styles.themeActionButtons}>
-          <button type="button" className={styles.selectionActionLink} disabled={submitting || buffer.sources.length === 0}
+          <button type="button" className={styles.selectionActionLink} disabled={submitting || buffer.sources.length < 2}
             onClick={() => { setThemeTitle(buffer.title); setThemeClassification(""); setTargetTheme(""); setThemeAction("create"); setMessage(""); }}>
             Criar tema
           </button>
@@ -732,11 +861,16 @@ export function MesaSelectionTray({
           onClick={() => { setTargetTheme(buffer.themeId ?? themeContext?.id ?? ""); setOrganizing((open) => !open); }}>
           ORGANIZAR EM TEMA
         </button>}
+        {incorporationAvailable ? <label className={styles.incorporateSelection}>
+          <input type="checkbox" checked={incorporateSources} disabled={submitting}
+            onChange={(event) => setIncorporateSources(event.currentTarget.checked)} />
+          <span>Incorporar fontes selecionadas no Tema antes de produzir</span>
+        </label> : null}
         <button
           type="button"
           className={styles.discardSelectionButton}
           onClick={() => void discardSelection()}
-          disabled={submitting || missingSnapshotCount > 0 || dossiers.length > 0}
+          disabled={submitting || missingSnapshotCount > 0 || dossiers.length > 0 || selectedThemes.length > 0}
           title={missingSnapshotCount > 0 ? "Existem fontes sem snapshot elegível" : undefined}
         >
           DESCARTAR
@@ -756,6 +890,7 @@ export function MesaSelectionTray({
         </button>
       </div>
 
+      </div>
       {sourceThemeActions && themeAction === "create" ? <section className={styles.themeChooser} aria-label="Criar tema">
         <label>Nome do Tema
           <input value={themeTitle} maxLength={180} autoFocus disabled={submitting}
@@ -770,7 +905,7 @@ export function MesaSelectionTray({
         </label>
         <div className={styles.themeChooserActions}>
           <button type="button" onClick={() => void organize("create")}
-            disabled={submitting || buffer.sources.length === 0 || !themeTitle.trim()
+            disabled={submitting || buffer.sources.length < 2 || !themeTitle.trim()
               || !(themeClassification || suggestedThemeClassification(buffer.sources))}>
             {submitting ? "A guardar…" : "Confirmar"}
           </button>

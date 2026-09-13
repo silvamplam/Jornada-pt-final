@@ -31,6 +31,8 @@ export type MesaDossierCard = Readonly<{
 export type MesaThemeCard = Readonly<{
   id: string; title: string; classificationKey: ArticleClassificationKey; status: "open" | "archived";
   sourceCount: number; articleCount: number; updatedSourceCount: number;
+  sourceRefs: readonly Readonly<{ newsroomArticleId: string; newsroomSnapshotId: string }>[];
+  productionReady?: boolean;
   dossiers: readonly MesaDossierCard[];
 }>;
 export type MesaOrganization = Readonly<{
@@ -148,9 +150,17 @@ export function buildMesaOrganization(
     themes: records.themes.map((theme) => {
       const linked = [...(members.get(theme.id)?.values() ?? [])];
       const sourceMembers = records.themeSources.filter((member) => member.theme_id === theme.id);
+      const sourceRefs = mergeMesaSourceRefs([sourceMembers.flatMap((member) => {
+        const snapshotId = sourceById.get(member.newsroom_article_id)?.snapshot?.id;
+        return snapshotId ? [{
+          newsroomArticleId: member.newsroom_article_id,
+          newsroomSnapshotId: snapshotId,
+        }] : [];
+      })]);
       const articleIds = [...records.themeArticles.filter((row) => row.theme_id === theme.id).map((row) => row.editorial_article_id),
         ...linked.flatMap((group) => group.articleIds)];
       return { id: theme.id, title: theme.title, classificationKey: theme.classification_key, status: theme.status,
+        sourceRefs, productionReady: sourceMembers.length > 0 && sourceRefs.length === sourceMembers.length,
         dossiers: collapsedCards(linked, theme.id),
         sourceCount: uniqueCount([...sourceMembers.map((row) => row.newsroom_article_id), ...linked.flatMap((group) => group.sources.map((ref) => ref.newsroomArticleId))]),
         articleCount: uniqueCount(articleIds),
@@ -168,8 +178,7 @@ export function buildMesaOrganization(
 }
 
 export function sourceIsUnassigned(source: OperationalDeskSourceItem): boolean {
-  return source.lifecycle === "new" && source.themeMembership.themeIds.length === 0
-    && (source.dossierMembership?.length ?? 0) === 0;
+  return source.lifecycle === "new" && source.themeMembership.themeIds.length === 0;
 }
 
 export function suggestedThemeClassification(

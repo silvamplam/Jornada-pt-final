@@ -138,6 +138,10 @@
   gap: 7px;
 }
 
+.workspaceChrome:has(> .controlStrip + .selectionTray) {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
 .controlStrip {
   min-width: 0;
   display: flex;
@@ -327,6 +331,10 @@
 
 .sourcePanel:is([data-lifecycle="new"], [data-lifecycle="published"]) .sourceGrid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sourcePanel[data-lifecycle] .sourceGrid {
+  padding-bottom: 5px;
 }
 
 .sourceRow {
@@ -568,6 +576,7 @@
 .sourceTools {
   min-height: 18px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
 }
 
@@ -743,31 +752,40 @@
 }
 
 .selectionTray {
-  position: fixed;
-  z-index: 20;
-  right: 14px;
-  bottom: 12px;
-  left: 14px;
-  width: min(1420px, calc(100% - 28px));
-  margin: 0 auto;
+  position: static;
+  margin: 0;
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  align-items: center;
   gap: 8px;
-  padding: 7px 8px;
+  align-items: start;
+  padding: 8px 9px 9px;
   border: 1px solid #638d70;
   border-radius: 10px;
   background: rgb(248 253 248 / 97%);
-  box-shadow: 0 13px 36px rgb(22 53 31 / 24%);
-  backdrop-filter: blur(10px);
+  min-height: 58px;
+  box-shadow: 0 6px 20px rgb(22 53 31 / 14%);
+  backdrop-filter: blur(8px);
+}
+
+.selectionTrayHeader {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(500px, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-height: 58px;
 }
 
 .selectionSummary {
+  grid-column: 1;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.selectionSummaryHeader {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 7px;
-  padding-right: 8px;
-  border-right: 1px solid #c7d5c9;
 }
 
 .selectionSummary h2,
@@ -777,30 +795,32 @@
 
 .selectionSummary h2 {
   color: #153b25;
-  font-size: 0.75rem;
+  font-size: 0.97rem;
+  line-height: 1.15;
   white-space: nowrap;
 }
 
 .selectionSummary p {
   color: #5d6c62;
-  font-size: 0.53rem;
+  font-size: 0.66rem;
   white-space: nowrap;
+  margin: 0;
 }
 
 .selectionSummary button,
 .selectionDetails button,
 .selectionActions button,
 .selectionActionLink {
-  min-height: 27px;
+  min-height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 1px solid #9eb1a2;
   border-radius: 6px;
-  padding: 3px 7px;
+  padding: 4px 10px;
   color: #30493a;
   font: inherit;
-  font-size: 0.58rem;
+  font-size: 0.66rem;
   font-weight: 790;
   text-decoration: none;
   white-space: nowrap;
@@ -811,6 +831,7 @@
   position: relative;
   color: #385242;
   font-size: 0.6rem;
+  margin-left: auto;
 }
 
 .selectionDetails summary {
@@ -826,12 +847,9 @@
 }
 
 .selectionDetails ul {
-  position: absolute;
-  bottom: 34px;
-  left: 0;
-  width: min(430px, 80vw);
+  width: min(430px, 100%);
   max-height: 250px;
-  margin: 0;
+  margin: 4px 0 0;
   padding: 6px;
   display: grid;
   gap: 3px;
@@ -841,6 +859,11 @@
   list-style: none;
   background: #fff;
   box-shadow: 0 10px 25px rgb(24 51 31 / 18%);
+}
+
+.selectionDetails[open] {
+  flex-basis: 100%;
+  margin-left: 0;
 }
 
 .selectionDetails li {
@@ -874,22 +897,25 @@
 }
 
 .selectionActions {
+  grid-column: 2;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(190px, 1fr) auto auto auto;
-  align-items: end;
+  grid-template-columns: minmax(260px, 1.5fr) repeat(4, minmax(108px, auto));
+  align-items: center;
   gap: 5px;
+  justify-items: stretch;
+  width: 100%;
 }
 
 .selectionActions label {
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: 4px;
 }
 
 .selectionActions label > span {
   color: #607067;
-  font-size: 0.5rem;
+  font-size: 0.6rem;
   font-weight: 850;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -897,13 +923,13 @@
 
 .selectionActions input {
   width: 100%;
-  min-height: 27px;
+  min-height: 30px;
   border: 1px solid #aabaaa;
   border-radius: 6px;
-  padding: 3px 7px;
+  padding: 4px 8px;
   color: #213529;
   font: inherit;
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   background: #fff;
 }
 
@@ -916,7 +942,33 @@
 .themeActionButtons {
   min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
+}
+
+.incorporateSelection {
+  grid-column: 1 / -1;
+  display: flex !important;
+  align-items: center;
+  gap: 6px !important;
+  padding: 4px 6px;
+  border: 1px solid #a9beae;
+  border-radius: 6px;
+  background: #f2f8f3;
+}
+
+.incorporateSelection input {
+  width: 15px !important;
+  min-height: 15px !important;
+  margin: 0;
+  accent-color: #1f7843;
+}
+
+.incorporateSelection span {
+  color: #31513c !important;
+  font-size: 0.62rem !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
 }
 
 .discardSelectionButton {
@@ -941,7 +993,7 @@
 .selectionMessage {
   grid-column: 1 / -1;
   margin: 0;
-  font-size: 0.57rem;
+  font-size: 0.62rem;
 }
 
 .classificationBlock {
@@ -1041,13 +1093,24 @@
     max-height: 66vh;
   }
 
-  .selectionTray {
-    grid-template-columns: auto 1fr;
+  .selectionTrayHeader {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .selectionSummary {
+    grid-column: 1;
+  }
+
+  .selectionDetails {
+    grid-column: 1;
   }
 
   .selectionActions {
-    grid-column: 1 / -1;
+    grid-column: 1;
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
+
+  .selectionActions label { grid-column: 1 / -1; }
 }
 
 @media (max-width: 640px) {
@@ -1099,15 +1162,22 @@
     font-size: 0.94rem;
   }
 
-  .selectionTray {
-    right: 5px;
-    bottom: 5px;
-    left: 5px;
-    width: calc(100% - 10px);
+  .selectionTrayHeader {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .selectionSummary {
+    grid-column: 1;
+  }
+
+  .selectionDetails {
+    grid-column: 1;
   }
 
   .selectionActions {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-column: 1;
+    grid-template-columns: 1fr;
   }
 
   .selectionActions label {
@@ -1115,7 +1185,7 @@
   }
 
   .selectionTray[data-source-theme-actions="true"] .selectionActions {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
   .selectionTray[data-source-theme-actions="true"] .themeActionButtons {
@@ -1141,6 +1211,67 @@
 .organizationCard details { margin-top: 7px; font-size: 0.68rem; }
 .organizationCard summary { cursor: pointer; color: #315c40; }
 .organizationCard details .organizationCard { margin-top: 5px; }
+
+.themeSelectionToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 7px;
+  color: #315c40;
+  font-size: 0.62rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.themeSelectionToggle input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #1f7843;
+}
+
+.sourceThemeMenu {
+  position: relative;
+  margin-left: 9px;
+  color: #356248;
+  font-size: 0.62rem;
+}
+
+.sourceThemeMenu summary {
+  cursor: pointer;
+  font-weight: 780;
+}
+
+.sourceThemeMenu > div {
+  width: min(100%, 340px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+  padding: 6px;
+  border: 1px solid #aebfb1;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.sourceThemeMenu[open] {
+  flex: 1 0 100%;
+  margin: 5px 0 0;
+}
+
+.sourceThemeMenu select,
+.sourceThemeMenu button {
+  min-width: 0;
+  min-height: 24px;
+  border: 1px solid #afc1b3;
+  border-radius: 4px;
+  color: #244b34;
+  font: inherit;
+  background: #fff;
+}
+
+.sourceThemeMenu select { flex: 1; }
+.sourceThemeMenu small { margin-left: 5px; }
 
 .sourcePanel[data-organization="true"] .organizationThemeItem > .organizationCard {
   position: relative;
@@ -1212,10 +1343,11 @@
   border: 1px solid #afc1b3; border-radius: 5px; padding: 4px 7px; color: #244b34; background: #fff; font: inherit; cursor: pointer;
 }
 .panelHeader select { max-width: 110px; font-size: 0.64rem; border: 1px solid #c3d0c5; background: #fff; border-radius: 4px; }
-.themeChooser { grid-column: 1 / -1; display: flex; gap: 8px; align-items: end; padding-top: 6px; border-top: 1px solid #c7d5c9; font-size: 0.68rem; }
-.themeChooser label { display: grid; flex: 1; min-width: 0; gap: 4px; }
-.themeChooser select, .themeChooser input { width: 100%; }
-.themeChooserActions { display: flex; gap: 5px; align-items: center; }
+.themeChooser { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; padding-top: 7px; border-top: 1px solid #c7d5c9; font-size: 0.68rem; }
+.themeChooser:has(label:nth-of-type(2)) { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; }
+.themeChooser label { display: grid; min-width: 0; gap: 4px; }
+.themeChooser select, .themeChooser input { width: 100%; min-height: 30px; }
+.themeChooserActions { display: flex; gap: 5px; align-items: center; justify-content: flex-end; }
 .sourceUpdateAction { width: fit-content; color: #704b10; border-color: #d3b15a; background: #fff5d8; font-size: 0.57rem; }
 .versionNotice { display: flex; align-items: center; gap: 5px; color: #78520e; font-size: 0.6rem; }
 .versionNotice button { font-size: 0.57rem; }
@@ -1232,7 +1364,7 @@
 .comparisonColumns p[data-change="added"] { padding: 6px; background: #e8f5e9; border-left: 3px solid #4e8657; }
 .themeAllSources { padding: 7px; font-size: 0.68rem; border-top: 1px solid #cad5cb; }
 .themeAllSources .sourceGrid { max-height: 40dvh; }
-@media (max-width: 720px) { .themeChooser { flex-direction: column; align-items: stretch; } .comparisonColumns { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .themeChooser, .themeChooser:has(label:nth-of-type(2)) { grid-template-columns: minmax(0, 1fr); } .themeChooserActions { justify-content: flex-start; } .comparisonColumns { grid-template-columns: 1fr; } }
 
 @media (max-width: 640px) {
   .sourcePanel[data-organization="true"] .organizationThemeItem > .organizationCard {
@@ -1257,5 +1389,5 @@
 /* O leitor de um grupo não distribui o histórico pela grelha de duas colunas da Mesa. */
 .dossierReader { display: flex; flex-direction: column; overflow-y: auto; }
 .dossierReader > * { flex-shrink: 0; }
-.dossierReader > .selectionTray { position: static; width: 100%; margin: 0; }
+.dossierReader > .selectionTray { width: 100%; margin: 0; }
 .sourceContributions a + a { margin-left: 8px; }

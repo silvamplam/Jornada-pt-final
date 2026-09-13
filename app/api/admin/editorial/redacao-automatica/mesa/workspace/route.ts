@@ -160,6 +160,10 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
   const target = rawTarget === null ? null : uuid(rawTarget);
   const selectedImage = imageChoice(payload.imageChoice);
   const priority = typeof payload.priority === "number" ? payload.priority : NaN;
+  const rawProductionContextId = nullableText(payload.productionContextId);
+  const productionContextId = rawProductionContextId === null
+    ? null
+    : uuid(rawProductionContextId);
 
   if (
     !dossierId
@@ -169,6 +173,7 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
     || !length
     || !selectedImage
     || !Number.isInteger(priority)
+    || (rawProductionContextId !== null && !productionContextId)
     || (destination !== "new" && destination !== "update")
     || (destination === "new" && rawTarget !== null)
     || (destination === "update" && !target)
@@ -199,9 +204,21 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
   if (context?.workspace_state && context.workspace_state !== "active") return null;
   const workspaceContractVersion = context?.workspace_contract_version === 2 ? 2 : 1;
   const includedSources = dossierResult.value.sources.filter((source) => source.included);
-  const technicalSources = includedSources
-    .slice()
-    .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
+  const productionContext = workspaceResult.value.contextMode === "contexts"
+    ? workspaceResult.value.productionContexts.find((item) => item.id === productionContextId) ?? null
+    : null;
+  if (
+    (workspaceResult.value.contextMode === "contexts" && !productionContext)
+    || (workspaceResult.value.contextMode === "historical" && productionContextId !== null)
+  ) return null;
+  const includedById = new Map(includedSources.map((source) => [source.id, source]));
+  const technicalSources = productionContext
+    ? productionContext.sources.flatMap((source) => {
+        const dossierSource = includedById.get(source.dossierSourceId);
+        return dossierSource ? [dossierSource] : [];
+      })
+    : includedSources.slice().sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
+  if (productionContext && technicalSources.length !== productionContext.sources.length) return null;
   if (technicalSources.length < 1) return null;
 
   const startingPointSourceIds = workspaceContractVersion === 2
@@ -215,7 +232,9 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
         priority,
       )
     : [];
-  const workingTitle = workspaceContractVersion === 2
+  const workingTitle = productionContext
+    ? `Output ${String(priority).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+    : workspaceContractVersion === 2
     ? editorialMesaWorkspaceOutputWorkingTitle(
         priority,
         startingPointSourceIds[priority - 1],
@@ -247,6 +266,7 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
         })),
       },
       production: {
+        ...(productionContext ? { productionContextId: productionContext.id } : {}),
         destination,
         updateTargetEditorialArticleId: target,
         dossierPublishedContextIds: contexts,
@@ -261,6 +281,7 @@ function commandErrorStatus(code: string, partialPersistence = false): number {
   if (code === "input_invalid") return 400;
   if (code === "service_unavailable") return 503;
   if (code.includes("not_found")) return 404;
+  if (code === "mesa-shared-outputs-plan-context-invalid") return 409;
   if (code.includes("limit") || code.includes("already_converted")) return 409;
   return 502;
 }
@@ -296,7 +317,14 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
     ).then((rows) => ({ ok: true as const, rows }))
       .catch(() => ({ ok: false as const, rows: [] })),
   ]);
-  if (!dossierResult.ok || !plansResult.ok || !workspaceResult.ok || !contextResult.ok) {
+  if (!workspaceResult.ok) {
+    return {
+      ok: false as const,
+      status: workspaceResult.error.code === "context_contract_invalid" ? 409 : 503,
+      message: workspaceResult.error.message,
+    };
+  }
+  if (!dossierResult.ok || !plansResult.ok || !contextResult.ok) {
     return { ok: false as const, status: 503, message: "Não foi possível ler a produção guardada." };
   }
   if (!dossierResult.value || !workspaceResult.value) {
@@ -323,7 +351,22 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
   if (workspaceSources.length < 1) {
     return { ok: false as const, status: 409, message: "A produção não contém fontes autorizadas." };
   }
-  const startingPointSourceIds = workspaceContractVersion === 2
+  const productionContextById = new Map(workspace.productionContexts.map((item) => [item.id, item]));
+  const contextAssignmentByPlanId = new Map(workspace.planContexts.map((item) => (
+    [item.articlePlanId, productionContextById.get(item.productionContextId) ?? null]
+  )));
+  if (workspace.contextMode === "contexts" && plans.some((plan) => {
+    const assigned = contextAssignmentByPlanId.get(plan.id);
+    if (!assigned) return true;
+    const planned = plan.sources.map((source) => source.dossierSourceId).sort();
+    const frozen = assigned.sources.map((source) => source.dossierSourceId).sort();
+    return JSON.stringify(planned) !== JSON.stringify(frozen);
+  })) {
+    return { ok: false as const, status: 409, message: "Um Article Plan não tem um contexto 2C íntegro. Volta a guardar a Produção antes de preparar o pacote." };
+  }
+  const startingPointSourceIds = workspace.contextMode === "contexts"
+    ? plans.map((plan) => contextAssignmentByPlanId.get(plan.id)!.sources[0].dossierSourceId)
+    : workspaceContractVersion === 2
     ? editorialMesaWorkspaceStartingPointSourceIds(
         context?.selection_payload,
         context?.material_refs,
@@ -350,6 +393,12 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
   const imageById = new Map(workspace.images.map((image) => [image.id, image]));
   const outputs: EditorialSourcePackageOutputCreationInput[] = [];
   for (const [index, plan] of plans.entries()) {
+    const productionContext = workspace.contextMode === "contexts"
+      ? contextAssignmentByPlanId.get(plan.id) ?? null
+      : null;
+    if (workspace.contextMode === "contexts" && !productionContext) {
+      return { ok: false as const, status: 409, message: `O artigo ${index + 1} não tem contexto atribuído.` };
+    }
     const target = plan.updateTargetEditorialArticleId
       ? contextByArticleId.get(plan.updateTargetEditorialArticleId) ?? null
       : null;
@@ -371,7 +420,9 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
       return { ok: false as const, status: 409, message: `A imagem do artigo ${index + 1} não pode ser incluída no pacote. Escolhe uma imagem do banco editorial.` };
     }
 
-    const outputWorkingTitle = workspaceContractVersion === 2
+    const outputWorkingTitle = productionContext
+      ? `Output ${String(index + 1).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+      : workspaceContractVersion === 2
       ? editorialMesaWorkspaceOutputWorkingTitle(
           index + 1,
           startingPointSourceIds[index],
@@ -392,6 +443,9 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
         ? {
             outputId: plan.id,
             startingPointSourceId: startingPointSourceIds[index],
+            ...(productionContext ? {
+              contextSourceIds: productionContext.sources.map((source) => source.dossierSourceId),
+            } : {}),
           }
         : {}),
       sourceArticlePosition: 1,
@@ -415,7 +469,10 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
         ...(workspaceContractVersion === 2
           ? {
               workspaceContractVersion: 2 as const,
-              sourceScope: "workspace" as const,
+              ...(productionContext ? {
+                sourceScope: "context" as const,
+                contextId: productionContext.id,
+              } : { sourceScope: "workspace" as const }),
             }
           : {}),
       },
@@ -526,6 +583,7 @@ export async function POST(request: Request) {
       ? preflightEditorialMesaV2ArticleBatch(responseText, {
           outputIds: packageBatchContract.value.outputIds,
           sourceIds: packageBatchContract.value.sourceIds,
+          sourceIdsByOutput: packageBatchContract.value.sourceIdsByOutput,
         })
       : preflightEditorialArticleBatch(responseText);
     if (!preflight.ready) {

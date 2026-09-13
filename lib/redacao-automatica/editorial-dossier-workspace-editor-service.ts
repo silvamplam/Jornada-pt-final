@@ -1,6 +1,6 @@
 import "server-only";
 
-import { saveEditorialDossierArticlePlan } from "@/lib/redacao-automatica/editorial-dossier-article-plan-service";
+import { saveEditorialDossierArticlePlan, saveEditorialMesaContextArticlePlan } from "@/lib/redacao-automatica/editorial-dossier-article-plan-service";
 import {
   saveEditorialDossierArticlePlanState,
 } from "@/lib/redacao-automatica/editorial-dossier-production-workspace-service";
@@ -16,6 +16,7 @@ export type {
 
 const saveWorkspaceArticlePlan = saveEditorialDossierWorkspaceArticlePlanService({
   savePlan: saveEditorialDossierArticlePlan,
+  saveContextPlan: saveEditorialMesaContextArticlePlan,
   saveProductionState: saveEditorialDossierArticlePlanState,
 });
 

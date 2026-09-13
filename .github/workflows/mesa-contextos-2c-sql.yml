@@ -19,7 +19,7 @@ name: Mesa 2C - PostgreSQL 17 isolado
       - 'supabase/migrations/20260912152810_mesa_production_workspace_v2_provenance.sql'
       - 'supabase/migrations/20260912173257_allow_mesa_v2_source_package_manifest_v5.sql'
       - 'supabase/migrations/20260912175044_mesa_workspace_shared_output_scope_v2.sql'
-      - 'supabase/migrations/20260913095708_newsroom_mesa_contexts_production_2c.sql'
+      - 'supabase/migrations/20260913134418_newsroom_mesa_contexts_production_2c.sql'
       - 'supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql'
       - 'supabase/steps/15-redacao-automatica-newsroom-apply.sql'
       - 'supabase/steps/31-redacao-automatica-compose-idempotencia-proveniencia-apply.sql'

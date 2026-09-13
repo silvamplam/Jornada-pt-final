@@ -294,6 +294,63 @@ test("pacote Mesa v2 expõe IDs estáveis, proveniência obrigatória e contexto
   }], sourceEntries), null);
 });
 
+test("pacote 2C declara e instrui o âmbito factual congelado de cada contexto", () => {
+  const dossierId = "95000000-0000-4000-8000-000000000001";
+  const outputId = "95000000-0000-4000-8000-000000000002";
+  const contextId = "95000000-0000-4000-8000-000000000003";
+  const sourceIdA = "95000000-0000-4000-8000-000000000004";
+  const sourceIdB = "95000000-0000-4000-8000-000000000005";
+  const sourceEntries = entries().map((entry, index) => ({
+    ...entry,
+    provenanceSourceId: index === 0 ? sourceIdA : sourceIdB,
+  }));
+  const outputs = normalizeEditorialSourcePackageCreationOutputs([{
+    position: 1,
+    outputId,
+    startingPointSourceId: sourceIdA,
+    contextSourceIds: [sourceIdA],
+    sourceArticlePosition: 1,
+    focus: "Ângulo próprio do contexto",
+    imageNewsroomArticleId: ARTICLE_A,
+    articlePlan: {
+      dossierId,
+      articlePlanId: outputId,
+      workingTitle: "Tema congelado",
+      articleKind: "news",
+      articleKindLabel: "Notícia",
+      lengthMode: "standard",
+      lengthModeLabel: "Média",
+      editorialInstructions: "",
+      destination: "new",
+      workspaceContractVersion: 2,
+      sourceScope: "context",
+      contextId,
+    },
+  }], sourceEntries);
+
+  assert.ok(outputs);
+  const markdown = buildEditorialSourcePackageMarkdown({
+    createdAt: "2026-09-13T12:00:00.000Z",
+    editorial: {
+      genre: "news",
+      genreLabel: "Notícia",
+      suggestedTitle: null,
+      additionalInstructions: null,
+    },
+    entries: sourceEntries,
+    outputs: outputs!,
+  });
+  assert.match(markdown, new RegExp(`CONTEXTO: ${contextId}`));
+  assert.match(markdown, new RegExp(`FONTES_DO_CONTEXTO: ${sourceIdA}`));
+  assert.match(markdown, /Cada output recebe apenas as fontes congeladas/);
+  assert.match(markdown, /Não cruze fontes de outro contexto/);
+
+  assert.equal(normalizeEditorialSourcePackageCreationOutputs([{
+    ...outputs![0],
+    contextSourceIds: ["95000000-0000-4000-8000-000000000099"],
+  }], sourceEntries), null);
+});
+
 test(
   "um Dossie reutilizado transporta integralmente os tres artigos publicados a atualizar",
   () => {

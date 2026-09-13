@@ -26,7 +26,14 @@ export default async function MesaThemePage({ params }: Readonly<{ params: Promi
   const dossierMembers = records.dossierSources.filter((source) => dossierIds.has(source.dossier_id) && source.included);
   const pinnedVersionIds = new Set(records.themeMaterials?.filter((row) => row.theme_id === themeId).map((row) => row.version_id));
   const pinnedSources = records.materialVersions?.filter((row) => pinnedVersionIds.has(row.id)).flatMap((row) => row.source_refs) ?? [];
-  const sourceIds = [...new Set([...pinnedSources.map((ref) => ref.newsroomArticleId), ...members.map((member) => member.newsroom_article_id), ...dossierMembers.map((source) => source.newsroom_article_id)])];
+  const currentThemeSourceIds = new Set(members.map((member) => member.newsroom_article_id));
+  const addableSourceIds = new Set(records.themeSources.flatMap((member) => (
+    member.theme_id !== themeId && !currentThemeSourceIds.has(member.newsroom_article_id)
+      ? [member.newsroom_article_id]
+      : []
+  )));
+  const sourceIds = [...new Set([...pinnedSources.map((ref) => ref.newsroomArticleId), ...members.map((member) => member.newsroom_article_id),
+    ...dossierMembers.map((source) => source.newsroom_article_id), ...addableSourceIds])];
   const material = await loadOperationalDeskReadModel({ sourceIds });
   if (!material.ok) return <main className={styles.shell}><section className={styles.errorState} role="alert">
     <h1>Material indisponível</h1><p>{material.error.message}</p><Link href="/admin/editorial/redacao-automatica/mesa">Voltar à Mesa</Link>
@@ -34,12 +41,16 @@ export default async function MesaThemePage({ params }: Readonly<{ params: Promi
   const organization = buildMesaOrganization(records, material.value.sources);
   const context = organization.themes.find((item) => item.id === themeId)!;
   const inDossier = new Set(context.dossiers.flatMap((card) => card.material?.sources.map((ref) => ref.newsroomArticleId) ?? []));
-  const sources = material.value.sources.map((source) => {
+  const allSources = material.value.sources.map((source) => {
     const reference = members.find((member) => member.newsroom_article_id === source.newsroomArticleId)?.reference_snapshot_id ?? null;
     const changed = Boolean(reference && source.snapshot && reference !== source.snapshot.id);
     return { ...source, comparisonSnapshotId: reference, sourceUpdated: changed,
       sourceUpdatedAt: changed ? source.snapshot?.extractedAt ?? null : null };
   });
+  const sources = allSources.filter((source) => currentThemeSourceIds.has(source.newsroomArticleId)
+    || pinnedSources.some((ref) => ref.newsroomArticleId === source.newsroomArticleId)
+    || dossierMembers.some((member) => member.newsroom_article_id === source.newsroomArticleId));
+  const addableSources = allSources.filter((source) => addableSourceIds.has(source.newsroomArticleId));
   const loose = sources.filter((source) => !inDossier.has(source.newsroomArticleId));
   return <main className={styles.shell}>
     <div className={styles.container}>
@@ -60,6 +71,12 @@ export default async function MesaThemePage({ params }: Readonly<{ params: Promi
                 <ol className={styles.sourceGrid}>{sources.map((source) => <MesaSourceItem key={source.newsroomArticleId}
                   item={source} themeId={themeId} allowDiscard={false} />)}</ol>
               </details> : null}
+              <details className={styles.themeAllSources}>
+                <summary>Adicionar material ({addableSources.length})</summary>
+                {addableSources.length > 0 ? <ol className={styles.sourceGrid}>{addableSources.map((source) => (
+                  <MesaSourceItem key={source.newsroomArticleId} item={source} allowDiscard={false} allowSelection={false} />
+                ))}</ol> : <p className={styles.emptyPanel}>Sem material de outros Temas disponível.</p>}
+              </details>
             </section>
             <section className={styles.sourcePanel} data-organization="true"><header className={styles.panelHeader}><h2>DOSSIÊS</h2></header>
               <MesaSourceWindow storageKey={`jornada.mesa.tema.${themeId}.dossies`} empty="Seleciona fontes deste Tema para preparar a primeira produção."

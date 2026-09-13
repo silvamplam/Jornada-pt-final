@@ -896,6 +896,10 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
       organization = {
         themes: [{ id: "a0000000-0000-4000-8000-000000000001", title: "Sporting · cobertura do jogo",
           classificationKey: "sporting", status: "open", sourceCount: 6, articleCount: 3, updatedSourceCount: 2,
+          sourceRefs: FIXTURE_SOURCES.filter((source) => source.snapshot).slice(0, 6).map((source) => ({
+            newsroomArticleId: source.newsroomArticleId,
+            newsroomSnapshotId: source.snapshot!.id,
+          })), productionReady: true,
           dossiers: [{ id: "b0000000-0000-4000-8000-000000000001", kind: "dossier", title: "Crónica, reações e arbitragem",
             themeId: "a0000000-0000-4000-8000-000000000001", status: "completed", sourceCount: 6, articleCount: 3, updatedSourceCount: 2 }] }],
         unlinkedDossiers: [],
@@ -905,12 +909,10 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
       catch { organizationError = true; }
     }
   }
-  const groupedSourceIds = new Set(organization.groupedSourceIds ?? []);
   const looseNewItems = sourceResult.ok ? sourceResult.value.sources.filter(sourceIsUnassigned) : [];
   const loosePublishedItems = sourceResult.ok ? sourceResult.value.sources.filter((item) => (
     item.lifecycle === "published"
     && item.themeMembership.themeIds.length === 0
-    && !groupedSourceIds.has(item.newsroomArticleId)
   )) : [];
   const inboxItems = looseNewItems.filter((item) => matchesClassificationFilter(item, query.classification));
   const publishedItems = loosePublishedItems.filter((item) => matchesClassificationFilter(item, query.classification));

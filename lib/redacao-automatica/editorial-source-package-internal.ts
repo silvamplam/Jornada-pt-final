@@ -41,7 +41,8 @@ export type EditorialSourcePackageArticlePlan = Readonly<{
   editorialInstructions: string;
   destination: "new" | "update";
   workspaceContractVersion?: 2;
-  sourceScope?: "workspace";
+  sourceScope?: "workspace" | "context";
+  contextId?: string;
   origin?: EditorialSourcePackageOutputOrigin | null;
 }>;
 
@@ -56,6 +57,7 @@ export type EditorialSourcePackageOutputInput = Readonly<{
   position: number;
   outputId?: string | null;
   startingPointSourceId?: string | null;
+  contextSourceIds?: readonly string[];
   sourceArticlePosition: number;
   focus: string;
   imageNewsroomArticleId: string | null;
@@ -235,6 +237,7 @@ function normalizeEditorialSourcePackageArticlePlan(
     .trim();
   const workspaceContractVersion = value.workspaceContractVersion;
   const sourceScope = value.sourceScope;
+  const contextId = value.contextId?.trim().toLowerCase() || null;
   const rawOrigin = value.origin;
   const origin = rawOrigin
     ? {
@@ -255,16 +258,20 @@ function normalizeEditorialSourcePackageArticlePlan(
     || !["new", "update"].includes(value.destination)
     || editorialInstructions.length > 12000
     || (workspaceContractVersion !== undefined && workspaceContractVersion !== 2)
-    || (sourceScope !== undefined && sourceScope !== "workspace")
+    || (sourceScope !== undefined && sourceScope !== "workspace" && sourceScope !== "context")
     || (
       workspaceContractVersion === 2
       && (
         (
           sourceScope === "workspace"
-          && origin !== null
+          && (origin !== null || contextId !== null)
         )
         || (
-          sourceScope !== "workspace"
+          sourceScope === "context"
+          && (origin !== null || !contextId || !UUID_PATTERN.test(contextId))
+        )
+        || (
+          sourceScope !== "workspace" && sourceScope !== "context"
           && !origin
         )
         || (
@@ -306,8 +313,8 @@ function normalizeEditorialSourcePackageArticlePlan(
     ...(workspaceContractVersion === 2
       ? {
           workspaceContractVersion,
-          ...(sourceScope === "workspace"
-            ? { sourceScope }
+          ...(sourceScope === "workspace" || sourceScope === "context"
+            ? { sourceScope, ...(sourceScope === "context" ? { contextId: contextId! } : {}) }
             : { origin: origin! }),
         }
       : {}),
@@ -592,6 +599,9 @@ export function normalizeEditorialSourcePackageOutputs(
       && output.startingPointSourceId.trim()
       ? cleanId(output.startingPointSourceId)
       : null;
+    const contextSourceIds = Array.isArray(output.contextSourceIds)
+      ? output.contextSourceIds.map((value) => typeof value === "string" ? cleanId(value) : "")
+      : null;
     const sourceArticlePosition = Number(output.sourceArticlePosition);
     const focus = cleanEditorialText(
       typeof output.focus === "string" ? output.focus : "",
@@ -621,6 +631,14 @@ export function normalizeEditorialSourcePackageOutputs(
       || !focus
       || (outputId !== null && !UUID_PATTERN.test(outputId))
       || (startingPointSourceId !== null && !UUID_PATTERN.test(startingPointSourceId))
+      || (articlePlan?.sourceScope === "context" && (
+        !contextSourceIds
+        || contextSourceIds.length < 1
+        || contextSourceIds.length > EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES
+        || contextSourceIds.some((id) => !UUID_PATTERN.test(id))
+        || new Set(contextSourceIds).size !== contextSourceIds.length
+      ))
+      || (articlePlan?.sourceScope !== "context" && contextSourceIds !== null)
       || (
         articlePlan?.workspaceContractVersion === 2
         && outputId !== articlePlan.articlePlanId
@@ -639,6 +657,9 @@ export function normalizeEditorialSourcePackageOutputs(
     ))) {
       return null;
     }
+    if (contextSourceIds && contextSourceIds.some((sourceId) => !entries.some((entry) => (
+      entry.status === "prepared" && entry.provenanceSourceId === sourceId
+    )))) return null;
 
     if (imageNewsroomArticleId) {
       const imageEntry = entries.find((entry) => (
@@ -659,6 +680,7 @@ export function normalizeEditorialSourcePackageOutputs(
       position,
       ...(outputId ? { outputId } : {}),
       ...(startingPointSourceId ? { startingPointSourceId } : {}),
+      ...(contextSourceIds ? { contextSourceIds } : {}),
       sourceArticlePosition,
       focus,
       imageNewsroomArticleId,
@@ -1326,6 +1348,12 @@ function formatEditorialOutputPlan(
               ...(output.startingPointSourceId
                 ? [`   - PONTO_DE_PARTIDA: ${output.startingPointSourceId}`]
                 : []),
+              ...(output.articlePlan.sourceScope === "context" && output.contextSourceIds
+                ? [
+                    `   - CONTEXTO: ${output.articlePlan.contextId}`,
+                    `   - FONTES_DO_CONTEXTO: ${output.contextSourceIds.join(", ")}`,
+                  ]
+                : []),
             ]
           : []),
         `   - Título de trabalho: ${markdownText(output.articlePlan.workingTitle)}`,
@@ -1341,7 +1369,9 @@ function formatEditorialOutputPlan(
     ...(outputs.some((output) => output.articlePlan)
       ? ["> Quando um artigo tem género ou extensão individual, essa indicação do respetivo plano prevalece sobre a indicação geral do pacote.", ""]
       : []),
-    "> Todos os outputs têm acesso ao conjunto completo de fontes autorizadas desta produção. A utilização efetiva é declarada separadamente em FONTES_UTILIZADAS.",
+    outputs.every((output) => output.articlePlan?.sourceScope === "context")
+      ? "> Cada output recebe apenas as fontes congeladas indicadas em FONTES_DO_CONTEXTO. Outros contextos do mesmo workspace não são input factual desse output."
+      : "> Todos os outputs têm acesso ao conjunto completo de fontes autorizadas desta produção. A utilização efetiva é declarada separadamente em FONTES_UTILIZADAS.",
     "",
   ];
 }
@@ -1367,10 +1397,12 @@ function formatMesaV2ProvenanceContract(
     "Use exatamente esta ordem: OUTPUT_ID, FONTES_UTILIZADAS, ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO. Cada rótulo ocupa uma linha isolada.",
     "OUTPUT_ID deve repetir exatamente o UUID da saída indicada em ARTIGOS A PRODUZIR.",
     "PONTO_DE_PARTIDA identifica a fonte que fixa o assunto e a âncora principal daquele OUTPUT_ID. Preserve esse assunto no artigo correspondente.",
-    "Pode cruzar qualquer outra fonte autorizada do workspace para completar ou enriquecer o artigo, sem trocar o assunto principal entre OUTPUT_IDs.",
+    outputs.every((output) => output.articlePlan?.sourceScope === "context")
+      ? "Para cada OUTPUT_ID, use exclusivamente as fontes enumeradas em FONTES_DO_CONTEXTO desse output. Não cruze fontes de outro contexto do mesmo workspace."
+      : "Pode cruzar qualquer outra fonte autorizada do workspace para completar ou enriquecer o artigo, sem trocar o assunto principal entre OUTPUT_IDs.",
     "PONTO_DE_PARTIDA não prova utilização e não deve ser copiado automaticamente para FONTES_UTILIZADAS.",
     "FONTES_UTILIZADAS deve listar, uma por linha, apenas os UUIDs ID DA FONTE dos snapshots efetivamente usados nesse artigo.",
-    "Não liste uma fonte apenas por estar disponível. Não repita IDs, não invente IDs e não use fontes de outro workspace.",
+    "Não liste uma fonte apenas por estar disponível. Não repita IDs, não invente IDs e não use fontes fora do âmbito factual indicado para o OUTPUT_ID.",
     "A pesquisa externa pode complementar o texto, mas não entra em FONTES_UTILIZADAS.",
     "",
   ];

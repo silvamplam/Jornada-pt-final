@@ -10,6 +10,7 @@ const PACKAGE_ID = "91000000-0000-4000-8000-000000000001";
 const MATCHDAY_ID = "92000000-0000-4000-8000-000000000001";
 const OUTPUT_ID = "93000000-0000-4000-8000-000000000001";
 const SOURCE_ID = "94000000-0000-4000-8000-000000000001";
+const SOURCE_ID_B = "94000000-0000-4000-8000-000000000002";
 
 const mesaV2Text = `[JORNADA_ARTIGO_V1]
 OUTPUT_ID
@@ -169,6 +170,34 @@ test("Mesa v2 sem OUTPUT_ID ou FONTES_UTILIZADAS bloqueia sem downgrade históri
   assert.equal(preflightEditorialArticleBatchForSourcePackage(withoutOutput, sourcePackage).ready, false);
   assert.equal(preflightEditorialArticleBatchForSourcePackage(withoutSources, sourcePackage).ready, false);
   assert.equal(preflightEditorialArticleBatchForSourcePackage(mesaV2Text, null).ready, false);
+});
+
+test("transferência 2C rejeita uma fonte do workspace que pertence a outro contexto", () => {
+  const sourcePackage = parseEditorialBatchTransferSourcePackage(JSON.stringify({
+    year: "2026",
+    month: "09",
+    packageId: PACKAGE_ID,
+    batchContract: {
+      manifestVersion: 5,
+      provenanceContract: "mesa-v2",
+      workspaceContractVersion: 2,
+      outputIds: [OUTPUT_ID],
+      sourceIds: [SOURCE_ID, SOURCE_ID_B],
+      sourceIdsByOutput: { [OUTPUT_ID]: [SOURCE_ID] },
+    },
+  }));
+  assert.ok(sourcePackage?.batchContract);
+  assert.equal(
+    preflightEditorialArticleBatchForSourcePackage(
+      mesaV2Text.replace(SOURCE_ID, SOURCE_ID_B),
+      sourcePackage,
+    ).ready,
+    false,
+  );
+  assert.equal(
+    preflightEditorialArticleBatchForSourcePackage(mesaV2Text, sourcePackage).ready,
+    true,
+  );
 });
 
 test("contrato Mesa v2 parcial ou malformado não é aceite como pacote histórico", () => {

@@ -26,6 +26,7 @@ export type EditorialBatchTransferMesaV2Contract = Readonly<{
   workspaceContractVersion: 2;
   outputIds: readonly string[];
   sourceIds: readonly string[];
+  sourceIdsByOutput?: Readonly<Record<string, readonly string[]>>;
 }>;
 
 export type EditorialBatchTransferOutputImage = Readonly<{
@@ -51,17 +52,33 @@ function mesaV2Contract(value: unknown): EditorialBatchTransferMesaV2Contract | 
   const candidate = value as Record<string, unknown>;
   const outputIds = uuidList(candidate.outputIds, 30);
   const sourceIds = uuidList(candidate.sourceIds, 20);
+  const rawSourceIdsByOutput = candidate.sourceIdsByOutput;
+  let sourceIdsByOutput: Record<string, readonly string[]> | undefined;
+  if (rawSourceIdsByOutput !== undefined) {
+    if (!rawSourceIdsByOutput || typeof rawSourceIdsByOutput !== "object" || Array.isArray(rawSourceIdsByOutput)) return null;
+    sourceIdsByOutput = {};
+    for (const [outputId, values] of Object.entries(rawSourceIdsByOutput as Record<string, unknown>)) {
+      const normalizedOutputId = outputId.trim().toLowerCase();
+      const ids = uuidList(values, 20);
+      if (!UUID_PATTERN.test(normalizedOutputId) || !ids) return null;
+      sourceIdsByOutput[normalizedOutputId] = ids;
+    }
+  }
   return candidate.manifestVersion === 5
     && candidate.provenanceContract === "mesa-v2"
     && candidate.workspaceContractVersion === 2
     && outputIds
     && sourceIds
+    && (!sourceIdsByOutput
+      || Object.keys(sourceIdsByOutput).length === outputIds.length
+        && outputIds.every((id) => sourceIdsByOutput?.[id]?.every((sourceId) => sourceIds.includes(sourceId))))
     ? {
         manifestVersion: 5,
         provenanceContract: "mesa-v2",
         workspaceContractVersion: 2,
         outputIds,
         sourceIds,
+        ...(sourceIdsByOutput ? { sourceIdsByOutput } : {}),
       }
     : null;
 }
@@ -197,6 +214,7 @@ export function preflightEditorialArticleBatchForSourcePackage(
     ? preflightEditorialMesaV2ArticleBatch(input, {
         outputIds: sourcePackage.batchContract.outputIds,
         sourceIds: sourcePackage.batchContract.sourceIds,
+        sourceIdsByOutput: sourcePackage.batchContract.sourceIdsByOutput,
       })
     : preflightEditorialArticleBatch(input);
 }

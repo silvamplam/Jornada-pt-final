@@ -115,6 +115,7 @@ type EditorialBatchParserContract = "historical" | "mesa-v2";
 export type EditorialBatchMesaV2PreflightContract = Readonly<{
   outputIds: readonly string[];
   sourceIds: readonly string[];
+  sourceIdsByOutput?: Readonly<Record<string, readonly string[]>>;
 }>;
 
 const PROVENANCE_FIELD_BY_HEADING: Readonly<Record<string, ProvenanceField>> = {
@@ -600,6 +601,12 @@ export function preflightEditorialMesaV2ArticleBatch(
   const sourceIds = contract.sourceIds.map((value) => value.trim().toLowerCase());
   const expectedOutputIds = new Set(outputIds);
   const authorizedSourceIds = new Set(sourceIds);
+  const sourceIdsByOutput = contract.sourceIdsByOutput
+    ? new Map(Object.entries(contract.sourceIdsByOutput).map(([outputId, ids]) => [
+        outputId.trim().toLowerCase(),
+        ids.map((id) => id.trim().toLowerCase()),
+      ]))
+    : null;
 
   if (
     outputIds.length < 1
@@ -608,6 +615,16 @@ export function preflightEditorialMesaV2ArticleBatch(
     || sourceIds.some((value) => !UUID_PATTERN.test(value))
     || expectedOutputIds.size !== outputIds.length
     || authorizedSourceIds.size !== sourceIds.length
+    || sourceIdsByOutput && (
+      sourceIdsByOutput.size !== expectedOutputIds.size
+      || [...sourceIdsByOutput].some(([outputId, ids]) => (
+        !expectedOutputIds.has(outputId)
+        || ids.length < 1
+        || ids.length > 20
+        || new Set(ids).size !== ids.length
+        || ids.some((id) => !UUID_PATTERN.test(id) || !authorizedSourceIds.has(id))
+      ))
+    )
   ) {
     additionalIssues.push(issue(
       "invalid_mesa_v2_contract",
@@ -634,11 +651,13 @@ export function preflightEditorialMesaV2ArticleBatch(
     } else {
       seenOutputIds.add(article.outputId);
     }
-    if (article.sourceIds.some((sourceId) => !authorizedSourceIds.has(sourceId))) {
+    const outputSourceIds = article.outputId && sourceIdsByOutput?.get(article.outputId);
+    const authorizedForOutput = outputSourceIds ? new Set(outputSourceIds) : authorizedSourceIds;
+    if (article.sourceIds.some((sourceId) => !authorizedForOutput.has(sourceId))) {
       additionalIssues.push(indexedIssue(
         article,
         "unknown_source_id",
-        `FONTES_UTILIZADAS do artigo ${article.key} refere material externo a este workspace.`,
+        `FONTES_UTILIZADAS do artigo ${article.key} refere material externo ao contexto autorizado.`,
       ));
     }
   }

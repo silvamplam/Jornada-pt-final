@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { OperationalDeskSourceItem } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
 import { classificationLabel } from "./_mesa-query";
-import { MesaClassificationEditor, MesaOperationalSourceRow, MesaSelectionToggle, MesaSelectedVersionNotice } from "./_mesa-selection-client";
+import { MesaClassificationEditor, MesaOperationalSourceRow, MesaSelectionToggle, MesaSelectedVersionNotice, MesaSourceThemeMenu } from "./_mesa-selection-client";
 import { MesaSourceChanges, MesaRemoveThemeSource } from "./_mesa-source-changes";
 import styles from "./mesa.module.css";
 const classificationSourceLabels = { automatic: "Automática", manual: "Manual" } as const;
@@ -33,12 +33,14 @@ export function MesaSourceItem({
   themeId,
   allowDiscard = true,
   allowRemove = false,
+  allowSelection = true,
 }: Readonly<{
   item: OperationalDeskSourceItem;
   fixtureMode?: boolean;
   themeId?: string;
   allowDiscard?: boolean;
   allowRemove?: boolean;
+  allowSelection?: boolean;
 }>) {
   const dateValue = item.publishedAt ?? item.lastDetectedAt;
   const formattedDate = formatDate(dateValue);
@@ -56,7 +58,7 @@ export function MesaSourceItem({
       lifecycle: item.lifecycle,
       classificationKey,
     }}>
-      <div className={styles.sourceSelection}>
+      {allowSelection ? <div className={styles.sourceSelection}>
         <MesaSelectionToggle material={{
           kind: "source",
           lifecycle: item.lifecycle,
@@ -67,7 +69,7 @@ export function MesaSourceItem({
           sourceLabel: item.sourceName ?? item.sourceCode,
           imageUrl: item.imageCandidateUrl,
         }} />
-      </div>
+      </div> : <div className={styles.sourceSelection} aria-hidden="true" />}
       <div className={styles.sourceThumb}>
         {item.imageCandidateUrl ? (
           <img
@@ -124,6 +126,10 @@ export function MesaSourceItem({
             newsroomArticleId={item.newsroomArticleId}
             currentClassificationKey={classificationKey}
             fixtureMode={fixtureMode}
+          />
+          <MesaSourceThemeMenu
+            newsroomArticleId={item.newsroomArticleId}
+            themeIds={item.themeMembership.themeIds}
           />
           {themeId && allowRemove ? <MesaRemoveThemeSource themeId={themeId} sourceId={item.newsroomArticleId} /> : null}
         </div>

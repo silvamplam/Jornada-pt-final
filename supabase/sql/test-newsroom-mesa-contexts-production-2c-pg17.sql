@@ -1,5 +1,5 @@
 -- Run only against a disposable PostgreSQL 17 database after
--- 20260913095708_newsroom_mesa_contexts_production_2c.sql has been applied.
+-- 20260913134418_newsroom_mesa_contexts_production_2c.sql has been applied.
 -- Fixtures and contract probes are transactional and leave no data behind.
 begin;
 

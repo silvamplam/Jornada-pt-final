@@ -88,7 +88,7 @@ MESA_MIGRATIONS = [
     "supabase/migrations/20260912175044_mesa_workspace_shared_output_scope_v2.sql",
 ]
 
-MIGRATION_2C = "supabase/migrations/20260913095708_newsroom_mesa_contexts_production_2c.sql"
+MIGRATION_2C = "supabase/migrations/20260913134418_newsroom_mesa_contexts_production_2c.sql"
 TEST_2C = "supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql"
 
 

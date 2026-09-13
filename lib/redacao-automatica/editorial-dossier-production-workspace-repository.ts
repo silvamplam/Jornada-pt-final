@@ -15,6 +15,42 @@ type DossierRow = {
   preparation_key: string | null;
 };
 
+type MesaWorkspaceRow = {
+  dossier_id: string;
+  selection_payload: unknown;
+};
+
+type ProductionContextItemRow = {
+  id: string;
+  dossier_id: string;
+  context_kind: string;
+  source_newsroom_article_id: string | null;
+  theme_id: string | null;
+  title_snapshot: string;
+  sort_order: number;
+};
+
+type ProductionContextSourceRow = {
+  dossier_id: string;
+  production_context_id: string;
+  dossier_source_id: string;
+  sort_order: number;
+};
+
+type FrozenDossierSourceRow = {
+  id: string;
+  dossier_id: string;
+  newsroom_article_id: string;
+  newsroom_snapshot_id: string;
+  included: boolean;
+};
+
+type ArticlePlanContextRow = {
+  dossier_id: string;
+  article_plan_id: string;
+  production_context_id: string;
+};
+
 type PublishedContextRow = {
   id: string;
   dossier_id: string;
@@ -114,6 +150,26 @@ export type EditorialDossierArticlePlanProductionState = Readonly<{
   editorialArticleId: string | null;
 }>;
 
+export type EditorialMesaProductionContext = Readonly<{
+  id: string;
+  kind: "source" | "theme";
+  sourceNewsroomArticleId: string | null;
+  themeId: string | null;
+  title: string;
+  sortOrder: number;
+  sources: readonly Readonly<{
+    dossierSourceId: string;
+    newsroomArticleId: string;
+    newsroomSnapshotId: string;
+    sortOrder: number;
+  }>[];
+}>;
+
+export type EditorialMesaArticlePlanContext = Readonly<{
+  articlePlanId: string;
+  productionContextId: string;
+}>;
+
 export type EditorialDossierProductionWorkspace = Readonly<{
   dossierId: string;
   preparationKey: string | null;
@@ -121,6 +177,9 @@ export type EditorialDossierProductionWorkspace = Readonly<{
   planPublishedContexts: readonly EditorialDossierPlanPublishedContext[];
   images: readonly EditorialDossierImage[];
   articlePlans: readonly EditorialDossierArticlePlanProductionState[];
+  contextMode: "historical" | "contexts";
+  productionContexts: readonly EditorialMesaProductionContext[];
+  planContexts: readonly EditorialMesaArticlePlanContext[];
 }>;
 
 export type EditorialDossierProductionWorkspaceRepositoryResult =
@@ -128,8 +187,8 @@ export type EditorialDossierProductionWorkspaceRepositoryResult =
   | Readonly<{
       ok: false;
       error: Readonly<{
-        code: "read_unavailable";
-        message: "Não foi possível ler o workspace de produção neste momento.";
+        code: "read_unavailable" | "context_contract_invalid";
+        message: string;
       }>;
     }>;
 
@@ -222,6 +281,28 @@ function readUnavailable(): EditorialDossierProductionWorkspaceRepositoryResult 
   };
 }
 
+function contextContractInvalid(): EditorialDossierProductionWorkspaceRepositoryResult {
+  return {
+    ok: false,
+    error: {
+      code: "context_contract_invalid",
+      message: "A Produção 2C tem uma estrutura de contextos incompleta ou inválida. Não foi usado o fluxo histórico como alternativa.",
+    },
+  };
+}
+
+function isContextWorkspaceMarker(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const payload = value as Record<string, unknown>;
+  return payload.contractVersion === 3 && payload.contextContractVersion === 1;
+}
+
+function claimsContextWorkspace(value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const payload = value as Record<string, unknown>;
+  return payload.contractVersion === 3 || Object.hasOwn(payload, "contextContractVersion");
+}
+
 export async function getEditorialDossierProductionWorkspace(
   dossierIdValue: string | null | undefined,
 ): Promise<EditorialDossierProductionWorkspaceRepositoryResult> {
@@ -238,7 +319,9 @@ export async function getEditorialDossierProductionWorkspace(
     const dossier = dossiers[0];
     if (!dossier) return { ok: true, value: null };
 
-    const [contextRows, planContextRows, imageRows, planRows] = await Promise.all([
+    const [contextRows, planContextRows, imageRows, planRows, mesaWorkspaceRows,
+      productionContextRows, productionContextSourceRows, frozenDossierSourceRows,
+      articlePlanContextRows] = await Promise.all([
       readAllRows<PublishedContextRow>(
         "newsroom_editorial_dossier_published_contexts"
         + "?select=id,dossier_id,editorial_article_id,sort_order,created_at"
@@ -263,7 +346,99 @@ export async function getEditorialDossierProductionWorkspace(
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + "&order=sort_order.asc,id.asc",
       ),
+      fetchSupabaseAdminTable<MesaWorkspaceRow>(
+        "newsroom_mesa_production_contexts?select=dossier_id,selection_payload"
+        + `&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=1`,
+      ),
+      readAllRows<ProductionContextItemRow>(
+        "newsroom_mesa_production_context_items"
+        + "?select=id,dossier_id,context_kind,source_newsroom_article_id,theme_id,title_snapshot,sort_order"
+        + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
+        + "&order=sort_order.asc,id.asc",
+      ),
+      readAllRows<ProductionContextSourceRow>(
+        "newsroom_mesa_production_context_sources"
+        + "?select=dossier_id,production_context_id,dossier_source_id,sort_order"
+        + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
+        + "&order=production_context_id.asc,sort_order.asc,dossier_source_id.asc",
+      ),
+      readAllRows<FrozenDossierSourceRow>(
+        "newsroom_editorial_dossier_sources"
+        + "?select=id,dossier_id,newsroom_article_id,newsroom_snapshot_id,included"
+        + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
+        + "&order=sort_order.asc,id.asc",
+      ),
+      readAllRows<ArticlePlanContextRow>(
+        "newsroom_mesa_article_plan_contexts"
+        + "?select=dossier_id,article_plan_id,production_context_id"
+        + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
+        + "&order=article_plan_id.asc",
+      ),
     ]);
+
+    const selectionPayload = mesaWorkspaceRows[0]?.selection_payload;
+    const hasContextMarker = isContextWorkspaceMarker(selectionPayload);
+    const claimsContexts = claimsContextWorkspace(selectionPayload);
+    const hasContextRelations = productionContextRows.length > 0
+      || productionContextSourceRows.length > 0
+      || articlePlanContextRows.length > 0;
+    if ((claimsContexts && !hasContextMarker)
+      || hasContextMarker !== (productionContextRows.length > 0)
+      || (!hasContextMarker && hasContextRelations)) return contextContractInvalid();
+
+    const frozenSourceById = new Map(frozenDossierSourceRows.map((source) => [source.id, source]));
+    const productionContexts: EditorialMesaProductionContext[] = [];
+    if (hasContextMarker) {
+      const contextIds = new Set(productionContextRows.map((row) => row.id));
+      if (
+        productionContextRows.some((row, index) => row.sort_order !== index + 1)
+        || productionContextSourceRows.some((row) => !contextIds.has(row.production_context_id))
+        || articlePlanContextRows.some((row) => !contextIds.has(row.production_context_id))
+      ) return contextContractInvalid();
+
+      const unionSourceIds = new Set<string>();
+      for (const row of productionContextRows) {
+        const contextSources = productionContextSourceRows
+          .filter((source) => source.production_context_id === row.id)
+          .sort((left, right) => left.sort_order - right.sort_order || left.dossier_source_id.localeCompare(right.dossier_source_id));
+        if (contextSources.length < 1 || contextSources.some((source, index) => source.sort_order !== index + 1)) {
+          return contextContractInvalid();
+        }
+        const sources = contextSources.flatMap((source) => {
+          const frozen = frozenSourceById.get(source.dossier_source_id);
+          return frozen?.included ? [{
+            dossierSourceId: frozen.id,
+            newsroomArticleId: frozen.newsroom_article_id,
+            newsroomSnapshotId: frozen.newsroom_snapshot_id,
+            sortOrder: source.sort_order,
+          }] : [];
+        });
+        if (sources.length !== contextSources.length) return contextContractInvalid();
+        if (
+          row.context_kind === "source"
+            ? sources.length !== 1
+              || row.source_newsroom_article_id !== sources[0].newsroomArticleId
+              || row.theme_id !== null
+            : row.context_kind !== "theme"
+              || !row.theme_id
+              || row.source_newsroom_article_id !== null
+        ) return contextContractInvalid();
+        const kind: "source" | "theme" = row.context_kind === "source" ? "source" : "theme";
+        sources.forEach((source) => unionSourceIds.add(source.dossierSourceId));
+        productionContexts.push({
+          id: row.id,
+          kind,
+          sourceNewsroomArticleId: row.source_newsroom_article_id,
+          themeId: row.theme_id,
+          title: row.title_snapshot,
+          sortOrder: row.sort_order,
+          sources,
+        });
+      }
+      const includedSourceIds = frozenDossierSourceRows.filter((source) => source.included).map((source) => source.id);
+      if (unionSourceIds.size !== includedSourceIds.length
+        || includedSourceIds.some((sourceId) => !unionSourceIds.has(sourceId))) return contextContractInvalid();
+    }
 
     const articleIds = Array.from(new Set(contextRows.map((row) => row.editorial_article_id)));
     const articlePages = await Promise.all(
@@ -316,6 +491,12 @@ export async function getEditorialDossierProductionWorkspace(
           updateTargetEditorialArticleId: row.update_target_editorial_article_id,
           imageChoice: imageChoice(row.image_choice, row.dossier_image_id),
           editorialArticleId: row.editorial_article_id,
+        })),
+        contextMode: hasContextMarker ? "contexts" : "historical",
+        productionContexts,
+        planContexts: articlePlanContextRows.map((row) => ({
+          articlePlanId: row.article_plan_id,
+          productionContextId: row.production_context_id,
         })),
       },
     };

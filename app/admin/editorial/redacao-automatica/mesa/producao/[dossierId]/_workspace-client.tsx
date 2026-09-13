@@ -15,6 +15,8 @@ import type {
 import type {
   EditorialDossierImage,
   EditorialDossierPublishedContext,
+  EditorialMesaArticlePlanContext,
+  EditorialMesaProductionContext,
 } from "@/lib/redacao-automatica/editorial-dossier-production-workspace-repository";
 import type {
   EditorialDossierArticleKind,
@@ -47,6 +49,7 @@ type WorkspaceDossier = Readonly<{
   outputCount: number;
   initialOutputCount: number;
   workspaceContractVersion: 1 | 2;
+  contextMode: "historical" | "contexts";
 }>;
 
 type WorkspaceVisualSeed = Readonly<{
@@ -185,7 +188,7 @@ function ImageBank({
     if (!response.ok || !result?.ok) {
       throw new Error(
         result?.message
-        || "O ficheiro foi carregado, mas ainda não ficou registado no banco do Dossiê.",
+        || "O ficheiro foi carregado, mas ainda não ficou registado no banco da Produção.",
       );
     }
   }
@@ -242,7 +245,7 @@ function ImageBank({
         fileName: file.name,
       };
       setPendingRegistration(registration);
-      setMessage("A registar a imagem no banco do Dossiê…");
+      setMessage("A registar a imagem no banco da Produção…");
       await registerUpload(registration);
       setPendingRegistration(null);
       if (fileInput.current) fileInput.current.value = "";
@@ -371,6 +374,8 @@ function PlanEditor({
   visualSeed,
   hidden,
   contexts,
+  productionContexts,
+  assignedContextId,
   images,
 }: Readonly<{
   dossier: WorkspaceDossier;
@@ -380,12 +385,18 @@ function PlanEditor({
   visualSeed: WorkspaceVisualSeed | null;
   hidden: boolean;
   contexts: readonly EditorialDossierPublishedContext[];
+  productionContexts: readonly EditorialMesaProductionContext[];
+  assignedContextId: string | null;
   images: readonly EditorialDossierImage[];
 }>) {
   const [destination, setDestination] = useState<"new" | "update">(
     plan?.destination ?? "new",
   );
   const [targetId, setTargetId] = useState(plan?.updateTargetEditorialArticleId ?? "");
+  const [productionContextId, setProductionContextId] = useState(
+    assignedContextId ?? productionContexts[(position - 1) % Math.max(1, productionContexts.length)]?.id ?? "",
+  );
+  const selectedProductionContext = productionContexts.find((context) => context.id === productionContextId) ?? null;
   const defaultImageValue = visualSeed?.image
     ? `dossier_image:${visualSeed.image.id}`
     : "unselected";
@@ -425,6 +436,9 @@ function PlanEditor({
         <div className={styles.materializedState}>
           <span>Artigo já materializado · {plan.destination === "update" ? "UPDATE" : "NOVO"}</span>
           <strong>{plan.workingTitle}</strong>
+          {selectedProductionContext ? <small>
+            Contexto: {selectedProductionContext.kind === "theme" ? "Tema" : "Fonte"} · {selectedProductionContext.title}
+          </small> : null}
           <a href={"/admin/editorial/artigos?articleId=" + encodeURIComponent(plan.editorialArticleId)}>
             Abrir artigo
           </a>
@@ -454,7 +468,22 @@ function PlanEditor({
           />
         </label>
 
-        <div className={styles.planFields}>
+        <div className={styles.planFields} data-context-mode={dossier.contextMode}>
+          {dossier.contextMode === "contexts" ? <label className={styles.contextField}>
+            <span>Contexto</span>
+            <select
+              name={planField(cardKey, "context_id")}
+              value={productionContextId}
+              required
+              onChange={(event) => setProductionContextId(event.currentTarget.value)}
+            >
+              {productionContexts.map((context) => (
+                <option key={context.id} value={context.id}>
+                  {context.kind === "theme" ? "Tema" : "Fonte"} · {context.title}
+                </option>
+              ))}
+            </select>
+          </label> : null}
           <label>
             <span>Género</span>
             <select
@@ -864,6 +893,8 @@ export function MesaProductionWorkspaceClient({
   publishedContexts,
   images,
   plans,
+  productionContexts,
+  planContexts,
   visualSourceOrder,
 }: Readonly<{
   dossier: WorkspaceDossier;
@@ -871,10 +902,15 @@ export function MesaProductionWorkspaceClient({
   publishedContexts: readonly EditorialDossierPublishedContext[];
   images: readonly EditorialDossierImage[];
   plans: readonly EditorialDossierArticlePlan[];
+  productionContexts: readonly EditorialMesaProductionContext[];
+  planContexts: readonly EditorialMesaArticlePlanContext[];
   visualSourceOrder: readonly string[];
 }>) {
   const router = useRouter();
   const activePlans = plans.filter((plan) => plan.status !== "cancelled");
+  const contextByPlanId = new Map(planContexts.map((assignment) => (
+    [assignment.articlePlanId, assignment.productionContextId]
+  )));
   const activePlanCount = activePlans.length;
   const materializedPlanCount = activePlans.filter((plan) => plan.editorialArticleId).length;
   const initialOutputCount = Math.min(
@@ -985,6 +1021,9 @@ export function MesaProductionWorkspaceClient({
             imageChoice: imageChoice(
               String(data.get(planField(card.key, "image_choice")) ?? "unselected"),
             ),
+            ...(dossier.contextMode === "contexts" ? {
+              productionContextId: String(data.get(planField(card.key, "context_id")) ?? ""),
+            } : {}),
           }),
         });
         const result = await response.json().catch(() => null) as CommandResponse | null;
@@ -1092,6 +1131,8 @@ export function MesaProductionWorkspaceClient({
               visualSeed={card.visualSeed}
               hidden={card.position > outputCount}
               contexts={publishedContexts}
+              productionContexts={productionContexts}
+              assignedContextId={card.plan ? contextByPlanId.get(card.plan.id) ?? null : null}
               images={images}
             />
           ))}

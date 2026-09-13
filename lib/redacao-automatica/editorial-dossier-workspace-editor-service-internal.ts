@@ -13,6 +13,7 @@ import type {
 export type SaveEditorialDossierWorkspaceArticlePlanInput = Readonly<{
   plan: SaveEditorialDossierArticlePlanInput;
   production: Readonly<{
+    productionContextId?: string;
     destination: EditorialDossierArticlePlanDestination;
     updateTargetEditorialArticleId: string | null;
     dossierPublishedContextIds: readonly string[];
@@ -49,6 +50,10 @@ export interface EditorialDossierWorkspaceArticlePlanTransport {
   saveProductionState(
     input: SaveEditorialDossierArticlePlanStateInput,
   ): Promise<EditorialDossierProductionWorkspaceResult<SavedEditorialDossierArticlePlanState>>;
+  saveContextPlan?(
+    input: SaveEditorialDossierArticlePlanInput,
+    productionContextId: string,
+  ): Promise<EditorialDossierArticlePlanSaveResult>;
 }
 
 export function saveEditorialDossierWorkspaceArticlePlanService(
@@ -57,7 +62,16 @@ export function saveEditorialDossierWorkspaceArticlePlanService(
   return async function saveEditorialDossierWorkspaceArticlePlan(
     input: SaveEditorialDossierWorkspaceArticlePlanInput,
   ): Promise<SaveEditorialDossierWorkspaceArticlePlanResult> {
-    const planResult = await transport.savePlan(input.plan);
+    const planResult = input.production.productionContextId
+      ? await transport.saveContextPlan?.(input.plan, input.production.productionContextId)
+        ?? {
+          ok: false as const,
+          error: {
+            code: "article_plan_save_failed" as const,
+            message: "A atribuição de contexto não está configurada.",
+          },
+        }
+      : await transport.savePlan(input.plan);
     if (!planResult.ok) {
       return {
         ok: false,

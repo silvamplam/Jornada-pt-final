@@ -303,6 +303,12 @@ function persistedOutputs(
         typeof candidate.startingPointSourceId === "string"
           ? candidate.startingPointSourceId
           : null,
+      contextSourceIds:
+        Array.isArray(candidate.contextSourceIds)
+          ? candidate.contextSourceIds.map((sourceId) => (
+              typeof sourceId === "string" ? sourceId : ""
+            ))
+          : undefined,
       sourceArticlePosition:
         Number(
           candidate.sourceArticlePosition

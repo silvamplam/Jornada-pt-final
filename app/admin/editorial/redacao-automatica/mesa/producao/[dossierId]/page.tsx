@@ -37,13 +37,13 @@ type ProductionContextRow = Readonly<{
   workspace_state?: string | null;
 }>;
 
-function ReadError() {
+function ReadError({ message = "Não foi possível reconstruir esta produção a partir do estado persistente." }: Readonly<{ message?: string }>) {
   return (
     <main className={styles.shell}>
       <section className={styles.errorState} role="alert">
         <p>Mesa da Redação</p>
         <h1>Workspace indisponível</h1>
-        <p>Não foi possível reconstruir esta produção a partir do estado persistente.</p>
+        <p>{message}</p>
         <Link href="/admin/editorial/redacao-automatica/mesa">Voltar à Mesa</Link>
       </section>
     </main>
@@ -60,7 +60,10 @@ export default async function ProductionWorkspacePage({
     getEditorialDossierProductionWorkspace(dossierId),
   ]);
 
-  if (!dossierResult.ok || !plansResult.ok || !productionResult.ok) {
+  if (!productionResult.ok) {
+    return <ReadError message={productionResult.error.message} />;
+  }
+  if (!dossierResult.ok || !plansResult.ok) {
     return <ReadError />;
   }
   if (!dossierResult.value || !productionResult.value) notFound();
@@ -81,7 +84,12 @@ export default async function ProductionWorkspacePage({
   const context = contextResult.rows[0] ?? null;
   if (!contextResult.ok) return <ReadError />;
   if (context?.workspace_state && context.workspace_state !== "active") notFound();
-  const parentThemeId = context?.theme_id ?? parentResult.rows[0]?.theme_id ?? null;
+  const contextThemeIds = production.contextMode === "contexts"
+    ? production.productionContexts.flatMap((item) => item.themeId ? [item.themeId] : [])
+    : [];
+  const parentThemeId = contextThemeIds.length === 1
+    ? contextThemeIds[0]
+    : context?.theme_id ?? parentResult.rows[0]?.theme_id ?? null;
   const sourceNames = new Map(
     listRegisteredSources().map((source) => [source.code, source.name]),
   );
@@ -128,11 +136,14 @@ export default async function ProductionWorkspacePage({
             articleKind: dossier.articleKind,
             lengthMode: dossier.lengthMode,
             outputCount: dossier.outputCount,
-            initialOutputCount: editorialMesaWorkspaceInitialOutputCount(
-              context?.selection_payload,
-              includedSourceCount,
-            ),
+            initialOutputCount: production.contextMode === "contexts"
+              ? production.productionContexts.length
+              : editorialMesaWorkspaceInitialOutputCount(
+                  context?.selection_payload,
+                  includedSourceCount,
+                ),
             workspaceContractVersion: context?.workspace_contract_version === 2 ? 2 : 1,
+            contextMode: production.contextMode,
           }}
           sources={dossier.sources.map((source) => ({
             id: source.id,
@@ -144,6 +155,8 @@ export default async function ProductionWorkspacePage({
           publishedContexts={production.publishedContexts}
           images={production.images}
           plans={plans}
+          productionContexts={production.productionContexts}
+          planContexts={production.planContexts}
           visualSourceOrder={editorialMesaWorkspaceVisualSourceOrder(
             context?.selection_payload,
             context?.material_refs,

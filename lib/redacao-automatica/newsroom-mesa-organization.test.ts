@@ -196,9 +196,9 @@ test("assignments técnicos não publicam fontes; só a proveniência final usad
   assert.deepEqual(result.value.novas.items.map((item) => item.newsroomArticleId), [id(2)]);
 });
 
-test("fonte retirada de todos os contextos e sem publicação volta a ficar por encaminhar", () => {
+test("material solto depende apenas de Tema e mantém Dossiê como infraestrutura técnica", () => {
   assert.equal(sourceIsUnassigned(source()), true);
-  assert.equal(sourceIsUnassigned({ ...source(), dossierMembership: [id(20)] }), false);
+  assert.equal(sourceIsUnassigned({ ...source(), dossierMembership: [id(20)] }), true);
   assert.equal(sourceIsUnassigned({ ...source(), themeMembership: { status: "associated", themeIds: [id(10)] } }), false);
   assert.equal(sourceIsUnassigned({ ...source(), lifecycle: "published" }), false);
 });
@@ -427,11 +427,12 @@ test("relação de Dossiê no SQL não usa o conflito de coluna ambígua", () =>
 test("contadores acompanham explicitamente o universo NOVAS ou PUBLICADAS visível", () => {
   const page = readFileSync("app/admin/editorial/redacao-automatica/mesa/page.tsx", "utf8");
   const count = page.slice(page.indexOf("function sumVisibleCount("), page.indexOf("function fixtureClassification("));
-  const visibleUniverse = page.slice(page.indexOf("const groupedSourceIds"), page.indexOf("const activeLifecycle"));
+  const visibleUniverse = page.slice(page.indexOf("const looseNewItems"), page.indexOf("const activeLifecycle"));
   assert.match(count, /lifecycle === "published" \? counts\.publicadas : counts\.novas/);
   assert.match(count, /return universe\.total/);
   assert.match(visibleUniverse, /const looseNewItems = [\s\S]*?filter\(sourceIsUnassigned\)/);
-  assert.match(visibleUniverse, /const loosePublishedItems = [\s\S]*?item\.lifecycle === "published"[\s\S]*?themeIds\.length === 0[\s\S]*?!groupedSourceIds\.has/);
+  assert.match(visibleUniverse, /const loosePublishedItems = [\s\S]*?item\.lifecycle === "published"[\s\S]*?themeIds\.length === 0/);
+  assert.doesNotMatch(visibleUniverse, /groupedSourceIds/);
   assert.match(visibleUniverse, /novas: countFor\(looseNewItems\)/);
   assert.match(visibleUniverse, /publicadas: countFor\(loosePublishedItems\)/);
   assert.doesNotMatch(visibleUniverse, /sourceResult\.value\.counts/);

@@ -69,11 +69,22 @@ export function editorialMesaPackageBatchContract(
     || new Set(sourceIds).size !== sourceIds.length
     || manifest.outputs.some((output) => (
       output.articlePlan?.workspaceContractVersion !== 2
-      || output.articlePlan.sourceScope !== "workspace"
+      || (output.articlePlan.sourceScope !== "workspace" && output.articlePlan.sourceScope !== "context")
     ))
+    || new Set(manifest.outputs.map((output) => output.articlePlan?.sourceScope)).size !== 1
   ) {
     return { kind: "invalid" };
   }
+
+  const contextScoped = manifest.outputs[0].articlePlan?.sourceScope === "context";
+  if (contextScoped && manifest.outputs.some((output) => (
+    !output.articlePlan?.contextId
+    || !UUID_PATTERN.test(output.articlePlan.contextId)
+    || !output.contextSourceIds?.length
+    || output.contextSourceIds.length > 20
+    || output.contextSourceIds.some((id) => !UUID_PATTERN.test(id) || !sourceIds.includes(id))
+    || new Set(output.contextSourceIds).size !== output.contextSourceIds.length
+  ))) return { kind: "invalid" };
 
   return {
     kind: "mesa-v2",
@@ -83,6 +94,11 @@ export function editorialMesaPackageBatchContract(
       workspaceContractVersion: 2,
       outputIds,
       sourceIds,
+      ...(contextScoped ? {
+        sourceIdsByOutput: Object.fromEntries(manifest.outputs.map((output) => (
+          [output.outputId!, output.contextSourceIds!]
+        ))),
+      } : {}),
     },
   };
 }
@@ -104,13 +120,17 @@ export function validateEditorialMesaSingleOutputProvenance(
   if (new Set(article.sourceIds).size !== article.sourceIds.length) {
     return { ok: false, code: "mesa-v2-source-duplicate", articleKey: article.key };
   }
+  const authorizedIds = matchingOutputs[0].articlePlan?.sourceScope === "context"
+    ? new Set(matchingOutputs[0].contextSourceIds ?? [])
+    : null;
   const sourceById = new Map(manifest.entries.flatMap((entry) => (
     entry.status === "prepared" && entry.provenanceSourceId
       ? [[entry.provenanceSourceId, entry] as const]
       : []
   )));
   const sources = article.sourceIds.map((sourceId) => sourceById.get(sourceId));
-  if (sources.some((source) => !source)) {
+  if (sources.some((source) => !source)
+    || authorizedIds && article.sourceIds.some((sourceId) => !authorizedIds.has(sourceId))) {
     return { ok: false, code: "mesa-v2-source-unknown", articleKey: article.key };
   }
   return {
@@ -189,7 +209,11 @@ export function validateEditorialMesaOutputProvenance(
       };
     }
     const sources = article.sourceIds.map((sourceId) => sourceById.get(sourceId));
-    if (sources.some((source) => !source)) {
+    const authorizedIds = output.articlePlan?.sourceScope === "context"
+      ? new Set(output.contextSourceIds ?? [])
+      : null;
+    if (sources.some((source) => !source)
+      || authorizedIds && article.sourceIds.some((sourceId) => !authorizedIds.has(sourceId))) {
       return {
         ok: false,
         code: "mesa-v2-source-unknown",

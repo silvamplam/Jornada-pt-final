@@ -24,6 +24,132 @@ function textValue(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+type MesaContextPreparationInput = Readonly<{
+  preparationKey: string;
+  title: string;
+  contexts: readonly Readonly<Record<string, unknown>>[];
+  incorporateThemeId: string | null;
+  incorporateSourceIds: readonly string[];
+}>;
+
+function contextPreparationInput(value: unknown): MesaContextPreparationInput | null {
+  const payload = objectValue(value);
+  const preparationKey = textValue(payload?.preparationKey).trim().toLowerCase();
+  const title = textValue(payload?.title).trim();
+  const rawContexts = payload?.contexts;
+  const rawIncorporateThemeId = payload?.incorporateThemeId;
+  const incorporateThemeId = rawIncorporateThemeId === null
+    ? null
+    : textValue(rawIncorporateThemeId).trim().toLowerCase();
+  const rawIncorporateSourceIds = payload?.incorporateSourceIds;
+  if (
+    !isMesaUuid(preparationKey)
+    || !title
+    || title.length > 180
+    || !Array.isArray(rawContexts)
+    || rawContexts.length < 1
+    || rawContexts.length > 20
+    || (incorporateThemeId !== null && !isMesaUuid(incorporateThemeId))
+    || !Array.isArray(rawIncorporateSourceIds)
+  ) return null;
+
+  const contexts: Record<string, unknown>[] = [];
+  const contextKeys = new Set<string>();
+  const union = new Map<string, string>();
+  for (const candidate of rawContexts) {
+    const context = objectValue(candidate);
+    const kind = textValue(context?.kind);
+    const sourceId = textValue(context?.sourceId).trim().toLowerCase();
+    const themeId = textValue(context?.themeId).trim().toLowerCase();
+    const rawSources = context?.sources;
+    if (
+      !context
+      || (kind !== "source" && kind !== "theme")
+      || (kind === "source" ? !isMesaUuid(sourceId) || Boolean(themeId) : !isMesaUuid(themeId) || Boolean(sourceId))
+      || !Array.isArray(rawSources)
+      || rawSources.length < 1
+      || rawSources.length > 20
+    ) return null;
+    const sources = rawSources.map((value) => {
+      const ref = objectValue(value);
+      return {
+        newsroomArticleId: textValue(ref?.newsroomArticleId).trim().toLowerCase(),
+        newsroomSnapshotId: textValue(ref?.newsroomSnapshotId).trim().toLowerCase(),
+      };
+    });
+    if (
+      sources.some((ref) => !isMesaUuid(ref.newsroomArticleId) || !isMesaUuid(ref.newsroomSnapshotId))
+      || new Set(sources.map((ref) => ref.newsroomArticleId)).size !== sources.length
+      || (kind === "source" && (sources.length !== 1 || sources[0].newsroomArticleId !== sourceId))
+    ) return null;
+    const key = `${kind}:${kind === "source" ? sourceId : themeId}`;
+    if (contextKeys.has(key)) return null;
+    contextKeys.add(key);
+    for (const ref of sources) {
+      const previous = union.get(ref.newsroomArticleId);
+      if (previous && previous !== ref.newsroomSnapshotId) return null;
+      union.set(ref.newsroomArticleId, ref.newsroomSnapshotId);
+    }
+    contexts.push({ kind, ...(kind === "source" ? { sourceId } : { themeId }), sources });
+  }
+
+  const incorporateSourceIds = rawIncorporateSourceIds.map((value) => textValue(value).trim().toLowerCase());
+  if (
+    union.size > 20
+    || incorporateSourceIds.some((id) => !isMesaUuid(id))
+    || new Set(incorporateSourceIds).size !== incorporateSourceIds.length
+    || (incorporateThemeId === null && incorporateSourceIds.length > 0)
+    || (incorporateThemeId !== null && (
+      incorporateSourceIds.length < 1
+      || contexts.length !== 1
+      || contexts[0].kind !== "theme"
+      || contexts[0].themeId !== incorporateThemeId
+    ))
+  ) return null;
+
+  return { preparationKey, title, contexts, incorporateThemeId, incorporateSourceIds };
+}
+
+async function prepareMesaContexts(input: MesaContextPreparationInput) {
+  try {
+    const rows = await mesaOrganizationCommand("newsroom_prepare_mesa_contexts_v3", {
+      p_preparation_key: input.preparationKey,
+      p_title: input.title,
+      p_contexts: input.contexts,
+      p_incorporate_theme_id: input.incorporateThemeId,
+      p_incorporate_source_ids: input.incorporateSourceIds,
+    });
+    const row = rows[0];
+    if (
+      !isMesaUuid(row?.dossier_id)
+      || !["created", "reused"].includes(String(row.preparation_action))
+      || !Number.isSafeInteger(row.source_count)
+      || !Number.isSafeInteger(row.context_count)
+      || Number(row.context_count) !== input.contexts.length
+    ) throw new Error("mesa-context-preparation-result-invalid");
+    return NextResponse.json({
+      ok: true,
+      dossierId: row.dossier_id,
+      preparationAction: row.preparation_action,
+      sourceCount: row.source_count,
+      contextCount: row.context_count,
+      imageCount: row.image_count,
+      publishedContextCount: row.published_context_count,
+      workspaceUrl: `/admin/editorial/redacao-automatica/mesa/producao/${row.dossier_id}`,
+    }, { status: row.preparation_action === "created" ? 201 : 200 });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "";
+    const conflict = /conflict|stale|unavailable|not-loose|prepared-before-v3/.test(detail);
+    return NextResponse.json({
+      ok: false,
+      code: conflict ? "preparation_conflict" : "prepare_failed",
+      message: conflict
+        ? "Os contextos mudaram desde a seleção. Atualiza a Mesa e volta a confirmar; nada foi preparado."
+        : "Não foi possível preparar os contextos desta Produção. A seleção foi preservada.",
+    }, { status: conflict ? 409 : 502 });
+  }
+}
+
 function prepareInput(value: unknown): PrepareEditorialDossierWorkspaceInput | null {
   const payload = objectValue(value);
   if (!payload || !Array.isArray(payload.sources) || !Array.isArray(payload.publishedContextArticleIds)) {
@@ -65,6 +191,14 @@ export async function POST(request: Request) {
       code: "input_invalid",
       message: "O pedido de preparação não é válido.",
     }, { status: 400 });
+  }
+
+  const rawPayload = objectValue(payload);
+  if (rawPayload?.mesaVersion === 3) {
+    const contextInput = contextPreparationInput(payload);
+    return contextInput
+      ? prepareMesaContexts(contextInput)
+      : NextResponse.json({ ok: false, code: "input_invalid", message: "A seleção de contextos não é válida." }, { status: 400 });
   }
 
   const input = prepareInput(payload);
