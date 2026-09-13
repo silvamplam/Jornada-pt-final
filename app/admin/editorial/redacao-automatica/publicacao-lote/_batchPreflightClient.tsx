@@ -140,11 +140,11 @@ function publicationStatusLabel(state: BatchPublicationItemState | undefined) {
     case "publishing":
       return "A PUBLICAR…";
     case "published":
-      return "PUBLICADO EM ÚLTIMAS";
+      return "PUBLICADO";
     case "published_missing_latest":
-      return "PUBLICADO, FALTA ÚLTIMAS";
+      return "PUBLICADO · FALTA ÚLTIMAS";
     case "published_missing_usage":
-      return "PUBLICADO, FALTA MARCAR FONTES";
+      return "PUBLICADO · FALTA MARCAR FONTES";
     case "error":
       return "ERRO";
     case "not_attempted":
@@ -209,6 +209,7 @@ function articleResultRows(preflight: EditorialBatchPreflight): ArticleResultRow
 
 function ImageSelectionPanel({
   articles,
+  hasArticleText,
   selectedImages,
   imagePreflight,
   manualImageAssignments,
@@ -217,6 +218,7 @@ function ImageSelectionPanel({
   disabled,
 }: Readonly<{
   articles: readonly EditorialBatchArticle[];
+  hasArticleText: boolean;
   selectedImages: readonly File[];
   imagePreflight: EditorialBatchImagePreflight<File>;
   manualImageAssignments: Readonly<Record<string, number>>;
@@ -225,9 +227,20 @@ function ImageSelectionPanel({
     (key: string, fileIndex: number | null) => void;
   disabled: boolean;
 }>) {
-  const statusText = imagePreflight.ready
-    ? "PRÉ-FLIGHT DE IMAGENS VÁLIDO"
-    : "PRÉ-FLIGHT DE IMAGENS COM PROBLEMAS";
+  const hasArticleRows = articles.length > 0;
+  const statusText = !hasArticleText
+    ? "A AGUARDAR LOTE"
+    : !hasArticleRows
+      ? "A AGUARDAR LOTE VÁLIDO"
+      : imagePreflight.ready
+        ? "IMAGENS PRONTAS"
+        : "PRÉ-FLIGHT DE IMAGENS COM PROBLEMAS";
+  const statusClass = !hasArticleText || !hasArticleRows
+    ? styles.neutralBadge
+    : imagePreflight.ready
+      ? styles.readyBadge
+      : styles.invalidBadge;
+  const showImageProblemStats = hasArticleRows && !imagePreflight.ready;
   const dossierImageCount = imagePreflight.articles.filter(
     (article) => Boolean(article.imageUrl),
   ).length;
@@ -239,7 +252,7 @@ function ImageSelectionPanel({
           <p className={styles.sectionEyebrow}>Imagens</p>
           <h2 id="batch-images-title">Imagens do lote</h2>
         </div>
-        <strong className={imagePreflight.ready ? styles.readyBadge : styles.invalidBadge}>
+        <strong className={statusClass}>
           {statusText}
         </strong>
       </div>
@@ -254,7 +267,9 @@ function ImageSelectionPanel({
           <p className={styles.selectedCount}>
             {dossierImageCount > 0
               ? `${dossierImageCount} da Produção · ${selectedImages.length} locais`
-              : `Selecionadas: ${selectedImages.length}`}
+              : selectedImages.length > 0
+                ? `Selecionadas: ${selectedImages.length}`
+                : "Nenhuma imagem selecionada"}
           </p>
         </div>
         <label className={styles.imagePicker} htmlFor="batch-images-input">
@@ -271,24 +286,34 @@ function ImageSelectionPanel({
         />
       </div>
 
-      <dl className={styles.imageStats} aria-label="Resumo do pré-flight de imagens">
-        <div>
-          <dt>Selecionadas</dt>
-          <dd>{imagePreflight.selected}</dd>
-        </div>
-        <div>
-          <dt>Associadas</dt>
-          <dd>{imagePreflight.associated}</dd>
-        </div>
-        <div>
-          <dt>Em falta</dt>
-          <dd>{imagePreflight.missing}</dd>
-        </div>
-        <div>
-          <dt>Problemas</dt>
-          <dd>{imagePreflight.problems}</dd>
-        </div>
-      </dl>
+      {showImageProblemStats ? (
+        <dl className={styles.imageStats} aria-label="Problemas do pré-flight de imagens">
+          {imagePreflight.selected > 0 ? (
+            <div>
+              <dt>Selecionadas</dt>
+              <dd>{imagePreflight.selected}</dd>
+            </div>
+          ) : null}
+          {imagePreflight.associated > 0 ? (
+            <div>
+              <dt>Associadas</dt>
+              <dd>{imagePreflight.associated}</dd>
+            </div>
+          ) : null}
+          {imagePreflight.missing > 0 ? (
+            <div>
+              <dt>Em falta</dt>
+              <dd>{imagePreflight.missing}</dd>
+            </div>
+          ) : null}
+          {imagePreflight.problems > 0 ? (
+            <div>
+              <dt>Problemas</dt>
+              <dd>{imagePreflight.problems}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
 
       {selectedImages.length > 0 && articles.length > 0 ? (
         <section
@@ -361,7 +386,7 @@ function ImageSelectionPanel({
         </section>
       ) : null}
 
-      {imagePreflight.fileProblems.length > 0 ? (
+      {hasArticleRows && imagePreflight.fileProblems.length > 0 ? (
         <section className={styles.imageFileProblems} aria-labelledby="batch-image-files-title">
           <h3 id="batch-image-files-title">Ficheiros com problemas</h3>
           <ul>
@@ -418,56 +443,72 @@ function ResultSummary({
       <div className={styles.resultsHeader}>
         <div>
           <p className={styles.sectionEyebrow}>Resultado</p>
-          <h2 id="batch-results-title">Pré-flight do lote</h2>
+          <h2 id="batch-results-title">
+            {globallyPrepared ? "Contexto editorial" : "Pré-flight do lote"}
+          </h2>
         </div>
         <strong className={globallyPrepared ? styles.readyBadge : styles.invalidBadge}>
-          {globallyPrepared ? "PRÉ-FLIGHT VÁLIDO" : "PRÉ-FLIGHT COM PROBLEMAS"}
+          {globallyPrepared ? "PRONTO PARA PUBLICAR" : "PRÉ-FLIGHT COM PROBLEMAS"}
         </strong>
       </div>
 
-      <dl className={styles.stats} aria-label="Resumo do pré-flight">
-        <div>
-          <dt>Artigos encontrados</dt>
-          <dd>{preflight.total}</dd>
+      {globallyPrepared ? (
+        <div className={styles.preparedSummary}>
+          <strong>{competitionLabel} · {seasonLabel} · {selectedMatchdayLabel}</strong>
+          <p>
+            {preflight.total} {preflight.total === 1 ? "artigo" : "artigos"}
+            {" · "}
+            {preservesPublishedImages
+              ? `${preflight.total} ${preflight.total === 1 ? "imagem publicada preservada" : "imagens publicadas preservadas"}`
+              : `${imagePreflight.associated} ${imagePreflight.associated === 1 ? "imagem associada" : "imagens associadas"}`}
+            {" · Sem problemas"}
+          </p>
         </div>
-        <div>
-          <dt>Válidos</dt>
-          <dd>{preflight.valid}</dd>
-        </div>
-        <div>
-          <dt>Inválidos</dt>
-          <dd>{preflight.invalid}</dd>
-        </div>
-      </dl>
+      ) : (
+        <>
+          {preflight.total > 0 ? (
+            <dl className={styles.stats} aria-label="Resumo dos problemas do pré-flight">
+              <div>
+                <dt>Artigos encontrados</dt>
+                <dd>{preflight.total}</dd>
+              </div>
+              {preflight.valid > 0 ? (
+                <div>
+                  <dt>Válidos</dt>
+                  <dd>{preflight.valid}</dd>
+                </div>
+              ) : null}
+              {preflight.invalid > 0 ? (
+                <div>
+                  <dt>Inválidos</dt>
+                  <dd>{preflight.invalid}</dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : null}
 
-      <div className={styles.readinessGrid}>
-        <article>
-          <span>Lote editorial</span>
-          <strong>{preflight.ready ? "Artigos válidos" : "Requer correções"}</strong>
-        </article>
-        <article>
-          <span>Contexto</span>
-          <strong>{contextComplete ? "Completo" : "Incompleto"}</strong>
-          <p>
-            {contextComplete
-              ? `${competitionLabel} · ${seasonLabel} · ${selectedMatchdayLabel}`
-              : "Escolha Competição, Época e Jornada."}
-          </p>
-        </article>
-        <article>
-          <span>Próxima etapa</span>
-          <strong>
-            {globallyPrepared
-              ? "Preparação concluída"
-              : "Ainda incompleto"}
-          </strong>
-          <p>
-            {globallyPrepared
-              ? "O destino de cada artigo é verificado automaticamente no bloco Publicação."
-              : "Completa o lote, o contexto, a autoria e as imagens."}
-          </p>
-        </article>
-      </div>
+          <div className={styles.readinessGrid}>
+            <article>
+              <span>Lote editorial</span>
+              <strong>{preflight.ready ? "Artigos válidos" : "Requer correções"}</strong>
+            </article>
+            <article>
+              <span>Contexto</span>
+              <strong>{contextComplete ? "Completo" : "Incompleto"}</strong>
+              <p>
+                {contextComplete
+                  ? `${competitionLabel} · ${seasonLabel} · ${selectedMatchdayLabel}`
+                  : "Escolha Competição, Época e Jornada."}
+              </p>
+            </article>
+            <article>
+              <span>Próxima etapa</span>
+              <strong>Ainda incompleto</strong>
+              <p>Completa o lote, o contexto, a autoria e as imagens.</p>
+            </article>
+          </div>
+        </>
+      )}
 
       {globalIssues.length > 0 ? (
         <section className={styles.globalIssues} aria-labelledby="batch-global-issues-title">
@@ -518,9 +559,9 @@ function ResultSummary({
                           ))}
                         </ul>
                       </div>
-                    ) : (
+                    ) : !globallyPrepared ? (
                       <p className={styles.validNote}>Estrutura editorial válida.</p>
-                    )}
+                    ) : null}
                     {preservesPublishedImages ? (
                       <p className={styles.validNote}>
                         IMAGEM PUBLICADA PRESERVADA
@@ -636,20 +677,21 @@ function PublicationPanel({
           <h2 id="batch-publication-title">Publicar em Últimas</h2>
         </div>
         <strong className={`${styles.publicationStatus} ${statusToneClass}`} role="status">
-          {publicationUi.statusLabel}
+          {allPublished ? "PUBLICADO" : publicationUi.statusLabel}
         </strong>
       </div>
 
-      {plan && (plan.length > 1 || publicationUi.hasUpdatePlan) ? (
+      {plan ? (
         <section
           className={styles.articleResults}
-          aria-labelledby="batch-publication-destinations-title"
+          aria-labelledby="batch-publication-items-title"
         >
-          <h3 id="batch-publication-destinations-title">Destino por artigo</h3>
+          <h3 id="batch-publication-items-title">Publicação por artigo</h3>
 
           <ol>
             {plan.map((item) => {
               const article = articleByKey.get(item.key);
+              const state = states[item.key];
               const confirmed =
                 Boolean(
                   item.articleId
@@ -658,15 +700,18 @@ function PublicationPanel({
                 );
               const updateRequired = item.mode === "update_required";
               const updateConfirmed = item.mode === "update" || confirmed;
-              const destinationLabel = item.mode === "create"
-                ? "NOVO ARTIGO"
+              const destinationStatus = state
+                ? `ÚLTIMAS · ${publicationStatusLabel(state)}`
+                : updateRequired && !updateConfirmed
+                  ? "ÚLTIMAS · CONFIRMAÇÃO NECESSÁRIA"
+                  : "ÚLTIMAS";
+              const destinationDetail = updateRequired || item.mode === "update"
+                ? item.articleId
+                  ? "Este Dossiê corresponde a um artigo já publicado. A atualização manterá o mesmo artigo e o mesmo URL. A imagem atualmente publicada também será preservada."
+                  : "O servidor identificou uma atualização, mas não devolveu um articleId válido. A publicação permanece bloqueada."
                 : item.mode === "resume"
-                  ? "PUBLICAÇÃO JÁ PREPARADA"
-                  : updateConfirmed
-                    ? "ATUALIZAÇÃO CONFIRMADA"
-                    : item.articleId
-                      ? "ATUALIZAÇÃO DETETADA"
-                      : "ATUALIZAÇÃO BLOQUEADA";
+                  ? "Publicação já preparada; o artigo será confirmado e mantido em Últimas."
+                  : "Novo artigo com destino a Últimas.";
 
               return (
                 <li key={item.key}>
@@ -687,17 +732,11 @@ function PublicationPanel({
                         )}
                       </h4>
 
-                      <strong>{destinationLabel}</strong>
+                      <strong>{destinationStatus}</strong>
                     </div>
 
                     <p className={styles.validNote}>
-                      {updateRequired || item.mode === "update"
-                        ? item.articleId
-                          ? "Este Dossiê corresponde a um artigo já publicado. A atualização manterá o mesmo artigo e o mesmo URL. A imagem atualmente publicada também será preservada."
-                          : "O servidor identificou uma atualização, mas não devolveu um articleId válido. A publicação permanece bloqueada."
-                        : item.mode === "resume"
-                          ? "O artigo já processado será confirmado e mantido em Últimas."
-                          : "Será criado um novo artigo e publicado em Últimas."}
+                      {state?.message ?? destinationDetail}
                     </p>
 
                     {item.existingSlug ? (
@@ -745,7 +784,7 @@ function PublicationPanel({
             : error
               ? error
               : allPublished
-                ? "Todos os artigos concluíram a publicação em Últimas."
+                ? `${articles.length} ${articles.length === 1 ? "artigo publicado" : "artigos publicados"} em Últimas.`
                 : !plan
                   ? "A análise começa automaticamente assim que todos os dados necessários estiverem válidos."
                 : updateCandidates.length > 0
@@ -777,29 +816,6 @@ function PublicationPanel({
           </button>
         ) : null}
       </div>
-
-      {hasRun ? (
-        <section className={styles.articleResults} aria-labelledby="batch-publication-items-title">
-          <h3 id="batch-publication-items-title">Estado por artigo</h3>
-          <ol>
-            {articles.map((article) => {
-              const state = states[article.key];
-              return (
-                <li key={article.key}>
-                  <div className={styles.articleKey}>{article.key}</div>
-                  <div className={styles.articleCopy}>
-                    <div className={styles.articleHeading}>
-                      <h4>{article.title}</h4>
-                      <strong>{publicationStatusLabel(state)}</strong>
-                    </div>
-                    <p className={styles.validNote}>{state?.message ?? "Aguarda publicação."}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-      ) : null}
     </section>
   );
 }
@@ -863,6 +879,7 @@ export default function BatchPreflightClient({
     () => preflightEditorialArticleBatchForSourcePackage(articleText, sourcePackage),
     [articleText, sourcePackage],
   );
+  const hasArticleText = Boolean(articleText.trim());
   const contextComplete = Boolean(
     selectedCompetition
       && selectedSeason
@@ -1581,8 +1598,18 @@ export default function BatchPreflightClient({
             <p className={styles.sectionEyebrow}>Contexto</p>
             <h2 id="batch-context-title">Jornada do lote</h2>
           </div>
-          <strong className={contextComplete ? styles.contextComplete : styles.contextIncomplete}>
-            {contextComplete ? "CONTEXTO COMPLETO" : "CONTEXTO EM FALTA"}
+          <strong className={
+            contextComplete
+              ? styles.contextComplete
+              : hasArticleText
+                ? styles.contextIncomplete
+                : styles.neutralBadge
+          }>
+            {contextComplete
+              ? "CONTEXTO COMPLETO"
+              : hasArticleText
+                ? "CONTEXTO EM FALTA"
+                : "POR DEFINIR"}
           </strong>
         </div>
 
@@ -1697,18 +1724,20 @@ export default function BatchPreflightClient({
           <span className={styles.limitNote}>1–30 artigos</span>
         </div>
 
-        <label className={styles.textareaField} htmlFor="batch-article-text">
-          <span>Blocos JORNADA_ARTIGO_V1</span>
-          <textarea
-            id="batch-article-text"
-            rows={18}
-            value={articleText}
-            disabled={isPublishing}
-            onChange={(event) => handleTextChange(event.target.value)}
-            placeholder={`Cole aqui um ou mais blocos ${EDITORIAL_BATCH_ARTICLE_START_MARKER}...`}
-            spellCheck={false}
-          />
-        </label>
+        <details className={styles.originalTextDetails} open={!preflight.ready}>
+          <summary>Ver texto original</summary>
+          <label className={styles.textareaField} htmlFor="batch-article-text">
+            <span>Blocos JORNADA_ARTIGO_V1</span>
+            <textarea
+              id="batch-article-text"
+              value={articleText}
+              disabled={isPublishing}
+              onChange={(event) => handleTextChange(event.target.value)}
+              placeholder={`Cole aqui um ou mais blocos ${EDITORIAL_BATCH_ARTICLE_START_MARKER}...`}
+              spellCheck={false}
+            />
+          </label>
+        </details>
 
         <p className={styles.automaticAnalysisNote}>
           A análise é automática quando o lote, o contexto, a autoria e as imagens estão válidos.
@@ -1743,6 +1772,7 @@ export default function BatchPreflightClient({
       ) : (
         <ImageSelectionPanel
           articles={preflight.articles}
+          hasArticleText={hasArticleText}
           selectedImages={selectedImages}
           imagePreflight={imagePreflight}
           manualImageAssignments={manualImageAssignments}
@@ -1752,15 +1782,19 @@ export default function BatchPreflightClient({
         />
       )}
 
-      {articleText.trim() || selectedImages.length > 0 ? (
+      {hasArticleText || selectedImages.length > 0 ? (
         <ResultSummary
           preflight={preflight}
           imagePreflight={imagePreflight}
           imagePreviewUrls={imagePreviewUrls}
           contextComplete={contextComplete}
           authorReady={Boolean(author.trim())}
-          competitionLabel={firstText(selectedCompetition?.name, selectedCompetition?.slug)}
-          seasonLabel={firstText(selectedSeason?.label)}
+          competitionLabel={firstText(
+            selectedCompetition?.name,
+            selectedCompetition?.slug,
+            selectedCompetition?.id,
+          )}
+          seasonLabel={firstText(selectedSeason?.label, selectedSeason?.id)}
           matchdayLabel={selectedMatchday ? matchdayLabel(selectedMatchday) : ""}
           preservesPublishedImages={preservesPublishedImages}
         />

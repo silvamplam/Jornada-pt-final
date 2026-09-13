@@ -15,11 +15,16 @@ function source(relativePath: string) {
 
 const routeSource = source("app/admin/editorial/redacao-automatica/publicacao-lote/page.tsx");
 const clientSource = source("app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx");
+const cssSource = source("app/admin/editorial/redacao-automatica/publicacao-lote/publicacao-lote.module.css");
 const publicationClientSource = source("lib/redacao-automatica/editorial-batch-publication-client.ts");
 const imagePreflightSource = source("lib/redacao-automatica/editorial-batch-image-preflight.ts");
 const newsroomSource = source("app/admin/editorial/redacao-automatica/page.tsx");
 const publicationRouteSource = source("app/api/admin/editorial/redacao-automatica/publicacao-lote/route.ts");
 const sourcePackagePageSource = source("app/admin/editorial/redacao-automatica/pacotes/[year]/[month]/[id]/page.tsx");
+const publicationPanelSource = clientSource.slice(
+  clientSource.indexOf("function PublicationPanel"),
+  clientSource.indexOf("export default function BatchPreflightClient"),
+);
 
 function clientFunction(functionName: string) {
   const syncStart = clientSource.indexOf(`  function ${functionName}`);
@@ -236,6 +241,32 @@ test("a prontidão do contexto confirma as relações entre os três IDs", () =>
 test("existe textarea editorial acessível", () => {
   assert.match(clientSource, /htmlFor="batch-article-text"/);
   assert.match(clientSource, /<textarea[\s\S]*?id="batch-article-text"/);
+});
+
+test("o estado vazio é neutro e não apresenta o pré-flight de imagens como erro", () => {
+  assert.match(clientSource, /const hasArticleText = Boolean\(articleText\.trim\(\)\)/);
+  assert.match(clientSource, /const statusText = !hasArticleText\s*\? "A AGUARDAR LOTE"/);
+  assert.match(clientSource, /!hasArticleText \|\| !hasArticleRows\s*\? styles\.neutralBadge/);
+  assert.match(clientSource, /hasArticleText\s*\? "CONTEXTO EM FALTA"\s*: "POR DEFINIR"/);
+});
+
+test("as métricas de imagem aparecem apenas para problemas reais e nunca como 0/0/0/0 inicial", () => {
+  assert.match(clientSource, /const showImageProblemStats = hasArticleRows && !imagePreflight\.ready/);
+  assert.match(clientSource, /\{showImageProblemStats \? \(\s*<dl/);
+  assert.match(clientSource, /imagePreflight\.selected > 0 \? \(/);
+  assert.match(clientSource, /imagePreflight\.associated > 0 \? \(/);
+  assert.match(clientSource, /imagePreflight\.missing > 0 \? \(/);
+  assert.match(clientSource, /imagePreflight\.problems > 0 \? \(/);
+});
+
+test("o texto original recolhe quando fica válido sem desmontar nem bloquear a edição", () => {
+  assert.match(
+    clientSource,
+    /<details className=\{styles\.originalTextDetails\} open=\{!preflight\.ready\}>[\s\S]*?<summary>Ver texto original<\/summary>[\s\S]*?<textarea[\s\S]*?onChange=\{\(event\) => handleTextChange\(event\.target\.value\)\}/,
+  );
+  assert.doesNotMatch(clientSource, /rows=\{18\}/);
+  assert.match(cssSource, /\.textareaField textarea \{[\s\S]*?min-height: 200px;/);
+  assert.doesNotMatch(cssSource, /min-height: 360px/);
 });
 
 test("a análise deixou de exigir o botão intermédio Analisar lote", () => {
@@ -521,8 +552,17 @@ test("o estado global aceita imagem nova ou preservação da imagem publicada", 
   );
   assert.match(
     clientSource,
-    /\{globallyPrepared \? "PRÉ-FLIGHT VÁLIDO" : "PRÉ-FLIGHT COM PROBLEMAS"\}/,
+    /\{globallyPrepared \? "PRONTO PARA PUBLICAR" : "PRÉ-FLIGHT COM PROBLEMAS"\}/,
   );
+});
+
+test("o caminho feliz usa um único resumo compacto e omite readiness e zeros", () => {
+  assert.match(clientSource, /globallyPrepared \? \(\s*<div className=\{styles\.preparedSummary\}>/);
+  assert.match(clientSource, /\{preflight\.total\} \{preflight\.total === 1 \? "artigo" : "artigos"\}/);
+  assert.match(clientSource, /imagePreflight\.associated === 1 \? "imagem associada" : "imagens associadas"/);
+  assert.ok(clientSource.includes('{" · Sem problemas"}'));
+  assert.match(clientSource, /\) : \(\s*<>[\s\S]*?<div className=\{styles\.readinessGrid\}>/);
+  assert.match(clientSource, /\) : !globallyPrepared \? \(\s*<p className=\{styles\.validNote\}>Estrutura editorial válida\.<\/p>/);
 });
 
 test("uma colisão de Dossiê exige confirmação explícita antes de atualizar o artigo canónico", () => {
@@ -690,13 +730,33 @@ test("estados editoriais são texto ou badge e nunca botões falsos", () => {
   assert.match(clientSource, /<span className=\{styles\.confirmedState\}>Atualização confirmada<\/span>/);
 });
 
-test("todos os artigos do lote apresentam o destino determinado", () => {
-  assert.match(clientSource, /<h3 id="batch-publication-destinations-title">Destino por artigo<\/h3>/);
-  assert.match(clientSource, /\{plan\.map\(\(item\) => \{/);
-  assert.ok(clientSource.includes("NOVO ARTIGO"));
-  assert.ok(clientSource.includes("PUBLICAÇÃO JÁ PREPARADA"));
-  assert.ok(clientSource.includes("ATUALIZAÇÃO BLOQUEADA"));
+test("uma única lista apresenta destino e estado de todos os artigos", () => {
+  assert.match(publicationPanelSource, /<h3 id="batch-publication-items-title">Publicação por artigo<\/h3>/);
+  assert.match(publicationPanelSource, /\{plan\.map\(\(item\) => \{/);
+  assert.equal((publicationPanelSource.match(/plan\.map\(/g) ?? []).length, 1);
+  assert.doesNotMatch(publicationPanelSource, /Destino por artigo|Estado por artigo/);
+  assert.doesNotMatch(publicationPanelSource, /\{articles\.map\(/);
+  assert.match(publicationPanelSource, /const state = states\[item\.key\]/);
+  assert.match(publicationPanelSource, /`ÚLTIMAS · \$\{publicationStatusLabel\(state\)\}`/);
+  assert.match(publicationPanelSource, /\{state\?\.message \?\? destinationDetail\}/);
+});
+
+test("create, resume, update e recuperação de erro permanecem na lista unificada", () => {
+  assert.match(publicationPanelSource, /item\.mode === "resume"/);
+  assert.match(publicationPanelSource, /item\.mode === "update"/);
+  assert.ok(publicationPanelSource.includes("Novo artigo com destino a Últimas."));
+  assert.ok(publicationPanelSource.includes("Publicação já preparada; o artigo será confirmado e mantido em Últimas."));
+  assert.ok(publicationPanelSource.includes("A publicação permanece bloqueada."));
+  assert.match(publicationPanelSource, /URL existente:/);
+  assert.match(publicationPanelSource, /CONFIRMAR ATUALIZAÇÃO/);
+  assert.match(publicationPanelSource, /state\?\.message/);
   assert.match(clientSource, /updateCandidates\.length > 0/);
+});
+
+test("o estado concluído resume o lote e não cria uma segunda lista equivalente", () => {
+  assert.match(publicationPanelSource, /\{allPublished \? "PUBLICADO" : publicationUi\.statusLabel\}/);
+  assert.match(publicationPanelSource, /\$\{articles\.length\} \$\{articles\.length === 1 \? "artigo publicado" : "artigos publicados"\} em Últimas\./);
+  assert.equal((publicationPanelSource.match(/<ol>/g) ?? []).length, 1);
 });
 test("imagens sem prefixo podem ser associadas explicitamente aos artigos", () => {
   const first = {
