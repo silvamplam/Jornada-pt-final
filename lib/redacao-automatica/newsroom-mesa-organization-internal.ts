@@ -54,6 +54,7 @@ export type MesaOrganizationRecords = Readonly<{
 }>;
 
 const uniqueCount = (values: readonly string[]) => new Set(values).size;
+const frozenSourceSetKey = (sources: MesaEditorialGroup["sources"]) => JSON.stringify(sources);
 
 /** Membership and publication proof remain separate: this only builds presentation. */
 export function buildMesaOrganization(
@@ -134,10 +135,13 @@ export function buildMesaOrganization(
     const sets = new Map<string, { group: MesaEditorialGroup; keys: string[] }>();
     for (const group of groups.filter((item) => item.sources.length >= 2 && item.articleIds.length > 0)) {
       const version = group.versionId ? versions.get(group.versionId) : undefined;
-      const key = version?.publication_event_id ? `event:${version.publication_event_id}` : group.key;
+      const sourceSetKey = frozenSourceSetKey(group.sources);
+      const key = version?.publication_event_id
+        ? `event:${version.publication_event_id}:sources:${sourceSetKey}`
+        : group.key;
       const old = sets.get(key);
       if (!old) { sets.set(key, { group, keys: [group.key] }); continue; }
-      if (JSON.stringify(old.group.sources) !== JSON.stringify(group.sources)) throw new Error("mesa-organization-revision-conflict");
+      if (frozenSourceSetKey(old.group.sources) !== sourceSetKey) throw new Error("mesa-organization-revision-conflict");
       const chosen = group.key === `dossier:${version?.production_dossier_id}` ? group : old.group;
       sets.set(key, { keys: [...old.keys, group.key], group: { ...chosen,
         articleIds: [...new Set([...old.group.articleIds, ...group.articleIds])].sort() } });

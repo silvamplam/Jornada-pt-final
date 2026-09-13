@@ -40,6 +40,33 @@ test("uma consolidação com vários Dossiês de origem aparece uma vez, conserv
   assert.equal(org.availableDossiers?.length,1);assert.equal(org.themes[0].dossiers.length,1);
   assert.equal(org.themes[0].dossiers[0].material?.key,ownKey);assert.equal(org.themes[0].dossiers[0].articleCount,2);
 });
+test("outputs do mesmo evento e conjunto congelado podem colapsar",()=>{
+  const outputA=`output:${id(201)}`;const outputB=`output:${id(202)}`;
+  const common={source_refs:[ref(1),ref(2)],publication_event_id:id(90),production_dossier_id:id(70)};
+  const org=buildMesaOrganization({...records(),materialVersions:[version(51,{...common,material_key:outputA}),version(52,{...common,material_key:outputB,article_ids:[id(202)]})],
+    themeMaterials:[{theme_id:id(10),material_key:outputA,version_id:id(51)},{theme_id:id(10),material_key:outputB,version_id:id(52)}]},[]);
+  assert.equal(org.availableDossiers?.length,1);assert.equal(org.themes[0].dossiers.length,1);
+  assert.equal(org.availableDossiers?.[0].articleCount,2);
+});
+test("outputs do mesmo evento com conjuntos congelados diferentes permanecem distintos",()=>{
+  const outputA=`output:${id(201)}`;const outputB=`output:${id(202)}`;const outputC=`output:${id(203)}`;
+  const common={publication_event_id:id(90),production_dossier_id:id(70)};
+  const org=buildMesaOrganization({...records(),materialVersions:[
+    version(51,{...common,material_key:outputA,source_refs:[ref(1),ref(2),ref(3),ref(4)]}),
+    version(52,{...common,material_key:outputB,source_refs:[ref(5),ref(6)],article_ids:[id(202)]}),
+    version(53,{...common,material_key:outputC,source_refs:[ref(7),ref(8)],article_ids:[id(203)]}),
+  ],themeMaterials:[
+    {theme_id:id(10),material_key:outputA,version_id:id(51)},
+    {theme_id:id(10),material_key:outputB,version_id:id(52)},
+    {theme_id:id(10),material_key:outputC,version_id:id(53)},
+  ]},[]);
+  assert.deepEqual(org.availableDossiers?.map((card)=>card.sourceCount).sort((a,b)=>a-b),[2,2,4]);
+  assert.equal(org.themes[0].dossiers.length,3);assert.equal(org.themes.length,2);
+});
+test("a mesma material version continua a rejeitar snapshots incompatíveis da mesma fonte",()=>{
+  assert.throws(()=>buildMesaOrganization({...records(),materialVersions:[version(51,{source_refs:[ref(1),{...ref(1),newsroomSnapshotId:id(999)}]})],
+    themeMaterials:[{theme_id:id(10),material_key:key,version_id:id(51)}]},[]),/mesa-material-version-conflict/);
+});
 test("uma referência-base capturada mais tarde não substitui a revisão consolidada",()=>{
   const org=buildMesaOrganization({...records(),materialVersions:[version(50),version(51,{publication_event_id:id(90),source_refs:[ref(1),ref(2),ref(3)]}),version(52)]},[]);
   assert.equal(org.availableDossiers?.[0].sourceCount,3);assert.equal(org.themes[1].sourceCount,2);
