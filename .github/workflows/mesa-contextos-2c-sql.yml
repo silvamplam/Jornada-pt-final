@@ -1,0 +1,55 @@
+name: Mesa 2C - PostgreSQL 17 isolado
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/redacao-mesa-contextos-temas-producao-2c-20260913
+    paths:
+      - '.ci/mesa-contexts-2c-sql/**'
+      - '.ci/mesa-sql/bootstrap.sql'
+      - '.github/workflows/mesa-contextos-2c-sql.yml'
+      - 'supabase/migrations/20260908112602_newsroom_editorial_themes_foundation.sql'
+      - 'supabase/migrations/20260908122938_newsroom_editorial_article_classifications_foundation.sql'
+      - 'supabase/migrations/20260909100000_newsroom_editorial_production_workspace_foundation.sql'
+      - 'supabase/migrations/20260910223000_newsroom_mesa_theme_organization_v1.sql'
+      - 'supabase/migrations/20260911232119_jornada_mesa_grupos_temas_v2.sql'
+      - 'supabase/migrations/20260911232721_jornada_mesa_grupos_temas_v2_fk_indexes.sql'
+      - 'supabase/migrations/20260912004733_jornada_dossie_producao_sem_limite.sql'
+      - 'supabase/migrations/20260912152810_mesa_production_workspace_v2_provenance.sql'
+      - 'supabase/migrations/20260912173257_allow_mesa_v2_source_package_manifest_v5.sql'
+      - 'supabase/migrations/20260912175044_mesa_workspace_shared_output_scope_v2.sql'
+      - 'supabase/migrations/20260913095708_newsroom_mesa_contexts_production_2c.sql'
+      - 'supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql'
+      - 'supabase/steps/15-redacao-automatica-newsroom-apply.sql'
+      - 'supabase/steps/31-redacao-automatica-compose-idempotencia-proveniencia-apply.sql'
+      - 'supabase/steps/53-redacao-automatica-pacotes-fontes-persistentes-apply.sql'
+      - 'supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-schema-1-aplicar.sql'
+      - 'supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigos-planeados-schema-1-aplicar.sql'
+      - 'supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigo-planeado-rascunho-controlado-1-aplicar.sql'
+      - 'supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-rascunho-geracao-controlada-1-aplicar.sql'
+
+permissions:
+  contents: read
+
+jobs:
+  sql-2c:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_DB: mesa_organization_test
+          POSTGRES_PASSWORD: ephemeral-test-only
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mesa_organization_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Migration e contratos Mesa 2C em PostgreSQL real
+        env:
+          MESA_2C_TEST_CONTAINER: ${{ job.services.postgres.id }}
+        run: python3 .ci/mesa-contexts-2c-sql/run.py
