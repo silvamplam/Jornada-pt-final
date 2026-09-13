@@ -23,6 +23,10 @@ import type {
   EditorialDossierLengthMode,
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
 import {
+  editorialMesaContextVisualSeedAssignments,
+  editorialMesaResolvedVisualImageChoice,
+} from "@/lib/redacao-automatica/editorial-mesa-workspace-defaults";
+import {
   EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
   EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
   preflightEditorialArticleBatchForSourcePackage,
@@ -102,13 +106,10 @@ const lengthModeLabels: Record<EditorialDossierLengthMode, string> = {
   developed: "Longa",
 };
 
-function imageSelectValue(
+function explicitImageSelectValue(
   plan: EditorialDossierArticlePlan | null,
-  defaultImageId: string | null,
-): string {
-  if (!plan || plan.imageChoice.mode === "unselected") {
-    return defaultImageId ? `dossier_image:${defaultImageId}` : "unselected";
-  }
+): string | null {
+  if (!plan || plan.imageChoice.mode === "unselected") return null;
   if (plan.imageChoice.mode === "preserve_published") return "preserve_published";
   return `dossier_image:${plan.imageChoice.dossierImageId}`;
 }
@@ -375,7 +376,8 @@ function PlanEditor({
   hidden,
   contexts,
   productionContexts,
-  assignedContextId,
+  productionContextId,
+  onProductionContextChange,
   images,
 }: Readonly<{
   dossier: WorkspaceDossier;
@@ -386,29 +388,31 @@ function PlanEditor({
   hidden: boolean;
   contexts: readonly EditorialDossierPublishedContext[];
   productionContexts: readonly EditorialMesaProductionContext[];
-  assignedContextId: string | null;
+  productionContextId: string;
+  onProductionContextChange: (productionContextId: string) => void;
   images: readonly EditorialDossierImage[];
 }>) {
   const [destination, setDestination] = useState<"new" | "update">(
     plan?.destination ?? "new",
   );
   const [targetId, setTargetId] = useState(plan?.updateTargetEditorialArticleId ?? "");
-  const [productionContextId, setProductionContextId] = useState(
-    assignedContextId ?? productionContexts[(position - 1) % Math.max(1, productionContexts.length)]?.id ?? "",
-  );
   const selectedProductionContext = productionContexts.find((context) => context.id === productionContextId) ?? null;
-  const defaultImageValue = visualSeed?.image
-    ? `dossier_image:${visualSeed.image.id}`
-    : "unselected";
-  const initialImage = imageSelectValue(
-    plan,
-    plan?.editorialArticleId ? null : visualSeed?.image?.id ?? null,
-  );
-  const [imageChoices, setImageChoices] = useState<Readonly<Record<"new" | "update", string>>>({
-    new: initialImage === "preserve_published" ? "unselected" : initialImage,
-    update: initialImage,
+  const automaticImageId = plan?.editorialArticleId
+    ? null
+    : visualSeed?.image?.id ?? null;
+  const initialExplicitImage = explicitImageSelectValue(plan);
+  const [imageChoices, setImageChoices] = useState<Readonly<Record<"new" | "update", string | null>>>({
+    new: initialExplicitImage === "preserve_published" ? "unselected" : initialExplicitImage,
+    update: initialExplicitImage,
   });
-  const selectedImage = imageChoices[destination];
+  const selectedImage = editorialMesaResolvedVisualImageChoice(
+    imageChoices[destination],
+    automaticImageId,
+  );
+  const visualSeedImage = editorialMesaResolvedVisualImageChoice(
+    null,
+    visualSeed?.image?.id ?? null,
+  );
   // A autoridade já existente é o conjunto de PUBLICADAS persistido no workspace.
   // A interface só o apresenta: não tenta voltar a inferir elegibilidade no browser.
   const eligibleTargets = contexts.filter((context) => context.status === "published");
@@ -420,7 +424,8 @@ function PlanEditor({
     : selectedImage === "preserve_published"
       ? selectedTarget?.currentImageUrl ?? null
       : null;
-  const visualStartingPoint = selectedImage === defaultImageValue
+  const visualStartingPoint = imageChoices[destination] === null
+    && selectedImage === visualSeedImage
     ? visualSeed?.source ?? null
     : null;
 
@@ -475,7 +480,7 @@ function PlanEditor({
               name={planField(cardKey, "context_id")}
               value={productionContextId}
               required
-              onChange={(event) => setProductionContextId(event.currentTarget.value)}
+              onChange={(event) => onProductionContextChange(event.currentTarget.value)}
             >
               {productionContexts.map((context) => (
                 <option key={context.id} value={context.id}>
@@ -926,6 +931,7 @@ export function MesaProductionWorkspaceClient({
     () => initialOutputCount,
   );
   const [cardCapacity, setCardCapacity] = useState(() => initialOutputCount);
+  const [productionContextOverrides, setProductionContextOverrides] = useState<Record<string, string>>({});
   const [savedPlanIds, setSavedPlanIds] = useState<Record<string, string>>({});
   const [savingProduction, setSavingProduction] = useState(false);
   const [productionMessage, setProductionMessage] = useState("");
@@ -934,7 +940,11 @@ export function MesaProductionWorkspaceClient({
 
   const newsroomImageByArticleId = new Map<string, EditorialDossierImage>();
   for (const image of images) {
-    if (image.origin === "newsroom" && !newsroomImageByArticleId.has(image.newsroomArticleId)) {
+    if (
+      image.origin === "newsroom"
+      && image.frozenUrl.trim()
+      && !newsroomImageByArticleId.has(image.newsroomArticleId)
+    ) {
       newsroomImageByArticleId.set(image.newsroomArticleId, image);
     }
   }
@@ -957,21 +967,60 @@ export function MesaProductionWorkspaceClient({
   }
   // Estes pares fonte/imagem só evitam configuração repetitiva no browser.
   // Não limitam assignments e nunca alimentam a proveniência da publicação.
-  const visualSeeds: WorkspaceVisualSeed[] = visualSeedSources
+  const historicalVisualSeeds: WorkspaceVisualSeed[] = visualSeedSources
     .map((source) => ({
       source,
       image: newsroomImageByArticleId.get(source.newsroomArticleId) ?? null,
     }));
-  const cards: Array<{
+  const baseCards: Array<{
     key: string;
     plan: EditorialDossierArticlePlan | null;
     position: number;
-    visualSeed: WorkspaceVisualSeed | null;
-  }> = Array.from({ length: cardCapacity }, (_, index) => ({
-    key: activePlans[index]?.id ?? `output:draft:${index + 1}`,
-    plan: activePlans[index] ?? null,
-    position: index + 1,
-    visualSeed: visualSeeds[index] ?? null,
+    productionContextId: string;
+  }> = Array.from({ length: cardCapacity }, (_, index) => {
+    const plan = activePlans[index] ?? null;
+    const key = plan?.id ?? `output:draft:${index + 1}`;
+    const assignedContextId = plan ? contextByPlanId.get(plan.id) ?? null : null;
+    const defaultContextId = productionContexts[
+      index % Math.max(1, productionContexts.length)
+    ]?.id ?? "";
+    return {
+      key,
+      plan,
+      position: index + 1,
+      productionContextId: dossier.contextMode === "contexts"
+        ? productionContextOverrides[key] ?? assignedContextId ?? defaultContextId
+        : "",
+    };
+  });
+  const contextVisualSeedByOutputKey = new Map(
+    editorialMesaContextVisualSeedAssignments(
+      productionContexts,
+      baseCards.slice(0, outputCount).map((card) => ({
+        key: card.key,
+        productionContextId: card.productionContextId,
+      })),
+      [...newsroomImageByArticleId.keys()],
+    ).map((assignment) => {
+      const source = assignment.newsroomArticleId
+        ? sourceByArticleId.get(assignment.newsroomArticleId) ?? null
+        : null;
+      const image = assignment.newsroomArticleId
+        ? newsroomImageByArticleId.get(assignment.newsroomArticleId) ?? null
+        : null;
+      return [
+        assignment.outputKey,
+        source && image ? { source, image } : null,
+      ] as const;
+    }),
+  );
+  // O modo histórico conserva a distribuição visual global. No modo 2C, cada
+  // seed vem apenas das fontes congeladas do contexto atribuído ao Article Plan.
+  const cards = baseCards.map((card, index) => ({
+    ...card,
+    visualSeed: dossier.contextMode === "contexts"
+      ? contextVisualSeedByOutputKey.get(card.key) ?? null
+      : historicalVisualSeeds[index] ?? null,
   }));
   const visibleCards = cards.slice(0, outputCount);
   const allPlansPersisted = visibleCards.every(
@@ -1132,7 +1181,13 @@ export function MesaProductionWorkspaceClient({
               hidden={card.position > outputCount}
               contexts={publishedContexts}
               productionContexts={productionContexts}
-              assignedContextId={card.plan ? contextByPlanId.get(card.plan.id) ?? null : null}
+              productionContextId={card.productionContextId}
+              onProductionContextChange={(productionContextId) => {
+                setProductionContextOverrides((current) => ({
+                  ...current,
+                  [card.key]: productionContextId,
+                }));
+              }}
               images={images}
             />
           ))}

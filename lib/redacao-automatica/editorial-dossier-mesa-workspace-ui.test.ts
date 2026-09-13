@@ -273,8 +273,14 @@ test("defaults visuais derivam da seleção sem voltar a distribuir fontes por o
   assert.match(page, /visualSourceOrder=\{editorialMesaWorkspaceVisualSourceOrder\(/);
   assert.match(client, /activePlanCount > 0[\s\S]*?dossier\.initialOutputCount/);
   assert.match(client, /image\.origin === "newsroom"/);
+  assert.match(client, /image\.frozenUrl\.trim\(\)/);
   assert.match(client, /newsroomImageByArticleId\.get\(source\.newsroomArticleId\)/);
-  assert.match(client, /defaultImageId \? `dossier_image:\$\{defaultImageId\}` : "unselected"/);
+  assert.match(client, /editorialMesaContextVisualSeedAssignments\(/);
+  assert.match(client, /baseCards\.slice\(0, outputCount\)/);
+  assert.match(client, /productionContextId:\s*card\.productionContextId/);
+  assert.match(client, /contextVisualSeedByOutputKey\.get\(card\.key\)/);
+  assert.match(client, /: historicalVisualSeeds\[index\] \?\? null/);
+  assert.doesNotMatch(client, /contextVisualSeedByOutputKey[\s\S]{0,400}visualSourceOrder/);
   assert.match(client, /Ponto de partida visual/);
   assert.match(client, /setCardCapacity\(\(current\) => Math\.max\(current, next\)\)/);
   assert.match(client, /hidden=\{card\.position > outputCount\}/);
@@ -428,7 +434,9 @@ test("Article Plans são automáticos e a UI conserva apenas decisões editoriai
   assert.match(client, /Extensão/);
   assert.match(client, /Destino/);
   assert.match(client, /disabled=\{eligibleTargets\.length === 0\}/);
-  assert.match(client, /Record<"new" \| "update", string>/);
+  assert.match(client, /Record<"new" \| "update", string \| null>/);
+  assert.match(client, /editorialMesaResolvedVisualImageChoice\(\s*imageChoices\[destination\]/);
+  assert.match(client, /imageChoices\[destination\] === null/);
   assert.match(client, /MANTER IMAGEM PUBLICADA/);
   assert.match(client, /destination === "update"/);
   assert.match(route, /const contexts = workspaceResult\.value\.publishedContexts\.map/);
@@ -614,4 +622,21 @@ test("rotas legacy continuam presentes e separadas do workspace da Mesa", () => 
     /loadOperationalDeskReadModel\(\{[\s\S]*?\.\.\.mesaOperationalReadModelInput\(query\)/,
   );
   assert.match(mesaPage, /MesaSelectionProvider/);
+});
+
+test("package e publicação continuam a transportar a imagem persistida do respetivo output", () => {
+  const workspaceRoute = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
+  const packageInternal = read("lib/redacao-automatica/editorial-source-package-internal.ts");
+  const publicationClient = read("app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx");
+  const publicationRoute = read("app/api/admin/editorial/redacao-automatica/publicacao-lote/route.ts");
+
+  assert.match(workspaceRoute, /const selectedImage = plan\.imageChoice\.mode === "dossier_image"/);
+  assert.match(workspaceRoute, /imageNewsroomArticleId:\s*selectedSourceImage/);
+  assert.match(workspaceRoute, /externalImage \? \{ externalImage \} : \{\}/);
+  assert.match(packageInternal, /outputs\.flatMap\([\s\S]*?output\.position[\s\S]*?output\.imageNewsroomArticleId/);
+  assert.match(publicationClient, /sourcePackage\?\.outputImages\?\.map\(\(image\) => \(\{[\s\S]*?position[\s\S]*?imageUrl/);
+  assert.match(publicationClient, /const imageByKey = new Map\(imagePreflight\.articles\.map/);
+  assert.match(publicationClient, /publishPlannedItem\(planItem, article, imageUrl\)/);
+  assert.match(publicationRoute, /const imageUrl = cleanText\(payload\.imageUrl\)/);
+  assert.match(publicationRoute, /imageUrl:\s*imageUrl \|\| existing\?\.image_url \|\| null/);
 });

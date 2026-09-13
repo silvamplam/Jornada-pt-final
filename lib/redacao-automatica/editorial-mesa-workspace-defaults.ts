@@ -9,6 +9,26 @@ type WorkspaceOutputDefaultSource = WorkspaceStartingPointSource & Readonly<{
   articleTitle: string;
 }>;
 
+export type EditorialMesaContextVisualSeedContext = Readonly<{
+  id: string;
+  sources: readonly Readonly<{
+    newsroomArticleId: string;
+    sortOrder: number;
+  }>[];
+}>;
+
+export type EditorialMesaContextVisualSeedOutput = Readonly<{
+  key: string;
+  productionContextId: string;
+}>;
+
+export type EditorialMesaContextVisualSeedAssignment = Readonly<{
+  outputKey: string;
+  productionContextId: string;
+  contextOrdinal: number;
+  newsroomArticleId: string | null;
+}>;
+
 function objectValue(value: unknown): UnknownRecord | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as UnknownRecord
@@ -66,6 +86,56 @@ export function editorialMesaWorkspaceVisualSourceOrder(
   }
 
   return Array.from(new Set([...ordered, ...fallbackArticleIds]));
+}
+
+export function editorialMesaContextVisualSeedAssignments(
+  contexts: readonly EditorialMesaContextVisualSeedContext[],
+  outputs: readonly EditorialMesaContextVisualSeedOutput[],
+  imageNewsroomArticleIds: readonly string[],
+): readonly EditorialMesaContextVisualSeedAssignment[] {
+  const imageSourceIds = new Set(imageNewsroomArticleIds);
+  const imageSourcesByContextId = new Map(contexts.map((context) => {
+    const seen = new Set<string>();
+    const imageSources = [...context.sources]
+      .sort((left, right) => (
+        left.sortOrder - right.sortOrder
+        || left.newsroomArticleId.localeCompare(right.newsroomArticleId)
+      ))
+      .flatMap((source) => {
+        if (
+          seen.has(source.newsroomArticleId)
+          || !imageSourceIds.has(source.newsroomArticleId)
+        ) return [];
+        seen.add(source.newsroomArticleId);
+        return [source.newsroomArticleId];
+      });
+    return [context.id, imageSources] as const;
+  }));
+  const outputCountByContextId = new Map<string, number>();
+
+  return outputs.map((output) => {
+    const contextOrdinal = (outputCountByContextId.get(output.productionContextId) ?? 0) + 1;
+    outputCountByContextId.set(output.productionContextId, contextOrdinal);
+    const imageSources = imageSourcesByContextId.get(output.productionContextId) ?? [];
+    return {
+      outputKey: output.key,
+      productionContextId: output.productionContextId,
+      contextOrdinal,
+      newsroomArticleId: imageSources.length > 0
+        ? imageSources[(contextOrdinal - 1) % imageSources.length]
+        : null,
+    };
+  });
+}
+
+export function editorialMesaResolvedVisualImageChoice(
+  explicitChoice: string | null,
+  automaticDossierImageId: string | null,
+): string {
+  return explicitChoice
+    ?? (automaticDossierImageId
+      ? `dossier_image:${automaticDossierImageId}`
+      : "unselected");
 }
 
 export function editorialMesaWorkspaceStartingPointSourceIds(
