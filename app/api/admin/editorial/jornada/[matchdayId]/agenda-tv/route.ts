@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 
 import {
+  agendaTvMatchNeedsEvidence,
   agendaSourceMatchesTeams,
-  buildPortugalKickoffAt,
+  agendaTvUnavailableSourcesBlock,
+  buildAgendaTvPreviewRow,
+  buildAgendaTvRpcRows,
   canonicalAgendaChannelKey,
   parseZerozeroAgendaHtml,
   resolveZerozeroMatchdayUrl,
+  shouldLoadAgendaTvFallback,
   zerozeroPageHasContext,
+  type AgendaTvLifecycleMatch,
+  type AgendaTvPreviewRow,
   type MatchdayAgendaTvSourceMatch,
 } from "@/lib/matchday-agenda-tv-sync";
 import {
@@ -38,28 +44,6 @@ type AgendaTvInput = Readonly<{
   action?: AgendaTvAction;
 }>;
 
-type PreviewStatus =
-  | "update"
-  | "unchanged"
-  | "source_not_found"
-  | "source_conflict"
-  | "channel_not_found";
-
-type PreviewRow = Readonly<{
-  matchId: string;
-  label: string;
-  status: PreviewStatus;
-  note: string;
-  currentDate: string | null;
-  currentKickoffAt: string | null;
-  currentChannel: string | null;
-  currentChannelId: string | null;
-  nextDate: string | null;
-  nextKickoffAt: string | null;
-  nextChannel: string | null;
-  nextChannelId: string | null;
-}>;
-
 type AgendaTvPreview = Readonly<{
   matchdayId: string;
   matchdayLabel: string;
@@ -67,7 +51,7 @@ type AgendaTvPreview = Readonly<{
   seasonLabel: string;
   sourceLabel: string;
   sourceUrl: string;
-  rows: readonly PreviewRow[];
+  rows: readonly AgendaTvPreviewRow[];
   summary: Readonly<{
     total: number;
     update: number;
@@ -90,6 +74,12 @@ type LoadedSource = AgendaTvSourceRead & Readonly<{
 type MatchEvidence = Readonly<{
   source: LoadedSource;
   candidates: readonly MatchdayAgendaTvSourceMatch[];
+}>;
+
+type AgendaTvMatch = SupabaseMatch & AgendaTvLifecycleMatch & Readonly<{
+  live_started_at: string | null;
+  live_base_minute: number | null;
+  is_clock_running: boolean | null;
 }>;
 
 function responseError(
@@ -298,25 +288,6 @@ function teamNames(
   ].filter(Boolean);
 }
 
-function sameInstant(
-  left: string | null | undefined,
-  right: string | null | undefined,
-) {
-  if (!left || !right) return left === right;
-
-  const leftTime = Date.parse(left);
-  const rightTime = Date.parse(right);
-
-  if (
-    !Number.isFinite(leftTime)
-    || !Number.isFinite(rightTime)
-  ) {
-    return left === right;
-  }
-
-  return leftTime === rightTime;
-}
-
 function evidenceForMatch(
   source: LoadedSource | null,
   homeNames: readonly string[],
@@ -459,8 +430,8 @@ async function buildPreview(
   }
 
   const matches =
-    await fetchSupabaseAdminTable<SupabaseMatch>(
-      `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,scheduled_date,kickoff_at,broadcast_channel_id&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=100`,
+    await fetchSupabaseAdminTable<AgendaTvMatch>(
+      `matches?select=id,competition_id,season_id,matchday_id,home_team_id,away_team_id,status,minute,live_started_at,live_base_minute,is_clock_running,home_score,away_score,scheduled_date,kickoff_at,broadcast_channel_id&matchday_id=eq.${encodeURIComponent(matchdayId)}&limit=100`,
     );
 
   if (matches.length === 0) {
@@ -490,41 +461,50 @@ async function buildPreview(
     season.starts_on
     ?? seasonStartFallback(season.label);
 
-  const [liga, ondebola] = await Promise.all([
-    safeReadSource("liga_portugal", () =>
-      readLigaPortugalMatchday({
-        matchdayNumber: matchday.number,
-        seasonLabel: season.label,
-        seasonStartsOn: startsOn,
-        matchCount: matches.length,
-      }),
-    ),
-    safeReadSource("ondebola", () =>
-      readOndeBolaMatchday({
-        matchdayNumber: matchday.number,
-        seasonStartsOn: startsOn,
-      }),
-    ),
-  ]);
+  const evidenceMatches = matches.filter(
+    agendaTvMatchNeedsEvidence,
+  );
+  const [liga, ondebola] = evidenceMatches.length > 0
+    ? await Promise.all([
+        safeReadSource("liga_portugal", () =>
+          readLigaPortugalMatchday({
+            matchdayNumber: matchday.number,
+            seasonLabel: season.label,
+            seasonStartsOn: startsOn,
+            matchCount: matches.length,
+          }),
+        ),
+        safeReadSource("ondebola", () =>
+          readOndeBolaMatchday({
+            matchdayNumber: matchday.number,
+            seasonStartsOn: startsOn,
+          }),
+        ),
+      ])
+    : [null, null];
 
   const teamsById = new Map(
     teams.map((team) => [team.id, team]),
   );
 
-  const unresolvedWithoutLegacy = matches.some((match) => {
-    const homeNames = teamNames(teamsById.get(match.home_team_id));
-    const awayNames = teamNames(teamsById.get(match.away_team_id));
+  const unresolvedWithoutLegacy = shouldLoadAgendaTvFallback(
+    matches,
+    (match) => {
+      const homeNames = teamNames(
+        teamsById.get(match.home_team_id),
+      );
+      const awayNames = teamNames(
+        teamsById.get(match.away_team_id),
+      );
 
-    const schedule = resolveScheduleEvidence([
-      evidenceForMatch(liga, homeNames, awayNames),
-      evidenceForMatch(ondebola, homeNames, awayNames),
-    ]);
+      const schedule = resolveScheduleEvidence([
+        evidenceForMatch(liga, homeNames, awayNames),
+        evidenceForMatch(ondebola, homeNames, awayNames),
+      ]);
 
-    return (
-      schedule.status !== "ok"
-      || match.broadcast_channel_id === null
-    );
-  });
+      return schedule.status;
+    },
+  );
 
   const zerozero = unresolvedWithoutLegacy
     ? await safeReadSource("zerozero", () =>
@@ -536,7 +516,12 @@ async function buildPreview(
       )
     : null;
 
-  if (!liga && !ondebola && !zerozero) {
+  if (
+    !liga
+    && !ondebola
+    && !zerozero
+    && agendaTvUnavailableSourcesBlock(matches)
+  ) {
     throw new Error("source-all-unavailable");
   }
 
@@ -554,15 +539,39 @@ async function buildPreview(
     ]),
   );
 
-  const previewRows: PreviewRow[] =
+  const previewRows: AgendaTvPreviewRow[] =
     matches.map((match) => {
       const home = teamsById.get(match.home_team_id);
       const away = teamsById.get(match.away_team_id);
-      const homeNames = teamNames(home);
-      const awayNames = teamNames(away);
       const label =
         `${home?.name ?? "Casa"} – ${away?.name ?? "Fora"}`;
+      const currentChannel =
+        match.broadcast_channel_id
+          ? (
+              channelsById.get(
+                match.broadcast_channel_id,
+              )?.name
+              ?? null
+            )
+          : null;
 
+      if (!agendaTvMatchNeedsEvidence(match)) {
+        return buildAgendaTvPreviewRow({
+          match,
+          label,
+          currentChannel,
+          schedule: { status: "not_found" },
+          channel: {
+            channelId: null,
+            channelName: null,
+            sourceLabel: null,
+            reportedChannel: null,
+          },
+        });
+      }
+
+      const homeNames = teamNames(home);
+      const awayNames = teamNames(away);
       const ligaEvidence = evidenceForMatch(
         liga,
         homeNames,
@@ -579,57 +588,11 @@ async function buildPreview(
         awayNames,
       );
 
-      const currentChannel =
-        match.broadcast_channel_id
-          ? (
-              channelsById.get(
-                match.broadcast_channel_id,
-              )?.name
-              ?? null
-            )
-          : null;
-
-      const base = {
-        matchId: match.id,
-        label,
-        currentDate: match.scheduled_date,
-        currentKickoffAt: match.kickoff_at,
-        currentChannel,
-        currentChannelId: match.broadcast_channel_id,
-      };
-
       const schedule = resolveScheduleEvidence([
         ligaEvidence,
         ondebolaEvidence,
         zerozeroEvidence,
       ]);
-
-      if (schedule.status === "not_found") {
-        return {
-          ...base,
-          status: "source_not_found" as const,
-          note:
-            "O jogo não foi identificado de forma inequívoca nas fontes disponíveis.",
-          nextDate: null,
-          nextKickoffAt: null,
-          nextChannel: null,
-          nextChannelId: null,
-        };
-      }
-
-      if (schedule.status === "conflict") {
-        return {
-          ...base,
-          status: "source_conflict" as const,
-          note:
-            `${schedule.source.label} devolveu mais do que um jogo compatível.`,
-          nextDate: null,
-          nextKickoffAt: null,
-          nextChannel: null,
-          nextChannelId: null,
-        };
-      }
-
       const channelEvidence = resolveChannelEvidence({
         liga: ligaEvidence,
         ondebola: ondebolaEvidence,
@@ -637,58 +600,31 @@ async function buildPreview(
         channelsByKey,
       });
 
-      const nextKickoffAt = buildPortugalKickoffAt(
-        schedule.row.date,
-        schedule.row.time,
-      );
-      const nextChannelId =
-        channelEvidence.channel?.id
-        ?? null;
-      const nextChannel =
-        channelEvidence.channel?.name
-        ?? currentChannel;
-
-      const scheduleChanged =
-        match.scheduled_date !== schedule.row.date
-        || !sameInstant(
-          match.kickoff_at,
-          nextKickoffAt,
-        );
-      const channelChanged =
-        nextChannelId !== null
-        && match.broadcast_channel_id !== nextChannelId;
-      const unchanged =
-        !scheduleChanged
-        && !channelChanged;
-
-      const sourceNote =
-        `Data e hora: ${schedule.source.label}.`;
-      const channelNote = channelEvidence.channel
-        ? ` Canal: ${channelEvidence.source?.label ?? "catálogo"}.`
-        : channelEvidence.reportedChannel
-          ? ` Canal "${channelEvidence.reportedChannel}" sem correspondência exata no catálogo; a TV atual será preservada.`
-          : " Canal sem confirmação exata; a TV atual será preservada.";
-
-      return {
-        ...base,
-        status:
-          scheduleChanged
-            ? "update" as const
-            : !channelEvidence.channel
-              && match.broadcast_channel_id === null
-              ? "channel_not_found" as const
-              : unchanged
-                ? "unchanged" as const
-                : "update" as const,
-        note:
-          unchanged
-            ? `${sourceNote}${channelNote}`
-            : `Alteração pronta para confirmação. ${sourceNote}${channelNote}`,
-        nextDate: schedule.row.date,
-        nextKickoffAt,
-        nextChannel,
-        nextChannelId,
-      };
+      return buildAgendaTvPreviewRow({
+        match,
+        label,
+        currentChannel,
+        schedule:
+          schedule.status === "ok"
+            ? {
+                status: "ok",
+                date: schedule.row.date,
+                time: schedule.row.time,
+                sourceLabel: schedule.source.label,
+              }
+            : schedule.status === "conflict"
+              ? {
+                  status: "conflict",
+                  sourceLabel: schedule.source.label,
+                }
+              : { status: "not_found" },
+        channel: {
+          channelId: channelEvidence.channel?.id ?? null,
+          channelName: channelEvidence.channel?.name ?? null,
+          sourceLabel: channelEvidence.source?.label ?? null,
+          reportedChannel: channelEvidence.reportedChannel,
+        },
+      });
     });
 
   const blockers =
@@ -733,31 +669,6 @@ async function buildPreview(
       blockers === 0
       && update > 0,
   };
-}
-
-function rpcRows(
-  preview: AgendaTvPreview,
-) {
-  return preview.rows.map((row) => {
-    if (
-      !row.nextDate
-      || !row.nextKickoffAt
-    ) {
-      throw new Error(
-        "agenda-tv-incomplete-rpc-row",
-      );
-    }
-
-    return {
-      match_id: row.matchId,
-      expected_scheduled_date: row.currentDate,
-      expected_kickoff_at: row.currentKickoffAt,
-      expected_broadcast_channel_id: row.currentChannelId,
-      scheduled_date: row.nextDate,
-      kickoff_at: row.nextKickoffAt,
-      broadcast_channel_id: row.nextChannelId,
-    };
-  });
 }
 
 export async function POST(
@@ -851,7 +762,7 @@ export async function POST(
         method: "POST",
         body: JSON.stringify({
           p_matchday_id: matchdayId,
-          p_rows: rpcRows(preview),
+          p_rows: buildAgendaTvRpcRows(preview.rows),
         }),
       },
     );

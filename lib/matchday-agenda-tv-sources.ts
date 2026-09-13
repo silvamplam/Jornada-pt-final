@@ -2,6 +2,7 @@ import { load } from "cheerio";
 
 import {
   canonicalAgendaChannelKey,
+  canonicalAgendaTeamKey,
   normalizeAgendaTvText,
   type MatchdayAgendaTvSourceMatch,
 } from "./matchday-agenda-tv-sync";
@@ -23,7 +24,7 @@ const PORTUGUESE_MONTHS = new Map<string, number>([
 
 const PORTUGUESE_DATE = /\b(?:seg|ter|qua|qui|sex|s[aá]b|dom)\.?\s+(\d{1,2})\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)(?:\s+(20\d{2}))?\b/i;
 const COLON_TIME = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
-const HOUR_TIME = /\b([01]?\d|2[0-3])h([0-5]\d)\b/i;
+const EXPLICIT_ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/i;
 
 export type AgendaTvSourceRead = Readonly<{
   label: string;
@@ -110,15 +111,12 @@ function parseColonTime(value: string) {
   return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
 }
 
-function parseHourTime(value: string) {
-  const match = HOUR_TIME.exec(cleanText(value));
-  if (!match) return null;
+export function portugalLocalFromUtcInstant(value: string) {
+  if (!EXPLICIT_ISO_INSTANT.test(value)) {
+    throw new Error("ambiguous-liga-portugal-kickoff");
+  }
 
-  return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
-}
-
-function portugalLocalFromUtc(date: string, time: string) {
-  const instant = new Date(`${date}T${time}:00Z`);
+  const instant = new Date(value);
 
   if (Number.isNaN(instant.getTime())) {
     throw new Error("invalid-kickoff-date");
@@ -152,6 +150,107 @@ function portugalLocalFromUtc(date: string, time: string) {
     date: `${year}-${month}-${day}`,
     time: `${hour}:${minute}`,
   } as const;
+}
+
+type NuxtRecord = Record<string, unknown>;
+
+function asNuxtRecord(value: unknown): NuxtRecord | null {
+  return value !== null
+    && typeof value === "object"
+    && !Array.isArray(value)
+    ? value as NuxtRecord
+    : null;
+}
+
+function resolveNuxtValue(
+  data: readonly unknown[],
+  value: unknown,
+) {
+  return typeof value === "number"
+    && Number.isInteger(value)
+    && value >= 0
+    && value < data.length
+    ? data[value]
+    : value;
+}
+
+function nuxtString(
+  data: readonly unknown[],
+  value: unknown,
+) {
+  const resolved = resolveNuxtValue(data, value);
+  return typeof resolved === "string" ? resolved : null;
+}
+
+function nuxtTeamName(
+  data: readonly unknown[],
+  value: unknown,
+) {
+  const team = asNuxtRecord(resolveNuxtValue(data, value));
+  return team ? nuxtString(data, team.name) : null;
+}
+
+function ligaPortugalFixtureInstant(
+  html: string,
+  home: string,
+  away: string,
+) {
+  const $ = load(html);
+  const payload = $("#__NUXT_DATA__").first().html();
+
+  if (!payload) return null;
+
+  let data: unknown;
+
+  try {
+    data = JSON.parse(payload);
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(data)) return null;
+
+  const expectedHome = canonicalAgendaTeamKey(home);
+  const expectedAway = canonicalAgendaTeamKey(away);
+  const instants = new Set<string>();
+
+  for (const value of data) {
+    const candidate = asNuxtRecord(value);
+    if (!candidate) continue;
+
+    const candidateHome = nuxtTeamName(data, candidate.homeTeam);
+    const candidateAway = nuxtTeamName(data, candidate.awayTeam);
+
+    if (
+      !candidateHome
+      || !candidateAway
+      || canonicalAgendaTeamKey(candidateHome) !== expectedHome
+      || canonicalAgendaTeamKey(candidateAway) !== expectedAway
+    ) {
+      continue;
+    }
+
+    for (const dateValue of [
+      candidate.matchDate,
+      candidate.fixtureDate,
+    ]) {
+      const instant = nuxtString(data, dateValue);
+
+      if (
+        !instant
+        || !EXPLICIT_ISO_INSTANT.test(instant)
+        || !Number.isFinite(Date.parse(instant))
+      ) {
+        continue;
+      }
+
+      instants.add(new Date(instant).toISOString());
+    }
+  }
+
+  return instants.size === 1
+    ? Array.from(instants)[0]
+    : null;
 }
 
 function looksLikeTvChannel(value: string) {
@@ -210,26 +309,15 @@ export function parseLigaPortugalMatchHtml(
 
   if (!titleMatch) return null;
 
-  const dateText = cleanText(
-    $(".container-date").first().text(),
-  );
-  const timeText = cleanText(
-    $(".match-item-row-score").first().text(),
-  );
-  const parsedDate = parsePortugueseNamedDate(
-    dateText,
-    input.seasonStartsOn,
+  const fixtureInstant = ligaPortugalFixtureInstant(
+    html,
+    titleMatch[1],
+    titleMatch[2],
   );
 
-  if (!parsedDate) return null;
+  if (!fixtureInstant) return null;
 
-  // A Liga Portugal atual j? exp?e no HTML a hora local de Portugal.
-  // N?o voltar a converter este valor como se estivesse em UTC.
-  const localTime =
-    parseHourTime(timeText)
-    ?? parseColonTime(timeText);
-
-  if (!localTime) return null;
+  const local = portugalLocalFromUtcInstant(fixtureInstant);
 
   const bodyChannelCandidates = uniqueTexts([
     ...$("body img[alt]")
@@ -247,8 +335,8 @@ export function parseLigaPortugalMatchHtml(
   return {
     home: cleanText(titleMatch[1]),
     away: cleanText(titleMatch[2]),
-    date: parsedDate.date,
-    time: localTime,
+    date: local.date,
+    time: local.time,
     channel,
     sourceUrl: input.sourceUrl,
   };

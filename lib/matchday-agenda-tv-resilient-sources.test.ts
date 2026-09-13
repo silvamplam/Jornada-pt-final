@@ -7,7 +7,44 @@ import {
   ligaPortugalSeasonCode,
   parseLigaPortugalMatchHtml,
   parseOndeBolaAgendaHtml,
+  portugalLocalFromUtcInstant,
 } from "./matchday-agenda-tv-sources";
+
+function ligaPortugalHtml(input: Readonly<{
+  home: string;
+  away: string;
+  instant: string;
+  visibleTime?: string;
+}>) {
+  const nuxtData = JSON.stringify([
+    null,
+    {
+      matchDate: 2,
+      fixtureDate: 2,
+      homeTeam: 3,
+      awayTeam: 5,
+    },
+    input.instant,
+    { name: 4 },
+    input.home,
+    { name: 6 },
+    input.away,
+  ]);
+
+  return `
+    <html>
+      <head><title>Liga Portugal - ${input.home} - ${input.away}</title></head>
+      <body>
+        <main>
+          <div class="container-date">dom. 13 set</div>
+          <div class="match-item-row-score">${input.visibleTime ?? "16h00"}</div>
+          <img alt="SportTV" />
+        </main>
+        <script id="__NUXT_DATA__" type="application/json">${nuxtData}</script>
+      </body>
+    </html>
+  `;
+}
 
 test("Liga Portugal usa URL estável por época, jornada e índice", () => {
   assert.equal(
@@ -24,20 +61,14 @@ test("Liga Portugal usa URL estável por época, jornada e índice", () => {
   );
 });
 
-test("Liga Portugal l? diretamente a hora portuguesa exposta no HTML", () => {
+test("Liga Portugal usa o instante UTC explícito e converte para Portugal", () => {
   const row = parseLigaPortugalMatchHtml(
-    `
-      <html>
-        <head><title>Liga Portugal - FC Porto - Moreirense FC</title></head>
-        <body>
-          <main>
-            <div class="container-date">sex. 04 set</div>
-            <div class="match-item-row-score">19h15</div>
-            <img alt="SportTV" />
-          </main>
-        </body>
-      </html>
-    `,
+    ligaPortugalHtml({
+      home: "FC Porto",
+      away: "Moreirense FC",
+      instant: "2026-09-04T19:15:00Z",
+      visibleTime: "19h15",
+    }),
     {
       sourceUrl: "https://www.ligaportugal.pt/match/20262027/ligaportugalbetclic/5/6",
       seasonStartsOn: "2026-07-01",
@@ -48,10 +79,74 @@ test("Liga Portugal l? diretamente a hora portuguesa exposta no HTML", () => {
     home: "FC Porto",
     away: "Moreirense FC",
     date: "2026-09-04",
-    time: "19:15",
+    time: "20:15",
     channel: "SportTV",
     sourceUrl: "https://www.ligaportugal.pt/match/20262027/ligaportugalbetclic/5/6",
   });
+});
+
+test("Liga Portugal falha em segurança sem instante explícito inequívoco", () => {
+  const row = parseLigaPortugalMatchHtml(
+    `
+      <html>
+        <head><title>Liga Portugal - FC Porto - Moreirense FC</title></head>
+        <body>
+          <div class="container-date">sex. 04 set</div>
+          <div class="match-item-row-score">20h15</div>
+        </body>
+      </html>
+    `,
+    {
+      sourceUrl: "https://www.ligaportugal.pt/teste",
+      seasonStartsOn: "2026-07-01",
+    },
+  );
+
+  assert.equal(row, null);
+});
+
+test("UTC para Europe/Lisbon respeita verão, inverno e mudança de data", () => {
+  assert.deepEqual(
+    portugalLocalFromUtcInstant("2026-09-13T17:00:00Z"),
+    { date: "2026-09-13", time: "18:00" },
+  );
+  assert.deepEqual(
+    portugalLocalFromUtcInstant("2027-01-10T17:00:00Z"),
+    { date: "2027-01-10", time: "17:00" },
+  );
+  assert.deepEqual(
+    portugalLocalFromUtcInstant("2026-09-13T23:30:00Z"),
+    { date: "2026-09-14", time: "00:30" },
+  );
+});
+
+test("Jornada 06 converte Arouca e Benfica das 17:00 UTC para 18:00 Portugal", () => {
+  const sourceUrl = "https://www.ligaportugal.pt/teste";
+  const input = {
+    sourceUrl,
+    seasonStartsOn: "2026-07-01",
+  };
+  const arouca = parseLigaPortugalMatchHtml(
+    ligaPortugalHtml({
+      home: "FC Arouca",
+      away: "Santa Clara",
+      instant: "2026-09-13T17:00:00Z",
+    }),
+    input,
+  );
+  const benfica = parseLigaPortugalMatchHtml(
+    ligaPortugalHtml({
+      home: "SL Benfica",
+      away: "Gil Vicente FC",
+      instant: "2026-09-13T17:00:00Z",
+    }),
+    input,
+  );
+
+  assert.equal(arouca?.date, "2026-09-13");
+  assert.equal(arouca?.time, "18:00");
+  assert.equal(benfica?.date, "2026-09-13");
+  assert.equal(benfica?.time, "18:00");
 });
 
 test("OndeBola lê apenas a jornada pedida e conserva o canal exato", () => {
@@ -90,6 +185,7 @@ test("OndeBola lê apenas a jornada pedida e conserva o canal exato", () => {
     channel: "Sport.Tv1",
     sourceUrl: "https://ondebola.com/",
   }]);
+  assert.equal(rows[0]?.time, "20:15");
 });
 
 test("operador genérico não substitui um canal numerado mais preciso", () => {

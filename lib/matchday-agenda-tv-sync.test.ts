@@ -2,14 +2,71 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  agendaTvMatchNeedsEvidence,
+  agendaTvMatchPolicy,
+  agendaTvUnavailableSourcesBlock,
   agendaSourceMatchesTeams,
+  buildAgendaTvPreviewRow,
+  buildAgendaTvRpcRows,
   buildPortugalKickoffAt,
   canonicalAgendaChannelKey,
   canonicalAgendaTeamKey,
   parseZerozeroAgendaHtml,
   resolveZerozeroMatchdayUrl,
+  shouldLoadAgendaTvFallback,
+  type AgendaTvLifecycleMatch,
   zerozeroPageHasContext,
 } from "./matchday-agenda-tv-sync";
+
+const noChannel = {
+  channelId: null,
+  channelName: null,
+  sourceLabel: null,
+  reportedChannel: null,
+} as const;
+
+function lifecycleMatch(
+  overrides: Partial<AgendaTvLifecycleMatch> = {},
+): AgendaTvLifecycleMatch {
+  return {
+    id: "match-1",
+    status: "scheduled",
+    minute: null,
+    live_started_at: null,
+    live_base_minute: null,
+    is_clock_running: false,
+    home_score: null,
+    away_score: null,
+    scheduled_date: "2026-09-13",
+    kickoff_at: "2026-09-13T16:00:00+01:00",
+    broadcast_channel_id: "channel-1",
+    ...overrides,
+  };
+}
+
+function previewRow(
+  match: AgendaTvLifecycleMatch,
+  schedule:
+    | Readonly<{
+        status: "ok";
+        date: string;
+        time: string;
+        sourceLabel: string;
+      }>
+    | Readonly<{
+        status: "conflict";
+        sourceLabel: string;
+      }>
+    | Readonly<{ status: "not_found" }>,
+) {
+  return buildAgendaTvPreviewRow({
+    match,
+    label: "Casa – Fora",
+    currentChannel: "Sport TV 1",
+    schedule,
+    channel: noChannel,
+  });
+}
 
 test("normaliza aliases determinísticos da Liga Portugal", () => {
   assert.equal(
@@ -232,5 +289,246 @@ test("contexto aceita a jornada selecionada sem depender do texto concatenado do
       seasonLabel: "2025/26",
     }),
     false,
+  );
+});
+
+test("finished ausente ou em conflito é preservado e nunca bloqueia", () => {
+  const finished = lifecycleMatch({ status: "finished", minute: 90 });
+  const absent = previewRow(finished, { status: "not_found" });
+  const conflict = previewRow(finished, {
+    status: "conflict",
+    sourceLabel: "Liga Portugal",
+  });
+
+  for (const row of [absent, conflict]) {
+    assert.equal(row.preserve, true);
+    assert.equal(row.status, "unchanged");
+    assert.equal(row.nextDate, finished.scheduled_date);
+    assert.equal(row.nextKickoffAt, finished.kickoff_at);
+    assert.equal(row.nextChannelId, finished.broadcast_channel_id);
+  }
+});
+
+test("finished não exige evidência nem força fallback ZeroZero", () => {
+  const finished = lifecycleMatch({
+    status: "finished",
+    minute: 90,
+    broadcast_channel_id: null,
+  });
+
+  assert.equal(agendaTvMatchNeedsEvidence(finished), false);
+  assert.equal(
+    shouldLoadAgendaTvFallback([finished], () => "not_found"),
+    false,
+  );
+  assert.equal(agendaTvUnavailableSourcesBlock([finished]), false);
+});
+
+test("scheduled ausente ou em conflito continua blocker", () => {
+  const scheduled = lifecycleMatch();
+
+  assert.equal(
+    previewRow(scheduled, { status: "not_found" }).status,
+    "source_not_found",
+  );
+  assert.equal(
+    previewRow(scheduled, {
+      status: "conflict",
+      sourceLabel: "Liga Portugal",
+    }).status,
+    "source_conflict",
+  );
+  assert.equal(agendaTvUnavailableSourcesBlock([scheduled]), true);
+});
+
+test("jornada mista pede evidência apenas aos jogos scheduled", () => {
+  const finished = lifecycleMatch({
+    id: "finished",
+    status: "finished",
+    minute: 90,
+  });
+  const scheduled = lifecycleMatch({ id: "scheduled" });
+  const visited: string[] = [];
+
+  assert.equal(
+    shouldLoadAgendaTvFallback(
+      [finished, scheduled],
+      (match) => {
+        visited.push(match.id);
+        return "not_found";
+      },
+    ),
+    true,
+  );
+  assert.deepEqual(visited, ["scheduled"]);
+});
+
+test("postponed sem marcação segura preserva; com marcação segura propõe sem mudar status", () => {
+  const postponed = lifecycleMatch({ status: "postponed" });
+  const preserved = previewRow(postponed, { status: "not_found" });
+  const proposed = previewRow(postponed, {
+    status: "ok",
+    date: "2026-10-04",
+    time: "18:00",
+    sourceLabel: "Liga Portugal",
+  });
+
+  assert.equal(agendaTvMatchPolicy(postponed), "postponed");
+  assert.equal(preserved.status, "unchanged");
+  assert.equal(preserved.preserve, true);
+  assert.equal(preserved.nextDate, postponed.scheduled_date);
+  assert.equal(proposed.status, "update");
+  assert.equal(proposed.preserve, false);
+  assert.equal(proposed.nextDate, "2026-10-04");
+  assert.equal(postponed.status, "postponed");
+});
+
+test("live fields e estados desconhecidos são sempre preservados", () => {
+  const matches = [
+    lifecycleMatch({ status: "live", minute: 12 }),
+    lifecycleMatch({ status: "halftime", minute: 45 }),
+    lifecycleMatch({ status: "review_pending" }),
+    lifecycleMatch({
+      status: "scheduled",
+      live_started_at: "2026-09-13T15:00:00Z",
+    }),
+    lifecycleMatch({ status: "scheduled", live_base_minute: 0 }),
+    lifecycleMatch({ status: "scheduled", is_clock_running: true }),
+    lifecycleMatch({ status: "scheduled", home_score: 0, away_score: 0 }),
+  ];
+
+  for (const match of matches) {
+    assert.equal(agendaTvMatchPolicy(match), "preserve");
+    assert.equal(
+      previewRow(match, {
+        status: "ok",
+        date: "2026-09-14",
+        time: "20:00",
+        sourceLabel: "Liga Portugal",
+      }).status,
+      "unchanged",
+    );
+  }
+});
+
+test("payload RPC mantém toda a jornada e envia next=current nos preservados", () => {
+  const finished = lifecycleMatch({
+    id: "finished",
+    status: "finished",
+    minute: 90,
+  });
+  const scheduled = lifecycleMatch({ id: "scheduled" });
+  const rows = buildAgendaTvRpcRows([
+    previewRow(finished, { status: "not_found" }),
+    previewRow(scheduled, {
+      status: "ok",
+      date: "2026-09-13",
+      time: "18:00",
+      sourceLabel: "Liga Portugal",
+    }),
+  ]);
+
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows[0], {
+    match_id: "finished",
+    preserve: true,
+    expected_scheduled_date: finished.scheduled_date,
+    expected_kickoff_at: finished.kickoff_at,
+    expected_broadcast_channel_id: finished.broadcast_channel_id,
+    scheduled_date: finished.scheduled_date,
+    kickoff_at: finished.kickoff_at,
+    broadcast_channel_id: finished.broadcast_channel_id,
+  });
+  assert.equal(rows[1].preserve, false);
+});
+
+test("payload RPC aceita date/time NULL apenas em jogos preservados", () => {
+  const postponed = lifecycleMatch({
+    id: "postponed",
+    status: "postponed",
+    scheduled_date: null,
+    kickoff_at: null,
+    broadcast_channel_id: null,
+  });
+  const finished = lifecycleMatch({
+    id: "finished",
+    status: "finished",
+    minute: 90,
+    scheduled_date: null,
+    kickoff_at: null,
+  });
+
+  const rows = buildAgendaTvRpcRows([
+    previewRow(postponed, { status: "not_found" }),
+    previewRow(finished, { status: "not_found" }),
+  ]);
+
+  assert.deepEqual(rows.map((row) => ({
+    preserve: row.preserve,
+    scheduled_date: row.scheduled_date,
+    kickoff_at: row.kickoff_at,
+  })), [
+    { preserve: true, scheduled_date: null, kickoff_at: null },
+    { preserve: true, scheduled_date: null, kickoff_at: null },
+  ]);
+});
+
+test("jornada só terminada aceita preview sem qualquer fonte externa", () => {
+  const matches = Array.from({ length: 3 }, (_value, index) =>
+    lifecycleMatch({
+      id: `finished-${index}`,
+      status: "finished",
+      minute: 90,
+    }),
+  );
+
+  assert.equal(matches.some(agendaTvMatchNeedsEvidence), false);
+  assert.equal(agendaTvUnavailableSourcesBlock(matches), false);
+  assert.equal(
+    shouldLoadAgendaTvFallback(matches, () => "not_found"),
+    false,
+  );
+});
+
+test("Jornada 06 preserva 3 finished e reconcilia apenas os 6 scheduled", () => {
+  const matches = [
+    ...Array.from({ length: 3 }, (_value, index) =>
+      lifecycleMatch({
+        id: `finished-${index}`,
+        status: "finished",
+        minute: 90,
+      }),
+    ),
+    ...Array.from({ length: 6 }, (_value, index) =>
+      lifecycleMatch({ id: `scheduled-${index}` }),
+    ),
+  ];
+  const rows = matches.map((match) => previewRow(
+    match,
+    agendaTvMatchNeedsEvidence(match)
+      ? {
+          status: "ok",
+          date: "2026-09-13",
+          time: "18:00",
+          sourceLabel: "Liga Portugal",
+        }
+      : { status: "not_found" },
+  ));
+
+  assert.equal(rows.length, 9);
+  assert.equal(
+    rows.filter((row) => row.status === "unchanged").length,
+    3,
+  );
+  assert.equal(
+    rows.filter((row) => row.status === "update").length,
+    6,
+  );
+  assert.equal(
+    rows.filter((row) => (
+      row.status === "source_not_found"
+      || row.status === "source_conflict"
+    )).length,
+    0,
   );
 });

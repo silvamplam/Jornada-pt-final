@@ -408,3 +408,296 @@ export function buildPortugalKickoffAt(
 ) {
   return `${date}T${time}:00${portugalOffsetForDate(date)}`;
 }
+
+export type AgendaTvLifecycleMatch = Readonly<{
+  id: string;
+  status: string | null;
+  minute?: number | null;
+  live_started_at?: string | null;
+  live_base_minute?: number | null;
+  is_clock_running?: boolean | null;
+  home_score?: number | null;
+  away_score?: number | null;
+  scheduled_date: string | null;
+  kickoff_at: string | null;
+  broadcast_channel_id: string | null;
+}>;
+
+export type AgendaTvMatchPolicy =
+  | "scheduled"
+  | "postponed"
+  | "preserve";
+
+export type AgendaTvScheduleDecision =
+  | Readonly<{
+      status: "ok";
+      date: string;
+      time: string;
+      sourceLabel: string;
+    }>
+  | Readonly<{
+      status: "conflict";
+      sourceLabel: string;
+    }>
+  | Readonly<{
+      status: "not_found";
+    }>;
+
+export type AgendaTvChannelDecision = Readonly<{
+  channelId: string | null;
+  channelName: string | null;
+  sourceLabel: string | null;
+  reportedChannel: string | null;
+}>;
+
+export type AgendaTvPreviewStatus =
+  | "update"
+  | "unchanged"
+  | "source_not_found"
+  | "source_conflict"
+  | "channel_not_found";
+
+export type AgendaTvPreviewRow = Readonly<{
+  matchId: string;
+  label: string;
+  preserve: boolean;
+  status: AgendaTvPreviewStatus;
+  note: string;
+  currentDate: string | null;
+  currentKickoffAt: string | null;
+  currentChannel: string | null;
+  currentChannelId: string | null;
+  nextDate: string | null;
+  nextKickoffAt: string | null;
+  nextChannel: string | null;
+  nextChannelId: string | null;
+}>;
+
+function hasEffectiveLiveState(match: AgendaTvLifecycleMatch) {
+  return (
+    match.minute !== null
+    && match.minute !== undefined
+  ) || Boolean(match.live_started_at)
+    || (
+      match.live_base_minute !== null
+      && match.live_base_minute !== undefined
+    )
+    || match.is_clock_running === true
+    || (
+      match.home_score !== null
+      && match.home_score !== undefined
+    )
+    || (
+      match.away_score !== null
+      && match.away_score !== undefined
+    );
+}
+
+export function agendaTvMatchPolicy(
+  match: AgendaTvLifecycleMatch,
+): AgendaTvMatchPolicy {
+  if (hasEffectiveLiveState(match)) {
+    return "preserve";
+  }
+
+  const status = (match.status ?? "").trim().toLowerCase();
+
+  if (status === "scheduled") return "scheduled";
+  if (status === "postponed") return "postponed";
+
+  return "preserve";
+}
+
+export function agendaTvMatchNeedsEvidence(
+  match: AgendaTvLifecycleMatch,
+) {
+  return agendaTvMatchPolicy(match) !== "preserve";
+}
+
+export function agendaTvUnavailableSourcesBlock(
+  matches: readonly AgendaTvLifecycleMatch[],
+) {
+  return matches.some(
+    (match) => agendaTvMatchPolicy(match) === "scheduled",
+  );
+}
+
+export function shouldLoadAgendaTvFallback<
+  Match extends AgendaTvLifecycleMatch,
+>(
+  matches: readonly Match[],
+  scheduleStatus: (
+    match: Match,
+  ) => AgendaTvScheduleDecision["status"],
+) {
+  return matches.some((match) => (
+    agendaTvMatchNeedsEvidence(match)
+    && (
+      scheduleStatus(match) !== "ok"
+      || match.broadcast_channel_id === null
+    )
+  ));
+}
+
+function sameInstant(
+  left: string | null | undefined,
+  right: string | null | undefined,
+) {
+  if (!left || !right) return left === right;
+
+  const leftTime = Date.parse(left);
+  const rightTime = Date.parse(right);
+
+  if (
+    !Number.isFinite(leftTime)
+    || !Number.isFinite(rightTime)
+  ) {
+    return left === right;
+  }
+
+  return leftTime === rightTime;
+}
+
+function preservedPreviewRow(input: Readonly<{
+  match: AgendaTvLifecycleMatch;
+  label: string;
+  currentChannel: string | null;
+  note: string;
+}>): AgendaTvPreviewRow {
+  return {
+    matchId: input.match.id,
+    label: input.label,
+    preserve: true,
+    status: "unchanged",
+    note: input.note,
+    currentDate: input.match.scheduled_date,
+    currentKickoffAt: input.match.kickoff_at,
+    currentChannel: input.currentChannel,
+    currentChannelId: input.match.broadcast_channel_id,
+    nextDate: input.match.scheduled_date,
+    nextKickoffAt: input.match.kickoff_at,
+    nextChannel: input.currentChannel,
+    nextChannelId: input.match.broadcast_channel_id,
+  };
+}
+
+export function buildAgendaTvPreviewRow(input: Readonly<{
+  match: AgendaTvLifecycleMatch;
+  label: string;
+  currentChannel: string | null;
+  schedule: AgendaTvScheduleDecision;
+  channel: AgendaTvChannelDecision;
+}>): AgendaTvPreviewRow {
+  const policy = agendaTvMatchPolicy(input.match);
+
+  if (policy === "preserve") {
+    return preservedPreviewRow({
+      match: input.match,
+      label: input.label,
+      currentChannel: input.currentChannel,
+      note: "Jogo fora do ciclo sincronizável; agenda e TV preservadas.",
+    });
+  }
+
+  if (input.schedule.status !== "ok") {
+    if (policy === "postponed") {
+      return preservedPreviewRow({
+        match: input.match,
+        label: input.label,
+        currentChannel: input.currentChannel,
+        note: "Jogo adiado sem nova marcação inequívoca; agenda e TV preservadas.",
+      });
+    }
+
+    return {
+      matchId: input.match.id,
+      label: input.label,
+      preserve: false,
+      status:
+        input.schedule.status === "conflict"
+          ? "source_conflict"
+          : "source_not_found",
+      note:
+        input.schedule.status === "conflict"
+          ? `${input.schedule.sourceLabel} devolveu mais do que um jogo compatível.`
+          : "O jogo não foi identificado de forma inequívoca nas fontes disponíveis.",
+      currentDate: input.match.scheduled_date,
+      currentKickoffAt: input.match.kickoff_at,
+      currentChannel: input.currentChannel,
+      currentChannelId: input.match.broadcast_channel_id,
+      nextDate: null,
+      nextKickoffAt: null,
+      nextChannel: null,
+      nextChannelId: null,
+    };
+  }
+
+  const nextKickoffAt = buildPortugalKickoffAt(
+    input.schedule.date,
+    input.schedule.time,
+  );
+  const scheduleChanged =
+    input.match.scheduled_date !== input.schedule.date
+    || !sameInstant(input.match.kickoff_at, nextKickoffAt);
+  const channelChanged =
+    input.channel.channelId !== null
+    && input.match.broadcast_channel_id !== input.channel.channelId;
+  const unchanged = !scheduleChanged && !channelChanged;
+  const sourceNote = `Data e hora: ${input.schedule.sourceLabel}.`;
+  const channelNote = input.channel.channelId
+    ? ` Canal: ${input.channel.sourceLabel ?? "catálogo"}.`
+    : input.channel.reportedChannel
+      ? ` Canal "${input.channel.reportedChannel}" sem correspondência exata no catálogo; a TV atual será preservada.`
+      : " Canal sem confirmação exata; a TV atual será preservada.";
+
+  return {
+    matchId: input.match.id,
+    label: input.label,
+    preserve: false,
+    status:
+      scheduleChanged
+        ? "update"
+        : !input.channel.channelId
+          && input.match.broadcast_channel_id === null
+          ? "channel_not_found"
+          : unchanged
+            ? "unchanged"
+            : "update",
+    note:
+      unchanged
+        ? `${sourceNote}${channelNote}`
+        : `Alteração pronta para confirmação. ${sourceNote}${channelNote}`,
+    currentDate: input.match.scheduled_date,
+    currentKickoffAt: input.match.kickoff_at,
+    currentChannel: input.currentChannel,
+    currentChannelId: input.match.broadcast_channel_id,
+    nextDate: input.schedule.date,
+    nextKickoffAt,
+    nextChannel: input.channel.channelName ?? input.currentChannel,
+    nextChannelId: input.channel.channelId,
+  };
+}
+
+export function buildAgendaTvRpcRows(
+  rows: readonly AgendaTvPreviewRow[],
+) {
+  return rows.map((row) => {
+    if (
+      !row.preserve
+      && (!row.nextDate || !row.nextKickoffAt)
+    ) {
+      throw new Error("agenda-tv-incomplete-rpc-row");
+    }
+
+    return {
+      match_id: row.matchId,
+      preserve: row.preserve,
+      expected_scheduled_date: row.currentDate,
+      expected_kickoff_at: row.currentKickoffAt,
+      expected_broadcast_channel_id: row.currentChannelId,
+      scheduled_date: row.nextDate,
+      kickoff_at: row.nextKickoffAt,
+      broadcast_channel_id: row.nextChannelId,
+    };
+  });
+}
