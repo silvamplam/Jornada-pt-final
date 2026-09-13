@@ -431,7 +431,7 @@ begin
   exception
     when check_violation then null;
   end;
-  select dossier_source_id into strict v_source_one_dossier_id
+  select id into strict v_source_one_dossier_id
   from public.newsroom_editorial_dossier_sources
   where dossier_id = v_workspace
     and newsroom_article_id = '97000000-0000-4000-8000-000000000001';
