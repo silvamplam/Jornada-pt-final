@@ -117,7 +117,7 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
     </header>
     <MesaSourceWindow storageKey={`jornada.mesa.organizacao.${tab}.${status}`} empty="Organiza uma seleção num Tema. Os Dossiês existentes continuam acessíveis aqui."
       items={[
-        ...(tab === "themes" ? themes : []).map((theme) => <li key={`theme:${theme.id}`} className={styles.organizationItem}>
+        ...(tab === "themes" ? themes : []).map((theme) => <li key={`theme:${theme.id}`} className={styles.organizationThemeItem}>
           <article className={styles.organizationCard}>
             <Link href={`/admin/editorial/redacao-automatica/mesa/temas/${theme.id}`} prefetch={false}>{theme.title}</Link>
             <p>{theme.sourceCount} fontes · {theme.dossiers.length} dossiês · {theme.articleCount} artigos publicados</p>

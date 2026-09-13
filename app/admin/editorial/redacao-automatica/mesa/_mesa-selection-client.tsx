@@ -22,6 +22,7 @@ import {
   mesaPreparationPayload,
   readMesaPreparationBuffer,
   removeMesaMaterial,
+  removeMesaMaterials,
   selectMesaMaterial,
   observeMesaMaterial,
   changeMesaPreparationTheme,
@@ -72,6 +73,7 @@ type MesaSelectionContextValue = Readonly<{
   removeDossier: (key: string) => void;
   select: (material: MesaMaterialSelection) => void;
   remove: (newsroomArticleId: string) => void;
+  removeSources: (newsroomArticleIds: readonly string[]) => void;
   changeTitle: (title: string) => void;
   clear: () => void;
   discard: (source: DismissedSource) => Promise<void>;
@@ -205,6 +207,13 @@ export function MesaSelectionProvider({
       persist((current) => removeMesaMaterial(
         current,
         newsroomArticleId,
+        createPreparationKey,
+      ));
+    },
+    removeSources(newsroomArticleIds) {
+      persist((current) => removeMesaMaterials(
+        current,
+        newsroomArticleIds,
         createPreparationKey,
       ));
     },
@@ -495,12 +504,19 @@ export function MesaDossierSelectionToggle({ material }: Readonly<{ material: Me
   </button>;
 }
 
-export function MesaSelectionTray() {
+type MesaThemeAction = "create" | "add";
+
+export function MesaSelectionTray({
+  sourceThemeActions = false,
+}: Readonly<{
+  sourceThemeActions?: boolean;
+}> = {}) {
   const {
     buffer,
     loaded,
     fixtureMode,
     remove,
+    removeSources,
     removeDossier,
     changeTitle,
     clear,
@@ -513,7 +529,9 @@ export function MesaSelectionTray() {
   } = useMesaSelection();
   const router = useRouter();
   const [organizing, setOrganizing] = useState(false);
+  const [themeAction, setThemeAction] = useState<MesaThemeAction | null>(null);
   const [targetTheme, setTargetTheme] = useState(buffer.themeId ?? themeContext?.id ?? "");
+  const [themeTitle, setThemeTitle] = useState(buffer.title);
   const [themeClassification, setThemeClassification] = useState("");
   const organizationRequest = useRef({ fingerprint: "", id: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -588,13 +606,20 @@ export function MesaSelectionTray() {
     }
   }
 
-  async function organize() {
+  async function organize(action?: MesaThemeAction) {
     if (fixtureMode) { setMessage("Fixture visual: ação de Tema não enviada."); return; }
-    const classification = themeClassification || suggestedThemeClassification([...buffer.sources, ...dossiers]) || "";
-    const command = { action: "organize_sources", themeId: targetTheme || null, title: buffer.title,
+    const sourceOnly = sourceThemeActions;
+    const selectedTheme = sourceOnly && action === "create" ? "" : targetTheme;
+    const title = sourceOnly ? themeTitle : buffer.title;
+    const classificationCandidates = sourceOnly ? buffer.sources : [...buffer.sources, ...dossiers];
+    const classification = themeClassification || suggestedThemeClassification(classificationCandidates) || "";
+    const command = { action: "organize_sources", themeId: selectedTheme || null, title,
       classificationKey: classification, sourceIds: buffer.sources.map((source) => source.newsroomArticleId),
-      materials: dossiers.map(({ key, versionId, sources }) => ({ key, versionId, sources })) };
-    if (!targetTheme && (!buffer.title.trim() || !classification)) {
+      ...(!sourceOnly ? { materials: dossiers.map(({ key, versionId, sources }) => ({ key, versionId, sources })) } : {}) };
+    if (sourceOnly && command.sourceIds.length === 0) {
+      setMessage("Seleciona pelo menos uma fonte para organizar num Tema."); return;
+    }
+    if (!selectedTheme && (!title.trim() || !classification)) {
       setMessage("Indica o título e a classificação do Tema. Não é necessário classificar cada fonte para a organizar."); return;
     }
     const fingerprint = JSON.stringify(command);
@@ -607,10 +632,18 @@ export function MesaSelectionTray() {
       });
       const result = await response.json();
       if (!response.ok || !result.ok || !result.themeId) throw new Error(result.message ?? "Organização não guardada.");
-      const title = themes.find((theme) => theme.id === result.themeId)?.title ?? buffer.title;
-      moveToTheme(result.themeId, title, command.sourceIds);
-      setOrganizing(false); setMessage("Material guardado no Tema.");
-      router.push(`/admin/editorial/redacao-automatica/mesa/temas/${result.themeId}`);
+      if (sourceOnly) {
+        removeSources(command.sourceIds);
+        setThemeAction(null); setTargetTheme(""); setThemeClassification("");
+        setMessage(result.addedCount > 0
+          ? `${result.addedCount} ${result.addedCount === 1 ? "fonte adicionada" : "fontes adicionadas"} ao Tema.`
+          : "As fontes selecionadas já pertenciam a este Tema; nenhuma associação foi duplicada.");
+      } else {
+        const destinationTitle = themes.find((theme) => theme.id === result.themeId)?.title ?? buffer.title;
+        moveToTheme(result.themeId, destinationTitle, command.sourceIds);
+        setOrganizing(false); setMessage("Material guardado no Tema.");
+        router.push(`/admin/editorial/redacao-automatica/mesa/temas/${result.themeId}`);
+      }
       router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Organização não guardada. A seleção foi preservada."); }
     finally { setSubmitting(false); }
@@ -636,7 +669,8 @@ export function MesaSelectionTray() {
   if (!loaded || total === 0) return null;
 
   return (
-    <section className={styles.selectionTray} aria-labelledby="mesa-selection-title">
+    <section className={styles.selectionTray} aria-labelledby="mesa-selection-title"
+      data-source-theme-actions={sourceThemeActions ? "true" : undefined}>
       <div className={styles.selectionSummary}>
         <div>
           <h2 id="mesa-selection-title">
@@ -644,7 +678,9 @@ export function MesaSelectionTray() {
           </h2>
           <p>{distinctSources} fontes distintas · {dossiers.length} Dossiês inteiros · {publicadas.length} fontes publicadas avulsas</p>
         </div>
-        <button type="button" onClick={clear} disabled={submitting}>
+        <button type="button" onClick={() => {
+          setThemeAction(null); setOrganizing(false); setTargetTheme(""); setMessage(""); clear();
+        }} disabled={submitting}>
           Limpar
         </button>
       </div>
@@ -682,10 +718,20 @@ export function MesaSelectionTray() {
             disabled={!loaded || submitting}
           />
         </label>
-        <button type="button" className={styles.selectionActionLink} disabled={submitting}
+        {sourceThemeActions ? <div className={styles.themeActionButtons}>
+          <button type="button" className={styles.selectionActionLink} disabled={submitting || buffer.sources.length === 0}
+            onClick={() => { setThemeTitle(buffer.title); setThemeClassification(""); setTargetTheme(""); setThemeAction("create"); setMessage(""); }}>
+            Criar tema
+          </button>
+          <button type="button" className={styles.selectionActionLink}
+            disabled={submitting || buffer.sources.length === 0 || !themes.some((theme) => theme.status === "open")}
+            onClick={() => { setTargetTheme(""); setThemeAction("add"); setMessage(""); }}>
+            Adicionar a tema
+          </button>
+        </div> : <button type="button" className={styles.selectionActionLink} disabled={submitting}
           onClick={() => { setTargetTheme(buffer.themeId ?? themeContext?.id ?? ""); setOrganizing((open) => !open); }}>
           ORGANIZAR EM TEMA
-        </button>
+        </button>}
         <button
           type="button"
           className={styles.discardSelectionButton}
@@ -710,7 +756,45 @@ export function MesaSelectionTray() {
         </button>
       </div>
 
-      {organizing ? <section className={styles.themeChooser} aria-label="Organizar seleção">
+      {sourceThemeActions && themeAction === "create" ? <section className={styles.themeChooser} aria-label="Criar tema">
+        <label>Nome do Tema
+          <input value={themeTitle} maxLength={180} autoFocus disabled={submitting}
+            onChange={(event) => setThemeTitle(event.currentTarget.value)} />
+        </label>
+        <label>Classificação do Tema
+          <select value={themeClassification || suggestedThemeClassification(buffer.sources) || ""}
+            onChange={(event) => setThemeClassification(event.target.value)} disabled={submitting}>
+            <option value="">Escolher classificação do conjunto</option>
+            {classificationOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
+        <div className={styles.themeChooserActions}>
+          <button type="button" onClick={() => void organize("create")}
+            disabled={submitting || buffer.sources.length === 0 || !themeTitle.trim()
+              || !(themeClassification || suggestedThemeClassification(buffer.sources))}>
+            {submitting ? "A guardar…" : "Confirmar"}
+          </button>
+          <button type="button" onClick={() => { setThemeAction(null); setMessage(""); }} disabled={submitting}>Cancelar</button>
+        </div>
+      </section> : null}
+
+      {sourceThemeActions && themeAction === "add" ? <section className={styles.themeChooser} aria-label="Adicionar a tema">
+        <label>Tema existente
+          <select value={targetTheme} onChange={(event) => setTargetTheme(event.target.value)} disabled={submitting} autoFocus>
+            <option value="">Escolher Tema</option>
+            {themes.filter((theme) => theme.status === "open").map((theme) => <option key={theme.id} value={theme.id}>{theme.title}</option>)}
+          </select>
+        </label>
+        <div className={styles.themeChooserActions}>
+          <button type="button" onClick={() => void organize("add")}
+            disabled={submitting || buffer.sources.length === 0 || !targetTheme}>
+            {submitting ? "A guardar…" : "Confirmar"}
+          </button>
+          <button type="button" onClick={() => { setThemeAction(null); setTargetTheme(""); setMessage(""); }} disabled={submitting}>Cancelar</button>
+        </div>
+      </section> : null}
+
+      {!sourceThemeActions && organizing ? <section className={styles.themeChooser} aria-label="Organizar seleção">
         <label>Destino
           <select value={targetTheme} onChange={(event) => setTargetTheme(event.target.value)} disabled={submitting}>
             <option value="">Criar Tema com o título de trabalho</option>

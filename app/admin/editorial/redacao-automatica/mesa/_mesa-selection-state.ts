@@ -188,6 +188,26 @@ export function removeMesaMaterial(
   };
 }
 
+export function removeMesaMaterials(
+  buffer: MesaPreparationBuffer,
+  newsroomArticleIds: readonly string[],
+  createPreparationKey: () => string,
+): MesaPreparationBuffer {
+  const requested = new Set(newsroomArticleIds);
+  const sources = buffer.sources.filter(
+    (selection) => !requested.has(selection.newsroomArticleId),
+  );
+  if (sources.length === buffer.sources.length) return buffer;
+  if (sources.length + (buffer.dossiers?.length ?? 0) === 0) {
+    return clearMesaPreparationBuffer();
+  }
+  return {
+    ...buffer,
+    preparationKey: nextPreparationKey(createPreparationKey),
+    sources,
+  };
+}
+
 export function changeMesaPreparationTitle(
   buffer: MesaPreparationBuffer,
   title: string,
