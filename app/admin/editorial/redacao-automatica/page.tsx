@@ -30,7 +30,7 @@ import {
   isEditorialSourcePackageLocation,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
-  readEditorialSourcePackage,
+  readEditorialSourcePackageManifest,
 } from "@/lib/redacao-automatica/editorial-source-package";
 
 import SourcePackageSubmitEnhancer from "./_sourcePackageSubmitEnhancer";
@@ -220,11 +220,11 @@ export default async function AutomaticNewsroomPage({
     : null;
 
   const reusePackageResult = view === "working" && reuseLocation
-    ? await readEditorialSourcePackage(reuseLocation)
+    ? await readEditorialSourcePackageManifest(reuseLocation)
     : null;
 
   const reuseManifest = reusePackageResult?.ok
-    ? reusePackageResult.value.manifest
+    ? reusePackageResult.value
     : null;
 
   const reuseEntries = reuseManifest && reuseLocation

@@ -10,7 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import type {
-  EditorialDossierArticlePlan,
+  EditorialDossierProductionArticlePlan,
 } from "@/lib/redacao-automatica/editorial-dossier-article-plan-repository";
 import type {
   EditorialDossierImage,
@@ -70,6 +70,8 @@ type CommandResponse = Readonly<{
   publicationCount?: number;
   sourceCount?: number;
   restoredThemeMembershipCount?: number;
+  outputCount?: number;
+  image?: RegisteredUploadImage;
 }>;
 
 type PreparedSourcePackage = Readonly<{
@@ -90,6 +92,10 @@ type SignedUpload = Readonly<{
   fileName: string;
 }>;
 
+type RegisteredUploadImage = Readonly<
+  Omit<Extract<EditorialDossierImage, { origin: "upload" }>, "createdAt">
+>;
+
 const MAX_OUTPUT_COUNT = 30;
 const PRODUCTION_FORM_ID = "mesa-production-article-plans";
 
@@ -107,7 +113,7 @@ const lengthModeLabels: Record<EditorialDossierLengthMode, string> = {
 };
 
 function explicitImageSelectValue(
-  plan: EditorialDossierArticlePlan | null,
+  plan: EditorialDossierProductionArticlePlan | null,
 ): string | null {
   if (!plan || plan.imageChoice.mode === "unselected") return null;
   if (plan.imageChoice.mode === "preserve_published") return "preserve_published";
@@ -160,19 +166,20 @@ function ImageBank({
   images,
   sources,
   publishedContexts,
+  onRegisteredImage,
 }: Readonly<{
   dossierId: string;
   images: readonly EditorialDossierImage[];
   sources: readonly WorkspaceSource[];
   publishedContexts: readonly EditorialDossierPublishedContext[];
+  onRegisteredImage: (image: RegisteredUploadImage) => void;
 }>) {
-  const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [pendingRegistration, setPendingRegistration] = useState<SignedUpload | null>(null);
 
-  async function registerUpload(upload: SignedUpload) {
+  async function registerUpload(upload: SignedUpload): Promise<RegisteredUploadImage> {
     const response = await fetch(WORKSPACE_ROUTE, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -186,12 +193,24 @@ function ImageBank({
       }),
     });
     const result = await response.json().catch(() => null) as CommandResponse | null;
-    if (!response.ok || !result?.ok) {
+    if (
+      !response.ok
+      || !result?.ok
+      || !result.image
+      || result.image.origin !== "upload"
+      || result.image.dossierId !== dossierId
+      || !result.image.id
+      || !result.image.frozenUrl
+      || !result.image.storageBucket
+      || !result.image.storagePath
+      || !result.image.fileName
+    ) {
       throw new Error(
         result?.message
         || "O ficheiro foi carregado, mas ainda não ficou registado no banco da Produção.",
       );
     }
+    return result.image;
   }
 
   async function uploadSelectedFile() {
@@ -247,11 +266,10 @@ function ImageBank({
       };
       setPendingRegistration(registration);
       setMessage("A registar a imagem no banco da Produção…");
-      await registerUpload(registration);
+      onRegisteredImage(await registerUpload(registration));
       setPendingRegistration(null);
       if (fileInput.current) fileInput.current.value = "";
       setMessage("Imagem disponível no banco comum.");
-      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível guardar a imagem.");
     } finally {
@@ -264,11 +282,10 @@ function ImageBank({
     setUploading(true);
     setMessage("A tentar registar novamente a imagem já carregada…");
     try {
-      await registerUpload(pendingRegistration);
+      onRegisteredImage(await registerUpload(pendingRegistration));
       setPendingRegistration(null);
       if (fileInput.current) fileInput.current.value = "";
       setMessage("Imagem disponível no banco comum.");
-      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível registar a imagem.");
     } finally {
@@ -381,7 +398,7 @@ function PlanEditor({
   images,
 }: Readonly<{
   dossier: WorkspaceDossier;
-  plan: EditorialDossierArticlePlan | null;
+  plan: EditorialDossierProductionArticlePlan | null;
   cardKey: string;
   position: number;
   visualSeed: WorkspaceVisualSeed | null;
@@ -857,7 +874,6 @@ function AbandonProduction({ dossierId }: Readonly<{ dossierId: string }>) {
         return;
       }
       router.push("/admin/editorial/redacao-automatica/mesa");
-      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível abandonar a produção.");
     } finally {
@@ -896,7 +912,7 @@ export function MesaProductionWorkspaceClient({
   dossier,
   sources,
   publishedContexts,
-  images,
+  images: initialImages,
   plans,
   productionContexts,
   planContexts,
@@ -906,13 +922,16 @@ export function MesaProductionWorkspaceClient({
   sources: readonly WorkspaceSource[];
   publishedContexts: readonly EditorialDossierPublishedContext[];
   images: readonly EditorialDossierImage[];
-  plans: readonly EditorialDossierArticlePlan[];
+  plans: readonly EditorialDossierProductionArticlePlan[];
   productionContexts: readonly EditorialMesaProductionContext[];
   planContexts: readonly EditorialMesaArticlePlanContext[];
   visualSourceOrder: readonly string[];
 }>) {
-  const router = useRouter();
-  const activePlans = plans.filter((plan) => plan.status !== "cancelled");
+  const [suppressedPlanIds, setSuppressedPlanIds] = useState<readonly string[]>([]);
+  const suppressedPlanIdSet = new Set(suppressedPlanIds);
+  const activePlans = plans.filter((plan) => (
+    plan.status !== "cancelled" && !suppressedPlanIdSet.has(plan.id)
+  ));
   const contextByPlanId = new Map(planContexts.map((assignment) => (
     [assignment.articlePlanId, assignment.productionContextId]
   )));
@@ -937,9 +956,13 @@ export function MesaProductionWorkspaceClient({
   const [productionMessage, setProductionMessage] = useState("");
   const [dirty, setDirty] = useState(false);
   const [packageVersion, setPackageVersion] = useState(0);
+  const [persistedOutputCount, setPersistedOutputCount] = useState(dossier.outputCount);
+  const [workspaceImages, setWorkspaceImages] = useState<readonly EditorialDossierImage[]>(
+    () => initialImages,
+  );
 
   const newsroomImageByArticleId = new Map<string, EditorialDossierImage>();
-  for (const image of images) {
+  for (const image of workspaceImages) {
     if (
       image.origin === "newsroom"
       && image.frozenUrl.trim()
@@ -974,7 +997,7 @@ export function MesaProductionWorkspaceClient({
     }));
   const baseCards: Array<{
     key: string;
-    plan: EditorialDossierArticlePlan | null;
+    plan: EditorialDossierProductionArticlePlan | null;
     position: number;
     productionContextId: string;
   }> = Array.from({ length: cardCapacity }, (_, index) => {
@@ -1029,7 +1052,7 @@ export function MesaProductionWorkspaceClient({
   const packageDisabled = savingProduction
     || dirty
     || !allPlansPersisted
-    || dossier.outputCount !== outputCount;
+    || persistedOutputCount !== outputCount;
 
   async function saveProduction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1097,14 +1120,29 @@ export function MesaProductionWorkspaceClient({
         }),
       });
       const countResult = await countResponse.json().catch(() => null) as CommandResponse | null;
-      if (!countResponse.ok || !countResult?.ok) {
+      if (
+        !countResponse.ok
+        || !countResult?.ok
+        || countResult.outputCount !== outputCount
+      ) {
         throw new Error(countResult?.message || "Os artigos foram guardados, mas falhou o total da produção.");
       }
 
+      const retainedPlanIds = new Set(visibleCards.map((card) => (
+        card.plan?.id ?? nextSavedPlanIds[card.key]
+      )));
+      const visibleCardKeys = new Set(visibleCards.map((card) => card.key));
+      setSuppressedPlanIds((current) => Array.from(new Set([
+        ...current,
+        ...activePlans.flatMap((plan) => retainedPlanIds.has(plan.id) ? [] : [plan.id]),
+      ])));
+      setSavedPlanIds(Object.fromEntries(
+        Object.entries(nextSavedPlanIds).filter(([key]) => visibleCardKeys.has(key)),
+      ));
+      setPersistedOutputCount(countResult.outputCount);
       setDirty(false);
       setPackageVersion((current) => current + 1);
       setProductionMessage("Produção guardada. Já podes descarregar imagens ou copiar o pacote.");
-      router.refresh();
     } catch (error) {
       setSavedPlanIds(nextSavedPlanIds);
       setProductionMessage(
@@ -1163,9 +1201,21 @@ export function MesaProductionWorkspaceClient({
           </div>
           <ImageBank
             dossierId={dossier.id}
-            images={images}
+            images={workspaceImages}
             sources={sources}
             publishedContexts={publishedContexts}
+            onRegisteredImage={(image) => {
+              setWorkspaceImages((current) => {
+                const existing = current.find((candidate) => candidate.id === image.id);
+                const registered: EditorialDossierImage = {
+                  ...image,
+                  createdAt: existing?.createdAt ?? "",
+                };
+                return existing
+                  ? current.map((candidate) => candidate.id === image.id ? registered : candidate)
+                  : [...current, registered];
+              });
+            }}
           />
         </header>
 
@@ -1188,7 +1238,7 @@ export function MesaProductionWorkspaceClient({
                   [card.key]: productionContextId,
                 }));
               }}
-              images={images}
+              images={workspaceImages}
             />
           ))}
         </div>
@@ -1199,7 +1249,7 @@ export function MesaProductionWorkspaceClient({
         key={packageVersion}
         dossierId={dossier.id}
         articleCount={outputCount}
-        imageCount={images.length}
+        imageCount={workspaceImages.length}
         disabled={packageDisabled}
         saving={savingProduction}
         packageVersion={packageVersion}

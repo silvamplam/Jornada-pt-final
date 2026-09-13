@@ -223,12 +223,11 @@ test("PREPARAR chama só o serviço foundation com snapshot explícito e expõe 
 test("workspace recompõe material, PUBLICADAS, planos e imagens só por readers persistentes", () => {
   const page = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/page.tsx");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
-  assert.match(page, /getEditorialDossierById\(dossierId\)/);
-  assert.match(page, /listEditorialDossierArticlePlans\(dossierId\)/);
-  assert.match(page, /getEditorialDossierProductionWorkspace\(dossierId\)/);
+  assert.match(page, /loadEditorialDossierProduction\(dossierId/);
+  assert.doesNotMatch(page, /getEditorialDossierById|listEditorialDossierArticlePlans|getEditorialDossierProductionWorkspace/);
   assert.match(route, /newsroomSnapshotId:\s*source\.newsroomSnapshotId/);
-  assert.match(page, /if \(!contextResult\.ok\) return <ReadError \/>/);
-  assert.match(route, /!contextResult\.ok/);
+  assert.match(page, /if \(!productionResult\.ok\) return <ReadError/);
+  assert.match(route, /loadEditorialDossierProduction\(dossierId/);
   assert.match(page, /images=\{production\.images\}/);
   assert.match(page, /publishedContexts=\{production\.publishedContexts\}/);
   assert.doesNotMatch(page, /sessionStorage|localStorage/);
@@ -239,7 +238,7 @@ test("Produção mantém o total global e limita cada output 2C ao contexto esco
   const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
 
-  assert.match(page, /selection_payload,source_refs,material_refs/);
+  assert.match(page, /context\?\.selectionPayload/);
   assert.match(client, /Artigos a produzir/);
   assert.match(client, /aria-label="Número total de artigos a produzir"/);
   assert.doesNotMatch(client, /Distribuição da produção|NucleusIdentity|nucleusId|Artigos para /);
@@ -300,7 +299,7 @@ test("defaults textuais seguem o ponto de partida sem dar nome editorial ao lote
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
 
   assert.match(route, /editorialMesaWorkspaceOutputWorkingTitle\(\s*priority,\s*startingPointSourceIds\[priority - 1\]/);
-  assert.match(route, /context\?\.material_refs,[\s\S]*?technicalSources\.map[\s\S]*?\),\s*priority,\s*\)/);
+  assert.match(route, /context\?\.materialRefs,[\s\S]*?technicalSources\.map[\s\S]*?\),\s*priority,\s*\)/);
   assert.match(route, /editorialMesaWorkspaceOutputWorkingTitle\(\s*index \+ 1,\s*startingPointSourceIds\[index\]/);
   assert.match(route, /focus:\s*\(plan\.editorialInstructions \|\| outputWorkingTitle\)/);
   assert.match(route, /workingTitle:\s*outputWorkingTitle/);
@@ -421,7 +420,10 @@ test("banco comum reúne origens e upload reutiliza signer e writer da foundatio
   assert.match(client, /method:\s*"PUT"/);
   assert.match(client, /action:\s*"register_upload_image"/);
   assert.match(route, /addEditorialDossierUploadImage/);
-  assert.match(route, /storageBucket:\s*textValue\(payload\?\.bucket\)/);
+  assert.match(route, /const storageBucket = textValue\(payload\?\.bucket\)/);
+  assert.match(route, /image:\s*\{[\s\S]*?origin:\s*"upload"/);
+  assert.match(client, /onRegisteredImage\(await registerUpload\(registration\)\)/);
+  assert.doesNotMatch(client, /router\.refresh\(\)/);
 });
 
 test("Article Plans são automáticos e a UI conserva apenas decisões editoriais", () => {
@@ -439,7 +441,7 @@ test("Article Plans são automáticos e a UI conserva apenas decisões editoriai
   assert.match(client, /imageChoices\[destination\] === null/);
   assert.match(client, /MANTER IMAGEM PUBLICADA/);
   assert.match(client, /destination === "update"/);
-  assert.match(route, /const contexts = workspaceResult\.value\.publishedContexts\.map/);
+  assert.match(route, /const contexts = workspace\.publishedContexts\.map/);
   assert.match(route, /sources:\s*technicalSources\.map/);
   assert.match(route, /destination === "new" && rawTarget !== null/);
   assert.match(route, /destination === "update" && !target/);

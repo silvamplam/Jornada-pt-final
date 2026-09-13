@@ -6,7 +6,7 @@ import {
   buildEditorialSourceImagesZip,
 } from "@/lib/redacao-automatica/editorial-source-image-zip";
 import {
-  readEditorialSourcePackage,
+  readEditorialSourcePackageManifest,
 } from "@/lib/redacao-automatica/editorial-source-package";
 
 export const runtime = "nodejs";
@@ -34,7 +34,7 @@ function errorResponse(message: string, status: number): Response {
 
 export async function GET(_request: Request, context: RouteContext) {
   const { year, month, id } = await context.params;
-  const result = await readEditorialSourcePackage({
+  const result = await readEditorialSourcePackageManifest({
     year,
     month,
     packageId: id,
@@ -48,8 +48,8 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const sources = editorialSourcePackageArticleImageSources(
-    result.value.manifest.entries,
-    result.value.manifest.outputs,
+    result.value.entries,
+    result.value.outputs,
   );
   const zip = await buildEditorialSourceImagesZip(sources);
 
@@ -63,8 +63,8 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const fileName = editorialSourcePackageImagesFileName(
-    result.value.manifest.genre,
-    result.value.manifest.suggestedTitle,
+    result.value.genre,
+    result.value.suggestedTitle,
   );
 
   const body = new ArrayBuffer(zip.bytes.byteLength);

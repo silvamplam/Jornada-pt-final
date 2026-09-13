@@ -10,7 +10,7 @@ import {
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
   createEditorialSourcePackage,
-  readEditorialSourcePackage,
+  readEditorialSourcePackageManifest,
 } from "@/lib/redacao-automatica/editorial-source-package";
 
 export const runtime = "nodejs";
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const previous = await readEditorialSourcePackage(reuseLocation);
+    const previous = await readEditorialSourcePackageManifest(reuseLocation);
 
     if (!previous.ok) {
       return redirectTo("/admin/editorial/redacao-automatica", {
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const previousEntries = previous.value.manifest.entries.filter(
+    const previousEntries = previous.value.entries.filter(
       (entry) => (
         entry.articlePosition === reuseArticlePosition
         && typeof entry.newsroomArticleId === "string"
@@ -199,7 +199,7 @@ export async function POST(request: Request) {
       );
 
     outputs =
-      previous.value.manifest.outputs
+      previous.value.outputs
         .filter(
           (output) =>
             output.sourceArticlePosition

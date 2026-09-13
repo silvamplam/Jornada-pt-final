@@ -6,7 +6,7 @@ import {
 import {
   createEditorialSourcePackage,
   markEditorialSourcePackageArticleUsed,
-  readEditorialSourcePackage,
+  readEditorialSourcePackageManifest,
 } from "@/lib/redacao-automatica/editorial-source-package";
 import {
   EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES,
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
   }
 
   const packageResults = await Promise.all(
-    refs.map((ref) => readEditorialSourcePackage({
+    refs.map((ref) => readEditorialSourcePackageManifest({
       year: ref.year,
       month: ref.month,
       packageId: ref.packageId,
@@ -226,7 +226,7 @@ export async function POST(request: Request) {
       return failure("package_read_failed");
     }
 
-    const entries = packageValue.manifest.entries
+    const entries = packageValue.entries
       .filter(
         (entry) => entry.articlePosition === ref.articlePosition,
       )
@@ -323,14 +323,14 @@ export async function POST(request: Request) {
     packageId,
     selections,
     editorial: {
-      genre: canonicalPackage.manifest.genre,
-      genreLabel: canonicalPackage.manifest.genreLabel,
+      genre: canonicalPackage.genre,
+      genreLabel: canonicalPackage.genreLabel,
       suggestedTitle:
         cleanText(canonicalArticle.title)
-        || canonicalPackage.manifest.suggestedTitle
+        || canonicalPackage.suggestedTitle
         || "",
       additionalInstructions:
-        canonicalPackage.manifest.additionalInstructions
+        canonicalPackage.additionalInstructions
         || "",
     },
   });

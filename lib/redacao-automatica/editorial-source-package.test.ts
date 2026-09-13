@@ -673,7 +673,7 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(imagesRoute, /buildEditorialSourceImagesZip/);
   assert.match(imagesRoute, /editorialSourcePackageArticleImageSources/);
   assert.match(imagesRoute, /X-Jornada-Images-Downloaded/);
-  assert.match(imagesRoute, /manifest\.suggestedTitle/);
+  assert.match(imagesRoute, /result\.value\.suggestedTitle/);
 
   const packageService = read(
     "lib/redacao-automatica/editorial-source-package.ts",
@@ -731,7 +731,7 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(articleImporter, /Imagem do pacote/);
   assert.match(articleImporter, /Nada é guardado ou publicado automaticamente/);
   assert.match(articleForm, /article-admin-external-images-grid/);
-  assert.match(articleImageImportRoute, /readEditorialSourcePackage/);
+  assert.match(articleImageImportRoute, /readEditorialSourcePackageManifest/);
   assert.match(articleImageImportRoute, /downloadEditorialSourceImage/);
   assert.match(articleImageImportRoute, /const BUCKET = "editorial-images"/);
   assert.match(articleImageImportRoute, /storage\/v1\/object/);

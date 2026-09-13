@@ -1,6 +1,12 @@
 import "server-only";
 
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
+import {
+  editorialArticleBodyPresencePostgrestFilter,
+} from "@/lib/redacao-automatica/editorial-article-body-presence";
+import type {
+  EditorialDossierProductionReadSession,
+} from "@/lib/redacao-automatica/editorial-dossier-production-read-session";
 import type {
   EditorialDossierArticleKind,
   EditorialDossierLengthMode,
@@ -72,6 +78,22 @@ export type EditorialDossierArticlePlan = Readonly<{
   publishedContexts: readonly EditorialDossierArticlePlanPublishedContext[];
 }>;
 
+export type EditorialDossierProductionArticlePlan = Readonly<{
+  id: string;
+  dossierId: string;
+  workingTitle: string;
+  status: EditorialDossierArticlePlanStatus;
+  sortOrder: number;
+  articleKind: EditorialDossierArticleKind;
+  lengthMode: EditorialDossierLengthMode;
+  editorialInstructions: string;
+  destination: EditorialDossierArticlePlanDestination;
+  updateTargetEditorialArticleId: string | null;
+  imageChoice: EditorialDossierArticlePlanImageChoice;
+  editorialArticleId: string | null;
+  sources: readonly EditorialDossierArticlePlanSource[];
+}>;
+
 type ArticlePlanRow = {
   id: string;
   dossier_id: string;
@@ -111,8 +133,9 @@ type ArticlePlanPublishedContextRow = {
 type EditorialArticleRow = {
   id: string;
   status: string;
-  body: string | null;
 };
+
+type EditorialArticleWithBodyRow = Pick<EditorialArticleRow, "id">;
 
 type GenerationRow = {
   id: string;
@@ -291,6 +314,60 @@ async function readAllPublishedContextAssignments(
   return rows;
 }
 
+export async function listEditorialDossierProductionArticlePlans(
+  dossierIdValue: string | null | undefined,
+  readSession?: EditorialDossierProductionReadSession,
+): Promise<EditorialDossierArticlePlanRepositoryResult<readonly EditorialDossierProductionArticlePlan[]>> {
+  const dossierId = dossierIdValue?.trim().toLowerCase() ?? "";
+  if (!UUID_PATTERN.test(dossierId)) return { ok: true, value: [] };
+
+  try {
+    const [plans, assignments] = await Promise.all([
+      readSession?.articlePlanRows() ?? readAllArticlePlanRows(dossierId),
+      readAllArticlePlanSourceRows(dossierId),
+    ]);
+    const planIds = new Set(plans.map((plan) => plan.id));
+    const sourcesByPlanId = new Map<string, EditorialDossierArticlePlanSource[]>();
+    for (const assignment of assignments) {
+      if (assignment.dossier_id !== dossierId || !planIds.has(assignment.article_plan_id)) continue;
+      const sources = sourcesByPlanId.get(assignment.article_plan_id) ?? [];
+      sources.push({
+        id: assignment.id,
+        dossierSourceId: assignment.dossier_source_id,
+        sortOrder: assignment.sort_order,
+      });
+      sourcesByPlanId.set(assignment.article_plan_id, sources);
+    }
+
+    return {
+      ok: true,
+      value: plans.map((plan): EditorialDossierProductionArticlePlan => ({
+        id: plan.id,
+        dossierId: plan.dossier_id,
+        workingTitle: plan.working_title,
+        status: planStatus(plan.status),
+        sortOrder: plan.sort_order,
+        articleKind: articleKind(plan.article_kind),
+        lengthMode: lengthMode(plan.length_mode),
+        editorialInstructions: plan.editorial_instructions,
+        destination: destination(plan.destination),
+        updateTargetEditorialArticleId: plan.update_target_editorial_article_id,
+        imageChoice: imageChoice(plan.image_choice, plan.dossier_image_id),
+        editorialArticleId: plan.editorial_article_id,
+        sources: (sourcesByPlanId.get(plan.id) ?? [])
+          .slice()
+          .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id)),
+      })).sort((left, right) => (
+        Number(left.status === "cancelled") - Number(right.status === "cancelled")
+        || left.sortOrder - right.sortOrder
+        || left.id.localeCompare(right.id)
+      )),
+    };
+  } catch {
+    return readUnavailable();
+  }
+}
+
 export async function listEditorialDossierArticlePlans(
   dossierIdValue: string | null | undefined,
 ): Promise<EditorialDossierArticlePlanRepositoryResult<readonly EditorialDossierArticlePlan[]>> {
@@ -340,20 +417,28 @@ export async function listEditorialDossierArticlePlans(
       publishedContextsByPlanId.set(assignment.article_plan_id, contexts);
     }
 
-    const articleIds = plans.flatMap((plan) => (
+    const articleIds = Array.from(new Set(plans.flatMap((plan) => (
       plan.editorial_article_id ? [plan.editorial_article_id] : []
-    ));
+    ))));
     const profileIds = Array.from(new Set(plans.flatMap((plan) => (
       plan.editorial_profile_id ? [plan.editorial_profile_id] : []
     ))));
     const profileVersionIds = Array.from(new Set(plans.flatMap((plan) => (
       plan.editorial_profile_version_id ? [plan.editorial_profile_version_id] : []
     ))));
-    const [editorialArticles, editorialProfiles, editorialProfileVersions] = await Promise.all([
+    const [editorialArticles, articlesWithBody, editorialProfiles, editorialProfileVersions] = await Promise.all([
       articleIds.length > 0
         ? fetchSupabaseAdminTable<EditorialArticleRow>(
-          "editorial_articles?select=id,status,body"
+          "editorial_articles?select=id,status"
           + `&id=in.(${uuidList(articleIds)})`
+          + `&limit=${articleIds.length}`,
+        )
+        : Promise.resolve([]),
+      articleIds.length > 0
+        ? fetchSupabaseAdminTable<EditorialArticleWithBodyRow>(
+          "editorial_articles?select=id"
+          + `&id=in.(${uuidList(articleIds)})`
+          + `&${editorialArticleBodyPresencePostgrestFilter()}`
           + `&limit=${articleIds.length}`,
         )
         : Promise.resolve([]),
@@ -376,6 +461,7 @@ export async function listEditorialDossierArticlePlans(
     const editorialArticlesById = new Map(
       editorialArticles.map((article) => [article.id, article]),
     );
+    const articleIdsWithBody = new Set(articlesWithBody.map((article) => article.id));
     const editorialProfilesById = new Map(
       editorialProfiles.map((profile) => [profile.id, profile]),
     );
@@ -443,7 +529,9 @@ export async function listEditorialDossierArticlePlans(
         editorialArticleStatus: editorialArticle
           ? articleStatus(editorialArticle.status)
           : null,
-        editorialArticleHasBody: Boolean(editorialArticle?.body?.trim()),
+        editorialArticleHasBody: Boolean(
+          editorialArticle && articleIdsWithBody.has(editorialArticle.id),
+        ),
         editorialProfile,
         generation: generation
           ? {

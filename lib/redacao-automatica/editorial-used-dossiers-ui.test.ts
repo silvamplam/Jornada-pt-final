@@ -82,7 +82,7 @@ test("Juntar Dossiês é determinístico e não usa IA", () => {
     "app/api/admin/editorial/redacao-automatica/juntar-dossies/route.ts",
   );
 
-  assert.match(route, /readEditorialSourcePackage/);
+  assert.match(route, /readEditorialSourcePackageManifest/);
   assert.match(route, /normalizeEditorialSourcePackageSelections/);
   assert.match(route, /createEditorialSourcePackage/);
   assert.match(route, /markEditorialSourcePackageArticleUsed/);

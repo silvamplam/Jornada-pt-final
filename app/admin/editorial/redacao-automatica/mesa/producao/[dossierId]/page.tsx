@@ -2,21 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import {
-  listEditorialDossierArticlePlans,
-} from "@/lib/redacao-automatica/editorial-dossier-article-plan-repository";
-import {
-  getEditorialDossierProductionWorkspace,
-} from "@/lib/redacao-automatica/editorial-dossier-production-workspace-repository";
-import {
-  getEditorialDossierById,
-} from "@/lib/redacao-automatica/editorial-dossier-repository";
+  loadEditorialDossierProduction,
+} from "@/lib/redacao-automatica/editorial-dossier-production-loader";
 import {
   editorialMesaWorkspaceInitialOutputCount,
   editorialMesaWorkspaceVisualSourceOrder,
 } from "@/lib/redacao-automatica/editorial-mesa-workspace-defaults";
 import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
 
-import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import {
   MesaProductionWorkspaceClient,
 } from "./_workspace-client";
@@ -26,15 +19,6 @@ export const dynamic = "force-dynamic";
 
 type ProductionWorkspacePageProps = Readonly<{
   params: Promise<{ dossierId: string }>;
-}>;
-
-type ProductionContextRow = Readonly<{
-  theme_id: string | null;
-  selection_payload: unknown;
-  source_refs: unknown;
-  material_refs: unknown;
-  workspace_contract_version?: number | null;
-  workspace_state?: string | null;
 }>;
 
 function ReadError({ message = "Não foi possível reconstruir esta produção a partir do estado persistente." }: Readonly<{ message?: string }>) {
@@ -54,42 +38,21 @@ export default async function ProductionWorkspacePage({
   params,
 }: ProductionWorkspacePageProps) {
   const { dossierId } = await params;
-  const [dossierResult, plansResult, productionResult] = await Promise.all([
-    getEditorialDossierById(dossierId),
-    listEditorialDossierArticlePlans(dossierId),
-    getEditorialDossierProductionWorkspace(dossierId),
-  ]);
+  const productionResult = await loadEditorialDossierProduction(dossierId, {
+    includeParentTheme: true,
+  });
+  if (!productionResult.ok) return <ReadError message={productionResult.error.message} />;
+  if (!productionResult.value) notFound();
 
-  if (!productionResult.ok) {
-    return <ReadError message={productionResult.error.message} />;
-  }
-  if (!dossierResult.ok || !plansResult.ok) {
-    return <ReadError />;
-  }
-  if (!dossierResult.value || !productionResult.value) notFound();
-
-  const dossier = dossierResult.value;
-  const plans = plansResult.value;
-  const production = productionResult.value;
-  const [parentResult, contextResult] = await Promise.all([
-    fetchSupabaseAdminTable<{ theme_id: string }>(
-      "newsroom_editorial_theme_dossiers?select=theme_id&dossier_id=eq."
-      + encodeURIComponent(dossierId) + "&limit=1",
-    ).then((rows) => ({ ok: true as const, rows })).catch(() => ({ ok: false as const, rows: [] })),
-    fetchSupabaseAdminTable<ProductionContextRow>(
-      "newsroom_mesa_production_contexts?select=theme_id,selection_payload,source_refs,material_refs,workspace_contract_version,workspace_state"
-      + "&dossier_id=eq." + encodeURIComponent(dossierId) + "&limit=1",
-    ).then((rows) => ({ ok: true as const, rows })).catch(() => ({ ok: false as const, rows: [] })),
-  ]);
-  const context = contextResult.rows[0] ?? null;
-  if (!contextResult.ok) return <ReadError />;
-  if (context?.workspace_state && context.workspace_state !== "active") notFound();
-  const contextThemeIds = production.contextMode === "contexts"
-    ? production.productionContexts.flatMap((item) => item.themeId ? [item.themeId] : [])
-    : [];
-  const parentThemeId = contextThemeIds.length === 1
-    ? contextThemeIds[0]
-    : context?.theme_id ?? parentResult.rows[0]?.theme_id ?? null;
+  const {
+    dossier,
+    plans,
+    workspace: production,
+    parentThemeId,
+    organizationReadable,
+  } = productionResult.value;
+  const context = production.mesaContext;
+  if (context?.workspaceState && context.workspaceState !== "active") notFound();
   const sourceNames = new Map(
     listRegisteredSources().map((source) => [source.code, source.name]),
   );
@@ -125,7 +88,7 @@ export default async function ProductionWorkspacePage({
           </nav>
         </header>
 
-        {!parentResult.ok ? (
+        {!organizationReadable ? (
           <p className={styles.alert} role="alert">
             Não foi possível verificar toda a organização da Mesa. As relações persistidas não foram alteradas.
           </p>
@@ -139,10 +102,10 @@ export default async function ProductionWorkspacePage({
             initialOutputCount: production.contextMode === "contexts"
               ? production.productionContexts.length
               : editorialMesaWorkspaceInitialOutputCount(
-                  context?.selection_payload,
+                  context?.selectionPayload,
                   includedSourceCount,
                 ),
-            workspaceContractVersion: context?.workspace_contract_version === 2 ? 2 : 1,
+            workspaceContractVersion: context?.workspaceContractVersion === 2 ? 2 : 1,
             contextMode: production.contextMode,
           }}
           sources={dossier.sources.map((source) => ({
@@ -158,8 +121,8 @@ export default async function ProductionWorkspacePage({
           productionContexts={production.productionContexts}
           planContexts={production.planContexts}
           visualSourceOrder={editorialMesaWorkspaceVisualSourceOrder(
-            context?.selection_payload,
-            context?.material_refs,
+            context?.selectionPayload,
+            context?.materialRefs,
             dossier.sources.filter((source) => source.included).map((source) => source.newsroomArticleId),
           )}
         />

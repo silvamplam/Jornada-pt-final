@@ -22,7 +22,7 @@ import {
 } from "@/lib/redacao-automatica/editorial-dossier-article-plan-service";
 import {
   markEditorialSourcePackageArticleUsed,
-  readEditorialSourcePackage,
+  readEditorialSourcePackageManifest,
 } from "@/lib/redacao-automatica/editorial-source-package";
 import {
   isEditorialSourcePackageLocation,
@@ -273,7 +273,7 @@ async function sourcePublishedAtByArticle(
   sourcePackage: SourcePackagePayload,
 ) {
   const sourcePackageResult =
-    await readEditorialSourcePackage(
+    await readEditorialSourcePackageManifest(
       sourcePackage,
     );
 
@@ -284,7 +284,7 @@ async function sourcePublishedAtByArticle(
   }
 
   const preparedEntries =
-    sourcePackageResult.value.manifest.entries
+    sourcePackageResult.value.entries
       .filter(
         (entry) =>
           entry.status === "prepared",
@@ -334,7 +334,7 @@ async function sourcePublishedAtByArticle(
 
   for (
     const output
-    of sourcePackageResult.value.manifest.outputs
+    of sourcePackageResult.value.outputs
   ) {
     if (output.publishedArticleId && output.publishedSlug) {
       updateTargetByArticle.set(output.position, {
@@ -372,7 +372,7 @@ function sourcePackageOutputForArticle(
   sourceContext: SourcePackageArticleContext,
   article: BatchArticlePayload,
 ) {
-  const manifest = sourceContext.package.manifest;
+  const manifest = sourceContext.package;
   return manifest.version === 5 && article.outputId
     ? manifest.outputs.find((output) => output.outputId === article.outputId) ?? null
     : manifest.outputs.find((output) => output.position === article.index) ?? null;
@@ -397,7 +397,7 @@ function sourcePackagePublishedAtForArticle(
   article: BatchArticlePayload,
 ): string | null {
   if (!sourceContext) return null;
-  if (sourceContext.package.manifest.version !== 5) {
+  if (sourceContext.package.version !== 5) {
     return sourceContext.publishedAtByArticle.get(article.index) ?? null;
   }
   let latest: string | null = null;
@@ -791,7 +791,7 @@ async function preflightPublication(payload: BatchPublicationPayload) {
       : null;
     if (sourceContext) {
       const provenance = validateEditorialMesaOutputProvenance(
-        sourceContext.package.manifest,
+        sourceContext.package,
         articles,
       );
       if (!provenance.ok) {
@@ -996,7 +996,7 @@ async function publishItem(payload: BatchPublicationPayload) {
 
     const mesaProvenance = sourceContext
       ? validateEditorialMesaSingleOutputProvenance(
-          sourceContext.package.manifest,
+          sourceContext.package,
           article,
         )
       : { ok: true as const, contract: "historical" as const, outputs: [] as const };
@@ -1433,8 +1433,8 @@ async function reconcileSourcePackageTimes(payload: BatchPublicationPayload) {
 
   try {
     const sourceTimes = await sourcePublishedAtByArticle(sourcePackage);
-    const groupedEntries = new Map<number, typeof sourceTimes.package.manifest.entries>();
-    for (const entry of sourceTimes.package.manifest.entries) {
+    const groupedEntries = new Map<number, typeof sourceTimes.package.entries>();
+    for (const entry of sourceTimes.package.entries) {
       if (entry.status !== "prepared") continue;
       const group = groupedEntries.get(entry.articlePosition) ?? [];
       groupedEntries.set(entry.articlePosition, [...group, entry]);

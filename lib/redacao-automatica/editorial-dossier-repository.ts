@@ -1,6 +1,10 @@
 import "server-only";
 
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
+import {
+  createEditorialDossierProductionReadSession,
+  type EditorialDossierProductionReadSession,
+} from "@/lib/redacao-automatica/editorial-dossier-production-read-session";
 import type {
   ArticleBodyBlock,
   ArticleProcessingStatus,
@@ -54,6 +58,8 @@ type ArticleRow = {
   normalized_url: string | null;
 };
 
+type ProductionArticleRow = Pick<ArticleRow, "id" | "source_code" | "title">;
+
 type SnapshotRow = {
   id: string;
   article_id: string;
@@ -61,6 +67,8 @@ type SnapshotRow = {
   body: unknown;
   extracted_at: string;
 };
+
+type SnapshotMetadataRow = Pick<SnapshotRow, "id" | "article_id">;
 
 export type EditorialDossierSummary = Readonly<{
   id: string;
@@ -106,6 +114,25 @@ export type EditorialDossierDetail = Readonly<{
   createdAt: string;
   updatedAt: string;
   sources: readonly EditorialDossierSource[];
+}>;
+
+export type EditorialDossierProductionSource = Readonly<{
+  id: string;
+  newsroomArticleId: string;
+  newsroomSnapshotId: string;
+  sourceCode: string;
+  articleTitle: string;
+  sortOrder: number;
+  included: boolean;
+}>;
+
+export type EditorialDossierProductionDetail = Readonly<{
+  id: string;
+  title: string;
+  outputCount: number;
+  lengthMode: EditorialDossierLengthMode;
+  articleKind: EditorialDossierArticleKind;
+  sources: readonly EditorialDossierProductionSource[];
 }>;
 
 export type EditorialDossierRepositoryResult<T> =
@@ -320,6 +347,73 @@ export async function getEditorialDossierById(
             snapshotExtractedAt: frozenSnapshot.extracted_at,
             snapshotBodyBlockCount: snapshotBody.length,
             snapshotBody,
+          }];
+        }),
+      },
+    };
+  } catch {
+    return readUnavailable();
+  }
+}
+
+export async function getEditorialDossierForProduction(
+  dossierIdValue: string | null | undefined,
+  readSession?: EditorialDossierProductionReadSession,
+): Promise<EditorialDossierRepositoryResult<EditorialDossierProductionDetail | null>> {
+  const dossierId = dossierIdValue?.trim().toLowerCase() ?? "";
+  if (!UUID_PATTERN.test(dossierId)) {
+    return { ok: true, value: null };
+  }
+
+  const session = readSession ?? createEditorialDossierProductionReadSession(dossierId);
+  try {
+    const [dossiers, sources] = await Promise.all([
+      session.dossierRows(),
+      session.dossierSourceRows(),
+    ]);
+    const dossier = dossiers[0];
+    if (!dossier) return { ok: true, value: null };
+
+    const articleIds = Array.from(new Set(sources.map((source) => source.newsroom_article_id)));
+    const snapshotIds = Array.from(new Set(sources.map((source) => source.newsroom_snapshot_id)));
+    const [articles, snapshots] = await Promise.all([
+      articleIds.length > 0
+        ? fetchSupabaseAdminTable<ProductionArticleRow>(
+            "newsroom_articles?select=id,source_code,title"
+            + `&id=in.(${uuidList(articleIds)})&limit=${articleIds.length}`,
+          )
+        : Promise.resolve([]),
+      snapshotIds.length > 0
+        ? fetchSupabaseAdminTable<SnapshotMetadataRow>(
+            "newsroom_article_snapshots?select=id,article_id"
+            + `&id=in.(${uuidList(snapshotIds)})&limit=${snapshotIds.length}`,
+          )
+        : Promise.resolve([]),
+    ]);
+    const articlesById = new Map(articles.map((article) => [article.id, article]));
+    const snapshotsById = new Map(snapshots.map((snapshot) => [snapshot.id, snapshot]));
+
+    return {
+      ok: true,
+      value: {
+        id: dossier.id,
+        title: dossier.title,
+        outputCount: dossier.output_count,
+        lengthMode: lengthMode(dossier.length_mode),
+        articleKind: articleKind(dossier.article_kind),
+        sources: sources.flatMap((source): EditorialDossierProductionSource[] => {
+          const article = articlesById.get(source.newsroom_article_id);
+          const frozenSnapshot = snapshotsById.get(source.newsroom_snapshot_id);
+          if (!article || !frozenSnapshot || frozenSnapshot.article_id !== article.id) return [];
+
+          return [{
+            id: source.id,
+            newsroomArticleId: article.id,
+            newsroomSnapshotId: frozenSnapshot.id,
+            sourceCode: article.source_code,
+            articleTitle: source.title_snapshot?.trim() || article.title,
+            sortOrder: source.sort_order,
+            included: source.included,
           }];
         }),
       },

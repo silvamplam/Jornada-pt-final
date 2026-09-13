@@ -8,7 +8,7 @@ import { downloadEditorialSourceImage } from "@/lib/redacao-automatica/editorial
 import {
   isEditorialSourcePackageLocation,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
-import { readEditorialSourcePackage } from "@/lib/redacao-automatica/editorial-source-package";
+import { readEditorialSourcePackageManifest } from "@/lib/redacao-automatica/editorial-source-package";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     return jsonError("invalid-input", 400);
   }
 
-  const packageResult = await readEditorialSourcePackage({
+  const packageResult = await readEditorialSourcePackageManifest({
     year,
     month,
     packageId,
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     return jsonError("package-not-found", packageResult.error.code === "package_not_found" ? 404 : 400);
   }
 
-  const entry = packageResult.value.manifest.entries.find((candidate) => (
+  const entry = packageResult.value.entries.find((candidate) => (
     candidate.position === position
     && candidate.status === "prepared"
     && typeof candidate.imageUrl === "string"

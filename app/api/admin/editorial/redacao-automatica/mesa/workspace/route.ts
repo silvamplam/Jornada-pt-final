@@ -5,26 +5,22 @@ import type {
   EditorialDossierLengthMode,
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
 import {
-  getEditorialDossierById,
-} from "@/lib/redacao-automatica/editorial-dossier-repository";
-import {
-  listEditorialDossierArticlePlans,
-} from "@/lib/redacao-automatica/editorial-dossier-article-plan-repository";
-import {
   addEditorialDossierUploadImage,
   type EditorialDossierArticlePlanImageChoice,
 } from "@/lib/redacao-automatica/editorial-dossier-production-workspace-service";
 import {
-  getEditorialDossierProductionWorkspace,
   type EditorialDossierImage,
 } from "@/lib/redacao-automatica/editorial-dossier-production-workspace-repository";
+import {
+  loadEditorialDossierProduction,
+} from "@/lib/redacao-automatica/editorial-dossier-production-loader";
 import {
   saveEditorialDossierWorkspaceArticlePlan,
   type SaveEditorialDossierWorkspaceArticlePlanInput,
 } from "@/lib/redacao-automatica/editorial-dossier-workspace-editor-service";
 import {
   createEditorialSourcePackage,
-  readEditorialSourcePackage,
+  readEditorialSourcePackageManifest,
 } from "@/lib/redacao-automatica/editorial-source-package";
 import { fetchSupabaseAdminTable, writeSupabaseAdminReturning } from "@/lib/supabase";
 import {
@@ -110,15 +106,6 @@ function imageChoice(value: unknown): EditorialDossierArticlePlanImageChoice | n
   return null;
 }
 
-type WorkspaceContextRow = Readonly<{
-  dossier_id: string;
-  selection_payload: unknown;
-  source_refs: unknown;
-  material_refs: unknown;
-  workspace_contract_version: number | null;
-  workspace_state: string | null;
-}>;
-
 type DerivedSavePlanInput = Readonly<{
   input: SaveEditorialDossierWorkspaceArticlePlanInput;
   workspaceContractVersion: 1 | 2;
@@ -180,36 +167,23 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
     || (destination === "new" && selectedImage.mode === "preserve_published")
   ) return null;
 
-  const [dossierResult, workspaceResult, contextResult] = await Promise.all([
-    getEditorialDossierById(dossierId),
-    getEditorialDossierProductionWorkspace(dossierId),
-    fetchSupabaseAdminTable<WorkspaceContextRow>(
-      "newsroom_mesa_production_contexts"
-      + "?select=dossier_id,selection_payload,source_refs,material_refs,workspace_contract_version,workspace_state"
-      + `&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=1`,
-    ).then((rows) => ({ ok: true as const, rows }))
-      .catch(() => ({ ok: false as const, rows: [] })),
-  ]);
-  if (
-    !dossierResult.ok
-    || !dossierResult.value
-    || !workspaceResult.ok
-    || !workspaceResult.value
-    || !contextResult.ok
-  ) {
-    return null;
-  }
+  const productionResult = await loadEditorialDossierProduction(dossierId, {
+    includePlans: false,
+    workspaceDetail: "context",
+  });
+  if (!productionResult.ok || !productionResult.value) return null;
 
-  const context = contextResult.rows[0] ?? null;
-  if (context?.workspace_state && context.workspace_state !== "active") return null;
-  const workspaceContractVersion = context?.workspace_contract_version === 2 ? 2 : 1;
-  const includedSources = dossierResult.value.sources.filter((source) => source.included);
-  const productionContext = workspaceResult.value.contextMode === "contexts"
-    ? workspaceResult.value.productionContexts.find((item) => item.id === productionContextId) ?? null
+  const { dossier, workspace } = productionResult.value;
+  const context = workspace.mesaContext;
+  if (context?.workspaceState && context.workspaceState !== "active") return null;
+  const workspaceContractVersion = context?.workspaceContractVersion === 2 ? 2 : 1;
+  const includedSources = dossier.sources.filter((source) => source.included);
+  const productionContext = workspace.contextMode === "contexts"
+    ? workspace.productionContexts.find((item) => item.id === productionContextId) ?? null
     : null;
   if (
-    (workspaceResult.value.contextMode === "contexts" && !productionContext)
-    || (workspaceResult.value.contextMode === "historical" && productionContextId !== null)
+    (workspace.contextMode === "contexts" && !productionContext)
+    || (workspace.contextMode === "historical" && productionContextId !== null)
   ) return null;
   const includedById = new Map(includedSources.map((source) => [source.id, source]));
   const technicalSources = productionContext
@@ -223,8 +197,8 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
 
   const startingPointSourceIds = workspaceContractVersion === 2
     ? editorialMesaWorkspaceStartingPointSourceIds(
-        context?.selection_payload,
-        context?.material_refs,
+        context?.selectionPayload,
+        context?.materialRefs,
         technicalSources.map((source) => ({
           dossierSourceId: source.id,
           newsroomArticleId: source.newsroomArticleId,
@@ -244,10 +218,10 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
           articleTitle: source.articleTitle,
         })),
       )
-    : `Output ${String(priority).padStart(2, "0")} — ${dossierResult.value.title}`.slice(0, 180);
+    : `Output ${String(priority).padStart(2, "0")} — ${dossier.title}`.slice(0, 180);
   if (!workingTitle) return null;
 
-  const contexts = workspaceResult.value.publishedContexts.map((item) => item.id);
+  const contexts = workspace.publishedContexts.map((item) => item.id);
   return {
     workspaceContractVersion,
     input: {
@@ -306,39 +280,25 @@ function packageExternalImage(
 }
 
 async function prepareWorkspaceSourcePackage(dossierId: string) {
-  const [dossierResult, plansResult, workspaceResult, contextResult] = await Promise.all([
-    getEditorialDossierById(dossierId),
-    listEditorialDossierArticlePlans(dossierId),
-    getEditorialDossierProductionWorkspace(dossierId),
-    fetchSupabaseAdminTable<WorkspaceContextRow>(
-      "newsroom_mesa_production_contexts"
-      + "?select=dossier_id,selection_payload,source_refs,material_refs,workspace_contract_version,workspace_state"
-      + `&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=1`,
-    ).then((rows) => ({ ok: true as const, rows }))
-      .catch(() => ({ ok: false as const, rows: [] })),
-  ]);
-  if (!workspaceResult.ok) {
+  const productionResult = await loadEditorialDossierProduction(dossierId);
+  if (!productionResult.ok) {
     return {
       ok: false as const,
-      status: workspaceResult.error.code === "context_contract_invalid" ? 409 : 503,
-      message: workspaceResult.error.message,
+      status: productionResult.error.code === "context_contract_invalid" ? 409 : 503,
+      message: productionResult.error.message,
     };
   }
-  if (!dossierResult.ok || !plansResult.ok || !contextResult.ok) {
-    return { ok: false as const, status: 503, message: "Não foi possível ler a produção guardada." };
-  }
-  if (!dossierResult.value || !workspaceResult.value) {
+  if (!productionResult.value) {
     return { ok: false as const, status: 404, message: "A produção já não está disponível." };
   }
 
-  const dossier = dossierResult.value;
-  const workspace = workspaceResult.value;
-  const context = contextResult.rows[0] ?? null;
-  const workspaceContractVersion = context?.workspace_contract_version === 2 ? 2 : 1;
-  if (context?.workspace_state && context.workspace_state !== "active") {
+  const { dossier, plans: allPlans, workspace } = productionResult.value;
+  const context = workspace.mesaContext;
+  const workspaceContractVersion = context?.workspaceContractVersion === 2 ? 2 : 1;
+  if (context?.workspaceState && context.workspaceState !== "active") {
     return { ok: false as const, status: 409, message: "Esta produção já não está ativa." };
   }
-  const plans = plansResult.value.filter((plan) => plan.status !== "cancelled");
+  const plans = allPlans.filter((plan) => plan.status !== "cancelled");
   if (plans.length < 1 || plans.length > 30 || plans.length !== dossier.outputCount) {
     return { ok: false as const, status: 409, message: "Guarda primeiro todos os artigos da produção." };
   }
@@ -368,8 +328,8 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
     ? plans.map((plan) => contextAssignmentByPlanId.get(plan.id)!.sources[0].dossierSourceId)
     : workspaceContractVersion === 2
     ? editorialMesaWorkspaceStartingPointSourceIds(
-        context?.selection_payload,
-        context?.material_refs,
+        context?.selectionPayload,
+        context?.materialRefs,
         workspaceSources.map((source) => ({
           dossierSourceId: source.id,
           newsroomArticleId: source.newsroomArticleId,
@@ -561,7 +521,7 @@ export async function POST(request: Request) {
         message: "Não foi possível identificar a resposta e o pacote desta produção.",
       }, { status: 400 });
     }
-    const packageResult = await readEditorialSourcePackage(location);
+    const packageResult = await readEditorialSourcePackageManifest(location);
     if (!packageResult.ok) {
       return NextResponse.json({
         ok: false,
@@ -570,7 +530,7 @@ export async function POST(request: Request) {
       }, { status: 409 });
     }
     const packageBatchContract = editorialMesaPackageBatchContract(
-      packageResult.value.manifest,
+      packageResult.value,
     );
     if (packageBatchContract.kind === "invalid") {
       return NextResponse.json({
@@ -594,7 +554,7 @@ export async function POST(request: Request) {
           ?? "A resposta não respeita o formato JORNADA_ARTIGO_V1.",
       }, { status: 409 });
     }
-    if (packageResult.value.manifest.outputs.some((output) => (
+    if (packageResult.value.outputs.some((output) => (
       output.articlePlan && output.articlePlan.dossierId !== dossierId
     ))) {
       return NextResponse.json({
@@ -604,7 +564,7 @@ export async function POST(request: Request) {
       }, { status: 409 });
     }
     const validation = validateEditorialMesaOutputProvenance(
-      packageResult.value.manifest,
+      packageResult.value,
       preflight.articles,
     );
     if (!validation.ok) {
@@ -740,15 +700,18 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const current = await getEditorialDossierById(dossierId);
-    if (!current.ok) {
+    const dossierRows = await fetchSupabaseAdminTable<{ id: string }>(
+      "newsroom_editorial_dossiers?select=id"
+      + `&id=eq.${encodeURIComponent(dossierId)}&limit=1`,
+    ).catch(() => null);
+    if (!dossierRows) {
       return NextResponse.json({
         ok: false,
-        code: current.error.code,
-        message: current.error.message,
+        code: "read_unavailable",
+        message: "Não foi possível verificar esta produção.",
       }, { status: 503 });
     }
-    if (!current.value) {
+    if (!dossierRows[0]) {
       return NextResponse.json({
         ok: false,
         code: "dossier_not_found",
@@ -784,12 +747,17 @@ export async function POST(request: Request) {
   }
 
   if (action === "register_upload_image") {
+    const dossierId = textValue(payload?.dossierId).toLowerCase();
+    const frozenUrl = textValue(payload?.publicUrl);
+    const storageBucket = textValue(payload?.bucket);
+    const storagePath = textValue(payload?.path);
+    const fileName = textValue(payload?.fileName);
     const result = await addEditorialDossierUploadImage({
-      dossierId: textValue(payload?.dossierId),
-      frozenUrl: textValue(payload?.publicUrl),
-      storageBucket: textValue(payload?.bucket),
-      storagePath: textValue(payload?.path),
-      fileName: textValue(payload?.fileName),
+      dossierId,
+      frozenUrl,
+      storageBucket,
+      storagePath,
+      fileName,
     });
 
     if (!result.ok) {
@@ -805,6 +773,15 @@ export async function POST(request: Request) {
       dossierImageId: result.value.dossierImageId,
       imageAction: result.value.imageAction,
       frozenUrl: result.value.frozenUrl,
+      image: {
+        id: result.value.dossierImageId,
+        dossierId,
+        origin: "upload",
+        frozenUrl: result.value.frozenUrl,
+        storageBucket,
+        storagePath,
+        fileName,
+      },
     }, { status: result.value.imageAction === "created" ? 201 : 200 });
   }
 

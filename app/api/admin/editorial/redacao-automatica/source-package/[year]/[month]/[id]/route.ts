@@ -7,6 +7,7 @@ import {
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import {
   readEditorialSourcePackage,
+  readEditorialSourcePackageMarkdown,
   updateEditorialSourcePackageEditorial,
   updateEditorialSourcePackageOutputs,
 } from "@/lib/redacao-automatica/editorial-source-package";
@@ -65,42 +66,56 @@ function redirectTo(path: string, params: Record<string, string> = {}) {
 
 export async function GET(request: Request, context: RouteContext) {
   const { year, month, id } = await context.params;
-  const result = await readEditorialSourcePackage({
-    year,
-    month,
-    packageId: id,
-  });
-
-  if (!result.ok) {
-    return new Response("Pacote não encontrado.", {
-      status: result.error.code === "package_not_found" ? 404 : 400,
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "no-store",
-      },
-    });
-  }
-
   const url = new URL(request.url);
   const download = url.searchParams.get("download") === "1";
+  const location = { year, month, packageId: id };
+  let markdown: string;
+  let downloadFileName: string | null = null;
+
+  if (download) {
+    const result = await readEditorialSourcePackage(location);
+    if (!result.ok) {
+      return new Response("Pacote não encontrado.", {
+        status: result.error.code === "package_not_found" ? 404 : 400,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+    markdown = result.value.markdown;
+    downloadFileName = editorialSourcePackageFileName(
+      result.value.manifest.genre,
+      result.value.manifest.suggestedTitle,
+    );
+  } else {
+    const result = await readEditorialSourcePackageMarkdown(location);
+    if (!result.ok) {
+      return new Response("Pacote não encontrado.", {
+        status: result.error.code === "package_not_found" ? 404 : 400,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+    markdown = result.value;
+  }
+
   const headers = new Headers({
     "Content-Type": "text/markdown; charset=utf-8",
     "Cache-Control": "private, no-store, max-age=0",
     "X-Content-Type-Options": "nosniff",
   });
 
-  if (download) {
-    const fileName = editorialSourcePackageFileName(
-      result.value.manifest.genre,
-      result.value.manifest.suggestedTitle,
-    );
+  if (downloadFileName) {
     headers.set(
       "Content-Disposition",
-      `attachment; filename="${fileName}"`,
+      `attachment; filename="${downloadFileName}"`,
     );
   }
 
-  return new Response(result.value.markdown, {
+  return new Response(markdown, {
     status: 200,
     headers,
   });

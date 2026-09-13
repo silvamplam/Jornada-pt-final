@@ -2,6 +2,9 @@ import "server-only";
 
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import type {
+  EditorialDossierProductionReadSession,
+} from "@/lib/redacao-automatica/editorial-dossier-production-read-session";
+import type {
   EditorialDossierArticlePlanDestination,
   EditorialDossierArticlePlanImageChoice,
 } from "@/lib/redacao-automatica/editorial-dossier-production-workspace-service-internal";
@@ -17,7 +20,12 @@ type DossierRow = {
 
 type MesaWorkspaceRow = {
   dossier_id: string;
+  theme_id: string | null;
   selection_payload: unknown;
+  source_refs: unknown;
+  material_refs: unknown;
+  workspace_contract_version: number | null;
+  workspace_state: string | null;
 };
 
 type ProductionContextItemRow = {
@@ -170,6 +178,15 @@ export type EditorialMesaArticlePlanContext = Readonly<{
   productionContextId: string;
 }>;
 
+export type EditorialMesaProductionWorkspaceMetadata = Readonly<{
+  themeId: string | null;
+  selectionPayload: unknown;
+  sourceRefs: unknown;
+  materialRefs: unknown;
+  workspaceContractVersion: 1 | 2;
+  workspaceState: string | null;
+}>;
+
 export type EditorialDossierProductionWorkspace = Readonly<{
   dossierId: string;
   preparationKey: string | null;
@@ -180,6 +197,7 @@ export type EditorialDossierProductionWorkspace = Readonly<{
   contextMode: "historical" | "contexts";
   productionContexts: readonly EditorialMesaProductionContext[];
   planContexts: readonly EditorialMesaArticlePlanContext[];
+  mesaContext: EditorialMesaProductionWorkspaceMetadata | null;
 }>;
 
 export type EditorialDossierProductionWorkspaceRepositoryResult =
@@ -305,6 +323,10 @@ function claimsContextWorkspace(value: unknown): boolean {
 
 export async function getEditorialDossierProductionWorkspace(
   dossierIdValue: string | null | undefined,
+  options: Readonly<{
+    readSession?: EditorialDossierProductionReadSession;
+    detail?: "full" | "page" | "context";
+  }> = {},
 ): Promise<EditorialDossierProductionWorkspaceRepositoryResult> {
   const dossierId = dossierIdValue?.trim().toLowerCase() ?? "";
   if (!UUID_PATTERN.test(dossierId)) {
@@ -312,10 +334,15 @@ export async function getEditorialDossierProductionWorkspace(
   }
 
   try {
-    const dossiers = await fetchSupabaseAdminTable<DossierRow>(
-      "newsroom_editorial_dossiers?select=id,preparation_key"
-      + `&id=eq.${encodeURIComponent(dossierId)}&limit=1`,
-    );
+    const detail = options.detail ?? "full";
+    const fullDetail = detail === "full";
+    const includeImages = detail !== "context";
+    const dossiers = options.readSession
+      ? await options.readSession.dossierRows()
+      : await fetchSupabaseAdminTable<DossierRow>(
+          "newsroom_editorial_dossiers?select=id,preparation_key"
+          + `&id=eq.${encodeURIComponent(dossierId)}&limit=1`,
+        );
     const dossier = dossiers[0];
     if (!dossier) return { ok: true, value: null };
 
@@ -328,26 +355,27 @@ export async function getEditorialDossierProductionWorkspace(
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + "&order=sort_order.asc,id.asc",
       ),
-      readAllRows<PlanPublishedContextRow>(
+      fullDetail ? readAllRows<PlanPublishedContextRow>(
         "newsroom_editorial_dossier_article_plan_published_contexts"
         + "?select=dossier_id,article_plan_id,dossier_published_context_id,sort_order,created_at"
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + "&order=article_plan_id.asc,sort_order.asc,dossier_published_context_id.asc",
-      ),
-      readAllRows<DossierImageRow>(
+      ) : Promise.resolve([]),
+      includeImages ? readAllRows<DossierImageRow>(
         "newsroom_editorial_dossier_images"
         + "?select=id,dossier_id,origin_kind,frozen_url,newsroom_article_id,editorial_article_id,storage_bucket,storage_path,file_name,created_at"
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + "&order=created_at.asc,id.asc",
-      ),
-      readAllRows<ArticlePlanStateRow>(
+      ) : Promise.resolve([]),
+      fullDetail ? (options.readSession?.articlePlanRows() ?? readAllRows<ArticlePlanStateRow>(
         "newsroom_editorial_dossier_article_plans"
         + "?select=id,dossier_id,destination,update_target_editorial_article_id,image_choice,dossier_image_id,editorial_article_id"
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + "&order=sort_order.asc,id.asc",
-      ),
-      fetchSupabaseAdminTable<MesaWorkspaceRow>(
-        "newsroom_mesa_production_contexts?select=dossier_id,selection_payload"
+      )) : Promise.resolve([]),
+      options.readSession?.mesaContextRows() ?? fetchSupabaseAdminTable<MesaWorkspaceRow>(
+        "newsroom_mesa_production_contexts"
+        + "?select=dossier_id,theme_id,selection_payload,source_refs,material_refs,workspace_contract_version,workspace_state"
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=1`,
       ),
       readAllRows<ProductionContextItemRow>(
@@ -362,7 +390,7 @@ export async function getEditorialDossierProductionWorkspace(
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + "&order=production_context_id.asc,sort_order.asc,dossier_source_id.asc",
       ),
-      readAllRows<FrozenDossierSourceRow>(
+      options.readSession?.dossierSourceRows() ?? readAllRows<FrozenDossierSourceRow>(
         "newsroom_editorial_dossier_sources"
         + "?select=id,dossier_id,newsroom_article_id,newsroom_snapshot_id,included"
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
@@ -498,6 +526,15 @@ export async function getEditorialDossierProductionWorkspace(
           articlePlanId: row.article_plan_id,
           productionContextId: row.production_context_id,
         })),
+        mesaContext: mesaWorkspaceRows[0] ? {
+          themeId: mesaWorkspaceRows[0].theme_id,
+          selectionPayload: mesaWorkspaceRows[0].selection_payload,
+          sourceRefs: mesaWorkspaceRows[0].source_refs,
+          materialRefs: mesaWorkspaceRows[0].material_refs,
+          workspaceContractVersion:
+            mesaWorkspaceRows[0].workspace_contract_version === 2 ? 2 : 1,
+          workspaceState: mesaWorkspaceRows[0].workspace_state,
+        } : null,
       },
     };
   } catch {

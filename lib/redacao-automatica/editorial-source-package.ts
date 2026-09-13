@@ -83,6 +83,9 @@ type EditorialSourcePackageRow = {
   markdown: string;
 };
 
+type EditorialSourcePackageManifestRow = Omit<EditorialSourcePackageRow, "markdown">;
+type EditorialSourcePackageMarkdownRow = Omit<EditorialSourcePackageRow, "manifest">;
+
 type EditorialSourcePackageUpdateRow = {
   id: string;
 };
@@ -128,6 +131,30 @@ export type ReadEditorialSourcePackageResult =
         markdown: string;
       }>;
     }>
+  | Readonly<{
+      ok: false;
+      error: Readonly<{
+        code: "location_invalid" | "package_not_found" | "package_read_failed";
+      }>;
+    }>;
+
+export type EditorialSourcePackageLocationInput = Readonly<{
+  year: string;
+  month: string;
+  packageId: string;
+}>;
+
+export type ReadEditorialSourcePackageManifestResult =
+  | Readonly<{ ok: true; value: EditorialSourcePackageManifest }>
+  | Readonly<{
+      ok: false;
+      error: Readonly<{
+        code: "location_invalid" | "package_not_found" | "package_read_failed";
+      }>;
+    }>;
+
+export type ReadEditorialSourcePackageMarkdownResult =
+  | Readonly<{ ok: true; value: string }>
   | Readonly<{
       ok: false;
       error: Readonly<{
@@ -977,11 +1004,70 @@ export async function createEditorialSourcePackage(
   };
 }
 
-export async function readEditorialSourcePackage(input: Readonly<{
-  year: string;
-  month: string;
-  packageId: string;
-}>): Promise<ReadEditorialSourcePackageResult> {
+export async function readEditorialSourcePackageManifest(
+  input: EditorialSourcePackageLocationInput,
+): Promise<ReadEditorialSourcePackageManifestResult> {
+  if (!isEditorialSourcePackageLocation(input)) {
+    return { ok: false, error: { code: "location_invalid" } };
+  }
+
+  let rows: EditorialSourcePackageManifestRow[];
+  try {
+    rows = await fetchSupabaseAdminTable<EditorialSourcePackageManifestRow>(
+      "newsroom_editorial_source_packages"
+      + "?select=id,package_year,package_month,manifest"
+      + `&id=eq.${encodeURIComponent(input.packageId)}`
+      + `&package_year=eq.${encodeURIComponent(input.year)}`
+      + `&package_month=eq.${encodeURIComponent(input.month)}`
+      + "&limit=2",
+    );
+  } catch {
+    return { ok: false, error: { code: "package_read_failed" } };
+  }
+
+  if (rows.length === 0) return { ok: false, error: { code: "package_not_found" } };
+  if (rows.length !== 1) return { ok: false, error: { code: "package_read_failed" } };
+  const manifest = persistedManifest(rows[0].manifest, input);
+  return manifest
+    ? { ok: true, value: manifest }
+    : { ok: false, error: { code: "package_read_failed" } };
+}
+
+export async function readEditorialSourcePackageMarkdown(
+  input: EditorialSourcePackageLocationInput,
+): Promise<ReadEditorialSourcePackageMarkdownResult> {
+  if (!isEditorialSourcePackageLocation(input)) {
+    return { ok: false, error: { code: "location_invalid" } };
+  }
+
+  let rows: EditorialSourcePackageMarkdownRow[];
+  try {
+    rows = await fetchSupabaseAdminTable<EditorialSourcePackageMarkdownRow>(
+      "newsroom_editorial_source_packages"
+      + "?select=id,package_year,package_month,markdown"
+      + `&id=eq.${encodeURIComponent(input.packageId)}`
+      + `&package_year=eq.${encodeURIComponent(input.year)}`
+      + `&package_month=eq.${encodeURIComponent(input.month)}`
+      + "&limit=2",
+    );
+  } catch {
+    return { ok: false, error: { code: "package_read_failed" } };
+  }
+
+  if (rows.length === 0) return { ok: false, error: { code: "package_not_found" } };
+  const row = rows[0];
+  if (
+    rows.length !== 1
+    || typeof row.markdown !== "string"
+  ) {
+    return { ok: false, error: { code: "package_read_failed" } };
+  }
+  return { ok: true, value: row.markdown };
+}
+
+export async function readEditorialSourcePackage(
+  input: EditorialSourcePackageLocationInput,
+): Promise<ReadEditorialSourcePackageResult> {
   if (!isEditorialSourcePackageLocation(input)) {
     return { ok: false, error: { code: "location_invalid" } };
   }
