@@ -1024,7 +1024,7 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
               </form>
             </section>
 
-            <MesaSelectionTray />
+            <MesaSelectionTray sourceThemeActions />
 
             {sourceResult.ok ? (
               <section className={styles.sourcesWorkspace}>

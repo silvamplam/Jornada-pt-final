@@ -6,7 +6,7 @@ import { buildMesaOrganization, filterMesaOrganization, sourceIsUnassigned, sugg
 import { createOperationalDeskReadModel, type OperationalDeskReadTransport, type OperationalDeskSourceItem } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model-internal";
 import { compareSourceParagraphs } from "@/lib/redacao-automatica/newsroom-source-comparison";
 import { EMPTY_MESA_PREPARATION_BUFFER, selectMesaMaterial, observeMesaMaterial, changeMesaPreparationTheme, mesaPreparationPayload,
-  readMesaPreparationBuffer, writeMesaPreparationBuffer } from "../../app/admin/editorial/redacao-automatica/mesa/_mesa-selection-state";
+  readMesaPreparationBuffer, removeMesaMaterials, writeMesaPreparationBuffer } from "../../app/admin/editorial/redacao-automatica/mesa/_mesa-selection-state";
 import { prepareEditorialDossierWorkspaceService, type EditorialDossierProductionWorkspaceTransport } from "@/lib/redacao-automatica/editorial-dossier-production-workspace-service-internal";
 
 const id = (n: number) => `10000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -295,6 +295,59 @@ test("classificação do Tema só é sugerida se todo o conjunto concordar", () 
   assert.equal(suggestedThemeClassification([{ classificationKey: "sporting" }]), "sporting");
   assert.equal(suggestedThemeClassification([{ classificationKey: "sporting" }, { classificationKey: null }]), null);
   assert.equal(suggestedThemeClassification([{ classificationKey: "sporting" }, { classificationKey: "benfica" }]), null);
+});
+
+test("Criar Tema e Adicionar a Tema contam 2, depois 4 fontes sem duplicação", () => {
+  const members = (ids: readonly number[]) => ids.map((n) => ({
+    theme_id: id(10),
+    newsroom_article_id: id(n),
+    reference_snapshot_id: id(100 + n),
+  }));
+  const sources = [1, 2, 3, 4].map(source);
+  const created = buildMesaOrganization({ ...records(), themeSources: members([1, 2]) }, sources);
+  const enriched = buildMesaOrganization({ ...records(), themeSources: members([1, 2, 3, 4]) }, sources);
+  const repeated = buildMesaOrganization({ ...records(), themeSources: [...members([1, 2, 3, 4]), ...members([1])] }, sources);
+  assert.equal(created.themes[0].sourceCount, 2);
+  assert.equal(enriched.themes[0].sourceCount, 4);
+  assert.equal(repeated.themes[0].sourceCount, 4);
+});
+
+test("sucesso de Tema limpa só as fontes usadas e preserva outro material do buffer", () => {
+  const first = selectMesaMaterial(EMPTY_MESA_PREPARATION_BUFFER, {
+    kind: "source", lifecycle: "new", newsroomArticleId: id(1), newsroomSnapshotId: id(101),
+    title: "Fonte 1", sourceLabel: "Record", imageUrl: null, classificationKey: "sporting",
+  }, () => id(90));
+  const second = selectMesaMaterial(first, {
+    kind: "source", lifecycle: "new", newsroomArticleId: id(2), newsroomSnapshotId: id(102),
+    title: "Fonte 2", sourceLabel: "Record", imageUrl: null, classificationKey: "sporting",
+  }, () => id(91));
+  assert.deepEqual(removeMesaMaterials(second, [id(1), id(2)], () => id(92)), EMPTY_MESA_PREPARATION_BUFFER);
+  assert.deepEqual(removeMesaMaterials(second, [id(1)], () => id(93)).sources.map((row) => row.newsroomArticleId), [id(2)]);
+});
+
+test("fluxo da Mesa usa apenas fontes, fica na Mesa e oferece cancelamento sem persistência", () => {
+  const page = readFileSync("app/admin/editorial/redacao-automatica/mesa/page.tsx", "utf8");
+  const client = readFileSync("app/admin/editorial/redacao-automatica/mesa/_mesa-selection-client.tsx", "utf8");
+  const sourceFlow = client.slice(client.indexOf("async function organize(action?"), client.indexOf("async function discardSelection"));
+  assert.match(page, /<MesaSelectionTray sourceThemeActions \/>/);
+  assert.match(client, />\s*Criar tema\s*</);
+  assert.match(client, />\s*Adicionar a tema\s*</);
+  assert.match(client, /themes\.filter\(\(theme\) => theme\.status === "open"\)/);
+  assert.match(client, /setThemeAction\(null\)/);
+  assert.match(sourceFlow, /removeSources\(command\.sourceIds\)/);
+  assert.match(sourceFlow, /router\.refresh\(\)/);
+  assert.doesNotMatch(sourceFlow.slice(sourceFlow.indexOf("if (sourceOnly)"), sourceFlow.indexOf("} else {")), /router\.(push|replace)|materials:/);
+});
+
+test("RPC de fontes suporta conjunto, Tema existente aberto e associação idempotente", () => {
+  const sql = readFileSync("supabase/migrations/20260910223000_newsroom_mesa_theme_organization_v1.sql", "utf8");
+  assert.match(sql, /cardinality\(p_source_ids\) < 1/);
+  assert.match(sql, /where t\.id = p_theme_id and t\.status = 'open'/);
+  assert.match(sql, /where not exists \(select 1 from public\.newsroom_editorial_theme_sources/);
+  assert.match(sql, /newsroom_set_editorial_theme_source_membership_v1\(v_theme_id, v_source_id, true\)/);
+  assert.match(sql, /return query select v_previous\.theme_id, v_previous\.added_count, true/);
+  const foundation = readFileSync("supabase/migrations/20260908112602_newsroom_editorial_themes_foundation.sql", "utf8");
+  assert.match(foundation, /primary key \(theme_id, newsroom_article_id\)/);
 });
 
 test("filtros não eliminam contexto persistido", () => {
