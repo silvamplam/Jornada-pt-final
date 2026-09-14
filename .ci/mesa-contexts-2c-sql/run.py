@@ -51,6 +51,9 @@ def execute(sql: str) -> str:
     if process.stderr.strip():
         print(process.stderr.strip(), flush=True)
     if process.returncode:
+        detail = " | ".join((process.stderr or process.stdout).strip().splitlines()[-12:])
+        detail = detail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print(f"::error title=PostgreSQL 17 harness::{detail}", flush=True)
         raise RuntimeError(f"psql exited with {process.returncode}")
     return process.stdout.strip()
 
