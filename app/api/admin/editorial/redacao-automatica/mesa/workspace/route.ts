@@ -19,6 +19,11 @@ import {
   type SaveEditorialDossierWorkspaceArticlePlanInput,
 } from "@/lib/redacao-automatica/editorial-dossier-workspace-editor-service";
 import {
+  saveEditorialDossierWorkspaceBatch,
+  type SaveEditorialDossierWorkspaceBatchInput,
+  type SaveEditorialDossierWorkspaceBatchOutputInput,
+} from "@/lib/redacao-automatica/editorial-dossier-workspace-batch-service";
+import {
   createEditorialSourcePackage,
   readEditorialSourcePackageManifest,
 } from "@/lib/redacao-automatica/editorial-source-package";
@@ -247,6 +252,79 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
         imageChoice: selectedImage,
       },
     },
+  };
+}
+
+function savePlanBatchOutput(
+  value: unknown,
+): SaveEditorialDossierWorkspaceBatchOutputInput | null {
+  const payload = objectValue(value);
+  if (!payload) return null;
+  const clientKey = textValue(payload.clientKey);
+  const rawPlanId = nullableText(payload.articlePlanId);
+  const articlePlanId = rawPlanId === null ? null : uuid(rawPlanId);
+  const kind = articleKind(payload.articleKind);
+  const length = lengthMode(payload.lengthMode);
+  const destination = textValue(payload.destination);
+  const rawTarget = nullableText(payload.updateTargetEditorialArticleId);
+  const target = rawTarget === null ? null : uuid(rawTarget);
+  const selectedImage = imageChoice(payload.imageChoice);
+  const priority = typeof payload.priority === "number" ? payload.priority : NaN;
+  const rawProductionContextId = nullableText(payload.productionContextId);
+  const productionContextId = rawProductionContextId === null
+    ? null
+    : uuid(rawProductionContextId);
+
+  if (
+    !clientKey
+    || (rawPlanId !== null && !articlePlanId)
+    || !kind
+    || !length
+    || !selectedImage
+    || !Number.isInteger(priority)
+    || (rawProductionContextId !== null && !productionContextId)
+    || (destination !== "new" && destination !== "update")
+    || (destination === "new" && rawTarget !== null)
+    || (destination === "update" && !target)
+    || (destination === "new" && selectedImage.mode === "preserve_published")
+  ) return null;
+
+  return {
+    clientKey,
+    articlePlanId,
+    priority,
+    articleKind: kind,
+    lengthMode: length,
+    editorialInstructions: textValue(payload.editorialInstructions),
+    destination,
+    updateTargetEditorialArticleId: target,
+    imageChoice: selectedImage,
+    productionContextId,
+  };
+}
+
+function savePlanBatchInput(
+  value: unknown,
+): SaveEditorialDossierWorkspaceBatchInput | null {
+  const payload = objectValue(value);
+  const dossierId = uuid(payload?.dossierId);
+  const outputCount = typeof payload?.outputCount === "number"
+    ? payload.outputCount
+    : NaN;
+  const rawOutputs = Array.isArray(payload?.outputs) ? payload.outputs : null;
+  const outputs = rawOutputs?.map(savePlanBatchOutput) ?? null;
+  if (
+    !dossierId
+    || !Number.isInteger(outputCount)
+    || outputCount < 1
+    || outputCount > 30
+    || !outputs
+    || outputs.some((output) => !output)
+  ) return null;
+  return {
+    dossierId,
+    outputCount,
+    outputs: outputs as SaveEditorialDossierWorkspaceBatchOutputInput[],
   };
 }
 
@@ -633,6 +711,42 @@ export async function POST(request: Request) {
           : "Não foi possível abandonar a produção sem alterar o seu histórico.",
       }, { status: published ? 409 : 502 });
     }
+  }
+
+  if (action === "save_article_plans_batch") {
+    const input = savePlanBatchInput(payload);
+    if (!input) {
+      return NextResponse.json({
+        ok: false,
+        code: "input_invalid",
+        stage: "article_plan",
+        message: "Revê os dados dos Article Plans antes de guardar.",
+        partialPersistence: false,
+        articlePlanId: null,
+        failedOutput: null,
+        savedOutputs: [],
+      }, { status: 400 });
+    }
+
+    const result = await saveEditorialDossierWorkspaceBatch(input);
+    if (!result.ok) {
+      const partialMessage = result.error.stage === "production_state"
+        && result.error.articlePlanId
+        ? `${result.error.message} O planeamento base foi guardado; recarrega para ver exatamente o estado persistido.`
+        : result.error.message;
+      return NextResponse.json({
+        ok: false,
+        ...result.error,
+        message: partialMessage,
+      }, {
+        status: commandErrorStatus(
+          result.error.code,
+          result.error.partialPersistence,
+        ),
+      });
+    }
+
+    return NextResponse.json({ ok: true, ...result.value });
   }
 
   if (action === "save_article_plan") {

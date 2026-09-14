@@ -243,8 +243,9 @@ test("Produção mantém o total global e limita cada output 2C ao contexto esco
   assert.match(client, /aria-label="Número total de artigos a produzir"/);
   assert.doesNotMatch(client, /Distribuição da produção|NucleusIdentity|nucleusId|Artigos para /);
   assert.doesNotMatch(page, /buildNuclei|WorkspaceNucleus/);
-  assert.match(client, /action:\s*"update_output_count"/);
-  assert.match(client, /articlePlanIds:\s*visibleCards\.map/);
+  assert.match(client, /action:\s*"save_article_plans_batch"/);
+  assert.match(client, /const outputs = visibleCards\.map/);
+  assert.doesNotMatch(client, /action:\s*"update_output_count"/);
   assert.doesNotMatch(client, />Prioridade</);
   assert.match(client, /priority:\s*card\.position/);
   assert.match(route, /workingTitle,\s*status:\s*"planned"/);

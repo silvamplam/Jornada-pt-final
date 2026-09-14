@@ -104,18 +104,56 @@ test("packages separam manifest e markdown sem alterar a leitura completa histó
 test("upload e save atualizam o estado local sem refresh integral", () => {
   const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
+  const batchService = read("lib/redacao-automatica/editorial-dossier-workspace-batch-service.ts");
+  const batchHandler = section(
+    route,
+    'if (action === "save_article_plans_batch")',
+    'if (action === "save_article_plan")',
+  );
 
   assert.doesNotMatch(client, /router\.refresh\(\)/);
   assert.match(client, /onRegisteredImage\(await registerUpload\(registration\)\)/);
   assert.match(client, /onRegisteredImage\(await registerUpload\(pendingRegistration\)\)/);
   assert.match(client, /setWorkspaceImages\(\(current\)/);
   assert.match(client, /existing\s*\? current\.map/);
-  assert.match(client, /setPersistedOutputCount\(countResult\.outputCount\)/);
+  assert.match(client, /setPersistedOutputCount\(result\.outputCount\)/);
   assert.match(client, /persistedOutputCount !== outputCount/);
+  assert.match(client, /action:\s*"save_article_plans_batch"/);
+  assert.doesNotMatch(client, /action:\s*"update_output_count"/);
   assert.match(route, /image:\s*\{[\s\S]*?dossierImageId[\s\S]*?storageBucket[\s\S]*?storagePath[\s\S]*?fileName/);
   assert.match(route, /imageAction:\s*result\.value\.imageAction/);
   assert.match(route, /result\.value\.imageAction === "created" \? 201 : 200/);
-  assert.match(route, /newsroom_editorial_dossiers\?select=id"[\s\S]*?synchronizeEditorialMesaSharedOutputs/);
+  assert.match(batchHandler, /saveEditorialDossierWorkspaceBatch\(input\)/);
+  assert.doesNotMatch(batchHandler, /fetchSupabaseAdminTable|newsroom_editorial_dossiers\?select=id/);
+  assert.match(batchService, /includePlans:\s*false/);
+  assert.match(batchService, /openArticlePlanSession:\s*createEditorialDossierArticlePlanBatchSession/);
+  assert.match(batchService, /synchronizeOutputs:\s*synchronizeEditorialMesaSharedOutputs/);
+});
+
+test("batch save mantém uma carga de Produção e uma leitura de Dossier state para N outputs", () => {
+  const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const batchService = read("lib/redacao-automatica/editorial-dossier-workspace-batch-service.ts");
+  const batchInternal = read("lib/redacao-automatica/editorial-dossier-workspace-batch-service-internal.ts");
+  const articlePlanService = read("lib/redacao-automatica/editorial-dossier-article-plan-service.ts");
+  const saveClient = section(client, "async function saveProduction", "  return (");
+  const articlePlanSession = section(
+    articlePlanService,
+    "export async function createEditorialDossierArticlePlanBatchSession",
+    "export async function setEditorialMesaOutputOrigin",
+  );
+
+  assert.equal((saveClient.match(/fetch\(WORKSPACE_ROUTE/g) ?? []).length, 1);
+  assert.match(saveClient, /action:\s*"save_article_plans_batch"/);
+  assert.doesNotMatch(saveClient, /action:\s*"save_article_plan"|action:\s*"update_output_count"/);
+  assert.match(saveClient, /const persistedOutputs = result\?\.ok \? result\.outputs : result\?\.savedOutputs/);
+  assert.match(saveClient, /savingProductionRef\.current = true/);
+  assert.match(saveClient, /savingProductionRef\.current = false/);
+  assert.equal((batchService.match(/loadEditorialDossierProduction\(/g) ?? []).length, 1);
+  assert.equal((batchService.match(/createEditorialDossierArticlePlanBatchSession/g) ?? []).length, 2);
+  assert.equal((articlePlanSession.match(/await readDossierState\(/g) ?? []).length, 1);
+  assert.match(articlePlanSession, /currentState = stateAfterPlanSave/);
+  assert.match(batchInternal, /for \(const output of batch\.outputs\)/);
+  assert.doesNotMatch(batchInternal, /Promise\.all/);
 });
 
 test("loader mantém fail-closed 2C e separa leitura leve de factual", () => {

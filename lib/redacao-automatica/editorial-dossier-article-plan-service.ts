@@ -7,8 +7,10 @@ import {
 } from "@/lib/supabase";
 import {
   saveEditorialDossierArticlePlanService,
+  type EditorialDossierArticlePlanErrorCode,
   type EditorialDossierArticlePlanDossierState,
   type EditorialDossierArticlePlanRpcInput,
+  type EditorialDossierArticlePlanSaveResult,
   type EditorialDossierArticlePlanState,
   type SaveEditorialDossierArticlePlanInput,
 } from "@/lib/redacao-automatica/editorial-dossier-article-plan-service-internal";
@@ -184,6 +186,24 @@ async function executeSave(
   return rows[0]?.article_plan_id ?? null;
 }
 
+async function executeContextSave(
+  payload: EditorialDossierArticlePlanRpcInput,
+  productionContextId: string,
+): Promise<string | null> {
+  const rows = await writeSupabaseAdminReturning<ArticlePlanWriteRow>(
+    "rpc/newsroom_save_mesa_context_article_plan_v1",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...payload,
+        p_production_context_id: productionContextId,
+      }),
+    },
+  );
+
+  return rows[0]?.article_plan_id ?? null;
+}
+
 const saveArticlePlanWithSupabase = saveEditorialDossierArticlePlanService({
   isConfigured() {
     return Boolean(getSupabaseServiceConfig());
@@ -209,20 +229,134 @@ export function saveEditorialMesaContextArticlePlan(
     },
     readDossierState,
     async saveArticlePlan(payload) {
-      const rows = await writeSupabaseAdminReturning<ArticlePlanWriteRow>(
-        "rpc/newsroom_save_mesa_context_article_plan_v1",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            ...payload,
-            p_production_context_id: contextId,
-          }),
-        },
-      );
-      return rows[0]?.article_plan_id ?? null;
+      return executeContextSave(payload, contextId);
     },
   });
   return saveContextArticlePlan(input);
+}
+
+export type EditorialDossierArticlePlanBatchSession = Readonly<{
+  findPlan(articlePlanId: string): EditorialDossierArticlePlanState | null;
+  savePlan(
+    input: SaveEditorialDossierArticlePlanInput,
+    productionContextId: string | null,
+  ): Promise<EditorialDossierArticlePlanSaveResult>;
+}>;
+
+export type EditorialDossierArticlePlanBatchSessionResult =
+  | Readonly<{ ok: true; value: EditorialDossierArticlePlanBatchSession }>
+  | Readonly<{
+      ok: false;
+      error: Readonly<{
+        code: EditorialDossierArticlePlanErrorCode;
+        message: string;
+      }>;
+    }>;
+
+function stateAfterPlanSave(
+  state: EditorialDossierArticlePlanDossierState,
+  input: SaveEditorialDossierArticlePlanInput,
+  result: Extract<EditorialDossierArticlePlanSaveResult, { ok: true }>["value"],
+): EditorialDossierArticlePlanDossierState {
+  const existing = state.plans.find((plan) => plan.id === result.articlePlanId) ?? null;
+  const sources = input.status === "cancelled" && existing
+    ? existing.sources
+    : input.sources
+      .slice()
+      .sort((left, right) => left.priority - right.priority)
+      .map((source, index) => ({
+        dossierSourceId: source.dossierSourceId,
+        sortOrder: (index + 1) * 10,
+      }));
+  const savedPlan: EditorialDossierArticlePlanState = {
+    id: result.articlePlanId,
+    status: result.status,
+    editorialArticleId: existing?.editorialArticleId ?? null,
+    sources,
+  };
+
+  return {
+    ...state,
+    plans: existing
+      ? state.plans.map((plan) => plan.id === savedPlan.id ? savedPlan : plan)
+      : [...state.plans, savedPlan],
+  };
+}
+
+export async function createEditorialDossierArticlePlanBatchSession(
+  dossierIdValue: string,
+): Promise<EditorialDossierArticlePlanBatchSessionResult> {
+  const dossierId = dossierIdValue.trim().toLowerCase();
+  if (!UUID_PATTERN.test(dossierId)) {
+    return {
+      ok: false,
+      error: { code: "input_invalid", message: "Os dados do Dossiê não são válidos." },
+    };
+  }
+  if (!getSupabaseServiceConfig()) {
+    return {
+      ok: false,
+      error: {
+        code: "service_unavailable",
+        message: "O serviço dos artigos planeados não está configurado.",
+      },
+    };
+  }
+
+  let state: EditorialDossierArticlePlanDossierState | null;
+  try {
+    state = await readDossierState(dossierId);
+  } catch {
+    return {
+      ok: false,
+      error: {
+        code: "article_plan_save_failed",
+        message: "Não foi possível validar o Dossiê e os artigos planeados.",
+      },
+    };
+  }
+  if (!state) {
+    return {
+      ok: false,
+      error: { code: "dossier_not_found", message: "O Dossiê já não existe." },
+    };
+  }
+
+  let currentState = state;
+  return {
+    ok: true,
+    value: {
+      findPlan(articlePlanIdValue) {
+        const articlePlanId = articlePlanIdValue.trim().toLowerCase();
+        if (!UUID_PATTERN.test(articlePlanId)) return null;
+        return currentState.plans.find((plan) => plan.id === articlePlanId) ?? null;
+      },
+      async savePlan(input, productionContextIdValue) {
+        const productionContextId = productionContextIdValue?.trim().toLowerCase() ?? null;
+        if (productionContextId && !UUID_PATTERN.test(productionContextId)) {
+          return {
+            ok: false,
+            error: {
+              code: "input_invalid",
+              message: "Os dados do artigo planeado não são válidos.",
+            },
+          };
+        }
+        const saveAgainstCurrentState = saveEditorialDossierArticlePlanService({
+          isConfigured: () => true,
+          readDossierState: async (requestedDossierId) => (
+            requestedDossierId === currentState.dossierId ? currentState : null
+          ),
+          saveArticlePlan: (payload) => productionContextId
+            ? executeContextSave(payload, productionContextId)
+            : executeSave(payload),
+        });
+        const result = await saveAgainstCurrentState(input);
+        if (result.ok) currentState = stateAfterPlanSave(currentState, input, result.value);
+        return result;
+      },
+    },
+  };
 }
 
 export async function setEditorialMesaOutputOrigin(input: Readonly<{

@@ -61,12 +61,24 @@ type WorkspaceVisualSeed = Readonly<{
   image: EditorialDossierImage | null;
 }>;
 
+type SavedBatchOutput = Readonly<{
+  clientKey: string;
+  priority: number;
+  articlePlanId: string;
+  created: boolean;
+  materialized: boolean;
+}>;
+
 type CommandResponse = Readonly<{
   ok?: boolean;
   code?: string;
+  stage?: "article_plan" | "production_state" | "output_count";
   message?: string;
   partialPersistence?: boolean;
   articlePlanId?: string;
+  failedOutput?: Readonly<{ clientKey: string; priority: number }> | null;
+  savedOutputs?: readonly SavedBatchOutput[];
+  outputs?: readonly SavedBatchOutput[];
   publicationCount?: number;
   sourceCount?: number;
   restoredThemeMembershipCount?: number;
@@ -396,6 +408,7 @@ function PlanEditor({
   productionContextId,
   onProductionContextChange,
   images,
+  saving,
 }: Readonly<{
   dossier: WorkspaceDossier;
   plan: EditorialDossierProductionArticlePlan | null;
@@ -408,6 +421,7 @@ function PlanEditor({
   productionContextId: string;
   onProductionContextChange: (productionContextId: string) => void;
   images: readonly EditorialDossierImage[];
+  saving: boolean;
 }>) {
   const [destination, setDestination] = useState<"new" | "update">(
     plan?.destination ?? "new",
@@ -487,6 +501,7 @@ function PlanEditor({
             maxLength={12000}
             rows={1}
             placeholder="Ex.: impacto no plantel, reação do clube…"
+            disabled={saving}
           />
         </label>
 
@@ -497,6 +512,7 @@ function PlanEditor({
               name={planField(cardKey, "context_id")}
               value={productionContextId}
               required
+              disabled={saving}
               onChange={(event) => onProductionContextChange(event.currentTarget.value)}
             >
               {productionContexts.map((context) => (
@@ -511,6 +527,7 @@ function PlanEditor({
             <select
               name={planField(cardKey, "article_kind")}
               defaultValue={plan?.articleKind ?? dossier.articleKind}
+              disabled={saving}
             >
               {Object.entries(articleKindLabels).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
@@ -522,6 +539,7 @@ function PlanEditor({
             <select
               name={planField(cardKey, "length_mode")}
               defaultValue={plan?.lengthMode ?? dossier.lengthMode}
+              disabled={saving}
             >
               {Object.entries(lengthModeLabels).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
@@ -533,6 +551,7 @@ function PlanEditor({
             <select
               name={planField(cardKey, "destination_control")}
               value={destination}
+              disabled={saving}
               onChange={(event) => setDestination(
                 event.currentTarget.value === "update" ? "update" : "new",
               )}
@@ -569,6 +588,7 @@ function PlanEditor({
                 value={targetId}
                 onChange={(event) => setTargetId(event.currentTarget.value)}
                 required
+                disabled={saving}
               >
                 <option value="">Escolher artigo publicado</option>
                 {eligibleTargets.map((context) => (
@@ -589,6 +609,7 @@ function PlanEditor({
                 type="radio"
                 name={planField(cardKey, "image_control")}
                 checked={selectedImage === "unselected"}
+                disabled={saving}
                 onChange={() => setImageChoices((current) => ({
                   ...current,
                   [destination]: "unselected",
@@ -602,6 +623,7 @@ function PlanEditor({
                   type="radio"
                   name={planField(cardKey, "image_control")}
                   checked={selectedImage === "preserve_published"}
+                  disabled={saving}
                   onChange={() => setImageChoices((current) => ({
                     ...current,
                     update: "preserve_published",
@@ -621,6 +643,7 @@ function PlanEditor({
                     type="radio"
                     name={planField(cardKey, "image_control")}
                     checked={selectedImage === value}
+                    disabled={saving}
                     onChange={() => setImageChoices((current) => ({
                       ...current,
                       [destination]: value,
@@ -953,6 +976,7 @@ export function MesaProductionWorkspaceClient({
   const [productionContextOverrides, setProductionContextOverrides] = useState<Record<string, string>>({});
   const [savedPlanIds, setSavedPlanIds] = useState<Record<string, string>>({});
   const [savingProduction, setSavingProduction] = useState(false);
+  const savingProductionRef = useRef(false);
   const [productionMessage, setProductionMessage] = useState("");
   const [dirty, setDirty] = useState(false);
   const [packageVersion, setPackageVersion] = useState(0);
@@ -1056,7 +1080,7 @@ export function MesaProductionWorkspaceClient({
 
   async function saveProduction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (savingProduction) return;
+    if (savingProductionRef.current) return;
     if (outputCount < 1 || outputCount > MAX_OUTPUT_COUNT) {
       setProductionMessage(`A publicação em lote aceita entre 1 e ${MAX_OUTPUT_COUNT} artigos.`);
       return;
@@ -1064,68 +1088,83 @@ export function MesaProductionWorkspaceClient({
 
     const data = new FormData(event.currentTarget);
     const nextSavedPlanIds = { ...savedPlanIds };
+    savingProductionRef.current = true;
     setSavingProduction(true);
     setProductionMessage(`A guardar ${outputCount} ${outputCount === 1 ? "artigo" : "artigos"}…`);
 
     try {
-      for (const card of visibleCards) {
-        if (card.plan?.editorialArticleId) {
-          nextSavedPlanIds[card.key] = card.plan.id;
-          continue;
-        }
-        const destination = String(data.get(planField(card.key, "destination")) ?? "new");
-        const targetId = String(data.get(planField(card.key, "target_id")) ?? "");
-        const response = await fetch(WORKSPACE_ROUTE, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "save_article_plan",
-            dossierId: dossier.id,
-            articlePlanId: card.plan?.id ?? nextSavedPlanIds[card.key] ?? null,
-            priority: card.position,
-            articleKind: String(data.get(planField(card.key, "article_kind")) ?? "news"),
-            lengthMode: String(data.get(planField(card.key, "length_mode")) ?? "standard"),
-            editorialInstructions: String(
-              data.get(planField(card.key, "editorial_instructions")) ?? "",
+      const outputs = visibleCards.map((card) => {
+        const destination = String(
+          data.get(planField(card.key, "destination"))
+          ?? card.plan?.destination
+          ?? "new",
+        );
+        const targetId = String(
+          data.get(planField(card.key, "target_id"))
+          ?? card.plan?.updateTargetEditorialArticleId
+          ?? "",
+        );
+        return {
+          clientKey: card.key,
+          articlePlanId: card.plan?.id ?? nextSavedPlanIds[card.key] ?? null,
+          priority: card.position,
+          articleKind: String(
+            data.get(planField(card.key, "article_kind"))
+            ?? card.plan?.articleKind
+            ?? dossier.articleKind,
+          ),
+          lengthMode: String(
+            data.get(planField(card.key, "length_mode"))
+            ?? card.plan?.lengthMode
+            ?? dossier.lengthMode,
+          ),
+          editorialInstructions: String(
+            data.get(planField(card.key, "editorial_instructions"))
+            ?? card.plan?.editorialInstructions
+            ?? "",
+          ),
+          destination,
+          updateTargetEditorialArticleId: destination === "update" ? targetId : null,
+          imageChoice: imageChoice(String(
+            data.get(planField(card.key, "image_choice"))
+            ?? explicitImageSelectValue(card.plan),
+          )),
+          ...(dossier.contextMode === "contexts" ? {
+            productionContextId: String(
+              data.get(planField(card.key, "context_id"))
+              ?? card.productionContextId,
             ),
-            destination,
-            updateTargetEditorialArticleId: destination === "update" ? targetId : null,
-            imageChoice: imageChoice(
-              String(data.get(planField(card.key, "image_choice")) ?? "unselected"),
-            ),
-            ...(dossier.contextMode === "contexts" ? {
-              productionContextId: String(data.get(planField(card.key, "context_id")) ?? ""),
-            } : {}),
-          }),
-        });
-        const result = await response.json().catch(() => null) as CommandResponse | null;
-        if (!response.ok || !result?.ok || !result.articlePlanId) {
-          throw new Error(
-            result?.message
-            || `Não foi possível guardar o artigo ${String(card.position).padStart(2, "0")}.`,
-          );
-        }
-        nextSavedPlanIds[card.key] = result.articlePlanId;
-        setSavedPlanIds({ ...nextSavedPlanIds });
-      }
-
-      const countResponse = await fetch(WORKSPACE_ROUTE, {
+          } : {}),
+        };
+      });
+      const response = await fetch(WORKSPACE_ROUTE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "update_output_count",
+          action: "save_article_plans_batch",
           dossierId: dossier.id,
           outputCount,
-          articlePlanIds: visibleCards.map((card) => card.plan?.id ?? nextSavedPlanIds[card.key]),
+          outputs,
         }),
       });
-      const countResult = await countResponse.json().catch(() => null) as CommandResponse | null;
+      const result = await response.json().catch(() => null) as CommandResponse | null;
+      const persistedOutputs = result?.ok ? result.outputs : result?.savedOutputs;
+      for (const output of persistedOutputs ?? []) {
+        nextSavedPlanIds[output.clientKey] = output.articlePlanId;
+      }
+      setSavedPlanIds({ ...nextSavedPlanIds });
       if (
-        !countResponse.ok
-        || !countResult?.ok
-        || countResult.outputCount !== outputCount
+        !response.ok
+        || !result?.ok
+        || result.outputCount !== outputCount
       ) {
-        throw new Error(countResult?.message || "Os artigos foram guardados, mas falhou o total da produção.");
+        const failedPosition = result?.failedOutput?.priority;
+        throw new Error(
+          result?.message
+          || (failedPosition
+            ? `Não foi possível guardar o artigo ${String(failedPosition).padStart(2, "0")}.`
+            : "Não foi possível guardar toda a produção."),
+        );
       }
 
       const retainedPlanIds = new Set(visibleCards.map((card) => (
@@ -1139,7 +1178,7 @@ export function MesaProductionWorkspaceClient({
       setSavedPlanIds(Object.fromEntries(
         Object.entries(nextSavedPlanIds).filter(([key]) => visibleCardKeys.has(key)),
       ));
-      setPersistedOutputCount(countResult.outputCount);
+      setPersistedOutputCount(result.outputCount);
       setDirty(false);
       setPackageVersion((current) => current + 1);
       setProductionMessage("Produção guardada. Já podes descarregar imagens ou copiar o pacote.");
@@ -1151,6 +1190,7 @@ export function MesaProductionWorkspaceClient({
           : "Não foi possível guardar toda a produção.",
       );
     } finally {
+      savingProductionRef.current = false;
       setSavingProduction(false);
     }
   }
@@ -1166,6 +1206,7 @@ export function MesaProductionWorkspaceClient({
             min={Math.max(1, materializedPlanCount)}
             max={MAX_OUTPUT_COUNT}
             value={outputCount}
+            disabled={savingProduction}
             onChange={(event) => {
               const next = Math.min(
                 MAX_OUTPUT_COUNT,
@@ -1239,6 +1280,7 @@ export function MesaProductionWorkspaceClient({
                 }));
               }}
               images={workspaceImages}
+              saving={savingProduction}
             />
           ))}
         </div>
