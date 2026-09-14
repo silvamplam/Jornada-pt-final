@@ -97,11 +97,11 @@ SCOPED_READ_POSTFLIGHT = "supabase/sql/validate-newsroom-mesa-scoped-read-model-
 PROTECTED_SCHEMA_SNAPSHOT_SQL = r"""
 select pg_catalog.jsonb_build_object(
   'functions', (
-    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+    select pg_catalog.md5(coalesce(pg_catalog.string_agg(
       p.oid::regprocedure::text || '|' || pg_catalog.pg_get_userbyid(p.proowner)
       || '|' || p.prosecdef::text || '|' || p.provolatile::text || '|'
-      || pg_catalog.coalesce(p.proconfig::text, '') || '|'
-      || pg_catalog.coalesce(p.proacl::text, '') || '|'
+      || coalesce(p.proconfig::text, '') || '|'
+      || coalesce(p.proacl::text, '') || '|'
       || pg_catalog.pg_get_functiondef(p.oid), E'\n' order by p.oid::regprocedure::text
     ), ''))
     from pg_catalog.pg_proc p
@@ -117,10 +117,10 @@ select pg_catalog.jsonb_build_object(
       ])
   ),
   'relations', (
-    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+    select pg_catalog.md5(coalesce(pg_catalog.string_agg(
       c.oid::regclass::text || '|' || c.relkind::text || '|'
       || pg_catalog.pg_get_userbyid(c.relowner) || '|'
-      || pg_catalog.coalesce(c.relacl::text, '') || '|'
+      || coalesce(c.relacl::text, '') || '|'
       || c.relrowsecurity::text || '|' || c.relforcerowsecurity::text
       || '|' || c.relreplident::text, E'\n' order by c.oid::regclass::text
     ), ''))
@@ -129,10 +129,10 @@ select pg_catalog.jsonb_build_object(
     where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm', 'S', 'f')
   ),
   'columns', (
-    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+    select pg_catalog.md5(coalesce(pg_catalog.string_agg(
       a.attrelid::regclass::text || '|' || a.attnum::text || '|' || a.attname
       || '|' || a.atttypid::regtype::text || '|' || a.attnotnull::text
-      || '|' || pg_catalog.coalesce(pg_catalog.pg_get_expr(d.adbin, d.adrelid), ''),
+      || '|' || coalesce(pg_catalog.pg_get_expr(d.adbin, d.adrelid), ''),
       E'\n' order by a.attrelid::regclass::text, a.attnum
     ), ''))
     from pg_catalog.pg_attribute a
@@ -143,7 +143,7 @@ select pg_catalog.jsonb_build_object(
       and a.attnum > 0 and not a.attisdropped
   ),
   'indexes', (
-    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+    select pg_catalog.md5(coalesce(pg_catalog.string_agg(
       indexname || '|' || indexdef, E'\n' order by indexname
     ), ''))
     from pg_catalog.pg_indexes
@@ -156,7 +156,7 @@ select pg_catalog.jsonb_build_object(
       ])
   ),
   'triggers', (
-    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+    select pg_catalog.md5(coalesce(pg_catalog.string_agg(
       t.tgrelid::regclass::text || '|' || t.tgname || '|'
       || pg_catalog.pg_get_triggerdef(t.oid, true), E'\n'
       order by t.tgrelid::regclass::text, t.tgname
@@ -167,7 +167,7 @@ select pg_catalog.jsonb_build_object(
     where n.nspname = 'public' and not t.tgisinternal
   ),
   'constraints', (
-    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+    select pg_catalog.md5(coalesce(pg_catalog.string_agg(
       c.conrelid::regclass::text || '|' || c.conname || '|'
       || pg_catalog.pg_get_constraintdef(c.oid, true), E'\n'
       order by c.conrelid::regclass::text, c.conname
@@ -177,11 +177,11 @@ select pg_catalog.jsonb_build_object(
     where n.nspname = 'public'
   ),
   'policies', (
-    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+    select pg_catalog.md5(coalesce(pg_catalog.string_agg(
       p.polrelid::regclass::text || '|' || p.polname || '|' || p.polcmd::text
       || '|' || p.polpermissive::text || '|' || p.polroles::text
-      || '|' || pg_catalog.coalesce(pg_catalog.pg_get_expr(p.polqual, p.polrelid), '')
-      || '|' || pg_catalog.coalesce(pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid), ''),
+      || '|' || coalesce(pg_catalog.pg_get_expr(p.polqual, p.polrelid), '')
+      || '|' || coalesce(pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid), ''),
       E'\n' order by p.polrelid::regclass::text, p.polname
     ), ''))
     from pg_catalog.pg_policy p
