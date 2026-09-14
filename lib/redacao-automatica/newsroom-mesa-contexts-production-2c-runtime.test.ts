@@ -155,6 +155,7 @@ test("UI mantém o total na Produção, exige duas fontes para Criar tema e só 
   assert.match(workspaceClient, /<span>Contexto<\/span>/);
   assert.match(workspaceClient, /productionContextId/);
   assert.match(themePage, /Adicionar material/);
-  assert.match(themePage, /member\.theme_id !== themeId/);
-  assert.match(themePage, /!currentThemeSourceIds\.has/);
+  assert.match(themePage, /loadMesaThemeOrganization\(themeId\)/);
+  assert.match(themePage, /href="\/admin\/editorial\/redacao-automatica\/mesa\?tab=novas&classification=all"/);
+  assert.doesNotMatch(themePage, /member\.theme_id !== themeId|loadMesaOrganization\(/);
 });

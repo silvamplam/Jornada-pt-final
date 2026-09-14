@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { isArticleClassificationKey } from "@/lib/editorial-classifications";
-import { isMesaUuid, mesaOrganizationCommand, readSourceComparison } from "@/lib/redacao-automatica/newsroom-mesa-organization";
+import {
+  isMesaUuid,
+  mesaOrganizationCommand,
+  readMesaThemeCurrentSourceRefs,
+  readMesaThemeSummary,
+  readSourceComparison,
+} from "@/lib/redacao-automatica/newsroom-mesa-organization";
 
 import { isMesaMaterialRef } from "@/lib/redacao-automatica/newsroom-mesa-editorial-groups";
 
@@ -26,6 +32,22 @@ function errorResponse(error: unknown) {
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
+  const themeId = params.get("theme");
+  if (themeId !== null) {
+    if (!isMesaUuid(themeId)) {
+      return NextResponse.json({ ok: false, message: "Tema inválido." }, { status: 400 });
+    }
+    try {
+      const [summary, sourceRefs] = await Promise.all([
+        readMesaThemeSummary(themeId),
+        readMesaThemeCurrentSourceRefs(themeId),
+      ]);
+      return NextResponse.json({
+        ok: true,
+        theme: { ...summary, sourceRefs },
+      }, { headers: { "Cache-Control": "private, no-store" } });
+    } catch (error) { return errorResponse(error); }
+  }
   const ids = [params.get("source"), params.get("before"), params.get("after")];
   if (!ids.every(isMesaUuid)) return NextResponse.json({ ok: false, message: "Comparação inválida." }, { status: 400 });
   try {
@@ -64,7 +86,12 @@ export async function POST(request: Request) {
         });
         const row = rows[0];
         if (!isMesaUuid(row?.theme_id) || !Number.isSafeInteger(row.added_count) || Number(row.added_count) < 0 || typeof row.reused !== "boolean") throw new Error("organization-result-invalid");
-        return NextResponse.json({ ok: true, themeId: row.theme_id, addedCount: row.added_count, reused: row.reused });
+        const [summary, sourceRefs] = await Promise.all([
+          readMesaThemeSummary(row.theme_id as string),
+          readMesaThemeCurrentSourceRefs(row.theme_id as string),
+        ]);
+        return NextResponse.json({ ok: true, themeId: row.theme_id, addedCount: row.added_count,
+          reused: row.reused, theme: { ...summary, sourceRefs } });
       }
       if (!isMesaUuid(requestId) || (themeId !== null && !isMesaUuid(themeId))
         || !Array.isArray(ids) || ids.length < 1 || ids.length > 200
@@ -76,7 +103,12 @@ export async function POST(request: Request) {
       });
       const row = rows[0];
       if (!isMesaUuid(row?.theme_id) || !Number.isSafeInteger(row.added_count) || Number(row.added_count) < 0 || typeof row.reused !== "boolean") throw new Error("organization-result-invalid");
-      return NextResponse.json({ ok: true, themeId: row.theme_id, addedCount: row.added_count, reused: row.reused });
+      const [summary, sourceRefs] = await Promise.all([
+        readMesaThemeSummary(row.theme_id as string),
+        readMesaThemeCurrentSourceRefs(row.theme_id as string),
+      ]);
+      return NextResponse.json({ ok: true, themeId: row.theme_id, addedCount: row.added_count,
+        reused: row.reused, theme: { ...summary, sourceRefs } });
     }
     if (!isMesaUuid(themeId)) return badRequest();
     if (action === "attach_dossier") {
@@ -91,6 +123,10 @@ export async function POST(request: Request) {
         p_theme_id: themeId, p_source_id: body.sourceId, p_snapshot_id: body.snapshotId,
       });
     } else return badRequest();
-    return NextResponse.json({ ok: true });
+    const [summary, sourceRefs] = await Promise.all([
+      readMesaThemeSummary(themeId),
+      readMesaThemeCurrentSourceRefs(themeId),
+    ]);
+    return NextResponse.json({ ok: true, theme: { ...summary, sourceRefs } });
   } catch (error) { return errorResponse(error); }
 }

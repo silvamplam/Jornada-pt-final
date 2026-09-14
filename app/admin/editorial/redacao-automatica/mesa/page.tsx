@@ -6,39 +6,39 @@ import {
   MANUAL_NEWSROOM_SOURCE_LABEL,
 } from "@/lib/redacao-automatica/manual-newsroom-entry-contract";
 import {
-  loadOperationalDeskReadModel,
   MESA_OPERATIONAL_CLASSIFICATION_CONTEXT,
   MESA_OPERATIONAL_CYCLE_STARTED_AT,
   type OperationalDeskClassificationCounts,
   type OperationalDeskSourceCounts,
   type OperationalDeskSourceItem,
   type OperationalDeskSourceLifecycle,
-  type OperationalDeskReadModelResult,
 } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
+import {
+  loadMesaPageReadModel,
+  type MesaPageReadModelResult,
+} from "@/lib/redacao-automatica/newsroom-mesa-page-read-model";
 import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
 
 import {
   MESA_CLASSIFICATION_OPTIONS,
-  classificationLabel,
+  MESA_PAGE_SIZE,
   mesaHref,
-  mesaOperationalReadModelInput,
+  mesaPageReadModelInput,
   parseMesaQuery,
   type MesaClassificationValue,
   type MesaQuery,
   type MesaSearchParams,
 } from "./_mesa-query";
 import {
-  MesaClassificationEditor,
   MesaLiveCount,
-  MesaOperationalSourceRow,
   MesaSelectionProvider,
-  MesaSelectionToggle,
   MesaSelectionTray,
+  MesaThemeCount,
 } from "./_mesa-selection-client";
 import type { MesaMaterialSelection } from "./_mesa-selection-state";
 import { MesaSourceItem } from "./_mesa-source-item";
-import { MesaSourceWindow, MesaOrganizationPanel, MesaLooseSourcesPanel } from "./_mesa-organization-client";
-import { loadMesaOrganization } from "@/lib/redacao-automatica/newsroom-mesa-organization";
+import { MesaOrganizationPanel, MesaLooseSourcesPanel } from "./_mesa-organization-client";
+import { loadMesaOrganizationSummary } from "@/lib/redacao-automatica/newsroom-mesa-organization";
 import { sourceIsUnassigned, filterMesaOrganization, type MesaOrganization } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
 import styles from "./mesa.module.css";
 
@@ -47,11 +47,6 @@ export const dynamic = "force-dynamic";
 type MesaPageProps = Readonly<{
   searchParams?: Promise<MesaSearchParams>;
 }>;
-
-const classificationSourceLabels = {
-  automatic: "Automática",
-  manual: "Manual",
-} as const;
 
 const errorCopy = {
   invalid_request: {
@@ -822,21 +817,26 @@ function paginateFixture<T>(
   };
 }
 
-function createMesaFixtureReadModel(query: MesaQuery): OperationalDeskReadModelResult {
-  const limit = 24;
+function createMesaFixtureReadModel(query: MesaQuery): MesaPageReadModelResult {
+  const limit = MESA_PAGE_SIZE;
   const offset = (query.page - 1) * limit;
   const filtered = FIXTURE_SOURCES.filter((item) => (
     matchesClassificationFilter(item, query.classification)
     && matchesSourceFilter(item, query.sourceCode)
   ));
-  const novas = filtered.filter(sourceIsUnassigned);
-  const publicadas = filtered.filter((item) => item.lifecycle === "published");
+  const lifecycle = query.tab === "publicadas" ? "published" : "new";
+  const eligible = lifecycle === "new"
+    ? filtered.filter(sourceIsUnassigned)
+    : filtered.filter((item) => item.lifecycle === "published"
+      && item.themeMembership.themeIds.length === 0);
+  const page = paginateFixture(eligible, { limit, offset });
   return {
     ok: true,
     value: {
       cycleStartedAt: MESA_OPERATIONAL_CYCLE_STARTED_AT,
+      lifecycle,
       classification: query.classification,
-      sources: filtered,
+      sources: page.items,
       counts: {
         novas: countFor(FIXTURE_SOURCES.filter((item) => (
           sourceIsUnassigned(item)
@@ -847,14 +847,9 @@ function createMesaFixtureReadModel(query: MesaQuery): OperationalDeskReadModelR
           && matchesSourceFilter(item, query.sourceCode)
         ))),
       },
-      novas: paginateFixture(novas, { limit, offset }),
-      publicadas: paginateFixture(publicadas, { limit, offset }),
+      page,
     },
   };
-}
-
-function formatSourceLabel(item: OperationalDeskSourceItem): string {
-  return item.sourceName ?? item.sourceCode;
 }
 
 function ReadError({ code }: Readonly<{ code: keyof typeof errorCopy }>) {
@@ -886,14 +881,9 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
   const isFixture = process.env.NODE_ENV !== "production"
     && firstValue(queryParams?.fixture) === "visual";
 
-  const sourceResult = isFixture
-    ? createMesaFixtureReadModel(query)
-    : await loadOperationalDeskReadModel({ ...mesaOperationalReadModelInput(query) });
   let organization: MesaOrganization = { themes: [], unlinkedDossiers: [] };
   let organizationError = false;
-  if (sourceResult.ok) {
-    if (isFixture) {
-      organization = {
+  const fixtureOrganization: MesaOrganization = {
         themes: [{ id: "a0000000-0000-4000-8000-000000000001", title: "Sporting · cobertura do jogo",
           classificationKey: "sporting", status: "open", sourceCount: 6, articleCount: 3, updatedSourceCount: 2,
           sourceRefs: FIXTURE_SOURCES.filter((source) => source.snapshot).slice(0, 6).map((source) => ({
@@ -903,19 +893,26 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
           dossiers: [{ id: "b0000000-0000-4000-8000-000000000001", kind: "dossier", title: "Crónica, reações e arbitragem",
             themeId: "a0000000-0000-4000-8000-000000000001", status: "completed", sourceCount: 6, articleCount: 3, updatedSourceCount: 2 }] }],
         unlinkedDossiers: [],
-      };
-    } else {
-      try { organization = await loadMesaOrganization(sourceResult.value.sources); }
-      catch { organizationError = true; }
-    }
+  };
+  const [sourceResult, organizationResult] = isFixture
+    ? [createMesaFixtureReadModel(query), { ok: true as const, value: fixtureOrganization }]
+    : await Promise.all([
+        loadMesaPageReadModel(mesaPageReadModelInput(query)),
+        loadMesaOrganizationSummary().then(
+          (value) => ({ ok: true as const, value }),
+          () => ({ ok: false as const }),
+        ),
+      ]);
+  if (sourceResult.ok) {
+    if (organizationResult.ok) organization = organizationResult.value;
+    else organizationError = true;
   }
-  const looseNewItems = sourceResult.ok ? sourceResult.value.sources.filter(sourceIsUnassigned) : [];
-  const loosePublishedItems = sourceResult.ok ? sourceResult.value.sources.filter((item) => (
-    item.lifecycle === "published"
-    && item.themeMembership.themeIds.length === 0
-  )) : [];
-  const inboxItems = looseNewItems.filter((item) => matchesClassificationFilter(item, query.classification));
-  const publishedItems = loosePublishedItems.filter((item) => matchesClassificationFilter(item, query.classification));
+  const inboxItems = sourceResult.ok && sourceResult.value.lifecycle === "new"
+    ? sourceResult.value.page.items
+    : [];
+  const publishedItems = sourceResult.ok && sourceResult.value.lifecycle === "published"
+    ? sourceResult.value.page.items
+    : [];
 
   const sourceOptions = isFixture
     ? [...new Map(FIXTURE_SOURCES.map((item) => [item.sourceCode, {
@@ -930,10 +927,7 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
   const hasCurrentSource = query.sourceCode
     ? sourceOptions.some((source) => source.code === query.sourceCode)
     : true;
-  const counts = sourceResult.ok ? {
-    novas: countFor(looseNewItems),
-    publicadas: countFor(loosePublishedItems),
-  } : null;
+  const counts = sourceResult.ok ? sourceResult.value.counts : null;
   const activeLifecycle = query.tab === "publicadas" ? "published" : "new";
 
   return (
@@ -944,6 +938,15 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
           initialSelection={isFixture ? FIXTURE_INITIAL_SELECTION : []}
           themes={organization.themes}
           serverSourceIds={sourceResult.ok ? sourceResult.value.sources.map((source) => source.newsroomArticleId) : []}
+          serverClassifications={sourceResult.ok ? Object.fromEntries(sourceResult.value.sources.map((source) => [
+            source.newsroomArticleId,
+            source.classification.status === "classified" ? source.classification.classificationKey : null,
+          ])) : {}}
+          serverSnapshots={sourceResult.ok ? Object.fromEntries(sourceResult.value.sources.map((source) => [
+            source.newsroomArticleId,
+            source.snapshot?.id ?? null,
+          ])) : {}}
+          classificationFilter={query.classificationValue}
         >
           <header className={styles.hero}>
             <div className={styles.heroIdentity}>
@@ -970,7 +973,7 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
                   {activeLifecycle === "published" ? "publicadas" : "novas"}
                 </span>
                 <span>
-                  <strong>{organization.themes.length}</strong>
+                  <strong><MesaThemeCount /></strong>
                   temas
                 </span>
               </div>
@@ -1032,8 +1035,17 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
               <section className={styles.sourcesWorkspace}>
                 <MesaLooseSourcesPanel storageKey={`jornada.mesa.fontes.${query.classificationValue}.${query.sourceCode ?? "all"}`}
                   initialTab={activeLifecycle}
-                  newHref={mesaHref(query, { tab: "novas", page: 1 })}
-                  publishedHref={mesaHref(query, { tab: "publicadas", page: 1 })}
+                  newHref={presentationHref(query, { tab: "novas", page: 1 }, isFixture)}
+                  publishedHref={presentationHref(query, { tab: "publicadas", page: 1 }, isFixture)}
+                  newCount={sumVisibleCount(counts, query.classificationValue, "new")}
+                  publishedCount={sumVisibleCount(counts, query.classificationValue, "published")}
+                  page={query.page}
+                  previousHref={query.page > 1
+                    ? presentationHref(query, { page: query.page - 1 }, isFixture)
+                    : null}
+                  nextHref={sourceResult.value.page.pagination.hasNextPage
+                    ? presentationHref(query, { page: query.page + 1 }, isFixture)
+                    : null}
                   newItems={inboxItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} />)}
                   publishedItems={publishedItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} allowDiscard={false} />)} />
                 {organizationError ? <section className={styles.errorState} role="alert">

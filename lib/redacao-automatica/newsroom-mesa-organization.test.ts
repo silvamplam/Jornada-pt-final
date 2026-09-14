@@ -335,7 +335,9 @@ test("fluxo da Mesa usa apenas fontes, fica na Mesa e oferece cancelamento sem p
   assert.match(client, /themes\.filter\(\(theme\) => theme\.status === "open"\)/);
   assert.match(client, /setThemeAction\(null\)/);
   assert.match(sourceFlow, /removeSources\(command\.sourceIds\)/);
-  assert.match(sourceFlow, /router\.refresh\(\)/);
+  assert.match(sourceFlow, /hideSources\(buffer\.sources\.map/);
+  assert.match(sourceFlow, /upsertTheme\(result\.theme\)/);
+  assert.doesNotMatch(sourceFlow, /router\.refresh\(\)/);
   assert.doesNotMatch(sourceFlow.slice(sourceFlow.indexOf("if (sourceOnly)"), sourceFlow.indexOf("} else {")), /router\.(push|replace)|materials:/);
 });
 
@@ -427,15 +429,12 @@ test("relação de Dossiê no SQL não usa o conflito de coluna ambígua", () =>
 test("contadores acompanham explicitamente o universo NOVAS ou PUBLICADAS visível", () => {
   const page = readFileSync("app/admin/editorial/redacao-automatica/mesa/page.tsx", "utf8");
   const count = page.slice(page.indexOf("function sumVisibleCount("), page.indexOf("function fixtureClassification("));
-  const visibleUniverse = page.slice(page.indexOf("const looseNewItems"), page.indexOf("const activeLifecycle"));
   assert.match(count, /lifecycle === "published" \? counts\.publicadas : counts\.novas/);
   assert.match(count, /return universe\.total/);
-  assert.match(visibleUniverse, /const looseNewItems = [\s\S]*?filter\(sourceIsUnassigned\)/);
-  assert.match(visibleUniverse, /const loosePublishedItems = [\s\S]*?item\.lifecycle === "published"[\s\S]*?themeIds\.length === 0/);
-  assert.doesNotMatch(visibleUniverse, /groupedSourceIds/);
-  assert.match(visibleUniverse, /novas: countFor\(looseNewItems\)/);
-  assert.match(visibleUniverse, /publicadas: countFor\(loosePublishedItems\)/);
-  assert.doesNotMatch(visibleUniverse, /sourceResult\.value\.counts/);
+  assert.match(page, /const counts = sourceResult\.ok \? sourceResult\.value\.counts : null/);
+  assert.match(page, /newCount=\{sumVisibleCount\(counts, query\.classificationValue, "new"\)\}/);
+  assert.match(page, /publishedCount=\{sumVisibleCount\(counts, query\.classificationValue, "published"\)\}/);
+  assert.match(page, /sourceResult\.value\.page\.pagination\.hasNextPage/);
   assert.match(page, /activeLifecycle === "published"/);
   assert.match(page, /activeLifecycle === "published" \? counts\?\.publicadas\.total/);
   assert.match(page, /activeLifecycle === "published" \? "publicadas" : "novas"/);

@@ -1,30 +1,12 @@
 import Link from "next/link";
 import type { OperationalDeskSourceItem } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
-import { classificationLabel } from "./_mesa-query";
-import { MesaClassificationEditor, MesaOperationalSourceRow, MesaSelectionToggle, MesaSelectedVersionNotice, MesaSourceThemeMenu } from "./_mesa-selection-client";
+import { MesaClassificationBadge, MesaClassificationEditor, MesaOperationalSourceRow, MesaSelectionToggle, MesaSelectedVersionNotice, MesaSourceThemeMenu } from "./_mesa-selection-client";
 import { MesaSourceChanges, MesaRemoveThemeSource } from "./_mesa-source-changes";
 import styles from "./mesa.module.css";
-const classificationSourceLabels = { automatic: "Automática", manual: "Manual" } as const;
 function formatSourceLabel(item: OperationalDeskSourceItem): string { return item.sourceName ?? item.sourceCode; }
 function formatDate(value: string | null): string | null {
   if (!value || Number.isNaN(Date.parse(value))) return null;
   return new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Lisbon" }).format(new Date(value));
-}
-
-function ClassificationBadge({ item }: Readonly<{ item: OperationalDeskSourceItem }>) {
-  if (item.classification.status === "unclassified") {
-    return (
-      <span className={styles.classificationBadge} data-tone="unclassified">
-        Por classificar
-      </span>
-    );
-  }
-  return (
-    <span className={styles.classificationBadge} data-tone={item.classification.classificationKey}>
-      {classificationLabel(item.classification.classificationKey)}
-      <small>{classificationSourceLabels[item.classification.classificationSource]}</small>
-    </span>
-  );
 }
 
 export function MesaSourceItem({
@@ -92,7 +74,11 @@ export function MesaSourceItem({
           {item.sourceUpdated && !item.comparisonSnapshotId ? (
             <span className={styles.updatedNotice}>Fonte atualizada</span>
           ) : null}
-          <ClassificationBadge item={item} />
+          <MesaClassificationBadge
+            newsroomArticleId={item.newsroomArticleId}
+            currentClassificationKey={classificationKey}
+            classificationSource={item.classification.classificationSource}
+          />
         </div>
         <h2>{item.title}</h2>
         <MesaSelectedVersionNotice material={{ kind: "source", lifecycle: item.lifecycle,
@@ -124,11 +110,14 @@ export function MesaSourceItem({
           ) : <span>URL indisponível</span>}
           <MesaClassificationEditor
             newsroomArticleId={item.newsroomArticleId}
+            lifecycle={item.lifecycle}
             currentClassificationKey={classificationKey}
             fixtureMode={fixtureMode}
           />
           <MesaSourceThemeMenu
             newsroomArticleId={item.newsroomArticleId}
+            lifecycle={item.lifecycle}
+            classificationKey={classificationKey}
             themeIds={item.themeMembership.themeIds}
           />
           {themeId && allowRemove ? <MesaRemoveThemeSource themeId={themeId} sourceId={item.newsroomArticleId} /> : null}

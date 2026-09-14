@@ -621,8 +621,9 @@ test("rotas legacy continuam presentes e separadas do workspace da Mesa", () => 
   assert.match(legacyRoute, /create_article_plan_draft/);
   assert.match(
     mesaPage,
-    /loadOperationalDeskReadModel\(\{[\s\S]*?\.\.\.mesaOperationalReadModelInput\(query\)/,
+    /loadMesaPageReadModel\(mesaPageReadModelInput\(query\)\)/,
   );
+  assert.doesNotMatch(mesaPage, /loadOperationalDeskReadModel/);
   assert.match(mesaPage, /MesaSelectionProvider/);
 });
 

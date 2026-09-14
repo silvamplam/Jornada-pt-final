@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { MesaOrganization, MesaDossierCard, MesaThemeCard } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
 import { MesaThemeSelectionToggle } from "./_mesa-selection-client";
+import { MESA_THEME_UPDATED_EVENT, mesaThemeFromEvent, publishMesaThemeUpdate } from "./_mesa-client-events";
 import styles from "./mesa.module.css";
 
 const ORGANIZATION_ROUTE = "/api/admin/editorial/redacao-automatica/mesa/organizacao";
@@ -58,10 +58,11 @@ export function MesaSourceWindow({ items, storageKey, empty = "Sem entradas." }:
 export function MesaDossierCardView({ card, themes = [], fixtureMode = false }: Readonly<{
   card: MesaDossierCard; themes?: readonly MesaThemeCard[]; fixtureMode?: boolean;
 }>) {
-  const router = useRouter();
   const [themeId, setThemeId] = useState("");
+  const [attachedThemeIds, setAttachedThemeIds] = useState<readonly string[]>(card.themeIds ?? []);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  useEffect(() => setAttachedThemeIds(card.themeIds ?? []), [card.themeIds]);
   const href = card.material
     ? `/admin/editorial/redacao-automatica/mesa/dossies?material=${encodeURIComponent(card.material.key)}${card.material.versionId ? `&version=${card.material.versionId}` : ""}`
     : card.href ?? (card.kind === "dossier"
@@ -76,7 +77,10 @@ export function MesaDossierCardView({ card, themes = [], fixtureMode = false }: 
           sourceIds: [], materials: [card.material], themeId }) });
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.message ?? "Não foi possível associar o Dossiê.");
-      router.refresh();
+      if (!result.theme) throw new Error("theme-summary-missing");
+      setAttachedThemeIds((current) => current.includes(themeId) ? current : [...current, themeId]);
+      publishMesaThemeUpdate(result.theme as MesaThemeCard);
+      setMessage("Dossiê associado ao Tema.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Associação não guardada."); }
     finally { setBusy(false); }
   }
@@ -84,12 +88,12 @@ export function MesaDossierCardView({ card, themes = [], fixtureMode = false }: 
     <Link href={href} prefetch={false}>{card.title}</Link>
     <p>{card.sourceCount} fontes · {card.articleCount} artigos publicados</p>
     {card.updatedSourceCount > 0 ? <strong className={styles.updatedNotice}>{card.updatedSourceCount} fontes mais recentes que a produção</strong> : null}
-    {card.themeIds && card.themeIds.length > 1 ? <p>Associado a {card.themeIds.length} Temas independentes</p> : null}
-    {card.material && themes.some((theme) => theme.status === "open" && !card.themeIds?.includes(theme.id)) ? <details>
+    {attachedThemeIds.length > 1 ? <p>Associado a {attachedThemeIds.length} Temas independentes</p> : null}
+    {card.material && themes.some((theme) => theme.status === "open" && !attachedThemeIds.includes(theme.id)) ? <details>
       <summary>Associar a um Tema</summary>
       <select aria-label={`Tema para ${card.title}`} value={themeId} onChange={(event) => setThemeId(event.target.value)} disabled={busy}>
         <option value="">Escolher Tema</option>
-        {themes.filter((theme) => theme.status === "open" && !card.themeIds?.includes(theme.id)).map((theme) => <option key={theme.id} value={theme.id}>{theme.title}</option>)}
+        {themes.filter((theme) => theme.status === "open" && !attachedThemeIds.includes(theme.id)).map((theme) => <option key={theme.id} value={theme.id}>{theme.title}</option>)}
       </select>
       <button type="button" onClick={() => void attach()} disabled={busy || !themeId || fixtureMode}>Associar</button>
       {message ? <p role="alert">{message}</p> : null}
@@ -101,7 +105,21 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
   organization: MesaOrganization; fixtureMode?: boolean;
 }>) {
   const [status, setStatus] = useState("open");
-  const themes = organization.themes.filter((theme) => status === "all" || theme.status === status);
+  const [themeCards, setThemeCards] = useState(organization.themes);
+  useEffect(() => setThemeCards(organization.themes), [organization.themes]);
+  useEffect(() => {
+    const update = (event: Event) => {
+      const theme = mesaThemeFromEvent(event);
+      if (!theme) return;
+      setThemeCards((current) => {
+        if (!current.some((item) => item.id === theme.id)) return [theme, ...current];
+        return current.map((item) => item.id === theme.id ? theme : item);
+      });
+    };
+    window.addEventListener(MESA_THEME_UPDATED_EVENT, update);
+    return () => window.removeEventListener(MESA_THEME_UPDATED_EVENT, update);
+  }, []);
+  const themes = themeCards.filter((theme) => status === "all" || theme.status === status);
   return <section id="mesa-organizacao" className={styles.sourcePanel} data-organization="true">
     <header className={styles.panelHeader}>
       <nav aria-label="Organização editorial">
@@ -125,22 +143,44 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
   </section>;
 }
 
-export function MesaLooseSourcesPanel({ newItems, publishedItems, storageKey, initialTab, newHref, publishedHref }: Readonly<{
+export function MesaLooseSourcesPanel({
+  newItems,
+  publishedItems,
+  storageKey,
+  initialTab,
+  newHref,
+  publishedHref,
+  newCount,
+  publishedCount,
+  page,
+  previousHref,
+  nextHref,
+}: Readonly<{
   newItems: readonly ReactNode[];
   publishedItems: readonly ReactNode[];
   storageKey: string;
   initialTab: "new" | "published";
   newHref: string;
   publishedHref: string;
+  newCount: number;
+  publishedCount: number;
+  page: number;
+  previousHref: string | null;
+  nextHref: string | null;
 }>) {
   const tab = initialTab;
   return <section className={styles.sourcePanel} data-lifecycle={tab}>
     <header className={styles.panelHeader}><nav aria-label="Fontes avulsas">
-      <Link href={newHref} aria-current={tab === "new" ? "page" : undefined}>NOVAS ({newItems.length})</Link>
-      <Link href={publishedHref} aria-current={tab === "published" ? "page" : undefined}>PUBLICADAS ({publishedItems.length})</Link>
+      <Link href={newHref} aria-current={tab === "new" ? "page" : undefined}>NOVAS ({newCount})</Link>
+      <Link href={publishedHref} aria-current={tab === "published" ? "page" : undefined}>PUBLICADAS ({publishedCount})</Link>
     </nav></header>
     <MesaSourceWindow key={tab} storageKey={`${storageKey}.${tab}`}
       empty={tab === "new" ? "Sem fontes por encaminhar neste filtro." : "Sem fontes publicadas avulsas neste filtro."}
       items={tab === "new" ? newItems : publishedItems} />
+    {previousHref || nextHref ? <nav className={styles.sourcePagination} aria-label="Paginação das fontes">
+      {previousHref ? <Link href={previousHref} rel="prev">Anterior</Link> : <span aria-disabled="true">Anterior</span>}
+      <span>Página {page}</span>
+      {nextHref ? <Link href={nextHref} rel="next">Seguinte</Link> : <span aria-disabled="true">Seguinte</span>}
+    </nav> : null}
   </section>;
 }

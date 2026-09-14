@@ -1338,6 +1338,9 @@
 }
 .unlinkedLabel { display: block; margin: 7px 1px 4px; color: #79643d; font-size: 0.6rem; }
 .windowMore { grid-column: 1 / -1; list-style: none; padding: 6px; text-align: center; }
+.sourcePagination { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 9px; border-top: 1px solid #d7e0d8; font-size: 0.68rem; }
+.sourcePagination a { color: #244b34; font-weight: 780; }
+.sourcePagination span[aria-disabled="true"] { color: #8b958d; }
 .windowMore button, .organizationCard button, .organizationCard select,
 .themeChooser button, .themeChooser select, .themeChooser input, .sourceUpdateAction, .versionNotice button {
   border: 1px solid #afc1b3; border-radius: 5px; padding: 4px 7px; color: #244b34; background: #fff; font: inherit; cursor: pointer;

@@ -4,11 +4,10 @@ import {
 } from "@/lib/editorial-classifications";
 import type {
   EditorialDeskClassificationFilter,
-  EditorialDeskReadModelInput,
 } from "@/lib/redacao-automatica/newsroom-desk-read-model";
 import type {
-  OperationalDeskReadModelInput,
-} from "@/lib/redacao-automatica/newsroom-operational-desk-read-model-internal";
+  MesaPageReadInput,
+} from "@/lib/redacao-automatica/newsroom-mesa-page-read-model-internal";
 
 export const MESA_PAGE_SIZE = 24;
 
@@ -115,44 +114,14 @@ export function parseMesaQuery(params: MesaSearchParams): MesaQueryResult {
   };
 }
 
-export function mesaReadModelInput(query: MesaQuery): EditorialDeskReadModelInput {
-  const offset = (query.page - 1) * MESA_PAGE_SIZE;
+export function mesaPageReadModelInput(query: MesaQuery): MesaPageReadInput {
   return {
-    classification: query.classification,
-    novas: {
-      limit: MESA_PAGE_SIZE,
-      offset: query.tab === "novas" ? offset : 0,
-      sourceCode: query.sourceCode,
-    },
-    publicadas: {
-      limit: MESA_PAGE_SIZE,
-      offset: query.tab === "publicadas" ? offset : 0,
-      competitionId: query.competitionId,
-      seasonId: query.seasonId,
-      matchdayId: query.matchdayId,
-    },
-    temas: {
-      limit: MESA_PAGE_SIZE,
-      offset: query.tab === "temas" ? offset : 0,
-      status: query.themeStatus,
-    },
-  };
-}
-
-export function mesaOperationalReadModelInput(
-  query: MesaQuery,
-): OperationalDeskReadModelInput {
-  const offset = (query.page - 1) * MESA_PAGE_SIZE;
-  return {
+    lifecycle: query.tab === "publicadas" ? "published" : "new",
     classification: query.classification,
     sourceCode: query.sourceCode,
-    novas: {
+    pagination: {
       limit: MESA_PAGE_SIZE,
-      offset: query.tab === "novas" ? offset : 0,
-    },
-    publicadas: {
-      limit: MESA_PAGE_SIZE,
-      offset: query.tab === "publicadas" ? offset : 0,
+      offset: (query.page - 1) * MESA_PAGE_SIZE,
     },
   };
 }

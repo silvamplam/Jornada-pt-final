@@ -1,7 +1,8 @@
 "use client";
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { compareSourceParagraphs } from "@/lib/redacao-automatica/newsroom-source-comparison";
+import type { MesaThemeCard } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
+import { publishMesaSourceHidden, publishMesaThemeUpdate } from "./_mesa-client-events";
 import styles from "./mesa.module.css";
 
 const route = "/api/admin/editorial/redacao-automatica/mesa/organizacao";
@@ -12,11 +13,11 @@ const date = (value: string) => Number.isNaN(Date.parse(value)) ? value
 export function MesaSourceChanges({ sourceId, beforeId, afterId, title, themeId, detectedAt }: Readonly<{
   sourceId: string; beforeId: string; afterId: string; title: string; themeId?: string; detectedAt?: string | null;
 }>) {
-  const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
   async function open() {
     dialog.current?.showModal(); setBusy(true); setMessage(""); setComparison(null);
     try {
@@ -36,11 +37,15 @@ export function MesaSourceChanges({ sourceId, beforeId, afterId, title, themeId,
         body: JSON.stringify({ action: "acknowledge_source", themeId, sourceId, snapshotId: comparison.after.id }) });
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.message ?? "Não foi possível guardar a leitura.");
-      dialog.current?.close(); router.refresh();
+      if (!result.theme) throw new Error("theme-summary-missing");
+      publishMesaThemeUpdate(result.theme as MesaThemeCard);
+      setAcknowledged(true);
+      dialog.current?.close();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Leitura não guardada."); }
     finally { setBusy(false); }
   }
   const diff = comparison ? compareSourceParagraphs(comparison.before.body, comparison.after.body) : null;
+  if (acknowledged) return <span className={styles.updatedNotice}>Alteração vista</span>;
   return <>
     <button type="button" className={styles.sourceUpdateAction} onClick={() => void open()}
       title={detectedAt ? `Alteração detetada: ${date(detectedAt)}` : "Comparar com a versão guardada"}>Fonte atualizada · Ver alterações</button>
@@ -66,7 +71,6 @@ export function MesaSourceChanges({ sourceId, beforeId, afterId, title, themeId,
 }
 
 export function MesaRemoveThemeSource({ themeId, sourceId }: Readonly<{ themeId: string; sourceId: string }>) {
-  const router = useRouter();
   const [busy, setBusy] = useState(false), [message, setMessage] = useState("");
   async function remove() {
     setBusy(true); setMessage("");
@@ -75,7 +79,9 @@ export function MesaRemoveThemeSource({ themeId, sourceId }: Readonly<{ themeId:
         body: JSON.stringify({ action: "remove_source", themeId, sourceId }) });
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.message ?? "Não foi possível retirar a fonte.");
-      router.refresh();
+      if (!result.theme) throw new Error("theme-summary-missing");
+      publishMesaSourceHidden(sourceId);
+      publishMesaThemeUpdate(result.theme as MesaThemeCard);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível retirar a fonte."); }
     finally { setBusy(false); }
   }

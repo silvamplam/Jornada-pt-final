@@ -7,8 +7,7 @@ import {
   MESA_CLASSIFICATION_OPTIONS,
   MESA_PAGE_SIZE,
   mesaHref,
-  mesaOperationalReadModelInput,
-  mesaReadModelInput,
+  mesaPageReadModelInput,
   parseMesaQuery,
 } from "../../app/admin/editorial/redacao-automatica/mesa/_mesa-query";
 
@@ -37,16 +36,17 @@ function validQuery(
   return parsed.value;
 }
 
-test("Mesa uses operational read-model for sources and not legacy desk read-model", () => {
+test("Mesa uses the server-paged read-model and not either global desk read-model", () => {
   assert.equal(existsSync(MESA_PAGE), true);
   assert.equal(existsSync(MESA_CSS), true);
   const page = source(MESA_PAGE);
   assert.match(
     page,
-    /loadOperationalDeskReadModel\(\{[\s\S]*?\.\.\.mesaOperationalReadModelInput\(query\)/,
+    /loadMesaPageReadModel\(mesaPageReadModelInput\(query\)\)/,
   );
   assert.match(page, /MesaSelectionProvider/);
   assert.doesNotMatch(page, /loadEditorialDeskReadModel/);
+  assert.doesNotMatch(page, /loadOperationalDeskReadModel/);
   assert.match(page, /export const dynamic = "force-dynamic"/);
 });
 
@@ -54,9 +54,9 @@ test("Mesa mostra NOVAS por encaminhar e publicado apenas em Temas/Dossiês", ()
   const page = source(MESA_PAGE);
   assert.match(page, /sourceIsUnassigned/);
   assert.match(page, /MesaOrganizationPanel/);
-  assert.match(page, /MesaSourceWindow/);
+  assert.match(page, /MesaLooseSourcesPanel/);
   assert.doesNotMatch(page, /title="PUBLICADAS"/);
-  assert.doesNotMatch(page, /offset: \(query\.page - 1\) \* 24/);
+  assert.match(page, /sourceResult\.value\.page\.pagination\.hasNextPage/);
 });
 
 test("fixture visual is development-only, locally rendered and isolated from writers", () => {
@@ -112,7 +112,7 @@ test("invalid request is distinguished from empty dataset", () => {
 test("tema is not a new source state and does not alter transversal filter semantics", () => {
   const query = validQuery({ tab: "temas", classification: "unclassified" });
   assert.equal(query.tab, "temas");
-  assert.deepEqual(mesaReadModelInput(query).classification, { mode: "unclassified" });
+  assert.deepEqual(mesaPageReadModelInput(query).classification, { mode: "unclassified" });
   assert.match(source(MESA_PAGE), /MesaSelectionTray/);
   assert.doesNotMatch(source(MESA_PAGE), /classificationKey:\s*["']unclassified["']/);
 });
@@ -162,13 +162,11 @@ test("pagination keeps tab + classification + extra filters", () => {
   assert.equal(href.searchParams.get("matchdayId"), query.matchdayId);
   assert.equal(href.searchParams.get("themeStatus"), "archived");
 
-  const input = mesaReadModelInput(query);
-  assert.equal(input.publicadas?.offset, MESA_PAGE_SIZE);
-  assert.equal(input.novas?.offset, 0);
-  assert.equal(input.temas?.offset, 0);
-  const operationalInput = mesaOperationalReadModelInput(query);
-  assert.equal(operationalInput.publicadas?.offset, MESA_PAGE_SIZE);
-  assert.equal(operationalInput.novas?.offset, 0);
+  const input = mesaPageReadModelInput(query);
+  assert.equal(input.lifecycle, "published");
+  assert.equal(input.pagination.limit, MESA_PAGE_SIZE);
+  assert.equal(input.pagination.offset, MESA_PAGE_SIZE);
+  assert.equal(input.sourceCode, "record");
 });
 
 test("Mesa remains server-side read and mutations stay in dedicated APIs", () => {
