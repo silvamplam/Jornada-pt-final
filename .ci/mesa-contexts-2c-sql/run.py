@@ -99,7 +99,7 @@ select pg_catalog.jsonb_build_object(
   'functions', (
     select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
       p.oid::regprocedure::text || '|' || pg_catalog.pg_get_userbyid(p.proowner)
-      || '|' || p.prosecdef::text || '|' || p.provolatile || '|'
+      || '|' || p.prosecdef::text || '|' || p.provolatile::text || '|'
       || pg_catalog.coalesce(p.proconfig::text, '') || '|'
       || pg_catalog.coalesce(p.proacl::text, '') || '|'
       || pg_catalog.pg_get_functiondef(p.oid), E'\n' order by p.oid::regprocedure::text
@@ -118,11 +118,11 @@ select pg_catalog.jsonb_build_object(
   ),
   'relations', (
     select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
-      c.oid::regclass::text || '|' || c.relkind || '|'
+      c.oid::regclass::text || '|' || c.relkind::text || '|'
       || pg_catalog.pg_get_userbyid(c.relowner) || '|'
       || pg_catalog.coalesce(c.relacl::text, '') || '|'
       || c.relrowsecurity::text || '|' || c.relforcerowsecurity::text
-      || '|' || c.relreplident, E'\n' order by c.oid::regclass::text
+      || '|' || c.relreplident::text, E'\n' order by c.oid::regclass::text
     ), ''))
     from pg_catalog.pg_class c
     join pg_catalog.pg_namespace n on n.oid = c.relnamespace
@@ -178,7 +178,7 @@ select pg_catalog.jsonb_build_object(
   ),
   'policies', (
     select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
-      p.polrelid::regclass::text || '|' || p.polname || '|' || p.polcmd
+      p.polrelid::regclass::text || '|' || p.polname || '|' || p.polcmd::text
       || '|' || p.polpermissive::text || '|' || p.polroles::text
       || '|' || pg_catalog.coalesce(pg_catalog.pg_get_expr(p.polqual, p.polrelid), '')
       || '|' || pg_catalog.coalesce(pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid), ''),
