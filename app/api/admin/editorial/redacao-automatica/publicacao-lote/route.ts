@@ -8,6 +8,7 @@ import {
   updateEditorialArticle,
 } from "@/lib/editorial-article-service";
 import {
+  ensurePublishedArticlesInLatestBatch,
   ensurePublishedArticleInLatest,
   EditorialMatchdayNewsFlowError,
   finalizePublishedArticlesInLatestBatch,
@@ -34,9 +35,15 @@ import {
   type EditorialBatchUpdateTarget,
 } from "@/lib/redacao-automatica/editorial-batch-update-target";
 import {
+  parseEditorialBatchTransferSourcePackage,
+  type EditorialBatchTransferSourcePackage,
+} from "@/lib/redacao-automatica/editorial-batch-transfer";
+import {
   validateEditorialMesaOutputProvenance,
   validateEditorialMesaSingleOutputProvenance,
+  validateEditorialThemeContinuityProvenance,
 } from "@/lib/redacao-automatica/editorial-mesa-provenance";
+import { finalizeThemeContinuity } from "@/lib/redacao-automatica/newsroom-theme-continuity";
 
 const MAX_BATCH_ARTICLES = 30;
 const OFFICIAL_BATCH_KEY = /^\d{2}$/;
@@ -64,6 +71,7 @@ type BatchPublicationPayload = Readonly<{
   confirmedUpdates?: unknown;
   publicationMode?: unknown;
   updateArticleId?: unknown;
+  imageUrlsByOutputId?: unknown;
 }>;
 
 type ExistingArticleRow = Readonly<{
@@ -101,6 +109,12 @@ type ReconcileArticleRow = ExistingArticleRow & Readonly<{
   image_caption: string | null;
 }>;
 
+type ExistingMesaPublicationRow = Readonly<{
+  article_plan_id: string;
+  package_id: string;
+  editorial_article_id: string;
+}>;
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function cleanText(value: unknown) {
@@ -120,6 +134,45 @@ function parseSourcePackage(value: unknown): SourcePackagePayload | null {
   };
 
   return isEditorialSourcePackageLocation(sourcePackage) ? sourcePackage : null;
+}
+
+function parseTransferSourcePackage(value: unknown): EditorialBatchTransferSourcePackage | null {
+  try {
+    return parseEditorialBatchTransferSourcePackage(JSON.stringify(value));
+  } catch {
+    return null;
+  }
+}
+
+function parseContinuityBatchArticles(value: unknown): readonly BatchArticlePayload[] | null {
+  if (!Array.isArray(value) || value.length > MAX_BATCH_ARTICLES) return null;
+  const articles = value.map((item) => parseArticle(item));
+  if (
+    articles.some((article) => !article?.outputId)
+    || new Set(articles.map((article) => article!.outputId)).size !== articles.length
+  ) return null;
+  return articles as BatchArticlePayload[];
+}
+
+function parseImageUrlsByOutputId(value: unknown): ReadonlyMap<string, string | null> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const result = new Map<string, string | null>();
+  for (const [rawOutputId, rawUrl] of Object.entries(value as Record<string, unknown>)) {
+    const outputId = cleanText(rawOutputId).toLowerCase();
+    if (!UUID_PATTERN.test(outputId) || result.has(outputId)) return null;
+    if (rawUrl === null || rawUrl === "") {
+      result.set(outputId, null);
+      continue;
+    }
+    try {
+      const url = new URL(cleanText(rawUrl));
+      if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+      result.set(outputId, url.toString());
+    } catch {
+      return null;
+    }
+  }
+  return result;
 }
 
 async function markSourcePackageUsed(
@@ -408,6 +461,224 @@ function sourcePackagePublishedAtForArticle(
     }
   }
   return latest;
+}
+
+type PreparedContinuityPublicationItem = Readonly<{
+  key: string;
+  slot: string;
+  outputId: string;
+  article: BatchArticlePayload;
+  slug: string;
+  articleId: string;
+  matchdayId: string;
+  publishedAt: string;
+  imageUrl: string | null;
+  mode: "create" | "update" | "resume";
+  sourceIds: readonly string[];
+}>;
+
+async function prepareThemeContinuityPublication(
+  payload: BatchPublicationPayload,
+  requireImages: boolean,
+) {
+  const author = cleanText(payload.author);
+  const transfer = parseTransferSourcePackage(payload.sourcePackage);
+  const articles = parseContinuityBatchArticles(payload.articles);
+  const requestedMatchdayId = cleanText(payload.matchdayId).toLowerCase();
+  const imageUrls = requireImages
+    ? parseImageUrlsByOutputId(payload.imageUrlsByOutputId)
+    : new Map<string, string | null>();
+  if (
+    !author || !transfer?.themeContinuity || !transfer.continuityResolution
+    || !articles || !imageUrls
+  ) throw new Error("theme-continuity-publication-input-invalid");
+
+  const location: SourcePackagePayload = {
+    year: transfer.year,
+    month: transfer.month,
+    packageId: transfer.packageId,
+  };
+  const sourceContext = await sourcePublishedAtByArticle(location);
+  const frozen = transfer.themeContinuity;
+  const manifestContinuity = sourceContext.package.themeContinuity;
+  if (
+    !manifestContinuity
+    || manifestContinuity.themeId !== frozen.themeId
+    || manifestContinuity.authorityFingerprint !== frozen.authorityFingerprint
+    || manifestContinuity.slots.length !== frozen.slots.length
+    || manifestContinuity.slots.some((slot, index) => (
+      slot.slot !== frozen.slots[index]?.slot
+      || slot.outputId !== frozen.slots[index]?.outputId
+      || slot.targetEditorialArticleId !== frozen.slots[index]?.targetEditorialArticleId
+    ))
+  ) throw new Error("theme-continuity-publication-contract-invalid");
+
+  const validation = validateEditorialThemeContinuityProvenance(
+    sourceContext.package,
+    articles,
+    transfer.continuityResolution.noChangeOutputIds,
+  );
+  if (!validation.ok) throw new Error(validation.code);
+
+  const dossierIds = new Set(sourceContext.package.outputs.map((output) => (
+    output.articlePlan?.dossierId ?? ""
+  )));
+  if (dossierIds.size !== 1 || !UUID_PATTERN.test([...dossierIds][0])) {
+    throw new Error("theme-continuity-publication-contract-invalid");
+  }
+  const dossierId = [...dossierIds][0];
+  const publications = await fetchSupabaseAdminTable<ExistingMesaPublicationRow>(
+    "newsroom_mesa_output_publications"
+    + "?select=article_plan_id,package_id,editorial_article_id"
+    + `&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=30`,
+  );
+  const slotByOutputId = new Map(frozen.slots.map((slot) => [slot.outputId, slot]));
+  const noChange = new Set(transfer.continuityResolution.noChangeOutputIds);
+  if (publications.some((publication) => (
+    !slotByOutputId.has(publication.article_plan_id)
+    || noChange.has(publication.article_plan_id)
+    || publication.package_id !== transfer.packageId
+    || !UUID_PATTERN.test(publication.editorial_article_id)
+  ))) throw new Error("theme-continuity-publication-state-conflict");
+  const publicationByOutputId = new Map(publications.map((publication) => (
+    [publication.article_plan_id, publication]
+  )));
+
+  const targetIds = frozen.slots.flatMap((slot) => (
+    slot.kind === "existing" && slot.targetEditorialArticleId
+      ? [slot.targetEditorialArticleId]
+      : []
+  ));
+  const persistedArticleIds = publications.map((publication) => publication.editorial_article_id);
+  const articleIds = [...new Set([...targetIds, ...persistedArticleIds])];
+  const existingRows = articleIds.length > 0
+    ? await fetchSupabaseAdminTable<ExistingArticleRow>(
+        "editorial_articles"
+        + "?select=id,slug,label,title,subtitle,body,image_url,image_caption,author,published_at,matchday_id,status"
+        + `&id=in.(${articleIds.map(encodeURIComponent).join(",")})&limit=${articleIds.length}`,
+      )
+    : [];
+  const existingById = new Map(existingRows.map((row) => [row.id, row]));
+  for (const slot of frozen.slots) {
+    if (slot.kind !== "existing" || !slot.targetEditorialArticleId) continue;
+    const target = existingById.get(slot.targetEditorialArticleId);
+    if (
+      !target || target.status !== "published"
+      || target.slug !== slot.targetSlug
+      || target.matchday_id !== slot.targetMatchdayId
+    ) throw new Error(`theme-continuity-target-invalid:${slot.slot}`);
+  }
+
+  if (frozen.newArticleCount > 0) {
+    if (!UUID_PATTERN.test(requestedMatchdayId)) {
+      throw new Error("theme-continuity-new-matchday-invalid");
+    }
+    const context = await resolveCanonicalArticleContext({
+      competition_id: null,
+      season_id: null,
+      matchday_id: requestedMatchdayId,
+    });
+    if (context.matchday_id !== requestedMatchdayId) {
+      throw new Error("theme-continuity-new-matchday-invalid");
+    }
+  }
+
+  const articleByOutputId = new Map(articles.map((article) => [article.outputId!, article]));
+  const pendingNewSlugs = frozen.slots.flatMap((slot) => {
+    if (slot.kind !== "new" || publicationByOutputId.has(slot.outputId)) return [];
+    const article = articleByOutputId.get(slot.outputId);
+    const slug = article ? normalizeEditorialArticleSlug(article.title) : "";
+    if (!slug) throw new Error(`theme-continuity-new-slug-invalid:${slot.slot}`);
+    return [slug];
+  });
+  if (new Set(pendingNewSlugs).size !== pendingNewSlugs.length) {
+    throw new Error("theme-continuity-new-slug-duplicate");
+  }
+  if (pendingNewSlugs.length > 0) {
+    const collisions = await fetchSupabaseAdminTable<Pick<ExistingArticleRow, "id" | "slug">>(
+      "editorial_articles?select=id,slug"
+      + `&slug=in.(${pendingNewSlugs.map(encodeURIComponent).join(",")})`
+      + `&limit=${pendingNewSlugs.length}`,
+    );
+    if (collisions.length > 0) throw new Error("theme-continuity-new-slug-conflict");
+  }
+
+  const prepared: PreparedContinuityPublicationItem[] = [];
+  for (const slot of frozen.slots) {
+    if (noChange.has(slot.outputId)) continue;
+    const article = articleByOutputId.get(slot.outputId);
+    if (!article) throw new Error(`theme-continuity-output-missing:${slot.slot}`);
+    const persisted = publicationByOutputId.get(slot.outputId);
+    const output = sourcePackageOutputForArticle(sourceContext, article);
+    if (!output?.articlePlan || output.articlePlan.articlePlanId !== slot.outputId) {
+      throw new Error(`theme-continuity-output-invalid:${slot.slot}`);
+    }
+    const target = slot.kind === "existing" && slot.targetEditorialArticleId
+      ? existingById.get(slot.targetEditorialArticleId) ?? null
+      : null;
+    const persistedArticle = persisted
+      ? existingById.get(persisted.editorial_article_id) ?? null
+      : null;
+    const slug = slot.kind === "existing"
+      ? slot.targetSlug ?? ""
+      : persistedArticle?.slug ?? normalizeEditorialArticleSlug(article.title);
+    const articleId = slot.kind === "existing"
+      ? slot.targetEditorialArticleId ?? ""
+      : persisted?.editorial_article_id ?? slot.outputId;
+    const matchdayId = slot.kind === "existing"
+      ? slot.targetMatchdayId ?? ""
+      : persistedArticle?.matchday_id ?? requestedMatchdayId;
+    const publishedAt = slot.kind === "existing"
+      ? parsePublishedAt(target?.published_at)
+      : persistedArticle
+        ? parsePublishedAt(persistedArticle.published_at)
+        : sourcePackagePublishedAtForArticle(sourceContext, article);
+    const packageImage = transfer.outputImages?.find((image) => (
+      image.position === output.position
+    ))?.imageUrl ?? null;
+    const imageUrl = persistedArticle?.image_url
+      ?? imageUrls.get(slot.outputId)
+      ?? packageImage
+      ?? target?.image_url
+      ?? null;
+    if (
+      !UUID_PATTERN.test(articleId) || !UUID_PATTERN.test(matchdayId)
+      || !slug || !publishedAt || (requireImages && slot.kind === "new" && !imageUrl)
+    ) throw new Error(`theme-continuity-output-invalid:${slot.slot}`);
+    if (
+      persisted
+      && (!persistedArticle || !existingArticleMatches(
+        persistedArticle,
+        article,
+        author,
+        matchdayId,
+        publishedAt,
+        slug,
+      ))
+    ) throw new Error(`theme-continuity-retry-conflict:${slot.slot}`);
+    prepared.push({
+      key: article.key,
+      slot: slot.slot,
+      outputId: slot.outputId,
+      article,
+      slug,
+      articleId,
+      matchdayId,
+      publishedAt,
+      imageUrl,
+      mode: persisted ? "resume" : slot.kind === "existing" ? "update" : "create",
+      sourceIds: article.sourceIds,
+    });
+  }
+
+  return {
+    author,
+    transfer,
+    sourceContext,
+    dossierId,
+    noChangeOutputIds: transfer.continuityResolution.noChangeOutputIds,
+    prepared,
+  };
 }
 
 async function readExistingArticleBySlug(slug: string) {
@@ -743,6 +1014,39 @@ function publicationPlan(
 async function preflightPublication(payload: BatchPublicationPayload) {
   const matchdayId = cleanText(payload.matchdayId);
   const author = cleanText(payload.author);
+  const transfer = payload.sourcePackage === undefined
+    ? null
+    : parseTransferSourcePackage(payload.sourcePackage);
+  if (transfer?.themeContinuity) {
+    try {
+      const continuity = await prepareThemeContinuityPublication(payload, false);
+      return NextResponse.json({
+        ok: true,
+        items: continuity.prepared.map((item) => ({
+          key: item.key,
+          slug: item.slug,
+          mode: item.mode,
+          ...(item.mode !== "create" ? { articleId: item.articleId } : {}),
+          updateTargetFromDossier: item.mode === "update",
+          publishedAt: item.publishedAt,
+          slot: item.slot,
+        })),
+        continuity: {
+          noChangeCount: continuity.noChangeOutputIds.length,
+          materializedCount: continuity.prepared.length,
+        },
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "theme-continuity-preflight-failed";
+      const conflict = detail.includes("conflict") || detail.includes("invalid")
+        || detail.startsWith("mesa-v2-");
+      return jsonError(
+        "theme-continuity-preflight-failed",
+        conflict ? 409 : 502,
+        detail,
+      );
+    }
+  }
   const articles = parseBatchArticles(payload.articles);
   const sourcePackage =
     payload.sourcePackage === undefined
@@ -1427,6 +1731,151 @@ async function publishItem(payload: BatchPublicationPayload) {
 }
 
 
+async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
+  let continuity: Awaited<ReturnType<typeof prepareThemeContinuityPublication>>;
+  try {
+    continuity = await prepareThemeContinuityPublication(payload, true);
+  } catch (error) {
+    return jsonError(
+      "theme-continuity-publication-invalid",
+      409,
+      error instanceof Error ? error.message : "theme-continuity-publication-invalid",
+    );
+  }
+
+  const completed: Array<Readonly<{
+    key: string;
+    slot: string;
+    outputId: string;
+    articleId: string;
+    slug: string;
+    action: "created" | "updated" | "reused";
+  }>> = [];
+  const latestArticles: Array<{
+    id: string;
+    slug: string;
+    label: string;
+    title: string;
+    subtitle: string;
+    body: string;
+    image_url: string | null;
+    author: string;
+    published_at: string;
+    matchday_id: string;
+    status: "published";
+  }> = [];
+
+  for (const item of continuity.prepared) {
+    if (item.mode === "resume") {
+      completed.push({
+        key: item.key,
+        slot: item.slot,
+        outputId: item.outputId,
+        articleId: item.articleId,
+        slug: item.slug,
+        action: "reused",
+      });
+    } else {
+      const result = await publishEditorialMesaOutput({
+        dossierId: continuity.dossierId,
+        outputId: item.outputId,
+        packageId: continuity.transfer.packageId,
+        dossierSourceIds: item.sourceIds,
+        article: {
+          id: item.articleId,
+          slug: item.slug,
+          label: item.article.label,
+          title: item.article.title,
+          subtitle: item.article.subtitle,
+          body: item.article.body,
+          imageUrl: item.imageUrl,
+          author: continuity.author,
+          publishedAt: item.publishedAt,
+          matchdayId: item.matchdayId,
+          mode: item.mode,
+        },
+      });
+      if (!result.ok) {
+        return NextResponse.json({
+          ok: false,
+          error: result.code,
+          detail: "A publicação parou no primeiro output que falhou; nenhum output posterior foi tentado.",
+          partialPersistence: completed.length > 0,
+          failedOutputId: item.outputId,
+          failedSlot: item.slot,
+          completed,
+        }, { status: result.code.includes("conflict") || result.code.includes("invalid") ? 409 : 502 });
+      }
+      completed.push({
+        key: item.key,
+        slot: item.slot,
+        outputId: item.outputId,
+        articleId: result.articleId,
+        slug: result.slug,
+        action: result.action,
+      });
+    }
+    latestArticles.push({
+      id: item.articleId,
+      slug: item.slug,
+      label: item.article.label,
+      title: item.article.title,
+      subtitle: item.article.subtitle,
+      body: item.article.body,
+      image_url: item.imageUrl,
+      author: continuity.author,
+      published_at: item.publishedAt,
+      matchday_id: item.matchdayId,
+      status: "published",
+    });
+  }
+
+  try {
+    await ensurePublishedArticlesInLatestBatch(latestArticles);
+  } catch (error) {
+    return NextResponse.json({
+      ok: false,
+      error: "theme-continuity-latest-failed",
+      detail: safeDetail(error instanceof Error ? error.message : "Falhou a projeção batch em Últimas."),
+      partialPersistence: completed.length > 0,
+      completed,
+    }, { status: 502 });
+  }
+
+  try {
+    const finalized = await finalizeThemeContinuity({
+      dossierId: continuity.dossierId,
+      packageId: continuity.transfer.packageId,
+      noChangeOutputIds: continuity.noChangeOutputIds,
+    });
+    const result = finalized[0];
+    if (
+      !result
+      || result.updated_count + result.new_count + result.no_change_count
+        !== continuity.transfer.themeContinuity!.slots.length
+    ) throw new Error("theme-continuity-finalization-result-invalid");
+    return NextResponse.json({
+      ok: true,
+      finalized: true,
+      finalizationAction: result.finalization_action,
+      publicationEventId: result.publication_event_id,
+      updatedCount: result.updated_count,
+      newCount: result.new_count,
+      noChangeCount: result.no_change_count,
+      completed,
+    });
+  } catch (error) {
+    return NextResponse.json({
+      ok: false,
+      error: "theme-continuity-finalization-failed",
+      detail: safeDetail(error instanceof Error ? error.message : "Falhou a consolidação da continuidade."),
+      partialPersistence: completed.length > 0,
+      completed,
+    }, { status: 502 });
+  }
+}
+
+
 async function reconcileSourcePackageTimes(payload: BatchPublicationPayload) {
   const sourcePackage = parseSourcePackage(payload.sourcePackage);
   if (!sourcePackage) return jsonError("invalid-source-package");
@@ -1573,6 +2022,9 @@ export async function POST(request: Request) {
   }
   if (action === "publish_item") {
     return publishItem(payload);
+  }
+  if (action === "publish_theme_continuity") {
+    return publishThemeContinuityBatch(payload);
   }
 
   if (action === "finalize_batch") {

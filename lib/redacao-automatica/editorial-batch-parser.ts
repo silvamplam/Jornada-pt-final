@@ -3,6 +3,8 @@ export const EDITORIAL_BATCH_ARTICLE_END_MARKER = "[/JORNADA_ARTIGO_V1]";
 export const EDITORIAL_BATCH_MAX_ARTICLES = 30;
 export const EDITORIAL_BATCH_PROVENANCE_OUTPUT_HEADING = "OUTPUT_ID";
 export const EDITORIAL_BATCH_PROVENANCE_SOURCES_HEADING = "FONTES_UTILIZADAS";
+export const THEME_CONTINUITY_START_MARKER = "[JORNADA_CONTINUIDADE_V1]";
+export const THEME_CONTINUITY_END_MARKER = "[/JORNADA_CONTINUIDADE_V1]";
 
 export type EditorialBatchArticleField = "label" | "title" | "subtitle" | "body";
 
@@ -67,6 +69,32 @@ export type EditorialBatchPreflight = Readonly<{
   valid: number;
   invalid: number;
   ready: boolean;
+}>;
+
+export type ThemeContinuityDecision = Readonly<{
+  slot: string;
+  decision: "UPDATE" | "SEM_ALTERAÇÃO" | "NEW";
+  outputId: string;
+  article: EditorialBatchArticle | null;
+}>;
+
+export type ThemeContinuityPreflight = Readonly<{
+  decisions: readonly ThemeContinuityDecision[];
+  articles: readonly EditorialBatchArticle[];
+  noChangeOutputIds: readonly string[];
+  issues: readonly EditorialBatchIssue[];
+  total: number;
+  valid: number;
+  invalid: number;
+  ready: boolean;
+}>;
+
+type ThemeContinuityParserContract = Readonly<{
+  slots: readonly Readonly<{
+    slot: string;
+    kind: "existing" | "new";
+    outputId: string;
+  }>[];
 }>;
 
 type CapturedArticleBlock = Readonly<{
@@ -670,4 +698,192 @@ export function preflightEditorialMesaV2ArticleBatch(
   }
 
   return preflightEditorialArticleBatchResult(parsed, additionalIssues);
+}
+
+type ContinuityCapturedBlock = Readonly<{ index: number; lines: readonly string[] }>;
+
+const CONTINUITY_HEADINGS = [
+  "SLOT",
+  "DECISAO",
+  "FONTES_UTILIZADAS",
+  "ANTETÍTULO",
+  "TÍTULO",
+  "PÓS-TÍTULO",
+  "CORPO",
+] as const;
+
+function captureContinuityBlocks(input: string) {
+  const blocks: ContinuityCapturedBlock[] = [];
+  const issues: EditorialBatchIssue[] = [];
+  let current: { index: number; lines: string[] } | null = null;
+  for (const line of normalizeLineEndings(input).split("\n")) {
+    const structural = line.trim();
+    if (!current) {
+      if (!structural) continue;
+      if (structural === THEME_CONTINUITY_START_MARKER) {
+        current = { index: blocks.length + 1, lines: [] };
+      } else {
+        issues.push(issue(
+          structural === THEME_CONTINUITY_END_MARKER ? "missing_open_marker" : "text_outside_blocks",
+          "A resposta de continuidade contém texto fora dos blocos permitidos.",
+        ));
+      }
+      continue;
+    }
+    if (structural === THEME_CONTINUITY_START_MARKER) {
+      issues.push(issue("nested_article_marker", "Existe um bloco de continuidade aninhado.", { index: current.index }));
+    } else if (structural === THEME_CONTINUITY_END_MARKER) {
+      blocks.push(current);
+      current = null;
+    } else {
+      current.lines.push(line);
+    }
+  }
+  if (current) {
+    issues.push(issue("missing_close_marker", "Um bloco de continuidade não foi fechado.", { index: current.index }));
+    blocks.push(current);
+  }
+  if (!blocks.length) issues.push(issue("no_articles", "Não foi encontrado nenhum bloco de continuidade."));
+  return { blocks, issues };
+}
+
+function continuityDecision(value: string): ThemeContinuityDecision["decision"] | null {
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "UPDATE" || normalized === "NEW") return normalized;
+  return normalized === "SEM_ALTERAÇÃO" || normalized === "SEM_ALTERACAO"
+    ? "SEM_ALTERAÇÃO"
+    : null;
+}
+
+export function preflightEditorialThemeContinuityBatch(
+  input: string,
+  contract: ThemeContinuityParserContract,
+  sourceIdsByOutput: Readonly<Record<string, readonly string[]>>,
+): ThemeContinuityPreflight {
+  const captured = captureContinuityBlocks(input);
+  const issues = [...captured.issues];
+  const expectedBySlot = new Map(contract.slots.map((slot) => [slot.slot, slot]));
+  const seenSlots = new Set<string>();
+  const decisions: ThemeContinuityDecision[] = [];
+
+  for (const block of captured.blocks) {
+    const values = new Map<string, string[]>();
+    const sequence: string[] = [];
+    let current: string | null = null;
+    let unexpected = false;
+    for (const line of block.lines) {
+      const structural = line.trim();
+      const heading = CONTINUITY_HEADINGS.includes(structural as typeof CONTINUITY_HEADINGS[number])
+        ? structural
+        : null;
+      if (heading) {
+        sequence.push(heading);
+        values.set(heading, values.get(heading) ?? []);
+        current = heading;
+      } else if (current) {
+        values.get(current)!.push(line);
+      } else if (structural) {
+        unexpected = true;
+      }
+    }
+    const slotName = withoutStructuralBoundaryLines(values.get("SLOT") ?? []).trim();
+    const decision = continuityDecision(withoutStructuralBoundaryLines(values.get("DECISAO") ?? []));
+    const expected = expectedBySlot.get(slotName);
+    const blockContext = { index: block.index, key: slotName || batchKey(block.index) };
+    if (unexpected || sequence.some((heading, index) => sequence.indexOf(heading) !== index)) {
+      issues.push(indexedIssue(blockContext, "unexpected_block_text", `O bloco ${blockContext.key} repete cabeçalhos ou contém texto inesperado.`));
+      continue;
+    }
+    if (!expected) {
+      issues.push(indexedIssue(blockContext, "unknown_output_id", `O SLOT ${slotName || "indicado"} não pertence a este ciclo.`));
+      continue;
+    }
+    if (seenSlots.has(slotName)) {
+      issues.push(indexedIssue(blockContext, "duplicate_output_id", `O SLOT ${slotName} foi repetido.`));
+      continue;
+    }
+    seenSlots.add(slotName);
+    if (!decision) {
+      issues.push(indexedIssue(blockContext, "unexpected_block_text", `O SLOT ${slotName} não tem uma DECISAO válida.`));
+      continue;
+    }
+    const compatible = expected.kind === "existing"
+      ? decision === "UPDATE" || decision === "SEM_ALTERAÇÃO"
+      : decision === "NEW";
+    if (!compatible) {
+      issues.push(indexedIssue(blockContext, "invalid_mesa_v2_contract", `A DECISAO ${decision} é incompatível com ${slotName}.`));
+      continue;
+    }
+
+    if (decision === "SEM_ALTERAÇÃO") {
+      if (sequence.join("|") !== "SLOT|DECISAO"
+        || withoutStructuralBoundaryLines(values.get("DECISAO") ?? []).trim().split(/\s+/u).length !== 1) {
+        issues.push(indexedIssue(blockContext, "unexpected_block_text", `${slotName} com SEM_ALTERAÇÃO não pode conter um artigo.`));
+        continue;
+      }
+      decisions.push({ slot: slotName, decision, outputId: expected.outputId, article: null });
+      continue;
+    }
+
+    if (sequence.join("|") !== CONTINUITY_HEADINGS.join("|")) {
+      issues.push(indexedIssue(blockContext, "wrong_field_order", `Os campos de ${slotName} não estão completos e na ordem obrigatória.`));
+      continue;
+    }
+    const sourceIds = parseSourceIds(values.get("FONTES_UTILIZADAS") ?? []);
+    const authorized = new Set(sourceIdsByOutput[expected.outputId] ?? []);
+    const label = withoutStructuralBoundaryLines(values.get("ANTETÍTULO") ?? []);
+    const title = withoutStructuralBoundaryLines(values.get("TÍTULO") ?? []);
+    const subtitle = withoutStructuralBoundaryLines(values.get("PÓS-TÍTULO") ?? []);
+    const body = withoutStructuralBoundaryLines(values.get("CORPO") ?? []);
+    if (
+      sourceIds.length < 1
+      || sourceIds.some((id) => !UUID_PATTERN.test(id) || !authorized.has(id))
+      || new Set(sourceIds).size !== sourceIds.length
+      || !label.trim() || !title.trim() || !subtitle.trim() || !body.trim()
+    ) {
+      issues.push(indexedIssue(blockContext, "unknown_source_id", `${slotName} tem conteúdo ou FONTES_UTILIZADAS inválidos.`));
+      continue;
+    }
+    const article: EditorialBatchArticle = {
+      index: block.index,
+      key: batchKey(block.index),
+      outputId: expected.outputId,
+      sourceIds,
+      label,
+      title,
+      subtitle,
+      body,
+    };
+    decisions.push({ slot: slotName, decision, outputId: expected.outputId, article });
+  }
+
+  const missing = contract.slots.filter((slot) => !seenSlots.has(slot.slot));
+  if (missing.length) {
+    issues.push(issue("missing_expected_output", `Faltam os slots: ${missing.map((slot) => slot.slot).join(", ")}.`));
+  }
+  if (captured.blocks.length !== contract.slots.length) {
+    issues.push(issue("missing_expected_output", "A resposta não contém exatamente uma vez todos os slots esperados."));
+  }
+  const materializedArticles = decisions.flatMap((decision) => decision.article ? [decision.article] : []);
+  const titles = new Set<string>();
+  for (const article of materializedArticles) {
+    const title = comparableTitle(article.title);
+    if (titles.has(title)) {
+      issues.push(indexedIssue(article, "duplicate_title", `O título do artigo ${article.key} está repetido.`, "title"));
+    }
+    titles.add(title);
+  }
+  const hasErrors = issues.some((candidate) => candidate.severity === "error");
+  return {
+    decisions,
+    articles: materializedArticles,
+    noChangeOutputIds: decisions.flatMap((decision) => (
+      decision.decision === "SEM_ALTERAÇÃO" ? [decision.outputId] : []
+    )),
+    issues,
+    total: captured.blocks.length,
+    valid: hasErrors ? 0 : decisions.length,
+    invalid: hasErrors ? Math.max(1, contract.slots.length - decisions.length) : 0,
+    ready: contract.slots.length > 0 && !hasErrors && decisions.length === contract.slots.length,
+  };
 }

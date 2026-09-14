@@ -24,6 +24,9 @@ import {
   saveEditorialDossierWorkspaceArticlePlanService,
   type SaveEditorialDossierWorkspaceArticlePlanInput,
 } from "@/lib/redacao-automatica/editorial-dossier-workspace-editor-service-internal";
+import {
+  parseThemeContinuityFrozenContract,
+} from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -176,12 +179,22 @@ export function deriveEditorialDossierWorkspacePlanInput(
   const productionContext = workspace.contextMode === "contexts"
     ? workspace.productionContexts.find((item) => item.id === output.productionContextId) ?? null
     : null;
+  const continuity = parseThemeContinuityFrozenContract(context?.selectionPayload);
+  const continuitySlot = continuity?.slots[output.priority - 1] ?? null;
   if (
     (workspace.contextMode === "contexts" && !productionContext)
     || (workspace.contextMode === "historical" && output.productionContextId !== null)
     || (output.destination === "new" && output.updateTargetEditorialArticleId !== null)
     || (output.destination === "update" && !output.updateTargetEditorialArticleId)
     || (output.destination === "new" && output.imageChoice.mode === "preserve_published")
+    || Boolean(continuity) !== Boolean(continuitySlot)
+    || (continuity && (
+      continuity.slots.length !== production.dossier.outputCount
+      || output.articlePlanId !== continuitySlot?.outputId
+      || output.productionContextId !== continuitySlot.productionContextId
+      || output.destination !== (continuitySlot.kind === "existing" ? "update" : "new")
+      || output.updateTargetEditorialArticleId !== continuitySlot.targetEditorialArticleId
+    ))
   ) return null;
 
   const includedById = new Map(includedSources.map((source) => [source.id, source]));

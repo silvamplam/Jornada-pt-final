@@ -8,6 +8,9 @@ import {
   editorialMesaWorkspaceInitialOutputCount,
   editorialMesaWorkspaceVisualSourceOrder,
 } from "@/lib/redacao-automatica/editorial-mesa-workspace-defaults";
+import {
+  parseThemeContinuityFrozenContract,
+} from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
 import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
 
 import {
@@ -52,6 +55,7 @@ export default async function ProductionWorkspacePage({
     organizationReadable,
   } = productionResult.value;
   const context = production.mesaContext;
+  const themeContinuity = parseThemeContinuityFrozenContract(context?.selectionPayload);
   if (context?.workspaceState && context.workspaceState !== "active") notFound();
   const sourceNames = new Map(
     listRegisteredSources().map((source) => [source.code, source.name]),
@@ -125,6 +129,7 @@ export default async function ProductionWorkspacePage({
             context?.materialRefs,
             dossier.sources.filter((source) => source.included).map((source) => source.newsroomArticleId),
           )}
+          themeContinuity={themeContinuity}
         />
       </div>
     </main>

@@ -32,6 +32,10 @@ import {
   preflightEditorialArticleBatchForSourcePackage,
   type EditorialBatchTransferSourcePackage,
 } from "@/lib/redacao-automatica/editorial-batch-transfer";
+import type {
+  ThemeContinuityFrozenContract,
+  ThemeContinuitySlot,
+} from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
 
 import styles from "./workspace.module.css";
 
@@ -84,6 +88,10 @@ type CommandResponse = Readonly<{
   restoredThemeMembershipCount?: number;
   outputCount?: number;
   image?: RegisteredUploadImage;
+  continuityResolution?: Readonly<{
+    noChangeOutputIds: readonly string[];
+    materializedOutputIds: readonly string[];
+  }>;
 }>;
 
 type PreparedSourcePackage = Readonly<{
@@ -374,10 +382,12 @@ function OutputIdentity({
   position,
   imageUrl,
   startingPoint,
+  slot,
 }: Readonly<{
   position: number;
   imageUrl: string | null;
   startingPoint: WorkspaceSource | null;
+  slot: ThemeContinuitySlot | null;
 }>) {
   return (
     <div className={styles.outputIdentity}>
@@ -385,7 +395,7 @@ function OutputIdentity({
         <img src={imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
       ) : <span className={styles.outputFallback} aria-hidden="true">J</span>}
       <span>
-        <strong>OUTPUT {String(position).padStart(2, "0")}</strong>
+        <strong>{slot?.slot ?? `OUTPUT ${String(position).padStart(2, "0")}`}</strong>
         <small title={startingPoint ? `${startingPoint.sourceLabel} · ${startingPoint.title}` : undefined}>
           {startingPoint
             ? `Ponto de partida visual · ${startingPoint.title}`
@@ -409,6 +419,7 @@ function PlanEditor({
   onProductionContextChange,
   images,
   saving,
+  continuitySlot,
 }: Readonly<{
   dossier: WorkspaceDossier;
   plan: EditorialDossierProductionArticlePlan | null;
@@ -422,11 +433,14 @@ function PlanEditor({
   onProductionContextChange: (productionContextId: string) => void;
   images: readonly EditorialDossierImage[];
   saving: boolean;
+  continuitySlot: ThemeContinuitySlot | null;
 }>) {
   const [destination, setDestination] = useState<"new" | "update">(
-    plan?.destination ?? "new",
+    continuitySlot?.kind === "existing" ? "update" : continuitySlot ? "new" : plan?.destination ?? "new",
   );
-  const [targetId, setTargetId] = useState(plan?.updateTargetEditorialArticleId ?? "");
+  const [targetId, setTargetId] = useState(
+    continuitySlot?.targetEditorialArticleId ?? plan?.updateTargetEditorialArticleId ?? "",
+  );
   const selectedProductionContext = productionContexts.find((context) => context.id === productionContextId) ?? null;
   const automaticImageId = plan?.editorialArticleId
     ? null
@@ -450,6 +464,13 @@ function PlanEditor({
   const selectedTarget = contexts.find(
     (context) => context.editorialArticleId === targetId,
   ) ?? null;
+  const frozenTarget = continuitySlot?.kind === "existing"
+    ? {
+        editorialArticleId: continuitySlot.targetEditorialArticleId!,
+        title: continuitySlot.targetTitle ?? continuitySlot.targetEditorialArticleId,
+        slug: continuitySlot.targetSlug ?? "",
+      }
+    : null;
   const selectedImageUrl = selectedImage.startsWith("dossier_image:")
     ? images.find((image) => image.id === selectedImage.slice("dossier_image:".length))?.frozenUrl ?? null
     : selectedImage === "preserve_published"
@@ -468,6 +489,7 @@ function PlanEditor({
           position={position}
           imageUrl={selectedImageUrl}
           startingPoint={visualStartingPoint}
+          slot={continuitySlot}
         />
         <div className={styles.materializedState}>
           <span>Artigo já materializado · {plan.destination === "update" ? "UPDATE" : "NOVO"}</span>
@@ -490,6 +512,7 @@ function PlanEditor({
         position={position}
         imageUrl={selectedImageUrl}
         startingPoint={visualStartingPoint}
+        slot={continuitySlot}
       />
 
       <div className={styles.planEditor}>
@@ -512,7 +535,7 @@ function PlanEditor({
               name={planField(cardKey, "context_id")}
               value={productionContextId}
               required
-              disabled={saving}
+              disabled={saving || Boolean(continuitySlot)}
               onChange={(event) => onProductionContextChange(event.currentTarget.value)}
             >
               {productionContexts.map((context) => (
@@ -551,7 +574,7 @@ function PlanEditor({
             <select
               name={planField(cardKey, "destination_control")}
               value={destination}
-              disabled={saving}
+              disabled={saving || Boolean(continuitySlot)}
               onChange={(event) => setDestination(
                 event.currentTarget.value === "update" ? "update" : "new",
               )}
@@ -566,7 +589,16 @@ function PlanEditor({
         <input type="hidden" name={planField(cardKey, "target_id")} value={targetId} />
         <input type="hidden" name={planField(cardKey, "image_choice")} value={selectedImage} />
 
-        {destination === "new" && eligibleTargets.length > 0 ? (
+        {continuitySlot ? (
+          <p className={styles.updateHint} data-continuity-slot={continuitySlot.kind}>
+            <strong>{continuitySlot.slot}</strong>
+            {continuitySlot.kind === "existing"
+              ? ` · UPDATE fixo para ${frozenTarget?.title}${frozenTarget?.slug ? ` · /noticias/${frozenTarget.slug}` : ""}`
+              : " · destino NEW fixo pelo contrato de continuidade"}
+          </p>
+        ) : null}
+
+        {!continuitySlot && destination === "new" && eligibleTargets.length > 0 ? (
           <p className={styles.updateHint}>
             {eligibleTargets.length === 1
               ? "Há 1 artigo publicado elegível para UPDATE."
@@ -588,9 +620,14 @@ function PlanEditor({
                 value={targetId}
                 onChange={(event) => setTargetId(event.currentTarget.value)}
                 required
-                disabled={saving}
+                disabled={saving || continuitySlot?.kind === "existing"}
               >
                 <option value="">Escolher artigo publicado</option>
+                {frozenTarget && !eligibleTargets.some((context) => (
+                  context.editorialArticleId === frozenTarget.editorialArticleId
+                )) ? (
+                  <option value={frozenTarget.editorialArticleId}>{frozenTarget.title}</option>
+                ) : null}
                 {eligibleTargets.map((context) => (
                   <option key={context.editorialArticleId} value={context.editorialArticleId}>
                     {context.title}
@@ -802,10 +839,21 @@ function ProductionActions({
           || "A proveniência da resposta não corresponde a esta produção.",
         );
       }
+      const transferSourcePackage = value.sourcePackage.themeContinuity
+        ? validation.continuityResolution
+          ? {
+              ...value.sourcePackage,
+              continuityResolution: validation.continuityResolution,
+            }
+          : null
+        : value.sourcePackage;
+      if (!transferSourcePackage) {
+        throw new Error("A resposta não resolveu integralmente os slots de continuidade.");
+      }
       window.sessionStorage.setItem(EDITORIAL_BATCH_TRANSFER_STORAGE_KEY, text);
       window.sessionStorage.setItem(
         EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
-        JSON.stringify(value.sourcePackage),
+        JSON.stringify(transferSourcePackage),
       );
       setStatus("Resposta reconhecida. A abrir Publicação em lote…");
       window.location.assign("/admin/editorial/redacao-automatica/publicacao-lote");
@@ -940,6 +988,7 @@ export function MesaProductionWorkspaceClient({
   productionContexts,
   planContexts,
   visualSourceOrder,
+  themeContinuity,
 }: Readonly<{
   dossier: WorkspaceDossier;
   sources: readonly WorkspaceSource[];
@@ -949,6 +998,7 @@ export function MesaProductionWorkspaceClient({
   productionContexts: readonly EditorialMesaProductionContext[];
   planContexts: readonly EditorialMesaArticlePlanContext[];
   visualSourceOrder: readonly string[];
+  themeContinuity: ThemeContinuityFrozenContract | null;
 }>) {
   const [suppressedPlanIds, setSuppressedPlanIds] = useState<readonly string[]>([]);
   const suppressedPlanIdSet = new Set(suppressedPlanIds);
@@ -960,7 +1010,7 @@ export function MesaProductionWorkspaceClient({
   )));
   const activePlanCount = activePlans.length;
   const materializedPlanCount = activePlans.filter((plan) => plan.editorialArticleId).length;
-  const initialOutputCount = Math.min(
+  const initialOutputCount = themeContinuity?.slots.length ?? Math.min(
     MAX_OUTPUT_COUNT,
     Math.max(
       1,
@@ -1206,7 +1256,7 @@ export function MesaProductionWorkspaceClient({
             min={Math.max(1, materializedPlanCount)}
             max={MAX_OUTPUT_COUNT}
             value={outputCount}
-            disabled={savingProduction}
+            disabled={savingProduction || Boolean(themeContinuity)}
             onChange={(event) => {
               const next = Math.min(
                 MAX_OUTPUT_COUNT,
@@ -1220,6 +1270,16 @@ export function MesaProductionWorkspaceClient({
           />
           <span>artigos no total</span>
         </label>
+        {themeContinuity ? (
+          <div className={styles.continuitySummary}>
+            <strong>Contrato de continuidade congelado</strong>
+            <span>
+              {themeContinuity.publishedArticleCount} EXISTING · {themeContinuity.newArticleCount} NEW
+              {" · "}{themeContinuity.sourceDiff.length} Sources
+              {" · baseline "}{themeContinuity.baselineDossierId ?? "primeira Produção"}
+            </span>
+          </div>
+        ) : null}
       </section>
 
       <form
@@ -1281,6 +1341,7 @@ export function MesaProductionWorkspaceClient({
               }}
               images={workspaceImages}
               saving={savingProduction}
+              continuitySlot={themeContinuity?.slots[card.position - 1] ?? null}
             />
           ))}
         </div>

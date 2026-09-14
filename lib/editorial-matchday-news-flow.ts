@@ -47,6 +47,7 @@ type NewsFlowArticle = EditorialArticleZoneSource & {
 
 type LatestNewsRow = {
   id: string;
+  matchday_id?: string | null;
   article_id: string | null;
   time_label?: string | null;
   title?: string | null;
@@ -383,6 +384,93 @@ export async function ensurePublishedArticleInLatest(
       matchdayId,
     );
 
+  }
+}
+
+/**
+ * Batch companion used by Mesa continuity. The caller already owns the
+ * authoritative published article rows, so this performs one scoped read for
+ * all affected Jornadas and never hydrates an article inside the write loop.
+ */
+export async function ensurePublishedArticlesInLatestBatch(
+  articles: readonly NewsFlowArticle[],
+) {
+  if (articles.length === 0) return;
+  if (
+    articles.length > 30
+    || new Set(articles.map((article) => article.id)).size !== articles.length
+    || articles.some((article) => !article.matchday_id || article.status !== "published")
+  ) {
+    throw new EditorialMatchdayNewsFlowError(
+      "news-flow-batch-invalid",
+      "O lote publicado não contém artigos únicos e válidos.",
+    );
+  }
+
+  const projections = articles.map((article) => {
+    const missing = missingEditorialArticleCanonicalFields(article);
+    const projection = projectEditorialArticleToZone(article, "editorial_line_item");
+    if (missing.length > 0 || !projection.linkUrl) {
+      throw new EditorialMatchdayNewsFlowError(
+        "news-flow-article-incomplete",
+        missing.length > 0
+          ? `Completa primeiro o artigo: ${editorialArticleCanonicalMissingLabel(missing)}.`
+          : "O artigo precisa de endereço público antes de entrar no circuito das zonas.",
+      );
+    }
+    return { article, projection };
+  });
+  const matchdayIds = [...new Set(articles.map((article) => article.matchday_id!))];
+  const rows = await fetchSupabaseAdminTable<LatestNewsRow>(
+    "matchday_latest_news"
+    + "?select=id,matchday_id,article_id,time_label,title,subtitle,image_url,link_url,sort_order,status,created_at"
+    + `&matchday_id=in.(${matchdayIds.map(encodeURIComponent).join(",")})`
+    + "&order=matchday_id.asc,sort_order.asc&limit=1000",
+  );
+  const nextSortOrder = new Map(matchdayIds.map((matchdayId) => [
+    matchdayId,
+    rows.reduce((maximum, row) => (
+      row.matchday_id === matchdayId ? Math.max(maximum, row.sort_order) : maximum
+    ), 0) + 1,
+  ]));
+  const now = new Date().toISOString();
+
+  for (const { article, projection } of projections) {
+    const matchdayId = article.matchday_id!;
+    const existing = rows.find((row) => (
+      row.matchday_id === matchdayId
+      && Boolean(projection.linkUrl && cleanText(row.link_url) === projection.linkUrl)
+    ));
+    const payload = {
+      matchday_id: matchdayId,
+      time_label: projection.label,
+      time_label_color: null,
+      title: projection.title,
+      subtitle: projection.subtitle,
+      image_url: projection.imageUrl,
+      link_url: projection.linkUrl,
+      article_id: null,
+      status: "published",
+      updated_at: now,
+    };
+    if (existing) {
+      await writeSupabaseAdmin(`matchday_latest_news?id=eq.${encodeURIComponent(existing.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+    } else {
+      const sortOrder = nextSortOrder.get(matchdayId) ?? 1;
+      nextSortOrder.set(matchdayId, sortOrder + 1);
+      await writeSupabaseAdmin("matchday_latest_news", {
+        method: "POST",
+        body: JSON.stringify({ ...payload, sort_order: sortOrder, created_at: now }),
+      });
+    }
+  }
+
+  for (const matchdayId of matchdayIds) {
+    await setLatestNewsMode(matchdayId);
+    await normalizeLatestNewsOrder(matchdayId);
   }
 }
 

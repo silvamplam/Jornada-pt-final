@@ -1,8 +1,13 @@
 import {
   preflightEditorialArticleBatch,
   preflightEditorialMesaV2ArticleBatch,
+  preflightEditorialThemeContinuityBatch,
   type EditorialBatchPreflight,
 } from "./editorial-batch-parser";
+import {
+  parseThemeContinuityFrozenContract,
+  type ThemeContinuityFrozenContract,
+} from "./newsroom-theme-continuity-contract";
 
 export const EDITORIAL_BATCH_TRANSFER_STORAGE_KEY =
   "jornada.editorial.batch-transfer.v1";
@@ -18,6 +23,11 @@ export type EditorialBatchTransferSourcePackage = Readonly<{
   updateArticleCount?: number;
   outputImages?: readonly EditorialBatchTransferOutputImage[];
   batchContract?: EditorialBatchTransferMesaV2Contract;
+  themeContinuity?: ThemeContinuityFrozenContract;
+  continuityResolution?: Readonly<{
+    noChangeOutputIds: readonly string[];
+    materializedOutputIds: readonly string[];
+  }>;
 }>;
 
 export type EditorialBatchTransferMesaV2Contract = Readonly<{
@@ -135,10 +145,19 @@ export function parseEditorialBatchTransferSourcePackage(
     const batchContract = parsed.batchContract === undefined
       ? undefined
       : mesaV2Contract(parsed.batchContract);
+    const themeContinuity = parsed.themeContinuity === undefined
+      ? undefined
+      : parseThemeContinuityFrozenContract({ themeContinuity: parsed.themeContinuity });
 
     if (
       (matchdayId !== undefined && !UUID_PATTERN.test(matchdayId))
       || (parsed.batchContract !== undefined && !batchContract)
+      || (parsed.themeContinuity !== undefined && !themeContinuity)
+      || (themeContinuity && (
+        !batchContract
+        || themeContinuity.slots.length !== batchContract.outputIds.length
+        || themeContinuity.slots.some((slot, index) => slot.outputId !== batchContract.outputIds[index])
+      ))
       || (
         updateArticleCount !== undefined
         && (
@@ -160,10 +179,40 @@ export function parseEditorialBatchTransferSourcePackage(
         ? { updateArticleCount }
         : {}),
       ...(batchContract ? { batchContract } : {}),
+      ...(themeContinuity ? { themeContinuity } : {}),
     };
 
+    const rawResolution = parsed.continuityResolution;
+    let continuityResolution: EditorialBatchTransferSourcePackage["continuityResolution"];
+    if (rawResolution !== undefined) {
+      const noChangeOutputIds = uuidList(rawResolution.noChangeOutputIds, 30) ?? (
+        Array.isArray(rawResolution.noChangeOutputIds) && rawResolution.noChangeOutputIds.length === 0
+          ? []
+          : null
+      );
+      const materializedOutputIds = uuidList(rawResolution.materializedOutputIds, 30) ?? (
+        Array.isArray(rawResolution.materializedOutputIds) && rawResolution.materializedOutputIds.length === 0
+          ? []
+          : null
+      );
+      const combined = noChangeOutputIds && materializedOutputIds
+        ? [...noChangeOutputIds, ...materializedOutputIds]
+        : [];
+      if (
+        !themeContinuity || !noChangeOutputIds || !materializedOutputIds
+        || new Set(combined).size !== combined.length
+        || combined.length !== themeContinuity.slots.length
+        || combined.some((id) => !themeContinuity.slots.some((slot) => slot.outputId === id))
+        || noChangeOutputIds.some((id) => !themeContinuity.slots.some((slot) => (
+          slot.kind === "existing" && slot.outputId === id
+        )))
+      ) return null;
+      continuityResolution = { noChangeOutputIds, materializedOutputIds };
+    }
+    const resolvedBase = continuityResolution ? { ...base, continuityResolution } : base;
+
     if (parsed.outputImages === undefined) {
-      return base;
+      return resolvedBase;
     }
 
     if (!Array.isArray(parsed.outputImages)) {
@@ -200,7 +249,7 @@ export function parseEditorialBatchTransferSourcePackage(
       outputImages.push({ position, imageUrl, label });
     }
 
-    return { ...base, outputImages };
+    return { ...resolvedBase, outputImages };
   } catch {
     return null;
   }
@@ -210,7 +259,17 @@ export function preflightEditorialArticleBatchForSourcePackage(
   input: string,
   sourcePackage: EditorialBatchTransferSourcePackage | null | undefined,
 ): EditorialBatchPreflight {
-  return sourcePackage?.batchContract
+  return sourcePackage?.batchContract && sourcePackage.themeContinuity
+    ? preflightEditorialThemeContinuityBatch(
+        input,
+        sourcePackage.themeContinuity,
+        sourcePackage.batchContract.sourceIdsByOutput ?? Object.fromEntries(
+          sourcePackage.batchContract.outputIds.map((outputId) => (
+            [outputId, sourcePackage.batchContract!.sourceIds]
+          )),
+        ),
+      )
+    : sourcePackage?.batchContract
     ? preflightEditorialMesaV2ArticleBatch(input, {
         outputIds: sourcePackage.batchContract.outputIds,
         sourceIds: sourcePackage.batchContract.sourceIds,

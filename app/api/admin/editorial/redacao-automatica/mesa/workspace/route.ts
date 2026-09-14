@@ -31,10 +31,12 @@ import { fetchSupabaseAdminTable, writeSupabaseAdminReturning } from "@/lib/supa
 import {
   preflightEditorialArticleBatch,
   preflightEditorialMesaV2ArticleBatch,
+  preflightEditorialThemeContinuityBatch,
 } from "@/lib/redacao-automatica/editorial-batch-parser";
 import {
   editorialMesaPackageBatchContract,
   validateEditorialMesaOutputProvenance,
+  validateEditorialThemeContinuityProvenance,
 } from "@/lib/redacao-automatica/editorial-mesa-provenance";
 import {
   editorialMesaWorkspaceOutputWorkingTitle,
@@ -48,6 +50,9 @@ import {
   type EditorialSourcePackageOutputCreationInput,
   type EditorialSourcePackageSelection,
 } from "@/lib/redacao-automatica/editorial-source-package-internal";
+import {
+  parseThemeContinuityFrozenContract,
+} from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -186,9 +191,18 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
   const productionContext = workspace.contextMode === "contexts"
     ? workspace.productionContexts.find((item) => item.id === productionContextId) ?? null
     : null;
+  const continuity = parseThemeContinuityFrozenContract(context?.selectionPayload);
+  const continuitySlot = continuity?.slots[priority - 1] ?? null;
   if (
     (workspace.contextMode === "contexts" && !productionContext)
     || (workspace.contextMode === "historical" && productionContextId !== null)
+    || Boolean(continuity) !== Boolean(continuitySlot)
+    || (continuity && (
+      articlePlanId !== continuitySlot?.outputId
+      || productionContextId !== continuitySlot.productionContextId
+      || destination !== (continuitySlot.kind === "existing" ? "update" : "new")
+      || target !== continuitySlot.targetEditorialArticleId
+    ))
   ) return null;
   const includedById = new Map(includedSources.map((source) => [source.id, source]));
   const technicalSources = productionContext
@@ -373,6 +387,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
   const { dossier, plans: allPlans, workspace } = productionResult.value;
   const context = workspace.mesaContext;
   const workspaceContractVersion = context?.workspaceContractVersion === 2 ? 2 : 1;
+  const themeContinuity = parseThemeContinuityFrozenContract(context?.selectionPayload);
   if (context?.workspaceState && context.workspaceState !== "active") {
     return { ok: false as const, status: 409, message: "Esta produção já não está ativa." };
   }
@@ -382,6 +397,19 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
   }
   if (plans.some((plan) => plan.editorialArticleId)) {
     return { ok: false as const, status: 409, message: "Esta produção já contém artigos materializados e não pode gerar um segundo lote." };
+  }
+  if (themeContinuity && (
+    themeContinuity.slots.length !== plans.length
+    || themeContinuity.slots.some((slot, index) => (
+      slot.outputId !== plans[index]?.id
+      || slot.productionContextId !== workspace.planContexts.find(
+        (assignment) => assignment.articlePlanId === plans[index]?.id,
+      )?.productionContextId
+      || plans[index]?.destination !== (slot.kind === "existing" ? "update" : "new")
+      || plans[index]?.updateTargetEditorialArticleId !== slot.targetEditorialArticleId
+    ))
+  )) {
+    return { ok: false as const, status: 409, message: "O contrato congelado dos slots de continuidade já não coincide com a Produção." };
   }
   const workspaceSources = dossier.sources
     .filter((source) => source.included)
@@ -437,9 +465,17 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
     if (workspace.contextMode === "contexts" && !productionContext) {
       return { ok: false as const, status: 409, message: `O artigo ${index + 1} não tem contexto atribuído.` };
     }
-    const target = plan.updateTargetEditorialArticleId
-      ? contextByArticleId.get(plan.updateTargetEditorialArticleId) ?? null
-      : null;
+    const continuitySlot = themeContinuity?.slots[index] ?? null;
+    const target = continuitySlot?.kind === "existing"
+      ? {
+          editorialArticleId: continuitySlot.targetEditorialArticleId!,
+          slug: continuitySlot.targetSlug!,
+          title: continuitySlot.targetTitle!,
+          status: "published",
+        }
+      : plan.updateTargetEditorialArticleId
+        ? contextByArticleId.get(plan.updateTargetEditorialArticleId) ?? null
+        : null;
     if (plan.destination === "update" && (!target || target.status !== "published")) {
       return { ok: false as const, status: 409, message: "Um target de UPDATE deixou de ser elegível. Confirma-o novamente no respetivo artigo." };
     }
@@ -522,7 +558,10 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
     packageId,
     selections,
     outputs,
-    publishedContextArticleIds: workspace.publishedContexts.map((item) => item.editorialArticleId),
+    publishedContextArticleIds: themeContinuity
+      ? []
+      : workspace.publishedContexts.map((item) => item.editorialArticleId),
+    ...(themeContinuity ? { themeContinuity } : {}),
     editorial: {
       genre: plans[0].articleKind === "analysis"
         ? "analysis"
@@ -559,6 +598,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
         year: manifest.year,
         month: manifest.month,
         packageId: manifest.packageId,
+        ...(manifest.themeContinuity ? { themeContinuity: manifest.themeContinuity } : {}),
         ...(packageBatchContract.kind === "mesa-v2"
           ? { batchContract: packageBatchContract.value }
           : {}),
@@ -617,13 +657,25 @@ export async function POST(request: Request) {
         message: "O package Mesa v2 não possui um contrato de outputs e fontes válido.",
       }, { status: 409 });
     }
-    const preflight = packageBatchContract.kind === "mesa-v2"
+    const continuityPreflight = packageResult.value.themeContinuity
+      && packageBatchContract.kind === "mesa-v2"
+      ? preflightEditorialThemeContinuityBatch(
+          responseText,
+          packageResult.value.themeContinuity,
+          packageBatchContract.value.sourceIdsByOutput ?? Object.fromEntries(
+            packageBatchContract.value.outputIds.map((outputId) => (
+              [outputId, packageBatchContract.value.sourceIds]
+            )),
+          ),
+        )
+      : null;
+    const preflight = continuityPreflight ?? (packageBatchContract.kind === "mesa-v2"
       ? preflightEditorialMesaV2ArticleBatch(responseText, {
           outputIds: packageBatchContract.value.outputIds,
           sourceIds: packageBatchContract.value.sourceIds,
           sourceIdsByOutput: packageBatchContract.value.sourceIdsByOutput,
         })
-      : preflightEditorialArticleBatch(responseText);
+      : preflightEditorialArticleBatch(responseText));
     if (!preflight.ready) {
       return NextResponse.json({
         ok: false,
@@ -641,10 +693,13 @@ export async function POST(request: Request) {
         message: "O pacote não pertence a esta produção.",
       }, { status: 409 });
     }
-    const validation = validateEditorialMesaOutputProvenance(
-      packageResult.value,
-      preflight.articles,
-    );
+    const validation = continuityPreflight
+      ? validateEditorialThemeContinuityProvenance(
+          packageResult.value,
+          continuityPreflight.articles,
+          continuityPreflight.noChangeOutputIds,
+        )
+      : validateEditorialMesaOutputProvenance(packageResult.value, preflight.articles);
     if (!validation.ok) {
       return NextResponse.json({
         ok: false,
@@ -653,7 +708,16 @@ export async function POST(request: Request) {
           ?? "A proveniência da resposta não é válida.",
       }, { status: 409 });
     }
-    return NextResponse.json({ ok: true, contract: validation.contract });
+    return NextResponse.json({
+      ok: true,
+      contract: validation.contract,
+      ...(continuityPreflight ? {
+        continuityResolution: {
+          noChangeOutputIds: continuityPreflight.noChangeOutputIds,
+          materializedOutputIds: continuityPreflight.articles.map((article) => article.outputId),
+        },
+      } : {}),
+    });
   }
 
   if (action === "preview_abandon" || action === "abandon_production") {

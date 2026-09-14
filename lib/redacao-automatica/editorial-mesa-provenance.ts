@@ -234,3 +234,39 @@ export function validateEditorialMesaOutputProvenance(
 
   return { ok: true, contract: "mesa-v2", outputs: validated };
 }
+
+export function validateEditorialThemeContinuityProvenance(
+  manifest: EditorialSourcePackageManifest,
+  articles: readonly EditorialBatchArticle[],
+  noChangeOutputIds: readonly string[],
+): EditorialMesaProvenanceValidation {
+  const continuity = manifest.themeContinuity;
+  if (!continuity) return { ok: false, code: "mesa-v2-provenance-missing" };
+  const noChange = new Set(noChangeOutputIds);
+  if (
+    noChange.size !== noChangeOutputIds.length
+    || noChangeOutputIds.some((outputId) => !continuity.slots.some((slot) => (
+      slot.kind === "existing" && slot.outputId === outputId
+    )))
+  ) return { ok: false, code: "mesa-v2-output-unknown" };
+
+  const expected = new Set(continuity.slots.flatMap((slot) => (
+    noChange.has(slot.outputId) ? [] : [slot.outputId]
+  )));
+  if (
+    articles.length !== expected.size
+    || articles.some((article) => !article.outputId || !expected.has(article.outputId))
+    || new Set(articles.map((article) => article.outputId)).size !== articles.length
+  ) return { ok: false, code: "mesa-v2-output-count-mismatch" };
+
+  const outputs: ValidatedEditorialMesaOutputProvenance[] = [];
+  for (const article of articles) {
+    const validation = validateEditorialMesaSingleOutputProvenance(manifest, article);
+    if (!validation.ok) return validation;
+    if (validation.contract !== "mesa-v2") {
+      return { ok: false, code: "mesa-v2-provenance-missing" };
+    }
+    outputs.push(validation.outputs[0]);
+  }
+  return { ok: true, contract: "mesa-v2", outputs };
+}

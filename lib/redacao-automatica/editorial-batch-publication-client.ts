@@ -84,6 +84,7 @@ export async function analyseEditorialBatchForPublication<TPlan>({
   matchdayId,
   author,
   sourcePackage,
+  matchdayRequired = true,
   callbacks,
 }: Readonly<{
   articleText: string;
@@ -92,6 +93,7 @@ export async function analyseEditorialBatchForPublication<TPlan>({
   matchdayId: string;
   author: string;
   sourcePackage?: EditorialBatchTransferSourcePackage | null;
+  matchdayRequired?: boolean;
   callbacks: AnalyseEditorialBatchCallbacks<TPlan>;
 }>) {
   const preflight = preflightEditorialArticleBatchForSourcePackage(
@@ -107,7 +109,7 @@ export async function analyseEditorialBatchForPublication<TPlan>({
     return { preflight, serverPreflightRequested: false } as const;
   }
 
-  if (!contextComplete || !matchdayId.trim()) {
+  if (!contextComplete || (matchdayRequired && !matchdayId.trim())) {
     callbacks.onServerPreflightSkipped(
       "Completa Competição, Época e Jornada antes da verificação editorial final.",
     );

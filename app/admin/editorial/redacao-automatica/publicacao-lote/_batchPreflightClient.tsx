@@ -76,6 +76,7 @@ type BatchPublicationPlanItem = Readonly<{
   existingSlug?: string | null;
   updateTargetFromDossier?: boolean;
   publishedAt: string;
+  slot?: string;
 }>;
 
 type BatchPublicationItemStatus =
@@ -102,6 +103,27 @@ type BatchPublicationItemResponse = Readonly<{
   slug?: string;
   published?: boolean;
   latest?: boolean;
+}>;
+
+type ThemeContinuityBatchResponse = Readonly<{
+  ok?: boolean;
+  error?: string;
+  detail?: string;
+  finalized?: boolean;
+  partialPersistence?: boolean;
+  failedOutputId?: string;
+  failedSlot?: string;
+  completed?: readonly Readonly<{
+    key: string;
+    slot: string;
+    outputId: string;
+    articleId: string;
+    slug: string;
+    action: "created" | "updated" | "reused";
+  }>[];
+  updatedCount?: number;
+  newCount?: number;
+  noChangeCount?: number;
 }>;
 
 type SignedUploadResponse = Readonly<{
@@ -413,6 +435,7 @@ function ResultSummary({
   seasonLabel,
   matchdayLabel: selectedMatchdayLabel,
   preservesPublishedImages,
+  noChangeCount,
 }: Readonly<{
   preflight: EditorialBatchPreflight;
   imagePreflight: EditorialBatchImagePreflight<File>;
@@ -423,6 +446,7 @@ function ResultSummary({
   seasonLabel: string;
   matchdayLabel: string;
   preservesPublishedImages: boolean;
+  noChangeCount: number;
 }>) {
   const globalIssues = preflight.issues.filter((issue) => issue.index === undefined);
   const articleRows = articleResultRows(preflight);
@@ -597,7 +621,11 @@ function ResultSummary({
             })}
           </ol>
         ) : (
-          <p className={styles.noArticles}>Nenhum artigo estruturalmente identificável.</p>
+          <p className={styles.noArticles}>
+            {noChangeCount > 0
+              ? `${noChangeCount} slots resolvidos com SEM_ALTERAÇÃO; nenhum artigo será reescrito.`
+              : "Nenhum artigo estruturalmente identificável."}
+          </p>
         )}
       </section>
     </section>
@@ -617,6 +645,7 @@ function PublicationPanel({
   onConfirmUpdate,
   onRetryPreflight,
   onPublish,
+  noChangeCount,
 }: Readonly<{
   articles: readonly EditorialBatchArticle[];
   states: Readonly<Record<string, BatchPublicationItemState>>;
@@ -631,16 +660,17 @@ function PublicationPanel({
     (key: string, articleId: string) => void;
   onRetryPreflight: () => void;
   onPublish: () => void;
+  noChangeCount: number;
 }>) {
   const stateValues = Object.values(states);
   const hasRun = stateValues.length > 0;
   const allItemsPublished =
-    articles.length > 0
-    && articles.every(
+    (articles.length === 0 && noChangeCount > 0)
+    || (articles.length > 0 && articles.every(
       (article) =>
         states[article.key]?.status
         === "published",
-    );
+    ));
 
   const allPublished =
     allItemsPublished
@@ -784,7 +814,9 @@ function PublicationPanel({
             : error
               ? error
               : allPublished
-                ? `${articles.length} ${articles.length === 1 ? "artigo publicado" : "artigos publicados"} em Últimas.`
+                ? noChangeCount > 0
+                  ? `${articles.length} outputs materializados · ${noChangeCount} resolvidos com SEM_ALTERAÇÃO · ciclo consolidado.`
+                  : `${articles.length} ${articles.length === 1 ? "artigo publicado" : "artigos publicados"} em Últimas.`
                 : !plan
                   ? "A análise começa automaticamente assim que todos os dados necessários estiverem válidos."
                 : updateCandidates.length > 0
@@ -795,7 +827,9 @@ function PublicationPanel({
                     : updateCandidates.length === 1
                       ? "Confirma explicitamente a atualização do artigo publicado antes de continuar."
                       : "Confirma explicitamente as atualizações dos artigos publicados antes de continuar."
-                  : "A publicação é sequencial e pára no primeiro erro, preservando o que já foi concluído."}
+                  : noChangeCount > 0
+                    ? `${noChangeCount} slots SEM_ALTERAÇÃO não escrevem em editorial_articles. Os restantes seguem num único batch que pára no primeiro erro.`
+                    : "A publicação é sequencial e pára no primeiro erro, preservando o que já foi concluído."}
         </p>
 
         {publicationUi.showRetry ? (
@@ -890,6 +924,10 @@ export default function BatchPreflightClient({
 
   const sourcePackageUpdateCount =
     sourcePackage?.updateArticleCount ?? 0;
+  const themeContinuity = sourcePackage?.themeContinuity ?? null;
+  const publicationContextComplete = themeContinuity
+    ? themeContinuity.newArticleCount === 0 || contextComplete
+    : contextComplete;
 
   const sourcePackageContextLocked =
     Boolean(
@@ -897,18 +935,36 @@ export default function BatchPreflightClient({
       && sourcePackage?.matchdayId
       && contextComplete,
     );
+  const continuityContextLocked = Boolean(
+    themeContinuity && themeContinuity.newArticleCount === 0,
+  );
 
   const preservesPublishedImages =
-    Boolean(
+    themeContinuity
+      ? themeContinuity.newArticleCount === 0
+      : Boolean(
       sourcePackageUpdateCount > 0
       && preflight.total > 0
       && sourcePackageUpdateCount
         === preflight.total,
-    );
-  const analysedArticleKeys = useMemo(
+      );
+  const allAnalysedArticleKeys = useMemo(
     () => articleResultRows(preflight).map((row) => row.key),
     [preflight],
   );
+  const analysedArticleKeys = useMemo(() => {
+    if (!themeContinuity) return allAnalysedArticleKeys;
+    const newOutputIds = new Set(themeContinuity.slots.flatMap((slot) => (
+      slot.kind === "new" ? [slot.outputId] : []
+    )));
+    return preflight.articles.flatMap((article) => (
+      article.outputId && newOutputIds.has(article.outputId) ? [article.key] : []
+    ));
+  }, [allAnalysedArticleKeys, preflight.articles, themeContinuity]);
+  const imageArticles = useMemo(() => {
+    const required = new Set(analysedArticleKeys);
+    return preflight.articles.filter((article) => required.has(article.key));
+  }, [analysedArticleKeys, preflight.articles]);
   const manualImageFiles = useMemo(
     () =>
       Object.entries(manualImageAssignments)
@@ -941,7 +997,8 @@ export default function BatchPreflightClient({
     ],
   );
   const canPublish = Boolean(
-    preflight.ready && contextComplete
+    preflight.ready
+      && (themeContinuity ? publicationContextComplete : contextComplete)
       && (
         preservesPublishedImages
         || imagePreflight.ready
@@ -1104,13 +1161,14 @@ export default function BatchPreflightClient({
 
     void analyseEditorialBatchForPublication({
       articleText,
-      contextComplete,
+      contextComplete: publicationContextComplete,
       imagesReady:
         preservesPublishedImages
         || imagePreflight.ready,
       matchdayId,
       author,
       sourcePackage,
+      matchdayRequired: !themeContinuity || themeContinuity.newArticleCount > 0,
       callbacks: {
         onLocalPreflight: () => undefined,
         onServerPreflightSkipped: () => undefined,
@@ -1157,6 +1215,7 @@ export default function BatchPreflightClient({
     manualImageAssignments,
     matchdayId,
     preservesPublishedImages,
+    publicationContextComplete,
     preflightRetryVersion,
     publicationFingerprint,
     sourcePackage,
@@ -1224,7 +1283,7 @@ export default function BatchPreflightClient({
     analysedPreflight: EditorialBatchPreflight = preflight,
     updateConfirmations: Readonly<Record<string, string>> = confirmedUpdates,
   ) {
-    if (!matchdayId || !author.trim()) {
+    if (!publicationContextComplete || !author.trim()) {
       throw new Error("O lote deixou de estar pronto para publicação.");
     }
 
@@ -1311,6 +1370,106 @@ export default function BatchPreflightClient({
     return payload;
   }
 
+  async function publishThemeContinuityBatch(
+    plan: readonly BatchPublicationPlanItem[],
+  ) {
+    if (!sourcePackage?.themeContinuity || !sourcePackage.continuityResolution) {
+      throw new Error("O contrato de continuidade deixou de estar disponível.");
+    }
+    const slotByOutputId = new Map(sourcePackage.themeContinuity.slots.map((slot, index) => (
+      [slot.outputId, { slot, position: index + 1 }] as const
+    )));
+    const imageByKey = new Map(imagePreflight.articles.map((image) => [image.key, image]));
+    const imageUrlsByOutputId: Record<string, string | null> = {};
+
+    for (const article of preflight.articles) {
+      const frozen = article.outputId ? slotByOutputId.get(article.outputId) : null;
+      if (!frozen || !article.outputId) {
+        throw new Error(`O artigo ${article.key} deixou de pertencer ao contrato congelado.`);
+      }
+      if (frozen.slot.kind === "existing") {
+        imageUrlsByOutputId[article.outputId] = sourcePackage.outputImages?.find((image) => (
+          image.position === frozen.position
+        ))?.imageUrl ?? null;
+        continue;
+      }
+      const image = imageByKey.get(article.key);
+      let imageUrl = uploadedImageUrlsRef.current[article.key]
+        ?? image?.imageUrl
+        ?? null;
+      if (!imageUrl) {
+        if (!image?.file) throw new Error(`O artigo ${article.key} não tem imagem válida.`);
+        setPublicationState(article.key, {
+          status: "uploading",
+          message: `A carregar ${image.file.name}…`,
+        });
+        imageUrl = await uploadBatchImage(image.file);
+        uploadedImageUrlsRef.current[article.key] = imageUrl;
+      }
+      imageUrlsByOutputId[article.outputId] = imageUrl;
+    }
+
+    for (const item of plan) {
+      setPublicationState(item.key, {
+        status: "publishing",
+        message: item.mode === "update"
+          ? "A atualizar o target congelado…"
+          : item.mode === "resume"
+            ? "A verificar a publicação já persistida…"
+            : "A publicar o novo artigo…",
+      });
+    }
+    const response = await fetch(BATCH_PUBLICATION_ROUTE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "publish_theme_continuity",
+        matchdayId,
+        author: author.trim(),
+        articles: preflight.articles,
+        imageUrlsByOutputId,
+        sourcePackage,
+      }),
+    });
+    const result = await response.json().catch(() => null) as ThemeContinuityBatchResponse | null;
+    for (const completed of result?.completed ?? []) {
+      setPublicationState(completed.key, {
+        status: "published",
+        message: completed.action === "reused"
+          ? "Output já publicado confirmado sem duplicação."
+          : completed.action === "updated"
+            ? "Artigo existente atualizado com identidade preservada."
+            : "Novo artigo publicado.",
+        articleId: completed.articleId,
+      });
+    }
+    if (!response.ok || !result?.ok || !result.finalized) {
+      const failed = plan.find((item) => (
+        result?.failedOutputId
+          ? preflight.articles.find((article) => article.key === item.key)?.outputId === result.failedOutputId
+          : false
+      ));
+      if (failed) {
+        setPublicationState(failed.key, {
+          status: "error",
+          message: responseDetail(result, `Falhou ${result?.failedSlot ?? failed.key}.`),
+        });
+        const failedIndex = plan.indexOf(failed);
+        for (const pending of plan.slice(failedIndex + 1)) {
+          setPublicationState(pending.key, {
+            status: "not_attempted",
+            message: "Não tentado porque a publicação parou no output anterior.",
+          });
+        }
+      }
+      throw new Error(responseDetail(result, "A publicação da continuidade não ficou consolidada."));
+    }
+
+    setBatchFinalized(true);
+    setPublicationError(null);
+    clearTransferredBatch();
+  }
+
   async function finalizeBatchEditorialFlow() {
     const response =
       await fetch(
@@ -1370,6 +1529,11 @@ export default function BatchPreflightClient({
 
       publicationPlanRef.current = plan;
       setPublicationPlan(plan);
+
+      if (sourcePackage?.themeContinuity) {
+        await publishThemeContinuityBatch(plan);
+        return;
+      }
 
       const updateRequired =
         plan.filter(
@@ -1599,14 +1763,16 @@ export default function BatchPreflightClient({
             <h2 id="batch-context-title">Jornada do lote</h2>
           </div>
           <strong className={
-            contextComplete
+            publicationContextComplete
               ? styles.contextComplete
               : hasArticleText
                 ? styles.contextIncomplete
                 : styles.neutralBadge
           }>
-            {contextComplete
-              ? "CONTEXTO COMPLETO"
+            {publicationContextComplete
+              ? themeContinuity && themeContinuity.newArticleCount === 0
+                ? "TARGETS CONGELADOS"
+                : "CONTEXTO COMPLETO"
               : hasArticleText
                 ? "CONTEXTO EM FALTA"
                 : "POR DEFINIR"}
@@ -1619,7 +1785,7 @@ export default function BatchPreflightClient({
             <select
               id="batch-competition"
               value={competitionId}
-              disabled={sourcePackageContextLocked || isPublishing}
+              disabled={sourcePackageContextLocked || continuityContextLocked || isPublishing}
               onChange={(event) => handleCompetitionChange(event.target.value)}
             >
               <option value="">Escolher competição</option>
@@ -1638,6 +1804,7 @@ export default function BatchPreflightClient({
               value={seasonId}
               disabled={
                 sourcePackageContextLocked
+                || continuityContextLocked
                 || !competitionId
                 || isPublishing
               }
@@ -1661,6 +1828,7 @@ export default function BatchPreflightClient({
               value={matchdayId}
               disabled={
                 sourcePackageContextLocked
+                || continuityContextLocked
                 || !seasonId
                 || isPublishing
               }
@@ -1678,7 +1846,16 @@ export default function BatchPreflightClient({
           </label>
         </div>
 
-        {sourcePackageUpdateCount > 0 ? (
+        {themeContinuity ? (
+          <p className={styles.automaticAnalysisNote}>
+            <strong>CONTINUIDADE DO TEMA</strong>
+            {" · "}{themeContinuity.publishedArticleCount} slots EXISTING resolvidos por UPDATE ou SEM_ALTERAÇÃO
+            {" · "}{themeContinuity.newArticleCount} slots NEW.
+            {themeContinuity.newArticleCount > 0
+              ? " A Jornada escolhida aplica-se apenas aos artigos NEW; cada UPDATE mantém a Jornada do target congelado."
+              : " Não é necessário escolher Jornada: todos os targets já estão congelados."}
+          </p>
+        ) : sourcePackageUpdateCount > 0 ? (
           <p className={styles.automaticAnalysisNote}>
             <strong>
               {sourcePackageUpdateCount === 1
@@ -1727,7 +1904,7 @@ export default function BatchPreflightClient({
         <details className={styles.originalTextDetails} open={!preflight.ready}>
           <summary>Ver texto original</summary>
           <label className={styles.textareaField} htmlFor="batch-article-text">
-            <span>Blocos JORNADA_ARTIGO_V1</span>
+            <span>{themeContinuity ? "Blocos JORNADA_CONTINUIDADE_V1" : "Blocos JORNADA_ARTIGO_V1"}</span>
             <textarea
               id="batch-article-text"
               value={articleText}
@@ -1771,7 +1948,7 @@ export default function BatchPreflightClient({
         </section>
       ) : (
         <ImageSelectionPanel
-          articles={preflight.articles}
+          articles={imageArticles}
           hasArticleText={hasArticleText}
           selectedImages={selectedImages}
           imagePreflight={imagePreflight}
@@ -1787,16 +1964,17 @@ export default function BatchPreflightClient({
           preflight={preflight}
           imagePreflight={imagePreflight}
           imagePreviewUrls={imagePreviewUrls}
-          contextComplete={contextComplete}
+          contextComplete={publicationContextComplete}
           authorReady={Boolean(author.trim())}
-          competitionLabel={firstText(
+          competitionLabel={continuityContextLocked ? "Targets congelados" : firstText(
             selectedCompetition?.name,
             selectedCompetition?.slug,
             selectedCompetition?.id,
           )}
-          seasonLabel={firstText(selectedSeason?.label, selectedSeason?.id)}
-          matchdayLabel={selectedMatchday ? matchdayLabel(selectedMatchday) : ""}
+          seasonLabel={continuityContextLocked ? "Jornadas preservadas" : firstText(selectedSeason?.label, selectedSeason?.id)}
+          matchdayLabel={continuityContextLocked ? "sem novos artigos" : selectedMatchday ? matchdayLabel(selectedMatchday) : ""}
           preservesPublishedImages={preservesPublishedImages}
+          noChangeCount={sourcePackage?.continuityResolution?.noChangeOutputIds.length ?? 0}
         />
       ) : null}
 
@@ -1816,6 +1994,7 @@ export default function BatchPreflightClient({
           }
           onRetryPreflight={retryPublicationPreflight}
           onPublish={publishBatch}
+          noChangeCount={sourcePackage?.continuityResolution?.noChangeOutputIds.length ?? 0}
         />
       ) : null}
     </div>

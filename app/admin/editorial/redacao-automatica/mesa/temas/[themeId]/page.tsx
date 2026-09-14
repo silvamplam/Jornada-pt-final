@@ -7,6 +7,7 @@ import {
 import { MesaSelectionProvider, MesaSelectionTray } from "../../_mesa-selection-client";
 import { MesaSourceWindow, MesaDossierCardView } from "../../_mesa-organization-client";
 import { MesaSourceItem } from "../../_mesa-source-item";
+import { ThemeContinuityClient } from "./_theme-continuity-client";
 import styles from "../../mesa.module.css";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +72,7 @@ export default async function MesaThemePage({
           <h1>{theme.title}</h1>
         </div></div><nav className={styles.heroLinks}><Link href="/admin/editorial/redacao-automatica/mesa">Voltar à Mesa</Link></nav></header>
         <section className={styles.workspaceChrome}>
+          <ThemeContinuityClient themeId={themeId} disabled={theme.status !== "open"} />
           <div className={styles.controlStrip}>
             <span>{sources.length} fontes · {context.dossiers.length} Dossiês · {context.articleCount} artigos publicados</span>
             <span>As fontes organizadas não regressam às listas gerais.</span>

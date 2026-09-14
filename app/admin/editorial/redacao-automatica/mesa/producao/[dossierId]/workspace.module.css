@@ -1932,3 +1932,13 @@
     grid-column: 1;
   }
 }
+.continuitySummary {
+  display: grid;
+  gap: 4px;
+  border-left: 3px solid #1c6538;
+  padding-left: 12px;
+  color: #405249;
+  font-size: 0.78rem;
+}
+
+.continuitySummary strong { color: #183d28; }

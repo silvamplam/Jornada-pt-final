@@ -45,6 +45,10 @@ import {
   type ArticleBodyBlock,
   type JsonObject,
 } from "@/lib/redacao-automatica/types";
+import {
+  parseThemeContinuityFrozenContract,
+  type ThemeContinuityFrozenContract,
+} from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
 
 type NewsroomArticleRow = {
   id: string;
@@ -100,6 +104,7 @@ export type CreateEditorialSourcePackageInput = Readonly<{
   outputs?: readonly EditorialSourcePackageOutputCreationInput[];
   publishedContextArticleIds?: readonly string[];
   allowMultipleSnapshotsPerArticle?: boolean;
+  themeContinuity?: ThemeContinuityFrozenContract;
   now?: Date;
 }>;
 
@@ -558,6 +563,24 @@ function persistedManifest(
     return null;
   }
 
+  const themeContinuity = manifest.themeContinuity === undefined
+    ? null
+    : parseThemeContinuityFrozenContract({ themeContinuity: manifest.themeContinuity });
+  if (
+    (manifest.themeContinuity !== undefined && !themeContinuity)
+    || (themeContinuity && (
+      !isMesaV2
+      || themeContinuity.slots.length !== outputs.length
+      || themeContinuity.slots.some((slot, index) => (
+        slot.outputId !== outputs[index]?.outputId
+        || slot.productionContextId !== outputs[index]?.articlePlan?.contextId
+        || (slot.kind === "existing") !== Boolean(outputs[index]?.publishedArticleId)
+        || (slot.kind === "existing"
+          && slot.targetEditorialArticleId !== outputs[index]?.publishedArticleId)
+      ))
+    ))
+  ) return null;
+
   return {
     ...(manifest as EditorialSourcePackageManifest),
     articleCount: outputs.length,
@@ -763,6 +786,25 @@ export async function createEditorialSourcePackage(
       effectiveEditorial.suggestedTitle,
     );
 
+  const themeContinuity = input.themeContinuity
+    ? parseThemeContinuityFrozenContract({ themeContinuity: input.themeContinuity })
+    : null;
+  if (
+    (input.themeContinuity && !themeContinuity)
+    || (themeContinuity && (
+      themeContinuity.slots.length !== outputs.length
+      || themeContinuity.slots.some((slot, index) => (
+        slot.outputId !== outputs[index]?.outputId
+        || slot.productionContextId !== outputs[index]?.articlePlan?.contextId
+        || (slot.kind === "existing") !== Boolean(outputs[index]?.publishedArticleId)
+        || (slot.kind === "existing"
+          && slot.targetEditorialArticleId !== outputs[index]?.publishedArticleId)
+      ))
+    ))
+  ) {
+    return { ok: false, error: { code: "input_invalid" } };
+  }
+
   const updateTargetIds =
     [...new Set(
       outputs.flatMap(
@@ -936,6 +978,7 @@ export async function createEditorialSourcePackage(
       outputs,
       publishedArticles,
       publishedContexts,
+      ...(themeContinuity ? { themeContinuity } : {}),
     });
 
   const articleImageSources =
@@ -956,6 +999,7 @@ export async function createEditorialSourcePackage(
     version: mesaV2Contract ? 5 : 4,
     ...(mesaV2Contract ? { provenanceContract: "mesa-v2" as const } : {}),
     ...(publishedContextArticleIds.length > 0 ? { publishedContextArticleIds } : {}),
+    ...(themeContinuity ? { themeContinuity } : {}),
     packageId: input.packageId,
     createdAt,
     year: location.year,
@@ -1378,6 +1422,7 @@ export async function updateEditorialSourcePackageOutputs(
         current.value.markdown,
       editorial,
       outputs,
+      themeContinuity: current.value.manifest.themeContinuity,
     });
 
   if (!markdown) {
@@ -1485,6 +1530,7 @@ export async function updateEditorialSourcePackageEditorial(input: Readonly<{
     markdown: current.value.markdown,
     editorial,
     outputs: current.value.manifest.outputs,
+    themeContinuity: current.value.manifest.themeContinuity,
   });
   if (!markdown) {
     return { ok: false, error: { code: "package_read_failed" } };

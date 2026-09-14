@@ -1394,3 +1394,29 @@
 .dossierReader > * { flex-shrink: 0; }
 .dossierReader > .selectionTray { width: 100%; margin: 0; }
 .sourceContributions a + a { margin-left: 8px; }
+.continuityPanel { margin: 0 0 18px; border: 1px solid #b7c9bd; background: #f4f8f5; padding: 16px; }
+.continuityLead { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.continuityLead h2 { margin: 2px 0 4px; font-size: 1.05rem; }
+.continuityLead p { margin: 0; color: #405249; font-size: 0.75rem; }
+.continuityLead button, .continuityPrepare button { border: 1px solid #1c6538; background: #1c6538; color: white; padding: 9px 13px; font: inherit; font-size: 0.7rem; font-weight: 800; cursor: pointer; }
+.continuityLead button:disabled, .continuityPrepare button:disabled { opacity: 0.5; cursor: not-allowed; }
+.continuityBody { margin-top: 15px; border-top: 1px solid #cedbd2; padding-top: 14px; }
+.continuityMetrics { display: flex; flex-wrap: wrap; gap: 8px; }
+.continuityMetrics span { border: 1px solid #cedbd2; background: white; padding: 7px 9px; font-size: 0.67rem; }
+.continuityColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 14px; }
+.continuityColumns section { background: white; border: 1px solid #d8e2db; padding: 12px; }
+.continuityColumns h3 { margin: 0 0 8px; font-size: 0.76rem; }
+.continuityColumns ol { margin: 0; padding-left: 18px; max-height: 270px; overflow: auto; }
+.continuityColumns li { margin: 0 0 7px; font-size: 0.68rem; }
+.continuityColumns li span, .continuityColumns li small { display: block; }
+.continuityColumns li small { color: #65756b; margin-top: 2px; }
+.continuityPrepare { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+.continuityPrepare label { display: grid; gap: 4px; font-size: 0.68rem; font-weight: 800; }
+.continuityPrepare select { min-width: 100px; border: 1px solid #aabbb0; background: white; padding: 7px; }
+.continuityPrepare p { margin: 0 0 7px; font-size: 0.68rem; color: #405249; }
+.continuityError { color: #982b22 !important; font-weight: 800; }
+
+@media (max-width: 760px) {
+  .continuityLead { display: grid; }
+  .continuityColumns { grid-template-columns: 1fr; }
+}

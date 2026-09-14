@@ -4,6 +4,9 @@ import type {
   JsonValue,
   PublishedAtPrecision,
 } from "@/lib/redacao-automatica/types";
+import type {
+  ThemeContinuityFrozenContract,
+} from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
 
 export const EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES = 20;
 export const EDITORIAL_SOURCE_PACKAGE_MANIFEST_FILE_NAME = "pacote-fontes.json";
@@ -186,6 +189,7 @@ export type EditorialSourcePackageManifest = Readonly<{
   version: 2 | 3 | 4 | 5;
   provenanceContract?: "mesa-v2";
   publishedContextArticleIds?: readonly string[];
+  themeContinuity?: ThemeContinuityFrozenContract;
   packageId: string;
   createdAt: string;
   year: string;
@@ -1327,6 +1331,7 @@ function formatPublishedContextSnapshots(
 
 function formatEditorialOutputPlan(
   outputs: readonly EditorialSourcePackageOutputInput[] | undefined,
+  themeContinuity?: ThemeContinuityFrozenContract,
 ): string[] {
   if (!outputs?.length) {
     return [];
@@ -1339,12 +1344,14 @@ function formatEditorialOutputPlan(
     "",
     ...outputs.flatMap((output) => {
       const line = `${String(output.position).padStart(2, "0")} — ${markdownText(output.focus)}`;
+      const continuitySlot = themeContinuity?.slots[output.position - 1];
       if (!output.articlePlan) return [line];
       return [
         line,
+        ...(continuitySlot ? [`   - SLOT: ${continuitySlot.slot}`] : []),
         ...(output.articlePlan.workspaceContractVersion === 2 && output.outputId
           ? [
-              `   - OUTPUT_ID: ${output.outputId}`,
+              ...(continuitySlot ? [] : [`   - OUTPUT_ID: ${output.outputId}`]),
               ...(output.startingPointSourceId
                 ? [`   - PONTO_DE_PARTIDA: ${output.startingPointSourceId}`]
                 : []),
@@ -1372,6 +1379,36 @@ function formatEditorialOutputPlan(
     outputs.every((output) => output.articlePlan?.sourceScope === "context")
       ? "> Cada output recebe apenas as fontes congeladas indicadas em FONTES_DO_CONTEXTO. Outros contextos do mesmo workspace não são input factual desse output."
       : "> Todos os outputs têm acesso ao conjunto completo de fontes autorizadas desta produção. A utilização efetiva é declarada separadamente em FONTES_UTILIZADAS.",
+    "",
+  ];
+}
+
+function formatThemeContinuityContract(
+  continuity: ThemeContinuityFrozenContract | undefined,
+): string[] {
+  if (!continuity) return [];
+  const newSources = continuity.sourceDiff.filter((source) => source.change === "NEW_SOURCE");
+  const updatedSources = continuity.sourceDiff.filter((source) => source.change === "UPDATED_SOURCE");
+  const unchangedSources = continuity.sourceDiff.filter((source) => source.change === "UNCHANGED_SOURCE");
+  return [
+    "## CONTRATO DE CONTINUIDADE DO TEMA · V1",
+    "",
+    `**TEMA_ID:** ${continuity.themeId}`,
+    `**BASELINE_DOSSIER_ID:** ${continuity.baselineDossierId ?? "PRIMEIRA_PRODUCAO"}`,
+    `**SOURCES NOVAS:** ${newSources.length}`,
+    `**SOURCES ATUALIZADAS:** ${updatedSources.length}`,
+    `**SOURCES INALTERADAS:** ${unchangedSources.length}`,
+    "",
+    ...continuity.sourceDiff.map((source) => (
+      `- ${source.change}: ${source.newsroomArticleId} · snapshot ${source.newsroomSnapshotId}`
+    )),
+    "",
+    "Responda exatamente uma vez por SLOT, usando [JORNADA_CONTINUIDADE_V1] e [/JORNADA_CONTINUIDADE_V1].",
+    "Para cada EXISTING_xx, DECISAO é obrigatoriamente UPDATE ou SEM_ALTERAÇÃO.",
+    "UPDATE devolve a versão integral do mesmo artigo. SEM_ALTERAÇÃO termina depois de DECISAO e não repete o artigo publicado.",
+    "Para cada NEW_xx, DECISAO é obrigatoriamente NEW e o artigo integral é obrigatório.",
+    "UPDATE e NEW usam, por esta ordem: SLOT, DECISAO, FONTES_UTILIZADAS, ANTETÍTULO, TÍTULO, PÓS-TÍTULO e CORPO.",
+    "SLOT é a única identidade devolvida pela IA; o sistema resolve o Article Plan e o target UPDATE congelados.",
     "",
   ];
 }
@@ -1411,6 +1448,7 @@ function formatMesaV2ProvenanceContract(
 function buildEditorialSourcePackageTaskMarkdown(
   editorial: EditorialSourcePackageEditorialInput,
   outputs?: readonly EditorialSourcePackageOutputInput[],
+  themeContinuity?: ThemeContinuityFrozenContract,
 ): string {
   return [
     "# TAREFA EDITORIAL",
@@ -1433,11 +1471,14 @@ function buildEditorialSourcePackageTaskMarkdown(
       "Sem instruções adicionais.",
     ),
     "",
-    ...formatEditorialOutputPlan(outputs),
-    ...formatMesaV2ProvenanceContract(outputs),
+    ...formatEditorialOutputPlan(outputs, themeContinuity),
+    ...(themeContinuity ? [] : formatMesaV2ProvenanceContract(outputs)),
+    ...formatThemeContinuityContract(themeContinuity),
     "## INSTRUÇÃO DE REDAÇÃO",
     "",
-    editorialSourcePackagePrompt(editorial.genre),
+    themeContinuity
+      ? [...GENRE_PROMPTS[editorial.genre], "", ...COMMON_PROMPT_RULES].join("\n\n")
+      : editorialSourcePackagePrompt(editorial.genre),
   ].join("\n");
 }
 
@@ -1446,6 +1487,7 @@ export function updateEditorialSourcePackageMarkdown(
     markdown: string;
     editorial: EditorialSourcePackageEditorialInput;
     outputs?: readonly EditorialSourcePackageOutputInput[];
+    themeContinuity?: ThemeContinuityFrozenContract;
   }>,
 ): string | null {
   const normalizedMarkdown =
@@ -1508,6 +1550,7 @@ export function updateEditorialSourcePackageMarkdown(
     buildEditorialSourcePackageTaskMarkdown(
       input.editorial,
       input.outputs,
+      input.themeContinuity,
     ),
     "",
     "---",
@@ -1526,6 +1569,7 @@ export function buildEditorialSourcePackageMarkdown(
       readonly EditorialSourcePackagePublishedArticleSnapshot[];
     publishedContexts?:
       readonly EditorialSourcePackagePublishedContextSnapshot[];
+    themeContinuity?: ThemeContinuityFrozenContract;
   }>,
 ): string {
   const selectedCount = input.entries.length;
@@ -1591,6 +1635,7 @@ export function buildEditorialSourcePackageMarkdown(
     buildEditorialSourcePackageTaskMarkdown(
       input.editorial,
       outputs,
+      input.themeContinuity,
     ),
     "",
     "---",
