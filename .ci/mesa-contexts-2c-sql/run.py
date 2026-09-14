@@ -1,4 +1,4 @@
-"""Run the Mesa 2C migration and contracts on an isolated PostgreSQL 17.6 container.
+"""Run the Mesa 2C/scoped-read migrations on an isolated PostgreSQL 17.6 container.
 
 This runner accepts only the GitHub Actions service-container id. It never reads
 connection variables, repository secrets, .env files, or Supabase credentials.
@@ -90,6 +90,152 @@ MESA_MIGRATIONS = [
 
 MIGRATION_2C = "supabase/migrations/20260913134418_newsroom_mesa_contexts_production_2c.sql"
 TEST_2C = "supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql"
+SCOPED_READ_PREFLIGHT = "supabase/sql/validate-newsroom-mesa-scoped-read-model-v1-preflight-pg17.sql"
+SCOPED_READ_MIGRATION = "supabase/migrations/20260914074012_newsroom_mesa_scoped_read_model_v1.sql"
+SCOPED_READ_POSTFLIGHT = "supabase/sql/validate-newsroom-mesa-scoped-read-model-v1-postflight-pg17.sql"
+
+PROTECTED_SCHEMA_SNAPSHOT_SQL = r"""
+select pg_catalog.jsonb_build_object(
+  'functions', (
+    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+      p.oid::regprocedure::text || '|' || pg_catalog.pg_get_userbyid(p.proowner)
+      || '|' || p.prosecdef::text || '|' || p.provolatile || '|'
+      || pg_catalog.coalesce(p.proconfig::text, '') || '|'
+      || pg_catalog.coalesce(p.proacl::text, '') || '|'
+      || pg_catalog.pg_get_functiondef(p.oid), E'\n' order by p.oid::regprocedure::text
+    ), ''))
+    from pg_catalog.pg_proc p
+    join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prokind in ('f', 'p')
+      and p.proname <> all(array[
+        'newsroom_mesa_timestamp_text_valid_v1',
+        'newsroom_mesa_source_candidates_v1',
+        'newsroom_mesa_source_counts_v1',
+        'newsroom_mesa_page_identities_v1',
+        'newsroom_mesa_theme_summaries_v1'
+      ])
+  ),
+  'relations', (
+    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+      c.oid::regclass::text || '|' || c.relkind || '|'
+      || pg_catalog.pg_get_userbyid(c.relowner) || '|'
+      || pg_catalog.coalesce(c.relacl::text, '') || '|'
+      || c.relrowsecurity::text || '|' || c.relforcerowsecurity::text
+      || '|' || c.relreplident, E'\n' order by c.oid::regclass::text
+    ), ''))
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm', 'S', 'f')
+  ),
+  'columns', (
+    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+      a.attrelid::regclass::text || '|' || a.attnum::text || '|' || a.attname
+      || '|' || a.atttypid::regtype::text || '|' || a.attnotnull::text
+      || '|' || pg_catalog.coalesce(pg_catalog.pg_get_expr(d.adbin, d.adrelid), ''),
+      E'\n' order by a.attrelid::regclass::text, a.attnum
+    ), ''))
+    from pg_catalog.pg_attribute a
+    join pg_catalog.pg_class c on c.oid = a.attrelid
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    left join pg_catalog.pg_attrdef d on d.adrelid = a.attrelid and d.adnum = a.attnum
+    where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm', 'S', 'f')
+      and a.attnum > 0 and not a.attisdropped
+  ),
+  'indexes', (
+    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+      indexname || '|' || indexdef, E'\n' order by indexname
+    ), ''))
+    from pg_catalog.pg_indexes
+    where schemaname = 'public'
+      and indexname <> all(array[
+        'newsroom_articles_cycle_page_v1',
+        'newsroom_articles_source_cycle_page_v1',
+        'newsroom_editorial_source_packages_manifest_gin_v1',
+        'newsroom_mesa_production_contexts_source_refs_gin_v1'
+      ])
+  ),
+  'triggers', (
+    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+      t.tgrelid::regclass::text || '|' || t.tgname || '|'
+      || pg_catalog.pg_get_triggerdef(t.oid, true), E'\n'
+      order by t.tgrelid::regclass::text, t.tgname
+    ), ''))
+    from pg_catalog.pg_trigger t
+    join pg_catalog.pg_class c on c.oid = t.tgrelid
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and not t.tgisinternal
+  ),
+  'constraints', (
+    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+      c.conrelid::regclass::text || '|' || c.conname || '|'
+      || pg_catalog.pg_get_constraintdef(c.oid, true), E'\n'
+      order by c.conrelid::regclass::text, c.conname
+    ), ''))
+    from pg_catalog.pg_constraint c
+    join pg_catalog.pg_namespace n on n.oid = c.connamespace
+    where n.nspname = 'public'
+  ),
+  'policies', (
+    select pg_catalog.md5(pg_catalog.coalesce(pg_catalog.string_agg(
+      p.polrelid::regclass::text || '|' || p.polname || '|' || p.polcmd
+      || '|' || p.polpermissive::text || '|' || p.polroles::text
+      || '|' || pg_catalog.coalesce(pg_catalog.pg_get_expr(p.polqual, p.polrelid), '')
+      || '|' || pg_catalog.coalesce(pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid), ''),
+      E'\n' order by p.polrelid::regclass::text, p.polname
+    ), ''))
+    from pg_catalog.pg_policy p
+    join pg_catalog.pg_class c on c.oid = p.polrelid
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+  ),
+  'roles', (
+    select pg_catalog.md5(pg_catalog.string_agg(
+      rolname || '|' || rolsuper::text || '|' || rolinherit::text
+      || '|' || rolcreaterole::text || '|' || rolcreatedb::text
+      || '|' || rolcanlogin::text || '|' || rolreplication::text
+      || '|' || rolbypassrls::text, E'\n' order by rolname
+    )) from pg_catalog.pg_roles
+    where rolname in ('anon', 'authenticated', 'service_role')
+  )
+)::text;
+"""
+
+READ_OBJECT_CONTRACT_SQL = r"""
+with read_functions(oid) as (
+  select pg_catalog.unnest(array[
+    'public.newsroom_mesa_source_candidates_v1(timestamptz,text)'::regprocedure,
+    'public.newsroom_mesa_source_counts_v1(timestamptz,text)'::regprocedure,
+    'public.newsroom_mesa_page_identities_v1(timestamptz,text,text,text,integer,integer)'::regprocedure,
+    'public.newsroom_mesa_theme_summaries_v1(uuid[])'::regprocedure
+  ])
+), permission_functions(oid) as (
+  select pg_catalog.unnest(array[
+    'public.newsroom_mesa_timestamp_text_valid_v1(text)'::regprocedure,
+    'public.newsroom_mesa_source_candidates_v1(timestamptz,text)'::regprocedure,
+    'public.newsroom_mesa_source_counts_v1(timestamptz,text)'::regprocedure,
+    'public.newsroom_mesa_page_identities_v1(timestamptz,text,text,text,integer,integer)'::regprocedure,
+    'public.newsroom_mesa_theme_summaries_v1(uuid[])'::regprocedure
+  ])
+), expected_indexes(name) as (
+  values
+    ('newsroom_articles_cycle_page_v1'),
+    ('newsroom_articles_source_cycle_page_v1'),
+    ('newsroom_editorial_source_packages_manifest_gin_v1'),
+    ('newsroom_mesa_production_contexts_source_refs_gin_v1')
+)
+select
+  (select pg_catalog.count(*) from read_functions)::text || '|'
+  || (select pg_catalog.count(*) from expected_indexes expected
+      where pg_catalog.to_regclass('public.' || expected.name) is not null)::text || '|'
+  || (select pg_catalog.count(*) from permission_functions target
+      where pg_catalog.has_function_privilege('service_role', target.oid, 'EXECUTE')
+        and not pg_catalog.has_function_privilege('anon', target.oid, 'EXECUTE')
+        and not pg_catalog.has_function_privilege('authenticated', target.oid, 'EXECUTE'))::text || '|'
+  || (select pg_catalog.count(*) from read_functions target
+      join pg_catalog.pg_proc p on p.oid = target.oid
+      where not p.prosecdef and p.provolatile = 's')::text;
+"""
 
 
 server = execute(
@@ -117,3 +263,28 @@ load(MIGRATION_2C)
 print("PASS: Mesa 2C migration applied on PostgreSQL 17.6", flush=True)
 load(TEST_2C)
 print("RESULT: MESA_CONTEXTS_2C_SQL PASS", flush=True)
+
+protected_schema_before = execute(PROTECTED_SCHEMA_SNAPSHOT_SQL)
+
+load(SCOPED_READ_PREFLIGHT)
+print("PASS: scoped-read preflight", flush=True)
+
+load(SCOPED_READ_MIGRATION)
+print("PASS: scoped-read migration applied", flush=True)
+
+load(SCOPED_READ_POSTFLIGHT)
+print("PASS: scoped-read postflight", flush=True)
+
+read_contract = execute(READ_OBJECT_CONTRACT_SQL)
+if read_contract != "4|4|5|4":
+    raise RuntimeError(f"Scoped-read object/permission contract invalid: {read_contract}")
+print("PASS: four read functions, four indexes and service_role permissions", flush=True)
+
+protected_schema_after = execute(PROTECTED_SCHEMA_SNAPSHOT_SQL)
+if protected_schema_after != protected_schema_before:
+    raise RuntimeError(
+        "Existing write functions, locks, containment or authorities changed: "
+        f"before={protected_schema_before} after={protected_schema_after}"
+    )
+print("PASS: existing write RPCs, locks, containment and authorities unchanged", flush=True)
+print("RESULT: MESA_SCOPED_READ_SQL PASS", flush=True)

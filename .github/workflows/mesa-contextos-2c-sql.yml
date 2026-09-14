@@ -5,6 +5,7 @@ name: Mesa 2C - PostgreSQL 17 isolado
   push:
     branches:
       - feat/redacao-mesa-contextos-temas-producao-2c-20260913
+      - jornada-redacao-mesa-postgrest-egress-lote-2-20260914
     paths:
       - '.ci/mesa-contexts-2c-sql/**'
       - '.ci/mesa-sql/bootstrap.sql'
@@ -20,7 +21,10 @@ name: Mesa 2C - PostgreSQL 17 isolado
       - 'supabase/migrations/20260912173257_allow_mesa_v2_source_package_manifest_v5.sql'
       - 'supabase/migrations/20260912175044_mesa_workspace_shared_output_scope_v2.sql'
       - 'supabase/migrations/20260913134418_newsroom_mesa_contexts_production_2c.sql'
+      - 'supabase/migrations/20260914074012_newsroom_mesa_scoped_read_model_v1.sql'
       - 'supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql'
+      - 'supabase/sql/validate-newsroom-mesa-scoped-read-model-v1-preflight-pg17.sql'
+      - 'supabase/sql/validate-newsroom-mesa-scoped-read-model-v1-postflight-pg17.sql'
       - 'supabase/steps/15-redacao-automatica-newsroom-apply.sql'
       - 'supabase/steps/31-redacao-automatica-compose-idempotencia-proveniencia-apply.sql'
       - 'supabase/steps/53-redacao-automatica-pacotes-fontes-persistentes-apply.sql'
@@ -49,7 +53,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
-      - name: Migration e contratos Mesa 2C em PostgreSQL real
+      - name: Migrations e contratos Mesa 2C/scoped reads em PostgreSQL real
         env:
           MESA_2C_TEST_CONTAINER: ${{ job.services.postgres.id }}
         run: python3 .ci/mesa-contexts-2c-sql/run.py
