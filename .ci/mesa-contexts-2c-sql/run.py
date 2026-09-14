@@ -72,6 +72,7 @@ def load(path: str, *, before: str | None = None) -> None:
 BASE_SQL = [
     ".ci/mesa-sql/bootstrap.sql",
     "supabase/steps/15-redacao-automatica-newsroom-apply.sql",
+    "supabase/steps/93-redacao-automatica-blocos-revisao-editorial-apply.sql",
     "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-schema-1-aplicar.sql",
     "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigos-planeados-schema-1-aplicar.sql",
     "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigo-planeado-rascunho-controlado-1-aplicar.sql",
