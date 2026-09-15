@@ -3443,23 +3443,36 @@ async function publishReferenceComposition(formData: FormData) {
     ...historicalContext,
   };
   const historicalRepublish = isHistoricalReferenceCompositionRepublishContext(publicationAuthority);
+  const hierarchicalSlots =
+    composition.presentation_mode === "hierarchical"
+      ? await readHierarchicalCompositionSlots(composition.id)
+      : [];
+  const dynamicPublication =
+    composition.presentation_mode === "hierarchical"
+      ? await validateHistoricalDynamicPublication(
+          composition,
+          hierarchicalSlots,
+        )
+      : {
+          enabled: false,
+          zoneCount: 0,
+        };
 
-  if (shouldRejectNonStandardPhysicalReferenceComposition({
-    ...publicationAuthority,
-    presentationMode: composition.presentation_mode,
-  })) {
+  if (
+    !dynamicPublication.enabled &&
+    shouldRejectNonStandardPhysicalReferenceComposition({
+      ...publicationAuthority,
+      presentationMode: composition.presentation_mode,
+    })
+  ) {
     throw new CompositionPublicationError("A publicação física usa uma composição de referência standard.");
   }
 
-  if ((!physicalAuthority || historicalRepublish) && composition.presentation_mode === "hierarchical") {
-    const hierarchicalSlots = await readHierarchicalCompositionSlots(composition.id);
+  if (
+    (!physicalAuthority || historicalRepublish || dynamicPublication.enabled) &&
+    composition.presentation_mode === "hierarchical"
+  ) {
     const hierarchicalReferenceItems = await readHierarchicalCompositionReferenceItems(composition.id);
-
-    const dynamicPublication =
-      await validateHistoricalDynamicPublication(
-        composition,
-        hierarchicalSlots,
-      );
 
     if (!dynamicPublication.enabled) {
       const missing = missingHierarchicalCompositionSlots(hierarchicalSlots);

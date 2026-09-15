@@ -93,12 +93,17 @@ test("route lê autoridades canónicas mínimas e deixa a RPC validar o históri
   assert.match(publish, /shouldRejectNonStandardPhysicalReferenceComposition/);
   assert.match(
     publish,
-    /\(!physicalAuthority \|\| historicalRepublish\) && composition\.presentation_mode === "hierarchical"/,
+    /\(!physicalAuthority \|\| historicalRepublish \|\| dynamicPublication\.enabled\) &&\s*composition\.presentation_mode === "hierarchical"/,
+  );
+  assert.match(
+    publish,
+    /!dynamicPublication\.enabled &&\s*shouldRejectNonStandardPhysicalReferenceComposition/,
   );
   assert.match(publish, /writeSupabaseAdmin\(\s*"rpc\/publish_matchday_reference_composition"/);
   assert.doesNotMatch(publish, /continuity_version|physical_handoffs|source_archive_hash/);
 
+  const dynamicValidation = publish.indexOf("validateHistoricalDynamicPublication");
   const guard = publish.indexOf("shouldRejectNonStandardPhysicalReferenceComposition");
   const rpc = publish.indexOf('"rpc/publish_matchday_reference_composition"');
-  assert.ok(guard >= 0 && rpc > guard);
+  assert.ok(dynamicValidation >= 0 && guard > dynamicValidation && rpc > guard);
 });
