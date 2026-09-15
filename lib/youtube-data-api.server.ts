@@ -2,6 +2,10 @@ import "server-only";
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
+const BUILTIN_YOUTUBE_SUMMARY_CHANNEL_IDS_BY_COMPETITION: Record<string, string[]> = {
+  "liga-portugal": ["UC5lg8zKcnJ1rnxR6lPgD1ug"],
+};
+
 export type YouTubeVideoResource = {
   id: string;
   snippet?: {
@@ -171,15 +175,20 @@ export async function listRecentYouTubeUploads(
 }
 
 export function configuredYouTubeSummaryChannelIds(competitionId: string, competitionSlug: string) {
+  const builtIn = BUILTIN_YOUTUBE_SUMMARY_CHANNEL_IDS_BY_COMPETITION[competitionId]
+    ?? BUILTIN_YOUTUBE_SUMMARY_CHANNEL_IDS_BY_COMPETITION[competitionSlug]
+    ?? [];
   const raw = process.env.YOUTUBE_VIDEO_SUMMARY_SOURCES_JSON?.trim();
-  if (!raw) return [];
+  if (!raw) return [...builtIn];
 
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const value = parsed[competitionId] ?? parsed[competitionSlug];
-    if (!Array.isArray(value)) return [];
-    return Array.from(new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)));
+    const configured = Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)
+      : [];
+    return Array.from(new Set([...configured, ...builtIn]));
   } catch {
-    return [];
+    return [...builtIn];
   }
 }
