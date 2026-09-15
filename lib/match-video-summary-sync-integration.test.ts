@@ -20,6 +20,17 @@ test("a chave YouTube permanece exclusivamente server-side", () => {
   assert.doesNotMatch(client, /YOUTUBE_DATA_API_KEY|googleapis\.com/u);
 });
 
+test("a recolha YouTube percorre várias páginas da playlist de uploads", () => {
+  const youtube = source("lib/youtube-data-api.server.ts");
+  assert.match(youtube, /maxPages = 10/u);
+  assert.match(youtube, /nextPageToken\?: string;/u);
+  assert.match(youtube, /let pageToken: string \| null = null;/u);
+  assert.match(youtube, /for \(let page = 0; page < safeMaxPages; page \+= 1\)/u);
+  assert.match(youtube, /\.\.\.\(pageToken \? \{ pageToken \} : \{\}\)/u);
+  assert.match(youtube, /pageToken = payload\.nextPageToken\?\.trim\(\) \|\| null;/u);
+  assert.match(youtube, /if \(!pageToken\) break;/u);
+});
+
 test("a página pública lê a informação de embeddability persistida", () => {
   const publicMatchday = source("lib/public-matchday.ts");
   const switcher = source("components/public/RoundupVideoSwitcher.tsx");
