@@ -31,6 +31,12 @@ test("a recolha YouTube percorre várias páginas da playlist de uploads", () =>
   assert.match(youtube, /if \(!pageToken\) break;/u);
 });
 
+test("a Liga Portugal inclui a TVI entre as fontes YouTube autorizadas", () => {
+  const youtube = source("lib/youtube-data-api.server.ts");
+  assert.match(youtube, /"liga-portugal": \["UC5lg8zKcnJ1rnxR6lPgD1ug"\]/u);
+  assert.match(youtube, /return Array\.from\(new Set\(\[\.\.\.configured, \.\.\.builtIn\]\)\);/u);
+});
+
 test("a página pública lê a informação de embeddability persistida", () => {
   const publicMatchday = source("lib/public-matchday.ts");
   const switcher = source("components/public/RoundupVideoSwitcher.tsx");
