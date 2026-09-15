@@ -28,6 +28,23 @@ export type YouTubeUploadItem = {
   channelTitle: string | null;
 };
 
+type YouTubeUploadsPage = {
+  nextPageToken?: string;
+  items?: Array<{
+    snippet?: {
+      title?: string;
+      publishedAt?: string;
+      videoOwnerChannelId?: string;
+      videoOwnerChannelTitle?: string;
+      resourceId?: { videoId?: string };
+    };
+    contentDetails?: {
+      videoId?: string;
+      videoPublishedAt?: string;
+    };
+  }>;
+};
+
 export class YouTubeDataApiError extends Error {
   constructor(
     public code: "youtube-api-key-missing" | "youtube-api-failed" | "youtube-source-missing",
@@ -127,22 +144,7 @@ export async function listRecentYouTubeUploads(
   let pageToken: string | null = null;
 
   for (let page = 0; page < safeMaxPages; page += 1) {
-    const payload = await youtubeGet<{
-      nextPageToken?: string;
-      items?: Array<{
-        snippet?: {
-          title?: string;
-          publishedAt?: string;
-          videoOwnerChannelId?: string;
-          videoOwnerChannelTitle?: string;
-          resourceId?: { videoId?: string };
-        };
-        contentDetails?: {
-          videoId?: string;
-          videoPublishedAt?: string;
-        };
-      }>;
-    }>("playlistItems", {
+    const payload: YouTubeUploadsPage = await youtubeGet<YouTubeUploadsPage>("playlistItems", {
       part: "snippet,contentDetails",
       playlistId,
       maxResults: String(safePageSize),
