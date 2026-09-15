@@ -116,38 +116,56 @@ export async function resolveYouTubeUploadsPlaylists(channelIds: string[]) {
   });
 }
 
-export async function listRecentYouTubeUploads(playlistId: string, maxResults = 50) {
-  const payload = await youtubeGet<{
-    items?: Array<{
-      snippet?: {
-        title?: string;
-        publishedAt?: string;
-        videoOwnerChannelId?: string;
-        videoOwnerChannelTitle?: string;
-        resourceId?: { videoId?: string };
-      };
-      contentDetails?: {
-        videoId?: string;
-        videoPublishedAt?: string;
-      };
-    }>;
-  }>("playlistItems", {
-    part: "snippet,contentDetails",
-    playlistId,
-    maxResults: String(Math.min(Math.max(maxResults, 1), 50)),
-  });
+export async function listRecentYouTubeUploads(
+  playlistId: string,
+  pageSize = 50,
+  maxPages = 10,
+) {
+  const uploads: YouTubeUploadItem[] = [];
+  const safePageSize = Math.min(Math.max(pageSize, 1), 50);
+  const safeMaxPages = Math.min(Math.max(maxPages, 1), 10);
+  let pageToken: string | null = null;
 
-  return (payload.items ?? []).flatMap<YouTubeUploadItem>((item) => {
-    const videoId = item.contentDetails?.videoId?.trim() || item.snippet?.resourceId?.videoId?.trim();
-    if (!videoId) return [];
-    return [{
-      videoId,
-      title: item.snippet?.title?.trim() || "",
-      publishedAt: item.contentDetails?.videoPublishedAt?.trim() || item.snippet?.publishedAt?.trim() || null,
-      channelId: item.snippet?.videoOwnerChannelId?.trim() || null,
-      channelTitle: item.snippet?.videoOwnerChannelTitle?.trim() || null,
-    }];
-  });
+  for (let page = 0; page < safeMaxPages; page += 1) {
+    const payload = await youtubeGet<{
+      nextPageToken?: string;
+      items?: Array<{
+        snippet?: {
+          title?: string;
+          publishedAt?: string;
+          videoOwnerChannelId?: string;
+          videoOwnerChannelTitle?: string;
+          resourceId?: { videoId?: string };
+        };
+        contentDetails?: {
+          videoId?: string;
+          videoPublishedAt?: string;
+        };
+      }>;
+    }>("playlistItems", {
+      part: "snippet,contentDetails",
+      playlistId,
+      maxResults: String(safePageSize),
+      ...(pageToken ? { pageToken } : {}),
+    });
+
+    uploads.push(...(payload.items ?? []).flatMap<YouTubeUploadItem>((item) => {
+      const videoId = item.contentDetails?.videoId?.trim() || item.snippet?.resourceId?.videoId?.trim();
+      if (!videoId) return [];
+      return [{
+        videoId,
+        title: item.snippet?.title?.trim() || "",
+        publishedAt: item.contentDetails?.videoPublishedAt?.trim() || item.snippet?.publishedAt?.trim() || null,
+        channelId: item.snippet?.videoOwnerChannelId?.trim() || null,
+        channelTitle: item.snippet?.videoOwnerChannelTitle?.trim() || null,
+      }];
+    }));
+
+    pageToken = payload.nextPageToken?.trim() || null;
+    if (!pageToken) break;
+  }
+
+  return uploads;
 }
 
 export function configuredYouTubeSummaryChannelIds(competitionId: string, competitionSlug: string) {
