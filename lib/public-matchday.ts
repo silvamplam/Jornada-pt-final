@@ -951,6 +951,8 @@ export async function getPublicMatchdayDiagnostic({
         sourceCompositionId: historicalTransition?.source_composition_id ?? null,
         currentPublishedCompositionId:
           referenceCompositionBundle.referenceComposition?.id ?? null,
+        currentPublishedCompositionPresentationMode:
+          referenceCompositionBundle.referenceComposition?.presentation_mode ?? null,
       });
     const referenceSlots = usePublishedReferenceForLivePage
       ? (referenceCompositionBundle.referenceSlots as PublicReferenceCompositionSlots)

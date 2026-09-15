@@ -13,12 +13,14 @@ const publicPage = readFileSync(
 
 function historicalPublishedAuthority({
   currentPublishedCompositionId = "composition-current",
+  currentPublishedCompositionPresentationMode = "standard",
   hasContinuityTransition = true,
   sourceCompositionId = "composition-original",
   sourceDeskIsManaged = false,
 }: Partial<Parameters<typeof isHistoricalPublishedReferenceCompositionAuthority>[0]> = {}) {
   return isHistoricalPublishedReferenceCompositionAuthority({
     currentPublishedCompositionId,
+    currentPublishedCompositionPresentationMode,
     hasContinuityTransition,
     sourceCompositionId,
     sourceDeskIsManaged,
@@ -63,7 +65,7 @@ test("histórica sem transition mantém o snapshot físico", () => {
   );
 });
 
-test("transition cuja current ainda é a composição original mantém physical", () => {
+test("transition cuja current ainda é a composição original standard mantém physical", () => {
   const historicalRepublish = historicalPublishedAuthority({
     currentPublishedCompositionId: "composition-original",
   });
@@ -78,6 +80,29 @@ test("transition cuja current ainda é a composição original mantém physical"
     }),
     "editorial_snapshot",
   );
+});
+
+test("transition cuja current é a composição original hierarchical torna a reference composition autoridade", () => {
+  const historicalRepublish = historicalPublishedAuthority({
+    currentPublishedCompositionId: "composition-original",
+    currentPublishedCompositionPresentationMode: "hierarchical",
+  });
+
+  assert.equal(historicalRepublish, true);
+  for (const editorialReadKind of [
+    "physical",
+    "invalid_physical_snapshot",
+  ] as const) {
+    assert.equal(
+      resolvePublicMatchdayEditorialAuthority({
+        editorialReadKind,
+        hasPublishedReferenceComposition: true,
+        historicalRepublishedReferenceComposition: historicalRepublish,
+        sourceDeskIsManaged: false,
+      }),
+      "published_reference_composition",
+    );
+  }
 });
 
 test("current publicada diferente da original torna a reference composition autoridade", () => {
@@ -112,6 +137,10 @@ test("renderer resolve a autoridade antes de derivar snapshots e usa hierarchica
   assert.match(
     publicLoader,
     /isHistoricalPublishedReferenceCompositionAuthority\(\{[\s\S]*?sourceDeskIsManaged: editorialDeskControl\.authorityIsManaged,[\s\S]*?sourceCompositionId: historicalTransition\?\.source_composition_id/,
+  );
+  assert.match(
+    publicLoader,
+    /currentPublishedCompositionPresentationMode:\s*referenceCompositionBundle\.referenceComposition\?\.presentation_mode \?\? null/,
   );
 
   const authority = publicPage.indexOf(

@@ -14,6 +14,7 @@ export type HistoricalPublishedReferenceCompositionAuthorityContext =
   HistoricalReferenceCompositionRepublishContext & Readonly<{
     sourceCompositionId: string | null;
     currentPublishedCompositionId: string | null;
+    currentPublishedCompositionPresentationMode?: ReferenceCompositionPresentationMode | null;
   }>;
 
 export function isHistoricalReferenceCompositionRepublishContext(
@@ -28,11 +29,16 @@ export function isHistoricalPublishedReferenceCompositionAuthority(
   const sourceCompositionId = context.sourceCompositionId?.trim() || null;
   const currentPublishedCompositionId =
     context.currentPublishedCompositionId?.trim() || null;
+  const currentPublishedCompositionPresentationMode =
+    context.currentPublishedCompositionPresentationMode ?? null;
 
   return isHistoricalReferenceCompositionRepublishContext(context)
     && sourceCompositionId !== null
     && currentPublishedCompositionId !== null
-    && currentPublishedCompositionId !== sourceCompositionId;
+    && (
+      currentPublishedCompositionId !== sourceCompositionId
+      || currentPublishedCompositionPresentationMode === "hierarchical"
+    );
 }
 
 export function shouldRejectNonStandardPhysicalReferenceComposition(
