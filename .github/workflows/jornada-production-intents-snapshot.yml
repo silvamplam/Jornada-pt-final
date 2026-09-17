@@ -1,0 +1,42 @@
+name: Temporary production intents offline source
+on:
+  push:
+    branches: [jornada-mesa-producao-intencoes-continuidade-v2-20260917]
+    paths: [.github/workflows/jornada-production-intents-snapshot.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Archive tracked source only
+        run: |
+          git rev-parse HEAD > /tmp/source-commit.txt
+          git archive --format=tar.gz -o /tmp/jornada-intents-source.tar.gz HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jornada-intents-source
+          retention-days: 1
+          path: |
+            /tmp/jornada-intents-source.tar.gz
+            /tmp/source-commit.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install isolated test dependencies without executing application code
+        run: |
+          npm ci --ignore-scripts --include=dev
+          tar -czf /tmp/jornada-intents-tools.tar.gz node_modules
+          cp "$(command -v node)" /tmp/node24
+          gzip /tmp/node24
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jornada-intents-tools
+          retention-days: 1
+          path: |
+            /tmp/jornada-intents-tools.tar.gz
+            /tmp/node24.gz
