@@ -1,4 +1,4 @@
-name: Temporary offline header source
+name: Temporary isolated header verification
 
 on:
   push:
@@ -6,22 +6,70 @@ on:
       - jornada-barra-azul-jornada-ajuste-publico-noticias-20260916
     paths:
       - .github/workflows/jornada-header-local-snapshot.yml
+      - .ci/header-adjustment.patch
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: jornada-header-isolated-verification
+  cancel-in-progress: false
 
 jobs:
-  snapshot:
+  verify-and-commit:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
-      - name: Archive tracked source without running the application
-        run: git archive --format=tar.gz --output=header-source.tar.gz HEAD
-      - uses: actions/upload-artifact@v4
+          ref: ${{ github.ref_name }}
+      - name: Verify branch head and apply the reviewed local patch
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          sed 's/^ diff --git /diff --git /' .ci/header-adjustment.patch > /tmp/header-adjustment.patch
+          git apply --check /tmp/header-adjustment.patch
+          git apply /tmp/header-adjustment.patch
+          git diff --check
+          test "$(git hash-object 'app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.module.css')" = '635c01a441f6c8d7ee489e614c3726c44c79e361'
+          test "$(git hash-object 'app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx')" = '59ad2a7682e06d9afaebe9ed58a896532d6666cc'
+          test "$(git hash-object 'app/noticias/[slug]/page.tsx')" = 'ddb8ab8e7059186c6910fd6c5c640e564c9a40bc'
+      - uses: actions/setup-node@v4
         with:
-          name: jornada-header-source
-          retention-days: 1
-          path: header-source.tar.gz
+          node-version: '24'
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Tests and production build with no external network or database credentials
+        run: |
+          cat > /tmp/header-isolated-checks.sh <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          export NEXT_TELEMETRY_DISABLED=1
+          test -z "$(ip route show default)"
+          node -e 'if (Object.entries(process.env).some(([k,v]) => /SUPABASE/i.test(k) && v)) throw Error("Unexpected database credentials"); console.log("No database credentials; isolated network namespace has no external route.")'
+          node --import tsx --test lib/public-competition-navigation.test.ts lib/public-matchday-leg-navigation.test.ts lib/public-match-strip-presentation.test.ts lib/public-match-strip-theme.test.ts lib/public-match-strip-live-refresh.test.ts lib/public-article-more.test.ts lib/public-article-paragraphs.test.ts 2>&1 | tee /tmp/header-tests.log
+          npm run build 2>&1 | tee /tmp/header-build.log
+          SH
+          chmod +x /tmp/header-isolated-checks.sh
+          sudo --preserve-env=PATH unshare --net bash -c 'ip link set lo up; exec runuser -u "$1" -- env PATH="$PATH" bash /tmp/header-isolated-checks.sh' -- "$(id -un)"
+      - name: Commit only the three reviewed application files
+        run: |
+          git restore -- next-env.d.ts
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 3
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- 'app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.module.css' 'app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx' 'app/noticias/[slug]/page.tsx'
+          git commit -m 'fix: match public blue header to the approved reference'
+          git push origin HEAD:jornada-barra-azul-jornada-ajuste-publico-noticias-20260916
+          git rev-parse HEAD > /tmp/header-tested-commit.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jornada-header-isolated-checks
+          retention-days: 3
+          path: |
+            /tmp/header-tests.log
+            /tmp/header-build.log
+            /tmp/header-tested-commit.txt

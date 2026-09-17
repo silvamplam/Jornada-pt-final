@@ -1,0 +1,297 @@
+diff --git a/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.module.css b/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.module.css
+index 698b568..635c01a 100644
+--- a/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.module.css
++++ b/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.module.css
+@@ -1,15 +1,15 @@
+-/* Route-local presentation: only the masthead, matchday navigation and games. */
++/* Scoped to public matchdays and contextual news; matchStrip stays matchday-only. */
+ .topStack:global(.public-top-stack) {
+   --masthead-height: 124px;
+-  top: calc(-1 * (var(--masthead-height) + 3px));
+-  border-top: 3px solid #51233f;
++  top: calc(-1 * (var(--masthead-height) + 2px));
++  border-top: 2px solid #5c1e3e;
+   border-bottom: 0;
+-  background: #0a2b63;
++  background: #002765;
+   color: #ffffff;
+ }
+ 
+ .topStack :global(.public-site-topbar) {
+-  grid-template-columns: 176px minmax(0, 1fr) 320px;
++  grid-template-columns: 176px minmax(0, 1fr) 216px 166px;
+   grid-template-rows: 70px 54px;
+   gap: 0 24px;
+   max-width: 1232px;
+@@ -63,21 +63,24 @@
+   color: #ffffff;
+   font-family: Arial, Helvetica, sans-serif;
+   text-decoration: none;
++  transform: translateY(4px);
+ }
+ 
+ .matchdayBrand span {
+-  font-size: 72px;
++  font-size: 50px;
+   font-weight: 400;
+-  line-height: 0.95;
+-  letter-spacing: -0.045em;
++  line-height: 1;
++  letter-spacing: -0.02em;
++  white-space: nowrap;
+ }
+ 
+ .matchdayBrand strong {
+-  font-size: 40px;
+-  font-weight: 500;
++  font-size: 36px;
++  font-weight: 400;
+   font-variant-numeric: tabular-nums;
+   line-height: 1;
+-  letter-spacing: -0.025em;
++  letter-spacing: 0;
++  transform: translateX(-19px);
+ }
+ 
+ .topStack :global(nav[aria-label="Navegação pública"]) {
+@@ -99,7 +102,7 @@
+   min-height: 44px;
+   margin: 0;
+   padding: 0 14px;
+-  border-left: 1px solid rgb(255 255 255 / 16%);
++  border-left: 1px solid #0d477b;
+   border-bottom: 2px solid transparent;
+   color: #e7eef9;
+ }
+@@ -114,6 +117,7 @@
+ }
+ 
+ .topStack :global(.public-site-actions) {
++  display: none;
+   grid-column: 2;
+   grid-row: 1;
+   align-self: start;
+@@ -137,12 +141,12 @@
+ }
+ 
+ .topStack :global(.public-matchday-date-row) {
+-  grid-column: 2;
+-  grid-row: 1;
++  grid-column: 4;
++  grid-row: 2;
+   align-self: end;
+   justify-content: flex-start;
+   min-height: 0;
+-  padding: 0 0 6px 14px;
++  padding: 0 0 16px;
+   border: 0;
+ }
+ 
+@@ -152,6 +156,7 @@
+   font-size: 11px;
+   font-weight: 400;
+   line-height: 1.4;
++  white-space: normal;
+ }
+ 
+ .topStack :global(.public-season-nav-bar) {
+@@ -165,7 +170,7 @@
+   grid-template-columns: max-content minmax(0, 1fr);
+   gap: 0 16px;
+   min-height: 48px;
+-  border-top: 1px solid rgb(255 255 255 / 22%);
++  border-top: 1px solid #003b72;
+ }
+ 
+ .topStack :global(.public-season-context-card) {
+@@ -192,8 +197,8 @@
+   min-width: 126px;
+   min-height: 32px;
+   padding: 4px 12px;
+-  border: 1px solid rgb(255 255 255 / 22%);
+-  background: #104575;
++  border: 1px solid #005484;
++  background: #004377;
+   color: #ffffff;
+   font-size: 14px;
+   font-weight: 700;
+@@ -209,15 +214,15 @@
+   min-width: 88px;
+   min-height: 32px;
+   padding: 0 10px;
+-  border: 1px solid rgb(255 255 255 / 22%);
++  border: 1px solid #0d477b;
+   color: #dce7f7;
+   font-size: 13px;
+   font-weight: 600;
+ }
+ 
+ .topStack :global(.public-matchday-leg-nav a[aria-current="true"]) {
+-  border-color: rgb(255 255 255 / 45%);
+-  background: #14558a;
++  border-color: #3b769f;
++  background: #00548d;
+   color: #ffffff;
+   font-weight: 700;
+ }
+@@ -243,8 +248,8 @@
+ }
+ 
+ .topStack :global(.public-matchday-nav-compact a[aria-current="page"]) {
+-  border-bottom-color: #ffffff;
+-  background: rgb(255 255 255 / 12%);
++  border-bottom-color: transparent;
++  background: #044378;
+   color: #ffffff;
+   font-weight: 800;
+ }
+@@ -310,16 +315,16 @@
+ 
+ @media (max-width: 1100px) {
+   .topStack :global(.public-site-topbar) {
+-    grid-template-columns: 160px minmax(0, 1fr) 252px;
++    grid-template-columns: 160px minmax(0, 1fr) 190px 150px;
+     gap: 0 14px;
+   }
+ 
+   .matchdayBrand span {
+-    font-size: 60px;
++    font-size: 44px;
+   }
+ 
+   .matchdayBrand strong {
+-    font-size: 36px;
++    font-size: 32px;
+   }
+ 
+   .topStack :global(nav[aria-label="Navegação pública"] a) {
+@@ -379,10 +384,11 @@
+   }
+ 
+   .matchdayBrand span {
+-    font-size: 44px;
++    font-size: clamp(30px, 5.8vw, 44px);
+   }
+ 
+   .matchdayBrand strong {
++    transform: translateX(-12px);
+     font-size: 28px;
+   }
+ 
+@@ -401,9 +407,10 @@
+   }
+ 
+   .topStack :global(.public-matchday-date-row) {
+-    grid-column: 1;
++    grid-column: 1 / -1;
+     grid-row: 3;
+     align-self: center;
++    justify-content: flex-end;
+     padding: 0;
+   }
+ 
+ diff --git a/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx b/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx
+index 06b8392..59ad2a7 100644
+--- a/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx
++++ b/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx
+@@ -4161,7 +4161,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
+           <span>{context.competition.name}</span>
+         </a>
+         <a className={styles.matchdayBrand} href="/" aria-label={`Jornada.pt — Jornada ${context.matchday.number}`}>
+-          <span>ajornada</span>
++          <span>a Jornada</span>
+           <strong>{String(context.matchday.number).padStart(2, "0")}</strong>
+         </a>
+         <PublicCompetitionNavigation
+@@ -4172,7 +4172,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
+         />
+         <div className="public-matchday-date-row">
+           <span className="public-matchday-date-context">
+-            <strong>Data:</strong> {selectedMatchdayDateContext}
++            {selectedMatchdayDateContext}
+           </span>
+         </div>
+         <div className="public-site-actions" aria-label="Ações">
+ diff --git a/app/noticias/[slug]/page.tsx b/app/noticias/[slug]/page.tsx
+index d9a3ab0..ddb8ab8 100644
+--- a/app/noticias/[slug]/page.tsx
++++ b/app/noticias/[slug]/page.tsx
+@@ -9,6 +9,8 @@ import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNa
+ import PublicMatchStrip from "@/components/public/PublicMatchStrip";
+ import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
+ import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
++import { resolvePublicCompetitionLogoPresentation } from "@/lib/public-competition-navigation";
++import matchdayHeaderStyles from "@/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.module.css";
+ import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
+ import {
+   getPublicMatchdayDiagnostic,
+@@ -574,6 +576,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
+           logoUrl: articleContext.competition.logo_url
+         }
+       : null;
++  const competitionLogo = resolvePublicCompetitionLogoPresentation(currentCompetitionMenuItem);
+   const publicCompetitionMenu = currentCompetitionMenuItem
+     ? publicCompetitionMenuBase.map((item) => (item.slug === currentCompetitionMenuItem.slug ? currentCompetitionMenuItem : item))
+     : publicCompetitionMenuBase;
+@@ -612,17 +615,45 @@ export default async function NewsArticlePage({ params }: PageProps) {
+   return (
+     <div className="news-article-shell">
+       <style>{articlePageStyles}</style>
+-      <div className="public-top-stack">
++      <div className={`public-top-stack ${articleContext ? matchdayHeaderStyles.topStack : ""}`}>
+         <header className="public-site-topbar" aria-label="Topo do Jornada.pt">
+-          <a className="public-site-brand" href="/">
+-            Jornada<span>.pt</span>
+-          </a>
++          {articleContext && currentCompetitionMenuItem ? (
++            <>
++              <a className={matchdayHeaderStyles.competitionIdentity} href={currentCompetitionMenuItem.href}>
++                {competitionLogo ? (
++                  <img
++                    alt=""
++                    data-variant={competitionLogo.variant}
++                    height={competitionLogo.intrinsicHeight}
++                    src={competitionLogo.logoUrl}
++                    width={competitionLogo.intrinsicWidth}
++                  />
++                ) : null}
++                <span>{articleContext.competition.name}</span>
++              </a>
++              <a className={matchdayHeaderStyles.matchdayBrand} href="/" aria-label={`Jornada.pt — Jornada ${articleContext.matchday.number}`}>
++                <span>a Jornada</span>
++                <strong>{String(articleContext.matchday.number).padStart(2, "0")}</strong>
++              </a>
++            </>
++          ) : (
++            <a className="public-site-brand" href="/">
++              Jornada<span>.pt</span>
++            </a>
++          )}
+           <PublicCompetitionNavigation
+             competitions={publicCompetitionMenu}
+             activeCompetitionSlug={articleContext?.competition.slug}
+             classificationHref={classificationHref}
+             showMessageTicker={false}
+           />
++          {articleContext ? (
++            <div className="public-matchday-date-row">
++              <span className="public-matchday-date-context">
++                {selectedMatchdayDateContext}
++              </span>
++            </div>
++          ) : null}
+           <div className="public-site-actions" aria-label="Ações">
+             <span className="public-site-search" aria-label="Pesquisar">
+               Pesquisar
+@@ -670,11 +701,6 @@ export default async function NewsArticlePage({ params }: PageProps) {
+                   </a>
+                 ))}
+               </nav>
+-              <div className="public-matchday-date-row">
+-                <span className="public-matchday-date-context">
+-                  <strong>Data:</strong> {selectedMatchdayDateContext}
+-                </span>
+-              </div>
+             </div>
+           </section>
+         ) : null}
