@@ -1,0 +1,131 @@
+name: Temporary published-theme incorporation continuity
+
+on:
+  push:
+    branches:
+      - jornada-mesa-incorporar-tema-publicado-continuity-20260917
+    paths:
+      - .github/workflows/jornada-mesa-incorporar-tema-publicado-continuity.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: jornada-mesa-incorporar-tema-publicado-continuity-20260917
+          fetch-depth: 0
+      - name: Apply scoped continuity handoff
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          route = Path('app/api/admin/editorial/redacao-automatica/mesa/preparar/route.ts')
+          text = route.read_text()
+
+          old = '''type GenericThemeContinuityRequirement =\n  | Readonly<{ status: "clear" }>\n  | Readonly<{ status: "required"; themeTitle: string }>\n  | Readonly<{ status: "unavailable" }>;\n'''
+          new = '''type GenericThemeContinuityRequirement =\n  | Readonly<{ status: "clear" }>\n  | Readonly<{ status: "required"; themeId: string; themeTitle: string }>\n  | Readonly<{ status: "unavailable" }>;\n'''
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = '''      if (continuity.publishedArticleCount > 0) {\n        return { status: "required", themeTitle: continuity.theme.title };\n      }\n'''
+          new = '''      if (continuity.publishedArticleCount > 0) {\n        return { status: "required", themeId, themeTitle: continuity.theme.title };\n      }\n'''
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          anchor = '''function themeContinuityUnavailableResponse() {\n  return NextResponse.json({\n    ok: false,\n    code: "theme_continuity_unavailable",\n    message: "Não foi possível confirmar a continuidade editorial deste Tema. Nenhuma Produção genérica foi criada.",\n  }, { status: 503 });\n}\n'''
+          helper = anchor + '''\nasync function incorporatePublishedThemeSourcesForContinuity(\n  input: MesaContextPreparationInput,\n  themeTitle: string,\n) {\n  if (!input.incorporateThemeId || input.incorporateSourceIds.length < 1) {\n    return themeContinuityRequiredResponse(themeTitle);\n  }\n  try {\n    const rows = await mesaOrganizationCommand("newsroom_organize_theme_sources_v1", {\n      p_request_id: input.preparationKey,\n      p_theme_id: input.incorporateThemeId,\n      p_title: "",\n      p_classification_key: null,\n      p_source_ids: input.incorporateSourceIds,\n    });\n    const row = rows[0];\n    if (\n      textValue(row?.theme_id) !== input.incorporateThemeId\n      || !Number.isSafeInteger(row?.added_count)\n      || typeof row?.reused !== "boolean"\n    ) throw new Error("theme-incorporation-result-invalid");\n    return NextResponse.json({\n      ok: true,\n      code: "theme_continuity_ready",\n      incorporatedSourceCount: Number(row.added_count),\n      workspaceUrl: `/admin/editorial/redacao-automatica/mesa/temas/${input.incorporateThemeId}?continuity=1`,\n      message: Number(row.added_count) > 0\n        ? `${Number(row.added_count)} fontes incorporadas no Tema. A abrir Continuidade editorial…`\n        : "As fontes selecionadas já pertenciam ao Tema. A abrir Continuidade editorial…",\n    }, { status: row.reused ? 200 : 201 });\n  } catch (error) {\n    const detail = error instanceof Error ? error.message : "";\n    const conflict = /request-conflict|theme-unavailable|source-not-found|invalid-input/.test(detail);\n    return NextResponse.json({\n      ok: false,\n      code: conflict ? "preparation_conflict" : "prepare_failed",\n      message: conflict\n        ? "O Tema ou as fontes mudaram antes da incorporação. Atualiza a Mesa e volta a confirmar; nenhuma Produção foi criada."\n        : "Não foi possível incorporar as fontes no Tema antes da Continuidade editorial.",\n    }, { status: conflict ? 409 : 502 });\n  }\n}\n'''
+          assert anchor in text and 'incorporatePublishedThemeSourcesForContinuity' not in text
+          text = text.replace(anchor, helper, 1)
+
+          old = '''    if (continuityRequirement.status === "unavailable") return themeContinuityUnavailableResponse();\n    if (continuityRequirement.status === "required") return themeContinuityRequiredResponse(continuityRequirement.themeTitle);\n    return prepareMesaContexts(contextInput);\n'''
+          new = '''    if (continuityRequirement.status === "unavailable") return themeContinuityUnavailableResponse();\n    if (continuityRequirement.status === "required") {\n      if (\n        contextInput.incorporateThemeId === continuityRequirement.themeId\n        && contextInput.incorporateSourceIds.length > 0\n      ) {\n        return incorporatePublishedThemeSourcesForContinuity(\n          contextInput,\n          continuityRequirement.themeTitle,\n        );\n      }\n      return themeContinuityRequiredResponse(continuityRequirement.themeTitle);\n    }\n    return prepareMesaContexts(contextInput);\n'''
+          assert old in text
+          text = text.replace(old, new, 1)
+          route.write_text(text)
+
+          page = Path('app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/page.tsx')
+          text = page.read_text()
+          old = '''export default async function MesaThemePage({\n  params,\n}: Readonly<{ params: Promise<{ themeId: string }> }>) {\n  const { themeId } = await params;\n'''
+          new = '''export default async function MesaThemePage({\n  params,\n  searchParams,\n}: Readonly<{\n  params: Promise<{ themeId: string }>;\n  searchParams: Promise<{ continuity?: string }>;\n}>) {\n  const [{ themeId }, query] = await Promise.all([params, searchParams]);\n'''
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = '''          <ThemeContinuityClient themeId={themeId} disabled={theme.status !== "open"} />\n'''
+          new = '''          <ThemeContinuityClient\n            themeId={themeId}\n            disabled={theme.status !== "open"}\n            autoOpen={query.continuity === "1"}\n          />\n'''
+          assert old in text
+          page.write_text(text.replace(old, new, 1))
+
+          client = Path('app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/_theme-continuity-client.tsx')
+          text = client.read_text()
+          text = text.replace(
+            'import { useRef, useState } from "react";\n',
+            'import { useCallback, useEffect, useRef, useState } from "react";\n',
+            1,
+          )
+          old = '''export function ThemeContinuityClient({\n  themeId,\n  disabled,\n}: Readonly<{ themeId: string; disabled: boolean }>) {\n'''
+          new = '''export function ThemeContinuityClient({\n  themeId,\n  disabled,\n  autoOpen = false,\n}: Readonly<{ themeId: string; disabled: boolean; autoOpen?: boolean }>) {\n'''
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = '''  const preparationKey = useRef<string | null>(null);\n  const [continuity, setContinuity] = useState<ThemeContinuityReadModel | null>(null);\n'''
+          new = '''  const preparationKey = useRef<string | null>(null);\n  const autoOpened = useRef(false);\n  const [continuity, setContinuity] = useState<ThemeContinuityReadModel | null>(null);\n'''
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = '''  async function openContinuity() {\n    if (continuity) {\n      setExpanded((current) => !current);\n      return;\n    }\n    setLoading(true);\n    setMessage(null);\n    try {\n      const response = await fetch(\n        `/api/admin/editorial/redacao-automatica/mesa/tema-continuity?themeId=${encodeURIComponent(themeId)}`,\n        { cache: "no-store" },\n      );\n      const payload = await response.json() as LoadResponse;\n      if (!response.ok || !payload.ok) throw new Error(payload.ok ? "" : payload.message);\n      setContinuity(payload.continuity);\n      setNewArticleCount(Math.min(1, Math.max(0, 30 - payload.continuity.publishedArticleCount)));\n      preparationKey.current = window.crypto.randomUUID();\n      setExpanded(true);\n    } catch (error) {\n      setMessage(error instanceof Error && error.message\n        ? error.message\n        : "Não foi possível ler a continuidade deste Tema.");\n    } finally {\n      setLoading(false);\n    }\n  }\n'''
+          new = '''  const openContinuity = useCallback(async () => {\n    if (continuity) {\n      setExpanded((current) => !current);\n      return;\n    }\n    setLoading(true);\n    setMessage(null);\n    try {\n      const response = await fetch(\n        `/api/admin/editorial/redacao-automatica/mesa/tema-continuity?themeId=${encodeURIComponent(themeId)}`,\n        { cache: "no-store" },\n      );\n      const payload = await response.json() as LoadResponse;\n      if (!response.ok || !payload.ok) throw new Error(payload.ok ? "" : payload.message);\n      setContinuity(payload.continuity);\n      setNewArticleCount(Math.min(1, Math.max(0, 30 - payload.continuity.publishedArticleCount)));\n      preparationKey.current = window.crypto.randomUUID();\n      setExpanded(true);\n    } catch (error) {\n      setMessage(error instanceof Error && error.message\n        ? error.message\n        : "Não foi possível ler a continuidade deste Tema.");\n    } finally {\n      setLoading(false);\n    }\n  }, [continuity, themeId]);\n\n  useEffect(() => {\n    if (!autoOpen || disabled || autoOpened.current) return;\n    autoOpened.current = true;\n    void openContinuity();\n  }, [autoOpen, disabled, openContinuity]);\n'''
+          assert old in text
+          client.write_text(text.replace(old, new, 1))
+
+          test = Path('lib/redacao-automatica/newsroom-theme-continuity-generic-bypass.test.ts')
+          text = test.read_text()
+          text = text.replace(
+            'const themePage = readFileSync("app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/page.tsx", "utf8");\n',
+            'const themePage = readFileSync("app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/page.tsx", "utf8");\nconst continuityClient = readFileSync("app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/_theme-continuity-client.tsx", "utf8");\n',
+            1,
+          )
+          append = '''\n\ntest("Tema publicado aceita incorporação explícita antes de entrar na Continuidade", () => {\n  assert.match(route, /incorporatePublishedThemeSourcesForContinuity/);\n  assert.match(route, /newsroom_organize_theme_sources_v1/);\n  assert.match(route, /contextInput\\.incorporateThemeId === continuityRequirement\\.themeId/);\n  assert.match(route, /workspaceUrl: `\\/admin\\/editorial\\/redacao-automatica\\/mesa\\/temas\\/\\$\\{input\\.incorporateThemeId\\}\\?continuity=1`/);\n});\n\ntest("handoff de incorporação abre automaticamente a Continuidade do Tema", () => {\n  assert.match(themePage, /autoOpen=\\{query\\.continuity === "1"\\}/);\n  assert.match(continuityClient, /autoOpen = false/);\n  assert.match(continuityClient, /useEffect\\(\\(\\) => \\{/);\n  assert.match(continuityClient, /void openContinuity\\(\\)/);\n});\n'''
+          assert 'incorporação explícita antes de entrar na Continuidade' not in text
+          test.write_text(text + append)
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Run focused regression tests
+        run: |
+          npx tsx --test \
+            lib/redacao-automatica/newsroom-theme-continuity-generic-bypass.test.ts \
+            lib/redacao-automatica/newsroom-theme-continuity.test.ts \
+            lib/redacao-automatica/newsroom-mesa-contexts-production-2c-runtime.test.ts \
+            lib/redacao-automatica/newsroom-mesa-organization.test.ts
+      - name: Production build without database credentials
+        shell: bash
+        run: |
+          unset SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
+          npm run build
+      - name: Commit tested implementation
+        shell: bash
+        run: |
+          git restore next-env.d.ts 2>/dev/null || true
+          rm -f .github/workflows/jornada-mesa-incorporar-tema-publicado-continuity.yml
+          git add -A
+          git fetch origin main
+          ACTUAL="$(git diff --cached --name-only origin/main | sort)"
+          EXPECTED="$(printf '%s\n' \
+            'app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/_theme-continuity-client.tsx' \
+            'app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/page.tsx' \
+            'app/api/admin/editorial/redacao-automatica/mesa/preparar/route.ts' \
+            'lib/redacao-automatica/newsroom-theme-continuity-generic-bypass.test.ts' | sort)"
+          printf 'NET DIFF:\n%s\n' "$ACTUAL"
+          test "$ACTUAL" = "$EXPECTED"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: hand published-theme incorporation to continuity"
+          git push origin HEAD:jornada-mesa-incorporar-tema-publicado-continuity-20260917
