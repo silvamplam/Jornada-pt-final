@@ -1,0 +1,104 @@
+name: Temporary Mesa theme cleanup UX
+
+on:
+  push:
+    branches:
+      - jornada-mesa-limpeza-temas-ux-20260917
+    paths:
+      - .github/workflows/jornada-mesa-limpeza-temas-ux.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: jornada-mesa-limpeza-temas-ux-20260917
+          fetch-depth: 0
+      - name: Apply scoped implementation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          org = Path('app/admin/editorial/redacao-automatica/mesa/_mesa-organization-client.tsx')
+          text = org.read_text()
+          text = text.replace(
+              'import { MesaThemeSelectionToggle } from "./_mesa-selection-client";\n',
+              'import { MesaThemeSelectionToggle, useMesaSelection } from "./_mesa-selection-client";\n',
+              1,
+          )
+          anchor = '''export function MesaOrganizationPanel({ organization, fixtureMode = false }: Readonly<{\n  organization: MesaOrganization; fixtureMode?: boolean;\n}>) {\n  const [status, setStatus] = useState("open");\n  const [themeCards, setThemeCards] = useState(organization.themes);\n'''
+          replacement = '''export function MesaOrganizationPanel({ organization, fixtureMode = false }: Readonly<{\n  organization: MesaOrganization; fixtureMode?: boolean;\n}>) {\n  const { removeTheme } = useMesaSelection();\n  const [status, setStatus] = useState("open");\n  const [themeCards, setThemeCards] = useState(organization.themes);\n  const [archivingThemeIds, setArchivingThemeIds] = useState<readonly string[]>([]);\n  const [archiveErrors, setArchiveErrors] = useState<Readonly<Record<string, string>>>({});\n'''
+          assert anchor in text
+          text = text.replace(anchor, replacement, 1)
+
+          anchor = '''  const themes = themeCards.filter((theme) => status === "all" || theme.status === status);\n'''
+          replacement = '''  async function archiveTheme(theme: MesaThemeCard) {\n    if (theme.status !== "open" || archivingThemeIds.includes(theme.id)) return;\n    setArchiveErrors((current) => {\n      const next = { ...current };\n      delete next[theme.id];\n      return next;\n    });\n    setArchivingThemeIds((current) => [...current, theme.id]);\n    setThemeCards((current) => current.map((item) => (\n      item.id === theme.id ? { ...item, status: "archived" } : item\n    )));\n    if (fixtureMode) {\n      removeTheme(theme.id);\n      setArchivingThemeIds((current) => current.filter((id) => id !== theme.id));\n      return;\n    }\n    try {\n      const response = await fetch(ORGANIZATION_ROUTE, {\n        method: "POST",\n        headers: { "Content-Type": "application/json" },\n        body: JSON.stringify({ action: "archive_theme", themeId: theme.id }),\n      });\n      const result = await response.json().catch(() => null) as {\n        ok?: boolean; message?: string; theme?: MesaThemeCard;\n      } | null;\n      if (!response.ok || !result?.ok || !result.theme) {\n        throw new Error(result?.message || "Não foi possível apagar o Tema da Mesa.");\n      }\n      setThemeCards((current) => current.map((item) => (\n        item.id === theme.id ? result.theme! : item\n      )));\n      removeTheme(theme.id);\n      publishMesaThemeUpdate(result.theme);\n    } catch (error) {\n      setThemeCards((current) => current.map((item) => (item.id === theme.id ? theme : item)));\n      setArchiveErrors((current) => ({\n        ...current,\n        [theme.id]: error instanceof Error ? error.message : "Não foi possível apagar o Tema da Mesa.",\n      }));\n    } finally {\n      setArchivingThemeIds((current) => current.filter((id) => id !== theme.id));\n    }\n  }\n\n  const themes = themeCards.filter((theme) => status === "all" || theme.status === status);\n'''
+          assert anchor in text
+          text = text.replace(anchor, replacement, 1)
+
+          old = '''        ...themes.map((theme) => <li key={`theme:${theme.id}`} className={styles.organizationThemeItem}>\n          <article className={styles.organizationCard}>\n            <MesaThemeSelectionToggle theme={theme} />\n            <Link href={`/admin/editorial/redacao-automatica/mesa/temas/${theme.id}`} prefetch={false}>{theme.title}</Link>\n            <p>{theme.sourceCount} fontes · {theme.articleCount} artigos publicados</p>\n            {theme.updatedSourceCount > 0 ? <strong className={styles.updatedNotice}>{theme.updatedSourceCount} fontes atualizadas</strong> : null}\n          </article>\n        </li>)\n'''
+          new = '''        ...themes.map((theme) => <li key={`theme:${theme.id}`} className={styles.organizationThemeItem}>\n          <article className={styles.organizationCard} data-theme-publication={theme.articleCount > 0 ? "published" : "empty"}>\n            <MesaThemeSelectionToggle theme={theme} />\n            {theme.status === "open" ? (\n              <button\n                type="button"\n                className={styles.themeDiscardButton}\n                disabled={archivingThemeIds.includes(theme.id)}\n                aria-label="Apagar Tema da Mesa"\n                title="Apagar Tema da Mesa"\n                onClick={() => void archiveTheme(theme)}\n              >Apagar Tema</button>\n            ) : null}\n            <Link href={`/admin/editorial/redacao-automatica/mesa/temas/${theme.id}`} prefetch={false}>{theme.title}</Link>\n            <p>\n              {theme.sourceCount} fontes · {" "}\n              <span className={styles.themePublicationState} data-tone={theme.articleCount > 0 ? "published" : "empty"}>\n                {theme.articleCount} artigos publicados\n              </span>\n            </p>\n            {theme.updatedSourceCount > 0 ? <strong className={styles.updatedNotice}>{theme.updatedSourceCount} fontes atualizadas</strong> : null}\n            {archiveErrors[theme.id] ? <span className={styles.themeDiscardError} role="alert">{archiveErrors[theme.id]}</span> : null}\n          </article>\n        </li>)\n'''
+          assert old in text
+          text = text.replace(old, new, 1)
+          org.write_text(text)
+
+          route = Path('app/api/admin/editorial/redacao-automatica/mesa/organizacao/route.ts')
+          text = route.read_text()
+          old = '''    if (action === "attach_dossier") {\n      if (!isMesaUuid(body.dossierId)) return badRequest();\n      await mesaOrganizationCommand("newsroom_attach_dossier_to_theme_v1", { p_dossier_id: body.dossierId, p_theme_id: themeId });\n    } else if (action === "remove_source") {\n'''
+          new = '''    if (action === "archive_theme") {\n      await mesaOrganizationCommand("newsroom_set_editorial_theme_status_v1", {\n        p_theme_id: themeId,\n        p_status: "archived",\n      });\n    } else if (action === "attach_dossier") {\n      if (!isMesaUuid(body.dossierId)) return badRequest();\n      await mesaOrganizationCommand("newsroom_attach_dossier_to_theme_v1", { p_dossier_id: body.dossierId, p_theme_id: themeId });\n    } else if (action === "remove_source") {\n'''
+          assert old in text
+          route.write_text(text.replace(old, new, 1))
+
+          css = Path('app/admin/editorial/redacao-automatica/mesa/mesa.module.css')
+          text = css.read_text()
+          marker = '/* Limpeza operacional dos Temas e menus sem sobreposição. */'
+          assert marker not in text
+          text += '''\n\n/* Limpeza operacional dos Temas e menus sem sobreposição. */\n.sourcePanel[data-organization="true"] .organizationThemeItem > .organizationCard {\n  padding-right: 39px;\n}\n\n.themeDiscardButton {\n  position: absolute;\n  top: 8px;\n  right: 8px;\n  z-index: 3;\n  width: 21px;\n  height: 21px;\n  display: grid;\n  place-items: center;\n  overflow: hidden;\n  border: 1px solid transparent !important;\n  border-radius: 50% !important;\n  padding: 0 !important;\n  color: transparent !important;\n  background: transparent !important;\n  opacity: 0.28;\n}\n\n.themeDiscardButton::before {\n  content: "×";\n  color: #745c39;\n  font-size: 0.82rem;\n  line-height: 1;\n}\n\n.organizationThemeItem:hover .themeDiscardButton,\n.organizationThemeItem:focus-within .themeDiscardButton {\n  border-color: #c8baaa !important;\n  background: #fffaf2 !important;\n  opacity: 1;\n}\n\n.themeDiscardButton:disabled {\n  cursor: wait !important;\n  opacity: 0.16;\n}\n\n.themePublicationState {\n  font-weight: 820;\n}\n\n.themePublicationState[data-tone="empty"] {\n  color: #16713a;\n}\n\n.themePublicationState[data-tone="published"] {\n  color: #a12d31;\n}\n\n.themeDiscardError {\n  display: block;\n  margin-top: 6px;\n  color: #8f2d2d;\n  font-size: 0.6rem;\n  font-weight: 760;\n}\n\n.sourceTools:has(.sourceThemeMenu[open]) {\n  gap: 4px;\n}\n\n.sourceTools:has(.sourceThemeMenu[open]) .classificationEditor {\n  position: static;\n  margin-left: auto;\n  opacity: 1;\n  transform: none;\n}\n\n.sourceTools:has(.sourceThemeMenu[open]) .sourceThemeMenu {\n  order: 10;\n}\n\n.sourceBody:has(.sourceThemeMenu[open]) {\n  padding-bottom: 6px;\n}\n'''
+          css.write_text(text)
+
+          test = Path('lib/redacao-automatica/newsroom-mesa-cleanup-theme-ux.test.ts')
+          test.write_text('''import assert from "node:assert/strict";\nimport { readFileSync } from "node:fs";\nimport test from "node:test";\n\nconst organizationClient = readFileSync(\n  "app/admin/editorial/redacao-automatica/mesa/_mesa-organization-client.tsx",\n  "utf8",\n);\nconst organizationRoute = readFileSync(\n  "app/api/admin/editorial/redacao-automatica/mesa/organizacao/route.ts",\n  "utf8",\n);\nconst css = readFileSync(\n  "app/admin/editorial/redacao-automatica/mesa/mesa.module.css",\n  "utf8",\n);\n\ntest("apagar Tema na Mesa arquiva sem destruir a memória editorial", () => {\n  assert.match(organizationClient, /action: "archive_theme"/);\n  assert.match(organizationClient, /aria-label="Apagar Tema da Mesa"/);\n  assert.match(organizationRoute, /action === "archive_theme"/);\n  assert.match(organizationRoute, /newsroom_set_editorial_theme_status_v1/);\n  assert.match(organizationRoute, /p_status: "archived"/);\n});\n\ntest("estado editorial do Tema distingue zero publicações de Tema publicado", () => {\n  assert.match(organizationClient, /data-tone=\{theme\.articleCount > 0 \? "published" : "empty"\}/);\n  assert.match(css, /themePublicationState\[data-tone="empty"\][\\s\\S]*#16713a/);\n  assert.match(css, /themePublicationState\[data-tone="published"\][\\s\\S]*#a12d31/);\n});\n\ntest("abrir o menu Tema retira o editor de classificação da posição absoluta", () => {\n  assert.match(css, /sourceTools:has\(\.sourceThemeMenu\[open\]\) \.classificationEditor[\\s\\S]*position: static/);\n  assert.match(css, /sourceBody:has\(\.sourceThemeMenu\[open\]\)[\\s\\S]*padding-bottom: 6px/);\n});\n''')
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Run focused regression tests
+        run: |
+          npx tsx --test \
+            lib/redacao-automatica/newsroom-mesa-cleanup-theme-ux.test.ts \
+            lib/redacao-automatica/newsroom-operational-desk.test.ts \
+            lib/redacao-automatica/newsroom-mesa-organization.test.ts \
+            lib/redacao-automatica/newsroom-theme-continuity.test.ts
+      - name: Production build without database credentials
+        shell: bash
+        run: |
+          unset SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
+          npm run build
+      - name: Commit tested implementation
+        shell: bash
+        run: |
+          git restore next-env.d.ts 2>/dev/null || true
+          rm -f .github/workflows/jornada-mesa-limpeza-temas-ux.yml
+          git add -A
+          git fetch origin main
+          ACTUAL="$(git diff --cached --name-only origin/main | sort)"
+          EXPECTED="$(printf '%s\n' \
+            'app/admin/editorial/redacao-automatica/mesa/_mesa-organization-client.tsx' \
+            'app/admin/editorial/redacao-automatica/mesa/mesa.module.css' \
+            'app/api/admin/editorial/redacao-automatica/mesa/organizacao/route.ts' \
+            'lib/redacao-automatica/newsroom-mesa-cleanup-theme-ux.test.ts' | sort)"
+          printf 'NET DIFF:\n%s\n' "$ACTUAL"
+          test "$ACTUAL" = "$EXPECTED"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: streamline newsroom theme cleanup"
+          git push origin HEAD:jornada-mesa-limpeza-temas-ux-20260917
