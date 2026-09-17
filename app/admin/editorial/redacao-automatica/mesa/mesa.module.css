@@ -574,6 +574,7 @@
 }
 
 .sourceTools {
+  position: relative;
   min-height: 18px;
   display: flex;
   flex-wrap: wrap;
@@ -590,8 +591,9 @@
 
 .classificationEditor {
   position: absolute;
-  right: 4px;
-  bottom: 4px;
+  top: 0;
+  right: 0;
+  bottom: auto;
   z-index: 1;
   display: flex;
   gap: 3px;
@@ -1489,8 +1491,6 @@
 }
 
 .sourceTools:has(.sourceThemeMenu[open]) .classificationEditor {
-  position: static;
-  margin-left: auto;
   opacity: 1;
   transform: none;
 }
