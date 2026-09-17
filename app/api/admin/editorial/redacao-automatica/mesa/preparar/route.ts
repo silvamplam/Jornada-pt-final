@@ -13,6 +13,7 @@ import {
 
 import { isMesaMaterialRef, mesaSelectedSources } from "@/lib/redacao-automatica/newsroom-mesa-editorial-groups";
 import { isMesaUuid, mesaOrganizationCommand } from "@/lib/redacao-automatica/newsroom-mesa-organization";
+import { readThemeContinuity } from "@/lib/redacao-automatica/newsroom-theme-continuity";
 
 function objectValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -181,6 +182,44 @@ function errorStatus(code: string): number {
   return 502;
 }
 
+type GenericThemeContinuityRequirement =
+  | Readonly<{ status: "clear" }>
+  | Readonly<{ status: "required"; themeTitle: string }>
+  | Readonly<{ status: "unavailable" }>;
+
+async function genericThemeContinuityRequirement(
+  themeIds: readonly string[],
+): Promise<GenericThemeContinuityRequirement> {
+  try {
+    for (const themeId of [...new Set(themeIds)]) {
+      const continuity = await readThemeContinuity(themeId);
+      if (!continuity) return { status: "unavailable" };
+      if (continuity.publishedArticleCount > 0) {
+        return { status: "required", themeTitle: continuity.theme.title };
+      }
+    }
+    return { status: "clear" };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+
+function themeContinuityRequiredResponse(themeTitle: string) {
+  return NextResponse.json({
+    ok: false,
+    code: "theme_continuity_required",
+    message: `O Tema «${themeTitle}» já tem artigos publicados. Usa «Voltar a levar à Produção» em Continuidade editorial para rever os artigos existentes antes de criar novos.`,
+  }, { status: 409 });
+}
+
+function themeContinuityUnavailableResponse() {
+  return NextResponse.json({
+    ok: false,
+    code: "theme_continuity_unavailable",
+    message: "Não foi possível confirmar a continuidade editorial deste Tema. Nenhuma Produção genérica foi criada.",
+  }, { status: 503 });
+}
+
 export async function POST(request: Request) {
   let payload: unknown;
   try {
@@ -196,9 +235,16 @@ export async function POST(request: Request) {
   const rawPayload = objectValue(payload);
   if (rawPayload?.mesaVersion === 3) {
     const contextInput = contextPreparationInput(payload);
-    return contextInput
-      ? prepareMesaContexts(contextInput)
-      : NextResponse.json({ ok: false, code: "input_invalid", message: "A seleção de contextos não é válida." }, { status: 400 });
+    if (!contextInput) {
+      return NextResponse.json({ ok: false, code: "input_invalid", message: "A seleção de contextos não é válida." }, { status: 400 });
+    }
+    const themeIds = contextInput.contexts
+      .filter((context) => textValue(context.kind) === "theme")
+      .map((context) => textValue(context.themeId));
+    const continuityRequirement = await genericThemeContinuityRequirement(themeIds);
+    if (continuityRequirement.status === "unavailable") return themeContinuityUnavailableResponse();
+    if (continuityRequirement.status === "required") return themeContinuityRequiredResponse(continuityRequirement.themeTitle);
+    return prepareMesaContexts(contextInput);
   }
 
   const input = prepareInput(payload);
@@ -208,6 +254,12 @@ export async function POST(request: Request) {
       code: "input_invalid",
       message: "O pedido de preparação não é válido.",
     }, { status: 400 });
+  }
+
+  if (input.themeId) {
+    const continuityRequirement = await genericThemeContinuityRequirement([input.themeId]);
+    if (continuityRequirement.status === "unavailable") return themeContinuityUnavailableResponse();
+    if (continuityRequirement.status === "required") return themeContinuityRequiredResponse(continuityRequirement.themeTitle);
   }
 
   if (objectValue(payload)?.mesaVersion === 2) {
