@@ -37,6 +37,11 @@ import {
   HISTORICAL_COMPOSITION_BLOCK_KEYS,
   type HistoricalCompositionBlockKey,
 } from "@/lib/editorial-historical-composition-workspace";
+import {
+  isHistoricalBankItemEligible,
+  isHistoricalInheritedBankItem,
+  type HistoricalInheritedBankItem,
+} from "@/lib/editorial-historical-inherited-news";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
 
 function cleanText(value: FormDataEntryValue | null): string | null {
@@ -350,7 +355,7 @@ type ExistingBankItem = {
   image_url: string | null;
 };
 
-type BankItemForAssignment = {
+type BankItemForAssignment = HistoricalInheritedBankItem & {
   id: string;
   status: string | null;
   label: string | null;
@@ -1462,6 +1467,83 @@ async function updateBankItemStatus(formData: FormData, nextStatus: "active" | "
   );
 }
 
+async function updateInheritedBankItemRevalidation(
+  formData: FormData,
+  revalidated: boolean,
+) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const bankItemId = cleanText(formData.get("bank_item_id"));
+  if (!matchdayId || !bankItemId) {
+    throw new CompositionPublicationError("A notícia herdada já não está disponível.");
+  }
+
+  const bankItem = await readFirst<
+    HistoricalInheritedBankItem & { id: string; status: string | null; source_id?: string | null }
+  >(
+    `matchday_editorial_bank_items?select=id,status,source_id,continuity_source_matchday_id,continuity_revalidated_at&id=eq.${encodeURIComponent(
+      bankItemId,
+    )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+  );
+
+  if (
+    !bankItem
+    || bankItem.status !== "active"
+    || !isHistoricalInheritedBankItem(bankItem)
+  ) {
+    throw new CompositionPublicationError("Esta notícia não é uma notícia herdada ativa desta jornada.");
+  }
+
+  if (!revalidated && bankItem.continuity_revalidated_at) {
+    const hierarchicalDrafts = await fetchSupabaseAdminTable<{ id: string }>(
+      `matchday_reference_compositions?select=id&matchday_id=eq.${encodeURIComponent(
+        matchdayId,
+      )}&status=eq.draft&presentation_mode=eq.hierarchical&limit=10`,
+    );
+
+    for (const composition of hierarchicalDrafts) {
+      const usedByBankId = await hierarchicalCompositionUsesBankItem(
+        composition.id,
+        bankItemId,
+      );
+      const usedByArticleId = bankItem.source_id
+        ? await hierarchicalCompositionUsesEditorialArticle(
+            composition.id,
+            bankItem.source_id,
+          )
+        : false;
+
+      if (usedByBankId || usedByArticleId) {
+        throw new CompositionPublicationError(
+          "Retira primeiro esta notícia da composição antes de retirar a revalidação.",
+        );
+      }
+    }
+  }
+
+  await writeSupabaseAdmin(
+    `matchday_editorial_bank_items?id=eq.${encodeURIComponent(bankItemId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        continuity_revalidated_at: revalidated
+          ? new Date().toISOString()
+          : null,
+      }),
+    },
+  );
+}
+
+function assertHistoricalRecoveryAllowed(
+  item: HistoricalInheritedBankItem,
+  alreadyInComposition = false,
+) {
+  if (!isHistoricalBankItemEligible(item) && !alreadyInComposition) {
+    throw new CompositionPublicationError(
+      "Esta notícia veio da jornada anterior. Revalida-a para esta jornada antes de a recuperar para a composição histórica.",
+    );
+  }
+}
+
 const bankCompositionSlotTypes = new Set(["headline", "complement", "side_block", "highlight", "important_item", "editorial_line_item"]);
 const articleNewsFlowSlotTypes = new Set<string>(EDITORIAL_NEWS_FLOW_SLOT_TYPES);
 
@@ -1483,7 +1565,7 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
   }
 
   const bankItem = await readFirst<BankItemForAssignment>(
-    `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug&id=eq.${encodeURIComponent(
+    `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug,continuity_source_matchday_id,continuity_revalidated_at&id=eq.${encodeURIComponent(
       bankItemId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`
   );
@@ -1491,6 +1573,7 @@ async function assignBankItemToCompositionSlot(formData: FormData) {
   if (!bankItem || bankItem.status !== "active") {
     throw new Error("bank-assignment-invalid");
   }
+  assertHistoricalRecoveryAllowed(bankItem);
 
   const articleId = isEditorialArticleSourceType(bankItem.source_type) ? bankItem.source_id : null;
 
@@ -1636,13 +1719,14 @@ async function assignBankItemToHierarchicalSlot(formData: FormData) {
   }
 
   const bankItem = await readFirst<BankItemForAssignment>(
-    `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug&id=eq.${encodeURIComponent(
+    `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug,continuity_source_matchday_id,continuity_revalidated_at&id=eq.${encodeURIComponent(
       bankItemId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`
   );
   if (!bankItem || bankItem.status !== "active") {
     throw new Error("hierarchical-assignment-invalid");
   }
+  assertHistoricalRecoveryAllowed(bankItem);
 
   const isEditorialContent = isEditorialContentSourceType(bankItem.source_type);
   if (isEditorialContent && slotKey !== "dominant_main") {
@@ -1893,13 +1977,14 @@ async function assignBankItemToHierarchicalAuxiliary(formData: FormData) {
   }
 
   const bankItem = await readFirst<BankItemForAssignment>(
-    `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug&id=eq.${encodeURIComponent(
+    `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug,continuity_source_matchday_id,continuity_revalidated_at&id=eq.${encodeURIComponent(
       bankItemId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
   );
   if (!bankItem || bankItem.status !== "active") {
     throw new CompositionPublicationError("Esta notícia já não está disponível no banco da Jornada.");
   }
+  assertHistoricalRecoveryAllowed(bankItem);
 
   const articleId = isEditorialArticleSourceType(bankItem.source_type) ? bankItem.source_id : null;
   const isEditorialContent = isEditorialContentSourceType(bankItem.source_type);
@@ -3007,7 +3092,7 @@ async function applyHierarchicalDeskPlan(
     );
   }
 
-  const [currentSlots, currentAuxiliary] = await Promise.all([
+  const [currentSlots, currentAuxiliary, currentDynamicItems] = await Promise.all([
     fetchSupabaseAdminTable<HierarchicalDeskCurrentSlot>(
       `matchday_hierarchical_composition_slots?select=id,slot_key,bank_item_id,source_identity&composition_id=eq.${encodeURIComponent(
         compositionId,
@@ -3017,6 +3102,11 @@ async function applyHierarchicalDeskPlan(
       `matchday_reference_composition_items?select=id,slot_type,sort_order,source_type,source_id&composition_id=eq.${encodeURIComponent(
         compositionId,
       )}&slot_type=in.(complement,beyond_matchday,important_item)`,
+    ),
+    fetchSupabaseAdminTable<{ bank_item_id: string | null }>(
+      `matchday_historical_composition_zone_items?select=bank_item_id&composition_id=eq.${encodeURIComponent(
+        compositionId,
+      )}`,
     ),
   ]);
 
@@ -3061,6 +3151,37 @@ async function applyHierarchicalDeskPlan(
       );
     }
   }
+
+  const existingCompositionBankItemIds = new Set<string>([
+    ...currentSlots
+      .map((slot) => slot.bank_item_id)
+      .filter((id): id is string => Boolean(id)),
+    ...currentAuxiliary
+      .filter((item) => normalizeSourceType(item.source_type) === "matchday_editorial_bank_item")
+      .map((item) => item.source_id)
+      .filter((id): id is string => Boolean(id)),
+    ...currentDynamicItems
+      .map((item) => item.bank_item_id)
+      .filter((id): id is string => Boolean(id)),
+  ]);
+
+  const existingCompositionArticleIds = new Set<string>([
+    ...currentSlots
+      .map((slot) => {
+        const identity = normalizeIdentityValue(slot.source_identity);
+        return identity.startsWith("editorial_article:")
+          ? identity.slice("editorial_article:".length)
+          : null;
+      })
+      .filter((id): id is string => Boolean(id)),
+    ...currentAuxiliary
+      .filter((item) => isEditorialArticleSourceType(item.source_type))
+      .map((item) => normalizeIdentityValue(item.source_id))
+      .filter(Boolean),
+    ...(composition.hierarchical_editorial_source_type === "editorial_article"
+      ? [normalizeIdentityValue(composition.hierarchical_editorial_source_id)].filter(Boolean)
+      : []),
+  ]);
 
   const assignedTargets = new Set<string>();
   const assignedBankItems = new Set<string>();
@@ -3160,7 +3281,7 @@ async function applyHierarchicalDeskPlan(
 
     const bankItem =
       await readFirst<BankItemForAssignment>(
-        `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug&id=eq.${encodeURIComponent(
+        `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug,continuity_source_matchday_id,continuity_revalidated_at&id=eq.${encodeURIComponent(
           operation.bankItemId,
         )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
       );
@@ -3175,6 +3296,14 @@ async function applyHierarchicalDeskPlan(
         "Uma das notícias selecionadas já não está disponível no Banco da Mesa.",
       );
     }
+
+    assertHistoricalRecoveryAllowed(
+      bankItem,
+      existingCompositionBankItemIds.has(bankItem.id)
+        || existingCompositionArticleIds.has(
+          normalizeIdentityValue(bankItem.source_id),
+        ),
+    );
 
     if (operation.kind === "assign_auxiliary" && !cleanSnapshotValue(bankItem.image_url)) {
       throw new CompositionPublicationError(
@@ -3251,6 +3380,40 @@ async function applyHierarchicalDeskPlan(
         throw new CompositionPublicationError("O artigo do Editorial já não está disponível.");
       }
       await readPublishedEditorialArticleForHierarchicalAuxiliary(bankItem.source_id);
+    }
+  }
+
+  if (dynamicZones) {
+    const dynamicBankIds = Array.from(
+      new Set(
+        dynamicZones.flatMap((zone) => zone.items.map((item) => item.bankItemId)),
+      ),
+    );
+
+    for (const bankItemId of dynamicBankIds) {
+      if (existingCompositionBankItemIds.has(bankItemId)) continue;
+
+      const bankItem = await readFirst<BankItemForAssignment>(
+        `matchday_editorial_bank_items?select=id,status,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug,continuity_source_matchday_id,continuity_revalidated_at&id=eq.${encodeURIComponent(
+          bankItemId,
+        )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+      );
+
+      if (!bankItem || bankItem.status !== "active") {
+        throw new CompositionPublicationError(
+          "Uma das notícias da zona editorial já não está disponível no Banco da Mesa.",
+        );
+      }
+
+      assertHistoricalRecoveryAllowed(
+        bankItem,
+        Boolean(
+          bankItem.source_id
+          && existingCompositionArticleIds.has(
+            normalizeIdentityValue(bankItem.source_id),
+          )
+        ),
+      );
     }
   }
 
@@ -3613,6 +3776,14 @@ export async function POST(request: Request) {
       await updateBankItemStatus(formData, "active");
       return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_reactivated=1#matchday-editorial-bank`);
     }
+    else if (actionType === "revalidate_inherited_bank_item") {
+      await updateInheritedBankItemRevalidation(formData, true);
+      return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_revalidated=1#matchday-editorial-bank`);
+    }
+    else if (actionType === "remove_inherited_bank_item_revalidation") {
+      await updateInheritedBankItemRevalidation(formData, false);
+      return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_revalidation_removed=1#matchday-editorial-bank`);
+    }
 
     else if (actionType === "assign_bank_item_to_composition_slot") {
       await assignBankItemToCompositionSlot(formData);
@@ -3661,6 +3832,13 @@ export async function POST(request: Request) {
     if (actionType === "archive_bank_item" || actionType === "reactivate_bank_item") {
       const errorValue = error instanceof CompositionPublicationError ? encodeURIComponent(error.message) : "1";
       return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_status_error=${errorValue}#matchday-editorial-bank`);
+    }
+    if (
+      actionType === "revalidate_inherited_bank_item"
+      || actionType === "remove_inherited_bank_item_revalidation"
+    ) {
+      const errorValue = error instanceof CompositionPublicationError ? encodeURIComponent(error.message) : "1";
+      return redirectTo(request, `${returnTo}${returnTo.includes("?") ? "&" : "?"}bank_revalidation_error=${errorValue}#matchday-editorial-bank`);
     }
     if (
       actionType === "assign_bank_item_to_composition_slot" ||

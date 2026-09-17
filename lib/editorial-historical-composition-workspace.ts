@@ -153,6 +153,7 @@ export type HistoricalCompositionReservoirArticle = Readonly<{
   label: string | null;
   title: string;
   naturalGroupKey: string | null;
+  historicalEligible?: boolean;
 }>;
 
 export function filterHistoricalCompositionReservoir<
@@ -166,6 +167,7 @@ export function filterHistoricalCompositionReservoir<
   const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
 
   return articles.filter((article) => {
+    if (article.historicalEligible === false) return false;
     if (placedBankItemIds.has(article.bankItemId)) return false;
     if (
       selectedGroupKeys.size > 0

@@ -40,6 +40,10 @@ import PublicFlexibleZoneLayout, {
   type PublicFlexibleZone,
 } from "@/components/public/PublicFlexibleZoneLayout";
 import { editorialVisualFamilyCapacity } from "@/lib/editorial-visual-families";
+import {
+  isHistoricalBankItemEligible,
+  isHistoricalInheritedBankItem,
+} from "@/lib/editorial-historical-inherited-news";
 import PublicHierarchicalComposition, {
   PublicHierarchicalPosteriorMoments,
 } from "@/components/public/PublicHierarchicalComposition";
@@ -78,6 +82,9 @@ type CompositionPageProps = {
     bank_filter?: string;
     bank_repeated?: string;
     bank_reactivated?: string;
+    bank_revalidated?: string;
+    bank_revalidation_removed?: string;
+    bank_revalidation_error?: string;
     bank_saved?: string;
     bank_skipped?: string;
     bank_updated?: string;
@@ -233,6 +240,8 @@ type MatchdayEditorialBankItem = {
   origin_slot_type: string | null;
   sort_order: number | null;
   status: string;
+  continuity_source_matchday_id: string | null;
+  continuity_revalidated_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -1437,6 +1446,22 @@ const compositionPageStyles = `
     text-transform: uppercase;
   }
 
+  .composition-admin-inherited-badge {
+    width: fit-content;
+    border-radius: 999px;
+    background: #f4efe4;
+    color: #775b22;
+    padding: 4px 7px;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .composition-admin-inherited-badge.revalidated {
+    background: #e8f1ec;
+    color: #1f6d43;
+  }
+
   .composition-admin-added-badge {
     width: fit-content;
     border-radius: 999px;
@@ -1863,7 +1888,7 @@ function readReferenceCompositionItems(compositionId?: string | null): Promise<R
 
 function readMatchdayEditorialBankItems(matchdayId: string): Promise<MatchdayEditorialBankItem[]> {
   return fetchSupabaseAdminTable<MatchdayEditorialBankItem>(
-    `matchday_editorial_bank_items?select=id,matchday_id,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug,origin_slot_type,sort_order,status,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_editorial_bank_items?select=id,matchday_id,label,label_color,title,subtitle,image_url,link_url,source_type,source_id,source_slug,origin_slot_type,sort_order,status,continuity_source_matchday_id,continuity_revalidated_at,created_at,updated_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&order=sort_order.asc.nullslast,created_at.desc`
   ).catch(() => []);
@@ -2143,6 +2168,41 @@ function BankItemStatusForm({
   );
 }
 
+function BankItemContinuityRevalidationForm({
+  item,
+  matchdayId,
+  matchdayNumber,
+  revalidated,
+  returnTo,
+}: {
+  item: MatchdayEditorialBankItem;
+  matchdayId: string;
+  matchdayNumber: number;
+  revalidated: boolean;
+  returnTo: string;
+}) {
+  if (!isHistoricalInheritedBankItem(item) || item.status === "archived") {
+    return null;
+  }
+
+  return (
+    <form className="composition-admin-form" action="/api/admin/editorial/composicao" method="post">
+      <HiddenField
+        name="action_type"
+        value={revalidated ? "revalidate_inherited_bank_item" : "remove_inherited_bank_item_revalidation"}
+      />
+      <HiddenField name="matchday_id" value={matchdayId} />
+      <HiddenField name="bank_item_id" value={item.id} />
+      <HiddenField name="return_to" value={returnTo} />
+      <button className="composition-admin-small-button secondary" type="submit">
+        {revalidated
+          ? `Revalidar para J${String(matchdayNumber).padStart(2, "0")}`
+          : "Retirar revalidação"}
+      </button>
+    </form>
+  );
+}
+
 function AssignBankItemForm({
   composition,
   hierarchicalAuxiliaryItems,
@@ -2160,7 +2220,12 @@ function AssignBankItemForm({
   presentationMode: ReferenceCompositionPresentationMode;
   returnTo: string;
 }) {
-  if (!composition || composition.status !== "draft" || item.status !== "active") {
+  if (
+    !composition
+    || composition.status !== "draft"
+    || item.status !== "active"
+    || !isHistoricalBankItemEligible(item)
+  ) {
     return null;
   }
 
@@ -2277,20 +2342,31 @@ function BankNewsListItem({
   hierarchicalSlots,
   item,
   matchdayId,
+  matchdayNumber,
   placementLabel,
   presentationMode,
-  returnTo
+  returnTo,
+  sourceMatchdayNumber,
 }: {
   composition: ReferenceComposition | null;
   hierarchicalAuxiliaryItems: ReferenceCompositionItem[];
   hierarchicalSlots: HierarchicalCompositionSlot[];
   item: MatchdayEditorialBankItem;
   matchdayId: string;
+  matchdayNumber: number;
   placementLabel: string | null;
   presentationMode: ReferenceCompositionPresentationMode;
   returnTo: string;
+  sourceMatchdayNumber: number | null;
 }) {
   const isArchived = item.status === "archived";
+  const isInherited = isHistoricalInheritedBankItem(item);
+  const isRevalidated = isInherited && isHistoricalBankItemEligible(item);
+  const inheritanceLabel = isInherited
+    ? sourceMatchdayNumber === null
+      ? "HERDADA"
+      : `HERDADA · J${String(sourceMatchdayNumber).padStart(2, "0")}`
+    : null;
   const hasImage = Boolean(textOrEmpty(item.image_url));
   const stateLabel = isArchived ? "Arquivada" : placementLabel ? `Em uso: ${placementLabel}` : "Disponível";
   const stateClass = isArchived ? " archived" : placementLabel ? " in-use" : "";
@@ -2304,13 +2380,20 @@ function BankNewsListItem({
             {item.label}
           </span>
         ) : null}
+        {inheritanceLabel ? (
+          <span className={`composition-admin-inherited-badge${isRevalidated ? " revalidated" : ""}`}>
+            {isRevalidated
+              ? `${inheritanceLabel.replace("HERDADA", "REVALIDADA")} → J${String(matchdayNumber).padStart(2, "0")}`
+              : inheritanceLabel}
+          </span>
+        ) : null}
         <strong className="composition-admin-title">{item.title}</strong>
         {textOrEmpty(item.subtitle) ? <p className="composition-admin-copy">{item.subtitle}</p> : null}
         <span className={`composition-admin-state${stateClass}`}>{stateLabel}</span>
         <FieldLink href={item.link_url} />
       </div>
       <div className="composition-admin-bank-actions">
-        {!isArchived && !placementLabel ? (
+        {!isArchived && !placementLabel && isHistoricalBankItemEligible(item) ? (
           <AssignBankItemForm
             composition={composition}
             hierarchicalAuxiliaryItems={hierarchicalAuxiliaryItems}
@@ -2323,6 +2406,15 @@ function BankNewsListItem({
         ) : null}
         {!isArchived && placementLabel ? (
           <p className="composition-admin-note">Retira a notícia da composição para a voltar a disponibilizar ou arquivar.</p>
+        ) : null}
+        {!isArchived && !placementLabel && isInherited ? (
+          <BankItemContinuityRevalidationForm
+            item={item}
+            matchdayId={matchdayId}
+            matchdayNumber={matchdayNumber}
+            revalidated={!isRevalidated}
+            returnTo={returnTo}
+          />
         ) : null}
         {!isArchived && !placementLabel ? (
           <BankItemStatusForm actionType="archive_bank_item" item={item} label="Arquivar" matchdayId={matchdayId} returnTo={returnTo} />
@@ -2387,8 +2479,10 @@ function HierarchicalCompositionDeskBank({
   hierarchicalAuxiliaryItems,
   hierarchicalSlots,
   matchdayId,
+  matchdayNumber,
   returnTo,
   selectedRoundupSourceIds,
+  sourceMatchdayNumberById,
 }: {
   bankItems: MatchdayEditorialBankItem[];
   bankPlacementById: Map<string, string | null>;
@@ -2397,8 +2491,10 @@ function HierarchicalCompositionDeskBank({
   hierarchicalAuxiliaryItems: ReferenceCompositionItem[];
   hierarchicalSlots: HierarchicalCompositionSlot[];
   matchdayId: string;
+  matchdayNumber: number;
   returnTo: string;
   selectedRoundupSourceIds: Set<string>;
+  sourceMatchdayNumberById: Map<string, number>;
 }) {
   const liveArticles = deskSnapshot?.articles ?? [];
 
@@ -2646,8 +2742,14 @@ function HierarchicalCompositionDeskBank({
               const group = placementGroupForKey(article.placementKey);
               const compositionPlacement = bankPlacementById.get(item.id) ?? null;
 
+              const historicalEligible = isHistoricalBankItemEligible(item);
               const selectionDisabled =
-                composition?.status !== "draft" || Boolean(compositionPlacement);
+                composition?.status !== "draft"
+                || Boolean(compositionPlacement)
+                || !historicalEligible;
+              const sourceMatchdayNumber = item.continuity_source_matchday_id
+                ? sourceMatchdayNumberById.get(item.continuity_source_matchday_id) ?? null
+                : null;
 
               const thumbnail = article.imageUrl || item.image_url;
 
@@ -2697,6 +2799,14 @@ function HierarchicalCompositionDeskBank({
                         </span>
                       ) : null}
 
+                      {isHistoricalInheritedBankItem(item) ? (
+                        <span className={`composition-admin-inherited-badge${historicalEligible ? " revalidated" : ""}`}>
+                          {historicalEligible
+                            ? `REVALIDADA · J${sourceMatchdayNumber === null ? "?" : String(sourceMatchdayNumber).padStart(2, "0")} → J${String(matchdayNumber).padStart(2, "0")}`
+                            : `HERDADA · J${sourceMatchdayNumber === null ? "?" : String(sourceMatchdayNumber).padStart(2, "0")}`}
+                        </span>
+                      ) : null}
+
                       {article.publishedAt ? (
                         <time>
                           {new Date(article.publishedAt).toLocaleString("pt-PT", {
@@ -2717,11 +2827,23 @@ function HierarchicalCompositionDeskBank({
                     <span className="composition-admin-state">
                       {compositionPlacement
                         ? `COMPOSIÇÃO · ${compositionPlacement}`
-                        : liveDeskArticleStatus(
-                            article.inLatest,
-                            article.placementKey,
-                          )}
+                        : !historicalEligible
+                          ? "HERDADA · FORA DA SELEÇÃO HISTÓRICA"
+                          : liveDeskArticleStatus(
+                              article.inLatest,
+                              article.placementKey,
+                            )}
                     </span>
+
+                    {!compositionPlacement && isHistoricalInheritedBankItem(item) ? (
+                      <BankItemContinuityRevalidationForm
+                        item={item}
+                        matchdayId={matchdayId}
+                        matchdayNumber={matchdayNumber}
+                        revalidated={!historicalEligible}
+                        returnTo={returnTo}
+                      />
+                    ) : null}
                   </span>
                 </label>
               );
@@ -4235,6 +4357,9 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const selectorCountryById = new Map(contextSelector.countries.map((item) => [item.id, item]));
   const selectorCompetitionById = new Map(contextSelector.competitions.map((item) => [item.id, item]));
   const selectorSeasonById = new Map(contextSelector.seasons.map((item) => [item.id, item]));
+  const sourceMatchdayNumberById = new Map(
+    contextSelector.matchdays.map((item) => [item.id, item.number] as const),
+  );
   const bankFilter = ["all", "available", "in_use", "archived"].includes(query.bank_filter ?? "")
     ? (query.bank_filter as "all" | "available" | "in_use" | "archived")
     : "all";
@@ -4364,6 +4489,13 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     if (query.bank_status_error) {
       return query.bank_status_error === "1" ? "Não foi possível atualizar o estado da notícia no banco." : query.bank_status_error;
     }
+    if (query.bank_revalidation_error) {
+      return query.bank_revalidation_error === "1"
+        ? "Não foi possível atualizar a revalidação da notícia herdada."
+        : query.bank_revalidation_error;
+    }
+    if (query.bank_revalidated) return "Notícia herdada revalidada para esta jornada e devolvida à seleção histórica.";
+    if (query.bank_revalidation_removed) return "Revalidação retirada. A notícia volta a ficar apenas na área de herdadas.";
     if (query.bank_assignment_error) {
       return query.bank_assignment_error === "1" ? "Não foi possível adicionar ou retirar a notícia da composição." : query.bank_assignment_error;
     }
@@ -4409,20 +4541,35 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       }))
     : [];
 
+  const hierarchicalDeskArticleById = new Map(
+    (hierarchicalDeskSnapshot?.articles ?? []).map((article) => [article.id, article] as const),
+  );
+
   const hierarchicalDeskArticles = presentationMode === "hierarchical"
-    ? (hierarchicalDeskSnapshot?.articles ?? []).flatMap((article) => {
-        const bankItem = hierarchicalDeskBankItemByArticleId.get(article.id);
-        if (!bankItem || bankItem.status === "archived") return [];
+    ? bankItems.flatMap((bankItem) => {
+        if (
+          bankItem.status === "archived"
+          || !isEditorialArticleBankItem(bankItem)
+          || !bankItem.source_id
+        ) {
+          return [];
+        }
+
+        const article = hierarchicalDeskArticleById.get(bankItem.source_id) ?? null;
 
         return [{
           bankItemId: bankItem.id,
-          articleId: article.id,
-          label: article.label ?? bankItem.label,
-          title: article.title,
-          subtitle: article.subtitle,
-          imageUrl: article.imageUrl ?? bankItem.image_url,
-          publishedAt: article.publishedAt,
-          naturalGroupKey: hierarchicalNaturalGroupByArticleId.get(article.id) ?? null,
+          articleId: bankItem.source_id,
+          label: article?.label ?? bankItem.label,
+          title: article?.title ?? bankItem.title,
+          subtitle: article?.subtitle ?? bankItem.subtitle,
+          imageUrl: article?.imageUrl ?? bankItem.image_url,
+          publishedAt: article?.publishedAt ?? null,
+          naturalGroupKey: hierarchicalNaturalGroupByArticleId.get(bankItem.source_id) ?? null,
+          historicalEligible: isHistoricalBankItemEligible(bankItem),
+          inheritedFromMatchdayNumber: bankItem.continuity_source_matchday_id
+            ? sourceMatchdayNumberById.get(bankItem.continuity_source_matchday_id) ?? null
+            : null,
         }];
       })
     : [];
@@ -4598,6 +4745,8 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           initialZone1Title={hierarchicalZone1Title}
           initialZone2Title={hierarchicalZone2Title}
           matchdayId={matchday.id}
+          matchdayNumber={matchday.number}
+          returnTo={returnTo}
           slots={hierarchicalDeskSlots}
         >
           <details className="hc-desk-tool">
@@ -5097,8 +5246,10 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                   hierarchicalAuxiliaryItems={hierarchicalAuxiliaryItems}
                   hierarchicalSlots={hierarchicalSlots}
                   matchdayId={matchday.id}
+                  matchdayNumber={matchday.number}
                   returnTo={returnTo}
                   selectedRoundupSourceIds={selectedRoundupSourceIds}
+                  sourceMatchdayNumberById={sourceMatchdayNumberById}
                 />
               ) : (
                 <Card title="Publicações da jornada">
@@ -5157,9 +5308,13 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                         item={item}
                         key={item.id}
                         matchdayId={matchday.id}
+                        matchdayNumber={matchday.number}
                         placementLabel={bankPlacementById.get(item.id) ?? null}
                         presentationMode={presentationMode}
                         returnTo={returnTo}
+                        sourceMatchdayNumber={item.continuity_source_matchday_id
+                          ? sourceMatchdayNumberById.get(item.continuity_source_matchday_id) ?? null
+                          : null}
                       />
                     ))}
                   </div>
