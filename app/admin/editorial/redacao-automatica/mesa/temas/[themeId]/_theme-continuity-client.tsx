@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ThemeContinuityReadModel } from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
 import styles from "../../mesa.module.css";
@@ -17,9 +17,11 @@ type PrepareResponse =
 export function ThemeContinuityClient({
   themeId,
   disabled,
-}: Readonly<{ themeId: string; disabled: boolean }>) {
+  autoOpen = false,
+}: Readonly<{ themeId: string; disabled: boolean; autoOpen?: boolean }>) {
   const router = useRouter();
   const preparationKey = useRef<string | null>(null);
+  const autoOpened = useRef(false);
   const [continuity, setContinuity] = useState<ThemeContinuityReadModel | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -27,7 +29,7 @@ export function ThemeContinuityClient({
   const [newArticleCount, setNewArticleCount] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function openContinuity() {
+  const openContinuity = useCallback(async () => {
     if (continuity) {
       setExpanded((current) => !current);
       return;
@@ -52,7 +54,13 @@ export function ThemeContinuityClient({
     } finally {
       setLoading(false);
     }
-  }
+  }, [continuity, themeId]);
+
+  useEffect(() => {
+    if (!autoOpen || disabled || autoOpened.current) return;
+    autoOpened.current = true;
+    void openContinuity();
+  }, [autoOpen, disabled, openContinuity]);
 
   async function prepare() {
     if (!continuity || preparing) return;
