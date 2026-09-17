@@ -177,3 +177,26 @@ test("títulos e ordem inválidos usam fallbacks históricos sem regravar compos
     HISTORICAL_COMPOSITION_BLOCK_KEYS,
   );
 });
+
+test("notícias herdadas não revalidadas ficam fora do reservatório normal", () => {
+  const withContinuity = [
+    ...articles,
+    {
+      bankItemId: "e",
+      label: "Herdada",
+      title: "Notícia da jornada anterior",
+      naturalGroupKey: "outros",
+      historicalEligible: false,
+    },
+  ];
+
+  assert.deepEqual(
+    filterHistoricalCompositionReservoir(
+      withContinuity,
+      new Set(),
+      new Set(),
+      "",
+    ).map((article) => article.bankItemId),
+    ["a", "b", "c", "d"],
+  );
+});

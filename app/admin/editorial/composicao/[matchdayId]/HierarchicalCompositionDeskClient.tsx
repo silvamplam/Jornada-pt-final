@@ -24,6 +24,8 @@ export type HierarchicalCompositionDeskArticle = {
   imageUrl: string | null;
   publishedAt: string | null;
   naturalGroupKey: string | null;
+  historicalEligible: boolean;
+  inheritedFromMatchdayNumber: number | null;
 };
 
 export type HierarchicalCompositionDeskSlot = {
@@ -130,6 +132,8 @@ type Props = {
   initialZone1Title: string;
   initialZone2Title: string;
   matchdayId: string;
+  matchdayNumber: number;
+  returnTo: string;
   slots: HierarchicalCompositionDeskSlot[];
 };
 
@@ -517,6 +521,87 @@ const styles = `
     grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
     gap: 6px;
     padding: 7px;
+  }
+
+  .hc-desk-inherited {
+    margin: 12px;
+    border: 1px solid #dccda9;
+    border-radius: 8px;
+    background: #fffdf7;
+  }
+
+  .hc-desk-inherited > summary {
+    cursor: pointer;
+    padding: 11px 12px;
+    color: #5f4a1f;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .hc-desk-inherited > p {
+    margin: 0;
+    padding: 0 12px 10px;
+    color: #746849;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .hc-desk-inherited-list {
+    display: grid;
+    border-top: 1px solid #eadfc4;
+  }
+
+  .hc-desk-inherited-row {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid #efe7d4;
+  }
+
+  .hc-desk-inherited-row:last-child {
+    border-bottom: 0;
+  }
+
+  .hc-desk-inherited-row img,
+  .hc-desk-inherited-row > .hc-desk-image {
+    width: 56px;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: #ece8dd;
+  }
+
+  .hc-desk-inherited-row form button {
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid #a58c53;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #5f4a1f;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .hc-desk-inherited-row form button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .hc-desk-continuity {
+    border-radius: 999px;
+    padding: 3px 6px;
+    background: #f4efe4;
+    color: #775b22 !important;
+    font-style: normal;
+    font-weight: 900;
+  }
+
+  .hc-desk-continuity.revalidated {
+    background: #e8f1ec;
+    color: #1f6d43 !important;
   }
 
   .hc-desk-row {
@@ -1271,6 +1356,8 @@ export default function HierarchicalCompositionDeskClient({
   initialZone1Title,
   initialZone2Title,
   matchdayId,
+  matchdayNumber,
+  returnTo,
   slots,
 }: Props) {
   const initialSettings = {
@@ -1413,6 +1500,11 @@ export default function HierarchicalCompositionDeskClient({
     [placementByBankItem],
   );
 
+  const eligibleArticleCount = useMemo(
+    () => articles.filter((article) => article.historicalEligible).length,
+    [articles],
+  );
+
   const filteredArticles = useMemo(
     () => filterHistoricalCompositionReservoir(
       articles,
@@ -1422,6 +1514,20 @@ export default function HierarchicalCompositionDeskClient({
     ),
     [articles, placedBankItemIds, search, selectedGroupKeys],
   );
+
+  const inheritedAvailableArticles = useMemo(() => {
+    const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
+
+    return articles.filter((article) => {
+      if (article.historicalEligible || placedBankItemIds.has(article.bankItemId)) return false;
+      if (selectedGroupKeys.length > 0 && (!article.naturalGroupKey || !selectedGroupKeys.includes(article.naturalGroupKey))) {
+        return false;
+      }
+      return !normalizedSearch
+        || article.title.toLocaleLowerCase("pt-PT").includes(normalizedSearch)
+        || (article.label ?? "").toLocaleLowerCase("pt-PT").includes(normalizedSearch);
+    });
+  }, [articles, placedBankItemIds, search, selectedGroupKeys]);
 
   const pendingCount = useMemo(() => {
     let count = 0;
@@ -2278,7 +2384,7 @@ export default function HierarchicalCompositionDeskClient({
               />
 
               <strong>
-                {filteredArticles.length}/{articles.length} disponíveis
+                {filteredArticles.length}/{eligibleArticleCount} disponíveis
               </strong>
             </div>
 
@@ -2401,6 +2507,16 @@ export default function HierarchicalCompositionDeskClient({
                           }
 
                           {
+                            article.inheritedFromMatchdayNumber !== null
+                              ? (
+                                <em className="hc-desk-continuity revalidated">
+                                  REVALIDADA · J{String(article.inheritedFromMatchdayNumber).padStart(2, "0")} → J{String(matchdayNumber).padStart(2, "0")}
+                                </em>
+                              )
+                              : null
+                          }
+
+                          {
                             article.publishedAt
                               ? (
                                 <time>
@@ -2441,6 +2557,49 @@ export default function HierarchicalCompositionDeskClient({
             }
 
           </div>
+
+          {inheritedAvailableArticles.length > 0 ? (
+            <details className="hc-desk-inherited">
+              <summary>
+                Herdadas de jornadas anteriores ({inheritedAvailableArticles.length})
+              </summary>
+              <p>
+                Estas notícias vieram por continuidade. Continuam preservadas, mas só regressam à seleção histórica desta jornada depois de uma revalidação editorial explícita.
+              </p>
+              <div className="hc-desk-inherited-list">
+                {inheritedAvailableArticles.map((article) => (
+                  <article className="hc-desk-inherited-row" key={article.bankItemId}>
+                    {article.imageUrl ? <img alt="" src={article.imageUrl} /> : <span className="hc-desk-image" />}
+                    <span className="hc-desk-copy">
+                      <span className="hc-desk-meta">
+                        <em className="hc-desk-continuity">
+                          HERDADA{article.inheritedFromMatchdayNumber === null
+                            ? ""
+                            : ` · J${String(article.inheritedFromMatchdayNumber).padStart(2, "0")}`}
+                        </em>
+                        {article.label ? <em>{article.label}</em> : null}
+                      </span>
+                      <strong>{article.title}</strong>
+                      <small>FORA DA SELEÇÃO HISTÓRICA</small>
+                    </span>
+                    <form action="/api/admin/editorial/composicao" method="post">
+                      <input type="hidden" name="action_type" value="revalidate_inherited_bank_item" />
+                      <input type="hidden" name="matchday_id" value={matchdayId} />
+                      <input type="hidden" name="bank_item_id" value={article.bankItemId} />
+                      <input type="hidden" name="return_to" value={returnTo} />
+                      <button
+                        type="submit"
+                        disabled={pendingCount > 0}
+                        title={pendingCount > 0 ? "Aplica primeiro as alterações pendentes da composição." : undefined}
+                      >
+                        Revalidar para J{String(matchdayNumber).padStart(2, "0")}
+                      </button>
+                    </form>
+                  </article>
+                ))}
+              </div>
+            </details>
+          ) : null}
         </section>
 
         <section className="hc-desk-map" aria-label="Zona ativa da Composição">
