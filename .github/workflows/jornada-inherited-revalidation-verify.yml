@@ -1,0 +1,106 @@
+name: Temporary inherited-news revalidation verification
+
+on:
+  push:
+    branches:
+      - jornada-herdadas-revalidacao-historico-20260917
+    paths:
+      - .github/workflows/jornada-inherited-revalidation-verify.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply reviewed patch and remove temporary scaffolding
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d .ci/inherited-revalidation.patch.gz.b64 | gzip -d > /tmp/inherited.patch
+          git apply --check /tmp/inherited.patch
+          git apply /tmp/inherited.patch
+          rm -f .ci/inherited-revalidation.patch.gz.b64
+          rm -f .github/workflows/jornada-inherited-revalidation-verify.yml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Run focused and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx tsx --test \
+            lib/editorial-historical-inherited-news.test.ts \
+            lib/editorial-historical-inherited-news-integration.test.ts \
+            lib/editorial-historical-composition-workspace.test.ts \
+            lib/editorial-hierarchical-composition-desk.test.ts \
+            lib/editorial-historical-composition-flexible-desk.test.ts \
+            lib/editorial-hierarchical-desk-composition-state.test.ts \
+            lib/matchday-live-desk-historical-bank-delta.test.ts \
+            | tee /tmp/inherited-tests.txt
+
+      - name: Production build without database credentials or external network
+        shell: bash
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ""
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ""
+          SUPABASE_URL: ""
+          SUPABASE_SERVICE_ROLE_KEY: ""
+        run: |
+          set -euo pipefail
+          sudo unshare -n -- bash -lc 'npm run build' 2>&1 | tee /tmp/inherited-build.txt
+          git restore next-env.d.ts 2>/dev/null || true
+
+      - name: Verify final scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --short | tee /tmp/inherited-status.txt
+          actual="$(git status --short | sed -E 's/^.. //' | sort)"
+          expected="$(printf '%s\n' \
+            '.ci/inherited-revalidation.patch.gz.b64' \
+            '.github/workflows/jornada-historical-inherited-snapshot.yml' \
+            '.github/workflows/jornada-inherited-revalidation-verify.yml' \
+            'app/admin/editorial/composicao/[matchdayId]/HierarchicalCompositionDeskClient.tsx' \
+            'app/admin/editorial/composicao/[matchdayId]/page.tsx' \
+            'app/api/admin/editorial/composicao/route.ts' \
+            'lib/editorial-historical-composition-workspace.test.ts' \
+            'lib/editorial-historical-composition-workspace.ts' \
+            'lib/editorial-historical-inherited-news-integration.test.ts' \
+            'lib/editorial-historical-inherited-news.test.ts' \
+            'lib/editorial-historical-inherited-news.ts' \
+            'supabase/migrations/20260917084500_matchday_historical_inherited_revalidation.sql' \
+            | sort)"
+          test "$actual" = "$expected"
+
+      - name: Commit tested implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: separate inherited news from historical selection'
+          git push origin HEAD:jornada-herdadas-revalidacao-historico-20260917
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: inherited-news-revalidation-checks
+          retention-days: 3
+          path: |
+            /tmp/inherited-tests.txt
+            /tmp/inherited-build.txt
+            /tmp/inherited-status.txt
