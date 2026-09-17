@@ -117,7 +117,11 @@ export default async function MesaThemePage({
               />
             </section>
           </section>
-          <MesaSelectionTray />
+          {context.articleCount > 0 ? (
+            <p className={styles.selectionMessage} role="status">
+              Este Tema já tem artigos publicados. Para voltar à Produção, usa «Voltar a levar à Produção» em Continuidade editorial acima; os artigos existentes serão revistos antes de qualquer artigo novo.
+            </p>
+          ) : <MesaSelectionTray />}
         </section>
       </MesaSelectionProvider>
     </div>
