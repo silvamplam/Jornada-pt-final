@@ -136,6 +136,7 @@ type SignedUploadResponse = Readonly<{
 
 const DEFAULT_BATCH_AUTHOR = "Silvestre Chícharo";
 const BATCH_PUBLICATION_ROUTE = "/api/admin/editorial/redacao-automatica/publicacao-lote";
+const MESA_ROUTE = "/admin/editorial/redacao-automatica/mesa";
 const ARTICLE_IMAGE_SIGN_ROUTE = "/api/admin/editorial/artigos/upload-image/sign";
 
 function responseDetail(payload: { error?: string; detail?: string } | null, fallback: string) {
@@ -1247,6 +1248,10 @@ export default function BatchPreflightClient({
     );
   }
 
+  function returnToMesaAfterSuccessfulPublication() {
+    window.location.assign(MESA_ROUTE);
+  }
+
   function resetPublicationRun() {
     setBatchFinalized(false);
     invalidatePublicationPreflightRequest();
@@ -1468,6 +1473,7 @@ export default function BatchPreflightClient({
     setBatchFinalized(true);
     setPublicationError(null);
     clearTransferredBatch();
+    returnToMesaAfterSuccessfulPublication();
   }
 
   async function finalizeBatchEditorialFlow() {
@@ -1677,6 +1683,7 @@ export default function BatchPreflightClient({
       setBatchFinalized(true);
       setPublicationError(null);
       clearTransferredBatch();
+      returnToMesaAfterSuccessfulPublication();
     } catch (error) {
       setPublicationError(error instanceof Error ? error.message : "A publicação do lote falhou.");
     } finally {
