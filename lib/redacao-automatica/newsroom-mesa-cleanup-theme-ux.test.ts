@@ -29,7 +29,8 @@ test("estado editorial do Tema distingue zero publicações de Tema publicado", 
   assert.match(css, /themePublicationState\[data-tone="published"\][\s\S]*#a12d31/);
 });
 
-test("abrir o menu Tema retira o editor de classificação da posição absoluta", () => {
-  assert.match(css, /sourceTools:has\(\.sourceThemeMenu\[open\]\) \.classificationEditor[\s\S]*position: static/);
-  assert.match(css, /sourceBody:has\(\.sourceThemeMenu\[open\]\)[\s\S]*padding-bottom: 6px/);
+test("abrir o menu Tema mantém o editor de classificação ancorado no mesmo sítio", () => {
+  assert.match(css, /\.sourceTools \{[\s\S]*position: relative/);
+  assert.match(css, /\.classificationEditor \{[\s\S]*position: absolute;[\s\S]*top: 0;[\s\S]*right: 0;[\s\S]*bottom: auto/);
+  assert.doesNotMatch(css, /sourceTools:has\(\.sourceThemeMenu\[open\]\) \.classificationEditor[\s\S]{0,120}position: static/);
 });
