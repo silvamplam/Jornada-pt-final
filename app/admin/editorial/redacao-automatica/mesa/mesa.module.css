@@ -451,6 +451,8 @@
   grid-column: 3;
   min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  container: mesa-source / inline-size;
   align-content: start;
   gap: 5px;
   padding: 6px 28px 6px 8px;
@@ -575,6 +577,7 @@
 
 .sourceTools {
   position: relative;
+  min-width: 0;
   min-height: 18px;
   display: flex;
   flex-wrap: wrap;
@@ -591,6 +594,7 @@
 
 .classificationEditor {
   position: absolute;
+  max-width: 100%;
   top: 0;
   right: 0;
   bottom: auto;
@@ -622,10 +626,12 @@
 }
 
 .classificationEditor select {
+  min-width: 0;
   max-width: 106px;
 }
 
 .classificationEditor button {
+  flex-shrink: 0;
   font-weight: 780;
 }
 
@@ -1234,6 +1240,8 @@
 
 .sourceThemeMenu {
   position: relative;
+  min-width: 0;
+  max-width: 100%;
   margin-left: 9px;
   color: #356248;
   font-size: 0.62rem;
@@ -1274,6 +1282,13 @@
 
 .sourceThemeMenu select { flex: 1; }
 .sourceThemeMenu small { margin-left: 5px; }
+
+/* Em cartões estreitos, reserva a linha da classificação antes de abrir o Tema. */
+@container mesa-source (max-width: 16rem) {
+  .sourceTools {
+    padding-top: calc(1.2rem + 8px);
+  }
+}
 
 .sourcePanel[data-organization="true"] .organizationThemeItem > .organizationCard {
   position: relative;
