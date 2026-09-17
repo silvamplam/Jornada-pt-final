@@ -37,8 +37,8 @@ jobs:
           docker cp "$CID:/usr/lib/postgresql/17" /tmp/intent-tools/postgres/17
           docker cp "$CID:/usr/share/postgresql/17" /tmp/intent-tools/postgres/share
           docker exec "$CID" bash -c 'ldd /usr/lib/postgresql/17/bin/* /usr/lib/postgresql/17/lib/*.so 2>/dev/null || true' \
-            | awk '/=> \/|^\s*\// {for(i=1;i<=NF;i++) if($i ~ /^\//) print $i}' | sort -u > /tmp/intent-libraries
-          while read -r LIB; do docker cp "$CID:$LIB" "/tmp/intent-tools/postgres/lib/$(basename "$LIB")"; done < /tmp/intent-libraries
+            | awk '/=> \// {print $3}' | sort -u > /tmp/intent-libraries
+          while read -r LIB; do docker cp -L "$CID:$LIB" "/tmp/intent-tools/postgres/lib/$(basename "$LIB")"; done < /tmp/intent-libraries
           git rev-parse HEAD > /tmp/intent-tools/source-commit.txt
           sha256sum package-lock.json > /tmp/intent-tools/package-lock.sha256
           tar -czf /tmp/intents-offline-tools.tar.gz -C /tmp intent-tools
