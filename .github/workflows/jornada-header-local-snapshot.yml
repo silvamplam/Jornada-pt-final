@@ -1,0 +1,27 @@
+name: Temporary offline header source
+
+on:
+  push:
+    branches:
+      - jornada-barra-azul-jornada-ajuste-publico-noticias-20260916
+    paths:
+      - .github/workflows/jornada-header-local-snapshot.yml
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Archive tracked source without running the application
+        run: git archive --format=tar.gz --output=header-source.tar.gz HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jornada-header-source
+          retention-days: 1
+          path: header-source.tar.gz
