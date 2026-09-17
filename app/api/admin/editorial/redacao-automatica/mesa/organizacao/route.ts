@@ -111,7 +111,12 @@ export async function POST(request: Request) {
         reused: row.reused, theme: { ...summary, sourceRefs } });
     }
     if (!isMesaUuid(themeId)) return badRequest();
-    if (action === "attach_dossier") {
+    if (action === "archive_theme") {
+      await mesaOrganizationCommand("newsroom_set_editorial_theme_status_v1", {
+        p_theme_id: themeId,
+        p_status: "archived",
+      });
+    } else if (action === "attach_dossier") {
       if (!isMesaUuid(body.dossierId)) return badRequest();
       await mesaOrganizationCommand("newsroom_attach_dossier_to_theme_v1", { p_dossier_id: body.dossierId, p_theme_id: themeId });
     } else if (action === "remove_source") {

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { MesaOrganization, MesaDossierCard, MesaThemeCard } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
-import { MesaThemeSelectionToggle } from "./_mesa-selection-client";
+import { MesaThemeSelectionToggle, useMesaSelection } from "./_mesa-selection-client";
 import { MESA_THEME_UPDATED_EVENT, mesaThemeFromEvent, publishMesaThemeUpdate } from "./_mesa-client-events";
 import styles from "./mesa.module.css";
 
@@ -104,8 +104,11 @@ export function MesaDossierCardView({ card, themes = [], fixtureMode = false }: 
 export function MesaOrganizationPanel({ organization, fixtureMode = false }: Readonly<{
   organization: MesaOrganization; fixtureMode?: boolean;
 }>) {
+  const { removeTheme } = useMesaSelection();
   const [status, setStatus] = useState("open");
   const [themeCards, setThemeCards] = useState(organization.themes);
+  const [archivingThemeIds, setArchivingThemeIds] = useState<readonly string[]>([]);
+  const [archiveErrors, setArchiveErrors] = useState<Readonly<Record<string, string>>>({});
   useEffect(() => setThemeCards(organization.themes), [organization.themes]);
   useEffect(() => {
     const update = (event: Event) => {
@@ -119,6 +122,50 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
     window.addEventListener(MESA_THEME_UPDATED_EVENT, update);
     return () => window.removeEventListener(MESA_THEME_UPDATED_EVENT, update);
   }, []);
+  async function archiveTheme(theme: MesaThemeCard) {
+    if (theme.status !== "open" || archivingThemeIds.includes(theme.id)) return;
+    setArchiveErrors((current) => {
+      const next = { ...current };
+      delete next[theme.id];
+      return next;
+    });
+    setArchivingThemeIds((current) => [...current, theme.id]);
+    setThemeCards((current) => current.map((item) => (
+      item.id === theme.id ? { ...item, status: "archived" } : item
+    )));
+    if (fixtureMode) {
+      removeTheme(theme.id);
+      setArchivingThemeIds((current) => current.filter((id) => id !== theme.id));
+      return;
+    }
+    try {
+      const response = await fetch(ORGANIZATION_ROUTE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "archive_theme", themeId: theme.id }),
+      });
+      const result = await response.json().catch(() => null) as {
+        ok?: boolean; message?: string; theme?: MesaThemeCard;
+      } | null;
+      if (!response.ok || !result?.ok || !result.theme) {
+        throw new Error(result?.message || "Não foi possível apagar o Tema da Mesa.");
+      }
+      setThemeCards((current) => current.map((item) => (
+        item.id === theme.id ? result.theme! : item
+      )));
+      removeTheme(theme.id);
+      publishMesaThemeUpdate(result.theme);
+    } catch (error) {
+      setThemeCards((current) => current.map((item) => (item.id === theme.id ? theme : item)));
+      setArchiveErrors((current) => ({
+        ...current,
+        [theme.id]: error instanceof Error ? error.message : "Não foi possível apagar o Tema da Mesa.",
+      }));
+    } finally {
+      setArchivingThemeIds((current) => current.filter((id) => id !== theme.id));
+    }
+  }
+
   const themes = themeCards.filter((theme) => status === "all" || theme.status === status);
   return <section id="mesa-organizacao" className={styles.sourcePanel} data-organization="true">
     <header className={styles.panelHeader}>
@@ -132,11 +179,27 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
     <MesaSourceWindow storageKey={`jornada.mesa.organizacao.themes.${status}`} empty="Organiza uma seleção num Tema."
       items={[
         ...themes.map((theme) => <li key={`theme:${theme.id}`} className={styles.organizationThemeItem}>
-          <article className={styles.organizationCard}>
+          <article className={styles.organizationCard} data-theme-publication={theme.articleCount > 0 ? "published" : "empty"}>
             <MesaThemeSelectionToggle theme={theme} />
+            {theme.status === "open" ? (
+              <button
+                type="button"
+                className={styles.themeDiscardButton}
+                disabled={archivingThemeIds.includes(theme.id)}
+                aria-label="Apagar Tema da Mesa"
+                title="Apagar Tema da Mesa"
+                onClick={() => void archiveTheme(theme)}
+              >Apagar Tema</button>
+            ) : null}
             <Link href={`/admin/editorial/redacao-automatica/mesa/temas/${theme.id}`} prefetch={false}>{theme.title}</Link>
-            <p>{theme.sourceCount} fontes · {theme.articleCount} artigos publicados</p>
+            <p>
+              {theme.sourceCount} fontes · {" "}
+              <span className={styles.themePublicationState} data-tone={theme.articleCount > 0 ? "published" : "empty"}>
+                {theme.articleCount} artigos publicados
+              </span>
+            </p>
             {theme.updatedSourceCount > 0 ? <strong className={styles.updatedNotice}>{theme.updatedSourceCount} fontes atualizadas</strong> : null}
+            {archiveErrors[theme.id] ? <span className={styles.themeDiscardError} role="alert">{archiveErrors[theme.id]}</span> : null}
           </article>
         </li>)
       ]} />
