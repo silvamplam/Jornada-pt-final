@@ -4161,7 +4161,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           <span>{context.competition.name}</span>
         </a>
         <a className={styles.matchdayBrand} href="/" aria-label={`Jornada.pt — Jornada ${context.matchday.number}`}>
-          <span>ajornada</span>
+          <span>a Jornada</span>
           <strong>{String(context.matchday.number).padStart(2, "0")}</strong>
         </a>
         <PublicCompetitionNavigation
@@ -4172,7 +4172,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         />
         <div className="public-matchday-date-row">
           <span className="public-matchday-date-context">
-            <strong>Data:</strong> {selectedMatchdayDateContext}
+            {selectedMatchdayDateContext}
           </span>
         </div>
         <div className="public-site-actions" aria-label="Ações">
