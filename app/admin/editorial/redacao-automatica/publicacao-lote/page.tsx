@@ -56,7 +56,7 @@ export default async function EditorialBatchPreflightPage() {
             </p>
           </div>
           <nav aria-label="Navegação da publicação em lote">
-            <a href="/admin/editorial/redacao-automatica">Redação Automática</a>
+            <a href="/admin/editorial/redacao-automatica/mesa">Mesa da Redação</a>
             <a href="/admin/editorial/artigos">Artigos</a>
             <a href="/admin">Backoffice</a>
           </nav>
