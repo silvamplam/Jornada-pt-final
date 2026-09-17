@@ -14,8 +14,12 @@ export const dynamic = "force-dynamic";
 
 export default async function MesaThemePage({
   params,
-}: Readonly<{ params: Promise<{ themeId: string }> }>) {
-  const { themeId } = await params;
+  searchParams,
+}: Readonly<{
+  params: Promise<{ themeId: string }>;
+  searchParams: Promise<{ continuity?: string }>;
+}>) {
+  const [{ themeId }, query] = await Promise.all([params, searchParams]);
   if (!isMesaUuid(themeId)) notFound();
   let scoped;
   try {
@@ -72,7 +76,11 @@ export default async function MesaThemePage({
           <h1>{theme.title}</h1>
         </div></div><nav className={styles.heroLinks}><Link href="/admin/editorial/redacao-automatica/mesa">Voltar à Mesa</Link></nav></header>
         <section className={styles.workspaceChrome}>
-          <ThemeContinuityClient themeId={themeId} disabled={theme.status !== "open"} />
+          <ThemeContinuityClient
+            themeId={themeId}
+            disabled={theme.status !== "open"}
+            autoOpen={query.continuity === "1"}
+          />
           <div className={styles.controlStrip}>
             <span>{sources.length} fontes · {context.dossiers.length} Dossiês · {context.articleCount} artigos publicados</span>
             <span>As fontes organizadas não regressam às listas gerais.</span>

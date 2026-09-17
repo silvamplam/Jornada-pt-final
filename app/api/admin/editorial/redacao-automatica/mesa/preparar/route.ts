@@ -184,7 +184,7 @@ function errorStatus(code: string): number {
 
 type GenericThemeContinuityRequirement =
   | Readonly<{ status: "clear" }>
-  | Readonly<{ status: "required"; themeTitle: string }>
+  | Readonly<{ status: "required"; themeId: string; themeTitle: string }>
   | Readonly<{ status: "unavailable" }>;
 
 async function genericThemeContinuityRequirement(
@@ -195,7 +195,7 @@ async function genericThemeContinuityRequirement(
       const continuity = await readThemeContinuity(themeId);
       if (!continuity) return { status: "unavailable" };
       if (continuity.publishedArticleCount > 0) {
-        return { status: "required", themeTitle: continuity.theme.title };
+        return { status: "required", themeId, themeTitle: continuity.theme.title };
       }
     }
     return { status: "clear" };
@@ -218,6 +218,49 @@ function themeContinuityUnavailableResponse() {
     code: "theme_continuity_unavailable",
     message: "Não foi possível confirmar a continuidade editorial deste Tema. Nenhuma Produção genérica foi criada.",
   }, { status: 503 });
+}
+
+async function incorporatePublishedThemeSourcesForContinuity(
+  input: MesaContextPreparationInput,
+  themeTitle: string,
+) {
+  if (!input.incorporateThemeId || input.incorporateSourceIds.length < 1) {
+    return themeContinuityRequiredResponse(themeTitle);
+  }
+  try {
+    const rows = await mesaOrganizationCommand("newsroom_organize_theme_sources_v1", {
+      p_request_id: input.preparationKey,
+      p_theme_id: input.incorporateThemeId,
+      p_title: "",
+      p_classification_key: null,
+      p_source_ids: input.incorporateSourceIds,
+    });
+    const row = rows[0];
+    if (
+      textValue(row?.theme_id) !== input.incorporateThemeId
+      || !Number.isSafeInteger(row?.added_count)
+      || typeof row?.reused !== "boolean"
+    ) throw new Error("theme-incorporation-result-invalid");
+    return NextResponse.json({
+      ok: true,
+      code: "theme_continuity_ready",
+      incorporatedSourceCount: Number(row.added_count),
+      workspaceUrl: `/admin/editorial/redacao-automatica/mesa/temas/${input.incorporateThemeId}?continuity=1`,
+      message: Number(row.added_count) > 0
+        ? `${Number(row.added_count)} fontes incorporadas no Tema. A abrir Continuidade editorial…`
+        : "As fontes selecionadas já pertenciam ao Tema. A abrir Continuidade editorial…",
+    }, { status: row.reused ? 200 : 201 });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "";
+    const conflict = /request-conflict|theme-unavailable|source-not-found|invalid-input/.test(detail);
+    return NextResponse.json({
+      ok: false,
+      code: conflict ? "preparation_conflict" : "prepare_failed",
+      message: conflict
+        ? "O Tema ou as fontes mudaram antes da incorporação. Atualiza a Mesa e volta a confirmar; nenhuma Produção foi criada."
+        : "Não foi possível incorporar as fontes no Tema antes da Continuidade editorial.",
+    }, { status: conflict ? 409 : 502 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -243,7 +286,18 @@ export async function POST(request: Request) {
       .map((context) => textValue(context.themeId));
     const continuityRequirement = await genericThemeContinuityRequirement(themeIds);
     if (continuityRequirement.status === "unavailable") return themeContinuityUnavailableResponse();
-    if (continuityRequirement.status === "required") return themeContinuityRequiredResponse(continuityRequirement.themeTitle);
+    if (continuityRequirement.status === "required") {
+      if (
+        contextInput.incorporateThemeId === continuityRequirement.themeId
+        && contextInput.incorporateSourceIds.length > 0
+      ) {
+        return incorporatePublishedThemeSourcesForContinuity(
+          contextInput,
+          continuityRequirement.themeTitle,
+        );
+      }
+      return themeContinuityRequiredResponse(continuityRequirement.themeTitle);
+    }
     return prepareMesaContexts(contextInput);
   }
 
