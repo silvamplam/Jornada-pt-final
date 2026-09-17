@@ -1,0 +1,104 @@
+name: Temporary batch publication Mesa continuity
+
+on:
+  push:
+    branches:
+      - jornada-publicacao-lote-mesa-design-retorno-20260917
+    paths:
+      - .github/workflows/jornada-publicacao-lote-mesa-design-retorno.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: jornada-publicacao-lote-mesa-design-retorno-20260917
+          fetch-depth: 0
+      - name: Apply scoped implementation
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          page = Path('app/admin/editorial/redacao-automatica/publicacao-lote/page.tsx')
+          text = page.read_text()
+          old = '''          <nav aria-label="Navegação da publicação em lote">\n            <a href="/admin/editorial/redacao-automatica">Redação Automática</a>\n            <a href="/admin/editorial/artigos">Artigos</a>\n            <a href="/admin">Backoffice</a>\n          </nav>\n'''
+          new = '''          <nav aria-label="Navegação da publicação em lote">\n            <a href="/admin/editorial/redacao-automatica/mesa">Mesa da Redação</a>\n            <a href="/admin/editorial/artigos">Artigos</a>\n            <a href="/admin">Backoffice</a>\n          </nav>\n'''
+          assert old in text
+          page.write_text(text.replace(old, new, 1))
+
+          client = Path('app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx')
+          text = client.read_text()
+          anchor = 'const BATCH_PUBLICATION_ROUTE = "/api/admin/editorial/redacao-automatica/publicacao-lote";\n'
+          replacement = anchor + 'const MESA_ROUTE = "/admin/editorial/redacao-automatica/mesa";\n'
+          assert anchor in text and 'const MESA_ROUTE' not in text
+          text = text.replace(anchor, replacement, 1)
+
+          anchor = '''  function clearTransferredBatch() {\n    window.sessionStorage.removeItem(\n      EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,\n    );\n    window.sessionStorage.removeItem(\n      EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,\n    );\n  }\n'''
+          replacement = anchor + '''\n  function returnToMesaAfterSuccessfulPublication() {\n    window.location.assign(MESA_ROUTE);\n  }\n'''
+          assert anchor in text
+          text = text.replace(anchor, replacement, 1)
+
+          old = '''    setBatchFinalized(true);\n    setPublicationError(null);\n    clearTransferredBatch();\n  }\n\n  async function finalizeBatchEditorialFlow() {\n'''
+          new = '''    setBatchFinalized(true);\n    setPublicationError(null);\n    clearTransferredBatch();\n    returnToMesaAfterSuccessfulPublication();\n  }\n\n  async function finalizeBatchEditorialFlow() {\n'''
+          assert old in text
+          text = text.replace(old, new, 1)
+
+          old = '''      await finalizeBatchEditorialFlow();\n      setBatchFinalized(true);\n      setPublicationError(null);\n      clearTransferredBatch();\n    } catch (error) {\n'''
+          new = '''      await finalizeBatchEditorialFlow();\n      setBatchFinalized(true);\n      setPublicationError(null);\n      clearTransferredBatch();\n      returnToMesaAfterSuccessfulPublication();\n    } catch (error) {\n'''
+          assert old in text
+          text = text.replace(old, new, 1)
+          client.write_text(text)
+
+          css = Path('app/admin/editorial/redacao-automatica/publicacao-lote/publicacao-lote.module.css')
+          text = css.read_text()
+          marker = '/* Continuidade visual com a Mesa da Redação. */'
+          assert marker not in text
+          text += '''\n\n/* Continuidade visual com a Mesa da Redação. */\n.shell {\n  padding: 18px;\n  background: #edf2ed;\n  color: #182a1d;\n}\n\n.container {\n  max-width: 1280px;\n}\n\n.hero {\n  padding: 20px 22px;\n  border: 1px solid #274c34;\n  border-radius: 8px;\n  background: #173d27;\n  box-shadow: 0 8px 24px rgb(22 53 31 / 14%);\n}\n\n.hero h1 {\n  color: #f7fbf7;\n  font-family: Georgia, "Times New Roman", serif;\n  font-size: clamp(1.75rem, 3.5vw, 2.35rem);\n  font-weight: 720;\n  letter-spacing: -0.015em;\n}\n\n.hero .eyebrow {\n  color: #9fd2ad;\n}\n\n.description {\n  color: #d6e3d8;\n}\n\n.hero nav a {\n  border-color: rgb(224 239 226 / 34%);\n  border-radius: 5px;\n  color: #f7fbf7;\n  background: rgb(255 255 255 / 4%);\n}\n\n.hero nav a:hover,\n.hero nav a:focus-visible {\n  border-color: #cfe3d3;\n  background: rgb(255 255 255 / 9%);\n}\n\n.workspace {\n  gap: 12px;\n  margin-top: 12px;\n}\n\n.panel,\n.results {\n  padding: 17px 18px;\n  border-color: #c7d5c9;\n  border-radius: 8px;\n  background: #fbfdfb;\n  box-shadow: 0 7px 18px rgb(26 55 33 / 7%);\n}\n\n.sectionEyebrow {\n  color: #2f7b4b;\n}\n\n.sectionHeader h2,\n.resultsHeader h2 {\n  color: #173d27;\n  font-family: Georgia, "Times New Roman", serif;\n  font-weight: 720;\n}\n\n.contextGrid label > span,\n.textareaField > span,\n.analysisNote,\n.automaticAnalysisNote,\n.imageInstructions,\n.preparedSummary p,\n.existingUrl {\n  color: #5d6c62;\n}\n\n.contextGrid select,\n.textareaField textarea,\n.textareaField input {\n  border-color: #b8c8bb;\n  border-radius: 6px;\n  color: #213529;\n  background: #fff;\n}\n\n.contextGrid select:disabled {\n  background: #f0f4f0;\n  color: #7a887f;\n}\n\n.contextGrid select:focus-visible,\n.textareaField textarea:focus-visible,\n.textareaField input:focus-visible,\n.analysisActions button:focus-visible,\n.confirmationAction button:focus-visible,\n.imagePickerRow:has(.fileInput:focus-visible) .imagePicker {\n  outline: 3px solid rgb(38 130 74 / 20%);\n  outline-offset: 2px;\n}\n\n.originalTextDetails {\n  border-top-color: #d7e0d8;\n}\n\n.originalTextDetails summary {\n  color: #365642;\n}\n\n.preparedSummary {\n  border-color: #afd0b7;\n  border-radius: 7px;\n  background: #f1f8f2;\n}\n\n.preparedSummary strong {\n  color: #173d27;\n}\n\n.analysisActions button,\n.confirmationAction button,\n.imagePicker {\n  border-color: #1f7843;\n  border-radius: 6px;\n  background: #1f7843;\n}\n\n.analysisActions button:hover,\n.confirmationAction button:hover,\n.imagePicker:hover {\n  background: #185f35;\n}\n\n.analysisActions .retryAction {\n  border-color: #aebfb1;\n  color: #31513c;\n  background: #fff;\n}\n\n.analysisActions .retryAction:hover {\n  border-color: #7f9d87;\n  background: #f3f8f4;\n}\n\n.articleResults > h3,\n.imageFileProblems h3 {\n  color: #294b35;\n}\n\n.articleHeading h4 {\n  color: #173d27;\n  font-family: Georgia, "Times New Roman", serif;\n  font-weight: 690;\n}\n\n.articleResults > ol > li {\n  border-color: #d3ddd4;\n  background: #fff;\n}\n\n.articleKey {\n  background: #173d27;\n}\n\n.validArticle,\n.associatedImage {\n  border-color: #abd1b5 !important;\n}\n\n.associatedImage {\n  background: #f0f8f2 !important;\n}\n\n.contextComplete,\n.readyBadge,\n.publicationStatusSuccess {\n  border-color: #9acaaa;\n  background: #eef8f1;\n  color: #176438;\n}\n\n.neutralBadge,\n.limitNote,\n.publicationStatusNeutral {\n  border-color: #cdd8cf;\n  background: #f5f8f5;\n  color: #56665b;\n}\n\n@media (max-width: 720px) {\n  .shell {\n    padding: 8px;\n  }\n\n  .hero {\n    padding: 16px;\n  }\n}\n'''
+          css.write_text(text)
+
+          test = Path('lib/redacao-automatica/editorial-batch-mesa-return-design.test.ts')
+          test.write_text('''import assert from "node:assert/strict";\nimport { readFileSync } from "node:fs";\nimport test from "node:test";\n\nconst page = readFileSync(\n  "app/admin/editorial/redacao-automatica/publicacao-lote/page.tsx",\n  "utf8",\n);\nconst client = readFileSync(\n  "app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx",\n  "utf8",\n);\nconst css = readFileSync(\n  "app/admin/editorial/redacao-automatica/publicacao-lote/publicacao-lote.module.css",\n  "utf8",\n);\n\ntest("publicação em lote aponta visual e operacionalmente para a Mesa", () => {\n  assert.match(page, /href="\\/admin\\/editorial\\/redacao-automatica\\/mesa">Mesa da Redação/);\n  assert.match(client, /const MESA_ROUTE = "\\/admin\\/editorial\\/redacao-automatica\\/mesa"/);\n  assert.match(client, /window\\.location\\.assign\\(MESA_ROUTE\\)/);\n});\n\ntest("regresso à Mesa acontece apenas nos dois percursos de sucesso integral", () => {\n  assert.equal((client.match(/returnToMesaAfterSuccessfulPublication\\(\\);/g) ?? []).length, 2);\n  assert.match(client, /setBatchFinalized\\(true\\);\\n    setPublicationError\\(null\\);\\n    clearTransferredBatch\\(\\);\\n    returnToMesaAfterSuccessfulPublication\\(\\);/);\n  assert.match(client, /await finalizeBatchEditorialFlow\\(\\);[\\s\\S]*setPublicationError\\(null\\);[\\s\\S]*clearTransferredBatch\\(\\);[\\s\\S]*returnToMesaAfterSuccessfulPublication\\(\\);/);\n});\n\ntest("página reutiliza a gramática visual verde e editorial da Mesa", () => {\n  assert.match(css, /Continuidade visual com a Mesa da Redação/);\n  assert.match(css, /\.hero[\\s\\S]*background: #173d27/);\n  assert.match(css, /\.articleHeading h4[\\s\\S]*font-family: Georgia/);\n  assert.match(css, /\.analysisActions button,[\\s\\S]*background: #1f7843/);\n  assert.match(css, /outline: 3px solid rgb\\(38 130 74 \\/ 20%\\)/);\n});\n''')
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Run focused regression tests
+        run: |
+          npx tsx --test \
+            lib/redacao-automatica/editorial-batch-mesa-return-design.test.ts \
+            lib/redacao-automatica/editorial-batch-preflight-ui.test.ts \
+            lib/redacao-automatica/editorial-batch-publication-client.test.ts \
+            lib/redacao-automatica/newsroom-theme-continuity.test.ts
+      - name: Production build without database credentials
+        shell: bash
+        run: |
+          unset SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
+          npm run build
+      - name: Commit tested implementation
+        shell: bash
+        run: |
+          git restore next-env.d.ts 2>/dev/null || true
+          rm -f .github/workflows/jornada-publicacao-lote-mesa-design-retorno.yml
+          git add -A
+          git fetch origin main
+          ACTUAL="$(git diff --cached --name-only origin/main | sort)"
+          EXPECTED="$(printf '%s\n' \
+            'app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx' \
+            'app/admin/editorial/redacao-automatica/publicacao-lote/page.tsx' \
+            'app/admin/editorial/redacao-automatica/publicacao-lote/publicacao-lote.module.css' \
+            'lib/redacao-automatica/editorial-batch-mesa-return-design.test.ts' | sort)"
+          printf 'NET DIFF:\n%s\n' "$ACTUAL"
+          test "$ACTUAL" = "$EXPECTED"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "feat: align batch publication with newsroom Mesa"
+          git push origin HEAD:jornada-publicacao-lote-mesa-design-retorno-20260917
