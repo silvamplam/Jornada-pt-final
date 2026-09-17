@@ -14,6 +14,9 @@ jobs:
   verify-and-commit:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
     env:
       NEXT_TELEMETRY_DISABLED: '1'
       SUPABASE_URL: ''
@@ -40,11 +43,25 @@ jobs:
           python3 -m venv /tmp/mesa-layout-venv
           /tmp/mesa-layout-venv/bin/pip install playwright==1.57.0
           /tmp/mesa-layout-venv/bin/python -m playwright install --with-deps chromium firefox
+          python3 - <<'PY'
+          import getpass
+          import os
+          import shlex
+          from pathlib import Path
+          command = ['sudo', 'unshare', '--net', '--', 'runuser', '-u', getpass.getuser(), '--', 'env',
+              'PATH=' + os.environ['PATH'], 'HOME=' + os.environ['HOME'],
+              'NEXT_TELEMETRY_DISABLED=1', 'SUPABASE_URL=', 'SUPABASE_SERVICE_ROLE_KEY=',
+              'NEXT_PUBLIC_SUPABASE_URL=', 'NEXT_PUBLIC_SUPABASE_ANON_KEY=']
+          wrapper = Path('/tmp/mesa-offline')
+          wrapper.write_text('#!/usr/bin/env bash\nexec ' + shlex.join(command) + ' "$@"\n')
+          wrapper.chmod(0o700)
+          PY
+          test "$(readlink /proc/self/ns/net)" != "$(/tmp/mesa-offline readlink /proc/self/ns/net)"
       - name: Reproduce current clipping with no network
         run: |
           mkdir -p /tmp/mesa-geometry-evidence
           set +e
-          unshare -Urn /tmp/mesa-layout-venv/bin/python .ci/mesa-source-layout/check.py --browsers chromium --regression-only --output /tmp/mesa-geometry-evidence/before
+          /tmp/mesa-offline /tmp/mesa-layout-venv/bin/python .ci/mesa-source-layout/check.py --browsers chromium --regression-only --output /tmp/mesa-geometry-evidence/before
           BASELINE_STATUS=$?
           set -e
           test "$BASELINE_STATUS" = 1
@@ -78,10 +95,10 @@ jobs:
           git diff --check
       - name: Chromium and Firefox geometry without network
         run: |
-          unshare -Urn /tmp/mesa-layout-venv/bin/python .ci/mesa-source-layout/check.py --browsers chromium firefox --output /tmp/mesa-geometry-evidence/after
+          /tmp/mesa-offline /tmp/mesa-layout-venv/bin/python .ci/mesa-source-layout/check.py --browsers chromium firefox --output /tmp/mesa-geometry-evidence/after
       - name: Existing regression tests without network
         run: |
-          unshare -Urn node_modules/.bin/tsx --test \
+          /tmp/mesa-offline node_modules/.bin/tsx --test \
             lib/redacao-automatica/newsroom-mesa-cleanup-theme-ux.test.ts \
             lib/redacao-automatica/newsroom-operational-desk.test.ts \
             lib/redacao-automatica/newsroom-mesa-organization.test.ts \
@@ -89,7 +106,7 @@ jobs:
             lib/redacao-automatica/newsroom-theme-continuity-generic-bypass.test.ts \
             | tee /tmp/mesa-geometry-evidence/regression.log
       - name: Production build without network or database credentials
-        run: unshare -Urn npm run build 2>&1 | tee /tmp/mesa-geometry-evidence/build.log
+        run: /tmp/mesa-offline npm run build 2>&1 | tee /tmp/mesa-geometry-evidence/build.log
       - name: Commit only validated files
         run: |
           git restore next-env.d.ts
