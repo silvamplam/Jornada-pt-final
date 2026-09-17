@@ -1,0 +1,21 @@
+name: Temporary intent integration source
+on:
+  push:
+    branches: [jornada-mesa-producao-intencoes-continuidade-v2-20260917]
+    paths: [.github/workflows/jornada-intents-integration-source.yml]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: git archive --format=tar.gz -o /tmp/intents-integration-source.tar.gz HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: intents-integration-source
+          retention-days: 1
+          path: /tmp/intents-integration-source.tar.gz
