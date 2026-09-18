@@ -97,7 +97,7 @@ assert changed == {'newsroom_mesa_intent_source_v1(uuid)', 'newsroom_mesa_consol
 assert old_articles == execute('select md5(jsonb_agg(to_jsonb(a) order by a.id)::text) from public.editorial_articles a;')
 print('PASS exact legacy function/ACL preservation; only two declared changes', flush=True)
 load(HOTFIX)
-assert 'if v_mode = ''create'' then' in execute("select pg_get_functiondef('public.newsroom_publish_mesa_intent_output_v1(uuid,uuid,uuid,uuid[],jsonb)'::regprocedure);")
+assert "if v_mode = 'create' then" in execute("select pg_get_functiondef('public.newsroom_publish_mesa_intent_output_v1(uuid,uuid,uuid,uuid[],jsonb)'::regprocedure);")
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
 
 
