@@ -227,7 +227,7 @@ test("Época filtra e limpa a Jornada incompatível", () => {
 test("a prontidão do contexto confirma as relações entre os três IDs", () => {
   assert.match(clientSource, /selectedSeason\.competition_id === selectedCompetition\.id/);
   assert.match(clientSource, /selectedMatchday\.season_id === selectedSeason\.id/);
-  assert.match(clientSource, /preflight\.ready && contextComplete/);
+  assert.match(clientSource, /themeContinuity \? publicationContextComplete : contextComplete/);
 });
 
 test("existe textarea editorial acessível", () => {
@@ -373,7 +373,7 @@ test("imagens do workspace usam linguagem de Produção sem reclassificar o lote
   assert.match(clientSource, /As imagens escolhidas na Produção já estão associadas/);
   assert.match(clientSource, /\$\{dossierImageCount\} da Produção/);
   assert.match(clientSource, /Automática por NN- \/ Produção/);
-  assert.match(clientSource, /As imagens associadas à Produção não/);
+  assert.match(clientSource, /As imagens escolhidas na Produção serão aplicadas aos respetivos UPDATEs/);
   assert.ok(imagePreflightSource.includes('message: "IMAGEM DA PRODUÇÃO ASSOCIADA"'));
   assert.doesNotMatch(
     clientSource + imagePreflightSource,
