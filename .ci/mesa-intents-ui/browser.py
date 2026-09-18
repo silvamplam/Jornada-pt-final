@@ -151,9 +151,23 @@ with sync_playwright() as playwright:
         assert len(rpc({'kind':'state'})['preparations'])==f['before']+1
         assert len(stored()['sources'])==1 and len(stored()['themes'])==1
         saved=page.evaluate('(key)=>JSON.parse(sessionStorage.getItem(key+".intents.v1"))',STORAGE)
-        # A remount uses the native sessionStorage in CI; it must reuse the attempt.
-        page.evaluate('(f)=>window.__mount(f)',f)
+        # Hold the Theme read after remount to make this race deterministic:
+        # native saved choices must not enable submission before the read arrives.
+        page.evaluate("""(f)=>{
+            const send=window.__http;
+            const gate=new Promise(resolve=>{window.__resumeThemeRead=resolve;});
+            window.__http=async request=>{
+                if(request.method==='GET' && request.url.includes('/mesa/preparar?'))await gate;
+                return send(request);
+            };
+            window.__mount(f);
+        }""",f)
         expect(page.get_by_label('Destino da fonte Pote independente',exact=True)).to_have_value('independent')
+        expect(page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)).to_be_disabled()
+        calls=len(rpc({'kind':'state'})['httpCalls'])
+        page.get_by_role('form',name='Escolhas de Produção',exact=True).dispatch_event('submit')
+        assert len(rpc({'kind':'state'})['httpCalls'])==calls
+        page.evaluate('window.__resumeThemeRead()')
         plan=prepared();assert plan['preparationKey']==saved['attempt']['preparationKey']
         assert len(rpc({'kind':'state'})['preparations'])==f['before']+1
     def stale_published():

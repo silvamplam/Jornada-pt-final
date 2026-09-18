@@ -67,6 +67,10 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
   function chooseSource(id:string,patch:Partial<MesaSourceChoice>){setChoices(c=>({...c,sources:{...c.sources,[id]:{...(c.sources[id]??{destination:'defer',themeId:'',newCount:1}),...patch}}}));setIssues([]);setMessage('');}
   const validViews=Object.fromEntries(Object.entries(views).filter(([id])=>!loadErrors[id]));
   const built=buildMesaIntentUiRequest(selection,choices,validViews,title,CHECK_KEY);
+  // Restored choices can be ready before the authoritative Theme read finishes.
+  // Deferring a Theme must still allow independent work if its read is pending.
+  const awaitingThemeRead=selection.themes.some(t=>choices.themes[t.themeId]?.mode!=='defer'
+    && !views[t.themeId] && !loadErrors[t.themeId]);
   const errors=(contextKey:string)=>issues.filter(i=>i.contextKey===contextKey).map((i,n)=><p key={n} role="alert" className={styles.continuityError}>{i.message}</p>);
   async function post(body:Record<string,unknown>){
     const response=await fetch(ROUTE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mesaVersion:4,...body})});
@@ -78,7 +82,7 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
     }return reply;
   }
   async function prepare(event:FormEvent){
-    event.preventDefault();if(locked.current||disabled||!loaded)return;
+    event.preventDefault();if(locked.current||disabled||!loaded||awaitingThemeRead)return;
     if(!built.ok){setIssues(built.issues);return;}
     if(fixtureMode){setMessage('Fixture visual: nenhuma produção foi enviada.');return;}
     const signature=JSON.stringify({...built.request,preparationKey:undefined});
@@ -126,7 +130,7 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
     {issues.filter(i=>i.contextKey===null).map((i,n)=><p key={n} role="alert" className={styles.continuityError}>{i.message}</p>)}
     </div>
     <div className={styles.continuityPrepare}><p>{built.ok?`${quantity(built.reviews,"artigo Jornada a avaliar","artigos Jornada a avaliar")} · ${quantity(built.newArticles,"novo","novos")}. Fontes e histórico separados por contexto.`:'Completa as escolhas de cada contexto para preparar.'}</p>
-      <button type="submit" className={styles.prepareButton} disabled={blocked}>{busy?'A preparar…':'PREPARAR PRODUÇÃO'}</button></div>
+      <button type="submit" className={styles.prepareButton} disabled={blocked||awaitingThemeRead}>{busy?'A preparar…':'PREPARAR PRODUÇÃO'}</button></div>
     {message?<p className={styles.selectionMessage} role="status">{message}</p>:null}
   </form>;
 }
