@@ -181,6 +181,30 @@ test("pagination keeps tab + classification + extra filters", () => {
   assert.doesNotMatch(organization, /sourcePagination/);
 });
 
+test("barra da Mesa mantém pesquisa, filtros e Atualizar na ordem editorial", () => {
+  const page = source(MESA_PAGE);
+  const selection = source(path.join(
+    process.cwd(),
+    "app/admin/editorial/redacao-automatica/mesa/_mesa-selection-client.tsx",
+  ));
+  const control = page.slice(
+    page.indexOf('<section className={styles.controlStrip}>'),
+    page.indexOf('<MesaSelectionTray sourceThemeActions />'),
+  );
+  assert.doesNotMatch(control, /<span>Pesquisar<\/span>/);
+  assert.doesNotMatch(control, /name="source"|>Temas<\/Link>/);
+  assert.ok(control.indexOf('name="query"') < control.indexOf(">Filtrar</button>"));
+  assert.ok(control.indexOf(">Filtrar</button>") < control.indexOf("classificationFilters"));
+  assert.ok(control.indexOf("classificationFilters") < control.indexOf(">Atualizar</button>"));
+
+  const selectionActions = selection.slice(
+    selection.indexOf('<div className={styles.selectionActions}>'),
+    selection.indexOf('{sourceThemeActions && selectionPanelOpen'),
+  );
+  assert.match(selectionActions, /selectionPanelToggle/);
+  assert.match(selectionActions, /aria-label="Título de trabalho"/);
+});
+
 test("Arquivo e pesquisa ficam disponíveis na nova Mesa", () => {
   const archive = validQuery({ tab: "arquivo", query: "quaresma" });
   assert.equal(archive.tab, "arquivo");
