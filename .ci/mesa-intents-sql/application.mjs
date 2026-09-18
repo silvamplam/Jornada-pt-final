@@ -36,7 +36,7 @@ const json=v=>q(JSON.stringify(v))+'::jsonb';
 const identifier=s=>{assert.match(s,/^[a-z_][a-z0-9_]*$/);return '"'+s+'"';};
 const rows=query=>JSON.parse(sql(`select coalesce(jsonb_agg(to_jsonb(r)),'[]') from (${query}) r;`));
 const record=(table,id)=>rows(`select * from public.${identifier(table)} where id=${q(id)}`)[0];
-const rpcNames=new Set(['newsroom_mesa_preview_intents_v1','newsroom_prepare_mesa_intents_v1','newsroom_publish_mesa_intent_output_v1','newsroom_finalize_mesa_intents_v1','newsroom_mesa_intent_latest_receipts_v1']);
+const rpcNames=new Set(['newsroom_mesa_preview_intents_v1','newsroom_prepare_mesa_intents_v1','newsroom_publish_mesa_intent_output_v1','newsroom_finalize_mesa_intents_v1','newsroom_mesa_intent_latest_receipts_v1','newsroom_place_mesa_intent_latest_v1']);
 const tableNames=new Set(['newsroom_articles','newsroom_article_snapshots','newsroom_editorial_source_packages','editorial_articles','newsroom_mesa_output_publications','newsroom_mesa_production_contexts','newsroom_editorial_dossier_article_plans','competitions','seasons','matchdays']);
 const rpcLiteral=(key,value)=>value===null?'null':Array.isArray(value)?`ARRAY[${value.map(q).join(',')}]::uuid[]`:typeof value==='object'?json(value):q(value);
 const calls=[]; const forbidden=[];
@@ -61,6 +61,7 @@ globalThis.fetch=async (input,init={})=>{
     if(path.startsWith('rpc/')) {
       const name=path.slice(4); assert.ok(rpcNames.has(name),'Unapproved test RPC '+name);
       const values=method==='POST'?JSON.parse(String(init.body)):Object.fromEntries([...u.searchParams].filter(([k])=>k.startsWith('p_')));
+      if(name==='newsroom_place_mesa_intent_latest_v1' && globalThis.__intentFailPlacement) throw new Error('test-placement-failure');
       result=rows(`select * from public.${identifier(name)}(${Object.entries(values).map(([k,v])=>identifier(k)+'=>'+rpcLiteral(k,v)).join(',')})`);
     } else {
       assert.ok(tableNames.has(path),'Unsupported test table '+path);
@@ -202,7 +203,7 @@ async function test(name,fn) {
   try { await fn();results.push({name,passed:true});console.log('PASS',name); }
   catch(error) {results.push({name,passed:false,error:String(error.stack)});report();throw error;}
 }
-function report() {writeFileSync(output+'/application-report.json',JSON.stringify({identity,tests:results,passed:results.filter(r=>r.passed).length,failed:results.filter(r=>!r.passed).length,forbidden,calls,placementBoundary:'observable double; physical public placements NOT tested',browser:'NOT tested'},null,2));}
+function report() {writeFileSync(output+'/application-report.json',JSON.stringify({identity,tests:results,passed:results.filter(r=>r.passed).length,failed:results.filter(r=>!r.passed).length,forbidden,calls,placementBoundary:'intents use real atomic Latest SQL; only legacy placement retains its observable double; full public rendering NOT tested',browser:'NOT tested'},null,2));}
 if (process.env.MESA_UI_DRIVER !== '1') {
 await test('Milan / Amorim + Pote: preparation → real package → transfer → returned text → API → SQL → receipts',async()=>{
   const f=fixture(),before=record('editorial_articles',f.articles[0]),p=await prepare(f,{independent:true}),pkg=await makePackage(p);

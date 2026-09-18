@@ -65,6 +65,12 @@ jobs:
           set -euo pipefail
           python3 .ci/mesa-intents-sql/publication.py --container "$INTENTS_TEST_CONTAINER" --output /tmp/mesa-intents-application \
             | tee /tmp/mesa-intents-application/sql.log
+      - name: Actual Latest and bank writes, concurrency, rollback and legacy compatibility
+        run: |
+          set -euo pipefail
+          python3 .ci/mesa-intents-sql/offline.py node .ci/mesa-intents-sql/latest-boundary.mjs \
+            --container "$INTENTS_TEST_CONTAINER" --output /tmp/mesa-intents-application \
+            | tee /tmp/mesa-intents-application/latest-boundary.log
       - name: Real application package, transfer, text, API and receipts
         run: |
           set -euo pipefail
@@ -75,6 +81,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 .ci/mesa-intents-sql/offline.py node node_modules/tsx/dist/cli.mjs --test \
+            lib/redacao-automatica/newsroom-mesa-admin-entry.test.ts \
+            lib/redacao-automatica/newsroom-mesa-latest-placement.test.ts \
             lib/redacao-automatica/newsroom-mesa-production-intents.test.ts \
             lib/redacao-automatica/newsroom-mesa-production-intents-contract.test.ts \
             lib/redacao-automatica/newsroom-mesa-production-intents-ui.test.ts \

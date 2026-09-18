@@ -1,4 +1,4 @@
-/** Real application modules; only server-only and public-zone placement are test boundaries. */
+/** Real application modules; server-only is removed; legacy placement alone remains a test boundary. */
 export * from "../../lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 export * from "../../lib/redacao-automatica/newsroom-mesa-production-intents-service";
 export * from "../../lib/redacao-automatica/editorial-source-package";

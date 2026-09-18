@@ -8,6 +8,10 @@ begin
     or to_regclass('public.newsroom_mesa_output_publications') is null
     or to_regprocedure('public.newsroom_mesa_plan_context_sources_valid_v1(uuid,uuid,uuid)') is null
     or to_regprocedure('public.sync_editorial_article_live_snapshots_v15(uuid,text)') is null
+    or to_regprocedure('public.set_matchday_latest_news_settings_v15(uuid,text,text,text,boolean)') is null
+    or to_regprocedure('public.normalize_matchday_latest_news_order(uuid)') is null
+    or to_regprocedure('jornada_private.acquire_matchday_live_layout_cutover_writer_lock()') is null
+    or to_regclass('public.matchday_latest_news') is null
   then raise exception 'mesa-intent-publication-authority-missing'; end if;
   if (select regexp_replace(p.prosrc,'\s','','g') from pg_proc p
       where p.oid=to_regprocedure('public.newsroom_mesa_consolidate_publication_v2(uuid)'))
@@ -487,6 +491,88 @@ revoke all on function public.newsroom_publish_mesa_intent_output_v1(uuid, uuid,
   from public, anon, authenticated, service_role;
 grant execute on function public.newsroom_publish_mesa_intent_output_v1(uuid, uuid, uuid, uuid[], jsonb)
   to service_role;
+
+-- Atomic Latest projection for the opt-in circuit only. The old publication
+-- paths keep their existing writer. Workspace and matchday locks close the
+-- read/insert race between identical or overlapping publication attempts.
+create function public.newsroom_place_mesa_intent_latest_v1(
+  p_dossier_id uuid, p_package_id uuid, p_article_ids uuid[]
+)
+returns table(result jsonb) language plpgsql volatile security definer set search_path='' as $function$
+declare
+  v_plan jsonb; v_expected uuid[]; v_requested uuid[]; v_days uuid[];
+  v_day uuid; v_article public.editorial_articles%rowtype; v_existing uuid;
+  v_count integer; v_path text; v_label text; v_now timestamptz:=clock_timestamp();
+begin
+  if p_article_ids is null or cardinality(p_article_ids) not between 1 and 30
+    or array_position(p_article_ids,null) is not null
+    or (select count(distinct x) from unnest(p_article_ids) x)<>cardinality(p_article_ids) then
+    raise exception 'mesa-intent-latest-input-invalid';
+  end if;
+  v_plan:=public.newsroom_mesa_lock_intent_publication_v1(p_dossier_id,p_package_id);
+  select array_agg(x order by x) into v_requested from unnest(p_article_ids) x;
+  select array_agg(a.id order by a.id) into v_expected
+    from public.newsroom_mesa_output_publications p
+    join public.editorial_articles a on a.id=p.editorial_article_id
+    where p.dossier_id=p_dossier_id and p.package_id=p_package_id and a.matchday_id is not null;
+  if v_requested is distinct from v_expected then
+    raise exception 'mesa-intent-latest-article-set-invalid';
+  end if;
+  -- Lock canonical rows in the same order as the finalizer. Never use text or
+  -- article identity supplied by a client to construct the public projection.
+  perform 1 from public.editorial_articles a where a.id=any(v_requested) order by a.id for update;
+  if exists (select 1 from public.newsroom_mesa_output_publications p
+      join public.editorial_articles a on a.id=p.editorial_article_id
+      where p.dossier_id=p_dossier_id and a.id=any(v_requested)
+        and (a.status<>'published' or encode(sha256(convert_to(to_jsonb(a)::text,'UTF8')),'hex')
+          is distinct from p.payload->>'intentResultFingerprint')) then
+    raise exception 'mesa-intent-published-result-stale';
+  end if;
+  select array_agg(distinct a.matchday_id order by a.matchday_id) into v_days
+    from public.editorial_articles a where a.id=any(v_requested);
+  -- A completed replay is not permission to restore a later manually removed
+  -- Latest entry. The immutable completion is returned without further writes.
+  if exists (select 1 from public.newsroom_mesa_intent_finalizations f
+      where f.dossier_id=p_dossier_id and f.package_id=p_package_id) then
+    return query select jsonb_build_object('action','reused','articleCount',cardinality(v_requested),'matchdayCount',cardinality(v_days));
+    return;
+  end if;
+  perform jornada_private.acquire_matchday_live_layout_cutover_writer_lock();
+  perform 1 from public.matchdays d where d.id=any(v_days) order by d.id for update;
+  for v_article in select * from public.editorial_articles a where a.id=any(v_requested) order by a.matchday_id,a.id loop
+    if v_article.published_at is null or exists(select 1 from unnest(array[
+        v_article.slug,v_article.label,v_article.title,v_article.subtitle,v_article.body,v_article.image_url,v_article.author
+      ]) field where nullif(btrim(field),'') is null) then
+      raise exception 'mesa-intent-latest-article-incomplete';
+    end if;
+    v_path:='/noticias/'||btrim(v_article.slug);
+    -- Equivalent to projectEditorialArticleToZone(article, 'editorial_line_item').
+    v_label:=to_char(v_article.published_at at time zone 'Europe/Lisbon','HH24:MI')||' · '||btrim(v_article.label);
+    select count(*),min(n.id::text)::uuid into v_count,v_existing
+      from public.matchday_latest_news n
+      where n.matchday_id=v_article.matchday_id and btrim(n.link_url)=v_path;
+    if v_count>1 then raise exception 'mesa-intent-latest-existing-duplicate'; end if;
+    if v_existing is not null then
+      update public.matchday_latest_news set time_label=v_label,time_label_color=null,
+        title=btrim(v_article.title),subtitle=null,image_url=null,link_url=v_path,
+        article_id=null,status='published',updated_at=v_now where id=v_existing;
+    else
+      insert into public.matchday_latest_news(matchday_id,time_label,time_label_color,title,subtitle,
+        image_url,link_url,article_id,status,sort_order,created_at,updated_at)
+      select v_article.matchday_id,v_label,null,btrim(v_article.title),null,null,v_path,null,'published',
+        coalesce(max(n.sort_order),0)+1,v_now,v_now
+      from public.matchday_latest_news n where n.matchday_id=v_article.matchday_id;
+    end if;
+  end loop;
+  foreach v_day in array v_days loop
+    perform * from public.set_matchday_latest_news_settings_v15(v_day,'latest_news',null,null,false);
+    perform public.normalize_matchday_latest_news_order(v_day);
+  end loop;
+  return query select jsonb_build_object('action','placed','articleCount',cardinality(v_requested),'matchdayCount',cardinality(v_days));
+end;
+$function$;
+revoke all on function public.newsroom_place_mesa_intent_latest_v1(uuid,uuid,uuid[]) from public,anon,authenticated,service_role;
+grant execute on function public.newsroom_place_mesa_intent_latest_v1(uuid,uuid,uuid[]) to service_role;
 
 -- Complete only the exact requested cycle. A partial publication has no receipts
 -- and stays active. SEM ALTERAÇÃO is an explicit checked decision, not an output.

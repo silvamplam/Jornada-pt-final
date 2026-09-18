@@ -212,9 +212,11 @@ test("publicação da continuidade usa batch, pára na primeira falha e chama fi
     "async function publishThemeContinuityBatch",
     "async function reconcileSourcePackageTimes",
   );
-  const loop = section(publication, "for (const item of continuity.prepared)", "try {\n    await ensurePublishedArticlesInLatestBatch");
+  const loop = section(publication, "for (const item of continuity.prepared)", "try {\n    if (continuity.productionIntents)");
   assert.equal((publication.match(/finalizeThemeContinuity\(/g) ?? []).length, 1);
   assert.equal((publication.match(/ensurePublishedArticlesInLatestBatch\(/g) ?? []).length, 1);
+  assert.equal((publication.match(/mesaIntentService\.placeLatest\(/g) ?? []).length, 1);
+  assert.match(publication, /} else \{\s+await ensurePublishedArticlesInLatestBatch\(latestArticles\)/);
   assert.match(loop, /publishEditorialMesaOutput/);
   assert.match(loop, /return NextResponse\.json/);
   assert.doesNotMatch(loop, /fetchSupabaseAdminTable|readExistingArticleById|sourcePublishedAtByArticle/);

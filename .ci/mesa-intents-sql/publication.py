@@ -77,6 +77,10 @@ for name in ('jornada_private.refresh_editorial_article_carryover_snapshot_v15',
              'public.sync_editorial_article_live_snapshots_v15'):
     function_from('supabase/migrations/20260905110018_matchday_publication_physical_placement_boundary_v15.sql', name)
 
+from latest_bootstrap import install as install_latest_dependencies
+latest_definitions = install_latest_dependencies(execute, ROOT)
+(args.output / 'latest-definitions.json').write_text(json.dumps(latest_definitions, indent=2))
+
 # Compare every pre-existing public/private function definition, ACL and config;
 # only the declared dispatcher and private capture helper may change.
 function_query = """select coalesce(jsonb_object_agg(p.oid::regprocedure::text,

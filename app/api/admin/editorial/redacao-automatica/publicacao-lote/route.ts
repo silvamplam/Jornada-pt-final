@@ -1847,7 +1847,14 @@ async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
   }
 
   try {
-    await ensurePublishedArticlesInLatestBatch(latestArticles);
+    if (continuity.productionIntents) {
+      if (latestArticles.length > 0) await mesaIntentService.placeLatest({
+        plan: continuity.productionIntents, packageId: continuity.transfer.packageId,
+        articleIds: latestArticles.map((article) => article.id),
+      });
+    } else {
+      await ensurePublishedArticlesInLatestBatch(latestArticles);
+    }
   } catch (error) {
     return NextResponse.json({
       ok: false,

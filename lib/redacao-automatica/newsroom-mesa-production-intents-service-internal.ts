@@ -76,6 +76,22 @@ export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) 
       }
       return {articleId:a.id,slug:a.slug,action:row.publication_action as "created" | "updated" | "reused",consolidated:row.consolidated};
     },
+    async placeLatest(input: Readonly<{plan: MesaProductionIntentsFrozen; packageId: string; articleIds: readonly string[]}>) {
+      const p=frozen(input.plan), ids=input.articleIds;
+      if (!id(input.packageId) || !ids.length || ids.length>30 || !ids.every(id) || new Set(ids).size!==ids.length
+        || ids.some((articleId) => !p.outputs.some((o) => o.kind==="existing" ? o.target!.matchdayId!==null && o.target!.editorialArticleId===articleId : o.outputId===articleId))) {
+        throw new Error("mesa-intent-latest-input-invalid");
+      }
+      const row=single(await transport.post("newsroom_place_mesa_intent_latest_v1", {
+        p_dossier_id:p.dossierId,p_package_id:input.packageId,p_article_ids:ids,
+      }));
+      const r=object(row?.result);
+      if (!r || !["placed","reused"].includes(String(r.action)) || r.articleCount!==ids.length
+        || !Number.isInteger(r.matchdayCount) || Number(r.matchdayCount)<1 || Number(r.matchdayCount)>ids.length) {
+        throw new Error("mesa-intent-latest-result-invalid");
+      }
+      return {action:r.action as "placed" | "reused",articleCount:ids.length,matchdayCount:r.matchdayCount as number};
+    },
     async finalize(input: Readonly<{plan: MesaProductionIntentsFrozen; packageId: string; noChangeOutputIds: readonly string[]}>) {
       const p=frozen(input.plan), ids=input.noChangeOutputIds;
       if (!id(input.packageId) || ids.length>30 || new Set(ids).size !== ids.length
