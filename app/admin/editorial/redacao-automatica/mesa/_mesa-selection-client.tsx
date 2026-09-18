@@ -1051,31 +1051,32 @@ export function MesaSelectionTray({
               Limpar
             </button>
 
-            {sourceThemeActions ? (
-              <button
-                type="button"
-                className={styles.selectionPanelToggle}
-                aria-expanded={selectionPanelOpen}
-                aria-controls="mesa-selection-panel"
-                onClick={() => setSelectionPanelOpen((open) => !open)}
-                disabled={submitting}
-              >
-                {selectionPanelOpen ? "Fechar seleção" : "Ver seleção"}
-              </button>
-            ) : (
+            {!sourceThemeActions ? (
               <details className={styles.selectionDetails}>
                 <summary>Ver seleção</summary>
                 <ul>{selectionItems}</ul>
               </details>
-            )}
+            ) : null}
           </div>
           <p>{buffer.sources.length} fontes soltas · {selectedThemes.length} Temas · {distinctSources} fontes congeláveis</p>
         </div>
 
       <div className={styles.selectionActions}>
+        {sourceThemeActions ? (
+          <button
+            type="button"
+            className={styles.selectionPanelToggle}
+            aria-expanded={selectionPanelOpen}
+            aria-controls="mesa-selection-panel"
+            onClick={() => setSelectionPanelOpen((open) => !open)}
+            disabled={submitting}
+          >
+            {selectionPanelOpen ? "Fechar seleção" : "Ver seleção"}
+          </button>
+        ) : null}
         <label>
-          <span>Título de trabalho</span>
           <input
+            aria-label="Título de trabalho"
             value={buffer.title}
             onChange={(event) => changeTitle(event.currentTarget.value)}
             maxLength={180}

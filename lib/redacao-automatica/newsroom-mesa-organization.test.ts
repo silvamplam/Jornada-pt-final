@@ -426,16 +426,17 @@ test("relação de Dossiê no SQL não usa o conflito de coluna ambígua", () =>
 });
 
 
-test("contadores acompanham explicitamente o universo NOVAS ou PUBLICADAS visível", () => {
+test("contadores acompanham explicitamente NOVAS, PUBLICADAS e ARQUIVO", () => {
   const page = readFileSync("app/admin/editorial/redacao-automatica/mesa/page.tsx", "utf8");
   const count = page.slice(page.indexOf("function sumVisibleCount("), page.indexOf("function fixtureClassification("));
   assert.match(count, /lifecycle === "published" \? counts\.publicadas : counts\.novas/);
   assert.match(count, /return universe\.total/);
-  assert.match(page, /const counts = sourceResult\.ok \? sourceResult\.value\.counts : null/);
+  assert.match(count, /function sumClassificationCount/);
+  assert.match(page, /let counts: OperationalDeskSourceCounts \| null = null/);
   assert.match(page, /newCount=\{sumVisibleCount\(counts, query\.classificationValue, "new"\)\}/);
   assert.match(page, /publishedCount=\{sumVisibleCount\(counts, query\.classificationValue, "published"\)\}/);
-  assert.match(page, /sourceResult\.value\.page\.pagination\.hasNextPage/);
-  assert.match(page, /activeLifecycle === "published"/);
-  assert.match(page, /activeLifecycle === "published" \? counts\?\.publicadas\.total/);
-  assert.match(page, /activeLifecycle === "published" \? "publicadas" : "novas"/);
+  assert.doesNotMatch(page, /page\.pagination\.hasNextPage/);
+  assert.match(page, /query\.tab === "arquivo"/);
+  assert.match(page, /sumClassificationCount\(archiveCounts, query\.classificationValue\)/);
+  assert.match(page, /activeLifecycle === "archive" \? "arquivadas"/);
 });

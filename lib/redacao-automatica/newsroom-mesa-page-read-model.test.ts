@@ -132,30 +132,26 @@ function transport(universe: readonly MesaPageIdentity[]) {
 }
 
 for (const size of [0, 1, 23, 24, 25, 48, 49, 101, 501]) {
-  test(`pagina todo o universo sem omissões ou duplicações (${size})`, async () => {
+  test(`devolve todo o universo sem omissões ou duplicações (${size})`, async () => {
     const universe = Array.from({ length: size }, (_, index) => identity(index + 1));
-    const collected: string[] = [];
-    for (let offset = 0; ;) {
-      const fake = transport(universe);
-      const result = await createMesaPageReadModel(fake.value)({
-        lifecycle: "new",
-        classification: { mode: "all" },
-        sourceCode: null,
-        pagination: { limit: 24, offset },
-      });
-      assert.equal(result.ok, true);
-      collected.push(...result.value.page.items.map((item) => item.newsroomArticleId));
-      const hydrated = fake.calls.find((call) => call.kind === "hydrate");
-      assert.ok((hydrated?.ids?.length ?? 0) <= 24);
-      if (!result.value.page.pagination.hasNextPage) break;
-      offset += 24;
-    }
+    const fake = transport(universe);
+    const result = await createMesaPageReadModel(fake.value)({
+      lifecycle: "new",
+      classification: { mode: "all" },
+      sourceCode: null,
+      pagination: { limit: 24, offset: 48 },
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    const collected = result.value.page.items.map((item) => item.newsroomArticleId);
     assert.deepEqual(collected, universe.map((row) => row.newsroom_article_id));
     assert.equal(new Set(collected).size, size);
+    assert.equal(result.value.page.pagination.offset, 0);
+    assert.equal(result.value.page.pagination.hasNextPage, false);
   });
 }
 
-test("filtra e pagina na origem antes de hidratar", async () => {
+test("filtra na origem antes de hidratar o universo completo", async () => {
   const universe = Array.from({ length: 100 }, (_, index) => identity(index + 1));
   const fake = transport(universe);
   const result = await createMesaPageReadModel(fake.value)({
@@ -166,12 +162,12 @@ test("filtra e pagina na origem antes de hidratar", async () => {
   });
   assert.equal(result.ok, true);
   assert.deepEqual(fake.calls.map((call) => call.kind), ["counts", "identities", "hydrate"]);
-  assert.equal(fake.calls[1]?.limit, 24);
-  assert.equal(fake.calls[1]?.offset, 24);
+  assert.equal(fake.calls[1]?.limit, 200);
+  assert.equal(fake.calls[1]?.offset, 0);
   assert.deepEqual(
     fake.calls[2]?.ids,
     universe.filter((row) => row.classification_key === "benfica")
-      .slice(24, 48).map((row) => row.newsroom_article_id),
+      .map((row) => row.newsroom_article_id),
   );
 });
 
@@ -242,8 +238,8 @@ test("counts são globais e independentes da página pedida", async () => {
   assert.equal(result.ok, true);
   assert.equal(result.value.counts.novas.total, 700);
   assert.equal(result.value.counts.publicadas.sporting, 90);
-  assert.equal(result.value.page.items.length, 24);
-  assert.equal(result.value.page.pagination.hasNextPage, true);
+  assert.equal(result.value.page.items.length, 50);
+  assert.equal(result.value.page.pagination.hasNextPage, false);
 });
 
 test("preserva todos os filtros editoriais, sourceCode e ambos os lifecycles", async () => {
