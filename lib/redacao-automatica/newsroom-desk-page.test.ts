@@ -50,13 +50,16 @@ test("Mesa uses the server-paged read-model and not either global desk read-mode
   assert.match(page, /export const dynamic = "force-dynamic"/);
 });
 
-test("Mesa mostra NOVAS por encaminhar e publicado apenas em Temas/Dossiês", () => {
+test("Mesa mostra NOVAS, PUBLICADAS, ARQUIVO e mantém Temas/Dossiês", () => {
   const page = source(MESA_PAGE);
   assert.match(page, /sourceIsUnassigned/);
   assert.match(page, /MesaOrganizationPanel/);
   assert.match(page, /MesaLooseSourcesPanel/);
   assert.doesNotMatch(page, /title="PUBLICADAS"/);
-  assert.match(page, /sourceResult\.value\.page\.pagination\.hasNextPage/);
+  assert.match(page, /loadMesaArchiveReadModel/);
+  assert.match(page, /searchNewsroomArticles/);
+  assert.match(page, /archiveItems/);
+  assert.doesNotMatch(page, /previousHref=|nextHref=/);
 });
 
 test("fixture visual is development-only, locally rendered and isolated from writers", () => {
@@ -173,10 +176,26 @@ test("pagination keeps tab + classification + extra filters", () => {
     process.cwd(),
     "app/admin/editorial/redacao-automatica/mesa/_mesa-organization-client.tsx",
   ));
-  assert.match(page, /previousHref=\{activeLifecycle === "new"/);
-  assert.match(page, /nextHref=\{activeLifecycle === "new"/);
-  assert.match(organization, /showAll=\{tab === "published"\}/);
+  assert.doesNotMatch(page, /previousHref=|nextHref=/);
+  assert.match(organization, /showAll/);
+  assert.doesNotMatch(organization, /sourcePagination/);
 });
+
+test("Arquivo e pesquisa ficam disponíveis na nova Mesa", () => {
+  const archive = validQuery({ tab: "arquivo", query: "quaresma" });
+  assert.equal(archive.tab, "arquivo");
+  assert.equal(archive.query, "quaresma");
+  const page = source(MESA_PAGE);
+  const route = source(path.join(
+    process.cwd(),
+    "app/api/admin/editorial/redacao-automatica/mesa/source/route.ts",
+  ));
+  assert.match(page, /name="query"/);
+  assert.match(page, /tab: "arquivo"/);
+  assert.match(page, /MesaArchiveSourceItemView/);
+  assert.match(route, /action === "reopen"/);
+});
+
 
 test("Mesa remains server-side read and mutations stay in dedicated APIs", () => {
   const page = source(MESA_PAGE);

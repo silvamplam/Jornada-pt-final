@@ -214,42 +214,53 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
 export function MesaLooseSourcesPanel({
   newItems,
   publishedItems,
+  archiveItems,
   storageKey,
   initialTab,
   newHref,
   publishedHref,
+  archiveHref,
   newCount,
   publishedCount,
-  page,
-  previousHref,
-  nextHref,
+  archiveCount,
 }: Readonly<{
   newItems: readonly ReactNode[];
   publishedItems: readonly ReactNode[];
+  archiveItems: readonly ReactNode[];
   storageKey: string;
-  initialTab: "new" | "published";
+  initialTab: "new" | "published" | "archive";
   newHref: string;
   publishedHref: string;
+  archiveHref: string;
   newCount: number;
   publishedCount: number;
-  page: number;
-  previousHref: string | null;
-  nextHref: string | null;
+  archiveCount: number | null;
 }>) {
   const tab = initialTab;
+  const items = tab === "new"
+    ? newItems
+    : tab === "published"
+      ? publishedItems
+      : archiveItems;
+  const empty = tab === "new"
+    ? "Sem fontes por encaminhar neste filtro."
+    : tab === "published"
+      ? "Sem fontes publicadas avulsas neste filtro."
+      : "Sem fontes arquivadas neste filtro.";
   return <section className={styles.sourcePanel} data-lifecycle={tab}>
-    <header className={styles.panelHeader}><nav aria-label="Fontes avulsas">
+    <header className={styles.panelHeader}><nav aria-label="Fontes">
       <Link href={newHref} aria-current={tab === "new" ? "page" : undefined}>NOVAS ({newCount})</Link>
       <Link href={publishedHref} aria-current={tab === "published" ? "page" : undefined}>PUBLICADAS ({publishedCount})</Link>
+      <Link href={archiveHref} aria-current={tab === "archive" ? "page" : undefined}>
+        {archiveCount === null ? "ARQUIVO" : `ARQUIVO (${archiveCount})`}
+      </Link>
     </nav></header>
-    <MesaSourceWindow key={tab} storageKey={`${storageKey}.${tab}`}
-      empty={tab === "new" ? "Sem fontes por encaminhar neste filtro." : "Sem fontes publicadas avulsas neste filtro."}
-      items={tab === "new" ? newItems : publishedItems}
-      showAll={tab === "published"} />
-    {previousHref || nextHref ? <nav className={styles.sourcePagination} aria-label="Paginação das fontes">
-      {previousHref ? <Link href={previousHref} rel="prev">Anterior</Link> : <span aria-disabled="true">Anterior</span>}
-      <span>Página {page}</span>
-      {nextHref ? <Link href={nextHref} rel="next">Seguinte</Link> : <span aria-disabled="true">Seguinte</span>}
-    </nav> : null}
+    <MesaSourceWindow
+      key={tab}
+      storageKey={`${storageKey}.${tab}`}
+      empty={empty}
+      items={items}
+      showAll
+    />
   </section>;
 }
