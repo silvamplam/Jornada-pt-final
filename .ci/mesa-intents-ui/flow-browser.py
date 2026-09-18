@@ -77,6 +77,9 @@ with sync_playwright() as pw:
         page.add_script_tag(content=(out/'flow-browser.js').read_text())
         page.evaluate('(v)=>sessionStorage.setItem("jornada.mesa.preparation.v2",JSON.stringify(v.buffer))',f)
         page.evaluate('(v)=>window.__flowMount(v)',f)
+        expect(page.get_by_role('button',name='Ver seleção',exact=True)).to_be_visible()
+        page.get_by_role('button',name='Ver seleção',exact=True).click()
+        expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
         expect(page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)).to_have_value('review' if kw.get('published',1)>0 else 'new')
         return f
     def prepare(mode='review',new=None,independent=False):

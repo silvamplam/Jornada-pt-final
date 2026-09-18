@@ -818,7 +818,8 @@
 .selectionSummary button,
 .selectionDetails button,
 .selectionActions button,
-.selectionActionLink {
+.selectionActionLink,
+.selectionPanelToggle {
   min-height: 30px;
   display: inline-flex;
   align-items: center;
@@ -902,6 +903,173 @@
 .selectionDetails small {
   color: #6b776e;
   font-size: 0.52rem;
+}
+
+.selectionPanelToggle {
+  margin-left: auto;
+}
+
+.selectionPanel {
+  position: fixed;
+  z-index: 40;
+  top: 86px;
+  right: 10px;
+  bottom: 10px;
+  width: min(680px, calc(100vw - 20px));
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  align-content: start;
+  gap: 8px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid #789984;
+  border-radius: 10px;
+  color: #203629;
+  background: rgb(250 253 250 / 99%);
+  box-shadow: 0 18px 48px rgb(18 45 27 / 24%);
+  overscroll-behavior: contain;
+  scroll-padding-top: 64px;
+}
+
+.selectionPanelHeader {
+  position: sticky;
+  top: -10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -10px -10px 0;
+  padding: 10px;
+  border-bottom: 1px solid #c9d6cb;
+  background: #f7fbf7;
+}
+
+.selectionPanelHeader > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.selectionPanelHeader strong,
+.selectionPanelHeader span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectionPanelHeader strong {
+  color: #153b25;
+  font-size: 0.82rem;
+}
+
+.selectionPanelHeader span {
+  color: #617067;
+  font-size: 0.62rem;
+}
+
+.selectionPanelHeader button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  border: 1px solid #9eb1a2;
+  border-radius: 6px;
+  padding: 4px 10px;
+  color: #30493a;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 790;
+  background: #fff;
+}
+
+.selectionPanelList {
+  max-height: 132px;
+  margin: 0;
+  padding: 5px;
+  display: grid;
+  gap: 3px;
+  overflow: auto;
+  border: 1px solid #ced9cf;
+  border-radius: 7px;
+  list-style: none;
+  background: #fff;
+}
+
+.selectionPanelList li {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  padding: 4px;
+  border-bottom: 1px solid #e3e9e3;
+}
+
+.selectionPanelList li:last-child {
+  border-bottom: 0;
+}
+
+.selectionPanelList li > span {
+  min-width: 0;
+}
+
+.selectionPanelList strong,
+.selectionPanelList small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectionPanelList strong {
+  font-size: 0.64rem;
+}
+
+.selectionPanelList small {
+  color: #6b776e;
+  font-size: 0.54rem;
+}
+
+.selectionPanelList button {
+  flex: 0 0 auto;
+  min-height: 27px;
+  border: 1px solid #aebdb0;
+  border-radius: 5px;
+  padding: 3px 7px;
+  color: #30493a;
+  font: inherit;
+  font-size: 0.58rem;
+  font-weight: 760;
+  background: #fff;
+}
+
+.selectionPanel .continuityBody {
+  min-height: 0;
+  margin-top: 0;
+  padding-top: 8px;
+}
+
+.selectionPanel .continuityPanel {
+  margin: 0 0 8px;
+  padding: 9px;
+}
+
+.selectionPanel .continuityPanel h3 {
+  margin: 0 0 6px;
+  font-size: 0.76rem;
+}
+
+.selectionPanel .continuityPrepare {
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.selectionPanel .prepareButton {
+  scroll-margin-top: 64px;
+}
+
+.selectionPanel .themeChooser {
+  margin-top: 2px;
+  padding-top: 8px;
 }
 
 .selectionActions {
@@ -1206,6 +1374,20 @@
 
   .selectionSummary p {
     display: none;
+  }
+
+  .selectionPanel {
+    top: 6px;
+    right: 6px;
+    bottom: 6px;
+    width: calc(100vw - 12px);
+    padding: 8px;
+  }
+
+  .selectionPanelHeader {
+    top: -8px;
+    margin: -8px -8px 0;
+    padding: 8px;
   }
 }
 
