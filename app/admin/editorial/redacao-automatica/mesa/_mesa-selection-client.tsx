@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { isArticleClassificationKey, type ArticleClassificationKey } from "@/lib/editorial-classifications";
 import type { OperationalDeskSourceLifecycle } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model-internal";
 
@@ -1126,7 +1127,7 @@ export function MesaSelectionTray({
       </div>
 
       </div>
-      {sourceThemeActions && selectionPanelOpen ? (
+      {sourceThemeActions && selectionPanelOpen && typeof document !== "undefined" ? createPortal(
         <aside
           id="mesa-selection-panel"
           className={styles.selectionPanel}
@@ -1194,7 +1195,8 @@ export function MesaSelectionTray({
               <button type="button" onClick={() => { setThemeAction(null); setTargetTheme(""); setMessage(""); }} disabled={submitting}>Cancelar</button>
             </div>
           </section> : null}
-        </aside>
+        </aside>,
+        document.body,
       ) : null}
       {!sourceThemeActions && organizing ? <section className={styles.themeChooser} aria-label="Organizar seleção">
         <label>Destino
