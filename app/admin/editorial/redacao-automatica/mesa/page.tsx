@@ -15,13 +15,17 @@ import {
 } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
 import {
   loadMesaPageReadModel,
+  loadMesaSourceCounts,
   type MesaPageReadModelResult,
 } from "@/lib/redacao-automatica/newsroom-mesa-page-read-model";
+import {
+  loadMesaArchiveReadModel,
+  type MesaArchiveSourceItem,
+} from "@/lib/redacao-automatica/newsroom-mesa-archive-read-model";
 import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
 
 import {
   MESA_CLASSIFICATION_OPTIONS,
-  MESA_PAGE_SIZE,
   mesaHref,
   mesaPageReadModelInput,
   parseMesaQuery,
@@ -37,6 +41,7 @@ import {
 } from "./_mesa-selection-client";
 import type { MesaMaterialSelection } from "./_mesa-selection-state";
 import { MesaSourceItem } from "./_mesa-source-item";
+import { MesaArchiveSourceItemView } from "./_mesa-archive-source-item";
 import { MesaOrganizationPanel, MesaLooseSourcesPanel } from "./_mesa-organization-client";
 import { loadMesaOrganizationSummary } from "@/lib/redacao-automatica/newsroom-mesa-organization";
 import { sourceIsUnassigned, filterMesaOrganization, type MesaOrganization } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
@@ -813,42 +818,60 @@ function countFor(items: readonly OperationalDeskSourceItem[]): OperationalDeskC
   return counts;
 }
 
-function paginateFixture<T>(
-  items: readonly T[],
-  input: { limit: number; offset: number },
-) {
+function normalizedSearchText(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-PT");
+}
+
+function matchesSearch(item: OperationalDeskSourceItem, query: string): boolean {
+  const needle = normalizedSearchText(query.trim());
+  if (!needle) return true;
+  return normalizedSearchText([
+    item.title,
+    item.subtitle ?? "",
+    item.summary ?? "",
+    item.sourceName ?? "",
+    item.sourceCode,
+  ].join(" ")).includes(needle);
+}
+
+function matchesArchiveSearch(item: MesaArchiveSourceItem, query: string): boolean {
+  const needle = normalizedSearchText(query.trim());
+  if (!needle) return true;
+  return normalizedSearchText([
+    item.title,
+    item.subtitle ?? "",
+    item.summary ?? "",
+    item.sourceName,
+    item.sourceCode,
+  ].join(" ")).includes(needle);
+}
+
+function completeFixturePage<T>(items: readonly T[]) {
   return {
-    items: items.slice(input.offset, input.offset + input.limit),
+    items,
     pagination: {
-      limit: input.limit,
-      offset: input.offset,
-      hasNextPage: items.length > input.offset + input.limit,
+      limit: items.length,
+      offset: 0,
+      hasNextPage: false,
     },
   };
 }
 
 function createMesaFixtureReadModel(query: MesaQuery): MesaPageReadModelResult {
-  const limit = MESA_PAGE_SIZE;
-  const offset = (query.page - 1) * limit;
-  const filtered = FIXTURE_SOURCES.filter((item) => (
-    matchesClassificationFilter(item, query.classification)
-    && matchesSourceFilter(item, query.sourceCode)
-  ));
+  const filtered = FIXTURE_SOURCES.filter((item) => matchesSourceFilter(item, query.sourceCode));
   const lifecycle = query.tab === "publicadas" ? "published" : "new";
   const eligible = lifecycle === "new"
     ? filtered.filter(sourceIsUnassigned)
     : filtered.filter((item) => item.lifecycle === "published"
       && item.themeMembership.themeIds.length === 0)
       .sort(fixturePublishedSort);
-  const page = lifecycle === "published"
-    ? paginateFixture(eligible, { limit: Math.max(1, eligible.length), offset: 0 })
-    : paginateFixture(eligible, { limit, offset });
+  const page = completeFixturePage(eligible);
   return {
     ok: true,
     value: {
       cycleStartedAt: MESA_OPERATIONAL_CYCLE_STARTED_AT,
       lifecycle,
-      classification: query.classification,
+      classification: { mode: "all" },
       sources: page.items,
       counts: {
         novas: countFor(FIXTURE_SOURCES.filter((item) => (
