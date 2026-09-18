@@ -438,6 +438,7 @@ function ResultSummary({
   seasonLabel,
   matchdayLabel: selectedMatchdayLabel,
   preservesPublishedImages,
+  productionImagesByKey,
   noChangeCount,
 }: Readonly<{
   preflight: EditorialBatchPreflight;
@@ -449,6 +450,11 @@ function ResultSummary({
   seasonLabel: string;
   matchdayLabel: string;
   preservesPublishedImages: boolean;
+  productionImagesByKey: ReadonlyMap<string, Readonly<{
+    position: number;
+    imageUrl: string;
+    label: string;
+  }>>;
   noChangeCount: number;
 }>) {
   const globalIssues = preflight.issues.filter((issue) => issue.index === undefined);
@@ -485,9 +491,11 @@ function ResultSummary({
           <p>
             {preflight.total} {preflight.total === 1 ? "artigo" : "artigos"}
             {" · "}
-            {preservesPublishedImages
-              ? `${preflight.total} ${preflight.total === 1 ? "imagem publicada preservada" : "imagens publicadas preservadas"}`
-              : `${imagePreflight.associated} ${imagePreflight.associated === 1 ? "imagem associada" : "imagens associadas"}`}
+            {productionImagesByKey.size > 0
+              ? `${productionImagesByKey.size} ${productionImagesByKey.size === 1 ? "imagem da Produção associada" : "imagens da Produção associadas"}${preservesPublishedImages && productionImagesByKey.size < preflight.total ? ` · ${preflight.total - productionImagesByKey.size} ${preflight.total - productionImagesByKey.size === 1 ? "imagem publicada preservada" : "imagens publicadas preservadas"}` : ""}`
+              : preservesPublishedImages
+                ? `${preflight.total} ${preflight.total === 1 ? "imagem publicada preservada" : "imagens publicadas preservadas"}`
+                : `${imagePreflight.associated} ${imagePreflight.associated === 1 ? "imagem associada" : "imagens associadas"}`}
             {" · Sem problemas"}
           </p>
         </div>
@@ -560,6 +568,7 @@ function ResultSummary({
               const isValid = errors.length === 0;
               const title = firstText(row.article?.title) || "Sem título";
               const imageResult = imageResultByKey.get(row.key);
+              const productionImage = productionImagesByKey.get(row.key);
               const previewUrl = imageResult?.file
                 ? imagePreviewUrls.get(imageResult.file)
                 : imageResult?.imageUrl;
@@ -589,7 +598,18 @@ function ResultSummary({
                     ) : !globallyPrepared ? (
                       <p className={styles.validNote}>Estrutura editorial válida.</p>
                     ) : null}
-                    {preservesPublishedImages ? (
+                    {productionImage ? (
+                      <div className={`${styles.imageAssociation} ${styles.associatedImage}`}>
+                        <img
+                          src={productionImage.imageUrl}
+                          alt={`Pré-visualização de ${productionImage.label || `artigo ${row.key}`}`}
+                        />
+                        <div>
+                          <p>{productionImage.label || `Imagem do artigo ${row.key}`}</p>
+                          <strong>IMAGEM DA PRODUÇÃO ASSOCIADA</strong>
+                        </div>
+                      </div>
+                    ) : preservesPublishedImages ? (
                       <p className={styles.validNote}>
                         IMAGEM PUBLICADA PRESERVADA
                       </p>
@@ -954,6 +974,13 @@ export default function BatchPreflightClient({
       && sourcePackageUpdateCount
         === preflight.total,
       );
+  const productionImagesByKey = useMemo(
+    () => new Map((sourcePackage?.outputImages ?? []).map((image) => (
+      [String(image.position).padStart(2, "0"), image] as const
+    ))),
+    [sourcePackage],
+  );
+  const productionImageCount = productionImagesByKey.size;
   const allAnalysedArticleKeys = useMemo(
     () => articleResultRows(preflight).map((row) => row.key),
     [preflight],
@@ -1948,14 +1975,16 @@ export default function BatchPreflightClient({
             </div>
 
             <strong className={styles.readyBadge}>
-              IMAGENS PUBLICADAS PRESERVADAS
+              {productionImageCount > 0
+                ? "IMAGENS DA PRODUÇÃO ASSOCIADAS"
+                : "IMAGENS PUBLICADAS PRESERVADAS"}
             </strong>
           </div>
 
           <p className={styles.imageInstructions}>
-            Este lote atualiza artigos já publicados. As imagens atualmente
-            publicadas serão mantidas. As imagens associadas à Produção não
-            substituirão automaticamente nenhuma delas.
+            {productionImageCount > 0
+              ? "As imagens escolhidas na Produção serão aplicadas aos respetivos UPDATEs. Nos artigos sem uma nova imagem escolhida mantém-se a imagem já publicada."
+              : "Este lote atualiza artigos já publicados e mantém as imagens atualmente publicadas."}
           </p>
         </section>
       ) : (
@@ -1986,6 +2015,7 @@ export default function BatchPreflightClient({
           seasonLabel={continuityContextLocked ? "Jornadas preservadas" : firstText(selectedSeason?.label, selectedSeason?.id)}
           matchdayLabel={continuityContextLocked ? "sem novos artigos" : selectedMatchday ? matchdayLabel(selectedMatchday) : ""}
           preservesPublishedImages={preservesPublishedImages}
+          productionImagesByKey={productionImagesByKey}
           noChangeCount={sourcePackage?.continuityResolution?.noChangeOutputIds.length ?? 0}
         />
       ) : null}
