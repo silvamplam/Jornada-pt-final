@@ -1,6 +1,6 @@
 # Mesa: decisões de produção por contexto
 
-Estado: fundação e preparação SQL implementadas; ainda não ligadas à aplicação.
+Estado: fundação, preparação e publicação SQL implementadas e testadas; ainda não ligadas à aplicação.
 Base: `6367ed98d6062dfaf5516904e214a4b6acbd03be`.
 Branch: `jornada-mesa-producao-intencoes-continuidade-v2-20260917`.
 PR #333 permanece em rascunho. Não integrar antes do circuito completo.
@@ -28,7 +28,7 @@ editoriais a partir de autoridades fornecidas pelo servidor. Não realiza I/O.
 Tem 57 testes de comportamento, incluindo matriz de 72 combinações.
 
 A projeção de recibos por `(Tema, artigo)` está testada EM MEMÓRIA:
-UPDATE e SEM ALTERAÇÃO registam a captura revista; NEW só estabelece a captura
+UPDATE e SEM ALTERAÇÃO registam a captura revista; NEW só estabelecece a captura
 inicial do novo artigo. Uma produção antiga concluída mais tarde não faz recuar
 a referência. Histórico ausente ou ambíguo dá UNKNOWN, não UNCHANGED_SOURCE.
 
@@ -97,21 +97,91 @@ Node focados, TypeScript e build. O PostgreSQL corre com `--network none` e os
 testes/build Node num namespace sem rede externa, sem credenciais Supabase.
 O artefacto mesa-intents-preparation-evidence guarda os resultados do commit.
 
+## Implementado: publicação e finalização SQL
+
+Migração candidata, ainda NÃO aplicada na Supabase:
+`supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql`.
+O conteúdo foi recuperado do blob `51423a4ce7301f1f10d69da80670b229efaedd81`
+e ensaiado sem alterações, em PostgreSQL 17.6 descartável.
+
+- Acrescenta finalizações e recibos por Tema/artigo, com RLS e acesso de escrita
+  exclusivamente através dos RPCs de servidor.
+- `newsroom_publish_mesa_intent_output_v1` verifica o plano congelado, pacote,
+  contexto, fontes e conteúdo do alvo antes de escrever. UPDATE preserva ID,
+  slug, scope, competição, época, jornada nula ou preenchida, data de publicação,
+  legenda e imagem anterior quando não for pedida substituição.
+- `newsroom_finalize_mesa_intents_v1` só conclui o conjunto exato de resultados.
+  SEM ALTERAÇÃO não reescreve artigos. Publicação parcial não cria recibos de
+  conclusão nem marca os restantes artigos como revistos.
+- Repetições não duplicam artigos ou eventos. Conteúdo divergente e edição
+  manual entretanto são conflitos. Os writers e o finalizador bloqueiam o
+  mesmo workspace; a finalização espera por uma publicação em curso.
+- NEW gera recibo apenas para o artigo novo associado ao próprio Tema. Fonte
+  independente continua independente; não recebe uma associação implícita.
+- `newsroom_mesa_intent_latest_receipts_v1` ordena pela captura, não pela ordem
+  de conclusão. Terminar um trabalho antigo depois não faz recuar o histórico.
+
+A migração altera exatamente duas funções existentes: o helper privado de
+captura passa a incluir snapshotFingerprint; o dispatcher
+`newsroom_mesa_consolidate_publication_v2` não fecha genericamente preparações
+com productionIntents. O consolidator V4 e o publisher legado ficam intactos.
+Um novo trigger impede que esse publisher legado escreva nos novos planos sem
+as verificações e o registo de integridade próprios dos intents.
+
+O preflight recusa ausência das autoridades e uma definição inesperada do
+dispatcher. Não há limpeza nem backfill de produções ou pacotes anteriores.
+As chaves externas das tabelas novas preservam os registos referenciados com
+ON DELETE RESTRICT. A migração final exige autorização antes de produção.
+
+## Validação reproduzível desta etapa SQL
+
+`.ci/mesa-intents-sql/publication.py` executa primeiro a suite de preparação,
+carrega o SQL de publicação e depois ensaia os writers e finalizadores reais.
+Não aceita URL nem credenciais. O ensaio local usa somente socket Unix, sem
+listeners TCP, com criação de sockets IPv4/IPv6 bloqueada também nos testes Node.
+O CI mantém PostgreSQL com `--network none` e Node num namespace sem rede.
+
+Resultado da execução completa numa base inicialmente vazia:
+
+- 38 grupos SQL: 20 de preparação e 18 de publicação/finalização, zero falhas.
+- 48 planos de leitura reais comparados com o planeador TypeScript.
+- 160 testes Node, verificação TypeScript e build de produção aprovados.
+- A suite SQL 2C anterior volta a passar depois da migração.
+- Comparação de todas as definições/ACL/configurações das funções existentes:
+  só mudam as duas funções declaradas acima.
+- Teste comportamental do publisher legado: continua a publicar e consolidar
+  produções 2C antigas; é bloqueado apenas nas preparações novas com intents.
+
+A suite cobre UPDATE com jornada nula, NEW, SEM ALTERAÇÃO, ciclo apenas sem
+alterações, edição manual antes/depois da escrita parcial, fontes/pacotes
+adulterados, retry, concorrência, falha tardia no recibo, falha no sync, captura
+antiga concluída mais tarde e a sequência NEW sem revisão → revisão posterior.
+O caso misto verifica também que o novo artigo independente fica fora do Tema.
+
+O sync V15 de artigos e dois helpers são carregados literalmente do repositório,
+contra tabelas auxiliares sintéticas. São verificadas atualizações em destaque,
+banco editorial e snapshot de continuidade. A projeção completa de posições
+físicas/perfis NÃO é coberta por este ensaio: funções sentinela falham se esse
+percurso for alcançado, em vez de o simularem como sucesso.
+
+Estes resultados são ensaios SQL e de compatibilidade, NÃO testes da futura
+interface nem do pacote/retorno integrado. O relatório guarda hashes SHA-256
+do SQL e dos runners; o workflow guarda o commit ensaiado e os logs.
+O workflow temporário de transferência de ferramentas foi retirado; mantém-se
+`mesa-production-intents-sql.yml` como validação reproduzível.
+
 ## Ainda não implementado — não ativar o novo fluxo
 
-1. Finalização transacional e persistência dos recibos por Tema/artigo. A nova
-   preparação NÃO escreve recibos de revisão nem eventos de publicação.
-2. Contrato persistido validado nos adaptadores, API, pacote editorial e retorno
-   do texto. Referências e fontes não podem atravessar os contextos.
-3. Escrita de UPDATE com nova verificação da fotografia do artigo antes de o
-   alterar; publicação parcial, retry e SEM ALTERAÇÃO sem reescrita.
-4. Ligação das escolhas à faixa de seleção e à Produção. Manter os cartões,
-   cores, tipografia e dimensões já aprovados. Mostrar erros contextualizados.
-5. Testes integrados e de navegador do percurso Mesa → Produção → pacote →
-   retorno → publicação, incluindo NEW hoje e revisão dos antigos depois.
-6. Delimitar e autorizar a migração final antes da aplicação, integração do PR
-   e confirmação do deployment. Preservar pacotes e produções V1 existentes.
+1. Contrato productionIntents nos adaptadores, API, workspace, pacote editorial,
+   retorno do texto e publicação da aplicação. Não reutilizar themeContinuity
+   como se tivesse a mesma semântica de vários contextos e revisão opcional.
+2. Escolhas na faixa de seleção e na página do Tema, com erros contextualizados
+   e seleção preservada. Manter os cartões, cores e dimensões aprovados.
+3. Testes integrados de navegador dos modos, adiamento, incorporação parcial,
+   associação sem produzir, Tema sozinho e NEW seguido de revisão posterior.
+4. Autorizar a migração final só depois da integração completa e testada;
+   aplicar ao projeto correto, integrar o PR e confirmar o commit no deployment.
 
 As rotas públicas/admin e a publicação em lote não foram alteradas nesta etapa.
-A falha que o utilizador encontra no site NÃO está corrigida só com este módulo
-SQL. Os testes de preparação não são testes de publicação nem de interface.
+O problema operacional no site ainda não fica corrigido com esta entrega SQL.
+Não houve consulta nem alteração da Supabase de produção.
