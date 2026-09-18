@@ -1,3 +1,4 @@
+import { parseMesaProductionIntents, mesaProductionIntentSlots } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 import { NextResponse } from "next/server";
 
 import type {
@@ -191,7 +192,10 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
   const productionContext = workspace.contextMode === "contexts"
     ? workspace.productionContexts.find((item) => item.id === productionContextId) ?? null
     : null;
-  const continuity = parseThemeContinuityFrozenContract(context?.selectionPayload);
+  const rawIntents = objectValue(context?.selectionPayload)?.productionIntents;
+  const intents = parseMesaProductionIntents(rawIntents);
+  if (rawIntents !== undefined && (!intents || intents.dossierId !== dossierId)) return null;
+  const continuity = intents ? { slots: mesaProductionIntentSlots(intents) } : parseThemeContinuityFrozenContract(context?.selectionPayload);
   const continuitySlot = continuity?.slots[priority - 1] ?? null;
   if (
     (workspace.contextMode === "contexts" && !productionContext)
@@ -240,7 +244,9 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
     : `Output ${String(priority).padStart(2, "0")} — ${dossier.title}`.slice(0, 180);
   if (!workingTitle) return null;
 
-  const contexts = workspace.publishedContexts.map((item) => item.id);
+  const contexts = workspace.publishedContexts.filter((item) => !intents
+    || intents.contexts.find((c) => c.productionContextId === productionContextId)?.publishedArticles
+      .some((article) => article.editorialArticleId === item.editorialArticleId)).map((item) => item.id);
   return {
     workspaceContractVersion,
     input: {
@@ -387,7 +393,11 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
   const { dossier, plans: allPlans, workspace } = productionResult.value;
   const context = workspace.mesaContext;
   const workspaceContractVersion = context?.workspaceContractVersion === 2 ? 2 : 1;
+  const rawIntents = objectValue(context?.selectionPayload)?.productionIntents;
+  const productionIntents = parseMesaProductionIntents(rawIntents);
+  if (rawIntents !== undefined && !productionIntents) return { ok: false as const, status: 409, message: "O plano de intenções desta Produção não é válido." };
   const themeContinuity = parseThemeContinuityFrozenContract(context?.selectionPayload);
+  const frozenSlots = productionIntents ? mesaProductionIntentSlots(productionIntents) : themeContinuity?.slots;
   if (context?.workspaceState && context.workspaceState !== "active") {
     return { ok: false as const, status: 409, message: "Esta produção já não está ativa." };
   }
@@ -398,9 +408,9 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
   if (plans.some((plan) => plan.editorialArticleId)) {
     return { ok: false as const, status: 409, message: "Esta produção já contém artigos materializados e não pode gerar um segundo lote." };
   }
-  if (themeContinuity && (
-    themeContinuity.slots.length !== plans.length
-    || themeContinuity.slots.some((slot, index) => (
+  if (frozenSlots && (
+    frozenSlots.length !== plans.length
+    || frozenSlots.some((slot, index) => (
       slot.outputId !== plans[index]?.id
       || slot.productionContextId !== workspace.planContexts.find(
         (assignment) => assignment.articlePlanId === plans[index]?.id,
@@ -465,7 +475,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
     if (workspace.contextMode === "contexts" && !productionContext) {
       return { ok: false as const, status: 409, message: `O artigo ${index + 1} não tem contexto atribuído.` };
     }
-    const continuitySlot = themeContinuity?.slots[index] ?? null;
+    const continuitySlot = frozenSlots?.[index] ?? null;
     const target = continuitySlot?.kind === "existing"
       ? {
           editorialArticleId: continuitySlot.targetEditorialArticleId!,
@@ -558,10 +568,11 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
     packageId,
     selections,
     outputs,
-    publishedContextArticleIds: themeContinuity
+    publishedContextArticleIds: themeContinuity || productionIntents
       ? []
       : workspace.publishedContexts.map((item) => item.editorialArticleId),
     ...(themeContinuity ? { themeContinuity } : {}),
+    ...(productionIntents ? { productionIntents } : {}),
     editorial: {
       genre: plans[0].articleKind === "analysis"
         ? "analysis"
@@ -599,6 +610,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
         month: manifest.month,
         packageId: manifest.packageId,
         ...(manifest.themeContinuity ? { themeContinuity: manifest.themeContinuity } : {}),
+        ...(manifest.productionIntents ? { productionIntents: manifest.productionIntents } : {}),
         ...(packageBatchContract.kind === "mesa-v2"
           ? { batchContract: packageBatchContract.value }
           : {}),
@@ -657,16 +669,18 @@ export async function POST(request: Request) {
         message: "O package Mesa v2 não possui um contrato de outputs e fontes válido.",
       }, { status: 409 });
     }
-    const continuityPreflight = packageResult.value.themeContinuity
+    const responseSlots = packageResult.value.productionIntents
+      ? { slots: mesaProductionIntentSlots(packageResult.value.productionIntents) } : packageResult.value.themeContinuity;
+    const continuityPreflight = responseSlots
       && packageBatchContract.kind === "mesa-v2"
       ? preflightEditorialThemeContinuityBatch(
           responseText,
-          packageResult.value.themeContinuity,
-          packageBatchContract.value.sourceIdsByOutput ?? Object.fromEntries(
+          responseSlots,
+          packageBatchContract.value.sourceIdsByOutput ?? (packageResult.value.productionIntents ? {} : Object.fromEntries(
             packageBatchContract.value.outputIds.map((outputId) => (
               [outputId, packageBatchContract.value.sourceIds]
             )),
-          ),
+          )),
         )
       : null;
     const preflight = continuityPreflight ?? (packageBatchContract.kind === "mesa-v2"
@@ -895,6 +909,16 @@ export async function POST(request: Request) {
         code: "dossier_not_found",
         message: "A produção já não está disponível.",
       }, { status: 404 });
+    }
+
+    const intentRows = await fetchSupabaseAdminTable<{selection_payload: unknown}>(
+      "newsroom_mesa_production_contexts?select=selection_payload" + `&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=1`,
+    );
+    const rawIntents = objectValue(intentRows[0]?.selection_payload)?.productionIntents;
+    const frozen = parseMesaProductionIntents(rawIntents);
+    if (rawIntents !== undefined && (!frozen || articlePlanIds.length !== frozen.outputs.length
+      || articlePlanIds.some((id, index) => id !== frozen.outputs[index].outputId))) {
+      return NextResponse.json({ok:false,code:"intent_outputs_locked",message:"Os resultados pedidos nesta produção estão congelados. Não foram removidos ou substituídos."},{status:409});
     }
 
     const synchronized = await synchronizeEditorialMesaSharedOutputs({

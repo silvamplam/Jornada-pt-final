@@ -1,3 +1,4 @@
+import { parseMesaProductionIntents, mesaProductionIntentSlots, type MesaProductionIntentsFrozen } from "./newsroom-mesa-production-intents-contract";
 import {
   preflightEditorialArticleBatch,
   preflightEditorialMesaV2ArticleBatch,
@@ -24,6 +25,7 @@ export type EditorialBatchTransferSourcePackage = Readonly<{
   outputImages?: readonly EditorialBatchTransferOutputImage[];
   batchContract?: EditorialBatchTransferMesaV2Contract;
   themeContinuity?: ThemeContinuityFrozenContract;
+  productionIntents?: MesaProductionIntentsFrozen;
   continuityResolution?: Readonly<{
     noChangeOutputIds: readonly string[];
     materializedOutputIds: readonly string[];
@@ -149,8 +151,17 @@ export function parseEditorialBatchTransferSourcePackage(
       ? undefined
       : parseThemeContinuityFrozenContract({ themeContinuity: parsed.themeContinuity });
 
+    const productionIntents = parsed.productionIntents === undefined ? undefined
+      : parseMesaProductionIntents(parsed.productionIntents);
+    const intentSlots = productionIntents ? mesaProductionIntentSlots(productionIntents) : undefined;
+
     if (
-      (matchdayId !== undefined && !UUID_PATTERN.test(matchdayId))
+      (parsed.productionIntents !== undefined && !productionIntents)
+      || (productionIntents && (!batchContract || themeContinuity
+        || !batchContract.sourceIdsByOutput
+        || intentSlots!.length !== batchContract.outputIds.length
+        || intentSlots!.some((slot, index) => slot.outputId !== batchContract.outputIds[index])))
+      || (matchdayId !== undefined && !UUID_PATTERN.test(matchdayId))
       || (parsed.batchContract !== undefined && !batchContract)
       || (parsed.themeContinuity !== undefined && !themeContinuity)
       || (themeContinuity && (
@@ -180,9 +191,11 @@ export function parseEditorialBatchTransferSourcePackage(
         : {}),
       ...(batchContract ? { batchContract } : {}),
       ...(themeContinuity ? { themeContinuity } : {}),
+      ...(productionIntents ? { productionIntents } : {}),
     };
 
     const rawResolution = parsed.continuityResolution;
+    const resolutionSlots = intentSlots ?? themeContinuity?.slots;
     let continuityResolution: EditorialBatchTransferSourcePackage["continuityResolution"];
     if (rawResolution !== undefined) {
       const noChangeOutputIds = uuidList(rawResolution.noChangeOutputIds, 30) ?? (
@@ -199,11 +212,11 @@ export function parseEditorialBatchTransferSourcePackage(
         ? [...noChangeOutputIds, ...materializedOutputIds]
         : [];
       if (
-        !themeContinuity || !noChangeOutputIds || !materializedOutputIds
+        !resolutionSlots || !noChangeOutputIds || !materializedOutputIds
         || new Set(combined).size !== combined.length
-        || combined.length !== themeContinuity.slots.length
-        || combined.some((id) => !themeContinuity.slots.some((slot) => slot.outputId === id))
-        || noChangeOutputIds.some((id) => !themeContinuity.slots.some((slot) => (
+        || combined.length !== resolutionSlots.length
+        || combined.some((id) => !resolutionSlots.some((slot) => slot.outputId === id))
+        || noChangeOutputIds.some((id) => !resolutionSlots.some((slot) => (
           slot.kind === "existing" && slot.outputId === id
         )))
       ) return null;
@@ -259,6 +272,16 @@ export function preflightEditorialArticleBatchForSourcePackage(
   input: string,
   sourcePackage: EditorialBatchTransferSourcePackage | null | undefined,
 ): EditorialBatchPreflight {
+  if (sourcePackage && Object.hasOwn(sourcePackage, "productionIntents")) {
+    const checked = parseEditorialBatchTransferSourcePackage(JSON.stringify(sourcePackage));
+    if (!checked?.productionIntents || !checked.batchContract?.sourceIdsByOutput) {
+      return { articles: [], issues: [{ severity: "error", code: "invalid_mesa_v2_contract",
+        message: "O plano de intenções não é válido. O texto não foi encaminhado para o percurso antigo." }],
+        total: 0, valid: 0, invalid: 1, ready: false };
+    }
+    return preflightEditorialThemeContinuityBatch(input,
+      { slots: mesaProductionIntentSlots(checked.productionIntents) }, checked.batchContract.sourceIdsByOutput);
+  }
   return sourcePackage?.batchContract && sourcePackage.themeContinuity
     ? preflightEditorialThemeContinuityBatch(
         input,

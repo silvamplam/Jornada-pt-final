@@ -1,0 +1,128 @@
+name: Mesa production intent preparation and publication
+
+on:
+  push:
+    branches:
+      - jornada-mesa-producao-intencoes-continuidade-v2-20260917
+    paths:
+      - .ci/mesa-intents-sql/**
+      - .github/workflows/mesa-production-intents-sql.yml
+      - lib/redacao-automatica/newsroom-mesa-production-intents*
+      - supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql
+      - supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql
+  pull_request:
+    paths:
+      - .ci/mesa-intents-sql/**
+      - .github/workflows/mesa-production-intents-sql.yml
+      - lib/redacao-automatica/newsroom-mesa-production-intents*
+      - supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql
+      - supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-publication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      SUPABASE_URL: ''
+      SUPABASE_SERVICE_ROLE_KEY: ''
+      NEXT_PUBLIC_SUPABASE_URL: ''
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install disposable test tools without application scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(find . -maxdepth 1 -name '.env*' -print)"
+          npm ci --ignore-scripts --include=dev
+          docker pull postgres:17.6-bookworm
+          mkdir -p /tmp/mesa-intents-evidence
+          git rev-parse HEAD > /tmp/mesa-intents-evidence/tested-commit.txt
+      - name: Start PostgreSQL without network access
+        shell: bash
+        run: |
+          set -euo pipefail
+          CID=$(docker run --detach --network none \
+            -e POSTGRES_DB=mesa_organization_test -e POSTGRES_HOST_AUTH_METHOD=trust \
+            postgres:17.6-bookworm)
+          echo "INTENTS_TEST_CONTAINER=$CID" >> "$GITHUB_ENV"
+          for attempt in $(seq 1 30); do
+            if docker exec "$CID" sh -c 'test "$(cat /proc/1/comm)" = postgres && pg_isready -U postgres -d mesa_organization_test'; then break; fi
+            sleep 1
+          done
+          docker exec "$CID" pg_isready -U postgres -d mesa_organization_test
+          docker inspect "$CID" --format '{{.HostConfig.NetworkMode}}' | grep -Fx none
+          docker image inspect postgres:17.6-bookworm --format '{{json .RepoDigests}}' > /tmp/mesa-intents-evidence/postgres-image.json
+      - name: Real SQL preparation, publication and compatibility tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .ci/mesa-intents-sql/publication.py --container "$INTENTS_TEST_CONTAINER" \
+            --output /tmp/mesa-intents-evidence | tee /tmp/mesa-intents-evidence/sql.log
+      - name: Prepare network-isolated Node command
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/mesa-intents-offline <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          exec sudo unshare --net -- bash -c '
+            ip link set lo up
+            saved_path="$1"
+            shift
+            exec runuser -u runner -- env PATH="$saved_path" NEXT_TELEMETRY_DISABLED=1 SUPABASE_URL= SUPABASE_SERVICE_ROLE_KEY= NEXT_PUBLIC_SUPABASE_URL= NEXT_PUBLIC_SUPABASE_ANON_KEY= "$@"
+          ' isolated "$PATH" "$@"
+          SH
+          chmod +x /tmp/mesa-intents-offline
+      - name: SQL and TypeScript plan parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/mesa-intents-offline node node_modules/tsx/dist/cli.mjs \
+            .ci/mesa-intents-sql/compare.ts /tmp/mesa-intents-evidence/sql-previews.json \
+            | tee /tmp/mesa-intents-evidence/parity.log
+      - name: Behavior and existing compatibility tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/mesa-intents-offline node node_modules/tsx/dist/cli.mjs --test \
+            lib/redacao-automatica/newsroom-mesa-production-intents.test.ts \
+            lib/redacao-automatica/newsroom-theme-continuity.test.ts \
+            lib/redacao-automatica/newsroom-theme-continuity-generic-bypass.test.ts \
+            lib/redacao-automatica/newsroom-mesa-contexts-production-2c-runtime.test.ts \
+            lib/redacao-automatica/newsroom-mesa-organization.test.ts \
+            lib/redacao-automatica/editorial-batch-parser.test.ts \
+            lib/redacao-automatica/editorial-batch-transfer.test.ts \
+            | tee /tmp/mesa-intents-evidence/node-tests.log
+      - name: TypeScript and production build without network
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/mesa-intents-offline node node_modules/typescript/bin/tsc --noEmit --pretty false \
+            2>&1 | tee /tmp/mesa-intents-evidence/typecheck.log
+          /tmp/mesa-intents-offline npm run build 2>&1 | tee /tmp/mesa-intents-evidence/build.log
+          git restore next-env.d.ts
+          git diff --exit-code
+          cp supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql /tmp/mesa-intents-evidence/
+          cp .ci/mesa-intents-sql/publication.py /tmp/mesa-intents-evidence/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mesa-intents-publication-evidence
+          path: /tmp/mesa-intents-evidence
+          retention-days: 3
+      - name: Remove disposable test database
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${INTENTS_TEST_CONTAINER:-}" ]; then docker rm -f "$INTENTS_TEST_CONTAINER"; fi

@@ -1,3 +1,4 @@
+import { parseMesaProductionIntents, mesaProductionIntentSlots, type MesaProductionIntentsFrozen } from "./newsroom-mesa-production-intents-contract";
 import type {
   ArticleBodyBlock,
   JsonObject,
@@ -190,6 +191,7 @@ export type EditorialSourcePackageManifest = Readonly<{
   provenanceContract?: "mesa-v2";
   publishedContextArticleIds?: readonly string[];
   themeContinuity?: ThemeContinuityFrozenContract;
+  productionIntents?: MesaProductionIntentsFrozen;
   packageId: string;
   createdAt: string;
   year: string;
@@ -1332,6 +1334,7 @@ function formatPublishedContextSnapshots(
 function formatEditorialOutputPlan(
   outputs: readonly EditorialSourcePackageOutputInput[] | undefined,
   themeContinuity?: ThemeContinuityFrozenContract,
+  productionIntents?: MesaProductionIntentsFrozen,
 ): string[] {
   if (!outputs?.length) {
     return [];
@@ -1344,7 +1347,7 @@ function formatEditorialOutputPlan(
     "",
     ...outputs.flatMap((output) => {
       const line = `${String(output.position).padStart(2, "0")} — ${markdownText(output.focus)}`;
-      const continuitySlot = themeContinuity?.slots[output.position - 1];
+      const continuitySlot = productionIntents ? mesaProductionIntentSlots(productionIntents)[output.position - 1] : themeContinuity?.slots[output.position - 1];
       if (!output.articlePlan) return [line];
       return [
         line,
@@ -1369,7 +1372,7 @@ function formatEditorialOutputPlan(
         `   - Foco editorial: ${output.articlePlan.editorialInstructions
           ? markdownText(output.articlePlan.editorialInstructions)
           : "Sem foco adicional."}`,
-        `   - Destino: ${output.articlePlan.destination === "update" ? "UPDATE confirmado pelo utilizador" : "NOVO"}`,
+        `   - Destino: ${productionIntents && continuitySlot?.kind === "existing" ? "AVALIAR: UPDATE ou SEM ALTERAÇÃO" : output.articlePlan.destination === "update" ? "UPDATE confirmado pelo utilizador" : "NOVO"}`,
       ];
     }),
     "",
@@ -1380,6 +1383,38 @@ function formatEditorialOutputPlan(
       ? "> Cada output recebe apenas as fontes congeladas indicadas em FONTES_DO_CONTEXTO. Outros contextos do mesmo workspace não são input factual desse output."
       : "> Todos os outputs têm acesso ao conjunto completo de fontes autorizadas desta produção. A utilização efetiva é declarada separadamente em FONTES_UTILIZADAS.",
     "",
+  ];
+}
+
+function formatMesaProductionIntents(value: MesaProductionIntentsFrozen | undefined): string[] {
+  if (!value) return [];
+  const p = parseMesaProductionIntents(value);
+  if (!p) throw new Error("mesa-intent-package-plan-invalid");
+  return [
+    "## INTENÇÕES DE PRODUÇÃO POR CONTEXTO · V1", "",
+    "FONTES são artigos externos. ARTIGOS JORNADA são o histórico publicado de cada contexto.",
+    "Capturas já guardadas: este pacote não representa nova recolha dos sites externos.",
+    "Não misture material nem histórico entre contextos. Uma fonte adicional não implica um artigo novo.", "",
+    ...p.contexts.flatMap((c) => [
+      `### CONTEXTO ${c.productionContextId} — ${markdownText(c.title)}`, "",
+      `Revisão pedida: ${c.reviewPublished ? "SIM: avaliar TODOS os publicados deste contexto" : "NÃO: histórico apenas para referência, sem tarefas de revisão"}.`,
+      `Artigos novos pedidos neste contexto: ${c.newArticleCount}.`,
+      ...p.outputs.filter((o) => o.contextKey === c.key).map((o) =>
+        `SLOT ${o.slot}: ${o.kind === "existing" ? `avaliar ${o.target!.editorialArticleId}; UPDATE ou SEM ALTERAÇÃO` : "produzir NEW, sem substituir artigos anteriores"}.`),
+      "", "#### ARTIGOS JORNADA DESTE CONTEXTO", "",
+      ...(c.publishedArticles.length ? c.publishedArticles.flatMap((a) => [
+        `Artigo ${a.editorialArticleId} · slug ${a.slug} · jornada ${a.matchdayId ?? "nula (preservar)"}`,
+        `Estado nesta produção: ${c.reviewPublished ? "AVALIAR" : "REFERÊNCIA — NÃO REVISTO"}.`,
+        "ANTETÍTULO", a.article.label, "TÍTULO", a.article.title,
+        "PÓS-TÍTULO", a.article.subtitle, "CORPO", a.article.body, "",
+      ]) : ["Sem artigos Jornada publicados.", ""]),
+    ]),
+    "Responda exatamente uma vez por SLOT, usando [JORNADA_CONTINUIDADE_V1] e [/JORNADA_CONTINUIDADE_V1].",
+    "Para EXISTING_xx: DECISAO é UPDATE ou SEM_ALTERAÇÃO. UPDATE devolve o artigo integral; SEM_ALTERAÇÃO termina depois de DECISAO, sem texto editorial.",
+    "Para NEW_xx: DECISAO é NEW, com artigo integral. Não invente revisões dos artigos apenas de referência.",
+    "UPDATE e NEW usam esta ordem de rótulos, cada um numa linha: SLOT, DECISAO, FONTES_UTILIZADAS, ANTETÍTULO, TÍTULO, PÓS-TÍTULO, CORPO.",
+    "FONTES_UTILIZADAS usa exclusivamente IDs DA FONTE de FONTES_DO_CONTEXTO do respetivo output, nunca IDs de artigos externos ou snapshots.",
+    "Não revisto não significa SEM ALTERAÇÃO. Não omita slots e não crie artigos além do número pedido.", "",
   ];
 }
 
@@ -1449,6 +1484,7 @@ function buildEditorialSourcePackageTaskMarkdown(
   editorial: EditorialSourcePackageEditorialInput,
   outputs?: readonly EditorialSourcePackageOutputInput[],
   themeContinuity?: ThemeContinuityFrozenContract,
+  productionIntents?: MesaProductionIntentsFrozen,
 ): string {
   return [
     "# TAREFA EDITORIAL",
@@ -1471,12 +1507,13 @@ function buildEditorialSourcePackageTaskMarkdown(
       "Sem instruções adicionais.",
     ),
     "",
-    ...formatEditorialOutputPlan(outputs, themeContinuity),
-    ...(themeContinuity ? [] : formatMesaV2ProvenanceContract(outputs)),
+    ...formatEditorialOutputPlan(outputs, themeContinuity, productionIntents),
+    ...(themeContinuity || productionIntents ? [] : formatMesaV2ProvenanceContract(outputs)),
     ...formatThemeContinuityContract(themeContinuity),
+    ...formatMesaProductionIntents(productionIntents),
     "## INSTRUÇÃO DE REDAÇÃO",
     "",
-    themeContinuity
+    themeContinuity || productionIntents
       ? [...GENRE_PROMPTS[editorial.genre], "", ...COMMON_PROMPT_RULES].join("\n\n")
       : editorialSourcePackagePrompt(editorial.genre),
   ].join("\n");
@@ -1488,6 +1525,7 @@ export function updateEditorialSourcePackageMarkdown(
     editorial: EditorialSourcePackageEditorialInput;
     outputs?: readonly EditorialSourcePackageOutputInput[];
     themeContinuity?: ThemeContinuityFrozenContract;
+    productionIntents?: MesaProductionIntentsFrozen;
   }>,
 ): string | null {
   const normalizedMarkdown =
@@ -1551,6 +1589,7 @@ export function updateEditorialSourcePackageMarkdown(
       input.editorial,
       input.outputs,
       input.themeContinuity,
+      input.productionIntents,
     ),
     "",
     "---",
@@ -1570,6 +1609,7 @@ export function buildEditorialSourcePackageMarkdown(
     publishedContexts?:
       readonly EditorialSourcePackagePublishedContextSnapshot[];
     themeContinuity?: ThemeContinuityFrozenContract;
+    productionIntents?: MesaProductionIntentsFrozen;
   }>,
 ): string {
   const selectedCount = input.entries.length;
@@ -1636,18 +1676,19 @@ export function buildEditorialSourcePackageMarkdown(
       input.editorial,
       outputs,
       input.themeContinuity,
+      input.productionIntents,
     ),
     "",
     "---",
     "",
     ...formatPublishedArticleSnapshots(
-      input.publishedArticles,
+      input.productionIntents ? [] : input.publishedArticles,
     ),
-    ...(input.publishedArticles?.length
+    ...(!input.productionIntents && input.publishedArticles?.length
       ? ["---", ""]
       : []),
-    ...formatPublishedContextSnapshots(input.publishedContexts),
-    ...(input.publishedContexts?.length ? ["---", ""] : []),
+    ...formatPublishedContextSnapshots(input.productionIntents ? [] : input.publishedContexts),
+    ...(!input.productionIntents && input.publishedContexts?.length ? ["---", ""] : []),
     "# FONTES INTEGRAIS",
     "",
     `**FONTES SELECIONADAS:** ${selectedCount}`,

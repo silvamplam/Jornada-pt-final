@@ -1,3 +1,4 @@
+import { parseMesaProductionIntents, validateMesaProductionIntentsManifest, type MesaProductionIntentsFrozen } from "./newsroom-mesa-production-intents-contract";
 import "server-only";
 
 import { rm } from "node:fs/promises";
@@ -105,6 +106,7 @@ export type CreateEditorialSourcePackageInput = Readonly<{
   publishedContextArticleIds?: readonly string[];
   allowMultipleSnapshotsPerArticle?: boolean;
   themeContinuity?: ThemeContinuityFrozenContract;
+  productionIntents?: MesaProductionIntentsFrozen;
   now?: Date;
 }>;
 
@@ -581,6 +583,10 @@ function persistedManifest(
     ))
   ) return null;
 
+  if (manifest.productionIntents !== undefined && !validateMesaProductionIntentsManifest({
+    ...manifest, outputs, entries: normalizedEntries,
+  })) return null;
+
   return {
     ...(manifest as EditorialSourcePackageManifest),
     articleCount: outputs.length,
@@ -592,6 +598,10 @@ function persistedManifest(
 export async function createEditorialSourcePackage(
   input: CreateEditorialSourcePackageInput,
 ): Promise<CreateEditorialSourcePackageResult> {
+  const productionIntents = input.productionIntents === undefined ? undefined : parseMesaProductionIntents(input.productionIntents);
+  if ((input.productionIntents !== undefined && !productionIntents) || (productionIntents && input.themeContinuity)) {
+    return { ok: false, error: { code: "input_invalid" } };
+  }
   const selections = normalizeEditorialSourcePackageSelections(
     input.selections,
     {
@@ -805,7 +815,7 @@ export async function createEditorialSourcePackage(
     return { ok: false, error: { code: "input_invalid" } };
   }
 
-  const updateTargetIds =
+  const updateTargetIds = productionIntents ? [] :
     [...new Set(
       outputs.flatMap(
         (output) =>
@@ -909,7 +919,7 @@ export async function createEditorialSourcePackage(
     }
   }
 
-  const publishedContextArticleIds = [...new Set(
+  const publishedContextArticleIds = productionIntents ? [] : [...new Set(
     input.publishedContextArticleIds?.map((value) => value.trim().toLowerCase()) ?? [],
   )];
   if (
@@ -979,6 +989,7 @@ export async function createEditorialSourcePackage(
       publishedArticles,
       publishedContexts,
       ...(themeContinuity ? { themeContinuity } : {}),
+    ...(productionIntents ? { productionIntents } : {}),
     });
 
   const articleImageSources =
@@ -1000,6 +1011,7 @@ export async function createEditorialSourcePackage(
     ...(mesaV2Contract ? { provenanceContract: "mesa-v2" as const } : {}),
     ...(publishedContextArticleIds.length > 0 ? { publishedContextArticleIds } : {}),
     ...(themeContinuity ? { themeContinuity } : {}),
+    ...(productionIntents ? { productionIntents } : {}),
     packageId: input.packageId,
     createdAt,
     year: location.year,
@@ -1018,6 +1030,10 @@ export async function createEditorialSourcePackage(
     outputs,
     entries: manifestEntries(entries),
   };
+  if (productionIntents && !validateMesaProductionIntentsManifest(manifest)) {
+    return { ok: false, error: { code: "input_invalid" } };
+  }
+
 
   try {
     await writeSupabaseAdmin("newsroom_editorial_source_packages", {
@@ -1404,6 +1420,10 @@ export async function updateEditorialSourcePackageOutputs(
         : {}),
     }));
 
+  if (current.value.manifest.productionIntents && !validateMesaProductionIntentsManifest({
+    ...current.value.manifest, outputs,
+  })) return { ok: false, error: { code: "outputs_locked" } };
+
   const editorial:
     EditorialSourcePackageEditorialInput = {
       genre:
@@ -1423,6 +1443,7 @@ export async function updateEditorialSourcePackageOutputs(
       editorial,
       outputs,
       themeContinuity: current.value.manifest.themeContinuity,
+      productionIntents: current.value.manifest.productionIntents,
     });
 
   if (!markdown) {
@@ -1531,6 +1552,7 @@ export async function updateEditorialSourcePackageEditorial(input: Readonly<{
     editorial,
     outputs: current.value.manifest.outputs,
     themeContinuity: current.value.manifest.themeContinuity,
+      productionIntents: current.value.manifest.productionIntents,
   });
   if (!markdown) {
     return { ok: false, error: { code: "package_read_failed" } };

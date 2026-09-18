@@ -1,3 +1,5 @@
+import { mesaProductionIntentSlots, sameMesaIntentJson } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
+import { mesaIntentService } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-service";
 import { NextResponse } from "next/server";
 
 import {
@@ -110,6 +112,7 @@ type ReconcileArticleRow = ExistingArticleRow & Readonly<{
 }>;
 
 type ExistingMesaPublicationRow = Readonly<{
+  payload?: { article?: Record<string, unknown> };
   article_plan_id: string;
   package_id: string;
   editorial_article_id: string;
@@ -470,7 +473,7 @@ type PreparedContinuityPublicationItem = Readonly<{
   article: BatchArticlePayload;
   slug: string;
   articleId: string;
-  matchdayId: string;
+  matchdayId: string | null;
   publishedAt: string;
   imageUrl: string | null;
   mode: "create" | "update" | "resume";
@@ -489,7 +492,8 @@ async function prepareThemeContinuityPublication(
     ? parseImageUrlsByOutputId(payload.imageUrlsByOutputId)
     : new Map<string, string | null>();
   if (
-    !author || !transfer?.themeContinuity || !transfer.continuityResolution
+    (!author && !(transfer?.productionIntents && articles?.length === 0))
+    || (!transfer?.themeContinuity && !transfer?.productionIntents) || !transfer.continuityResolution
     || !articles || !imageUrls
   ) throw new Error("theme-continuity-publication-input-invalid");
 
@@ -499,19 +503,24 @@ async function prepareThemeContinuityPublication(
     packageId: transfer.packageId,
   };
   const sourceContext = await sourcePublishedAtByArticle(location);
-  const frozen = transfer.themeContinuity;
+  const productionIntents = transfer.productionIntents;
+  if (productionIntents && !sameMesaIntentJson(productionIntents, sourceContext.package.productionIntents)) {
+    throw new Error("mesa-intent-publication-contract-invalid");
+  }
+  const frozen = productionIntents ? {slots:mesaProductionIntentSlots(productionIntents), newArticleCount:productionIntents.totals.newArticles}
+    : transfer.themeContinuity!;
   const manifestContinuity = sourceContext.package.themeContinuity;
-  if (
+  if (!productionIntents && (
     !manifestContinuity
-    || manifestContinuity.themeId !== frozen.themeId
-    || manifestContinuity.authorityFingerprint !== frozen.authorityFingerprint
+    || manifestContinuity.themeId !== transfer.themeContinuity!.themeId
+    || manifestContinuity.authorityFingerprint !== transfer.themeContinuity!.authorityFingerprint
     || manifestContinuity.slots.length !== frozen.slots.length
     || manifestContinuity.slots.some((slot, index) => (
       slot.slot !== frozen.slots[index]?.slot
       || slot.outputId !== frozen.slots[index]?.outputId
       || slot.targetEditorialArticleId !== frozen.slots[index]?.targetEditorialArticleId
     ))
-  ) throw new Error("theme-continuity-publication-contract-invalid");
+  )) throw new Error("theme-continuity-publication-contract-invalid");
 
   const validation = validateEditorialThemeContinuityProvenance(
     sourceContext.package,
@@ -529,7 +538,7 @@ async function prepareThemeContinuityPublication(
   const dossierId = [...dossierIds][0];
   const publications = await fetchSupabaseAdminTable<ExistingMesaPublicationRow>(
     "newsroom_mesa_output_publications"
-    + "?select=article_plan_id,package_id,editorial_article_id"
+    + "?select=article_plan_id,package_id,editorial_article_id,payload"
     + `&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=30`,
   );
   const slotByOutputId = new Map(frozen.slots.map((slot) => [slot.outputId, slot]));
@@ -609,6 +618,8 @@ async function prepareThemeContinuityPublication(
     const article = articleByOutputId.get(slot.outputId);
     if (!article) throw new Error(`theme-continuity-output-missing:${slot.slot}`);
     const persisted = publicationByOutputId.get(slot.outputId);
+    const savedArticle = productionIntents ? persisted?.payload?.article : undefined;
+    if (productionIntents && persisted && !savedArticle) throw new Error("mesa-intent-retry-payload-missing");
     const output = sourcePackageOutputForArticle(sourceContext, article);
     if (!output?.articlePlan || output.articlePlan.articlePlanId !== slot.outputId) {
       throw new Error(`theme-continuity-output-invalid:${slot.slot}`);
@@ -626,9 +637,9 @@ async function prepareThemeContinuityPublication(
       ? slot.targetEditorialArticleId ?? ""
       : persisted?.editorial_article_id ?? slot.outputId;
     const matchdayId = slot.kind === "existing"
-      ? slot.targetMatchdayId ?? ""
+      ? slot.targetMatchdayId ?? null
       : persistedArticle?.matchday_id ?? requestedMatchdayId;
-    const publishedAt = slot.kind === "existing"
+    const publishedAt = savedArticle ? parsePublishedAt(savedArticle.publishedAt) : slot.kind === "existing"
       ? parsePublishedAt(target?.published_at)
       : persistedArticle
         ? parsePublishedAt(persistedArticle.published_at)
@@ -636,13 +647,13 @@ async function prepareThemeContinuityPublication(
     const packageImage = transfer.outputImages?.find((image) => (
       image.position === output.position
     ))?.imageUrl ?? null;
-    const imageUrl = persistedArticle?.image_url
+    const imageUrl = savedArticle ? (typeof savedArticle.imageUrl === "string" ? savedArticle.imageUrl : null) : persistedArticle?.image_url
       ?? imageUrls.get(slot.outputId)
       ?? packageImage
       ?? target?.image_url
       ?? null;
     if (
-      !UUID_PATTERN.test(articleId) || !UUID_PATTERN.test(matchdayId)
+      !UUID_PATTERN.test(articleId) || !(productionIntents && slot.kind === "existing" && matchdayId === null) && !UUID_PATTERN.test(matchdayId ?? "")
       || !slug || !publishedAt || (requireImages && slot.kind === "new" && !imageUrl)
     ) throw new Error(`theme-continuity-output-invalid:${slot.slot}`);
     if (
@@ -656,6 +667,8 @@ async function prepareThemeContinuityPublication(
         slug,
       ))
     ) throw new Error(`theme-continuity-retry-conflict:${slot.slot}`);
+    if (savedArticle && imageUrls.has(slot.outputId) && imageUrls.get(slot.outputId) !== null
+      && imageUrls.get(slot.outputId) !== savedArticle.imageUrl) throw new Error("mesa-intent-retry-image-conflict");
     prepared.push({
       key: article.key,
       slot: slot.slot,
@@ -674,6 +687,8 @@ async function prepareThemeContinuityPublication(
   return {
     author,
     transfer,
+    productionIntents,
+    frozen,
     sourceContext,
     dossierId,
     noChangeOutputIds: transfer.continuityResolution.noChangeOutputIds,
@@ -725,7 +740,7 @@ function existingArticleMatches(
   existing: ExistingArticleRow,
   article: BatchArticlePayload,
   author: string,
-  matchdayId: string,
+  matchdayId: string | null,
   publishedAt?: string | null,
   expectedSlug = normalizeEditorialArticleSlug(article.title),
 ) {
@@ -736,7 +751,7 @@ function existingArticleMatches(
   if (cleanText(existing.subtitle) !== article.subtitle) return false;
   if (normalizedBody(existing.body) !== article.body) return false;
   if (cleanText(existing.author) !== author) return false;
-  if (cleanText(existing.matchday_id) !== matchdayId) return false;
+  if (matchdayId === null ? existing.matchday_id !== null : cleanText(existing.matchday_id) !== matchdayId) return false;
   if (publishedAt && parsePublishedAt(existing.published_at) !== publishedAt) return false;
   return Boolean(parsePublishedAt(existing.published_at));
 }
@@ -1017,7 +1032,7 @@ async function preflightPublication(payload: BatchPublicationPayload) {
   const transfer = payload.sourcePackage === undefined
     ? null
     : parseTransferSourcePackage(payload.sourcePackage);
-  if (transfer?.themeContinuity) {
+  if (transfer?.themeContinuity || transfer?.productionIntents) {
     try {
       const continuity = await prepareThemeContinuityPublication(payload, false);
       return NextResponse.json({
@@ -1766,7 +1781,7 @@ async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
   }> = [];
 
   for (const item of continuity.prepared) {
-    if (item.mode === "resume") {
+    if (item.mode === "resume" && !continuity.productionIntents) {
       completed.push({
         key: item.key,
         slot: item.slot,
@@ -1778,6 +1793,7 @@ async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
     } else {
       const result = await publishEditorialMesaOutput({
         dossierId: continuity.dossierId,
+        ...(continuity.productionIntents ? {productionIntents:continuity.productionIntents} : {}),
         outputId: item.outputId,
         packageId: continuity.transfer.packageId,
         dossierSourceIds: item.sourceIds,
@@ -1792,14 +1808,14 @@ async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
           author: continuity.author,
           publishedAt: item.publishedAt,
           matchdayId: item.matchdayId,
-          mode: item.mode,
+          mode: item.mode === "resume" ? (continuity.frozen.slots.find((s) => s.outputId === item.outputId)!.kind === "existing" ? "update" : "create") : item.mode,
         },
       });
       if (!result.ok) {
         return NextResponse.json({
           ok: false,
           error: result.code,
-          detail: "A publicação parou no primeiro output que falhou; nenhum output posterior foi tentado.",
+          detail: result.detail ?? "A publicação parou no primeiro output que falhou; nenhum output posterior foi tentado.",
           partialPersistence: completed.length > 0,
           failedOutputId: item.outputId,
           failedSlot: item.slot,
@@ -1815,7 +1831,7 @@ async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
         action: result.action,
       });
     }
-    latestArticles.push({
+    if (item.matchdayId !== null) latestArticles.push({
       id: item.articleId,
       slug: item.slug,
       label: item.article.label,
@@ -1831,7 +1847,14 @@ async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
   }
 
   try {
-    await ensurePublishedArticlesInLatestBatch(latestArticles);
+    if (continuity.productionIntents) {
+      if (latestArticles.length > 0) await mesaIntentService.placeLatest({
+        plan: continuity.productionIntents, packageId: continuity.transfer.packageId,
+        articleIds: latestArticles.map((article) => article.id),
+      });
+    } else {
+      await ensurePublishedArticlesInLatestBatch(latestArticles);
+    }
   } catch (error) {
     return NextResponse.json({
       ok: false,
@@ -1843,7 +1866,13 @@ async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
   }
 
   try {
-    const finalized = await finalizeThemeContinuity({
+    const intentFinalized = continuity.productionIntents ? await mesaIntentService.finalize({
+      plan:continuity.productionIntents,packageId:continuity.transfer.packageId,noChangeOutputIds:continuity.noChangeOutputIds,
+    }) : null;
+    const finalized = intentFinalized ? [{ finalization_action:intentFinalized.action,
+      publication_event_id:intentFinalized.publicationEventId, updated_count:intentFinalized.updatedCount,
+      new_count:intentFinalized.newCount, no_change_count:intentFinalized.noChangeCount,
+    }] : await finalizeThemeContinuity({
       dossierId: continuity.dossierId,
       packageId: continuity.transfer.packageId,
       noChangeOutputIds: continuity.noChangeOutputIds,
@@ -1852,7 +1881,7 @@ async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
     if (
       !result
       || result.updated_count + result.new_count + result.no_change_count
-        !== continuity.transfer.themeContinuity!.slots.length
+        !== continuity.frozen.slots.length
     ) throw new Error("theme-continuity-finalization-result-invalid");
     return NextResponse.json({
       ok: true,
@@ -2017,6 +2046,12 @@ export async function POST(request: Request) {
   }
 
   const action = cleanText(payload.action);
+  if (payload.sourcePackage && typeof payload.sourcePackage === "object" && Object.hasOwn(payload.sourcePackage, "productionIntents")) {
+    const transfer = parseTransferSourcePackage(payload.sourcePackage);
+    if (!transfer?.productionIntents || !["preflight", "publish_theme_continuity"].includes(action)) {
+      return jsonError("mesa-intent-publication-path-required",409,"O plano de intenções exige o seu percurso de publicação e finalização.");
+    }
+  }
   if (action === "preflight") {
     return preflightPublication(payload);
   }

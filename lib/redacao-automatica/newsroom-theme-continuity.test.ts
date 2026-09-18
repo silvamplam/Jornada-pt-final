@@ -200,7 +200,8 @@ test("workspace apresenta slots congelados e desativa destination/target sem ref
   assert.match(client, /disabled=\{saving \|\| Boolean\(continuitySlot\)\}/);
   assert.match(client, /disabled=\{saving \|\| continuitySlot\?\.kind === "existing"\}/);
   assert.match(client, /UPDATE fixo para/);
-  assert.match(client, /themeContinuity\?\.slots\.length/);
+  assert.match(client, /frozenSlots\?\.length/);
+  assert.match(client, /productionIntents \? mesaProductionIntentSlots\(productionIntents\) : themeContinuity\?\.slots/);
   assert.doesNotMatch(client, /router\.refresh\(\)/);
 });
 
@@ -211,9 +212,11 @@ test("publicação da continuidade usa batch, pára na primeira falha e chama fi
     "async function publishThemeContinuityBatch",
     "async function reconcileSourcePackageTimes",
   );
-  const loop = section(publication, "for (const item of continuity.prepared)", "try {\n    await ensurePublishedArticlesInLatestBatch");
+  const loop = section(publication, "for (const item of continuity.prepared)", "try {\n    if (continuity.productionIntents)");
   assert.equal((publication.match(/finalizeThemeContinuity\(/g) ?? []).length, 1);
   assert.equal((publication.match(/ensurePublishedArticlesInLatestBatch\(/g) ?? []).length, 1);
+  assert.equal((publication.match(/mesaIntentService\.placeLatest\(/g) ?? []).length, 1);
+  assert.match(publication, /} else \{\s+await ensurePublishedArticlesInLatestBatch\(latestArticles\)/);
   assert.match(loop, /publishEditorialMesaOutput/);
   assert.match(loop, /return NextResponse\.json/);
   assert.doesNotMatch(loop, /fetchSupabaseAdminTable|readExistingArticleById|sourcePublishedAtByArticle/);

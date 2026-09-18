@@ -18,7 +18,7 @@ test("Tema publicado bloqueia a preparação genérica no servidor", () => {
 test("Tema publicado deixa de expor o PREPARAR PRODUÇÃO genérico na página do Tema", () => {
   assert.match(themePage, /context\.articleCount > 0/);
   assert.match(themePage, /Voltar a levar à Produção/);
-  assert.match(themePage, /artigos existentes serão revistos/);
+  assert.match(themePage, /escolhe revisão, revisão com novos ou apenas novos/);
   assert.match(themePage, /: <MesaSelectionTray \/>/);
 });
 
@@ -32,7 +32,8 @@ test("Tema publicado aceita incorporação explícita antes de entrar na Continu
 
 test("handoff de incorporação abre automaticamente a Continuidade do Tema", () => {
   assert.match(themePage, /autoOpen=\{query\.continuity === "1"\}/);
-  assert.match(continuityClient, /autoOpen = false/);
-  assert.match(continuityClient, /useEffect\(\(\) => \{/);
-  assert.match(continuityClient, /void openContinuity\(\)/);
+  // The shared intent UI opens from the handoff flag; actual interaction is
+  // covered by .ci/mesa-intents-ui/browser.py (whole Theme + all three modes).
+  assert.match(continuityClient, /useState\(autoOpen\)/);
+  assert.match(continuityClient, /expanded\?<MesaIntentPreparationClient/);
 });

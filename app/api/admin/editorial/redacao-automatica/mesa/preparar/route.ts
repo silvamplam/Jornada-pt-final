@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { prepareMesaIntentsHttp, readMesaIntentThemeHttp } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-http";
+export const GET = readMesaIntentThemeHttp;
 
 import {
   prepareEditorialDossierWorkspace,
@@ -276,6 +278,7 @@ export async function POST(request: Request) {
   }
 
   const rawPayload = objectValue(payload);
+  if (rawPayload && (rawPayload.mesaVersion === 4 || Object.hasOwn(rawPayload, "productionIntents"))) return prepareMesaIntentsHttp(rawPayload);
   if (rawPayload?.mesaVersion === 3) {
     const contextInput = contextPreparationInput(payload);
     if (!contextInput) {
