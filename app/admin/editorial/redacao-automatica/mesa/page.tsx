@@ -770,6 +770,16 @@ function matchesSourceFilter(item: OperationalDeskSourceItem, sourceCode: string
   return !sourceCode || item.sourceCode === sourceCode;
 }
 
+function fixturePublishedSort(
+  left: OperationalDeskSourceItem,
+  right: OperationalDeskSourceItem,
+): number {
+  const leftValue = left.publishedAt ?? left.lastDetectedAt;
+  const rightValue = right.publishedAt ?? right.lastDetectedAt;
+  return Date.parse(rightValue) - Date.parse(leftValue)
+    || right.newsroomArticleId.localeCompare(left.newsroomArticleId);
+}
+
 function countFor(items: readonly OperationalDeskSourceItem[]): OperationalDeskClassificationCounts {
   const counts: {
     total: number;
@@ -828,8 +838,11 @@ function createMesaFixtureReadModel(query: MesaQuery): MesaPageReadModelResult {
   const eligible = lifecycle === "new"
     ? filtered.filter(sourceIsUnassigned)
     : filtered.filter((item) => item.lifecycle === "published"
-      && item.themeMembership.themeIds.length === 0);
-  const page = paginateFixture(eligible, { limit, offset });
+      && item.themeMembership.themeIds.length === 0)
+      .sort(fixturePublishedSort);
+  const page = lifecycle === "published"
+    ? paginateFixture(eligible, { limit: Math.max(1, eligible.length), offset: 0 })
+    : paginateFixture(eligible, { limit, offset });
   return {
     ok: true,
     value: {
@@ -1040,10 +1053,10 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
                   newCount={sumVisibleCount(counts, query.classificationValue, "new")}
                   publishedCount={sumVisibleCount(counts, query.classificationValue, "published")}
                   page={query.page}
-                  previousHref={query.page > 1
+                  previousHref={activeLifecycle === "new" && query.page > 1
                     ? presentationHref(query, { page: query.page - 1 }, isFixture)
                     : null}
-                  nextHref={sourceResult.value.page.pagination.hasNextPage
+                  nextHref={activeLifecycle === "new" && sourceResult.value.page.pagination.hasNextPage
                     ? presentationHref(query, { page: query.page + 1 }, isFixture)
                     : null}
                   newItems={inboxItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} />)}
