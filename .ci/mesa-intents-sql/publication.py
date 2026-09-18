@@ -22,6 +22,7 @@ prepare, preview, request = (base[x] for x in ('prepare', 'preview', 'request'))
 expect_error, test, report = (base[x] for x in ('expect_error', 'test', 'report'))
 ROOT, args, RESULTS = (base[x] for x in ('ROOT', 'args', 'RESULTS'))
 MIGRATION = 'supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql'
+HOTFIX = 'supabase/migrations/20260918145300_newsroom_mesa_intent_update_revision_hotfix.sql'
 
 
 def scalar(sql):
@@ -95,6 +96,8 @@ changed = {name for name, digest in old_functions.items() if new_functions.get(n
 assert changed == {'newsroom_mesa_intent_source_v1(uuid)', 'newsroom_mesa_consolidate_publication_v2(uuid)'}, changed
 assert old_articles == execute('select md5(jsonb_agg(to_jsonb(a) order by a.id)::text) from public.editorial_articles a;')
 print('PASS exact legacy function/ACL preservation; only two declared changes', flush=True)
+load(HOTFIX)
+assert 'if v_mode = ''create'' then' in execute("select pg_get_functiondef('public.newsroom_publish_mesa_intent_output_v1(uuid,uuid,uuid,uuid[],jsonb)'::regprocedure);")
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
 
 
@@ -555,7 +558,7 @@ for name,fn in [
     test(name,fn)
 
 report()
-files=[MIGRATION,'.ci/mesa-intents-sql/publication.py','.ci/mesa-intents-sql/run.py']
+files=[MIGRATION,HOTFIX,'.ci/mesa-intents-sql/publication.py','.ci/mesa-intents-sql/run.py']
 (args.output/'publication-source-hashes.json').write_text(json.dumps({
   'basis':'c34b202ee815fcfb85ca2c238c49676cd6faa04b',
   'files':{path:hashlib.sha256((ROOT/path).read_bytes()).hexdigest() for path in files},
