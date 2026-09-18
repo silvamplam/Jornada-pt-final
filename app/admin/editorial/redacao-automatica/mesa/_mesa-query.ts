@@ -14,6 +14,7 @@ export const MESA_PAGE_SIZE = 24;
 export const MESA_TABS = [
   { value: "novas", label: "NOVAS" },
   { value: "publicadas", label: "PUBLICADAS" },
+  { value: "arquivo", label: "ARQUIVO" },
   { value: "temas", label: "TEMAS" },
 ] as const;
 
@@ -44,6 +45,7 @@ export type MesaQuery = Readonly<{
   seasonId: string | null;
   matchdayId: string | null;
   themeStatus: "open" | "archived";
+  query: string;
 }>;
 
 export type MesaQueryResult =
@@ -110,6 +112,7 @@ export function parseMesaQuery(params: MesaSearchParams): MesaQueryResult {
       seasonId: optionalValue(params.seasonId),
       matchdayId: optionalValue(params.matchdayId),
       themeStatus: rawThemeStatus,
+      query: firstValue(params.query) ?? "",
     },
   };
 }
@@ -118,7 +121,7 @@ export function mesaPageReadModelInput(query: MesaQuery): MesaPageReadInput {
   const lifecycle = query.tab === "publicadas" ? "published" : "new";
   return {
     lifecycle,
-    classification: query.classification,
+    classification: { mode: "all" },
     sourceCode: query.sourceCode,
     pagination: {
       limit: MESA_PAGE_SIZE,
@@ -137,6 +140,7 @@ type MesaHrefChange = Partial<Pick<
   | "seasonId"
   | "matchdayId"
   | "themeStatus"
+  | "query"
 >>;
 
 export function mesaHref(query: MesaQuery, change: MesaHrefChange = {}): string {
@@ -152,6 +156,7 @@ export function mesaHref(query: MesaQuery, change: MesaHrefChange = {}): string 
   if (next.seasonId) params.set("seasonId", next.seasonId);
   if (next.matchdayId) params.set("matchdayId", next.matchdayId);
   if (next.themeStatus === "archived") params.set("themeStatus", "archived");
+  if (next.query) params.set("query", next.query);
 
   return `/admin/editorial/redacao-automatica/mesa?${params.toString()}`;
 }
