@@ -56,7 +56,7 @@ with sync_playwright() as playwright:
     launch={'headless':True,'args':['--no-sandbox','--disable-dev-shm-usage']}
     if args.chromium:launch['executable_path']=args.chromium
     browser=playwright.chromium.launch(**launch)
-    def start(mode='selection',**kw):
+    def start(mode='selection',openPanel=True,**kw):
         global page,context
         if context:context.close()
         fixture=rpc({'kind':'setup',**kw})
@@ -79,9 +79,16 @@ with sync_playwright() as playwright:
         page.add_script_tag(content=(output/'browser.js').read_text())
         page.evaluate('(v)=>sessionStorage.setItem(v.key,JSON.stringify(v.buffer))',{'key':STORAGE,'buffer':fixture['buffer']})
         page.evaluate('(v)=>window.__mount(v.fixture,v.mode)',{'fixture':fixture,'mode':mode})
-        if not kw.get('sourceOnly'):
+        if mode=='selection':
+            tray=page.locator('section[aria-labelledby="mesa-selection-title"]')
+            expect(tray).to_be_visible()
+            if openPanel:
+                page.get_by_role('button',name='Ver seleção',exact=True).click()
+                expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
+        if mode=='theme' or (mode=='selection' and openPanel and not kw.get('sourceOnly')):
             expect(page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)).to_have_value('new' if kw.get('published')==0 or kw.get('draft') else 'review')
-        else:expect(page.get_by_label('Destino da fonte Pote independente',exact=True)).to_be_visible()
+        elif mode=='selection' and openPanel:
+            expect(page.get_by_label('Destino da fonte Pote independente',exact=True)).to_be_visible()
         return fixture
     def destination(value='independent',title='Pote independente'):
         page.get_by_label('Destino da fonte '+title,exact=True).select_option(value)
@@ -106,6 +113,28 @@ with sync_playwright() as playwright:
                 (output/'browser-failure.txt').write_text(page.locator('body').inner_text())
             report();raise
         report()
+    def compact_selection_does_not_consume_workspace():
+        heights=[]
+        for options in ({'sourceOnly':True},{},{'extra':True}):
+            start(openPanel=False,**options)
+            tray=page.locator('section[aria-labelledby="mesa-selection-title"]')
+            assert page.get_by_label('Seleção e trabalho de Produção',exact=True).count()==0
+            box=tray.bounding_box();assert box
+            heights.append(box['height'])
+            assert box['height']<=100,box
+        assert max(heights)-min(heights)<=2,heights
+        start(extra=True,openPanel=False)
+        tray=page.locator('section[aria-labelledby="mesa-selection-title"]')
+        before=tray.bounding_box()['height']
+        page.get_by_role('button',name='Ver seleção',exact=True).click()
+        panel=page.get_by_label('Seleção e trabalho de Produção',exact=True)
+        expect(panel).to_be_visible()
+        assert page.evaluate('(el)=>getComputedStyle(el).position',panel.element_handle())=='fixed'
+        after=tray.bounding_box()['height']
+        assert abs(after-before)<=1,(before,after)
+        expect(page.get_by_label('Destino da fonte Pote independente',exact=True)).to_be_visible()
+        expect(page.get_by_label('Destino da fonte Fonte adicional',exact=True)).to_be_visible()
+
     def mixed():
         f=start();submit()
         expect(page.get_by_role('alert').filter(has_text='Escolhe o destino desta fonte')).to_be_visible()
@@ -203,6 +232,7 @@ with sync_playwright() as playwright:
         expect(page.get_by_text('Revisão concluída: SEM ALTERAÇÃO.',exact=True)).to_have_count(2)
     try:
         for name,fn in [
+            ('selection bar stays compact with one, two and several contexts',compact_selection_does_not_consume_workspace),
             ('selected Theme + independent Pote; destination mandatory; NULL matchday',mixed),
             ('review and two separately counted NEWs',lambda:counts('review-new',2,1)),
             ('only NEWs; old articles have no review tasks',lambda:counts('new',2,0)),
