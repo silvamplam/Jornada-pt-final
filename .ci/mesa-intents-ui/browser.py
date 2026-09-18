@@ -191,6 +191,9 @@ with sync_playwright() as playwright:
             };
             window.__mount(f);
         }""",f)
+        expect(page.get_by_role('button',name='Ver seleção',exact=True)).to_be_visible()
+        page.get_by_role('button',name='Ver seleção',exact=True).click()
+        expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
         expect(page.get_by_label('Destino da fonte Pote independente',exact=True)).to_have_value('independent')
         expect(page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)).to_be_disabled()
         calls=len(rpc({'kind':'state'})['httpCalls'])
