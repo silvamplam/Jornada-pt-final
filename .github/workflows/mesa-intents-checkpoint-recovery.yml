@@ -1,0 +1,40 @@
+name: Temporary intent checkpoint recovery
+on:
+  push:
+    branches: [jornada-mesa-producao-intencoes-continuidade-v2-20260917]
+    paths: [.github/workflows/mesa-intents-checkpoint-recovery.yml]
+permissions:
+  contents: read
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Copy exact source and recover previously stored patch bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/mesa-recovery
+          git rev-parse HEAD > /tmp/mesa-recovery/source-commit.txt
+          git archive --format=tar.gz -o /tmp/mesa-recovery/source.tar.gz HEAD
+          gh api "repos/${GITHUB_REPOSITORY}/git/blobs/fe94bbd835e932f0793cdc814822e3ad7092f295" --jq .content | base64 --decode > /tmp/mesa-recovery/part1.bin
+          test "$(git hash-object /tmp/mesa-recovery/part1.bin)" = fe94bbd835e932f0793cdc814822e3ad7092f295
+          python3 - <<'PY'
+          from pathlib import Path
+          import lzma,hashlib
+          p=Path('/tmp/mesa-recovery/part1.bin')
+          assert hashlib.sha256(p.read_bytes()).hexdigest()=='4058c387ebb62b0f246dcb270709518a1aae6a7f4fc063a79640887b18a909fb'
+          output=lzma.LZMADecompressor().decompress(p.read_bytes())
+          Path('/tmp/mesa-recovery/partial.patch').write_bytes(output)
+          print('Recovered patch prefix:',len(output),'bytes')
+          for chunk in output.split(b'diff --git ')[1:]: print(chunk.splitlines()[0].decode())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mesa-checkpoint-recovery
+          path: /tmp/mesa-recovery
+          retention-days: 7
