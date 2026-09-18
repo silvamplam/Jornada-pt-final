@@ -236,6 +236,26 @@ def update_preserves_identity_and_live_snapshots():
     assert finish(f,p)['action']=='reused' and final_counts(f)==[1,1,1,1]
 
 
+def update_can_revise_article_owned_by_original_creation_plan():
+    f=fixture(); p=package(f); o=f['plan']['outputs'][0]; a=article(o)
+    original_dossier=str(uuid4()); original_plan=str(uuid4())
+    execute(f"""insert into public.newsroom_editorial_dossiers(id,title) values('{original_dossier}','Produção original');
+      insert into public.newsroom_editorial_dossier_article_plans(
+        id,dossier_id,working_title,status,sort_order,article_kind,length_mode,
+        editorial_instructions,destination,editorial_article_id,image_choice
+      ) values(
+        '{original_plan}','{original_dossier}','Plano original','planned',10,'news','standard',
+        '','new','{a['id']}','unselected'
+      );""")
+    result=publish(f,p,o,a)
+    assert result['publication_action']=='updated'
+    assert execute(f"select editorial_article_id::text from public.newsroom_editorial_dossier_article_plans where id='{original_plan}';")==a['id']
+    assert execute(f"select editorial_article_id is null from public.newsroom_editorial_dossier_article_plans where id='{o['outputId']}';")=='t'
+    assert execute(f"select editorial_article_id::text from public.newsroom_mesa_output_publications where dossier_id='{f['dossier']}' and article_plan_id='{o['outputId']}';")==a['id']
+    finish(f,p)
+    assert receipts(f)[0]['decision']=='UPDATE'
+
+
 def all_no_change():
     f=fixture(published=2); p=package(f)
     before=[read_article(x) for x in f['articles']]
@@ -513,6 +533,7 @@ def finalize_waits_for_inflight_writer():
 
 for name,fn in [
     ('UPDATE preserva identidade/contexto nulo e executa sync V15 real',update_preserves_identity_and_live_snapshots),
+    ('UPDATE posterior não disputa a ligação canónica do Article Plan original',update_can_revise_article_owned_by_original_creation_plan),
     ('ciclo só SEM ALTERAÇÃO sem reescrita e replay histórico',all_no_change),
     ('UPDATE + NEW + SEM ALTERAÇÃO + Pote independente, publicação parcial',mixed_and_partial),
     ('NEW hoje não revê antigos; revisão posterior avalia todos os publicados',new_does_not_review_old),
