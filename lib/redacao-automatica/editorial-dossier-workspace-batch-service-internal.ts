@@ -1,3 +1,4 @@
+import { parseMesaProductionIntents, mesaProductionIntentSlots } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 import type {
   EditorialDossierArticlePlanBatchSessionResult,
   SynchronizeEditorialMesaSharedOutputsResult,
@@ -179,7 +180,10 @@ export function deriveEditorialDossierWorkspacePlanInput(
   const productionContext = workspace.contextMode === "contexts"
     ? workspace.productionContexts.find((item) => item.id === output.productionContextId) ?? null
     : null;
-  const continuity = parseThemeContinuityFrozenContract(context?.selectionPayload);
+  const rawIntents = (context?.selectionPayload as Record<string, unknown> | null)?.productionIntents;
+  const intents = parseMesaProductionIntents(rawIntents);
+  if (rawIntents !== undefined && (!intents || intents.dossierId !== dossierId)) return null;
+  const continuity = intents ? { slots: mesaProductionIntentSlots(intents) } : parseThemeContinuityFrozenContract(context?.selectionPayload);
   const continuitySlot = continuity?.slots[output.priority - 1] ?? null;
   if (
     (workspace.contextMode === "contexts" && !productionContext)
@@ -256,7 +260,9 @@ export function deriveEditorialDossierWorkspacePlanInput(
       ...(productionContext ? { productionContextId: productionContext.id } : {}),
       destination: output.destination,
       updateTargetEditorialArticleId: output.updateTargetEditorialArticleId,
-      dossierPublishedContextIds: workspace.publishedContexts.map((item) => item.id),
+      dossierPublishedContextIds: workspace.publishedContexts.filter((item) => !intents
+        || intents.contexts.find((c) => c.productionContextId === output.productionContextId)?.publishedArticles
+          .some((article) => article.editorialArticleId === item.editorialArticleId)).map((item) => item.id),
       imageChoice: output.imageChoice,
     },
   };
@@ -314,6 +320,16 @@ export function saveEditorialDossierWorkspaceBatchService(
         failedOutput: { clientKey: batch.outputs[0].clientKey, priority: 1 },
         savedOutputs: [],
       });
+    }
+
+    const rawIntents = (productionResult.value.workspace.mesaContext?.selectionPayload as Record<string, unknown> | null)?.productionIntents;
+    if (rawIntents !== undefined) {
+      const intents = parseMesaProductionIntents(rawIntents);
+      if (!intents || batch.outputs.length !== intents.outputs.length || batch.outputs.some((output) =>
+        !deriveEditorialDossierWorkspacePlanInput(batch.dossierId, output, productionResult.value!))) {
+        return batchFailure({stage: "article_plan", code: "input_invalid", message: "O pedido não preserva todos os artigos e contextos da produção congelada.",
+          partialPersistence: false, articlePlanId: null, failedOutput: null, savedOutputs: []});
+      }
     }
 
     const sessionResult = await transport.openArticlePlanSession(batch.dossierId);

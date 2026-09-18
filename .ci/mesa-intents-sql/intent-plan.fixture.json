@@ -1,0 +1,445 @@
+{
+  "plan": {
+    "title": "Produção de teste",
+    "totals": {
+      "reviews": 1,
+      "sources": 2,
+      "contexts": 2,
+      "newArticles": 1
+    },
+    "outputs": [
+      {
+        "kind": "existing",
+        "slot": "EXISTING_01",
+        "target": {
+          "slug": "milan-96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+          "title": "Milan / Amorim publicado",
+          "article": {
+            "id": "96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+            "body": "Corpo antigo",
+            "slug": "milan-96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+            "label": "Ante",
+            "scope": "competition",
+            "title": "Milan / Amorim publicado",
+            "author": "Editor antigo",
+            "status": "published",
+            "subtitle": "Pós",
+            "image_url": "https://example.invalid/old.jpg",
+            "season_id": "b0000000-0000-4000-8000-000000000901",
+            "created_at": "2026-09-18T06:49:58.259035+00:00",
+            "updated_at": "2026-09-18T06:49:58.259035+00:00",
+            "matchday_id": null,
+            "published_at": "2026-09-17T09:00:00+00:00",
+            "image_caption": "Legenda antiga",
+            "competition_id": "b0000000-0000-4000-8000-000000000900"
+          },
+          "matchdayId": null,
+          "contentFingerprint": "e839962f65de9b8ab387de43157772de308dc266d950552dd9596a0e0f79ab6d",
+          "editorialArticleId": "96f75a56-280c-4e15-a4f5-fc30dc8762f0"
+        },
+        "outputId": "d3e19d1e-e9df-4ab8-8c82-e5882f980f59",
+        "contextKey": "theme:e35f0d92-6663-4e30-99f5-68e6be2b273b",
+        "productionContextId": "ee8252ac-6e7c-4af3-9d96-42cec9ccfe18"
+      },
+      {
+        "kind": "new",
+        "slot": "NEW_01",
+        "target": null,
+        "outputId": "3ad40d44-6ba1-4739-9d9e-49297b82a4fb",
+        "contextKey": "source:53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+        "productionContextId": "60a4fce0-9233-44b2-af1c-c8a6f67f37fd"
+      }
+    ],
+    "request": {
+      "title": "Produção de teste",
+      "themes": [
+        {
+          "action": "prepare",
+          "themeId": "e35f0d92-6663-4e30-99f5-68e6be2b273b",
+          "newArticleCount": 0,
+          "reviewPublished": true
+        }
+      ],
+      "sources": [
+        {
+          "sourceId": "53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+          "destination": "independent",
+          "newArticleCount": 1
+        }
+      ],
+      "version": 1,
+      "preparationKey": "54f277d6-ea89-4cd3-ba2a-c88c1d1ff185"
+    },
+    "contexts": [
+      {
+        "key": "source:53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+        "kind": "source",
+        "title": "Fonte independente",
+        "sources": [
+          {
+            "usable": true,
+            "capturedAt": "2026-09-17T12:00:00.000Z",
+            "classificationKey": "sporting",
+            "newsroomArticleId": "53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+            "contentFingerprint": "77be167d9398489e9463a6573f81ff7769e83bc9390795450c434f000a45feae",
+            "newsroomSnapshotId": "ed17d329-1e7e-46da-86ec-f3fa30614ab6",
+            "snapshotFingerprint": "56f08aa5b8829b852ff0437d876e3bfbde59bc9c8bc7acf9cae1db8a85c55c86"
+          }
+        ],
+        "themeId": null,
+        "sourceId": "53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+        "newArticleCount": 1,
+        "reviewPublished": false,
+        "publishedArticles": [],
+        "productionContextId": "60a4fce0-9233-44b2-af1c-c8a6f67f37fd"
+      },
+      {
+        "key": "theme:e35f0d92-6663-4e30-99f5-68e6be2b273b",
+        "kind": "theme",
+        "theme": {
+          "id": "e35f0d92-6663-4e30-99f5-68e6be2b273b",
+          "title": "Milan / Amorim",
+          "status": "open",
+          "match_id": null,
+          "season_id": null,
+          "created_at": "2026-09-18T06:49:58.245783+00:00",
+          "updated_at": "2026-09-18T06:49:58.245783+00:00",
+          "matchday_id": null,
+          "context_text": null,
+          "competition_id": null,
+          "classification_key": "sporting"
+        },
+        "title": "Milan / Amorim",
+        "sources": [
+          {
+            "usable": true,
+            "capturedAt": "2026-09-17T12:00:00.000Z",
+            "classificationKey": "sporting",
+            "newsroomArticleId": "af0dd09b-b058-4b0f-86a5-804d258fdff4",
+            "contentFingerprint": "3ff3eb1d8009aa4e867bcd8592bd0f2d85b4e87a3d6b2e9df3b44f207b4823cf",
+            "newsroomSnapshotId": "12036a7e-8f10-4700-ad14-2d1c2fb27409",
+            "snapshotFingerprint": "fc2bb0162d586a35afb7c94d698a9f2b5e84aba8f939fddde0319cc220ca0420"
+          }
+        ],
+        "themeId": "e35f0d92-6663-4e30-99f5-68e6be2b273b",
+        "sourceId": null,
+        "newArticleCount": 0,
+        "reviewPublished": true,
+        "publishedArticles": [
+          {
+            "slug": "milan-96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+            "title": "Milan / Amorim publicado",
+            "article": {
+              "id": "96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+              "body": "Corpo antigo",
+              "slug": "milan-96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+              "label": "Ante",
+              "scope": "competition",
+              "title": "Milan / Amorim publicado",
+              "author": "Editor antigo",
+              "status": "published",
+              "subtitle": "Pós",
+              "image_url": "https://example.invalid/old.jpg",
+              "season_id": "b0000000-0000-4000-8000-000000000901",
+              "created_at": "2026-09-18T06:49:58.259035+00:00",
+              "updated_at": "2026-09-18T06:49:58.259035+00:00",
+              "matchday_id": null,
+              "published_at": "2026-09-17T09:00:00+00:00",
+              "image_caption": "Legenda antiga",
+              "competition_id": "b0000000-0000-4000-8000-000000000900"
+            },
+            "matchdayId": null,
+            "contentFingerprint": "e839962f65de9b8ab387de43157772de308dc266d950552dd9596a0e0f79ab6d",
+            "editorialArticleId": "96f75a56-280c-4e15-a4f5-fc30dc8762f0"
+          }
+        ],
+        "productionContextId": "ee8252ac-6e7c-4af3-9d96-42cec9ccfe18"
+      }
+    ],
+    "deferred": {
+      "themeIds": [],
+      "sourceIds": []
+    },
+    "dossierId": "a7ac7155-ed33-4a5c-a167-b5fea7253823",
+    "capturedAt": "2026-09-18T06:49:58.304Z",
+    "incorporations": [],
+    "preparationKey": "54f277d6-ea89-4cd3-ba2a-c88c1d1ff185",
+    "contractVersion": 1,
+    "authorityFingerprint": "d0d7091773b35d170203173e6fb941aafe7cdb53571c5f0b874636f724b6c56c"
+  },
+  "manifest": {
+    "version": 5,
+    "provenanceContract": "mesa-v2",
+    "productionIntents": {
+      "title": "Produção de teste",
+      "totals": {
+        "reviews": 1,
+        "sources": 2,
+        "contexts": 2,
+        "newArticles": 1
+      },
+      "outputs": [
+        {
+          "kind": "existing",
+          "slot": "EXISTING_01",
+          "target": {
+            "slug": "milan-96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+            "title": "Milan / Amorim publicado",
+            "article": {
+              "id": "96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+              "body": "Corpo antigo",
+              "slug": "milan-96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+              "label": "Ante",
+              "scope": "competition",
+              "title": "Milan / Amorim publicado",
+              "author": "Editor antigo",
+              "status": "published",
+              "subtitle": "Pós",
+              "image_url": "https://example.invalid/old.jpg",
+              "season_id": "b0000000-0000-4000-8000-000000000901",
+              "created_at": "2026-09-18T06:49:58.259035+00:00",
+              "updated_at": "2026-09-18T06:49:58.259035+00:00",
+              "matchday_id": null,
+              "published_at": "2026-09-17T09:00:00+00:00",
+              "image_caption": "Legenda antiga",
+              "competition_id": "b0000000-0000-4000-8000-000000000900"
+            },
+            "matchdayId": null,
+            "contentFingerprint": "e839962f65de9b8ab387de43157772de308dc266d950552dd9596a0e0f79ab6d",
+            "editorialArticleId": "96f75a56-280c-4e15-a4f5-fc30dc8762f0"
+          },
+          "outputId": "d3e19d1e-e9df-4ab8-8c82-e5882f980f59",
+          "contextKey": "theme:e35f0d92-6663-4e30-99f5-68e6be2b273b",
+          "productionContextId": "ee8252ac-6e7c-4af3-9d96-42cec9ccfe18"
+        },
+        {
+          "kind": "new",
+          "slot": "NEW_01",
+          "target": null,
+          "outputId": "3ad40d44-6ba1-4739-9d9e-49297b82a4fb",
+          "contextKey": "source:53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+          "productionContextId": "60a4fce0-9233-44b2-af1c-c8a6f67f37fd"
+        }
+      ],
+      "request": {
+        "title": "Produção de teste",
+        "themes": [
+          {
+            "action": "prepare",
+            "themeId": "e35f0d92-6663-4e30-99f5-68e6be2b273b",
+            "newArticleCount": 0,
+            "reviewPublished": true
+          }
+        ],
+        "sources": [
+          {
+            "sourceId": "53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+            "destination": "independent",
+            "newArticleCount": 1
+          }
+        ],
+        "version": 1,
+        "preparationKey": "54f277d6-ea89-4cd3-ba2a-c88c1d1ff185"
+      },
+      "contexts": [
+        {
+          "key": "source:53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+          "kind": "source",
+          "title": "Fonte independente",
+          "sources": [
+            {
+              "usable": true,
+              "capturedAt": "2026-09-17T12:00:00.000Z",
+              "classificationKey": "sporting",
+              "newsroomArticleId": "53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+              "contentFingerprint": "77be167d9398489e9463a6573f81ff7769e83bc9390795450c434f000a45feae",
+              "newsroomSnapshotId": "ed17d329-1e7e-46da-86ec-f3fa30614ab6",
+              "snapshotFingerprint": "56f08aa5b8829b852ff0437d876e3bfbde59bc9c8bc7acf9cae1db8a85c55c86"
+            }
+          ],
+          "themeId": null,
+          "sourceId": "53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+          "newArticleCount": 1,
+          "reviewPublished": false,
+          "publishedArticles": [],
+          "productionContextId": "60a4fce0-9233-44b2-af1c-c8a6f67f37fd"
+        },
+        {
+          "key": "theme:e35f0d92-6663-4e30-99f5-68e6be2b273b",
+          "kind": "theme",
+          "theme": {
+            "id": "e35f0d92-6663-4e30-99f5-68e6be2b273b",
+            "title": "Milan / Amorim",
+            "status": "open",
+            "match_id": null,
+            "season_id": null,
+            "created_at": "2026-09-18T06:49:58.245783+00:00",
+            "updated_at": "2026-09-18T06:49:58.245783+00:00",
+            "matchday_id": null,
+            "context_text": null,
+            "competition_id": null,
+            "classification_key": "sporting"
+          },
+          "title": "Milan / Amorim",
+          "sources": [
+            {
+              "usable": true,
+              "capturedAt": "2026-09-17T12:00:00.000Z",
+              "classificationKey": "sporting",
+              "newsroomArticleId": "af0dd09b-b058-4b0f-86a5-804d258fdff4",
+              "contentFingerprint": "3ff3eb1d8009aa4e867bcd8592bd0f2d85b4e87a3d6b2e9df3b44f207b4823cf",
+              "newsroomSnapshotId": "12036a7e-8f10-4700-ad14-2d1c2fb27409",
+              "snapshotFingerprint": "fc2bb0162d586a35afb7c94d698a9f2b5e84aba8f939fddde0319cc220ca0420"
+            }
+          ],
+          "themeId": "e35f0d92-6663-4e30-99f5-68e6be2b273b",
+          "sourceId": null,
+          "newArticleCount": 0,
+          "reviewPublished": true,
+          "publishedArticles": [
+            {
+              "slug": "milan-96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+              "title": "Milan / Amorim publicado",
+              "article": {
+                "id": "96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+                "body": "Corpo antigo",
+                "slug": "milan-96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+                "label": "Ante",
+                "scope": "competition",
+                "title": "Milan / Amorim publicado",
+                "author": "Editor antigo",
+                "status": "published",
+                "subtitle": "Pós",
+                "image_url": "https://example.invalid/old.jpg",
+                "season_id": "b0000000-0000-4000-8000-000000000901",
+                "created_at": "2026-09-18T06:49:58.259035+00:00",
+                "updated_at": "2026-09-18T06:49:58.259035+00:00",
+                "matchday_id": null,
+                "published_at": "2026-09-17T09:00:00+00:00",
+                "image_caption": "Legenda antiga",
+                "competition_id": "b0000000-0000-4000-8000-000000000900"
+              },
+              "matchdayId": null,
+              "contentFingerprint": "e839962f65de9b8ab387de43157772de308dc266d950552dd9596a0e0f79ab6d",
+              "editorialArticleId": "96f75a56-280c-4e15-a4f5-fc30dc8762f0"
+            }
+          ],
+          "productionContextId": "ee8252ac-6e7c-4af3-9d96-42cec9ccfe18"
+        }
+      ],
+      "deferred": {
+        "themeIds": [],
+        "sourceIds": []
+      },
+      "dossierId": "a7ac7155-ed33-4a5c-a167-b5fea7253823",
+      "capturedAt": "2026-09-18T06:49:58.304Z",
+      "incorporations": [],
+      "preparationKey": "54f277d6-ea89-4cd3-ba2a-c88c1d1ff185",
+      "contractVersion": 1,
+      "authorityFingerprint": "d0d7091773b35d170203173e6fb941aafe7cdb53571c5f0b874636f724b6c56c"
+    },
+    "packageId": "81e58ed4-a29c-4a90-a3a5-e4258c61e9ce",
+    "createdAt": "2026-09-18T12:00:00.000Z",
+    "year": "2026",
+    "month": "09",
+    "markdownFileName": "fontes-selecionadas-noticia.md",
+    "genre": "news",
+    "genreLabel": "Notícia",
+    "suggestedTitle": null,
+    "additionalInstructions": null,
+    "selectedCount": 2,
+    "articleCount": 2,
+    "preparedCount": 2,
+    "failedCount": 0,
+    "imageCount": 0,
+    "localDirectory": null,
+    "outputs": [
+      {
+        "position": 1,
+        "outputId": "d3e19d1e-e9df-4ab8-8c82-e5882f980f59",
+        "startingPointSourceId": "1372b6fd-434e-45da-8aff-06a57b87f25d",
+        "contextSourceIds": [
+          "1372b6fd-434e-45da-8aff-06a57b87f25d"
+        ],
+        "sourceArticlePosition": 1,
+        "focus": "EXISTING_01",
+        "imageNewsroomArticleId": null,
+        "articlePlan": {
+          "dossierId": "a7ac7155-ed33-4a5c-a167-b5fea7253823",
+          "articlePlanId": "d3e19d1e-e9df-4ab8-8c82-e5882f980f59",
+          "workingTitle": "EXISTING_01",
+          "articleKind": "news",
+          "articleKindLabel": "Notícia",
+          "lengthMode": "standard",
+          "lengthModeLabel": "Normal",
+          "editorialInstructions": "",
+          "destination": "update",
+          "workspaceContractVersion": 2,
+          "sourceScope": "context",
+          "contextId": "ee8252ac-6e7c-4af3-9d96-42cec9ccfe18"
+        },
+        "publishedArticleId": "96f75a56-280c-4e15-a4f5-fc30dc8762f0",
+        "publishedSlug": "milan-96f75a56-280c-4e15-a4f5-fc30dc8762f0"
+      },
+      {
+        "position": 2,
+        "outputId": "3ad40d44-6ba1-4739-9d9e-49297b82a4fb",
+        "startingPointSourceId": "99395ed9-d351-45e5-9548-5ce5e12bef87",
+        "contextSourceIds": [
+          "99395ed9-d351-45e5-9548-5ce5e12bef87"
+        ],
+        "sourceArticlePosition": 1,
+        "focus": "NEW_01",
+        "imageNewsroomArticleId": null,
+        "articlePlan": {
+          "dossierId": "a7ac7155-ed33-4a5c-a167-b5fea7253823",
+          "articlePlanId": "3ad40d44-6ba1-4739-9d9e-49297b82a4fb",
+          "workingTitle": "NEW_01",
+          "articleKind": "news",
+          "articleKindLabel": "Notícia",
+          "lengthMode": "standard",
+          "lengthModeLabel": "Normal",
+          "editorialInstructions": "",
+          "destination": "new",
+          "workspaceContractVersion": 2,
+          "sourceScope": "context",
+          "contextId": "60a4fce0-9233-44b2-af1c-c8a6f67f37fd"
+        }
+      }
+    ],
+    "entries": [
+      {
+        "position": 1,
+        "articlePosition": 1,
+        "newsroomArticleId": "af0dd09b-b058-4b0f-86a5-804d258fdff4",
+        "newsroomSnapshotId": "12036a7e-8f10-4700-ad14-2d1c2fb27409",
+        "provenanceSourceId": "1372b6fd-434e-45da-8aff-06a57b87f25d",
+        "imagePreferred": false,
+        "status": "prepared",
+        "sourceCode": "__intent_test__",
+        "sourceName": "__intent_test__",
+        "title": "Milan / Amorim",
+        "errorCode": null,
+        "imageUrl": "https://example.invalid/image.jpg",
+        "publishedAt": "2026-09-17T11:00:00+00:00",
+        "publishedAtPrecision": "instant"
+      },
+      {
+        "position": 2,
+        "articlePosition": 1,
+        "newsroomArticleId": "53088ba8-60a1-4b58-8dd2-605999fcfdf9",
+        "newsroomSnapshotId": "ed17d329-1e7e-46da-86ec-f3fa30614ab6",
+        "provenanceSourceId": "99395ed9-d351-45e5-9548-5ce5e12bef87",
+        "imagePreferred": false,
+        "status": "prepared",
+        "sourceCode": "__intent_test__",
+        "sourceName": "__intent_test__",
+        "title": "Pote independente",
+        "errorCode": null,
+        "imageUrl": "https://example.invalid/image.jpg",
+        "publishedAt": "2026-09-17T11:00:00+00:00",
+        "publishedAtPrecision": "instant"
+      }
+    ]
+  }
+}

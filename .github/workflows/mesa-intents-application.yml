@@ -1,0 +1,106 @@
+name: Mesa intents application and SQL
+on:
+  push:
+    branches: [jornada-mesa-producao-intencoes-continuidade-v2-20260917]
+    paths:
+      - .ci/mesa-intents-sql/**
+      - .github/workflows/mesa-intents-application.yml
+      - lib/redacao-automatica/**
+      - app/api/admin/editorial/redacao-automatica/**
+      - app/admin/editorial/redacao-automatica/mesa/producao/**
+      - app/admin/editorial/redacao-automatica/publicacao-lote/**
+  pull_request:
+    paths:
+      - .ci/mesa-intents-sql/**
+      - .github/workflows/mesa-intents-application.yml
+      - lib/redacao-automatica/**
+      - app/api/admin/editorial/redacao-automatica/**
+      - app/admin/editorial/redacao-automatica/mesa/producao/**
+      - app/admin/editorial/redacao-automatica/publicacao-lote/**
+permissions:
+  contents: read
+jobs:
+  application-sql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      SUPABASE_URL: ''
+      SUPABASE_SERVICE_ROLE_KEY: ''
+      NEXT_PUBLIC_SUPABASE_URL: ''
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install test tools, never load production credentials
+        run: |
+          set -euo pipefail
+          test -z "$(find . -maxdepth 1 -name '.env*' -print)"
+          npm ci --ignore-scripts --include=dev
+          docker pull postgres:17.6-bookworm
+          mkdir -p /tmp/mesa-intents-application
+          git rev-parse HEAD > /tmp/mesa-intents-application/tested-commit.txt
+      - name: Disposable PostgreSQL, no TCP network
+        run: |
+          set -euo pipefail
+          CID=$(docker run --detach --network none -e POSTGRES_DB=mesa_organization_test -e POSTGRES_HOST_AUTH_METHOD=trust postgres:17.6-bookworm)
+          echo "INTENTS_TEST_CONTAINER=$CID" >> "$GITHUB_ENV"
+          for attempt in $(seq 1 30); do
+            if docker exec "$CID" sh -c 'test "$(cat /proc/1/comm)" = postgres && pg_isready -U postgres -d mesa_organization_test'; then break; fi
+            sleep 1
+          done
+          docker exec "$CID" pg_isready -U postgres -d mesa_organization_test
+          docker inspect "$CID" --format '{{.HostConfig.NetworkMode}}' | grep -Fx none
+      - name: Existing real SQL and compatibility suite
+        run: |
+          set -euo pipefail
+          python3 .ci/mesa-intents-sql/publication.py --container "$INTENTS_TEST_CONTAINER" --output /tmp/mesa-intents-application \
+            | tee /tmp/mesa-intents-application/sql.log
+      - name: Real application package, transfer, text, API and receipts
+        run: |
+          set -euo pipefail
+          python3 .ci/mesa-intents-sql/offline.py node .ci/mesa-intents-sql/application.mjs \
+            --container "$INTENTS_TEST_CONTAINER" --output /tmp/mesa-intents-application \
+            | tee /tmp/mesa-intents-application/application.log
+      - name: Contract and regression tests without Internet sockets
+        run: |
+          set -euo pipefail
+          python3 .ci/mesa-intents-sql/offline.py node node_modules/tsx/dist/cli.mjs --test \
+            lib/redacao-automatica/newsroom-mesa-production-intents.test.ts \
+            lib/redacao-automatica/newsroom-mesa-production-intents-contract.test.ts \
+            lib/redacao-automatica/newsroom-theme-continuity.test.ts \
+            lib/redacao-automatica/newsroom-theme-continuity-generic-bypass.test.ts \
+            lib/redacao-automatica/newsroom-mesa-contexts-production-2c-runtime.test.ts \
+            lib/redacao-automatica/newsroom-mesa-organization.test.ts \
+            lib/redacao-automatica/editorial-batch-parser.test.ts \
+            lib/redacao-automatica/editorial-batch-transfer.test.ts \
+            lib/redacao-automatica/editorial-mesa-provenance.test.ts \
+            lib/redacao-automatica/editorial-source-package.test.ts \
+            lib/redacao-automatica/editorial-source-package-multi-output.test.ts \
+            lib/redacao-automatica/editorial-dossier-workspace-batch-service.test.ts \
+            | tee /tmp/mesa-intents-application/node-tests.log
+      - name: TypeScript and build, no production access
+        run: |
+          set -euo pipefail
+          python3 .ci/mesa-intents-sql/offline.py node node_modules/typescript/bin/tsc --noEmit --pretty false \
+            2>&1 | tee /tmp/mesa-intents-application/typecheck.log
+          python3 .ci/mesa-intents-sql/offline.py npm run build 2>&1 | tee /tmp/mesa-intents-application/build.log
+          git restore next-env.d.ts
+          git diff --exit-code
+          git archive --format=tar.gz -o /tmp/mesa-intents-application/tested-source.tar.gz HEAD
+          sha256sum /tmp/mesa-intents-application/tested-source.tar.gz > /tmp/mesa-intents-application/tested-source.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mesa-intents-application-evidence
+          path: /tmp/mesa-intents-application
+          retention-days: 7
+      - name: Stop disposable PostgreSQL
+        if: always()
+        run: |
+          if [ -n "${INTENTS_TEST_CONTAINER:-}" ]; then docker rm -f "$INTENTS_TEST_CONTAINER"; fi

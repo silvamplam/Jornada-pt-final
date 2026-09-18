@@ -1,3 +1,5 @@
+import { mesaIntentService } from "./newsroom-mesa-production-intents-service";
+import type { MesaProductionIntentsFrozen } from "./newsroom-mesa-production-intents-contract";
 import "server-only";
 
 import {
@@ -468,10 +470,12 @@ export type PublishEditorialMesaOutputResult =
         | "mesa-publication-update-target-invalid"
         | "mesa-publication-output-conflict"
         | "mesa-publication-failed";
+      detail?: string;
     }>;
 
 export async function publishEditorialMesaOutput(input: Readonly<{
   dossierId: string;
+  productionIntents?: MesaProductionIntentsFrozen;
   outputId: string;
   packageId: string;
   dossierSourceIds: readonly string[];
@@ -485,11 +489,18 @@ export async function publishEditorialMesaOutput(input: Readonly<{
     imageUrl: string | null;
     author: string;
     publishedAt: string;
-    matchdayId: string;
+    matchdayId: string | null;
     mode: "create" | "update";
   }>;
 }>): Promise<PublishEditorialMesaOutputResult> {
   try {
+    if (input.productionIntents !== undefined) {
+      if (input.productionIntents.dossierId !== input.dossierId) return {ok:false,code:"mesa-publication-workspace-invalid"};
+      const result = await mesaIntentService.publish({plan:input.productionIntents,packageId:input.packageId,
+        outputId:input.outputId,dossierSourceIds:input.dossierSourceIds,article:input.article});
+      return {ok:true,...result};
+    }
+    if (input.article.matchdayId === null) return {ok:false,code:"mesa-publication-update-target-invalid"};
     const rows = await writeSupabaseAdminReturning<{
       editorial_article_id: string;
       article_slug: string;
@@ -532,6 +543,7 @@ export async function publishEditorialMesaOutput(input: Readonly<{
     return {
       ok: false,
       code: known.find((code) => message.includes(code)) ?? "mesa-publication-failed",
+      ...(message.includes("mesa-intent-") ? {detail:message} : {}),
     };
   }
 }

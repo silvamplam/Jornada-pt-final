@@ -1,0 +1,101 @@
+/** Injectable RPC boundary; production supplies the existing admin transport.
+ * Tests supply a Unix-socket PostgreSQL transport, not production credentials.
+ */
+import { parseMesaProductionIntent, type MesaProductionIntent } from "./newsroom-mesa-production-intents";
+import {
+  parseMesaProductionIntents, parseMesaProductionIntentsPreview, parseMesaIntentLatestReceipts,
+  sameMesaIntentJson, type MesaProductionIntentsFrozen,
+} from "./newsroom-mesa-production-intents-contract";
+
+export type MesaIntentRpcTransport = Readonly<{
+  post: (name: string, args: Readonly<Record<string, unknown>>) => Promise<readonly unknown[]>;
+  get: (name: string, args: Readonly<Record<string, string>>) => Promise<readonly unknown[]>;
+}>;
+export type MesaIntentPublicationArticle = Readonly<{
+  id: string; slug: string; label: string; title: string; subtitle: string; body: string;
+  imageUrl: string | null; author: string; publishedAt: string; matchdayId: string | null;
+  mode: "create" | "update";
+}>;
+const object = (v: unknown): Record<string, unknown> | null => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : null;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const id = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
+function single(rows: readonly unknown[]) { return rows.length === 1 ? object(rows[0]) : null; }
+function frozen(value: unknown) {
+  const plan=parseMesaProductionIntents(value);
+  if (!plan) throw new Error("mesa-intent-plan-invalid");
+  return plan;
+}
+function normalizeRequest(input: MesaProductionIntent): MesaProductionIntent {
+  return { ...input, themes: [...input.themes].sort((a,b) => a.themeId.localeCompare(b.themeId)),
+    sources: [...input.sources].sort((a,b) => a.sourceId.localeCompare(b.sourceId)) };
+}
+export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) {
+  return {
+    async preview(request: unknown) {
+      const input=parseMesaProductionIntent(request);
+      if (!input.ok) throw new Error(input.issues[0].code);
+      const normalized=normalizeRequest(input.value);
+      const row=single(await transport.post("newsroom_mesa_preview_intents_v1", {p_request: normalized}));
+      const plan=parseMesaProductionIntentsPreview(row?.plan);
+      if (!plan || !sameMesaIntentJson(plan.request,normalized)) throw new Error("mesa-intent-preview-result-invalid");
+      return plan;
+    },
+    async prepare(request: unknown, authorityFingerprint: string) {
+      const input=parseMesaProductionIntent(request);
+      if (!input.ok || !/^[0-9a-f]{64}$/.test(authorityFingerprint)) throw new Error("mesa-intent-preparation-input-invalid");
+      const normalized=normalizeRequest(input.value);
+      const row=single(await transport.post("newsroom_prepare_mesa_intents_v1", {
+        p_request:normalized,p_expected_authority_fingerprint:authorityFingerprint,
+      }));
+      const result=object(row?.result), plan=parseMesaProductionIntents(result?.plan);
+      if (!result || !plan || result.dossierId !== plan.dossierId
+        || !["created","reused"].includes(String(result.preparationAction))
+        || plan.authorityFingerprint !== authorityFingerprint || !sameMesaIntentJson(plan.request,normalized)) {
+        throw new Error("mesa-intent-preparation-result-invalid");
+      }
+      return {dossierId:plan.dossierId,preparationAction:result.preparationAction as "created" | "reused",plan};
+    },
+    async publish(input: Readonly<{
+      plan: MesaProductionIntentsFrozen; packageId: string; outputId: string;
+      dossierSourceIds: readonly string[]; article: MesaIntentPublicationArticle;
+    }>) {
+      const p=frozen(input.plan), a=input.article, o=p.outputs.find((o) => o.outputId === input.outputId);
+      if (!o || !id(input.packageId) || !id(a.id) || !input.dossierSourceIds.length || input.dossierSourceIds.length>20
+        || !input.dossierSourceIds.every(id) || new Set(input.dossierSourceIds).size !== input.dossierSourceIds.length
+        || (o.kind === "existing" ? a.mode !== "update" || a.id !== o.target!.editorialArticleId
+          || a.slug !== o.target!.slug || a.matchdayId !== o.target!.matchdayId : a.mode !== "create" || !id(a.matchdayId))) {
+        throw new Error("mesa-intent-publication-input-invalid");
+      }
+      const row=single(await transport.post("newsroom_publish_mesa_intent_output_v1", {
+        p_dossier_id:p.dossierId,p_output_id:o.outputId,p_package_id:input.packageId,
+        p_dossier_source_ids:input.dossierSourceIds,p_article:a,
+      }));
+      if (!row || row.editorial_article_id !== a.id || row.article_slug !== a.slug
+        || !["created","updated","reused"].includes(String(row.publication_action)) || typeof row.consolidated !== "boolean") {
+        throw new Error("mesa-intent-publication-result-invalid");
+      }
+      return {articleId:a.id,slug:a.slug,action:row.publication_action as "created" | "updated" | "reused",consolidated:row.consolidated};
+    },
+    async finalize(input: Readonly<{plan: MesaProductionIntentsFrozen; packageId: string; noChangeOutputIds: readonly string[]}>) {
+      const p=frozen(input.plan), ids=input.noChangeOutputIds;
+      if (!id(input.packageId) || ids.length>30 || new Set(ids).size !== ids.length
+        || ids.some((id) => !p.outputs.some((o) => o.outputId===id && o.kind==="existing"))) throw new Error("mesa-intent-finalization-input-invalid");
+      const row=single(await transport.post("newsroom_finalize_mesa_intents_v1", {
+        p_dossier_id:p.dossierId,p_package_id:input.packageId,p_no_change_output_ids:ids,
+      }));
+      const r=object(row?.result);
+      if (!r || !["consolidated","reused"].includes(String(r.action)) || !id(r.publicationEventId)
+        || r.noChangeCount !== ids.length || r.newCount !== p.totals.newArticles
+        || r.updatedCount !== p.totals.reviews-ids.length) throw new Error("mesa-intent-finalization-result-invalid");
+      return {action:r.action as "consolidated" | "reused",publicationEventId:r.publicationEventId,
+        updatedCount:r.updatedCount as number,newCount:r.newCount as number,noChangeCount:r.noChangeCount as number};
+    },
+    async readReceipts(themeId: string) {
+      if (!id(themeId)) throw new Error("mesa-intent-receipts-input-invalid");
+      const row=single(await transport.get("newsroom_mesa_intent_latest_receipts_v1", {p_theme_id:themeId}));
+      const receipts=parseMesaIntentLatestReceipts(row?.receipts,themeId);
+      if (!receipts) throw new Error("mesa-intent-receipts-result-invalid");
+      return receipts;
+    },
+  };
+}

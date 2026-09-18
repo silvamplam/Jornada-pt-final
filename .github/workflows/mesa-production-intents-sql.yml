@@ -57,7 +57,7 @@ jobs:
             postgres:17.6-bookworm)
           echo "INTENTS_TEST_CONTAINER=$CID" >> "$GITHUB_ENV"
           for attempt in $(seq 1 30); do
-            if docker exec "$CID" pg_isready -U postgres -d mesa_organization_test; then break; fi
+            if docker exec "$CID" sh -c 'test "$(cat /proc/1/comm)" = postgres && pg_isready -U postgres -d mesa_organization_test'; then break; fi
             sleep 1
           done
           docker exec "$CID" pg_isready -U postgres -d mesa_organization_test

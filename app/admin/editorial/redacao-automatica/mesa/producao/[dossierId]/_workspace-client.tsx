@@ -37,6 +37,8 @@ import type {
   ThemeContinuitySlot,
 } from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
 
+import { mesaProductionIntentSlots, type MesaProductionIntentsFrozen } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
+type WorkspaceContinuitySlot = ThemeContinuitySlot | ReturnType<typeof mesaProductionIntentSlots>[number];
 import styles from "./workspace.module.css";
 
 const WORKSPACE_ROUTE = "/api/admin/editorial/redacao-automatica/mesa/workspace";
@@ -387,7 +389,7 @@ function OutputIdentity({
   position: number;
   imageUrl: string | null;
   startingPoint: WorkspaceSource | null;
-  slot: ThemeContinuitySlot | null;
+  slot: WorkspaceContinuitySlot | null;
 }>) {
   return (
     <div className={styles.outputIdentity}>
@@ -433,7 +435,7 @@ function PlanEditor({
   onProductionContextChange: (productionContextId: string) => void;
   images: readonly EditorialDossierImage[];
   saving: boolean;
-  continuitySlot: ThemeContinuitySlot | null;
+  continuitySlot: WorkspaceContinuitySlot | null;
 }>) {
   const [destination, setDestination] = useState<"new" | "update">(
     continuitySlot?.kind === "existing" ? "update" : continuitySlot ? "new" : plan?.destination ?? "new",
@@ -839,7 +841,7 @@ function ProductionActions({
           || "A proveniência da resposta não corresponde a esta produção.",
         );
       }
-      const transferSourcePackage = value.sourcePackage.themeContinuity
+      const transferSourcePackage = value.sourcePackage.themeContinuity || value.sourcePackage.productionIntents
         ? validation.continuityResolution
           ? {
               ...value.sourcePackage,
@@ -989,6 +991,7 @@ export function MesaProductionWorkspaceClient({
   planContexts,
   visualSourceOrder,
   themeContinuity,
+  productionIntents = null,
 }: Readonly<{
   dossier: WorkspaceDossier;
   sources: readonly WorkspaceSource[];
@@ -999,7 +1002,9 @@ export function MesaProductionWorkspaceClient({
   planContexts: readonly EditorialMesaArticlePlanContext[];
   visualSourceOrder: readonly string[];
   themeContinuity: ThemeContinuityFrozenContract | null;
+  productionIntents?: MesaProductionIntentsFrozen | null;
 }>) {
+  const frozenSlots = productionIntents ? mesaProductionIntentSlots(productionIntents) : themeContinuity?.slots;
   const [suppressedPlanIds, setSuppressedPlanIds] = useState<readonly string[]>([]);
   const suppressedPlanIdSet = new Set(suppressedPlanIds);
   const activePlans = plans.filter((plan) => (
@@ -1010,7 +1015,7 @@ export function MesaProductionWorkspaceClient({
   )));
   const activePlanCount = activePlans.length;
   const materializedPlanCount = activePlans.filter((plan) => plan.editorialArticleId).length;
-  const initialOutputCount = themeContinuity?.slots.length ?? Math.min(
+  const initialOutputCount = frozenSlots?.length ?? Math.min(
     MAX_OUTPUT_COUNT,
     Math.max(
       1,
@@ -1256,7 +1261,7 @@ export function MesaProductionWorkspaceClient({
             min={Math.max(1, materializedPlanCount)}
             max={MAX_OUTPUT_COUNT}
             value={outputCount}
-            disabled={savingProduction || Boolean(themeContinuity)}
+            disabled={savingProduction || Boolean(frozenSlots)}
             onChange={(event) => {
               const next = Math.min(
                 MAX_OUTPUT_COUNT,
@@ -1270,7 +1275,14 @@ export function MesaProductionWorkspaceClient({
           />
           <span>artigos no total</span>
         </label>
-        {themeContinuity ? (
+        {productionIntents ? (
+          <div className={styles.continuitySummary}>
+            <strong>Trabalho pedido por contexto</strong>
+            <span>{productionIntents.totals.reviews} artigos Jornada a avaliar · {productionIntents.totals.newArticles} novos
+              {" · "}{productionIntents.totals.contexts} contextos · {productionIntents.totals.sources} fontes</span>
+            <span>Capturas já guardadas. Os anteriores sem revisão pedida ficam apenas como referência.</span>
+          </div>
+        ) : themeContinuity ? (
           <div className={styles.continuitySummary}>
             <strong>Contrato de continuidade congelado</strong>
             <span>
@@ -1330,7 +1342,9 @@ export function MesaProductionWorkspaceClient({
               position={card.position}
               visualSeed={card.visualSeed}
               hidden={card.position > outputCount}
-              contexts={publishedContexts}
+              contexts={productionIntents ? publishedContexts.filter((item) => productionIntents.contexts
+                .find((c) => c.productionContextId === card.productionContextId)?.publishedArticles
+                .some((a) => a.editorialArticleId === item.editorialArticleId)) : publishedContexts}
               productionContexts={productionContexts}
               productionContextId={card.productionContextId}
               onProductionContextChange={(productionContextId) => {
@@ -1341,7 +1355,7 @@ export function MesaProductionWorkspaceClient({
               }}
               images={workspaceImages}
               saving={savingProduction}
-              continuitySlot={themeContinuity?.slots[card.position - 1] ?? null}
+              continuitySlot={frozenSlots?.[card.position - 1] ?? null}
             />
           ))}
         </div>

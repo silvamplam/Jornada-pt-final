@@ -1,5 +1,7 @@
 "use client";
 
+import { mesaProductionIntentSlots } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -925,7 +927,10 @@ export default function BatchPreflightClient({
 
   const sourcePackageUpdateCount =
     sourcePackage?.updateArticleCount ?? 0;
-  const themeContinuity = sourcePackage?.themeContinuity ?? null;
+  const themeContinuity = useMemo(() => sourcePackage?.productionIntents ? {
+    slots:mesaProductionIntentSlots(sourcePackage.productionIntents), newArticleCount:sourcePackage.productionIntents.totals.newArticles,
+    publishedArticleCount:sourcePackage.productionIntents.totals.reviews,
+  } : sourcePackage?.themeContinuity ?? null, [sourcePackage]);
   const publicationContextComplete = themeContinuity
     ? themeContinuity.newArticleCount === 0 || contextComplete
     : contextComplete;
@@ -1378,10 +1383,10 @@ export default function BatchPreflightClient({
   async function publishThemeContinuityBatch(
     plan: readonly BatchPublicationPlanItem[],
   ) {
-    if (!sourcePackage?.themeContinuity || !sourcePackage.continuityResolution) {
+    if (!sourcePackage || !themeContinuity || !sourcePackage.continuityResolution) {
       throw new Error("O contrato de continuidade deixou de estar disponível.");
     }
-    const slotByOutputId = new Map(sourcePackage.themeContinuity.slots.map((slot, index) => (
+    const slotByOutputId = new Map(themeContinuity!.slots.map((slot, index) => (
       [slot.outputId, { slot, position: index + 1 }] as const
     )));
     const imageByKey = new Map(imagePreflight.articles.map((image) => [image.key, image]));
@@ -1536,7 +1541,7 @@ export default function BatchPreflightClient({
       publicationPlanRef.current = plan;
       setPublicationPlan(plan);
 
-      if (sourcePackage?.themeContinuity) {
+      if (themeContinuity) {
         await publishThemeContinuityBatch(plan);
         return;
       }

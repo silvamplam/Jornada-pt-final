@@ -1,3 +1,4 @@
+import { validateMesaProductionIntentsManifest, mesaProductionIntentSlots } from "./newsroom-mesa-production-intents-contract";
 import type { EditorialBatchArticle } from "@/lib/redacao-automatica/editorial-batch-parser";
 import type { EditorialBatchTransferMesaV2Contract } from "@/lib/redacao-automatica/editorial-batch-transfer";
 import type {
@@ -51,6 +52,7 @@ const UUID_PATTERN =
 export function editorialMesaPackageBatchContract(
   manifest: EditorialSourcePackageManifest,
 ): EditorialMesaPackageBatchContract {
+  if (manifest.productionIntents !== undefined && !validateMesaProductionIntentsManifest(manifest)) return { kind: "invalid" };
   if (manifest.version !== 5) return { kind: "historical" };
   if (manifest.provenanceContract !== "mesa-v2") return { kind: "invalid" };
 
@@ -107,6 +109,9 @@ export function validateEditorialMesaSingleOutputProvenance(
   manifest: EditorialSourcePackageManifest,
   article: EditorialBatchArticle,
 ): EditorialMesaProvenanceValidation {
+  if (manifest.productionIntents !== undefined && !validateMesaProductionIntentsManifest(manifest)) {
+    return { ok: false, code: "mesa-v2-provenance-missing" };
+  }
   if (manifest.version !== 5 || manifest.provenanceContract !== "mesa-v2") {
     return { ok: true, contract: "historical", outputs: [] };
   }
@@ -153,6 +158,9 @@ export function validateEditorialMesaOutputProvenance(
   manifest: EditorialSourcePackageManifest,
   articles: readonly EditorialBatchArticle[],
 ): EditorialMesaProvenanceValidation {
+  if (manifest.productionIntents !== undefined && !validateMesaProductionIntentsManifest(manifest)) {
+    return { ok: false, code: "mesa-v2-provenance-missing" };
+  }
   if (manifest.version !== 5 || manifest.provenanceContract !== "mesa-v2") {
     return { ok: true, contract: "historical", outputs: [] };
   }
@@ -240,7 +248,9 @@ export function validateEditorialThemeContinuityProvenance(
   articles: readonly EditorialBatchArticle[],
   noChangeOutputIds: readonly string[],
 ): EditorialMesaProvenanceValidation {
-  const continuity = manifest.themeContinuity;
+  const plan = manifest.productionIntents === undefined ? null : validateMesaProductionIntentsManifest(manifest);
+  if (manifest.productionIntents !== undefined && !plan) return { ok: false, code: "mesa-v2-provenance-missing" };
+  const continuity = plan ? { slots: mesaProductionIntentSlots(plan) } : manifest.themeContinuity;
   if (!continuity) return { ok: false, code: "mesa-v2-provenance-missing" };
   const noChange = new Set(noChangeOutputIds);
   if (

@@ -1,3 +1,4 @@
+import { parseMesaProductionIntents } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -56,6 +57,12 @@ export default async function ProductionWorkspacePage({
   } = productionResult.value;
   const context = production.mesaContext;
   const themeContinuity = parseThemeContinuityFrozenContract(context?.selectionPayload);
+  const rawIntents = context?.selectionPayload && typeof context.selectionPayload === "object"
+    ? (context.selectionPayload as Record<string, unknown>).productionIntents : undefined;
+  const productionIntents = parseMesaProductionIntents(rawIntents);
+  if (rawIntents !== undefined && (!productionIntents || productionIntents.dossierId !== dossierId)) {
+    return <ReadError message="O plano de intenções desta Produção não é válido. A preparação foi preservada." />;
+  }
   if (context?.workspaceState && context.workspaceState !== "active") notFound();
   const sourceNames = new Map(
     listRegisteredSources().map((source) => [source.code, source.name]),
@@ -130,6 +137,7 @@ export default async function ProductionWorkspacePage({
             dossier.sources.filter((source) => source.included).map((source) => source.newsroomArticleId),
           )}
           themeContinuity={themeContinuity}
+          productionIntents={productionIntents}
         />
       </div>
     </main>

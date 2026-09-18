@@ -200,7 +200,8 @@ test("workspace apresenta slots congelados e desativa destination/target sem ref
   assert.match(client, /disabled=\{saving \|\| Boolean\(continuitySlot\)\}/);
   assert.match(client, /disabled=\{saving \|\| continuitySlot\?\.kind === "existing"\}/);
   assert.match(client, /UPDATE fixo para/);
-  assert.match(client, /themeContinuity\?\.slots\.length/);
+  assert.match(client, /frozenSlots\?\.length/);
+  assert.match(client, /productionIntents \? mesaProductionIntentSlots\(productionIntents\) : themeContinuity\?\.slots/);
   assert.doesNotMatch(client, /router\.refresh\(\)/);
 });
 
