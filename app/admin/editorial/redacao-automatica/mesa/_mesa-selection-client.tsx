@@ -43,6 +43,9 @@ import type { MesaClassificationValue } from "./_mesa-query";
 import { MESA_SOURCE_HIDDEN_EVENT, MESA_THEME_UPDATED_EVENT, mesaThemeFromEvent, publishMesaThemeUpdate } from "./_mesa-client-events";
 import { MesaSourceChanges } from "./_mesa-source-changes";
 import styles from "./mesa.module.css";
+import { MesaIntentPreparationClient } from "./_mesa-intent-preparation-client";
+import { retainMesaDeferredSelection } from "./_mesa-selection-state";
+import type { MesaProductionIntent } from "@/lib/redacao-automatica/newsroom-mesa-production-intents";
 
 const PREPARE_ROUTE = "/api/admin/editorial/redacao-automatica/mesa/preparar";
 const DISCARD_ROUTE = "/api/admin/editorial/redacao-automatica/mesa/source";
@@ -106,6 +109,7 @@ type MesaSelectionContextValue = Readonly<{
   upsertTheme: (theme: MesaThemeCard) => void;
   changeTitle: (title: string) => void;
   clear: () => void;
+  consumePrepared: (request: MesaProductionIntent) => void;
   discard: (source: DismissedSource) => Promise<void>;
 }>;
 
@@ -330,6 +334,9 @@ export function MesaSelectionProvider({
     },
     changeTitle(title) {
       persist((current) => changeMesaPreparationTitle(current, title, createPreparationKey));
+    },
+    consumePrepared(request) {
+      persist((current) => retainMesaDeferredSelection(current, request, createPreparationKey));
     },
     clear() {
       if (!fixtureMode) {
@@ -824,6 +831,7 @@ export function MesaSelectionTray({
     removeDossier,
     changeTitle,
     clear,
+    consumePrepared,
     discard,
     themes,
     upsertTheme,
@@ -1064,7 +1072,7 @@ export function MesaSelectionTray({
           onClick={() => { setTargetTheme(buffer.themeId ?? themeContext?.id ?? ""); setOrganizing((open) => !open); }}>
           ORGANIZAR EM TEMA
         </button>}
-        {incorporationAvailable ? <label className={styles.incorporateSelection}>
+        {!sourceThemeActions && incorporationAvailable ? <label className={styles.incorporateSelection}>
           <input type="checkbox" checked={incorporateSources} disabled={submitting}
             onChange={(event) => setIncorporateSources(event.currentTarget.checked)} />
           <span>Incorporar fontes selecionadas no Tema antes de produzir</span>
@@ -1078,7 +1086,7 @@ export function MesaSelectionTray({
         >
           DESCARTAR
         </button>
-        <button
+        {!sourceThemeActions ? <button
           type="button"
           className={styles.prepareButton}
           onClick={prepare}
@@ -1090,10 +1098,26 @@ export function MesaSelectionTray({
           }
         >
           {submitting ? "A preparar…" : "PREPARAR PRODUÇÃO"}
-        </button>
+        </button> : null}
       </div>
 
       </div>
+      {sourceThemeActions && dossiers.length > 0 ? <p role="alert" className={styles.selectionMessage}>
+        A seleção inclui Dossiês de produções anteriores. Retira-os desta seleção antes de preparar Fontes e Temas;
+        as produções guardadas não serão apagadas nem alteradas.
+      </p> : null}
+      {sourceThemeActions ? <MesaIntentPreparationClient
+        selection={{ themes: selectedThemes, sources: buffer.sources }}
+        title={buffer.title}
+        storageKey={storageKey}
+        fixtureMode={fixtureMode}
+        disabled={submitting || dossiers.length > 0}
+        onBusyChange={setSubmitting}
+        onPrepared={(request, url) => {
+          consumePrepared(request);
+          router.push(url);
+        }}
+      /> : null}
       {sourceThemeActions && themeAction === "create" ? <section className={styles.themeChooser} aria-label="Criar tema">
         <label>Nome do Tema
           <input value={themeTitle} maxLength={180} autoFocus disabled={submitting}

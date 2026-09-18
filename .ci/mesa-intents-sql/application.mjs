@@ -41,7 +41,7 @@ const tableNames=new Set(['newsroom_articles','newsroom_article_snapshots','news
 const rpcLiteral=(key,value)=>value===null?'null':Array.isArray(value)?`ARRAY[${value.map(q).join(',')}]::uuid[]`:typeof value==='object'?json(value):q(value);
 const calls=[]; const forbidden=[];
 function where(params) {
-  return [...params].filter(([k])=>!['select','limit','order'].includes(k)).map(([k,v])=>{
+  return [...params].filter(([k])=>!['select','limit','order','offset'].includes(k)).map(([k,v])=>{
     const c=identifier(k);
     if(v.startsWith('eq.')) return c+'='+q(v.slice(3));
     if(v.startsWith('in.(') && v.endsWith(')')) return c+' in ('+v.slice(4,-1).split(',').map(q).join(',')+')';
@@ -60,7 +60,7 @@ globalThis.fetch=async (input,init={})=>{
     let result;
     if(path.startsWith('rpc/')) {
       const name=path.slice(4); assert.ok(rpcNames.has(name),'Unapproved test RPC '+name);
-      const values=method==='POST'?JSON.parse(String(init.body)):Object.fromEntries(u.searchParams);
+      const values=method==='POST'?JSON.parse(String(init.body)):Object.fromEntries([...u.searchParams].filter(([k])=>k.startsWith('p_')));
       result=rows(`select * from public.${identifier(name)}(${Object.entries(values).map(([k,v])=>identifier(k)+'=>'+rpcLiteral(k,v)).join(',')})`);
     } else {
       assert.ok(tableNames.has(path),'Unsupported test table '+path);
@@ -70,7 +70,7 @@ globalThis.fetch=async (input,init={})=>{
         const cols=select==='*'?'*':select.split(',').map(identifier).join(',');
         const limit=u.searchParams.get('limit'); if(limit) assert.match(limit,/^\d+$/);
         const order=u.searchParams.get('order');
-        result=rows(`select ${cols} from ${table} where ${where(u.searchParams)}`+(order?' order by '+order.split(',').map(v=>{const [c,d]=v.split('.'); assert.ok(!d||['asc','desc'].includes(d));return identifier(c)+' '+(d||'asc');}).join(','):'')+(limit?' limit '+limit:''));
+        result=rows(`select ${cols} from ${table} where ${where(u.searchParams)}`+(order?' order by '+order.split(',').map(v=>{const [c,d]=v.split('.'); assert.ok(!d||['asc','desc'].includes(d));return identifier(c)+' '+(d||'asc');}).join(','):'')+(limit?' limit '+limit:'')+(u.searchParams.has('offset')?' offset '+Number(u.searchParams.get('offset')):''));
       } else {
         assert.equal(path,'newsroom_editorial_source_packages','Only package writes outside approved RPCs');
         const body=JSON.parse(String(init.body)), keys=Object.keys(body);
@@ -203,6 +203,7 @@ async function test(name,fn) {
   catch(error) {results.push({name,passed:false,error:String(error.stack)});report();throw error;}
 }
 function report() {writeFileSync(output+'/application-report.json',JSON.stringify({identity,tests:results,passed:results.filter(r=>r.passed).length,failed:results.filter(r=>!r.passed).length,forbidden,calls,placementBoundary:'observable double; physical public placements NOT tested',browser:'NOT tested'},null,2));}
+if (process.env.MESA_UI_DRIVER !== '1') {
 await test('Milan / Amorim + Pote: preparation → real package → transfer → returned text → API → SQL → receipts',async()=>{
   const f=fixture(),before=record('editorial_articles',f.articles[0]),p=await prepare(f,{independent:true}),pkg=await makePackage(p);
   const payload=publicationPayload(p,pkg),check=await api({...payload,action:'preflight'});
@@ -316,3 +317,6 @@ await test('SQL-normalized unordered multi-Theme request is accepted and retains
 report();
 assert.deepEqual(forbidden,[]);
 console.log(`RESULT: ${results.length} application/SQL cases passed`);
+
+}
+export { app, fixture, source, request, prepare, makePackage, publicationPayload, returned, api, rows, record, sql, q, json, rpcNames, tableNames, forbidden, calls };

@@ -78,6 +78,7 @@ export default async function MesaThemePage({
         <section className={styles.workspaceChrome}>
           <ThemeContinuityClient
             themeId={themeId}
+            themeTitle={theme.title}
             disabled={theme.status !== "open"}
             autoOpen={query.continuity === "1"}
           />
@@ -127,7 +128,7 @@ export default async function MesaThemePage({
           </section>
           {context.articleCount > 0 ? (
             <p className={styles.selectionMessage} role="status">
-              Este Tema já tem artigos publicados. Para voltar à Produção, usa «Voltar a levar à Produção» em Continuidade editorial acima; os artigos existentes serão revistos antes de qualquer artigo novo.
+              Este Tema já tem artigos publicados. Para voltar à Produção, usa «Voltar a levar à Produção» em Continuidade editorial acima; escolhe revisão, revisão com novos ou apenas novos, sem rever os anteriores.
             </p>
           ) : <MesaSelectionTray />}
         </section>

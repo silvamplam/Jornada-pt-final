@@ -1,28 +1,30 @@
-name: Mesa intents application and SQL
+name: Mesa intents application, selection and SQL
 on:
   push:
     branches: [jornada-mesa-producao-intencoes-continuidade-v2-20260917]
     paths:
       - .ci/mesa-intents-sql/**
+      - .ci/mesa-intents-ui/**
       - .github/workflows/mesa-intents-application.yml
       - lib/redacao-automatica/**
       - app/api/admin/editorial/redacao-automatica/**
-      - app/admin/editorial/redacao-automatica/mesa/producao/**
+      - app/admin/editorial/redacao-automatica/mesa/**
       - app/admin/editorial/redacao-automatica/publicacao-lote/**
   pull_request:
     paths:
       - .ci/mesa-intents-sql/**
+      - .ci/mesa-intents-ui/**
       - .github/workflows/mesa-intents-application.yml
       - lib/redacao-automatica/**
       - app/api/admin/editorial/redacao-automatica/**
-      - app/admin/editorial/redacao-automatica/mesa/producao/**
+      - app/admin/editorial/redacao-automatica/mesa/**
       - app/admin/editorial/redacao-automatica/publicacao-lote/**
 permissions:
   contents: read
 jobs:
   application-sql:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       NEXT_TELEMETRY_DISABLED: '1'
       SUPABASE_URL: ''
@@ -43,6 +45,8 @@ jobs:
           test -z "$(find . -maxdepth 1 -name '.env*' -print)"
           npm ci --ignore-scripts --include=dev
           docker pull postgres:17.6-bookworm
+          python3 -m pip install --disable-pip-version-check playwright==1.57.0
+          python3 -m playwright install --with-deps chromium
           mkdir -p /tmp/mesa-intents-application
           git rev-parse HEAD > /tmp/mesa-intents-application/tested-commit.txt
       - name: Disposable PostgreSQL, no TCP network
@@ -54,7 +58,7 @@ jobs:
             if docker exec "$CID" sh -c 'test "$(cat /proc/1/comm)" = postgres && pg_isready -U postgres -d mesa_organization_test'; then break; fi
             sleep 1
           done
-          docker exec "$CID" pg_isready -U postgres -d mesa_organization_test
+          docker exec "$CID" sh -c 'test "$(cat /proc/1/comm)" = postgres && pg_isready -U postgres -d mesa_organization_test'
           docker inspect "$CID" --format '{{.HostConfig.NetworkMode}}' | grep -Fx none
       - name: Existing real SQL and compatibility suite
         run: |
@@ -73,6 +77,7 @@ jobs:
           python3 .ci/mesa-intents-sql/offline.py node node_modules/tsx/dist/cli.mjs --test \
             lib/redacao-automatica/newsroom-mesa-production-intents.test.ts \
             lib/redacao-automatica/newsroom-mesa-production-intents-contract.test.ts \
+            lib/redacao-automatica/newsroom-mesa-production-intents-ui.test.ts \
             lib/redacao-automatica/newsroom-theme-continuity.test.ts \
             lib/redacao-automatica/newsroom-theme-continuity-generic-bypass.test.ts \
             lib/redacao-automatica/newsroom-mesa-contexts-production-2c-runtime.test.ts \
@@ -84,6 +89,17 @@ jobs:
             lib/redacao-automatica/editorial-source-package-multi-output.test.ts \
             lib/redacao-automatica/editorial-dossier-workspace-batch-service.test.ts \
             | tee /tmp/mesa-intents-application/node-tests.log
+      - name: Browser selection and Theme with real handlers and disposable SQL
+        run: |
+          set -euo pipefail
+          python3 .ci/mesa-intents-sql/offline.py python3 .ci/mesa-intents-ui/browser.py \
+            --container "$INTENTS_TEST_CONTAINER" --output /tmp/mesa-intents-application \
+            | tee /tmp/mesa-intents-application/browser.log
+          python3 - <<'PY'
+          import json
+          report=json.load(open('/tmp/mesa-intents-application/browser-report.json'))
+          assert report['failed']==0 and report['nativeBrowserStorage'] and report['nativeBrowserUUID']
+          PY
       - name: TypeScript and build, no production access
         run: |
           set -euo pipefail
