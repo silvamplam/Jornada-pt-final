@@ -10,14 +10,19 @@ import styles from "./mesa.module.css";
 const ORGANIZATION_ROUTE = "/api/admin/editorial/redacao-automatica/mesa/organizacao";
 
 /** Each panel owns its window/scroll. Loading more never navigates the other panel. */
-export function MesaSourceWindow({ items, storageKey, empty = "Sem entradas." }: Readonly<{
-  items: readonly ReactNode[]; storageKey: string; empty?: string;
+export function MesaSourceWindow({ items, storageKey, empty = "Sem entradas.", showAll = false }: Readonly<{
+  items: readonly ReactNode[]; storageKey: string; empty?: string; showAll?: boolean;
 }>) {
   const root = useRef<HTMLOListElement>(null);
   const sentinel = useRef<HTMLLIElement>(null);
   const [visible, setVisible] = useState(24);
   const [loadedKey, setLoadedKey] = useState("");
   useEffect(() => {
+    if (showAll) {
+      setVisible(items.length);
+      setLoadedKey(storageKey);
+      return;
+    }
     let saved = { visible: 24, scroll: 0 };
     try {
       const parsed = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "null");
@@ -27,7 +32,7 @@ export function MesaSourceWindow({ items, storageKey, empty = "Sem entradas." }:
     setLoadedKey(storageKey);
     const frame = requestAnimationFrame(() => { if (root.current) root.current.scrollTop = saved.scroll; });
     return () => cancelAnimationFrame(frame);
-  }, [storageKey]);
+  }, [storageKey, showAll, items.length]);
   useEffect(() => {
     const list = root.current;
     if (!list || loadedKey !== storageKey) return;
@@ -39,13 +44,13 @@ export function MesaSourceWindow({ items, storageKey, empty = "Sem entradas." }:
     return () => { save(); list.removeEventListener("scroll", save); window.removeEventListener("pagehide", save); };
   }, [storageKey, loadedKey, visible]);
   useEffect(() => {
-    if (!sentinel.current || !root.current || visible >= items.length || !window.IntersectionObserver) return;
+    if (showAll || !sentinel.current || !root.current || visible >= items.length || !window.IntersectionObserver) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) setVisible((count) => Math.min(items.length, count + 24));
     }, { root: root.current, rootMargin: "80px" });
     observer.observe(sentinel.current);
     return () => observer.disconnect();
-  }, [items.length, visible]);
+  }, [items.length, visible, showAll]);
   if (!items.length) return <p className={styles.emptyPanel}>{empty}</p>;
   return <ol className={styles.sourceGrid} ref={root}>
     {items.slice(0, visible)}
@@ -239,7 +244,8 @@ export function MesaLooseSourcesPanel({
     </nav></header>
     <MesaSourceWindow key={tab} storageKey={`${storageKey}.${tab}`}
       empty={tab === "new" ? "Sem fontes por encaminhar neste filtro." : "Sem fontes publicadas avulsas neste filtro."}
-      items={tab === "new" ? newItems : publishedItems} />
+      items={tab === "new" ? newItems : publishedItems}
+      showAll={tab === "published"} />
     {previousHref || nextHref ? <nav className={styles.sourcePagination} aria-label="Paginação das fontes">
       {previousHref ? <Link href={previousHref} rel="prev">Anterior</Link> : <span aria-disabled="true">Anterior</span>}
       <span>Página {page}</span>

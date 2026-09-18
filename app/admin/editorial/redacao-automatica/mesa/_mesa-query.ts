@@ -115,13 +115,14 @@ export function parseMesaQuery(params: MesaSearchParams): MesaQueryResult {
 }
 
 export function mesaPageReadModelInput(query: MesaQuery): MesaPageReadInput {
+  const lifecycle = query.tab === "publicadas" ? "published" : "new";
   return {
-    lifecycle: query.tab === "publicadas" ? "published" : "new",
+    lifecycle,
     classification: query.classification,
     sourceCode: query.sourceCode,
     pagination: {
       limit: MESA_PAGE_SIZE,
-      offset: (query.page - 1) * MESA_PAGE_SIZE,
+      offset: lifecycle === "published" ? 0 : (query.page - 1) * MESA_PAGE_SIZE,
     },
   };
 }

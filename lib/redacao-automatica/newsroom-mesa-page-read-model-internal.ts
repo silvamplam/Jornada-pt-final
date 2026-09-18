@@ -111,6 +111,39 @@ function identityMatches(
   return identity.classification_key === input.classification.classificationKey;
 }
 
+function displayedSourceTimestamp(item: OperationalDeskSourceItem): number {
+  const value = item.publishedAt ?? item.lastDetectedAt;
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
+}
+
+function publishedSourceSort(
+  left: OperationalDeskSourceItem,
+  right: OperationalDeskSourceItem,
+): number {
+  return displayedSourceTimestamp(right) - displayedSourceTimestamp(left)
+    || right.newsroomArticleId.localeCompare(left.newsroomArticleId);
+}
+
+async function readPublishedIdentityUniverse(
+  transport: MesaPageReadTransport,
+  input: MesaPageReadInput,
+): Promise<readonly MesaPageIdentity[]> {
+  const identities: MesaPageIdentity[] = [];
+  for (let offset = 0; ;) {
+    const window = await transport.readPageIdentities({
+      ...input,
+      pagination: { limit: MAX_PAGE_SIZE, offset },
+    });
+    if (window.length > MAX_PAGE_SIZE + 1) {
+      throw new MesaPageRelationInvalidError();
+    }
+    identities.push(...window.slice(0, MAX_PAGE_SIZE));
+    if (window.length <= MAX_PAGE_SIZE) return identities;
+    offset += MAX_PAGE_SIZE;
+  }
+}
+
 export function createMesaPageReadModel(transport: MesaPageReadTransport) {
   return async function loadMesaPageReadModel(
     input: MesaPageReadInput,
@@ -121,9 +154,15 @@ export function createMesaPageReadModel(transport: MesaPageReadTransport) {
     try {
       const [counts, identityWindow] = await Promise.all([
         transport.readCounts(input.sourceCode),
-        transport.readPageIdentities(input),
+        input.lifecycle === "published"
+          ? readPublishedIdentityUniverse(transport, input)
+          : transport.readPageIdentities(input),
       ]);
-      if (!validCounts(counts) || identityWindow.length > input.pagination.limit + 1) {
+      if (
+        !validCounts(counts)
+        || (input.lifecycle === "new"
+          && identityWindow.length > input.pagination.limit + 1)
+      ) {
         throw new MesaPageRelationInvalidError();
       }
       const identityIds = identityWindow.map((row) => row.newsroom_article_id);
@@ -140,7 +179,9 @@ export function createMesaPageReadModel(transport: MesaPageReadTransport) {
         })
       ) throw new MesaPageRelationInvalidError();
 
-      const visibleIdentities = identityWindow.slice(0, input.pagination.limit);
+      const visibleIdentities = input.lifecycle === "published"
+        ? identityWindow
+        : identityWindow.slice(0, input.pagination.limit);
       const visibleIds = visibleIdentities.map((row) => row.newsroom_article_id);
       const hydrated = visibleIds.length > 0
         ? await transport.hydrateSources(visibleIds)
@@ -160,7 +201,10 @@ export function createMesaPageReadModel(transport: MesaPageReadTransport) {
         })
       ) throw new MesaPageRelationInvalidError();
 
-      const sources = visibleIds.map((id) => hydratedById.get(id)!);
+      const identityOrderedSources = visibleIds.map((id) => hydratedById.get(id)!);
+      const sources = input.lifecycle === "published"
+        ? [...identityOrderedSources].sort(publishedSourceSort)
+        : identityOrderedSources;
       return {
         ok: true,
         value: {
@@ -171,10 +215,16 @@ export function createMesaPageReadModel(transport: MesaPageReadTransport) {
           sources,
           page: {
             items: sources,
-            pagination: {
-              ...input.pagination,
-              hasNextPage: identityWindow.length > input.pagination.limit,
-            },
+            pagination: input.lifecycle === "published"
+              ? {
+                  limit: sources.length,
+                  offset: 0,
+                  hasNextPage: false,
+                }
+              : {
+                  ...input.pagination,
+                  hasNextPage: identityWindow.length > input.pagination.limit,
+                },
           },
         },
       };

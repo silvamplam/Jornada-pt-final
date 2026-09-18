@@ -175,6 +175,38 @@ test("filtra e pagina na origem antes de hidratar", async () => {
   );
 });
 
+test("PUBLICADAS devolve todo o universo e ordena pela data apresentada no cartão", async () => {
+  const universe = Array.from({ length: 80 }, (_, index) => identity(index + 1, "published"));
+  const fake = transport(universe);
+  fake.value.hydrateSources = async (ids) => ids.map((id, index) => {
+    const item = source(universe.find((row) => row.newsroom_article_id === id)!);
+    return {
+      ...item,
+      publishedAt: new Date(Date.parse(detectedAt) - (ids.length - index) * 60_000).toISOString(),
+    };
+  });
+
+  const result = await createMesaPageReadModel(fake.value)({
+    lifecycle: "published",
+    classification: { mode: "all" },
+    sourceCode: null,
+    pagination: { limit: 24, offset: 48 },
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.page.items.length, 80);
+  assert.equal(result.value.page.pagination.offset, 0);
+  assert.equal(result.value.page.pagination.hasNextPage, false);
+  assert.deepEqual(
+    result.value.page.items.map((item) => item.newsroomArticleId),
+    [...universe].reverse().map((row) => row.newsroom_article_id),
+  );
+  const identityCalls = fake.calls.filter((call) => call.kind === "identities");
+  assert.deepEqual(identityCalls.map((call) => [call.limit, call.offset]), [[200, 0]]);
+  assert.equal(fake.calls.find((call) => call.kind === "hydrate")?.ids?.length, 80);
+});
+
 test("preserva a ordem autoritativa das identidades mesmo se a hidratação regressar noutra ordem", async () => {
   const universe = [identity(1, "published"), identity(2, "published"), identity(3, "published")];
   const fake = transport(universe);
