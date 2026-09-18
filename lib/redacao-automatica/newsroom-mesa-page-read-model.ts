@@ -109,3 +109,30 @@ const load = createMesaPageReadModel(transport);
 export function loadMesaPageReadModel(input: MesaPageReadInput) {
   return load(input);
 }
+
+
+export async function loadMesaSourceCounts(sourceCode: string | null) {
+  if (!transport.isConfigured()) {
+    return {
+      ok: false as const,
+      error: {
+        code: "not_configured" as const,
+        message: "A leitura administrativa da Mesa não está configurada.",
+      },
+    };
+  }
+  try {
+    return {
+      ok: true as const,
+      value: await transport.readCounts(sourceCode),
+    };
+  } catch {
+    return {
+      ok: false as const,
+      error: {
+        code: "read_unavailable" as const,
+        message: "Não foi possível ler os totais da Mesa.",
+      },
+    };
+  }
+}

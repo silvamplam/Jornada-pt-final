@@ -525,6 +525,30 @@ function currentFeedPeriodFilter(
     + ")";
 }
 
+async function readTopicSearchArticleRowsByMetadata(
+  sourceCode: string | null,
+  query: string,
+): Promise<readonly NewsroomArticleRow[]> {
+  const rows: NewsroomArticleRow[] = [];
+  const pattern = `*${encodeURIComponent(query.trim())}*`;
+  let offset = 0;
+
+  while (true) {
+    const page = await fetchSupabaseAdminTable<NewsroomArticleRow>(
+      "newsroom_articles?select=id,source_code,original_url,normalized_url,external_id,title,subtitle,summary,author,published_at,modified_at,detected_at,image_url,processing_status,first_detected_at,last_detected_at,created_at,updated_at"
+      + sourceFilter(sourceCode)
+      + `&or=(title.ilike.${pattern},subtitle.ilike.${pattern},summary.ilike.${pattern})`
+      + `&order=published_at.desc.nullslast,last_detected_at.desc,id.desc&offset=${offset}&limit=${TOPIC_SEARCH_PAGE_SIZE}`,
+    );
+
+    rows.push(...page);
+    if (page.length < TOPIC_SEARCH_PAGE_SIZE) {
+      return rows;
+    }
+    offset += TOPIC_SEARCH_PAGE_SIZE;
+  }
+}
+
 async function readAllTopicSearchArticleRows(
   sourceCode: string | null,
 ): Promise<readonly NewsroomArticleRow[]> {
@@ -614,10 +638,38 @@ export async function listNewsroomArticles(
 }
 
 
-async function usedNewsroomArticleIds(): Promise<ReadonlySet<string>> {
+async function usedNewsroomArticleIds(
+  articleIds?: readonly string[],
+): Promise<ReadonlySet<string>> {
   const ids = new Set<string>();
-  let offset = 0;
 
+  if (articleIds !== undefined) {
+    for (let start = 0; start < articleIds.length; start += SNAPSHOT_ARTICLE_CHUNK_SIZE) {
+      const batch = articleIds.slice(start, start + SNAPSHOT_ARTICLE_CHUNK_SIZE);
+      if (batch.length === 0) {
+        continue;
+      }
+      let offset = 0;
+      while (true) {
+        const rows = await fetchSupabaseAdminTable<NewsroomDossierSourceUsageRow>(
+          "newsroom_editorial_dossier_sources?select=newsroom_article_id"
+          + "&included=eq.true"
+          + `&newsroom_article_id=in.(${uuidList(batch)})`
+          + `&order=id.asc&offset=${offset}&limit=${USED_SOURCE_PAGE_SIZE}`,
+        );
+        for (const row of rows) {
+          ids.add(row.newsroom_article_id);
+        }
+        if (rows.length < USED_SOURCE_PAGE_SIZE) {
+          break;
+        }
+        offset += USED_SOURCE_PAGE_SIZE;
+      }
+    }
+    return ids;
+  }
+
+  let offset = 0;
   while (true) {
     const rows = await fetchSupabaseAdminTable<NewsroomDossierSourceUsageRow>(
       "newsroom_editorial_dossier_sources?select=newsroom_article_id"
@@ -768,10 +820,11 @@ export async function searchNewsroomArticles(
   }
 
   try {
-    const [rows, usedArticleIds] = await Promise.all([
-      readAllTopicSearchArticleRows(sourceCode),
-      usedNewsroomArticleIds(),
-    ]);
+    const metadataRows = await readTopicSearchArticleRowsByMetadata(sourceCode, query);
+    const rows = metadataRows.length > 0
+      ? metadataRows
+      : await readAllTopicSearchArticleRows(sourceCode);
+    const usedArticleIds = await usedNewsroomArticleIds(rows.map((row) => row.id));
     const now = new Date();
     const diagnostics = emptyTopicDiagnostics();
     const metadataEligibleRows = rows.filter((row) => {
