@@ -22,12 +22,19 @@ export type MesaLooseSourceIntent =
   | Readonly<{ sourceId: string; destination: "independent"; newArticleCount: number }>
   | Readonly<{ sourceId: string; destination: "theme"; themeId: string }>;
 
+export type MesaSelectionIntent = Readonly<{
+  sourceIds: readonly string[];
+  reviewArticleIds: readonly string[];
+  newArticleCount: number;
+}>;
+
 export type MesaProductionIntent = Readonly<{
   version: 1;
   preparationKey: string;
   title: string;
   themes: readonly MesaThemeIntent[];
   sources: readonly MesaLooseSourceIntent[];
+  selection?: MesaSelectionIntent;
 }>;
 
 export type MesaSourceCapture = Readonly<{
@@ -62,6 +69,8 @@ export type MesaProductionAuthorities = Readonly<{
   readAt: string;
   themes: readonly MesaThemeAuthority[];
   sources: readonly MesaSourceAuthority[];
+  /** Global canonical candidates for the technical selection context. */
+  selectionPublishedArticles?: readonly MesaPublishedArticleAuthority[];
 }>;
 
 export type MesaIntentIssue = Readonly<{
@@ -77,7 +86,7 @@ type Result<T> = Readonly<{ ok: true; value: T }> | Readonly<{
 
 export type MesaIntentContext = Readonly<{
   key: string;
-  kind: "theme" | "source";
+  kind: "theme" | "source" | "selection";
   themeId: string | null;
   sourceId: string | null;
   title: string;
@@ -142,7 +151,8 @@ function unique(values: readonly string[]): boolean {
 /** Explicit versioning prevents a legacy boolean or an absent count from becoming intent. */
 export function parseMesaProductionIntent(value: unknown): Result<MesaProductionIntent> {
   const row = object(value);
-  if (!row || !exactKeys(row, ["version", "preparationKey", "title", "themes", "sources"])
+  const baseKeys = ["version", "preparationKey", "title", "themes", "sources"] as const;
+  if (!row || !(exactKeys(row, baseKeys) || exactKeys(row, [...baseKeys, "selection"]))
     || row.version !== 1 || !uuid(row.preparationKey)
     || typeof row.title !== "string" || !row.title.trim() || row.title.trim().length > 180
     || !Array.isArray(row.themes) || row.themes.length > 20
@@ -151,6 +161,7 @@ export function parseMesaProductionIntent(value: unknown): Result<MesaProduction
   }
   const themes: MesaThemeIntent[] = [];
   const sources: MesaLooseSourceIntent[] = [];
+  let selection: MesaSelectionIntent | undefined;
   for (const candidate of row.themes) {
     const item = object(candidate), themeId = uuid(item?.themeId);
     if (!item || !themeId) return { ok: false, issues: [issue("theme_intent_invalid", "A decisão do Tema não é válida.")] };
@@ -171,10 +182,32 @@ export function parseMesaProductionIntent(value: unknown): Result<MesaProduction
       sources.push({ sourceId, destination: "independent", newArticleCount: item.newArticleCount });
     } else return { ok: false, issues: [issue("source_intent_invalid", "Indica o destino e o trabalho pretendido para esta fonte.", `source:${sourceId}`)] };
   }
-  if (!unique(themes.map((item) => item.themeId)) || !unique(sources.map((item) => item.sourceId))) {
+  if (Object.hasOwn(row, "selection")) {
+    const item = object(row.selection);
+    if (!item || !exactKeys(item, ["sourceIds", "reviewArticleIds", "newArticleCount"])
+      || !Array.isArray(item.sourceIds) || item.sourceIds.length < 1 || item.sourceIds.length > MESA_INTENT_LIMITS.sources
+      || !Array.isArray(item.reviewArticleIds) || item.reviewArticleIds.length > MESA_INTENT_LIMITS.outputs
+      || !count(item.newArticleCount)) {
+      return { ok: false, issues: [issue("selection_intent_invalid", "A decisão sobre a seleção não é válida.", "selection")] };
+    }
+    const sourceIds = item.sourceIds.map(uuid), reviewArticleIds = item.reviewArticleIds.map(uuid);
+    if (sourceIds.some((id) => id === null) || reviewArticleIds.some((id) => id === null)
+      || !unique(sourceIds as string[]) || !unique(reviewArticleIds as string[])
+      || reviewArticleIds.length + item.newArticleCount < 1) {
+      return { ok: false, issues: [issue("selection_intent_invalid", "A seleção contém fontes, artigos ou contagens inválidas.", "selection")] };
+    }
+    selection = {
+      sourceIds: (sourceIds as string[]).sort(),
+      reviewArticleIds: (reviewArticleIds as string[]).sort(),
+      newArticleCount: item.newArticleCount,
+    };
+  }
+  if (!unique(themes.map((item) => item.themeId)) || !unique(sources.map((item) => item.sourceId))
+    || selection?.sourceIds.some((sourceId) => sources.some((item) => item.sourceId === sourceId))) {
     return { ok: false, issues: [issue("intent_duplicate", "Há Temas ou fontes repetidos no pedido.")] };
   }
-  return { ok: true, value: { version: 1, preparationKey: uuid(row.preparationKey)!, title: row.title.trim(), themes, sources } };
+  return { ok: true, value: { version: 1, preparationKey: uuid(row.preparationKey)!, title: row.title.trim(), themes, sources,
+    ...(selection ? { selection } : {}) } };
 }
 
 function sourceCapture(value: MesaSourceAuthority, readAt: string): MesaSourceCapture | null {
@@ -288,6 +321,40 @@ export function resolveMesaProductionIntent(
       title: "Fonte independente", reviewPublished: false, newArticleCount: source.newArticleCount,
       sources: [capture], publishedArticles: [] });
   }
+  if (input.selection) {
+    const key = `selection:${input.preparationKey}`;
+    const candidates = authority.selectionPublishedArticles ?? [];
+    if (candidates.some((article) => !articleValid(article))
+      || !unique(candidates.map((article) => article.editorialArticleId.toLowerCase()))) {
+      issues.push(issue("published_history_invalid", "Não foi possível confirmar os artigos publicados relacionados com esta seleção.", key));
+    }
+    const byId = new Map(candidates.map((article) => [article.editorialArticleId.toLowerCase(), article]));
+    if (input.selection.reviewArticleIds.some((articleId) => !byId.has(articleId))) {
+      issues.push(issue("selection_target_unavailable", "Um artigo escolhido para revisão já não pertence aos candidatos confirmados desta seleção.", key));
+    }
+    const captures: MesaSourceCapture[] = [];
+    for (const sourceId of input.selection.sourceIds) {
+      const found = loose.get(sourceId), capture = found ? sourceCapture(found, authority.readAt) : null;
+      if (!capture) {
+        issues.push(issue("source_snapshot_unavailable", `A fonte ${sourceId} não tem uma captura atual utilizável.`, key));
+        continue;
+      }
+      captures.push(capture);
+    }
+    contexts.push({
+      key, kind: "selection", themeId: null, sourceId: null, title: input.title,
+      reviewPublished: input.selection.reviewArticleIds.length > 0, newArticleCount: input.selection.newArticleCount,
+      sources: captures.sort((a, b) => a.newsroomArticleId.localeCompare(b.newsroomArticleId)),
+      publishedArticles: input.selection.reviewArticleIds.flatMap((articleId) => {
+        const article = byId.get(articleId);
+        return article ? [{
+          ...article,
+          editorialArticleId: uuid(article.editorialArticleId)!,
+          matchdayId: article.matchdayId === null ? null : uuid(article.matchdayId)!,
+        }] : [];
+      }).sort((a, b) => a.editorialArticleId.localeCompare(b.editorialArticleId)),
+    });
+  }
   contexts.sort((a, b) => a.key.localeCompare(b.key));
   const sourceVersions = new Map<string, string>();
   for (const context of contexts) for (const source of context.sources) {
@@ -302,7 +369,7 @@ export function resolveMesaProductionIntent(
   for (const context of contexts.filter((item) => item.reviewPublished)) {
     for (const target of context.publishedArticles) {
       if (targetIds.has(target.editorialArticleId)) issues.push(issue("review_target_conflict",
-        "O mesmo artigo não pode receber duas atualizações concorrentes nesta preparação. Escolhe o Tema responsável pela revisão.", context.key));
+        "O mesmo artigo não pode receber duas atualizações concorrentes nesta preparação. Escolhe apenas um contexto responsável pela revisão.", context.key));
       targetIds.add(target.editorialArticleId);
       outputs.push({ slot: `EXISTING_${String(outputs.length + 1).padStart(2, "0")}`, contextKey: context.key, kind: "existing", target });
     }

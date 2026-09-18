@@ -27,7 +27,9 @@ function frozen(value: unknown) {
 }
 function normalizeRequest(input: MesaProductionIntent): MesaProductionIntent {
   return { ...input, themes: [...input.themes].sort((a,b) => a.themeId.localeCompare(b.themeId)),
-    sources: [...input.sources].sort((a,b) => a.sourceId.localeCompare(b.sourceId)) };
+    sources: [...input.sources].sort((a,b) => a.sourceId.localeCompare(b.sourceId)),
+    ...(input.selection ? { selection: { ...input.selection,
+      sourceIds: [...input.selection.sourceIds].sort(), reviewArticleIds: [...input.selection.reviewArticleIds].sort() } } : {}) };
 }
 export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) {
   return {

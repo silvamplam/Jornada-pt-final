@@ -73,6 +73,13 @@ def request(key: int, review=True, fresh=0, theme=500, sources=None):
                 sources=sources or [])
 
 
+def selection_request(key: int, source_ids, review_article_ids=(), new=0):
+    return dict(version=1,preparationKey=uid(key),title='Seleção editorial',
+                themes=[],sources=[],selection=dict(
+                  sourceIds=[uid(n) if isinstance(n,int) else n for n in source_ids],
+                  reviewArticleIds=[uid(n) if isinstance(n,int) else n for n in review_article_ids],
+                  newArticleCount=new))
+
 def independent(n: int, count=1):
     return dict(sourceId=uid(n), destination='independent', newArticleCount=count)
 
@@ -163,6 +170,8 @@ before_functions = execute(old_functions_query)
 load(MIGRATION)
 assert before_functions == execute(old_functions_query)
 print('PASS original RPC definitions/privileges unchanged', flush=True)
+load('supabase/sql/newsroom-mesa-selection-context-v1.sql')
+post_selection_functions = execute(old_functions_query)
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
 
 seed = []
@@ -449,6 +458,37 @@ def context_mixture():
     assert uid(14) not in [s['newsroomArticleId'] for s in bykey['theme:'+uid(502)]['sources']]
 
 
+def selection_context():
+    req=selection_request(8190,[17],[2101],2)
+    p=preview(req)
+    assert p['totals']==dict(contexts=1,sources=1,reviews=1,newArticles=2)
+    assert p['contexts'][0]['kind']=='selection'
+    assert p['contexts'][0]['key']=='selection:'+uid(8190)
+    assert [x['editorialArticleId'] for x in p['contexts'][0]['publishedArticles']]==[uid(2101)]
+    assert [o['kind'] for o in p['outputs']]==['existing','new','new']
+    prepared=prepare(req,p['authorityFingerprint'])['plan']
+    assert prepared['contexts'][0]['kind']=='selection'
+    assert execute(f"select context_kind from public.newsroom_mesa_production_context_items where dossier_id='{prepared['dossierId']}';")=='selection'
+
+def selection_ambiguity_is_explicit():
+    both=preview(selection_request(8191,[17],[2101,2102],0))
+    assert [x['editorialArticleId'] for x in both['contexts'][0]['publishedArticles']]==[uid(2101),uid(2102)]
+    one=preview(selection_request(8192,[17],[2102],1))
+    assert [x['editorialArticleId'] for x in one['contexts'][0]['publishedArticles']]==[uid(2102)]
+    assert [o['kind'] for o in one['outputs']]==['existing','new']
+    expect_error('mesa-intent-selection-target-unavailable',lambda:preview(selection_request(8193,[17],[2999],0)))
+    expect_error('mesa-intent-selection-invalid',lambda:preview(selection_request(8194,[17],[],0)))
+
+def selection_can_mix_theme_member_and_loose_source():
+    req=selection_request(8195,[1,3],[],3)
+    p=prepare(req)['plan']
+    assert p['totals']==dict(contexts=1,sources=2,reviews=0,newArticles=3)
+    assert p['contexts'][0]['kind']=='selection'
+    assert {s['newsroomArticleId'] for s in p['contexts'][0]['sources']}=={uid(1),uid(3)}
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_sources where theme_id='{uid(500)}' and newsroom_article_id='{uid(1)}';")=='1'
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_sources where newsroom_article_id='{uid(3)}';")=='0'
+
+
 def permissions():
     req=request(8180); p=preview(req)
     for role in ['anon','authenticated']:
@@ -465,7 +505,7 @@ def stable_edit_identity():
     assert original_articles==execute("select md5(jsonb_agg(to_jsonb(a) order by a.id)::text) from public.editorial_articles a;")
     assert execute('select count(*) from public.newsroom_mesa_output_publications;')=='0'
     assert execute('select count(*) from public.newsroom_mesa_publication_events;')=='0'
-    assert before_functions==execute(old_functions_query)
+    assert post_selection_functions==execute(old_functions_query)
 
 
 for name,fn in [
@@ -488,6 +528,9 @@ for name,fn in [
     ('mesmo artigo não recebe duas revisões simultâneas',overlapping_themes),
     ('fonte já associada não duplica a relação',same_member),
     ('decisões independentes em vários Temas e fontes',context_mixture),
+    ('selection congela fontes juntas e mantém Article Plans existentes',selection_context),
+    ('selection preserva ambiguidade e alvos explícitos',selection_ambiguity_is_explicit),
+    ('selection mistura fonte de Tema e fonte solta sem reorganizar',selection_can_mix_theme_member_and_loose_source),
     ('permissões negam clientes e escrita direta',permissions),
     ('preparação não publica nem marca artigos revistos',stable_edit_identity),
 ]:

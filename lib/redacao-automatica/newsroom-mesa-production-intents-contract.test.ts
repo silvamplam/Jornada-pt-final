@@ -58,6 +58,31 @@ for (const [name,path,value] of [
 ] as const) {
   test(`rejects corrupted intent: ${name}`,()=>assert.equal(parseMesaProductionIntents(mutate(path,value)),null));
 }
+
+test("frozen contract accepts selection with explicit review targets only", () => {
+  const base=structuredClone(fixture.plan) as any;
+  const sourceContext=base.contexts[theme];
+  const contextKey=`selection:${base.preparationKey}`;
+  const selectedOutputs=base.outputs.filter((output:any)=>output.contextKey===sourceContext.key)
+    .map((output:any)=>({...output,contextKey}));
+  const selectedSourceIds=sourceContext.sources.map((source:any)=>source.newsroomArticleId).sort();
+  const reviewArticleIds=selectedOutputs.filter((output:any)=>output.kind==="existing")
+    .map((output:any)=>output.target.editorialArticleId).sort();
+  const selectionContext={...sourceContext,key:contextKey,kind:"selection",themeId:null,sourceId:null,title:base.title};
+  delete selectionContext.theme;
+  const selectionPlan={...base,
+    request:{version:1,preparationKey:base.preparationKey,title:base.title,themes:[],sources:[],
+      selection:{sourceIds:selectedSourceIds,reviewArticleIds,newArticleCount:selectedOutputs.filter((output:any)=>output.kind==="new").length}},
+    contexts:[selectionContext],outputs:selectedOutputs,incorporations:[],deferred:{themeIds:[],sourceIds:[]},
+    totals:{contexts:1,sources:selectedSourceIds.length,reviews:reviewArticleIds.length,
+      newArticles:selectedOutputs.filter((output:any)=>output.kind==="new").length},
+  };
+  assert.ok(parseMesaProductionIntents(selectionPlan));
+  const broken=structuredClone(selectionPlan);
+  broken.request.selection.reviewArticleIds=["a0000000-0000-4000-8000-000000009999"];
+  assert.equal(parseMesaProductionIntents(broken),null);
+});
+
 test("a malformed new contract never falls back to the old transfer reader",()=>{
   const bc=editorialMesaPackageBatchContract(fixture.manifest);assert.equal(bc.kind,"mesa-v2");
   if (bc.kind!=="mesa-v2") return;

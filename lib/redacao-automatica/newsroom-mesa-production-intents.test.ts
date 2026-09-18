@@ -40,6 +40,10 @@ function intent(reviewPublished = true, newArticleCount = 0): MesaProductionInte
   return { version: 1, preparationKey: id(800), title: "Preparação",
     themes: [{ themeId: id(500), action: "prepare", reviewPublished, newArticleCount }], sources: [] };
 }
+function selectionIntent(reviewArticleIds: readonly string[] = [article(1).editorialArticleId], newArticleCount = 0): MesaProductionIntent {
+  return { version: 1, preparationKey: id(801), title: "Seleção editorial",
+    themes: [], sources: [], selection: { sourceIds: [id(3), id(4)], reviewArticleIds, newArticleCount } };
+}
 function plan(request: unknown = intent(), data = authorities()): MesaProductionIntentPlan {
   const result = resolveMesaProductionIntent(request, data);
   assert.ok(result.ok, JSON.stringify(result));
@@ -65,6 +69,50 @@ function receipts(frozen: MesaProductionIntentPlan, decisions = published(frozen
 function fingerprint(frozen: MesaProductionIntentPlan): string {
   return createHash("sha256").update(mesaProductionIntentAuthorityMaterial(frozen)).digest("hex");
 }
+
+
+test("selection mantém N fontes num único contexto técnico e permite N→M", () => {
+  const request = selectionIntent([article(1).editorialArticleId, article(2).editorialArticleId], 2);
+  const data: MesaProductionAuthorities = { ...authorities(0), selectionPublishedArticles: [article(1), article(2)] };
+  const frozen = plan(request, data);
+  assert.deepEqual(frozen.totals, { contexts: 1, sources: 2, reviews: 2, newArticles: 2 });
+  assert.equal(frozen.contexts[0].kind, "selection");
+  assert.equal(frozen.contexts[0].key, `selection:${request.preparationKey}`);
+  assert.deepEqual(frozen.contexts[0].sources.map((item) => item.newsroomArticleId), [id(3), id(4)]);
+  assert.deepEqual(frozen.outputs.map((item) => item.kind), ["existing", "existing", "new", "new"]);
+});
+
+test("selection não revê candidatos que o editor não escolheu", () => {
+  const frozen = plan(selectionIntent([article(2).editorialArticleId], 1),
+    { ...authorities(0), selectionPublishedArticles: [article(1), article(2)] });
+  assert.deepEqual(frozen.contexts[0].publishedArticles.map((item) => item.editorialArticleId), [article(2).editorialArticleId]);
+  assert.deepEqual(frozen.outputs.map((item) => item.kind), ["existing", "new"]);
+});
+
+test("selection pode produzir só NEW mesmo havendo candidatos globais", () => {
+  const frozen = plan(selectionIntent([], 4), { ...authorities(0), selectionPublishedArticles: [article(1), article(2)] });
+  assert.equal(frozen.contexts[0].publishedArticles.length, 0);
+  assert.equal(frozen.totals.reviews, 0);
+  assert.equal(frozen.totals.newArticles, 4);
+});
+
+test("selection não depende de a fonte estar ou não organizada num Tema", () => {
+  const request: MesaProductionIntent = { ...selectionIntent(), selection: {
+    sourceIds: [id(1), id(3)], reviewArticleIds: [article(1).editorialArticleId], newArticleCount: 0 } };
+  const data: MesaProductionAuthorities = { ...authorities(0), sources: [source(1), source(3)], selectionPublishedArticles: [article(1)] };
+  const frozen = plan(request, data);
+  assert.equal(frozen.contexts[0].kind, "selection");
+  assert.deepEqual(frozen.contexts[0].sources.map((item) => item.newsroomArticleId), [id(1), id(3)]);
+});
+
+test("selection rejeita alvo que deixou de ser candidato e duplicação com destino antigo", () => {
+  fails(selectionIntent([article(1).editorialArticleId],0), authorities(0), "selection_target_unavailable");
+  assert.equal(parseMesaProductionIntent({ ...selectionIntent(), sources: [{ sourceId: id(3), destination: "independent", newArticleCount: 1 }] }).ok, false);
+  assert.equal(parseMesaProductionIntent({ ...selectionIntent(), selection: { sourceIds: [id(3), id(3)],
+    reviewArticleIds: [], newArticleCount: 1 } }).ok, false);
+  assert.equal(parseMesaProductionIntent({ ...selectionIntent(), selection: { sourceIds: [id(3)],
+    reviewArticleIds: [], newArticleCount: 0 } }).ok, false);
+});
 
 for (const [name, review, fresh, reviews, newArticles] of [
   ["Tema publicado sozinho: só revisão", true, 0, 2, 0],

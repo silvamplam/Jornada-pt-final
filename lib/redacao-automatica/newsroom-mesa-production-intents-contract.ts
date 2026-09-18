@@ -101,6 +101,9 @@ function validPlan(value: unknown, persisted: boolean): boolean {
     } else if (c.kind === "source") {
       if (!id(c.sourceId) || c.themeId !== null || c.key !== `source:${c.sourceId}` || c.reviewPublished
         || c.publishedArticles.length || c.sources.length !== 1 || c.sources[0].newsroomArticleId !== c.sourceId) return false;
+    } else if (c.kind === "selection") {
+      if (c.sourceId !== null || c.themeId !== null || c.key !== `selection:${p.preparationKey}`
+        || c.title !== p.title || !parsedRequest.value.selection) return false;
     } else return false;
     for (const source of c.sources) {
       if (Date.parse(source.capturedAt) > Date.parse(p.capturedAt)) return false;
@@ -129,6 +132,7 @@ function validPlan(value: unknown, persisted: boolean): boolean {
       status: "open" as const, sources: c.sources.filter((s) => !incorporationKeys.includes(`${c.themeId}:${s.newsroomArticleId}`)).map(authoritySource),
       publishedArticles: c.publishedArticles })),
     sources: [...sourceById.values()].map(authoritySource),
+    selectionPublishedArticles: contexts.find((c) => c.kind === "selection")?.publishedArticles ?? [],
   });
   if (!resolved.ok || !sameMesaIntentJson(p.totals, resolved.value.totals)
     || !sameMesaIntentJson(p.deferred, resolved.value.deferred)
