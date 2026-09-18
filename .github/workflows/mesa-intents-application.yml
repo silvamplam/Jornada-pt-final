@@ -100,6 +100,19 @@ jobs:
           report=json.load(open('/tmp/mesa-intents-application/browser-report.json'))
           assert report['failed']==0 and report['nativeBrowserStorage'] and report['nativeBrowserUUID']
           PY
+      - name: Complete visual workspace, package, return and publication flow
+        run: |
+          set -euo pipefail
+          python3 .ci/mesa-intents-sql/offline.py python3 .ci/mesa-intents-ui/flow-browser.py \
+            --container "$INTENTS_TEST_CONTAINER" --output /tmp/mesa-intents-application/flow \
+            | tee /tmp/mesa-intents-application/flow.log
+          python3 - <<'PY'
+          import json
+          report=json.load(open('/tmp/mesa-intents-application/flow/flow-report.json'))
+          assert report['passed']==6 and report['failed']==0
+          assert report['nativeStorage'] and report['nativeClipboard'] and report['nativeFinalNavigation']
+          assert not report['pageErrors'] and not report['unexpectedNetwork']
+          PY
       - name: TypeScript and build, no production access
         run: |
           set -euo pipefail

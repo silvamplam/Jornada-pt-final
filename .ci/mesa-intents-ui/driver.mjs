@@ -89,8 +89,12 @@ async function command(input){
   }
   throw new Error('Unapproved browser test command');
 }
+if(process.env.MESA_FLOW_DRIVER!=='1'){
 console.log(JSON.stringify({ready:true}));
 for await(const line of createInterface({input:process.stdin,crlfDelay:Infinity})){
   try{console.log(JSON.stringify({ok:true,value:await command(JSON.parse(line))}));}
   catch(error){console.log(JSON.stringify({ok:false,error:String(error.stack)}));}
 }
+
+}
+export { command, h };
