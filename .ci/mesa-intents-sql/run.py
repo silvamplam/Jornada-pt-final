@@ -480,13 +480,22 @@ def selection_ambiguity_is_explicit():
     expect_error('mesa-intent-selection-invalid',lambda:preview(selection_request(8194,[17],[],0)))
 
 def selection_can_mix_theme_member_and_loose_source():
+    # Earlier scenarios may already have organized source 3. The property under
+    # test is that selection preserves organization exactly as it found it.
+    memberships_before=execute(f"""select coalesce(jsonb_agg(jsonb_build_object(
+      'themeId',theme_id,'sourceId',newsroom_article_id) order by theme_id,newsroom_article_id),'[]'::jsonb)::text
+      from public.newsroom_editorial_theme_sources
+      where newsroom_article_id in ('{uid(1)}','{uid(3)}');""")
     req=selection_request(8195,[1,3],[],3)
     p=prepare(req)['plan']
     assert p['totals']==dict(contexts=1,sources=2,reviews=0,newArticles=3)
     assert p['contexts'][0]['kind']=='selection'
     assert {s['newsroomArticleId'] for s in p['contexts'][0]['sources']}=={uid(1),uid(3)}
-    assert execute(f"select count(*) from public.newsroom_editorial_theme_sources where theme_id='{uid(500)}' and newsroom_article_id='{uid(1)}';")=='1'
-    assert execute(f"select count(*) from public.newsroom_editorial_theme_sources where newsroom_article_id='{uid(3)}';")=='0'
+    memberships_after=execute(f"""select coalesce(jsonb_agg(jsonb_build_object(
+      'themeId',theme_id,'sourceId',newsroom_article_id) order by theme_id,newsroom_article_id),'[]'::jsonb)::text
+      from public.newsroom_editorial_theme_sources
+      where newsroom_article_id in ('{uid(1)}','{uid(3)}');""")
+    assert memberships_after==memberships_before
 
 
 def permissions():
