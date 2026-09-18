@@ -125,7 +125,7 @@ function publishedSourceSort(
     || right.newsroomArticleId.localeCompare(left.newsroomArticleId);
 }
 
-async function readPublishedIdentityUniverse(
+async function readIdentityUniverse(
   transport: MesaPageReadTransport,
   input: MesaPageReadInput,
 ): Promise<readonly MesaPageIdentity[]> {
@@ -154,14 +154,10 @@ export function createMesaPageReadModel(transport: MesaPageReadTransport) {
     try {
       const [counts, identityWindow] = await Promise.all([
         transport.readCounts(input.sourceCode),
-        input.lifecycle === "published"
-          ? readPublishedIdentityUniverse(transport, input)
-          : transport.readPageIdentities(input),
+        readIdentityUniverse(transport, input),
       ]);
       if (
         !validCounts(counts)
-        || (input.lifecycle === "new"
-          && identityWindow.length > input.pagination.limit + 1)
       ) {
         throw new MesaPageRelationInvalidError();
       }
@@ -179,9 +175,7 @@ export function createMesaPageReadModel(transport: MesaPageReadTransport) {
         })
       ) throw new MesaPageRelationInvalidError();
 
-      const visibleIdentities = input.lifecycle === "published"
-        ? identityWindow
-        : identityWindow.slice(0, input.pagination.limit);
+      const visibleIdentities = identityWindow;
       const visibleIds = visibleIdentities.map((row) => row.newsroom_article_id);
       const hydrated = visibleIds.length > 0
         ? await transport.hydrateSources(visibleIds)
@@ -215,16 +209,11 @@ export function createMesaPageReadModel(transport: MesaPageReadTransport) {
           sources,
           page: {
             items: sources,
-            pagination: input.lifecycle === "published"
-              ? {
-                  limit: sources.length,
-                  offset: 0,
-                  hasNextPage: false,
-                }
-              : {
-                  ...input.pagination,
-                  hasNextPage: identityWindow.length > input.pagination.limit,
-                },
+            pagination: {
+              limit: sources.length,
+              offset: 0,
+              hasNextPage: false,
+            },
           },
         },
       };
