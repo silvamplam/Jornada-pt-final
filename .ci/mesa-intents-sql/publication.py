@@ -217,6 +217,17 @@ def final_counts(f):
       (select count(*) from public.newsroom_mesa_intent_finalizations where dossier_id='{d}'));""")
 
 
+
+def final_usage_is_global_candidate_without_theme_relation():
+    f=fixture(published=0,review=False,new=1,sources=1)
+    p=package(f);o=f['plan']['outputs'][0];a=article(o)
+    publish(f,p,o,a)
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_articles where theme_id='{f['theme']}' and editorial_article_id='{a['id']}';")=='0'
+    rows=scalar(f"select candidates from public.newsroom_mesa_global_article_candidates_v1('{{{f['sources'][0]}}}'::uuid[],'{{}}'::uuid[]);")
+    assert [row['editorialArticleId'] for row in rows]==[a['id']]
+    assert rows[0]['evidence']['kinds']==['source_usage']
+
+
 def update_preserves_identity_and_live_snapshots():
     f = fixture(null_matchday=True); p = package(f); o = f['plan']['outputs'][0]; a = article(o)
     before = read_article(a['id']); link = '/noticias/'+a['slug']
@@ -536,6 +547,7 @@ def finalize_waits_for_inflight_writer():
 
 
 for name,fn in [
+    ('proveniência final reconhece artigo canónico sem relação Tema',final_usage_is_global_candidate_without_theme_relation),
     ('UPDATE preserva identidade/contexto nulo e executa sync V15 real',update_preserves_identity_and_live_snapshots),
     ('UPDATE posterior não disputa a ligação canónica do Article Plan original',update_can_revise_article_owned_by_original_creation_plan),
     ('ciclo só SEM ALTERAÇÃO sem reescrita e replay histórico',all_no_change),
