@@ -19,6 +19,7 @@ import type {
   OperationalDeskClassificationCounts,
 } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
 import { findRegisteredSource } from "@/lib/redacao-automatica/source-registry";
+import { MESA_OPERATIONAL_CYCLE_STARTED_AT } from "@/lib/redacao-automatica/newsroom-operational-desk-contract";
 
 const BATCH_SIZE = 100;
 
@@ -40,6 +41,7 @@ export type MesaArchiveSourceItem = Readonly<{
   publishedAt: string | null;
   lastDetectedAt: string;
   classificationKey: ArticleClassificationKey | null;
+  cycleEligible: boolean;
 }>;
 
 export type MesaArchiveReadInput = Readonly<{
@@ -141,6 +143,7 @@ function archiveItem(
     publishedAt: item.publishedAt,
     lastDetectedAt: item.lastDetectedAt,
     classificationKey: classifications.get(item.id) ?? null,
+    cycleEligible: Date.parse(item.detectedAt) >= Date.parse(MESA_OPERATIONAL_CYCLE_STARTED_AT),
   };
 }
 
