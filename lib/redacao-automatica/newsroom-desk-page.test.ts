@@ -165,8 +165,17 @@ test("pagination keeps tab + classification + extra filters", () => {
   const input = mesaPageReadModelInput(query);
   assert.equal(input.lifecycle, "published");
   assert.equal(input.pagination.limit, MESA_PAGE_SIZE);
-  assert.equal(input.pagination.offset, MESA_PAGE_SIZE);
+  assert.equal(input.pagination.offset, 0);
   assert.equal(input.sourceCode, "record");
+
+  const page = source(MESA_PAGE);
+  const organization = source(path.join(
+    process.cwd(),
+    "app/admin/editorial/redacao-automatica/mesa/_mesa-organization-client.tsx",
+  ));
+  assert.match(page, /previousHref=\{activeLifecycle === "new"/);
+  assert.match(page, /nextHref=\{activeLifecycle === "new"/);
+  assert.match(organization, /showAll=\{tab === "published"\}/);
 });
 
 test("Mesa remains server-side read and mutations stay in dedicated APIs", () => {
