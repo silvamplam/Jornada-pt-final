@@ -105,7 +105,7 @@ test("a Publicação em lote preserva o Dossiê até ao sucesso integral", () =>
   );
 });
 
-test("uma atualização preserva obrigatoriamente a imagem publicada", () => {
+test("UPDATE preserva a publicada por defeito e mostra a imagem escolhida na Produção quando existe", () => {
   assert.match(
     publicationRouteSource,
     /image_url:\s*existing\.image_url/,
@@ -163,20 +163,12 @@ test("uma atualização preserva obrigatoriamente a imagem publicada", () => {
     /planItem\.mode === "create"\s*&& !imageUrl/,
   );
 
-  assert.match(
-    clientSource,
-    /IMAGENS PUBLICADAS PRESERVADAS/,
-  );
-
-  assert.match(
-    clientSource,
-    /IMAGEM PUBLICADA PRESERVADA/,
-  );
-
-  assert.match(
-    clientSource,
-    /A imagem atualmente publicada também será preservada/,
-  );
+  assert.match(clientSource, /productionImagesByKey/);
+  assert.match(clientSource, /IMAGENS DA PRODUÇÃO ASSOCIADAS/);
+  assert.match(clientSource, /IMAGEM DA PRODUÇÃO ASSOCIADA/);
+  assert.match(clientSource, /Nos artigos sem uma nova imagem escolhida mantém-se a imagem já publicada/);
+  assert.match(clientSource, /IMAGENS PUBLICADAS PRESERVADAS/);
+  assert.match(clientSource, /IMAGEM PUBLICADA PRESERVADA/);
 });
 
 test("um Dossiê de atualização recupera e bloqueia a Jornada canónica", () => {
@@ -235,7 +227,7 @@ test("Época filtra e limpa a Jornada incompatível", () => {
 test("a prontidão do contexto confirma as relações entre os três IDs", () => {
   assert.match(clientSource, /selectedSeason\.competition_id === selectedCompetition\.id/);
   assert.match(clientSource, /selectedMatchday\.season_id === selectedSeason\.id/);
-  assert.match(clientSource, /preflight\.ready && contextComplete/);
+  assert.match(clientSource, /themeContinuity \? publicationContextComplete : contextComplete/);
 });
 
 test("existe textarea editorial acessível", () => {
@@ -381,7 +373,7 @@ test("imagens do workspace usam linguagem de Produção sem reclassificar o lote
   assert.match(clientSource, /As imagens escolhidas na Produção já estão associadas/);
   assert.match(clientSource, /\$\{dossierImageCount\} da Produção/);
   assert.match(clientSource, /Automática por NN- \/ Produção/);
-  assert.match(clientSource, /As imagens associadas à Produção não/);
+  assert.match(clientSource, /As imagens escolhidas na Produção serão aplicadas aos respetivos UPDATEs/);
   assert.ok(imagePreflightSource.includes('message: "IMAGEM DA PRODUÇÃO ASSOCIADA"'));
   assert.doesNotMatch(
     clientSource + imagePreflightSource,

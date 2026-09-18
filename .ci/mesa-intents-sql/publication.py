@@ -22,6 +22,7 @@ prepare, preview, request = (base[x] for x in ('prepare', 'preview', 'request'))
 expect_error, test, report = (base[x] for x in ('expect_error', 'test', 'report'))
 ROOT, args, RESULTS = (base[x] for x in ('ROOT', 'args', 'RESULTS'))
 MIGRATION = 'supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql'
+HOTFIX = 'supabase/migrations/20260918145300_newsroom_mesa_intent_update_revision_hotfix.sql'
 
 
 def scalar(sql):
@@ -95,6 +96,9 @@ changed = {name for name, digest in old_functions.items() if new_functions.get(n
 assert changed == {'newsroom_mesa_intent_source_v1(uuid)', 'newsroom_mesa_consolidate_publication_v2(uuid)'}, changed
 assert old_articles == execute('select md5(jsonb_agg(to_jsonb(a) order by a.id)::text) from public.editorial_articles a;')
 print('PASS exact legacy function/ACL preservation; only two declared changes', flush=True)
+load(HOTFIX)
+assert "if v_mode = 'create' then" in execute("select pg_get_functiondef('public.newsroom_publish_mesa_intent_output_v1(uuid,uuid,uuid,uuid[],jsonb)'::regprocedure);")
+assert "p.update_target_editorial_article_id=v_article_id" in execute("select pg_get_functiondef('public.newsroom_finalize_mesa_intents_v1(uuid,uuid,uuid[])'::regprocedure);")
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
 
 
@@ -234,6 +238,26 @@ def update_preserves_identity_and_live_snapshots():
     assert final['updatedCount']==1 and final_counts(f)==[1,1,1,1] and state(f)=='consolidated'
     assert receipts(f)[0]['decision']=='UPDATE'
     assert finish(f,p)['action']=='reused' and final_counts(f)==[1,1,1,1]
+
+
+def update_can_revise_article_owned_by_original_creation_plan():
+    f=fixture(); p=package(f); o=f['plan']['outputs'][0]; a=article(o)
+    original_dossier=str(uuid4()); original_plan=str(uuid4())
+    execute(f"""insert into public.newsroom_editorial_dossiers(id,title) values('{original_dossier}','Produção original');
+      insert into public.newsroom_editorial_dossier_article_plans(
+        id,dossier_id,working_title,status,sort_order,article_kind,length_mode,
+        editorial_instructions,destination,editorial_article_id,image_choice
+      ) values(
+        '{original_plan}','{original_dossier}','Plano original','planned',10,'news','standard',
+        '','new','{a['id']}','unselected'
+      );""")
+    result=publish(f,p,o,a)
+    assert result['publication_action']=='updated'
+    assert execute(f"select editorial_article_id::text from public.newsroom_editorial_dossier_article_plans where id='{original_plan}';")==a['id']
+    assert execute(f"select editorial_article_id is null from public.newsroom_editorial_dossier_article_plans where id='{o['outputId']}';")=='t'
+    assert execute(f"select editorial_article_id::text from public.newsroom_mesa_output_publications where dossier_id='{f['dossier']}' and article_plan_id='{o['outputId']}';")==a['id']
+    finish(f,p)
+    assert receipts(f)[0]['decision']=='UPDATE'
 
 
 def all_no_change():
@@ -513,6 +537,7 @@ def finalize_waits_for_inflight_writer():
 
 for name,fn in [
     ('UPDATE preserva identidade/contexto nulo e executa sync V15 real',update_preserves_identity_and_live_snapshots),
+    ('UPDATE posterior não disputa a ligação canónica do Article Plan original',update_can_revise_article_owned_by_original_creation_plan),
     ('ciclo só SEM ALTERAÇÃO sem reescrita e replay histórico',all_no_change),
     ('UPDATE + NEW + SEM ALTERAÇÃO + Pote independente, publicação parcial',mixed_and_partial),
     ('NEW hoje não revê antigos; revisão posterior avalia todos os publicados',new_does_not_review_old),
@@ -534,7 +559,7 @@ for name,fn in [
     test(name,fn)
 
 report()
-files=[MIGRATION,'.ci/mesa-intents-sql/publication.py','.ci/mesa-intents-sql/run.py']
+files=[MIGRATION,HOTFIX,'.ci/mesa-intents-sql/publication.py','.ci/mesa-intents-sql/run.py']
 (args.output/'publication-source-hashes.json').write_text(json.dumps({
   'basis':'c34b202ee815fcfb85ca2c238c49676cd6faa04b',
   'files':{path:hashlib.sha256((ROOT/path).read_bytes()).hexdigest() for path in files},

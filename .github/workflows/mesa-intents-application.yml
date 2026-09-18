@@ -96,6 +96,7 @@ jobs:
             lib/redacao-automatica/editorial-source-package.test.ts \
             lib/redacao-automatica/editorial-source-package-multi-output.test.ts \
             lib/redacao-automatica/editorial-dossier-workspace-batch-service.test.ts \
+            lib/redacao-automatica/editorial-batch-preflight-ui.test.ts \
             | tee /tmp/mesa-intents-application/node-tests.log
       - name: Browser selection and Theme with real handlers and disposable SQL
         run: |
