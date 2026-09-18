@@ -105,7 +105,7 @@ test("a Publicação em lote preserva o Dossiê até ao sucesso integral", () =>
   );
 });
 
-test("uma atualização preserva obrigatoriamente a imagem publicada", () => {
+test("UPDATE preserva a publicada por defeito e mostra a imagem escolhida na Produção quando existe", () => {
   assert.match(
     publicationRouteSource,
     /image_url:\s*existing\.image_url/,
@@ -163,20 +163,12 @@ test("uma atualização preserva obrigatoriamente a imagem publicada", () => {
     /planItem\.mode === "create"\s*&& !imageUrl/,
   );
 
-  assert.match(
-    clientSource,
-    /IMAGENS PUBLICADAS PRESERVADAS/,
-  );
-
-  assert.match(
-    clientSource,
-    /IMAGEM PUBLICADA PRESERVADA/,
-  );
-
-  assert.match(
-    clientSource,
-    /A imagem atualmente publicada também será preservada/,
-  );
+  assert.match(clientSource, /productionImagesByKey/);
+  assert.match(clientSource, /IMAGENS DA PRODUÇÃO ASSOCIADAS/);
+  assert.match(clientSource, /IMAGEM DA PRODUÇÃO ASSOCIADA/);
+  assert.match(clientSource, /Nos artigos sem uma nova imagem escolhida mantém-se a imagem já publicada/);
+  assert.match(clientSource, /IMAGENS PUBLICADAS PRESERVADAS/);
+  assert.match(clientSource, /IMAGEM PUBLICADA PRESERVADA/);
 });
 
 test("um Dossiê de atualização recupera e bloqueia a Jornada canónica", () => {
