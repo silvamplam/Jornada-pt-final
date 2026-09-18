@@ -425,6 +425,15 @@ test("banco comum reúne origens e upload reutiliza signer e writer da foundatio
   assert.match(route, /image:\s*\{[\s\S]*?origin:\s*"upload"/);
   assert.match(client, /onRegisteredImage\(await registerUpload\(registration\)\)/);
   assert.doesNotMatch(client, /router\.refresh\(\)/);
+  assert.match(client, /function openWorkspaceImageUpload\(\)/);
+  assert.match(client, /panel\.open = true/);
+  assert.match(client, /if \(input && !input\.disabled\) input\.click\(\)/);
+  assert.match(client, /<details id="workspace-image-bank" className=\{styles\.imageBankPanel\}>/);
+  assert.match(
+    client,
+    /<button[\s\S]*?className=\{styles\.addImageChoice\}[\s\S]*?type="button"[\s\S]*?aria-controls="workspace-image-bank"[\s\S]*?onClick=\{openWorkspaceImageUpload\}/,
+  );
+  assert.doesNotMatch(client, /<a className=\{styles\.addImageChoice\} href="#workspace-images-title">/);
 });
 
 test("Article Plans são automáticos e a UI conserva apenas decisões editoriais", () => {

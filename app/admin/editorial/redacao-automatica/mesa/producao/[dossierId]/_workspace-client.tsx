@@ -183,6 +183,22 @@ function imageOriginLabel(image: EditorialDossierImage): string {
   return "Fonte";
 }
 
+function openWorkspaceImageUpload() {
+  const panel = document.getElementById("workspace-image-bank");
+  if (!(panel instanceof HTMLDetailsElement)) return;
+
+  panel.open = true;
+  const input = panel.querySelector<HTMLInputElement>('input[type="file"]');
+  const focusTarget = input?.disabled
+    ? panel.querySelector<HTMLButtonElement>('button:not(:disabled)')
+    : input;
+
+  (focusTarget ?? panel).scrollIntoView({ block: "center" });
+  focusTarget?.focus({ preventScroll: true });
+
+  if (input && !input.disabled) input.click();
+}
+
 function ImageBank({
   dossierId,
   images,
@@ -330,7 +346,7 @@ function ImageBank({
   }
 
   return (
-    <details className={styles.imageBankPanel}>
+    <details id="workspace-image-bank" className={styles.imageBankPanel}>
       <summary>
         <span>
           <strong id="workspace-images-title">Banco de imagens da produção</strong>
@@ -693,10 +709,17 @@ function PlanEditor({
                 </label>
               );
             })}
-            <a className={styles.addImageChoice} href="#workspace-images-title">
+            <button
+              className={styles.addImageChoice}
+              type="button"
+              aria-controls="workspace-image-bank"
+              aria-label="Adicionar imagem ao banco da produção"
+              disabled={saving}
+              onClick={openWorkspaceImageUpload}
+            >
               <span aria-hidden="true">+</span>
               <small>Adicionar</small>
-            </a>
+            </button>
           </div>
         </fieldset>
 

@@ -1238,8 +1238,21 @@
 }
 
 .addImageChoice {
+  appearance: none;
+  padding: 0;
   color: #526177;
+  font: inherit;
   text-decoration: none;
+}
+
+.addImageChoice:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.addImageChoice:focus-visible {
+  outline: 2px solid #1572d3;
+  outline-offset: 2px;
 }
 
 .addImageChoice > span {
