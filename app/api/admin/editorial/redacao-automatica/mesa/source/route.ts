@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     value = null;
   }
   const payload = objectValue(value);
+  const action = payload?.action === "reopen" ? "reopen" : "dismissed";
   const newsroomArticleId = typeof payload?.newsroomArticleId === "string"
     ? payload.newsroomArticleId.trim().toLowerCase()
     : "";
@@ -34,7 +35,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: false,
       code: "input_invalid",
-      message: "A fonte que pretende descartar não é válida.",
+      message: action === "reopen"
+        ? "A fonte que pretende repor não é válida."
+        : "A fonte que pretende descartar não é válida.",
     }, { status: 400 });
   }
 
@@ -49,7 +52,7 @@ export async function POST(request: Request) {
     }, { status: cycle.code === "read_unavailable" ? 503 : 400 });
   }
 
-  const result = await applyNewsroomEditorialInboxAction("dismissed", [{
+  const result = await applyNewsroomEditorialInboxAction(action, [{
     articleId: newsroomArticleId,
     snapshotId: newsroomSnapshotId,
   }]);
@@ -57,7 +60,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ok: false,
       code: result.error.code,
-      message: `${result.error.message} A entrada foi reposta.`,
+      message: action === "reopen"
+        ? result.error.message
+        : `${result.error.message} A entrada foi reposta.`,
     }, { status: result.error.code === "input_invalid" ? 400 : 502 });
   }
 
