@@ -552,7 +552,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
             outputId: plan.id,
             startingPointSourceId: startingPointSourceIds[index],
             ...(productionContext ? {
-              contextSourceIds: plan.sources.map((source) => source.dossierSourceId),
+              contextSourceIds: productionContext.sources.map((source) => source.dossierSourceId),
             } : {}),
           }
         : {}),
