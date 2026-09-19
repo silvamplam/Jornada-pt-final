@@ -215,7 +215,7 @@ export function deriveEditorialDossierWorkspacePlanInput(
     || technicalSources.length < 1
   ) return null;
 
-  const startingPointSourceIds = workspaceContractVersion === 2
+  const defaultStartingPointSourceIds = workspaceContractVersion === 2
     ? editorialMesaWorkspaceStartingPointSourceIds(
         context?.selectionPayload,
         context?.materialRefs,
@@ -226,19 +226,28 @@ export function deriveEditorialDossierWorkspacePlanInput(
         output.priority,
       )
     : [];
-  const workingTitle = productionContext
-    ? `Output ${String(output.priority).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
-    : workspaceContractVersion === 2
+  const focusStartingPointSourceId = continuitySlot && "focusSourceIds" in continuitySlot
+    ? continuitySlot.focusSourceIds?.flatMap((newsroomArticleId) => {
+        const source = technicalSources.find((candidate) => candidate.newsroomArticleId === newsroomArticleId);
+        return source ? [source.id] : [];
+      })[0]
+    : undefined;
+  const startingPointSourceId = focusStartingPointSourceId ?? defaultStartingPointSourceIds[output.priority - 1];
+  const workingTitle = workspaceContractVersion === 2
     ? editorialMesaWorkspaceOutputWorkingTitle(
         output.priority,
-        startingPointSourceIds[output.priority - 1],
+        startingPointSourceId,
         technicalSources.map((source) => ({
           dossierSourceId: source.id,
           newsroomArticleId: source.newsroomArticleId,
           articleTitle: source.articleTitle,
         })),
-      )
-    : `Output ${String(output.priority).padStart(2, "0")} — ${dossier.title}`.slice(0, 180);
+      ) ?? (productionContext
+        ? `Output ${String(output.priority).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+        : null)
+    : productionContext
+      ? `Output ${String(output.priority).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+      : `Output ${String(output.priority).padStart(2, "0")} — ${dossier.title}`.slice(0, 180);
   if (!workingTitle) return null;
 
   return {

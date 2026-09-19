@@ -1335,6 +1335,7 @@ function formatEditorialOutputPlan(
   outputs: readonly EditorialSourcePackageOutputInput[] | undefined,
   themeContinuity?: ThemeContinuityFrozenContract,
   productionIntents?: MesaProductionIntentsFrozen,
+  entries?: readonly EditorialSourcePackageEntry[],
 ): string[] {
   if (!outputs?.length) {
     return [];
@@ -1348,6 +1349,14 @@ function formatEditorialOutputPlan(
     ...outputs.flatMap((output) => {
       const line = `${String(output.position).padStart(2, "0")} — ${markdownText(output.focus)}`;
       const continuitySlot = productionIntents ? mesaProductionIntentSlots(productionIntents)[output.position - 1] : themeContinuity?.slots[output.position - 1];
+      const focusContextSourceIds = productionIntents && continuitySlot && "focusSourceIds" in continuitySlot
+        && continuitySlot.focusSourceIds?.length && entries
+        ? continuitySlot.focusSourceIds.flatMap((newsroomArticleId) => {
+            const entry = entries.find((candidate) => candidate.status === "prepared"
+              && candidate.newsroomArticleId === newsroomArticleId && candidate.provenanceSourceId);
+            return entry?.provenanceSourceId ? [entry.provenanceSourceId] : [];
+          })
+        : [];
       if (!output.articlePlan) return [line];
       return [
         line,
@@ -1362,6 +1371,9 @@ function formatEditorialOutputPlan(
                 ? [
                     `   - CONTEXTO: ${output.articlePlan.contextId}`,
                     `   - FONTES_DO_CONTEXTO: ${output.contextSourceIds.join(", ")}`,
+                    ...(focusContextSourceIds.length
+                      ? [`   - FONTES_DE_FOCO_INICIAL: ${focusContextSourceIds.join(", ")}`]
+                      : []),
                   ]
                 : []),
             ]
@@ -1380,7 +1392,7 @@ function formatEditorialOutputPlan(
       ? ["> Quando um artigo tem género ou extensão individual, essa indicação do respetivo plano prevalece sobre a indicação geral do pacote.", ""]
       : []),
     outputs.every((output) => output.articlePlan?.sourceScope === "context")
-      ? "> Cada output recebe apenas as fontes congeladas indicadas em FONTES_DO_CONTEXTO. Outros contextos do mesmo workspace não são input factual desse output."
+      ? "> FONTES_DO_CONTEXTO mantém o contexto factual completo do output. FONTES_DE_FOCO_INICIAL, quando existe, é uma orientação automática e não uma exclusão; as instruções do editor podem justificar cruzar outras fontes desse mesmo contexto."
       : "> Todos os outputs têm acesso ao conjunto completo de fontes autorizadas desta produção. A utilização efetiva é declarada separadamente em FONTES_UTILIZADAS.",
     "",
   ];
@@ -1418,6 +1430,7 @@ function formatMesaProductionIntents(value: MesaProductionIntentsFrozen | undefi
     "Para NEW_xx: DECISAO é NEW, com artigo integral. Não invente revisões dos artigos apenas de referência.",
     "UPDATE e NEW usam esta ordem de rótulos, cada um numa linha: SLOT, DECISAO, FONTES_UTILIZADAS, ANTETÍTULO, TÍTULO, PÓS-TÍTULO, CORPO.",
     "FONTES_UTILIZADAS usa exclusivamente IDs DA FONTE de FONTES_DO_CONTEXTO do respetivo output, nunca IDs de artigos externos ou snapshots.",
+    "Quando existir FONTES_DE_FOCO_INICIAL, trate-as como o foco automático inferido pela Mesa; não são uma proibição de usar outras fontes do mesmo contexto quando o foco ou as instruções do Article Plan o justificarem.",
     "Não revisto não significa SEM ALTERAÇÃO. Não omita slots e não crie artigos além do número pedido.", "",
   ];
 }
@@ -1489,6 +1502,7 @@ function buildEditorialSourcePackageTaskMarkdown(
   outputs?: readonly EditorialSourcePackageOutputInput[],
   themeContinuity?: ThemeContinuityFrozenContract,
   productionIntents?: MesaProductionIntentsFrozen,
+  entries?: readonly EditorialSourcePackageEntry[],
 ): string {
   return [
     "# TAREFA EDITORIAL",
@@ -1511,7 +1525,7 @@ function buildEditorialSourcePackageTaskMarkdown(
       "Sem instruções adicionais.",
     ),
     "",
-    ...formatEditorialOutputPlan(outputs, themeContinuity, productionIntents),
+    ...formatEditorialOutputPlan(outputs, themeContinuity, productionIntents, entries),
     ...(themeContinuity || productionIntents ? [] : formatMesaV2ProvenanceContract(outputs)),
     ...formatThemeContinuityContract(themeContinuity),
     ...formatMesaProductionIntents(productionIntents),
@@ -1681,6 +1695,7 @@ export function buildEditorialSourcePackageMarkdown(
       outputs,
       input.themeContinuity,
       input.productionIntents,
+      input.entries,
     ),
     "",
     "---",

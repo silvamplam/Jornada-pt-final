@@ -178,6 +178,8 @@ print('PASS original RPC definitions/privileges unchanged', flush=True)
 load('supabase/migrations/20260919014322_newsroom_mesa_selection_context_v1.sql')
 post_selection_functions = execute(old_functions_query)
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
+load('supabase/sql/candidate-newsroom-mesa-output-source-scope-v1.sql')
+post_output_focus_functions = execute(old_functions_query)
 
 seed = []
 for n in range(1, 31):
@@ -197,7 +199,7 @@ for theme, sources in [(500,[1,2]), (501,[4]), (502,[5]), (503,[6]), (504,[7])]:
 seed.append(f"""insert into public.competitions(id) values('{uid(900)}');
 insert into public.seasons(id,competition_id) values('{uid(901)}','{uid(900)}');
 insert into public.matchdays(id,season_id) values('{uid(902)}','{uid(901)}');""")
-for article, theme, matchday, status in [(2001,500,902,'published'), (2002,502,902,'published'), (2003,503,None,'published'), (2004,501,902,'draft')]:
+for article, theme, matchday, status in [(2001,500,902,'published'), (2002,502,902,'published'), (2003,503,None,'published'), (2004,501,902,'draft'), (2110,521,902,'published')]:
     seed.append(f"""insert into public.editorial_articles(id,title,slug,status,label,subtitle,body,author,matchday_id,published_at)
       values('{uid(article)}','Artigo {article}','artigo-{article}','{status}','Ante','Pós','Corpo original','Editor',
       {'null' if matchday is None else repr(uid(matchday))},'2026-09-17T11:00:00Z');
@@ -540,6 +542,26 @@ def selection_theme_finds_article_without_theme_article_relation():
     assert p['outputs'][0]['target']['editorialArticleId']==uid(2103)
     assert execute(f"select count(*) from public.newsroom_editorial_theme_articles where theme_id='{uid(520)}';")=='0'
 
+def selection_segments_theme_review_from_loose_new():
+    execute(f"""
+      select public.newsroom_set_editorial_theme_source_membership_v1('{uid(521)}','{uid(22)}',true);
+      select public.newsroom_set_editorial_theme_source_membership_v1('{uid(521)}','{uid(23)}',true);
+    """)
+    req=selection_request(8199,[24],[2110],1,theme_ids=[521],candidate_article_ids=[2110])
+    previewed=preview(req)
+    assert [o['kind'] for o in previewed['outputs']]==['existing','new']
+    p=prepare(req,previewed['authorityFingerprint'])['plan']
+    assert p['outputs'][0]['focusSourceIds']==[uid(22),uid(23)]
+    assert p['outputs'][1]['focusSourceIds']==[uid(24)]
+    for output in p['outputs']:
+        assigned=json.loads(execute(f"""select coalesce(jsonb_agg(s.newsroom_article_id order by s.newsroom_article_id),'[]'::jsonb)
+          from public.newsroom_editorial_dossier_article_plan_sources ps
+          join public.newsroom_editorial_dossier_sources s
+            on s.dossier_id=ps.dossier_id and s.id=ps.dossier_source_id
+          where ps.dossier_id='{p['dossierId']}' and ps.article_plan_id='{output['outputId']}';"""))
+        assert assigned==[uid(22),uid(23),uid(24)]
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_sources where theme_id='{uid(521)}' and newsroom_article_id='{uid(24)}';")=='0'
+
 def permissions():
     req=request(8180); p=preview(req)
     for role in ['anon','authenticated']:
@@ -556,7 +578,7 @@ def stable_edit_identity():
     assert original_articles==execute("select md5(jsonb_agg(to_jsonb(a) order by a.id)::text) from public.editorial_articles a;")
     assert execute('select count(*) from public.newsroom_mesa_output_publications;')=='0'
     assert execute('select count(*) from public.newsroom_mesa_publication_events;')=='0'
-    assert post_selection_functions==execute(old_functions_query)
+    assert post_output_focus_functions==execute(old_functions_query)
 
 
 for name,fn in [
@@ -584,6 +606,7 @@ for name,fn in [
     ('selection mistura fonte de Tema e fonte solta sem reorganizar',selection_can_mix_theme_member_and_loose_source),
     ('selection une Tema e fontes soltas num único contexto',selection_theme_union),
     ('Tema sem relação de artigo recupera artigo pela proveniência da fonte',selection_theme_finds_article_without_theme_article_relation),
+    ('selection infere foco por output sem cortar o contexto',selection_segments_theme_review_from_loose_new),
     ('permissões negam clientes e escrita direta',permissions),
     ('preparação não publica nem marca artigos revistos',stable_edit_identity),
 ]:

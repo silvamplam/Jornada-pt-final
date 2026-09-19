@@ -218,7 +218,7 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
   if (productionContext && technicalSources.length !== productionContext.sources.length) return null;
   if (technicalSources.length < 1) return null;
 
-  const startingPointSourceIds = workspaceContractVersion === 2
+  const defaultStartingPointSourceIds = workspaceContractVersion === 2
     ? editorialMesaWorkspaceStartingPointSourceIds(
         context?.selectionPayload,
         context?.materialRefs,
@@ -229,19 +229,28 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
         priority,
       )
     : [];
-  const workingTitle = productionContext
-    ? `Output ${String(priority).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
-    : workspaceContractVersion === 2
+  const focusStartingPointSourceId = continuitySlot && "focusSourceIds" in continuitySlot
+    ? continuitySlot.focusSourceIds?.flatMap((newsroomArticleId) => {
+        const source = technicalSources.find((candidate) => candidate.newsroomArticleId === newsroomArticleId);
+        return source ? [source.id] : [];
+      })[0]
+    : undefined;
+  const startingPointSourceId = focusStartingPointSourceId ?? defaultStartingPointSourceIds[priority - 1];
+  const workingTitle = workspaceContractVersion === 2
     ? editorialMesaWorkspaceOutputWorkingTitle(
         priority,
-        startingPointSourceIds[priority - 1],
+        startingPointSourceId,
         technicalSources.map((source) => ({
           dossierSourceId: source.id,
           newsroomArticleId: source.newsroomArticleId,
           articleTitle: source.articleTitle,
         })),
-      )
-    : `Output ${String(priority).padStart(2, "0")} — ${dossier.title}`.slice(0, 180);
+      ) ?? (productionContext
+        ? `Output ${String(priority).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+        : null)
+    : productionContext
+      ? `Output ${String(priority).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+      : `Output ${String(priority).padStart(2, "0")} — ${dossier.title}`.slice(0, 180);
   if (!workingTitle) return null;
 
   const intentContext = intents?.contexts.find((c) => c.productionContextId === productionContextId);
@@ -441,18 +450,30 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
   })) {
     return { ok: false as const, status: 409, message: "Um Article Plan não tem um contexto 2C íntegro. Volta a guardar a Produção antes de preparar o pacote." };
   }
-  const startingPointSourceIds = workspace.contextMode === "contexts"
+  const defaultStartingPointSourceIds = workspace.contextMode === "contexts"
     ? plans.map((plan) => contextAssignmentByPlanId.get(plan.id)!.sources[0].dossierSourceId)
     : workspaceContractVersion === 2
-    ? editorialMesaWorkspaceStartingPointSourceIds(
-        context?.selectionPayload,
-        context?.materialRefs,
-        workspaceSources.map((source) => ({
-          dossierSourceId: source.id,
-          newsroomArticleId: source.newsroomArticleId,
-        })),
-        plans.length,
-      )
+      ? editorialMesaWorkspaceStartingPointSourceIds(
+          context?.selectionPayload,
+          context?.materialRefs,
+          workspaceSources.map((source) => ({
+            dossierSourceId: source.id,
+            newsroomArticleId: source.newsroomArticleId,
+          })),
+          plans.length,
+        )
+      : [];
+  const startingPointSourceIds = workspaceContractVersion === 2
+    ? plans.map((_, index) => {
+        const slot = frozenSlots?.[index];
+        const focused = slot && "focusSourceIds" in slot
+          ? slot.focusSourceIds?.flatMap((newsroomArticleId) => {
+              const source = workspaceSources.find((candidate) => candidate.newsroomArticleId === newsroomArticleId);
+              return source ? [source.id] : [];
+            })[0]
+          : undefined;
+        return focused ?? defaultStartingPointSourceIds[index] ?? "";
+      })
     : [];
   if (workspaceContractVersion === 2 && startingPointSourceIds.length !== plans.length) {
     return { ok: false as const, status: 409, message: "Não foi possível determinar o ponto de partida dos outputs desta produção." };
@@ -505,9 +526,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
       return { ok: false as const, status: 409, message: `A imagem do artigo ${index + 1} não pode ser incluída no pacote. Escolhe uma imagem do banco editorial.` };
     }
 
-    const outputWorkingTitle = productionContext
-      ? `Output ${String(index + 1).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
-      : workspaceContractVersion === 2
+    const outputWorkingTitle = workspaceContractVersion === 2
       ? editorialMesaWorkspaceOutputWorkingTitle(
           index + 1,
           startingPointSourceIds[index],
@@ -516,8 +535,12 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
             newsroomArticleId: source.newsroomArticleId,
             articleTitle: source.articleTitle,
           })),
-        )
-      : plan.workingTitle;
+        ) ?? (productionContext
+          ? `Output ${String(index + 1).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+          : null)
+      : productionContext
+        ? `Output ${String(index + 1).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+        : plan.workingTitle;
     if (!outputWorkingTitle) {
       return { ok: false as const, status: 409, message: `Não foi possível determinar o ponto de partida textual do artigo ${index + 1}.` };
     }

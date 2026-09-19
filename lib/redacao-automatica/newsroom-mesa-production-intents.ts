@@ -57,6 +57,11 @@ export type MesaPublishedArticleAuthority = Readonly<{
   matchdayId: string | null;
   // Hash the canonical content, not just title/date. Used again before publication.
   contentFingerprint: string;
+  /** Deterministic provenance from the global resolver. Optional for legacy/theme authorities. */
+  evidence?: Readonly<{
+    sourceIds: readonly string[];
+    themeIds: readonly string[];
+  }>;
 }>;
 
 export type MesaThemeAuthority = Readonly<{
@@ -108,6 +113,12 @@ export type MesaIntentOutput = Readonly<{
   contextKey: string;
   kind: "existing" | "new";
   target: MesaPublishedArticleAuthority | null;
+  /**
+   * Conservative automatic focus inferred from deterministic provenance.
+   * It never narrows the parent context: editor instructions may use any
+   * source still available in that context.
+   */
+  focusSourceIds?: readonly string[];
 }>;
 
 export type MesaProductionIntentPlan = Readonly<{
@@ -249,9 +260,16 @@ function sourceCapture(value: MesaSourceAuthority, readAt: string): MesaSourceCa
 }
 
 function articleValid(article: MesaPublishedArticleAuthority): boolean {
+  const evidence = article.evidence;
   return Boolean(uuid(article.editorialArticleId) && typeof article.slug === "string" && article.slug.trim()
     && typeof article.title === "string" && article.title.trim()
-    && (article.matchdayId === null || uuid(article.matchdayId)) && FINGERPRINT.test(article.contentFingerprint));
+    && (article.matchdayId === null || uuid(article.matchdayId)) && FINGERPRINT.test(article.contentFingerprint)
+    && (evidence === undefined || (
+      Array.isArray(evidence.sourceIds) && evidence.sourceIds.length <= MESA_INTENT_LIMITS.sources
+      && evidence.sourceIds.every((sourceId) => Boolean(uuid(sourceId))) && unique(evidence.sourceIds)
+      && Array.isArray(evidence.themeIds) && evidence.themeIds.length <= MESA_INTENT_LIMITS.contexts
+      && evidence.themeIds.every((themeId) => Boolean(uuid(themeId))) && unique(evidence.themeIds)
+    )));
 }
 
 /** No history count supplied by the browser participates in this decision. */
@@ -410,19 +428,76 @@ export function resolveMesaProductionIntent(
   }
   const outputs: MesaIntentOutput[] = [];
   const targetIds = new Set<string>();
+  const reviewedFocusByContext = new Map<string, Set<string>>();
+  const focusSourceIdsForExisting = (
+    context: MesaIntentContext,
+    target: MesaPublishedArticleAuthority,
+  ): readonly string[] | undefined => {
+    if (context.kind !== "selection" || !input.selection || !target.evidence) return undefined;
+    const all = context.sources.map((source) => source.newsroomArticleId);
+    const available = new Set(all);
+    const evidenceSources = target.evidence.sourceIds.filter((sourceId) => available.has(sourceId));
+
+    // With exactly one selected Theme, a deterministic Theme ↔ Article relation
+    // is itself enough evidence to focus the EXISTING on that Theme's current
+    // material. With several Themes the union loses membership boundaries, so
+    // keep only source-level provenance that is actually demonstrated.
+    const selectedThemeIds = input.selection.themeIds ?? [];
+    if (selectedThemeIds.length === 1) {
+      const explicitLoose = new Set(input.selection.sourceIds);
+      const themeSources = all.filter((sourceId) => !explicitLoose.has(sourceId));
+      const touchesSelectedTheme = target.evidence.themeIds.includes(selectedThemeIds[0])
+        || evidenceSources.some((sourceId) => themeSources.includes(sourceId));
+      if (touchesSelectedTheme && themeSources.length) {
+        return [...new Set([...evidenceSources, ...themeSources])].sort();
+      }
+    }
+    return evidenceSources.length ? [...new Set(evidenceSources)].sort() : undefined;
+  };
   for (const context of contexts.filter((item) => item.reviewPublished)) {
     for (const target of context.publishedArticles) {
       if (targetIds.has(target.editorialArticleId)) issues.push(issue("review_target_conflict",
         "O mesmo artigo não pode receber duas atualizações concorrentes nesta preparação. Escolhe apenas um contexto responsável pela revisão.", context.key));
       targetIds.add(target.editorialArticleId);
-      outputs.push({ slot: `EXISTING_${String(outputs.length + 1).padStart(2, "0")}`, contextKey: context.key, kind: "existing", target });
+      const focusSourceIds = focusSourceIdsForExisting(context, target);
+      if (focusSourceIds?.length) {
+        const reviewed = reviewedFocusByContext.get(context.key) ?? new Set<string>();
+        for (const sourceId of focusSourceIds) reviewed.add(sourceId);
+        reviewedFocusByContext.set(context.key, reviewed);
+      }
+      outputs.push({
+        slot: `EXISTING_${String(outputs.length + 1).padStart(2, "0")}`,
+        contextKey: context.key,
+        kind: "existing",
+        target,
+        ...(focusSourceIds?.length ? { focusSourceIds } : {}),
+      });
     }
   }
   const reviews = outputs.length;
   let newArticles = 0;
   for (const context of contexts) for (let i = 0; i < context.newArticleCount; i++) {
     newArticles++;
-    outputs.push({ slot: `NEW_${String(newArticles).padStart(2, "0")}`, contextKey: context.key, kind: "new", target: null });
+    let focusSourceIds: readonly string[] | undefined;
+    // A single NEW can inherit demonstrably unaccounted-for loose material.
+    // Several NEWs do not have a deterministic distribution, so never guess.
+    if (context.kind === "selection" && input.selection && context.newArticleCount === 1) {
+      const reviewed = reviewedFocusByContext.get(context.key);
+      if (reviewed?.size) {
+        const all = new Set(context.sources.map((source) => source.newsroomArticleId));
+        const remainingLoose = input.selection.sourceIds.filter(
+          (sourceId) => all.has(sourceId) && !reviewed.has(sourceId),
+        );
+        if (remainingLoose.length) focusSourceIds = [...remainingLoose].sort();
+      }
+    }
+    outputs.push({
+      slot: `NEW_${String(newArticles).padStart(2, "0")}`,
+      contextKey: context.key,
+      kind: "new",
+      target: null,
+      ...(focusSourceIds?.length ? { focusSourceIds } : {}),
+    });
   }
   if (!outputs.length) issues.push(issue("no_work_requested", "Não há trabalho editorial pedido. A seleção fica preservada."));
   if (contexts.length > MESA_INTENT_LIMITS.contexts) issues.push(issue("context_limit", "O máximo atual é 20 contextos por Produção. Nada foi dividido."));
@@ -499,10 +574,15 @@ export function resolveMesaIntentPublication(
       }
       publishedIds.add(published.id);
     }
+    const reviewedFocus = output.kind === "existing" && output.focusSourceIds?.length
+      ? new Set(output.focusSourceIds)
+      : null;
     receipts.push({
       contextKey: context.key, themeId: context.themeId, articleId: target?.editorialArticleId ?? published!.id,
       slot: output.slot, decision: result.decision, capturedAt: plan.capturedAt,
-      sources: context.sources.map((source) => ({ ...source })),
+      sources: reviewedFocus
+        ? context.sources.filter((source) => reviewedFocus.has(source.newsroomArticleId)).map((source) => ({ ...source }))
+        : context.sources.map((source) => ({ ...source })),
     });
   }
   return { ok: true, value: receipts };
