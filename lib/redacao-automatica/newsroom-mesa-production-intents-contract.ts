@@ -19,10 +19,11 @@ export type MesaIntentCapturedArticle = MesaPublishedArticleAuthority & Readonly
     matchday_id: string | null; label: string; subtitle: string; body: string;
   }>;
 }>;
-export type MesaIntentFrozenContext = Omit<MesaIntentContext, "sources" | "publishedArticles"> & Readonly<{
+export type MesaIntentFrozenContext = Omit<MesaIntentContext, "sources" | "publishedArticles" | "candidateArticles"> & Readonly<{
   productionContextId: string;
   sources: readonly MesaIntentCapturedSource[];
   publishedArticles: readonly MesaIntentCapturedArticle[];
+  candidateArticles?: readonly MesaIntentCapturedArticle[];
 }>;
 export type MesaIntentFrozenOutput = Omit<MesaIntentOutput, "target"> & Readonly<{
   outputId: string; productionContextId: string; target: MesaIntentCapturedArticle | null;
