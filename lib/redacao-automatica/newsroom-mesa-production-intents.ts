@@ -410,7 +410,7 @@ export type MesaIntentPublicationDecision = Readonly<{
 
 export type MesaArticleCaptureReceipt = Readonly<{
   contextKey: string;
-  themeId: string;
+  themeId: string | null;
   articleId: string;
   slot: string;
   decision: "UPDATE" | "SEM_ALTERAÇÃO" | "NEW";
@@ -455,7 +455,7 @@ export function resolveMesaIntentPublication(
       }
       publishedIds.add(published.id);
     }
-    if (context.themeId) receipts.push({
+    receipts.push({
       contextKey: context.key, themeId: context.themeId, articleId: target?.editorialArticleId ?? published!.id,
       slot: output.slot, decision: result.decision, capturedAt: plan.capturedAt,
       sources: context.sources.map((source) => ({ ...source })),
@@ -468,16 +468,15 @@ export function resolveMesaIntentPublication(
  * A delayed older production also must not overwrite a newer article review.
  * Missing history means UNKNOWN, not UNCHANGED.
  */
-export function compareMesaArticleSourceCapture(
-  themeId: string,
+export function compareMesaArticleSourceCaptureByArticle(
   articleId: string,
   current: readonly MesaSourceCapture[],
   receipts: readonly MesaArticleCaptureReceipt[],
 ): readonly Readonly<{ sourceId: string; change: "UNKNOWN" | "NEW_SOURCE" | "UPDATED_SOURCE" | "UNCHANGED_SOURCE" }>[] {
-  const latest = receipts.filter((item) => item.themeId === themeId && item.articleId === articleId)
+  const latest = receipts.filter((item) => item.articleId === articleId)
     .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt))[0];
-  const sameTime = latest ? receipts.filter((item) => item.themeId === themeId
-    && item.articleId === articleId && item.capturedAt === latest.capturedAt) : [];
+  const sameTime = latest ? receipts.filter((item) => item.articleId === articleId
+    && item.capturedAt === latest.capturedAt) : [];
   const captureKey = (sources: readonly MesaSourceCapture[]) => JSON.stringify(sources.map((source) => (
     [source.newsroomArticleId, source.newsroomSnapshotId]
   )).sort((a, b) => a[0].localeCompare(b[0])));
@@ -486,4 +485,18 @@ export function compareMesaArticleSourceCapture(
   return current.map((source) => ({ sourceId: source.newsroomArticleId,
     change: !latest || ambiguous ? "UNKNOWN" : !baseline.has(source.newsroomArticleId) ? "NEW_SOURCE"
       : baseline.get(source.newsroomArticleId) !== source.newsroomSnapshotId ? "UPDATED_SOURCE" : "UNCHANGED_SOURCE" }));
+}
+
+/** Compatibility view for Theme-specific UI. Article continuity itself is global. */
+export function compareMesaArticleSourceCapture(
+  themeId: string,
+  articleId: string,
+  current: readonly MesaSourceCapture[],
+  receipts: readonly MesaArticleCaptureReceipt[],
+) {
+  return compareMesaArticleSourceCaptureByArticle(
+    articleId,
+    current,
+    receipts.filter((item) => item.themeId === themeId),
+  );
 }

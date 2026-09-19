@@ -4,7 +4,7 @@
 import { parseMesaProductionIntent, type MesaProductionIntent } from "./newsroom-mesa-production-intents";
 import {
   parseMesaProductionIntents, parseMesaProductionIntentsPreview, parseMesaIntentLatestReceipts,
-  sameMesaIntentJson, type MesaProductionIntentsFrozen,
+  parseMesaIntentLatestArticleReceipts, sameMesaIntentJson, type MesaProductionIntentsFrozen,
 } from "./newsroom-mesa-production-intents-contract";
 
 export type MesaIntentRpcTransport = Readonly<{
@@ -113,6 +113,16 @@ export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) 
       const row=single(await transport.get("newsroom_mesa_intent_latest_receipts_v1", {p_theme_id:themeId}));
       const receipts=parseMesaIntentLatestReceipts(row?.receipts,themeId);
       if (!receipts) throw new Error("mesa-intent-receipts-result-invalid");
+      return receipts;
+    },
+    async readArticleReceipts(articleIds: readonly string[]) {
+      if (!articleIds.length || articleIds.length>30 || !articleIds.every(id) || new Set(articleIds).size!==articleIds.length) {
+        throw new Error("mesa-intent-article-receipts-input-invalid");
+      }
+      const normalized=[...articleIds].sort();
+      const row=single(await transport.post("newsroom_mesa_intent_latest_article_receipts_v2", {p_article_ids:normalized}));
+      const receipts=parseMesaIntentLatestArticleReceipts(row?.receipts,normalized);
+      if (!receipts) throw new Error("mesa-intent-article-receipts-result-invalid");
       return receipts;
     },
   };

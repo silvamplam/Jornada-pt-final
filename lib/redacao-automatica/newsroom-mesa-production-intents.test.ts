@@ -407,12 +407,25 @@ test("UPDATE mantém artigo, endereço e jornada; NEW não reaproveita um antigo
   } }]).ok, false);
 });
 
-test("novos independentes não geram recibos nem memória editorial de outro Tema", () => {
+test("novo independente ganha memória própria sem ser associado ao Tema", () => {
   const frozen = plan({ ...intent(), sources: [{ sourceId: id(3), destination: "independent", newArticleCount: 1 }] });
   const resolved = receipts(frozen);
-  assert.equal(resolved.length, 1);
-  assert.equal(resolved[0].decision, "UPDATE");
-  assert.equal(resolved[0].sources.some((item) => item.newsroomArticleId === id(3)), false);
+  assert.equal(resolved.length, 2);
+  const themeReceipt=resolved.find((item) => item.themeId===id(500))!;
+  const sourceReceipt=resolved.find((item) => item.themeId===null)!;
+  assert.equal(themeReceipt.decision, "UPDATE");
+  assert.equal(themeReceipt.sources.some((item) => item.newsroomArticleId === id(3)), false);
+  assert.equal(sourceReceipt.decision, "NEW");
+  assert.equal(sourceReceipt.contextKey, `source:${id(3)}`);
+  assert.deepEqual(sourceReceipt.sources.map((item) => item.newsroomArticleId), [id(3)]);
+});
+
+test("selection produz receipts por artigo sem Theme", () => {
+  const frozen=plan(selectionIntent([article(1).editorialArticleId],1),
+    { ...authorities(0), selectionPublishedArticles:[article(1)] });
+  const saved=receipts(frozen);
+  assert.equal(saved.length,2);
+  assert.ok(saved.every((item) => item.themeId===null && item.contextKey===`selection:${id(801)}`));
 });
 
 test("sequência crítica: NEW hoje não apaga a necessidade de rever os antigos amanhã", () => {

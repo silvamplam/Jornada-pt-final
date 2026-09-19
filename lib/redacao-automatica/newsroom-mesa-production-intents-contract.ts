@@ -208,3 +208,25 @@ export function parseMesaIntentLatestReceipts(value: unknown, themeId: string): 
   }
   return value as readonly MesaArticleCaptureReceipt[];
 }
+
+
+export function parseMesaIntentLatestArticleReceipts(
+  value: unknown,
+  articleIds: readonly string[],
+): readonly MesaArticleCaptureReceipt[] | null {
+  if (!Array.isArray(value) || articleIds.length > 30 || !articleIds.every(id) || !unique(articleIds)) return null;
+  const requested=new Set(articleIds);
+  for (const raw of value) {
+    const r=object(raw);
+    if (!r || !text(r.contextKey) || !/^(theme|source|selection):[0-9a-f-]{36}$/.test(String(r.contextKey))
+      || !(r.themeId===null || id(r.themeId))
+      || (r.themeId!==null && r.contextKey!==`theme:${r.themeId}`)
+      || !id(r.articleId) || !requested.has(r.articleId)
+      || !date(r.capturedAt) || !text(r.slot) || !/^(EXISTING|NEW)_\d{2}$/.test(r.slot)
+      || !["UPDATE","SEM_ALTERAÇÃO","NEW"].includes(String(r.decision))
+      || (r.decision === "NEW") !== r.slot.startsWith("NEW_")
+      || !Array.isArray(r.sources) || !r.sources.length || r.sources.length>20 || !r.sources.every(capturedSource)
+      || !unique(r.sources.map((s) => s.newsroomArticleId))) return null;
+  }
+  return value as readonly MesaArticleCaptureReceipt[];
+}

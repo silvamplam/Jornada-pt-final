@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   parseMesaProductionIntents, validateMesaProductionIntentsManifest, mesaProductionIntentSlots,
-  sameMesaIntentJson, parseMesaIntentLatestReceipts,
+  sameMesaIntentJson, parseMesaIntentLatestReceipts, parseMesaIntentLatestArticleReceipts,
 } from "./newsroom-mesa-production-intents-contract";
 import { parseEditorialBatchTransferSourcePackage } from "./editorial-batch-transfer";
 import { editorialMesaPackageBatchContract } from "./editorial-mesa-provenance";
@@ -143,4 +143,12 @@ test("receipt reader rejects another Theme or a NEW disguised as an existing rev
   assert.ok(parseMesaIntentLatestReceipts([receipt],c.themeId!));
   assert.equal(parseMesaIntentLatestReceipts([{...receipt,decision:"NEW"}],c.themeId!),null);
   assert.equal(parseMesaIntentLatestReceipts([receipt],plan.dossierId),null);
+});
+
+test("article receipt reader accepts Theme-less selection and rejects unrequested article",()=> {
+  const c=plan.contexts[theme],o=plan.outputs[0];
+  const selectionReceipt={contextKey:`selection:${plan.preparationKey}`,themeId:null,
+    articleId:o.target!.editorialArticleId,slot:o.slot,decision:"UPDATE",capturedAt:plan.capturedAt,sources:c.sources};
+  assert.ok(parseMesaIntentLatestArticleReceipts([selectionReceipt],[o.target!.editorialArticleId]));
+  assert.equal(parseMesaIntentLatestArticleReceipts([selectionReceipt],[plan.dossierId]),null);
 });
