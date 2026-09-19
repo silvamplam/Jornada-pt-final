@@ -18,7 +18,6 @@ const target = (article: MesaPublishedArticleAuthority) => ({
   editorialArticleId: article.editorialArticleId,
   slug: article.slug, title: article.title, matchdayId: article.matchdayId,
   contentFingerprint: article.contentFingerprint,
-  ...(article.evidence ? { evidence: article.evidence } : {}),
 });
 const normalized = (plan: MesaProductionIntentPlan) => ({
   contractVersion: plan.contractVersion, preparationKey: plan.preparationKey,
@@ -32,9 +31,8 @@ const normalized = (plan: MesaProductionIntentPlan) => ({
     publishedArticles: context.publishedArticles.map(target),
     ...(context.candidateArticles ? {candidateArticles:context.candidateArticles.map(target)} : {}),
   })),
-  outputs: plan.outputs.map(({ slot, contextKey, kind, target: article, focusSourceIds }) => ({
+  outputs: plan.outputs.map(({ slot, contextKey, kind, target: article }) => ({
     slot, contextKey, kind, target: article ? target(article) : null,
-    ...(focusSourceIds ? { focusSourceIds } : {}),
   })),
   incorporations: plan.incorporations, deferred: plan.deferred, totals: plan.totals,
 });
