@@ -159,11 +159,12 @@ function validPlan(value: unknown, persisted: boolean): boolean {
       || o.contextKey !== expected.contextKey || o.kind !== expected.kind) return false;
     const c=contexts.find((c) => c.key === o.contextKey)!;
     if (persisted && o.productionContextId !== c.productionContextId) return false;
-    const expectedSourceIds = expected.sourceIds ?? c.sources.map((source) => source.newsroomArticleId);
-    if (o.sourceIds !== undefined && (!ids(o.sourceIds) || o.sourceIds.length < 1 || o.sourceIds.length > 20
-      || o.sourceIds.some((sourceId) => !c.sources.some((source) => source.newsroomArticleId === sourceId))
-      || !sameMesaIntentJson(o.sourceIds, expectedSourceIds))) return false;
-    if (persisted && expected.sourceIds !== undefined && !sameMesaIntentJson(o.sourceIds, expectedSourceIds)) return false;
+    const expectedFocusSourceIds = expected.focusSourceIds;
+    if (o.focusSourceIds !== undefined && (!ids(o.focusSourceIds) || o.focusSourceIds.length < 1 || o.focusSourceIds.length > 20
+      || o.focusSourceIds.some((sourceId) => !c.sources.some((source) => source.newsroomArticleId === sourceId))
+      || !sameMesaIntentJson(o.focusSourceIds, expectedFocusSourceIds))) return false;
+    if (persisted && expectedFocusSourceIds !== undefined
+      && !sameMesaIntentJson(o.focusSourceIds, expectedFocusSourceIds)) return false;
     if (o.kind === "new" ? o.target !== null : !capturedArticle(o.target)
       || !sameMesaIntentJson(o.target, c.publishedArticles.find((a) => a.editorialArticleId === expected.target?.editorialArticleId))) return false;
   }
@@ -178,7 +179,7 @@ export function parseMesaProductionIntentsPreview(value: unknown): MesaProductio
 }
 export function mesaProductionIntentSlots(plan: MesaProductionIntentsFrozen) {
   return plan.outputs.map((o) => ({ slot: o.slot, kind: o.kind, outputId: o.outputId,
-    productionContextId: o.productionContextId, sourceIds: o.sourceIds,
+    productionContextId: o.productionContextId, focusSourceIds: o.focusSourceIds,
     targetEditorialArticleId: o.target?.editorialArticleId ?? null,
     targetSlug: o.target?.slug, targetTitle: o.target?.title, targetMatchdayId: o.target ? o.target.matchdayId : undefined }));
 }

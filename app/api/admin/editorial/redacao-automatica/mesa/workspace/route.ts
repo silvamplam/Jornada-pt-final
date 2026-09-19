@@ -217,19 +217,8 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
     : includedSources.slice().sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
   if (productionContext && technicalSources.length !== productionContext.sources.length) return null;
   if (technicalSources.length < 1) return null;
-  const frozenOutputSourceIds = continuitySlot && "sourceIds" in continuitySlot
-    ? continuitySlot.sourceIds
-    : undefined;
-  const allowedSourceIds = frozenOutputSourceIds?.length
-    ? new Set(frozenOutputSourceIds)
-    : null;
-  const planSources = allowedSourceIds
-    ? technicalSources.filter((source) => allowedSourceIds.has(source.newsroomArticleId))
-    : technicalSources;
-  if (planSources.length < 1
-    || (allowedSourceIds && planSources.length !== allowedSourceIds.size)) return null;
 
-  const startingPointSourceIds = workspaceContractVersion === 2
+  const defaultStartingPointSourceIds = workspaceContractVersion === 2
     ? editorialMesaWorkspaceStartingPointSourceIds(
         context?.selectionPayload,
         context?.materialRefs,
@@ -240,19 +229,28 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
         priority,
       )
     : [];
-  const workingTitle = productionContext
-    ? `Output ${String(priority).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
-    : workspaceContractVersion === 2
+  const focusStartingPointSourceId = continuitySlot && "focusSourceIds" in continuitySlot
+    ? continuitySlot.focusSourceIds?.flatMap((newsroomArticleId) => {
+        const source = technicalSources.find((candidate) => candidate.newsroomArticleId === newsroomArticleId);
+        return source ? [source.id] : [];
+      })[0]
+    : undefined;
+  const startingPointSourceId = focusStartingPointSourceId ?? defaultStartingPointSourceIds[priority - 1];
+  const workingTitle = workspaceContractVersion === 2
     ? editorialMesaWorkspaceOutputWorkingTitle(
         priority,
-        startingPointSourceIds[priority - 1],
+        startingPointSourceId,
         technicalSources.map((source) => ({
           dossierSourceId: source.id,
           newsroomArticleId: source.newsroomArticleId,
           articleTitle: source.articleTitle,
         })),
-      )
-    : `Output ${String(priority).padStart(2, "0")} — ${dossier.title}`.slice(0, 180);
+      ) ?? (productionContext
+        ? `Output ${String(priority).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+        : null)
+    : productionContext
+      ? `Output ${String(priority).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+      : `Output ${String(priority).padStart(2, "0")} — ${dossier.title}`.slice(0, 180);
   if (!workingTitle) return null;
 
   const intentContext = intents?.contexts.find((c) => c.productionContextId === productionContextId);
@@ -271,7 +269,7 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
         articleKind: kind,
         lengthMode: length,
         editorialInstructions: textValue(payload.editorialInstructions),
-        sources: planSources.map((source, index) => ({
+        sources: technicalSources.map((source, index) => ({
           dossierSourceId: source.id,
           priority: index + 1,
         })),
@@ -443,39 +441,39 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
   const contextAssignmentByPlanId = new Map(workspace.planContexts.map((item) => (
     [item.articlePlanId, productionContextById.get(item.productionContextId) ?? null]
   )));
-  const workspaceSourceById = new Map(workspaceSources.map((source) => [source.id, source]));
-  if (workspace.contextMode === "contexts" && plans.some((plan, index) => {
+  if (workspace.contextMode === "contexts" && plans.some((plan) => {
     const assigned = contextAssignmentByPlanId.get(plan.id);
-    if (!assigned || plan.sources.length < 1) return true;
-    const frozenDossierIds = new Set(assigned.sources.map((source) => source.dossierSourceId));
-    if (plan.sources.some((source) => !frozenDossierIds.has(source.dossierSourceId))) return true;
-    const slotSourceIds = frozenSlots?.[index] && "sourceIds" in frozenSlots[index]!
-      ? frozenSlots[index]!.sourceIds
-      : undefined;
-    if (!slotSourceIds?.length) {
-      const planned = plan.sources.map((source) => source.dossierSourceId).sort();
-      const frozen = assigned.sources.map((source) => source.dossierSourceId).sort();
-      return JSON.stringify(planned) !== JSON.stringify(frozen);
-    }
-    const plannedArticleIds = plan.sources
-      .map((source) => workspaceSourceById.get(source.dossierSourceId)?.newsroomArticleId ?? "")
-      .sort();
-    return JSON.stringify(plannedArticleIds) !== JSON.stringify([...slotSourceIds].sort());
+    if (!assigned) return true;
+    const planned = plan.sources.map((source) => source.dossierSourceId).sort();
+    const frozen = assigned.sources.map((source) => source.dossierSourceId).sort();
+    return JSON.stringify(planned) !== JSON.stringify(frozen);
   })) {
-    return { ok: false as const, status: 409, message: "Um Article Plan não preserva o conjunto de fontes congelado para esse output. Volta a guardar a Produção antes de preparar o pacote." };
+    return { ok: false as const, status: 409, message: "Um Article Plan não tem um contexto 2C íntegro. Volta a guardar a Produção antes de preparar o pacote." };
   }
-  const startingPointSourceIds = workspace.contextMode === "contexts"
-    ? plans.map((plan) => plan.sources[0]?.dossierSourceId ?? "")
+  const defaultStartingPointSourceIds = workspace.contextMode === "contexts"
+    ? plans.map((plan) => contextAssignmentByPlanId.get(plan.id)!.sources[0].dossierSourceId)
     : workspaceContractVersion === 2
-    ? editorialMesaWorkspaceStartingPointSourceIds(
-        context?.selectionPayload,
-        context?.materialRefs,
-        workspaceSources.map((source) => ({
-          dossierSourceId: source.id,
-          newsroomArticleId: source.newsroomArticleId,
-        })),
-        plans.length,
-      )
+      ? editorialMesaWorkspaceStartingPointSourceIds(
+          context?.selectionPayload,
+          context?.materialRefs,
+          workspaceSources.map((source) => ({
+            dossierSourceId: source.id,
+            newsroomArticleId: source.newsroomArticleId,
+          })),
+          plans.length,
+        )
+      : [];
+  const startingPointSourceIds = workspaceContractVersion === 2
+    ? plans.map((_, index) => {
+        const slot = frozenSlots?.[index];
+        const focused = slot && "focusSourceIds" in slot
+          ? slot.focusSourceIds?.flatMap((newsroomArticleId) => {
+              const source = workspaceSources.find((candidate) => candidate.newsroomArticleId === newsroomArticleId);
+              return source ? [source.id] : [];
+            })[0]
+          : undefined;
+        return focused ?? defaultStartingPointSourceIds[index] ?? "";
+      })
     : [];
   if (workspaceContractVersion === 2 && startingPointSourceIds.length !== plans.length) {
     return { ok: false as const, status: 409, message: "Não foi possível determinar o ponto de partida dos outputs desta produção." };
@@ -528,9 +526,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
       return { ok: false as const, status: 409, message: `A imagem do artigo ${index + 1} não pode ser incluída no pacote. Escolhe uma imagem do banco editorial.` };
     }
 
-    const outputWorkingTitle = productionContext
-      ? `Output ${String(index + 1).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
-      : workspaceContractVersion === 2
+    const outputWorkingTitle = workspaceContractVersion === 2
       ? editorialMesaWorkspaceOutputWorkingTitle(
           index + 1,
           startingPointSourceIds[index],
@@ -539,8 +535,12 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
             newsroomArticleId: source.newsroomArticleId,
             articleTitle: source.articleTitle,
           })),
-        )
-      : plan.workingTitle;
+        ) ?? (productionContext
+          ? `Output ${String(index + 1).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+          : null)
+      : productionContext
+        ? `Output ${String(index + 1).padStart(2, "0")} — ${productionContext.title}`.slice(0, 180)
+        : plan.workingTitle;
     if (!outputWorkingTitle) {
       return { ok: false as const, status: 409, message: `Não foi possível determinar o ponto de partida textual do artigo ${index + 1}.` };
     }

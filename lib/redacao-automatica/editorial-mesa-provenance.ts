@@ -49,23 +49,6 @@ export type EditorialMesaPackageBatchContract =
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function outputAuthorizedProvenanceIds(
-  manifest: EditorialSourcePackageManifest,
-  output: EditorialSourcePackageOutput,
-): readonly string[] | null {
-  if (output.articlePlan?.sourceScope !== "context") return null;
-  const frozen = manifest.productionIntents?.outputs.find((item) => item.outputId === output.outputId);
-  const newsroomIds = frozen?.sourceIds;
-  if (!newsroomIds?.length) return output.contextSourceIds ?? null;
-  const byNewsroomId = new Map(manifest.entries.flatMap((entry) => (
-    entry.status === "prepared" && entry.newsroomArticleId && entry.provenanceSourceId
-      ? [[entry.newsroomArticleId, entry.provenanceSourceId] as const]
-      : []
-  )));
-  const mapped = newsroomIds.map((newsroomArticleId) => byNewsroomId.get(newsroomArticleId) ?? "");
-  return mapped.every((sourceId) => UUID_PATTERN.test(sourceId)) ? mapped : [];
-}
-
 export function editorialMesaPackageBatchContract(
   manifest: EditorialSourcePackageManifest,
 ): EditorialMesaPackageBatchContract {
@@ -115,7 +98,7 @@ export function editorialMesaPackageBatchContract(
       sourceIds,
       ...(contextScoped ? {
         sourceIdsByOutput: Object.fromEntries(manifest.outputs.map((output) => (
-          [output.outputId!, outputAuthorizedProvenanceIds(manifest, output) ?? []]
+          [output.outputId!, output.contextSourceIds!]
         ))),
       } : {}),
     },
@@ -142,8 +125,9 @@ export function validateEditorialMesaSingleOutputProvenance(
   if (new Set(article.sourceIds).size !== article.sourceIds.length) {
     return { ok: false, code: "mesa-v2-source-duplicate", articleKey: article.key };
   }
-  const authorized = outputAuthorizedProvenanceIds(manifest, matchingOutputs[0]);
-  const authorizedIds = authorized ? new Set(authorized) : null;
+  const authorizedIds = matchingOutputs[0].articlePlan?.sourceScope === "context"
+    ? new Set(matchingOutputs[0].contextSourceIds ?? [])
+    : null;
   const sourceById = new Map(manifest.entries.flatMap((entry) => (
     entry.status === "prepared" && entry.provenanceSourceId
       ? [[entry.provenanceSourceId, entry] as const]
@@ -233,8 +217,9 @@ export function validateEditorialMesaOutputProvenance(
       };
     }
     const sources = article.sourceIds.map((sourceId) => sourceById.get(sourceId));
-    const authorized = outputAuthorizedProvenanceIds(manifest, output);
-    const authorizedIds = authorized ? new Set(authorized) : null;
+    const authorizedIds = output.articlePlan?.sourceScope === "context"
+      ? new Set(output.contextSourceIds ?? [])
+      : null;
     if (sources.some((source) => !source)
       || authorizedIds && article.sourceIds.some((sourceId) => !authorizedIds.has(sourceId))) {
       return {

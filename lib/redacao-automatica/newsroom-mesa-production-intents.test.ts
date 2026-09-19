@@ -114,7 +114,7 @@ test("selection rejeita alvo que deixou de ser candidato e duplicação com dest
     reviewArticleIds: [], newArticleCount: 0 } }).ok, false);
 });
 
-test("selection com Tema segmenta EXISTING e fonte solta NEW quando a proveniência o demonstra", () => {
+test("selection com Tema infere focos sem cortar o contexto quando a proveniência o demonstra", () => {
   const request: MesaProductionIntent={version:1,preparationKey:id(802),title:"Seleção completa",themes:[],sources:[],
     selection:{sourceIds:[id(3)],themeIds:[id(500)],candidateArticleIds:[article(1).editorialArticleId],
       reviewArticleIds:[article(1).editorialArticleId],newArticleCount:1}};
@@ -125,8 +125,9 @@ test("selection com Tema segmenta EXISTING e fonte solta NEW quando a proveniên
   assert.equal(frozen.contexts.length,1);assert.equal(frozen.contexts[0].kind,"selection");
   assert.deepEqual(frozen.contexts[0].sources.map(s=>s.newsroomArticleId),[id(1),id(2),id(3)]);
   assert.deepEqual(frozen.outputs.map(o=>o.kind),["existing","new"]);
-  assert.deepEqual(frozen.outputs[0].sourceIds,[id(1),id(2)]);
-  assert.deepEqual(frozen.outputs[1].sourceIds,[id(3)]);
+  assert.deepEqual(frozen.outputs[0].focusSourceIds,[id(1),id(2)]);
+  assert.deepEqual(frozen.outputs[1].focusSourceIds,[id(3)]);
+  assert.deepEqual(frozen.contexts[0].sources.map(s=>s.newsroomArticleId),[id(1),id(2),id(3)]);
 });
 
 test("selection conserva contexto inteiro quando não há prova segura para segmentar", () => {
@@ -135,9 +136,23 @@ test("selection conserva contexto inteiro quando não há prova segura para segm
       reviewArticleIds:[article(1).editorialArticleId],newArticleCount:1}};
   const frozen=plan(request,{...authorities(0),selectionPublishedArticles:[article(1)],
     selectionSources:[source(1),source(2),source(3)]});
-  assert.deepEqual(frozen.outputs[0].sourceIds,[id(1),id(2),id(3)]);
-  assert.deepEqual(frozen.outputs[1].sourceIds,[id(1),id(2),id(3)]);
+  assert.equal(frozen.outputs[0].focusSourceIds,undefined);
+  assert.equal(frozen.outputs[1].focusSourceIds,undefined);
+  assert.deepEqual(frozen.contexts[0].sources.map(s=>s.newsroomArticleId),[id(1),id(2),id(3)]);
 });
+
+test("selection com vários NEW não inventa distribuição do material residual", () => {
+  const request: MesaProductionIntent={version:1,preparationKey:id(805),title:"Seleção com dois novos",themes:[],sources:[],
+    selection:{sourceIds:[id(3)],themeIds:[id(500)],candidateArticleIds:[article(1).editorialArticleId],
+      reviewArticleIds:[article(1).editorialArticleId],newArticleCount:2}};
+  const candidate: MesaPublishedArticleAuthority={...article(1),evidence:{sourceIds:[id(1),id(2)],themeIds:[id(500)]}};
+  const frozen=plan(request,{...authorities(0),selectionPublishedArticles:[candidate],
+    selectionSources:[source(1),source(2),source(3)]});
+  assert.deepEqual(frozen.outputs[0].focusSourceIds,[id(1),id(2)]);
+  assert.equal(frozen.outputs[1].focusSourceIds,undefined);
+  assert.equal(frozen.outputs[2].focusSourceIds,undefined);
+});
+
 
 test("candidate set alterado fica stale antes de NEW", () => {
   const request: MesaProductionIntent={version:1,preparationKey:id(803),title:"Seleção",themes:[],sources:[],
