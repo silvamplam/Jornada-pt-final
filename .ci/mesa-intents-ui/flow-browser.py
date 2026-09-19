@@ -128,11 +128,13 @@ with sync_playwright() as pw:
         pid,text=package(did);assert 'Milan' in text and 'Pote' in text
         return_text(pid);publish(new=True)
         s=rpc(dict(kind='flow-state',dossierId=did));assert s['workspace']['workspace_state']=='consolidated'
-        assert len(s['published'])==2 and len(s['receipts'])==1
+        assert len(s['published'])==2 and len(s['receipts'])==2
         old=next(a for a in s['articles'] if a['id']==f['articles'][0]);target=next(o['target'] for o in plan['outputs'] if o['kind']=='existing')
         assert old['slug']==target['slug'] and old['matchday_id'] is None
         assert len(s['themeArticles'])==1
         fresh=next(a for a in s['articles'] if a['id']!=old['id']);assert 'Pote' in fresh['title']
+        receipt=next(r for r in s['receipts'] if r['editorial_article_id']==fresh['id'])
+        assert receipt['theme_id'] is None
         (out/'flow-mixed-result.json').write_text(json.dumps(s,ensure_ascii=False,indent=2))
     def nochange():
         start(independent=False,published=2);did,plan=prepare();pid,_=package(did)
