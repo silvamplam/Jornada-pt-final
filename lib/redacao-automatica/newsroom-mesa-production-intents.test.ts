@@ -114,16 +114,29 @@ test("selection rejeita alvo que deixou de ser candidato e duplicação com dest
     reviewArticleIds: [], newArticleCount: 0 } }).ok, false);
 });
 
-test("selection com Tema usa união autoritativa sem criar contexto Theme", () => {
+test("selection com Tema segmenta EXISTING e fonte solta NEW quando a proveniência o demonstra", () => {
   const request: MesaProductionIntent={version:1,preparationKey:id(802),title:"Seleção completa",themes:[],sources:[],
     selection:{sourceIds:[id(3)],themeIds:[id(500)],candidateArticleIds:[article(1).editorialArticleId],
       reviewArticleIds:[article(1).editorialArticleId],newArticleCount:1}};
-  const data: MesaProductionAuthorities={...authorities(0),selectionPublishedArticles:[article(1)],
+  const candidate: MesaPublishedArticleAuthority={...article(1),evidence:{sourceIds:[id(1),id(2)],themeIds:[id(500)]}};
+  const data: MesaProductionAuthorities={...authorities(0),selectionPublishedArticles:[candidate],
     selectionSources:[source(1),source(2),source(3)]};
   const frozen=plan(request,data);
   assert.equal(frozen.contexts.length,1);assert.equal(frozen.contexts[0].kind,"selection");
   assert.deepEqual(frozen.contexts[0].sources.map(s=>s.newsroomArticleId),[id(1),id(2),id(3)]);
   assert.deepEqual(frozen.outputs.map(o=>o.kind),["existing","new"]);
+  assert.deepEqual(frozen.outputs[0].sourceIds,[id(1),id(2)]);
+  assert.deepEqual(frozen.outputs[1].sourceIds,[id(3)]);
+});
+
+test("selection conserva contexto inteiro quando não há prova segura para segmentar", () => {
+  const request: MesaProductionIntent={version:1,preparationKey:id(804),title:"Seleção ambígua",themes:[],sources:[],
+    selection:{sourceIds:[id(3)],themeIds:[id(500)],candidateArticleIds:[article(1).editorialArticleId],
+      reviewArticleIds:[article(1).editorialArticleId],newArticleCount:1}};
+  const frozen=plan(request,{...authorities(0),selectionPublishedArticles:[article(1)],
+    selectionSources:[source(1),source(2),source(3)]});
+  assert.deepEqual(frozen.outputs[0].sourceIds,[id(1),id(2),id(3)]);
+  assert.deepEqual(frozen.outputs[1].sourceIds,[id(1),id(2),id(3)]);
 });
 
 test("candidate set alterado fica stale antes de NEW", () => {
