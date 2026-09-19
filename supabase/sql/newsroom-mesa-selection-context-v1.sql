@@ -676,6 +676,9 @@ begin
       array(select (value #>> '{}')::uuid from jsonb_array_elements(v_request -> 'selection' -> 'sourceIds')),
       array(select (value #>> '{}')::uuid from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'themeIds','[]'::jsonb)))
     );
+    select coalesce(jsonb_agg(candidate order by candidate ->> 'editorialArticleId'),'[]'::jsonb)
+      into v_candidates
+      from jsonb_array_elements(v_candidates) candidate;
     if v_request -> 'selection' ? 'candidateArticleIds' and
       (select coalesce(jsonb_agg(candidate -> 'editorialArticleId' order by candidate ->> 'editorialArticleId'),'[]'::jsonb)
        from jsonb_array_elements(v_candidates) candidate) is distinct from v_request -> 'selection' -> 'candidateArticleIds'
