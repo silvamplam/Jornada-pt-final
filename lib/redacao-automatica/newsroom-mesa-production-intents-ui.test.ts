@@ -12,10 +12,10 @@ const c=p.contexts.find(c=>c.kind==='theme')!, loose=p.contexts.find(c=>c.kind==
 const tid=c.themeId!, sid=loose.sourceId!, key='f0000000-0000-4000-8000-000000000001';
 const selection={themes:[{themeId:tid,title:c.title}],sources:[{newsroomArticleId:sid,title:loose.title}]};
 const view=mesaIntentThemeView(c,[]), views={[tid]:view};
-const selectionView={sourceIds:[sid],articles:[]};
+const selectionView={sourceIds:[sid],themeIds:[],articles:[]};
 function choices(mode:MesaThemeChoice['mode'], n=1):MesaIntentChoices {
   return {themes:{[tid]:{mode,newCount:n}},sources:{},
-    selection:{sourceIds:[sid],reviewArticleIds:[],newCount:1}};
+    selection:{sourceIds:[sid],themeIds:[],reviewArticleIds:[],newCount:1}};
 }
 for(const [mode,n,review,fresh] of [['review',7,true,0],['review-new',2,true,2],['new',2,false,2]] as const) {
   test(`UI ${mode}: review and NEW counts remain separate`,()=>{
@@ -34,6 +34,29 @@ test('loose sources become one technical selection instead of per-source destina
   assert.ok(r.ok);assert.deepEqual(r.request.sources,[]);
   assert.deepEqual(r.request.selection,{sourceIds:[sid],reviewArticleIds:[],newArticleCount:1});
 });
+test('combined Mesa selection turns Theme + loose source into one selection context request',()=>{
+  const articleId=c.publishedArticles[0].editorialArticleId;
+  const combinedView={sourceIds:[sid],themeIds:[tid],articles:[{id:articleId,title:c.publishedArticles[0].title}]};
+  const combinedChoices:MesaIntentChoices={themes:{},sources:{},selection:{sourceIds:[sid],themeIds:[tid],reviewArticleIds:[articleId],newCount:1}};
+  const r=buildMesaIntentUiRequest(selection,combinedChoices,{},'Produção',key,combinedView,true);
+  assert.ok(r.ok);assert.deepEqual(r.request.themes,[]);assert.deepEqual(r.request.sources,[]);
+  assert.deepEqual(r.request.selection,{sourceIds:[sid],themeIds:[tid],candidateArticleIds:[articleId],reviewArticleIds:[articleId],newArticleCount:1});
+  assert.equal(r.reviews,1);assert.equal(r.newArticles,1);
+});
+
+test('combined Mesa selection consumes Theme and loose source only after success',()=>{
+  const articleId=c.publishedArticles[0].editorialArticleId;
+  const combinedView={sourceIds:[sid],themeIds:[tid],articles:[{id:articleId,title:c.publishedArticles[0].title}]};
+  const combinedChoices:MesaIntentChoices={themes:{},sources:{},selection:{sourceIds:[sid],themeIds:[tid],reviewArticleIds:[articleId],newCount:1}};
+  const r=buildMesaIntentUiRequest(selection,combinedChoices,{},'Produção',key,combinedView,true);assert.ok(r.ok);
+  const buffer:MesaPreparationBuffer={version:3,title:'Produção',preparationKey:key,
+    themes:[{kind:'theme',themeId:tid,title:c.title,classificationKey:'sporting',sources:c.sources}],
+    sources:[{kind:'source',newsroomArticleId:sid,newsroomSnapshotId:loose.sources[0].newsroomSnapshotId,
+      lifecycle:'new',classificationKey:'sporting',title:'Pote',sourceLabel:'Teste',imageUrl:null}]};
+  const retained=retainMesaDeferredSelection(buffer,r.request,()=>key);
+  assert.equal(retained.sources.length,0);assert.equal(retained.themes?.length??0,0);
+});
+
 test('unpublished Theme never permits review; it permits only requested NEWs',()=>{
   const empty={...view,articles:[]};
   for(const mode of ['review','review-new'] as const)assert.equal(buildMesaIntentUiRequest(selection,choices(mode),{[tid]:empty},'Produção',key,selectionView).ok,false);
@@ -45,8 +68,8 @@ test('Theme can be deferred without a successful read while independent source w
   assert.ok(r.ok);assert.deepEqual(r.request.themes,[{themeId:tid,action:'defer'}]);assert.equal(r.reviews,0);
 });
 test('selection can explicitly review one global candidate without forcing NEW',()=>{
-  const candidate={sourceIds:[sid],articles:[{id:c.publishedArticles[0].editorialArticleId,title:c.publishedArticles[0].title}]};
-  const selected={...choices('defer'),selection:{sourceIds:[sid],reviewArticleIds:[candidate.articles[0].id],newCount:0}};
+  const candidate={sourceIds:[sid],themeIds:[],articles:[{id:c.publishedArticles[0].editorialArticleId,title:c.publishedArticles[0].title}]};
+  const selected={...choices('defer'),selection:{sourceIds:[sid],themeIds:[],reviewArticleIds:[candidate.articles[0].id],newCount:0}};
   const r=buildMesaIntentUiRequest(selection,selected,views,'Produção',key,candidate);
   assert.ok(r.ok);assert.equal(r.reviews,1);assert.equal(r.newArticles,0);
   assert.deepEqual(r.request.selection?.reviewArticleIds,[candidate.articles[0].id]);
@@ -58,7 +81,7 @@ test('whole Theme with zero loose sources prepares review from saved captures',(
 test('all deferred, zero work, invalid count or >30 results never prepare',()=>{
   for(const n of [0,NaN,-1,1.5,31])assert.equal(buildMesaIntentUiRequest(selection,choices('new',n),views,'Produção',key,selectionView).ok,false);
   assert.equal(buildMesaIntentUiRequest({...selection,sources:[]},choices('defer'),views,'Produção',key,null).ok,false);
-  assert.equal(buildMesaIntentUiRequest(selection,{...choices('defer'),selection:{sourceIds:[sid],reviewArticleIds:[],newCount:0}},views,'Produção',key,selectionView).ok,false);
+  assert.equal(buildMesaIntentUiRequest(selection,{...choices('defer'),selection:{sourceIds:[sid],themeIds:[],reviewArticleIds:[],newCount:0}},views,'Produção',key,selectionView).ok,false);
 });
 test('missing/ambiguous history remains unknown, not SEM ALTERAÇÃO',()=>{
   assert.equal(view.articles[0].decision,null);assert.equal(view.articles[0].unknown,c.sources.length);
@@ -69,7 +92,7 @@ test('missing/ambiguous history remains unknown, not SEM ALTERAÇÃO',()=>{
   assert.ok(parseMesaIntentThemeView(known));assert.equal(parseMesaIntentThemeView({...known,sourceCount:999}),null);
 });
 test('corrupted saved choices never manufacture work for a selection',()=>{
-  const parsed=parseMesaIntentChoices({themes:{},sources:{},selection:{sourceIds:[sid],reviewArticleIds:['invalid'],newCount:1}});
+  const parsed=parseMesaIntentChoices({themes:{},sources:{},selection:{sourceIds:[sid],themeIds:[],reviewArticleIds:['invalid'],newCount:1}});
   assert.equal(parsed.selection,null);
   assert.deepEqual(parseMesaIntentChoices(null),{themes:{},sources:{},selection:null});
 });

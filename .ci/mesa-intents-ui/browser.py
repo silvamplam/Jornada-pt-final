@@ -85,10 +85,11 @@ with sync_playwright() as playwright:
             if openPanel:
                 page.get_by_role('button',name='Ver seleção',exact=True).click()
                 expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
-        if mode=='theme' or (mode=='selection' and openPanel and not kw.get('sourceOnly')):
+        if mode=='theme':
             expect(page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)).to_have_value('new' if kw.get('published')==0 or kw.get('draft') else 'review')
-        if mode=='selection' and openPanel and kw.get('independent',True) is not False:
+        elif mode=='selection' and openPanel:
             expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_be_visible()
+            assert page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).count()==0
         return fixture
     def theme_mode(value):page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).select_option(value)
     def submit():page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True).click()
@@ -140,29 +141,29 @@ with sync_playwright() as playwright:
 
     def mixed():
         f=start();page.screenshot(path=str(output/'selection-mixed.png'),full_page=True)
-        plan=prepared();assert len(plan['outputs'])==2
-        theme=next(c for c in plan['contexts'] if c['themeId']);selected=next(c for c in plan['contexts'] if c['kind']=='selection')
-        assert theme['reviewPublished'] and theme['newArticleCount']==0
-        assert {s['newsroomArticleId'] for s in selected['sources']}=={f['loose']['id']}
-        assert all(s['newsroomArticleId']!=f['loose']['id'] for s in theme['sources'])
+        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('1')
+        plan=prepared();assert len(plan['outputs'])==2 and len(plan['contexts'])==1
+        selected=plan['contexts'][0];assert selected['kind']=='selection'
+        assert {x['newsroomArticleId'] for x in selected['sources']}=={f['material']['id'],f['loose']['id']}
+        assert [o['kind'] for o in plan['outputs']]==['existing','new']
         assert plan['outputs'][0]['target']['matchdayId'] is None
-        assert stored()['sources']==[]
+        saved=stored();assert not saved['sources'] and not saved.get('themes')
     def counts(mode,new,review):
-        start(independent=False);theme_mode(mode)
+        start('theme',independent=False);theme_mode(mode)
         page.get_by_label('Novos artigos do Tema Milan / Amorim',exact=True).fill(str(new))
         plan=prepared();assert plan['totals']['reviews']==review and plan['totals']['newArticles']==new
     def whole_theme():
         start('theme',independent=False);plan=prepared();assert len(plan['contexts'])==1 and len(plan['outputs'])==1
         assert plan['request']['sources']==[]
     def without_published(draft=False):
-        start(published=1 if draft else 0,draft=draft,independent=False)
+        start('theme',published=1 if draft else 0,draft=draft,independent=False)
         options=page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).locator('option').all_text_contents()
         assert not any('revisão' in s.lower() for s in options)
         assert all(o['kind']=='new' for o in prepared()['outputs'])
-    def defer_theme():
-        f=start();theme_mode('defer');plan=prepared()
+    def combined_consumes_theme_and_source():
+        f=start();plan=prepared()
         assert len(plan['contexts'])==1 and plan['contexts'][0]['kind']=='selection'
-        assert stored()['themes'][0]['themeId']==f['theme'] and not stored()['sources']
+        saved=stored();assert not saved['sources'] and not saved.get('themes')
     def selection_cardinality():
         f=start(sourceOnly=True,extra=True)
         expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('2')
@@ -211,10 +212,13 @@ with sync_playwright() as playwright:
         assert len(rpc({'kind':'state'})['preparations'])==f['before']+1
     def stale_published():
         f=start(independent=False);rpc({'kind':'faults','value':{'newPublished':True}});submit()
-        expect(page.get_by_role('alert').filter(has_text='publicados de')).to_be_visible()
+        expect(page.get_by_role('status').filter(has_text='mudaram')).to_be_visible()
         assert len(rpc({'kind':'state'})['preparations'])==f['before'];assert stored()['themes'][0]['themeId']==f['theme']
         page.screenshot(path=str(output/'selection-conflict.png'),full_page=True)
-        expect(page.get_by_text('2 artigos Jornada publicados · 1 fonte',exact=True)).to_be_visible()
+        expect(page.get_by_text(re.compile('Foram encontrados vários artigos Jornada relacionados'))).to_be_visible()
+        checks=page.get_by_role('checkbox')
+        for i in range(checks.count()):checks.nth(i).check()
+        page.get_by_label('Novos artigos da seleção',exact=True).fill('0')
         assert prepared()['totals']['reviews']==2
     def organization_only():
         f=start(sourceOnly=True)
@@ -249,7 +253,7 @@ with sync_playwright() as playwright:
             ('whole Theme returns to preparation with no added source',whole_theme),
             ('unpublished Theme does not offer review',without_published),
             ('draft is not a publication and does not offer review',lambda:without_published(True)),
-            ('deferred Theme remains selected; loose selection prepares',defer_theme),
+            ('combined selection consumes Theme and loose source after success',combined_consumes_theme_and_source),
             ('two selected sources can produce four Article Plans without a Theme',selection_cardinality),
             ('selection preparation does not reorganize Theme memberships',selection_does_not_organize),
             ('source alone prepares as one selection',only_source),

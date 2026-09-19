@@ -10,7 +10,7 @@ export type MesaIntentThemeView = Readonly<{
 }>;
 export type MesaThemeChoice = Readonly<{mode:'review'|'review-new'|'new'|'defer'; newCount:number}>;
 export type MesaSourceChoice = Readonly<{destination:'independent'|'theme'|'defer';themeId:string;newCount:number}>;
-export type MesaSelectionChoice = Readonly<{sourceIds:readonly string[];reviewArticleIds:readonly string[];newCount:number}>;
+export type MesaSelectionChoice = Readonly<{sourceIds:readonly string[];themeIds:readonly string[];reviewArticleIds:readonly string[];newCount:number}>;
 export type MesaIntentChoices = Readonly<{
   themes:Readonly<Record<string,MesaThemeChoice>>;
   sources:Readonly<Record<string,MesaSourceChoice>>;
@@ -21,7 +21,7 @@ export type MesaIntentUiSelection = Readonly<{
   sources:readonly Readonly<{newsroomArticleId:string;title:string}>[];
 }>;
 export type MesaIntentSelectionView = Readonly<{
-  sourceIds:readonly string[];
+  sourceIds:readonly string[];themeIds:readonly string[];
   articles:readonly Readonly<{id:string;title:string}>[];
 }>;
 export const EMPTY_MESA_INTENT_CHOICES: MesaIntentChoices = {themes:{},sources:{},selection:null};
@@ -73,29 +73,60 @@ export function parseMesaIntentChoices(value:unknown):MesaIntentChoices {
       && typeof c.themeId==='string' && (!c.themeId || isMesaIntentUuid(c.themeId))) result.sources[id]={destination:c.destination as MesaSourceChoice['destination'],themeId:c.themeId,newCount:c.newCount};
   }
   const sc=obj(v?.selection);
-  if(sc && Array.isArray(sc.sourceIds) && sc.sourceIds.length>=1 && sc.sourceIds.length<=20
+  if(sc && Array.isArray(sc.sourceIds) && sc.sourceIds.length<=20
     && sc.sourceIds.every(isMesaIntentUuid) && new Set(sc.sourceIds).size===sc.sourceIds.length
+    && Array.isArray(sc.themeIds) && sc.themeIds.length<=20 && sc.themeIds.every(isMesaIntentUuid)
+    && new Set(sc.themeIds).size===sc.themeIds.length && sc.sourceIds.length+sc.themeIds.length>=1
     && Array.isArray(sc.reviewArticleIds) && sc.reviewArticleIds.length<=30
     && sc.reviewArticleIds.every(isMesaIntentUuid) && new Set(sc.reviewArticleIds).size===sc.reviewArticleIds.length
     && count(sc.newCount)) {
-    result.selection={sourceIds:[...sc.sourceIds].sort(),reviewArticleIds:[...sc.reviewArticleIds].sort(),newCount:sc.newCount};
+    result.selection={sourceIds:[...sc.sourceIds].sort(),themeIds:[...sc.themeIds].sort(),
+      reviewArticleIds:[...sc.reviewArticleIds].sort(),newCount:sc.newCount};
   }
   return result;
 }
 export function parseMesaIntentSelectionView(value:unknown):MesaIntentSelectionView|null {
   const v=obj(value);
-  if(!v||!Array.isArray(v.sourceIds)||v.sourceIds.length<1||v.sourceIds.length>20||!v.sourceIds.every(isMesaIntentUuid)
-    ||new Set(v.sourceIds).size!==v.sourceIds.length||!Array.isArray(v.articles)||v.articles.length>200)return null;
+  if(!v||!Array.isArray(v.sourceIds)||v.sourceIds.length>20||!v.sourceIds.every(isMesaIntentUuid)
+    ||new Set(v.sourceIds).size!==v.sourceIds.length||!Array.isArray(v.themeIds)||v.themeIds.length>20||!v.themeIds.every(isMesaIntentUuid)
+    ||new Set(v.themeIds).size!==v.themeIds.length||v.sourceIds.length+v.themeIds.length<1
+    ||!Array.isArray(v.articles)||v.articles.length>200)return null;
   const seen=new Set<string>();
   for(const raw of v.articles){const a=obj(raw);if(!a||!isMesaIntentUuid(a.id)||seen.has(a.id)||typeof a.title!=='string'||!a.title.trim())return null;seen.add(a.id);}
-  return {sourceIds:[...v.sourceIds].sort(),articles:(v.articles as {id:string;title:string}[]).map(a=>({id:a.id,title:a.title.trim()})).sort((a,b)=>a.id.localeCompare(b.id))};
+  return {sourceIds:[...v.sourceIds].sort(),themeIds:[...v.themeIds].sort(),
+    articles:(v.articles as {id:string;title:string}[]).map(a=>({id:a.id,title:a.title.trim()})).sort((a,b)=>a.id.localeCompare(b.id))};
 }
 export function buildMesaIntentUiRequest(selection:MesaIntentUiSelection, choices:MesaIntentChoices,
-  views:Readonly<Record<string,MesaIntentThemeView>>,title:string,preparationKey:string,selectionView:MesaIntentSelectionView|null=null
+  views:Readonly<Record<string,MesaIntentThemeView>>,title:string,preparationKey:string,
+  selectionView:MesaIntentSelectionView|null=null,combineSelectedMaterial=false
 ):{ok:true;request:MesaProductionIntent;reviews:number;newArticles:number}|{ok:false;issues:readonly MesaIntentIssue[]} {
   const issues:MesaIntentIssue[]=[],themes:MesaProductionIntent['themes'][number][]=[],sources:MesaProductionIntent['sources'][number][]=[];
   let reviews=0,newArticles=0;
   const fail=(contextKey:string|null,message:string)=>issues.push({code:'intent_choice_required',contextKey,message});
+  if(combineSelectedMaterial){
+    const sourceIds=selection.sources.map(s=>s.newsroomArticleId).sort(),themeIds=selection.themes.map(t=>t.themeId).sort();
+    const key=`selection:${preparationKey}`,choice=choices.selection;
+    if(!selectionView||JSON.stringify(selectionView.sourceIds)!==JSON.stringify(sourceIds)
+      ||JSON.stringify(selectionView.themeIds)!==JSON.stringify(themeIds)) fail(key,'Não foi possível confirmar os artigos Jornada relacionados com a seleção completa.');
+    else if(!choice||JSON.stringify(choice.sourceIds)!==JSON.stringify(sourceIds)
+      ||JSON.stringify(choice.themeIds)!==JSON.stringify(themeIds)) fail(key,'Confirma o trabalho pretendido para o material selecionado.');
+    else{
+      const candidateIds=selectionView.articles.map(a=>a.id).sort(),candidateSet=new Set(candidateIds);
+      if(choice.reviewArticleIds.some(id=>!candidateSet.has(id))) fail(key,'Um artigo escolhido para revisão deixou de corresponder à seleção.');
+      else if(!count(choice.newCount)||choice.reviewArticleIds.length+choice.newCount<1) fail(key,'Escolhe pelo menos um artigo publicado para rever ou indica artigos novos.');
+      else{
+        if(!title.trim()) fail(null,'Indica um título de trabalho para a Produção.');
+        if(choice.reviewArticleIds.length+choice.newCount>30) fail(null,'A Produção ultrapassa 30 resultados. Reduz os novos ou as revisões.');
+        if(issues.length)return {ok:false as const,issues};
+        const parsed=parseMesaProductionIntent({version:1,preparationKey,title,themes:[],sources:[],selection:{
+          sourceIds,themeIds,candidateArticleIds:candidateIds,reviewArticleIds:[...choice.reviewArticleIds].sort(),newArticleCount:choice.newCount,
+        }});
+        return parsed.ok?{ok:true as const,request:parsed.value,reviews:choice.reviewArticleIds.length,newArticles:choice.newCount}:parsed;
+      }
+    }
+    if(!title.trim())fail(null,'Indica um título de trabalho para a Produção.');
+    return {ok:false as const,issues};
+  }
   for(const theme of selection.themes) {
     const c=choices.themes[theme.themeId],v=views[theme.themeId],key=`theme:${theme.themeId}`;
     if(c?.mode==='defer') {themes.push({themeId:theme.themeId,action:'defer'});continue;}

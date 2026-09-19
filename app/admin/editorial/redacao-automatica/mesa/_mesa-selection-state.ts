@@ -492,7 +492,10 @@ export function removeMesaDossierMaterial(buffer: MesaPreparationBuffer, key: st
 export function retainMesaDeferredSelection(buffer:MesaPreparationBuffer,
   request:import("@/lib/redacao-automatica/newsroom-mesa-production-intents").MesaProductionIntent,
   createKey:()=>string):MesaPreparationBuffer {
-  const activeThemes=new Set(request.themes.filter(t=>t.action==="prepare").map(t=>t.themeId));
+  const activeThemes=new Set([
+    ...request.themes.filter(t=>t.action==="prepare").map(t=>t.themeId),
+    ...(request.selection?.themeIds ?? []),
+  ]);
   const activeSources=new Set([
     ...request.sources.filter(s=>s.destination!=="defer").map(s=>s.sourceId),
     ...(request.selection?.sourceIds ?? []),

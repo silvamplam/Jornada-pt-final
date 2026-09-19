@@ -20,8 +20,8 @@ export function MesaIntentArticleReceipts({view}:Readonly<{view:MesaIntentThemeV
       {a.capturedAt?<small>Captura de referência: <time dateTime={a.capturedAt}>{new Date(a.capturedAt).toLocaleString('pt-PT')}</time></small>:null}
     </span></li>)}</ul></details>;
 }
-export function MesaIntentPreparationClient({selection,title,storageKey,fixtureMode=false,disabled=false,onPrepared,onBusyChange}:Readonly<{
-  selection:MesaIntentUiSelection;title:string;storageKey:string;fixtureMode?:boolean;disabled?:boolean;
+export function MesaIntentPreparationClient({selection,title,storageKey,fixtureMode=false,disabled=false,combineSelectedMaterial=false,onPrepared,onBusyChange}:Readonly<{
+  selection:MesaIntentUiSelection;title:string;storageKey:string;fixtureMode?:boolean;disabled?:boolean;combineSelectedMaterial?:boolean;
   onPrepared?:(request:MesaProductionIntent,url:string)=>void;onBusyChange?:(busy:boolean)=>void;
 }>) {
   const router=useRouter();
@@ -31,14 +31,21 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
   const [message,setMessage]=useState(''),[loaded,setLoaded]=useState(false),[busy,setBusy]=useState(false),[refresh,setRefresh]=useState(0);
   const attempt=useRef<Attempt|null>(null),locked=useRef(false),savedChoices=useRef(choices),selectionRef=useRef(selection),busyRef=useRef(onBusyChange);
   selectionRef.current=selection;busyRef.current=onBusyChange;
-  const key=`${storageKey}.intents.v1`,themeIds=selection.themes.map(t=>t.themeId).sort().join(',');
-  const looseSourceIds=selection.sources.map(s=>s.newsroomArticleId).sort(),sourceSignature=looseSourceIds.join(',');
+  const key=`${storageKey}.intents.v1`,selectedThemeIds=selection.themes.map(t=>t.themeId).sort();
+  const themeIds=(combineSelectedMaterial?[]:selectedThemeIds).join(',');
+  const looseSourceIds=selection.sources.map(s=>s.newsroomArticleId).sort();
+  const selectionThemeIds=combineSelectedMaterial?selectedThemeIds:[];
+  const selectionUnits=combineSelectedMaterial?looseSourceIds.length+selectionThemeIds.length:looseSourceIds.length;
+  const sourceSignature=[looseSourceIds.join(','),selectionThemeIds.join(','),String(combineSelectedMaterial)].join('|');
   function save(c:MesaIntentChoices,a:Attempt|null=attempt.current) {
     savedChoices.current=c;
     const themes=Object.fromEntries(Object.entries(c.themes).filter(([id])=>selectionRef.current.themes.some(t=>t.themeId===id)));
     const sources=Object.fromEntries(Object.entries(c.sources).filter(([id])=>selectionRef.current.sources.some(s=>s.newsroomArticleId===id)));
     const activeSourceIds=selectionRef.current.sources.map(s=>s.newsroomArticleId).sort();
-    const selectionChoice=c.selection&&JSON.stringify(c.selection.sourceIds)===JSON.stringify(activeSourceIds)?c.selection:null;
+    const activeThemeIds=combineSelectedMaterial?selectionRef.current.themes.map(t=>t.themeId).sort():[];
+    const selectionChoice=c.selection
+      &&JSON.stringify(c.selection.sourceIds)===JSON.stringify(activeSourceIds)
+      &&JSON.stringify(c.selection.themeIds)===JSON.stringify(activeThemeIds)?c.selection:null;
     try{sessionStorage.setItem(key,JSON.stringify({version:1,choices:{themes,sources,selection:selectionChoice},attempt:a}));}
     catch{setMessage('As escolhas estão apenas nesta janela: o armazenamento local está indisponível.');}
   }
@@ -68,26 +75,30 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
   },[themeIds,loaded,fixtureMode,refresh]);
   useEffect(()=>{
     if(!loaded)return;
-    if(!looseSourceIds.length){setSelectionView(null);setSelectionLoadError('');return;}
+    if(!looseSourceIds.length&&!selectionThemeIds.length){setSelectionView(null);setSelectionLoadError('');return;}
     const apply=(view:MesaIntentSelectionView)=>{
       setSelectionView(view);setSelectionLoadError('');
       setChoices(current=>{
-        if(current.selection&&JSON.stringify(current.selection.sourceIds)===JSON.stringify(view.sourceIds)
+        if(current.selection
+          &&JSON.stringify(current.selection.sourceIds)===JSON.stringify(view.sourceIds)
+          &&JSON.stringify(current.selection.themeIds)===JSON.stringify(view.themeIds)
           &&current.selection.reviewArticleIds.every(id=>view.articles.some(a=>a.id===id)))return current;
         const next:MesaSelectionChoice=view.articles.length===1
-          ?{sourceIds:view.sourceIds,reviewArticleIds:[view.articles[0].id],newCount:0}
-          :{sourceIds:view.sourceIds,reviewArticleIds:[],newCount:view.articles.length===0?view.sourceIds.length:0};
+          ?{sourceIds:view.sourceIds,themeIds:view.themeIds,reviewArticleIds:[view.articles[0].id],newCount:Math.max(0,selectionUnits-1)}
+          :{sourceIds:view.sourceIds,themeIds:view.themeIds,reviewArticleIds:[],newCount:view.articles.length===0?selectionUnits:0};
         return {...current,selection:next};
       });
     };
-    if(fixtureMode){apply({sourceIds:looseSourceIds,articles:[]});return;}
+    if(fixtureMode){apply({sourceIds:looseSourceIds,themeIds:selectionThemeIds,articles:[]});return;}
     const controller=new AbortController(),params=new URLSearchParams();
     for(const sourceId of looseSourceIds)params.append('sourceId',sourceId);
+    for(const themeId of selectionThemeIds)params.append('selectionThemeId',themeId);
     void(async()=>{
       try{
         const response=await fetch(`${ROUTE}?${params.toString()}`,{cache:'no-store',signal:controller.signal});
         const reply=await response.json(),view=parseMesaIntentSelectionView(reply?.selection);
-        if(!response.ok||!reply?.ok||!view||JSON.stringify(view.sourceIds)!==JSON.stringify(looseSourceIds))
+        if(!response.ok||!reply?.ok||!view||JSON.stringify(view.sourceIds)!==JSON.stringify(looseSourceIds)
+          ||JSON.stringify(view.themeIds)!==JSON.stringify(selectionThemeIds))
           throw new Error(reply?.message||'Não foi possível confirmar os artigos Jornada relacionados com esta seleção.');
         if(!controller.signal.aborted)apply(view);
       }catch(e){if(!controller.signal.aborted){setSelectionView(null);setSelectionLoadError(e instanceof Error?e.message:'Leitura indisponível.');}}
@@ -97,14 +108,15 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
   useEffect(()=>{if(loaded)save(choices);},[choices,loaded,key]);
   function chooseTheme(id:string,patch:Partial<MesaThemeChoice>){setChoices(c=>({...c,themes:{...c.themes,[id]:{...(c.themes[id]??{mode:'new',newCount:1}),...patch}}}));setIssues([]);setMessage('');}
   function chooseSelection(patch:Partial<MesaSelectionChoice>){setChoices(current=>({...current,selection:{
-    ...(current.selection??{sourceIds:looseSourceIds,reviewArticleIds:[],newCount:0}),...patch,sourceIds:looseSourceIds}}));setIssues([]);setMessage('');}
+    ...(current.selection??{sourceIds:looseSourceIds,themeIds:selectionThemeIds,reviewArticleIds:[],newCount:0}),
+    ...patch,sourceIds:looseSourceIds,themeIds:selectionThemeIds}}));setIssues([]);setMessage('');}
   const validViews=Object.fromEntries(Object.entries(views).filter(([id])=>!loadErrors[id]));
-  const built=buildMesaIntentUiRequest(selection,choices,validViews,title,CHECK_KEY,selectionView);
+  const built=buildMesaIntentUiRequest(selection,choices,validViews,title,CHECK_KEY,selectionView,combineSelectedMaterial);
   // Restored choices can be ready before the authoritative Theme read finishes.
   // Deferring a Theme must still allow independent work if its read is pending.
-  const awaitingThemeRead=selection.themes.some(t=>choices.themes[t.themeId]?.mode!=='defer'
+  const awaitingThemeRead=!combineSelectedMaterial&&selection.themes.some(t=>choices.themes[t.themeId]?.mode!=='defer'
     && !views[t.themeId] && !loadErrors[t.themeId]);
-  const awaitingSelectionRead=looseSourceIds.length>0&&!selectionView&&!selectionLoadError;
+  const awaitingSelectionRead=(looseSourceIds.length>0||selectionThemeIds.length>0)&&!selectionView&&!selectionLoadError;
   const errors=(contextKey:string)=>issues.filter(i=>i.contextKey===contextKey).map((i,n)=><p key={n} role="alert" className={styles.continuityError}>{i.message}</p>);
   async function post(body:Record<string,unknown>){
     const response=await fetch(ROUTE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mesaVersion:4,...body})});
@@ -140,9 +152,9 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
   }
   const blocked=disabled||busy||!loaded;
   return <form aria-label="Escolhas de Produção" className={styles.continuityBody} onSubmit={prepare}>
-    <p>Escolhe o trabalho de cada contexto. A preparação usa as capturas mais recentes já guardadas; não volta a recolher os sites externos.</p>
+    <p>{combineSelectedMaterial?'Decide o trabalho para o conjunto de informação selecionado.':'Escolhe o trabalho de cada contexto.'} A preparação usa as capturas mais recentes já guardadas; não volta a recolher os sites externos.</p>
     <div aria-label="Contextos desta Produção" className={styles.continuityContexts}>
-    {selection.themes.map(t=>{const view=views[t.themeId],c=choices.themes[t.themeId],published=Boolean(view?.articles.length),staleReview=!published&&(c?.mode==='review'||c?.mode==='review-new');return <section key={t.themeId} aria-label={`Produção do Tema ${t.title}`} className={styles.continuityPanel}>
+    {!combineSelectedMaterial?selection.themes.map(t=>{const view=views[t.themeId],c=choices.themes[t.themeId],published=Boolean(view?.articles.length),staleReview=!published&&(c?.mode==='review'||c?.mode==='review-new');return <section key={t.themeId} aria-label={`Produção do Tema ${t.title}`} className={styles.continuityPanel}>
       <h3>{t.title}</h3><div className={styles.continuityPrepare}>
         <label>Trabalho do Tema<select aria-label={`Trabalho do Tema ${t.title}`} value={staleReview?'':c?.mode||''} disabled={blocked} onChange={e=>chooseTheme(t.themeId,{mode:e.currentTarget.value as MesaThemeChoice['mode']})}>
           {!c||staleReview?<option value="" disabled>{view?'Escolhe o trabalho — não há publicados':'A confirmar publicados…'}</option>:null}
@@ -154,9 +166,11 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
       {loadErrors[t.themeId]?<p role="alert" className={styles.continuityError}>{loadErrors[t.themeId]} <button type="button" disabled={blocked} onClick={()=>{setViews({});setRefresh(n=>n+1);}}>Reler Temas</button></p>:!view?<p role="status">A confirmar o histórico publicado…</p>:null}
       {c?.mode==='review'||c?.mode==='review-new'?<p>Todos os publicados deste Tema terminam em UPDATE ou SEM ALTERAÇÃO.</p>:c?.mode==='new'?<p>Os publicados ficam apenas como referência, sem tarefas UPDATE nem registos de revisão.</p>:c?.mode==='defer'?<p>Este Tema não entra nesta Produção.</p>:null}
       {view?<MesaIntentArticleReceipts view={view}/>:null}{errors(`theme:${t.themeId}`)}
-    </section>;})}
-    {selection.sources.length?<section aria-label="Produção da seleção de fontes" className={styles.continuityPanel}>
-      <h3>{quantity(selection.sources.length,'fonte selecionada','fontes selecionadas')}</h3>
+    </section>;}):null}
+    {(combineSelectedMaterial?selectionUnits>0:selection.sources.length>0)?<section aria-label="Produção da seleção de fontes" className={styles.continuityPanel}>
+      <h3>{combineSelectedMaterial
+        ?`Material selecionado · ${quantity(selection.themes.length,'Tema','Temas')} · ${quantity(selection.sources.length,'fonte solta','fontes soltas')}`
+        :quantity(selection.sources.length,'fonte selecionada','fontes selecionadas')}</h3>
       {selectionLoadError?<p role="alert" className={styles.continuityError}>{selectionLoadError} <button type="button" disabled={blocked} onClick={()=>{setSelectionView(null);setSelectionLoadError('');setRefresh(n=>n+1);}}>Reler seleção</button></p>
         :!selectionView?<p role="status">A confirmar artigos Jornada relacionados…</p>
         :<>
@@ -166,12 +180,12 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
                 onChange={e=>{const current=choices.selection?.reviewArticleIds??[];chooseSelection({reviewArticleIds:e.currentTarget.checked?[...new Set([...current,article.id])]:current.filter(id=>id!==article.id)});}}/>
               <span>Rever: {article.title}</span>
             </label></li>)}</ul></>
-            :<p>Não foi encontrado artigo Jornada publicado ligado por proveniência às fontes selecionadas.</p>}
+            :<p>Não foi encontrado artigo Jornada publicado ligado por proveniência ao material selecionado.</p>}
           <div className={styles.continuityPrepare}><label>Novos artigos
             <input aria-label="Novos artigos da seleção" type="number" min={0} max={30} step={1}
               value={choices.selection&&Number.isFinite(choices.selection.newCount)?choices.selection.newCount:''} disabled={blocked}
               onChange={e=>chooseSelection({newCount:e.currentTarget.valueAsNumber})}/>
-          </label><span>As fontes entram juntas na Produção; não são transformadas em artigos independentes por fonte.</span></div>
+          </label><span>{combineSelectedMaterial?'Temas e fontes entram juntos na Produção; a organização da Mesa não define quantos artigos resultam.':'As fontes entram juntas na Produção; não são transformadas em artigos independentes por fonte.'}</span></div>
         </>}
       {errors(`selection:${CHECK_KEY}`)}
     </section>:null}

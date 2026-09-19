@@ -38,12 +38,14 @@ async function readMesaIntentThemeHttp(request:Request) {
 export async function readMesaIntentPreparationHttp(request:Request) {
   const url=new URL(request.url),themeId=url.searchParams.get('themeId');
   if(themeId!==null)return readMesaIntentThemeHttp(request);
-  const sourceIds=url.searchParams.getAll('sourceId');
-  if(!sourceIds.length||sourceIds.length>20||sourceIds.some(id=>!isMesaIntentUuid(id))||new Set(sourceIds).size!==sourceIds.length)
-    return error('A seleção de fontes indicada não é válida.');
+  const sourceIds=url.searchParams.getAll('sourceId'),themeIds=url.searchParams.getAll('selectionThemeId');
+  if((!sourceIds.length&&!themeIds.length)||sourceIds.length>20||themeIds.length>20
+    ||sourceIds.some(id=>!isMesaIntentUuid(id))||themeIds.some(id=>!isMesaIntentUuid(id))
+    ||new Set(sourceIds).size!==sourceIds.length||new Set(themeIds).size!==themeIds.length)
+    return error('A seleção de informação indicada não é válida.');
   try{
-    const articles=await mesaIntentService.readGlobalCandidates(sourceIds);
-    return NextResponse.json({ok:true,selection:{sourceIds:[...sourceIds].sort(),articles}},options());
+    const articles=await mesaIntentService.readGlobalCandidates(sourceIds,themeIds);
+    return NextResponse.json({ok:true,selection:{sourceIds:[...sourceIds].sort(),themeIds:[...themeIds].sort(),articles}},options());
   }catch(e){return failure(e);}
 }
 export async function prepareMesaIntentsHttp(payload:Record<string,unknown>) {

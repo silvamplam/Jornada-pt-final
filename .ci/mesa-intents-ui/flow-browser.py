@@ -80,13 +80,21 @@ with sync_playwright() as pw:
         expect(page.get_by_role('button',name='Ver seleção',exact=True)).to_be_visible()
         page.get_by_role('button',name='Ver seleção',exact=True).click()
         expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
-        expect(page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)).to_have_value('review' if kw.get('published',1)>0 else 'new')
-        if kw.get('independent',True) is not False:
-            expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_be_visible()
+        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_be_visible()
+        assert page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).count()==0
         return f
     def prepare(mode='review',new=None):
-        page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).select_option(mode)
-        if new is not None:page.get_by_label('Novos artigos do Tema Milan / Amorim',exact=True).fill(str(new))
+        theme_control=page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)
+        if theme_control.count():
+            theme_control.select_option(mode)
+            if new is not None:page.get_by_label('Novos artigos do Tema Milan / Amorim',exact=True).fill(str(new))
+        else:
+            checks=page.locator('label').filter(has_text=re.compile(r'^Rever:')).locator('input[type="checkbox"]')
+            for i in range(checks.count()):
+                if mode in ('review','review-new'):checks.nth(i).check()
+                elif mode=='new':checks.nth(i).uncheck()
+            target_new=new if new is not None else (0 if mode=='review' else None)
+            if target_new is not None:page.get_by_label('Novos artigos da seleção',exact=True).fill(str(target_new))
         page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True).click()
         page.wait_for_function('(base)=>window.__flowReady.startsWith(base)',arg=production,timeout=12000)
         expect(page.get_by_role('heading',name='Produção',exact=True)).to_be_visible()
@@ -124,7 +132,7 @@ with sync_playwright() as pw:
         if args.document_only:page.wait_for_function('(path)=>window.__flowLanding===path',arg=mesa,timeout=12000)
         else:page.wait_for_url(origin+mesa,timeout=12000)
     def mixed():
-        f=start();did,plan=prepare()
+        f=start();did,plan=prepare('review-new',1)
         page.screenshot(path=str(out/'flow-workspace-mixed.png'),full_page=True)
         pid,text=package(did);assert 'Milan' in text and 'Pote' in text
         return_text(pid);publish(new=True)
