@@ -163,7 +163,7 @@ function validPlan(value: unknown, persisted: boolean): boolean {
     if (o.sourceIds !== undefined && (!ids(o.sourceIds) || o.sourceIds.length < 1 || o.sourceIds.length > 20
       || o.sourceIds.some((sourceId) => !c.sources.some((source) => source.newsroomArticleId === sourceId))
       || !sameMesaIntentJson(o.sourceIds, expectedSourceIds))) return false;
-    if (expected.sourceIds !== undefined && !sameMesaIntentJson(o.sourceIds, expectedSourceIds)) return false;
+    if (persisted && expected.sourceIds !== undefined && !sameMesaIntentJson(o.sourceIds, expectedSourceIds)) return false;
     if (o.kind === "new" ? o.target !== null : !capturedArticle(o.target)
       || !sameMesaIntentJson(o.target, c.publishedArticles.find((a) => a.editorialArticleId === expected.target?.editorialArticleId))) return false;
   }
