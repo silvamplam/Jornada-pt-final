@@ -160,7 +160,7 @@ export type EditorialDossierArticlePlanProductionState = Readonly<{
 
 export type EditorialMesaProductionContext = Readonly<{
   id: string;
-  kind: "source" | "theme";
+  kind: "source" | "theme" | "selection";
   sourceNewsroomArticleId: string | null;
   themeId: string | null;
   title: string;
@@ -447,11 +447,17 @@ export async function getEditorialDossierProductionWorkspace(
             ? sources.length !== 1
               || row.source_newsroom_article_id !== sources[0].newsroomArticleId
               || row.theme_id !== null
-            : row.context_kind !== "theme"
-              || !row.theme_id
-              || row.source_newsroom_article_id !== null
+            : row.context_kind === "theme"
+              ? !row.theme_id || row.source_newsroom_article_id !== null
+              : row.context_kind !== "selection"
+                || row.theme_id !== null
+                || row.source_newsroom_article_id !== null
         ) return contextContractInvalid();
-        const kind: "source" | "theme" = row.context_kind === "source" ? "source" : "theme";
+        const kind: "source" | "theme" | "selection" = row.context_kind === "source"
+          ? "source"
+          : row.context_kind === "theme"
+            ? "theme"
+            : "selection";
         sources.forEach((source) => unionSourceIds.add(source.dossierSourceId));
         productionContexts.push({
           id: row.id,

@@ -513,7 +513,7 @@ function PlanEditor({
           <span>Artigo já materializado · {plan.destination === "update" ? "UPDATE" : "NOVO"}</span>
           <strong>{plan.workingTitle}</strong>
           {selectedProductionContext ? <small>
-            Contexto: {selectedProductionContext.kind === "theme" ? "Tema" : "Fonte"} · {selectedProductionContext.title}
+            Contexto: {selectedProductionContext.kind === "theme" ? "Tema" : selectedProductionContext.kind === "selection" ? "Seleção" : "Fonte"} · {selectedProductionContext.title}
           </small> : null}
           <a href={"/admin/editorial/artigos?articleId=" + encodeURIComponent(plan.editorialArticleId)}>
             Abrir artigo
@@ -558,7 +558,7 @@ function PlanEditor({
             >
               {productionContexts.map((context) => (
                 <option key={context.id} value={context.id}>
-                  {context.kind === "theme" ? "Tema" : "Fonte"} · {context.title}
+                  {context.kind === "theme" ? "Tema" : context.kind === "selection" ? "Seleção" : "Fonte"} · {context.title}
                 </option>
               ))}
             </select>
