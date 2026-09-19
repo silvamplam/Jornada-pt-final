@@ -217,6 +217,17 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
     : includedSources.slice().sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
   if (productionContext && technicalSources.length !== productionContext.sources.length) return null;
   if (technicalSources.length < 1) return null;
+  const frozenOutputSourceIds = continuitySlot && "sourceIds" in continuitySlot
+    ? continuitySlot.sourceIds
+    : undefined;
+  const allowedSourceIds = frozenOutputSourceIds?.length
+    ? new Set(frozenOutputSourceIds)
+    : null;
+  const planSources = allowedSourceIds
+    ? technicalSources.filter((source) => allowedSourceIds.has(source.newsroomArticleId))
+    : technicalSources;
+  if (planSources.length < 1
+    || (allowedSourceIds && planSources.length !== allowedSourceIds.size)) return null;
 
   const startingPointSourceIds = workspaceContractVersion === 2
     ? editorialMesaWorkspaceStartingPointSourceIds(
@@ -260,7 +271,7 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
         articleKind: kind,
         lengthMode: length,
         editorialInstructions: textValue(payload.editorialInstructions),
-        sources: technicalSources.map((source, index) => ({
+        sources: planSources.map((source, index) => ({
           dossierSourceId: source.id,
           priority: index + 1,
         })),
@@ -432,17 +443,29 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
   const contextAssignmentByPlanId = new Map(workspace.planContexts.map((item) => (
     [item.articlePlanId, productionContextById.get(item.productionContextId) ?? null]
   )));
-  if (workspace.contextMode === "contexts" && plans.some((plan) => {
+  const workspaceSourceById = new Map(workspaceSources.map((source) => [source.id, source]));
+  if (workspace.contextMode === "contexts" && plans.some((plan, index) => {
     const assigned = contextAssignmentByPlanId.get(plan.id);
-    if (!assigned) return true;
-    const planned = plan.sources.map((source) => source.dossierSourceId).sort();
-    const frozen = assigned.sources.map((source) => source.dossierSourceId).sort();
-    return JSON.stringify(planned) !== JSON.stringify(frozen);
+    if (!assigned || plan.sources.length < 1) return true;
+    const frozenDossierIds = new Set(assigned.sources.map((source) => source.dossierSourceId));
+    if (plan.sources.some((source) => !frozenDossierIds.has(source.dossierSourceId))) return true;
+    const slotSourceIds = frozenSlots?.[index] && "sourceIds" in frozenSlots[index]!
+      ? frozenSlots[index]!.sourceIds
+      : undefined;
+    if (!slotSourceIds?.length) {
+      const planned = plan.sources.map((source) => source.dossierSourceId).sort();
+      const frozen = assigned.sources.map((source) => source.dossierSourceId).sort();
+      return JSON.stringify(planned) !== JSON.stringify(frozen);
+    }
+    const plannedArticleIds = plan.sources
+      .map((source) => workspaceSourceById.get(source.dossierSourceId)?.newsroomArticleId ?? "")
+      .sort();
+    return JSON.stringify(plannedArticleIds) !== JSON.stringify([...slotSourceIds].sort());
   })) {
-    return { ok: false as const, status: 409, message: "Um Article Plan não tem um contexto 2C íntegro. Volta a guardar a Produção antes de preparar o pacote." };
+    return { ok: false as const, status: 409, message: "Um Article Plan não preserva o conjunto de fontes congelado para esse output. Volta a guardar a Produção antes de preparar o pacote." };
   }
   const startingPointSourceIds = workspace.contextMode === "contexts"
-    ? plans.map((plan) => contextAssignmentByPlanId.get(plan.id)!.sources[0].dossierSourceId)
+    ? plans.map((plan) => plan.sources[0]?.dossierSourceId ?? "")
     : workspaceContractVersion === 2
     ? editorialMesaWorkspaceStartingPointSourceIds(
         context?.selectionPayload,
@@ -529,7 +552,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
             outputId: plan.id,
             startingPointSourceId: startingPointSourceIds[index],
             ...(productionContext ? {
-              contextSourceIds: productionContext.sources.map((source) => source.dossierSourceId),
+              contextSourceIds: plan.sources.map((source) => source.dossierSourceId),
             } : {}),
           }
         : {}),
