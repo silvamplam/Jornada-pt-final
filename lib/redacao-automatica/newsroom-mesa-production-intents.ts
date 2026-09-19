@@ -57,6 +57,11 @@ export type MesaPublishedArticleAuthority = Readonly<{
   matchdayId: string | null;
   // Hash the canonical content, not just title/date. Used again before publication.
   contentFingerprint: string;
+  /** Deterministic provenance from the global resolver. Optional for legacy/theme authorities. */
+  evidence?: Readonly<{
+    sourceIds: readonly string[];
+    themeIds: readonly string[];
+  }>;
 }>;
 
 export type MesaThemeAuthority = Readonly<{
@@ -108,6 +113,11 @@ export type MesaIntentOutput = Readonly<{
   contextKey: string;
   kind: "existing" | "new";
   target: MesaPublishedArticleAuthority | null;
+  /**
+   * Newsroom article IDs authorised for this output. Legacy frozen plans may
+   * omit this field, in which case the whole context remains the source scope.
+   */
+  sourceIds?: readonly string[];
 }>;
 
 export type MesaProductionIntentPlan = Readonly<{
@@ -249,9 +259,16 @@ function sourceCapture(value: MesaSourceAuthority, readAt: string): MesaSourceCa
 }
 
 function articleValid(article: MesaPublishedArticleAuthority): boolean {
+  const evidence = article.evidence;
   return Boolean(uuid(article.editorialArticleId) && typeof article.slug === "string" && article.slug.trim()
     && typeof article.title === "string" && article.title.trim()
-    && (article.matchdayId === null || uuid(article.matchdayId)) && FINGERPRINT.test(article.contentFingerprint));
+    && (article.matchdayId === null || uuid(article.matchdayId)) && FINGERPRINT.test(article.contentFingerprint)
+    && (evidence === undefined || (
+      Array.isArray(evidence.sourceIds) && evidence.sourceIds.length <= MESA_INTENT_LIMITS.sources
+      && evidence.sourceIds.every((sourceId) => Boolean(uuid(sourceId))) && unique(evidence.sourceIds)
+      && Array.isArray(evidence.themeIds) && evidence.themeIds.length <= MESA_INTENT_LIMITS.contexts
+      && evidence.themeIds.every((themeId) => Boolean(uuid(themeId))) && unique(evidence.themeIds)
+    )));
 }
 
 /** No history count supplied by the browser participates in this decision. */
@@ -410,19 +427,46 @@ export function resolveMesaProductionIntent(
   }
   const outputs: MesaIntentOutput[] = [];
   const targetIds = new Set<string>();
+  const reviewedSourcesByContext = new Map<string, Set<string>>();
+  const sourceIdsForExisting = (context: MesaIntentContext, target: MesaPublishedArticleAuthority): readonly string[] => {
+    const all = context.sources.map((source) => source.newsroomArticleId);
+    if (context.kind !== "selection" || !input.selection || !target.evidence) return all;
+
+    const available = new Set(all);
+    const explicitLoose = new Set(input.selection.sourceIds);
+    const selectedThemeIds = new Set(input.selection.themeIds ?? []);
+    const themeSources = new Set(all.filter((sourceId) => !explicitLoose.has(sourceId)));
+    const evidenceSources = target.evidence.sourceIds.filter((sourceId) => available.has(sourceId));
+    const touchesSelectedTheme = target.evidence.themeIds.some((themeId) => selectedThemeIds.has(themeId))
+      || evidenceSources.some((sourceId) => themeSources.has(sourceId));
+    const selected = new Set(evidenceSources);
+    if (touchesSelectedTheme) for (const sourceId of themeSources) selected.add(sourceId);
+    return selected.size ? [...selected].sort() : all;
+  };
   for (const context of contexts.filter((item) => item.reviewPublished)) {
     for (const target of context.publishedArticles) {
       if (targetIds.has(target.editorialArticleId)) issues.push(issue("review_target_conflict",
         "O mesmo artigo não pode receber duas atualizações concorrentes nesta preparação. Escolhe apenas um contexto responsável pela revisão.", context.key));
       targetIds.add(target.editorialArticleId);
-      outputs.push({ slot: `EXISTING_${String(outputs.length + 1).padStart(2, "0")}`, contextKey: context.key, kind: "existing", target });
+      const sourceIds = sourceIdsForExisting(context, target);
+      const reviewed = reviewedSourcesByContext.get(context.key) ?? new Set<string>();
+      for (const sourceId of sourceIds) reviewed.add(sourceId);
+      reviewedSourcesByContext.set(context.key, reviewed);
+      outputs.push({ slot: `EXISTING_${String(outputs.length + 1).padStart(2, "0")}`, contextKey: context.key, kind: "existing", target, sourceIds });
     }
   }
   const reviews = outputs.length;
   let newArticles = 0;
   for (const context of contexts) for (let i = 0; i < context.newArticleCount; i++) {
     newArticles++;
-    outputs.push({ slot: `NEW_${String(newArticles).padStart(2, "0")}`, contextKey: context.key, kind: "new", target: null });
+    const all = context.sources.map((source) => source.newsroomArticleId);
+    let sourceIds = all;
+    if (context.kind === "selection" && input.selection) {
+      const reviewed = reviewedSourcesByContext.get(context.key) ?? new Set<string>();
+      const remainingLoose = input.selection.sourceIds.filter((sourceId) => all.includes(sourceId) && !reviewed.has(sourceId));
+      if (remainingLoose.length) sourceIds = [...remainingLoose].sort();
+    }
+    outputs.push({ slot: `NEW_${String(newArticles).padStart(2, "0")}`, contextKey: context.key, kind: "new", target: null, sourceIds });
   }
   if (!outputs.length) issues.push(issue("no_work_requested", "Não há trabalho editorial pedido. A seleção fica preservada."));
   if (contexts.length > MESA_INTENT_LIMITS.contexts) issues.push(issue("context_limit", "O máximo atual é 20 contextos por Produção. Nada foi dividido."));
