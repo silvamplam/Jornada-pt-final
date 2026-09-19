@@ -62,7 +62,8 @@ await test('Milan/Amorim null-jornada UPDATE + Pote: only NEW enters real Latest
  const n=p.outputs.find(o=>o.kind==='new'),fresh=h.record('editorial_articles',n.outputId),link='/noticias/'+fresh.slug;
  assert.equal(latest().filter(r=>r.link_url===link).length,1);assert.equal(latest().filter(r=>r.link_url==='/noticias/'+old.slug).length,0);
  assert.equal(h.rows(`select * from public.matchday_editorial_bank_items where source_id=${h.q(n.outputId)}`).length,1);
- assert.equal(receiptCount(p.dossierId),1);assert.equal(events(p.dossierId),1);
+ assert.equal(receiptCount(p.dossierId),2);assert.equal(events(p.dossierId),1);
+ assert.equal(h.rows(`select * from public.newsroom_mesa_intent_article_receipts where dossier_id=${h.q(p.dossierId)} and theme_id is null`).length,1);
  assert.equal((await publish(payload)).ok,true);assert.equal(latest().filter(r=>r.link_url===link).length,1);
 });
 await test('UPDATE with a matchday preserves existing Latest identity and published time',async()=>{
