@@ -1335,6 +1335,7 @@ function formatEditorialOutputPlan(
   outputs: readonly EditorialSourcePackageOutputInput[] | undefined,
   themeContinuity?: ThemeContinuityFrozenContract,
   productionIntents?: MesaProductionIntentsFrozen,
+  entries?: readonly EditorialSourcePackageEntry[],
 ): string[] {
   if (!outputs?.length) {
     return [];
@@ -1348,6 +1349,13 @@ function formatEditorialOutputPlan(
     ...outputs.flatMap((output) => {
       const line = `${String(output.position).padStart(2, "0")} — ${markdownText(output.focus)}`;
       const continuitySlot = productionIntents ? mesaProductionIntentSlots(productionIntents)[output.position - 1] : themeContinuity?.slots[output.position - 1];
+      const authorizedContextSourceIds = productionIntents && continuitySlot && "sourceIds" in continuitySlot && continuitySlot.sourceIds?.length && entries
+        ? continuitySlot.sourceIds.flatMap((newsroomArticleId) => {
+            const entry = entries.find((candidate) => candidate.status === "prepared"
+              && candidate.newsroomArticleId === newsroomArticleId && candidate.provenanceSourceId);
+            return entry?.provenanceSourceId ? [entry.provenanceSourceId] : [];
+          })
+        : output.contextSourceIds;
       if (!output.articlePlan) return [line];
       return [
         line,
@@ -1358,10 +1366,10 @@ function formatEditorialOutputPlan(
               ...(output.startingPointSourceId
                 ? [`   - PONTO_DE_PARTIDA: ${output.startingPointSourceId}`]
                 : []),
-              ...(output.articlePlan.sourceScope === "context" && output.contextSourceIds
+              ...(output.articlePlan.sourceScope === "context" && authorizedContextSourceIds
                 ? [
                     `   - CONTEXTO: ${output.articlePlan.contextId}`,
-                    `   - FONTES_DO_CONTEXTO: ${output.contextSourceIds.join(", ")}`,
+                    `   - FONTES_DO_CONTEXTO: ${authorizedContextSourceIds.join(", ")}`,
                   ]
                 : []),
             ]
@@ -1489,6 +1497,7 @@ function buildEditorialSourcePackageTaskMarkdown(
   outputs?: readonly EditorialSourcePackageOutputInput[],
   themeContinuity?: ThemeContinuityFrozenContract,
   productionIntents?: MesaProductionIntentsFrozen,
+  entries?: readonly EditorialSourcePackageEntry[],
 ): string {
   return [
     "# TAREFA EDITORIAL",
@@ -1511,7 +1520,7 @@ function buildEditorialSourcePackageTaskMarkdown(
       "Sem instruções adicionais.",
     ),
     "",
-    ...formatEditorialOutputPlan(outputs, themeContinuity, productionIntents),
+    ...formatEditorialOutputPlan(outputs, themeContinuity, productionIntents, entries),
     ...(themeContinuity || productionIntents ? [] : formatMesaV2ProvenanceContract(outputs)),
     ...formatThemeContinuityContract(themeContinuity),
     ...formatMesaProductionIntents(productionIntents),
@@ -1681,6 +1690,7 @@ export function buildEditorialSourcePackageMarkdown(
       outputs,
       input.themeContinuity,
       input.productionIntents,
+      input.entries,
     ),
     "",
     "---",
