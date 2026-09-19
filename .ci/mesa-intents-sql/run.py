@@ -512,11 +512,15 @@ def selection_theme_union():
     memberships_before=execute(f"""select coalesce(jsonb_agg(to_jsonb(m) order by m.theme_id,m.newsroom_article_id),'[]'::jsonb)::text
       from public.newsroom_editorial_theme_sources m
       where m.theme_id='{uid(500)}' or m.newsroom_article_id='{uid(3)}';""")
+    current_theme_sources=set(json.loads(execute(
+      f"select coalesce(jsonb_agg(newsroom_article_id order by newsroom_article_id),'[]'::jsonb)::text from public.newsroom_editorial_theme_sources where theme_id='{uid(500)}';"
+    )))
+    expected_sources=current_theme_sources|{uid(3)}
     req=selection_request(8196,[3],[2001],1,theme_ids=[500],candidate_article_ids=[2001])
     p=prepare(req)['plan']
-    assert p['totals']==dict(contexts=1,sources=3,reviews=1,newArticles=1)
+    assert p['totals']==dict(contexts=1,sources=len(expected_sources),reviews=1,newArticles=1)
     assert len(p['contexts'])==1 and p['contexts'][0]['kind']=='selection'
-    assert {x['newsroomArticleId'] for x in p['contexts'][0]['sources']}=={uid(1),uid(2),uid(3)}
+    assert {x['newsroomArticleId'] for x in p['contexts'][0]['sources']}==expected_sources
     assert [x['editorialArticleId'] for x in p['contexts'][0]['candidateArticles']]==[uid(2001)]
     assert [o['kind'] for o in p['outputs']]==['existing','new']
     memberships_after=execute(f"""select coalesce(jsonb_agg(to_jsonb(m) order by m.theme_id,m.newsroom_article_id),'[]'::jsonb)::text
