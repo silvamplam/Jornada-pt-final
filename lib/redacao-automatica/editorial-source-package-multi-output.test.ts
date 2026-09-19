@@ -232,6 +232,43 @@ test("Production Intents mantém candidatos não revistos como referência integ
   assert.doesNotMatch(markdown,/SLOT EXISTING_/);
 });
 
+test("Production Intents mantém contexto completo e apresenta foco automático sem o tornar exclusivo", () => {
+  const dossierId="96000000-0000-4000-8000-000000000001";
+  const contextId="96000000-0000-4000-8000-000000000002";
+  const outputId="96000000-0000-4000-8000-000000000003";
+  const sourceA="96000000-0000-4000-8000-000000000004";
+  const sourceB="96000000-0000-4000-8000-000000000005";
+  const sourceEntries=entries().map((entry,index)=>({...entry,provenanceSourceId:index===0?sourceA:sourceB}));
+  const markdown=buildEditorialSourcePackageMarkdown({
+    createdAt:"2026-09-19T08:00:00.000Z",
+    editorial:{genre:"news",genreLabel:"Notícia",suggestedTitle:null,additionalInstructions:null},
+    entries:sourceEntries,
+    outputs:[{position:1,outputId,startingPointSourceId:sourceB,contextSourceIds:[sourceA,sourceB],
+      sourceArticlePosition:1,focus:"Novo foco",imageNewsroomArticleId:null,
+      articlePlan:{dossierId,articlePlanId:outputId,workingTitle:"Novo foco",articleKind:"news",articleKindLabel:"Notícia",
+        lengthMode:"standard",lengthModeLabel:"Média",editorialInstructions:"",destination:"new",
+        workspaceContractVersion:2,sourceScope:"context",contextId}}],
+    productionIntents:{
+      contractVersion:1,preparationKey:"96000000-0000-4000-8000-000000000006",title:"Produção",
+      capturedAt:"2026-09-19T08:00:00.000Z",dossierId,authorityFingerprint:"e".repeat(64),
+      request:{version:1,preparationKey:"96000000-0000-4000-8000-000000000006",title:"Produção",themes:[],sources:[],
+        selection:{sourceIds:[ARTICLE_A,ARTICLE_B],reviewArticleIds:[],newArticleCount:1}},
+      contexts:[{key:"selection:96000000-0000-4000-8000-000000000006",kind:"selection",themeId:null,sourceId:null,
+        title:"Produção",reviewPublished:false,newArticleCount:1,productionContextId:contextId,
+        sources:sourceEntries.map((entry,index)=>({newsroomArticleId:index===0?ARTICLE_A:ARTICLE_B,
+          newsroomSnapshotId:entry.newsroomSnapshotId!,capturedAt:"2026-09-19T08:00:00.000Z",
+          contentFingerprint:"c".repeat(64),snapshotFingerprint:"d".repeat(64),usable:true,classificationKey:"sporting"})),
+        publishedArticles:[],candidateArticles:[]}],
+      outputs:[{slot:"NEW_01",contextKey:"selection:96000000-0000-4000-8000-000000000006",kind:"new",
+        outputId,productionContextId:contextId,target:null,focusSourceIds:[ARTICLE_B]}],
+      incorporations:[],deferred:{themeIds:[],sourceIds:[]},totals:{contexts:1,sources:2,reviews:0,newArticles:1},
+    },
+  });
+  assert.match(markdown,new RegExp(`FONTES_DO_CONTEXTO: ${sourceA}, ${sourceB}`));
+  assert.match(markdown,new RegExp(`FONTES_DE_FOCO_INICIAL: ${sourceB}`));
+  assert.match(markdown,/orientação automática e não uma exclusão/);
+});
+
 test("pacote Mesa v2 expõe IDs estáveis, proveniência obrigatória e contexto sem inferir UPDATE", () => {
   const dossierId = "94000000-0000-4000-8000-000000000001";
   const outputId = "94000000-0000-4000-8000-000000000002";

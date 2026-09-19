@@ -179,7 +179,7 @@ load('supabase/migrations/20260919014322_newsroom_mesa_selection_context_v1.sql'
 post_selection_functions = execute(old_functions_query)
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
 load('supabase/sql/candidate-newsroom-mesa-output-source-scope-v1.sql')
-post_output_scope_functions = execute(old_functions_query)
+post_output_focus_functions = execute(old_functions_query)
 
 seed = []
 for n in range(1, 31):
@@ -556,15 +556,15 @@ def selection_segments_theme_review_from_loose_new():
     previewed=preview(req)
     assert [o['kind'] for o in previewed['outputs']]==['existing','new']
     p=prepare(req,previewed['authorityFingerprint'])['plan']
-    assert p['outputs'][0]['sourceIds']==[uid(22),uid(23)]
-    assert p['outputs'][1]['sourceIds']==[uid(24)]
-    for output, expected in zip(p['outputs'],([uid(22),uid(23)],[uid(24)])):
+    assert p['outputs'][0]['focusSourceIds']==[uid(22),uid(23)]
+    assert p['outputs'][1]['focusSourceIds']==[uid(24)]
+    for output in p['outputs']:
         assigned=json.loads(execute(f"""select coalesce(jsonb_agg(s.newsroom_article_id order by s.newsroom_article_id),'[]'::jsonb)
           from public.newsroom_editorial_dossier_article_plan_sources ps
           join public.newsroom_editorial_dossier_sources s
             on s.dossier_id=ps.dossier_id and s.id=ps.dossier_source_id
           where ps.dossier_id='{p['dossierId']}' and ps.article_plan_id='{output['outputId']}';"""))
-        assert assigned==expected
+        assert assigned==[uid(22),uid(23),uid(24)]
     assert execute(f"select count(*) from public.newsroom_editorial_theme_sources where theme_id='{uid(521)}' and newsroom_article_id='{uid(24)}';")=='0'
 
 def permissions():
@@ -583,7 +583,7 @@ def stable_edit_identity():
     assert original_articles==execute("select md5(jsonb_agg(to_jsonb(a) order by a.id)::text) from public.editorial_articles a;")
     assert execute('select count(*) from public.newsroom_mesa_output_publications;')=='0'
     assert execute('select count(*) from public.newsroom_mesa_publication_events;')=='0'
-    assert post_output_scope_functions==execute(old_functions_query)
+    assert post_output_focus_functions==execute(old_functions_query)
 
 
 for name,fn in [
@@ -611,7 +611,7 @@ for name,fn in [
     ('selection mistura fonte de Tema e fonte solta sem reorganizar',selection_can_mix_theme_member_and_loose_source),
     ('selection une Tema e fontes soltas num único contexto',selection_theme_union),
     ('Tema sem relação de artigo recupera artigo pela proveniência da fonte',selection_theme_finds_article_without_theme_article_relation),
-    ('selection separa fontes do Tema da fonte solta por Article Plan',selection_segments_theme_review_from_loose_new),
+    ('selection infere foco por output sem cortar o contexto',selection_segments_theme_review_from_loose_new),
     ('permissões negam clientes e escrita direta',permissions),
     ('preparação não publica nem marca artigos revistos',stable_edit_identity),
 ]:
