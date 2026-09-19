@@ -131,7 +131,7 @@ with sync_playwright() as playwright:
         assert page.evaluate('(el)=>getComputedStyle(el).position',panel.element_handle())=='fixed'
         after=tray.bounding_box()['height']
         assert abs(after-before)<=1,(before,after)
-        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('2')
+        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('0')
         assert page.get_by_text('Material selecionado · 1 Tema · 2 fontes soltas',exact=True).count()==1
         assert page.get_by_text('Destino desta fonte',exact=True).count()==0
         action=page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)
@@ -141,7 +141,8 @@ with sync_playwright() as playwright:
 
     def mixed():
         f=start();page.screenshot(path=str(output/'selection-mixed.png'),full_page=True)
-        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('1')
+        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('0')
+        page.get_by_label('Novos artigos da seleção',exact=True).fill('1')
         plan=prepared();assert len(plan['outputs'])==2 and len(plan['contexts'])==1
         selected=plan['contexts'][0];assert selected['kind']=='selection'
         assert {x['newsroomArticleId'] for x in selected['sources']}=={f['material']['id'],f['loose']['id']}

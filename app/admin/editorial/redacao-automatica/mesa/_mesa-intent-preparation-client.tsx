@@ -84,7 +84,7 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
           &&JSON.stringify(current.selection.themeIds)===JSON.stringify(view.themeIds)
           &&current.selection.reviewArticleIds.every(id=>view.articles.some(a=>a.id===id)))return current;
         const next:MesaSelectionChoice=view.articles.length===1
-          ?{sourceIds:view.sourceIds,themeIds:view.themeIds,reviewArticleIds:[view.articles[0].id],newCount:Math.max(0,selectionUnits-1)}
+          ?{sourceIds:view.sourceIds,themeIds:view.themeIds,reviewArticleIds:[view.articles[0].id],newCount:0}
           :{sourceIds:view.sourceIds,themeIds:view.themeIds,reviewArticleIds:[],newCount:view.articles.length===0?selectionUnits:0};
         return {...current,selection:next};
       });
