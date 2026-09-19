@@ -543,10 +543,11 @@ export function resolveMesaIntentPublication(
       }
       publishedIds.add(published.id);
     }
+    const outputSourceIds = new Set(output.sourceIds ?? context.sources.map((source) => source.newsroomArticleId));
     receipts.push({
       contextKey: context.key, themeId: context.themeId, articleId: target?.editorialArticleId ?? published!.id,
       slot: output.slot, decision: result.decision, capturedAt: plan.capturedAt,
-      sources: context.sources.map((source) => ({ ...source })),
+      sources: context.sources.filter((source) => outputSourceIds.has(source.newsroomArticleId)).map((source) => ({ ...source })),
     });
   }
   return { ok: true, value: receipts };
