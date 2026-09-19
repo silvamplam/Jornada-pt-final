@@ -493,7 +493,10 @@ export function retainMesaDeferredSelection(buffer:MesaPreparationBuffer,
   request:import("@/lib/redacao-automatica/newsroom-mesa-production-intents").MesaProductionIntent,
   createKey:()=>string):MesaPreparationBuffer {
   const activeThemes=new Set(request.themes.filter(t=>t.action==="prepare").map(t=>t.themeId));
-  const activeSources=new Set(request.sources.filter(s=>s.destination!=="defer").map(s=>s.sourceId));
+  const activeSources=new Set([
+    ...request.sources.filter(s=>s.destination!=="defer").map(s=>s.sourceId),
+    ...(request.selection?.sourceIds ?? []),
+  ]);
   const remaining={...buffer,sources:buffer.sources.filter(s=>!activeSources.has(s.newsroomArticleId)),themes:(buffer.themes??[]).filter(t=>!activeThemes.has(t.themeId))};
   return selectionCount(remaining)?{...remaining,preparationKey:createKey()}:clearMesaPreparationBuffer();
 }

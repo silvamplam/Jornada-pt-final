@@ -1058,6 +1058,9 @@
   min-height: 0;
   margin-top: 0;
   padding-top: 8px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  overflow: hidden;
 }
 
 .selectionPanel .continuityPanel {
@@ -1073,6 +1076,49 @@
 .selectionPanel .continuityPrepare {
   gap: 8px;
   margin-top: 8px;
+}
+
+.continuityContexts {
+  max-height: min(42dvh, 420px);
+  overflow-y: auto;
+}
+
+.selectionPanel .continuityContexts {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+.continuityActionBar {
+  border-top: 1px solid #cedbd2;
+  padding-top: 8px;
+  background: #f4f8f5;
+}
+
+.selectionPanel .continuityActionBar {
+  margin: 0 -10px -10px;
+  padding: 8px 10px 10px;
+  background: #f7fbf7;
+}
+
+.selectionCandidateList {
+  margin: 7px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 5px;
+  list-style: none;
+}
+
+.selectionCandidateList label {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.66rem;
+  font-weight: 650;
+}
+
+.selectionCandidateList input {
+  margin-top: 2px;
 }
 
 .selectionPanel .prepareButton {

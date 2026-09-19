@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prepareMesaIntentsHttp, readMesaIntentThemeHttp } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-http";
-export const GET = readMesaIntentThemeHttp;
+import { prepareMesaIntentsHttp, readMesaIntentPreparationHttp } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-http";
+export const GET = readMesaIntentPreparationHttp;
 
 import {
   prepareEditorialDossierWorkspace,

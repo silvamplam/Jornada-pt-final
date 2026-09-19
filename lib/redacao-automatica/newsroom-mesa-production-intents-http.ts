@@ -13,6 +13,8 @@ function failure(e:unknown) {
     [/source-unusable|source-unavailable/,'Há uma fonte sem captura guardada utilizável. Deixa esse contexto para depois ou resolve a captura.'],
     [/classification/,'Há fontes por classificar. Classifica-as ou deixa esse contexto para depois.'],
     [/theme-unavailable/,'Um Tema deixou de estar disponível. A seleção foi preservada; podes deixá-lo para depois.'],
+    [/global-candidates/,'Não foi possível confirmar os artigos Jornada relacionados com esta seleção. A seleção foi preservada.'],
+    [/selection-target-unavailable/,'Um artigo escolhido para revisão deixou de corresponder à seleção. Relê a seleção antes de preparar.'],
     [/limit|too-many/,'A seleção ultrapassa os limites da Produção. Nenhum histórico ou fonte foi truncado.'],
     [/stale/,'O material ou os publicados mudaram antes da gravação. Relê os Temas e confirma as escolhas; nada foi preparado.'],
     [/conflict/,'Esta tentativa não corresponde à preparação guardada. A seleção foi preservada.'],
@@ -20,7 +22,7 @@ function failure(e:unknown) {
   const match=cases.find(([pattern])=>pattern.test(detail));
   return error(match?.[1]??'Não foi possível preparar a Produção. A seleção e a tentativa foram preservadas para repetir.',/stale/.test(detail)?'intent_stale':match?'intent_conflict':'intent_unavailable',match?409:503);
 }
-export async function readMesaIntentThemeHttp(request:Request) {
+async function readMesaIntentThemeHttp(request:Request) {
   const themeId=new URL(request.url).searchParams.get('themeId');
   if(!isMesaIntentUuid(themeId))return error('O Tema indicado não é válido.');
   try {
@@ -31,6 +33,17 @@ export async function readMesaIntentThemeHttp(request:Request) {
       mesaIntentService.readReceipts(themeId),
     ]);
     return NextResponse.json({ok:true,theme:mesaIntentThemeView(preview.contexts[0],receipts)},options());
+  }catch(e){return failure(e);}
+}
+export async function readMesaIntentPreparationHttp(request:Request) {
+  const url=new URL(request.url),themeId=url.searchParams.get('themeId');
+  if(themeId!==null)return readMesaIntentThemeHttp(request);
+  const sourceIds=url.searchParams.getAll('sourceId');
+  if(!sourceIds.length||sourceIds.length>20||sourceIds.some(id=>!isMesaIntentUuid(id))||new Set(sourceIds).size!==sourceIds.length)
+    return error('A seleção de fontes indicada não é válida.');
+  try{
+    const articles=await mesaIntentService.readGlobalCandidates(sourceIds);
+    return NextResponse.json({ok:true,selection:{sourceIds:[...sourceIds].sort(),articles}},options());
   }catch(e){return failure(e);}
 }
 export async function prepareMesaIntentsHttp(payload:Record<string,unknown>) {

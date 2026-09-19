@@ -1,9 +1,9 @@
 'use client';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {useRouter} from 'next/navigation';
-import {buildMesaIntentUiRequest,parseMesaIntentChoices,parseMesaIntentThemeView,isMesaIntentUuid,
+import {buildMesaIntentUiRequest,parseMesaIntentChoices,parseMesaIntentThemeView,parseMesaIntentSelectionView,isMesaIntentUuid,
   EMPTY_MESA_INTENT_CHOICES,type MesaIntentChoices,type MesaIntentThemeView,type MesaIntentUiSelection,
-  type MesaThemeChoice,type MesaSourceChoice} from '@/lib/redacao-automatica/newsroom-mesa-production-intents-ui';
+  type MesaIntentSelectionView,type MesaSelectionChoice,type MesaThemeChoice} from '@/lib/redacao-automatica/newsroom-mesa-production-intents-ui';
 import type {MesaIntentIssue,MesaProductionIntent} from '@/lib/redacao-automatica/newsroom-mesa-production-intents';
 import styles from './mesa.module.css';
 const ROUTE='/api/admin/editorial/redacao-automatica/mesa/preparar';
@@ -26,16 +26,20 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
 }>) {
   const router=useRouter();
   const [choices,setChoices]=useState<MesaIntentChoices>(EMPTY_MESA_INTENT_CHOICES),[views,setViews]=useState<Record<string,MesaIntentThemeView>>({});
+  const [selectionView,setSelectionView]=useState<MesaIntentSelectionView|null>(null),[selectionLoadError,setSelectionLoadError]=useState('');
   const [loadErrors,setLoadErrors]=useState<Record<string,string>>({}),[issues,setIssues]=useState<readonly MesaIntentIssue[]>([]);
   const [message,setMessage]=useState(''),[loaded,setLoaded]=useState(false),[busy,setBusy]=useState(false),[refresh,setRefresh]=useState(0);
   const attempt=useRef<Attempt|null>(null),locked=useRef(false),savedChoices=useRef(choices),selectionRef=useRef(selection),busyRef=useRef(onBusyChange);
   selectionRef.current=selection;busyRef.current=onBusyChange;
   const key=`${storageKey}.intents.v1`,themeIds=selection.themes.map(t=>t.themeId).sort().join(',');
+  const looseSourceIds=selection.sources.map(s=>s.newsroomArticleId).sort(),sourceSignature=looseSourceIds.join(',');
   function save(c:MesaIntentChoices,a:Attempt|null=attempt.current) {
     savedChoices.current=c;
     const themes=Object.fromEntries(Object.entries(c.themes).filter(([id])=>selectionRef.current.themes.some(t=>t.themeId===id)));
     const sources=Object.fromEntries(Object.entries(c.sources).filter(([id])=>selectionRef.current.sources.some(s=>s.newsroomArticleId===id)));
-    try{sessionStorage.setItem(key,JSON.stringify({version:1,choices:{themes,sources},attempt:a}));}
+    const activeSourceIds=selectionRef.current.sources.map(s=>s.newsroomArticleId).sort();
+    const selectionChoice=c.selection&&JSON.stringify(c.selection.sourceIds)===JSON.stringify(activeSourceIds)?c.selection:null;
+    try{sessionStorage.setItem(key,JSON.stringify({version:1,choices:{themes,sources,selection:selectionChoice},attempt:a}));}
     catch{setMessage('As escolhas estão apenas nesta janela: o armazenamento local está indisponível.');}
   }
   useEffect(()=>{
@@ -62,27 +66,57 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
     })();
     return ()=>controller.abort();
   },[themeIds,loaded,fixtureMode,refresh]);
+  useEffect(()=>{
+    if(!loaded)return;
+    if(!looseSourceIds.length){setSelectionView(null);setSelectionLoadError('');return;}
+    const apply=(view:MesaIntentSelectionView)=>{
+      setSelectionView(view);setSelectionLoadError('');
+      setChoices(current=>{
+        if(current.selection&&JSON.stringify(current.selection.sourceIds)===JSON.stringify(view.sourceIds)
+          &&current.selection.reviewArticleIds.every(id=>view.articles.some(a=>a.id===id)))return current;
+        const next:MesaSelectionChoice=view.articles.length===1
+          ?{sourceIds:view.sourceIds,reviewArticleIds:[view.articles[0].id],newCount:0}
+          :{sourceIds:view.sourceIds,reviewArticleIds:[],newCount:view.articles.length===0?view.sourceIds.length:0};
+        return {...current,selection:next};
+      });
+    };
+    if(fixtureMode){apply({sourceIds:looseSourceIds,articles:[]});return;}
+    const controller=new AbortController(),params=new URLSearchParams();
+    for(const sourceId of looseSourceIds)params.append('sourceId',sourceId);
+    void(async()=>{
+      try{
+        const response=await fetch(`${ROUTE}?${params.toString()}`,{cache:'no-store',signal:controller.signal});
+        const reply=await response.json(),view=parseMesaIntentSelectionView(reply?.selection);
+        if(!response.ok||!reply?.ok||!view||JSON.stringify(view.sourceIds)!==JSON.stringify(looseSourceIds))
+          throw new Error(reply?.message||'Não foi possível confirmar os artigos Jornada relacionados com esta seleção.');
+        if(!controller.signal.aborted)apply(view);
+      }catch(e){if(!controller.signal.aborted){setSelectionView(null);setSelectionLoadError(e instanceof Error?e.message:'Leitura indisponível.');}}
+    })();
+    return()=>controller.abort();
+  },[sourceSignature,loaded,fixtureMode,refresh]);
   useEffect(()=>{if(loaded)save(choices);},[choices,loaded,key]);
   function chooseTheme(id:string,patch:Partial<MesaThemeChoice>){setChoices(c=>({...c,themes:{...c.themes,[id]:{...(c.themes[id]??{mode:'new',newCount:1}),...patch}}}));setIssues([]);setMessage('');}
-  function chooseSource(id:string,patch:Partial<MesaSourceChoice>){setChoices(c=>({...c,sources:{...c.sources,[id]:{...(c.sources[id]??{destination:'defer',themeId:'',newCount:1}),...patch}}}));setIssues([]);setMessage('');}
+  function chooseSelection(patch:Partial<MesaSelectionChoice>){setChoices(current=>({...current,selection:{
+    ...(current.selection??{sourceIds:looseSourceIds,reviewArticleIds:[],newCount:0}),...patch,sourceIds:looseSourceIds}}));setIssues([]);setMessage('');}
   const validViews=Object.fromEntries(Object.entries(views).filter(([id])=>!loadErrors[id]));
-  const built=buildMesaIntentUiRequest(selection,choices,validViews,title,CHECK_KEY);
+  const built=buildMesaIntentUiRequest(selection,choices,validViews,title,CHECK_KEY,selectionView);
   // Restored choices can be ready before the authoritative Theme read finishes.
   // Deferring a Theme must still allow independent work if its read is pending.
   const awaitingThemeRead=selection.themes.some(t=>choices.themes[t.themeId]?.mode!=='defer'
     && !views[t.themeId] && !loadErrors[t.themeId]);
+  const awaitingSelectionRead=looseSourceIds.length>0&&!selectionView&&!selectionLoadError;
   const errors=(contextKey:string)=>issues.filter(i=>i.contextKey===contextKey).map((i,n)=><p key={n} role="alert" className={styles.continuityError}>{i.message}</p>);
   async function post(body:Record<string,unknown>){
     const response=await fetch(ROUTE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mesaVersion:4,...body})});
     const reply=await response.json().catch(()=>null) as Reply|null;
     if(!response.ok||!reply?.ok){
       if(reply?.contextKey)setIssues([{code:reply.code||'prepare_failed',contextKey:reply.contextKey,message:reply.message||'Preparação não concluída.'}]);
-      if(reply?.code==='intent_stale'){attempt.current=null;save(savedChoices.current,null);setViews({});setRefresh(n=>n+1);}
+      if(reply?.code==='intent_stale'){attempt.current=null;save(savedChoices.current,null);setViews({});setSelectionView(null);setRefresh(n=>n+1);}
       throw new Error(reply?.message||'A resposta não confirmou a preparação. Repete com as mesmas escolhas; não será duplicada.');
     }return reply;
   }
   async function prepare(event:FormEvent){
-    event.preventDefault();if(locked.current||disabled||!loaded||awaitingThemeRead)return;
+    event.preventDefault();if(locked.current||disabled||!loaded||awaitingThemeRead||awaitingSelectionRead)return;
     if(!built.ok){setIssues(built.issues);return;}
     if(fixtureMode){setMessage('Fixture visual: nenhuma produção foi enviada.');return;}
     const signature=JSON.stringify({...built.request,preparationKey:undefined});
@@ -107,7 +141,7 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
   const blocked=disabled||busy||!loaded;
   return <form aria-label="Escolhas de Produção" className={styles.continuityBody} onSubmit={prepare}>
     <p>Escolhe o trabalho de cada contexto. A preparação usa as capturas mais recentes já guardadas; não volta a recolher os sites externos.</p>
-    <div aria-label="Contextos desta Produção" style={{maxHeight:"min(42dvh, 420px)",overflowY:"auto"}}>
+    <div aria-label="Contextos desta Produção" className={styles.continuityContexts}>
     {selection.themes.map(t=>{const view=views[t.themeId],c=choices.themes[t.themeId],published=Boolean(view?.articles.length),staleReview=!published&&(c?.mode==='review'||c?.mode==='review-new');return <section key={t.themeId} aria-label={`Produção do Tema ${t.title}`} className={styles.continuityPanel}>
       <h3>{t.title}</h3><div className={styles.continuityPrepare}>
         <label>Trabalho do Tema<select aria-label={`Trabalho do Tema ${t.title}`} value={staleReview?'':c?.mode||''} disabled={blocked} onChange={e=>chooseTheme(t.themeId,{mode:e.currentTarget.value as MesaThemeChoice['mode']})}>
@@ -121,16 +155,30 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
       {c?.mode==='review'||c?.mode==='review-new'?<p>Todos os publicados deste Tema terminam em UPDATE ou SEM ALTERAÇÃO.</p>:c?.mode==='new'?<p>Os publicados ficam apenas como referência, sem tarefas UPDATE nem registos de revisão.</p>:c?.mode==='defer'?<p>Este Tema não entra nesta Produção.</p>:null}
       {view?<MesaIntentArticleReceipts view={view}/>:null}{errors(`theme:${t.themeId}`)}
     </section>;})}
-    {selection.sources.map(s=>{const c=choices.sources[s.newsroomArticleId];return <section key={s.newsroomArticleId} aria-label={`Produção da fonte ${s.title}`} className={styles.continuityPanel}><h3>Fonte: {s.title}</h3>
-      <div className={styles.continuityPrepare}><label>Destino desta fonte<select aria-label={`Destino da fonte ${s.title}`} value={!c?'':c.destination==='theme'?`theme:${c.themeId}`:c.destination} disabled={blocked} onChange={e=>{const v=e.currentTarget.value;chooseSource(s.newsroomArticleId,v.startsWith('theme:')?{destination:'theme',themeId:v.slice(6)}:{destination:v as 'independent'|'defer',themeId:''});}}>
-        <option value="" disabled>Escolher destino</option><option value="independent">Trabalhar independentemente</option>
-        {selection.themes.map(t=><option key={t.themeId} value={`theme:${t.themeId}`} disabled={choices.themes[t.themeId]?.mode==='defer'}>Incorporar no Tema: {t.title}</option>)}<option value="defer">Deixar para depois</option>
-      </select></label>{c?.destination==='independent'?<label>Novos independentes<input aria-label={`Novos independentes de ${s.title}`} type="number" min={1} max={30} step={1} value={Number.isNaN(c.newCount)?'':c.newCount} disabled={blocked} onChange={e=>chooseSource(s.newsroomArticleId,{newCount:e.currentTarget.valueAsNumber})}/></label>:null}</div>
-      {c?.destination==='theme'?<p>Esta fonte passa a pertencer ao Tema escolhido. Não acrescenta automaticamente um artigo novo.</p>:null}{errors(`source:${s.newsroomArticleId}`)}</section>;})}
+    {selection.sources.length?<section aria-label="Produção da seleção de fontes" className={styles.continuityPanel}>
+      <h3>{quantity(selection.sources.length,'fonte selecionada','fontes selecionadas')}</h3>
+      {selectionLoadError?<p role="alert" className={styles.continuityError}>{selectionLoadError} <button type="button" disabled={blocked} onClick={()=>{setSelectionView(null);setSelectionLoadError('');setRefresh(n=>n+1);}}>Reler seleção</button></p>
+        :!selectionView?<p role="status">A confirmar artigos Jornada relacionados…</p>
+        :<>
+          {selectionView.articles.length?<><p>{selectionView.articles.length===1?'Foi encontrado um artigo Jornada relacionado por proveniência.':'Foram encontrados vários artigos Jornada relacionados. Escolhe explicitamente os que queres rever.'}</p>
+            <ul className={styles.selectionCandidateList}>{selectionView.articles.map(article=><li key={article.id}><label>
+              <input type="checkbox" checked={choices.selection?.reviewArticleIds.includes(article.id)??false} disabled={blocked}
+                onChange={e=>{const current=choices.selection?.reviewArticleIds??[];chooseSelection({reviewArticleIds:e.currentTarget.checked?[...new Set([...current,article.id])]:current.filter(id=>id!==article.id)});}}/>
+              <span>Rever: {article.title}</span>
+            </label></li>)}</ul></>
+            :<p>Não foi encontrado artigo Jornada publicado ligado por proveniência às fontes selecionadas.</p>}
+          <div className={styles.continuityPrepare}><label>Novos artigos
+            <input aria-label="Novos artigos da seleção" type="number" min={0} max={30} step={1}
+              value={choices.selection&&Number.isFinite(choices.selection.newCount)?choices.selection.newCount:''} disabled={blocked}
+              onChange={e=>chooseSelection({newCount:e.currentTarget.valueAsNumber})}/>
+          </label><span>As fontes entram juntas na Produção; não são transformadas em artigos independentes por fonte.</span></div>
+        </>}
+      {errors(`selection:${CHECK_KEY}`)}
+    </section>:null}
     {issues.filter(i=>i.contextKey===null).map((i,n)=><p key={n} role="alert" className={styles.continuityError}>{i.message}</p>)}
     </div>
-    <div className={styles.continuityPrepare}><p>{built.ok?`${quantity(built.reviews,"artigo Jornada a avaliar","artigos Jornada a avaliar")} · ${quantity(built.newArticles,"novo","novos")}. Fontes e histórico separados por contexto.`:'Completa as escolhas de cada contexto para preparar.'}</p>
-      <button type="submit" className={styles.prepareButton} disabled={blocked||awaitingThemeRead}>{busy?'A preparar…':'PREPARAR PRODUÇÃO'}</button></div>
+    <div className={`${styles.continuityPrepare} ${styles.continuityActionBar}`}><p>{built.ok?`${quantity(built.reviews,"artigo Jornada a avaliar","artigos Jornada a avaliar")} · ${quantity(built.newArticles,"novo","novos")}. Fontes e histórico congelados para a Produção.`:'Completa as escolhas de cada contexto para preparar.'}</p>
+      <button type="submit" className={styles.prepareButton} disabled={blocked||awaitingThemeRead||awaitingSelectionRead}>{busy?'A preparar…':'PREPARAR PRODUÇÃO'}</button></div>
     {message?<p className={styles.selectionMessage} role="status">{message}</p>:null}
   </form>;
 }

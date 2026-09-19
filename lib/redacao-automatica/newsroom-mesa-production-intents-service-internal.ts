@@ -108,6 +108,30 @@ export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) 
       return {action:r.action as "consolidated" | "reused",publicationEventId:r.publicationEventId,
         updatedCount:r.updatedCount as number,newCount:r.newCount as number,noChangeCount:r.noChangeCount as number};
     },
+    async readGlobalCandidates(sourceIds: readonly string[]) {
+      if (!sourceIds.length || sourceIds.length>20 || !sourceIds.every(id) || new Set(sourceIds).size!==sourceIds.length) {
+        throw new Error("mesa-intent-global-candidates-input-invalid");
+      }
+      const normalized=[...sourceIds].sort();
+      const row=single(await transport.post("newsroom_mesa_global_article_candidates_v1", {
+        p_source_ids:normalized,p_theme_ids:[],
+      }));
+      if (!Array.isArray(row?.candidates) || row.candidates.length>200) {
+        throw new Error("mesa-intent-global-candidates-result-invalid");
+      }
+      const result:{id:string;title:string}[]=[];
+      const seen=new Set<string>();
+      for (const raw of row.candidates) {
+        const candidate=object(raw);
+        if (!candidate || !id(candidate.editorialArticleId) || seen.has(candidate.editorialArticleId)
+          || typeof candidate.title!=="string" || !candidate.title.trim()) {
+          throw new Error("mesa-intent-global-candidates-result-invalid");
+        }
+        seen.add(candidate.editorialArticleId);
+        result.push({id:candidate.editorialArticleId,title:candidate.title.trim()});
+      }
+      return result.sort((a,b)=>a.id.localeCompare(b.id));
+    },
     async readReceipts(themeId: string) {
       if (!id(themeId)) throw new Error("mesa-intent-receipts-input-invalid");
       const row=single(await transport.get("newsroom_mesa_intent_latest_receipts_v1", {p_theme_id:themeId}));

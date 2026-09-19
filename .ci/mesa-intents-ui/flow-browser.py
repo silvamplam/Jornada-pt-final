@@ -81,11 +81,12 @@ with sync_playwright() as pw:
         page.get_by_role('button',name='Ver seleção',exact=True).click()
         expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
         expect(page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)).to_have_value('review' if kw.get('published',1)>0 else 'new')
+        if kw.get('independent',True) is not False:
+            expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_be_visible()
         return f
-    def prepare(mode='review',new=None,independent=False):
+    def prepare(mode='review',new=None):
         page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).select_option(mode)
         if new is not None:page.get_by_label('Novos artigos do Tema Milan / Amorim',exact=True).fill(str(new))
-        if independent:page.get_by_label('Destino da fonte Pote independente',exact=True).select_option('independent')
         page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True).click()
         page.wait_for_function('(base)=>window.__flowReady.startsWith(base)',arg=production,timeout=12000)
         expect(page.get_by_role('heading',name='Produção',exact=True)).to_be_visible()
@@ -123,7 +124,7 @@ with sync_playwright() as pw:
         if args.document_only:page.wait_for_function('(path)=>window.__flowLanding===path',arg=mesa,timeout=12000)
         else:page.wait_for_url(origin+mesa,timeout=12000)
     def mixed():
-        f=start();did,plan=prepare(independent=True)
+        f=start();did,plan=prepare()
         page.screenshot(path=str(out/'flow-workspace-mixed.png'),full_page=True)
         pid,text=package(did);assert 'Milan' in text and 'Pote' in text
         return_text(pid);publish(new=True)
@@ -132,9 +133,10 @@ with sync_playwright() as pw:
         old=next(a for a in s['articles'] if a['id']==f['articles'][0]);target=next(o['target'] for o in plan['outputs'] if o['kind']=='existing')
         assert old['slug']==target['slug'] and old['matchday_id'] is None
         assert len(s['themeArticles'])==1
-        fresh=next(a for a in s['articles'] if a['id']!=old['id']);assert 'Pote' in fresh['title']
+        fresh=next(a for a in s['articles'] if a['id']!=old['id'])
+        assert fresh['id'] not in {a['id'] for a in s['themeArticles']}
         receipt=next(r for r in s['receipts'] if r['editorial_article_id']==fresh['id'])
-        assert receipt['theme_id'] is None
+        assert receipt['theme_id'] is None and receipt['context_key'].startswith('selection:')
         (out/'flow-mixed-result.json').write_text(json.dumps(s,ensure_ascii=False,indent=2))
     def nochange():
         start(independent=False,published=2);did,plan=prepare();pid,_=package(did)
@@ -201,7 +203,7 @@ with sync_playwright() as pw:
             report();raise
         report()
     try:
-        test('Real visual mixed UPDATE with null matchday + independent NEW',mixed)
+        test('Real visual mixed UPDATE with null matchday + selection NEW',mixed)
         test('Real visual all-SEM ALTERAÇÃO without article writes',nochange)
         test('Real visual NEW without review followed by explicit old-article review',new_then_review)
         test('Real visual mixed UPDATE, SEM ALTERAÇÃO and two NEW outputs',review_and_new)
