@@ -161,7 +161,7 @@ for path in constants['MESA_MIGRATIONS']:
 load(constants['MIGRATION_2C'])
 load(constants['SCOPED_READ_MIGRATION'])
 load('supabase/migrations/20260914114311_newsroom_mesa_theme_continuity_v1.sql')
-load('supabase/migrations/20260919010000_newsroom_mesa_global_article_candidates_v1.sql')
+load('supabase/migrations/20260919014256_newsroom_mesa_global_article_candidates_v1.sql')
 
 # Capture old function definitions, privileges and configuration before applying
 # the additive migration. A failed comparison must stop the build.
@@ -175,7 +175,7 @@ before_functions = execute(old_functions_query)
 load(MIGRATION)
 assert before_functions == execute(old_functions_query)
 print('PASS original RPC definitions/privileges unchanged', flush=True)
-load('supabase/migrations/20260919011000_newsroom_mesa_selection_context_v1.sql')
+load('supabase/migrations/20260919014322_newsroom_mesa_selection_context_v1.sql')
 post_selection_functions = execute(old_functions_query)
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
 

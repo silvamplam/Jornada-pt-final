@@ -23,7 +23,7 @@ expect_error, test, report = (base[x] for x in ('expect_error', 'test', 'report'
 ROOT, args, RESULTS = (base[x] for x in ('ROOT', 'args', 'RESULTS'))
 MIGRATION = 'supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql'
 HOTFIX = 'supabase/migrations/20260918145300_newsroom_mesa_intent_update_revision_hotfix.sql'
-ARTICLE_CONTINUITY = 'supabase/migrations/20260919012000_newsroom_mesa_article_continuity_v2.sql'
+ARTICLE_CONTINUITY = 'supabase/migrations/20260919014344_newsroom_mesa_article_continuity_v2.sql'
 
 
 def scalar(sql):
