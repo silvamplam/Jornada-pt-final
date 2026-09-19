@@ -132,7 +132,7 @@ with sync_playwright() as playwright:
         after=tray.bounding_box()['height']
         assert abs(after-before)<=1,(before,after)
         expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('2')
-        assert page.get_by_text('2 fontes selecionadas',exact=True).count()==1
+        assert page.get_by_text('Material selecionado · 1 Tema · 2 fontes soltas',exact=True).count()==1
         assert page.get_by_text('Destino desta fonte',exact=True).count()==0
         action=page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)
         expect(action).to_be_visible()
