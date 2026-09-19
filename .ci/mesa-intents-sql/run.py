@@ -199,7 +199,7 @@ for theme, sources in [(500,[1,2]), (501,[4]), (502,[5]), (503,[6]), (504,[7])]:
 seed.append(f"""insert into public.competitions(id) values('{uid(900)}');
 insert into public.seasons(id,competition_id) values('{uid(901)}','{uid(900)}');
 insert into public.matchdays(id,season_id) values('{uid(902)}','{uid(901)}');""")
-for article, theme, matchday, status in [(2001,500,902,'published'), (2002,502,902,'published'), (2003,503,None,'published'), (2004,501,902,'draft')]:
+for article, theme, matchday, status in [(2001,500,902,'published'), (2002,502,902,'published'), (2003,503,None,'published'), (2004,501,902,'draft'), (2110,521,902,'published')]:
     seed.append(f"""insert into public.editorial_articles(id,title,slug,status,label,subtitle,body,author,matchday_id,published_at)
       values('{uid(article)}','Artigo {article}','artigo-{article}','{status}','Ante','Pós','Corpo original','Editor',
       {'null' if matchday is None else repr(uid(matchday))},'2026-09-17T11:00:00Z');
@@ -546,11 +546,6 @@ def selection_segments_theme_review_from_loose_new():
     execute(f"""
       select public.newsroom_set_editorial_theme_source_membership_v1('{uid(521)}','{uid(22)}',true);
       select public.newsroom_set_editorial_theme_source_membership_v1('{uid(521)}','{uid(23)}',true);
-      insert into public.editorial_articles(id,title,slug,status,label,subtitle,body,author,matchday_id,published_at)
-      values('{uid(2110)}','Artigo do Tema 521','artigo-tema-521','published','Ante','Pós','Corpo','Editor',
-        '{uid(902)}','2026-09-17T11:55:00Z');
-      insert into public.newsroom_editorial_theme_articles(theme_id,editorial_article_id)
-      values('{uid(521)}','{uid(2110)}');
     """)
     req=selection_request(8199,[24],[2110],1,theme_ids=[521],candidate_article_ids=[2110])
     previewed=preview(req)
