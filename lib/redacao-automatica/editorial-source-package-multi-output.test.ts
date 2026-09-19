@@ -200,7 +200,7 @@ test("Production Intents mantém candidatos não revistos como referência integ
     title: "Artigo de referência",
     matchdayId: null,
     contentFingerprint: "a".repeat(64),
-    article: { id: articleId, slug: "artigo-referencia", title: "Artigo de referência", status: "published",
+    article: { id: articleId, slug: "artigo-referencia", title: "Artigo de referência", status: "published" as const,
       matchday_id: null, label: "Ante", subtitle: "Pós", body: "Corpo antigo integral." },
   };
   const sourceEntries = entries().slice(0,1).map((entry) => ({...entry, provenanceSourceId: sourceId}));
@@ -208,7 +208,7 @@ test("Production Intents mantém candidatos não revistos como referência integ
     createdAt: "2026-09-19T00:00:00.000Z",
     editorial: {genre:"news",genreLabel:"Notícia",suggestedTitle:"Produção",additionalInstructions:null},
     entries: sourceEntries,
-    outputs: [{position:1,outputId,startingPointSourceId:sourceId,sourceArticlePosition:1,focus:"Novo artigo",
+    outputs: [{position:1,outputId,startingPointSourceId:sourceId,sourceArticlePosition:1,focus:"Novo artigo",imageNewsroomArticleId:null,
       articlePlan:{dossierId,articlePlanId:outputId,workingTitle:"Novo artigo",articleKind:"news",articleKindLabel:"Notícia",
         lengthMode:"standard",lengthModeLabel:"Normal",editorialInstructions:"",destination:"new",
         workspaceContractVersion:2,sourceScope:"context",contextId}}],
@@ -219,7 +219,7 @@ test("Production Intents mantém candidatos não revistos como referência integ
         selection:{sourceIds:[sourceId],candidateArticleIds:[articleId],reviewArticleIds:[],newArticleCount:1}},
       contexts:[{key:"selection:94000000-0000-4000-8000-000000000095",kind:"selection",themeId:null,sourceId:null,
         title:"Produção",reviewPublished:false,newArticleCount:1,productionContextId:contextId,
-        sources:[{newsroomArticleId:sourceId,newsroomSnapshotId:sourceEntries[0].newsroomSnapshotId,capturedAt:"2026-09-19T00:00:00.000Z",
+        sources:[{newsroomArticleId:sourceId,newsroomSnapshotId:sourceEntries[0]!.newsroomSnapshotId,capturedAt:"2026-09-19T00:00:00.000Z",
           contentFingerprint:"c".repeat(64),snapshotFingerprint:"d".repeat(64),usable:true,classificationKey:"sporting"}],
         publishedArticles:[],candidateArticles:[snapshot]}],
       outputs:[{slot:"NEW_01",contextKey:"selection:94000000-0000-4000-8000-000000000095",kind:"new",
