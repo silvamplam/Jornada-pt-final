@@ -165,14 +165,16 @@ with sync_playwright() as pw:
         return_text(pid);publish(new=True)
         first=rpc(dict(kind='flow-state',dossierId=did));assert len(first['receipts'])==1 and first['receipts'][0]['decision']=='NEW'
         old=next(a for a in first['themeArticles'] if a['id']==f['articles'][0]);assert old['body']=='Corpo antigo'
+        fresh=next(a for a in first['articles'] if a['id']!=old['id'])
+        assert fresh['id'] not in {a['id'] for a in first['themeArticles']}
         reopen_theme(f)
-        page.get_by_text('Artigos Jornada e continuidade (2)',exact=True).click()
+        page.get_by_text('Artigos Jornada e continuidade (1)',exact=True).click()
         expect(page.get_by_text('Não revisto — sem referência de revisão verificável.',exact=True)).to_have_count(1)
-        expect(page.get_by_text('Publicação inicial — não é uma revisão dos artigos anteriores.',exact=True)).to_have_count(1)
-        did2,plan2=prepare();assert len(plan2['outputs'])==2 and all(o['kind']=='existing' for o in plan2['outputs'])
+        expect(page.get_by_text('Publicação inicial — não é uma revisão dos artigos anteriores.',exact=True)).to_have_count(0)
+        did2,plan2=prepare();assert len(plan2['outputs'])==1 and all(o['kind']=='existing' for o in plan2['outputs'])
         pid2,_=package(did2);return_text(pid2,[o['outputId'] for o in plan2['outputs']]);publish()
-        second=rpc(dict(kind='flow-state',dossierId=did2));assert len(second['receipts'])==2
-        assert all(r['decision']=='SEM_ALTERAÇÃO' for r in second['receipts'])
+        second=rpc(dict(kind='flow-state',dossierId=did2));assert len(second['receipts'])==1
+        assert second['receipts'][0]['decision']=='SEM_ALTERAÇÃO'
         assert second['themeArticles']==first['themeArticles']
         (out/'flow-new-then-review.json').write_text(json.dumps(dict(first=first,second=second),ensure_ascii=False,indent=2))
     def review_and_new():

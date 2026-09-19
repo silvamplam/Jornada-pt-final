@@ -219,7 +219,7 @@ test("Production Intents mantém candidatos não revistos como referência integ
         selection:{sourceIds:[sourceId],candidateArticleIds:[articleId],reviewArticleIds:[],newArticleCount:1}},
       contexts:[{key:"selection:94000000-0000-4000-8000-000000000095",kind:"selection",themeId:null,sourceId:null,
         title:"Produção",reviewPublished:false,newArticleCount:1,productionContextId:contextId,
-        sources:[{newsroomArticleId:sourceId,newsroomSnapshotId:sourceEntries[0]!.newsroomSnapshotId,capturedAt:"2026-09-19T00:00:00.000Z",
+        sources:[{newsroomArticleId:sourceId,newsroomSnapshotId:"92000000-0000-4000-8000-000000000001",capturedAt:"2026-09-19T00:00:00.000Z",
           contentFingerprint:"c".repeat(64),snapshotFingerprint:"d".repeat(64),usable:true,classificationKey:"sporting"}],
         publishedArticles:[],candidateArticles:[snapshot]}],
       outputs:[{slot:"NEW_01",contextKey:"selection:94000000-0000-4000-8000-000000000095",kind:"new",
