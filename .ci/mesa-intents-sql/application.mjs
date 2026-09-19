@@ -36,7 +36,7 @@ const json=v=>q(JSON.stringify(v))+'::jsonb';
 const identifier=s=>{assert.match(s,/^[a-z_][a-z0-9_]*$/);return '"'+s+'"';};
 const rows=query=>JSON.parse(sql(`select coalesce(jsonb_agg(to_jsonb(r)),'[]') from (${query}) r;`));
 const record=(table,id)=>rows(`select * from public.${identifier(table)} where id=${q(id)}`)[0];
-const rpcNames=new Set(['newsroom_mesa_preview_intents_v1','newsroom_prepare_mesa_intents_v1','newsroom_publish_mesa_intent_output_v1','newsroom_finalize_mesa_intents_v1','newsroom_mesa_intent_latest_receipts_v1','newsroom_place_mesa_intent_latest_v1']);
+const rpcNames=new Set(['newsroom_mesa_preview_intents_v1','newsroom_mesa_global_article_candidates_v1','newsroom_prepare_mesa_intents_v1','newsroom_publish_mesa_intent_output_v1','newsroom_finalize_mesa_intents_v1','newsroom_mesa_intent_latest_receipts_v1','newsroom_mesa_intent_latest_article_receipts_v2','newsroom_place_mesa_intent_latest_v1']);
 const tableNames=new Set(['newsroom_articles','newsroom_article_snapshots','newsroom_editorial_source_packages','editorial_articles','newsroom_mesa_output_publications','newsroom_mesa_production_contexts','newsroom_editorial_dossier_article_plans','competitions','seasons','matchdays']);
 const rpcLiteral=(key,value)=>value===null?'null':Array.isArray(value)?`ARRAY[${value.map(q).join(',')}]::uuid[]`:typeof value==='object'?json(value):q(value);
 const calls=[]; const forbidden=[];

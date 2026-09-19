@@ -1395,20 +1395,24 @@ function formatMesaProductionIntents(value: MesaProductionIntentsFrozen | undefi
     "FONTES são artigos externos. ARTIGOS JORNADA são o histórico publicado de cada contexto.",
     "Capturas já guardadas: este pacote não representa nova recolha dos sites externos.",
     "Não misture material nem histórico entre contextos. Uma fonte adicional não implica um artigo novo.", "",
-    ...p.contexts.flatMap((c) => [
-      `### CONTEXTO ${c.productionContextId} — ${markdownText(c.title)}`, "",
-      `Revisão pedida: ${c.reviewPublished ? "SIM: avaliar TODOS os publicados deste contexto" : "NÃO: histórico apenas para referência, sem tarefas de revisão"}.`,
-      `Artigos novos pedidos neste contexto: ${c.newArticleCount}.`,
-      ...p.outputs.filter((o) => o.contextKey === c.key).map((o) =>
-        `SLOT ${o.slot}: ${o.kind === "existing" ? `avaliar ${o.target!.editorialArticleId}; UPDATE ou SEM ALTERAÇÃO` : "produzir NEW, sem substituir artigos anteriores"}.`),
-      "", "#### ARTIGOS JORNADA DESTE CONTEXTO", "",
-      ...(c.publishedArticles.length ? c.publishedArticles.flatMap((a) => [
-        `Artigo ${a.editorialArticleId} · slug ${a.slug} · jornada ${a.matchdayId ?? "nula (preservar)"}`,
-        `Estado nesta produção: ${c.reviewPublished ? "AVALIAR" : "REFERÊNCIA — NÃO REVISTO"}.`,
-        "ANTETÍTULO", a.article.label, "TÍTULO", a.article.title,
-        "PÓS-TÍTULO", a.article.subtitle, "CORPO", a.article.body, "",
-      ]) : ["Sem artigos Jornada publicados.", ""]),
-    ]),
+    ...p.contexts.flatMap((c) => {
+      const reviewIds = new Set(c.publishedArticles.map((article) => article.editorialArticleId));
+      const referenceArticles = c.candidateArticles ?? c.publishedArticles;
+      return [
+        `### CONTEXTO ${c.productionContextId} — ${markdownText(c.title)}`, "",
+        `Revisão pedida: ${reviewIds.size > 0 ? `SIM: avaliar ${reviewIds.size} artigo(s) explicitamente selecionado(s)` : "NÃO: histórico apenas para referência, sem tarefas de revisão"}.`,
+        `Artigos novos pedidos neste contexto: ${c.newArticleCount}.`,
+        ...p.outputs.filter((o) => o.contextKey === c.key).map((o) =>
+          `SLOT ${o.slot}: ${o.kind === "existing" ? `avaliar ${o.target!.editorialArticleId}; UPDATE ou SEM ALTERAÇÃO` : "produzir NEW, sem substituir artigos anteriores"}.`),
+        "", "#### ARTIGOS JORNADA DESTE CONTEXTO", "",
+        ...(referenceArticles.length ? referenceArticles.flatMap((a) => [
+          `Artigo ${a.editorialArticleId} · slug ${a.slug} · jornada ${a.matchdayId ?? "nula (preservar)"}`,
+          `Estado nesta produção: ${reviewIds.has(a.editorialArticleId) ? "AVALIAR" : "REFERÊNCIA — NÃO REVISTO"}.`,
+          "ANTETÍTULO", a.article.label, "TÍTULO", a.article.title,
+          "PÓS-TÍTULO", a.article.subtitle, "CORPO", a.article.body, "",
+        ]) : ["Sem artigos Jornada publicados.", ""]),
+      ];
+    }),
     "Responda exatamente uma vez por SLOT, usando [JORNADA_CONTINUIDADE_V1] e [/JORNADA_CONTINUIDADE_V1].",
     "Para EXISTING_xx: DECISAO é UPDATE ou SEM_ALTERAÇÃO. UPDATE devolve o artigo integral; SEM_ALTERAÇÃO termina depois de DECISAO, sem texto editorial.",
     "Para NEW_xx: DECISAO é NEW, com artigo integral. Não invente revisões dos artigos apenas de referência.",

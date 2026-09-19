@@ -1153,6 +1153,7 @@ export function MesaSelectionTray({
             title={buffer.title}
             storageKey={storageKey}
             fixtureMode={fixtureMode}
+            combineSelectedMaterial
             disabled={submitting || dossiers.length > 0}
             onBusyChange={setSubmitting}
             onPrepared={(request, url) => {

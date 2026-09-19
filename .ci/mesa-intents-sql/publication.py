@@ -23,6 +23,7 @@ expect_error, test, report = (base[x] for x in ('expect_error', 'test', 'report'
 ROOT, args, RESULTS = (base[x] for x in ('ROOT', 'args', 'RESULTS'))
 MIGRATION = 'supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql'
 HOTFIX = 'supabase/migrations/20260918145300_newsroom_mesa_intent_update_revision_hotfix.sql'
+ARTICLE_CONTINUITY = 'supabase/migrations/20260919014344_newsroom_mesa_article_continuity_v2.sql'
 
 
 def scalar(sql):
@@ -97,6 +98,7 @@ assert changed == {'newsroom_mesa_intent_source_v1(uuid)', 'newsroom_mesa_consol
 assert old_articles == execute('select md5(jsonb_agg(to_jsonb(a) order by a.id)::text) from public.editorial_articles a;')
 print('PASS exact legacy function/ACL preservation; only two declared changes', flush=True)
 load(HOTFIX)
+load(ARTICLE_CONTINUITY)
 assert "if v_mode = 'create' then" in execute("select pg_get_functiondef('public.newsroom_publish_mesa_intent_output_v1(uuid,uuid,uuid,uuid[],jsonb)'::regprocedure);")
 assert "p.update_target_editorial_article_id=v_article_id" in execute("select pg_get_functiondef('public.newsroom_finalize_mesa_intents_v1(uuid,uuid,uuid[])'::regprocedure);")
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
@@ -217,6 +219,54 @@ def final_counts(f):
       (select count(*) from public.newsroom_mesa_intent_finalizations where dossier_id='{d}'));""")
 
 
+
+def final_usage_is_global_candidate_without_theme_relation():
+    f=fixture(published=0,review=False,new=1,sources=1)
+    p=package(f);o=f['plan']['outputs'][0];a=article(o)
+    publish(f,p,o,a)
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_articles where theme_id='{f['theme']}' and editorial_article_id='{a['id']}';")=='0'
+    rows=scalar(f"select candidates from public.newsroom_mesa_global_article_candidates_v1('{{{f['sources'][0]}}}'::uuid[],'{{}}'::uuid[]);")
+    assert [row['editorialArticleId'] for row in rows]==[a['id']]
+    assert rows[0]['evidence']['kinds']==['source_usage']
+
+
+def selection_article_receipt_without_theme():
+    source_id,snapshot_id=str(uuid4()),str(uuid4())
+    execute(f"""insert into public.newsroom_articles(id,source_code,original_url,normalized_url,title,
+      detected_at,first_detected_at,last_detected_at,processing_status)
+      values('{source_id}','__selection_receipt__','https://example.invalid/{source_id}',
+      'https://example.invalid/{source_id}','Seleção sem Tema',now(),now(),now(),'ready_for_review');
+      insert into public.newsroom_article_snapshots(id,article_id,content_hash,body,source_metadata,extracted_at)
+      values('{snapshot_id}','{source_id}',repeat('f',64),'[{{"type":"paragraph","text":"Material sem Tema"}}]',
+      '{{"fixture":true}}','2026-09-17T10:00:00Z');
+      insert into public.newsroom_editorial_article_classifications(newsroom_article_id,classification_key,classification_source)
+      values('{source_id}','sporting','automatic');""")
+    req=dict(version=1,preparationKey=str(uuid4()),title='Seleção sem Tema',themes=[],sources=[],
+      selection=dict(sourceIds=[source_id],reviewArticleIds=[],newArticleCount=1))
+    prep=prepare(req);f=dict(dossier=prep['dossierId'],plan=prep['plan'],request=req,sources=[source_id],articles=[])
+    p=package(f);o=f['plan']['outputs'][0];a=article(o)
+    publish(f,p,o,a);finish(f,p)
+    saved=receipts(f)
+    assert len(saved)==1 and saved[0]['theme_id'] is None
+    assert saved[0]['context_key']=='selection:'+req['preparationKey']
+    latest=scalar(f"select public.newsroom_mesa_intent_latest_article_receipts_v2(array['{a['id']}']::uuid[]);")
+    assert len(latest)==1 and latest[0]['articleId']==a['id'] and latest[0]['decision']=='NEW'
+    assert latest[0]['themeId'] is None
+
+    # The same source now deterministically resolves the canonical article even
+    # though no Theme↔article relation exists.
+    req2=dict(version=1,preparationKey=str(uuid4()),title='Revisão sem Tema',themes=[],sources=[],
+      selection=dict(sourceIds=[source_id],reviewArticleIds=[a['id']],newArticleCount=0))
+    prep2=prepare(req2);f2=dict(dossier=prep2['dossierId'],plan=prep2['plan'],request=req2,sources=[source_id],articles=[a['id']])
+    p2=package(f2);o2=f2['plan']['outputs'][0]
+    assert o2['kind']=='existing' and o2['target']['editorialArticleId']==a['id']
+    finish(f2,p2,[o2['outputId']])
+    latest2=scalar(f"select public.newsroom_mesa_intent_latest_article_receipts_v2(array['{a['id']}']::uuid[]);")
+    assert len(latest2)==1 and latest2[0]['decision']=='SEM_ALTERAÇÃO'
+    assert latest2[0]['contextKey']=='selection:'+req2['preparationKey']
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_articles where editorial_article_id='{a['id']}';")=='0'
+
+
 def update_preserves_identity_and_live_snapshots():
     f = fixture(null_matchday=True); p = package(f); o = f['plan']['outputs'][0]; a = article(o)
     before = read_article(a['id']); link = '/noticias/'+a['slug']
@@ -291,13 +341,14 @@ def mixed_and_partial():
         a=article(o); publish(f,p,o,a); written[o['contextKey']]=a['id']
     result=finish(f,p,[existing[1]['outputId']])
     assert (result['updatedCount'],result['newCount'],result['noChangeCount'])==(1,2,1)
-    assert final_counts(f)==[3,1,3,1]
+    assert final_counts(f)==[3,1,4,1]
     theme_articles=scalar(f"select jsonb_agg(editorial_article_id) from public.newsroom_editorial_theme_articles where theme_id='{f['theme']}';")
     independent_article=written['source:'+f['sources'][-1]]
     assert independent_article not in theme_articles
     assert read_article(independent_article)['status']=='published'
     assert written['theme:'+f['theme']] in theme_articles
-    assert {r['editorial_article_id'] for r in receipts(f)}==set(theme_articles)
+    assert {r['editorial_article_id'] for r in receipts(f)}==set(theme_articles)|{independent_article}
+    assert next(r for r in receipts(f) if r['editorial_article_id']==independent_article)['theme_id'] is None
     assert execute(f"select count(*) from public.newsroom_editorial_theme_sources where theme_id='{f['theme']}' and newsroom_article_id='{f['sources'][-1]}';")=='0'
 
 
@@ -536,6 +587,8 @@ def finalize_waits_for_inflight_writer():
 
 
 for name,fn in [
+    ('receipt por artigo mantém continuidade sem Tema',selection_article_receipt_without_theme),
+    ('proveniência final reconhece artigo canónico sem relação Tema',final_usage_is_global_candidate_without_theme_relation),
     ('UPDATE preserva identidade/contexto nulo e executa sync V15 real',update_preserves_identity_and_live_snapshots),
     ('UPDATE posterior não disputa a ligação canónica do Article Plan original',update_can_revise_article_owned_by_original_creation_plan),
     ('ciclo só SEM ALTERAÇÃO sem reescrita e replay histórico',all_no_change),
@@ -559,7 +612,7 @@ for name,fn in [
     test(name,fn)
 
 report()
-files=[MIGRATION,HOTFIX,'.ci/mesa-intents-sql/publication.py','.ci/mesa-intents-sql/run.py']
+files=[MIGRATION,HOTFIX,ARTICLE_CONTINUITY,'.ci/mesa-intents-sql/publication.py','.ci/mesa-intents-sql/run.py']
 (args.output/'publication-source-hashes.json').write_text(json.dumps({
   'basis':'c34b202ee815fcfb85ca2c238c49676cd6faa04b',
   'files':{path:hashlib.sha256((ROOT/path).read_bytes()).hexdigest() for path in files},

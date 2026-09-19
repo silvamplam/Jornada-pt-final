@@ -260,9 +260,12 @@ export function deriveEditorialDossierWorkspacePlanInput(
       ...(productionContext ? { productionContextId: productionContext.id } : {}),
       destination: output.destination,
       updateTargetEditorialArticleId: output.updateTargetEditorialArticleId,
-      dossierPublishedContextIds: workspace.publishedContexts.filter((item) => !intents
-        || intents.contexts.find((c) => c.productionContextId === output.productionContextId)?.publishedArticles
-          .some((article) => article.editorialArticleId === item.editorialArticleId)).map((item) => item.id),
+      dossierPublishedContextIds: workspace.publishedContexts.filter((item) => {
+        if (!intents) return true;
+        const intentContext = intents.contexts.find((c) => c.productionContextId === output.productionContextId);
+        const referenceArticles = intentContext?.candidateArticles ?? intentContext?.publishedArticles ?? [];
+        return referenceArticles.some((article) => article.editorialArticleId === item.editorialArticleId);
+      }).map((item) => item.id),
       imageChoice: output.imageChoice,
     },
   };

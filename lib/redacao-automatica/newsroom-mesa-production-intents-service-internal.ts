@@ -4,7 +4,7 @@
 import { parseMesaProductionIntent, type MesaProductionIntent } from "./newsroom-mesa-production-intents";
 import {
   parseMesaProductionIntents, parseMesaProductionIntentsPreview, parseMesaIntentLatestReceipts,
-  sameMesaIntentJson, type MesaProductionIntentsFrozen,
+  parseMesaIntentLatestArticleReceipts, sameMesaIntentJson, type MesaProductionIntentsFrozen,
 } from "./newsroom-mesa-production-intents-contract";
 
 export type MesaIntentRpcTransport = Readonly<{
@@ -27,7 +27,12 @@ function frozen(value: unknown) {
 }
 function normalizeRequest(input: MesaProductionIntent): MesaProductionIntent {
   return { ...input, themes: [...input.themes].sort((a,b) => a.themeId.localeCompare(b.themeId)),
-    sources: [...input.sources].sort((a,b) => a.sourceId.localeCompare(b.sourceId)) };
+    sources: [...input.sources].sort((a,b) => a.sourceId.localeCompare(b.sourceId)),
+    ...(input.selection ? { selection: { ...input.selection,
+      sourceIds: [...input.selection.sourceIds].sort(),
+      ...(input.selection.themeIds ? { themeIds: [...input.selection.themeIds].sort() } : {}),
+      ...(input.selection.candidateArticleIds ? { candidateArticleIds: [...input.selection.candidateArticleIds].sort() } : {}),
+      reviewArticleIds: [...input.selection.reviewArticleIds].sort() } } : {}) };
 }
 export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) {
   return {
@@ -106,11 +111,47 @@ export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) 
       return {action:r.action as "consolidated" | "reused",publicationEventId:r.publicationEventId,
         updatedCount:r.updatedCount as number,newCount:r.newCount as number,noChangeCount:r.noChangeCount as number};
     },
+    async readGlobalCandidates(sourceIds: readonly string[], themeIds: readonly string[] = []) {
+      if ((!sourceIds.length && !themeIds.length) || sourceIds.length>20 || themeIds.length>20
+        || !sourceIds.every(id) || !themeIds.every(id)
+        || new Set(sourceIds).size!==sourceIds.length || new Set(themeIds).size!==themeIds.length) {
+        throw new Error("mesa-intent-global-candidates-input-invalid");
+      }
+      const normalized=[...sourceIds].sort(),normalizedThemes=[...themeIds].sort();
+      const row=single(await transport.post("newsroom_mesa_global_article_candidates_v1", {
+        p_source_ids:normalized,p_theme_ids:normalizedThemes,
+      }));
+      if (!Array.isArray(row?.candidates) || row.candidates.length>200) {
+        throw new Error("mesa-intent-global-candidates-result-invalid");
+      }
+      const result:{id:string;title:string}[]=[];
+      const seen=new Set<string>();
+      for (const raw of row.candidates) {
+        const candidate=object(raw);
+        if (!candidate || !id(candidate.editorialArticleId) || seen.has(candidate.editorialArticleId)
+          || typeof candidate.title!=="string" || !candidate.title.trim()) {
+          throw new Error("mesa-intent-global-candidates-result-invalid");
+        }
+        seen.add(candidate.editorialArticleId);
+        result.push({id:candidate.editorialArticleId,title:candidate.title.trim()});
+      }
+      return result.sort((a,b)=>a.id.localeCompare(b.id));
+    },
     async readReceipts(themeId: string) {
       if (!id(themeId)) throw new Error("mesa-intent-receipts-input-invalid");
       const row=single(await transport.get("newsroom_mesa_intent_latest_receipts_v1", {p_theme_id:themeId}));
       const receipts=parseMesaIntentLatestReceipts(row?.receipts,themeId);
       if (!receipts) throw new Error("mesa-intent-receipts-result-invalid");
+      return receipts;
+    },
+    async readArticleReceipts(articleIds: readonly string[]) {
+      if (!articleIds.length || articleIds.length>30 || !articleIds.every(id) || new Set(articleIds).size!==articleIds.length) {
+        throw new Error("mesa-intent-article-receipts-input-invalid");
+      }
+      const normalized=[...articleIds].sort();
+      const row=single(await transport.post("newsroom_mesa_intent_latest_article_receipts_v2", {p_article_ids:normalized}));
+      const receipts=parseMesaIntentLatestArticleReceipts(row?.receipts,normalized);
+      if (!receipts) throw new Error("mesa-intent-article-receipts-result-invalid");
       return receipts;
     },
   };

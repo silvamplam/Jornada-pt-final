@@ -29,6 +29,7 @@ const normalized = (plan: MesaProductionIntentPlan) => ({
       newsroomArticleId, newsroomSnapshotId, capturedAt,
     })),
     publishedArticles: context.publishedArticles.map(target),
+    ...(context.candidateArticles ? {candidateArticles:context.candidateArticles.map(target)} : {}),
   })),
   outputs: plan.outputs.map(({ slot, contextKey, kind, target: article }) => ({
     slot, contextKey, kind, target: article ? target(article) : null,
@@ -50,10 +51,16 @@ for (const preview of previews) {
       ))).map((source) => captures.get(source.newsroomArticleId)!),
       publishedArticles: context.publishedArticles.map(target),
     })),
-    sources: preview.request.sources.flatMap((source) => {
-      const capture = captures.get(source.sourceId);
-      return source.destination === "defer" || !capture ? [] : [capture];
+    sources: [...new Set([
+      ...preview.request.sources.filter((source) => source.destination !== "defer").map((source) => source.sourceId),
+      ...(preview.request.selection?.sourceIds ?? []),
+    ])].flatMap((sourceId) => {
+      const capture = captures.get(sourceId);
+      return capture ? [capture] : [];
     }),
+    selectionPublishedArticles: (preview.contexts.find((context) => context.kind === "selection")?.candidateArticles
+      ?? preview.contexts.find((context) => context.kind === "selection")?.publishedArticles ?? []).map(target),
+    selectionSources: preview.contexts.find((context) => context.kind === "selection")?.sources.map((source)=>captures.get(source.newsroomArticleId)!) ?? [],
   };
   const result = resolveMesaProductionIntent(preview.request, authority);
   assert.ok(result.ok, JSON.stringify(result));

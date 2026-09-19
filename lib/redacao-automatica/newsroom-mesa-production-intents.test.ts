@@ -40,6 +40,10 @@ function intent(reviewPublished = true, newArticleCount = 0): MesaProductionInte
   return { version: 1, preparationKey: id(800), title: "Preparação",
     themes: [{ themeId: id(500), action: "prepare", reviewPublished, newArticleCount }], sources: [] };
 }
+function selectionIntent(reviewArticleIds: readonly string[] = [article(1).editorialArticleId], newArticleCount = 0): MesaProductionIntent {
+  return { version: 1, preparationKey: id(801), title: "Seleção editorial",
+    themes: [], sources: [], selection: { sourceIds: [id(3), id(4)], reviewArticleIds, newArticleCount } };
+}
 function plan(request: unknown = intent(), data = authorities()): MesaProductionIntentPlan {
   const result = resolveMesaProductionIntent(request, data);
   assert.ok(result.ok, JSON.stringify(result));
@@ -65,6 +69,68 @@ function receipts(frozen: MesaProductionIntentPlan, decisions = published(frozen
 function fingerprint(frozen: MesaProductionIntentPlan): string {
   return createHash("sha256").update(mesaProductionIntentAuthorityMaterial(frozen)).digest("hex");
 }
+
+
+test("selection mantém N fontes num único contexto técnico e permite N→M", () => {
+  const request = selectionIntent([article(1).editorialArticleId, article(2).editorialArticleId], 2);
+  const data: MesaProductionAuthorities = { ...authorities(0), selectionPublishedArticles: [article(1), article(2)] };
+  const frozen = plan(request, data);
+  assert.deepEqual(frozen.totals, { contexts: 1, sources: 2, reviews: 2, newArticles: 2 });
+  assert.equal(frozen.contexts[0].kind, "selection");
+  assert.equal(frozen.contexts[0].key, `selection:${request.preparationKey}`);
+  assert.deepEqual(frozen.contexts[0].sources.map((item) => item.newsroomArticleId), [id(3), id(4)]);
+  assert.deepEqual(frozen.outputs.map((item) => item.kind), ["existing", "existing", "new", "new"]);
+});
+
+test("selection não revê candidatos que o editor não escolheu", () => {
+  const frozen = plan(selectionIntent([article(2).editorialArticleId], 1),
+    { ...authorities(0), selectionPublishedArticles: [article(1), article(2)] });
+  assert.deepEqual(frozen.contexts[0].publishedArticles.map((item) => item.editorialArticleId), [article(2).editorialArticleId]);
+  assert.deepEqual(frozen.outputs.map((item) => item.kind), ["existing", "new"]);
+});
+
+test("selection pode produzir só NEW mesmo havendo candidatos globais", () => {
+  const frozen = plan(selectionIntent([], 4), { ...authorities(0), selectionPublishedArticles: [article(1), article(2)] });
+  assert.equal(frozen.contexts[0].publishedArticles.length, 0);
+  assert.equal(frozen.totals.reviews, 0);
+  assert.equal(frozen.totals.newArticles, 4);
+});
+
+test("selection não depende de a fonte estar ou não organizada num Tema", () => {
+  const request: MesaProductionIntent = { ...selectionIntent(), selection: {
+    sourceIds: [id(1), id(3)], reviewArticleIds: [article(1).editorialArticleId], newArticleCount: 0 } };
+  const data: MesaProductionAuthorities = { ...authorities(0), sources: [source(1), source(3)], selectionPublishedArticles: [article(1)] };
+  const frozen = plan(request, data);
+  assert.equal(frozen.contexts[0].kind, "selection");
+  assert.deepEqual(frozen.contexts[0].sources.map((item) => item.newsroomArticleId), [id(1), id(3)]);
+});
+
+test("selection rejeita alvo que deixou de ser candidato e duplicação com destino antigo", () => {
+  fails(selectionIntent([article(1).editorialArticleId],0), authorities(0), "selection_target_unavailable");
+  assert.equal(parseMesaProductionIntent({ ...selectionIntent(), sources: [{ sourceId: id(3), destination: "independent", newArticleCount: 1 }] }).ok, false);
+  assert.equal(parseMesaProductionIntent({ ...selectionIntent(), selection: { sourceIds: [id(3), id(3)],
+    reviewArticleIds: [], newArticleCount: 1 } }).ok, false);
+  assert.equal(parseMesaProductionIntent({ ...selectionIntent(), selection: { sourceIds: [id(3)],
+    reviewArticleIds: [], newArticleCount: 0 } }).ok, false);
+});
+
+test("selection com Tema usa união autoritativa sem criar contexto Theme", () => {
+  const request: MesaProductionIntent={version:1,preparationKey:id(802),title:"Seleção completa",themes:[],sources:[],
+    selection:{sourceIds:[id(3)],themeIds:[id(500)],candidateArticleIds:[article(1).editorialArticleId],
+      reviewArticleIds:[article(1).editorialArticleId],newArticleCount:1}};
+  const data: MesaProductionAuthorities={...authorities(0),selectionPublishedArticles:[article(1)],
+    selectionSources:[source(1),source(2),source(3)]};
+  const frozen=plan(request,data);
+  assert.equal(frozen.contexts.length,1);assert.equal(frozen.contexts[0].kind,"selection");
+  assert.deepEqual(frozen.contexts[0].sources.map(s=>s.newsroomArticleId),[id(1),id(2),id(3)]);
+  assert.deepEqual(frozen.outputs.map(o=>o.kind),["existing","new"]);
+});
+
+test("candidate set alterado fica stale antes de NEW", () => {
+  const request: MesaProductionIntent={version:1,preparationKey:id(803),title:"Seleção",themes:[],sources:[],
+    selection:{sourceIds:[id(3)],candidateArticleIds:[article(1).editorialArticleId],reviewArticleIds:[],newArticleCount:1}};
+  fails(request,{...authorities(0),selectionPublishedArticles:[article(1),article(2)],selectionSources:[source(3)]},"selection_candidates_stale");
+});
 
 for (const [name, review, fresh, reviews, newArticles] of [
   ["Tema publicado sozinho: só revisão", true, 0, 2, 0],
@@ -359,12 +425,25 @@ test("UPDATE mantém artigo, endereço e jornada; NEW não reaproveita um antigo
   } }]).ok, false);
 });
 
-test("novos independentes não geram recibos nem memória editorial de outro Tema", () => {
+test("novo independente ganha memória própria sem ser associado ao Tema", () => {
   const frozen = plan({ ...intent(), sources: [{ sourceId: id(3), destination: "independent", newArticleCount: 1 }] });
   const resolved = receipts(frozen);
-  assert.equal(resolved.length, 1);
-  assert.equal(resolved[0].decision, "UPDATE");
-  assert.equal(resolved[0].sources.some((item) => item.newsroomArticleId === id(3)), false);
+  assert.equal(resolved.length, 2);
+  const themeReceipt=resolved.find((item) => item.themeId===id(500))!;
+  const sourceReceipt=resolved.find((item) => item.themeId===null)!;
+  assert.equal(themeReceipt.decision, "UPDATE");
+  assert.equal(themeReceipt.sources.some((item) => item.newsroomArticleId === id(3)), false);
+  assert.equal(sourceReceipt.decision, "NEW");
+  assert.equal(sourceReceipt.contextKey, `source:${id(3)}`);
+  assert.deepEqual(sourceReceipt.sources.map((item) => item.newsroomArticleId), [id(3)]);
+});
+
+test("selection produz receipts por artigo sem Theme", () => {
+  const frozen=plan(selectionIntent([article(1).editorialArticleId],1),
+    { ...authorities(0), selectionPublishedArticles:[article(1)] });
+  const saved=receipts(frozen);
+  assert.equal(saved.length,2);
+  assert.ok(saved.every((item) => item.themeId===null && item.contextKey===`selection:${id(801)}`));
 });
 
 test("sequência crítica: NEW hoje não apaga a necessidade de rever os antigos amanhã", () => {

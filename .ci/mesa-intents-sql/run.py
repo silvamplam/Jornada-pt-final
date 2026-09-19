@@ -73,6 +73,18 @@ def request(key: int, review=True, fresh=0, theme=500, sources=None):
                 sources=sources or [])
 
 
+def selection_request(key: int, source_ids, review_article_ids=(), new=0, theme_ids=(), candidate_article_ids=None):
+    selection=dict(
+      sourceIds=[uid(n) if isinstance(n,int) else n for n in source_ids],
+      reviewArticleIds=[uid(n) if isinstance(n,int) else n for n in review_article_ids],
+      newArticleCount=new)
+    if theme_ids:
+        selection['themeIds']=[uid(n) if isinstance(n,int) else n for n in theme_ids]
+    if candidate_article_ids is not None:
+        selection['candidateArticleIds']=[uid(n) if isinstance(n,int) else n for n in candidate_article_ids]
+    return dict(version=1,preparationKey=uid(key),title='Seleção editorial',
+                themes=[],sources=[],selection=selection)
+
 def independent(n: int, count=1):
     return dict(sourceId=uid(n), destination='independent', newArticleCount=count)
 
@@ -149,6 +161,7 @@ for path in constants['MESA_MIGRATIONS']:
 load(constants['MIGRATION_2C'])
 load(constants['SCOPED_READ_MIGRATION'])
 load('supabase/migrations/20260914114311_newsroom_mesa_theme_continuity_v1.sql')
+load('supabase/migrations/20260919014256_newsroom_mesa_global_article_candidates_v1.sql')
 
 # Capture old function definitions, privileges and configuration before applying
 # the additive migration. A failed comparison must stop the build.
@@ -162,6 +175,8 @@ before_functions = execute(old_functions_query)
 load(MIGRATION)
 assert before_functions == execute(old_functions_query)
 print('PASS original RPC definitions/privileges unchanged', flush=True)
+load('supabase/migrations/20260919014322_newsroom_mesa_selection_context_v1.sql')
+post_selection_functions = execute(old_functions_query)
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
 
 seed = []
@@ -188,8 +203,88 @@ for article, theme, matchday, status in [(2001,500,902,'published'), (2002,502,9
       {'null' if matchday is None else repr(uid(matchday))},'2026-09-17T11:00:00Z');
       insert into public.newsroom_editorial_theme_articles(theme_id,editorial_article_id) values('{uid(theme)}','{uid(article)}');""")
 execute('\n'.join(seed))
+execute(f"""insert into public.editorial_articles(id,title,slug,status,label,subtitle,body,author,matchday_id,published_at)
+  values('{uid(2101)}','Histórico A','historico-a','published','Ante','Pós','Corpo A','Editor','{uid(902)}','2026-09-17T11:10:00Z'),
+        ('{uid(2102)}','Histórico B','historico-b','published','Ante','Pós','Corpo B','Editor','{uid(902)}','2026-09-17T11:20:00Z'),
+        ('{uid(2103)}','Legado direto','legado-direto','published','Ante','Pós','Corpo C','Editor','{uid(902)}','2026-09-17T11:30:00Z'),
+        ('{uid(2104)}','Legado output','legado-output','published','Ante','Pós','Corpo D','Editor','{uid(902)}','2026-09-17T11:40:00Z'),
+        ('{uid(2105)}','Rascunho','rascunho-global','draft','Ante','Pós','Corpo draft','Editor','{uid(902)}','2026-09-17T11:50:00Z');
+  insert into public.newsroom_editorial_dossiers(id,title)
+    values('{uid(9201)}','Dossiê histórico A'),('{uid(9202)}','Dossiê histórico B'),('{uid(9203)}','Dossiê rascunho');
+  insert into public.newsroom_editorial_dossier_sources(id,dossier_id,newsroom_article_id,newsroom_snapshot_id,source_role,sort_order)
+    values('{uid(9211)}','{uid(9201)}','{uid(17)}','{uid(117)}','primary',10),
+          ('{uid(9212)}','{uid(9202)}','{uid(17)}','{uid(117)}','primary',10),
+          ('{uid(9213)}','{uid(9203)}','{uid(20)}','{uid(120)}','primary',10);
+  insert into public.newsroom_editorial_dossier_article_plans(
+    id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,destination,editorial_article_id,image_choice
+  ) values
+    ('{uid(9221)}','{uid(9201)}','Plano histórico A','planned',10,'news','standard','','new','{uid(2101)}','unselected'),
+    ('{uid(9222)}','{uid(9202)}','Plano histórico B','planned',10,'news','standard','','new','{uid(2102)}','unselected'),
+    ('{uid(9223)}','{uid(9203)}','Plano rascunho','planned',10,'news','standard','','new','{uid(2105)}','unselected');
+  insert into public.newsroom_editorial_dossier_article_plan_sources(dossier_id,article_plan_id,dossier_source_id,sort_order)
+    values('{uid(9201)}','{uid(9221)}','{uid(9211)}',10),('{uid(9202)}','{uid(9222)}','{uid(9212)}',10),
+          ('{uid(9203)}','{uid(9223)}','{uid(9213)}',10);
+  insert into public.newsroom_editorial_source_packages(id,package_year,package_month,manifest,markdown)
+  values(
+    '{uid(9301)}','2026','09',
+    jsonb_build_object('version',2,'packageId','{uid(9301)}','year','2026','month','09','entries',jsonb_build_array(
+      jsonb_build_object('status','prepared','position',1,'articlePosition',1,'newsroomArticleId','{uid(18)}',
+        'newsroomSnapshotId','{uid(118)}','publishedArticleId','{uid(2103)}','usedAt','2026-09-17T11:31:00Z')
+    )),
+    'Pacote legado direto'
+  ),(
+    '{uid(9302)}','2026','09',
+    jsonb_build_object('version',2,'packageId','{uid(9302)}','year','2026','month','09',
+      'entries',jsonb_build_array(jsonb_build_object('status','prepared','position',1,'articlePosition',1,
+        'newsroomArticleId','{uid(19)}','newsroomSnapshotId','{uid(119)}')),
+      'outputs',jsonb_build_array(jsonb_build_object('position',1,'sourceArticlePosition',1,
+        'publishedArticleId','{uid(2104)}','usedAt','2026-09-17T11:41:00Z'))
+    ),
+    'Pacote legado output'
+  );""")
 original_articles = execute("select md5(jsonb_agg(to_jsonb(a) order by a.id)::text) from public.editorial_articles a;")
 
+
+
+def global_candidates(source_ids=(), theme_ids=()):
+    def ids(values):
+        return "array[" + ",".join(repr(value) for value in values) + "]::uuid[]" if values else "'{}'::uuid[]"
+    return json.loads(execute(
+        f"select candidates from public.newsroom_mesa_global_article_candidates_v1({ids(source_ids)},{ids(theme_ids)});"
+    ))
+
+
+def global_candidate_resolver():
+    theme_candidates=global_candidates((),[uid(500)])
+    assert [row['editorialArticleId'] for row in theme_candidates]==[uid(2001)]
+    assert theme_candidates[0]['evidence']['kinds']==['theme_relation']
+
+    dossier_candidates=global_candidates([uid(17)])
+    assert {row['editorialArticleId'] for row in dossier_candidates}=={uid(2101),uid(2102)}
+    assert all(row['evidence']['kinds']==['dossier_plan'] for row in dossier_candidates)
+
+    assert [row['editorialArticleId'] for row in global_candidates([uid(18)])]==[uid(2103)]
+    execute(f"select public.newsroom_set_editorial_theme_source_membership_v1('{uid(520)}','{uid(18)}',true);")
+    by_theme_source=global_candidates((),[uid(520)])
+    assert [row['editorialArticleId'] for row in by_theme_source]==[uid(2103)]
+    assert 'legacy_package' in by_theme_source[0]['evidence']['kinds']
+    assert [row['editorialArticleId'] for row in global_candidates([uid(19)])]==[uid(2104)]
+    assert global_candidates([uid(20)])==[]
+
+    mixed=global_candidates([uid(17)],[uid(500)])
+    assert {row['editorialArticleId'] for row in mixed}=={uid(2001),uid(2101),uid(2102)}
+    # One source may legitimately have several published articles: ambiguity
+    # is returned to the editor and is never collapsed into an automatic winner.
+    assert len(global_candidates([uid(17)]))==2
+
+    for role in ['anon','authenticated']:
+        expect_error('permission denied',lambda role=role:execute(
+          f"set role {role};select * from public.newsroom_mesa_global_article_candidates_v1('{{{uid(17)}}}','{{}}');"
+        ))
+    service=json.loads(execute(
+      f"set role service_role;select candidates from public.newsroom_mesa_global_article_candidates_v1('{{{uid(17)}}}','{{}}');"
+    ))
+    assert len(service)==2
 
 def no_writes_preview():
     old = counts()
@@ -372,6 +467,79 @@ def context_mixture():
     assert uid(14) not in [s['newsroomArticleId'] for s in bykey['theme:'+uid(502)]['sources']]
 
 
+def selection_context():
+    req=selection_request(8190,[17],[2101],2)
+    p=preview(req)
+    assert p['totals']==dict(contexts=1,sources=1,reviews=1,newArticles=2)
+    assert p['contexts'][0]['kind']=='selection'
+    assert p['contexts'][0]['key']=='selection:'+uid(8190)
+    assert [x['editorialArticleId'] for x in p['contexts'][0]['publishedArticles']]==[uid(2101)]
+    assert [o['kind'] for o in p['outputs']]==['existing','new','new']
+    prepared=prepare(req,p['authorityFingerprint'])['plan']
+    assert prepared['contexts'][0]['kind']=='selection'
+    assert execute(f"select context_kind from public.newsroom_mesa_production_context_items where dossier_id='{prepared['dossierId']}';")=='selection'
+
+def selection_ambiguity_is_explicit():
+    both=preview(selection_request(8191,[17],[2101,2102],0))
+    assert [x['editorialArticleId'] for x in both['contexts'][0]['publishedArticles']]==[uid(2101),uid(2102)]
+    one=preview(selection_request(8192,[17],[2102],1))
+    assert [x['editorialArticleId'] for x in one['contexts'][0]['publishedArticles']]==[uid(2102)]
+    assert [o['kind'] for o in one['outputs']]==['existing','new']
+    expect_error('mesa-intent-selection-target-unavailable',lambda:preview(selection_request(8193,[17],[2999],0)))
+    expect_error('mesa-intent-selection-invalid',lambda:preview(selection_request(8194,[17],[],0)))
+
+def selection_can_mix_theme_member_and_loose_source():
+    # Earlier scenarios may already have organized source 3. The property under
+    # test is that selection preserves organization exactly as it found it.
+    memberships_before=execute(f"""select coalesce(jsonb_agg(jsonb_build_object(
+      'themeId',theme_id,'sourceId',newsroom_article_id) order by theme_id,newsroom_article_id),'[]'::jsonb)::text
+      from public.newsroom_editorial_theme_sources
+      where newsroom_article_id in ('{uid(1)}','{uid(3)}');""")
+    req=selection_request(8195,[1,3],[],3)
+    p=prepare(req)['plan']
+    assert p['totals']==dict(contexts=1,sources=2,reviews=0,newArticles=3)
+    assert p['contexts'][0]['kind']=='selection'
+    assert {s['newsroomArticleId'] for s in p['contexts'][0]['sources']}=={uid(1),uid(3)}
+    memberships_after=execute(f"""select coalesce(jsonb_agg(jsonb_build_object(
+      'themeId',theme_id,'sourceId',newsroom_article_id) order by theme_id,newsroom_article_id),'[]'::jsonb)::text
+      from public.newsroom_editorial_theme_sources
+      where newsroom_article_id in ('{uid(1)}','{uid(3)}');""")
+    assert memberships_after==memberships_before
+
+
+
+def selection_theme_union():
+    memberships_before=execute(f"""select coalesce(jsonb_agg(to_jsonb(m) order by m.theme_id,m.newsroom_article_id),'[]'::jsonb)::text
+      from public.newsroom_editorial_theme_sources m
+      where m.theme_id='{uid(500)}' or m.newsroom_article_id='{uid(3)}';""")
+    current_theme_sources=set(json.loads(execute(
+      f"select coalesce(jsonb_agg(newsroom_article_id order by newsroom_article_id),'[]'::jsonb)::text from public.newsroom_editorial_theme_sources where theme_id='{uid(500)}';"
+    )))
+    expected_sources=current_theme_sources|{uid(3)}
+    req=selection_request(8196,[3],[2001],1,theme_ids=[500],candidate_article_ids=[2001])
+    p=prepare(req)['plan']
+    assert p['totals']==dict(contexts=1,sources=len(expected_sources),reviews=1,newArticles=1)
+    assert len(p['contexts'])==1 and p['contexts'][0]['kind']=='selection'
+    assert {x['newsroomArticleId'] for x in p['contexts'][0]['sources']}==expected_sources
+    assert [x['editorialArticleId'] for x in p['contexts'][0]['candidateArticles']]==[uid(2001)]
+    assert [o['kind'] for o in p['outputs']]==['existing','new']
+    memberships_after=execute(f"""select coalesce(jsonb_agg(to_jsonb(m) order by m.theme_id,m.newsroom_article_id),'[]'::jsonb)::text
+      from public.newsroom_editorial_theme_sources m
+      where m.theme_id='{uid(500)}' or m.newsroom_article_id='{uid(3)}';""")
+    assert memberships_after==memberships_before
+
+
+def selection_theme_finds_article_without_theme_article_relation():
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_articles where theme_id='{uid(520)}';")=='0'
+    stale=selection_request(8197,[],[],1,theme_ids=[520],candidate_article_ids=[])
+    expect_error('mesa-intent-selection-candidates-stale',lambda:preview(stale))
+    req=selection_request(8198,[],[2103],0,theme_ids=[520],candidate_article_ids=[2103])
+    p=prepare(req)['plan']
+    assert p['totals']==dict(contexts=1,sources=1,reviews=1,newArticles=0)
+    assert p['contexts'][0]['sources'][0]['newsroomArticleId']==uid(18)
+    assert p['outputs'][0]['target']['editorialArticleId']==uid(2103)
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_articles where theme_id='{uid(520)}';")=='0'
+
 def permissions():
     req=request(8180); p=preview(req)
     for role in ['anon','authenticated']:
@@ -388,10 +556,11 @@ def stable_edit_identity():
     assert original_articles==execute("select md5(jsonb_agg(to_jsonb(a) order by a.id)::text) from public.editorial_articles a;")
     assert execute('select count(*) from public.newsroom_mesa_output_publications;')=='0'
     assert execute('select count(*) from public.newsroom_mesa_publication_events;')=='0'
-    assert before_functions==execute(old_functions_query)
+    assert post_selection_functions==execute(old_functions_query)
 
 
 for name,fn in [
+    ('resolvedor global conserva proveniência e ambiguidade sem adivinhar',global_candidate_resolver),
     ('preview não associa nem escreve',no_writes_preview),
     ('três modos criam planos reais com destinos separados',three_modes),
     ('Tema sem publicados e rascunho não geram revisões',unpublished),
@@ -410,6 +579,11 @@ for name,fn in [
     ('mesmo artigo não recebe duas revisões simultâneas',overlapping_themes),
     ('fonte já associada não duplica a relação',same_member),
     ('decisões independentes em vários Temas e fontes',context_mixture),
+    ('selection congela fontes juntas e mantém Article Plans existentes',selection_context),
+    ('selection preserva ambiguidade e alvos explícitos',selection_ambiguity_is_explicit),
+    ('selection mistura fonte de Tema e fonte solta sem reorganizar',selection_can_mix_theme_member_and_loose_source),
+    ('selection une Tema e fontes soltas num único contexto',selection_theme_union),
+    ('Tema sem relação de artigo recupera artigo pela proveniência da fonte',selection_theme_finds_article_without_theme_article_relation),
     ('permissões negam clientes e escrita direta',permissions),
     ('preparação não publica nem marca artigos revistos',stable_edit_identity),
 ]:

@@ -19,10 +19,11 @@ export type MesaIntentCapturedArticle = MesaPublishedArticleAuthority & Readonly
     matchday_id: string | null; label: string; subtitle: string; body: string;
   }>;
 }>;
-export type MesaIntentFrozenContext = Omit<MesaIntentContext, "sources" | "publishedArticles"> & Readonly<{
+export type MesaIntentFrozenContext = Omit<MesaIntentContext, "sources" | "publishedArticles" | "candidateArticles"> & Readonly<{
   productionContextId: string;
   sources: readonly MesaIntentCapturedSource[];
   publishedArticles: readonly MesaIntentCapturedArticle[];
+  candidateArticles?: readonly MesaIntentCapturedArticle[];
 }>;
 export type MesaIntentFrozenOutput = Omit<MesaIntentOutput, "target"> & Readonly<{
   outputId: string; productionContextId: string; target: MesaIntentCapturedArticle | null;
@@ -93,7 +94,10 @@ function validPlan(value: unknown, persisted: boolean): boolean {
       || !Array.isArray(c.sources) || c.sources.length < 1 || c.sources.length > 20
       || !c.sources.every(capturedSource) || !unique(c.sources.map((s) => s.newsroomArticleId))
       || !Array.isArray(c.publishedArticles) || !c.publishedArticles.every(capturedArticle)
-      || !unique(c.publishedArticles.map((a) => a.editorialArticleId))) return false;
+      || !unique(c.publishedArticles.map((a) => a.editorialArticleId))
+      || (c.candidateArticles !== undefined && (!Array.isArray(c.candidateArticles)
+        || c.candidateArticles.length > 200 || !c.candidateArticles.every(capturedArticle)
+        || !unique(c.candidateArticles.map((a) => a.editorialArticleId))))) return false;
     if (c.kind === "theme") {
       const theme = object(c.theme);
       if (!id(c.themeId) || c.sourceId !== null || c.key !== `theme:${c.themeId}`
@@ -101,6 +105,10 @@ function validPlan(value: unknown, persisted: boolean): boolean {
     } else if (c.kind === "source") {
       if (!id(c.sourceId) || c.themeId !== null || c.key !== `source:${c.sourceId}` || c.reviewPublished
         || c.publishedArticles.length || c.sources.length !== 1 || c.sources[0].newsroomArticleId !== c.sourceId) return false;
+    } else if (c.kind === "selection") {
+      if (c.sourceId !== null || c.themeId !== null || c.key !== `selection:${p.preparationKey}`
+        || c.title !== p.title || !parsedRequest.value.selection
+        || (parsedRequest.value.selection.candidateArticleIds !== undefined && !Array.isArray(c.candidateArticles))) return false;
     } else return false;
     for (const source of c.sources) {
       if (Date.parse(source.capturedAt) > Date.parse(p.capturedAt)) return false;
@@ -129,6 +137,9 @@ function validPlan(value: unknown, persisted: boolean): boolean {
       status: "open" as const, sources: c.sources.filter((s) => !incorporationKeys.includes(`${c.themeId}:${s.newsroomArticleId}`)).map(authoritySource),
       publishedArticles: c.publishedArticles })),
     sources: [...sourceById.values()].map(authoritySource),
+    selectionPublishedArticles: contexts.find((c) => c.kind === "selection")?.candidateArticles
+      ?? contexts.find((c) => c.kind === "selection")?.publishedArticles ?? [],
+    selectionSources: contexts.find((c) => c.kind === "selection")?.sources.map(authoritySource) ?? [],
   });
   if (!resolved.ok || !sameMesaIntentJson(p.totals, resolved.value.totals)
     || !sameMesaIntentJson(p.deferred, resolved.value.deferred)
@@ -196,6 +207,28 @@ export function parseMesaIntentLatestReceipts(value: unknown, themeId: string): 
   for (const raw of value) {
     const r=object(raw);
     if (!r || r.themeId !== themeId || r.contextKey !== `theme:${themeId}` || !id(r.articleId)
+      || !date(r.capturedAt) || !text(r.slot) || !/^(EXISTING|NEW)_\d{2}$/.test(r.slot)
+      || !["UPDATE","SEM_ALTERAÇÃO","NEW"].includes(String(r.decision))
+      || (r.decision === "NEW") !== r.slot.startsWith("NEW_")
+      || !Array.isArray(r.sources) || !r.sources.length || r.sources.length>20 || !r.sources.every(capturedSource)
+      || !unique(r.sources.map((s) => s.newsroomArticleId))) return null;
+  }
+  return value as readonly MesaArticleCaptureReceipt[];
+}
+
+
+export function parseMesaIntentLatestArticleReceipts(
+  value: unknown,
+  articleIds: readonly string[],
+): readonly MesaArticleCaptureReceipt[] | null {
+  if (!Array.isArray(value) || articleIds.length > 30 || !articleIds.every(id) || !unique(articleIds)) return null;
+  const requested=new Set(articleIds);
+  for (const raw of value) {
+    const r=object(raw);
+    if (!r || !text(r.contextKey) || !/^(theme|source|selection):[0-9a-f-]{36}$/.test(String(r.contextKey))
+      || !(r.themeId===null || id(r.themeId))
+      || (r.themeId!==null && r.contextKey!==`theme:${r.themeId}`)
+      || !id(r.articleId) || !requested.has(r.articleId)
       || !date(r.capturedAt) || !text(r.slot) || !/^(EXISTING|NEW)_\d{2}$/.test(r.slot)
       || !["UPDATE","SEM_ALTERAÇÃO","NEW"].includes(String(r.decision))
       || (r.decision === "NEW") !== r.slot.startsWith("NEW_")

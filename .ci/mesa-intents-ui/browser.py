@@ -85,13 +85,12 @@ with sync_playwright() as playwright:
             if openPanel:
                 page.get_by_role('button',name='Ver seleção',exact=True).click()
                 expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
-        if mode=='theme' or (mode=='selection' and openPanel and not kw.get('sourceOnly')):
+        if mode=='theme':
             expect(page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)).to_have_value('new' if kw.get('published')==0 or kw.get('draft') else 'review')
         elif mode=='selection' and openPanel:
-            expect(page.get_by_label('Destino da fonte Pote independente',exact=True)).to_be_visible()
+            expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_be_visible()
+            assert page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).count()==0
         return fixture
-    def destination(value='independent',title='Pote independente'):
-        page.get_by_label('Destino da fonte '+title,exact=True).select_option(value)
     def theme_mode(value):page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).select_option(value)
     def submit():page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True).click()
     def prepared():
@@ -132,50 +131,61 @@ with sync_playwright() as playwright:
         assert page.evaluate('(el)=>getComputedStyle(el).position',panel.element_handle())=='fixed'
         after=tray.bounding_box()['height']
         assert abs(after-before)<=1,(before,after)
-        expect(page.get_by_label('Destino da fonte Pote independente',exact=True)).to_be_visible()
-        expect(page.get_by_label('Destino da fonte Fonte adicional',exact=True)).to_be_visible()
+        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('0')
+        assert page.get_by_text('Material selecionado · 1 Tema · 2 fontes soltas',exact=True).count()==1
+        assert page.get_by_text('Destino desta fonte',exact=True).count()==0
+        action=page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)
+        expect(action).to_be_visible()
+        action_box=action.bounding_box();panel_box=panel.bounding_box();assert action_box and panel_box
+        assert action_box['y']+action_box['height']<=panel_box['y']+panel_box['height']+1
 
     def mixed():
-        f=start();submit()
-        expect(page.get_by_role('alert').filter(has_text='Escolhe o destino desta fonte')).to_be_visible()
-        assert len(rpc({'kind':'state'})['preparations'])==f['before']
-        destination();page.screenshot(path=str(output/'selection-mixed.png'),full_page=True)
-        plan=prepared();assert len(plan['outputs'])==2
-        theme=next(c for c in plan['contexts'] if c['themeId']);independent=next(c for c in plan['contexts'] if c['kind']=='source')
-        assert theme['reviewPublished'] and theme['newArticleCount']==0
-        assert {s['newsroomArticleId'] for s in independent['sources']}=={f['loose']['id']}
-        assert all(s['newsroomArticleId']!=f['loose']['id'] for s in theme['sources'])
+        f=start();page.screenshot(path=str(output/'selection-mixed.png'),full_page=True)
+        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('0')
+        page.get_by_label('Novos artigos da seleção',exact=True).fill('1')
+        plan=prepared();assert len(plan['outputs'])==2 and len(plan['contexts'])==1
+        selected=plan['contexts'][0];assert selected['kind']=='selection'
+        assert {x['newsroomArticleId'] for x in selected['sources']}=={f['material']['id'],f['loose']['id']}
+        assert [o['kind'] for o in plan['outputs']]==['existing','new']
         assert plan['outputs'][0]['target']['matchdayId'] is None
-        assert stored()['sources']==[]
+        saved=stored();assert not saved['sources'] and not saved.get('themes')
     def counts(mode,new,review):
-        start(independent=False);theme_mode(mode)
+        start('theme',independent=False);theme_mode(mode)
         page.get_by_label('Novos artigos do Tema Milan / Amorim',exact=True).fill(str(new))
         plan=prepared();assert plan['totals']['reviews']==review and plan['totals']['newArticles']==new
     def whole_theme():
         start('theme',independent=False);plan=prepared();assert len(plan['contexts'])==1 and len(plan['outputs'])==1
         assert plan['request']['sources']==[]
     def without_published(draft=False):
-        start(published=1 if draft else 0,draft=draft,independent=False)
+        start('theme',published=1 if draft else 0,draft=draft,independent=False)
         options=page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).locator('option').all_text_contents()
         assert not any('revisão' in s.lower() for s in options)
         assert all(o['kind']=='new' for o in prepared()['outputs'])
-    def defer_theme():
-        f=start();theme_mode('defer');destination();plan=prepared()
-        assert len(plan['contexts'])==1 and plan['contexts'][0]['sourceId']==f['loose']['id']
-        assert stored()['themes'][0]['themeId']==f['theme'] and not stored()['sources']
-    def defer_source():
-        f=start();destination('defer');plan=prepared();assert plan['totals']['newArticles']==0
-        assert stored()['sources'][0]['newsroomArticleId']==f['loose']['id'] and not stored().get('themes')
-    def incorporate():
-        f=start(extra=True);destination('theme:'+f['theme']);destination('defer','Fonte adicional')
-        plan=prepared();assert len(plan['contexts'])==1 and len(plan['contexts'][0]['sources'])==2
-        assert plan['totals']['newArticles']==0
-        assert [s['newsroomArticleId'] for s in stored()['sources']]==[f['extra']['id']]
+    def combined_consumes_theme_and_source():
+        f=start();plan=prepared()
+        assert len(plan['contexts'])==1 and plan['contexts'][0]['kind']=='selection'
+        saved=stored();assert not saved['sources'] and not saved.get('themes')
+    def selection_cardinality():
+        f=start(sourceOnly=True,extra=True)
+        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('2')
+        page.get_by_label('Novos artigos da seleção',exact=True).fill('4')
+        plan=prepared()
+        assert len(plan['contexts'])==1 and plan['contexts'][0]['kind']=='selection'
+        assert len(plan['contexts'][0]['sources'])==2 and plan['totals']['newArticles']==4
+        assert len(plan['outputs'])==4
+    def selection_does_not_organize():
+        f=start(extra=True)
+        before=rpc({'kind':'state'})['memberships']
+        plan=prepared()
+        assert next(c for c in plan['contexts'] if c['kind']=='selection')
+        after=rpc({'kind':'state'})['memberships']
+        assert after==before
     def only_source():
-        f=start(sourceOnly=True);destination();plan=prepared()
-        assert len(plan['outputs'])==1 and plan['contexts'][0]['sourceId']==f['loose']['id']
+        f=start(sourceOnly=True);plan=prepared()
+        assert len(plan['outputs'])==1 and plan['contexts'][0]['kind']=='selection'
+        assert {s['newsroomArticleId'] for s in plan['contexts'][0]['sources']}=={f['loose']['id']}
     def lost_response():
-        f=start();destination();rpc({'kind':'faults','value':{'loseResponse':True}});submit()
+        f=start();rpc({'kind':'faults','value':{'loseResponse':True}});submit()
         expect(page.get_by_role('status').filter(has_text='Resposta perdida')).to_be_visible()
         assert len(rpc({'kind':'state'})['preparations'])==f['before']+1
         assert len(stored()['sources'])==1 and len(stored()['themes'])==1
@@ -194,7 +204,6 @@ with sync_playwright() as playwright:
         expect(page.get_by_role('button',name='Ver seleção',exact=True)).to_be_visible()
         page.get_by_role('button',name='Ver seleção',exact=True).click()
         expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
-        expect(page.get_by_label('Destino da fonte Pote independente',exact=True)).to_have_value('independent')
         expect(page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)).to_be_disabled()
         calls=len(rpc({'kind':'state'})['httpCalls'])
         page.get_by_role('form',name='Escolhas de Produção',exact=True).dispatch_event('submit')
@@ -204,10 +213,13 @@ with sync_playwright() as playwright:
         assert len(rpc({'kind':'state'})['preparations'])==f['before']+1
     def stale_published():
         f=start(independent=False);rpc({'kind':'faults','value':{'newPublished':True}});submit()
-        expect(page.get_by_role('alert').filter(has_text='publicados de')).to_be_visible()
+        expect(page.get_by_role('status').filter(has_text='mudaram')).to_be_visible()
         assert len(rpc({'kind':'state'})['preparations'])==f['before'];assert stored()['themes'][0]['themeId']==f['theme']
         page.screenshot(path=str(output/'selection-conflict.png'),full_page=True)
-        expect(page.get_by_text('2 artigos Jornada publicados · 1 fonte',exact=True)).to_be_visible()
+        expect(page.get_by_text(re.compile('Foram encontrados vários artigos Jornada relacionados'))).to_be_visible()
+        checks=page.get_by_role('checkbox')
+        for i in range(checks.count()):checks.nth(i).check()
+        page.get_by_label('Novos artigos da seleção',exact=True).fill('0')
         assert prepared()['totals']['reviews']==2
     def organization_only():
         f=start(sourceOnly=True)
@@ -236,16 +248,16 @@ with sync_playwright() as playwright:
     try:
         for name,fn in [
             ('selection bar stays compact with one, two and several contexts',compact_selection_does_not_consume_workspace),
-            ('selected Theme + independent Pote; destination mandatory; NULL matchday',mixed),
+            ('selected Theme + loose selection uses one technical selection; NULL matchday',mixed),
             ('review and two separately counted NEWs',lambda:counts('review-new',2,1)),
             ('only NEWs; old articles have no review tasks',lambda:counts('new',2,0)),
             ('whole Theme returns to preparation with no added source',whole_theme),
             ('unpublished Theme does not offer review',without_published),
             ('draft is not a publication and does not offer review',lambda:without_published(True)),
-            ('deferred Theme remains selected; independent source prepares',defer_theme),
-            ('deferred source remains selected; Theme review prepares',defer_source),
-            ('partial incorporation adds no implicit NEW; deferred source remains',incorporate),
-            ('source alone prepares independently',only_source),
+            ('combined selection consumes Theme and loose source after success',combined_consumes_theme_and_source),
+            ('two selected sources can produce four Article Plans without a Theme',selection_cardinality),
+            ('selection preparation does not reorganize Theme memberships',selection_does_not_organize),
+            ('source alone prepares as one selection',only_source),
             ('lost response after SQL commit; remount and retry recover one preparation',lost_response),
             ('published set changes; contextual error, no write, selection retained',stale_published),
             ('Add to Theme saves membership without preparing production',organization_only),
