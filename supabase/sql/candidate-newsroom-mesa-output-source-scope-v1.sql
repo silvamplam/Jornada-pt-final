@@ -52,24 +52,98 @@ begin
       from jsonb_array_elements(coalesce(p_output->'target'->'evidence'->'sourceIds','[]'::jsonb))
       where value#>>'{}' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
     ) evidence where evidence.id=any(v_all);
-    if cardinality(v_evidence_sources)<1 then return null; end if;
-
     if cardinality(v_selected_themes)=1 then
       select coalesce(array_agg(distinct lower(value#>>'{}')::uuid order by lower(value#>>'{}')::uuid),'{}'::uuid[])
       into v_evidence_themes
       from jsonb_array_elements(coalesce(p_output->'target'->'evidence'->'themeIds','[]'::jsonb))
-      where value#>>'{}' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
+      where value#>>'{}' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}
+  end if;
+
+  if p_output->>'kind'='new' then
+    if coalesce((p_context->>'newArticleCount')::integer,0)<>1 then return null; end if;
+    for v_existing in
+      select value from jsonb_array_elements(coalesce(p_outputs,'[]'::jsonb))
+      where value->>'kind'='existing' and value->>'contextKey'=p_output->>'contextKey'
+    loop
+      v_has_existing:=true;
+      v_existing_focus:=public.newsroom_mesa_intent_output_focus_source_ids_v1(
+        p_context,p_request,v_existing,'[]'::jsonb
+      );
+      if v_existing_focus is null or cardinality(v_existing_focus)<1 then return null; end if;
+      v_reviewed:=v_reviewed||v_existing_focus;
+    end loop;
+    if not v_has_existing then return null; end if;
+    select coalesce(array_agg(distinct id order by id),'{}'::uuid[]) into v_reviewed
+      from unnest(v_reviewed) reviewed(id);
+    select coalesce(array_agg(id order by id),'{}'::uuid[]) into v_remaining
+      from unnest(v_explicit) source(id)
+      where source.id=any(v_all) and not(source.id=any(v_reviewed));
+    return case when cardinality(v_remaining)>0 then v_remaining else null end;
+  end if;
+  return null;
+end;
+$function$;
+
+revoke all on function public.newsroom_mesa_intent_output_focus_source_ids_v1(jsonb,jsonb,jsonb,jsonb)
+  from public,anon,authenticated,service_role;
+
+alter function public.newsroom_prepare_mesa_intents_v1(jsonb,text)
+  rename to newsroom_prepare_mesa_intents_v1_context_v1;
+revoke all on function public.newsroom_prepare_mesa_intents_v1_context_v1(jsonb,text)
+  from public,anon,authenticated,service_role;
+
+create function public.newsroom_prepare_mesa_intents_v1(
+  p_request jsonb,p_expected_authority_fingerprint text
+)
+returns table(result jsonb)
+language plpgsql volatile security definer set search_path=''
+as $function$
+declare
+  v_result jsonb; v_plan jsonb; v_outputs jsonb:='[]'::jsonb; v_output jsonb; v_context jsonb;
+  v_focus_source_ids uuid[]; v_dossier_id uuid;
+begin
+  select original.result into strict v_result
+  from public.newsroom_prepare_mesa_intents_v1_context_v1(p_request,p_expected_authority_fingerprint) original;
+  v_plan:=v_result->'plan'; v_dossier_id:=(v_plan->>'dossierId')::uuid;
+
+  for v_output in select value from jsonb_array_elements(v_plan->'outputs') loop
+    select value into strict v_context from jsonb_array_elements(v_plan->'contexts')
+      where value->>'key'=v_output->>'contextKey';
+    v_focus_source_ids:=public.newsroom_mesa_intent_output_focus_source_ids_v1(
+      v_context,v_plan->'request',v_output,v_plan->'outputs'
+    );
+    if v_focus_source_ids is not null and cardinality(v_focus_source_ids)>0 then
+      v_output:=v_output||jsonb_build_object('focusSourceIds',to_jsonb(v_focus_source_ids));
+    end if;
+    v_outputs:=v_outputs||jsonb_build_array(v_output);
+  end loop;
+
+  v_plan:=jsonb_set(v_plan,'{outputs}',v_outputs);
+  v_result:=jsonb_set(v_result,'{plan}',v_plan);
+  update public.newsroom_mesa_intent_preparations set frozen_plan=v_plan where dossier_id=v_dossier_id;
+  update public.newsroom_mesa_production_contexts
+    set selection_payload=jsonb_set(selection_payload,'{productionIntents}',v_plan,true)
+    where dossier_id=v_dossier_id;
+  return query select v_result;
+end;
+$function$;
+
+revoke all on function public.newsroom_prepare_mesa_intents_v1(jsonb,text)
+  from public,anon,authenticated,service_role;
+grant execute on function public.newsroom_prepare_mesa_intents_v1(jsonb,text) to service_role;
+commit;
+;
 
       v_touches_theme:=v_selected_themes[1]=any(v_evidence_themes)
         or exists(select 1 from unnest(v_evidence_sources)e(id) where e.id=any(v_theme_sources));
-      if v_touches_theme then
+      if v_touches_theme and cardinality(v_theme_sources)>0 then
         select coalesce(array_agg(distinct id order by id),'{}'::uuid[]) into v_selected
         from (select id from unnest(v_evidence_sources) source(id)
               union select id from unnest(v_theme_sources) source(id)) selected;
         return v_selected;
       end if;
     end if;
-    return v_evidence_sources;
+    return case when cardinality(v_evidence_sources)>0 then v_evidence_sources else null end;
   end if;
 
   if p_output->>'kind'='new' then

@@ -437,22 +437,22 @@ export function resolveMesaProductionIntent(
     const all = context.sources.map((source) => source.newsroomArticleId);
     const available = new Set(all);
     const evidenceSources = target.evidence.sourceIds.filter((sourceId) => available.has(sourceId));
-    if (!evidenceSources.length) return undefined;
 
-    // With exactly one selected Theme, its current sources can safely extend the
-    // historical provenance. With several Themes the union loses membership
-    // boundaries, so keep only the provenance that is actually demonstrated.
+    // With exactly one selected Theme, a deterministic Theme ↔ Article relation
+    // is itself enough evidence to focus the EXISTING on that Theme's current
+    // material. With several Themes the union loses membership boundaries, so
+    // keep only source-level provenance that is actually demonstrated.
     const selectedThemeIds = input.selection.themeIds ?? [];
     if (selectedThemeIds.length === 1) {
       const explicitLoose = new Set(input.selection.sourceIds);
       const themeSources = all.filter((sourceId) => !explicitLoose.has(sourceId));
       const touchesSelectedTheme = target.evidence.themeIds.includes(selectedThemeIds[0])
         || evidenceSources.some((sourceId) => themeSources.includes(sourceId));
-      if (touchesSelectedTheme) {
+      if (touchesSelectedTheme && themeSources.length) {
         return [...new Set([...evidenceSources, ...themeSources])].sort();
       }
     }
-    return [...new Set(evidenceSources)].sort();
+    return evidenceSources.length ? [...new Set(evidenceSources)].sort() : undefined;
   };
   for (const context of contexts.filter((item) => item.reviewPublished)) {
     for (const target of context.publishedArticles) {

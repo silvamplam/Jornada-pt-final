@@ -130,6 +130,17 @@ test("selection com Tema infere focos sem cortar o contexto quando a proveniênc
   assert.deepEqual(frozen.contexts[0].sources.map(s=>s.newsroomArticleId),[id(1),id(2),id(3)]);
 });
 
+test("selection usa relação Tema ↔ Artigo como memória determinista mesmo sem sourceIds históricos", () => {
+  const request: MesaProductionIntent={version:1,preparationKey:id(806),title:"Seleção por Tema",themes:[],sources:[],
+    selection:{sourceIds:[id(3)],themeIds:[id(500)],candidateArticleIds:[article(1).editorialArticleId],
+      reviewArticleIds:[article(1).editorialArticleId],newArticleCount:1}};
+  const candidate: MesaPublishedArticleAuthority={...article(1),evidence:{sourceIds:[],themeIds:[id(500)]}};
+  const frozen=plan(request,{...authorities(0),selectionPublishedArticles:[candidate],
+    selectionSources:[source(1),source(2),source(3)]});
+  assert.deepEqual(frozen.outputs[0].focusSourceIds,[id(1),id(2)]);
+  assert.deepEqual(frozen.outputs[1].focusSourceIds,[id(3)]);
+});
+
 test("selection conserva contexto inteiro quando não há prova segura para segmentar", () => {
   const request: MesaProductionIntent={version:1,preparationKey:id(804),title:"Seleção ambígua",themes:[],sources:[],
     selection:{sourceIds:[id(3)],themeIds:[id(500)],candidateArticleIds:[article(1).editorialArticleId],
