@@ -244,9 +244,10 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
     : `Output ${String(priority).padStart(2, "0")} — ${dossier.title}`.slice(0, 180);
   if (!workingTitle) return null;
 
+  const intentContext = intents?.contexts.find((c) => c.productionContextId === productionContextId);
+  const referenceArticles = intentContext?.candidateArticles ?? intentContext?.publishedArticles ?? [];
   const contexts = workspace.publishedContexts.filter((item) => !intents
-    || intents.contexts.find((c) => c.productionContextId === productionContextId)?.publishedArticles
-      .some((article) => article.editorialArticleId === item.editorialArticleId)).map((item) => item.id);
+    || referenceArticles.some((article) => article.editorialArticleId === item.editorialArticleId)).map((item) => item.id);
   return {
     workspaceContractVersion,
     input: {

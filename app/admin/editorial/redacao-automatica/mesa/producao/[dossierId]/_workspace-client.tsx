@@ -1365,9 +1365,11 @@ export function MesaProductionWorkspaceClient({
               position={card.position}
               visualSeed={card.visualSeed}
               hidden={card.position > outputCount}
-              contexts={productionIntents ? publishedContexts.filter((item) => productionIntents.contexts
-                .find((c) => c.productionContextId === card.productionContextId)?.publishedArticles
-                .some((a) => a.editorialArticleId === item.editorialArticleId)) : publishedContexts}
+              contexts={productionIntents ? publishedContexts.filter((item) => {
+                const intentContext = productionIntents.contexts.find((c) => c.productionContextId === card.productionContextId);
+                const referenceArticles = intentContext?.candidateArticles ?? intentContext?.publishedArticles ?? [];
+                return referenceArticles.some((a) => a.editorialArticleId === item.editorialArticleId);
+              }) : publishedContexts}
               productionContexts={productionContexts}
               productionContextId={card.productionContextId}
               onProductionContextChange={(productionContextId) => {
