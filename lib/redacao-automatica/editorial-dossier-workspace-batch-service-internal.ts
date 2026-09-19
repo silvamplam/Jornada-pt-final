@@ -214,6 +214,17 @@ export function deriveEditorialDossierWorkspacePlanInput(
     (productionContext && technicalSources.length !== productionContext.sources.length)
     || technicalSources.length < 1
   ) return null;
+  const frozenOutputSourceIds = continuitySlot && "sourceIds" in continuitySlot
+    ? continuitySlot.sourceIds
+    : undefined;
+  const allowedSourceIds = frozenOutputSourceIds?.length
+    ? new Set(frozenOutputSourceIds)
+    : null;
+  const planSources = allowedSourceIds
+    ? technicalSources.filter((source) => allowedSourceIds.has(source.newsroomArticleId))
+    : technicalSources;
+  if (planSources.length < 1
+    || (allowedSourceIds && planSources.length !== allowedSourceIds.size)) return null;
 
   const startingPointSourceIds = workspaceContractVersion === 2
     ? editorialMesaWorkspaceStartingPointSourceIds(
@@ -251,7 +262,7 @@ export function deriveEditorialDossierWorkspacePlanInput(
       articleKind: output.articleKind,
       lengthMode: output.lengthMode,
       editorialInstructions: output.editorialInstructions.trim(),
-      sources: technicalSources.map((source, index) => ({
+      sources: planSources.map((source, index) => ({
         dossierSourceId: source.id,
         priority: index + 1,
       })),
