@@ -178,6 +178,8 @@ print('PASS original RPC definitions/privileges unchanged', flush=True)
 load('supabase/migrations/20260919014322_newsroom_mesa_selection_context_v1.sql')
 post_selection_functions = execute(old_functions_query)
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
+load('supabase/sql/candidate-newsroom-mesa-output-source-scope-v1.sql')
+post_output_scope_functions = execute(old_functions_query)
 
 seed = []
 for n in range(1, 31):
@@ -540,6 +542,31 @@ def selection_theme_finds_article_without_theme_article_relation():
     assert p['outputs'][0]['target']['editorialArticleId']==uid(2103)
     assert execute(f"select count(*) from public.newsroom_editorial_theme_articles where theme_id='{uid(520)}';")=='0'
 
+def selection_segments_theme_review_from_loose_new():
+    execute(f"""
+      select public.newsroom_set_editorial_theme_source_membership_v1('{uid(521)}','{uid(22)}',true);
+      select public.newsroom_set_editorial_theme_source_membership_v1('{uid(521)}','{uid(23)}',true);
+      insert into public.editorial_articles(id,title,slug,status,label,subtitle,body,author,matchday_id,published_at)
+      values('{uid(2110)}','Artigo do Tema 521','artigo-tema-521','published','Ante','Pós','Corpo','Editor',
+        '{uid(902)}','2026-09-17T11:55:00Z');
+      insert into public.newsroom_editorial_theme_articles(theme_id,editorial_article_id)
+      values('{uid(521)}','{uid(2110)}');
+    """)
+    req=selection_request(8199,[24],[2110],1,theme_ids=[521],candidate_article_ids=[2110])
+    previewed=preview(req)
+    assert [o['kind'] for o in previewed['outputs']]==['existing','new']
+    p=prepare(req,previewed['authorityFingerprint'])['plan']
+    assert p['outputs'][0]['sourceIds']==[uid(22),uid(23)]
+    assert p['outputs'][1]['sourceIds']==[uid(24)]
+    for output, expected in zip(p['outputs'],([uid(22),uid(23)],[uid(24)])):
+        assigned=json.loads(execute(f"""select coalesce(jsonb_agg(s.newsroom_article_id order by s.newsroom_article_id),'[]'::jsonb)
+          from public.newsroom_editorial_dossier_article_plan_sources ps
+          join public.newsroom_editorial_dossier_sources s
+            on s.dossier_id=ps.dossier_id and s.id=ps.dossier_source_id
+          where ps.dossier_id='{p['dossierId']}' and ps.article_plan_id='{output['outputId']}';"""))
+        assert assigned==expected
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_sources where theme_id='{uid(521)}' and newsroom_article_id='{uid(24)}';")=='0'
+
 def permissions():
     req=request(8180); p=preview(req)
     for role in ['anon','authenticated']:
@@ -556,7 +583,7 @@ def stable_edit_identity():
     assert original_articles==execute("select md5(jsonb_agg(to_jsonb(a) order by a.id)::text) from public.editorial_articles a;")
     assert execute('select count(*) from public.newsroom_mesa_output_publications;')=='0'
     assert execute('select count(*) from public.newsroom_mesa_publication_events;')=='0'
-    assert post_selection_functions==execute(old_functions_query)
+    assert post_output_scope_functions==execute(old_functions_query)
 
 
 for name,fn in [
@@ -584,6 +611,7 @@ for name,fn in [
     ('selection mistura fonte de Tema e fonte solta sem reorganizar',selection_can_mix_theme_member_and_loose_source),
     ('selection une Tema e fontes soltas num único contexto',selection_theme_union),
     ('Tema sem relação de artigo recupera artigo pela proveniência da fonte',selection_theme_finds_article_without_theme_article_relation),
+    ('selection separa fontes do Tema da fonte solta por Article Plan',selection_segments_theme_review_from_loose_new),
     ('permissões negam clientes e escrita direta',permissions),
     ('preparação não publica nem marca artigos revistos',stable_edit_identity),
 ]:
