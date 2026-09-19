@@ -1,5 +1,5 @@
 -- Article-centric receipt memory. Theme remains optional organization metadata.
--- Candidate SQL: tested in disposable PostgreSQL before any production migration.
+-- Additive production migration: article-centric receipt memory; Theme remains optional organization metadata.
 begin;
 
 do $preflight$

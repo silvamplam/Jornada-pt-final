@@ -1,6 +1,5 @@
 -- Read-only candidate resolver for canonical published articles.
--- CI-only in this branch until its contract is proven; it does not change
--- Production Intents, contexts, receipts or the production Supabase database.
+-- Additive production migration: global canonical article candidate resolver.
 begin;
 
 do $preflight$

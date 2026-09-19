@@ -1,5 +1,5 @@
 -- Technical selection context for existing Production Intents.
--- Candidate SQL only; receipts and UI remain unchanged.
+-- Additive production migration: technical selection context for existing Production Intents.
 begin;
 do $preflight$
 begin
