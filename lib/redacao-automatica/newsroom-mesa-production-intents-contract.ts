@@ -200,17 +200,12 @@ export function validateMesaProductionIntentsManifest(value: unknown): MesaProdu
   for (let index=0; index<plan.outputs.length; index++) {
     const o=plan.outputs[index], output=object(m.outputs[index]), ref=object(output?.articlePlan);
     const c=plan.contexts.find((c) => c.key === o.contextKey)!;
-    const outputNewsroomSourceIds = ids(output?.contextSourceIds)
-      ? output.contextSourceIds.map((sourceId) => String(sourceById.get(sourceId)?.newsroomArticleId ?? "")).sort()
-      : [];
-    const expectedNewsroomSourceIds = [...(o.sourceIds ?? c.sources.map((source) => source.newsroomArticleId))].sort();
     if (!output || !ref || output.outputId !== o.outputId || output.position !== index+1
       || ref.articlePlanId !== o.outputId || ref.dossierId !== plan.dossierId || ref.contextId !== o.productionContextId
       || ref.workspaceContractVersion !== 2 || ref.sourceScope !== "context" || ref.origin !== undefined
       || ref.destination !== (o.kind === "existing" ? "update" : "new") || !ids(output.contextSourceIds)
-      || output.contextSourceIds.length < 1
-      || output.contextSourceIds.some((id) => !c.sources.some((s) => sourceById.get(id)?.newsroomArticleId === s.newsroomArticleId))
-      || !sameMesaIntentJson(outputNewsroomSourceIds, expectedNewsroomSourceIds)) return null;
+      || output.contextSourceIds.length !== c.sources.length
+      || output.contextSourceIds.some((id) => !c.sources.some((s) => sourceById.get(id)?.newsroomArticleId === s.newsroomArticleId))) return null;
     if ((output.publishedArticleId ?? null) !== (o.target?.editorialArticleId ?? null)) return null;
   }
   return plan;
