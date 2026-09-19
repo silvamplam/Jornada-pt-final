@@ -93,7 +93,10 @@ function validPlan(value: unknown, persisted: boolean): boolean {
       || !Array.isArray(c.sources) || c.sources.length < 1 || c.sources.length > 20
       || !c.sources.every(capturedSource) || !unique(c.sources.map((s) => s.newsroomArticleId))
       || !Array.isArray(c.publishedArticles) || !c.publishedArticles.every(capturedArticle)
-      || !unique(c.publishedArticles.map((a) => a.editorialArticleId))) return false;
+      || !unique(c.publishedArticles.map((a) => a.editorialArticleId))
+      || (c.candidateArticles !== undefined && (!Array.isArray(c.candidateArticles)
+        || c.candidateArticles.length > 200 || !c.candidateArticles.every(capturedArticle)
+        || !unique(c.candidateArticles.map((a) => a.editorialArticleId))))) return false;
     if (c.kind === "theme") {
       const theme = object(c.theme);
       if (!id(c.themeId) || c.sourceId !== null || c.key !== `theme:${c.themeId}`
@@ -103,7 +106,8 @@ function validPlan(value: unknown, persisted: boolean): boolean {
         || c.publishedArticles.length || c.sources.length !== 1 || c.sources[0].newsroomArticleId !== c.sourceId) return false;
     } else if (c.kind === "selection") {
       if (c.sourceId !== null || c.themeId !== null || c.key !== `selection:${p.preparationKey}`
-        || c.title !== p.title || !parsedRequest.value.selection) return false;
+        || c.title !== p.title || !parsedRequest.value.selection
+        || (parsedRequest.value.selection.candidateArticleIds !== undefined && !Array.isArray(c.candidateArticles))) return false;
     } else return false;
     for (const source of c.sources) {
       if (Date.parse(source.capturedAt) > Date.parse(p.capturedAt)) return false;
@@ -132,7 +136,9 @@ function validPlan(value: unknown, persisted: boolean): boolean {
       status: "open" as const, sources: c.sources.filter((s) => !incorporationKeys.includes(`${c.themeId}:${s.newsroomArticleId}`)).map(authoritySource),
       publishedArticles: c.publishedArticles })),
     sources: [...sourceById.values()].map(authoritySource),
-    selectionPublishedArticles: contexts.find((c) => c.kind === "selection")?.publishedArticles ?? [],
+    selectionPublishedArticles: contexts.find((c) => c.kind === "selection")?.candidateArticles
+      ?? contexts.find((c) => c.kind === "selection")?.publishedArticles ?? [],
+    selectionSources: contexts.find((c) => c.kind === "selection")?.sources.map(authoritySource) ?? [],
   });
   if (!resolved.ok || !sameMesaIntentJson(p.totals, resolved.value.totals)
     || !sameMesaIntentJson(p.deferred, resolved.value.deferred)

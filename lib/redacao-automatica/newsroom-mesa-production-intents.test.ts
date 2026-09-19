@@ -114,6 +114,24 @@ test("selection rejeita alvo que deixou de ser candidato e duplicação com dest
     reviewArticleIds: [], newArticleCount: 0 } }).ok, false);
 });
 
+test("selection com Tema usa união autoritativa sem criar contexto Theme", () => {
+  const request: MesaProductionIntent={version:1,preparationKey:id(802),title:"Seleção completa",themes:[],sources:[],
+    selection:{sourceIds:[id(3)],themeIds:[id(500)],candidateArticleIds:[article(1).editorialArticleId],
+      reviewArticleIds:[article(1).editorialArticleId],newArticleCount:1}};
+  const data: MesaProductionAuthorities={...authorities(0),selectionPublishedArticles:[article(1)],
+    selectionSources:[source(1),source(2),source(3)]};
+  const frozen=plan(request,data);
+  assert.equal(frozen.contexts.length,1);assert.equal(frozen.contexts[0].kind,"selection");
+  assert.deepEqual(frozen.contexts[0].sources.map(s=>s.newsroomArticleId),[id(1),id(2),id(3)]);
+  assert.deepEqual(frozen.outputs.map(o=>o.kind),["existing","new"]);
+});
+
+test("candidate set alterado fica stale antes de NEW", () => {
+  const request: MesaProductionIntent={version:1,preparationKey:id(803),title:"Seleção",themes:[],sources:[],
+    selection:{sourceIds:[id(3)],candidateArticleIds:[article(1).editorialArticleId],reviewArticleIds:[],newArticleCount:1}};
+  fails(request,{...authorities(0),selectionPublishedArticles:[article(1),article(2)],selectionSources:[source(3)]},"selection_candidates_stale");
+});
+
 for (const [name, review, fresh, reviews, newArticles] of [
   ["Tema publicado sozinho: só revisão", true, 0, 2, 0],
   ["Tema publicado: revisão e novos", true, 3, 2, 3],

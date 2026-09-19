@@ -24,6 +24,8 @@ export type MesaLooseSourceIntent =
 
 export type MesaSelectionIntent = Readonly<{
   sourceIds: readonly string[];
+  themeIds?: readonly string[];
+  candidateArticleIds?: readonly string[];
   reviewArticleIds: readonly string[];
   newArticleCount: number;
 }>;
@@ -71,6 +73,8 @@ export type MesaProductionAuthorities = Readonly<{
   sources: readonly MesaSourceAuthority[];
   /** Global canonical candidates for the technical selection context. */
   selectionPublishedArticles?: readonly MesaPublishedArticleAuthority[];
+  /** Server-resolved union of loose sources and current Theme memberships. */
+  selectionSources?: readonly MesaSourceAuthority[];
 }>;
 
 export type MesaIntentIssue = Readonly<{
@@ -95,6 +99,8 @@ export type MesaIntentContext = Readonly<{
   sources: readonly MesaSourceCapture[];
   // Reference-only articles are never represented by an EXISTING slot.
   publishedArticles: readonly MesaPublishedArticleAuthority[];
+  /** Full candidate snapshot for selection contexts. */
+  candidateArticles?: readonly MesaPublishedArticleAuthority[];
 }>;
 
 export type MesaIntentOutput = Readonly<{
@@ -184,26 +190,47 @@ export function parseMesaProductionIntent(value: unknown): Result<MesaProduction
   }
   if (Object.hasOwn(row, "selection")) {
     const item = object(row.selection);
-    if (!item || !exactKeys(item, ["sourceIds", "reviewArticleIds", "newArticleCount"])
-      || !Array.isArray(item.sourceIds) || item.sourceIds.length < 1 || item.sourceIds.length > MESA_INTENT_LIMITS.sources
+    const selectionKeys = [
+      ["sourceIds", "reviewArticleIds", "newArticleCount"],
+      ["sourceIds", "themeIds", "reviewArticleIds", "newArticleCount"],
+      ["sourceIds", "candidateArticleIds", "reviewArticleIds", "newArticleCount"],
+      ["sourceIds", "themeIds", "candidateArticleIds", "reviewArticleIds", "newArticleCount"],
+    ] as const;
+    const rawThemeIds = item?.themeIds === undefined ? [] : item.themeIds;
+    const rawCandidateArticleIds = item?.candidateArticleIds === undefined ? [] : item.candidateArticleIds;
+    if (!item || !selectionKeys.some((keys) => exactKeys(item, keys))
+      || !Array.isArray(item.sourceIds) || item.sourceIds.length > MESA_INTENT_LIMITS.sources
+      || !Array.isArray(rawThemeIds) || rawThemeIds.length > MESA_INTENT_LIMITS.contexts
+      || !Array.isArray(rawCandidateArticleIds) || rawCandidateArticleIds.length > 200
       || !Array.isArray(item.reviewArticleIds) || item.reviewArticleIds.length > MESA_INTENT_LIMITS.outputs
       || !count(item.newArticleCount)) {
       return { ok: false, issues: [issue("selection_intent_invalid", "A decisão sobre a seleção não é válida.", "selection")] };
     }
-    const sourceIds = item.sourceIds.map(uuid), reviewArticleIds = item.reviewArticleIds.map(uuid);
-    if (sourceIds.some((id) => id === null) || reviewArticleIds.some((id) => id === null)
-      || !unique(sourceIds as string[]) || !unique(reviewArticleIds as string[])
+    const sourceIds = item.sourceIds.map(uuid);
+    const themeIds = rawThemeIds.map(uuid);
+    const candidateArticleIds = rawCandidateArticleIds.map(uuid);
+    const reviewArticleIds = item.reviewArticleIds.map(uuid);
+    if (sourceIds.some((id) => id === null) || themeIds.some((id) => id === null)
+      || candidateArticleIds.some((id) => id === null) || reviewArticleIds.some((id) => id === null)
+      || !unique(sourceIds as string[]) || !unique(themeIds as string[])
+      || !unique(candidateArticleIds as string[]) || !unique(reviewArticleIds as string[])
+      || reviewArticleIds.some((articleId) => candidateArticleIds.length > 0 && !candidateArticleIds.includes(articleId))
+      || sourceIds.length + themeIds.length < 1
       || reviewArticleIds.length + item.newArticleCount < 1) {
-      return { ok: false, issues: [issue("selection_intent_invalid", "A seleção contém fontes, artigos ou contagens inválidas.", "selection")] };
+      return { ok: false, issues: [issue("selection_intent_invalid", "A seleção contém fontes, Temas, artigos ou contagens inválidas.", "selection")] };
     }
     selection = {
       sourceIds: (sourceIds as string[]).sort(),
+      ...(themeIds.length ? { themeIds: (themeIds as string[]).sort() } : {}),
+      ...(Object.hasOwn(item, "candidateArticleIds")
+        ? { candidateArticleIds: (candidateArticleIds as string[]).sort() } : {}),
       reviewArticleIds: (reviewArticleIds as string[]).sort(),
       newArticleCount: item.newArticleCount,
     };
   }
   if (!unique(themes.map((item) => item.themeId)) || !unique(sources.map((item) => item.sourceId))
-    || selection?.sourceIds.some((sourceId) => sources.some((item) => item.sourceId === sourceId))) {
+    || selection?.sourceIds.some((sourceId) => sources.some((item) => item.sourceId === sourceId))
+    || selection?.themeIds?.some((themeId) => themes.some((item) => item.themeId === themeId))) {
     return { ok: false, issues: [issue("intent_duplicate", "Há Temas ou fontes repetidos no pedido.")] };
   }
   return { ok: true, value: { version: 1, preparationKey: uuid(row.preparationKey)!, title: row.title.trim(), themes, sources,
@@ -328,18 +355,38 @@ export function resolveMesaProductionIntent(
       || !unique(candidates.map((article) => article.editorialArticleId.toLowerCase()))) {
       issues.push(issue("published_history_invalid", "Não foi possível confirmar os artigos publicados relacionados com esta seleção.", key));
     }
-    const byId = new Map(candidates.map((article) => [article.editorialArticleId.toLowerCase(), article]));
+    const normalizedCandidates = candidates.map((article) => ({
+      ...article,
+      editorialArticleId: uuid(article.editorialArticleId)!,
+      matchdayId: article.matchdayId === null ? null : uuid(article.matchdayId)!,
+    })).sort((a, b) => a.editorialArticleId.localeCompare(b.editorialArticleId));
+    const candidateIds = normalizedCandidates.map((article) => article.editorialArticleId);
+    if (input.selection.candidateArticleIds
+      && JSON.stringify(candidateIds) !== JSON.stringify([...input.selection.candidateArticleIds].sort())) {
+      issues.push(issue("selection_candidates_stale", "Os artigos publicados relacionados com esta seleção mudaram. Relê a seleção.", key));
+    }
+    const byId = new Map(normalizedCandidates.map((article) => [article.editorialArticleId, article]));
     if (input.selection.reviewArticleIds.some((articleId) => !byId.has(articleId))) {
       issues.push(issue("selection_target_unavailable", "Um artigo escolhido para revisão já não pertence aos candidatos confirmados desta seleção.", key));
     }
     const captures: MesaSourceCapture[] = [];
-    for (const sourceId of input.selection.sourceIds) {
-      const found = loose.get(sourceId), capture = found ? sourceCapture(found, authority.readAt) : null;
+    const selectionAuthority = authority.selectionSources
+      ?? input.selection.sourceIds.flatMap((sourceId) => {
+        const found = loose.get(sourceId);
+        return found ? [found] : [];
+      });
+    const explicitMissing = new Set(input.selection.sourceIds);
+    for (const source of selectionAuthority) {
+      const capture = sourceCapture(source, authority.readAt);
       if (!capture) {
-        issues.push(issue("source_snapshot_unavailable", `A fonte ${sourceId} não tem uma captura atual utilizável.`, key));
+        issues.push(issue("source_snapshot_unavailable", `A fonte ${source.newsroomArticleId} não tem uma captura atual utilizável.`, key));
         continue;
       }
       captures.push(capture);
+      explicitMissing.delete(capture.newsroomArticleId);
+    }
+    for (const sourceId of explicitMissing) {
+      issues.push(issue("source_snapshot_unavailable", `A fonte ${sourceId} não tem uma captura atual utilizável.`, key));
     }
     contexts.push({
       key, kind: "selection", themeId: null, sourceId: null, title: input.title,
@@ -347,12 +394,9 @@ export function resolveMesaProductionIntent(
       sources: captures.sort((a, b) => a.newsroomArticleId.localeCompare(b.newsroomArticleId)),
       publishedArticles: input.selection.reviewArticleIds.flatMap((articleId) => {
         const article = byId.get(articleId);
-        return article ? [{
-          ...article,
-          editorialArticleId: uuid(article.editorialArticleId)!,
-          matchdayId: article.matchdayId === null ? null : uuid(article.matchdayId)!,
-        }] : [];
+        return article ? [article] : [];
       }).sort((a, b) => a.editorialArticleId.localeCompare(b.editorialArticleId)),
+      candidateArticles: normalizedCandidates,
     });
   }
   contexts.sort((a, b) => a.key.localeCompare(b.key));

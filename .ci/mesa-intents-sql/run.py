@@ -73,12 +73,17 @@ def request(key: int, review=True, fresh=0, theme=500, sources=None):
                 sources=sources or [])
 
 
-def selection_request(key: int, source_ids, review_article_ids=(), new=0):
+def selection_request(key: int, source_ids, review_article_ids=(), new=0, theme_ids=(), candidate_article_ids=None):
+    selection=dict(
+      sourceIds=[uid(n) if isinstance(n,int) else n for n in source_ids],
+      reviewArticleIds=[uid(n) if isinstance(n,int) else n for n in review_article_ids],
+      newArticleCount=new)
+    if theme_ids:
+        selection['themeIds']=[uid(n) if isinstance(n,int) else n for n in theme_ids]
+    if candidate_article_ids is not None:
+        selection['candidateArticleIds']=[uid(n) if isinstance(n,int) else n for n in candidate_article_ids]
     return dict(version=1,preparationKey=uid(key),title='Seleção editorial',
-                themes=[],sources=[],selection=dict(
-                  sourceIds=[uid(n) if isinstance(n,int) else n for n in source_ids],
-                  reviewArticleIds=[uid(n) if isinstance(n,int) else n for n in review_article_ids],
-                  newArticleCount=new))
+                themes=[],sources=[],selection=selection)
 
 def independent(n: int, count=1):
     return dict(sourceId=uid(n), destination='independent', newArticleCount=count)
@@ -259,6 +264,10 @@ def global_candidate_resolver():
     assert all(row['evidence']['kinds']==['dossier_plan'] for row in dossier_candidates)
 
     assert [row['editorialArticleId'] for row in global_candidates([uid(18)])]==[uid(2103)]
+    execute(f"select public.newsroom_set_editorial_theme_source_membership_v1('{uid(520)}','{uid(18)}',true);")
+    by_theme_source=global_candidates((),[uid(520)])
+    assert [row['editorialArticleId'] for row in by_theme_source]==[uid(2103)]
+    assert 'legacy_package' in by_theme_source[0]['evidence']['kinds']
     assert [row['editorialArticleId'] for row in global_candidates([uid(19)])]==[uid(2104)]
     assert global_candidates([uid(20)])==[]
 
@@ -498,6 +507,35 @@ def selection_can_mix_theme_member_and_loose_source():
     assert memberships_after==memberships_before
 
 
+
+def selection_theme_union():
+    memberships_before=execute(f"""select coalesce(jsonb_agg(to_jsonb(m) order by m.theme_id,m.newsroom_article_id),'[]'::jsonb)::text
+      from public.newsroom_editorial_theme_sources m
+      where m.theme_id='{uid(500)}' or m.newsroom_article_id='{uid(3)}';""")
+    req=selection_request(8196,[3],[2001],1,theme_ids=[500],candidate_article_ids=[2001])
+    p=prepare(req)['plan']
+    assert p['totals']==dict(contexts=1,sources=3,reviews=1,newArticles=1)
+    assert len(p['contexts'])==1 and p['contexts'][0]['kind']=='selection'
+    assert {x['newsroomArticleId'] for x in p['contexts'][0]['sources']}=={uid(1),uid(2),uid(3)}
+    assert [x['editorialArticleId'] for x in p['contexts'][0]['candidateArticles']]==[uid(2001)]
+    assert [o['kind'] for o in p['outputs']]==['existing','new']
+    memberships_after=execute(f"""select coalesce(jsonb_agg(to_jsonb(m) order by m.theme_id,m.newsroom_article_id),'[]'::jsonb)::text
+      from public.newsroom_editorial_theme_sources m
+      where m.theme_id='{uid(500)}' or m.newsroom_article_id='{uid(3)}';""")
+    assert memberships_after==memberships_before
+
+
+def selection_theme_finds_article_without_theme_article_relation():
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_articles where theme_id='{uid(520)}';")=='0'
+    stale=selection_request(8197,[],[],1,theme_ids=[520],candidate_article_ids=[])
+    expect_error('mesa-intent-selection-candidates-stale',lambda:preview(stale))
+    req=selection_request(8198,[],[2103],0,theme_ids=[520],candidate_article_ids=[2103])
+    p=prepare(req)['plan']
+    assert p['totals']==dict(contexts=1,sources=1,reviews=1,newArticles=0)
+    assert p['contexts'][0]['sources'][0]['newsroomArticleId']==uid(18)
+    assert p['outputs'][0]['target']['editorialArticleId']==uid(2103)
+    assert execute(f"select count(*) from public.newsroom_editorial_theme_articles where theme_id='{uid(520)}';")=='0'
+
 def permissions():
     req=request(8180); p=preview(req)
     for role in ['anon','authenticated']:
@@ -540,6 +578,8 @@ for name,fn in [
     ('selection congela fontes juntas e mantém Article Plans existentes',selection_context),
     ('selection preserva ambiguidade e alvos explícitos',selection_ambiguity_is_explicit),
     ('selection mistura fonte de Tema e fonte solta sem reorganizar',selection_can_mix_theme_member_and_loose_source),
+    ('selection une Tema e fontes soltas num único contexto',selection_theme_union),
+    ('Tema sem relação de artigo recupera artigo pela proveniência da fonte',selection_theme_finds_article_without_theme_article_relation),
     ('permissões negam clientes e escrita direta',permissions),
     ('preparação não publica nem marca artigos revistos',stable_edit_identity),
 ]:

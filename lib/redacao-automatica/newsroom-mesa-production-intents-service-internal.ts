@@ -29,7 +29,10 @@ function normalizeRequest(input: MesaProductionIntent): MesaProductionIntent {
   return { ...input, themes: [...input.themes].sort((a,b) => a.themeId.localeCompare(b.themeId)),
     sources: [...input.sources].sort((a,b) => a.sourceId.localeCompare(b.sourceId)),
     ...(input.selection ? { selection: { ...input.selection,
-      sourceIds: [...input.selection.sourceIds].sort(), reviewArticleIds: [...input.selection.reviewArticleIds].sort() } } : {}) };
+      sourceIds: [...input.selection.sourceIds].sort(),
+      ...(input.selection.themeIds ? { themeIds: [...input.selection.themeIds].sort() } : {}),
+      ...(input.selection.candidateArticleIds ? { candidateArticleIds: [...input.selection.candidateArticleIds].sort() } : {}),
+      reviewArticleIds: [...input.selection.reviewArticleIds].sort() } } : {}) };
 }
 export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) {
   return {
@@ -108,13 +111,15 @@ export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) 
       return {action:r.action as "consolidated" | "reused",publicationEventId:r.publicationEventId,
         updatedCount:r.updatedCount as number,newCount:r.newCount as number,noChangeCount:r.noChangeCount as number};
     },
-    async readGlobalCandidates(sourceIds: readonly string[]) {
-      if (!sourceIds.length || sourceIds.length>20 || !sourceIds.every(id) || new Set(sourceIds).size!==sourceIds.length) {
+    async readGlobalCandidates(sourceIds: readonly string[], themeIds: readonly string[] = []) {
+      if ((!sourceIds.length && !themeIds.length) || sourceIds.length>20 || themeIds.length>20
+        || !sourceIds.every(id) || !themeIds.every(id)
+        || new Set(sourceIds).size!==sourceIds.length || new Set(themeIds).size!==themeIds.length) {
         throw new Error("mesa-intent-global-candidates-input-invalid");
       }
-      const normalized=[...sourceIds].sort();
+      const normalized=[...sourceIds].sort(),normalizedThemes=[...themeIds].sort();
       const row=single(await transport.post("newsroom_mesa_global_article_candidates_v1", {
-        p_source_ids:normalized,p_theme_ids:[],
+        p_source_ids:normalized,p_theme_ids:normalizedThemes,
       }));
       if (!Array.isArray(row?.candidates) || row.candidates.length>200) {
         throw new Error("mesa-intent-global-candidates-result-invalid");

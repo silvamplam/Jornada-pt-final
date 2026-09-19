@@ -9,6 +9,7 @@ begin
     or to_regclass('public.newsroom_editorial_dossier_article_plan_sources') is null
     or to_regclass('public.newsroom_editorial_source_packages') is null
     or to_regclass('public.newsroom_editorial_theme_articles') is null
+    or to_regclass('public.newsroom_editorial_theme_sources') is null
     or to_regclass('public.editorial_articles') is null
     or to_regprocedure('public.newsroom_mesa_timestamp_text_valid_v1(text)') is null
   then
@@ -54,11 +55,15 @@ begin
   end if;
 
   return query
-  with requested_sources as (
-    select id as source_id from unnest(v_source_ids) requested(id)
-  ),
-  requested_themes as (
+  with requested_themes as (
     select id as theme_id from unnest(v_theme_ids) requested(id)
+  ),
+  requested_sources as (
+    select id as source_id from unnest(v_source_ids) requested(id)
+    union
+    select membership.newsroom_article_id
+    from public.newsroom_editorial_theme_sources membership
+    join requested_themes requested on requested.theme_id=membership.theme_id
   ),
   technical_dossiers as (
     select workspace.dossier_id

@@ -453,7 +453,8 @@ create or replace function public.newsroom_mesa_normalize_intent_v1(p_request js
 returns jsonb language plpgsql immutable set search_path = '' as $function$
 declare
   v_item jsonb; v_themes jsonb := '[]'; v_sources jsonb := '[]';
-  v_selection jsonb := null; v_selection_sources jsonb := '[]'; v_selection_articles jsonb := '[]';
+  v_selection jsonb := null; v_selection_sources jsonb := '[]'; v_selection_themes jsonb := '[]';
+  v_selection_candidates jsonb := '[]'; v_selection_articles jsonb := '[]';
   v_uuid constant text := '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$';
 begin
   if jsonb_typeof(p_request) is distinct from 'object'
@@ -524,9 +525,13 @@ begin
     v_selection := p_request -> 'selection';
     if jsonb_typeof(v_selection) is distinct from 'object'
       or not (v_selection ?& array['sourceIds','reviewArticleIds','newArticleCount'])
-      or v_selection - array['sourceIds','reviewArticleIds','newArticleCount'] <> '{}'
+      or v_selection - array['sourceIds','themeIds','candidateArticleIds','reviewArticleIds','newArticleCount'] <> '{}'
       or jsonb_typeof(v_selection -> 'sourceIds') is distinct from 'array'
-      or jsonb_array_length(v_selection -> 'sourceIds') not between 1 and 20
+      or jsonb_array_length(v_selection -> 'sourceIds') > 20
+      or jsonb_typeof(coalesce(v_selection -> 'themeIds','[]'::jsonb)) is distinct from 'array'
+      or jsonb_array_length(coalesce(v_selection -> 'themeIds','[]'::jsonb)) > 20
+      or jsonb_typeof(coalesce(v_selection -> 'candidateArticleIds','[]'::jsonb)) is distinct from 'array'
+      or jsonb_array_length(coalesce(v_selection -> 'candidateArticleIds','[]'::jsonb)) > 200
       or jsonb_typeof(v_selection -> 'reviewArticleIds') is distinct from 'array'
       or jsonb_array_length(v_selection -> 'reviewArticleIds') > 30
       or jsonb_typeof(v_selection -> 'newArticleCount') is distinct from 'number'
@@ -534,27 +539,42 @@ begin
       or (v_selection ->> 'newArticleCount')::numeric not between 0 and 30
     then raise exception 'mesa-intent-selection-invalid'; end if;
     for v_item in select value from jsonb_array_elements(v_selection -> 'sourceIds') loop
-      if jsonb_typeof(v_item) is distinct from 'string' or lower(v_item #>> '{}') !~ v_uuid
-      then raise exception 'mesa-intent-selection-invalid'; end if;
+      if jsonb_typeof(v_item) is distinct from 'string' or lower(v_item #>> '{}') !~ v_uuid then raise exception 'mesa-intent-selection-invalid'; end if;
       v_selection_sources := v_selection_sources || jsonb_build_array(lower(v_item #>> '{}'));
     end loop;
+    for v_item in select value from jsonb_array_elements(coalesce(v_selection -> 'themeIds','[]'::jsonb)) loop
+      if jsonb_typeof(v_item) is distinct from 'string' or lower(v_item #>> '{}') !~ v_uuid then raise exception 'mesa-intent-selection-invalid'; end if;
+      v_selection_themes := v_selection_themes || jsonb_build_array(lower(v_item #>> '{}'));
+    end loop;
+    for v_item in select value from jsonb_array_elements(coalesce(v_selection -> 'candidateArticleIds','[]'::jsonb)) loop
+      if jsonb_typeof(v_item) is distinct from 'string' or lower(v_item #>> '{}') !~ v_uuid then raise exception 'mesa-intent-selection-invalid'; end if;
+      v_selection_candidates := v_selection_candidates || jsonb_build_array(lower(v_item #>> '{}'));
+    end loop;
     for v_item in select value from jsonb_array_elements(v_selection -> 'reviewArticleIds') loop
-      if jsonb_typeof(v_item) is distinct from 'string' or lower(v_item #>> '{}') !~ v_uuid
-      then raise exception 'mesa-intent-selection-invalid'; end if;
+      if jsonb_typeof(v_item) is distinct from 'string' or lower(v_item #>> '{}') !~ v_uuid then raise exception 'mesa-intent-selection-invalid'; end if;
       v_selection_articles := v_selection_articles || jsonb_build_array(lower(v_item #>> '{}'));
     end loop;
-    if (select count(distinct value #>> '{}') from jsonb_array_elements(v_selection_sources)) <> jsonb_array_length(v_selection_sources)
+    if jsonb_array_length(v_selection_sources)+jsonb_array_length(v_selection_themes) < 1
+      or (select count(distinct value #>> '{}') from jsonb_array_elements(v_selection_sources)) <> jsonb_array_length(v_selection_sources)
+      or (select count(distinct value #>> '{}') from jsonb_array_elements(v_selection_themes)) <> jsonb_array_length(v_selection_themes)
+      or (select count(distinct value #>> '{}') from jsonb_array_elements(v_selection_candidates)) <> jsonb_array_length(v_selection_candidates)
       or (select count(distinct value #>> '{}') from jsonb_array_elements(v_selection_articles)) <> jsonb_array_length(v_selection_articles)
-      or exists (select 1 from jsonb_array_elements(v_selection_sources) selected
-        join jsonb_array_elements(v_sources) source on source ->> 'sourceId' = selected #>> '{}')
+      or exists (select 1 from jsonb_array_elements(v_selection_sources) selected join jsonb_array_elements(v_sources) source on source ->> 'sourceId'=selected #>> '{}')
+      or exists (select 1 from jsonb_array_elements(v_selection_themes) selected join jsonb_array_elements(v_themes) theme on theme ->> 'themeId'=selected #>> '{}')
+      or (v_selection ? 'candidateArticleIds' and exists (
+        select 1 from jsonb_array_elements(v_selection_articles) reviewed
+        where not exists (select 1 from jsonb_array_elements(v_selection_candidates) candidate where candidate #>> '{}'=reviewed #>> '{}')
+      ))
       or jsonb_array_length(v_selection_articles)+(v_selection ->> 'newArticleCount')::integer < 1
     then raise exception 'mesa-intent-selection-invalid'; end if;
-    select coalesce(jsonb_agg(value order by value #>> '{}'),'[]'::jsonb) into v_selection_sources
-      from jsonb_array_elements(v_selection_sources);
-    select coalesce(jsonb_agg(value order by value #>> '{}'),'[]'::jsonb) into v_selection_articles
-      from jsonb_array_elements(v_selection_articles);
+    select coalesce(jsonb_agg(value order by value #>> '{}'),'[]'::jsonb) into v_selection_sources from jsonb_array_elements(v_selection_sources);
+    select coalesce(jsonb_agg(value order by value #>> '{}'),'[]'::jsonb) into v_selection_themes from jsonb_array_elements(v_selection_themes);
+    select coalesce(jsonb_agg(value order by value #>> '{}'),'[]'::jsonb) into v_selection_candidates from jsonb_array_elements(v_selection_candidates);
+    select coalesce(jsonb_agg(value order by value #>> '{}'),'[]'::jsonb) into v_selection_articles from jsonb_array_elements(v_selection_articles);
     v_selection := jsonb_build_object('sourceIds',v_selection_sources,'reviewArticleIds',v_selection_articles,
-      'newArticleCount',(v_selection ->> 'newArticleCount')::integer);
+      'newArticleCount',(v_selection ->> 'newArticleCount')::integer)
+      || case when p_request -> 'selection' ? 'themeIds' then jsonb_build_object('themeIds',v_selection_themes) else '{}'::jsonb end
+      || case when p_request -> 'selection' ? 'candidateArticleIds' then jsonb_build_object('candidateArticleIds',v_selection_candidates) else '{}'::jsonb end;
   end if;
   return jsonb_build_object('version',1,'preparationKey',lower(p_request ->> 'preparationKey'),
     'title',btrim(p_request ->> 'title'),
@@ -630,24 +650,39 @@ begin
   end loop;
   if v_request ? 'selection' then
     v_key := 'selection:' || (v_request ->> 'preparationKey');
+    if exists (
+      select 1 from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'themeIds','[]'::jsonb)) selected
+      where not exists (select 1 from public.newsroom_editorial_themes theme
+        where theme.id=(selected #>> '{}')::uuid and theme.status='open')
+    ) then raise exception 'mesa-intent-theme-unavailable' using detail=v_key; end if;
     v_sources := '[]'::jsonb;
-    for v_id in select (value #>> '{}')::uuid from jsonb_array_elements(v_request -> 'selection' -> 'sourceIds') loop
+    for v_id in
+      select (value #>> '{}')::uuid from jsonb_array_elements(v_request -> 'selection' -> 'sourceIds')
+      union
+      select membership.newsroom_article_id from public.newsroom_editorial_theme_sources membership
+      where membership.theme_id in (
+        select (value #>> '{}')::uuid from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'themeIds','[]'::jsonb))
+      )
+      order by 1
+    loop
       v_source := public.newsroom_mesa_intent_source_v1(v_id);
       if v_source is null or v_source ->> 'newsroomSnapshotId' is null or v_source -> 'usable' is distinct from 'true'::jsonb
       then raise exception 'mesa-intent-source-snapshot-unavailable' using detail=v_key||':'||v_id::text; end if;
-      if v_source ->> 'classificationKey' is null
-      then raise exception 'mesa-intent-classification-required' using detail=v_key||':'||v_id::text; end if;
+      if v_source ->> 'classificationKey' is null then raise exception 'mesa-intent-classification-required' using detail=v_key||':'||v_id::text; end if;
       v_sources := v_sources || jsonb_build_array(v_source);
     end loop;
-    select candidates into strict v_candidates
-      from public.newsroom_mesa_global_article_candidates_v1(
-        array(select (value #>> '{}')::uuid from jsonb_array_elements(v_request -> 'selection' -> 'sourceIds')),
-        '{}'::uuid[]
-      );
+    if jsonb_array_length(v_sources)=0 then raise exception 'mesa-intent-selection-sources-missing' using detail=v_key; end if;
+    select candidates into strict v_candidates from public.newsroom_mesa_global_article_candidates_v1(
+      array(select (value #>> '{}')::uuid from jsonb_array_elements(v_request -> 'selection' -> 'sourceIds')),
+      array(select (value #>> '{}')::uuid from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'themeIds','[]'::jsonb)))
+    );
+    if v_request -> 'selection' ? 'candidateArticleIds' and
+      (select coalesce(jsonb_agg(candidate -> 'editorialArticleId' order by candidate ->> 'editorialArticleId'),'[]'::jsonb)
+       from jsonb_array_elements(v_candidates) candidate) is distinct from v_request -> 'selection' -> 'candidateArticleIds'
+    then raise exception 'mesa-intent-selection-candidates-stale' using detail=v_key; end if;
     if exists (
       select 1 from jsonb_array_elements(v_request -> 'selection' -> 'reviewArticleIds') requested
-      where not exists (select 1 from jsonb_array_elements(v_candidates) candidate
-        where candidate ->> 'editorialArticleId'=requested #>> '{}')
+      where not exists (select 1 from jsonb_array_elements(v_candidates) candidate where candidate ->> 'editorialArticleId'=requested #>> '{}')
     ) then raise exception 'mesa-intent-selection-target-unavailable' using detail=v_key; end if;
     select coalesce(jsonb_agg(candidate order by candidate ->> 'editorialArticleId'),'[]'::jsonb)
       into v_history from jsonb_array_elements(v_candidates) candidate
@@ -657,7 +692,7 @@ begin
       'key',v_key,'kind','selection','themeId',null,'sourceId',null,'title',v_request ->> 'title',
       'reviewPublished',jsonb_array_length(v_request -> 'selection' -> 'reviewArticleIds')>0,
       'newArticleCount',v_request -> 'selection' -> 'newArticleCount',
-      'sources',v_sources,'publishedArticles',v_history));
+      'sources',v_sources,'publishedArticles',v_history,'candidateArticles',v_candidates));
   end if;
   select coalesce(jsonb_agg(c order by c ->> 'key'),'[]') into v_contexts from jsonb_array_elements(v_contexts) c;
   for v_context in select c from jsonb_array_elements(v_contexts) c where (c ->> 'reviewPublished')::boolean loop
@@ -725,6 +760,7 @@ begin
   if not found then raise exception 'mesa-organization-containment-guard-missing'; end if;
   perform 1 from public.newsroom_editorial_themes t where t.id in (
     select (x ->> 'themeId')::uuid from jsonb_array_elements(v_request -> 'themes') x where x ->> 'action' = 'prepare'
+    union select (x #>> '{}')::uuid from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'themeIds','[]'::jsonb)) x
   ) order by t.id for update;
   -- Parent FOR UPDATE locks also block an ingest inserting a new snapshot through
   -- its FK while sources are frozen. Existing snapshot rows are locked as well.
@@ -732,20 +768,25 @@ begin
     select (x ->> 'sourceId')::uuid from jsonb_array_elements(v_request -> 'sources') x where x ->> 'destination' <> 'defer'
     union select (x #>> '{}')::uuid from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'sourceIds','[]'::jsonb)) x
     union select m.newsroom_article_id from public.newsroom_editorial_theme_sources m
-      where m.theme_id in (select (x ->> 'themeId')::uuid from jsonb_array_elements(v_request -> 'themes') x where x ->> 'action' = 'prepare')
+      where m.theme_id in (
+        select (x ->> 'themeId')::uuid from jsonb_array_elements(v_request -> 'themes') x where x ->> 'action' = 'prepare'
+        union select (x #>> '{}')::uuid from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'themeIds','[]'::jsonb)) x
+      )
   ) order by a.id for update;
   perform 1 from public.newsroom_article_snapshots s where s.article_id in (
     select a.id from public.newsroom_articles a where a.id in (
       select (x ->> 'sourceId')::uuid from jsonb_array_elements(v_request -> 'sources') x where x ->> 'destination' <> 'defer'
     union select (x #>> '{}')::uuid from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'sourceIds','[]'::jsonb)) x
       union select m.newsroom_article_id from public.newsroom_editorial_theme_sources m where m.theme_id in (
-        select (x ->> 'themeId')::uuid from jsonb_array_elements(v_request -> 'themes') x where x ->> 'action' = 'prepare'))
+        select (x ->> 'themeId')::uuid from jsonb_array_elements(v_request -> 'themes') x where x ->> 'action' = 'prepare'
+        union select (x #>> '{}')::uuid from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'themeIds','[]'::jsonb)) x))
   ) order by s.id for share;
   perform 1 from public.newsroom_editorial_article_classifications c where c.newsroom_article_id in (
     select (x ->> 'sourceId')::uuid from jsonb_array_elements(v_request -> 'sources') x where x ->> 'destination' <> 'defer'
     union select (x #>> '{}')::uuid from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'sourceIds','[]'::jsonb)) x
     union select m.newsroom_article_id from public.newsroom_editorial_theme_sources m where m.theme_id in (
-      select (x ->> 'themeId')::uuid from jsonb_array_elements(v_request -> 'themes') x where x ->> 'action' = 'prepare')
+      select (x ->> 'themeId')::uuid from jsonb_array_elements(v_request -> 'themes') x where x ->> 'action' = 'prepare'
+      union select (x #>> '{}')::uuid from jsonb_array_elements(coalesce(v_request -> 'selection' -> 'themeIds','[]'::jsonb)) x)
   ) order by c.newsroom_article_id for share;
   perform 1 from public.editorial_articles a where a.id in (
     select m.editorial_article_id from public.newsroom_editorial_theme_articles m where m.theme_id in (
