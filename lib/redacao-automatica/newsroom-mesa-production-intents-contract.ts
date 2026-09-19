@@ -66,12 +66,15 @@ function capturedSource(value: unknown): value is MesaIntentCapturedSource {
     && hash(s.contentFingerprint) && hash(s.snapshotFingerprint) && s.usable === true && text(s.classificationKey));
 }
 function capturedArticle(value: unknown): value is MesaIntentCapturedArticle {
-  const v = object(value), a = object(v?.article);
+  const v = object(value), a = object(v?.article), evidence = object(v?.evidence);
   return Boolean(v && a && id(v.editorialArticleId) && text(v.slug) && text(v.title)
     && (v.matchdayId === null || id(v.matchdayId)) && hash(v.contentFingerprint)
     && a.id === v.editorialArticleId && a.slug === v.slug && a.title === v.title
     && a.matchday_id === v.matchdayId && a.status === "published"
-    && [a.label, a.subtitle, a.body].every((field) => typeof field === "string"));
+    && [a.label, a.subtitle, a.body].every((field) => typeof field === "string")
+    && (v.evidence === undefined || Boolean(evidence
+      && ids(evidence.sourceIds) && evidence.sourceIds.length <= 20
+      && ids(evidence.themeIds) && evidence.themeIds.length <= 20)));
 }
 
 function validPlan(value: unknown, persisted: boolean): boolean {
@@ -156,6 +159,11 @@ function validPlan(value: unknown, persisted: boolean): boolean {
       || o.contextKey !== expected.contextKey || o.kind !== expected.kind) return false;
     const c=contexts.find((c) => c.key === o.contextKey)!;
     if (persisted && o.productionContextId !== c.productionContextId) return false;
+    const expectedSourceIds = expected.sourceIds ?? c.sources.map((source) => source.newsroomArticleId);
+    if (o.sourceIds !== undefined && (!ids(o.sourceIds) || o.sourceIds.length < 1 || o.sourceIds.length > 20
+      || o.sourceIds.some((sourceId) => !c.sources.some((source) => source.newsroomArticleId === sourceId))
+      || !sameMesaIntentJson(o.sourceIds, expectedSourceIds))) return false;
+    if (expected.sourceIds !== undefined && !sameMesaIntentJson(o.sourceIds, expectedSourceIds)) return false;
     if (o.kind === "new" ? o.target !== null : !capturedArticle(o.target)
       || !sameMesaIntentJson(o.target, c.publishedArticles.find((a) => a.editorialArticleId === expected.target?.editorialArticleId))) return false;
   }
@@ -170,7 +178,8 @@ export function parseMesaProductionIntentsPreview(value: unknown): MesaProductio
 }
 export function mesaProductionIntentSlots(plan: MesaProductionIntentsFrozen) {
   return plan.outputs.map((o) => ({ slot: o.slot, kind: o.kind, outputId: o.outputId,
-    productionContextId: o.productionContextId, targetEditorialArticleId: o.target?.editorialArticleId ?? null,
+    productionContextId: o.productionContextId, sourceIds: o.sourceIds,
+    targetEditorialArticleId: o.target?.editorialArticleId ?? null,
     targetSlug: o.target?.slug, targetTitle: o.target?.title, targetMatchdayId: o.target ? o.target.matchdayId : undefined }));
 }
 
@@ -191,12 +200,17 @@ export function validateMesaProductionIntentsManifest(value: unknown): MesaProdu
   for (let index=0; index<plan.outputs.length; index++) {
     const o=plan.outputs[index], output=object(m.outputs[index]), ref=object(output?.articlePlan);
     const c=plan.contexts.find((c) => c.key === o.contextKey)!;
+    const outputNewsroomSourceIds = ids(output?.contextSourceIds)
+      ? output.contextSourceIds.map((sourceId) => String(sourceById.get(sourceId)?.newsroomArticleId ?? "")).sort()
+      : [];
+    const expectedNewsroomSourceIds = [...(o.sourceIds ?? c.sources.map((source) => source.newsroomArticleId))].sort();
     if (!output || !ref || output.outputId !== o.outputId || output.position !== index+1
       || ref.articlePlanId !== o.outputId || ref.dossierId !== plan.dossierId || ref.contextId !== o.productionContextId
       || ref.workspaceContractVersion !== 2 || ref.sourceScope !== "context" || ref.origin !== undefined
       || ref.destination !== (o.kind === "existing" ? "update" : "new") || !ids(output.contextSourceIds)
-      || output.contextSourceIds.length !== c.sources.length
-      || output.contextSourceIds.some((id) => !c.sources.some((s) => sourceById.get(id)?.newsroomArticleId === s.newsroomArticleId))) return null;
+      || output.contextSourceIds.length < 1
+      || output.contextSourceIds.some((id) => !c.sources.some((s) => sourceById.get(id)?.newsroomArticleId === s.newsroomArticleId))
+      || !sameMesaIntentJson(outputNewsroomSourceIds, expectedNewsroomSourceIds)) return null;
     if ((output.publishedArticleId ?? null) !== (o.target?.editorialArticleId ?? null)) return null;
   }
   return plan;
