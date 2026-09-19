@@ -66,12 +66,15 @@ function capturedSource(value: unknown): value is MesaIntentCapturedSource {
     && hash(s.contentFingerprint) && hash(s.snapshotFingerprint) && s.usable === true && text(s.classificationKey));
 }
 function capturedArticle(value: unknown): value is MesaIntentCapturedArticle {
-  const v = object(value), a = object(v?.article);
+  const v = object(value), a = object(v?.article), evidence = object(v?.evidence);
   return Boolean(v && a && id(v.editorialArticleId) && text(v.slug) && text(v.title)
     && (v.matchdayId === null || id(v.matchdayId)) && hash(v.contentFingerprint)
     && a.id === v.editorialArticleId && a.slug === v.slug && a.title === v.title
     && a.matchday_id === v.matchdayId && a.status === "published"
-    && [a.label, a.subtitle, a.body].every((field) => typeof field === "string"));
+    && [a.label, a.subtitle, a.body].every((field) => typeof field === "string")
+    && (v.evidence === undefined || Boolean(evidence
+      && ids(evidence.sourceIds) && evidence.sourceIds.length <= 20
+      && ids(evidence.themeIds) && evidence.themeIds.length <= 20)));
 }
 
 function validPlan(value: unknown, persisted: boolean): boolean {
@@ -156,6 +159,12 @@ function validPlan(value: unknown, persisted: boolean): boolean {
       || o.contextKey !== expected.contextKey || o.kind !== expected.kind) return false;
     const c=contexts.find((c) => c.key === o.contextKey)!;
     if (persisted && o.productionContextId !== c.productionContextId) return false;
+    const expectedFocusSourceIds = expected.focusSourceIds;
+    if (o.focusSourceIds !== undefined && (!ids(o.focusSourceIds) || o.focusSourceIds.length < 1 || o.focusSourceIds.length > 20
+      || o.focusSourceIds.some((sourceId) => !c.sources.some((source) => source.newsroomArticleId === sourceId))
+      || !sameMesaIntentJson(o.focusSourceIds, expectedFocusSourceIds))) return false;
+    if (persisted && expectedFocusSourceIds !== undefined
+      && !sameMesaIntentJson(o.focusSourceIds, expectedFocusSourceIds)) return false;
     if (o.kind === "new" ? o.target !== null : !capturedArticle(o.target)
       || !sameMesaIntentJson(o.target, c.publishedArticles.find((a) => a.editorialArticleId === expected.target?.editorialArticleId))) return false;
   }
@@ -170,7 +179,8 @@ export function parseMesaProductionIntentsPreview(value: unknown): MesaProductio
 }
 export function mesaProductionIntentSlots(plan: MesaProductionIntentsFrozen) {
   return plan.outputs.map((o) => ({ slot: o.slot, kind: o.kind, outputId: o.outputId,
-    productionContextId: o.productionContextId, targetEditorialArticleId: o.target?.editorialArticleId ?? null,
+    productionContextId: o.productionContextId, focusSourceIds: o.focusSourceIds,
+    targetEditorialArticleId: o.target?.editorialArticleId ?? null,
     targetSlug: o.target?.slug, targetTitle: o.target?.title, targetMatchdayId: o.target ? o.target.matchdayId : undefined }));
 }
 

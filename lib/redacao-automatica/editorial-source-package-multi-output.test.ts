@@ -386,8 +386,8 @@ test("pacote 2C declara e instrui o âmbito factual congelado de cada contexto",
   });
   assert.match(markdown, new RegExp(`CONTEXTO: ${contextId}`));
   assert.match(markdown, new RegExp(`FONTES_DO_CONTEXTO: ${sourceIdA}`));
-  assert.match(markdown, /Cada output recebe apenas as fontes congeladas/);
-  assert.match(markdown, /Não cruze fontes de outro contexto/);
+  assert.match(markdown, /FONTES_DO_CONTEXTO mantém o contexto factual completo do output/);
+  assert.match(markdown, /orientação automática e não uma exclusão/);
 
   assert.equal(normalizeEditorialSourcePackageCreationOutputs([{
     ...outputs![0],

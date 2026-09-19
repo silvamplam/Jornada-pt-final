@@ -24,6 +24,7 @@ ROOT, args, RESULTS = (base[x] for x in ('ROOT', 'args', 'RESULTS'))
 MIGRATION = 'supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql'
 HOTFIX = 'supabase/migrations/20260918145300_newsroom_mesa_intent_update_revision_hotfix.sql'
 ARTICLE_CONTINUITY = 'supabase/migrations/20260919014344_newsroom_mesa_article_continuity_v2.sql'
+REVIEWED_SOURCE_MEMORY = 'supabase/sql/candidate-newsroom-mesa-reviewed-source-memory-v1.sql'
 
 
 def scalar(sql):
@@ -99,6 +100,7 @@ assert old_articles == execute('select md5(jsonb_agg(to_jsonb(a) order by a.id):
 print('PASS exact legacy function/ACL preservation; only two declared changes', flush=True)
 load(HOTFIX)
 load(ARTICLE_CONTINUITY)
+load(REVIEWED_SOURCE_MEMORY)
 assert "if v_mode = 'create' then" in execute("select pg_get_functiondef('public.newsroom_publish_mesa_intent_output_v1(uuid,uuid,uuid,uuid[],jsonb)'::regprocedure);")
 assert "p.update_target_editorial_article_id=v_article_id" in execute("select pg_get_functiondef('public.newsroom_finalize_mesa_intents_v1(uuid,uuid,uuid[])'::regprocedure);")
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
