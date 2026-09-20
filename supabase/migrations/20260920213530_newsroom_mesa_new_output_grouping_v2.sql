@@ -724,6 +724,10 @@ declare
   v_plan_ids uuid[]:='{}';
   v_all_source_ids uuid[];
   v_focus_source_ids uuid[];
+  v_existing_focus_source_ids uuid[];
+  v_theme_source_ids uuid[];
+  v_selected_theme_id uuid;
+  v_touches_selected_theme boolean;
   v_plan_id uuid;
   v_image_id uuid;
   v_titles text;
@@ -858,6 +862,35 @@ begin
   loop
     select value into strict v_existing from jsonb_array_elements(v_header.existing_outputs) value
     where value ->> 'slot'=v_item ->> 'slot';
+    select coalesce(array_agg((evidence_source.value #>> '{}')::uuid order by evidence_source.value #>> '{}'),'{}'::uuid[])
+    into v_existing_focus_source_ids
+    from jsonb_array_elements(coalesce(v_item #> '{target,evidence,sourceIds}','[]'::jsonb)) evidence_source(value)
+    where exists (
+      select 1 from jsonb_array_elements(v_context -> 'sources') captured(value)
+      where captured.value ->> 'newsroomArticleId'=evidence_source.value #>> '{}'
+    );
+    if jsonb_array_length(v_request -> 'selection' -> 'themeIds')=1 then
+      v_selected_theme_id:=(v_request -> 'selection' -> 'themeIds' ->> 0)::uuid;
+      select coalesce(array_agg((captured.value ->> 'newsroomArticleId')::uuid order by captured.value ->> 'newsroomArticleId'),'{}'::uuid[])
+      into v_theme_source_ids
+      from jsonb_array_elements(v_context -> 'sources') captured(value)
+      where not exists (
+        select 1 from jsonb_array_elements(v_request -> 'selection' -> 'sourceIds') explicit(value)
+        where explicit.value #>> '{}'=captured.value ->> 'newsroomArticleId'
+      );
+      v_touches_selected_theme:=exists (
+        select 1 from jsonb_array_elements(coalesce(v_item #> '{target,evidence,themeIds}','[]'::jsonb)) evidence_theme(value)
+        where evidence_theme.value #>> '{}'=v_selected_theme_id::text
+      ) or v_existing_focus_source_ids&&v_theme_source_ids;
+      if v_touches_selected_theme and cardinality(v_theme_source_ids)>0 then
+        select array_agg(source_id order by source_id) into v_existing_focus_source_ids
+        from (select distinct source_id
+          from unnest(v_existing_focus_source_ids||v_theme_source_ids) focused_source(source_id)) focused;
+      end if;
+    end if;
+    if cardinality(v_existing_focus_source_ids)>0 then
+      v_item:=v_item||jsonb_build_object('focusSourceIds',to_jsonb(v_existing_focus_source_ids));
+    end if;
     v_authority_outputs:=jsonb_build_array(v_item)||v_authority_outputs;
     v_outputs:=jsonb_build_array(v_item||jsonb_build_object(
       'outputId',v_existing -> 'outputId','productionContextId',v_header.production_context_id

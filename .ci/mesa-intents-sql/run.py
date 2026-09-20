@@ -763,6 +763,7 @@ def grouping_v2_combines_themes_loose_material_and_existing_without_source_usage
     assert len(frozen['outputs']) == 12
     assert sum(output['kind'] == 'existing' for output in frozen['outputs']) == 2
     assert sum(output['kind'] == 'new' for output in frozen['outputs']) == 10
+    assert all(output.get('focusSourceIds') == [uid(17)] for output in frozen['outputs'] if output['kind'] == 'existing')
     assert all(output.get('focusSourceIds') for output in frozen['outputs'] if output['kind'] == 'new')
     frozen_source_fingerprints = {
         source['newsroomSnapshotId']: source['snapshotFingerprint']
