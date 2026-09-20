@@ -249,8 +249,8 @@ test("Arquivo e pesquisa ficam disponíveis na nova Mesa", () => {
 test("Mesa remains server-side read and mutations stay in dedicated APIs", () => {
   const page = source(MESA_PAGE);
   assert.doesNotMatch(page, /writeSupabase|\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
-  assert.doesNotMatch(page, /method=["']post["']|method:\s*["'](?:POST|PUT|PATCH|DELETE)/i);
   assert.match(page, /<form method=\"get\"/);
+  assert.match(page, /action="\/api\/admin\/editorial\/redacao-automatica\/current-feed"[\s\S]*method="post"/);
   assert.equal(existsSync(path.join(
     process.cwd(),
     "app/api/admin/editorial/redacao-automatica/mesa/preparar/route.ts",

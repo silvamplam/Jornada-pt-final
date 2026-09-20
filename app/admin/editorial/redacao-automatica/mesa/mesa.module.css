@@ -198,7 +198,8 @@
 
 .sourceFilter input,
 .sourceFilter button,
-.refreshFilter button {
+.refreshFilter button,
+.manualSourceToggle {
   min-height: 27px;
   border: 1px solid #b7c5ba;
   border-radius: 6px;
@@ -215,7 +216,8 @@
 }
 
 .sourceFilter button,
-.refreshFilter button {
+.refreshFilter button,
+.manualSourceToggle {
   border-color: #3e7d55;
   color: #fff;
   font-weight: 780;
@@ -225,6 +227,195 @@
 .refreshFilter {
   flex: 0 0 auto;
   margin: 0;
+}
+
+.manualSourceEntry {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.manualSourceToggle {
+  cursor: pointer;
+}
+
+.manualSourceSaved {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 7px);
+  z-index: 8;
+  width: max-content;
+  max-width: 280px;
+  padding: 6px 9px;
+  border: 1px solid #8ab297;
+  border-radius: 6px;
+  color: #174b2b;
+  font-size: 0.66rem;
+  background: #edf8ef;
+  box-shadow: 0 5px 14px rgb(25 63 36 / 12%);
+}
+
+.manualSourcePanel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 7px);
+  right: 0;
+  width: min(470px, calc(100vw - 28px));
+  max-height: min(760px, calc(100vh - 90px));
+  overflow: auto;
+  padding: 13px;
+  border: 1px solid #9eb2a2;
+  border-radius: 9px;
+  color: #233b2b;
+  background: #fbfdfb;
+  box-shadow: 0 18px 45px rgb(20 47 28 / 24%);
+}
+
+.manualSourcePanel[hidden] {
+  display: none;
+}
+
+.manualSourcePanel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 11px;
+}
+
+.manualSourcePanel > header div {
+  display: grid;
+  gap: 2px;
+}
+
+.manualSourcePanel > header strong {
+  color: #153f25;
+  font-size: 0.88rem;
+}
+
+.manualSourcePanel > header span {
+  color: #5d7062;
+  font-size: 0.66rem;
+}
+
+.manualSourcePanel > header button {
+  border: 0;
+  padding: 0 3px;
+  color: #53665a;
+  font: inherit;
+  font-size: 1.2rem;
+  line-height: 1;
+  background: transparent;
+  cursor: pointer;
+}
+
+.manualSourcePanel form,
+.manualSourcePanel label {
+  display: grid;
+  gap: 5px;
+}
+
+.manualSourcePanel form {
+  gap: 10px;
+}
+
+.manualSourcePanel label > span {
+  color: #294633;
+  font-size: 0.69rem;
+  font-weight: 780;
+}
+
+.manualSourcePanel label small {
+  color: #68796c;
+  font: inherit;
+  font-weight: 500;
+}
+
+.manualSourcePanel textarea,
+.manualSourcePanel input {
+  width: 100%;
+  border: 1px solid #b8c7ba;
+  border-radius: 6px;
+  padding: 8px;
+  color: #22382a;
+  font: inherit;
+  font-size: 0.72rem;
+  background: #fff;
+}
+
+.manualSourcePanel textarea {
+  min-height: 190px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.bookmarklets {
+  display: grid;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 9px;
+  border: 1px solid #d2ddd3;
+  border-radius: 7px;
+  background: #f3f7f3;
+}
+
+.bookmarklets p {
+  margin: 0;
+  color: #526559;
+  font-size: 0.65rem;
+}
+
+.bookmarklets > div {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+}
+
+.bookmarklets a {
+  padding: 4px 7px;
+  border: 1px solid #558267;
+  border-radius: 5px;
+  color: #17482a;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-decoration: none;
+  background: #fff;
+  cursor: grab;
+}
+
+.bookmarklets span {
+  color: #637469;
+  font-size: 0.62rem;
+}
+
+.manualSourceSubmit {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.manualSourceSubmit button {
+  border: 1px solid #245f3b;
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: #fff;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: #21653e;
+  cursor: pointer;
+}
+
+.manualSourceSubmit button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.manualSourceSubmit span {
+  color: #53675a;
+  font-size: 0.65rem;
+  line-height: 1.35;
 }
 
 .sourcesWorkspace {
