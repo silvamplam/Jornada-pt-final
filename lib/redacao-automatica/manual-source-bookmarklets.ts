@@ -5,8 +5,8 @@ export const JORNADA_MANUAL_SOURCE_READY = "JORNADA_MANUAL_SOURCE_READY_V1";
 export const JORNADA_MANUAL_SOURCE_WINDOW = "JORNADA_MANUAL_SOURCE";
 
 function manualSourceBookmarkletRuntime() {
-  var mesaOrigin = "https://jornada.pt";
-  var mesaUrl = mesaOrigin + "/admin/editorial/redacao-automatica/mesa?manual_source=1";
+  var mesaOrigins = ["https://www.jornada.pt", "https://jornada.pt"];
+  var mesaUrl = mesaOrigins[0] + "/admin/editorial/redacao-automatica/mesa?manual_source=1";
   var windowName = "JORNADA_MANUAL_SOURCE";
 
   function cleanText(value: unknown) {
@@ -165,14 +165,14 @@ function manualSourceBookmarkletRuntime() {
     function onMessage(event: MessageEvent) {
       var data = event.data;
       if (
-        event.origin !== mesaOrigin
+        mesaOrigins.indexOf(event.origin) < 0
         || event.source !== mesaWindow
         || !data
         || data.type !== "JORNADA_MANUAL_SOURCE_READY_V1"
         || data.version !== 1
       ) return;
       finished = true;
-      mesaWindow.postMessage(payload, mesaOrigin);
+      mesaWindow.postMessage(payload, event.origin);
       cleanup();
     }
     function hello() {
@@ -181,7 +181,9 @@ function manualSourceBookmarkletRuntime() {
         return;
       }
       attempts += 1;
-      mesaWindow.postMessage({ type: "JORNADA_MANUAL_SOURCE_HELLO_V1", version: 1 }, mesaOrigin);
+      mesaOrigins.forEach(function (origin) {
+        mesaWindow.postMessage({ type: "JORNADA_MANUAL_SOURCE_HELLO_V1", version: 1 }, origin);
+      });
     }
     window.addEventListener("message", onMessage);
     hello();
@@ -205,8 +207,8 @@ function manualSourceBookmarkletRuntime() {
 }
 
 function manualImageBookmarkletRuntime() {
-  var mesaOrigin = "https://jornada.pt";
-  var mesaUrl = mesaOrigin + "/admin/editorial/redacao-automatica/mesa?manual_source=1";
+  var mesaOrigins = ["https://www.jornada.pt", "https://jornada.pt"];
+  var mesaUrl = mesaOrigins[0] + "/admin/editorial/redacao-automatica/mesa?manual_source=1";
   var windowName = "JORNADA_MANUAL_SOURCE";
 
   function absoluteHttpUrl(value: unknown) {
@@ -242,7 +244,7 @@ function manualImageBookmarkletRuntime() {
     function onMessage(event: MessageEvent) {
       var data = event.data;
       if (
-        event.origin !== mesaOrigin
+        mesaOrigins.indexOf(event.origin) < 0
         || event.source !== mesaWindow
         || !data
         || data.type !== "JORNADA_MANUAL_SOURCE_READY_V1"
@@ -253,7 +255,7 @@ function manualImageBookmarkletRuntime() {
         type: "JORNADA_MANUAL_IMAGE_V1",
         version: 1,
         imageUrl: imageUrl,
-      }, mesaOrigin);
+      }, event.origin);
       cleanup();
     }
     function hello() {
@@ -262,7 +264,9 @@ function manualImageBookmarkletRuntime() {
         return;
       }
       attempts += 1;
-      mesaWindow.postMessage({ type: "JORNADA_MANUAL_SOURCE_HELLO_V1", version: 1 }, mesaOrigin);
+      mesaOrigins.forEach(function (origin) {
+        mesaWindow.postMessage({ type: "JORNADA_MANUAL_SOURCE_HELLO_V1", version: 1 }, origin);
+      });
     }
     window.addEventListener("message", onMessage);
     hello();
