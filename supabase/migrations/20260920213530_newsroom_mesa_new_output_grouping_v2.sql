@@ -311,6 +311,9 @@ declare
   v_preview jsonb;
   v_context jsonb;
   v_contexts jsonb;
+  v_source jsonb;
+  v_sources jsonb;
+  v_snapshot_fingerprint text;
   v_result record;
   v_context_id uuid;
   v_plan_id uuid;
@@ -391,6 +394,35 @@ begin
   select id into strict v_context_id
   from public.newsroom_mesa_production_context_items
   where dossier_id=v_result.dossier_id and context_kind='selection';
+
+  -- Complete the v1 capture from the exact snapshot identity frozen in the
+  -- dossier. Do not consult the live article or choose a newer snapshot here:
+  -- this fingerprint becomes part of the persisted v2 preparation and is
+  -- reused unchanged by materialization retries.
+  v_contexts := '[]'::jsonb;
+  for v_context in select value from jsonb_array_elements(v_preview -> 'contexts') value loop
+    v_sources := '[]'::jsonb;
+    for v_source in select value from jsonb_array_elements(v_context -> 'sources') value loop
+      select encode(sha256(convert_to(to_jsonb(snapshot)::text,'UTF8')),'hex')
+      into strict v_snapshot_fingerprint
+      from public.newsroom_editorial_dossier_sources dossier_source
+      join public.newsroom_article_snapshots snapshot
+        on snapshot.article_id=dossier_source.newsroom_article_id
+        and snapshot.id=dossier_source.newsroom_snapshot_id
+      where dossier_source.dossier_id=v_result.dossier_id
+        and dossier_source.newsroom_article_id=(v_source ->> 'newsroomArticleId')::uuid
+        and dossier_source.newsroom_snapshot_id=(v_source ->> 'newsroomSnapshotId')::uuid
+        and dossier_source.included;
+      v_sources:=v_sources||jsonb_build_array(
+        v_source||jsonb_build_object('snapshotFingerprint',v_snapshot_fingerprint)
+      );
+    end loop;
+    v_contexts:=v_contexts||jsonb_build_array(
+      v_context||jsonb_build_object('sources',v_sources)
+    );
+  end loop;
+  v_preview:=jsonb_set(v_preview,'{contexts}',v_contexts);
+
   select array_agg(dossier_source_id order by sort_order) into v_all_source_ids
   from public.newsroom_mesa_production_context_sources
   where dossier_id=v_result.dossier_id and production_context_id=v_context_id;

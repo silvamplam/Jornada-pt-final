@@ -676,6 +676,18 @@ def grouping_v2_combines_themes_loose_material_and_existing_without_source_usage
       'usage',(select count(*) from public.newsroom_mesa_output_source_usage u join public.newsroom_editorial_dossier_sources ds on ds.id=u.dossier_source_id where ds.newsroom_article_id=any({ids_sql}))
     )::text);"""
     state_before = execute(source_state)
+    snapshot_count_before = execute(
+        f"select count(*) from public.newsroom_article_snapshots where article_id=any({ids_sql});"
+    )
+    snapshot_state_before = execute(f"""select md5(jsonb_agg(to_jsonb(snapshot) order by snapshot.id)::text)
+      from public.newsroom_article_snapshots snapshot where snapshot.article_id=any({ids_sql});""")
+    article_state_before = execute(f"""select md5(jsonb_agg(to_jsonb(article) order by article.id)::text)
+      from public.newsroom_articles article where article.id=any({ids_sql});""")
+    usage_count_before = execute(f"""select count(*)
+      from public.newsroom_mesa_output_source_usage usage
+      join public.newsroom_editorial_dossier_sources dossier_source
+        on dossier_source.id=usage.dossier_source_id
+      where dossier_source.newsroom_article_id=any({ids_sql});""")
     req = grouping_request(8300, [17, 24, 28, 29, 30], [510, 511], [2101, 2102])
     previewed = grouping_preview(req)
     prepared = grouping_prepare(req, previewed['authorityFingerprint'])
@@ -684,6 +696,27 @@ def grouping_v2_combines_themes_loose_material_and_existing_without_source_usage
     assert json.loads(execute(f"select to_jsonb(loose_source_ids) from public.newsroom_mesa_new_output_groupings where dossier_id='{dossier_id}';")) == [uid(24), uid(28), uid(29), uid(30)]
     assert execute(f"select count(*) from public.newsroom_editorial_dossier_article_plans where dossier_id='{dossier_id}';") == '2'
     assert execute(source_state) == state_before
+    matching_prepared_fingerprints = execute(f"""select count(*)
+      from public.newsroom_mesa_new_output_grouping_preparations preparation
+      cross join lateral jsonb_array_elements(preparation.base_preview -> 'contexts') context(value)
+      cross join lateral jsonb_array_elements(context.value -> 'sources') captured(value)
+      join public.newsroom_editorial_dossier_sources dossier_source
+        on dossier_source.dossier_id=preparation.dossier_id
+        and dossier_source.newsroom_article_id=(captured.value ->> 'newsroomArticleId')::uuid
+        and dossier_source.newsroom_snapshot_id=(captured.value ->> 'newsroomSnapshotId')::uuid
+      join public.newsroom_article_snapshots snapshot
+        on snapshot.article_id=dossier_source.newsroom_article_id
+        and snapshot.id=dossier_source.newsroom_snapshot_id
+      where preparation.dossier_id='{dossier_id}'
+        and captured.value ->> 'snapshotFingerprint' ~ '^[0-9a-f]{{64}}$'
+        and captured.value ->> 'snapshotFingerprint'=encode(sha256(convert_to(to_jsonb(snapshot)::text,'UTF8')),'hex');""")
+    assert matching_prepared_fingerprints == str(len(tracked_sources))
+    prepared_source_fingerprints = json.loads(execute(f"""select jsonb_object_agg(
+        captured.value ->> 'newsroomSnapshotId',captured.value ->> 'snapshotFingerprint')::text
+      from public.newsroom_mesa_new_output_grouping_preparations preparation
+      cross join lateral jsonb_array_elements(preparation.base_preview -> 'contexts') context(value)
+      cross join lateral jsonb_array_elements(context.value -> 'sources') captured(value)
+      where preparation.dossier_id='{dossier_id}';"""))
 
     revision, _ = grouping_change(dossier_id, 'theme_target', 1, target=5, theme=theme_a)
     assert revision == 2
@@ -731,6 +764,13 @@ def grouping_v2_combines_themes_loose_material_and_existing_without_source_usage
     assert sum(output['kind'] == 'existing' for output in frozen['outputs']) == 2
     assert sum(output['kind'] == 'new' for output in frozen['outputs']) == 10
     assert all(output.get('focusSourceIds') for output in frozen['outputs'] if output['kind'] == 'new')
+    frozen_source_fingerprints = {
+        source['newsroomSnapshotId']: source['snapshotFingerprint']
+        for context in frozen['contexts'] for source in context['sources']
+    }
+    assert len(frozen_source_fingerprints) == len(tracked_sources)
+    assert all(re.fullmatch(r'[0-9a-f]{64}', fingerprint) for fingerprint in frozen_source_fingerprints.values())
+    assert frozen_source_fingerprints == prepared_source_fingerprints
     assert execute(f"""select count(*) from public.newsroom_editorial_dossier_images
       where dossier_id='{dossier_id}' and origin_kind='newsroom';""") == str(len(tracked_sources))
     assert execute(f"""select count(*)
@@ -754,8 +794,22 @@ def grouping_v2_combines_themes_loose_material_and_existing_without_source_usage
     assert replayed['materializationAction'] == 'reused'
     replay_plan = json.loads(execute(f"select frozen_plan::text from public.newsroom_mesa_intent_preparations where dossier_id='{dossier_id}';"))
     assert [output['outputId'] for output in replay_plan['outputs']] == plan_ids
+    assert {
+        source['newsroomSnapshotId']: source['snapshotFingerprint']
+        for context in replay_plan['contexts'] for source in context['sources']
+    } == frozen_source_fingerprints
+    assert execute(f"select count(*) from public.newsroom_article_snapshots where article_id=any({ids_sql});") == snapshot_count_before
+    assert execute(f"""select md5(jsonb_agg(to_jsonb(snapshot) order by snapshot.id)::text)
+      from public.newsroom_article_snapshots snapshot where snapshot.article_id=any({ids_sql});""") == snapshot_state_before
+    assert execute(f"""select md5(jsonb_agg(to_jsonb(article) order by article.id)::text)
+      from public.newsroom_articles article where article.id=any({ids_sql});""") == article_state_before
     assert execute(source_state) == state_before
     assert execute(f"select count(*) from public.newsroom_mesa_output_source_usage where dossier_id='{dossier_id}';") == '0'
+    assert execute(f"""select count(*)
+      from public.newsroom_mesa_output_source_usage usage
+      join public.newsroom_editorial_dossier_sources dossier_source
+        on dossier_source.id=usage.dossier_source_id
+      where dossier_source.newsroom_article_id=any({ids_sql});""") == usage_count_before == '0'
     for role in ['anon', 'authenticated']:
         expect_error('permission denied', lambda role=role: execute(
             f"set role {role}; select * from public.newsroom_mesa_new_output_groupings;"
