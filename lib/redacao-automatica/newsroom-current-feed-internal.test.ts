@@ -31,7 +31,7 @@ function collection(sourceCode: string, urls: readonly string[]): SourceCollecti
   };
 }
 
-test("exclui artigos já conhecidos sem impor limites editoriais", () => {
+test("reconsulta artigos conhecidos e distingue quantos candidatos são novos", () => {
   const result = selectNewsroomCurrentFeedCandidates(
     [
       collection("record", ["https://record.example/a", "https://record.example/b"]),
@@ -41,6 +41,7 @@ test("exclui artigos já conhecidos sem impor limites editoriais", () => {
   );
 
   assert.deepEqual(result.candidates, [
+    { sourceCode: "record", articleUrl: "https://record.example/a" },
     { sourceCode: "record", articleUrl: "https://record.example/b" },
     { sourceCode: "abola", articleUrl: "https://abola.example/a" },
     { sourceCode: "abola", articleUrl: "https://abola.example/b" },
