@@ -111,6 +111,74 @@ test(
   },
 );
 
+
+test(
+  "continuidade só com SEM_ALTERAÇÃO consolida automaticamente e regressa à Mesa",
+  () => {
+    const successStart =
+      client.indexOf(
+        "onServerPreflightSucceeded: (plan) =>",
+      );
+    const failureStart =
+      client.indexOf(
+        "onServerPreflightFailed:",
+        successStart,
+      );
+    assert.ok(
+      successStart >= 0
+      && failureStart > successStart,
+    );
+
+    const successBlock =
+      client.slice(
+        successStart,
+        failureStart,
+      );
+
+    assert.match(
+      successBlock,
+      /themeContinuity\.newArticleCount === 0/,
+    );
+    assert.match(
+      successBlock,
+      /preflight\.articles\.length === 0/,
+    );
+    assert.match(
+      successBlock,
+      /plan\.length === 0/,
+    );
+    assert.match(
+      successBlock,
+      /slot\.kind === "existing"/,
+    );
+    assert.match(
+      successBlock,
+      /noChangeOutputIdSet\.has\(slot\.outputId\)/,
+    );
+    assert.match(
+      successBlock,
+      /publishThemeContinuityBatch\(\[\]\)/,
+    );
+
+    assert.match(
+      route,
+      /articles\?\.length === 0/,
+    );
+    assert.match(
+      route,
+      /if \(noChange\.has\(slot\.outputId\)\) continue;/,
+    );
+    assert.match(
+      route,
+      /mesaIntentService\.finalize/,
+    );
+    assert.match(
+      client,
+      /clearTransferredBatch\(\);[\s\S]*?returnToMesaAfterSuccessfulPublication\(\);/,
+    );
+  },
+);
+
 test(
   "reconciliação global ocorre no fim do lote",
   () => {
