@@ -271,7 +271,7 @@ test("dismissed retira só o snapshot decidido e não apaga a fonte", async () =
   assert.equal(refreshed.novas.items[0]?.newsroomArticleId, articleA);
 });
 
-test("classificação automática só tenta fontes criadas no ciclo e usa a época fixa", async () => {
+test("classificação automática pode repetir tentativa no ciclo e usa a época fixa", async () => {
   const calls: Array<{ seasonId: string; newsroomArticleId: string }> = [];
   const classify = createOperationalDeskAutomaticClassification({
     classify: async (input) => {
@@ -295,17 +295,19 @@ test("classificação automática só tenta fontes criadas no ciclo e usa a épo
   assert.equal(calls[0]?.seasonId, MESA_OPERATIONAL_CLASSIFICATION_CONTEXT.seasonId);
   assert.equal(MESA_OPERATIONAL_CYCLE_STARTED_AT, "2026-09-09T14:02:00Z");
 
-  await classify({
+  const updated = await classify({
     newsroomArticleId: articleA,
     articleAction: "updated",
     firstDetectedAt: detectedAt,
   });
+  assert.equal(updated.status, "unclassified");
+
   await classify({
     newsroomArticleId: articleA,
     articleAction: "created",
     firstDetectedAt: "2026-09-09T14:01:59Z",
   });
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
 });
 
 test("classificação segura persiste e manual é reconhecida como soberana", async () => {
@@ -344,6 +346,9 @@ test("todas as portas de persistência do circuito ligam a tentativa automática
   assert.match(persistence, /attemptOperationalDeskAutomaticClassification/);
   assert.match(manual, /attemptOperationalDeskAutomaticClassification/);
   assert.match(operational, /validateOperationalDeskCycleSourceIds/);
+  assert.match(operational, /getNewsroomArticleClassification/);
+  assert.match(operational, /current\.value\.status === "classified"/);
+  assert.match(operational, /classificationSource === "manual"/);
   assert.match(operational, /MESA_OPERATIONAL_CLASSIFICATION_CONTEXT\.seasonId/);
   assert.doesNotMatch(operational, /is_current|currentSeason|Date\.now/);
 });
