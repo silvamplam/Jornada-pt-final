@@ -262,7 +262,9 @@ test("receiver da Mesa altera apenas imageUrl e nunca faz save automático", () 
   assert.match(imageBranch, /setImageUrl\(nextImage\)/);
   assert.doesNotMatch(imageBranch, /setBody|setPublishedDate|setSourceUrl|handleSubmit|fetch\(/);
   assert.match(client, /acceptedSourcesRef\.current\.has\(event\.source\)/);
-  assert.match(client, /event\.source === window\.opener/);
+  assert.match(client, /ready\(event\.source, event\.origin\)/);
+  assert.doesNotMatch(client, /postMessage\([\s\S]{0,160},\s*["']\*["']\)/);
+  assert.doesNotMatch(client, /window\.opener/);
   assert.doesNotMatch(SEND_TO_JORNADA_BOOKMARKLET + SEND_IMAGE_TO_JORNADA_BOOKMARKLET, /fetch\(|\.submit\(|service_role|admin[_-]?token|secret/i);
   assert.doesNotMatch(SEND_TO_JORNADA_BOOKMARKLET, /manual_source=1[^"']*(?:body|imageUrl|publishedDate)=/);
   assert.match(SEND_TO_JORNADA_BOOKMARKLET, /JORNADA_MANUAL_SOURCE/);

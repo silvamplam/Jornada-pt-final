@@ -114,11 +114,11 @@ test("URLs técnicas aceitam só http/https sem credentials", () => {
 test("mesma submission é idempotente e payload diferente falha explicitamente", async () => {
   const requests = new Map<string, { fingerprint: string; args: ManualNewsroomSourceRpcArguments }>();
   let createCount = 0;
-  let lastArgs: ManualNewsroomSourceRpcArguments | null = null;
+  const rpcCalls: ManualNewsroomSourceRpcArguments[] = [];
   const persist = createManualNewsroomSourcePersistence({
     isConfigured: () => true,
     async executeRpc(_name, args) {
-      lastArgs = args;
+      rpcCalls.push(args);
       const existing = requests.get(args.p_submission_id);
       if (existing && existing.fingerprint !== args.p_request_fingerprint) {
         throw new Error("manual_source_payload_conflict");
@@ -145,8 +145,10 @@ test("mesma submission é idempotente e payload diferente falha explicitamente",
   assert.equal(conflict.ok, false);
   if (!conflict.ok) assert.equal(conflict.error.code, "submission_payload_conflict");
   assert.equal(createCount, 1);
+  const lastArgs = rpcCalls.at(-1);
+  assert.ok(lastArgs);
   assert.equal(lastArgs && Object.hasOwn(lastArgs, "p_author"), false);
-  assert.equal(lastArgs?.p_published_date, null);
+  assert.equal(lastArgs.p_published_date, null);
 });
 
 test("classificador operacional existente é chamado depois de uma criação", async () => {

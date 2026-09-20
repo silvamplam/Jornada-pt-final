@@ -93,7 +93,7 @@ export default function ManualSourceEntry({
         (target as Window).postMessage({
           type: JORNADA_MANUAL_SOURCE_READY,
           version: 1,
-        }, origin || "*");
+        }, origin);
       }
     }
 
@@ -107,8 +107,7 @@ export default function ManualSourceEntry({
         return;
       }
 
-      const sourceAccepted = event.source === window.opener
-        || acceptedSourcesRef.current.has(event.source);
+      const sourceAccepted = acceptedSourcesRef.current.has(event.source);
       if (!sourceAccepted) return;
 
       if (payload.type === JORNADA_MANUAL_IMAGE_MESSAGE) {
@@ -161,10 +160,6 @@ export default function ManualSourceEntry({
     }
 
     window.addEventListener("message", onMessage);
-    if (window.opener) {
-      acceptedSourcesRef.current.add(window.opener);
-      ready(window.opener, "*");
-    }
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
