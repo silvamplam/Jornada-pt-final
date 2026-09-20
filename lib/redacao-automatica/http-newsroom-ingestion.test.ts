@@ -307,6 +307,26 @@ test("Record usa gate manual, PageLoader article, extracao e persistencia uma ve
   assert.equal(result.value.snapshot.action, "created");
 });
 
+test("modo automatico usa o gate automatico e preserva proveniencia distinta", async () => {
+  const harness = createHarness();
+  const result = await harness.ingest(input({ executionMode: "automatic" }));
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(harness.calls.gate, ["automatic"]);
+  assert.equal(harness.calls.persist, 1);
+  if (!result.ok) throw new Error("A ingestao automatica devia concluir.");
+  assert.equal(result.value.executionMode, "automatic");
+  assert.equal(result.value.ingestionMode, "http_automatic_article");
+  assert.equal(
+    harness.persistenceInputs[0].snapshot.sourceMetadata.ingestionMode,
+    "http_automatic_article",
+  );
+  assert.equal(
+    harness.persistenceInputs[0].snapshot.sourceMetadata.networkRequest,
+    true,
+  );
+});
+
 test("A Bola percorre o mesmo nucleo sem alterar a URL antes do PageLoader", async () => {
   const harness = createHarness({
     loadedPage: page(ABOLA_URL),
@@ -339,7 +359,7 @@ test("input estrito rejeita campos desconhecidos, datas, URLs e credenciais ante
     input({ detectedAt: "hoje" }),
     input({ extractedAt: "amanha" }),
     { ...input(), purpose: "article" },
-    { ...input(), executionMode: "manual" },
+    { ...input(), executionMode: "invalid" },
     { ...input(), html: "<html>raw</html>" },
   ] as unknown[];
 
@@ -707,7 +727,7 @@ for (const [sourceCode, articleUrl, fixturePath] of [
   });
 }
 
-test("fronteiras nao usam fetch direto, SQL, tabelas, publicacao ou execucao automatica", async () => {
+test("fronteiras nao usam fetch direto, SQL, tabelas, publicacao ou scheduler proprio", async () => {
   const [internalSource, publicSource] = await Promise.all([
     readFile(
       new URL("./http-newsroom-ingestion-internal.ts", import.meta.url),
@@ -728,7 +748,7 @@ test("fronteiras nao usam fetch direto, SQL, tabelas, publicacao ou execucao aut
     combined,
     /editorial_articles|\bpublish\s*\(|createDraft|competition|season|matchday|cron|worker|retry|setInterval/i,
   );
-  assert.match(internalSource, /executionResult[\s\S]*"manual"/);
+  assert.match(internalSource, /dependencies\.evaluateExecution\([\s\S]*input\.executionMode/);
   assert.match(internalSource, /purpose:\s*"article"/);
   assert.equal(
     internalSource.match(/dependencies\.pageLoader\.load\(\{/g)?.length,
