@@ -1,7 +1,9 @@
 export type MatchVideoSummaryCandidateView = {
   id: string;
+  provider: "youtube" | "vsports";
   title: string;
   videoUrl: string;
+  sourceUrl: string;
   thumbnailUrl: string | null;
   duration: string | null;
   channelTitle: string | null;
@@ -36,6 +38,7 @@ export type MatchVideoSummaryStateRow = {
   status: "associated" | "candidate" | "missing" | "waiting";
   roundupId: string | null;
   videoUrl: string | null;
+  associatedProvider: "youtube" | "vsports" | null;
   candidates: MatchVideoSummaryCandidateView[];
   diagnostics: MatchVideoSummaryDiagnosticView[];
 };
@@ -56,9 +59,18 @@ export function matchVideoSummaryStateNeedsSync(state: MatchVideoSummaryState) {
   return state.rows.some((row) => (
     row.status === "missing"
     || (
+      row.status === "associated"
+      && row.associatedProvider === "vsports"
+      && !row.candidates.some((candidate) => (
+        candidate.provider === "youtube" && candidate.summaryKind === "full"
+      ))
+    )
+    || (
       row.status === "candidate"
-      && row.candidates.some((candidate) => candidate.summaryKind === "flash")
-      && !row.candidates.some((candidate) => candidate.summaryKind === "full")
+      && (
+        !row.candidates.some((candidate) => candidate.summaryKind === "full")
+        || !row.candidates.some((candidate) => candidate.provider === "youtube")
+      )
     )
   ));
 }

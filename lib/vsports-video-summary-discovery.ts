@@ -1,6 +1,6 @@
 import { load } from "cheerio";
 
-import { youtubeVideoId } from "@/lib/public-video-embed";
+import { vsportsEmbedUrl, youtubeVideoId } from "@/lib/public-video-embed";
 
 const VSPORTS_ORIGIN = "https://vsports.pt";
 
@@ -13,6 +13,8 @@ export type VsportsVideoSummaryDiscovery = Readonly<{
   publishedAt: string | null;
   youtubeVideoId: string | null;
   youtubeUrl: string | null;
+  vsportsEmbedUrl: string | null;
+  playableMediaUrl: string | null;
 }>;
 
 export function missingVsportsMatchIds(
@@ -94,13 +96,30 @@ function publishedAtFromCard(text: string) {
   return value ? `${value[1]}T${value[2]}Z` : null;
 }
 
-function youtubeLinkFromCard(
-  $card: ReturnType<ReturnType<typeof load>>,
-) {
-  const href = $card.find('a[href*="youtube.com/watch"],a[href*="youtu.be/"]').first().attr("href");
-  const url = absoluteHttpUrl(href);
-  const videoId = youtubeVideoId(url);
-  return videoId && url ? { videoId, url } : null;
+function officialEmbedFromItem(dataEmbed: string | undefined, sourceItemId: string) {
+  if (!dataEmbed || !/^\d+$/u.test(sourceItemId)) return null;
+  const fragment = load(dataEmbed, null, false);
+  const iframe = fragment("iframe").first();
+  const embedUrl = vsportsEmbedUrl(iframe.attr("src"));
+  if (!embedUrl) return null;
+
+  const embedItemId = itemId(embedUrl, "");
+  const iframeItemId = iframe.attr("id")?.match(/^vsports-embd-(\d+)$/u)?.[1] ?? null;
+  const scriptSrc = fragment("script[src]").first().attr("src");
+  let scriptItemId: string | null = null;
+  if (scriptSrc) {
+    try {
+      scriptItemId = new URL(scriptSrc, VSPORTS_ORIGIN).searchParams.get("vid");
+    } catch {
+      return null;
+    }
+  }
+
+  return embedItemId === sourceItemId
+    && iframeItemId === sourceItemId
+    && scriptItemId === sourceItemId
+    ? embedUrl
+    : null;
 }
 
 export function parseVsportsMatchdayDiscoveries(html: string) {
@@ -113,16 +132,19 @@ export function parseVsportsMatchdayDiscoveries(html: string) {
     const sourceUrl = absoluteVsportsUrl(anchor.attr("data-share") ?? anchor.attr("data-src"));
     if (!title || !sourceUrl) return;
     const card = anchor.closest(".card");
-    const youtube = youtubeLinkFromCard(card);
+    const sourceItemId = itemId(sourceUrl, `card-${index}`);
+    const officialEmbed = officialEmbedFromItem(anchor.attr("data-embed"), sourceItemId);
     discoveries.push({
-      sourceItemId: itemId(sourceUrl, `card-${index}`),
+      sourceItemId,
       title,
       sourceUrl,
       matchUrl: absoluteVsportsUrl(anchor.attr("data-match")),
       thumbnailUrl: absoluteHttpUrl(card.find("img[data-src],img[src]").first().attr("data-src") ?? card.find("img[src]").first().attr("src")),
       publishedAt: publishedAtFromCard(card.text()),
-      youtubeVideoId: youtube?.videoId ?? null,
-      youtubeUrl: youtube?.url ?? null,
+      youtubeVideoId: null,
+      youtubeUrl: null,
+      vsportsEmbedUrl: officialEmbed,
+      playableMediaUrl: officialEmbed,
     });
   });
 
@@ -146,6 +168,8 @@ export function parseVsportsMatchdayDiscoveries(html: string) {
       publishedAt: publishedAtFromCard(card.text()),
       youtubeVideoId: videoId,
       youtubeUrl: url,
+      vsportsEmbedUrl: null,
+      playableMediaUrl: url,
     });
   });
 

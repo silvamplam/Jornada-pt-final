@@ -51,10 +51,22 @@ test("uma edição manual do título ou URL invalida metadados automáticos anti
   assert.match(route, /payload\.source_candidate_id = null;/u);
 });
 
-test("a sincronização não substitui silenciosamente um resumo já associado", () => {
+test("uma alternativa confirmada atualiza o mesmo roundup sem duplicar a posição editorial", () => {
   const sync = source("lib/match-video-summary-sync.server.ts");
-  assert.match(sync, /roundup-match-occupied/u);
-  assert.match(sync, /A sincronização não substitui escolhas editoriais/u);
+  const provider = source("lib/match-video-summary-provider.ts");
+  const promotion = sync.slice(
+    sync.indexOf("async function promoteCandidate"),
+    sync.indexOf("export async function syncMatchVideoSummaries"),
+  );
+  assert.match(promotion, /const roundupToUpdate = sameVideo \?\? sameMatch/u);
+  assert.match(promotion, /matchday_roundup_items\?id=eq\.\$\{encodeURIComponent\(roundupToUpdate\.id\)\}/u);
+  assert.doesNotMatch(promotion, /roundup-match-occupied/u);
+  assert.match(promotion, /const mediaPatch = confirmedCandidateMediaPatch\(candidate/u);
+  assert.match(promotion, /\.\.\.mediaPatch/u);
+  assert.match(provider, /youtube_video_id: candidate\.provider === "youtube" \? candidate\.provider_video_id : null/u);
+  assert.match(provider, /youtube_channel_id: candidate\.provider === "youtube" \? candidate\.channel_id : null/u);
+  assert.match(provider, /video_url: candidate\.playable_media_url \?\? candidate\.canonical_url/u);
+  assert.match(provider, /source_candidate_id: candidate\.id/u);
 });
 
 test("o contador da recolha mostra também os jogos por terminar", () => {
@@ -88,11 +100,14 @@ test("sync nunca promove e confirmação explícita continua como única frontei
   assert.match(sync.slice(sync.indexOf("async function promoteCandidate"), sync.indexOf("export async function syncMatchVideoSummaries")), /status: "published"/u);
 });
 
-test("audit preserva provider YouTube dos candidatos e histórico compatível como full", () => {
+test("migration mantém histórico full e limita candidatos aos providers YouTube/VSPORTS", () => {
   const migration = source("supabase/migrations/20260920180000_match_video_summary_discovery_audit.sql");
   const originalSchema = source("supabase/sql/jornada-resumos-video-automaticos-1-aplicar.sql");
   assert.match(originalSchema, /check \(provider = 'youtube'\)/u);
-  assert.doesNotMatch(migration, /drop constraint[\s\S]*provider/iu);
+  assert.match(migration, /drop constraint if exists match_video_summary_candidates_provider_check/iu);
+  assert.match(migration, /check \(provider in \('youtube', 'vsports'\)\)/u);
+  assert.match(migration, /add column if not exists source_url text/u);
+  assert.match(migration, /add column if not exists playable_media_url text/u);
   assert.match(migration, /summary_kind text not null default 'full'/u);
   assert.doesNotMatch(migration, /update public\.match_video_summary_candidates/iu);
   for (const reason of [
@@ -112,11 +127,12 @@ test("audit preserva provider YouTube dos candidatos e histórico compatível co
   assert.match(migration, /revoke all[\s\S]*from public, anon, authenticated/u);
 });
 
-test("VSPORTS sem YouTube só produz diagnóstico e o cron limita jornadas relevantes", () => {
+test("VSPORTS com data-embed oficial produz candidato e o cron limita jornadas relevantes", () => {
   const sync = source("lib/match-video-summary-sync.server.ts");
   const cron = source("app/api/cron/jornada/video-summaries/route.ts");
   const migration = source("supabase/migrations/20260920180000_match_video_summary_discovery_audit.sql");
-  assert.match(sync, /playableMediaUrl: item\.youtubeUrl/u);
+  assert.match(sync, /playableMediaUrl: item\.playableMediaUrl/u);
+  assert.match(sync, /await saveVsportsCandidate\(base, input/u);
   assert.match(sync, /reason: "no-playable-media"/u);
   assert.match(sync, /matchVideoSummaryStateNeedsSync\(state\)/u);
   assert.match(sync, /missingVsportsMatchIds\(/u);
@@ -131,6 +147,55 @@ test("VSPORTS sem YouTube só produz diagnóstico e o cron limita jornadas relev
   assert.match(migration, /extensions\.gen_random_bytes\(32\)/u);
   assert.doesNotMatch(migration, /grant execute[\s\S]*to (?:anon|authenticated)/u);
   assert.doesNotMatch(cron, /matchdays\?|seasons\?/u);
+});
+
+test("source e media VSPORTS permanecem distintos e o player usa allowlist", () => {
+  const sync = source("lib/match-video-summary-sync.server.ts");
+  const parser = source("lib/vsports-video-summary-discovery.ts");
+  const embed = source("lib/public-video-embed.ts");
+  const switcher = source("components/public/RoundupVideoSwitcher.tsx");
+  assert.match(sync, /source_url: input\.sourceUrl/u);
+  assert.match(sync, /playable_media_url: input\.playableMediaUrl/u);
+  assert.match(parser, /officialEmbedFromItem\(anchor\.attr\("data-embed"\), sourceItemId\)/u);
+  assert.match(parser, /embedItemId === sourceItemId[\s\S]*iframeItemId === sourceItemId[\s\S]*scriptItemId === sourceItemId/u);
+  assert.doesNotMatch(parser, /youtubeLinkFromCard/u);
+  assert.match(embed, /hostname !== "vsports\.pt"/u);
+  assert.match(embed, /!parsed\.pathname\.startsWith\("\/vsports\/embd\/"\)/u);
+  assert.match(switcher, /const officialVsportsEmbed = vsportsEmbedUrl\(value\)/u);
+});
+
+test("VSPORTS publicado continua em discovery até YouTube full sem autopromoção", () => {
+  const sync = source("lib/match-video-summary-sync.server.ts");
+  const types = source("lib/match-video-summary-types.ts");
+  const provider = source("lib/match-video-summary-provider.ts");
+  const automatic = sync.slice(
+    sync.indexOf("export async function syncMatchVideoSummaries"),
+    sync.indexOf("export async function syncRelevantMatchVideoSummaries"),
+  );
+  assert.match(sync, /associatedProvider: roundup \? publishedVideoSummaryProvider\(roundup\) : null/u);
+  assert.match(provider, /if \(vsportsEmbedUrl\(item\.video_url\)\) return "vsports"/u);
+  assert.match(types, /row\.associatedProvider === "vsports"/u);
+  assert.match(types, /candidate\.provider === "youtube" && candidate\.summaryKind === "full"/u);
+  assert.match(sync, /associatedMatchIds: youtubeAssociatedMatchIds/u);
+  assert.doesNotMatch(automatic, /promoteCandidate\(/u);
+  assert.doesNotMatch(automatic, /matchday_roundup_items/u);
+});
+
+test("confirmação explícita suporta VSPORTS→YouTube e YouTube→VSPORTS no mesmo item", () => {
+  const sync = source("lib/match-video-summary-sync.server.ts");
+  const provider = source("lib/match-video-summary-provider.ts");
+  const promotion = sync.slice(
+    sync.indexOf("async function promoteCandidate"),
+    sync.indexOf("export async function syncMatchVideoSummaries"),
+  );
+  assert.match(promotion, /const roundupToUpdate = sameVideo \?\? sameMatch/u);
+  assert.match(promotion, /roundupToUpdate\.id/u);
+  assert.match(promotion, /roundupToUpdate\.youtube_video_id = mediaPatch\.youtube_video_id/u);
+  assert.match(promotion, /roundupToUpdate\.youtube_channel_id = mediaPatch\.youtube_channel_id/u);
+  assert.match(promotion, /roundupToUpdate\.source_candidate_id = mediaPatch\.source_candidate_id/u);
+  assert.match(provider, /youtube_video_id: candidate\.provider === "youtube" \? candidate\.provider_video_id : null/u);
+  assert.match(provider, /youtube_channel_id: candidate\.provider === "youtube" \? candidate\.channel_id : null/u);
+  assert.doesNotMatch(promotion, /delete[\s\S]*match_video_summary_candidates/iu);
 });
 
 test("discovery repetido faz upsert pela identidade estável da fonte", () => {

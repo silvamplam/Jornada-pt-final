@@ -276,7 +276,7 @@ export default function MatchdayVideoSummarySync({
                         </span>
                       </div>
                       <div className="video-summary-sync-actions">
-                        <a href={candidate.videoUrl} rel="noopener noreferrer" target="_blank">Ver</a>
+                        <a href={candidate.sourceUrl} rel="noopener noreferrer" target="_blank">Ver fonte</a>
                         <button
                           className="video-summary-sync-button secondary"
                           disabled={busyKey !== null}

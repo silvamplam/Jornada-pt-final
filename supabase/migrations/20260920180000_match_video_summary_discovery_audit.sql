@@ -1,7 +1,16 @@
 begin;
 
 alter table public.match_video_summary_candidates
-  add column if not exists summary_kind text not null default 'full';
+  add column if not exists summary_kind text not null default 'full',
+  add column if not exists source_url text,
+  add column if not exists playable_media_url text;
+
+alter table public.match_video_summary_candidates
+  drop constraint if exists match_video_summary_candidates_provider_check;
+
+alter table public.match_video_summary_candidates
+  add constraint match_video_summary_candidates_provider_check
+  check (provider in ('youtube', 'vsports'));
 
 do $constraints$
 begin
@@ -66,7 +75,7 @@ revoke all on table public.match_video_summary_discoveries from public, anon, au
 grant select, insert, update, delete on table public.match_video_summary_discoveries to service_role;
 
 comment on table public.match_video_summary_discoveries is
-  'Auditoria idempotente do discovery de resumos. Mantem entradas VSPORTS sem media YouTube fora da tabela publicavel de candidatos.';
+  'Auditoria idempotente do discovery de resumos, incluindo fontes sem media reproduzivel.';
 
 create table if not exists jornada_private.match_video_summary_automation_tokens (
   token_hash text primary key,
