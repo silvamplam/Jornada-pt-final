@@ -4,6 +4,7 @@ import {
   isMesaUuid,
   loadMesaThemeOrganization,
 } from "@/lib/redacao-automatica/newsroom-mesa-organization";
+import { readThemeContinuity } from "@/lib/redacao-automatica/newsroom-theme-continuity";
 import { MesaSelectionProvider, MesaSelectionTray } from "../../_mesa-selection-client";
 import { MesaSourceWindow, MesaDossierCardView } from "../../_mesa-organization-client";
 import { MesaSourceItem } from "../../_mesa-source-item";
@@ -22,8 +23,12 @@ export default async function MesaThemePage({
   const [{ themeId }, query] = await Promise.all([params, searchParams]);
   if (!isMesaUuid(themeId)) notFound();
   let scoped;
+  let continuity;
   try {
-    scoped = await loadMesaThemeOrganization(themeId);
+    [scoped, continuity] = await Promise.all([
+      loadMesaThemeOrganization(themeId),
+      readThemeContinuity(themeId),
+    ]);
   } catch {
     return <main className={styles.shell}><section className={styles.errorState} role="alert">
       <h1>Tema indisponível</h1>
@@ -86,6 +91,37 @@ export default async function MesaThemePage({
             <span>{sources.length} fontes · {context.dossiers.length} Dossiês · {context.articleCount} artigos publicados</span>
             <span>As fontes organizadas não regressam às listas gerais.</span>
           </div>
+          {continuity && continuity.publishedArticles.length > 0 ? (
+            <section className={styles.sourcePanel} data-theme-published-articles="true">
+              <header className={styles.panelHeader}>
+                <h2>ARTIGOS PUBLICADOS</h2>
+                <span>{continuity.publishedArticles.length}</span>
+              </header>
+              <ol className={styles.sourceGrid}>
+                {continuity.publishedArticles.map((article) => (
+                  <li key={article.editorialArticleId} className={styles.organizationItem}>
+                    <article className={styles.organizationCard}>
+                      <Link
+                        href={"/admin/editorial/artigos?articleId=" + encodeURIComponent(article.editorialArticleId)}
+                        prefetch={false}
+                      >
+                        {article.title}
+                      </Link>
+                      <p>
+                        {article.label || "Artigo publicado"}
+                        {article.publishedAt
+                          ? " · " + new Intl.DateTimeFormat("pt-PT", {
+                              dateStyle: "medium",
+                              timeZone: "Europe/Lisbon",
+                            }).format(new Date(article.publishedAt))
+                          : ""}
+                      </p>
+                    </article>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
           <section className={styles.sourcesWorkspace}>
             <section className={styles.sourcePanel} data-lifecycle="new">
               <header className={styles.panelHeader}><h2>MATERIAL DO TEMA</h2><span>{loose.length} fontes fora dos Dossiês</span></header>
