@@ -651,6 +651,7 @@ def grouping_v2_theme_fifteen_sources_materializes_five_new_articles():
     assert frozen['totals'] == dict(contexts=1, sources=15, reviews=0, newArticles=5)
     assert all(len(output['focusSourceIds']) == 15 for output in frozen['outputs'])
     assert execute(f"select count(*) from public.newsroom_mesa_output_source_usage where dossier_id='{dossier_id}';") == '0'
+    execute(f"delete from public.newsroom_editorial_theme_sources where theme_id='{theme_id}';")
 
 
 def grouping_v2_combines_themes_loose_material_and_existing_without_source_usage():
@@ -772,6 +773,7 @@ def grouping_v2_combines_themes_loose_material_and_existing_without_source_usage
         "set role service_role; select * from public.newsroom_mesa_new_output_grouping_commands;"
     ))
     (args.output / 'grouping-v2-plan.json').write_text(json.dumps(frozen, ensure_ascii=False, indent=2))
+    execute(f"delete from public.newsroom_editorial_theme_sources where theme_id in ('{theme_a}','{theme_b}');")
 
 
 def grouping_v2_distinguishes_unconfigured_from_explicit_zero_new():
