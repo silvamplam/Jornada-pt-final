@@ -4,23 +4,6 @@ create extension if not exists pg_cron with schema pg_catalog;
 create extension if not exists pg_net with schema extensions;
 create extension if not exists supabase_vault with schema vault;
 
-do $secret$
-begin
-  if not exists (
-    select 1
-    from vault.secrets
-    where name = 'jornada_newsroom_current_feed_secret'
-  ) then
-    perform vault.create_secret(
-      pg_catalog.encode(extensions.gen_random_bytes(32), 'hex'),
-      'jornada_newsroom_current_feed_secret',
-      'Segredo técnico para a recolha automática da Mesa da Redação.',
-      null::uuid
-    );
-  end if;
-end;
-$secret$;
-
 create or replace function public.newsroom_verify_automatic_feed_secret_v1(
   p_secret text
 )
@@ -38,7 +21,7 @@ as $function$
     and exists (
       select 1
       from vault.decrypted_secrets as secret_row
-      where secret_row.name = 'jornada_newsroom_current_feed_secret'
+      where secret_row.name = 'jornada_sync_final_results_secret'
         and secret_row.decrypted_secret = p_secret
     );
 $function$;
@@ -76,7 +59,7 @@ begin
           'x-sync-secret', (
             select decrypted_secret
             from vault.decrypted_secrets
-            where name = 'jornada_newsroom_current_feed_secret'
+            where name = 'jornada_sync_final_results_secret'
             limit 1
           )
         ),
