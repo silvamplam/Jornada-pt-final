@@ -413,31 +413,34 @@ test("layout compacto conserva o histórico, acrescenta Contexto e tem breakpoin
 
 test("banco comum reúne origens e upload reutiliza signer e writer da foundation", () => {
   const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const imageBank = read("app/admin/editorial/redacao-automatica/_dossierImageBank.tsx");
+  const imageChoice = read("app/admin/editorial/redacao-automatica/_dossierImageChoiceGrid.tsx");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
   assert.match(client, /image\.origin === "upload"/);
   assert.match(client, /image\.origin === "newsroom"/);
   assert.match(client, /PUBLICADA/);
   assert.match(client, /\/api\/admin\/editorial\/artigos\/upload-image\/sign/);
-  assert.match(client, /method:\s*"PUT"/);
-  assert.match(client, /action:\s*"register_upload_image"/);
+  assert.match(imageBank, /method:\s*"PUT"/);
+  assert.match(imageBank, /action:\s*"register_upload_image"/);
   assert.match(route, /addEditorialDossierUploadImage/);
   assert.match(route, /const storageBucket = textValue\(payload\?\.bucket\)/);
   assert.match(route, /image:\s*\{[\s\S]*?origin:\s*"upload"/);
-  assert.match(client, /onRegisteredImage\(await registerUpload\(registration\)\)/);
+  assert.match(imageBank, /onRegisteredImage\(await registerUpload\(registration\)\)/);
   assert.doesNotMatch(client, /router\.refresh\(\)/);
-  assert.match(client, /function openWorkspaceImageUpload\(\)/);
-  assert.match(client, /panel\.open = true/);
-  assert.match(client, /if \(input && !input\.disabled\) input\.click\(\)/);
-  assert.match(client, /<details id="workspace-image-bank" className=\{styles\.imageBankPanel\}>/);
+  assert.match(imageBank, /function openDossierImageBank\(panelId: string\)/);
+  assert.match(imageBank, /panel\.open = true/);
+  assert.match(imageBank, /if \(input && !input\.disabled\) input\.click\(\)/);
+  assert.match(imageBank, /<details id=\{panelId\} className=\{styles\.imageBankPanel\}>/);
   assert.match(
-    client,
-    /<button[\s\S]*?className=\{styles\.addImageChoice\}[\s\S]*?type="button"[\s\S]*?aria-controls="workspace-image-bank"[\s\S]*?onClick=\{openWorkspaceImageUpload\}/,
+    imageChoice,
+    /<button[\s\S]*?className=\{styles\.addImageChoice\}[\s\S]*?type="button"[\s\S]*?aria-controls=\{addImageControls\}[\s\S]*?onClick=\{onAddImage\}/,
   );
   assert.doesNotMatch(client, /<a className=\{styles\.addImageChoice\} href="#workspace-images-title">/);
 });
 
 test("Article Plans são automáticos e a UI conserva apenas decisões editoriais", () => {
   const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const imageChoice = read("app/admin/editorial/redacao-automatica/_dossierImageChoiceGrid.tsx");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
   assert.doesNotMatch(client, /Mais opções|Título de trabalho|Fontes concretas do Dossiê|PUBLICADAS usadas como contexto/);
   assert.doesNotMatch(client, /name=\{planField\(cardKey, "status"\)\}|name=\{planField\(cardKey, "source"\)\}/);
@@ -449,7 +452,7 @@ test("Article Plans são automáticos e a UI conserva apenas decisões editoriai
   assert.match(client, /Record<"new" \| "update", string \| null>/);
   assert.match(client, /editorialMesaResolvedVisualImageChoice\(\s*imageChoices\[destination\]/);
   assert.match(client, /imageChoices\[destination\] === null/);
-  assert.match(client, /MANTER IMAGEM PUBLICADA/);
+  assert.match(imageChoice, /MANTER IMAGEM PUBLICADA/);
   assert.match(client, /destination === "update"/);
   assert.match(route, /const contexts = workspace\.publishedContexts\.map/);
   assert.match(route, /sources:\s*technicalSources\.map/);
@@ -641,13 +644,15 @@ test("package e publicação continuam a transportar a imagem persistida do resp
   const workspaceRoute = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
   const packageInternal = read("lib/redacao-automatica/editorial-source-package-internal.ts");
   const publicationClient = read("app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx");
+  const imageSelection = read("lib/redacao-automatica/editorial-batch-image-selection.ts");
   const publicationRoute = read("app/api/admin/editorial/redacao-automatica/publicacao-lote/route.ts");
 
   assert.match(workspaceRoute, /const selectedImage = plan\.imageChoice\.mode === "dossier_image"/);
   assert.match(workspaceRoute, /imageNewsroomArticleId:\s*selectedSourceImage/);
   assert.match(workspaceRoute, /externalImage \? \{ externalImage \} : \{\}/);
   assert.match(packageInternal, /outputs\.flatMap\([\s\S]*?output\.position[\s\S]*?output\.imageNewsroomArticleId/);
-  assert.match(publicationClient, /sourcePackage\?\.outputImages\?\.map\(\(image\) => \(\{[\s\S]*?position[\s\S]*?imageUrl/);
+  assert.match(publicationClient, /editorialBatchOutputImage\(sourcePackage, article\.outputId\)/);
+  assert.match(imageSelection, /image\.outputId === outputId[\s\S]*?image\.position === position \+ 1/);
   assert.match(publicationClient, /const imageByKey = new Map\(imagePreflight\.articles\.map/);
   assert.match(publicationClient, /publishPlannedItem\(planItem, article, imageUrl\)/);
   assert.match(publicationRoute, /const imageUrl = cleanText\(payload\.imageUrl\)/);

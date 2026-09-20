@@ -633,16 +633,41 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
         year: manifest.year,
         month: manifest.month,
         packageId: manifest.packageId,
+        dossierId,
         ...(manifest.themeContinuity ? { themeContinuity: manifest.themeContinuity } : {}),
         ...(manifest.productionIntents ? { productionIntents: manifest.productionIntents } : {}),
         ...(packageBatchContract.kind === "mesa-v2"
           ? { batchContract: packageBatchContract.value }
           : {}),
         ...(updateArticleCount > 0 ? { updateArticleCount } : {}),
-        outputImages: articleImages.map((image) => ({
-          position: image.position,
-          imageUrl: image.imageUrl,
-          label: image.fileName ?? image.articleTitle,
+        outputImages: articleImages.map((image) => {
+          const outputId = manifest.outputs.find((output) => (
+            output.position === image.position
+          ))?.outputId;
+          const imageChoice = plans[image.position - 1]?.imageChoice;
+          const dossierImageId = imageChoice?.mode === "dossier_image"
+            ? imageChoice.dossierImageId
+            : undefined;
+          return {
+            position: image.position,
+            ...(outputId ? { outputId } : {}),
+            ...(dossierImageId ? { dossierImageId } : {}),
+            imageUrl: image.imageUrl,
+            label: image.fileName ?? image.articleTitle,
+          };
+        }),
+        dossierImages: workspace.images.map((image) => ({
+          id: image.id,
+          imageUrl: image.frozenUrl,
+          label: image.origin === "upload"
+            ? `UPLOAD · ${image.fileName}`
+            : image.origin === "newsroom"
+              ? `NOVA · ${workspaceSources.find((source) => (
+                  source.newsroomArticleId === image.newsroomArticleId
+                ))?.sourceCode ?? "Fonte"}`
+              : `PUBLICADA · ${workspace.publishedContexts.find((context) => (
+                  context.editorialArticleId === image.editorialArticleId
+                ))?.title ?? "Artigo"}`,
         })),
       },
     },

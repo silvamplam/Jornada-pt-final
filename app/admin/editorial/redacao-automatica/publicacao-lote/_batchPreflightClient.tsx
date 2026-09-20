@@ -30,6 +30,18 @@ import {
   requestEditorialBatchPublicationPreflight,
   shouldRequestAutomaticEditorialBatchPreflight,
 } from "@/lib/redacao-automatica/editorial-batch-publication-client";
+import { editorialBatchPublishedAtByOutputId } from "@/lib/redacao-automatica/editorial-batch-published-at";
+import {
+  editorialBatchDossierImages,
+  editorialBatchInitialImageChoice,
+  editorialBatchOutputImage,
+  withEditorialBatchOutputImageChoice,
+} from "@/lib/redacao-automatica/editorial-batch-image-selection";
+import DossierImageChoiceGrid from "../_dossierImageChoiceGrid";
+import DossierImageBank, {
+  openDossierImageBank,
+  type RegisteredDossierUploadImage,
+} from "../_dossierImageBank";
 
 import styles from "./publicacao-lote.module.css";
 
@@ -79,6 +91,7 @@ type BatchPublicationPlanItem = Readonly<{
   updateTargetFromDossier?: boolean;
   publishedAt: string;
   slot?: string;
+  dossierId?: string;
 }>;
 
 type BatchPublicationItemStatus =
@@ -440,6 +453,10 @@ function ResultSummary({
   preservesPublishedImages,
   productionImagesByKey,
   noChangeCount,
+  sourcePackage,
+  onImageChoice,
+  onRegisteredImage,
+  imageChoiceDisabled,
 }: Readonly<{
   preflight: EditorialBatchPreflight;
   imagePreflight: EditorialBatchImagePreflight<File>;
@@ -456,6 +473,10 @@ function ResultSummary({
     label: string;
   }>>;
   noChangeCount: number;
+  sourcePackage: EditorialBatchTransferSourcePackage | null;
+  onImageChoice: (outputId: string, value: string) => void;
+  onRegisteredImage: (outputId: string, image: RegisteredDossierUploadImage) => void;
+  imageChoiceDisabled: boolean;
 }>) {
   const globalIssues = preflight.issues.filter((issue) => issue.index === undefined);
   const articleRows = articleResultRows(preflight);
@@ -470,6 +491,9 @@ function ResultSummary({
       || imagePreflight.ready
     )
     && authorReady;
+  const continuitySlots = sourcePackage?.productionIntents
+    ? mesaProductionIntentSlots(sourcePackage.productionIntents)
+    : sourcePackage?.themeContinuity?.slots ?? [];
 
   return (
     <section className={styles.results} aria-labelledby="batch-results-title" aria-live="polite">
@@ -575,13 +599,25 @@ function ResultSummary({
               const candidateNames = imageResult?.candidates
                 .map((file) => file.name)
                 .join(", ");
+              const outputId = row.article?.outputId ?? null;
+              const continuitySlot = outputId
+                ? continuitySlots.find((slot) => slot.outputId === outputId) ?? null
+                : null;
+              const existingOutput = continuitySlot?.kind === "existing";
+              const dossierImages = editorialBatchDossierImages(sourcePackage);
 
               return (
                 <li key={row.key} className={isValid ? styles.validArticle : styles.invalidArticle}>
                   <div className={styles.articleKey} aria-label={`Artigo ${row.key}`}>{row.key}</div>
                   <div className={styles.articleCopy}>
                     <div className={styles.articleHeading}>
-                      <h4>{title}</h4>
+                      <div>
+                        <p className={styles.articleLabel}>{row.article?.label || `Artigo ${row.key}`}</p>
+                        <h4>{title}</h4>
+                        {row.article?.subtitle ? (
+                          <p className={styles.articleSubtitle}>{row.article.subtitle}</p>
+                        ) : null}
+                      </div>
                       <strong>{isValid ? "VÁLIDO" : "INVÁLIDO"}</strong>
                     </div>
                     {errors.length > 0 ? (
@@ -598,7 +634,7 @@ function ResultSummary({
                     ) : !globallyPrepared ? (
                       <p className={styles.validNote}>Estrutura editorial válida.</p>
                     ) : null}
-                    {productionImage ? (
+                    {dossierImages.length > 0 ? null : productionImage ? (
                       <div className={`${styles.imageAssociation} ${styles.associatedImage}`}>
                         <img
                           src={productionImage.imageUrl}
@@ -636,6 +672,42 @@ function ResultSummary({
                           </p>
                           <strong>{imageResult.message}</strong>
                         </div>
+                      </div>
+                    ) : null}
+                    {outputId && dossierImages.length > 0 ? (
+                      <div className={styles.articleImageEditor}>
+                        <div className={styles.articleImageEditorHeader}>
+                          <div>
+                            <strong>Imagem deste artigo</strong>
+                            <span>{productionImage?.label ?? (existingOutput
+                              ? "Mantém a imagem publicada"
+                              : "Escolhe no banco do Dossiê")}</span>
+                          </div>
+                          <span>{productionImage ? "SELECIONADA" : existingOutput ? "PRESERVADA" : "EM FALTA"}</span>
+                        </div>
+                        <DossierImageChoiceGrid
+                          name={`batch_output_image_${outputId}`}
+                          value={editorialBatchInitialImageChoice(sourcePackage, outputId, existingOutput)}
+                          images={dossierImages}
+                          disabled={imageChoiceDisabled}
+                          allowNoImage
+                          allowPreservePublished={existingOutput}
+                          onChange={(value) => onImageChoice(outputId, value)}
+                          onAddImage={sourcePackage?.dossierId
+                            ? () => openDossierImageBank(`batch-image-bank-${outputId}`)
+                            : undefined}
+                          addImageControls={sourcePackage?.dossierId
+                            ? `batch-image-bank-${outputId}`
+                            : undefined}
+                        />
+                        {sourcePackage?.dossierId ? (
+                          <DossierImageBank
+                            panelId={`batch-image-bank-${outputId}`}
+                            dossierId={sourcePackage.dossierId}
+                            images={dossierImages}
+                            onRegisteredImage={(image) => onRegisteredImage(outputId, image)}
+                          />
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -975,12 +1047,18 @@ export default function BatchPreflightClient({
         === preflight.total,
       );
   const productionImagesByKey = useMemo(
-    () => new Map((sourcePackage?.outputImages ?? []).map((image) => (
-      [String(image.position).padStart(2, "0"), image] as const
-    ))),
-    [sourcePackage],
+    () => new Map(preflight.articles.flatMap((article) => {
+      const image = article.outputId
+        ? editorialBatchOutputImage(sourcePackage, article.outputId)
+        : sourcePackage?.outputImages?.find((candidate) => candidate.position === article.index) ?? null;
+      return image ? [[article.key, image] as const] : [];
+    })),
+    [preflight.articles, sourcePackage],
   );
   const productionImageCount = productionImagesByKey.size;
+  const hasDossierImageChoices = Boolean(
+    sourcePackage?.batchContract && editorialBatchDossierImages(sourcePackage).length,
+  );
   const allAnalysedArticleKeys = useMemo(
     () => articleResultRows(preflight).map((row) => row.key),
     [preflight],
@@ -1015,16 +1093,18 @@ export default function BatchPreflightClient({
     () => preflightEditorialBatchImages(
       analysedArticleKeys,
       selectedImages,
-      sourcePackage?.outputImages?.map((image) => ({
-        key: String(image.position).padStart(2, "0"),
-        imageUrl: image.imageUrl,
-        fileName: image.label,
-      })) ?? [],
+      preflight.articles.flatMap((article) => {
+        const image = article.outputId
+          ? editorialBatchOutputImage(sourcePackage, article.outputId)
+          : sourcePackage?.outputImages?.find((candidate) => candidate.position === article.index) ?? null;
+        return image ? [{ key: article.key, imageUrl: image.imageUrl, fileName: image.label }] : [];
+      }),
       manualImageFiles,
     ),
     [
       analysedArticleKeys,
       manualImageFiles,
+      preflight.articles,
       selectedImages,
       sourcePackage,
     ],
@@ -1221,6 +1301,15 @@ export default function BatchPreflightClient({
           }),
         onServerPreflightSucceeded: (plan) => {
           if (!responseIsCurrent()) return;
+          const resolvedDossierId = plan.find((item) => item.dossierId)?.dossierId;
+          if (resolvedDossierId && sourcePackage && !sourcePackage.dossierId) {
+            const enrichedSourcePackage = { ...sourcePackage, dossierId: resolvedDossierId };
+            setSourcePackage(enrichedSourcePackage);
+            window.sessionStorage.setItem(
+              EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
+              JSON.stringify(enrichedSourcePackage),
+            );
+          }
           publicationPlanRef.current = plan;
           setPublicationPlan(plan);
           setPublicationError(null);
@@ -1453,6 +1542,11 @@ export default function BatchPreflightClient({
     const slotByOutputId = new Map(themeContinuity!.slots.map((slot, index) => (
       [slot.outputId, { slot, position: index + 1 }] as const
     )));
+    const articleByKey = new Map(preflight.articles.map((article) => [article.key, article]));
+    const publishedAtByOutputId = editorialBatchPublishedAtByOutputId(plan.map((item) => ({
+      outputId: articleByKey.get(item.key)?.outputId ?? null,
+      publishedAt: item.publishedAt,
+    })));
     const imageByKey = new Map(imagePreflight.articles.map((image) => [image.key, image]));
     const imageUrlsByOutputId: Record<string, string | null> = {};
 
@@ -1502,6 +1596,7 @@ export default function BatchPreflightClient({
         author: author.trim(),
         articles: preflight.articles,
         imageUrlsByOutputId,
+        publishedAtByOutputId,
         sourcePackage,
       }),
     });
@@ -1820,6 +1915,69 @@ export default function BatchPreflightClient({
     });
   }
 
+  function handleDossierImageChoice(outputId: string, value: string) {
+    resetPublicationRun();
+    setSourcePackage((current) => {
+      const position = (current?.batchContract?.outputIds.indexOf(outputId) ?? -1) + 1;
+      if (!current || position < 1) return current;
+      const dossierImageId = value.startsWith("dossier_image:")
+        ? value.slice("dossier_image:".length)
+        : "";
+      const next = withEditorialBatchOutputImageChoice(
+        current,
+        outputId,
+        dossierImageId || null,
+      );
+      window.sessionStorage.setItem(
+        EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
+        JSON.stringify(next),
+      );
+      return next;
+    });
+  }
+
+  function handleRegisteredDossierImage(
+    outputId: string,
+    image: RegisteredDossierUploadImage,
+  ) {
+    resetPublicationRun();
+    setSourcePackage((current) => {
+      const position = (current?.batchContract?.outputIds.indexOf(outputId) ?? -1) + 1;
+      if (!current || position < 1 || current.dossierId !== image.dossierId) return current;
+      const dossierImage = {
+        id: image.id,
+        imageUrl: image.frozenUrl,
+        label: `UPLOAD · ${image.fileName}`,
+      };
+      const retainedImages = (current.outputImages ?? []).filter((candidate) => (
+        candidate.outputId !== outputId
+        && !(!candidate.outputId && candidate.position === position)
+      ));
+      const next: EditorialBatchTransferSourcePackage = {
+        ...current,
+        dossierImages: [
+          ...(current.dossierImages ?? []).filter((candidate) => candidate.id !== image.id),
+          dossierImage,
+        ],
+        outputImages: [
+          ...retainedImages,
+          {
+            position,
+            outputId,
+            dossierImageId: dossierImage.id,
+            imageUrl: dossierImage.imageUrl,
+            label: dossierImage.label,
+          },
+        ].sort((left, right) => left.position - right.position),
+      };
+      window.sessionStorage.setItem(
+        EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
+        JSON.stringify(next),
+      );
+      return next;
+    });
+  }
+
   function handleMatchdayChange(nextMatchdayId: string) {
     resetPublicationRun();
     setMatchdayId(nextMatchdayId);
@@ -1998,7 +2156,7 @@ export default function BatchPreflightClient({
         </p>
       </section>
 
-      {preservesPublishedImages ? (
+      {hasDossierImageChoices ? null : preservesPublishedImages ? (
         <section
           className={styles.panel}
           aria-labelledby="batch-images-title"
@@ -2054,6 +2212,10 @@ export default function BatchPreflightClient({
           preservesPublishedImages={preservesPublishedImages}
           productionImagesByKey={productionImagesByKey}
           noChangeCount={sourcePackage?.continuityResolution?.noChangeOutputIds.length ?? 0}
+          sourcePackage={sourcePackage}
+          onImageChoice={handleDossierImageChoice}
+          onRegisteredImage={handleRegisteredDossierImage}
+          imageChoiceDisabled={isPublishing}
         />
       ) : null}
 
