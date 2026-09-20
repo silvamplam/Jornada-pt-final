@@ -596,9 +596,9 @@ begin
   else
     if p_target_count is not null or p_theme_id is not null then raise exception 'mesa-grouping-change-input-invalid'; end if;
     if exists(
-      select 1 from unnest(p_group_ids) id
+      select 1 from unnest(p_group_ids) selected(group_id)
       left join public.newsroom_mesa_new_output_groups grouped
-        on grouped.id=id and grouped.dossier_id=p_dossier_id
+        on grouped.id=selected.group_id and grouped.dossier_id=p_dossier_id
         and grouped.state='planned' and grouped.seed_kind='selection'
       where grouped.id is null
     ) then raise exception 'mesa-grouping-group-invalid'; end if;
