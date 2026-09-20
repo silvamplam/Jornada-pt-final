@@ -9,16 +9,29 @@ type AuthorizationRow = Readonly<{
   authorized: boolean;
 }>;
 
+function objectValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
 async function authorized(request: Request): Promise<boolean | null> {
-  const suppliedSecret = request.headers.get("x-sync-secret")?.trim() ?? "";
-  if (!suppliedSecret) return false;
+  let value: unknown;
+  try {
+    value = await request.json();
+  } catch {
+    value = null;
+  }
+  const payload = objectValue(value);
+  const token = typeof payload?.token === "string" ? payload.token.trim() : "";
+  if (!/^[0-9a-f]{64}$/.test(token)) return false;
 
   try {
     const rows = await writeSupabaseAdminReturning<AuthorizationRow>(
-      "rpc/newsroom_verify_automatic_feed_secret_v1",
+      "rpc/newsroom_consume_automatic_feed_token_v1",
       {
         method: "POST",
-        body: JSON.stringify({ p_secret: suppliedSecret }),
+        body: JSON.stringify({ p_token: token }),
       },
     );
     return rows.length === 1 && rows[0]?.authorized === true;
