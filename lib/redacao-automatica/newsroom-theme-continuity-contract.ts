@@ -25,7 +25,7 @@ export type ThemeContinuityPublishedArticle = Readonly<{
   subtitle: string;
   imageUrl: string | null;
   publishedAt: string | null;
-  matchdayId: string;
+  matchdayId: string | null;
   addedAt: string;
 }>;
 

@@ -20,6 +20,7 @@ type HarnessOptions = Readonly<{
   locationHref?: string;
   querySelector?: (selector: string) => unknown;
   querySelectorAll?: (selector: string) => unknown[];
+  mesaOrigin?: "https://www.jornada.pt" | "https://jornada.pt";
 }>;
 
 function harness(options: HarnessOptions = {}) {
@@ -30,22 +31,28 @@ function harness(options: HarnessOptions = {}) {
   const documentListeners = new Map<string, Set<(event: unknown) => void>>();
   const removedDocumentListeners: string[] = [];
   const appended: Array<Record<string, unknown>> = [];
+  const targetOrigins: string[] = [];
+  const mesaOrigin = options.mesaOrigin ?? "https://www.jornada.pt";
   const target = {
     closed: false,
     location: { href: "about:blank" },
     focus() {},
-    postMessage(message: Record<string, unknown>) {
-      if (message.type === "JORNADA_MANUAL_SOURCE_HELLO_V1") {
+    postMessage(message: Record<string, unknown>, targetOrigin: string) {
+      targetOrigins.push(targetOrigin);
+      if (
+        message.type === "JORNADA_MANUAL_SOURCE_HELLO_V1"
+        && targetOrigin === mesaOrigin
+      ) {
         queueMicrotask(() => {
           for (const listener of windowListeners.get("message") ?? []) {
             listener({
-              origin: "https://jornada.pt",
+              origin: mesaOrigin,
               source: target,
               data: { type: "JORNADA_MANUAL_SOURCE_READY_V1", version: 1 },
             });
           }
         });
-      } else {
+      } else if (message.type !== "JORNADA_MANUAL_SOURCE_HELLO_V1") {
         payloads.push(message);
       }
     },
@@ -112,6 +119,8 @@ function harness(options: HarnessOptions = {}) {
     documentListeners,
     removedDocumentListeners,
     appended,
+    targetOrigins,
+    target,
   };
 }
 
@@ -163,6 +172,26 @@ test("favorito principal dá prioridade à seleção, encontra og:image e datePu
     sourceHost: "example.test",
   });
   assert.equal(setup.openedNames[0], "JORNADA_MANUAL_SOURCE");
+});
+
+test("handshake aceita a origem canónica www e o apex sem perder o payload", async () => {
+  for (const mesaOrigin of ["https://www.jornada.pt", "https://jornada.pt"] as const) {
+    const chosen = image(
+      "https://encrypted-tbn0.gstatic.com/images?q=teste",
+      "https://encrypted-tbn0.gstatic.com/images?q=teste",
+    );
+    const setup = harness({
+      mesaOrigin,
+      contentType: "image/jpeg",
+      images: [chosen],
+      locationHref: chosen.currentSrc,
+    });
+    await execute(SEND_IMAGE_TO_JORNADA_BOOKMARKLET, setup);
+    assert.equal((setup.payloads[0] as Record<string, unknown>).imageUrl, chosen.currentSrc);
+    assert.ok(setup.targetOrigins.includes("https://www.jornada.pt"));
+    assert.ok(setup.targetOrigins.includes("https://jornada.pt"));
+    assert.equal(setup.target.location.href, "https://www.jornada.pt/admin/editorial/redacao-automatica/mesa?manual_source=1");
+  }
 });
 
 test("imagem direta usa currentSrc antes de src e resolve URL relativa", async () => {

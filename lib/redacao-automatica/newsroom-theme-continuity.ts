@@ -57,7 +57,7 @@ function validReadRow(row: ContinuityReadRow | undefined): row is ContinuityRead
     ))
     && row.published_articles.every((article) => (
       validUuid(article.editorialArticleId)
-      && validUuid(article.matchdayId)
+      && (article.matchdayId === null || validUuid(article.matchdayId))
       && Boolean(article.slug)
       && Boolean(article.title)
     ))
