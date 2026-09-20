@@ -5,6 +5,10 @@ import test from "node:test";
 
 const migrationPath =
   "supabase/migrations/20260905230000_matchday_live_layout_physical_crud_v20.sql";
+const atomicMigrationPath =
+  "supabase/migrations/20260920045217_matchday_live_layout_additional_zone_atomic_apply.sql";
+const v21MigrationPath =
+  "supabase/migrations/20260906220000_matchday_live_layout_four_news_optional_titles_v21.sql";
 const fixturePath =
   "supabase/sql/test-matchday-live-layout-physical-crud-v20-pg17.sql";
 const routePath =
@@ -19,6 +23,8 @@ const v19Path =
   "supabase/migrations/20260905142832_matchday_live_layout_physical_handoff_v19.sql";
 
 const migration = readFileSync(migrationPath, "utf8");
+const atomicMigration = readFileSync(atomicMigrationPath, "utf8");
+const v21Migration = readFileSync(v21MigrationPath, "utf8");
 const fixture = readFileSync(fixturePath, "utf8");
 const route = readFileSync(routePath, "utf8");
 const v14 = readFileSync(v14Path, "utf8");
@@ -31,6 +37,14 @@ function section(startNeedle: string, endNeedle: string): string {
   const end = migration.indexOf(endNeedle, start + startNeedle.length);
   assert.ok(end > start, `missing section end: ${endNeedle}`);
   return migration.slice(start, end);
+}
+
+function sectionOf(value: string, startNeedle: string, endNeedle: string): string {
+  const start = value.indexOf(startNeedle);
+  assert.ok(start >= 0, `missing section start: ${startNeedle}`);
+  const end = value.indexOf(endNeedle, start + startNeedle.length);
+  assert.ok(end > start, `missing section end: ${endNeedle}`);
+  return value.slice(start, end);
 }
 
 function occurrences(haystack: string, needle: string): number {
@@ -49,9 +63,19 @@ const topologyValidator = section(
   "jornada_private.assert_matchday_live_layout_physical_topology_source_v17(",
   "revoke all on function\n  jornada_private.assert_matchday_live_layout_physical_topology_source_v17",
 );
-const core = section(
+const historicalCore = section(
   "jornada_private.apply_matchday_live_layout_physical_workspace_v20_core(",
   "revoke all on function\n  jornada_private.apply_matchday_live_layout_physical_workspace_v20_core",
+);
+const core = sectionOf(
+  atomicMigration,
+  "create or replace function\njornada_private.apply_matchday_live_layout_physical_workspace_v20_core(",
+  "comment on function\n  jornada_private.apply_matchday_live_layout_physical_workspace_v20_core",
+);
+const effectivePreviousCore = sectionOf(
+  v21Migration,
+  "create or replace function\njornada_private.apply_matchday_live_layout_physical_workspace_v20_core(",
+  "\n\ncommit;",
 );
 const facade = section(
   "create function public.apply_matchday_live_layout_physical_v20(",
@@ -69,6 +93,18 @@ test("v20 is one forward-only migration and leaves historical migrations untouch
     { encoding: "utf8" },
   );
   assert.equal(historicalChanges.trim(), "");
+});
+
+test("a forward-only migration removes only the new-zone empty guard", () => {
+  const newZoneGuard = /\n  -- A newly introduced zone is a topology-only operation and must be born\n  -- empty\. A later Apply may explicitly place content there\.\n  if exists \([\s\S]*?\n    raise exception 'matchday-live-layout-physical-v20-new-zone-not-empty';\n  end if;\n/u;
+
+  assert.match(atomicMigration, /^begin;/u);
+  assert.match(atomicMigration, /commit;\s*$/u);
+  assert.equal(atomicMigration.match(/^commit;$/gmu)?.length, 1);
+  assert.match(historicalCore, /new-zone-not-empty/u);
+  assert.match(effectivePreviousCore, newZoneGuard);
+  assert.doesNotMatch(core, /new-zone-not-empty/u);
+  assert.equal(core.trim(), effectivePreviousCore.replace(newZoneGuard, "\n").trim());
 });
 
 test("one SQL function owns the three persistable layout capacities", () => {
@@ -102,7 +138,7 @@ test("final topology supports create, update, delete and block reordering", () =
   assert.match(core, /v_block_offset integer := 1100000000/u);
   assert.match(core, /set sort_order = desired_row\.sort_order/u);
   assert.match(core, /retained-zone-block-changed/u);
-  assert.match(core, /new-zone-not-empty/u);
+  assert.doesNotMatch(core, /new-zone-not-empty/u);
   assert.match(core, /zone-owned-by-other-matchday/u);
 });
 
@@ -183,6 +219,28 @@ test("OCC, validation order and rollback boundary precede topology DML", () => {
   assert.ok(firstDml > deleteGuard);
 });
 
+test("zone, block and placements share the existing transaction and postconditions", () => {
+  const capacityValidation = core.indexOf("physical-v20-zone-capacity-invalid");
+  const firstDml = core.indexOf("-- FIRST DML.");
+  const zoneInsert = core.indexOf("insert into public.matchday_live_layout_zones");
+  const blockInsert = core.indexOf("insert into public.matchday_live_layout_blocks");
+  const placementPlan = core.indexOf("apply_matchday_live_layout_placement_plan(");
+  const zonePostcondition = core.indexOf("physical-v20-zone-postcondition");
+  const blockPostcondition = core.indexOf("physical-v20-block-postcondition");
+  const placementPostcondition = core.indexOf("physical-v20-placement-postcondition");
+  const finalToken = core.indexOf("into v_final_state_token");
+
+  assert.ok(capacityValidation >= 0 && capacityValidation < firstDml);
+  assert.ok(firstDml < zoneInsert);
+  assert.ok(zoneInsert < blockInsert);
+  assert.ok(blockInsert < placementPlan);
+  assert.ok(placementPlan < zonePostcondition);
+  assert.ok(zonePostcondition < blockPostcondition);
+  assert.ok(blockPostcondition < placementPostcondition);
+  assert.ok(placementPostcondition < finalToken);
+  assert.match(core, /exception when others then[\s\S]*?raise;/u);
+});
+
 test("v17/v18/v19 inherit arbitrary topology without legacy fallback", () => {
   assert.match(topologyValidator, /matchday_live_layout_layout_capacity_v20/u);
   assert.doesNotMatch(
@@ -239,7 +297,7 @@ test("physical Apply usa a autoridade de destino v29 sem fallback", () => {
   assert.doesNotMatch(post, /fallback|retry/iu);
 });
 
-test("PG17 fixture covers the 26 required behavioral proofs and rolls back", () => {
+test("PG17 fixture covers physical CRUD and atomic populated-zone proofs", () => {
   for (const evidence of [
     "normal zone update preserves identity",
     "sixth empty zone and block without projection",
@@ -255,6 +313,13 @@ test("PG17 fixture covers the 26 required behavioral proofs and rolls back", () 
     "v17/v18 arbitrary topology without legacy projection",
     "v19 remains marker-first and fail-closed",
     "service-role-only facade",
+    "single Apply creates populated four_news zone",
+    "single Apply creates populated five_news_balanced zone",
+    "single Apply creates populated five_news_secondary zone",
+    "single Apply creates populated six_news zone",
+    "over-capacity new zone rolls back atomically",
+    "public.apply_matchday_live_layout_physical_v29",
+    "v_failure_attempts = 1",
     "slot_position = 1",
     "slot_position = 2",
     "slot_position = 3",

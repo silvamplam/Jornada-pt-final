@@ -53,6 +53,10 @@ function databaseMessage(error: unknown): string {
   }
 }
 
+function includesAnyDatabaseError(message: string, errors: readonly string[]) {
+  return errors.some((error) => message.includes(error));
+}
+
 async function isManagedMatchdayEditorialDesk(matchdayId: string) {
   const rows = await fetchSupabaseAdminTable<ManagedMatchdayEditorialDeskRow>(
     `matchday_editorial_desk_control?select=matchday_id&matchday_id=eq.${encodeURIComponent(
@@ -106,6 +110,58 @@ function mutationErrorResponse(error: unknown) {
       "thematic-desk-context-changed",
       "A Mesa ou a atribuição temática mudou. Recarregue a página.",
       409,
+    );
+  }
+  if (message.includes("matchday-live-layout-physical-v20-zone-capacity-invalid")) {
+    return apiError(
+      "thematic-zone-capacity-exceeded",
+      "A zona tem mais notícias do que o formato escolhido permite.",
+      400,
+    );
+  }
+  if (includesAnyDatabaseError(message, [
+    "matchday-live-layout-physical-v20-zone-shape-invalid",
+    "matchday-live-layout-physical-v20-zone-value-invalid",
+    "matchday-live-layout-physical-v20-zone-duplicate",
+  ])) {
+    return apiError(
+      "thematic-zone-invalid",
+      "A configuração ou apresentação da zona não é válida.",
+      400,
+    );
+  }
+  if (includesAnyDatabaseError(message, [
+    "matchday-live-layout-physical-v20-authority-state-corrupt",
+    "matchday-live-layout-physical-v20-block-identity-mismatch",
+    "matchday-live-layout-physical-v20-retained-zone-block-changed",
+    "matchday-live-layout-physical-v20-block-topology-invalid",
+    "matchday-live-layout-physical-v20-current-block-order-invalid",
+  ])) {
+    return apiError(
+      "thematic-physical-topology-conflict",
+      "A estrutura física já não corresponde ao estado atual. Recarregue a Mesa antes de voltar a aplicar.",
+      409,
+    );
+  }
+  if (message.includes("matchday-live-layout-physical-v20-state-conflict")) {
+    return apiError(
+      "thematic-physical-state-conflict",
+      "O estado editorial pedido entra em conflito com o estado físico atual. Recarregue a Mesa antes de voltar a aplicar.",
+      409,
+    );
+  }
+  if (includesAnyDatabaseError(message, [
+    "matchday-live-layout-physical-v20-placement-shape-invalid",
+    "matchday-live-layout-physical-v20-placement-value-invalid",
+    "matchday-live-layout-physical-v20-placement-target-invalid",
+    "matchday-live-layout-physical-v20-placement-duplicate",
+    "matchday-live-layout-latest-companion-v22-host-invalid",
+    "matchday-live-layout-latest-destination-v29-incomplete",
+  ])) {
+    return apiError(
+      "thematic-physical-destination-invalid",
+      "A posição ou o destino físico de uma notícia não é válido.",
+      400,
     );
   }
   if (
