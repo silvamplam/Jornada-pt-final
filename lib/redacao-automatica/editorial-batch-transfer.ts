@@ -20,9 +20,11 @@ export type EditorialBatchTransferSourcePackage = Readonly<{
   year: string;
   month: string;
   packageId: string;
+  dossierId?: string;
   matchdayId?: string;
   updateArticleCount?: number;
   outputImages?: readonly EditorialBatchTransferOutputImage[];
+  dossierImages?: readonly EditorialBatchTransferDossierImage[];
   batchContract?: EditorialBatchTransferMesaV2Contract;
   themeContinuity?: ThemeContinuityFrozenContract;
   productionIntents?: MesaProductionIntentsFrozen;
@@ -43,6 +45,14 @@ export type EditorialBatchTransferMesaV2Contract = Readonly<{
 
 export type EditorialBatchTransferOutputImage = Readonly<{
   position: number;
+  outputId?: string;
+  dossierImageId?: string;
+  imageUrl: string;
+  label: string;
+}>;
+
+export type EditorialBatchTransferDossierImage = Readonly<{
+  id: string;
   imageUrl: string;
   label: string;
 }>;
@@ -139,6 +149,11 @@ export function parseEditorialBatchTransferSourcePackage(
         : typeof parsed.matchdayId === "string"
           ? parsed.matchdayId.trim().toLowerCase()
           : "";
+    const dossierId = parsed.dossierId === undefined
+      ? undefined
+      : typeof parsed.dossierId === "string"
+        ? parsed.dossierId.trim().toLowerCase()
+        : "";
 
     const updateArticleCount =
       parsed.updateArticleCount === undefined
@@ -157,6 +172,7 @@ export function parseEditorialBatchTransferSourcePackage(
 
     if (
       (parsed.productionIntents !== undefined && !productionIntents)
+      || (dossierId !== undefined && !UUID_PATTERN.test(dossierId))
       || (productionIntents && (!batchContract || themeContinuity
         || !batchContract.sourceIdsByOutput
         || intentSlots!.length !== batchContract.outputIds.length
@@ -185,6 +201,7 @@ export function parseEditorialBatchTransferSourcePackage(
       year,
       month,
       packageId,
+      ...(dossierId ? { dossierId } : {}),
       ...(matchdayId ? { matchdayId } : {}),
       ...(updateArticleCount !== undefined
         ? { updateArticleCount }
@@ -224,24 +241,26 @@ export function parseEditorialBatchTransferSourcePackage(
     }
     const resolvedBase = continuityResolution ? { ...base, continuityResolution } : base;
 
-    if (parsed.outputImages === undefined) {
-      return resolvedBase;
-    }
-
-    if (!Array.isArray(parsed.outputImages)) {
-      return null;
-    }
-
     const positions = new Set<number>();
     const outputImages: EditorialBatchTransferOutputImage[] = [];
-
-    for (const value of parsed.outputImages) {
+    if (parsed.outputImages !== undefined && !Array.isArray(parsed.outputImages)) return null;
+    for (const value of parsed.outputImages ?? []) {
       if (!value || typeof value !== "object" || Array.isArray(value)) {
         return null;
       }
 
       const candidate = value as Record<string, unknown>;
       const position = Number(candidate.position);
+      const outputId = candidate.outputId === undefined
+        ? undefined
+        : typeof candidate.outputId === "string"
+          ? candidate.outputId.trim().toLowerCase()
+          : "";
+      const dossierImageId = candidate.dossierImageId === undefined
+        ? undefined
+        : typeof candidate.dossierImageId === "string"
+          ? candidate.dossierImageId.trim().toLowerCase()
+          : "";
       const imageUrl = httpUrl(candidate.imageUrl);
       const label = typeof candidate.label === "string"
         ? candidate.label.trim().slice(0, 240)
@@ -252,6 +271,9 @@ export function parseEditorialBatchTransferSourcePackage(
         || position < 1
         || position > 30
         || positions.has(position)
+        || (outputId !== undefined && !UUID_PATTERN.test(outputId))
+        || (dossierImageId !== undefined && !UUID_PATTERN.test(dossierImageId))
+        || (outputId !== undefined && batchContract && batchContract.outputIds[position - 1] !== outputId)
         || !imageUrl
         || !label
       ) {
@@ -259,10 +281,34 @@ export function parseEditorialBatchTransferSourcePackage(
       }
 
       positions.add(position);
-      outputImages.push({ position, imageUrl, label });
+      outputImages.push({
+        position,
+        ...(outputId ? { outputId } : {}),
+        ...(dossierImageId ? { dossierImageId } : {}),
+        imageUrl,
+        label,
+      });
     }
 
-    return { ...resolvedBase, outputImages };
+    if (parsed.dossierImages !== undefined && !Array.isArray(parsed.dossierImages)) return null;
+    const dossierImageIds = new Set<string>();
+    const dossierImages: EditorialBatchTransferDossierImage[] = [];
+    for (const value of parsed.dossierImages ?? []) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+      const candidate = value as Record<string, unknown>;
+      const id = typeof candidate.id === "string" ? candidate.id.trim().toLowerCase() : "";
+      const imageUrl = httpUrl(candidate.imageUrl);
+      const label = typeof candidate.label === "string" ? candidate.label.trim().slice(0, 240) : "";
+      if (!UUID_PATTERN.test(id) || dossierImageIds.has(id) || !imageUrl || !label) return null;
+      dossierImageIds.add(id);
+      dossierImages.push({ id, imageUrl, label });
+    }
+
+    return {
+      ...resolvedBase,
+      ...(parsed.outputImages === undefined ? {} : { outputImages }),
+      ...(parsed.dossierImages === undefined ? {} : { dossierImages }),
+    };
   } catch {
     return null;
   }

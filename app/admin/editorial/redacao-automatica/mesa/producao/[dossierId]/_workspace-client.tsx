@@ -36,6 +36,11 @@ import type {
   ThemeContinuityFrozenContract,
   ThemeContinuitySlot,
 } from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
+import DossierImageChoiceGrid from "../../../_dossierImageChoiceGrid";
+import DossierImageBank, {
+  openDossierImageBank,
+  type RegisteredDossierUploadImage,
+} from "../../../_dossierImageBank";
 
 import { mesaProductionIntentSlots, type MesaProductionIntentsFrozen } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 type WorkspaceContinuitySlot = ThemeContinuitySlot | ReturnType<typeof mesaProductionIntentSlots>[number];
@@ -89,7 +94,7 @@ type CommandResponse = Readonly<{
   sourceCount?: number;
   restoredThemeMembershipCount?: number;
   outputCount?: number;
-  image?: RegisteredUploadImage;
+  image?: RegisteredDossierUploadImage;
   continuityResolution?: Readonly<{
     noChangeOutputIds: readonly string[];
     materializedOutputIds: readonly string[];
@@ -114,9 +119,7 @@ type SignedUpload = Readonly<{
   fileName: string;
 }>;
 
-type RegisteredUploadImage = Readonly<
-  Omit<Extract<EditorialDossierImage, { origin: "upload" }>, "createdAt">
->;
+type RegisteredUploadImage = RegisteredDossierUploadImage;
 
 const MAX_OUTPUT_COUNT = 30;
 const PRODUCTION_FORM_ID = "mesa-production-article-plans";
@@ -656,72 +659,26 @@ function PlanEditor({
           </fieldset>
         ) : null}
 
-        <fieldset className={styles.imageChoices}>
-          <legend>Imagem</legend>
-          <div>
-            <label data-selected={selectedImage === "unselected"}>
-              <input
-                type="radio"
-                name={planField(cardKey, "image_control")}
-                checked={selectedImage === "unselected"}
-                disabled={saving}
-                onChange={() => setImageChoices((current) => ({
-                  ...current,
-                  [destination]: "unselected",
-                }))}
-              />
-              <span className={styles.noImageChoice}>Sem imagem</span>
-            </label>
-            {destination === "update" ? (
-              <label data-selected={selectedImage === "preserve_published"}>
-                <input
-                  type="radio"
-                  name={planField(cardKey, "image_control")}
-                  checked={selectedImage === "preserve_published"}
-                  disabled={saving}
-                  onChange={() => setImageChoices((current) => ({
-                    ...current,
-                    update: "preserve_published",
-                  }))}
-                />
-                {selectedTarget?.currentImageUrl ? (
-                  <img src={selectedTarget.currentImageUrl} alt="" loading="lazy" />
-                ) : <span className={styles.noImageChoice}>Atual</span>}
-                <small>MANTER IMAGEM PUBLICADA</small>
-              </label>
-            ) : null}
-            {images.map((image) => {
-              const value = "dossier_image:" + image.id;
-              return (
-                <label key={image.id} data-selected={selectedImage === value}>
-                  <input
-                    type="radio"
-                    name={planField(cardKey, "image_control")}
-                    checked={selectedImage === value}
-                    disabled={saving}
-                    onChange={() => setImageChoices((current) => ({
-                      ...current,
-                      [destination]: value,
-                    }))}
-                  />
-                  <img src={image.frozenUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
-                  <small>{imageOriginLabel(image)}</small>
-                </label>
-              );
-            })}
-            <button
-              className={styles.addImageChoice}
-              type="button"
-              aria-controls="workspace-image-bank"
-              aria-label="Adicionar imagem ao banco da produção"
-              disabled={saving}
-              onClick={openWorkspaceImageUpload}
-            >
-              <span aria-hidden="true">+</span>
-              <small>Adicionar</small>
-            </button>
-          </div>
-        </fieldset>
+        <DossierImageChoiceGrid
+          compact
+          name={planField(cardKey, "image_control")}
+          value={selectedImage}
+          images={images.map((image) => ({
+            id: image.id,
+            imageUrl: image.frozenUrl,
+            label: imageOriginLabel(image),
+          }))}
+          disabled={saving}
+          allowNoImage
+          allowPreservePublished={destination === "update"}
+          preservePublishedImageUrl={selectedTarget?.currentImageUrl}
+          onChange={(value) => setImageChoices((current) => ({
+            ...current,
+            [destination]: value,
+          }))}
+          onAddImage={() => openDossierImageBank("workspace-image-bank")}
+          addImageControls="workspace-image-bank"
+        />
 
       </div>
     </article>
@@ -1335,11 +1292,22 @@ export function MesaProductionWorkspaceClient({
             <h2 id="workspace-plans-title">Artigos</h2>
             <p>Configura cada artigo. O foco editorial é opcional.</p>
           </div>
-          <ImageBank
+          <DossierImageBank
+            panelId="workspace-image-bank"
             dossierId={dossier.id}
-            images={workspaceImages}
-            sources={sources}
-            publishedContexts={publishedContexts}
+            images={workspaceImages.map((image) => ({
+              id: image.id,
+              imageUrl: image.frozenUrl,
+              label: image.origin === "upload"
+                ? `UPLOAD · ${image.fileName}`
+                : image.origin === "newsroom"
+                  ? `NOVA · ${sources.find((source) => (
+                      source.newsroomArticleId === image.newsroomArticleId
+                    ))?.sourceLabel ?? "Fonte"}`
+                  : `PUBLICADA · ${publishedContexts.find((context) => (
+                      context.editorialArticleId === image.editorialArticleId
+                    ))?.title ?? "Artigo"}`,
+            }))}
             onRegisteredImage={(image) => {
               setWorkspaceImages((current) => {
                 const existing = current.find((candidate) => candidate.id === image.id);

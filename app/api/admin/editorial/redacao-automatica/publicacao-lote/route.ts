@@ -41,6 +41,10 @@ import {
   type EditorialBatchTransferSourcePackage,
 } from "@/lib/redacao-automatica/editorial-batch-transfer";
 import {
+  normalizeEditorialBatchPublishedAt,
+  resolveEditorialBatchPublishedAt,
+} from "@/lib/redacao-automatica/editorial-batch-published-at";
+import {
   validateEditorialMesaOutputProvenance,
   validateEditorialMesaSingleOutputProvenance,
   validateEditorialThemeContinuityProvenance,
@@ -74,6 +78,7 @@ type BatchPublicationPayload = Readonly<{
   publicationMode?: unknown;
   updateArticleId?: unknown;
   imageUrlsByOutputId?: unknown;
+  publishedAtByOutputId?: unknown;
 }>;
 
 type ExistingArticleRow = Readonly<{
@@ -318,10 +323,20 @@ function parseBatchArticles(value: unknown) {
 }
 
 function parsePublishedAt(value: unknown) {
-  const clean = cleanText(value);
-  if (!clean) return null;
-  const date = new Date(clean);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  return normalizeEditorialBatchPublishedAt(value);
+}
+
+function parsePublishedAtByOutputId(value: unknown): ReadonlyMap<string, string> | null {
+  if (value === undefined) return new Map();
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const result = new Map<string, string>();
+  for (const [rawOutputId, rawPublishedAt] of Object.entries(value as Record<string, unknown>)) {
+    const outputId = cleanText(rawOutputId).toLowerCase();
+    const publishedAt = parsePublishedAt(rawPublishedAt);
+    if (!UUID_PATTERN.test(outputId) || !publishedAt || result.has(outputId)) return null;
+    result.set(outputId, publishedAt);
+  }
+  return result;
 }
 
 
@@ -491,10 +506,11 @@ async function prepareThemeContinuityPublication(
   const imageUrls = requireImages
     ? parseImageUrlsByOutputId(payload.imageUrlsByOutputId)
     : new Map<string, string | null>();
+  const plannedPublishedAt = parsePublishedAtByOutputId(payload.publishedAtByOutputId);
   if (
     (!author && !(transfer?.productionIntents && articles?.length === 0))
     || (!transfer?.themeContinuity && !transfer?.productionIntents) || !transfer.continuityResolution
-    || !articles || !imageUrls
+    || !articles || !imageUrls || !plannedPublishedAt
   ) throw new Error("theme-continuity-publication-input-invalid");
 
   const location: SourcePackagePayload = {
@@ -509,6 +525,9 @@ async function prepareThemeContinuityPublication(
   }
   const frozen = productionIntents ? {slots:mesaProductionIntentSlots(productionIntents), newArticleCount:productionIntents.totals.newArticles}
     : transfer.themeContinuity!;
+  if ([...plannedPublishedAt.keys()].some((outputId) => (
+    !frozen.slots.some((slot) => slot.outputId === outputId)
+  ))) throw new Error("theme-continuity-publication-input-invalid");
   const manifestContinuity = sourceContext.package.themeContinuity;
   if (!productionIntents && (
     !manifestContinuity
@@ -613,6 +632,7 @@ async function prepareThemeContinuityPublication(
   }
 
   const prepared: PreparedContinuityPublicationItem[] = [];
+  const editorialPublicationNow = new Date().toISOString();
   for (const slot of frozen.slots) {
     if (noChange.has(slot.outputId)) continue;
     const article = articleByOutputId.get(slot.outputId);
@@ -639,11 +659,15 @@ async function prepareThemeContinuityPublication(
     const matchdayId = slot.kind === "existing"
       ? slot.targetMatchdayId ?? null
       : persistedArticle?.matchday_id ?? requestedMatchdayId;
-    const publishedAt = savedArticle ? parsePublishedAt(savedArticle.publishedAt) : slot.kind === "existing"
-      ? parsePublishedAt(target?.published_at)
-      : persistedArticle
-        ? parsePublishedAt(persistedArticle.published_at)
-        : sourcePackagePublishedAtForArticle(sourceContext, article);
+    const publishedAt = resolveEditorialBatchPublishedAt({
+      mode: slot.kind === "existing" ? "update" : "new",
+      receiptPublishedAt: savedArticle?.publishedAt,
+      targetPublishedAt: target?.published_at,
+      persistedPublishedAt: persistedArticle?.published_at,
+      sourcePublishedAt: sourcePackagePublishedAtForArticle(sourceContext, article),
+      plannedPublishedAt: plannedPublishedAt.get(slot.outputId),
+      fallbackPublishedAt: editorialPublicationNow,
+    });
     const packageImage = transfer.outputImages?.find((image) => (
       image.position === output.position
     ))?.imageUrl ?? null;
@@ -1045,6 +1069,7 @@ async function preflightPublication(payload: BatchPublicationPayload) {
           updateTargetFromDossier: item.mode === "update",
           publishedAt: item.publishedAt,
           slot: item.slot,
+          dossierId: continuity.dossierId,
         })),
         continuity: {
           noChangeCount: continuity.noChangeOutputIds.length,

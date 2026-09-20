@@ -1,0 +1,131 @@
+.imageChoices {
+  min-width: 0;
+  margin: 0;
+  padding: 8px 9px 10px;
+  border: 1px solid #d8dfe8;
+  border-radius: 7px;
+}
+
+.imageChoices legend {
+  padding: 0 5px;
+  color: #55657a;
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.imageChoices > div {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.imageChoices > div > label,
+.addImageChoice {
+  position: relative;
+  display: grid;
+  width: 108px;
+  height: 88px;
+  flex: 0 0 108px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #d8dfe8;
+  border-radius: 6px;
+  background: #f1f4f8;
+  cursor: pointer;
+}
+
+.imageChoices[data-compact="true"] > div > label,
+.imageChoices[data-compact="true"] .addImageChoice {
+  width: 76px;
+  height: 66px;
+  flex-basis: 76px;
+}
+
+.imageChoices > div > label[data-selected="true"] {
+  border: 2px solid #0d63b8;
+  box-shadow: 0 0 0 2px rgb(13 99 184 / 28%);
+}
+
+.imageChoices > div > label[data-selected="true"]::after {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 82%);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+  background: #0d63b8;
+  box-shadow: 0 1px 3px rgb(16 38 64 / 28%);
+  content: "✓";
+}
+
+.imageChoices input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  opacity: 0;
+}
+
+.imageChoices img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.imageChoices small,
+.addImageChoice small {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  left: 2px;
+  padding: 3px 4px;
+  overflow: hidden;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: 750;
+  line-height: 1.1;
+  background: rgb(16 26 40 / 72%);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.noImageChoice {
+  color: #6d798b;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.addImageChoice {
+  appearance: none;
+  padding: 0;
+  color: #526177;
+  font: inherit;
+  text-decoration: none;
+}
+
+.addImageChoice:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.addImageChoice:focus-visible {
+  outline: 2px solid #1572d3;
+  outline-offset: 2px;
+}
+
+.addImageChoice > span {
+  font-size: 1.35rem;
+  line-height: 1;
+}

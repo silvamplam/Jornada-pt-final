@@ -388,10 +388,25 @@ export default async function SourcePackagePage({
               ...(updateArticleCount > 0
                 ? { updateArticleCount }
                 : {}),
-              outputImages: articleImages.map((image) => ({
-                position: image.position,
+              outputImages: articleImages.map((image) => {
+                const outputId = manifest.outputs.find((output) => (
+                  output.position === image.position
+                ))?.outputId;
+                const dossierImageId = manifest.outputs.find((output) => (
+                  output.position === image.position
+                ))?.imageNewsroomArticleId ?? undefined;
+                return {
+                  position: image.position,
+                  ...(outputId ? { outputId } : {}),
+                  ...(dossierImageId ? { dossierImageId } : {}),
+                  imageUrl: image.imageUrl,
+                  label: image.fileName ?? image.articleTitle,
+                };
+              }),
+              dossierImages: outputImageCandidates.map((image) => ({
+                id: image.newsroomArticleId,
                 imageUrl: image.imageUrl,
-                label: image.fileName ?? image.articleTitle,
+                label: `${image.sourceName} · ${image.title}`,
               })),
             }}
           />
