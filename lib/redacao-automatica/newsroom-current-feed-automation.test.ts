@@ -22,9 +22,9 @@ test("cron da Redação usa endpoint técnico autenticado sem expor o Vault", ()
   assert.match(route, /status: 503/);
   assert.doesNotMatch(route, /vault\.|decrypted_secret|process\.env\.[A-Z_]*SECRET/);
 
-  assert.match(migration, /jornada_newsroom_current_feed_secret/);
-  assert.match(migration, /vault\.create_secret/);
-  assert.match(migration, /extensions\.gen_random_bytes\(32\)/);
+  assert.match(migration, /jornada_sync_final_results_secret/);
+  assert.doesNotMatch(migration, /vault\.create_secret/);
+  assert.doesNotMatch(migration, /gen_random_bytes/);
   assert.match(migration, /security definer/);
   assert.match(migration, /grant execute[\s\S]*to service_role/);
   assert.match(
