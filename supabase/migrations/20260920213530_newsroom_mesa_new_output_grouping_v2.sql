@@ -545,9 +545,9 @@ begin
         values(p_dossier_id,v_new_group,v_source.dossier_source_id,1);
       end loop;
     end if;
-    update public.newsroom_mesa_new_output_groupings
-    set target_count=p_target_count,revision=revision+1,updated_at=clock_timestamp()
-    where dossier_id=p_dossier_id returning newsroom_mesa_new_output_groupings.revision into v_position;
+    update public.newsroom_mesa_new_output_groupings as grouping
+    set target_count=p_target_count,revision=grouping.revision+1,updated_at=clock_timestamp()
+    where grouping.dossier_id=p_dossier_id returning grouping.revision into v_position;
   elsif p_action='theme_target' then
     if p_theme_id is null or cardinality(p_group_ids)<>0 or p_target_count is null
       or p_target_count not between 0 and 30
@@ -590,9 +590,9 @@ begin
     update public.newsroom_mesa_new_output_theme_targets
     set target_count=p_target_count,updated_at=clock_timestamp()
     where dossier_id=p_dossier_id and theme_id=p_theme_id;
-    update public.newsroom_mesa_new_output_groupings
-    set revision=revision+1,updated_at=clock_timestamp()
-    where dossier_id=p_dossier_id returning newsroom_mesa_new_output_groupings.revision into v_position;
+    update public.newsroom_mesa_new_output_groupings as grouping
+    set revision=grouping.revision+1,updated_at=clock_timestamp()
+    where grouping.dossier_id=p_dossier_id returning grouping.revision into v_position;
   else
     if p_target_count is not null or p_theme_id is not null then raise exception 'mesa-grouping-change-input-invalid'; end if;
     if exists(
@@ -644,9 +644,9 @@ begin
         where group_id=p_group_ids[1] and dossier_source_id=v_source.dossier_source_id;
       end loop;
     end if;
-    update public.newsroom_mesa_new_output_groupings
-    set revision=revision+1,updated_at=clock_timestamp()
-    where dossier_id=p_dossier_id returning newsroom_mesa_new_output_groupings.revision into v_position;
+    update public.newsroom_mesa_new_output_groupings as grouping
+    set revision=grouping.revision+1,updated_at=clock_timestamp()
+    where grouping.dossier_id=p_dossier_id returning grouping.revision into v_position;
   end if;
 
   with ordered as (
