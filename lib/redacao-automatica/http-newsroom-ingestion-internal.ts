@@ -30,12 +30,15 @@ const INPUT_KEYS = [
   "detectedAt",
 ] as const;
 const INPUT_KEYS_WITH_EXTRACTION = [...INPUT_KEYS, "extractedAt"] as const;
+const INPUT_KEYS_WITH_MODE = [...INPUT_KEYS, "executionMode"] as const;
+const INPUT_KEYS_WITH_EXTRACTION_AND_MODE = [...INPUT_KEYS_WITH_EXTRACTION, "executionMode"] as const;
 
 export type IngestHttpNewsroomArticleInput = Readonly<{
   sourceCode: string;
   articleUrl: string;
   detectedAt: string;
   extractedAt?: string;
+  executionMode?: SourceExecutionMode;
 }>;
 
 export type HttpNewsroomIngestionErrorCode =
@@ -65,8 +68,8 @@ export type HttpNewsroomIngestionError = Readonly<{
 export type HttpNewsroomIngestionSuccess = Readonly<{
   complete: true;
   sourceCode: string;
-  executionMode: "manual";
-  ingestionMode: "http_manual_article";
+  executionMode: SourceExecutionMode;
+  ingestionMode: "http_manual_article" | "http_automatic_article";
   originalUrl: string;
   finalUrl: string;
   normalizedUrl: string;
@@ -107,6 +110,7 @@ type ValidatedInput = Readonly<{
   articleUrl: string;
   detectedAt: string;
   extractedAt: string;
+  executionMode: SourceExecutionMode;
 }>;
 
 const ERROR_MESSAGES: Readonly<
@@ -189,12 +193,11 @@ function validateInput(value: unknown): ValidatedInput | null {
   }
 
   const hasExtractionTime = Object.hasOwn(value, "extractedAt");
-  if (
-    !hasExactKeys(
-      value,
-      hasExtractionTime ? INPUT_KEYS_WITH_EXTRACTION : INPUT_KEYS,
-    )
-  ) {
+  const hasExecutionMode = Object.hasOwn(value, "executionMode");
+  const expectedKeys = hasExtractionTime
+    ? hasExecutionMode ? INPUT_KEYS_WITH_EXTRACTION_AND_MODE : INPUT_KEYS_WITH_EXTRACTION
+    : hasExecutionMode ? INPUT_KEYS_WITH_MODE : INPUT_KEYS;
+  if (!hasExactKeys(value, expectedKeys)) {
     return null;
   }
 
@@ -206,6 +209,9 @@ function validateInput(value: unknown): ValidatedInput | null {
     || !isArticleUrl(value.articleUrl)
     || !isTimestamp(value.detectedAt)
     || (hasExtractionTime && !isTimestamp(value.extractedAt))
+    || (hasExecutionMode
+      && value.executionMode !== "manual"
+      && value.executionMode !== "automatic")
   ) {
     return null;
   }
@@ -217,6 +223,9 @@ function validateInput(value: unknown): ValidatedInput | null {
     extractedAt: hasExtractionTime
       ? value.extractedAt as string
       : value.detectedAt,
+    executionMode: hasExecutionMode
+      ? value.executionMode as SourceExecutionMode
+      : "manual",
   };
 }
 
@@ -287,7 +296,7 @@ export function createHttpNewsroomIngestion(
     try {
       executionResult = dependencies.evaluateExecution(
         sourceResult.value,
-        "manual",
+        input.executionMode,
       );
     } catch {
       return failure("source_forbidden", "configuration", input.sourceCode);
@@ -361,7 +370,9 @@ export function createHttpNewsroomIngestion(
         page,
         detectedAt: input.detectedAt,
         extractedAt: input.extractedAt,
-        ingestionMode: "http_manual_article",
+        ingestionMode: input.executionMode === "automatic"
+          ? "http_automatic_article"
+          : "http_manual_article",
         networkRequest: true,
       },
       dependencies.persistArticle,
@@ -375,8 +386,10 @@ export function createHttpNewsroomIngestion(
       value: {
         complete: true,
         sourceCode: ingested.value.sourceCode,
-        executionMode: "manual",
-        ingestionMode: "http_manual_article",
+        executionMode: input.executionMode,
+        ingestionMode: input.executionMode === "automatic"
+          ? "http_automatic_article"
+          : "http_manual_article",
         originalUrl: input.articleUrl,
         finalUrl: page.finalUrl,
         normalizedUrl: ingested.value.normalizedUrl,

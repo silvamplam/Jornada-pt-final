@@ -49,7 +49,6 @@ function classifyCandidates(
       seen.add(candidateIdentity);
       if (knownIdentities.has(candidateIdentity)) {
         alreadyKnownCount += 1;
-        continue;
       }
 
       selected.push({
@@ -75,7 +74,7 @@ export function selectNewsroomCurrentFeedCandidates(
 
   return {
     candidates: classification.candidates,
-    availableNewCount: classification.candidates.length,
+    availableNewCount: classification.candidates.length - classification.alreadyKnownCount,
     alreadyKnownCount: classification.alreadyKnownCount,
     truncated: false,
   };

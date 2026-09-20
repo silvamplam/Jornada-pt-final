@@ -113,7 +113,7 @@ export type LoadedNewsroomArticleIngestionInput = Readonly<{
   page: LoadedPage;
   detectedAt: string;
   extractedAt: string;
-  ingestionMode: "offline_local_html" | "http_manual_article";
+  ingestionMode: "offline_local_html" | "http_manual_article" | "http_automatic_article";
   networkRequest: boolean;
 }>;
 

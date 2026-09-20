@@ -12,7 +12,8 @@ import {
 } from "@/lib/redacao-automatica/newsroom-current-feed-internal";
 import { createHttpPageLoader } from "@/lib/redacao-automatica/page-loaders/http-page-loader";
 import { registeredSourceConfigurationProvider } from "@/lib/redacao-automatica/source-configuration-provider";
-import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
+import { evaluateSourceExecution, listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
+import type { SourceExecutionMode } from "@/lib/redacao-automatica/types";
 
 const EXISTING_ARTICLE_PAGE_SIZE = 1000;
 const INGESTION_CONCURRENCY = 4;
@@ -125,14 +126,12 @@ async function mapWithConcurrency<T, R>(
 
 export async function refreshNewsroomCurrentFeed(
   requestedSourceCode?: string | null,
+  executionMode: SourceExecutionMode = "manual",
 ): Promise<NewsroomCurrentFeedRefreshResult> {
   const normalizedSourceCode = requestedSourceCode?.trim().toLowerCase() || null;
   const sources = listRegisteredSources().filter((source) => (
-    source.manualCollectionEnabled
-    && Boolean(source.adapterKey?.trim())
-    && source.operationalStatus !== "disabled"
-    && source.operationalStatus !== "legal_hold"
-    && (!normalizedSourceCode || source.code === normalizedSourceCode)
+    (!normalizedSourceCode || source.code === normalizedSourceCode)
+    && evaluateSourceExecution(source, executionMode).ok
   ));
 
   if (sources.length === 0) {
@@ -148,7 +147,7 @@ export async function refreshNewsroomCurrentFeed(
       {
         sourceCode: source.code,
         detectedAt: timestamp,
-        executionMode: "manual",
+        executionMode,
       },
       {
         sourceProvider: registeredSourceConfigurationProvider,
@@ -185,6 +184,7 @@ export async function refreshNewsroomCurrentFeed(
       articleUrl: candidate.articleUrl,
       detectedAt: timestamp,
       extractedAt: timestamp,
+      executionMode,
     }),
   );
   const persistenceSummary = summarizeNewsroomCurrentFeedPersistence(
