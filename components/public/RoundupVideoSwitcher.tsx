@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { youtubeThumbnailUrl, youtubeVideoId } from "@/lib/public-video-embed";
+import { vsportsEmbedUrl, youtubeThumbnailUrl, youtubeVideoId } from "@/lib/public-video-embed";
 
 import YouTubeEmbedWithFallback from "./YouTubeEmbedWithFallback";
 
@@ -517,6 +517,11 @@ function videoEmbedUrl(value?: string | null) {
 
   if (youtubeId) {
     return `https://www.youtube.com/embed/${youtubeId}`;
+  }
+
+  const officialVsportsEmbed = vsportsEmbedUrl(value);
+  if (officialVsportsEmbed) {
+    return officialVsportsEmbed;
   }
 
   try {

@@ -8,19 +8,31 @@ import {
 } from "@/lib/supabase";
 import { youtubeVideoId } from "@/lib/public-video-embed";
 import {
+  confirmedCandidateMediaPatch,
+  publishedVideoSummaryProvider,
+} from "@/lib/match-video-summary-provider";
+import {
+  classifyVideoSummaryTitle,
   cleanRoundupTitleFromYouTube,
   formatVideoDuration,
-  isMainVideoSummaryTitle,
   matchVideoSummaryTitle,
   normalizeVideoSummaryText,
   parseYouTubeDurationSeconds,
+  upgradedVideoSummaryKind,
+  videoSummaryKindPriority,
   type VideoSummaryMatchTarget,
+  type VideoSummaryKind,
 } from "@/lib/match-video-summary-matcher";
-import type {
-  MatchVideoSummaryCandidateView,
-  MatchVideoSummaryState,
-  MatchVideoSummaryStateRow,
+import {
+  matchVideoSummaryStateNeedsSync,
+  type MatchVideoSummaryCandidateView,
+  type MatchVideoSummaryState,
+  type MatchVideoSummaryStateRow,
 } from "@/lib/match-video-summary-types";
+import {
+  inferTrustedSourceChannelIds,
+  mergeTrustedSourceChannelIds,
+} from "@/lib/match-video-summary-sources";
 import {
   configuredYouTubeSummaryChannelIds,
   listRecentYouTubeUploads,
@@ -29,6 +41,8 @@ import {
   YouTubeDataApiError,
   type YouTubeVideoResource,
 } from "@/lib/youtube-data-api.server";
+import { missingVsportsMatchIds } from "@/lib/vsports-video-summary-discovery";
+import { discoverVsportsMatchday } from "@/lib/vsports-video-summary-discovery.server";
 
 type MatchdayRow = {
   id: string;
@@ -89,9 +103,11 @@ export type VideoSummaryCandidateRow = {
   id: string;
   matchday_id: string;
   match_id: string | null;
-  provider: "youtube";
+  provider: "youtube" | "vsports";
   provider_video_id: string;
   canonical_url: string;
+  source_url: string | null;
+  playable_media_url: string | null;
   title: string;
   channel_id: string | null;
   channel_title: string | null;
@@ -103,9 +119,42 @@ export type VideoSummaryCandidateRow = {
   source_key: string | null;
   status: "candidate" | "used" | "rejected";
   match_confidence: number | null;
+  summary_kind: "full" | "flash";
   discovered_at: string;
   last_synced_at: string;
 };
+
+type VideoSummaryDiagnosticReason =
+  | "full"
+  | "flash"
+  | "not-summary"
+  | "outside-window"
+  | "teams-not-recognized"
+  | "score-mismatch"
+  | "ambiguous-match"
+  | "already-associated"
+  | "no-playable-media"
+  | "not-found"
+  | "source-unavailable";
+
+type VideoSummaryDiscoveryRow = {
+  id: string;
+  matchday_id: string;
+  match_id: string | null;
+  source_provider: "vsports" | "youtube";
+  source_item_id: string;
+  source_url: string | null;
+  playable_media_url: string | null;
+  title: string;
+  summary_kind: VideoSummaryKind;
+  diagnostic_reason: VideoSummaryDiagnosticReason;
+  match_confidence: number | null;
+  discovered_at: string;
+  last_synced_at: string;
+};
+
+const CANDIDATE_SELECT = "id,matchday_id,match_id,provider,provider_video_id,canonical_url,source_url,playable_media_url,title,channel_id,channel_title,video_published_at,thumbnail_url,duration_seconds,is_embeddable,availability_status,source_key,status,match_confidence,summary_kind,discovered_at,last_synced_at";
+const DISCOVERY_SELECT = "id,matchday_id,match_id,source_provider,source_item_id,source_url,playable_media_url,title,summary_kind,diagnostic_reason,match_confidence,discovered_at,last_synced_at";
 
 export class MatchVideoSummarySyncError extends Error {
   constructor(
@@ -116,7 +165,6 @@ export class MatchVideoSummarySyncError extends Error {
       | "youtube-source-missing"
       | "candidate-not-found"
       | "candidate-invalid"
-      | "roundup-match-occupied"
       | "roundup-no-slot"
       | "video-summary-schema-missing",
     message: string,
@@ -192,7 +240,7 @@ async function loadBase(matchdayId: string) {
     : [];
   const roundups = await loadRoundups(matchdayId);
   const candidates = await fetchSupabaseAdminTable<VideoSummaryCandidateRow>(
-    `match_video_summary_candidates?select=id,matchday_id,match_id,provider,provider_video_id,canonical_url,title,channel_id,channel_title,video_published_at,thumbnail_url,duration_seconds,is_embeddable,availability_status,source_key,status,match_confidence,discovered_at,last_synced_at&matchday_id=eq.${encodeURIComponent(matchdayId)}&order=video_published_at.asc.nullslast,discovered_at.asc&limit=200`,
+    `match_video_summary_candidates?select=${CANDIDATE_SELECT}&matchday_id=eq.${encodeURIComponent(matchdayId)}&order=video_published_at.asc.nullslast,discovered_at.asc&limit=200`,
   ).catch((error) => {
     const message = error instanceof Error ? error.message : "";
     if (/match_video_summary_candidates/iu.test(message)) {
@@ -204,7 +252,20 @@ async function loadBase(matchdayId: string) {
     throw error;
   });
 
-  return { ...context, matches, teams, aliases, roundups, candidates };
+  const discoveries = await fetchSupabaseAdminTable<VideoSummaryDiscoveryRow>(
+    `match_video_summary_discoveries?select=${DISCOVERY_SELECT}&matchday_id=eq.${encodeURIComponent(matchdayId)}&order=last_synced_at.desc&limit=500`,
+  ).catch((error) => {
+    const message = error instanceof Error ? error.message : "";
+    if (/match_video_summary_discoveries|summary_kind/iu.test(message)) {
+      throw new MatchVideoSummarySyncError(
+        "video-summary-schema-missing",
+        "A infraestrutura de diagnóstico dos resumos ainda não foi aplicada à base de dados.",
+      );
+    }
+    throw error;
+  });
+
+  return { ...context, matches, teams, aliases, roundups, candidates, discoveries };
 }
 
 function teamDisplayName(team?: TeamRow | null) {
@@ -286,13 +347,16 @@ function matchLabel(match: MatchRow, teamById: Map<string, TeamRow>) {
 function candidateView(candidate: VideoSummaryCandidateRow): MatchVideoSummaryCandidateView {
   return {
     id: candidate.id,
+    provider: candidate.provider,
     title: candidate.title,
-    videoUrl: candidate.canonical_url,
+    videoUrl: candidate.playable_media_url ?? candidate.canonical_url,
+    sourceUrl: candidate.source_url ?? candidate.canonical_url,
     thumbnailUrl: candidate.thumbnail_url,
     duration: formatVideoDuration(candidate.duration_seconds),
     channelTitle: candidate.channel_title,
     isEmbeddable: candidate.is_embeddable,
     confidence: candidate.match_confidence,
+    summaryKind: candidate.summary_kind,
   };
 }
 
@@ -311,10 +375,25 @@ function buildStateFromBase(base: Awaited<ReturnType<typeof loadBase>>): MatchVi
       list.push(candidate);
       candidatesByMatchId.set(candidate.match_id as string, list);
     });
+  const discoveriesByMatchId = new Map<string, VideoSummaryDiscoveryRow[]>();
+  base.discoveries
+    .filter((discovery) => discovery.match_id)
+    .forEach((discovery) => {
+      const list = discoveriesByMatchId.get(discovery.match_id as string) ?? [];
+      list.push(discovery);
+      discoveriesByMatchId.set(discovery.match_id as string, list);
+    });
 
   const rows = base.matches.map<MatchVideoSummaryStateRow>((match) => {
     const roundup = roundupByMatchId.get(match.id) ?? null;
-    const candidates = candidatesByMatchId.get(match.id) ?? [];
+    const allCandidates = candidatesByMatchId.get(match.id) ?? [];
+    const bestKindCandidates = allCandidates.some((candidate) => candidate.summary_kind === "full")
+      ? allCandidates.filter((candidate) => candidate.summary_kind === "full")
+      : allCandidates;
+    const candidates = bestKindCandidates.some((candidate) => candidate.provider === "youtube")
+      ? bestKindCandidates.filter((candidate) => candidate.provider === "youtube")
+      : bestKindCandidates;
+    const diagnostics = discoveriesByMatchId.get(match.id) ?? [];
     const waiting = match.status !== "finished";
     return {
       matchId: match.id,
@@ -322,7 +401,16 @@ function buildStateFromBase(base: Awaited<ReturnType<typeof loadBase>>): MatchVi
       status: roundup ? "associated" : candidates.length > 0 ? "candidate" : waiting ? "waiting" : "missing",
       roundupId: roundup?.id ?? null,
       videoUrl: roundup?.video_url ?? null,
+      associatedProvider: roundup ? publishedVideoSummaryProvider(roundup) : null,
       candidates: candidates.map(candidateView),
+      diagnostics: diagnostics.map((diagnostic) => ({
+        id: diagnostic.id,
+        title: diagnostic.title,
+        sourceProvider: diagnostic.source_provider,
+        sourceUrl: diagnostic.source_url,
+        summaryKind: diagnostic.summary_kind,
+        reason: diagnostic.diagnostic_reason,
+      })),
     };
   });
 
@@ -374,13 +462,12 @@ function videoMetadata(video: YouTubeVideoResource) {
 
 async function seasonRoundupVideoIds(seasonId: string, targetRoundups: RoundupRow[]) {
   const targetIds = cleanIdList(targetRoundups.map((row) => row.youtube_video_id || youtubeVideoId(row.video_url) || ""));
-  if (targetIds.length > 0) return targetIds;
 
   const matchdays = await fetchSupabaseAdminTable<{ id: string }>(
     `matchdays?select=id&season_id=eq.${encodeURIComponent(seasonId)}&limit=100`,
   );
   const matchdayIds = matchdays.map((item) => item.id);
-  if (matchdayIds.length === 0) return [];
+  if (matchdayIds.length === 0) return targetIds;
 
   const rows = await fetchSupabaseAdminTable<{ video_url: string | null; youtube_video_id?: string | null }>(
     `matchday_roundup_items?select=video_url,youtube_video_id&matchday_id=in.(${idList(matchdayIds)})&status=eq.published&video_url=not.is.null&limit=200`,
@@ -388,41 +475,26 @@ async function seasonRoundupVideoIds(seasonId: string, targetRoundups: RoundupRo
     `matchday_roundup_items?select=video_url&matchday_id=in.(${idList(matchdayIds)})&status=eq.published&video_url=not.is.null&limit=200`,
   ));
 
-  return cleanIdList(rows.map((row) => ("youtube_video_id" in row && row.youtube_video_id) || youtubeVideoId(row.video_url) || ""));
+  return cleanIdList([
+    ...targetIds,
+    ...rows.map((row) => ("youtube_video_id" in row && row.youtube_video_id) || youtubeVideoId(row.video_url) || ""),
+  ]);
 }
 
 async function trustedSourceChannels(base: Awaited<ReturnType<typeof loadBase>>) {
   const configured = configuredYouTubeSummaryChannelIds(base.competition.id, base.competition.slug);
-  if (configured.length > 0) return { channelIds: configured, approvedVideos: [] as YouTubeVideoResource[] };
-
   const approvedIds = (await seasonRoundupVideoIds(base.season.id, base.roundups)).slice(0, 50);
-  if (approvedIds.length === 0) {
-    throw new MatchVideoSummarySyncError(
-      "youtube-source-missing",
-      "Ainda não existe um canal autorizado configurado nem um resumo YouTube previamente aprovado nesta competição.",
-    );
-  }
-
-  const approvedVideos = await listYouTubeVideos(approvedIds);
-  const counts = new Map<string, number>();
-  approvedVideos.forEach((video) => {
+  const approvedVideos = approvedIds.length > 0 ? await listYouTubeVideos(approvedIds) : [];
+  const inferred = inferTrustedSourceChannelIds(approvedVideos.flatMap((video) => {
     const channelId = video.snippet?.channelId?.trim();
-    if (channelId) counts.set(channelId, (counts.get(channelId) ?? 0) + 1);
-  });
-
-  if (counts.size === 1) {
-    return { channelIds: Array.from(counts.keys()), approvedVideos };
-  }
-
-  const maxCount = Math.max(0, ...counts.values());
-  const channelIds = Array.from(counts.entries())
-    .filter(([, count]) => count >= 2 && count >= Math.ceil(maxCount / 2))
-    .map(([channelId]) => channelId);
+    return channelId ? [channelId] : [];
+  }));
+  const channelIds = mergeTrustedSourceChannelIds(configured, inferred);
 
   if (channelIds.length === 0) {
     throw new MatchVideoSummarySyncError(
       "youtube-source-missing",
-      "Os vídeos previamente aprovados apontam para fontes diferentes e não permitem determinar automaticamente a fonte autorizada.",
+      "Ainda não existe um canal autorizado configurado nem um resumo YouTube previamente aprovado nesta competição.",
     );
   }
 
@@ -455,6 +527,87 @@ function publishedInWindow(publishedAt: string | null | undefined, window: Retur
   if (!window || !publishedAt) return true;
   const timestamp = Date.parse(publishedAt);
   return Number.isFinite(timestamp) && timestamp >= window.from && timestamp <= window.to;
+}
+
+type DiscoveryDraft = Readonly<{
+  matchId: string | null;
+  sourceProvider: "vsports" | "youtube";
+  sourceItemId: string;
+  sourceUrl: string | null;
+  playableMediaUrl: string | null;
+  title: string;
+  summaryKind: VideoSummaryKind;
+  reason: VideoSummaryDiagnosticReason;
+  confidence: number | null;
+}>;
+
+function evaluateDiscovery(input: {
+  title: string;
+  publishedAt?: string | null;
+  playableMediaUrl?: string | null;
+  targets: VideoSummaryMatchTarget[];
+  window: ReturnType<typeof publicationWindow>;
+  associatedMatchIds: Set<string>;
+}): {
+  summaryKind: VideoSummaryKind;
+  matchId: string | null;
+  confidence: number;
+  reason: VideoSummaryDiagnosticReason;
+} {
+  const summaryKind = classifyVideoSummaryTitle(input.title);
+  if (summaryKind === "not-summary") {
+    return { summaryKind, matchId: null, confidence: 0, reason: "not-summary" as const };
+  }
+  if (!publishedInWindow(input.publishedAt, input.window)) {
+    return { summaryKind, matchId: null, confidence: 0, reason: "outside-window" as const };
+  }
+
+  const decision = matchVideoSummaryTitle(input.title, input.targets);
+  if (!decision.matchId) {
+    const reason = decision.reason === "score-mismatch"
+      ? "score-mismatch"
+      : decision.reason === "ambiguous-match"
+        ? "ambiguous-match"
+        : "teams-not-recognized";
+    return { summaryKind, matchId: null, confidence: decision.confidence, reason };
+  }
+  if (input.associatedMatchIds.has(decision.matchId)) {
+    return { summaryKind, matchId: decision.matchId, confidence: decision.confidence, reason: "already-associated" as const };
+  }
+  if (!input.playableMediaUrl) {
+    return { summaryKind, matchId: decision.matchId, confidence: decision.confidence, reason: "no-playable-media" as const };
+  }
+  return {
+    summaryKind,
+    matchId: decision.matchId,
+    confidence: decision.confidence,
+    reason: summaryKind,
+  };
+}
+
+async function persistDiscoveries(matchdayId: string, drafts: DiscoveryDraft[]) {
+  if (drafts.length === 0) return [];
+  const now = new Date().toISOString();
+  return writeSupabaseAdminReturning<VideoSummaryDiscoveryRow>(
+    "match_video_summary_discoveries?on_conflict=matchday_id,source_provider,source_item_id",
+    {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify(drafts.map((draft) => ({
+        matchday_id: matchdayId,
+        match_id: draft.matchId,
+        source_provider: draft.sourceProvider,
+        source_item_id: draft.sourceItemId,
+        source_url: draft.sourceUrl,
+        playable_media_url: draft.playableMediaUrl,
+        title: draft.title,
+        summary_kind: draft.summaryKind,
+        diagnostic_reason: draft.reason,
+        match_confidence: draft.confidence,
+        last_synced_at: now,
+      }))),
+    },
+  );
 }
 
 async function patchRoundupTechnicalMetadata(
@@ -510,10 +663,13 @@ async function backfillExistingRoundups(
   }
 }
 
-async function existingCandidatesByVideoId(videoIds: string[]) {
+async function existingCandidatesByProviderId(
+  provider: "youtube" | "vsports",
+  videoIds: string[],
+) {
   if (videoIds.length === 0) return new Map<string, VideoSummaryCandidateRow>();
   const rows = await fetchSupabaseAdminTable<VideoSummaryCandidateRow>(
-    `match_video_summary_candidates?select=id,matchday_id,match_id,provider,provider_video_id,canonical_url,title,channel_id,channel_title,video_published_at,thumbnail_url,duration_seconds,is_embeddable,availability_status,source_key,status,match_confidence,discovered_at,last_synced_at&provider=eq.youtube&provider_video_id=in.(${videoIds.map(encodeURIComponent).join(",")})&limit=200`,
+    `match_video_summary_candidates?select=${CANDIDATE_SELECT}&provider=eq.${provider}&provider_video_id=in.(${videoIds.map(encodeURIComponent).join(",")})&limit=200`,
   );
   return new Map(rows.map((row) => [row.provider_video_id, row] as const));
 }
@@ -523,7 +679,9 @@ async function saveCandidate(
   video: YouTubeVideoResource,
   matchId: string | null,
   confidence: number,
+  summaryKind: Exclude<VideoSummaryKind, "not-summary">,
   existing: VideoSummaryCandidateRow | undefined,
+  sourceKey?: string,
 ) {
   const meta = videoMetadata(video);
   const now = new Date().toISOString();
@@ -533,6 +691,8 @@ async function saveCandidate(
     provider: "youtube",
     provider_video_id: meta.videoId,
     canonical_url: meta.canonicalUrl,
+    source_url: meta.canonicalUrl,
+    playable_media_url: meta.canonicalUrl,
     title: meta.title,
     channel_id: meta.channelId,
     channel_title: meta.channelTitle,
@@ -541,18 +701,84 @@ async function saveCandidate(
     duration_seconds: meta.durationSeconds,
     is_embeddable: meta.isEmbeddable,
     availability_status: meta.availabilityStatus,
-    source_key: `${base.competition.id}:${meta.channelId ?? "youtube"}`,
+    source_key: sourceKey ?? `${base.competition.id}:${meta.channelId ?? "youtube"}`,
     match_confidence: confidence,
+    summary_kind: summaryKind,
     last_synced_at: now,
   };
 
   if (existing) {
     if (existing.matchday_id !== base.matchday.id) return existing;
+    const existingPayload = {
+      ...payload,
+      summary_kind: upgradedVideoSummaryKind(existing.summary_kind, summaryKind),
+    };
     const rows = await writeSupabaseAdminReturning<VideoSummaryCandidateRow>(
       `match_video_summary_candidates?id=eq.${encodeURIComponent(existing.id)}`,
-      { method: "PATCH", body: JSON.stringify(payload) },
+      { method: "PATCH", body: JSON.stringify(existingPayload) },
     );
-    return rows[0] ?? { ...existing, ...payload };
+    return rows[0] ?? { ...existing, ...existingPayload };
+  }
+
+  const rows = await writeSupabaseAdminReturning<VideoSummaryCandidateRow>(
+    "match_video_summary_candidates",
+    {
+      method: "POST",
+      body: JSON.stringify({ ...payload, status: "candidate", discovered_at: now }),
+    },
+  );
+  return rows[0];
+}
+
+async function saveVsportsCandidate(
+  base: Awaited<ReturnType<typeof loadBase>>,
+  input: {
+    sourceItemId: string;
+    sourceUrl: string;
+    playableMediaUrl: string;
+    title: string;
+    thumbnailUrl: string | null;
+    publishedAt: string | null;
+    matchId: string;
+    confidence: number;
+    summaryKind: "full" | "flash";
+  },
+  existing: VideoSummaryCandidateRow | undefined,
+) {
+  const now = new Date().toISOString();
+  const payload = {
+    matchday_id: base.matchday.id,
+    match_id: input.matchId,
+    provider: "vsports",
+    provider_video_id: input.sourceItemId,
+    canonical_url: input.sourceUrl,
+    source_url: input.sourceUrl,
+    playable_media_url: input.playableMediaUrl,
+    title: input.title,
+    channel_id: null,
+    channel_title: "VSPORTS",
+    video_published_at: input.publishedAt,
+    thumbnail_url: input.thumbnailUrl,
+    duration_seconds: null,
+    is_embeddable: true,
+    availability_status: null,
+    source_key: `vsports:${base.competition.id}`,
+    match_confidence: input.confidence,
+    summary_kind: input.summaryKind,
+    last_synced_at: now,
+  } as const;
+
+  if (existing) {
+    if (existing.matchday_id !== base.matchday.id) return existing;
+    const existingPayload = {
+      ...payload,
+      summary_kind: upgradedVideoSummaryKind(existing.summary_kind, input.summaryKind),
+    };
+    const rows = await writeSupabaseAdminReturning<VideoSummaryCandidateRow>(
+      `match_video_summary_candidates?id=eq.${encodeURIComponent(existing.id)}`,
+      { method: "PATCH", body: JSON.stringify(existingPayload) },
+    );
+    return rows[0] ?? { ...existing, ...existingPayload };
   }
 
   const rows = await writeSupabaseAdminReturning<VideoSummaryCandidateRow>(
@@ -593,33 +819,36 @@ async function promoteCandidate(
   }
 
   const sameMatch = base.roundups.find((roundup) => roundup.match_id === matchId);
+  const mediaPatch = confirmedCandidateMediaPatch(candidate, formatVideoDuration(candidate.duration_seconds));
+  const playableMediaUrl = mediaPatch.video_url;
   const sameVideo = base.roundups.find((roundup) =>
-    roundup.youtube_video_id === candidate.provider_video_id
-    || youtubeVideoId(roundup.video_url) === candidate.provider_video_id,
+    roundup.source_candidate_id === candidate.id
+    || roundup.video_url === playableMediaUrl
+    || (
+      candidate.provider === "youtube"
+      && (
+        roundup.youtube_video_id === candidate.provider_video_id
+        || youtubeVideoId(roundup.video_url) === candidate.provider_video_id
+      )
+    ),
   );
 
-  if (sameMatch && sameMatch.id !== sameVideo?.id) {
-    throw new MatchVideoSummarySyncError(
-      "roundup-match-occupied",
-      "Este jogo já tem um resumo associado. A sincronização não substitui escolhas editoriais.",
-    );
-  }
-
-  if (sameVideo) {
-    await writeSupabaseAdmin(`matchday_roundup_items?id=eq.${encodeURIComponent(sameVideo.id)}`, {
+  const roundupToUpdate = sameVideo ?? sameMatch;
+  if (roundupToUpdate) {
+    await writeSupabaseAdmin(`matchday_roundup_items?id=eq.${encodeURIComponent(roundupToUpdate.id)}`, {
       method: "PATCH",
       body: JSON.stringify({
         match_id: matchId,
-        youtube_video_id: candidate.provider_video_id,
-        youtube_channel_id: candidate.channel_id,
-        is_embeddable: candidate.is_embeddable,
-        source_candidate_id: candidate.id,
+        ...mediaPatch,
         updated_at: new Date().toISOString(),
       }),
     });
-    sameVideo.match_id = matchId;
-    sameVideo.youtube_video_id = candidate.provider_video_id;
-    sameVideo.source_candidate_id = candidate.id;
+    roundupToUpdate.match_id = matchId;
+    roundupToUpdate.video_url = playableMediaUrl;
+    roundupToUpdate.youtube_video_id = mediaPatch.youtube_video_id;
+    roundupToUpdate.youtube_channel_id = mediaPatch.youtube_channel_id;
+    roundupToUpdate.is_embeddable = mediaPatch.is_embeddable;
+    roundupToUpdate.source_candidate_id = mediaPatch.source_candidate_id;
     await markCandidateUsed(candidate.id);
     return;
   }
@@ -637,16 +866,10 @@ async function promoteCandidate(
       label: "Vídeo",
       title: cleanRoundupTitleFromYouTube(candidate.title),
       subtitle: "Golos e resumo do jogo",
-      image_url: candidate.thumbnail_url,
-      video_url: candidate.canonical_url,
-      duration: formatVideoDuration(candidate.duration_seconds),
+      ...mediaPatch,
       type: "video",
       sort_order: sortOrder,
       status: "published",
-      youtube_video_id: candidate.provider_video_id,
-      youtube_channel_id: candidate.channel_id,
-      is_embeddable: candidate.is_embeddable,
-      source_candidate_id: candidate.id,
       updated_at: new Date().toISOString(),
     }),
   });
@@ -657,82 +880,235 @@ async function promoteCandidate(
 export async function syncMatchVideoSummaries(matchdayId: string) {
   try {
     const base = await loadBase(matchdayId);
-    const sources = await trustedSourceChannels(base);
-    await backfillExistingRoundups(base, sources.approvedVideos);
-
-    const { targets } = buildMatchTargets(base.matches, base.teams, base.aliases);
+    const { targets, teamById } = buildMatchTargets(base.matches, base.teams, base.aliases);
     const associatedMatchIds = new Set(base.roundups.flatMap((roundup) => {
       const matchId = inferredRoundupMatchId(roundup, targets);
       return matchId ? [matchId] : [];
     }));
+    const youtubeAssociatedMatchIds = new Set(base.roundups.flatMap((roundup) => {
+      const matchId = inferredRoundupMatchId(roundup, targets);
+      return matchId && (roundup.youtube_video_id || youtubeVideoId(roundup.video_url)) ? [matchId] : [];
+    }));
+    const vsportsAssociatedMatchIds = new Set(base.roundups.flatMap((roundup) => {
+      const matchId = inferredRoundupMatchId(roundup, targets);
+      return matchId && publishedVideoSummaryProvider(roundup) === "vsports" ? [matchId] : [];
+    }));
     const missingFinishedMatches = base.matches.filter(
       (match) => match.status === "finished" && !associatedMatchIds.has(match.id),
     );
-
-    if (missingFinishedMatches.length === 0) {
-      const state = buildStateFromBase(await loadBase(matchdayId));
-      return { ...state, sourceChannels: sources.channelIds, message: "Todos os jogos terminados já têm resumo associado." };
-    }
-
-    const playlists = await resolveYouTubeUploadsPlaylists(sources.channelIds);
-    if (playlists.length === 0) {
-      throw new MatchVideoSummarySyncError("youtube-source-missing", "Não foi possível obter a playlist de uploads das fontes autorizadas.");
-    }
-
-    const uploads = (await Promise.all(
-      playlists.map((playlist) => listRecentYouTubeUploads(playlist.uploadsPlaylistId, 50)),
-    )).flat();
     const window = publicationWindow(base.matches);
-    const uploadIds = cleanIdList(
-      uploads
-        .filter((upload) => isMainVideoSummaryTitle(upload.title))
-        .filter((upload) => publishedInWindow(upload.publishedAt, window))
-        .map((upload) => upload.videoId),
-    );
-    const videos = await listYouTubeVideos(uploadIds);
-    const trusted = new Set(sources.channelIds);
-    const plausible = videos.filter((video) => {
-      const channelId = video.snippet?.channelId?.trim();
-      const title = video.snippet?.title?.trim() || "";
-      return Boolean(channelId && trusted.has(channelId) && isMainVideoSummaryTitle(title) && publishedInWindow(video.snippet?.publishedAt, window));
-    });
-    const existingByVideoId = await existingCandidatesByVideoId(plausible.map((video) => video.id));
-    const candidatesByMatch = new Map<string, VideoSummaryCandidateRow[]>();
 
-    for (const video of plausible) {
-      const decision = matchVideoSummaryTitle(video.snippet?.title?.trim() || "", targets);
-      if (!decision.matchId || associatedMatchIds.has(decision.matchId)) continue;
-      const candidate = await saveCandidate(
-        base,
-        video,
-        decision.matchId,
-        decision.confidence,
-        existingByVideoId.get(video.id),
+    type YouTubeCandidateInput = {
+      videoId: string;
+      sourceItemId: string;
+      summaryKind: "full" | "flash";
+      matchId: string;
+      confidence: number;
+    };
+    type VsportsCandidateInput = {
+      sourceItemId: string;
+      sourceUrl: string;
+      playableMediaUrl: string;
+      title: string;
+      thumbnailUrl: string | null;
+      publishedAt: string | null;
+      summaryKind: "full" | "flash";
+      matchId: string;
+      confidence: number;
+    };
+    const indexedYouTubeCandidateInputs: YouTubeCandidateInput[] = [];
+    const vsportsCandidateInputs: VsportsCandidateInput[] = [];
+    let vsportsMatchdayUrl: string | null = null;
+
+    try {
+      const discovery = await discoverVsportsMatchday({
+        competitionSlug: base.competition.slug,
+        seasonLabel: base.season.label,
+        matchdayNumber: base.matchday.number,
+      });
+      vsportsMatchdayUrl = discovery.matchdayUrl;
+      const drafts = discovery.items.map<DiscoveryDraft>((item) => {
+        const evaluation = evaluateDiscovery({
+          title: item.title,
+          publishedAt: item.publishedAt,
+          playableMediaUrl: item.playableMediaUrl,
+          targets,
+          window,
+          associatedMatchIds: item.youtubeVideoId ? youtubeAssociatedMatchIds : vsportsAssociatedMatchIds,
+        });
+        if (
+          item.youtubeVideoId
+          && evaluation.matchId
+          && (evaluation.reason === "full" || evaluation.reason === "flash")
+        ) {
+          indexedYouTubeCandidateInputs.push({
+            videoId: item.youtubeVideoId,
+            sourceItemId: item.sourceItemId,
+            summaryKind: evaluation.reason,
+            matchId: evaluation.matchId,
+            confidence: evaluation.confidence,
+          });
+        }
+        if (
+          item.vsportsEmbedUrl
+          && evaluation.matchId
+          && (evaluation.reason === "full" || evaluation.reason === "flash")
+        ) {
+          vsportsCandidateInputs.push({
+            sourceItemId: item.sourceItemId,
+            sourceUrl: item.sourceUrl,
+            playableMediaUrl: item.vsportsEmbedUrl,
+            title: item.title,
+            thumbnailUrl: item.thumbnailUrl,
+            publishedAt: item.publishedAt,
+            summaryKind: evaluation.reason,
+            matchId: evaluation.matchId,
+            confidence: evaluation.confidence,
+          });
+        }
+        return {
+          matchId: evaluation.matchId,
+          sourceProvider: "vsports",
+          sourceItemId: item.sourceItemId,
+          sourceUrl: item.sourceUrl,
+          playableMediaUrl: item.playableMediaUrl,
+          title: item.title,
+          summaryKind: evaluation.summaryKind,
+          reason: evaluation.reason,
+          confidence: evaluation.confidence,
+        };
+      });
+      if (discovery.supported) {
+        const notFoundMatchIds = new Set(missingVsportsMatchIds(
+          missingFinishedMatches.map((match) => match.id),
+          drafts.map((draft) => draft.matchId),
+        ));
+        drafts.push(...missingFinishedMatches.filter((match) => notFoundMatchIds.has(match.id)).map((match) => ({
+          matchId: match.id,
+          sourceProvider: "vsports" as const,
+          sourceItemId: `match-${match.id}`,
+          sourceUrl: discovery.matchdayUrl,
+          playableMediaUrl: null,
+          title: matchLabel(match, teamById),
+          summaryKind: "not-summary" as const,
+          reason: "not-found" as const,
+          confidence: null,
+        })));
+      }
+      await persistDiscoveries(base.matchday.id, drafts);
+      const existingVsportsCandidates = await existingCandidatesByProviderId(
+        "vsports",
+        vsportsCandidateInputs.map((input) => input.sourceItemId),
       );
-      if (!candidate || candidate.matchday_id !== base.matchday.id || candidate.status === "rejected") continue;
-      const list = candidatesByMatch.get(decision.matchId) ?? [];
-      list.push(candidate);
-      candidatesByMatch.set(decision.matchId, list);
+      for (const input of vsportsCandidateInputs) {
+        await saveVsportsCandidate(base, input, existingVsportsCandidates.get(input.sourceItemId));
+      }
+    } catch {
+      await persistDiscoveries(base.matchday.id, missingFinishedMatches.map((match) => ({
+        matchId: match.id,
+        sourceProvider: "vsports",
+        sourceItemId: `match-${match.id}`,
+        sourceUrl: vsportsMatchdayUrl,
+        playableMediaUrl: null,
+        title: matchLabel(match, teamById),
+        summaryKind: "not-summary",
+        reason: "source-unavailable",
+        confidence: null,
+      })));
     }
 
-    for (const [matchId, candidates] of candidatesByMatch) {
-      const uniqueCandidates = Array.from(new Map(candidates.map((candidate) => [candidate.provider_video_id, candidate])).values());
-      if (uniqueCandidates.length !== 1) continue;
-      const [candidate] = uniqueCandidates;
-      if ((candidate.match_confidence ?? 0) < 100 || candidate.status === "used") continue;
-      try {
-        await promoteCandidate(base, candidate);
-        associatedMatchIds.add(matchId);
-      } catch (error) {
-        if (!(error instanceof MatchVideoSummarySyncError) || error.code !== "roundup-match-occupied") throw error;
+    const sourceChannels: string[] = [];
+    try {
+      const sources = await trustedSourceChannels(base);
+      await backfillExistingRoundups(base, sources.approvedVideos);
+      const playlists = await resolveYouTubeUploadsPlaylists(sources.channelIds);
+      if (playlists.length === 0) {
+        throw new MatchVideoSummarySyncError("youtube-source-missing", "Não foi possível obter a playlist de uploads das fontes autorizadas.");
       }
+      sourceChannels.push(...playlists.map((playlist) => playlist.channelTitle));
+
+      const uploads = (await Promise.all(
+        playlists.map((playlist) => listRecentYouTubeUploads(playlist.uploadsPlaylistId, 50)),
+      )).flat();
+      const youtubeEvaluations = uploads.map((upload) => ({
+        upload,
+        evaluation: evaluateDiscovery({
+          title: upload.title,
+          publishedAt: upload.publishedAt,
+          playableMediaUrl: canonicalYouTubeUrl(upload.videoId),
+          targets,
+          window,
+          associatedMatchIds: youtubeAssociatedMatchIds,
+        }),
+      }));
+      await persistDiscoveries(base.matchday.id, youtubeEvaluations.map(({ upload, evaluation }) => ({
+        matchId: evaluation.matchId,
+        sourceProvider: "youtube",
+        sourceItemId: upload.videoId,
+        sourceUrl: canonicalYouTubeUrl(upload.videoId),
+        playableMediaUrl: canonicalYouTubeUrl(upload.videoId),
+        title: upload.title,
+        summaryKind: evaluation.summaryKind,
+        reason: evaluation.reason,
+        confidence: evaluation.confidence,
+      })));
+
+      const youtubeCandidateInputs = youtubeEvaluations.flatMap<YouTubeCandidateInput>(({ upload, evaluation }) => (
+        evaluation.matchId
+        && (evaluation.reason === "full" || evaluation.reason === "flash")
+          ? [{
+              videoId: upload.videoId,
+              sourceItemId: upload.videoId,
+              summaryKind: evaluation.reason,
+              matchId: evaluation.matchId,
+              confidence: evaluation.confidence,
+            }]
+          : []
+      ));
+      const inputByVideoId = new Map<string, YouTubeCandidateInput>();
+      for (const input of [...indexedYouTubeCandidateInputs, ...youtubeCandidateInputs]) {
+        const existing = inputByVideoId.get(input.videoId);
+        if (!existing || videoSummaryKindPriority(input.summaryKind) > videoSummaryKindPriority(existing.summaryKind)) {
+          inputByVideoId.set(input.videoId, input);
+        }
+      }
+      const inputs = Array.from(inputByVideoId.values());
+      const videos = await listYouTubeVideos(inputs.map((input) => input.videoId));
+      const videoById = new Map(videos.map((video) => [video.id, video] as const));
+      const existingByVideoId = await existingCandidatesByProviderId("youtube", inputs.map((input) => input.videoId));
+
+      for (const input of inputs) {
+        const video = videoById.get(input.videoId);
+        if (!video) continue;
+        await saveCandidate(
+          base,
+          video,
+          input.matchId,
+          input.confidence,
+          input.summaryKind,
+          existingByVideoId.get(input.videoId),
+          input.sourceItemId === input.videoId ? undefined : `vsports:${input.sourceItemId}`,
+        );
+      }
+    } catch (error) {
+      if (!(error instanceof YouTubeDataApiError) && !(error instanceof MatchVideoSummarySyncError)) throw error;
+      await persistDiscoveries(base.matchday.id, missingFinishedMatches.map((match) => ({
+        matchId: match.id,
+        sourceProvider: "youtube",
+        sourceItemId: `match-${match.id}`,
+        sourceUrl: null,
+        playableMediaUrl: null,
+        title: matchLabel(match, teamById),
+        summaryKind: "not-summary",
+        reason: "source-unavailable",
+        confidence: null,
+      })));
     }
 
     const state = buildStateFromBase(await loadBase(matchdayId));
-    const channelTitles = playlists.map((playlist) => playlist.channelTitle);
     return {
       ...state,
-      sourceChannels: channelTitles,
+      sourceChannels,
       message: `${state.associatedCount} resumos associados · ${state.candidateCount} com decisão pendente · ${state.missingCount} por encontrar.`,
     };
   } catch (error) {
@@ -740,14 +1116,52 @@ export async function syncMatchVideoSummaries(matchdayId: string) {
   }
 }
 
+export async function syncRelevantMatchVideoSummaries() {
+  const recentMatches = await fetchSupabaseAdminTable<{
+    matchday_id: string | null;
+    kickoff_at: string | null;
+    scheduled_date: string | null;
+  }>(
+    "matches?select=matchday_id,kickoff_at,scheduled_date&status=eq.finished&matchday_id=not.is.null&order=kickoff_at.desc.nullslast,scheduled_date.desc.nullslast&limit=100",
+  );
+  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+  const matchdayIds = cleanIdList(recentMatches.flatMap((match) => {
+    const timestamp = Date.parse(match.kickoff_at || `${match.scheduled_date ?? ""}T12:00:00Z`);
+    return match.matchday_id && Number.isFinite(timestamp) && timestamp >= cutoff ? [match.matchday_id] : [];
+  })).slice(0, 8);
+
+  const results: Array<{ matchdayId: string; status: "synced" | "skipped" | "failed" }> = [];
+  for (const matchdayId of matchdayIds) {
+    try {
+      const state = await readMatchVideoSummaryState(matchdayId);
+      if (!matchVideoSummaryStateNeedsSync(state)) {
+        results.push({ matchdayId, status: "skipped" });
+        continue;
+      }
+      await syncMatchVideoSummaries(matchdayId);
+      results.push({ matchdayId, status: "synced" });
+    } catch {
+      results.push({ matchdayId, status: "failed" });
+    }
+  }
+
+  return {
+    consideredCount: matchdayIds.length,
+    syncedCount: results.filter((result) => result.status === "synced").length,
+    skippedCount: results.filter((result) => result.status === "skipped").length,
+    failedCount: results.filter((result) => result.status === "failed").length,
+    results,
+  };
+}
+
 export async function confirmMatchVideoSummaryCandidate(matchdayId: string, candidateId: string) {
   const base = await loadBase(matchdayId);
   const candidate = await readFirst<VideoSummaryCandidateRow>(
-    `match_video_summary_candidates?select=id,matchday_id,match_id,provider,provider_video_id,canonical_url,title,channel_id,channel_title,video_published_at,thumbnail_url,duration_seconds,is_embeddable,availability_status,source_key,status,match_confidence,discovered_at,last_synced_at&id=eq.${encodeURIComponent(candidateId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
+    `match_video_summary_candidates?select=${CANDIDATE_SELECT}&id=eq.${encodeURIComponent(candidateId)}&matchday_id=eq.${encodeURIComponent(matchdayId)}`,
   );
   if (!candidate) throw new MatchVideoSummarySyncError("candidate-not-found", "O candidato já não existe.");
   if (candidate.status === "rejected") throw new MatchVideoSummarySyncError("candidate-invalid", "O candidato foi rejeitado.");
-  if (candidate.status !== "used") await promoteCandidate(base, candidate);
+  await promoteCandidate(base, candidate);
   return buildStateFromBase(await loadBase(matchdayId));
 }
 

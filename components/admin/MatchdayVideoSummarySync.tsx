@@ -111,6 +111,16 @@ const styles = `
   .video-summary-sync-candidate-copy { display: grid; gap: 2px; min-width: 0; }
   .video-summary-sync-candidate-copy strong { font-size: 10px; overflow-wrap: anywhere; }
   .video-summary-sync-candidate-copy span { color: #64748b; font-size: 9px; }
+  .video-summary-sync-diagnostics {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 3px;
+    padding-top: 4px;
+    border-top: 1px solid #eef2f6;
+    color: #64748b;
+    font-size: 9px;
+  }
+  .video-summary-sync-diagnostics a { color: inherit; font-weight: 800; }
   @media (max-width: 800px) {
     .video-summary-sync-row { grid-template-columns: 1fr; }
     .video-summary-sync-actions { justify-content: flex-start; }
@@ -123,6 +133,19 @@ function statusLabel(status: MatchVideoSummaryState["rows"][number]["status"]) {
   if (status === "candidate") return "Candidato encontrado";
   if (status === "waiting") return "Jogo por terminar";
   return "Por encontrar";
+}
+
+function diagnosticLabel(reason: MatchVideoSummaryState["rows"][number]["diagnostics"][number]["reason"]) {
+  if (reason === "no-playable-media") return "Resumo identificado na VSPORTS, ainda sem media YouTube publicável";
+  if (reason === "source-unavailable") return "Fonte temporariamente indisponível";
+  if (reason === "not-found") return "A fonte não apresentou resumo para este jogo";
+  if (reason === "already-associated") return "Já existe uma escolha editorial associada";
+  if (reason === "score-mismatch") return "Resultado não coincide";
+  if (reason === "ambiguous-match") return "Associação ambígua";
+  if (reason === "teams-not-recognized") return "Equipas não reconhecidas";
+  if (reason === "outside-window") return "Fora da janela desta jornada";
+  if (reason === "not-summary") return "Não é um resumo";
+  return reason === "full" ? "Resumo completo elegível" : "Resumo flash elegível";
 }
 
 export default function MatchdayVideoSummarySync({
@@ -247,13 +270,13 @@ export default function MatchdayVideoSummarySync({
                       <div className="video-summary-sync-candidate-copy">
                         <strong>{candidate.title}</strong>
                         <span>
-                          {[candidate.channelTitle, candidate.duration, candidate.confidence ? `${candidate.confidence}%` : null]
+                          {[candidate.summaryKind === "full" ? "Completo" : "Flash", candidate.channelTitle, candidate.duration, candidate.confidence ? `${candidate.confidence}%` : null]
                             .filter(Boolean)
                             .join(" · ")}
                         </span>
                       </div>
                       <div className="video-summary-sync-actions">
-                        <a href={candidate.videoUrl} rel="noopener noreferrer" target="_blank">Ver</a>
+                        <a href={candidate.sourceUrl} rel="noopener noreferrer" target="_blank">Ver fonte</a>
                         <button
                           className="video-summary-sync-button secondary"
                           disabled={busyKey !== null}
@@ -272,6 +295,21 @@ export default function MatchdayVideoSummarySync({
                         </button>
                       </div>
                     </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {row.status === "missing" && row.diagnostics.length > 0 ? (
+                <div className="video-summary-sync-diagnostics">
+                  {row.diagnostics.slice(0, 3).map((diagnostic) => (
+                    <span key={diagnostic.id}>
+                      {diagnostic.sourceUrl ? (
+                        <a href={diagnostic.sourceUrl} rel="noopener noreferrer" target="_blank">
+                          {diagnostic.sourceProvider === "vsports" ? "VSPORTS" : "YouTube"}
+                        </a>
+                      ) : diagnostic.sourceProvider === "vsports" ? "VSPORTS" : "YouTube"}
+                      {` · ${diagnosticLabel(diagnostic.reason)}`}
+                    </span>
                   ))}
                 </div>
               ) : null}

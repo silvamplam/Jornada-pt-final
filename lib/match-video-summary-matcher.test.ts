@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  classifyVideoSummaryTitle,
   cleanRoundupTitleFromYouTube,
   formatVideoDuration,
   isMainVideoSummaryTitle,
   matchVideoSummaryTitle,
   normalizeVideoSummaryText,
   parseYouTubeDurationSeconds,
+  upgradedVideoSummaryKind,
+  videoSummaryKindPriority,
 } from "./match-video-summary-matcher";
 
 const matches = [
@@ -31,9 +34,19 @@ test("normaliza acentos e pontuação", () => {
   assert.equal(normalizeVideoSummaryText("Vitória SC — Sporting CP"), "vitoria sc sporting cp");
 });
 
-test("aceita resumo principal e rejeita resumo flash", () => {
+test("candidato pode subir de flash para full, mas nunca descer de full para flash", () => {
+  assert.equal(upgradedVideoSummaryKind("flash", "full"), "full");
+  assert.equal(upgradedVideoSummaryKind("full", "flash"), "full");
+  assert.equal(upgradedVideoSummaryKind("flash", "flash"), "flash");
+});
+
+test("classifica resumo completo, resumo flash e rejeita flash interview", () => {
   assert.equal(isMainVideoSummaryTitle("Resumo: Sporting 3-2 Vitória SC - Liga Portugal Betclic | sport tv"), true);
-  assert.equal(isMainVideoSummaryTitle("Resumo Flash Sporting 3-2 Vitória SC"), false);
+  assert.equal(classifyVideoSummaryTitle("Resumo: Sporting 3-2 Vitória SC"), "full");
+  assert.equal(classifyVideoSummaryTitle("Resumo Flash Sporting 3-2 Vitória SC"), "flash");
+  assert.equal(isMainVideoSummaryTitle("Resumo Flash Sporting 3-2 Vitória SC"), true);
+  assert.equal(classifyVideoSummaryTitle("Flash Interview Rui Borges"), "not-summary");
+  assert.ok(videoSummaryKindPriority("full") > videoSummaryKindPriority("flash"));
 });
 
 test("associa automaticamente quando equipas e resultado coincidem", () => {
@@ -41,6 +54,7 @@ test("associa automaticamente quando equipas e resultado coincidem", () => {
     matchVideoSummaryTitle("Resumo: Sporting 3-2 Vitória SC - Liga Portugal Betclic | sport tv", matches),
     {
       eligible: true,
+      summaryKind: "full",
       matchId: "sporting-vitoria",
       confidence: 100,
       reason: "teams-and-score",
@@ -53,7 +67,21 @@ test("associa automaticamente quando equipas e resultado coincidem", () => {
 test("não associa quando o resultado contradiz o jogo", () => {
   const decision = matchVideoSummaryTitle("Resumo: Sporting 2-0 Vitória SC", matches);
   assert.equal(decision.matchId, null);
-  assert.equal(decision.reason, "no-match");
+  assert.equal(decision.reason, "score-mismatch");
+});
+
+test("Resumo Flash Sporting 2-2 Arouca é elegível e mantém tipo flash", () => {
+  const decision = matchVideoSummaryTitle("Resumo Flash Sporting 2-2 Arouca", [{
+    matchId: "sporting-arouca",
+    homeVariants: ["Sporting", "Sporting CP"],
+    awayVariants: ["Arouca"],
+    homeScore: 2,
+    awayScore: 2,
+  }]);
+  assert.equal(decision.eligible, true);
+  assert.equal(decision.summaryKind, "flash");
+  assert.equal(decision.matchId, "sporting-arouca");
+  assert.equal(decision.reason, "teams-and-score");
 });
 
 test("aceita alias curto existente no circuito editorial", () => {
@@ -103,6 +131,29 @@ test("resolve os nove padrões reais de uma jornada sem colisões", () => {
   for (const [matchId, , , , , title] of jornada) {
     const decision = matchVideoSummaryTitle(title, targets);
     assert.equal(decision.matchId, matchId, title);
+    assert.equal(decision.confidence, 100, title);
+  }
+});
+
+test("fixture da Jornada 7 cobre os quatro jogos terminados", () => {
+  const jornada7 = [
+    ["nacional-famalicao", ["Nacional"], ["Famalicão", "Famalicao"], 0, 4, "Resumo Flash Nacional 0-4 Famalicão"],
+    ["gil-maritimo", ["Gil Vicente"], ["Marítimo", "Maritimo"], 1, 1, "Resumo Flash Gil Vicente 1-1 Marítimo"],
+    ["alverca-rio-ave", ["Alverca", "FC Alverca"], ["Rio Ave"], 1, 0, "Resumo Flash Alverca 1-0 Rio Ave"],
+    ["sporting-arouca", ["Sporting", "Sporting CP"], ["Arouca"], 2, 2, "Resumo Flash Sporting 2-2 Arouca"],
+  ] as const;
+  const targets = jornada7.map(([matchId, homeVariants, awayVariants, homeScore, awayScore]) => ({
+    matchId,
+    homeVariants: [...homeVariants],
+    awayVariants: [...awayVariants],
+    homeScore,
+    awayScore,
+  }));
+
+  for (const [matchId, , , , , title] of jornada7) {
+    const decision = matchVideoSummaryTitle(title, targets);
+    assert.equal(decision.matchId, matchId, title);
+    assert.equal(decision.summaryKind, "flash", title);
     assert.equal(decision.confidence, 100, title);
   }
 });

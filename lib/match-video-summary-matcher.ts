@@ -8,17 +8,21 @@ export type VideoSummaryMatchTarget = {
 
 export type VideoSummaryMatchDecision = {
   eligible: boolean;
+  summaryKind: VideoSummaryKind;
   matchId: string | null;
   confidence: number;
   reason:
-    | "not-main-summary"
-    | "no-match"
+    | "not-summary"
+    | "teams-not-recognized"
+    | "score-mismatch"
     | "ambiguous-match"
     | "teams-only"
     | "teams-and-score";
   matchedHomeVariant: string | null;
   matchedAwayVariant: string | null;
 };
+
+export type VideoSummaryKind = "full" | "flash" | "not-summary";
 
 const SCORE_RE = /(?:^|\s)(\d{1,2})\s*[-–—x:]\s*(\d{1,2})(?=\s|$)/giu;
 
@@ -33,13 +37,31 @@ export function normalizeVideoSummaryText(value?: string | null) {
     .trim();
 }
 
-export function isMainVideoSummaryTitle(title?: string | null) {
+export function classifyVideoSummaryTitle(title?: string | null): VideoSummaryKind {
   const normalized = normalizeVideoSummaryText(title);
-  if (!normalized) return false;
-  if (!/(^| )resumo( |$)/u.test(normalized)) return false;
-  if (/(^| )flash( |$)/u.test(normalized)) return false;
-  if (/(^| )(golo|jogada|expulsao|caso|penalti)( |$)/u.test(normalized)) return false;
-  return true;
+  if (!normalized || !/(^| )resumo( |$)/u.test(normalized)) return "not-summary";
+  if (/(^| )flash interview( |$)/u.test(normalized)) return "not-summary";
+  if (/(^| )(golo|jogada|expulsao|caso|penalti)( |$)/u.test(normalized)) return "not-summary";
+  return /(^| )resumo flash( |$)/u.test(normalized) ? "flash" : "full";
+}
+
+export function isMainVideoSummaryTitle(title?: string | null) {
+  return classifyVideoSummaryTitle(title) !== "not-summary";
+}
+
+export function videoSummaryKindPriority(kind: VideoSummaryKind) {
+  if (kind === "full") return 2;
+  if (kind === "flash") return 1;
+  return 0;
+}
+
+export function upgradedVideoSummaryKind(
+  existing: Exclude<VideoSummaryKind, "not-summary">,
+  incoming: Exclude<VideoSummaryKind, "not-summary">,
+) {
+  return videoSummaryKindPriority(incoming) > videoSummaryKindPriority(existing)
+    ? incoming
+    : existing;
 }
 
 export function extractScorePairs(title?: string | null) {
@@ -65,12 +87,14 @@ export function matchVideoSummaryTitle(
   title: string,
   matches: VideoSummaryMatchTarget[],
 ): VideoSummaryMatchDecision {
-  if (!isMainVideoSummaryTitle(title)) {
+  const summaryKind = classifyVideoSummaryTitle(title);
+  if (summaryKind === "not-summary") {
     return {
       eligible: false,
+      summaryKind,
       matchId: null,
       confidence: 0,
-      reason: "not-main-summary",
+      reason: "not-summary",
       matchedHomeVariant: null,
       matchedAwayVariant: null,
     };
@@ -78,7 +102,7 @@ export function matchVideoSummaryTitle(
 
   const normalizedTitle = normalizeVideoSummaryText(title);
   const scorePairs = extractScorePairs(title);
-  const candidates = matches.flatMap((match) => {
+  const teamCandidates = matches.flatMap((match) => {
     const homeVariant = findVariant(normalizedTitle, match.homeVariants);
     const awayVariant = findVariant(normalizedTitle, match.awayVariants);
     if (!homeVariant || !awayVariant || homeVariant === awayVariant) return [];
@@ -87,8 +111,6 @@ export function matchVideoSummaryTitle(
     const scoreMatches = hasFinalScore
       ? scorePairs.some(([home, away]) => home === match.homeScore && away === match.awayScore)
       : false;
-
-    if (hasFinalScore && scorePairs.length > 0 && !scoreMatches) return [];
 
     return [{
       match,
@@ -99,12 +121,29 @@ export function matchVideoSummaryTitle(
     }];
   });
 
-  if (candidates.length === 0) {
+  if (teamCandidates.length === 0) {
     return {
       eligible: true,
+      summaryKind,
       matchId: null,
       confidence: 0,
-      reason: "no-match",
+      reason: "teams-not-recognized",
+      matchedHomeVariant: null,
+      matchedAwayVariant: null,
+    };
+  }
+
+  const candidates = scorePairs.length > 0
+    ? teamCandidates.filter((candidate) => candidate.scoreMatches)
+    : teamCandidates;
+
+  if (scorePairs.length > 0 && candidates.length === 0) {
+    return {
+      eligible: true,
+      summaryKind,
+      matchId: null,
+      confidence: 0,
+      reason: "score-mismatch",
       matchedHomeVariant: null,
       matchedAwayVariant: null,
     };
@@ -113,6 +152,7 @@ export function matchVideoSummaryTitle(
   if (candidates.length > 1) {
     return {
       eligible: true,
+      summaryKind,
       matchId: null,
       confidence: Math.max(...candidates.map((candidate) => candidate.confidence)),
       reason: "ambiguous-match",
@@ -124,6 +164,7 @@ export function matchVideoSummaryTitle(
   const [candidate] = candidates;
   return {
     eligible: true,
+    summaryKind,
     matchId: candidate.match.matchId,
     confidence: candidate.confidence,
     reason: candidate.scoreMatches ? "teams-and-score" : "teams-only",

@@ -44,3 +44,25 @@ export function youtubeThumbnailUrl(value?: string | null) {
   const videoId = youtubeVideoId(value);
   return videoId ? `https://img.youtube.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg` : null;
 }
+
+export function vsportsEmbedUrl(value?: string | null) {
+  const cleanValue = value?.trim();
+  if (!cleanValue) return null;
+
+  try {
+    const parsed = new URL(cleanValue);
+    const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    if (
+      parsed.protocol !== "https:"
+      || hostname !== "vsports.pt"
+      || parsed.username
+      || parsed.password
+      || !parsed.pathname.startsWith("/vsports/embd/")
+    ) {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
