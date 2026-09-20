@@ -1,9 +1,34 @@
 import Link from "next/link";
 import type { OperationalDeskSourceItem } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
+import type { MesaMaterialSelection } from "./_mesa-selection-state";
 import { MesaClassificationBadge, MesaClassificationEditor, MesaOperationalSourceRow, MesaSelectionToggle, MesaSelectedVersionNotice, MesaSourceThemeMenu } from "./_mesa-selection-client";
 import { MesaSourceChanges, MesaRemoveThemeSource } from "./_mesa-source-changes";
 import styles from "./mesa.module.css";
 function formatSourceLabel(item: OperationalDeskSourceItem): string { return item.sourceName ?? item.sourceCode; }
+export function mesaSourceUsableSnapshot(item: OperationalDeskSourceItem) {
+  return item.snapshot && (item.snapshot.hasUsableBody ?? item.snapshot.body.some(
+    (block) => block.text.trim().length > 0,
+  )) ? item.snapshot : null;
+}
+
+export function mesaSourceSelectionMaterial(
+  item: OperationalDeskSourceItem,
+): MesaMaterialSelection {
+  const usableSnapshot = mesaSourceUsableSnapshot(item);
+  return {
+    kind: "source",
+    lifecycle: item.lifecycle,
+    newsroomArticleId: item.newsroomArticleId,
+    newsroomSnapshotId: usableSnapshot?.id ?? null,
+    classificationKey: item.classification.status === "classified"
+      ? item.classification.classificationKey
+      : null,
+    title: item.title,
+    sourceLabel: item.sourceName ?? item.sourceCode,
+    imageUrl: item.imageCandidateUrl,
+  };
+}
+
 function formatDate(value: string | null): string | null {
   if (!value || Number.isNaN(Date.parse(value))) return null;
   return new Intl.DateTimeFormat("pt-PT", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Lisbon" }).format(new Date(value));
@@ -26,12 +51,9 @@ export function MesaSourceItem({
 }>) {
   const dateValue = item.publishedAt ?? item.lastDetectedAt;
   const formattedDate = formatDate(dateValue);
-  const usableSnapshot = item.snapshot && (item.snapshot.hasUsableBody ?? item.snapshot.body.some(
-    (block) => block.text.trim().length > 0,
-  )) ? item.snapshot : null;
-  const classificationKey = item.classification.status === "classified"
-    ? item.classification.classificationKey
-    : null;
+  const material = mesaSourceSelectionMaterial(item);
+  const usableSnapshot = mesaSourceUsableSnapshot(item);
+  const classificationKey = material.classificationKey;
 
   return (
     <MesaOperationalSourceRow allowDiscard={allowDiscard} source={{
@@ -41,16 +63,7 @@ export function MesaSourceItem({
       classificationKey,
     }}>
       {allowSelection ? <div className={styles.sourceSelection}>
-        <MesaSelectionToggle material={{
-          kind: "source",
-          lifecycle: item.lifecycle,
-          newsroomArticleId: item.newsroomArticleId,
-          newsroomSnapshotId: usableSnapshot?.id ?? null,
-          classificationKey,
-          title: item.title,
-          sourceLabel: item.sourceName ?? item.sourceCode,
-          imageUrl: item.imageCandidateUrl,
-        }} />
+        <MesaSelectionToggle material={material} />
       </div> : <div className={styles.sourceSelection} aria-hidden="true" />}
       <div className={styles.sourceThumb}>
         {item.imageCandidateUrl ? (
@@ -81,9 +94,7 @@ export function MesaSourceItem({
           />
         </div>
         <h2>{item.title}</h2>
-        <MesaSelectedVersionNotice material={{ kind: "source", lifecycle: item.lifecycle,
-          newsroomArticleId: item.newsroomArticleId, newsroomSnapshotId: usableSnapshot?.id ?? null,
-          classificationKey, title: item.title, sourceLabel: formatSourceLabel(item), imageUrl: item.imageCandidateUrl }} />
+        <MesaSelectedVersionNotice material={material} />
         {item.sourceUpdated && item.comparisonSnapshotId && item.snapshot && !fixtureMode ? (
           <MesaSourceChanges sourceId={item.newsroomArticleId} beforeId={item.comparisonSnapshotId}
             afterId={item.snapshot.id} title={item.title} themeId={themeId} detectedAt={item.sourceUpdatedAt} />
