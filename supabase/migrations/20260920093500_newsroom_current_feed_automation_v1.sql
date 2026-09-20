@@ -1,9 +1,5 @@
 begin;
 
-create extension if not exists pg_cron with schema pg_catalog;
-create extension if not exists pg_net with schema extensions;
-create extension if not exists supabase_vault with schema vault;
-
 create or replace function public.newsroom_verify_automatic_feed_secret_v1(
   p_secret text
 )

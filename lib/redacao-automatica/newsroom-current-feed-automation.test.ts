@@ -25,6 +25,7 @@ test("cron da Redação usa endpoint técnico autenticado sem expor o Vault", ()
   assert.match(migration, /jornada_sync_final_results_secret/);
   assert.doesNotMatch(migration, /vault\.create_secret/);
   assert.doesNotMatch(migration, /gen_random_bytes/);
+  assert.doesNotMatch(migration, /create extension/i);
   assert.match(migration, /security definer/);
   assert.match(migration, /grant execute[\s\S]*to service_role/);
   assert.match(
