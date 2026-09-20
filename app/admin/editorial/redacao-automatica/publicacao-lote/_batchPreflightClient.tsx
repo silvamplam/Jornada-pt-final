@@ -1224,6 +1224,43 @@ export default function BatchPreflightClient({
           publicationPlanRef.current = plan;
           setPublicationPlan(plan);
           setPublicationError(null);
+
+          const noChangeOutputIds =
+            sourcePackage?.continuityResolution?.noChangeOutputIds ?? [];
+          const noChangeOutputIdSet = new Set(noChangeOutputIds);
+          const autoFinalizeNoChangeOnly = Boolean(
+            themeContinuity
+            && sourcePackage?.continuityResolution
+            && themeContinuity.newArticleCount === 0
+            && themeContinuity.slots.length > 0
+            && preflight.articles.length === 0
+            && plan.length === 0
+            && noChangeOutputIds.length === themeContinuity.slots.length
+            && themeContinuity.slots.every((slot) => (
+              slot.kind === "existing"
+              && noChangeOutputIdSet.has(slot.outputId)
+            )),
+          );
+
+          if (autoFinalizeNoChangeOnly && !publishingRef.current) {
+            publishingRef.current = true;
+            setIsPublishing(true);
+            setBatchFinalized(false);
+
+            void publishThemeContinuityBatch([])
+              .catch((error) => {
+                if (!responseIsCurrent()) return;
+                setPublicationError(
+                  error instanceof Error
+                    ? error.message
+                    : "A consolidação automática da continuidade falhou.",
+                );
+              })
+              .finally(() => {
+                publishingRef.current = false;
+                setIsPublishing(false);
+              });
+          }
         },
         onServerPreflightFailed: (message) => {
           if (!responseIsCurrent()) return;
