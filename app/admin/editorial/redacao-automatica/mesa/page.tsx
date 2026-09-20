@@ -751,7 +751,7 @@ function buildFixtureSources(): readonly OperationalDeskSourceItem[] {
 
 const FIXTURE_SOURCES = buildFixtureSources();
 
-function fixtureMaterial(item: OperationalDeskSourceItem): MesaMaterialSelection {
+function mesaMaterialFromSource(item: OperationalDeskSourceItem): MesaMaterialSelection {
   const usableSnapshot = item.snapshot && item.snapshot.body.some(
     (block) => block.text.trim().length > 0,
   ) ? item.snapshot : null;
@@ -772,7 +772,7 @@ function fixtureMaterial(item: OperationalDeskSourceItem): MesaMaterialSelection
 const FIXTURE_INITIAL_SELECTION = [0, 2, 4, 21]
   .map((index) => FIXTURE_SOURCES[index])
   .filter((item): item is OperationalDeskSourceItem => Boolean(item))
-  .map(fixtureMaterial);
+  .map(mesaMaterialFromSource);
 
 function presentationHref(
   query: MesaQuery,
@@ -1124,6 +1124,8 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
                   newItems={inboxItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} />)}
                   publishedItems={publishedItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} allowDiscard={false} />)}
                   archiveItems={archiveItems.map((item) => <MesaArchiveSourceItemView key={item.newsroomArticleId} item={item} />)}
+                  newSelectionItems={inboxItems.map(mesaMaterialFromSource)}
+                  publishedSelectionItems={publishedItems.map(mesaMaterialFromSource)}
                 />
                 {organizationError ? <section className={styles.errorState} role="alert">
                   <h2>Organização indisponível</h2>

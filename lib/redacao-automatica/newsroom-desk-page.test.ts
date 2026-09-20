@@ -205,6 +205,24 @@ test("barra da Mesa mantém pesquisa, filtros e Atualizar na ordem editorial", (
   assert.match(selectionActions, /aria-label="Título de trabalho"/);
 });
 
+test("NOVAS reage ao descarte e a seleção em lote respeita o limite operacional", () => {
+  const organization = source(path.join(
+    process.cwd(),
+    "app/admin/editorial/redacao-automatica/mesa/_mesa-organization-client.tsx",
+  ));
+  const page = source(MESA_PAGE);
+
+  assert.match(organization, /NOVAS \(<MesaLiveCount/);
+  assert.match(organization, /initial=\{newCount\}/);
+  assert.match(organization, /lifecycle="new"/);
+  assert.match(organization, /MESA_MAX_NEWSROOM_SOURCES - buffer\.sources\.length/);
+  assert.match(organization, /bulkSelection = unselectedItems\.slice\(0, remainingSelectionSlots\)/);
+  assert.match(organization, />Selecionar<\/button>/);
+  assert.match(organization, /tab !== "archive"/);
+  assert.match(page, /newSelectionItems=\{inboxItems\.map\(mesaMaterialFromSource\)\}/);
+  assert.match(page, /publishedSelectionItems=\{publishedItems\.map\(mesaMaterialFromSource\)\}/);
+});
+
 test("Arquivo e pesquisa ficam disponíveis na nova Mesa", () => {
   const archive = validQuery({ tab: "arquivo", query: "quaresma" });
   assert.equal(archive.tab, "arquivo");
