@@ -65,10 +65,19 @@ test("frozen contract accepts selection with explicit review targets only", () =
   const contextKey=`selection:${base.preparationKey}`;
   const selectedOutputs=base.outputs.filter((output:any)=>output.contextKey===sourceContext.key)
     .map((output:any)=>({...output,contextKey}));
+  const newTemplate=base.outputs.find((output:any)=>output.kind==="new");
+  assert.ok(newTemplate);
+  selectedOutputs.push({
+    ...newTemplate,
+    slot:"NEW_01",
+    contextKey,
+    productionContextId:sourceContext.productionContextId,
+    target:null,
+  });
   const selectedSourceIds=sourceContext.sources.map((source:any)=>source.newsroomArticleId).sort();
   const reviewArticleIds=selectedOutputs.filter((output:any)=>output.kind==="existing")
     .map((output:any)=>output.target.editorialArticleId).sort();
-  const selectionContext={...sourceContext,key:contextKey,kind:"selection",themeId:null,sourceId:null,title:base.title};
+  const selectionContext={...sourceContext,key:contextKey,kind:"selection",themeId:null,sourceId:null,title:base.title,newArticleCount:1};
   delete selectionContext.theme;
   const selectionPlan={...base,
     request:{version:1,preparationKey:base.preparationKey,title:base.title,themes:[],sources:[],
@@ -78,6 +87,16 @@ test("frozen contract accepts selection with explicit review targets only", () =
       newArticles:selectedOutputs.filter((output:any)=>output.kind==="new").length},
   };
   assert.ok(parseMesaProductionIntents(selectionPlan));
+  const withPlannedFocus=structuredClone(selectionPlan);
+  const plannedNew=withPlannedFocus.outputs.find((output:any)=>output.kind==="new");
+  assert.ok(plannedNew);
+  plannedNew.focusSourceIds=[selectedSourceIds[0]];
+  assert.ok(parseMesaProductionIntents(withPlannedFocus),"a NEW may carry a planning seed inside its global context");
+  const invalidExistingFocus=structuredClone(selectionPlan);
+  const existing=invalidExistingFocus.outputs.find((output:any)=>output.kind==="existing");
+  assert.ok(existing);
+  existing.focusSourceIds=[selectedSourceIds[0]];
+  assert.equal(parseMesaProductionIntents(invalidExistingFocus),null,"planning seeds never rewrite EXISTING");
   const broken=structuredClone(selectionPlan);
   broken.request.selection.reviewArticleIds=["a0000000-0000-4000-8000-000000009999"];
   assert.equal(parseMesaProductionIntents(broken),null);

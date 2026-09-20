@@ -8,15 +8,23 @@ on:
       - .ci/mesa-intents-sql/**
       - .github/workflows/mesa-production-intents-sql.yml
       - lib/redacao-automatica/newsroom-mesa-production-intents*
+      - lib/redacao-automatica/newsroom-mesa-new-output-groups*
+      - app/admin/editorial/redacao-automatica/mesa/producao/**
+      - app/api/admin/editorial/redacao-automatica/mesa/**
       - supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql
       - supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql
+      - supabase/migrations/20260920213530_newsroom_mesa_new_output_grouping_v2.sql
   pull_request:
     paths:
       - .ci/mesa-intents-sql/**
       - .github/workflows/mesa-production-intents-sql.yml
       - lib/redacao-automatica/newsroom-mesa-production-intents*
+      - lib/redacao-automatica/newsroom-mesa-new-output-groups*
+      - app/admin/editorial/redacao-automatica/mesa/producao/**
+      - app/api/admin/editorial/redacao-automatica/mesa/**
       - supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql
       - supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql
+      - supabase/migrations/20260920213530_newsroom_mesa_new_output_grouping_v2.sql
 
 permissions:
   contents: read
@@ -91,12 +99,17 @@ jobs:
           /tmp/mesa-intents-offline node node_modules/tsx/dist/cli.mjs \
             .ci/mesa-intents-sql/compare.ts /tmp/mesa-intents-evidence/sql-previews.json \
             | tee /tmp/mesa-intents-evidence/parity.log
+          /tmp/mesa-intents-offline node node_modules/tsx/dist/cli.mjs \
+            .ci/mesa-intents-sql/grouping-v2-compare.ts /tmp/mesa-intents-evidence/grouping-v2-plan.json \
+            | tee /tmp/mesa-intents-evidence/grouping-v2-parity.log
       - name: Behavior and existing compatibility tests
         shell: bash
         run: |
           set -euo pipefail
           /tmp/mesa-intents-offline node node_modules/tsx/dist/cli.mjs --test \
             lib/redacao-automatica/newsroom-mesa-production-intents.test.ts \
+            lib/redacao-automatica/newsroom-mesa-production-intents-contract.test.ts \
+            lib/redacao-automatica/newsroom-mesa-new-output-groups.test.ts \
             lib/redacao-automatica/newsroom-theme-continuity.test.ts \
             lib/redacao-automatica/newsroom-theme-continuity-generic-bypass.test.ts \
             lib/redacao-automatica/newsroom-mesa-contexts-production-2c-runtime.test.ts \

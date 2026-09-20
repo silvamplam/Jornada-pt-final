@@ -161,10 +161,12 @@ function validPlan(value: unknown, persisted: boolean): boolean {
     if (persisted && o.productionContextId !== c.productionContextId) return false;
     const expectedFocusSourceIds = expected.focusSourceIds;
     if (o.focusSourceIds !== undefined && (!ids(o.focusSourceIds) || o.focusSourceIds.length < 1 || o.focusSourceIds.length > 20
-      || o.focusSourceIds.some((sourceId) => !c.sources.some((source) => source.newsroomArticleId === sourceId))
-      || !sameMesaIntentJson(o.focusSourceIds, expectedFocusSourceIds))) return false;
-    if (persisted && expectedFocusSourceIds !== undefined
-      && !sameMesaIntentJson(o.focusSourceIds, expectedFocusSourceIds)) return false;
+      || o.focusSourceIds.some((sourceId) => !c.sources.some((source) => source.newsroomArticleId === sourceId)))) return false;
+    // A v2 planning layer may add an explicit editorial starting point to a NEW
+    // while keeping the canonical v1 context global. It does not restrict the
+    // sources available to the output and remains covered by the frozen plan.
+    if (expectedFocusSourceIds !== undefined && !sameMesaIntentJson(o.focusSourceIds, expectedFocusSourceIds)) return false;
+    if (expectedFocusSourceIds === undefined && o.focusSourceIds !== undefined && o.kind !== "new") return false;
     if (o.kind === "new" ? o.target !== null : !capturedArticle(o.target)
       || !sameMesaIntentJson(o.target, c.publishedArticles.find((a) => a.editorialArticleId === expected.target?.editorialArticleId))) return false;
   }

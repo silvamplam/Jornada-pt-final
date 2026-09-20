@@ -15,9 +15,11 @@ from pathlib import Path
 import re
 import subprocess
 import time
+from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATION = 'supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql'
+GROUPING_V2_MIGRATION = 'supabase/migrations/20260920213530_newsroom_mesa_new_output_grouping_v2.sql'
 parser = argparse.ArgumentParser()
 parser.add_argument('--socket', type=Path)
 parser.add_argument('--psql', default='psql')
@@ -84,6 +86,60 @@ def selection_request(key: int, source_ids, review_article_ids=(), new=0, theme_
         selection['candidateArticleIds']=[uid(n) if isinstance(n,int) else n for n in candidate_article_ids]
     return dict(version=1,preparationKey=uid(key),title='Seleção editorial',
                 themes=[],sources=[],selection=selection)
+
+
+def grouping_request(key: int, source_ids, theme_ids=(), review_article_ids=()):
+    normalized_sources = [uid(n) if isinstance(n, int) else n for n in source_ids]
+    normalized_themes = [uid(n) if isinstance(n, int) else n for n in theme_ids]
+    candidates = global_candidates(normalized_sources, normalized_themes)
+    return dict(
+        version=2,
+        preparationKey=uid(key),
+        title='Planeamento editorial',
+        selection=dict(
+            sourceIds=normalized_sources,
+            themeIds=normalized_themes,
+            candidateArticleIds=[item['editorialArticleId'] for item in candidates],
+            reviewArticleIds=[uid(n) if isinstance(n, int) else n for n in review_article_ids],
+        ),
+    )
+
+
+def grouping_preview(req):
+    return json.loads(execute(
+        f"select plan from public.newsroom_preview_mesa_grouping_v2({val(req)});"
+    ))
+
+
+def grouping_prepare(req, fingerprint=None):
+    fp = fingerprint or grouping_preview(req)['authorityFingerprint']
+    return json.loads(execute(
+        f"select result from public.newsroom_prepare_mesa_grouping_v2({val(req)},'{fp}');"
+    ))
+
+
+def grouping_change(dossier_id, action, revision, *, group_ids=(), target=None, theme=None, command=None):
+    group_array = "array[" + ",".join(f"'{value}'::uuid" for value in group_ids) + "]::uuid[]"
+    if not group_ids:
+        group_array = "'{}'::uuid[]"
+    target_sql = 'null' if target is None else str(target)
+    theme_sql = 'null' if theme is None else "'" + (uid(theme) if isinstance(theme, int) else theme) + "'::uuid"
+    command_id = command or str(uuid4())
+    revision_value = int(execute(
+        "select revision from public.newsroom_change_mesa_new_output_groups_v2("
+        f"'{dossier_id}','{action}',{group_array},{target_sql},{theme_sql},{revision},'{command_id}');"
+    ))
+    return revision_value, command_id
+
+
+def grouping_materialize(dossier_id, revision, command=None):
+    command_id = command or str(uuid4())
+    result = json.loads(execute(
+        "select result from public.newsroom_materialize_mesa_new_output_groups_v2("
+        f"'{dossier_id}',{revision},'{command_id}');"
+    ))
+    return result, command_id
+
 
 def independent(n: int, count=1):
     return dict(sourceId=uid(n), destination='independent', newArticleCount=count)
@@ -179,6 +235,20 @@ load('supabase/migrations/20260919014322_newsroom_mesa_selection_context_v1.sql'
 post_selection_functions = execute(old_functions_query)
 load('supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql')
 load('supabase/sql/candidate-newsroom-mesa-output-source-scope-v1.sql')
+before_grouping_functions = json.loads(execute(old_functions_query))
+load(GROUPING_V2_MIGRATION)
+after_grouping_functions = json.loads(execute(old_functions_query))
+assert all(after_grouping_functions.get(name) == digest for name, digest in before_grouping_functions.items())
+assert {
+    name for name in after_grouping_functions if name not in before_grouping_functions
+} == {
+    'newsroom_change_mesa_new_output_groups_v2(uuid,text,uuid[],integer,uuid,integer,uuid)',
+    'newsroom_materialize_mesa_new_output_groups_v2(uuid,integer,uuid)',
+    'newsroom_mesa_grouping_authority_v2(jsonb)',
+    'newsroom_mesa_grouping_request_v1(jsonb)',
+    'newsroom_prepare_mesa_grouping_v2(jsonb,text)',
+    'newsroom_preview_mesa_grouping_v2(jsonb)',
+}
 post_output_focus_functions = execute(old_functions_query)
 
 seed = []
@@ -562,6 +632,163 @@ def selection_segments_theme_review_from_loose_new():
         assert assigned==[uid(22),uid(23),uid(24)]
     assert execute(f"select count(*) from public.newsroom_editorial_theme_sources where theme_id='{uid(521)}' and newsroom_article_id='{uid(24)}';")=='0'
 
+
+def grouping_v2_theme_fifteen_sources_materializes_five_new_articles():
+    theme_id = uid(512)
+    for source in range(1, 16):
+        execute(f"select public.newsroom_set_editorial_theme_source_membership_v1('{theme_id}','{uid(source)}',true);")
+    req = grouping_request(8299, [], [theme_id])
+    prepared = grouping_prepare(req)
+    dossier_id = prepared['dossierId']
+    assert execute(f"select target_count=0 from public.newsroom_mesa_new_output_groupings where dossier_id='{dossier_id}';") == 't'
+    assert execute(f"select target_count is null from public.newsroom_mesa_new_output_theme_targets where dossier_id='{dossier_id}' and theme_id='{theme_id}';") == 't'
+    revision, _ = grouping_change(dossier_id, 'theme_target', 1, target=5, theme=theme_id)
+    assert execute(f"select count(*) from public.newsroom_mesa_new_output_groups where dossier_id='{dossier_id}' and seed_kind='theme';") == '5'
+    assert execute(f"select min(source_count)||'|'||max(source_count) from (select count(*) source_count from public.newsroom_mesa_new_output_group_sources where dossier_id='{dossier_id}' group by group_id) counted;") == '15|15'
+    materialized, _ = grouping_materialize(dossier_id, revision)
+    assert materialized['newArticleCount'] == 5
+    frozen = json.loads(execute(f"select frozen_plan::text from public.newsroom_mesa_intent_preparations where dossier_id='{dossier_id}';"))
+    assert frozen['totals'] == dict(contexts=1, sources=15, reviews=0, newArticles=5)
+    assert all(len(output['focusSourceIds']) == 15 for output in frozen['outputs'])
+    assert execute(f"select count(*) from public.newsroom_mesa_output_source_usage where dossier_id='{dossier_id}';") == '0'
+
+
+def grouping_v2_combines_themes_loose_material_and_existing_without_source_usage():
+    theme_a, theme_b = uid(510), uid(511)
+    theme_a_sources = [17, 20, 21, 22]
+    theme_b_sources = [25, 26, 27]
+    for source in theme_a_sources:
+        execute(f"select public.newsroom_set_editorial_theme_source_membership_v1('{theme_a}','{uid(source)}',true);")
+    for source in theme_b_sources:
+        execute(f"select public.newsroom_set_editorial_theme_source_membership_v1('{theme_b}','{uid(source)}',true);")
+
+    tracked_sources = [uid(n) for n in sorted(set(theme_a_sources + theme_b_sources + [24, 28, 29, 30]))]
+    ids_sql = "array[" + ",".join(repr(value) for value in tracked_sources) + "]::uuid[]"
+    execute(f"""update public.newsroom_articles
+      set image_url='https://images.example.invalid/'||id::text||'.jpg'
+      where id=any({ids_sql});""")
+    source_state = f"""select md5(jsonb_build_object(
+      'articles',(select jsonb_agg(to_jsonb(a) order by a.id) from public.newsroom_articles a where a.id=any({ids_sql})),
+      'snapshots',(select jsonb_agg(to_jsonb(s) order by s.id) from public.newsroom_article_snapshots s where s.article_id=any({ids_sql})),
+      'classifications',(select jsonb_agg(to_jsonb(c) order by c.newsroom_article_id) from public.newsroom_editorial_article_classifications c where c.newsroom_article_id=any({ids_sql})),
+      'memberships',(select jsonb_agg(to_jsonb(m) order by m.theme_id,m.newsroom_article_id) from public.newsroom_editorial_theme_sources m where m.newsroom_article_id=any({ids_sql})),
+      'usage',(select count(*) from public.newsroom_mesa_output_source_usage u join public.newsroom_editorial_dossier_sources ds on ds.id=u.dossier_source_id where ds.newsroom_article_id=any({ids_sql}))
+    )::text);"""
+    state_before = execute(source_state)
+    req = grouping_request(8300, [17, 24, 28, 29, 30], [510, 511], [2101, 2102])
+    previewed = grouping_preview(req)
+    prepared = grouping_prepare(req, previewed['authorityFingerprint'])
+    dossier_id = prepared['dossierId']
+    assert execute(f"select target_count is null from public.newsroom_mesa_new_output_groupings where dossier_id='{dossier_id}';") == 't'
+    assert json.loads(execute(f"select to_jsonb(loose_source_ids) from public.newsroom_mesa_new_output_groupings where dossier_id='{dossier_id}';")) == [uid(24), uid(28), uid(29), uid(30)]
+    assert execute(f"select count(*) from public.newsroom_editorial_dossier_article_plans where dossier_id='{dossier_id}';") == '2'
+    assert execute(source_state) == state_before
+
+    revision, _ = grouping_change(dossier_id, 'theme_target', 1, target=5, theme=theme_a)
+    assert revision == 2
+    revision, _ = grouping_change(dossier_id, 'theme_target', revision, target=3, theme=theme_b)
+    assert revision == 3
+    revision, target_command = grouping_change(dossier_id, 'target', revision, target=2)
+    assert revision == 4
+    replayed, _ = grouping_change(dossier_id, 'target', 3, target=2, command=target_command)
+    assert replayed == 4
+    expect_error('mesa-grouping-command-conflict', lambda: grouping_change(
+        dossier_id, 'target', 3, target=1, command=target_command
+    ))
+
+    loose_groups = json.loads(execute(f"""select jsonb_agg(id order by position)::text
+      from public.newsroom_mesa_new_output_groups
+      where dossier_id='{dossier_id}' and seed_kind='selection';"""))
+    revision, _ = grouping_change(dossier_id, 'merge', revision, group_ids=loose_groups[:2])
+    remaining = json.loads(execute(f"""select jsonb_agg(id order by position)::text
+      from public.newsroom_mesa_new_output_groups
+      where dossier_id='{dossier_id}' and seed_kind='selection' and id<> '{loose_groups[0]}';"""))
+    revision, _ = grouping_change(dossier_id, 'merge', revision, group_ids=remaining)
+    assert revision == 6
+    assert execute(f"select count(*) from public.newsroom_mesa_new_output_groups where dossier_id='{dossier_id}';") == '10'
+    assert execute(source_state) == state_before
+    assert execute(f"select count(*) from public.newsroom_mesa_output_source_usage where dossier_id='{dossier_id}';") == '0'
+
+    plan_count = execute(f"select count(*) from public.newsroom_editorial_dossier_article_plans where dossier_id='{dossier_id}';")
+    execute("""create function public.grouping_v2_test_fail() returns trigger language plpgsql as $$
+      begin raise exception 'grouping-v2-test-late-failure'; end; $$;
+      create trigger grouping_v2_test_failure before insert on public.newsroom_mesa_intent_preparations
+      for each row execute function public.grouping_v2_test_fail();""")
+    try:
+        expect_error('grouping-v2-test-late-failure', lambda: grouping_materialize(dossier_id, revision))
+        assert execute(f"select state from public.newsroom_mesa_new_output_groupings where dossier_id='{dossier_id}';") == 'planned'
+        assert execute(f"select count(*) from public.newsroom_editorial_dossier_article_plans where dossier_id='{dossier_id}';") == plan_count
+        assert execute(f"select count(*) from public.newsroom_mesa_new_output_groups where dossier_id='{dossier_id}' and article_plan_id is not null;") == '0'
+    finally:
+        execute('drop trigger grouping_v2_test_failure on public.newsroom_mesa_intent_preparations; drop function public.grouping_v2_test_fail();')
+
+    materialized, materialize_command = grouping_materialize(dossier_id, revision)
+    assert materialized['materializationAction'] == 'created' and materialized['newArticleCount'] == 10
+    frozen = json.loads(execute(f"select frozen_plan::text from public.newsroom_mesa_intent_preparations where dossier_id='{dossier_id}';"))
+    assert frozen['totals'] == dict(contexts=1, sources=11, reviews=2, newArticles=10)
+    assert len(frozen['outputs']) == 12
+    assert sum(output['kind'] == 'existing' for output in frozen['outputs']) == 2
+    assert sum(output['kind'] == 'new' for output in frozen['outputs']) == 10
+    assert all(output.get('focusSourceIds') for output in frozen['outputs'] if output['kind'] == 'new')
+    assert execute(f"""select count(*) from public.newsroom_editorial_dossier_images
+      where dossier_id='{dossier_id}' and origin_kind='newsroom';""") == str(len(tracked_sources))
+    assert execute(f"""select count(*)
+      from public.newsroom_mesa_new_output_groups grouped
+      join public.newsroom_editorial_dossier_article_plans plan
+        on plan.dossier_id=grouped.dossier_id and plan.id=grouped.article_plan_id
+      join public.newsroom_editorial_dossier_images image
+        on image.dossier_id=plan.dossier_id and image.id=plan.dossier_image_id
+      where grouped.dossier_id='{dossier_id}'
+        and plan.image_choice='dossier_image'
+        and exists(
+          select 1
+          from public.newsroom_mesa_new_output_group_sources membership
+          join public.newsroom_editorial_dossier_sources source
+            on source.dossier_id=membership.dossier_id and source.id=membership.dossier_source_id
+          where membership.group_id=grouped.id
+            and source.newsroom_article_id=image.newsroom_article_id
+        );""") == '10'
+    plan_ids = [output['outputId'] for output in frozen['outputs']]
+    replayed, _ = grouping_materialize(dossier_id, revision, materialize_command)
+    assert replayed['materializationAction'] == 'reused'
+    replay_plan = json.loads(execute(f"select frozen_plan::text from public.newsroom_mesa_intent_preparations where dossier_id='{dossier_id}';"))
+    assert [output['outputId'] for output in replay_plan['outputs']] == plan_ids
+    assert execute(source_state) == state_before
+    assert execute(f"select count(*) from public.newsroom_mesa_output_source_usage where dossier_id='{dossier_id}';") == '0'
+    for role in ['anon', 'authenticated']:
+        expect_error('permission denied', lambda role=role: execute(
+            f"set role {role}; select * from public.newsroom_mesa_new_output_groupings;"
+        ))
+        expect_error('permission denied', lambda role=role: execute(
+            f"set role {role}; select public.newsroom_preview_mesa_grouping_v2({val(req)});"
+        ))
+    assert execute(
+        f"set role service_role; select count(*) from public.newsroom_mesa_new_output_groupings where dossier_id='{dossier_id}';"
+    ) == '1'
+    expect_error('permission denied', lambda: execute(
+        f"set role service_role; delete from public.newsroom_mesa_new_output_groupings where dossier_id='{dossier_id}';"
+    ))
+    expect_error('permission denied', lambda: execute(
+        "set role service_role; select * from public.newsroom_mesa_new_output_grouping_commands;"
+    ))
+    (args.output / 'grouping-v2-plan.json').write_text(json.dumps(frozen, ensure_ascii=False, indent=2))
+
+
+def grouping_v2_distinguishes_unconfigured_from_explicit_zero_new():
+    req = grouping_request(8301, [17], [], [2101])
+    prepared = grouping_prepare(req)
+    dossier_id = prepared['dossierId']
+    assert execute(f"select target_count is null from public.newsroom_mesa_new_output_groupings where dossier_id='{dossier_id}';") == 't'
+    revision, _ = grouping_change(dossier_id, 'target', 1, target=0)
+    assert execute(f"select target_count=0 from public.newsroom_mesa_new_output_groupings where dossier_id='{dossier_id}';") == 't'
+    assert execute(f"select count(*) from public.newsroom_mesa_new_output_groups where dossier_id='{dossier_id}';") == '0'
+    materialized, _ = grouping_materialize(dossier_id, revision)
+    assert materialized['newArticleCount'] == 0
+    frozen = json.loads(execute(f"select frozen_plan::text from public.newsroom_mesa_intent_preparations where dossier_id='{dossier_id}';"))
+    assert frozen['totals']['newArticles'] == 0 and frozen['totals']['reviews'] == 1
+    assert len(frozen['outputs']) == 1 and frozen['outputs'][0]['kind'] == 'existing'
+    assert execute(f"select count(*) from public.newsroom_mesa_output_source_usage where dossier_id='{dossier_id}';") == '0'
+
 def permissions():
     req=request(8180); p=preview(req)
     for role in ['anon','authenticated']:
@@ -580,6 +807,13 @@ def stable_edit_identity():
     assert execute('select count(*) from public.newsroom_mesa_publication_events;')=='0'
     assert post_output_focus_functions==execute(old_functions_query)
 
+
+test('planeamento v2 materializa Tema com quinze fontes em cinco artigos',
+     grouping_v2_theme_fifteen_sources_materializes_five_new_articles)
+test('planeamento v2 combina dois Temas, soltos e existentes sem alterar fontes',
+     grouping_v2_combines_themes_loose_material_and_existing_without_source_usage)
+test('planeamento v2 distingue por configurar de zero novos explicito',
+     grouping_v2_distinguishes_unconfigured_from_explicit_zero_new)
 
 for name,fn in [
     ('resolvedor global conserva proveniência e ambiguidade sem adivinhar',global_candidate_resolver),
