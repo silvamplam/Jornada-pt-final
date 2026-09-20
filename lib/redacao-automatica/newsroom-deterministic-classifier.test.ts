@@ -231,6 +231,30 @@ test("futebol internacional é contexto exterior explícito", () => {
   );
 });
 
+test("contextos inequívocos fora da Liga entram em outside_liga_other", () => {
+  for (const title of [
+    "A classificação da Premier League em 2026/27 atualizada",
+    "Serie A: Inter recupera e vence",
+    "Flamengo segue líder do Brasileirão",
+    "Primeiras imagens da n.º 1 mundial da WTA",
+    "Remco Evenepoel em destaque no ciclismo",
+    "Hoje pode ver em direto na TV",
+  ]) {
+    const result = classify(title);
+    assert.equal(result.classificationKey, "outside_liga_other", title);
+    assert.equal(result.reason, "explicit_outside_context", title);
+  }
+});
+
+test("assunto inequívoco antes de citação prevalece sobre clube citado", () => {
+  const result = classify(
+    "Ricardo Costa e a vitória do Sporting no dérbi: «Às vezes até me parece que o Benfica fica contente»",
+  );
+  assert.equal(result.classificationKey, "sporting");
+  assert.equal(result.state, "classified");
+  assert.equal(result.evidenceField, "title");
+});
+
 test("texto genérico sem autoridade identificável fica por classificar", () => {
   const result = classify("Mercado aquece nas últimas horas");
   assert.equal(result.state, "insufficient_evidence");
