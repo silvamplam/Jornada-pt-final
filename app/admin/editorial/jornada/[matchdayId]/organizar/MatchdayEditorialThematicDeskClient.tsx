@@ -213,7 +213,6 @@ const styles = `
   .thematic-message { margin: 0; padding: 7px 9px; border-radius: 5px; background: #eef5ff; color: #25456e; font-size: 10px; font-weight: 700; }
   .thematic-message.error { background: #fff0f1; color: #a61f29; }
   .thematic-message.feedback { position: sticky; z-index: 26; top: 8px; box-shadow: 0 5px 16px rgba(15,23,42,.12); }
-  .thematic-zone-alert { margin: 0 7px 7px; padding: 7px 9px; border: 1px solid #f2b8bd; border-radius: 5px; background: #fff0f1; color: #a61f29; font-size: 9px; font-weight: 800; line-height: 1.35; }
   .thematic-movement-list, .thematic-diagnostics { display: grid; gap: 3px; margin: 0; padding: 0 10px 10px 26px; font-size: 9px; }
   .thematic-pending { position: fixed; z-index: 30; right: 10px; bottom: 8px; left: 10px; display: flex; align-items: center; gap: 6px; width: min(1900px,calc(100% - 20px)); min-height: 48px; margin: 0 auto; padding: 7px 9px; border: 1px solid #c5d0dc; border-radius: 8px; background: rgba(255,255,255,.97); box-shadow: 0 10px 28px rgba(15,23,42,.18); backdrop-filter: blur(10px); }
   .thematic-pending-copy { display: grid; gap: 1px; margin-right: auto; }
@@ -1069,7 +1068,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     const zone = zoneById.get(zoneId);
     if (!zone) return null;
     const slots = physicalDeskZoneSlots(physicalDesk, zoneId);
-    const additional = desk.physicalCompatibility.additionalPhysicalZoneIds.includes(zoneId);
     const zoneLabel = zone.publicTitle || "Zona sem título";
     return (
       <article className="thematic-workspace-body" key={zone.id} data-zone-id={zone.id}>
@@ -1111,11 +1109,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             {slots.filter((slot) => slot.placement !== null).length}/{zone.capacity}
           </strong>
         </div>
-        {additional ? (
-          <p className="thematic-zone-alert" role="alert">
-            Zona física adicional. Continua visível, mas todo o Apply v12 está bloqueado.
-          </p>
-        ) : null}
         <div className={`thematic-slots thematic-slots-${zone.capacity}`}>
           {slots.map((slot) => (
             <div

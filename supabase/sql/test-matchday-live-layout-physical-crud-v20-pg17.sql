@@ -45,6 +45,10 @@ create temp table physical_v20_results (
   status text not null check (status = 'PASS')
 );
 
+create temp table physical_v20_apply_calls (
+  call_number bigint generated always as identity primary key
+);
+
 create function pg_temp.bank_id(p_item_kind text)
 returns uuid
 language sql
@@ -201,6 +205,77 @@ begin
 end;
 $function$;
 
+create function pg_temp.placements_payload()
+returns jsonb
+language sql
+stable
+as $function$
+  select coalesce(pg_catalog.jsonb_agg(
+    pg_temp.placement(
+      placement_row.bank_item_id,
+      placement_row.placement_type,
+      placement_row.zone_id,
+      placement_row.slot_position
+    ) order by placement_row.id
+  ), '[]'::jsonb)
+  from public.matchday_live_layout_placements as placement_row
+  where placement_row.matchday_id =
+        'a0000000-0000-4000-8000-000000000001';
+$function$;
+
+create function pg_temp.apply_v29(
+  p_zones jsonb,
+  p_blocks jsonb,
+  p_placements jsonb
+)
+returns text
+language plpgsql
+as $function$
+declare
+  v_token text;
+  v_final_token text;
+begin
+  select jornada_private.matchday_live_layout_workspace_token_v22(
+    'a0000000-0000-4000-8000-000000000001',
+    'liga_portugal_v1'
+  ) into v_token;
+
+  insert into pg_temp.physical_v20_apply_calls default values;
+
+  select applied.state_token
+  into strict v_final_token
+  from public.apply_matchday_live_layout_physical_v29(
+    'a0000000-0000-4000-8000-000000000001',
+    'liga_portugal_v1',
+    v_token,
+    null,
+    p_zones,
+    p_blocks,
+    p_placements,
+    0,
+    '[]'::jsonb,
+    '[]'::jsonb,
+    (
+      select coalesce(pg_catalog.jsonb_agg(
+        item_row.bank_item_id order by item_row.bank_item_id
+      ), '[]'::jsonb)
+      from pg_temp.physical_v20_items as item_row
+      where item_row.bank_item_id is not null
+    ),
+    '[]'::jsonb,
+    '[]'::jsonb,
+    pg_catalog.jsonb_build_object(
+      'headline_title_color', null,
+      'latest_zone_placement', 'top',
+      'latest_zone_title', 'Últimas',
+      'video_module_active', false
+    )
+  ) as applied;
+
+  return v_final_token;
+end;
+$function$;
+
 insert into jornada_private.matchday_live_layout_cutover_control (
   scope,
   authority_mode
@@ -286,6 +361,15 @@ values
   ('deleted_displaced', 'a0000000-0000-4000-8000-000000000102'),
   ('deleted_moved', 'a0000000-0000-4000-8000-000000000103');
 
+insert into physical_v20_items (item_kind, article_id)
+select
+  'atomic_' || pg_catalog.to_char(item_number, 'FM00'),
+  (
+    'a0000000-0000-4000-8000-'
+    || pg_catalog.to_char(1000 + item_number, 'FM000000000000')
+  )::uuid
+from pg_catalog.generate_series(1, 20) as item_row(item_number);
+
 insert into public.editorial_articles (
   id, title, slug, status, scope, label, subtitle, body, image_url,
   published_at, competition_id, season_id, matchday_id
@@ -342,7 +426,14 @@ select
   case item_row.item_kind
     when 'mapped' then 'a0000000-0000-4000-8000-000000000201'::uuid
     when 'deleted_displaced' then 'a0000000-0000-4000-8000-000000000202'::uuid
-    else 'a0000000-0000-4000-8000-000000000203'::uuid
+    when 'deleted_moved' then 'a0000000-0000-4000-8000-000000000203'::uuid
+    else (
+      'a0000000-0000-4000-8000-'
+      || pg_catalog.to_char(
+        2000 + pg_catalog.substring(item_row.item_kind from 8)::integer,
+        'FM000000000000'
+      )
+    )::uuid
   end,
   'a0000000-0000-4000-8000-000000000001'::uuid,
   'V20',
@@ -357,7 +448,8 @@ select
   case item_row.item_kind
     when 'mapped' then 1
     when 'deleted_displaced' then 2
-    else 3
+    when 'deleted_moved' then 3
+    else 100 + pg_catalog.substring(item_row.item_kind from 8)::integer
   end,
   'active',
   item_row.item_kind <> 'deleted_displaced',
@@ -365,7 +457,8 @@ select
   case item_row.item_kind
     when 'mapped' then 'benfica'
     when 'deleted_displaced' then 'sporting'
-    else 'fc_porto'
+    when 'deleted_moved' then 'fc_porto'
+    else 'benfica'
   end,
   'manual',
   '2026-09-05 12:20:00+00'::timestamptz
@@ -393,7 +486,7 @@ where bank_row.matchday_id = 'a0000000-0000-4000-8000-000000000001'
       item_row.article_id::text;
 
 select pg_temp.assert_true(
-  (select pg_catalog.count(*) = 3 from physical_v20_items
+  (select pg_catalog.count(*) = 23 from physical_v20_items
    where bank_item_id is not null),
   'v20 fixture Bank identities missing'
 );
@@ -475,6 +568,318 @@ as $function$
         'a0000000-0000-4000-8000-000000000001'
     and block_row.zone_id is distinct from p_zone_id;
 $function$;
+
+create function pg_temp.assert_atomic_new_zone(
+  p_layout text,
+  p_capacity integer,
+  p_zone_id uuid,
+  p_block_id uuid,
+  p_first_item integer
+)
+returns void
+language plpgsql
+as $function$
+declare
+  v_before_zones jsonb;
+  v_before_blocks jsonb;
+  v_before_placements jsonb;
+  v_added_placements jsonb;
+  v_requested_placements jsonb;
+  v_final_token text;
+  v_calls_before bigint;
+begin
+  perform pg_temp.assert_true(
+    not exists (
+      select 1 from public.matchday_live_layout_zones where id = p_zone_id
+    ) and not exists (
+      select 1 from public.matchday_live_layout_blocks where id = p_block_id
+    ) and not exists (
+      select 1
+      from public.matchday_live_layout_placements
+      where matchday_id = 'a0000000-0000-4000-8000-000000000001'
+        and zone_id = p_zone_id
+    ),
+    p_layout || ': zone, block or placements existed before first Apply'
+  );
+
+  select coalesce(pg_catalog.jsonb_agg(
+    pg_catalog.to_jsonb(zone_row) order by zone_row.id
+  ), '[]'::jsonb)
+  into v_before_zones
+  from public.matchday_live_layout_zones as zone_row
+  where zone_row.matchday_id = 'a0000000-0000-4000-8000-000000000001';
+
+  select coalesce(pg_catalog.jsonb_agg(
+    pg_catalog.to_jsonb(block_row) order by block_row.id
+  ), '[]'::jsonb)
+  into v_before_blocks
+  from public.matchday_live_layout_blocks as block_row
+  where block_row.matchday_id = 'a0000000-0000-4000-8000-000000000001';
+
+  select coalesce(pg_catalog.jsonb_agg(
+    pg_catalog.to_jsonb(placement_row) order by placement_row.id
+  ), '[]'::jsonb)
+  into v_before_placements
+  from public.matchday_live_layout_placements as placement_row
+  where placement_row.matchday_id = 'a0000000-0000-4000-8000-000000000001';
+
+  select pg_catalog.jsonb_agg(
+    pg_temp.placement(
+      pg_temp.bank_id(
+        'atomic_' || pg_catalog.to_char(item_number, 'FM00')
+      ),
+      'zone',
+      p_zone_id,
+      slot_number
+    ) order by slot_number
+  )
+  into v_added_placements
+  from pg_catalog.generate_series(1, p_capacity) as slot_row(slot_number)
+  cross join lateral (
+    select p_first_item + slot_number - 1 as item_number
+  ) as item_row;
+
+  v_requested_placements :=
+    pg_temp.placements_payload() || v_added_placements;
+
+  perform pg_temp.assert_true(
+    (
+      select pg_catalog.count(*) = p_capacity
+        and pg_catalog.count(*) filter (
+          where placement_row.placement_type = 'zone'
+            and placement_row.zone_id = p_zone_id
+            and placement_row.slot_position between 1 and p_capacity
+        ) = p_capacity
+      from jornada_private.normalize_matchday_live_layout_physical_placements_v13(
+        v_requested_placements
+      ) as placement_row
+      where placement_row.zone_id = p_zone_id
+    ),
+    p_layout || ': first request did not already target the preview zone'
+  );
+
+  select pg_catalog.count(*) into v_calls_before
+  from pg_temp.physical_v20_apply_calls;
+
+  v_final_token := pg_temp.apply_v29(
+    pg_temp.zones_plus(p_zone_id, 'Atomic ' || p_layout, p_layout),
+    pg_temp.blocks_plus(p_block_id, p_zone_id),
+    v_requested_placements
+  );
+
+  perform pg_temp.assert_true(
+    (select pg_catalog.count(*) from pg_temp.physical_v20_apply_calls)
+      = v_calls_before + 1,
+    p_layout || ': more than one authoritative Apply was called'
+  );
+
+  perform pg_temp.assert_true(
+    v_final_token ~ '^[0-9a-f]{32}$'
+    and exists (
+      select 1
+      from public.matchday_live_layout_zones as zone_row
+      where zone_row.id = p_zone_id
+        and zone_row.matchday_id = 'a0000000-0000-4000-8000-000000000001'
+        and zone_row.public_title = 'Atomic ' || p_layout
+        and zone_row.visual_family = p_layout
+    )
+    and exists (
+      select 1
+      from public.matchday_live_layout_blocks as block_row
+      where block_row.id = p_block_id
+        and block_row.matchday_id = 'a0000000-0000-4000-8000-000000000001'
+        and block_row.block_type = 'zone'
+        and block_row.zone_id = p_zone_id
+    )
+    and (
+      select pg_catalog.count(*) = p_capacity
+        and pg_catalog.min(placement_row.slot_position) = 1
+        and pg_catalog.max(placement_row.slot_position) = p_capacity
+      from public.matchday_live_layout_placements as placement_row
+      where placement_row.matchday_id = 'a0000000-0000-4000-8000-000000000001'
+        and placement_row.placement_type = 'zone'
+        and placement_row.zone_id = p_zone_id
+    )
+    and jornada_private.matchday_live_layout_layout_capacity_v20(p_layout)
+        = p_capacity,
+    p_layout || ': zone, block, placements, capacity or final token invalid'
+  );
+
+  perform pg_temp.assert_true(
+    (select coalesce(pg_catalog.jsonb_agg(
+       pg_catalog.to_jsonb(zone_row) order by zone_row.id
+     ), '[]'::jsonb)
+     from public.matchday_live_layout_zones as zone_row
+     where zone_row.matchday_id = 'a0000000-0000-4000-8000-000000000001'
+       and zone_row.id <> p_zone_id) = v_before_zones
+    and (select coalesce(pg_catalog.jsonb_agg(
+       pg_catalog.to_jsonb(block_row) order by block_row.id
+     ), '[]'::jsonb)
+     from public.matchday_live_layout_blocks as block_row
+     where block_row.matchday_id = 'a0000000-0000-4000-8000-000000000001'
+       and block_row.id <> p_block_id) = v_before_blocks
+    and (select coalesce(pg_catalog.jsonb_agg(
+       pg_catalog.to_jsonb(placement_row) order by placement_row.id
+     ), '[]'::jsonb)
+     from public.matchday_live_layout_placements as placement_row
+     where placement_row.matchday_id = 'a0000000-0000-4000-8000-000000000001'
+       and placement_row.zone_id is distinct from p_zone_id)
+       = v_before_placements,
+    p_layout || ': pre-existing physical rows changed unexpectedly'
+  );
+end;
+$function$;
+
+-- A-D plus rollback: v29 delegates once through v22/v20 and the core persists
+-- each preview zone, its block and its placements in the same SQL statement.
+do $atomic_suite$
+declare
+  v_baseline_hash text := pg_temp.physical_hash();
+  v_baseline_token text := jornada_private.matchday_live_layout_workspace_token_v22(
+    'a0000000-0000-4000-8000-000000000001',
+    'liga_portugal_v1'
+  );
+  v_failure_hash text;
+  v_failure_token text;
+  v_failure_placements jsonb;
+  v_failure_attempts integer := 0;
+  v_completed boolean := false;
+begin
+  begin
+    perform pg_temp.assert_atomic_new_zone(
+      'four_news', 4,
+      'a0000000-0000-4000-8000-000000000081',
+      'a0000000-0000-4000-8000-000000000091',
+      1
+    );
+    perform pg_temp.assert_atomic_new_zone(
+      'five_news_balanced', 5,
+      'a0000000-0000-4000-8000-000000000082',
+      'a0000000-0000-4000-8000-000000000092',
+      5
+    );
+    perform pg_temp.assert_atomic_new_zone(
+      'five_news_secondary', 5,
+      'a0000000-0000-4000-8000-000000000083',
+      'a0000000-0000-4000-8000-000000000093',
+      10
+    );
+    perform pg_temp.assert_atomic_new_zone(
+      'six_news', 6,
+      'a0000000-0000-4000-8000-000000000084',
+      'a0000000-0000-4000-8000-000000000094',
+      15
+    );
+
+    v_failure_hash := pg_temp.physical_hash();
+    v_failure_token := jornada_private.matchday_live_layout_workspace_token_v22(
+      'a0000000-0000-4000-8000-000000000001',
+      'liga_portugal_v1'
+    );
+
+    select coalesce(pg_catalog.jsonb_agg(
+      pg_temp.placement(
+        placement_row.bank_item_id,
+        placement_row.placement_type,
+        placement_row.zone_id,
+        placement_row.slot_position
+      ) order by placement_row.id
+    ), '[]'::jsonb)
+    into v_failure_placements
+    from public.matchday_live_layout_placements as placement_row
+    where placement_row.matchday_id = 'a0000000-0000-4000-8000-000000000001'
+      and placement_row.bank_item_id not in (
+        select pg_temp.bank_id(
+          'atomic_' || pg_catalog.to_char(item_number, 'FM00')
+        )
+        from pg_catalog.generate_series(1, 5) as item_row(item_number)
+      );
+
+    v_failure_placements := v_failure_placements || (
+      select pg_catalog.jsonb_agg(
+        pg_temp.placement(
+          pg_temp.bank_id(
+            'atomic_' || pg_catalog.to_char(item_number, 'FM00')
+          ),
+          'zone',
+          'a0000000-0000-4000-8000-000000000085',
+          item_number
+        ) order by item_number
+      )
+      from pg_catalog.generate_series(1, 5) as item_row(item_number)
+    );
+
+    begin
+      v_failure_attempts := v_failure_attempts + 1;
+      perform pg_temp.apply_v29(
+        pg_temp.zones_plus(
+          'a0000000-0000-4000-8000-000000000085',
+          'Atomic rollback four_news',
+          'four_news'
+        ),
+        pg_temp.blocks_plus(
+          'a0000000-0000-4000-8000-000000000095',
+          'a0000000-0000-4000-8000-000000000085'
+        ),
+        v_failure_placements
+      );
+      raise exception 'atomic over-capacity Apply did not fail';
+    exception
+      when others then
+        if sqlerrm not like '%zone-capacity-invalid%' then
+          raise;
+        end if;
+    end;
+
+    perform pg_temp.assert_true(
+      v_failure_attempts = 1
+      and pg_temp.physical_hash() = v_failure_hash
+      and jornada_private.matchday_live_layout_workspace_token_v22(
+        'a0000000-0000-4000-8000-000000000001',
+        'liga_portugal_v1'
+      ) = v_failure_token
+      and not exists (
+        select 1 from public.matchday_live_layout_zones
+        where id = 'a0000000-0000-4000-8000-000000000085'
+      )
+      and not exists (
+        select 1 from public.matchday_live_layout_blocks
+        where id = 'a0000000-0000-4000-8000-000000000095'
+      )
+      and not exists (
+        select 1 from public.matchday_live_layout_placements
+        where zone_id = 'a0000000-0000-4000-8000-000000000085'
+      ),
+      'over-capacity first Apply left partial zone, block or placements'
+    );
+
+    v_completed := true;
+    raise exception 'atomic-additional-zone-suite-rollback';
+  exception
+    when others then
+      if sqlerrm <> 'atomic-additional-zone-suite-rollback' then
+        raise;
+      end if;
+  end;
+
+  perform pg_temp.assert_true(
+    v_completed
+    and pg_temp.physical_hash() = v_baseline_hash
+    and jornada_private.matchday_live_layout_workspace_token_v22(
+      'a0000000-0000-4000-8000-000000000001',
+      'liga_portugal_v1'
+    ) = v_baseline_token,
+    'atomic suite did not restore the pre-existing physical fixture'
+  );
+
+  insert into physical_v20_results values
+    (101, 'single Apply creates populated four_news zone', 'PASS'),
+    (102, 'single Apply creates populated five_news_balanced zone', 'PASS'),
+    (103, 'single Apply creates populated five_news_secondary zone', 'PASS'),
+    (104, 'single Apply creates populated six_news zone', 'PASS'),
+    (105, 'over-capacity new zone rolls back atomically', 'PASS');
+end;
+$atomic_suite$;
 
 -- 1. Normal title/layout update preserves the physical zone UUID.
 select pg_temp.apply_v20(

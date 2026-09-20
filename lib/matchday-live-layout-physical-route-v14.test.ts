@@ -70,7 +70,33 @@ test("zonas adicionais não são bloqueadas pela compatibilidade legacy", () => 
     /const mutationBlocked = applyState === "saving" \|\| applyState === "refreshing"/,
   );
   assert.doesNotMatch(client, /data-legacy-apply-blocked/);
-  assert.doesNotMatch(client, /Apply v12 bloqueado/);
+  assert.doesNotMatch(client, /Apply v12/);
+  assert.doesNotMatch(client, /thematic-zone-alert/);
+  assert.doesNotMatch(client, /additionalPhysicalZoneIds\.includes\(zoneId\)/);
+});
+
+test("route traduz recusas previsíveis e mantém fallback integral", () => {
+  assert.match(
+    route,
+    /zone-capacity-invalid[\s\S]*?A zona tem mais notícias do que o formato escolhido permite\.[\s\S]*?400/,
+  );
+  assert.match(
+    route,
+    /zone-(?:shape|value)-invalid[\s\S]*?A configuração ou apresentação da zona não é válida\.[\s\S]*?400/,
+  );
+  assert.match(
+    route,
+    /block-topology-invalid[\s\S]*?A estrutura física já não corresponde ao estado atual\.[\s\S]*?409/,
+  );
+  assert.match(
+    route,
+    /placement-target-invalid[\s\S]*?A posição ou o destino físico de uma notícia não é válido\.[\s\S]*?400/,
+  );
+  assert.match(
+    route,
+    /state-conflict[\s\S]*?entra em conflito com o estado físico atual\.[\s\S]*?409/,
+  );
+  assert.match(route, /O estado físico pedido foi recusado integralmente\./);
 });
 
 test("5B1 preserva o caminho legacy e Agenda/TV", () => {

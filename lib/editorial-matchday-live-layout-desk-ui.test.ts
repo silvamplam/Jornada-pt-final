@@ -69,12 +69,10 @@ test("incompatibilidade legacy não bloqueia mutações nem Apply físico v20", 
     /const mutationBlocked = applyState === "saving" \|\| applyState === "refreshing"/,
   );
   assert.match(source, /if \(mutationBlocked\)/);
-  assert.doesNotMatch(source, /legacyApplyBlockReason|Apply v12 bloqueado/);
+  assert.doesNotMatch(source, /legacyApplyBlockReason|Apply v12/);
   assert.match(source, /disabled=\{!pending \|\| mutationBlocked\}/);
-  assert.match(
-    source,
-    /additionalPhysicalZoneIds\.includes\(zoneId\)/,
-  );
+  assert.doesNotMatch(source, /thematic-zone-alert/);
+  assert.doesNotMatch(source, /additionalPhysicalZoneIds\.includes\(zoneId\)/);
 });
 
 test("Apply nasce diretamente do PhysicalDeskState sem projection legacy", () => {
