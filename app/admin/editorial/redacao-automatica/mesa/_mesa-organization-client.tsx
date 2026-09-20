@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { MesaOrganization, MesaDossierCard, MesaThemeCard } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
-import { MesaThemeSelectionToggle, useMesaSelection } from "./_mesa-selection-client";
+import { MesaLiveCount, MesaThemeSelectionToggle, useMesaSelection } from "./_mesa-selection-client";
+import { MESA_MAX_NEWSROOM_SOURCES, type MesaMaterialSelection } from "./_mesa-selection-state";
 import { MESA_THEME_UPDATED_EVENT, mesaThemeFromEvent, publishMesaThemeUpdate } from "./_mesa-client-events";
 import styles from "./mesa.module.css";
 
@@ -223,10 +224,14 @@ export function MesaLooseSourcesPanel({
   newCount,
   publishedCount,
   archiveCount,
+  newSelectionItems,
+  publishedSelectionItems,
 }: Readonly<{
   newItems: readonly ReactNode[];
   publishedItems: readonly ReactNode[];
   archiveItems: readonly ReactNode[];
+  newSelectionItems: readonly MesaMaterialSelection[];
+  publishedSelectionItems: readonly MesaMaterialSelection[];
   storageKey: string;
   initialTab: "new" | "published" | "archive";
   newHref: string;
@@ -236,6 +241,15 @@ export function MesaLooseSourcesPanel({
   publishedCount: number;
   archiveCount: number | null;
 }>) {
+  const {
+    buffer,
+    classificationChanges,
+    classificationFilter,
+    dismissed,
+    hiddenSourceIds,
+    loaded,
+    select,
+  } = useMesaSelection();
   const tab = initialTab;
   const items = tab === "new"
     ? newItems
@@ -247,13 +261,57 @@ export function MesaLooseSourcesPanel({
     : tab === "published"
       ? "Sem fontes publicadas avulsas neste filtro."
       : "Sem fontes arquivadas neste filtro.";
+  const selectableItems = tab === "new"
+    ? newSelectionItems
+    : tab === "published"
+      ? publishedSelectionItems
+      : [];
+  const visibleSelectableItems = selectableItems.filter((material) => {
+    if (!material.newsroomSnapshotId || hiddenSourceIds.includes(material.newsroomArticleId)) return false;
+    const currentClassification = classificationChanges[material.newsroomArticleId]?.current
+      ?? material.classificationKey;
+    const outsideFilter = classificationFilter !== "all" && (
+      classificationFilter === "unclassified"
+        ? currentClassification !== null
+        : currentClassification !== classificationFilter
+    );
+    return !outsideFilter && !dismissed.some((source) => (
+      source.newsroomArticleId === material.newsroomArticleId
+      && source.newsroomSnapshotId === material.newsroomSnapshotId
+    ));
+  });
+  const selectedSourceIds = new Set(buffer.sources.map((source) => source.newsroomArticleId));
+  const unselectedItems = visibleSelectableItems.filter(
+    (material) => !selectedSourceIds.has(material.newsroomArticleId),
+  );
+  const remainingSelectionSlots = Math.max(
+    0,
+    MESA_MAX_NEWSROOM_SOURCES - buffer.sources.length,
+  );
+  const bulkSelection = unselectedItems.slice(0, remainingSelectionSlots);
+  const selectionLimitHit = unselectedItems.length > remainingSelectionSlots;
+
   return <section className={styles.sourcePanel} data-lifecycle={tab}>
     <header className={styles.panelHeader}><nav aria-label="Fontes">
-      <Link href={newHref} aria-current={tab === "new" ? "page" : undefined}>NOVAS ({newCount})</Link>
+      <Link href={newHref} aria-current={tab === "new" ? "page" : undefined}>
+        NOVAS (<MesaLiveCount
+          initial={newCount}
+          lifecycle="new"
+          classificationKey={classificationFilter === "all" ? undefined : classificationFilter}
+        />)
+      </Link>
       <Link href={publishedHref} aria-current={tab === "published" ? "page" : undefined}>PUBLICADAS ({publishedCount})</Link>
       <Link href={archiveHref} aria-current={tab === "archive" ? "page" : undefined}>
         {archiveCount === null ? "ARQUIVO" : `ARQUIVO (${archiveCount})`}
       </Link>
+      {tab !== "archive" ? <button
+        type="button"
+        disabled={!loaded || bulkSelection.length === 0}
+        title={selectionLimitHit
+          ? `Seleciona até ao limite atual de ${MESA_MAX_NEWSROOM_SOURCES} fontes.`
+          : "Selecionar as fontes elegíveis deste separador"}
+        onClick={() => bulkSelection.forEach((material) => select(material))}
+      >Selecionar</button> : null}
     </nav></header>
     <MesaSourceWindow
       key={tab}
