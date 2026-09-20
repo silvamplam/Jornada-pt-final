@@ -65,6 +65,7 @@ test("o contador da recolha mostra também os jogos por terminar", () => {
 
 test("fontes configuradas e históricas são combinadas antes do discovery YouTube", () => {
   const sync = source("lib/match-video-summary-sync.server.ts");
+  assert.match(sync, /inferTrustedSourceChannelIds\(approvedVideos\.flatMap/u);
   assert.match(sync, /mergeTrustedSourceChannelIds\(configured, inferred\)/u);
   assert.doesNotMatch(sync, /if \(configured\.length > 0\) return/u);
   assert.match(sync, /\.\.\.targetIds/u);
@@ -117,7 +118,9 @@ test("VSPORTS sem YouTube só produz diagnóstico e o cron limita jornadas relev
   const migration = source("supabase/migrations/20260920180000_match_video_summary_discovery_audit.sql");
   assert.match(sync, /playableMediaUrl: item\.youtubeUrl/u);
   assert.match(sync, /reason: "no-playable-media"/u);
-  assert.match(sync, /state\.rows\.some\(\(row\) => row\.status === "missing"\)/u);
+  assert.match(sync, /matchVideoSummaryStateNeedsSync\(state\)/u);
+  assert.match(sync, /missingVsportsMatchIds\(/u);
+  assert.doesNotMatch(sync, /discovery\.supported && discovery\.items\.length === 0/u);
   assert.match(sync, /14 \* 24 \* 60 \* 60 \* 1000/u);
   assert.match(sync, /\.slice\(0, 8\)/u);
   assert.match(cron, /syncRelevantMatchVideoSummaries/u);
@@ -137,7 +140,7 @@ test("discovery repetido faz upsert pela identidade estável da fonte", () => {
   assert.match(migration, /unique \(matchday_id, source_provider, source_item_id\)/u);
 });
 
-test("full tem prioridade visual sem reclassificar nem reabrir candidatos rejeitados", () => {
+test("full tem prioridade visual, permite upgrade e não reabre candidatos rejeitados", () => {
   const sync = source("lib/match-video-summary-sync.server.ts");
   assert.match(sync, /allCandidates\.some\(\(candidate\) => candidate\.summary_kind === "full"\)/u);
   assert.match(sync, /allCandidates\.filter\(\(candidate\) => candidate\.summary_kind === "full"\)/u);
@@ -146,5 +149,5 @@ test("full tem prioridade visual sem reclassificar nem reabrir candidatos rejeit
   assert.ok(existingStart >= 0 && existingEnd > existingStart);
   const existingUpdate = sync.slice(existingStart, existingEnd);
   assert.doesNotMatch(existingUpdate, /status:/u);
-  assert.match(existingUpdate, /summary_kind: existing\.summary_kind/u);
+  assert.match(existingUpdate, /summary_kind: upgradedVideoSummaryKind\(existing\.summary_kind, summaryKind\)/u);
 });

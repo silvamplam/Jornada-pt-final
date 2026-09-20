@@ -15,6 +15,14 @@ export type VsportsVideoSummaryDiscovery = Readonly<{
   youtubeUrl: string | null;
 }>;
 
+export function missingVsportsMatchIds(
+  expectedMatchIds: string[],
+  discoveredMatchIds: Array<string | null>,
+) {
+  const discovered = new Set(discoveredMatchIds.filter((matchId): matchId is string => Boolean(matchId)));
+  return expectedMatchIds.filter((matchId) => !discovered.has(matchId));
+}
+
 function absoluteVsportsUrl(value?: string | null) {
   if (!value?.trim()) return null;
   try {

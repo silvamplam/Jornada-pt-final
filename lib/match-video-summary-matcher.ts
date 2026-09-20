@@ -55,6 +55,15 @@ export function videoSummaryKindPriority(kind: VideoSummaryKind) {
   return 0;
 }
 
+export function upgradedVideoSummaryKind(
+  existing: Exclude<VideoSummaryKind, "not-summary">,
+  incoming: Exclude<VideoSummaryKind, "not-summary">,
+) {
+  return videoSummaryKindPriority(incoming) > videoSummaryKindPriority(existing)
+    ? incoming
+    : existing;
+}
+
 export function extractScorePairs(title?: string | null) {
   const source = ` ${title ?? ""} `;
   const pairs: Array<[number, number]> = [];

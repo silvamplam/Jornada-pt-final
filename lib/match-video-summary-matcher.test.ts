@@ -9,6 +9,7 @@ import {
   matchVideoSummaryTitle,
   normalizeVideoSummaryText,
   parseYouTubeDurationSeconds,
+  upgradedVideoSummaryKind,
   videoSummaryKindPriority,
 } from "./match-video-summary-matcher";
 
@@ -31,6 +32,12 @@ const matches = [
 
 test("normaliza acentos e pontuação", () => {
   assert.equal(normalizeVideoSummaryText("Vitória SC — Sporting CP"), "vitoria sc sporting cp");
+});
+
+test("candidato pode subir de flash para full, mas nunca descer de full para flash", () => {
+  assert.equal(upgradedVideoSummaryKind("flash", "full"), "full");
+  assert.equal(upgradedVideoSummaryKind("full", "flash"), "full");
+  assert.equal(upgradedVideoSummaryKind("flash", "flash"), "flash");
 });
 
 test("classifica resumo completo, resumo flash e rejeita flash interview", () => {

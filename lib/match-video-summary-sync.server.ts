@@ -14,16 +14,21 @@ import {
   matchVideoSummaryTitle,
   normalizeVideoSummaryText,
   parseYouTubeDurationSeconds,
+  upgradedVideoSummaryKind,
   videoSummaryKindPriority,
   type VideoSummaryMatchTarget,
   type VideoSummaryKind,
 } from "@/lib/match-video-summary-matcher";
-import type {
-  MatchVideoSummaryCandidateView,
-  MatchVideoSummaryState,
-  MatchVideoSummaryStateRow,
+import {
+  matchVideoSummaryStateNeedsSync,
+  type MatchVideoSummaryCandidateView,
+  type MatchVideoSummaryState,
+  type MatchVideoSummaryStateRow,
 } from "@/lib/match-video-summary-types";
-import { mergeTrustedSourceChannelIds } from "@/lib/match-video-summary-sources";
+import {
+  inferTrustedSourceChannelIds,
+  mergeTrustedSourceChannelIds,
+} from "@/lib/match-video-summary-sources";
 import {
   configuredYouTubeSummaryChannelIds,
   listRecentYouTubeUploads,
@@ -32,6 +37,7 @@ import {
   YouTubeDataApiError,
   type YouTubeVideoResource,
 } from "@/lib/youtube-data-api.server";
+import { missingVsportsMatchIds } from "@/lib/vsports-video-summary-discovery";
 import { discoverVsportsMatchday } from "@/lib/vsports-video-summary-discovery.server";
 
 type MatchdayRow = {
@@ -468,13 +474,10 @@ async function trustedSourceChannels(base: Awaited<ReturnType<typeof loadBase>>)
   const configured = configuredYouTubeSummaryChannelIds(base.competition.id, base.competition.slug);
   const approvedIds = (await seasonRoundupVideoIds(base.season.id, base.roundups)).slice(0, 50);
   const approvedVideos = approvedIds.length > 0 ? await listYouTubeVideos(approvedIds) : [];
-  const counts = new Map<string, number>();
-  approvedVideos.forEach((video) => {
+  const inferred = inferTrustedSourceChannelIds(approvedVideos.flatMap((video) => {
     const channelId = video.snippet?.channelId?.trim();
-    if (channelId) counts.set(channelId, (counts.get(channelId) ?? 0) + 1);
-  });
-
-  const inferred = Array.from(counts.keys());
+    return channelId ? [channelId] : [];
+  }));
   const channelIds = mergeTrustedSourceChannelIds(configured, inferred);
 
   if (channelIds.length === 0) {
@@ -690,7 +693,10 @@ async function saveCandidate(
 
   if (existing) {
     if (existing.matchday_id !== base.matchday.id) return existing;
-    const existingPayload = { ...payload, summary_kind: existing.summary_kind };
+    const existingPayload = {
+      ...payload,
+      summary_kind: upgradedVideoSummaryKind(existing.summary_kind, summaryKind),
+    };
     const rows = await writeSupabaseAdminReturning<VideoSummaryCandidateRow>(
       `match_video_summary_candidates?id=eq.${encodeURIComponent(existing.id)}`,
       { method: "PATCH", body: JSON.stringify(existingPayload) },
@@ -861,8 +867,12 @@ export async function syncMatchVideoSummaries(matchdayId: string) {
           confidence: evaluation.confidence,
         };
       });
-      if (discovery.supported && discovery.items.length === 0) {
-        drafts.push(...missingFinishedMatches.map((match) => ({
+      if (discovery.supported) {
+        const notFoundMatchIds = new Set(missingVsportsMatchIds(
+          missingFinishedMatches.map((match) => match.id),
+          drafts.map((draft) => draft.matchId),
+        ));
+        drafts.push(...missingFinishedMatches.filter((match) => notFoundMatchIds.has(match.id)).map((match) => ({
           matchId: match.id,
           sourceProvider: "vsports" as const,
           sourceItemId: `match-${match.id}`,
@@ -1006,7 +1016,7 @@ export async function syncRelevantMatchVideoSummaries() {
   for (const matchdayId of matchdayIds) {
     try {
       const state = await readMatchVideoSummaryState(matchdayId);
-      if (!state.rows.some((row) => row.status === "missing")) {
+      if (!matchVideoSummaryStateNeedsSync(state)) {
         results.push({ matchdayId, status: "skipped" });
         continue;
       }

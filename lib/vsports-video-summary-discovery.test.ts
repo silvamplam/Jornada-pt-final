@@ -5,6 +5,7 @@ import {
   currentLigaPortugalCompetitionUrl,
   ligaPortugalMatchdayUrl,
   ligaPortugalSeasonUrl,
+  missingVsportsMatchIds,
   parseVsportsMatchdayDiscoveries,
 } from "./vsports-video-summary-discovery";
 
@@ -43,4 +44,14 @@ test("descobre os quatro jogos da J7 e não inventa media para VSPORTS", () => {
 
 test("o parsing repetido é idempotente", () => {
   assert.deepEqual(parseVsportsMatchdayDiscoveries(matchday), parseVsportsMatchdayDiscoveries(matchday));
+});
+
+test("marca not-found por jogo mesmo quando a página contém outros resumos", () => {
+  assert.deepEqual(
+    missingVsportsMatchIds(
+      ["nacional-famalicao", "gil-maritimo", "sporting-arouca"],
+      ["nacional-famalicao", "sporting-arouca", null],
+    ),
+    ["gil-maritimo"],
+  );
 });

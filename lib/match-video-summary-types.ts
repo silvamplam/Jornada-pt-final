@@ -51,3 +51,14 @@ export type MatchVideoSummaryState = {
   sourceChannels?: string[];
   message?: string;
 };
+
+export function matchVideoSummaryStateNeedsSync(state: MatchVideoSummaryState) {
+  return state.rows.some((row) => (
+    row.status === "missing"
+    || (
+      row.status === "candidate"
+      && row.candidates.some((candidate) => candidate.summaryKind === "flash")
+      && !row.candidates.some((candidate) => candidate.summaryKind === "full")
+    )
+  ));
+}
