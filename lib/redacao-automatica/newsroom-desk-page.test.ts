@@ -219,8 +219,15 @@ test("NOVAS reage ao descarte e a seleção em lote respeita o limite operaciona
   assert.match(organization, /bulkSelection = unselectedItems\.slice\(0, remainingSelectionSlots\)/);
   assert.match(organization, />Selecionar<\/button>/);
   assert.match(organization, /tab !== "archive"/);
-  assert.match(page, /newSelectionItems=\{inboxItems\.map\(mesaMaterialFromSource\)\}/);
-  assert.match(page, /publishedSelectionItems=\{publishedItems\.map\(mesaMaterialFromSource\)\}/);
+  assert.match(page, /newSelectionItems=\{inboxItems\.map\(mesaSourceSelectionMaterial\)\}/);
+  assert.match(page, /publishedSelectionItems=\{publishedItems\.map\(mesaSourceSelectionMaterial\)\}/);
+  const sourceItem = source(path.join(
+    process.cwd(),
+    "app/admin/editorial/redacao-automatica/mesa/_mesa-source-item.tsx",
+  ));
+  assert.match(sourceItem, /hasUsableBody \?\? item\.snapshot\.body\.some/);
+  assert.match(sourceItem, /MesaSelectionToggle material=\{material\}/);
+  assert.match(page, /import \{ MesaSourceItem, mesaSourceSelectionMaterial \}/);
 });
 
 test("Arquivo e pesquisa ficam disponíveis na nova Mesa", () => {

@@ -35,8 +35,7 @@ import {
   MesaSelectionTray,
   MesaThemeCount,
 } from "./_mesa-selection-client";
-import type { MesaMaterialSelection } from "./_mesa-selection-state";
-import { MesaSourceItem } from "./_mesa-source-item";
+import { MesaSourceItem, mesaSourceSelectionMaterial } from "./_mesa-source-item";
 import { MesaArchiveSourceItemView } from "./_mesa-archive-source-item";
 import { MesaOrganizationPanel, MesaLooseSourcesPanel } from "./_mesa-organization-client";
 import { loadMesaOrganizationSummary } from "@/lib/redacao-automatica/newsroom-mesa-organization";
@@ -751,28 +750,11 @@ function buildFixtureSources(): readonly OperationalDeskSourceItem[] {
 
 const FIXTURE_SOURCES = buildFixtureSources();
 
-function mesaMaterialFromSource(item: OperationalDeskSourceItem): MesaMaterialSelection {
-  const usableSnapshot = item.snapshot && item.snapshot.body.some(
-    (block) => block.text.trim().length > 0,
-  ) ? item.snapshot : null;
-  return {
-    kind: "source",
-    lifecycle: item.lifecycle,
-    newsroomArticleId: item.newsroomArticleId,
-    newsroomSnapshotId: usableSnapshot?.id ?? null,
-    classificationKey: item.classification.status === "classified"
-      ? item.classification.classificationKey
-      : null,
-    title: item.title,
-    sourceLabel: item.sourceName ?? item.sourceCode,
-    imageUrl: item.imageCandidateUrl,
-  };
-}
 
 const FIXTURE_INITIAL_SELECTION = [0, 2, 4, 21]
   .map((index) => FIXTURE_SOURCES[index])
   .filter((item): item is OperationalDeskSourceItem => Boolean(item))
-  .map(mesaMaterialFromSource);
+  .map(mesaSourceSelectionMaterial);
 
 function presentationHref(
   query: MesaQuery,
@@ -1124,8 +1106,8 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
                   newItems={inboxItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} />)}
                   publishedItems={publishedItems.map((item) => <MesaSourceItem key={item.newsroomArticleId} item={item} fixtureMode={isFixture} allowDiscard={false} />)}
                   archiveItems={archiveItems.map((item) => <MesaArchiveSourceItemView key={item.newsroomArticleId} item={item} />)}
-                  newSelectionItems={inboxItems.map(mesaMaterialFromSource)}
-                  publishedSelectionItems={publishedItems.map(mesaMaterialFromSource)}
+                  newSelectionItems={inboxItems.map(mesaSourceSelectionMaterial)}
+                  publishedSelectionItems={publishedItems.map(mesaSourceSelectionMaterial)}
                 />
                 {organizationError ? <section className={styles.errorState} role="alert">
                   <h2>Organização indisponível</h2>
