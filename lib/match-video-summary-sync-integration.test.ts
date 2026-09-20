@@ -62,3 +62,89 @@ test("o contador da recolha mostra também os jogos por terminar", () => {
   assert.match(client, /state\.waitingCount > 0/u);
   assert.match(client, /por terminar/u);
 });
+
+test("fontes configuradas e históricas são combinadas antes do discovery YouTube", () => {
+  const sync = source("lib/match-video-summary-sync.server.ts");
+  assert.match(sync, /mergeTrustedSourceChannelIds\(configured, inferred\)/u);
+  assert.doesNotMatch(sync, /if \(configured\.length > 0\) return/u);
+  assert.match(sync, /\.\.\.targetIds/u);
+});
+
+test("sync nunca promove e confirmação explícita continua como única fronteira de publicação", () => {
+  const sync = source("lib/match-video-summary-sync.server.ts");
+  const automatic = sync.slice(
+    sync.indexOf("export async function syncMatchVideoSummaries"),
+    sync.indexOf("export async function syncRelevantMatchVideoSummaries"),
+  );
+  const confirmation = sync.slice(
+    sync.indexOf("export async function confirmMatchVideoSummaryCandidate"),
+    sync.indexOf("export async function rejectMatchVideoSummaryCandidate"),
+  );
+  assert.doesNotMatch(automatic, /promoteCandidate\(/u);
+  assert.doesNotMatch(automatic, /matchday_roundup_items/u);
+  assert.match(confirmation, /await promoteCandidate\(base, candidate\)/u);
+  assert.equal(sync.match(/promoteCandidate\(base, candidate\)/gu)?.length, 1);
+  assert.match(sync.slice(sync.indexOf("async function promoteCandidate"), sync.indexOf("export async function syncMatchVideoSummaries")), /status: "published"/u);
+});
+
+test("audit preserva provider YouTube dos candidatos e histórico compatível como full", () => {
+  const migration = source("supabase/migrations/20260920180000_match_video_summary_discovery_audit.sql");
+  const originalSchema = source("supabase/sql/jornada-resumos-video-automaticos-1-aplicar.sql");
+  assert.match(originalSchema, /check \(provider = 'youtube'\)/u);
+  assert.doesNotMatch(migration, /drop constraint[\s\S]*provider/iu);
+  assert.match(migration, /summary_kind text not null default 'full'/u);
+  assert.doesNotMatch(migration, /update public\.match_video_summary_candidates/iu);
+  for (const reason of [
+    "full",
+    "flash",
+    "not-summary",
+    "outside-window",
+    "teams-not-recognized",
+    "score-mismatch",
+    "ambiguous-match",
+    "already-associated",
+    "no-playable-media",
+  ]) {
+    assert.match(migration, new RegExp(`'${reason}'`, "u"));
+  }
+  assert.match(migration, /enable row level security/u);
+  assert.match(migration, /revoke all[\s\S]*from public, anon, authenticated/u);
+});
+
+test("VSPORTS sem YouTube só produz diagnóstico e o cron limita jornadas relevantes", () => {
+  const sync = source("lib/match-video-summary-sync.server.ts");
+  const cron = source("app/api/cron/jornada/video-summaries/route.ts");
+  const migration = source("supabase/migrations/20260920180000_match_video_summary_discovery_audit.sql");
+  assert.match(sync, /playableMediaUrl: item\.youtubeUrl/u);
+  assert.match(sync, /reason: "no-playable-media"/u);
+  assert.match(sync, /state\.rows\.some\(\(row\) => row\.status === "missing"\)/u);
+  assert.match(sync, /14 \* 24 \* 60 \* 60 \* 1000/u);
+  assert.match(sync, /\.slice\(0, 8\)/u);
+  assert.match(cron, /syncRelevantMatchVideoSummaries/u);
+  assert.match(cron, /payload\?\.token/u);
+  assert.match(cron, /rpc\/match_video_summary_consume_automation_token_v1/u);
+  assert.match(cron, /status: 401/u);
+  assert.match(migration, /jornada-video-summaries-quarter-hour/u);
+  assert.match(migration, /extensions\.gen_random_bytes\(32\)/u);
+  assert.doesNotMatch(migration, /grant execute[\s\S]*to (?:anon|authenticated)/u);
+  assert.doesNotMatch(cron, /matchdays\?|seasons\?/u);
+});
+
+test("discovery repetido faz upsert pela identidade estável da fonte", () => {
+  const sync = source("lib/match-video-summary-sync.server.ts");
+  const migration = source("supabase/migrations/20260920180000_match_video_summary_discovery_audit.sql");
+  assert.match(sync, /on_conflict=matchday_id,source_provider,source_item_id/u);
+  assert.match(migration, /unique \(matchday_id, source_provider, source_item_id\)/u);
+});
+
+test("full tem prioridade visual sem reclassificar nem reabrir candidatos rejeitados", () => {
+  const sync = source("lib/match-video-summary-sync.server.ts");
+  assert.match(sync, /allCandidates\.some\(\(candidate\) => candidate\.summary_kind === "full"\)/u);
+  assert.match(sync, /allCandidates\.filter\(\(candidate\) => candidate\.summary_kind === "full"\)/u);
+  const existingStart = sync.indexOf("if (existing) {");
+  const existingEnd = sync.indexOf("\n  const rows = await writeSupabaseAdminReturning<VideoSummaryCandidateRow>(", existingStart + 1);
+  assert.ok(existingStart >= 0 && existingEnd > existingStart);
+  const existingUpdate = sync.slice(existingStart, existingEnd);
+  assert.doesNotMatch(existingUpdate, /status:/u);
+  assert.match(existingUpdate, /summary_kind: existing\.summary_kind/u);
+});

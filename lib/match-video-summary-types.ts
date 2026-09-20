@@ -7,6 +7,27 @@ export type MatchVideoSummaryCandidateView = {
   channelTitle: string | null;
   isEmbeddable: boolean | null;
   confidence: number | null;
+  summaryKind: "full" | "flash";
+};
+
+export type MatchVideoSummaryDiagnosticView = {
+  id: string;
+  title: string;
+  sourceProvider: "vsports" | "youtube";
+  sourceUrl: string | null;
+  summaryKind: "full" | "flash" | "not-summary";
+  reason:
+    | "full"
+    | "flash"
+    | "not-summary"
+    | "outside-window"
+    | "teams-not-recognized"
+    | "score-mismatch"
+    | "ambiguous-match"
+    | "already-associated"
+    | "no-playable-media"
+    | "not-found"
+    | "source-unavailable";
 };
 
 export type MatchVideoSummaryStateRow = {
@@ -16,6 +37,7 @@ export type MatchVideoSummaryStateRow = {
   roundupId: string | null;
   videoUrl: string | null;
   candidates: MatchVideoSummaryCandidateView[];
+  diagnostics: MatchVideoSummaryDiagnosticView[];
 };
 
 export type MatchVideoSummaryState = {
