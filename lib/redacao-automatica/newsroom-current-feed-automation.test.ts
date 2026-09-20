@@ -11,20 +11,23 @@ const feedPath =
 const registryPath =
   "lib/redacao-automatica/source-registry.ts";
 
-test("cron da Redação usa endpoint técnico autenticado sem expor o Vault", () => {
+test("cron da Redação usa token efémero de uma só utilização", () => {
   const route = readFileSync(routePath, "utf8");
   const migration = readFileSync(migrationPath, "utf8");
 
-  assert.match(route, /x-sync-secret/);
-  assert.match(route, /rpc\/newsroom_verify_automatic_feed_secret_v1/);
+  assert.match(route, /payload\?\.token/);
+  assert.match(route, /rpc\/newsroom_consume_automatic_feed_token_v1/);
   assert.match(route, /refreshNewsroomCurrentFeed\(null, "automatic"\)/);
   assert.match(route, /status: 401/);
   assert.match(route, /status: 503/);
   assert.doesNotMatch(route, /vault\.|decrypted_secret|process\.env\.[A-Z_]*SECRET/);
 
-  assert.match(migration, /jornada_sync_final_results_secret/);
-  assert.doesNotMatch(migration, /vault\.create_secret/);
-  assert.doesNotMatch(migration, /gen_random_bytes/);
+  assert.match(migration, /newsroom_automatic_feed_tokens/);
+  assert.match(migration, /newsroom_consume_automatic_feed_token_v1/);
+  assert.match(migration, /extensions\.gen_random_bytes\(32\)/);
+  assert.match(migration, /extensions\.digest/);
+  assert.match(migration, /interval '5 minutes'/);
+  assert.doesNotMatch(migration, /vault\.|decrypted_secret|create_secret/);
   assert.doesNotMatch(migration, /create extension/i);
   assert.match(migration, /security definer/);
   assert.match(migration, /grant execute[\s\S]*to service_role/);
@@ -37,7 +40,7 @@ test("cron da Redação usa endpoint técnico autenticado sem expor o Vault", ()
     /https:\/\/jornada\.pt\/api\/cron\/redacao-automatica\/current-feed/,
   );
   assert.match(migration, /net\.http_post/);
-  assert.match(migration, /vault\.decrypted_secrets/);
+  assert.match(migration, /jsonb_build_object\([\s\S]*'token'/);
   assert.doesNotMatch(migration, /grant execute[\s\S]*to (?:anon|authenticated)/);
 });
 
