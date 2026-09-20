@@ -43,8 +43,6 @@ export function createOperationalDeskAutomaticClassification(
       !Number.isFinite(detectedAt)
       || detectedAt < Date.parse(MESA_OPERATIONAL_CYCLE_STARTED_AT)
     ) return { status: "outside_cycle" };
-    if (input.articleAction !== "created") return { status: "not_new" };
-
     const seasonId = MESA_OPERATIONAL_CLASSIFICATION_CONTEXT.seasonId;
     try {
       const result = await dependencies.classify({

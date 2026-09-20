@@ -116,6 +116,31 @@ const BIG_THREE_BY_CANONICAL_TEAM_SLUG: Readonly<
 const EXPLICIT_OUTSIDE_CONTEXTS = [
   "selecao nacional",
   "futebol internacional",
+  "premier league",
+  "la liga",
+  "serie a",
+  "bundesliga",
+  "ligue 1",
+  "brasileirao",
+  "liga dos campeoes",
+  "champions league",
+  "liga europa",
+  "europa league",
+  "conference league",
+  "formula 1",
+  "motogp",
+  "tenis",
+  "wta",
+  "atp",
+  "ciclismo",
+  "vuelta",
+  "tour de france",
+  "giro d italia",
+  "nba",
+  "basquetebol",
+  "transmissoes de desporto",
+  "em direto na tv",
+  "classificacao da liga portugal",
 ] as const;
 
 const BIG_THREE_KEYS = new Set<ArticleClassificationKey>([
@@ -297,6 +322,12 @@ function hasExplicitOutsideContext(normalizedText: string): boolean {
   );
 }
 
+function quotedTitleLead(value: string): string | null {
+  const match = value.match(/^(.+?):\s*[«“"]/u);
+  const lead = match?.[1]?.trim() ?? "";
+  return lead.length > 0 ? lead : null;
+}
+
 function result(
   state: NewsroomDeterministicClassificationResult["state"],
   classificationKey: ArticleClassificationKey | null,
@@ -422,6 +453,15 @@ export function classifyNewsroomArticleDeterministically(
   ];
 
   for (const [field, value] of fields) {
+    if (field === "title" && value) {
+      const lead = quotedTitleLead(value);
+      if (lead) {
+        const leadClassification = classifyField(lead, field, context);
+        if (leadClassification?.state === "classified") {
+          return leadClassification;
+        }
+      }
+    }
     const classification = classifyField(value, field, context);
     if (classification) return classification;
   }
