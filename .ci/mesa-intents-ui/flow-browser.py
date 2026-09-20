@@ -131,6 +131,11 @@ with sync_playwright() as pw:
         button.click()
         if args.document_only:page.wait_for_function('(path)=>window.__flowLanding===path',arg=mesa,timeout=12000)
         else:page.wait_for_url(origin+mesa,timeout=12000)
+    def expect_auto_nochange_return():
+        if args.document_only:
+            page.wait_for_function('(path)=>window.__flowLanding===path',arg=mesa,timeout=12000)
+        else:
+            page.wait_for_url(origin+mesa,timeout=12000)
     def mixed():
         f=start();did,plan=prepare('review-new',1)
         page.screenshot(path=str(out/'flow-workspace-mixed.png'),full_page=True)
@@ -148,7 +153,7 @@ with sync_playwright() as pw:
         (out/'flow-mixed-result.json').write_text(json.dumps(s,ensure_ascii=False,indent=2))
     def nochange():
         start(independent=False,published=2);did,plan=prepare();pid,_=package(did)
-        return_text(pid,[o['outputId'] for o in plan['outputs']]);publish()
+        return_text(pid,[o['outputId'] for o in plan['outputs']]);expect_auto_nochange_return()
         s=rpc(dict(kind='flow-state',dossierId=did))
         assert len(s['receipts'])==2 and not s['published'] and s['workspace']['workspace_state']=='consolidated'
         assert all(a['body']=='Corpo antigo' for a in s['themeArticles'])
@@ -172,7 +177,7 @@ with sync_playwright() as pw:
         expect(page.get_by_text('Não revisto — sem referência de revisão verificável.',exact=True)).to_have_count(1)
         expect(page.get_by_text('Publicação inicial — não é uma revisão dos artigos anteriores.',exact=True)).to_have_count(0)
         did2,plan2=prepare();assert len(plan2['outputs'])==1 and all(o['kind']=='existing' for o in plan2['outputs'])
-        pid2,_=package(did2);return_text(pid2,[o['outputId'] for o in plan2['outputs']]);publish()
+        pid2,_=package(did2);return_text(pid2,[o['outputId'] for o in plan2['outputs']]);expect_auto_nochange_return()
         second=rpc(dict(kind='flow-state',dossierId=did2));assert len(second['receipts'])==1
         assert second['receipts'][0]['decision']=='SEM_ALTERAÇÃO'
         assert second['themeArticles']==first['themeArticles']
