@@ -38,6 +38,7 @@ import {
 import { MesaSourceItem, mesaSourceSelectionMaterial } from "./_mesa-source-item";
 import { MesaArchiveSourceItemView } from "./_mesa-archive-source-item";
 import { MesaOrganizationPanel, MesaLooseSourcesPanel } from "./_mesa-organization-client";
+import ManualSourceEntry from "./_manual-source-entry";
 import { loadMesaOrganizationSummary } from "@/lib/redacao-automatica/newsroom-mesa-organization";
 import { sourceIsUnassigned, filterMesaOrganization, type MesaOrganization } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
 import styles from "./mesa.module.css";
@@ -90,6 +91,17 @@ function formatDate(value: string | null): string | null {
     timeStyle: "short",
     timeZone: "Europe/Lisbon",
   }).format(date);
+}
+
+function lisbonDateOnly(value: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Lisbon",
+  }).formatToParts(value);
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+  return `${values.get("year")}-${values.get("month")}-${values.get("day")}`;
 }
 
 function sumVisibleCount(
@@ -883,6 +895,10 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
   const queryParams = (await searchParams) as Record<string, string | string[] | undefined> | undefined;
   const isFixture = process.env.NODE_ENV !== "production"
     && firstValue(queryParams?.fixture) === "visual";
+  const manualSourceState = firstValue(queryParams?.manual_source_state);
+  const savedManualSourceState = manualSourceState === "created" || manualSourceState === "reused"
+    ? manualSourceState
+    : null;
 
   let organization: MesaOrganization = { themes: [], unlinkedDossiers: [] };
   let organizationError = false;
@@ -1088,6 +1104,11 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
                 />
                 <button type="submit" disabled={isFixture}>Atualizar</button>
               </form>
+              <ManualSourceEntry
+                initiallyOpen={firstValue(queryParams?.manual_source) === "1"}
+                maxDate={lisbonDateOnly(new Date())}
+                savedState={savedManualSourceState}
+              />
             </section>
 
             <MesaSelectionTray sourceThemeActions />
