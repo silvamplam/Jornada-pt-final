@@ -299,3 +299,29 @@ test("Tema recupera publicados pela proveniência exata do contexto sem criar me
     /article\.matchdayId === null \|\| validUuid\(article\.matchdayId\)/,
   );
 });
+
+
+test("Temas dentro de selection recuperam só outputs que usaram fontes desse Tema", () => {
+  const migration = read(
+    "supabase/migrations/20260920170000_newsroom_mesa_selection_theme_published_outputs_v3.sql",
+  );
+  assert.match(migration, /preparation\.request -> 'selection' -> 'themeIds'/);
+  assert.match(migration, /newsroom_mesa_output_source_usage/);
+  assert.match(
+    migration,
+    /publication\.article_plan_id = usage\.article_plan_id/,
+  );
+  assert.match(
+    migration,
+    /publication\.editorial_article_id = usage\.editorial_article_id/,
+  );
+  assert.match(migration, /context_item\.context_kind = 'selection'/);
+  assert.match(
+    migration,
+    /usage\.newsroom_article_id = membership\.newsroom_article_id/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /insert\s+into\s+public\.newsroom_editorial_theme_articles/i,
+  );
+});
