@@ -106,7 +106,7 @@ async function collectBlockedSource(
   };
 }
 
-test("registry explicita a matriz automatica e manual sem ativar monitorizacao", () => {
+test("registry ativa monitorizacao apenas nas fontes autorizadas", () => {
   const record = registeredSource("record");
   const abola = registeredSource("abola");
   const maisfutebol = registeredSource("maisfutebol");
@@ -136,39 +136,29 @@ test("registry explicita a matriz automatica e manual sem ativar monitorizacao",
       },
     },
     {
-      record: { status: "paused", monitoring: false, manual: true },
-      abola: { status: "paused", monitoring: false, manual: true },
+      record: { status: "active", monitoring: true, manual: true },
+      abola: { status: "active", monitoring: true, manual: true },
       maisfutebol: { status: "paused", monitoring: false, manual: false },
       ojogo: { status: "legal_hold", monitoring: false, manual: false },
     },
   );
 });
 
-test("modo omitido equivale a automatico e bloqueia Record e A Bola", async () => {
+test("modo omitido equivale a automatico e autoriza Record e A Bola", () => {
   for (const sourceCode of ["record", "abola"] as const) {
-    const omitted = await collectBlockedSource(sourceCode);
-    const explicit = await collectBlockedSource(sourceCode, "automatic");
-
-    expectError(omitted.result, "source_inactive");
-    expectError(explicit.result, "source_inactive");
-    assert.deepEqual(omitted.counts, {
-      adapterRegistry: 0,
-      pageLoader: 0,
-    });
-    assert.deepEqual(explicit.counts, {
-      adapterRegistry: 0,
-      pageLoader: 0,
-    });
+    const source = registeredSource(sourceCode);
+    assert.equal(evaluateSourceExecution(source).ok, true);
+    assert.equal(evaluateSourceExecution(source, "automatic").ok, true);
   }
 });
 
-test("gate autoriza manualmente Record e A Bola sem mutar a configuracao", () => {
+test("gate autoriza Record e A Bola em manual e automatico sem mutar a configuracao", () => {
   for (const sourceCode of ["record", "abola"] as const) {
     const source = registeredSource(sourceCode);
     const snapshot = structuredClone(source);
 
-    assert.equal(evaluateSourceExecution(source).ok, false);
-    assert.equal(evaluateSourceExecution(source, "automatic").ok, false);
+    assert.equal(evaluateSourceExecution(source).ok, true);
+    assert.equal(evaluateSourceExecution(source, "automatic").ok, true);
 
     const manualResult = evaluateSourceExecution(source, "manual");
     assert.equal(manualResult.ok, true);
