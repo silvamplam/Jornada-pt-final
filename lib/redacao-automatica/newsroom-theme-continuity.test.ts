@@ -264,3 +264,38 @@ test("migration é aditiva, scoped e não cria tabela nem coluna", () => {
   assert.doesNotMatch(migration, /create\s+table|alter\s+table[\s\S]*add\s+column/i);
   assert.doesNotMatch(migration, /reference_snapshot_id/);
 });
+
+
+test("Tema recupera publicados pela proveniência exata do contexto sem criar membership", () => {
+  const migration = read(
+    "supabase/migrations/20260920151500_newsroom_mesa_theme_published_outputs_v2.sql",
+  );
+  const themePage = read(
+    "app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/page.tsx",
+  );
+  const continuity = read(
+    "lib/redacao-automatica/newsroom-theme-continuity.ts",
+  );
+
+  assert.match(migration, /newsroom_mesa_production_context_items/);
+  assert.match(migration, /newsroom_mesa_output_publications/);
+  assert.match(
+    migration,
+    /publication\.production_context_id = context_item\.id/,
+  );
+  assert.match(migration, /context_item\.context_kind = 'theme'/);
+  assert.match(migration, /context_item\.theme_id = p_theme_id/);
+  assert.doesNotMatch(
+    migration,
+    /insert\s+into\s+public\.newsroom_editorial_theme_articles/i,
+  );
+
+  assert.match(themePage, /readThemeContinuity\(themeId\)/);
+  assert.match(themePage, /ARTIGOS PUBLICADOS/);
+  assert.match(themePage, /continuity\.publishedArticles\.map/);
+  assert.match(themePage, /articleId=/);
+  assert.match(
+    continuity,
+    /article\.matchdayId === null \|\| validUuid\(article\.matchdayId\)/,
+  );
+});
