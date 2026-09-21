@@ -154,7 +154,45 @@ export type HistoricalCompositionReservoirArticle = Readonly<{
   title: string;
   naturalGroupKey: string | null;
   historicalEligible?: boolean;
+  fromLiveBank?: boolean;
 }>;
+
+export type HistoricalCompositionReservoirScope = "live-bank" | "all";
+
+export function historicalCompositionReservoirCounts<
+  T extends HistoricalCompositionReservoirArticle,
+>(
+  articles: readonly T[],
+  placedBankItemIds: ReadonlySet<string>,
+) {
+  let all = 0;
+  let liveBank = 0;
+
+  for (const article of articles) {
+    if (
+      article.historicalEligible === false
+      || placedBankItemIds.has(article.bankItemId)
+    ) {
+      continue;
+    }
+
+    all += 1;
+    if (article.fromLiveBank === true) liveBank += 1;
+  }
+
+  return { all, liveBank } as const;
+}
+
+export function initialHistoricalCompositionReservoirScope<
+  T extends HistoricalCompositionReservoirArticle,
+>(
+  articles: readonly T[],
+  placedBankItemIds: ReadonlySet<string>,
+): HistoricalCompositionReservoirScope {
+  return historicalCompositionReservoirCounts(articles, placedBankItemIds).liveBank > 0
+    ? "live-bank"
+    : "all";
+}
 
 export function filterHistoricalCompositionReservoir<
   T extends HistoricalCompositionReservoirArticle,
@@ -163,12 +201,14 @@ export function filterHistoricalCompositionReservoir<
   placedBankItemIds: ReadonlySet<string>,
   selectedGroupKeys: ReadonlySet<string>,
   search: string,
+  scope: HistoricalCompositionReservoirScope = "all",
 ) {
   const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
 
   return articles.filter((article) => {
     if (article.historicalEligible === false) return false;
     if (placedBankItemIds.has(article.bankItemId)) return false;
+    if (scope === "live-bank" && article.fromLiveBank !== true) return false;
     if (
       selectedGroupKeys.size > 0
       && (!article.naturalGroupKey || !selectedGroupKeys.has(article.naturalGroupKey))

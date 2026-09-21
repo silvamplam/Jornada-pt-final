@@ -4541,6 +4541,12 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       }))
     : [];
 
+  const hierarchicalExplicitLiveBankItemIds = new Set(
+    hierarchicalProfileSnapshot?.kind === "thematic"
+      ? hierarchicalProfileSnapshot.physicalWorkspace.explicitBankItemIds
+      : [],
+  );
+
   const hierarchicalDeskArticleById = new Map(
     (hierarchicalDeskSnapshot?.articles ?? []).map((article) => [article.id, article] as const),
   );
@@ -4567,6 +4573,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           publishedAt: article?.publishedAt ?? null,
           naturalGroupKey: hierarchicalNaturalGroupByArticleId.get(bankItem.source_id) ?? null,
           historicalEligible: isHistoricalBankItemEligible(bankItem),
+          fromLiveBank: hierarchicalExplicitLiveBankItemIds.has(bankItem.id),
           inheritedFromMatchdayNumber: bankItem.continuity_source_matchday_id
             ? sourceMatchdayNumberById.get(bankItem.continuity_source_matchday_id) ?? null
             : null,

@@ -8,10 +8,13 @@ import {
 import {
   HISTORICAL_DYNAMIC_ZONE_LAYOUTS,
   filterHistoricalCompositionReservoir,
+  historicalCompositionReservoirCounts,
   historicalDynamicZonePositions,
+  initialHistoricalCompositionReservoirScope,
   moveHistoricalCompositionPiece,
   type HistoricalCompositionBlockKey,
   type HistoricalCompositionPlacementLocation,
+  type HistoricalCompositionReservoirScope,
   type HistoricalDynamicZoneVisualFamily,
 } from "@/lib/editorial-historical-composition-workspace";
 
@@ -25,6 +28,7 @@ export type HierarchicalCompositionDeskArticle = {
   publishedAt: string | null;
   naturalGroupKey: string | null;
   historicalEligible: boolean;
+  fromLiveBank: boolean;
   inheritedFromMatchdayNumber: number | null;
 };
 
@@ -445,6 +449,32 @@ const styles = `
     font-size: 11px;
   }
 
+  .hc-desk-scope {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .hc-desk-scope button {
+    min-height: 28px;
+    padding: 3px 9px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #334155;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 900;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .hc-desk-scope button.active {
+    border-color: #1d4ed8;
+    background: #1d4ed8;
+    color: #ffffff;
+  }
+
   .hc-desk-filters,
   .hc-desk-groups,
   .hc-desk-bulk {
@@ -602,6 +632,15 @@ const styles = `
   .hc-desk-continuity.revalidated {
     background: #e8f1ec;
     color: #1f6d43 !important;
+  }
+
+  .hc-desk-live-bank {
+    border-radius: 999px;
+    padding: 3px 6px;
+    background: #eef2ff;
+    color: #4338ca !important;
+    font-style: normal;
+    font-weight: 900;
   }
 
   .hc-desk-row {
@@ -1022,6 +1061,11 @@ const styles = `
     gap: 6px;
     align-items: center;
     padding: 6px 8px;
+  }
+
+  .hc-desk-scope {
+    order: 0;
+    flex: 0 0 auto;
   }
 
   .hc-desk-groups {
@@ -1500,9 +1544,14 @@ export default function HierarchicalCompositionDeskClient({
     [placementByBankItem],
   );
 
-  const eligibleArticleCount = useMemo(
-    () => articles.filter((article) => article.historicalEligible).length,
-    [articles],
+  const [reservoirScope, setReservoirScope] =
+    useState<HistoricalCompositionReservoirScope>(() =>
+      initialHistoricalCompositionReservoirScope(articles, placedBankItemIds),
+    );
+
+  const reservoirCounts = useMemo(
+    () => historicalCompositionReservoirCounts(articles, placedBankItemIds),
+    [articles, placedBankItemIds],
   );
 
   const filteredArticles = useMemo(
@@ -1511,8 +1560,9 @@ export default function HierarchicalCompositionDeskClient({
       placedBankItemIds,
       new Set(selectedGroupKeys),
       search,
+      reservoirScope,
     ),
-    [articles, placedBankItemIds, search, selectedGroupKeys],
+    [articles, placedBankItemIds, reservoirScope, search, selectedGroupKeys],
   );
 
   const inheritedAvailableArticles = useMemo(() => {
@@ -2368,6 +2418,31 @@ export default function HierarchicalCompositionDeskClient({
           aria-label="Banco da Mesa"
         >
           <div className="hc-desk-toolbar">
+            <div
+              className="hc-desk-scope"
+              role="group"
+              aria-label="Âmbito do Banco da Mesa"
+            >
+              {reservoirCounts.liveBank > 0 ? (
+                <button
+                  type="button"
+                  className={reservoirScope === "live-bank" ? "active" : undefined}
+                  aria-pressed={reservoirScope === "live-bank"}
+                  onClick={() => setReservoirScope("live-bank")}
+                >
+                  Banco da Viva ({reservoirCounts.liveBank})
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={reservoirScope === "all" ? "active" : undefined}
+                aria-pressed={reservoirScope === "all"}
+                onClick={() => setReservoirScope("all")}
+              >
+                Todos ({reservoirCounts.all})
+              </button>
+            </div>
+
             <div className="hc-desk-search">
               <input
                 type="search"
@@ -2384,7 +2459,9 @@ export default function HierarchicalCompositionDeskClient({
               />
 
               <strong>
-                {filteredArticles.length}/{eligibleArticleCount} disponíveis
+                {filteredArticles.length}/{reservoirScope === "live-bank"
+                  ? reservoirCounts.liveBank
+                  : reservoirCounts.all} disponíveis
               </strong>
             </div>
 
@@ -2501,6 +2578,16 @@ export default function HierarchicalCompositionDeskClient({
                               ? (
                                 <em>
                                   {article.label}
+                                </em>
+                              )
+                              : null
+                          }
+
+                          {
+                            reservoirScope === "all" && article.fromLiveBank
+                              ? (
+                                <em className="hc-desk-live-bank">
+                                  BANCO DA VIVA
                                 </em>
                               )
                               : null

@@ -5,6 +5,8 @@ import {
   HISTORICAL_COMPOSITION_BLOCK_KEYS,
   HISTORICAL_COMPOSITION_DEFAULT_ZONE_TITLES,
   filterHistoricalCompositionReservoir,
+  historicalCompositionReservoirCounts,
+  initialHistoricalCompositionReservoirScope,
   moveHistoricalCompositionPiece,
   normalizeHistoricalCompositionBlockOrder,
   normalizeHistoricalCompositionZoneTitle,
@@ -16,6 +18,14 @@ const articles = [
   { bankItemId: "b", label: "Sporting", title: "Leões empatam", naturalGroupKey: "sporting" },
   { bankItemId: "c", label: "Liga", title: "Mercado fecha", naturalGroupKey: "outros" },
   { bankItemId: "d", label: "Benfica", title: "Mercado encarnado", naturalGroupKey: "benfica" },
+] as const;
+
+const liveBankArticles = [
+  { bankItemId: "live-sporting", label: "Sporting", title: "Leões vencem o dérbi", naturalGroupKey: "sporting", historicalEligible: true, fromLiveBank: true },
+  { bankItemId: "live-benfica", label: "Benfica", title: "Águias preparam o clássico", naturalGroupKey: "benfica", historicalEligible: true, fromLiveBank: true },
+  { bankItemId: "all-sporting", label: "Sporting", title: "Mercado leonino", naturalGroupKey: "sporting", historicalEligible: true, fromLiveBank: false },
+  { bankItemId: "inherited-pending", label: "Sporting", title: "Herdada sem revalidação", naturalGroupKey: "sporting", historicalEligible: false, fromLiveBank: true },
+  { bankItemId: "inherited-revalidated", label: "Benfica", title: "Herdada já revalidada", naturalGroupKey: "benfica", historicalEligible: true, fromLiveBank: true },
 ] as const;
 
 test("o reservatório contém apenas peças livres e combina grupos por união com pesquisa por interseção", () => {
@@ -199,4 +209,103 @@ test("notícias herdadas não revalidadas ficam fora do reservatório normal", (
     ).map((article) => article.bankItemId),
     ["a", "b", "c", "d"],
   );
+});
+
+test("o âmbito Banco da Viva usa apenas identidade explícita, elegibilidade e disponibilidade", () => {
+  const placed = new Set(["live-benfica"]);
+
+  assert.deepEqual(
+    filterHistoricalCompositionReservoir(
+      liveBankArticles,
+      placed,
+      new Set(),
+      "",
+      "live-bank",
+    ).map((article) => article.bankItemId),
+    ["live-sporting", "inherited-revalidated"],
+  );
+  assert.deepEqual(historicalCompositionReservoirCounts(liveBankArticles, placed), {
+    all: 3,
+    liveBank: 2,
+  });
+});
+
+test("Todos mantém o universo elegível atual e exclui colocadas e herdadas pendentes", () => {
+  assert.deepEqual(
+    filterHistoricalCompositionReservoir(
+      liveBankArticles,
+      new Set(["live-benfica"]),
+      new Set(),
+      "",
+      "all",
+    ).map((article) => article.bankItemId),
+    ["live-sporting", "all-sporting", "inherited-revalidated"],
+  );
+});
+
+test("pesquisa e grupos temáticos intersectam o Banco da Viva", () => {
+  assert.deepEqual(
+    filterHistoricalCompositionReservoir(
+      liveBankArticles,
+      new Set(),
+      new Set(["sporting"]),
+      "dérbi",
+      "live-bank",
+    ).map((article) => article.bankItemId),
+    ["live-sporting"],
+  );
+});
+
+test("sem identidade explícita ou snapshot temático o âmbito inicial recua para Todos", () => {
+  const withoutLiveBankIdentity = liveBankArticles.map((article) => ({
+    ...article,
+    fromLiveBank: false,
+  }));
+
+  assert.equal(
+    initialHistoricalCompositionReservoirScope(withoutLiveBankIdentity, new Set()),
+    "all",
+  );
+  assert.equal(
+    initialHistoricalCompositionReservoirScope(liveBankArticles, new Set()),
+    "live-bank",
+  );
+  assert.equal(
+    initialHistoricalCompositionReservoirScope(
+      liveBankArticles,
+      new Set(["live-sporting", "live-benfica", "inherited-revalidated"]),
+    ),
+    "all",
+  );
+});
+
+test("mudar o âmbito não altera a seleção editorial já feita", () => {
+  const selected = new Set(["live-sporting", "all-sporting"]);
+  const liveBank = filterHistoricalCompositionReservoir(
+    liveBankArticles,
+    new Set(),
+    new Set(),
+    "",
+    "live-bank",
+  );
+  const all = filterHistoricalCompositionReservoir(
+    liveBankArticles,
+    new Set(),
+    new Set(),
+    "",
+    "all",
+  );
+
+  assert.deepEqual([...selected], ["live-sporting", "all-sporting"]);
+  assert.deepEqual(liveBank.map((article) => article.bankItemId), [
+    "live-sporting",
+    "live-benfica",
+    "inherited-revalidated",
+  ]);
+  assert.deepEqual(all.map((article) => article.bankItemId), [
+    "live-sporting",
+    "live-benfica",
+    "all-sporting",
+    "inherited-revalidated",
+  ]);
 });
