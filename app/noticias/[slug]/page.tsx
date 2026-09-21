@@ -6,11 +6,11 @@ import { publicArticleParagraphs } from "@/lib/public-article-paragraphs";
 import { selectPublicMoreArticles } from "@/lib/public-article-more";
 import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
+import homeNewsHeaderStyles from "@/components/public/PublicHomeNewsHeader.module.css";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { resolvePublicCompetitionLogoPresentation } from "@/lib/public-competition-navigation";
-import matchdayHeaderStyles from "@/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.module.css";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import {
   getPublicMatchdayDiagnostic,
@@ -615,29 +615,27 @@ export default async function NewsArticlePage({ params }: PageProps) {
   return (
     <div className="news-article-shell">
       <style>{articlePageStyles}</style>
-      <div className={`public-top-stack ${articleContext ? matchdayHeaderStyles.topStack : ""}`}>
+      <div
+        className={`public-top-stack ${homeNewsHeaderStyles.topStack} ${
+          articleContext ? homeNewsHeaderStyles.contextualTopStack : homeNewsHeaderStyles.simpleTopStack
+        }`}
+      >
         <header className="public-site-topbar" aria-label="Topo do Jornada.pt">
           {articleContext && currentCompetitionMenuItem ? (
-            <>
-              <a className={matchdayHeaderStyles.competitionIdentity} href={currentCompetitionMenuItem.href}>
-                {competitionLogo ? (
-                  <img
-                    alt=""
-                    data-variant={competitionLogo.variant}
-                    height={competitionLogo.intrinsicHeight}
-                    src={competitionLogo.logoUrl}
-                    width={competitionLogo.intrinsicWidth}
-                  />
-                ) : null}
-                <span>{articleContext.competition.name}</span>
-              </a>
-              <a className={matchdayHeaderStyles.matchdayBrand} href="/" aria-label={`Jornada.pt — Jornada ${articleContext.matchday.number}`}>
-                <span>a Jornada</span>
-                <strong>{String(articleContext.matchday.number).padStart(2, "0")}</strong>
-              </a>
-            </>
+            <a className={homeNewsHeaderStyles.competitionIdentity} href={currentCompetitionMenuItem.href}>
+              {competitionLogo ? (
+                <img
+                  alt=""
+                  data-variant={competitionLogo.variant}
+                  height={competitionLogo.intrinsicHeight}
+                  src={competitionLogo.logoUrl}
+                  width={competitionLogo.intrinsicWidth}
+                />
+              ) : null}
+              <span>{articleContext.competition.name}</span>
+            </a>
           ) : (
-            <a className="public-site-brand" href="/">
+            <a className={`public-site-brand ${homeNewsHeaderStyles.siteIdentity}`} href="/">
               Jornada<span>.pt</span>
             </a>
           )}
@@ -647,6 +645,14 @@ export default async function NewsArticlePage({ params }: PageProps) {
             classificationHref={classificationHref}
             showMessageTicker={false}
           />
+          <a
+            className={homeNewsHeaderStyles.matchdayBrand}
+            href="/"
+            aria-label={articleContext ? `Jornada.pt — Jornada ${articleContext.matchday.number}` : "A Jornada"}
+          >
+            <span>a Jornada</span>
+            {articleContext ? <strong>{String(articleContext.matchday.number).padStart(2, "0")}</strong> : null}
+          </a>
           {articleContext ? (
             <div className="public-matchday-date-row">
               <span className="public-matchday-date-context">

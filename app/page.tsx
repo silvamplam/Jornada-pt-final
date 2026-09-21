@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
+import homeNewsHeaderStyles from "@/components/public/PublicHomeNewsHeader.module.css";
 import { PublicEditorialLayout, type PublicEditorialHighlight, type PublicEditorialLatestNews } from "@/components/public/PublicEditorialLayout";
 import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsStrip";
 import PublicMatchStrip, { type PublicMatchStripMatch } from "@/components/public/PublicMatchStrip";
@@ -531,18 +532,21 @@ export default async function HomePage() {
   return (
     <main className="public-matchday-shell">
       <style>{publicEditorialStyles}</style>
-      <div className="public-top-stack">
-      <header className="public-site-topbar" aria-label="Topo do Jornada.pt">
-        <Link className="public-site-brand" href="/" aria-label="Jornada.pt">
-          Jornada<span>.pt</span>
-        </Link>
-        <PublicCompetitionNavigation competitions={competitionLinks} showMessageTicker={false} />
-        <div className="public-site-actions" aria-label="Acoes">
-          <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>
-          <Link href="/admin/login">Entrar</Link>
-        </div>
-      </header>
-      <div aria-hidden="true" className="public-home-games-transition-bar" />
+      <div className={`public-top-stack ${homeNewsHeaderStyles.topStack} ${homeNewsHeaderStyles.simpleTopStack}`}>
+        <header className="public-site-topbar" aria-label="Topo do Jornada.pt">
+          <Link className={`public-site-brand ${homeNewsHeaderStyles.siteIdentity}`} href="/" aria-label="Jornada.pt">
+            Jornada<span>.pt</span>
+          </Link>
+          <PublicCompetitionNavigation competitions={competitionLinks} showMessageTicker={false} />
+          <div className={homeNewsHeaderStyles.matchdayBrand}>
+            <span>a Jornada</span>
+          </div>
+          <div className="public-site-actions" aria-label="Acoes">
+            <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>
+            <Link href="/admin/login">Entrar</Link>
+          </div>
+        </header>
+        <div aria-hidden="true" className="public-home-games-transition-bar" />
       </div>
 
       <div className="public-home-match-strip-static">
