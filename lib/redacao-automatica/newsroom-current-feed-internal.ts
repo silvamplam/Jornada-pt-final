@@ -21,23 +21,11 @@ function identity(sourceCode: string, articleUrl: string): string {
   return `${sourceCode.trim().toLowerCase()}\u0000${articleUrl.trim()}`;
 }
 
-export function newsroomCurrentFeedIdentity(
-  sourceCode: string,
-  articleUrl: string,
-): string {
-  return identity(sourceCode, articleUrl);
-}
-
-function classifyCandidates(
+function currentListingCandidates(
   collections: readonly SourceCollectionSummary[],
-  knownIdentities: ReadonlySet<string>,
-): Readonly<{
-  candidates: readonly NewsroomCurrentFeedCandidate[];
-  alreadyKnownCount: number;
-}> {
+): readonly NewsroomCurrentFeedCandidate[] {
   const seen = new Set<string>();
   const selected: NewsroomCurrentFeedCandidate[] = [];
-  let alreadyKnownCount = 0;
 
   for (const collection of collections) {
     for (const candidate of collection.candidates) {
@@ -47,10 +35,6 @@ function classifyCandidates(
       }
 
       seen.add(candidateIdentity);
-      if (knownIdentities.has(candidateIdentity)) {
-        alreadyKnownCount += 1;
-      }
-
       selected.push({
         sourceCode: candidate.sourceCode,
         articleUrl: candidate.normalizedUrl,
@@ -58,24 +42,17 @@ function classifyCandidates(
     }
   }
 
-  return { candidates: selected, alreadyKnownCount };
+  return selected;
 }
 
 export function selectNewsroomCurrentFeedCandidates(
   collections: readonly SourceCollectionSummary[],
-  knownIdentities: ReadonlySet<string>,
 ): Readonly<{
   candidates: readonly NewsroomCurrentFeedCandidate[];
-  availableNewCount: number;
-  alreadyKnownCount: number;
   truncated: false;
 }> {
-  const classification = classifyCandidates(collections, knownIdentities);
-
   return {
-    candidates: classification.candidates,
-    availableNewCount: classification.candidates.length - classification.alreadyKnownCount,
-    alreadyKnownCount: classification.alreadyKnownCount,
+    candidates: currentListingCandidates(collections),
     truncated: false,
   };
 }
@@ -92,5 +69,40 @@ export function summarizeNewsroomCurrentFeedPersistence(
     updatedCount,
     reusedCount,
     availableCount: createdCount + updatedCount + reusedCount,
+  };
+}
+
+export function summarizeNewsroomCurrentFeedRun(input: Readonly<{
+  requestedSourceCount: number;
+  successfulSourceCount: number;
+  actions: readonly (NewsroomCurrentFeedPersistenceAction | null)[];
+}>): Readonly<{
+  status: "updated" | "up_to_date" | "partial";
+  newCandidateCount: number;
+  attemptedCount: number;
+  availableCount: number;
+  createdCount: number;
+  updatedCount: number;
+  existingCount: number;
+  failedCount: number;
+}> {
+  const persistence = summarizeNewsroomCurrentFeedPersistence(input.actions);
+  const failedCount = input.actions.length - persistence.availableCount;
+  const partial = input.successfulSourceCount < input.requestedSourceCount
+    || failedCount > 0;
+
+  return {
+    status: partial
+      ? "partial"
+      : persistence.createdCount + persistence.updatedCount > 0
+        ? "updated"
+        : "up_to_date",
+    newCandidateCount: persistence.createdCount,
+    attemptedCount: input.actions.length,
+    availableCount: persistence.availableCount,
+    createdCount: persistence.createdCount,
+    updatedCount: persistence.updatedCount,
+    existingCount: persistence.updatedCount + persistence.reusedCount,
+    failedCount,
   };
 }

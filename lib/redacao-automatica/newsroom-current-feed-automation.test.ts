@@ -10,6 +10,14 @@ const feedPath =
   "lib/redacao-automatica/newsroom-current-feed.ts";
 const registryPath =
   "lib/redacao-automatica/source-registry.ts";
+const ingestionPath =
+  "lib/redacao-automatica/http-newsroom-ingestion.ts";
+const classificationPath =
+  "lib/redacao-automatica/newsroom-current-feed-classification.ts";
+const deskPagePath =
+  "app/admin/editorial/redacao-automatica/page.tsx";
+const operationalReadModelPath =
+  "lib/redacao-automatica/newsroom-operational-desk-read-model.ts";
 
 test("cron da Redação usa token efémero de uma só utilização", () => {
   const route = readFileSync(routePath, "utf8");
@@ -46,6 +54,7 @@ test("cron da Redação usa token efémero de uma só utilização", () => {
 
 test("feed automático reutiliza o writer existente e reconsulta links conhecidos", () => {
   const feed = readFileSync(feedPath, "utf8");
+  const ingestion = readFileSync(ingestionPath, "utf8");
 
   assert.match(
     feed,
@@ -55,9 +64,53 @@ test("feed automático reutiliza o writer existente e reconsulta links conhecido
   assert.match(feed, /executionMode,/);
   assert.match(
     feed,
-    /ingestHttpNewsroomArticle\([\s\S]*executionMode/,
+    /ingestHttpNewsroomCurrentFeedArticle\([\s\S]*executionMode/,
   );
+  assert.match(ingestion, /persistNewsroomCurrentFeedArticle/);
+  assert.match(
+    feed,
+    /classifyNewsroomCurrentFeedArticles\([\s\S]*persistedArticles[\s\S]*\)\.then/,
+  );
+  assert.match(feed, /classificationFailedCount/);
   assert.doesNotMatch(feed, /setInterval|setTimeout|cron\.schedule/);
+});
+
+test("feed não volta a paginar o arquivo global nem classifica artigo a artigo", () => {
+  const feed = readFileSync(feedPath, "utf8");
+  const classification = readFileSync(classificationPath, "utf8");
+
+  assert.doesNotMatch(feed, /knownArticleIdentities/);
+  assert.doesNotMatch(feed, /fetchSupabaseAdminTable/);
+  assert.doesNotMatch(feed, /newsroom_articles\?select=source_code/);
+  assert.doesNotMatch(feed, /order=id\.asc[\s\S]*offset=/);
+  assert.doesNotMatch(feed, /attemptOperationalDeskAutomaticClassification/);
+  assert.match(classification, /getNewsroomArticleClassificationsByIds\(articleIds\)/);
+  assert.match(classification, /prepareNewsroomDeterministicClassifications\(/);
+  assert.match(classification, /applyAutomaticNewsroomArticleClassification\(input\)/);
+});
+
+test("pertença ao ciclo é particionada numa leitura scoped sem mudar o validator existente", () => {
+  const classification = readFileSync(classificationPath, "utf8");
+  const readModel = readFileSync(operationalReadModelPath, "utf8");
+
+  assert.match(classification, /partitionOperationalDeskCycleSourceIds\(articleIds\)/);
+  assert.doesNotMatch(classification, /validateOperationalDeskCycleSourceIds/);
+  assert.match(readModel, /export async function validateOperationalDeskCycleSourceIds\(/);
+  assert.match(readModel, /export async function partitionOperationalDeskCycleSourceIds\(/);
+  assert.match(
+    readModel,
+    /partitionOperationalDeskCycleSourceIds[\s\S]*newsroom_articles\?select=id,first_detected_at[\s\S]*&id=in\.\(\$\{idList\(ids\)\}\)/,
+  );
+});
+
+test("consumidor do feed não soma updated duas vezes no total disponível", () => {
+  const page = readFileSync(deskPagePath, "utf8");
+
+  assert.match(page, /const feedClassified = feedAvailable;/);
+  assert.doesNotMatch(
+    page,
+    /const feedClassified = feedCreated \+ feedUpdated \+ feedExisting;/,
+  );
 });
 
 test("só Record e A Bola ficam autorizados para monitorização automática", () => {

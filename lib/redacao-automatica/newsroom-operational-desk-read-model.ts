@@ -290,3 +290,54 @@ export async function validateOperationalDeskCycleSourceIds(
     return { ok: false, code: "read_unavailable" };
   }
 }
+
+export async function partitionOperationalDeskCycleSourceIds(
+  articleIdsValue: readonly string[],
+): Promise<
+  | Readonly<{
+      ok: true;
+      eligibleIds: readonly string[];
+      outsideCycleIds: readonly string[];
+    }>
+  | Readonly<{ ok: false; code: "input_invalid" | "read_unavailable" }>
+> {
+  const articleIds = articleIdsValue.map((value) => value.trim().toLowerCase());
+  if (
+    articleIds.some((value) => !UUID_PATTERN.test(value))
+    || new Set(articleIds).size !== articleIds.length
+  ) return { ok: false, code: "input_invalid" };
+  if (articleIds.length === 0) {
+    return { ok: true, eligibleIds: [], outsideCycleIds: [] };
+  }
+
+  try {
+    const rows = await readByIds<CycleIdentityRow>(articleIds, (ids) => (
+      "newsroom_articles?select=id,first_detected_at"
+      + `&id=in.(${idList(ids)})`
+      + "&order=id.asc"
+    ));
+    const byId = new Map(rows.map((row) => [row.id, row.first_detected_at]));
+    if (
+      rows.length !== articleIds.length
+      || byId.size !== articleIds.length
+      || articleIds.some((id) => !byId.has(id))
+    ) return { ok: false, code: "read_unavailable" };
+
+    const cycleStartedAt = Date.parse(MESA_OPERATIONAL_CYCLE_STARTED_AT);
+    const eligibleIds: string[] = [];
+    const outsideCycleIds: string[] = [];
+    for (const articleId of articleIds) {
+      const firstDetectedAt = Date.parse(byId.get(articleId) ?? "");
+      if (!Number.isFinite(firstDetectedAt)) {
+        return { ok: false, code: "read_unavailable" };
+      }
+      (firstDetectedAt >= cycleStartedAt ? eligibleIds : outsideCycleIds).push(
+        articleId,
+      );
+    }
+
+    return { ok: true, eligibleIds, outsideCycleIds };
+  } catch {
+    return { ok: false, code: "read_unavailable" };
+  }
+}

@@ -310,7 +310,7 @@ export default async function AutomaticNewsroomPage({
   const feedUpdated = nonNegativeIntegerQueryValue(params.feed_updated);
   const feedExisting = nonNegativeIntegerQueryValue(params.feed_existing);
   const feedFailed = nonNegativeIntegerQueryValue(params.feed_failed);
-  const feedClassified = feedCreated + feedUpdated + feedExisting;
+  const feedClassified = feedAvailable;
   const feedBreakdownMessage = `Recolha técnica: ${feedCreated} novas, ${feedUpdated} atualizadas e ${feedExisting} já existentes.`;
   const feedSuccessMessage = feedState === "up_to_date"
     ? feedBreakdownMessage

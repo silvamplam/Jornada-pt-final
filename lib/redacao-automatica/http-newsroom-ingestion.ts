@@ -7,7 +7,10 @@ import {
   type IngestHttpNewsroomArticleInput,
   type IngestHttpNewsroomArticleResult,
 } from "@/lib/redacao-automatica/http-newsroom-ingestion-internal";
-import { persistNewsroomArticle } from "@/lib/redacao-automatica/newsroom-article-persistence";
+import {
+  persistNewsroomArticle,
+  persistNewsroomCurrentFeedArticle,
+} from "@/lib/redacao-automatica/newsroom-article-persistence";
 import { createHttpPageLoader } from "@/lib/redacao-automatica/page-loaders/http-page-loader";
 import { resolveHttpPageLoaderPolicy } from "@/lib/redacao-automatica/page-loaders/http-page-loader-policy";
 import { registeredSourceConfigurationProvider } from "@/lib/redacao-automatica/source-configuration-provider";
@@ -46,8 +49,23 @@ const ingestWithHttpPageLoader = createHttpNewsroomIngestion({
   persistArticle: persistNewsroomArticle,
 });
 
+const ingestCurrentFeedWithHttpPageLoader = createHttpNewsroomIngestion({
+  sourceProvider: registeredSourceConfigurationProvider,
+  evaluateExecution: evaluateSourceExecution,
+  resolvePolicy: resolveHttpPageLoaderPolicy,
+  adapterRegistry: availableAdapterRegistry(),
+  pageLoader: createHttpPageLoader(),
+  persistArticle: persistNewsroomCurrentFeedArticle,
+});
+
 export async function ingestHttpNewsroomArticle(
   input: IngestHttpNewsroomArticleInput,
 ): Promise<IngestHttpNewsroomArticleResult> {
   return ingestWithHttpPageLoader(input);
+}
+
+export function ingestHttpNewsroomCurrentFeedArticle(
+  input: IngestHttpNewsroomArticleInput,
+): Promise<IngestHttpNewsroomArticleResult> {
+  return ingestCurrentFeedWithHttpPageLoader(input);
 }

@@ -1,29 +1,22 @@
 import "server-only";
 
-import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import type { AdapterRegistry } from "@/lib/redacao-automatica/adapter-registry";
 import { createAvailableAdapterRegistry } from "@/lib/redacao-automatica/available-adapter-registry";
 import { collectSource } from "@/lib/redacao-automatica/collection-service";
-import { ingestHttpNewsroomArticle } from "@/lib/redacao-automatica/http-newsroom-ingestion";
+import { ingestHttpNewsroomCurrentFeedArticle } from "@/lib/redacao-automatica/http-newsroom-ingestion";
 import {
-  newsroomCurrentFeedIdentity,
+  classifyNewsroomCurrentFeedArticles,
+} from "@/lib/redacao-automatica/newsroom-current-feed-classification";
+import {
   selectNewsroomCurrentFeedCandidates,
-  summarizeNewsroomCurrentFeedPersistence,
+  summarizeNewsroomCurrentFeedRun,
 } from "@/lib/redacao-automatica/newsroom-current-feed-internal";
 import { createHttpPageLoader } from "@/lib/redacao-automatica/page-loaders/http-page-loader";
 import { registeredSourceConfigurationProvider } from "@/lib/redacao-automatica/source-configuration-provider";
 import { evaluateSourceExecution, listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
 import type { SourceExecutionMode } from "@/lib/redacao-automatica/types";
 
-const EXISTING_ARTICLE_PAGE_SIZE = 1000;
 const INGESTION_CONCURRENCY = 4;
-
-type ExistingArticleRow = Readonly<{
-  source_code: string;
-  original_url: string | null;
-  normalized_url: string | null;
-  processing_status: string;
-}>;
 
 export type NewsroomCurrentFeedRefreshStatus =
   | "updated"
@@ -44,13 +37,14 @@ export type NewsroomCurrentFeedRefreshResult =
         updatedCount: number;
         existingCount: number;
         failedCount: number;
+        classificationFailedCount: number;
         hasMore: boolean;
       }>;
     }>
   | Readonly<{
       ok: false;
       error: Readonly<{
-        code: "source_unavailable" | "collection_unavailable" | "archive_unavailable";
+        code: "source_unavailable" | "collection_unavailable";
       }>;
     }>;
 
@@ -68,39 +62,6 @@ function availableAdapterRegistry(): AdapterRegistry {
       return [];
     },
   };
-}
-
-async function knownArticleIdentities(
-  sourceCodes: readonly string[],
-): Promise<ReadonlySet<string>> {
-  const identities = new Set<string>();
-  let offset = 0;
-  const sourceFilter = sourceCodes.length > 0
-    ? `&source_code=in.(${sourceCodes.map(encodeURIComponent).join(",")})`
-    : "";
-
-  while (true) {
-    const rows = await fetchSupabaseAdminTable<ExistingArticleRow>(
-      "newsroom_articles?select=source_code,original_url,normalized_url,processing_status"
-      + sourceFilter
-      + `&order=id.asc&offset=${offset}&limit=${EXISTING_ARTICLE_PAGE_SIZE}`,
-    );
-
-    for (const row of rows) {
-      const url = row.normalized_url?.trim() || row.original_url?.trim();
-      if (
-        url
-        && ["normalized", "ready_for_review"].includes(row.processing_status)
-      ) {
-        identities.add(newsroomCurrentFeedIdentity(row.source_code, url));
-      }
-    }
-
-    if (rows.length < EXISTING_ARTICLE_PAGE_SIZE) {
-      return identities;
-    }
-    offset += EXISTING_ARTICLE_PAGE_SIZE;
-  }
 }
 
 async function mapWithConcurrency<T, R>(
@@ -165,21 +126,11 @@ export async function refreshNewsroomCurrentFeed(
     return { ok: false, error: { code: "collection_unavailable" } };
   }
 
-  let knownIdentities: ReadonlySet<string>;
-  try {
-    knownIdentities = await knownArticleIdentities(sources.map((source) => source.code));
-  } catch {
-    return { ok: false, error: { code: "archive_unavailable" } };
-  }
-
-  const selection = selectNewsroomCurrentFeedCandidates(
-    successfulCollections,
-    knownIdentities,
-  );
+  const selection = selectNewsroomCurrentFeedCandidates(successfulCollections);
   const ingestionResults = await mapWithConcurrency(
     selection.candidates,
     INGESTION_CONCURRENCY,
-    (candidate) => ingestHttpNewsroomArticle({
+    (candidate) => ingestHttpNewsroomCurrentFeedArticle({
       sourceCode: candidate.sourceCode,
       articleUrl: candidate.articleUrl,
       detectedAt: timestamp,
@@ -187,37 +138,45 @@ export async function refreshNewsroomCurrentFeed(
       executionMode,
     }),
   );
-  const persistenceSummary = summarizeNewsroomCurrentFeedPersistence(
-    ingestionResults.map((result) => (
+  const persistedArticles = ingestionResults.flatMap((result) => (
+    result.ok
+      ? [{
+          articleId: result.value.article.id,
+          action: result.value.article.action,
+        }]
+      : []
+  ));
+  const classificationFailedCount = await classifyNewsroomCurrentFeedArticles(
+    persistedArticles,
+  ).then(
+    (summary) => summary.failedCount,
+    () => persistedArticles.length,
+  );
+  const runSummary = summarizeNewsroomCurrentFeedRun({
+    requestedSourceCount: sources.length,
+    successfulSourceCount: successfulCollections.length,
+    actions: ingestionResults.map((result) => (
       result.ok ? result.value.article.action : null
     )),
-  );
-  const availableCount = persistenceSummary.availableCount;
-  const failedCount = ingestionResults.length - availableCount;
-  const partial = (
-    successfulCollections.length < sources.length
-    || failedCount > 0
-  );
-  const status: NewsroomCurrentFeedRefreshStatus = selection.candidates.length === 0
-    ? successfulCollections.length < sources.length ? "partial" : "up_to_date"
-    : partial ? "partial" : "updated";
+  });
 
   return {
     ok: true,
     value: {
-      status,
+      status: runSummary.status,
       sourceCount: successfulCollections.length,
       discoveredCount: successfulCollections.reduce(
         (total, collection) => total + collection.acceptedCount,
         0,
       ),
-      newCandidateCount: selection.availableNewCount,
-      attemptedCount: selection.candidates.length,
-      availableCount,
-      createdCount: persistenceSummary.createdCount,
-      updatedCount: persistenceSummary.updatedCount,
-      existingCount: selection.alreadyKnownCount + persistenceSummary.reusedCount,
-      failedCount,
+      newCandidateCount: runSummary.newCandidateCount,
+      attemptedCount: runSummary.attemptedCount,
+      availableCount: runSummary.availableCount,
+      createdCount: runSummary.createdCount,
+      updatedCount: runSummary.updatedCount,
+      existingCount: runSummary.existingCount,
+      failedCount: runSummary.failedCount,
+      classificationFailedCount,
       hasMore: false,
     },
   };
