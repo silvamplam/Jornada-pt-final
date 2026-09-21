@@ -127,10 +127,12 @@ test("migration mantém histórico full e limita candidatos aos providers YouTub
   assert.match(migration, /revoke all[\s\S]*from public, anon, authenticated/u);
 });
 
-test("VSPORTS com data-embed oficial produz candidato e o cron limita jornadas relevantes", () => {
+test("VSPORTS com data-embed oficial mantém atualização manual e o cron fica desativado", () => {
   const sync = source("lib/match-video-summary-sync.server.ts");
   const cron = source("app/api/cron/jornada/video-summaries/route.ts");
-  const migration = source("supabase/migrations/20260920180000_match_video_summary_discovery_audit.sql");
+  const manualRoute = source("app/api/admin/editorial/jornada/[matchdayId]/video-summaries/route.ts");
+  const historicalMigration = source("supabase/migrations/20260920180000_match_video_summary_discovery_audit.sql");
+  const manualOnlyMigration = source("supabase/migrations/20260921122500_match_video_summary_manual_only.sql");
   assert.match(sync, /playableMediaUrl: item\.playableMediaUrl/u);
   assert.match(sync, /await saveVsportsCandidate\(base, input/u);
   assert.match(sync, /reason: "no-playable-media"/u);
@@ -139,13 +141,20 @@ test("VSPORTS com data-embed oficial produz candidato e o cron limita jornadas r
   assert.doesNotMatch(sync, /discovery\.supported && discovery\.items\.length === 0/u);
   assert.match(sync, /14 \* 24 \* 60 \* 60 \* 1000/u);
   assert.match(sync, /\.slice\(0, 8\)/u);
+  assert.match(manualRoute, /body\.action === "sync"/u);
+  assert.match(manualRoute, /syncMatchVideoSummaries\(matchdayId\)/u);
   assert.match(cron, /syncRelevantMatchVideoSummaries/u);
   assert.match(cron, /payload\?\.token/u);
   assert.match(cron, /rpc\/match_video_summary_consume_automation_token_v1/u);
   assert.match(cron, /status: 401/u);
-  assert.match(migration, /jornada-video-summaries-quarter-hour/u);
-  assert.match(migration, /extensions\.gen_random_bytes\(32\)/u);
-  assert.doesNotMatch(migration, /grant execute[\s\S]*to (?:anon|authenticated)/u);
+  assert.match(historicalMigration, /jornada-video-summaries-quarter-hour/u);
+  assert.match(historicalMigration, /extensions\.gen_random_bytes\(32\)/u);
+  assert.match(
+    manualOnlyMigration,
+    /cron\.unschedule\('jornada-video-summaries-quarter-hour'\)/u,
+  );
+  assert.doesNotMatch(manualOnlyMigration, /cron\.schedule\(/u);
+  assert.doesNotMatch(historicalMigration, /grant execute[\s\S]*to (?:anon|authenticated)/u);
   assert.doesNotMatch(cron, /matchdays\?|seasons\?/u);
 });
 
