@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  newsroomCurrentFeedIdentity,
   selectNewsroomCurrentFeedCandidates,
   summarizeNewsroomCurrentFeedPersistence,
+  summarizeNewsroomCurrentFeedRun,
 } from "@/lib/redacao-automatica/newsroom-current-feed-internal";
 import type { SourceCollectionSummary } from "@/lib/redacao-automatica/types";
 
@@ -31,14 +31,18 @@ function collection(sourceCode: string, urls: readonly string[]): SourceCollecti
   };
 }
 
-test("reconsulta artigos conhecidos e distingue quantos candidatos são novos", () => {
-  const result = selectNewsroomCurrentFeedCandidates(
-    [
-      collection("record", ["https://record.example/a", "https://record.example/b"]),
-      collection("abola", ["https://abola.example/a", "https://abola.example/b"]),
-    ],
-    new Set([newsroomCurrentFeedIdentity("record", "https://record.example/a")]),
-  );
+test("deduplica apenas as listagens atuais e preserva Record e A Bola", () => {
+  const result = selectNewsroomCurrentFeedCandidates([
+    collection("record", [
+      "https://record.example/a",
+      "https://record.example/a",
+      "https://record.example/b",
+    ]),
+    collection("abola", [
+      "https://abola.example/a",
+      "https://abola.example/b",
+    ]),
+  ]);
 
   assert.deepEqual(result.candidates, [
     { sourceCode: "record", articleUrl: "https://record.example/a" },
@@ -46,22 +50,33 @@ test("reconsulta artigos conhecidos e distingue quantos candidatos são novos", 
     { sourceCode: "abola", articleUrl: "https://abola.example/a" },
     { sourceCode: "abola", articleUrl: "https://abola.example/b" },
   ]);
-  assert.equal(result.availableNewCount, 3);
-  assert.equal(result.alreadyKnownCount, 1);
   assert.equal(result.truncated, false);
 });
 
-test("seleciona todos os candidatos novos descobertos", () => {
-  const urls = Array.from({ length: 48 }, (_, index) => `https://record.example/${index + 1}`);
-  const result = selectNewsroomCurrentFeedCandidates(
-    [collection("record", urls)],
-    new Set(),
+test("seleciona todos os candidatos descobertos para reconsulta", () => {
+  const urls = Array.from(
+    { length: 48 },
+    (_, index) => `https://record.example/${index + 1}`,
   );
+  const result = selectNewsroomCurrentFeedCandidates([
+    collection("record", urls),
+  ]);
 
   assert.equal(result.candidates.length, 48);
-  assert.equal(result.availableNewCount, 48);
-  assert.equal(result.alreadyKnownCount, 0);
   assert.equal(result.truncated, false);
+});
+
+test("seleção corrente não depende de arquivos com 10, 1.000 ou 10.000 artigos", () => {
+  const current = [
+    collection("record", ["https://record.example/a"]),
+    collection("abola", ["https://abola.example/a"]),
+  ];
+
+  for (const historicalArchiveSize of [10, 1_000, 10_000]) {
+    const result = selectNewsroomCurrentFeedCandidates(current);
+    assert.equal(historicalArchiveSize >= 10, true);
+    assert.equal(result.candidates.length, 2);
+  }
 });
 
 test("separa novas, atualizadas e já existentes sem contar falhas", () => {
@@ -79,4 +94,55 @@ test("separa novas, atualizadas e já existentes sem contar falhas", () => {
     reusedCount: 1,
     availableCount: 4,
   });
+});
+
+test("usa o writer como autoridade para created, updated e reused", () => {
+  const summary = summarizeNewsroomCurrentFeedRun({
+    requestedSourceCount: 2,
+    successfulSourceCount: 2,
+    actions: ["created", "updated", "reused"],
+  });
+
+  assert.deepEqual(summary, {
+    status: "updated",
+    newCandidateCount: 1,
+    attemptedCount: 3,
+    availableCount: 3,
+    createdCount: 1,
+    updatedCount: 1,
+    existingCount: 2,
+    failedCount: 0,
+  });
+});
+
+test("um artigo conhecido sem alteração fica reused e o feed up to date", () => {
+  const summary = summarizeNewsroomCurrentFeedRun({
+    requestedSourceCount: 2,
+    successfulSourceCount: 2,
+    actions: ["reused"],
+  });
+
+  assert.equal(summary.status, "up_to_date");
+  assert.equal(summary.newCandidateCount, 0);
+  assert.equal(summary.updatedCount, 0);
+  assert.equal(summary.existingCount, 1);
+});
+
+test("falha parcial de fonte e de artigo mantém resultados persistidos", () => {
+  const sourceFailure = summarizeNewsroomCurrentFeedRun({
+    requestedSourceCount: 2,
+    successfulSourceCount: 1,
+    actions: ["created"],
+  });
+  const articleFailure = summarizeNewsroomCurrentFeedRun({
+    requestedSourceCount: 2,
+    successfulSourceCount: 2,
+    actions: ["updated", null],
+  });
+
+  assert.equal(sourceFailure.status, "partial");
+  assert.equal(sourceFailure.availableCount, 1);
+  assert.equal(articleFailure.status, "partial");
+  assert.equal(articleFailure.availableCount, 1);
+  assert.equal(articleFailure.failedCount, 1);
 });

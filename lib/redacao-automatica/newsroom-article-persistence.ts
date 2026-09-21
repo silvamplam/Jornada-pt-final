@@ -50,3 +50,9 @@ export async function persistNewsroomArticle(
   }
   return result;
 }
+
+export function persistNewsroomCurrentFeedArticle(
+  input: PersistNewsroomArticleInput,
+): Promise<PersistNewsroomArticleResult> {
+  return persistWithSupabaseServiceRole(input);
+}
