@@ -113,7 +113,7 @@ test("consumidor do feed não soma updated duas vezes no total disponível", () 
   );
 });
 
-test("só Record e A Bola ficam autorizados para monitorização automática", () => {
+test("Record e A Bola ficam apenas em recolha manual", () => {
   const registry = readFileSync(registryPath, "utf8");
 
   const record = registry.slice(
@@ -130,10 +130,11 @@ test("só Record e A Bola ficam autorizados para monitorização automática", (
   );
   const ojogo = registry.slice(registry.indexOf('code: "ojogo"'));
 
-  for (const active of [record, abola]) {
-    assert.match(active, /operationalStatus: "active"/);
-    assert.match(active, /monitoringEnabled: true/);
-    assert.match(active, /manualCollectionEnabled: true/);
+  for (const source of [record, abola]) {
+    assert.match(source, /operationalStatus: "active"/);
+    assert.match(source, /monitoringEnabled: false/);
+    assert.match(source, /manualCollectionEnabled: true/);
+    assert.match(source, /atualização apenas manual/);
   }
 
   assert.match(maisfutebol, /monitoringEnabled: false/);
