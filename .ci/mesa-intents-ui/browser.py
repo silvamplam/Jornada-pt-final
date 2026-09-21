@@ -217,7 +217,7 @@ with sync_playwright() as playwright:
 
     def stale_published():
         f=start(independent=False);before=len(rpc({'kind':'state'})['groupingPreparations']);rpc({'kind':'faults','value':{'newPublished':True}});submit()
-        expect(page.get_by_role('status').filter(has_text='mudaram')).to_be_visible();assert len(rpc({'kind':'state'})['groupingPreparations'])==before
+        expect(page.get_by_role('status').filter(has_text='mudou')).to_be_visible();assert len(rpc({'kind':'state'})['groupingPreparations'])==before
         assert stored()['themes'][0]['themeId']==f['theme'];expect(page.get_by_text(re.compile('Foram encontrados vários artigos Jornada relacionados'))).to_be_visible()
         set_all_reviews(True);did,g=prepare_planning(f);assert len(g['existingOutputs'])==2
         set_theme_count(0);plan,_=materialize(did,0);assert plan['totals']['reviews']==2;assert_sources_unchanged(f['audit'])
