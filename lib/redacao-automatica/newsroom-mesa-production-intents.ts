@@ -232,7 +232,7 @@ export function parseMesaProductionIntent(value: unknown): Result<MesaProduction
     }
     selection = {
       sourceIds: (sourceIds as string[]).sort(),
-      ...(themeIds.length ? { themeIds: (themeIds as string[]).sort() } : {}),
+      ...(Object.hasOwn(item, "themeIds") ? { themeIds: (themeIds as string[]).sort() } : {}),
       ...(Object.hasOwn(item, "candidateArticleIds")
         ? { candidateArticleIds: (candidateArticleIds as string[]).sort() } : {}),
       reviewArticleIds: (reviewArticleIds as string[]).sort(),

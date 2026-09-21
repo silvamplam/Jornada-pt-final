@@ -87,6 +87,10 @@ test("frozen contract accepts selection with explicit review targets only", () =
       newArticles:selectedOutputs.filter((output:any)=>output.kind==="new").length},
   };
   assert.ok(parseMesaProductionIntents(selectionPlan));
+  const withExplicitEmptyThemeIds=structuredClone(selectionPlan) as any;
+  withExplicitEmptyThemeIds.request.selection.themeIds=[];
+  assert.equal(parseMesaProductionIntents(withExplicitEmptyThemeIds),withExplicitEmptyThemeIds,
+    "explicit empty themeIds must survive persisted-plan normalization");
   const withPlannedFocus=structuredClone(selectionPlan);
   const plannedNew=withPlannedFocus.outputs.find((output:any)=>output.kind==="new");
   assert.ok(plannedNew);
