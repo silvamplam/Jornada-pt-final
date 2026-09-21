@@ -22,6 +22,10 @@ const sharedStylesUrl = new URL(
   "../components/public/publicEditorialStyles.ts",
   import.meta.url
 );
+const leagueNewsHeaderStylesUrl = new URL(
+  "../components/public/PublicLeagueNewsHeader.module.css",
+  import.meta.url
+);
 
 const integrationUrls = [
   "../app/page.tsx",
@@ -256,24 +260,28 @@ test("mantem emblema e Classificacao na mesma ligacao acessivel", async () => {
 test("a jornada isola a identidade da competicao no topo e preserva a navegacao partilhada", async () => {
   const [matchdaySource, matchdayStyles] = await Promise.all([
     readFile(integrationUrls[2], "utf8"),
-    readFile(new URL("./page.module.css", integrationUrls[2]), "utf8")
+    readFile(leagueNewsHeaderStylesUrl, "utf8")
   ]);
 
   assert.doesNotMatch(matchdaySource, /showActiveCompetitionLogo=\{false\}/);
   assert.doesNotMatch(matchdaySource, /className="public-season-competition-emblem"/);
   assert.match(matchdaySource, /import styles from "\.\/page\.module\.css"/);
-  assert.match(matchdaySource, /className=\{`public-top-stack \$\{styles\.topStack\}`\}/);
+  assert.match(
+    matchdaySource,
+    /import headerStyles from "@\/components\/public\/PublicLeagueNewsHeader\.module\.css"/
+  );
+  assert.match(matchdaySource, /className=\{`public-top-stack \$\{headerStyles\.topStack\}`\}/);
   assert.match(
     matchdaySource,
     /const competitionLogo = resolvePublicCompetitionLogoPresentation\(currentCompetitionMenuItem\)/
   );
   assert.match(
     matchdaySource,
-    /<a className=\{styles\.competitionIdentity\} href=\{currentCompetitionMenuItem\.href\}>[\s\S]*?src=\{competitionLogo\.logoUrl\}[\s\S]*?<span>\{context\.competition\.name\}<\/span>/
+    /<a className=\{headerStyles\.competitionIdentity\} href=\{currentCompetitionMenuItem\.href\}>[\s\S]*?src=\{competitionLogo\.logoUrl\}[\s\S]*?<span>\{context\.competition\.name\}<\/span>/
   );
   assert.match(
     matchdayStyles,
-    /\.topStack :global\(nav\[aria-label="Navegação pública"\] img\)\s*\{\s*display:\s*none;/
+    /\.topStack :global\(nav\[aria-label="Navegação pública"\] img\),\s*\.topStack :global\(\.public-site-actions\)\s*\{\s*display:\s*none;/
   );
   assert.match(
     matchdaySource,
