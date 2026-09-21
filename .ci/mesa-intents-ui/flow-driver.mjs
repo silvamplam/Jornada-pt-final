@@ -84,7 +84,9 @@ async function execute(input){
  if(input.kind==='setup'){flowCalls.length=0;fixture=await base.command(input);return fixture;}
  if(input.kind==='page'){
   const path=input.path;let tree;
-  if(/^\/admin\/editorial\/redacao-automatica\/mesa\/producao\/[a-f0-9-]{36}$/.test(path))tree=await f.workspacePage({params:Promise.resolve({dossierId:path.split('/').pop()})});
+  if(/^\/admin\/editorial\/redacao-automatica\/mesa\/producao\/[a-f0-9-]{36}$/.test(path))tree=await f.workspacePage({
+   params:Promise.resolve({dossierId:path.split('/').pop()}),searchParams:Promise.resolve({}),
+  });
   else if(path==='/admin/editorial/redacao-automatica/publicacao-lote')tree=await f.batchPage();
   else throw new Error('Unapproved page '+path);
   flowCalls.push({page:path});return serialize(tree);
