@@ -299,7 +299,9 @@ test("defaults textuais seguem o ponto de partida sem dar nome editorial ao lote
   const publication = read("app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
 
-  assert.match(route, /editorialMesaWorkspaceOutputWorkingTitle\(\s*priority,\s*startingPointSourceIds\[priority - 1\]/);
+  assert.match(route, /const focusStartingPointSourceId = continuitySlot && "focusSourceIds" in continuitySlot/);
+  assert.match(route, /const startingPointSourceId = focusStartingPointSourceId \?\? defaultStartingPointSourceIds\[priority - 1\]/);
+  assert.match(route, /editorialMesaWorkspaceOutputWorkingTitle\(\s*priority,\s*startingPointSourceId/);
   assert.match(route, /context\?\.materialRefs,[\s\S]*?technicalSources\.map[\s\S]*?\),\s*priority,\s*\)/);
   assert.match(route, /editorialMesaWorkspaceOutputWorkingTitle\(\s*index \+ 1,\s*startingPointSourceIds\[index\]/);
   assert.match(route, /focus:\s*\(plan\.editorialInstructions \|\| outputWorkingTitle\)/);

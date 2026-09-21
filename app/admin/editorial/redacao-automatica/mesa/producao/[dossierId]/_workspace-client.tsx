@@ -43,6 +43,8 @@ import DossierImageBank, {
 } from "../../../_dossierImageBank";
 
 import { mesaProductionIntentSlots, type MesaProductionIntentsFrozen } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
+import type { MesaNewOutputGrouping } from "@/lib/redacao-automatica/newsroom-mesa-new-output-groups";
+import { NewOutputGroupingPlanner } from "./_new-output-grouping";
 type WorkspaceContinuitySlot = ThemeContinuitySlot | ReturnType<typeof mesaProductionIntentSlots>[number];
 import styles from "./workspace.module.css";
 
@@ -972,6 +974,8 @@ export function MesaProductionWorkspaceClient({
   visualSourceOrder,
   themeContinuity,
   productionIntents = null,
+  newOutputGrouping = null,
+  newOutputGroupingFixture = false,
 }: Readonly<{
   dossier: WorkspaceDossier;
   sources: readonly WorkspaceSource[];
@@ -983,6 +987,8 @@ export function MesaProductionWorkspaceClient({
   visualSourceOrder: readonly string[];
   themeContinuity: ThemeContinuityFrozenContract | null;
   productionIntents?: MesaProductionIntentsFrozen | null;
+  newOutputGrouping?: MesaNewOutputGrouping | null;
+  newOutputGroupingFixture?: boolean;
 }>) {
   const frozenSlots = productionIntents ? mesaProductionIntentSlots(productionIntents) : themeContinuity?.slots;
   const [suppressedPlanIds, setSuppressedPlanIds] = useState<readonly string[]>([]);
@@ -1232,6 +1238,10 @@ export function MesaProductionWorkspaceClient({
 
   return (
     <>
+      {newOutputGrouping?.state === "planned" ? <NewOutputGroupingPlanner
+        initialGrouping={newOutputGrouping}
+        fixtureMode={newOutputGroupingFixture}
+      /> : (
       <section className={styles.outputCount} aria-labelledby="output-count-title">
         <label>
           <strong id="output-count-title">Artigos a produzir</strong>
@@ -1272,8 +1282,9 @@ export function MesaProductionWorkspaceClient({
             </span>
           </div>
         ) : null}
-      </section>
+      </section>)}
 
+      {newOutputGrouping?.state === "planned" ? null : <>
       <form
         id={PRODUCTION_FORM_ID}
         className={styles.articlesSection}
@@ -1364,6 +1375,7 @@ export function MesaProductionWorkspaceClient({
         saving={savingProduction}
         packageVersion={packageVersion}
       />
+      </>}
       <AbandonProduction dossierId={dossier.id} />
       {productionMessage ? (
         <p className={styles.productionMessage} role="status" aria-live="polite">

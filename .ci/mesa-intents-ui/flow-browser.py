@@ -26,7 +26,7 @@ def rpc(value):
     if not select.select([backend.stdout],[],[],35)[0]:raise RuntimeError('Flow backend timeout')
     response=json.loads(backend.stdout.readline());assert response.get('ok'),response
     return response['value']
-reports=[];errors=[];unexpected=[];pages=[];images=[];page=None;context=None
+reports=[];errors=[];unexpected=[];pages=[];images=[];page=None;context=None;source_audit=None
 origin='http://127.0.0.1:4319';mesa='/admin/editorial/redacao-automatica/mesa'
 production=mesa+'/producao/';batch='/admin/editorial/redacao-automatica/publicacao-lote'
 image=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=')
@@ -43,7 +43,7 @@ with sync_playwright() as pw:
     if args.chromium:launch['executable_path']=args.chromium
     browser=pw.chromium.launch(**launch)
     def start(**kw):
-        global page,context
+        global page,context,source_audit
         if context:context.close()
         f=rpc(dict(kind='setup',**kw))
         context=browser.new_context(viewport={'width':1440,'height':1100},locale='pt-PT',timezone_id='Europe/Lisbon',
@@ -80,12 +80,15 @@ with sync_playwright() as pw:
         expect(page.get_by_role('button',name='Ver seleção',exact=True)).to_be_visible()
         page.get_by_role('button',name='Ver seleção',exact=True).click()
         expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
-        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_be_visible()
+        assert page.get_by_label('Novos artigos da seleção',exact=True).count()==0
+        expect(page.get_by_text('O número de novos artigos será definido na Produção.',exact=False)).to_be_visible()
         assert page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).count()==0
+        source_audit=rpc(dict(kind='source-state'))
         return f
     def prepare(mode='review',new=None):
         theme_control=page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)
-        if theme_control.count():
+        legacy_theme_flow=theme_control.count()>0
+        if legacy_theme_flow:
             theme_control.select_option(mode)
             if new is not None:page.get_by_label('Novos artigos do Tema Milan / Amorim',exact=True).fill(str(new))
         else:
@@ -93,12 +96,29 @@ with sync_playwright() as pw:
             for i in range(checks.count()):
                 if mode in ('review','review-new'):checks.nth(i).check()
                 elif mode=='new':checks.nth(i).uncheck()
-            target_new=new if new is not None else (0 if mode=='review' else None)
-            if target_new is not None:page.get_by_label('Novos artigos da seleção',exact=True).fill(str(target_new))
         page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True).click()
         page.wait_for_function('(base)=>window.__flowReady.startsWith(base)',arg=production,timeout=12000)
         expect(page.get_by_role('heading',name='Produção',exact=True)).to_be_visible()
         did=page.evaluate('window.__flowReady').split('/')[-1]
+        if not legacy_theme_flow:
+            target_new=new if new is not None else (0 if mode=='review' else None)
+            assert target_new is not None
+            theme_region=page.get_by_label('Temas desta Produção')
+            if theme_region.count():
+                card=theme_region.locator('section').filter(has_text='Milan / Amorim')
+                theme_new=0 if page.get_by_label('Número de novos artigos para material solto',exact=True).count() else target_new
+                card.get_by_label('Novos artigos',exact=True).fill(str(theme_new))
+                card.get_by_role('button',name='Definir quantidade',exact=True).click()
+                expect(page.get_by_text('Quantidade do Tema guardada.',exact=True)).to_be_visible()
+            loose=page.get_by_label('Número de novos artigos para material solto',exact=True)
+            if loose.count():
+                loose.fill(str(target_new));page.get_by_role('button',name='Definir objetivo',exact=True).click()
+                expect(page.get_by_text('Planeamento guardado.',exact=True)).to_be_visible()
+            label=f'Confirmar {target_new} '+('novo artigo' if target_new==1 else 'novos artigos')
+            page.get_by_role('button',name=label,exact=True).click()
+            page.wait_for_function('(base)=>window.__flowReady.startsWith(base)',arg=production,timeout=12000)
+            expect(page.get_by_role('button',name='Guardar artigos e imagens',exact=True)).to_be_visible()
+            assert rpc(dict(kind='source-state'))==source_audit
         s=rpc(dict(kind='flow-state',dossierId=did));plan=s['workspace']['selection_payload']['productionIntents']
         assert len(s['plans'])==plan['totals']['reviews']+plan['totals']['newArticles']
         return did,plan
@@ -158,12 +178,16 @@ with sync_playwright() as pw:
         assert len(s['receipts'])==2 and not s['published'] and s['workspace']['workspace_state']=='consolidated'
         assert all(a['body']=='Corpo antigo' for a in s['themeArticles'])
     def reopen_theme(f):
+        global source_audit
         if not args.document_only:
             page.goto(origin+'/')
             page.add_style_tag(content=(out/'flow-browser.css').read_text())
             page.add_script_tag(content=(out/'flow-browser.js').read_text())
         page.evaluate('(path)=>window.__flowNavigate(path)',mesa+'/temas/'+f['theme'])
-        expect(page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)).to_have_value('review')
+        expect(page.get_by_role('form',name='Escolhas de Produção',exact=True)).to_be_visible()
+        assert page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).count()==0
+        expect(page.get_by_text('O número de novos artigos será definido na Produção.',exact=False)).to_be_visible()
+        source_audit=rpc(dict(kind='source-state'))
     def new_then_review():
         f=start(independent=False);did,plan=prepare(mode='new',new=1);pid,copied=package(did)
         assert 'Corpo antigo' in copied
@@ -173,13 +197,11 @@ with sync_playwright() as pw:
         fresh=next(a for a in first['articles'] if a['id']!=old['id'])
         assert fresh['id'] not in {a['id'] for a in first['themeArticles']}
         reopen_theme(f)
-        page.get_by_text('Artigos Jornada e continuidade (1)',exact=True).click()
-        expect(page.get_by_text('Não revisto — sem referência de revisão verificável.',exact=True)).to_have_count(1)
-        expect(page.get_by_text('Publicação inicial — não é uma revisão dos artigos anteriores.',exact=True)).to_have_count(0)
-        did2,plan2=prepare();assert len(plan2['outputs'])==1 and all(o['kind']=='existing' for o in plan2['outputs'])
+        assert page.locator('label').filter(has_text=re.compile(r'^Rever:')).count()==2
+        did2,plan2=prepare();assert len(plan2['outputs'])==2 and all(o['kind']=='existing' for o in plan2['outputs'])
         pid2,_=package(did2);return_text(pid2,[o['outputId'] for o in plan2['outputs']]);expect_auto_nochange_return()
-        second=rpc(dict(kind='flow-state',dossierId=did2));assert len(second['receipts'])==1
-        assert second['receipts'][0]['decision']=='SEM_ALTERAÇÃO'
+        second=rpc(dict(kind='flow-state',dossierId=did2));assert len(second['receipts'])==2
+        assert all(receipt['decision']=='SEM_ALTERAÇÃO' for receipt in second['receipts'])
         assert second['themeArticles']==first['themeArticles']
         (out/'flow-new-then-review.json').write_text(json.dumps(dict(first=first,second=second),ensure_ascii=False,indent=2))
     def review_and_new():

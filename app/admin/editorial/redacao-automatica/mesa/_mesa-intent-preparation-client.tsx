@@ -5,6 +5,7 @@ import {buildMesaIntentUiRequest,parseMesaIntentChoices,parseMesaIntentThemeView
   EMPTY_MESA_INTENT_CHOICES,type MesaIntentChoices,type MesaIntentThemeView,type MesaIntentUiSelection,
   type MesaIntentSelectionView,type MesaSelectionChoice,type MesaThemeChoice} from '@/lib/redacao-automatica/newsroom-mesa-production-intents-ui';
 import type {MesaIntentIssue,MesaProductionIntent} from '@/lib/redacao-automatica/newsroom-mesa-production-intents';
+import {buildMesaNewOutputGroupingRequestV2} from '@/lib/redacao-automatica/newsroom-mesa-new-output-groups';
 import styles from './mesa.module.css';
 const ROUTE='/api/admin/editorial/redacao-automatica/mesa/preparar';
 const quantity=(n:number,singular:string,plural:string)=>`${n} ${n===1?singular:plural}`;
@@ -85,7 +86,7 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
           &&current.selection.reviewArticleIds.every(id=>view.articles.some(a=>a.id===id)))return current;
         const next:MesaSelectionChoice=view.articles.length===1
           ?{sourceIds:view.sourceIds,themeIds:view.themeIds,reviewArticleIds:[view.articles[0].id],newCount:0}
-          :{sourceIds:view.sourceIds,themeIds:view.themeIds,reviewArticleIds:[],newCount:view.articles.length===0?selectionUnits:0};
+          :{sourceIds:view.sourceIds,themeIds:view.themeIds,reviewArticleIds:[],newCount:combineSelectedMaterial?0:view.articles.length===0?selectionUnits:0};
         return {...current,selection:next};
       });
     };
@@ -112,6 +113,9 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
     ...patch,sourceIds:looseSourceIds,themeIds:selectionThemeIds}}));setIssues([]);setMessage('');}
   const validViews=Object.fromEntries(Object.entries(views).filter(([id])=>!loadErrors[id]));
   const built=buildMesaIntentUiRequest(selection,choices,validViews,title,CHECK_KEY,selectionView,combineSelectedMaterial);
+  const groupingBuilt=combineSelectedMaterial?buildMesaNewOutputGroupingRequestV2(
+    selection,selectionView,choices.selection?.reviewArticleIds??[],title,CHECK_KEY,
+  ):null;
   // Restored choices can be ready before the authoritative Theme read finishes.
   // Deferring a Theme must still allow independent work if its read is pending.
   const awaitingThemeRead=!combineSelectedMaterial&&selection.themes.some(t=>choices.themes[t.themeId]?.mode!=='defer'
@@ -129,6 +133,31 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
   }
   async function prepare(event:FormEvent){
     event.preventDefault();if(locked.current||disabled||!loaded||awaitingThemeRead||awaitingSelectionRead)return;
+    if(combineSelectedMaterial){
+      if(!groupingBuilt?.ok){setIssues([{code:'intent_choice_required',contextKey:null,message:groupingBuilt?.message??'Confirma o material da Produção.'}]);return;}
+      if(fixtureMode){setMessage('Fixture visual: nenhuma produção foi enviada.');return;}
+      const signature=JSON.stringify({...groupingBuilt.request,preparationKey:undefined});
+      if(attempt.current?.signature!==signature)attempt.current={signature,preparationKey:crypto.randomUUID(),authorityFingerprint:null};
+      const active=attempt.current,groupingRequest={...groupingBuilt.request,preparationKey:active.preparationKey};
+      save(choices,active);locked.current=true;setBusy(true);busyRef.current?.(true);setIssues([]);setMessage('A congelar o material para a Produção…');
+      try{
+        if(!active.authorityFingerprint){
+          const preview=await post({mesaVersion:5,action:'preview_groups',groupingRequest});
+          if(!preview.authorityFingerprint||!/^[0-9a-f]{64}$/.test(preview.authorityFingerprint))throw new Error('A leitura da seleção não devolveu uma referência válida.');
+          active.authorityFingerprint=preview.authorityFingerprint;save(choices,active);
+        }
+        const result=await post({mesaVersion:5,action:'prepare_groups',groupingRequest,authorityFingerprint:active.authorityFingerprint});
+        if(!result.workspaceUrl||!/^\/admin\/editorial\/redacao-automatica\/mesa\/producao\/[0-9a-f-]{36}$/.test(result.workspaceUrl))throw new Error('A preparação não devolveu um destino válido.');
+        attempt.current=null;save(choices,null);setMessage('Material preservado. A abrir a Produção…');
+        const consumeRequest:MesaProductionIntent={version:1,preparationKey:active.preparationKey,title:title.trim(),themes:[],sources:[],selection:{
+          sourceIds:[...groupingRequest.selection.sourceIds],themeIds:[...groupingRequest.selection.themeIds],
+          candidateArticleIds:[...groupingRequest.selection.candidateArticleIds],reviewArticleIds:[...groupingRequest.selection.reviewArticleIds],newArticleCount:0,
+        }};
+        if(onPrepared)onPrepared(consumeRequest,result.workspaceUrl);else router.push(result.workspaceUrl);
+      }catch(e){setMessage(e instanceof Error?e.message:'Preparação não concluída. A seleção e as fontes foram preservadas.');}
+      finally{locked.current=false;setBusy(false);busyRef.current?.(false);}
+      return;
+    }
     if(!built.ok){setIssues(built.issues);return;}
     if(fixtureMode){setMessage('Fixture visual: nenhuma produção foi enviada.');return;}
     const signature=JSON.stringify({...built.request,preparationKey:undefined});
@@ -181,17 +210,22 @@ export function MesaIntentPreparationClient({selection,title,storageKey,fixtureM
               <span>Rever: {article.title}</span>
             </label></li>)}</ul></>
             :<p>Não foi encontrado artigo Jornada publicado ligado por proveniência ao material selecionado.</p>}
-          <div className={styles.continuityPrepare}><label>Novos artigos
-            <input aria-label="Novos artigos da seleção" type="number" min={0} max={30} step={1}
-              value={choices.selection&&Number.isFinite(choices.selection.newCount)?choices.selection.newCount:''} disabled={blocked}
-              onChange={e=>chooseSelection({newCount:e.currentTarget.valueAsNumber})}/>
-          </label><span>{combineSelectedMaterial?'Temas e fontes entram juntos na Produção; a organização da Mesa não define quantos artigos resultam.':'As fontes entram juntas na Produção; não são transformadas em artigos independentes por fonte.'}</span></div>
+          <div className={styles.continuityPrepare}>{combineSelectedMaterial
+            ?<p><strong>O número de novos artigos será definido na Produção.</strong> Todo o material selecionado segue junto, sem alterar o estado das fontes.</p>
+            :<><label>Novos artigos
+              <input aria-label="Novos artigos da seleção" type="number" min={0} max={30} step={1}
+                value={choices.selection&&Number.isFinite(choices.selection.newCount)?choices.selection.newCount:''} disabled={blocked}
+                onChange={e=>chooseSelection({newCount:e.currentTarget.valueAsNumber})}/>
+            </label><span>As fontes entram juntas na Produção; não são transformadas em artigos independentes por fonte.</span></>}
+          </div>
         </>}
       {errors(`selection:${CHECK_KEY}`)}
     </section>:null}
     {issues.filter(i=>i.contextKey===null).map((i,n)=><p key={n} role="alert" className={styles.continuityError}>{i.message}</p>)}
     </div>
-    <div className={`${styles.continuityPrepare} ${styles.continuityActionBar}`}><p>{built.ok?`${quantity(built.reviews,"artigo Jornada a avaliar","artigos Jornada a avaliar")} · ${quantity(built.newArticles,"novo","novos")}. Fontes e histórico congelados para a Produção.`:'Completa as escolhas de cada contexto para preparar.'}</p>
+    <div className={`${styles.continuityPrepare} ${styles.continuityActionBar}`}><p>{combineSelectedMaterial
+      ?groupingBuilt?.ok?`${quantity(groupingBuilt.request.selection.reviewArticleIds.length,"artigo Jornada a avaliar","artigos Jornada a avaliar")} · ${quantity(selectionUnits,"unidade selecionada","unidades selecionadas")}. A Produção decidirá os novos artigos.`:'Confirma os artigos Jornada a avaliar antes de preparar.'
+      :built.ok?`${quantity(built.reviews,"artigo Jornada a avaliar","artigos Jornada a avaliar")} · ${quantity(built.newArticles,"novo","novos")}. Fontes e histórico congelados para a Produção.`:'Completa as escolhas de cada contexto para preparar.'}</p>
       <button type="submit" className={styles.prepareButton} disabled={blocked||awaitingThemeRead||awaitingSelectionRead}>{busy?'A preparar…':'PREPARAR PRODUÇÃO'}</button></div>
     {message?<p className={styles.selectionMessage} role="status">{message}</p>:null}
   </form>;

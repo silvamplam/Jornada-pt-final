@@ -54,6 +54,7 @@ import {
 import {
   parseThemeContinuityFrozenContract,
 } from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
+import { readMesaNewOutputGrouping } from "@/lib/redacao-automatica/newsroom-mesa-new-output-groups-repository";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -688,6 +689,66 @@ export async function POST(request: Request) {
 
   const payload = objectValue(body);
   const action = textValue(payload?.action);
+
+  if (["set_new_output_target", "set_theme_new_count", "merge_new_output_groups", "split_new_output_group", "materialize_new_output_groups"].includes(action)) {
+    const dossierId = uuid(payload?.dossierId);
+    const commandId = uuid(payload?.commandId);
+    const expectedRevision = Number(payload?.expectedRevision);
+    const groupIds = Array.isArray(payload?.groupIds) ? payload.groupIds.map(uuid) : [];
+    if (!dossierId || !commandId || !Number.isSafeInteger(expectedRevision) || expectedRevision < 1
+      || groupIds.some((id) => !id) || new Set(groupIds).size !== groupIds.length) {
+      return NextResponse.json({ ok: false, code: "input_invalid", message: "O agrupamento já não é válido." }, { status: 400 });
+    }
+    try {
+      if (action === "materialize_new_output_groups") {
+        await writeSupabaseAdminReturning("rpc/newsroom_materialize_mesa_new_output_groups_v2", {
+          method: "POST",
+          body: JSON.stringify({ p_dossier_id: dossierId, p_expected_revision: expectedRevision, p_command_id: commandId }),
+        });
+      } else {
+        const targetCount = action === "set_new_output_target" || action === "set_theme_new_count" ? Number(payload?.targetCount) : null;
+        const themeId = action === "set_theme_new_count" ? uuid(payload?.themeId) : null;
+        if (((action === "set_new_output_target" || action === "set_theme_new_count")
+          && (targetCount === null || !Number.isSafeInteger(targetCount) || targetCount < 0 || targetCount > 30))
+          || (action === "set_theme_new_count" && !themeId)
+          || (action === "merge_new_output_groups" && groupIds.length < 2)
+          || (action === "split_new_output_group" && groupIds.length !== 1)) {
+          return NextResponse.json({ ok: false, code: "input_invalid", message: "Revê a ação de agrupamento." }, { status: 400 });
+        }
+        await writeSupabaseAdminReturning("rpc/newsroom_change_mesa_new_output_groups_v2", {
+          method: "POST",
+          body: JSON.stringify({
+            p_dossier_id: dossierId,
+            p_action: action === "set_new_output_target" ? "target"
+              : action === "set_theme_new_count" ? "theme_target"
+                : action === "merge_new_output_groups" ? "merge" : "split",
+            p_group_ids: groupIds,
+            p_target_count: targetCount,
+            p_theme_id: themeId,
+            p_expected_revision: expectedRevision,
+            p_command_id: commandId,
+          }),
+        });
+      }
+      const grouping = await readMesaNewOutputGrouping(dossierId);
+      if (!grouping) throw new Error("mesa-grouping-not-found");
+      return NextResponse.json({ ok: true, grouping });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "";
+      const locked = /structure-locked/.test(detail);
+      const stale = /revision-stale/.test(detail);
+      const unresolved = /target-unresolved/.test(detail);
+      return NextResponse.json({
+        ok: false,
+        code: locked ? "grouping_locked" : stale ? "grouping_stale" : unresolved ? "grouping_unresolved" : "grouping_failed",
+        message: locked
+          ? "Os artigos já foram confirmados. A estrutura está protegida para não perder trabalho editorial."
+          : stale ? "O agrupamento mudou noutra leitura. Recarrega a Produção antes de continuar."
+            : unresolved ? "A quantidade de artigos ainda não coincide com os grupos definidos."
+              : "Não foi possível alterar o planeamento. Nenhuma fonte nem artigo foi modificado.",
+      }, { status: locked || stale || unresolved ? 409 : 502 });
+    }
+  }
 
   if (action === "validate_ai_response") {
     const dossierId = uuid(payload?.dossierId);

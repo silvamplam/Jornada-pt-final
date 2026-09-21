@@ -8,9 +8,9 @@ export function ThemeContinuityClient({themeId,themeTitle="Tema",disabled,autoOp
   const [expanded,setExpanded]=useState(autoOpen),[busy,setBusy]=useState(false);
   return <section className={styles.continuityPanel} aria-labelledby="theme-continuity-title">
     <div className={styles.continuityLead}><div><p className={styles.eyebrow}>Tema vivo</p><h2 id="theme-continuity-title">Continuidade editorial</h2>
-      <p>Prepara este Tema com as capturas mais recentes já guardadas. A revisão dos publicados e o número de novos são escolhas separadas.</p>
+      <p>Prepara este Tema com as capturas mais recentes já guardadas. A revisão dos publicados é escolhida aqui; os novos artigos são definidos na Produção.</p>
     </div><button type="button" disabled={disabled||busy} onClick={()=>setExpanded(v=>!v)}>{expanded?"Fechar preparação":"Voltar a levar à Produção"}</button></div>
     {expanded?<MesaIntentPreparationClient selection={{themes:[{themeId,title:themeTitle}],sources:[]}} title={themeTitle}
-      storageKey={`jornada.mesa.tema.${themeId}.whole-theme`} disabled={disabled} onBusyChange={setBusy}/>:null}
+      storageKey={`jornada.mesa.tema.${themeId}.whole-theme`} combineSelectedMaterial disabled={disabled} onBusyChange={setBusy}/>:null}
   </section>;
 }

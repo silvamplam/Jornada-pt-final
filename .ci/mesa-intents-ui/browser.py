@@ -1,19 +1,11 @@
-"""Real React selection/Theme components + real preparation handlers + local SQL.
-
-HTTP transport and Next navigation are explicit IPC/test boundaries. The browser
-uses a virtual loopback document fulfilled without a server; socket isolation is
-applied by offline.py. No route can visit production. --document-only is a local
-fallback for managed browsers which forbid navigation: storage/UUID are doubled
-in that mode; CI must omit it and verify native browser sessionStorage/UUID.
-"""
+"""Real Mesa -> Production v2 planning -> canonical v1 browser/SQL integration."""
 import argparse
+import base64
 import json
-import os
 from pathlib import Path
 import re
 import select
 import subprocess
-import sys
 import traceback
 from playwright.sync_api import sync_playwright, expect
 
@@ -34,35 +26,37 @@ assert json.loads(backend.stdout.readline())=={'ready':True}
 def rpc(value):
     backend.stdin.write(json.dumps(value,ensure_ascii=False)+'\n');backend.stdin.flush()
     if not select.select([backend.stdout],[],[],30)[0]:raise RuntimeError('Offline backend IPC timeout')
-    line=backend.stdout.readline()
-    result=json.loads(line)
+    line=backend.stdout.readline();result=json.loads(line)
     if not result.get('ok'):raise AssertionError(result.get('error',line))
     return result['value']
 
 STORAGE='jornada.mesa.preparation.v2'
 reports=[];errors=[];external=[];page=None;context=None
+image=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=')
 
 def report():
     (output/'browser-report.json').write_text(json.dumps({
         'passed':sum(t['passed'] for t in reports),'failed':sum(not t['passed'] for t in reports),
         'tests':reports,'pageErrors':errors,'unexpectedNetwork':external,
         'nativeBrowserStorage':not args.document_only,'nativeBrowserUUID':not args.document_only,
-        'boundaries':['Next router records requested URL; target workspace is not rendered',
+        'boundaries':['Next router records the requested workspace URL',
                       'fetch IPC invokes actual route handlers and PostgreSQL; no HTTP server',
-                      'publication helper, not publication UI, used to set up later receipt reads'],
+                      'the actual Production grouping component is mounted after Mesa navigation'],
     },ensure_ascii=False,indent=2))
 
 with sync_playwright() as playwright:
     launch={'headless':True,'args':['--no-sandbox','--disable-dev-shm-usage']}
     if args.chromium:launch['executable_path']=args.chromium
     browser=playwright.chromium.launch(**launch)
-    def start(mode='selection',openPanel=True,**kw):
+
+    def start(openPanel=True,**kw):
         global page,context
         if context:context.close()
         fixture=rpc({'kind':'setup',**kw})
         context=browser.new_context(viewport={'width':1440,'height':1100},locale='pt-PT',timezone_id='Europe/Lisbon',service_workers='block')
         def route(r):
             if r.request.url=='http://127.0.0.1:4319/':r.fulfill(status=200,content_type='text/html',body='<html><head></head><body><div id="root"></div></body></html>')
+            elif r.request.url=='https://example.invalid/image.jpg' and r.request.resource_type=='image':r.fulfill(status=200,content_type='image/png',body=image)
             else:external.append(r.request.url);r.abort()
         context.route('**/*',route)
         page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
@@ -78,28 +72,62 @@ with sync_playwright() as playwright:
         page.add_style_tag(content=(output/'browser.css').read_text())
         page.add_script_tag(content=(output/'browser.js').read_text())
         page.evaluate('(v)=>sessionStorage.setItem(v.key,JSON.stringify(v.buffer))',{'key':STORAGE,'buffer':fixture['buffer']})
-        page.evaluate('(v)=>window.__mount(v.fixture,v.mode)',{'fixture':fixture,'mode':mode})
-        if mode=='selection':
-            tray=page.locator('section[aria-labelledby="mesa-selection-title"]')
-            expect(tray).to_be_visible()
-            if openPanel:
-                page.get_by_role('button',name='Ver seleção',exact=True).click()
-                expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
-        if mode=='theme':
-            expect(page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)).to_have_value('new' if kw.get('published')==0 or kw.get('draft') else 'review')
-        elif mode=='selection' and openPanel:
-            expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_be_visible()
+        page.evaluate('(fixture)=>window.__mount(fixture)',fixture)
+        tray=page.locator('section[aria-labelledby="mesa-selection-title"]');expect(tray).to_be_visible()
+        if openPanel:
+            page.get_by_role('button',name='Ver seleção',exact=True).click()
+            expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
+            expect(page.get_by_text('O número de novos artigos será definido na Produção.',exact=False)).to_be_visible()
+            assert page.get_by_label('Novos artigos da seleção',exact=True).count()==0
             assert page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).count()==0
+        fixture['audit']=rpc({'kind':'state'})['sourceAudit']
         return fixture
-    def theme_mode(value):page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).select_option(value)
+
     def submit():page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True).click()
-    def prepared():
-        submit();page.wait_for_function('window.__navigations.length === 1',timeout=10000)
-        url=page.evaluate('window.__navigations[0]');assert re.fullmatch('/admin/editorial/redacao-automatica/mesa/producao/[a-f0-9-]{36}',url)
-        did=url.split('/')[-1]
-        state=rpc({'kind':'state'})
-        return next(p['frozen_plan'] for p in state['preparations'] if p['dossier_id']==did)
     def stored():return page.evaluate('(key)=>JSON.parse(sessionStorage.getItem(key)||"null")',STORAGE)
+    def assert_sources_unchanged(expected):
+        actual=rpc({'kind':'state'})['sourceAudit'];assert actual==expected,(expected,actual);assert actual['usage']==[]
+    def prepare_planning(fixture,submit_now=True):
+        if submit_now:submit()
+        page.wait_for_function('window.__navigations.length === 1',timeout=10000)
+        url=page.evaluate('window.__navigations[0]');assert re.fullmatch('/admin/editorial/redacao-automatica/mesa/producao/[a-f0-9-]{36}',url)
+        did=url.split('/')[-1];state=rpc({'kind':'state'})
+        assert not any(item['dossier_id']==did for item in state['preparations'])
+        prep=next(item for item in state['groupingPreparations'] if item['dossier_id']==did)
+        grouping=rpc({'kind':'grouping','dossierId':did});assert grouping['state']=='planned'
+        assert prep['request']['selection']['sourceIds']==sorted([s['newsroomArticleId'] for s in fixture['buffer']['sources']])
+        page.evaluate('(grouping)=>window.__mountGrouping(grouping)',grouping)
+        expect(page.get_by_label('Planeamento dos artigos desta Produção')).to_be_visible()
+        assert_sources_unchanged(fixture['audit'])
+        return did,grouping
+
+    def theme_card():return page.get_by_label('Temas desta Produção').locator('section').filter(has_text='Milan / Amorim')
+    def set_theme_count(value):
+        card=theme_card();card.get_by_label('Novos artigos',exact=True).fill(str(value));card.get_by_role('button',name='Definir quantidade',exact=True).click()
+        expect(page.get_by_text('Quantidade do Tema guardada.',exact=True)).to_be_visible()
+    def set_loose_target(value):
+        page.get_by_label('Número de novos artigos para material solto',exact=True).fill(str(value));page.get_by_role('button',name='Definir objetivo',exact=True).click()
+        expect(page.get_by_text('Planeamento guardado.',exact=True)).to_be_visible()
+    def merge_groups(count):
+        checks=page.locator('ol').get_by_role('checkbox');assert checks.count()>=count
+        for index in range(count):checks.nth(index).check()
+        page.get_by_role('button',name='Agrupar num artigo',exact=True).click();expect(page.get_by_text('Planeamento guardado.',exact=True)).to_be_visible()
+    def split_group():
+        checks=page.locator('ol').get_by_role('checkbox')
+        for index in range(checks.count()):
+            if checks.nth(index).locator('xpath=ancestor::li').get_attribute('data-size')!='1':checks.nth(index).check();break
+        page.get_by_role('button',name='Separar',exact=True).click();expect(page.get_by_text('Planeamento guardado.',exact=True)).to_be_visible()
+    def materialize(did,expected_new):
+        label=f'Confirmar {expected_new} '+('novo artigo' if expected_new==1 else 'novos artigos')
+        page.get_by_role('button',name=label,exact=True).click();expect(page.get_by_text('Estrutura confirmada.',exact=False)).to_be_attached()
+        state=rpc({'kind':'state'});plan=next(item['frozen_plan'] for item in state['preparations'] if item['dossier_id']==did)
+        grouping=rpc({'kind':'grouping','dossierId':did});assert grouping['state']=='materialized'
+        assert sum(output['kind']=='new' for output in plan['outputs'])==expected_new
+        return plan,grouping
+    def set_all_reviews(selected):
+        checks=page.locator('ul').get_by_role('checkbox')
+        for index in range(checks.count()):(checks.nth(index).check if selected else checks.nth(index).uncheck)()
+
     def test(name,fn):
         start_errors=len(errors);start_external=len(external)
         try:
@@ -112,158 +140,114 @@ with sync_playwright() as playwright:
                 (output/'browser-failure.txt').write_text(page.locator('body').inner_text())
             report();raise
         report()
+
     def compact_selection_does_not_consume_workspace():
         heights=[]
         for options in ({'sourceOnly':True},{},{'extra':True}):
-            start(openPanel=False,**options)
-            tray=page.locator('section[aria-labelledby="mesa-selection-title"]')
+            f=start(openPanel=False,**options);tray=page.locator('section[aria-labelledby="mesa-selection-title"]')
             assert page.get_by_label('Seleção e trabalho de Produção',exact=True).count()==0
-            box=tray.bounding_box();assert box
-            heights.append(box['height'])
-            assert box['height']<=100,box
+            box=tray.bounding_box();assert box;heights.append(box['height']);assert box['height']<=100,box;assert_sources_unchanged(f['audit'])
         assert max(heights)-min(heights)<=2,heights
-        start(extra=True,openPanel=False)
-        tray=page.locator('section[aria-labelledby="mesa-selection-title"]')
-        before=tray.bounding_box()['height']
-        page.get_by_role('button',name='Ver seleção',exact=True).click()
-        panel=page.get_by_label('Seleção e trabalho de Produção',exact=True)
-        expect(panel).to_be_visible()
-        assert page.evaluate('(el)=>getComputedStyle(el).position',panel.element_handle())=='fixed'
-        after=tray.bounding_box()['height']
-        assert abs(after-before)<=1,(before,after)
-        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('0')
+        f=start(extra=True,openPanel=False);tray=page.locator('section[aria-labelledby="mesa-selection-title"]');before=tray.bounding_box()['height']
+        page.get_by_role('button',name='Ver seleção',exact=True).click();panel=page.get_by_label('Seleção e trabalho de Produção',exact=True)
+        expect(panel).to_be_visible();assert page.evaluate('(el)=>getComputedStyle(el).position',panel.element_handle())=='fixed';assert abs(tray.bounding_box()['height']-before)<=1
+        assert page.get_by_label('Novos artigos da seleção',exact=True).count()==0
+        expect(page.get_by_text('O número de novos artigos será definido na Produção.',exact=False)).to_be_visible()
         assert page.get_by_text('Material selecionado · 1 Tema · 2 fontes soltas',exact=True).count()==1
         assert page.get_by_text('Destino desta fonte',exact=True).count()==0
-        action=page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)
-        expect(action).to_be_visible()
-        action_box=action.bounding_box();panel_box=panel.bounding_box();assert action_box and panel_box
-        assert action_box['y']+action_box['height']<=panel_box['y']+panel_box['height']+1
+        expect(page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)).to_be_visible();assert_sources_unchanged(f['audit'])
 
     def mixed():
-        f=start();page.screenshot(path=str(output/'selection-mixed.png'),full_page=True)
-        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('0')
-        page.get_by_label('Novos artigos da seleção',exact=True).fill('1')
-        plan=prepared();assert len(plan['outputs'])==2 and len(plan['contexts'])==1
-        selected=plan['contexts'][0];assert selected['kind']=='selection'
-        assert {x['newsroomArticleId'] for x in selected['sources']}=={f['material']['id'],f['loose']['id']}
-        assert [o['kind'] for o in plan['outputs']]==['existing','new']
-        assert plan['outputs'][0]['target']['matchdayId'] is None
-        saved=stored();assert not saved['sources'] and not saved.get('themes')
-    def counts(mode,new,review):
-        start('theme',independent=False);theme_mode(mode)
-        page.get_by_label('Novos artigos do Tema Milan / Amorim',exact=True).fill(str(new))
-        plan=prepared();assert plan['totals']['reviews']==review and plan['totals']['newArticles']==new
-    def whole_theme():
-        start('theme',independent=False);plan=prepared();assert len(plan['contexts'])==1 and len(plan['outputs'])==1
-        assert plan['request']['sources']==[]
+        f=start();did,g=prepare_planning(f)
+        assert len(g['sources'])==2 and len(g['existingOutputs'])==1
+        assert {s['newsroomArticleId'] for s in g['sources']}=={f['material']['id'],f['loose']['id']}
+        assert g['targetCount'] is None and g['themes'][0]['targetCount'] is None
+        set_theme_count(0);set_loose_target(1);plan,_=materialize(did,1)
+        assert sum(o['kind']=='existing' for o in plan['outputs'])==1
+        assert next(o for o in plan['outputs'] if o['kind']=='existing')['target']['editorialArticleId']==f['articles'][0]
+        assert {s['newsroomArticleId'] for s in plan['contexts'][0]['sources']}=={f['material']['id'],f['loose']['id']};assert_sources_unchanged(f['audit'])
+
+    def theme_case(new_count,review):
+        f=start(independent=False)
+        if not review:set_all_reviews(False)
+        did,g=prepare_planning(f);assert len(g['existingOutputs'])==(1 if review else 0)
+        set_theme_count(new_count);plan,_=materialize(did,new_count)
+        assert plan['totals']['reviews']==(1 if review else 0) and plan['totals']['newArticles']==new_count;assert_sources_unchanged(f['audit'])
+
     def without_published(draft=False):
-        start('theme',published=1 if draft else 0,draft=draft,independent=False)
-        options=page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).locator('option').all_text_contents()
-        assert not any('revisão' in s.lower() for s in options)
-        assert all(o['kind']=='new' for o in prepared()['outputs'])
-    def combined_consumes_theme_and_source():
-        f=start();plan=prepared()
-        assert len(plan['contexts'])==1 and plan['contexts'][0]['kind']=='selection'
-        saved=stored();assert not saved['sources'] and not saved.get('themes')
+        f=start(published=1 if draft else 0,draft=draft,independent=False);assert page.locator('ul').get_by_role('checkbox').count()==0
+        did,g=prepare_planning(f);assert g['existingOutputs']==[]
+        set_theme_count(1);plan,_=materialize(did,1);assert all(o['kind']=='new' for o in plan['outputs']);assert_sources_unchanged(f['audit'])
+
+    def combined_preserves_material_and_clears_selection():
+        f=start();did,g=prepare_planning(f);saved=stored();assert not saved['sources'] and not saved.get('themes')
+        assert {s['newsroomArticleId'] for s in g['sources']}=={f['material']['id'],f['loose']['id']};assert_sources_unchanged(f['audit'])
+        set_theme_count(0);set_loose_target(1);materialize(did,1);assert_sources_unchanged(f['audit'])
+
     def selection_cardinality():
-        f=start(sourceOnly=True,extra=True)
-        expect(page.get_by_label('Novos artigos da seleção',exact=True)).to_have_value('2')
-        page.get_by_label('Novos artigos da seleção',exact=True).fill('4')
-        plan=prepared()
-        assert len(plan['contexts'])==1 and plan['contexts'][0]['kind']=='selection'
-        assert len(plan['contexts'][0]['sources'])==2 and plan['totals']['newArticles']==4
-        assert len(plan['outputs'])==4
-    def selection_does_not_organize():
-        f=start(extra=True)
-        before=rpc({'kind':'state'})['memberships']
-        plan=prepared()
-        assert next(c for c in plan['contexts'] if c['kind']=='selection')
-        after=rpc({'kind':'state'})['memberships']
-        assert after==before
+        f=start(sourceOnly=True,extra=True);did,g=prepare_planning(f)
+        assert g['targetCount'] is None and len(g['groups'])==2 and len(g['sources'])==2
+        expect(page.get_by_text('2 fontes · 2 grupos · objetivo por definir',exact=True)).to_be_visible()
+        assert page.get_by_label('Número de novos artigos para material solto',exact=True).get_attribute('max')=='2'
+        set_loose_target(1);merge_groups(2);expect(page.get_by_text('2 fontes · 1 grupos · objetivo 1',exact=True)).to_be_visible()
+        split_group();expect(page.get_by_text('2 fontes · 2 grupos · objetivo 1',exact=True)).to_be_visible()
+        merge_groups(2);plan,_=materialize(did,1)
+        assert len(plan['contexts'][0]['sources'])==2 and len(plan['outputs'])==1;assert_sources_unchanged(f['audit'])
+
+    def explicit_zero_is_not_unconfigured():
+        f=start(sourceOnly=True);did,g=prepare_planning(f);assert g['targetCount'] is None
+        expect(page.get_by_text('TOTAL',exact=True).locator('..')).to_contain_text('Por definir')
+        set_loose_target(0);g=rpc({'kind':'grouping','dossierId':did});assert g['targetCount']==0 and g['groups']==[]
+        expect(page.get_by_text('1 fontes · 0 grupos · objetivo 0',exact=True)).to_be_visible();assert_sources_unchanged(f['audit'])
+
     def only_source():
-        f=start(sourceOnly=True);plan=prepared()
-        assert len(plan['outputs'])==1 and plan['contexts'][0]['kind']=='selection'
-        assert {s['newsroomArticleId'] for s in plan['contexts'][0]['sources']}=={f['loose']['id']}
+        f=start(sourceOnly=True);did,g=prepare_planning(f);assert g['targetCount'] is None and len(g['groups'])==1
+        set_loose_target(1);plan,_=materialize(did,1)
+        assert {s['newsroomArticleId'] for s in plan['contexts'][0]['sources']}=={f['loose']['id']};assert_sources_unchanged(f['audit'])
+
     def lost_response():
-        f=start();rpc({'kind':'faults','value':{'loseResponse':True}});submit()
-        expect(page.get_by_role('status').filter(has_text='Resposta perdida')).to_be_visible()
-        assert len(rpc({'kind':'state'})['preparations'])==f['before']+1
+        f=start();before=len(rpc({'kind':'state'})['groupingPreparations']);rpc({'kind':'faults','value':{'loseResponse':True}});submit()
+        expect(page.get_by_role('status').filter(has_text='Resposta perdida')).to_be_visible();assert len(rpc({'kind':'state'})['groupingPreparations'])==before+1
         assert len(stored()['sources'])==1 and len(stored()['themes'])==1
         saved=page.evaluate('(key)=>JSON.parse(sessionStorage.getItem(key+".intents.v1"))',STORAGE)
-        # Hold the Theme read after remount to make this race deterministic:
-        # native saved choices must not enable submission before the read arrives.
-        page.evaluate("""(f)=>{
-            const send=window.__http;
-            const gate=new Promise(resolve=>{window.__resumeThemeRead=resolve;});
-            window.__http=async request=>{
-                if(request.method==='GET' && request.url.includes('/mesa/preparar?'))await gate;
-                return send(request);
-            };
-            window.__mount(f);
-        }""",f)
-        expect(page.get_by_role('button',name='Ver seleção',exact=True)).to_be_visible()
-        page.get_by_role('button',name='Ver seleção',exact=True).click()
-        expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
-        expect(page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)).to_be_disabled()
-        calls=len(rpc({'kind':'state'})['httpCalls'])
-        page.get_by_role('form',name='Escolhas de Produção',exact=True).dispatch_event('submit')
-        assert len(rpc({'kind':'state'})['httpCalls'])==calls
-        page.evaluate('window.__resumeThemeRead()')
-        plan=prepared();assert plan['preparationKey']==saved['attempt']['preparationKey']
-        assert len(rpc({'kind':'state'})['preparations'])==f['before']+1
+        page.evaluate('(f)=>window.__mount(f)',f);page.get_by_role('button',name='Ver seleção',exact=True).click()
+        did,_=prepare_planning(f);prep=next(p for p in rpc({'kind':'state'})['groupingPreparations'] if p['dossier_id']==did)
+        assert prep['preparation_key']==saved['attempt']['preparationKey'] and len(rpc({'kind':'state'})['groupingPreparations'])==before+1
+        set_theme_count(0);set_loose_target(1);materialize(did,1);assert_sources_unchanged(f['audit'])
+
     def stale_published():
-        f=start(independent=False);rpc({'kind':'faults','value':{'newPublished':True}});submit()
-        expect(page.get_by_role('status').filter(has_text='mudaram')).to_be_visible()
-        assert len(rpc({'kind':'state'})['preparations'])==f['before'];assert stored()['themes'][0]['themeId']==f['theme']
-        page.screenshot(path=str(output/'selection-conflict.png'),full_page=True)
-        expect(page.get_by_text(re.compile('Foram encontrados vários artigos Jornada relacionados'))).to_be_visible()
-        checks=page.get_by_role('checkbox')
-        for i in range(checks.count()):checks.nth(i).check()
-        page.get_by_label('Novos artigos da seleção',exact=True).fill('0')
-        assert prepared()['totals']['reviews']==2
+        f=start(independent=False);before=len(rpc({'kind':'state'})['groupingPreparations']);rpc({'kind':'faults','value':{'newPublished':True}});submit()
+        expect(page.get_by_role('status').filter(has_text='mudou')).to_be_visible();assert len(rpc({'kind':'state'})['groupingPreparations'])==before
+        assert stored()['themes'][0]['themeId']==f['theme'];expect(page.get_by_text(re.compile('Foram encontrados vários artigos Jornada relacionados'))).to_be_visible()
+        set_all_reviews(True);did,g=prepare_planning(f);assert len(g['existingOutputs'])==2
+        set_theme_count(0);plan,_=materialize(did,0);assert plan['totals']['reviews']==2;assert_sources_unchanged(f['audit'])
+
     def organization_only():
-        f=start(sourceOnly=True)
-        page.get_by_role('button',name='Adicionar a tema',exact=True).click()
-        panel=page.get_by_role('region',name='Adicionar a tema',exact=True)
+        f=start(sourceOnly=True);before=len(rpc({'kind':'state'})['groupingPreparations'])
+        page.get_by_role('button',name='Adicionar a tema',exact=True).click();panel=page.get_by_role('region',name='Adicionar a tema',exact=True)
         panel.get_by_role('combobox').select_option(f['theme']);panel.get_by_role('button',name='Confirmar',exact=True).click()
         expect(page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)).to_have_count(0)
-        state=rpc({'kind':'state'});assert len(state['preparations'])==f['before']
-        assert any(m['newsroom_article_id']==f['loose']['id'] for m in state['memberships'])
+        state=rpc({'kind':'state'});assert len(state['groupingPreparations'])==before;assert any(m['newsroom_article_id']==f['loose']['id'] for m in state['memberships'])
         assert not any(c['method']=='POST' and c['path'].endswith('/preparar') for c in state['httpCalls'])
-    def new_then_review():
-        f=start('theme',independent=False);theme_mode('new');plan=prepared()
-        published=rpc({'kind':'publish','dossierId':plan['dossierId']})
-        assert len(published['receipts'])==1 and published['receipts'][0]['decision']=='NEW'
-        page.evaluate('(f)=>window.__mount(f,"theme")',f)
-        expect(page.get_by_text('2 artigos Jornada publicados · 1 fonte',exact=True)).to_be_visible()
-        page.get_by_text('Artigos Jornada e continuidade (2)',exact=True).click()
-        expect(page.get_by_text('Não revisto — sem referência de revisão verificável.',exact=True)).to_have_count(1)
-        expect(page.get_by_text('Publicação inicial — não é uma revisão dos artigos anteriores.',exact=True)).to_have_count(1)
-        theme_mode('review');plan2=prepared();assert plan2['totals']['reviews']==2
-        unchanged=rpc({'kind':'publish','dossierId':plan2['dossierId'],'noChange':True})
-        assert len(unchanged['receipts'])==2 and all(r['decision']=='SEM_ALTERAÇÃO' for r in unchanged['receipts'])
-        page.evaluate('(f)=>window.__mount(f,"theme")',f)
-        expect(page.get_by_text('Artigos Jornada e continuidade (2)',exact=True)).to_be_visible();page.get_by_text('Artigos Jornada e continuidade (2)',exact=True).click()
-        expect(page.get_by_text('Revisão concluída: SEM ALTERAÇÃO.',exact=True)).to_have_count(2)
+
     try:
         for name,fn in [
-            ('selection bar stays compact with one, two and several contexts',compact_selection_does_not_consume_workspace),
-            ('selected Theme + loose selection uses one technical selection; NULL matchday',mixed),
-            ('review and two separately counted NEWs',lambda:counts('review-new',2,1)),
-            ('only NEWs; old articles have no review tasks',lambda:counts('new',2,0)),
-            ('whole Theme returns to preparation with no added source',whole_theme),
-            ('unpublished Theme does not offer review',without_published),
-            ('draft is not a publication and does not offer review',lambda:without_published(True)),
-            ('combined selection consumes Theme and loose source after success',combined_consumes_theme_and_source),
-            ('two selected sources can produce four Article Plans without a Theme',selection_cardinality),
-            ('selection preparation does not reorganize Theme memberships',selection_does_not_organize),
-            ('source alone prepares as one selection',only_source),
-            ('lost response after SQL commit; remount and retry recover one preparation',lost_response),
-            ('published set changes; contextual error, no write, selection retained',stale_published),
-            ('Add to Theme saves membership without preparing production',organization_only),
-            ('NEW without review → old remains unreviewed → later explicit review receipts',new_then_review),
+            ('selection bar stays compact and moves NEW decisions to Production',compact_selection_does_not_consume_workspace),
+            ('mixed Theme and loose material freezes all inputs then materializes EXISTING plus one NEW',mixed),
+            ('Theme review and two NEWs are decided in Production',lambda:theme_case(2,True)),
+            ('Theme can create two NEWs without review',lambda:theme_case(2,False)),
+            ('Theme can review with explicit zero NEW',lambda:theme_case(0,True)),
+            ('unpublished Theme materializes NEW only',without_published),
+            ('draft is not a publication and materializes NEW only',lambda:without_published(True)),
+            ('successful planning preserves frozen material and clears only browser selection',combined_preserves_material_and_clears_selection),
+            ('two loose sources start unconfigured and group without losing material',selection_cardinality),
+            ('explicit zero NEW differs from an unconfigured target',explicit_zero_is_not_unconfigured),
+            ('one loose source is configured and materialized in Production',only_source),
+            ('lost prepare response retries one v2 preparation and one canonical plan',lost_response),
+            ('published set change writes nothing until refreshed choices are confirmed',stale_published),
+            ('Add to Theme remains organization-only and does not prepare Production',organization_only),
         ]:test(name,fn)
         assert not rpc({'kind':'state'})['forbidden']
-        print(f'RESULT: {len(reports)} browser/handler/PostgreSQL cases passed',flush=True)
+        print(f'RESULT: {len(reports)} Mesa v2 browser/handler/PostgreSQL cases passed',flush=True)
     finally:
         report();browser.close();backend.stdin.close();backend.wait(timeout=10);stderr.close()

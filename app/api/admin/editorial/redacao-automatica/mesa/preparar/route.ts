@@ -16,6 +16,7 @@ import {
 import { isMesaMaterialRef, mesaSelectedSources } from "@/lib/redacao-automatica/newsroom-mesa-editorial-groups";
 import { isMesaUuid, mesaOrganizationCommand } from "@/lib/redacao-automatica/newsroom-mesa-organization";
 import { readThemeContinuity } from "@/lib/redacao-automatica/newsroom-theme-continuity";
+import { parseMesaNewOutputGroupingRequestV2 } from "@/lib/redacao-automatica/newsroom-mesa-new-output-groups";
 
 function objectValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -278,6 +279,58 @@ export async function POST(request: Request) {
   }
 
   const rawPayload = objectValue(payload);
+  if (rawPayload?.mesaVersion === 5) {
+    const groupingRequest = parseMesaNewOutputGroupingRequestV2(rawPayload.groupingRequest);
+    const action = textValue(rawPayload.action);
+    if (!groupingRequest || !["preview_groups", "prepare_groups"].includes(action)) {
+      return NextResponse.json({ ok: false, code: "input_invalid", message: "A seleção para a Produção não é válida." }, { status: 400 });
+    }
+    try {
+      if (action === "preview_groups") {
+        const rows = await mesaOrganizationCommand("newsroom_preview_mesa_grouping_v2", {
+          p_request: groupingRequest,
+        });
+        const plan = objectValue(rows[0]?.plan);
+        const authorityFingerprint = textValue(plan?.authorityFingerprint);
+        if (!/^[0-9a-f]{64}$/.test(authorityFingerprint)) throw new Error("mesa-grouping-preview-invalid");
+        return NextResponse.json({
+          ok: true,
+          authorityFingerprint,
+          sourceCount: Number(plan?.sourceCount ?? 0),
+          reviewCount: Number(plan?.reviewCount ?? 0),
+        });
+      }
+      const authorityFingerprint = textValue(rawPayload.authorityFingerprint);
+      if (!/^[0-9a-f]{64}$/.test(authorityFingerprint)) {
+        return NextResponse.json({ ok: false, code: "input_invalid", message: "A referência da seleção não é válida." }, { status: 400 });
+      }
+      const rows = await mesaOrganizationCommand("newsroom_prepare_mesa_grouping_v2", {
+        p_request: groupingRequest,
+        p_expected_authority_fingerprint: authorityFingerprint,
+      });
+      const result = objectValue(rows[0]?.result);
+      const dossierId = textValue(result?.dossierId);
+      if (!isMesaUuid(dossierId) || !["created", "reused"].includes(textValue(result?.preparationAction))) {
+        throw new Error("mesa-grouping-preparation-result-invalid");
+      }
+      return NextResponse.json({
+        ok: true,
+        dossierId,
+        preparationAction: result?.preparationAction,
+        workspaceUrl: `/admin/editorial/redacao-automatica/mesa/producao/${dossierId}`,
+      }, { status: result?.preparationAction === "created" ? 201 : 200 });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "";
+      const conflict = /conflict|stale|unavailable|key-used/.test(detail);
+      return NextResponse.json({
+        ok: false,
+        code: conflict ? "intent_stale" : "prepare_failed",
+        message: conflict
+          ? "O material mudou desde a leitura. Atualiza a Mesa e volta a preparar; nenhuma fonte foi alterada."
+          : "Não foi possível preparar o agrupamento. A seleção e o estado das fontes foram preservados.",
+      }, { status: conflict ? 409 : 502 });
+    }
+  }
   if (rawPayload && (rawPayload.mesaVersion === 4 || Object.hasOwn(rawPayload, "productionIntents"))) return prepareMesaIntentsHttp(rawPayload);
   if (rawPayload?.mesaVersion === 3) {
     const contextInput = contextPreparationInput(payload);
