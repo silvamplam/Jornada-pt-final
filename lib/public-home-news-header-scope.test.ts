@@ -95,9 +95,10 @@ test("a variante Liga + Notícias não atravessa a fronteira da barra branca", (
     "nenhum seletor global escapa a uma classe local"
   );
   assert.doesNotMatch(styles, /(?:linear|radial)-gradient|box-shadow|backdrop-filter/);
-  assert.match(styles, /max-width:\s*1540px/);
-  assert.match(styles, /--league-masthead-height:\s*155px/);
-  assert.match(styles, /min-height:\s*61px/);
+  assert.match(styles, /max-width:\s*1232px/);
+  assert.match(styles, /--league-masthead-height:\s*124px/);
+  assert.match(styles, /min-height:\s*49px/);
+  assert.doesNotMatch(styles, /1540px|155px|61px/);
   assert.match(styles, /border-top:\s*2px solid #c1172f/);
   assert.match(styles, /background:\s*#002a6a/);
   assert.match(styles, /a\[aria-current="page"\][\s\S]*?border-bottom-color:\s*#ffffff/);
