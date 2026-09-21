@@ -682,6 +682,7 @@ test("package e publicação continuam a transportar a imagem persistida do resp
   assert.match(workspaceRoute, /const selectedImage = plan\.imageChoice\.mode === "dossier_image"/);
   assert.match(workspaceRoute, /imageNewsroomArticleId:\s*selectedSourceImage/);
   assert.match(workspaceRoute, /externalImage \? \{ externalImage \} : \{\}/);
+  assert.match(workspaceRoute, /image\.origin === "newsroom"[\s\S]*?newsroomArticleId: image\.newsroomArticleId/);
   assert.match(packageInternal, /outputs\.flatMap\([\s\S]*?output\.position[\s\S]*?output\.imageNewsroomArticleId/);
   assert.match(publicationClient, /editorialBatchOutputImage\(sourcePackage, article\.outputId\)/);
   assert.match(imageSelection, /image\.outputId === outputId[\s\S]*?image\.position === position \+ 1/);

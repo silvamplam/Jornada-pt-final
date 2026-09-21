@@ -55,6 +55,7 @@ export type EditorialBatchTransferDossierImage = Readonly<{
   id: string;
   imageUrl: string;
   label: string;
+  newsroomArticleId?: string;
 }>;
 
 const YEAR_PATTERN = /^\d{4}$/;
@@ -299,9 +300,25 @@ export function parseEditorialBatchTransferSourcePackage(
       const id = typeof candidate.id === "string" ? candidate.id.trim().toLowerCase() : "";
       const imageUrl = httpUrl(candidate.imageUrl);
       const label = typeof candidate.label === "string" ? candidate.label.trim().slice(0, 240) : "";
-      if (!UUID_PATTERN.test(id) || dossierImageIds.has(id) || !imageUrl || !label) return null;
+      const newsroomArticleId = candidate.newsroomArticleId === undefined
+        ? undefined
+        : typeof candidate.newsroomArticleId === "string"
+          ? candidate.newsroomArticleId.trim().toLowerCase()
+          : "";
+      if (
+        !UUID_PATTERN.test(id)
+        || dossierImageIds.has(id)
+        || !imageUrl
+        || !label
+        || (newsroomArticleId !== undefined && !UUID_PATTERN.test(newsroomArticleId))
+      ) return null;
       dossierImageIds.add(id);
-      dossierImages.push({ id, imageUrl, label });
+      dossierImages.push({
+        id,
+        imageUrl,
+        label,
+        ...(newsroomArticleId ? { newsroomArticleId } : {}),
+      });
     }
 
     return {

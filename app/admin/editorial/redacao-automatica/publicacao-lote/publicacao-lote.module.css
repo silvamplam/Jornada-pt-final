@@ -869,6 +869,31 @@
   letter-spacing: 0.045em;
 }
 
+.contextualImageNotice {
+  margin: 0;
+  color: #69778a;
+  font-size: 0.72rem;
+}
+
+.contextualImageToggle {
+  justify-self: start;
+  border: 0;
+  padding: 0;
+  color: #255c3b;
+  background: transparent;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.contextualImageToggle:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
 .noArticles {
   margin-top: 12px;
   color: #64748b;

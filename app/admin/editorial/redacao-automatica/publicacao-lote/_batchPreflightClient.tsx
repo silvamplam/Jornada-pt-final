@@ -31,6 +31,7 @@ import {
   shouldRequestAutomaticEditorialBatchPreflight,
 } from "@/lib/redacao-automatica/editorial-batch-publication-client";
 import { editorialBatchPublishedAtByOutputId } from "@/lib/redacao-automatica/editorial-batch-published-at";
+import { editorialMesaContextualImages } from "@/lib/redacao-automatica/editorial-mesa-workspace-images";
 import {
   editorialBatchDossierImages,
   editorialBatchInitialImageChoice,
@@ -494,6 +495,18 @@ function ResultSummary({
   const continuitySlots = sourcePackage?.productionIntents
     ? mesaProductionIntentSlots(sourcePackage.productionIntents)
     : sourcePackage?.themeContinuity?.slots ?? [];
+  const [expandedImageOutputIds, setExpandedImageOutputIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  function toggleAllImages(outputId: string) {
+    setExpandedImageOutputIds((current) => {
+      const next = new Set(current);
+      if (next.has(outputId)) next.delete(outputId);
+      else next.add(outputId);
+      return next;
+    });
+  }
 
   return (
     <section className={styles.results} aria-labelledby="batch-results-title" aria-live="polite">
@@ -605,6 +618,23 @@ function ResultSummary({
                 : null;
               const existingOutput = continuitySlot?.kind === "existing";
               const dossierImages = editorialBatchDossierImages(sourcePackage);
+              const selectedImageChoice = outputId
+                ? editorialBatchInitialImageChoice(sourcePackage, outputId, existingOutput)
+                : "unselected";
+              const focusSourceIds = continuitySlot && "focusSourceIds" in continuitySlot
+                ? continuitySlot.focusSourceIds ?? []
+                : [];
+              const contextualImages = editorialMesaContextualImages(
+                dossierImages,
+                focusSourceIds,
+                selectedImageChoice,
+              );
+              const showAllImages = outputId ? expandedImageOutputIds.has(outputId) : false;
+              const displayedDossierImages = showAllImages
+                ? contextualImages.allImages
+                : contextualImages.images;
+              const hasAdditionalImages = contextualImages.allImages.length
+                > contextualImages.images.length;
 
               return (
                 <li key={row.key} className={isValid ? styles.validArticle : styles.invalidArticle}>
@@ -685,10 +715,16 @@ function ResultSummary({
                           </div>
                           <span>{productionImage ? "SELECIONADA" : existingOutput ? "PRESERVADA" : "EM FALTA"}</span>
                         </div>
+                        {contextualImages.relevantCount === 0 && !showAllImages ? (
+                          <p className={styles.contextualImageNotice}>
+                            Não há imagens diretamente ligadas ao ponto de partida deste artigo.
+                          </p>
+                        ) : null}
                         <DossierImageChoiceGrid
                           name={`batch_output_image_${outputId}`}
-                          value={editorialBatchInitialImageChoice(sourcePackage, outputId, existingOutput)}
-                          images={dossierImages}
+                          value={selectedImageChoice}
+                          images={displayedDossierImages}
+                          legend="Imagens deste artigo"
                           disabled={imageChoiceDisabled}
                           allowNoImage
                           allowPreservePublished={existingOutput}
@@ -700,6 +736,17 @@ function ResultSummary({
                             ? `batch-image-bank-${outputId}`
                             : undefined}
                         />
+                        {hasAdditionalImages ? (
+                          <button
+                            className={styles.contextualImageToggle}
+                            type="button"
+                            disabled={imageChoiceDisabled}
+                            aria-expanded={showAllImages}
+                            onClick={() => toggleAllImages(outputId)}
+                          >
+                            {showAllImages ? "Mostrar imagens deste artigo" : "Ver todas as imagens"}
+                          </button>
+                        ) : null}
                         {sourcePackage?.dossierId ? (
                           <DossierImageBank
                             panelId={`batch-image-bank-${outputId}`}
