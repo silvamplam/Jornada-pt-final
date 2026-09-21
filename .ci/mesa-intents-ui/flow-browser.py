@@ -173,7 +173,7 @@ with sync_playwright() as pw:
         (out/'flow-mixed-result.json').write_text(json.dumps(s,ensure_ascii=False,indent=2))
     def materialization_refreshes_twelve_without_reload():
         start(independent=False);did,plan=prepare(mode='new',new=12)
-        count=page.get_by_label('NÃºmero total de artigos a produzir',exact=True)
+        count=page.locator('section[aria-labelledby="output-count-title"] input[type="number"]')
         expect(count).to_have_value('12')
         cards=page.locator('article').filter(has=page.locator('input[name$=":image_choice"]'))
         expect(cards).to_have_count(12)
