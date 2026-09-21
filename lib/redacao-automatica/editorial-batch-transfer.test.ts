@@ -11,6 +11,8 @@ const MATCHDAY_ID = "92000000-0000-4000-8000-000000000001";
 const OUTPUT_ID = "93000000-0000-4000-8000-000000000001";
 const SOURCE_ID = "94000000-0000-4000-8000-000000000001";
 const SOURCE_ID_B = "94000000-0000-4000-8000-000000000002";
+const IMAGE_ID = "95000000-0000-4000-8000-000000000001";
+const IMAGE_ID_B = "95000000-0000-4000-8000-000000000002";
 
 const mesaV2Text = `[JORNADA_ARTIGO_V1]
 OUTPUT_ID
@@ -40,6 +42,41 @@ test("transferências antigas do Dossiê continuam legíveis", () => {
       packageId: PACKAGE_ID,
     },
   );
+});
+
+test("a transferência conserva a associação newsroom da imagem sem a exigir a pacotes legacy", () => {
+  const parsed = parseEditorialBatchTransferSourcePackage(JSON.stringify({
+    year: "2026",
+    month: "09",
+    packageId: PACKAGE_ID,
+    dossierImages: [
+      {
+        id: IMAGE_ID,
+        imageUrl: "https://assets.example.invalid/newsroom.jpg",
+        label: "NOVA · Record",
+        newsroomArticleId: SOURCE_ID,
+      },
+      {
+        id: IMAGE_ID_B,
+        imageUrl: "https://assets.example.invalid/legacy.jpg",
+        label: "Imagem legacy",
+      },
+    ],
+  }));
+
+  assert.deepEqual(parsed?.dossierImages, [
+    {
+      id: IMAGE_ID,
+      imageUrl: "https://assets.example.invalid/newsroom.jpg",
+      label: "NOVA · Record",
+      newsroomArticleId: SOURCE_ID,
+    },
+    {
+      id: IMAGE_ID_B,
+      imageUrl: "https://assets.example.invalid/legacy.jpg",
+      label: "Imagem legacy",
+    },
+  ]);
 });
 
 test("a transferência preserva o contexto canónico de uma atualização", () => {

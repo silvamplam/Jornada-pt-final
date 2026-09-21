@@ -1,8 +1,11 @@
-import type { EditorialDossierImage } from "./editorial-dossier-production-workspace-repository";
+export type EditorialContextualImage = Readonly<{
+  id: string;
+  newsroomArticleId?: string | null;
+}>;
 
-export type EditorialMesaContextualImages = Readonly<{
-  images: readonly EditorialDossierImage[];
-  allImages: readonly EditorialDossierImage[];
+export type EditorialMesaContextualImages<Image extends EditorialContextualImage> = Readonly<{
+  images: readonly Image[];
+  allImages: readonly Image[];
   relevantCount: number;
 }>;
 
@@ -18,14 +21,15 @@ function selectedDossierImageId(imageChoice: string): string | null {
  * A selected out-of-context image is retained so a saved editorial choice can
  * never disappear from the collapsed selector.
  */
-export function editorialMesaContextualImages(
-  images: readonly EditorialDossierImage[],
+export function editorialMesaContextualImages<Image extends EditorialContextualImage>(
+  images: readonly Image[],
   focusSourceIds: readonly string[],
   selectedImageChoice: string,
-): EditorialMesaContextualImages {
+): EditorialMesaContextualImages<Image> {
   const focused = new Set(focusSourceIds);
   const relevant = images.filter((image) => (
-    image.origin === "newsroom" && focused.has(image.newsroomArticleId)
+    typeof image.newsroomArticleId === "string"
+    && focused.has(image.newsroomArticleId)
   ));
   const selectedId = selectedDossierImageId(selectedImageChoice);
   const selected = selectedId

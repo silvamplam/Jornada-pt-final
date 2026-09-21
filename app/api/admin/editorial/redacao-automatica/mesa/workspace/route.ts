@@ -660,6 +660,9 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
         dossierImages: workspace.images.map((image) => ({
           id: image.id,
           imageUrl: image.frozenUrl,
+          ...(image.origin === "newsroom"
+            ? { newsroomArticleId: image.newsroomArticleId }
+            : {}),
           label: image.origin === "upload"
             ? `UPLOAD · ${image.fileName}`
             : image.origin === "newsroom"

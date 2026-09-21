@@ -69,6 +69,17 @@ test("a página escolhe o pré-flight pelo contrato transferido do package", () 
   assert.match(clientSource, /preflightEditorialArticleBatchForSourcePackage\(articleText, sourcePackage\)/);
 });
 
+test("cada artigo prioriza imagens das fontes congeladas e conserva o banco global", () => {
+  assert.match(clientSource, /mesaProductionIntentSlots\(sourcePackage\.productionIntents\)/);
+  assert.match(clientSource, /continuitySlots\.find\(\(slot\) => slot\.outputId === outputId\)/);
+  assert.match(clientSource, /"focusSourceIds" in continuitySlot/);
+  assert.match(clientSource, /editorialMesaContextualImages\([\s\S]*?focusSourceIds,[\s\S]*?selectedImageChoice/);
+  assert.match(clientSource, /images=\{displayedDossierImages\}/);
+  assert.match(clientSource, /Não há imagens diretamente ligadas ao ponto de partida deste artigo\./);
+  assert.match(clientSource, /"Ver todas as imagens"/);
+  assert.match(clientSource, /allowPreservePublished=\{existingOutput\}/);
+});
+
 test("a Publicação em lote preserva o Dossiê até ao sucesso integral", () => {
   assert.match(clientSource, /EDITORIAL_BATCH_TRANSFER_STORAGE_KEY/);
   assert.match(clientSource, /EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY/);
