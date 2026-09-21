@@ -171,6 +171,20 @@ with sync_playwright() as pw:
         receipt=next(r for r in s['receipts'] if r['editorial_article_id']==fresh['id'])
         assert receipt['theme_id'] is None and receipt['context_key'].startswith('selection:')
         (out/'flow-mixed-result.json').write_text(json.dumps(s,ensure_ascii=False,indent=2))
+    def materialization_refreshes_twelve_without_reload():
+        start(independent=False);did,plan=prepare(mode='new',new=12)
+        count=page.get_by_label('NÃºmero total de artigos a produzir',exact=True)
+        expect(count).to_have_value('12')
+        cards=page.locator('article').filter(has=page.locator('input[name$=":image_choice"]'))
+        expect(cards).to_have_count(12)
+        expect(page.get_by_text('NEW_01',exact=True)).to_be_visible()
+        expect(page.get_by_text('NEW_12',exact=True)).to_be_visible()
+        assert len(plan['outputs'])==12 and all(o['kind']=='new' for o in plan['outputs'])
+        pid,_=package(did)
+        state=rpc(dict(kind='flow-state',dossierId=did))
+        saved=next(c for c in reversed(state['flowCalls']) if c.get('action')=='save_article_plans_batch')
+        assert saved['body']['outputCount']==12 and len(saved['body']['outputs'])==12
+        assert pid and rpc(dict(kind='source-state'))==source_audit
     def nochange():
         start(independent=False,published=2);did,plan=prepare();pid,_=package(did)
         return_text(pid,[o['outputId'] for o in plan['outputs']]);expect_auto_nochange_return()
@@ -240,6 +254,7 @@ with sync_playwright() as pw:
             report();raise
         report()
     try:
+        test('Materializing twelve outputs refreshes the preserved workspace without a page reload',materialization_refreshes_twelve_without_reload)
         test('Real visual mixed UPDATE with null matchday + selection NEW',mixed)
         test('Real visual all-SEM ALTERAÇÃO without article writes',nochange)
         test('Real visual NEW without review followed by explicit old-article review',new_then_review)

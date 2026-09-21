@@ -21,7 +21,10 @@ declare global { interface Window {
   __flowFixture:Fixture;
 } }
 let root:Root|null=null;
-function render(element:ReactNode){root?.unmount();root=createRoot(document.getElementById("root")!);root.render(element);}
+function render(element:ReactNode){
+  root ??= createRoot(document.getElementById("root")!);
+  root.render(element);
+}
 function element(tree:Tree):ReactNode {
   if(tree===null||typeof tree==='string'||typeof tree==='number')return tree;
   if(Array.isArray(tree))return tree.map((node,i)=>createElement(Fragment,{key:i},element(node)));
