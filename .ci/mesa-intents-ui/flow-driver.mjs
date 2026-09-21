@@ -54,7 +54,7 @@ await build({entryPoints:[root+'/.ci/mesa-intents-ui/flow-client.tsx'],outfile:o
   return {contents:source.replace('window.location.assign(MESA_ROUTE);','window.__flowLanding = MESA_ROUTE;'),loader:'tsx',resolveDir:dirname(path)};
  });
  b.onResolve({filter:/^next\/navigation$/},()=>({path:'router',namespace:'flow'}));
- b.onLoad({filter:/.*/,namespace:'flow'},()=>({contents:`const router={push(path){void window.__flowNavigate(path)},refresh(){}};export const useRouter=()=>router;`,loader:'js'}));
+ b.onLoad({filter:/.*/,namespace:'flow'},()=>({contents:`const router={push(path){void window.__flowNavigate(path)},refresh(){void window.__flowNavigate(window.__flowReady)}};export const useRouter=()=>router;`,loader:'js'}));
 }}]});
 function serialize(e){
  if(e==null||typeof e==='boolean')return null;
@@ -103,6 +103,7 @@ async function execute(input){
   return {status:response.status,body,...(body===null?{text}:{})};
  }
  if(input.kind==='flow-state')return state(input.dossierId);
+ if(input.kind==='source-state')return (await base.command({kind:'state'})).sourceAudit;
  if(input.kind==='manual-edit'){
   assert.ok(fixture?.articles.includes(input.articleId));
   h.sql(`update public.editorial_articles set body='Edição manual posterior protegida' where id=${h.q(input.articleId)}`);

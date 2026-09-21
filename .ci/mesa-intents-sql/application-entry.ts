@@ -9,3 +9,5 @@ export { POST as publishBatchPOST } from "../../app/api/admin/editorial/redacao-
 
 export { GET as intentThemeGET, POST as prepareMesaPOST } from "../../app/api/admin/editorial/redacao-automatica/mesa/preparar/route";
 export { POST as organizePOST } from "../../app/api/admin/editorial/redacao-automatica/mesa/organizacao/route";
+export { POST as workspacePOST } from "../../app/api/admin/editorial/redacao-automatica/mesa/workspace/route";
+export { readMesaNewOutputGrouping } from "../../lib/redacao-automatica/newsroom-mesa-new-output-groups-repository";
