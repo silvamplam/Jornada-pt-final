@@ -17,11 +17,22 @@ import {
   MESA_OPERATIONAL_CLASSIFICATION_CONTEXT,
 } from "@/lib/redacao-automatica/newsroom-operational-desk-contract";
 import {
-  validateOperationalDeskCycleSourceIds,
+  partitionOperationalDeskCycleSourceIds,
 } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
 
 const classifyBatch = createCurrentFeedBatchClassifier({
-  validateCycle: validateOperationalDeskCycleSourceIds,
+  async readCycleMembership(articleIds) {
+    const result = await partitionOperationalDeskCycleSourceIds(articleIds);
+    return result.ok
+      ? {
+          ok: true,
+          value: {
+            eligibleIds: result.eligibleIds,
+            outsideCycleIds: result.outsideCycleIds,
+          },
+        } as const
+      : { ok: false } as const;
+  },
   async readClassificationStates(articleIds) {
     const result = await getNewsroomArticleClassificationsByIds(articleIds);
     return result.ok

@@ -16,6 +16,8 @@ const classificationPath =
   "lib/redacao-automatica/newsroom-current-feed-classification.ts";
 const deskPagePath =
   "app/admin/editorial/redacao-automatica/page.tsx";
+const operationalReadModelPath =
+  "lib/redacao-automatica/newsroom-operational-desk-read-model.ts";
 
 test("cron da Redação usa token efémero de uma só utilização", () => {
   const route = readFileSync(routePath, "utf8");
@@ -85,6 +87,20 @@ test("feed não volta a paginar o arquivo global nem classifica artigo a artigo"
   assert.match(classification, /getNewsroomArticleClassificationsByIds\(articleIds\)/);
   assert.match(classification, /prepareNewsroomDeterministicClassifications\(/);
   assert.match(classification, /applyAutomaticNewsroomArticleClassification\(input\)/);
+});
+
+test("pertença ao ciclo é particionada numa leitura scoped sem mudar o validator existente", () => {
+  const classification = readFileSync(classificationPath, "utf8");
+  const readModel = readFileSync(operationalReadModelPath, "utf8");
+
+  assert.match(classification, /partitionOperationalDeskCycleSourceIds\(articleIds\)/);
+  assert.doesNotMatch(classification, /validateOperationalDeskCycleSourceIds/);
+  assert.match(readModel, /export async function validateOperationalDeskCycleSourceIds\(/);
+  assert.match(readModel, /export async function partitionOperationalDeskCycleSourceIds\(/);
+  assert.match(
+    readModel,
+    /partitionOperationalDeskCycleSourceIds[\s\S]*newsroom_articles\?select=id,first_detected_at[\s\S]*&id=in\.\(\$\{idList\(ids\)\}\)/,
+  );
 });
 
 test("consumidor do feed não soma updated duas vezes no total disponível", () => {

@@ -26,6 +26,8 @@ const manual = {
 
 function fakeDependencies(options: Readonly<{
   states?: readonly (typeof unclassified | typeof automatic | typeof manual)[];
+  outsideCycleIds?: readonly string[];
+  failCycleRead?: boolean;
   failPreparation?: boolean;
   failApply?: boolean;
 }> = {}) {
@@ -36,9 +38,17 @@ function fakeDependencies(options: Readonly<{
     apply: [] as string[],
   };
   const dependencies: CurrentFeedBatchClassificationDependencies = {
-    async validateCycle(articleIds) {
+    async readCycleMembership(articleIds) {
       calls.validate.push([...articleIds]);
-      return { ok: true };
+      if (options.failCycleRead) return { ok: false };
+      const outside = new Set(options.outsideCycleIds ?? []);
+      return {
+        ok: true,
+        value: {
+          eligibleIds: articleIds.filter((articleId) => !outside.has(articleId)),
+          outsideCycleIds: articleIds.filter((articleId) => outside.has(articleId)),
+        },
+      };
     },
     async readClassificationStates(articleIds) {
       calls.states.push([...articleIds]);
@@ -128,6 +138,107 @@ test("estado dos artigos conhecidos é lido uma vez e evidence é preparada em b
   assert.equal(fake.calls.states[0]?.length, 30);
   assert.equal(fake.calls.prepare.length, 1);
   assert.equal(fake.calls.prepare[0]?.length, 30);
+});
+
+test("batch misto ignora outside cycle e classifica os restantes em conjunto", async () => {
+  const outsideId = id(1);
+  const createdId = id(2);
+  const reusedId = id(3);
+  const fake = fakeDependencies({
+    outsideCycleIds: [outsideId],
+    states: [unclassified],
+  });
+  const classify = createCurrentFeedBatchClassifier(fake.dependencies);
+  const persisted = [
+    { articleId: outsideId, action: "reused" as const },
+    { articleId: createdId, action: "created" as const },
+    { articleId: reusedId, action: "reused" as const },
+  ];
+  const feedBefore = summarizeNewsroomCurrentFeedRun({
+    requestedSourceCount: 1,
+    successfulSourceCount: 1,
+    actions: persisted.map((article) => article.action),
+  });
+
+  const result = await classify(persisted);
+  const feedAfter = summarizeNewsroomCurrentFeedRun({
+    requestedSourceCount: 1,
+    successfulSourceCount: 1,
+    actions: persisted.map((article) => article.action),
+  });
+
+  assert.deepEqual(fake.calls.validate, [[outsideId, createdId, reusedId]]);
+  assert.deepEqual(fake.calls.states, [[reusedId]]);
+  assert.deepEqual(fake.calls.prepare, [[createdId, reusedId]]);
+  assert.deepEqual(fake.calls.apply, [createdId, reusedId]);
+  assert.equal(result.outsideCycleCount, 1);
+  assert.equal(result.classifiedCount, 2);
+  assert.equal(result.failedCount, 0);
+  assert.deepEqual(feedAfter, feedBefore);
+  assert.equal(feedAfter.createdCount, 1);
+  assert.equal(feedAfter.existingCount, 2);
+});
+
+test("batch totalmente fora do ciclo não classifica nem conta falhas", async () => {
+  const articleIds = [id(1), id(2), id(3)];
+  const fake = fakeDependencies({ outsideCycleIds: articleIds });
+  const classify = createCurrentFeedBatchClassifier(fake.dependencies);
+
+  const result = await classify(articleIds.map((articleId) => ({
+    articleId,
+    action: "reused" as const,
+  })));
+
+  assert.equal(fake.calls.validate.length, 1);
+  assert.equal(fake.calls.states.length, 0);
+  assert.equal(fake.calls.prepare.length, 0);
+  assert.equal(fake.calls.apply.length, 0);
+  assert.equal(result.outsideCycleCount, 3);
+  assert.equal(result.failedCount, 0);
+});
+
+test("outside cycle não interfere com manual, automatic e unclassified", async () => {
+  const outsideId = id(1);
+  const manualId = id(2);
+  const automaticId = id(3);
+  const unclassifiedId = id(4);
+  const fake = fakeDependencies({
+    outsideCycleIds: [outsideId],
+    states: [manual, automatic, unclassified],
+  });
+  const classify = createCurrentFeedBatchClassifier(fake.dependencies);
+
+  const result = await classify([
+    { articleId: outsideId, action: "reused" },
+    { articleId: manualId, action: "reused" },
+    { articleId: automaticId, action: "updated" },
+    { articleId: unclassifiedId, action: "reused" },
+  ]);
+
+  assert.deepEqual(fake.calls.states, [[manualId, automaticId, unclassifiedId]]);
+  assert.deepEqual(fake.calls.prepare, [[unclassifiedId]]);
+  assert.deepEqual(fake.calls.apply, [unclassifiedId]);
+  assert.equal(result.outsideCycleCount, 1);
+  assert.equal(result.manualPreservedCount, 1);
+  assert.equal(result.automaticPreservedCount, 1);
+  assert.equal(result.classifiedCount, 1);
+  assert.equal(result.failedCount, 0);
+});
+
+test("falha real da leitura do ciclo conta como falha e não como outside cycle", async () => {
+  const fake = fakeDependencies({ failCycleRead: true });
+  const classify = createCurrentFeedBatchClassifier(fake.dependencies);
+
+  const result = await classify([
+    { articleId: id(1), action: "created" },
+    { articleId: id(2), action: "reused" },
+  ]);
+
+  assert.equal(fake.calls.validate.length, 1);
+  assert.equal(fake.calls.states.length, 0);
+  assert.equal(fake.calls.prepare.length, 0);
+  assert.equal(result.outsideCycleCount, 0);
+  assert.equal(result.failedCount, 2);
 });
 
 test("falha de classificação é best effort e não altera created/updated/reused", async () => {

@@ -59,9 +59,12 @@ test("1, 10 ou 30 candidatos usam reads batch e apenas writes lineares", async (
   for (const count of [1, 10, 30]) {
     const calls = { cycle: 0, states: 0, prepare: 0, writes: 0 };
     const dependencies: CurrentFeedBatchClassificationDependencies = {
-      async validateCycle() {
+      async readCycleMembership(articleIds) {
         calls.cycle += 1;
-        return { ok: true };
+        return {
+          ok: true,
+          value: { eligibleIds: articleIds, outsideCycleIds: [] },
+        };
       },
       async readClassificationStates(articleIds) {
         calls.states += 1;

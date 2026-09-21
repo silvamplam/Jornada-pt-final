@@ -24,9 +24,12 @@ type OperationResult<T> =
   | Readonly<{ ok: false }>;
 
 export interface CurrentFeedBatchClassificationDependencies {
-  validateCycle(
+  readCycleMembership(
     articleIds: readonly string[],
-  ): Promise<Readonly<{ ok: true } | { ok: false }>>;
+  ): Promise<OperationResult<Readonly<{
+    eligibleIds: readonly string[];
+    outsideCycleIds: readonly string[];
+  }>>>;
   readClassificationStates(
     articleIds: readonly string[],
   ): Promise<OperationResult<readonly ClassificationState[]>>;
@@ -44,6 +47,7 @@ export interface CurrentFeedBatchClassificationDependencies {
 
 export type CurrentFeedBatchClassificationSummary = Readonly<{
   articleCount: number;
+  outsideCycleCount: number;
   classificationStateReadCount: number;
   preparedCount: number;
   classifiedCount: number;
@@ -58,6 +62,7 @@ function emptySummary(
 ): CurrentFeedBatchClassificationSummary {
   return {
     articleCount,
+    outsideCycleCount: 0,
     classificationStateReadCount: 0,
     preparedCount: 0,
     classifiedCount: 0,
@@ -92,19 +97,43 @@ export function createCurrentFeedBatchClassifier(
     const summary = emptySummary(articles.length);
     if (articles.length === 0) return summary;
 
+    let cycle: Awaited<ReturnType<typeof dependencies.readCycleMembership>>;
     try {
-      const cycle = await dependencies.validateCycle(
+      cycle = await dependencies.readCycleMembership(
         articles.map((article) => article.articleId),
       );
-      if (!cycle.ok) {
-        return { ...summary, failedCount: articles.length };
-      }
     } catch {
       return { ...summary, failedCount: articles.length };
     }
+    if (!cycle.ok) return { ...summary, failedCount: articles.length };
 
-    const created = articles.filter((article) => article.action === "created");
-    const existing = articles.filter((article) => article.action !== "created");
+    const articleById = new Map(
+      articles.map((article) => [article.articleId, article]),
+    );
+    const membershipIds = [
+      ...cycle.value.eligibleIds,
+      ...cycle.value.outsideCycleIds,
+    ];
+    if (
+      membershipIds.length !== articles.length
+      || new Set(membershipIds).size !== articles.length
+      || membershipIds.some((articleId) => !articleById.has(articleId))
+    ) return { ...summary, failedCount: articles.length };
+
+    const eligibleArticles = cycle.value.eligibleIds.map(
+      (articleId) => articleById.get(articleId)!,
+    );
+    const outsideCycleCount = cycle.value.outsideCycleIds.length;
+    if (eligibleArticles.length === 0) {
+      return { ...summary, outsideCycleCount };
+    }
+
+    const created = eligibleArticles.filter(
+      (article) => article.action === "created",
+    );
+    const existing = eligibleArticles.filter(
+      (article) => article.action !== "created",
+    );
     const eligible = [...created];
     let automaticPreservedCount = 0;
     let manualPreservedCount = 0;
@@ -139,6 +168,7 @@ export function createCurrentFeedBatchClassifier(
     if (eligible.length === 0) {
       return {
         ...summary,
+        outsideCycleCount,
         classificationStateReadCount: existing.length,
         automaticPreservedCount,
         manualPreservedCount,
@@ -157,6 +187,7 @@ export function createCurrentFeedBatchClassifier(
     if (!prepared.ok || prepared.value.length !== eligible.length) {
       return {
         ...summary,
+        outsideCycleCount,
         classificationStateReadCount: existing.length,
         automaticPreservedCount,
         manualPreservedCount,
@@ -204,6 +235,7 @@ export function createCurrentFeedBatchClassifier(
 
     return {
       ...summary,
+      outsideCycleCount,
       classificationStateReadCount: existing.length,
       preparedCount: eligible.length,
       classifiedCount,
