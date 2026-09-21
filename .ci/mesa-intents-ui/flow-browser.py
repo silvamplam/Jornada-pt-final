@@ -79,7 +79,7 @@ with sync_playwright() as pw:
         page.evaluate('(v)=>window.__flowMount(v)',f)
         expect(page.get_by_role('button',name='Ver seleção',exact=True)).to_be_visible()
         page.get_by_role('button',name='Ver seleção',exact=True).click()
-        expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
+        expect(page.get_by_role('form',name='Escolhas de Produção',exact=True)).to_be_visible()
         assert page.get_by_label('Novos artigos da seleção',exact=True).count()==0
         expect(page.get_by_text('O número de novos artigos será definido na Produção.',exact=False)).to_be_visible()
         assert page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).count()==0
@@ -184,7 +184,7 @@ with sync_playwright() as pw:
             page.add_style_tag(content=(out/'flow-browser.css').read_text())
             page.add_script_tag(content=(out/'flow-browser.js').read_text())
         page.evaluate('(path)=>window.__flowNavigate(path)',mesa+'/temas/'+f['theme'])
-        expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
+        expect(page.get_by_role('form',name='Escolhas de Produção',exact=True)).to_be_visible()
         assert page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).count()==0
         expect(page.get_by_text('O número de novos artigos será definido na Produção.',exact=False)).to_be_visible()
         page.evaluate('(audit)=>window.__flowFixture.sourceAudit=audit',rpc(dict(kind='source-state')))
