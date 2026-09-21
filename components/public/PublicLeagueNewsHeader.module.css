@@ -1,0 +1,497 @@
+/* Scoped exclusively to the modern public matchday and contextual-news mastheads. */
+.topStack:global(.public-top-stack) {
+  --league-masthead-height: 124px;
+  top: calc(-1 * (var(--league-masthead-height) + 2px));
+  border-top: 2px solid #c1172f;
+  border-bottom: 0;
+  background: #002a6a;
+  color: #ffffff;
+}
+
+.simpleTopStack:global(.public-top-stack),
+.topStack:global(.public-top-stack):focus-within {
+  top: 0;
+}
+
+.topStack :global(.public-site-topbar) {
+  grid-template-columns: 200px minmax(0, 1fr) 228px 168px;
+  grid-template-rows: 76px 48px;
+  gap: 0;
+  max-width: 1232px;
+  min-height: var(--league-masthead-height);
+  padding: 0;
+  border: 0;
+}
+
+.competitionIdentity,
+.siteIdentity {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  min-width: 0;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.competitionIdentity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  align-self: stretch;
+  gap: 12px;
+}
+
+.competitionIdentity img {
+  width: 138.4px;
+  height: 30.4px;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.competitionIdentity img[data-variant="premier-league-lockup"],
+.competitionIdentity img[data-variant="laliga-horizontal"] {
+  box-sizing: border-box;
+  padding: 4px 8px;
+  background: #ffffff;
+}
+
+.competitionIdentity span {
+  overflow: hidden;
+  max-width: 100%;
+  color: #ffffff;
+  font-size: 16.8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  transform: translateY(1.6px);
+  white-space: nowrap;
+}
+
+.siteIdentity {
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 2.4px;
+  overflow: hidden;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 30.4px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.siteIdentity span {
+  color: #d9e6f5;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10.4px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.matchdayBrand {
+  display: grid;
+  grid-column: 3;
+  grid-row: 1 / 3;
+  justify-items: center;
+  justify-self: stretch;
+  align-self: center;
+  gap: 4.8px;
+  color: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+  text-decoration: none;
+  transform: translate(3.2px, 10.4px);
+}
+
+.matchdayBrand span {
+  font-size: 46.4px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  transform: scaleX(1.002);
+  white-space: nowrap;
+}
+
+.matchdayBrand strong {
+  font-size: 34.4px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  transform: translateX(0.8px);
+}
+
+.topStack :global(nav[aria-label="Navegação pública"]) {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: stretch;
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  color: #f4f7fb;
+  font-size: 12.8px;
+  text-transform: none;
+}
+
+.topStack :global(nav[aria-label="Navegação pública"] [role="group"]) {
+  gap: 0;
+}
+
+.topStack :global(nav[aria-label="Navegação pública"] > a) {
+  margin-left: 0;
+}
+
+.topStack :global(nav[aria-label="Navegação pública"] a) {
+  justify-content: center;
+  min-height: 48px;
+  margin-top: 0;
+  padding: 0 15.6px;
+  border-left: 0.8px solid #164c80;
+  border-bottom: 1.6px solid transparent;
+  color: #f4f7fb;
+}
+
+.topStack :global(nav[aria-label="Navegação pública"] a:first-child) {
+  border-left: 0;
+}
+
+.topStack :global(nav[aria-label="Navegação pública"] a[aria-current="page"]) {
+  border-bottom-color: #ffffff;
+  color: #ffffff;
+}
+
+.topStack :global(nav[aria-label="Navegação pública"] img),
+.topStack :global(.public-site-actions) {
+  display: none;
+}
+
+.topStack :global(.public-matchday-date-row) {
+  grid-column: 4;
+  grid-row: 2;
+  align-self: center;
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+
+.topStack :global(.public-matchday-date-context),
+.topStack :global(.public-matchday-date-context strong) {
+  color: #d7e4f3;
+  font-size: 10.4px;
+  font-weight: 400;
+  letter-spacing: 0.025em;
+  line-height: 1.3;
+  transform: translate(1.6px, -0.8px);
+  white-space: normal;
+}
+
+.topStack :global(.public-season-nav-bar) {
+  max-width: 1232px;
+  margin: 0 auto;
+  background: transparent;
+  color: #ffffff;
+}
+
+.topStack :global(.public-season-nav-inner) {
+  box-sizing: border-box;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0;
+  height: 49px;
+  min-height: 49px;
+  border-top: 0.8px solid #004e87;
+}
+
+.topStack :global(.public-season-context-card) {
+  gap: 8.8px;
+  min-height: 49px;
+}
+
+.topStack :global(.public-season-select-wrap) {
+  position: relative;
+  min-height: 36px;
+}
+
+.topStack :global(.public-season-select-wrap > span) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.topStack :global(.public-season-select) {
+  width: 126.4px;
+  min-width: 126.4px;
+  min-height: 36px;
+  padding: 3.2px 12px;
+  border: 0.8px solid #3994be;
+  border-radius: 0;
+  background: #00457d;
+  color: #ffffff;
+  font-size: 12.8px;
+  font-weight: 700;
+}
+
+.topStack :global(.public-season-select option) {
+  background: #ffffff;
+  color: #17283e;
+}
+
+.topStack :global(.public-matchday-leg-nav) {
+  gap: 5.6px;
+  padding: 0;
+  border: 0;
+}
+
+.topStack :global(.public-matchday-leg-nav a) {
+  min-width: 88px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0.8px solid #3994be;
+  color: #eef5fc;
+  font-size: 12.8px;
+  font-weight: 600;
+}
+
+.topStack :global(.public-matchday-leg-nav a[aria-current="true"]) {
+  border-color: #7dc8ea;
+  background: #00508b;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.topStack :global(.public-matchday-nav-compact) {
+  grid-column: 2;
+  grid-row: 1;
+  padding: 0 0 0 16px;
+  border: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #819ac1 transparent;
+  transform: translateY(-0.8px);
+}
+
+.topStack :global(.public-matchday-nav-compact a) {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  height: 48px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 1.6px 3.2px 0;
+  border-bottom: 0;
+  color: #e8eff8;
+  font-size: 12.8px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.topStack :global(.public-matchday-nav-compact a[aria-current="page"]) {
+  background: #00518e;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.topStack :global(nav[aria-label="Navegação pública"] a:hover),
+.topStack :global(.public-matchday-leg-nav a:hover),
+.topStack :global(.public-matchday-nav-compact a:hover) {
+  background: rgb(255 255 255 / 10%);
+  color: #ffffff;
+}
+
+.topStack:global(.public-top-stack) a:focus-visible,
+.topStack:global(.public-top-stack) :global(.public-season-select:focus-visible) {
+  outline: 2px solid #ffffff;
+  outline-offset: -3px;
+}
+
+@media (max-width: 1040px) {
+  .topStack :global(.public-site-topbar) {
+    grid-template-columns: 168px minmax(0, 1fr) 200px 144px;
+  }
+
+  .competitionIdentity img {
+    width: 120px;
+  }
+
+  .competitionIdentity span {
+    font-size: 14.4px;
+  }
+
+  .matchdayBrand span {
+    font-size: 40px;
+  }
+
+  .matchdayBrand strong {
+    font-size: 32px;
+  }
+
+  .topStack :global(nav[aria-label="Navegação pública"]) {
+    font-size: 11.2px;
+  }
+
+  .topStack :global(nav[aria-label="Navegação pública"] a) {
+    padding-inline: 12.8px;
+  }
+}
+
+@media (max-width: 980px) {
+  .topStack :global(.public-season-nav-inner) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .topStack :global(.public-matchday-nav-compact) {
+    grid-column: 1;
+    grid-row: 2;
+    border-top: 1px solid rgb(255 255 255 / 16%);
+    transform: none;
+  }
+
+  .topStack :global(.public-matchday-nav-compact a) {
+    min-width: 48px;
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 760px) {
+  .topStack:global(.public-top-stack) {
+    --league-masthead-height: 160px;
+  }
+
+  .simpleTopStack:global(.public-top-stack) {
+    top: 0;
+  }
+
+  .topStack :global(.public-site-topbar) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 92px 40px 28px;
+    gap: 0 12px;
+    min-height: var(--league-masthead-height);
+  }
+
+  .competitionIdentity,
+  .siteIdentity {
+    grid-column: 1;
+    grid-row: 1;
+    align-items: flex-start;
+  }
+
+  .competitionIdentity {
+    gap: 6px;
+  }
+
+  .competitionIdentity img {
+    width: 112px;
+    height: 30px;
+  }
+
+  .competitionIdentity span {
+    max-width: 140px;
+    font-size: 14px;
+  }
+
+  .siteIdentity {
+    align-items: center;
+    font-size: 30px;
+  }
+
+  .matchdayBrand {
+    grid-column: 2;
+    grid-row: 1;
+    transform: none;
+  }
+
+  .matchdayBrand span {
+    font-size: clamp(30px, 8vw, 42px);
+  }
+
+  .matchdayBrand strong {
+    font-size: 29px;
+  }
+
+  .topStack :global(nav[aria-label="Navegação pública"]) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    border-top: 1px solid rgb(255 255 255 / 16%);
+    font-size: 12px;
+  }
+
+  .topStack :global(nav[aria-label="Navegação pública"] a) {
+    min-height: 40px;
+    padding-inline: 12px;
+  }
+
+  .topStack :global(.public-matchday-date-row) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    align-self: center;
+    justify-content: flex-end;
+    padding: 0;
+  }
+
+  .topStack :global(.public-matchday-date-context),
+  .topStack :global(.public-matchday-date-context strong) {
+    font-size: 10px;
+  }
+
+  .topStack :global(.public-season-context-card) {
+    gap: 8px;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .topStack :global(.public-season-select) {
+    width: 116px;
+    min-width: 116px;
+    min-height: 40px;
+    font-size: 13px;
+  }
+
+  .topStack :global(.public-matchday-leg-nav a) {
+    min-width: 84px;
+    min-height: 40px;
+    padding-inline: 8px;
+    font-size: 13px;
+  }
+
+  .topStack :global(.public-matchday-nav-compact) {
+    padding-inline: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .topStack :global(.public-site-topbar) {
+    gap: 0 9px;
+  }
+
+  .competitionIdentity img {
+    width: 102px;
+  }
+
+  .competitionIdentity span {
+    max-width: 118px;
+    font-size: 12px;
+  }
+
+  .siteIdentity {
+    font-size: 28px;
+  }
+
+  .siteIdentity span {
+    font-size: 11px;
+  }
+
+  .matchdayBrand span {
+    font-size: clamp(27px, 7.4vw, 32px);
+  }
+
+  .matchdayBrand strong {
+    font-size: 24px;
+  }
+}

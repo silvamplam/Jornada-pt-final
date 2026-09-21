@@ -48,6 +48,7 @@ import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchdayEditorialSectionFrame from "@/components/public/PublicMatchdayEditorialSectionFrame";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
+import headerStyles from "@/components/public/PublicLeagueNewsHeader.module.css";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
 import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/public/PublicTeamBadge";
 import PublicThematicZoneLayout from "@/components/public/PublicThematicZoneLayout";
@@ -4146,9 +4147,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     <main className="public-matchday-shell">
       <style>{publicMatchdayStyles}</style>
       {showLogoDiagnostic ? <LogoDiagnosticPanel context={context} /> : null}
-      <div className={`public-top-stack ${styles.topStack}`}>
+      <div className={`public-top-stack ${headerStyles.topStack}`}>
       <header className="public-site-topbar" aria-label="Topo do Jornada.pt">
-        <a className={styles.competitionIdentity} href={currentCompetitionMenuItem.href}>
+        <a className={headerStyles.competitionIdentity} href={currentCompetitionMenuItem.href}>
           {competitionLogo ? (
             <img
               alt=""
@@ -4160,7 +4161,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
           ) : null}
           <span>{context.competition.name}</span>
         </a>
-        <a className={styles.matchdayBrand} href="/" aria-label={`Jornada.pt — Jornada ${context.matchday.number}`}>
+        <a className={headerStyles.matchdayBrand} href="/" aria-label={`Jornada.pt — Jornada ${context.matchday.number}`}>
           <span>a Jornada</span>
           <strong>{String(context.matchday.number).padStart(2, "0")}</strong>
         </a>
