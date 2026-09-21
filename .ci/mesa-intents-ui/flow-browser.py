@@ -184,7 +184,10 @@ with sync_playwright() as pw:
             page.add_style_tag(content=(out/'flow-browser.css').read_text())
             page.add_script_tag(content=(out/'flow-browser.js').read_text())
         page.evaluate('(path)=>window.__flowNavigate(path)',mesa+'/temas/'+f['theme'])
-        expect(page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True)).to_have_value('review')
+        expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
+        assert page.get_by_label('Trabalho do Tema Milan / Amorim',exact=True).count()==0
+        expect(page.get_by_text('O número de novos artigos será definido na Produção.',exact=False)).to_be_visible()
+        page.evaluate('(audit)=>window.__flowFixture.sourceAudit=audit',rpc(dict(kind='source-state')))
     def new_then_review():
         f=start(independent=False);did,plan=prepare(mode='new',new=1);pid,copied=package(did)
         assert 'Corpo antigo' in copied
@@ -194,13 +197,11 @@ with sync_playwright() as pw:
         fresh=next(a for a in first['articles'] if a['id']!=old['id'])
         assert fresh['id'] not in {a['id'] for a in first['themeArticles']}
         reopen_theme(f)
-        page.get_by_text('Artigos Jornada e continuidade (1)',exact=True).click()
-        expect(page.get_by_text('Não revisto — sem referência de revisão verificável.',exact=True)).to_have_count(1)
-        expect(page.get_by_text('Publicação inicial — não é uma revisão dos artigos anteriores.',exact=True)).to_have_count(0)
-        did2,plan2=prepare();assert len(plan2['outputs'])==1 and all(o['kind']=='existing' for o in plan2['outputs'])
+        assert page.locator('label').filter(has_text=re.compile(r'^Rever:')).count()==2
+        did2,plan2=prepare();assert len(plan2['outputs'])==2 and all(o['kind']=='existing' for o in plan2['outputs'])
         pid2,_=package(did2);return_text(pid2,[o['outputId'] for o in plan2['outputs']]);expect_auto_nochange_return()
-        second=rpc(dict(kind='flow-state',dossierId=did2));assert len(second['receipts'])==1
-        assert second['receipts'][0]['decision']=='SEM_ALTERAÇÃO'
+        second=rpc(dict(kind='flow-state',dossierId=did2));assert len(second['receipts'])==2
+        assert all(receipt['decision']=='SEM_ALTERAÇÃO' for receipt in second['receipts'])
         assert second['themeArticles']==first['themeArticles']
         (out/'flow-new-then-review.json').write_text(json.dumps(dict(first=first,second=second),ensure_ascii=False,indent=2))
     def review_and_new():
