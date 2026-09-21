@@ -12,6 +12,7 @@ type DossierImageChoiceGridProps = Readonly<{
   value: string;
   images: readonly DossierImageChoice[];
   name: string;
+  legend?: string;
   disabled?: boolean;
   compact?: boolean;
   allowNoImage?: boolean;
@@ -26,6 +27,7 @@ export default function DossierImageChoiceGrid({
   value,
   images,
   name,
+  legend = "Imagem",
   disabled = false,
   compact = false,
   allowNoImage = false,
@@ -37,7 +39,7 @@ export default function DossierImageChoiceGrid({
 }: DossierImageChoiceGridProps) {
   return (
     <fieldset className={styles.imageChoices} data-compact={compact ? "true" : "false"}>
-      <legend>Imagem</legend>
+      <legend>{legend}</legend>
       <div>
         {allowNoImage ? (
           <label data-selected={value === "unselected"}>

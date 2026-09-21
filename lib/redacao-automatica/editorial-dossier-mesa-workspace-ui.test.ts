@@ -276,14 +276,14 @@ test("defaults visuais derivam da seleção sem voltar a distribuir fontes por o
   assert.match(client, /image\.frozenUrl\.trim\(\)/);
   assert.match(client, /newsroomImageByArticleId\.get\(source\.newsroomArticleId\)/);
   assert.match(client, /editorialMesaContextVisualSeedAssignments\(/);
-  assert.match(client, /baseCards\.slice\(0, outputCount\)/);
+  assert.match(client, /baseCards\.slice\(0, effectiveOutputCount\)/);
   assert.match(client, /productionContextId:\s*card\.productionContextId/);
   assert.match(client, /contextVisualSeedByOutputKey\.get\(card\.key\)/);
   assert.match(client, /: historicalVisualSeeds\[index\] \?\? null/);
   assert.doesNotMatch(client, /contextVisualSeedByOutputKey[\s\S]{0,400}visualSourceOrder/);
   assert.match(client, /Ponto de partida visual/);
-  assert.match(client, /setCardCapacity\(\(current\) => Math\.max\(current, next\)\)/);
-  assert.match(client, /hidden=\{card\.position > outputCount\}/);
+  assert.match(client, /setEditableCardCapacity\(\(current\) => Math\.max\(current, next\)\)/);
+  assert.match(client, /hidden=\{card\.position > effectiveOutputCount\}/);
   assert.doesNotMatch(client, /Distribuição da produção|quantidade por fonte|Artigos para /i);
   assert.match(route, /sources:\s*technicalSources\.map/);
   assert.match(route, /sourceScope:\s*"workspace"/);
@@ -438,6 +438,36 @@ test("banco comum reúne origens e upload reutiliza signer e writer da foundatio
     /<button[\s\S]*?className=\{styles\.addImageChoice\}[\s\S]*?type="button"[\s\S]*?aria-controls=\{addImageControls\}[\s\S]*?onClick=\{onAddImage\}/,
   );
   assert.doesNotMatch(client, /<a className=\{styles\.addImageChoice\} href="#workspace-images-title">/);
+});
+
+test("slots congelados são a autoridade imediata da contagem depois da materialização", () => {
+  const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+
+  assert.match(client, /const effectiveOutputCount = frozenSlots\?\.length \?\? editableOutputCount/);
+  assert.match(client, /const effectiveCardCapacity = frozenSlots\?\.length \?\? editableCardCapacity/);
+  assert.match(client, /Array\.from\(\{ length: effectiveCardCapacity \}/);
+  assert.match(client, /const visibleCards = cards\.slice\(0, effectiveOutputCount\)/);
+  assert.match(client, /value=\{effectiveOutputCount\}/);
+  assert.match(client, /outputCount: effectiveOutputCount/);
+  assert.match(client, /articleCount=\{effectiveOutputCount\}/);
+  assert.doesNotMatch(client, /useEffect\([\s\S]{0,300}setEditableOutputCount/);
+});
+
+test("cada cartão prioriza imagens do seu ponto de partida sem fechar o banco global", () => {
+  const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const imageChoice = read("app/admin/editorial/redacao-automatica/_dossierImageChoiceGrid.tsx");
+
+  assert.match(client, /"focusSourceIds" in continuitySlot/);
+  assert.match(client, /editorialMesaContextualImages\(images, focusSourceIds, selectedImage\)/);
+  assert.match(client, /legend="Imagens deste artigo"/);
+  assert.match(client, /images=\{displayedImages\.map/);
+  assert.match(client, /Não há imagens diretamente ligadas ao ponto de partida deste artigo\./);
+  assert.match(client, /"Ver todas as imagens"/);
+  assert.match(client, /"Mostrar imagens deste artigo"/);
+  assert.match(client, /allowPreservePublished=\{destination === "update"\}/);
+  assert.match(client, /images=\{workspaceImages\.map/);
+  assert.match(imageChoice, /legend = "Imagem"/);
+  assert.match(imageChoice, /<legend>\{legend\}<\/legend>/);
 });
 
 test("Article Plans são automáticos e a UI conserva apenas decisões editoriais", () => {

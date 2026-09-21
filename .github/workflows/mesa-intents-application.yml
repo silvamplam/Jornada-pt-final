@@ -118,7 +118,7 @@ jobs:
           python3 - <<'PY'
           import json
           report=json.load(open('/tmp/mesa-intents-application/flow/flow-report.json'))
-          assert report['passed']==6 and report['failed']==0
+          assert report['passed']==7 and report['failed']==0
           assert report['nativeStorage'] and report['nativeClipboard'] and report['nativeFinalNavigation']
           assert not report['pageErrors'] and not report['unexpectedNetwork']
           PY

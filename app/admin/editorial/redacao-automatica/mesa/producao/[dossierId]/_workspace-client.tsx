@@ -26,6 +26,7 @@ import {
   editorialMesaContextVisualSeedAssignments,
   editorialMesaResolvedVisualImageChoice,
 } from "@/lib/redacao-automatica/editorial-mesa-workspace-defaults";
+import { editorialMesaContextualImages } from "@/lib/redacao-automatica/editorial-mesa-workspace-images";
 import {
   EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
   EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
@@ -477,6 +478,7 @@ function PlanEditor({
     imageChoices[destination],
     automaticImageId,
   );
+  const [showAllImages, setShowAllImages] = useState(false);
   const visualSeedImage = editorialMesaResolvedVisualImageChoice(
     null,
     visualSeed?.image?.id ?? null,
@@ -503,6 +505,15 @@ function PlanEditor({
     && selectedImage === visualSeedImage
     ? visualSeed?.source ?? null
     : null;
+  const focusSourceIds = continuitySlot && "focusSourceIds" in continuitySlot
+    ? continuitySlot.focusSourceIds ?? []
+    : null;
+  const contextualImages = focusSourceIds === null
+    ? { images, allImages: images, relevantCount: images.length }
+    : editorialMesaContextualImages(images, focusSourceIds, selectedImage);
+  const displayedImages = showAllImages ? contextualImages.allImages : contextualImages.images;
+  const hasAdditionalImages = focusSourceIds !== null
+    && contextualImages.images.length < images.length;
 
   if (plan?.editorialArticleId) {
     return (
@@ -665,7 +676,8 @@ function PlanEditor({
           compact
           name={planField(cardKey, "image_control")}
           value={selectedImage}
-          images={images.map((image) => ({
+          legend="Imagens deste artigo"
+          images={displayedImages.map((image) => ({
             id: image.id,
             imageUrl: image.frozenUrl,
             label: imageOriginLabel(image),
@@ -681,6 +693,22 @@ function PlanEditor({
           onAddImage={() => openDossierImageBank("workspace-image-bank")}
           addImageControls="workspace-image-bank"
         />
+        {focusSourceIds !== null && contextualImages.relevantCount === 0 && !showAllImages ? (
+          <p className={styles.contextualImagesEmpty}>
+            Não há imagens diretamente ligadas ao ponto de partida deste artigo.
+          </p>
+        ) : null}
+        {hasAdditionalImages || showAllImages ? (
+          <button
+            className={styles.toggleContextualImages}
+            type="button"
+            disabled={saving}
+            aria-expanded={showAllImages}
+            onClick={() => setShowAllImages((current) => !current)}
+          >
+            {showAllImages ? "Mostrar imagens deste artigo" : "Ver todas as imagens"}
+          </button>
+        ) : null}
 
       </div>
     </article>
@@ -1010,10 +1038,12 @@ export function MesaProductionWorkspaceClient({
         : Math.max(dossier.outputCount, dossier.initialOutputCount),
     ),
   );
-  const [outputCount, setOutputCount] = useState(
+  const [editableOutputCount, setEditableOutputCount] = useState(
     () => initialOutputCount,
   );
-  const [cardCapacity, setCardCapacity] = useState(() => initialOutputCount);
+  const [editableCardCapacity, setEditableCardCapacity] = useState(() => initialOutputCount);
+  const effectiveOutputCount = frozenSlots?.length ?? editableOutputCount;
+  const effectiveCardCapacity = frozenSlots?.length ?? editableCardCapacity;
   const [productionContextOverrides, setProductionContextOverrides] = useState<Record<string, string>>({});
   const [savedPlanIds, setSavedPlanIds] = useState<Record<string, string>>({});
   const [savingProduction, setSavingProduction] = useState(false);
@@ -1065,7 +1095,7 @@ export function MesaProductionWorkspaceClient({
     plan: EditorialDossierProductionArticlePlan | null;
     position: number;
     productionContextId: string;
-  }> = Array.from({ length: cardCapacity }, (_, index) => {
+  }> = Array.from({ length: effectiveCardCapacity }, (_, index) => {
     const plan = activePlans[index] ?? null;
     const key = plan?.id ?? `output:draft:${index + 1}`;
     const assignedContextId = plan ? contextByPlanId.get(plan.id) ?? null : null;
@@ -1084,7 +1114,7 @@ export function MesaProductionWorkspaceClient({
   const contextVisualSeedByOutputKey = new Map(
     editorialMesaContextVisualSeedAssignments(
       productionContexts,
-      baseCards.slice(0, outputCount).map((card) => ({
+      baseCards.slice(0, effectiveOutputCount).map((card) => ({
         key: card.key,
         productionContextId: card.productionContextId,
       })),
@@ -1110,19 +1140,19 @@ export function MesaProductionWorkspaceClient({
       ? contextVisualSeedByOutputKey.get(card.key) ?? null
       : historicalVisualSeeds[index] ?? null,
   }));
-  const visibleCards = cards.slice(0, outputCount);
+  const visibleCards = cards.slice(0, effectiveOutputCount);
   const allPlansPersisted = visibleCards.every(
     (card) => Boolean(card.plan?.id || savedPlanIds[card.key]),
   );
   const packageDisabled = savingProduction
     || dirty
     || !allPlansPersisted
-    || persistedOutputCount !== outputCount;
+    || (frozenSlots ? frozenSlots.length : persistedOutputCount) !== effectiveOutputCount;
 
   async function saveProduction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (savingProductionRef.current) return;
-    if (outputCount < 1 || outputCount > MAX_OUTPUT_COUNT) {
+    if (effectiveOutputCount < 1 || effectiveOutputCount > MAX_OUTPUT_COUNT) {
       setProductionMessage(`A publicação em lote aceita entre 1 e ${MAX_OUTPUT_COUNT} artigos.`);
       return;
     }
@@ -1131,7 +1161,7 @@ export function MesaProductionWorkspaceClient({
     const nextSavedPlanIds = { ...savedPlanIds };
     savingProductionRef.current = true;
     setSavingProduction(true);
-    setProductionMessage(`A guardar ${outputCount} ${outputCount === 1 ? "artigo" : "artigos"}…`);
+    setProductionMessage(`A guardar ${effectiveOutputCount} ${effectiveOutputCount === 1 ? "artigo" : "artigos"}…`);
 
     try {
       const outputs = visibleCards.map((card) => {
@@ -1184,7 +1214,7 @@ export function MesaProductionWorkspaceClient({
         body: JSON.stringify({
           action: "save_article_plans_batch",
           dossierId: dossier.id,
-          outputCount,
+          outputCount: effectiveOutputCount,
           outputs,
         }),
       });
@@ -1197,7 +1227,7 @@ export function MesaProductionWorkspaceClient({
       if (
         !response.ok
         || !result?.ok
-        || result.outputCount !== outputCount
+        || result.outputCount !== effectiveOutputCount
       ) {
         const failedPosition = result?.failedOutput?.priority;
         throw new Error(
@@ -1250,15 +1280,15 @@ export function MesaProductionWorkspaceClient({
             type="number"
             min={Math.max(1, materializedPlanCount)}
             max={MAX_OUTPUT_COUNT}
-            value={outputCount}
+            value={effectiveOutputCount}
             disabled={savingProduction || Boolean(frozenSlots)}
             onChange={(event) => {
               const next = Math.min(
                 MAX_OUTPUT_COUNT,
                 Math.max(Math.max(1, materializedPlanCount), Number(event.currentTarget.value) || 1),
               );
-              setOutputCount(next);
-              setCardCapacity((current) => Math.max(current, next));
+              setEditableOutputCount(next);
+              setEditableCardCapacity((current) => Math.max(current, next));
               setDirty(true);
               setProductionMessage("");
             }}
@@ -1343,7 +1373,7 @@ export function MesaProductionWorkspaceClient({
               cardKey={card.key}
               position={card.position}
               visualSeed={card.visualSeed}
-              hidden={card.position > outputCount}
+              hidden={card.position > effectiveOutputCount}
               contexts={productionIntents ? publishedContexts.filter((item) => {
                 const intentContext = productionIntents.contexts.find((c) => c.productionContextId === card.productionContextId);
                 const referenceArticles = intentContext?.candidateArticles ?? intentContext?.publishedArticles ?? [];
@@ -1369,7 +1399,7 @@ export function MesaProductionWorkspaceClient({
       <ProductionActions
         key={packageVersion}
         dossierId={dossier.id}
-        articleCount={outputCount}
+        articleCount={effectiveOutputCount}
         imageCount={workspaceImages.length}
         disabled={packageDisabled}
         saving={savingProduction}
