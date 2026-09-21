@@ -1,5 +1,6 @@
 """Real Mesa -> Production v2 planning -> canonical v1 browser/SQL integration."""
 import argparse
+import base64
 import json
 from pathlib import Path
 import re
@@ -31,6 +32,7 @@ def rpc(value):
 
 STORAGE='jornada.mesa.preparation.v2'
 reports=[];errors=[];external=[];page=None;context=None
+image=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=')
 
 def report():
     (output/'browser-report.json').write_text(json.dumps({
@@ -54,6 +56,7 @@ with sync_playwright() as playwright:
         context=browser.new_context(viewport={'width':1440,'height':1100},locale='pt-PT',timezone_id='Europe/Lisbon',service_workers='block')
         def route(r):
             if r.request.url=='http://127.0.0.1:4319/':r.fulfill(status=200,content_type='text/html',body='<html><head></head><body><div id="root"></div></body></html>')
+            elif r.request.url=='https://example.invalid/image.jpg' and r.request.resource_type=='image':r.fulfill(status=200,content_type='image/png',body=image)
             else:external.append(r.request.url);r.abort()
         context.route('**/*',route)
         page=context.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
