@@ -32,12 +32,13 @@ test("Abertura e Editorial ficam fixos antes do corpo editorial", () => {
   assert.ok(body >= 0);
 });
 
-test("o reservatório organiza classificação, pesquisa, ordenação e seleção numa única linha", () => {
+test("o reservatório organiza filtros, pesquisa, ordenação e seleção numa única linha", () => {
   assert.match(client, /\.hc-desk-classification,[\s\S]*?order:\s*1;/);
-  assert.match(client, /\.hc-desk-search\s*\{[\s\S]*?order:\s*2;/);
-  assert.match(client, /\.hc-desk-order\s*\{[\s\S]*?order:\s*3;/);
-  assert.match(client, /\.hc-desk-result-count\s*\{[\s\S]*?order:\s*4;/);
-  assert.match(client, /\.hc-desk-bulk\s*\{[\s\S]*?order:\s*5;/);
+  assert.match(client, /\.hc-desk-historical\s*\{[\s\S]*?order:\s*2;/);
+  assert.match(client, /\.hc-desk-search\s*\{[\s\S]*?order:\s*3;/);
+  assert.match(client, /\.hc-desk-order\s*\{[\s\S]*?order:\s*4;/);
+  assert.match(client, /\.hc-desk-result-count\s*\{[\s\S]*?order:\s*5;/);
+  assert.match(client, /\.hc-desk-bulk\s*\{[\s\S]*?order:\s*6;/);
   assert.match(client, /\.hc-desk-toolbar\s*\{[\s\S]*?flex-wrap:\s*nowrap;/);
 });
 

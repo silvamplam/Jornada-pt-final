@@ -33,7 +33,7 @@ test("a Composição hierárquica é a única Mesa administrativa visível", () 
 
   assert.match(
     client,
-    /\.hc-desk-map \{[\s\S]*order: 1;/,
+    /\.hc-desk-operational-sticky \{[\s\S]*?order: 1;/,
   );
 
   assert.match(
@@ -92,8 +92,15 @@ test("menus e zonas permanecem numa linha e só a zona ativa é renderizada", ()
   assert.match(page, /name="composition-tools"/);
 });
 
-test("a zona ativa fica sticky e a lista é a área de scroll independente", () => {
-  assert.match(client, /\.composition-admin-shell-desk \{[\s\S]*height: 100dvh;[\s\S]*overflow: hidden;/);
-  assert.match(client, /\.hc-desk-map \{[\s\S]*position: sticky;[\s\S]*order: 1;/);
-  assert.match(client, /\.hc-desk-scroll \{[\s\S]*overflow-y: auto;/);
+test("o contexto sai no scroll e só o workspace operacional permanece sticky", () => {
+  const shellCss = client.slice(
+    client.indexOf(".composition-admin-shell-desk {"),
+    client.indexOf(".composition-admin-shell-desk >"),
+  );
+  assert.doesNotMatch(shellCss, /\n\s*height:\s*100dvh|overflow:\s*hidden/);
+  assert.match(shellCss, /min-height:\s*100dvh/);
+  assert.match(client, /\.hc-desk-operational-sticky \{[\s\S]*?position: sticky;[\s\S]*?top: 0;/);
+  assert.match(client, /<div className="hc-desk-operational-sticky">[\s\S]*?<section className="hc-desk-map"[\s\S]*?\{articleToolbar\}/);
+  assert.match(client, /\.hc-desk-scroll \{[\s\S]*?overflow: visible;/);
+  assert.match(client, /\.hc-desk-pending \{[\s\S]*?position: fixed;/);
 });

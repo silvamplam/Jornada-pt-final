@@ -225,6 +225,11 @@ type HistoricalCompositionDynamicZoneItemRow = {
   link_url_snapshot: string | null;
 };
 
+type HistoricalArticleSelectionRow = {
+  article_id: string;
+  selected_at: string;
+};
+
 type MatchdayEditorialBankItem = {
   id: string;
   matchday_id: string;
@@ -1892,6 +1897,14 @@ function readMatchdayEditorialBankItems(matchdayId: string): Promise<MatchdayEdi
       matchdayId
     )}&order=sort_order.asc.nullslast,created_at.desc`
   ).catch(() => []);
+}
+
+function readHistoricalArticleSelections(
+  matchdayId: string,
+): Promise<HistoricalArticleSelectionRow[]> {
+  return fetchSupabaseAdminTable<HistoricalArticleSelectionRow>(
+    `rpc/read_matchday_historical_article_selections_v1?p_matchday_id=${encodeURIComponent(matchdayId)}`,
+  );
 }
 
 function readHierarchicalCompositionSlots(compositionId?: string | null): Promise<HierarchicalCompositionSlot[]> {
@@ -4021,6 +4034,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     publishedContents,
     hierarchicalDeskSnapshot,
     hierarchicalProfileSnapshot,
+    historicalArticleSelections,
   ] = await Promise.all([
     readDraftReferenceComposition(matchday.id, presentationMode),
     readPublishedReferenceComposition(matchday.id, presentationMode),
@@ -4035,6 +4049,9 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     presentationMode === "hierarchical"
       ? readMatchdayEditorialProfileDesk(matchday.id).catch(() => null)
       : Promise.resolve(null),
+    presentationMode === "hierarchical"
+      ? readHistoricalArticleSelections(matchday.id)
+      : Promise.resolve([]),
   ]);
   const draftComposition = modeDraftComposition ?? modePublishedComposition;
   const [compositionItems, hierarchicalSlots, historicalDynamicZones] = await Promise.all([
@@ -4547,6 +4564,10 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       : [],
   );
 
+  const historicallySelectedArticleIds = new Set(
+    historicalArticleSelections.map((selection) => selection.article_id),
+  );
+
   const hierarchicalDeskArticleById = new Map(
     (hierarchicalDeskSnapshot?.articles ?? []).map((article) => [article.id, article] as const),
   );
@@ -4573,6 +4594,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           publishedAt: article?.publishedAt ?? null,
           naturalGroupKey: hierarchicalNaturalGroupByArticleId.get(bankItem.source_id) ?? null,
           historicalEligible: isHistoricalBankItemEligible(bankItem),
+          historicallySelected: historicallySelectedArticleIds.has(bankItem.source_id),
           fromLiveBank: hierarchicalExplicitLiveBankItemIds.has(bankItem.id),
           inheritedFromMatchdayNumber: bankItem.continuity_source_matchday_id
             ? sourceMatchdayNumberById.get(bankItem.continuity_source_matchday_id) ?? null

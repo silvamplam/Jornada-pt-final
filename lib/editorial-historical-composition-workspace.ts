@@ -154,6 +154,7 @@ export type HistoricalCompositionReservoirArticle = Readonly<{
   title: string;
   naturalGroupKey: string | null;
   historicalEligible?: boolean;
+  historicallySelected?: boolean;
   fromLiveBank?: boolean;
 }>;
 
@@ -163,6 +164,11 @@ export type HistoricalCompositionBankFilter =
   | "all"
   | "in-bank"
   | "outside-bank";
+
+export type HistoricalCompositionSelectionFilter =
+  | "all"
+  | "selected"
+  | "unselected";
 
 function isAvailableHistoricalCompositionArticle(
   article: HistoricalCompositionReservoirArticle,
@@ -201,6 +207,15 @@ function matchesHistoricalCompositionBank(
   return true;
 }
 
+function matchesHistoricalCompositionSelection(
+  article: HistoricalCompositionReservoirArticle,
+  selectionFilter: HistoricalCompositionSelectionFilter,
+) {
+  if (selectionFilter === "selected") return article.historicallySelected === true;
+  if (selectionFilter === "unselected") return article.historicallySelected !== true;
+  return true;
+}
+
 export function historicalCompositionReservoirCounts<
   T extends HistoricalCompositionReservoirArticle,
 >(
@@ -208,6 +223,7 @@ export function historicalCompositionReservoirCounts<
   placedBankItemIds: ReadonlySet<string>,
   selectedGroupKeys: ReadonlySet<string> = new Set(),
   search = "",
+  selectionFilter: HistoricalCompositionSelectionFilter = "all",
 ) {
   let all = 0;
   let inBank = 0;
@@ -219,6 +235,7 @@ export function historicalCompositionReservoirCounts<
       !isAvailableHistoricalCompositionArticle(article, placedBankItemIds)
       || !matchesHistoricalCompositionClassification(article, selectedGroupKeys)
       || !matchesHistoricalCompositionSearch(article, normalizedSearch)
+      || !matchesHistoricalCompositionSelection(article, selectionFilter)
     ) {
       continue;
     }
@@ -238,6 +255,7 @@ export function historicalCompositionClassificationCounts<
   placedBankItemIds: ReadonlySet<string>,
   search: string,
   bankFilter: HistoricalCompositionBankFilter,
+  selectionFilter: HistoricalCompositionSelectionFilter = "all",
 ) {
   const counts = new Map<string, number>();
   const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
@@ -247,6 +265,7 @@ export function historicalCompositionClassificationCounts<
       !isAvailableHistoricalCompositionArticle(article, placedBankItemIds)
       || !matchesHistoricalCompositionSearch(article, normalizedSearch)
       || !matchesHistoricalCompositionBank(article, bankFilter)
+      || !matchesHistoricalCompositionSelection(article, selectionFilter)
     ) {
       continue;
     }
@@ -256,6 +275,38 @@ export function historicalCompositionClassificationCounts<
   }
 
   return counts;
+}
+
+export function historicalCompositionSelectionCounts<
+  T extends HistoricalCompositionReservoirArticle,
+>(
+  articles: readonly T[],
+  placedBankItemIds: ReadonlySet<string>,
+  selectedGroupKeys: ReadonlySet<string>,
+  search: string,
+  bankFilter: HistoricalCompositionBankFilter,
+) {
+  let all = 0;
+  let selected = 0;
+  let unselected = 0;
+  const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
+
+  for (const article of articles) {
+    if (
+      !isAvailableHistoricalCompositionArticle(article, placedBankItemIds)
+      || !matchesHistoricalCompositionClassification(article, selectedGroupKeys)
+      || !matchesHistoricalCompositionSearch(article, normalizedSearch)
+      || !matchesHistoricalCompositionBank(article, bankFilter)
+    ) {
+      continue;
+    }
+
+    all += 1;
+    if (article.historicallySelected === true) selected += 1;
+    else unselected += 1;
+  }
+
+  return { all, selected, unselected } as const;
 }
 
 export function initialHistoricalCompositionReservoirScope<
@@ -277,12 +328,14 @@ export function filterHistoricalCompositionReservoir<
   selectedGroupKeys: ReadonlySet<string>,
   search: string,
   bankFilter: HistoricalCompositionBankFilter = "all",
+  selectionFilter: HistoricalCompositionSelectionFilter = "all",
 ) {
   const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
 
   return articles.filter((article) => {
     return isAvailableHistoricalCompositionArticle(article, placedBankItemIds)
       && matchesHistoricalCompositionBank(article, bankFilter)
+      && matchesHistoricalCompositionSelection(article, selectionFilter)
       && matchesHistoricalCompositionClassification(article, selectedGroupKeys)
       && matchesHistoricalCompositionSearch(article, normalizedSearch);
   });

@@ -8,6 +8,7 @@ import {
   filterHistoricalCompositionReservoir,
   historicalCompositionClassificationCounts,
   historicalCompositionReservoirCounts,
+  historicalCompositionSelectionCounts,
   initialHistoricalCompositionReservoirScope,
   moveHistoricalCompositionPiece,
   normalizeHistoricalCompositionBlockOrder,
@@ -23,11 +24,11 @@ const articles = [
 ] as const;
 
 const liveBankArticles = [
-  { bankItemId: "live-sporting", label: "Sporting", title: "Leões vencem o dérbi", naturalGroupKey: "sporting", historicalEligible: true, fromLiveBank: true },
-  { bankItemId: "live-benfica", label: "Benfica", title: "Águias preparam o clássico", naturalGroupKey: "benfica", historicalEligible: true, fromLiveBank: true },
-  { bankItemId: "all-sporting", label: "Sporting", title: "Mercado leonino", naturalGroupKey: "sporting", historicalEligible: true, fromLiveBank: false },
-  { bankItemId: "inherited-pending", label: "Sporting", title: "Herdada sem revalidação", naturalGroupKey: "sporting", historicalEligible: false, fromLiveBank: true },
-  { bankItemId: "inherited-revalidated", label: "Benfica", title: "Herdada já revalidada", naturalGroupKey: "benfica", historicalEligible: true, fromLiveBank: true },
+  { bankItemId: "live-sporting", label: "Sporting", title: "Leões vencem o dérbi", naturalGroupKey: "sporting", historicalEligible: true, historicallySelected: true, fromLiveBank: true },
+  { bankItemId: "live-benfica", label: "Benfica", title: "Águias preparam o clássico", naturalGroupKey: "benfica", historicalEligible: true, historicallySelected: false, fromLiveBank: true },
+  { bankItemId: "all-sporting", label: "Sporting", title: "Mercado leonino", naturalGroupKey: "sporting", historicalEligible: true, historicallySelected: true, fromLiveBank: false },
+  { bankItemId: "inherited-pending", label: "Sporting", title: "Herdada sem revalidação", naturalGroupKey: "sporting", historicalEligible: false, historicallySelected: false, fromLiveBank: true },
+  { bankItemId: "inherited-revalidated", label: "Benfica", title: "Herdada já revalidada", naturalGroupKey: "benfica", historicalEligible: true, historicallySelected: false, fromLiveBank: true },
 ] as const;
 
 test("o reservatório contém apenas peças livres e combina grupos por união com pesquisa por interseção", () => {
@@ -406,4 +407,73 @@ test("pesquisa e contagens facetadas usam o mesmo universo da lista", () => {
   assert.deepEqual(result.map((article) => article.bankItemId), ["all-sporting"]);
   assert.deepEqual(bankCounts, { all: 1, inBank: 0, outsideBank: 1 });
   assert.equal(classificationCounts.get("sporting"), result.length);
+});
+
+test("Histórica filtra selecionados e não selecionados no mesmo universo recuperável", () => {
+  assert.deepEqual(
+    filterHistoricalCompositionReservoir(
+      liveBankArticles,
+      new Set(),
+      new Set(),
+      "",
+      "all",
+      "selected",
+    ).map((article) => article.bankItemId),
+    ["live-sporting", "all-sporting"],
+  );
+  assert.deepEqual(
+    filterHistoricalCompositionReservoir(
+      liveBankArticles,
+      new Set(),
+      new Set(),
+      "",
+      "all",
+      "unselected",
+    ).map((article) => article.bankItemId),
+    ["live-benfica", "inherited-revalidated"],
+  );
+});
+
+test("classificação, Bank, Histórica e pesquisa combinam por AND", () => {
+  const result = filterHistoricalCompositionReservoir(
+    liveBankArticles,
+    new Set(),
+    new Set(["sporting"]),
+    "dérbi",
+    "in-bank",
+    "selected",
+  );
+
+  assert.deepEqual(result.map((article) => article.bankItemId), ["live-sporting"]);
+});
+
+test("contagens da Histórica são facetadas a partir do universo da lista", () => {
+  const selectedGroupKeys = new Set(["sporting"]);
+  const counts = historicalCompositionSelectionCounts(
+    liveBankArticles,
+    new Set(),
+    selectedGroupKeys,
+    "",
+    "all",
+  );
+  const selected = filterHistoricalCompositionReservoir(
+    liveBankArticles,
+    new Set(),
+    selectedGroupKeys,
+    "",
+    "all",
+    "selected",
+  );
+  const unselected = filterHistoricalCompositionReservoir(
+    liveBankArticles,
+    new Set(),
+    selectedGroupKeys,
+    "",
+    "all",
+    "unselected",
+  );
+
+  assert.deepEqual(counts, { all: 2, selected: 2, unselected: 0 });
+  assert.equal(counts.selected, selected.length);
+  assert.equal(counts.unselected, unselected.length);
 });

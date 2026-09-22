@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
+import { ADMIN_SESSION_COOKIE, verifyAdminSession } from "@/lib/admin-session";
 import { isMatchdayPhysicalPlacementAuthority } from "@/lib/editorial-matchday-physical-placement";
 import {
   isHistoricalReferenceCompositionRepublishContext,
@@ -38,11 +40,23 @@ import {
   type HistoricalCompositionBlockKey,
 } from "@/lib/editorial-historical-composition-workspace";
 import {
+  buildPhysicalDeskApplyPayload,
+  physicalDeskApplyRpcArguments,
+} from "@/lib/editorial-matchday-live-layout-physical-apply";
+import {
+  bulkMovePhysicalDeskItemsToBank,
+  createPhysicalDeskState,
+  releasePhysicalDeskItem,
+} from "@/lib/editorial-matchday-live-layout-desk-state";
+import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
+import {
   isHistoricalBankItemEligible,
   isHistoricalInheritedBankItem,
   type HistoricalInheritedBankItem,
 } from "@/lib/editorial-historical-inherited-news";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function cleanText(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") return null;
@@ -54,6 +68,36 @@ function cleanInteger(value: FormDataEntryValue | null): number {
   const text = cleanText(value);
   const parsed = text ? Number.parseInt(text, 10) : Number.NaN;
   return Number.isNaN(parsed) ? 1 : parsed;
+}
+
+function cleanUuidList(formData: FormData, field: string): string[] {
+  const raw = cleanText(formData.get(field));
+  if (!raw) throw new CompositionPublicationError("Seleciona pelo menos uma notícia.");
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new CompositionPublicationError("A seleção de notícias não é válida.");
+  }
+
+  if (
+    !Array.isArray(parsed)
+    || parsed.length === 0
+    || parsed.some((value) => typeof value !== "string" || !UUID_PATTERN.test(value))
+    || new Set(parsed).size !== parsed.length
+  ) {
+    throw new CompositionPublicationError("A seleção de notícias não é válida.");
+  }
+
+  return parsed.map((value) => value.toLowerCase());
+}
+
+function cleanBoolean(value: FormDataEntryValue | null): boolean {
+  const text = cleanText(value);
+  if (text === "true") return true;
+  if (text === "false") return false;
+  throw new CompositionPublicationError("A operação pedida não é válida.");
 }
 
 function normalizeIdentityValue(value?: string | null) {
@@ -3710,13 +3754,138 @@ async function reopenReferenceComposition(formData: FormData) {
   });
 }
 
+async function hasAuthenticatedAdminSession() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
+  return Boolean(session && await verifyAdminSession(session));
+}
+
+async function applyHistoricalWorkspaceBankMutation(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const bankItemIds = cleanUuidList(formData, "bank_item_ids_json");
+  const moveToBank = cleanBoolean(formData.get("in_bank"));
+  if (!matchdayId || !UUID_PATTERN.test(matchdayId)) {
+    throw new CompositionPublicationError("A Jornada indicada não é válida.");
+  }
+
+  const desk = await readMatchdayEditorialProfileDesk(matchdayId);
+  if (!desk || desk.kind !== "thematic") {
+    throw new CompositionPublicationError("A Mesa Viva desta Jornada já não está disponível.");
+  }
+
+  const explicitBankItemIds = new Set(desk.physicalWorkspace.explicitBankItemIds);
+  const homogeneous = moveToBank
+    ? bankItemIds.every((bankItemId) => !explicitBankItemIds.has(bankItemId))
+    : bankItemIds.every((bankItemId) => explicitBankItemIds.has(bankItemId));
+  if (!homogeneous) {
+    throw new CompositionPublicationError(
+      "A seleção mudou ou mistura estados de Bank. Atualiza a página e volta a selecionar.",
+    );
+  }
+
+  const initial = createPhysicalDeskState(desk.physicalWorkspace, {
+    headlineTitleColor: desk.pageControls.headlineTitleColor,
+    latestZonePlacement: desk.pageControls.latestZonePlacement,
+    latestZoneTitle: desk.pageControls.latestZoneTitle,
+    videoModuleActive: desk.videoModule.active,
+  });
+  const next = moveToBank
+    ? bulkMovePhysicalDeskItemsToBank(initial, bankItemIds)
+    : bankItemIds.reduce(
+        (state, bankItemId) => releasePhysicalDeskItem(state, bankItemId),
+        initial,
+      );
+  const payload = buildPhysicalDeskApplyPayload(desk.profileKey, next);
+  const rows = await writeSupabaseAdminReturning<{ state_token: string }>(
+    "rpc/apply_matchday_live_layout_physical_v29",
+    {
+      method: "POST",
+      body: JSON.stringify(physicalDeskApplyRpcArguments(matchdayId, payload)),
+    },
+  );
+  if (rows.length !== 1 || !rows[0]?.state_token) {
+    throw new Error("matchday-historical-workspace-bank-invalid-result");
+  }
+
+  return { stateToken: rows[0].state_token };
+}
+
+async function applyHistoricalArticleSelectionMutation(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const articleIds = cleanUuidList(formData, "article_ids_json");
+  const selected = cleanBoolean(formData.get("selected"));
+  if (!matchdayId || !UUID_PATTERN.test(matchdayId)) {
+    throw new CompositionPublicationError("A Jornada indicada não é válida.");
+  }
+
+  const rows = await writeSupabaseAdminReturning<{ selected_count: number }>(
+    "rpc/set_matchday_historical_article_selection_v1",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_matchday_id: matchdayId,
+        p_article_ids: articleIds,
+        p_selected: selected,
+      }),
+    },
+  );
+  if (
+    rows.length !== 1
+    || !Number.isInteger(rows[0]?.selected_count)
+    || rows[0].selected_count < 0
+  ) {
+    throw new Error("matchday-historical-article-selection-v1-invalid-result");
+  }
+
+  return { selectedCount: rows[0].selected_count };
+}
+
 export async function POST(request: Request) {
-  if (!getSupabaseServiceConfig()) return redirectTo(request, "/admin?error=missing-service");
   const formData = await request.formData();
   const actionType = cleanText(formData.get("action_type"));
   const matchdayId = cleanText(formData.get("matchday_id"));
   const returnTo = cleanText(formData.get("return_to")) ?? "/admin/gestor";
   const returnAnchor = cleanText(formData.get("return_anchor"));
+  const isWorkspaceBatchAction = actionType === "set_historical_workspace_bank"
+    || actionType === "set_historical_article_selection";
+
+  if (!getSupabaseServiceConfig()) {
+    return isWorkspaceBatchAction
+      ? Response.json(
+          { ok: false, message: "A escrita administrativa não está configurada." },
+          { status: 503 },
+        )
+      : redirectTo(request, "/admin?error=missing-service");
+  }
+
+  if (isWorkspaceBatchAction) {
+    if (!(await hasAuthenticatedAdminSession())) {
+      return Response.json(
+        { ok: false, message: "É necessária uma sessão administrativa válida." },
+        { status: 401 },
+      );
+    }
+
+    try {
+      const result = actionType === "set_historical_workspace_bank"
+        ? await applyHistoricalWorkspaceBankMutation(formData)
+        : await applyHistoricalArticleSelectionMutation(formData);
+      return Response.json({ ok: true, ...result });
+    } catch (error) {
+      const raw = error instanceof Error ? error.message : "";
+      const message = error instanceof CompositionPublicationError
+        ? error.message
+        : raw.includes("matchday-live-layout-physical-v20-matchday-not-live")
+          ? "O Bank físico só pode ser alterado enquanto esta Jornada for a Mesa Viva ativa."
+          : raw.includes("matchday-historical-article-selection-v1-already-selected")
+            || raw.includes("matchday-historical-article-selection-v1-not-selected")
+            ? "A seleção Histórica mudou. Atualiza a página e volta a selecionar."
+            : raw.includes("matchday-historical-article-selection-v1-article-not-eligible")
+              ? "Uma das notícias já não é elegível para esta Jornada."
+              : "Não foi possível aplicar a operação editorial.";
+      return Response.json({ ok: false, message }, { status: 400 });
+    }
+  }
 
   if (actionType === "apply_hierarchical_desk_plan") {
     try {

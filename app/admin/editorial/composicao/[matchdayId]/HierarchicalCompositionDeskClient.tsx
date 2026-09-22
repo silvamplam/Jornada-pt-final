@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import {
   HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS,
@@ -11,12 +12,14 @@ import {
   filterHistoricalCompositionReservoir,
   historicalCompositionClassificationCounts,
   historicalCompositionReservoirCounts,
+  historicalCompositionSelectionCounts,
   historicalDynamicZonePositions,
   initialHistoricalCompositionReservoirScope,
   moveHistoricalCompositionPiece,
   type HistoricalCompositionBlockKey,
   type HistoricalCompositionPlacementLocation,
   type HistoricalCompositionBankFilter,
+  type HistoricalCompositionSelectionFilter,
   type HistoricalDynamicZoneVisualFamily,
 } from "@/lib/editorial-historical-composition-workspace";
 
@@ -30,6 +33,7 @@ export type HierarchicalCompositionDeskArticle = {
   publishedAt: string | null;
   naturalGroupKey: string | null;
   historicalEligible: boolean;
+  historicallySelected: boolean;
   fromLiveBank: boolean;
   inheritedFromMatchdayNumber: number | null;
 };
@@ -148,10 +152,9 @@ const styles = `
     display: flex;
     flex-direction: column;
     gap: 4px;
-    height: 100dvh;
-    min-height: 0;
+    min-height: 100dvh;
     padding: 5px 10px 54px;
-    overflow: hidden;
+    overflow: visible;
   }
 
   .composition-admin-shell-desk > .composition-admin-preview-section {
@@ -233,40 +236,37 @@ const styles = `
 
   .hc-desk-workspace {
     display: flex;
-    flex: 1 1 auto;
     flex-direction: column;
     gap: 4px;
     width: calc(100vw - 24px);
     max-width: 1920px;
-    min-height: 0;
     margin: 0 calc(50% - 50vw + 12px);
-    overflow: hidden;
+    overflow: visible;
   }
 
-  .hc-desk-library,
-  .hc-desk-map {
+  .hc-desk-library {
     width: 100%;
-    min-height: 0;
-    overflow: hidden;
     border: 1px solid #d8e0e9;
     border-radius: 8px;
     background: #ffffff;
     box-shadow: 0 7px 18px rgba(12,22,34,.05);
   }
 
-  .hc-desk-map {
+  .hc-desk-operational-sticky {
     position: sticky;
     top: 0;
-    z-index: 8;
+    z-index: 30;
+    display: grid;
+    gap: 3px;
+    padding: 3px 0;
+    background: rgba(245,247,250,.98);
+    backdrop-filter: blur(9px);
     order: 1;
-    flex: 0 0 auto;
   }
 
   .hc-desk-library {
+    margin-top: 4px;
     order: 2;
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
   }
 
   .hc-zone-tabs {
@@ -445,13 +445,11 @@ const styles = `
   }
 
   .hc-desk-toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 6;
     display: grid;
     gap: 6px;
     padding: 8px;
-    border-bottom: 1px solid #dce3eb;
+    border: 1px solid #dce3eb;
+    border-radius: 7px;
     background: rgba(255,255,255,.98);
     backdrop-filter: blur(8px);
   }
@@ -588,11 +586,7 @@ const styles = `
   }
 
   .hc-desk-scroll {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-gutter: stable;
+    overflow: visible;
   }
 
   .hc-desk-inherited {
@@ -681,6 +675,15 @@ const styles = `
     padding: 3px 6px;
     background: #eef2ff;
     color: #4338ca !important;
+    font-style: normal;
+    font-weight: 900;
+  }
+
+  .hc-desk-historical-mark {
+    border-radius: 999px;
+    padding: 3px 6px;
+    background: #ecfdf5;
+    color: #047857 !important;
     font-style: normal;
     font-weight: 900;
   }
@@ -778,6 +781,10 @@ const styles = `
     gap: 4px;
     align-content: start;
     padding: 4px;
+    border: 1px solid #d8e0e9;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 7px 18px rgba(12,22,34,.05);
   }
 
   .hc-desk-summary {
@@ -853,17 +860,30 @@ const styles = `
 
   .hc-desk-slots {
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(190px, 1fr);
-    grid-template-columns: none;
+    grid-template-columns: minmax(240px, 1fr);
     gap: 4px;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
   }
 
+  .hc-desk-slots-4 {
+    grid-template-columns: repeat(4, minmax(210px, 1fr));
+  }
+
+  .hc-desk-slots-5,
+  .hc-desk-slots-6 {
+    grid-template-columns: repeat(3, minmax(240px, 1fr));
+  }
+
+  .hc-desk-slots-faixa {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(220px, 1fr);
+    grid-template-columns: none;
+  }
+
   .hc-desk-slot {
     min-width: 0;
-    min-height: 58px;
+    min-height: 69px;
     padding: 4px;
     border: 1px dashed #b8c4d2;
     border-radius: 5px;
@@ -882,7 +902,7 @@ const styles = `
   .hc-desk-empty {
     display: grid;
     place-items: center;
-    min-height: 43px;
+    min-height: 54px;
     color: #94a3b8;
     font-size: 10px;
     font-weight: 700;
@@ -892,7 +912,7 @@ const styles = `
     display: flex;
     gap: 5px;
     align-items: center;
-    min-height: 38px;
+    min-height: 50px;
     padding: 4px;
     border-radius: 5px;
     background: #ffffff;
@@ -900,14 +920,18 @@ const styles = `
   }
 
   .hc-desk-card strong {
-    font-size: 11px;
-    line-height: 1.12;
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.14;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .hc-desk-card-body {
     display: grid;
     flex: 1 1 auto;
-    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-columns: 56px minmax(0, 1fr);
     gap: 5px;
     align-items: center;
     min-width: 0;
@@ -915,8 +939,8 @@ const styles = `
 
   .hc-desk-card-body img,
   .hc-desk-card-image {
-    width: 40px;
-    height: 31px;
+    width: 56px;
+    height: 42px;
     border-radius: 4px;
     background: #e9eef4;
     object-fit: cover;
@@ -1136,6 +1160,7 @@ const styles = `
   }
 
   .hc-desk-classification,
+  .hc-desk-historical,
   .hc-desk-order {
     order: 1;
     display: flex;
@@ -1150,6 +1175,7 @@ const styles = `
   }
 
   .hc-desk-classification select,
+  .hc-desk-historical select,
   .hc-desk-order select {
     min-height: 28px;
     max-width: 190px;
@@ -1165,7 +1191,7 @@ const styles = `
   }
 
   .hc-desk-bulk {
-    order: 5;
+    order: 6;
     display: flex;
     flex: 0 0 auto;
     gap: 5px;
@@ -1181,7 +1207,7 @@ const styles = `
   }
 
   .hc-desk-search {
-    order: 2;
+    order: 3;
     display: block;
     flex: 1 1 240px;
     align-items: center;
@@ -1194,7 +1220,7 @@ const styles = `
   }
 
   .hc-desk-message {
-    order: 6;
+    order: 7;
     flex: 0 0 auto;
     max-width: 260px;
     overflow: hidden;
@@ -1203,11 +1229,15 @@ const styles = `
   }
 
   .hc-desk-order {
-    order: 3;
+    order: 4;
+  }
+
+  .hc-desk-historical {
+    order: 2;
   }
 
   .hc-desk-result-count {
-    order: 4;
+    order: 5;
     flex: 0 0 auto;
     color: #334155;
     font-size: 10px;
@@ -1438,10 +1468,6 @@ function DynamicZoneTitleInput({
 }) {
   const [draft, setDraft] = useState(value);
 
-  useEffect(() => {
-    setDraft(value);
-  }, [clientId, value]);
-
   return (
     <input
       aria-label="Título público da zona editorial"
@@ -1476,6 +1502,7 @@ export default function HierarchicalCompositionDeskClient({
   returnTo,
   slots,
 }: Props) {
+  const router = useRouter();
   const initialSettings = {
     headlineTitleColor: initialHeadlineTitleColor,
     zone1Title: initialZone1Title,
@@ -1497,6 +1524,7 @@ export default function HierarchicalCompositionDeskClient({
   const [articleOrder, setArticleOrder] = useState<"newest" | "oldest">("newest");
   const [message, setMessage] = useState("");
   const [isApplying, setIsApplying] = useState(false);
+  const [isBatchMutating, setIsBatchMutating] = useState(false);
   const [dragged, setDragged] = useState<DragState | null>(null);
   const [activeWorkspaceKey, setActiveWorkspaceKey] = useState<string>(
     () => initialDynamicZones[0] ? `dynamic:${initialDynamicZones[0].id}` : "opening",
@@ -1626,6 +1654,8 @@ export default function HierarchicalCompositionDeskClient({
     useState<HistoricalCompositionBankFilter>(() =>
       initialHistoricalCompositionReservoirScope(articles, placedBankItemIds),
     );
+  const [historicalSelectionFilter, setHistoricalSelectionFilter] =
+    useState<HistoricalCompositionSelectionFilter>("all");
 
   const selectedGroupKeys = useMemo(
     () => selectedGroupKey
@@ -1640,8 +1670,9 @@ export default function HierarchicalCompositionDeskClient({
       placedBankItemIds,
       selectedGroupKeys,
       search,
+      historicalSelectionFilter,
     ),
-    [articles, placedBankItemIds, search, selectedGroupKeys],
+    [articles, historicalSelectionFilter, placedBankItemIds, search, selectedGroupKeys],
   );
 
   const classificationCounts = useMemo(
@@ -1650,8 +1681,20 @@ export default function HierarchicalCompositionDeskClient({
       placedBankItemIds,
       search,
       bankFilter,
+      historicalSelectionFilter,
     ),
-    [articles, bankFilter, placedBankItemIds, search],
+    [articles, bankFilter, historicalSelectionFilter, placedBankItemIds, search],
+  );
+
+  const historicalSelectionCounts = useMemo(
+    () => historicalCompositionSelectionCounts(
+      articles,
+      placedBankItemIds,
+      selectedGroupKeys,
+      search,
+      bankFilter,
+    ),
+    [articles, bankFilter, placedBankItemIds, search, selectedGroupKeys],
   );
 
   const filteredArticles = useMemo(
@@ -1661,8 +1704,9 @@ export default function HierarchicalCompositionDeskClient({
       selectedGroupKeys,
       search,
       bankFilter,
+      historicalSelectionFilter,
     ),
-    [articles, bankFilter, placedBankItemIds, search, selectedGroupKeys],
+    [articles, bankFilter, historicalSelectionFilter, placedBankItemIds, search, selectedGroupKeys],
   );
 
   const visibleArticles = useMemo(
@@ -1679,6 +1723,25 @@ export default function HierarchicalCompositionDeskClient({
     }),
     [articleOrder, filteredArticles],
   );
+
+  const selectedArticles = useMemo(
+    () => selectedBankItemIds
+      .map((bankItemId) => articleByBankId.get(bankItemId))
+      .filter((article): article is HierarchicalCompositionDeskArticle => Boolean(article)),
+    [articleByBankId, selectedBankItemIds],
+  );
+  const selectedAreAllInBank = selectedArticles.length > 0
+    && selectedArticles.length === selectedBankItemIds.length
+    && selectedArticles.every((article) => article.fromLiveBank);
+  const selectedAreAllOutsideBank = selectedArticles.length > 0
+    && selectedArticles.length === selectedBankItemIds.length
+    && selectedArticles.every((article) => !article.fromLiveBank);
+  const selectedAreAllHistorical = selectedArticles.length > 0
+    && selectedArticles.length === selectedBankItemIds.length
+    && selectedArticles.every((article) => article.historicallySelected);
+  const selectedAreAllOutsideHistorical = selectedArticles.length > 0
+    && selectedArticles.length === selectedBankItemIds.length
+    && selectedArticles.every((article) => !article.historicallySelected);
 
   const inheritedAvailableArticles = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
@@ -2208,6 +2271,61 @@ export default function HierarchicalCompositionDeskClient({
     return result;
   }
 
+  async function applyBatchEditorialDecision(
+    kind: "bank" | "historical",
+    enabled: boolean,
+  ) {
+    if (selectedArticles.length === 0 || selectedArticles.length !== selectedBankItemIds.length) {
+      setMessage("Uma das notícias selecionadas já não está disponível.");
+      return;
+    }
+
+    setIsBatchMutating(true);
+    setMessage("A guardar a decisão editorial…");
+    try {
+      const body = new FormData();
+      body.set("matchday_id", matchdayId);
+      if (kind === "bank") {
+        body.set("action_type", "set_historical_workspace_bank");
+        body.set("bank_item_ids_json", JSON.stringify(selectedBankItemIds));
+        body.set("in_bank", String(enabled));
+      } else {
+        body.set("action_type", "set_historical_article_selection");
+        body.set(
+          "article_ids_json",
+          JSON.stringify(Array.from(new Set(selectedArticles.map((article) => article.articleId)))),
+        );
+        body.set("selected", String(enabled));
+      }
+
+      const response = await fetch("/api/admin/editorial/composicao", {
+        method: "POST",
+        body,
+      });
+      const result = await response.json() as { ok?: boolean; message?: string };
+      if (!response.ok || result.ok !== true) {
+        setMessage(result.message ?? "Não foi possível aplicar a operação editorial.");
+        return;
+      }
+
+      setSelectedBankItemIds([]);
+      setMessage(
+        kind === "bank"
+          ? enabled
+            ? "Seleção enviada para Bank."
+            : "Seleção retirada do Bank."
+          : enabled
+            ? "Seleção marcada para a Histórica."
+            : "Seleção retirada da Histórica.",
+      );
+      router.refresh();
+    } catch {
+      setMessage("Não foi possível contactar a gravação editorial.");
+    } finally {
+      setIsBatchMutating(false);
+    }
+  }
+
   async function applyChanges() {
     const planned = operations();
     const settingsChanged =
@@ -2372,6 +2490,74 @@ export default function HierarchicalCompositionDeskClient({
     ? plan.dynamicZones.find((zone) => zone.clientId === activeWorkspaceKey.slice("dynamic:".length)) ?? null
     : null;
 
+  const articleToolbar = (
+    <div className="hc-desk-toolbar">
+      <div className="hc-desk-scope" role="group" aria-label="Bank">
+        <button type="button" className={bankFilter === "all" ? "active" : undefined} aria-pressed={bankFilter === "all"} onClick={() => setBankFilter("all")}>
+          Todos ({reservoirCounts.all})
+        </button>
+        <button type="button" className={bankFilter === "in-bank" ? "active" : undefined} aria-pressed={bankFilter === "in-bank"} onClick={() => setBankFilter("in-bank")}>
+          Bank ({reservoirCounts.inBank})
+        </button>
+        <button type="button" className={bankFilter === "outside-bank" ? "active" : undefined} aria-pressed={bankFilter === "outside-bank"} onClick={() => setBankFilter("outside-bank")}>
+          No Bank ({reservoirCounts.outsideBank})
+        </button>
+      </div>
+
+      <label className="hc-desk-classification">
+        <span>Classificação</span>
+        <select aria-label="Classificação" value={selectedGroupKey} onChange={(event) => setSelectedGroupKey(event.target.value)}>
+          <option value="">Todas ({Array.from(classificationCounts.values()).reduce((sum, count) => sum + count, 0)})</option>
+          {groups.map((group) => (
+            <option key={group.key} value={group.key}>{group.label} ({classificationCounts.get(group.key) ?? 0})</option>
+          ))}
+          {(classificationCounts.get(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) ?? 0) > 0
+            || selectedGroupKey === HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY ? (
+              <option value={HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY}>
+                Sem classificação ({classificationCounts.get(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) ?? 0})
+              </option>
+            ) : null}
+        </select>
+      </label>
+
+      <label className="hc-desk-historical">
+        <span>Histórica</span>
+        <select aria-label="Histórica" value={historicalSelectionFilter} onChange={(event) => setHistoricalSelectionFilter(event.target.value as HistoricalCompositionSelectionFilter)}>
+          <option value="all">Todos ({historicalSelectionCounts.all})</option>
+          <option value="selected">Selecionados ({historicalSelectionCounts.selected})</option>
+          <option value="unselected">Não selecionados ({historicalSelectionCounts.unselected})</option>
+        </select>
+      </label>
+
+      <div className="hc-desk-search">
+        <input type="search" aria-label="Pesquisar artigos" placeholder="Pesquisar" value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} />
+      </div>
+
+      <label className="hc-desk-order">
+        <span>Ordenação</span>
+        <select aria-label="Ordenação" value={articleOrder} onChange={(event) => setArticleOrder(event.target.value as "newest" | "oldest")}>
+          <option value="newest">Mais recentes</option>
+          <option value="oldest">Mais antigos</option>
+        </select>
+      </label>
+
+      <strong className="hc-desk-result-count" aria-live="polite">{visibleArticles.length} resultados</strong>
+
+      {selectedBankItemIds.length > 0 ? (
+        <div className="hc-desk-bulk">
+          <strong>{selectedBankItemIds.length === 1 ? "1 selecionada" : `${selectedBankItemIds.length} selecionadas`}</strong>
+          {selectedAreAllOutsideBank ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank", true)}>Enviar para Bank</button> : null}
+          {selectedAreAllInBank ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank", false)}>Retirar do Bank</button> : null}
+          {selectedAreAllOutsideHistorical ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("historical", true)}>Selecionar para Histórica</button> : null}
+          {selectedAreAllHistorical ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("historical", false)}>Retirar da Histórica</button> : null}
+          <button type="button" disabled={isBatchMutating} onClick={() => setSelectedBankItemIds([])}>Limpar seleção</button>
+        </div>
+      ) : null}
+
+      {message ? <p className="hc-desk-message">{message}</p> : null}
+    </div>
+  );
+
 
   return (
     <>
@@ -2528,123 +2714,6 @@ export default function HierarchicalCompositionDeskClient({
           className="hc-desk-library"
           aria-label="Banco da Mesa"
         >
-          <div className="hc-desk-toolbar">
-            <div
-              className="hc-desk-scope"
-              role="group"
-              aria-label="Bank"
-            >
-              <button
-                type="button"
-                className={bankFilter === "all" ? "active" : undefined}
-                aria-pressed={bankFilter === "all"}
-                onClick={() => setBankFilter("all")}
-              >
-                Todos ({reservoirCounts.all})
-              </button>
-              <button
-                type="button"
-                className={bankFilter === "in-bank" ? "active" : undefined}
-                aria-pressed={bankFilter === "in-bank"}
-                onClick={() => setBankFilter("in-bank")}
-              >
-                Bank ({reservoirCounts.inBank})
-              </button>
-              <button
-                type="button"
-                className={bankFilter === "outside-bank" ? "active" : undefined}
-                aria-pressed={bankFilter === "outside-bank"}
-                onClick={() => setBankFilter("outside-bank")}
-              >
-                No Bank ({reservoirCounts.outsideBank})
-              </button>
-            </div>
-
-            <label className="hc-desk-classification">
-              <span>Classificação</span>
-              <select
-                aria-label="Classificação"
-                value={selectedGroupKey}
-                onChange={(event) => setSelectedGroupKey(event.target.value)}
-              >
-                <option value="">
-                  Todas ({Array.from(classificationCounts.values()).reduce((sum, count) => sum + count, 0)})
-                </option>
-                {groups.map((group) => (
-                  <option key={group.key} value={group.key}>
-                    {group.label} ({classificationCounts.get(group.key) ?? 0})
-                  </option>
-                ))}
-                {(classificationCounts.get(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) ?? 0) > 0
-                  || selectedGroupKey === HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY ? (
-                    <option value={HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY}>
-                      Sem classificação ({classificationCounts.get(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) ?? 0})
-                    </option>
-                  ) : null}
-              </select>
-            </label>
-
-            <div className="hc-desk-search">
-              <input
-                type="search"
-                aria-label="Pesquisar artigos"
-                placeholder="Pesquisar"
-                value={search}
-                onChange={(
-                  event:
-                    ChangeEvent<HTMLInputElement>,
-                ) =>
-                  setSearch(
-                    event.target.value,
-                  )
-                }
-              />
-            </div>
-
-            <label className="hc-desk-order">
-              <span>Ordenação</span>
-              <select
-                aria-label="Ordenação"
-                value={articleOrder}
-                onChange={(event) => setArticleOrder(event.target.value as "newest" | "oldest")}
-              >
-                <option value="newest">Mais recentes</option>
-                <option value="oldest">Mais antigos</option>
-              </select>
-            </label>
-
-            <strong className="hc-desk-result-count" aria-live="polite">
-              {visibleArticles.length} resultados
-            </strong>
-
-            <div className="hc-desk-bulk">
-              <strong>
-                {
-                  selectedBankItemIds.length === 1
-                    ? "1 selecionada"
-                    : `${selectedBankItemIds.length} selecionadas`
-                }
-              </strong>
-              <button
-                type="button"
-                disabled={selectedBankItemIds.length === 0}
-                onClick={() => setSelectedBankItemIds([])}
-              >
-                Limpar seleção
-              </button>
-            </div>
-
-            {
-              message
-                ? (
-                  <p className="hc-desk-message">
-                    {message}
-                  </p>
-                )
-                : null
-            }
-          </div>
-
           <div className="hc-desk-scroll">
             <div className="hc-desk-list">
               {
@@ -2729,6 +2798,12 @@ export default function HierarchicalCompositionDeskClient({
                                   BANK
                                 </em>
                               )
+                              : null
+                          }
+
+                          {
+                            article.historicallySelected
+                              ? <em className="hc-desk-historical-mark">HISTÓRICA</em>
                               : null
                           }
 
@@ -2819,7 +2894,8 @@ export default function HierarchicalCompositionDeskClient({
           </div>
         </section>
 
-        <section className="hc-desk-map" aria-label="Zona ativa da Composição">
+        <div className="hc-desk-operational-sticky">
+          <section className="hc-desk-map" aria-label="Zona ativa da Composição">
           <nav className="hc-zone-tabs" aria-label="Zonas da Composição">
             <button type="button" className={activeWorkspaceKey === "opening" ? "active" : undefined} onClick={() => setActiveWorkspaceKey("opening")}>Abertura {occupiedOpening}/4</button>
             <button type="button" className={activeWorkspaceKey === "editorial" ? "active" : undefined} onClick={() => setActiveWorkspaceKey("editorial")}>Editorial {plan.auxiliary.editorial ? "1/1" : "0/1"}</button>
@@ -2855,6 +2931,7 @@ export default function HierarchicalCompositionDeskClient({
               <div className="hc-dynamic-zone-editor">
                 <label>
                   <DynamicZoneTitleInput
+                    key={activeDynamicZone.clientId}
                     clientId={activeDynamicZone.clientId}
                     value={activeDynamicZone.publicTitle}
                     onCommit={commitDynamicZonePublicTitle}
@@ -2884,9 +2961,11 @@ export default function HierarchicalCompositionDeskClient({
           ) : null}
 
           {activeWorkspaceKey === "faixa" ? (
-            <section className="hc-desk-zone"><header><div><h3>Faixa de notícias</h3><p>Até dez notícias. Todos os lugares são opcionais.</p></div><span className="hc-desk-zone-action"><span>{occupiedFaixa}/10</span>{selectedBankItemIds.length > 0 ? <button type="button" onClick={() => placeSelectedInZone("faixa")}>Colocar {selectedBankItemIds.length} aqui</button> : null}</span></header><div className="hc-desk-slots hc-desk-slots-5">{[1,2,3,4,5,6,7,8,9,10].map((position) => { const target = `faixa_${position}`; const location: HistoricalCompositionPlacementLocation = { kind: "auxiliary", zoneKey: "faixa", targetKey: target }; return <div className="hc-desk-slot" data-drop-active={dragged ? "true" : undefined} key={target} onDragOver={(event) => allowDrop(event, location)} onDrop={(event) => { event.preventDefault(); dropOnLocation(location); }}><small>Faixa {position}</small>{renderCard(plan.auxiliary[target] ?? null, () => removeAuxiliary(target), location)}</div>; })}</div></section>
+            <section className="hc-desk-zone"><header><div><h3>Faixa de notícias</h3><p>Até dez notícias. Todos os lugares são opcionais.</p></div><span className="hc-desk-zone-action"><span>{occupiedFaixa}/10</span>{selectedBankItemIds.length > 0 ? <button type="button" onClick={() => placeSelectedInZone("faixa")}>Colocar {selectedBankItemIds.length} aqui</button> : null}</span></header><div className="hc-desk-slots hc-desk-slots-faixa">{[1,2,3,4,5,6,7,8,9,10].map((position) => { const target = `faixa_${position}`; const location: HistoricalCompositionPlacementLocation = { kind: "auxiliary", zoneKey: "faixa", targetKey: target }; return <div className="hc-desk-slot" data-drop-active={dragged ? "true" : undefined} key={target} onDragOver={(event) => allowDrop(event, location)} onDrop={(event) => { event.preventDefault(); dropOnLocation(location); }}><small>Faixa {position}</small>{renderCard(plan.auxiliary[target] ?? null, () => removeAuxiliary(target), location)}</div>; })}</div></section>
           ) : null}
-        </section>
+          </section>
+          {articleToolbar}
+        </div>
       </div>
 
       <footer className="hc-desk-pending">
@@ -2918,6 +2997,7 @@ export default function HierarchicalCompositionDeskClient({
           onClick={applyChanges}
           disabled={
             isApplying ||
+            isBatchMutating ||
             pendingCount === 0
           }
         >
