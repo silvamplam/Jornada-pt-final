@@ -1,8 +1,9 @@
 """Actual server page functions + browser controls + handlers + disposable SQL.
 
 Run under offline.py after publication.py. Only Next transport/routing, fixture
-image bytes and the final Mesa landing document are doubles. Native clipboard
-and sessionStorage; no simulated publication or pre-arranged package result.
+image bytes, the historical API response and the final Mesa landing document
+are doubles. Native clipboard and sessionStorage; no simulated publication or
+pre-arranged package result.
 """
 import argparse, base64, json, os, re, select, subprocess, traceback
 from pathlib import Path
@@ -36,7 +37,7 @@ def report():
         imageRequests=images,nativeStorage=not args.document_only,nativeClipboard=not args.document_only,nativeFinalNavigation=not args.document_only,boundaries=[
           'Next routing/RSC transport replaced by serialised actual server page result',
           'Actual loaders, packages, handlers, text parser, receipts and PostgreSQL',
-          'Only fixture images and final Mesa landing document are fulfilled',
+          'Fixture images, historical API response and final Mesa landing document are fulfilled',
           'Authentication/middleware and physical public placement NOT certified']),ensure_ascii=False,indent=2))
 with sync_playwright() as pw:
     launch=dict(headless=True,args=['--no-sandbox','--disable-dev-shm-usage'])
@@ -139,11 +140,13 @@ with sync_playwright() as pw:
         page.wait_for_function('(path)=>window.__flowReady===path',arg=batch,timeout=12000)
         expect(page.get_by_role('heading',name='Publicação em lote',exact=True)).to_be_visible()
         return text
+    def select_new_context():
+        page.locator('#batch-competition').select_option('b0000000-0000-4000-8000-000000000900')
+        page.locator('#batch-season').select_option('b0000000-0000-4000-8000-000000000901')
+        page.locator('#batch-matchday').select_option('b0000000-0000-4000-8000-000000000902')
     def publish(new=False):
         if new:
-            page.locator('#batch-competition').select_option('b0000000-0000-4000-8000-000000000900')
-            page.locator('#batch-season').select_option('b0000000-0000-4000-8000-000000000901')
-            page.locator('#batch-matchday').select_option('b0000000-0000-4000-8000-000000000902')
+            select_new_context()
         button=page.get_by_role('button',name=re.compile('^(PUBLICAR|ATUALIZAR|CONCLUIR|RETOMAR)'))
         expect(button).to_be_enabled(timeout=12000)
         page.screenshot(path=str(out/f'flow-prepublish-{len(reports)}.png'),full_page=True)
@@ -160,7 +163,19 @@ with sync_playwright() as pw:
         f=start();did,plan=prepare('review-new',1)
         page.screenshot(path=str(out/'flow-workspace-mixed.png'),full_page=True)
         pid,text=package(did);assert 'Milan' in text and 'Pote' in text
-        return_text(pid);publish(new=True)
+        return_text(pid);select_new_context()
+        button=page.get_by_role('button',name=re.compile('^(PUBLICAR|ATUALIZAR|CONCLUIR|RETOMAR)'))
+        expect(button).to_be_enabled(timeout=12000)
+        historical=page.get_by_label('Histórica',exact=True)
+        assert historical.count()==2
+        before=rpc(dict(kind='flow-state',dossierId=did))
+        preflights=sum(c.get('action')=='preflight' for c in before['flowCalls'])
+        new_output=next(o for o in plan['outputs'] if o['kind']=='new')
+        page.locator('li').filter(has_text=new_output['outputId']).get_by_label('Histórica',exact=True).check()
+        page.wait_for_timeout(150)
+        after_choice=rpc(dict(kind='flow-state',dossierId=did))
+        assert sum(c.get('action')=='preflight' for c in after_choice['flowCalls'])==preflights
+        publish()
         s=rpc(dict(kind='flow-state',dossierId=did));assert s['workspace']['workspace_state']=='consolidated'
         assert len(s['published'])==2 and len(s['receipts'])==2
         old=next(a for a in s['articles'] if a['id']==f['articles'][0]);target=next(o['target'] for o in plan['outputs'] if o['kind']=='existing')
@@ -168,9 +183,48 @@ with sync_playwright() as pw:
         assert len(s['themeArticles'])==1
         fresh=next(a for a in s['articles'] if a['id']!=old['id'])
         assert fresh['id'] not in {a['id'] for a in s['themeArticles']}
+        assert len(s['historical'])==1
+        assert s['historical'][0]['matchday_id']=='b0000000-0000-4000-8000-000000000902'
+        assert s['historical'][0]['article_id']==fresh['id']
+        assert s['historical'][0]['decision']=='selected'
+        historical_calls=[c for c in s['flowCalls'] if c.get('action')=='set_historical_article_decision']
+        assert len(historical_calls)==1 and historical_calls[0]['status']==200
         receipt=next(r for r in s['receipts'] if r['editorial_article_id']==fresh['id'])
         assert receipt['theme_id'] is None and receipt['context_key'].startswith('selection:')
         (out/'flow-mixed-result.json').write_text(json.dumps(s,ensure_ascii=False,indent=2))
+    def historical_failure_is_recoverable():
+        start(independent=False);did,plan=prepare(mode='new',new=1);pid,_=package(did)
+        return_text(pid);select_new_context()
+        button=page.get_by_role('button',name=re.compile('^(PUBLICAR|ATUALIZAR|CONCLUIR|RETOMAR)'))
+        expect(button).to_be_enabled(timeout=12000)
+        historical=page.get_by_label('Histórica',exact=True)
+        assert historical.count()==1
+        historical.check()
+        rpc(dict(kind='fail-historical',count=1))
+        if args.document_only:page.evaluate('delete window.__flowLanding')
+        button.click()
+        alert=page.get_by_role('alert')
+        expect(alert).to_contain_text('Falha histórica sintética recuperável.',timeout=12000)
+        expect(page.get_by_text('ÚLTIMAS · PUBLICADO',exact=False)).to_be_visible()
+        assert page.evaluate('sessionStorage.getItem("jornada.editorial.batch-transfer.v1")')
+        if args.document_only:assert page.evaluate('window.__flowLanding') is None
+        else:assert page.url==origin+batch
+        failed=rpc(dict(kind='flow-state',dossierId=did))
+        assert failed['workspace']['workspace_state']=='consolidated'
+        assert not failed['historical']
+        page.screenshot(path=str(out/'flow-historical-failure.png'),full_page=True)
+        retry=page.get_by_role('button',name='RETOMAR PUBLICAÇÃO',exact=True)
+        expect(retry).to_be_enabled()
+        retry.click()
+        if args.document_only:page.wait_for_function('(path)=>window.__flowLanding===path',arg=mesa,timeout=12000)
+        else:page.wait_for_url(origin+mesa,timeout=12000)
+        completed=rpc(dict(kind='flow-state',dossierId=did))
+        assert len(completed['historical'])==1
+        assert completed['historical'][0]['decision']=='selected'
+        selected_article=next(a for a in completed['articles'] if a['id']==completed['historical'][0]['article_id'])
+        assert selected_article
+        historical_calls=[c for c in completed['flowCalls'] if c.get('action')=='set_historical_article_decision']
+        assert [c['status'] for c in historical_calls]==[503,200]
     def materialization_refreshes_twelve_without_reload():
         start(independent=False);did,plan=prepare(mode='new',new=12)
         count=page.locator('section[aria-labelledby="output-count-title"] input[type="number"]')
@@ -258,6 +312,7 @@ with sync_playwright() as pw:
     try:
         test('Materializing twelve outputs refreshes the preserved workspace without a page reload',materialization_refreshes_twelve_without_reload)
         test('Real visual mixed UPDATE with null matchday + selection NEW',mixed)
+        test('Historical failure after publication remains visible and retries idempotently',historical_failure_is_recoverable)
         test('Real visual all-SEM ALTERAÇÃO without article writes',nochange)
         test('Real visual NEW without review followed by explicit old-article review',new_then_review)
         test('Real visual mixed UPDATE, SEM ALTERAÇÃO and two NEW outputs',review_and_new)

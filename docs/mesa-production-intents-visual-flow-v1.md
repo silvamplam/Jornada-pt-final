@@ -18,6 +18,9 @@ primeiro. Não são chamadas fontes externas, IA, Supabase ou páginas de produ�
 4. UPDATE + SEM ALTERAÇÃO + dois NEW no mesmo Tema.
 5. UPDATE sozinho, preservando a jornada nula do alvo.
 6. Edição manual após preflight: publicação recusada, texto devolvido preservado.
+7. NEW marcado “Histórica”: usa o `articleId` concluído num único pedido batch.
+8. Falha histórica após publicação: mantém estado e transferência, mostra erro e
+   conclui por retoma idempotente.
 
 ## Fronteiras e prova
 
@@ -26,9 +29,12 @@ serializado preservando os componentes cliente e reconstruído no navegador.
 Não se está a certificar SSR/hidratação ou autenticação/middleware com esta suite.
 O código desses mecanismos não é alterado. O transporte HTTP/PostgREST usa IPC
 com rotas e tabelas autorizadas; os handlers e SQL não são substituídos.
-Os bytes das imagens sintéticas e o documento final de regresso à Mesa são
-substitutos declarados. A colocação física em Últimas continua a usar a fronteira
-observável da suite da aplicação; este teste não a apresenta como validada.
+Os bytes das imagens sintéticas, a resposta da API histórica e o documento final
+de regresso à Mesa são substitutos declarados. O browser prova o `FormData`, o
+cruzamento com o `articleId` concluído, a ausência de redirect falso e a retoma;
+a rota e a RPC históricas permanecem cobertas pela suite de contrato própria. A
+colocação física em Últimas continua a usar a fronteira observável da suite da
+aplicação; este teste não a apresenta como validada.
 
 O CI executa sem `--document-only`, com sessionStorage, clipboard e navegação
 final nativos. Verifica as marcas no relatório e inclui o código do commit no

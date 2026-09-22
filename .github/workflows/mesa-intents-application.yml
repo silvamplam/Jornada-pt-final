@@ -96,6 +96,7 @@ jobs:
             lib/redacao-automatica/editorial-source-package.test.ts \
             lib/redacao-automatica/editorial-source-package-multi-output.test.ts \
             lib/redacao-automatica/editorial-dossier-workspace-batch-service.test.ts \
+            lib/redacao-automatica/editorial-batch-historical-decision.test.ts \
             lib/redacao-automatica/editorial-batch-preflight-ui.test.ts \
             | tee /tmp/mesa-intents-application/node-tests.log
       - name: Browser selection and Theme with real handlers and disposable SQL
@@ -118,7 +119,7 @@ jobs:
           python3 - <<'PY'
           import json
           report=json.load(open('/tmp/mesa-intents-application/flow/flow-report.json'))
-          assert report['passed']==7 and report['failed']==0
+          assert report['passed']==8 and report['failed']==0
           assert report['nativeStorage'] and report['nativeClipboard'] and report['nativeFinalNavigation']
           assert not report['pageErrors'] and not report['unexpectedNetwork']
           PY

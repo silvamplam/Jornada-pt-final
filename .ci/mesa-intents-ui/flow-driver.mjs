@@ -1,5 +1,6 @@
-/** Browser -> actual server page tree -> real UI -> real handlers -> disposable SQL.
- * Next routing/RSC wire format and image bytes are boundaries, not editorial services.
+/** Browser -> actual server page tree -> real UI -> publication handlers -> disposable SQL.
+ * Next routing/RSC wire format, image bytes and the historical API response are
+ * declared boundaries, not simulated publication services.
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -69,7 +70,7 @@ function serialize(e){
  assert.ok(!Object.values(props).some(v=>typeof v==='function'));
  return {tag:e.type,props,children:serialize(children)};
 }
-const flowCalls=[];let fixture=null;
+const flowCalls=[],historicalDecisions=[];let fixture=null,historicalFailures=0;
 function state(did){
  assert.match(did,/^[a-f0-9-]{36}$/);
  return {plans:h.rows(`select * from public.newsroom_editorial_dossier_article_plans where dossier_id=${h.q(did)} order by sort_order,id`),
@@ -77,11 +78,12 @@ function state(did){
   receipts:h.rows(`select * from public.newsroom_mesa_intent_article_receipts where dossier_id=${h.q(did)}`),
   articles:h.rows(`select * from public.editorial_articles where id in (select editorial_article_id from public.newsroom_mesa_output_publications where dossier_id=${h.q(did)})`),
   published:h.rows(`select * from public.newsroom_mesa_output_publications where dossier_id=${h.q(did)}`),
+  historical:structuredClone(historicalDecisions),
   themeArticles:fixture?h.rows(`select a.* from public.editorial_articles a join public.newsroom_editorial_theme_articles t on t.editorial_article_id=a.id where t.theme_id=${h.q(fixture.theme)} order by a.id`):[],
   flowCalls,forbidden:h.forbidden};
 }
 async function execute(input){
- if(input.kind==='setup'){flowCalls.length=0;fixture=await base.command(input);return fixture;}
+ if(input.kind==='setup'){flowCalls.length=0;historicalDecisions.length=0;historicalFailures=0;fixture=await base.command(input);return fixture;}
  if(input.kind==='page'){
   const path=input.path;let tree;
   if(/^\/admin\/editorial\/redacao-automatica\/mesa\/producao\/[a-f0-9-]{36}$/.test(path))tree=await f.workspacePage({
@@ -93,15 +95,33 @@ async function execute(input){
  }
  if(input.kind==='http'){
   const u=new URL(input.request.url,'http://127.0.0.1:4319');assert.equal(u.origin,'http://127.0.0.1:4319');
-  const req=new Request(u,{method:input.request.method,headers:{'Content-Type':'application/json'},...(input.request.method==='GET'?{}:{body:input.request.body})});
+  let transportBody=input.request.body?JSON.parse(input.request.body):null;
+  const isForm=transportBody?.format==='form';
+  const requestBody=isForm?new FormData():input.request.body;
+  if(isForm)for(const [key,value] of transportBody.entries)requestBody.append(key,value);
+  const req=new Request(u,{method:input.request.method,...(isForm?{}:{headers:{'Content-Type':'application/json'}}),...(input.request.method==='GET'?{}:{body:requestBody})});
   let response;
   if(u.pathname==='/api/admin/editorial/redacao-automatica/mesa/workspace')response=await f.workspacePOST(req);
   else if(u.pathname==='/api/admin/editorial/redacao-automatica/publicacao-lote')response=await h.app.publishBatchPOST(req);
+  else if(u.pathname==='/api/admin/editorial/composicao'){
+   if(historicalFailures>0){historicalFailures-=1;response=Response.json({ok:false,message:'Falha histórica sintética recuperável.'},{status:503});}
+   else {
+    assert.ok(isForm);const form=Object.fromEntries(transportBody.entries);
+    assert.equal(form.action_type,'set_historical_article_decision');assert.equal(form.decision,'selected');
+    assert.match(form.matchday_id,/^[a-f0-9-]{36}$/);const ids=JSON.parse(form.article_ids_json);
+    assert.ok(ids.length>0&&new Set(ids).size===ids.length&&ids.every(id=>/^[a-f0-9-]{36}$/.test(id)));
+    for(const article_id of ids){
+     const existing=historicalDecisions.find(row=>row.matchday_id===form.matchday_id&&row.article_id===article_id);
+     if(existing)existing.decision='selected';else historicalDecisions.push({matchday_id:form.matchday_id,article_id,decision:'selected'});
+    }
+    response=Response.json({ok:true,updatedCount:ids.length});
+   }
+  }
   else if(/^\/api\/admin\/editorial\/redacao-automatica\/source-package\/\d{4}\/\d{2}\/[a-f0-9-]{36}$/.test(u.pathname)){
    const [year,month,id]=u.pathname.split('/').slice(-3);response=await f.packageGET(req,{params:Promise.resolve({year,month,id})});
   }else return base.command(input);
   const text=await response.text();let body;try{body=JSON.parse(text);}catch{body=null;}
-  flowCalls.push({path:u.pathname,method:req.method,action:input.request.body?JSON.parse(input.request.body).action:null,status:response.status,body});
+  flowCalls.push({path:u.pathname,method:req.method,action:isForm?Object.fromEntries(transportBody.entries).action_type:transportBody?.action??null,status:response.status,body});
   return {status:response.status,body,...(body===null?{text}:{})};
  }
  if(input.kind==='flow-state')return state(input.dossierId);
@@ -111,6 +131,7 @@ async function execute(input){
   h.sql(`update public.editorial_articles set body='Edição manual posterior protegida' where id=${h.q(input.articleId)}`);
   return true;
  }
+ if(input.kind==='fail-historical'){historicalFailures=Number(input.count??1);return true;}
  if(input.kind==='text'){
   const p=h.rows(`select manifest from public.newsroom_editorial_source_packages where id=${h.q(input.packageId)}`)[0];assert.ok(p);
   const m=p.manifest,plan=m.productionIntents;
