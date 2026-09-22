@@ -136,6 +136,9 @@ test("decisão histórica e Bank não entram no payload de Guardar montagem", ()
 test("o layout revisto permanece inalterado", () => {
   assert.match(client, /\.hc-desk-operational-sticky \{[\s\S]*?position: sticky/);
   assert.match(client, /\.hc-desk-slots-6 \{[\s\S]*?grid-template-columns: repeat\(3,/);
+  assert.match(client, /\.hc-desk-slot \{[\s\S]*?min-height: 65px;[\s\S]*?padding: 3px;/);
+  assert.match(client, /\.hc-desk-empty \{[\s\S]*?min-height: 48px;/);
+  assert.match(client, /\.hc-desk-card \{[\s\S]*?min-height: 48px;[\s\S]*?padding: 3px;/);
   assert.match(client, /\.hc-desk-card-body \{[\s\S]*?grid-template-columns: 56px/);
   assert.match(client, /\.hc-desk-card-body img,[\s\S]*?width: 56px;[\s\S]*?height: 42px;/);
   assert.match(client, /\.hc-desk-card strong \{[\s\S]*?font-size: 13px;/);

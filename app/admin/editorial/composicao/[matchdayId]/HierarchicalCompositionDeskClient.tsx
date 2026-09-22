@@ -305,9 +305,9 @@ const styles = `
   .hc-dynamic-zone-editor {
     display: grid;
     grid-template-columns: minmax(220px, 1fr) minmax(210px, .55fr);
-    gap: 7px;
+    gap: 5px;
     align-items: end;
-    padding: 7px;
+    padding: 4px 5px;
     border: 1px solid #dce3eb;
     border-radius: 7px;
     background: #fbfcfd;
@@ -332,6 +332,24 @@ const styles = `
     color: #10151b;
     font: inherit;
     font-size: 11px;
+  }
+
+  .hc-dynamic-zone-editor.has-selection {
+    grid-template-columns: minmax(220px, 1fr) minmax(180px, .45fr) auto;
+  }
+
+  .hc-dynamic-zone-place {
+    min-height: 31px;
+    padding: 3px 8px;
+    border: 1px solid #2563eb;
+    border-radius: 6px;
+    background: #2563eb;
+    color: #ffffff;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 850;
+    white-space: nowrap;
+    cursor: pointer;
   }
 
   .hc-page-structure {
@@ -822,8 +840,8 @@ const styles = `
 
   .hc-desk-zone {
     display: grid;
-    gap: 3px;
-    padding: 4px;
+    gap: 2px;
+    padding: 3px;
     border: 1px solid #dce3eb;
     border-radius: 7px;
     background: #f8fafc;
@@ -861,7 +879,7 @@ const styles = `
   .hc-desk-slots {
     display: grid;
     grid-template-columns: minmax(240px, 1fr);
-    gap: 4px;
+    gap: 3px;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
   }
@@ -883,8 +901,8 @@ const styles = `
 
   .hc-desk-slot {
     min-width: 0;
-    min-height: 69px;
-    padding: 4px;
+    min-height: 65px;
+    padding: 3px;
     border: 1px dashed #b8c4d2;
     border-radius: 5px;
     background: #ffffff;
@@ -902,7 +920,7 @@ const styles = `
   .hc-desk-empty {
     display: grid;
     place-items: center;
-    min-height: 54px;
+    min-height: 48px;
     color: #94a3b8;
     font-size: 10px;
     font-weight: 700;
@@ -910,10 +928,10 @@ const styles = `
 
   .hc-desk-card {
     display: flex;
-    gap: 5px;
+    gap: 4px;
     align-items: center;
-    min-height: 50px;
-    padding: 4px;
+    min-height: 48px;
+    padding: 3px;
     border-radius: 5px;
     background: #ffffff;
     box-shadow: 0 2px 7px rgba(15,23,42,.07);
@@ -932,7 +950,7 @@ const styles = `
     display: grid;
     flex: 1 1 auto;
     grid-template-columns: 56px minmax(0, 1fr);
-    gap: 5px;
+    gap: 4px;
     align-items: center;
     min-width: 0;
   }
@@ -1137,7 +1155,8 @@ const styles = `
   }
 
   .hc-desk-pending button:disabled,
-  .hc-desk-bulk button:disabled {
+  .hc-desk-bulk button:disabled,
+  .hc-desk-selection-actions button:disabled {
     opacity: .45;
     cursor: default;
   }
@@ -1152,6 +1171,41 @@ const styles = `
     padding: 4px 6px;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
+  }
+
+  .hc-desk-toolbar.selection-mode {
+    min-height: 38px;
+    overflow-x: visible;
+    overscroll-behavior-inline: auto;
+  }
+
+  .hc-desk-selection-actions {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    gap: 5px;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .hc-desk-selection-actions strong {
+    margin-right: 2px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .hc-desk-selection-actions button {
+    min-height: 28px;
+    padding: 3px 7px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #10151b;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
   }
 
   .hc-desk-scope {
@@ -1281,7 +1335,7 @@ const styles = `
   }
   .hc-dynamic-zone-editor {
     align-items: center;
-    padding: 3px 6px;
+    padding: 2px 4px;
   }
 
   .hc-dynamic-zone-editor label {
@@ -1323,8 +1377,20 @@ const styles = `
   @media (max-width: 720px) {
     .hc-desk-top-tools,
     .hc-desk-settings,
-    .hc-dynamic-zone-editor {
+    .hc-dynamic-zone-editor:not(.has-selection) {
       grid-template-columns: 1fr;
+    }
+
+    .hc-dynamic-zone-editor.has-selection {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .hc-dynamic-zone-editor.has-selection label:first-child {
+      grid-column: 1 / -1;
+    }
+
+    .hc-desk-selection-actions {
+      flex-wrap: wrap;
     }
 
     .hc-desk-row {
@@ -2475,8 +2541,10 @@ export default function HierarchicalCompositionDeskClient({
     : null;
 
   const articleToolbar = (
-    <div className="hc-desk-toolbar">
-      <div className="hc-desk-scope" role="group" aria-label="Bank">
+    <div className={selectedBankItemIds.length > 0 ? "hc-desk-toolbar selection-mode" : "hc-desk-toolbar normal-mode"}>
+      {selectedBankItemIds.length === 0 ? (
+        <>
+          <div className="hc-desk-scope" role="group" aria-label="Bank">
         <button type="button" className={bankFilter === "all" ? "active" : undefined} aria-pressed={bankFilter === "all"} onClick={() => setBankFilter("all")}>
           Todos ({reservoirCounts.all})
         </button>
@@ -2486,7 +2554,7 @@ export default function HierarchicalCompositionDeskClient({
         <button type="button" className={bankFilter === "outside-bank" ? "active" : undefined} aria-pressed={bankFilter === "outside-bank"} onClick={() => setBankFilter("outside-bank")}>
           No Bank ({reservoirCounts.outsideBank})
         </button>
-      </div>
+          </div>
 
       <label className="hc-desk-classification">
         <span>Classificação</span>
@@ -2525,21 +2593,21 @@ export default function HierarchicalCompositionDeskClient({
         </select>
       </label>
 
-      <strong className="hc-desk-result-count" aria-live="polite">{visibleArticles.length} resultados</strong>
-
-      {selectedBankItemIds.length > 0 ? (
-        <div className="hc-desk-bulk">
-          <strong>{selectedBankItemIds.length === 1 ? "1 selecionada" : `${selectedBankItemIds.length} selecionadas`}</strong>
-          {selectedHistoricalDecision === "undecided" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank")}>Enviar para Bank</button> : null}
+          <strong className="hc-desk-result-count" aria-live="polite">{visibleArticles.length} resultados</strong>
+        </>
+      ) : (
+        <div className="hc-desk-selection-actions" aria-label="Ações para artigos selecionados">
+          <strong>{selectedBankItemIds.length === 1 ? "1 selecionado" : `${selectedBankItemIds.length} selecionados`}</strong>
+          {selectedHistoricalDecision === "undecided" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank")}>Enviar p/ Bank</button> : null}
           {selectedHistoricalDecision === "bank" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("undecided")}>Retirar do Bank</button> : null}
-          {selectedHistoricalDecision !== null && selectedHistoricalDecision !== "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("selected")}>Selecionar para Histórica</button> : null}
+          {selectedHistoricalDecision !== null && selectedHistoricalDecision !== "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("selected")}>Selecionar p/ Histórica</button> : null}
           {selectedHistoricalDecision === "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("undecided")}>Retirar da Histórica</button> : null}
-          {selectedHistoricalDecision === "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank")}>Enviar para Bank</button> : null}
-          <button type="button" disabled={isBatchMutating} onClick={() => setSelectedBankItemIds([])}>Limpar seleção</button>
+          {selectedHistoricalDecision === "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank")}>Enviar p/ Bank</button> : null}
+          <button type="button" disabled={isBatchMutating} onClick={() => setSelectedBankItemIds([])}>Limpar</button>
         </div>
-      ) : null}
+      )}
 
-      {message ? <p className="hc-desk-message">{message}</p> : null}
+      {selectedBankItemIds.length === 0 && message ? <p className="hc-desk-message">{message}</p> : null}
     </div>
   );
 
@@ -2913,7 +2981,7 @@ export default function HierarchicalCompositionDeskClient({
 
           {activeDynamicZone ? (
             <>
-              <div className="hc-dynamic-zone-editor">
+              <div className={selectedBankItemIds.length > 0 ? "hc-dynamic-zone-editor has-selection" : "hc-dynamic-zone-editor"}>
                 <label>
                   <DynamicZoneTitleInput
                     key={activeDynamicZone.clientId}
@@ -2923,10 +2991,9 @@ export default function HierarchicalCompositionDeskClient({
                   />
                 </label>
                 <label><select aria-label="Layout da zona editorial" value={activeDynamicZone.visualFamily} onChange={(event) => updateDynamicZone(activeDynamicZone.clientId, { visualFamily: event.target.value as HistoricalDynamicZoneVisualFamily })}><option value="six_news">6 notícias</option><option value="five_news_balanced">5 notícias equilibradas</option><option value="five_news_secondary">5 notícias secundárias</option></select></label>
-
+                {selectedBankItemIds.length > 0 ? <button className="hc-dynamic-zone-place" type="button" onClick={() => placeSelectedInDynamicZone(activeDynamicZone.clientId)}>Colocar {selectedBankItemIds.length} aqui</button> : null}
               </div>
               <section className="hc-desk-zone">
-                <header><div><h3>{activeDynamicZone.publicTitle || "Zona editorial"}</h3><p>{HISTORICAL_DYNAMIC_ZONE_LAYOUTS[activeDynamicZone.visualFamily].label}</p></div><span className="hc-desk-zone-action"><span>{historicalDynamicZonePositions(activeDynamicZone.visualFamily).filter((position) => Boolean(activeDynamicZone.items[position.position])).length}/{HISTORICAL_DYNAMIC_ZONE_LAYOUTS[activeDynamicZone.visualFamily].capacity}</span>{selectedBankItemIds.length > 0 ? <button type="button" onClick={() => placeSelectedInDynamicZone(activeDynamicZone.clientId)}>Colocar {selectedBankItemIds.length} aqui</button> : null}</span></header>
                 <div className={`hc-desk-slots hc-desk-slots-${HISTORICAL_DYNAMIC_ZONE_LAYOUTS[activeDynamicZone.visualFamily].capacity}`}>
                   {historicalDynamicZonePositions(activeDynamicZone.visualFamily).map((position) => {
                     const location: DynamicDragLocation = { kind: "dynamic", zoneKey: activeDynamicZone.clientId, targetKey: String(position.position) };
