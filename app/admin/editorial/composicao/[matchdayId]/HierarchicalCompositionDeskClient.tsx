@@ -19,6 +19,7 @@ import {
   type HistoricalCompositionBlockKey,
   type HistoricalCompositionPlacementLocation,
   type HistoricalCompositionBankFilter,
+  type HistoricalCompositionDecision,
   type HistoricalCompositionSelectionFilter,
   type HistoricalDynamicZoneVisualFamily,
 } from "@/lib/editorial-historical-composition-workspace";
@@ -33,8 +34,7 @@ export type HierarchicalCompositionDeskArticle = {
   publishedAt: string | null;
   naturalGroupKey: string | null;
   historicalEligible: boolean;
-  historicallySelected: boolean;
-  fromLiveBank: boolean;
+  historicalDecision: HistoricalCompositionDecision;
   inheritedFromMatchdayNumber: number | null;
 };
 
@@ -1730,18 +1730,13 @@ export default function HierarchicalCompositionDeskClient({
       .filter((article): article is HierarchicalCompositionDeskArticle => Boolean(article)),
     [articleByBankId, selectedBankItemIds],
   );
-  const selectedAreAllInBank = selectedArticles.length > 0
+  const selectedHistoricalDecision = selectedArticles.length > 0
     && selectedArticles.length === selectedBankItemIds.length
-    && selectedArticles.every((article) => article.fromLiveBank);
-  const selectedAreAllOutsideBank = selectedArticles.length > 0
-    && selectedArticles.length === selectedBankItemIds.length
-    && selectedArticles.every((article) => !article.fromLiveBank);
-  const selectedAreAllHistorical = selectedArticles.length > 0
-    && selectedArticles.length === selectedBankItemIds.length
-    && selectedArticles.every((article) => article.historicallySelected);
-  const selectedAreAllOutsideHistorical = selectedArticles.length > 0
-    && selectedArticles.length === selectedBankItemIds.length
-    && selectedArticles.every((article) => !article.historicallySelected);
+    && selectedArticles.every(
+      (article) => article.historicalDecision === selectedArticles[0]?.historicalDecision,
+    )
+    ? selectedArticles[0].historicalDecision
+    : null;
 
   const inheritedAvailableArticles = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
@@ -2272,8 +2267,7 @@ export default function HierarchicalCompositionDeskClient({
   }
 
   async function applyBatchEditorialDecision(
-    kind: "bank" | "historical",
-    enabled: boolean,
+    decision: HistoricalCompositionDecision,
   ) {
     if (selectedArticles.length === 0 || selectedArticles.length !== selectedBankItemIds.length) {
       setMessage("Uma das notícias selecionadas já não está disponível.");
@@ -2285,18 +2279,12 @@ export default function HierarchicalCompositionDeskClient({
     try {
       const body = new FormData();
       body.set("matchday_id", matchdayId);
-      if (kind === "bank") {
-        body.set("action_type", "set_historical_workspace_bank");
-        body.set("bank_item_ids_json", JSON.stringify(selectedBankItemIds));
-        body.set("in_bank", String(enabled));
-      } else {
-        body.set("action_type", "set_historical_article_selection");
-        body.set(
-          "article_ids_json",
-          JSON.stringify(Array.from(new Set(selectedArticles.map((article) => article.articleId)))),
-        );
-        body.set("selected", String(enabled));
-      }
+      body.set("action_type", "set_historical_article_decision");
+      body.set(
+        "article_ids_json",
+        JSON.stringify(Array.from(new Set(selectedArticles.map((article) => article.articleId)))),
+      );
+      body.set("decision", decision);
 
       const response = await fetch("/api/admin/editorial/composicao", {
         method: "POST",
@@ -2309,15 +2297,11 @@ export default function HierarchicalCompositionDeskClient({
       }
 
       setSelectedBankItemIds([]);
-      setMessage(
-        kind === "bank"
-          ? enabled
-            ? "Seleção enviada para Bank."
-            : "Seleção retirada do Bank."
-          : enabled
-            ? "Seleção marcada para a Histórica."
-            : "Seleção retirada da Histórica.",
-      );
+      setMessage(decision === "bank"
+        ? "Seleção enviada para Bank."
+        : decision === "selected"
+          ? "Seleção marcada para a Histórica."
+          : "Seleção reposta como sem decisão.");
       router.refresh();
     } catch {
       setMessage("Não foi possível contactar a gravação editorial.");
@@ -2546,10 +2530,11 @@ export default function HierarchicalCompositionDeskClient({
       {selectedBankItemIds.length > 0 ? (
         <div className="hc-desk-bulk">
           <strong>{selectedBankItemIds.length === 1 ? "1 selecionada" : `${selectedBankItemIds.length} selecionadas`}</strong>
-          {selectedAreAllOutsideBank ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank", true)}>Enviar para Bank</button> : null}
-          {selectedAreAllInBank ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank", false)}>Retirar do Bank</button> : null}
-          {selectedAreAllOutsideHistorical ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("historical", true)}>Selecionar para Histórica</button> : null}
-          {selectedAreAllHistorical ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("historical", false)}>Retirar da Histórica</button> : null}
+          {selectedHistoricalDecision === "undecided" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank")}>Enviar para Bank</button> : null}
+          {selectedHistoricalDecision === "bank" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("undecided")}>Retirar do Bank</button> : null}
+          {selectedHistoricalDecision !== null && selectedHistoricalDecision !== "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("selected")}>Selecionar para Histórica</button> : null}
+          {selectedHistoricalDecision === "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("undecided")}>Retirar da Histórica</button> : null}
+          {selectedHistoricalDecision === "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank")}>Enviar para Bank</button> : null}
           <button type="button" disabled={isBatchMutating} onClick={() => setSelectedBankItemIds([])}>Limpar seleção</button>
         </div>
       ) : null}
@@ -2792,7 +2777,7 @@ export default function HierarchicalCompositionDeskClient({
                           }
 
                           {
-                            article.fromLiveBank
+                            article.historicalDecision === "bank"
                               ? (
                                 <em className="hc-desk-live-bank">
                                   BANK
@@ -2802,7 +2787,7 @@ export default function HierarchicalCompositionDeskClient({
                           }
 
                           {
-                            article.historicallySelected
+                            article.historicalDecision === "selected"
                               ? <em className="hc-desk-historical-mark">HISTÓRICA</em>
                               : null
                           }

@@ -30,9 +30,11 @@ import {
 import {
   HISTORICAL_COMPOSITION_DEFAULT_HEADLINE_TITLE_COLOR,
   HISTORICAL_COMPOSITION_DEFAULT_ZONE_TITLES,
+  historicalCompositionEffectiveDecision,
   normalizeHistoricalCompositionBlockOrder,
   normalizeHistoricalCompositionHeadlineTitleColor,
   normalizeHistoricalCompositionZoneTitle,
+  type HistoricalCompositionDecision,
 } from "@/lib/editorial-historical-composition-workspace";
 import HierarchicalCompositionInterpretivePreview from "@/components/admin/HierarchicalCompositionInterpretivePreview";
 import PublicFlexibleZoneLayout, {
@@ -225,9 +227,10 @@ type HistoricalCompositionDynamicZoneItemRow = {
   link_url_snapshot: string | null;
 };
 
-type HistoricalArticleSelectionRow = {
+type HistoricalArticleDecisionRow = {
   article_id: string;
-  selected_at: string;
+  decision: HistoricalCompositionDecision;
+  updated_at: string;
 };
 
 type MatchdayEditorialBankItem = {
@@ -1899,11 +1902,11 @@ function readMatchdayEditorialBankItems(matchdayId: string): Promise<MatchdayEdi
   ).catch(() => []);
 }
 
-function readHistoricalArticleSelections(
+function readHistoricalArticleDecisions(
   matchdayId: string,
-): Promise<HistoricalArticleSelectionRow[]> {
-  return fetchSupabaseAdminTable<HistoricalArticleSelectionRow>(
-    `rpc/read_matchday_historical_article_selections_v1?p_matchday_id=${encodeURIComponent(matchdayId)}`,
+): Promise<HistoricalArticleDecisionRow[]> {
+  return fetchSupabaseAdminTable<HistoricalArticleDecisionRow>(
+    `rpc/read_matchday_historical_article_decisions_v1?p_matchday_id=${encodeURIComponent(matchdayId)}`,
   );
 }
 
@@ -4034,7 +4037,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     publishedContents,
     hierarchicalDeskSnapshot,
     hierarchicalProfileSnapshot,
-    historicalArticleSelections,
+    historicalArticleDecisions,
   ] = await Promise.all([
     readDraftReferenceComposition(matchday.id, presentationMode),
     readPublishedReferenceComposition(matchday.id, presentationMode),
@@ -4050,7 +4053,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       ? readMatchdayEditorialProfileDesk(matchday.id).catch(() => null)
       : Promise.resolve(null),
     presentationMode === "hierarchical"
-      ? readHistoricalArticleSelections(matchday.id)
+      ? readHistoricalArticleDecisions(matchday.id)
       : Promise.resolve([]),
   ]);
   const draftComposition = modeDraftComposition ?? modePublishedComposition;
@@ -4564,8 +4567,11 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       : [],
   );
 
-  const historicallySelectedArticleIds = new Set(
-    historicalArticleSelections.map((selection) => selection.article_id),
+  const historicalDecisionByArticleId = new Map(
+    historicalArticleDecisions.map((decision) => [
+      decision.article_id,
+      decision.decision,
+    ] as const),
   );
 
   const hierarchicalDeskArticleById = new Map(
@@ -4594,8 +4600,10 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           publishedAt: article?.publishedAt ?? null,
           naturalGroupKey: hierarchicalNaturalGroupByArticleId.get(bankItem.source_id) ?? null,
           historicalEligible: isHistoricalBankItemEligible(bankItem),
-          historicallySelected: historicallySelectedArticleIds.has(bankItem.source_id),
-          fromLiveBank: hierarchicalExplicitLiveBankItemIds.has(bankItem.id),
+          historicalDecision: historicalCompositionEffectiveDecision(
+            historicalDecisionByArticleId.get(bankItem.source_id),
+            hierarchicalExplicitLiveBankItemIds.has(bankItem.id),
+          ),
           inheritedFromMatchdayNumber: bankItem.continuity_source_matchday_id
             ? sourceMatchdayNumberById.get(bankItem.continuity_source_matchday_id) ?? null
             : null,

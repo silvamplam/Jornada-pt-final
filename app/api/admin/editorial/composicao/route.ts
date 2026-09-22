@@ -37,18 +37,9 @@ import {
 } from "@/lib/editorial-hierarchical-composition";
 import {
   HISTORICAL_COMPOSITION_BLOCK_KEYS,
+  type HistoricalCompositionDecision,
   type HistoricalCompositionBlockKey,
 } from "@/lib/editorial-historical-composition-workspace";
-import {
-  buildPhysicalDeskApplyPayload,
-  physicalDeskApplyRpcArguments,
-} from "@/lib/editorial-matchday-live-layout-physical-apply";
-import {
-  bulkMovePhysicalDeskItemsToBank,
-  createPhysicalDeskState,
-  releasePhysicalDeskItem,
-} from "@/lib/editorial-matchday-live-layout-desk-state";
-import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
 import {
   isHistoricalBankItemEligible,
   isHistoricalInheritedBankItem,
@@ -93,10 +84,11 @@ function cleanUuidList(formData: FormData, field: string): string[] {
   return parsed.map((value) => value.toLowerCase());
 }
 
-function cleanBoolean(value: FormDataEntryValue | null): boolean {
+function cleanHistoricalDecision(
+  value: FormDataEntryValue | null,
+): HistoricalCompositionDecision {
   const text = cleanText(value);
-  if (text === "true") return true;
-  if (text === "false") return false;
+  if (text === "selected" || text === "bank" || text === "undecided") return text;
   throw new CompositionPublicationError("A operação pedida não é válida.");
 }
 
@@ -3760,84 +3752,33 @@ async function hasAuthenticatedAdminSession() {
   return Boolean(session && await verifyAdminSession(session));
 }
 
-async function applyHistoricalWorkspaceBankMutation(formData: FormData) {
-  const matchdayId = cleanText(formData.get("matchday_id"));
-  const bankItemIds = cleanUuidList(formData, "bank_item_ids_json");
-  const moveToBank = cleanBoolean(formData.get("in_bank"));
-  if (!matchdayId || !UUID_PATTERN.test(matchdayId)) {
-    throw new CompositionPublicationError("A Jornada indicada não é válida.");
-  }
-
-  const desk = await readMatchdayEditorialProfileDesk(matchdayId);
-  if (!desk || desk.kind !== "thematic") {
-    throw new CompositionPublicationError("A Mesa Viva desta Jornada já não está disponível.");
-  }
-
-  const explicitBankItemIds = new Set(desk.physicalWorkspace.explicitBankItemIds);
-  const homogeneous = moveToBank
-    ? bankItemIds.every((bankItemId) => !explicitBankItemIds.has(bankItemId))
-    : bankItemIds.every((bankItemId) => explicitBankItemIds.has(bankItemId));
-  if (!homogeneous) {
-    throw new CompositionPublicationError(
-      "A seleção mudou ou mistura estados de Bank. Atualiza a página e volta a selecionar.",
-    );
-  }
-
-  const initial = createPhysicalDeskState(desk.physicalWorkspace, {
-    headlineTitleColor: desk.pageControls.headlineTitleColor,
-    latestZonePlacement: desk.pageControls.latestZonePlacement,
-    latestZoneTitle: desk.pageControls.latestZoneTitle,
-    videoModuleActive: desk.videoModule.active,
-  });
-  const next = moveToBank
-    ? bulkMovePhysicalDeskItemsToBank(initial, bankItemIds)
-    : bankItemIds.reduce(
-        (state, bankItemId) => releasePhysicalDeskItem(state, bankItemId),
-        initial,
-      );
-  const payload = buildPhysicalDeskApplyPayload(desk.profileKey, next);
-  const rows = await writeSupabaseAdminReturning<{ state_token: string }>(
-    "rpc/apply_matchday_live_layout_physical_v29",
-    {
-      method: "POST",
-      body: JSON.stringify(physicalDeskApplyRpcArguments(matchdayId, payload)),
-    },
-  );
-  if (rows.length !== 1 || !rows[0]?.state_token) {
-    throw new Error("matchday-historical-workspace-bank-invalid-result");
-  }
-
-  return { stateToken: rows[0].state_token };
-}
-
-async function applyHistoricalArticleSelectionMutation(formData: FormData) {
+async function applyHistoricalArticleDecisionMutation(formData: FormData) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const articleIds = cleanUuidList(formData, "article_ids_json");
-  const selected = cleanBoolean(formData.get("selected"));
+  const decision = cleanHistoricalDecision(formData.get("decision"));
   if (!matchdayId || !UUID_PATTERN.test(matchdayId)) {
     throw new CompositionPublicationError("A Jornada indicada não é válida.");
   }
 
-  const rows = await writeSupabaseAdminReturning<{ selected_count: number }>(
-    "rpc/set_matchday_historical_article_selection_v1",
+  const rows = await writeSupabaseAdminReturning<{ updated_count: number }>(
+    "rpc/set_matchday_historical_article_decision_v1",
     {
       method: "POST",
       body: JSON.stringify({
         p_matchday_id: matchdayId,
         p_article_ids: articleIds,
-        p_selected: selected,
+        p_decision: decision,
       }),
     },
   );
   if (
     rows.length !== 1
-    || !Number.isInteger(rows[0]?.selected_count)
-    || rows[0].selected_count < 0
+    || rows[0]?.updated_count !== articleIds.length
   ) {
-    throw new Error("matchday-historical-article-selection-v1-invalid-result");
+    throw new Error("matchday-historical-article-decision-v1-invalid-result");
   }
 
-  return { selectedCount: rows[0].selected_count };
+  return { updatedCount: rows[0].updated_count };
 }
 
 export async function POST(request: Request) {
@@ -3846,8 +3787,7 @@ export async function POST(request: Request) {
   const matchdayId = cleanText(formData.get("matchday_id"));
   const returnTo = cleanText(formData.get("return_to")) ?? "/admin/gestor";
   const returnAnchor = cleanText(formData.get("return_anchor"));
-  const isWorkspaceBatchAction = actionType === "set_historical_workspace_bank"
-    || actionType === "set_historical_article_selection";
+  const isWorkspaceBatchAction = actionType === "set_historical_article_decision";
 
   if (!getSupabaseServiceConfig()) {
     return isWorkspaceBatchAction
@@ -3867,22 +3807,15 @@ export async function POST(request: Request) {
     }
 
     try {
-      const result = actionType === "set_historical_workspace_bank"
-        ? await applyHistoricalWorkspaceBankMutation(formData)
-        : await applyHistoricalArticleSelectionMutation(formData);
+      const result = await applyHistoricalArticleDecisionMutation(formData);
       return Response.json({ ok: true, ...result });
     } catch (error) {
       const raw = error instanceof Error ? error.message : "";
       const message = error instanceof CompositionPublicationError
         ? error.message
-        : raw.includes("matchday-live-layout-physical-v20-matchday-not-live")
-          ? "O Bank físico só pode ser alterado enquanto esta Jornada for a Mesa Viva ativa."
-          : raw.includes("matchday-historical-article-selection-v1-already-selected")
-            || raw.includes("matchday-historical-article-selection-v1-not-selected")
-            ? "A seleção Histórica mudou. Atualiza a página e volta a selecionar."
-            : raw.includes("matchday-historical-article-selection-v1-article-not-eligible")
-              ? "Uma das notícias já não é elegível para esta Jornada."
-              : "Não foi possível aplicar a operação editorial.";
+        : raw.includes("matchday-historical-article-decision-v1-article-not-eligible")
+          ? "Uma das notícias já não é elegível para esta Jornada."
+          : "Não foi possível aplicar a operação editorial.";
       return Response.json({ ok: false, message }, { status: 400 });
     }
   }

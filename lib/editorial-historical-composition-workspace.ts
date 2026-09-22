@@ -154,9 +154,20 @@ export type HistoricalCompositionReservoirArticle = Readonly<{
   title: string;
   naturalGroupKey: string | null;
   historicalEligible?: boolean;
-  historicallySelected?: boolean;
-  fromLiveBank?: boolean;
+  historicalDecision: HistoricalCompositionDecision;
 }>;
+
+export type HistoricalCompositionDecision =
+  | "selected"
+  | "bank"
+  | "undecided";
+
+export function historicalCompositionEffectiveDecision(
+  explicitDecision: HistoricalCompositionDecision | null | undefined,
+  fromLiveBank: boolean,
+): HistoricalCompositionDecision {
+  return explicitDecision ?? (fromLiveBank ? "bank" : "undecided");
+}
 
 export const HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY = "__unclassified__";
 
@@ -202,8 +213,8 @@ function matchesHistoricalCompositionBank(
   article: HistoricalCompositionReservoirArticle,
   bankFilter: HistoricalCompositionBankFilter,
 ) {
-  if (bankFilter === "in-bank") return article.fromLiveBank === true;
-  if (bankFilter === "outside-bank") return article.fromLiveBank !== true;
+  if (bankFilter === "in-bank") return article.historicalDecision === "bank";
+  if (bankFilter === "outside-bank") return article.historicalDecision !== "bank";
   return true;
 }
 
@@ -211,8 +222,8 @@ function matchesHistoricalCompositionSelection(
   article: HistoricalCompositionReservoirArticle,
   selectionFilter: HistoricalCompositionSelectionFilter,
 ) {
-  if (selectionFilter === "selected") return article.historicallySelected === true;
-  if (selectionFilter === "unselected") return article.historicallySelected !== true;
+  if (selectionFilter === "selected") return article.historicalDecision === "selected";
+  if (selectionFilter === "unselected") return article.historicalDecision !== "selected";
   return true;
 }
 
@@ -241,7 +252,7 @@ export function historicalCompositionReservoirCounts<
     }
 
     all += 1;
-    if (article.fromLiveBank === true) inBank += 1;
+    if (article.historicalDecision === "bank") inBank += 1;
     else outsideBank += 1;
   }
 
@@ -302,7 +313,7 @@ export function historicalCompositionSelectionCounts<
     }
 
     all += 1;
-    if (article.historicallySelected === true) selected += 1;
+    if (article.historicalDecision === "selected") selected += 1;
     else unselected += 1;
   }
 

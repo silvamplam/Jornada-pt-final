@@ -11,21 +11,21 @@ const client = readFileSync(
   "utf8",
 );
 
-test("a projeção identifica o Banco da Viva exclusivamente pelo bankItemId físico", () => {
+test("o Bank da Viva é apenas o fallback inicial identificado pelo bankItemId físico", () => {
   assert.match(
     page,
     /new Set\([\s\S]*hierarchicalProfileSnapshot\.physicalWorkspace\.explicitBankItemIds[\s\S]*\)/,
   );
   assert.match(
     page,
-    /fromLiveBank:\s*hierarchicalExplicitLiveBankItemIds\.has\(bankItem\.id\)/,
+    /historicalCompositionEffectiveDecision\([\s\S]*hierarchicalExplicitLiveBankItemIds\.has\(bankItem\.id\)/,
   );
-  assert.doesNotMatch(page, /fromLiveBank:[^\n]*(title|slug|url|sort|position)/i);
+  assert.doesNotMatch(page, /historicalCompositionEffectiveDecision\([^)]*(title|slug|url|sort|position)/i);
 });
 
-test("a ausência de snapshot temático projeta um conjunto vazio sem bloquear jornadas antigas", () => {
+test("a ausência de snapshot temático projeta fallback vazio sem bloquear jornadas antigas", () => {
   const start = page.indexOf("  const hierarchicalExplicitLiveBankItemIds =");
-  const end = page.indexOf("\n\n  const hierarchicalDeskArticleById", start);
+  const end = page.indexOf("\n\n  const historicalDecisionByArticleId", start);
   assert.ok(start >= 0 && end > start);
 
   const projection = page.slice(start, end);
@@ -33,13 +33,13 @@ test("a ausência de snapshot temático projeta um conjunto vazio sem bloquear j
   assert.match(projection, /:\s*\[\],/);
 });
 
-test("o cliente apresenta Todos, Bank, No Bank, contadores e marca operacional", () => {
+test("o cliente apresenta Todos, Bank, No Bank, contadores e marca pelo estado efetivo", () => {
   assert.match(client, /aria-label="Bank"/);
   assert.match(client, /Bank \(\{reservoirCounts\.inBank\}\)/);
   assert.match(client, /No Bank \(\{reservoirCounts\.outsideBank\}\)/);
   assert.match(client, /Todos \(\{reservoirCounts\.all\}\)/);
   assert.match(client, /initialHistoricalCompositionReservoirScope/);
-  assert.match(client, /article\.fromLiveBank/);
+  assert.match(client, /article\.historicalDecision === "bank"/);
   assert.match(client, />\s*BANK\s*</);
 });
 
@@ -67,7 +67,7 @@ test("seleção múltipla e colocação continuam a usar apenas bankItemId", () 
   assert.match(client, /setSelectedBankItemIds\(\[\]\)/);
 });
 
-test("os filtros visuais não entram no payload final da composição", () => {
+test("os filtros e decisões editoriais não entram no payload final da composição", () => {
   const start = client.indexOf("  async function applyChanges()");
   const end = client.indexOf("\n  function renderCard", start);
   assert.ok(start >= 0 && end > start);
@@ -76,5 +76,5 @@ test("os filtros visuais não entram no payload final da composição", () => {
   assert.match(applyChanges, /operations_json/);
   assert.match(applyChanges, /settings_json/);
   assert.match(applyChanges, /dynamic_zones_json/);
-  assert.doesNotMatch(applyChanges, /bankFilter|selectedGroupKey|fromLiveBank|in-bank|outside-bank/);
+  assert.doesNotMatch(applyChanges, /bankFilter|selectedGroupKey|historicalDecision|in-bank|outside-bank/);
 });

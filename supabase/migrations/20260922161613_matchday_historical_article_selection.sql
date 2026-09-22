@@ -1,37 +1,44 @@
 begin;
 
-create table jornada_private.matchday_historical_article_selections (
+create table jornada_private.matchday_historical_article_decisions (
   matchday_id uuid not null
     references public.matchdays(id)
     on delete cascade,
   article_id uuid not null
     references public.editorial_articles(id)
     on delete cascade,
-  selected_at timestamptz not null default statement_timestamp(),
-  primary key (matchday_id, article_id)
+  decision text not null,
+  updated_at timestamptz not null default statement_timestamp(),
+  primary key (matchday_id, article_id),
+  constraint matchday_historical_article_decisions_decision_check
+    check (decision in ('selected', 'bank', 'undecided'))
 );
 
-create index matchday_historical_article_selections_article_idx
-  on jornada_private.matchday_historical_article_selections (article_id);
+create index matchday_historical_article_decisions_article_idx
+  on jornada_private.matchday_historical_article_decisions (article_id);
 
-comment on table jornada_private.matchday_historical_article_selections is
-  'Explicit editorial decision that a canonical article belongs to the priority set for one historical matchday composition. Row presence means selected.';
+comment on table jornada_private.matchday_historical_article_decisions is
+  'Explicit historical-composition decision for one canonical article in one matchday. Row absence means no historical decision yet; undecided is an explicit persisted override.';
 
-comment on column jornada_private.matchday_historical_article_selections.article_id is
-  'Canonical public.editorial_articles identity. No title, classification, Bank state, placement or visual snapshot is duplicated here.';
+comment on column jornada_private.matchday_historical_article_decisions.article_id is
+  'Canonical public.editorial_articles identity. No title, classification, live Bank state, placement or visual snapshot is duplicated here.';
 
-alter table jornada_private.matchday_historical_article_selections
+comment on column jornada_private.matchday_historical_article_decisions.decision is
+  'Single mutually exclusive historical editorial state: selected, bank or explicitly undecided.';
+
+alter table jornada_private.matchday_historical_article_decisions
   enable row level security;
 
-revoke all on table jornada_private.matchday_historical_article_selections
+revoke all on table jornada_private.matchday_historical_article_decisions
   from public, anon, authenticated, service_role;
 
-create or replace function public.read_matchday_historical_article_selections_v1(
+create or replace function public.read_matchday_historical_article_decisions_v1(
   p_matchday_id uuid
 )
 returns table (
   article_id uuid,
-  selected_at timestamptz
+  decision text,
+  updated_at timestamptz
 )
 language sql
 stable
@@ -39,20 +46,21 @@ security definer
 set search_path = ''
 as $function$
   select
-    selection.article_id,
-    selection.selected_at
-  from jornada_private.matchday_historical_article_selections as selection
-  where selection.matchday_id = p_matchday_id
-  order by selection.article_id;
+    historical_decision.article_id,
+    historical_decision.decision,
+    historical_decision.updated_at
+  from jornada_private.matchday_historical_article_decisions as historical_decision
+  where historical_decision.matchday_id = p_matchday_id
+  order by historical_decision.article_id;
 $function$;
 
-create or replace function public.set_matchday_historical_article_selection_v1(
+create or replace function public.set_matchday_historical_article_decision_v1(
   p_matchday_id uuid,
   p_article_ids uuid[],
-  p_selected boolean
+  p_decision text
 )
 returns table (
-  selected_count bigint
+  updated_count bigint
 )
 language plpgsql
 security definer
@@ -63,13 +71,13 @@ declare
   v_distinct_count integer;
   v_existing_article_count integer;
   v_eligible_article_count integer;
-  v_existing_selection_count integer;
 begin
   if p_matchday_id is null
      or p_article_ids is null
      or coalesce(cardinality(p_article_ids), 0) = 0
-     or p_selected is null then
-    raise exception 'matchday-historical-article-selection-v1-invalid-input';
+     or p_decision is null
+     or p_decision not in ('selected', 'bank', 'undecided') then
+    raise exception 'matchday-historical-article-decision-v1-invalid-input';
   end if;
 
   if exists (
@@ -77,7 +85,7 @@ begin
     from unnest(p_article_ids) as requested(article_id)
     where requested.article_id is null
   ) then
-    raise exception 'matchday-historical-article-selection-v1-invalid-article';
+    raise exception 'matchday-historical-article-decision-v1-invalid-article';
   end if;
 
   select
@@ -87,7 +95,7 @@ begin
   from unnest(p_article_ids) as requested(article_id);
 
   if v_requested_count <> v_distinct_count then
-    raise exception 'matchday-historical-article-selection-v1-duplicate-article';
+    raise exception 'matchday-historical-article-decision-v1-duplicate-article';
   end if;
 
   perform 1
@@ -96,7 +104,7 @@ begin
   for update;
 
   if not found then
-    raise exception 'matchday-historical-article-selection-v1-matchday-not-found';
+    raise exception 'matchday-historical-article-decision-v1-matchday-not-found';
   end if;
 
   perform 1
@@ -110,7 +118,7 @@ begin
   where article.id = any(p_article_ids);
 
   if v_existing_article_count <> v_requested_count then
-    raise exception 'matchday-historical-article-selection-v1-article-not-found';
+    raise exception 'matchday-historical-article-decision-v1-article-not-found';
   end if;
 
   perform 1
@@ -148,60 +156,44 @@ begin
   );
 
   if v_eligible_article_count <> v_requested_count then
-    raise exception 'matchday-historical-article-selection-v1-article-not-eligible';
+    raise exception 'matchday-historical-article-decision-v1-article-not-eligible';
   end if;
 
-  select count(*)::integer
-  into v_existing_selection_count
-  from jornada_private.matchday_historical_article_selections as selection
-  where selection.matchday_id = p_matchday_id
-    and selection.article_id = any(p_article_ids);
+  insert into jornada_private.matchday_historical_article_decisions (
+    matchday_id,
+    article_id,
+    decision,
+    updated_at
+  )
+  select
+    p_matchday_id,
+    requested.article_id,
+    p_decision,
+    statement_timestamp()
+  from unnest(p_article_ids) as requested(article_id)
+  on conflict (matchday_id, article_id) do update
+  set
+    decision = excluded.decision,
+    updated_at = excluded.updated_at;
 
-  if p_selected and v_existing_selection_count <> 0 then
-    raise exception 'matchday-historical-article-selection-v1-already-selected';
-  end if;
-
-  if not p_selected and v_existing_selection_count <> v_requested_count then
-    raise exception 'matchday-historical-article-selection-v1-not-selected';
-  end if;
-
-  if p_selected then
-    insert into jornada_private.matchday_historical_article_selections (
-      matchday_id,
-      article_id
-    )
-    select
-      p_matchday_id,
-      requested.article_id
-    from unnest(p_article_ids) as requested(article_id)
-    on conflict (matchday_id, article_id) do nothing;
-  else
-    delete from jornada_private.matchday_historical_article_selections as selection
-    where selection.matchday_id = p_matchday_id
-      and selection.article_id = any(p_article_ids);
-  end if;
-
-  return query
-  select count(*)::bigint
-  from jornada_private.matchday_historical_article_selections as selection
-  where selection.matchday_id = p_matchday_id;
+  return query select v_requested_count::bigint;
 end;
 $function$;
 
 revoke all on function
-  public.read_matchday_historical_article_selections_v1(uuid)
+  public.read_matchday_historical_article_decisions_v1(uuid)
   from public, anon, authenticated;
 
 grant execute on function
-  public.read_matchday_historical_article_selections_v1(uuid)
+  public.read_matchday_historical_article_decisions_v1(uuid)
   to service_role;
 
 revoke all on function
-  public.set_matchday_historical_article_selection_v1(uuid, uuid[], boolean)
+  public.set_matchday_historical_article_decision_v1(uuid, uuid[], text)
   from public, anon, authenticated;
 
 grant execute on function
-  public.set_matchday_historical_article_selection_v1(uuid, uuid[], boolean)
+  public.set_matchday_historical_article_decision_v1(uuid, uuid[], text)
   to service_role;
 
 commit;

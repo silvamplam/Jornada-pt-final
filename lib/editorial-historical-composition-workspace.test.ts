@@ -7,6 +7,7 @@ import {
   HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY,
   filterHistoricalCompositionReservoir,
   historicalCompositionClassificationCounts,
+  historicalCompositionEffectiveDecision,
   historicalCompositionReservoirCounts,
   historicalCompositionSelectionCounts,
   initialHistoricalCompositionReservoirScope,
@@ -17,18 +18,18 @@ import {
 } from "./editorial-historical-composition-workspace";
 
 const articles = [
-  { bankItemId: "a", label: "Benfica", title: "Águias vencem", naturalGroupKey: "benfica" },
-  { bankItemId: "b", label: "Sporting", title: "Leões empatam", naturalGroupKey: "sporting" },
-  { bankItemId: "c", label: "Liga", title: "Mercado fecha", naturalGroupKey: "outros" },
-  { bankItemId: "d", label: "Benfica", title: "Mercado encarnado", naturalGroupKey: "benfica" },
+  { bankItemId: "a", label: "Benfica", title: "Águias vencem", naturalGroupKey: "benfica", historicalDecision: "undecided" },
+  { bankItemId: "b", label: "Sporting", title: "Leões empatam", naturalGroupKey: "sporting", historicalDecision: "undecided" },
+  { bankItemId: "c", label: "Liga", title: "Mercado fecha", naturalGroupKey: "outros", historicalDecision: "undecided" },
+  { bankItemId: "d", label: "Benfica", title: "Mercado encarnado", naturalGroupKey: "benfica", historicalDecision: "undecided" },
 ] as const;
 
 const liveBankArticles = [
-  { bankItemId: "live-sporting", label: "Sporting", title: "Leões vencem o dérbi", naturalGroupKey: "sporting", historicalEligible: true, historicallySelected: true, fromLiveBank: true },
-  { bankItemId: "live-benfica", label: "Benfica", title: "Águias preparam o clássico", naturalGroupKey: "benfica", historicalEligible: true, historicallySelected: false, fromLiveBank: true },
-  { bankItemId: "all-sporting", label: "Sporting", title: "Mercado leonino", naturalGroupKey: "sporting", historicalEligible: true, historicallySelected: true, fromLiveBank: false },
-  { bankItemId: "inherited-pending", label: "Sporting", title: "Herdada sem revalidação", naturalGroupKey: "sporting", historicalEligible: false, historicallySelected: false, fromLiveBank: true },
-  { bankItemId: "inherited-revalidated", label: "Benfica", title: "Herdada já revalidada", naturalGroupKey: "benfica", historicalEligible: true, historicallySelected: false, fromLiveBank: true },
+  { bankItemId: "live-sporting", label: "Sporting", title: "Leões vencem o dérbi", naturalGroupKey: "sporting", historicalEligible: true, historicalDecision: "selected" },
+  { bankItemId: "live-benfica", label: "Benfica", title: "Águias preparam o clássico", naturalGroupKey: "benfica", historicalEligible: true, historicalDecision: "bank" },
+  { bankItemId: "all-sporting", label: "Sporting", title: "Mercado leonino", naturalGroupKey: "sporting", historicalEligible: true, historicalDecision: "selected" },
+  { bankItemId: "inherited-pending", label: "Sporting", title: "Herdada sem revalidação", naturalGroupKey: "sporting", historicalEligible: false, historicalDecision: "bank" },
+  { bankItemId: "inherited-revalidated", label: "Benfica", title: "Herdada já revalidada", naturalGroupKey: "benfica", historicalEligible: true, historicalDecision: "bank" },
 ] as const;
 
 test("o reservatório contém apenas peças livres e combina grupos por união com pesquisa por interseção", () => {
@@ -200,6 +201,7 @@ test("notícias herdadas não revalidadas ficam fora do reservatório normal", (
       title: "Notícia da jornada anterior",
       naturalGroupKey: "outros",
       historicalEligible: false,
+      historicalDecision: "undecided" as const,
     },
   ];
 
@@ -214,7 +216,7 @@ test("notícias herdadas não revalidadas ficam fora do reservatório normal", (
   );
 });
 
-test("Bank usa apenas identidade explícita, elegibilidade e disponibilidade", () => {
+test("Bank usa apenas a decisão efetiva, elegibilidade e disponibilidade", () => {
   const placed = new Set(["live-benfica"]);
 
   assert.deepEqual(
@@ -225,12 +227,12 @@ test("Bank usa apenas identidade explícita, elegibilidade e disponibilidade", (
       "",
       "in-bank",
     ).map((article) => article.bankItemId),
-    ["live-sporting", "inherited-revalidated"],
+    ["inherited-revalidated"],
   );
   assert.deepEqual(historicalCompositionReservoirCounts(liveBankArticles, placed), {
     all: 3,
-    inBank: 2,
-    outsideBank: 1,
+    inBank: 1,
+    outsideBank: 2,
   });
 });
 
@@ -252,22 +254,24 @@ test("pesquisa e classificação intersectam o Bank", () => {
     filterHistoricalCompositionReservoir(
       liveBankArticles,
       new Set(),
-      new Set(["sporting"]),
-      "dérbi",
+      new Set(["benfica"]),
+      "clássico",
       "in-bank",
     ).map((article) => article.bankItemId),
-    ["live-sporting"],
+    ["live-benfica"],
   );
 });
 
-test("sem identidade explícita ou snapshot temático o âmbito inicial recua para Todos", () => {
-  const withoutLiveBankIdentity = liveBankArticles.map((article) => ({
+test("sem decisões Bank efetivas o âmbito inicial recua para Todos", () => {
+  const withoutHistoricalBank = liveBankArticles.map((article) => ({
     ...article,
-    fromLiveBank: false,
+    historicalDecision: article.historicalDecision === "bank"
+      ? "undecided" as const
+      : article.historicalDecision,
   }));
 
   assert.equal(
-    initialHistoricalCompositionReservoirScope(withoutLiveBankIdentity, new Set()),
+    initialHistoricalCompositionReservoirScope(withoutHistoricalBank, new Set()),
     "all",
   );
   assert.equal(
@@ -302,7 +306,6 @@ test("mudar o âmbito não altera a seleção editorial já feita", () => {
 
   assert.deepEqual([...selected], ["live-sporting", "all-sporting"]);
   assert.deepEqual(bank.map((article) => article.bankItemId), [
-    "live-sporting",
     "live-benfica",
     "inherited-revalidated",
   ]);
@@ -325,12 +328,12 @@ test("Todos, Bank e No Bank partem do mesmo universo recuperável", () => {
   assert.deepEqual(
     filterHistoricalCompositionReservoir(liveBankArticles, placed, new Set(), "", "in-bank")
       .map((article) => article.bankItemId),
-    ["live-sporting", "inherited-revalidated"],
+    ["inherited-revalidated"],
   );
   assert.deepEqual(
     filterHistoricalCompositionReservoir(liveBankArticles, placed, new Set(), "", "outside-bank")
       .map((article) => article.bankItemId),
-    ["all-sporting"],
+    ["live-sporting", "all-sporting"],
   );
 });
 
@@ -343,7 +346,7 @@ test("classificação combina por AND com Bank e No Bank", () => {
       "",
       "in-bank",
     ).map((article) => article.bankItemId),
-    ["live-sporting"],
+    [],
   );
   assert.deepEqual(
     filterHistoricalCompositionReservoir(
@@ -353,7 +356,7 @@ test("classificação combina por AND com Bank e No Bank", () => {
       "",
       "outside-bank",
     ).map((article) => article.bankItemId),
-    ["all-sporting"],
+    ["live-sporting", "all-sporting"],
   );
 });
 
@@ -366,7 +369,7 @@ test("Sem classificação representa apenas classifiedZoneKey ausente", () => {
       title: "Notícia sem classificação",
       naturalGroupKey: null,
       historicalEligible: true,
-      fromLiveBank: false,
+      historicalDecision: "undecided" as const,
     },
   ];
 
@@ -434,7 +437,7 @@ test("Histórica filtra selecionados e não selecionados no mesmo universo recup
   );
 });
 
-test("classificação, Bank, Histórica e pesquisa combinam por AND", () => {
+test("classificação, Bank, Histórica e pesquisa combinam por AND sem quebrar o estado exclusivo", () => {
   const result = filterHistoricalCompositionReservoir(
     liveBankArticles,
     new Set(),
@@ -444,7 +447,7 @@ test("classificação, Bank, Histórica e pesquisa combinam por AND", () => {
     "selected",
   );
 
-  assert.deepEqual(result.map((article) => article.bankItemId), ["live-sporting"]);
+  assert.deepEqual(result.map((article) => article.bankItemId), []);
 });
 
 test("contagens da Histórica são facetadas a partir do universo da lista", () => {
@@ -476,4 +479,32 @@ test("contagens da Histórica são facetadas a partir do universo da lista", () 
   assert.deepEqual(counts, { all: 2, selected: 2, unselected: 0 });
   assert.equal(counts.selected, selected.length);
   assert.equal(counts.unselected, unselected.length);
+});
+
+test("a decisão explícita tem precedência sobre o fallback do Bank da Viva", () => {
+  assert.equal(historicalCompositionEffectiveDecision(null, true), "bank");
+  assert.equal(historicalCompositionEffectiveDecision(undefined, false), "undecided");
+  assert.equal(historicalCompositionEffectiveDecision("undecided", true), "undecided");
+  assert.equal(historicalCompositionEffectiveDecision("selected", true), "selected");
+  assert.equal(historicalCompositionEffectiveDecision("bank", false), "bank");
+});
+
+test("um artigo originário do Bank mantém todas as transições explícitas após reload", () => {
+  const fromLiveBank = true;
+  let persistedDecision: "selected" | "bank" | "undecided" | null = null;
+
+  assert.equal(historicalCompositionEffectiveDecision(persistedDecision, fromLiveBank), "bank");
+
+  persistedDecision = "undecided";
+  assert.equal(historicalCompositionEffectiveDecision(persistedDecision, fromLiveBank), "undecided");
+  assert.equal(historicalCompositionEffectiveDecision(persistedDecision, fromLiveBank), "undecided");
+
+  persistedDecision = "selected";
+  assert.equal(historicalCompositionEffectiveDecision(persistedDecision, fromLiveBank), "selected");
+
+  persistedDecision = "undecided";
+  assert.equal(historicalCompositionEffectiveDecision(persistedDecision, fromLiveBank), "undecided");
+
+  persistedDecision = "bank";
+  assert.equal(historicalCompositionEffectiveDecision(persistedDecision, fromLiveBank), "bank");
 });

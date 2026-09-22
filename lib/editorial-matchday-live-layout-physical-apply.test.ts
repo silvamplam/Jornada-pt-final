@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  bulkMovePhysicalDeskItemsToBank,
   bulkMovePhysicalDeskItemsToFaixa,
   changePhysicalDeskLatestPlacement,
   changePhysicalDeskPresentation,
@@ -11,7 +10,6 @@ import {
   deletePhysicalDeskZone,
   movePhysicalDeskItemToDisplaced,
   movePhysicalDeskItemToSlot,
-  releasePhysicalDeskItem,
 } from "./editorial-matchday-live-layout-desk-state";
 import {
   buildPhysicalDeskApplyPayload,
@@ -131,38 +129,6 @@ test("serializer usa token físico e conserva IDs reais de zonas e blocks", () =
       /latestZoneMode|latestZoneTitleColor|latest_zone_mode|latest_zone_title_color/,
     );
   }
-});
-
-test("Bank em lote envia e retira três peças numa única fotografia física", () => {
-  const bankItemIds = [id(40, 1), id(40, 2), id(40, 4)];
-  const initial = createPhysicalDeskState(workspace(5));
-  const banked = bulkMovePhysicalDeskItemsToBank(initial, bankItemIds);
-
-  assert.deepEqual(
-    bankItemIds.map((bankItemId) => banked.current.explicitBankItemIds.includes(bankItemId)),
-    [true, true, true],
-  );
-  assert.equal(
-    banked.current.placements.some((placement) => bankItemIds.includes(placement.bankItemId)),
-    false,
-  );
-
-  const released = bankItemIds.reduce(
-    (state, bankItemId) => releasePhysicalDeskItem(state, bankItemId),
-    banked,
-  );
-  assert.deepEqual(
-    bankItemIds.map((bankItemId) => released.current.explicitBankItemIds.includes(bankItemId)),
-    [false, false, false],
-  );
-  assert.equal(
-    released.current.placements.some((placement) => bankItemIds.includes(placement.bankItemId)),
-    false,
-  );
-  assert.equal(
-    buildPhysicalDeskApplyPayload("liga_portugal_v1", released).explicitBankItemIds.includes(id(40, 10)),
-    true,
-  );
 });
 
 test("serializer rejeita selection retirado da arquitetura física", () => {
