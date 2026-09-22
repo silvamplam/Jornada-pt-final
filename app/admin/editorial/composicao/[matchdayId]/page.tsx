@@ -4756,7 +4756,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           returnTo={returnTo}
           slots={hierarchicalDeskSlots}
         >
-          <details className="hc-desk-tool">
+          <details className="hc-desk-tool" name="composition-tools">
             <summary>Vídeo + Destaque</summary>
             <div className="hc-desk-tool-body">
               <MatchdayVideoSummarySync matchdayId={matchday.id} reloadOnMutation={false} />
@@ -4770,7 +4770,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
             </div>
           </details>
 
-          <details className="hc-desk-tool">
+          <details className="hc-desk-tool" name="composition-tools">
             <summary>Publicar composição</summary>
             <div className="hc-desk-tool-body composition-admin-stack">
               <UpdateDraftForm
@@ -4799,7 +4799,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
             </div>
           </details>
 
-          <details className="hc-desk-tool">
+          <details className="hc-desk-tool" name="composition-tools">
             <summary>Pré-visualização</summary>
             <div className="hc-desk-tool-body composition-admin-preview">
               {hasHistoricalDynamicZones ? (

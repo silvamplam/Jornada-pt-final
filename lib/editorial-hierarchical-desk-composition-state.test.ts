@@ -23,7 +23,7 @@ test("o estado da peça é exclusivamente o plano local da Composição", () => 
   assert.match(client, /placementByBankItem/);
   assert.match(client, /placedBankItemIds/);
   assert.match(client, /filterHistoricalCompositionReservoir/);
-  assert.match(client, /DISPONÍVEL/);
+  assert.match(client, /visibleArticles/);
   assert.match(client, /Retirada planeada/);
 });
 

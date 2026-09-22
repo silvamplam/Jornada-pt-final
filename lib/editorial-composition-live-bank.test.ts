@@ -33,28 +33,30 @@ test("a ausência de snapshot temático projeta um conjunto vazio sem bloquear j
   assert.match(projection, /:\s*\[\],/);
 });
 
-test("o cliente real apresenta âmbitos, contadores e marca editorial discreta", () => {
-  assert.match(client, /aria-label="Âmbito do Banco da Mesa"/);
-  assert.match(client, /Banco da Viva \(\{reservoirCounts\.liveBank\}\)/);
+test("o cliente apresenta Todos, Bank, No Bank, contadores e marca operacional", () => {
+  assert.match(client, /aria-label="Bank"/);
+  assert.match(client, /Bank \(\{reservoirCounts\.inBank\}\)/);
+  assert.match(client, /No Bank \(\{reservoirCounts\.outsideBank\}\)/);
   assert.match(client, /Todos \(\{reservoirCounts\.all\}\)/);
-  assert.match(client, /reservoirCounts\.liveBank > 0/);
   assert.match(client, /initialHistoricalCompositionReservoirScope/);
-  assert.match(client, /reservoirScope === "all" && article\.fromLiveBank/);
-  assert.match(client, />\s*BANCO DA VIVA\s*</);
+  assert.match(client, /article\.fromLiveBank/);
+  assert.match(client, />\s*BANK\s*</);
 });
 
-test("pesquisa e grupos são aplicados depois do âmbito sem limpar a seleção", () => {
+test("pesquisa, classificação e Bank combinam sem limpar a seleção", () => {
   assert.match(
     client,
-    /filterHistoricalCompositionReservoir\([\s\S]*new Set\(selectedGroupKeys\),[\s\S]*search,[\s\S]*reservoirScope,/,
+    /filterHistoricalCompositionReservoir\([\s\S]*selectedGroupKeys,[\s\S]*search,[\s\S]*bankFilter,/,
   );
 
-  const start = client.indexOf('aria-label="Âmbito do Banco da Mesa"');
+  const start = client.indexOf('aria-label="Bank"');
   const end = client.indexOf('<div className="hc-desk-search">', start);
   assert.ok(start >= 0 && end > start);
   const scopeControls = client.slice(start, end);
-  assert.match(scopeControls, /setReservoirScope\("live-bank"\)/);
-  assert.match(scopeControls, /setReservoirScope\("all"\)/);
+  assert.match(scopeControls, /setBankFilter\("in-bank"\)/);
+  assert.match(scopeControls, /setBankFilter\("outside-bank"\)/);
+  assert.match(scopeControls, /setBankFilter\("all"\)/);
+  assert.match(scopeControls, /Sem classificação/);
   assert.doesNotMatch(scopeControls, /setSelectedBankItemIds/);
 });
 
@@ -65,7 +67,7 @@ test("seleção múltipla e colocação continuam a usar apenas bankItemId", () 
   assert.match(client, /setSelectedBankItemIds\(\[\]\)/);
 });
 
-test("o âmbito visual não entra no payload final da composição", () => {
+test("os filtros visuais não entram no payload final da composição", () => {
   const start = client.indexOf("  async function applyChanges()");
   const end = client.indexOf("\n  function renderCard", start);
   assert.ok(start >= 0 && end > start);
@@ -74,5 +76,5 @@ test("o âmbito visual não entra no payload final da composição", () => {
   assert.match(applyChanges, /operations_json/);
   assert.match(applyChanges, /settings_json/);
   assert.match(applyChanges, /dynamic_zones_json/);
-  assert.doesNotMatch(applyChanges, /reservoirScope|fromLiveBank|live-bank/);
+  assert.doesNotMatch(applyChanges, /bankFilter|selectedGroupKey|fromLiveBank|in-bank|outside-bank/);
 });

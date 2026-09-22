@@ -50,6 +50,6 @@ test("todas as famílias históricas aceitam drag", () => {
 });
 
 test("o drag continua dependente de Guardar montagem", () => {
-  assert.match(client, /Guardar montagem não publica/);
+  assert.match(client, /GUARDAR MONTAGEM/);
   assert.match(client, /apply_hierarchical_desk_plan/);
 });
