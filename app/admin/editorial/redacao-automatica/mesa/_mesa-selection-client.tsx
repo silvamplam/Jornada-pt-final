@@ -62,6 +62,8 @@ type PrepareResponse = Readonly<{
   addedCount?: number;
   theme?: MesaThemeCard;
   classificationKey?: ArticleClassificationKey;
+  requestedCount?: number;
+  changedCount?: number;
 }>;
 
 type DismissedSource = Readonly<{
@@ -74,8 +76,20 @@ type DismissedSource = Readonly<{
 type ClassificationChange = Readonly<{
   lifecycle: OperationalDeskSourceLifecycle;
   previous: ArticleClassificationKey | null;
-  current: ArticleClassificationKey;
+  current: ArticleClassificationKey | null;
 }>;
+
+function effectiveClassificationKey(
+  changes: Readonly<Record<string, ClassificationChange>>,
+  newsroomArticleId: string,
+  fallback: ArticleClassificationKey | null,
+) {
+  return changes[newsroomArticleId]?.current ?? (
+    Object.prototype.hasOwnProperty.call(changes, newsroomArticleId)
+      ? null
+      : fallback
+  );
+}
 
 type MesaSelectionContextValue = Readonly<{
   buffer: MesaPreparationBuffer;
@@ -105,7 +119,7 @@ type MesaSelectionContextValue = Readonly<{
     newsroomArticleId: string,
     lifecycle: OperationalDeskSourceLifecycle,
     previous: ArticleClassificationKey | null,
-    current: ArticleClassificationKey,
+    current: ArticleClassificationKey | null,
   ) => void;
   upsertTheme: (theme: MesaThemeCard) => void;
   changeTitle: (title: string) => void;
@@ -326,6 +340,18 @@ export function MesaSelectionProvider({
           current,
         },
       }));
+      persist((currentBuffer) => {
+        const selectedSource = currentBuffer.sources.find(
+          (source) => source.newsroomArticleId === newsroomArticleId,
+        );
+        return selectedSource
+          ? observeMesaMaterial(currentBuffer, {
+              ...selectedSource,
+              lifecycle,
+              classificationKey: current,
+            })
+          : currentBuffer;
+      });
     },
     upsertTheme(theme) {
       setThemeCards((current) => current.some((item) => item.id === theme.id)
@@ -423,8 +449,8 @@ export function MesaLiveCount({
     (lifecycle === undefined || source.lifecycle === lifecycle)
     && (classificationKey === undefined
       || (classificationKey === "unclassified"
-        ? (classificationChanges[source.newsroomArticleId]?.current ?? source.classificationKey) === null
-        : (classificationChanges[source.newsroomArticleId]?.current ?? source.classificationKey) === classificationKey))
+        ? effectiveClassificationKey(classificationChanges, source.newsroomArticleId, source.classificationKey) === null
+        : effectiveClassificationKey(classificationChanges, source.newsroomArticleId, source.classificationKey) === classificationKey))
   )).length;
   const classificationAdjustment = classificationKey === undefined ? 0 : Object.entries(classificationChanges)
     .filter(([newsroomArticleId, change]) => inServerWindow(newsroomArticleId)
@@ -435,7 +461,7 @@ export function MesaLiveCount({
         ? change.previous === null
         : change.previous === classificationKey;
       const currentMatches = classificationKey === "unclassified"
-        ? false
+        ? change.current === null
         : change.current === classificationKey;
       return total + Number(currentMatches) - Number(previousMatches);
     }, 0);
@@ -457,7 +483,11 @@ export function MesaOperationalSourceRow({
   allowDiscard?: boolean;
 }>) {
   const { classificationChanges, classificationFilter, hiddenSourceIds, dismissed, discardErrors, discard } = useMesaSelection();
-  const currentClassification = classificationChanges[source.newsroomArticleId]?.current ?? source.classificationKey;
+  const currentClassification = effectiveClassificationKey(
+    classificationChanges,
+    source.newsroomArticleId,
+    source.classificationKey,
+  );
   const outsideFilter = classificationFilter !== "all" && (
     classificationFilter === "unclassified"
       ? currentClassification !== null
@@ -497,11 +527,11 @@ export function MesaSelectionToggle({
   unavailableReason?: string;
 }>) {
   const { buffer, classificationChanges, loaded, select, observe, remove } = useMesaSelection();
-  const changedClassification = material
-    ? classificationChanges[material.newsroomArticleId]?.current
+  const classificationChange = material
+    ? classificationChanges[material.newsroomArticleId]
     : undefined;
-  const effectiveMaterial = material && changedClassification
-    ? { ...material, classificationKey: changedClassification }
+  const effectiveMaterial = material && classificationChange
+    ? { ...material, classificationKey: classificationChange.current }
     : material;
   const selected = effectiveMaterial ? mesaMaterialIsSelected(buffer, effectiveMaterial) : false;
   const selectedSource = effectiveMaterial
@@ -558,8 +588,14 @@ export function MesaSelectionToggle({
 
 export function MesaSelectedVersionNotice({ material }: Readonly<{ material: MesaMaterialSelection }>) {
   const { buffer, classificationChanges, select } = useMesaSelection();
-  const classificationKey = classificationChanges[material.newsroomArticleId]?.current;
-  const effectiveMaterial = classificationKey ? { ...material, classificationKey } : material;
+  const effectiveMaterial = {
+    ...material,
+    classificationKey: effectiveClassificationKey(
+      classificationChanges,
+      material.newsroomArticleId,
+      material.classificationKey,
+    ),
+  };
   const saved = buffer.sources.find((source) => source.newsroomArticleId === effectiveMaterial.newsroomArticleId);
   if (!saved || saved.newsroomSnapshotId === effectiveMaterial.newsroomSnapshotId || !effectiveMaterial.newsroomSnapshotId) return null;
   return <div className={styles.versionNotice}>
@@ -589,7 +625,11 @@ export function MesaClassificationBadge({
 }>) {
   const { classificationChanges } = useMesaSelection();
   const changed = classificationChanges[newsroomArticleId];
-  const classificationKey = changed?.current ?? currentClassificationKey;
+  const classificationKey = effectiveClassificationKey(
+    classificationChanges,
+    newsroomArticleId,
+    currentClassificationKey,
+  );
   if (!classificationKey) {
     return <span className={styles.classificationBadge} data-tone="unclassified">Por classificar</span>;
   }
@@ -625,13 +665,18 @@ export function MesaClassificationEditor({
   }, [currentClassificationKey, newsroomArticleId]);
 
   async function save() {
-    if (!isArticleClassificationKey(classificationKey)) return;
+    const nextClassificationKey = classificationKey === ""
+      ? null
+      : isArticleClassificationKey(classificationKey)
+        ? classificationKey
+        : undefined;
+    if (nextClassificationKey === undefined) return;
     const previous = savedClassificationKey;
     setSaving(true);
     setMessage("");
     if (fixtureMode) {
-      updateClassification(newsroomArticleId, lifecycle, previous, classificationKey);
-      setSavedClassificationKey(classificationKey);
+      updateClassification(newsroomArticleId, lifecycle, previous, nextClassificationKey);
+      setSavedClassificationKey(nextClassificationKey);
       setMessage("Classificação simulada localmente.");
       setSaving(false);
       return;
@@ -640,14 +685,14 @@ export function MesaClassificationEditor({
       const response = await fetch(CLASSIFICATION_ROUTE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newsroomArticleId, classificationKey }),
+        body: JSON.stringify({ newsroomArticleId, classificationKey: nextClassificationKey }),
       });
       const result = await response.json().catch(() => null) as PrepareResponse | null;
       if (!response.ok || !result?.ok) {
         throw new Error(result?.message || "Não foi possível guardar a classificação.");
       }
-      updateClassification(newsroomArticleId, lifecycle, previous, classificationKey);
-      setSavedClassificationKey(classificationKey);
+      updateClassification(newsroomArticleId, lifecycle, previous, nextClassificationKey);
+      setSavedClassificationKey(nextClassificationKey);
       setMessage("Classificação manual guardada.");
     } catch (error) {
       setMessage(error instanceof Error
@@ -666,14 +711,14 @@ export function MesaClassificationEditor({
         disabled={saving}
         onChange={(event) => setClassificationKey(event.currentTarget.value)}
       >
-        <option value="" disabled>Classificar…</option>
+        <option value="">Sem classificação</option>
         {classificationOptions.map(([value, label]) => (
           <option key={value} value={value}>{label}</option>
         ))}
       </select>
       <button
         type="button"
-        disabled={saving || !classificationKey || classificationKey === savedClassificationKey}
+        disabled={saving || (classificationKey || null) === savedClassificationKey}
         onClick={() => void save()}
       >{saving ? "A guardar…" : "Guardar"}</button>
       {message ? <span role="status">{message}</span> : null}
@@ -840,6 +885,8 @@ export function MesaSelectionTray({
     storageKey,
     themeContext,
     discardErrors,
+    classificationChanges,
+    updateClassification,
   } = useMesaSelection();
   const router = useRouter();
   const [organizing, setOrganizing] = useState(false);
@@ -852,6 +899,9 @@ export function MesaSelectionTray({
   const [message, setMessage] = useState("");
   const [incorporateSources, setIncorporateSources] = useState(false);
   const [selectionPanelOpen, setSelectionPanelOpen] = useState(false);
+  const [batchClassificationKey, setBatchClassificationKey] = useState<
+    ArticleClassificationKey | "unclassified" | ""
+  >("");
   const selectedThemes = buffer.themes ?? [];
   const incorporationAvailable = sourceThemeActions
     && selectedThemes.length === 1
@@ -872,6 +922,9 @@ export function MesaSelectionTray({
     : mesaPreparationPayload(buffer);
   const dossiers = buffer.dossiers ?? [];
   const total = buffer.sources.length + selectedThemes.length + dossiers.length;
+  const classificationBatchAvailable = buffer.sources.length > 0
+    && selectedThemes.length === 0
+    && dossiers.length === 0;
   const distinctSources = new Set([...buffer.sources.map((row) => row.newsroomArticleId),
     ...selectedThemes.flatMap((theme) => theme.sources.map((ref) => ref.newsroomArticleId)),
     ...dossiers.flatMap((row) => row.sources.map((ref) => ref.newsroomArticleId))]).size;
@@ -882,6 +935,68 @@ export function MesaSelectionTray({
     (source) => source.newsroomSnapshotId === null,
   ).length;
   const selectionBlocked = unclassifiedCount > 0 || missingSnapshotCount > 0 || !payload;
+
+  async function classifySelection() {
+    if (!classificationBatchAvailable || !batchClassificationKey) return;
+    const classificationKey = batchClassificationKey === "unclassified"
+      ? null
+      : batchClassificationKey;
+    const selectedSources = buffer.sources.map((source) => ({
+      ...source,
+      previousClassificationKey: effectiveClassificationKey(
+        classificationChanges,
+        source.newsroomArticleId,
+        source.classificationKey,
+      ),
+    }));
+
+    setSubmitting(true);
+    setMessage("");
+    try {
+      if (!fixtureMode) {
+        const response = await fetch(CLASSIFICATION_ROUTE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            newsroomArticleIds: selectedSources.map(
+              (source) => source.newsroomArticleId,
+            ),
+            classificationKey,
+          }),
+        });
+        const result = await response.json().catch(() => null) as PrepareResponse | null;
+        if (
+          !response.ok
+          || !result?.ok
+          || result.requestedCount !== selectedSources.length
+        ) {
+          throw new Error(
+            result?.message || "Não foi possível classificar a seleção.",
+          );
+        }
+      }
+
+      for (const source of selectedSources) {
+        updateClassification(
+          source.newsroomArticleId,
+          source.lifecycle,
+          source.previousClassificationKey,
+          classificationKey,
+        );
+      }
+      setMessage(
+        classificationKey === null
+          ? `${selectedSources.length} fontes ficaram sem classificação.`
+          : `${selectedSources.length} fontes classificadas.`,
+      );
+    } catch (error) {
+      setMessage(error instanceof Error
+        ? error.message
+        : "Não foi possível classificar a seleção.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function prepare() {
     if (!payload) {
@@ -971,6 +1086,18 @@ export function MesaSelectionTray({
       const result = await response.json() as PrepareResponse;
       if (!response.ok || !result.ok || !result.themeId || !result.theme) throw new Error(result.message ?? "Organização não guardada.");
       upsertTheme(result.theme);
+      for (const source of buffer.sources) {
+        updateClassification(
+          source.newsroomArticleId,
+          source.lifecycle,
+          effectiveClassificationKey(
+            classificationChanges,
+            source.newsroomArticleId,
+            source.classificationKey,
+          ),
+          result.theme.classificationKey,
+        );
+      }
       if (sourceOnly) {
         hideSources(buffer.sources.map((source) => ({
           newsroomArticleId: source.newsroomArticleId,
@@ -1084,6 +1211,32 @@ export function MesaSelectionTray({
             disabled={!loaded || submitting}
           />
         </label>
+        {classificationBatchAvailable ? (
+          <div className={styles.batchClassification}>
+            <select
+              aria-label="Classificação em lote"
+              value={batchClassificationKey}
+              disabled={submitting}
+              onChange={(event) => setBatchClassificationKey(
+                event.currentTarget.value as
+                  | ArticleClassificationKey
+                  | "unclassified"
+                  | "",
+              )}
+            >
+              <option value="">Classificar como…</option>
+              {classificationOptions.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+              <option value="unclassified">Sem classificação</option>
+            </select>
+            <button
+              type="button"
+              disabled={submitting || !batchClassificationKey}
+              onClick={() => void classifySelection()}
+            >Aplicar</button>
+          </div>
+        ) : null}
         {sourceThemeActions ? <div className={styles.themeActionButtons}>
           <button type="button" className={styles.selectionActionLink} disabled={submitting || buffer.sources.length < 2}
             onClick={() => { setThemeTitle(buffer.title); setThemeClassification(""); setTargetTheme(""); setThemeAction("create"); setSelectionPanelOpen(true); setMessage(""); }}>

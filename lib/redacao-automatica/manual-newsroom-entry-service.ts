@@ -9,9 +9,6 @@ import {
   type ManualNewsroomEntryInput,
   type ManualNewsroomEntryResult,
 } from "@/lib/redacao-automatica/manual-newsroom-entry-internal";
-import {
-  attemptOperationalDeskAutomaticClassification,
-} from "@/lib/redacao-automatica/newsroom-operational-desk-classification";
 
 export type {
   ManualNewsroomEntryErrorCode,
@@ -37,15 +34,8 @@ const persistManualNewsroomEntry = createManualNewsroomEntryPersistence({
   },
 });
 
-export async function createManualNewsroomEntry(
+export function createManualNewsroomEntry(
   input: ManualNewsroomEntryInput,
 ): Promise<ManualNewsroomEntryResult> {
-  const result = await persistManualNewsroomEntry(input);
-  if (result.ok) {
-    await attemptOperationalDeskAutomaticClassification({
-      newsroomArticleId: result.value.newsroomArticleId,
-      articleAction: result.value.action,
-    });
-  }
-  return result;
+  return persistManualNewsroomEntry(input);
 }

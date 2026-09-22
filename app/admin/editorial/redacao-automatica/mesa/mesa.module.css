@@ -979,7 +979,7 @@
 
 .selectionTrayHeader {
   display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(500px, 1fr);
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   min-height: 58px;
@@ -990,6 +990,7 @@
   display: grid;
   gap: 4px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .selectionSummaryHeader {
@@ -1016,6 +1017,8 @@
   font-size: 0.66rem;
   white-space: nowrap;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .selectionSummary button,
@@ -1036,7 +1039,19 @@
   font-weight: 790;
   text-decoration: none;
   white-space: nowrap;
-  background: #fff;
+  background: #edf6ef;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.selectionSummary button:not(:disabled):hover,
+.selectionActions button:not(:disabled):hover,
+.selectionPanelToggle:not(:disabled):hover,
+.selectionSummary button:not(:disabled):focus-visible,
+.selectionActions button:not(:disabled):focus-visible,
+.selectionPanelToggle:not(:disabled):focus-visible {
+  border-color: #668c70;
+  color: #183c26;
+  background: #dfefe3;
 }
 
 .selectionDetails {
@@ -1048,10 +1063,20 @@
 
 .selectionDetails summary {
   padding: 5px 7px;
+  border: 1px solid #9eb1a2;
   border-radius: 5px;
   cursor: pointer;
   font-weight: 780;
   white-space: nowrap;
+  background: #edf6ef;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.selectionDetails summary:hover,
+.selectionDetails summary:focus-visible {
+  border-color: #668c70;
+  color: #183c26;
+  background: #dfefe3;
 }
 
 .selectionDetails[open] summary {
@@ -1325,7 +1350,7 @@
   grid-column: 2;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(260px, 1.5fr) repeat(4, minmax(108px, auto));
+  grid-template-columns: minmax(180px, 1fr) repeat(4, max-content);
   align-items: center;
   gap: 5px;
   justify-items: stretch;
@@ -1333,7 +1358,33 @@
 }
 
 .selectionTray[data-source-theme-actions="true"] .selectionActions {
-  grid-template-columns: minmax(88px, auto) minmax(260px, 1.5fr) minmax(230px, auto) minmax(108px, auto);
+  grid-template-columns: max-content minmax(150px, 1fr) minmax(190px, 240px) max-content max-content;
+}
+
+.batchClassification {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.batchClassification select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 30px;
+  border: 1px solid #aabaaa;
+  border-radius: 6px;
+  padding: 4px 7px;
+  background: #fff;
+  color: #17311f;
+  font: inherit;
+}
+
+.batchClassification button {
+  flex: 0 0 auto;
 }
 
 .selectionActions label {
@@ -1363,9 +1414,16 @@
 }
 
 .selectionActionLink {
-  border-color: #bdafc6 !important;
+  border-color: #aa91b5 !important;
   color: #63436f !important;
-  background: #fbf7fd !important;
+  background: #f7f0fa !important;
+}
+
+.selectionActionLink:not(:disabled):hover,
+.selectionActionLink:not(:disabled):focus-visible {
+  border-color: #8f6d9d !important;
+  color: #51305f !important;
+  background: #eee2f4 !important;
 }
 
 .themeActionButtons {
@@ -1401,8 +1459,16 @@
 }
 
 .discardSelectionButton {
+  border-color: #c9a66b !important;
   color: #785827 !important;
-  background: #fffaf1 !important;
+  background: #fff4e2 !important;
+}
+
+.discardSelectionButton:not(:disabled):hover,
+.discardSelectionButton:not(:disabled):focus-visible {
+  border-color: #ad8040 !important;
+  color: #644312 !important;
+  background: #fce8c5 !important;
 }
 
 .prepareButton {
@@ -1413,7 +1479,9 @@
 
 .prepareButton:disabled,
 .discardSelectionButton:disabled,
-.selectionActionLink:disabled {
+.selectionActionLink:disabled,
+.selectionSummary button:disabled,
+.selectionActions button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -1470,6 +1538,17 @@
 
   .cycleNote {
     display: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .selectionTrayHeader {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .selectionSummary,
+  .selectionActions {
+    grid-column: 1;
   }
 }
 
@@ -1539,7 +1618,15 @@
     grid-template-columns: repeat(2, minmax(120px, 1fr));
   }
 
+  .selectionTray[data-source-theme-actions="true"] .selectionActions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .selectionActions label { grid-column: 1 / -1; }
+
+  .batchClassification {
+    grid-column: span 1;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1618,6 +1705,10 @@
   }
 
   .selectionTray[data-source-theme-actions="true"] .themeActionButtons {
+    grid-column: 1 / -1;
+  }
+
+  .batchClassification {
     grid-column: 1 / -1;
   }
 

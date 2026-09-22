@@ -14,7 +14,9 @@ import {
   isNewsroomArticleClassificationSource,
   isNewsroomArticleClassificationUuid,
   setManualNewsroomArticleClassificationService,
+  setManualNewsroomArticleClassificationsService,
   type NewsroomArticleClassification,
+  type NewsroomArticleClassificationBatchMutation,
   type NewsroomArticleClassificationErrorCode,
   type NewsroomArticleClassificationMutation,
   type NewsroomArticleClassificationState,
@@ -29,6 +31,7 @@ export type {
   NewsroomArticleClassificationServiceResult,
   NewsroomArticleClassificationSource,
   NewsroomArticleClassificationState,
+  SetManualNewsroomArticleClassificationsInput,
   SetNewsroomArticleClassificationInput,
 } from "@/lib/redacao-automatica/newsroom-article-classification-service-internal";
 
@@ -41,6 +44,12 @@ type ClassificationRpcRow = Readonly<{
   classified: boolean;
   applied: boolean;
   changed: boolean;
+}>;
+
+type ClassificationBatchRpcRow = Readonly<{
+  requested_count: number;
+  changed_count: number;
+  classification_key: string | null;
 }>;
 
 function classifiedState(
@@ -110,6 +119,8 @@ function classifyRpcError(
     readonly [string, NewsroomArticleClassificationErrorCode]
   > = [
     ["newsroom_article_classification_source_not_found", "source_not_found"],
+    ["newsroom_article_classification_source_outside_cycle", "outside_cycle"],
+    ["newsroom_article_classification_theme_conflict", "theme_conflict"],
     ["newsroom_article_classification_relation_invalid", "relation_invalid"],
     ["newsroom_editorial_article_classifications_key_check", "invalid_request"],
     ["newsroom_editorial_article_classifications_source_check", "invalid_request"],
@@ -141,6 +152,38 @@ async function writeClassificationRpc(
   return mutationFromRpcRow(rows[0], newsroomArticleId);
 }
 
+async function writeBatchClassificationRpc(
+  newsroomArticleIds: readonly string[],
+  classificationKey: ArticleClassificationKey | null,
+): Promise<NewsroomArticleClassificationBatchMutation> {
+  const rows = await writeSupabaseAdminReturning<ClassificationBatchRpcRow>(
+    "rpc/newsroom_set_manual_article_classifications_v2",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_newsroom_article_ids: newsroomArticleIds,
+        p_classification_key: classificationKey,
+      }),
+    },
+  );
+  const row = rows[0];
+  if (
+    !row
+    || row.requested_count !== newsroomArticleIds.length
+    || !Number.isSafeInteger(row.changed_count)
+    || row.changed_count < 0
+    || row.changed_count > row.requested_count
+    || row.classification_key !== classificationKey
+  ) {
+    throw new Error("newsroom_article_classification_relation_invalid");
+  }
+  return {
+    requestedCount: row.requested_count,
+    changedCount: row.changed_count,
+    classificationKey,
+  };
+}
+
 const transport: NewsroomArticleClassificationTransport = {
   isConfigured() {
     return Boolean(getSupabaseServiceConfig());
@@ -165,6 +208,7 @@ const transport: NewsroomArticleClassificationTransport = {
       newsroomArticleId,
     );
   },
+  setManualBatch: writeBatchClassificationRpc,
   classifyError: classifyRpcError,
 };
 
@@ -172,6 +216,8 @@ const applyAutomatic =
   applyAutomaticNewsroomArticleClassificationService(transport);
 const setManual = setManualNewsroomArticleClassificationService(transport);
 const clear = clearNewsroomArticleClassificationService(transport);
+const setManualBatch =
+  setManualNewsroomArticleClassificationsService(transport);
 
 export function applyAutomaticNewsroomArticleClassification(
   input: Parameters<typeof applyAutomatic>[0],
@@ -189,4 +235,10 @@ export function clearNewsroomArticleClassification(
   input: Parameters<typeof clear>[0],
 ) {
   return clear(input);
+}
+
+export function setManualNewsroomArticleClassifications(
+  input: Parameters<typeof setManualBatch>[0],
+) {
+  return setManualBatch(input);
 }

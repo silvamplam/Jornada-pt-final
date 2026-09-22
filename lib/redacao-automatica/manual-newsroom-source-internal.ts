@@ -356,20 +356,9 @@ export function createManualNewsroomSourcePersistence(
 
 export function createManualNewsroomSourceWorkflow(dependencies: Readonly<{
   persist(input: ManualNewsroomSourceInput): Promise<ManualNewsroomSourceResult>;
-  classify(input: Readonly<{
-    newsroomArticleId: string;
-    articleAction: "created" | "reused" | "updated";
-  }>): Promise<unknown>;
 }>) {
   return async function create(input: ManualNewsroomSourceInput) {
-    const result = await dependencies.persist(input);
-    if (result.ok && result.value.action === "created") {
-      await dependencies.classify({
-        newsroomArticleId: result.value.newsroomArticleId,
-        articleAction: "created",
-      });
-    }
-    return result;
+    return dependencies.persist(input);
   };
 }
 
