@@ -5,6 +5,7 @@ import {
   ADMIN_SESSION_COOKIE,
   verifyAdminSession,
 } from "@/lib/admin-session";
+import { articleClassificationLabel } from "@/lib/editorial-classifications";
 import {
   editorialProfile,
   type EditorialProfileZoneKey,
@@ -264,7 +265,7 @@ export async function POST(
           row.classified_at,
       },
       message:
-        `Classificação corrigida para ${targetZone.label}. A posição editorial não foi alterada.`,
+        `Classificação corrigida para ${articleClassificationLabel(classificationKey)}. A posição editorial não foi alterada.`,
     });
   } catch (error) {
     const message =

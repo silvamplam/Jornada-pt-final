@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { readAdminJsonResponse } from "@/lib/admin-json-response";
+import { articleClassificationLabel } from "@/lib/editorial-classifications";
 import type {
   MatchdayEditorialProfileDeskAutomaticItem,
   MatchdayEditorialSelectionCandidate,
@@ -397,7 +398,7 @@ export default function MatchdayContextualClassificationCorrectionPanel({
                   key={zone.key}
                   value={zone.key}
                 >
-                  {zone.label}
+                  {articleClassificationLabel(zone.key)}
                 </option>
               ))}
             </select>
@@ -412,8 +413,9 @@ export default function MatchdayContextualClassificationCorrectionPanel({
             }}
           >
             Atual:{" "}
-            {currentZone?.label
-              ?? "sem classificação"}.
+            {currentZone
+              ? articleClassificationLabel(currentZone.key)
+              : "sem classificação"}.
             A classificação é contextual e não
             altera a posição editorial.
           </p>

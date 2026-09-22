@@ -10,7 +10,12 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { isArticleClassificationKey, type ArticleClassificationKey } from "@/lib/editorial-classifications";
+import {
+  ARTICLE_CLASSIFICATIONS,
+  articleClassificationLabel,
+  isArticleClassificationKey,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
 import type { OperationalDeskSourceLifecycle } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model-internal";
 
 import {
@@ -606,13 +611,9 @@ export function MesaSelectedVersionNotice({ material }: Readonly<{ material: Mes
   </div>;
 }
 
-const classificationOptions = [
-  ["benfica", "Benfica"],
-  ["sporting", "Sporting"],
-  ["fc_porto", "FC Porto"],
-  ["other_liga_clubs", "Outros 1.ª Liga"],
-  ["outside_liga_other", "Fora da 1.ª Liga / Outros"],
-] as const;
+const classificationOptions = ARTICLE_CLASSIFICATIONS.map(
+  ({ key, label }) => [key, label] as const,
+);
 
 export function MesaClassificationBadge({
   newsroomArticleId,
@@ -633,7 +634,7 @@ export function MesaClassificationBadge({
   if (!classificationKey) {
     return <span className={styles.classificationBadge} data-tone="unclassified">Por classificar</span>;
   }
-  const label = classificationOptions.find(([value]) => value === classificationKey)?.[1] ?? classificationKey;
+  const label = articleClassificationLabel(classificationKey);
   return <span className={styles.classificationBadge} data-tone={classificationKey}>
     {label}
     <small>{changed || classificationSource === "manual" ? "Manual" : "Automática"}</small>
@@ -984,6 +985,8 @@ export function MesaSelectionTray({
           classificationKey,
         );
       }
+      removeSources(selectedSources.map((source) => source.newsroomArticleId));
+      setBatchClassificationKey("");
       setMessage(
         classificationKey === null
           ? `${selectedSources.length} fontes ficaram sem classificação.`

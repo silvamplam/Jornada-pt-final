@@ -14,6 +14,7 @@ import {
 
 import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
 import { readAdminJsonResponse } from "@/lib/admin-json-response";
+import { articleClassificationLabel } from "@/lib/editorial-classifications";
 
 import MatchdayEditorialContextSelector, {
   type MatchdayEditorialContextSelectorData,
@@ -1284,7 +1285,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             </button>
             {profile.zones.map((zone) => (
               <button className={trackingClassFilter === zone.key ? "active" : ""} key={zone.key} onClick={() => setTrackingClassFilter(zone.key)} type="button">
-                {zone.label} {trackingEntries.filter((item) => item.classifiedZoneKey === zone.key).length}
+                {articleClassificationLabel(zone.key)} {trackingEntries.filter((item) => item.classifiedZoneKey === zone.key).length}
               </button>
             ))}
           </nav>
@@ -1305,7 +1306,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 <button className={bankClassFilter === "all" ? "active" : ""} onClick={() => setBankClassFilter("all")} type="button">Todas {explicitBankEntries.length}</button>
                 {profile.zones.map((zone) => (
                   <button className={bankClassFilter === zone.key ? "active" : ""} key={zone.key} onClick={() => setBankClassFilter(zone.key)} type="button">
-                    {zone.label} {explicitBankEntries.filter((entry) => entry.classifiedZoneKey === zone.key).length}
+                    {articleClassificationLabel(zone.key)} {explicitBankEntries.filter((entry) => entry.classifiedZoneKey === zone.key).length}
                   </button>
                 ))}
               </nav>

@@ -51,6 +51,8 @@ test("o reservatório é o catálogo visual único e usa a classificação temá
   }
   assert.match(page, /readMatchdayEditorialProfileDesk/);
   assert.match(page, /naturalGroupKey/);
+  assert.match(page, /label: articleClassificationLabel\(zone\.key\)/);
+  assert.doesNotMatch(page, /label: zone\.label/);
   assert.match(client, /filterHistoricalCompositionReservoir/);
   assert.match(client, /placedBankItemIds/);
   assert.doesNotMatch(client, /Colocar em\.\.\.|Adicionar à zona…/);

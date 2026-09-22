@@ -135,6 +135,14 @@ test("7D: painel não participa no draft editorial", () => {
   );
 });
 
+test("7D: UI e mensagem usam o label canónico da classificação", () => {
+  assert.match(panel, /articleClassificationLabel\(zone\.key\)/u);
+  assert.match(panel, /articleClassificationLabel\(currentZone\.key\)/u);
+  assert.doesNotMatch(panel, /\{zone\.label\}|currentZone\?\.label/u);
+  assert.match(route, /articleClassificationLabel\(classificationKey\)/u);
+  assert.doesNotMatch(route, /targetZone\.label/u);
+});
+
 test("7D: classificação e controlos partilham apenas a quarta coluna", () => {
   assert.match(
     client,

@@ -145,6 +145,30 @@ test("UI batch usa uma chamada e só aparece para uma seleção totalmente class
   );
 });
 
+test("UI batch limpa a seleção apenas depois de classificar com sucesso", () => {
+  const client = read(
+    "app/admin/editorial/redacao-automatica/mesa/_mesa-selection-client.tsx",
+  );
+  const start = client.indexOf("async function classifySelection()");
+  const end = client.indexOf("async function prepare()", start);
+  const batch = client.slice(start, end);
+  const catchAt = batch.indexOf("} catch (error) {");
+  const success = batch.slice(0, catchAt);
+  const failure = batch.slice(catchAt);
+  const classificationAt = success.indexOf("updateClassification(");
+  const clearAt = success.indexOf("removeSources(selectedSources.map(");
+
+  assert.ok(start >= 0 && end > start && catchAt > 0);
+  assert.match(success, /!response\.ok[\s\S]*!result\?\.ok[\s\S]*throw new Error/);
+  assert.ok(classificationAt >= 0 && clearAt > classificationAt);
+  assert.equal((batch.match(/removeSources\(selectedSources\.map\(/g) ?? []).length, 1);
+  assert.doesNotMatch(failure, /removeSources\(/);
+  assert.match(
+    client,
+    /removeSources\(newsroomArticleIds\) \{[\s\S]*removeMesaMaterials/,
+  );
+});
+
 test("fixture PG17 cobre atomicidade, Temas, conflitos e reset com rollback", () => {
   const smoke = read(
     "supabase/sql/test-newsroom-manual-classification-theme-authority-pg17.sql",
