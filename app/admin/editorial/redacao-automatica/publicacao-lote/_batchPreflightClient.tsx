@@ -30,6 +30,14 @@ import {
   requestEditorialBatchPublicationPreflight,
   shouldRequestAutomaticEditorialBatchPreflight,
 } from "@/lib/redacao-automatica/editorial-batch-publication-client";
+import {
+  applyEditorialBatchHistoricalDecisions,
+  editorialBatchHistoricalChoiceIdentity,
+  editorialBatchSelectedHistoricalArticleIds,
+  pruneEditorialBatchHistoricalChoices,
+  type EditorialBatchHistoricalChoices,
+  type EditorialBatchHistoricalCompletion,
+} from "@/lib/redacao-automatica/editorial-batch-historical-decision";
 import { editorialBatchPublishedAtByOutputId } from "@/lib/redacao-automatica/editorial-batch-published-at";
 import { editorialMesaContextualImages } from "@/lib/redacao-automatica/editorial-mesa-workspace-images";
 import {
@@ -458,6 +466,9 @@ function ResultSummary({
   onImageChoice,
   onRegisteredImage,
   imageChoiceDisabled,
+  historicalChoices,
+  onHistoricalChoice,
+  historicalChoiceDisabled,
 }: Readonly<{
   preflight: EditorialBatchPreflight;
   imagePreflight: EditorialBatchImagePreflight<File>;
@@ -478,6 +489,9 @@ function ResultSummary({
   onImageChoice: (outputId: string, value: string) => void;
   onRegisteredImage: (outputId: string, image: RegisteredDossierUploadImage) => void;
   imageChoiceDisabled: boolean;
+  historicalChoices: EditorialBatchHistoricalChoices;
+  onHistoricalChoice: (identity: string, checked: boolean) => void;
+  historicalChoiceDisabled: boolean;
 }>) {
   const globalIssues = preflight.issues.filter((issue) => issue.index === undefined);
   const articleRows = articleResultRows(preflight);
@@ -635,6 +649,9 @@ function ResultSummary({
                 : contextualImages.images;
               const hasAdditionalImages = contextualImages.allImages.length
                 > contextualImages.images.length;
+              const historicalChoiceIdentity = row.article
+                ? editorialBatchHistoricalChoiceIdentity(row.article)
+                : null;
 
               return (
                 <li key={row.key} className={isValid ? styles.validArticle : styles.invalidArticle}>
@@ -648,7 +665,23 @@ function ResultSummary({
                           <p className={styles.articleSubtitle}>{row.article.subtitle}</p>
                         ) : null}
                       </div>
-                      <strong>{isValid ? "VÁLIDO" : "INVÁLIDO"}</strong>
+                      <div className={styles.articleHeadingActions}>
+                        {historicalChoiceIdentity ? (
+                          <label className={styles.historicalChoice}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(historicalChoices[historicalChoiceIdentity])}
+                              disabled={historicalChoiceDisabled}
+                              onChange={(event) => onHistoricalChoice(
+                                historicalChoiceIdentity,
+                                event.target.checked,
+                              )}
+                            />
+                            <span>Histórica</span>
+                          </label>
+                        ) : null}
+                        <strong>{isValid ? "VÁLIDO" : "INVÁLIDO"}</strong>
+                      </div>
                     </div>
                     {errors.length > 0 ? (
                       <div className={styles.articleIssues}>
@@ -1022,6 +1055,8 @@ export default function BatchPreflightClient({
   ] = useState(false);
   const [publicationError, setPublicationError] = useState<string | null>(null);
   const [publicationStates, setPublicationStates] = useState<Readonly<Record<string, BatchPublicationItemState>>>({});
+  const [historicalChoices, setHistoricalChoices] =
+    useState<EditorialBatchHistoricalChoices>({});
   const [publicationPlan, setPublicationPlan] =
     useState<readonly BatchPublicationPlanItem[] | null>(
       null,
@@ -1031,6 +1066,7 @@ export default function BatchPreflightClient({
       {},
     );
   const publicationStatesRef = useRef<Record<string, BatchPublicationItemState>>({});
+  const historicalChoicesRef = useRef<EditorialBatchHistoricalChoices>({});
   const publicationPlanRef = useRef<readonly BatchPublicationPlanItem[] | null>(null);
   const uploadedImageUrlsRef = useRef<Record<string, string>>({});
   const publishingRef = useRef(false);
@@ -1290,6 +1326,14 @@ export default function BatchPreflightClient({
   }, [selectedImages]);
 
   useEffect(() => {
+    setHistoricalChoices((current) => {
+      const next = pruneEditorialBatchHistoricalChoices(current, preflight.articles);
+      historicalChoicesRef.current = next;
+      return next;
+    });
+  }, [preflight.articles]);
+
+  useEffect(() => {
     const activeFingerprint = activePublicationFingerprintRef.current;
     if (!shouldRequestAutomaticEditorialBatchPreflight({
       ready: canPublish && !publishingRef.current,
@@ -1433,6 +1477,27 @@ export default function BatchPreflightClient({
       [key]: state,
     };
     setPublicationStates(publicationStatesRef.current);
+  }
+
+  function setHistoricalChoice(identity: string, checked: boolean) {
+    setHistoricalChoices((current) => {
+      const next = { ...current };
+      if (checked) next[identity] = true;
+      else delete next[identity];
+      historicalChoicesRef.current = next;
+      return next;
+    });
+  }
+
+  async function applyHistoricalChoices(
+    completions: readonly EditorialBatchHistoricalCompletion[],
+  ) {
+    const articleIds = editorialBatchSelectedHistoricalArticleIds({
+      articles: preflight.articles,
+      choices: historicalChoicesRef.current,
+      completions,
+    });
+    await applyEditorialBatchHistoricalDecisions({ matchdayId, articleIds });
   }
 
   function invalidatePublicationPreflightRequest() {
@@ -1681,6 +1746,20 @@ export default function BatchPreflightClient({
       throw new Error(responseDetail(result, "A publicação da continuidade não ficou consolidada."));
     }
 
+    try {
+      await applyHistoricalChoices((result.completed ?? []).map((completed) => ({
+        key: completed.key,
+        outputId: completed.outputId,
+        articleId: completed.articleId,
+        status: "published",
+      })));
+    } catch (historicalError) {
+      throw new Error(
+        `Os artigos foram publicados e o lote finalizado, mas a decisão Histórica falhou: ${
+          historicalError instanceof Error ? historicalError.message : "erro desconhecido"
+        }`,
+      );
+    }
     setBatchFinalized(true);
     setPublicationError(null);
     clearTransferredBatch();
@@ -1871,7 +1950,6 @@ export default function BatchPreflightClient({
 
           try {
             await finalizeBatchEditorialFlow();
-            setBatchFinalized(true);
           } catch (finalizationError) {
             setPublicationError(
               `Publicação interrompida no artigo ${planItem.key}: ${message}. A reconciliação final também falhou: ${
@@ -1883,6 +1961,31 @@ export default function BatchPreflightClient({
             return;
           }
 
+          try {
+            await applyHistoricalChoices(preflight.articles.map((publishedArticle) => ({
+              key: publishedArticle.key,
+              outputId: publishedArticle.outputId,
+              articleId: publicationStatesRef.current[publishedArticle.key]?.articleId,
+              status: publicationStatesRef.current[publishedArticle.key]?.status === "published_missing_latest"
+                ? "published_missing_latest"
+                : publicationStatesRef.current[publishedArticle.key]?.status === "published_missing_usage"
+                  ? "published_missing_usage"
+                  : publicationStatesRef.current[publishedArticle.key]?.status === "published"
+                    ? "published"
+                    : publicationStatesRef.current[publishedArticle.key]?.status === "not_attempted"
+                      ? "not_attempted"
+                      : "error",
+            })));
+          } catch (historicalError) {
+            setPublicationError(
+              `Publicação interrompida no artigo ${planItem.key}: ${message}. Os artigos publicados foram preservados, mas a decisão Histórica falhou: ${
+                historicalError instanceof Error ? historicalError.message : "erro desconhecido"
+              }`,
+            );
+            return;
+          }
+
+          setBatchFinalized(true);
           setPublicationError(
             `Publicação interrompida no artigo ${planItem.key}: ${message}`,
           );
@@ -1891,6 +1994,22 @@ export default function BatchPreflightClient({
       }
 
       await finalizeBatchEditorialFlow();
+      try {
+        await applyHistoricalChoices(preflight.articles.map((publishedArticle) => ({
+          key: publishedArticle.key,
+          outputId: publishedArticle.outputId,
+          articleId: publicationStatesRef.current[publishedArticle.key]?.articleId,
+          status: publicationStatesRef.current[publishedArticle.key]?.status === "published"
+            ? "published"
+            : "error",
+        })));
+      } catch (historicalError) {
+        throw new Error(
+          `Os artigos foram publicados e reconciliados, mas a decisão Histórica falhou: ${
+            historicalError instanceof Error ? historicalError.message : "erro desconhecido"
+          }`,
+        );
+      }
       setBatchFinalized(true);
       setPublicationError(null);
       clearTransferredBatch();
@@ -2263,6 +2382,9 @@ export default function BatchPreflightClient({
           onImageChoice={handleDossierImageChoice}
           onRegisteredImage={handleRegisteredDossierImage}
           imageChoiceDisabled={isPublishing}
+          historicalChoices={historicalChoices}
+          onHistoricalChoice={setHistoricalChoice}
+          historicalChoiceDisabled={isPublishing}
         />
       ) : null}
 

@@ -35,7 +35,10 @@ function element(tree:Tree):ReactNode {
 window.__flowRequests=[];window.__navigations=[];
 window.fetch=async(input,init)=>{
   const url=String(input),method=init?.method??'GET';
-  const result=await window.__http({url,method,body:init?.body?String(init.body):null}) as {status:number;body:unknown;text?:string;transportFailure?:boolean};
+  const requestBody=init?.body instanceof FormData
+    ? JSON.stringify({format:'form',entries:[...init.body.entries()]})
+    : init?.body?String(init.body):null;
+  const result=await window.__http({url,method,body:requestBody}) as {status:number;body:unknown;text?:string;transportFailure?:boolean};
   window.__flowRequests.push({url,method,status:result.status});
   if(result.transportFailure)throw new TypeError('Resposta perdida — ensaio');
   return new Response(result.text??JSON.stringify(result.body),{status:result.status,headers:{'Content-Type':result.text===undefined?'application/json':'text/plain'}});
