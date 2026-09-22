@@ -51,6 +51,15 @@ as $function$
         as row_value
       where row_value.target_matchday_id = p_target_matchday_id
     ), '[]'::jsonb),
+    'target_zone_identities', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.target_zone_id
+      )
+      from jornada_private
+        .matchday_live_layout_physical_target_zone_identities as row_value
+      where row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
     'carryover', coalesce((
       select pg_catalog.jsonb_agg(
         pg_catalog.to_jsonb(row_value)
@@ -126,6 +135,39 @@ as $function$
       from public.matchday_live_layout_placements as row_value
       where row_value.matchday_id = p_target_matchday_id
     ), '[]'::jsonb),
+    'overrides', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.id
+      )
+      from public.matchday_editorial_profile_manual_overrides as row_value
+      where row_value.matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'displaced_memory', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.bank_item_id
+      )
+      from public.matchday_live_layout_bank_item_state_memory as row_value
+      where row_value.matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'latest_companion', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.matchday_id
+      )
+      from public.matchday_live_layout_latest_companion as row_value
+      where row_value.matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'archive_certificate', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value)
+        order by row_value.id
+      )
+      from jornada_private
+        .matchday_historical_physical_archive_certificates_v20 as row_value
+      where row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
     'latest', coalesce((
       select pg_catalog.jsonb_agg(
         pg_catalog.to_jsonb(row_value)
@@ -150,6 +192,244 @@ language plpgsql
 as $function$
 begin
   raise exception 'v19-injected-failure';
+end;
+$function$;
+
+create function pg_temp.physical_transition_history_v20(
+  p_source_matchday_id uuid,
+  p_target_matchday_id uuid
+)
+returns jsonb
+language sql
+stable
+as $function$
+  select pg_catalog.jsonb_build_object(
+    'topology', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value) order by row_value.id
+      )
+      from jornada_private
+        .matchday_live_layout_physical_topology_transitions as row_value
+      where row_value.source_matchday_id = p_source_matchday_id
+        and row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'zone_maps', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value) order by row_value.source_zone_id
+      )
+      from jornada_private.matchday_live_layout_physical_zone_maps as row_value
+      where row_value.source_matchday_id = p_source_matchday_id
+        and row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'target_identities', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value) order by row_value.target_zone_id
+      )
+      from jornada_private
+        .matchday_live_layout_physical_target_zone_identities as row_value
+      where row_value.source_matchday_id = p_source_matchday_id
+        and row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'carryover', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value) order by row_value.id
+      )
+      from jornada_private.matchday_live_layout_physical_carryovers as row_value
+      where row_value.source_matchday_id = p_source_matchday_id
+        and row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'handoff', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value) order by row_value.id
+      )
+      from jornada_private.matchday_live_layout_physical_handoffs as row_value
+      where row_value.source_matchday_id = p_source_matchday_id
+        and row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb),
+    'certificate', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.to_jsonb(row_value) order by row_value.id
+      )
+      from jornada_private
+        .matchday_historical_physical_archive_certificates_v20 as row_value
+      where row_value.source_matchday_id = p_source_matchday_id
+        and row_value.target_matchday_id = p_target_matchday_id
+    ), '[]'::jsonb)
+  );
+$function$;
+
+create function pg_temp.apply_target_without_zone_v29(
+  p_matchday_id uuid,
+  p_zone_id uuid,
+  p_latest_companion_zone_id uuid default null
+)
+returns void
+language plpgsql
+as $function$
+declare
+  v_zones jsonb;
+  v_blocks jsonb;
+  v_placements jsonb;
+  v_explicit jsonb;
+  v_displaced jsonb;
+  v_worked jsonb;
+  v_displaced_arrivals jsonb;
+  v_state_token text;
+  v_faixa_slot_count integer;
+  v_presentation jsonb;
+begin
+  select coalesce(pg_catalog.jsonb_agg(
+    pg_catalog.jsonb_build_object(
+      'id', zone_row.id,
+      'public_title', zone_row.public_title,
+      'visual_family', zone_row.visual_family
+    ) order by zone_row.id
+  ), '[]'::jsonb)
+  into v_zones
+  from public.matchday_live_layout_zones as zone_row
+  where zone_row.matchday_id = p_matchday_id
+    and zone_row.id <> p_zone_id;
+
+  select coalesce(pg_catalog.jsonb_agg(
+    pg_catalog.jsonb_build_object(
+      'id', block_row.id,
+      'block_type', block_row.block_type,
+      'zone_id', block_row.zone_id,
+      'sort_order', block_row.final_sort_order
+    ) order by block_row.final_sort_order
+  ), '[]'::jsonb)
+  into v_blocks
+  from (
+    select
+      current_block.id,
+      current_block.block_type,
+      current_block.zone_id,
+      pg_catalog.row_number() over (
+        order by current_block.sort_order, current_block.id
+      )::integer as final_sort_order
+    from public.matchday_live_layout_blocks as current_block
+    where current_block.matchday_id = p_matchday_id
+      and current_block.zone_id is distinct from p_zone_id
+  ) as block_row;
+
+  select coalesce(pg_catalog.jsonb_agg(
+    pg_catalog.jsonb_build_object(
+      'bank_item_id', placement_row.bank_item_id,
+      'placement_type', placement_row.placement_type,
+      'zone_id', placement_row.zone_id,
+      'slot_position', placement_row.slot_position
+    ) order by
+      placement_row.placement_type,
+      placement_row.zone_id nulls first,
+      placement_row.slot_position,
+      placement_row.bank_item_id
+  ), '[]'::jsonb)
+  into v_placements
+  from public.matchday_live_layout_placements as placement_row
+  where placement_row.matchday_id = p_matchday_id
+    and placement_row.zone_id is distinct from p_zone_id;
+
+  select coalesce(pg_catalog.jsonb_agg(
+    bank_row.id order by bank_row.id
+  ), '[]'::jsonb)
+  into v_explicit
+  from public.matchday_editorial_profile_manual_overrides as override_row
+  join public.matchday_editorial_bank_items as bank_row
+    on bank_row.matchday_id = override_row.matchday_id
+   and pg_catalog.lower(pg_catalog.btrim(bank_row.source_type)) =
+       pg_catalog.lower(pg_catalog.btrim(override_row.source_type))
+   and pg_catalog.lower(pg_catalog.btrim(bank_row.source_id)) =
+       pg_catalog.lower(pg_catalog.btrim(override_row.source_id))
+  where override_row.matchday_id = p_matchday_id
+    and override_row.placement_target = 'bank';
+
+  select coalesce(pg_catalog.jsonb_agg(
+    state_row.bank_item_id order by state_row.bank_item_id
+  ), '[]'::jsonb)
+  into v_displaced
+  from (
+    select memory_row.bank_item_id
+    from public.matchday_live_layout_bank_item_state_memory as memory_row
+    where memory_row.matchday_id = p_matchday_id
+      and memory_row.memory_kind = 'displaced'
+    union
+    select placement_row.bank_item_id
+    from public.matchday_live_layout_placements as placement_row
+    where placement_row.matchday_id = p_matchday_id
+      and placement_row.placement_type = 'zone'
+      and placement_row.zone_id = p_zone_id
+  ) as state_row;
+
+  select coalesce(pg_catalog.jsonb_agg(
+    bank_row.id order by bank_row.id
+  ), '[]'::jsonb)
+  into v_worked
+  from public.matchday_editorial_bank_items as bank_row
+  where bank_row.matchday_id = p_matchday_id
+    and bank_row.editorially_worked_at is not null;
+
+  select coalesce(pg_catalog.jsonb_agg(
+    placement_row.bank_item_id order by placement_row.bank_item_id
+  ), '[]'::jsonb)
+  into v_displaced_arrivals
+  from public.matchday_live_layout_placements as placement_row
+  where placement_row.matchday_id = p_matchday_id
+    and placement_row.placement_type = 'zone'
+    and placement_row.zone_id = p_zone_id
+    and not exists (
+      select 1
+      from public.matchday_live_layout_bank_item_state_memory as memory_row
+      where memory_row.matchday_id = placement_row.matchday_id
+        and memory_row.bank_item_id = placement_row.bank_item_id
+        and memory_row.memory_kind = 'displaced'
+    );
+
+  select
+    jornada_private.matchday_live_layout_workspace_token_v22(
+      p_matchday_id,
+      settings_row.profile_key
+    ),
+    settings_row.faixa_slot_count,
+    pg_catalog.jsonb_build_object(
+      'headline_title_color', settings_row.headline_title_color,
+      'latest_zone_placement', case
+        when p_latest_companion_zone_id is null then 'top'
+        else 'four_news'
+      end,
+      'latest_zone_title', settings_row.latest_zone_title,
+      'video_module_active', settings_row.video_module_active
+    )
+  into v_state_token, v_faixa_slot_count, v_presentation
+  from (
+    select
+      workspace_row.faixa_slot_count,
+      workspace_row.headline_title_color,
+      workspace_row.latest_zone_title,
+      workspace_row.video_module_active,
+      assignment_row.profile_key
+    from public.matchday_live_layout_workspace_settings as workspace_row
+    join public.matchday_editorial_profile_assignments as assignment_row
+      on assignment_row.matchday_id = workspace_row.matchday_id
+    where workspace_row.matchday_id = p_matchday_id
+  ) as settings_row;
+
+  perform 1
+  from public.apply_matchday_live_layout_physical_v29(
+    p_matchday_id,
+    'liga_portugal_v1',
+    v_state_token,
+    p_latest_companion_zone_id,
+    v_zones,
+    v_blocks,
+    v_placements,
+    v_faixa_slot_count,
+    v_explicit,
+    v_displaced,
+    v_worked,
+    '[]'::jsonb,
+    v_displaced_arrivals,
+    v_presentation
+  );
 end;
 $function$;
 
@@ -2255,6 +2535,778 @@ select pg_temp.assert_true(
 
 insert into handoff_v19_results values
   (5, 'physical recovery states converge on v19', 'PASS');
+
+
+-- ============================================================
+-- F. TARGET ZONE DELETION PRESERVES PERSISTENT CONTINUITY
+-- ============================================================
+
+-- Exercise the real public v29 -> v22 -> v20 -> core route. Source zone six
+-- has a carried article, while a separate four-news companion proves that an
+-- unrelated Latest endpoint is not changed by the Apply.
+create temp table populated_target_zone as
+select
+  map_row.topology_transition_id,
+  map_row.source_zone_id,
+  map_row.target_zone_id
+from jornada_private.matchday_live_layout_physical_zone_maps as map_row
+join public.matchday_live_layout_zones as zone_row
+  on zone_row.matchday_id = map_row.target_matchday_id
+ and zone_row.id = map_row.target_zone_id
+where map_row.source_matchday_id =
+      '9d000000-0000-4000-8000-000000000001'
+  and map_row.target_matchday_id =
+      '9d000000-0000-4000-8000-000000000002'
+  and map_row.source_zone_id =
+      '9d000000-0000-4000-8000-000000000061'
+order by map_row.target_zone_id
+limit 1;
+
+select pg_temp.assert_true(
+  (select pg_catalog.count(*) = 1 from populated_target_zone),
+  'target deletion fixture has no populated mapped zone'
+);
+
+select pg_temp.assert_true(
+  exists (
+    select 1
+    from public.matchday_live_layout_placements as placement_row
+    join populated_target_zone as target_row
+      on target_row.target_zone_id = placement_row.zone_id
+    where placement_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+      and placement_row.placement_type = 'zone'
+  ),
+  'target deletion fixture could not place an article in the mapped zone'
+);
+
+create temp table retained_companion_zone as
+select zone_row.id as zone_id
+from public.matchday_live_layout_zones as zone_row
+where zone_row.matchday_id =
+      '9d000000-0000-4000-8000-000000000002'
+  and zone_row.visual_family = 'four_news'
+order by zone_row.id
+limit 1;
+
+select pg_temp.assert_true(
+  (select pg_catalog.count(*) = 1 from retained_companion_zone),
+  'target deletion fixture has no four-news companion zone'
+);
+
+insert into public.matchday_live_layout_latest_companion (
+  matchday_id,
+  zone_id
+)
+select
+  '9d000000-0000-4000-8000-000000000002'::uuid,
+  companion_row.zone_id
+from retained_companion_zone as companion_row
+on conflict (matchday_id)
+do update
+set zone_id = excluded.zone_id,
+    updated_at = pg_catalog.statement_timestamp();
+
+create temp table populated_delete_before as
+select
+  pg_temp.physical_transition_history_v20(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000002'
+  ) as history,
+  jornada_private.matchday_historical_physical_archive_hash_v20(
+    '9d000000-0000-4000-8000-000000000001'
+  ) as source_physical_hash,
+  (
+    select pg_catalog.to_jsonb(companion_row)
+    from public.matchday_live_layout_latest_companion as companion_row
+    where companion_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) as companion,
+  (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.to_jsonb(bank_row) order by bank_row.id
+    )
+    from public.matchday_editorial_bank_items as bank_row
+    join public.matchday_live_layout_placements as placement_row
+      on placement_row.matchday_id = bank_row.matchday_id
+     and placement_row.bank_item_id = bank_row.id
+    join populated_target_zone as target_row
+      on target_row.target_zone_id = placement_row.zone_id
+    where bank_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) as removed_bank_items,
+  (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.jsonb_build_object(
+        'id', zone_row.id,
+        'public_title', zone_row.public_title,
+        'visual_family', zone_row.visual_family
+      ) order by zone_row.id
+    )
+    from public.matchday_live_layout_zones as zone_row
+    cross join populated_target_zone as target_row
+    where zone_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+      and zone_row.id <> target_row.target_zone_id
+  ) as remaining_zones,
+  (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.jsonb_build_object(
+        'id', expected_row.id,
+        'block_type', expected_row.block_type,
+        'zone_id', expected_row.zone_id,
+        'sort_order', expected_row.sort_order
+      ) order by expected_row.sort_order
+    )
+    from (
+      select
+        block_row.id,
+        block_row.block_type,
+        block_row.zone_id,
+        pg_catalog.row_number() over (
+          order by block_row.sort_order, block_row.id
+        )::integer as sort_order
+      from public.matchday_live_layout_blocks as block_row
+      cross join populated_target_zone as target_row
+      where block_row.matchday_id =
+            '9d000000-0000-4000-8000-000000000002'
+        and block_row.zone_id is distinct from target_row.target_zone_id
+    ) as expected_row
+  ) as remaining_blocks,
+  (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.jsonb_build_object(
+        'bank_item_id', placement_row.bank_item_id,
+        'placement_type', placement_row.placement_type,
+        'zone_id', placement_row.zone_id,
+        'slot_position', placement_row.slot_position
+      ) order by placement_row.bank_item_id
+    )
+    from public.matchday_live_layout_placements as placement_row
+    cross join populated_target_zone as target_row
+    where placement_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+      and placement_row.zone_id is distinct from target_row.target_zone_id
+  ) as remaining_placements;
+
+create temp table populated_removed_bank_ids as
+select placement_row.bank_item_id
+from public.matchday_live_layout_placements as placement_row
+join populated_target_zone as target_row
+  on target_row.target_zone_id = placement_row.zone_id
+where placement_row.matchday_id =
+      '9d000000-0000-4000-8000-000000000002';
+
+select pg_temp.apply_target_without_zone_v29(
+  '9d000000-0000-4000-8000-000000000002',
+  (select target_zone_id from populated_target_zone),
+  (select zone_id from retained_companion_zone)
+);
+
+select pg_temp.assert_true(
+  not exists (
+    select 1
+    from public.matchday_live_layout_zones as zone_row
+    join populated_target_zone as target_row
+      on target_row.target_zone_id = zone_row.id
+    where zone_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  )
+  and not exists (
+    select 1
+    from public.matchday_live_layout_blocks as block_row
+    join populated_target_zone as target_row
+      on target_row.target_zone_id = block_row.zone_id
+    where block_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  )
+  and (
+    select pg_catalog.to_jsonb(companion_row)
+    from public.matchday_live_layout_latest_companion as companion_row
+    where companion_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) = (select companion from populated_delete_before),
+  'populated target zone/block survived or unrelated companion changed'
+);
+
+select pg_temp.assert_true(
+  (select pg_catalog.count(*) > 0 from populated_removed_bank_ids)
+  and not exists (
+    select 1
+    from populated_removed_bank_ids as removed_row
+    where not exists (
+      select 1
+      from public.matchday_editorial_bank_items as bank_row
+      where bank_row.matchday_id =
+            '9d000000-0000-4000-8000-000000000002'
+        and bank_row.id = removed_row.bank_item_id
+    )
+  )
+  and not exists (
+    select 1
+    from public.matchday_live_layout_placements as placement_row
+    join populated_removed_bank_ids as removed_row
+      on removed_row.bank_item_id = placement_row.bank_item_id
+    where placement_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  )
+  and not exists (
+    select 1
+    from populated_removed_bank_ids as removed_row
+    where not exists (
+      select 1
+      from public.matchday_live_layout_bank_item_state_memory as memory_row
+      where memory_row.matchday_id =
+            '9d000000-0000-4000-8000-000000000002'
+        and memory_row.bank_item_id = removed_row.bank_item_id
+        and memory_row.memory_kind = 'displaced'
+    )
+  )
+  and (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.to_jsonb(bank_row) order by bank_row.id
+    )
+    from public.matchday_editorial_bank_items as bank_row
+    join populated_removed_bank_ids as removed_row
+      on removed_row.bank_item_id = bank_row.id
+    where bank_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) = (select removed_bank_items from populated_delete_before),
+  'removed-zone articles did not retain identity in Desalojadas'
+);
+
+select pg_temp.assert_true(
+  pg_temp.physical_transition_history_v20(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000002'
+  ) = (select history from populated_delete_before)
+  and jornada_private.matchday_historical_physical_archive_hash_v20(
+        '9d000000-0000-4000-8000-000000000001'
+      ) = (select source_physical_hash from populated_delete_before)
+  and (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.jsonb_build_object(
+        'id', zone_row.id,
+        'public_title', zone_row.public_title,
+        'visual_family', zone_row.visual_family
+      ) order by zone_row.id
+    )
+    from public.matchday_live_layout_zones as zone_row
+    where zone_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) = (select remaining_zones from populated_delete_before)
+  and (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.jsonb_build_object(
+        'id', block_row.id,
+        'block_type', block_row.block_type,
+        'zone_id', block_row.zone_id,
+        'sort_order', block_row.sort_order
+      ) order by block_row.sort_order
+    )
+    from public.matchday_live_layout_blocks as block_row
+    where block_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) = (select remaining_blocks from populated_delete_before)
+  and (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.jsonb_build_object(
+        'bank_item_id', placement_row.bank_item_id,
+        'placement_type', placement_row.placement_type,
+        'zone_id', placement_row.zone_id,
+        'slot_position', placement_row.slot_position
+      ) order by placement_row.bank_item_id
+    )
+    from public.matchday_live_layout_placements as placement_row
+    where placement_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) = (select remaining_placements from populated_delete_before),
+  'zone deletion rewrote history or changed remaining physical identity/order'
+);
+
+select jornada_private
+  .assert_matchday_live_layout_historical_physical_archive_v20(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000002',
+    '9d000000-0000-4000-8000-000000000701'
+  );
+
+insert into handoff_v19_results values
+  (11, 'populated mapped target deletion preserves history', 'PASS');
+
+
+-- An empty mapped zone is used first for a failure injected after its DELETE.
+-- The PL/pgSQL exception subtransaction must restore every live and historical
+-- component, including Latest, identities and the v22 state token.
+create temp table empty_target_zone as
+select
+  map_row.topology_transition_id,
+  map_row.source_zone_id,
+  map_row.target_zone_id
+from jornada_private.matchday_live_layout_physical_zone_maps as map_row
+join public.matchday_live_layout_zones as zone_row
+  on zone_row.matchday_id = map_row.target_matchday_id
+ and zone_row.id = map_row.target_zone_id
+where map_row.source_matchday_id =
+      '9d000000-0000-4000-8000-000000000001'
+  and map_row.target_matchday_id =
+      '9d000000-0000-4000-8000-000000000002'
+  and zone_row.visual_family <> 'four_news'
+  and not exists (
+    select 1
+    from public.matchday_live_layout_placements as placement_row
+    where placement_row.matchday_id = map_row.target_matchday_id
+      and placement_row.zone_id = map_row.target_zone_id
+  )
+order by map_row.target_zone_id
+limit 1;
+
+select pg_temp.assert_true(
+  (select pg_catalog.count(*) = 1 from empty_target_zone),
+  'target deletion fixture has no empty mapped non-companion zone'
+);
+
+create temp table empty_delete_rollback_before as
+select pg_temp.target_live_state_v19(
+  '9d000000-0000-4000-8000-000000000002',
+  'liga_portugal_v1'
+) as target_state;
+
+create function pg_temp.inject_target_zone_delete_failure()
+returns trigger
+language plpgsql
+as $function$
+begin
+  if old.id = (select target_zone_id from empty_target_zone) then
+    raise exception 'zone-target-identity-injected-after-delete-failure';
+  end if;
+  return old;
+end;
+$function$;
+
+create trigger inject_target_zone_delete_failure
+after delete on public.matchday_live_layout_zones
+for each row execute function pg_temp.inject_target_zone_delete_failure();
+
+do $test$
+begin
+  begin
+    perform pg_temp.apply_target_without_zone_v29(
+      '9d000000-0000-4000-8000-000000000002',
+      (select target_zone_id from empty_target_zone),
+      null
+    );
+    raise exception 'assertion-failed: injected target-zone Apply succeeded';
+  exception when others then
+    if sqlerrm <> 'zone-target-identity-injected-after-delete-failure' then
+      raise;
+    end if;
+  end;
+end;
+$test$;
+
+drop trigger inject_target_zone_delete_failure
+on public.matchday_live_layout_zones;
+
+select pg_temp.assert_true(
+  pg_temp.target_live_state_v19(
+    '9d000000-0000-4000-8000-000000000002',
+    'liga_portugal_v1'
+  ) = (select target_state from empty_delete_rollback_before),
+  'failure after target-zone DELETE did not roll back the full Apply'
+);
+
+insert into handoff_v19_results values
+  (12, 'target deletion failure rolls back all physical state', 'PASS');
+
+
+-- Keep the existing four-news companion while removing the empty zone. The
+-- unchanged relation must retain its UUID and timestamps.
+create temp table empty_delete_before as
+select
+  pg_temp.physical_transition_history_v20(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000002'
+  ) as history,
+  (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.to_jsonb(bank_row) order by bank_row.id
+    )
+    from public.matchday_editorial_bank_items as bank_row
+    where bank_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) as bank_items,
+  (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.to_jsonb(placement_row)
+      order by placement_row.bank_item_id
+    )
+    from public.matchday_live_layout_placements as placement_row
+    where placement_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) as placements,
+  (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.to_jsonb(memory_row) order by memory_row.bank_item_id
+    )
+    from public.matchday_live_layout_bank_item_state_memory as memory_row
+    where memory_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) as memory,
+  (
+    select pg_catalog.to_jsonb(companion_row)
+    from public.matchday_live_layout_latest_companion as companion_row
+    where companion_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) as companion;
+
+select pg_temp.apply_target_without_zone_v29(
+  '9d000000-0000-4000-8000-000000000002',
+  (select target_zone_id from empty_target_zone),
+  (select zone_id from retained_companion_zone)
+);
+
+select pg_temp.assert_true(
+  not exists (
+    select 1
+    from public.matchday_live_layout_zones as zone_row
+    join empty_target_zone as target_row
+      on target_row.target_zone_id = zone_row.id
+    where zone_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  )
+  and pg_temp.physical_transition_history_v20(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000002'
+  ) = (select history from empty_delete_before)
+  and (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.to_jsonb(bank_row) order by bank_row.id
+    )
+    from public.matchday_editorial_bank_items as bank_row
+    where bank_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) = (select bank_items from empty_delete_before)
+  and (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.to_jsonb(placement_row)
+      order by placement_row.bank_item_id
+    )
+    from public.matchday_live_layout_placements as placement_row
+    where placement_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) = (select placements from empty_delete_before)
+  and (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.to_jsonb(memory_row) order by memory_row.bank_item_id
+    )
+    from public.matchday_live_layout_bank_item_state_memory as memory_row
+    where memory_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) is not distinct from (select memory from empty_delete_before)
+  and (
+    select pg_catalog.to_jsonb(companion_row)
+    from public.matchday_live_layout_latest_companion as companion_row
+    where companion_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) = (select companion from empty_delete_before),
+  'empty mapped zone deletion changed content, history or retained companion'
+);
+
+insert into handoff_v19_results values
+  (13, 'empty mapped target deletion has no side effects', 'PASS');
+
+
+-- Removing the current companion is the inverse v22 contract: the relation
+-- is cleared before the core deletes its host, while the incoming transition
+-- remains immutable. If the host has content, it follows the same displaced
+-- contract as any other deleted zone.
+create temp table companion_delete_before as
+select
+  pg_temp.physical_transition_history_v20(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000002'
+  ) as history,
+  (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.to_jsonb(bank_row) order by bank_row.id
+    )
+    from public.matchday_editorial_bank_items as bank_row
+    where bank_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) as bank_items;
+
+create temp table companion_removed_bank_ids as
+select placement_row.bank_item_id
+from public.matchday_live_layout_placements as placement_row
+join retained_companion_zone as companion_row
+  on companion_row.zone_id = placement_row.zone_id
+where placement_row.matchday_id =
+      '9d000000-0000-4000-8000-000000000002';
+
+select pg_temp.apply_target_without_zone_v29(
+  '9d000000-0000-4000-8000-000000000002',
+  (select zone_id from retained_companion_zone),
+  null
+);
+
+select pg_temp.assert_true(
+  not exists (
+    select 1
+    from public.matchday_live_layout_zones as zone_row
+    join retained_companion_zone as companion_row
+      on companion_row.zone_id = zone_row.id
+    where zone_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  )
+  and not exists (
+    select 1
+    from public.matchday_live_layout_latest_companion as companion_row
+    where companion_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  )
+  and pg_temp.physical_transition_history_v20(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000002'
+  ) = (select history from companion_delete_before)
+  and (
+    select pg_catalog.jsonb_agg(
+      pg_catalog.to_jsonb(bank_row) order by bank_row.id
+    )
+    from public.matchday_editorial_bank_items as bank_row
+    where bank_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  ) = (select bank_items from companion_delete_before)
+  and not exists (
+    select 1
+    from public.matchday_live_layout_placements as placement_row
+    join companion_removed_bank_ids as removed_row
+      on removed_row.bank_item_id = placement_row.bank_item_id
+    where placement_row.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+  )
+  and not exists (
+    select 1
+    from companion_removed_bank_ids as removed_row
+    where not exists (
+      select 1
+      from public.matchday_live_layout_bank_item_state_memory as memory_row
+      where memory_row.matchday_id =
+            '9d000000-0000-4000-8000-000000000002'
+        and memory_row.bank_item_id = removed_row.bank_item_id
+        and memory_row.memory_kind = 'displaced'
+    )
+  ),
+  'removed Latest companion host changed content or incoming history'
+);
+
+insert into handoff_v19_results values
+  (14, 'removed companion is cleared before target deletion', 'PASS');
+
+
+-- A later J06 -> J07 topology must materialize only the zones still alive.
+-- The persistent J05 -> J06 evidence must remain byte-for-byte unchanged.
+create temp table incoming_history_before_future as
+select pg_temp.physical_transition_history_v20(
+  '9d000000-0000-4000-8000-000000000001',
+  '9d000000-0000-4000-8000-000000000002'
+) as history;
+
+insert into public.matchdays (id, season_id, number, label)
+values (
+  '9d000000-0000-4000-8000-000000000013',
+  '9d000000-0000-4000-8000-000000000030',
+  3,
+  'v19 post-delete future target'
+);
+
+create temp table future_topology_result as
+select *
+from jornada_private.materialize_matchday_live_layout_physical_topology_v17(
+  '9d000000-0000-4000-8000-000000000002',
+  '9d000000-0000-4000-8000-000000000013'
+);
+
+select pg_temp.assert_true(
+  pg_temp.physical_transition_history_v20(
+    '9d000000-0000-4000-8000-000000000001',
+    '9d000000-0000-4000-8000-000000000002'
+  ) = (select history from incoming_history_before_future)
+  and not exists (
+    select 1
+    from public.matchday_live_layout_zones as source_zone
+    where source_zone.matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+      and not exists (
+        select 1
+        from jornada_private.matchday_live_layout_physical_zone_maps as map_row
+        where map_row.source_matchday_id = source_zone.matchday_id
+          and map_row.target_matchday_id =
+              '9d000000-0000-4000-8000-000000000013'
+          and map_row.source_zone_id = source_zone.id
+      )
+  )
+  and not exists (
+    select 1
+    from jornada_private.matchday_live_layout_physical_zone_maps as map_row
+    where map_row.source_matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+      and map_row.target_matchday_id =
+          '9d000000-0000-4000-8000-000000000013'
+      and not exists (
+        select 1
+        from public.matchday_live_layout_zones as source_zone
+        where source_zone.matchday_id = map_row.source_matchday_id
+          and source_zone.id = map_row.source_zone_id
+      )
+  )
+  and not exists (
+    select 1
+    from jornada_private.matchday_live_layout_physical_zone_maps as map_row
+    where map_row.source_matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+      and map_row.target_matchday_id =
+          '9d000000-0000-4000-8000-000000000013'
+      and map_row.source_zone_id in (
+        (select target_zone_id from populated_target_zone),
+        (select target_zone_id from empty_target_zone),
+        (select zone_id from retained_companion_zone)
+      )
+  )
+  and not exists (
+    select 1
+    from public.matchday_live_layout_zones as target_zone
+    where target_zone.matchday_id =
+          '9d000000-0000-4000-8000-000000000013'
+      and not exists (
+        select 1
+        from jornada_private.matchday_live_layout_physical_zone_maps as map_row
+        where map_row.source_matchday_id =
+              '9d000000-0000-4000-8000-000000000002'
+          and map_row.target_matchday_id = target_zone.matchday_id
+          and map_row.target_zone_id = target_zone.id
+      )
+  )
+  and not exists (
+    select 1
+    from jornada_private.matchday_live_layout_physical_zone_maps as map_row
+    left join jornada_private
+      .matchday_live_layout_physical_target_zone_identities as identity_row
+      on identity_row.topology_transition_id = map_row.topology_transition_id
+     and identity_row.source_matchday_id = map_row.source_matchday_id
+     and identity_row.target_matchday_id = map_row.target_matchday_id
+     and identity_row.target_zone_id = map_row.target_zone_id
+    where map_row.source_matchday_id =
+          '9d000000-0000-4000-8000-000000000002'
+      and map_row.target_matchday_id =
+          '9d000000-0000-4000-8000-000000000013'
+      and identity_row.target_zone_id is null
+  ),
+  'future topology included a deleted zone or lacked target identities'
+);
+
+insert into handoff_v19_results values
+  (15, 'future topology materializes only surviving zones', 'PASS');
+
+
+-- Once J06 is itself a source, deleting one of its mapped source zones must
+-- fail with the domain error before the core implementation performs DML.
+create temp table outgoing_locked_zone as
+select map_row.source_zone_id as zone_id
+from jornada_private.matchday_live_layout_physical_zone_maps as map_row
+where map_row.source_matchday_id =
+      '9d000000-0000-4000-8000-000000000002'
+  and map_row.target_matchday_id =
+      '9d000000-0000-4000-8000-000000000013'
+order by map_row.source_zone_id
+limit 1;
+
+create temp table source_lock_before as
+select
+  pg_temp.target_live_state_v19(
+    '9d000000-0000-4000-8000-000000000002',
+    'liga_portugal_v1'
+  ) as source_state,
+  pg_temp.target_live_state_v19(
+    '9d000000-0000-4000-8000-000000000013',
+    'liga_portugal_v1'
+  ) as target_state;
+
+do $test$
+declare
+  v_zones jsonb;
+  v_token text;
+  v_error text;
+begin
+  select coalesce(pg_catalog.jsonb_agg(
+    pg_catalog.jsonb_build_object(
+      'id', zone_row.id,
+      'public_title', zone_row.public_title,
+      'visual_family', zone_row.visual_family
+    ) order by zone_row.id
+  ), '[]'::jsonb)
+  into v_zones
+  from public.matchday_live_layout_zones as zone_row
+  where zone_row.matchday_id =
+        '9d000000-0000-4000-8000-000000000002'
+    and zone_row.id <> (select zone_id from outgoing_locked_zone);
+
+  select token_row.state_token
+  into v_token
+  from public.matchday_editorial_profile_workspace_token_v13(
+    '9d000000-0000-4000-8000-000000000002',
+    'liga_portugal_v1'
+  ) as token_row;
+
+  begin
+    perform 1
+    from jornada_private
+      .apply_matchday_live_layout_physical_workspace_v20_core(
+        '9d000000-0000-4000-8000-000000000002',
+        'liga_portugal_v1',
+        v_token,
+        v_zones,
+        '[]'::jsonb,
+        '[]'::jsonb,
+        0,
+        '[]'::jsonb,
+        '[]'::jsonb,
+        '[]'::jsonb,
+        '[]'::jsonb,
+        '[]'::jsonb,
+        pg_catalog.jsonb_build_object(
+          'headline_title_color', null,
+          'latest_zone_placement', 'top',
+          'latest_zone_title', 'guard proof',
+          'video_module_active', true
+        )
+      );
+    raise exception 'assertion-failed: outgoing source zone deletion succeeded';
+  exception when others then
+    v_error := sqlerrm;
+    if v_error <>
+       'matchday-live-layout-physical-v20-zone-source-topology-locked'
+    then
+      raise;
+    end if;
+  end;
+end;
+$test$;
+
+select pg_temp.assert_true(
+  pg_temp.target_live_state_v19(
+    '9d000000-0000-4000-8000-000000000002',
+    'liga_portugal_v1'
+  ) = (select source_state from source_lock_before)
+  and pg_temp.target_live_state_v19(
+    '9d000000-0000-4000-8000-000000000013',
+    'liga_portugal_v1'
+  ) = (select target_state from source_lock_before),
+  'source topology lock error changed source or future target state'
+);
+
+insert into handoff_v19_results values
+  (16, 'outgoing source zones fail before core DML', 'PASS');
 
 
 -- Structural lock proof: the core calls the existing helper and that helper
