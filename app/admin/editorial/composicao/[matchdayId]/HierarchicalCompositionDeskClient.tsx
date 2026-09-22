@@ -11,16 +11,13 @@ import {
   HISTORICAL_DYNAMIC_ZONE_LAYOUTS,
   filterHistoricalCompositionReservoir,
   historicalCompositionClassificationCounts,
-  historicalCompositionReservoirCounts,
-  historicalCompositionSelectionCounts,
+  historicalCompositionDecisionCounts,
   historicalDynamicZonePositions,
-  initialHistoricalCompositionReservoirScope,
   moveHistoricalCompositionPiece,
   type HistoricalCompositionBlockKey,
   type HistoricalCompositionPlacementLocation,
-  type HistoricalCompositionBankFilter,
   type HistoricalCompositionDecision,
-  type HistoricalCompositionSelectionFilter,
+  type HistoricalCompositionDecisionFilter,
   type HistoricalDynamicZoneVisualFamily,
 } from "@/lib/editorial-historical-composition-workspace";
 
@@ -1214,7 +1211,6 @@ const styles = `
   }
 
   .hc-desk-classification,
-  .hc-desk-historical,
   .hc-desk-order {
     order: 1;
     display: flex;
@@ -1229,7 +1225,6 @@ const styles = `
   }
 
   .hc-desk-classification select,
-  .hc-desk-historical select,
   .hc-desk-order select {
     min-height: 28px;
     max-width: 190px;
@@ -1284,10 +1279,6 @@ const styles = `
 
   .hc-desk-order {
     order: 4;
-  }
-
-  .hc-desk-historical {
-    order: 2;
   }
 
   .hc-desk-result-count {
@@ -1716,12 +1707,8 @@ export default function HierarchicalCompositionDeskClient({
     [placementByBankItem],
   );
 
-  const [bankFilter, setBankFilter] =
-    useState<HistoricalCompositionBankFilter>(() =>
-      initialHistoricalCompositionReservoirScope(articles, placedBankItemIds),
-    );
-  const [historicalSelectionFilter, setHistoricalSelectionFilter] =
-    useState<HistoricalCompositionSelectionFilter>("all");
+  const [historicalDecisionFilter, setHistoricalDecisionFilter] =
+    useState<HistoricalCompositionDecisionFilter>("all");
 
   const selectedGroupKeys = useMemo(
     () => selectedGroupKey
@@ -1730,15 +1717,14 @@ export default function HierarchicalCompositionDeskClient({
     [selectedGroupKey],
   );
 
-  const reservoirCounts = useMemo(
-    () => historicalCompositionReservoirCounts(
+  const historicalDecisionCounts = useMemo(
+    () => historicalCompositionDecisionCounts(
       articles,
       placedBankItemIds,
       selectedGroupKeys,
       search,
-      historicalSelectionFilter,
     ),
-    [articles, historicalSelectionFilter, placedBankItemIds, search, selectedGroupKeys],
+    [articles, placedBankItemIds, search, selectedGroupKeys],
   );
 
   const classificationCounts = useMemo(
@@ -1746,21 +1732,9 @@ export default function HierarchicalCompositionDeskClient({
       articles,
       placedBankItemIds,
       search,
-      bankFilter,
-      historicalSelectionFilter,
+      historicalDecisionFilter,
     ),
-    [articles, bankFilter, historicalSelectionFilter, placedBankItemIds, search],
-  );
-
-  const historicalSelectionCounts = useMemo(
-    () => historicalCompositionSelectionCounts(
-      articles,
-      placedBankItemIds,
-      selectedGroupKeys,
-      search,
-      bankFilter,
-    ),
-    [articles, bankFilter, placedBankItemIds, search, selectedGroupKeys],
+    [articles, historicalDecisionFilter, placedBankItemIds, search],
   );
 
   const filteredArticles = useMemo(
@@ -1769,10 +1743,9 @@ export default function HierarchicalCompositionDeskClient({
       placedBankItemIds,
       selectedGroupKeys,
       search,
-      bankFilter,
-      historicalSelectionFilter,
+      historicalDecisionFilter,
     ),
-    [articles, bankFilter, historicalSelectionFilter, placedBankItemIds, search, selectedGroupKeys],
+    [articles, historicalDecisionFilter, placedBankItemIds, search, selectedGroupKeys],
   );
 
   const visibleArticles = useMemo(
@@ -2544,54 +2517,48 @@ export default function HierarchicalCompositionDeskClient({
     <div className={selectedBankItemIds.length > 0 ? "hc-desk-toolbar selection-mode" : "hc-desk-toolbar normal-mode"}>
       {selectedBankItemIds.length === 0 ? (
         <>
-          <div className="hc-desk-scope" role="group" aria-label="Bank">
-        <button type="button" className={bankFilter === "all" ? "active" : undefined} aria-pressed={bankFilter === "all"} onClick={() => setBankFilter("all")}>
-          Todos ({reservoirCounts.all})
-        </button>
-        <button type="button" className={bankFilter === "in-bank" ? "active" : undefined} aria-pressed={bankFilter === "in-bank"} onClick={() => setBankFilter("in-bank")}>
-          Bank ({reservoirCounts.inBank})
-        </button>
-        <button type="button" className={bankFilter === "outside-bank" ? "active" : undefined} aria-pressed={bankFilter === "outside-bank"} onClick={() => setBankFilter("outside-bank")}>
-          No Bank ({reservoirCounts.outsideBank})
-        </button>
+          <div className="hc-desk-scope" role="group" aria-label="Decisão histórica">
+            <button type="button" className={historicalDecisionFilter === "all" ? "active" : undefined} aria-pressed={historicalDecisionFilter === "all"} onClick={() => setHistoricalDecisionFilter("all")}>
+              Todos ({historicalDecisionCounts.all})
+            </button>
+            <button type="button" className={historicalDecisionFilter === "undecided" ? "active" : undefined} aria-pressed={historicalDecisionFilter === "undecided"} onClick={() => setHistoricalDecisionFilter("undecided")}>
+              Sem decisão ({historicalDecisionCounts.undecided})
+            </button>
+            <button type="button" className={historicalDecisionFilter === "bank" ? "active" : undefined} aria-pressed={historicalDecisionFilter === "bank"} onClick={() => setHistoricalDecisionFilter("bank")}>
+              Bank ({historicalDecisionCounts.bank})
+            </button>
+            <button type="button" className={historicalDecisionFilter === "selected" ? "active" : undefined} aria-pressed={historicalDecisionFilter === "selected"} onClick={() => setHistoricalDecisionFilter("selected")}>
+              Histórica ({historicalDecisionCounts.selected})
+            </button>
           </div>
 
-      <label className="hc-desk-classification">
-        <span>Classificação</span>
-        <select aria-label="Classificação" value={selectedGroupKey} onChange={(event) => setSelectedGroupKey(event.target.value)}>
-          <option value="">Todas ({Array.from(classificationCounts.values()).reduce((sum, count) => sum + count, 0)})</option>
-          {groups.map((group) => (
-            <option key={group.key} value={group.key}>{group.label} ({classificationCounts.get(group.key) ?? 0})</option>
-          ))}
-          {(classificationCounts.get(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) ?? 0) > 0
-            || selectedGroupKey === HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY ? (
-              <option value={HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY}>
-                Sem classificação ({classificationCounts.get(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) ?? 0})
-              </option>
-            ) : null}
-        </select>
-      </label>
+          <label className="hc-desk-classification">
+            <span>Classificação</span>
+            <select aria-label="Classificação" value={selectedGroupKey} onChange={(event) => setSelectedGroupKey(event.target.value)}>
+              <option value="">Todas ({Array.from(classificationCounts.values()).reduce((sum, count) => sum + count, 0)})</option>
+              {groups.map((group) => (
+                <option key={group.key} value={group.key}>{group.label} ({classificationCounts.get(group.key) ?? 0})</option>
+              ))}
+              {(classificationCounts.get(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) ?? 0) > 0
+                || selectedGroupKey === HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY ? (
+                  <option value={HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY}>
+                    Sem classificação ({classificationCounts.get(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) ?? 0})
+                  </option>
+                ) : null}
+            </select>
+          </label>
 
-      <label className="hc-desk-historical">
-        <span>Histórica</span>
-        <select aria-label="Histórica" value={historicalSelectionFilter} onChange={(event) => setHistoricalSelectionFilter(event.target.value as HistoricalCompositionSelectionFilter)}>
-          <option value="all">Todos ({historicalSelectionCounts.all})</option>
-          <option value="selected">Selecionados ({historicalSelectionCounts.selected})</option>
-          <option value="unselected">Não selecionados ({historicalSelectionCounts.unselected})</option>
-        </select>
-      </label>
+          <div className="hc-desk-search">
+            <input type="search" aria-label="Pesquisar artigos" placeholder="Pesquisar" value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} />
+          </div>
 
-      <div className="hc-desk-search">
-        <input type="search" aria-label="Pesquisar artigos" placeholder="Pesquisar" value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} />
-      </div>
-
-      <label className="hc-desk-order">
-        <span>Ordenação</span>
-        <select aria-label="Ordenação" value={articleOrder} onChange={(event) => setArticleOrder(event.target.value as "newest" | "oldest")}>
-          <option value="newest">Mais recentes</option>
-          <option value="oldest">Mais antigos</option>
-        </select>
-      </label>
+          <label className="hc-desk-order">
+            <span>Ordenação</span>
+            <select aria-label="Ordenação" value={articleOrder} onChange={(event) => setArticleOrder(event.target.value as "newest" | "oldest")}>
+              <option value="newest">Mais recentes</option>
+              <option value="oldest">Mais antigos</option>
+            </select>
+          </label>
 
           <strong className="hc-desk-result-count" aria-live="polite">{visibleArticles.length} resultados</strong>
         </>
