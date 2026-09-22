@@ -1,20 +1,23 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent, type ReactNode } from "react";
 import {
   HIERARCHICAL_BEYOND_MATCHDAY_POSITIONS,
   HIERARCHICAL_COMPOSITION_DESK_SECTIONS,
 } from "@/lib/editorial-hierarchical-composition";
 import {
+  HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY,
   HISTORICAL_DYNAMIC_ZONE_LAYOUTS,
   filterHistoricalCompositionReservoir,
-  historicalCompositionReservoirCounts,
+  historicalCompositionClassificationCounts,
+  historicalCompositionDecisionCounts,
   historicalDynamicZonePositions,
-  initialHistoricalCompositionReservoirScope,
   moveHistoricalCompositionPiece,
   type HistoricalCompositionBlockKey,
   type HistoricalCompositionPlacementLocation,
-  type HistoricalCompositionReservoirScope,
+  type HistoricalCompositionDecision,
+  type HistoricalCompositionDecisionFilter,
   type HistoricalDynamicZoneVisualFamily,
 } from "@/lib/editorial-historical-composition-workspace";
 
@@ -28,7 +31,7 @@ export type HierarchicalCompositionDeskArticle = {
   publishedAt: string | null;
   naturalGroupKey: string | null;
   historicalEligible: boolean;
-  fromLiveBank: boolean;
+  historicalDecision: HistoricalCompositionDecision;
   inheritedFromMatchdayNumber: number | null;
 };
 
@@ -143,7 +146,12 @@ type Props = {
 
 const styles = `
   .composition-admin-shell-desk {
-    padding: 10px 12px 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 100dvh;
+    padding: 5px 10px 54px;
+    overflow: visible;
   }
 
   .composition-admin-shell-desk > .composition-admin-preview-section {
@@ -151,40 +159,49 @@ const styles = `
   }
 
   .composition-admin-shell-desk .composition-admin-hero {
-    min-height: 52px;
-    padding: 8px 12px;
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 4px 7px;
     align-items: center;
   }
 
   .composition-admin-shell-desk .composition-admin-hero h1 {
-    margin-top: 3px;
-    font-size: 22px;
+    margin: 0;
+    font-size: 14px;
+    white-space: nowrap;
   }
 
   .composition-admin-shell-desk .composition-admin-hero p {
-    font-size: 10px;
+    display: none;
   }
 
   .composition-admin-shell-desk .composition-admin-hero span {
-    margin-top: 4px;
-    font-size: 11px;
+    display: none;
   }
 
   .composition-admin-shell-desk .composition-admin-actions {
+    flex-wrap: nowrap;
     gap: 5px;
+    overflow-x: auto;
   }
 
   .composition-admin-shell-desk .composition-admin-button {
-    min-height: 29px;
+    min-height: 26px;
     padding: 0 8px;
     font-size: 9px;
+    white-space: nowrap;
   }
 
   .composition-admin-shell-desk .composition-context-selector {
-    grid-template-columns: minmax(170px, .55fr) minmax(0, 2.45fr);
-    gap: 8px;
-    margin-top: 7px;
-    padding: 7px 9px;
+    display: block;
+    flex: 0 0 auto;
+    margin-top: 0;
+    padding: 3px 5px;
+    overflow-x: auto;
+  }
+
+  .composition-admin-shell-desk .composition-context-selector > div:first-child {
+    display: none;
   }
 
   .composition-admin-shell-desk .composition-context-selector strong {
@@ -198,11 +215,15 @@ const styles = `
   }
 
   .composition-admin-shell-desk .composition-context-selector-form {
+    display: flex;
+    flex-wrap: nowrap;
     gap: 6px;
+    align-items: end;
+    min-width: max-content;
   }
 
   .composition-admin-shell-desk .composition-context-selector-field select {
-    min-height: 30px;
+    min-height: 25px;
     font-size: 10px;
   }
 
@@ -213,44 +234,54 @@ const styles = `
   .hc-desk-workspace {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 4px;
     width: calc(100vw - 24px);
     max-width: 1920px;
-    margin: 8px calc(50% - 50vw + 12px) 68px;
+    margin: 0 calc(50% - 50vw + 12px);
+    overflow: visible;
   }
 
-  .hc-desk-library,
-  .hc-desk-map {
+  .hc-desk-library {
     width: 100%;
-    min-height: 0;
-    overflow: visible;
     border: 1px solid #d8e0e9;
     border-radius: 8px;
     background: #ffffff;
     box-shadow: 0 7px 18px rgba(12,22,34,.05);
   }
 
-  .hc-desk-map {
+  .hc-desk-operational-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: grid;
+    gap: 3px;
+    padding: 3px 0;
+    background: rgba(245,247,250,.98);
+    backdrop-filter: blur(9px);
     order: 1;
   }
 
   .hc-desk-library {
+    margin-top: 4px;
     order: 2;
   }
 
   .hc-zone-tabs {
     display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    padding: 6px;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 3px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
     border: 1px solid #dce3eb;
     border-radius: 7px;
     background: #f7f9fb;
   }
 
   .hc-zone-tabs button {
-    min-height: 30px;
-    padding: 4px 9px;
+    flex: 0 0 auto;
+    min-height: 27px;
+    padding: 3px 8px;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
     background: #ffffff;
@@ -271,9 +302,9 @@ const styles = `
   .hc-dynamic-zone-editor {
     display: grid;
     grid-template-columns: minmax(220px, 1fr) minmax(210px, .55fr);
-    gap: 7px;
+    gap: 5px;
     align-items: end;
-    padding: 7px;
+    padding: 4px 5px;
     border: 1px solid #dce3eb;
     border-radius: 7px;
     background: #fbfcfd;
@@ -298,6 +329,24 @@ const styles = `
     color: #10151b;
     font: inherit;
     font-size: 11px;
+  }
+
+  .hc-dynamic-zone-editor.has-selection {
+    grid-template-columns: minmax(220px, 1fr) minmax(180px, .45fr) auto;
+  }
+
+  .hc-dynamic-zone-place {
+    min-height: 31px;
+    padding: 3px 8px;
+    border: 1px solid #2563eb;
+    border-radius: 6px;
+    background: #2563eb;
+    color: #ffffff;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 850;
+    white-space: nowrap;
+    cursor: pointer;
   }
 
   .hc-page-structure {
@@ -411,13 +460,11 @@ const styles = `
   }
 
   .hc-desk-toolbar {
-    position: sticky;
-    top: 0;
-    z-index: 6;
     display: grid;
     gap: 6px;
     padding: 8px;
-    border-bottom: 1px solid #dce3eb;
+    border: 1px solid #dce3eb;
+    border-radius: 7px;
     background: rgba(255,255,255,.98);
     backdrop-filter: blur(8px);
   }
@@ -553,6 +600,10 @@ const styles = `
     padding: 7px;
   }
 
+  .hc-desk-scroll {
+    overflow: visible;
+  }
+
   .hc-desk-inherited {
     margin: 12px;
     border: 1px solid #dccda9;
@@ -639,6 +690,15 @@ const styles = `
     padding: 3px 6px;
     background: #eef2ff;
     color: #4338ca !important;
+    font-style: normal;
+    font-weight: 900;
+  }
+
+  .hc-desk-historical-mark {
+    border-radius: 999px;
+    padding: 3px 6px;
+    background: #ecfdf5;
+    color: #047857 !important;
     font-style: normal;
     font-weight: 900;
   }
@@ -733,9 +793,13 @@ const styles = `
 
   .hc-desk-map {
     display: grid;
-    gap: 7px;
+    gap: 4px;
     align-content: start;
-    padding: 8px;
+    padding: 4px;
+    border: 1px solid #d8e0e9;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 7px 18px rgba(12,22,34,.05);
   }
 
   .hc-desk-summary {
@@ -773,8 +837,8 @@ const styles = `
 
   .hc-desk-zone {
     display: grid;
-    gap: 6px;
-    padding: 8px;
+    gap: 2px;
+    padding: 3px;
     border: 1px solid #dce3eb;
     border-radius: 7px;
     background: #f8fafc;
@@ -811,25 +875,31 @@ const styles = `
 
   .hc-desk-slots {
     display: grid;
-    gap: 6px;
+    grid-template-columns: minmax(240px, 1fr);
+    gap: 3px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
   }
 
   .hc-desk-slots-4 {
-    grid-template-columns: repeat(2, minmax(0,1fr));
+    grid-template-columns: repeat(4, minmax(210px, 1fr));
   }
 
-  .hc-desk-slots-5 {
-    grid-template-columns: repeat(5, minmax(0,1fr));
-  }
-
+  .hc-desk-slots-5,
   .hc-desk-slots-6 {
-    grid-template-columns: repeat(3, minmax(0,1fr));
+    grid-template-columns: repeat(3, minmax(240px, 1fr));
+  }
+
+  .hc-desk-slots-faixa {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(220px, 1fr);
+    grid-template-columns: none;
   }
 
   .hc-desk-slot {
     min-width: 0;
-    min-height: 68px;
-    padding: 6px;
+    min-height: 65px;
+    padding: 3px;
     border: 1px dashed #b8c4d2;
     border-radius: 5px;
     background: #ffffff;
@@ -837,7 +907,7 @@ const styles = `
 
   .hc-desk-slot > small {
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     color: #64748b;
     font-size: 8px;
     font-weight: 900;
@@ -847,39 +917,45 @@ const styles = `
   .hc-desk-empty {
     display: grid;
     place-items: center;
-    min-height: 43px;
+    min-height: 48px;
     color: #94a3b8;
     font-size: 10px;
     font-weight: 700;
   }
 
   .hc-desk-card {
-    display: grid;
+    display: flex;
     gap: 4px;
-    min-height: 44px;
-    padding: 6px;
+    align-items: center;
+    min-height: 48px;
+    padding: 3px;
     border-radius: 5px;
     background: #ffffff;
     box-shadow: 0 2px 7px rgba(15,23,42,.07);
   }
 
   .hc-desk-card strong {
-    font-size: 11px;
-    line-height: 1.12;
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.14;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .hc-desk-card-body {
     display: grid;
-    grid-template-columns: 46px minmax(0, 1fr);
-    gap: 6px;
+    flex: 1 1 auto;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 4px;
     align-items: center;
     min-width: 0;
   }
 
   .hc-desk-card-body img,
   .hc-desk-card-image {
-    width: 46px;
-    height: 36px;
+    width: 56px;
+    height: 42px;
     border-radius: 4px;
     background: #e9eef4;
     object-fit: cover;
@@ -901,7 +977,7 @@ const styles = `
   }
 
   .hc-desk-card button {
-    justify-self: end;
+    flex: 0 0 auto;
     min-height: 22px;
     padding: 2px 5px;
     font-size: 9px;
@@ -942,14 +1018,36 @@ const styles = `
   }
 
   .hc-desk-top-tools {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 4px;
     width: calc(100vw - 24px);
     max-width: 1920px;
-    margin: 8px calc(50% - 50vw + 12px) 0;
+    min-height: 34px;
+    margin: 0 calc(50% - 50vw + 12px);
+    overflow: visible;
   }
 
-  .hc-desk-top-tools .hc-desk-tool[open] {
-    grid-column: 1 / -1;
+  .hc-desk-top-tools > .hc-desk-tool {
+    position: static;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .hc-desk-top-tools > .hc-desk-tool[open] > .hc-desk-tool-body {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 3px);
+    right: 0;
+    left: 0;
+    max-height: min(54dvh, 560px);
+    overflow: auto;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    background: #ffffff;
+    box-shadow: 0 14px 34px rgba(15,23,42,.18);
   }
 
   .hc-desk-settings {
@@ -1005,14 +1103,18 @@ const styles = `
 
   .hc-desk-tool > summary {
     cursor: pointer;
-    padding: 9px 10px;
-    font-size: 11px;
+    min-height: 32px;
+    padding: 7px 9px;
+    overflow: hidden;
+    font-size: 10px;
     font-weight: 900;
+    text-overflow: ellipsis;
     text-transform: uppercase;
+    white-space: nowrap;
   }
 
   .hc-desk-tool-body {
-    padding: 0 8px 8px;
+    padding: 8px;
   }
 
   .hc-desk-pending {
@@ -1050,17 +1152,57 @@ const styles = `
   }
 
   .hc-desk-pending button:disabled,
-  .hc-desk-bulk button:disabled {
+  .hc-desk-bulk button:disabled,
+  .hc-desk-selection-actions button:disabled {
     opacity: .45;
     cursor: default;
   }
 
   .hc-desk-toolbar {
     display: flex;
+    flex: 0 0 auto;
     flex-wrap: nowrap;
-    gap: 6px;
+    gap: 5px;
     align-items: center;
-    padding: 6px 8px;
+    min-height: 42px;
+    padding: 4px 6px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .hc-desk-toolbar.selection-mode {
+    min-height: 38px;
+    overflow-x: visible;
+    overscroll-behavior-inline: auto;
+  }
+
+  .hc-desk-selection-actions {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    gap: 5px;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .hc-desk-selection-actions strong {
+    margin-right: 2px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .hc-desk-selection-actions button {
+    min-height: 28px;
+    padding: 3px 7px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #10151b;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
   }
 
   .hc-desk-scope {
@@ -1068,31 +1210,37 @@ const styles = `
     flex: 0 0 auto;
   }
 
-  .hc-desk-groups {
+  .hc-desk-classification,
+  .hc-desk-order {
     order: 1;
     display: flex;
     flex: 0 0 auto;
-    flex-wrap: nowrap;
     gap: 4px;
     align-items: center;
-    min-width: max-content;
+    min-width: 0;
+    color: #475569;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
   }
 
-  .hc-desk-groups label {
-    display: inline-flex;
-    gap: 4px;
-    align-items: center;
+  .hc-desk-classification select,
+  .hc-desk-order select {
     min-height: 28px;
-    margin: 0;
-    padding: 3px 8px;
+    max-width: 190px;
+    padding: 0 24px 0 7px;
     border: 1px solid #d8e0e9;
-    border-radius: 999px;
+    border-radius: 6px;
     background: #ffffff;
+    color: #10151b;
+    font: inherit;
+    font-size: 10px;
+    text-transform: none;
     white-space: nowrap;
   }
 
   .hc-desk-bulk {
-    order: 2;
+    order: 6;
     display: flex;
     flex: 0 0 auto;
     gap: 5px;
@@ -1109,21 +1257,36 @@ const styles = `
 
   .hc-desk-search {
     order: 3;
-    display: grid;
-    flex: 1 1 380px;
-    grid-template-columns: minmax(220px, 1fr) auto;
-    gap: 7px;
+    display: block;
+    flex: 1 1 240px;
     align-items: center;
-    min-width: 300px;
+    min-width: 150px;
   }
 
-  .hc-desk-search strong {
-    white-space: nowrap;
+  .hc-desk-search input {
+    width: 100%;
+    min-height: 28px;
   }
 
   .hc-desk-message {
+    order: 7;
+    flex: 0 0 auto;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hc-desk-order {
     order: 4;
-    flex: 1 0 100%;
+  }
+
+  .hc-desk-result-count {
+    order: 5;
+    flex: 0 0 auto;
+    color: #334155;
+    font-size: 10px;
+    white-space: nowrap;
   }
 
   /*
@@ -1163,7 +1326,7 @@ const styles = `
   }
   .hc-dynamic-zone-editor {
     align-items: center;
-    padding: 3px 6px;
+    padding: 2px 4px;
   }
 
   .hc-dynamic-zone-editor label {
@@ -1179,44 +1342,46 @@ const styles = `
     }
 
     .hc-desk-toolbar {
-      flex-wrap: wrap;
-    }
-
-    .hc-desk-groups {
-      flex-wrap: wrap;
-      min-width: 0;
+      flex-wrap: nowrap;
     }
 
     .hc-desk-search {
-      flex: 1 0 100%;
-      min-width: 0;
+      flex: 1 1 200px;
+      min-width: 150px;
     }
     .hc-desk-top-tools {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       width: 100%;
-      margin: 8px 0 0;
+      margin: 0;
     }
 
     .hc-desk-workspace {
       width: 100%;
-      margin: 8px 0 68px;
+      margin: 0;
     }
 
     .hc-desk-list {
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     }
 
-    .hc-desk-slots-5,
-    .hc-desk-slots-6 {
-      grid-template-columns: repeat(2, minmax(0,1fr));
-    }
   }
 
   @media (max-width: 720px) {
     .hc-desk-top-tools,
     .hc-desk-settings,
-    .hc-dynamic-zone-editor {
+    .hc-dynamic-zone-editor:not(.has-selection) {
       grid-template-columns: 1fr;
+    }
+
+    .hc-dynamic-zone-editor.has-selection {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .hc-dynamic-zone-editor.has-selection label:first-child {
+      grid-column: 1 / -1;
+    }
+
+    .hc-desk-selection-actions {
+      flex-wrap: wrap;
     }
 
     .hc-desk-row {
@@ -1226,12 +1391,6 @@ const styles = `
     .hc-desk-row img,
     .hc-desk-image {
       display: none;
-    }
-
-    .hc-desk-slots-4,
-    .hc-desk-slots-5,
-    .hc-desk-slots-6 {
-      grid-template-columns: 1fr;
     }
 
     .hc-desk-pending {
@@ -1366,10 +1525,6 @@ function DynamicZoneTitleInput({
 }) {
   const [draft, setDraft] = useState(value);
 
-  useEffect(() => {
-    setDraft(value);
-  }, [clientId, value]);
-
   return (
     <input
       aria-label="Título público da zona editorial"
@@ -1404,6 +1559,7 @@ export default function HierarchicalCompositionDeskClient({
   returnTo,
   slots,
 }: Props) {
+  const router = useRouter();
   const initialSettings = {
     headlineTitleColor: initialHeadlineTitleColor,
     zone1Title: initialZone1Title,
@@ -1420,10 +1576,12 @@ export default function HierarchicalCompositionDeskClient({
   const [history, setHistory] = useState<PlanState[]>([]);
   const [selectedBankItemIds, setSelectedBankItemIds] =
     useState<string[]>([]);
-  const [selectedGroupKeys, setSelectedGroupKeys] = useState<string[]>([]);
+  const [selectedGroupKey, setSelectedGroupKey] = useState("");
   const [search, setSearch] = useState("");
+  const [articleOrder, setArticleOrder] = useState<"newest" | "oldest">("newest");
   const [message, setMessage] = useState("");
   const [isApplying, setIsApplying] = useState(false);
+  const [isBatchMutating, setIsBatchMutating] = useState(false);
   const [dragged, setDragged] = useState<DragState | null>(null);
   const [activeWorkspaceKey, setActiveWorkspaceKey] = useState<string>(
     () => initialDynamicZones[0] ? `dynamic:${initialDynamicZones[0].id}` : "opening",
@@ -1438,6 +1596,11 @@ export default function HierarchicalCompositionDeskClient({
         ),
       ),
     [articles],
+  );
+
+  const groupLabelByKey = useMemo(
+    () => new Map(groups.map((group) => [group.key, group.label] as const)),
+    [groups],
   );
 
   const selectionRank = useMemo(
@@ -1544,40 +1707,92 @@ export default function HierarchicalCompositionDeskClient({
     [placementByBankItem],
   );
 
-  const [reservoirScope, setReservoirScope] =
-    useState<HistoricalCompositionReservoirScope>(() =>
-      initialHistoricalCompositionReservoirScope(articles, placedBankItemIds),
-    );
+  const [historicalDecisionFilter, setHistoricalDecisionFilter] =
+    useState<HistoricalCompositionDecisionFilter>("all");
 
-  const reservoirCounts = useMemo(
-    () => historicalCompositionReservoirCounts(articles, placedBankItemIds),
-    [articles, placedBankItemIds],
+  const selectedGroupKeys = useMemo(
+    () => selectedGroupKey
+      ? new Set([selectedGroupKey])
+      : new Set<string>(),
+    [selectedGroupKey],
+  );
+
+  const historicalDecisionCounts = useMemo(
+    () => historicalCompositionDecisionCounts(
+      articles,
+      placedBankItemIds,
+      selectedGroupKeys,
+      search,
+    ),
+    [articles, placedBankItemIds, search, selectedGroupKeys],
+  );
+
+  const classificationCounts = useMemo(
+    () => historicalCompositionClassificationCounts(
+      articles,
+      placedBankItemIds,
+      search,
+      historicalDecisionFilter,
+    ),
+    [articles, historicalDecisionFilter, placedBankItemIds, search],
   );
 
   const filteredArticles = useMemo(
     () => filterHistoricalCompositionReservoir(
       articles,
       placedBankItemIds,
-      new Set(selectedGroupKeys),
+      selectedGroupKeys,
       search,
-      reservoirScope,
+      historicalDecisionFilter,
     ),
-    [articles, placedBankItemIds, reservoirScope, search, selectedGroupKeys],
+    [articles, historicalDecisionFilter, placedBankItemIds, search, selectedGroupKeys],
   );
+
+  const visibleArticles = useMemo(
+    () => [...filteredArticles].sort((left, right) => {
+      const leftTime = left.publishedAt ? Date.parse(left.publishedAt) : null;
+      const rightTime = right.publishedAt ? Date.parse(right.publishedAt) : null;
+
+      if (leftTime === null && rightTime === null) return 0;
+      if (leftTime === null) return 1;
+      if (rightTime === null) return -1;
+      return articleOrder === "newest"
+        ? rightTime - leftTime
+        : leftTime - rightTime;
+    }),
+    [articleOrder, filteredArticles],
+  );
+
+  const selectedArticles = useMemo(
+    () => selectedBankItemIds
+      .map((bankItemId) => articleByBankId.get(bankItemId))
+      .filter((article): article is HierarchicalCompositionDeskArticle => Boolean(article)),
+    [articleByBankId, selectedBankItemIds],
+  );
+  const selectedHistoricalDecision = selectedArticles.length > 0
+    && selectedArticles.length === selectedBankItemIds.length
+    && selectedArticles.every(
+      (article) => article.historicalDecision === selectedArticles[0]?.historicalDecision,
+    )
+    ? selectedArticles[0].historicalDecision
+    : null;
 
   const inheritedAvailableArticles = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
 
     return articles.filter((article) => {
       if (article.historicalEligible || placedBankItemIds.has(article.bankItemId)) return false;
-      if (selectedGroupKeys.length > 0 && (!article.naturalGroupKey || !selectedGroupKeys.includes(article.naturalGroupKey))) {
+      if (
+        selectedGroupKey
+        && (article.naturalGroupKey ?? HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) !== selectedGroupKey
+      ) {
         return false;
       }
       return !normalizedSearch
         || article.title.toLocaleLowerCase("pt-PT").includes(normalizedSearch)
         || (article.label ?? "").toLocaleLowerCase("pt-PT").includes(normalizedSearch);
     });
-  }, [articles, placedBankItemIds, search, selectedGroupKeys]);
+  }, [articles, placedBankItemIds, search, selectedGroupKey]);
 
   const pendingCount = useMemo(() => {
     let count = 0;
@@ -2090,6 +2305,50 @@ export default function HierarchicalCompositionDeskClient({
     return result;
   }
 
+  async function applyBatchEditorialDecision(
+    decision: HistoricalCompositionDecision,
+  ) {
+    if (selectedArticles.length === 0 || selectedArticles.length !== selectedBankItemIds.length) {
+      setMessage("Uma das notícias selecionadas já não está disponível.");
+      return;
+    }
+
+    setIsBatchMutating(true);
+    setMessage("A guardar a decisão editorial…");
+    try {
+      const body = new FormData();
+      body.set("matchday_id", matchdayId);
+      body.set("action_type", "set_historical_article_decision");
+      body.set(
+        "article_ids_json",
+        JSON.stringify(Array.from(new Set(selectedArticles.map((article) => article.articleId)))),
+      );
+      body.set("decision", decision);
+
+      const response = await fetch("/api/admin/editorial/composicao", {
+        method: "POST",
+        body,
+      });
+      const result = await response.json() as { ok?: boolean; message?: string };
+      if (!response.ok || result.ok !== true) {
+        setMessage(result.message ?? "Não foi possível aplicar a operação editorial.");
+        return;
+      }
+
+      setSelectedBankItemIds([]);
+      setMessage(decision === "bank"
+        ? "Seleção enviada para Bank."
+        : decision === "selected"
+          ? "Seleção marcada para a Histórica."
+          : "Seleção reposta como sem decisão.");
+      router.refresh();
+    } catch {
+      setMessage("Não foi possível contactar a gravação editorial.");
+    } finally {
+      setIsBatchMutating(false);
+    }
+  }
+
   async function applyChanges() {
     const planned = operations();
     const settingsChanged =
@@ -2240,13 +2499,6 @@ export default function HierarchicalCompositionDeskClient({
     commit({ ...plan, settings: nextSettings }, nextMessage);
   }
 
-
-  function toggleGroup(groupKey: string, checked: boolean) {
-    setSelectedGroupKeys((current) => checked
-      ? current.includes(groupKey) ? current : [...current, groupKey]
-      : current.filter((key) => key !== groupKey));
-  }
-
   function allowDrop(event: DragEvent, target: DragLocation) {
     if (!dragged) return;
     if (dragged.kind !== "reservoir" && dragged.targetKey === target.targetKey && dragged.kind === target.kind) return;
@@ -2261,6 +2513,71 @@ export default function HierarchicalCompositionDeskClient({
     ? plan.dynamicZones.find((zone) => zone.clientId === activeWorkspaceKey.slice("dynamic:".length)) ?? null
     : null;
 
+  const articleToolbar = (
+    <div className={selectedBankItemIds.length > 0 ? "hc-desk-toolbar selection-mode" : "hc-desk-toolbar normal-mode"}>
+      {selectedBankItemIds.length === 0 ? (
+        <>
+          <div className="hc-desk-scope" role="group" aria-label="Decisão histórica">
+            <button type="button" className={historicalDecisionFilter === "all" ? "active" : undefined} aria-pressed={historicalDecisionFilter === "all"} onClick={() => setHistoricalDecisionFilter("all")}>
+              Todos ({historicalDecisionCounts.all})
+            </button>
+            <button type="button" className={historicalDecisionFilter === "undecided" ? "active" : undefined} aria-pressed={historicalDecisionFilter === "undecided"} onClick={() => setHistoricalDecisionFilter("undecided")}>
+              Sem decisão ({historicalDecisionCounts.undecided})
+            </button>
+            <button type="button" className={historicalDecisionFilter === "bank" ? "active" : undefined} aria-pressed={historicalDecisionFilter === "bank"} onClick={() => setHistoricalDecisionFilter("bank")}>
+              Bank ({historicalDecisionCounts.bank})
+            </button>
+            <button type="button" className={historicalDecisionFilter === "selected" ? "active" : undefined} aria-pressed={historicalDecisionFilter === "selected"} onClick={() => setHistoricalDecisionFilter("selected")}>
+              Histórica ({historicalDecisionCounts.selected})
+            </button>
+          </div>
+
+          <label className="hc-desk-classification">
+            <span>Classificação</span>
+            <select aria-label="Classificação" value={selectedGroupKey} onChange={(event) => setSelectedGroupKey(event.target.value)}>
+              <option value="">Todas ({Array.from(classificationCounts.values()).reduce((sum, count) => sum + count, 0)})</option>
+              {groups.map((group) => (
+                <option key={group.key} value={group.key}>{group.label} ({classificationCounts.get(group.key) ?? 0})</option>
+              ))}
+              {(classificationCounts.get(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) ?? 0) > 0
+                || selectedGroupKey === HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY ? (
+                  <option value={HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY}>
+                    Sem classificação ({classificationCounts.get(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY) ?? 0})
+                  </option>
+                ) : null}
+            </select>
+          </label>
+
+          <div className="hc-desk-search">
+            <input type="search" aria-label="Pesquisar artigos" placeholder="Pesquisar" value={search} onChange={(event: ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)} />
+          </div>
+
+          <label className="hc-desk-order">
+            <span>Ordenação</span>
+            <select aria-label="Ordenação" value={articleOrder} onChange={(event) => setArticleOrder(event.target.value as "newest" | "oldest")}>
+              <option value="newest">Mais recentes</option>
+              <option value="oldest">Mais antigos</option>
+            </select>
+          </label>
+
+          <strong className="hc-desk-result-count" aria-live="polite">{visibleArticles.length} resultados</strong>
+        </>
+      ) : (
+        <div className="hc-desk-selection-actions" aria-label="Ações para artigos selecionados">
+          <strong>{selectedBankItemIds.length === 1 ? "1 selecionado" : `${selectedBankItemIds.length} selecionados`}</strong>
+          {selectedHistoricalDecision === "undecided" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank")}>Enviar p/ Bank</button> : null}
+          {selectedHistoricalDecision === "bank" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("undecided")}>Retirar do Bank</button> : null}
+          {selectedHistoricalDecision !== null && selectedHistoricalDecision !== "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("selected")}>Selecionar p/ Histórica</button> : null}
+          {selectedHistoricalDecision === "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("undecided")}>Retirar da Histórica</button> : null}
+          {selectedHistoricalDecision === "selected" ? <button type="button" disabled={isBatchMutating} onClick={() => applyBatchEditorialDecision("bank")}>Enviar p/ Bank</button> : null}
+          <button type="button" disabled={isBatchMutating} onClick={() => setSelectedBankItemIds([])}>Limpar</button>
+        </div>
+      )}
+
+      {selectedBankItemIds.length === 0 && message ? <p className="hc-desk-message">{message}</p> : null}
+    </div>
+  );
+
 
   return (
     <>
@@ -2271,7 +2588,7 @@ export default function HierarchicalCompositionDeskClient({
       />
 
       <div className="hc-desk-tools hc-desk-top-tools" aria-label="Controlos da Composição">
-        <details className="hc-desk-tool">
+        <details className="hc-desk-tool" name="composition-tools">
           <summary>Página e blocos</summary>
           <div className="hc-desk-tool-body">
             <div className="hc-desk-settings">
@@ -2417,102 +2734,11 @@ export default function HierarchicalCompositionDeskClient({
           className="hc-desk-library"
           aria-label="Banco da Mesa"
         >
-          <div className="hc-desk-toolbar">
-            <div
-              className="hc-desk-scope"
-              role="group"
-              aria-label="Âmbito do Banco da Mesa"
-            >
-              {reservoirCounts.liveBank > 0 ? (
-                <button
-                  type="button"
-                  className={reservoirScope === "live-bank" ? "active" : undefined}
-                  aria-pressed={reservoirScope === "live-bank"}
-                  onClick={() => setReservoirScope("live-bank")}
-                >
-                  Banco da Viva ({reservoirCounts.liveBank})
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className={reservoirScope === "all" ? "active" : undefined}
-                aria-pressed={reservoirScope === "all"}
-                onClick={() => setReservoirScope("all")}
-              >
-                Todos ({reservoirCounts.all})
-              </button>
-            </div>
-
-            <div className="hc-desk-search">
-              <input
-                type="search"
-                placeholder="Pesquisar por título ou antetítulo"
-                value={search}
-                onChange={(
-                  event:
-                    ChangeEvent<HTMLInputElement>,
-                ) =>
-                  setSearch(
-                    event.target.value,
-                  )
-                }
-              />
-
-              <strong>
-                {filteredArticles.length}/{reservoirScope === "live-bank"
-                  ? reservoirCounts.liveBank
-                  : reservoirCounts.all} disponíveis
-              </strong>
-            </div>
-
-            <div
-              className="hc-desk-groups"
-              aria-label="Grupos temáticos naturais"
-            >
-              {groups.map((group) => (
-                <label key={group.key}>
-                  <input
-                    type="checkbox"
-                    checked={selectedGroupKeys.includes(group.key)}
-                    onChange={(event) => toggleGroup(group.key, event.target.checked)}
-                  />
-                  {group.label}
-                </label>
-              ))}
-            </div>
-
-            <div className="hc-desk-bulk">
-              <strong>
-                {
-                  selectedBankItemIds.length === 1
-                    ? "1 selecionada"
-                    : `${selectedBankItemIds.length} selecionadas`
-                }
-              </strong>
-              <button
-                type="button"
-                disabled={selectedBankItemIds.length === 0}
-                onClick={() => setSelectedBankItemIds([])}
-              >
-                Limpar seleção
-              </button>
-            </div>
-
-            {
-              message
-                ? (
-                  <p className="hc-desk-message">
-                    {message}
-                  </p>
-                )
-                : null
-            }
-          </div>
-
-          <div className="hc-desk-list">
-            {
-              filteredArticles
-                .map((article) => {
+          <div className="hc-desk-scroll">
+            <div className="hc-desk-list">
+              {
+                visibleArticles
+                  .map((article) => {
                   const rank =
                     selectionRank.get(
                       article.bankItemId,
@@ -2574,22 +2800,30 @@ export default function HierarchicalCompositionDeskClient({
                       <span className="hc-desk-copy">
                         <span className="hc-desk-meta">
                           {
-                            article.label
+                            article.naturalGroupKey
                               ? (
                                 <em>
-                                  {article.label}
+                                  {groupLabelByKey.get(article.naturalGroupKey) ?? article.naturalGroupKey}
+                                </em>
+                              )
+                              : selectedGroupKey === HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY
+                                ? <em>SEM CLASSIFICAÇÃO</em>
+                                : null
+                          }
+
+                          {
+                            article.historicalDecision === "bank"
+                              ? (
+                                <em className="hc-desk-live-bank">
+                                  BANK
                                 </em>
                               )
                               : null
                           }
 
                           {
-                            reservoirScope === "all" && article.fromLiveBank
-                              ? (
-                                <em className="hc-desk-live-bank">
-                                  BANCO DA VIVA
-                                </em>
-                              )
+                            article.historicalDecision === "selected"
+                              ? <em className="hc-desk-historical-mark">HISTÓRICA</em>
                               : null
                           }
 
@@ -2631,65 +2865,57 @@ export default function HierarchicalCompositionDeskClient({
                           {article.title}
                         </strong>
 
-                        <small>
-                          DISPONÍVEL
-                          {article.naturalGroupKey
-                            ? ` · ${groups.find((group) => group.key === article.naturalGroupKey)?.label ?? article.naturalGroupKey}`
-                            : " · SEM GRUPO NATURAL"}
-                        </small>
                       </span>
                     </label>
                   );
-                })
-            }
+                  })
+              }
+            </div>
 
-          </div>
-
-          {inheritedAvailableArticles.length > 0 ? (
-            <details className="hc-desk-inherited">
-              <summary>
-                Herdadas de jornadas anteriores ({inheritedAvailableArticles.length})
-              </summary>
-              <p>
-                Estas notícias vieram por continuidade. Continuam preservadas, mas só regressam à seleção histórica desta jornada depois de uma revalidação editorial explícita.
-              </p>
-              <div className="hc-desk-inherited-list">
-                {inheritedAvailableArticles.map((article) => (
-                  <article className="hc-desk-inherited-row" key={article.bankItemId}>
-                    {article.imageUrl ? <img alt="" src={article.imageUrl} /> : <span className="hc-desk-image" />}
-                    <span className="hc-desk-copy">
-                      <span className="hc-desk-meta">
-                        <em className="hc-desk-continuity">
-                          HERDADA{article.inheritedFromMatchdayNumber === null
-                            ? ""
-                            : ` · J${String(article.inheritedFromMatchdayNumber).padStart(2, "0")}`}
-                        </em>
-                        {article.label ? <em>{article.label}</em> : null}
+            {inheritedAvailableArticles.length > 0 ? (
+              <details className="hc-desk-inherited">
+                <summary>
+                  Herdadas de jornadas anteriores ({inheritedAvailableArticles.length})
+                </summary>
+                <div className="hc-desk-inherited-list">
+                  {inheritedAvailableArticles.map((article) => (
+                    <article className="hc-desk-inherited-row" key={article.bankItemId}>
+                      {article.imageUrl ? <img alt="" src={article.imageUrl} /> : <span className="hc-desk-image" />}
+                      <span className="hc-desk-copy">
+                        <span className="hc-desk-meta">
+                          <em className="hc-desk-continuity">
+                            HERDADA{article.inheritedFromMatchdayNumber === null
+                              ? ""
+                              : ` · J${String(article.inheritedFromMatchdayNumber).padStart(2, "0")}`}
+                          </em>
+                          {article.label ? <em>{article.label}</em> : null}
+                        </span>
+                        <strong>{article.title}</strong>
+                        <small>FORA DA SELEÇÃO HISTÓRICA</small>
                       </span>
-                      <strong>{article.title}</strong>
-                      <small>FORA DA SELEÇÃO HISTÓRICA</small>
-                    </span>
-                    <form action="/api/admin/editorial/composicao" method="post">
-                      <input type="hidden" name="action_type" value="revalidate_inherited_bank_item" />
-                      <input type="hidden" name="matchday_id" value={matchdayId} />
-                      <input type="hidden" name="bank_item_id" value={article.bankItemId} />
-                      <input type="hidden" name="return_to" value={returnTo} />
-                      <button
-                        type="submit"
-                        disabled={pendingCount > 0}
-                        title={pendingCount > 0 ? "Aplica primeiro as alterações pendentes da composição." : undefined}
-                      >
-                        Revalidar para J{String(matchdayNumber).padStart(2, "0")}
-                      </button>
-                    </form>
-                  </article>
-                ))}
-              </div>
-            </details>
-          ) : null}
+                      <form action="/api/admin/editorial/composicao" method="post">
+                        <input type="hidden" name="action_type" value="revalidate_inherited_bank_item" />
+                        <input type="hidden" name="matchday_id" value={matchdayId} />
+                        <input type="hidden" name="bank_item_id" value={article.bankItemId} />
+                        <input type="hidden" name="return_to" value={returnTo} />
+                        <button
+                          type="submit"
+                          disabled={pendingCount > 0}
+                          title={pendingCount > 0 ? "Aplica primeiro as alterações pendentes da composição." : undefined}
+                        >
+                          Revalidar para J{String(matchdayNumber).padStart(2, "0")}
+                        </button>
+                      </form>
+                    </article>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </div>
         </section>
 
-        <section className="hc-desk-map" aria-label="Zona ativa da Composição">
+        <div className="hc-desk-operational-sticky">
+          <section className="hc-desk-map" aria-label="Zona ativa da Composição">
           <nav className="hc-zone-tabs" aria-label="Zonas da Composição">
             <button type="button" className={activeWorkspaceKey === "opening" ? "active" : undefined} onClick={() => setActiveWorkspaceKey("opening")}>Abertura {occupiedOpening}/4</button>
             <button type="button" className={activeWorkspaceKey === "editorial" ? "active" : undefined} onClick={() => setActiveWorkspaceKey("editorial")}>Editorial {plan.auxiliary.editorial ? "1/1" : "0/1"}</button>
@@ -2722,19 +2948,19 @@ export default function HierarchicalCompositionDeskClient({
 
           {activeDynamicZone ? (
             <>
-              <div className="hc-dynamic-zone-editor">
+              <div className={selectedBankItemIds.length > 0 ? "hc-dynamic-zone-editor has-selection" : "hc-dynamic-zone-editor"}>
                 <label>
                   <DynamicZoneTitleInput
+                    key={activeDynamicZone.clientId}
                     clientId={activeDynamicZone.clientId}
                     value={activeDynamicZone.publicTitle}
                     onCommit={commitDynamicZonePublicTitle}
                   />
                 </label>
                 <label><select aria-label="Layout da zona editorial" value={activeDynamicZone.visualFamily} onChange={(event) => updateDynamicZone(activeDynamicZone.clientId, { visualFamily: event.target.value as HistoricalDynamicZoneVisualFamily })}><option value="six_news">6 notícias</option><option value="five_news_balanced">5 notícias equilibradas</option><option value="five_news_secondary">5 notícias secundárias</option></select></label>
-
+                {selectedBankItemIds.length > 0 ? <button className="hc-dynamic-zone-place" type="button" onClick={() => placeSelectedInDynamicZone(activeDynamicZone.clientId)}>Colocar {selectedBankItemIds.length} aqui</button> : null}
               </div>
               <section className="hc-desk-zone">
-                <header><div><h3>{activeDynamicZone.publicTitle || "Zona editorial"}</h3><p>{HISTORICAL_DYNAMIC_ZONE_LAYOUTS[activeDynamicZone.visualFamily].label}</p></div><span className="hc-desk-zone-action"><span>{historicalDynamicZonePositions(activeDynamicZone.visualFamily).filter((position) => Boolean(activeDynamicZone.items[position.position])).length}/{HISTORICAL_DYNAMIC_ZONE_LAYOUTS[activeDynamicZone.visualFamily].capacity}</span>{selectedBankItemIds.length > 0 ? <button type="button" onClick={() => placeSelectedInDynamicZone(activeDynamicZone.clientId)}>Colocar {selectedBankItemIds.length} aqui</button> : null}</span></header>
                 <div className={`hc-desk-slots hc-desk-slots-${HISTORICAL_DYNAMIC_ZONE_LAYOUTS[activeDynamicZone.visualFamily].capacity}`}>
                   {historicalDynamicZonePositions(activeDynamicZone.visualFamily).map((position) => {
                     const location: DynamicDragLocation = { kind: "dynamic", zoneKey: activeDynamicZone.clientId, targetKey: String(position.position) };
@@ -2754,9 +2980,11 @@ export default function HierarchicalCompositionDeskClient({
           ) : null}
 
           {activeWorkspaceKey === "faixa" ? (
-            <section className="hc-desk-zone"><header><div><h3>Faixa de notícias</h3><p>Até dez notícias. Todos os lugares são opcionais.</p></div><span className="hc-desk-zone-action"><span>{occupiedFaixa}/10</span>{selectedBankItemIds.length > 0 ? <button type="button" onClick={() => placeSelectedInZone("faixa")}>Colocar {selectedBankItemIds.length} aqui</button> : null}</span></header><div className="hc-desk-slots hc-desk-slots-5">{[1,2,3,4,5,6,7,8,9,10].map((position) => { const target = `faixa_${position}`; const location: HistoricalCompositionPlacementLocation = { kind: "auxiliary", zoneKey: "faixa", targetKey: target }; return <div className="hc-desk-slot" data-drop-active={dragged ? "true" : undefined} key={target} onDragOver={(event) => allowDrop(event, location)} onDrop={(event) => { event.preventDefault(); dropOnLocation(location); }}><small>Faixa {position}</small>{renderCard(plan.auxiliary[target] ?? null, () => removeAuxiliary(target), location)}</div>; })}</div></section>
+            <section className="hc-desk-zone"><header><div><h3>Faixa de notícias</h3><p>Até dez notícias. Todos os lugares são opcionais.</p></div><span className="hc-desk-zone-action"><span>{occupiedFaixa}/10</span>{selectedBankItemIds.length > 0 ? <button type="button" onClick={() => placeSelectedInZone("faixa")}>Colocar {selectedBankItemIds.length} aqui</button> : null}</span></header><div className="hc-desk-slots hc-desk-slots-faixa">{[1,2,3,4,5,6,7,8,9,10].map((position) => { const target = `faixa_${position}`; const location: HistoricalCompositionPlacementLocation = { kind: "auxiliary", zoneKey: "faixa", targetKey: target }; return <div className="hc-desk-slot" data-drop-active={dragged ? "true" : undefined} key={target} onDragOver={(event) => allowDrop(event, location)} onDrop={(event) => { event.preventDefault(); dropOnLocation(location); }}><small>Faixa {position}</small>{renderCard(plan.auxiliary[target] ?? null, () => removeAuxiliary(target), location)}</div>; })}</div></section>
           ) : null}
-        </section>
+          </section>
+          {articleToolbar}
+        </div>
       </div>
 
       <footer className="hc-desk-pending">
@@ -2764,10 +2992,6 @@ export default function HierarchicalCompositionDeskClient({
           <strong>
             {pendingCount} alterações pendentes
           </strong>
-
-          <span>
-            Arrastar, mover e retirar apenas planeiam. Guardar montagem não publica.
-          </span>
         </div>
 
         <button
@@ -2792,6 +3016,7 @@ export default function HierarchicalCompositionDeskClient({
           onClick={applyChanges}
           disabled={
             isApplying ||
+            isBatchMutating ||
             pendingCount === 0
           }
         >

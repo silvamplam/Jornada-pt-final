@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
+import { ADMIN_SESSION_COOKIE, verifyAdminSession } from "@/lib/admin-session";
 import { isMatchdayPhysicalPlacementAuthority } from "@/lib/editorial-matchday-physical-placement";
 import {
   isHistoricalReferenceCompositionRepublishContext,
@@ -35,6 +37,7 @@ import {
 } from "@/lib/editorial-hierarchical-composition";
 import {
   HISTORICAL_COMPOSITION_BLOCK_KEYS,
+  type HistoricalCompositionDecision,
   type HistoricalCompositionBlockKey,
 } from "@/lib/editorial-historical-composition-workspace";
 import {
@@ -43,6 +46,8 @@ import {
   type HistoricalInheritedBankItem,
 } from "@/lib/editorial-historical-inherited-news";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin, writeSupabaseAdminReturning } from "@/lib/supabase";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function cleanText(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") return null;
@@ -54,6 +59,37 @@ function cleanInteger(value: FormDataEntryValue | null): number {
   const text = cleanText(value);
   const parsed = text ? Number.parseInt(text, 10) : Number.NaN;
   return Number.isNaN(parsed) ? 1 : parsed;
+}
+
+function cleanUuidList(formData: FormData, field: string): string[] {
+  const raw = cleanText(formData.get(field));
+  if (!raw) throw new CompositionPublicationError("Seleciona pelo menos uma notícia.");
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new CompositionPublicationError("A seleção de notícias não é válida.");
+  }
+
+  if (
+    !Array.isArray(parsed)
+    || parsed.length === 0
+    || parsed.some((value) => typeof value !== "string" || !UUID_PATTERN.test(value))
+    || new Set(parsed).size !== parsed.length
+  ) {
+    throw new CompositionPublicationError("A seleção de notícias não é válida.");
+  }
+
+  return parsed.map((value) => value.toLowerCase());
+}
+
+function cleanHistoricalDecision(
+  value: FormDataEntryValue | null,
+): HistoricalCompositionDecision {
+  const text = cleanText(value);
+  if (text === "selected" || text === "bank" || text === "undecided") return text;
+  throw new CompositionPublicationError("A operação pedida não é válida.");
 }
 
 function normalizeIdentityValue(value?: string | null) {
@@ -3710,13 +3746,79 @@ async function reopenReferenceComposition(formData: FormData) {
   });
 }
 
+async function hasAuthenticatedAdminSession() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
+  return Boolean(session && await verifyAdminSession(session));
+}
+
+async function applyHistoricalArticleDecisionMutation(formData: FormData) {
+  const matchdayId = cleanText(formData.get("matchday_id"));
+  const articleIds = cleanUuidList(formData, "article_ids_json");
+  const decision = cleanHistoricalDecision(formData.get("decision"));
+  if (!matchdayId || !UUID_PATTERN.test(matchdayId)) {
+    throw new CompositionPublicationError("A Jornada indicada não é válida.");
+  }
+
+  const rows = await writeSupabaseAdminReturning<{ updated_count: number }>(
+    "rpc/set_matchday_historical_article_decision_v1",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        p_matchday_id: matchdayId,
+        p_article_ids: articleIds,
+        p_decision: decision,
+      }),
+    },
+  );
+  if (
+    rows.length !== 1
+    || rows[0]?.updated_count !== articleIds.length
+  ) {
+    throw new Error("matchday-historical-article-decision-v1-invalid-result");
+  }
+
+  return { updatedCount: rows[0].updated_count };
+}
+
 export async function POST(request: Request) {
-  if (!getSupabaseServiceConfig()) return redirectTo(request, "/admin?error=missing-service");
   const formData = await request.formData();
   const actionType = cleanText(formData.get("action_type"));
   const matchdayId = cleanText(formData.get("matchday_id"));
   const returnTo = cleanText(formData.get("return_to")) ?? "/admin/gestor";
   const returnAnchor = cleanText(formData.get("return_anchor"));
+  const isWorkspaceBatchAction = actionType === "set_historical_article_decision";
+
+  if (!getSupabaseServiceConfig()) {
+    return isWorkspaceBatchAction
+      ? Response.json(
+          { ok: false, message: "A escrita administrativa não está configurada." },
+          { status: 503 },
+        )
+      : redirectTo(request, "/admin?error=missing-service");
+  }
+
+  if (isWorkspaceBatchAction) {
+    if (!(await hasAuthenticatedAdminSession())) {
+      return Response.json(
+        { ok: false, message: "É necessária uma sessão administrativa válida." },
+        { status: 401 },
+      );
+    }
+
+    try {
+      const result = await applyHistoricalArticleDecisionMutation(formData);
+      return Response.json({ ok: true, ...result });
+    } catch (error) {
+      const raw = error instanceof Error ? error.message : "";
+      const message = error instanceof CompositionPublicationError
+        ? error.message
+        : raw.includes("matchday-historical-article-decision-v1-article-not-eligible")
+          ? "Uma das notícias já não é elegível para esta Jornada."
+          : "Não foi possível aplicar a operação editorial.";
+      return Response.json({ ok: false, message }, { status: 400 });
+    }
+  }
 
   if (actionType === "apply_hierarchical_desk_plan") {
     try {

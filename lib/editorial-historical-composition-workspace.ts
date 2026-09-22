@@ -154,44 +154,120 @@ export type HistoricalCompositionReservoirArticle = Readonly<{
   title: string;
   naturalGroupKey: string | null;
   historicalEligible?: boolean;
-  fromLiveBank?: boolean;
+  historicalDecision: HistoricalCompositionDecision;
 }>;
 
-export type HistoricalCompositionReservoirScope = "live-bank" | "all";
+export type HistoricalCompositionDecision =
+  | "selected"
+  | "bank"
+  | "undecided";
 
-export function historicalCompositionReservoirCounts<
+export function historicalCompositionEffectiveDecision(
+  explicitDecision: HistoricalCompositionDecision | null | undefined,
+  fromLiveBank: boolean,
+): HistoricalCompositionDecision {
+  return explicitDecision ?? (fromLiveBank ? "bank" : "undecided");
+}
+
+export const HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY = "__unclassified__";
+
+export type HistoricalCompositionDecisionFilter =
+  | "all"
+  | HistoricalCompositionDecision;
+
+function isAvailableHistoricalCompositionArticle(
+  article: HistoricalCompositionReservoirArticle,
+  placedBankItemIds: ReadonlySet<string>,
+) {
+  return article.historicalEligible !== false
+    && !placedBankItemIds.has(article.bankItemId);
+}
+
+function matchesHistoricalCompositionSearch(
+  article: HistoricalCompositionReservoirArticle,
+  normalizedSearch: string,
+) {
+  return !normalizedSearch
+    || article.title.toLocaleLowerCase("pt-PT").includes(normalizedSearch)
+    || (article.label ?? "").toLocaleLowerCase("pt-PT").includes(normalizedSearch);
+}
+
+function matchesHistoricalCompositionClassification(
+  article: HistoricalCompositionReservoirArticle,
+  selectedGroupKeys: ReadonlySet<string>,
+) {
+  if (selectedGroupKeys.size === 0) return true;
+  if (!article.naturalGroupKey) {
+    return selectedGroupKeys.has(HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY);
+  }
+  return selectedGroupKeys.has(article.naturalGroupKey);
+}
+
+function matchesHistoricalCompositionDecision(
+  article: HistoricalCompositionReservoirArticle,
+  decisionFilter: HistoricalCompositionDecisionFilter,
+) {
+  return decisionFilter === "all"
+    || article.historicalDecision === decisionFilter;
+}
+
+export function historicalCompositionDecisionCounts<
   T extends HistoricalCompositionReservoirArticle,
 >(
   articles: readonly T[],
   placedBankItemIds: ReadonlySet<string>,
+  selectedGroupKeys: ReadonlySet<string> = new Set(),
+  search = "",
 ) {
   let all = 0;
-  let liveBank = 0;
+  let undecided = 0;
+  let bank = 0;
+  let selected = 0;
+  const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
 
   for (const article of articles) {
     if (
-      article.historicalEligible === false
-      || placedBankItemIds.has(article.bankItemId)
+      !isAvailableHistoricalCompositionArticle(article, placedBankItemIds)
+      || !matchesHistoricalCompositionClassification(article, selectedGroupKeys)
+      || !matchesHistoricalCompositionSearch(article, normalizedSearch)
     ) {
       continue;
     }
 
     all += 1;
-    if (article.fromLiveBank === true) liveBank += 1;
+    if (article.historicalDecision === "undecided") undecided += 1;
+    else if (article.historicalDecision === "bank") bank += 1;
+    else selected += 1;
   }
 
-  return { all, liveBank } as const;
+  return { all, undecided, bank, selected } as const;
 }
 
-export function initialHistoricalCompositionReservoirScope<
+export function historicalCompositionClassificationCounts<
   T extends HistoricalCompositionReservoirArticle,
 >(
   articles: readonly T[],
   placedBankItemIds: ReadonlySet<string>,
-): HistoricalCompositionReservoirScope {
-  return historicalCompositionReservoirCounts(articles, placedBankItemIds).liveBank > 0
-    ? "live-bank"
-    : "all";
+  search: string,
+  decisionFilter: HistoricalCompositionDecisionFilter,
+) {
+  const counts = new Map<string, number>();
+  const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
+
+  for (const article of articles) {
+    if (
+      !isAvailableHistoricalCompositionArticle(article, placedBankItemIds)
+      || !matchesHistoricalCompositionSearch(article, normalizedSearch)
+      || !matchesHistoricalCompositionDecision(article, decisionFilter)
+    ) {
+      continue;
+    }
+
+    const key = article.naturalGroupKey ?? HISTORICAL_COMPOSITION_UNCLASSIFIED_KEY;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return counts;
 }
 
 export function filterHistoricalCompositionReservoir<
@@ -201,24 +277,15 @@ export function filterHistoricalCompositionReservoir<
   placedBankItemIds: ReadonlySet<string>,
   selectedGroupKeys: ReadonlySet<string>,
   search: string,
-  scope: HistoricalCompositionReservoirScope = "all",
+  decisionFilter: HistoricalCompositionDecisionFilter = "all",
 ) {
   const normalizedSearch = search.trim().toLocaleLowerCase("pt-PT");
 
   return articles.filter((article) => {
-    if (article.historicalEligible === false) return false;
-    if (placedBankItemIds.has(article.bankItemId)) return false;
-    if (scope === "live-bank" && article.fromLiveBank !== true) return false;
-    if (
-      selectedGroupKeys.size > 0
-      && (!article.naturalGroupKey || !selectedGroupKeys.has(article.naturalGroupKey))
-    ) {
-      return false;
-    }
-
-    return !normalizedSearch
-      || article.title.toLocaleLowerCase("pt-PT").includes(normalizedSearch)
-      || (article.label ?? "").toLocaleLowerCase("pt-PT").includes(normalizedSearch);
+    return isAvailableHistoricalCompositionArticle(article, placedBankItemIds)
+      && matchesHistoricalCompositionDecision(article, decisionFilter)
+      && matchesHistoricalCompositionClassification(article, selectedGroupKeys)
+      && matchesHistoricalCompositionSearch(article, normalizedSearch);
   });
 }
 

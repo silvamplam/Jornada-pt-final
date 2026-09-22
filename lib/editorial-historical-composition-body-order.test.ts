@@ -32,11 +32,57 @@ test("Abertura e Editorial ficam fixos antes do corpo editorial", () => {
   assert.ok(body >= 0);
 });
 
-test("o reservatório organiza temas, seleção e pesquisa na mesma linha de desktop", () => {
-  assert.match(client, /\.hc-desk-groups\s*\{[\s\S]*?order:\s*1;/);
-  assert.match(client, /\.hc-desk-bulk\s*\{[\s\S]*?order:\s*2;/);
+test("o modo normal organiza filtros, pesquisa e ordenação numa única linha", () => {
+  assert.match(client, /\.hc-desk-classification,[\s\S]*?order:\s*1;/);
   assert.match(client, /\.hc-desk-search\s*\{[\s\S]*?order:\s*3;/);
+  assert.match(client, /\.hc-desk-order\s*\{[\s\S]*?order:\s*4;/);
+  assert.match(client, /\.hc-desk-result-count\s*\{[\s\S]*?order:\s*5;/);
   assert.match(client, /\.hc-desk-toolbar\s*\{[\s\S]*?flex-wrap:\s*nowrap;/);
+  assert.match(client, /selectedBankItemIds\.length === 0 \? \([\s\S]*aria-label="Decisão histórica"[\s\S]*Todos \([\s\S]*Sem decisão \([\s\S]*Bank \([\s\S]*Histórica \([\s\S]*aria-label="Classificação"[\s\S]*aria-label="Pesquisar artigos"[\s\S]*aria-label="Ordenação"[\s\S]*visibleArticles\.length/);
+  assert.doesNotMatch(client, /No Bank|Não selecionados/);
+});
+
+test("o modo seleção substitui os filtros por ações contextuais sem scroll horizontal", () => {
+  const toolbarStart = client.indexOf("  const articleToolbar = (");
+  const toolbarEnd = client.indexOf("\n\n  return (", toolbarStart);
+  assert.ok(toolbarStart >= 0 && toolbarEnd > toolbarStart);
+  const toolbar = client.slice(toolbarStart, toolbarEnd);
+  const selectionStart = toolbar.indexOf('<div className="hc-desk-selection-actions"');
+  assert.ok(selectionStart >= 0);
+  const selectionToolbar = toolbar.slice(selectionStart);
+
+  assert.match(selectionToolbar, /1 selecionado/);
+  assert.match(selectionToolbar, /selecionados/);
+  assert.match(selectionToolbar, /Enviar p\/ Bank/);
+  assert.match(selectionToolbar, /Retirar do Bank/);
+  assert.match(selectionToolbar, /Selecionar p\/ Histórica/);
+  assert.match(selectionToolbar, /Retirar da Histórica/);
+  assert.match(selectionToolbar, />Limpar</);
+  assert.doesNotMatch(selectionToolbar, /aria-label="Decisão histórica"|aria-label="Classificação"|aria-label="Pesquisar artigos"|aria-label="Ordenação"/);
+  assert.doesNotMatch(selectionToolbar, /Colocar \{selectedBankItemIds\.length\} aqui/);
+  assert.match(client, /\.hc-desk-toolbar\.selection-mode \{[\s\S]*?overflow-x:\s*visible;/);
+  assert.match(client, /\.hc-desk-selection-actions \{[\s\S]*?flex-wrap:\s*nowrap;/);
+});
+
+test("limpar seleção não altera nenhum estado de filtro", () => {
+  assert.match(client, /onClick=\{\(\) => setSelectedBankItemIds\(\[\]\)\}>Limpar<\/button>/);
+  const clearStart = client.indexOf('onClick={() => setSelectedBankItemIds([])}>Limpar</button>');
+  assert.ok(clearStart >= 0);
+  const clearAction = client.slice(clearStart, clearStart + 90);
+  assert.doesNotMatch(clearAction, /setHistoricalDecisionFilter|setSelectedGroupKey|setSearch|setArticleOrder/);
+});
+
+test("Colocar N aqui partilha a linha título/layout e deixa de ter header dedicado", () => {
+  const zoneStart = client.indexOf("          {activeDynamicZone ? (");
+  const zoneEnd = client.indexOf('          {activeWorkspaceKey === "editorial"', zoneStart);
+  assert.ok(zoneStart >= 0 && zoneEnd > zoneStart);
+  const dynamicZone = client.slice(zoneStart, zoneEnd);
+
+  assert.match(dynamicZone, /hc-dynamic-zone-editor has-selection/);
+  assert.match(dynamicZone, /aria-label="Layout da zona editorial"/);
+  assert.match(dynamicZone, /selectedBankItemIds\.length > 0 \? <button className="hc-dynamic-zone-place"[\s\S]*?Colocar \{selectedBankItemIds\.length\} aqui/);
+  assert.ok(dynamicZone.indexOf("hc-dynamic-zone-place") < dynamicZone.indexOf('<section className="hc-desk-zone">'));
+  assert.doesNotMatch(dynamicZone, /<header>/);
 });
 
 test("Vídeo + Destaque partilha a ordem do corpo com as zonas dinâmicas", () => {

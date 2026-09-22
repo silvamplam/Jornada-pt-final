@@ -30,9 +30,11 @@ import {
 import {
   HISTORICAL_COMPOSITION_DEFAULT_HEADLINE_TITLE_COLOR,
   HISTORICAL_COMPOSITION_DEFAULT_ZONE_TITLES,
+  historicalCompositionEffectiveDecision,
   normalizeHistoricalCompositionBlockOrder,
   normalizeHistoricalCompositionHeadlineTitleColor,
   normalizeHistoricalCompositionZoneTitle,
+  type HistoricalCompositionDecision,
 } from "@/lib/editorial-historical-composition-workspace";
 import HierarchicalCompositionInterpretivePreview from "@/components/admin/HierarchicalCompositionInterpretivePreview";
 import PublicFlexibleZoneLayout, {
@@ -223,6 +225,12 @@ type HistoricalCompositionDynamicZoneItemRow = {
   subtitle_snapshot: string | null;
   image_url_snapshot: string | null;
   link_url_snapshot: string | null;
+};
+
+type HistoricalArticleDecisionRow = {
+  article_id: string;
+  decision: HistoricalCompositionDecision;
+  updated_at: string;
 };
 
 type MatchdayEditorialBankItem = {
@@ -1892,6 +1900,14 @@ function readMatchdayEditorialBankItems(matchdayId: string): Promise<MatchdayEdi
       matchdayId
     )}&order=sort_order.asc.nullslast,created_at.desc`
   ).catch(() => []);
+}
+
+function readHistoricalArticleDecisions(
+  matchdayId: string,
+): Promise<HistoricalArticleDecisionRow[]> {
+  return fetchSupabaseAdminTable<HistoricalArticleDecisionRow>(
+    `rpc/read_matchday_historical_article_decisions_v1?p_matchday_id=${encodeURIComponent(matchdayId)}`,
+  );
 }
 
 function readHierarchicalCompositionSlots(compositionId?: string | null): Promise<HierarchicalCompositionSlot[]> {
@@ -4021,6 +4037,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     publishedContents,
     hierarchicalDeskSnapshot,
     hierarchicalProfileSnapshot,
+    historicalArticleDecisions,
   ] = await Promise.all([
     readDraftReferenceComposition(matchday.id, presentationMode),
     readPublishedReferenceComposition(matchday.id, presentationMode),
@@ -4035,6 +4052,9 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     presentationMode === "hierarchical"
       ? readMatchdayEditorialProfileDesk(matchday.id).catch(() => null)
       : Promise.resolve(null),
+    presentationMode === "hierarchical"
+      ? readHistoricalArticleDecisions(matchday.id)
+      : Promise.resolve([]),
   ]);
   const draftComposition = modeDraftComposition ?? modePublishedComposition;
   const [compositionItems, hierarchicalSlots, historicalDynamicZones] = await Promise.all([
@@ -4547,6 +4567,13 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       : [],
   );
 
+  const historicalDecisionByArticleId = new Map(
+    historicalArticleDecisions.map((decision) => [
+      decision.article_id,
+      decision.decision,
+    ] as const),
+  );
+
   const hierarchicalDeskArticleById = new Map(
     (hierarchicalDeskSnapshot?.articles ?? []).map((article) => [article.id, article] as const),
   );
@@ -4573,7 +4600,10 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           publishedAt: article?.publishedAt ?? null,
           naturalGroupKey: hierarchicalNaturalGroupByArticleId.get(bankItem.source_id) ?? null,
           historicalEligible: isHistoricalBankItemEligible(bankItem),
-          fromLiveBank: hierarchicalExplicitLiveBankItemIds.has(bankItem.id),
+          historicalDecision: historicalCompositionEffectiveDecision(
+            historicalDecisionByArticleId.get(bankItem.source_id),
+            hierarchicalExplicitLiveBankItemIds.has(bankItem.id),
+          ),
           inheritedFromMatchdayNumber: bankItem.continuity_source_matchday_id
             ? sourceMatchdayNumberById.get(bankItem.continuity_source_matchday_id) ?? null
             : null,
@@ -4756,7 +4786,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           returnTo={returnTo}
           slots={hierarchicalDeskSlots}
         >
-          <details className="hc-desk-tool">
+          <details className="hc-desk-tool" name="composition-tools">
             <summary>Vídeo + Destaque</summary>
             <div className="hc-desk-tool-body">
               <MatchdayVideoSummarySync matchdayId={matchday.id} reloadOnMutation={false} />
@@ -4770,7 +4800,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
             </div>
           </details>
 
-          <details className="hc-desk-tool">
+          <details className="hc-desk-tool" name="composition-tools">
             <summary>Publicar composição</summary>
             <div className="hc-desk-tool-body composition-admin-stack">
               <UpdateDraftForm
@@ -4799,7 +4829,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
             </div>
           </details>
 
-          <details className="hc-desk-tool">
+          <details className="hc-desk-tool" name="composition-tools">
             <summary>Pré-visualização</summary>
             <div className="hc-desk-tool-body composition-admin-preview">
               {hasHistoricalDynamicZones ? (
