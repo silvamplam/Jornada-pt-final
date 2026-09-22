@@ -149,6 +149,7 @@ function classifyRpcError(error: unknown): EditorialThemeErrorCode {
     ["editorial_theme_source_not_found", "source_not_found"],
     ["editorial_theme_article_not_found", "article_not_found"],
     ["editorial_theme_context_mismatch", "context_invalid"],
+    ["editorial_theme_source_classification_conflict", "invalid_request"],
     ["editorial_theme_relation_invalid", "relation_invalid"],
     ["newsroom_editorial_themes_classification_check", "invalid_request"],
     ["editorial_theme_invalid_input", "invalid_request"],

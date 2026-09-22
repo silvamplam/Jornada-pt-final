@@ -268,8 +268,10 @@ export function MesaLooseSourcesPanel({
       : [];
   const visibleSelectableItems = selectableItems.filter((material) => {
     if (!material.newsroomSnapshotId || hiddenSourceIds.includes(material.newsroomArticleId)) return false;
-    const currentClassification = classificationChanges[material.newsroomArticleId]?.current
-      ?? material.classificationKey;
+    const classificationChange = classificationChanges[material.newsroomArticleId];
+    const currentClassification = classificationChange
+      ? classificationChange.current
+      : material.classificationKey;
     const outsideFilter = classificationFilter !== "all" && (
       classificationFilter === "unclassified"
         ? currentClassification !== null

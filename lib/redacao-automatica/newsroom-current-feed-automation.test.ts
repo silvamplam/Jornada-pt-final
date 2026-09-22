@@ -52,7 +52,7 @@ test("cron da Redação usa token efémero de uma só utilização", () => {
   assert.doesNotMatch(migration, /grant execute[\s\S]*to (?:anon|authenticated)/);
 });
 
-test("feed automático reutiliza o writer existente e reconsulta links conhecidos", () => {
+test("feed automático reutiliza o writer e deixa fontes novas sem classificação", () => {
   const feed = readFileSync(feedPath, "utf8");
   const ingestion = readFileSync(ingestionPath, "utf8");
 
@@ -67,15 +67,13 @@ test("feed automático reutiliza o writer existente e reconsulta links conhecido
     /ingestHttpNewsroomCurrentFeedArticle\([\s\S]*executionMode/,
   );
   assert.match(ingestion, /persistNewsroomCurrentFeedArticle/);
-  assert.match(
-    feed,
-    /classifyNewsroomCurrentFeedArticles\([\s\S]*persistedArticles[\s\S]*\)\.then/,
-  );
+  assert.doesNotMatch(feed, /classifyNewsroomCurrentFeedArticles/);
+  assert.doesNotMatch(feed, /applyAutomaticNewsroomArticleClassification/);
   assert.match(feed, /classificationFailedCount/);
   assert.doesNotMatch(feed, /setInterval|setTimeout|cron\.schedule/);
 });
 
-test("feed não volta a paginar o arquivo global nem classifica artigo a artigo", () => {
+test("classificador determinístico permanece disponível, mas fora do feed operacional", () => {
   const feed = readFileSync(feedPath, "utf8");
   const classification = readFileSync(classificationPath, "utf8");
 
@@ -84,6 +82,7 @@ test("feed não volta a paginar o arquivo global nem classifica artigo a artigo"
   assert.doesNotMatch(feed, /newsroom_articles\?select=source_code/);
   assert.doesNotMatch(feed, /order=id\.asc[\s\S]*offset=/);
   assert.doesNotMatch(feed, /attemptOperationalDeskAutomaticClassification/);
+  assert.doesNotMatch(feed, /newsroom-current-feed-classification/);
   assert.match(classification, /getNewsroomArticleClassificationsByIds\(articleIds\)/);
   assert.match(classification, /prepareNewsroomDeterministicClassifications\(/);
   assert.match(classification, /applyAutomaticNewsroomArticleClassification\(input\)/);

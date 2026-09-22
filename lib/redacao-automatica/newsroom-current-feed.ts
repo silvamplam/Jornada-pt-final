@@ -5,9 +5,6 @@ import { createAvailableAdapterRegistry } from "@/lib/redacao-automatica/availab
 import { collectSource } from "@/lib/redacao-automatica/collection-service";
 import { ingestHttpNewsroomCurrentFeedArticle } from "@/lib/redacao-automatica/http-newsroom-ingestion";
 import {
-  classifyNewsroomCurrentFeedArticles,
-} from "@/lib/redacao-automatica/newsroom-current-feed-classification";
-import {
   selectNewsroomCurrentFeedCandidates,
   summarizeNewsroomCurrentFeedRun,
 } from "@/lib/redacao-automatica/newsroom-current-feed-internal";
@@ -138,20 +135,6 @@ export async function refreshNewsroomCurrentFeed(
       executionMode,
     }),
   );
-  const persistedArticles = ingestionResults.flatMap((result) => (
-    result.ok
-      ? [{
-          articleId: result.value.article.id,
-          action: result.value.article.action,
-        }]
-      : []
-  ));
-  const classificationFailedCount = await classifyNewsroomCurrentFeedArticles(
-    persistedArticles,
-  ).then(
-    (summary) => summary.failedCount,
-    () => persistedArticles.length,
-  );
   const runSummary = summarizeNewsroomCurrentFeedRun({
     requestedSourceCount: sources.length,
     successfulSourceCount: successfulCollections.length,
@@ -176,7 +159,7 @@ export async function refreshNewsroomCurrentFeed(
       updatedCount: runSummary.updatedCount,
       existingCount: runSummary.existingCount,
       failedCount: runSummary.failedCount,
-      classificationFailedCount,
+      classificationFailedCount: 0,
       hasMore: false,
     },
   };

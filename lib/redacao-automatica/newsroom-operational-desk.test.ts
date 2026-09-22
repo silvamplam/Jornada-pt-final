@@ -330,7 +330,7 @@ test("classificação segura persiste e manual é reconhecida como soberana", as
   }
 });
 
-test("todas as portas de persistência do circuito ligam a tentativa automática ao writer central", () => {
+test("nenhuma porta operacional de persistência chama o writer automático", () => {
   const persistence = readFileSync(
     "lib/redacao-automatica/newsroom-article-persistence.ts",
     "utf8",
@@ -339,12 +339,22 @@ test("todas as portas de persistência do circuito ligam a tentativa automática
     "lib/redacao-automatica/manual-newsroom-entry-service.ts",
     "utf8",
   );
+  const manualSource = readFileSync(
+    "lib/redacao-automatica/manual-newsroom-source-service.ts",
+    "utf8",
+  );
+  const currentFeed = readFileSync(
+    "lib/redacao-automatica/newsroom-current-feed.ts",
+    "utf8",
+  );
   const operational = readFileSync(
     "lib/redacao-automatica/newsroom-operational-desk-classification.ts",
     "utf8",
   );
-  assert.match(persistence, /attemptOperationalDeskAutomaticClassification/);
-  assert.match(manual, /attemptOperationalDeskAutomaticClassification/);
+  assert.doesNotMatch(persistence, /attemptOperationalDeskAutomaticClassification/);
+  assert.doesNotMatch(manual, /attemptOperationalDeskAutomaticClassification/);
+  assert.doesNotMatch(manualSource, /attemptOperationalDeskAutomaticClassification/);
+  assert.doesNotMatch(currentFeed, /classifyNewsroomCurrentFeedArticles/);
   assert.match(operational, /validateOperationalDeskCycleSourceIds/);
   assert.match(operational, /getNewsroomArticleClassification/);
   assert.match(operational, /current\.value\.status === "classified"/);
@@ -376,6 +386,7 @@ test("DESCARTAR é otimista, repõe na falha e persiste dismissed sem apagar fon
   );
   assert.ok(client.indexOf("setDismissed") < client.indexOf("await fetch(DISCARD_ROUTE"));
   assert.match(client, /setDismissed\(\(current\) => current\.filter/);
-  assert.match(route, /applyNewsroomEditorialInboxAction\("dismissed"/);
+  assert.match(route, /const action = [\s\S]*"dismissed"/);
+  assert.match(route, /applyNewsroomEditorialInboxAction\(action/);
   assert.doesNotMatch(route, /delete|removeNewsroomArticle|\.delete\(/i);
 });

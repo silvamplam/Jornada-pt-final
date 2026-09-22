@@ -1333,7 +1333,29 @@
 }
 
 .selectionTray[data-source-theme-actions="true"] .selectionActions {
-  grid-template-columns: minmax(88px, auto) minmax(260px, 1.5fr) minmax(230px, auto) minmax(108px, auto);
+  grid-template-columns: minmax(88px, auto) minmax(190px, 1fr) minmax(220px, auto) minmax(220px, auto) minmax(108px, auto);
+}
+
+.batchClassification {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.batchClassification select {
+  min-width: 150px;
+  min-height: 30px;
+  border: 1px solid #aabaaa;
+  border-radius: 6px;
+  padding: 4px 7px;
+  background: #fff;
+  color: #17311f;
+  font: inherit;
+}
+
+.batchClassification button {
+  flex: 0 0 auto;
 }
 
 .selectionActions label {
@@ -1540,6 +1562,10 @@
   }
 
   .selectionActions label { grid-column: 1 / -1; }
+
+  .batchClassification {
+    grid-column: span 1;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1618,6 +1644,10 @@
   }
 
   .selectionTray[data-source-theme-actions="true"] .themeActionButtons {
+    grid-column: 1 / -1;
+  }
+
+  .batchClassification {
     grid-column: 1 / -1;
   }
 

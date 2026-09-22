@@ -48,10 +48,23 @@ export type ClearNewsroomArticleClassificationInput = Readonly<{
   newsroomArticleId: string;
 }>;
 
+export type SetManualNewsroomArticleClassificationsInput = Readonly<{
+  newsroomArticleIds: readonly string[];
+  classificationKey: string | null;
+}>;
+
+export type NewsroomArticleClassificationBatchMutation = Readonly<{
+  requestedCount: number;
+  changedCount: number;
+  classificationKey: ArticleClassificationKey | null;
+}>;
+
 export type NewsroomArticleClassificationErrorCode =
   | "invalid_request"
   | "not_configured"
   | "source_not_found"
+  | "outside_cycle"
+  | "theme_conflict"
   | "relation_invalid"
   | "persistence_failed";
 
@@ -78,6 +91,10 @@ export interface NewsroomArticleClassificationTransport {
   clear(
     newsroomArticleId: string,
   ): Promise<NewsroomArticleClassificationMutation>;
+  setManualBatch(
+    newsroomArticleIds: readonly string[],
+    classificationKey: ArticleClassificationKey | null,
+  ): Promise<NewsroomArticleClassificationBatchMutation>;
   classifyError(error: unknown): NewsroomArticleClassificationErrorCode;
 }
 
@@ -87,6 +104,8 @@ const ERROR_MESSAGES: Readonly<
   invalid_request: "A classificação editorial da fonte é inválida.",
   not_configured: "O acesso administrativo à base de dados não está configurado.",
   source_not_found: "A fonte da Redação não existe.",
+  outside_cycle: "Todas as fontes têm de pertencer ao ciclo operacional atual da Mesa.",
+  theme_conflict: "A classificação pedida contradiz o Tema atual de pelo menos uma fonte.",
   relation_invalid: "A classificação devolvida para a fonte é inválida.",
   persistence_failed: "Não foi possível guardar a classificação editorial da fonte.",
 };
@@ -197,6 +216,47 @@ export function clearNewsroomArticleClassificationService(
       return {
         ok: true,
         value: await transport.clear(newsroomArticleId),
+      };
+    } catch (error) {
+      return persistenceFailure(transport, error);
+    }
+  };
+}
+
+export function setManualNewsroomArticleClassificationsService(
+  transport: NewsroomArticleClassificationTransport,
+) {
+  return async function setManualClassifications(
+    input: SetManualNewsroomArticleClassificationsInput,
+  ): Promise<
+    NewsroomArticleClassificationServiceResult<
+      NewsroomArticleClassificationBatchMutation
+    >
+  > {
+    const newsroomArticleIds = input.newsroomArticleIds.map(normalizedArticleId);
+    if (
+      newsroomArticleIds.length < 1
+      || newsroomArticleIds.length > 20
+      || newsroomArticleIds.some((value) => value === null)
+      || new Set(newsroomArticleIds).size !== newsroomArticleIds.length
+      || (
+        input.classificationKey !== null
+        && !isArticleClassificationKey(input.classificationKey)
+      )
+    ) {
+      return failure("invalid_request");
+    }
+    if (!transport.isConfigured()) {
+      return failure("not_configured");
+    }
+
+    try {
+      return {
+        ok: true,
+        value: await transport.setManualBatch(
+          newsroomArticleIds as string[],
+          input.classificationKey,
+        ),
       };
     } catch (error) {
       return persistenceFailure(transport, error);

@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 
 import { isArticleClassificationKey } from "@/lib/editorial-classifications";
 import {
-  setManualNewsroomArticleClassification,
+  setManualNewsroomArticleClassifications,
 } from "@/lib/redacao-automatica/newsroom-article-classification-service";
-import {
-  validateOperationalDeskCycleSourceIds,
-} from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -25,13 +22,29 @@ export async function POST(request: Request) {
     value = null;
   }
   const payload = objectValue(value);
-  const newsroomArticleId = typeof payload?.newsroomArticleId === "string"
-    ? payload.newsroomArticleId.trim().toLowerCase()
-    : "";
-  const classificationKey = typeof payload?.classificationKey === "string"
-    ? payload.classificationKey.trim()
-    : "";
-  if (!UUID_PATTERN.test(newsroomArticleId) || !isArticleClassificationKey(classificationKey)) {
+  const rawIds = Array.isArray(payload?.newsroomArticleIds)
+    ? payload.newsroomArticleIds
+    : [payload?.newsroomArticleId];
+  const newsroomArticleIds = rawIds.map((item) => (
+    typeof item === "string" ? item.trim().toLowerCase() : ""
+  ));
+  const classificationKey = payload
+    && Object.prototype.hasOwnProperty.call(payload, "classificationKey")
+    && payload.classificationKey === null
+    ? null
+    : typeof payload?.classificationKey === "string"
+      ? payload.classificationKey.trim()
+      : undefined;
+  if (
+    newsroomArticleIds.length < 1
+    || newsroomArticleIds.length > 20
+    || newsroomArticleIds.some((id) => !UUID_PATTERN.test(id))
+    || new Set(newsroomArticleIds).size !== newsroomArticleIds.length
+    || (
+      classificationKey !== null
+      && !isArticleClassificationKey(classificationKey)
+    )
+  ) {
     return NextResponse.json({
       ok: false,
       code: "input_invalid",
@@ -39,19 +52,8 @@ export async function POST(request: Request) {
     }, { status: 400 });
   }
 
-  const cycle = await validateOperationalDeskCycleSourceIds([newsroomArticleId]);
-  if (!cycle.ok) {
-    return NextResponse.json({
-      ok: false,
-      code: cycle.code,
-      message: cycle.code === "read_unavailable"
-        ? "Não foi possível confirmar a fonte no ciclo operacional."
-        : "A fonte não pertence ao ciclo operacional da Mesa.",
-    }, { status: cycle.code === "read_unavailable" ? 503 : 400 });
-  }
-
-  const result = await setManualNewsroomArticleClassification({
-    newsroomArticleId,
+  const result = await setManualNewsroomArticleClassifications({
+    newsroomArticleIds,
     classificationKey,
   });
   if (!result.ok) {
@@ -59,11 +61,17 @@ export async function POST(request: Request) {
       ok: false,
       code: result.error.code,
       message: result.error.message,
-    }, { status: result.error.code === "invalid_request" ? 400 : 502 });
+    }, {
+      status: ["invalid_request", "source_not_found", "outside_cycle", "theme_conflict"]
+        .includes(result.error.code)
+        ? 400
+        : 502,
+    });
   }
   return NextResponse.json({
     ok: true,
     classificationKey,
-    changed: result.value.changed,
+    requestedCount: result.value.requestedCount,
+    changedCount: result.value.changedCount,
   });
 }

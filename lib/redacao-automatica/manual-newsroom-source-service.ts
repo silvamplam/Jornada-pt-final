@@ -5,7 +5,6 @@ import {
   createManualNewsroomSourcePersistence,
   createManualNewsroomSourceWorkflow,
 } from "@/lib/redacao-automatica/manual-newsroom-source-internal";
-import { attemptOperationalDeskAutomaticClassification } from "@/lib/redacao-automatica/newsroom-operational-desk-classification";
 
 export type {
   ManualNewsroomSourceErrorCode,
@@ -27,5 +26,4 @@ const persist = createManualNewsroomSourcePersistence({
 
 export const createManualNewsroomSource = createManualNewsroomSourceWorkflow({
   persist,
-  classify: attemptOperationalDeskAutomaticClassification,
 });

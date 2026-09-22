@@ -52,7 +52,7 @@ test("simple Mesa mutations consume the affected authoritative summary without a
   assert.doesNotMatch(selectionClient, /router\.refresh\(\)/);
   assert.doesNotMatch(organizationClient, /router\.refresh\(\)/);
   assert.doesNotMatch(sourceChanges, /router\.refresh\(\)/);
-  assert.match(selectionClient, /updateClassification\(newsroomArticleId, lifecycle, previous, classificationKey\)/);
+  assert.match(selectionClient, /updateClassification\(newsroomArticleId, lifecycle, previous, nextClassificationKey\)/);
   assert.match(selectionClient, /upsertTheme\(result\.theme\)/);
   assert.match(selectionClient, /\?theme=\$\{encodeURIComponent\(theme\.id\)\}/);
   assert.match(organizationRoute, /readMesaThemeSummary\(themeId\)/);

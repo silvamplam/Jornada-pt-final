@@ -151,7 +151,7 @@ test("mesma submission é idempotente e payload diferente falha explicitamente",
   assert.equal(lastArgs.p_published_date, null);
 });
 
-test("classificador operacional existente é chamado depois de uma criação", async () => {
+test("uma fonte manual nova permanece sem classificação automática", async () => {
   const persisted = await createManualNewsroomSourcePersistence({
     isConfigured: () => true,
     async executeRpc(_name, args) {
@@ -166,14 +166,12 @@ test("classificador operacional existente é chamado depois de uma criação", a
   })(validInput(), { now: NOW });
   assert.equal(persisted.ok, true);
 
-  const calls: unknown[] = [];
   const workflow = createManualNewsroomSourceWorkflow({
     persist: async () => persisted,
-    classify: async (input) => { calls.push(input); },
   });
   const result = await workflow(validInput());
   assert.equal(result.ok, true);
-  assert.deepEqual(calls, [{ newsroomArticleId: ARTICLE_ID, articleAction: "created" }]);
+  assert.equal(result.ok && result.value.newsroomArticleId, ARTICLE_ID);
 });
 
 test("migration persiste uma fonte compatível com NOVAS e sem autor inventado", () => {

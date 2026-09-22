@@ -5,6 +5,7 @@ import {
   applyAutomaticNewsroomArticleClassificationService,
   clearNewsroomArticleClassificationService,
   setManualNewsroomArticleClassificationService,
+  setManualNewsroomArticleClassificationsService,
   type NewsroomArticleClassification,
   type NewsroomArticleClassificationErrorCode,
   type NewsroomArticleClassificationMutation,
@@ -12,9 +13,15 @@ import {
 } from "@/lib/redacao-automatica/newsroom-article-classification-service-internal";
 
 const SOURCE_ID = "93000000-0000-4000-8000-000000000001";
+const SOURCE_ID_2 = "93000000-0000-4000-8000-000000000002";
+const SOURCE_ID_3 = "93000000-0000-4000-8000-000000000003";
 
 function fakeTransport() {
-  const sources = new Map([[SOURCE_ID, { title: "Fonte canónica" }]]);
+  const sources = new Map([
+    [SOURCE_ID, { title: "Fonte canónica" }],
+    [SOURCE_ID_2, { title: "Fonte dois" }],
+    [SOURCE_ID_3, { title: "Fonte três" }],
+  ]);
   const classifications = new Map<string, NewsroomArticleClassification>();
   const reviewStates = new Map([[SOURCE_ID, "working"]]);
   const usedStates = new Map([[SOURCE_ID, false]]);
@@ -100,6 +107,37 @@ function fakeTransport() {
       ensureSource(newsroomArticleId);
       const changed = classifications.delete(newsroomArticleId);
       return state(newsroomArticleId, true, changed);
+    },
+    async setManualBatch(newsroomArticleIds, classificationKey) {
+      for (const newsroomArticleId of newsroomArticleIds) {
+        ensureSource(newsroomArticleId);
+      }
+      let changedCount = 0;
+      for (const newsroomArticleId of newsroomArticleIds) {
+        const existing = classifications.get(newsroomArticleId);
+        if (classificationKey === null) {
+          changedCount += Number(classifications.delete(newsroomArticleId));
+          continue;
+        }
+        if (
+          existing?.classificationSource === "manual"
+          && existing.classificationKey === classificationKey
+        ) continue;
+        const now = timestamp();
+        classifications.set(newsroomArticleId, {
+          newsroomArticleId,
+          classificationKey,
+          classificationSource: "manual",
+          classifiedAt: now,
+          updatedAt: now,
+        });
+        changedCount += 1;
+      }
+      return {
+        requestedCount: newsroomArticleIds.length,
+        changedCount,
+        classificationKey,
+      };
     },
     classifyError(error): NewsroomArticleClassificationErrorCode {
       const message = error instanceof Error ? error.message : String(error);
@@ -239,6 +277,72 @@ test("manual pode substituir manual e a repetição exata é idempotente", async
   assert.equal(replacement.ok && replacement.value.changed, true);
   assert.equal(repeated.ok && repeated.value.changed, false);
   assert.deepEqual(fake.classifications.get(SOURCE_ID), before);
+});
+
+test("batch manual classifica seleções heterogéneas e limpa atomicamente", async () => {
+  const fake = fakeTransport();
+  const setBatch = setManualNewsroomArticleClassificationsService(fake.transport);
+  await setManualNewsroomArticleClassificationService(fake.transport)({
+    newsroomArticleId: SOURCE_ID_2,
+    classificationKey: "fc_porto",
+  });
+
+  const classified = await setBatch({
+    newsroomArticleIds: [SOURCE_ID, SOURCE_ID_2, SOURCE_ID_3],
+    classificationKey: "sporting",
+  });
+  assert.equal(classified.ok && classified.value.requestedCount, 3);
+  assert.equal(classified.ok && classified.value.changedCount, 3);
+  assert.deepEqual(
+    [SOURCE_ID, SOURCE_ID_2, SOURCE_ID_3].map(
+      (id) => fake.classifications.get(id)?.classificationKey,
+    ),
+    ["sporting", "sporting", "sporting"],
+  );
+  assert.equal(
+    [SOURCE_ID, SOURCE_ID_2, SOURCE_ID_3].every(
+      (id) => fake.classifications.get(id)?.classificationSource === "manual",
+    ),
+    true,
+  );
+
+  const cleared = await setBatch({
+    newsroomArticleIds: [SOURCE_ID, SOURCE_ID_2, SOURCE_ID_3],
+    classificationKey: null,
+  });
+  assert.equal(cleared.ok && cleared.value.changedCount, 3);
+  assert.equal(fake.classifications.size, 0);
+});
+
+test("batch rejeita IDs inválidos ou repetidos antes de qualquer escrita", async () => {
+  const fake = fakeTransport();
+  const setBatch = setManualNewsroomArticleClassificationsService(fake.transport);
+  const invalid = await setBatch({
+    newsroomArticleIds: [SOURCE_ID, "invalido", SOURCE_ID_2],
+    classificationKey: "benfica",
+  });
+  const repeated = await setBatch({
+    newsroomArticleIds: [SOURCE_ID, SOURCE_ID],
+    classificationKey: "benfica",
+  });
+  assert.equal(invalid.ok, false);
+  assert.equal(repeated.ok, false);
+  assert.equal(fake.classifications.size, 0);
+});
+
+test("batch inexistente falha antes de alterar qualquer fonte", async () => {
+  const fake = fakeTransport();
+  const setBatch = setManualNewsroomArticleClassificationsService(fake.transport);
+  const result = await setBatch({
+    newsroomArticleIds: [
+      SOURCE_ID,
+      "93000000-0000-4000-8000-000000000099",
+      SOURCE_ID_2,
+    ],
+    classificationKey: "benfica",
+  });
+  assert.equal(result.ok, false);
+  assert.equal(fake.classifications.size, 0);
 });
 
 test("clear remove a linha, deixa por classificar e é idempotente", async () => {
