@@ -39,11 +39,11 @@ def fixture(css: str, global_css: str, width: int, font_size: int, picture: bool
 <div class="sourceSelection"><label class="selectionToggle"><input type="checkbox"><span>Selecionar fonte</span></label></div>
 <div class="sourceThumb">{image}</div>
 <article class="sourceBody">
-<div class="sourceMeta"><span class="lifecycleBadge" data-lifecycle="new">NOVA</span><time>17/09/26, 12:43</time><span>Fonte de teste</span><span class="classificationBadge">Fora da 1.ª Liga / Outros <small>Automática</small></span></div>
+<div class="sourceMeta"><span class="lifecycleBadge" data-lifecycle="new">NOVA</span><time>17/09/26, 12:43</time><span>Fonte de teste</span><span class="classificationBadge">Outros assuntos <small>Automática</small></span></div>
 <h2>{html.escape(title)}</h2>
 <p>Descrição local para verificar a geometria. Não é carregado nenhum artigo nem nenhuma fonte externa.</p>
 <div class="sourceTools"><a href="#fonte">Abrir fonte</a>
-<div class="classificationEditor"><select aria-label="Classificação manual"><option value="outside">Fora da 1.ª Liga / Outros</option><option value="fc_porto">FC Porto</option></select><button type="button">Guardar</button></div>
+<div class="classificationEditor"><select aria-label="Classificação manual"><option value="outside">Outros assuntos</option><option value="fc_porto">FC Porto</option></select><button type="button">Guardar</button></div>
 <details class="sourceThemeMenu"><summary>Tema</summary><div><select aria-label="Tema de destino"><option value="">Escolher Tema</option><option value="theme">{html.escape(theme)}</option></select><button type="button">Adicionar</button></div></details>
 </div></article><div class="discardArea"><button type="button" aria-label="Descartar fonte">Descartar</button></div>
 </li></ol>'''

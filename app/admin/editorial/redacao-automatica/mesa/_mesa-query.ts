@@ -1,4 +1,6 @@
 import {
+  ARTICLE_CLASSIFICATIONS,
+  articleClassificationLabel,
   isArticleClassificationKey,
   type ArticleClassificationKey,
 } from "@/lib/editorial-classifications";
@@ -22,11 +24,10 @@ export type MesaTab = (typeof MESA_TABS)[number]["value"];
 
 export const MESA_CLASSIFICATION_OPTIONS = [
   { value: "all", label: "TODAS" },
-  { value: "benfica", label: "BENFICA" },
-  { value: "sporting", label: "SPORTING" },
-  { value: "fc_porto", label: "FC PORTO" },
-  { value: "other_liga_clubs", label: "OUTROS 1.ª LIGA" },
-  { value: "outside_liga_other", label: "FORA DA 1.ª LIGA / OUTROS" },
+  ...ARTICLE_CLASSIFICATIONS.map(({ key, label }) => ({
+    value: key,
+    label,
+  })),
   { value: "unclassified", label: "POR CLASSIFICAR" },
 ] as const;
 
@@ -162,6 +163,5 @@ export function mesaHref(query: MesaQuery, change: MesaHrefChange = {}): string 
 }
 
 export function classificationLabel(key: ArticleClassificationKey): string {
-  return MESA_CLASSIFICATION_OPTIONS.find((option) => option.value === key)?.label
-    ?? key;
+  return articleClassificationLabel(key);
 }

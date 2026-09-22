@@ -273,6 +273,8 @@ test("a UI mostra Todas primeiro, três colunas simultâneas e Banco separado", 
   const trackingUi = client.slice(start, end);
   assert.ok(start >= 0 && end > start);
   assert.ok(trackingUi.indexOf("Todas") < trackingUi.indexOf("profile.zones.map"));
+  assert.match(trackingUi, /articleClassificationLabel\(zone\.key\)/u);
+  assert.doesNotMatch(trackingUi, /\{zone\.label\}/u);
   assert.doesNotMatch(client, /data-tracking-state=[^\n]*BANCO/u);
   assert.match(trackingUi, /className="thematic-bank-access"/u);
   assert.match(trackingUi, /aria-label="Banco editorial"/u);
@@ -336,7 +338,7 @@ test("contadores do Tracking excluem Banco explícito no snapshot e no draft", (
   assert.equal(selectMatchdayEditorialExplicitBankItems(bank, "benfica").length, 0);
   assert.match(client, /const trackingEntries = useMemo\([\s\S]*current\.explicitBankItemIds\.includes\(bankItem\.id\)\) return \[\]/u);
   assert.match(client, /Todas \{filteredTrackingEntries\.length\}/u);
-  assert.match(client, /\{zone\.label\} \{trackingEntries\.filter/u);
+  assert.match(client, /\{articleClassificationLabel\(zone\.key\)\} \{trackingEntries\.filter/u);
   assert.match(client, /Banco \{explicitBankEntries\.length\}/u);
   assert.match(client, /Todas \{explicitBankEntries\.length\}/u);
 });

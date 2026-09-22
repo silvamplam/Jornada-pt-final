@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   MESA_CLASSIFICATION_OPTIONS,
   MESA_PAGE_SIZE,
+  classificationLabel,
   mesaHref,
   mesaPageReadModelInput,
   parseMesaQuery,
@@ -100,6 +101,29 @@ test("classificacao transversal keeps all canonical keys and POR CLASSIFICAR", (
     MESA_CLASSIFICATION_OPTIONS.map((option) => option.value),
     ["all", ...canonicalKeys, "unclassified"],
   );
+  assert.equal(classificationLabel("other_liga_clubs"), "1.ª Liga");
+  assert.equal(classificationLabel("outside_liga_other"), "Outros assuntos");
+  assert.deepEqual(
+    MESA_CLASSIFICATION_OPTIONS
+      .filter((option) => (
+        option.value === "other_liga_clubs"
+        || option.value === "outside_liga_other"
+      ))
+      .map(({ value, label }) => ({ value, label })),
+    [
+      { value: "other_liga_clubs", label: "1.ª Liga" },
+      { value: "outside_liga_other", label: "Outros assuntos" },
+    ],
+  );
+
+  const client = source(path.join(
+    process.cwd(),
+    "app/admin/editorial/redacao-automatica/mesa/_mesa-selection-client.tsx",
+  ));
+  assert.match(client, /ARTICLE_CLASSIFICATIONS\.map/);
+  assert.match(client, /articleClassificationLabel\(classificationKey\)/);
+  assert.equal((client.match(/classificationOptions\.map/g) ?? []).length, 4);
+  assert.doesNotMatch(client, /Outros 1\.ª Liga|Fora da 1\.ª Liga \/ Outros/);
 });
 
 test("invalid request is distinguished from empty dataset", () => {

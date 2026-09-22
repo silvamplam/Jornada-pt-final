@@ -13,11 +13,11 @@ export const ARTICLE_CLASSIFICATIONS = [
   },
   {
     key: "other_liga_clubs",
-    label: "Outros clubes",
+    label: "1.ª Liga",
   },
   {
     key: "outside_liga_other",
-    label: "Fora da Liga / outros",
+    label: "Outros assuntos",
   },
 ] as const;
 
@@ -53,4 +53,10 @@ export function articleClassification(
   return ARTICLE_CLASSIFICATIONS.find(
     (classification) => classification.key === key,
   )!;
+}
+
+export function articleClassificationLabel(
+  key: ArticleClassificationKey,
+): string {
+  return articleClassification(key).label;
 }

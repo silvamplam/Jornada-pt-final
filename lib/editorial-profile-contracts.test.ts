@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ARTICLE_CLASSIFICATIONS,
   ARTICLE_CLASSIFICATION_KEYS,
+  articleClassificationLabel,
 } from "@/lib/editorial-classifications";
 import {
   EDITORIAL_PROFILES,
@@ -33,13 +34,15 @@ test("taxonomia mantém exatamente as cinco classificações atuais", () => {
       { key: "benfica", label: "Benfica" },
       { key: "sporting", label: "Sporting" },
       { key: "fc_porto", label: "FC Porto" },
-      { key: "other_liga_clubs", label: "Outros clubes" },
+      { key: "other_liga_clubs", label: "1.ª Liga" },
       {
         key: "outside_liga_other",
-        label: "Fora da Liga / outros",
+        label: "Outros assuntos",
       },
     ],
   );
+  assert.equal(articleClassificationLabel("other_liga_clubs"), "1.ª Liga");
+  assert.equal(articleClassificationLabel("outside_liga_other"), "Outros assuntos");
 });
 
 test("adapter legacy mantém exatamente o perfil atual", () => {

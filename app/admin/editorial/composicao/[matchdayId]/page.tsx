@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { articleClassificationLabel } from "@/lib/editorial-classifications";
 import { readMatchdayEditorialDesk } from "@/lib/editorial-matchday-desk";
 import { readMatchdayEditorialProfileDesk } from "@/lib/editorial-matchday-profile-desk";
 import {
@@ -4557,7 +4558,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const hierarchicalDeskGroups = hierarchicalProfileSnapshot?.kind === "thematic"
     ? hierarchicalProfileSnapshot.automaticDistribution.zones.map((zone) => ({
         key: zone.key,
-        label: zone.label,
+        label: articleClassificationLabel(zone.key),
       }))
     : [];
 
