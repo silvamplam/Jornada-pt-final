@@ -1166,20 +1166,32 @@ export function MesaSelectionTray({
 
   if (!loaded || total === 0) return null;
 
+  const clearSelectionButton = (
+    <button type="button" className={sourceThemeActions ? styles.sourceSelectionButton : undefined} onClick={() => {
+      setThemeAction(null); setOrganizing(false); setTargetTheme(""); setMessage(""); setSelectionPanelOpen(false); clear();
+    }} disabled={submitting}>
+      Limpar
+    </button>
+  );
+  const selectionControlTarget = sourceThemeActions && typeof document !== "undefined"
+    ? document.getElementById("mesa-selection-control")
+    : null;
+
   return (
-    <section className={styles.selectionTray} aria-labelledby="mesa-selection-title"
+    <section className={styles.selectionTray}
+      aria-label={sourceThemeActions ? "Ações da seleção" : undefined}
+      aria-labelledby={sourceThemeActions ? undefined : "mesa-selection-title"}
       data-source-theme-actions={sourceThemeActions ? "true" : undefined}>
+      {loaded && total > 0 && selectionControlTarget
+        ? createPortal(clearSelectionButton, selectionControlTarget)
+        : null}
       <div className={styles.selectionTrayHeader}>
-        <div className={styles.selectionSummary}>
+        {!sourceThemeActions ? <div className={styles.selectionSummary}>
           <div className={styles.selectionSummaryHeader}>
             <h2 id="mesa-selection-title">
               {total} selecionadas
             </h2>
-            <button type="button" onClick={() => {
-              setThemeAction(null); setOrganizing(false); setTargetTheme(""); setMessage(""); setSelectionPanelOpen(false); clear();
-            }} disabled={submitting}>
-              Limpar
-            </button>
+            {clearSelectionButton}
 
             {!sourceThemeActions ? (
               <details className={styles.selectionDetails}>
@@ -1189,9 +1201,12 @@ export function MesaSelectionTray({
             ) : null}
           </div>
           <p>{buffer.sources.length} fontes soltas · {selectedThemes.length} Temas · {distinctSources} fontes congeláveis</p>
-        </div>
+        </div> : null}
 
       <div className={styles.selectionActions}>
+        {sourceThemeActions && loaded && total > 0 && !selectionControlTarget
+          ? clearSelectionButton
+          : null}
         {sourceThemeActions ? (
           <button
             type="button"
