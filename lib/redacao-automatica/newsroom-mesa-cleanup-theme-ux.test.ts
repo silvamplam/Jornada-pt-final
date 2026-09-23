@@ -16,11 +16,12 @@ const css = readFileSync(
 );
 
 test("apagar Tema na Mesa arquiva sem destruir a memória editorial", () => {
-  assert.match(organizationClient, /action: "archive_theme"/);
+  assert.match(organizationClient, /action: nextStatus === "archived" \? "archive_theme" : "set_theme_status"/);
   assert.match(organizationClient, /aria-label="Apagar Tema da Mesa"/);
   assert.match(organizationRoute, /action === "archive_theme"/);
   assert.match(organizationRoute, /newsroom_set_editorial_theme_status_v1/);
-  assert.match(organizationRoute, /p_status: "archived"/);
+  assert.match(organizationRoute, /const status = action === "archive_theme" \? "archived" : body.status/);
+  assert.match(organizationRoute, /p_status: status/);
 });
 
 test("estado editorial do Tema distingue zero publicações de Tema publicado", () => {
