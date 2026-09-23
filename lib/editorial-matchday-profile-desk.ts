@@ -1338,7 +1338,10 @@ export async function readMatchdayEditorialProfileDesk(
       sortOrder: row.sort_order,
     }];
   });
-  const hasAppliedSnapshot = reconcileControlRows.length > 0;
+  const hasLegacyReconcileControl = reconcileControlRows.length > 0;
+  // Physical authority does not require the legacy reconcile control row.
+  const hasPhysicalAppliedState = physicalWorkspace.physicalCutover !== null;
+  const hasAppliedSnapshot = hasLegacyReconcileControl || hasPhysicalAppliedState;
   const snapshotDiagnostics: MatchdayEditorialProfileDeskDiagnostic[] = [];
   for (const row of aggregateRows) {
     if (

@@ -12,8 +12,9 @@ import {
   type MatchdayEditorialProfileStateRow,
   type MatchdayLiveDeskAggregateRow,
 } from "@/lib/editorial-matchday-profile-desk";
-import type {
-  MatchdayLiveLayoutWorkspaceReaderRowV22,
+import {
+  buildLiveLayoutWorkspaceStateV22,
+  type MatchdayLiveLayoutWorkspaceReaderRowV22,
 } from "@/lib/editorial-matchday-live-layout-workspace-v22";
 import { fixMatchdayEditorialItemsInZone } from "@/lib/editorial-matchday-profile-desk-operations";
 import { EDITORIAL_PROFILES } from "@/lib/editorial-profiles";
@@ -365,6 +366,125 @@ test("uma assignment liga_portugal_v1 produz snapshot temático exclusivamente p
   assert.equal(result.physicalCompatibility.additionalPhysicalZoneIds.length, 1);
   assert.equal(paths.length, 12);
 });
+
+for (const scenario of [
+  { name: "a autoridade física reconhece o snapshot sem controlo legado", physical: true, legacy: false, applied: true },
+  { name: "posições sem autoridade física nem controlo legado mantêm o diagnóstico", physical: false, legacy: false, applied: false },
+  { name: "o controlo legado continua a reconhecer o snapshot antes do cutover", physical: false, legacy: true, applied: true },
+]) {
+  test(scenario.name, async () => {
+    const matchdayId = "10000000-0000-4000-8000-000000000008";
+    const articleId = "50000000-0000-4000-8000-000000000001";
+    const bankItemId = "40000000-0000-4000-8000-000000000001";
+    const placementId = "60000000-0000-4000-8000-000000000001";
+    const timestamp = "2026-09-21T14:54:56.290Z";
+    const appliedZoneIndex = profile.zones.findIndex((zone) => zone.key === "fc_porto");
+    const aggregate = {
+      ...aggregateRow(articleId, {
+        bankItemId,
+        zoneKey: "benfica",
+        placementType: "zone",
+        placementZoneKey: "fc_porto",
+        slotPosition: 3,
+      }),
+      placement_id: placementId,
+      zone_id: PHYSICAL_ZONE_IDS[appliedZoneIndex],
+    };
+    const base = physicalWorkspaceReaderRow();
+    const withMatchday = (rows: unknown) => (rows as Record<string, unknown>[])
+      .map((row) => ({ ...row, matchday_id: matchdayId }));
+    const workspaceRow: MatchdayLiveLayoutWorkspaceReaderRowV22 = {
+      ...base,
+      zones: withMatchday(base.zones),
+      blocks: withMatchday(base.blocks),
+      legacy_zone_projection: withMatchday(base.legacy_zone_projection),
+      placements: [{
+        id: placementId,
+        matchday_id: matchdayId,
+        bank_item_id: bankItemId,
+        placement_type: "zone",
+        zone_id: aggregate.zone_id,
+        slot_position: 3,
+        created_at: timestamp,
+        updated_at: timestamp,
+      }],
+      bank_items: [{
+        id: bankItemId,
+        matchday_id: matchdayId,
+        source_type: "editorial_article",
+        source_id: articleId,
+        status: "active",
+        label: aggregate.label,
+        title: aggregate.title,
+        subtitle: aggregate.subtitle,
+        image_url: aggregate.image_url,
+        link_url: aggregate.link_url,
+        automatic_eligible: true,
+        editorially_worked_at: null,
+        classification_key: "benfica",
+        classification_source: "automatic",
+        classified_at: timestamp,
+        continuity_source_matchday_id: null,
+        continuity_source_composition_id: null,
+        is_explicit_bank: false,
+      }],
+      workspace_settings: scenario.physical ? {
+        matchday_id: matchdayId,
+        faixa_slot_count: 0,
+        headline_title_color: null,
+        latest_zone_mode: "latest_news",
+        latest_zone_placement: "hidden",
+        latest_zone_title: "Últimas",
+        latest_zone_title_color: null,
+        video_module_active: false,
+        created_at: timestamp,
+        updated_at: timestamp,
+      } : null,
+      physical_cutover: scenario.physical ? {
+        matchday_id: matchdayId,
+        profile_key: "liga_portugal_v1",
+        cutover_at: timestamp,
+      } : null,
+    };
+    const originalWorkspaceRow = structuredClone(workspaceRow);
+    const expectedPhysicalWorkspace = buildLiveLayoutWorkspaceStateV22(matchdayId, workspaceRow);
+    const responses: Record<string, unknown[]> = {
+      matchday_editorial_profile_assignments: [{ profile_key: "liga_portugal_v1" }],
+      matchdays: [{ id: matchdayId, season_id: "season-1", number: 8, label: "Jornada 08" }],
+      seasons: [{ id: "season-1", competition_id: "competition-1", label: "2026/27" }],
+      competitions: [{ id: "competition-1", name: "Liga Portugal", slug: "liga-portugal" }],
+      "rpc/matchday_editorial_profile_workspace_token": [{ state_token: "stable-token" }],
+      "rpc/read_matchday_live_desk_aggregate_tracking": [aggregate],
+      "rpc/read_matchday_live_layout_workspace_v22": [workspaceRow],
+      matchday_editorial_profile_reconcile_control: scenario.legacy ? [{ revision: 7 }] : [],
+      matchday_editorial_profile_manual_overrides: [],
+      matchday_editorials: [],
+    };
+    const fetchTable: MatchdayEditorialProfileDeskTableFetcher = async <T>(path: string) => {
+      const resource = path.split("?")[0];
+      assert.ok(Object.hasOwn(responses, resource), `Unexpected read: ${path}`);
+      return responses[resource] as T[];
+    };
+
+    const result = await readMatchdayEditorialProfileDesk(matchdayId, { fetchTable });
+    assert.ok(result?.kind === "thematic");
+    assert.equal(result.hasAppliedSnapshot, scenario.applied);
+    assert.equal(result.reconcileRevision, scenario.legacy ? 7 : 0);
+    assert.deepEqual(result.diagnostics.map((diagnostic) => diagnostic.code),
+      scenario.applied ? [] : ["invalid_applied_snapshot"]);
+    assert.deepEqual(result.reconcile.zonesBefore.flatMap((zone) => zone.items.map((item) => (
+      [zone.key, item.sourceId, item.sortOrder]
+    ))), [[scenario.applied ? "fc_porto" : "benfica", articleId, scenario.applied ? 3 : 1]]);
+    assert.deepEqual(result.physicalWorkspace, expectedPhysicalWorkspace);
+    assert.deepEqual(result.physicalLayout, {
+      zones: expectedPhysicalWorkspace.zones,
+      blocks: expectedPhysicalWorkspace.blocks,
+    });
+    assert.deepEqual(workspaceRow, originalWorkspaceRow);
+    assert.deepEqual(responses.matchday_editorial_profile_reconcile_control,
+      scenario.legacy ? [{ revision: 7 }] : []);
+  });
+}
 
 test("o leitor falha fechado se o token mudar durante a construção do snapshot", async () => {
   const articleId = "00000000-0000-4000-8000-000000000016";
