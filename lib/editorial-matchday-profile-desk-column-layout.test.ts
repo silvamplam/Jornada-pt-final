@@ -7,6 +7,70 @@ const source = readFileSync(
   "utf8",
 );
 
+function cssRule(selector: RegExp) {
+  const rule = [...source.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .find((match) => selector.test(match[1]));
+  assert.ok(rule, `regra CSS em falta: ${selector}`);
+  return { selector: rule[1], declarations: rule[2] };
+}
+
+test("todos os cartões partilham imagem larga e controlos sobrepostos com contraste", () => {
+  const image = cssRule(/^\s*\.thematic-image,\s*\.thematic-image-placeholder\s*$/).declarations;
+  assert.match(image, /grid-column:\s*1\s*\/\s*-1;/);
+  assert.match(image, /grid-row:\s*1;/);
+  assert.match(image, /width:\s*100%;/);
+  assert.match(image, /aspect-ratio:\s*16\s*\/\s*9;/);
+
+  const checkbox = cssRule(/^\s*\.thematic-card input\[type="checkbox"\]\s*$/).declarations;
+  assert.match(checkbox, /grid-column:\s*1;/);
+  assert.match(checkbox, /grid-row:\s*1;/);
+  assert.match(checkbox, /z-index:\s*1;/);
+  assert.match(checkbox, /outline:\s*2px solid #fff;/);
+  assert.match(checkbox, /box-shadow:\s*0 0 0 4px rgba\(15,23,42,\.45\);/);
+
+  const menu = cssRule(/^\s*\.thematic-card-menu\s*$/).declarations;
+  assert.match(menu, /grid-column:\s*3;/);
+  assert.match(menu, /grid-row:\s*1;/);
+  assert.match(menu, /z-index:\s*1;/);
+  assert.match(cssRule(/^\s*\.thematic-card-menu summary\s*$/).declarations, /background:\s*#fff;/);
+  assert.match(cssRule(/^\s*\.thematic-card-menu\[open\]\s*$/).declarations, /z-index:\s*15;/);
+});
+
+test("checkboxes de Faixa e candidatas conservam o foco nativo de teclado", () => {
+  const focus = cssRule(/\.thematic-card input\[type="checkbox"\]:focus-visible/);
+  assert.match(focus.selector, /\.thematic-faixa-slots/);
+  assert.match(focus.selector, /\.thematic-candidates-grid/);
+  assert.doesNotMatch(focus.selector, /thematic-workspace-section|thematic-opening-workspace|data-zone-id/);
+  assert.match(focus.declarations, /outline:\s*revert;/);
+});
+
+test("só Faixa e candidatas conservam a altura da antiga coluna da imagem", () => {
+  const spacer = cssRule(/\.thematic-card::before/);
+  assert.match(spacer.selector, /\.thematic-faixa-slots/);
+  assert.match(spacer.selector, /\.thematic-candidates-grid/);
+  assert.doesNotMatch(spacer.selector, /thematic-workspace-section|thematic-opening-workspace|data-zone-id/);
+  assert.match(spacer.declarations, /content:\s*"";/);
+  assert.match(spacer.declarations, /grid-column:\s*2;/);
+  assert.match(spacer.declarations, /grid-row:\s*1;/);
+  assert.match(spacer.declarations, /width:\s*100%;/);
+  assert.match(spacer.declarations, /aspect-ratio:\s*16\s*\/\s*9;/);
+
+  const image = cssRule(/\.thematic-faixa-slots[^{}]*\.thematic-image-placeholder/);
+  assert.match(image.selector, /\.thematic-candidates-grid/);
+  assert.doesNotMatch(image.selector, /thematic-workspace-section|thematic-opening-workspace|data-zone-id/);
+  assert.match(image.declarations, /position:\s*absolute;/);
+  assert.match(image.declarations, /grid-row:\s*1\s*\/\s*2;/);
+  assert.match(image.declarations, /inset:\s*0;/);
+  assert.match(image.declarations, /height:\s*100%;/);
+});
+
+test("Abertura e zonas mantêm a geometria e não recebem a reserva de altura", () => {
+  const scope = String.raw`\.thematic-workspace-section:is\(\[data-zone-id\], #thematic-opening-workspace\)`;
+  assert.match(cssRule(new RegExp(`^\\s*${scope} \\.thematic-card\\s*$`)).declarations, /gap: 4px; padding: 6px;/);
+  assert.match(cssRule(new RegExp(`^\\s*${scope} \\.thematic-card > \\.thematic-card-copy\\s*$`)).declarations, /gap: 3px;/);
+  assert.match(cssRule(new RegExp(`^\\s*${scope} \\.thematic-card-title\\s*$`)).declarations, /-webkit-line-clamp: 3;/);
+});
+
 test("Mesa deixou de distribuir clubes por colunas ou chaves hardcoded", () => {
   assert.doesNotMatch(source, /className="thematic-zone-column"/);
   assert.doesNotMatch(source, /renderZonePanel\("benfica"\)/);
