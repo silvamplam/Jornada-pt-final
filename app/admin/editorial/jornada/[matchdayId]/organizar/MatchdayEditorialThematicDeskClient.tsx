@@ -185,18 +185,19 @@ const styles = `
   .thematic-slot-label { display: block; margin-bottom: 4px; color: #5e6d7d; font-size: 8px; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; }
   .thematic-empty { display: grid; place-items: center; min-height: 55px; margin: 0; color: #8a98a8; font-size: 9px; font-weight: 700; text-align: center; }
   .thematic-dropbar { margin: 0 7px 7px; padding: 6px; border: 1px dashed #b9c6d4; border-radius: 5px; color: #69788a; font-size: 8px; font-weight: 800; text-align: center; }
-  .thematic-card { position: relative; display: grid; grid-template-columns: 18px 50px minmax(0,1fr) 24px; gap: 5px; align-items: center; min-width: 0; min-height: 58px; padding: 4px; border: 1px solid #dfe6ee; border-radius: 5px; background: #fff; cursor: grab; box-shadow: 0 1px 4px rgba(15,23,42,.04); }
+  .thematic-card { position: relative; display: grid; grid-template-columns: 18px minmax(0,1fr) 26px; gap: 7px; align-content: start; align-items: start; min-width: 0; padding: 8px; border: 1px solid #dfe6ee; border-radius: 7px; background: #fff; cursor: grab; box-shadow: 0 1px 4px rgba(15,23,42,.04); }
   .thematic-card:active { cursor: grabbing; }
   .thematic-card.selected { border-color: #e43e48; box-shadow: inset 3px 0 0 #e43e48; }
-  .thematic-card input[type="checkbox"] { width: 14px; height: 14px; accent-color: #e43e48; }
-  .thematic-image, .thematic-image-placeholder { display: block; width: 50px; height: 40px; border-radius: 4px; background: #dce4ed; object-fit: cover; }
+  .thematic-card input[type="checkbox"] { grid-column: 1; grid-row: 1; width: 16px; height: 16px; margin: 3px 0 0; accent-color: #e43e48; }
+  .thematic-image, .thematic-image-placeholder { grid-column: 2; grid-row: 1; display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 5px; background: #dce4ed; object-fit: cover; }
   .thematic-card-copy { display: grid; min-width: 0; gap: 1px; }
+  .thematic-card > .thematic-card-copy { grid-column: 1 / -1; grid-row: 2; gap: 5px; }
   .thematic-card-top { display: flex; min-width: 0; flex-wrap: wrap; gap: 3px; align-items: center; }
-  .thematic-card-label { overflow: hidden; color: #cc2732; font-size: 7px; font-weight: 900; letter-spacing: .03em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+  .thematic-card-label { overflow: hidden; color: #b21f2a; font-size: 9px; font-weight: 900; letter-spacing: .03em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 
-  .thematic-card-title { display: -webkit-box; overflow: hidden; font-size: 10px; line-height: 1.14; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-  .thematic-card time { color: #6c7a8b; font-size: 7px; }
-  .thematic-card-menu { position: relative; align-self: start; }
+  .thematic-card-title { display: -webkit-box; overflow: hidden; font-size: 14px; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+  .thematic-card time { color: #5c6a7a; font-size: 10px; }
+  .thematic-card-menu { grid-column: 3; grid-row: 1; position: relative; align-self: start; }
   .thematic-card-menu summary { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid #d7e0e9; border-radius: 4px; cursor: pointer; list-style: none; font-weight: 900; }
   .thematic-card-menu summary::-webkit-details-marker { display: none; }
   .thematic-card-menu[open] { z-index: 15; }
@@ -239,7 +240,8 @@ const styles = `
   .thematic-zone-select input { width: 13px; height: 13px; margin: 0; accent-color: #ff5c65; }
   .thematic-zone-focus { display: grid; min-width: 0; gap: 1px; padding: 6px 7px; border: 0; background: transparent; color: #fff; text-align: left; cursor: pointer; }
   .thematic-zone-focus strong, .thematic-zone-focus small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .thematic-zone-focus strong { font-size: 10px; }
+  .thematic-zone-focus strong { font-size: 12px; }
+  .thematic-zone-row:has(input:checked) .thematic-zone-select { background: #455970; }
   .thematic-zone-focus small { color: #9fb0c0; font-size: 8px; }
   .thematic-zone-move-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
   .thematic-zone-move-controls button { display: grid; min-height: 46px; place-items: center; gap: 1px; border: 1px solid #657588; border-radius: 7px; background: #253241; color: #fff; font-size: 9px; font-weight: 900; cursor: pointer; }
@@ -252,23 +254,20 @@ const styles = `
   .thematic-workspace-stack { display: grid; min-width: 0; align-content: start; gap: 5px; padding: 5px; }
   .thematic-workspace-section { min-width: 0; overflow: visible; border: 1px solid #d7e0e9; border-radius: 7px; background: #fff; }
   .thematic-workspace-heading { display: flex; align-items: center; justify-content: space-between; min-height: 29px; gap: 8px; padding: 4px 7px; border-bottom: 1px solid #dfe6ee; border-radius: 6px 6px 0 0; background: #101820; color: #fff; }
-  .thematic-workspace-heading strong { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+  .thematic-workspace-heading strong { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
   .thematic-workspace-heading span { color: #bac8d5; font-size: 8px; font-weight: 800; }
   .thematic-workspace-body { display: grid; min-width: 0; gap: 5px; padding: 5px; }
-  .thematic-zone-editor { display: grid; grid-template-columns: minmax(320px,1.2fr) minmax(260px,.8fr) auto; gap: 7px; align-items: center; padding: 4px 5px; border: 1px solid #dce3eb; border-radius: 6px; background: #fbfcfd; }
-  .thematic-zone-editor label { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 5px; align-items: center; min-width: 0; }
+  .thematic-zone-editor { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,.8fr) auto; gap: 7px; align-items: end; padding: 6px; border: 1px solid #dce3eb; border-radius: 6px; background: #fbfcfd; }
+  .thematic-zone-editor label { display: grid; gap: 4px; min-width: 0; }
   .thematic-zone-editor label > span { color: #526173; font-size: 9px; font-weight: 850; text-transform: uppercase; white-space: nowrap; }
-  .thematic-zone-editor input, .thematic-zone-editor select { width: 100%; min-height: 29px; padding: 0 7px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 10px; }
+  .thematic-zone-editor input, .thematic-zone-editor select { width: 100%; min-width: 0; min-height: 32px; padding: 0 7px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 12px; }
   .thematic-zone-editor-count { min-width: 34px; font-size: 11px; font-weight: 900; text-align: right; white-space: nowrap; }
   .thematic-slots { display: grid; gap: 4px; }
-  .thematic-slots-4 { grid-template-columns: repeat(4,minmax(0,1fr)); }
-  .thematic-slots-5 { grid-template-columns: repeat(5,minmax(0,1fr)); }
-  .thematic-slots-6 { grid-template-columns: repeat(6,minmax(0,1fr)); }
-  .thematic-workspace-slot { min-width: 0; min-height: 64px; padding: 4px; border: 1px dashed #b8c4d2; border-radius: 5px; background: #fff; }
+  .thematic-slots-4, .thematic-slots-5, .thematic-slots-6 { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .thematic-workspace-slot { display: flex; flex-direction: column; min-width: 0; min-height: 64px; padding: 4px; border: 1px dashed #b8c4d2; border-radius: 5px; background: #fff; }
   .thematic-workspace-slot[data-drag-active="true"] { border-color: #2563eb; background: #eff6ff; }
-  .thematic-workspace-slot .thematic-card { grid-template-columns: 16px 44px minmax(0,1fr) 22px; min-height: 52px; }
+  .thematic-workspace-slot .thematic-card { flex: 1; }
   .thematic-workspace-slot .thematic-card.thematic-selection-card { grid-template-columns: 16px 44px minmax(0,1fr) 22px; }
-  .thematic-workspace-slot .thematic-image, .thematic-workspace-slot .thematic-image-placeholder { width: 44px; height: 34px; }
   .thematic-highlight-row { display: grid; grid-template-columns: minmax(120px,160px) minmax(0,520px); gap: 5px; align-items: end; justify-content: start; }
   .thematic-highlight-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 7px; min-width: 0; }
   .thematic-highlight-card { display: grid; grid-template-columns: 50px minmax(0,1fr) auto; gap: 7px; align-items: center; min-height: 58px; padding: 6px; border: 1px solid #dfe6ee; border-radius: 6px; background: #fff; }
@@ -276,7 +275,7 @@ const styles = `
   .thematic-sources { display: grid; min-width: 0; overflow: visible; border: 1px solid #263342; border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(12,22,34,.06); }
   .thematic-sources-toolbar { display: grid; gap: 6px; min-width: 0; padding: 7px; border-bottom: 1px solid #263342; border-radius: 7px 7px 0 0; background: #101820; color: #fff; }
   .thematic-sources-toolbar-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .thematic-sources-toolbar h2 { margin: 0 auto 0 0; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; }
+  .thematic-sources-toolbar h2 { margin: 0 auto 0 0; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; }
   .thematic-candidate-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4px; }
   .thematic-candidate-tabs button { min-height: 31px; padding: 4px 7px; border: 1px solid #526174; border-radius: 5px; background: #1b2734; color: #dce5ed; font-size: 9px; font-weight: 900; cursor: pointer; }
   .thematic-candidate-tabs button.active { border-color: #ff5c65; background: #a52530; color: #fff; }
@@ -284,6 +283,7 @@ const styles = `
   .thematic-candidate-filters nav { display: flex; flex: 1 1 100%; min-width: 0; flex-wrap: wrap; gap: 4px; }
   .thematic-candidate-filters nav button { min-height: 25px; padding: 3px 7px; border: 1px solid #465669; border-radius: 999px; background: transparent; color: #cbd5e1; font-size: 8px; font-weight: 850; cursor: pointer; }
   .thematic-candidate-filters nav button.active { border-color: #fff; background: #fff; color: #101820; }
+  .thematic-candidate-results { flex: 1 1 100%; color: #cbd5e1; font-size: 11px; }
   .thematic-reservoir-search { display: grid; grid-template-columns: auto minmax(120px,1fr); flex: 1 1 100%; min-width: 0; min-height: 29px; align-items: center; gap: 6px; padding: 0 7px; border: 1px solid #4b5b6e; border-radius: 5px; background: #fff; color: #101820; }
   .thematic-reservoir-search span { color: #64748b; font-size: 8px; font-weight: 850; }
   .thematic-reservoir-search input { min-width: 0; min-height: 27px; border: 0; outline: 0; font-size: 10px; }
@@ -369,8 +369,7 @@ const styles = `
   .thematic-highlight-card img { width: 80px; height: 58px; border-radius: 5px; object-fit: cover; }
   .thematic-highlight-card > div { display: grid; gap: 5px; }
   .thematic-highlight-card span { color: #64748b; font-size: 9px; }
-  @media (max-width: 1450px) { .thematic-desk-grid .thematic-slots-5, .thematic-desk-grid .thematic-slots-6 { grid-template-columns: repeat(3,minmax(0,1fr)); } }
-  @media (max-width: 1120px) { .thematic-desk-grid { grid-template-columns: 1fr; } .thematic-desk-grid .thematic-slots-5, .thematic-desk-grid .thematic-slots-6 { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+  @media (max-width: 1120px) { .thematic-desk-grid { grid-template-columns: 1fr; } }
   @media (max-width: 760px) { .thematic-global-tools { display: flex; flex-wrap: wrap; } .thematic-global-tools > .thematic-global-tool { flex: 0 0 auto; } .thematic-global-actions { flex: 1 1 100%; min-width: 100%; border-top: 1px solid #e1e7ed; } .thematic-selection-controls { flex-wrap: wrap; } .thematic-global-tool { position: static; } .thematic-global-actions > .thematic-classification-tool > summary { border-left: 0; } .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { top: calc(100% + 5px); right: 3px; left: 3px; width: auto; max-width: none; max-height: calc(100vh - 80px); } .thematic-workspace { grid-template-columns: 1fr; } .thematic-zone-rail { border-right: 0; border-bottom: 1px solid #273444; } .thematic-zone-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-new-zone-form, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-candidates-grid, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .agenda-tv-sync-actions { justify-content: flex-start; } }
 `;
 
@@ -431,14 +430,14 @@ function ArticleCard({ bankItemId, item, placement, selected, dragging, onToggle
     <article aria-grabbed={dragging} className={`thematic-card${selected ? " selected" : ""}`} draggable onDragEnd={onDragEnd} onDragStart={(event) => onDragStart(event, bankItemId)}>
       <input aria-label={`Marcar para operação em lote: ${item.title ?? item.sourceId}`} checked={selected} onChange={() => onToggle(bankItemId)} onClick={(event) => event.stopPropagation()} type="checkbox" />
       {renderableImageUrl(item.imageUrl) ? (
-        <Image alt="" className="thematic-image" height={40} loader={imageLoader} loading="lazy" src={item.imageUrl} unoptimized width={50} />
+        <Image alt="" className="thematic-image" height={180} loader={imageLoader} loading="lazy" src={item.imageUrl} unoptimized width={320} />
       ) : <span aria-hidden="true" className="thematic-image-placeholder" />}
       <div className="thematic-card-copy">
         <div className="thematic-card-top">
           {item.label ? <span className="thematic-card-label">{item.label}</span> : null}
 
         </div>
-        <strong className="thematic-card-title">{item.title ?? "Artigo sem título"}</strong>
+        <strong className="thematic-card-title" title={item.title ?? undefined}>{item.title ?? "Artigo sem título"}</strong>
         {publishedAt ? <time dateTime={item.publishedAt ?? undefined}>{publishedAt}</time> : null}
       </div>
       <details
@@ -731,7 +730,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (awaitedPhysicalStateToken === desk.physicalWorkspace.stateToken) {
       setAwaitedPhysicalStateToken(null);
       setApplyState("idle");
-      setMessage("Estado físico autoritativo confirmado pelo servidor.");
+      setMessage("Alterações aplicadas.");
     } else if (awaitedPhysicalStateToken === null) {
       setApplyState("idle");
     }
@@ -864,7 +863,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   ): PhysicalDeskState | null {
     if (mutationBlocked) {
       setApplyState("error");
-      setMessage("A Mesa está a confirmar o Apply físico; aguarde a reconstrução pelo servidor.");
+      setMessage("A Mesa está a guardar; aguarde.");
       return null;
     }
     try {
@@ -877,7 +876,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       setApplyState("error");
       const errorMessage = error instanceof Error
         ? error.message
-        : "A operação física foi recusada.";
+        : "Não foi possível concluir a alteração.";
       setMessage(
         errorMessage.includes("zone-layout-shrink-occupied")
           ? "Este layout não comporta as posições atualmente ocupadas. Mova primeiro os artigos dessas posições."
@@ -898,7 +897,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         publicTitle: newZoneTitle,
         visualFamily: newZoneVisualFamily,
       }),
-      `${newZoneTitle.trim() || "Zona sem título"}: zona física criada em preview.`,
+      `${newZoneTitle.trim() || "Zona sem título"}: zona criada.`,
     );
     if (!nextState) return;
     const createdZone = nextState.current.zones.find((zone) => (
@@ -922,7 +921,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
     const nextState = runPhysicalOperation(
       (state) => deletePhysicalDeskZone(state, zoneId),
-      `${zone.publicTitle || "Zona sem título"}: zona física apagada em preview.`,
+      `${zone.publicTitle || "Zona sem título"}: zona removida.`,
     );
 
     if (!nextState) return;
@@ -952,7 +951,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (!zone) return;
     runPhysicalOperation(
       (state) => movePhysicalDeskZone(state, selectedReorderZoneId, direction),
-      `${zone.publicTitle || "Zona sem título"}: posição vertical alterada em preview.`,
+      `${zone.publicTitle || "Zona sem título"}: ordem alterada.`,
     );
   }
 
@@ -972,7 +971,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       (state) => movePhysicalDeskItemToSlot(state, bankItemId, {
         placementType: "zone", zoneId, slotPosition: position,
       }),
-      `Notícia colocada na zona física ${zoneId}, posição ${position}.`,
+      `Notícia colocada em ${zoneById.get(zoneId)?.publicTitle || "Zona sem título"}, posição ${position}.`,
     );
   }
 
@@ -981,7 +980,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       (state) => movePhysicalDeskItemToSlot(state, bankItemId, {
         placementType: "opening", zoneId: null, slotPosition,
       }),
-      "Abertura atualizada em preview físico.",
+      "Abertura atualizada.",
     );
   }
 
@@ -997,7 +996,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       (state) => movePhysicalDeskItemToSlot(state, bankItemId, {
         placementType: "faixa", zoneId: null, slotPosition,
       }),
-      "Faixa atualizada em preview físico.",
+      "Faixa atualizada.",
     );
   }
 
@@ -1197,7 +1196,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
               maxLength={120}
               onBlur={(event) => runPhysicalOperation(
                 (state) => changePhysicalDeskZone(state, zone.id, { publicTitle: event.target.value }),
-                `${zoneLabel}: título físico alterado em preview.`,
+                `${zoneLabel}: título alterado.`,
               )}
               type="text"
             />
@@ -1211,7 +1210,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 (state) => changePhysicalDeskZone(state, zone.id, {
                   visualFamily: event.target.value as EditorialVisualFamily,
                 }),
-                `${zoneLabel}: layout físico alterado em preview.`,
+                `${zoneLabel}: apresentação alterada.`,
               )}
               value={zone.visualFamily}
             >
@@ -1357,7 +1356,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           <div className="thematic-card-copy">
             <strong>Últimas</strong>
             <small>
-              Bloco editorial de apresentação. Não é uma zona de notícias.
+              Escolha onde apresentar as Últimas.
             </small>
           </div>
 
@@ -1374,7 +1373,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
           <p className="thematic-message">
             {latestDestination.kind === "legacy_incomplete"
-              ? "Estado legado incompleto: escolha explicitamente Manchete, Ocultas ou uma zona física."
+              ? "Escolha uma posição para as Últimas."
               : companionZone
                 ? `Zona associada: ${companionZone.publicTitle || "Zona sem título"}.`
                 : latestDestination.kind === "headline"
@@ -1405,7 +1404,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   (state) => changePhysicalDeskPresentation(state, {
                     videoModuleActive: event.target.value === "active",
                   }),
-                  "Visibilidade do Destaque alterada em preview.",
+                  "Visibilidade do Destaque alterada.",
                 )}
                 value={current.presentation.videoModuleActive ? "active" : "hidden"}
               >
@@ -1426,7 +1425,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 (state) => movePhysicalDeskItemToSlot(state, bankItemId, {
                   placementType: "video_highlight", zoneId: null, slotPosition: 1,
                 }),
-                "Destaque atualizado em preview físico.",
+                "Destaque atualizado.",
               );
               setDraggingBankItemId(null);
             }}
@@ -1526,6 +1525,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 value={candidateQuery}
               />
             </label>
+            <span className="thematic-candidate-results" role="status" aria-live="polite">
+              A mostrar {visibleCandidateEntries.length} de {filteredCandidateEntries.length}
+            </span>
           </div>
         </div>
         <div
@@ -1551,7 +1553,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   {cardFor(entry.bankItemId, entry.placement)}
                 </Fragment>
               ))
-            : <p className="thematic-empty">Sem artigos neste universo.</p>}
+            : <p className="thematic-empty">{activeUniverseEntries.length > 0 ? "Nenhum artigo corresponde aos filtros." : "Sem artigos neste universo."}</p>}
         </div>
         {visibleCandidateEntries.length < filteredCandidateEntries.length ? (
           <div className="thematic-more">
@@ -1729,20 +1731,20 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (mutationBlocked) return;
     setPhysicalDesk((state) => undoPhysicalDeskState(state));
     setApplyState("idle");
-    setMessage("Última alteração física desfeita.");
+    setMessage("Última alteração desfeita.");
   }
 
   function resetLocal() {
     if (mutationBlocked) return;
     setPhysicalDesk((state) => resetPhysicalDeskState(state));
     setApplyState("idle");
-    setMessage("Preview físico reposto para o último estado aplicado.");
+    setMessage("Alterações locais anuladas.");
   }
 
   async function applyChanges() {
     if (!pending || mutationBlocked) return;
     setApplyState("saving");
-    setMessage("A aplicar o workspace físico numa única transação…");
+    setMessage("A aplicar alterações…");
     try {
       const payload = buildPhysicalDeskApplyPayload(desk.profileKey, physicalDesk);
       const response = await fetch(`/api/admin/editorial/jornada/${desk.matchdayId}/organizar/tematico`, {
@@ -1760,11 +1762,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         || typeof result.stateToken !== "string"
         || !/^[0-9a-f]{32}$/.test(result.stateToken)
       ) {
-        throw new Error(result.message ?? "O Apply físico foi recusado integralmente.");
+        throw new Error(result.message ?? "Não foi possível aplicar as alterações.");
       }
       setAwaitedPhysicalStateToken(result.stateToken);
       setApplyState("refreshing");
-      setMessage("Aplicado. A reconstruir a Mesa pelo reader físico…");
+      setMessage("Alterações aplicadas. A atualizar a Mesa…");
       router.refresh();
     } catch (error) {
       setApplyState("error");
@@ -1781,7 +1783,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             <p className="thematic-eyebrow">Mesa viva</p>
             <h1>{desk.profileDisplayName}</h1>
             <span className="thematic-context">{desk.competitionName} · {desk.seasonLabel} · {desk.matchdayLabel}</span>
-            <span className={`thematic-status${pending ? " pending" : ""}`}>{pending ? "Preview · alterações pendentes" : "Estado aplicado · sem pendentes"}</span>
+            <span className={`thematic-status${pending ? " pending" : ""}`}>{pending ? "Alterações por aplicar" : "Estado aplicado · sem pendentes"}</span>
           </div>
           <nav><a href="/admin">Backoffice</a></nav>
         </header>
@@ -2216,16 +2218,15 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           </section>
           {renderCandidates()}
         </div>
-        {physicalDesk.history.length > 0 ? <details className="thematic-panel thematic-movements"><summary>Movimentos em preview · {physicalDesk.history.length}</summary><p className="thematic-message">O histórico contém checkpoints físicos; nenhuma projection legacy é armazenada.</p></details> : null}
         {desk.inactiveHistoricalCount > 0 ? <p className="thematic-message">Estado histórico inativo: {desk.inactiveHistoricalCount}</p> : null}
         <Diagnostics diagnostics={desk.diagnostics} />
       </div>
 
       <footer className="thematic-pending" aria-live="polite">
-        <div className="thematic-pending-copy"><strong>{pendingCount} alterações pendentes</strong>{applyState === "refreshing" ? <span>A reconstruir pelo estado físico autoritativo</span> : null}</div>
+        <div className="thematic-pending-copy"><strong>{pendingCount} {pendingCount === 1 ? "alteração pendente" : "alterações pendentes"}</strong>{applyState === "refreshing" ? <span>A atualizar a Mesa…</span> : null}</div>
         <button className="thematic-button" disabled={mutationBlocked || physicalDesk.history.length === 0} onClick={undo} type="button">Desfazer última</button>
         <button className="thematic-button" disabled={mutationBlocked || !pending} onClick={resetLocal} type="button">Limpar alterações</button>
-        <button className="thematic-button dark" disabled={!pending || mutationBlocked} onClick={applyChanges} type="button">{applyState === "saving" ? "A aplicar…" : applyState === "refreshing" ? "A reconstruir…" : "Aplicar alterações"}</button>
+        <button className="thematic-button dark" disabled={!pending || mutationBlocked} onClick={applyChanges} type="button">{applyState === "saving" ? "A aplicar…" : applyState === "refreshing" ? "A atualizar…" : "Aplicar alterações"}</button>
       </footer>
     </main>
   );
