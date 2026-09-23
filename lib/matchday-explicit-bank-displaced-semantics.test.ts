@@ -87,21 +87,19 @@ test("o Apply mantém a ordem override antes do reconcile autoritativo", () => {
   assert.match(faixaApplyTest, /real replacement did not create displaced memory/u);
 });
 
-test("a UI mantém Tracking e Banco independentes, inclusive nos contadores", () => {
-  assert.match(client, /Todas \{trackableItems\.length\}/u);
-  assert.match(client, /\{zone\.label\} \{trackableItems\.filter/u);
-  assert.match(client, /Banco \{explicitBankEntries\.length\}/u);
-  assert.match(client, /aria-label="Filtrar Banco por classe contextual"/u);
-  assert.match(client, /Todas \{explicitBankEntries\.length\}/u);
+test("a UI preserva Bank explícito como universo próprio numa barra partilhada", () => {
+  assert.match(client, /current\.explicitBankItemIds\.includes\(bankItem\.id\)\) return \[\]/u);
+  assert.match(client, /bank: bankCandidateEntries\.map/u);
+  assert.match(client, /bank: "Bank"/u);
+  assert.match(client, /candidateEntriesByUniverse\[universe\]\.length/u);
+  assert.match(client, /aria-label="Filtrar candidatas por classificação"/u);
+  assert.match(client, /Todas \{activeUniverseEntries\.length\}/u);
   assert.match(client, /selectMatchdayEditorialExplicitBankItems/u);
-  assert.doesNotMatch(client, /data-tracking-state=[^\n]*BANCO/u);
-  const bankStart = client.indexOf('aria-label="Banco editorial"');
-  const bankEnd = client.indexOf('<div className="thematic-tracking-rows">', bankStart);
-  const bank = client.slice(bankStart, bankEnd);
-  assert.ok(bankStart >= 0 && bankEnd > bankStart);
-  assert.doesNotMatch(bank, /<header>/u);
-  assert.doesNotMatch(bank, /disponíveis/u);
-  assert.match(bank, /className="thematic-bank-class-filters"[\s\S]*Selecionar Banco/u);
+  assert.doesNotMatch(client, /bankClassFilter|thematic-bank-class-filters/u);
+  assert.equal(
+    (client.match(/aria-label="Universo de candidatas"/gu) ?? []).length,
+    1,
+  );
 });
 
 test("a fixture PG17 distingue movimentos explícitos de displacement real", () => {

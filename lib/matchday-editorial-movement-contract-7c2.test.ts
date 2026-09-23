@@ -252,7 +252,7 @@ test("preview autoritativo pode deixar vaga sem autofill nem promoção à Faixa
   );
 });
 
-test("cliente expõe destinos explícitos e mantém Novas sem drop", () => {
+test("cliente expõe destinos explícitos e bloqueia drag direto entre zonas", () => {
   const client = readFileSync(
     "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
     "utf8",
@@ -271,16 +271,18 @@ test("cliente expõe destinos explícitos e mantém Novas sem drop", () => {
     client,
     /Largar aqui · passa para Desalojadas/u,
   );
-  assert.match(client, /state !== "NOVA" \? \(/u);
-  assert.doesNotMatch(client, /allowAutomaticPlacement: true/u);
-  assert.match(client, /if \(state === "FAIXA"\) placeAtFaixaTop/u);
-  assert.equal(
-    client.includes('(left.item.sortOrder ?? Number.MAX_SAFE_INTEGER)'),
-    true,
+  assert.match(client, /className="thematic-candidates-drop-target"/u);
+  assert.match(
+    client,
+    /source\?\.placementType === "zone"[\s\S]*source\.zoneId !== zoneId/u,
   );
+  assert.match(client, /Não é permitido arrastar diretamente entre zonas/u);
+  assert.doesNotMatch(client, /allowAutomaticPlacement: true/u);
+  assert.match(client, /if \(bankItemId\) placeAtFaixaTop\(bankItemId\)/u);
+  assert.match(client, /selectMatchdayEditorialTrackingItems/u);
 });
 
-test("rota usa v20 e o serializer transporta relógios editoriais de chegada", () => {
+test("rota usa v29 e o serializer transporta relógios editoriais de chegada", () => {
   const route = readFileSync(
     "app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts",
     "utf8",
@@ -292,7 +294,7 @@ test("rota usa v20 e o serializer transporta relógios editoriais de chegada", (
 
   assert.match(
     route,
-    /rpc\/apply_matchday_live_layout_physical_v20/u,
+    /rpc\/apply_matchday_live_layout_physical_v29/u,
   );
   assert.doesNotMatch(route, /apply_matchday_live_layout_physical_workspace_v14/u);
   assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace_v12/u);

@@ -1006,6 +1006,30 @@ export function movePhysicalDeskBlock(
   return commitSnapshot(state, { ...state.current, blocks: nextBlocks });
 }
 
+export function movePhysicalDeskZone(
+  state: PhysicalDeskState,
+  zoneId: LiveLayoutZoneId,
+  direction: "up" | "down",
+): PhysicalDeskState {
+  const blocks = sortBlocks(state.current.blocks);
+  const zoneBlocks = blocks.filter((block) => block.kind === "zone");
+  const index = zoneBlocks.findIndex((block) => block.zoneId === zoneId);
+  const targetIndex = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || targetIndex < 0 || targetIndex >= zoneBlocks.length) {
+    return state;
+  }
+
+  const source = zoneBlocks[index];
+  const target = zoneBlocks[targetIndex];
+  const nextBlocks = blocks.map((block) => {
+    if (block.id === source.id) return { ...block, sortOrder: target.sortOrder };
+    if (block.id === target.id) return { ...block, sortOrder: source.sortOrder };
+    return block;
+  });
+
+  return commitSnapshot(state, { ...state.current, blocks: nextBlocks });
+}
+
 export function changePhysicalDeskLatestPlacement(
   state: PhysicalDeskState,
   placement: MatchdayLatestPlacement,

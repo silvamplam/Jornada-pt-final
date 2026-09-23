@@ -12,6 +12,7 @@ import {
   movePhysicalDeskItemToDisplaced,
   movePhysicalDeskItemToFaixaTop,
   movePhysicalDeskItemToSlot,
+  movePhysicalDeskZone,
   physicalDeskFaixaSlots,
   physicalDeskHasChanges,
   physicalDeskPlacementForBankItem,
@@ -341,6 +342,55 @@ test("preserva a ordem arbitrária dos blocks físicos", () => {
   assert.notDeepEqual(moved.current.blocks, current.current.blocks);
 });
 
+test("move zonas nos dois sentidos através de blocos intercalados sem os deslocar", () => {
+  const source = workspace(3);
+  const zoneBlocks = source.blocks.filter((block) => block.kind === "zone");
+  const latestBlock = source.blocks.find((block) => block.kind === "latest");
+  const videoBlock = source.blocks.find((block) => block.kind === "video");
+  assert.ok(latestBlock && videoBlock);
+  const current = stateFromWorkspace({
+    ...source,
+    blocks: [zoneBlocks[0], latestBlock, zoneBlocks[1], videoBlock, zoneBlocks[2]].map(
+      (block, index) => ({ ...block, sortOrder: index + 1 }),
+    ),
+  });
+  const beforeKinds = current.current.blocks.map((block) => block.kind);
+  const beforeFixedBlocks = current.current.blocks
+    .filter((block) => block.kind !== "zone")
+    .map((block) => ({ id: block.id, sortOrder: block.sortOrder }));
+  const beforeZones = current.current.blocks.flatMap((block) => (
+    block.kind === "zone" ? [block.zoneId] : []
+  ));
+
+  const moved = movePhysicalDeskZone(current, beforeZones[0], "down");
+
+  assert.deepEqual(moved.current.blocks.map((block) => block.kind), beforeKinds);
+  assert.deepEqual(
+    moved.current.blocks.flatMap((block) => (
+      block.kind === "zone" ? [block.zoneId] : []
+    )),
+    [beforeZones[1], beforeZones[0], beforeZones[2]],
+  );
+  assert.deepEqual(
+    moved.current.blocks
+      .filter((block) => block.kind !== "zone")
+      .map((block) => ({ id: block.id, sortOrder: block.sortOrder })),
+    beforeFixedBlocks,
+  );
+  assert.equal(moved.history.length, 1);
+  assert.equal(physicalDeskHasChanges(moved), true);
+
+  const restored = movePhysicalDeskZone(moved, beforeZones[0], "up");
+  assert.deepEqual(
+    restored.current.blocks.flatMap((block) => (
+      block.kind === "zone" ? [block.zoneId] : []
+    )),
+    beforeZones,
+  );
+  assert.equal(movePhysicalDeskZone(current, beforeZones[0], "up"), current);
+  assert.equal(movePhysicalDeskZone(current, beforeZones[2], "down"), current);
+});
+
 test("movimento usa LiveLayoutZoneId e vagas são ausência de placement", () => {
   const initial = state(2);
   const moved = movePhysicalDeskItemToSlot(initial, bankId(1), {
@@ -370,6 +420,56 @@ test("swap físico não compacta nem redistribui", () => {
   assert.equal(physicalDeskZoneSlots(current, zoneId(1))[3].placement?.bankItemId, bankId(1));
   assert.equal(physicalDeskZoneSlots(current, zoneId(1))[1].placement, null);
   assert.equal(physicalDeskZoneSlots(current, zoneId(1))[2].placement, null);
+});
+
+test("zona e Abertura desalojam apenas a ocupante do destino", () => {
+  let zoneToOpening = state(1, 2);
+  zoneToOpening = movePhysicalDeskItemToSlot(zoneToOpening, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 1,
+  });
+  zoneToOpening = movePhysicalDeskItemToSlot(zoneToOpening, bankId(2), {
+    placementType: "opening", zoneId: null, slotPosition: 1,
+  });
+  zoneToOpening = movePhysicalDeskItemToSlot(zoneToOpening, bankId(1), {
+    placementType: "opening", zoneId: null, slotPosition: 1,
+  });
+
+  assert.equal(physicalDeskPlacementForBankItem(zoneToOpening, bankId(1))?.placementType, "opening");
+  assert.equal(physicalDeskPlacementForBankItem(zoneToOpening, bankId(2)), null);
+  assert.deepEqual(zoneToOpening.current.displacedBankItemIds, [bankId(2)]);
+  assert.equal(physicalDeskZoneSlots(zoneToOpening, zoneId(1))[0].placement, null);
+
+  let openingToZone = state(1, 2);
+  openingToZone = movePhysicalDeskItemToSlot(openingToZone, bankId(1), {
+    placementType: "opening", zoneId: null, slotPosition: 1,
+  });
+  openingToZone = movePhysicalDeskItemToSlot(openingToZone, bankId(2), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 1,
+  });
+  openingToZone = movePhysicalDeskItemToSlot(openingToZone, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 1,
+  });
+
+  assert.equal(physicalDeskPlacementForBankItem(openingToZone, bankId(1))?.placementType, "zone");
+  assert.equal(physicalDeskPlacementForBankItem(openingToZone, bankId(2)), null);
+  assert.deepEqual(openingToZone.current.displacedBankItemIds, [bankId(2)]);
+  assert.equal(physicalDeskPlacementsOfType(openingToZone, "opening").length, 0);
+});
+
+test("candidata de Bank substitui destino ocupado e desaloja a ocupante", () => {
+  let current = state(1, 2);
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 2,
+  });
+  current = movePhysicalDeskItemToBank(current, bankId(2));
+  current = movePhysicalDeskItemToSlot(current, bankId(2), {
+    placementType: "zone", zoneId: zoneId(1), slotPosition: 2,
+  });
+
+  assert.equal(physicalDeskPlacementForBankItem(current, bankId(2))?.slotPosition, 2);
+  assert.equal(physicalDeskPlacementForBankItem(current, bankId(1)), null);
+  assert.deepEqual(current.current.displacedBankItemIds, [bankId(1)]);
+  assert.equal(current.current.explicitBankItemIds.includes(bankId(2)), false);
 });
 
 test("bulk move mantém buracos e desaloja apenas ocupantes dos destinos", () => {
