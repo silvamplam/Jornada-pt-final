@@ -168,6 +168,14 @@ const styles = `
   .thematic-status.pending { border-color: #fbbf24; color: #fde68a; }
   .thematic-hero nav { display: flex; flex-wrap: wrap; gap: 5px; }
   .thematic-hero a { padding: 6px 9px; border: 1px solid rgba(255,255,255,.25); border-radius: 5px; color: #fff; font-size: 10px; font-weight: 800; text-decoration: none; }
+  .thematic-focus-toggle { flex-shrink: 0; min-height: 26px; padding: 4px 9px; border: 1px solid #657588; border-radius: 5px; background: #253241; color: #fff; font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  .thematic-focus-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .thematic-focus-bar { display: flex; min-width: 0; min-height: 34px; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 8px; border-radius: 7px; background: #101820; color: #fff; }
+  .thematic-focus-bar[hidden] { display: none; }
+  .thematic-focus-bar h1 { overflow: hidden; min-width: 0; margin: 0; font-size: 12px; line-height: 1.4; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .thematic-shell[data-focus-mode="true"] .thematic-hero,
+  .thematic-shell[data-focus-mode="true"] .thematic-context-selector,
+  .thematic-shell[data-focus-mode="true"] .thematic-global-tools { display: none; }
   .thematic-panel { border: 1px solid #d7e0e9; border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(12,22,34,.035); }
   .thematic-editorial-selection { display: grid; align-items: stretch; gap: 4px; padding: 0; }
   .thematic-editorial-selection .thematic-workspace-slot { display: grid; grid-template-rows: minmax(0,1fr); gap: 0; }
@@ -252,6 +260,8 @@ const styles = `
   .thematic-secondary-workspaces button { min-height: 29px; padding: 4px 7px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #cbd5e1; font-size: 9px; font-weight: 850; text-align: left; cursor: pointer; }
   .thematic-secondary-workspaces button.active { border-color: #718197; background: #263443; color: #fff; }
   .thematic-workspace-stack { display: grid; min-width: 0; align-content: start; gap: 5px; padding: 5px; }
+  .thematic-workspace-stack[data-opening-only="true"] > :not(#thematic-opening-workspace) { display: none; }
+  .thematic-opening-only-toggle { width: 100%; min-height: 26px; margin-top: 4px; padding: 4px 6px; border: 1px solid #526174; border-radius: 5px; background: #253241; color: #fff; font-size: 10px; cursor: pointer; }
   .thematic-workspace-section { min-width: 0; overflow: visible; border: 1px solid #d7e0e9; border-radius: 7px; background: #fff; }
   .thematic-workspace-heading { display: flex; align-items: center; justify-content: space-between; min-height: 29px; gap: 8px; padding: 4px 7px; border-bottom: 1px solid #dfe6ee; border-radius: 6px 6px 0 0; background: #101820; color: #fff; }
   .thematic-workspace-heading strong { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
@@ -267,6 +277,17 @@ const styles = `
   .thematic-workspace-slot { display: flex; flex-direction: column; min-width: 0; min-height: 64px; padding: 4px; border: 1px dashed #b8c4d2; border-radius: 5px; background: #fff; }
   .thematic-workspace-slot[data-drag-active="true"] { border-color: #2563eb; background: #eff6ff; }
   .thematic-workspace-slot .thematic-card { flex: 1; }
+  .thematic-workspace-slot > .thematic-empty { flex: 1; width: 100%; }
+  .thematic-workspace-section[data-zone-id] .thematic-card { gap: 4px; padding: 6px; }
+  .thematic-workspace-section[data-zone-id] .thematic-image,
+  .thematic-workspace-section[data-zone-id] .thematic-image-placeholder { grid-column: 1 / -1; }
+  .thematic-workspace-section[data-zone-id] .thematic-card > .thematic-card-copy { gap: 3px; }
+  .thematic-workspace-section[data-zone-id] .thematic-card-title { -webkit-line-clamp: 3; }
+  .thematic-workspace-section[data-zone-id] .thematic-card input[type="checkbox"],
+  .thematic-workspace-section[data-zone-id] .thematic-card-menu { z-index: 1; }
+  .thematic-workspace-section[data-zone-id] .thematic-card input[type="checkbox"] { width: 18px; height: 18px; outline: 2px solid #fff; outline-offset: 1px; box-shadow: 0 0 0 4px rgba(15,23,42,.45); }
+  .thematic-workspace-section[data-zone-id] .thematic-card-menu[open] { z-index: 15; }
+  .thematic-workspace-section[data-zone-id] .thematic-card-menu summary { background: #fff; }
   .thematic-workspace-slot .thematic-card.thematic-selection-card { grid-template-columns: 16px 44px minmax(0,1fr) 22px; }
   .thematic-highlight-row { display: grid; grid-template-columns: minmax(120px,160px) minmax(0,520px); gap: 5px; align-items: end; justify-content: start; }
   .thematic-highlight-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 7px; min-width: 0; }
@@ -369,6 +390,16 @@ const styles = `
   .thematic-highlight-card img { width: 80px; height: 58px; border-radius: 5px; object-fit: cover; }
   .thematic-highlight-card > div { display: grid; gap: 5px; }
   .thematic-highlight-card span { color: #64748b; font-size: 9px; }
+  @media (min-width: 1121px) and (min-height: 800px) {
+    /* Viewport minus shell top (7), focus bar (34), gap (6), workspace inset (6), and footer clearance (68). */
+    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] { display: flex; flex-direction: column; height: calc(100dvh - 121px); }
+    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] .thematic-workspace-body { flex: 1; min-height: 0; grid-template-rows: auto minmax(0,1fr); }
+    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-slots { min-height: 0; grid-auto-rows: minmax(0,1fr); }
+    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] .thematic-workspace-slot { min-height: 0; }
+    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] .thematic-card { min-height: 0; grid-template-rows: minmax(0,1fr) auto; }
+    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] .thematic-image,
+    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] .thematic-image-placeholder { height: 100%; min-height: 0; aspect-ratio: auto; }
+  }
   @media (max-width: 1120px) { .thematic-desk-grid { grid-template-columns: 1fr; } }
   @media (max-width: 760px) { .thematic-global-tools { display: flex; flex-wrap: wrap; } .thematic-global-tools > .thematic-global-tool { flex: 0 0 auto; } .thematic-global-actions { flex: 1 1 100%; min-width: 100%; border-top: 1px solid #e1e7ed; } .thematic-selection-controls { flex-wrap: wrap; } .thematic-global-tool { position: static; } .thematic-global-actions > .thematic-classification-tool > summary { border-left: 0; } .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { top: calc(100% + 5px); right: 3px; left: 3px; width: auto; max-width: none; max-height: calc(100vh - 80px); } .thematic-workspace { grid-template-columns: 1fr; } .thematic-zone-rail { border-right: 0; border-bottom: 1px solid #273444; } .thematic-zone-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-new-zone-form, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-candidates-grid, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .agenda-tv-sync-actions { justify-content: flex-start; } }
 `;
@@ -693,6 +724,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     },
   );
   const [openingVisible, setOpeningVisible] = useState(false);
+  const [activeWorkspaceVisible, setActiveWorkspaceVisible] = useState(true);
+  const [focusMode, setFocusMode] = useState(false);
   const [selectedReorderZoneId, setSelectedReorderZoneId] =
     useState<LiveLayoutZoneId | null>(null);
   const [newZoneFormOpen, setNewZoneFormOpen] = useState(false);
@@ -721,6 +754,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [awaitedPhysicalStateToken, setAwaitedPhysicalStateToken] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const pageStructureRef = useRef<HTMLDetailsElement>(null);
+  const enterFocusButtonRef = useRef<HTMLButtonElement>(null);
+  const exitFocusButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setPhysicalDesk((current) => {
@@ -772,6 +807,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const activeZone =
     zoneById.get(activeWorkspaceKey as LiveLayoutZoneId) ?? null;
   const activeLatest = activeWorkspaceKey === "latest";
+  const activeWorkspaceLabel = activeZone?.publicTitle || (
+    activeLatest ? current.presentation.latestZoneTitle || "Últimas"
+      : activeWorkspaceKey === "faixa" ? "Faixa"
+        : activeWorkspaceKey === "highlight" ? "Destaque" : "Zona sem título"
+  );
+  const openingOnly = openingVisible && !activeWorkspaceVisible;
+  const focusContext = `${desk.matchdayLabel} · ${openingOnly ? "Só Abertura" : activeWorkspaceLabel} · Abertura ${openingVisible ? "aberta" : "fechada"}`;
   const activeStructureEditorOpen = activeZone !== null || activeLatest;
   const activeZonePlacedArticleCount = activeZone
     ? current.placements.filter((placement) => (
@@ -903,7 +945,10 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     const createdZone = nextState.current.zones.find((zone) => (
       !physicalDesk.current.zones.some((candidate) => candidate.id === zone.id)
     ));
-    if (createdZone) setActiveWorkspaceKey(createdZone.id);
+    if (createdZone) {
+      setActiveWorkspaceKey(createdZone.id);
+      setActiveWorkspaceVisible(true);
+    }
     setNewZoneTitle("");
     setNewZoneVisualFamily(EDITORIAL_VISUAL_FAMILIES[0]);
     setNewZoneFormOpen(false);
@@ -1608,6 +1653,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   function activateWorkspaceFromStructure(workspaceKey: ActiveWorkspaceKey) {
     setActiveWorkspaceKey(workspaceKey);
+    setActiveWorkspaceVisible(true);
     pageStructureRef.current?.removeAttribute("open");
   }
 
@@ -1632,6 +1678,16 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           <span>{openingVisible ? "Fechar Abertura" : "Mostrar Abertura"}</span>
           <strong>{openingOccupied}/5</strong>
         </button>
+        {openingVisible ? (
+          <button
+            aria-pressed={openingOnly}
+            className="thematic-opening-only-toggle"
+            onClick={() => setActiveWorkspaceVisible((visible) => !visible)}
+            type="button"
+          >
+            {openingOnly ? "Mostrar composição" : "Ver só Abertura"}
+          </button>
+        ) : null}
         <div className="thematic-zone-rail-heading">
           <span>Zonas</span>
           <span>{orderedZoneBlocks.length}</span>
@@ -1658,7 +1714,10 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 </label>
                 <button
                   className="thematic-zone-focus"
-                  onClick={() => setActiveWorkspaceKey(zone.id)}
+                  onClick={() => {
+                    setActiveWorkspaceKey(zone.id);
+                    setActiveWorkspaceVisible(true);
+                  }}
                   type="button"
                 >
                   <strong>{zoneLabel}</strong>
@@ -1703,21 +1762,30 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         <div className="thematic-secondary-workspaces" aria-label="Outros blocos">
           <button
             className={activeWorkspaceKey === "faixa" ? "active" : ""}
-            onClick={() => setActiveWorkspaceKey("faixa")}
+            onClick={() => {
+              setActiveWorkspaceKey("faixa");
+              setActiveWorkspaceVisible(true);
+            }}
             type="button"
           >
             Faixa · {faixaPlacements.length}
           </button>
           <button
             className={activeWorkspaceKey === "latest" ? "active" : ""}
-            onClick={() => setActiveWorkspaceKey("latest")}
+            onClick={() => {
+              setActiveWorkspaceKey("latest");
+              setActiveWorkspaceVisible(true);
+            }}
             type="button"
           >
             {current.presentation.latestZoneTitle || "Últimas"}
           </button>
           <button
             className={activeWorkspaceKey === "highlight" ? "active" : ""}
-            onClick={() => setActiveWorkspaceKey("highlight")}
+            onClick={() => {
+              setActiveWorkspaceKey("highlight");
+              setActiveWorkspaceVisible(true);
+            }}
             type="button"
           >
             Destaque · {highlightPlacement ? 1 : 0}/1
@@ -1732,6 +1800,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     setPhysicalDesk((state) => undoPhysicalDeskState(state));
     setApplyState("idle");
     setMessage("Última alteração desfeita.");
+  }
+
+  function changeFocusMode(nextFocusMode: boolean) {
+    setFocusMode(nextFocusMode);
+    requestAnimationFrame(() => {
+      (nextFocusMode ? exitFocusButtonRef : enterFocusButtonRef).current?.focus();
+    });
   }
 
   function resetLocal() {
@@ -1775,9 +1850,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   }
 
   return (
-    <main className="thematic-shell">
+    <main className="thematic-shell" data-focus-mode={focusMode}>
       <style>{styles}</style>
       <div className="thematic-content">
+        <header className="thematic-focus-bar" hidden={!focusMode}>
+          <h1 title={focusContext}>{focusContext}</h1>
+          <button className="thematic-focus-toggle" onClick={() => changeFocusMode(false)} ref={exitFocusButtonRef} title="Sair do modo foco" type="button">Mostrar controlos</button>
+        </header>
         <header className="thematic-hero">
           <div className="thematic-hero-main">
             <p className="thematic-eyebrow">Mesa viva</p>
@@ -1785,7 +1864,10 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             <span className="thematic-context">{desk.competitionName} · {desk.seasonLabel} · {desk.matchdayLabel}</span>
             <span className={`thematic-status${pending ? " pending" : ""}`}>{pending ? "Alterações por aplicar" : "Estado aplicado · sem pendentes"}</span>
           </div>
-          <nav><a href="/admin">Backoffice</a></nav>
+          <nav>
+            <button className="thematic-focus-toggle" onClick={() => changeFocusMode(true)} ref={enterFocusButtonRef} type="button">Modo foco</button>
+            <a href="/admin">Backoffice</a>
+          </nav>
         </header>
 
         <MatchdayEditorialContextSelector currentCompetitionId={desk.competitionId} currentMatchdayId={desk.matchdayId} currentSeasonId={desk.seasonId} data={contextSelector} />
@@ -1910,6 +1992,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                               if (editableInStructure) {
                                 setDeleteZoneId(null);
                                 setActiveWorkspaceKey(workspaceKey);
+                                setActiveWorkspaceVisible(true);
                                 return;
                               }
                               activateWorkspaceFromStructure(workspaceKey);
@@ -2208,10 +2291,10 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           </div>
         </div>
 
-        <div className={`thematic-desk-grid${openingVisible ? " opening-visible" : ""}`}>
+        <div className={`thematic-desk-grid${openingVisible ? " opening-visible" : ""}`} data-fit-zone={selected.size === 0}>
           <section className="thematic-panel thematic-workspace" aria-label="Workspace editorial físico">
             {renderZoneRail()}
-            <div className="thematic-workspace-stack">
+            <div className="thematic-workspace-stack" data-opening-only={openingOnly}>
               {openingVisible ? renderOpeningWorkspace() : null}
               {renderActiveWorkspace()}
             </div>
