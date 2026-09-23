@@ -255,7 +255,6 @@ const styles = `
   .thematic-zone-move-controls button { display: grid; min-height: 46px; place-items: center; gap: 1px; border: 1px solid #657588; border-radius: 7px; background: #253241; color: #fff; font-size: 9px; font-weight: 900; cursor: pointer; }
   .thematic-zone-move-controls button span { font-size: 18px; line-height: 1; }
   .thematic-zone-move-controls button:disabled { cursor: default; opacity: .32; }
-  .thematic-zone-rail-note { margin: 0; color: #93a4b6; font-size: 8px; line-height: 1.35; }
   .thematic-secondary-workspaces { display: grid; gap: 3px; padding-top: 3px; border-top: 1px solid #344252; }
   .thematic-secondary-workspaces button { min-height: 29px; padding: 4px 7px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #cbd5e1; font-size: 9px; font-weight: 850; text-align: left; cursor: pointer; }
   .thematic-secondary-workspaces button.active { border-color: #718197; background: #263443; color: #fff; }
@@ -267,10 +266,9 @@ const styles = `
   .thematic-workspace-heading strong { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
   .thematic-workspace-heading span { color: #bac8d5; font-size: 8px; font-weight: 800; }
   .thematic-workspace-body { display: grid; min-width: 0; gap: 5px; padding: 5px; }
-  .thematic-zone-editor { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,.8fr) auto; gap: 7px; align-items: end; padding: 6px; border: 1px solid #dce3eb; border-radius: 6px; background: #fbfcfd; }
-  .thematic-zone-editor label { display: grid; gap: 4px; min-width: 0; }
-  .thematic-zone-editor label > span { color: #526173; font-size: 9px; font-weight: 850; text-transform: uppercase; white-space: nowrap; }
-  .thematic-zone-editor input, .thematic-zone-editor select { width: 100%; min-width: 0; min-height: 32px; padding: 0 7px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 12px; }
+  .thematic-zone-editor { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,.8fr) auto; gap: 6px; align-items: center; padding: 4px; border: 1px solid #dce3eb; border-radius: 6px; background: #fbfcfd; }
+  .thematic-zone-editor label { display: grid; min-width: 0; }
+  .thematic-zone-editor input, .thematic-zone-editor select { width: 100%; min-width: 0; min-height: 30px; padding: 0 7px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 12px; }
   .thematic-zone-editor-count { min-width: 34px; font-size: 11px; font-weight: 900; text-align: right; white-space: nowrap; }
   .thematic-slots { display: grid; gap: 4px; }
   .thematic-slots-4, .thematic-slots-5, .thematic-slots-6 { grid-template-columns: repeat(2,minmax(0,1fr)); }
@@ -278,16 +276,16 @@ const styles = `
   .thematic-workspace-slot[data-drag-active="true"] { border-color: #2563eb; background: #eff6ff; }
   .thematic-workspace-slot .thematic-card { flex: 1; }
   .thematic-workspace-slot > .thematic-empty { flex: 1; width: 100%; }
-  .thematic-workspace-section[data-zone-id] .thematic-card { gap: 4px; padding: 6px; }
-  .thematic-workspace-section[data-zone-id] .thematic-image,
-  .thematic-workspace-section[data-zone-id] .thematic-image-placeholder { grid-column: 1 / -1; }
-  .thematic-workspace-section[data-zone-id] .thematic-card > .thematic-card-copy { gap: 3px; }
-  .thematic-workspace-section[data-zone-id] .thematic-card-title { -webkit-line-clamp: 3; }
-  .thematic-workspace-section[data-zone-id] .thematic-card input[type="checkbox"],
-  .thematic-workspace-section[data-zone-id] .thematic-card-menu { z-index: 1; }
-  .thematic-workspace-section[data-zone-id] .thematic-card input[type="checkbox"] { width: 18px; height: 18px; outline: 2px solid #fff; outline-offset: 1px; box-shadow: 0 0 0 4px rgba(15,23,42,.45); }
-  .thematic-workspace-section[data-zone-id] .thematic-card-menu[open] { z-index: 15; }
-  .thematic-workspace-section[data-zone-id] .thematic-card-menu summary { background: #fff; }
+  .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-card { gap: 4px; padding: 6px; }
+  .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-image,
+  .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-image-placeholder { grid-column: 1 / -1; }
+  .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-card > .thematic-card-copy { gap: 3px; }
+  .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-card-title { -webkit-line-clamp: 3; }
+  .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-card input[type="checkbox"],
+  .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-card-menu { z-index: 1; }
+  .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-card input[type="checkbox"] { width: 18px; height: 18px; outline: 2px solid #fff; outline-offset: 1px; box-shadow: 0 0 0 4px rgba(15,23,42,.45); }
+  .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-card-menu[open] { z-index: 15; }
+  .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-card-menu summary { background: #fff; }
   .thematic-workspace-slot .thematic-card.thematic-selection-card { grid-template-columns: 16px 44px minmax(0,1fr) 22px; }
   .thematic-highlight-row { display: grid; grid-template-columns: minmax(120px,160px) minmax(0,520px); gap: 5px; align-items: end; justify-content: start; }
   .thematic-highlight-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 7px; min-width: 0; }
@@ -390,15 +388,31 @@ const styles = `
   .thematic-highlight-card img { width: 80px; height: 58px; border-radius: 5px; object-fit: cover; }
   .thematic-highlight-card > div { display: grid; gap: 5px; }
   .thematic-highlight-card span { color: #64748b; font-size: 9px; }
+  @media (min-width: 1121px) {
+    /* Flex deducts the actual height of headers, feedback and batch controls. Only shell/footer padding is reserved. */
+    .thematic-content { display: flex; flex-direction: column; height: calc(100dvh - 75px); min-height: 0; }
+    .thematic-content > :not(.thematic-desk-grid) { flex-shrink: 0; }
+    .thematic-content > .thematic-movements { max-height: 25vh; overflow: auto; }
+    .thematic-desk-grid { flex: 1; min-height: 0; align-items: stretch; }
+    .thematic-workspace { min-height: 0; overflow: hidden; }
+    .thematic-zone-rail { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    .thematic-workspace-stack { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+    .thematic-sources { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+    .thematic-sources > :not(.thematic-candidates-grid) { flex-shrink: 0; }
+    .thematic-candidates-grid { flex: 1; min-height: 0; grid-auto-rows: max-content; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+    .thematic-workspace-stack:focus-visible, .thematic-candidates-grid:focus-visible { outline: 2px solid #526174; outline-offset: -2px; }
+  }
   @media (min-width: 1121px) and (min-height: 800px) {
-    /* Viewport minus shell top (7), focus bar (34), gap (6), workspace inset (6), and footer clearance (68). */
-    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] { display: flex; flex-direction: column; height: calc(100dvh - 121px); }
-    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] .thematic-workspace-body { flex: 1; min-height: 0; grid-template-rows: auto minmax(0,1fr); }
-    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-slots { min-height: 0; grid-auto-rows: minmax(0,1fr); }
-    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] .thematic-workspace-slot { min-height: 0; }
-    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] .thematic-card { min-height: 0; grid-template-rows: minmax(0,1fr) auto; }
-    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] .thematic-image,
-    .thematic-shell[data-focus-mode="true"] .thematic-desk-grid[data-fit-zone="true"]:not(.opening-visible) .thematic-workspace-section[data-zone-id] .thematic-image-placeholder { height: 100%; min-height: 0; aspect-ratio: auto; }
+    .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] { display: flex; flex-direction: column; }
+    .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] > .thematic-workspace-section { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+    .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-workspace-heading,
+    .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-zone-editor { flex-shrink: 0; }
+    .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-workspace-body { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+    .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-slots { flex: 1; min-height: 0; grid-auto-rows: minmax(0,1fr); }
+    .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-workspace-slot { min-height: 0; }
+    .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-card { min-height: 0; grid-template-rows: minmax(0,1fr) auto; }
+    .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-image,
+    .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-image-placeholder { height: 100%; min-height: 0; aspect-ratio: auto; }
   }
   @media (max-width: 1120px) { .thematic-desk-grid { grid-template-columns: 1fr; } }
   @media (max-width: 760px) { .thematic-global-tools { display: flex; flex-wrap: wrap; } .thematic-global-tools > .thematic-global-tool { flex: 0 0 auto; } .thematic-global-actions { flex: 1 1 100%; min-width: 100%; border-top: 1px solid #e1e7ed; } .thematic-selection-controls { flex-wrap: wrap; } .thematic-global-tool { position: static; } .thematic-global-actions > .thematic-classification-tool > summary { border-left: 0; } .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { top: calc(100% + 5px); right: 3px; left: 3px; width: auto; max-width: none; max-height: calc(100vh - 80px); } .thematic-workspace { grid-template-columns: 1fr; } .thematic-zone-rail { border-right: 0; border-bottom: 1px solid #273444; } .thematic-zone-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-new-zone-form, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-candidates-grid, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .agenda-tv-sync-actions { justify-content: flex-start; } }
@@ -473,6 +487,11 @@ function ArticleCard({ bankItemId, item, placement, selected, dragging, onToggle
       </div>
       <details
         className="thematic-card-menu"
+        onToggle={(event) => {
+          if (event.currentTarget.open) {
+            event.currentTarget.querySelector<HTMLElement>(".thematic-card-actions")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+          }
+        }}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
             event.currentTarget.open = false;
@@ -813,6 +832,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         : activeWorkspaceKey === "highlight" ? "Destaque" : "Zona sem título"
   );
   const openingOnly = openingVisible && !activeWorkspaceVisible;
+  const compositionMode = openingVisible
+    ? openingOnly ? "opening-only" : "stacked"
+    : activeZone ? "zone-only" : "other";
   const focusContext = `${desk.matchdayLabel} · ${openingOnly ? "Só Abertura" : activeWorkspaceLabel} · Abertura ${openingVisible ? "aberta" : "fechada"}`;
   const activeStructureEditorOpen = activeZone !== null || activeLatest;
   const activeZonePlacedArticleCount = activeZone
@@ -1232,7 +1254,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         <div className="thematic-workspace-body">
           <div className="thematic-zone-editor">
           <label>
-            <span>Título público</span>
             <input
               aria-label={`Título público de ${zoneLabel}`}
               defaultValue={zone.publicTitle}
@@ -1247,7 +1268,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             />
           </label>
           <label>
-            <span>Apresentação</span>
             <select
               aria-label={`Apresentação de ${zoneLabel}`}
               disabled={mutationBlocked}
@@ -1591,6 +1611,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         <div
           className="thematic-candidates-grid"
           data-candidate-universe={activeCandidateUniverse}
+          aria-label="Lista de artigos candidatos"
+          role="region"
+          tabIndex={0}
         >
           {visibleCandidateEntries.length > 0
             ? visibleCandidateEntries.map((entry) => (
@@ -1754,11 +1777,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             Descer
           </button>
         </div>
-        <p className="thematic-zone-rail-note">
-          {selectedReorderZoneId
-            ? "A zona marcada move-se uma posição de cada vez."
-            : "Marque uma zona para alterar a ordem."}
-        </p>
         <div className="thematic-secondary-workspaces" aria-label="Outros blocos">
           <button
             className={activeWorkspaceKey === "faixa" ? "active" : ""}
@@ -2291,10 +2309,10 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           </div>
         </div>
 
-        <div className={`thematic-desk-grid${openingVisible ? " opening-visible" : ""}`} data-fit-zone={selected.size === 0}>
+        <div className={`thematic-desk-grid${openingVisible ? " opening-visible" : ""}`}>
           <section className="thematic-panel thematic-workspace" aria-label="Workspace editorial físico">
             {renderZoneRail()}
-            <div className="thematic-workspace-stack" data-opening-only={openingOnly}>
+            <div className="thematic-workspace-stack" data-opening-only={openingOnly} data-composition-mode={compositionMode} aria-label="Composição editorial" role="region" tabIndex={0}>
               {openingVisible ? renderOpeningWorkspace() : null}
               {renderActiveWorkspace()}
             </div>

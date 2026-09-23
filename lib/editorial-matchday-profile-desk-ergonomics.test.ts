@@ -36,3 +36,10 @@ test("feedback global fica antes dos controlos sem bloqueio legacy", () => {
   assert.doesNotMatch(client, /data-legacy-apply-blocked="true"/);
   assert.match(client, /aria-live=\{applyState === "error" \? "assertive" : "polite"\}/);
 });
+
+test("menu de candidata aberto fica visível dentro do painel com scroll", () => {
+  assert.match(
+    client,
+    /onToggle=\{\(event\) => \{\s*if \(event\.currentTarget\.open\) \{\s*event\.currentTarget\.querySelector<HTMLElement>\("\.thematic-card-actions"\)\?\.scrollIntoView\(\{ block: "nearest", inline: "nearest" \}\);/,
+  );
+});

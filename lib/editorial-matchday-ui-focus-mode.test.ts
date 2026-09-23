@@ -115,7 +115,7 @@ test("Só Abertura é estado local e continua independente do modo foco", () => 
   );
   assert.match(
     client,
-    /<div className="thematic-workspace-stack" data-opening-only=\{openingOnly\}>[\s\S]*?openingVisible \? renderOpeningWorkspace\(\) : null[\s\S]*?renderActiveWorkspace\(\)/,
+    /<div className="thematic-workspace-stack" data-opening-only=\{openingOnly\} data-composition-mode=\{compositionMode\}[^>]*>[\s\S]*?openingVisible \? renderOpeningWorkspace\(\) : null[\s\S]*?renderActiveWorkspace\(\)/,
   );
   assert.match(
     client,
@@ -163,35 +163,43 @@ test("Só Abertura é estado local e continua independente do modo foco", () => 
   );
 });
 
-test("imagem da zona usa a fração restante do viewport sem altura rígida", () => {
+test("composições exclusivas usam a fração restante e o modo empilhado fica natural", () => {
   const denseZoneCss = sourceBetween(
     client,
     "  @media (min-width: 1121px) and (min-height: 800px) {",
     "\n  @media (max-width: 1120px)",
   );
 
-  assert.match(client, /data-fit-zone=\{selected\.size === 0\}/);
   assert.match(
-    denseZoneCss,
-    /\.thematic-desk-grid\[data-fit-zone=\\?"true\\?"\]:not\(\.opening-visible\)/,
+    client,
+    /const compositionMode = openingVisible\s*\? openingOnly \? "opening-only" : "stacked"\s*: activeZone \? "zone-only" : "other";/,
   );
-  assert.match(denseZoneCss, /height: calc\(100dvh - \d+px\);/);
+  assert.doesNotMatch(client, /data-fit-zone/);
   assert.match(
     denseZoneCss,
-    /\.thematic-workspace-body \{ flex: 1; min-height: 0; grid-template-rows: auto minmax\(0,1fr\); \}/,
-  );
-  assert.match(
-    denseZoneCss,
-    /\.thematic-slots \{ min-height: 0; grid-auto-rows: minmax\(0,1fr\); \}/,
+    /\.thematic-workspace-stack\[data-composition-mode\$=\\?"-only\\?"\] \{ display: flex; flex-direction: column; \}/,
   );
   assert.match(
     denseZoneCss,
-    /\.thematic-card \{ min-height: 0; grid-template-rows: minmax\(0,1fr\) auto; \}/,
+    /\[data-composition-mode\$=\\?"-only\\?"\] > \.thematic-workspace-section \{ display: flex; flex: 1; flex-direction: column; min-height: 0; \}/,
+  );
+  assert.match(
+    denseZoneCss,
+    /\[data-composition-mode\$=\\?"-only\\?"\] \.thematic-workspace-body \{ display: flex; flex: 1; flex-direction: column; min-height: 0; \}/,
+  );
+  assert.match(
+    denseZoneCss,
+    /\[data-composition-mode\$=\\?"-only\\?"\] \.thematic-slots \{ flex: 1; min-height: 0; grid-auto-rows: minmax\(0,1fr\); \}/,
+  );
+  assert.match(
+    denseZoneCss,
+    /\[data-composition-mode\$=\\?"-only\\?"\] \.thematic-card \{ min-height: 0; grid-template-rows: minmax\(0,1fr\) auto; \}/,
   );
   assert.match(
     denseZoneCss,
     /\.thematic-image-placeholder \{ height: 100%; min-height: 0; aspect-ratio: auto; \}/,
   );
+  assert.doesNotMatch(denseZoneCss, /data-composition-mode[^\n]*(?:stacked|other)/);
   assert.doesNotMatch(denseZoneCss, /[;{]\s*height:\s*\d+px/);
 });
 

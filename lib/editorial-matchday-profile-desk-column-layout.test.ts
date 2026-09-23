@@ -63,7 +63,7 @@ test("zonas aparecem numa coluna vertical à esquerda do workspace", () => {
   assert.doesNotMatch(source, /thematic-zone-tabs/);
 });
 
-test("composição e candidatas ocupam as duas colunas sem cortar menus", () => {
+test("composição e candidatas ocupam duas colunas com scroll independente no desktop", () => {
   assert.match(
     source,
     /\.thematic-desk-grid \{ display: grid; grid-template-columns: minmax\(0,1\.15fr\) minmax\(460px,\.85fr\);/,
@@ -73,9 +73,46 @@ test("composição e candidatas ocupam as duas colunas sem cortar menus", () => 
     source,
     /className=\{`thematic-desk-grid[\s\S]*className="thematic-workspace-stack"[\s\S]*renderOpeningWorkspace\(\)[\s\S]*renderActiveWorkspace\(\)[\s\S]*<\/section>\s*\{renderCandidates\(\)\}/,
   );
-  assert.match(source, /\.thematic-workspace \{[^}]*overflow: visible;/);
   assert.match(source, /\.thematic-workspace-section \{[^}]*overflow: visible;/);
-  assert.match(source, /\.thematic-sources \{[^}]*overflow: visible;/);
+
+  const desktopStart = source.indexOf("  @media (min-width: 1121px) {");
+  const desktopEnd = source.indexOf(
+    "  @media (min-width: 1121px) and (min-height: 800px) {",
+    desktopStart,
+  );
+  assert.ok(desktopStart >= 0 && desktopEnd > desktopStart);
+  const desktop = source.slice(desktopStart, desktopEnd);
+
+  assert.match(
+    desktop,
+    /\.thematic-content \{ display: flex; flex-direction: column; height: calc\(100dvh - \d+px\); min-height: 0; \}/,
+  );
+  assert.match(desktop, /\.thematic-desk-grid \{ flex: 1; min-height: 0; align-items: stretch; \}/);
+  assert.match(desktop, /\.thematic-workspace \{ min-height: 0; overflow: hidden; \}/);
+  assert.match(
+    desktop,
+    /\.thematic-workspace-stack \{ min-height: 0; overflow-y: auto;[^}]*scrollbar-gutter: stable; \}/,
+  );
+  assert.match(
+    desktop,
+    /\.thematic-sources \{ display: flex; flex-direction: column; min-height: 0; overflow: hidden; \}/,
+  );
+  assert.match(
+    desktop,
+    /\.thematic-candidates-grid \{ flex: 1; min-height: 0;[^}]*overflow-y: auto;[^}]*scrollbar-gutter: stable; \}/,
+  );
+  assert.match(
+    desktop,
+    /\.thematic-candidates-grid \{[^}]*grid-auto-rows: max-content;/,
+  );
+  assert.match(
+    source,
+    /className="thematic-workspace-stack"[^>]*aria-label="Composição editorial"[^>]*role="region"[^>]*tabIndex=\{0\}/,
+  );
+  assert.match(
+    source,
+    /className="thematic-candidates-grid"[\s\S]*?aria-label="Lista de artigos candidatos"[\s\S]*?role="region"[\s\S]*?tabIndex=\{0\}/,
+  );
 });
 
 test("selects de destino seguem a ordem vertical do draft", () => {
