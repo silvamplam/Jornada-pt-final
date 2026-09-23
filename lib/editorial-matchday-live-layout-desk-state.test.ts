@@ -509,6 +509,24 @@ test("Bank e Desalojadas são estados exclusivos", () => {
   }]);
 });
 
+test("zona para Desalojadas fica pendente e Undo limpa a alteração sem Apply", () => {
+  const initial = stateWithBaselinePlacement();
+  const displaced = movePhysicalDeskItemToDisplaced(initial, bankId(1));
+
+  assert.equal(physicalDeskPlacementForBankItem(displaced, bankId(1)), null);
+  assert.deepEqual(displaced.current.displacedBankItemIds, [bankId(1)]);
+  assert.deepEqual(displaced.current.displacedArrivalBankItemIds, [bankId(1)]);
+  assert.equal(physicalDeskHasChanges(displaced), true);
+  assert.equal(displaced.history.length, 1);
+
+  const undone = undoPhysicalDeskState(displaced);
+
+  assert.deepEqual(undone.current, initial.current);
+  assert.equal(physicalDeskHasChanges(undone), false);
+  assert.equal(undone.history.length, 0);
+  assert.deepEqual(undone.selectedBankItemIds, []);
+});
+
 test("layout shrink desaloja posições excedentes e título vazio é válido", () => {
   let current = state(1);
   current = movePhysicalDeskItemToSlot(current, bankId(1), {

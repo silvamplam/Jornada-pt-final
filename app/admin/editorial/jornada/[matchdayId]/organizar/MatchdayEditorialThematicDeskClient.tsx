@@ -14,7 +14,7 @@ import {
 
 import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
 import { readAdminJsonResponse } from "@/lib/admin-json-response";
-import { articleClassificationLabel } from "@/lib/editorial-classifications";
+import { articleClassificationLabel, type ArticleClassificationKey } from "@/lib/editorial-classifications";
 
 import MatchdayEditorialContextSelector, {
   type MatchdayEditorialContextSelectorData,
@@ -200,8 +200,16 @@ const styles = `
   .thematic-image, .thematic-image-placeholder { grid-column: 2; grid-row: 1; display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 5px; background: #dce4ed; object-fit: cover; }
   .thematic-card-copy { display: grid; min-width: 0; gap: 1px; }
   .thematic-card > .thematic-card-copy { grid-column: 1 / -1; grid-row: 2; gap: 5px; }
-  .thematic-card-top { display: flex; min-width: 0; flex-wrap: wrap; gap: 3px; align-items: center; }
-  .thematic-card-label { overflow: hidden; color: #b21f2a; font-size: 9px; font-weight: 900; letter-spacing: .03em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+  .thematic-card-top { position: relative; display: flex; min-width: 0; flex-wrap: nowrap; gap: 3px; align-items: center; }
+  .thematic-card-label { min-width: 0; overflow: hidden; color: #b21f2a; font-size: 9px; font-weight: 900; letter-spacing: .03em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+  .thematic-classification-badge { display: inline-flex; flex: 0 0 auto; height: 13px; align-items: center; padding: 0 4px; border: 1px solid transparent; border-radius: 2px; background: #e2e8f0; color: #000; font-size: 9px; font-weight: 800; line-height: 11px; white-space: nowrap; }
+  .thematic-classification-badge[data-classification="unclassified"] { background: #fde047; }
+  .thematic-classification-badge[data-classification="benfica"] { background: #ef4444; }
+  .thematic-classification-badge[data-classification="sporting"] { background: #15803d; color: #fff; }
+  .thematic-classification-badge[data-classification="fc_porto"] { background: #1d4ed8; color: #fff; }
+  .thematic-classification-badge[data-classification="other_liga_clubs"] { border-color: #000; background: #fff; }
+  /* Without an antetitle, keep the existing empty row at zero height. */
+  .thematic-card-top[data-without-label="true"] .thematic-classification-badge { position: absolute; z-index: 2; bottom: 100%; left: 0; }
 
   .thematic-card-title { display: -webkit-box; overflow: hidden; font-size: 14px; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
   .thematic-card time { color: #5c6a7a; font-size: 10px; }
@@ -457,9 +465,10 @@ function identity(item: Pick<MatchdayEditorialProfileEffectiveItem, "sourceType"
   return thematicEditorialIdentity(item.sourceType, item.sourceId);
 }
 
-function ArticleCard({ bankItemId, item, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onFaixa, onBank }: Readonly<{
+function ArticleCard({ bankItemId, item, classificationKey, placement, selected, dragging, onToggle, onDragStart, onDragEnd, onFaixa, onBank, onDisplaced }: Readonly<{
   bankItemId: string;
   item: MatchdayEditorialProfileEffectiveItem;
+  classificationKey: ArticleClassificationKey | null;
   placement: Placement;
   selected: boolean;
   dragging: boolean;
@@ -468,8 +477,14 @@ function ArticleCard({ bankItemId, item, placement, selected, dragging, onToggle
   onDragEnd: () => void;
   onFaixa: () => void;
   onBank: () => void;
+  onDisplaced: () => void;
 }>) {
   const publishedAt = formattedDate(item.publishedAt);
+  const classificationLabel = classificationKey === null
+    ? "Sem classificação"
+    : classificationKey === "fc_porto" ? "Porto"
+      : classificationKey === "other_liga_clubs" ? "Primeira Liga"
+        : articleClassificationLabel(classificationKey);
 
   return (
     <article aria-grabbed={dragging} className={`thematic-card${selected ? " selected" : ""}`} draggable onDragEnd={onDragEnd} onDragStart={(event) => onDragStart(event, bankItemId)}>
@@ -478,9 +493,9 @@ function ArticleCard({ bankItemId, item, placement, selected, dragging, onToggle
         <Image alt="" className="thematic-image" height={180} loader={imageLoader} loading="lazy" src={item.imageUrl} unoptimized width={320} />
       ) : <span aria-hidden="true" className="thematic-image-placeholder" />}
       <div className="thematic-card-copy">
-        <div className="thematic-card-top">
+        <div className="thematic-card-top" data-without-label={!item.label}>
           {item.label ? <span className="thematic-card-label">{item.label}</span> : null}
-
+          <span className="thematic-classification-badge" data-classification={classificationKey ?? "unclassified"} title={`Classificação editorial: ${classificationLabel}`}>{classificationLabel}</span>
         </div>
         <strong className="thematic-card-title" title={item.title ?? undefined}>{item.title ?? "Artigo sem título"}</strong>
         {publishedAt ? <time dateTime={item.publishedAt ?? undefined}>{publishedAt}</time> : null}
@@ -524,6 +539,7 @@ function ArticleCard({ bankItemId, item, placement, selected, dragging, onToggle
 
           {placement.kind !== "faixa" ? <button className="thematic-button" onClick={onFaixa} type="button">Mover para Faixa</button> : null}
           {placement.kind !== "bank" ? <button className="thematic-button" onClick={onBank} type="button">Mover para Banco</button> : null}
+          {placement.kind === "zone" ? <button className="thematic-button" onClick={onDisplaced} type="button">Mover para Desalojadas</button> : null}
         </div>
       </details>
     </article>
@@ -1120,9 +1136,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     return (
       <ArticleCard
         bankItemId={bankItemId}
+        classificationKey={bankItemById.get(bankItemId)?.classification?.key ?? null}
         dragging={draggingBankItemId === bankItemId}
         item={effectiveItem(bankItemId, physicalPlacement?.slotPosition ?? null)}
         onBank={() => placeInBank(bankItemId)}
+        onDisplaced={() => placeInDisplaced(bankItemId)}
         onDragEnd={() => setDraggingBankItemId(null)}
         onDragStart={dragStart}
         onFaixa={() => placeAtFaixaTop(bankItemId)}
