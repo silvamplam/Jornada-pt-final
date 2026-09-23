@@ -53,7 +53,7 @@ test("bulk actions are grouped by clear destinations", () => {
   assert.equal(toolbar.includes("Automatico"), false);
 });
 
-test("selecionar todos e limpar marcação existem mesmo com zero selecionados", () => {
+test("selecionar candidatas e limpar marcação existem mesmo com zero selecionados", () => {
   const globalToolsStart = source.indexOf('className="thematic-global-tools"');
   const videoStart = source.indexOf('<summary>Vídeos</summary>', globalToolsStart);
   const agendaTvStart = source.indexOf('<summary>Agenda e TV</summary>', globalToolsStart);
@@ -62,10 +62,10 @@ test("selecionar todos e limpar marcação existem mesmo com zero selecionados",
 
   assert.ok(globalToolsStart >= 0 && videoStart > globalToolsStart);
   assert.ok(agendaTvStart > videoStart && controlsStart > agendaTvStart && workspaceStart > controlsStart);
-  assert.match(source.slice(controlsStart, workspaceStart), /Selecionar todos/u);
+  assert.match(source.slice(controlsStart, workspaceStart), /Selecionar candidatas/u);
   assert.match(source.slice(controlsStart, workspaceStart), /Limpar marcação/u);
   assert.match(source, /selected\.size === 1\s*\? "1 notícia selecionada"\s*:\s*`\$\{selected\.size\} notícias selecionadas`/u);
-  assert.match(source, /selectedIdentities:\s*filteredSourceItems\.map\(identity\)/u);
+  assert.match(source, /filteredCandidateEntries\.map\(\(entry\) => entry\.bankItemId\)/u);
   assert.match(source, /\.thematic-global-tools \{[^}]*grid-template-columns: max-content max-content max-content minmax\(0,1fr\)/u);
   assert.match(source, /\.thematic-selection-controls \{[^}]*justify-content: flex-end/u);
 });

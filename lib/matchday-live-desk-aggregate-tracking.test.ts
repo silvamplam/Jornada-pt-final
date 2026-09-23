@@ -248,39 +248,31 @@ test("o reader troca oito leituras fragmentadas por um contrato compacto sem bod
   assert.doesNotMatch(route, /matchday_editorial_bank_items\?select=id,source_type,source_id/u);
 });
 
-test("a UI mostra Todas primeiro, três colunas simultâneas e Banco separado", () => {
-  assert.match(client, /TRACKING_STATES = \["NOVA", "FAIXA", "DESALOJADA"\]/u);
-  assert.match(client, /TRACKING_STATES\.map\(\(state\)/u);
-  assert.match(client, /data-tracking-state=\{state\}/u);
+test("a UI usa uma barra única e duas colunas para Novas Desalojadas e Bank", () => {
+  assert.match(client, /type CandidateUniverse = "new" \| "displaced" \| "bank"/u);
+  assert.match(client, /CANDIDATE_UNIVERSES\.map\(\(universe\)/u);
+  assert.match(client, /data-candidate-universe=\{activeCandidateUniverse\}/u);
   assert.match(client, /useState<MatchdayEditorialTrackingClassFilter>\("all"\)/u);
-  assert.match(client, /Todas \{filteredTrackingEntries\.length\}/u);
-  assert.match(client, /Sem notícias neste estado/u);
-  assert.match(client, /\.thematic-tracking-rows \{[^}]*grid-template-columns: repeat\(3,minmax\(0,1fr\)\);[^}]*align-items: start/u);
-  assert.match(client, /@media \(max-width: 900px\) \{ \.thematic-tracking-rows \{ grid-template-columns: 1fr; \} \}/u);
-  assert.match(client, /\.thematic-tracking-row \.thematic-sources-list \{ grid-template-columns: 1fr;/u);
-  assert.match(client, /\.thematic-tracking-row \.thematic-empty \{ min-height: 44px; \}/u);
-  assert.match(client, /className="thematic-tracking-row-label"/u);
-  assert.match(
-    client,
-    /className="thematic-tracking-row-label"[\s\S]*\{entries\.length > 0 \? (?:\(\s*)?<button[\s\S]*Selecionar linha[\s\S]*className="thematic-sources-list"/u,
-  );
-  assert.doesNotMatch(client, /className="thematic-tracking-row-actions"/u);
-  assert.doesNotMatch(client, /\.thematic-tracking-row > header/u);
-  assert.doesNotMatch(client, /SourceViewKey|activeSourceView/u);
+  assert.match(client, /Todas \{activeUniverseEntries\.length\}/u);
+  assert.match(client, /Sem artigos neste universo/u);
+  assert.match(client, /\.thematic-candidates-grid \{[^}]*grid-template-columns: repeat\(2,minmax\(0,1fr\)\)/u);
+  assert.doesNotMatch(client, /thematic-tracking-rows|thematic-bank-pool/u);
 
-  const start = client.indexOf('aria-label="Tracking editorial por classe"');
-  const end = client.indexOf("function renderActiveWorkspace", start);
+  const start = client.indexOf("function renderCandidates");
+  const end = client.indexOf("function isZoneWorkspaceKey", start);
   const trackingUi = client.slice(start, end);
   assert.ok(start >= 0 && end > start);
-  assert.ok(trackingUi.indexOf("Todas") < trackingUi.indexOf("profile.zones.map"));
+  assert.ok(trackingUi.indexOf("CANDIDATE_UNIVERSES.map") < trackingUi.indexOf("profile.zones.map"));
   assert.match(trackingUi, /articleClassificationLabel\(zone\.key\)/u);
   assert.doesNotMatch(trackingUi, /\{zone\.label\}/u);
-  assert.doesNotMatch(client, /data-tracking-state=[^\n]*BANCO/u);
-  assert.match(trackingUi, /className="thematic-bank-access"/u);
-  assert.match(trackingUi, /aria-label="Banco editorial"/u);
+  assert.equal(
+    (trackingUi.match(/className="thematic-sources-toolbar"/g) ?? []).length,
+    1,
+  );
+  assert.match(trackingUi, /aria-label="Universo de candidatas"/u);
 });
 
-test("o draft de NOVAS reutiliza o seletor canónico depois dos filtros e antes da paginação", () => {
+test("o draft de NOVAS reutiliza o seletor canónico antes do filtro comum e da paginação", () => {
   const start = client.indexOf("const trackingEntries = useMemo");
   const end = client.indexOf("const openingPlacements", start);
   assert.ok(start >= 0 && end > start);
@@ -289,31 +281,22 @@ test("o draft de NOVAS reutiliza o seletor canónico depois dos filtros e antes 
   assert.match(trackingDraft, /current\.bankItems\.flatMap<MatchdayEditorialTrackingItem>/u);
   assert.match(trackingDraft, /\.\.\.effectiveItem\(bankItem\.id, placement\?\.slotPosition \?\? null\)/u);
   assert.match(trackingDraft, /\[activeByIdentity,[^\]]*current\.bankItems[^\]]*placementByBankItemId\]/u);
-  assert.match(trackingDraft, /trackingClassFilter === "all" \|\| entry\.classifiedZoneKey === trackingClassFilter/u);
-  assert.match(trackingDraft, /const filteredTrackingEntries = classTrackingEntries\.filter\(matchesTrackingQuery\)/u);
-  assert.match(trackingDraft, /const entries = filteredTrackingEntries\.filter\(\(entry\) => entry\.editorialState === state\)/u);
-  assert.match(trackingDraft, /if \(state === "NOVA"\) return selectMatchdayEditorialTrackingItems\(entries, trackingClassFilter\)/u);
-  assert.match(client, /const entries = trackingEntriesForState\(state\);\s*const visible = entries\.slice\(0, trackingVisibleCounts\[state\]\)/u);
+  assert.match(trackingDraft, /selectMatchdayEditorialTrackingItems\([\s\S]*entry\.editorialState === "NOVA"[\s\S]*"all"/u);
+  assert.match(trackingDraft, /candidateClassFilter === "all"[\s\S]*entry\.classifiedZoneKey === candidateClassFilter/u);
+  assert.match(trackingDraft, /classCandidateEntries\.filter\(\(\{ item \}\) => \([\s\S]*matchesCandidateQuery\(item\)/u);
+  assert.match(trackingDraft, /filteredCandidateEntries\.slice\([\s\S]*candidateVisibleCounts\[activeCandidateUniverse\]/u);
 });
 
-test("Banco tem Todas e filtros contextuais independentes com contadores próprios", () => {
-  assert.match(client, /const \[bankClassFilter, setBankClassFilter\][\s\S]*useState<MatchdayEditorialTrackingClassFilter>\("all"\)/u);
-  assert.match(client, /aria-label="Filtrar Banco por classe contextual"/u);
-  assert.match(client, /selectMatchdayEditorialExplicitBankItems\([\s\S]*explicitBankEntries,[\s\S]*bankClassFilter/u);
-  assert.match(client, /Todas \{explicitBankEntries\.length\}/u);
+test("Bank partilha classificação pesquisa e seleção com os restantes universos", () => {
+  assert.match(client, /const \[candidateClassFilter, setCandidateClassFilter\][\s\S]*useState<MatchdayEditorialTrackingClassFilter>\("all"\)/u);
+  assert.match(client, /aria-label="Filtrar candidatas por classificação"/u);
+  assert.match(client, /selectMatchdayEditorialExplicitBankItems\([\s\S]*explicitBankEntries,[\s\S]*"all"/u);
+  assert.match(client, /Todas \{activeUniverseEntries\.length\}/u);
   assert.match(client, /entry\.classifiedZoneKey === zone\.key/u);
-  assert.match(client, /filteredBankEntries\.map\(\(entry\) => entry\.bankItemId\)/u);
-  assert.match(client, /visibleBankEntries = filteredBankEntries\.slice\(0, bankVisibleCount\)/u);
-  assert.match(client, /aria-label="Pesquisar Tracking e Banco"/u);
-  assert.doesNotMatch(client, /setTrackingClassFilter\(bankClassFilter\)/u);
-
-  const bankStart = client.indexOf('aria-label="Banco editorial"');
-  const bankEnd = client.indexOf('<div className="thematic-tracking-rows">', bankStart);
-  const bankUi = client.slice(bankStart, bankEnd);
-  assert.ok(bankStart >= 0 && bankEnd > bankStart);
-  assert.doesNotMatch(bankUi, /<header>/u);
-  assert.match(bankUi, /className="thematic-bank-class-filters"[\s\S]*Selecionar Banco/u);
-  assert.doesNotMatch(bankUi, /disponíveis/u);
+  assert.match(client, /visibleCandidateEntries\.map\(\(entry\) => entry\.bankItemId\)/u);
+  assert.match(client, /disabled=\{visibleCandidateEntries\.length === 0\}/u);
+  assert.match(client, /aria-label="Pesquisar artigos candidatos"/u);
+  assert.doesNotMatch(client, /bankClassFilter|trackingClassFilter/u);
 });
 
 test("contadores do Tracking excluem Banco explícito no snapshot e no draft", () => {
@@ -337,8 +320,8 @@ test("contadores do Tracking excluem Banco explícito no snapshot e no draft", (
   assert.equal(selectMatchdayEditorialExplicitBankItems(bank, "sporting").length, 1);
   assert.equal(selectMatchdayEditorialExplicitBankItems(bank, "benfica").length, 0);
   assert.match(client, /const trackingEntries = useMemo\([\s\S]*current\.explicitBankItemIds\.includes\(bankItem\.id\)\) return \[\]/u);
-  assert.match(client, /Todas \{filteredTrackingEntries\.length\}/u);
-  assert.match(client, /\{articleClassificationLabel\(zone\.key\)\} \{trackingEntries\.filter/u);
-  assert.match(client, /Banco \{explicitBankEntries\.length\}/u);
-  assert.match(client, /Todas \{explicitBankEntries\.length\}/u);
+  assert.match(client, /new: newCandidateEntries\.map/u);
+  assert.match(client, /bank: bankCandidateEntries\.map/u);
+  assert.match(client, /candidateEntriesByUniverse\[universe\]\.length/u);
+  assert.match(client, /activeUniverseEntries\.filter/u);
 });

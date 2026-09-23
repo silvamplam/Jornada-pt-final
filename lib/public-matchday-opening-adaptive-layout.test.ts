@@ -48,7 +48,7 @@ test("em mobile dois Destaques deixam de ser forçados lado a lado", () => {
     /@media \(max-width: 760px\)[\s\S]*?data-highlight-count="2"[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/,
   );
 });
-test("a Abertura da Mesa permanece acessível como workspace durante a organização", () => {
+test("a Abertura da Mesa abre e fecha acima do workspace ativo", () => {
   const desk = readFileSync(
     "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
     "utf8",
@@ -56,22 +56,22 @@ test("a Abertura da Mesa permanece acessível como workspace durante a organiza�
 
   assert.match(
     desk,
-    /useState<ActiveWorkspaceKey>\("opening"\)/,
+    /const \[openingVisible, setOpeningVisible\] = useState\(false\)/,
   );
 
   assert.match(
     desk,
-    /activeWorkspaceKey === "opening"\) return renderOpeningWorkspace\(\)/,
+    /openingVisible \? renderOpeningWorkspace\(\) : null[\s\S]*renderActiveWorkspace\(\)/,
   );
 
   assert.match(
     desk,
-    /setActiveWorkspaceKey\("opening"\)/,
+    /openingVisible \? "Fechar Abertura" : "Mostrar Abertura"/,
   );
 
   assert.match(
     desk,
-    /className="thematic-sources-list"[\s\S]*data-drag-active=\{draggingIdentity !== null\}/,
+    /id="thematic-opening-workspace"[\s\S]*MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS\.map/,
   );
 });
 

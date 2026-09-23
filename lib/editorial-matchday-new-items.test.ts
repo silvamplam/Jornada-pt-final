@@ -17,6 +17,14 @@ const route = readFileSync(
   "app/api/admin/editorial/jornada/[matchdayId]/organizar/tematico/route.ts",
   "utf8",
 );
+const state = readFileSync(
+  "lib/editorial-matchday-live-layout-desk-state.ts",
+  "utf8",
+);
+const serializer = readFileSync(
+  "lib/editorial-matchday-live-layout-physical-apply.ts",
+  "utf8",
+);
 
 function distribution(editorialState: "NOVA" | "DESALOJADA" | null) {
   return buildMatchdayEditorialProfileDeskDistribution(
@@ -53,45 +61,35 @@ test("Novas deriva apenas do estado editorial projetado", () => {
   assert.match(migration, /new\.continuity_source_matchday_id is not null[\s\S]*new\.editorially_worked_at := statement_timestamp\(\)/i);
 });
 
-test("Apply marca apenas decisões explícitas e nunca reabre uma notícia trabalhada", () => {
+test("Apply físico transporta as decisões explícitas acumuladas no draft", () => {
   assert.match(migration, /p_worked_source_ids jsonb/i);
   assert.match(migration, /set editorially_worked_at = pg_catalog\.coalesce\([\s\S]*statement_timestamp\(\)/i);
   assert.match(migration, /bank_row\.editorially_worked_at is null/i);
-  assert.match(client, /workedIdentities/u);
-  assert.match(client, /workedSourceIds/u);
+  assert.match(state, /workedBankItemIds: uniqueSorted\(\[[\s\S]*\.\.\.workedBankItemIds/u);
+  assert.match(serializer, /workedBankItemIds: physicalDesk\.current\.workedBankItemIds/u);
+  assert.match(serializer, /p_worked_bank_item_ids: payload\.workedBankItemIds/u);
 });
 
-test("Apply v9 preserva o v8, que fecha duplicações públicas da Seleção", () => {
+test("a rota usa o Apply físico transacional atual", () => {
   assert.match(
     route,
-    /rpc\/apply_matchday_editorial_profile_workspace_v11/u,
+    /rpc\/apply_matchday_live_layout_physical_v29/u,
   );
-  assert.match(
-    migration,
-    /from public\.apply_matchday_editorial_profile_workspace_v7/u,
-  );
-  assert.match(
-    migration,
-    /matchday-editorial-profile-workspace-v8-duplicate-public-placement/u,
-  );
+  assert.doesNotMatch(route, /apply_matchday_editorial_profile_workspace/u);
 });
 
 test("usar uma notícia como Destaque editorial também conta como decisão explícita", () => {
-  const start = client.indexOf("function changeVideoHighlight");
-  const end = client.indexOf("useEffect(() =>", start);
-  const implementation = client.slice(start, end);
-
-  assert.ok(start >= 0 && end > start);
-  assert.match(implementation, /highlightWorkedIdentity/u);
-  assert.match(implementation, /withWorkedIdentities/u);
+  assert.match(client, /placementType: "video_highlight", zoneId: null, slotPosition: 1/u);
+  assert.match(state, /return withPlacement\(state, bankItemId, target\)/u);
+  assert.match(state, /commitSnapshot\(state,[\s\S]*bankItemId/u);
 });
 
 test("Novas integra o tracking simultâneo sem inferência por worked_at", () => {
-  assert.match(client, /TRACKING_STATES = \["NOVA", "FAIXA", "DESALOJADA"\]/u);
-  assert.match(client, /desk\.tracking\.items/u);
-  assert.match(client, /trackingItem\.editorialState === state/u);
-  assert.match(client, /item\.classifiedZoneKey === trackingClassFilter/u);
-  assert.match(client, /selectMatchdayEditorialTrackingItems\([\s\S]*desk\.tracking\.items,[\s\S]*"all"/u);
+  assert.match(client, /const trackingEntries = useMemo/u);
+  assert.match(client, /editorialState:[\s\S]*"DESALOJADA"[\s\S]*"NOVA"/u);
+  assert.match(client, /entry\.editorialState === "NOVA"/u);
+  assert.match(client, /entry\.classifiedZoneKey === candidateClassFilter/u);
+  assert.match(client, /selectMatchdayEditorialTrackingItems\([\s\S]*trackingEntries\.filter[\s\S]*"all"/u);
   assert.doesNotMatch(client, /item\.isNew === true/u);
   assert.doesNotMatch(client, /SourceViewKey|activeSourceView/u);
   assert.doesNotMatch(client, /localStorage|sessionStorage/u);

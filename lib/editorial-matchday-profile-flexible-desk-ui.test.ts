@@ -39,10 +39,11 @@ test("reduzir layout desaloja overflow sem compactação", () => {
   assert.doesNotMatch(state, /compact/i);
 });
 
-test("Últimas continua um block físico ordenável", () => {
+test("Últimas continua um block físico acessível sem entrar na seleção de zonas", () => {
   assert.match(client, /block\.kind === "latest"/);
-  assert.match(client, /movePhysicalDeskBlock\(state, block, "up"\)/);
   assert.match(client, /latestZonePlacement/);
+  assert.match(client, /setActiveWorkspaceKey\("latest"\)/);
+  assert.doesNotMatch(client, /movePhysicalDeskZone\(state, [^,]*latest/);
 });
 
 test("selection legacy esta retirado da superficie fisica da Mesa", () => {
@@ -52,17 +53,24 @@ test("selection legacy esta retirado da superficie fisica da Mesa", () => {
   assert.doesNotMatch(client, /MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS/);
 });
 
-test("zona ativa mantém título layout e contador", () => {
+test("zona ativa mantém controlos acessíveis e contador sem rótulos visuais redundantes", () => {
   const zonePanel = body("renderZonePanel", "renderOpeningWorkspace");
-  assert.match(zonePanel, /Título público/);
-  assert.match(zonePanel, /Apresentação/);
+  assert.match(zonePanel, /aria-label=\{`Título público de \$\{zoneLabel\}`\}/);
+  assert.match(zonePanel, /aria-label=\{`Apresentação de \$\{zoneLabel\}`\}/);
+  assert.doesNotMatch(zonePanel, /<span>Título público<\/span>/);
+  assert.doesNotMatch(zonePanel, /<span>Apresentação<\/span>/);
   assert.match(zonePanel, /thematic-zone-editor-count/);
 });
 
-test("tabs mantêm Abertura e derivam todos os blocks físicos", () => {
-  assert.match(client, /Foco da Mesa/);
-  assert.match(client, /current\.blocks\.map\(\(block\)/);
-  assert.match(client, />Abertura \{openingOccupied\}</);
+test("rail mantém Abertura e deriva as zonas dos blocks físicos", () => {
+  assert.match(client, /aria-label="Zonas da Mesa"/);
+  assert.match(client, /orderedZoneBlocks\.map\(\(block\)/);
+  assert.match(client, /Mostrar Abertura/);
+  assert.match(client, /openingOccupied/);
+  assert.doesNotMatch(
+    client,
+    /thematic-zone-rail-note|Marque uma zona para alterar a ordem|A zona marcada move-se/,
+  );
 });
 
 test("Ultimas abrem como bloco de apresentacao sem pseudo-zona", () => {
