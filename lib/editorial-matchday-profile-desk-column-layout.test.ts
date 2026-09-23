@@ -120,3 +120,31 @@ test("selects de destino seguem a ordem vertical do draft", () => {
   assert.equal((source.match(/orderedZones\.map\(\(zone\) =>/g) ?? []).length, 2);
   assert.doesNotMatch(source, /current\.zones\.map\(\(zone\) => <option/);
 });
+
+const candidates = source.slice(
+  source.indexOf("function renderCandidates"),
+  source.indexOf("function isZoneWorkspaceKey"),
+);
+
+test("cabeçalho das candidatas tem tabs e uma única linha de filtros e ações", () => {
+  assert.match(candidates, /className="thematic-sources-toolbar">\s*<nav className="thematic-candidate-tabs"/u);
+  assert.match(candidates, /<\/nav>\s*<div className="thematic-candidate-filters">/u);
+  assert.match(candidates, /className="thematic-candidate-actions"[\s\S]*Pesquisar artigos candidatos[\s\S]*Selecionar visíveis/u);
+  assert.match(candidates, /visibleCandidateEntries\.map\(\(entry\) => entry\.bankItemId\)/u);
+  assert.doesNotMatch(candidates, /<h2>|A mostrar|Largar aqui|thematic-candidate-results|thematic-sources-toolbar-top/u);
+  assert.match(source, /\.thematic-candidate-filters \{ display: flex; min-width: 0; gap: 4px; align-items: center; \}/u);
+  assert.match(source, /\.thematic-candidate-actions \{ display: flex; flex: 0 0 auto;/u);
+  assert.match(source, /\.thematic-candidate-filters nav button \{[^}]*white-space: nowrap;/u);
+});
+
+test("lupa alterna pesquisa e filtros na mesma linha sem apagar a pesquisa existente", () => {
+  assert.match(source, /\[candidateSearchOpen, setCandidateSearchOpen\] = useState\(false\)/u);
+  assert.match(candidates, /candidateSearchOpen \? \([\s\S]*className="thematic-reservoir-search"[\s\S]*\) : <nav aria-label="Filtrar candidatas por classificação"/u);
+  assert.match(candidates, /aria-expanded=\{candidateSearchOpen\}/u);
+  assert.match(candidates, /onClick=\{\(\) => setCandidateSearchOpen\(\(open\) => !open\)\}/u);
+  assert.match(candidates, /onChange=\{\(event\) => setCandidateQuery\(event\.target\.value\)\}/u);
+  assert.match(candidates, /value=\{candidateQuery\}/u);
+  assert.match(candidates, /event\.key === "Escape"[\s\S]*setCandidateSearchOpen\(false\);[\s\S]*candidateSearchToggleRef\.current\?\.focus\(\)/u);
+  assert.match(candidates, /data-query-active=\{normalizedCandidateQuery\.length > 0\}/u);
+  assert.doesNotMatch(candidates, /setCandidateQuery\(""\)|fetch\(|applyChanges\(/u);
+});

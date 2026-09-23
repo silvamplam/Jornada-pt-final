@@ -301,21 +301,21 @@ const styles = `
   .thematic-highlight-card strong { font-size: 11px; line-height: 1.2; }
   .thematic-sources { display: grid; min-width: 0; overflow: visible; border: 1px solid #263342; border-radius: 8px; background: #fff; box-shadow: 0 4px 14px rgba(12,22,34,.06); }
   .thematic-sources-toolbar { display: grid; gap: 6px; min-width: 0; padding: 7px; border-bottom: 1px solid #263342; border-radius: 7px 7px 0 0; background: #101820; color: #fff; }
-  .thematic-sources-toolbar-top { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .thematic-sources-toolbar h2 { margin: 0 auto 0 0; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; }
   .thematic-candidate-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 4px; }
   .thematic-candidate-tabs button { min-height: 31px; padding: 4px 7px; border: 1px solid #526174; border-radius: 5px; background: #1b2734; color: #dce5ed; font-size: 9px; font-weight: 900; cursor: pointer; }
   .thematic-candidate-tabs button.active { border-color: #ff5c65; background: #a52530; color: #fff; }
-  .thematic-candidate-filters { display: flex; min-width: 0; flex-wrap: wrap; gap: 4px; align-items: center; }
-  .thematic-candidate-filters nav { display: flex; flex: 1 1 100%; min-width: 0; flex-wrap: wrap; gap: 4px; }
-  .thematic-candidate-filters nav button { min-height: 25px; padding: 3px 7px; border: 1px solid #465669; border-radius: 999px; background: transparent; color: #cbd5e1; font-size: 8px; font-weight: 850; cursor: pointer; }
+  .thematic-candidate-tabs button[data-drag-active="true"] { outline: 1px dashed #ff5c65; outline-offset: -3px; }
+  .thematic-candidate-filters { display: flex; min-width: 0; gap: 4px; align-items: center; }
+  .thematic-candidate-filters nav { display: flex; flex: 1; min-width: 0; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  .thematic-candidate-filters nav button { flex: 0 0 auto; min-height: 25px; padding: 3px 2px; border: 1px solid #465669; border-radius: 999px; background: transparent; color: #cbd5e1; font-size: 8px; font-weight: 850; white-space: nowrap; cursor: pointer; }
   .thematic-candidate-filters nav button.active { border-color: #fff; background: #fff; color: #101820; }
-  .thematic-candidate-results { flex: 1 1 100%; color: #cbd5e1; font-size: 11px; }
-  .thematic-reservoir-search { display: grid; grid-template-columns: auto minmax(120px,1fr); flex: 1 1 100%; min-width: 0; min-height: 29px; align-items: center; gap: 6px; padding: 0 7px; border: 1px solid #4b5b6e; border-radius: 5px; background: #fff; color: #101820; }
-  .thematic-reservoir-search span { color: #64748b; font-size: 8px; font-weight: 850; }
-  .thematic-reservoir-search input { min-width: 0; min-height: 27px; border: 0; outline: 0; font-size: 10px; }
-  .thematic-candidates-drop-target { margin: 6px 6px 0; padding: 9px; border: 1px dashed #9aaabc; border-radius: 6px; background: #f8fafc; color: #526173; font-size: 9px; font-weight: 900; text-align: center; }
-  .thematic-candidates-drop-target[data-drag-active="true"] { border-color: #e43e48; background: #fff2f3; color: #9f1d27; }
+  .thematic-candidate-actions { display: flex; flex: 0 0 auto; gap: 4px; align-items: center; }
+  .thematic-candidate-actions .thematic-button { min-height: 28px; padding: 4px 5px; white-space: nowrap; }
+  .thematic-candidate-search-toggle { display: grid; place-items: center; width: 28px; padding: 0; }
+  .thematic-candidate-search-toggle[data-query-active="true"] { border-color: #ff5c65; background: #a52530; color: #fff; }
+  .thematic-reservoir-search { display: flex; flex: 1; min-width: 0; height: 28px; align-items: center; padding: 0 7px; border: 1px solid #4b5b6e; border-radius: 5px; background: #fff; color: #101820; }
+  .thematic-reservoir-search:focus-within { outline: 2px solid #94a3b8; outline-offset: 1px; }
+  .thematic-reservoir-search input { width: 100%; min-width: 0; height: 26px; border: 0; outline: 0; font-size: 10px; }
   .thematic-candidates-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-content: start; gap: 5px; padding: 6px; }
   .thematic-candidates-grid .thematic-card { min-height: 60px; }
   .thematic-candidates-grid .thematic-empty { grid-column: 1 / -1; min-height: 90px; }
@@ -485,6 +485,9 @@ function ArticleCard({ bankItemId, item, classificationKey, placement, selected,
     : classificationKey === "fc_porto" ? "Porto"
       : classificationKey === "other_liga_clubs" ? "Primeira Liga"
         : articleClassificationLabel(classificationKey);
+  const canMoveToDisplaced = placement.kind === "zone"
+    || placement.kind === "new"
+    || (placement.kind === "bank" && classificationKey !== null);
 
   return (
     <article aria-grabbed={dragging} className={`thematic-card${selected ? " selected" : ""}`} draggable onDragEnd={onDragEnd} onDragStart={(event) => onDragStart(event, bankItemId)}>
@@ -539,7 +542,7 @@ function ArticleCard({ bankItemId, item, classificationKey, placement, selected,
 
           {placement.kind !== "faixa" ? <button className="thematic-button" onClick={onFaixa} type="button">Mover para Faixa</button> : null}
           {placement.kind !== "bank" ? <button className="thematic-button" onClick={onBank} type="button">Mover para Banco</button> : null}
-          {placement.kind === "zone" ? <button className="thematic-button" onClick={onDisplaced} type="button">Mover para Desalojadas</button> : null}
+          {canMoveToDisplaced ? <button className="thematic-button" onClick={onDisplaced} type="button">Mover para Desalojadas</button> : null}
         </div>
       </details>
     </article>
@@ -778,6 +781,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [candidateClassFilter, setCandidateClassFilter] =
     useState<MatchdayEditorialTrackingClassFilter>("all");
   const [candidateQuery, setCandidateQuery] = useState("");
+  const [candidateSearchOpen, setCandidateSearchOpen] = useState(false);
+  const candidateSearchToggleRef = useRef<HTMLButtonElement>(null);
   const [candidateVisibleCounts, setCandidateVisibleCounts] = useState<
     Readonly<Record<CandidateUniverse, number>>
   >({
@@ -1549,19 +1554,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     return (
       <section className="thematic-sources" aria-label="Artigos candidatos">
         <div className="thematic-sources-toolbar">
-          <div className="thematic-sources-toolbar-top">
-            <h2>Candidatas</h2>
-            <button
-              className="thematic-button"
-              disabled={visibleCandidateEntries.length === 0}
-              onClick={() => selectItems(
-                visibleCandidateEntries.map((entry) => entry.bankItemId),
-              )}
-              type="button"
-            >
-              Selecionar visíveis
-            </button>
-          </div>
           <nav className="thematic-candidate-tabs" aria-label="Universo de candidatas">
             {CANDIDATE_UNIVERSES.map((universe) => (
               <button
@@ -1569,6 +1561,14 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 className={activeCandidateUniverse === universe ? "active" : ""}
                 key={universe}
                 onClick={() => setActiveCandidateUniverse(universe)}
+                data-drag-active={universe === "displaced" && draggingBankItemId !== null && !mutationBlocked}
+                onDragOver={universe === "displaced" ? allowDrop : undefined}
+                onDrop={universe === "displaced" ? (event) => {
+                  event.preventDefault();
+                  const bankItemId = dragged(event);
+                  if (bankItemId) placeInDisplaced(bankItemId);
+                  setDraggingBankItemId(null);
+                } : undefined}
                 type="button"
               >
                 {universeLabels[universe]} {candidateEntriesByUniverse[universe].length}
@@ -1576,7 +1576,25 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             ))}
           </nav>
           <div className="thematic-candidate-filters">
-            <nav aria-label="Filtrar candidatas por classificação">
+            {candidateSearchOpen ? (
+              <label className="thematic-reservoir-search">
+                <input
+                  aria-label="Pesquisar artigos candidatos"
+                  autoFocus
+                  onChange={(event) => setCandidateQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setCandidateSearchOpen(false);
+                      candidateSearchToggleRef.current?.focus();
+                    }
+                  }}
+                  placeholder="Título ou antetítulo"
+                  type="search"
+                  value={candidateQuery}
+                />
+              </label>
+            ) : <nav aria-label="Filtrar candidatas por classificação">
               <button
                 className={candidateClassFilter === "all" ? "active" : ""}
                 onClick={() => setCandidateClassFilter("all")}
@@ -1597,34 +1615,34 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   ).length}
                 </button>
               ))}
-            </nav>
-            <label className="thematic-reservoir-search">
-              <span>Pesquisa</span>
-              <input
-                aria-label="Pesquisar artigos candidatos"
-                onChange={(event) => setCandidateQuery(event.target.value)}
-                placeholder="Título ou antetítulo"
-                type="search"
-                value={candidateQuery}
-              />
-            </label>
-            <span className="thematic-candidate-results" role="status" aria-live="polite">
-              A mostrar {visibleCandidateEntries.length} de {filteredCandidateEntries.length}
-            </span>
+            </nav>}
+            <div className="thematic-candidate-actions">
+              <button
+                aria-label={candidateSearchOpen ? "Fechar pesquisa" : "Pesquisar artigos candidatos"}
+                aria-expanded={candidateSearchOpen}
+                className="thematic-button thematic-candidate-search-toggle"
+                data-query-active={normalizedCandidateQuery.length > 0}
+                onClick={() => setCandidateSearchOpen((open) => !open)}
+                ref={candidateSearchToggleRef}
+                title={candidateSearchOpen ? "Fechar pesquisa" : candidateQuery ? `Pesquisa ativa: ${candidateQuery}` : "Pesquisar artigos candidatos"}
+                type="button"
+              >
+                <svg aria-hidden="true" fill="none" height="14" stroke="currentColor" strokeLinecap="round" strokeWidth="2" viewBox="0 0 24 24" width="14">
+                  {candidateSearchOpen ? <path d="m6 6 12 12M6 18 18 6" /> : <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></>}
+                </svg>
+              </button>
+              <button
+                className="thematic-button"
+                disabled={visibleCandidateEntries.length === 0}
+                onClick={() => selectItems(
+                  visibleCandidateEntries.map((entry) => entry.bankItemId),
+                )}
+                type="button"
+              >
+                Selecionar visíveis
+              </button>
+            </div>
           </div>
-        </div>
-        <div
-          className="thematic-candidates-drop-target"
-          data-drag-active={draggingBankItemId !== null && !mutationBlocked}
-          onDragOver={allowDrop}
-          onDrop={(event) => {
-            event.preventDefault();
-            const bankItemId = dragged(event);
-            if (bankItemId) placeInDisplaced(bankItemId);
-            setDraggingBankItemId(null);
-          }}
-        >
-          Largar aqui · passa para Desalojadas
         </div>
         <div
           className="thematic-candidates-grid"

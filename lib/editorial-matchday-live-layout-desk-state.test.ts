@@ -509,6 +509,75 @@ test("Bank e Desalojadas são estados exclusivos", () => {
   }]);
 });
 
+test("candidata Nova para Desalojadas fica apenas no draft e Undo ou Reset restauram Novas", () => {
+  const initial = stateWithBaselinePlacement();
+  const candidateId = bankId(2);
+  const displaced = movePhysicalDeskItemToDisplaced(initial, candidateId);
+
+  assert.equal(physicalDeskPlacementForBankItem(displaced, candidateId), null);
+  assert.deepEqual(displaced.current.placements, initial.current.placements);
+  assert.deepEqual(displaced.current.explicitBankItemIds, []);
+  assert.deepEqual(displaced.current.displacedBankItemIds, [candidateId]);
+  assert.deepEqual(displaced.current.displacedArrivalBankItemIds, [candidateId]);
+  assert.deepEqual(displaced.current.memory, [{
+    bankItemId: candidateId,
+    memoryKind: "displaced",
+    recordedAt: null,
+  }]);
+  assert.equal(displaced.current.workedBankItemIds.includes(candidateId), true);
+  assert.equal(physicalDeskHasChanges(displaced), true);
+  assert.equal(displaced.history.length, 1);
+  assert.deepEqual(displaced.baseline, initial.baseline);
+  assert.deepEqual(displaced.current.bankItems, initial.current.bankItems);
+  assert.equal(displaced.physicalStateToken, initial.physicalStateToken);
+  assert.equal(physicalDeskHasChanges(initial), false);
+
+  for (const restored of [undoPhysicalDeskState(displaced), resetPhysicalDeskState(displaced)]) {
+    assert.deepEqual(restored.current, initial.baseline);
+    assert.equal(physicalDeskHasChanges(restored), false);
+    assert.deepEqual(restored.current.displacedBankItemIds, []);
+    assert.deepEqual(restored.current.explicitBankItemIds, []);
+  }
+});
+
+test("candidata classificada do Bank para Desalojadas preserva composição e restaura Bank com Undo ou Reset", () => {
+  const source = workspace(1);
+  const candidateId = bankId(2);
+  const initial = stateFromWorkspace({
+    ...source,
+    bankItems: source.bankItems.map((item) => item.id === candidateId
+      ? { ...item, isExplicitBank: true, editoriallyWorkedAt: NOW }
+      : item),
+    explicitBankItemIds: [candidateId],
+    workedBankItemIds: [candidateId],
+  });
+  const displaced = movePhysicalDeskItemToDisplaced(initial, candidateId);
+
+  assert.equal(physicalDeskPlacementForBankItem(displaced, candidateId), null);
+  assert.deepEqual(displaced.current.placements, initial.current.placements);
+  assert.deepEqual(displaced.current.explicitBankItemIds, []);
+  assert.deepEqual(displaced.current.displacedBankItemIds, [candidateId]);
+  assert.deepEqual(displaced.current.displacedArrivalBankItemIds, [candidateId]);
+  assert.deepEqual(displaced.current.memory, [{
+    bankItemId: candidateId,
+    memoryKind: "displaced",
+    recordedAt: null,
+  }]);
+  assert.equal(physicalDeskHasChanges(displaced), true);
+  assert.equal(displaced.history.length, 1);
+  assert.deepEqual(displaced.baseline, initial.baseline);
+  assert.deepEqual(displaced.current.bankItems, initial.current.bankItems);
+  assert.equal(displaced.physicalStateToken, initial.physicalStateToken);
+  assert.equal(physicalDeskHasChanges(initial), false);
+
+  for (const restored of [undoPhysicalDeskState(displaced), resetPhysicalDeskState(displaced)]) {
+    assert.deepEqual(restored.current, initial.baseline);
+    assert.equal(physicalDeskHasChanges(restored), false);
+    assert.deepEqual(restored.current.displacedBankItemIds, []);
+    assert.deepEqual(restored.current.explicitBankItemIds, [candidateId]);
+  }
+});
+
 test("zona para Desalojadas fica pendente e Undo limpa a alteração sem Apply", () => {
   const initial = stateWithBaselinePlacement();
   const displaced = movePhysicalDeskItemToDisplaced(initial, bankId(1));

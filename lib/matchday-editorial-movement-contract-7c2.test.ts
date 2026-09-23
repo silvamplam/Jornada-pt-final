@@ -267,11 +267,9 @@ test("cliente expõe destinos explícitos e bloqueia drag direto entre zonas", (
     client,
     /Largar aqui · entra no topo da Faixa/u,
   );
-  assert.match(
-    client,
-    /Largar aqui · passa para Desalojadas/u,
-  );
-  assert.match(client, /className="thematic-candidates-drop-target"/u);
+  assert.doesNotMatch(client, /Largar aqui · passa para Desalojadas|thematic-candidates-drop-target/u);
+  assert.match(client, /onDragOver=\{universe === "displaced" \? allowDrop : undefined\}/u);
+  assert.match(client, /onDrop=\{universe === "displaced" \? \(event\) => \{[\s\S]*?if \(bankItemId\) placeInDisplaced\(bankItemId\);/u);
   assert.match(
     client,
     /source\?\.placementType === "zone"[\s\S]*source\.zoneId !== zoneId/u,

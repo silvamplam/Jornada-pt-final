@@ -90,10 +90,14 @@ test("cartão sem antetítulo mantém a linha vazia sem altura", () => {
   assert.doesNotMatch(topRule, /(?:^|;)\s*padding\s*:/u);
 });
 
-test("ação Desalojadas existe só no cartão colocado em zona e reutiliza o reducer físico", () => {
+test("ação Desalojadas admite Novas e Bank classificado, sem no-op em Desalojadas", () => {
   assert.match(
     articleCard,
-    /\{placement\.kind === "zone" \? <button className="thematic-button" onClick=\{onDisplaced\} type="button">Mover para Desalojadas<\/button> : null\}/u,
+    /const canMoveToDisplaced = placement\.kind === "zone"\s*\|\| placement\.kind === "new"\s*\|\| \(placement\.kind === "bank" && classificationKey !== null\);/u,
+  );
+  assert.match(
+    articleCard,
+    /\{canMoveToDisplaced \? <button className="thematic-button" onClick=\{onDisplaced\} type="button">Mover para Desalojadas<\/button> : null\}/u,
   );
   assert.doesNotMatch(articleCard, /placement\.kind !== "displaced"[^\n]*Mover para Desalojadas/u);
   assert.match(cardFor, /onDisplaced=\{\(\) => placeInDisplaced\(bankItemId\)\}/u);
