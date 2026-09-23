@@ -486,6 +486,7 @@ function ArticleCard({ bankItemId, item, classificationKey, placement, selected,
       : classificationKey === "other_liga_clubs" ? "Primeira Liga"
         : articleClassificationLabel(classificationKey);
   const canMoveToDisplaced = placement.kind === "zone"
+    || placement.kind === "opening"
     || placement.kind === "new"
     || (placement.kind === "bank" && classificationKey !== null);
 
