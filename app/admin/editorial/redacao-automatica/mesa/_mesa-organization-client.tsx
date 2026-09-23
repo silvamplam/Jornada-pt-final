@@ -292,6 +292,7 @@ export function MesaLooseSourcesPanel({
   );
   const bulkSelection = unselectedItems.slice(0, remainingSelectionSlots);
   const selectionLimitHit = unselectedItems.length > remainingSelectionSlots;
+  const hasSelection = buffer.sources.length + (buffer.themes?.length ?? 0) + (buffer.dossiers?.length ?? 0) > 0;
 
   return <section className={styles.sourcePanel} data-lifecycle={tab}>
     <header className={styles.panelHeader}><nav aria-label="Fontes">
@@ -306,15 +307,18 @@ export function MesaLooseSourcesPanel({
       <Link href={archiveHref} aria-current={tab === "archive" ? "page" : undefined}>
         {archiveCount === null ? "ARQUIVO" : `ARQUIVO (${archiveCount})`}
       </Link>
-      {tab !== "archive" ? <button
+    </nav>
+    <span id="mesa-selection-control" className={styles.sourceSelectionControl}>
+      {!hasSelection && tab !== "archive" ? <button
         type="button"
+        className={styles.sourceSelectionButton}
         disabled={!loaded || bulkSelection.length === 0}
         title={selectionLimitHit
           ? `Seleciona até ao limite atual de ${MESA_MAX_NEWSROOM_SOURCES} fontes.`
           : "Selecionar as fontes elegíveis deste separador"}
         onClick={() => bulkSelection.forEach((material) => select(material))}
       >Selecionar</button> : null}
-    </nav></header>
+    </span></header>
     <MesaSourceWindow
       key={tab}
       storageKey={`${storageKey}.${tab}`}

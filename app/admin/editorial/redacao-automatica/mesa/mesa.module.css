@@ -495,6 +495,18 @@
   font-size: 0.6rem;
 }
 
+.sourceSelectionControl {
+  flex: 0 0 84px;
+  width: 84px;
+  height: 30px;
+  margin-left: auto;
+}
+
+.sourceSelectionControl .sourceSelectionButton {
+  width: 100%;
+  height: 100%;
+}
+
 .sourceGrid {
   min-height: 0;
   margin: 0;
@@ -985,6 +997,17 @@
   min-height: 58px;
 }
 
+.selectionTray[data-source-theme-actions="true"] {
+  min-height: 0;
+  padding: 5px 9px;
+  gap: 0;
+  box-shadow: none;
+}
+
+.selectionTray[data-source-theme-actions="true"] .selectionTrayHeader {
+  min-height: 30px;
+}
+
 .selectionSummary {
   grid-column: 1;
   display: grid;
@@ -1022,6 +1045,7 @@
 }
 
 .selectionSummary button,
+.sourceSelectionButton,
 .selectionDetails button,
 .selectionActions button,
 .selectionActionLink,
@@ -1044,6 +1068,8 @@
 }
 
 .selectionSummary button:not(:disabled):hover,
+.sourceSelectionButton:not(:disabled):hover,
+.sourceSelectionButton:not(:disabled):focus-visible,
 .selectionActions button:not(:disabled):hover,
 .selectionPanelToggle:not(:disabled):hover,
 .selectionSummary button:not(:disabled):focus-visible,
@@ -1135,6 +1161,14 @@
 
 .selectionPanelToggle {
   margin-left: 0;
+}
+
+.selectionActions .selectionPanelToggle,
+.selectionActions .selectionPanelToggle:not(:disabled):hover,
+.selectionActions .selectionPanelToggle:not(:disabled):focus-visible {
+  border-color: #3e7d55;
+  color: #fff;
+  background: #2d7148;
 }
 
 .selectionPanel {
@@ -1481,6 +1515,7 @@
 .discardSelectionButton:disabled,
 .selectionActionLink:disabled,
 .selectionSummary button:disabled,
+.sourceSelectionButton:disabled,
 .selectionActions button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
