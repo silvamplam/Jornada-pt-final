@@ -61,6 +61,14 @@ test("Redação automática permanece nas navegações editoriais enquanto a ent
   );
 });
 
+test("atalho do Backoffice abre diretamente a Mesa e preserva a rota antiga", () => {
+  const backoffice = source("app/admin/page.tsx");
+  assert.match(backoffice, /<a href="\/admin\/editorial\/redacao-automatica\/mesa">Redação automática<\/a>/);
+  assert.doesNotMatch(backoffice, /href="\/admin\/editorial\/redacao-automatica"/);
+  assert.match(source("app/admin/editorial/redacao-automatica/mesa/page.tsx"), /<h1>Mesa da Redação<\/h1>/);
+  assert.match(source("app/admin/editorial/redacao-automatica/page.tsx"), /<h1>Preparar fontes<\/h1>/);
+});
+
 test("a Redação Automática importa a resposta por colagem explícita e abre a Publicação em lote", () => {
   const actions = source("app/admin/editorial/redacao-automatica/_sourcePackageActions.tsx");
 
