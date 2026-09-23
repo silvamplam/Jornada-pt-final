@@ -90,10 +90,10 @@ test("cartão sem antetítulo mantém a linha vazia sem altura", () => {
   assert.doesNotMatch(topRule, /(?:^|;)\s*padding\s*:/u);
 });
 
-test("ação Desalojadas admite Novas e Bank classificado, sem no-op em Desalojadas", () => {
+test("ação Desalojadas admite Abertura, zonas, Novas e Bank classificado, sem no-op em Desalojadas", () => {
   assert.match(
     articleCard,
-    /const canMoveToDisplaced = placement\.kind === "zone"\s*\|\| placement\.kind === "new"\s*\|\| \(placement\.kind === "bank" && classificationKey !== null\);/u,
+    /const canMoveToDisplaced = placement\.kind === "zone"\s*\|\| placement\.kind === "opening"\s*\|\| placement\.kind === "new"\s*\|\| \(placement\.kind === "bank" && classificationKey !== null\);/u,
   );
   assert.match(
     articleCard,
@@ -103,4 +103,13 @@ test("ação Desalojadas admite Novas e Bank classificado, sem no-op em Desaloja
   assert.match(cardFor, /onDisplaced=\{\(\) => placeInDisplaced\(bankItemId\)\}/u);
   assert.match(placeInDisplaced, /movePhysicalDeskItemToDisplaced\(state, bankItemId\)/u);
   assert.doesNotMatch(placeInDisplaced, /fetch\(|applyChanges|buildPhysicalDeskApplyPayload/u);
+});
+
+test("todas as posições da Abertura reutilizam o cartão e handler comuns, sem exceção para Contexto", () => {
+  const opening = sourceBetween("function renderOpeningWorkspace", "function renderFaixaWorkspace");
+  assert.match(opening, /MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS\.map\(\(slot, index\) =>/u);
+  assert.match(opening, /cardFor\(placement\.bankItemId, \{ kind: "opening" \}\)/u);
+  assert.doesNotMatch(opening, /onDisplaced|fetch\(|applyChanges|slot ===|slot !==/u);
+  assert.match(articleCard, /placement\.kind !== "faixa" \? <button className="thematic-button" onClick=\{onFaixa\}/u);
+  assert.match(articleCard, /placement\.kind !== "bank" \? <button className="thematic-button" onClick=\{onBank\}/u);
 });

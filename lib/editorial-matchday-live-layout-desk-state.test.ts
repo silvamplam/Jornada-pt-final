@@ -158,6 +158,45 @@ function stateWithBaselineDisplaced() {
   });
 }
 
+function stateWithBaselineOpening() {
+  const source = workspace(1, 7);
+  const placements: LiveLayoutWorkspaceState["placements"] = [
+    ...Array.from({ length: 5 }, (_, index) => ({
+      id: `60000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      bankItemId: bankId(index + 1),
+      placementType: "opening" as const,
+      zoneId: null,
+      slotPosition: index + 1,
+      createdAt: NOW,
+      updatedAt: NOW,
+    })),
+    {
+      id: "60000000-0000-4000-8000-000000000006",
+      bankItemId: bankId(6),
+      placementType: "zone",
+      zoneId: zoneId(1),
+      slotPosition: 3,
+      createdAt: NOW,
+      updatedAt: NOW,
+    },
+    {
+      id: "60000000-0000-4000-8000-000000000007",
+      bankItemId: bankId(7),
+      placementType: "faixa",
+      zoneId: null,
+      slotPosition: 1,
+      createdAt: NOW,
+      updatedAt: NOW,
+    },
+  ];
+  return stateFromWorkspace({
+    ...source,
+    placements,
+    bankItems: source.bankItems.map((item) => ({ ...item, editoriallyWorkedAt: NOW })),
+    workedBankItemIds: placements.map((placement) => placement.bankItemId),
+  });
+}
+
 test("create gera UUIDs, nasce vazio, entra no fim e fica dirty", () => {
   const initial = state(1);
   const previousMaximumOrder = Math.max(
@@ -594,6 +633,77 @@ test("zona para Desalojadas fica pendente e Undo limpa a alteração sem Apply",
   assert.equal(physicalDeskHasChanges(undone), false);
   assert.equal(undone.history.length, 0);
   assert.deepEqual(undone.selectedBankItemIds, []);
+});
+
+for (const [index, label] of ["Manchete", "Notícia 1", "Notícia 2", "Notícia 3", "Contexto"].entries()) {
+  test(`Abertura ${label} para Desalojadas deixa o slot vazio sem compactar e Undo ou Reset restauram`, () => {
+    const initial = stateWithBaselineOpening();
+    const slotPosition = index + 1;
+    const displacedId = bankId(slotPosition);
+    const displaced = movePhysicalDeskItemToDisplaced(initial, displacedId);
+
+    assert.equal(physicalDeskPlacementForBankItem(displaced, displacedId), null);
+    assert.equal(physicalDeskPlacementsOfType(displaced, "opening").length, 4);
+    assert.equal(physicalDeskPlacementsOfType(displaced, "opening").some(
+      (placement) => placement.slotPosition === slotPosition,
+    ), false);
+    assert.deepEqual(
+      displaced.current.placements,
+      initial.current.placements.filter((placement) => placement.bankItemId !== displacedId),
+    );
+    assert.deepEqual(displaced.current.displacedBankItemIds, [displacedId]);
+    assert.deepEqual(displaced.current.displacedArrivalBankItemIds, [displacedId]);
+    assert.deepEqual(displaced.current.explicitBankItemIds, []);
+    assert.deepEqual(displaced.current.memory, [{
+      bankItemId: displacedId,
+      memoryKind: "displaced",
+      recordedAt: null,
+    }]);
+    assert.equal(physicalDeskHasChanges(displaced), true);
+    assert.deepEqual(displaced.history, [initial.current]);
+    assert.deepEqual(displaced.baseline, initial.baseline);
+    assert.deepEqual(displaced.current.bankItems, initial.current.bankItems);
+    assert.deepEqual(displaced.current.workedBankItemIds, initial.current.workedBankItemIds);
+    assert.deepEqual(displaced.current.zones, initial.current.zones);
+    assert.deepEqual(displaced.current.blocks, initial.current.blocks);
+    assert.deepEqual(displaced.current.presentation, initial.current.presentation);
+    assert.equal(displaced.physicalStateToken, initial.physicalStateToken);
+    assert.equal(physicalDeskHasChanges(initial), false);
+
+    const undone = undoPhysicalDeskState(displaced);
+    assert.deepEqual(undone.history, []);
+    for (const restored of [undone, resetPhysicalDeskState(displaced)]) {
+      assert.deepEqual(restored.current, initial.baseline);
+      assert.equal(physicalDeskHasChanges(restored), false);
+      assert.equal(physicalDeskPlacementForBankItem(restored, displacedId)?.slotPosition, slotPosition);
+      assert.deepEqual(restored.current.displacedBankItemIds, []);
+    }
+  });
+}
+
+test("Abertura Contexto: Undo preserva o pendente anterior e Reset repõe todo o baseline", () => {
+  const initial = stateWithBaselineOpening();
+  const previousDraft = changePhysicalDeskZone(initial, zoneId(1), {
+    publicTitle: "Título pendente anterior",
+  });
+  const displaced = movePhysicalDeskItemToDisplaced(previousDraft, bankId(5));
+
+  assert.equal(displaced.history.length, 2);
+  assert.equal(physicalDeskHasChanges(displaced), true);
+  assert.deepEqual(displaced.current.zones, previousDraft.current.zones);
+  assert.deepEqual(displaced.baseline, initial.baseline);
+
+  const undone = undoPhysicalDeskState(displaced);
+  assert.deepEqual(undone.current, previousDraft.current);
+  assert.deepEqual(undone.history, previousDraft.history);
+  assert.equal(physicalDeskHasChanges(undone), true);
+  assert.equal(physicalDeskPlacementForBankItem(undone, bankId(5))?.slotPosition, 5);
+  assert.deepEqual(undone.current.displacedBankItemIds, []);
+  assert.deepEqual(undoPhysicalDeskState(undone).current, initial.baseline);
+
+  const reset = resetPhysicalDeskState(displaced);
+  assert.deepEqual(reset.current, initial.baseline);
+  assert.equal(physicalDeskHasChanges(reset), false);
 });
 
 test("layout shrink desaloja posições excedentes e título vazio é válido", () => {
