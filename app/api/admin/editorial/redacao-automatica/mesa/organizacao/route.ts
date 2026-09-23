@@ -111,10 +111,12 @@ export async function POST(request: Request) {
         reused: row.reused, theme: { ...summary, sourceRefs } });
     }
     if (!isMesaUuid(themeId)) return badRequest();
-    if (action === "archive_theme") {
+    if (action === "archive_theme" || action === "set_theme_status") {
+      const status = action === "archive_theme" ? "archived" : body.status;
+      if (status !== "open" && status !== "archived") return badRequest();
       await mesaOrganizationCommand("newsroom_set_editorial_theme_status_v1", {
         p_theme_id: themeId,
-        p_status: "archived",
+        p_status: status,
       });
     } else if (action === "attach_dossier") {
       if (!isMesaUuid(body.dossierId)) return badRequest();

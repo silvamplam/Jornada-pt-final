@@ -113,8 +113,8 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
   const { removeTheme } = useMesaSelection();
   const [status, setStatus] = useState("open");
   const [themeCards, setThemeCards] = useState(organization.themes);
-  const [archivingThemeIds, setArchivingThemeIds] = useState<readonly string[]>([]);
-  const [archiveErrors, setArchiveErrors] = useState<Readonly<Record<string, string>>>({});
+  const [updatingThemeIds, setUpdatingThemeIds] = useState<readonly string[]>([]);
+  const [statusErrors, setStatusErrors] = useState<Readonly<Record<string, string>>>({});
   useEffect(() => setThemeCards(organization.themes), [organization.themes]);
   useEffect(() => {
     const update = (event: Event) => {
@@ -128,47 +128,58 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
     window.addEventListener(MESA_THEME_UPDATED_EVENT, update);
     return () => window.removeEventListener(MESA_THEME_UPDATED_EVENT, update);
   }, []);
-  async function archiveTheme(theme: MesaThemeCard) {
-    if (theme.status !== "open" || archivingThemeIds.includes(theme.id)) return;
-    setArchiveErrors((current) => {
+  async function updateThemeStatus(theme: MesaThemeCard, nextStatus: MesaThemeCard["status"]) {
+    if (theme.status === nextStatus || updatingThemeIds.includes(theme.id)) return;
+    const failureMessage = nextStatus === "open"
+      ? "Não foi possível reabrir o Tema. Tenta novamente."
+      : "Não foi possível apagar o Tema da Mesa.";
+    setStatusErrors((current) => {
       const next = { ...current };
       delete next[theme.id];
       return next;
     });
-    setArchivingThemeIds((current) => [...current, theme.id]);
-    setThemeCards((current) => current.map((item) => (
-      item.id === theme.id ? { ...item, status: "archived" } : item
-    )));
-    if (fixtureMode) {
-      removeTheme(theme.id);
-      setArchivingThemeIds((current) => current.filter((id) => id !== theme.id));
-      return;
+    setUpdatingThemeIds((current) => [...current, theme.id]);
+    if (nextStatus === "archived") {
+      setThemeCards((current) => current.map((item) => (
+        item.id === theme.id ? { ...item, status: "archived" } : item
+      )));
     }
     try {
-      const response = await fetch(ORGANIZATION_ROUTE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "archive_theme", themeId: theme.id }),
-      });
-      const result = await response.json().catch(() => null) as {
-        ok?: boolean; message?: string; theme?: MesaThemeCard;
-      } | null;
-      if (!response.ok || !result?.ok || !result.theme) {
-        throw new Error(result?.message || "Não foi possível apagar o Tema da Mesa.");
+      let updatedTheme: MesaThemeCard;
+      if (fixtureMode) {
+        updatedTheme = { ...theme, status: nextStatus };
+      } else {
+        const response = await fetch(ORGANIZATION_ROUTE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: nextStatus === "archived" ? "archive_theme" : "set_theme_status",
+            themeId: theme.id, status: nextStatus,
+          }),
+        });
+        const result = await response.json().catch(() => null) as {
+          ok?: boolean; message?: string; theme?: MesaThemeCard;
+        } | null;
+        if (!response.ok || !result?.ok || result.theme?.id !== theme.id || result.theme.status !== nextStatus) {
+          throw new Error(result?.message || failureMessage);
+        }
+        updatedTheme = result.theme;
       }
       setThemeCards((current) => current.map((item) => (
-        item.id === theme.id ? result.theme! : item
+        item.id === theme.id ? updatedTheme : item
       )));
-      removeTheme(theme.id);
-      publishMesaThemeUpdate(result.theme);
+      if (nextStatus === "archived") removeTheme(theme.id);
+      publishMesaThemeUpdate(updatedTheme);
     } catch (error) {
-      setThemeCards((current) => current.map((item) => (item.id === theme.id ? theme : item)));
-      setArchiveErrors((current) => ({
+      if (nextStatus === "archived") {
+        setThemeCards((current) => current.map((item) => (item.id === theme.id ? theme : item)));
+      }
+      setStatusErrors((current) => ({
         ...current,
-        [theme.id]: error instanceof Error ? error.message : "Não foi possível apagar o Tema da Mesa.",
+        [theme.id]: error instanceof Error ? error.message : failureMessage,
       }));
     } finally {
-      setArchivingThemeIds((current) => current.filter((id) => id !== theme.id));
+      setUpdatingThemeIds((current) => current.filter((id) => id !== theme.id));
     }
   }
 
@@ -186,15 +197,22 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
       items={[
         ...themes.map((theme) => <li key={`theme:${theme.id}`} className={styles.organizationThemeItem}>
           <article className={styles.organizationCard} data-theme-publication={theme.articleCount > 0 ? "published" : "empty"}>
-            <MesaThemeSelectionToggle theme={theme} />
+            {theme.status === "archived" ? (
+              <button
+                type="button"
+                className={`${styles.themeSelectionToggle} ${styles.themeReopenButton}`}
+                disabled={updatingThemeIds.includes(theme.id)}
+                onClick={() => void updateThemeStatus(theme, "open")}
+              >{updatingThemeIds.includes(theme.id) ? "A guardar…" : "Reabrir Tema"}</button>
+            ) : <MesaThemeSelectionToggle theme={theme} />}
             {theme.status === "open" ? (
               <button
                 type="button"
                 className={styles.themeDiscardButton}
-                disabled={archivingThemeIds.includes(theme.id)}
+                disabled={updatingThemeIds.includes(theme.id)}
                 aria-label="Apagar Tema da Mesa"
                 title="Apagar Tema da Mesa"
-                onClick={() => void archiveTheme(theme)}
+                onClick={() => void updateThemeStatus(theme, "archived")}
               >Apagar Tema</button>
             ) : null}
             <Link href={`/admin/editorial/redacao-automatica/mesa/temas/${theme.id}`} prefetch={false}>{theme.title}</Link>
@@ -205,7 +223,7 @@ export function MesaOrganizationPanel({ organization, fixtureMode = false }: Rea
               </span>
             </p>
             {theme.updatedSourceCount > 0 ? <strong className={styles.updatedNotice}>{theme.updatedSourceCount} fontes atualizadas</strong> : null}
-            {archiveErrors[theme.id] ? <span className={styles.themeDiscardError} role="alert">{archiveErrors[theme.id]}</span> : null}
+            {statusErrors[theme.id] ? <span className={styles.themeDiscardError} role="alert">{statusErrors[theme.id]}</span> : null}
           </article>
         </li>)
       ]} />

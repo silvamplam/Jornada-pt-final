@@ -1792,6 +1792,12 @@
   cursor: pointer;
 }
 
+.organizationCard .themeReopenButton {
+  min-height: 20px;
+  padding: 1px 6px;
+  font-size: 0.62rem;
+}
+
 .themeSelectionToggle input {
   width: 15px;
   height: 15px;
