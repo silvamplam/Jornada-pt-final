@@ -18,6 +18,7 @@ import {
   historicalCompositionDecisionCounts,
   historicalDynamicZonePositions,
   moveHistoricalCompositionPiece,
+  synchronizeHistoricalHeadlineTitleColor,
   type HistoricalCompositionBlockKey,
   type HistoricalCompositionPlacementLocation,
   type HistoricalCompositionDecision,
@@ -450,19 +451,6 @@ const styles = `
 
   .hc-page-structure-actions button.remove {
     margin-left: 4px;
-  }
-
-  .hc-color-control {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .hc-color-control input[type="color"] {
-    width: 46px;
-    min-height: 34px;
-    padding: 2px;
-    cursor: pointer;
   }
 
   .hc-desk-toolbar {
@@ -1056,29 +1044,6 @@ const styles = `
     box-shadow: 0 14px 34px rgba(15,23,42,.18);
   }
 
-  .hc-desk-settings {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .hc-desk-settings label {
-    display: grid;
-    gap: 3px;
-    color: #475569;
-    font-size: 10px;
-    font-weight: 800;
-  }
-
-  .hc-desk-settings input {
-    min-width: 0;
-    min-height: 32px;
-    padding: 0 8px;
-    border: 1px solid #cbd5e1;
-    border-radius: 5px;
-    font: inherit;
-  }
-
   .hc-desk-block-order {
     display: grid;
     gap: 4px;
@@ -1373,7 +1338,6 @@ const styles = `
 
   @media (max-width: 720px) {
     .hc-desk-top-tools,
-    .hc-desk-settings,
     .hc-dynamic-zone-editor:not(.has-selection) {
       grid-template-columns: 1fr;
     }
@@ -2963,13 +2927,24 @@ export default function HierarchicalCompositionDeskClient({
   }, [pendingCount]);
 
   function commit(next: PlanState, nextMessage: string) {
-    if (samePlan(next, plan)) {
+    const synchronizedNext = synchronizeHistoricalHeadlineTitleColor(
+      plan,
+      next,
+      (bankItemId) => {
+        const classificationKey = articleByBankId.get(bankItemId)?.naturalGroupKey ?? null;
+        return isArticleClassificationKey(classificationKey)
+          ? classificationKey
+          : null;
+      },
+    );
+
+    if (samePlan(synchronizedNext, plan)) {
       setMessage(nextMessage);
       return;
     }
 
     setHistory((items) => [...items, plan]);
-    setPlan(next);
+    setPlan(synchronizedNext);
     setMessage(nextMessage);
   }
 
@@ -3787,15 +3762,6 @@ export default function HierarchicalCompositionDeskClient({
         <details className="hc-desk-tool" name="composition-tools">
           <summary>Página e blocos</summary>
           <div className="hc-desk-tool-body">
-            <div className="hc-desk-settings">
-              <label>
-                Cor do título da Manchete
-                <span className="hc-color-control">
-                  <input type="color" aria-label="Cor do título da Manchete" value={plan.settings.headlineTitleColor} onChange={(event) => updateSettings({ ...plan.settings, headlineTitleColor: event.target.value.toUpperCase() }, "Cor da Manchete planeada.")} />
-                  <strong>Escolher cor</strong>
-                </span>
-              </label>
-            </div>
             <div className="hc-page-structure" aria-label="Estrutura global da página">
               <div className="hc-page-structure-head">
                 <strong>Estrutura da página</strong>
