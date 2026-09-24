@@ -1139,16 +1139,16 @@
 }
 
 .outputClassification input:checked + span {
-  border-color: #245d37;
-  background: #245d37;
-  color: #ffffff;
+  border-color: var(--classification-accent);
+  background: var(--classification-accent);
+  color: var(--classification-foreground);
 }
 
 .outputClassification:disabled label {
   cursor: default;
 }
 
-.outputClassification:disabled label span {
+.outputClassification:disabled input:not(:checked) + span {
   opacity: 0.68;
 }
 

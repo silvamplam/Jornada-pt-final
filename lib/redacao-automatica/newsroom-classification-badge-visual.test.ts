@@ -62,3 +62,34 @@ test("badge é uma caixa compacta e não altera badges de lifecycle", () => {
   assert.match(rule(/\.lifecycleBadge\[data-lifecycle="published"\]\s*\{([^}]*)\}/), /background:\s*#dce9df/i);
   assert.match(rule(/\.lifecycleBadge\[data-lifecycle="archive"\]\s*\{([^}]*)\}/), /background:\s*#e7ebe8/i);
 });
+
+test("Produção e Publicação em lote usam os tokens das badges só na seleção", () => {
+  const production = readFileSync(
+    "app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_article-plan-classification.tsx",
+    "utf8",
+  );
+  const productionCss = readFileSync(
+    "app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/workspace.module.css",
+    "utf8",
+  );
+  const batch = readFileSync(
+    "app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx",
+    "utf8",
+  );
+  const batchCss = readFileSync(
+    "app/admin/editorial/redacao-automatica/publicacao-lote/publicacao-lote.module.css",
+    "utf8",
+  );
+
+  for (const client of [production, batch]) {
+    assert.match(client, /articleClassificationBadgeColors\(classification\.key\)/);
+    assert.match(client, /--classification-accent/);
+    assert.match(client, /--classification-foreground/);
+  }
+  assert.match(productionCss, /label:has\(input:checked\)[\s\S]*?background: var\(--classification-accent\)/);
+  assert.match(productionCss, /input\[type="radio"\]:checked[\s\S]*?var\(--classification-accent\)/);
+  assert.match(productionCss, /label:has\(input:focus-visible\)/);
+  assert.match(batchCss, /input:checked \+ span[\s\S]*?background: var\(--classification-accent\)/);
+  assert.match(batchCss, /input:focus-visible \+ span/);
+  assert.match(batchCss, /:disabled input:not\(:checked\) \+ span/);
+});

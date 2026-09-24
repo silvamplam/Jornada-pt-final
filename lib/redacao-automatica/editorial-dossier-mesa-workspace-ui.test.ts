@@ -476,6 +476,7 @@ test("cada cartão prioriza imagens do seu ponto de partida sem fechar o banco g
 
 test("Article Plans aceitam apenas uma sugestão opcional antes da decisão final", () => {
   const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const classificationEditor = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_article-plan-classification.tsx");
   const imageChoice = read("app/admin/editorial/redacao-automatica/_dossierImageChoiceGrid.tsx");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
   assert.doesNotMatch(client, /Mais opções|Título de trabalho|Fontes concretas do Dossiê|PUBLICADAS usadas como contexto/);
@@ -484,11 +485,13 @@ test("Article Plans aceitam apenas uma sugestão opcional antes da decisão fina
   assert.match(client, /Género/);
   assert.match(client, /Extensão/);
   assert.match(client, /Destino/);
-  assert.match(client, /Sugestão de classificação \(opcional\)/);
-  assert.match(client, /A classificação final é confirmada na Publicação em lote\./);
-  assert.match(client, /Limpar sugestão/);
-  assert.match(client, /ARTICLE_CLASSIFICATIONS\.map/);
-  assert.match(client, /name=\{planField\(cardKey, "classification_key"\)\}/);
+  assert.match(client, /<ArticlePlanClassificationEditor/);
+  assert.match(classificationEditor, /Sugestão de classificação \(opcional\)/);
+  assert.match(classificationEditor, /ARTICLE_CLASSIFICATIONS\.map/);
+  assert.match(classificationEditor, /type="radio"/);
+  assert.match(classificationEditor, /classification_key/);
+  assert.match(classificationEditor, /classification_mode/);
+  assert.doesNotMatch(classificationEditor, /Limpar sugestão|A classificação final é confirmada na Publicação em lote\./);
   assert.doesNotMatch(client, /classificationTouchedRef|articlePlanClassificationDefault/);
   assert.match(client, /<option value="update" disabled=\{eligibleTargets\.length === 0\}>/);
   assert.match(client, /Record<"new" \| "update", string \| null>/);

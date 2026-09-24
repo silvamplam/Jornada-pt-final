@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { articlePublicationClassificationDefault } from "./article-plan-classification";
 
 import {
   buildEditorialSourcePackageMarkdown,
@@ -18,6 +19,36 @@ const ARTICLE_B =
 
 const EXTERNAL_IMAGE_URL =
   "https://project.supabase.co/storage/v1/object/public/editorial-images/editorial/2026/08/externa-c.webp";
+
+test("manifesto conserva sugestão, decisão manual e limpeza por output sem as exigir", () => {
+  const dossierId = "95000000-0000-4000-8000-000000000001";
+  const decisions = [
+    { classificationKey: "benfica", classificationMode: "suggested" },
+    { classificationKey: "fc_porto", classificationMode: "manual" },
+    { classificationMode: "cleared" },
+    {},
+  ] as const;
+  const normalized = normalizeEditorialSourcePackageCreationOutputs(decisions.map((decision, index) => ({
+    position: index + 1,
+    outputId: `95000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
+    sourceArticlePosition: 1,
+    focus: `Artigo ${index + 1}`,
+    imageNewsroomArticleId: ARTICLE_A,
+    articlePlan: {
+      dossierId,
+      articlePlanId: `95000000-0000-4000-8000-${String(index + 10).padStart(12, "0")}`,
+      workingTitle: "Título interno", articleKind: "news", articleKindLabel: "Notícia",
+      lengthMode: "standard", lengthModeLabel: "Média", editorialInstructions: "", destination: "new",
+      ...decision,
+    },
+  })), entries());
+  assert.ok(normalized);
+  const reopened = normalizeEditorialSourcePackageOutputs(JSON.parse(JSON.stringify(normalized)), entries());
+  assert.ok(reopened);
+  assert.deepEqual(reopened.map((output) => output.articlePlan?.classificationMode), ["suggested", "manual", "cleared", undefined]);
+  assert.deepEqual(reopened.map((output) => articlePublicationClassificationDefault(output.articlePlan ?? null, "sporting")),
+    ["sporting", "fc_porto", null, "sporting"]);
+});
 
 function entries(): readonly EditorialSourcePackageEntry[] {
   return [

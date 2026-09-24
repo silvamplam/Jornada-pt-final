@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { resolveArticlePlanClassification } from "./article-plan-classification";
 
 import {
   addEditorialDossierUploadImageService,
@@ -54,6 +55,7 @@ function fakeTransport() {
             ? { mode: "preserve_published" }
             : { mode: "unselected" },
         classificationKey: payload.p_classification_key,
+        classificationMode: payload.p_classification_mode,
       };
     },
     addUploadImage: async (payload) => {
@@ -166,7 +168,38 @@ test("plano UPDATE transporta target, 0/N contextos e uma imagem do Dossiê", as
     p_image_choice: "dossier_image",
     p_dossier_image_id: imageId,
     p_classification_key: "fc_porto",
+    p_classification_mode: "manual",
   }]);
+});
+
+test("guardar/reabrir transporta os quatro estados sem tornar classificação obrigatória", async () => {
+  const fake = fakeTransport();
+  const save = saveEditorialDossierArticlePlanStateService(fake.transport);
+  const sources = [{ sourceId: sourceOneId, classificationKey: "sporting" as const, classificationSource: "manual" as const }];
+  for (const decision of [
+    { classificationKey: null, classificationMode: null },
+    { classificationKey: "benfica", classificationMode: "suggested" },
+    { classificationKey: "fc_porto", classificationMode: "manual" },
+    { classificationKey: null, classificationMode: "cleared" },
+  ] as const) {
+    const result = await save({ dossierId, articlePlanId: planId, destination: "new",
+      updateTargetEditorialArticleId: null, dossierPublishedContextIds: [],
+      imageChoice: { mode: "unselected" }, ...decision });
+    assert.ok(result.ok);
+    const rpc = fake.planPayloads.at(-1)!;
+    assert.equal(rpc.p_classification_key, decision.classificationKey);
+    assert.equal(rpc.p_classification_mode, decision.classificationMode);
+    const reopened = resolveArticlePlanClassification(result.value, [sourceOneId], sources);
+    assert.equal(reopened.classificationKey,
+      decision.classificationMode === "cleared" ? null
+        : decision.classificationMode === "manual" ? "fc_porto" : "sporting");
+  }
+  const before = fake.planPayloads.length;
+  const invalid = await save({ dossierId, articlePlanId: planId, destination: "new",
+    updateTargetEditorialArticleId: null, dossierPublishedContextIds: [],
+    imageChoice: { mode: "unselected" }, classificationKey: "benfica", classificationMode: "cleared" });
+  assert.equal(invalid.ok, false);
+  assert.equal(fake.planPayloads.length, before);
 });
 
 test("plano NEW não aceita target nem preserve_published", async () => {

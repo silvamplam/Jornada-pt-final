@@ -52,6 +52,7 @@ import {
 import { finalizeThemeContinuity } from "@/lib/redacao-automatica/newsroom-theme-continuity";
 import {
   articleOutputClassificationDefault,
+  articlePublicationClassificationDefault,
 } from "@/lib/redacao-automatica/article-plan-classification";
 import {
   getNewsroomArticleClassificationsByIds,
@@ -496,11 +497,8 @@ async function outputClassificationDefaults(
   const classifications = await getNewsroomArticleClassificationsByIds(
     newsroomArticleIds,
   );
-  if (!classifications.ok) {
-    return new Map(articles.map((article) => [article.key, null]));
-  }
   const stateByArticleId = new Map(newsroomArticleIds.map((articleId, index) => (
-    [articleId, classifications.value[index]] as const
+    [articleId, classifications.ok ? classifications.value[index] : undefined] as const
   )));
   const sources = [...entryBySourceId].map(([sourceId, articleId]) => {
     const state = stateByArticleId.get(articleId);
@@ -517,7 +515,10 @@ async function outputClassificationDefaults(
 
   return new Map(articles.map((article) => [
     article.key,
-    articleOutputClassificationDefault(article.sourceIds, sources),
+    articlePublicationClassificationDefault(
+      sourcePackageOutputForArticle(sourceContext, article)?.articlePlan ?? null,
+      articleOutputClassificationDefault(article.sourceIds, sources),
+    ),
   ]));
 }
 
@@ -1190,6 +1191,7 @@ async function preflightPublication(payload: BatchPublicationPayload) {
         ok: true,
         items: continuity.prepared.map((item) => ({
           key: item.key,
+          outputId: item.outputId,
           slug: item.slug,
           mode: item.mode,
           ...(item.mode !== "create" ? { articleId: item.articleId } : {}),
@@ -1303,6 +1305,7 @@ async function preflightPublication(payload: BatchPublicationPayload) {
         const article = articles.find((candidate) => candidate.key === item.key);
         return {
           ...item,
+          ...(article?.outputId ? { outputId: article.outputId } : {}),
           classificationDefault: classificationDefaults.get(item.key) ?? null,
           frozenClassificationKey: article?.outputId
             ? frozenClassifications.get(article.outputId) ?? null

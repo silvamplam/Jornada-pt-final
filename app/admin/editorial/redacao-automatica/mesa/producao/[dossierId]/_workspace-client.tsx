@@ -47,10 +47,14 @@ import DossierImageBank, {
 import { mesaProductionIntentSlots, type MesaProductionIntentsFrozen } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 import type { MesaNewOutputGrouping } from "@/lib/redacao-automatica/newsroom-mesa-new-output-groups";
 import { NewOutputGroupingPlanner } from "./_new-output-grouping";
+import type { ArticleClassificationKey } from "@/lib/editorial-classifications";
 import {
-  ARTICLE_CLASSIFICATIONS,
-  type ArticleClassificationKey,
-} from "@/lib/editorial-classifications";
+  articlePlanAssignedClassificationSourceIds,
+  parseArticlePlanClassificationDecision,
+  resolveArticlePlanClassification,
+  type ArticlePlanClassificationSource,
+} from "@/lib/redacao-automatica/article-plan-classification";
+import { ArticlePlanClassificationEditor } from "./_article-plan-classification";
 type WorkspaceContinuitySlot = ThemeContinuitySlot | ReturnType<typeof mesaProductionIntentSlots>[number];
 import styles from "./workspace.module.css";
 
@@ -64,6 +68,7 @@ type WorkspaceSource = Readonly<{
   sourceLabel: string;
   included: boolean;
   classificationKey: ArticleClassificationKey | null;
+  classificationSource: "automatic" | "manual" | null;
 }>;
 
 type WorkspaceDossier = Readonly<{
@@ -450,6 +455,9 @@ function PlanEditor({
   images,
   saving,
   continuitySlot,
+  classificationSources,
+  assignedClassificationSourceIds,
+  onClassificationDecision,
 }: Readonly<{
   dossier: WorkspaceDossier;
   plan: EditorialDossierProductionArticlePlan | null;
@@ -464,6 +472,9 @@ function PlanEditor({
   images: readonly EditorialDossierImage[];
   saving: boolean;
   continuitySlot: WorkspaceContinuitySlot | null;
+  classificationSources: readonly ArticlePlanClassificationSource[];
+  assignedClassificationSourceIds: readonly string[];
+  onClassificationDecision: () => void;
 }>) {
   const [destination, setDestination] = useState<"new" | "update">(
     continuitySlot?.kind === "existing" ? "update" : continuitySlot ? "new" : plan?.destination ?? "new",
@@ -485,12 +496,6 @@ function PlanEditor({
     automaticImageId,
   );
   const [showAllImages, setShowAllImages] = useState(false);
-  const [classificationKey, setClassificationKey] = useState<ArticleClassificationKey | null>(
-    () => plan?.classificationKey ?? null,
-  );
-  useEffect(() => {
-    setClassificationKey(plan?.classificationKey ?? null);
-  }, [plan?.classificationKey]);
   const visualSeedImage = editorialMesaResolvedVisualImageChoice(
     null,
     visualSeed?.image?.id ?? null,
@@ -634,39 +639,15 @@ function PlanEditor({
         <input type="hidden" name={planField(cardKey, "destination")} value={destination} />
         <input type="hidden" name={planField(cardKey, "target_id")} value={targetId} />
         <input type="hidden" name={planField(cardKey, "image_choice")} value={selectedImage} />
-        <input
-          type="hidden"
-          name={planField(cardKey, "classification_key")}
-          value={classificationKey ?? ""}
+        <ArticlePlanClassificationEditor
+          fieldPrefix={planField(cardKey, "")}
+          persisted={plan}
+          assignedSourceIds={assignedClassificationSourceIds}
+          sources={classificationSources}
+          disabled={saving}
+          className={styles.classificationChoice}
+          onDecision={onClassificationDecision}
         />
-
-        <fieldset className={styles.classificationChoice}>
-          <legend>Sugestão de classificação (opcional)</legend>
-          <div>
-            {ARTICLE_CLASSIFICATIONS.map((classification) => (
-              <label key={classification.key} data-classification={classification.key}>
-                <input
-                  checked={classificationKey === classification.key}
-                  disabled={saving}
-                  onChange={() => setClassificationKey(classification.key)}
-                  type="radio"
-                  value={classification.key}
-                />
-                <span>{classification.label}</span>
-              </label>
-            ))}
-          </div>
-          <small>A classificação final é confirmada na Publicação em lote.</small>
-          {classificationKey !== null ? (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => setClassificationKey(null)}
-            >
-              Limpar sugestão
-            </button>
-          ) : null}
-        </fieldset>
 
         {continuitySlot ? (
           <p className={styles.updateHint} data-continuity-slot={continuitySlot.kind}>
@@ -1112,6 +1093,11 @@ export function MesaProductionWorkspaceClient({
     }
   }
   const includedSources = sources.filter((source) => source.included);
+  const classificationSources: ArticlePlanClassificationSource[] = includedSources.map((source) => ({
+    sourceId: source.newsroomArticleId,
+    classificationKey: source.classificationKey,
+    classificationSource: source.classificationSource,
+  }));
   const sourceByArticleId = new Map(
     includedSources.map((source) => [source.newsroomArticleId, source]),
   );
@@ -1141,8 +1127,11 @@ export function MesaProductionWorkspaceClient({
     position: number;
     productionContextId: string;
   }> = Array.from({ length: effectiveCardCapacity }, (_, index) => {
-    const plan = activePlans[index] ?? null;
-    const key = plan?.id ?? `output:draft:${index + 1}`;
+    const frozenSlot = frozenSlots?.[index];
+    const plan = frozenSlot
+      ? activePlans.find((candidate) => candidate.id === frozenSlot.outputId) ?? null
+      : activePlans[index] ?? null;
+    const key = plan?.id ?? frozenSlot?.outputId ?? `output:draft:${index + 1}`;
     const assignedContextId = plan ? contextByPlanId.get(plan.id) ?? null : null;
     const defaultContextId = productionContexts[
       index % Math.max(1, productionContexts.length)
@@ -1199,17 +1188,29 @@ export function MesaProductionWorkspaceClient({
     return {
       ...card,
       assignedSources,
+      assignedClassificationSourceIds: articlePlanAssignedClassificationSourceIds({
+        plan: card.plan,
+        groups: newOutputGrouping?.groups,
+        outputs: productionIntents?.outputs,
+      }),
       visualSeed: dossier.contextMode === "contexts"
         ? contextVisualSeedByOutputKey.get(card.key) ?? null
         : historicalVisualSeeds[index] ?? null,
     };
   });
   const visibleCards = cards.slice(0, effectiveOutputCount);
+  const classificationNeedsSave = visibleCards.some((card) => {
+    const derived = resolveArticlePlanClassification(card.plan, card.assignedClassificationSourceIds, classificationSources);
+    const stored = parseArticlePlanClassificationDecision(card.plan?.classificationKey, card.plan?.classificationMode);
+    return derived.classificationKey !== stored?.classificationKey
+      || derived.classificationMode !== stored?.classificationMode;
+  });
   const allPlansPersisted = visibleCards.every(
     (card) => Boolean(card.plan?.id || savedPlanIds[card.key]),
   );
   const packageDisabled = savingProduction
     || dirty
+    || classificationNeedsSave
     || !allPlansPersisted
     || (frozenSlots ? frozenSlots.length : persistedOutputCount) !== effectiveOutputCount;
 
@@ -1268,6 +1269,9 @@ export function MesaProductionWorkspaceClient({
             data.get(planField(card.key, "classification_key"))
             ?? card.plan?.classificationKey
             ?? "",
+          ) || null,
+          classificationMode: String(
+            data.get(planField(card.key, "classification_mode")) ?? "",
           ) || null,
           ...(dossier.contextMode === "contexts" ? {
             productionContextId: String(
@@ -1458,7 +1462,13 @@ export function MesaProductionWorkspaceClient({
               }}
               images={workspaceImages}
               saving={savingProduction}
-              continuitySlot={frozenSlots?.[card.position - 1] ?? null}
+              continuitySlot={frozenSlots?.find((slot) => slot.outputId === card.key) ?? null}
+              assignedClassificationSourceIds={card.assignedClassificationSourceIds}
+              classificationSources={classificationSources}
+              onClassificationDecision={() => {
+                setDirty(true);
+                setProductionMessage("");
+              }}
             />
           ))}
         </div>

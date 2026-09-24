@@ -32,6 +32,10 @@ import {
   isArticleClassificationKey,
   type ArticleClassificationKey,
 } from "@/lib/editorial-classifications";
+import {
+  parseArticlePlanClassificationDecision,
+  type ArticlePlanClassificationMode,
+} from "./article-plan-classification";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -50,6 +54,7 @@ export type SaveEditorialDossierWorkspaceBatchOutputInput = Readonly<{
   imageChoice: EditorialDossierArticlePlanImageChoice;
   productionContextId: string | null;
   classificationKey: ArticleClassificationKey | null;
+  classificationMode?: ArticlePlanClassificationMode | null;
 }>;
 
 export type SaveEditorialDossierWorkspaceBatchInput = Readonly<{
@@ -149,6 +154,7 @@ function validatedBatch(
       : isArticleClassificationKey(output.classificationKey)
         ? output.classificationKey
         : undefined;
+    const classification = parseArticlePlanClassificationDecision(output.classificationKey, output.classificationMode);
     if (
       !clientKey
       || clientKey.length > MAX_CLIENT_KEY_LENGTH
@@ -160,6 +166,7 @@ function validatedBatch(
       || (output.updateTargetEditorialArticleId !== null && !updateTargetEditorialArticleId)
       || (output.imageChoice.mode === "dossier_image" && !dossierImageId)
       || classificationKey === undefined
+      || !classification
     ) return null;
     clientKeys.add(clientKey);
     if (articlePlanId) articlePlanIds.add(articlePlanId);
@@ -173,6 +180,7 @@ function validatedBatch(
         ? { mode: "dossier_image", dossierImageId: dossierImageId! }
         : output.imageChoice,
       classificationKey,
+      classificationMode: classification.classificationMode,
     });
   }
   return { dossierId, outputCount: input.outputCount, outputs };
@@ -289,6 +297,7 @@ export function deriveEditorialDossierWorkspacePlanInput(
       }).map((item) => item.id),
       imageChoice: output.imageChoice,
       classificationKey: output.classificationKey,
+      classificationMode: output.classificationMode,
     },
   };
 }

@@ -13,6 +13,10 @@ import {
   isArticleClassificationKey,
   type ArticleClassificationKey,
 } from "@/lib/editorial-classifications";
+import {
+  parseArticlePlanClassificationDecision,
+  type ArticlePlanClassificationMode,
+} from "./article-plan-classification";
 
 export const EDITORIAL_BATCH_TRANSFER_STORAGE_KEY =
   "jornada.editorial.batch-transfer.v1";
@@ -33,6 +37,7 @@ export type EditorialBatchTransferSourcePackage = Readonly<{
   themeContinuity?: ThemeContinuityFrozenContract;
   productionIntents?: MesaProductionIntentsFrozen;
   classificationsByOutputId?: Readonly<Record<string, ArticleClassificationKey>>;
+  classificationModesByOutputId?: Readonly<Record<string, ArticlePlanClassificationMode>>;
   continuityResolution?: Readonly<{
     noChangeOutputIds: readonly string[];
     materializedOutputIds: readonly string[];
@@ -228,6 +233,7 @@ export function parseEditorialBatchTransferSourcePackage(
       return null;
     }
 
+    let classificationModesByOutputId: Record<string, ArticlePlanClassificationMode> | undefined;
     const base = {
       year,
       month,
@@ -242,6 +248,20 @@ export function parseEditorialBatchTransferSourcePackage(
       ...(productionIntents ? { productionIntents } : {}),
       ...(classificationsByOutputId ? { classificationsByOutputId } : {}),
     };
+
+    if (parsed.classificationModesByOutputId !== undefined) {
+      const rawModes = parsed.classificationModesByOutputId;
+      if (!rawModes || typeof rawModes !== "object" || Array.isArray(rawModes) || !batchContract) return null;
+      const modes: Record<string, ArticlePlanClassificationMode> = {};
+      for (const [rawId, mode] of Object.entries(rawModes)) {
+        const outputId = rawId.trim().toLowerCase();
+        if (!batchContract.outputIds.includes(outputId) || Object.hasOwn(modes, outputId)) return null;
+        const decision = parseArticlePlanClassificationDecision(classificationsByOutputId?.[outputId], mode);
+        if (!decision?.classificationMode || decision.classificationMode !== mode) return null;
+        modes[outputId] = decision.classificationMode;
+      }
+      classificationModesByOutputId = modes;
+    }
 
     const rawResolution = parsed.continuityResolution;
     const resolutionSlots = intentSlots ?? themeContinuity?.slots;
@@ -271,7 +291,11 @@ export function parseEditorialBatchTransferSourcePackage(
       ) return null;
       continuityResolution = { noChangeOutputIds, materializedOutputIds };
     }
-    const resolvedBase = continuityResolution ? { ...base, continuityResolution } : base;
+    const resolvedBase = {
+      ...base,
+      ...(classificationModesByOutputId ? { classificationModesByOutputId } : {}),
+      ...(continuityResolution ? { continuityResolution } : {}),
+    };
 
     const positions = new Set<number>();
     const outputImages: EditorialBatchTransferOutputImage[] = [];
