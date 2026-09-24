@@ -75,7 +75,12 @@ test("a barra superior contém apenas as cinco ferramentas administrativas", () 
   assert.doesNotMatch(toolbar, /notícias? selecionadas?/u);
   assert.doesNotMatch(toolbar, /Controlos de seleção/u);
   assert.doesNotMatch(source, /thematic-selection-controls/u);
-  assert.match(source, /\.thematic-global-tools \{[^}]*grid-template-columns: max-content max-content max-content minmax\(0,1fr\)/u);
+  assert.match(source, /\.thematic-global-tools \{[^}]*grid-template-columns: repeat\(4, max-content\)/u);
+  assert.doesNotMatch(source, /\.thematic-global-tools \{[^}]*minmax\(0,\s*1fr\)/u);
+  assert.match(source, /\.thematic-global-actions \{[^}]*justify-content: flex-start/u);
+  assert.doesNotMatch(source, /\.thematic-global-actions \{[^}]*justify-content: flex-end/u);
+  assert.doesNotMatch(source, /\.thematic-global-actions \{[^}]*flex: 1 1 100%/u);
+  assert.doesNotMatch(source, /\.thematic-global-actions \{[^}]*min-width: 100%/u);
 });
 
 test("a seleção fica no painel direito e mantém a autoridade existente", () => {

@@ -143,15 +143,15 @@ test("7D: UI e mensagem usam o label canónico da classificação", () => {
   assert.doesNotMatch(route, /targetZone\.label/u);
 });
 
-test("7D: classificação e A acontecer agora partilham apenas a quarta coluna", () => {
+test("7D: os cinco menus partilham a mesma barra sem coluna espaçadora", () => {
   assert.match(
     client,
-    /\.thematic-global-tools \{[^}]*grid-template-columns: max-content max-content max-content minmax\(0,1fr\)/u,
+    /\.thematic-global-tools \{[^}]*grid-template-columns: repeat\(4, max-content\)/u,
   );
 
   assert.doesNotMatch(
     client,
-    /\.thematic-global-tools \{[^}]*grid-template-columns: max-content max-content max-content max-content/u,
+    /\.thematic-global-tools \{[^}]*minmax\(0,\s*1fr\)/u,
   );
 
   const tools =
@@ -217,7 +217,7 @@ test("7D: classificação e A acontecer agora partilham apenas a quarta coluna",
 
   assert.match(
     client,
-    /\.thematic-global-actions \{[^}]*display: flex/u,
+    /\.thematic-global-actions \{[^}]*display: flex;[^}]*justify-content: flex-start/u,
   );
 });
 test("7D: pesquisa contextual exige escolha explícita", () => {
