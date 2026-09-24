@@ -150,7 +150,7 @@ test("Página e blocos abre um editor próprio e mínimo para a Faixa", () => {
 test("A acontecer agora é um controlo global ao lado da classificação", () => {
   const actionsStart = client.indexOf('<div className="thematic-global-actions">');
   const actionsEnd = client.indexOf(
-    '<section className="thematic-selection-controls"',
+    'className={`thematic-desk-grid',
     actionsStart,
   );
   const actions = client.slice(actionsStart, actionsEnd);

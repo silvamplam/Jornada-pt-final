@@ -143,7 +143,7 @@ test("7D: UI e mensagem usam o label canónico da classificação", () => {
   assert.doesNotMatch(route, /targetZone\.label/u);
 });
 
-test("7D: classificação e controlos partilham apenas a quarta coluna", () => {
+test("7D: classificação e A acontecer agora partilham apenas a quarta coluna", () => {
   assert.match(
     client,
     /\.thematic-global-tools \{[^}]*grid-template-columns: max-content max-content max-content minmax\(0,1fr\)/u,
@@ -189,16 +189,16 @@ test("7D: classificação e controlos partilham apenas a quarta coluna", () => {
       actions,
     );
 
-  const selection =
+  const latest =
     client.indexOf(
-      'aria-label="Controlos de seleção"',
+      "<summary>A acontecer agora</summary>",
       classification,
     );
 
   const workspace =
     client.indexOf(
-      'className="thematic-panel thematic-workspace"',
-      selection,
+      'className={`thematic-desk-grid',
+      latest,
     );
 
   assert.ok(
@@ -208,9 +208,12 @@ test("7D: classificação e controlos partilham apenas a quarta coluna", () => {
       && agenda > video
       && actions > agenda
       && classification > actions
-      && selection > classification
-      && workspace > selection,
+      && latest > classification
+      && workspace > latest,
   );
+
+  const toolbar = client.slice(tools, workspace);
+  assert.doesNotMatch(toolbar, /Controlos de seleção|Selecionar candidatas|Limpar marcação/u);
 
   assert.match(
     client,

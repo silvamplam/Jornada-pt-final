@@ -241,11 +241,6 @@ const styles = `
   .thematic-more { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 8px 8px; color: #64748b; font-size: 9px; }
   .thematic-global-actions { position: relative; display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 0; }
   .thematic-global-actions > :is(.thematic-classification-tool, .thematic-latest-tool) { flex: 0 0 auto; }
-  .thematic-global-actions > .thematic-selection-controls { flex: 1 1 auto; }
-  .thematic-selection-controls { display: flex; min-width: 0; min-height: 30px; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 2px; padding: 0 3px 0 10px; }
-  .thematic-selection-controls strong { color: #657487; font-size: 9px; white-space: nowrap; }
-  .thematic-selection-controls .thematic-button { min-height: 24px; padding: 3px 7px; border: 0; border-radius: 4px; background: transparent; }
-  .thematic-selection-controls .thematic-button + .thematic-button { border-left: 1px solid #dce3eb; border-radius: 0 4px 4px 0; }
   .thematic-bulk-context { position: sticky; z-index: 25; top: 44px; display: grid; gap: 7px; padding: 8px 10px; border: 1px solid #9fb2c5; border-radius: 8px; background: rgba(255,255,255,.98); box-shadow: 0 8px 22px rgba(15,23,42,.14); backdrop-filter: blur(10px); }
   .thematic-bulk-context-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .thematic-bulk-context-copy { display: grid; gap: 1px; }
@@ -435,7 +430,7 @@ const styles = `
     .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-image-placeholder { height: 100%; min-height: 0; aspect-ratio: auto; }
   }
   @media (max-width: 1120px) { .thematic-desk-grid { grid-template-columns: 1fr; } }
-  @media (max-width: 760px) { .thematic-global-tools { display: flex; flex-wrap: wrap; } .thematic-global-tools > .thematic-global-tool { flex: 0 0 auto; } .thematic-global-actions { flex: 1 1 100%; min-width: 100%; border-top: 1px solid #e1e7ed; } .thematic-selection-controls { flex-wrap: wrap; } .thematic-global-tool { position: static; } .thematic-global-actions > .thematic-classification-tool > summary { border-left: 0; } .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { top: calc(100% + 5px); right: 3px; left: 3px; width: auto; max-width: none; max-height: calc(100vh - 80px); } .thematic-workspace { grid-template-columns: 1fr; } .thematic-zone-rail { border-right: 0; border-bottom: 1px solid #273444; } .thematic-zone-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-new-zone-form, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-candidates-grid, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .agenda-tv-sync-actions { justify-content: flex-start; } }
+  @media (max-width: 760px) { .thematic-global-tools { display: flex; flex-wrap: wrap; } .thematic-global-tools > .thematic-global-tool { flex: 0 0 auto; } .thematic-global-actions { flex: 1 1 100%; min-width: 100%; border-top: 1px solid #e1e7ed; } .thematic-global-tool { position: static; } .thematic-global-actions > .thematic-classification-tool > summary { border-left: 0; } .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { top: calc(100% + 5px); right: 3px; left: 3px; width: auto; max-width: none; max-height: calc(100vh - 80px); } .thematic-workspace { grid-template-columns: 1fr; } .thematic-zone-rail { border-right: 0; border-bottom: 1px solid #273444; } .thematic-zone-list { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-new-zone-form, .thematic-page-row, .thematic-page-row-main, .thematic-zone-editor, .thematic-highlight-row, .thematic-slots-4, .thematic-slots-5, .thematic-slots-6, .thematic-candidates-grid, .agenda-tv-sync-row { grid-template-columns: 1fr; } .thematic-zone-editor label { grid-template-columns: 1fr; } .agenda-tv-sync-actions { justify-content: flex-start; } }
 `;
 
 const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
@@ -2372,32 +2367,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 </label>
               </div>
             </details>
-
-            <section className="thematic-selection-controls" aria-label="Controlos de seleção">
-              <strong>
-                {selected.size === 1
-                  ? "1 notícia selecionada"
-                  : `${selected.size} notícias selecionadas`}
-              </strong>
-              <button
-                className="thematic-button"
-                disabled={filteredCandidateEntries.length === 0}
-                onClick={() => selectItems(
-                  filteredCandidateEntries.map((entry) => entry.bankItemId),
-                )}
-                type="button"
-              >
-                Selecionar candidatas
-              </button>
-              <button
-                className="thematic-button"
-                disabled={selected.size === 0}
-                onClick={() => selectItems([])}
-                type="button"
-              >
-                Limpar marcação
-              </button>
-            </section>
           </div>
         </div>
 

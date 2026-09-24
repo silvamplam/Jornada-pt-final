@@ -32,7 +32,6 @@ test("bulk actions are grouped by clear destinations", () => {
     "Posicao na Faixa",
     "Mover para Faixa",
     "Mover para Banco",
-    "Limpar marcacao",
   ]) {
     const normalized = source
       .normalize("NFD")
@@ -53,21 +52,43 @@ test("bulk actions are grouped by clear destinations", () => {
   assert.equal(toolbar.includes("Automatico"), false);
 });
 
-test("selecionar candidatas e limpar marcação existem mesmo com zero selecionados", () => {
+test("a barra superior contém apenas as cinco ferramentas administrativas", () => {
   const globalToolsStart = source.indexOf('className="thematic-global-tools"');
-  const videoStart = source.indexOf('<summary>Vídeos</summary>', globalToolsStart);
-  const agendaTvStart = source.indexOf('<summary>Agenda e TV</summary>', globalToolsStart);
-  const controlsStart = source.indexOf('aria-label="Controlos de seleção"');
-  const workspaceStart = source.indexOf('className="thematic-panel thematic-workspace"', controlsStart);
+  const workspaceStart = source.indexOf('className={`thematic-desk-grid', globalToolsStart);
+  const toolbar = source.slice(globalToolsStart, workspaceStart);
+  const labels = [
+    "Página e blocos",
+    "Vídeos",
+    "Agenda e TV",
+    "Corrigir classificação",
+    "A acontecer agora",
+  ];
+  const summaries = Array.from(
+    toolbar.matchAll(/<summary>([^<]+)<\/summary>/gu),
+    (match) => match[1],
+  );
 
-  assert.ok(globalToolsStart >= 0 && videoStart > globalToolsStart);
-  assert.ok(agendaTvStart > videoStart && controlsStart > agendaTvStart && workspaceStart > controlsStart);
-  assert.match(source.slice(controlsStart, workspaceStart), /Selecionar candidatas/u);
-  assert.match(source.slice(controlsStart, workspaceStart), /Limpar marcação/u);
-  assert.match(source, /selected\.size === 1\s*\? "1 notícia selecionada"\s*:\s*`\$\{selected\.size\} notícias selecionadas`/u);
-  assert.match(source, /filteredCandidateEntries\.map\(\(entry\) => entry\.bankItemId\)/u);
+  assert.ok(globalToolsStart >= 0 && workspaceStart > globalToolsStart);
+  assert.deepEqual(summaries, labels);
+  assert.doesNotMatch(toolbar, /Selecionar candidatas/u);
+  assert.doesNotMatch(toolbar, /Limpar marcação/u);
+  assert.doesNotMatch(toolbar, /notícias? selecionadas?/u);
+  assert.doesNotMatch(toolbar, /Controlos de seleção/u);
+  assert.doesNotMatch(source, /thematic-selection-controls/u);
   assert.match(source, /\.thematic-global-tools \{[^}]*grid-template-columns: max-content max-content max-content minmax\(0,1fr\)/u);
-  assert.match(source, /\.thematic-selection-controls \{[^}]*justify-content: flex-end/u);
+});
+
+test("a seleção fica no painel direito e mantém a autoridade existente", () => {
+  const candidatesStart = source.indexOf("function renderCandidates()");
+  const candidatesEnd = source.indexOf("function isZoneWorkspaceKey", candidatesStart);
+  const candidates = source.slice(candidatesStart, candidatesEnd);
+
+  assert.ok(candidatesStart >= 0 && candidatesEnd > candidatesStart);
+  assert.match(candidates, /selected\.size > 0 \? "Limpar" : "Selecionar visíveis"/u);
+  assert.match(candidates, /visibleCandidateEntries\.map\(\(entry\) => entry\.bankItemId\)/u);
+  assert.match(source, /checked=\{selected\}/u);
+  assert.match(source, /onChange=\{\(\) => onToggle\(bankItemId\)\}/u);
+  assert.match(source, /onToggle=\{toggleSelection\}/u);
 });
 
 test("Agenda e TV usa o endpoint autónomo sem entrar no estado editorial", () => {
