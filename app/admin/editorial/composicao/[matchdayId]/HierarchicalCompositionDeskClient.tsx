@@ -7,6 +7,7 @@ import {
   HIERARCHICAL_COMPOSITION_DESK_SECTIONS,
 } from "@/lib/editorial-hierarchical-composition";
 import {
+  articleClassificationBadgeColors,
   articleClassificationLabel,
   isArticleClassificationKey,
 } from "@/lib/editorial-classifications";
@@ -2164,29 +2165,6 @@ const styles = `
     white-space: nowrap;
   }
 
-  .thematic-classification-badge[data-classification="unclassified"] {
-    background: #fde047;
-  }
-
-  .thematic-classification-badge[data-classification="benfica"] {
-    background: #ef4444;
-  }
-
-  .thematic-classification-badge[data-classification="sporting"] {
-    background: #15803d;
-    color: #fff;
-  }
-
-  .thematic-classification-badge[data-classification="fc_porto"] {
-    background: #1d4ed8;
-    color: #fff;
-  }
-
-  .thematic-classification-badge[data-classification="other_liga_clubs"] {
-    border-color: #000;
-    background: #fff;
-  }
-
   .hc-desk-zone {
     min-width: 0;
     gap: 5px;
@@ -2479,6 +2457,7 @@ function ClassificationBadge({
     <span
       className="thematic-classification-badge"
       data-classification={key ?? "unclassified"}
+      style={articleClassificationBadgeColors(key ?? "unclassified")}
       title={`Classificação editorial: ${label}`}
     >
       {label}

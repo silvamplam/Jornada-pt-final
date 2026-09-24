@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type {
   MesaArchiveSourceItem,
 } from "@/lib/redacao-automatica/newsroom-mesa-archive-read-model";
+import { articleClassificationBadgeColors } from "@/lib/editorial-classifications";
 import { classificationLabel } from "./_mesa-query";
 import styles from "./mesa.module.css";
 
@@ -70,7 +71,13 @@ export function MesaArchiveSourceItemView({
           </span>
           {formattedDate ? <time dateTime={dateValue}>{formattedDate}</time> : null}
           <span>{item.sourceName}</span>
-          <span>{item.classificationKey ? classificationLabel(item.classificationKey) : "POR CLASSIFICAR"}</span>
+          <span
+            className={styles.classificationBadge}
+            data-tone={item.classificationKey ?? "unclassified"}
+            style={articleClassificationBadgeColors(item.classificationKey ?? "unclassified")}
+          >
+            {item.classificationKey ? classificationLabel(item.classificationKey) : "POR CLASSIFICAR"}
+          </span>
         </div>
         <h2>{item.title}</h2>
         {item.subtitle || item.summary ? <p>{item.subtitle ?? item.summary}</p> : null}

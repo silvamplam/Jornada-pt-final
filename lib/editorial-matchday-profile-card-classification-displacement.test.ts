@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { articleClassificationLabel } from "./editorial-classifications";
+import {
+  articleClassificationBadgeColors,
+  articleClassificationLabel,
+} from "./editorial-classifications";
 
 const client = readFileSync(
   "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",
@@ -29,7 +32,7 @@ test("cartão apresenta a classificação no cabeçalho compacto sem criar uma n
   );
   assert.match(
     articleCard,
-    /\{item\.label \? <span className="thematic-card-label">\{item\.label\}<\/span> : null\}\s*<span className="thematic-classification-badge" data-classification=\{classificationKey \?\? "unclassified"\}/u,
+    /\{item\.label \? <span className="thematic-card-label">\{item\.label\}<\/span> : null\}\s*<span[\s\S]*?className="thematic-classification-badge"[\s\S]*?data-classification=\{classificationKey \?\? "unclassified"\}/u,
   );
   assert.match(
     cardFor,
@@ -45,31 +48,18 @@ test("cartão apresenta a classificação no cabeçalho compacto sem criar uma n
   );
 });
 
-test("badge conserva variantes visuais próprias sem contaminar o resto do cartão", () => {
+test("badge usa a paleta central sem contaminar o resto do cartão", () => {
   assert.match(
-    client,
-    /\.thematic-classification-badge \{[^}]*background: #e2e8f0; color: #000;[^}]*\}/u,
+    articleCard,
+    /style=\{articleClassificationBadgeColors\(classificationKey \?\? "unclassified"\)\}/u,
   );
-  assert.match(
-    client,
-    /\.thematic-classification-badge\[data-classification="unclassified"\] \{ background: #fde047; \}/u,
-  );
-  assert.match(
-    client,
-    /\.thematic-classification-badge\[data-classification="benfica"\] \{ background: #ef4444; \}/u,
-  );
-  assert.match(
-    client,
-    /\.thematic-classification-badge\[data-classification="sporting"\] \{ background: #15803d; color: #fff; \}/u,
-  );
-  assert.match(
-    client,
-    /\.thematic-classification-badge\[data-classification="fc_porto"\] \{ background: #1d4ed8; color: #fff; \}/u,
-  );
-  assert.match(
-    client,
-    /\.thematic-classification-badge\[data-classification="other_liga_clubs"\] \{ border-color: #000; background: #fff; \}/u,
-  );
+  assert.equal(articleClassificationBadgeColors("benfica").color, "#000000");
+  assert.equal(articleClassificationBadgeColors("sporting").color, "#FFFFFF");
+  assert.equal(articleClassificationBadgeColors("fc_porto").color, "#FFFFFF");
+  assert.equal(articleClassificationBadgeColors("other_liga_clubs").backgroundColor, "#000000");
+  assert.equal(articleClassificationBadgeColors("outside_liga_other").backgroundColor, "#FFD400");
+  assert.equal(articleClassificationBadgeColors("unclassified").backgroundColor, "#E2E8F0");
+  assert.doesNotMatch(client, /thematic-classification-badge\[data-classification=/u);
   assert.equal(articleClassificationLabel("outside_liga_other"), "Outros assuntos");
   assert.doesNotMatch(client, /\.thematic-card\[data-classification=/u);
 });

@@ -29,6 +29,26 @@ export type ArticleClassificationDefinition = Readonly<{
   label: string;
 }>;
 
+export type ArticleClassificationBadgeTone =
+  | ArticleClassificationKey
+  | "unclassified";
+
+export type ArticleClassificationBadgeColors = Readonly<{
+  backgroundColor: string;
+  color: string;
+}>;
+
+export const ARTICLE_CLASSIFICATION_BADGE_COLORS: Readonly<
+  Record<ArticleClassificationBadgeTone, ArticleClassificationBadgeColors>
+> = Object.freeze({
+  benfica: { backgroundColor: "#EF4444", color: "#000000" },
+  sporting: { backgroundColor: "#15803D", color: "#FFFFFF" },
+  fc_porto: { backgroundColor: "#1D4ED8", color: "#FFFFFF" },
+  other_liga_clubs: { backgroundColor: "#000000", color: "#FFFFFF" },
+  outside_liga_other: { backgroundColor: "#FFD400", color: "#000000" },
+  unclassified: { backgroundColor: "#E2E8F0", color: "#000000" },
+});
+
 export const HEADLINE_TITLE_COLOR_BY_CLASSIFICATION: Readonly<
   Record<ArticleClassificationKey, string>
 > = Object.freeze({
@@ -71,6 +91,12 @@ export function articleClassificationLabel(
   key: ArticleClassificationKey,
 ): string {
   return articleClassification(key).label;
+}
+
+export function articleClassificationBadgeColors(
+  tone: ArticleClassificationBadgeTone,
+): ArticleClassificationBadgeColors {
+  return ARTICLE_CLASSIFICATION_BADGE_COLORS[tone];
 }
 
 export function headlineTitleColorForClassification(
