@@ -3,6 +3,10 @@ import {
   EDITORIAL_VISUAL_FAMILY_DEFINITIONS,
   type EditorialVisualFamily,
 } from "./editorial-visual-families";
+import {
+  headlineTitleColorForClassification,
+  type ArticleClassificationKey,
+} from "./editorial-classifications";
 export const HISTORICAL_COMPOSITION_BLOCK_KEYS = [
   "opening",
   "zone_1",
@@ -19,7 +23,8 @@ export const HISTORICAL_COMPOSITION_DEFAULT_ZONE_TITLES = {
   zone_2: "Outros jogos da jornada",
 } as const;
 
-export const HISTORICAL_COMPOSITION_DEFAULT_HEADLINE_TITLE_COLOR = "#10151B";
+export const HISTORICAL_COMPOSITION_DEFAULT_HEADLINE_TITLE_COLOR =
+  headlineTitleColorForClassification(null);
 
 function historicalDynamicZoneLayout(
   visualFamily: EditorialVisualFamily,
@@ -299,6 +304,53 @@ export type HistoricalCompositionPlacementPlan<T> = Readonly<{
   slots: Readonly<Record<string, T | null>>;
   auxiliary: Readonly<Record<string, T | null>>;
 }>;
+
+type HistoricalHeadlineCard = Readonly<{
+  bankItemId: string | null;
+  persistedId?: string | null;
+}>;
+
+function historicalHeadlineCardIdentity(
+  card: HistoricalHeadlineCard | null,
+) {
+  if (!card) return "";
+  if (card.bankItemId) return `bank:${card.bankItemId}`;
+  return card.persistedId ? `persisted:${card.persistedId}` : "";
+}
+
+export function synchronizeHistoricalHeadlineTitleColor<
+  TCard extends HistoricalHeadlineCard,
+  TPlan extends HistoricalCompositionPlacementPlan<TCard> & Readonly<{
+    settings: Readonly<{ headlineTitleColor: string }>;
+  }>,
+>(
+  previousPlan: TPlan,
+  nextPlan: TPlan,
+  classificationKeyForBankItem: (
+    bankItemId: string,
+  ) => ArticleClassificationKey | null,
+): TPlan {
+  const previousHeadline = previousPlan.slots.dominant_main ?? null;
+  const nextHeadline = nextPlan.slots.dominant_main ?? null;
+  if (
+    historicalHeadlineCardIdentity(previousHeadline)
+    === historicalHeadlineCardIdentity(nextHeadline)
+  ) {
+    return nextPlan;
+  }
+
+  const classificationKey = nextHeadline?.bankItemId
+    ? classificationKeyForBankItem(nextHeadline.bankItemId)
+    : null;
+
+  return {
+    ...nextPlan,
+    settings: {
+      ...nextPlan.settings,
+      headlineTitleColor: headlineTitleColorForClassification(classificationKey),
+    },
+  };
+}
 
 export type HistoricalCompositionMoveResult<T> = Readonly<{
   plan: HistoricalCompositionPlacementPlan<T>;

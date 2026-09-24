@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { readAdminJsonResponse } from "@/lib/admin-json-response";
-import { articleClassificationLabel } from "@/lib/editorial-classifications";
+import {
+  articleClassificationLabel,
+  isArticleClassificationKey,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
 import type {
   MatchdayEditorialProfileDeskAutomaticItem,
   MatchdayEditorialSelectionCandidate,
@@ -15,6 +19,9 @@ import {
 import type {
   EditorialProfileZoneKey,
 } from "@/lib/editorial-profiles";
+import type {
+  LiveLayoutWorkspaceObservedClassification,
+} from "@/lib/editorial-matchday-live-layout-workspace";
 
 type ClassificationZone = Readonly<{
   key: EditorialProfileZoneKey;
@@ -30,6 +37,12 @@ type ClassificationItem = Readonly<{
 
 type CorrectionResponse = Readonly<{
   ok?: boolean;
+  classification?: Readonly<{
+    bankItemId?: unknown;
+    classificationKey?: unknown;
+    classificationSource?: unknown;
+    classifiedAt?: unknown;
+  }>;
   message?: string;
 }>;
 
@@ -50,11 +63,16 @@ export default function MatchdayContextualClassificationCorrectionPanel({
   activeItems,
   candidates,
   matchdayId,
+  onClassificationCorrected,
   zones,
 }: Readonly<{
   activeItems: readonly MatchdayEditorialProfileDeskAutomaticItem[];
   candidates: readonly MatchdayEditorialSelectionCandidate[];
   matchdayId: string;
+  onClassificationCorrected: (
+    bankItemId: string,
+    classification: LiveLayoutWorkspaceObservedClassification,
+  ) => void;
   zones: readonly ClassificationZone[];
 }>) {
   const router = useRouter();
@@ -287,11 +305,31 @@ export default function MatchdayContextualClassificationCorrectionPanel({
         );
       }
 
+      const confirmed = result.classification;
+      if (
+        confirmed?.bankItemId !== selectedItem.bankItemId
+        || !isArticleClassificationKey(confirmed.classificationKey)
+        || confirmed.classificationKey !== classificationKey
+        || typeof confirmed.classificationSource !== "string"
+        || typeof confirmed.classifiedAt !== "string"
+      ) {
+        throw new Error("A correção não devolveu uma classificação confirmada válida.");
+      }
+
       setState("saved");
 
       setMessage(
         result.message
           ?? "Classificação corrigida. A posição editorial não foi alterada.",
+      );
+
+      onClassificationCorrected(
+        selectedItem.bankItemId,
+        {
+          key: confirmed.classificationKey,
+          source: confirmed.classificationSource,
+          classifiedAt: confirmed.classifiedAt,
+        },
       );
 
       router.refresh();

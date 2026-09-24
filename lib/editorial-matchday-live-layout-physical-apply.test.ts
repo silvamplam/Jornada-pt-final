@@ -472,6 +472,25 @@ test("Apply transporta os dois títulos sem alterar conteúdo físico", () => {
   ).placements);
 });
 
+test("Apply transporta a cor automática da classificação da Manchete", () => {
+  const baseline = createPhysicalDeskState(workspace(5));
+  const sportingHeadline = movePhysicalDeskItemToSlot(
+    baseline,
+    id(40, 2),
+    {
+      placementType: "opening",
+      zoneId: null,
+      slotPosition: 1,
+    },
+  );
+  const payload = buildPhysicalDeskApplyPayload(
+    "liga_portugal_v1",
+    sportingHeadline,
+  );
+
+  assert.equal(payload.presentation.headline_title_color, "#146B3A");
+});
+
 test("Apply transporta o título público opcional da Faixa", () => {
   const baseline = createPhysicalDeskState(workspace(5));
   const edited = changePhysicalDeskPresentation(baseline, {

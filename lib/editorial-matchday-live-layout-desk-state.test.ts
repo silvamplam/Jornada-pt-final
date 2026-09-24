@@ -21,6 +21,7 @@ import {
   physicalDeskPlacementsOfType,
   physicalDeskZoneSlots,
   resetPhysicalDeskState,
+  synchronizePhysicalDeskClassificationCorrection,
   undoPhysicalDeskState,
 } from "./editorial-matchday-live-layout-desk-state";
 import {
@@ -754,7 +755,15 @@ for (const [index, label] of ["Manchete", "Notícia 1", "Notícia 2", "Notícia 
     assert.deepEqual(displaced.current.workedBankItemIds, initial.current.workedBankItemIds);
     assert.deepEqual(displaced.current.zones, initial.current.zones);
     assert.deepEqual(displaced.current.blocks, initial.current.blocks);
-    assert.deepEqual(displaced.current.presentation, initial.current.presentation);
+    assert.deepEqual(
+      displaced.current.presentation,
+      slotPosition === 1
+        ? {
+            ...initial.current.presentation,
+            headlineTitleColor: "#10151B",
+          }
+        : initial.current.presentation,
+    );
     assert.equal(displaced.physicalStateToken, initial.physicalStateToken);
     assert.equal(physicalDeskHasChanges(initial), false);
 
@@ -1077,4 +1086,94 @@ test("Abertura, Faixa, Seleção e Destaque partilham a autoridade de placements
   assert.equal(physicalDeskPlacementsOfType(current, "faixa")[0].bankItemId, bankId(3));
   assert.equal(physicalDeskPlacementsOfType(current, "selection")[0].slotPosition, 4);
   assert.equal(physicalDeskPlacementsOfType(current, "video_highlight")[0].bankItemId, bankId(5));
+});
+
+test("Abertura 1 deriva a cor da classificação no mesmo checkpoint físico", () => {
+  const source = workspace(1, 4);
+  const classifications = [
+    "benfica",
+    "sporting",
+    "fc_porto",
+    "outside_liga_other",
+  ] as const;
+  let current = stateFromWorkspace({
+    ...source,
+    bankItems: source.bankItems.map((item, index) => ({
+      ...item,
+      classification: {
+        ...item.classification!,
+        key: classifications[index],
+      },
+    })),
+  });
+
+  current = movePhysicalDeskItemToSlot(current, bankId(1), {
+    placementType: "opening", zoneId: null, slotPosition: 1,
+  });
+  assert.equal(current.current.presentation.headlineTitleColor, "#B4232C");
+
+  current = movePhysicalDeskItemToSlot(current, bankId(2), {
+    placementType: "opening", zoneId: null, slotPosition: 1,
+  });
+  assert.equal(current.current.presentation.headlineTitleColor, "#146B3A");
+
+  current = movePhysicalDeskItemToSlot(current, bankId(3), {
+    placementType: "opening", zoneId: null, slotPosition: 1,
+  });
+  assert.equal(current.current.presentation.headlineTitleColor, "#1E4F91");
+
+  const undone = undoPhysicalDeskState(current);
+  assert.equal(
+    physicalDeskPlacementsOfType(undone, "opening")[0].bankItemId,
+    bankId(2),
+  );
+  assert.equal(undone.current.presentation.headlineTitleColor, "#146B3A");
+
+  const neutral = movePhysicalDeskItemToSlot(undone, bankId(4), {
+    placementType: "opening", zoneId: null, slotPosition: 1,
+  });
+  assert.equal(neutral.current.presentation.headlineTitleColor, "#10151B");
+
+  const reset = resetPhysicalDeskState(neutral);
+  assert.equal(physicalDeskPlacementsOfType(reset, "opening").length, 0);
+  assert.equal(reset.current.presentation.headlineTitleColor, null);
+});
+
+test("correção de classificação só altera a cor quando o artigo é a Manchete", () => {
+  const headline = movePhysicalDeskItemToSlot(state(1, 2), bankId(1), {
+    placementType: "opening", zoneId: null, slotPosition: 1,
+  });
+  const corrected = synchronizePhysicalDeskClassificationCorrection(
+    headline,
+    bankId(1),
+    {
+      key: "fc_porto",
+      source: "manual",
+      classifiedAt: NOW,
+    },
+  );
+
+  assert.equal(corrected.current.presentation.headlineTitleColor, "#1E4F91");
+  assert.equal(corrected.current.bankItems[0].classification?.key, "fc_porto");
+  assert.equal(corrected.baseline.bankItems[0].classification?.key, "fc_porto");
+  assert.equal(corrected.history.length, headline.history.length + 1);
+
+  const removed = movePhysicalDeskItemToBank(corrected, bankId(1));
+  const restored = movePhysicalDeskItemToSlot(removed, bankId(1), {
+    placementType: "opening", zoneId: null, slotPosition: 1,
+  });
+  assert.equal(restored.current.presentation.headlineTitleColor, "#1E4F91");
+
+  const nonHeadline = synchronizePhysicalDeskClassificationCorrection(
+    corrected,
+    bankId(2),
+    {
+      key: "sporting",
+      source: "manual",
+      classifiedAt: NOW,
+    },
+  );
+  assert.equal(nonHeadline.current.presentation.headlineTitleColor, "#1E4F91");
+  assert.equal(nonHeadline.current.bankItems[1].classification?.key, "sporting");
+  assert.equal(nonHeadline.history.length, corrected.history.length);
 });

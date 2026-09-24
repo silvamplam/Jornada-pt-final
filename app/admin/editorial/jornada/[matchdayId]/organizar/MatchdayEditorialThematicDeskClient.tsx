@@ -65,6 +65,7 @@ import {
   physicalDeskZoneSlots,
   resetPhysicalDeskState,
   selectPhysicalDeskItems,
+  synchronizePhysicalDeskClassificationCorrection,
   togglePhysicalDeskSelection,
   undoPhysicalDeskState,
   type PhysicalDeskState,
@@ -365,9 +366,6 @@ const styles = `
   .agenda-tv-sync-note { grid-column: 1 / -1; margin: 0; color: #765000; font-size: 9px; font-weight: 800; }
   .thematic-page-structure { display: grid; gap: 5px; padding: 8px; }
   .thematic-page-structure-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-  .thematic-top-tools, .thematic-top-tools label { display: flex; align-items: center; gap: 5px; }
-  .thematic-top-tools span { color: #64748b; font-size: 9px; font-weight: 800; }
-  .thematic-top-tools input[type="color"] { width: 36px; height: 28px; padding: 2px; border: 1px solid #cbd5df; border-radius: 5px; }
   .thematic-new-zone-form { display: grid; grid-template-columns: minmax(300px,1.55fr) minmax(150px,.72fr) auto; gap: 6px; align-items: end; padding: 6px; border: 1px solid #cbd9e6; border-radius: 6px; background: #f4f8fc; }
   .thematic-new-zone-form label, .thematic-page-zone-field { display: grid; min-width: 0; gap: 2px; }
   .thematic-new-zone-form label > span, .thematic-page-zone-field > span { color: #64748b; font-size: 8px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
@@ -1992,9 +1990,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             <summary>Página e blocos</summary>
             <section className="thematic-page-structure" aria-label="Página e blocos">
               <div className="thematic-page-structure-head">
-                <div className="thematic-top-tools">
-                  <label><span>Cor da Manchete</span><input aria-label="Cor do texto da Manchete" disabled={mutationBlocked} onChange={(event) => runPhysicalOperation((state) => changePhysicalDeskPresentation(state, { headlineTitleColor: event.target.value.toUpperCase() }), "Cor da Manchete alterada em preview.")} type="color" value={current.presentation.headlineTitleColor ?? "#FFFFFF"} /></label>
-                </div>
                 <button
                   className="thematic-button"
                   disabled={mutationBlocked}
@@ -2272,6 +2267,15 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   activeItems={desk.automaticDistribution.activeItems}
                   candidates={desk.selectionCandidates}
                   matchdayId={desk.matchdayId}
+                  onClassificationCorrected={(bankItemId, classification) => {
+                    setPhysicalDesk((state) => (
+                      synchronizePhysicalDeskClassificationCorrection(
+                        state,
+                        bankItemId,
+                        classification,
+                      )
+                    ));
+                  }}
                   zones={profile.zones}
                 />
               </div>

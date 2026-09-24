@@ -3,6 +3,9 @@ import {
   type EditorialVisualFamily,
 } from "@/lib/editorial-visual-families";
 import {
+  headlineTitleColorForClassification,
+} from "@/lib/editorial-classifications";
+import {
   parseLiveLayoutBlockId,
   parseLiveLayoutZoneId,
   type LiveLayoutZoneId,
@@ -12,6 +15,7 @@ import type {
   LiveLayoutPhysicalCutover,
   LiveLayoutWorkspaceBankItem,
   LiveLayoutWorkspaceMemory,
+  LiveLayoutWorkspaceObservedClassification,
   LiveLayoutWorkspacePlacementType,
   LiveLayoutWorkspaceState,
 } from "@/lib/editorial-matchday-live-layout-workspace";
@@ -467,10 +471,28 @@ function commitSnapshot(
   nextValue: PhysicalDeskSnapshot,
   workedBankItemIds: readonly string[] = [],
 ): PhysicalDeskState {
+  const previousHeadlineBankItemId = state.current.placements.find(
+    (placement) => placement.placementType === "opening" && placement.slotPosition === 1,
+  )?.bankItemId ?? null;
+  const nextHeadlineBankItemId = nextValue.placements.find(
+    (placement) => placement.placementType === "opening" && placement.slotPosition === 1,
+  )?.bankItemId ?? null;
+  const nextValueWithHeadlineColor = previousHeadlineBankItemId === nextHeadlineBankItemId
+    ? nextValue
+    : {
+        ...nextValue,
+        presentation: {
+          ...nextValue.presentation,
+          headlineTitleColor: headlineTitleColorForClassification(
+            nextValue.bankItems.find((item) => item.id === nextHeadlineBankItemId)
+              ?.classification?.key ?? null,
+          ),
+        },
+      };
   const nextValueWithWorked = {
-    ...nextValue,
+    ...nextValueWithHeadlineColor,
     workedBankItemIds: uniqueSorted([
-      ...nextValue.workedBankItemIds,
+      ...nextValueWithHeadlineColor.workedBankItemIds,
       ...workedBankItemIds,
     ]),
   };
@@ -1116,6 +1138,56 @@ export function changePhysicalDeskPresentation(
   return commitSnapshot(state, {
     ...state.current,
     presentation,
+  });
+}
+
+function synchronizeObservedClassification(
+  snapshot: PhysicalDeskSnapshot,
+  bankItemId: string,
+  classification: LiveLayoutWorkspaceObservedClassification,
+): PhysicalDeskSnapshot {
+  return {
+    ...snapshot,
+    bankItems: snapshot.bankItems.map((item) => (
+      item.id === bankItemId
+        ? { ...item, classification }
+        : item
+    )),
+  };
+}
+
+export function synchronizePhysicalDeskClassificationCorrection(
+  state: PhysicalDeskState,
+  bankItemId: string,
+  classification: LiveLayoutWorkspaceObservedClassification,
+): PhysicalDeskState {
+  assertKnownBankItem(state.current, bankItemId);
+  const synchronizedState = {
+    ...state,
+    baseline: synchronizeObservedClassification(
+      state.baseline,
+      bankItemId,
+      classification,
+    ),
+    current: synchronizeObservedClassification(
+      state.current,
+      bankItemId,
+      classification,
+    ),
+    history: state.history.map((snapshot) => synchronizeObservedClassification(
+      snapshot,
+      bankItemId,
+      classification,
+    )),
+  };
+  const headline = state.current.placements.find((placement) => (
+    placement.placementType === "opening"
+    && placement.slotPosition === 1
+  ));
+  if (headline?.bankItemId !== bankItemId) return synchronizedState;
+
+  return changePhysicalDeskPresentation(synchronizedState, {
+    headlineTitleColor: headlineTitleColorForClassification(classification.key),
   });
 }
 

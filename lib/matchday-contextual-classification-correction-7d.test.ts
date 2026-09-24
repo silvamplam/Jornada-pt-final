@@ -108,7 +108,7 @@ test("7D: endpoint é administrativo e limitado à Mesa viva", () => {
   );
 });
 
-test("7D: painel não participa no draft editorial", () => {
+test("7D: painel mantém a classificação no endpoint e notifica a apresentação", () => {
   assert.match(
     panel,
     /organizar\/classificacao/u,
@@ -122,6 +122,16 @@ test("7D: painel não participa no draft editorial", () => {
   assert.match(
     panel,
     /router\.refresh\(\)/u,
+  );
+
+  assert.match(
+    panel,
+    /onClassificationCorrected\([\s\S]*selectedItem\.bankItemId,[\s\S]*key: confirmed\.classificationKey/u,
+  );
+
+  assert.match(
+    client,
+    /synchronizePhysicalDeskClassificationCorrection/u,
   );
 
   assert.doesNotMatch(

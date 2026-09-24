@@ -29,6 +29,18 @@ export type ArticleClassificationDefinition = Readonly<{
   label: string;
 }>;
 
+export const HEADLINE_TITLE_COLOR_BY_CLASSIFICATION: Readonly<
+  Record<ArticleClassificationKey, string>
+> = Object.freeze({
+  benfica: "#B4232C",
+  sporting: "#146B3A",
+  fc_porto: "#1E4F91",
+  other_liga_clubs: "#10151B",
+  outside_liga_other: "#10151B",
+});
+
+export const HEADLINE_TITLE_COLOR_FALLBACK = "#10151B";
+
 export const ARTICLE_CLASSIFICATION_KEYS:
   readonly ArticleClassificationKey[] = Object.freeze(
     ARTICLE_CLASSIFICATIONS.map(
@@ -59,4 +71,12 @@ export function articleClassificationLabel(
   key: ArticleClassificationKey,
 ): string {
   return articleClassification(key).label;
+}
+
+export function headlineTitleColorForClassification(
+  classificationKey: ArticleClassificationKey | null,
+): string {
+  return classificationKey === null
+    ? HEADLINE_TITLE_COLOR_FALLBACK
+    : HEADLINE_TITLE_COLOR_BY_CLASSIFICATION[classificationKey];
 }
