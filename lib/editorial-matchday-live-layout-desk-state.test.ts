@@ -116,6 +116,7 @@ function state(zoneCount: number, itemCount = 3) {
 
 function stateFromWorkspace(source: LiveLayoutWorkspaceState) {
   return createPhysicalDeskState(source, {
+    faixaPublicTitle: "",
     headlineTitleColor: null,
     latestZonePlacement: "top",
     latestZoneTitle: "Últimas",
@@ -931,6 +932,7 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
     workspaceSettings: {
       matchdayId: MATCHDAY_ID,
       faixaSlotCount: 4,
+      faixaPublicTitle: "Destaques",
       headlineTitleColor: "#112233",
       latestZoneMode: "editorial_line",
       latestZonePlacement: "hidden",
@@ -949,6 +951,7 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
     },
   };
   const current = createPhysicalDeskState(physicalWorkspace, {
+    faixaPublicTitle: "Legacy ignorado",
     headlineTitleColor: null,
     latestZonePlacement: "top",
     latestZoneTitle: "Legacy ignorado",
@@ -962,6 +965,7 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
   assert.equal(physicalWorkspace.workspaceSettings?.latestZoneTitleColor, "#AABBCC");
   assert.equal(physicalDeskFaixaSlots(current)[3].placement, null);
   assert.deepEqual(current.current.presentation, {
+    faixaPublicTitle: "Destaques",
     headlineTitleColor: "#112233",
     latestZonePlacement: "hidden",
     latestZoneTitle: "Estado físico",
@@ -1007,6 +1011,41 @@ test("títulos de Vídeos e Destaque pertencem ao draft com Undo e Reset", () =>
 
   const reset = resetPhysicalDeskState(bothEdited);
   assert.deepEqual(reset.current.presentation, baseline.current.presentation);
+});
+
+test("título público da Faixa pertence ao draft sem alterar conteúdo físico", () => {
+  const baseline = state(3, 8);
+  const edited = changePhysicalDeskPresentation(baseline, {
+    faixaPublicTitle: "Destaques",
+  });
+
+  assert.equal(physicalDeskHasChanges(edited), true);
+  assert.equal(edited.current.presentation.faixaPublicTitle, "Destaques");
+  assert.equal(edited.current.faixaSlotCount, baseline.current.faixaSlotCount);
+  assert.deepEqual(edited.current.placements, baseline.current.placements);
+  assert.deepEqual(edited.current.bankItems, baseline.current.bankItems);
+  assert.deepEqual(
+    edited.current.faixaArrivalBankItemIds,
+    baseline.current.faixaArrivalBankItemIds,
+  );
+
+  const undone = undoPhysicalDeskState(edited);
+  assert.equal(undone.current.presentation.faixaPublicTitle, "");
+  assert.equal(physicalDeskHasChanges(undone), false);
+
+  const reset = resetPhysicalDeskState(edited);
+  assert.deepEqual(reset.current, baseline.current);
+});
+
+test("título público vazio da Faixa é válido", () => {
+  const withTitle = changePhysicalDeskPresentation(state(1), {
+    faixaPublicTitle: "Em foco",
+  });
+  const empty = changePhysicalDeskPresentation(withTitle, {
+    faixaPublicTitle: "",
+  });
+
+  assert.equal(empty.current.presentation.faixaPublicTitle, "");
 });
 
 test("Abertura, Faixa, Seleção e Destaque partilham a autoridade de placements", () => {

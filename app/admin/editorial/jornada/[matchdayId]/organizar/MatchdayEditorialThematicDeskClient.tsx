@@ -755,6 +755,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const router = useRouter();
   const profile = EDITORIAL_PROFILES[desk.profileKey];
   const physicalPresentation = useMemo(() => ({
+    faixaPublicTitle:
+      desk.physicalWorkspace.workspaceSettings?.faixaPublicTitle ?? "",
     headlineTitleColor: desk.pageControls.headlineTitleColor,
     latestZonePlacement: desk.pageControls.latestZonePlacement,
     latestZoneTitle: desk.pageControls.latestZoneTitle,
@@ -762,6 +764,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     roundupVideoHeading: desk.videoModule.roundupHeading,
     videoHighlightSectionTitle: desk.videoModule.highlightSectionTitle,
   }), [
+    desk.physicalWorkspace.workspaceSettings?.faixaPublicTitle,
     desk.pageControls.headlineTitleColor,
     desk.pageControls.latestZonePlacement,
     desk.pageControls.latestZoneTitle,
@@ -881,7 +884,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     ? openingOnly ? "opening-only" : "stacked"
     : activeZone ? "zone-only" : "other";
   const focusContext = `${desk.matchdayLabel} · ${openingOnly ? "Só Abertura" : activeWorkspaceLabel} · Abertura ${openingVisible ? "aberta" : "fechada"}`;
-  const activeStructureEditorOpen = activeZone !== null;
+  const activeStructureEditorIsFaixa = activeWorkspaceKey === "faixa";
+  const activeStructureEditorOpen =
+    activeZone !== null || activeStructureEditorIsFaixa;
   const activeZonePlacedArticleCount = activeZone
     ? current.placements.filter((placement) => (
         placement.placementType === "zone"
@@ -2064,7 +2069,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     })}
                     <button
                       className={"thematic-page-row" + (activeWorkspaceKey === "faixa" ? " active" : "")}
-                      onClick={() => activateWorkspaceFromStructure("faixa")}
+                      onClick={() => {
+                        setDeleteZoneId(null);
+                        setActiveWorkspaceKey("faixa");
+                        setActiveWorkspaceVisible(true);
+                      }}
                       type="button"
                     >
                       <span>Fixo</span>
@@ -2074,7 +2083,36 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   </div>
                 </div>
 
-                {activeStructureEditorOpen ? (
+                {activeStructureEditorIsFaixa ? (
+                  <aside
+                    className="thematic-page-zone-editor-panel"
+                    aria-label="Editar Faixa"
+                  >
+                    <strong>Editar Faixa</strong>
+
+                    <label className="thematic-page-zone-field">
+                      <span>Título público</span>
+                      <input
+                        aria-label="Título público da Faixa"
+                        defaultValue={current.presentation.faixaPublicTitle}
+                        disabled={mutationBlocked}
+                        key={`faixa:${current.presentation.faixaPublicTitle}`}
+                        maxLength={120}
+                        onBlur={(event) => {
+                          const value = event.currentTarget.value.trim();
+                          if (value === current.presentation.faixaPublicTitle) return;
+
+                          runPhysicalOperation(
+                            (state) => changePhysicalDeskPresentation(state, {
+                              faixaPublicTitle: value,
+                            }),
+                            "Faixa: título público alterado em preview.",
+                          );
+                        }}
+                      />
+                    </label>
+                  </aside>
+                ) : activeZone ? (
                   <aside
                     className="thematic-page-zone-editor-panel"
                     aria-label={"Editar zona " + activeStructureLabel}

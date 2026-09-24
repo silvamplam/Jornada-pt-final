@@ -73,6 +73,7 @@ export type LiveLayoutWorkspaceMemory = Readonly<{
 export type LiveLayoutWorkspaceSettings = Readonly<{
   matchdayId: string;
   faixaSlotCount: number;
+  faixaPublicTitle: string;
   headlineTitleColor: string | null;
   latestZoneMode: "latest_news" | "editorial_line";
   latestZonePlacement: "top" | "four_news" | "hidden";
@@ -236,6 +237,7 @@ function parseWorkspaceSettings(
     "created_at",
     "updated_at",
   ], [
+    "faixa_public_title",
     "roundup_video_heading",
     "video_highlight_section_title",
   ], "workspace-settings-shape-invalid");
@@ -310,6 +312,14 @@ function parseWorkspaceSettings(
   if (videoHighlightSectionTitle.length > 120) {
     return workspaceError("workspace-settings-highlight-title-invalid");
   }
+  const faixaPublicTitle = row.faixa_public_title == null
+    ? ""
+    : typeof row.faixa_public_title === "string"
+      ? row.faixa_public_title.trim()
+      : workspaceError("workspace-settings-faixa-title-invalid");
+  if (faixaPublicTitle.length > 120) {
+    return workspaceError("workspace-settings-faixa-title-invalid");
+  }
 
   return {
     matchdayId: settingsMatchdayId,
@@ -317,6 +327,7 @@ function parseWorkspaceSettings(
       row.faixa_slot_count,
       "workspace-settings-faixa-count-invalid",
     ),
+    faixaPublicTitle,
     headlineTitleColor,
     latestZoneMode,
     latestZonePlacement,

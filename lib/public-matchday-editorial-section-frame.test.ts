@@ -45,8 +45,8 @@ const horizontalStrip = source(
   "components/public/PublicHorizontalNewsStrip.tsx",
 );
 
-test("zona, Últimas e vídeo pertencem ao mesmo contrato exterior", () => {
-  assert.match(frameComponent, /kind: "zone" \| "latest" \| "video"/);
+test("zona, Últimas, vídeo e Faixa pertencem ao mesmo contrato exterior", () => {
+  assert.match(frameComponent, /kind: "zone" \| "latest" \| "video" \| "faixa"/);
   assert.match(frameComponent, /data-public-editorial-section-frame=\{kind\}/);
   assert.equal(
     flexibleZone.match(/<PublicMatchdayEditorialSectionFrame kind="zone">/g)?.length,
@@ -239,18 +239,18 @@ test("o legacy partilha uma única variável entre o gap e a compensação frame
   );
 });
 
-test("Faixa e Classificação continuam fora do frame de vídeo", () => {
+test("Faixa usa o frame comum e Classificação continua fora", () => {
   assert.match(
     page,
-    /<div className="public-matchday-editorial-region">\s*<PublicHorizontalNewsStrip/,
+    /<PublicMatchdayEditorialSectionFrame kind="faixa">[\s\S]*?<PublicHorizontalNewsStrip[\s\S]*?ownsSectionBoundary=\{false\}/,
   );
   assert.match(
     page,
     /<section className="public-matchday-panel" id="classificacao"/,
   );
-  assert.doesNotMatch(
+  assert.match(
     horizontalStrip,
-    /PublicMatchdayEditorialSectionFrame/,
+    /data-owns-section-boundary="false"[\s\S]*?margin-top: 0;[\s\S]*?padding-top: 0;[\s\S]*?border-top: 0/,
   );
 });
 

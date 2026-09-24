@@ -94,6 +94,7 @@ export type PublicMatchdayPhysicalSnapshot = Readonly<{
     slots: readonly PublicMatchdayPhysicalSpecialSlot[];
   }>;
   faixa: Readonly<{
+    publicTitle: string;
     slots: readonly PublicMatchdayPhysicalSpecialSlot[];
   }>;
   blocks: readonly PublicMatchdayPhysicalBlock[];
@@ -374,6 +375,7 @@ export function buildPublicMatchdayPhysicalSnapshot(
       ),
     },
     faixa: {
+      publicTitle: settings.faixaPublicTitle,
       slots: materializeSpecialSlots(
         settings.faixaSlotCount,
         () => "faixa",

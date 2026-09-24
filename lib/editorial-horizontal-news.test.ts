@@ -310,6 +310,6 @@ test("a faixa horizontal da Liga respeita os 1200 px da zona editorial", () => {
   );
   assert.match(
     publicMatchdayPageSource,
-    /<div className="public-matchday-editorial-region">\s*<PublicHorizontalNewsStrip/
+    /<PublicMatchdayEditorialSectionFrame kind="faixa">\s*<PublicHorizontalNewsStrip/
   );
 });
