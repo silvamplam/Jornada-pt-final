@@ -35,6 +35,7 @@ export type EditorialDossierProductionArticlePlanRow = Readonly<{
   destination: string;
   update_target_editorial_article_id: string | null;
   image_choice: string;
+  classification_key: string | null;
   dossier_image_id: string | null;
   editorial_article_id: string | null;
   editorial_profile_id: string | null;
@@ -104,7 +105,7 @@ export function createEditorialDossierProductionReadSession(
     )),
     articlePlanRows: once(() => readAllRows<EditorialDossierProductionArticlePlanRow>(
       "newsroom_editorial_dossier_article_plans"
-      + "?select=id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,destination,update_target_editorial_article_id,image_choice,dossier_image_id,editorial_article_id,editorial_profile_id,editorial_profile_version_id,editorial_profile_pinned_at,created_at,updated_at"
+      + "?select=id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,destination,update_target_editorial_article_id,image_choice,dossier_image_id,classification_key,editorial_article_id,editorial_profile_id,editorial_profile_version_id,editorial_profile_pinned_at,created_at,updated_at"
       + `&dossier_id=eq.${encodedDossierId}`
       + "&order=sort_order.asc,id.asc",
     )),

@@ -316,7 +316,6 @@ export function mesaPreparationPayload(
     || title.length < 1
     || title.length > 180
     || buffer.sources.length + (buffer.dossiers?.length ?? 0) < 1
-    || buffer.sources.some((selection) => selection.classificationKey === null)
     || buffer.sources.some((selection) => selection.newsroomSnapshotId === null)
   ) return null;
 
@@ -390,7 +389,7 @@ export function mesaContextPreparationPayload(
     || !isUuid(buffer.preparationKey)
     || title.length < 1
     || title.length > 180
-    || buffer.sources.some((source) => source.classificationKey === null || source.newsroomSnapshotId === null)
+    || buffer.sources.some((source) => source.newsroomSnapshotId === null)
     || themes.some((theme) => !isThemeSelection(theme))
     || (buffer.dossiers?.length ?? 0) > 0
     || (buffer.sources.length === 0 && themes.length === 0)

@@ -703,15 +703,46 @@
 }
 
 .classificationBadge {
-  color: #2a4a34;
-  background: #e4eee5;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: #e2e8f0;
+  color: #000;
 }
 
 .classificationBadge[data-tone="unclassified"] {
-  border: 1px solid #deb63e;
-  color: #604000;
-  background: #fff0b8;
-  box-shadow: 0 0 0 2px rgb(222 182 62 / 13%);
+  background: #FDE047;
+  color: #000;
+}
+
+.classificationBadge[data-tone="benfica"] {
+  border: 1px solid transparent;
+  background: #EF4444;
+  color: #000;
+}
+
+.classificationBadge[data-tone="sporting"] {
+  border: 1px solid transparent;
+  background: #15803D;
+  color: #fff;
+}
+
+.classificationBadge[data-tone="fc_porto"] {
+  border: 1px solid transparent;
+  background: #1D4ED8;
+  color: #fff;
+}
+
+.classificationBadge[data-tone="other_liga_clubs"] {
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+}
+
+.classificationBadge[data-tone="outside_liga_other"] {
+  border: 1px solid transparent;
+  background: #E2E8F0;
+  color: #000;
 }
 
 .classificationBadge small {

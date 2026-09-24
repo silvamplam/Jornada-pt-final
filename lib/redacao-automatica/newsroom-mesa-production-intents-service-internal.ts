@@ -6,6 +6,10 @@ import {
   parseMesaProductionIntents, parseMesaProductionIntentsPreview, parseMesaIntentLatestReceipts,
   parseMesaIntentLatestArticleReceipts, sameMesaIntentJson, type MesaProductionIntentsFrozen,
 } from "./newsroom-mesa-production-intents-contract";
+import {
+  isArticleClassificationKey,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
 
 export type MesaIntentRpcTransport = Readonly<{
   post: (name: string, args: Readonly<Record<string, unknown>>) => Promise<readonly unknown[]>;
@@ -14,7 +18,7 @@ export type MesaIntentRpcTransport = Readonly<{
 export type MesaIntentPublicationArticle = Readonly<{
   id: string; slug: string; label: string; title: string; subtitle: string; body: string;
   imageUrl: string | null; author: string; publishedAt: string; matchdayId: string | null;
-  mode: "create" | "update";
+  mode: "create" | "update"; classificationKey: ArticleClassificationKey;
 }>;
 const object = (v: unknown): Record<string, unknown> | null => v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : null;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -67,13 +71,15 @@ export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) 
       const p=frozen(input.plan), a=input.article, o=p.outputs.find((o) => o.outputId === input.outputId);
       if (!o || !id(input.packageId) || !id(a.id) || !input.dossierSourceIds.length || input.dossierSourceIds.length>20
         || !input.dossierSourceIds.every(id) || new Set(input.dossierSourceIds).size !== input.dossierSourceIds.length
+        || !isArticleClassificationKey(a.classificationKey)
         || (o.kind === "existing" ? a.mode !== "update" || a.id !== o.target!.editorialArticleId
           || a.slug !== o.target!.slug || a.matchdayId !== o.target!.matchdayId : a.mode !== "create" || !id(a.matchdayId))) {
         throw new Error("mesa-intent-publication-input-invalid");
       }
-      const row=single(await transport.post("newsroom_publish_mesa_intent_output_v1", {
+      const row=single(await transport.post("newsroom_publish_mesa_intent_output_v2", {
         p_dossier_id:p.dossierId,p_output_id:o.outputId,p_package_id:input.packageId,
         p_dossier_source_ids:input.dossierSourceIds,p_article:a,
+        p_classification_key:a.classificationKey,
       }));
       if (!row || row.editorial_article_id !== a.id || row.article_slug !== a.slug
         || !["created","updated","reused"].includes(String(row.publication_action)) || typeof row.consolidated !== "boolean") {

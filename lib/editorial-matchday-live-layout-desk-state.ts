@@ -477,15 +477,24 @@ function commitSnapshot(
   const nextHeadlineBankItemId = nextValue.placements.find(
     (placement) => placement.placementType === "opening" && placement.slotPosition === 1,
   )?.bankItemId ?? null;
-  const nextValueWithHeadlineColor = previousHeadlineBankItemId === nextHeadlineBankItemId
+  const previousHeadlineClassificationKey = state.current.bankItems.find(
+    (item) => item.id === previousHeadlineBankItemId,
+  )?.classification?.key ?? null;
+  const nextHeadlineClassificationKey = nextValue.bankItems.find(
+    (item) => item.id === nextHeadlineBankItemId,
+  )?.classification?.key ?? null;
+  const headlineAuthorityChanged = (
+    previousHeadlineBankItemId !== nextHeadlineBankItemId
+    || previousHeadlineClassificationKey !== nextHeadlineClassificationKey
+  );
+  const nextValueWithHeadlineColor = !headlineAuthorityChanged
     ? nextValue
     : {
         ...nextValue,
         presentation: {
           ...nextValue.presentation,
           headlineTitleColor: headlineTitleColorForClassification(
-            nextValue.bankItems.find((item) => item.id === nextHeadlineBankItemId)
-              ?.classification?.key ?? null,
+            nextHeadlineClassificationKey,
           ),
         },
       };

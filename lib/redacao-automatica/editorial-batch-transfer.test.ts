@@ -9,6 +9,7 @@ import {
 const PACKAGE_ID = "91000000-0000-4000-8000-000000000001";
 const MATCHDAY_ID = "92000000-0000-4000-8000-000000000001";
 const OUTPUT_ID = "93000000-0000-4000-8000-000000000001";
+const OUTPUT_ID_B = "93000000-0000-4000-8000-000000000002";
 const SOURCE_ID = "94000000-0000-4000-8000-000000000001";
 const SOURCE_ID_B = "94000000-0000-4000-8000-000000000002";
 const IMAGE_ID = "95000000-0000-4000-8000-000000000001";
@@ -186,6 +187,38 @@ test("a transferência Mesa v2 conserva o contrato fechado do package", () => {
   assert.equal(preflight.ready, true);
   assert.equal(preflight.total, 1);
   assert.equal(preflight.articles[0].outputId, OUTPUT_ID);
+});
+
+test("sugestões de classificação do package podem estar ausentes ou ser parciais", () => {
+  const base = {
+    year: "2026",
+    month: "09",
+    packageId: PACKAGE_ID,
+    batchContract: {
+      manifestVersion: 5,
+      provenanceContract: "mesa-v2",
+      workspaceContractVersion: 2,
+      outputIds: [OUTPUT_ID, OUTPUT_ID_B],
+      sourceIds: [SOURCE_ID],
+    },
+  };
+
+  const absent = parseEditorialBatchTransferSourcePackage(JSON.stringify(base));
+  assert.ok(absent?.batchContract);
+  assert.equal(absent.classificationsByOutputId, undefined);
+
+  const partial = parseEditorialBatchTransferSourcePackage(JSON.stringify({
+    ...base,
+    classificationsByOutputId: { [OUTPUT_ID]: "benfica" },
+  }));
+  assert.deepEqual(partial?.classificationsByOutputId, { [OUTPUT_ID]: "benfica" });
+
+  assert.equal(parseEditorialBatchTransferSourcePackage(JSON.stringify({
+    ...base,
+    classificationsByOutputId: {
+      "93000000-0000-4000-8000-000000000003": "sporting",
+    },
+  })), null);
 });
 
 test("Mesa v2 sem OUTPUT_ID ou FONTES_UTILIZADAS bloqueia sem downgrade histórico", () => {

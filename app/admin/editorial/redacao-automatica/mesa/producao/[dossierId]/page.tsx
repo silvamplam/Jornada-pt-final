@@ -15,6 +15,9 @@ import {
 import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
 import { readMesaNewOutputGrouping } from "@/lib/redacao-automatica/newsroom-mesa-new-output-groups-repository";
 import type { MesaNewOutputGrouping } from "@/lib/redacao-automatica/newsroom-mesa-new-output-groups";
+import {
+  getNewsroomArticleClassificationsByIds,
+} from "@/lib/redacao-automatica/newsroom-article-classification-repository";
 
 import {
   MesaProductionWorkspaceClient,
@@ -61,6 +64,23 @@ export default async function ProductionWorkspacePage({
     organizationReadable,
   } = productionResult.value;
   const context = production.mesaContext;
+  const sourceClassifications = await getNewsroomArticleClassificationsByIds(
+    dossier.sources.map((source) => source.newsroomArticleId),
+  );
+  if (!sourceClassifications.ok) {
+    return <ReadError message="Não foi possível ler as classificações manuais das fontes desta Produção." />;
+  }
+  const classificationByArticleId = new Map(
+    dossier.sources.map((source, index) => {
+      const state = sourceClassifications.value[index];
+      return [
+        source.newsroomArticleId,
+        state?.status === "classified"
+          ? state.classification.classificationKey
+          : null,
+      ] as const;
+    }),
+  );
   const themeContinuity = parseThemeContinuityFrozenContract(context?.selectionPayload);
   const rawIntents = context?.selectionPayload && typeof context.selectionPayload === "object"
     ? (context.selectionPayload as Record<string, unknown>).productionIntents : undefined;
@@ -235,6 +255,7 @@ export default async function ProductionWorkspacePage({
             title: source.articleTitle,
             sourceLabel: sourceNames.get(source.sourceCode) ?? source.sourceCode,
             included: source.included,
+            classificationKey: classificationByArticleId.get(source.newsroomArticleId) ?? null,
           }))}
           publishedContexts={production.publishedContexts}
           images={production.images}

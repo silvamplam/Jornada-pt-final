@@ -7,9 +7,6 @@ import {
   type PrepareEditorialDossierWorkspaceInput,
 } from "@/lib/redacao-automatica/editorial-dossier-production-workspace-service";
 import {
-  getNewsroomArticleClassificationsByIds,
-} from "@/lib/redacao-automatica/newsroom-article-classification-repository";
-import {
   validateOperationalDeskCycleSourceIds,
 } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
 
@@ -403,10 +400,9 @@ export async function POST(request: Request) {
         code: "preparation_conflict", message: detail.includes("context-limit")
           ? "O conjunto ultrapassa os 20 artigos de contexto aceites pelo serviço existente. Não foi cortado nem dividido nenhum Dossiê."
           : "Um artigo de contexto do Dossiê já não está publicado. A seleção e as produções anteriores foram preservadas." }, { status: 409 });
-      const conflict = /conflict|stale|prepared-before-v2|classification-required|theme-unavailable/.test(detail);
+      const conflict = /conflict|stale|prepared-before-v2|theme-unavailable/.test(detail);
       return NextResponse.json({ ok: false, code: conflict ? "preparation_conflict" : "prepare_failed",
-        message: detail.includes("classification-required") ? "Há fontes por classificar no conjunto. Nenhuma produção foi alterada."
-          : conflict ? "A seleção contém versões incompatíveis, alteradas ou uma preparação anterior. A seleção e as produções existentes foram preservadas."
+        message: conflict ? "A seleção contém versões incompatíveis, alteradas ou uma preparação anterior. A seleção e as produções existentes foram preservadas."
           : "A preparação não foi concluída. Confirma a instalação da correção de grupos v2; a seleção foi preservada." },
       { status: conflict ? 409 : 502 });
     }
@@ -424,30 +420,6 @@ export async function POST(request: Request) {
         ? "Não foi possível confirmar as fontes do ciclo operacional da Mesa."
         : "A preparação contém uma fonte que não pertence ao ciclo operacional da Mesa.",
     }, { status: cycleValidation.code === "read_unavailable" ? 503 : 400 });
-  }
-
-  const classifications = await getNewsroomArticleClassificationsByIds(
-    newsroomArticleIds,
-  );
-  if (!classifications.ok) {
-    return NextResponse.json({
-      ok: false,
-      code: classifications.error.code,
-      message: classifications.error.message,
-    }, { status: classifications.error.code === "not_configured" ? 503 : 502 });
-  }
-  const unclassifiedIds = classifications.value.flatMap((state, index) => (
-    state.status === "unclassified" ? [newsroomArticleIds[index]] : []
-  ));
-  if (unclassifiedIds.length > 0) {
-    return NextResponse.json({
-      ok: false,
-      code: "classification_required",
-      message: unclassifiedIds.length === 1
-        ? "A fonte selecionada está POR CLASSIFICAR. Classifica-a antes de preparar a produção."
-        : `${unclassifiedIds.length} fontes selecionadas estão POR CLASSIFICAR. Classifica-as antes de preparar a produção.`,
-      newsroomArticleIds: unclassifiedIds,
-    }, { status: 409 });
   }
 
   const result = await prepareEditorialDossierWorkspace(input);

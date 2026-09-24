@@ -18,6 +18,7 @@ import {
 } from "@/lib/redacao-automatica/editorial-dossier-article-plan-service-internal";
 import type { EditorialDossierArticlePlanStatus } from "@/lib/redacao-automatica/editorial-dossier-article-plan-repository";
 import type { EditorialSourcePackageArticlePlan } from "@/lib/redacao-automatica/editorial-source-package-internal";
+import type { ArticleClassificationKey } from "@/lib/editorial-classifications";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -491,6 +492,7 @@ export async function publishEditorialMesaOutput(input: Readonly<{
     publishedAt: string;
     matchdayId: string | null;
     mode: "create" | "update";
+    classificationKey: ArticleClassificationKey;
   }>;
 }>): Promise<PublishEditorialMesaOutputResult> {
   try {
@@ -506,7 +508,7 @@ export async function publishEditorialMesaOutput(input: Readonly<{
       article_slug: string;
       publication_action: "created" | "updated" | "reused";
       consolidated: boolean;
-    }>("rpc/newsroom_publish_mesa_output_v2", {
+    }>("rpc/newsroom_publish_mesa_output_v3", {
       method: "POST",
       body: JSON.stringify({
         p_dossier_id: input.dossierId,
@@ -514,6 +516,7 @@ export async function publishEditorialMesaOutput(input: Readonly<{
         p_package_id: input.packageId,
         p_dossier_source_ids: input.dossierSourceIds,
         p_article: input.article,
+        p_classification_key: input.article.classificationKey,
       }),
     });
     const row = rows[0];

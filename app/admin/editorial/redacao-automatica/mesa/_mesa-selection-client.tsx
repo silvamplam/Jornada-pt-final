@@ -929,13 +929,10 @@ export function MesaSelectionTray({
   const distinctSources = new Set([...buffer.sources.map((row) => row.newsroomArticleId),
     ...selectedThemes.flatMap((theme) => theme.sources.map((ref) => ref.newsroomArticleId)),
     ...dossiers.flatMap((row) => row.sources.map((ref) => ref.newsroomArticleId))]).size;
-  const unclassifiedCount = buffer.sources.filter(
-    (source) => source.classificationKey === null,
-  ).length;
   const missingSnapshotCount = buffer.sources.filter(
     (source) => source.newsroomSnapshotId === null,
   ).length;
-  const selectionBlocked = unclassifiedCount > 0 || missingSnapshotCount > 0 || !payload;
+  const selectionBlocked = missingSnapshotCount > 0 || !payload;
 
   async function classifySelection() {
     if (!classificationBatchAvailable || !batchClassificationKey) return;
@@ -1012,9 +1009,7 @@ export function MesaSelectionTray({
             ? "Indica um título de trabalho para a produção."
           : dossiers.length > 0 && !payload
             ? "Há versões diferentes da mesma fonte na seleção. A preparação foi bloqueada; nenhum Dossiê foi dividido ou alterado."
-          : unclassifiedCount > 0
-            ? "Resolve as fontes POR CLASSIFICAR antes de preparar a producao."
-            : missingSnapshotCount > 0
+          : missingSnapshotCount > 0
               ? "Aguarda um snapshot elegivel para todas as fontes selecionadas."
             : "Indica um titulo de trabalho para a producao.",
       );
@@ -1391,15 +1386,12 @@ export function MesaSelectionTray({
       {discardErrors.storage ? <p className={styles.selectionMessage} role="alert">{discardErrors.storage}</p> : null}
       {!sourceThemeActions && selectionBlocked ? (
         <p className={styles.classificationBlock} role="alert">
-          {unclassifiedCount > 0
-            ? `${unclassifiedCount} sem classificar. `
-            : ""}
           {missingSnapshotCount > 0
             ? `${missingSnapshotCount} sem snapshot elegivel. `
             : ""}
           {distinctSources > MESA_MAX_NEWSROOM_SOURCES ? `O motor aceita até ${MESA_MAX_NEWSROOM_SOURCES} fontes por produção. ` : ""}
           {!buffer.title.trim() ? "Indica um título de trabalho. " : ""}
-          {buffer.title.trim() && dossiers.length > 0 && !payload && distinctSources <= MESA_MAX_NEWSROOM_SOURCES && !unclassifiedCount && !missingSnapshotCount
+          {buffer.title.trim() && dossiers.length > 0 && !payload && distinctSources <= MESA_MAX_NEWSROOM_SOURCES && !missingSnapshotCount
             ? "Conflito de versões: há snapshots diferentes da mesma fonte. " : ""}
           A seleção permanece; organizar em Tema não divide nem altera os Dossiês.
         </p>

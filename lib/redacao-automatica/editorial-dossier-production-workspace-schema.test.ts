@@ -223,7 +223,7 @@ test("serviços usam só as três RPCs e readers paginam relações em lote", ()
   assert.match(service, /^import "server-only";/);
   assert.match(repository, /^import "server-only";/);
   assert.match(service, /rpc\/newsroom_prepare_editorial_dossier_workspace_v1/);
-  assert.match(service, /rpc\/newsroom_save_dossier_article_plan_state_v1/);
+  assert.match(service, /rpc\/newsroom_save_dossier_article_plan_state_v2/);
   assert.match(service, /rpc\/newsroom_add_dossier_upload_image_v1/);
   assert.doesNotMatch([service, internal].join("\n"), /openai|anthropic|gemini|source-package/i);
   assert.match(repository, /while \(true\)/);

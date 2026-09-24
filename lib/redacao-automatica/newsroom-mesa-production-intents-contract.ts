@@ -8,10 +8,14 @@ import {
   type MesaIntentContext, type MesaIntentOutput, type MesaSourceCapture,
   type MesaPublishedArticleAuthority, type MesaArticleCaptureReceipt,
 } from "./newsroom-mesa-production-intents";
+import {
+  isArticleClassificationKey,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
 
 export type MesaIntentCapturedSource = MesaSourceCapture & Readonly<{
   contentFingerprint: string; snapshotFingerprint: string;
-  usable: true; classificationKey: string;
+  usable: true; classificationKey?: ArticleClassificationKey;
 }>;
 export type MesaIntentCapturedArticle = MesaPublishedArticleAuthority & Readonly<{
   article: Readonly<Record<string, unknown>> & Readonly<{
@@ -63,7 +67,8 @@ export function sameMesaIntentJson(a: unknown, b: unknown): boolean {
 function capturedSource(value: unknown): value is MesaIntentCapturedSource {
   const s = object(value);
   return Boolean(s && id(s.newsroomArticleId) && id(s.newsroomSnapshotId) && date(s.capturedAt)
-    && hash(s.contentFingerprint) && hash(s.snapshotFingerprint) && s.usable === true && text(s.classificationKey));
+    && hash(s.contentFingerprint) && hash(s.snapshotFingerprint) && s.usable === true
+    && (s.classificationKey === undefined || isArticleClassificationKey(s.classificationKey)));
 }
 function capturedArticle(value: unknown): value is MesaIntentCapturedArticle {
   const v = object(value), a = object(v?.article), evidence = object(v?.evidence);
