@@ -52,7 +52,7 @@ test("bulk actions are grouped by clear destinations", () => {
   assert.equal(toolbar.includes("Automatico"), false);
 });
 
-test("a barra superior contém apenas as cinco ferramentas administrativas", () => {
+test("a barra superior agrupa as cinco ferramentas administrativas e o Modo foco", () => {
   const globalToolsStart = source.indexOf('className="thematic-global-tools"');
   const workspaceStart = source.indexOf('className={`thematic-desk-grid', globalToolsStart);
   const toolbar = source.slice(globalToolsStart, workspaceStart);
@@ -75,8 +75,15 @@ test("a barra superior contém apenas as cinco ferramentas administrativas", () 
   assert.doesNotMatch(toolbar, /notícias? selecionadas?/u);
   assert.doesNotMatch(toolbar, /Controlos de seleção/u);
   assert.doesNotMatch(source, /thematic-selection-controls/u);
-  assert.match(source, /\.thematic-global-tools \{[^}]*grid-template-columns: repeat\(4, max-content\)/u);
-  assert.doesNotMatch(source, /\.thematic-global-tools \{[^}]*minmax\(0,\s*1fr\)/u);
+  assert.equal((toolbar.match(/>\s*Modo foco\s*<\/button>/gu) ?? []).length, 1);
+  assert.match(
+    source,
+    /\.thematic-global-tools \{[^}]*grid-template-columns: repeat\(4, max-content\) minmax\(0, 1fr\)/u,
+  );
+  assert.match(
+    source,
+    /\.thematic-global-tools > \.thematic-focus-entry \{[^}]*justify-self: end[^}]*margin-left: 12px/u,
+  );
   assert.match(source, /\.thematic-global-actions \{[^}]*justify-content: flex-start/u);
   assert.doesNotMatch(source, /\.thematic-global-actions \{[^}]*justify-content: flex-end/u);
   assert.doesNotMatch(source, /\.thematic-global-actions \{[^}]*flex: 1 1 100%/u);
