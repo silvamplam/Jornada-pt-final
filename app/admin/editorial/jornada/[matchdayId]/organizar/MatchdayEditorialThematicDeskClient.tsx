@@ -57,7 +57,7 @@ import {
   movePhysicalDeskItemToDisplaced,
   movePhysicalDeskItemToFaixaTop,
   movePhysicalDeskItemToSlot,
-  movePhysicalDeskZone,
+  movePhysicalDeskRailBlock,
   physicalDeskFaixaSlots,
   physicalDeskHasChanges,
   physicalDeskPlacementForBankItem,
@@ -768,8 +768,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [openingVisible, setOpeningVisible] = useState(false);
   const [activeWorkspaceVisible, setActiveWorkspaceVisible] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
-  const [selectedReorderZoneId, setSelectedReorderZoneId] =
-    useState<LiveLayoutZoneId | null>(null);
+  const [selectedReorderBlockId, setSelectedReorderBlockId] =
+    useState<PageStructureBlock["id"] | null>(null);
   const [newZoneFormOpen, setNewZoneFormOpen] = useState(false);
   const [newZoneTitle, setNewZoneTitle] = useState("");
   const [newZoneVisualFamily, setNewZoneVisualFamily] =
@@ -832,6 +832,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     [current.zones],
   );
   const orderedZoneBlocks = current.blocks.filter((block) => block.kind === "zone");
+  const railOrderBlocks = current.blocks.filter(
+    (block): block is PageStructureBlock => (
+      block.kind === "zone" || block.kind === "video"
+    ),
+  );
   const pageStructureBlocks = current.blocks.filter(
     (block): block is PageStructureBlock => block.kind !== "latest",
   );
@@ -839,8 +844,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     const zone = zoneById.get(block.zoneId);
     return zone ? [zone] : [];
   });
-  const selectedReorderZoneIndex = orderedZoneBlocks.findIndex(
-    (block) => block.zoneId === selectedReorderZoneId,
+  const selectedReorderBlockIndex = railOrderBlocks.findIndex(
+    (block) => block.id === selectedReorderBlockId,
   );
   const latestDestination = resolveMatchdayLatestPlacement(
     current.presentation.latestZonePlacement,
@@ -899,13 +904,16 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   useEffect(() => {
     if (
-      selectedReorderZoneId === null
-      || zoneById.has(selectedReorderZoneId)
+      selectedReorderBlockId === null
+      || current.blocks.some((block) => (
+        block.id === selectedReorderBlockId
+        && (block.kind === "zone" || block.kind === "video")
+      ))
     ) {
       return;
     }
-    setSelectedReorderZoneId(null);
-  }, [selectedReorderZoneId, zoneById]);
+    setSelectedReorderBlockId(null);
+  }, [current.blocks, selectedReorderBlockId]);
 
   function effectiveItem(bankItemId: string, sortOrder: number | null = null): MatchdayEditorialProfileEffectiveItem {
     const bankItem = bankItemById.get(bankItemId);
@@ -1017,7 +1025,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (!nextState) return;
 
     setDeleteZoneId(null);
-    if (selectedReorderZoneId === zoneId) setSelectedReorderZoneId(null);
+    const deletedBlock = physicalDesk.current.blocks.find((block) => (
+      block.kind === "zone" && block.zoneId === zoneId
+    ));
+    if (selectedReorderBlockId === deletedBlock?.id) {
+      setSelectedReorderBlockId(null);
+    }
 
     if (activeWorkspaceKey === zoneId) {
       const nextZoneBlock = nextState.current.blocks.find(
@@ -1035,13 +1048,22 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     setPhysicalDesk((state) => selectPhysicalDeskItems(state, bankItemIds));
   }
 
-  function moveSelectedZone(direction: "up" | "down") {
-    if (selectedReorderZoneId === null) return;
-    const zone = zoneById.get(selectedReorderZoneId);
-    if (!zone) return;
+  function moveSelectedRailBlock(direction: "up" | "down") {
+    if (selectedReorderBlockId === null) return;
+    const block = railOrderBlocks.find(
+      (candidate) => candidate.id === selectedReorderBlockId,
+    );
+    if (!block) return;
+    const label = block.kind === "video"
+      ? "Destaque"
+      : zoneById.get(block.zoneId)?.publicTitle || "Zona sem título";
     runPhysicalOperation(
-      (state) => movePhysicalDeskZone(state, selectedReorderZoneId, direction),
-      `${zone.publicTitle || "Zona sem título"}: ordem alterada.`,
+      (state) => movePhysicalDeskRailBlock(
+        state,
+        selectedReorderBlockId,
+        direction,
+      ),
+      `${label}: ordem alterada.`,
     );
   }
 
@@ -1697,25 +1719,25 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           </button>
         ) : null}
         <div className="thematic-zone-rail-heading">
-          <span>Zonas</span>
-          <span>{orderedZoneBlocks.length}</span>
+          <span>Zonas / ordem editorial</span>
+          <span>{railOrderBlocks.length}</span>
         </div>
         <nav className="thematic-zone-list" aria-label="Lista vertical de zonas">
-          {orderedZoneBlocks.map((block) => {
-            const zone = zoneById.get(block.zoneId);
-            if (!zone) return null;
-            const zoneLabel = zone.publicTitle || "Zona sem título";
+          {railOrderBlocks.map((block) => {
+            const workspaceKey = workspaceKeyForBlock(block);
+            const label = blockLabel(block);
+            if (block.kind === "zone" && !zoneById.has(block.zoneId)) return null;
             return (
               <div
-                className={`thematic-zone-row${activeWorkspaceKey === zone.id ? " active" : ""}`}
-                key={zone.id}
+                className={`thematic-zone-row${activeWorkspaceKey === workspaceKey ? " active" : ""}`}
+                key={block.id}
               >
                 <label className="thematic-zone-select">
                   <input
-                    aria-label={`Selecionar ${zoneLabel} para mover`}
-                    checked={selectedReorderZoneId === zone.id}
-                    onChange={(event) => setSelectedReorderZoneId(
-                      event.target.checked ? zone.id : null,
+                    aria-label={`Selecionar ${label} para mover`}
+                    checked={selectedReorderBlockId === block.id}
+                    onChange={(event) => setSelectedReorderBlockId(
+                      event.target.checked ? block.id : null,
                     )}
                     type="checkbox"
                   />
@@ -1723,39 +1745,39 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 <button
                   className="thematic-zone-focus"
                   onClick={() => {
-                    setActiveWorkspaceKey(zone.id);
+                    setActiveWorkspaceKey(workspaceKey);
                     setActiveWorkspaceVisible(true);
                   }}
                   type="button"
                 >
-                  <strong>{zoneLabel}</strong>
+                  <strong>{label}</strong>
                   <small>{blockCount(block)}</small>
                 </button>
               </div>
             );
           })}
         </nav>
-        <div className="thematic-zone-move-controls" aria-label="Mover zona selecionada">
+        <div className="thematic-zone-move-controls" aria-label="Mover item selecionado">
           <button
-            aria-label="Subir zona selecionada"
+            aria-label="Subir item selecionado"
             disabled={
               mutationBlocked
-              || selectedReorderZoneIndex <= 0
+              || selectedReorderBlockIndex <= 0
             }
-            onClick={() => moveSelectedZone("up")}
+            onClick={() => moveSelectedRailBlock("up")}
             type="button"
           >
             <span aria-hidden="true">↑</span>
             Subir
           </button>
           <button
-            aria-label="Descer zona selecionada"
+            aria-label="Descer item selecionado"
             disabled={
               mutationBlocked
-              || selectedReorderZoneIndex < 0
-              || selectedReorderZoneIndex >= orderedZoneBlocks.length - 1
+              || selectedReorderBlockIndex < 0
+              || selectedReorderBlockIndex >= railOrderBlocks.length - 1
             }
-            onClick={() => moveSelectedZone("down")}
+            onClick={() => moveSelectedRailBlock("down")}
             type="button"
           >
             <span aria-hidden="true">↓</span>
@@ -1772,16 +1794,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             type="button"
           >
             Faixa · {faixaPlacements.length}
-          </button>
-          <button
-            className={activeWorkspaceKey === "highlight" ? "active" : ""}
-            onClick={() => {
-              setActiveWorkspaceKey("highlight");
-              setActiveWorkspaceVisible(true);
-            }}
-            type="button"
-          >
-            Destaque · {highlightPlacement ? 1 : 0}/1
           </button>
         </div>
       </aside>

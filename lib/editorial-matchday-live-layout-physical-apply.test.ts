@@ -10,6 +10,7 @@ import {
   deletePhysicalDeskZone,
   movePhysicalDeskItemToDisplaced,
   movePhysicalDeskItemToSlot,
+  movePhysicalDeskRailBlock,
 } from "./editorial-matchday-live-layout-desk-state";
 import {
   buildPhysicalDeskApplyPayload,
@@ -129,6 +130,41 @@ test("serializer usa token físico e conserva IDs reais de zonas e blocks", () =
       /latestZoneMode|latestZoneTitleColor|latest_zone_mode|latest_zone_title_color/,
     );
   }
+});
+
+test("serializer mantém o video reordenado e todo o seu conteúdo físico", () => {
+  const initial = createPhysicalDeskState(workspace(3));
+  const videoBlock = initial.current.blocks.find((block) => block.kind === "video");
+  const latestBlock = initial.current.blocks.find((block) => block.kind === "latest");
+  const zoneBlocks = initial.current.blocks.filter((block) => block.kind === "zone");
+  assert.ok(videoBlock && latestBlock);
+  const targetZoneBlock = zoneBlocks.at(-1);
+  assert.ok(targetZoneBlock);
+
+  const moved = movePhysicalDeskRailBlock(initial, videoBlock.id, "up");
+  const payload = buildPhysicalDeskApplyPayload("liga_portugal_v1", moved);
+  const serializedVideo = payload.blocks.find((block) => block.id === videoBlock.id);
+  const serializedTarget = payload.blocks.find((block) => block.id === targetZoneBlock.id);
+  const serializedLatest = payload.blocks.find((block) => block.id === latestBlock.id);
+
+  assert.equal(serializedVideo?.blockType, "video");
+  assert.equal(serializedVideo?.zoneId, null);
+  assert.equal(serializedVideo?.sortOrder, targetZoneBlock.sortOrder);
+  assert.equal(serializedTarget?.sortOrder, videoBlock.sortOrder);
+  assert.equal(serializedLatest?.sortOrder, latestBlock.sortOrder);
+  assert.deepEqual(payload.placements, initial.current.placements.map((placement) => ({
+    bankItemId: placement.bankItemId,
+    placementType: placement.placementType,
+    zoneId: placement.zoneId,
+    slotPosition: placement.slotPosition,
+  })));
+  assert.equal(
+    payload.placements.find(
+      (placement) => placement.placementType === "video_highlight",
+    )?.bankItemId,
+    id(40, 5),
+  );
+  assert.equal(payload.presentation.video_module_active, true);
 });
 
 test("serializer rejeita selection retirado da arquitetura física", () => {
