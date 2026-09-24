@@ -1632,13 +1632,19 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
               </button>
               <button
                 className="thematic-button"
-                disabled={visibleCandidateEntries.length === 0}
-                onClick={() => selectItems(
-                  visibleCandidateEntries.map((entry) => entry.bankItemId),
-                )}
+                disabled={selected.size === 0 && visibleCandidateEntries.length === 0}
+                onClick={() => {
+                  if (selected.size > 0) {
+                    selectItems([]);
+                    return;
+                  }
+                  selectItems(
+                    visibleCandidateEntries.map((entry) => entry.bankItemId),
+                  );
+                }}
                 type="button"
               >
-                Selecionar visíveis
+                {selected.size > 0 ? "Limpar" : "Selecionar visíveis"}
               </button>
             </div>
           </div>
