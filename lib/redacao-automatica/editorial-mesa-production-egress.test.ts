@@ -117,7 +117,8 @@ test("upload e save atualizam o estado local sem refresh integral", () => {
   assert.match(client, /setWorkspaceImages\(\(current\)/);
   assert.match(client, /existing\s*\? current\.map/);
   assert.match(client, /setPersistedOutputCount\(result\.outputCount\)/);
-  assert.match(client, /\(frozenSlots \? frozenSlots\.length : persistedOutputCount\) !== effectiveOutputCount/);
+  assert.match(client, /persistedOutputCount: frozenSlots \? frozenSlots\.length : persistedOutputCount/);
+  assert.match(client, /outputCount: effectiveOutputCount/);
   assert.match(client, /action:\s*"save_article_plans_batch"/);
   assert.doesNotMatch(client, /action:\s*"update_output_count"/);
   assert.match(route, /image:\s*\{[\s\S]*?dossierImageId[\s\S]*?storageBucket[\s\S]*?storagePath[\s\S]*?fileName/);

@@ -50,11 +50,15 @@ import { NewOutputGroupingPlanner } from "./_new-output-grouping";
 import type { ArticleClassificationKey } from "@/lib/editorial-classifications";
 import {
   articlePlanAssignedClassificationSourceIds,
-  parseArticlePlanClassificationDecision,
-  resolveArticlePlanClassification,
+  type ArticlePlanClassificationDecision,
   type ArticlePlanClassificationSource,
 } from "@/lib/redacao-automatica/article-plan-classification";
 import { ArticlePlanClassificationEditor } from "./_article-plan-classification";
+import {
+  confirmedProductionClassifications,
+  productionClassificationNeedsSave,
+  productionPackageDisabled,
+} from "./_production-package-state";
 type WorkspaceContinuitySlot = ThemeContinuitySlot | ReturnType<typeof mesaProductionIntentSlots>[number];
 import styles from "./workspace.module.css";
 
@@ -1072,6 +1076,9 @@ export function MesaProductionWorkspaceClient({
   const effectiveCardCapacity = frozenSlots?.length ?? editableCardCapacity;
   const [productionContextOverrides, setProductionContextOverrides] = useState<Record<string, string>>({});
   const [savedPlanIds, setSavedPlanIds] = useState<Record<string, string>>({});
+  const [confirmedClassifications, setConfirmedClassifications] = useState<
+    Record<string, ArticlePlanClassificationDecision>
+  >({});
   const [savingProduction, setSavingProduction] = useState(false);
   const savingProductionRef = useRef(false);
   const [productionMessage, setProductionMessage] = useState("");
@@ -1199,20 +1206,20 @@ export function MesaProductionWorkspaceClient({
     };
   });
   const visibleCards = cards.slice(0, effectiveOutputCount);
-  const classificationNeedsSave = visibleCards.some((card) => {
-    const derived = resolveArticlePlanClassification(card.plan, card.assignedClassificationSourceIds, classificationSources);
-    const stored = parseArticlePlanClassificationDecision(card.plan?.classificationKey, card.plan?.classificationMode);
-    return derived.classificationKey !== stored?.classificationKey
-      || derived.classificationMode !== stored?.classificationMode;
-  });
+  const classificationNeedsSave = productionClassificationNeedsSave(
+    visibleCards, classificationSources, confirmedClassifications,
+  );
   const allPlansPersisted = visibleCards.every(
     (card) => Boolean(card.plan?.id || savedPlanIds[card.key]),
   );
-  const packageDisabled = savingProduction
-    || dirty
-    || classificationNeedsSave
-    || !allPlansPersisted
-    || (frozenSlots ? frozenSlots.length : persistedOutputCount) !== effectiveOutputCount;
+  const packageDisabled = productionPackageDisabled({
+    saving: savingProduction,
+    dirty,
+    classificationNeedsSave,
+    allPlansPersisted,
+    persistedOutputCount: frozenSlots ? frozenSlots.length : persistedOutputCount,
+    outputCount: effectiveOutputCount,
+  });
 
   async function saveProduction(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1297,10 +1304,12 @@ export function MesaProductionWorkspaceClient({
         nextSavedPlanIds[output.clientKey] = output.articlePlanId;
       }
       setSavedPlanIds({ ...nextSavedPlanIds });
+      const nextConfirmedClassifications = confirmedProductionClassifications(outputs, result?.outputs);
       if (
         !response.ok
         || !result?.ok
         || result.outputCount !== effectiveOutputCount
+        || !nextConfirmedClassifications
       ) {
         const failedPosition = result?.failedOutput?.priority;
         throw new Error(
@@ -1322,12 +1331,14 @@ export function MesaProductionWorkspaceClient({
       setSavedPlanIds(Object.fromEntries(
         Object.entries(nextSavedPlanIds).filter(([key]) => visibleCardKeys.has(key)),
       ));
+      setConfirmedClassifications(nextConfirmedClassifications);
       setPersistedOutputCount(result.outputCount);
       setDirty(false);
       setPackageVersion((current) => current + 1);
       setProductionMessage("Produção guardada. Já podes descarregar imagens ou copiar o pacote.");
     } catch (error) {
       setSavedPlanIds(nextSavedPlanIds);
+      setDirty(true);
       setProductionMessage(
         error instanceof Error
           ? `${error.message} Os artigos anteriores desta tentativa mantêm-se guardados.`
