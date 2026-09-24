@@ -89,16 +89,18 @@ test("continuidade copia o título no handoff físico sem criar backfill", () =>
   assert.doesNotMatch(migration, /update public\.matchday_live_layout_workspace_settings\s+set faixa_public_title = ['"]Faixa/i);
 });
 
-test("a Mesa edita o título apenas no draft de Página e blocos", () => {
+test("a Mesa edita o mesmo título físico no workspace e em Página e blocos", () => {
   assert.match(client, /aria-label="Editar Faixa"/);
   assert.match(client, /aria-label="Título público da Faixa"/);
-  assert.match(
-    client,
-    /changePhysicalDeskPresentation\(state, \{[\s\S]*?faixaPublicTitle: value/,
-  );
   const editorStart = client.indexOf("{activeStructureEditorIsFaixa ? (");
   const editorEnd = client.indexOf(") : activeZone ? (", editorStart);
   const editor = client.slice(editorStart, editorEnd);
+  assert.match(editor, /defaultValue=\{current\.presentation\.faixaPublicTitle\}/);
+  assert.match(editor, /key=\{`faixa:\$\{current\.presentation\.faixaPublicTitle\}`\}/);
+  assert.match(
+    editor,
+    /changePhysicalDeskPresentation\(state, \{[\s\S]*?faixaPublicTitle: value/,
+  );
   assert.doesNotMatch(editor, /fetch\(|Guardar/);
 
   const workspaceStart = client.indexOf("function renderFaixaWorkspace()");
@@ -107,7 +109,38 @@ test("a Mesa edita o título apenas no draft de Página e blocos", () => {
     workspaceStart,
   );
   const workspace = client.slice(workspaceStart, workspaceEnd);
-  assert.doesNotMatch(workspace, /faixaPublicTitle|Título público/);
+  assert.match(workspace, /Título público/);
+  assert.match(workspace, /aria-label="Título público da Faixa no workspace"/);
+  assert.match(workspace, /defaultValue=\{current\.presentation\.faixaPublicTitle\}/);
+  assert.match(workspace, /key=\{`faixa-workspace:\$\{current\.presentation\.faixaPublicTitle\}`\}/);
+  assert.match(
+    workspace,
+    /changePhysicalDeskPresentation\(state, \{[\s\S]*?faixaPublicTitle: value/,
+  );
+  assert.doesNotMatch(workspace, /fetch\(|Guardar/);
+  assert.doesNotMatch(
+    client,
+    /const \[[^\]]*faixa[^\]]*title[^\]]*\]\s*=\s*useState/i,
+  );
+});
+
+test("workspace da Faixa remove o drop target superior e preserva os movimentos reais", () => {
+  const workspaceStart = client.indexOf("function renderFaixaWorkspace()");
+  const workspaceEnd = client.indexOf(
+    "function renderHighlightWorkspace()",
+    workspaceStart,
+  );
+  const workspace = client.slice(workspaceStart, workspaceEnd);
+
+  assert.doesNotMatch(workspace, /Largar aqui · entra no topo da Faixa/);
+  assert.doesNotMatch(workspace, /thematic-faixa-drop-target/);
+  assert.match(workspace, /physicalDeskFaixaSlots\(physicalDesk\)/);
+  assert.match(workspace, /slots\.map\(\(slot\) =>/);
+  assert.match(workspace, /onDragOver=\{allowDrop\}/);
+  assert.match(workspace, /placeInFaixa\(bankItemId, slot\.slotPosition\)/);
+  assert.match(client, /function placeAtFaixaTop\(bankItemId: string\)/);
+  assert.match(client, /onFaixa=\{\(\) => placeAtFaixaTop\(bankItemId\)\}/);
+  assert.match(client, /bulkMovePhysicalDeskItemsToFaixa/);
 });
 
 test("título preenchido aparece antes dos artigos e vazio não cria heading", () => {

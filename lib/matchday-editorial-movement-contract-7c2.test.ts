@@ -263,10 +263,11 @@ test("cliente expõe destinos explícitos e bloqueia drag direto entre zonas", (
   assert.match(client, /movePhysicalDeskItemToSlot/u);
   assert.match(client, /placementType: "zone"/u);
   assert.match(client, /placementType: "opening"/u);
-  assert.match(
+  assert.doesNotMatch(
     client,
     /Largar aqui · entra no topo da Faixa/u,
   );
+  assert.doesNotMatch(client, /thematic-faixa-drop-target/u);
   assert.doesNotMatch(client, /Largar aqui · passa para Desalojadas|thematic-candidates-drop-target/u);
   assert.match(client, /onDragOver=\{universe === "displaced" \? allowDrop : undefined\}/u);
   assert.match(client, /onDrop=\{universe === "displaced" \? \(event\) => \{[\s\S]*?if \(bankItemId\) placeInDisplaced\(bankItemId\);/u);
@@ -276,7 +277,9 @@ test("cliente expõe destinos explícitos e bloqueia drag direto entre zonas", (
   );
   assert.match(client, /Não é permitido arrastar diretamente entre zonas/u);
   assert.doesNotMatch(client, /allowAutomaticPlacement: true/u);
-  assert.match(client, /if \(bankItemId\) placeAtFaixaTop\(bankItemId\)/u);
+  assert.match(client, /onFaixa=\{\(\) => placeAtFaixaTop\(bankItemId\)\}/u);
+  assert.match(client, /bulkMovePhysicalDeskItemsToFaixa/u);
+  assert.match(client, /if \(bankItemId\) placeInFaixa\(bankItemId, slot\.slotPosition\)/u);
   assert.match(client, /selectMatchdayEditorialTrackingItems/u);
 });
 
