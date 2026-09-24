@@ -163,33 +163,6 @@ execute function public.newsroom_guard_published_article_plan_classification_v1(
 revoke all on function public.newsroom_guard_published_article_plan_classification_v1()
 from public, anon, authenticated, service_role;
 
-create or replace function public.newsroom_disable_editorial_bank_automatic_fallback_v1()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $function$
-begin
-  if pg_catalog.lower(pg_catalog.btrim(coalesce(new.source_type, '')))
-    = 'editorial_article'
-  then
-    new.automatic_eligible := false;
-  end if;
-  return new;
-end;
-$function$;
-
-drop trigger if exists newsroom_00_disable_editorial_bank_automatic_fallback_v1
-  on public.matchday_editorial_bank_items;
-create trigger newsroom_00_disable_editorial_bank_automatic_fallback_v1
-before insert or update of automatic_eligible, source_type
-on public.matchday_editorial_bank_items
-for each row
-execute function public.newsroom_disable_editorial_bank_automatic_fallback_v1();
-
-revoke all on function public.newsroom_disable_editorial_bank_automatic_fallback_v1()
-from public, anon, authenticated, service_role;
-
 create or replace function public.newsroom_freeze_output_classification_v1()
 returns trigger
 language plpgsql

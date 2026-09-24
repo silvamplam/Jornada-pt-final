@@ -100,10 +100,20 @@ test("Bank recebe exatamente a key final como manual sem tocar em editorial_arti
   const sql = read(migrationPath);
   const apply = functionBody(sql, "newsroom_apply_output_classification_to_bank_v1");
 
+  assert.doesNotMatch(sql, /newsroom_disable_editorial_bank_automatic_fallback_v1/i);
+  assert.doesNotMatch(sql, /newsroom_00_disable_editorial_bank_automatic_fallback_v1/i);
+  assert.doesNotMatch(
+    sql,
+    /create trigger[\s\S]*?on public\.matchday_editorial_bank_items/i,
+  );
   assert.match(sql, /create trigger newsroom_output_classification_to_bank_v1\s+after insert/i);
   assert.match(apply, /set classification_key = new\.classification_key/i);
   assert.match(apply, /classification_source = 'manual'/i);
   assert.match(apply, /automatic_eligible = false/i);
+  assert.match(apply, /source_id\)\)\s*= new\.editorial_article_id::text/i);
+  assert.match(apply, /article_plan_classification_bank_item_missing/i);
+  assert.match(apply, /exception when others then[\s\S]*raise;/i);
+  assert.equal(sql.match(/automatic_eligible\s*=\s*false/gi)?.length, 1);
   assert.doesNotMatch(sql, /alter table public\.editorial_articles/i);
   assert.doesNotMatch(sql, /update public\.editorial_articles[\s\S]*classification_key/i);
 });
