@@ -3774,7 +3774,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     thematicSnapshot
       ? importantNewsItems.slice(0, 20)
       : importantNewsItems;
-  const faixaPublicTitle = physicalSnapshot?.faixa.publicTitle ?? "";
+  const faixaPublicTitle = useHierarchicalReferenceComposition
+    ? context.referenceComposition?.hierarchical_faixa_title?.trim() ?? ""
+    : physicalSnapshot?.faixa.publicTitle ?? "";
 
   const editorialVisibility = buildPublicMatchdayEditorialVisibility({
     hasHeadline: hasPublishedHeadline,

@@ -39,7 +39,8 @@ begin
     hierarchical_editorial_text,
     hierarchical_editorial_author,
     hierarchical_editorial_source_type,
-    hierarchical_editorial_source_id
+    hierarchical_editorial_source_id,
+    hierarchical_faixa_title
   ) values (
     v_composition_id,
     v_matchday_id,
@@ -52,7 +53,8 @@ begin
     'Texto original',
     'Autor original',
     'editorial_article',
-    v_original_editorial_source_id
+    v_original_editorial_source_id,
+    'Título original da Faixa'
   );
 
   insert into public.matchday_hierarchical_composition_slots (
@@ -102,7 +104,7 @@ begin
   ) returning id into v_valid_bank_id;
 
   begin
-    perform public.apply_historical_composition_workspace_plan(
+    perform public.apply_historical_composition_workspace_plan_v3(
       v_matchday_id,
       v_composition_id,
       jsonb_build_array(
@@ -128,8 +130,11 @@ begin
         'headlineTitleColor', '#8B1538',
         'zone1Title', 'Título que não pode ficar parcial',
         'zone2Title', 'Outro título transitório',
-        'blockOrder', jsonb_build_array('zone_2', 'opening', 'zone_1', 'video', 'beyond')
-      )
+        'faixaTitle', 'Título transitório da Faixa',
+        'blockOrder', jsonb_build_array('zone_2', 'opening', 'zone_1', 'video', 'beyond'),
+        'videoPosition', 0
+      ),
+      null
     );
   exception when others then
     if sqlerrm ilike '%historical_composition_workspace_bank_item_invalid%' then
@@ -173,6 +178,7 @@ begin
         or composition.hierarchical_zone_1_title is not null
         or composition.hierarchical_zone_2_title is not null
         or composition.hierarchical_block_order is not null
+        or composition.hierarchical_faixa_title is distinct from 'Título original da Faixa'
       )
   ) then
     raise exception 'Smoke 124 falhou: settings parciais sobreviveram ao erro';

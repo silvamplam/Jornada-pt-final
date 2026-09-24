@@ -78,6 +78,7 @@ type CompositionSettings = {
   headlineTitleColor: string;
   zone1Title: string;
   zone2Title: string;
+  faixaTitle: string;
   blockOrder: HistoricalCompositionBlockKey[];
   videoPosition: number;
 };
@@ -138,6 +139,7 @@ type Props = {
   groups: HierarchicalCompositionDeskGroup[];
   initialDynamicZones: HierarchicalCompositionDeskDynamicZone[];
   initialBlockOrder: HistoricalCompositionBlockKey[];
+  initialFaixaTitle: string;
   initialHeadlineTitleColor: string;
   initialVideoPosition: number;
   initialZone1Title: string;
@@ -2322,6 +2324,38 @@ const styles = `
     align-items: center;
   }
 
+  .hc-faixa-title-editor {
+    display: grid;
+    width: min(420px, 100%);
+    gap: 3px;
+    padding: 4px;
+    border: 1px solid #dce3eb;
+    border-radius: 6px;
+    background: #fbfcfd;
+    color: #5f6e80;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .hc-faixa-title-editor span {
+    letter-spacing: .04em;
+  }
+
+  .hc-faixa-title-editor input {
+    width: 100%;
+    min-width: 0;
+    min-height: 30px;
+    padding: 0 7px;
+    border: 1px solid #cbd5df;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #10151b;
+    font: inherit;
+    font-size: 12px;
+    text-transform: none;
+  }
+
   @media (min-width: 1181px) {
     .composition-admin-shell-desk {
       height: 100dvh;
@@ -2594,6 +2628,7 @@ function samePlan(left: PlanState, right: PlanState) {
     && left.settings.headlineTitleColor === right.settings.headlineTitleColor
     && left.settings.zone1Title === right.settings.zone1Title
     && left.settings.zone2Title === right.settings.zone2Title
+    && left.settings.faixaTitle === right.settings.faixaTitle
     && left.settings.blockOrder.join("|") === right.settings.blockOrder.join("|")
     && left.settings.videoPosition === right.settings.videoPosition
     && dynamicZonesFingerprint(left.dynamicZones) === dynamicZonesFingerprint(right.dynamicZones);
@@ -2635,6 +2670,7 @@ export default function HierarchicalCompositionDeskClient({
   groups,
   initialDynamicZones,
   initialBlockOrder,
+  initialFaixaTitle,
   initialHeadlineTitleColor,
   initialVideoPosition,
   initialZone1Title,
@@ -2649,6 +2685,7 @@ export default function HierarchicalCompositionDeskClient({
     headlineTitleColor: initialHeadlineTitleColor,
     zone1Title: initialZone1Title,
     zone2Title: initialZone2Title,
+    faixaTitle: initialFaixaTitle,
     blockOrder: initialBlockOrder,
     videoPosition: initialVideoPosition,
   } satisfies CompositionSettings;
@@ -2902,6 +2939,7 @@ export default function HierarchicalCompositionDeskClient({
     if (basePlan.settings.headlineTitleColor !== plan.settings.headlineTitleColor) count += 1;
     if (basePlan.settings.zone1Title !== plan.settings.zone1Title) count += 1;
     if (basePlan.settings.zone2Title !== plan.settings.zone2Title) count += 1;
+    if (basePlan.settings.faixaTitle !== plan.settings.faixaTitle) count += 1;
     if (basePlan.settings.blockOrder.join("|") !== plan.settings.blockOrder.join("|")) count += 1;
     if (basePlan.settings.videoPosition !== plan.settings.videoPosition) count += 1;
     if (dynamicZonesFingerprint(basePlan.dynamicZones) !== dynamicZonesFingerprint(plan.dynamicZones)) count += 1;
@@ -3430,6 +3468,7 @@ export default function HierarchicalCompositionDeskClient({
       basePlan.settings.headlineTitleColor !== plan.settings.headlineTitleColor
       || basePlan.settings.zone1Title !== plan.settings.zone1Title
       || basePlan.settings.zone2Title !== plan.settings.zone2Title
+      || basePlan.settings.faixaTitle !== plan.settings.faixaTitle
       || basePlan.settings.blockOrder.join("|") !== plan.settings.blockOrder.join("|")
       || basePlan.settings.videoPosition !== plan.settings.videoPosition;
     const dynamicZonesChanged = dynamicZonesFingerprint(basePlan.dynamicZones) !== dynamicZonesFingerprint(plan.dynamicZones);
@@ -4179,7 +4218,30 @@ export default function HierarchicalCompositionDeskClient({
           ) : null}
 
           {activeWorkspaceKey === "faixa" ? (
-            <section className="hc-desk-zone"><header><div><h3>Faixa de notícias</h3><p>Até dez notícias. Todos os lugares são opcionais.</p></div><span className="hc-desk-zone-action"><span>{occupiedFaixa}/10</span>{selectedBankItemIds.length > 0 ? <button type="button" onClick={() => placeSelectedInZone("faixa")}>Colocar {selectedBankItemIds.length} aqui</button> : null}</span></header><div className="hc-desk-slots hc-desk-slots-faixa">{[1,2,3,4,5,6,7,8,9,10].map((position) => { const target = `faixa_${position}`; const location: HistoricalCompositionPlacementLocation = { kind: "auxiliary", zoneKey: "faixa", targetKey: target }; return <div className="hc-desk-slot" data-drop-active={dragged ? "true" : undefined} key={target} onDragOver={(event) => allowDrop(event, location)} onDrop={(event) => { event.preventDefault(); dropOnLocation(location); }}><small>Faixa {position}</small>{renderCard(plan.auxiliary[target] ?? null, () => removeAuxiliary(target), location)}</div>; })}</div></section>
+            <section className="hc-desk-zone">
+              <header><div><h3>Faixa de notícias</h3><p>Até dez notícias. Todos os lugares são opcionais.</p></div><span className="hc-desk-zone-action"><span>{occupiedFaixa}/10</span>{selectedBankItemIds.length > 0 ? <button type="button" onClick={() => placeSelectedInZone("faixa")}>Colocar {selectedBankItemIds.length} aqui</button> : null}</span></header>
+              <label className="hc-faixa-title-editor">
+                <span>Título público</span>
+                <input
+                  aria-label="Título público da Faixa histórica"
+                  defaultValue={plan.settings.faixaTitle}
+                  key={`faixa:${plan.settings.faixaTitle}`}
+                  maxLength={120}
+                  onBlur={(event) => {
+                    const faixaTitle = event.currentTarget.value.trim();
+                    if (faixaTitle === plan.settings.faixaTitle) return;
+                    updateSettings(
+                      { ...plan.settings, faixaTitle },
+                      "Título público da Faixa planeado.",
+                    );
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") event.currentTarget.blur();
+                  }}
+                />
+              </label>
+              <div className="hc-desk-slots hc-desk-slots-faixa">{[1,2,3,4,5,6,7,8,9,10].map((position) => { const target = `faixa_${position}`; const location: HistoricalCompositionPlacementLocation = { kind: "auxiliary", zoneKey: "faixa", targetKey: target }; return <div className="hc-desk-slot" data-drop-active={dragged ? "true" : undefined} key={target} onDragOver={(event) => allowDrop(event, location)} onDrop={(event) => { event.preventDefault(); dropOnLocation(location); }}><small>Faixa {position}</small>{renderCard(plan.auxiliary[target] ?? null, () => removeAuxiliary(target), location)}</div>; })}</div>
+            </section>
           ) : null}
           </section>
           {articleToolbar}

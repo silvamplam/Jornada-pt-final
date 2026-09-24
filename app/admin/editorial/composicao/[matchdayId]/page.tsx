@@ -178,6 +178,7 @@ type ReferenceComposition = {
   hierarchical_headline_title_color: string | null;
   hierarchical_zone_1_title: string | null;
   hierarchical_zone_2_title: string | null;
+  hierarchical_faixa_title: string | null;
   hierarchical_block_order: unknown;
   hierarchical_video_position: number | null;
   created_at: string;
@@ -1866,7 +1867,7 @@ function readDraftReferenceComposition(
   presentationMode: ReferenceCompositionPresentationMode,
 ): Promise<ReferenceComposition | null> {
   return readFirst<ReferenceComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_block_order,hierarchical_video_position,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_faixa_title,hierarchical_block_order,hierarchical_video_position,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&status=eq.draft&presentation_mode=eq.${encodeURIComponent(presentationMode)}&order=created_at.desc`
   ).catch(() => null);
@@ -1877,7 +1878,7 @@ function readPublishedReferenceComposition(
   presentationMode: ReferenceCompositionPresentationMode,
 ): Promise<ReferenceComposition | null> {
   return readFirst<ReferenceComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_block_order,hierarchical_video_position,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,is_current,internal_name,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_faixa_title,hierarchical_block_order,hierarchical_video_position,created_at,updated_at,published_at&matchday_id=eq.${encodeURIComponent(
       matchdayId
     )}&status=eq.published&presentation_mode=eq.${encodeURIComponent(presentationMode)}&order=is_current.desc,published_at.desc.nullslast`
   ).catch(() => null);
@@ -4660,6 +4661,8 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
     draftComposition?.hierarchical_zone_2_title,
     HISTORICAL_COMPOSITION_DEFAULT_ZONE_TITLES.zone_2,
   );
+  const hierarchicalFaixaTitle =
+    draftComposition?.hierarchical_faixa_title?.trim() ?? "";
   const hierarchicalBlockOrder = normalizeHistoricalCompositionBlockOrder(
     draftComposition?.hierarchical_block_order,
   );
@@ -4771,6 +4774,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
           groups={hierarchicalDeskGroups}
           initialDynamicZones={historicalDynamicZones}
           initialBlockOrder={hierarchicalBlockOrder}
+          initialFaixaTitle={hierarchicalFaixaTitle}
           initialHeadlineTitleColor={hierarchicalHeadlineTitleColor}
           initialVideoPosition={Math.min(
             Math.max(
@@ -4907,6 +4911,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                 ariaLabel="Faixa de notícias da composição"
                 items={hierarchicalPreviewFaixaItems}
                 scope="matchday"
+                title={hierarchicalFaixaTitle}
               />
             </div>
           </details>
