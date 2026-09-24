@@ -201,6 +201,20 @@ test("cabeçalho das candidatas tem tabs e uma única linha de filtros e ações
   assert.match(source, /\.thematic-candidate-filters nav button \{[^}]*white-space: nowrap;/u);
 });
 
+test("ação das candidatas alterna entre selecionar as visíveis e limpar a seleção", () => {
+  const actionStart = candidates.indexOf('className="thematic-candidate-actions"');
+  const actionEnd = candidates.indexOf("</section>", actionStart);
+  const action = candidates.slice(actionStart, actionEnd);
+
+  assert.ok(actionStart >= 0 && actionEnd > actionStart);
+  assert.match(action, /selected\.size === 0 && visibleCandidateEntries\.length === 0/u);
+  assert.match(action, /selected\.size > 0[\s\S]*selectItems\(\[\]\)[\s\S]*return;/u);
+  assert.match(action, /selectItems\([\s\S]*visibleCandidateEntries\.map\(\(entry\) => entry\.bankItemId\)[\s\S]*\)/u);
+  assert.match(action, /selected\.size > 0 \? "Limpar" : "Selecionar visíveis"/u);
+  assert.equal((action.match(/Selecionar visíveis/g) ?? []).length, 1);
+  assert.equal((action.match(/Limpar/g) ?? []).length, 1);
+});
+
 test("lupa alterna pesquisa e filtros na mesma linha sem apagar a pesquisa existente", () => {
   assert.match(source, /\[candidateSearchOpen, setCandidateSearchOpen\] = useState\(false\)/u);
   assert.match(candidates, /candidateSearchOpen \? \([\s\S]*className="thematic-reservoir-search"[\s\S]*\) : <nav aria-label="Filtrar candidatas por classificação"/u);
