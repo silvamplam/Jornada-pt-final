@@ -88,11 +88,45 @@ test("barra compacta e controlos normais permanecem montados e são acessíveis"
   );
   assert.match(
     mainMarkup,
-    /onClick=\{\(\) => changeFocusMode\(true\)\}[\s\S]*?ref=\{enterFocusButtonRef\}[\s\S]*?>Modo foco<\/button>/,
+    /onClick=\{\(\) => changeFocusMode\(true\)\}[\s\S]*?ref=\{enterFocusButtonRef\}[\s\S]*?>\s*Modo foco\s*<\/button>/,
   );
   assert.match(mainMarkup, /<header className="thematic-hero">/);
   assert.match(mainMarkup, /<MatchdayEditorialContextSelector/);
   assert.match(mainMarkup, /<div className="thematic-global-tools">/);
+});
+
+test("Modo foco sai do cabeçalho escuro e fica uma única vez à direita da barra administrativa", () => {
+  const hero = sourceBetween(
+    client,
+    '        <header className="thematic-hero">',
+    "\n\n        <MatchdayEditorialContextSelector",
+  );
+  const globalTools = sourceBetween(
+    client,
+    '        <div className="thematic-global-tools">',
+    '\n\n        <div className={`thematic-desk-grid',
+  );
+  const focusEntry = globalTools.indexOf(
+    'className="thematic-focus-toggle thematic-focus-entry"',
+  );
+  const lastMenu = globalTools.indexOf("<summary>A acontecer agora</summary>");
+
+  assert.match(hero, />Backoffice<\/a>/);
+  assert.doesNotMatch(hero, /Modo foco|thematic-focus-toggle/);
+  assert.equal((client.match(/>\s*Modo foco\s*<\/button>/g) ?? []).length, 1);
+  assert.ok(lastMenu >= 0 && focusEntry > lastMenu);
+  assert.match(
+    globalTools,
+    /<summary>Página e blocos<\/summary>[\s\S]*<summary>Vídeos<\/summary>[\s\S]*<summary>Agenda e TV<\/summary>[\s\S]*<summary>Corrigir classificação<\/summary>[\s\S]*<summary>A acontecer agora<\/summary>[\s\S]*className="thematic-focus-toggle thematic-focus-entry"[\s\S]*>\s*Modo foco\s*<\/button>/,
+  );
+  assert.match(
+    client,
+    /\.thematic-global-tools \{[^}]*grid-template-columns: repeat\(4, max-content\) minmax\(0, 1fr\)/,
+  );
+  assert.match(
+    client,
+    /\.thematic-global-tools > \.thematic-focus-entry \{ justify-self: end; margin-left: 12px; \}/,
+  );
 });
 
 test("CSS oculta apenas os controlos globais no foco e não desmonta o JSX", () => {

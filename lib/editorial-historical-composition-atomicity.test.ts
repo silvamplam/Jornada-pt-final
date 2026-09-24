@@ -55,7 +55,9 @@ test("a RPC bloqueia o draft e contém todas as mutações no mesmo corpo PL/pgS
 
 test("o smoke provoca falha intermédia e confirma rollback de remoções, inserts, Editorial e settings", () => {
   assert.match(smoke, /^begin;/i);
-  assert.match(smoke, /perform public\.apply_historical_composition_workspace_plan/i);
+  assert.match(smoke, /perform public\.apply_historical_composition_workspace_plan_v3/i);
+  assert.match(smoke, /'faixaTitle', 'Título transitório da Faixa'/i);
+  assert.match(smoke, /hierarchical_faixa_title is distinct from 'Título original da Faixa'/i);
   assert.match(smoke, /historical_composition_workspace_bank_item_invalid/i);
   assert.match(smoke, /a remoção anterior ao erro não foi revertida/i);
   assert.match(smoke, /uma atribuição parcial sobreviveu ao erro/i);

@@ -143,15 +143,10 @@ test("7D: UI e mensagem usam o label canónico da classificação", () => {
   assert.doesNotMatch(route, /targetZone\.label/u);
 });
 
-test("7D: classificação e controlos partilham apenas a quarta coluna", () => {
+test("7D: os cinco menus ficam consecutivos antes da coluna flexível do Modo foco", () => {
   assert.match(
     client,
-    /\.thematic-global-tools \{[^}]*grid-template-columns: max-content max-content max-content minmax\(0,1fr\)/u,
-  );
-
-  assert.doesNotMatch(
-    client,
-    /\.thematic-global-tools \{[^}]*grid-template-columns: max-content max-content max-content max-content/u,
+    /\.thematic-global-tools \{[^}]*grid-template-columns: repeat\(4, max-content\) minmax\(0, 1fr\)/u,
   );
 
   const tools =
@@ -189,16 +184,22 @@ test("7D: classificação e controlos partilham apenas a quarta coluna", () => {
       actions,
     );
 
-  const selection =
+  const latest =
     client.indexOf(
-      'aria-label="Controlos de seleção"',
+      "<summary>A acontecer agora</summary>",
       classification,
+    );
+
+  const focus =
+    client.indexOf(
+      'className="thematic-focus-toggle thematic-focus-entry"',
+      latest,
     );
 
   const workspace =
     client.indexOf(
-      'className="thematic-panel thematic-workspace"',
-      selection,
+      'className={`thematic-desk-grid',
+      focus,
     );
 
   assert.ok(
@@ -208,13 +209,17 @@ test("7D: classificação e controlos partilham apenas a quarta coluna", () => {
       && agenda > video
       && actions > agenda
       && classification > actions
-      && selection > classification
-      && workspace > selection,
+      && latest > classification
+      && focus > latest
+      && workspace > focus,
   );
+
+  const toolbar = client.slice(tools, workspace);
+  assert.doesNotMatch(toolbar, /Controlos de seleção|Selecionar candidatas|Limpar marcação/u);
 
   assert.match(
     client,
-    /\.thematic-global-actions \{[^}]*display: flex/u,
+    /\.thematic-global-actions \{[^}]*display: flex;[^}]*justify-content: flex-start/u,
   );
 });
 test("7D: pesquisa contextual exige escolha explícita", () => {

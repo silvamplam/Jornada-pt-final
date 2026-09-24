@@ -147,6 +147,7 @@ type DraftComposition = {
   hierarchical_headline_title_color: string | null;
   hierarchical_zone_1_title: string | null;
   hierarchical_zone_2_title: string | null;
+  hierarchical_faixa_title: string | null;
   hierarchical_block_order: unknown;
   hierarchical_video_position: number | null;
 };
@@ -733,7 +734,7 @@ function filterNewCompositionSnapshots(snapshots: CompositionSnapshot[], existin
 
 async function readDraftComposition(compositionId: string, matchdayId: string) {
   return readFirst<DraftComposition>(
-    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_block_order&id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_faixa_title,hierarchical_block_order&id=eq.${encodeURIComponent(
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}&status=eq.draft`
   );
@@ -741,7 +742,7 @@ async function readDraftComposition(compositionId: string, matchdayId: string) {
 
 async function readReferenceCompositionState(compositionId: string, matchdayId: string) {
   return readFirst<ReferenceCompositionState>(
-    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_block_order,hierarchical_video_position,is_current,published_at&id=eq.${encodeURIComponent(
+    `matchday_reference_compositions?select=id,matchday_id,status,use_roundup_items,presentation_mode,hierarchical_editorial_title,hierarchical_editorial_excerpt,hierarchical_editorial_text,hierarchical_editorial_author,hierarchical_editorial_source_type,hierarchical_editorial_source_id,hierarchical_headline_title_color,hierarchical_zone_1_title,hierarchical_zone_2_title,hierarchical_faixa_title,hierarchical_block_order,hierarchical_video_position,is_current,published_at&id=eq.${encodeURIComponent(
       compositionId
     )}&matchday_id=eq.${encodeURIComponent(matchdayId)}`
   );
@@ -2797,6 +2798,7 @@ type HierarchicalDeskSettings = {
   headlineTitleColor: string;
   zone1Title: string;
   zone2Title: string;
+  faixaTitle?: string;
   blockOrder: HistoricalCompositionBlockKey[];
   videoPosition: number;
 };
@@ -3048,6 +3050,8 @@ function parseHierarchicalDeskSettings(raw: string | null): HierarchicalDeskSett
     : "";
   const zone1Title = typeof value.zone1Title === "string" ? value.zone1Title.trim() : "";
   const zone2Title = typeof value.zone2Title === "string" ? value.zone2Title.trim() : "";
+  const hasFaixaTitle = Object.prototype.hasOwnProperty.call(value, "faixaTitle");
+  const faixaTitle = typeof value.faixaTitle === "string" ? value.faixaTitle.trim() : "";
   const videoPosition =
     typeof value.videoPosition === "number"
       ? value.videoPosition
@@ -3064,6 +3068,8 @@ function parseHierarchicalDeskSettings(raw: string | null): HierarchicalDeskSett
     || zone1Title.length > 120
     || zone2Title.length === 0
     || zone2Title.length > 120
+    || (hasFaixaTitle && typeof value.faixaTitle !== "string")
+    || faixaTitle.length > 120
     || !Number.isInteger(videoPosition)
     || videoPosition < 0
     || videoPosition > 24
@@ -3076,6 +3082,7 @@ function parseHierarchicalDeskSettings(raw: string | null): HierarchicalDeskSett
     headlineTitleColor,
     zone1Title,
     zone2Title,
+    ...(hasFaixaTitle ? { faixaTitle } : {}),
     blockOrder: blockOrder as HistoricalCompositionBlockKey[],
     videoPosition,
   };

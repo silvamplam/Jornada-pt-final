@@ -18,6 +18,9 @@ const route = readFileSync(
   "app/api/admin/editorial/composicao/route.ts",
   "utf8",
 );
+const modernStyles = client.slice(
+  client.indexOf("/* Mesa histórica modernizada"),
+);
 
 test("a decisão histórica é um único estado privado ligado ao artigo canónico", () => {
   assert.match(migration, /create table jornada_private\.matchday_historical_article_decisions/);
@@ -133,15 +136,12 @@ test("decisão histórica e Bank não entram no payload de Guardar montagem", ()
   assert.doesNotMatch(applyChanges, /historicalDecision|set_historical_article_decision/);
 });
 
-test("o layout revisto permanece inalterado", () => {
-  assert.match(client, /\.hc-desk-operational-sticky \{[\s\S]*?position: sticky/);
-  assert.match(client, /\.hc-desk-slots-6 \{[\s\S]*?grid-template-columns: repeat\(3,/);
-  assert.match(client, /\.hc-desk-slot \{[\s\S]*?min-height: 65px;[\s\S]*?padding: 3px;/);
-  assert.match(client, /\.hc-desk-empty \{[\s\S]*?min-height: 48px;/);
-  assert.match(client, /\.hc-desk-card \{[\s\S]*?min-height: 48px;[\s\S]*?padding: 3px;/);
-  assert.match(client, /\.hc-desk-card-body \{[\s\S]*?grid-template-columns: 56px/);
-  assert.match(client, /\.hc-desk-card-body img,[\s\S]*?width: 56px;[\s\S]*?height: 42px;/);
-  assert.match(client, /\.hc-desk-card strong \{[\s\S]*?font-size: 13px;/);
-  assert.match(client, /\.hc-desk-copy strong \{[\s\S]*?font-size: 13px;/);
-  assert.match(client, /\.hc-zone-tabs \{[\s\S]*?flex-wrap: nowrap;[\s\S]*?overflow-x: auto;/);
+test("o layout editorial usa três cartões, imagens úteis e controlos sobrepostos", () => {
+  assert.match(modernStyles, /\.hc-desk-list \{[\s\S]*?grid-template-columns: repeat\(3,/);
+  assert.match(modernStyles, /\.hc-desk-slots,[\s\S]*?\.hc-desk-slots-6,[\s\S]*?grid-template-columns: repeat\(3,/);
+  assert.match(client, /<span className="hc-desk-row-image">[\s\S]*?<input[\s\S]*?type="checkbox"[\s\S]*?<img/);
+  assert.match(modernStyles, /\.hc-desk-row-image > input \{[\s\S]*?position: absolute;[\s\S]*?top: 9px;[\s\S]*?left: 9px;/);
+  assert.match(modernStyles, /\.hc-desk-card-media \{[\s\S]*?aspect-ratio: 16 \/ 9;/);
+  assert.match(modernStyles, /\.hc-desk-card button \{[\s\S]*?position: absolute;[\s\S]*?top: 9px;[\s\S]*?right: 9px;/);
+  assert.match(client, /<aside className="hc-zone-rail"/);
 });
