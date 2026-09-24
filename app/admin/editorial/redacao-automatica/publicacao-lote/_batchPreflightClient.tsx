@@ -39,7 +39,13 @@ import {
   type EditorialBatchHistoricalCompletion,
 } from "@/lib/redacao-automatica/editorial-batch-historical-decision";
 import { editorialBatchPublishedAtByOutputId } from "@/lib/redacao-automatica/editorial-batch-published-at";
-import { articleClassificationLabel } from "@/lib/editorial-classifications";
+import {
+  ARTICLE_CLASSIFICATIONS,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
+import {
+  articleOutputClassificationsComplete,
+} from "@/lib/redacao-automatica/article-plan-classification";
 import { editorialMesaContextualImages } from "@/lib/redacao-automatica/editorial-mesa-workspace-images";
 import {
   editorialBatchDossierImages,
@@ -102,6 +108,8 @@ type BatchPublicationPlanItem = Readonly<{
   publishedAt: string;
   slot?: string;
   dossierId?: string;
+  classificationDefault: ArticleClassificationKey | null;
+  frozenClassificationKey: ArticleClassificationKey | null;
 }>;
 
 type BatchPublicationItemStatus =
@@ -470,6 +478,10 @@ function ResultSummary({
   historicalChoices,
   onHistoricalChoice,
   historicalChoiceDisabled,
+  classificationChoices,
+  lockedClassificationKeys,
+  onClassificationChoice,
+  classificationChoiceDisabled,
 }: Readonly<{
   preflight: EditorialBatchPreflight;
   imagePreflight: EditorialBatchImagePreflight<File>;
@@ -493,6 +505,10 @@ function ResultSummary({
   historicalChoices: EditorialBatchHistoricalChoices;
   onHistoricalChoice: (identity: string, checked: boolean) => void;
   historicalChoiceDisabled: boolean;
+  classificationChoices: Readonly<Record<string, ArticleClassificationKey>>;
+  lockedClassificationKeys: ReadonlySet<string>;
+  onClassificationChoice: (articleKey: string, classificationKey: ArticleClassificationKey) => void;
+  classificationChoiceDisabled: boolean;
 }>) {
   const globalIssues = preflight.issues.filter((issue) => issue.index === undefined);
   const articleRows = articleResultRows(preflight);
@@ -653,9 +669,9 @@ function ResultSummary({
               const historicalChoiceIdentity = row.article
                 ? editorialBatchHistoricalChoiceIdentity(row.article)
                 : null;
-              const frozenClassification = outputId
-                ? sourcePackage?.classificationsByOutputId?.[outputId] ?? null
-                : null;
+              const classificationChoice = classificationChoices[row.key] ?? null;
+              const classificationLocked = lockedClassificationKeys.has(row.key);
+              const classificationRequired = Boolean(outputId && sourcePackage?.batchContract);
 
               return (
                 <li key={row.key} className={isValid ? styles.validArticle : styles.invalidArticle}>
@@ -684,14 +700,38 @@ function ResultSummary({
                             <span>Histórica</span>
                           </label>
                         ) : null}
-                        {frozenClassification ? (
-                          <span
-                            className={styles.planClassification}
-                            data-classification={frozenClassification}
-                            title="Classificação congelada no Article Plan"
+                        {classificationRequired ? (
+                          <fieldset
+                            className={styles.outputClassification}
+                            disabled={classificationChoiceDisabled || classificationLocked}
                           >
-                            {articleClassificationLabel(frozenClassification)}
-                          </span>
+                            <legend>CLASSIFICAÇÃO</legend>
+                            <div>
+                              {ARTICLE_CLASSIFICATIONS.map((classification) => (
+                                <label
+                                  key={classification.key}
+                                  data-classification={classification.key}
+                                >
+                                  <input
+                                    type="radio"
+                                    name={`output-classification-${outputId}`}
+                                    value={classification.key}
+                                    checked={classificationChoice === classification.key}
+                                    onChange={() => onClassificationChoice(
+                                      row.key,
+                                      classification.key,
+                                    )}
+                                  />
+                                  <span>{classification.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                            {classificationChoice === null ? (
+                              <small role="alert">Escolhe a classificação do artigo.</small>
+                            ) : classificationLocked ? (
+                              <small>Classificação congelada na publicação.</small>
+                            ) : null}
+                          </fieldset>
                         ) : null}
                         <strong>{isValid ? "VÁLIDO" : "INVÁLIDO"}</strong>
                       </div>
@@ -1070,6 +1110,9 @@ export default function BatchPreflightClient({
   const [publicationStates, setPublicationStates] = useState<Readonly<Record<string, BatchPublicationItemState>>>({});
   const [historicalChoices, setHistoricalChoices] =
     useState<EditorialBatchHistoricalChoices>({});
+  const [classificationChoices, setClassificationChoices] = useState<
+    Readonly<Record<string, ArticleClassificationKey>>
+  >({});
   const [publicationPlan, setPublicationPlan] =
     useState<readonly BatchPublicationPlanItem[] | null>(
       null,
@@ -1080,6 +1123,8 @@ export default function BatchPreflightClient({
     );
   const publicationStatesRef = useRef<Record<string, BatchPublicationItemState>>({});
   const historicalChoicesRef = useRef<EditorialBatchHistoricalChoices>({});
+  const classificationChoicesRef = useRef<Record<string, ArticleClassificationKey>>({});
+  const touchedClassificationKeysRef = useRef<Set<string>>(new Set());
   const publicationPlanRef = useRef<readonly BatchPublicationPlanItem[] | null>(null);
   const uploadedImageUrlsRef = useRef<Record<string, string>>({});
   const publishingRef = useRef(false);
@@ -1214,6 +1259,28 @@ export default function BatchPreflightClient({
       )
       && author.trim(),
   );
+  const classificationRequiredArticleKeys = useMemo(
+    () => sourcePackage?.batchContract
+      ? preflight.articles.flatMap((article) => article.outputId ? [article.key] : [])
+      : [],
+    [preflight.articles, sourcePackage?.batchContract],
+  );
+  const lockedClassificationKeys = useMemo(
+    () => new Set((publicationPlan ?? []).flatMap((item) => {
+      const publicationStatus = publicationStates[item.key]?.status;
+      return item.frozenClassificationKey
+        || publicationStatus === "published"
+        || publicationStatus === "published_missing_latest"
+        || publicationStatus === "published_missing_usage"
+        ? [item.key]
+        : [];
+    })),
+    [publicationPlan, publicationStates],
+  );
+  const classificationsComplete = articleOutputClassificationsComplete(
+    classificationRequiredArticleKeys,
+    classificationChoices,
+  );
   const publicationFingerprint = useMemo(
     () => editorialBatchPublicationFingerprint({
       articleText,
@@ -1254,6 +1321,7 @@ export default function BatchPreflightClient({
 
   const publicationCanPublish =
     canPublish
+    && classificationsComplete
     && Boolean(publicationPlan)
     && updatesConfirmed;
 
@@ -1345,6 +1413,46 @@ export default function BatchPreflightClient({
       return next;
     });
   }, [preflight.articles]);
+
+  useEffect(() => {
+    const requiredKeys = new Set(classificationRequiredArticleKeys);
+    const planByKey = new Map((publicationPlan ?? []).map((item) => [item.key, item]));
+    touchedClassificationKeysRef.current = new Set(
+      [...touchedClassificationKeysRef.current].filter((key) => requiredKeys.has(key)),
+    );
+    setClassificationChoices((current) => {
+      const next: Record<string, ArticleClassificationKey> = {};
+      for (const article of preflight.articles) {
+        if (!requiredKeys.has(article.key) || !article.outputId) continue;
+        const planItem = planByKey.get(article.key);
+        const frozen = planItem?.frozenClassificationKey ?? null;
+        if (frozen) {
+          next[article.key] = frozen;
+          continue;
+        }
+        if (touchedClassificationKeysRef.current.has(article.key)) {
+          const selected = current[article.key];
+          if (selected) next[article.key] = selected;
+          continue;
+        }
+        const initial = sourcePackage?.classificationsByOutputId?.[article.outputId]
+          ?? planItem?.classificationDefault
+          ?? null;
+        if (initial) next[article.key] = initial;
+      }
+      if (
+        Object.keys(current).length === Object.keys(next).length
+        && Object.entries(next).every(([key, value]) => current[key] === value)
+      ) return current;
+      classificationChoicesRef.current = next;
+      return next;
+    });
+  }, [
+    classificationRequiredArticleKeys,
+    preflight.articles,
+    publicationPlan,
+    sourcePackage?.classificationsByOutputId,
+  ]);
 
   useEffect(() => {
     const activeFingerprint = activePublicationFingerprintRef.current;
@@ -1502,6 +1610,20 @@ export default function BatchPreflightClient({
     });
   }
 
+  function setFinalClassificationChoice(
+    articleKey: string,
+    classificationKey: ArticleClassificationKey,
+  ) {
+    if (lockedClassificationKeys.has(articleKey)) return;
+    touchedClassificationKeysRef.current.add(articleKey);
+    setClassificationChoices((current) => {
+      const next = { ...current, [articleKey]: classificationKey };
+      classificationChoicesRef.current = next;
+      return next;
+    });
+    setPublicationError(null);
+  }
+
   async function applyHistoricalChoices(
     completions: readonly EditorialBatchHistoricalCompletion[],
   ) {
@@ -1645,6 +1767,9 @@ export default function BatchPreflightClient({
             }
           : {}),
         ...(sourcePackage ? { sourcePackage } : {}),
+        ...(classificationChoicesRef.current[article.key]
+          ? { classificationKey: classificationChoicesRef.current[article.key] }
+          : {}),
       }),
     });
     const payload = await response.json().catch(() => null) as BatchPublicationItemResponse | null;
@@ -1674,12 +1799,16 @@ export default function BatchPreflightClient({
     })));
     const imageByKey = new Map(imagePreflight.articles.map((image) => [image.key, image]));
     const imageUrlsByOutputId: Record<string, string | null> = {};
+    const classificationsByOutputId: Record<string, ArticleClassificationKey> = {};
 
     for (const article of preflight.articles) {
       const frozen = article.outputId ? slotByOutputId.get(article.outputId) : null;
       if (!frozen || !article.outputId) {
         throw new Error(`O artigo ${article.key} deixou de pertencer ao contrato congelado.`);
       }
+      const classificationKey = classificationChoicesRef.current[article.key];
+      if (!classificationKey) throw new Error("Escolhe a classificação do artigo.");
+      classificationsByOutputId[article.outputId] = classificationKey;
       if (frozen.slot.kind === "existing") {
         imageUrlsByOutputId[article.outputId] = sourcePackage.outputImages?.find((image) => (
           image.position === frozen.position
@@ -1722,6 +1851,7 @@ export default function BatchPreflightClient({
         articles: preflight.articles,
         imageUrlsByOutputId,
         publishedAtByOutputId,
+        classificationsByOutputId,
         sourcePackage,
       }),
     });
@@ -1822,7 +1952,12 @@ export default function BatchPreflightClient({
   }
 
   async function publishBatch() {
-    if (publishingRef.current || !canPublish || !preflight || !imagePreflight) {
+    if (
+      publishingRef.current
+      || !publicationCanPublish
+      || !preflight
+      || !imagePreflight
+    ) {
       return;
     }
 
@@ -2398,6 +2533,10 @@ export default function BatchPreflightClient({
           historicalChoices={historicalChoices}
           onHistoricalChoice={setHistoricalChoice}
           historicalChoiceDisabled={isPublishing}
+          classificationChoices={classificationChoices}
+          lockedClassificationKeys={lockedClassificationKeys}
+          onClassificationChoice={setFinalClassificationChoice}
+          classificationChoiceDisabled={isPublishing}
         />
       ) : null}
 

@@ -434,13 +434,6 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
   if (plans.some((plan) => plan.editorialArticleId)) {
     return { ok: false as const, status: 409, message: "Esta produção já contém artigos materializados e não pode gerar um segundo lote." };
   }
-  if (plans.some((plan) => plan.classificationKey === null)) {
-    return {
-      ok: false as const,
-      status: 409,
-      message: "Escolhe a classificação do artigo antes de produzir.",
-    };
-  }
   if (frozenSlots && (
     frozenSlots.length !== plans.length
     || frozenSlots.some((slot, index) => (
@@ -597,7 +590,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
         lengthModeLabel: lengthModeLabels[plan.lengthMode],
         editorialInstructions: plan.editorialInstructions,
         destination: plan.destination,
-        classificationKey: plan.classificationKey!,
+        ...(plan.classificationKey ? { classificationKey: plan.classificationKey } : {}),
         ...(workspaceContractVersion === 2
           ? {
               workspaceContractVersion: 2 as const,

@@ -20,7 +20,7 @@ alter table public.newsroom_editorial_dossier_article_plans
   );
 
 comment on column public.newsroom_editorial_dossier_article_plans.classification_key is
-  'Final explicit classification authority for the Jornada article produced by this Article Plan. Source classifications remain independent editorial triage metadata.';
+  'Optional pre-publication classification suggestion. Final authority is frozen on newsroom_mesa_output_publications when the editor publishes the output.';
 
 alter table public.newsroom_mesa_output_publications
   add column if not exists classification_key text,
@@ -48,7 +48,7 @@ alter table public.newsroom_mesa_output_publications
 comment on column public.newsroom_mesa_output_publications.classification_key is
   'Classification frozen at the successful output publication boundary. Legacy rows remain null.';
 comment on column public.newsroom_mesa_output_publications.classification_fingerprint is
-  'SHA-256 authority fingerprint over package, plan and final classification. Legacy rows remain null.';
+  'SHA-256 authority fingerprint over the existing publication provenance fingerprint and the final editorial classification. Legacy rows remain null.';
 
 create or replace function public.newsroom_save_dossier_article_plan_state_v2(
   p_dossier_id uuid,
@@ -200,6 +200,17 @@ declare
   v_plan public.newsroom_editorial_dossier_article_plans%rowtype;
   v_manifest jsonb;
   v_output jsonb;
+  v_classification_key text := nullif(
+    pg_catalog.lower(
+      pg_catalog.btrim(
+        pg_catalog.current_setting(
+          'jornada.output_classification_key',
+          true
+        )
+      )
+    ),
+    ''
+  );
   v_fingerprint text;
 begin
   select *
@@ -207,10 +218,22 @@ begin
   from public.newsroom_editorial_dossier_article_plans as plan_row
   where plan_row.dossier_id = new.dossier_id
     and plan_row.id = new.article_plan_id
-  for share;
+  for update;
 
-  if not found or v_plan.classification_key is null then
-    raise exception 'article_plan_classification_required'
+  if not found then
+    raise exception 'mesa-publication-output-invalid'
+      using errcode = '23514';
+  end if;
+  if v_classification_key is null
+    or v_classification_key not in (
+      'benfica',
+      'sporting',
+      'fc_porto',
+      'other_liga_clubs',
+      'outside_liga_other'
+    )
+  then
+    raise exception 'mesa-publication-classification-required'
       using errcode = '23514';
   end if;
 
@@ -227,11 +250,8 @@ begin
   ) as output_row(value)
   where output_row.value ->> 'outputId' = new.article_plan_id::text;
 
-  if not found
-    or v_output -> 'articlePlan' ->> 'classificationKey'
-      is distinct from v_plan.classification_key
-  then
-    raise exception 'article_plan_classification_package_stale'
+  if not found then
+    raise exception 'mesa-publication-package-invalid'
       using errcode = '23514';
   end if;
 
@@ -242,7 +262,8 @@ begin
           'dossierId', new.dossier_id,
           'articlePlanId', new.article_plan_id,
           'packageId', new.package_id,
-          'classificationKey', v_plan.classification_key
+          'publicationFingerprint', new.fingerprint,
+          'classificationKey', v_classification_key
         )::text,
         'UTF8'
       )
@@ -250,13 +271,24 @@ begin
     'hex'
   );
 
-  new.classification_key := v_plan.classification_key;
+  update public.newsroom_editorial_dossier_article_plans as plan_row
+  set classification_key = v_classification_key
+  where plan_row.dossier_id = new.dossier_id
+    and plan_row.id = new.article_plan_id
+    and plan_row.classification_key is distinct from v_classification_key;
+
+  new.classification_key := v_classification_key;
   new.classification_fingerprint := v_fingerprint;
   new.payload := pg_catalog.jsonb_set(
     pg_catalog.jsonb_set(
-      new.payload,
+      pg_catalog.jsonb_set(
+        new.payload,
+        '{article,classificationKey}',
+        pg_catalog.to_jsonb(v_classification_key),
+        true
+      ),
       '{classificationKey}',
-      pg_catalog.to_jsonb(v_plan.classification_key),
+      pg_catalog.to_jsonb(v_classification_key),
       true
     ),
     '{classificationFingerprint}',
@@ -277,6 +309,220 @@ execute function public.newsroom_freeze_output_classification_v1();
 
 revoke all on function public.newsroom_freeze_output_classification_v1()
 from public, anon, authenticated, service_role;
+
+create or replace function public.newsroom_guard_frozen_output_classification_v1()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+begin
+  if new.classification_key is distinct from old.classification_key
+    or new.classification_fingerprint is distinct from old.classification_fingerprint
+  then
+    raise exception 'mesa-publication-classification-already-frozen'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$function$;
+
+drop trigger if exists newsroom_guard_frozen_output_classification_v1
+  on public.newsroom_mesa_output_publications;
+create trigger newsroom_guard_frozen_output_classification_v1
+before update of classification_key, classification_fingerprint
+on public.newsroom_mesa_output_publications
+for each row
+execute function public.newsroom_guard_frozen_output_classification_v1();
+
+revoke all on function public.newsroom_guard_frozen_output_classification_v1()
+from public, anon, authenticated, service_role;
+
+create or replace function public.newsroom_publish_mesa_output_v3(
+  p_dossier_id uuid,
+  p_output_id uuid,
+  p_package_id uuid,
+  p_dossier_source_ids uuid[],
+  p_article jsonb,
+  p_classification_key text
+)
+returns table(
+  editorial_article_id uuid,
+  article_slug text,
+  publication_action text,
+  consolidated boolean
+)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $function$
+declare
+  v_result record;
+  v_frozen_classification_key text;
+begin
+  if p_classification_key is null
+    or p_classification_key not in (
+      'benfica',
+      'sporting',
+      'fc_porto',
+      'other_liga_clubs',
+      'outside_liga_other'
+    )
+    or p_article ->> 'classificationKey'
+      is distinct from p_classification_key
+  then
+    raise exception 'mesa-publication-classification-required'
+      using errcode = '22023';
+  end if;
+
+  perform pg_catalog.set_config(
+    'jornada.output_classification_key',
+    p_classification_key,
+    true
+  );
+
+  select *
+  into strict v_result
+  from public.newsroom_publish_mesa_output_v2(
+    p_dossier_id,
+    p_output_id,
+    p_package_id,
+    p_dossier_source_ids,
+    p_article
+  );
+
+  perform pg_catalog.set_config(
+    'jornada.output_classification_key',
+    '',
+    true
+  );
+
+  select publication.classification_key
+  into v_frozen_classification_key
+  from public.newsroom_mesa_output_publications as publication
+  where publication.dossier_id = p_dossier_id
+    and publication.article_plan_id = p_output_id
+  for share;
+
+  if not found
+    or v_frozen_classification_key is distinct from p_classification_key
+  then
+    raise exception 'mesa-publication-provenance-conflict'
+      using errcode = '23514';
+  end if;
+
+  return query
+  select
+    v_result.editorial_article_id,
+    v_result.article_slug,
+    v_result.publication_action,
+    v_result.consolidated;
+end;
+$function$;
+
+revoke all on function public.newsroom_publish_mesa_output_v3(
+  uuid, uuid, uuid, uuid[], jsonb, text
+) from public, anon, authenticated, service_role;
+grant execute on function public.newsroom_publish_mesa_output_v3(
+  uuid, uuid, uuid, uuid[], jsonb, text
+) to service_role;
+revoke execute on function public.newsroom_publish_mesa_output_v2(
+  uuid, uuid, uuid, uuid[], jsonb
+) from service_role;
+
+create or replace function public.newsroom_publish_mesa_intent_output_v2(
+  p_dossier_id uuid,
+  p_output_id uuid,
+  p_package_id uuid,
+  p_dossier_source_ids uuid[],
+  p_article jsonb,
+  p_classification_key text
+)
+returns table(
+  editorial_article_id uuid,
+  article_slug text,
+  publication_action text,
+  consolidated boolean
+)
+language plpgsql
+volatile
+security definer
+set search_path = ''
+as $function$
+declare
+  v_result record;
+  v_frozen_classification_key text;
+begin
+  if p_classification_key is null
+    or p_classification_key not in (
+      'benfica',
+      'sporting',
+      'fc_porto',
+      'other_liga_clubs',
+      'outside_liga_other'
+    )
+    or p_article ->> 'classificationKey'
+      is distinct from p_classification_key
+  then
+    raise exception 'mesa-publication-classification-required'
+      using errcode = '22023';
+  end if;
+
+  perform pg_catalog.set_config(
+    'jornada.output_classification_key',
+    p_classification_key,
+    true
+  );
+
+  select *
+  into strict v_result
+  from public.newsroom_publish_mesa_intent_output_v1(
+    p_dossier_id,
+    p_output_id,
+    p_package_id,
+    p_dossier_source_ids,
+    p_article
+  );
+
+  perform pg_catalog.set_config(
+    'jornada.output_classification_key',
+    '',
+    true
+  );
+
+  select publication.classification_key
+  into v_frozen_classification_key
+  from public.newsroom_mesa_output_publications as publication
+  where publication.dossier_id = p_dossier_id
+    and publication.article_plan_id = p_output_id
+  for share;
+
+  if not found
+    or v_frozen_classification_key is distinct from p_classification_key
+  then
+    raise exception 'mesa-publication-provenance-conflict'
+      using errcode = '23514';
+  end if;
+
+  return query
+  select
+    v_result.editorial_article_id,
+    v_result.article_slug,
+    v_result.publication_action,
+    v_result.consolidated;
+end;
+$function$;
+
+revoke all on function public.newsroom_publish_mesa_intent_output_v2(
+  uuid, uuid, uuid, uuid[], jsonb, text
+) from public, anon, authenticated, service_role;
+grant execute on function public.newsroom_publish_mesa_intent_output_v2(
+  uuid, uuid, uuid, uuid[], jsonb, text
+) to service_role;
+revoke execute on function public.newsroom_publish_mesa_intent_output_v1(
+  uuid, uuid, uuid, uuid[], jsonb
+) from service_role;
 
 create or replace function public.newsroom_apply_output_classification_to_bank_v1()
 returns trigger
@@ -844,7 +1090,7 @@ end;
 $function$;
 
 comment on function public.newsroom_mesa_preview_intents_v1(jsonb) is
-  'Builds Mesa intents from usable frozen sources without requiring source classification. Final output classification belongs to each Article Plan.';
+  'Builds Mesa intents from usable frozen sources without requiring source classification. Final output classification is chosen at publication.';
 
 notify pgrst, 'reload schema';
 

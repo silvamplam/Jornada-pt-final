@@ -718,8 +718,10 @@
 .articleHeadingActions {
   display: flex;
   flex: 0 0 auto;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .historicalChoice {
@@ -1083,16 +1085,77 @@
   .shell { padding: 8px; }
   .hero { padding: 16px; }
 }
-.planClassification {
+.outputClassification {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.outputClassification legend {
+  margin: 0 0 3px;
+  padding: 0;
+  color: #607067;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.outputClassification > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.outputClassification label {
+  position: relative;
+  cursor: pointer;
+}
+
+.outputClassification input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.outputClassification label span {
   display: inline-flex;
-  align-items: center;
   min-height: 22px;
+  align-items: center;
   padding: 2px 6px;
   border: 1px solid #cbd5df;
-  border-radius: 3px;
+  border-radius: 999px;
   background: #f8fafc;
-  color: #172235;
-  font-size: 0.65rem;
+  color: #3b485e;
+  font-size: 0.62rem;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.outputClassification input:focus-visible + span {
+  outline: 2px solid #245d37;
+  outline-offset: 2px;
+}
+
+.outputClassification input:checked + span {
+  border-color: #245d37;
+  background: #245d37;
+  color: #ffffff;
+}
+
+.outputClassification:disabled label {
+  cursor: default;
+}
+
+.outputClassification:disabled label span {
+  opacity: 0.68;
+}
+
+.outputClassification small {
+  display: block;
+  margin-top: 3px;
+  color: #9f1239;
+  font-size: 0.62rem;
+  font-weight: 700;
 }

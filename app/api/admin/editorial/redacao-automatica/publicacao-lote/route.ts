@@ -50,6 +50,16 @@ import {
   validateEditorialThemeContinuityProvenance,
 } from "@/lib/redacao-automatica/editorial-mesa-provenance";
 import { finalizeThemeContinuity } from "@/lib/redacao-automatica/newsroom-theme-continuity";
+import {
+  articleOutputClassificationDefault,
+} from "@/lib/redacao-automatica/article-plan-classification";
+import {
+  getNewsroomArticleClassificationsByIds,
+} from "@/lib/redacao-automatica/newsroom-article-classification-repository";
+import {
+  isArticleClassificationKey,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
 
 const MAX_BATCH_ARTICLES = 30;
 const OFFICIAL_BATCH_KEY = /^\d{2}$/;
@@ -79,6 +89,8 @@ type BatchPublicationPayload = Readonly<{
   updateArticleId?: unknown;
   imageUrlsByOutputId?: unknown;
   publishedAtByOutputId?: unknown;
+  classificationKey?: unknown;
+  classificationsByOutputId?: unknown;
 }>;
 
 type ExistingArticleRow = Readonly<{
@@ -121,6 +133,7 @@ type ExistingMesaPublicationRow = Readonly<{
   article_plan_id: string;
   package_id: string;
   editorial_article_id: string;
+  classification_key: string | null;
 }>;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -179,6 +192,28 @@ function parseImageUrlsByOutputId(value: unknown): ReadonlyMap<string, string | 
     } catch {
       return null;
     }
+  }
+  return result;
+}
+
+function parseClassificationKey(value: unknown): ArticleClassificationKey | null {
+  return isArticleClassificationKey(value) ? value : null;
+}
+
+function parseClassificationsByOutputId(
+  value: unknown,
+): ReadonlyMap<string, ArticleClassificationKey> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const result = new Map<string, ArticleClassificationKey>();
+  for (const [rawOutputId, rawClassificationKey] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    const outputId = cleanText(rawOutputId).toLowerCase();
+    const classificationKey = parseClassificationKey(rawClassificationKey);
+    if (!UUID_PATTERN.test(outputId) || !classificationKey || result.has(outputId)) {
+      return null;
+    }
+    result.set(outputId, classificationKey);
   }
   return result;
 }
@@ -439,6 +474,80 @@ async function sourcePublishedAtByArticle(
 
 type SourcePackageArticleContext = Awaited<ReturnType<typeof sourcePublishedAtByArticle>>;
 
+async function outputClassificationDefaults(
+  sourceContext: SourcePackageArticleContext,
+  articles: readonly BatchArticlePayload[],
+): Promise<ReadonlyMap<string, ArticleClassificationKey | null>> {
+  const entryBySourceId = new Map(
+    sourceContext.package.entries.flatMap((entry) => (
+      entry.status === "prepared"
+      && entry.provenanceSourceId
+      && entry.newsroomArticleId
+        ? [[entry.provenanceSourceId, entry.newsroomArticleId] as const]
+        : []
+    )),
+  );
+  const newsroomArticleIds = [...new Set(articles.flatMap((article) => (
+    article.sourceIds.flatMap((sourceId) => {
+      const newsroomArticleId = entryBySourceId.get(sourceId);
+      return newsroomArticleId ? [newsroomArticleId] : [];
+    })
+  )))];
+  const classifications = await getNewsroomArticleClassificationsByIds(
+    newsroomArticleIds,
+  );
+  if (!classifications.ok) {
+    return new Map(articles.map((article) => [article.key, null]));
+  }
+  const stateByArticleId = new Map(newsroomArticleIds.map((articleId, index) => (
+    [articleId, classifications.value[index]] as const
+  )));
+  const sources = [...entryBySourceId].map(([sourceId, articleId]) => {
+    const state = stateByArticleId.get(articleId);
+    return {
+      sourceId,
+      classificationKey: state?.status === "classified"
+        ? state.classification.classificationKey
+        : null,
+      classificationSource: state?.status === "classified"
+        ? state.classification.classificationSource
+        : null,
+    };
+  });
+
+  return new Map(articles.map((article) => [
+    article.key,
+    articleOutputClassificationDefault(article.sourceIds, sources),
+  ]));
+}
+
+async function frozenOutputClassifications(
+  sourceContext: SourcePackageArticleContext,
+  articles: readonly BatchArticlePayload[],
+): Promise<ReadonlyMap<string, ArticleClassificationKey>> {
+  const outputIds = articles.flatMap((article) => article.outputId ? [article.outputId] : []);
+  const dossierIds = new Set(articles.flatMap((article) => {
+    const output = sourcePackageOutputForArticle(sourceContext, article);
+    return output?.articlePlan?.dossierId ? [output.articlePlan.dossierId] : [];
+  }));
+  if (outputIds.length === 0 || dossierIds.size !== 1) return new Map();
+
+  const rows = await fetchSupabaseAdminTable<Pick<
+    ExistingMesaPublicationRow,
+    "article_plan_id" | "classification_key"
+  >>(
+    "newsroom_mesa_output_publications?select=article_plan_id,classification_key"
+    + `&dossier_id=eq.${encodeURIComponent([...dossierIds][0])}`
+    + `&article_plan_id=in.(${outputIds.map(encodeURIComponent).join(",")})`
+    + `&limit=${outputIds.length}`,
+  );
+  return new Map(rows.flatMap((row) => (
+    isArticleClassificationKey(row.classification_key)
+      ? [[row.article_plan_id, row.classification_key] as const]
+      : []
+  )));
+}
+
 function sourcePackageOutputForArticle(
   sourceContext: SourcePackageArticleContext,
   article: BatchArticlePayload,
@@ -493,6 +602,7 @@ type PreparedContinuityPublicationItem = Readonly<{
   imageUrl: string | null;
   mode: "create" | "update" | "resume";
   sourceIds: readonly string[];
+  classificationKey: ArticleClassificationKey | null;
 }>;
 
 async function prepareThemeContinuityPublication(
@@ -507,10 +617,13 @@ async function prepareThemeContinuityPublication(
     ? parseImageUrlsByOutputId(payload.imageUrlsByOutputId)
     : new Map<string, string | null>();
   const plannedPublishedAt = parsePublishedAtByOutputId(payload.publishedAtByOutputId);
+  const classificationsByOutputId = payload.classificationsByOutputId === undefined
+    ? new Map<string, ArticleClassificationKey>()
+    : parseClassificationsByOutputId(payload.classificationsByOutputId);
   if (
     (!author && !(transfer?.productionIntents && articles?.length === 0))
     || (!transfer?.themeContinuity && !transfer?.productionIntents) || !transfer.continuityResolution
-    || !articles || !imageUrls || !plannedPublishedAt
+    || !articles || !imageUrls || !plannedPublishedAt || !classificationsByOutputId
   ) throw new Error("theme-continuity-publication-input-invalid");
 
   const location: SourcePackagePayload = {
@@ -528,6 +641,14 @@ async function prepareThemeContinuityPublication(
   if ([...plannedPublishedAt.keys()].some((outputId) => (
     !frozen.slots.some((slot) => slot.outputId === outputId)
   ))) throw new Error("theme-continuity-publication-input-invalid");
+  if (
+    [...classificationsByOutputId.keys()].some((outputId) => (
+      !articles.some((article) => article.outputId === outputId)
+    ))
+    || requireImages && articles.some((article) => (
+      !article.outputId || !classificationsByOutputId.has(article.outputId)
+    ))
+  ) throw new Error("mesa-publication-classification-required");
   const manifestContinuity = sourceContext.package.themeContinuity;
   if (!productionIntents && (
     !manifestContinuity
@@ -557,7 +678,7 @@ async function prepareThemeContinuityPublication(
   const dossierId = [...dossierIds][0];
   const publications = await fetchSupabaseAdminTable<ExistingMesaPublicationRow>(
     "newsroom_mesa_output_publications"
-    + "?select=article_plan_id,package_id,editorial_article_id,payload"
+    + "?select=article_plan_id,package_id,editorial_article_id,classification_key,payload"
     + `&dossier_id=eq.${encodeURIComponent(dossierId)}&limit=30`,
   );
   const slotByOutputId = new Map(frozen.slots.map((slot) => [slot.outputId, slot]));
@@ -705,6 +826,7 @@ async function prepareThemeContinuityPublication(
       imageUrl,
       mode: persisted ? "resume" : slot.kind === "existing" ? "update" : "create",
       sourceIds: article.sourceIds,
+      classificationKey: classificationsByOutputId.get(slot.outputId) ?? null,
     });
   }
 
@@ -1059,6 +1181,11 @@ async function preflightPublication(payload: BatchPublicationPayload) {
   if (transfer?.themeContinuity || transfer?.productionIntents) {
     try {
       const continuity = await prepareThemeContinuityPublication(payload, false);
+      const continuityArticles = continuity.prepared.map((item) => item.article);
+      const [classificationDefaults, frozenClassifications] = await Promise.all([
+        outputClassificationDefaults(continuity.sourceContext, continuityArticles),
+        frozenOutputClassifications(continuity.sourceContext, continuityArticles),
+      ]);
       return NextResponse.json({
         ok: true,
         items: continuity.prepared.map((item) => ({
@@ -1070,6 +1197,8 @@ async function preflightPublication(payload: BatchPublicationPayload) {
           publishedAt: item.publishedAt,
           slot: item.slot,
           dossierId: continuity.dossierId,
+          classificationDefault: classificationDefaults.get(item.key) ?? null,
+          frozenClassificationKey: frozenClassifications.get(item.outputId) ?? null,
         })),
         continuity: {
           noChangeCount: continuity.noChangeOutputIds.length,
@@ -1149,6 +1278,12 @@ async function preflightPublication(payload: BatchPublicationPayload) {
       }
     }
 
+    const [classificationDefaults, frozenClassifications] = sourceContext
+      ? await Promise.all([
+          outputClassificationDefaults(sourceContext, articles),
+          frozenOutputClassifications(sourceContext, articles),
+        ])
+      : [new Map<string, ArticleClassificationKey | null>(), new Map<string, ArticleClassificationKey>()];
     const prepared =
       await prepareBatch(
         articles,
@@ -1164,7 +1299,16 @@ async function preflightPublication(payload: BatchPublicationPayload) {
         prepared,
         sourceContext,
         confirmedUpdates,
-      ),
+      ).map((item) => {
+        const article = articles.find((candidate) => candidate.key === item.key);
+        return {
+          ...item,
+          classificationDefault: classificationDefaults.get(item.key) ?? null,
+          frozenClassificationKey: article?.outputId
+            ? frozenClassifications.get(article.outputId) ?? null
+            : null,
+        };
+      }),
     });
   } catch (error) {
     if (error instanceof EditorialArticleServiceError) {
@@ -1244,6 +1388,7 @@ async function publishItem(payload: BatchPublicationPayload) {
   const article = parseArticle(payload.article);
   const imageUrl = cleanText(payload.imageUrl);
   const publishedAt = parsePublishedAt(payload.publishedAt);
+  const selectedClassification = parseClassificationKey(payload.classificationKey);
   const sourcePackage =
     payload.sourcePackage === undefined
       ? null
@@ -1364,6 +1509,13 @@ async function publishItem(payload: BatchPublicationPayload) {
       ) {
         return jsonError("mesa-v2-provenance-missing", 409);
       }
+      if (!selectedClassification) {
+        return jsonError(
+          "mesa-publication-classification-required",
+          409,
+          "Escolhe a classificação do artigo.",
+        );
+      }
       if (
         updateTarget
         && (publicationMode !== "update" || updateArticleId !== updateTarget.publishedArticleId)
@@ -1401,6 +1553,7 @@ async function publishItem(payload: BatchPublicationPayload) {
           publishedAt: atomicPublishedAt,
           matchdayId,
           mode: updateTarget ? "update" : "create",
+          classificationKey: selectedClassification,
         },
       });
       if (!atomicResult.ok) {
@@ -1834,6 +1987,7 @@ async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
           publishedAt: item.publishedAt,
           matchdayId: item.matchdayId,
           mode: item.mode === "resume" ? (continuity.frozen.slots.find((s) => s.outputId === item.outputId)!.kind === "existing" ? "update" : "create") : item.mode,
+          classificationKey: item.classificationKey!,
         },
       });
       if (!result.ok) {

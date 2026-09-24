@@ -474,7 +474,7 @@ test("cada cartão prioriza imagens do seu ponto de partida sem fechar o banco g
   assert.match(imageChoice, /<legend>\{legend\}<\/legend>/);
 });
 
-test("Article Plans são automáticos e a UI conserva apenas decisões editoriais", () => {
+test("Article Plans aceitam apenas uma sugestão opcional antes da decisão final", () => {
   const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
   const imageChoice = read("app/admin/editorial/redacao-automatica/_dossierImageChoiceGrid.tsx");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
@@ -484,10 +484,12 @@ test("Article Plans são automáticos e a UI conserva apenas decisões editoriai
   assert.match(client, /Género/);
   assert.match(client, /Extensão/);
   assert.match(client, /Destino/);
-  assert.match(client, /Classificação do artigo/);
+  assert.match(client, /Sugestão de classificação \(opcional\)/);
+  assert.match(client, /A classificação final é confirmada na Publicação em lote\./);
+  assert.match(client, /Limpar sugestão/);
   assert.match(client, /ARTICLE_CLASSIFICATIONS\.map/);
   assert.match(client, /name=\{planField\(cardKey, "classification_key"\)\}/);
-  assert.match(client, /classificationTouchedRef\.current = true/);
+  assert.doesNotMatch(client, /classificationTouchedRef|articlePlanClassificationDefault/);
   assert.match(client, /<option value="update" disabled=\{eligibleTargets\.length === 0\}>/);
   assert.match(client, /Record<"new" \| "update", string \| null>/);
   assert.match(client, /editorialMesaResolvedVisualImageChoice\(\s*imageChoices\[destination\]/);

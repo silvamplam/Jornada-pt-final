@@ -206,8 +206,9 @@ export function parseEditorialBatchTransferSourcePackage(
         classificationsByOutputId
         && (
           !batchContract
-          || Object.keys(classificationsByOutputId).length !== batchContract.outputIds.length
-          || batchContract.outputIds.some((id) => !classificationsByOutputId?.[id])
+          || Object.keys(classificationsByOutputId).some(
+            (id) => !batchContract.outputIds.includes(id),
+          )
         )
       )
       || (themeContinuity && (

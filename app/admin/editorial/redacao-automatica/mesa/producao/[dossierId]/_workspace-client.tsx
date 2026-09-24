@@ -51,9 +51,6 @@ import {
   ARTICLE_CLASSIFICATIONS,
   type ArticleClassificationKey,
 } from "@/lib/editorial-classifications";
-import {
-  articlePlanClassificationDefault,
-} from "@/lib/redacao-automatica/article-plan-classification";
 type WorkspaceContinuitySlot = ThemeContinuitySlot | ReturnType<typeof mesaProductionIntentSlots>[number];
 import styles from "./workspace.module.css";
 
@@ -453,7 +450,6 @@ function PlanEditor({
   images,
   saving,
   continuitySlot,
-  assignedSources,
 }: Readonly<{
   dossier: WorkspaceDossier;
   plan: EditorialDossierProductionArticlePlan | null;
@@ -468,7 +464,6 @@ function PlanEditor({
   images: readonly EditorialDossierImage[];
   saving: boolean;
   continuitySlot: WorkspaceContinuitySlot | null;
-  assignedSources: readonly WorkspaceSource[];
 }>) {
   const [destination, setDestination] = useState<"new" | "update">(
     continuitySlot?.kind === "existing" ? "update" : continuitySlot ? "new" : plan?.destination ?? "new",
@@ -491,20 +486,11 @@ function PlanEditor({
   );
   const [showAllImages, setShowAllImages] = useState(false);
   const [classificationKey, setClassificationKey] = useState<ArticleClassificationKey | null>(
-    () => plan?.classificationKey ?? articlePlanClassificationDefault(assignedSources),
+    () => plan?.classificationKey ?? null,
   );
-  const classificationTouchedRef = useRef(Boolean(plan?.classificationKey));
-  const assignedClassificationDefault = articlePlanClassificationDefault(assignedSources);
   useEffect(() => {
-    if (plan?.classificationKey) {
-      classificationTouchedRef.current = true;
-      setClassificationKey(plan.classificationKey);
-      return;
-    }
-    if (!classificationTouchedRef.current) {
-      setClassificationKey(assignedClassificationDefault);
-    }
-  }, [assignedClassificationDefault, plan?.classificationKey]);
+    setClassificationKey(plan?.classificationKey ?? null);
+  }, [plan?.classificationKey]);
   const visualSeedImage = editorialMesaResolvedVisualImageChoice(
     null,
     visualSeed?.image?.id ?? null,
@@ -648,20 +634,21 @@ function PlanEditor({
         <input type="hidden" name={planField(cardKey, "destination")} value={destination} />
         <input type="hidden" name={planField(cardKey, "target_id")} value={targetId} />
         <input type="hidden" name={planField(cardKey, "image_choice")} value={selectedImage} />
+        <input
+          type="hidden"
+          name={planField(cardKey, "classification_key")}
+          value={classificationKey ?? ""}
+        />
 
         <fieldset className={styles.classificationChoice}>
-          <legend>Classificação do artigo</legend>
+          <legend>Sugestão de classificação (opcional)</legend>
           <div>
             {ARTICLE_CLASSIFICATIONS.map((classification) => (
               <label key={classification.key} data-classification={classification.key}>
                 <input
                   checked={classificationKey === classification.key}
                   disabled={saving}
-                  name={planField(cardKey, "classification_key")}
-                  onChange={() => {
-                    classificationTouchedRef.current = true;
-                    setClassificationKey(classification.key);
-                  }}
+                  onChange={() => setClassificationKey(classification.key)}
                   type="radio"
                   value={classification.key}
                 />
@@ -669,8 +656,15 @@ function PlanEditor({
               </label>
             ))}
           </div>
-          {classificationKey === null ? (
-            <small>Escolhe antes de produzir.</small>
+          <small>A classificação final é confirmada na Publicação em lote.</small>
+          {classificationKey !== null ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => setClassificationKey(null)}
+            >
+              Limpar sugestão
+            </button>
           ) : null}
         </fieldset>
 
@@ -1465,7 +1459,6 @@ export function MesaProductionWorkspaceClient({
               images={workspaceImages}
               saving={savingProduction}
               continuitySlot={frozenSlots?.[card.position - 1] ?? null}
-              assignedSources={card.assignedSources}
             />
           ))}
         </div>
