@@ -101,7 +101,7 @@ test("Página e blocos omite latest e video e numera continuamente apenas as zon
   );
   const pageStructure = client.slice(start, end);
   const listStart = pageStructure.indexOf('className="thematic-page-structure-list"');
-  const listEnd = pageStructure.indexOf("{activeStructureEditorOpen", listStart);
+  const listEnd = pageStructure.indexOf("{activeStructureEditorIsFaixa", listStart);
   const pageStructureList = pageStructure.slice(listStart, listEnd);
 
   assert.ok(start >= 0 && end > start && listStart >= 0 && listEnd > listStart);
@@ -114,6 +114,37 @@ test("Página e blocos omite latest e video e numera continuamente apenas as zon
     pageStructure,
     /moveSelectedRailBlock|selectedReorderBlockId|Subir item selecionado|Descer item selecionado/,
   );
+});
+
+test("Página e blocos abre um editor próprio e mínimo para a Faixa", () => {
+  const start = client.indexOf(
+    '<details className="thematic-global-tool" ref={pageStructureRef}>',
+  );
+  const end = client.indexOf(
+    '<details className="thematic-global-tool thematic-video-tool">',
+    start,
+  );
+  const pageStructure = client.slice(start, end);
+  const editorStart = pageStructure.indexOf("{activeStructureEditorIsFaixa ? (");
+  const editorEnd = pageStructure.indexOf(") : activeZone ? (", editorStart);
+  const faixaEditor = pageStructure.slice(editorStart, editorEnd);
+
+  assert.ok(editorStart >= 0 && editorEnd > editorStart);
+  assert.match(pageStructure, /<span>Fixo<\/span>[\s\S]*?<strong>Faixa<\/strong>/);
+  assert.match(pageStructure, /setActiveWorkspaceKey\("faixa"\)/);
+  assert.match(faixaEditor, /aria-label="Editar Faixa"/);
+  assert.match(faixaEditor, /<span>Título público<\/span>/);
+  assert.match(faixaEditor, /defaultValue=\{current\.presentation\.faixaPublicTitle\}/);
+  assert.match(faixaEditor, /maxLength=\{120\}/);
+  assert.match(faixaEditor, /faixaPublicTitle: value/);
+  assert.doesNotMatch(faixaEditor, /Layout|Apagar zona|capacity|changePhysicalDeskZone/);
+
+  const rail = body("renderZoneRail", "undo");
+  const reorderStart = rail.indexOf("railOrderBlocks.map((block)");
+  const reorderEnd = rail.indexOf("thematic-secondary-workspaces", reorderStart);
+  const reorder = rail.slice(reorderStart, reorderEnd);
+  assert.match(client, /railOrderBlocks = current\.blocks\.filter\([\s\S]*block\.kind === "zone" \|\| block\.kind === "video"/);
+  assert.doesNotMatch(reorder, /Faixa|faixa/);
 });
 
 test("A acontecer agora é um controlo global ao lado da classificação", () => {

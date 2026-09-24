@@ -115,6 +115,7 @@ function workspaceSettings(
   return {
     matchday_id: MATCHDAY_ID,
     faixa_slot_count: 4,
+    faixa_public_title: "",
     headline_title_color: "#AABBCC",
     latest_zone_mode: "latest_news",
     latest_zone_placement: "four_news",
@@ -159,6 +160,7 @@ test("reader interpreta settings e marker físicos sem defaults legacy", () => {
     workspace_settings: {
       matchday_id: MATCHDAY_ID,
       faixa_slot_count: 4,
+      faixa_public_title: "Destaques",
       headline_title_color: "#AABBCC",
       latest_zone_mode: "editorial_line",
       latest_zone_placement: "four_news",
@@ -178,6 +180,7 @@ test("reader interpreta settings e marker físicos sem defaults legacy", () => {
   }));
 
   assert.equal(state.workspaceSettings?.faixaSlotCount, 4);
+  assert.equal(state.workspaceSettings?.faixaPublicTitle, "Destaques");
   assert.equal(state.workspaceSettings?.latestZoneMode, "editorial_line");
   assert.equal(state.workspaceSettings?.latestZonePlacement, "four_news");
   assert.equal(state.workspaceSettings?.latestZoneTitleColor, "#DDEEFF");
@@ -185,6 +188,7 @@ test("reader interpreta settings e marker físicos sem defaults legacy", () => {
   assert.equal(state.physicalCutover?.profileKey, "liga_portugal_v1");
   const deskState = createPhysicalDeskState(state);
   assert.deepEqual(deskState.current.presentation, {
+    faixaPublicTitle: "Destaques",
     headlineTitleColor: "#AABBCC",
     latestZonePlacement: "four_news",
     latestZoneTitle: "Últimas",
@@ -211,7 +215,7 @@ test("workspace settings aceita os dois modos v15 e cor nula ou hexadecimal comp
       },
     }));
 
-    assert.equal(Object.keys(workspaceSettings()).length, 10);
+    assert.equal(Object.keys(workspaceSettings()).length, 11);
     assert.equal(state.workspaceSettings?.latestZoneMode, latestZoneMode);
     assert.equal(
       state.workspaceSettings?.latestZoneTitleColor,
@@ -266,6 +270,7 @@ test("settings e physical_cutover incoerentes falham fechados", () => {
   const settings = {
     matchday_id: MATCHDAY_ID,
     faixa_slot_count: 4,
+    faixa_public_title: "",
     headline_title_color: null,
     latest_zone_mode: "latest_news",
     latest_zone_placement: "top",

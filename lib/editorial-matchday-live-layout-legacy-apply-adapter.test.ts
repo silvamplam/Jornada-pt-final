@@ -179,6 +179,7 @@ function baseline(applied = true): PhysicalDeskLegacyApplyBaseline {
 
 function stateFor(stateWorkspace: LiveLayoutWorkspaceState) {
   return createPhysicalDeskState(stateWorkspace, {
+    faixaPublicTitle: "",
     headlineTitleColor: null,
     latestZonePlacement: "top",
     latestZoneTitle: "Últimas",

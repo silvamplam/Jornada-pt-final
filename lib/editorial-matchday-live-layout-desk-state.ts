@@ -41,6 +41,7 @@ export type PhysicalDeskPlacement = Readonly<{
 }>;
 
 export type PhysicalDeskPresentation = Readonly<{
+  faixaPublicTitle: string;
   headlineTitleColor: string | null;
   latestZonePlacement: MatchdayEditorialProfileLatestZonePlacement;
   latestZoneTitle: string;
@@ -167,11 +168,12 @@ function synchronizeMemory(
 
 function validateSnapshot(snapshot: PhysicalDeskSnapshot): PhysicalDeskSnapshot {
   for (const title of [
+    snapshot.presentation.faixaPublicTitle,
     snapshot.presentation.roundupVideoHeading,
     snapshot.presentation.videoHighlightSectionTitle,
   ]) {
     if (title !== title.trim() || title.length > 120) {
-      stateError("video-section-title-invalid");
+      stateError("presentation-title-invalid");
     }
   }
   const zoneIds = new Set<LiveLayoutZoneId>();
@@ -353,6 +355,7 @@ export function createPhysicalDeskState(
     ), 0);
   const presentation: PhysicalDeskPresentation = workspace.workspaceSettings
     ? {
+        faixaPublicTitle: workspace.workspaceSettings.faixaPublicTitle,
         headlineTitleColor: workspace.workspaceSettings.headlineTitleColor,
         latestZonePlacement: workspace.workspaceSettings.latestZonePlacement,
         latestZoneTitle: workspace.workspaceSettings.latestZoneTitle,

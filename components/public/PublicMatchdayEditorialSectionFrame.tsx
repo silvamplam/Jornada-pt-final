@@ -4,7 +4,7 @@ import styles from "./PublicMatchdayEditorialSectionFrame.module.css";
 
 type PublicMatchdayEditorialSectionFrameProps = {
   children: ReactNode;
-  kind: "zone" | "latest" | "video";
+  kind: "zone" | "latest" | "video" | "faixa";
 };
 
 export default function PublicMatchdayEditorialSectionFrame({

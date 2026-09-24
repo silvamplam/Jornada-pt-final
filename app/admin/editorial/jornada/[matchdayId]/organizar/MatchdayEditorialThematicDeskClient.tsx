@@ -307,6 +307,7 @@ const styles = `
   .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-card > .thematic-card-copy { gap: 3px; }
   .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) .thematic-card-title { -webkit-line-clamp: 3; }
   .thematic-workspace-slot .thematic-card.thematic-selection-card { grid-template-columns: 16px 44px minmax(0,1fr) 22px; }
+  .thematic-faixa-title-editor { grid-template-columns: minmax(0,420px); justify-content: start; }
   .thematic-highlight-row { display: grid; grid-template-columns: minmax(120px,160px) minmax(0,520px); gap: 5px; align-items: end; justify-content: start; }
   .thematic-highlight-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 7px; min-width: 0; }
   .thematic-highlight-card { display: grid; grid-template-columns: 50px minmax(0,1fr) auto; gap: 7px; align-items: center; min-height: 58px; padding: 6px; border: 1px solid #dfe6ee; border-radius: 6px; background: #fff; }
@@ -332,8 +333,6 @@ const styles = `
   .thematic-candidates-grid .thematic-card { min-height: 60px; }
   .thematic-candidates-grid .thematic-empty { grid-column: 1 / -1; min-height: 90px; }
   .thematic-faixa-slots { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 4px; }
-  .thematic-faixa-drop-target { padding: 9px; border: 1px dashed #9aaabc; border-radius: 5px; background: #f8fafc; color: #526173; font-size: 9px; font-weight: 900; text-align: center; }
-  .thematic-faixa-drop-target[data-drag-active="true"] { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
   .thematic-global-tools { position: relative; z-index: 20; display: grid; grid-template-columns: max-content max-content max-content minmax(0,1fr); align-items: center; min-height: 38px; gap: 0; padding: 3px; border: 1px solid #d7e0e9; border-radius: 7px; background: #fff; }
   .thematic-global-tool { position: relative; min-width: 0; border: 0; background: transparent; }
   .thematic-global-tool[open] { z-index: 2; }
@@ -755,6 +754,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const router = useRouter();
   const profile = EDITORIAL_PROFILES[desk.profileKey];
   const physicalPresentation = useMemo(() => ({
+    faixaPublicTitle:
+      desk.physicalWorkspace.workspaceSettings?.faixaPublicTitle ?? "",
     headlineTitleColor: desk.pageControls.headlineTitleColor,
     latestZonePlacement: desk.pageControls.latestZonePlacement,
     latestZoneTitle: desk.pageControls.latestZoneTitle,
@@ -762,6 +763,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     roundupVideoHeading: desk.videoModule.roundupHeading,
     videoHighlightSectionTitle: desk.videoModule.highlightSectionTitle,
   }), [
+    desk.physicalWorkspace.workspaceSettings?.faixaPublicTitle,
     desk.pageControls.headlineTitleColor,
     desk.pageControls.latestZonePlacement,
     desk.pageControls.latestZoneTitle,
@@ -881,7 +883,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     ? openingOnly ? "opening-only" : "stacked"
     : activeZone ? "zone-only" : "other";
   const focusContext = `${desk.matchdayLabel} · ${openingOnly ? "Só Abertura" : activeWorkspaceLabel} · Abertura ${openingVisible ? "aberta" : "fechada"}`;
-  const activeStructureEditorOpen = activeZone !== null;
+  const activeStructureEditorIsFaixa = activeWorkspaceKey === "faixa";
+  const activeStructureEditorOpen =
+    activeZone !== null || activeStructureEditorIsFaixa;
   const activeZonePlacedArticleCount = activeZone
     ? current.placements.filter((placement) => (
         placement.placementType === "zone"
@@ -1421,18 +1425,29 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           <span>{faixaPlacements.length} artigos</span>
         </header>
         <div className="thematic-workspace-body">
-          <div
-            className="thematic-faixa-drop-target"
-            data-drag-active={draggingBankItemId !== null && !mutationBlocked}
-            onDragOver={allowDrop}
-            onDrop={(event) => {
-              event.preventDefault();
-              const bankItemId = dragged(event);
-              if (bankItemId) placeAtFaixaTop(bankItemId);
-              setDraggingBankItemId(null);
-            }}
-          >
-            Largar aqui · entra no topo da Faixa
+          <div className="thematic-zone-editor thematic-faixa-title-editor">
+            <label className="thematic-field">
+              Título público
+              <input
+                aria-label="Título público da Faixa no workspace"
+                defaultValue={current.presentation.faixaPublicTitle}
+                disabled={mutationBlocked}
+                key={`faixa-workspace:${current.presentation.faixaPublicTitle}`}
+                maxLength={120}
+                onBlur={(event) => {
+                  const value = event.currentTarget.value.trim();
+                  if (value === current.presentation.faixaPublicTitle) return;
+
+                  runPhysicalOperation(
+                    (state) => changePhysicalDeskPresentation(state, {
+                      faixaPublicTitle: value,
+                    }),
+                    "Faixa: título público alterado em preview.",
+                  );
+                }}
+                type="text"
+              />
+            </label>
           </div>
           {slots.length > 0 ? (
             <div className="thematic-faixa-slots">
@@ -2064,7 +2079,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     })}
                     <button
                       className={"thematic-page-row" + (activeWorkspaceKey === "faixa" ? " active" : "")}
-                      onClick={() => activateWorkspaceFromStructure("faixa")}
+                      onClick={() => {
+                        setDeleteZoneId(null);
+                        setActiveWorkspaceKey("faixa");
+                        setActiveWorkspaceVisible(true);
+                      }}
                       type="button"
                     >
                       <span>Fixo</span>
@@ -2074,7 +2093,36 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   </div>
                 </div>
 
-                {activeStructureEditorOpen ? (
+                {activeStructureEditorIsFaixa ? (
+                  <aside
+                    className="thematic-page-zone-editor-panel"
+                    aria-label="Editar Faixa"
+                  >
+                    <strong>Editar Faixa</strong>
+
+                    <label className="thematic-page-zone-field">
+                      <span>Título público</span>
+                      <input
+                        aria-label="Título público da Faixa"
+                        defaultValue={current.presentation.faixaPublicTitle}
+                        disabled={mutationBlocked}
+                        key={`faixa:${current.presentation.faixaPublicTitle}`}
+                        maxLength={120}
+                        onBlur={(event) => {
+                          const value = event.currentTarget.value.trim();
+                          if (value === current.presentation.faixaPublicTitle) return;
+
+                          runPhysicalOperation(
+                            (state) => changePhysicalDeskPresentation(state, {
+                              faixaPublicTitle: value,
+                            }),
+                            "Faixa: título público alterado em preview.",
+                          );
+                        }}
+                      />
+                    </label>
+                  </aside>
+                ) : activeZone ? (
                   <aside
                     className="thematic-page-zone-editor-panel"
                     aria-label={"Editar zona " + activeStructureLabel}

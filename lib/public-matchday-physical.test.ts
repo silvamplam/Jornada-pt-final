@@ -39,6 +39,7 @@ function fixture({
   placements = [],
   videoActive = false,
   faixaSlotCount = 4,
+  faixaPublicTitle = "",
   marker = true,
   projectedZoneIds = zones.map((item) => item.id),
   latestPlacement = "top",
@@ -50,6 +51,7 @@ function fixture({
   placements?: readonly PlacementSpec[];
   videoActive?: boolean;
   faixaSlotCount?: number;
+  faixaPublicTitle?: string;
   marker?: boolean;
   projectedZoneIds?: readonly string[];
   latestPlacement?: "top" | "four_news" | "hidden";
@@ -144,6 +146,7 @@ function fixture({
     workspace_settings: marker ? {
       matchday_id: MATCHDAY_ID,
       faixa_slot_count: faixaSlotCount,
+      faixa_public_title: faixaPublicTitle,
       headline_title_color: "#123456",
       latest_zone_mode: "latest_news",
       latest_zone_placement: latestPlacement,
@@ -221,6 +224,14 @@ test("reader físico recupera os títulos configurados de Vídeos e Destaque", (
     snapshot.video.highlightSectionTitle,
     "ESCOLHA DA REDAÇÃO",
   );
+});
+
+test("reader físico recupera o título público opcional da Faixa", () => {
+  assert.equal(
+    buildFixture({ faixaPublicTitle: "Destaques" }).faixa.publicTitle,
+    "Destaques",
+  );
+  assert.equal(buildFixture({ faixaPublicTitle: "" }).faixa.publicTitle, "");
 });
 
 test("snapshot físico inválido não tenta o reader legacy", async () => {

@@ -87,6 +87,7 @@ function readerRow(
 }
 
 const presentation = {
+  faixaPublicTitle: "",
   headlineTitleColor: null,
   latestZonePlacement: "four_news" as const,
   latestZoneTitle: "Últimas",

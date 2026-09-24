@@ -3774,6 +3774,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     thematicSnapshot
       ? importantNewsItems.slice(0, 20)
       : importantNewsItems;
+  const faixaPublicTitle = physicalSnapshot?.faixa.publicTitle ?? "";
 
   const editorialVisibility = buildPublicMatchdayEditorialVisibility({
     hasHeadline: hasPublishedHeadline,
@@ -4578,13 +4579,15 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
 
       {!publicEditorialUnavailable
       && visibleImportantNewsItems.length > 0 ? (
-        <div className="public-matchday-editorial-region">
+        <PublicMatchdayEditorialSectionFrame kind="faixa">
           <PublicHorizontalNewsStrip
             items={visibleImportantNewsItems}
             ariaLabel="Faixa horizontal de noticias"
+            ownsSectionBoundary={false}
             scope="matchday"
+            title={faixaPublicTitle}
           />
-        </div>
+        </PublicMatchdayEditorialSectionFrame>
       ) : null}
 
       <section className="public-matchday-panel" id="classificacao" aria-label="Classificacao acumulada">

@@ -43,6 +43,7 @@ export type PhysicalDeskApplyPayload = Readonly<{
   faixaArrivalBankItemIds: readonly string[];
   displacedArrivalBankItemIds: readonly string[];
   presentation: Readonly<{
+    faixa_public_title: string;
     headline_title_color: string | null;
     latest_zone_placement: PhysicalDeskPresentation["latestZonePlacement"];
     latest_zone_title: string;
@@ -260,6 +261,8 @@ export function buildPhysicalDeskApplyPayload(
     faixaArrivalBankItemIds,
     displacedArrivalBankItemIds,
     presentation: {
+      faixa_public_title:
+        physicalDesk.current.presentation.faixaPublicTitle,
       headline_title_color:
         physicalDesk.current.presentation.headlineTitleColor,
       latest_zone_placement:
@@ -483,6 +486,7 @@ export function parsePhysicalDeskApplyPayload(
 
   const presentation = recordValue(input.presentation, "presentation-invalid");
   exactKeys(presentation, [
+    "faixa_public_title",
     "headline_title_color",
     "latest_zone_placement",
     "latest_zone_title",
@@ -526,6 +530,13 @@ export function parsePhysicalDeskApplyPayload(
   if (typeof presentation.video_module_active !== "boolean") {
     return applyError("presentation-video-active-invalid");
   }
+  const faixaPublicTitle = trimmedText(
+    presentation.faixa_public_title,
+    "presentation-faixa-title-invalid",
+  );
+  if (faixaPublicTitle.length > 120) {
+    return applyError("presentation-faixa-title-invalid");
+  }
   const roundupVideoHeading = trimmedText(
     presentation.roundup_video_heading,
     "presentation-roundup-title-invalid",
@@ -561,6 +572,7 @@ export function parsePhysicalDeskApplyPayload(
     faixaArrivalBankItemIds,
     displacedArrivalBankItemIds,
     presentation: {
+      faixa_public_title: faixaPublicTitle,
       headline_title_color: headlineTitleColor,
       latest_zone_placement: latestZonePlacement,
       latest_zone_title: presentation.latest_zone_title,

@@ -99,6 +99,7 @@ function workspace(zoneCount: number, itemCount = 12): LiveLayoutWorkspaceState 
     workspaceSettings: {
       matchdayId: MATCHDAY_ID,
       faixaSlotCount: 4,
+      faixaPublicTitle: "Destaques",
       headlineTitleColor: "#AABBCC",
       latestZoneMode: "editorial_line",
       latestZonePlacement: "top",
@@ -433,6 +434,7 @@ test("serializer transporta todos os placements sem compactar Faixa esparsa", ()
   assert.deepEqual(payload.displacedBankItemIds, [id(40, 11)]);
   assert.deepEqual(payload.workedBankItemIds, [id(40, 6), id(40, 9)]);
   assert.deepEqual(payload.presentation, {
+    faixa_public_title: "Destaques",
     headline_title_color: "#AABBCC",
     latest_zone_placement: "top",
     latest_zone_title: "Últimas",
@@ -468,6 +470,36 @@ test("Apply transporta os dois títulos sem alterar conteúdo físico", () => {
     "liga_portugal_v1",
     baseline,
   ).placements);
+});
+
+test("Apply transporta o título público opcional da Faixa", () => {
+  const baseline = createPhysicalDeskState(workspace(5));
+  const edited = changePhysicalDeskPresentation(baseline, {
+    faixaPublicTitle: "O melhor da jornada",
+  });
+  const payload = buildPhysicalDeskApplyPayload("liga_portugal_v1", edited);
+
+  assert.equal(
+    payload.presentation.faixa_public_title,
+    "O melhor da jornada",
+  );
+  assert.deepEqual(payload.blocks, buildPhysicalDeskApplyPayload(
+    "liga_portugal_v1",
+    baseline,
+  ).blocks);
+  assert.deepEqual(payload.placements, buildPhysicalDeskApplyPayload(
+    "liga_portugal_v1",
+    baseline,
+  ).placements);
+
+  const empty = parsePhysicalDeskApplyPayload({
+    ...payload,
+    presentation: {
+      ...payload.presentation,
+      faixa_public_title: "",
+    },
+  });
+  assert.equal(empty.presentation.faixa_public_title, "");
 });
 
 test("arrivals são deltas baseline-relative e preservam a ordem editorial", () => {
