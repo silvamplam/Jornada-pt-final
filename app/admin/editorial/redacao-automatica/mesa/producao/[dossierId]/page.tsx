@@ -64,6 +64,9 @@ export default async function ProductionWorkspacePage({
     organizationReadable,
   } = productionResult.value;
   const context = production.mesaContext;
+  const groupingPromise = readMesaNewOutputGrouping(dossierId)
+    .then((grouping) => ({ grouping, failed: false as const }))
+    .catch(() => ({ grouping: null, failed: true as const }));
   const sourceClassifications = await getNewsroomArticleClassificationsByIds(
     dossier.sources.map((source) => source.newsroomArticleId),
   );
@@ -96,11 +99,9 @@ export default async function ProductionWorkspacePage({
     ? (context.selectionPayload as Record<string, unknown>).productionGroupingV2 : undefined;
   const expectsGrouping = Boolean(groupingMarker && typeof groupingMarker === "object"
     && (groupingMarker as Record<string, unknown>).version === 2);
-  let newOutputGrouping: MesaNewOutputGrouping | null = null;
-  try {
-    newOutputGrouping = await readMesaNewOutputGrouping(dossierId);
-  } catch {
-    if (expectsGrouping) return <ReadError message="Não foi possível reconstruir o planeamento dos novos artigos." />;
+  const { grouping: newOutputGrouping, failed: groupingReadFailed } = await groupingPromise;
+  if (groupingReadFailed && expectsGrouping) {
+    return <ReadError message="Não foi possível reconstruir o planeamento dos novos artigos." />;
   }
   if (expectsGrouping && !newOutputGrouping) {
     return <ReadError message="O planeamento dos novos artigos não está disponível." />;
