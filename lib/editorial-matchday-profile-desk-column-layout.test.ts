@@ -82,38 +82,54 @@ test("Mesa deixou de distribuir clubes por colunas ou chaves hardcoded", () => {
   );
 });
 
-test("rail de zonas e estrutura derivam dos blocks físicos", () => {
+test("rail e estrutura derivam dos blocks físicos sem autoridade paralela", () => {
   assert.match(
     source,
     /const orderedZoneBlocks = current\.blocks\.filter\(\(block\) => block\.kind === "zone"\)/,
   );
-  assert.match(source, /orderedZoneBlocks\.map\(\(block\)/);
+  assert.match(source, /const railOrderBlocks = current\.blocks\.filter\(/);
+  assert.match(
+    source,
+    /block\.kind === "zone" \|\| block\.kind === "video"/,
+  );
+  assert.match(source, /railOrderBlocks\.map\(\(block\)/);
   assert.match(source, /pageStructureBlocks = current\.blocks\.filter\(/);
-  assert.match(source, /block\.kind !== "latest"/);
+  assert.match(source, /block\.kind === "zone"/);
   assert.match(source, /pageStructureBlocks\.map\(\(block, index\)/);
   assert.match(source, /workspaceKeyForBlock\(block\)/);
   assert.match(source, /blockLabel\(block\)/);
   assert.match(source, /blockCount\(block\)/);
 });
 
-test("reorder seleciona uma zona e usa duas setas externas", () => {
+test("reorder seleciona uma zona ou Destaque e usa duas setas externas", () => {
   const listStart = source.indexOf('className="thematic-zone-list"');
   const listEnd = source.indexOf("\n        </nav>", listStart);
-  const zoneList = source.slice(listStart, listEnd);
+  const railList = source.slice(listStart, listEnd);
   const controlsStart = source.indexOf('className="thematic-zone-move-controls"');
   const controlsEnd = source.indexOf("\n        </div>", controlsStart);
   const moveControls = source.slice(controlsStart, controlsEnd);
+  const secondaryStart = source.indexOf('className="thematic-secondary-workspaces"');
+  const secondaryEnd = source.indexOf("\n        </div>", secondaryStart);
+  const secondary = source.slice(secondaryStart, secondaryEnd);
 
   assert.ok(listStart >= 0 && listEnd > listStart);
   assert.ok(controlsStart >= 0 && controlsEnd > controlsStart);
-  assert.match(zoneList, /checked=\{selectedReorderZoneId === zone\.id\}/);
-  assert.match(zoneList, /event\.target\.checked \? zone\.id : null/);
-  assert.equal((zoneList.match(/type="checkbox"/g) ?? []).length, 1);
-  assert.doesNotMatch(zoneList, /draggable|onDragStart/);
-  assert.match(source, /movePhysicalDeskZone\(state, selectedReorderZoneId, direction\)/);
-  assert.match(moveControls, /aria-label="Subir zona selecionada"/);
-  assert.match(moveControls, /aria-label="Descer zona selecionada"/);
+  assert.ok(secondaryStart >= 0 && secondaryEnd > secondaryStart);
+  assert.match(railList, /railOrderBlocks\.map\(\(block\)/);
+  assert.match(railList, /workspaceKeyForBlock\(block\)/);
+  assert.match(railList, /checked=\{selectedReorderBlockId === block\.id\}/);
+  assert.match(railList, /event\.target\.checked \? block\.id : null/);
+  assert.equal((railList.match(/type="checkbox"/g) ?? []).length, 1);
+  assert.doesNotMatch(railList, /latest|draggable|onDragStart/);
+  assert.match(
+    source,
+    /movePhysicalDeskRailBlock\([\s\S]*selectedReorderBlockId,[\s\S]*direction/,
+  );
+  assert.match(moveControls, /aria-label="Subir item selecionado"/);
+  assert.match(moveControls, /aria-label="Descer item selecionado"/);
   assert.equal((moveControls.match(/<button/g) ?? []).length, 2);
+  assert.match(secondary, /Faixa/);
+  assert.doesNotMatch(secondary, /Destaque|highlight/);
   assert.doesNotMatch(source, /thematic-page-row-actions/);
   assert.doesNotMatch(source, /matchdayEditorialProfileThematicZoneOrderFromBlockOrder/);
   assert.doesNotMatch(source, /style=\{\{\s*order:/);

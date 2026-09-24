@@ -45,6 +45,8 @@ export type PhysicalDeskPresentation = Readonly<{
   latestZonePlacement: MatchdayEditorialProfileLatestZonePlacement;
   latestZoneTitle: string;
   videoModuleActive: boolean;
+  roundupVideoHeading: string;
+  videoHighlightSectionTitle: string;
 }>;
 
 export type PhysicalDeskMemory = Readonly<{
@@ -164,6 +166,14 @@ function synchronizeMemory(
 }
 
 function validateSnapshot(snapshot: PhysicalDeskSnapshot): PhysicalDeskSnapshot {
+  for (const title of [
+    snapshot.presentation.roundupVideoHeading,
+    snapshot.presentation.videoHighlightSectionTitle,
+  ]) {
+    if (title !== title.trim() || title.length > 120) {
+      stateError("video-section-title-invalid");
+    }
+  }
   const zoneIds = new Set<LiveLayoutZoneId>();
   for (const zone of snapshot.zones) {
     if (zoneIds.has(zone.id)) stateError("zone-duplicate");
@@ -347,6 +357,9 @@ export function createPhysicalDeskState(
         latestZonePlacement: workspace.workspaceSettings.latestZonePlacement,
         latestZoneTitle: workspace.workspaceSettings.latestZoneTitle,
         videoModuleActive: workspace.workspaceSettings.videoModuleActive,
+        roundupVideoHeading: workspace.workspaceSettings.roundupVideoHeading,
+        videoHighlightSectionTitle:
+          workspace.workspaceSettings.videoHighlightSectionTitle,
       }
     : legacyBootstrapPresentation ?? stateError("legacy-bootstrap-presentation-missing");
   const snapshot = validateSnapshot({
@@ -1003,6 +1016,32 @@ export function movePhysicalDeskBlock(
     if (candidateIndex === targetIndex) return { ...candidate, sortOrder: blocks[index].sortOrder };
     return candidate;
   });
+  return commitSnapshot(state, { ...state.current, blocks: nextBlocks });
+}
+
+export function movePhysicalDeskRailBlock(
+  state: PhysicalDeskState,
+  blockId: MatchdayLiveLayoutBlock["id"],
+  direction: "up" | "down",
+): PhysicalDeskState {
+  const blocks = sortBlocks(state.current.blocks);
+  const railBlocks = blocks.filter((block) => (
+    block.kind === "zone" || block.kind === "video"
+  ));
+  const index = railBlocks.findIndex((block) => block.id === blockId);
+  const targetIndex = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || targetIndex < 0 || targetIndex >= railBlocks.length) {
+    return state;
+  }
+
+  const source = railBlocks[index];
+  const target = railBlocks[targetIndex];
+  const nextBlocks = blocks.map((block) => {
+    if (block.id === source.id) return { ...block, sortOrder: target.sortOrder };
+    if (block.id === target.id) return { ...block, sortOrder: source.sortOrder };
+    return block;
+  });
+
   return commitSnapshot(state, { ...state.current, blocks: nextBlocks });
 }
 

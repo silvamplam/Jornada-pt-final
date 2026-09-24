@@ -398,6 +398,8 @@ export type MatchdayEditorialProfileDeskContext = Readonly<{
 
 export type MatchdayEditorialProfileVideoModule = Readonly<{
   active: boolean;
+  roundupHeading: string;
+  highlightSectionTitle: string;
   highlight: Readonly<{
     isPublished: boolean;
     label: string | null;
@@ -493,6 +495,8 @@ type OpeningEditorialRow = Readonly<{
   title_color: string | null;
   latest_zone_placement: string | null;
   latest_zone_title: string | null;
+  roundup_video_heading: string | null;
+  video_highlight_section_title: string | null;
   complementary_mode: string | null;
   complementary_status: string | null;
   complementary_label: string | null;
@@ -982,7 +986,7 @@ export async function readMatchdayEditorialProfileDesk(
       `matchday_editorial_profile_reconcile_control?select=revision,thematic_zone_order,thematic_zone_layouts,thematic_block_order,thematic_zone_titles&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&profile_key=eq.${encodeURIComponent(assignment.profile_key)}&limit=1`,
     ),
     fetchTable<OpeningEditorialRow>(
-      `matchday_editorials?select=title_color,latest_zone_placement,latest_zone_title,complementary_mode,complementary_status,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&limit=1`,
+      `matchday_editorials?select=title_color,latest_zone_placement,latest_zone_title,roundup_video_heading,video_highlight_section_title,complementary_mode,complementary_status,complementary_label,complementary_title,complementary_text,complementary_image_url,complementary_link_url&matchday_id=eq.${encodeURIComponent(cleanMatchdayId)}&limit=1`,
     ),
     fetchTable<MatchdayLiveLayoutWorkspaceReaderRowV22>(
       `rpc/read_matchday_live_layout_workspace_v22?p_matchday_id=${encodeURIComponent(cleanMatchdayId)}&p_profile_key=${encodeURIComponent(assignment.profile_key)}`,
@@ -1233,6 +1237,9 @@ export async function readMatchdayEditorialProfileDesk(
     active:
       cleanText(openingEditorial?.complementary_mode)?.toLowerCase()
       === "roundup_video",
+    roundupHeading: cleanText(openingEditorial?.roundup_video_heading) ?? "",
+    highlightSectionTitle:
+      cleanText(openingEditorial?.video_highlight_section_title) ?? "",
     highlight: {
       isPublished:
         cleanText(openingEditorial?.complementary_status)?.toLowerCase()

@@ -10,6 +10,11 @@ import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { resolvePublicCompetitionLogoPresentation } from "@/lib/public-competition-navigation";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
+import {
+  DEFAULT_MATCHDAY_ROUNDUP_VIDEO_HEADING,
+  DEFAULT_MATCHDAY_VIDEO_HIGHLIGHT_SECTION_TITLE,
+  matchdayVideoSectionTitle,
+} from "@/lib/editorial-matchday-video-section-titles";
 import { buildPublicMatchdayEditorialVisibility, hasPublicMatchdayRoundupContent } from "@/lib/public-matchday-editorial-visibility";
 import {
   composeHistoricalPublicEditorialBody,
@@ -3491,6 +3496,15 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       : continuityHighlights;
   const visibleHighlights = highlightsAreActive ? effectiveHighlights : [];
   const visibleRoundupItems = roundupIsActive ? effectiveRoundupItems : [];
+  const roundupVideoHeading = matchdayVideoSectionTitle(
+    physicalSnapshot?.video.roundupHeading ?? editorial?.roundup_video_heading,
+    DEFAULT_MATCHDAY_ROUNDUP_VIDEO_HEADING,
+  );
+  const videoHighlightSectionTitle = matchdayVideoSectionTitle(
+    physicalSnapshot?.video.highlightSectionTitle
+      ?? editorial?.video_highlight_section_title,
+    DEFAULT_MATCHDAY_VIDEO_HIGHLIGHT_SECTION_TITLE,
+  );
   const physicalVideoHighlight = physicalSnapshot?.video.highlight ?? null;
   const complementaryImageUrl = physicalSnapshot
     ? physicalVideoHighlight?.imageUrl ?? null
@@ -3776,7 +3790,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const hierarchicalVideoHighlight = useHierarchicalReferenceComposition && referenceComplement
     ? {
         isPublished: true,
-        label: "DESTAQUE DA JORNADA",
+        sectionTitle: videoHighlightSectionTitle,
+        label: complementaryLabel,
         title: complementaryTitle,
         text: complementaryText,
         imageUrl: complementaryImageUrl,
@@ -4025,7 +4040,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       return (
         <PublicMatchdayEditorialSectionFrame kind="video" key={zone}>
           <PublicEditorialLayout
-            ariaLabel="A Jornada em Vídeo"
+            ariaLabel={roundupVideoHeading}
             ownsSectionBoundary={false}
             scope="matchday"
             showHeadline={false}
@@ -4038,7 +4053,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               highlights: [],
               roundupItems: visibleRoundupItems,
               showRoundupVideo: editorialVisibility.showRoundup,
-              roundupHeading: "A JORNADA EM VÍDEO",
+              roundupHeading: roundupVideoHeading,
               roundupHeadingColor:
                 physicalSnapshot
                   ? null
@@ -4052,6 +4067,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               matchdayNumber: liveContext.matchday.number,
               complementary: {
                 isPublished: hasPublishedComplementaryStory,
+                sectionTitle: videoHighlightSectionTitle,
                 label: complementaryLabel,
                 labelColor: complementaryLabelColor,
                 title: complementaryTitle,
@@ -4286,7 +4302,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                   ? []
                   : effectiveRoundupItems
               }
-              roundupHeading="A JORNADA EM VÍDEO"
+              roundupHeading={roundupVideoHeading}
               matchdayNumber={context.matchday.number}
               videoHighlight={
                 useHistoricalDynamicZones
@@ -4328,7 +4344,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                           beyondMatchdayItems={[]}
                           matchdayNumber={context.matchday.number}
                           ownsSectionBoundary={false}
-                          roundupHeading="A JORNADA EM VÍDEO"
+                          roundupHeading={roundupVideoHeading}
                           roundupItems={effectiveRoundupItems}
                           videoHighlight={hierarchicalVideoHighlight}
                         />
@@ -4405,7 +4421,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             highlights: visibleHighlights,
             roundupItems: [],
             showRoundupVideo: false,
-            roundupHeading: "A JORNADA EM VÍDEO",
+            roundupHeading: roundupVideoHeading,
             roundupHeadingColor: physicalSnapshot
               ? null
               : editorial?.roundup_video_heading_color ?? belowHeadlineHeadingColor ?? null,

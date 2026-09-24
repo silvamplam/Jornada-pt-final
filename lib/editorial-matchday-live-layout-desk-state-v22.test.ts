@@ -91,6 +91,8 @@ const presentation = {
   latestZonePlacement: "four_news" as const,
   latestZoneTitle: "Últimas",
   videoModuleActive: false,
+  roundupVideoHeading: "A JORNADA EM VÍDEO",
+  videoHighlightSectionTitle: "DESTAQUE DA JORNADA",
 };
 
 test(

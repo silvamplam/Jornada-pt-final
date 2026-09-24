@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   bulkMovePhysicalDeskItemsToZone,
+  changePhysicalDeskPresentation,
   changePhysicalDeskZone,
   createPhysicalDeskZone,
   createPhysicalDeskState,
@@ -12,6 +13,7 @@ import {
   movePhysicalDeskItemToDisplaced,
   movePhysicalDeskItemToFaixaTop,
   movePhysicalDeskItemToSlot,
+  movePhysicalDeskRailBlock,
   movePhysicalDeskZone,
   physicalDeskFaixaSlots,
   physicalDeskHasChanges,
@@ -118,6 +120,8 @@ function stateFromWorkspace(source: LiveLayoutWorkspaceState) {
     latestZonePlacement: "top",
     latestZoneTitle: "Últimas",
     videoModuleActive: true,
+    roundupVideoHeading: "A JORNADA EM VÍDEO",
+    videoHighlightSectionTitle: "DESTAQUE DA JORNADA",
   });
 }
 
@@ -428,6 +432,89 @@ test("move zonas nos dois sentidos através de blocos intercalados sem os desloc
   );
   assert.equal(movePhysicalDeskZone(current, beforeZones[0], "up"), current);
   assert.equal(movePhysicalDeskZone(current, beforeZones[2], "down"), current);
+});
+
+test("move zone e video um passo visível na rail ignorando latest", () => {
+  const source = workspace(3);
+  const zoneBlocks = source.blocks.filter((block) => block.kind === "zone");
+  const latestBlock = source.blocks.find((block) => block.kind === "latest");
+  const videoBlock = source.blocks.find((block) => block.kind === "video");
+  assert.ok(latestBlock && videoBlock);
+  const current = stateFromWorkspace({
+    ...source,
+    blocks: [zoneBlocks[0], latestBlock, videoBlock, zoneBlocks[1], zoneBlocks[2]].map(
+      (block, index) => ({ ...block, sortOrder: index + 1 }),
+    ),
+    placements: [{
+      id: "60000000-0000-4000-8000-000000000002",
+      bankItemId: bankId(1),
+      placementType: "video_highlight",
+      zoneId: null,
+      slotPosition: 1,
+      createdAt: NOW,
+      updatedAt: NOW,
+    }],
+  });
+  const visibleBlockIds = (desk: typeof current) => desk.current.blocks
+    .filter((block) => block.kind === "zone" || block.kind === "video")
+    .map((block) => block.id);
+  const initialVisibleBlockIds = visibleBlockIds(current);
+  const initialLatestOrder = current.current.blocks.find(
+    (block) => block.id === latestBlock.id,
+  )?.sortOrder;
+
+  const videoMovedUp = movePhysicalDeskRailBlock(current, videoBlock.id, "up");
+  assert.deepEqual(visibleBlockIds(videoMovedUp), [
+    videoBlock.id,
+    zoneBlocks[0].id,
+    zoneBlocks[1].id,
+    zoneBlocks[2].id,
+  ]);
+  assert.equal(
+    videoMovedUp.current.blocks.find((block) => block.id === latestBlock.id)?.sortOrder,
+    initialLatestOrder,
+  );
+
+  const videoMovedDown = movePhysicalDeskRailBlock(current, videoBlock.id, "down");
+  assert.deepEqual(visibleBlockIds(videoMovedDown), [
+    zoneBlocks[0].id,
+    zoneBlocks[1].id,
+    videoBlock.id,
+    zoneBlocks[2].id,
+  ]);
+
+  const zoneMovedDown = movePhysicalDeskRailBlock(current, zoneBlocks[0].id, "down");
+  assert.deepEqual(visibleBlockIds(zoneMovedDown), [
+    videoBlock.id,
+    zoneBlocks[0].id,
+    zoneBlocks[1].id,
+    zoneBlocks[2].id,
+  ]);
+
+  assert.equal(
+    movePhysicalDeskRailBlock(current, zoneBlocks[0].id, "up"),
+    current,
+  );
+  assert.equal(
+    movePhysicalDeskRailBlock(current, zoneBlocks[2].id, "down"),
+    current,
+  );
+  assert.equal(
+    movePhysicalDeskRailBlock(current, latestBlock.id, "up"),
+    current,
+  );
+  assert.deepEqual(initialVisibleBlockIds, [
+    zoneBlocks[0].id,
+    videoBlock.id,
+    zoneBlocks[1].id,
+    zoneBlocks[2].id,
+  ]);
+  const { blocks: initialBlocks, ...initialContent } = current.current;
+  const { blocks: movedBlocks, ...movedContent } = videoMovedUp.current;
+  assert.notDeepEqual(movedBlocks, initialBlocks);
+  assert.deepEqual(movedContent, initialContent);
+  assert.equal(videoMovedUp.history.length, 1);
+  assert.equal(physicalDeskHasChanges(videoMovedUp), true);
 });
 
 test("movimento usa LiveLayoutZoneId e vagas são ausência de placement", () => {
@@ -850,6 +937,8 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
       latestZoneTitle: "Estado físico",
       latestZoneTitleColor: "#AABBCC",
       videoModuleActive: false,
+      roundupVideoHeading: "Os jogos em vídeo",
+      videoHighlightSectionTitle: "Escolha da redação",
       createdAt: NOW,
       updatedAt: NOW,
     },
@@ -864,6 +953,8 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
     latestZonePlacement: "top",
     latestZoneTitle: "Legacy ignorado",
     videoModuleActive: true,
+    roundupVideoHeading: "Legacy vídeos",
+    videoHighlightSectionTitle: "Legacy destaque",
   });
 
   assert.equal(current.current.faixaSlotCount, 4);
@@ -875,10 +966,47 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
     latestZonePlacement: "hidden",
     latestZoneTitle: "Estado físico",
     videoModuleActive: false,
+    roundupVideoHeading: "Os jogos em vídeo",
+    videoHighlightSectionTitle: "Escolha da redação",
   });
   assert.equal("latestZoneMode" in current.current.presentation, false);
   assert.equal("latestZoneTitleColor" in current.current.presentation, false);
   assert.equal(current.physicalCutover?.profileKey, "liga_portugal_v1");
+});
+
+test("títulos de Vídeos e Destaque pertencem ao draft com Undo e Reset", () => {
+  const baseline = state(1);
+  const videosEdited = changePhysicalDeskPresentation(baseline, {
+    roundupVideoHeading: "OS JOGOS EM VÍDEO",
+  });
+  const bothEdited = changePhysicalDeskPresentation(videosEdited, {
+    videoHighlightSectionTitle: "ESCOLHA DA REDAÇÃO",
+  });
+
+  assert.equal(physicalDeskHasChanges(bothEdited), true);
+  assert.equal(
+    bothEdited.current.presentation.roundupVideoHeading,
+    "OS JOGOS EM VÍDEO",
+  );
+  assert.equal(
+    bothEdited.current.presentation.videoHighlightSectionTitle,
+    "ESCOLHA DA REDAÇÃO",
+  );
+  assert.deepEqual(bothEdited.current.blocks, baseline.current.blocks);
+  assert.deepEqual(bothEdited.current.placements, baseline.current.placements);
+
+  const undone = undoPhysicalDeskState(bothEdited);
+  assert.equal(
+    undone.current.presentation.videoHighlightSectionTitle,
+    "DESTAQUE DA JORNADA",
+  );
+  assert.equal(
+    undone.current.presentation.roundupVideoHeading,
+    "OS JOGOS EM VÍDEO",
+  );
+
+  const reset = resetPhysicalDeskState(bothEdited);
+  assert.deepEqual(reset.current.presentation, baseline.current.presentation);
 });
 
 test("Abertura, Faixa, Seleção e Destaque partilham a autoridade de placements", () => {

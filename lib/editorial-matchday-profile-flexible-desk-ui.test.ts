@@ -71,10 +71,17 @@ test("zona ativa mantém controlos acessíveis e contador sem rótulos visuais r
   assert.match(zonePanel, /thematic-zone-editor-count/);
 });
 
-test("rail mantém Abertura e deriva as zonas dos blocks físicos", () => {
+test("rail mantém Abertura e deriva zonas mais Destaque dos blocks físicos", () => {
   const rail = body("renderZoneRail", "undo");
   assert.match(client, /aria-label="Zonas da Mesa"/);
-  assert.match(client, /orderedZoneBlocks\.map\(\(block\)/);
+  assert.match(client, /railOrderBlocks\.map\(\(block\)/);
+  assert.match(
+    client,
+    /block\.kind === "zone" \|\| block\.kind === "video"/,
+  );
+  assert.match(rail, /workspaceKeyForBlock\(block\)/);
+  assert.match(rail, /blockLabel\(block\)/);
+  assert.match(rail, /blockCount\(block\)/);
   assert.match(client, /Mostrar Abertura/);
   assert.match(client, /openingOccupied/);
   assert.doesNotMatch(rail, /latestZoneTitle|setActiveWorkspaceKey\("latest"\)|A acontecer agora/);
@@ -84,7 +91,7 @@ test("rail mantém Abertura e deriva as zonas dos blocks físicos", () => {
   );
 });
 
-test("Página e blocos omite latest e numera continuamente a projeção visível", () => {
+test("Página e blocos omite latest e video e numera continuamente apenas as zonas", () => {
   const start = client.indexOf(
     '<details className="thematic-global-tool" ref={pageStructureRef}>',
   );
@@ -98,11 +105,15 @@ test("Página e blocos omite latest e numera continuamente a projeção visível
   const pageStructureList = pageStructure.slice(listStart, listEnd);
 
   assert.ok(start >= 0 && end > start && listStart >= 0 && listEnd > listStart);
-  assert.match(client, /pageStructureBlocks = current\.blocks\.filter\([\s\S]*block\.kind !== "latest"/);
+  assert.match(client, /pageStructureBlocks = current\.blocks\.filter\([\s\S]*block\.kind === "zone"/);
   assert.match(pageStructureList, /pageStructureBlocks\.map\(\(block, index\) =>/);
   assert.match(pageStructureList, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
-  assert.doesNotMatch(pageStructureList, /latestZoneTitle|A acontecer agora|Editar Últimas/);
+  assert.doesNotMatch(pageStructureList, /latestZoneTitle|A acontecer agora|Editar Últimas|Destaque|highlight/);
   assert.doesNotMatch(pageStructure, /activeLatest|Editar Últimas/);
+  assert.doesNotMatch(
+    pageStructure,
+    /moveSelectedRailBlock|selectedReorderBlockId|Subir item selecionado|Descer item selecionado/,
+  );
 });
 
 test("A acontecer agora é um controlo global ao lado da classificação", () => {
@@ -142,10 +153,37 @@ test("estado legacy sem UUID exige escolha e delete do host falha fechado", () =
   );
 });
 
-test("Destaque usa placement físico e apresentação local", () => {
+test("Destaque abre o workspace atual e conserva placement e apresentação local", () => {
+  const rail = body("renderZoneRail", "undo");
+  const workspace = body("renderHighlightWorkspace", "renderCandidates");
+  const secondaryStart = rail.indexOf('className="thematic-secondary-workspaces"');
+  const secondary = rail.slice(secondaryStart);
+
+  assert.ok(secondaryStart >= 0);
+  assert.match(client, /if \(block\.kind === "video"\) return "Destaque"/);
+  assert.match(client, /block\.kind === "zone" \? block\.zoneId : "highlight"/);
+  assert.match(client, /activeWorkspaceKey === "highlight"\) return renderHighlightWorkspace\(\)/);
+  assert.doesNotMatch(secondary, /Destaque|highlight/);
   assert.match(client, /physicalDeskPlacementsOfType\(physicalDesk, "video_highlight"\)/);
-  assert.match(client, /videoModuleActive/);
-  assert.match(client, /placementType: "video_highlight"/);
+  assert.match(workspace, /videoModuleActive/);
+  assert.match(workspace, /Título da zona de vídeos/);
+  assert.match(workspace, /Título do Destaque/);
+  assert.ok(
+    workspace.indexOf("Título da zona de vídeos")
+      < workspace.indexOf("Módulo"),
+  );
+  assert.ok(
+    workspace.indexOf("Título do Destaque")
+      < workspace.indexOf("Módulo"),
+  );
+  assert.match(workspace, /roundupVideoHeading: value/);
+  assert.match(workspace, /videoHighlightSectionTitle: value/);
+  assert.match(workspace, /<option value="active">Ativo<\/option>/);
+  assert.match(workspace, /<option value="hidden">Oculto<\/option>/);
+  assert.match(workspace, /placementType: "video_highlight", zoneId: null, slotPosition: 1/);
+  assert.match(workspace, /Posição livre/);
+  assert.match(workspace, /Retirar/);
+  assert.doesNotMatch(workspace, /Apagar zona|changePhysicalDeskZone|visualFamily|capacity/);
 });
 
 test("zonas são variáveis e CRUD usa operações físicas", () => {

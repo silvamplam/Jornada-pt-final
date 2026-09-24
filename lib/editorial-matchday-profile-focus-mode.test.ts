@@ -47,13 +47,19 @@ test("drag para Abertura usa bankItemId e placement físico", () => {
   assert.match(client, /if \(bankItemId\) placeInOpening\(bankItemId, position\)/);
 });
 
-test("rail deriva zonas físicas e mantém Faixa como workspace próprio", () => {
+test("rail deriva zonas e Destaque físicos e mantém Faixa como workspace próprio", () => {
   const start = client.indexOf('aria-label="Zonas da Mesa"');
   const end = client.indexOf("\n      </aside>", start);
   const rail = client.slice(start, end);
-  assert.match(rail, /orderedZoneBlocks\.map/);
+  assert.match(rail, /railOrderBlocks\.map/);
+  assert.match(rail, /workspaceKeyForBlock\(block\)/);
   assert.match(rail, /setActiveWorkspaceKey\("faixa"\)/);
   assert.doesNotMatch(rail, /setActiveWorkspaceKey\("latest"\)|latestZoneTitle|A acontecer agora/);
+  assert.doesNotMatch(
+    rail.slice(rail.indexOf('className="thematic-secondary-workspaces"')),
+    /Destaque|highlight/,
+  );
+  assert.match(client, /activeWorkspaceKey === "highlight"\) return renderHighlightWorkspace\(\)/);
   assert.match(client, /activeWorkspaceKey === "faixa"\) return renderFaixaWorkspace\(\)/);
 });
 
@@ -69,7 +75,7 @@ test("sem zonas físicas a Mesa usa Faixa como workspace visual seguro", () => {
 test("Página e blocos fecha ao escolher um workspace", () => {
   assert.match(client, /<details className="thematic-global-tool" ref=\{pageStructureRef\}>/);
   assert.match(client, /pageStructureRef\.current\?\.removeAttribute\("open"\)/);
-  assert.match(client, /activateWorkspaceFromStructure\(workspaceKey\)/);
+  assert.match(client, /activateWorkspaceFromStructure\(block\.zoneId\)/);
 });
 
 test("modos e colunas legacy não regressam", () => {

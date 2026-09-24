@@ -96,6 +96,7 @@ export type PublicHeadlineData = {
 
 export type PublicComplementaryData = {
   isPublished: boolean;
+  sectionTitle?: string | null;
   label?: string | null;
   labelColor?: string | null;
   title?: string | null;
@@ -482,15 +483,7 @@ const publicEditorialLayoutPolishStyles = `
   }
 
   .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side > .public-editorial-section-title {
-    display: none;
-  }
-
-  .public-editorial-layout-panel[data-editorial-scope="matchday"] .public-matchday-depth-row:not(.public-matchday-depth-row-single) > .public-below-headline-side::before {
-    content: "DESTAQUE DA JORNADA";
     display: block;
-    height: 20px;
-    min-height: 20px;
-    margin: 0;
     color: #526174;
     font-family: "Segoe UI", Arial, Helvetica, sans-serif;
     font-size: 18px;
@@ -954,7 +947,9 @@ export function PublicComplementaryBlock({
       {sectionTitle ? (
         <h3
           className="public-editorial-section-title"
-          style={data.labelColor ? { color: data.labelColor } : undefined}
+          style={!data.sectionTitle && data.labelColor
+            ? { color: data.labelColor }
+            : undefined}
         >
           {sectionTitle}
         </h3>
@@ -1107,7 +1102,11 @@ export function PublicEditorialLayout({
               data={belowHeadline.complementary}
               ariaLabel="Aprofundamento editorial"
               reserveHeadingSpace={hasRoundupSummary && hasComplementary}
-              sectionTitle={belowHeadline.complementary.label ?? undefined}
+              sectionTitle={
+                belowHeadline.complementary.sectionTitle
+                ?? belowHeadline.complementary.label
+                ?? undefined
+              }
             />
           </div>
         ) : null}
