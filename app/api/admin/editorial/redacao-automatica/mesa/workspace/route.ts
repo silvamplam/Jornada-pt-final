@@ -59,6 +59,7 @@ import {
   isArticleClassificationKey,
   type ArticleClassificationKey,
 } from "@/lib/editorial-classifications";
+import { parseArticlePlanClassificationDecision } from "@/lib/redacao-automatica/article-plan-classification";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -173,6 +174,7 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
     ? null
     : uuid(rawProductionContextId);
   const selectedClassification = classificationKey(payload.classificationKey);
+  const classificationDecision = parseArticlePlanClassificationDecision(payload.classificationKey, payload.classificationMode);
 
   if (
     !dossierId
@@ -182,7 +184,7 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
     || !length
     || !selectedImage
     || !Number.isInteger(priority)
-    || selectedClassification === undefined
+    || selectedClassification === undefined || !classificationDecision
     || (rawProductionContextId !== null && !productionContextId)
     || (destination !== "new" && destination !== "update")
     || (destination === "new" && rawTarget !== null)
@@ -293,6 +295,7 @@ async function savePlanInput(value: unknown): Promise<DerivedSavePlanInput | nul
         dossierPublishedContextIds: contexts,
         imageChoice: selectedImage,
         classificationKey: selectedClassification,
+        classificationMode: classificationDecision.classificationMode,
       },
     },
   };
@@ -318,6 +321,7 @@ function savePlanBatchOutput(
     ? null
     : uuid(rawProductionContextId);
   const selectedClassification = classificationKey(payload.classificationKey);
+  const classificationDecision = parseArticlePlanClassificationDecision(payload.classificationKey, payload.classificationMode);
 
   if (
     !clientKey
@@ -326,7 +330,7 @@ function savePlanBatchOutput(
     || !length
     || !selectedImage
     || !Number.isInteger(priority)
-    || selectedClassification === undefined
+    || selectedClassification === undefined || !classificationDecision
     || (rawProductionContextId !== null && !productionContextId)
     || (destination !== "new" && destination !== "update")
     || (destination === "new" && rawTarget !== null)
@@ -346,6 +350,7 @@ function savePlanBatchOutput(
     imageChoice: selectedImage,
     productionContextId,
     classificationKey: selectedClassification,
+    classificationMode: classificationDecision.classificationMode,
   };
 }
 
@@ -591,6 +596,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
         editorialInstructions: plan.editorialInstructions,
         destination: plan.destination,
         ...(plan.classificationKey ? { classificationKey: plan.classificationKey } : {}),
+        ...(plan.classificationMode ? { classificationMode: plan.classificationMode } : {}),
         ...(workspaceContractVersion === 2
           ? {
               workspaceContractVersion: 2 as const,
@@ -663,6 +669,13 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
                 manifest.outputs.flatMap((output) => (
                   output.outputId && output.articlePlan?.classificationKey
                     ? [[output.outputId, output.articlePlan.classificationKey]]
+                    : []
+                )),
+              ),
+              classificationModesByOutputId: Object.fromEntries(
+                manifest.outputs.flatMap((output) => (
+                  output.outputId && output.articlePlan?.classificationMode
+                    ? [[output.outputId, output.articlePlan.classificationMode]]
                     : []
                 )),
               ),

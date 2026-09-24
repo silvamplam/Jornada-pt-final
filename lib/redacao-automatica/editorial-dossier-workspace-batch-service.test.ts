@@ -220,6 +220,7 @@ function harness(options: HarnessOptions = {}) {
           publishedContextCount: input.dossierPublishedContextIds.length,
           imageChoice: input.imageChoice,
           classificationKey: input.classificationKey,
+          classificationMode: input.classificationMode,
         },
       };
     },
@@ -275,6 +276,30 @@ test("batch de 1, 2, 10 e 30 outputs mantém as leituras autoritativas constante
         "synchronize",
       ]);
     }
+  }
+});
+
+test("batch conserva escolha e limpeza por plano ao guardar, reordenar e repetir com outra imagem", async () => {
+  const testHarness = harness({ initialPlans: [plan(id(501)), plan(id(502))] });
+  const decisions = [
+    { articlePlanId: id(501), classificationKey: "benfica", classificationMode: "manual" },
+    { articlePlanId: id(502), classificationKey: null, classificationMode: "cleared" },
+  ] as const;
+  for (const ordered of [decisions, [...decisions].reverse()]) {
+    const result = await testHarness.save({ dossierId, outputCount: 2,
+      outputs: ordered.map((decision, index) => output(index + 1, {
+        ...decision, clientKey: decision.articlePlanId,
+        imageChoice: { mode: "dossier_image", dossierImageId },
+      })),
+    });
+    assert.ok(result.ok);
+    const states = testHarness.savedProductionStates.slice(-2);
+    for (const decision of decisions) {
+      const saved = states.find((state) => state.articlePlanId === decision.articlePlanId)!;
+      assert.equal(saved.classificationKey, decision.classificationKey);
+      assert.equal(saved.classificationMode, decision.classificationMode);
+    }
+    assert.ok(testHarness.savedPlans.every(({ input }) => input.sources.length === 2), "classificação não particiona fontes N:N");
   }
 });
 

@@ -76,7 +76,7 @@ export default async function ProductionWorkspacePage({
       return [
         source.newsroomArticleId,
         state?.status === "classified"
-          ? state.classification.classificationKey
+          ? state.classification
           : null,
       ] as const;
     }),
@@ -255,7 +255,8 @@ export default async function ProductionWorkspacePage({
             title: source.articleTitle,
             sourceLabel: sourceNames.get(source.sourceCode) ?? source.sourceCode,
             included: source.included,
-            classificationKey: classificationByArticleId.get(source.newsroomArticleId) ?? null,
+            classificationKey: classificationByArticleId.get(source.newsroomArticleId)?.classificationKey ?? null,
+            classificationSource: classificationByArticleId.get(source.newsroomArticleId)?.classificationSource ?? null,
           }))}
           publishedContexts={production.publishedContexts}
           images={production.images}

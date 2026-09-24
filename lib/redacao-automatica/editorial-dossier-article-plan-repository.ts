@@ -1,4 +1,5 @@
 import "server-only";
+import type { ArticlePlanClassificationMode } from "./article-plan-classification";
 
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 import {
@@ -72,6 +73,7 @@ export type EditorialDossierArticlePlan = Readonly<{
   updateTargetEditorialArticleId: string | null;
   imageChoice: EditorialDossierArticlePlanImageChoice;
   classificationKey: ArticleClassificationKey | null;
+  classificationMode?: ArticlePlanClassificationMode | null;
   editorialArticleId: string | null;
   editorialArticleStatus: "draft" | "published" | null;
   editorialArticleHasBody: boolean;
@@ -96,6 +98,7 @@ export type EditorialDossierProductionArticlePlan = Readonly<{
   updateTargetEditorialArticleId: string | null;
   imageChoice: EditorialDossierArticlePlanImageChoice;
   classificationKey: ArticleClassificationKey | null;
+  classificationMode?: ArticlePlanClassificationMode | null;
   editorialArticleId: string | null;
   sources: readonly EditorialDossierArticlePlanSource[];
 }>;
@@ -113,6 +116,7 @@ type ArticlePlanRow = {
   update_target_editorial_article_id: string | null;
   image_choice: string;
   classification_key: string | null;
+  classification_mode: ArticlePlanClassificationMode | null;
   dossier_image_id: string | null;
   editorial_article_id: string | null;
   editorial_profile_id: string | null;
@@ -243,7 +247,7 @@ async function readAllArticlePlanRows(
 
   while (true) {
     const page = await fetchSupabaseAdminTable<ArticlePlanRow>(
-      "newsroom_editorial_dossier_article_plans?select=id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,destination,update_target_editorial_article_id,image_choice,dossier_image_id,classification_key,editorial_article_id,editorial_profile_id,editorial_profile_version_id,editorial_profile_pinned_at,created_at,updated_at"
+      "newsroom_editorial_dossier_article_plans?select=id,dossier_id,working_title,status,sort_order,article_kind,length_mode,editorial_instructions,destination,update_target_editorial_article_id,image_choice,dossier_image_id,classification_key,classification_mode,editorial_article_id,editorial_profile_id,editorial_profile_version_id,editorial_profile_pinned_at,created_at,updated_at"
       + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
       + "&order=sort_order.asc,id.asc"
       + `&limit=${ARTICLE_PLAN_PAGE_SIZE}&offset=${offset}`,
@@ -360,6 +364,7 @@ export async function listEditorialDossierProductionArticlePlans(
         destination: destination(plan.destination),
         updateTargetEditorialArticleId: plan.update_target_editorial_article_id,
         imageChoice: imageChoice(plan.image_choice, plan.dossier_image_id),
+        classificationMode: plan.classification_mode,
         classificationKey: isArticleClassificationKey(plan.classification_key)
           ? plan.classification_key
           : null,
@@ -535,6 +540,7 @@ export async function listEditorialDossierArticlePlans(
         destination: destination(plan.destination),
         updateTargetEditorialArticleId: plan.update_target_editorial_article_id,
         imageChoice: imageChoice(plan.image_choice, plan.dossier_image_id),
+        classificationMode: plan.classification_mode,
         classificationKey: isArticleClassificationKey(plan.classification_key)
           ? plan.classification_key
           : null,

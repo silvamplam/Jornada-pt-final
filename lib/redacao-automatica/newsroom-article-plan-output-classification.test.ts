@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { resolveArticlePlanClassification, articleOutputClassificationsComplete } from "./article-plan-classification";
 
 const migrationPath =
   "supabase/migrations/20260924200000_newsroom_article_plan_output_classification_authority.sql";
@@ -16,20 +17,16 @@ function functionBody(sql: string, functionName: string): string {
   ))?.[0] ?? "";
 }
 
-test("Article Plan aceita sugestão opcional e a produção não exige decisão final", () => {
-  const sql = read(migrationPath);
-  const route = read("app/api/admin/editorial/redacao-automatica/mesa/workspace/route.ts");
-  const client = read(
-    "app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx",
-  );
-
-  assert.match(sql, /classification_key is null\s+or classification_key in/i);
-  assert.doesNotMatch(route, /Escolhe a classificação do artigo antes de produzir/);
-  assert.doesNotMatch(route, /classificationKey: plan\.classificationKey!/);
-  assert.match(route, /plan\.classificationKey \? \{ classificationKey: plan\.classificationKey \} : \{\}/);
-  assert.match(client, /Sugestão de classificação \(opcional\)/);
-  assert.match(client, /A classificação final é confirmada na Publicação em lote\./);
-  assert.doesNotMatch(client, /articlePlanClassificationDefault|assignedClassificationDefault/);
+test("Produção aceita pré-seleção manual unânime e vazio; só publicação exige classificação", () => {
+  const sources = [{ sourceId: "fonte", classificationKey: "benfica" as const, classificationSource: "manual" as const }];
+  assert.deepEqual(resolveArticlePlanClassification(null, ["fonte"], sources), {
+    classificationKey: "benfica", classificationMode: "suggested",
+  });
+  assert.deepEqual(resolveArticlePlanClassification(null, [], sources), {
+    classificationKey: null, classificationMode: null,
+  });
+  assert.equal(articleOutputClassificationsComplete(["output"], {}), false);
+  assert.equal(articleOutputClassificationsComplete(["output"], { output: "benfica" }), true);
 });
 
 test("Publicação em lote mostra cinco escolhas junto de Histórica e bloqueia sem escolha", () => {
@@ -74,8 +71,8 @@ test("a escolha humana substitui o default e é a enviada para publicação", ()
 
   assert.match(client, /touchedClassificationKeysRef\.current\.add\(articleKey\)/);
   assert.match(client, /setClassificationChoices\(\(current\)[\s\S]*\[articleKey\]: classificationKey/);
-  assert.match(client, /classificationChoicesRef\.current\[article\.key\]/);
-  assert.match(client, /classificationKey: classificationChoicesRef\.current\[article\.key\]/);
+  assert.match(client, /classificationChoicesRef\.current\[article\.outputId \?\? ""\]/);
+  assert.match(client, /classificationKey \? \{ classificationKey \} : \{\}/);
   assert.match(client, /classificationsByOutputId\[article\.outputId\] = classificationKey/);
 });
 
@@ -124,8 +121,8 @@ test("retry preserva a classificação congelada e rejeita outra escolha", () =>
     "app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx",
   );
   const immutableGuard = functionBody(sql, "newsroom_guard_frozen_output_classification_v1");
-  assert.match(client, /publicationStatus === "published"/);
-  assert.match(client, /publicationStatus === "published_missing_latest"/);
+  assert.match(client, /frozenClassificationChoicesRef\.current\[article\.outputId\] = classificationKey/);
+  assert.match(client, /frozenClassificationChoicesRef\.current\[completed\.outputId\] = classificationKey/);
   assert.match(client, /if \(lockedClassificationKeys\.has\(articleKey\)\) return/);
   assert.match(immutableGuard, /new\.classification_key is distinct from old\.classification_key/);
   assert.match(immutableGuard, /new\.classification_fingerprint is distinct from old\.classification_fingerprint/);

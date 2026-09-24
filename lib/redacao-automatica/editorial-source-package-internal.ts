@@ -10,9 +10,12 @@ import type {
 } from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
 import {
   articleClassificationLabel,
-  isArticleClassificationKey,
   type ArticleClassificationKey,
 } from "@/lib/editorial-classifications";
+import {
+  parseArticlePlanClassificationDecision,
+  type ArticlePlanClassificationMode,
+} from "./article-plan-classification";
 
 export const EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES = 20;
 export const EDITORIAL_SOURCE_PACKAGE_MANIFEST_FILE_NAME = "pacote-fontes.json";
@@ -50,6 +53,7 @@ export type EditorialSourcePackageArticlePlan = Readonly<{
   editorialInstructions: string;
   destination: "new" | "update";
   classificationKey?: ArticleClassificationKey;
+  classificationMode?: ArticlePlanClassificationMode;
   workspaceContractVersion?: 2;
   sourceScope?: "workspace" | "context";
   contextId?: string;
@@ -252,6 +256,7 @@ function normalizeEditorialSourcePackageArticlePlan(
   const contextId = value.contextId?.trim().toLowerCase() || null;
   const rawOrigin = value.origin;
   const classificationKey = value.classificationKey;
+  const classificationDecision = parseArticlePlanClassificationDecision(classificationKey, value.classificationMode);
   const origin = rawOrigin
     ? {
         kind: rawOrigin.kind,
@@ -271,8 +276,7 @@ function normalizeEditorialSourcePackageArticlePlan(
     || !["new", "update"].includes(value.destination)
     || editorialInstructions.length > 12000
     || (
-      classificationKey !== undefined
-      && !isArticleClassificationKey(classificationKey)
+      !classificationDecision
     )
     || (workspaceContractVersion !== undefined && workspaceContractVersion !== 2)
     || (sourceScope !== undefined && sourceScope !== "workspace" && sourceScope !== "context")
@@ -328,6 +332,8 @@ function normalizeEditorialSourcePackageArticlePlan(
     editorialInstructions,
     destination: value.destination,
     ...(classificationKey ? { classificationKey } : {}),
+    ...(value.classificationMode && classificationDecision?.classificationMode
+      ? { classificationMode: classificationDecision.classificationMode } : {}),
     ...(workspaceContractVersion === 2
       ? {
           workspaceContractVersion,

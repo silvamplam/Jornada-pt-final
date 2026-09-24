@@ -1,7 +1,10 @@
 import {
-  isArticleClassificationKey,
   type ArticleClassificationKey,
 } from "@/lib/editorial-classifications";
+import {
+  parseArticlePlanClassificationDecision,
+  type ArticlePlanClassificationMode,
+} from "./article-plan-classification";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_SOURCES = 20;
@@ -38,6 +41,7 @@ export type SaveEditorialDossierArticlePlanStateInput = Readonly<{
   dossierPublishedContextIds: readonly string[];
   imageChoice: EditorialDossierArticlePlanImageChoice;
   classificationKey: ArticleClassificationKey | null;
+  classificationMode?: ArticlePlanClassificationMode | null;
 }>;
 
 export type AddEditorialDossierUploadImageInput = Readonly<{
@@ -66,6 +70,7 @@ export type SaveEditorialDossierArticlePlanStateRpcInput = Readonly<{
   p_image_choice: EditorialDossierArticlePlanImageChoice["mode"];
   p_dossier_image_id: string | null;
   p_classification_key: ArticleClassificationKey | null;
+  p_classification_mode: ArticlePlanClassificationMode | null;
 }>;
 
 export type AddEditorialDossierUploadImageRpcInput = Readonly<{
@@ -91,6 +96,7 @@ export type SavedEditorialDossierArticlePlanState = Readonly<{
   publishedContextCount: number;
   imageChoice: EditorialDossierArticlePlanImageChoice;
   classificationKey: ArticleClassificationKey | null;
+  classificationMode?: ArticlePlanClassificationMode | null;
 }>;
 
 export type AddedEditorialDossierUploadImage = Readonly<{
@@ -281,8 +287,7 @@ export function saveEditorialDossierArticlePlanStateService(
     const validImageChoice = input.imageChoice.mode === "unselected"
       || input.imageChoice.mode === "preserve_published"
       || (input.imageChoice.mode === "dossier_image" && Boolean(imageId));
-    const validClassification = input.classificationKey === null
-      || isArticleClassificationKey(input.classificationKey);
+    const classification = parseArticlePlanClassificationDecision(input.classificationKey, input.classificationMode);
 
     if (
       !dossierId
@@ -291,7 +296,7 @@ export function saveEditorialDossierArticlePlanStateService(
       || !validDestination
       || !validTarget
       || !validImageChoice
-      || !validClassification
+      || !classification
       || (input.imageChoice.mode === "preserve_published" && input.destination !== "update")
     ) {
       return failure("input_invalid", "O estado de produção do artigo planeado não é válido.");
@@ -310,6 +315,7 @@ export function saveEditorialDossierArticlePlanStateService(
       p_image_choice: input.imageChoice.mode,
       p_dossier_image_id: imageId,
       p_classification_key: input.classificationKey,
+      p_classification_mode: classification.classificationMode,
     };
 
     try {

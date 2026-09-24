@@ -10,6 +10,7 @@ import type {
   SaveEditorialDossierArticlePlanStateInput,
 } from "@/lib/redacao-automatica/editorial-dossier-production-workspace-service-internal";
 import type { ArticleClassificationKey } from "@/lib/editorial-classifications";
+import type { ArticlePlanClassificationMode } from "./article-plan-classification";
 
 export type SaveEditorialDossierWorkspaceArticlePlanInput = Readonly<{
   plan: SaveEditorialDossierArticlePlanInput;
@@ -20,6 +21,7 @@ export type SaveEditorialDossierWorkspaceArticlePlanInput = Readonly<{
     dossierPublishedContextIds: readonly string[];
     imageChoice: EditorialDossierArticlePlanImageChoice;
     classificationKey: ArticleClassificationKey | null;
+    classificationMode?: ArticlePlanClassificationMode | null;
   }>;
 }>;
 
@@ -96,6 +98,8 @@ export function saveEditorialDossierWorkspaceArticlePlanService(
       dossierPublishedContextIds: input.production.dossierPublishedContextIds,
       imageChoice: input.production.imageChoice,
       classificationKey: input.production.classificationKey,
+      ...(input.production.classificationMode !== undefined
+        ? { classificationMode: input.production.classificationMode } : {}),
     });
 
     if (!stateResult.ok) {
