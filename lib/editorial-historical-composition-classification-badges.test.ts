@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { articleClassificationLabel } from "./editorial-classifications";
+import {
+  articleClassificationBadgeColors,
+  articleClassificationLabel,
+} from "./editorial-classifications";
 
 const client = readFileSync(
   "app/admin/editorial/composicao/[matchdayId]/HierarchicalCompositionDeskClient.tsx",
@@ -27,36 +30,31 @@ test("a Composição reutiliza a semântica e os rótulos da classificação Edi
     "\n\nfunction identity",
   );
 
-  assert.match(client, /articleClassificationLabel,[\s\S]*?isArticleClassificationKey/);
+  assert.match(client, /articleClassificationBadgeColors,[\s\S]*?articleClassificationLabel,[\s\S]*?isArticleClassificationKey/);
   assert.match(badge, /isArticleClassificationKey\(classificationKey\)/);
   assert.match(badge, /articleClassificationLabel\(key\)/);
   assert.match(badge, /className="thematic-classification-badge"/);
   assert.match(badge, /data-classification=\{key \?\? "unclassified"\}/);
+  assert.match(badge, /style=\{articleClassificationBadgeColors\(key \?\? "unclassified"\)\}/);
   assert.equal(articleClassificationLabel("benfica"), "Benfica");
   assert.equal(articleClassificationLabel("sporting"), "Sporting");
   assert.equal(articleClassificationLabel("fc_porto"), "FC Porto");
   assert.equal(articleClassificationLabel("other_liga_clubs"), "1.ª Liga");
 });
 
-test("Benfica, Sporting, FC Porto e classificações neutras mantêm a paleta da Editorial", () => {
-  const expectedRules = [
-    ["benfica", "background: #ef4444;"],
-    ["sporting", "background: #15803d; color: #fff;"],
-    ["fc_porto", "background: #1d4ed8; color: #fff;"],
-    ["other_liga_clubs", "border-color: #000; background: #fff;"],
-  ] as const;
-
-  for (const [key, declarations] of expectedRules) {
-    const compactDeclarations = declarations.replace(/\s+/g, "\\s*");
-    const rule = new RegExp(
-      `\\.thematic-classification-badge\\[data-classification="${key}"\\] \\{\\s*${compactDeclarations}`,
-    );
-    assert.match(editorialClient, rule);
-    assert.match(client, rule);
-  }
-
-  assert.match(client, /\.thematic-classification-badge \{[\s\S]*?background: #e2e8f0;[\s\S]*?color: #000;/);
-  assert.match(client, /data-classification="unclassified"\][\s\S]*?background: #fde047;/);
+test("Composição e Editorial partilham a paleta central completa", () => {
+  assert.match(
+    editorialClient,
+    /style=\{articleClassificationBadgeColors\(classificationKey \?\? "unclassified"\)\}/,
+  );
+  assert.equal(articleClassificationBadgeColors("other_liga_clubs").backgroundColor, "#000000");
+  assert.equal(articleClassificationBadgeColors("other_liga_clubs").color, "#FFFFFF");
+  assert.equal(articleClassificationBadgeColors("outside_liga_other").backgroundColor, "#FFD400");
+  assert.equal(articleClassificationBadgeColors("outside_liga_other").color, "#000000");
+  assert.equal(articleClassificationBadgeColors("unclassified").backgroundColor, "#E2E8F0");
+  assert.equal(articleClassificationBadgeColors("unclassified").color, "#000000");
+  assert.doesNotMatch(editorialClient, /thematic-classification-badge\[data-classification=/);
+  assert.doesNotMatch(client, /thematic-classification-badge\[data-classification=/);
 });
 
 test("candidatos, herdados e artigos já colocados usam o mesmo badge", () => {

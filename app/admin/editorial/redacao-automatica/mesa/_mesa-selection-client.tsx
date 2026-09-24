@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   ARTICLE_CLASSIFICATIONS,
+  articleClassificationBadgeColors,
   articleClassificationLabel,
   isArticleClassificationKey,
   type ArticleClassificationKey,
@@ -632,10 +633,18 @@ export function MesaClassificationBadge({
     currentClassificationKey,
   );
   if (!classificationKey) {
-    return <span className={styles.classificationBadge} data-tone="unclassified">Por classificar</span>;
+    return <span
+      className={styles.classificationBadge}
+      data-tone="unclassified"
+      style={articleClassificationBadgeColors("unclassified")}
+    >Por classificar</span>;
   }
   const label = articleClassificationLabel(classificationKey);
-  return <span className={styles.classificationBadge} data-tone={classificationKey}>
+  return <span
+    className={styles.classificationBadge}
+    data-tone={classificationKey}
+    style={articleClassificationBadgeColors(classificationKey)}
+  >
     {label}
     <small>{changed || classificationSource === "manual" ? "Manual" : "Automática"}</small>
   </span>;

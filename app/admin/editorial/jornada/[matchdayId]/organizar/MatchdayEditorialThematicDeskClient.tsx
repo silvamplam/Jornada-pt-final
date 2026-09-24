@@ -14,7 +14,11 @@ import {
 
 import MatchdayVideoSummarySync from "@/components/admin/MatchdayVideoSummarySync";
 import { readAdminJsonResponse } from "@/lib/admin-json-response";
-import { articleClassificationLabel, type ArticleClassificationKey } from "@/lib/editorial-classifications";
+import {
+  articleClassificationBadgeColors,
+  articleClassificationLabel,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
 
 import MatchdayEditorialContextSelector, {
   type MatchdayEditorialContextSelectorData,
@@ -223,11 +227,6 @@ const styles = `
   .thematic-card-top { position: relative; display: flex; min-width: 0; flex-wrap: nowrap; gap: 3px; align-items: center; }
   .thematic-card-label { min-width: 0; overflow: hidden; color: #b21f2a; font-size: 9px; font-weight: 900; letter-spacing: .03em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
   .thematic-classification-badge { display: inline-flex; flex: 0 0 auto; height: 13px; align-items: center; padding: 0 4px; border: 1px solid transparent; border-radius: 2px; background: #e2e8f0; color: #000; font-size: 9px; font-weight: 800; line-height: 11px; white-space: nowrap; }
-  .thematic-classification-badge[data-classification="unclassified"] { background: #fde047; }
-  .thematic-classification-badge[data-classification="benfica"] { background: #ef4444; }
-  .thematic-classification-badge[data-classification="sporting"] { background: #15803d; color: #fff; }
-  .thematic-classification-badge[data-classification="fc_porto"] { background: #1d4ed8; color: #fff; }
-  .thematic-classification-badge[data-classification="other_liga_clubs"] { border-color: #000; background: #fff; }
   /* Without an antetitle, keep the existing empty row at zero height. */
   .thematic-card-top[data-without-label="true"] .thematic-classification-badge { position: absolute; z-index: 2; bottom: 100%; left: 0; }
 
@@ -505,7 +504,12 @@ function ArticleCard({ bankItemId, item, classificationKey, placement, selected,
       <div className="thematic-card-copy">
         <div className="thematic-card-top" data-without-label={!item.label}>
           {item.label ? <span className="thematic-card-label">{item.label}</span> : null}
-          <span className="thematic-classification-badge" data-classification={classificationKey ?? "unclassified"} title={`Classificação editorial: ${classificationLabel}`}>{classificationLabel}</span>
+          <span
+            className="thematic-classification-badge"
+            data-classification={classificationKey ?? "unclassified"}
+            style={articleClassificationBadgeColors(classificationKey ?? "unclassified")}
+            title={`Classificação editorial: ${classificationLabel}`}
+          >{classificationLabel}</span>
         </div>
         <strong className="thematic-card-title" title={item.title ?? undefined}>{item.title ?? "Artigo sem título"}</strong>
         {publishedAt ? <time dateTime={item.publishedAt ?? undefined}>{publishedAt}</time> : null}
