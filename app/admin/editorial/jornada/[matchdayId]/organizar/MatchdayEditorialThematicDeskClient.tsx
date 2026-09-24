@@ -90,10 +90,14 @@ const PERSISTABLE_PHYSICAL_LAYOUTS = EDITORIAL_VISUAL_FAMILIES.map((id) => (
 ));
 
 type ActiveWorkspaceKey =
-  | "latest"
   | "highlight"
   | "faixa"
   | LiveLayoutZoneId;
+
+type PageStructureBlock = Exclude<
+  PhysicalDeskState["current"]["blocks"][number],
+  { readonly kind: "latest" }
+>;
 
 type CandidateUniverse = "new" | "displaced" | "bank";
 
@@ -226,7 +230,7 @@ const styles = `
   .thematic-card-actions button { width: 100%; text-align: left; }
   .thematic-more { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 8px 8px; color: #64748b; font-size: 9px; }
   .thematic-global-actions { position: relative; display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 0; }
-  .thematic-global-actions > .thematic-classification-tool { flex: 0 0 auto; }
+  .thematic-global-actions > :is(.thematic-classification-tool, .thematic-latest-tool) { flex: 0 0 auto; }
   .thematic-global-actions > .thematic-selection-controls { flex: 1 1 auto; }
   .thematic-selection-controls { display: flex; min-width: 0; min-height: 30px; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 2px; padding: 0 3px 0 10px; }
   .thematic-selection-controls strong { color: #657487; font-size: 9px; white-space: nowrap; }
@@ -328,13 +332,14 @@ const styles = `
   .thematic-global-tool > summary::after { width: 5px; height: 5px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; content: ""; opacity: .6; transform: rotate(45deg) translateY(-1px); transition: transform .14s ease; }
   .thematic-global-tool[open] > summary { background: #edf2f6; color: #172331; box-shadow: inset 0 -2px 0 #526173; }
   .thematic-global-tool[open] > summary::after { transform: rotate(225deg) translate(-1px,-1px); }
-  .thematic-global-tools > .thematic-global-tool + .thematic-global-tool > summary, .thematic-global-actions > .thematic-classification-tool > summary { border-left: 1px solid #e1e7ed; }
+  .thematic-global-tools > .thematic-global-tool + .thematic-global-tool > summary, .thematic-global-actions > .thematic-global-tool > summary { border-left: 1px solid #e1e7ed; }
   .thematic-global-tool > .thematic-global-tool-body, .thematic-global-tool > .thematic-page-structure { position: absolute; z-index: 40; top: calc(100% + 5px); left: 0; max-height: min(72vh,720px); overflow: auto; overscroll-behavior: contain; border: 1px solid #ccd6e0; border-radius: 7px; background: #fff; box-shadow: 0 9px 24px rgba(15,23,42,.11); }
   .thematic-global-tool-body { padding: 7px; }
   .thematic-global-tools > .thematic-global-tool:first-child > .thematic-page-structure { width: clamp(660px,50vw,760px); max-width: calc(100vw - 24px); }
   .thematic-video-tool > .thematic-global-tool-body { width: clamp(420px,50vw,720px); max-width: calc(100vw - 170px); }
   .thematic-agenda-tv-tool > .thematic-global-tool-body { width: clamp(500px,56vw,860px); max-width: calc(100vw - 250px); }
   .thematic-classification-tool > .thematic-global-tool-body { width: clamp(560px,52vw,700px); max-width: calc(100vw - 310px); }
+  .thematic-latest-tool > .thematic-global-tool-body { display: grid; width: clamp(300px,32vw,420px); max-width: calc(100vw - 24px); gap: 8px; }
   .thematic-global-tool-body .video-summary-sync { margin: 0; padding: 7px; }
   .agenda-tv-sync { display: grid; gap: 7px; padding: 7px; border: 1px solid #d8e0e9; border-radius: 7px; background: #f8fafc; }
   .agenda-tv-sync-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; }
@@ -757,7 +762,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [activeWorkspaceKey, setActiveWorkspaceKey] = useState<ActiveWorkspaceKey>(
     () => {
       const firstZoneBlock = physicalDesk.current.blocks.find((block) => block.kind === "zone");
-      return firstZoneBlock?.kind === "zone" ? firstZoneBlock.zoneId : "latest";
+      return firstZoneBlock?.kind === "zone" ? firstZoneBlock.zoneId : "faixa";
     },
   );
   const [openingVisible, setOpeningVisible] = useState(false);
@@ -827,6 +832,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     [current.zones],
   );
   const orderedZoneBlocks = current.blocks.filter((block) => block.kind === "zone");
+  const pageStructureBlocks = current.blocks.filter(
+    (block): block is PageStructureBlock => block.kind !== "latest",
+  );
   const orderedZones = orderedZoneBlocks.flatMap((block) => {
     const zone = zoneById.get(block.zoneId);
     return zone ? [zone] : [];
@@ -845,18 +853,16 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       : "legacy_incomplete";
   const activeZone =
     zoneById.get(activeWorkspaceKey as LiveLayoutZoneId) ?? null;
-  const activeLatest = activeWorkspaceKey === "latest";
   const activeWorkspaceLabel = activeZone?.publicTitle || (
-    activeLatest ? current.presentation.latestZoneTitle || "Últimas"
-      : activeWorkspaceKey === "faixa" ? "Faixa"
-        : activeWorkspaceKey === "highlight" ? "Destaque" : "Zona sem título"
+    activeWorkspaceKey === "faixa" ? "Faixa"
+      : activeWorkspaceKey === "highlight" ? "Destaque" : "Zona sem título"
   );
   const openingOnly = openingVisible && !activeWorkspaceVisible;
   const compositionMode = openingVisible
     ? openingOnly ? "opening-only" : "stacked"
     : activeZone ? "zone-only" : "other";
   const focusContext = `${desk.matchdayLabel} · ${openingOnly ? "Só Abertura" : activeWorkspaceLabel} · Abertura ${openingVisible ? "aberta" : "fechada"}`;
-  const activeStructureEditorOpen = activeZone !== null || activeLatest;
+  const activeStructureEditorOpen = activeZone !== null;
   const activeZonePlacedArticleCount = activeZone
     ? current.placements.filter((placement) => (
         placement.placementType === "zone"
@@ -864,11 +870,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       )).length
     : 0;
 
-  const activeStructureTitle = activeLatest
-    ? current.presentation.latestZoneTitle
-    : activeZone?.publicTitle ?? "";
+  const activeStructureTitle = activeZone?.publicTitle ?? "";
   const activeStructureLabel = activeStructureTitle
-    || (activeLatest ? "Últimas" : "Zona sem título");
+    || "Zona sem título";
   const selected = useMemo(
     () => new Set(physicalDesk.selectedBankItemIds),
     [physicalDesk.selectedBankItemIds],
@@ -884,14 +888,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   useEffect(() => {
     if (
-      activeWorkspaceKey === "latest"
-      || activeWorkspaceKey === "highlight"
+      activeWorkspaceKey === "highlight"
       || activeWorkspaceKey === "faixa"
       || zoneById.has(activeWorkspaceKey)
     ) {
       return;
     }
-    setActiveWorkspaceKey(current.zones[0]?.id ?? "latest");
+    setActiveWorkspaceKey(current.zones[0]?.id ?? "faixa");
   }, [activeWorkspaceKey, current.zones, zoneById]);
 
   useEffect(() => {
@@ -965,9 +968,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         errorMessage.includes("zone-layout-shrink-occupied")
           ? "Este layout não comporta as posições atualmente ocupadas. Mova primeiro os artigos dessas posições."
           : errorMessage.includes("latest-companion-zone-associated")
-            ? "Escolha Manchete, Ocultas ou outra zona para as Últimas antes de apagar esta zona."
+            ? "Escolha Manchete, Ocultas ou outra zona para A acontecer agora antes de apagar esta zona."
             : errorMessage.includes("latest-companion-host-invalid")
-              ? "A zona escolhida para as Últimas já não existe."
+              ? "A zona escolhida para A acontecer agora já não existe."
               : errorMessage,
       );
       return null;
@@ -1020,7 +1023,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       const nextZoneBlock = nextState.current.blocks.find(
         (block) => block.kind === "zone",
       );
-      setActiveWorkspaceKey(nextZoneBlock?.zoneId ?? "latest");
+      setActiveWorkspaceKey(nextZoneBlock?.zoneId ?? "faixa");
     }
   }
 
@@ -1423,55 +1426,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     );
   }
 
-  function renderLatestBlockPanel() {
-    const companionZone =
-      latestDestination.kind === "zone"
-        ? zoneById.get(latestDestination.zoneId as LiveLayoutZoneId) ?? null
-        : null;
-
-    return (
-      <article
-        className="thematic-workspace-section"
-        data-latest-block="presentation"
-      >
-        <header className="thematic-workspace-heading">
-          <strong>Últimas</strong>
-          <span>Apresentação</span>
-        </header>
-        <div className="thematic-workspace-body">
-          <div className="thematic-zone-editor">
-          <div className="thematic-card-copy">
-            <strong>Últimas</strong>
-            <small>
-              Escolha onde apresentar as Últimas.
-            </small>
-          </div>
-
-          <strong className="thematic-zone-editor-count">
-            {latestDestination.kind === "headline"
-              ? "Manchete"
-              : latestDestination.kind === "hidden"
-                ? "Ocultas"
-                : latestDestination.kind === "zone"
-                  ? "Zona física"
-                  : "Associação necessária"}
-          </strong>
-          </div>
-
-          <p className="thematic-message">
-            {latestDestination.kind === "legacy_incomplete"
-              ? "Escolha uma posição para as Últimas."
-              : companionZone
-                ? `Zona associada: ${companionZone.publicTitle || "Zona sem título"}.`
-                : latestDestination.kind === "headline"
-                  ? "As Últimas aparecem junto da manchete."
-                  : "As Últimas não aparecem na página pública."}
-          </p>
-        </div>
-      </article>
-    );
-  }
-
   function renderHighlightWorkspace() {
     const highlighted = highlightPlacement ? bankItemById.get(highlightPlacement.bankItemId) : null;
     return (
@@ -1687,14 +1641,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     return current.zones.some((zone) => zone.id === workspaceKey);
   }
 
-  function workspaceKeyForBlock(block: PhysicalDeskState["current"]["blocks"][number]): ActiveWorkspaceKey {
-    return block.kind === "zone" ? block.zoneId : block.kind === "video" ? "highlight" : "latest";
+  function workspaceKeyForBlock(block: PageStructureBlock): ActiveWorkspaceKey {
+    return block.kind === "zone" ? block.zoneId : "highlight";
   }
 
-  function blockLabel(block: PhysicalDeskState["current"]["blocks"][number]) {
-    if (block.kind === "latest") {
-      return current.presentation.latestZoneTitle || "Últimas";
-    }
+  function blockLabel(block: PageStructureBlock) {
     if (block.kind === "video") return "Destaque";
     const zone = zoneById.get(block.zoneId);
     return zone
@@ -1702,13 +1653,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       : "Zona física inválida";
   }
 
-  function blockCount(block: PhysicalDeskState["current"]["blocks"][number]) {
-    if (block.kind === "latest") {
-      if (latestDestination.kind === "hidden") return "Ocultas";
-      if (latestDestination.kind === "headline") return "Manchete";
-      if (latestDestination.kind === "zone") return "Zona física";
-      return "Associação necessária";
-    }
+  function blockCount(block: PageStructureBlock) {
     if (block.kind === "video") return `${highlightPlacement ? 1 : 0}/1`;
     const zone = zoneById.get(block.zoneId);
     if (!zone) return "0/0";
@@ -1722,7 +1667,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   }
 
   function renderActiveWorkspace() {
-    if (activeWorkspaceKey === "latest") return renderLatestBlockPanel();
     if (activeWorkspaceKey === "highlight") return renderHighlightWorkspace();
     if (activeWorkspaceKey === "faixa") return renderFaixaWorkspace();
     if (isZoneWorkspaceKey(activeWorkspaceKey)) return renderZonePanel(activeWorkspaceKey);
@@ -1828,16 +1772,6 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             type="button"
           >
             Faixa · {faixaPlacements.length}
-          </button>
-          <button
-            className={activeWorkspaceKey === "latest" ? "active" : ""}
-            onClick={() => {
-              setActiveWorkspaceKey("latest");
-              setActiveWorkspaceVisible(true);
-            }}
-            type="button"
-          >
-            {current.presentation.latestZoneTitle || "Últimas"}
           </button>
           <button
             className={activeWorkspaceKey === "highlight" ? "active" : ""}
@@ -2038,17 +1972,15 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                       <strong>Abertura</strong>
                       <small>{openingOccupied}/{MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.length}</small>
                     </button>
-                    {current.blocks.map((block, index) => {
+                    {pageStructureBlocks.map((block, index) => {
                       const workspaceKey = workspaceKeyForBlock(block);
-                      const editableInStructure =
-                        block.kind === "zone" || block.kind === "latest";
 
                       return (
                         <div className={"thematic-page-row" + (activeWorkspaceKey === workspaceKey ? " active" : "")} key={block.kind === "zone" ? block.zoneId : block.kind}>
                           <button
                             className="thematic-page-row-main"
                             onClick={() => {
-                              if (editableInStructure) {
+                              if (block.kind === "zone") {
                                 setDeleteZoneId(null);
                                 setActiveWorkspaceKey(workspaceKey);
                                 setActiveWorkspaceVisible(true);
@@ -2080,38 +2012,21 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 {activeStructureEditorOpen ? (
                   <aside
                     className="thematic-page-zone-editor-panel"
-                    aria-label={(activeLatest ? "Editar bloco " : "Editar zona ") + activeStructureLabel}
+                    aria-label={"Editar zona " + activeStructureLabel}
                   >
-                    <strong>{activeLatest ? "Editar Últimas" : "Editar zona"}</strong>
+                    <strong>Editar zona</strong>
 
                     <label className="thematic-page-zone-field">
-                      <span>{activeLatest ? "Título das Últimas" : "Nome público"}</span>
+                      <span>Nome público</span>
                       <input
                         aria-label={"Nome público de " + activeStructureLabel}
                         defaultValue={activeStructureTitle}
                         disabled={mutationBlocked}
-                        key={
-                          activeLatest
-                            ? "latest:" + current.presentation.latestZoneTitle
-                            : activeZone!.id + ":" + activeZone!.publicTitle
-                        }
+                        key={activeZone!.id + ":" + activeZone!.publicTitle}
                         onBlur={(event) => {
                           const value = event.currentTarget.value.trim();
 
-
                           if (value === activeStructureTitle) return;
-
-                          if (activeLatest) {
-                            runPhysicalOperation(
-                              (state) => changePhysicalDeskPresentation(state, {
-                                latestZoneTitle: value,
-                              }),
-                              activeStructureLabel
-                                + ": título alterado em preview.",
-                            );
-                            return;
-                          }
-
                           if (!activeZone) return;
 
                           runPhysicalOperation(
@@ -2128,74 +2043,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     </label>
 
                     <label className="thematic-page-zone-field">
-                      <span>
-                        {activeLatest ? "Posição das Últimas" : "Layout"}
-                      </span>
-
-                      {activeLatest ? (
-                        <select
-                          aria-label="Posição das Últimas"
-                          disabled={mutationBlocked}
-                          onChange={(event) => {
-                            const requestedDestination = event.target.value;
-
-                            if (requestedDestination === "headline") {
-                              runPhysicalOperation(
-                                (state) => changePhysicalDeskLatestPlacement(
-                                  state,
-                                  { kind: "headline" },
-                                ),
-                                "Últimas colocadas junto da manchete em preview.",
-                              );
-                              return;
-                            }
-                            if (requestedDestination === "hidden") {
-                              runPhysicalOperation(
-                                (state) => changePhysicalDeskLatestPlacement(
-                                  state,
-                                  { kind: "hidden" },
-                                ),
-                                "Últimas ocultadas em preview.",
-                              );
-                              return;
-                            }
-
-                            const requestedZoneId = requestedDestination.startsWith("zone:")
-                              ? requestedDestination.slice("zone:".length)
-                              : "";
-                            const nextZone = current.zones.find((zone) => (
-                              zone.id === requestedZoneId
-                            ));
-
-                            if (!nextZone) return;
-
-                            runPhysicalOperation(
-                              (state) => changePhysicalDeskLatestPlacement(
-                                state,
-                                { kind: "zone", zoneId: nextZone.id },
-                              ),
-                              "Associação das Últimas alterada em preview.",
-                            );
-                          }}
-                          value={latestDestinationSelectValue}
-                        >
-                          {latestDestination.kind === "legacy_incomplete" ? (
-                            <option disabled value="legacy_incomplete">
-                              Sem associação válida — escolha uma posição
-                            </option>
-                          ) : null}
-                          <option value="headline">Manchete</option>
-                          <option value="hidden">Ocultas</option>
-
-                          <optgroup label="Zona física">
-                            {orderedZones.map((zone) => (
-                              <option key={zone.id} value={`zone:${zone.id}`}>
-                                {zone.publicTitle || "Zona sem título"}
-                              </option>
-                            ))}
-                          </optgroup>
-                        </select>
-                      ) : activeZone ? (
+                      <span>Layout</span>
+                      {activeZone ? (
                         <select
                           aria-label={"Layout de " + activeStructureLabel}
                           disabled={mutationBlocked}
@@ -2222,20 +2071,18 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                       ) : null}
                     </label>
 
-                    {!activeLatest ? (
-                      <small>
-                        {activeZone
-                          ? activeZonePlacedArticleCount
-                            + "/" + activeZone.capacity
-                          : ""}
-                      </small>
-                    ) : null}
+                    <small>
+                      {activeZone
+                        ? activeZonePlacedArticleCount
+                          + "/" + activeZone.capacity
+                        : ""}
+                    </small>
 
                     {activeZone ? (
                       <>
                         {current.latestCompanionZoneId === activeZone.id ? (
                           <p className="thematic-message" role="alert">
-                            Esta zona recebe as Últimas. Escolha outra posição antes de a apagar.
+                            Esta zona recebe A acontecer agora. Escolha outra posição antes de a apagar.
                           </p>
                         ) : null}
                         <button
@@ -2319,6 +2166,97 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   matchdayId={desk.matchdayId}
                   zones={profile.zones}
                 />
+              </div>
+            </details>
+
+            <details className="thematic-global-tool thematic-latest-tool">
+              <summary>A acontecer agora</summary>
+              <div className="thematic-global-tool-body">
+                <label className="thematic-page-zone-field">
+                  <span>Título público</span>
+                  <input
+                    aria-label="Título público de A acontecer agora"
+                    defaultValue={current.presentation.latestZoneTitle}
+                    disabled={mutationBlocked}
+                    key={`latest:${current.presentation.latestZoneTitle}`}
+                    onBlur={(event) => {
+                      const value = event.currentTarget.value.trim();
+                      if (value === current.presentation.latestZoneTitle) return;
+                      runPhysicalOperation(
+                        (state) => changePhysicalDeskPresentation(state, {
+                          latestZoneTitle: value,
+                        }),
+                        "Título de A acontecer agora alterado em preview.",
+                      );
+                    }}
+                  />
+                </label>
+
+                <label className="thematic-page-zone-field">
+                  <span>Posição</span>
+                  <select
+                    aria-label="Posição de A acontecer agora"
+                    disabled={mutationBlocked}
+                    onChange={(event) => {
+                      const requestedDestination = event.target.value;
+
+                      if (requestedDestination === "headline") {
+                        runPhysicalOperation(
+                          (state) => changePhysicalDeskLatestPlacement(
+                            state,
+                            { kind: "headline" },
+                          ),
+                          "A acontecer agora colocado junto da manchete em preview.",
+                        );
+                        return;
+                      }
+                      if (requestedDestination === "hidden") {
+                        runPhysicalOperation(
+                          (state) => changePhysicalDeskLatestPlacement(
+                            state,
+                            { kind: "hidden" },
+                          ),
+                          "A acontecer agora ocultado em preview.",
+                        );
+                        return;
+                      }
+
+                      const requestedZoneId = requestedDestination.startsWith("zone:")
+                        ? requestedDestination.slice("zone:".length)
+                        : "";
+                      const nextZone = current.zones.find((zone) => (
+                        zone.id === requestedZoneId
+                      ));
+
+                      if (!nextZone) return;
+
+                      runPhysicalOperation(
+                        (state) => changePhysicalDeskLatestPlacement(
+                          state,
+                          { kind: "zone", zoneId: nextZone.id },
+                        ),
+                        "Associação de A acontecer agora alterada em preview.",
+                      );
+                    }}
+                    value={latestDestinationSelectValue}
+                  >
+                    {latestDestination.kind === "legacy_incomplete" ? (
+                      <option disabled value="legacy_incomplete">
+                        Sem associação válida — escolha uma posição
+                      </option>
+                    ) : null}
+                    <option value="headline">Manchete</option>
+                    <option value="hidden">Ocultas</option>
+
+                    <optgroup label="Zona física">
+                      {orderedZones.map((zone) => (
+                        <option key={zone.id} value={`zone:${zone.id}`}>
+                          {zone.publicTitle || "Zona sem título"}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </label>
               </div>
             </details>
 

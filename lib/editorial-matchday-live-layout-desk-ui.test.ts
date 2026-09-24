@@ -58,7 +58,7 @@ test("zonas e movimentos usam LiveLayoutZoneId e vagas são derivadas", () => {
   assert.match(source, /\| LiveLayoutZoneId;/);
   assert.match(source, /useState<LiveLayoutZoneId \| null>/);
   assert.match(source, /physicalDeskZoneSlots\(physicalDesk, zoneId\)/);
-  assert.match(source, /current\.blocks\.map\(\(block/);
+  assert.match(source, /pageStructureBlocks = current\.blocks\.filter\(/);
   assert.match(source, /current\.zones\.map\(\(zone/);
   assert.doesNotMatch(source, /vacantZoneSlots\s*:/);
 });

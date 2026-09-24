@@ -53,7 +53,17 @@ test("rail deriva zonas físicas e mantém Faixa como workspace próprio", () =>
   const rail = client.slice(start, end);
   assert.match(rail, /orderedZoneBlocks\.map/);
   assert.match(rail, /setActiveWorkspaceKey\("faixa"\)/);
+  assert.doesNotMatch(rail, /setActiveWorkspaceKey\("latest"\)|latestZoneTitle|A acontecer agora/);
   assert.match(client, /activeWorkspaceKey === "faixa"\) return renderFaixaWorkspace\(\)/);
+});
+
+test("sem zonas físicas a Mesa usa Faixa como workspace visual seguro", () => {
+  assert.match(
+    client,
+    /firstZoneBlock\?\.kind === "zone" \? firstZoneBlock\.zoneId : "faixa"/,
+  );
+  assert.match(client, /setActiveWorkspaceKey\(current\.zones\[0\]\?\.id \?\? "faixa"\)/);
+  assert.match(client, /setActiveWorkspaceKey\(nextZoneBlock\?\.zoneId \?\? "faixa"\)/);
 });
 
 test("Página e blocos fecha ao escolher um workspace", () => {

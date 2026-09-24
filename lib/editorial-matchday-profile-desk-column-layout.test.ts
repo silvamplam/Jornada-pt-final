@@ -88,7 +88,9 @@ test("rail de zonas e estrutura derivam dos blocks físicos", () => {
     /const orderedZoneBlocks = current\.blocks\.filter\(\(block\) => block\.kind === "zone"\)/,
   );
   assert.match(source, /orderedZoneBlocks\.map\(\(block\)/);
-  assert.match(source, /current\.blocks\.map\(\(block, index\)/);
+  assert.match(source, /pageStructureBlocks = current\.blocks\.filter\(/);
+  assert.match(source, /block\.kind !== "latest"/);
+  assert.match(source, /pageStructureBlocks\.map\(\(block, index\)/);
   assert.match(source, /workspaceKeyForBlock\(block\)/);
   assert.match(source, /blockLabel\(block\)/);
   assert.match(source, /blockCount\(block\)/);
