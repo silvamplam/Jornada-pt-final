@@ -75,7 +75,7 @@ test("sem zonas físicas a Mesa usa Faixa como workspace visual seguro", () => {
 test("Página e blocos fecha ao escolher um workspace", () => {
   assert.match(client, /<details className="thematic-global-tool" ref=\{pageStructureRef\}>/);
   assert.match(client, /pageStructureRef\.current\?\.removeAttribute\("open"\)/);
-  assert.match(client, /activateWorkspaceFromStructure\(workspaceKey\)/);
+  assert.match(client, /activateWorkspaceFromStructure\(block\.zoneId\)/);
 });
 
 test("modos e colunas legacy não regressam", () => {

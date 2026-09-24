@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   bulkMovePhysicalDeskItemsToZone,
+  changePhysicalDeskPresentation,
   changePhysicalDeskZone,
   createPhysicalDeskZone,
   createPhysicalDeskState,
@@ -119,6 +120,8 @@ function stateFromWorkspace(source: LiveLayoutWorkspaceState) {
     latestZonePlacement: "top",
     latestZoneTitle: "Últimas",
     videoModuleActive: true,
+    roundupVideoHeading: "A JORNADA EM VÍDEO",
+    videoHighlightSectionTitle: "DESTAQUE DA JORNADA",
   });
 }
 
@@ -934,6 +937,8 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
       latestZoneTitle: "Estado físico",
       latestZoneTitleColor: "#AABBCC",
       videoModuleActive: false,
+      roundupVideoHeading: "Os jogos em vídeo",
+      videoHighlightSectionTitle: "Escolha da redação",
       createdAt: NOW,
       updatedAt: NOW,
     },
@@ -948,6 +953,8 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
     latestZonePlacement: "top",
     latestZoneTitle: "Legacy ignorado",
     videoModuleActive: true,
+    roundupVideoHeading: "Legacy vídeos",
+    videoHighlightSectionTitle: "Legacy destaque",
   });
 
   assert.equal(current.current.faixaSlotCount, 4);
@@ -959,10 +966,47 @@ test("settings físicos preservam vaga final da Faixa no reload model", () => {
     latestZonePlacement: "hidden",
     latestZoneTitle: "Estado físico",
     videoModuleActive: false,
+    roundupVideoHeading: "Os jogos em vídeo",
+    videoHighlightSectionTitle: "Escolha da redação",
   });
   assert.equal("latestZoneMode" in current.current.presentation, false);
   assert.equal("latestZoneTitleColor" in current.current.presentation, false);
   assert.equal(current.physicalCutover?.profileKey, "liga_portugal_v1");
+});
+
+test("títulos de Vídeos e Destaque pertencem ao draft com Undo e Reset", () => {
+  const baseline = state(1);
+  const videosEdited = changePhysicalDeskPresentation(baseline, {
+    roundupVideoHeading: "OS JOGOS EM VÍDEO",
+  });
+  const bothEdited = changePhysicalDeskPresentation(videosEdited, {
+    videoHighlightSectionTitle: "ESCOLHA DA REDAÇÃO",
+  });
+
+  assert.equal(physicalDeskHasChanges(bothEdited), true);
+  assert.equal(
+    bothEdited.current.presentation.roundupVideoHeading,
+    "OS JOGOS EM VÍDEO",
+  );
+  assert.equal(
+    bothEdited.current.presentation.videoHighlightSectionTitle,
+    "ESCOLHA DA REDAÇÃO",
+  );
+  assert.deepEqual(bothEdited.current.blocks, baseline.current.blocks);
+  assert.deepEqual(bothEdited.current.placements, baseline.current.placements);
+
+  const undone = undoPhysicalDeskState(bothEdited);
+  assert.equal(
+    undone.current.presentation.videoHighlightSectionTitle,
+    "DESTAQUE DA JORNADA",
+  );
+  assert.equal(
+    undone.current.presentation.roundupVideoHeading,
+    "OS JOGOS EM VÍDEO",
+  );
+
+  const reset = resetPhysicalDeskState(bothEdited);
+  assert.deepEqual(reset.current.presentation, baseline.current.presentation);
 });
 
 test("Abertura, Faixa, Seleção e Destaque partilham a autoridade de placements", () => {

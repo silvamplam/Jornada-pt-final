@@ -165,6 +165,8 @@ test("reader interpreta settings e marker físicos sem defaults legacy", () => {
       latest_zone_title: "Últimas",
       latest_zone_title_color: "#DDEEFF",
       video_module_active: true,
+      roundup_video_heading: "OS JOGOS EM VÍDEO",
+      video_highlight_section_title: "ESCOLHA DA REDAÇÃO",
       created_at: NOW,
       updated_at: NOW,
     },
@@ -187,6 +189,8 @@ test("reader interpreta settings e marker físicos sem defaults legacy", () => {
     latestZonePlacement: "four_news",
     latestZoneTitle: "Últimas",
     videoModuleActive: true,
+    roundupVideoHeading: "OS JOGOS EM VÍDEO",
+    videoHighlightSectionTitle: "ESCOLHA DA REDAÇÃO",
   });
 });
 

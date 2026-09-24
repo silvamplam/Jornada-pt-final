@@ -3,6 +3,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
+import {
+  DEFAULT_MATCHDAY_ROUNDUP_VIDEO_HEADING,
+  DEFAULT_MATCHDAY_VIDEO_HIGHLIGHT_SECTION_TITLE,
+  matchdayVideoSectionTitle,
+} from "./editorial-matchday-video-section-titles";
+
 function source(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
@@ -20,6 +26,9 @@ const flexibleZoneRenderersSource = source(
 const visualFamilySource = source("lib/editorial-visual-families.ts");
 const rendererRegistrySource = source(
   "components/public/public-flexible-zone-renderer-registry.ts",
+);
+const editorialLayoutSource = source(
+  "components/public/PublicEditorialLayout.tsx",
 );
 
 test("página pública usa um único dispatch marker-first", () => {
@@ -104,6 +113,39 @@ test("reader físico usa v22 e não consulta fontes temáticas", () => {
   assert.doesNotMatch(
     physicalReaderSource,
     /writeSupabase|\bPOST\b|\bPATCH\b|\bDELETE\b/,
+  );
+});
+
+test("página pública usa os dois títulos configurados com fallbacks históricos", () => {
+  assert.match(
+    pageSource,
+    /physicalSnapshot\?\.video\.roundupHeading \?\? editorial\?\.roundup_video_heading/,
+  );
+  assert.match(
+    pageSource,
+    /physicalSnapshot\?\.video\.highlightSectionTitle[\s\S]*editorial\?\.video_highlight_section_title/,
+  );
+  assert.match(pageSource, /roundupHeading: roundupVideoHeading/);
+  assert.match(pageSource, /sectionTitle: videoHighlightSectionTitle/);
+  assert.match(
+    editorialLayoutSource,
+    /belowHeadline\.complementary\.sectionTitle[\s\S]*belowHeadline\.complementary\.label/,
+  );
+  assert.doesNotMatch(
+    editorialLayoutSource,
+    /content:\s*["']DESTAQUE DA JORNADA["']/,
+  );
+  assert.equal(
+    matchdayVideoSectionTitle(null, DEFAULT_MATCHDAY_ROUNDUP_VIDEO_HEADING),
+    "A JORNADA EM VÍDEO",
+  );
+  assert.equal(
+    matchdayVideoSectionTitle("  ", DEFAULT_MATCHDAY_VIDEO_HIGHLIGHT_SECTION_TITLE),
+    "DESTAQUE DA JORNADA",
+  );
+  assert.equal(
+    matchdayVideoSectionTitle("  ESCOLHA DA REDAÇÃO  ", "fallback"),
+    "ESCOLHA DA REDAÇÃO",
   );
 });
 

@@ -91,7 +91,7 @@ test("rail mantém Abertura e deriva zonas mais Destaque dos blocks físicos", (
   );
 });
 
-test("Página e blocos omite latest e numera continuamente a projeção visível", () => {
+test("Página e blocos omite latest e video e numera continuamente apenas as zonas", () => {
   const start = client.indexOf(
     '<details className="thematic-global-tool" ref={pageStructureRef}>',
   );
@@ -105,10 +105,10 @@ test("Página e blocos omite latest e numera continuamente a projeção visível
   const pageStructureList = pageStructure.slice(listStart, listEnd);
 
   assert.ok(start >= 0 && end > start && listStart >= 0 && listEnd > listStart);
-  assert.match(client, /pageStructureBlocks = current\.blocks\.filter\([\s\S]*block\.kind !== "latest"/);
+  assert.match(client, /pageStructureBlocks = current\.blocks\.filter\([\s\S]*block\.kind === "zone"/);
   assert.match(pageStructureList, /pageStructureBlocks\.map\(\(block, index\) =>/);
   assert.match(pageStructureList, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
-  assert.doesNotMatch(pageStructureList, /latestZoneTitle|A acontecer agora|Editar Últimas/);
+  assert.doesNotMatch(pageStructureList, /latestZoneTitle|A acontecer agora|Editar Últimas|Destaque|highlight/);
   assert.doesNotMatch(pageStructure, /activeLatest|Editar Últimas/);
   assert.doesNotMatch(
     pageStructure,
@@ -166,6 +166,18 @@ test("Destaque abre o workspace atual e conserva placement e apresentação loca
   assert.doesNotMatch(secondary, /Destaque|highlight/);
   assert.match(client, /physicalDeskPlacementsOfType\(physicalDesk, "video_highlight"\)/);
   assert.match(workspace, /videoModuleActive/);
+  assert.match(workspace, /Título da zona de vídeos/);
+  assert.match(workspace, /Título do Destaque/);
+  assert.ok(
+    workspace.indexOf("Título da zona de vídeos")
+      < workspace.indexOf("Módulo"),
+  );
+  assert.ok(
+    workspace.indexOf("Título do Destaque")
+      < workspace.indexOf("Módulo"),
+  );
+  assert.match(workspace, /roundupVideoHeading: value/);
+  assert.match(workspace, /videoHighlightSectionTitle: value/);
   assert.match(workspace, /<option value="active">Ativo<\/option>/);
   assert.match(workspace, /<option value="hidden">Oculto<\/option>/);
   assert.match(workspace, /placementType: "video_highlight", zoneId: null, slotPosition: 1/);

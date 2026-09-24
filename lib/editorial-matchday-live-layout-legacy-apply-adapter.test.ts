@@ -183,6 +183,8 @@ function stateFor(stateWorkspace: LiveLayoutWorkspaceState) {
     latestZonePlacement: "top",
     latestZoneTitle: "Últimas",
     videoModuleActive: true,
+    roundupVideoHeading: "A JORNADA EM VÍDEO",
+    videoHighlightSectionTitle: "DESTAQUE DA JORNADA",
   });
 }
 

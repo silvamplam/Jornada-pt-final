@@ -94,7 +94,7 @@ test("rail e estrutura derivam dos blocks físicos sem autoridade paralela", () 
   );
   assert.match(source, /railOrderBlocks\.map\(\(block\)/);
   assert.match(source, /pageStructureBlocks = current\.blocks\.filter\(/);
-  assert.match(source, /block\.kind !== "latest"/);
+  assert.match(source, /block\.kind === "zone"/);
   assert.match(source, /pageStructureBlocks\.map\(\(block, index\)/);
   assert.match(source, /workspaceKeyForBlock\(block\)/);
   assert.match(source, /blockLabel\(block\)/);

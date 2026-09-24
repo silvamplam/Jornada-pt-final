@@ -47,6 +47,8 @@ export type PhysicalDeskApplyPayload = Readonly<{
     latest_zone_placement: PhysicalDeskPresentation["latestZonePlacement"];
     latest_zone_title: string;
     video_module_active: boolean;
+    roundup_video_heading: string;
+    video_highlight_section_title: string;
   }>;
 }>;
 
@@ -266,6 +268,10 @@ export function buildPhysicalDeskApplyPayload(
         physicalDesk.current.presentation.latestZoneTitle,
       video_module_active:
         physicalDesk.current.presentation.videoModuleActive,
+      roundup_video_heading:
+        physicalDesk.current.presentation.roundupVideoHeading,
+      video_highlight_section_title:
+        physicalDesk.current.presentation.videoHighlightSectionTitle,
     },
   });
 }
@@ -481,6 +487,8 @@ export function parsePhysicalDeskApplyPayload(
     "latest_zone_placement",
     "latest_zone_title",
     "video_module_active",
+    "roundup_video_heading",
+    "video_highlight_section_title",
   ], "presentation-shape-invalid");
   const headlineTitleColor = presentation.headline_title_color;
   if (
@@ -518,6 +526,20 @@ export function parsePhysicalDeskApplyPayload(
   if (typeof presentation.video_module_active !== "boolean") {
     return applyError("presentation-video-active-invalid");
   }
+  const roundupVideoHeading = trimmedText(
+    presentation.roundup_video_heading,
+    "presentation-roundup-title-invalid",
+  );
+  if (roundupVideoHeading.length > 120) {
+    return applyError("presentation-roundup-title-invalid");
+  }
+  const videoHighlightSectionTitle = trimmedText(
+    presentation.video_highlight_section_title,
+    "presentation-highlight-title-invalid",
+  );
+  if (videoHighlightSectionTitle.length > 120) {
+    return applyError("presentation-highlight-title-invalid");
+  }
   if (
     !presentation.video_module_active
     && placements.some((placement) => placement.placementType === "video_highlight")
@@ -543,6 +565,8 @@ export function parsePhysicalDeskApplyPayload(
       latest_zone_placement: latestZonePlacement,
       latest_zone_title: presentation.latest_zone_title,
       video_module_active: presentation.video_module_active,
+      roundup_video_heading: roundupVideoHeading,
+      video_highlight_section_title: videoHighlightSectionTitle,
     },
   };
 }

@@ -105,6 +105,8 @@ function workspace(zoneCount: number, itemCount = 12): LiveLayoutWorkspaceState 
       latestZoneTitle: "Últimas",
       latestZoneTitleColor: "#DDEEFF",
       videoModuleActive: true,
+      roundupVideoHeading: "A JORNADA EM VÍDEO",
+      videoHighlightSectionTitle: "DESTAQUE DA JORNADA",
       createdAt: NOW,
       updatedAt: NOW,
     },
@@ -435,7 +437,37 @@ test("serializer transporta todos os placements sem compactar Faixa esparsa", ()
     latest_zone_placement: "top",
     latest_zone_title: "Últimas",
     video_module_active: true,
+    roundup_video_heading: "A JORNADA EM VÍDEO",
+    video_highlight_section_title: "DESTAQUE DA JORNADA",
   });
+});
+
+test("Apply transporta os dois títulos sem alterar conteúdo físico", () => {
+  const baseline = createPhysicalDeskState(workspace(5));
+  const withVideoTitle = changePhysicalDeskPresentation(baseline, {
+    roundupVideoHeading: "OS JOGOS EM VÍDEO",
+  });
+  const edited = changePhysicalDeskPresentation(withVideoTitle, {
+    videoHighlightSectionTitle: "ESCOLHA DA REDAÇÃO",
+  });
+  const payload = buildPhysicalDeskApplyPayload("liga_portugal_v1", edited);
+
+  assert.equal(
+    payload.presentation.roundup_video_heading,
+    "OS JOGOS EM VÍDEO",
+  );
+  assert.equal(
+    payload.presentation.video_highlight_section_title,
+    "ESCOLHA DA REDAÇÃO",
+  );
+  assert.deepEqual(payload.blocks, buildPhysicalDeskApplyPayload(
+    "liga_portugal_v1",
+    baseline,
+  ).blocks);
+  assert.deepEqual(payload.placements, buildPhysicalDeskApplyPayload(
+    "liga_portugal_v1",
+    baseline,
+  ).placements);
 });
 
 test("arrivals são deltas baseline-relative e preservam a ordem editorial", () => {

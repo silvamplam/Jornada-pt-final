@@ -77,6 +77,11 @@ import {
 } from "@/lib/editorial-matchday-live-layout-physical-apply";
 import type { LiveLayoutZoneId } from "@/lib/editorial-matchday-live-layout-physical";
 import {
+  DEFAULT_MATCHDAY_ROUNDUP_VIDEO_HEADING,
+  DEFAULT_MATCHDAY_VIDEO_HIGHLIGHT_SECTION_TITLE,
+  matchdayVideoSectionTitle,
+} from "@/lib/editorial-matchday-video-section-titles";
+import {
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS,
   MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_LABELS,
 } from "@/lib/editorial-matchday-profile-workspace";
@@ -94,9 +99,14 @@ type ActiveWorkspaceKey =
   | "faixa"
   | LiveLayoutZoneId;
 
-type PageStructureBlock = Exclude<
+type RailOrderBlock = Exclude<
   PhysicalDeskState["current"]["blocks"][number],
   { readonly kind: "latest" }
+>;
+
+type PageStructureBlock = Extract<
+  PhysicalDeskState["current"]["blocks"][number],
+  { readonly kind: "zone" }
 >;
 
 type CandidateUniverse = "new" | "displaced" | "bank";
@@ -393,7 +403,7 @@ const styles = `
   .thematic-page-row strong { font-size: 10px; }
   .thematic-page-row small { color: #64748b; font-size: 9px; }
   .thematic-highlight-controls label { display: grid; width: 100%; gap: 3px; color: #526173; font-size: 9px; font-weight: 800; text-transform: uppercase; }
-  .thematic-highlight-controls select { min-height: 30px; padding: 0 8px; border: 1px solid #cbd5df; border-radius: 6px; background: #fff; }
+  .thematic-highlight-controls input, .thematic-highlight-controls select { min-height: 30px; padding: 0 8px; border: 1px solid #cbd5df; border-radius: 6px; background: #fff; }
   .thematic-highlight-slot { min-width: 0; max-width: none; }
   .thematic-highlight-card { grid-template-columns: 80px minmax(0,1fr); }
   .thematic-highlight-card img { width: 80px; height: 58px; border-radius: 5px; object-fit: cover; }
@@ -749,11 +759,15 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     latestZonePlacement: desk.pageControls.latestZonePlacement,
     latestZoneTitle: desk.pageControls.latestZoneTitle,
     videoModuleActive: desk.videoModule.active,
+    roundupVideoHeading: desk.videoModule.roundupHeading,
+    videoHighlightSectionTitle: desk.videoModule.highlightSectionTitle,
   }), [
     desk.pageControls.headlineTitleColor,
     desk.pageControls.latestZonePlacement,
     desk.pageControls.latestZoneTitle,
     desk.videoModule.active,
+    desk.videoModule.highlightSectionTitle,
+    desk.videoModule.roundupHeading,
   ]);
   const [physicalDesk, setPhysicalDesk] = useState<PhysicalDeskState>(() => (
     createPhysicalDeskState(desk.physicalWorkspace, physicalPresentation)
@@ -769,7 +783,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [activeWorkspaceVisible, setActiveWorkspaceVisible] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
   const [selectedReorderBlockId, setSelectedReorderBlockId] =
-    useState<PageStructureBlock["id"] | null>(null);
+    useState<RailOrderBlock["id"] | null>(null);
   const [newZoneFormOpen, setNewZoneFormOpen] = useState(false);
   const [newZoneTitle, setNewZoneTitle] = useState("");
   const [newZoneVisualFamily, setNewZoneVisualFamily] =
@@ -833,12 +847,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   );
   const orderedZoneBlocks = current.blocks.filter((block) => block.kind === "zone");
   const railOrderBlocks = current.blocks.filter(
-    (block): block is PageStructureBlock => (
+    (block): block is RailOrderBlock => (
       block.kind === "zone" || block.kind === "video"
     ),
   );
   const pageStructureBlocks = current.blocks.filter(
-    (block): block is PageStructureBlock => block.kind !== "latest",
+    (block): block is PageStructureBlock => block.kind === "zone",
   );
   const orderedZones = orderedZoneBlocks.flatMap((block) => {
     const zone = zoneById.get(block.zoneId);
@@ -1460,6 +1474,52 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           <div className="thematic-highlight-row">
           <div className="thematic-highlight-controls">
             <label className="thematic-field">
+              Título da zona de vídeos
+              <input
+                aria-label="Título da zona de vídeos"
+                defaultValue={matchdayVideoSectionTitle(
+                  current.presentation.roundupVideoHeading,
+                  DEFAULT_MATCHDAY_ROUNDUP_VIDEO_HEADING,
+                )}
+                disabled={mutationBlocked}
+                key={`roundup:${current.presentation.roundupVideoHeading}`}
+                maxLength={120}
+                onBlur={(event) => {
+                  const value = event.currentTarget.value.trim();
+                  if (value === current.presentation.roundupVideoHeading) return;
+                  runPhysicalOperation(
+                    (state) => changePhysicalDeskPresentation(state, {
+                      roundupVideoHeading: value,
+                    }),
+                    "Título da zona de vídeos alterado.",
+                  );
+                }}
+              />
+            </label>
+            <label className="thematic-field">
+              Título do Destaque
+              <input
+                aria-label="Título do Destaque"
+                defaultValue={matchdayVideoSectionTitle(
+                  current.presentation.videoHighlightSectionTitle,
+                  DEFAULT_MATCHDAY_VIDEO_HIGHLIGHT_SECTION_TITLE,
+                )}
+                disabled={mutationBlocked}
+                key={`highlight:${current.presentation.videoHighlightSectionTitle}`}
+                maxLength={120}
+                onBlur={(event) => {
+                  const value = event.currentTarget.value.trim();
+                  if (value === current.presentation.videoHighlightSectionTitle) return;
+                  runPhysicalOperation(
+                    (state) => changePhysicalDeskPresentation(state, {
+                      videoHighlightSectionTitle: value,
+                    }),
+                    "Título do Destaque alterado.",
+                  );
+                }}
+              />
+            </label>
+            <label className="thematic-field">
               Módulo
               <select
                 disabled={mutationBlocked}
@@ -1663,11 +1723,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     return current.zones.some((zone) => zone.id === workspaceKey);
   }
 
-  function workspaceKeyForBlock(block: PageStructureBlock): ActiveWorkspaceKey {
+  function workspaceKeyForBlock(block: RailOrderBlock): ActiveWorkspaceKey {
     return block.kind === "zone" ? block.zoneId : "highlight";
   }
 
-  function blockLabel(block: PageStructureBlock) {
+  function blockLabel(block: RailOrderBlock) {
     if (block.kind === "video") return "Destaque";
     const zone = zoneById.get(block.zoneId);
     return zone
@@ -1675,7 +1735,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       : "Zona física inválida";
   }
 
-  function blockCount(block: PageStructureBlock) {
+  function blockCount(block: RailOrderBlock) {
     if (block.kind === "video") return `${highlightPlacement ? 1 : 0}/1`;
     const zone = zoneById.get(block.zoneId);
     if (!zone) return "0/0";
@@ -1985,20 +2045,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                       <small>{openingOccupied}/{MATCHDAY_EDITORIAL_PROFILE_OPENING_SLOT_KEYS.length}</small>
                     </button>
                     {pageStructureBlocks.map((block, index) => {
-                      const workspaceKey = workspaceKeyForBlock(block);
-
                       return (
-                        <div className={"thematic-page-row" + (activeWorkspaceKey === workspaceKey ? " active" : "")} key={block.kind === "zone" ? block.zoneId : block.kind}>
+                        <div className={"thematic-page-row" + (activeWorkspaceKey === block.zoneId ? " active" : "")} key={block.zoneId}>
                           <button
                             className="thematic-page-row-main"
                             onClick={() => {
-                              if (block.kind === "zone") {
-                                setDeleteZoneId(null);
-                                setActiveWorkspaceKey(workspaceKey);
-                                setActiveWorkspaceVisible(true);
-                                return;
-                              }
-                              activateWorkspaceFromStructure(workspaceKey);
+                              setDeleteZoneId(null);
+                              activateWorkspaceFromStructure(block.zoneId);
                             }}
                             type="button"
                           >

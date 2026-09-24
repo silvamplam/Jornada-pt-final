@@ -43,6 +43,8 @@ function fixture({
   projectedZoneIds = zones.map((item) => item.id),
   latestPlacement = "top",
   latestCompanionZoneId = null,
+  roundupHeading = "A JORNADA EM VÍDEO",
+  highlightSectionTitle = "DESTAQUE DA JORNADA",
 }: Readonly<{
   zones?: readonly ZoneSpec[];
   placements?: readonly PlacementSpec[];
@@ -52,6 +54,8 @@ function fixture({
   projectedZoneIds?: readonly string[];
   latestPlacement?: "top" | "four_news" | "hidden";
   latestCompanionZoneId?: string | null;
+  roundupHeading?: string;
+  highlightSectionTitle?: string;
 }> = {}) {
   const articles: PublicMatchdayPhysicalArticleRow[] = placements.map((placement, index) => ({
     id: id(40, index + 1),
@@ -146,6 +150,8 @@ function fixture({
       latest_zone_title: "Últimas",
       latest_zone_title_color: "#654321",
       video_module_active: videoActive,
+      roundup_video_heading: roundupHeading,
+      video_highlight_section_title: highlightSectionTitle,
       created_at: NOW,
       updated_at: NOW,
     } : null,
@@ -202,6 +208,19 @@ test("marker físico escolhe exclusivamente o reader físico", async () => {
   assert.equal(result.kind, "physical");
   assert.equal(paths.some((path) => path.includes("profile_zone_items")), false);
   assert.equal(paths.some((path) => path.includes("reconcile_control")), false);
+});
+
+test("reader físico recupera os títulos configurados de Vídeos e Destaque", () => {
+  const snapshot = buildFixture({
+    roundupHeading: "OS JOGOS EM VÍDEO",
+    highlightSectionTitle: "ESCOLHA DA REDAÇÃO",
+  });
+
+  assert.equal(snapshot.video.roundupHeading, "OS JOGOS EM VÍDEO");
+  assert.equal(
+    snapshot.video.highlightSectionTitle,
+    "ESCOLHA DA REDAÇÃO",
+  );
 });
 
 test("snapshot físico inválido não tenta o reader legacy", async () => {

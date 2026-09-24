@@ -45,6 +45,8 @@ export type PhysicalDeskPresentation = Readonly<{
   latestZonePlacement: MatchdayEditorialProfileLatestZonePlacement;
   latestZoneTitle: string;
   videoModuleActive: boolean;
+  roundupVideoHeading: string;
+  videoHighlightSectionTitle: string;
 }>;
 
 export type PhysicalDeskMemory = Readonly<{
@@ -164,6 +166,14 @@ function synchronizeMemory(
 }
 
 function validateSnapshot(snapshot: PhysicalDeskSnapshot): PhysicalDeskSnapshot {
+  for (const title of [
+    snapshot.presentation.roundupVideoHeading,
+    snapshot.presentation.videoHighlightSectionTitle,
+  ]) {
+    if (title !== title.trim() || title.length > 120) {
+      stateError("video-section-title-invalid");
+    }
+  }
   const zoneIds = new Set<LiveLayoutZoneId>();
   for (const zone of snapshot.zones) {
     if (zoneIds.has(zone.id)) stateError("zone-duplicate");
@@ -347,6 +357,9 @@ export function createPhysicalDeskState(
         latestZonePlacement: workspace.workspaceSettings.latestZonePlacement,
         latestZoneTitle: workspace.workspaceSettings.latestZoneTitle,
         videoModuleActive: workspace.workspaceSettings.videoModuleActive,
+        roundupVideoHeading: workspace.workspaceSettings.roundupVideoHeading,
+        videoHighlightSectionTitle:
+          workspace.workspaceSettings.videoHighlightSectionTitle,
       }
     : legacyBootstrapPresentation ?? stateError("legacy-bootstrap-presentation-missing");
   const snapshot = validateSnapshot({

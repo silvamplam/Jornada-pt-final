@@ -106,6 +106,8 @@ export type PublicMatchdayPhysicalSnapshot = Readonly<{
   }>;
   video: Readonly<{
     active: boolean;
+    roundupHeading: string;
+    highlightSectionTitle: string;
     highlight: PublicMatchdayPhysicalItem | null;
   }>;
   settings: Readonly<{
@@ -403,6 +405,8 @@ export function buildPublicMatchdayPhysicalSnapshot(
     },
     video: {
       active: settings.videoModuleActive,
+      roundupHeading: settings.roundupVideoHeading,
+      highlightSectionTitle: settings.videoHighlightSectionTitle,
       highlight: videoPlacements[0]
         ? itemByPlacementId.get(videoPlacements[0].id)
           ?? physicalError("placement-article-missing")

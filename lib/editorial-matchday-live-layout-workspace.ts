@@ -79,6 +79,8 @@ export type LiveLayoutWorkspaceSettings = Readonly<{
   latestZoneTitle: string;
   latestZoneTitleColor: string | null;
   videoModuleActive: boolean;
+  roundupVideoHeading: string;
+  videoHighlightSectionTitle: string;
   createdAt: string;
   updatedAt: string;
 }>;
@@ -154,6 +156,22 @@ function exactKeys(
   }
 }
 
+function requiredAndOptionalKeys(
+  value: Record<string, unknown>,
+  required: readonly string[],
+  optional: readonly string[],
+  code: string,
+): void {
+  const actual = Object.keys(value);
+  const allowed = new Set([...required, ...optional]);
+  if (
+    required.some((key) => !Object.prototype.hasOwnProperty.call(value, key))
+    || actual.some((key) => !allowed.has(key))
+  ) {
+    workspaceError(code);
+  }
+}
+
 function requiredText(value: unknown, code: string): string {
   if (typeof value !== "string" || !value.trim()) return workspaceError(code);
   return value.trim();
@@ -206,7 +224,7 @@ function parseWorkspaceSettings(
 ): LiveLayoutWorkspaceSettings | null {
   if (value === null) return null;
   const row = recordValue(value, "workspace-settings-invalid");
-  exactKeys(row, [
+  requiredAndOptionalKeys(row, [
     "matchday_id",
     "faixa_slot_count",
     "headline_title_color",
@@ -217,6 +235,9 @@ function parseWorkspaceSettings(
     "video_module_active",
     "created_at",
     "updated_at",
+  ], [
+    "roundup_video_heading",
+    "video_highlight_section_title",
   ], "workspace-settings-shape-invalid");
   const settingsMatchdayId = uuidText(
     row.matchday_id,
@@ -273,6 +294,22 @@ function parseWorkspaceSettings(
   ) {
     return workspaceError("workspace-settings-latest-title-color-invalid");
   }
+  const roundupVideoHeading = row.roundup_video_heading == null
+    ? ""
+    : typeof row.roundup_video_heading === "string"
+      ? row.roundup_video_heading.trim()
+      : workspaceError("workspace-settings-roundup-title-invalid");
+  if (roundupVideoHeading.length > 120) {
+    return workspaceError("workspace-settings-roundup-title-invalid");
+  }
+  const videoHighlightSectionTitle = row.video_highlight_section_title == null
+    ? ""
+    : typeof row.video_highlight_section_title === "string"
+      ? row.video_highlight_section_title.trim()
+      : workspaceError("workspace-settings-highlight-title-invalid");
+  if (videoHighlightSectionTitle.length > 120) {
+    return workspaceError("workspace-settings-highlight-title-invalid");
+  }
 
   return {
     matchdayId: settingsMatchdayId,
@@ -289,6 +326,8 @@ function parseWorkspaceSettings(
       row.video_module_active,
       "workspace-settings-video-active-invalid",
     ),
+    roundupVideoHeading,
+    videoHighlightSectionTitle,
     createdAt: timestampText(
       row.created_at,
       "workspace-settings-created-at-invalid",
