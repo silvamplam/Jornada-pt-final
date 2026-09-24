@@ -103,22 +103,20 @@ test("reset é limitado ao ciclo, preserva manual e promove membros de Tema a ma
   assert.match(reset, /on conflict on constraint[\s\S]*newsroom_editorial_article_classifications_pkey/i);
 });
 
-test("produção congela a classificação persistida e não recalcula automaticamente", () => {
-  const intentMigration = read(
-    "supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql",
-  );
-  const selectionMigration = read(
-    "supabase/migrations/20260919014322_newsroom_mesa_selection_context_v1.sql",
+test("produção aceita fontes sem classificação e não as recalcula automaticamente", () => {
+  const authorityMigration = read(
+    "supabase/migrations/20260924200000_newsroom_article_plan_output_classification_authority.sql",
   );
   const prepareRoute = read(
     "app/api/admin/editorial/redacao-automatica/mesa/preparar/route.ts",
   );
-  const combined = `${intentMigration}\n${selectionMigration}`;
-  assert.match(combined, /newsroom_editorial_article_classifications/i);
-  assert.match(combined, /classificationKey/i);
-  assert.match(prepareRoute, /classification_required/i);
-  assert.doesNotMatch(combined, /newsroom_apply_automatic_article_classification_v1/i);
-  assert.doesNotMatch(combined, /deterministic.classif/i);
+  const preview = functionBody(authorityMigration, "newsroom_mesa_preview_intents_v1");
+  assert.match(authorityMigration, /newsroom_editorial_article_classifications/i);
+  assert.match(authorityMigration, /classificationKey/i);
+  assert.doesNotMatch(preview, /classification_required/i);
+  assert.doesNotMatch(prepareRoute, /classification_required/i);
+  assert.doesNotMatch(authorityMigration, /newsroom_apply_automatic_article_classification_v1/i);
+  assert.doesNotMatch(authorityMigration, /deterministic.classif/i);
 });
 
 test("UI batch usa uma chamada e só aparece para uma seleção totalmente classificável", () => {

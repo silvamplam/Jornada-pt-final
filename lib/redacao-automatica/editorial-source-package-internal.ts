@@ -8,6 +8,11 @@ import type {
 import type {
   ThemeContinuityFrozenContract,
 } from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
+import {
+  articleClassificationLabel,
+  isArticleClassificationKey,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
 
 export const EDITORIAL_SOURCE_PACKAGE_MAX_SOURCES = 20;
 export const EDITORIAL_SOURCE_PACKAGE_MANIFEST_FILE_NAME = "pacote-fontes.json";
@@ -44,6 +49,7 @@ export type EditorialSourcePackageArticlePlan = Readonly<{
   lengthModeLabel: string;
   editorialInstructions: string;
   destination: "new" | "update";
+  classificationKey?: ArticleClassificationKey;
   workspaceContractVersion?: 2;
   sourceScope?: "workspace" | "context";
   contextId?: string;
@@ -245,6 +251,7 @@ function normalizeEditorialSourcePackageArticlePlan(
   const sourceScope = value.sourceScope;
   const contextId = value.contextId?.trim().toLowerCase() || null;
   const rawOrigin = value.origin;
+  const classificationKey = value.classificationKey;
   const origin = rawOrigin
     ? {
         kind: rawOrigin.kind,
@@ -263,6 +270,10 @@ function normalizeEditorialSourcePackageArticlePlan(
     || !["brief", "standard", "developed"].includes(value.lengthMode)
     || !["new", "update"].includes(value.destination)
     || editorialInstructions.length > 12000
+    || (
+      classificationKey !== undefined
+      && !isArticleClassificationKey(classificationKey)
+    )
     || (workspaceContractVersion !== undefined && workspaceContractVersion !== 2)
     || (sourceScope !== undefined && sourceScope !== "workspace" && sourceScope !== "context")
     || (
@@ -316,6 +327,7 @@ function normalizeEditorialSourcePackageArticlePlan(
     lengthModeLabel,
     editorialInstructions,
     destination: value.destination,
+    ...(classificationKey ? { classificationKey } : {}),
     ...(workspaceContractVersion === 2
       ? {
           workspaceContractVersion,
@@ -1385,6 +1397,9 @@ function formatEditorialOutputPlan(
           ? markdownText(output.articlePlan.editorialInstructions)
           : "Sem foco adicional."}`,
         `   - Destino: ${productionIntents && continuitySlot?.kind === "existing" ? "AVALIAR: UPDATE ou SEM ALTERAÇÃO" : output.articlePlan.destination === "update" ? "UPDATE confirmado pelo utilizador" : "NOVO"}`,
+        ...(output.articlePlan.classificationKey
+          ? [`   - Classificação do artigo: ${articleClassificationLabel(output.articlePlan.classificationKey)} (${output.articlePlan.classificationKey})`]
+          : []),
       ];
     }),
     "",

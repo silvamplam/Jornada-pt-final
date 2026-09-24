@@ -101,6 +101,7 @@ function output(
     updateTargetEditorialArticleId: null,
     imageChoice: { mode: "unselected" },
     productionContextId: null,
+    classificationKey: null,
     ...overrides,
   };
 }
@@ -218,6 +219,7 @@ function harness(options: HarnessOptions = {}) {
           updateTargetEditorialArticleId: input.updateTargetEditorialArticleId,
           publishedContextCount: input.dossierPublishedContextIds.length,
           imageChoice: input.imageChoice,
+          classificationKey: input.classificationKey,
         },
       };
     },

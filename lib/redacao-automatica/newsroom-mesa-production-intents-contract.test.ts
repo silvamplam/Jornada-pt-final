@@ -139,7 +139,8 @@ function output(i:number):SaveEditorialDossierWorkspaceBatchOutputInput {
   const o=plan.outputs[i];
   return {clientKey:o.slot,articlePlanId:o.outputId,priority:i+1,articleKind:"news",lengthMode:"standard",editorialInstructions:"",
     destination:o.kind==="existing"?"update":"new",updateTargetEditorialArticleId:o.target?.editorialArticleId??null,
-    imageChoice:{mode:o.kind==="existing"?"preserve_published":"unselected"},productionContextId:o.productionContextId};
+    imageChoice:{mode:o.kind==="existing"?"preserve_published":"unselected"},productionContextId:o.productionContextId,
+    classificationKey:null};
 }
 test("workspace protects identity/context and independent output has no other Theme's history",()=>{
   const w=workspace();

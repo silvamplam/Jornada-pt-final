@@ -28,6 +28,10 @@ import {
 import {
   parseThemeContinuityFrozenContract,
 } from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
+import {
+  isArticleClassificationKey,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -45,6 +49,7 @@ export type SaveEditorialDossierWorkspaceBatchOutputInput = Readonly<{
   updateTargetEditorialArticleId: string | null;
   imageChoice: EditorialDossierArticlePlanImageChoice;
   productionContextId: string | null;
+  classificationKey: ArticleClassificationKey | null;
 }>;
 
 export type SaveEditorialDossierWorkspaceBatchInput = Readonly<{
@@ -139,6 +144,11 @@ function validatedBatch(
     const dossierImageId = output.imageChoice.mode === "dossier_image"
       ? normalizedUuid(output.imageChoice.dossierImageId)
       : null;
+    const classificationKey = output.classificationKey === null
+      ? null
+      : isArticleClassificationKey(output.classificationKey)
+        ? output.classificationKey
+        : undefined;
     if (
       !clientKey
       || clientKey.length > MAX_CLIENT_KEY_LENGTH
@@ -149,6 +159,7 @@ function validatedBatch(
       || (output.productionContextId !== null && !productionContextId)
       || (output.updateTargetEditorialArticleId !== null && !updateTargetEditorialArticleId)
       || (output.imageChoice.mode === "dossier_image" && !dossierImageId)
+      || classificationKey === undefined
     ) return null;
     clientKeys.add(clientKey);
     if (articlePlanId) articlePlanIds.add(articlePlanId);
@@ -161,6 +172,7 @@ function validatedBatch(
       imageChoice: output.imageChoice.mode === "dossier_image"
         ? { mode: "dossier_image", dossierImageId: dossierImageId! }
         : output.imageChoice,
+      classificationKey,
     });
   }
   return { dossierId, outputCount: input.outputCount, outputs };
@@ -276,6 +288,7 @@ export function deriveEditorialDossierWorkspacePlanInput(
         return referenceArticles.some((article) => article.editorialArticleId === item.editorialArticleId);
       }).map((item) => item.id),
       imageChoice: output.imageChoice,
+      classificationKey: output.classificationKey,
     },
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useRef,
   useState,
   type ClipboardEvent,
@@ -46,6 +47,13 @@ import DossierImageBank, {
 import { mesaProductionIntentSlots, type MesaProductionIntentsFrozen } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 import type { MesaNewOutputGrouping } from "@/lib/redacao-automatica/newsroom-mesa-new-output-groups";
 import { NewOutputGroupingPlanner } from "./_new-output-grouping";
+import {
+  ARTICLE_CLASSIFICATIONS,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
+import {
+  articlePlanClassificationDefault,
+} from "@/lib/redacao-automatica/article-plan-classification";
 type WorkspaceContinuitySlot = ThemeContinuitySlot | ReturnType<typeof mesaProductionIntentSlots>[number];
 import styles from "./workspace.module.css";
 
@@ -58,6 +66,7 @@ type WorkspaceSource = Readonly<{
   title: string;
   sourceLabel: string;
   included: boolean;
+  classificationKey: ArticleClassificationKey | null;
 }>;
 
 type WorkspaceDossier = Readonly<{
@@ -444,6 +453,7 @@ function PlanEditor({
   images,
   saving,
   continuitySlot,
+  assignedSources,
 }: Readonly<{
   dossier: WorkspaceDossier;
   plan: EditorialDossierProductionArticlePlan | null;
@@ -458,6 +468,7 @@ function PlanEditor({
   images: readonly EditorialDossierImage[];
   saving: boolean;
   continuitySlot: WorkspaceContinuitySlot | null;
+  assignedSources: readonly WorkspaceSource[];
 }>) {
   const [destination, setDestination] = useState<"new" | "update">(
     continuitySlot?.kind === "existing" ? "update" : continuitySlot ? "new" : plan?.destination ?? "new",
@@ -479,6 +490,21 @@ function PlanEditor({
     automaticImageId,
   );
   const [showAllImages, setShowAllImages] = useState(false);
+  const [classificationKey, setClassificationKey] = useState<ArticleClassificationKey | null>(
+    () => plan?.classificationKey ?? articlePlanClassificationDefault(assignedSources),
+  );
+  const classificationTouchedRef = useRef(Boolean(plan?.classificationKey));
+  const assignedClassificationDefault = articlePlanClassificationDefault(assignedSources);
+  useEffect(() => {
+    if (plan?.classificationKey) {
+      classificationTouchedRef.current = true;
+      setClassificationKey(plan.classificationKey);
+      return;
+    }
+    if (!classificationTouchedRef.current) {
+      setClassificationKey(assignedClassificationDefault);
+    }
+  }, [assignedClassificationDefault, plan?.classificationKey]);
   const visualSeedImage = editorialMesaResolvedVisualImageChoice(
     null,
     visualSeed?.image?.id ?? null,
@@ -622,6 +648,31 @@ function PlanEditor({
         <input type="hidden" name={planField(cardKey, "destination")} value={destination} />
         <input type="hidden" name={planField(cardKey, "target_id")} value={targetId} />
         <input type="hidden" name={planField(cardKey, "image_choice")} value={selectedImage} />
+
+        <fieldset className={styles.classificationChoice}>
+          <legend>Classificação do artigo</legend>
+          <div>
+            {ARTICLE_CLASSIFICATIONS.map((classification) => (
+              <label key={classification.key} data-classification={classification.key}>
+                <input
+                  checked={classificationKey === classification.key}
+                  disabled={saving}
+                  name={planField(cardKey, "classification_key")}
+                  onChange={() => {
+                    classificationTouchedRef.current = true;
+                    setClassificationKey(classification.key);
+                  }}
+                  type="radio"
+                  value={classification.key}
+                />
+                <span>{classification.label}</span>
+              </label>
+            ))}
+          </div>
+          {classificationKey === null ? (
+            <small>Escolhe antes de produzir.</small>
+          ) : null}
+        </fieldset>
 
         {continuitySlot ? (
           <p className={styles.updateHint} data-continuity-slot={continuitySlot.kind}>
@@ -1134,12 +1185,31 @@ export function MesaProductionWorkspaceClient({
   );
   // O modo histórico conserva a distribuição visual global. No modo 2C, cada
   // seed vem apenas das fontes congeladas do contexto atribuído ao Article Plan.
-  const cards = baseCards.map((card, index) => ({
-    ...card,
-    visualSeed: dossier.contextMode === "contexts"
-      ? contextVisualSeedByOutputKey.get(card.key) ?? null
-      : historicalVisualSeeds[index] ?? null,
-  }));
+  const cards = baseCards.map((card, index) => {
+    const assignedContext = dossier.contextMode === "contexts"
+      ? productionContexts.find((context) => context.id === card.productionContextId) ?? null
+      : null;
+    const persistedSourceIds = new Set(
+      card.plan?.sources.map((source) => source.dossierSourceId) ?? [],
+    );
+    const assignedSources = assignedContext
+      ? assignedContext.sources.flatMap((source) => {
+          const assigned = includedSources.find(
+            (candidate) => candidate.newsroomArticleId === source.newsroomArticleId,
+          );
+          return assigned ? [assigned] : [];
+        })
+      : card.plan
+        ? includedSources.filter((source) => persistedSourceIds.has(source.id))
+        : includedSources;
+    return {
+      ...card,
+      assignedSources,
+      visualSeed: dossier.contextMode === "contexts"
+        ? contextVisualSeedByOutputKey.get(card.key) ?? null
+        : historicalVisualSeeds[index] ?? null,
+    };
+  });
   const visibleCards = cards.slice(0, effectiveOutputCount);
   const allPlansPersisted = visibleCards.every(
     (card) => Boolean(card.plan?.id || savedPlanIds[card.key]),
@@ -1200,6 +1270,11 @@ export function MesaProductionWorkspaceClient({
             data.get(planField(card.key, "image_choice"))
             ?? explicitImageSelectValue(card.plan),
           )),
+          classificationKey: String(
+            data.get(planField(card.key, "classification_key"))
+            ?? card.plan?.classificationKey
+            ?? "",
+          ) || null,
           ...(dossier.contextMode === "contexts" ? {
             productionContextId: String(
               data.get(planField(card.key, "context_id"))
@@ -1390,6 +1465,7 @@ export function MesaProductionWorkspaceClient({
               images={workspaceImages}
               saving={savingProduction}
               continuitySlot={frozenSlots?.[card.position - 1] ?? null}
+              assignedSources={card.assignedSources}
             />
           ))}
         </div>

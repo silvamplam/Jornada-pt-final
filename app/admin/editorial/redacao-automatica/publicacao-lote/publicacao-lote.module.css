@@ -1083,3 +1083,16 @@
   .shell { padding: 8px; }
   .hero { padding: 16px; }
 }
+.planClassification {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 6px;
+  border: 1px solid #cbd5df;
+  border-radius: 3px;
+  background: #f8fafc;
+  color: #172235;
+  font-size: 0.65rem;
+  font-weight: 800;
+  white-space: nowrap;
+}

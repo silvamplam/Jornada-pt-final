@@ -5,6 +5,9 @@ import {
   writeSupabaseAdminReturning,
 } from "@/lib/supabase";
 import {
+  isArticleClassificationKey,
+} from "@/lib/editorial-classifications";
+import {
   addEditorialDossierUploadImageService,
   prepareEditorialDossierWorkspaceService,
   saveEditorialDossierArticlePlanStateService,
@@ -47,6 +50,7 @@ type PlanStateRow = {
   published_context_count: number;
   image_choice: string;
   dossier_image_id: string | null;
+  classification_key: string | null;
 };
 
 type UploadImageRow = {
@@ -101,7 +105,7 @@ const transport = {
 
   async saveArticlePlanState(payload: SaveEditorialDossierArticlePlanStateRpcInput) {
     const rows = await writeSupabaseAdminReturning<PlanStateRow>(
-      "rpc/newsroom_save_dossier_article_plan_state_v1",
+      "rpc/newsroom_save_dossier_article_plan_state_v2",
       { method: "POST", body: JSON.stringify(payload) },
     );
     const row = rows[0];
@@ -112,6 +116,9 @@ const transport = {
       updateTargetEditorialArticleId: row.update_target_editorial_article_id,
       publishedContextCount: row.published_context_count,
       imageChoice: imageChoice(row.image_choice, row.dossier_image_id),
+      classificationKey: isArticleClassificationKey(row.classification_key)
+        ? row.classification_key
+        : null,
     };
   },
 

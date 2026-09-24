@@ -9,6 +9,10 @@ import {
   parseThemeContinuityFrozenContract,
   type ThemeContinuityFrozenContract,
 } from "./newsroom-theme-continuity-contract";
+import {
+  isArticleClassificationKey,
+  type ArticleClassificationKey,
+} from "@/lib/editorial-classifications";
 
 export const EDITORIAL_BATCH_TRANSFER_STORAGE_KEY =
   "jornada.editorial.batch-transfer.v1";
@@ -28,6 +32,7 @@ export type EditorialBatchTransferSourcePackage = Readonly<{
   batchContract?: EditorialBatchTransferMesaV2Contract;
   themeContinuity?: ThemeContinuityFrozenContract;
   productionIntents?: MesaProductionIntentsFrozen;
+  classificationsByOutputId?: Readonly<Record<string, ArticleClassificationKey>>;
   continuityResolution?: Readonly<{
     noChangeOutputIds: readonly string[];
     materializedOutputIds: readonly string[];
@@ -170,6 +175,22 @@ export function parseEditorialBatchTransferSourcePackage(
     const productionIntents = parsed.productionIntents === undefined ? undefined
       : parseMesaProductionIntents(parsed.productionIntents);
     const intentSlots = productionIntents ? mesaProductionIntentSlots(productionIntents) : undefined;
+    let classificationsByOutputId: Record<string, ArticleClassificationKey> | undefined;
+    if (parsed.classificationsByOutputId !== undefined) {
+      if (
+        !parsed.classificationsByOutputId
+        || typeof parsed.classificationsByOutputId !== "object"
+        || Array.isArray(parsed.classificationsByOutputId)
+      ) return null;
+      classificationsByOutputId = {};
+      for (const [outputId, key] of Object.entries(parsed.classificationsByOutputId)) {
+        const normalizedOutputId = outputId.trim().toLowerCase();
+        if (!UUID_PATTERN.test(normalizedOutputId) || !isArticleClassificationKey(key)) {
+          return null;
+        }
+        classificationsByOutputId[normalizedOutputId] = key;
+      }
+    }
 
     if (
       (parsed.productionIntents !== undefined && !productionIntents)
@@ -181,6 +202,14 @@ export function parseEditorialBatchTransferSourcePackage(
       || (matchdayId !== undefined && !UUID_PATTERN.test(matchdayId))
       || (parsed.batchContract !== undefined && !batchContract)
       || (parsed.themeContinuity !== undefined && !themeContinuity)
+      || (
+        classificationsByOutputId
+        && (
+          !batchContract
+          || Object.keys(classificationsByOutputId).length !== batchContract.outputIds.length
+          || batchContract.outputIds.some((id) => !classificationsByOutputId?.[id])
+        )
+      )
       || (themeContinuity && (
         !batchContract
         || themeContinuity.slots.length !== batchContract.outputIds.length
@@ -210,6 +239,7 @@ export function parseEditorialBatchTransferSourcePackage(
       ...(batchContract ? { batchContract } : {}),
       ...(themeContinuity ? { themeContinuity } : {}),
       ...(productionIntents ? { productionIntents } : {}),
+      ...(classificationsByOutputId ? { classificationsByOutputId } : {}),
     };
 
     const rawResolution = parsed.continuityResolution;

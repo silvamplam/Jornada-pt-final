@@ -363,16 +363,14 @@ test("nenhuma porta operacional de persistência chama o writer automático", ()
   assert.doesNotMatch(operational, /is_current|currentSeason|Date\.now/);
 });
 
-test("POR CLASSIFICAR é bloqueado no servidor antes de PREPARAR", () => {
+test("POR CLASSIFICAR pode seguir para PREPARAR e fica por decidir no Article Plan", () => {
   const route = readFileSync(
     "app/api/admin/editorial/redacao-automatica/mesa/preparar/route.ts",
     "utf8",
   );
-  const classificationCheck = route.indexOf("getNewsroomArticleClassificationsByIds");
-  const prepare = route.indexOf("prepareEditorialDossierWorkspace(input)");
-  assert.ok(classificationCheck >= 0 && classificationCheck < prepare);
-  assert.match(route, /classification_required/);
-  assert.match(route, /POR CLASSIFICAR/);
+  assert.doesNotMatch(route, /getNewsroomArticleClassificationsByIds/);
+  assert.doesNotMatch(route, /classification_required/);
+  assert.match(route, /prepareEditorialDossierWorkspace\(input\)/);
 });
 
 test("DESCARTAR é otimista, repõe na falha e persiste dismissed sem apagar fonte", () => {

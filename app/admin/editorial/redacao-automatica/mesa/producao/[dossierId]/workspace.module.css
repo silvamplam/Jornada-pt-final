@@ -2370,3 +2370,55 @@
 }
 
 .continuitySummary strong { color: #183d28; }
+.classificationChoice {
+  min-width: 0;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid #d7e0e8;
+  border-radius: 6px;
+}
+
+.classificationChoice legend {
+  padding: 0 4px;
+  color: #536273;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.classificationChoice > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.classificationChoice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid #cbd5df;
+  border-radius: 4px;
+  background: #fff;
+  color: #243142;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.classificationChoice label:has(input:checked) {
+  border-color: #172235;
+  box-shadow: inset 0 0 0 1px #172235;
+}
+
+.classificationChoice input {
+  margin: 0;
+}
+
+.classificationChoice small {
+  display: block;
+  margin-top: 5px;
+  color: #8a4b00;
+  font-size: 0.68rem;
+  font-weight: 700;
+}

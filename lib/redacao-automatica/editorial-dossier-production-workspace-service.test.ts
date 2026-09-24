@@ -53,6 +53,7 @@ function fakeTransport() {
           : payload.p_image_choice === "preserve_published"
             ? { mode: "preserve_published" }
             : { mode: "unselected" },
+        classificationKey: payload.p_classification_key,
       };
     },
     addUploadImage: async (payload) => {
@@ -152,6 +153,7 @@ test("plano UPDATE transporta target, 0/N contextos e uma imagem do Dossiê", as
     updateTargetEditorialArticleId: publishedOneId,
     dossierPublishedContextIds: [contextOneId, contextTwoId],
     imageChoice: { mode: "dossier_image", dossierImageId: imageId },
+    classificationKey: "fc_porto",
   });
 
   assert.equal(result.ok, true);
@@ -163,6 +165,7 @@ test("plano UPDATE transporta target, 0/N contextos e uma imagem do Dossiê", as
     p_published_context_ids: [contextOneId, contextTwoId],
     p_image_choice: "dossier_image",
     p_dossier_image_id: imageId,
+    p_classification_key: "fc_porto",
   }]);
 });
 
@@ -176,6 +179,7 @@ test("plano NEW não aceita target nem preserve_published", async () => {
     updateTargetEditorialArticleId: publishedOneId,
     dossierPublishedContextIds: [],
     imageChoice: { mode: "unselected" },
+    classificationKey: null,
   });
   const preserve = await save({
     dossierId,
@@ -184,6 +188,7 @@ test("plano NEW não aceita target nem preserve_published", async () => {
     updateTargetEditorialArticleId: null,
     dossierPublishedContextIds: [],
     imageChoice: { mode: "preserve_published" },
+    classificationKey: null,
   });
 
   assert.equal(withTarget.ok, false);
@@ -201,6 +206,7 @@ test("plano UPDATE exige target e contextos não podem repetir", async () => {
     updateTargetEditorialArticleId: null,
     dossierPublishedContextIds: [],
     imageChoice: { mode: "unselected" },
+    classificationKey: null,
   });
   const duplicateContext = await save({
     dossierId,
@@ -209,6 +215,7 @@ test("plano UPDATE exige target e contextos não podem repetir", async () => {
     updateTargetEditorialArticleId: publishedOneId,
     dossierPublishedContextIds: [contextOneId, contextOneId],
     imageChoice: { mode: "preserve_published" },
+    classificationKey: null,
   });
 
   assert.equal(withoutTarget.ok, false);

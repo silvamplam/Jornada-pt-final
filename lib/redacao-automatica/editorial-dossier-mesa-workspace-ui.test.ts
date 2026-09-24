@@ -123,7 +123,7 @@ test("PREPARAR vazio é recusado e NOVAS/PUBLICADAS enviam os snapshots das font
   assert.deepEqual(mesaPreparationPayload(mixed)?.publishedContextArticleIds, []);
 });
 
-test("POR CLASSIFICAR conserva checkbox/seleção neutra mas bloqueia PREPARAR", () => {
+test("POR CLASSIFICAR conserva checkbox/seleção neutra e pode seguir para o Article Plan", () => {
   const unclassified = selectMesaMaterial(
     EMPTY_MESA_PREPARATION_BUFFER,
     { ...newsroomSelection, classificationKey: null },
@@ -131,16 +131,20 @@ test("POR CLASSIFICAR conserva checkbox/seleção neutra mas bloqueia PREPARAR",
   );
   assert.equal(unclassified.sources.length, 1);
   assert.equal(unclassified.sources[0]?.classificationKey, null);
-  assert.equal(mesaPreparationPayload(unclassified), null);
+  assert.equal(
+    mesaPreparationPayload(unclassified)?.sources[0]?.newsroomArticleId,
+    sourceId,
+  );
 
   const page = read("app/admin/editorial/redacao-automatica/mesa/page.tsx")
     + read("app/admin/editorial/redacao-automatica/mesa/_mesa-source-item.tsx");
   const client = read("app/admin/editorial/redacao-automatica/mesa/_mesa-selection-client.tsx");
-  assert.match(page, /<MesaSelectionToggle material=\{\{/);
+  assert.match(page, /MesaSourceItem|MesaSelectionToggle/);
   assert.match(
     client,
-    /const selectionBlocked = unclassifiedCount > 0 \|\| missingSnapshotCount > 0/,
+    /const selectionBlocked = missingSnapshotCount > 0 \|\| !payload/,
   );
+  assert.doesNotMatch(client, /Resolve as fontes POR CLASSIFICAR antes de preparar/);
   assert.match(client, /\|\| selectionBlocked/);
 });
 
@@ -397,11 +401,11 @@ test("Mesa apresenta apenas TEMAS e uniformiza NOVAS/PUBLICADAS no desktop", () 
   assert.doesNotMatch(organization + theme, /PRODUÇÕES|preparedProductions|Produção preparada/);
   assert.match(
     css,
-    /\.sourcePanel:is\(\[data-lifecycle="new"\], \[data-lifecycle="published"\]\) \.sourceGrid \{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/,
+    /\.sourcePanel:is\(\[data-lifecycle="new"\], \[data-lifecycle="published"\], \[data-lifecycle="archive"\]\) \.sourceGrid \{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/,
   );
   assert.match(
     css,
-    /@media \(max-width: 1260px\)[\s\S]*?\.sourcePanel:is\(\[data-lifecycle="new"\], \[data-lifecycle="published"\]\) \.sourceGrid \{\s*grid-template-columns: 1fr/,
+    /@media \(max-width: 1260px\)[\s\S]*?\.sourcePanel:is\(\[data-lifecycle="new"\], \[data-lifecycle="published"\], \[data-lifecycle="archive"\]\) \.sourceGrid \{\s*grid-template-columns: 1fr/,
   );
 });
 
@@ -480,13 +484,17 @@ test("Article Plans são automáticos e a UI conserva apenas decisões editoriai
   assert.match(client, /Género/);
   assert.match(client, /Extensão/);
   assert.match(client, /Destino/);
-  assert.match(client, /disabled=\{eligibleTargets\.length === 0\}/);
+  assert.match(client, /Classificação do artigo/);
+  assert.match(client, /ARTICLE_CLASSIFICATIONS\.map/);
+  assert.match(client, /name=\{planField\(cardKey, "classification_key"\)\}/);
+  assert.match(client, /classificationTouchedRef\.current = true/);
+  assert.match(client, /<option value="update" disabled=\{eligibleTargets\.length === 0\}>/);
   assert.match(client, /Record<"new" \| "update", string \| null>/);
   assert.match(client, /editorialMesaResolvedVisualImageChoice\(\s*imageChoices\[destination\]/);
   assert.match(client, /imageChoices\[destination\] === null/);
   assert.match(imageChoice, /MANTER IMAGEM PUBLICADA/);
   assert.match(client, /destination === "update"/);
-  assert.match(route, /const contexts = workspace\.publishedContexts\.map/);
+  assert.match(route, /const contexts = workspace\.publishedContexts\.filter/);
   assert.match(route, /sources:\s*technicalSources\.map/);
   assert.match(route, /destination === "new" && rawTarget !== null/);
   assert.match(route, /destination === "update" && !target/);
@@ -531,6 +539,7 @@ function workspacePlanInput(planId: string | null): SaveEditorialDossierWorkspac
       updateTargetEditorialArticleId: publishedId,
       dossierPublishedContextIds: [contextId],
       imageChoice: { mode: "dossier_image", dossierImageId: imageId },
+      classificationKey: "benfica",
     },
   };
 }
@@ -595,6 +604,7 @@ test("mesma dossier image pode ser escolhida por dois planos sem consumo", async
         updateTargetEditorialArticleId: input.updateTargetEditorialArticleId,
         dossierPublishedContextIds: input.dossierPublishedContextIds,
         imageChoice: input.imageChoice,
+        classificationKey: input.classificationKey,
       });
       return {
         ok: true,
@@ -604,6 +614,7 @@ test("mesma dossier image pode ser escolhida por dois planos sem consumo", async
           updateTargetEditorialArticleId: input.updateTargetEditorialArticleId,
           publishedContextCount: input.dossierPublishedContextIds.length,
           imageChoice: input.imageChoice,
+          classificationKey: input.classificationKey,
         },
       };
     },

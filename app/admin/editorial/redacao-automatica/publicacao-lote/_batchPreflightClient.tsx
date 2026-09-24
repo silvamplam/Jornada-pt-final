@@ -39,6 +39,7 @@ import {
   type EditorialBatchHistoricalCompletion,
 } from "@/lib/redacao-automatica/editorial-batch-historical-decision";
 import { editorialBatchPublishedAtByOutputId } from "@/lib/redacao-automatica/editorial-batch-published-at";
+import { articleClassificationLabel } from "@/lib/editorial-classifications";
 import { editorialMesaContextualImages } from "@/lib/redacao-automatica/editorial-mesa-workspace-images";
 import {
   editorialBatchDossierImages,
@@ -652,6 +653,9 @@ function ResultSummary({
               const historicalChoiceIdentity = row.article
                 ? editorialBatchHistoricalChoiceIdentity(row.article)
                 : null;
+              const frozenClassification = outputId
+                ? sourcePackage?.classificationsByOutputId?.[outputId] ?? null
+                : null;
 
               return (
                 <li key={row.key} className={isValid ? styles.validArticle : styles.invalidArticle}>
@@ -679,6 +683,15 @@ function ResultSummary({
                             />
                             <span>Histórica</span>
                           </label>
+                        ) : null}
+                        {frozenClassification ? (
+                          <span
+                            className={styles.planClassification}
+                            data-classification={frozenClassification}
+                            title="Classificação congelada no Article Plan"
+                          >
+                            {articleClassificationLabel(frozenClassification)}
+                          </span>
                         ) : null}
                         <strong>{isValid ? "VÁLIDO" : "INVÁLIDO"}</strong>
                       </div>
