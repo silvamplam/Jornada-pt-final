@@ -10,6 +10,10 @@ const state = readFileSync(
   "lib/editorial-matchday-live-layout-desk-state.ts",
   "utf8",
 );
+const apply = readFileSync(
+  "lib/editorial-matchday-live-layout-physical-apply.ts",
+  "utf8",
+);
 
 function body(name: string, nextName: string) {
   const start = client.indexOf(`function ${name}`);
@@ -39,10 +43,15 @@ test("reduzir layout desaloja overflow sem compactação", () => {
   assert.doesNotMatch(state, /compact/i);
 });
 
-test("Últimas continua um block físico acessível sem entrar na seleção de zonas", () => {
-  assert.match(client, /block\.kind === "latest"/);
+test("latest continua no estado físico e apresentação sem ser workspace navegável", () => {
+  assert.match(state, /blocks: readonly MatchdayLiveLayoutBlock\[\]/);
+  assert.match(state, /latestCompanionZoneId: LiveLayoutZoneId \| null/);
   assert.match(client, /latestZonePlacement/);
-  assert.match(client, /setActiveWorkspaceKey\("latest"\)/);
+  assert.match(client, /resolveMatchdayLatestPlacement/);
+  assert.match(apply, /physicalDesk\.current\.blocks\.map/);
+  assert.match(apply, /physicalDesk\.current\.presentation\.latestZoneTitle/);
+  assert.doesNotMatch(client, /setActiveWorkspaceKey\("latest"\)/);
+  assert.doesNotMatch(client, /renderLatestBlockPanel/);
   assert.doesNotMatch(client, /movePhysicalDeskZone\(state, [^,]*latest/);
 });
 
@@ -63,51 +72,69 @@ test("zona ativa mantém controlos acessíveis e contador sem rótulos visuais r
 });
 
 test("rail mantém Abertura e deriva as zonas dos blocks físicos", () => {
+  const rail = body("renderZoneRail", "undo");
   assert.match(client, /aria-label="Zonas da Mesa"/);
   assert.match(client, /orderedZoneBlocks\.map\(\(block\)/);
   assert.match(client, /Mostrar Abertura/);
   assert.match(client, /openingOccupied/);
+  assert.doesNotMatch(rail, /latestZoneTitle|setActiveWorkspaceKey\("latest"\)|A acontecer agora/);
   assert.doesNotMatch(
     client,
     /thematic-zone-rail-note|Marque uma zona para alterar a ordem|A zona marcada move-se/,
   );
 });
 
-test("Ultimas abrem como bloco de apresentacao sem pseudo-zona", () => {
-  const latest = body("renderLatestBlockPanel", "renderHighlightWorkspace");
-  const activeWorkspace = body("renderActiveWorkspace", "undo");
-
-  assert.match(latest, /data-latest-block="presentation"/);
-  assert.match(latest, /latestDestination\.kind === "zone"/);
-  assert.match(latest, /Zona associada:/);
-  assert.doesNotMatch(latest, /editorialSelectionOccupied|selectionPlacements/);
-
-  assert.match(
-    activeWorkspace,
-    /activeWorkspaceKey === "latest"\) return renderLatestBlockPanel\(\)/,
+test("Página e blocos omite latest e numera continuamente a projeção visível", () => {
+  const start = client.indexOf(
+    '<details className="thematic-global-tool" ref={pageStructureRef}>',
   );
-  assert.doesNotMatch(activeWorkspace, /renderEditorialSelectionPanel/);
+  const end = client.indexOf(
+    '<details className="thematic-global-tool thematic-video-tool">',
+    start,
+  );
+  const pageStructure = client.slice(start, end);
+  const listStart = pageStructure.indexOf('className="thematic-page-structure-list"');
+  const listEnd = pageStructure.indexOf("{activeStructureEditorOpen", listStart);
+  const pageStructureList = pageStructure.slice(listStart, listEnd);
+
+  assert.ok(start >= 0 && end > start && listStart >= 0 && listEnd > listStart);
+  assert.match(client, /pageStructureBlocks = current\.blocks\.filter\([\s\S]*block\.kind !== "latest"/);
+  assert.match(pageStructureList, /pageStructureBlocks\.map\(\(block, index\) =>/);
+  assert.match(pageStructureList, /String\(index \+ 1\)\.padStart\(2, "0"\)/);
+  assert.doesNotMatch(pageStructureList, /latestZoneTitle|A acontecer agora|Editar Últimas/);
+  assert.doesNotMatch(pageStructure, /activeLatest|Editar Últimas/);
 });
 
-test("Ultimas associam uma zona fisica por zone_id sem posicoes legacy", () => {
-  const latest = body("renderLatestBlockPanel", "renderHighlightWorkspace");
-  assert.match(latest, /latestDestination\.zoneId/);
-  assert.match(latest, /zoneById\.get\(latestDestination\.zoneId/);
-  assert.doesNotMatch(latest, /MATCHDAY_EDITORIAL_PROFILE_SELECTION_POSITIONS/);
+test("A acontecer agora é um controlo global ao lado da classificação", () => {
+  const actionsStart = client.indexOf('<div className="thematic-global-actions">');
+  const actionsEnd = client.indexOf(
+    '<section className="thematic-selection-controls"',
+    actionsStart,
+  );
+  const actions = client.slice(actionsStart, actionsEnd);
+
+  assert.ok(actionsStart >= 0 && actionsEnd > actionsStart);
+  assert.match(actions, /<summary>Corrigir classificação<\/summary>[\s\S]*<summary>A acontecer agora<\/summary>/);
+  assert.match(actions, /defaultValue=\{current\.presentation\.latestZoneTitle\}/);
+  assert.match(actions, /changePhysicalDeskPresentation\(state, \{[\s\S]*latestZoneTitle: value/);
+  assert.equal((actions.match(/<summary>A acontecer agora<\/summary>/g) ?? []).length, 1);
 });
 
 test("Mesa expõe uma única escolha Manchete, Ocultas ou Zona por UUID", () => {
-  assert.match(client, /aria-label="Posição das Últimas"/);
+  assert.match(client, /aria-label="Posição de A acontecer agora"/);
   assert.match(client, /<option value="headline">Manchete<\/option>/);
   assert.match(client, /<option value="hidden">Ocultas<\/option>/);
   assert.match(client, /<optgroup label="Zona física">/);
   assert.match(client, /value=\{`zone:\$\{zone\.id\}`\}/);
+  assert.match(client, /changePhysicalDeskLatestPlacement\([\s\S]*\{ kind: "zone", zoneId: nextZone\.id \}/);
   assert.doesNotMatch(client, /option value="four_news"/);
 });
 
 test("estado legacy sem UUID exige escolha e delete do host falha fechado", () => {
   assert.match(client, /latestDestination\.kind === "legacy_incomplete"/);
   assert.match(client, /Sem associação válida — escolha uma posição/);
+  assert.match(client, /current\.latestCompanionZoneId === activeZone\.id/);
+  assert.match(client, /disabled=\{[\s\S]*current\.latestCompanionZoneId === activeZone\.id/);
   assert.match(state, /latest-companion-zone-associated/);
   assert.doesNotMatch(
     state,
@@ -153,7 +180,7 @@ test("zona física pode existir sem título público", () => {
   );
 
   assert.match(client, /Zona sem título/);
-  assert.match(client, /current\.presentation\.latestZoneTitle \|\| "Últimas"/);
+  assert.match(client, /defaultValue=\{current\.presentation\.latestZoneTitle\}/);
 });
 
 test("Página e blocos mantém largura estável em todos os estados", () => {
@@ -161,26 +188,10 @@ test("Página e blocos mantém largura estável em todos os estados", () => {
   assert.doesNotMatch(client, /new-zone-open|zone-editor-open/);
 });
 
-test("Últimas abre no editor estrutural sem deixar de ser block físico", () => {
-  const start = client.indexOf(
-    '<details className="thematic-global-tool" ref={pageStructureRef}>',
-  );
-  const end = client.indexOf(
-    '<details className="thematic-global-tool thematic-video-tool">',
-    start,
-  );
-
-  assert.ok(start >= 0 && end > start);
-
-  const pageStructure = client.slice(start, end);
-
-  assert.match(
-    pageStructure,
-    /block\.kind === "zone" \|\| block\.kind === "latest"/,
-  );
-  assert.match(pageStructure, /setActiveWorkspaceKey\(workspaceKey\)/);
-  assert.match(pageStructure, /activeLatest/);
-  assert.match(pageStructure, /latestZoneTitle: value/);
+test("A acontecer agora não introduz estado paralelo", () => {
+  assert.match(client, /const latestDestination = resolveMatchdayLatestPlacement\(/);
+  assert.match(client, /value=\{latestDestinationSelectValue\}/);
+  assert.doesNotMatch(client, /useState[^\n]*(latest|Últimas|acontecer)/i);
 });
 
 test("apagar zona usa confirmação inline e nunca window.confirm", () => {

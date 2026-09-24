@@ -109,7 +109,7 @@ test("título público de Últimas tem limite de 120 caracteres", () => {
   );
 });
 
-test("Mesa expõe Título público em Últimas", () => {
+test("Mesa expõe Título público no controlo global A acontecer agora", () => {
   const source = readFileSync(
     path.join(
       process.cwd(),
@@ -120,7 +120,7 @@ test("Mesa expõe Título público em Últimas", () => {
 
   assert.match(
     source,
-    /aria-label="Título público de Últimas"/,
+    /<summary>A acontecer agora<\/summary>[\s\S]*aria-label="Título público de A acontecer agora"/,
   );
 
   assert.match(
