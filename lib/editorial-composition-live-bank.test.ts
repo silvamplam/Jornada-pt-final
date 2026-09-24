@@ -50,16 +50,17 @@ test("pesquisa, classificação e decisão histórica combinam sem limpar a sele
     /filterHistoricalCompositionReservoir\([\s\S]*selectedGroupKeys,[\s\S]*search,[\s\S]*historicalDecisionFilter,/,
   );
 
-  const start = client.indexOf('aria-label="Decisão histórica"');
-  const end = client.indexOf('<div className="hc-desk-search">', start);
+  const start = client.indexOf("  const articleToolbar = (");
+  const end = client.indexOf("\n\n  return (", start);
   assert.ok(start >= 0 && end > start);
-  const scopeControls = client.slice(start, end);
-  assert.match(scopeControls, /setHistoricalDecisionFilter\("all"\)/);
-  assert.match(scopeControls, /setHistoricalDecisionFilter\("undecided"\)/);
-  assert.match(scopeControls, /setHistoricalDecisionFilter\("bank"\)/);
-  assert.match(scopeControls, /setHistoricalDecisionFilter\("selected"\)/);
-  assert.match(scopeControls, /Sem classificação/);
-  assert.doesNotMatch(scopeControls, /setSelectedBankItemIds/);
+  const toolbar = client.slice(start, end);
+  assert.match(toolbar, /setHistoricalDecisionFilter\("all"\)/);
+  assert.match(toolbar, /setHistoricalDecisionFilter\("undecided"\)/);
+  assert.match(toolbar, /setHistoricalDecisionFilter\("bank"\)/);
+  assert.match(toolbar, /setHistoricalDecisionFilter\("selected"\)/);
+  assert.match(toolbar, /setSelectedGroupKey\(group\.key\)/);
+  assert.match(toolbar, /Sem classificação/);
+  assert.doesNotMatch(toolbar, /setSelectedBankItemIds/);
 });
 
 test("seleção múltipla e colocação continuam a usar apenas bankItemId", () => {

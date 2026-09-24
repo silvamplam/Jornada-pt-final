@@ -50,7 +50,7 @@ test("os filtros são grupos naturais e não placements da Mesa viva", () => {
 
   assert.match(
     client,
-    /activeWorkspaceKey === `dynamic:\$\{zone\.clientId\}`/,
+    /const workspaceKey = `dynamic:\$\{zone\.clientId\}`/,
   );
 
   assert.doesNotMatch(

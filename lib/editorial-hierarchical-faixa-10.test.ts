@@ -120,7 +120,7 @@ test("a identificação das colocações da Faixa cobre posições 1 a 10", () =
 test("os indicadores visuais da Faixa refletem dez lugares", () => {
   assert.match(
     client,
-    /Faixa \{occupiedFaixa\}\/10/,
+    /<strong>Faixa<\/strong>\s*<small>\{occupiedFaixa\}\/10<\/small>/,
   );
 
   assert.match(

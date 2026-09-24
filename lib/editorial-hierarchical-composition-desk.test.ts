@@ -14,6 +14,9 @@ const route = fs.readFileSync(
   "app/api/admin/editorial/composicao/route.ts",
   "utf8",
 );
+const modernStyles = client.slice(
+  client.indexOf("/* Mesa histórica modernizada"),
+);
 
 test("a Composição hierárquica é a única Mesa administrativa visível", () => {
   assert.match(
@@ -27,18 +30,23 @@ test("a Composição hierárquica é a única Mesa administrativa visível", () 
   );
 
   assert.match(
-    client,
-    /\.hc-desk-workspace \{[\s\S]*display: flex;[\s\S]*flex-direction: column;/,
+    modernStyles,
+    /\.hc-desk-workspace \{[\s\S]*display: grid;[\s\S]*grid-template-columns: minmax\(145px, 170px\) minmax\(0, 1\.08fr\) minmax\(0, 1fr\);/,
   );
 
   assert.match(
-    client,
-    /\.hc-desk-operational-sticky \{[\s\S]*?order: 1;/,
+    modernStyles,
+    /\.hc-zone-rail \{[\s\S]*?grid-column: 1;[\s\S]*?overflow-y: auto;/,
   );
 
   assert.match(
-    client,
-    /\.hc-desk-library \{[\s\S]*order: 2;/,
+    modernStyles,
+    /\.hc-desk-map \{[\s\S]*?grid-column: 2;[\s\S]*?overflow-y: auto;/,
+  );
+
+  assert.match(
+    modernStyles,
+    /\.hc-desk-library \{[\s\S]*?grid-column: 3;[\s\S]*?min-height: 0;[\s\S]*?overflow: hidden;/,
   );
 
   assert.match(
@@ -81,8 +89,10 @@ test("vídeo, publicação e preview ficam em menus recolhidos; Editorial é um 
   assert.doesNotMatch(page, /<summary>Editorial da Jornada<\/summary>/);
 });
 
-test("menus e zonas permanecem numa linha e só a zona ativa é renderizada", () => {
-  assert.match(client, /\.hc-zone-tabs \{[\s\S]*flex-wrap: nowrap;[\s\S]*overflow-x: auto;/);
+test("a rail apresenta zonas verticalmente e só a zona ativa é renderizada", () => {
+  assert.match(client, /<aside className="hc-zone-rail" aria-label="Zonas da Composição">/);
+  assert.match(client, /<nav className="hc-zone-tabs" aria-label="Lista vertical de zonas">/);
+  assert.match(modernStyles, /\.hc-zone-tabs \{[\s\S]*display: grid;/);
   assert.match(client, /activeWorkspaceKey === "opening" && openingSection/);
   assert.match(client, /activeWorkspaceKey === "editorial"/);
   assert.match(client, /activeWorkspaceKey === "highlight"/);
@@ -92,15 +102,10 @@ test("menus e zonas permanecem numa linha e só a zona ativa é renderizada", ()
   assert.match(page, /name="composition-tools"/);
 });
 
-test("o contexto sai no scroll e só o workspace operacional permanece sticky", () => {
-  const shellCss = client.slice(
-    client.indexOf(".composition-admin-shell-desk {"),
-    client.indexOf(".composition-admin-shell-desk >"),
-  );
-  assert.doesNotMatch(shellCss, /\n\s*height:\s*100dvh|overflow:\s*hidden/);
-  assert.match(shellCss, /min-height:\s*100dvh/);
-  assert.match(client, /\.hc-desk-operational-sticky \{[\s\S]*?position: sticky;[\s\S]*?top: 0;/);
-  assert.match(client, /<div className="hc-desk-operational-sticky">[\s\S]*?<section className="hc-desk-map"[\s\S]*?\{articleToolbar\}/);
-  assert.match(client, /\.hc-desk-scroll \{[\s\S]*?overflow: visible;/);
+test("centro e candidatos têm scroll independente sem medições JS", () => {
+  assert.match(modernStyles, /\.hc-desk-map \{[\s\S]*?min-height: 0;[\s\S]*?overflow-y: auto;/);
+  assert.match(modernStyles, /\.hc-desk-scroll \{[\s\S]*?min-height: 0;[\s\S]*?overflow-y: auto;/);
+  assert.match(modernStyles, /\.hc-desk-workspace \{[\s\S]*?min-height: 0;/);
+  assert.doesNotMatch(client, /ResizeObserver|addEventListener\(["']resize|offsetHeight|clientHeight/);
   assert.match(client, /\.hc-desk-pending \{[\s\S]*?position: fixed;/);
 });
