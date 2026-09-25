@@ -3547,7 +3547,7 @@ export default function HierarchicalCompositionDeskClient({
       >
         <div className="hc-desk-card-body">
           <span className="hc-desk-card-media">
-            {article?.imageUrl ? <img alt="" src={article.imageUrl} /> : <span className="hc-desk-card-image" />}
+            {article?.imageUrl ? <img alt="" src={article.imageUrl} loading="lazy" decoding="async" /> : <span className="hc-desk-card-image" />}
           </span>
           <span className="hc-desk-card-copy">
             <span className="hc-desk-card-top">
@@ -3991,6 +3991,8 @@ export default function HierarchicalCompositionDeskClient({
                               <img
                                 alt=""
                                 src={article.imageUrl}
+                                loading="lazy"
+                                decoding="async"
                               />
                             )
                             : (
@@ -4072,7 +4074,7 @@ export default function HierarchicalCompositionDeskClient({
                 <div className="hc-desk-inherited-list">
                   {inheritedAvailableArticles.map((article) => (
                     <article className="hc-desk-inherited-row" key={article.bankItemId}>
-                      {article.imageUrl ? <img alt="" src={article.imageUrl} /> : <span className="hc-desk-image" />}
+                      {article.imageUrl ? <img alt="" src={article.imageUrl} loading="lazy" decoding="async" /> : <span className="hc-desk-image" />}
                       <span className="hc-desk-copy">
                         <span className="hc-desk-meta">
                           <em className="hc-desk-continuity">

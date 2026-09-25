@@ -2022,7 +2022,7 @@ function ImagePreview({ src }: { src?: string | null }) {
 
   return (
     <div className="composition-admin-image">
-      <img alt="" src={imageUrl} />
+      <img alt="" src={imageUrl} loading="lazy" decoding="async" />
     </div>
   );
 }
@@ -2804,6 +2804,8 @@ function HierarchicalCompositionDeskBank({
                       alt=""
                       className="composition-admin-desk-thumbnail"
                       src={thumbnail}
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <span className="composition-admin-desk-thumbnail-placeholder" />
@@ -2891,6 +2893,8 @@ function HierarchicalCompositionDeskBank({
                       alt=""
                       className="composition-admin-desk-thumbnail"
                       src={thumbnail}
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <span className="composition-admin-desk-thumbnail-placeholder" />
