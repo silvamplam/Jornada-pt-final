@@ -24,7 +24,7 @@ function images(path: string) {
   const result: ImageNode[] = [];
   function visit(node: ts.Node) {
     if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node))
-      && node.tagName.getText(file) === "img") result.push(node);
+      && ["img", "BackofficeImage"].includes(node.tagName.getText(file))) result.push(node);
     ts.forEachChild(node, visit);
   }
   visit(file);

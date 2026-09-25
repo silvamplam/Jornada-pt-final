@@ -1,3 +1,4 @@
+import BackofficeImage from "@/components/admin/BackofficeImage";
 import Link from "next/link";
 import type { OperationalDeskSourceItem } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
 import type { MesaMaterialSelection } from "./_mesa-selection-state";
@@ -67,7 +68,7 @@ export function MesaSourceItem({
       </div> : <div className={styles.sourceSelection} aria-hidden="true" />}
       <div className={styles.sourceThumb}>
         {item.imageCandidateUrl ? (
-          <img
+          <BackofficeImage previewWidth={320}
             src={item.imageCandidateUrl}
             alt=""
             loading="lazy"

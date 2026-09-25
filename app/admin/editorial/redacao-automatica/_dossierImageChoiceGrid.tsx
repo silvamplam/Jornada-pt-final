@@ -1,5 +1,6 @@
 "use client";
 
+import BackofficeImage from "@/components/admin/BackofficeImage";
 import styles from "./dossier-image-choice-grid.module.css";
 
 export type DossierImageChoice = Readonly<{
@@ -64,7 +65,7 @@ export default function DossierImageChoiceGrid({
               onChange={() => onChange("preserve_published")}
             />
             {preservePublishedImageUrl ? (
-              <img src={preservePublishedImageUrl} alt="" loading="lazy" />
+              <BackofficeImage previewWidth={320} src={preservePublishedImageUrl} alt="" loading="lazy" />
             ) : (
               <span className={styles.noImageChoice}>Atual</span>
             )}
@@ -83,7 +84,7 @@ export default function DossierImageChoiceGrid({
                 disabled={disabled}
                 onChange={() => onChange(imageValue)}
               />
-              <img src={image.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+              <BackofficeImage previewWidth={320} src={image.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
               <small>{image.label}</small>
             </label>
           );

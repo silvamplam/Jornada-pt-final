@@ -1,5 +1,6 @@
 "use client";
 
+import BackofficeImage from "@/components/admin/BackofficeImage";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
@@ -61,7 +62,7 @@ export function MesaArchiveSourceItemView({
       <div className={styles.sourceSelection} aria-hidden="true" />
       <div className={styles.sourceThumb}>
         {item.imageCandidateUrl ? (
-          <img src={item.imageCandidateUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+          <BackofficeImage previewWidth={320} src={item.imageCandidateUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
         ) : <span>Sem imagem</span>}
       </div>
       <article className={styles.sourceBody}>

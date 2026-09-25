@@ -1,5 +1,7 @@
 "use client";
 
+import BackofficeImage from "@/components/admin/BackofficeImage";
+import { completeEditorialImagePreviews } from "@/lib/editorial-image-preview-upload";
 import {
   useEffect,
   useRef,
@@ -130,6 +132,7 @@ type PreparedSourcePackage = Readonly<{
 }>;
 
 type SignedUpload = Readonly<{
+  previewTicket?: string;
   bucket: string;
   path: string;
   signedUrl: string;
@@ -316,6 +319,8 @@ function ImageBank({
         throw new Error("Não foi possível carregar a imagem.");
       }
 
+      await completeEditorialImagePreviews(signed);
+
       const registration: SignedUpload = {
         bucket: signed.bucket,
         path: signed.path,
@@ -382,7 +387,7 @@ function ImageBank({
           <ol className={styles.imageBank}>
             {images.map((image) => (
               <li key={image.id}>
-                <img src={image.frozenUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                <BackofficeImage previewWidth={320} src={image.frozenUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
                 <div>
                   <strong>{originLabel(image)}</strong>
                 </div>
@@ -431,7 +436,7 @@ function OutputIdentity({
   return (
     <div className={styles.outputIdentity}>
       {imageUrl ? (
-        <img src={imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+        <BackofficeImage previewWidth={320} src={imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
       ) : <span className={styles.outputFallback} aria-hidden="true">J</span>}
       <span>
         <strong>{slot?.slot ?? `OUTPUT ${String(position).padStart(2, "0")}`}</strong>

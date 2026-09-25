@@ -1,3 +1,4 @@
+import { completeEditorialImagePreviews } from "@/lib/editorial-image-preview-upload";
 import Script from "next/script";
 
 export type EditorialContent = {
@@ -827,6 +828,8 @@ export function EditorialContentForm({
                     var uploadDetail = await uploadResponse.text().catch(function () { return ''; });
                     throw new Error('upload-failed:' + (uploadDetail || uploadResponse.status));
                   }
+
+                  await (${completeEditorialImagePreviews.toString()})(signPayload);
 
                   if (parts.targetInput) {
                     parts.targetInput.value = signPayload.publicUrl;

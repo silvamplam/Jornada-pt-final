@@ -1,5 +1,6 @@
 "use client";
 
+import { completeEditorialImagePreviews } from "@/lib/editorial-image-preview-upload";
 import {
   FormEvent,
   useRef,
@@ -24,6 +25,8 @@ const ALLOWED_IMAGE_TYPES = new Set([
 const ALLOWED_IMAGE_EXTENSION = /\.(?:jpe?g|png|webp|avif)$/i;
 
 type SignResponse = Readonly<{
+  previewTicket?: string;
+  path?: string;
   signedUrl?: unknown;
   publicUrl?: unknown;
   maxUploadMb?: unknown;
@@ -124,6 +127,8 @@ export default function ManualNewsEntryForm({
       if (!uploadResponse.ok) {
         throw new Error("Não foi possível carregar a imagem.");
       }
+
+      await completeEditorialImagePreviews(signPayload);
 
       if (!imageUrlRef.current) {
         throw new Error("Não foi possível associar a imagem.");

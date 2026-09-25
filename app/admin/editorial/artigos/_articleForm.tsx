@@ -1,3 +1,4 @@
+import { completeEditorialImagePreviews } from "@/lib/editorial-image-preview-upload";
 import {
   EDITORIAL_CONTEXT_DESTINATION,
   EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
@@ -350,6 +351,8 @@ const articleImageUploadScript = `
         var uploadDetail = await uploadResponse.text().catch(function () { return ''; });
         throw new Error('upload-failed:' + (uploadDetail || uploadResponse.status));
       }
+
+      await (${completeEditorialImagePreviews.toString()})(signPayload);
 
       if (parts.targetInput) {
         parts.targetInput.value = signPayload.publicUrl;
