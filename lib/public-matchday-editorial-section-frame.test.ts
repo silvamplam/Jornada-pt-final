@@ -143,7 +143,7 @@ test("o contrato declara desktop, 980 e 680 com os valores editoriais existentes
 test("o histórico dinâmico entrega apenas a fronteira exterior do vídeo ao frame", () => {
   assert.match(
     page,
-    /historicalDynamicBodyBlocks\.map\(\(block\) => \{[\s\S]*?block\.kind === "video"[\s\S]*?<PublicMatchdayEditorialSectionFrame[\s\S]*?kind="video"[\s\S]*?<PublicHierarchicalPosteriorMoments[\s\S]*?ownsSectionBoundary=\{false\}/,
+    /renderPublicAdvertisingBoundary\(historicalDynamicBodyBlocks, \(block\) => \{[\s\S]*?block\.kind === "video"[\s\S]*?<PublicMatchdayEditorialSectionFrame[\s\S]*?kind="video"[\s\S]*?<PublicHierarchicalPosteriorMoments[\s\S]*?ownsSectionBoundary=\{false\}/,
   );
   assert.doesNotMatch(page, /clamp\(46px, 5vw, 68px\) auto 0/);
 

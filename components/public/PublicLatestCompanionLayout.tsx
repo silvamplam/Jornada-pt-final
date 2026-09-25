@@ -41,6 +41,14 @@ const styles = `
       minmax(220px, 0.28fr);
   }
 
+  .public-latest-companion-grid:not(:has(.public-latest-companion-ad-slot)) {
+    grid-template-columns: minmax(0, 2.44fr) minmax(250px, 1fr);
+  }
+
+  .public-latest-companion-grid[data-has-latest="false"]:not(:has(.public-latest-companion-ad-slot)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .public-latest-companion-zone {
     min-width: 0;
   }
@@ -94,8 +102,14 @@ const styles = `
 
   @media (max-width: 1100px) {
     .public-latest-companion-grid,
+    .public-latest-companion-grid:not(:has(.public-latest-companion-ad-slot)),
+    .public-latest-companion-grid[data-has-latest="false"]:not(:has(.public-latest-companion-ad-slot)),
     .public-latest-companion-grid[data-has-latest="false"] {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .public-latest-companion-grid:not(:has(.public-latest-companion-ad-slot)) .public-latest-companion-news {
+      grid-column: 1 / -1;
     }
 
     .public-latest-companion-zone {
@@ -113,6 +127,8 @@ const styles = `
 
   @media (max-width: 680px) {
     .public-latest-companion-grid,
+    .public-latest-companion-grid:not(:has(.public-latest-companion-ad-slot)),
+    .public-latest-companion-grid[data-has-latest="false"]:not(:has(.public-latest-companion-ad-slot)),
     .public-latest-companion-grid[data-has-latest="false"] {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -123,7 +139,7 @@ const styles = `
   }
 `;
 
-export default function PublicLatestCompanionLayout({
+export default async function PublicLatestCompanionLayout({
   zone,
   matchdayNumber,
   latestNews,
@@ -131,14 +147,17 @@ export default function PublicLatestCompanionLayout({
   latestNewsTitleColor,
 }: PublicLatestCompanionLayoutProps) {
   const companionItems = zone.slots.flatMap((slot) =>
-    slot.item ? [slot.item] : []
+    slot.item ? [slot.item] : [],
   );
 
-  const visibleLatestNews =
-    excludeSelectedEditorialItemsFromLatest(
-      latestNews,
-      companionItems,
-    );
+  const visibleLatestNews = excludeSelectedEditorialItemsFromLatest(
+    latestNews,
+    companionItems,
+  );
+
+  const sideAdvertisement = await PublicSideAdvertisement({
+    className: "public-latest-companion-ad-slot",
+  });
 
   return (
     <PublicMatchdayEditorialSectionFrame kind="latest">
@@ -170,15 +189,15 @@ export default function PublicLatestCompanionLayout({
             </div>
           ) : null}
 
-          <aside
-            className="public-latest-companion-ad"
-            aria-label="Publicidade"
-            data-public-ad-slot="latest-companion"
-          >
-            <PublicSideAdvertisement
-              className="public-latest-companion-ad-slot"
-            />
-          </aside>
+          {sideAdvertisement ? (
+            <aside
+              className="public-latest-companion-ad"
+              aria-label="Publicidade"
+              data-public-ad-slot="latest-companion"
+            >
+              {sideAdvertisement}
+            </aside>
+          ) : null}
         </div>
       </section>
     </PublicMatchdayEditorialSectionFrame>

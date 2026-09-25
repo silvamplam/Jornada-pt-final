@@ -24,10 +24,9 @@ const migration = source(
   "supabase/steps/120-publicidade-lateral-unificada-apply.sql",
 );
 
-test("a publicidade pública usa uma única configuração", () => {
+test("a publicidade lateral mantém a sua configuração sem fallback", () => {
   assert.match(model, /lateral_primary/);
-  assert.match(model, /DEFAULT_PUBLIC_SIDE_ADVERTISEMENT/);
-  assert.match(model, /Startup Madeira NOW/);
+  assert.doesNotMatch(model, /DEFAULT_PUBLIC_SIDE_ADVERTISEMENT|Startup Madeira NOW/);
   assert.match(model, /readPrimarySideAdvertisement/);
 
   assert.match(ad, /readPrimarySideAdvertisement/);
@@ -35,17 +34,17 @@ test("a publicidade pública usa uma única configuração", () => {
 
   assert.match(
     layout,
-    /<PublicSideAdvertisement className="public-four-news-ad-slot" \/>/,
+    /await PublicSideAdvertisement\(\{\s*className: "public-four-news-ad-slot",?\s*\}\)/,
   );
 
   assert.match(
     thematicLatestOnlyLayout,
-    /<PublicSideAdvertisement className="public-thematic-latest-only-ad-slot" \/>/,
+    /await PublicSideAdvertisement\(\{\s*className: "public-thematic-latest-only-ad-slot",?\s*\}\)/,
   );
 
   assert.match(
     article,
-    /<PublicSideAdvertisement className="news-article-ad news-article-ad-link" \/>/,
+    /await PublicSideAdvertisement\(\{ className: "news-article-ad news-article-ad-link" \}\)/,
   );
 
   assert.doesNotMatch(

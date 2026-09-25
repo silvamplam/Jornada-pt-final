@@ -167,6 +167,10 @@ const articlePageStyles = `
     margin: 0 0 22px;
   }
 
+  .news-article-layout:not(:has(.news-article-sidebar)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .news-article-sidebar {
     display: grid;
     align-content: start;
@@ -554,6 +558,8 @@ export default async function NewsArticlePage({ params }: PageProps) {
     ? publicCompetitionBarColor(articleContext.competition.slug)
     : "#262626";
 
+  const sideAdvertisement = await PublicSideAdvertisement({ className: "news-article-ad news-article-ad-link" });
+
   return (
     <div className="news-article-shell">
       <style>{articlePageStyles}</style>
@@ -705,40 +711,42 @@ export default async function NewsArticlePage({ params }: PageProps) {
           </div>
         </article>
 
-        <aside className="news-article-sidebar">
-          <PublicSideAdvertisement className="news-article-ad news-article-ad-link" />
-          {moreArticles.length > 0 ? (
-            <section className="news-article-side-panel" aria-label="Artigos relacionados">
-              <ul className="news-article-side-list">
-                {moreArticles.map((item) => {
-                  const itemLabel = firstText(item.label);
-                  const itemSubtitle = firstText(item.subtitle);
-                  const itemDate = formatShortDate(item.published_at);
+        {sideAdvertisement || moreArticles.length > 0 ? (
+          <aside className="news-article-sidebar">
+            {sideAdvertisement}
+            {moreArticles.length > 0 ? (
+              <section className="news-article-side-panel" aria-label="Artigos relacionados">
+                <ul className="news-article-side-list">
+                  {moreArticles.map((item) => {
+                    const itemLabel = firstText(item.label);
+                    const itemSubtitle = firstText(item.subtitle);
+                    const itemDate = formatShortDate(item.published_at);
 
-                  return (
-                    <li className="news-article-side-item" key={item.id}>
-                      {item.image_url ? (
-                        <PublicEditorialImage imageSize="thumbnail"
-                          {...editorialImageFramingProps("standard")}
-                          alt=""
-                          src={item.image_url}
-                        />
-                      ) : (
-                        <span className="news-article-side-thumb-placeholder" aria-hidden="true" />
-                      )}
-                      <div className="news-article-side-copy">
-                        {itemLabel ? <span className="news-article-side-label">{itemLabel}</span> : null}
-                        <a href={publicArticleHref(item)}>{item.title}</a>
-                        {itemSubtitle ? <p className="news-article-side-subtitle">{itemSubtitle}</p> : null}
-                        {itemDate ? <time className="news-article-side-date" dateTime={item.published_at ?? undefined}>{itemDate}</time> : null}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ) : null}
-        </aside>
+                    return (
+                      <li className="news-article-side-item" key={item.id}>
+                        {item.image_url ? (
+                          <PublicEditorialImage imageSize="thumbnail"
+                            {...editorialImageFramingProps("standard")}
+                            alt=""
+                            src={item.image_url}
+                          />
+                        ) : (
+                          <span className="news-article-side-thumb-placeholder" aria-hidden="true" />
+                        )}
+                        <div className="news-article-side-copy">
+                          {itemLabel ? <span className="news-article-side-label">{itemLabel}</span> : null}
+                          <a href={publicArticleHref(item)}>{item.title}</a>
+                          {itemSubtitle ? <p className="news-article-side-subtitle">{itemSubtitle}</p> : null}
+                          {itemDate ? <time className="news-article-side-date" dateTime={item.published_at ?? undefined}>{itemDate}</time> : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
+          </aside>
+        ) : null}
       </main>
     </div>
   );

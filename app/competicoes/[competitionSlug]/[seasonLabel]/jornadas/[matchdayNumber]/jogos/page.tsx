@@ -329,6 +329,10 @@ const gamesPageStyles = `
     min-width: 0;
   }
 
+  .public-games-layout:not(:has(.public-games-sidebar)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .public-games-main,
   .public-games-sidebar {
     display: grid;
@@ -581,17 +585,6 @@ const gamesPageStyles = `
     line-height: 1.42;
   }
 
-  .public-games-ad-slot {
-    display: grid;
-    min-height: 260px;
-    place-items: center;
-    border: 1px solid #dfe5ec;
-    background: #f8fafc;
-    color: #8a96a5;
-    font-size: 11px;
-    font-weight: 900;
-    text-transform: uppercase;
-  }
 
   .public-games-news-list {
     display: grid;
@@ -1510,49 +1503,47 @@ export default async function PublicMatchdayGamesPage({ params }: PublicMatchday
             )}
           </section>
 
-          <aside className="public-games-sidebar" aria-label="Informação lateral da jornada">
-            <section className="public-games-panel public-games-side-block" aria-label="Publicidade">
-              <div className="public-games-ad-slot">Publicidade</div>
-            </section>
-
-            {sidebarNewsItems.length > 0 ? (
-              <section className="public-games-panel public-games-side-block" aria-label="Mais notícias">
-                <div className="public-games-news-list">
-                  {sidebarNewsItems.map((item) => {
-                    const itemClassName = `public-games-news-item ${item.imageUrl ? "" : "public-games-news-item-no-image"}`.trim();
-                    const itemContent = (
-                      <>
-                        {item.imageUrl ? (
-                          <span className="public-games-news-thumb">
-                            <PublicEditorialImage imageSize="thumbnail"
-                              {...editorialImageFramingProps("standard")}
-                              alt=""
-                              src={item.imageUrl}
-                            />
+          {sidebarNewsItems.length > 0 ? (
+            <aside className="public-games-sidebar" aria-label="Informação lateral da jornada">
+              {sidebarNewsItems.length > 0 ? (
+                <section className="public-games-panel public-games-side-block" aria-label="Mais notícias">
+                  <div className="public-games-news-list">
+                    {sidebarNewsItems.map((item) => {
+                      const itemClassName = `public-games-news-item ${item.imageUrl ? "" : "public-games-news-item-no-image"}`.trim();
+                      const itemContent = (
+                        <>
+                          {item.imageUrl ? (
+                            <span className="public-games-news-thumb">
+                              <PublicEditorialImage imageSize="thumbnail"
+                                {...editorialImageFramingProps("standard")}
+                                alt=""
+                                src={item.imageUrl}
+                              />
+                            </span>
+                          ) : null}
+                          <span className="public-games-news-copy">
+                            {item.label ? <span className="public-games-news-label">{item.label}</span> : null}
+                            <strong>{item.title}</strong>
+                            {item.dateLabel ? <span className="public-games-news-date">{item.dateLabel}</span> : null}
                           </span>
-                        ) : null}
-                        <span className="public-games-news-copy">
-                          {item.label ? <span className="public-games-news-label">{item.label}</span> : null}
-                          <strong>{item.title}</strong>
-                          {item.dateLabel ? <span className="public-games-news-date">{item.dateLabel}</span> : null}
-                        </span>
-                      </>
-                    );
+                        </>
+                      );
 
-                    return item.linkUrl ? (
-                      <a className={itemClassName} href={item.linkUrl} key={item.id}>
-                        {itemContent}
-                      </a>
-                    ) : (
-                      <div className={itemClassName} key={item.id}>
-                        {itemContent}
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            ) : null}
-          </aside>
+                      return item.linkUrl ? (
+                        <a className={itemClassName} href={item.linkUrl} key={item.id}>
+                          {itemContent}
+                        </a>
+                      ) : (
+                        <div className={itemClassName} key={item.id}>
+                          {itemContent}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null}
+            </aside>
+          ) : null}
         </div>
       </div>
     </main>

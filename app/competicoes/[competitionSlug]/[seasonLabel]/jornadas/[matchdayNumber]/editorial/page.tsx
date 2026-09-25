@@ -224,6 +224,10 @@ const styles = `
     margin: 0 0 22px;
   }
 
+  .news-article-layout:not(:has(.news-article-sidebar)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .news-article-sidebar {
     display: grid;
     justify-items: center;
@@ -430,6 +434,8 @@ export default async function EditorialDaJornadaPage({
     publicCompetitionBarColor(
       context.competition.slug
     );
+
+  const sideAdvertisement = await PublicSideAdvertisement({ className: "news-article-ad" });
 
   return (
     <div className="news-article-shell">
@@ -654,9 +660,9 @@ export default async function EditorialDaJornadaPage({
           </div>
         </article>
 
-        <aside className="news-article-sidebar">
-          <PublicSideAdvertisement className="news-article-ad" />
-        </aside>
+        {sideAdvertisement ? (
+          <aside className="news-article-sidebar">{sideAdvertisement}</aside>
+        ) : null}
       </main>
     </div>
   );

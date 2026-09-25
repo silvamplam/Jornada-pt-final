@@ -1,7 +1,15 @@
 import { randomUUID } from "crypto";
 import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
 
-import { PRIMARY_SIDE_ADVERTISING_SLOT_KEY } from "@/lib/site-advertising";
+import {
+  PRIMARY_SIDE_ADVERTISING_SLOT_KEY,
+  HORIZONTAL_ADVERTISING_SLOT_KEY,
+  emptyAdvertisement,
+  isAdvertisingSlotKey,
+  isAdvertisingFormat,
+  isAdvertisingUrl,
+  type AdvertisingSlotKey,
+} from "@/lib/site-advertising";
 import { writeSupabaseAdmin } from "@/lib/supabase";
 
 const IMAGE_BUCKET = "editorial-images";
@@ -26,26 +34,21 @@ function clean(value: FormDataEntryValue | null) {
 
 function validUrl(value: string, code: string) {
   if (!value) return null;
-  if (value.startsWith("/")) return value;
-
-  try {
-    const url = new URL(value);
-
-    if (url.protocol === "http:" || url.protocol === "https:") {
-      return value;
-    }
-  } catch {}
-
+  if (isAdvertisingUrl(value)) return value;
   throw new AdvertisingError(code);
 }
 
-function redirect(_request: Request, key: string, value: string) {
+function redirect(
+  _request: Request,
+  key: string,
+  value: string,
+  slotKey: AdvertisingSlotKey,
+) {
   const params = new URLSearchParams();
   params.set(key, value);
+  params.set("slot", slotKey);
 
-  return adminRelativeRedirect(
-    `/admin/publicidade?${params.toString()}`,
-  );
+  return adminRelativeRedirect(`/admin/publicidade?${params.toString()}`);
 }
 
 function codeFor(error: unknown) {
@@ -54,6 +57,8 @@ function codeFor(error: unknown) {
   }
 
   const detail = error instanceof Error ? error.message : "";
+
+  if (/display_format|42703|PGRST204/i.test(detail)) return "missing-format";
 
   if (/site_advertising_slots|PGRST205|42P01/i.test(detail)) {
     return "missing-table";
@@ -64,8 +69,7 @@ function codeFor(error: unknown) {
 
 function storageConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
   if (!url || !serviceRoleKey) {
     throw new AdvertisingError("upload-failed");
@@ -95,9 +99,7 @@ async function uploadAdvertisingImage(file: File) {
     return null;
   }
 
-  const extension = ALLOWED_IMAGE_TYPES.get(
-    file.type.toLowerCase(),
-  );
+  const extension = ALLOWED_IMAGE_TYPES.get(file.type.toLowerCase());
 
   if (!extension) {
     throw new AdvertisingError("invalid-image-format");
@@ -118,10 +120,7 @@ async function uploadAdvertisingImage(file: File) {
 
   const path = `publicidade/${year}/${month}/${filename}`;
 
-  const encodedPath = path
-    .split("/")
-    .map(encodeURIComponent)
-    .join("/");
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
 
   const uploadResponse = await fetch(
     `${config.url}/storage/v1/object/${IMAGE_BUCKET}/${encodedPath}`,
@@ -149,11 +148,23 @@ async function uploadAdvertisingImage(file: File) {
 }
 
 export async function POST(request: Request) {
+  let slotKey: AdvertisingSlotKey = PRIMARY_SIDE_ADVERTISING_SLOT_KEY;
   try {
     const form = await request.formData();
 
-    const name =
-      clean(form.get("name")) || "Publicidade lateral";
+    const requestedSlot =
+      clean(form.get("slot_key")) || PRIMARY_SIDE_ADVERTISING_SLOT_KEY;
+    if (!isAdvertisingSlotKey(requestedSlot))
+      throw new AdvertisingError("invalid-slot");
+    slotKey = requestedSlot;
+    const format = clean(form.get("display_format")) || "slim";
+    if (
+      slotKey === HORIZONTAL_ADVERTISING_SLOT_KEY &&
+      !isAdvertisingFormat(format)
+    ) {
+      throw new AdvertisingError("invalid-format");
+    }
+    const name = clean(form.get("name")) || emptyAdvertisement(slotKey).name;
 
     const imageFileValue = form.get("image_file");
 
@@ -164,21 +175,13 @@ export async function POST(request: Request) {
 
     const imageUrl = uploadedImageUrl
       ? uploadedImageUrl
-      : validUrl(
-          clean(form.get("image_url")),
-          "invalid-image",
-        );
+      : validUrl(clean(form.get("image_url")), "invalid-image");
 
-    const targetUrl = validUrl(
-      clean(form.get("target_url")),
-      "invalid-target",
-    );
+    const targetUrl = validUrl(clean(form.get("target_url")), "invalid-target");
 
-    const altText =
-      clean(form.get("alt_text")) || name;
+    const altText = clean(form.get("alt_text")) || name;
 
-    const isActive =
-      clean(form.get("is_active")) === "true";
+    const isActive = clean(form.get("is_active")) === "true";
 
     if (isActive && !imageUrl) {
       throw new AdvertisingError("missing-image");
@@ -188,31 +191,27 @@ export async function POST(request: Request) {
       throw new AdvertisingError("missing-target");
     }
 
-    await writeSupabaseAdmin(
-      "site_advertising_slots?on_conflict=slot_key",
-      {
-        method: "POST",
-        headers: {
-          Prefer: "resolution=merge-duplicates,return=minimal",
-        },
-        body: JSON.stringify({
-          slot_key: PRIMARY_SIDE_ADVERTISING_SLOT_KEY,
-          name,
-          image_url: imageUrl,
-          target_url: targetUrl,
-          alt_text: altText,
-          is_active: isActive,
-          updated_at: new Date().toISOString(),
-        }),
+    await writeSupabaseAdmin("site_advertising_slots?on_conflict=slot_key", {
+      method: "POST",
+      headers: {
+        Prefer: "resolution=merge-duplicates,return=minimal",
       },
-    );
+      body: JSON.stringify({
+        slot_key: slotKey,
+        ...(slotKey === HORIZONTAL_ADVERTISING_SLOT_KEY
+          ? { display_format: format }
+          : {}),
+        name,
+        image_url: imageUrl,
+        target_url: targetUrl,
+        alt_text: altText,
+        is_active: isActive,
+        updated_at: new Date().toISOString(),
+      }),
+    });
 
-    return redirect(request, "saved", "1");
+    return redirect(request, "saved", "1", slotKey);
   } catch (error) {
-    return redirect(
-      request,
-      "error",
-      codeFor(error),
-    );
+    return redirect(request, "error", codeFor(error), slotKey);
   }
 }

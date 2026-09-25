@@ -72,12 +72,12 @@ test("histórico publicado prevalece sobre resíduos legacy sem enfraquecer auto
 test("apenas a Jornada genuinamente legacy conserva o renderer live antigo", () => {
   assert.match(
     pageSource,
-    /isGenuineLegacy[\s\S]*?!useHierarchicalReferenceComposition[\s\S]*?liveEditorialBodyBlocks\.map/,
+    /isGenuineLegacy[\s\S]*?!useHierarchicalReferenceComposition[\s\S]*?renderPublicAdvertisingBoundary\(liveEditorialBodyBlocks/,
   );
 });
 
 test("físico usa blocks ordenados e zonas UUID no renderer flexível", () => {
-  assert.match(pageSource, /physicalSnapshot\.blocks\.map/);
+  assert.match(pageSource, /renderPublicAdvertisingBoundary\(physicalSnapshot\.blocks/);
   assert.match(pageSource, /physicalZoneById\.get\(block\.zoneId\)/);
   assert.match(pageSource, /key: zone\.zoneId/);
   assert.match(pageSource, /visualFamily: zone\.layoutId/);

@@ -72,16 +72,18 @@ const styles = `
   }
 `;
 
-export default function PublicThematicLatestOnlyLayout({
+export default async function PublicThematicLatestOnlyLayout({
   items,
   title,
   titleColor,
 }: PublicThematicLatestOnlyLayoutProps) {
-  const visibleItems = items
-    .filter((item) => item.title?.trim())
-    .slice(0, 6);
+  const visibleItems = items.filter((item) => item.title?.trim()).slice(0, 6);
 
   if (visibleItems.length === 0) return null;
+
+  const sideAdvertisement = await PublicSideAdvertisement({
+    className: "public-thematic-latest-only-ad-slot",
+  });
 
   return (
     <PublicMatchdayEditorialSectionFrame kind="latest">
@@ -97,13 +99,15 @@ export default function PublicThematicLatestOnlyLayout({
           titleColor={titleColor}
         />
 
-        <aside
-          className="public-thematic-latest-only-ad-column"
-          aria-label="Publicidade"
-          data-public-ad-slot="thematic-latest-only"
-        >
-          <PublicSideAdvertisement className="public-thematic-latest-only-ad-slot" />
-        </aside>
+        {sideAdvertisement ? (
+          <aside
+            className="public-thematic-latest-only-ad-column"
+            aria-label="Publicidade"
+            data-public-ad-slot="thematic-latest-only"
+          >
+            {sideAdvertisement}
+          </aside>
+        ) : null}
       </section>
     </PublicMatchdayEditorialSectionFrame>
   );
