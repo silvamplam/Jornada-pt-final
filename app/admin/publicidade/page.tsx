@@ -1,4 +1,9 @@
-import { readPrimarySideAdvertisement } from "@/lib/site-advertising";
+import {
+  PRIMARY_SIDE_ADVERTISING_SLOT_KEY,
+  HORIZONTAL_ADVERTISING_SLOT_KEY,
+  emptyAdvertisement,
+  readAdvertisement,
+} from "@/lib/site-advertising";
 
 export const dynamic = "force-dynamic";
 
@@ -6,6 +11,7 @@ type Props = {
   searchParams?: Promise<{
     saved?: string;
     error?: string;
+    slot?: string;
   }>;
 };
 
@@ -75,7 +81,15 @@ const styles = `
     box-shadow: 0 10px 24px rgba(12, 22, 34, 0.07);
   }
 
-  .campaign-form {
+  .campaign-fields {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .campaign-form,
+  .campaign-fields {
     display: grid;
     gap: 18px;
   }
@@ -94,7 +108,8 @@ const styles = `
 
   .campaign-field input[type="text"],
   .campaign-field input[type="url"],
-  .campaign-field input[type="file"] {
+  .campaign-field input[type="file"],
+  .campaign-field select {
     width: 100%;
     box-sizing: border-box;
     padding: 11px 12px;
@@ -122,6 +137,13 @@ const styles = `
     display: block;
     width: min(320px, 100%);
     height: auto;
+  }
+
+  .campaign-preview-horizontal img {
+    width: auto;
+    max-width: 100%;
+    max-height: 320px;
+    object-fit: contain;
   }
 
   .campaign-active {
@@ -178,35 +200,31 @@ function errorMessage(code?: string) {
   if (!code) return null;
 
   const messages: Record<string, string> = {
-    "missing-image":
-      "Uma publicidade ativa precisa de uma imagem.",
-    "missing-target":
-      "Uma publicidade ativa precisa de um link.",
-    "invalid-image":
-      "O endereço da imagem é inválido.",
-    "invalid-target":
-      "O link de destino é inválido.",
-    "invalid-image-format":
-      "A imagem deve ser JPG, PNG, WebP ou AVIF.",
-    "image-too-large":
-      "A imagem é demasiado grande.",
-    "upload-failed":
-      "Não foi possível carregar a nova imagem.",
-    "missing-table":
-      "A tabela de publicidade ainda não está disponível.",
-    "save-failed":
-      "Não foi possível guardar a publicidade.",
+    "invalid-slot": "A posição publicitária é inválida.",
+    "invalid-format": "Escolhe o formato Estreita ou Alta.",
+    "missing-format":
+      "A configuração da faixa horizontal ainda não está disponível.",
+    "missing-image": "Uma publicidade ativa precisa de uma imagem.",
+    "missing-target": "Uma publicidade ativa precisa de um link.",
+    "invalid-image": "O endereço da imagem é inválido.",
+    "invalid-target": "O link de destino é inválido.",
+    "invalid-image-format": "A imagem deve ser JPG, PNG, WebP ou AVIF.",
+    "image-too-large": "A imagem é demasiado grande.",
+    "upload-failed": "Não foi possível carregar a nova imagem.",
+    "missing-table": "A tabela de publicidade ainda não está disponível.",
+    "save-failed": "Não foi possível guardar a publicidade.",
   };
 
   return messages[code] ?? messages["save-failed"];
 }
 
-export default async function AdvertisingPage({
-  searchParams,
-}: Props) {
+export default async function AdvertisingPage({ searchParams }: Props) {
   const params = searchParams ? await searchParams : {};
-  const result = await readPrimarySideAdvertisement();
-  const ad = result.advertisement;
+  const slots = [
+    PRIMARY_SIDE_ADVERTISING_SLOT_KEY,
+    HORIZONTAL_ADVERTISING_SLOT_KEY,
+  ] as const;
+  const results = await Promise.all(slots.map(readAdvertisement));
   const error = errorMessage(params.error);
 
   return (
@@ -217,114 +235,150 @@ export default async function AdvertisingPage({
         <div>
           <p>Jornada.pt</p>
           <h1>Publicidade</h1>
-          <p>
-            Uma única campanha para a Jornada e para as notícias.
-          </p>
+          <p>Duas posições independentes: lateral e faixa horizontal.</p>
         </div>
 
         <a href="/admin">VOLTAR AO BACKOFFICE</a>
       </header>
 
-      <section className="campaign-panel">
-        {params.saved ? (
-          <p className="campaign-message">
-            Publicidade guardada nos dois locais.
-          </p>
-        ) : null}
+      {slots.map((slotKey, index) => {
+        const result = results[index];
+        const ad = result.advertisement ?? emptyAdvertisement(slotKey);
+        const horizontal = slotKey === HORIZONTAL_ADVERTISING_SLOT_KEY;
+        const selected =
+          params.slot === slotKey || (!params.slot && index === 0);
+        return (
+          <section
+            className="campaign-panel"
+            key={slotKey}
+            aria-label={horizontal ? "Faixa horizontal" : "Lateral"}
+          >
+            <h2>{horizontal ? "Faixa horizontal" : "Lateral"}</h2>
+            {params.saved && selected ? (
+              <p className="campaign-message">
+                Publicidade guardada nesta posição.
+              </p>
+            ) : null}
 
-        {!result.storageReady ? (
-          <p className="campaign-message warning">
-            Não foi possível ler imediatamente a configuração.
-            A campanha atual foi usada como fallback.
-          </p>
-        ) : null}
+            {!result.storageReady ? (
+              <p className="campaign-message warning">
+                Não foi possível ler esta posição. Recarrega a página antes de
+                editar. Sem configuração válida, esta publicidade não é
+                apresentada no site.
+              </p>
+            ) : null}
 
-        {error ? (
-          <p className="campaign-message error">{error}</p>
-        ) : null}
+            {error && selected ? (
+              <p className="campaign-message error">{error}</p>
+            ) : null}
 
-        <p className="campaign-note">
-          Alteras aqui uma vez. A mesma campanha aparece ao lado das
-          Últimas e na lateral dos artigos.
-        </p>
+            <p className="campaign-note">
+              {horizontal
+                ? "Uma faixa entre notícias e vídeos da Jornada, quando ambos os blocos estão visíveis."
+                : "A mesma publicidade aparece ao lado das Últimas e na lateral dos artigos."}
+            </p>
 
-        <form
-          className="campaign-form"
-          action="/api/admin/publicidade"
-          method="post"
-          encType="multipart/form-data"
-        >
-          <label className="campaign-field">
-            <span>Nome / campanha</span>
-            <input
-              type="text"
-              name="name"
-              defaultValue={ad.name}
-            />
-          </label>
+            <form
+              className="campaign-form"
+              action="/api/admin/publicidade"
+              method="post"
+              encType="multipart/form-data"
+            >
+              <input type="hidden" name="slot_key" value={slotKey} />
+              <fieldset
+                className="campaign-fields"
+                disabled={!result.storageReady}
+              >
+                <label className="campaign-field">
+                  <span>Nome</span>
+                  <input type="text" name="name" defaultValue={ad.name} />
+                </label>
 
-          <label className="campaign-field">
-            <span>Imagem atual / URL</span>
-            <input
-              type="text"
-              name="image_url"
-              defaultValue={ad.imageUrl}
-            />
-          </label>
+                <label className="campaign-field">
+                  <span>Imagem atual / URL</span>
+                  <input
+                    type="text"
+                    name="image_url"
+                    defaultValue={ad.imageUrl}
+                  />
+                </label>
 
-          <label className="campaign-field">
-            <span>Carregar nova imagem</span>
-            <input
-              type="file"
-              name="image_file"
-              accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif"
-            />
-            <span className="campaign-file-help">
-              Se escolheres um ficheiro, ele substitui o URL da imagem
-              quando guardares.
-            </span>
-          </label>
+                <label className="campaign-field">
+                  <span>Carregar nova imagem</span>
+                  <input
+                    type="file"
+                    name="image_file"
+                    accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif"
+                  />
+                  <span className="campaign-file-help">
+                    Se escolheres um ficheiro, ele substitui o URL da imagem
+                    quando guardares.
+                  </span>
+                </label>
 
-          {ad.imageUrl ? (
-            <div className="campaign-preview">
-              <strong>Imagem atual</strong>
-              <img src={ad.imageUrl} alt="" />
-            </div>
-          ) : null}
+                {ad.imageUrl ? (
+                  <div
+                    className={
+                      horizontal
+                        ? "campaign-preview campaign-preview-horizontal"
+                        : "campaign-preview"
+                    }
+                  >
+                    <strong>Imagem atual</strong>
+                    <img src={ad.imageUrl} alt="" />
+                  </div>
+                ) : null}
 
-          <label className="campaign-field">
-            <span>Link de destino</span>
-            <input
-              type="text"
-              name="target_url"
-              defaultValue={ad.targetUrl}
-            />
-          </label>
+                <label className="campaign-field">
+                  <span>Link de destino</span>
+                  <input
+                    type="text"
+                    name="target_url"
+                    defaultValue={ad.targetUrl}
+                  />
+                </label>
 
-          <label className="campaign-field">
-            <span>Texto alternativo</span>
-            <input
-              type="text"
-              name="alt_text"
-              defaultValue={ad.altText}
-            />
-          </label>
+                <label className="campaign-field">
+                  <span>Texto alternativo</span>
+                  <input
+                    type="text"
+                    name="alt_text"
+                    defaultValue={ad.altText}
+                  />
+                </label>
 
-          <label className="campaign-active">
-            <input
-              type="checkbox"
-              name="is_active"
-              value="true"
-              defaultChecked={ad.isActive}
-            />
-            Publicidade ativa
-          </label>
+                {horizontal ? (
+                  <label className="campaign-field">
+                    <span>Formato</span>
+                    <select name="display_format" defaultValue={ad.format}>
+                      <option value="slim">Estreita</option>
+                      <option value="tall">Alta</option>
+                    </select>
+                    <span className="campaign-file-help">
+                      Estreita é o formato padrão. A imagem mantém-se inteira e
+                      proporcional.
+                    </span>
+                  </label>
+                ) : null}
 
-          <button className="campaign-save" type="submit">
-            GUARDAR PUBLICIDADE
-          </button>
-        </form>
-      </section>
+                <label className="campaign-active">
+                  <input
+                    type="checkbox"
+                    name="is_active"
+                    value="true"
+                    defaultChecked={ad.isActive}
+                  />
+                  Publicidade ativa
+                </label>
+
+                <button className="campaign-save" type="submit">
+                  GUARDAR PUBLICIDADE
+                </button>
+              </fieldset>
+            </form>
+          </section>
+        );
+      })}
     </main>
   );
 }

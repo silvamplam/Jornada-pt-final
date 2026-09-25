@@ -1,3 +1,5 @@
+import PublicHorizontalAdvertisement from "@/components/public/PublicHorizontalAdvertisement";
+import { renderPublicAdvertisingBoundary } from "@/components/public/renderPublicAdvertisingBoundary";
 import { publicTopNavigationStyles } from "@/components/public/publicEditorialStyles";
 import { buildAccumulatedClassification, totalClassificationStats, type ClassificationSplit } from "@/lib/classification";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
@@ -59,7 +61,7 @@ import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement
 import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/public/PublicTeamBadge";
 import PublicThematicZoneLayout from "@/components/public/PublicThematicZoneLayout";
 import { redirect } from "next/navigation";
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -4117,15 +4119,18 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     if (zone === "six_news") {
       if (liveSixNewsSlots.length !== 6) return null;
 
+      const content = PublicHierarchicalLiveLayouts({
+        ariaLabel: "Zona editorial de 6 notícias",
+        slots: liveSixNewsSlots,
+        matchdayNumber: liveContext.matchday.number,
+        beyondMatchdayItems: [],
+      });
+      if (!content) return null;
+
       return (
         <PublicMatchdayEditorialSectionFrame kind="zone" key={zone}>
           <div className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region">
-            <PublicHierarchicalLiveLayouts
-              ariaLabel="Zona editorial de 6 notícias"
-              slots={liveSixNewsSlots}
-              matchdayNumber={liveContext.matchday.number}
-              beyondMatchdayItems={[]}
-            />
+            {content}
           </div>
         </PublicMatchdayEditorialSectionFrame>
       );
@@ -4134,15 +4139,18 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     if (zone === "five_news_balanced") {
       if (liveFiveNewsBalancedSlots.length !== 5) return null;
 
+      const content = PublicHierarchicalLiveLayouts({
+        ariaLabel: "Zona editorial de 5 notícias equilibradas",
+        slots: liveFiveNewsBalancedSlots,
+        matchdayNumber: liveContext.matchday.number,
+        beyondMatchdayItems: [],
+      });
+      if (!content) return null;
+
       return (
         <PublicMatchdayEditorialSectionFrame kind="zone" key={zone}>
           <div className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region">
-            <PublicHierarchicalLiveLayouts
-              ariaLabel="Zona editorial de 5 notícias equilibradas"
-              slots={liveFiveNewsBalancedSlots}
-              matchdayNumber={liveContext.matchday.number}
-              beyondMatchdayItems={[]}
-            />
+            {content}
           </div>
         </PublicMatchdayEditorialSectionFrame>
       );
@@ -4150,19 +4158,37 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
 
     if (liveBeyondMatchdayNews.length !== 5) return null;
 
+    const content = PublicHierarchicalLiveLayouts({
+      ariaLabel: "Zona editorial de 5 notícias secundárias",
+      slots: [],
+      matchdayNumber: liveContext.matchday.number,
+      beyondMatchdayItems: liveBeyondMatchdayNews,
+    });
+    if (!content) return null;
+
     return (
       <PublicMatchdayEditorialSectionFrame kind="zone" key={zone}>
         <div className="public-matchday-hierarchical-region public-matchday-live-hierarchical-region">
-          <PublicHierarchicalLiveLayouts
-            ariaLabel="Zona editorial de 5 notícias secundárias"
-            slots={[]}
-            matchdayNumber={liveContext.matchday.number}
-            beyondMatchdayItems={liveBeyondMatchdayNews}
-          />
+          {content}
         </div>
       </PublicMatchdayEditorialSectionFrame>
     );
   }
+
+  const [sideAdvertisement, horizontalAdvertisement] = await Promise.all([
+    useHierarchicalReferenceComposition ? PublicSideAdvertisement({}) : Promise.resolve(null),
+    publicEditorialUnavailable ? Promise.resolve(null) : PublicHorizontalAdvertisement(),
+  ]);
+  const openingHasNews = visibleHighlights.length > 0
+    || editorialVisibility.showHeadline
+    || editorialVisibility.showSideBlock
+    || (editorialVisibility.showLatestZone && latestNewsItems.length > 0);
+  const historicalLegacyBlockOrder = context.referenceComposition?.hierarchical_block_order == null
+    ? null
+    : normalizeHistoricalCompositionBlockOrder(context.referenceComposition.hierarchical_block_order);
+  // The validated legacy composition renders every preceding non-video section.
+  const historicalLegacyHasNewsBeforeVideo = historicalLegacyBlockOrder === null
+    || historicalLegacyBlockOrder.indexOf("video") > 0;
 
   return (
     <main className="public-matchday-shell">
@@ -4285,15 +4311,11 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               blockOrder={
                 useHistoricalDynamicZones
                   ? ["opening"]
-                  : context.referenceComposition?.hierarchical_block_order == null
-                    ? null
-                    : normalizeHistoricalCompositionBlockOrder(
-                        context.referenceComposition.hierarchical_block_order,
-                      )
+                  : historicalLegacyBlockOrder
               }
               editorial={hierarchicalEditorial}
               editorialHref={hierarchicalEditorialHref}
-              editorialAfter={<PublicSideAdvertisement />}
+              editorialAfter={sideAdvertisement}
               headlineTitleColor={
                 context.referenceComposition?.hierarchical_headline_title_color
                   ? normalizeHistoricalCompositionHeadlineTitleColor(
@@ -4325,18 +4347,21 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                 useHistoricalDynamicZones
                   ? undefined
                   : (children, key) => (
+                    <Fragment key={key}>
+                      {historicalLegacyHasNewsBeforeVideo ? horizontalAdvertisement : null}
                       <PublicMatchdayEditorialSectionFrame
                         kind="video"
                         key={`historical-legacy-${key}`}
                       >
                         {children}
                       </PublicMatchdayEditorialSectionFrame>
+                    </Fragment>
                     )
               }
             />
 
             {useHistoricalDynamicZones
-              ? historicalDynamicBodyBlocks.map((block) => {
+              ? renderPublicAdvertisingBoundary(historicalDynamicBodyBlocks, (block) => {
                   if (block.kind === "video") {
                     if (effectiveRoundupItems.length === 0) return null;
 
@@ -4364,7 +4389,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                       zone={block.zone}
                     />
                   );
-                })
+                }, horizontalAdvertisement, hasValidHistoricalOpening)
               : null}
             </>
           ) : (
@@ -4443,7 +4468,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       )}
 
       {!usePublishedReferenceComposition && physicalSnapshot
-        ? physicalSnapshot.blocks.map((block) => {
+        ? renderPublicAdvertisingBoundary(physicalSnapshot.blocks, (block) => {
             if (block.kind === "video") {
               if (
                 !physicalSnapshot.video.active
@@ -4514,9 +4539,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                 }}
               />
             );
-          })
+          }, horizontalAdvertisement, openingHasNews)
         : !usePublishedReferenceComposition && thematicSnapshot
-          ? thematicEditorialBodyBlocks.map((block) => {
+          ? renderPublicAdvertisingBoundary(thematicEditorialBodyBlocks, (block) => {
             if (block.kind === "video") {
               if (
                 complementaryMode !== "roundup_video"
@@ -4565,10 +4590,10 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                 zone={block.zone}
               />
             );
-            })
+            }, horizontalAdvertisement, openingHasNews)
           : isGenuineLegacy
           && !useHierarchicalReferenceComposition
-          ? liveEditorialBodyBlocks.map((block) => {
+          ? renderPublicAdvertisingBoundary(liveEditorialBodyBlocks, (block) => {
               if (block.kind === "video") {
                 return renderLivePublicZone("video");
               }
@@ -4578,7 +4603,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               }
 
               return renderLivePublicZone(block.zone.key);
-            })
+            }, horizontalAdvertisement, openingHasNews)
           : null}
 
       {!publicEditorialUnavailable

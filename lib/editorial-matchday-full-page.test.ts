@@ -47,12 +47,12 @@ test(
 
     assert.match(
       matchdayPage,
-      /<PublicSideAdvertisement \/>/
+      /PublicSideAdvertisement\(\{\}\)/
     );
 
     assert.match(
       matchdayPage,
-      /editorialAfter=\{<PublicSideAdvertisement \/>\}/
+      /editorialAfter=\{sideAdvertisement\}/
     );
   }
 );

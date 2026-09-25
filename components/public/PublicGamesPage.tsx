@@ -121,7 +121,7 @@ const gamesPageStyles = `
 
   .public-games-layout {
     display: grid;
-    grid-template-columns: minmax(0, 760px) minmax(240px, 300px);
+    grid-template-columns: minmax(0, 1fr);
     gap: 32px;
     align-items: start;
   }
@@ -373,25 +373,6 @@ const gamesPageStyles = `
     color: #c40012;
   }
 
-  .public-games-ad-rail {
-    display: grid;
-    gap: 18px;
-  }
-
-  .public-games-ad-box {
-    display: grid;
-    place-items: center;
-    min-height: 360px;
-    border: 1px solid #e0e6ee;
-    border-radius: 8px;
-    background: #f3f6f9;
-    color: #8a96a6;
-    font-size: 11px;
-    font-weight: 900;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
   @media (max-width: 820px) {
     .public-games-page {
       margin-top: 18px;
@@ -412,9 +393,6 @@ const gamesPageStyles = `
       max-width: none;
     }
 
-    .public-games-ad-box {
-      min-height: 180px;
-    }
   }
 `;
 
@@ -1222,9 +1200,6 @@ export default async function PublicGamesPageContent({ competitionSlug, seasonLa
               ))
             ) : null}
           </section>
-          <aside className="public-games-ad-rail" aria-label="Publicidade">
-            <div className="public-games-ad-box">Publicidade</div>
-          </aside>
         </div>
       </div>
     </main>

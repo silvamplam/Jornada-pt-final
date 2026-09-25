@@ -51,7 +51,7 @@ export default function AdvertisingLoading() {
       <header className="campaign-loading-card">
         <p>Jornada.pt</p>
         <h1>Publicidade</h1>
-        <p>Uma única campanha para a Jornada e para as notícias.</p>
+        <p>Duas posições independentes: lateral e faixa horizontal.</p>
       </header>
 
       <section className="campaign-loading-status">

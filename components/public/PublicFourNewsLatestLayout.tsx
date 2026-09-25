@@ -119,12 +119,17 @@ const styles = `
 
   @media (max-width: 1100px) {
     .public-four-news-latest-grid,
+    .public-four-news-latest-grid:not(:has(.public-four-news-ad-slot)),
     .public-four-news-latest-grid[data-has-latest="false"],
     .public-four-news-latest-grid[data-has-latest="false"]:not(:has(.public-four-news-ad-slot)) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .public-four-news-latest-grid > .public-four-news-grid {
+      grid-column: 1 / -1;
+    }
+
+    .public-four-news-latest-grid:not(:has(.public-four-news-ad-slot)) .public-four-news-latest-column {
       grid-column: 1 / -1;
     }
 
@@ -157,6 +162,7 @@ const styles = `
 
   @media (max-width: 680px) {
     .public-four-news-latest-grid,
+    .public-four-news-latest-grid:not(:has(.public-four-news-ad-slot)),
     .public-four-news-latest-grid[data-has-latest="false"],
     .public-four-news-latest-grid[data-has-latest="false"]:not(:has(.public-four-news-ad-slot)) {
       grid-template-columns: minmax(0, 1fr);
@@ -173,23 +179,25 @@ const styles = `
   }
 `;
 
-export default function PublicFourNewsLatestLayout({
+export default async function PublicFourNewsLatestLayout({
   items,
   latestNews,
   latestNewsTitle,
   latestNewsTitleColor,
 }: PublicFourNewsLatestLayoutProps) {
-  const {
-    visibleItems,
-    visibleLatestNews,
-  } = resolvePublicFourNewsLatestLayoutItems({
-    items,
-    latestNews,
-  });
+  const { visibleItems, visibleLatestNews } =
+    resolvePublicFourNewsLatestLayoutItems({
+      items,
+      latestNews,
+    });
 
   if (visibleItems.length === 0) {
     return null;
   }
+
+  const sideAdvertisement = await PublicSideAdvertisement({
+    className: "public-four-news-ad-slot",
+  });
 
   return (
     <PublicMatchdayEditorialSectionFrame kind="latest">
@@ -218,13 +226,15 @@ export default function PublicFourNewsLatestLayout({
             </div>
           ) : null}
 
-          <aside
-            className="public-four-news-ad-column"
-            aria-label="Publicidade"
-            data-public-ad-slot="four-news-latest"
-          >
-            <PublicSideAdvertisement className="public-four-news-ad-slot" />
-          </aside>
+          {sideAdvertisement ? (
+            <aside
+              className="public-four-news-ad-column"
+              aria-label="Publicidade"
+              data-public-ad-slot="four-news-latest"
+            >
+              {sideAdvertisement}
+            </aside>
+          ) : null}
         </div>
       </section>
     </PublicMatchdayEditorialSectionFrame>

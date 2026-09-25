@@ -1,6 +1,11 @@
 import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
 export const PRIMARY_SIDE_ADVERTISING_SLOT_KEY = "lateral_primary";
+export const HORIZONTAL_ADVERTISING_SLOT_KEY = "horizontal_between_zones";
+export type AdvertisingSlotKey =
+  | typeof PRIMARY_SIDE_ADVERTISING_SLOT_KEY
+  | typeof HORIZONTAL_ADVERTISING_SLOT_KEY;
+export type AdvertisingFormat = "slim" | "tall";
 
 export type SiteAdvertisingSlotRow = {
   slot_key: string;
@@ -9,112 +14,140 @@ export type SiteAdvertisingSlotRow = {
   target_url: string | null;
   alt_text: string | null;
   is_active: boolean | null;
+  display_format?: string | null;
 };
 
 export type PublicSideAdvertisementData = {
-  slotKey: string;
+  slotKey: AdvertisingSlotKey;
   name: string;
   imageUrl: string;
   targetUrl: string;
   altText: string;
   isActive: boolean;
+  format: AdvertisingFormat;
 };
 
 export type PublicSideAdvertisementReadResult = {
-  advertisement: PublicSideAdvertisementData;
-  source: "database" | "fallback";
+  advertisement: PublicSideAdvertisementData | null;
   storageReady: boolean;
   error: string | null;
 };
 
-export const DEFAULT_PUBLIC_SIDE_ADVERTISEMENT: PublicSideAdvertisementData = {
-  slotKey: PRIMARY_SIDE_ADVERTISING_SLOT_KEY,
-  name: "Startup Madeira NOW",
-  imageUrl: "/ads/startup-madeira-now-sidebar.png",
-  targetUrl: "https://now.startupmadeira.eu/",
-  altText: "Startup Madeira NOW",
-  isActive: true,
-};
-
 const ADVERTISEMENT_READ_TIMEOUT_MS = 2500;
 
-function text(value: string | null | undefined) {
-  return value?.trim() ?? "";
+export function isAdvertisingSlotKey(
+  value: string,
+): value is AdvertisingSlotKey {
+  return (
+    value === PRIMARY_SIDE_ADVERTISING_SLOT_KEY ||
+    value === HORIZONTAL_ADVERTISING_SLOT_KEY
+  );
 }
 
-async function withAdvertisingReadTimeout<T>(
-  promise: Promise<T>,
-): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
+export function isAdvertisingFormat(value: string): value is AdvertisingFormat {
+  return value === "slim" || value === "tall";
+}
 
+export function isAdvertisingUrl(value: string) {
+  if (!value || /[\\\u0000-\u0020]/.test(value)) return false;
+  if (value.startsWith("/") && !value.startsWith("//")) return true;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+export function emptyAdvertisement(
+  slotKey: AdvertisingSlotKey,
+): PublicSideAdvertisementData {
+  return {
+    slotKey,
+    name:
+      slotKey === PRIMARY_SIDE_ADVERTISING_SLOT_KEY
+        ? "Publicidade lateral"
+        : "Faixa horizontal",
+    imageUrl: "",
+    targetUrl: "",
+    altText: "",
+    isActive: false,
+    format: "slim",
+  };
+}
+
+async function withAdvertisingReadTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
       promise,
       new Promise<T>((_, reject) => {
-        timer = setTimeout(() => {
-          reject(new Error("advertising-read-timeout"));
-        }, ADVERTISEMENT_READ_TIMEOUT_MS);
+        timer = setTimeout(
+          () => reject(new Error("advertising-read-timeout")),
+          ADVERTISEMENT_READ_TIMEOUT_MS,
+        );
       }),
     ]);
   } finally {
-    if (timer) {
-      clearTimeout(timer);
-    }
+    if (timer) clearTimeout(timer);
   }
 }
 
 export function normalizePublicSideAdvertisement(
   row: SiteAdvertisingSlotRow,
 ): PublicSideAdvertisementData {
-  const name = text(row.name) || "Publicidade lateral";
-
+  const slotKey = isAdvertisingSlotKey(row.slot_key)
+    ? row.slot_key
+    : PRIMARY_SIDE_ADVERTISING_SLOT_KEY;
+  const name = row.name?.trim() || emptyAdvertisement(slotKey).name;
   return {
-    slotKey: text(row.slot_key) || PRIMARY_SIDE_ADVERTISING_SLOT_KEY,
+    slotKey,
     name,
-    imageUrl: text(row.image_url),
-    targetUrl: text(row.target_url),
-    altText: text(row.alt_text) || name,
+    imageUrl: row.image_url?.trim() ?? "",
+    targetUrl: row.target_url?.trim() ?? "",
+    altText: row.alt_text?.trim() || name,
     isActive: row.is_active === true,
+    format:
+      slotKey === HORIZONTAL_ADVERTISING_SLOT_KEY &&
+      row.display_format === "tall"
+        ? "tall"
+        : "slim",
   };
 }
 
 export function isDisplayableSideAdvertisement(
-  advertisement: PublicSideAdvertisementData,
-) {
+  advertisement: PublicSideAdvertisementData | null,
+): advertisement is PublicSideAdvertisementData {
   return Boolean(
-    advertisement.isActive &&
-      advertisement.imageUrl.trim() &&
-      advertisement.targetUrl.trim(),
+    advertisement?.isActive &&
+      isAdvertisingUrl(advertisement.imageUrl) &&
+      isAdvertisingUrl(advertisement.targetUrl),
   );
 }
 
-export async function readPrimarySideAdvertisement(): Promise<PublicSideAdvertisementReadResult> {
+export async function readAdvertisement(
+  slotKey: AdvertisingSlotKey,
+): Promise<PublicSideAdvertisementReadResult> {
   try {
+    // Keep the lateral compatible before the horizontal migration is applied.
+    const formatColumn =
+      slotKey === HORIZONTAL_ADVERTISING_SLOT_KEY ? ",display_format" : "";
     const rows = await withAdvertisingReadTimeout(
       fetchSupabaseAdminTable<SiteAdvertisingSlotRow>(
-        `site_advertising_slots?select=slot_key,name,image_url,target_url,alt_text,is_active&slot_key=eq.${PRIMARY_SIDE_ADVERTISING_SLOT_KEY}&limit=1`,
+        `site_advertising_slots?select=slot_key,name,image_url,target_url,alt_text,is_active${formatColumn}&slot_key=eq.${slotKey}&limit=1`,
       ),
     );
-
-    if (!rows[0]) {
-      return {
-        advertisement: DEFAULT_PUBLIC_SIDE_ADVERTISEMENT,
-        source: "fallback",
-        storageReady: true,
-        error: null,
-      };
-    }
-
     return {
-      advertisement: normalizePublicSideAdvertisement(rows[0]),
-      source: "database",
+      advertisement:
+        rows[0]?.slot_key === slotKey
+          ? normalizePublicSideAdvertisement(rows[0])
+          : null,
       storageReady: true,
       error: null,
     };
   } catch (error) {
     return {
-      advertisement: DEFAULT_PUBLIC_SIDE_ADVERTISEMENT,
-      source: "fallback",
+      advertisement: null,
       storageReady: false,
       error:
         error instanceof Error
@@ -122,4 +155,12 @@ export async function readPrimarySideAdvertisement(): Promise<PublicSideAdvertis
           : "Não foi possível ler a publicidade.",
     };
   }
+}
+
+export function readPrimarySideAdvertisement() {
+  return readAdvertisement(PRIMARY_SIDE_ADVERTISING_SLOT_KEY);
+}
+
+export function readHorizontalAdvertisement() {
+  return readAdvertisement(HORIZONTAL_ADVERTISING_SLOT_KEY);
 }
