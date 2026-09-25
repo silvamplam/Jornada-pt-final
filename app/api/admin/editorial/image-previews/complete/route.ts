@@ -4,6 +4,7 @@ import { getSupabaseServiceConfig } from "@/lib/supabase";
 import { verifyEditorialPreviewTicket } from "@/lib/editorial-image-preview-ticket.server";
 import { createEditorialPreviewStorage } from "@/lib/editorial-image-preview-storage.server";
 import { ensureEditorialImagePreviews } from "@/lib/editorial-image-preview-generation.server";
+import { PUBLIC_EDITORIAL_PREVIEW_WIDTHS } from "@/lib/editorial-image-preview";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
   try {
-    const result = await ensureEditorialImagePreviews(payload.path, createEditorialPreviewStorage(config));
+    const result = await ensureEditorialImagePreviews(payload.path, createEditorialPreviewStorage(config), undefined, PUBLIC_EDITORIAL_PREVIEW_WIDTHS);
     return NextResponse.json(result, { headers: { "Cache-Control": "private, no-store" } });
   } catch {
     console.warn("[editorial-preview] completion unavailable", { path: payload.path });

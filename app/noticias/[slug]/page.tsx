@@ -1,3 +1,4 @@
+import PublicEditorialImage from "@/components/public/PublicEditorialImage";
 import { publicTopNavigationStyles } from "@/components/public/publicEditorialStyles";
 import { notFound } from "next/navigation";
 import type { CSSProperties } from "react";
@@ -690,7 +691,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
 
           {article.image_url ? (
             <figure className="news-article-image">
-              <img
+              <PublicEditorialImage imageSize="article"
                 {...editorialImageFramingProps("standard")}
                 alt=""
                 src={article.image_url}
@@ -717,7 +718,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
                   return (
                     <li className="news-article-side-item" key={item.id}>
                       {item.image_url ? (
-                        <img
+                        <PublicEditorialImage imageSize="thumbnail"
                           {...editorialImageFramingProps("standard")}
                           alt=""
                           src={item.image_url}

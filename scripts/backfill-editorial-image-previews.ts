@@ -4,7 +4,8 @@ import { editorialStorageOrigin } from "../lib/editorial-image-preview";
 
 async function main() {
   if (process.argv.includes("--help")) {
-    console.log("Usage: npm run images:backfill -- --prefix editorial/YYYY/MM [--limit 20 (max 100)] [--offset 0] [--execute]");
+    console.log("Usage: npm run images:backfill -- --prefix editorial/YYYY/MM [--widths 320,640,960,1280] [--limit 20 (max 100)] [--offset 0] [--execute]");
+    console.log("Default widths remain A2: 320,640. Use --widths 320,640,960,1280 for public A3 companions.");
     console.log("Dry-run is the default. Writes ALSO require JORNADA_PREVIEW_BACKFILL_WRITE=allow:<configured-hostname>.");
     return;
   }

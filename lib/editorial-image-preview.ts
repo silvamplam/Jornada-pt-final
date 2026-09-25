@@ -2,7 +2,8 @@
 export const EDITORIAL_PREVIEW_BUCKET = "editorial-images";
 export const EDITORIAL_PREVIEW_RECIPE = "v1";
 export const EDITORIAL_PREVIEW_WIDTHS = [320, 640] as const;
-export type EditorialPreviewWidth = typeof EDITORIAL_PREVIEW_WIDTHS[number];
+export const PUBLIC_EDITORIAL_PREVIEW_WIDTHS = [320, 640, 960, 1280] as const;
+export type EditorialPreviewWidth = typeof PUBLIC_EDITORIAL_PREVIEW_WIDTHS[number];
 
 // These are immutable paths issued by the existing upload/import routes:
 // timestamp + UUID, never a title alone. Unknown/legacy naming stays original.
@@ -13,7 +14,7 @@ export function isEditorialPreviewOriginalPath(path: unknown): path is string {
 }
 
 export function editorialPreviewPath(path: string, width: EditorialPreviewWidth): string | null {
-  if (!isEditorialPreviewOriginalPath(path) || !EDITORIAL_PREVIEW_WIDTHS.includes(width)) return null;
+  if (!isEditorialPreviewOriginalPath(path) || !PUBLIC_EDITORIAL_PREVIEW_WIDTHS.includes(width)) return null;
   // Injective mapping of the complete, versioned object key: no hash library or DB.
   return `previews/${EDITORIAL_PREVIEW_RECIPE}/${path}/w${width}.webp`;
 }

@@ -1,3 +1,4 @@
+import PublicEditorialImage from "./PublicEditorialImage";
 ﻿import type { ReactNode } from "react";
 
 import {
@@ -992,7 +993,7 @@ function InterpretiveMedia({
           media={inlineMedia}
         />
       ) : slot?.image_url_snapshot ? (
-        <img
+        <PublicEditorialImage imageSize={slotKey === "dominant_main" ? "headline" : "card"}
           {...hierarchicalEditorialImageFramingProps(slotKey)}
           alt=""
           src={slot.image_url_snapshot}
