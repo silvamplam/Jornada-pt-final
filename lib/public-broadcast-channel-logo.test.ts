@@ -545,7 +545,9 @@ test("layout aprovado não depende de query parameter e a notícia sem jornada n
   assert.doesNotMatch(matchdaySource, /className="public-season-competition-emblem"/);
   assert.doesNotMatch(matchdaySource, /resolvePublicCompetitionLogoPresentation\(currentCompetitionMenuItem\)/);
   assert.match(matchdaySource, /<PublicCompetitionNavigation[\s\S]*?classificationHref="#classificacao"[\s\S]*?showMessageTicker=\{false\}/);
-  assert.match(newsSource, /if \(!article\.matchday_id\) \{\s*return null;/);
+  assert.match(newsSource, /readPublicArticleMatchdayContext\(article\)/);
+  const articleReader = await readFile(new URL("./public-article-matchday-context.ts", import.meta.url), "utf8");
+  assert.match(articleReader, /if \(!article\.matchday_id\) return null;/);
   assert.match(newsSource, /articleMatches\.length > 0 \? \([\s\S]*?<PublicMatchStrip/);
 });
 
@@ -560,7 +562,9 @@ test("todas as ocorrencias publicas da faixa usam a variante clean partilhada", 
     assert.match(source, /<PublicMatchStrip[\s\S]*?variant="clean"/);
   }
   assert.match(stripSource, /variant = "clean"/);
-  assert.match(newsSource, /if \(!article\.matchday_id\) \{\s*return null;/);
+  assert.match(newsSource, /readPublicArticleMatchdayContext\(article\)/);
+  const articleReader = await readFile(new URL("./public-article-matchday-context.ts", import.meta.url), "utf8");
+  assert.match(articleReader, /if \(!article\.matchday_id\) return null;/);
   assert.match(newsSource, /articleMatches\.length > 0 \? \([\s\S]*?<PublicMatchStrip/);
   assert.doesNotMatch(newsSource, /\.news-article-games-strip\s*\{|\.news-article-games-strip \.public-matchday-mini-card/);
 });

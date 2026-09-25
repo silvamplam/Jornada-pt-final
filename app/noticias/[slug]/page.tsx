@@ -12,17 +12,9 @@ import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { resolvePublicCompetitionLogoPresentation } from "@/lib/public-competition-navigation";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
-import {
-  getPublicMatchdayDiagnostic,
-  seasonLabelToUrlSegment,
-  type PublicSeasonMatch
-} from "@/lib/public-matchday";
-import {
-  fetchSupabaseAdminTable,
-  type SupabaseCompetition,
-  type SupabaseMatchday,
-  type SupabaseSeason
-} from "@/lib/supabase";
+import { seasonLabelToUrlSegment } from "@/lib/public-matchday";
+import { readPublicArticleMatchdayContext, type PublicArticleMatch } from "@/lib/public-article-matchday-context";
+import { fetchSupabaseAdminTable } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -414,7 +406,7 @@ function formatMiniCardKickoff(scheduledDate: string, value: string | null) {
   return `${dayMonth} · ${formatKickoffTime(value)}`;
 }
 
-function formatMatchdayDateContext(matches: PublicSeasonMatch[]) {
+function formatMatchdayDateContext(matches: PublicArticleMatch[]) {
   const scheduledDates = matches
     .map((match) => parseCivilDate(match.scheduled_date))
     .filter((date): date is NonNullable<typeof date> => date !== null)
@@ -457,7 +449,7 @@ function formatCivilDateRange(firstDate: NonNullable<ReturnType<typeof parseCivi
   return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
 }
 
-function formatPreferredMatchdayDateContext(matches: PublicSeasonMatch[], startsOn: string | null, endsOn: string | null) {
+function formatPreferredMatchdayDateContext(matches: PublicArticleMatch[], startsOn: string | null, endsOn: string | null) {
   const startsDate = parseCivilDate(startsOn);
   const endsDate = parseCivilDate(endsOn);
   if (startsDate && endsDate) return formatCivilDateRange(startsDate, endsDate);
@@ -491,57 +483,6 @@ async function readMoreArticles(currentArticle: EditorialArticle) {
   }
 }
 
-async function readArticleMatchdayContext(article: EditorialArticle) {
-  if (!article.matchday_id) {
-    return null;
-  }
-
-  try {
-    const matchdays = await fetchSupabaseAdminTable<SupabaseMatchday>(
-      `matchdays?select=id,season_id,number,label,starts_on,ends_on,status,context_summary&id=eq.${encodeURIComponent(
-        article.matchday_id
-      )}&limit=1`
-    );
-    const matchday = matchdays[0] ?? null;
-    const seasonId = matchday?.season_id ?? article.season_id;
-
-    if (!matchday || !seasonId) {
-      return null;
-    }
-
-    const seasons = await fetchSupabaseAdminTable<SupabaseSeason>(
-      `seasons?select=id,competition_id,label,starts_on,ends_on,is_current&id=eq.${encodeURIComponent(seasonId)}&limit=1`
-    );
-    const season = seasons[0] ?? null;
-    const competitionId = season?.competition_id ?? article.competition_id;
-
-    if (!season || !competitionId) {
-      return null;
-    }
-
-    const competitions = await fetchSupabaseAdminTable<SupabaseCompetition>(
-      `competitions?select=id,name,slug,country_id,country,logo_url,accent_color,is_active&id=eq.${encodeURIComponent(
-        competitionId
-      )}&limit=1`
-    );
-    const competition = competitions[0] ?? null;
-
-    if (!competition?.slug || !matchday.number) {
-      return null;
-    }
-
-    const { context } = await getPublicMatchdayDiagnostic({
-      competitionSlug: competition.slug,
-      seasonLabel: seasonLabelToUrlSegment(season.label),
-      matchdayNumber: matchday.number
-    });
-
-    return context;
-  } catch {
-    return null;
-  }
-}
-
 export default async function NewsArticlePage({ params }: PageProps) {
   const { slug } = await params;
   const article = await readArticle(slug);
@@ -552,7 +493,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
 
   const [moreArticles, articleContext, publicCompetitionMenuBase] = await Promise.all([
     readMoreArticles(article),
-    readArticleMatchdayContext(article),
+    readPublicArticleMatchdayContext(article),
     getPublicCompetitionMenu().catch(() => [])
   ]);
   const label = firstText(article.label);
