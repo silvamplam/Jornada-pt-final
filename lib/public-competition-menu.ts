@@ -92,16 +92,19 @@ function menuSort(a: PublicCompetitionMenuItem, b: PublicCompetitionMenuItem) {
   return a.label.localeCompare(b.label, "pt");
 }
 
-export async function getPublicCompetitionMenu(): Promise<
+export async function getPublicCompetitionMenu(structure?: {
+  competitions(): Promise<SupabaseCompetition[]>;
+  seasons(): Promise<SupabaseSeason[]>;
+}): Promise<
   PublicCompetitionMenuItem[]
 > {
   const referenceDate = new Date();
 
   const [competitions, seasons] = await Promise.all([
-    fetchSupabaseAdminTable<SupabaseCompetition>(
+    structure ? structure.competitions() : fetchSupabaseAdminTable<SupabaseCompetition>(
       "competitions?select=id,name,slug,logo_url,is_active&is_active=eq.true&order=name.asc&limit=100"
     ),
-    fetchSupabaseAdminTable<SupabaseSeason>(
+    structure ? structure.seasons() : fetchSupabaseAdminTable<SupabaseSeason>(
       "seasons?select=id,competition_id,label,starts_on,ends_on,is_current&order=label.desc&limit=500"
     )
   ]);

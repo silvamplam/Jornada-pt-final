@@ -1,4 +1,5 @@
 import type { ClassificationMatch } from "@/lib/classification";
+import type { PublicMatchdayStructuralReaders } from "@/lib/public-matchday-structural-context";
 import { fetchSupabaseAdminTable, type SupabaseBroadcastChannel, type SupabaseCompetition, type SupabaseMatch, type SupabaseMatchday, type SupabaseMatchdayEditorial, type SupabaseMatchdayHighlight, type SupabaseMatchdayHorizontalNews, type SupabaseMatchdayLatestNews, type SupabaseMatchdayRoundupItem, type SupabaseSeason, type SupabaseSeasonTeam, type SupabaseTeam } from "@/lib/supabase";
 import type { HierarchicalCompositionSlot, ReferenceCompositionPresentationMode } from "@/lib/editorial-hierarchical-composition";
 import type { MatchdayLiveLayoutItem } from "@/lib/editorial-matchday-live-layout";
@@ -797,7 +798,7 @@ export async function getPublicMatchdayDiagnostic({
   competitionSlug: string;
   seasonLabel: string;
   matchdayNumber: number;
-}): Promise<PublicMatchdayDiagnosticResult> {
+}, structure?: PublicMatchdayStructuralReaders): Promise<PublicMatchdayDiagnosticResult> {
   const normalizedSeasonLabel = normalizeSeasonSegment(seasonLabel);
   const baseDiagnostic: PublicMatchdayDiagnostic = {
     params: {
@@ -822,9 +823,9 @@ export async function getPublicMatchdayDiagnostic({
   }
 
   try {
-    const competitions = await fetchSupabaseAdminTable<SupabaseCompetition>(
+    const competitions = await (structure ? structure.competitions(competitionSlug) : fetchSupabaseAdminTable<SupabaseCompetition>(
       `competitions?select=id,name,slug,country_id,country,logo_url,accent_color,is_active&slug=eq.${encodeURIComponent(competitionSlug)}&limit=1`
-    );
+    ));
     const competition = competitions[0] ?? null;
 
     if (!competition) {
@@ -853,9 +854,9 @@ export async function getPublicMatchdayDiagnostic({
       };
     }
 
-    const seasons = await fetchSupabaseAdminTable<SupabaseSeason>(
+    const seasons = await (structure ? structure.seasons(competition.id, seasonLabel) : fetchSupabaseAdminTable<SupabaseSeason>(
       `seasons?select=id,competition_id,label,starts_on,ends_on,is_current&competition_id=eq.${encodeURIComponent(competition.id)}&order=label.desc&limit=100`
-    );
+    ));
     const season =
       seasons.find((item) => normalizeSeasonSegment(seasonLabelToUrlSegment(item.label)) === normalizedSeasonLabel) ?? null;
 
@@ -918,12 +919,12 @@ export async function getPublicMatchdayDiagnostic({
       )
     ]);
 
-    const teams = await readTeams([
+    const teams = await (structure?.teams ?? readTeams)([
       ...manualParticipants.map((participant) => participant.team_id),
       ...matchdayMatches.flatMap((match) => [match.home_team_id, match.away_team_id])
     ]);
     const [broadcastChannels, editorial, highlights, roundupItems, latestNews, horizontalNews, liveLayoutItems, editorialDeskControl, referenceCompositionBundle, historicalTransition] = await Promise.all([
-      readBroadcastChannels(matchdayMatches.map((match) => match.broadcast_channel_id ?? "")),
+      (structure?.channels ?? readBroadcastChannels)(matchdayMatches.map((match) => match.broadcast_channel_id ?? "")),
       readMatchdayEditorial(matchday.id),
       readPublishedMatchdayHighlights(matchday.id),
       readPublishedMatchdayRoundupItems(matchday.id),
