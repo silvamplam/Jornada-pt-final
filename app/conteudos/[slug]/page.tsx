@@ -1,3 +1,4 @@
+import PublicEditorialImage from "@/components/public/PublicEditorialImage";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -235,7 +236,7 @@ export default async function PublicEditorialContentPage({ params }: PageProps) 
         ) : imageUrl ? (
           <figure className="editorial-content-media">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <PublicEditorialImage imageSize="content"
               {...editorialImageFramingProps("wide")}
               src={imageUrl}
               alt=""

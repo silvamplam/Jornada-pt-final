@@ -1,3 +1,4 @@
+import PublicEditorialImage from "./PublicEditorialImage";
 import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 
 export type PublicBeyondMatchdayNewsItem = {
@@ -278,7 +279,7 @@ function StoryMedia({ item }: { item: PublicBeyondMatchdayNewsItem }) {
 
   return (
     <a className="public-beyond-matchday-media" href={item.linkUrl} aria-label={item.title}>
-      <img
+      <PublicEditorialImage imageSize="half"
         {...editorialImageFramingProps("wide")}
         src={item.imageUrl}
         alt=""

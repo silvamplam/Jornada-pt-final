@@ -307,8 +307,8 @@ test("completion endpoint enforces auth/ticket/origin and uses only this project
     assert.equal(requests, 0);
     const response = await completeUpload(request({ path, ticket }));
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { ok: true, created: 0, existing: 2, originalBytes: 0, previewBytes: 0 });
-    assert.equal(requests, 2);
+    assert.deepEqual(await response.json(), { ok: true, created: 0, existing: 4, originalBytes: 0, previewBytes: 0 });
+    assert.equal(requests, 4);
   } finally {
     globalThis.fetch = savedFetch;
     for (const name of names) {
@@ -379,7 +379,7 @@ test("upload pipelines all request completion after success and continue persist
   }
   const importer = source("app/api/admin/editorial/artigos/import-source-image/route.ts");
   assert.match(importer, /try \{\s+await ensureEditorialImagePreviews\([^;]+;\s+\} catch \{\s+console.warn\([^;]+;\s+\}\s+return NextResponse.json/);
-  assert.match(importer, /ensureEditorialImagePreviews\(path, createEditorialPreviewStorage\(config\), downloaded.bytes\)/);
+  assert.match(importer, /ensureEditorialImagePreviews\(path, createEditorialPreviewStorage\(config\), downloaded.bytes, PUBLIC_EDITORIAL_PREVIEW_WIDTHS\)/);
   assert.match(importer, /publicUrl: publicStorageUrl\(config.url, path\)/);
   assert.ok(importer.indexOf("ensureEditorialImagePreviews(path") > importer.indexOf("if (uploadError)"));
   const endpoint = source("app/api/admin/editorial/image-previews/complete/route.ts");

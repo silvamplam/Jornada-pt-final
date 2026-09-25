@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { EDITORIAL_PREVIEW_WIDTHS, type EditorialPreviewWidth } from "./editorial-image-preview";
+import { EDITORIAL_PREVIEW_WIDTHS, PUBLIC_EDITORIAL_PREVIEW_WIDTHS, type EditorialPreviewWidth } from "./editorial-image-preview";
 
 export const EDITORIAL_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 export const EDITORIAL_PREVIEW_MAX_PIXELS = 40_000_000;
@@ -22,7 +22,7 @@ export async function generateEditorialImagePreviews(
   }
   const result: GeneratedEditorialPreview[] = [];
   for (const width of widths) {
-    if (!EDITORIAL_PREVIEW_WIDTHS.includes(width)) throw new Error("preview-invalid-width");
+    if (!PUBLIC_EDITORIAL_PREVIEW_WIDTHS.includes(width)) throw new Error("preview-invalid-width");
     const output = await sharp(bytes, options)
       .rotate() // Apply EXIF orientation before resize; original bytes remain untouched.
       .resize({ width, withoutEnlargement: true })

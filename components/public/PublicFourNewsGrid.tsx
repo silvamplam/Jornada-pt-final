@@ -1,3 +1,4 @@
+import PublicEditorialImage from "./PublicEditorialImage";
 import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 
 export type PublicFourNewsItem = {
@@ -204,7 +205,7 @@ export default function PublicFourNewsGrid({
                   href={item.linkUrl}
                   aria-label={item.title}
                 >
-                  <img
+                  <PublicEditorialImage imageSize="half"
                     {...editorialImageFramingProps("wide")}
                     alt=""
                     src={item.imageUrl}

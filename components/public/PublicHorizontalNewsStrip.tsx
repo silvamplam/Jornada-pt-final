@@ -1,3 +1,4 @@
+import PublicEditorialImage from "./PublicEditorialImage";
 import type { CSSProperties } from "react";
 
 import {
@@ -229,7 +230,7 @@ export default function PublicHorizontalNewsStrip({
               <article className="public-horizontal-news-card" key={item.id}>
                 {item.imageUrl && item.linkUrl ? (
                   <a className="public-horizontal-news-image-link" href={item.linkUrl}>
-                    <img
+                    <PublicEditorialImage imageSize="card"
                       {...editorialImageFramingProps("wide")}
                       src={item.imageUrl}
                       alt=""
@@ -237,7 +238,7 @@ export default function PublicHorizontalNewsStrip({
                   </a>
                 ) : item.imageUrl ? (
                   <span className="public-horizontal-news-image">
-                    <img
+                    <PublicEditorialImage imageSize="card"
                       {...editorialImageFramingProps("wide")}
                       src={item.imageUrl}
                       alt=""

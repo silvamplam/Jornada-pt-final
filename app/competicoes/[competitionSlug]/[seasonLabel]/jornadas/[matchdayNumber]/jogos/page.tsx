@@ -1,3 +1,4 @@
+import PublicEditorialImage from "@/components/public/PublicEditorialImage";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import {
@@ -1523,7 +1524,7 @@ export default async function PublicMatchdayGamesPage({ params }: PublicMatchday
                       <>
                         {item.imageUrl ? (
                           <span className="public-games-news-thumb">
-                            <img
+                            <PublicEditorialImage imageSize="thumbnail"
                               {...editorialImageFramingProps("standard")}
                               alt=""
                               src={item.imageUrl}

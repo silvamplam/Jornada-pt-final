@@ -1,3 +1,4 @@
+import PublicEditorialImage from "./PublicEditorialImage";
 import type { ReactNode } from "react";
 import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 import PublicContextPostTitle from "./PublicContextPostTitle";
@@ -753,7 +754,7 @@ export function PublicSideBlock({
           <>
             {data.imageUrl ? (
               <div className="public-side-editorial-image">
-                <img
+                <PublicEditorialImage imageSize="card"
                   {...editorialImageFramingProps("standard")}
                   alt=""
                   src={data.imageUrl}
@@ -805,7 +806,7 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {
     </div>
   ) : data.imageUrl ? (
     <div className="public-editorial-main-image">
-      <img
+      <PublicEditorialImage imageSize="headline"
         {...editorialImageFramingProps("wide")}
         src={data.imageUrl}
         alt=""
@@ -873,7 +874,7 @@ function PublicHighlightCard({ item }: { item: PublicEditorialHighlight }) {
     <>
       <div className="public-highlight-image">
         {item.imageUrl ? (
-          <img
+          <PublicEditorialImage imageSize="card"
             {...editorialImageFramingProps("wide")}
             src={item.imageUrl}
             alt=""
@@ -934,7 +935,7 @@ export function PublicComplementaryBlock({
     </div>
   ) : data.imageUrl ? (
     <div className="public-complement-media">
-      <img
+      <PublicEditorialImage imageSize="half"
         {...editorialImageFramingProps("wide")}
         src={data.imageUrl}
         alt=""

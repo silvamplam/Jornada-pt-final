@@ -1,5 +1,7 @@
 "use client";
 
+import PublicEditorialImage from "./PublicEditorialImage";
+
 import { useEffect, useRef } from "react";
 import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 
@@ -203,7 +205,7 @@ export default function PublicLatestNewsBlock({
           >
             {item.imageUrl ? (
               <div className="public-news-thumb">
-                <img
+                <PublicEditorialImage imageSize="latest"
                   {...editorialImageFramingProps("wide")}
                   alt=""
                   src={item.imageUrl}

@@ -1,4 +1,4 @@
-import { EDITORIAL_PREVIEW_BUCKET, editorialPreviewPath, editorialStorageOrigin, isEditorialPreviewOriginalPath } from "./editorial-image-preview";
+import { EDITORIAL_PREVIEW_BUCKET, editorialPreviewPath, editorialStorageOrigin, isEditorialPreviewOriginalPath, type EditorialPreviewWidth } from "./editorial-image-preview";
 import { EDITORIAL_PREVIEW_MAX_BYTES } from "./editorial-image-preview-generator.server";
 
 export type PreviewStorageEntry = { name: string; id: string | null; metadata?: { size?: number; mimetype?: string } | null };
@@ -13,8 +13,8 @@ const monthPrefix = /^editorial\/20\d{2}\/(?:0[1-9]|1[0-2])$/;
 export function isEditorialPreviewMonth(prefix: string) { return monthPrefix.test(prefix); }
 
 function isPreviewPath(path: string) {
-  const match = /^previews\/v1\/(.+)\/w(320|640)\.webp$/.exec(path);
-  return Boolean(match && editorialPreviewPath(match[1], Number(match[2]) as 320 | 640) === path);
+  const match = /^previews\/v1\/(.+)\/w(320|640|960|1280)\.webp$/.exec(path);
+  return Boolean(match && editorialPreviewPath(match[1], Number(match[2]) as EditorialPreviewWidth) === path);
 }
 
 export function createEditorialPreviewStorage(
