@@ -770,6 +770,8 @@ function ResultSummary({
                         <img
                           src={productionImage.imageUrl}
                           alt={`Pré-visualização de ${productionImage.label || `artigo ${row.key}`}`}
+                          loading="lazy"
+                          decoding="async"
                         />
                         <div>
                           <p>{productionImage.label || `Imagem do artigo ${row.key}`}</p>
