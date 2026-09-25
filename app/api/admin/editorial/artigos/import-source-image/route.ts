@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { getSupabaseServiceConfig } from "@/lib/supabase";
+import { createEditorialPreviewStorage } from "@/lib/editorial-image-preview-storage.server";
+import { ensureEditorialImagePreviews } from "@/lib/editorial-image-preview-generation.server";
 import { downloadEditorialSourceImage } from "@/lib/redacao-automatica/editorial-source-image";
 import {
   isEditorialSourcePackageLocation,
@@ -160,6 +162,12 @@ export async function POST(request: Request) {
     );
   }
 
+  // Reuse bytes already downloaded for the original; preview failure is non-fatal.
+  try {
+    await ensureEditorialImagePreviews(path, createEditorialPreviewStorage(config), downloaded.bytes);
+  } catch {
+    console.warn("[editorial-preview] import completion unavailable", { path });
+  }
   return NextResponse.json({
     ok: true,
     publicUrl: publicStorageUrl(config.url, path),

@@ -100,7 +100,7 @@ test("o topo dos candidatos tem duas linhas, lupa e nenhuma ordenação visível
 test("checkbox e ação do cartão ficam estruturalmente sobre a imagem", () => {
   assert.match(
     client,
-    /<span className="hc-desk-row-image">[\s\S]*?<input[\s\S]*?type="checkbox"[\s\S]*?<img/,
+    /<span className="hc-desk-row-image">[\s\S]*?<input[\s\S]*?type="checkbox"[\s\S]*?<BackofficeImage/,
   );
   assert.match(
     modernStyles,

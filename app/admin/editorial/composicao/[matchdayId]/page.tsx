@@ -1,3 +1,4 @@
+import BackofficeImage from "@/components/admin/BackofficeImage";
 import type { ReactNode } from "react";
 import { articleClassificationLabel } from "@/lib/editorial-classifications";
 import { readMatchdayEditorialDesk } from "@/lib/editorial-matchday-desk";
@@ -2022,7 +2023,7 @@ function ImagePreview({ src }: { src?: string | null }) {
 
   return (
     <div className="composition-admin-image">
-      <img alt="" src={imageUrl} loading="lazy" decoding="async" />
+      <BackofficeImage previewWidth={320} alt="" src={imageUrl} loading="lazy" decoding="async" />
     </div>
   );
 }
@@ -2800,7 +2801,7 @@ function HierarchicalCompositionDeskBank({
                   </span>
 
                   {thumbnail ? (
-                    <img
+                    <BackofficeImage previewWidth={320}
                       alt=""
                       className="composition-admin-desk-thumbnail"
                       src={thumbnail}

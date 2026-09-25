@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3000",
     "build": "next build",
+    "images:backfill": "tsx scripts/backfill-editorial-image-previews.ts",
+    "images:benchmark": "tsx scripts/benchmark-editorial-image-previews.ts",
     "start": "next start -H 0.0.0.0 -p 3000",
     "lint": "next lint",
     "test:redacao-hardening": "tsx --test lib/redacao-automatica/source-access-hardening.test.ts",
@@ -19,7 +21,8 @@
     "cheerio": "1.2.0",
     "next": "^15.5.22",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "sharp": "0.34.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

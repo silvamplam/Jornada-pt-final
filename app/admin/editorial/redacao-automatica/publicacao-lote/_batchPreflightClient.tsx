@@ -1,5 +1,7 @@
 "use client";
 
+import BackofficeImage from "@/components/admin/BackofficeImage";
+import { completeEditorialImagePreviews } from "@/lib/editorial-image-preview-upload";
 import { mesaProductionIntentSlots } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
@@ -163,6 +165,8 @@ type ThemeContinuityBatchResponse = Readonly<{
 }>;
 
 type SignedUploadResponse = Readonly<{
+  previewTicket?: string;
+  path?: string;
   ok?: boolean;
   error?: string;
   detail?: string;
@@ -767,7 +771,7 @@ function ResultSummary({
                     ) : null}
                     {dossierImages.length > 0 ? null : productionImage ? (
                       <div className={`${styles.imageAssociation} ${styles.associatedImage}`}>
-                        <img
+                        <BackofficeImage previewWidth={320}
                           src={productionImage.imageUrl}
                           alt={`Pré-visualização de ${productionImage.label || `artigo ${row.key}`}`}
                           loading="lazy"
@@ -1745,6 +1749,8 @@ export default function BatchPreflightClient({
       const detail = await uploadResponse.text().catch(() => "");
       throw new Error(firstText(detail, `Falhou o upload de ${file.name}.`));
     }
+
+    void completeEditorialImagePreviews(signPayload);
 
     return signPayload.publicUrl;
   }

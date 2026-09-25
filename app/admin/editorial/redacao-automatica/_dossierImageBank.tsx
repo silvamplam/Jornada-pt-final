@@ -1,5 +1,7 @@
 "use client";
 
+import BackofficeImage from "@/components/admin/BackofficeImage";
+import { completeEditorialImagePreviews } from "@/lib/editorial-image-preview-upload";
 import { useRef, useState } from "react";
 
 import type { DossierImageChoice } from "./_dossierImageChoiceGrid";
@@ -9,6 +11,7 @@ const WORKSPACE_ROUTE = "/api/admin/editorial/redacao-automatica/mesa/workspace"
 const ARTICLE_IMAGE_SIGN_ROUTE = "/api/admin/editorial/artigos/upload-image/sign";
 
 type SignedUpload = Readonly<{
+  previewTicket?: string;
   bucket: string;
   path: string;
   signedUrl: string;
@@ -130,6 +133,8 @@ export default function DossierImageBank({
         body: file,
       });
       if (!uploadResponse.ok) throw new Error("Não foi possível carregar a imagem.");
+      void completeEditorialImagePreviews(signed);
+
       const registration: SignedUpload = {
         bucket: signed.bucket,
         path: signed.path,
@@ -181,7 +186,7 @@ export default function DossierImageBank({
           <ol className={styles.imageBank}>
             {images.map((image) => (
               <li key={image.id}>
-                <img src={image.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                <BackofficeImage previewWidth={320} src={image.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
                 <div><strong>{image.label}</strong></div>
               </li>
             ))}

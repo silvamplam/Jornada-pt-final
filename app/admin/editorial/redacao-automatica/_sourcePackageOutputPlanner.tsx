@@ -1,5 +1,7 @@
 "use client";
 
+import BackofficeImage from "@/components/admin/BackofficeImage";
+import { completeEditorialImagePreviews } from "@/lib/editorial-image-preview-upload";
 import { useState } from "react";
 
 import {
@@ -39,6 +41,8 @@ type OutputUploadState = Readonly<{
 }>;
 
 type SignedUploadResponse = Readonly<{
+  previewTicket?: string;
+  path?: string;
   ok?: boolean;
   error?: string;
   detail?: string;
@@ -317,6 +321,8 @@ export default function SourcePackageOutputPlanner({
         throw new Error(detail.trim() || `Falhou o upload de ${file.name}.`);
       }
 
+      void completeEditorialImagePreviews(signPayload);
+
       setChoices((current) => ({
         ...current,
         [position]: {
@@ -489,7 +495,7 @@ export default function SourcePackageOutputPlanner({
                           }
                           onChange={() => chooseSource(row.position, candidate.newsroomArticleId)}
                         />
-                        <img src={candidate.imageUrl} alt="" loading="lazy" />
+                        <BackofficeImage previewWidth={320} src={candidate.imageUrl} alt="" loading="lazy" />
                         <span>
                           <strong>{candidate.sourceName}</strong>
                           <small>{candidate.title}</small>

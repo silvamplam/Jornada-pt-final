@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
+import { issueEditorialPreviewTicket } from "@/lib/editorial-image-preview-ticket.server";
 
 const BUCKET = "editorial-images";
 const DEFAULT_MAX_UPLOAD_MB = 8;
@@ -191,6 +192,7 @@ export async function POST(request: Request) {
     token,
     signedUrl,
     publicUrl: publicStorageUrl(config.url, BUCKET, path),
+    previewTicket: issueEditorialPreviewTicket(path, config.serviceRoleKey),
     maxUploadMb,
     maxSize,
   });
