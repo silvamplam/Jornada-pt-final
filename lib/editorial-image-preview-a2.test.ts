@@ -22,6 +22,15 @@ const otherPath = path.replace("123456789012", "123456789013");
 const source = (file: string) => readFileSync(file, "utf8").replace(/\r\n/g, "\n");
 const preview320 = editorialPreviewPath(path, 320)!;
 const preview640 = editorialPreviewPath(path, 640)!;
+const clientUploadFiles = [
+  "app/admin/editorial/artigos/_articleForm.tsx",
+  "app/admin/editorial/conteudos/_contentForm.tsx",
+  "app/admin/editorial/redacao-automatica/_dossierImageBank.tsx",
+  "app/admin/editorial/redacao-automatica/_sourcePackageOutputPlanner.tsx",
+  "app/admin/editorial/redacao-automatica/_manualNewsEntryForm.tsx",
+  "app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx",
+  "app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx",
+];
 
 test("paths are deterministic, versioned, injective and have two separate variants", () => {
   assert.equal(editorialPreviewPath(path, 320), preview320);
@@ -213,6 +222,48 @@ test("upload completion is best effort, does not return a replacement image URL,
   } finally { globalThis.fetch = savedFetch; }
 });
 
+test("all seven client upload continuations expose the original while keepalive completion is pending", async () => {
+  const savedFetch = globalThis.fetch;
+  const release: (() => void)[] = [];
+  const completions: Promise<void>[] = [];
+  const signed = { path, previewTicket: issueEditorialPreviewTicket(path, "fixture-key"), publicUrl: original };
+  try {
+    globalThis.fetch = ((url, init) => {
+      assert.equal(url, "/api/admin/editorial/image-previews/complete");
+      assert.equal(init?.method, "POST");
+      assert.equal(init?.keepalive, true);
+      assert.deepEqual(JSON.parse(String(init?.body)), { path, ticket: signed.previewTicket });
+      assert.ok(Buffer.byteLength(String(init?.body)) < 2048);
+      return new Promise<Response>((resolve) => {
+        // Remain pending until every editorial continuation has finished, then fail.
+        release.push(() => resolve(Response.json({ ok: false }, { status: 503 })));
+      });
+    }) as typeof fetch;
+    for (const file of clientUploadFiles) {
+      const text = source(file);
+      const lines = text.split("\n").filter((line) => /completeEditorialImagePreviews/.test(line) && !line.startsWith("import "));
+      assert.equal(lines.length, 1, file);
+      assert.match(lines[0], /^\s*void /, file);
+      // Execute the actual call statement, including the two legacy inline forms.
+      const statement = lines[0].replace("${completeEditorialImagePreviews.toString()}", "completeEditorialImagePreviews");
+      const continueUpload = new Function("completeEditorialImagePreviews", "signPayload", "signed",
+        "return (async () => { " + statement + " return signPayload.publicUrl; })();");
+      const flow: Promise<string> = continueUpload((payload: typeof signed) => {
+        const completion = completeEditorialImagePreviews(payload);
+        completions.push(completion);
+        return completion;
+      }, signed, signed);
+      const value = await Promise.race([flow, new Promise<null>((resolve) => setImmediate(() => resolve(null)))]);
+      assert.equal(value, original, file + " must not wait for the preview response");
+    }
+    assert.equal(release.length, 7);
+  } finally {
+    release.forEach((resolve) => resolve());
+    await Promise.all(completions); // HTTP failure must also be contained, with no rejected promise.
+    globalThis.fetch = savedFetch;
+  }
+});
+
 test("backfill is dry-run by default and requires explicit write option plus environment guard", () => {
   const options = parsePreviewBackfillArgs(["--prefix", "editorial/2026/09"]);
   assert.deepEqual(options, { prefix: "editorial/2026/09", limit: 20, offset: 0, execute: false });
@@ -314,17 +365,9 @@ test("rendering is static URL selection only, with one-way original fallback and
 });
 
 test("upload pipelines all request completion after success and continue persisting canonical URLs", () => {
-  for (const file of [
-    "app/admin/editorial/artigos/_articleForm.tsx",
-    "app/admin/editorial/conteudos/_contentForm.tsx",
-    "app/admin/editorial/redacao-automatica/_dossierImageBank.tsx",
-    "app/admin/editorial/redacao-automatica/_sourcePackageOutputPlanner.tsx",
-    "app/admin/editorial/redacao-automatica/_manualNewsEntryForm.tsx",
-    "app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx",
-    "app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx",
-  ]) {
+  for (const file of clientUploadFiles) {
     const text = source(file);
-    const index = Math.max(text.indexOf("await completeEditorialImagePreviews("), text.indexOf("await (${completeEditorialImagePreviews.toString()}"));
+    const index = Math.max(text.indexOf("void completeEditorialImagePreviews("), text.indexOf("void (${completeEditorialImagePreviews.toString()}"));
     assert.ok(index > text.indexOf("if (!uploadResponse.ok)"), file);
     assert.match(text, /publicUrl/);
     assert.doesNotMatch(text, /image_?url[^\n]*= [^\n]*(?:previewUrl|editorialImagePreviewUrl)/i);
@@ -335,6 +378,7 @@ test("upload pipelines all request completion after success and continue persist
     assert.match(text, /"x-upsert": "false"/);
   }
   const importer = source("app/api/admin/editorial/artigos/import-source-image/route.ts");
+  assert.match(importer, /try \{\s+await ensureEditorialImagePreviews\([^;]+;\s+\} catch \{\s+console.warn\([^;]+;\s+\}\s+return NextResponse.json/);
   assert.match(importer, /ensureEditorialImagePreviews\(path, createEditorialPreviewStorage\(config\), downloaded.bytes\)/);
   assert.match(importer, /publicUrl: publicStorageUrl\(config.url, path\)/);
   assert.ok(importer.indexOf("ensureEditorialImagePreviews(path") > importer.indexOf("if (uploadError)"));
@@ -384,7 +428,7 @@ test("A2 changes no SQL, public renderers, Mesa Viva, logos, snapshots or Articl
     .replace(/^import BackofficeImage[^\n]*\n/gm, "")
     .replace(/^import \{ (?:completeEditorialImagePreviews|issueEditorialPreviewTicket|createEditorialPreviewStorage|ensureEditorialImagePreviews) \}[^\n]*\n/gm, "")
     .replace(/<BackofficeImage previewWidth=\{(?:320|640)\}/g, "<img")
-    .replace(/^ +await (?:completeEditorialImagePreviews\((?:signed|signPayload)\)|\(\$\{completeEditorialImagePreviews.toString\(\)\}\)\(signPayload\));\n\n/gm, "")
+    .replace(/^ +void (?:completeEditorialImagePreviews\((?:signed|signPayload)\)|\(\$\{completeEditorialImagePreviews.toString\(\)\}\)\(signPayload\));\n\n/gm, "")
     .replace(/^  (?:previewTicket|path)\?: string;\n/gm, "")
     .replace(/^    previewTicket: issueEditorialPreviewTicket\(path, config.serviceRoleKey\),\n/gm, "")
     .replace(/  \/\/ Reuse bytes already downloaded for the original; preview failure is non-fatal\.\n  try \{\n    await ensureEditorialImagePreviews\(path, createEditorialPreviewStorage\(config\), downloaded.bytes\);\n  \} catch \{\n    console.warn\("\[editorial-preview\] import completion unavailable", \{ path \}\);\n  \}\n/g, "");

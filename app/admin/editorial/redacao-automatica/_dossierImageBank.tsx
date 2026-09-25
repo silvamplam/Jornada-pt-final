@@ -133,7 +133,7 @@ export default function DossierImageBank({
         body: file,
       });
       if (!uploadResponse.ok) throw new Error("Não foi possível carregar a imagem.");
-      await completeEditorialImagePreviews(signed);
+      void completeEditorialImagePreviews(signed);
 
       const registration: SignedUpload = {
         bucket: signed.bucket,

@@ -321,7 +321,7 @@ export default function SourcePackageOutputPlanner({
         throw new Error(detail.trim() || `Falhou o upload de ${file.name}.`);
       }
 
-      await completeEditorialImagePreviews(signPayload);
+      void completeEditorialImagePreviews(signPayload);
 
       setChoices((current) => ({
         ...current,

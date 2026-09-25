@@ -128,7 +128,7 @@ export default function ManualNewsEntryForm({
         throw new Error("Não foi possível carregar a imagem.");
       }
 
-      await completeEditorialImagePreviews(signPayload);
+      void completeEditorialImagePreviews(signPayload);
 
       if (!imageUrlRef.current) {
         throw new Error("Não foi possível associar a imagem.");

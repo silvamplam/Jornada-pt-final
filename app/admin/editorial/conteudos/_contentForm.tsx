@@ -829,7 +829,7 @@ export function EditorialContentForm({
                     throw new Error('upload-failed:' + (uploadDetail || uploadResponse.status));
                   }
 
-                  await (${completeEditorialImagePreviews.toString()})(signPayload);
+                  void (${completeEditorialImagePreviews.toString()})(signPayload);
 
                   if (parts.targetInput) {
                     parts.targetInput.value = signPayload.publicUrl;

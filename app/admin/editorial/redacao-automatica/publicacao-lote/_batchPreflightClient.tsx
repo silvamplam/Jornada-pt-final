@@ -1750,7 +1750,7 @@ export default function BatchPreflightClient({
       throw new Error(firstText(detail, `Falhou o upload de ${file.name}.`));
     }
 
-    await completeEditorialImagePreviews(signPayload);
+    void completeEditorialImagePreviews(signPayload);
 
     return signPayload.publicUrl;
   }

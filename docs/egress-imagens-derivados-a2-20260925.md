@@ -52,9 +52,9 @@ Referências: [instalação do sharp](https://sharp.pixelplumbing.com/install/),
 |---|---|
 | Upload de artigo — `_articleForm.tsx` | Original continua a ir diretamente para Storage; conclusão best effort após sucesso. |
 | Upload de imagem de conteúdo — `_contentForm.tsx` | Mesmo mecanismo; upload de vídeo não alterado. |
-| Publicação em lote — `_batchPreflightClient.tsx` | Completa companions e devolve o mesmo `signPayload.publicUrl` original à publicação. |
-| Entrada manual — `_manualNewsEntryForm.tsx` | Completa companions; input editorial e submissão mantêm URL original. |
-| Banco partilhado — `_dossierImageBank.tsx` | Completa após PUT, antes de registar o mesmo original no Dossiê. |
+| Publicação em lote — `_batchPreflightClient.tsx` | Inicia companions sem aguardar e devolve imediatamente o mesmo `signPayload.publicUrl` original à publicação. |
+| Entrada manual — `_manualNewsEntryForm.tsx` | Inicia companions sem aguardar; input editorial e submissão imediata mantêm URL original. |
+| Banco partilhado — `_dossierImageBank.tsx` | Inicia após PUT, sem aguardar antes de registar o mesmo original no Dossiê. |
 | Banco interno de Produção — `_workspace-client.tsx` | Também coberto, incluindo o percurso interno anterior ao banco partilhado. |
 | Planeador de outputs — `_sourcePackageOutputPlanner.tsx` | Upload externo/local conserva a URL original na escolha do output. |
 | Importação de fonte — `import-source-image/route.ts` | Depois de gravar o original, reutiliza os bytes já descarregados. Nenhum segundo download. |
@@ -65,7 +65,11 @@ A conclusão é um POST administrativo separado, nunca um endpoint de imagem. Ve
 
 Nenhuma conclusão é chamada pelo componente visual. Não há geração em GET, em scroll, durante renderização ou a cada pedido de imagem.
 
-Uma falha gera um resultado diagnosticável com path, fase implícita na mensagem e contadores; não lança erro para o fluxo editorial. O cliente também absorve falhas de rede/HTTP e continua com o original. Não há DELETE nem upsert de originais ou previews. Um conflito de criação de preview é tratado como objeto já existente. O cliente aguarda a conclusão best effort, com timeout de 45 segundos; em falha/fecho da página, o backfill pode recuperar companions em falta.
+Uma falha gera um resultado diagnosticável com path, fase implícita na mensagem e contadores; não lança erro para o fluxo editorial. O cliente também absorve falhas de rede/HTTP e continua com o original. Não há DELETE nem upsert de originais ou previews. Um conflito de criação de preview é tratado como objeto já existente.
+
+Nos sete percursos client-side, a chamada usa `void completeEditorialImagePreviews(...)`: depois do PUT bem-sucedido, a associação/confirmação do original e guardar/continuar/publicar não aguardam os previews. O timeout de 45 segundos limita apenas o pedido em segundo plano. O POST pequeno, contendo só path e ticket, usa `keepalive: true` para permitir continuidade durante navegação, incluindo o `form.submit()` da entrada manual. Não há abort por unmount, nova fila, cron, DB ou infraestrutura. Assinatura/validação do ticket, sessão, Origin e endpoint permanecem iguais.
+
+`keepalive` continua best effort e sujeito aos limites do browser/rede; não garante entrega perante fecho forçado ou falha de rede. Referência: [Fetch Standard — keepalive](https://fetch.spec.whatwg.org/#request-keepalive-flag). O backfill pode recuperar companions em falta. A importação de fonte mantém a geração server-side dentro de `try/catch`, reutilizando os bytes, sem converter falha de preview em falha do original.
 
 Publicidade também usa `editorial-images`, mas está excluída: não alterámos esse upload nem aceitamos o seu prefixo. Home e Gestor usam `matchday-editorials`, também excluído. Fontes remotas congeladas que apenas guardam uma URL externa não passam a ser importadas automaticamente.
 
@@ -145,9 +149,10 @@ Remove-Item Env:JORNADA_PREVIEW_BACKFILL_WRITE
 
 **Testes, benchmark e validação**
 
-- A2: **21/21 testes passaram**, incluindo ticket/auth, segurança de URL/path, formatos reais, orientação/alpha, limites, preservação de bytes, erro de geração, idempotência, concorrência, backfill e fronteira do diff.
+- A2: **22/22 testes passaram**, incluindo ticket/auth, segurança de URL/path, formatos reais, orientação/alpha, limites, preservação de bytes, erro de geração, idempotência, concorrência, backfill e fronteira do diff.
+- O teste de não bloqueio executa a instrução real dos sete clientes com o fetch de conclusão pendente: todos disponibilizam o original antes da resposta. Verifica `keepalive`, path/ticket sem URL alternativa e corpo pequeno; depois simula HTTP 503 sem rejeição não tratada. Os formulários inline continuam cobertos pelo teste de serialização.
 - A1: **10/10 testes permanentes passaram**. Os dois testes opcionais de diff exclusivo do A1 ficam ignorados sem `JORNADA_EGRESS_A1_BASE`; o A2 tem a sua própria auditoria.
-- Suite focada: **264 testes; 261 passaram, 1 falha preexistente, 2 ignorados**.
+- Suite focada: **265 testes; 262 passaram, 1 falha preexistente, 2 ignorados**.
 - Falha preexistente: `editorial-hierarchical-composition.test.ts`, “arquivar e reativar uma notícia livre repõe 15 lugares e momentos posteriores”; regex exige condições na mesma linha. Reproduzida na base exata: 31 testes, 30 passaram e a mesma falha.
 - Os testes estruturais A1 e de modernização foram adaptados apenas para reconhecer o componente que continua a emitir um `img`.
 - A auditoria confirma que os 15 ficheiros de aplicação existentes ficam idênticos à base removendo apenas imports/props de preview e chamadas/ticket de conclusão. Persistência, Article Plans, snapshots e payloads editoriais permanecem intactos.
@@ -192,7 +197,7 @@ Foram confirmados no browser e no contador de pedidos do servidor:
 
 Isto verifica o componente isolado, não o drag/drop integral das Mesas. As quatro áreas da aplicação construída — Redação, Produção, Publicação em lote e Composição — redirecionaram para login sem `ADMIN_PASSWORD` configurada nesta worktree. A autenticação não foi contornada, nem foram criados dados ou sessões da aplicação para obter acesso. Fluxos reais das Mesas e Network autenticado continuam por confirmar.
 
-Capturas: `C:/Users/silva/Documents/Codex/jornada-egress-a2-validation-artifacts-20260925/`. Logs locais ignorados: `a2-focused-regressions.log`, `a2-focused-files.log`, `a2-final-tests.log`, `a2-tsc.log`, `a2-build.log`. Base de reprodução: `C:/Users/silva/Documents/Codex/jornada-egress-a2-base-validation-20260925/`.
+Capturas: `C:/Users/silva/Documents/Codex/jornada-egress-a2-validation-artifacts-20260925/`. Logs locais ignorados da validação após retirar a espera client-side: `a2-nonblocking-focused.log`, `a2-focused-files.log`, `a2-nonblocking-tests.log`, `a2-nonblocking-tsc.log`, `a2-nonblocking-build.log`. Base de reprodução da falha preexistente: `C:/Users/silva/Documents/Codex/jornada-egress-a2-base-validation-20260925/`.
 
 **Ficheiros da entrega**
 
