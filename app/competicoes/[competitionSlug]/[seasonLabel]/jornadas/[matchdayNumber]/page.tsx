@@ -7,6 +7,7 @@ import {
   resolvePublicMatchdayEditorialAuthority,
 } from "@/lib/public-matchday-editorial";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
+import { createPublicMatchdayStructuralReaders } from "@/lib/public-matchday-structural-context";
 import { resolvePublicCompetitionLogoPresentation } from "@/lib/public-competition-navigation";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
@@ -3018,11 +3019,12 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   }
 
   const matchdayNumberValue = Number(matchdayNumber);
+  const structure = createPublicMatchdayStructuralReaders();
   const { context, diagnostic } = await getPublicMatchdayDiagnostic({
     competitionSlug,
     seasonLabel,
     matchdayNumber: matchdayNumberValue
-  });
+  }, structure.diagnostic);
 
   if (!context) {
     return <DiagnosticPanel diagnostic={diagnostic} />;
@@ -3096,7 +3098,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     href: `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${context.matchday.number}`,
     logoUrl: context.competition.logo_url
   };
-  const publicCompetitionMenuBase = await getPublicCompetitionMenu().catch(() => []);
+  const publicCompetitionMenuBase = await getPublicCompetitionMenu(structure.menu).catch(() => []);
   const competitionLogo = resolvePublicCompetitionLogoPresentation(currentCompetitionMenuItem);
   const publicCompetitionMenu = publicCompetitionMenuBase.map((item) =>
     item.slug === currentCompetitionMenuItem.slug ? currentCompetitionMenuItem : item
