@@ -4,6 +4,7 @@ import BackofficeImage from "@/components/admin/BackofficeImage";
 import { completeEditorialImagePreviews } from "@/lib/editorial-image-preview-upload";
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ClipboardEvent,
@@ -34,7 +35,6 @@ import {
   EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
   EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
   preflightEditorialArticleBatchForSourcePackage,
-  type EditorialBatchTransferSourcePackage,
 } from "@/lib/redacao-automatica/editorial-batch-transfer";
 import type {
   ThemeContinuityFrozenContract,
@@ -56,11 +56,17 @@ import {
   type ArticlePlanClassificationSource,
 } from "@/lib/redacao-automatica/article-plan-classification";
 import { ArticlePlanClassificationEditor } from "./_article-plan-classification";
+import { copyText } from "./_clipboard-copy";
 import {
   confirmedProductionClassifications,
   productionClassificationNeedsSave,
   productionPackageDisabled,
 } from "./_production-package-state";
+import {
+  loadProductionPackage,
+  ProductionPackagePreparation,
+  type PreparedSourcePackage,
+} from "./_production-package-preparation";
 type WorkspaceContinuitySlot = ThemeContinuitySlot | ReturnType<typeof mesaProductionIntentSlots>[number];
 import styles from "./workspace.module.css";
 
@@ -121,16 +127,6 @@ type CommandResponse = Readonly<{
   }>;
 }>;
 
-type PreparedSourcePackage = Readonly<{
-  contentUrl: string;
-  imagesUrl: string;
-  imagesFileName: string;
-  imageSourceCount: number;
-  articleCount: number;
-  genreLabel: string;
-  sourcePackage: EditorialBatchTransferSourcePackage;
-}>;
-
 type SignedUpload = Readonly<{
   previewTicket?: string;
   bucket: string;
@@ -179,26 +175,6 @@ function imageChoice(value: string) {
 
 function planField(cardKey: string, field: string): string {
   return `plan:${cardKey}:${field}`;
-}
-
-async function copyText(text: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-  try {
-    if (!document.execCommand("copy")) throw new Error("copy_failed");
-  } finally {
-    textarea.remove();
-  }
 }
 
 function imageOriginLabel(image: EditorialDossierImage): string {
@@ -765,86 +741,66 @@ function ProductionActions({
   saving: boolean;
   packageVersion: number;
 }>) {
-  const [prepared, setPrepared] = useState<PreparedSourcePackage | null>(null);
-  const [preparing, setPreparing] = useState(false);
   const [status, setStatus] = useState("");
   const [manualResponse, setManualResponse] = useState("");
 
+  const preparation = useMemo(() => new ProductionPackagePreparation<PreparedSourcePackage>(
+    () => loadProductionPackage(dossierId),
+  ), [dossierId, packageVersion, disabled]);
+  const [observedPreparation, setObservedPreparation] = useState(() => ({
+    preparation,
+    state: preparation.snapshot(),
+  }));
+  const preparationState = observedPreparation.preparation === preparation
+    ? observedPreparation.state
+    : preparation.snapshot();
+  const prepared = preparationState.kind === "ready"
+    ? preparationState.value.sourcePackage
+    : null;
+  const preparing = !disabled && (
+    preparationState.kind === "idle" || preparationState.kind === "preparing"
+  );
+
+  useEffect(() => {
+    const unsubscribe = preparation.subscribe((state) => {
+      setObservedPreparation({ preparation, state });
+    });
+    if (!disabled) preparation.start();
+    return () => {
+      unsubscribe();
+      preparation.invalidate();
+    };
+  }, [preparation, disabled]);
+
   async function ensurePackage(): Promise<PreparedSourcePackage> {
-    if (prepared) return prepared;
-    if (preparing) throw new Error("package_preparing");
-    setPreparing(true);
-    setStatus("A preparar o pacote editorial…");
-    try {
-      const response = await fetch(WORKSPACE_ROUTE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "prepare_source_package", dossierId }),
-      });
-      const result = await response.json().catch(() => null) as
-        (CommandResponse & Partial<PreparedSourcePackage>) | null;
-      if (
-        !response.ok
-        || !result?.ok
-        || !result.contentUrl
-        || !result.imagesUrl
-        || !result.imagesFileName
-        || !result.sourcePackage
-        || typeof result.articleCount !== "number"
-        || typeof result.imageSourceCount !== "number"
-        || !result.genreLabel
-      ) {
-        throw new Error(result?.message || "Não foi possível preparar o pacote editorial.");
-      }
-      const value: PreparedSourcePackage = {
-        contentUrl: result.contentUrl,
-        imagesUrl: result.imagesUrl,
-        imagesFileName: result.imagesFileName,
-        imageSourceCount: result.imageSourceCount,
-        articleCount: result.articleCount,
-        genreLabel: result.genreLabel,
-        sourcePackage: result.sourcePackage,
-      };
-      setPrepared(value);
-      return value;
-    } finally {
-      setPreparing(false);
-    }
+    const { sourcePackage } = await preparation.ensure();
+    return sourcePackage;
   }
 
   async function copyPackage() {
-    if (disabled || preparing) return;
+    if (disabled) return;
     try {
-      const value = await ensurePackage();
-      const response = await fetch(value.contentUrl, {
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      if (!response.ok) throw new Error("package_unavailable");
-      await copyText(await response.text());
-      setStatus(`Pacote com ${value.articleCount} ${value.articleCount === 1 ? "artigo" : "artigos"} copiado.`);
-    } catch (error) {
-      if (error instanceof Error && error.message !== "package_preparing") {
-        setStatus(error.message === "package_unavailable"
-          ? "Não foi possível copiar o pacote neste momento."
-          : error.message);
+      const write = preparation.copy(copyText);
+      if (!write) return;
+      await write;
+      const value = preparation.ready()?.sourcePackage;
+      if (value) {
+        setStatus(`Pacote com ${value.articleCount} ${value.articleCount === 1 ? "artigo" : "artigos"} copiado.`);
       }
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Não foi possível copiar o pacote neste momento.");
     }
   }
 
-  async function downloadImages() {
-    if (disabled || preparing) return;
-    try {
-      const value = await ensurePackage();
-      if (value.imageSourceCount < 1) {
-        setStatus("Esta produção não tem imagens selecionadas para download.");
-        return;
-      }
-      setStatus(`A preparar ${value.imageSourceCount} ${value.imageSourceCount === 1 ? "imagem" : "imagens"}…`);
-      window.location.assign(value.imagesUrl);
-    } catch (error) {
-      if (error instanceof Error && error.message !== "package_preparing") setStatus(error.message);
+  function downloadImages() {
+    const value = preparation.ready()?.sourcePackage;
+    if (disabled || !value) return;
+    if (value.imageSourceCount < 1) {
+      setStatus("Esta produção não tem imagens selecionadas para download.");
+      return;
     }
+    setStatus(`A preparar ${value.imageSourceCount} ${value.imageSourceCount === 1 ? "imagem" : "imagens"}…`);
+    window.location.assign(value.imagesUrl);
   }
 
   async function importText(text: string) {
@@ -906,7 +862,7 @@ function ProductionActions({
       window.location.assign("/admin/editorial/redacao-automatica/publicacao-lote");
       return true;
     } catch (error) {
-      if (error instanceof Error && error.message !== "package_preparing") setStatus(error.message);
+      if (error instanceof Error) setStatus(error.message);
       return false;
     }
   }
@@ -936,13 +892,21 @@ function ProductionActions({
         <button className={styles.primaryAction} type="submit" form={PRODUCTION_FORM_ID} disabled={saving}>
           {saving ? "A guardar…" : "Guardar artigos e imagens"}
         </button>
-        <button type="button" onClick={downloadImages} disabled={disabled || preparing}>
+        <button type="button" onClick={downloadImages} disabled={disabled || !prepared}>
           Descarregar imagens (.zip) — {prepared?.imageSourceCount ?? imageCount}
         </button>
-        <button type="button" onClick={copyPackage} disabled={disabled || preparing}>
+        <button type="button" onClick={copyPackage} disabled={disabled || preparationState.kind !== "ready"}>
           {preparing ? "A preparar pacote…" : "Copiar pacote para ChatGPT"}
         </button>
+        {!disabled && preparationState.kind === "error" ? (
+          <button type="button" onClick={() => preparation.retry()}>Tentar preparar novamente</button>
+        ) : null}
       </div>
+      {!disabled && preparationState.kind === "error" ? (
+        <p className={styles.commandMessage} role="alert">
+          Não foi possível preparar o pacote: {preparationState.message}
+        </p>
+      ) : null}
       <label className={styles.responseField}>
         <span>Colar resposta do ChatGPT</span>
         <textarea
