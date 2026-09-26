@@ -43,24 +43,30 @@ export function selectPublicCompetitionEntryMatchday<T extends PublicCompetition
 
   for (let index = 0; index < orderedMatchdays.length - 1; index += 1) {
     const matchday = orderedMatchdays[index];
-    const eligibleKickoffs = matches
-      .filter(
-        (match) =>
-          match.matchday_id === matchday.id &&
-          match.rollover_excluded !== true &&
-          normalizedStatus(match.status) !== "postponed"
-      )
+    const eligibleMatches = matches.filter(
+      (match) =>
+        match.matchday_id === matchday.id &&
+        match.rollover_excluded !== true &&
+        normalizedStatus(match.status) !== "postponed"
+    );
+    const eligibleKickoffs = eligibleMatches
       .map((match) => kickoffTimestamp(match.kickoff_at))
       .filter((timestamp): timestamp is number => timestamp !== null);
 
-    if (eligibleKickoffs.length === 0) {
+    if (eligibleKickoffs.length > 0) {
+      const lastKickoff = Math.max(...eligibleKickoffs);
+      const rolloverAt = lastKickoff + PUBLIC_MATCHDAY_ROLLOVER_MS;
+
+      if (nowTimestamp >= rolloverAt) {
+        selectedIndex = Math.max(selectedIndex, index + 1);
+      }
       continue;
     }
 
-    const lastKickoff = Math.max(...eligibleKickoffs);
-    const rolloverAt = lastKickoff + PUBLIC_MATCHDAY_ROLLOVER_MS;
-
-    if (nowTimestamp >= rolloverAt) {
+    if (
+      eligibleMatches.length > 0 &&
+      eligibleMatches.every((match) => normalizedStatus(match.status) === "finished")
+    ) {
       selectedIndex = Math.max(selectedIndex, index + 1);
     }
   }
