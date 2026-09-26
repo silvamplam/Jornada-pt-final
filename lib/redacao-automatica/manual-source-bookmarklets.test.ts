@@ -279,7 +279,7 @@ test("ESC cancela escolha e remove todos os listeners sem enviar", () => {
   }
 });
 
-test("receiver da Mesa altera apenas imageUrl e nunca faz save automático", () => {
+test("receiver da Mesa guarda o favorito completo e mantém o favorito de imagem sem save automático", () => {
   const client = readFileSync(path.join(
     process.cwd(),
     "app/admin/editorial/redacao-automatica/mesa/_manual-source-entry.tsx",
@@ -288,8 +288,16 @@ test("receiver da Mesa altera apenas imageUrl e nunca faz save automático", () 
     client.indexOf("if (payload.type === JORNADA_MANUAL_IMAGE_MESSAGE)"),
     client.indexOf("if (payload.type !== JORNADA_MANUAL_SOURCE_MESSAGE)"),
   );
+  const sourceBranch = client.slice(
+    client.indexOf("if (payload.type !== JORNADA_MANUAL_SOURCE_MESSAGE)"),
+    client.indexOf('window.addEventListener("message", onMessage)'),
+  );
   assert.match(imageBranch, /setImageUrl\(nextImage\)/);
-  assert.doesNotMatch(imageBranch, /setBody|setPublishedDate|setSourceUrl|handleSubmit|fetch\(/);
+  assert.doesNotMatch(imageBranch, /setBody|setPublishedDate|setSourceUrl|saveManualSource|fetch\(/);
+  assert.match(sourceBranch, /if \(!nextBody\)/);
+  assert.match(sourceBranch, /if \(!nextImage\)/);
+  assert.match(sourceBranch, /submissionIdRef\.current = ""/);
+  assert.match(sourceBranch, /void saveManualSource\(\{/);
   assert.match(client, /acceptedSourcesRef\.current\.has\(event\.source\)/);
   assert.match(client, /ready\(event\.source, event\.origin\)/);
   assert.doesNotMatch(client, /postMessage\([\s\S]{0,160},\s*["']\*["']\)/);
@@ -298,6 +306,17 @@ test("receiver da Mesa altera apenas imageUrl e nunca faz save automático", () 
   assert.doesNotMatch(SEND_TO_JORNADA_BOOKMARKLET, /manual_source=1[^"']*(?:body|imageUrl|publishedDate)=/);
   assert.match(SEND_TO_JORNADA_BOOKMARKLET, /JORNADA_MANUAL_SOURCE/);
   assert.match(SEND_IMAGE_TO_JORNADA_BOOKMARKLET, /JORNADA_MANUAL_IMAGE_V1/);
+});
+
+test("sucesso manual é transitório e remove manual_source_state da URL", () => {
+  const client = readFileSync(path.join(
+    process.cwd(),
+    "app/admin/editorial/redacao-automatica/mesa/_manual-source-entry.tsx",
+  ), "utf8");
+  assert.match(client, /searchParams\.delete\("manual_source_state"\)/);
+  assert.match(client, /window\.history\.replaceState\(/);
+  assert.match(client, /window\.setTimeout\(\(\) => setStatus\(""\), 3000\)/);
+  assert.match(client, /\{status && !open \?/);
 });
 
 test("painel mantém os três campos e a rota de escrita continua administrativa", () => {
@@ -311,6 +330,7 @@ test("painel mantém os três campos e a rota de escrita continua administrativa
   assert.match(client, /Data da notícia/);
   assert.match(client, /Guardar em NOVAS/);
   assert.match(client, /Enviar para Jornada/);
+  assert.match(client, /guarda automaticamente em Novas/);
   assert.match(client, /Enviar imagem para Jornada/);
   assert.doesNotMatch(client, /dangerouslySetInnerHTML/);
   assert.match(client, /\/api\/admin\/editorial\/redacao-automatica\/mesa\/manual-source/);
