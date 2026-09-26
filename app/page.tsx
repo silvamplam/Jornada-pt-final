@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import homeNewsHeaderStyles from "@/components/public/PublicHomeNewsHeader.module.css";
 import { PublicEditorialLayout, type PublicEditorialHighlight, type PublicEditorialLatestNews } from "@/components/public/PublicEditorialLayout";
@@ -436,8 +437,15 @@ async function readBroadcastChannelsByMatchId(matchIds: string[], matches: HomeM
 }
 
 export default async function HomePage() {
+  const competitionLinks = await readPublicCompetitionMenu().catch(() => []);
+  const ligaPortugalEntry = competitionLinks.find((item) => item.slug === "liga-portugal");
+
+  if (ligaPortugalEntry?.href) {
+    redirect(ligaPortugalEntry.href);
+  }
+
   const editorial = await readHomeEditorial();
-  const [featuredMatches, competitionLinks] = await Promise.all([readHomeFeaturedMatches(), readPublicCompetitionMenu()]);
+  const featuredMatches = await readHomeFeaturedMatches();
   const [highlights, roundupItems, latestNews, horizontalNews]: [SiteHighlight[], SiteRoundupItem[], SiteLatestNews[], SiteHorizontalNews[]] = editorial
     ? await Promise.all([
         readHomeHighlights(editorial.id),
