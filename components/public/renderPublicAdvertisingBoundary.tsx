@@ -7,19 +7,23 @@ export function renderPublicAdvertisingBoundary<Block extends { kind: string }>(
   advertisement: ReactNode,
   startsAfterNews = false,
 ) {
-  let previousWasNews = startsAfterNews;
+  let insertBeforeNextVisibleBlock = startsAfterNews;
   let inserted = false;
+
   return blocks.map((block, index) => {
     const content = renderBlock(block);
     if (content === null || content === undefined || content === false)
       return null;
+
     const insertHere =
       Boolean(advertisement) &&
       !inserted &&
-      previousWasNews &&
-      block.kind === "video";
-    previousWasNews = block.kind !== "video";
+      insertBeforeNextVisibleBlock;
+
     if (insertHere) inserted = true;
+
+    insertBeforeNextVisibleBlock = block.kind !== "video";
+
     return (
       <Fragment key={isValidElement(content) ? content.key ?? index : index}>
         {insertHere ? advertisement : null}
