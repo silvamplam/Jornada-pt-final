@@ -9,6 +9,17 @@ import {
   resolveBroadcastChannelLogoPresentation
 } from "./public-broadcast-channel-logo";
 
+
+async function readHeaderIntegration(url: URL) {
+  const source = await readFile(url, "utf8");
+  if (!source.includes("<PublicMatchdayHeader")) return source;
+  const [header, model] = await Promise.all([
+    readFile(new URL("../components/public/PublicMatchdayHeader.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./public-matchday-header.ts", import.meta.url), "utf8"),
+  ]);
+  return source + "\n" + header + "\n" + model;
+}
+
 const componentUrl = new URL("../components/public/BroadcastChannelLogo.tsx", import.meta.url);
 const stylesUrl = new URL("../components/public/BroadcastChannelLogo.module.css", import.meta.url);
 const helperUrl = new URL("./public-broadcast-channel-logo.ts", import.meta.url);
@@ -474,7 +485,7 @@ test("fluid-peek conserva navegação, swipe e fades curtos nas duas extremidade
   const [homeSource, matchdaySource, newsSource, stripSource, carouselSource, styleSource] =
     await Promise.all([
       readFile(homePageUrl, "utf8"),
-      readFile(integrationUrls[2], "utf8"),
+      readHeaderIntegration(integrationUrls[2]),
       readFile(integrationUrls[4], "utf8"),
       readFile(integrationUrls[0], "utf8"),
       readFile(new URL("../components/public/PublicMatchStripCarousel.tsx", import.meta.url), "utf8"),
@@ -511,7 +522,7 @@ test("fluid-peek conserva navegação, swipe e fades curtos nas duas extremidade
 test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal de equipa", async () => {
   const [homeSource, matchdaySource, stripSource] = await Promise.all([
     readFile(homePageUrl, "utf8"),
-    readFile(integrationUrls[2], "utf8"),
+    readHeaderIntegration(integrationUrls[2]),
     readFile(integrationUrls[0], "utf8")
   ]);
   for (const source of [homeSource, matchdaySource]) {
@@ -529,7 +540,7 @@ test("Home e páginas públicas de jornada reutilizam a mesma linha horizontal d
 test("layout aprovado não depende de query parameter e a notícia sem jornada não recebe barra", async () => {
   const [homeSource, matchdaySource, newsSource, stripSource] = await Promise.all([
     readFile(homePageUrl, "utf8"),
-    readFile(integrationUrls[2], "utf8"),
+    readHeaderIntegration(integrationUrls[2]),
     readFile(integrationUrls[4], "utf8"),
     readFile(integrationUrls[0], "utf8")
   ]);
@@ -544,7 +555,7 @@ test("layout aprovado não depende de query parameter e a notícia sem jornada n
   assert.doesNotMatch(matchdaySource, /showActiveCompetitionLogo=\{false\}/);
   assert.doesNotMatch(matchdaySource, /className="public-season-competition-emblem"/);
   assert.doesNotMatch(matchdaySource, /resolvePublicCompetitionLogoPresentation\(currentCompetitionMenuItem\)/);
-  assert.match(matchdaySource, /<PublicCompetitionNavigation[\s\S]*?classificationHref="#classificacao"[\s\S]*?showMessageTicker=\{false\}/);
+  assert.match(matchdaySource, /<PublicCompetitionNavigation[\s\S]*?classificationHref=\{classificationHref\}[\s\S]*?showMessageTicker=\{false\}/);
   assert.match(newsSource, /readPublicArticleMatchdayContext\(article\)/);
   const articleReader = await readFile(new URL("./public-article-matchday-context.ts", import.meta.url), "utf8");
   assert.match(articleReader, /if \(!article\.matchday_id\) return null;/);
@@ -554,7 +565,7 @@ test("layout aprovado não depende de query parameter e a notícia sem jornada n
 test("todas as ocorrencias publicas da faixa usam a variante clean partilhada", async () => {
   const [homeSource, matchdaySource, newsSource, stripSource] = await Promise.all([
     readFile(homePageUrl, "utf8"),
-    readFile(integrationUrls[2], "utf8"),
+    readHeaderIntegration(integrationUrls[2]),
     readFile(integrationUrls[4], "utf8"),
     readFile(integrationUrls[0], "utf8")
   ]);
@@ -601,7 +612,7 @@ test("a faixa compacta alinha Sport TV, BTV e TVI a esquerda", async () => {
 });
 
 test("as cinco superfícies públicas reutilizam o contrato partilhado sem layout local divergente", async () => {
-  const sources = await Promise.all(integrationUrls.map((url) => readFile(url, "utf8")));
+  const sources = await Promise.all(integrationUrls.map(readHeaderIntegration));
   for (const source of sources.slice(0, 4)) {
     assert.match(source, /import PublicMatchMeta from "@\/components\/public\/PublicMatchMeta"/);
     assert.match(source, /<PublicMatchMeta/);

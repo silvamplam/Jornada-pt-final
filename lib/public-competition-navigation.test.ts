@@ -9,6 +9,17 @@ import {
   resolvePublicCompetitionLogoUrl
 } from "./public-competition-navigation";
 
+
+async function readHeaderIntegration(url: URL) {
+  const source = await readFile(url, "utf8");
+  if (!source.includes("<PublicMatchdayHeader")) return source;
+  const [header, model] = await Promise.all([
+    readFile(new URL("../components/public/PublicMatchdayHeader.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./public-matchday-header.ts", import.meta.url), "utf8"),
+  ]);
+  return source + "\n" + header + "\n" + model;
+}
+
 const componentUrl = new URL(
   "../components/public/PublicCompetitionNavigation.tsx",
   import.meta.url
@@ -274,7 +285,7 @@ test("mantem emblema e Classificacao na mesma ligacao acessivel", async () => {
 
 test("a jornada isola a identidade da competicao no topo e preserva a navegacao partilhada", async () => {
   const [matchdaySource, matchdayStyles] = await Promise.all([
-    readFile(integrationUrls[2], "utf8"),
+    readHeaderIntegration(integrationUrls[2]),
     readFile(leagueNewsHeaderStylesUrl, "utf8")
   ]);
 
@@ -300,7 +311,7 @@ test("a jornada isola a identidade da competicao no topo e preserva a navegacao 
   );
   assert.match(
     matchdaySource,
-    /<PublicCompetitionNavigation[\s\S]*?competitions=\{publicCompetitionMenu\}[\s\S]*?activeCompetitionSlug=\{context\.competition\.slug\}[\s\S]*?classificationHref="#classificacao"[\s\S]*?showMessageTicker=\{false\}/
+    /<PublicCompetitionNavigation[\s\S]*?competitions=\{publicCompetitionMenu\}[\s\S]*?activeCompetitionSlug=\{context\.competition\.slug\}[\s\S]*?classificationHref=\{classificationHref\}[\s\S]*?showMessageTicker=\{false\}/
   );
 });
 
@@ -449,7 +460,7 @@ test("a Home remove o ticker e conserva a transicao minima antes do carrossel", 
 
 test("noticias contextuais reutilizam o mesmo contrato central de navegacao", async () => {
   const [matchdaySource, newsSource, sharedStylesSource] = await Promise.all([
-    readFile(integrationUrls[2], "utf8"),
+    readHeaderIntegration(integrationUrls[2]),
     readFile(integrationUrls[4], "utf8"),
     readFile(sharedStylesUrl, "utf8")
   ]);
@@ -459,7 +470,9 @@ test("noticias contextuais reutilizam o mesmo contrato central de navegacao", as
       source,
       /import \{ publicTopNavigationStyles \} from "@\/components\/public\/publicEditorialStyles"/
     );
-    assert.match(source, /\$\{publicTopNavigationStyles\}/);
+    assert.match(source, source.includes("<PublicMatchdayHeader")
+      ? /<style>\{publicTopNavigationStyles\}<\/style>/
+      : /\$\{publicTopNavigationStyles\}/);
     assert.match(
       source,
       /style=\{\{ "--public-season-accent": competitionBarColor \} as CSSProperties\}/
@@ -502,7 +515,7 @@ test("integracoes preservam a competicao ativa no link de Classificacao", async 
     matchdayGamesSource,
     newsSource,
     publicGamesSource
-  ] = await Promise.all(integrationUrls.map((url) => readFile(url, "utf8")));
+  ] = await Promise.all(integrationUrls.map(readHeaderIntegration));
 
   for (const source of [
     homeSource,
@@ -520,7 +533,7 @@ test("integracoes preservam a competicao ativa no link de Classificacao", async 
 
   assert.match(
     matchdaySource,
-    /activeCompetitionSlug=\{context\.competition\.slug\}[\s\S]*classificationHref="#classificacao"/
+    /activeCompetitionSlug=\{context\.competition\.slug\}[\s\S]*classificationHref=\{classificationHref\}/
   );
   assert.match(
     matchdayGamesSource,

@@ -87,7 +87,9 @@ test("side advertisements retain their intrinsic proportion and cannot upscale t
   assert.match(rule(mobile, "a[data-public-side-advertisement]"), /margin:\s*8px auto;/);
   const source = readFileSync("components/public/PublicSideAdvertisement.tsx", "utf8");
   assert.match(source, /<a\s+className=\{className\}\s+data-public-side-advertisement/);
-  assert.equal(sideAdvertisingStyles.trim().startsWith("@media"), true);
+  const desktopImage = rule(sideAdvertisingStyles, "a[data-public-side-advertisement] img");
+  assert.match(desktopImage, /width:\s*auto;/);
+  assert.match(desktopImage, /max-width:\s*100%;/);
 });
 
 test("horizontal mobile creative remains proportional with a discreet label and a 2x-width cap", () => {

@@ -1,6 +1,7 @@
+import PublicMatchdayHeader from "@/components/public/PublicMatchdayHeader";
 import PublicHorizontalAdvertisement from "@/components/public/PublicHorizontalAdvertisement";
 import { renderPublicAdvertisingBoundary } from "@/components/public/renderPublicAdvertisingBoundary";
-import { publicTopNavigationStyles } from "@/components/public/publicEditorialStyles";
+import { readPublicHierarchicalEditorialImage } from "@/lib/public-hierarchical-editorial-image";
 import { buildAccumulatedClassification, totalClassificationStats, type ClassificationSplit } from "@/lib/classification";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
@@ -10,8 +11,6 @@ import {
 } from "@/lib/public-matchday-editorial";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { createPublicMatchdayStructuralReaders } from "@/lib/public-matchday-structural-context";
-import { resolvePublicCompetitionMastheadLogoPresentation } from "@/lib/public-competition-navigation";
-import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import {
   DEFAULT_MATCHDAY_ROUNDUP_VIDEO_HEADING,
@@ -29,6 +28,7 @@ import {
   hierarchicalCompositionMediaSnapshot,
   isPublishableHierarchicalBeyondMatchday,
   isPublishableHierarchicalComposition,
+  isPublishableHierarchicalCompositionEditorial,
   type HierarchicalCompositionSlot,
 } from "@/lib/editorial-hierarchical-composition";
 import {
@@ -55,8 +55,6 @@ import PublicHorizontalNewsStrip from "@/components/public/PublicHorizontalNewsS
 import PublicMatchMeta from "@/components/public/PublicMatchMeta";
 import PublicMatchdayEditorialSectionFrame from "@/components/public/PublicMatchdayEditorialSectionFrame";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
-import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
-import headerStyles from "@/components/public/PublicLeagueNewsHeader.module.css";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
 import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/public/PublicTeamBadge";
 import PublicThematicZoneLayout from "@/components/public/PublicThematicZoneLayout";
@@ -201,16 +199,7 @@ async function readPublicHistoricalDynamicZones(
   });
 }
 
-function publicCompetitionBarColor(competitionSlug: string) {
-  if (competitionSlug === "liga-portugal") return "#00235a";
-  if (competitionSlug === "premier-league") return "#3d195b";
-  if (competitionSlug === "la-liga") return "#1d2230";
-  return "#262626";
-}
-
 const publicMatchdayStyles = `
-  ${publicTopNavigationStyles}
-
   body {
     margin: 0;
     overflow-x: hidden;
@@ -2612,30 +2601,6 @@ function matchSchedulePresentation(match: Pick<PublicSeasonMatch, "scheduled_dat
   };
 }
 
-function formatCivilDateRange(firstDate: NonNullable<ReturnType<typeof parseCivilDate>>, lastDate: NonNullable<ReturnType<typeof parseCivilDate>>) {
-  if (firstDate.key === lastDate.key) return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year}`;
-  if (firstDate.year === lastDate.year && firstDate.month === lastDate.month) {
-    return `${firstDate.day}–${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
-  }
-  if (firstDate.year === lastDate.year) {
-    return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
-  }
-  return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
-}
-
-function formatPreferredMatchdayDateContext(matches: PublicSeasonMatch[], startsOn: string | null, endsOn: string | null) {
-  const startsDate = parseCivilDate(startsOn);
-  const endsDate = parseCivilDate(endsOn);
-  if (startsDate && endsDate) return formatCivilDateRange(startsDate, endsDate);
-
-  const scheduledDates = matches
-    .map((match) => parseCivilDate(match.scheduled_date))
-    .filter((date): date is NonNullable<typeof date> => date !== null)
-    .sort((firstDate, secondDate) => firstDate.key.localeCompare(secondDate.key));
-  if (scheduledDates.length === 0) return "Data por definir";
-  return formatCivilDateRange(scheduledDates[0], scheduledDates[scheduledDates.length - 1]);
-}
-
 function statusLabel(status: string) {
   const normalized = status.trim().toLowerCase();
   if (normalized === "finished") return "Finalizado";
@@ -3085,30 +3050,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     );
 
   const showLogoDiagnostic = query.debug_logos === "1";
-  const competitionBarColor = publicCompetitionBarColor(context.competition.slug);
 
   const seasonSegment = seasonLabelToUrlSegment(context.season.label);
-  const seasonOptions = context.seasons.map((season) => ({
-    id: season.id,
-    label: season.label,
-    href: `/competicoes/${context.competition.slug}/${seasonLabelToUrlSegment(season.label)}/jornadas/1`
-  }));
-  const currentSeasonHref = `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/1`;
-  const currentCompetitionMenuItem = {
-    label: context.competition.name,
-    slug: context.competition.slug,
-    href: `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${context.matchday.number}`,
-    logoUrl: context.competition.logo_url
-  };
   const publicCompetitionMenuBase = await getPublicCompetitionMenu(structure.menu).catch(() => []);
-  const competitionLogo = resolvePublicCompetitionMastheadLogoPresentation(currentCompetitionMenuItem);
-  const publicCompetitionMenu = publicCompetitionMenuBase.map((item) =>
-    item.slug === currentCompetitionMenuItem.slug ? currentCompetitionMenuItem : item
-  );
-
-  if (!publicCompetitionMenu.some((item) => item.slug === currentCompetitionMenuItem.slug)) {
-    publicCompetitionMenu.unshift(currentCompetitionMenuItem);
-  }
 
   const classificationRows = buildAccumulatedClassification({
     participants: context.participants,
@@ -3136,27 +3080,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     };
   });
   const matchdayHref = (number: number) => `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${number}`;
-  const matchdayLegNavigation = buildPublicMatchdayLegNavigation(
-    context.matchdays,
-    context.activeParticipantCount,
-    context.matchday.id
-  );
-  const shouldSplitMatchdayNav = matchdayLegNavigation.applies;
-  const activeMatchdayLeg = matchdayLegNavigation.activeLeg;
-  const visibleMatchdays = matchdayLegNavigation.visibleMatchdays;
-  const firstLegHref = matchdayLegNavigation.firstLegTarget
-    ? matchdayHref(matchdayLegNavigation.firstLegTarget.number)
-    : currentSeasonHref;
-  const secondLegHref = matchdayLegNavigation.secondLegTarget
-    ? matchdayHref(matchdayLegNavigation.secondLegTarget.number)
-    : currentSeasonHref;
   const liveMatches = context.matchesForMatchday.filter((match) => statusKind(match.status) === "live");
   const halftimeMatches = context.matchesForMatchday.filter((match) => statusKind(match.status) === "halftime");
-  const selectedMatchdayDateContext = formatPreferredMatchdayDateContext(
-    context.matchesForMatchday,
-    context.matchday.starts_on,
-    context.matchday.ends_on
-  );
   const editorial = context.editorial;
   const publishedHeadline = editorial?.status === "published" ? editorial : null;
   const editorialCarryover =
@@ -4175,9 +4100,12 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     );
   }
 
-  const [sideAdvertisement, horizontalAdvertisement] = await Promise.all([
+  const [sideAdvertisement, horizontalAdvertisement, hierarchicalEditorialImageUrl] = await Promise.all([
     useHierarchicalReferenceComposition ? PublicSideAdvertisement({}) : Promise.resolve(null),
     publicEditorialUnavailable ? Promise.resolve(null) : PublicHorizontalAdvertisement(),
+    useHierarchicalReferenceComposition
+      ? readPublicHierarchicalEditorialImage(context.referenceComposition)
+      : Promise.resolve(null),
   ]);
   const openingHasNews = visibleHighlights.length > 0
     || editorialVisibility.showHeadline
@@ -4186,103 +4114,20 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const historicalLegacyBlockOrder = context.referenceComposition?.hierarchical_block_order == null
     ? null
     : normalizeHistoricalCompositionBlockOrder(context.referenceComposition.hierarchical_block_order);
+  const openingHasSideAdvertisement = Boolean(sideAdvertisement)
+    && isPublishableHierarchicalCompositionEditorial(hierarchicalEditorial);
   // The validated legacy composition renders every preceding non-video section.
+  // Do not place both creatives at the same boundary after the opening editorial.
   const historicalLegacyHasNewsBeforeVideo = historicalLegacyBlockOrder === null
-    || historicalLegacyBlockOrder.indexOf("video") > 0;
+    || (historicalLegacyBlockOrder.indexOf("video") > 0
+      && !(openingHasSideAdvertisement
+        && historicalLegacyBlockOrder[historicalLegacyBlockOrder.indexOf("video") - 1] === "opening"));
 
   return (
     <main className="public-matchday-shell">
       <style>{publicMatchdayStyles}</style>
       {showLogoDiagnostic ? <LogoDiagnosticPanel context={context} /> : null}
-      <div className={`public-top-stack ${headerStyles.topStack}`} data-competition={context.competition.slug}>
-      <header className="public-site-topbar" aria-label="Topo do Jornada.pt">
-        <a className={headerStyles.competitionIdentity} href={currentCompetitionMenuItem.href}>
-          {competitionLogo ? (
-            <img
-              alt=""
-              data-variant={competitionLogo.variant}
-              height={competitionLogo.intrinsicHeight}
-              src={competitionLogo.logoUrl}
-              width={competitionLogo.intrinsicWidth}
-            />
-          ) : null}
-          <span>{context.competition.name}</span>
-        </a>
-        <a className={headerStyles.matchdayBrand} href="/" aria-label={`Jornada.pt — Jornada ${context.matchday.number}`}>
-          <span>a Jornada</span>
-          <strong>{String(context.matchday.number).padStart(2, "0")}</strong>
-        </a>
-        <PublicCompetitionNavigation
-          competitions={publicCompetitionMenu}
-          activeCompetitionSlug={context.competition.slug}
-          classificationHref="#classificacao"
-          showMessageTicker={false}
-        />
-        <div className="public-matchday-date-row">
-          <span className="public-matchday-date-context">
-            {selectedMatchdayDateContext}
-          </span>
-        </div>
-        <div className="public-site-actions" aria-label="Ações">
-          <span className="public-site-search" aria-label="Pesquisar">Pesquisar</span>
-          <a href="/admin/gestor">Entrar</a>
-        </div>
-      </header>
-      <section className="public-season-nav-bar" aria-label="Navegacao de jornadas" style={{ "--public-season-accent": competitionBarColor } as CSSProperties}>
-        <div className="public-hidden-heading">
-          <h2>Jornadas</h2>
-          <p>Navegação principal da época {context.season.label}.</p>
-        </div>
-        <div className="public-season-nav-inner">
-          <div className="public-season-context-card" aria-label="Contexto da competição">
-            <label className="public-season-select-wrap">
-              <span>Época</span>
-              <select className="public-season-select" data-season-select defaultValue={currentSeasonHref}>
-                {seasonOptions.map((season) => (
-                  <option key={season.id} value={season.href}>
-                    {season.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {shouldSplitMatchdayNav ? (
-              <nav className="public-matchday-leg-nav" aria-label="Voltas da época">
-                <a aria-current={activeMatchdayLeg === "first" ? "true" : undefined} href={firstLegHref}>
-                  1.ª volta
-                </a>
-                <a aria-current={activeMatchdayLeg === "second" ? "true" : undefined} href={secondLegHref}>
-                  2.ª volta
-                </a>
-              </nav>
-            ) : null}
-          </div>
-          <nav className="public-matchday-nav-compact" aria-label="Jornadas da época">
-            {visibleMatchdays.map((matchday) => (
-              <a
-                aria-current={matchday.id === context.matchday.id ? "page" : undefined}
-                href={matchdayHref(matchday.number)}
-                key={matchday.id}
-              >
-                J{String(matchday.number).padStart(2, "0")}
-              </a>
-            ))}
-          </nav>
-        </div>
-      </section>
-      </div>
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            document.addEventListener("DOMContentLoaded", function () {
-              var select = document.querySelector("[data-season-select]");
-              if (!select) return;
-              select.addEventListener("change", function () {
-                if (select.value) window.location.href = select.value;
-              });
-            });
-          `
-        }}
-      />
+      <PublicMatchdayHeader context={context} competitions={publicCompetitionMenuBase} />
       <div className={`public-league-match-strip-scroll ${styles.matchStrip}`}>
         <PublicMatchStrip
           carouselLayout="fluid-peek"
@@ -4315,6 +4160,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               }
               editorial={hierarchicalEditorial}
               editorialHref={hierarchicalEditorialHref}
+              editorialImageUrl={hierarchicalEditorialImageUrl}
               editorialAfter={sideAdvertisement}
               headlineTitleColor={
                 context.referenceComposition?.hierarchical_headline_title_color
@@ -4389,7 +4235,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                       zone={block.zone}
                     />
                   );
-                }, horizontalAdvertisement, hasValidHistoricalOpening)
+                }, horizontalAdvertisement, hasValidHistoricalOpening && !openingHasSideAdvertisement)
               : null}
             </>
           ) : (

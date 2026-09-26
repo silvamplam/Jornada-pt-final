@@ -1,20 +1,19 @@
-import type { CSSProperties } from "react";
+import PublicMatchdayHeader from "@/components/public/PublicMatchdayHeader";
+import matchdayStyles from "../page.module.css";
 import { notFound } from "next/navigation";
 
-import { publicTopNavigationStyles } from "@/components/public/publicEditorialStyles";
-import PublicCompetitionNavigation from "@/components/public/PublicCompetitionNavigation";
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
+import PublicEditorialImage from "@/components/public/PublicEditorialImage";
+import { readPublicHierarchicalEditorialImage } from "@/lib/public-hierarchical-editorial-image";
 import {
   hierarchicalCompositionEditorialParagraphs,
   isPublishableHierarchicalCompositionEditorial,
 } from "@/lib/editorial-hierarchical-composition";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
-import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import {
   getPublicMatchdayDiagnostic,
   seasonLabelToUrlSegment,
-  type PublicSeasonMatch,
 } from "@/lib/public-matchday";
 
 export const dynamic = "force-dynamic";
@@ -27,132 +26,7 @@ type PageProps = {
   }>;
 };
 
-const civilMonthNames = [
-  "janeiro",
-  "fevereiro",
-  "março",
-  "abril",
-  "maio",
-  "junho",
-  "julho",
-  "agosto",
-  "setembro",
-  "outubro",
-  "novembro",
-  "dezembro",
-];
-
-function publicCompetitionBarColor(
-  competitionSlug: string
-) {
-  if (competitionSlug === "liga-portugal") {
-    return "#00235a";
-  }
-
-  if (competitionSlug === "premier-league") {
-    return "#3d195b";
-  }
-
-  if (competitionSlug === "la-liga") {
-    return "#1d2230";
-  }
-
-  return "#262626";
-}
-
-function parseCivilDate(
-  value: string | null | undefined
-) {
-  const match =
-    /^(\d{4})-(\d{2})-(\d{2})$/.exec(
-      value ?? ""
-    );
-
-  if (!match) return null;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-
-  return {
-    day,
-    month,
-    year,
-    key: value as string,
-  };
-}
-
-function formatCivilDateRange(
-  firstDate: NonNullable<
-    ReturnType<typeof parseCivilDate>
-  >,
-  lastDate: NonNullable<
-    ReturnType<typeof parseCivilDate>
-  >
-) {
-  if (firstDate.key === lastDate.key) {
-    return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year}`;
-  }
-
-  if (
-    firstDate.year === lastDate.year &&
-    firstDate.month === lastDate.month
-  ) {
-    return `${firstDate.day}–${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
-  }
-
-  if (firstDate.year === lastDate.year) {
-    return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
-  }
-
-  return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;
-}
-
-function formatPreferredMatchdayDateContext(
-  matches: PublicSeasonMatch[],
-  startsOn: string | null,
-  endsOn: string | null
-) {
-  const startsDate = parseCivilDate(startsOn);
-  const endsDate = parseCivilDate(endsOn);
-
-  if (startsDate && endsDate) {
-    return formatCivilDateRange(
-      startsDate,
-      endsDate
-    );
-  }
-
-  const scheduledDates = matches
-    .map((match) =>
-      parseCivilDate(match.scheduled_date)
-    )
-    .filter(
-      (
-        value
-      ): value is NonNullable<
-        ReturnType<typeof parseCivilDate>
-      > => value !== null
-    )
-    .sort((a, b) =>
-      a.key.localeCompare(b.key)
-    );
-
-  if (scheduledDates.length === 0) {
-    return "Data por definir";
-  }
-
-  return formatCivilDateRange(
-    scheduledDates[0],
-    scheduledDates[
-      scheduledDates.length - 1
-    ]
-  );
-}
-
 const styles = `
-  ${publicTopNavigationStyles}
-
   body {
     margin: 0;
     overflow-x: hidden;
@@ -165,6 +39,10 @@ const styles = `
     background: #ffffff;
     color: #111820;
     font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .news-article-shell.public-matchday-editorial-shell {
+    --public-top-gutter: 24px;
   }
 
   .news-article-layout {
@@ -220,6 +98,13 @@ const styles = `
     line-height: 1.62;
   }
 
+  .news-article-editorial-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0 0 28px;
+  }
+
   .news-article-body p {
     margin: 0 0 22px;
   }
@@ -254,10 +139,12 @@ const styles = `
 
   @media (max-width: 900px) {
     .news-article-shell {
-      padding: 0 14px 26px;
+      padding: 0 24px 26px;
     }
 
     .news-article-layout {
+      /* Preserve the article measure while matching the Jornada header gutters. */
+      width: min(1180px, calc(100% - 12px));
       grid-template-columns: 1fr;
       padding-top: 26px;
     }
@@ -274,6 +161,17 @@ const styles = `
       font-size: 18px;
     }
   }
+  @media (max-width: 760px) {
+    .news-article-shell.public-matchday-editorial-shell {
+      --public-top-gutter: 16px;
+      padding-inline: 16px;
+    }
+
+    .news-article-layout {
+      width: min(1180px, calc(100% - 28px));
+    }
+  }
+
 `;
 
 export default async function EditorialDaJornadaPage({
@@ -372,258 +270,30 @@ export default async function EditorialDaJornadaPage({
   const classificationHref =
     `${currentMatchdayHref}#classificacao`;
 
-  const currentCompetitionMenuItem = {
-    label: context.competition.name,
-    slug: context.competition.slug,
-    href: currentMatchdayHref,
-    logoUrl:
-      context.competition.logo_url,
-  };
-
-  const publicCompetitionMenu =
-    publicCompetitionMenuBase.map(
-      (item) =>
-        item.slug ===
-        currentCompetitionMenuItem.slug
-          ? currentCompetitionMenuItem
-          : item
-    );
-
-  const seasonOptions =
-    context.seasons.map((season) => ({
-      id: season.id,
-      label: season.label,
-      href:
-        `/competicoes/${context.competition.slug}/${seasonLabelToUrlSegment(season.label)}/jornadas/1`,
-    }));
-
-  const currentSeasonHref =
-    `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/1`;
-
-  const legNavigation =
-    buildPublicMatchdayLegNavigation(
-      context.matchdays,
-      context.activeParticipantCount,
-      context.matchday.id
-    );
-
-  const firstLegHref =
-    legNavigation.firstLegTarget
-      ? matchdayHref(
-          legNavigation
-            .firstLegTarget.number
-        )
-      : currentSeasonHref;
-
-  const secondLegHref =
-    legNavigation.secondLegTarget
-      ? matchdayHref(
-          legNavigation
-            .secondLegTarget.number
-        )
-      : currentSeasonHref;
-
-  const selectedDate =
-    formatPreferredMatchdayDateContext(
-      context.matchesForMatchday,
-      context.matchday.starts_on,
-      context.matchday.ends_on
-    );
-
-  const competitionBarColor =
-    publicCompetitionBarColor(
-      context.competition.slug
-    );
-
-  const sideAdvertisement = await PublicSideAdvertisement({ className: "news-article-ad" });
+  const [sideAdvertisement, editorialImageUrl] = await Promise.all([
+    PublicSideAdvertisement({ className: "news-article-ad" }),
+    readPublicHierarchicalEditorialImage(composition),
+  ]);
 
   return (
-    <div className="news-article-shell">
+    <div className="news-article-shell public-matchday-editorial-shell">
       <style>{styles}</style>
 
-      <div className="public-top-stack">
-        <header
-          className="public-site-topbar"
-          aria-label="Topo do Jornada.pt"
-        >
-          <a
-            className="public-site-brand"
-            href="/"
-          >
-            Jornada<span>.pt</span>
-          </a>
-
-          <PublicCompetitionNavigation
-            competitions={
-              publicCompetitionMenu
-            }
-            activeCompetitionSlug={
-              context.competition.slug
-            }
-            classificationHref={
-              classificationHref
-            }
-            showMessageTicker={false}
-          />
-
-          <div
-            className="public-site-actions"
-            aria-label="Ações"
-          >
-            <span
-              className="public-site-search"
-              aria-label="Pesquisar"
-            >
-              Pesquisar
-            </span>
-
-            <a href="/admin/gestor">
-              Entrar
-            </a>
-          </div>
-        </header>
-
-        <section
-          className="public-season-nav-bar"
-          aria-label="Navegação de jornadas"
-          style={{ "--public-season-accent": competitionBarColor } as CSSProperties}
-        >
-          <div className="public-hidden-heading">
-            <h2>Jornadas</h2>
-          </div>
-
-          <div className="public-season-nav-inner">
-            <div
-              className="public-season-context-card"
-              aria-label="Contexto da competição"
-            >
-              <label className="public-season-select-wrap">
-                <span>Época</span>
-
-                <select
-                  className="public-season-select"
-                  data-season-select
-                  defaultValue={
-                    currentSeasonHref
-                  }
-                >
-                  {seasonOptions.map(
-                    (season) => (
-                      <option
-                        key={season.id}
-                        value={season.href}
-                      >
-                        {season.label}
-                      </option>
-                    )
-                  )}
-                </select>
-              </label>
-
-              {legNavigation.applies ? (
-                <nav
-                  className="public-matchday-leg-nav"
-                  aria-label="Voltas da época"
-                >
-                  <a
-                    aria-current={
-                      legNavigation.activeLeg ===
-                      "first"
-                        ? "true"
-                        : undefined
-                    }
-                    href={firstLegHref}
-                  >
-                    1.ª volta
-                  </a>
-
-                  <a
-                    aria-current={
-                      legNavigation.activeLeg ===
-                      "second"
-                        ? "true"
-                        : undefined
-                    }
-                    href={secondLegHref}
-                  >
-                    2.ª volta
-                  </a>
-                </nav>
-              ) : null}
-            </div>
-
-            <nav
-              className="public-matchday-nav-compact"
-              aria-label="Jornadas da época"
-            >
-              {legNavigation.visibleMatchdays.map(
-                (matchday) => (
-                  <a
-                    aria-current={
-                      matchday.id ===
-                      context.matchday.id
-                        ? "page"
-                        : undefined
-                    }
-                    href={matchdayHref(
-                      matchday.number
-                    )}
-                    key={matchday.id}
-                  >
-                    J
-                    {String(
-                      matchday.number
-                    ).padStart(2, "0")}
-                  </a>
-                )
-              )}
-            </nav>
-
-            <div className="public-matchday-date-row">
-              <span className="public-matchday-date-context">
-                <strong>Data:</strong>{" "}
-                {selectedDate}
-              </span>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-            document.addEventListener("DOMContentLoaded", function () {
-              var select = document.querySelector("[data-season-select]");
-              if (select) {
-                select.addEventListener("change", function () {
-                  if (select.value) window.location.href = select.value;
-                });
-              }
-            });
-          `,
-        }}
+      <PublicMatchdayHeader
+        context={context}
+        competitions={publicCompetitionMenuBase}
+        classificationHref={classificationHref}
       />
-
-      {context.matchesForMatchday.length >
-      0 ? (
-        <section
-          className="public-league-match-strip-scroll"
-          aria-label="Jogos da jornada"
-        >
-          <PublicMatchStrip
-            carouselLayout="fluid-peek"
-            matches={context.matchesForMatchday.map(
-              (match) => ({
-                ...match,
-                matchdayNumber:
-                  match.matchday?.number ??
-                  null,
-              })
-            )}
-            variant="clean"
-          />
-        </section>
-      ) : null}
+      <div className={`public-league-match-strip-scroll ${matchdayStyles.matchStrip}`}>
+        <PublicMatchStrip
+          carouselLayout="fluid-peek"
+          matches={context.matchesForMatchday.map((match) => ({
+            ...match,
+            matchdayNumber: context.matchday.number,
+          }))}
+          variant="clean"
+        />
+      </div>
 
       <main className="news-article-layout">
         <article className="news-article-main">
@@ -643,6 +313,15 @@ export default async function EditorialDaJornadaPage({
               {editorial.author}
             </span>
           </div>
+
+          {editorialImageUrl ? (
+            <PublicEditorialImage
+              className="news-article-editorial-image"
+              src={editorialImageUrl}
+              imageSize="article"
+              alt={editorial.title ?? ""}
+            />
+          ) : null}
 
           <div className="news-article-body">
             {paragraphs.map(

@@ -4,6 +4,16 @@ import {
 } from "@/lib/site-advertising";
 
 export const sideAdvertisingStyles = `
+  a[data-public-side-advertisement] img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    margin: 0 auto;
+    object-fit: contain;
+    object-position: center;
+  }
+
   @media (max-width: 760px) {
     a[data-public-side-advertisement] {
       display: block;

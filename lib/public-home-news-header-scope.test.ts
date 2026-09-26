@@ -45,16 +45,16 @@ function assertScopedConsumer(path: string, moduleName: string) {
   assert.ok(openingTag.includes(`${binding}.topStack`), `${path} aplica o scoping no contentor azul`);
 }
 
-test("a Home fica congelada e a nova variante pertence só à Jornada moderna e às Notícias", () => {
+test("a Home fica congelada e a variante pertence ao cabeçalho partilhado da Jornada e às Notícias", () => {
   assert.deepEqual(consumersOf(homeStylesSpecifier), ["app/page.tsx"]);
   assert.deepEqual(consumersOf(leagueNewsStylesSpecifier), [
-    "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
-    "app/noticias/[slug]/page.tsx"
+    "app/noticias/[slug]/page.tsx",
+    "components/public/PublicMatchdayHeader.tsx"
   ]);
 
   assertScopedConsumer("app/page.tsx", homeStylesSpecifier);
   assertScopedConsumer(
-    "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
+    "components/public/PublicMatchdayHeader.tsx",
     leagueNewsStylesSpecifier
   );
   assertScopedConsumer("app/noticias/[slug]/page.tsx", leagueNewsStylesSpecifier);
