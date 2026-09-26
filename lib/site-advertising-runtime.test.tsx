@@ -380,16 +380,14 @@ test("integração pública mantém publicidade fora dos dados editoriais e elim
     "physicalSnapshot.blocks",
     "thematicEditorialBodyBlocks",
     "liveEditorialBodyBlocks",
-    "historicalDynamicBodyBlocks",
   ]) {
     assert.ok(
       page.includes("renderPublicAdvertisingBoundary(" + collection + ","),
     );
   }
-  assert.match(
-    page,
-    /historicalLegacyHasNewsBeforeVideo \? horizontalAdvertisement : null/,
-  );
+  assert.match(page, /afterOpeningNews=\{horizontalAdvertisement\}/);
+  assert.match(page, /historicalDynamicBodyBlocks\.map\(/);
+  assert.doesNotMatch(page, /openingHasSideAdvertisement|hierarchicalEditorialImageUrl/);
   for (const p of [
     "components/public/PublicGamesPage.tsx",
     "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/jogos/page.tsx",

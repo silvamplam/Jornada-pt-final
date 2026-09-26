@@ -1,7 +1,6 @@
 import PublicMatchdayHeader from "@/components/public/PublicMatchdayHeader";
 import PublicHorizontalAdvertisement from "@/components/public/PublicHorizontalAdvertisement";
 import { renderPublicAdvertisingBoundary } from "@/components/public/renderPublicAdvertisingBoundary";
-import { readPublicHierarchicalEditorialImage } from "@/lib/public-hierarchical-editorial-image";
 import { buildAccumulatedClassification, totalClassificationStats, type ClassificationSplit } from "@/lib/classification";
 import { getPublicLiveMinute } from "@/lib/live-match-clock";
 import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from "@/lib/public-matchday";
@@ -28,7 +27,6 @@ import {
   hierarchicalCompositionMediaSnapshot,
   isPublishableHierarchicalBeyondMatchday,
   isPublishableHierarchicalComposition,
-  isPublishableHierarchicalCompositionEditorial,
   type HierarchicalCompositionSlot,
 } from "@/lib/editorial-hierarchical-composition";
 import {
@@ -59,7 +57,7 @@ import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement
 import PublicTeamBadge, { type PublicTeamBadgeVariant } from "@/components/public/PublicTeamBadge";
 import PublicThematicZoneLayout from "@/components/public/PublicThematicZoneLayout";
 import { redirect } from "next/navigation";
-import { Fragment, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -4100,12 +4098,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     );
   }
 
-  const [sideAdvertisement, horizontalAdvertisement, hierarchicalEditorialImageUrl] = await Promise.all([
+  const [sideAdvertisement, horizontalAdvertisement] = await Promise.all([
     useHierarchicalReferenceComposition ? PublicSideAdvertisement({}) : Promise.resolve(null),
     publicEditorialUnavailable ? Promise.resolve(null) : PublicHorizontalAdvertisement(),
-    useHierarchicalReferenceComposition
-      ? readPublicHierarchicalEditorialImage(context.referenceComposition)
-      : Promise.resolve(null),
   ]);
   const openingHasNews = visibleHighlights.length > 0
     || editorialVisibility.showHeadline
@@ -4114,14 +4109,6 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
   const historicalLegacyBlockOrder = context.referenceComposition?.hierarchical_block_order == null
     ? null
     : normalizeHistoricalCompositionBlockOrder(context.referenceComposition.hierarchical_block_order);
-  const openingHasSideAdvertisement = Boolean(sideAdvertisement)
-    && isPublishableHierarchicalCompositionEditorial(hierarchicalEditorial);
-  // The validated legacy composition renders every preceding non-video section.
-  // Do not place both creatives at the same boundary after the opening editorial.
-  const historicalLegacyHasNewsBeforeVideo = historicalLegacyBlockOrder === null
-    || (historicalLegacyBlockOrder.indexOf("video") > 0
-      && !(openingHasSideAdvertisement
-        && historicalLegacyBlockOrder[historicalLegacyBlockOrder.indexOf("video") - 1] === "opening"));
 
   return (
     <main className="public-matchday-shell">
@@ -4160,7 +4147,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               }
               editorial={hierarchicalEditorial}
               editorialHref={hierarchicalEditorialHref}
-              editorialImageUrl={hierarchicalEditorialImageUrl}
+              afterOpeningNews={horizontalAdvertisement}
               editorialAfter={sideAdvertisement}
               headlineTitleColor={
                 context.referenceComposition?.hierarchical_headline_title_color
@@ -4193,21 +4180,18 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                 useHistoricalDynamicZones
                   ? undefined
                   : (children, key) => (
-                    <Fragment key={key}>
-                      {historicalLegacyHasNewsBeforeVideo ? horizontalAdvertisement : null}
-                      <PublicMatchdayEditorialSectionFrame
-                        kind="video"
-                        key={`historical-legacy-${key}`}
-                      >
-                        {children}
-                      </PublicMatchdayEditorialSectionFrame>
-                    </Fragment>
+                    <PublicMatchdayEditorialSectionFrame
+                      kind="video"
+                      key={`historical-legacy-${key}`}
+                    >
+                      {children}
+                    </PublicMatchdayEditorialSectionFrame>
                     )
               }
             />
 
             {useHistoricalDynamicZones
-              ? renderPublicAdvertisingBoundary(historicalDynamicBodyBlocks, (block) => {
+              ? historicalDynamicBodyBlocks.map((block) => {
                   if (block.kind === "video") {
                     if (effectiveRoundupItems.length === 0) return null;
 
@@ -4235,7 +4219,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                       zone={block.zone}
                     />
                   );
-                }, horizontalAdvertisement, hasValidHistoricalOpening && !openingHasSideAdvertisement)
+                })
               : null}
             </>
           ) : (
