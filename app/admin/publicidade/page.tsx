@@ -274,7 +274,7 @@ export default async function AdvertisingPage({ searchParams }: Props) {
 
             <p className="campaign-note">
               {horizontal
-                ? "Uma faixa entre notícias e vídeos da Jornada, quando ambos os blocos estão visíveis."
+                ? "Uma faixa entre o primeiro bloco editorial de notícias visível e o bloco editorial visível seguinte."
                 : "A mesma publicidade aparece ao lado das Últimas e na lateral dos artigos."}
             </p>
 
