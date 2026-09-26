@@ -117,6 +117,58 @@ def canonical_invariants():
 
 
 
+def legacy_publication_marks_lifecycle_only():
+    source, snapshot, published_article, package_id = [str(uuid4()) for _ in range(4)]
+    execute(f"""insert into public.newsroom_articles(id,source_code,original_url,normalized_url,title,
+      detected_at,first_detected_at,last_detected_at,processing_status) values('{source}','__legacy_lifecycle_test__',
+      'https://example.invalid/{source}','https://example.invalid/{source}','Fonte legacy',now(),now(),now(),'ready_for_review');
+      insert into public.newsroom_article_snapshots(id,article_id,content_hash,body,source_metadata,extracted_at)
+      values('{snapshot}','{source}',repeat('b',64),'[{{"type":"paragraph","text":"Fonte legacy já tratada"}}]',
+      '{{"fixture":true}}',now());
+      insert into public.editorial_articles(id,status,scope,author,label,title,subtitle,body,slug,
+        image_url,published_at,competition_id,season_id,matchday_id)
+      values('{published_article}','published','matchday','Editor','Ante','Artigo legacy',
+        'Subtítulo','Corpo','legacy-{published_article}','https://example.invalid/legacy.png',now(),
+        '{uid(900)}','{uid(901)}','{uid(902)}');""")
+    manifest = dict(
+      version=4,
+      packageId=package_id,
+      year='2026',
+      month='09',
+      entries=[dict(
+        articlePosition=1,
+        newsroomArticleId=source,
+        newsroomSnapshotId=snapshot,
+        status='prepared',
+        publishedArticleId=published_article,
+        usedAt='2026-09-26T12:00:00Z',
+      )],
+    )
+    execute(f"""insert into public.newsroom_editorial_source_packages(
+      id,package_year,package_month,manifest,markdown
+    ) values('{package_id}','2026','09',{val(manifest)},'Legacy lifecycle fixture');""")
+
+    before = scalar(f"""select jsonb_build_object(
+      'lifecycle',lifecycle,'eligibleNew',eligible_new,'eligiblePublished',eligible_published)
+      from public.newsroom_mesa_source_candidates_v1(now()-interval '1 day',null)
+      where newsroom_article_id='{source}';""")
+    assert before == {'lifecycle':'new','eligibleNew':True,'eligiblePublished':False}
+    assert candidates(source) == []
+    assert execute(f"select count(*) from public.newsroom_editorial_article_sources where newsroom_article_id='{source}';") == '0'
+
+    load('supabase/migrations/20260926220638_restore_legacy_mesa_lifecycle_publications.sql')
+
+    after = scalar(f"""select jsonb_build_object(
+      'lifecycle',lifecycle,'eligibleNew',eligible_new,'eligiblePublished',eligible_published)
+      from public.newsroom_mesa_source_candidates_v1(now()-interval '1 day',null)
+      where newsroom_article_id='{source}';""")
+    assert after == {'lifecycle':'published','eligibleNew':False,'eligiblePublished':True}
+    assert candidates(source) == [], 'legacy lifecycle must never invent canonical article identity'
+    assert execute(f"select count(*) from public.newsroom_editorial_article_sources where newsroom_article_id='{source}';") == '0'
+
+
+
+
 def distributed_outputs():
     sources=[new_source() for _ in range(4)]
     req=dict(version=2,preparationKey=str(uuid4()),title='Duas peças distintas',selection=dict(
@@ -151,4 +203,5 @@ def distributed_outputs():
 
 test('A-H: canonical source continuity, Theme identity, factual usage separation, ambiguity, replay and permissions',canonical_invariants)
 test('N-N: same context, disjoint frozen output groups, factual subset, no cross-relations',distributed_outputs)
+test('Legacy: lifecycle publicado sem inferir identidade canónica',legacy_publication_marks_lifecycle_only)
 report()

@@ -6,6 +6,7 @@ on:
       - .ci/mesa-intents-sql/**
       - .ci/mesa-intents-ui/**
       - supabase/migrations/20260926183411_mesa_continuity_explicit_articles_and_reads.sql
+      - supabase/migrations/20260926220638_restore_legacy_mesa_lifecycle_publications.sql
       - .github/workflows/mesa-intents-application.yml
       - lib/redacao-automatica/**
       - app/api/admin/editorial/redacao-automatica/**
@@ -16,6 +17,7 @@ on:
       - .ci/mesa-intents-sql/**
       - .ci/mesa-intents-ui/**
       - supabase/migrations/20260926183411_mesa_continuity_explicit_articles_and_reads.sql
+      - supabase/migrations/20260926220638_restore_legacy_mesa_lifecycle_publications.sql
       - .github/workflows/mesa-intents-application.yml
       - lib/redacao-automatica/**
       - app/api/admin/editorial/redacao-automatica/**
@@ -51,6 +53,26 @@ jobs:
           python3 -m playwright install --with-deps chromium
           mkdir -p /tmp/mesa-intents-application
           git rev-parse HEAD > /tmp/mesa-intents-application/tested-commit.txt
+      - name: Legacy lifecycle regression contract
+        run: |
+          set -euo pipefail
+          node node_modules/tsx/dist/cli.mjs --test \
+            lib/redacao-automatica/newsroom-mesa-legacy-lifecycle.test.ts
+
+      - name: Canonical source lifecycle SQL on disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          CID=$(docker run --detach --network none -e POSTGRES_DB=mesa_organization_test -e POSTGRES_HOST_AUTH_METHOD=trust postgres:17.6-bookworm)
+          trap 'docker rm -f "$CID" >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if docker exec "$CID" sh -c 'test "$(cat /proc/1/comm)" = postgres && pg_isready -U postgres -d mesa_organization_test'; then break; fi
+            sleep 1
+          done
+          docker exec "$CID" sh -c 'test "$(cat /proc/1/comm)" = postgres && pg_isready -U postgres -d mesa_organization_test'
+          docker inspect "$CID" --format '{{.HostConfig.NetworkMode}}' | grep -Fx none
+          python3 .ci/mesa-intents-sql/article-sources.py --container "$CID" --output /tmp/mesa-intents-application \
+            | tee /tmp/mesa-intents-application/article-sources.log
+
       - name: Disposable PostgreSQL, no TCP network
         run: |
           set -euo pipefail
