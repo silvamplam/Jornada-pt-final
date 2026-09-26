@@ -22,6 +22,8 @@ export type MesaSourceSelection = Readonly<{
   title: string;
   sourceLabel: string;
   imageUrl: string | null;
+  // Candidates come from canonical continuity; editorialArticleIds is an explicit override.
+  relatedArticleIds?: readonly string[];
   editorialArticleIds?: readonly string[];
 }>;
 
@@ -116,6 +118,10 @@ function isSourceSelection(value: unknown): value is MesaSourceSelection {
     && typeof selection.sourceLabel === "string"
     && selection.sourceLabel.trim().length > 0
     && isOptionalText(selection.imageUrl)
+    && (selection.relatedArticleIds === undefined || (
+      Array.isArray(selection.relatedArticleIds) && selection.relatedArticleIds.every(isUuid)
+      && new Set(selection.relatedArticleIds).size === selection.relatedArticleIds.length
+    ))
     && (selection.editorialArticleIds === undefined || (
       Array.isArray(selection.editorialArticleIds) && selection.editorialArticleIds.length <= 30
       && selection.editorialArticleIds.every(isUuid)
@@ -225,6 +231,7 @@ export function selectMesaMaterial(
       && current.title === material.title
       && current.sourceLabel === material.sourceLabel
       && current.imageUrl === material.imageUrl
+      && JSON.stringify(current.relatedArticleIds) === JSON.stringify(material.relatedArticleIds)
     ) return buffer;
     const sources = buffer.sources.slice();
     sources[index] = { ...material, editorialArticleIds: current.editorialArticleIds };
@@ -453,9 +460,10 @@ export function observeMesaMaterial(
   const index = buffer.sources.findIndex((source) => source.newsroomArticleId === material.newsroomArticleId);
   if (index < 0) return buffer;
   const saved = buffer.sources[index];
-  if (saved.classificationKey === material.classificationKey && saved.lifecycle === material.lifecycle) return buffer;
+  if (saved.classificationKey === material.classificationKey && saved.lifecycle === material.lifecycle
+    && JSON.stringify(saved.relatedArticleIds) === JSON.stringify(material.relatedArticleIds)) return buffer;
   const sources = buffer.sources.slice();
-  sources[index] = { ...saved, classificationKey: material.classificationKey, lifecycle: material.lifecycle };
+  sources[index] = { ...saved, relatedArticleIds: material.relatedArticleIds, classificationKey: material.classificationKey, lifecycle: material.lifecycle };
   return { ...buffer, sources };
 }
 
@@ -509,7 +517,7 @@ export function retainMesaDeferredSelection(buffer:MesaPreparationBuffer,
   return selectionCount(remaining)?{...remaining,preparationKey:createKey()}:clearMesaPreparationBuffer();
 }
 
-/** Only a deliberate article checkbox creates this association. Refreshes preserve it. */
+/** Explicit choices override the single-candidate default and survive refreshes. */
 export function selectMesaPublishedArticle(buffer: MesaPreparationBuffer, material: MesaMaterialSelection,
   articleId: string, checked: boolean, createPreparationKey: () => string): MesaPreparationBuffer {
   if (!isUuid(articleId)) throw new Error("mesa_article_invalid");
@@ -518,7 +526,7 @@ export function selectMesaPublishedArticle(buffer: MesaPreparationBuffer, materi
     if (!mesaExplicitArticleIds(buffer).includes(articleId)) return buffer;
     return { ...buffer, preparationKey: nextPreparationKey(createPreparationKey),
       sources: buffer.sources.map((source) => ({ ...source,
-        editorialArticleIds: source.editorialArticleIds?.filter((id) => id !== articleId) })) };
+        editorialArticleIds: (source.editorialArticleIds ?? []).filter((id) => id !== articleId) })) };
   }
   const next = current ? buffer : selectMesaMaterial(buffer, material, createPreparationKey);
   if (!next.sources.some((source) => source.newsroomArticleId === material.newsroomArticleId)) return buffer;
@@ -530,5 +538,15 @@ export function selectMesaPublishedArticle(buffer: MesaPreparationBuffer, materi
 }
 
 export function mesaExplicitArticleIds(buffer: MesaPreparationBuffer): string[] {
-  return [...new Set(buffer.sources.flatMap((source) => source.editorialArticleIds ?? []))].sort();
+  const candidates = [...new Set(buffer.sources.flatMap((source) => source.relatedArticleIds ?? []))];
+  const chosen = buffer.sources.flatMap((source) => source.editorialArticleIds ?? []);
+  // Resolve ambiguity across the whole selection, never auto-select one article per source.
+  if (candidates.length === 1 && buffer.sources.some((source) => source.editorialArticleIds === undefined
+    && source.relatedArticleIds?.includes(candidates[0]))) chosen.push(candidates[0]);
+  return [...new Set(chosen)].sort();
+}
+
+export function mesaArticleChoiceRequired(buffer: MesaPreparationBuffer): boolean {
+  return new Set(buffer.sources.flatMap((source) => source.relatedArticleIds ?? [])).size > 1
+    && mesaExplicitArticleIds(buffer).length === 0;
 }

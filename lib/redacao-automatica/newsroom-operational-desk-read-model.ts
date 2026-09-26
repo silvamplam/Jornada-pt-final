@@ -221,6 +221,13 @@ const transport = {
     ));
   },
 
+  readArticleSources(articleIds: readonly string[]) {
+    return readByIds<import("./newsroom-operational-desk-read-model-internal").OperationalDeskArticleSourceRecord>(articleIds, (ids) => (
+      "newsroom_editorial_article_sources?select=editorial_article_id,newsroom_article_id"
+      + `&newsroom_article_id=in.(${idList(ids)})&order=newsroom_article_id.asc,editorial_article_id.asc`
+    ));
+  },
+
   readFinalUsage(dossierSourceIds: readonly string[]) {
     return readByIds<OperationalDeskFinalUsageRecord>(dossierSourceIds, (ids) => (
       "newsroom_mesa_output_source_usage"

@@ -292,7 +292,7 @@ test("Tema recupera publicados pela proveniência exata do contexto sem criar me
 
   assert.match(themePage, /readThemeContinuity\(themeId\)/);
   assert.match(themePage, /ARTIGOS PUBLICADOS/);
-  assert.match(themePage, /continuity\.publishedArticles\.map/);
+  assert.match(themePage, /publishedArticles\.map/);
   assert.match(themePage, /articleId=/);
   assert.match(
     continuity,

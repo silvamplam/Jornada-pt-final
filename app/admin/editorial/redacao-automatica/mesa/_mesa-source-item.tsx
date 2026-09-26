@@ -27,6 +27,7 @@ export function mesaSourceSelectionMaterial(
     title: item.title,
     sourceLabel: item.sourceName ?? item.sourceCode,
     imageUrl: item.imageCandidateUrl,
+    relatedArticleIds: [...new Set(item.publishedContributions.map((article) => article.editorialArticleId))].sort(),
   };
 }
 
@@ -81,7 +82,7 @@ export function MesaSourceItem({
       <article className={styles.sourceBody}>
         <div className={styles.sourceMeta}>
           <span className={styles.lifecycleBadge} data-lifecycle={item.lifecycle}>
-            {themeId ? (item.lifecycle === "published" ? "COM PUBLICAÇÃO" : "POR PRODUZIR") : item.lifecycle === "published" ? "PUBLICADA" : "NOVA"}
+            {themeId ? (item.lifecycle === "published" ? "JÁ USADA" : "AINDA NÃO USADA") : item.lifecycle === "published" ? "COM ARTIGO RELACIONADO" : "NOVA"}
           </span>
           {formattedDate ? <time dateTime={dateValue}>{formattedDate}</time> : null}
           <span>{formatSourceLabel(item)}</span>
@@ -112,7 +113,7 @@ export function MesaSourceItem({
               >
                 {contribution.title}
                 <small>
-                  Artigo publicado
+                  Artigo relacionado · continuidade
                 </small>
               </Link>
               </div>
@@ -130,9 +131,7 @@ export function MesaSourceItem({
             fixtureMode={fixtureMode}
           />
           <MesaSourceThemeMenu
-            newsroomArticleId={item.newsroomArticleId}
-            lifecycle={item.lifecycle}
-            classificationKey={classificationKey}
+            material={material}
             themeIds={item.themeMembership.themeIds}
           />
           {themeId && allowRemove ? <MesaRemoveThemeSource themeId={themeId} sourceId={item.newsroomArticleId} /> : null}

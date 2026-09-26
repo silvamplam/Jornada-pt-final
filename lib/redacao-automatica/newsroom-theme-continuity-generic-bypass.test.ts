@@ -16,7 +16,7 @@ test("Tema publicado bloqueia a preparação genérica no servidor", () => {
 });
 
 test("Tema publicado deixa de expor o PREPARAR PRODUÇÃO genérico na página do Tema", () => {
-  assert.match(themePage, /context\.articleCount > 0/);
+  assert.match(themePage, /summary\.publishedArticleCount > 0/);
   assert.match(themePage, /Voltar a levar à Produção/);
   assert.match(themePage, /escolhe revisão, revisão com novos ou apenas novos/);
   assert.match(themePage, /: <MesaSelectionTray \/>/);

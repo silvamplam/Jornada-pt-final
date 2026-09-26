@@ -153,6 +153,25 @@
   background: rgb(248 251 247 / 96%);
 }
 
+/* Theme sections grow with the preparation panel instead of sharing the Mesa viewport grid. */
+.themePage .container {
+  height: auto;
+  grid-template-rows: auto auto;
+  align-content: start;
+}
+
+.themePage .workspaceChrome {
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  align-content: start;
+}
+
+.themePage .controlStrip {
+  position: static;
+  flex-wrap: wrap;
+  line-height: 1.5;
+}
+
 .classificationFilters {
   min-width: 0;
   flex: 1 1 auto;

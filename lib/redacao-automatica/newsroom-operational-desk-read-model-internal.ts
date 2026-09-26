@@ -37,6 +37,14 @@ export type OperationalDeskSourceLifecycle = "new" | "published";
 
 export type OperationalDeskPublishedContribution =
   | Readonly<{
+      origin: "article_continuity";
+      editorialArticleId: string;
+      slug: string;
+      title: string;
+      publishedAt: string | null;
+      newsroomSnapshotId: null;
+    }>
+  | Readonly<{
       origin: "dossier_plan";
       editorialArticleId: string;
       slug: string;
@@ -247,7 +255,13 @@ export type OperationalDeskPublishedArticleRecord = Readonly<{
   published_at: string | null;
 }>;
 
+export type OperationalDeskArticleSourceRecord = Readonly<{
+  editorial_article_id: string;
+  newsroom_article_id: string;
+}>;
+
 export interface OperationalDeskReadTransport {
+  readArticleSources?(articleIds: readonly string[]): Promise<readonly OperationalDeskArticleSourceRecord[]>;
   isConfigured(): boolean;
   listCycleArticles(sourceCode: string | null, sourceIds?: readonly string[]): Promise<readonly OperationalDeskArticleRecord[]>;
   readLatestSnapshots(articleIds: readonly string[]): Promise<readonly OperationalDeskSnapshotRecord[]>;
@@ -471,7 +485,7 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
         throw new OperationalDeskRelationInvalidError();
       }
       const articleIds = records.map((row) => row.id);
-      const [snapshots, reviews, classifications, themeSources, legacyUsage, dossierSources] =
+      const [snapshots, reviews, classifications, themeSources, legacyUsage, dossierSources, articleSources] =
         await Promise.all([
           transport.readLatestSnapshots(articleIds),
           transport.readReviewStates(articleIds),
@@ -479,6 +493,7 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
           transport.readThemeSources(articleIds),
           transport.readLegacyUsage(articleIds),
           transport.readDossierSources(articleIds),
+          transport.readArticleSources?.(articleIds) ?? Promise.resolve([]),
         ]);
       const snapshotByArticle = uniqueBy(snapshots, (row) => row.article_id);
       const reviewByArticle = uniqueBy(reviews, (row) => row.newsroom_article_id);
@@ -503,6 +518,7 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
       const dossierById = uniqueBy(dossiers, (row) => row.id);
       const publishedArticles = await transport.readPublishedArticles(
         [...new Set([
+          ...idsFor(articleSources, (row) => row.editorial_article_id),
           ...idsFor(plans, (row) => row.editorial_article_id),
           ...idsFor(finalUsage, (row) => row.editorial_article_id),
           ...idsFor(legacyUsage, (row) => row.published_article_id),
@@ -510,6 +526,11 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
       );
       const publishedById = uniqueBy(publishedArticles, (row) => row.id);
 
+      for (const row of articleSources) {
+        if (!articleIds.includes(row.newsroom_article_id) || !isUuid(row.editorial_article_id)) {
+          throw new OperationalDeskRelationInvalidError();
+        }
+      }
       for (const row of snapshots) {
         if (!articleIds.includes(row.article_id) || !isUuid(row.id) || !validDate(row.extracted_at)) {
           throw new OperationalDeskRelationInvalidError();
@@ -725,6 +746,21 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
             newsroomSnapshotId: usage.newsroom_snapshot_id,
           });
         }
+        if (transport.readArticleSources) {
+          // Continuity is authoritative. Legacy provenance only enriches a demonstrated relation.
+          const relatedIds = new Set(articleSources.filter((relation) => relation.newsroom_article_id === row.id)
+            .map((relation) => relation.editorial_article_id));
+          for (const articleId of contributionsByArticle.keys()) {
+            if (!relatedIds.has(articleId)) contributionsByArticle.delete(articleId);
+          }
+          for (const articleId of relatedIds) {
+            const article = publishedById.get(articleId);
+            if (article && !contributionsByArticle.has(articleId)) contributionsByArticle.set(articleId, {
+              origin: "article_continuity", editorialArticleId: article.id, slug: article.slug,
+              title: article.title, publishedAt: article.published_at, newsroomSnapshotId: null,
+            });
+          }
+        }
         const publishedContributions = [...contributionsByArticle.values()]
           .sort((left, right) => (
             Date.parse(right.publishedAt ?? "") - Date.parse(left.publishedAt ?? "")
@@ -742,7 +778,7 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
           comparisonSnapshotId
           || (review && review.reviewed_snapshot_id !== snapshot.id)
           || publishedContributions.some(
-            (contribution) => contribution.newsroomSnapshotId !== snapshot.id,
+            (contribution) => contribution.newsroomSnapshotId !== null && contribution.newsroomSnapshotId !== snapshot.id,
           )
         ));
         return [{

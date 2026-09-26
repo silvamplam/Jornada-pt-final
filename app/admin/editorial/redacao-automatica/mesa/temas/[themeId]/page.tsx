@@ -4,6 +4,7 @@ import {
   isMesaUuid,
   loadMesaThemeOrganization,
 } from "@/lib/redacao-automatica/newsroom-mesa-organization";
+import { summarizeMesaThemeContinuity } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
 import { readThemeContinuity } from "@/lib/redacao-automatica/newsroom-theme-continuity";
 import { MesaSelectionProvider, MesaSelectionTray } from "../../_mesa-selection-client";
 import { MesaSourceWindow, MesaDossierCardView } from "../../_mesa-organization-client";
@@ -72,8 +73,16 @@ export default async function MesaThemePage({
     || dossierMembers.some((member) => member.newsroom_article_id === source.newsroomArticleId)
   ));
   const loose = sources.filter((source) => !inDossier.has(source.newsroomArticleId));
+  const publishedArticles = [...new Map((continuity?.publishedArticles ?? []).map((article) => (
+    [article.editorialArticleId, article] as const
+  ))).values()];
+  const summary = summarizeMesaThemeContinuity({
+    sourceIds: [...currentThemeSourceIds],
+    relatedSourceIds: scoped.workedSourceIds,
+    publishedArticleIds: publishedArticles.map((article) => article.editorialArticleId),
+  });
 
-  return <main className={styles.shell}>
+  return <main className={`${styles.shell} ${styles.themePage}`}>
     <div className={styles.container}>
       <MesaSelectionProvider themes={organization.themes} themeContext={{ id: themeId, title: theme.title }}>
         <header className={styles.hero}><div className={styles.heroIdentity}><div>
@@ -87,18 +96,22 @@ export default async function MesaThemePage({
             disabled={theme.status !== "open"}
             autoOpen={query.continuity === "1"}
           />
-          <div className={styles.controlStrip}>
-            <span>{sources.length} fontes · {context.dossiers.length} Dossiês · {context.articleCount} artigos publicados</span>
-            <span>As fontes organizadas não regressam às listas gerais.</span>
+          <div className={styles.controlStrip} data-theme-summary="true">
+            <span>
+              {summary.sourceCount} {summary.sourceCount === 1 ? "fonte" : "fontes"}
+              {" · "}{summary.workedSourceCount} {summary.workedSourceCount === 1 ? "usada" : "usadas"}
+              {" · "}{summary.pendingSourceCount} {summary.pendingSourceCount === 1 ? "pendente" : "pendentes"}
+              {" · "}{summary.publishedArticleCount} {summary.publishedArticleCount === 1 ? "artigo publicado" : "artigos publicados"}
+            </span>
           </div>
-          {continuity && continuity.publishedArticles.length > 0 ? (
+          {summary.publishedArticleCount > 0 ? (
             <section className={styles.sourcePanel} data-theme-published-articles="true">
               <header className={styles.panelHeader}>
                 <h2>ARTIGOS PUBLICADOS</h2>
-                <span>{continuity.publishedArticles.length}</span>
+                <span>{summary.publishedArticleCount}</span>
               </header>
               <ol className={styles.sourceGrid}>
-                {continuity.publishedArticles.map((article) => (
+                {publishedArticles.map((article) => (
                   <li key={article.editorialArticleId} className={styles.organizationItem}>
                     <article className={styles.organizationCard}>
                       <Link
@@ -162,7 +175,7 @@ export default async function MesaThemePage({
               />
             </section>
           </section>
-          {context.articleCount > 0 ? (
+          {summary.publishedArticleCount > 0 ? (
             <p className={styles.selectionMessage} role="status">
               Este Tema já tem artigos publicados. Para voltar à Produção, usa «Voltar a levar à Produção» em Continuidade editorial acima; escolhe revisão, revisão com novos ou apenas novos, sem rever os anteriores.
             </p>
