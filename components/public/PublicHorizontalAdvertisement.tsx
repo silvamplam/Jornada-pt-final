@@ -37,8 +37,16 @@ export const horizontalAdvertisingStyles = `
   .public-horizontal-advertisement[data-format="tall"] img {
     max-height: 320px;
   }
-  @media (max-width: 680px) {
-    .public-horizontal-advertisement { margin-top: 24px; }
+  @media (max-width: 760px) {
+    .public-horizontal-advertisement { margin-top: 20px; }
+    .public-horizontal-advertisement-label { margin-bottom: 6px; }
+    .public-horizontal-advertisement img {
+      max-width: min(100%, 320px);
+      max-height: 100px;
+    }
+    .public-horizontal-advertisement[data-format="tall"] img {
+      max-height: 180px;
+    }
   }
 `;
 
