@@ -10,8 +10,9 @@
 
 .topStack[data-competition="la-liga"]:global(.public-top-stack) {
   --league-header-background: #ff4b44;
-  --league-header-ink: #171719;
-  --league-header-muted: #242426;
+  --league-header-ink: #ffffff;
+  --league-header-muted: #ffffff;
+  --league-header-border: color-mix(in srgb, #ff4b44 50%, #171719);
   --league-header-hover: color-mix(in srgb, #ff4b44 92%, black);
   --league-header-control: color-mix(in srgb, #ff4b44 92%, black);
   --league-header-active: color-mix(in srgb, #ff4b44 92%, black);
