@@ -8,11 +8,14 @@
   --league-header-hover: color-mix(in srgb, #37003c 75%, white);
 }
 
-.topStack[data-competition="la-liga"] {
+.topStack[data-competition="la-liga"]:global(.public-top-stack) {
   --league-header-background: #ff4b44;
-  --league-header-ink: color-mix(in srgb, #ff4b44 24%, black);
-  --league-header-muted: color-mix(in srgb, #ff4b44 28%, black);
-  --league-header-hover: color-mix(in srgb, #ff4b44 62%, black);
+  --league-header-ink: #171719;
+  --league-header-muted: #242426;
+  --league-header-hover: color-mix(in srgb, #ff4b44 92%, black);
+  --league-header-control: color-mix(in srgb, #ff4b44 92%, black);
+  --league-header-active: color-mix(in srgb, #ff4b44 92%, black);
+  --league-header-control-border: var(--league-header-border);
 }
 
 .topStack[data-competition="premier-league"],
@@ -326,6 +329,17 @@
 .topStack:global(.public-top-stack) :global(.public-season-select:focus-visible) {
   outline: 2px solid var(--league-header-ink, #ffffff);
   outline-offset: -3px;
+}
+
+.topStack[data-competition="la-liga"] .matchdayBrand,
+.topStack[data-competition="la-liga"] :global(.public-season-select),
+.topStack[data-competition="la-liga"] :global(nav[aria-label="Navegação pública"] a[aria-current="page"]),
+.topStack[data-competition="la-liga"] :global(.public-matchday-leg-nav a[aria-current="true"]),
+.topStack[data-competition="la-liga"] :global(.public-matchday-nav-compact a[aria-current="page"]),
+.topStack[data-competition="la-liga"] :global(nav[aria-label="Navegação pública"] a:hover),
+.topStack[data-competition="la-liga"] :global(.public-matchday-leg-nav a:hover),
+.topStack[data-competition="la-liga"] :global(.public-matchday-nav-compact a:hover) {
+  color: var(--league-header-ink);
 }
 
 @media (max-width: 1040px) {
