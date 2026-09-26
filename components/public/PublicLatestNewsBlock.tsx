@@ -5,6 +5,49 @@ import PublicEditorialImage from "./PublicEditorialImage";
 import { useEffect, useRef } from "react";
 import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 
+// One responsive policy for every public placement of the shared latest feed.
+// Hide its layout owners too; adjacent editorial content and ads remain visible.
+export const publicLatestNewsMobileStyles = `
+  @media (max-width: 760px) {
+    .public-matchday-news[data-public-latest-news],
+    .public-latest-companion-news:has(> [data-public-latest-news]),
+    .public-four-news-latest-column:has([data-public-latest-news]) {
+      display: none;
+    }
+
+    .public-editorial-layout-panel .public-matchday-lead-grid:has(> [data-public-latest-news]) {
+      grid-template-areas: none;
+    }
+
+    .public-matchday-lead-grid:has(> [data-public-latest-news]:only-child),
+    .public-editorial-layout-panel:has(> .public-matchday-cover > .public-matchday-lead-grid:only-child > [data-public-latest-news]:only-child),
+    [data-public-editorial-section-frame="latest"]:has(> .public-thematic-latest-only-layout):not(:has(.public-thematic-latest-only-ad-column)) {
+      display: none;
+    }
+
+    .public-latest-companion-grid:has(.public-latest-companion-news) > .public-latest-companion-ad,
+    .public-four-news-latest-grid:has(.public-four-news-latest-column) > .public-four-news-ad-column {
+      grid-column: 1 / -1;
+    }
+
+    /* A latest-only frame can still contain an active advertisement. */
+    [data-public-editorial-section-frame="latest"]:has(> .public-thematic-latest-only-layout) {
+      margin-top: 0;
+      padding-top: 0;
+    }
+
+    [data-public-editorial-section-frame="latest"]:has(> .public-thematic-latest-only-layout)::before {
+      display: none;
+    }
+
+    .public-thematic-latest-only-ad-column {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+  }
+`;
+
 export type PublicLatestNewsItem = {
   id: string;
   timeLabel?: string | null;
@@ -182,9 +225,11 @@ export default function PublicLatestNewsBlock({
   return (
     <aside
       className="public-matchday-news"
+      data-public-latest-news
       aria-label={visibleTitle || "Notícias"}
       ref={rootRef}
     >
+      <style>{publicLatestNewsMobileStyles}</style>
       {visibleTitle ? (
         <h3
           style={
