@@ -22,6 +22,9 @@ test("legacy publication evidence affects lifecycle only, not canonical article 
   assert.equal((migration.match(/legacy_publications as materialized/g) ?? []).length, 1);
   assert.equal((migration.match(/candidates as materialized/g) ?? []).length, 1);
   assert.equal((migration.match(/\$function\$;/g) ?? []).length, 1);
+  assert.equal((migration.match(/^begin;/gm) ?? []).length, 1);
+  assert.equal((migration.match(/^commit;/gm) ?? []).length, 1);
+  assert.equal((migration.match(/^notify pgrst, 'reload schema';/gm) ?? []).length, 1);
   assert.doesNotMatch(migration, /insert into public\.newsroom_editorial_article_sources/i);
   assert.doesNotMatch(migration, /\bupdate\s+public\.newsroom_editorial_article_sources/i);
   assert.doesNotMatch(migration, /\bdelete\s+from\s+public\.newsroom_editorial_article_sources/i);
