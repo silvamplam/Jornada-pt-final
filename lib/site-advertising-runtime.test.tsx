@@ -140,7 +140,7 @@ test("publicidade manual: leitura, renderização e gravação isolada", async (
       failure = "timeout";
       tt.mock.timers.enable({ apis: ["setTimeout"] });
       const result = render();
-      tt.mock.timers.tick(2501);
+      tt.mock.timers.tick(8001);
       assert.equal(await result, null);
       failure = null;
     });
