@@ -20,6 +20,7 @@ function errorResponse(error: unknown) {
     ["request-conflict", "Este pedido já foi usado com outra seleção. A seleção atual foi preservada."],
     ["dossier-already-linked", "Este Dossiê já pertence a outro Tema. Não foi deslocado."],
     ["source-in-dossier", "Esta fonte pertence a um Dossiê deste Tema. A memória da produção foi preservada."],
+    ["article-unavailable", "Um artigo selecionado já não está publicado. A seleção foi preservada."],
     ["theme-unavailable", "O Tema não existe ou está arquivado. A seleção foi preservada."],
     ["snapshot-unavailable", "Uma das versões já não está disponível para comparação."],
     ["snapshot-mismatch", "A versão indicada não pertence a esta fonte."],
@@ -72,6 +73,10 @@ export async function POST(request: Request) {
       const title = text(body.title);
       const classification = text(body.classificationKey);
       const ids = body.sourceIds;
+      const explicitArticles = body.editorialArticleIds;
+      if (explicitArticles !== undefined && (!Array.isArray(explicitArticles)
+        || explicitArticles.length > 30 || !explicitArticles.every(isMesaUuid)
+        || new Set(explicitArticles).size !== explicitArticles.length)) return badRequest();
       if (body.materials !== undefined) {
         const materials = body.materials;
         if (!isMesaUuid(requestId) || (themeId !== null && !isMesaUuid(themeId))
@@ -80,9 +85,11 @@ export async function POST(request: Request) {
           || ids.length + materials.length < 1 || new Set(ids).size !== ids.length
           || new Set(materials.map((ref) => ref.key)).size !== materials.length
           || (!themeId && (!title || title.length > 180 || !isArticleClassificationKey(classification)))) return badRequest();
-        const rows = await mesaOrganizationCommand("newsroom_organize_theme_materials_v2", {
+        const rows = await mesaOrganizationCommand(explicitArticles !== undefined ? "newsroom_organize_theme_selection_v3" : "newsroom_organize_theme_materials_v2", {
           p_request_id: requestId, p_theme_id: themeId, p_title: title,
-          p_classification_key: classification || null, p_source_ids: ids, p_material_refs: materials,
+          p_classification_key: classification || null, p_source_ids: ids,
+          p_material_refs: materials,
+          ...(explicitArticles !== undefined ? { p_editorial_article_ids: explicitArticles } : {}),
         });
         const row = rows[0];
         if (!isMesaUuid(row?.theme_id) || !Number.isSafeInteger(row.added_count) || Number(row.added_count) < 0 || typeof row.reused !== "boolean") throw new Error("organization-result-invalid");
@@ -97,9 +104,10 @@ export async function POST(request: Request) {
         || !Array.isArray(ids) || ids.length < 1 || ids.length > 200
         || !ids.every(isMesaUuid) || new Set(ids).size !== ids.length
         || (!themeId && (!title || title.length > 180 || !isArticleClassificationKey(classification)))) return badRequest();
-      const rows = await mesaOrganizationCommand("newsroom_organize_theme_sources_v1", {
+      const rows = await mesaOrganizationCommand(explicitArticles !== undefined ? "newsroom_organize_theme_selection_v3" : "newsroom_organize_theme_sources_v1", {
         p_request_id: requestId, p_theme_id: themeId, p_title: title,
         p_classification_key: classification || null, p_source_ids: ids,
+        ...(explicitArticles !== undefined ? { p_editorial_article_ids: explicitArticles, p_material_refs: null } : {}),
       });
       const row = rows[0];
       if (!isMesaUuid(row?.theme_id) || !Number.isSafeInteger(row.added_count) || Number(row.added_count) < 0 || typeof row.reused !== "boolean") throw new Error("organization-result-invalid");

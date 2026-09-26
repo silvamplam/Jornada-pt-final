@@ -492,10 +492,10 @@ export async function fetchSupabaseAdminTable<T>(path: string): Promise<T[]> {
       continue;
     }
 
-    throw new Error(
+    throw Object.assign(new Error(
       detail
       || `Supabase request failed with status ${response.status}`,
-    );
+    ), { status: response.status });
   }
 
   throw new Error("Supabase administrative read retry exhausted.");

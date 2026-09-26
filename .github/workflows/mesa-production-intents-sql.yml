@@ -14,6 +14,7 @@ on:
       - supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql
       - supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql
       - supabase/migrations/20260920213530_newsroom_mesa_new_output_grouping_v2.sql
+      - supabase/migrations/20260926183411_mesa_continuity_explicit_articles_and_reads.sql
   pull_request:
     paths:
       - .ci/mesa-intents-sql/**
@@ -25,6 +26,7 @@ on:
       - supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql
       - supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql
       - supabase/migrations/20260920213530_newsroom_mesa_new_output_grouping_v2.sql
+      - supabase/migrations/20260926183411_mesa_continuity_explicit_articles_and_reads.sql
 
 permissions:
   contents: read
@@ -75,7 +77,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 .ci/mesa-intents-sql/publication.py --container "$INTENTS_TEST_CONTAINER" \
+          python3 .ci/mesa-intents-sql/continuity.py --container "$INTENTS_TEST_CONTAINER" \
             --output /tmp/mesa-intents-evidence | tee /tmp/mesa-intents-evidence/sql.log
       - name: Prepare network-isolated Node command
         shell: bash
@@ -108,6 +110,7 @@ jobs:
           set -euo pipefail
           /tmp/mesa-intents-offline node node_modules/tsx/dist/cli.mjs --test \
             lib/redacao-automatica/newsroom-mesa-production-intents.test.ts \
+            lib/redacao-automatica/newsroom-mesa-continuity-closure.test.ts \
             lib/redacao-automatica/newsroom-mesa-production-intents-contract.test.ts \
             lib/redacao-automatica/newsroom-mesa-new-output-groups.test.ts \
             lib/redacao-automatica/newsroom-theme-continuity.test.ts \
@@ -127,7 +130,7 @@ jobs:
           git restore next-env.d.ts
           git diff --exit-code
           cp supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql /tmp/mesa-intents-evidence/
-          cp .ci/mesa-intents-sql/publication.py /tmp/mesa-intents-evidence/
+          cp .ci/mesa-intents-sql/continuity.py /tmp/mesa-intents-evidence/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

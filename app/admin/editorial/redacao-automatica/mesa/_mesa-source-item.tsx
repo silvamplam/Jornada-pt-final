@@ -2,7 +2,7 @@ import BackofficeImage from "@/components/admin/BackofficeImage";
 import Link from "next/link";
 import type { OperationalDeskSourceItem } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model";
 import type { MesaMaterialSelection } from "./_mesa-selection-state";
-import { MesaClassificationBadge, MesaClassificationEditor, MesaOperationalSourceRow, MesaSelectionToggle, MesaSelectedVersionNotice, MesaSourceThemeMenu } from "./_mesa-selection-client";
+import { MesaPublishedArticleSelection, MesaClassificationBadge, MesaClassificationEditor, MesaOperationalSourceRow, MesaSelectionToggle, MesaSelectedVersionNotice, MesaSourceThemeMenu } from "./_mesa-selection-client";
 import { MesaSourceChanges, MesaRemoveThemeSource } from "./_mesa-source-changes";
 import styles from "./mesa.module.css";
 function formatSourceLabel(item: OperationalDeskSourceItem): string { return item.sourceName ?? item.sourceCode; }
@@ -104,8 +104,10 @@ export function MesaSourceItem({
         {item.publishedContributions.length > 0 ? (
           <div className={styles.sourceContributions}>
             {item.publishedContributions.map((contribution) => (
+              <div className={styles.sourceContribution} key={contribution.editorialArticleId}>
+                {allowSelection ? <MesaPublishedArticleSelection material={material}
+                  articleId={contribution.editorialArticleId} title={contribution.title} /> : null}
               <Link
-                key={contribution.editorialArticleId}
                 href={`/admin/editorial/artigos/${contribution.editorialArticleId}/editar`}
               >
                 {contribution.title}
@@ -113,6 +115,7 @@ export function MesaSourceItem({
                   Artigo publicado
                 </small>
               </Link>
+              </div>
             ))}
           </div>
         ) : null}

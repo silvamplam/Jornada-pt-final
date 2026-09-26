@@ -33,9 +33,13 @@ import {
   shouldRequestAutomaticEditorialBatchPreflight,
 } from "@/lib/redacao-automatica/editorial-batch-publication-client";
 import {
-  applyEditorialBatchHistoricalDecisions,
+  applyHistoricalDecisionGroups,
+  historicalTargetsForBatch,
+  historicalDecisionGroups,
+  readPendingHistoricalDecisions,
+  HISTORICAL_PENDING_STORAGE_KEY,
+  type HistoricalTarget,
   editorialBatchHistoricalChoiceIdentity,
-  editorialBatchSelectedHistoricalArticleIds,
   pruneEditorialBatchHistoricalChoices,
   type EditorialBatchHistoricalChoices,
   type EditorialBatchHistoricalCompletion,
@@ -485,6 +489,7 @@ function ResultSummary({
   historicalChoices,
   onHistoricalChoice,
   historicalChoiceDisabled,
+  historicalTargets,
   classificationChoices,
   lockedClassificationKeys,
   onClassificationChoice,
@@ -512,6 +517,7 @@ function ResultSummary({
   historicalChoices: EditorialBatchHistoricalChoices;
   onHistoricalChoice: (identity: string, checked: boolean) => void;
   historicalChoiceDisabled: boolean;
+  historicalTargets: Readonly<Record<string, HistoricalTarget>>;
   classificationChoices: Readonly<Record<string, ArticleClassificationKey>>;
   lockedClassificationKeys: ReadonlySet<string>;
   onClassificationChoice: (articleKey: string, classificationKey: ArticleClassificationKey) => void;
@@ -698,13 +704,13 @@ function ResultSummary({
                             <input
                               type="checkbox"
                               checked={Boolean(historicalChoices[historicalChoiceIdentity])}
-                              disabled={historicalChoiceDisabled}
+                              disabled={historicalChoiceDisabled || !historicalTargets[historicalChoiceIdentity]?.matchdayId}
                               onChange={(event) => onHistoricalChoice(
                                 historicalChoiceIdentity,
                                 event.target.checked,
                               )}
                             />
-                            <span>Histórica</span>
+                            <span>{historicalTargets[historicalChoiceIdentity]?.matchdayId ? "Histórica" : "Histórica indisponível · sem Jornada válida"}</span>
                           </label>
                         ) : null}
                         {classificationRequired ? (
@@ -1144,6 +1150,11 @@ export default function BatchPreflightClient({
     );
   const publicationStatesRef = useRef<Record<string, BatchPublicationItemState>>({});
   const historicalChoicesRef = useRef<EditorialBatchHistoricalChoices>({});
+  const touchedHistoricalRef = useRef(new Set<string>());
+  const [historicalReadState, setHistoricalReadState] = useState<"ready" | "loading" | "error">("ready");
+  const [historicalReadVersion, setHistoricalReadVersion] = useState(0);
+  const [pendingHistorical, setPendingHistorical] = useState<ReturnType<typeof readPendingHistoricalDecisions>>(null);
+  const pendingHistoricalRef = useRef<ReturnType<typeof readPendingHistoricalDecisions>>(null);
   const classificationChoicesRef = useRef<Record<string, ArticleClassificationKey>>({});
   const frozenClassificationChoicesRef = useRef<Record<string, ArticleClassificationKey>>({});
   const touchedClassificationKeysRef = useRef<Set<string>>(new Set());
@@ -1186,6 +1197,12 @@ export default function BatchPreflightClient({
     slots:mesaProductionIntentSlots(sourcePackage.productionIntents), newArticleCount:sourcePackage.productionIntents.totals.newArticles,
     publishedArticleCount:sourcePackage.productionIntents.totals.reviews,
   } : sourcePackage?.themeContinuity ?? null, [sourcePackage]);
+  const historicalTargets = useMemo(() => {
+    const targets = historicalTargetsForBatch(preflight.articles, themeContinuity?.slots ?? [], matchdayId);
+    return Object.fromEntries(Object.entries(targets).map(([identity, target]) => [identity, {
+      ...target, matchdayId: matchdays.some((day) => day.id === target.matchdayId) ? target.matchdayId : null,
+    }]));
+  }, [preflight.articles, themeContinuity, matchdayId, matchdays]);
   const publicationContextComplete = themeContinuity
     ? themeContinuity.newArticleCount === 0 || contextComplete
     : contextComplete;
@@ -1341,6 +1358,9 @@ export default function BatchPreflightClient({
   const publicationCanPublish =
     canPublish
     && classificationsComplete
+    && !pendingHistorical
+    && historicalReadState === "ready"
+    && Object.keys(historicalChoices).every((identity) => historicalTargets[identity]?.matchdayId)
     && Boolean(publicationPlan)
     && updatesConfirmed;
 
@@ -1351,6 +1371,45 @@ export default function BatchPreflightClient({
     || publicationError
     || Object.keys(publicationStates).length > 0,
   );
+
+  useEffect(() => {
+    const pending = readPendingHistoricalDecisions(window.sessionStorage.getItem(HISTORICAL_PENDING_STORAGE_KEY));
+    if (pending?.groups.length) {
+      pendingHistoricalRef.current = pending;
+      setPendingHistorical(pending);
+      if (pending.complete) setBatchFinalized(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const existing = Object.entries(historicalTargets).filter(([, target]) => target.articleId && target.matchdayId);
+    if (!existing.length) { setHistoricalReadState("ready"); return; }
+    const controller = new AbortController();
+    setHistoricalReadState("loading");
+    void (async () => {
+      try {
+        const response = await fetch(BATCH_PUBLICATION_ROUTE, { method: "POST", signal: controller.signal,
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "read_historical_decisions",
+            historicalMatchdayIds: [...new Set(existing.map(([, target]) => target.matchdayId))] }) });
+        const result = await response.json();
+        if (!response.ok || !result?.ok || !Array.isArray(result.decisions)) throw new Error("historical-read-unavailable");
+        if (controller.signal.aborted) return;
+        setHistoricalChoices((current) => {
+          const next = { ...current };
+          for (const [identity, target] of existing) {
+            if (touchedHistoricalRef.current.has(identity)) continue;
+            const selected = result.decisions.some((row: { matchdayId: string; articleId: string; decision: string }) =>
+              row.matchdayId === target.matchdayId && row.articleId === target.articleId && row.decision === "selected");
+            if (selected) next[identity] = true; else delete next[identity];
+          }
+          historicalChoicesRef.current = next;
+          return next;
+        });
+        setHistoricalReadState("ready");
+      } catch { if (!controller.signal.aborted) setHistoricalReadState("error"); }
+    })();
+    return () => controller.abort();
+  }, [historicalTargets, historicalReadVersion]);
 
   useEffect(() => {
     const transferredText = window.sessionStorage.getItem(
@@ -1612,10 +1671,10 @@ export default function BatchPreflightClient({
   }
 
   function setHistoricalChoice(identity: string, checked: boolean) {
+    touchedHistoricalRef.current.add(identity);
     setHistoricalChoices((current) => {
       const next = { ...current };
-      if (checked) next[identity] = true;
-      else delete next[identity];
+      next[identity] = checked;
       historicalChoicesRef.current = next;
       return next;
     });
@@ -1635,15 +1694,41 @@ export default function BatchPreflightClient({
     setPublicationError(null);
   }
 
-  async function applyHistoricalChoices(
-    completions: readonly EditorialBatchHistoricalCompletion[],
-  ) {
-    const articleIds = editorialBatchSelectedHistoricalArticleIds({
-      articles: preflight.articles,
-      choices: historicalChoicesRef.current,
-      completions,
-    });
-    await applyEditorialBatchHistoricalDecisions({ matchdayId, articleIds });
+  function savePendingHistorical(value: ReturnType<typeof readPendingHistoricalDecisions>) {
+    pendingHistoricalRef.current = value;
+    setPendingHistorical(value);
+    try {
+      if (value) window.sessionStorage.setItem(HISTORICAL_PENDING_STORAGE_KEY, JSON.stringify(value));
+      else window.sessionStorage.removeItem(HISTORICAL_PENDING_STORAGE_KEY);
+    } catch { /* Keep the retry in memory if browser storage is unavailable. */ }
+  }
+
+  async function applyHistoricalChoices(completions: readonly EditorialBatchHistoricalCompletion[], complete = true) {
+    const groups = historicalDecisionGroups(preflight.articles, historicalChoicesRef.current, completions, historicalTargets);
+    if (complete) setBatchFinalized(true);
+    await applyHistoricalDecisionGroups(groups, (remaining) => savePendingHistorical(remaining.length
+      ? { fingerprint: publicationFingerprint, groups: remaining, complete } : null));
+  }
+
+  async function retryHistoricalChoices() {
+    const pending = pendingHistoricalRef.current;
+    if (!pending || publishingRef.current) return;
+    publishingRef.current = true;
+    setIsPublishing(true);
+    setPublicationError(null);
+    try {
+      await applyHistoricalDecisionGroups(pending.groups, (groups) => savePendingHistorical(groups.length ? { ...pending, groups } : null));
+      if (pending.complete) {
+        setBatchFinalized(true);
+        clearTransferredBatch();
+        returnToMesaAfterSuccessfulPublication();
+      }
+    } catch (error) {
+      setPublicationError(error instanceof Error ? error.message : "A decisão Histórica continua pendente.");
+    } finally {
+      publishingRef.current = false;
+      setIsPublishing(false);
+    }
   }
 
   function invalidatePublicationPreflightRequest() {
@@ -2140,7 +2225,7 @@ export default function BatchPreflightClient({
                     : publicationStatesRef.current[publishedArticle.key]?.status === "not_attempted"
                       ? "not_attempted"
                       : "error",
-            })));
+            })), false);
           } catch (historicalError) {
             setPublicationError(
               `Publicação interrompida no artigo ${planItem.key}: ${message}. Os artigos publicados foram preservados, mas a decisão Histórica falhou: ${
@@ -2549,7 +2634,8 @@ export default function BatchPreflightClient({
           imageChoiceDisabled={isPublishing}
           historicalChoices={historicalChoices}
           onHistoricalChoice={setHistoricalChoice}
-          historicalChoiceDisabled={isPublishing}
+          historicalChoiceDisabled={isPublishing || Boolean(pendingHistorical) || historicalReadState !== "ready"}
+          historicalTargets={historicalTargets}
           classificationChoices={classificationChoices}
           lockedClassificationKeys={lockedClassificationKeys}
           onClassificationChoice={setFinalClassificationChoice}
@@ -2557,6 +2643,16 @@ export default function BatchPreflightClient({
         />
       ) : null}
 
+      {historicalReadState === "error" ? <p role="alert">
+        Não foi possível ler a decisão Histórica existente.
+        <button type="button" onClick={() => setHistoricalReadVersion((version) => version + 1)}>Repetir leitura da Histórica</button>
+      </p> : null}
+      {pendingHistorical ? <section role="status">
+        <p>Publicação preservada. Falta concluir apenas a decisão Histórica em {pendingHistorical.groups.length} Jornada(s).</p>
+        <button type="button" disabled={isPublishing} onClick={() => void retryHistoricalChoices()}>
+          {isPublishing ? "A guardar Histórica…" : "Repetir apenas decisão Histórica"}
+        </button>
+      </section> : null}
       {publicationPanelVisible ? (
         <PublicationPanel
           articles={preflight.articles}

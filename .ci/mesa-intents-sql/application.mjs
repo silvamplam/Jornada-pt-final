@@ -42,6 +42,11 @@ const rpcLiteral=(key,value)=>value===null?'null':Array.isArray(value)?`ARRAY[${
 const calls=[]; const forbidden=[];
 function where(params) {
   return [...params].filter(([k])=>!['select','limit','order','offset'].includes(k)).map(([k,v])=>{
+    if(k==='or') {
+      const terms=[...v.matchAll(/manifest->entries\.cs\.(\[[^\]]+\])/g)];
+      assert.ok(terms.length>0&&'('+terms.map(m=>m[0]).join(',')+')'===v);
+      return '('+terms.map(m=>"(manifest->'entries') @> "+json(JSON.parse(m[1]))).join(' or ')+')';
+    }
     const c=identifier(k);
     if(v.startsWith('eq.')) return c+'='+q(v.slice(3));
     if(v.startsWith('in.(') && v.endsWith(')')) return c+' in ('+v.slice(4,-1).split(',').map(q).join(',')+')';

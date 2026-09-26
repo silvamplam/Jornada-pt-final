@@ -78,6 +78,7 @@ type BatchArticlePayload = Readonly<{
 
 type BatchPublicationPayload = Readonly<{
   action?: unknown;
+  historicalMatchdayIds?: unknown;
   matchdayId?: unknown;
   author?: unknown;
   articles?: unknown;
@@ -2233,6 +2234,19 @@ export async function POST(request: Request) {
     if (!transfer?.productionIntents || !["preflight", "publish_theme_continuity"].includes(action)) {
       return jsonError("mesa-intent-publication-path-required",409,"O plano de intenções exige o seu percurso de publicação e finalização.");
     }
+  }
+  if (action === "read_historical_decisions") {
+    const ids = payload.historicalMatchdayIds;
+    if (!Array.isArray(ids) || ids.length > 30 || !ids.every((id) => typeof id === "string"
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))) return jsonError("invalid-historical-targets");
+    try {
+      const decisions = (await Promise.all([...new Set(ids as string[])].map(async (matchdayId) => {
+        const rows = await fetchSupabaseAdminTable<{ article_id: string; decision: string }>(
+          "rpc/read_matchday_historical_article_decisions_v1?p_matchday_id=" + encodeURIComponent(matchdayId));
+        return rows.map((row) => ({ matchdayId, articleId: row.article_id, decision: row.decision }));
+      }))).flat();
+      return NextResponse.json({ ok: true, decisions }, { headers: { "Cache-Control": "private, no-store" } });
+    } catch { return jsonError("historical-read-unavailable", 502, "Não foi possível ler as decisões Históricas."); }
   }
   if (action === "preflight") {
     return preflightPublication(payload);
