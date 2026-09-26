@@ -205,8 +205,8 @@ test("a UI adiciona apenas Histórica aos cards e não ao painel por artigo", ()
     client.indexOf("function PublicationPanel"),
     client.indexOf("export default function BatchPreflightClient"),
   );
-  assert.match(resultSummary, /type="checkbox"[\s\S]*<span>Histórica<\/span>/);
-  assert.match(resultSummary, /disabled=\{historicalChoiceDisabled\}/);
+  assert.match(resultSummary, /type="checkbox"[\s\S]*Histórica indisponível/);
+  assert.match(resultSummary, /disabled=\{historicalChoiceDisabled \|\| !historicalTargets/);
   assert.doesNotMatch(publicationPanel, /Histórica|type="checkbox"/);
   assert.doesNotMatch(client, /Prioritário|Composição Histórica/);
 });

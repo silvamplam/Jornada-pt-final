@@ -1,7 +1,8 @@
+import { readMesaWithTransientRetry } from "./newsroom-mesa-read-retry";
 import "server-only";
 
 import {
-  fetchSupabaseAdminTable,
+  fetchSupabaseAdminTable as readSupabaseAdminTable,
   getSupabaseServiceConfig,
 } from "@/lib/supabase";
 import {
@@ -340,4 +341,8 @@ export async function partitionOperationalDeskCycleSourceIds(
   } catch {
     return { ok: false, code: "read_unavailable" };
   }
+}
+
+function fetchSupabaseAdminTable<T>(path: string): Promise<T[]> {
+  return readMesaWithTransientRetry(path.split("?")[0], () => readSupabaseAdminTable<T>(path));
 }

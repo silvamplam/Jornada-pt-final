@@ -73,7 +73,7 @@ with sync_playwright() as playwright:
         page.add_script_tag(content=(output/'browser.js').read_text())
         page.evaluate('(v)=>sessionStorage.setItem(v.key,JSON.stringify(v.buffer))',{'key':STORAGE,'buffer':fixture['buffer']})
         page.evaluate('(fixture)=>window.__mount(fixture)',fixture)
-        tray=page.locator('section[aria-labelledby="mesa-selection-title"]');expect(tray).to_be_visible()
+        tray=page.locator('section[aria-label="Ações da seleção"]');expect(tray).to_be_visible()
         if openPanel:
             page.get_by_role('button',name='Ver seleção',exact=True).click()
             expect(page.get_by_label('Seleção e trabalho de Produção',exact=True)).to_be_visible()
@@ -144,11 +144,11 @@ with sync_playwright() as playwright:
     def compact_selection_does_not_consume_workspace():
         heights=[]
         for options in ({'sourceOnly':True},{},{'extra':True}):
-            f=start(openPanel=False,**options);tray=page.locator('section[aria-labelledby="mesa-selection-title"]')
+            f=start(openPanel=False,**options);tray=page.locator('section[aria-label="Ações da seleção"]')
             assert page.get_by_label('Seleção e trabalho de Produção',exact=True).count()==0
             box=tray.bounding_box();assert box;heights.append(box['height']);assert box['height']<=100,box;assert_sources_unchanged(f['audit'])
         assert max(heights)-min(heights)<=2,heights
-        f=start(extra=True,openPanel=False);tray=page.locator('section[aria-labelledby="mesa-selection-title"]');before=tray.bounding_box()['height']
+        f=start(extra=True,openPanel=False);tray=page.locator('section[aria-label="Ações da seleção"]');before=tray.bounding_box()['height']
         page.get_by_role('button',name='Ver seleção',exact=True).click();panel=page.get_by_label('Seleção e trabalho de Produção',exact=True)
         expect(panel).to_be_visible();assert page.evaluate('(el)=>getComputedStyle(el).position',panel.element_handle())=='fixed';assert abs(tray.bounding_box()['height']-before)<=1
         assert page.get_by_label('Novos artigos da seleção',exact=True).count()==0
@@ -222,6 +222,27 @@ with sync_playwright() as playwright:
         set_all_reviews(True);did,g=prepare_planning(f);assert len(g['existingOutputs'])==2
         set_theme_count(0);plan,_=materialize(did,0);assert plan['totals']['reviews']==2;assert_sources_unchanged(f['audit'])
 
+    def explicit_article_selection():
+        f=start(openPanel=False,sourceOnly=True,published=3,explicitArticles=True)
+        choices=page.get_by_role('checkbox',name=re.compile('^Selecionar artigo publicado:'))
+        expect(choices).to_have_count(3)
+        for index in range(3):expect(choices.nth(index)).not_to_be_checked()
+        choices.nth(0).check();choices.nth(1).check();choices.nth(0).uncheck();choices.nth(2).check()
+        expected=sorted([f['articles'][1],f['articles'][2]])
+        assert sorted(stored()['sources'][0]['editorialArticleIds'])==expected
+        page.evaluate('(fixture)=>window.__mount(fixture)',f)
+        expect(choices.nth(0)).not_to_be_checked();expect(choices.nth(1)).to_be_checked();expect(choices.nth(2)).to_be_checked()
+        page.screenshot(path=str(output/'explicit-article-selection.png'),full_page=True)
+        page.get_by_role('button',name='Ver seleção',exact=True).click()
+        page.get_by_role('button',name='Adicionar a tema',exact=True).click()
+        panel=page.get_by_role('region',name='Adicionar a tema',exact=True)
+        panel.get_by_role('combobox').select_option(f['theme']);panel.get_by_role('button',name='Confirmar',exact=True).click()
+        expect(page.get_by_role('button',name='PREPARAR PRODUÇÃO',exact=True)).to_have_count(0)
+        state=rpc({'kind':'state'})
+        assert sorted(a['id'] for a in state['articles'])==expected
+        command=next(c['body'] for c in state['httpCalls'] if (c['body'] or {}).get('action')=='organize_sources')
+        assert sorted(command['editorialArticleIds'])==expected
+        assert not any(c['method']=='POST' and c['path'].endswith('/preparar') for c in state['httpCalls'])
     def organization_only():
         f=start(sourceOnly=True);before=len(rpc({'kind':'state'})['groupingPreparations'])
         page.get_by_role('button',name='Adicionar a tema',exact=True).click();panel=page.get_by_role('region',name='Adicionar a tema',exact=True)
@@ -245,6 +266,7 @@ with sync_playwright() as playwright:
             ('one loose source is configured and materialized in Production',only_source),
             ('lost prepare response retries one v2 preparation and one canonical plan',lost_response),
             ('published set change writes nothing until refreshed choices are confirmed',stale_published),
+            ('Only explicitly checked published articles belong to the Theme',explicit_article_selection),
             ('Add to Theme remains organization-only and does not prepare Production',organization_only),
         ]:test(name,fn)
         assert not rpc({'kind':'state'})['forbidden']

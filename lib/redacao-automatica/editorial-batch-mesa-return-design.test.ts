@@ -12,8 +12,8 @@ test("publicação em lote aponta visual e operacionalmente para a Mesa", () => 
   assert.match(client, /window\.location\.assign\(MESA_ROUTE\)/);
 });
 
-test("regresso à Mesa acontece apenas nos dois percursos de sucesso integral", () => {
-  assert.equal((client.match(/returnToMesaAfterSuccessfulPublication\(\);/g) ?? []).length, 2);
+test("regresso à Mesa acontece nos percursos de sucesso integral e no retry exclusivamente histórico", () => {
+  assert.equal((client.match(/returnToMesaAfterSuccessfulPublication\(\);/g) ?? []).length, 3);
 });
 
 test("página reutiliza a gramática visual verde e editorial da Mesa", () => {

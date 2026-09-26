@@ -22,6 +22,7 @@ export type MesaSourceSelection = Readonly<{
   title: string;
   sourceLabel: string;
   imageUrl: string | null;
+  editorialArticleIds?: readonly string[];
 }>;
 
 export type MesaMaterialSelection = MesaSourceSelection;
@@ -114,7 +115,12 @@ function isSourceSelection(value: unknown): value is MesaSourceSelection {
     && selection.title.trim().length > 0
     && typeof selection.sourceLabel === "string"
     && selection.sourceLabel.trim().length > 0
-    && isOptionalText(selection.imageUrl);
+    && isOptionalText(selection.imageUrl)
+    && (selection.editorialArticleIds === undefined || (
+      Array.isArray(selection.editorialArticleIds) && selection.editorialArticleIds.length <= 30
+      && selection.editorialArticleIds.every(isUuid)
+      && new Set(selection.editorialArticleIds).size === selection.editorialArticleIds.length
+    ));
 }
 
 function isDossierSelection(value: unknown): value is MesaDossierSelection {
@@ -221,7 +227,7 @@ export function selectMesaMaterial(
       && current.imageUrl === material.imageUrl
     ) return buffer;
     const sources = buffer.sources.slice();
-    sources[index] = material;
+    sources[index] = { ...material, editorialArticleIds: current.editorialArticleIds };
     return {
       ...buffer,
       preparationKey: current.newsroomSnapshotId === material.newsroomSnapshotId
@@ -501,4 +507,28 @@ export function retainMesaDeferredSelection(buffer:MesaPreparationBuffer,
   ]);
   const remaining={...buffer,sources:buffer.sources.filter(s=>!activeSources.has(s.newsroomArticleId)),themes:(buffer.themes??[]).filter(t=>!activeThemes.has(t.themeId))};
   return selectionCount(remaining)?{...remaining,preparationKey:createKey()}:clearMesaPreparationBuffer();
+}
+
+/** Only a deliberate article checkbox creates this association. Refreshes preserve it. */
+export function selectMesaPublishedArticle(buffer: MesaPreparationBuffer, material: MesaMaterialSelection,
+  articleId: string, checked: boolean, createPreparationKey: () => string): MesaPreparationBuffer {
+  if (!isUuid(articleId)) throw new Error("mesa_article_invalid");
+  const current = buffer.sources.find((source) => source.newsroomArticleId === material.newsroomArticleId);
+  if (!checked) {
+    if (!mesaExplicitArticleIds(buffer).includes(articleId)) return buffer;
+    return { ...buffer, preparationKey: nextPreparationKey(createPreparationKey),
+      sources: buffer.sources.map((source) => ({ ...source,
+        editorialArticleIds: source.editorialArticleIds?.filter((id) => id !== articleId) })) };
+  }
+  const next = current ? buffer : selectMesaMaterial(buffer, material, createPreparationKey);
+  if (!next.sources.some((source) => source.newsroomArticleId === material.newsroomArticleId)) return buffer;
+  const ids = new Set(current?.editorialArticleIds ?? []);
+  ids.add(articleId);
+  return { ...next, preparationKey: nextPreparationKey(createPreparationKey),
+    sources: next.sources.map((source) => source.newsroomArticleId === material.newsroomArticleId
+      ? { ...source, editorialArticleIds: [...ids] } : source) };
+}
+
+export function mesaExplicitArticleIds(buffer: MesaPreparationBuffer): string[] {
+  return [...new Set(buffer.sources.flatMap((source) => source.editorialArticleIds ?? []))].sort();
 }

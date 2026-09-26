@@ -21,6 +21,8 @@ import type { OperationalDeskSourceLifecycle } from "@/lib/redacao-automatica/ne
 
 import {
   EMPTY_MESA_PREPARATION_BUFFER,
+  selectMesaPublishedArticle,
+  mesaExplicitArticleIds,
   MESA_MAX_NEWSROOM_SOURCES,
   changeMesaPreparationTitle,
   clearMesaPreparationBuffer,
@@ -116,6 +118,7 @@ type MesaSelectionContextValue = Readonly<{
   selectDossier: (material: MesaDossierSelection) => void;
   removeDossier: (key: string) => void;
   select: (material: MesaMaterialSelection) => void;
+  selectArticle: (material: MesaMaterialSelection, articleId: string, checked: boolean) => void;
   selectTheme: (theme: MesaThemeSelection) => void;
   removeTheme: (themeId: string) => void;
   remove: (newsroomArticleId: string) => void;
@@ -304,6 +307,9 @@ export function MesaSelectionProvider({
         return themeContext ? changeMesaPreparationTheme(next, themeContext.id, themeContext.title, createPreparationKey) : next;
       });
     },
+    selectArticle(material, articleId, checked) {
+      persist((current) => selectMesaPublishedArticle(current, material, articleId, checked, createPreparationKey));
+    },
     selectTheme(theme) {
       persist((current) => selectMesaTheme(current, theme, createPreparationKey));
     },
@@ -441,7 +447,7 @@ export function MesaLiveCount({
   lifecycle,
   classificationKey,
 }: Readonly<{
-  initial: number;
+  initial: number | null;
   lifecycle?: OperationalDeskSourceLifecycle;
   classificationKey?: ArticleClassificationKey | "unclassified";
 }>) {
@@ -471,7 +477,7 @@ export function MesaLiveCount({
         : change.current === classificationKey;
       return total + Number(currentMatches) - Number(previousMatches);
     }, 0);
-  return <span className={styles.liveCount}>{Math.max(0, initial - removed + classificationAdjustment)}</span>;
+  return <span className={styles.liveCount}>{initial === null ? "—" : Math.max(0, initial - removed + classificationAdjustment)}</span>;
 }
 
 export function MesaThemeCount() {
@@ -808,7 +814,7 @@ export function MesaSourceThemeMenu({
   classificationKey: ArticleClassificationKey | null;
   themeIds: readonly string[];
 }>) {
-  const { fixtureMode, hideSources, removeSources, themes, upsertTheme } = useMesaSelection();
+  const { buffer, fixtureMode, hideSources, removeSources, themes, upsertTheme } = useMesaSelection();
   const [targetThemeId, setTargetThemeId] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -834,6 +840,7 @@ export function MesaSourceThemeMenu({
           requestId: window.crypto.randomUUID(),
           themeId: targetThemeId,
           sourceIds: [newsroomArticleId],
+          editorialArticleIds: buffer.sources.find((source) => source.newsroomArticleId === newsroomArticleId)?.editorialArticleIds ?? [],
         }),
       });
       const result = await response.json().catch(() => null) as PrepareResponse | null;
@@ -1072,6 +1079,7 @@ export function MesaSelectionTray({
     const classification = themeClassification || suggestedThemeClassification(classificationCandidates) || "";
     const command = { action: "organize_sources", themeId: selectedTheme || null, title,
       classificationKey: classification, sourceIds: buffer.sources.map((source) => source.newsroomArticleId),
+      editorialArticleIds: mesaExplicitArticleIds(buffer),
       ...(!sourceOnly ? { materials: dossiers.map(({ key, versionId, sources }) => ({ key, versionId, sources })) } : {}) };
     if (sourceOnly && command.sourceIds.length === 0) {
       setMessage("Seleciona pelo menos uma fonte para organizar num Tema."); return;
@@ -1409,4 +1417,17 @@ export function MesaSelectionTray({
       {message ? <p className={styles.selectionMessage} role="status">{message}</p> : null}
     </section>
   );
+}
+
+export function MesaPublishedArticleSelection({ material, articleId, title }: Readonly<{
+  material: MesaMaterialSelection; articleId: string; title: string;
+}>) {
+  const { buffer, loaded, selectArticle } = useMesaSelection();
+  const checked = mesaExplicitArticleIds(buffer).includes(articleId);
+  return <label className={styles.sourceArticleSelection}>
+    <input type="checkbox" checked={checked} disabled={!loaded}
+      aria-label={`Selecionar artigo publicado: ${title}`}
+      onChange={(event) => selectArticle(material, articleId, event.currentTarget.checked)} />
+    <span>Associar ao Tema</span>
+  </label>;
 }

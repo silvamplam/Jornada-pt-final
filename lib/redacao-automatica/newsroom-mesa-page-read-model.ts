@@ -1,11 +1,13 @@
+import { readMesaWithTransientRetry } from "./newsroom-mesa-read-retry";
 import "server-only";
 
 import {
-  fetchSupabaseAdminTable,
+  fetchSupabaseAdminTable as readSupabaseAdminTable,
   getSupabaseServiceConfig,
 } from "@/lib/supabase";
 import {
   createMesaPageReadModel,
+  MesaPageRelationInvalidError,
   type MesaPageIdentity,
   type MesaPageReadInput,
 } from "@/lib/redacao-automatica/newsroom-mesa-page-read-model-internal";
@@ -78,7 +80,7 @@ const transport = {
       + `?p_cycle_started_at=${encodeURIComponent(MESA_OPERATIONAL_CYCLE_STARTED_AT)}`
       + optionalRpcParameter("p_source_code", sourceCode),
     );
-    if (rows.length !== 1) throw new Error("newsroom-mesa-counts-invalid");
+    if (rows.length !== 1) throw new MesaPageRelationInvalidError("newsroom-mesa-counts-invalid");
     return {
       novas: classificationCounts(rows[0], "novas"),
       publicadas: classificationCounts(rows[0], "publicadas"),
@@ -99,7 +101,10 @@ const transport = {
 
   async hydrateSources(articleIds: readonly string[]) {
     const result = await loadOperationalDeskReadModel({ sourceIds: articleIds });
-    if (!result.ok) throw new Error(`newsroom-mesa-hydration-${result.error.code}`);
+    if (!result.ok) {
+      if (result.error.code === "relation_invalid") throw new MesaPageRelationInvalidError();
+      throw new Error(`newsroom-mesa-hydration-${result.error.code}`);
+    }
     return result.value.sources;
   },
 };
@@ -135,4 +140,8 @@ export async function loadMesaSourceCounts(sourceCode: string | null) {
       },
     };
   }
+}
+
+function fetchSupabaseAdminTable<T>(path: string): Promise<T[]> {
+  return readMesaWithTransientRetry(path.split("?")[0], () => readSupabaseAdminTable<T>(path));
 }

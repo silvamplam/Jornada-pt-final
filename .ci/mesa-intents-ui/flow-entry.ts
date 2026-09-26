@@ -5,3 +5,5 @@ export { default as batchPage } from "../../app/admin/editorial/redacao-automati
 export { default as batchClient } from "../../app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient";
 export { POST as workspacePOST } from "../../app/api/admin/editorial/redacao-automatica/mesa/workspace/route";
 export { GET as packageGET } from "../../app/api/admin/editorial/redacao-automatica/source-package/[year]/[month]/[id]/route";
+
+export { loadMesaPageReadModel } from "../../lib/redacao-automatica/newsroom-mesa-page-read-model";

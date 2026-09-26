@@ -12,7 +12,7 @@ process.env.MESA_UI_DRIVER='1';
 const h=await import('../mesa-intents-sql/application.mjs');
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 const argv=process.argv.slice(2),output=resolve(argv[argv.indexOf('--output')+1]);
-for(const name of ['newsroom_organize_theme_sources_v1','newsroom_mesa_theme_summaries_v1','newsroom_latest_snapshot_summaries',
+for(const name of ['newsroom_organize_theme_selection_v3','read_matchday_historical_article_decisions_v1','newsroom_organize_theme_sources_v1','newsroom_mesa_theme_summaries_v1','newsroom_latest_snapshot_summaries',
   'newsroom_preview_mesa_grouping_v2','newsroom_prepare_mesa_grouping_v2','newsroom_change_mesa_new_output_groups_v2',
   'newsroom_materialize_mesa_new_output_groups_v2'])h.rpcNames.add(name);
 for(const name of ['newsroom_editorial_theme_sources','newsroom_mesa_new_output_groupings',
@@ -57,7 +57,12 @@ function setup(input){
   const buffer={version:3,preparationKey:randomUUID(),title:'Produção de ensaio',
     sources:input.independent===false?[]:[uiSource(current.loose,'Pote independente'),...(extra?[uiSource(extra,'Fonte adicional')]:[])],
     themes:input.sourceOnly?[]:[{kind:'theme',themeId:current.theme,title:theme.title,classificationKey:'sporting',sources:[ref]}]};
-  return {...current,themes:[theme],buffer,before:state().preparations.length};
+  if(input.explicitArticles){
+    h.sql(`delete from public.newsroom_editorial_theme_articles where theme_id=${h.q(current.theme)};`);
+    theme.articleCount=0;buffer.themes=[];buffer.sources=[uiSource(current.loose,'Fonte com vários artigos publicados')];
+  }
+  return {...current,themes:[theme],buffer,before:state().preparations.length,
+    ...(input.explicitArticles?{publishedChoices:{material:buffer.sources[0],articles:current.articles.map((id,index)=>({id,title:'Artigo publicado '+(index+1)}))}}:{})};
 }
 async function http(input){
   const url=new URL(input.url,'http://127.0.0.1:4319'),body=input.body?JSON.parse(input.body):null;

@@ -56,7 +56,15 @@ with sync_playwright() as pw:
                 html='<html><head><style>'+ (out/'flow-browser.css').read_text() +'</style></head><body><div id="root"></div><script>'+(out/'flow-browser.js').read_text().replace('</script','<\\/script')+'</script><script>void window.__flowNavigate(location.pathname)</script></body></html>'
                 r.fulfill(status=200,content_type='text/html',body=html)
             elif url==origin+mesa:
-                pages.append(mesa);r.fulfill(status=200,content_type='text/html',body='<h1>Mesa da Redação</h1>')
+                pages.append(mesa)
+                body='<h1>Mesa da Redação</h1>'
+                if f.get('realMesaReturn'):
+                    read=rpc(dict(kind='mesa-return'))
+                    assert read['result']['ok'] and read['attempts']==2,read
+                    value=read['result']['value']
+                    assert value['counts']['novas']['total']==33 and len(value['sources'])==33
+                    body+='<p>33 fontes novas</p>'
+                r.fulfill(status=200,content_type='text/html',body=body)
             elif url in ['https://example.invalid/image.jpg','https://example.invalid/old.jpg','https://example.invalid/new.jpg'] and r.request.resource_type=='image':
                 images.append(url);r.fulfill(status=200,content_type='image/png',body=image)
             else:unexpected.append(url);r.abort()
@@ -139,6 +147,11 @@ with sync_playwright() as pw:
         if not args.document_only:page.wait_for_url(origin+batch,timeout=12000)
         page.wait_for_function('(path)=>window.__flowReady===path',arg=batch,timeout=12000)
         expect(page.get_by_role('heading',name='Publicação em lote',exact=True)).to_be_visible()
+        if 'DECISAO\nUPDATE' in text or 'DECISAO\nNEW' in text:
+            classifications=page.locator('input[type="radio"][value="sporting"][name^="output-classification-"]')
+            expect(classifications.first).to_be_visible()
+            for index in range(classifications.count()):
+                if not classifications.nth(index).is_disabled():classifications.nth(index).check()
         return text
     def select_new_context():
         page.locator('#batch-competition').select_option('b0000000-0000-4000-8000-000000000900')
@@ -167,7 +180,8 @@ with sync_playwright() as pw:
         button=page.get_by_role('button',name=re.compile('^(PUBLICAR|ATUALIZAR|CONCLUIR|RETOMAR)'))
         expect(button).to_be_enabled(timeout=12000)
         historical=page.get_by_label('Histórica',exact=True)
-        assert historical.count()==2
+        assert historical.count()==1
+        expect(page.get_by_label("Histórica indisponível · sem Jornada válida",exact=True)).to_be_disabled()
         before=rpc(dict(kind='flow-state',dossierId=did))
         preflights=sum(c.get('action')=='preflight' for c in before['flowCalls'])
         new_output=next(o for o in plan['outputs'] if o['kind']=='new')
@@ -213,7 +227,10 @@ with sync_playwright() as pw:
         assert failed['workspace']['workspace_state']=='consolidated'
         assert not failed['historical']
         page.screenshot(path=str(out/'flow-historical-failure.png'),full_page=True)
-        retry=page.get_by_role('button',name='RETOMAR PUBLICAÇÃO',exact=True)
+        if not args.document_only:
+            page.reload()
+            page.wait_for_function('(path)=>window.__flowReady===path',arg=batch,timeout=12000)
+        retry=page.get_by_role('button',name='Repetir apenas decisão Histórica',exact=True)
         expect(retry).to_be_enabled()
         retry.click()
         if args.document_only:page.wait_for_function('(path)=>window.__flowLanding===path',arg=mesa,timeout=12000)
@@ -225,6 +242,9 @@ with sync_playwright() as pw:
         assert selected_article
         historical_calls=[c for c in completed['flowCalls'] if c.get('action')=='set_historical_article_decision']
         assert [c['status'] for c in historical_calls]==[503,200]
+        writes=lambda value:[c for c in value['flowCalls'] if (c.get('action') or '').startswith(('publish','finalize'))]
+        assert len(writes(failed))==1
+        assert writes(completed)==writes(failed), 'Historical retry must never republish/finalize'
     def materialization_refreshes_twelve_without_reload():
         start(independent=False);did,plan=prepare(mode='new',new=12)
         count=page.locator('section[aria-labelledby="output-count-title"] input[type="number"]')
@@ -287,6 +307,34 @@ with sync_playwright() as pw:
         return_text(pid);publish()
         s=rpc(dict(kind='flow-state',dossierId=did));assert len(s['receipts'])==1 and s['receipts'][0]['decision']=='UPDATE'
         assert s['articles'][0]['matchday_id'] is None and s['articles'][0]['id']==f['articles'][0]
+    def first_mesa_return_recovers_timeout():
+        start(independent=False,realMesaReturn=True);did,plan=prepare();pid,_=package(did);return_text(pid);publish()
+        expect(page.get_by_text('33 fontes novas',exact=True)).to_be_visible()
+        state=rpc(dict(kind='flow-state',dossierId=did))
+        assert state['workspace']['workspace_state']=='consolidated'
+        reads=[c for c in state['flowCalls'] if 'mesaReturn' in c]
+        assert len(reads)==1 and reads[0]['attempts']==2 and reads[0]['mesaReturn']['ok']
+    def frozen_historical_days_and_persisted_selection():
+        days=['b0000000-0000-4000-8000-000000000902','b0000000-0000-4000-8000-000000000903']
+        f=start(independent=False,published=2,historicalDays=days)
+        did,plan=prepare();pid,_=package(did);return_text(pid)
+        assert all(o['kind']=='existing' for o in plan['outputs'])
+        expect(page.locator('#batch-matchday')).to_have_value('')
+        expect(page.locator('#batch-matchday')).to_be_disabled()
+        checks=page.get_by_label('Histórica',exact=True)
+        expect(checks).to_have_count(2)
+        for index in range(2):
+            expect(checks.nth(index)).to_be_enabled();checks.nth(index).check()
+        publish()
+        state=rpc(dict(kind='flow-state',dossierId=did))
+        expected={(o['target']['matchdayId'],o['target']['editorialArticleId']) for o in plan['outputs']}
+        assert {(d['matchday_id'],d['article_id']) for d in state['historical']}==expected
+        assert {a['id'] for a in state['articles']}==set(f['articles'])
+        reopen_theme(f);did2,plan2=prepare();pid2,_=package(did2);return_text(pid2)
+        checks=page.get_by_label('Histórica',exact=True)
+        expect(checks).to_have_count(2)
+        for index in range(2):expect(checks.nth(index)).to_be_checked()
+        page.screenshot(path=str(out/'flow-historical-persisted.png'),full_page=True)
     def protected_manual_edit():
         f=start(independent=False);did,plan=prepare();pid,_=package(did);return_text(pid)
         button=page.get_by_role('button',name=re.compile('^(PUBLICAR|ATUALIZAR|CONCLUIR|RETOMAR)'))
@@ -317,6 +365,8 @@ with sync_playwright() as pw:
         test('Real visual NEW without review followed by explicit old-article review',new_then_review)
         test('Real visual mixed UPDATE, SEM ALTERAÇÃO and two NEW outputs',review_and_new)
         test('Real visual UPDATE only preserves its null matchday',only_update)
+        test('Frozen UPDATE Jornadas with zero NEW and persisted historical selection',frozen_historical_days_and_persisted_selection)
+        test('F: first automatic Mesa return recovers one transient timeout using the real SQL read model',first_mesa_return_recovers_timeout)
         test('Manual edit after preflight blocks publication and preserves response',protected_manual_edit)
         print(f'RESULT: {len(reports)} complete visual flows passed',flush=True)
     finally:

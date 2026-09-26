@@ -1001,7 +1001,7 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
           fixtureMode={isFixture}
           initialSelection={isFixture ? FIXTURE_INITIAL_SELECTION : []}
           themes={organization.themes}
-          serverSourceIds={sourceResult?.ok ? sourceResult.value.sources.map((source) => source.newsroomArticleId) : []}
+          serverSourceIds={sourceResult?.ok ? sourceResult.value.sources.map((source) => source.newsroomArticleId) : null}
           serverClassifications={sourceResult?.ok ? Object.fromEntries(sourceResult.value.sources.map((source) => [
             source.newsroomArticleId,
             source.classification.status === "classified" ? source.classification.classificationKey : null,
@@ -1033,7 +1033,7 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
                       sumClassificationCount(archiveCounts, query.classificationValue)
                     ) : (
                       <MesaLiveCount
-                        initial={activeLifecycle === "published" ? counts?.publicadas.total ?? 0 : counts?.novas.total ?? 0}
+                        initial={activeLifecycle === "published" ? counts?.publicadas.total ?? null : counts?.novas.total ?? null}
                         lifecycle={activeLifecycle}
                       />
                     )}
@@ -1083,7 +1083,7 @@ export default async function EditorialDeskPage({ searchParams }: MesaPageProps)
                       <span className={styles.liveCount}>{sumClassificationCount(archiveCounts, option.value)}</span>
                     ) : (
                       <MesaLiveCount
-                        initial={sumVisibleCount(counts, option.value, activeLifecycle)}
+                        initial={counts ? sumVisibleCount(counts, option.value, activeLifecycle) : null}
                         lifecycle={activeLifecycle}
                         classificationKey={option.value === "all" ? undefined : option.value}
                       />

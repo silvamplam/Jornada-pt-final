@@ -13,13 +13,13 @@ process.env.MESA_FLOW_DRIVER='1';
 const base=await import('./driver.mjs'),h=base.h;
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
 const args=process.argv.slice(2),output=resolve(args[args.indexOf('--output')+1]);
-for(const table of ['newsroom_editorial_dossiers','newsroom_editorial_dossier_sources',
+for(const table of ['newsroom_editorial_review_states','newsroom_editorial_article_classifications','newsroom_mesa_output_source_usage','newsroom_editorial_dossiers','newsroom_editorial_dossier_sources',
   'newsroom_editorial_dossier_article_plan_sources','newsroom_editorial_dossier_article_plan_generations',
   'newsroom_editorial_dossier_published_contexts','newsroom_editorial_dossier_article_plan_published_contexts',
   'newsroom_editorial_dossier_images','newsroom_mesa_production_context_items','newsroom_mesa_production_context_sources',
   'newsroom_mesa_article_plan_contexts','newsroom_editorial_theme_dossiers',
   'newsroom_editorial_profiles','newsroom_editorial_profile_versions'])h.tableNames.add(table);
-for(const rpc of ['newsroom_save_mesa_context_article_plan_v1','newsroom_save_dossier_article_plan_state_v1',
+for(const rpc of ['newsroom_mesa_source_counts_v1','newsroom_mesa_page_identities_v1','newsroom_read_article_classification_states_v1','newsroom_publish_mesa_intent_output_v2','newsroom_save_dossier_article_plan_state_v3','newsroom_save_mesa_context_article_plan_v3','newsroom_save_mesa_context_article_plan_v1','newsroom_save_dossier_article_plan_state_v1',
  'newsroom_set_mesa_shared_outputs_v2','newsroom_save_editorial_dossier_article_plan','newsroom_set_mesa_output_origin_v2'])h.rpcNames.add(rpc);
 // The real profile DDL is required by the real workspace reader. Compose/generation
 // providers are not exercised here; load the literal schema/constraints only, without seeding or activating an editorial profile.
@@ -28,6 +28,23 @@ if(h.sql("select to_regclass('public.newsroom_editorial_profiles') is null;")===
  const stop='\ninsert into public.newsroom_editorial_profiles (';
  assert.equal(profile.split(stop).length,2);h.sql(profile.split(stop)[0]+'\nCOMMIT;');
 }
+// Current workspace columns and article->Bank dependencies, loaded verbatim only in this guarded fixture.
+if(h.sql("select count(*) from information_schema.columns where table_schema='public' and table_name='newsroom_editorial_dossier_article_plans' and column_name='classification_mode';")==='0'){
+ for(const migration of ['20260924200000_newsroom_article_plan_output_classification_authority.sql','20260924213644_newsroom_article_plan_classification_decision.sql'])
+  h.sql(readFileSync(root+'/supabase/migrations/'+migration,'utf8'));
+ h.sql(`alter table public.matchday_editorial_bank_items add column if not exists classification_key text,
+  add column if not exists classification_source text,add column if not exists classified_at timestamptz,
+  add column if not exists continuity_revalidated_at timestamptz;`);
+ const classification=readFileSync(root+'/supabase/migrations/20260831110517_matchday_editorial_bank_contextual_classification.sql','utf8').replace(/\r\n/g,'\n');
+ const authorizationStart=classification.indexOf('create table\njornada_private.matchday_editorial_bank_classification_authorizations');
+ assert.ok(authorizationStart>0);h.sql(classification.slice(authorizationStart,classification.indexOf('-- 5. GUARDA UNIVERSAL',authorizationStart)));
+ const articleBank=readFileSync(root+'/supabase/steps/73-composicao-historica-banco-automatico-apply.sql','utf8');
+ const syncStart=articleBank.indexOf('create or replace function public.sync_published_editorial_source_to_matchday_bank()');
+ assert.ok(syncStart>0);h.sql(articleBank.slice(syncStart,articleBank.indexOf('drop trigger if exists sync_published_editorial_content_to_matchday_bank',syncStart)));
+}
+// Read the real historical decisions RPC; the composition write response remains a declared boundary.
+if(h.sql("select to_regclass('jornada_private.matchday_historical_article_decisions') is null;")==='t')
+ h.sql(readFileSync(root+'/supabase/migrations/20260922171755_matchday_historical_article_selection.sql','utf8'));
 // Only the guarded disposable DB receives these synthetic catalogue columns.
 h.sql(`alter table public.competitions add column if not exists name text, add column if not exists slug text, add column if not exists is_active boolean;
  alter table public.seasons add column if not exists label text, add column if not exists is_current boolean, add column if not exists starts_on date, add column if not exists ends_on date;
@@ -44,7 +61,7 @@ await build({entryPoints:[root+'/.ci/mesa-intents-ui/flow-entry.ts'],outfile:out
 }}]});
 const f=createRequire(root+'/package.json')(output+'/flow-server.cjs');
 await build({entryPoints:[root+'/.ci/mesa-intents-ui/flow-client.tsx'],outfile:output+'/flow-browser.js',bundle:true,
- platform:'browser',format:'iife',jsx:'automatic',tsconfig:root+'/tsconfig.json',define:{'process.env.NODE_ENV':'"development"'},plugins:[{name:'browser-navigation',setup(b){
+ platform:'browser',format:'iife',jsx:'automatic',tsconfig:root+'/tsconfig.json',define:{'process.env.NODE_ENV':'"development"','process.env.NEXT_PUBLIC_SUPABASE_URL':'"https://mesa-intents.test.invalid"'},plugins:[{name:'browser-navigation',setup(b){
  if(process.env.MESA_FLOW_DOCUMENT_ONLY==='1')b.onLoad({filter:/_workspace-client\.tsx$/},({path})=>{
   const source=readFileSync(path,'utf8');const assignment='window.location.assign("/admin/editorial/redacao-automatica/publicacao-lote");';
   assert.equal(source.split(assignment).length,2);
@@ -83,7 +100,22 @@ function state(did){
   flowCalls,forbidden:h.forbidden};
 }
 async function execute(input){
- if(input.kind==='setup'){flowCalls.length=0;historicalDecisions.length=0;historicalFailures=0;fixture=await base.command(input);return fixture;}
+ if(input.kind==='setup'){
+  flowCalls.length=0;historicalDecisions.length=0;historicalFailures=0;fixture=await base.command(input);
+  if(input.historicalDays)for(const [index,day] of input.historicalDays.entries()) {
+   assert.match(day,/^[a-f0-9-]{36}$/);
+   h.sql(`insert into public.matchdays(id,season_id,number,label,status) values(${h.q(day)},'b0000000-0000-4000-8000-000000000901',${index+1},'Jornada de ensaio','scheduled') on conflict(id) do nothing;
+    update public.editorial_articles set scope='matchday',matchday_id=${h.q(day)} where id=${h.q(fixture.articles[index])};`);
+  }
+  if(input.realMesaReturn){
+   fixture.realMesaReturn=true;fixture.returnSourceCode='__return_'+fixture.theme;
+   for(let index=0;index<33;index++){
+    const source=h.source('Fonte para o primeiro regresso '+index);
+    h.sql(`update public.newsroom_articles set source_code=${h.q(fixture.returnSourceCode)} where id=${h.q(source.id)};`);
+   }
+  }
+  return fixture;
+ }
  if(input.kind==='page'){
   const path=input.path;let tree;
   if(/^\/admin\/editorial\/redacao-automatica\/mesa\/producao\/[a-f0-9-]{36}$/.test(path))tree=await f.workspacePage({
@@ -107,12 +139,13 @@ async function execute(input){
    if(historicalFailures>0){historicalFailures-=1;response=Response.json({ok:false,message:'Falha histórica sintética recuperável.'},{status:503});}
    else {
     assert.ok(isForm);const form=Object.fromEntries(transportBody.entries);
-    assert.equal(form.action_type,'set_historical_article_decision');assert.equal(form.decision,'selected');
+    assert.equal(form.action_type,'set_historical_article_decision');assert.ok(['selected','undecided'].includes(form.decision));
     assert.match(form.matchday_id,/^[a-f0-9-]{36}$/);const ids=JSON.parse(form.article_ids_json);
     assert.ok(ids.length>0&&new Set(ids).size===ids.length&&ids.every(id=>/^[a-f0-9-]{36}$/.test(id)));
     for(const article_id of ids){
      const existing=historicalDecisions.find(row=>row.matchday_id===form.matchday_id&&row.article_id===article_id);
-     if(existing)existing.decision='selected';else historicalDecisions.push({matchday_id:form.matchday_id,article_id,decision:'selected'});
+     if(existing)existing.decision=form.decision;else historicalDecisions.push({matchday_id:form.matchday_id,article_id,decision:form.decision});
+     h.sql(`insert into jornada_private.matchday_historical_article_decisions(matchday_id,article_id,decision) values(${h.q(form.matchday_id)},${h.q(article_id)},${h.q(form.decision)}) on conflict(matchday_id,article_id) do update set decision=excluded.decision;`);
     }
     response=Response.json({ok:true,updatedCount:ids.length});
    }
@@ -123,6 +156,18 @@ async function execute(input){
   const text=await response.text();let body;try{body=JSON.parse(text);}catch{body=null;}
   flowCalls.push({path:u.pathname,method:req.method,action:isForm?Object.fromEntries(transportBody.entries).action_type:transportBody?.action??null,status:response.status,body});
   return {status:response.status,body,...(body===null?{text}:{})};
+ }
+ if(input.kind==='mesa-return'){
+  assert.ok(fixture?.realMesaReturn);const originalFetch=globalThis.fetch;let attempts=0;
+  globalThis.fetch=async(url,init)=>{
+   if(String(url).includes('/rpc/newsroom_mesa_source_counts_v1')&&++attempts===1)
+    return Response.json({code:'57014',message:'statement timeout — synthetic first return'},{status:500});
+   return originalFetch(url,init);
+  };
+  try {
+   const result=await f.loadMesaPageReadModel({lifecycle:'new',classification:{mode:'all'},sourceCode:fixture.returnSourceCode,pagination:{limit:50,offset:0}});
+   flowCalls.push({mesaReturn:result,attempts});return {result,attempts};
+  }finally{globalThis.fetch=originalFetch;}
  }
  if(input.kind==='flow-state')return state(input.dossierId);
  if(input.kind==='source-state')return (await base.command({kind:'state'})).sourceAudit;

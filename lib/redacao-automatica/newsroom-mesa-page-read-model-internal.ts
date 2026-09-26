@@ -59,7 +59,7 @@ export interface MesaPageReadTransport {
   hydrateSources(articleIds: readonly string[]): Promise<readonly OperationalDeskSourceItem[]>;
 }
 
-class MesaPageRelationInvalidError extends Error {}
+export class MesaPageRelationInvalidError extends Error {}
 
 function errorResult(
   code: Extract<MesaPageReadModelResult, { ok: false }>["error"]["code"],
