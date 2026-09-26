@@ -230,10 +230,18 @@ export async function loadMesaThemeOrganization(themeId: string) {
       row.source_refs.map((ref) => ref.newsroomArticleId)
     )),
   ])];
-  const material = await loadOperationalDeskReadModel({ sourceIds });
+  const [material, canonicalSources] = await Promise.all([
+    loadOperationalDeskReadModel({ sourceIds }),
+    readMesaRowsByIds<{ newsroom_article_id: string }>(
+      records.themeSources.map((row) => row.newsroom_article_id),
+      (ids) => "newsroom_editorial_article_sources?select=newsroom_article_id"
+        + `&newsroom_article_id=in.(${ids})&order=newsroom_article_id.asc,editorial_article_id.asc`,
+    ),
+  ]);
   if (!material.ok) throw new Error(material.error.code);
   return {
     records,
+    workedSourceIds: [...new Set(canonicalSources.map((row) => row.newsroom_article_id))],
     sources: material.value.sources,
     organization: buildMesaOrganization(records, material.value.sources),
   };

@@ -56,6 +56,22 @@ export type MesaOrganizationRecords = Readonly<{
 const uniqueCount = (values: readonly string[]) => new Set(values).size;
 const frozenSourceSetKey = (sources: MesaEditorialGroup["sources"]) => JSON.stringify(sources);
 
+/** Theme membership, cumulative continuity and published articles are distinct counts. */
+export function summarizeMesaThemeContinuity(input: Readonly<{
+  sourceIds: readonly string[];
+  relatedSourceIds: readonly string[];
+  publishedArticleIds: readonly string[];
+}>) {
+  const sourceIds = new Set(input.sourceIds);
+  const workedSourceCount = new Set(input.relatedSourceIds.filter((id) => sourceIds.has(id))).size;
+  return {
+    sourceCount: sourceIds.size,
+    workedSourceCount,
+    pendingSourceCount: sourceIds.size - workedSourceCount,
+    publishedArticleCount: new Set(input.publishedArticleIds).size,
+  };
+}
+
 /** Membership and publication proof remain separate: this only builds presentation. */
 export function buildMesaOrganization(
   records: MesaOrganizationRecords,

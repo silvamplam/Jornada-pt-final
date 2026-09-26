@@ -78,3 +78,17 @@ export function withEditorialBatchOutputImageChoice(
       : retained,
   };
 }
+
+/** Presentation only: this does not select, upload or publish an image. */
+export function editorialBatchUpdateImageMessage(selectedImageUrl: string | null | undefined,
+  publishedImageUrl: string | null | undefined, hasSelectedFile = false): string {
+  return !hasSelectedFile && (!selectedImageUrl || selectedImageUrl === publishedImageUrl)
+    ? "A imagem atualmente publicada será preservada."
+    : "A imagem publicada será substituída pela imagem escolhida.";
+}
+
+export function editorialBatchPublishedImageUrl(sourcePackage: EditorialBatchTransferSourcePackage | null,
+  outputId: string | null | undefined): string | null {
+  const target = sourcePackage?.productionIntents?.outputs.find((output) => output.outputId === outputId)?.target;
+  return typeof target?.article.image_url === "string" ? target.article.image_url : null;
+}

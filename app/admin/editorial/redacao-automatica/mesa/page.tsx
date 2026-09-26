@@ -225,7 +225,7 @@ const FIXTURE_SEEDS: readonly FixtureSeed[] = [
     sourceName: "O Jogo",
     title: "Sporting estreia com jovem na equipa principal para partida de amanhã",
     subtitle: "Material com múltiplas fontes confirmando alinhamento técnico.",
-    summary: "Entrada pronta para ser trabalhada em produção.",
+    summary: "Entrada pronta para ser usada em produção.",
     imageCandidateUrl: null,
     publishedAtHours: null,
     firstDetectedHours: 95,

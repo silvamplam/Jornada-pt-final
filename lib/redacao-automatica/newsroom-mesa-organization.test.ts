@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { buildMesaOrganization, filterMesaOrganization, sourceIsUnassigned, suggestedThemeClassification, visibleMesaItems,
+import { summarizeMesaThemeContinuity, buildMesaOrganization, filterMesaOrganization, sourceIsUnassigned, suggestedThemeClassification, visibleMesaItems,
   type MesaOrganizationRecords } from "@/lib/redacao-automatica/newsroom-mesa-organization-internal";
 import { createOperationalDeskReadModel, type OperationalDeskReadTransport, type OperationalDeskSourceItem } from "@/lib/redacao-automatica/newsroom-operational-desk-read-model-internal";
 import { compareSourceParagraphs } from "@/lib/redacao-automatica/newsroom-source-comparison";
@@ -439,4 +439,28 @@ test("contadores acompanham explicitamente NOVAS, PUBLICADAS e ARQUIVO", () => {
   assert.match(page, /query\.tab === "arquivo"/);
   assert.match(page, /sumClassificationCount\(archiveCounts, query\.classificationValue\)/);
   assert.match(page, /activeLifecycle === "archive" \? "arquivadas"/);
+});
+
+
+test("resumo do Tema conta 4 fontes, 3 trabalhadas e 1 pendente sem multiplicar artigos", () => {
+  const summary = summarizeMesaThemeContinuity({
+    sourceIds: [id(1), id(2), id(3), id(4)],
+    relatedSourceIds: [id(1), id(2), id(3), id(3)],
+    publishedArticleIds: [id(50), id(50), id(50)],
+  });
+  assert.deepEqual(summary, {
+    sourceCount: 4, workedSourceCount: 3, pendingSourceCount: 1, publishedArticleCount: 1,
+  });
+});
+
+test("resumo separa continuidade de publicação e exclui fontes fora do Tema", () => {
+  assert.deepEqual(summarizeMesaThemeContinuity({
+    sourceIds: [id(1), id(1), id(2)],
+    relatedSourceIds: [id(1), id(99)],
+    publishedArticleIds: [],
+  }), { sourceCount: 2, workedSourceCount: 1, pendingSourceCount: 1, publishedArticleCount: 0 });
+  assert.deepEqual(summarizeMesaThemeContinuity({
+    sourceIds: [id(1)], relatedSourceIds: [id(1), id(1)],
+    publishedArticleIds: [id(50), id(51), id(50)],
+  }), { sourceCount: 1, workedSourceCount: 1, pendingSourceCount: 0, publishedArticleCount: 2 });
 });

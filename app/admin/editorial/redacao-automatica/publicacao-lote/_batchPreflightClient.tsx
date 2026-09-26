@@ -59,6 +59,8 @@ import {
   editorialBatchDossierImages,
   editorialBatchInitialImageChoice,
   editorialBatchOutputImage,
+  editorialBatchUpdateImageMessage,
+  editorialBatchPublishedImageUrl,
   withEditorialBatchOutputImageChoice,
 } from "@/lib/redacao-automatica/editorial-batch-image-selection";
 import DossierImageChoiceGrid from "../_dossierImageChoiceGrid";
@@ -822,9 +824,10 @@ function ResultSummary({
                         <div className={styles.articleImageEditorHeader}>
                           <div>
                             <strong>Imagem deste artigo</strong>
-                            <span>{productionImage?.label ?? (existingOutput
-                              ? "Mantém a imagem publicada"
-                              : "Escolhe no banco do Dossiê")}</span>
+                            <span>{existingOutput
+                              ? editorialBatchUpdateImageMessage(productionImage?.imageUrl,
+                                  editorialBatchPublishedImageUrl(sourcePackage, outputId))
+                              : productionImage?.label ?? "Escolhe no banco do Dossiê"}</span>
                           </div>
                           <span>{productionImage ? "SELECIONADA" : existingOutput ? "PRESERVADA" : "EM FALTA"}</span>
                         </div>
@@ -901,6 +904,7 @@ function PublicationPanel({
   onRetryPreflight,
   onPublish,
   noChangeCount,
+  updateImageMessages,
 }: Readonly<{
   articles: readonly EditorialBatchArticle[];
   states: Readonly<Record<string, BatchPublicationItemState>>;
@@ -916,6 +920,7 @@ function PublicationPanel({
   onRetryPreflight: () => void;
   onPublish: () => void;
   noChangeCount: number;
+  updateImageMessages: ReadonlyMap<string, string>;
 }>) {
   const stateValues = Object.values(states);
   const hasRun = stateValues.length > 0;
@@ -992,7 +997,7 @@ function PublicationPanel({
                   : "ÚLTIMAS";
               const destinationDetail = updateRequired || item.mode === "update"
                 ? item.articleId
-                  ? "Este Dossiê corresponde a um artigo já publicado. A atualização manterá o mesmo artigo e o mesmo URL. A imagem atualmente publicada também será preservada."
+                  ? `Este Dossiê corresponde a um artigo já publicado. A atualização manterá o mesmo artigo e o mesmo URL. ${updateImageMessages.get(item.key) ?? ""}`
                   : "O servidor identificou uma atualização, mas não devolveu um articleId válido. A publicação permanece bloqueada."
                 : item.mode === "resume"
                   ? "Publicação já preparada; o artigo será confirmado e mantido em Últimas."
@@ -2670,6 +2675,10 @@ export default function BatchPreflightClient({
           onRetryPreflight={retryPublicationPreflight}
           onPublish={publishBatch}
           noChangeCount={sourcePackage?.continuityResolution?.noChangeOutputIds.length ?? 0}
+          updateImageMessages={new Map(preflight.articles.map((article) => [article.key,
+            editorialBatchUpdateImageMessage(productionImagesByKey.get(article.key)?.imageUrl,
+              editorialBatchPublishedImageUrl(sourcePackage, article.outputId),
+              Boolean(imagePreflight.articles.find((image) => image.key === article.key)?.file))]))}
         />
       ) : null}
     </div>

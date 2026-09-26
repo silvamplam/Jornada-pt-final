@@ -23,6 +23,7 @@ import {
   EMPTY_MESA_PREPARATION_BUFFER,
   selectMesaPublishedArticle,
   mesaExplicitArticleIds,
+  mesaArticleChoiceRequired,
   MESA_MAX_NEWSROOM_SOURCES,
   changeMesaPreparationTitle,
   clearMesaPreparationBuffer,
@@ -804,16 +805,13 @@ export function MesaThemeSelectionToggle({ theme }: Readonly<{ theme: MesaThemeC
 }
 
 export function MesaSourceThemeMenu({
-  newsroomArticleId,
-  lifecycle,
-  classificationKey,
+  material,
   themeIds,
 }: Readonly<{
-  newsroomArticleId: string;
-  lifecycle: OperationalDeskSourceLifecycle;
-  classificationKey: ArticleClassificationKey | null;
+  material: MesaMaterialSelection;
   themeIds: readonly string[];
 }>) {
+  const { newsroomArticleId, lifecycle, classificationKey } = material;
   const { buffer, fixtureMode, hideSources, removeSources, themes, upsertTheme } = useMesaSelection();
   const [targetThemeId, setTargetThemeId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -825,6 +823,11 @@ export function MesaSourceThemeMenu({
 
   async function attach() {
     if (!targetThemeId || busy) return;
+    if (mesaArticleChoiceRequired({ ...buffer,
+      sources: [buffer.sources.find((source) => source.newsroomArticleId === newsroomArticleId) ?? material] })) {
+      setMessage("Há vários artigos relacionados. Escolhe quais associar ao Tema nas opções de cada artigo.");
+      return;
+    }
     if (fixtureMode) {
       setMessage("Fixture visual: associação não enviada.");
       return;
@@ -840,7 +843,8 @@ export function MesaSourceThemeMenu({
           requestId: window.crypto.randomUUID(),
           themeId: targetThemeId,
           sourceIds: [newsroomArticleId],
-          editorialArticleIds: buffer.sources.find((source) => source.newsroomArticleId === newsroomArticleId)?.editorialArticleIds ?? [],
+          editorialArticleIds: mesaExplicitArticleIds({ ...buffer,
+            sources: [buffer.sources.find((source) => source.newsroomArticleId === newsroomArticleId) ?? material] }),
         }),
       });
       const result = await response.json().catch(() => null) as PrepareResponse | null;
@@ -1071,6 +1075,10 @@ export function MesaSelectionTray({
   }
 
   async function organize(action?: MesaThemeAction) {
+    if (mesaArticleChoiceRequired(buffer)) {
+      setMessage("Há vários artigos relacionados. Escolhe quais associar ao Tema nas opções de cada artigo.");
+      return;
+    }
     if (fixtureMode) { setMessage("Fixture visual: ação de Tema não enviada."); return; }
     const sourceOnly = sourceThemeActions;
     const selectedTheme = sourceOnly && action === "create" ? "" : targetTheme;
