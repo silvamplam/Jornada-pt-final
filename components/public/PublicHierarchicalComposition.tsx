@@ -22,6 +22,7 @@ type PublicHierarchicalCompositionProps = {
   blockOrder?: HistoricalCompositionBlockKey[] | null;
   editorial?: HierarchicalCompositionEditorial | null;
   editorialHref?: string | null;
+  editorialImageUrl?: string | null;
   editorialAfter?: ReactNode;
   slots: HierarchicalCompositionSlot[];
   roundupItems?: RoundupVideoItem[];
@@ -206,6 +207,7 @@ const hierarchicalCompositionStyles = `
   .composition-interpretive-news {
     display: grid;
     grid-column: span 9;
+    align-content: start;
     gap: 34px;
     min-width: 0;
   }
@@ -317,23 +319,19 @@ const hierarchicalCompositionStyles = `
     text-underline-offset: 3px;
   }
 
-  .composition-interpretive-editorial-ad-slot {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid #dfe5eb;
+  .composition-interpretive-editorial-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-top: 16px;
   }
 
   .composition-interpretive-editorial-ad-slot {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    left: 24px;
     display: flex;
     justify-content: center;
     margin-top: 20px;
     padding-top: 20px;
     border-top: 1px solid #dfe5eb;
-    pointer-events: auto;
   }
 
   .composition-interpretive-editorial-ad-slot > a {
@@ -1297,6 +1295,7 @@ export default function PublicHierarchicalComposition({
   blockOrder = null,
   editorial = null,
   editorialHref = null,
+  editorialImageUrl = null,
   editorialAfter = null,
   slots,
   roundupItems = [],
@@ -1363,6 +1362,15 @@ export default function PublicHierarchicalComposition({
               </a>
             ) : editorial?.title}
           </h3>
+
+          {editorialImageUrl ? (
+            <PublicEditorialImage
+              className="composition-interpretive-editorial-image"
+              src={editorialImageUrl}
+              imageSize="card"
+              alt={editorial?.title ?? ""}
+            />
+          ) : null}
 
           {editorialExcerpt ? (
             <div className="composition-interpretive-editorial-body">

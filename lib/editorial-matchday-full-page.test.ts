@@ -57,55 +57,24 @@ test(
   }
 );
 
-test(
-  "pagina própria reutiliza moldura publica da Jornada",
-  () => {
-    assert.match(
-      fullPage,
-      /PublicCompetitionNavigation/
-    );
-
-    assert.match(
-      fullPage,
-      /PublicMatchStrip/
-    );
-
-    assert.match(
-      fullPage,
-      /PublicSideAdvertisement/
-    );
-
-    assert.match(
-      fullPage,
-      /buildPublicMatchdayLegNavigation/
-    );
-
-    assert.match(
-      fullPage,
-      /getPublicCompetitionMenu/
-    );
-
-    assert.match(
-      fullPage,
-      /public-season-nav-bar/
-    );
-
-    assert.match(
-      fullPage,
-      /public-league-match-strip-scroll/
-    );
-
-    assert.match(
-      fullPage,
-      /news-article-layout/
-    );
-
-    assert.match(
-      fullPage,
-      /news-article-sidebar/
-    );
+test("capa e Editorial completo partilham o cabeçalho e a faixa aprovados", () => {
+  const header = source("components/public/PublicMatchdayHeader.tsx");
+  const model = source("lib/public-matchday-header.ts");
+  for (const page of [matchdayPage, fullPage]) {
+    assert.match(page, /<PublicMatchdayHeader/);
+    assert.doesNotMatch(page, /public-site-topbar|public-season-nav-bar|publicTopNavigationStyles/);
+    assert.match(page, /PublicMatchStrip/);
+    assert.match(page, /getPublicCompetitionMenu/);
+    assert.match(page, /public-league-match-strip-scroll/);
   }
-);
+  assert.match(header, /PublicLeagueNewsHeader\.module\.css/);
+  assert.match(header, /PublicCompetitionNavigation/);
+  assert.match(model, /buildPublicMatchdayLegNavigation/);
+  assert.match(fullPage, /classificationHref=\{classificationHref\}/);
+  assert.match(fullPage, /PublicSideAdvertisement/);
+  assert.match(fullPage, /news-article-layout/);
+  assert.match(fullPage, /news-article-sidebar/);
+});
 
 test(
   "pagina própria continua fora do circuito de artigos normais",
