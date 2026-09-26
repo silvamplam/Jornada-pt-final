@@ -60,18 +60,22 @@ test("historical image follows only the explicit published article, preserving t
   }
 });
 
-test("historical cover renders the editorial image without replacing its text or advertisement", () => {
+test("historical cover keeps the editorial text-only and both creatives in separate placements", () => {
   const editorial = { title: "Historical title", excerpt: "Original excerpt", text: "Original body", author: "Original author" };
-  for (const imageUrl of ["/historic-image.webp", null]) {
-    const $ = load(renderToStaticMarkup(<PublicHierarchicalComposition
-      blockOrder={["opening"]} slots={[]} editorial={editorial}
-      editorialHref="/historic/editorial" editorialImageUrl={imageUrl}
-      editorialAfter={<a data-public-side-advertisement><img src="/standing-bottle.png" alt="Bottle" /></a>}
-    />));
-    assert.equal($(".composition-interpretive-editorial-image").attr("src"), imageUrl ?? undefined);
-    assert.equal($(".composition-interpretive-editorial h3").text(), editorial.title);
-    assert.equal($(".composition-interpretive-editorial-copy").text(), editorial.excerpt);
-    assert.equal($(".composition-interpretive-editorial-signature").text(), editorial.author);
-    assert.equal($(".composition-interpretive-editorial-ad-slot [data-public-side-advertisement]").length, 1);
-  }
+  const $ = load(renderToStaticMarkup(<PublicHierarchicalComposition
+    blockOrder={["opening", "zone_1"]} slots={[]} editorial={editorial}
+    editorialHref="/historic/editorial"
+    editorialAfter={<a data-public-side-advertisement><img src="/standing-bottle.png" alt="Bottle" /></a>}
+    afterOpeningNews={<aside className="public-horizontal-advertisement"><img src="/deita-comigo.webp" alt="Deita comigo" /></aside>}
+  />));
+  assert.equal($(".composition-interpretive-editorial-image").length, 0);
+  assert.equal($(".composition-interpretive-editorial h3").text(), editorial.title);
+  assert.equal($(".composition-interpretive-editorial-copy").text(), editorial.excerpt);
+  assert.equal($(".composition-interpretive-editorial-signature").text(), editorial.author);
+  assert.equal($(".composition-interpretive-editorial-more").attr("href"), "/historic/editorial");
+  assert.equal($(".composition-interpretive-editorial-ad-slot [data-public-side-advertisement]").length, 1);
+  assert.equal($(".public-horizontal-advertisement").length, 1);
+  assert.equal($(".composition-interpretive-chronicles").next().hasClass("public-horizontal-advertisement"), true);
+  assert.equal($(".composition-interpretive-opening").next().hasClass("composition-interpretive-analysis"), true);
+  assert.equal($(".composition-interpretive-editorial img").attr("src"), "/standing-bottle.png");
 });

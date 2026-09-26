@@ -22,7 +22,7 @@ type PublicHierarchicalCompositionProps = {
   blockOrder?: HistoricalCompositionBlockKey[] | null;
   editorial?: HierarchicalCompositionEditorial | null;
   editorialHref?: string | null;
-  editorialImageUrl?: string | null;
+  afterOpeningNews?: ReactNode;
   editorialAfter?: ReactNode;
   slots: HierarchicalCompositionSlot[];
   roundupItems?: RoundupVideoItem[];
@@ -319,11 +319,8 @@ const hierarchicalCompositionStyles = `
     text-underline-offset: 3px;
   }
 
-  .composition-interpretive-editorial-image {
-    display: block;
-    width: 100%;
-    height: auto;
-    margin-top: 16px;
+  .composition-interpretive-news > .public-horizontal-advertisement {
+    margin-top: 0;
   }
 
   .composition-interpretive-editorial-ad-slot {
@@ -347,6 +344,39 @@ const hierarchicalCompositionStyles = `
     display: block;
     width: 100%;
     height: auto;
+  }
+
+  @media (min-width: 981px) {
+    .composition-interpretive-editorial:has(.composition-interpretive-editorial-ad-slot) {
+      display: flex;
+      flex-direction: column;
+      align-self: stretch;
+    }
+
+    /* Only the creative adapts to the space left by the natural editorial height. */
+    .composition-interpretive-editorial-ad-slot {
+      flex: 1;
+      min-height: 0;
+      contain: size;
+    }
+
+    .composition-interpretive-editorial-ad-slot > a {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100%;
+      max-height: 320px;
+      background: transparent;
+      overflow: visible;
+    }
+
+    .composition-interpretive-editorial-ad-slot img {
+      width: auto;
+      height: auto;
+      max-width: min(100%, 120px);
+      max-height: 100%;
+      object-fit: contain;
+    }
   }
 
   .composition-interpretive-dominant {
@@ -1295,7 +1325,7 @@ export default function PublicHierarchicalComposition({
   blockOrder = null,
   editorial = null,
   editorialHref = null,
-  editorialImageUrl = null,
+  afterOpeningNews = null,
   editorialAfter = null,
   slots,
   roundupItems = [],
@@ -1343,6 +1373,7 @@ export default function PublicHierarchicalComposition({
             );
           })}
         </div>
+        {afterOpeningNews}
       </div>
 
       {hasEditorial ? (
@@ -1362,15 +1393,6 @@ export default function PublicHierarchicalComposition({
               </a>
             ) : editorial?.title}
           </h3>
-
-          {editorialImageUrl ? (
-            <PublicEditorialImage
-              className="composition-interpretive-editorial-image"
-              src={editorialImageUrl}
-              imageSize="card"
-              alt={editorial?.title ?? ""}
-            />
-          ) : null}
 
           {editorialExcerpt ? (
             <div className="composition-interpretive-editorial-body">
