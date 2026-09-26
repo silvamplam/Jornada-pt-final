@@ -15,7 +15,7 @@ const matchdays = [
 
 function game(
   matchdayId: string,
-  kickoffAt: string,
+  kickoffAt: string | null,
   overrides: Partial<PublicCompetitionEntryMatch> = {}
 ): PublicCompetitionEntryMatch {
   return {
@@ -116,5 +116,56 @@ test("a última jornada permanece como entrada no fim da época", () => {
       new Date("2026-09-15T12:00:00.000Z")
     )?.id,
     "j3"
+  );
+});
+
+test("sem kickoffs utilizáveis, uma jornada totalmente terminada avança para a seguinte", () => {
+  const matches = [
+    game("j1", null, { status: "finished" }),
+    game("j1", null, { status: "finished" })
+  ];
+
+  assert.equal(
+    selectPublicCompetitionEntryMatchday(matchdays, matches, new Date("2026-09-26T12:00:00.000Z"))?.id,
+    "j2"
+  );
+});
+
+test("sem kickoffs utilizáveis, uma jornada ainda incompleta não avança", () => {
+  const matches = [
+    game("j1", null, { status: "finished" }),
+    game("j1", null, { status: "scheduled" })
+  ];
+
+  assert.equal(
+    selectPublicCompetitionEntryMatchday(matchdays, matches, new Date("2026-09-26T12:00:00.000Z"))?.id,
+    "j1"
+  );
+});
+
+test("uma jornada posterior totalmente terminada pode avançar mesmo com uma jornada anterior incompleta sem datas", () => {
+  const matches = [
+    game("j1", null, { status: "finished" }),
+    game("j1", null, { status: "scheduled" }),
+    game("j2", null, { status: "finished" }),
+    game("j2", null, { status: "finished" })
+  ];
+
+  assert.equal(
+    selectPublicCompetitionEntryMatchday(matchdays, matches, new Date("2026-09-26T12:00:00.000Z"))?.id,
+    "j3"
+  );
+});
+
+test("postponed e rollover_excluded não impedem o fallback por estado sem datas", () => {
+  const matches = [
+    game("j1", null, { status: "finished" }),
+    game("j1", null, { status: "postponed" }),
+    game("j1", null, { status: "scheduled", rollover_excluded: true })
+  ];
+
+  assert.equal(
+    selectPublicCompetitionEntryMatchday(matchdays, matches, new Date("2026-09-26T12:00:00.000Z"))?.id,
+    "j2"
   );
 });
