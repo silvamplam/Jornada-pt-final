@@ -6,6 +6,7 @@ on:
       - .ci/mesa-intents-sql/**
       - .ci/mesa-intents-ui/**
       - supabase/migrations/20260926183411_mesa_continuity_explicit_articles_and_reads.sql
+      - supabase/migrations/20260926220638_restore_legacy_mesa_lifecycle_publications.sql
       - .github/workflows/mesa-intents-application.yml
       - lib/redacao-automatica/**
       - app/api/admin/editorial/redacao-automatica/**
@@ -16,6 +17,7 @@ on:
       - .ci/mesa-intents-sql/**
       - .ci/mesa-intents-ui/**
       - supabase/migrations/20260926183411_mesa_continuity_explicit_articles_and_reads.sql
+      - supabase/migrations/20260926220638_restore_legacy_mesa_lifecycle_publications.sql
       - .github/workflows/mesa-intents-application.yml
       - lib/redacao-automatica/**
       - app/api/admin/editorial/redacao-automatica/**
@@ -51,6 +53,12 @@ jobs:
           python3 -m playwright install --with-deps chromium
           mkdir -p /tmp/mesa-intents-application
           git rev-parse HEAD > /tmp/mesa-intents-application/tested-commit.txt
+      - name: Legacy lifecycle regression contract
+        run: |
+          set -euo pipefail
+          node node_modules/tsx/dist/cli.mjs --test \
+            lib/redacao-automatica/newsroom-mesa-legacy-lifecycle.test.ts
+
       - name: Disposable PostgreSQL, no TCP network
         run: |
           set -euo pipefail
