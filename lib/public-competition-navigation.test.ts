@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   resolveActivePublicCompetition,
+  resolvePublicCompetitionMastheadLogoPresentation,
   resolvePublicCompetitionLogoPresentation,
   resolvePublicCompetitionLogoUrl
 } from "./public-competition-navigation";
@@ -182,6 +183,20 @@ test("resolve dinamicamente a competicao ativa e troca o respetivo emblema", asy
     ]
   );
 
+  assert.deepEqual(
+    officialFixtures.map((competition) => resolvePublicCompetitionMastheadLogoPresentation(competition)?.logoUrl),
+    [
+      "/brand/competitions/navigation/liga-portugal-betclic-horizontal.png",
+      "/brand/competitions/navigation/laliga-negative.png",
+      "/brand/competitions/navigation/premier-league-negative.svg"
+    ]
+  );
+  assert.equal(resolvePublicCompetitionMastheadLogoPresentation(null), null);
+  assert.deepEqual(
+    resolvePublicCompetitionMastheadLogoPresentation(competitionFixtures[0]),
+    resolvePublicCompetitionLogoPresentation(competitionFixtures[0])
+  );
+
   const [ligaPortugalAsset, laligaAsset, premierLeagueAsset] =
     await Promise.all([
       readFile(
@@ -273,7 +288,7 @@ test("a jornada isola a identidade da competicao no topo e preserva a navegacao 
   assert.match(matchdaySource, /className=\{`public-top-stack \$\{headerStyles\.topStack\}`\}/);
   assert.match(
     matchdaySource,
-    /const competitionLogo = resolvePublicCompetitionLogoPresentation\(currentCompetitionMenuItem\)/
+    /const competitionLogo = resolvePublicCompetitionMastheadLogoPresentation\(currentCompetitionMenuItem\)/
   );
   assert.match(
     matchdaySource,

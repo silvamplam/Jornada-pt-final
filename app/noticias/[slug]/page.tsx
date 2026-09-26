@@ -11,7 +11,7 @@ import headerStyles from "@/components/public/PublicLeagueNewsHeader.module.css"
 import PublicMatchStrip from "@/components/public/PublicMatchStrip";
 import PublicSideAdvertisement from "@/components/public/PublicSideAdvertisement";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
-import { resolvePublicCompetitionLogoPresentation } from "@/lib/public-competition-navigation";
+import { resolvePublicCompetitionMastheadLogoPresentation } from "@/lib/public-competition-navigation";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { seasonLabelToUrlSegment } from "@/lib/public-matchday";
 import { readPublicArticleMatchdayContext, type PublicArticleMatch } from "@/lib/public-article-matchday-context";
@@ -522,7 +522,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
           logoUrl: articleContext.competition.logo_url
         }
       : null;
-  const competitionLogo = resolvePublicCompetitionLogoPresentation(currentCompetitionMenuItem);
+  const competitionLogo = resolvePublicCompetitionMastheadLogoPresentation(currentCompetitionMenuItem);
   const publicCompetitionMenu = currentCompetitionMenuItem
     ? publicCompetitionMenuBase.map((item) => (item.slug === currentCompetitionMenuItem.slug ? currentCompetitionMenuItem : item))
     : publicCompetitionMenuBase;
@@ -564,6 +564,7 @@ export default async function NewsArticlePage({ params }: PageProps) {
     <div className="news-article-shell">
       <style>{articlePageStyles}</style>
       <div
+        data-competition={articleContext?.competition.slug}
         className={`public-top-stack ${headerStyles.topStack} ${
           articleContext ? "" : headerStyles.simpleTopStack
         }`}
