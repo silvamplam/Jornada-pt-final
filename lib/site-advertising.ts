@@ -33,7 +33,7 @@ export type PublicSideAdvertisementReadResult = {
   error: string | null;
 };
 
-const ADVERTISEMENT_READ_TIMEOUT_MS = 2500;
+const ADVERTISEMENT_READ_TIMEOUT_MS = 8000;
 
 export function isAdvertisingSlotKey(
   value: string,
