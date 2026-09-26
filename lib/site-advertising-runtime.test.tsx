@@ -348,6 +348,13 @@ test("fronteira publicitária usa apenas blocos visíveis, sem mutar a ordem edi
     assert.equal(JSON.stringify(blocks), before);
   }
   check(["zone", "video"], [], false, ["zone0", "ad", "video1"]);
+  check(["zone", "latest", "video"], [], false, [
+    "zone0",
+    "ad",
+    "latest1",
+    "video2",
+  ]);
+  check(["zone", "latest"], [], false, ["zone0", "ad", "latest1"]);
   check(["latest", "video"], [], false, ["latest0", "ad", "video1"]);
   check(["zone", "latest", "video"], [1], false, ["zone0", "ad", "video2"]);
   check(["zone", "video"], [0], false, ["video1"]);
