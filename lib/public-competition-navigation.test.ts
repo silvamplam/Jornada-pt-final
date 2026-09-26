@@ -187,7 +187,7 @@ test("resolve dinamicamente a competicao ativa e troca o respetivo emblema", asy
     officialFixtures.map((competition) => resolvePublicCompetitionMastheadLogoPresentation(competition)?.logoUrl),
     [
       "/brand/competitions/navigation/liga-portugal-betclic-horizontal.png",
-      "/brand/competitions/navigation/laliga-negative.png",
+      "/brand/competitions/navigation/laliga-lockup-negative.svg",
       "/brand/competitions/navigation/premier-league-negative.svg"
     ]
   );

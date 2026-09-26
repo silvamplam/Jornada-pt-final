@@ -110,9 +110,9 @@ export function resolvePublicCompetitionMastheadLogoPresentation(
   if (competition?.slug === "la-liga") {
     return {
       ...presentation,
-      logoUrl: "/brand/competitions/navigation/laliga-negative.png",
-      intrinsicWidth: 3009,
-      intrinsicHeight: 1001
+      logoUrl: "/brand/competitions/navigation/laliga-lockup-negative.svg",
+      intrinsicWidth: 190,
+      intrinsicHeight: 40
     };
   }
   return presentation;
