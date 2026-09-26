@@ -1,11 +1,36 @@
+
+/* Official digital colours: logo.premierleague.com and laliga.com.
+   Only colour tokens vary; Liga Portugal keeps every existing fallback. */
+.topStack[data-competition="premier-league"] {
+  --league-header-background: #37003c;
+  --league-header-ink: #ffffff;
+  --league-header-muted: color-mix(in srgb, #37003c 12%, white);
+  --league-header-hover: color-mix(in srgb, #37003c 75%, white);
+}
+
+.topStack[data-competition="la-liga"] {
+  --league-header-background: #ff4b44;
+  --league-header-ink: color-mix(in srgb, #ff4b44 24%, black);
+  --league-header-muted: color-mix(in srgb, #ff4b44 28%, black);
+  --league-header-hover: color-mix(in srgb, #ff4b44 62%, black);
+}
+
+.topStack[data-competition="premier-league"],
+.topStack[data-competition="la-liga"] {
+  --league-header-accent: color-mix(in srgb, var(--league-header-background) 65%, black);
+  --league-header-border: color-mix(in srgb, var(--league-header-background) 50%, var(--league-header-ink));
+  --league-header-control-border: color-mix(in srgb, var(--league-header-background) 45%, white);
+  --league-header-control: color-mix(in srgb, var(--league-header-background) 62%, black);
+  --league-header-active: color-mix(in srgb, var(--league-header-background) 55%, black);
+}
 /* Scoped exclusively to the modern public matchday and contextual-news mastheads. */
 .topStack:global(.public-top-stack) {
   --league-masthead-height: 124px;
   top: calc(-1 * (var(--league-masthead-height) + 2px));
-  border-top: 2px solid #c1172f;
+  border-top: 2px solid var(--league-header-accent, #c1172f);
   border-bottom: 0;
-  background: #002a6a;
-  color: #ffffff;
+  background: var(--league-header-background, #002a6a);
+  color: var(--league-header-ink, #ffffff);
 }
 
 .simpleTopStack:global(.public-top-stack),
@@ -28,7 +53,7 @@
   grid-column: 1;
   grid-row: 1 / 3;
   min-width: 0;
-  color: #ffffff;
+  color: var(--league-header-ink, #ffffff);
   text-decoration: none;
 }
 
@@ -49,17 +74,10 @@
   object-position: left center;
 }
 
-.competitionIdentity img[data-variant="premier-league-lockup"],
-.competitionIdentity img[data-variant="laliga-horizontal"] {
-  box-sizing: border-box;
-  padding: 4px 8px;
-  background: #ffffff;
-}
-
 .competitionIdentity span {
   overflow: hidden;
   max-width: 100%;
-  color: #ffffff;
+  color: var(--league-header-ink, #ffffff);
   font-size: 16.8px;
   font-weight: 700;
   line-height: 1;
@@ -85,7 +103,7 @@
 }
 
 .siteIdentity span {
-  color: #d9e6f5;
+  color: var(--league-header-muted, #d9e6f5);
   font-family: Arial, Helvetica, sans-serif;
   font-size: 10.4px;
   font-weight: 700;
@@ -132,7 +150,7 @@
   width: 100%;
   max-width: 100%;
   margin: 0;
-  color: #f4f7fb;
+  color: var(--league-header-ink, #f4f7fb);
   font-size: 12.8px;
   text-transform: none;
 }
@@ -150,9 +168,9 @@
   min-height: 48px;
   margin-top: 0;
   padding: 0 15.6px;
-  border-left: 0.8px solid #164c80;
+  border-left: 0.8px solid var(--league-header-border, #164c80);
   border-bottom: 1.6px solid transparent;
-  color: #f4f7fb;
+  color: var(--league-header-ink, #f4f7fb);
 }
 
 .topStack :global(nav[aria-label="Navegação pública"] a:first-child) {
@@ -160,8 +178,8 @@
 }
 
 .topStack :global(nav[aria-label="Navegação pública"] a[aria-current="page"]) {
-  border-bottom-color: #ffffff;
-  color: #ffffff;
+  border-bottom-color: var(--league-header-ink, #ffffff);
+  color: var(--league-header-ink, #ffffff);
 }
 
 .topStack :global(nav[aria-label="Navegação pública"] img),
@@ -181,7 +199,7 @@
 
 .topStack :global(.public-matchday-date-context),
 .topStack :global(.public-matchday-date-context strong) {
-  color: #d7e4f3;
+  color: var(--league-header-muted, #d7e4f3);
   font-size: 10.4px;
   font-weight: 400;
   letter-spacing: 0.025em;
@@ -194,7 +212,7 @@
   max-width: 1232px;
   margin: 0 auto;
   background: transparent;
-  color: #ffffff;
+  color: var(--league-header-ink, #ffffff);
 }
 
 .topStack :global(.public-season-nav-inner) {
@@ -203,7 +221,7 @@
   gap: 0;
   height: 49px;
   min-height: 49px;
-  border-top: 0.8px solid #004e87;
+  border-top: 0.8px solid var(--league-header-border, #004e87);
 }
 
 .topStack :global(.public-season-context-card) {
@@ -231,9 +249,9 @@
   min-width: 126.4px;
   min-height: 36px;
   padding: 3.2px 12px;
-  border: 0.8px solid #3994be;
+  border: 0.8px solid var(--league-header-control-border, #3994be);
   border-radius: 0;
-  background: #00457d;
+  background: var(--league-header-control, #00457d);
   color: #ffffff;
   font-size: 12.8px;
   font-weight: 700;
@@ -254,15 +272,15 @@
   min-width: 88px;
   min-height: 36px;
   padding: 0 8px;
-  border: 0.8px solid #3994be;
-  color: #eef5fc;
+  border: 0.8px solid var(--league-header-control-border, #3994be);
+  color: var(--league-header-ink, #eef5fc);
   font-size: 12.8px;
   font-weight: 600;
 }
 
 .topStack :global(.public-matchday-leg-nav a[aria-current="true"]) {
-  border-color: #7dc8ea;
-  background: #00508b;
+  border-color: var(--league-header-control-border, #7dc8ea);
+  background: var(--league-header-active, #00508b);
   color: #ffffff;
   font-weight: 700;
 }
@@ -273,7 +291,7 @@
   padding: 0 0 0 16px;
   border: 0;
   scrollbar-width: thin;
-  scrollbar-color: #819ac1 transparent;
+  scrollbar-color: var(--league-header-border, #819ac1) transparent;
   transform: translateY(-0.8px);
 }
 
@@ -285,14 +303,14 @@
   min-height: 48px;
   padding: 1.6px 3.2px 0;
   border-bottom: 0;
-  color: #e8eff8;
+  color: var(--league-header-ink, #e8eff8);
   font-size: 12.8px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 .topStack :global(.public-matchday-nav-compact a[aria-current="page"]) {
-  background: #00518e;
+  background: var(--league-header-active, #00518e);
   color: #ffffff;
   font-weight: 800;
 }
@@ -300,13 +318,13 @@
 .topStack :global(nav[aria-label="Navegação pública"] a:hover),
 .topStack :global(.public-matchday-leg-nav a:hover),
 .topStack :global(.public-matchday-nav-compact a:hover) {
-  background: rgb(255 255 255 / 10%);
+  background: var(--league-header-hover, rgb(255 255 255 / 10%));
   color: #ffffff;
 }
 
 .topStack:global(.public-top-stack) a:focus-visible,
 .topStack:global(.public-top-stack) :global(.public-season-select:focus-visible) {
-  outline: 2px solid #ffffff;
+  outline: 2px solid var(--league-header-ink, #ffffff);
   outline-offset: -3px;
 }
 
@@ -348,7 +366,7 @@
   .topStack :global(.public-matchday-nav-compact) {
     grid-column: 1;
     grid-row: 2;
-    border-top: 1px solid rgb(255 255 255 / 16%);
+    border-top: 1px solid var(--league-header-border, rgb(255 255 255 / 16%));
     transform: none;
   }
 
@@ -417,7 +435,7 @@
   .topStack :global(nav[aria-label="Navegação pública"]) {
     grid-column: 1 / -1;
     grid-row: 2;
-    border-top: 1px solid rgb(255 255 255 / 16%);
+    border-top: 1px solid var(--league-header-border, rgb(255 255 255 / 16%));
     font-size: 12px;
   }
 
@@ -493,5 +511,12 @@
 
   .matchdayBrand strong {
     font-size: 24px;
+  }
+}
+
+@media (min-width: 761px) {
+  .competitionIdentity img[data-variant="premier-league-lockup"] {
+    width: 173px;
+    height: 38px;
   }
 }

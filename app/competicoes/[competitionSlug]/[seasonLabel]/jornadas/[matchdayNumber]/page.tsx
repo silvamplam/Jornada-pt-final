@@ -10,7 +10,7 @@ import {
 } from "@/lib/public-matchday-editorial";
 import { getPublicCompetitionMenu } from "@/lib/public-competition-menu";
 import { createPublicMatchdayStructuralReaders } from "@/lib/public-matchday-structural-context";
-import { resolvePublicCompetitionLogoPresentation } from "@/lib/public-competition-navigation";
+import { resolvePublicCompetitionMastheadLogoPresentation } from "@/lib/public-competition-navigation";
 import { buildPublicMatchdayLegNavigation } from "@/lib/public-matchday-leg-navigation";
 import { resolveMatchdayHorizontalNewsItems } from "@/lib/editorial-horizontal-news";
 import {
@@ -3101,7 +3101,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     logoUrl: context.competition.logo_url
   };
   const publicCompetitionMenuBase = await getPublicCompetitionMenu(structure.menu).catch(() => []);
-  const competitionLogo = resolvePublicCompetitionLogoPresentation(currentCompetitionMenuItem);
+  const competitionLogo = resolvePublicCompetitionMastheadLogoPresentation(currentCompetitionMenuItem);
   const publicCompetitionMenu = publicCompetitionMenuBase.map((item) =>
     item.slug === currentCompetitionMenuItem.slug ? currentCompetitionMenuItem : item
   );
@@ -4194,7 +4194,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     <main className="public-matchday-shell">
       <style>{publicMatchdayStyles}</style>
       {showLogoDiagnostic ? <LogoDiagnosticPanel context={context} /> : null}
-      <div className={`public-top-stack ${headerStyles.topStack}`}>
+      <div className={`public-top-stack ${headerStyles.topStack}`} data-competition={context.competition.slug}>
       <header className="public-site-topbar" aria-label="Topo do Jornada.pt">
         <a className={headerStyles.competitionIdentity} href={currentCompetitionMenuItem.href}>
           {competitionLogo ? (

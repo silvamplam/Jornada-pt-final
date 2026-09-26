@@ -91,3 +91,29 @@ export function resolvePublicCompetitionLogoPresentation(
       }
     : null;
 }
+
+// Official negative assets are used only on competition mastheads.
+// Other navigation surfaces retain their positive artwork.
+export function resolvePublicCompetitionMastheadLogoPresentation(
+  competition: PublicCompetitionMenuItem | null
+): PublicCompetitionNavigationLogoPresentation | null {
+  const presentation = resolvePublicCompetitionLogoPresentation(competition);
+  if (!presentation) return null;
+  if (competition?.slug === "premier-league") {
+    return {
+      ...presentation,
+      logoUrl: "/brand/competitions/navigation/premier-league-negative.svg",
+      intrinsicWidth: 248,
+      intrinsicHeight: 106
+    };
+  }
+  if (competition?.slug === "la-liga") {
+    return {
+      ...presentation,
+      logoUrl: "/brand/competitions/navigation/laliga-negative.png",
+      intrinsicWidth: 3009,
+      intrinsicHeight: 1001
+    };
+  }
+  return presentation;
+}
