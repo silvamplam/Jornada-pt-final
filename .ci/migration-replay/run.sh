@@ -42,7 +42,7 @@ docker exec "$CID" psql -X -v ON_ERROR_STOP=1 -U postgres -d jornada_migration_r
 # Its sidecar shares ONLY the DB container's network namespace: still no external network.
 docker pull ubuntu:24.04
 mkdir -p "$OUTPUT/work/supabase/migrations"
-cp supabase/migrations/*.sql "$OUTPUT/work/supabase/migrations/"
+test -z "$(ls -A "$OUTPUT/work/supabase/migrations/")"
 CLI_CID=$(docker run --detach --network "container:$CID" \
   --mount "type=bind,source=$OUTPUT/work,target=/project" \
   --mount "type=bind,source=$ROOT/.ci/migration-replay/tools,target=/tools,readonly" \
@@ -51,9 +51,21 @@ test "$(docker inspect "$CLI_CID" --format '{{.HostConfig.NetworkMode}}')" = "co
 cli() { docker exec "$CLI_CID" /tools/supabase "$@"; }
 cli init --workdir /project --yes > "$OUTPUT/init.log" 2>&1
 # The explicit URL resolves only to this network-less container's own loopback.
-cli migration up --workdir /project \
-  --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay?sslmode=disable \
-  --include-all --yes > "$OUTPUT/replay.log" 2>&1
+for migration in supabase/migrations/*.sql; do
+  name=$(basename "$migration")
+  cp "$migration" "$OUTPUT/work/supabase/migrations/"
+  if [ "$name" = 20260901214531_matchday_live_layout_source_retirement.sql ]; then
+    docker exec "$CID" psql -X -v ON_ERROR_STOP=1 -U postgres -d jornada_migration_replay \
+      -f /replay/fixtures/retirement-before.sql >> "$OUTPUT/replay.log" 2>&1
+  fi
+  cli migration up --workdir /project \
+    --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay?sslmode=disable \
+    --include-all --yes >> "$OUTPUT/replay.log" 2>&1
+  if [ "$name" = 20260901214531_matchday_live_layout_source_retirement.sql ]; then
+    docker exec "$CID" psql -X -v ON_ERROR_STOP=1 -U postgres -d jornada_migration_replay \
+      -f /replay/fixtures/retirement-after.sql >> "$OUTPUT/replay.log" 2>&1
+  fi
+done
 cli migration list --workdir /project \
   --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay?sslmode=disable \
   > "$OUTPUT/migration-list.txt" 2>&1
