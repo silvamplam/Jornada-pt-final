@@ -34,6 +34,10 @@ export const horizontalAdvertisingStyles = `
     margin: 0 auto;
     object-fit: contain;
   }
+  .public-horizontal-advertisement[data-format="slim"] img {
+    max-width: 100%;
+    max-height: clamp(120px, 30vw, 360px);
+  }
   .public-horizontal-advertisement[data-format="tall"] img {
     max-height: 320px;
   }

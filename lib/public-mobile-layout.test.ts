@@ -92,9 +92,11 @@ test("side advertisements retain their intrinsic proportion and cannot upscale t
   assert.match(desktopImage, /max-width:\s*100%;/);
 });
 
-test("horizontal mobile creative remains proportional with a discreet label and a 2x-width cap", () => {
+test("horizontal slim creative can use the available width with a responsive height cap", () => {
   const mobile = mediaBlock(horizontalAdvertisingStyles, 760);
-  assert.match(rule(mobile, ".public-horizontal-advertisement img"), /max-width:\s*min\(100%, 320px\);/);
+  const slim = rule(horizontalAdvertisingStyles, '.public-horizontal-advertisement[data-format="slim"] img');
+  assert.match(slim, /max-width:\s*100%;/);
+  assert.match(slim, /max-height:\s*clamp\(120px, 30vw, 360px\);/);
   const base = rule(horizontalAdvertisingStyles, ".public-horizontal-advertisement img");
   assert.match(base, /width:\s*auto;/);
   assert.match(base, /height:\s*auto;/);
