@@ -149,4 +149,3 @@ dados editoriais, Auth completo ou toda a configuração da plataforma Supabase.
 Produção permaneceu read-only. Não houve repair, db push de produção, DDL/DML
 remoto ou merge. A próxima ação requer autorização específica para os seis
 repairs de histórico acima.
-
