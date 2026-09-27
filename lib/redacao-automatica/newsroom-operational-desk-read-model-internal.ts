@@ -241,6 +241,7 @@ export type OperationalDeskLegacyUsageRecord = Readonly<{
   newsroom_snapshot_id: string;
   used_at: string;
   package_id: string;
+  package_created_at: string;
   package_group?: number;
   package_year?: string;
   package_month?: string;
@@ -575,6 +576,7 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
           !articleIds.includes(row.newsroom_article_id)
           || !isUuid(row.newsroom_snapshot_id)
           || !isUuid(row.package_id)
+          || !validDate(row.package_created_at)
           || !validDate(row.used_at)
           || (row.published_article_id !== null && !isUuid(row.published_article_id))
         ) throw new OperationalDeskRelationInvalidError();
@@ -761,6 +763,15 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
             });
           }
         }
+        // Legacy proof can establish lifecycle without establishing canonical continuity.
+        // Match the package time bounds in newsroom_mesa_source_candidates_v1.
+        const hasLegacyPublication = legacyUsage.some((usage) => (
+          usage.newsroom_article_id === row.id
+          && usage.published_article_id !== null
+          && publishedById.has(usage.published_article_id)
+          && Date.parse(usage.package_created_at) >= Date.parse(MESA_OPERATIONAL_CYCLE_STARTED_AT)
+          && Date.parse(usage.package_created_at) >= Date.parse(row.first_detected_at)
+        ));
         const publishedContributions = [...contributionsByArticle.values()]
           .sort((left, right) => (
             Date.parse(right.publishedAt ?? "") - Date.parse(left.publishedAt ?? "")
@@ -782,7 +793,7 @@ export function createOperationalDeskReadModel(transport: OperationalDeskReadTra
           )
         ));
         return [{
-          lifecycle: publishedContributions.length > 0 ? "published" : "new",
+          lifecycle: hasLegacyPublication || publishedContributions.length > 0 ? "published" : "new",
           newsroomArticleId: row.id,
           sourceCode: row.source_code,
           sourceName: row.source_name,
