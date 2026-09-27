@@ -43,7 +43,8 @@ while (changed) {
     changed = true;
   }
   for (const fn of catalog.functions) {
-    if (createdFunctions.has(key(fn)) || renameTargets.has(fn.name) || functions.has(key(fn)) || !references(referenceText, fn)) continue;
+    if (createdFunctions.has(key(fn)) || renameTargets.has(fn.name) || functions.has(key(fn)) ||
+        (!references(referenceText, fn) && !new RegExp('\\b'+fn.name+'\\s*\\(', 'i').test(referenceText))) continue;
     functions.set(key(fn), fn);
     referenceText += '\n' + fn.definition;
     changed = true;
@@ -76,6 +77,8 @@ function acl(kind, target, entries, owner) {
   }
   return result;
 }
+// CHECK expressions and expression indexes may call unqualified foundation helpers.
+sql.push(...[...functions.values()].map(fn => fn.definition+';'));
 for (const table of tables.values()) {
   const excluded = addedColumns.get(key(table)) || new Set();
   const columns = table.columns.filter(c => !excluded.has(c.name));
@@ -106,7 +109,6 @@ for (const table of tables.values()) {
   for(const column of columns) if(column.comment) post.push('comment on column '+qualified(table)+'.'+q(column.name)+' is '+literal(column.comment)+';');
 }
 for(const fn of functions.values()) {
-  sql.push(fn.definition+';');
   const target = qualified(fn)+'('+fn.identity+')';
   post.push('alter function '+target+' owner to '+q(fn.owner)+';');
   post.push(...acl('function',target,fn.acl,fn.owner));

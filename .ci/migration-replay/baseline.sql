@@ -2,6 +2,494 @@
 -- No INSERT/COPY or production rows. Never apply to an existing database.
 do $guard$ begin if current_database() <> 'jornada_migration_replay' or current_setting('jornada.replay',true) is distinct from 'on' then raise exception 'isolated replay required'; end if; end $guard$;
 set check_function_bodies = off;
+CREATE OR REPLACE FUNCTION public.newsroom_protect_editorial_dossier_source_frozen_identity()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+begin
+  if new.newsroom_article_id is distinct from old.newsroom_article_id
+     or new.newsroom_snapshot_id is distinct from old.newsroom_snapshot_id
+     or new.title_snapshot is distinct from old.title_snapshot
+     or new.published_at_snapshot is distinct from old.published_at_snapshot then
+    raise exception 'editorial_dossier_source_frozen_identity_immutable'
+      using errcode = '55000';
+  end if;
+  return new;
+end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.newsroom_protect_editorial_plan_profile_pin()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+begin
+  if old.editorial_profile_version_id is not null
+     and (
+       new.editorial_profile_id is distinct from old.editorial_profile_id
+       or new.editorial_profile_version_id is distinct from old.editorial_profile_version_id
+       or new.editorial_profile_pinned_at is distinct from old.editorial_profile_pinned_at
+     ) then
+    raise exception 'editorial_profile_plan_pin_immutable'
+      using errcode = '55000';
+  end if;
+  return new;
+end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.newsroom_protect_editorial_profile()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+begin
+  if new.id is distinct from old.id
+     or new.code is distinct from old.code
+     or new.name is distinct from old.name
+     or new.created_at is distinct from old.created_at
+     or new.created_by_actor_type is distinct from old.created_by_actor_type
+     or new.created_by_actor_id is distinct from old.created_by_actor_id then
+    raise exception 'editorial_profile_identity_immutable'
+      using errcode = '55000';
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.newsroom_reject_editorial_profile_version_mutation()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+begin
+  raise exception 'editorial_profile_version_immutable'
+    using errcode = '55000';
+end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.newsroom_reject_snapshot_mutation()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+begin
+  raise exception 'newsroom article snapshots are immutable';
+end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.newsroom_save_editorial_dossier_article_plan(p_dossier_id uuid, p_article_plan_id uuid, p_working_title text, p_status text, p_sort_order integer, p_article_kind text, p_length_mode text, p_editorial_instructions text, p_dossier_source_ids uuid[])
+ RETURNS TABLE(article_plan_id uuid)
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+declare
+  v_plan_id uuid := coalesce(p_article_plan_id, pg_catalog.gen_random_uuid());
+  v_is_create boolean := p_article_plan_id is null;
+  v_existing_status text;
+  v_editorial_article_id uuid;
+  v_source_count integer := coalesce(cardinality(p_dossier_source_ids), 0);
+  v_distinct_source_count integer;
+  v_source_id uuid;
+begin
+  if p_dossier_id is null then
+    raise exception 'editorial_dossier_article_plan_dossier_required'
+      using errcode = '23514';
+  end if;
+
+  if btrim(coalesce(p_working_title, '')) = '' then
+    raise exception 'editorial_dossier_article_plan_title_required'
+      using errcode = '23514';
+  end if;
+
+  if p_status not in ('planned', 'ready', 'cancelled') then
+    raise exception 'editorial_dossier_article_plan_status_invalid'
+      using errcode = '23514';
+  end if;
+
+  if p_article_kind not in ('news', 'analysis', 'preview', 'summary') then
+    raise exception 'editorial_dossier_article_plan_kind_invalid'
+      using errcode = '23514';
+  end if;
+
+  if p_length_mode not in ('brief', 'standard', 'developed') then
+    raise exception 'editorial_dossier_article_plan_length_invalid'
+      using errcode = '23514';
+  end if;
+
+  if p_sort_order is null or p_sort_order < 0 then
+    raise exception 'editorial_dossier_article_plan_order_invalid'
+      using errcode = '23514';
+  end if;
+
+  perform 1
+  from public.newsroom_editorial_dossiers dossier
+  where dossier.id = p_dossier_id
+  for update;
+
+  if not found then
+    raise exception 'editorial_dossier_not_found'
+      using errcode = 'P0002';
+  end if;
+
+  if v_is_create then
+    if p_status = 'cancelled' then
+      raise exception 'editorial_dossier_article_plan_new_cancelled_invalid'
+        using errcode = '23514';
+    end if;
+  else
+    select
+      plan.status,
+      plan.editorial_article_id
+    into
+      v_existing_status,
+      v_editorial_article_id
+    from public.newsroom_editorial_dossier_article_plans plan
+    where plan.id = p_article_plan_id
+      and plan.dossier_id = p_dossier_id
+    for update;
+
+    if not found then
+      raise exception 'editorial_dossier_article_plan_not_found'
+        using errcode = 'P0002';
+    end if;
+
+    if v_editorial_article_id is not null then
+      raise exception 'editorial_dossier_article_plan_already_converted'
+        using errcode = '23514';
+    end if;
+  end if;
+
+  select count(distinct source_row.source_id)
+  into v_distinct_source_count
+  from unnest(coalesce(p_dossier_source_ids, '{}'::uuid[]))
+    as source_row(source_id);
+
+  if v_distinct_source_count <> v_source_count then
+    raise exception 'editorial_dossier_article_plan_source_duplicate'
+      using errcode = '23514';
+  end if;
+
+  if p_status = 'ready'
+     and (
+       btrim(coalesce(p_editorial_instructions, '')) = ''
+       or v_source_count < 1
+     ) then
+    raise exception 'editorial_dossier_article_plan_ready_incomplete'
+      using errcode = '23514';
+  end if;
+
+  if p_status <> 'cancelled' then
+    for v_source_id in
+      select source_row.source_id
+      from unnest(coalesce(p_dossier_source_ids, '{}'::uuid[]))
+        as source_row(source_id)
+    loop
+      if not exists (
+        select 1
+        from public.newsroom_editorial_dossier_sources dossier_source
+        where dossier_source.id = v_source_id
+          and dossier_source.dossier_id = p_dossier_id
+          and (
+            dossier_source.included
+            or exists (
+              select 1
+              from public.newsroom_editorial_dossier_article_plan_sources existing_assignment
+              where existing_assignment.article_plan_id = v_plan_id
+                and existing_assignment.dossier_source_id = v_source_id
+                and existing_assignment.dossier_id = p_dossier_id
+            )
+          )
+      ) then
+        raise exception 'editorial_dossier_article_plan_source_unavailable'
+          using errcode = '23514';
+      end if;
+    end loop;
+  end if;
+
+  if v_is_create then
+    insert into public.newsroom_editorial_dossier_article_plans (
+      id,
+      dossier_id,
+      working_title,
+      status,
+      sort_order,
+      article_kind,
+      length_mode,
+      editorial_instructions
+    ) values (
+      v_plan_id,
+      p_dossier_id,
+      btrim(p_working_title),
+      p_status,
+      p_sort_order,
+      p_article_kind,
+      p_length_mode,
+      btrim(coalesce(p_editorial_instructions, ''))
+    );
+  else
+    update public.newsroom_editorial_dossier_article_plans plan
+    set working_title = btrim(p_working_title),
+        status = p_status,
+        sort_order = p_sort_order,
+        article_kind = p_article_kind,
+        length_mode = p_length_mode,
+        editorial_instructions = btrim(coalesce(p_editorial_instructions, ''))
+    where plan.id = v_plan_id
+      and plan.dossier_id = p_dossier_id;
+  end if;
+
+  if p_status <> 'cancelled' then
+    delete from public.newsroom_editorial_dossier_article_plan_sources assignment
+    where assignment.article_plan_id = v_plan_id
+      and assignment.dossier_id = p_dossier_id
+      and not (
+        assignment.dossier_source_id = any(coalesce(p_dossier_source_ids, '{}'::uuid[]))
+      );
+
+    insert into public.newsroom_editorial_dossier_article_plan_sources (
+      id,
+      dossier_id,
+      article_plan_id,
+      dossier_source_id,
+      sort_order
+    )
+    select
+      pg_catalog.gen_random_uuid(),
+      p_dossier_id,
+      v_plan_id,
+      ordered_source.source_id,
+      ordered_source.ordinality::integer * 10
+    from unnest(coalesce(p_dossier_source_ids, '{}'::uuid[]))
+      with ordinality as ordered_source(source_id, ordinality)
+    on conflict on constraint newsroom_editorial_dossier_article_plan_sources_plan_source_key
+    do update
+    set sort_order = excluded.sort_order;
+  end if;
+
+  update public.newsroom_editorial_dossiers dossier
+  set updated_at = now()
+  where dossier.id = p_dossier_id;
+
+  return query select v_plan_id;
+end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.newsroom_set_article_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.newsroom_set_editorial_dossier_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.normalize_team_identity_v1(p_value text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE PARALLEL SAFE STRICT
+ SET search_path TO 'pg_catalog'
+AS $function$
+  select btrim(
+    regexp_replace(
+      lower(
+        regexp_replace(
+          normalize(btrim(p_value), NFD),
+          U&'[\0300-\036F]',
+          '',
+          'g'
+        )
+      ),
+      '[^a-z0-9]+',
+      '-',
+      'g'
+    ),
+    '-'
+  )
+$function$
+;
+CREATE OR REPLACE FUNCTION public.portal_can_select_scope(target_portal_entity_id uuid, target_portal_context_id uuid, target_portal_competition_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select exists (
+    select 1
+    from public.portal_users u
+    join public.portal_permissions p on p.portal_user_id = u.id
+    where u.auth_user_id = auth.uid()
+      and u.status = 'active'
+      and p.status = 'active'
+      and p.can_view = true
+      and p.portal_entity_id = target_portal_entity_id
+      and (target_portal_context_id is null or p.portal_context_id is null or p.portal_context_id = target_portal_context_id)
+      and (target_portal_competition_id is null or p.portal_competition_id is null or p.portal_competition_id = target_portal_competition_id)
+  );
+$function$
+;
+CREATE OR REPLACE FUNCTION public.rls_auto_enable()
+ RETURNS event_trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog'
+AS $function$
+DECLARE
+  cmd record;
+BEGIN
+  FOR cmd IN
+    SELECT *
+    FROM pg_event_trigger_ddl_commands()
+    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      AND object_type IN ('table','partitioned table')
+  LOOP
+     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN
+      BEGIN
+        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);
+        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
+      EXCEPTION
+        WHEN OTHERS THEN
+          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
+      END;
+     ELSE
+        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;
+     END IF;
+  END LOOP;
+END;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.set_editorial_contents_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.set_matchday_editorial_bank_items_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$function$
+;
+CREATE OR REPLACE FUNCTION public.set_matchday_hierarchical_composition_slots_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+  new.updated_at = now();
+  return new;
+end
+$function$
+;
+CREATE OR REPLACE FUNCTION public.set_matchday_reference_composition_items_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$ begin new.updated_at = now(); return new; end; $function$
+;
+CREATE OR REPLACE FUNCTION public.set_matchday_reference_compositions_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$ begin new.updated_at = now(); return new; end; $function$
+;
+CREATE OR REPLACE FUNCTION public.sync_match_scheduled_date()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'public'
+AS $function$
+begin
+  if new.kickoff_at is not null then
+    new.scheduled_date := (new.kickoff_at at time zone 'Europe/Lisbon')::date;
+  end if;
+
+  return new;
+end
+$function$
+;
+CREATE OR REPLACE FUNCTION public.sync_published_editorial_source_to_matchday_bank()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  payload jsonb := to_jsonb(new);
+  publication_status text := lower(btrim(coalesce(payload ->> 'status', '')));
+  publication_matchday_id uuid;
+begin
+  if publication_status <> 'published' or nullif(btrim(payload ->> 'matchday_id'), '') is null then
+    return new;
+  end if;
+
+  publication_matchday_id := (payload ->> 'matchday_id')::uuid;
+
+  if tg_table_name = 'editorial_articles' then
+    perform public.upsert_matchday_editorial_bank_publication(
+      publication_matchday_id,
+      'editorial_article',
+      payload ->> 'id',
+      payload ->> 'slug',
+      payload ->> 'label',
+      payload ->> 'title',
+      payload ->> 'subtitle',
+      payload ->> 'image_url',
+      case
+        when nullif(btrim(payload ->> 'slug'), '') is null then null
+        else '/noticias/' || (payload ->> 'slug')
+      end
+    );
+  elsif tg_table_name = 'editorial_contents' then
+    perform public.upsert_matchday_editorial_bank_publication(
+      publication_matchday_id,
+      'editorial_content',
+      payload ->> 'id',
+      payload ->> 'slug',
+      coalesce(nullif(btrim(payload ->> 'label'), ''), nullif(btrim(payload ->> 'content_type'), '')),
+      payload ->> 'title',
+      coalesce(nullif(btrim(payload ->> 'summary'), ''), nullif(btrim(payload ->> 'subtitle'), '')),
+      coalesce(nullif(btrim(payload ->> 'thumbnail_url'), ''), nullif(btrim(payload ->> 'image_url'), '')),
+      case
+        when nullif(btrim(payload ->> 'slug'), '') is null then null
+        else '/conteudos/' || (payload ->> 'slug')
+      end
+    );
+  end if;
+
+  return new;
+end
+$function$
+;
+CREATE OR REPLACE FUNCTION public.set_site_editorial_updated_at()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$function$
+;
 
 -- public.broadcast_channels; original DDL: supabase/schema.sql
 create table "public"."broadcast_channels" (
@@ -1042,253 +1530,6 @@ create table "public"."portal_modality_catalog" (
   constraint "portal_modality_catalog_pkey" PRIMARY KEY (id),
   constraint "portal_modality_catalog_status_not_empty" CHECK (btrim(status) <> ''::text)
 );
-CREATE OR REPLACE FUNCTION public.newsroom_save_editorial_dossier_article_plan(p_dossier_id uuid, p_article_plan_id uuid, p_working_title text, p_status text, p_sort_order integer, p_article_kind text, p_length_mode text, p_editorial_instructions text, p_dossier_source_ids uuid[])
- RETURNS TABLE(article_plan_id uuid)
- LANGUAGE plpgsql
- SET search_path TO ''
-AS $function$
-declare
-  v_plan_id uuid := coalesce(p_article_plan_id, pg_catalog.gen_random_uuid());
-  v_is_create boolean := p_article_plan_id is null;
-  v_existing_status text;
-  v_editorial_article_id uuid;
-  v_source_count integer := coalesce(cardinality(p_dossier_source_ids), 0);
-  v_distinct_source_count integer;
-  v_source_id uuid;
-begin
-  if p_dossier_id is null then
-    raise exception 'editorial_dossier_article_plan_dossier_required'
-      using errcode = '23514';
-  end if;
-
-  if btrim(coalesce(p_working_title, '')) = '' then
-    raise exception 'editorial_dossier_article_plan_title_required'
-      using errcode = '23514';
-  end if;
-
-  if p_status not in ('planned', 'ready', 'cancelled') then
-    raise exception 'editorial_dossier_article_plan_status_invalid'
-      using errcode = '23514';
-  end if;
-
-  if p_article_kind not in ('news', 'analysis', 'preview', 'summary') then
-    raise exception 'editorial_dossier_article_plan_kind_invalid'
-      using errcode = '23514';
-  end if;
-
-  if p_length_mode not in ('brief', 'standard', 'developed') then
-    raise exception 'editorial_dossier_article_plan_length_invalid'
-      using errcode = '23514';
-  end if;
-
-  if p_sort_order is null or p_sort_order < 0 then
-    raise exception 'editorial_dossier_article_plan_order_invalid'
-      using errcode = '23514';
-  end if;
-
-  perform 1
-  from public.newsroom_editorial_dossiers dossier
-  where dossier.id = p_dossier_id
-  for update;
-
-  if not found then
-    raise exception 'editorial_dossier_not_found'
-      using errcode = 'P0002';
-  end if;
-
-  if v_is_create then
-    if p_status = 'cancelled' then
-      raise exception 'editorial_dossier_article_plan_new_cancelled_invalid'
-        using errcode = '23514';
-    end if;
-  else
-    select
-      plan.status,
-      plan.editorial_article_id
-    into
-      v_existing_status,
-      v_editorial_article_id
-    from public.newsroom_editorial_dossier_article_plans plan
-    where plan.id = p_article_plan_id
-      and plan.dossier_id = p_dossier_id
-    for update;
-
-    if not found then
-      raise exception 'editorial_dossier_article_plan_not_found'
-        using errcode = 'P0002';
-    end if;
-
-    if v_editorial_article_id is not null then
-      raise exception 'editorial_dossier_article_plan_already_converted'
-        using errcode = '23514';
-    end if;
-  end if;
-
-  select count(distinct source_row.source_id)
-  into v_distinct_source_count
-  from unnest(coalesce(p_dossier_source_ids, '{}'::uuid[]))
-    as source_row(source_id);
-
-  if v_distinct_source_count <> v_source_count then
-    raise exception 'editorial_dossier_article_plan_source_duplicate'
-      using errcode = '23514';
-  end if;
-
-  if p_status = 'ready'
-     and (
-       btrim(coalesce(p_editorial_instructions, '')) = ''
-       or v_source_count < 1
-     ) then
-    raise exception 'editorial_dossier_article_plan_ready_incomplete'
-      using errcode = '23514';
-  end if;
-
-  if p_status <> 'cancelled' then
-    for v_source_id in
-      select source_row.source_id
-      from unnest(coalesce(p_dossier_source_ids, '{}'::uuid[]))
-        as source_row(source_id)
-    loop
-      if not exists (
-        select 1
-        from public.newsroom_editorial_dossier_sources dossier_source
-        where dossier_source.id = v_source_id
-          and dossier_source.dossier_id = p_dossier_id
-          and (
-            dossier_source.included
-            or exists (
-              select 1
-              from public.newsroom_editorial_dossier_article_plan_sources existing_assignment
-              where existing_assignment.article_plan_id = v_plan_id
-                and existing_assignment.dossier_source_id = v_source_id
-                and existing_assignment.dossier_id = p_dossier_id
-            )
-          )
-      ) then
-        raise exception 'editorial_dossier_article_plan_source_unavailable'
-          using errcode = '23514';
-      end if;
-    end loop;
-  end if;
-
-  if v_is_create then
-    insert into public.newsroom_editorial_dossier_article_plans (
-      id,
-      dossier_id,
-      working_title,
-      status,
-      sort_order,
-      article_kind,
-      length_mode,
-      editorial_instructions
-    ) values (
-      v_plan_id,
-      p_dossier_id,
-      btrim(p_working_title),
-      p_status,
-      p_sort_order,
-      p_article_kind,
-      p_length_mode,
-      btrim(coalesce(p_editorial_instructions, ''))
-    );
-  else
-    update public.newsroom_editorial_dossier_article_plans plan
-    set working_title = btrim(p_working_title),
-        status = p_status,
-        sort_order = p_sort_order,
-        article_kind = p_article_kind,
-        length_mode = p_length_mode,
-        editorial_instructions = btrim(coalesce(p_editorial_instructions, ''))
-    where plan.id = v_plan_id
-      and plan.dossier_id = p_dossier_id;
-  end if;
-
-  if p_status <> 'cancelled' then
-    delete from public.newsroom_editorial_dossier_article_plan_sources assignment
-    where assignment.article_plan_id = v_plan_id
-      and assignment.dossier_id = p_dossier_id
-      and not (
-        assignment.dossier_source_id = any(coalesce(p_dossier_source_ids, '{}'::uuid[]))
-      );
-
-    insert into public.newsroom_editorial_dossier_article_plan_sources (
-      id,
-      dossier_id,
-      article_plan_id,
-      dossier_source_id,
-      sort_order
-    )
-    select
-      pg_catalog.gen_random_uuid(),
-      p_dossier_id,
-      v_plan_id,
-      ordered_source.source_id,
-      ordered_source.ordinality::integer * 10
-    from unnest(coalesce(p_dossier_source_ids, '{}'::uuid[]))
-      with ordinality as ordered_source(source_id, ordinality)
-    on conflict on constraint newsroom_editorial_dossier_article_plan_sources_plan_source_key
-    do update
-    set sort_order = excluded.sort_order;
-  end if;
-
-  update public.newsroom_editorial_dossiers dossier
-  set updated_at = now()
-  where dossier.id = p_dossier_id;
-
-  return query select v_plan_id;
-end;
-$function$
-;
-CREATE OR REPLACE FUNCTION public.portal_can_select_scope(target_portal_entity_id uuid, target_portal_context_id uuid, target_portal_competition_id uuid)
- RETURNS boolean
- LANGUAGE sql
- STABLE SECURITY DEFINER
- SET search_path TO 'public'
-AS $function$
-  select exists (
-    select 1
-    from public.portal_users u
-    join public.portal_permissions p on p.portal_user_id = u.id
-    where u.auth_user_id = auth.uid()
-      and u.status = 'active'
-      and p.status = 'active'
-      and p.can_view = true
-      and p.portal_entity_id = target_portal_entity_id
-      and (target_portal_context_id is null or p.portal_context_id is null or p.portal_context_id = target_portal_context_id)
-      and (target_portal_competition_id is null or p.portal_competition_id is null or p.portal_competition_id = target_portal_competition_id)
-  );
-$function$
-;
-CREATE OR REPLACE FUNCTION public.rls_auto_enable()
- RETURNS event_trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO 'pg_catalog'
-AS $function$
-DECLARE
-  cmd record;
-BEGIN
-  FOR cmd IN
-    SELECT *
-    FROM pg_event_trigger_ddl_commands()
-    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
-      AND object_type IN ('table','partitioned table')
-  LOOP
-     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN
-      BEGIN
-        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);
-        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
-      EXCEPTION
-        WHEN OTHERS THEN
-          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
-      END;
-     ELSE
-        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;
-     END IF;
-  END LOOP;
-END;
-$function$
-;
 alter table "public"."broadcast_channels" enable row level security;
 alter table "public"."broadcast_channels" owner to "postgres";
 revoke all on table "public"."broadcast_channels" from public, anon, authenticated, service_role;
@@ -1817,16 +2058,47 @@ comment on column "public"."portal_modality_catalog"."code" is 'Stable canonical
 comment on column "public"."portal_modality_catalog"."modality_family" is 'Optional grouping such as team_sport, individual_sport, racket_sport, mind_sport, multi_sport.';
 comment on column "public"."portal_modality_catalog"."default_event_model" is 'Suggested default event model, for example match, race, field_event, tournament_round.';
 comment on column "public"."portal_modality_catalog"."default_result_model" is 'Suggested default result model, for example score, sets, time, distance, ranking, points.';
+alter function "public"."newsroom_protect_editorial_dossier_source_frozen_identity"() owner to "postgres";
+revoke all on function "public"."newsroom_protect_editorial_dossier_source_frozen_identity"() from public, anon, authenticated, service_role;
+grant EXECUTE on function "public"."newsroom_protect_editorial_dossier_source_frozen_identity"() to "service_role";
+alter function "public"."newsroom_protect_editorial_plan_profile_pin"() owner to "postgres";
+revoke all on function "public"."newsroom_protect_editorial_plan_profile_pin"() from public, anon, authenticated, service_role;
+alter function "public"."newsroom_protect_editorial_profile"() owner to "postgres";
+revoke all on function "public"."newsroom_protect_editorial_profile"() from public, anon, authenticated, service_role;
+alter function "public"."newsroom_reject_editorial_profile_version_mutation"() owner to "postgres";
+revoke all on function "public"."newsroom_reject_editorial_profile_version_mutation"() from public, anon, authenticated, service_role;
+alter function "public"."newsroom_reject_snapshot_mutation"() owner to "postgres";
+revoke all on function "public"."newsroom_reject_snapshot_mutation"() from public, anon, authenticated, service_role;
+grant EXECUTE on function "public"."newsroom_reject_snapshot_mutation"() to "service_role";
 alter function "public"."newsroom_save_editorial_dossier_article_plan"(p_dossier_id uuid, p_article_plan_id uuid, p_working_title text, p_status text, p_sort_order integer, p_article_kind text, p_length_mode text, p_editorial_instructions text, p_dossier_source_ids uuid[]) owner to "postgres";
 revoke all on function "public"."newsroom_save_editorial_dossier_article_plan"(p_dossier_id uuid, p_article_plan_id uuid, p_working_title text, p_status text, p_sort_order integer, p_article_kind text, p_length_mode text, p_editorial_instructions text, p_dossier_source_ids uuid[]) from public, anon, authenticated, service_role;
 grant EXECUTE on function "public"."newsroom_save_editorial_dossier_article_plan"(p_dossier_id uuid, p_article_plan_id uuid, p_working_title text, p_status text, p_sort_order integer, p_article_kind text, p_length_mode text, p_editorial_instructions text, p_dossier_source_ids uuid[]) to "service_role";
 comment on function "public"."newsroom_save_editorial_dossier_article_plan"(p_dossier_id uuid, p_article_plan_id uuid, p_working_title text, p_status text, p_sort_order integer, p_article_kind text, p_length_mode text, p_editorial_instructions text, p_dossier_source_ids uuid[]) is 'Atomically creates or updates one dossier article plan and its ordered frozen-source assignments. Cancelled plans preserve their assignments.';
+alter function "public"."newsroom_set_article_updated_at"() owner to "postgres";
+revoke all on function "public"."newsroom_set_article_updated_at"() from public, anon, authenticated, service_role;
+grant EXECUTE on function "public"."newsroom_set_article_updated_at"() to "service_role";
+alter function "public"."newsroom_set_editorial_dossier_updated_at"() owner to "postgres";
+revoke all on function "public"."newsroom_set_editorial_dossier_updated_at"() from public, anon, authenticated, service_role;
+grant EXECUTE on function "public"."newsroom_set_editorial_dossier_updated_at"() to "service_role";
+alter function "public"."normalize_team_identity_v1"(p_value text) owner to "postgres";
+revoke all on function "public"."normalize_team_identity_v1"(p_value text) from public, anon, authenticated, service_role;
 alter function "public"."portal_can_select_scope"(target_portal_entity_id uuid, target_portal_context_id uuid, target_portal_competition_id uuid) owner to "postgres";
 revoke all on function "public"."portal_can_select_scope"(target_portal_entity_id uuid, target_portal_context_id uuid, target_portal_competition_id uuid) from public, anon, authenticated, service_role;
 grant EXECUTE on function "public"."portal_can_select_scope"(target_portal_entity_id uuid, target_portal_context_id uuid, target_portal_competition_id uuid) to "authenticated";
 grant EXECUTE on function "public"."portal_can_select_scope"(target_portal_entity_id uuid, target_portal_context_id uuid, target_portal_competition_id uuid) to "service_role";
 alter function "public"."rls_auto_enable"() owner to "postgres";
 revoke all on function "public"."rls_auto_enable"() from public, anon, authenticated, service_role;
+alter function "public"."set_editorial_contents_updated_at"() owner to "postgres";
+alter function "public"."set_matchday_editorial_bank_items_updated_at"() owner to "postgres";
+alter function "public"."set_matchday_hierarchical_composition_slots_updated_at"() owner to "postgres";
+alter function "public"."set_matchday_reference_composition_items_updated_at"() owner to "postgres";
+alter function "public"."set_matchday_reference_compositions_updated_at"() owner to "postgres";
+alter function "public"."sync_match_scheduled_date"() owner to "postgres";
+alter function "public"."sync_published_editorial_source_to_matchday_bank"() owner to "postgres";
+revoke all on function "public"."sync_published_editorial_source_to_matchday_bank"() from public, anon, authenticated, service_role;
+grant EXECUTE on function "public"."sync_published_editorial_source_to_matchday_bank"() to "service_role";
+comment on function "public"."sync_published_editorial_source_to_matchday_bank"() is 'Trigger comum que garante no banco histÃ³rico artigos e conteÃºdos publicados com matchday_id.';
+alter function "public"."set_site_editorial_updated_at"() owner to "postgres";
 create policy "Public read broadcast channels" on "public"."broadcast_channels" as permissive for select to public using (true);
 create policy "Public read competitions" on "public"."competitions" as permissive for select to public using (true);
 create policy "countries_select_public" on "public"."countries" as permissive for select to public using (true);

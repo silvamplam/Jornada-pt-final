@@ -548,8 +548,56 @@
   "functions": [
     {
       "schema": "public",
+      "name": "newsroom_protect_editorial_dossier_source_frozen_identity",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_protect_editorial_plan_profile_pin",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_protect_editorial_profile",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_reject_editorial_profile_version_mutation",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_reject_snapshot_mutation",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
       "name": "newsroom_save_editorial_dossier_article_plan",
       "identity": "p_dossier_id uuid, p_article_plan_id uuid, p_working_title text, p_status text, p_sort_order integer, p_article_kind text, p_length_mode text, p_editorial_instructions text, p_dossier_source_ids uuid[]",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_set_article_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_set_editorial_dossier_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "normalize_team_identity_v1",
+      "identity": "p_value text",
       "source": "production-catalog.json"
     },
     {
@@ -561,6 +609,54 @@
     {
       "schema": "public",
       "name": "rls_auto_enable",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_editorial_contents_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_matchday_editorial_bank_items_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_matchday_hierarchical_composition_slots_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_matchday_reference_composition_items_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_matchday_reference_compositions_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "sync_match_scheduled_date",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "sync_published_editorial_source_to_matchday_bank",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_site_editorial_updated_at",
       "identity": "",
       "source": "production-catalog.json"
     }
