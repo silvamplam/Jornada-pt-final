@@ -467,4 +467,3 @@ comment on table public.newsroom_mesa_production_contexts is
   'Explicit v2 preparation selection; only these productions participate in post-publication consolidation.';
 notify pgrst, 'reload schema';
 commit;
-;

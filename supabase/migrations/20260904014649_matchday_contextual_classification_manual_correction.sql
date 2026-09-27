@@ -181,4 +181,3 @@ is
   'Corrige a classificacao contextual de uma participacao ativa. Nao altera placements editoriais.';
 
 commit;
-;

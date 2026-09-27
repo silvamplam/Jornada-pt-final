@@ -52,4 +52,3 @@ revoke all on table public.matchday_live_layout_items from anon, authenticated;
 grant all on table public.matchday_live_layout_items to service_role;
 
 notify pgrst, 'reload schema';
-;

@@ -197,4 +197,3 @@ grant execute on function
   to service_role;
 
 commit;
-;

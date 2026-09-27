@@ -484,4 +484,3 @@ revoke all on function jornada_private.apply_matchday_live_layout_placement_plan
 revoke all on function jornada_private.materialize_matchday_live_layout_continuity(uuid,uuid,uuid) from public, anon, authenticated, service_role;
 notify pgrst, 'reload schema';
 commit;
-;

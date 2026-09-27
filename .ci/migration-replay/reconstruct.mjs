@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { tokens } from './sql-tokens.mjs';
 
 const root = process.cwd();
 const evidence = path.join(root, 'docs/migration-reconciliation/20260927');
@@ -17,7 +18,7 @@ for (const entry of snapshot.entries) {
   const filename = entry.version + '_' + entry.name + '.sql';
   // A newline prevents a trailing SQL comment from consuming the delimiter.
   // statements[] elements themselves are preserved byte for byte.
-  const sql = entry.statements.map(statement => statement + '\n;\n').join('\n');
+  const sql = entry.statements.map(statement => statement + (tokens(statement).at(-1) === ';' ? '\n' : '\n;\n')).join('\n');
   const oldPath = decision.original_local_file && path.join(directory, decision.original_local_file);
   if (oldPath && decision.original_local_file !== filename && fs.existsSync(oldPath)) {
     fs.renameSync(oldPath, path.join(directory, filename));
@@ -35,7 +36,8 @@ for (const entry of snapshot.entries) {
 const renames = decisions.filter(row => row.original_local_file &&
   row.original_local_file !== row.version + '_' + row.name + '.sql');
 const tracked = execFileSync('git', ['ls-files', '-z'], {encoding: 'utf8'}).split('\0').filter(Boolean);
-const changedReferences = [];
+const previousManifest = path.join(evidence, 'manifest.json');
+const changedReferences = fs.existsSync(previousManifest) ? JSON.parse(fs.readFileSync(previousManifest,'utf8')).reference_files_updated : [];
 for (const filename of tracked) {
   if (filename.startsWith('supabase/migrations/') || filename.startsWith('docs/migration-reconciliation/')) continue;
   if (!/\.(?:ts|tsx|js|mjs|cjs|py|sql|md|yml|yaml|json|sh|ps1)$/.test(filename)) continue;
@@ -46,7 +48,7 @@ for (const filename of tracked) {
   }
   if (updated !== original) {
     fs.writeFileSync(filename, updated, 'utf8');
-    changedReferences.push(filename);
+    if (!changedReferences.includes(filename)) changedReferences.push(filename);
   }
 }
 fs.writeFileSync(path.join(evidence, 'manifest.json'), JSON.stringify({

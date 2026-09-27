@@ -64,4 +64,3 @@ comment on function public.newsroom_editorial_used_state_summaries() is
   'Projects only the historical newsroom source usage fields needed by non-used inbox views, including whether the used snapshot is still current.';
 
 notify pgrst, 'reload schema';
-;

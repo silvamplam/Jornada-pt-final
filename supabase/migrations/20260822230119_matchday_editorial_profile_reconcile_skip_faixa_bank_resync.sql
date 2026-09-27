@@ -73,4 +73,3 @@ comment on function public.apply_matchday_editorial_profile_reconcile_v2(
 notify pgrst, 'reload schema';
 
 commit;
-;

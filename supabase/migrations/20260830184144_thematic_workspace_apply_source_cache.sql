@@ -359,4 +359,3 @@ grant execute on function
     uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
 to service_role;
-;

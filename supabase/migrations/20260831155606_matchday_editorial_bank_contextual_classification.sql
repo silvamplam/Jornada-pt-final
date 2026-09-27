@@ -1353,4 +1353,3 @@ revoke all on all tables in schema jornada_private from public, anon, authentica
 revoke all on schema jornada_private from public, anon, authenticated, service_role;
 notify pgrst, 'reload schema';
 commit;
-;

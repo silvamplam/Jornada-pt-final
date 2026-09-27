@@ -23,4 +23,3 @@ begin
   execute v_def;
 end;
 $hotfix$;
-;

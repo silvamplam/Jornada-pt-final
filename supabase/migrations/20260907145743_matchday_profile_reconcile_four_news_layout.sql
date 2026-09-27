@@ -63,4 +63,3 @@ alter table public.matchday_editorial_profile_reconcile_control
   );
 
 commit;
-;

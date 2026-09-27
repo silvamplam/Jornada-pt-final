@@ -23,4 +23,3 @@ comment on column public.matchday_editorial_bank_items.continuity_revalidated_at
   'Decisão editorial explícita que torna uma notícia herdada elegível para a composição histórica da jornada que a recebeu. Não é copiada na passagem para a jornada seguinte.';
 
 commit;
-;

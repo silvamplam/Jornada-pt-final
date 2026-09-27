@@ -621,4 +621,3 @@ comment on function public.refresh_matchday_editorial_profile_distribution_from_
   'Refresca apenas as jornadas afetadas por linhas do Banco elegíveis para classificação automática.';
 
 notify pgrst, 'reload schema';
-;

@@ -56,4 +56,3 @@ comment on function public.newsroom_latest_snapshot_summaries(uuid[]) is
   'Returns only the latest snapshot summary fields needed by newsroom list views, avoiding body and source_metadata egress.';
 
 notify pgrst, 'reload schema';
-;

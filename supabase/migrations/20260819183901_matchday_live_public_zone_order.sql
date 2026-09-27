@@ -39,4 +39,3 @@ comment on column public.matchday_editorial_desk_control.live_public_zone_order 
 notify pgrst, 'reload schema';
 
 commit;
-;

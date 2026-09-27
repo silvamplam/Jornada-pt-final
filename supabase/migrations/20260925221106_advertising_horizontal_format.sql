@@ -6,4 +6,3 @@
       add constraint site_advertising_slots_display_format_check
       check (display_format in ('slim', 'tall'));
   
-;

@@ -947,4 +947,3 @@ grant execute on function public.newsroom_materialize_mesa_new_output_groups_v2(
 
 commit;
 
-;

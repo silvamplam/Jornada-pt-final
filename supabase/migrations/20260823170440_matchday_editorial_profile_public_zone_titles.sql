@@ -253,4 +253,3 @@ grant execute on function public.apply_matchday_editorial_profile_workspace_v3(
   jsonb,
   jsonb
 ) to service_role;
-;

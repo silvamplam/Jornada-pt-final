@@ -283,4 +283,3 @@ revoke all on function public.clear_matchday_editorial_selection_item(uuid, inte
 revoke all on function public.clear_matchday_editorial_selection_item(uuid, integer) from anon;
 revoke all on function public.clear_matchday_editorial_selection_item(uuid, integer) from authenticated;
 grant execute on function public.clear_matchday_editorial_selection_item(uuid, integer) to service_role;
-;

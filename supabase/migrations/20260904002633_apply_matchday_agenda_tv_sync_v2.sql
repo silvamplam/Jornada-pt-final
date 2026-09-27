@@ -168,4 +168,3 @@ comment on function public.apply_matchday_agenda_tv_sync_v2(uuid, jsonb) is
   'Aplica data/hora de uma jornada de forma atómica; canal TV só muda quando existe confirmação exata no catálogo. Estado concorrente continua protegido por expected_*.';
 notify pgrst, 'reload schema';
 commit;
-;

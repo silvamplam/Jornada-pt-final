@@ -118,4 +118,3 @@ comment on function public.apply_historical_composition_workspace_plan_v3(
   'Aplica atomicamente a montagem histórica, as zonas dinâmicas e a posição do bloco Vídeo + Destaque.';
 
 notify pgrst, 'reload schema';
-;

@@ -733,4 +733,3 @@ grant execute on function public.newsroom_mesa_intent_latest_receipts_v1(uuid) t
 notify pgrst,'reload schema';
 commit;
 
-;

@@ -236,4 +236,3 @@ comment on function public.publish_matchday_reference_composition_with_continuit
 notify pgrst, 'reload schema';
 
 commit;
-;

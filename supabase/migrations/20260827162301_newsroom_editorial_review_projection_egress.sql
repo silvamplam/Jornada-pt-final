@@ -134,4 +134,3 @@ comment on function public.newsroom_editorial_review_projection(uuid[], uuid[], 
   'Returns exact inbox review counts plus only review-state rows needed for the requested current articles and selected working/archive view.';
 
 notify pgrst, 'reload schema';
-;

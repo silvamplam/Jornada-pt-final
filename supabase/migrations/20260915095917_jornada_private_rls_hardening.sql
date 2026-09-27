@@ -14,4 +14,3 @@ revoke execute on function public.rls_auto_enable() from public;
 revoke execute on function public.portal_can_select_scope(uuid, uuid, uuid) from public;
 grant execute on function public.portal_can_select_scope(uuid, uuid, uuid)
   to authenticated, service_role;
-;

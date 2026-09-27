@@ -196,4 +196,3 @@ on public.matchday_live_layout_latest_companion
 for each row
 execute function
   jornada_private.freeze_handed_off_source_companion_v25();
-;

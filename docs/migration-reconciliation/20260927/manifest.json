@@ -10,7 +10,7 @@
       "statement_sha256": [
         "89cb8784a0ae9ab4ff802004f210ce3459c57cf4fa23f88c9fdbff4f422e41a5"
       ],
-      "rendered_file_sha256": "881f65bb75b6cda6655cca2713b3537724054f1ff1bc3eaf573bf00cabc6ad88",
+      "rendered_file_sha256": "2da1b1adaeb77098d87cebb0c61ffa88d5999f615b3d3d904b50403b76c46b57",
       "original_local_file": null,
       "classification": "remote-only"
     },
@@ -22,7 +22,7 @@
       "statement_sha256": [
         "e904afc16f272f9196b386a0e6a80481e03d5bd58046afab4652612e9210d0a0"
       ],
-      "rendered_file_sha256": "1a1a0072e8d91f2e6df0f4bf315a2d95108b85ca90c5ff990c17dd863b084235",
+      "rendered_file_sha256": "7fd772ab0dfa4620b6ff678e64abdc35d4d1304f804b7702abdc2d7d57430314",
       "original_local_file": null,
       "classification": "remote-only"
     },
@@ -34,7 +34,7 @@
       "statement_sha256": [
         "6f3ab9ba722154e279ef3efd2ae642626e6f522a68495832982bbcd302ce9e9d"
       ],
-      "rendered_file_sha256": "d0d65c7fc7435d2366abd1c1a94bc0a7e371f88c76fd2e6b849c7466121331f0",
+      "rendered_file_sha256": "d6935fda34c6bd9c76d3862984efa7e13e99382afb7190b87a81aafba770dbe5",
       "original_local_file": null,
       "classification": "remote-only"
     },
@@ -46,7 +46,7 @@
       "statement_sha256": [
         "fa013ce12ec37bafc35084a514968d1441c71a41c80df148a8455b19d41439a0"
       ],
-      "rendered_file_sha256": "3b252f8f7cc00cfe02bac3a516b1093c640d4cdc374d423b8890a656e11a9d7c",
+      "rendered_file_sha256": "70efcc44f8259874a0b9a3b30d662e8d3d77d03ab66d59395501f3cdde5986eb",
       "original_local_file": null,
       "classification": "remote-only"
     },
@@ -58,7 +58,7 @@
       "statement_sha256": [
         "35eab278c81b22647a355430f6ccc69e75233f95152422f501f466ea631c8572"
       ],
-      "rendered_file_sha256": "0a5f8922e33e27db05ad13ede59b47046a1647a1fbc7a5ef756ad03acf23ae39",
+      "rendered_file_sha256": "c55fd0475098bce3eb1b08a3b15e36d2747e55901cb8f924714ef37420e4f600",
       "original_local_file": "20260818160000_matchday_editorial_continuity.sql",
       "classification": "D"
     },
@@ -70,7 +70,7 @@
       "statement_sha256": [
         "82c64cc46bbfc33e200d9a827393c42cf2eff8e5dcd58750e95f51b6341ffba3"
       ],
-      "rendered_file_sha256": "f6a72e8a0d0852ba52a8bb01c7fb999080be2f9968c83922a28dd365ff6b56ce",
+      "rendered_file_sha256": "2a84ee061d9a1bf8f1999aeb722611b316a093075f8c8c54ac44678ee1121151",
       "original_local_file": "20260818175500_matchday_editorial_continuity_live_snapshot.sql",
       "classification": "S"
     },
@@ -82,7 +82,7 @@
       "statement_sha256": [
         "74224f9605335890234a990b28d04d59b85807e5a7df8ec4629826e3c85906d8"
       ],
-      "rendered_file_sha256": "131b7e05681a1cc720c3ade5fd3cc3707cdcf33e3a654e9b9d5e68ecf9dc8bf3",
+      "rendered_file_sha256": "73dce6739d5f8718c7d78dc4eb19e31e2c12269160905490b5f931fc6f957223",
       "original_local_file": "20260819090000_hierarchical_editorial_full_page.sql",
       "classification": "E"
     },
@@ -94,7 +94,7 @@
       "statement_sha256": [
         "222b43f6c43ae538b8916b85ca9bc14a675928cdbeca9c1e3df95965a5b9811d"
       ],
-      "rendered_file_sha256": "34227246fefe1ecc77831a5e8fb838e365f1c0559d23c34743f1dbe0ee60ac5a",
+      "rendered_file_sha256": "ff13cfe0cfb20d9e78f0c04d41a8e82711e6190b86a333f64a558bb0afe1a1ba",
       "original_local_file": "20260819101500_hierarchical_editorial_excerpt_complete_paragraph.sql",
       "classification": "E"
     },
@@ -106,7 +106,7 @@
       "statement_sha256": [
         "f6416ac4a36541fbb315d1c7bedb4af5d5012eb8cb71be3e9455792c818da297"
       ],
-      "rendered_file_sha256": "fdf3bc65f4b012a5fc9398716ffbb3621010c31d1b0ea0d7fd75ff0af045dedb",
+      "rendered_file_sha256": "307f0aef50a9881d9110ce103bf32e2bcc53858f77a479975f50ca942b1a4364",
       "original_local_file": "20260819193000_matchday_live_public_zone_order.sql",
       "classification": "E"
     },
@@ -118,7 +118,7 @@
       "statement_sha256": [
         "1f6dfa79feeb746f53f6a29b3b2e707624dcec51270b03a50b5b1b5cf240b11b"
       ],
-      "rendered_file_sha256": "2645943e895db02af1d3c9b5b59eec3bd53fb9d5b7c5cf108b1b6a688f222cf4",
+      "rendered_file_sha256": "e24ca7b1e0621aa30e0c8b261def36d79a8cf2b30d6e703470d21580c6bcc144",
       "original_local_file": null,
       "classification": "remote-only"
     },
@@ -130,7 +130,7 @@
       "statement_sha256": [
         "05539d261915ed327934c54c11220b4123d8830345593fc52f5a6ae5673a9b01"
       ],
-      "rendered_file_sha256": "9d9fa4a5e587f871526aaba7ee1b7362bfda5526476cec356a2ea1b7553dadc6",
+      "rendered_file_sha256": "03737bd42986a9b97d2b6e2662cc4fffa03dd64e67bbe4b14bf25fdce1e46e37",
       "original_local_file": null,
       "classification": "remote-only"
     },
@@ -199,7 +199,7 @@
       "statement_sha256": [
         "d34f3944064c67de7820059bf7f95555ebdeb90df4311c828b11bc5789d5554d"
       ],
-      "rendered_file_sha256": "3c4d40f93370e47586a4f82e8b39eda60db74b17e8d94c5015cf51a6358810df",
+      "rendered_file_sha256": "dc47ec42888ba733189a82e505789a1b57706eb31f2fb9343407a149f2bf0bce",
       "original_local_file": "20260822195123_matchday_editorial_profile_manual_overrides.sql",
       "classification": "E"
     },
@@ -211,7 +211,7 @@
       "statement_sha256": [
         "5ba98fbd60bb6093efa6ef515dbb8963c1262c2d898ecd1a9ad0cd89c006c2af"
       ],
-      "rendered_file_sha256": "59f56d442445088ea6dd2bc62a4b3046276651e04a928af3839607353fa067a5",
+      "rendered_file_sha256": "7875df5a308fba6f94a0dd87e8fb6f427a0236bb61cca43dcd23314564b303d3",
       "original_local_file": "20260822211352_matchday_editorial_profile_shared_faixa_reconcile.sql",
       "classification": "S"
     },
@@ -223,7 +223,7 @@
       "statement_sha256": [
         "618b0540f395b1caba0fc8aa2df34d7a56df4b672a08dbb2bbc695df77e6ed47"
       ],
-      "rendered_file_sha256": "9cf65b31e5dce40917fc46b10f5f09feb46215b93e54914c561eb6f953c261cb",
+      "rendered_file_sha256": "76ab9c1be93b2c4c126bc4465540d474225eeb5c76033696214ce3e46f54a8d3",
       "original_local_file": "20260822230000_matchday_editorial_profile_reconcile_skip_faixa_bank_resync.sql",
       "classification": "E"
     },
@@ -235,7 +235,7 @@
       "statement_sha256": [
         "c3931c64cbcc97e0bc09b9192f980edc0a733051c8b5134c0b329901c631275e"
       ],
-      "rendered_file_sha256": "0e0b71b1e50e70fa849c76df855d5b31f2fe81a56a83804806287fc09b516e6f",
+      "rendered_file_sha256": "acd672f78a5c9d7a1837d220f6d7347e505c18d9569cfc7f5e82495ef9e67bb0",
       "original_local_file": "20260823080936_matchday_editorial_profile_workspace_opening.sql",
       "classification": "S"
     },
@@ -247,7 +247,7 @@
       "statement_sha256": [
         "8cac3060c4f58248440e81d3bde8ec23c77924d9bf4961db480b758c9f226a1a"
       ],
-      "rendered_file_sha256": "dfb60508696b8229fa4854763bc6c431a81e7a92ddeb1724ba76844292bf1a5e",
+      "rendered_file_sha256": "c532f73ee0517a0585eea77dacf08c2bb056cb5b91fef21d6ed1c6d663ca8c7e",
       "original_local_file": "20260823133347_matchday_editorial_profile_flexible_layouts_latest_order.sql",
       "classification": "S"
     },
@@ -259,7 +259,7 @@
       "statement_sha256": [
         "7032aebb73aa6c808fd1ea908e677b64e8e3b35cadcf590f9e353fa758942b31"
       ],
-      "rendered_file_sha256": "7c563e79ee1dd2d15a8a60f88b127a000a37ddc027da5cc8305f6b4e98089a01",
+      "rendered_file_sha256": "75ba04133fafd150f6cb1473f23178ba844703a3e4c41db09fa7608e9ed5d012",
       "original_local_file": "20260823170440_matchday_editorial_profile_public_zone_titles.sql",
       "classification": "same-version"
     },
@@ -271,7 +271,7 @@
       "statement_sha256": [
         "1ca06b967ddac4b4e3da41c389f65d08b6b9fe3b7c944a94d81484ca59b0f767"
       ],
-      "rendered_file_sha256": "89a1d8201f3a123546a23a33e74103f315645e41dd41eb629533c5b19db43d0e",
+      "rendered_file_sha256": "1d16b59e737e852cc9a6ee5203e5f19acf8546dabfb5a49266be8cd503d2e503",
       "original_local_file": "20260823175248_matchday_editorial_profile_latest_public_title.sql",
       "classification": "same-version"
     },
@@ -283,7 +283,7 @@
       "statement_sha256": [
         "90fa7aee6a2fcfa37e53df99a2f446c808cc652e1e5664f1aa9db5faf7ed82e7"
       ],
-      "rendered_file_sha256": "7a1e5becc277f33ed85d25cada4ace437429c91a5d4841bd4904b873d8dc800b",
+      "rendered_file_sha256": "97f3762ed81690ea86517c9804d052a631e27eb5e5d19ea108ab73107a687a70",
       "original_local_file": "20260823215153_batch_publication_latest_order_set_based.sql",
       "classification": "same-version"
     },
@@ -295,7 +295,7 @@
       "statement_sha256": [
         "28044930b6835b29b8fe3aa009013e9d2859aa5fe85d3e36d5a65993d06c4933"
       ],
-      "rendered_file_sha256": "7a8d57413ce8346f0d830183f62b16b3f1ab98c51715dd9108e575d1143e4aa7",
+      "rendered_file_sha256": "b70b59d7bc623476d7b2f9a301e83e56aba304ec221c8a50bbe11132e5f279fc",
       "original_local_file": "20260823221303_thematic_editorial_selection_manual.sql",
       "classification": "same-version"
     },
@@ -307,7 +307,7 @@
       "statement_sha256": [
         "b00a7439d57a8b419b5e52893763e86046a82cb60e069aeab42628d3f361a64b"
       ],
-      "rendered_file_sha256": "7bbaae945efb2c09f05596604aab3c3205dcc518786718b5d06693649ebfac6d",
+      "rendered_file_sha256": "630d7a5bcef7d160f6a2348ec66eeafed16e6948b6c27d967fa1ccf4dcbe21cb",
       "original_local_file": "20260823222923_thematic_editorial_selection_atomic_apply.sql",
       "classification": "same-version"
     },
@@ -319,7 +319,7 @@
       "statement_sha256": [
         "0355fb3c0094987b631265e4a7c9d963fd25d675d04d594b5a9dd6da31bc42bf"
       ],
-      "rendered_file_sha256": "6f80d44c0b60e1c8fca0f0d5a36aa8357574bc990c5cb16d378c9339b266b319",
+      "rendered_file_sha256": "216e5c9cb80ae34a973a72b4b8b34ec3a6abbb3a06deee9390315d2be67ddc0a",
       "original_local_file": "20260824010021_thematic_actuality_batch_circuit_safe.sql",
       "classification": "same-version"
     },
@@ -331,7 +331,7 @@
       "statement_sha256": [
         "7cab9b42fc08ca0947a615ea261a4fd643d6bb3edb683cd5877f3246c5f2a2b5"
       ],
-      "rendered_file_sha256": "75f29a2e5381e0350a91f481cb2632cc70564e037cb8ed05912aa8f9d53a23c1",
+      "rendered_file_sha256": "cd97f2dafd17a32d2453605a6a3cba91e43a24ba3d4b8fa00b22f8c7e9c798d7",
       "original_local_file": "20260824014112_thematic_faixa_membership_by_actuality.sql",
       "classification": "same-version"
     },
@@ -343,7 +343,7 @@
       "statement_sha256": [
         "9cb8758c4615a5645991db2391298a71aa40253b1906135fb4607448da53066e"
       ],
-      "rendered_file_sha256": "91a337e5f566b9c9fa4b8abc0b9bf24e713fcd02abe8b488e03f85fe0454560c",
+      "rendered_file_sha256": "716890a19fc21b085d067882baa0a2ca2691d4f4baeeb322ff7e48bcb48301ac",
       "original_local_file": "20260824130519_hotfix_matchday_zone_publication_min_uuid.sql",
       "classification": "same-version"
     },
@@ -355,7 +355,7 @@
       "statement_sha256": [
         "f1b438f8d37c172b36aa8c42813378d9f51eeca402720b55f0c34b85d0672d5d"
       ],
-      "rendered_file_sha256": "670d7827683fdd024e2ee324241d77b0c8d4dcfd1a293c5037b8d1ad4e3bc86d",
+      "rendered_file_sha256": "961543b402d400bdee13bca47e2aca0a51a191030c14fe022724cb0dea97a3c9",
       "original_local_file": "20260824150020_editorial_article_canonical_delete_cleanup.sql",
       "classification": "same-version"
     },
@@ -367,7 +367,7 @@
       "statement_sha256": [
         "ca731891370d6393ab9f30abdfd2ae92d1bf8e7b81976d830070829df8f5bc2d"
       ],
-      "rendered_file_sha256": "89f3ba4b9b294e6b461e54467546a5068b5336c57290aae2aeb8396fc4f0984a",
+      "rendered_file_sha256": "18674be5c494dcf4b811b05fb197f51c18d19cfc8e9665fd770cb33d80f956fc",
       "original_local_file": "20260824151907_editorial_article_canonical_delete_latest_cleanup.sql",
       "classification": "same-version"
     },
@@ -379,7 +379,7 @@
       "statement_sha256": [
         "bdd9007a26e3971de85ee93cdce29e92082f2ce7e19d6d329d403c0e9338d1bf"
       ],
-      "rendered_file_sha256": "7b4653c154afaa98128289cb4b60b9bc1c2704568d5db55b91832df250f7454f",
+      "rendered_file_sha256": "ceb181cfaa60a4fe2a0b89cbb21e4dbc4d92db550d9343e43ed8a0ab3c56b474",
       "original_local_file": "20260825102634_thematic_video_highlight_module.sql",
       "classification": "same-version"
     },
@@ -391,7 +391,7 @@
       "statement_sha256": [
         "e231be939f313fadd7bee26ac61e048be7b03a24bc32ec81afc98cbd4e666735"
       ],
-      "rendered_file_sha256": "2812417768b2fd2abe6030acce9b5ed141cb7494d470768e85c2806eaecabba4",
+      "rendered_file_sha256": "0fe9ccac903d5184af1096bffbd81bc825d7dbdc3317291d1da0b7d48e896e16",
       "original_local_file": "20260825104225_hotfix_thematic_video_highlight_coalesce.sql",
       "classification": "same-version"
     },
@@ -403,7 +403,7 @@
       "statement_sha256": [
         "e891d6463a08f354b3b77c13b5cef82b5bb14779222cd196b06c9fa127832744"
       ],
-      "rendered_file_sha256": "a9c939cf223426c64d527eb5826ac74eb2b802ff4fa7c0c1af20e8e0fca9b793",
+      "rendered_file_sha256": "ef3fbe38b500302b694d9edd4ce131ac15bdbd4409bae561f7e288d055549f98",
       "original_local_file": "20260825145814_historical_composition_workspace.sql",
       "classification": "S"
     },
@@ -415,7 +415,7 @@
       "statement_sha256": [
         "ced9c671d25c5862d0362bf618ef2ed26d7d3fc59bc76ce2766dc65085c8c575"
       ],
-      "rendered_file_sha256": "3b436ada77a4afcd0e470772216be44d4856908ab808bb99c8b41cbf14bbce0a",
+      "rendered_file_sha256": "3114cffac9268a22923d62f6a28f832f2b888a08241edc0526259d9c6178764c",
       "original_local_file": "20260826063000_historical_composition_dynamic_zones.sql",
       "classification": "E"
     },
@@ -427,7 +427,7 @@
       "statement_sha256": [
         "fb7869a1d591a14436c210acfd76cb71d4fac53a6fe5a77c3c9b12388b1dc947"
       ],
-      "rendered_file_sha256": "c013d2e3e2267c3d6154b1d021e2793828ed53ea0f8c3f79ad43d71915a06560",
+      "rendered_file_sha256": "70cda899b63f2738437bd1053bc02481584d41408887cc813cfecd3c736c828f",
       "original_local_file": "20260826074500_historical_composition_dynamic_workspace_rpc.sql",
       "classification": "E"
     },
@@ -439,7 +439,7 @@
       "statement_sha256": [
         "2cfd15becb34bceb97bf3628f0d2bc87c47dd98c8375dea19b2dc859b0c99304"
       ],
-      "rendered_file_sha256": "993342d8420e5807809116a122cb577cc1582ec60962f43288ac1f9af813707f",
+      "rendered_file_sha256": "ee9f46a764c716250327dcc55353a40239f03a23539c569f728cc71b931df8b6",
       "original_local_file": "20260826103000_historical_composition_body_order.sql",
       "classification": "S"
     },
@@ -451,7 +451,7 @@
       "statement_sha256": [
         "6ced2a394f9769261c97e7f147e6bd2584a225a2ecab74ab0715829b1963a260"
       ],
-      "rendered_file_sha256": "5d0d17f8d1cd67fc58022a3ab1107782921ebe13fd75f733adf65c283256bf71",
+      "rendered_file_sha256": "d41c5703060be9ae1d750aa686c5b5848aed08b9ba8b297d67b64c570d5dfc15",
       "original_local_file": "20260826120541_historical_composition_dynamic_publication_activation.sql",
       "classification": "same-version"
     },
@@ -463,7 +463,7 @@
       "statement_sha256": [
         "0d173e4ce486f5f09803e20099e1c84b57f06fefcd9e64a867cddeb347858157"
       ],
-      "rendered_file_sha256": "412619f468f9e1b382065de11d5f78fdb38ef752a90da70dd8748ba4c2d09461",
+      "rendered_file_sha256": "e33987e64eeb41874c03e9823fd948afe8d914ba9c6991835a8ab47c29285d8f",
       "original_local_file": "20260826134553_matchday_editorial_bank_automatic_eligibility.sql",
       "classification": "S"
     },
@@ -475,7 +475,7 @@
       "statement_sha256": [
         "660a8a144fe745e5f20ab840882742a56c2f1d62aa73fcf1a84f82f7c506e743"
       ],
-      "rendered_file_sha256": "5e056c53f684e955f09170106b01cb24cebcabe73573aa22ff9d82aa4c0ebb1e",
+      "rendered_file_sha256": "a8fcbc266081d78bb499dcb49cc59272e4fc3bf741793fe2f415f762e0e0f14d",
       "original_local_file": "20260826135535_matchday_editorial_continuity_transitions.sql",
       "classification": "S"
     },
@@ -487,7 +487,7 @@
       "statement_sha256": [
         "c7ad22814d44c87c49b9fb20b6829a715a11a8cc4d9f6f450d019df17972c204"
       ],
-      "rendered_file_sha256": "749fc4947c702769bbb0aba89508d7cdde392dbdb6cfe5227aed3ecc96f29a6a",
+      "rendered_file_sha256": "815afd8e53a3aecca9b355d21dd3711c90d948d02e66cfe25a6d5327e37c2df3",
       "original_local_file": "20260826140515_initialize_matchday_editorial_thematic_continuity_v3.sql",
       "classification": "S"
     },
@@ -499,7 +499,7 @@
       "statement_sha256": [
         "14bc8c2e6648b44bc8272d71f472d470cd057d6e37c99c76a28b1dd6a6cf4393"
       ],
-      "rendered_file_sha256": "5d93262e6f224e9087703bcd58d5d99d42364aa30a4999152d92512ef8923aad",
+      "rendered_file_sha256": "e1be7563d5efb482d93323c2f127808737206c58dc253ea3262c98592dac0692",
       "original_local_file": "20260826164500_thematic_workspace_continuity_sources.sql",
       "classification": "E"
     },
@@ -511,7 +511,7 @@
       "statement_sha256": [
         "5a7b88cc3bf95689917d6c42a8233790353d33f214277833216a8bd80c0985c7"
       ],
-      "rendered_file_sha256": "e0c35154b71fcc10801371fd5d26255754cf22f73cb3c4758dfbb239137ea61f",
+      "rendered_file_sha256": "8d12017f1c3942736385a0dc6de165cc6da1e1efaab58d5e8830362831445d6e",
       "original_local_file": "20260827094809_matchday_editorial_profile_continuity_classification.sql",
       "classification": "same-version"
     },
@@ -523,7 +523,7 @@
       "statement_sha256": [
         "44f231c166e1fee49bcd480e285d22bcf01350d7fa5984aca95d2e573dab560a"
       ],
-      "rendered_file_sha256": "d72cc8246899ab073bc43cac0914b57fae586492dd93187ce8160ace63d52fa6",
+      "rendered_file_sha256": "8fc09672e64bc00362e953b6234e90574a125a6de20954aeca17de1d52267383",
       "original_local_file": null,
       "classification": "remote-only"
     },
@@ -535,7 +535,7 @@
       "statement_sha256": [
         "e907b3aaa5bde0a4754c43cfcbe82ef19d2077d926c552836ca0d31606672572"
       ],
-      "rendered_file_sha256": "c6182bec602e7a34dcc129d7df549985a3a98f132b30fe432f960b2ac2f308ef",
+      "rendered_file_sha256": "da93a121391a932e036e8b315680e853bc3ce69ac4dccce545d02059bddf931a",
       "original_local_file": null,
       "classification": "remote-only"
     },
@@ -547,7 +547,7 @@
       "statement_sha256": [
         "8be6c3acf3c38d48d4082b3ee35b4a86416ac2ad94762b8f8f013790211d1b10"
       ],
-      "rendered_file_sha256": "32fff45c21d0ef563be1b6d7860bbe1a9dbab74514445194f15b72678b5a0a75",
+      "rendered_file_sha256": "b5e701b797492ec098b22d66096e9234322c33650bbb90bd6357828724af104f",
       "original_local_file": null,
       "classification": "remote-only"
     },
@@ -559,7 +559,7 @@
       "statement_sha256": [
         "1aabd2965833a337358ae0215f1aa41eaa6d021750f2fbf36dd8b0732405d424"
       ],
-      "rendered_file_sha256": "390ccb6e5cdeae06f496b72164843b16aac62fd560b68db26b997be15330298a",
+      "rendered_file_sha256": "e18d6e44197f425721aa6c552c3fa8ad0a6b24517b5b42696f51b7eaec535bc5",
       "original_local_file": null,
       "classification": "remote-only"
     },
@@ -571,7 +571,7 @@
       "statement_sha256": [
         "d597d7cd7c5ffbed885d80b9cb6e237adc28d00512da799d8d6c59958d627861"
       ],
-      "rendered_file_sha256": "b171f115b30e8376fab9da3c47655aa3d989a7dfd49cdfbda4a1470d82fe8189",
+      "rendered_file_sha256": "4134c1f3e4d136805a76a33d739e552e717382b6cd8d2d7abfe4f0916376fcf7",
       "original_local_file": "20260827183157_historical_composition_optional_public_titles.sql",
       "classification": "same-version"
     },
@@ -583,7 +583,7 @@
       "statement_sha256": [
         "3014a1541421007bab2a1b9f9d353c0bd4c34948741c5ed7683a7f0d409794da"
       ],
-      "rendered_file_sha256": "ed2ef11229a4fe0b3640ad392347351b13988bfce107012ecaca306c7040ddec",
+      "rendered_file_sha256": "8b4ffd3192ace696a18744082f68f8654b954ed2e8c70f2cb5cc523dc2808ced",
       "original_local_file": "20260828101705_thematic_editorial_new_workflow.sql",
       "classification": "same-version"
     },
@@ -595,7 +595,7 @@
       "statement_sha256": [
         "4ebdad7012f12cf2a0e1d481ff0e82eee207033a082652100b5ebe00504478ee"
       ],
-      "rendered_file_sha256": "35c6b96fa82c0875cd84e614f7cd54bb6ee0857595d8730d5df7ee96b22d62cc",
+      "rendered_file_sha256": "2a0184961704a8e4f0c7992e5710055ef5b20babfbf37e640a0c56dfba9cf896",
       "original_local_file": "20260828103427_fix_thematic_workspace_v8_coalesce.sql",
       "classification": "same-version"
     },
@@ -607,7 +607,7 @@
       "statement_sha256": [
         "8cb45c20553132c74fa395beebcd229f4aa705ba40b3541e420d406f214f8b0e"
       ],
-      "rendered_file_sha256": "b9d95b4941d7d73b6c87186e30c6d15d0721507a064e72336576a69a49bed5bb",
+      "rendered_file_sha256": "27cb61f0b825e2f9db148c92697af742b72baf623ace325657738df671a018e7",
       "original_local_file": "20260828114246_thematic_workspace_v9_apply_completeness_guard.sql",
       "classification": "same-version"
     },
@@ -672,7 +672,7 @@
       "statement_sha256": [
         "5cba1b84fecf235269a7bb7529e3237e394f2308933e27e91993a9dc9c6bf4eb"
       ],
-      "rendered_file_sha256": "d49122862cb318fcc84d0fd2d4c1c000cdd9af7a12d8703501efc7eca7326f8b",
+      "rendered_file_sha256": "be5b39809a13ae9d09e967fd02dc41f35f3ca385e60802a8da75e2f4f57bbef7",
       "original_local_file": "20260829190443_thematic_workspace_read_dedup.sql",
       "classification": "same-version"
     },
@@ -684,7 +684,7 @@
       "statement_sha256": [
         "af9b068eb5e3d05b21a638372a063a2c3d253a5d20b730129da4ecc29e63080d"
       ],
-      "rendered_file_sha256": "931bbe45f082af896f394d5ff87eaaa9e0312691b1a4324ca9229a1f823fcbb5",
+      "rendered_file_sha256": "28b16955717aa3ad3280488fefa15bb5355a0b2e9e2f5560b17ef1da4ad926e1",
       "original_local_file": "20260830183000_thematic_workspace_apply_token_cache.sql",
       "classification": "S"
     },
@@ -696,7 +696,7 @@
       "statement_sha256": [
         "e8ca753edbbece10d07bc58b3647cc019362e5986c3b7fea0cbb9d59de2895a2"
       ],
-      "rendered_file_sha256": "64950fa4a9e68905709bf29c81cc85dc99e66e0a2c7808e5b9646ad8c95c7582",
+      "rendered_file_sha256": "7c4118267b6c8eda2613b943bb1d156e9cba649a7a9c236e8668ddbadccee193",
       "original_local_file": "20260830184500_thematic_workspace_apply_source_cache.sql",
       "classification": "S"
     },
@@ -708,7 +708,7 @@
       "statement_sha256": [
         "2a407717d7ea6e546644206a349a8a991a2c458ebba2c3a00c418880f6842049"
       ],
-      "rendered_file_sha256": "1e843efb50acdcbfd16f2892b12480779fb3011f09db701b7d2ccb6f1b1dd40a",
+      "rendered_file_sha256": "6e453aa06407bd14f589a5d995cc877e63c03ffcad0ef5a2cb81cdf91fbf91fd",
       "original_local_file": "20260831110517_matchday_editorial_bank_contextual_classification.sql",
       "classification": "S"
     },
@@ -720,7 +720,7 @@
       "statement_sha256": [
         "0ec4fe6e6266cdc38da9e9fe6bc01e44b1c9b0d65e9daed71ab7a6cb973daf72"
       ],
-      "rendered_file_sha256": "46009c7ec1681d763bda70e2735abb04e522ceae2848a5a4abb890665e055929",
+      "rendered_file_sha256": "5e95c136737efa6d6af3e1581f1b16d39becd8e97f4f85815bf98dfe060da466",
       "original_local_file": "20260831203151_matchday_live_layout_zones_blocks_shadow.sql",
       "classification": "E"
     },
@@ -732,7 +732,7 @@
       "statement_sha256": [
         "8f4d846077141253380426b2df3b728025fa823f0e06eca6fe71330acffee674"
       ],
-      "rendered_file_sha256": "3eddb91dfbe9f9c4c5f33cf0080cd98a85c4e1deaa722c0aae565ebc17b6917d",
+      "rendered_file_sha256": "ca93c70201b600b72a465d358af5cd96fb3e0974b992325b23d2f8091f38cd90",
       "original_local_file": "20260901140411_matchday_live_layout_placements_shadow.sql",
       "classification": "E"
     },
@@ -744,7 +744,7 @@
       "statement_sha256": [
         "6e1194933fbcb81c07c3e4f0c3c771543c6ce94193fb654a4eecbb195b67a8b3"
       ],
-      "rendered_file_sha256": "119e51cd94ae0664ff3cfbdb7c06ef3f75f28fdf87b2880276510eec1fe182b1",
+      "rendered_file_sha256": "a6a00e4c48115ddf19c978832fa7e9291ded8d0a216fcd046569c20621ec48e8",
       "original_local_file": "20260901153022_matchday_live_layout_displaced_state_shadow.sql",
       "classification": "S"
     },
@@ -756,7 +756,7 @@
       "statement_sha256": [
         "ab473b344ac2549aed6d3134466df347ac05adb92589b874a4fbb85c4a5e3947"
       ],
-      "rendered_file_sha256": "55366b6bf9f1eacfb7cdfe5efde9a0aee10339263dd9217312d538bf436241cf",
+      "rendered_file_sha256": "08bacae1e508bd9ed46c69c7c7088b107ec773615900d61f35fce891acb748ce",
       "original_local_file": "20260901175408_matchday_live_layout_write_core_preparation.sql",
       "classification": "S"
     },
@@ -768,7 +768,7 @@
       "statement_sha256": [
         "f6d6124a8bd0007b609e393d2197e0e4eb3d6029fd2301a2e67fd0efb6d58c77"
       ],
-      "rendered_file_sha256": "c59b1d5ea6768aec1d86bc105148d64d00d6e7546a29feb395d73225aae0c618",
+      "rendered_file_sha256": "5fa14a95dbd49d151bf8f7c1fde3b235c3fb80850d142434ab00cd6bc1b7ef9e",
       "original_local_file": "20260901201453_matchday_live_layout_cutover_bridge.sql",
       "classification": "S"
     },
@@ -780,7 +780,7 @@
       "statement_sha256": [
         "15c069aa43fed925ccfcadac57e35c0211bd496ba93a8c9ee0e867ebed2ece1c"
       ],
-      "rendered_file_sha256": "1323b2f18269cb09e10b6fc953412ed69c6aabbe0c7fee650877343becbc061a",
+      "rendered_file_sha256": "376239a5b7f0db4f4cb655bd4038a00cb88c83998179d375b23e4558c726b5fc",
       "original_local_file": "20260901201455_matchday_live_layout_authoritative_activation.sql",
       "classification": "S"
     },
@@ -792,7 +792,7 @@
       "statement_sha256": [
         "803ff35e17f808c3744371efbaeb948db48bd6d768dfc474d39d982fa004e980"
       ],
-      "rendered_file_sha256": "0bb6b715357874ef3426a94fb73747d8f961d1420a8b51dc6bfef437e6401101",
+      "rendered_file_sha256": "10314836fcfbe4a3ff6be0ef320b2fb0c31571ed324f34133b4e8f3e4c176336",
       "original_local_file": "20260901211957_matchday_live_layout_source_retirement.sql",
       "classification": "S"
     },
@@ -804,7 +804,7 @@
       "statement_sha256": [
         "7dcdd439559bae848692511faa740d2f6b7f18f6ec8c79b0d84375d2d13a6e11"
       ],
-      "rendered_file_sha256": "c9aec72d00efb5e6efea7165b6e9eb689f37b39c561ec853886e2e2ffd7e30bd",
+      "rendered_file_sha256": "4c5bf0a25ade28e975133444dace9603e884ef0a7fcd4e745f740a6baebccb11",
       "original_local_file": "20260902053337_matchday_historical_republish_independence.sql",
       "classification": "S"
     },
@@ -816,7 +816,7 @@
       "statement_sha256": [
         "9844edc35ee944692ae2eb5be426d99dde743e6839e6cf923d91ec163b9c1771"
       ],
-      "rendered_file_sha256": "1b90109e33675e6ff36ddb6cc659594af8478c65a088f92098739dd0647e9081",
+      "rendered_file_sha256": "42e6375751c8886d3b24a791456bd8fb0f07c433169ccd1b02cc4c6e8ca8dbb8",
       "original_local_file": "20260902095825_matchday_faixa_bank_atomic_apply_fix.sql",
       "classification": "S"
     },
@@ -828,7 +828,7 @@
       "statement_sha256": [
         "8810b264341cb0d811ffcfbab3e3b33eebef18f2d96b0863dc9d03658a5ee35a"
       ],
-      "rendered_file_sha256": "41c7cdea60b4cd1f8baf924bc8072cf41b4d65a368d492452dc1180889659806",
+      "rendered_file_sha256": "34215472b7cba1b61fe2e4738948256c3a3aedc0e63185db4bbf811b6b49dcbd",
       "original_local_file": "20260902110327_matchday_live_desk_aggregate_tracking_reader.sql",
       "classification": "S"
     },
@@ -840,7 +840,7 @@
       "statement_sha256": [
         "3e3cad4452605281cf96ee8a170cef897b4567c2094b8774ee214d7b7ee5084d"
       ],
-      "rendered_file_sha256": "92f4f8b0cca8d5baf88b1133b975a5b65315bf6c0b7dcac2252ab33d7182a7eb",
+      "rendered_file_sha256": "40cdee0267818fcfb5d51f1dafce104eb18fd575ea4a716f9f56061a79bad59d",
       "original_local_file": "20260902130518_matchday_explicit_bank_displaced_semantics.sql",
       "classification": "S"
     },
@@ -852,7 +852,7 @@
       "statement_sha256": [
         "4b48b49937d6e574eec7de87f5d3bc1d0988fb0e2700bfcff1474c811df4baa6"
       ],
-      "rendered_file_sha256": "b37d7cccc9d48a13f7a6fc336896f7182dda549dee375af9b012fd9ffc6ffcbf",
+      "rendered_file_sha256": "eb3d4e8d1765213ff37c224c39e3dc7744d619fbcfe805fb4470aeeb413dd976",
       "original_local_file": "20260902141655_matchday_preview_movement_without_cascade.sql",
       "classification": "S"
     },
@@ -864,7 +864,7 @@
       "statement_sha256": [
         "b608d4044b1533549fbe3e7bb24775b4284e95c748f9cd64d269c90982b3c0cd"
       ],
-      "rendered_file_sha256": "32a3586bac19fef1ddf695ad1d05b6f7641b170dff4739d5466613688e6995ee",
+      "rendered_file_sha256": "d71e8eed36a94e7f415b088845bec54329719b9265863bffe3c0957ac92877ca",
       "original_local_file": "20260902155805_matchday_live_desk_state_handoff.sql",
       "classification": "E"
     },
@@ -876,7 +876,7 @@
       "statement_sha256": [
         "234b370363308ddf2e1f148990c64c7d97e07182e014bcf722bed8850b79cb04"
       ],
-      "rendered_file_sha256": "003f65f66da65f29379f0eec36a35790af6ad6a95f3d4ad0275cdacfb2a16c82",
+      "rendered_file_sha256": "d040b3e183738aa09a92fe52514815e76d3df7c7a4b7a467af1b246d5754bd06",
       "original_local_file": "20260903190000_matchday_live_desk_tracking_event_order.sql",
       "classification": "E"
     },
@@ -888,7 +888,7 @@
       "statement_sha256": [
         "535683aa71d557925cd6e7c37b70f2a33a858acf56794976388cfdb2a60e369e"
       ],
-      "rendered_file_sha256": "bbc8b5ee1c1f67d657434e62a73ff69cee3ae40373f9f6f87b01fe8ba33c55fd",
+      "rendered_file_sha256": "e252ccb709215946768d968a6db0d2c12c6fe05061f9d7a753efbabf7bf168b4",
       "original_local_file": "20260903204800_matchday_editorial_movement_contract_v12.sql",
       "classification": "E"
     },
@@ -900,7 +900,7 @@
       "statement_sha256": [
         "763c8950cdec6d1bfacaa581ae7447be8d67a9c0a818756784745c3d43968124"
       ],
-      "rendered_file_sha256": "42bfc8098c821a9525160ec5c15259dcc8bcab1c5fbda1395ee3e372caf210ea",
+      "rendered_file_sha256": "cf72aa2d6c701cda01ce35978c112db8dc08cc5c6b0bd6a67a7b84e71bdf74b7",
       "original_local_file": "20260903215200_matchday_live_faixa_contiguous_normalization.sql",
       "classification": "S"
     },
@@ -912,7 +912,7 @@
       "statement_sha256": [
         "a7fc600f91bb591b3b6dc224525e5577c0579190c9c923fa96b25d2773726227"
       ],
-      "rendered_file_sha256": "6b98f296c348ddc8cc12452b3f4bfef318c5234f001ce88ddf79fa0ab1c67c1e",
+      "rendered_file_sha256": "6e5535fe8472f61877d31fc18ec89a3836c8e409256ec5026f3e45c81d8c3a43",
       "original_local_file": "20260904001500_matchday_selection_optional_capacity.sql",
       "classification": "S"
     },
@@ -924,7 +924,7 @@
       "statement_sha256": [
         "76077b6d7d0ac6b78ffac48dddd9c58e2729cbb1b2ab05fbc50cc2172026eac4"
       ],
-      "rendered_file_sha256": "31a472bf720c247ad25fe2ac24c21d069158875410e9030a5ccbac966632dab4",
+      "rendered_file_sha256": "6db96d0f3500826aa2ec7fed439352fd55947566716feb13a2463c089139c197",
       "original_local_file": "20260904003000_apply_matchday_agenda_tv_sync_v2.sql",
       "classification": "S"
     },
@@ -936,7 +936,7 @@
       "statement_sha256": [
         "279c87205f6819b4fd1dab1de11e05e504ba76758e19210b216a4e97a48cd453"
       ],
-      "rendered_file_sha256": "337b131f367f9e0f995dcc363521fe98b8a7d3b3554d921660d60c5156b67bd4",
+      "rendered_file_sha256": "cb427307f4c009e1edea663e91a0753d74f003def252ed58f348c0ee1ea06d9d",
       "original_local_file": "20260904013000_matchday_contextual_classification_manual_correction.sql",
       "classification": "E"
     },
@@ -1113,7 +1113,7 @@
       "statement_sha256": [
         "1a636999dc5bef6966533d03e3e938fc86126cca0407d6734ed4cb822ab301d7"
       ],
-      "rendered_file_sha256": "51a948394ca9abf9bb962a0d09d6d656bc52be87442c51518683bdc3c1f401d6",
+      "rendered_file_sha256": "d8f48585e0478f0400a441b0386cd03d9632a0143ee48b7a07713857d3d6fda4",
       "original_local_file": "20260905110018_matchday_publication_physical_placement_boundary_v15.sql",
       "classification": "same-version"
     },
@@ -1125,7 +1125,7 @@
       "statement_sha256": [
         "69337ede989c07d99dcf759a296906a41a8cc6762c59990e45ed33c8b06080a2"
       ],
-      "rendered_file_sha256": "2f71c0ef5c30647334bc16dc8642f94374034e7de00e505c30b46f0c3db2a3ae",
+      "rendered_file_sha256": "033d6ad7e20f03491e7fcd05925d49eda6f52db4a3164b63605c62babf2ad075",
       "original_local_file": "20260905123608_matchday_contextual_classification_physical_boundary_v16.sql",
       "classification": "same-version"
     },
@@ -1137,7 +1137,7 @@
       "statement_sha256": [
         "fb166440a681065f2a4ef301edf840ee028fd2179463f1b7a788345cea7c0a10"
       ],
-      "rendered_file_sha256": "f31ee64b11fb906e0ce8dff61c7df2ba9890168a0f7795ffa4524f99a0d26d48",
+      "rendered_file_sha256": "c4a21b4ab413bbf5e372590c344dbe0fc9a60eec79b093739b2a8908f4a5f2fd",
       "original_local_file": "20260905132044_matchday_live_layout_physical_topology_constructor_v17.sql",
       "classification": "same-version"
     },
@@ -1149,7 +1149,7 @@
       "statement_sha256": [
         "32ff0d840cbdacc2b233053919e2468d3b3de830ed8520fb5d527db8c6ce3276"
       ],
-      "rendered_file_sha256": "95b3d15d90017f93056fcf392af5a64baac1873d84635a0c28f81ccae34d86c4",
+      "rendered_file_sha256": "34d9461153029211547f1bd672069790e111a6fce0ca1a4854be3955568adf7d",
       "original_local_file": "20260905135209_matchday_live_layout_physical_carryover_v18.sql",
       "classification": "same-version"
     },
@@ -1161,7 +1161,7 @@
       "statement_sha256": [
         "0a735cb1156faf3867180a5b58ccbaee3f5a250eb158b984fbee07b2c6479fa3"
       ],
-      "rendered_file_sha256": "08f6ec871ac7927bc964fba80e0559d6aeca5bd9f0b955d802b21c82f0a3f53e",
+      "rendered_file_sha256": "4bf024b5d2ae3d9a82554700051ad5c6ed5c1c417e256cb8eabfd7b89f088852",
       "original_local_file": "20260905142832_matchday_live_layout_physical_handoff_v19.sql",
       "classification": "same-version"
     },
@@ -1262,7 +1262,7 @@
       "statement_sha256": [
         "a9e32d4c9ce3ac82c85ab1104c1d050e6938e290d5202923375352d72e0fdf67"
       ],
-      "rendered_file_sha256": "4cc9f5e3af1bae69d1afa45c07137409342fe3fb83d07cf71e63b4695e90d06c",
+      "rendered_file_sha256": "731c14f2949bcddfd9c965e7ebcf577269ecb0d3e5979ce321d15ef4d51169d4",
       "original_local_file": "20260907143000_matchday_live_layout_latest_companion_generic_v23.sql",
       "classification": "S"
     },
@@ -1274,7 +1274,7 @@
       "statement_sha256": [
         "5bf40e411f78ee87d5bce577e1f1b799e372626a7257ed58bfb4be0f0fe53f73"
       ],
-      "rendered_file_sha256": "e29fe72af9df2250b46c8725e5f14db38013db78886da563ab08d9fb4fed348d",
+      "rendered_file_sha256": "5cf11a0936d8a19731de8614a4a2b4403895e8786d5893a06c742783a98c93d8",
       "original_local_file": "20260907150000_matchday_profile_reconcile_four_news_layout.sql",
       "classification": "E"
     },
@@ -1286,7 +1286,7 @@
       "statement_sha256": [
         "62bc9ea7446a2366e0df917f6af6f983f3b70dd708cf32083c3eea36d2656c9e"
       ],
-      "rendered_file_sha256": "f38e322bf8cf685b46840b839a9c56d91a8aad1bd72b7dcfa52515afd474c1be",
+      "rendered_file_sha256": "4dcac262fe7553f1bb59e697ba53873cfa8b1abc88bf48b8f7a7c97b3e45d535",
       "original_local_file": "20260907190000_matchday_live_layout_selection_retirement_v24.sql",
       "classification": "E"
     },
@@ -1298,7 +1298,7 @@
       "statement_sha256": [
         "d645045f6852bb410502b6cf91ed49f639beec684f6556a6958e548fcf451c69"
       ],
-      "rendered_file_sha256": "3f548547e24cb1b973ec5127b052f58cd4454598fb3139ba02c44728803ebcb6",
+      "rendered_file_sha256": "a970ffe6d5e758fa9bb71802aee2186af26632a84de7ef191b90709d2db666f6",
       "original_local_file": "20260907203000_matchday_live_layout_latest_companion_handoff_v25.sql",
       "classification": "E"
     },
@@ -1310,7 +1310,7 @@
       "statement_sha256": [
         "b213b103ef303fc9a4a38306a8a605743f759ba85d89fbadecb81c81376670e5"
       ],
-      "rendered_file_sha256": "4566aec4434fca83fa9b366391fca6fd07a16d04809a7d0da95a97dde59ad2d9",
+      "rendered_file_sha256": "6867557e6f80e91d5024497dfa811fd66678165bb626348c8967f71485acbe2a",
       "original_local_file": "20260907211500_matchday_live_layout_reference_certificate_v26.sql",
       "classification": "E"
     },
@@ -1322,7 +1322,7 @@
       "statement_sha256": [
         "23964133b0b2840c3368a7b6b34ed18742d2376278d8524926d9f7a2e96018d2"
       ],
-      "rendered_file_sha256": "350fa0c964371e930a90ab1844f0546b222e3e7dd6e60b66c05b1ca05f0afe2c",
+      "rendered_file_sha256": "aa62e5f69f297fcedadfca5dc8df25f2e405dbea32c2024fbd4b896c2bd52288",
       "original_local_file": "20260907213000_matchday_live_layout_physical_topology_ambiguity_v27.sql",
       "classification": "S"
     },
@@ -1334,7 +1334,7 @@
       "statement_sha256": [
         "ca991f82bfc827b1d4b09e47c9ce0566b7e7cb9a2f03aebb9d687b9ceddd9ddb"
       ],
-      "rendered_file_sha256": "330d908d5042f237e5fd9acce1326ac332e8d7c1e87e618c9346c2bf015579b2",
+      "rendered_file_sha256": "8e3a0a2402876a9222abfd4a90096461fb052fabc703baf242accfe1447ff595",
       "original_local_file": "20260907224500_matchday_roundup_context_boundary_v28.sql",
       "classification": "D"
     },
@@ -1450,7 +1450,7 @@
       "statement_sha256": [
         "48c4937f10596d4fb58fadcf0e973d5f471c955214d4e25caaa141b97758d86d"
       ],
-      "rendered_file_sha256": "b24a97e6310e311f030da1db250b9a03862d13955ff03cd5c846f457ea1a0818",
+      "rendered_file_sha256": "49eb0da19724e640a3f0db43be97d719418654f2be120aebecc4497e7de9c279",
       "original_local_file": "20260908142701_historical_republish_v19_certificate_archive_integrity.sql",
       "classification": "E"
     },
@@ -1610,7 +1610,7 @@
       "statement_sha256": [
         "cd2be37a85e5f66b200d75c8a38805affed23da2517285002b76bb8730bd08da"
       ],
-      "rendered_file_sha256": "00ea4359468f7c30a25f163debb58f4bb9545f08424640ea794933cf5e1c2cb4",
+      "rendered_file_sha256": "07af469485d1de97e6e8748cf523865378d8c9f7b8c88118b5a54df1d4ad6237",
       "original_local_file": "20260910223000_newsroom_mesa_theme_organization_v1.sql",
       "classification": "E"
     },
@@ -1622,7 +1622,7 @@
       "statement_sha256": [
         "3880901ef2b2c9848c9faed9863179a4f6e25e93e4574db14feb45787d6f4d05"
       ],
-      "rendered_file_sha256": "91786d5572a98e1e3bdc131f373b49a0fc68e7569d6cd19998e89faf01d6f603",
+      "rendered_file_sha256": "c5bab5cb5e533d6d3d2e45e0fd68d0e4344e1620b8a7d7eab0c051a1149f4f78",
       "original_local_file": "20260911232119_jornada_mesa_grupos_temas_v2.sql",
       "classification": "same-version"
     },
@@ -1634,7 +1634,7 @@
       "statement_sha256": [
         "97379030aa3ee4cebd160ab3e0e12dd3fdb6e5dfc3a9bd7d781a0dc10531e964"
       ],
-      "rendered_file_sha256": "32f127b58f5da3c698b1974d276d4a85d2a31b421787c29528fe453da167ba99",
+      "rendered_file_sha256": "b5b986c6108b2a0fbedf0855d03d2f3a2fcc3ccf370709b08d87d465d3521593",
       "original_local_file": "20260911232721_jornada_mesa_grupos_temas_v2_fk_indexes.sql",
       "classification": "same-version"
     },
@@ -1646,7 +1646,7 @@
       "statement_sha256": [
         "650eaa3d19970a9ad6ba85fdccdb2a9a152e9fa9a5036d7ea161e5061062854e"
       ],
-      "rendered_file_sha256": "a4e1a84ff24afdb1f3bada12619c939323a0a6f311f250f17977f0227012aece",
+      "rendered_file_sha256": "38df9d9f15e6440e011edad620190fd8275a03255d5409a0e348f0473d69b918",
       "original_local_file": "20260912004733_jornada_dossie_producao_sem_limite.sql",
       "classification": "same-version"
     },
@@ -1658,7 +1658,7 @@
       "statement_sha256": [
         "a3b77c0a0e02152d3522f59b0e090f217f669b41ea540a8a13219dd79b80bbf5"
       ],
-      "rendered_file_sha256": "5f6712844b6bf5fb43c30f6c4190b15a06a3d7913d527829b48a87dcfdbac5b6",
+      "rendered_file_sha256": "d02d081b7df4ca64bd9f0a214614b5f3414e172f87e02c4f7652333261deb5c4",
       "original_local_file": "20260912152810_mesa_production_workspace_v2_provenance.sql",
       "classification": "S"
     },
@@ -1670,7 +1670,7 @@
       "statement_sha256": [
         "68308bddfd97d28fb3398964237d8aef7d47617fb0b8d1a44ca6a7fbccf372e4"
       ],
-      "rendered_file_sha256": "171c8645b7e8611a102517c2d562166a90184b53b0a34c43aa1257fe531b8f5e",
+      "rendered_file_sha256": "6fa2573c0a8bde907957b50a7c1acfb7f8dd2beaadf1e2c173b0ebcd2194f0c2",
       "original_local_file": "20260912173257_allow_mesa_v2_source_package_manifest_v5.sql",
       "classification": "E"
     },
@@ -1682,7 +1682,7 @@
       "statement_sha256": [
         "8fd826d11b6f717c46aac5a191805e422f5db845de7d7115e52596bf332243a8"
       ],
-      "rendered_file_sha256": "da78c9d46b0ca263f955a95da9644e09f261632386f5ef2998007df2d6242c90",
+      "rendered_file_sha256": "a35e2db5ab497fd736b3a6da9e0ad0a5a537babf569b7ca39c5d01782ca1c8eb",
       "original_local_file": "20260912175044_mesa_workspace_shared_output_scope_v2.sql",
       "classification": "D"
     },
@@ -1694,7 +1694,7 @@
       "statement_sha256": [
         "7c2dff1cc5769586797b4c9b83182ba4cac900d48f91865a381c8d0b7ad7a093"
       ],
-      "rendered_file_sha256": "0f4645057932434795540da30fe561ead8a0aecaf6840e017eeace9232c26e16",
+      "rendered_file_sha256": "9e91d74c65e270e7eb76ab42a6962f00ef9c12130504b5893bccddc0d666e424",
       "original_local_file": "20260913134418_newsroom_mesa_contexts_production_2c.sql",
       "classification": "same-version"
     },
@@ -1706,7 +1706,7 @@
       "statement_sha256": [
         "09cd19f5cf2d6851a4ac428c7759d309d61fe2c3607dcb91c11d1e4912443c79"
       ],
-      "rendered_file_sha256": "85a973b1a6d8bf4222e511cffb6c221291721ae7c80f5c9e37fec9e1e091a00f",
+      "rendered_file_sha256": "cae1a52f8acf36aa93abfda0cc7def99b2dd017b08538336a8e5cbd784713e14",
       "original_local_file": "20260913182822_agenda_tv_sync_v2_preserve.sql",
       "classification": "same-version"
     },
@@ -1718,7 +1718,7 @@
       "statement_sha256": [
         "22837df11b3ebd61187fa5e0d3e21fcc5d8ecac81e8aec97af6fa7369f9bec64"
       ],
-      "rendered_file_sha256": "87f870e065d8c1619573690594d861ce6fa6cdd2135b5a62cae05d32bdad486d",
+      "rendered_file_sha256": "bf209dbf0ec633679fe9884301b1c6658799d48be7444225ed1b66ef7ec4d48f",
       "original_local_file": "20260914114311_newsroom_mesa_theme_continuity_v1.sql",
       "classification": "E"
     },
@@ -1730,7 +1730,7 @@
       "statement_sha256": [
         "cefb41161409198b4ca2ce9bf83d38d96829f942260a05997432aecebfd78eea"
       ],
-      "rendered_file_sha256": "cead05773c0a7bcb5bbdfc7b36effd0a8f058b23e098808a535e893f67e1edff",
+      "rendered_file_sha256": "986715023ccbe63b15c2e7f9ab929fc875018120448b66a005243067804b0174",
       "original_local_file": "20260914074012_newsroom_mesa_scoped_read_model_v1.sql",
       "classification": "E"
     },
@@ -1742,7 +1742,7 @@
       "statement_sha256": [
         "1c1654f66cd10a98e2f03a203a00e1712ad45d014f8b4e983b838b82529f5433"
       ],
-      "rendered_file_sha256": "214ef3f87ca8fd08db17227afa82a41c4078ed98330b138565064c6996a941d7",
+      "rendered_file_sha256": "9d475ae69d91ef9b5ba7b3739753672d79360e4b7235a988074875f8d3bb9bc9",
       "original_local_file": "20260914195500_newsroom_mesa_scoped_read_performance_v2.sql",
       "classification": "E"
     },
@@ -1754,7 +1754,7 @@
       "statement_sha256": [
         "4425a251f206ca9bc4954f4ec94a764a5e4236341704cfef709dad3e1b20fbcb"
       ],
-      "rendered_file_sha256": "29aa34d77e603b577b99a574f83548f3463d253959ca9b1df17cc955f023ff77",
+      "rendered_file_sha256": "ba4bf2429f3d24cf791cff23fa27a43b8767a39f65833b10f8a8bc7e348e855e",
       "original_local_file": "20260915150000_jornada_private_rls_hardening.sql",
       "classification": "S"
     },
@@ -1766,7 +1766,7 @@
       "statement_sha256": [
         "8a0de1e99e35c7981bde807c8853db08d2bba63208bed19937c33e132e035e77"
       ],
-      "rendered_file_sha256": "ea3a7cf8eac3147d843d1d87f8727d6074c675565b3b4c7e7c00728aadedffd9",
+      "rendered_file_sha256": "bcaff5ec19499a691884bd86a6d0b4ac5b1c3bed319a9fa66ad1b97f8468d0dc",
       "original_local_file": "20260917092520_matchday_historical_inherited_revalidation.sql",
       "classification": "same-version"
     },
@@ -1778,7 +1778,7 @@
       "statement_sha256": [
         "c698a6e7b4dc370eb1237f005ab9781a9478180ddeec98af71fc563b948c1ad2"
       ],
-      "rendered_file_sha256": "b64425f9d3c6b06de7651fdb4d1a1e59a9a9df0b425c6ef51ddd7187471c4710",
+      "rendered_file_sha256": "37c5b9909589732ce8ad537cb13bdec4a7c318de9475c9a5c082d6b83d29163b",
       "original_local_file": "20260917210000_newsroom_mesa_intent_preparation_v1.sql",
       "classification": "E"
     },
@@ -1790,7 +1790,7 @@
       "statement_sha256": [
         "b4e13a78f7a36f813ba2fd594f66111d93f694c8a2c1a1a9290f8f3ffa3f2266"
       ],
-      "rendered_file_sha256": "732a42981049d35077529525cb0b05905e7ef8d2c5534dcb6e295a27d17feb08",
+      "rendered_file_sha256": "445ccf9de45ab21bd73eb43cd2e3f2166860eef517babd4d28d033a77967792a",
       "original_local_file": "20260917213000_newsroom_mesa_intent_publication_v1.sql",
       "classification": "E"
     },
@@ -1802,7 +1802,7 @@
       "statement_sha256": [
         "e929a1f510c61bc8691af7b2f9a86c85a6b1859d982784c00e34440a91a51f73"
       ],
-      "rendered_file_sha256": "a039d6128d844bdcc99ad988e7bfadc7765a7c12d68d692e8d2cfcc7af6fb5c9",
+      "rendered_file_sha256": "5b28a531377a534bc600e0f000975bf3ea502ad219d33b16fc49e0742dda0310",
       "original_local_file": "20260918145300_newsroom_mesa_intent_update_revision_hotfix.sql",
       "classification": "E"
     },
@@ -1814,7 +1814,7 @@
       "statement_sha256": [
         "9b4e2ef65d499b20a6ae843e1dff449b0cb002980e77b71728466a8a1accb144"
       ],
-      "rendered_file_sha256": "800573bc245def86621ff098bbe9081c5a8fa1978f0f934af7f97a86e1f43548",
+      "rendered_file_sha256": "ae0b8ffae57d5af8379289d810b60b5cd664b2f24d78cd1fc02507f973965c6c",
       "original_local_file": "20260919014256_newsroom_mesa_global_article_candidates_v1.sql",
       "classification": "same-version"
     },
@@ -1826,7 +1826,7 @@
       "statement_sha256": [
         "b1b2cec00745757cae7e86d5a9d3d65455e6a1261f4cd3c8a9b2517b5c0ea2a3"
       ],
-      "rendered_file_sha256": "18ed39e8e812b78e54351e43e8463e3661dea7b22c67d5370422fbd2bfb010c6",
+      "rendered_file_sha256": "39518fa9e6e7fb1c46e09f669ed599d128de37d217f8c54863771fe923b4e384",
       "original_local_file": "20260919014322_newsroom_mesa_selection_context_v1.sql",
       "classification": "same-version"
     },
@@ -1838,7 +1838,7 @@
       "statement_sha256": [
         "64eb3da1e805e45f73037e96494b9a66fee4b9b7fab37189df3555349eec6a4f"
       ],
-      "rendered_file_sha256": "4cccb21e82c8d167c3204bdce58ab83737cd019d9904faa142e08ff91fab547e",
+      "rendered_file_sha256": "9c100846d43d0d50f92435a050070cfcb858f9aca276ede24589c9f3b5f3caab",
       "original_local_file": "20260919014344_newsroom_mesa_article_continuity_v2.sql",
       "classification": "same-version"
     },
@@ -1850,7 +1850,7 @@
       "statement_sha256": [
         "3a1dab0eb50a5a93d4c0e6e56cb19577086a84d8e14c9ba6505d437817a37dae"
       ],
-      "rendered_file_sha256": "97be2a46bda28e4c8de04c6428139a1c44f8c8ecb68d5bb1a6f5854bd8fdf073",
+      "rendered_file_sha256": "468603f305621082bdacfdf089e1f74ee8b61aa01bfc7703ddffbe768385f6df",
       "original_local_file": "20260919215554_newsroom_mesa_output_focus_v1.sql",
       "classification": "same-version"
     },
@@ -1862,7 +1862,7 @@
       "statement_sha256": [
         "93a870ceac97d33bed7df0ffd564ac80673223d6bc2e601a7bc957dddd2b6df5"
       ],
-      "rendered_file_sha256": "40227e5a97066ec7f0a60a4a5d90b6d4351fe846c6deed2a332531ec19d91bbb",
+      "rendered_file_sha256": "c21767b744336d08d23691b2ec682be2c46ad04cb4aed7affe57ad928774b4ab",
       "original_local_file": "20260919215613_newsroom_mesa_reviewed_source_memory_v1.sql",
       "classification": "same-version"
     },
@@ -1874,7 +1874,7 @@
       "statement_sha256": [
         "7e27318051b8e0493f3971ff87ef7005051e565b72291b7fe9bb9eb3faa5c24d"
       ],
-      "rendered_file_sha256": "8f71fb27be1db18d3ff31c88fc75da27298c74abb64e32e2955f1ff7ac0dfa3d",
+      "rendered_file_sha256": "653646826c1b95d0591767a4f1ac2d616ccb80a1db77b63bffe7148df95d3f12",
       "original_local_file": "20260920093500_newsroom_current_feed_automation_v1.sql",
       "classification": "E"
     },
@@ -1886,7 +1886,7 @@
       "statement_sha256": [
         "0b3ff58e7934be8068fcb0bed470c54d442b294f4d1b4ede9844bca3dba25f58"
       ],
-      "rendered_file_sha256": "513f8c16299cedbf59bda6270520b7074b6994cd25104eeda7fed6451a37fde1",
+      "rendered_file_sha256": "58f6deb24e6f01bb716a1f62843ae050873462b03b9fcf40294f5af8d0d2e4f0",
       "original_local_file": "20260920115213_manual_newsroom_source_v1.sql",
       "classification": "E"
     },
@@ -1898,7 +1898,7 @@
       "statement_sha256": [
         "89dda2bd2f706e02ecfd58987210fb91ee382e5680b7ec514bb9a3b329d2e26e"
       ],
-      "rendered_file_sha256": "0111330b77a6f41aea091c59a29ce3a8e6fa034a7cd8d811637faa3633a00048",
+      "rendered_file_sha256": "e2fb7fe62cb6aceed77b253f4565015caf763d86f6868c6f28d6e184f73cda1c",
       "original_local_file": "20260920045217_matchday_live_layout_additional_zone_atomic_apply.sql",
       "classification": "E"
     },
@@ -1910,7 +1910,7 @@
       "statement_sha256": [
         "8ae16d8cf44322f1db3b619ae3f0d41eb984a3d2915c028f9546b80d0702b76c"
       ],
-      "rendered_file_sha256": "28f635d37560b387242ac29ff5928734f02c7ca582c82150efe24dd464ad37b8",
+      "rendered_file_sha256": "6280e108d0bbc277311c0064ad81106f5e8b9c36b18c5a43baf5e675adca5964",
       "original_local_file": "20260920151500_newsroom_mesa_theme_published_outputs_v2.sql",
       "classification": "E"
     },
@@ -1922,7 +1922,7 @@
       "statement_sha256": [
         "c268304978107ce84de2afb3a97e78b489e94c8b2be490a1257e42beb8cf6430"
       ],
-      "rendered_file_sha256": "98b9dcc5931a56d554537d08a9917c6687de115180840e851a95f808c35cb380",
+      "rendered_file_sha256": "fae4e23de6e75172e7c4800c4c59b425c2674f5ee6c5efc151301e16b253bd13",
       "original_local_file": "20260920170000_newsroom_mesa_selection_theme_published_outputs_v3.sql",
       "classification": "E"
     },
@@ -1934,7 +1934,7 @@
       "statement_sha256": [
         "2a94938f505b6b17f59080e36ad6d9bbb02c6d198e1c6445cdaf9a188c03eca4"
       ],
-      "rendered_file_sha256": "334e8179797cfddacb22d63c0526d7cfb4b872d7776f0944860bd038835341a6",
+      "rendered_file_sha256": "f98051d1fa8b39432003129679fadac8719d7032e4fbe84905b96e04464265b9",
       "original_local_file": "20260920180000_match_video_summary_discovery_audit.sql",
       "classification": "same-version"
     },
@@ -1946,7 +1946,7 @@
       "statement_sha256": [
         "9c6d2c77e7ce6f02fa4e28b0c81f4c5242fbb7bafd8d4e5fa88e9967a7dc6943"
       ],
-      "rendered_file_sha256": "657c619cbf13af1083ad25fdce06c3ba4af330d2cb4954857e9c1c201a6694cf",
+      "rendered_file_sha256": "4d14b01eda794879ae08a53c3b166fcafd659d5dfe7546abb89938d792ee98b4",
       "original_local_file": "20260920213530_newsroom_mesa_new_output_grouping_v2.sql",
       "classification": "E"
     },
@@ -1958,7 +1958,7 @@
       "statement_sha256": [
         "03656ea2f9b2ef05af6524850bc7df277c1b1adfc2e6393a9946970c135262d0"
       ],
-      "rendered_file_sha256": "745c36911b0d1818ac4f2d5af8b36f713e835b8f66f6810b8d641d44f97a5583",
+      "rendered_file_sha256": "086472eb06fe9ae66411c9e915aa874e981238d4fb19098119cdf24bb1c5eb8c",
       "original_local_file": "20260922114943_matchday_live_layout_zone_target_identity.sql",
       "classification": "E"
     },
@@ -1970,7 +1970,7 @@
       "statement_sha256": [
         "1b5493d0f2fbd611ac1f94a10bd79ecadf5d9b6446bffccec1a695bda4a48370"
       ],
-      "rendered_file_sha256": "6db0a55b44a6ea6b23822624b2fa2598f730860dd897859e9203bd47eaa59557",
+      "rendered_file_sha256": "24969c7ec7d443d83fc0483324e0d07c06d808ee7e480b87eadce8a654b58d84",
       "original_local_file": "20260922171755_matchday_historical_article_selection.sql",
       "classification": "same-version"
     },
@@ -1982,7 +1982,7 @@
       "statement_sha256": [
         "63f03c5985f7e70dee0e45079b3393782cfa2888c93eecc549932de916f85cf2"
       ],
-      "rendered_file_sha256": "ad87f43c41c557c18bd97cb7482f934bc88df867a18c58145e3fd5e600ca1b5e",
+      "rendered_file_sha256": "285787c7bd4438f7d03791f8ac9fe2d393890d94b6110aed62a044c4445d00d7",
       "original_local_file": "20260922195433_newsroom_manual_classification_theme_authority.sql",
       "classification": "same-version"
     },
@@ -1994,7 +1994,7 @@
       "statement_sha256": [
         "2aafd1b9ba5aecff16a142ba3e34b86467af03cd87cc170aca705022935f1af2"
       ],
-      "rendered_file_sha256": "36ef9f97097ed8f00669da7f21a519fec64703287f816bd01c1cb2cede9648d4",
+      "rendered_file_sha256": "e0f75fba519fd56266f01a5e794bc05480a867b01ef3084f93ab0b36e2db9f12",
       "original_local_file": "20260924120000_matchday_video_highlight_section_titles.sql",
       "classification": "E"
     },
@@ -2006,7 +2006,7 @@
       "statement_sha256": [
         "b1d7e94a43729ca35c0bff8bf26a27e4dd61ebfef0aacea6daff67775c27e90a"
       ],
-      "rendered_file_sha256": "6fa0e9a8b8da52b9f3198cbda10c755c3c3619e521bd0f06614f08d954330665",
+      "rendered_file_sha256": "e228e3075720e567592d6fa61176e3f173d21063be0db7c139069d279c317adc",
       "original_local_file": "20260924163000_matchday_faixa_public_title.sql",
       "classification": "E"
     },
@@ -2018,7 +2018,7 @@
       "statement_sha256": [
         "76bc7ed9ebd9b722b4926d8a77e9291cd198f68ad81b7b25d0070d4272fac62a"
       ],
-      "rendered_file_sha256": "96ec1b357d3e2898d8f241a273ed5b13197ea0f25a0512ace1e02c44c289b566",
+      "rendered_file_sha256": "24f9ea468026626dba56f4e7a8a7ecf7e43897810229216bc5ebd285fcd5641b",
       "original_local_file": "20260924190000_historical_composition_faixa_public_title.sql",
       "classification": "E"
     },
@@ -2030,7 +2030,7 @@
       "statement_sha256": [
         "369be8434773bef60c1b66f2e17a7d3d0894d1882055ec10ccf029305d9f953c"
       ],
-      "rendered_file_sha256": "4eb1229d3cabf915ea031a880b0ce1728117cd3e9a691a29a2be75d4d54f8377",
+      "rendered_file_sha256": "570b2ef013350c35ae8c0479e875690e16f1bec5076c95fb155088bb4bb73b33",
       "original_local_file": "20260924193000_matchday_public_reader_json_null_hotfix.sql",
       "classification": "E"
     },
@@ -2042,7 +2042,7 @@
       "statement_sha256": [
         "7d5472b2c80785c6c4ce752cdcb61c3e0bce4e553dbc88a5d314983f47c78d1a"
       ],
-      "rendered_file_sha256": "ef0f529a710d5e07a41130378c7a03f1c90cea8fb098fd6d1c9410b9f2b00455",
+      "rendered_file_sha256": "df062e237d74e44dfbe2a924c2f2354397e558c729f8802e2fcf384995da097a",
       "original_local_file": "20260924200000_newsroom_article_plan_output_classification_authority.sql",
       "classification": "E"
     },
@@ -2054,7 +2054,7 @@
       "statement_sha256": [
         "ac05cd51369aa9a7444342f1b82220a7de68dbc008f3a530a6b4ed90ebd23177"
       ],
-      "rendered_file_sha256": "9b843435db7e9c0a7e0dc2f4022181c57c118c5ac6bbd284950488a0f5e995f0",
+      "rendered_file_sha256": "21c8b74e5c579b24e81b5840a8b7f64442595509baabc6c37f8d07ff88d92327",
       "original_local_file": "20260924213644_newsroom_article_plan_classification_decision.sql",
       "classification": "same-version"
     },
@@ -2066,7 +2066,7 @@
       "statement_sha256": [
         "36d1c51489f54f5eb204f3a78b8406709518a68aaf802a45dd52d908ba509381"
       ],
-      "rendered_file_sha256": "50f72baf47b153035a92336555c8f80d769e72e5ec71daa922f21fb49de7265b",
+      "rendered_file_sha256": "9aad5e4db598f5d411ed5987b3fcfa6875ac05cb9d4e88c277f046fc3f3006fb",
       "original_local_file": "20260925221106_advertising_horizontal_format.sql",
       "classification": "same-version"
     },
@@ -2078,7 +2078,7 @@
       "statement_sha256": [
         "da009187e3f3c02666c4f55bcce4172e502e030ac0f63d9366360204aa597c5a"
       ],
-      "rendered_file_sha256": "f2721d1a3feb27eb17ba745dd2ea07d9fee11467b5aa72813b38e38108de86e4",
+      "rendered_file_sha256": "62e94616661d9a66c40dbba198634b435d6e7454afa8287179de924c0573fb8c",
       "original_local_file": "20260926183411_mesa_continuity_explicit_articles_and_reads.sql",
       "classification": "E"
     },
@@ -2090,7 +2090,7 @@
       "statement_sha256": [
         "52be5951df5bb6f9cad1f8010d8023c86f7053ec6b7559b75446912eab464fa7"
       ],
-      "rendered_file_sha256": "f05c796f140675d1912a9c4633df60136527e9e27d9462bad9523d5ad56b7b21",
+      "rendered_file_sha256": "3af7ad6e9bdee7243ad5b6795b23603ccaa07dee3caf01cddd9d6b0f0be88c0b",
       "original_local_file": "20260926202221_newsroom_canonical_article_sources.sql",
       "classification": "E"
     },
@@ -2102,7 +2102,7 @@
       "statement_sha256": [
         "e49e0f22a9645780117c71641156e28aa01d240ede45ea5cce05e637eb295a97"
       ],
-      "rendered_file_sha256": "03b5c9a0ebd4364f120f8a83a768c321ea900ca2ae12bb2237ca27c1351f4795",
+      "rendered_file_sha256": "7aff58dbc79da969ccc88b1ac42519549e64a1642b27953af8913e61e0b18408",
       "original_local_file": "20260926220638_restore_legacy_mesa_lifecycle_publications.sql",
       "classification": "E"
     },

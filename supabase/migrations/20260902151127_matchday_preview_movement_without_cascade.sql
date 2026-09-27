@@ -428,4 +428,3 @@ comment on function public.apply_matchday_editorial_profile_workspace_v11(
 ) is 'Atomically preserves the v10 compatibility contract and then applies the exact authoritative no-swap/no-cascade preview, projecting it back to legacy compatibility.';
 
 commit;
-;

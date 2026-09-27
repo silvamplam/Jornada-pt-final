@@ -257,4 +257,3 @@ where c.carryover_source_composition_id = source_composition.id
 notify pgrst, 'reload schema';
 
 commit;
-;

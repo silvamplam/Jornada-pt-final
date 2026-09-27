@@ -415,4 +415,3 @@ grant execute on function public.newsroom_publish_mesa_output_v2(uuid,uuid,uuid,
 
 notify pgrst,'reload schema';
 commit;
-;

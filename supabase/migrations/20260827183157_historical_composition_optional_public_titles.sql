@@ -309,4 +309,3 @@ comment on column public.matchday_historical_composition_zones.public_title is
   'Título público opcional da zona histórica. String vazia significa que o renderer público não apresenta cabeçalho.';
 
 notify pgrst, 'reload schema';
-;

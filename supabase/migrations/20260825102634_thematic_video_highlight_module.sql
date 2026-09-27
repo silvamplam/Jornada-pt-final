@@ -466,4 +466,3 @@ public.apply_matchday_editorial_profile_workspace_v6(
   jsonb
 )
 to service_role;
-;

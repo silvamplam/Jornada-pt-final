@@ -115,4 +115,3 @@ comment on table public.matchday_historical_composition_zone_items is
 notify pgrst, 'reload schema';
 
 commit;
-;

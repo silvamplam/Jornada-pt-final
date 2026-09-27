@@ -141,4 +141,3 @@ revoke all on function public.normalize_matchday_latest_news_order(uuid) from pu
 revoke all on function public.normalize_matchday_latest_news_order(uuid) from anon;
 revoke all on function public.normalize_matchday_latest_news_order(uuid) from authenticated;
 grant execute on function public.normalize_matchday_latest_news_order(uuid) to service_role;
-;

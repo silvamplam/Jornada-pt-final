@@ -468,4 +468,3 @@ comment on function
   )
 is
   'Delegates all thematic workspace semantics to v9 while transaction-locally caching intermediate optimistic tokens; the final workspace token is recomputed uncached after all writes.';
-;

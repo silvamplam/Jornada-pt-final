@@ -6,8 +6,12 @@ mkdir -p "$OUTPUT"
 IMAGE=supabase/postgres:17.6.1.084
 CID=''
 cleanup() {
+  for log in platform baseline init replay; do
+    if [ -f "$OUTPUT/$log.log" ]; then echo "Last output: $log"; tail -n 18 "$OUTPUT/$log.log"; fi
+  done
   if [ -n "$CID" ]; then
     docker logs "$CID" > "$OUTPUT/postgres.log" 2>&1 || true
+    tail -n 12 "$OUTPUT/postgres.log"
     docker rm -f "$CID" >/dev/null
   fi
 }

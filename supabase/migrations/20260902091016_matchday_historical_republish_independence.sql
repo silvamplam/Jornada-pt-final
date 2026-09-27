@@ -492,4 +492,3 @@ grant execute on function public.publish_matchday_reference_composition(uuid, uu
 comment on function public.publish_matchday_reference_composition(uuid, uuid) is 'Dispatches atomically between first live publication with v6 continuity and later historical-only republication certified by the existing v6 transition.';
 
 notify pgrst, 'reload schema';
-;

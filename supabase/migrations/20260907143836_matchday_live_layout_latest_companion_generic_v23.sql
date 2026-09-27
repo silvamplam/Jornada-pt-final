@@ -377,4 +377,3 @@ $postconditions$;
 notify pgrst, 'reload schema';
 
 commit;
-;

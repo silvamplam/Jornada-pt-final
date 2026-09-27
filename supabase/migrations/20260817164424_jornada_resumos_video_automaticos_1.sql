@@ -90,4 +90,3 @@ create unique index if not exists matchday_roundup_items_source_candidate_id_uid
   where source_candidate_id is not null;
 
 commit;
-;

@@ -503,4 +503,3 @@ grant execute on function public.newsroom_finalize_mesa_intents_v1(uuid, uuid, u
 
 commit;
 
-;

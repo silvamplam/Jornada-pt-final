@@ -35,4 +35,3 @@ begin
   execute v_fixed;
 end;
 $migration$;
-;

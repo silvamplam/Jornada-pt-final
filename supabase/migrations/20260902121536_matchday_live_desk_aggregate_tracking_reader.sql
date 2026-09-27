@@ -155,4 +155,3 @@ is
   'Read-only service-role reader for the live desk. It reuses the private authoritative placement/memory projection and returns compact active Bank metadata without article bodies.';
 
 notify pgrst, 'reload schema';
-;

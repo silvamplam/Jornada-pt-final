@@ -38,4 +38,3 @@ comment on column public.matchday_editorials.latest_zone_placement is
   'Presentation placement of Latest: top, hidden, or beside the four-news live layout.';
 
 notify pgrst, 'reload schema';
-;

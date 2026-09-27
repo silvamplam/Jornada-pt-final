@@ -927,4 +927,3 @@ grant execute on function public.initialize_matchday_editorial_thematic_continui
 ) to service_role;
 
 notify pgrst, 'reload schema';
-;

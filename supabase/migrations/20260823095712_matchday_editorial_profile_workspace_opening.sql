@@ -791,4 +791,3 @@ comment on function public.apply_matchday_editorial_profile_workspace(
 notify pgrst, 'reload schema';
 
 commit;
-;

@@ -347,4 +347,3 @@ grant execute on function public.newsroom_prepare_mesa_intents_v1(jsonb,text) to
 -- never mean that the old articles were reviewed. Completion needs its own gate.
 commit;
 
-;

@@ -284,4 +284,3 @@ $function$;
 notify pgrst, 'reload schema';
 commit;
 
-;

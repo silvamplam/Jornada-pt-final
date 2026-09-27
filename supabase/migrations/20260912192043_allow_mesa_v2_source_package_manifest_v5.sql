@@ -476,4 +476,3 @@ comment on function public.newsroom_editorial_source_package_manifest_v5_valid(
 
 notify pgrst, 'reload schema';
 commit;
-;

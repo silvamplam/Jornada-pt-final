@@ -297,4 +297,3 @@ end;
 $function$;
 
 commit;
-;

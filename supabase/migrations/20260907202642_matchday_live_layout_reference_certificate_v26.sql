@@ -77,4 +77,3 @@ where not exists (
     and composition_row.presentation_mode = 'standard'
     and composition_row.status in ('draft', 'published')
 );
-;

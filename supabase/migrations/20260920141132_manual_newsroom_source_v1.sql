@@ -247,4 +247,3 @@ comment on function public.newsroom_create_manual_source(
 
 commit;
 
-;

@@ -620,4 +620,3 @@ comment on table public.newsroom_mesa_output_source_usage is
 
 notify pgrst, 'reload schema';
 commit;
-;

@@ -21,4 +21,3 @@ alter table public.newsroom_editorial_source_packages
   );
 
 notify pgrst, 'reload schema';
-;

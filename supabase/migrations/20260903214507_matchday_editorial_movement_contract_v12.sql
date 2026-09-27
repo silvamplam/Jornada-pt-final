@@ -474,4 +474,3 @@ is
 notify pgrst, 'reload schema';
 
 commit;
-;

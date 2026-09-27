@@ -298,4 +298,3 @@ comment on function public.apply_matchday_editorial_profile_manual_overrides(uui
   'Atomically replaces manual overrides after validating assignment, competition, active canonical publications, zone capacity and fixed slots. It never changes automatic profile state.';
 
 commit;
-;

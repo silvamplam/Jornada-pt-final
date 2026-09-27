@@ -185,4 +185,3 @@ end;
 $projection_and_postconditions$;
 
 commit;
-;

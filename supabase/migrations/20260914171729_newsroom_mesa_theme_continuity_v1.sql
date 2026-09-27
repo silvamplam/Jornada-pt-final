@@ -859,4 +859,3 @@ comment on function public.newsroom_finalize_theme_continuity_v1(uuid,uuid,uuid[
 
 notify pgrst, 'reload schema';
 commit;
-;

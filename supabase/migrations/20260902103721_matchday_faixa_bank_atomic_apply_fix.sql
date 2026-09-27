@@ -187,4 +187,3 @@ comment on function public.apply_matchday_editorial_profile_workspace_v7(
 revoke all on function public.apply_matchday_editorial_profile_workspace_v7(
   uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
 ) from public, anon, authenticated, service_role;
-;

@@ -291,4 +291,3 @@ revoke all on function jornada_private.project_matchday_live_layout_bank_item_st
 notify pgrst, 'reload schema';
 
 commit;
-;

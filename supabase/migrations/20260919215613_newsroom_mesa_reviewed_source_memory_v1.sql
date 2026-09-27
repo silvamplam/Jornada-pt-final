@@ -206,4 +206,3 @@ grant execute on function public.newsroom_mesa_theme_summaries_v1(uuid[])
 
 
 notify pgrst,'reload schema';
-;

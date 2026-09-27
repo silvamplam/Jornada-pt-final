@@ -2240,4 +2240,3 @@ grant execute on function
   public.publish_matchday_reference_composition(uuid, uuid)
 to service_role;
 commit;
-;

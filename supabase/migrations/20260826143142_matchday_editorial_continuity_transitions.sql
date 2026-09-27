@@ -31,4 +31,3 @@ comment on table public.matchday_editorial_continuity_transitions is
 
 comment on column public.matchday_editorial_continuity_transitions.source_composition_id is
   'Composição publicada da jornada de origem observada na primeira transição; serve apenas para auditoria e não participa na chave de idempotência.';
-;

@@ -87,4 +87,3 @@ comment on table public.matchday_editorial_profile_manual_overrides is
 notify pgrst, 'reload schema';
 
 commit;
-;

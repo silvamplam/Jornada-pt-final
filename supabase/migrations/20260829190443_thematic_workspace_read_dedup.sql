@@ -295,4 +295,3 @@ as $function$
     )::text
   ) as state_token;
 $function$;
-;

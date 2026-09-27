@@ -185,4 +185,3 @@ comment on function
   jornada_private.guard_matchday_roundup_context_v28()
 is
   'Impede que um resumo associado a jogo ou candidato seja armazenado noutra jornada. Roundup é conteúdo contextual da própria jornada e não participa no handoff N para N+1.';
-;

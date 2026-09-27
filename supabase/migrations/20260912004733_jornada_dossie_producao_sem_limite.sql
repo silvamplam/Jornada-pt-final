@@ -19,4 +19,3 @@ alter table public.newsroom_editorial_dossiers
   );
 
 commit;
-;

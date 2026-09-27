@@ -294,4 +294,3 @@ revoke all on function public.apply_matchday_editorial_profile_workspace_v5(uuid
 revoke all on function public.apply_matchday_editorial_profile_workspace_v5(uuid, text, bigint, text, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb) from anon;
 revoke all on function public.apply_matchday_editorial_profile_workspace_v5(uuid, text, bigint, text, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb) from authenticated;
 grant execute on function public.apply_matchday_editorial_profile_workspace_v5(uuid, text, bigint, text, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb) to service_role;
-;

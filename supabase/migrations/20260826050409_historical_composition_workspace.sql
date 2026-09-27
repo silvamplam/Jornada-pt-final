@@ -319,4 +319,3 @@ comment on function public.apply_historical_composition_workspace_plan(uuid, uui
 notify pgrst, 'reload schema';
 
 commit;
-;

@@ -235,4 +235,3 @@ comment on function public.newsroom_mesa_global_article_candidates_v1(uuid[],uui
 
 commit;
 
-;
