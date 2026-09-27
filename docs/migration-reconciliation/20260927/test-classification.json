@@ -1,0 +1,183 @@
+{
+  "base": "a4da9d88174694b61d9b149b960c8a1f8b517dd8",
+  "files": 62,
+  "base_counts": {
+    "tests": 614,
+    "failed": 14,
+    "passed": 600,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "topLevel": 614,
+    "suites": 0
+  },
+  "reconstructed_counts": {
+    "tests": 614,
+    "failed": 14,
+    "passed": 600,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "topLevel": 614,
+    "suites": 0
+  },
+  "new_functional_failures": [],
+  "preexisting_or_task_scope_failures": [
+    {
+      "name": "a página pública lê a ordem viva e intercala os cinco blocos",
+      "file": "lib/editorial-matchday-live-zone-order.test.ts",
+      "message": "The input did not match the regular expression /liveEditorialBodyBlocks\\.map\\([\\s\\S]*?renderLivePublicZone/. Input:"
+    },
+    {
+      "name": "a API temática recompõe no servidor e chama uma única RPC atómica",
+      "file": "lib/editorial-matchday-profile-manual-overrides.test.ts",
+      "message": "The input did not match the regular expression /validateMatchdayEditorialProfileManualOverrides/. Input:"
+    },
+    {
+      "name": "UI pagina a Faixa dentro do tracking agregado",
+      "file": "lib/editorial-matchday-profile-workspace-migration.test.ts",
+      "message": "The input did not match the regular expression /trackingVisibleCounts/. Input:"
+    },
+    {
+      "name": "rota administrativa usa a v11 sobre o contrato v10",
+      "file": "lib/editorial-thematic-workspace-apply-token-cache.test.ts",
+      "message": "The input did not match the regular expression /rpc\\/apply_matchday_editorial_profile_workspace_v11/. Input:"
+    },
+    {
+      "name": "endpoint administrativo usa o Apply v9 preservando compatibilidade de erros anteriores",
+      "file": "lib/editorial-thematic-workspace-continuity-apply.test.ts",
+      "message": "The input did not match the regular expression /rpc\\/apply_matchday_editorial_profile_workspace_v11/. Input:"
+    },
+    {
+      "name": "Bank partilha classificação pesquisa e seleção com os restantes universos",
+      "file": "lib/matchday-live-desk-aggregate-tracking.test.ts",
+      "message": "The input did not match the regular expression /disabled=\\{visibleCandidateEntries\\.length === 0\\}/u. Input:"
+    },
+    {
+      "name": "working tree fica limitado ao cutover e artefactos protegidos",
+      "file": "lib/matchday-live-layout-authoritative-cutover.test.ts",
+      "message": "Expected values to be strictly deep-equal:"
+    },
+    {
+      "name": "working tree do Lote 5 nao contem ficheiros inesperados",
+      "file": "lib/matchday-live-layout-displaced-state-shadow.test.ts",
+      "message": "Expected values to be strictly deep-equal:"
+    },
+    {
+      "name": "working tree contem apenas os dois ficheiros do Passo 1 e artefactos antigos",
+      "file": "lib/matchday-live-layout-write-core-preparation.test.ts",
+      "message": "Expected values to be strictly deep-equal:"
+    },
+    {
+      "name": "7C3: drag das quatro participa no circuito transversal",
+      "file": "lib/matchday-selection-optional-parity-7c3.test.ts",
+      "message": "The input did not match the regular expression /setDraggingIdentity\\(itemIdentity\\)/u. Input:"
+    },
+    {
+      "name": "7C3: rota deixa de exigir quatro notícias ocupadas",
+      "file": "lib/matchday-selection-optional-parity-7c3.test.ts",
+      "message": "The input did not match the regular expression /input\\.selectionBankItemIds\\.length !== 4/u. Input:"
+    },
+    {
+      "name": "7C3: drag genérico reconhece também o payload das quatro",
+      "file": "lib/matchday-selection-optional-parity-7c3.test.ts",
+      "message": "The input did not match the regular expression /function dragged[\\s\\S]*parseMatchdayEditorialProfileSelectionDrag\\(raw\\)[\\s\\S]*identityForBankItemId\\(selectionDrag\\.bankItemId\\)/u. Input:"
+    },
+    {
+      "name": "Publicação em lote mostra cinco escolhas junto de Histórica e bloqueia sem escolha",
+      "file": "lib/redacao-automatica/newsroom-article-plan-output-classification.test.ts",
+      "message": "The input did not match the regular expression /<span>Histórica<\\/span>/. Input:"
+    },
+    {
+      "name": "Mesa page reads counts + page identities before hydrating at most the visible IDs",
+      "file": "lib/redacao-automatica/newsroom-mesa-scoped-egress.test.ts",
+      "message": "The input did not match the regular expression /identityWindow\\.slice\\(0, input\\.pagination\\.limit\\)/. Input:"
+    }
+  ],
+  "obsolete_representation_tests": [
+    "Section boundaries depended on indentation or comments removed from recorded remote statements",
+    "Remote statements can rely on the CLI transaction without literal BEGIN/COMMIT wrappers",
+    "The agenda-v2 immutable hash now identifies the recorded remote SQL",
+    "v18 final-state assertions use the explicit corrective migration rather than backdated historical source"
+  ],
+  "unchanged": "No application behavior or historical SQL was modified to satisfy these tests",
+  "additional_v17_v18": {
+    "base_passed": 19,
+    "reconstructed_passed": 19,
+    "classification": "Obsolete formatting and comment checks; replaced with whitespace-tolerant SQL contract checks and a direct null-preservation assertion. Historical SQL unchanged."
+  },
+  "typescript": {
+    "tracked_files": 912,
+    "diagnostics": 0
+  },
+  "focused_files": [
+    "lib/editorial-bank-automatic-eligibility.test.ts",
+    "lib/editorial-bank-contextual-classification.test.ts",
+    "lib/editorial-continuity-transitions.test.ts",
+    "lib/editorial-historical-composition-atomicity.test.ts",
+    "lib/editorial-historical-composition-body-order.test.ts",
+    "lib/editorial-historical-composition-dynamic-workspace-rpc.test.ts",
+    "lib/editorial-historical-composition-flexible-desk.test.ts",
+    "lib/editorial-historical-faixa-public-title.test.ts",
+    "lib/editorial-matchday-continuity.test.ts",
+    "lib/editorial-matchday-live-zone-order.test.ts",
+    "lib/editorial-matchday-profile-manual-overrides.test.ts",
+    "lib/editorial-matchday-profile-shared-faixa-reconcile.test.ts",
+    "lib/editorial-matchday-profile-workspace-migration.test.ts",
+    "lib/editorial-thematic-continuity-v3.test.ts",
+    "lib/editorial-thematic-workspace-apply-source-cache.test.ts",
+    "lib/editorial-thematic-workspace-apply-token-cache.test.ts",
+    "lib/editorial-thematic-workspace-continuity-apply.test.ts",
+    "lib/matchday-agenda-tv-sync-contract.test.ts",
+    "lib/matchday-contextual-classification-correction-7d.test.ts",
+    "lib/matchday-editorial-movement-contract-7c2.test.ts",
+    "lib/matchday-explicit-bank-displaced-semantics.test.ts",
+    "lib/matchday-faixa-bank-atomic-apply.test.ts",
+    "lib/matchday-faixa-public-title.test.ts",
+    "lib/matchday-historical-physical-archive-v20.test.ts",
+    "lib/matchday-historical-reopen-physical-handoff.test.ts",
+    "lib/matchday-historical-republish-independence.test.ts",
+    "lib/matchday-historical-republish-v19-certificate.test.ts",
+    "lib/matchday-live-desk-aggregate-tracking.test.ts",
+    "lib/matchday-live-desk-historical-bank-delta.test.ts",
+    "lib/matchday-live-desk-state-handoff.test.ts",
+    "lib/matchday-live-desk-tracking-order.test.ts",
+    "lib/matchday-live-faixa-contiguous-normalization.test.ts",
+    "lib/matchday-live-layout-authoritative-cutover.test.ts",
+    "lib/matchday-live-layout-displaced-state-shadow.test.ts",
+    "lib/matchday-live-layout-latest-companion-generic-v23.test.ts",
+    "lib/matchday-live-layout-latest-companion-handoff-v25.test.ts",
+    "lib/matchday-live-layout-physical-carryover.test.ts",
+    "lib/matchday-live-layout-physical-crud-v20.test.ts",
+    "lib/matchday-live-layout-physical-topology-constructor.test.ts",
+    "lib/matchday-live-layout-placements-shadow.test.ts",
+    "lib/matchday-live-layout-source-retirement.test.ts",
+    "lib/matchday-live-layout-workspace-v13-reader.test.ts",
+    "lib/matchday-live-layout-write-core-preparation.test.ts",
+    "lib/matchday-live-layout-zone-target-identity.test.ts",
+    "lib/matchday-live-layout-zones-blocks-shadow.test.ts",
+    "lib/matchday-movement-preview-no-cascade.test.ts",
+    "lib/matchday-public-reader-json-null.test.ts",
+    "lib/matchday-roundup-context-boundary-v28.test.ts",
+    "lib/matchday-selection-optional-parity-7c3.test.ts",
+    "lib/matchday-video-section-titles.test.ts",
+    "lib/redacao-automatica/editorial-source-package-manifest-v5-schema.test.ts",
+    "lib/redacao-automatica/manual-newsroom-source.test.ts",
+    "lib/redacao-automatica/newsroom-article-plan-output-classification.test.ts",
+    "lib/redacao-automatica/newsroom-current-feed-automation.test.ts",
+    "lib/redacao-automatica/newsroom-deterministic-classifier-bank-compatibility.test.ts",
+    "lib/redacao-automatica/newsroom-manual-classification-authority.test.ts",
+    "lib/redacao-automatica/newsroom-mesa-legacy-lifecycle.test.ts",
+    "lib/redacao-automatica/newsroom-mesa-new-output-groups.test.ts",
+    "lib/redacao-automatica/newsroom-mesa-organization.test.ts",
+    "lib/redacao-automatica/newsroom-mesa-production-lifecycle-v2.test.ts",
+    "lib/redacao-automatica/newsroom-mesa-scoped-egress.test.ts",
+    "lib/redacao-automatica/newsroom-theme-continuity.test.ts"
+  ],
+  "commands": [
+    "node --import tsx --test <focused_files>",
+    "node --test .ci/migration-replay/reconciliation.test.mjs",
+    "TypeScript createProgram with the repository tsconfig and 912 tracked .ts/.tsx files; noEmit, incremental=false",
+    "git diff --check a4da9d88174694b61d9b149b960c8a1f8b517dd8"
+  ]
+}

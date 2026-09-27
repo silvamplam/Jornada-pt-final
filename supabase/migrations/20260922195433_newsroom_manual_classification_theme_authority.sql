@@ -701,3 +701,4 @@ comment on function public.newsroom_update_editorial_theme_v1(
 notify pgrst, 'reload schema';
 
 commit;
+

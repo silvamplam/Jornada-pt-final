@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migrationPath =
-  "supabase/migrations/20260922114943_matchday_live_layout_zone_target_identity.sql";
+  "supabase/migrations/20260922131501_matchday_live_layout_zone_target_identity.sql";
 const fixturePath =
   "supabase/sql/test-matchday-live-layout-physical-handoff-pg17.sql";
 const v17Path =
@@ -16,7 +16,7 @@ const v19Path =
 const v20ArchivePath =
   "supabase/migrations/20260908173933_matchday_historical_physical_archive_v20.sql";
 const atomicApplyPath =
-  "supabase/migrations/20260920045217_matchday_live_layout_additional_zone_atomic_apply.sql";
+  "supabase/migrations/20260920141235_matchday_live_layout_additional_zone_atomic_apply.sql";
 
 const migration = readFileSync(migrationPath, "utf8");
 const fixture = readFileSync(fixturePath, "utf8");

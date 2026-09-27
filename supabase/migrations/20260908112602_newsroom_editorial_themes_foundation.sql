@@ -248,10 +248,15 @@ for each row
 execute function public.newsroom_set_editorial_theme_updated_at_v1();
 
 alter table public.newsroom_editorial_themes enable row level security;
+
 alter table public.newsroom_editorial_themes force row level security;
+
 alter table public.newsroom_editorial_theme_sources enable row level security;
+
 alter table public.newsroom_editorial_theme_sources force row level security;
+
 alter table public.newsroom_editorial_theme_articles enable row level security;
+
 alter table public.newsroom_editorial_theme_articles force row level security;
 
 revoke all privileges

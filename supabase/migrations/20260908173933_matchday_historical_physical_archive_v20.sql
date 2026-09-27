@@ -123,7 +123,6 @@ comment on table
 is
   'Versioned certificate of the immutable semantic physical core of a completed v19 handoff. The original v19 certificate/hash remains untouched; evolving editorial and compatibility projections are deliberately excluded.';
 
-
 -- ============================================================
 -- 1. EXPLICIT, COMPONENTIZED PHYSICAL HASH
 -- ============================================================
@@ -256,7 +255,6 @@ comment on function
 is
   'Hashes only explicit semantic columns of the immutable physical source: zones, blocks, settings, cutover marker, profile assignment, placements, explicit Bank exclusions and displaced-state memory. Technical timestamps and evolving editorial/legacy projections are excluded.';
 
-
 create function
 jornada_private.matchday_historical_physical_archive_hash_v20(
   p_matchday_id uuid
@@ -277,7 +275,6 @@ $function$;
 revoke all on function
   jornada_private.matchday_historical_physical_archive_hash_v20(uuid)
 from public, anon, authenticated, service_role;
-
 
 -- ============================================================
 -- 2. AUDITED ELIGIBILITY FOR PRE-V20 HANDOFFS
@@ -510,7 +507,6 @@ comment on function
 is
   'Conservative audit for pre-v20 handoffs. It requires the intact v17/v18/v19 certificate chain, retired source, durable source-zone identities, current structural validity, certified physical counts and no physical row timestamp after handoff. It never treats the current physical hash alone as proof.';
 
-
 -- ============================================================
 -- 3. CERTIFIER: ATOMIC FOR NEW HANDOFFS, AUDITED FOR EXISTING ONES
 -- ============================================================
@@ -658,7 +654,6 @@ revoke all on function
   jornada_private.certify_matchday_historical_physical_archive_v20(uuid, text)
 from public, anon, authenticated, service_role;
 
-
 create function
 jornada_private.certify_matchday_historical_physical_archive_after_handoff_v20()
 returns trigger
@@ -685,7 +680,6 @@ after insert on jornada_private.matchday_live_layout_physical_handoffs
 for each row
 execute function
   jornada_private.certify_matchday_historical_physical_archive_after_handoff_v20();
-
 
 -- Certify only handoffs whose pre-v20 physical state is independently
 -- supported by durable identities/counts, the retired lifecycle and timestamps.
@@ -715,7 +709,6 @@ begin
   end loop;
 end;
 $backfill$;
-
 
 -- ============================================================
 -- 4. STRICT V20 VALIDATOR AND V19-COMPATIBLE DISPATCHER
@@ -923,7 +916,6 @@ revoke all on function
     )
 from public, anon, authenticated, service_role;
 
-
 create function
 jornada_private.assert_matchday_live_layout_historical_republish_v20(
   p_source_matchday_id uuid,
@@ -978,7 +970,6 @@ comment on function
   )
 is
   'Historical republish dispatcher: strict componentized v20 validation when an audited v20 certificate exists, otherwise the preserved v19 validator. It never fabricates a certificate at runtime and never reads current target live state.';
-
 
 -- ============================================================
 -- 5. MINIMAL HISTORICAL-REPUBLISH INTEGRATION
@@ -1037,7 +1028,6 @@ from public, anon, authenticated, service_role;
 grant execute on function
   public.publish_matchday_reference_composition(uuid, uuid)
 to service_role;
-
 
 do $postconditions$
 declare

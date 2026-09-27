@@ -2,16 +2,17 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { sqlIndexOf } from "./migration-test-helpers";
 
 const migrationPath =
-  "supabase/migrations/20260901153022_matchday_live_layout_displaced_state_shadow.sql";
+  "supabase/migrations/20260901164825_matchday_live_layout_displaced_state_shadow.sql";
 const migration = readFileSync(migrationPath, "utf8");
 
 function section(startNeedle: string, endNeedle: string): string {
-  const start = migration.indexOf(startNeedle);
+  const start = sqlIndexOf(migration, startNeedle);
   assert.ok(start >= 0, `secao inicial nao encontrada: ${startNeedle}`);
 
-  const end = migration.indexOf(endNeedle, start + startNeedle.length);
+  const end = sqlIndexOf(migration, endNeedle, start + 1);
   assert.ok(end > start, `secao final nao encontrada: ${endNeedle}`);
 
   return migration.slice(start, end);
@@ -85,7 +86,7 @@ test("baseline bloqueia Banco e placements ate ao commit", () => {
   );
   const backfill = migration.indexOf(
     "insert into public.matchday_live_layout_bank_item_state_memory (",
-    migration.indexOf("-- 5. BASELINE CONSISTENTE E NEUTRO"),
+    migration.indexOf("insert into public.matchday_live_layout_bank_item_state_memory ("),
   );
 
   assert.ok(lock >= 0);
@@ -99,8 +100,8 @@ test("baseline bloqueia Banco e placements ate ao commit", () => {
 
 test("backfill e dinamico neutro e usa um instante consistente", () => {
   const backfill = section(
-    "-- 5. BASELINE CONSISTENTE E NEUTRO",
-    "-- 6. FECHO DE SEGURANCA",
+    "insert into public.matchday_live_layout_bank_item_state_memory (",
+    "revoke all on function jornada_private.reconcile_matchday_live_layout_bank_item_state_memory()",
   );
 
   assert.match(backfill, /from public\.matchday_editorial_bank_items as bank_row/);
@@ -116,7 +117,7 @@ test("backfill e dinamico neutro e usa um instante consistente", () => {
 test("triggers usam transition tables OLD e NEW por statement", () => {
   const triggers = section(
     "create trigger matchday_live_layout_bank_item_memory_after_insert",
-    "-- 4. PROJECAO PRIVADA, DERIVADA E SET-BASED",
+    "create function jornada_private.project_matchday_live_layout_bank_item_states(",
   );
 
   assert.match(triggers, /after insert[\s\S]*referencing new table as new_placement_rows[\s\S]*for each statement/);
@@ -332,7 +333,7 @@ test("working tree do Lote 5 nao contem ficheiros inesperados", () => {
     "lib/matchday-live-desk-historical-bank-delta.test.ts",
     "lib/editorial-matchday-context-selector-ui.test.ts",
     "lib/editorial-historical-composition.test.ts",
-    "supabase/migrations/20260902053337_matchday_historical_republish_independence.sql",
+    "supabase/migrations/20260902091016_matchday_historical_republish_independence.sql",
     "supabase/sql/test-matchday-historical-republish-independence-pg17.sql",
     "supabase/sql/test-matchday-live-desk-historical-bank-delta-pg17.sql",
     "app/admin/editorial/jornada/[matchdayId]/page.tsx",

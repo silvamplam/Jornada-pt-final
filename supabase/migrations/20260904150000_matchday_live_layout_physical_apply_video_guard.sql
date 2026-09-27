@@ -79,7 +79,6 @@ comment on function
 is
   'Private validated v14 physical apply core. The public service-role facade owns the transactional video publication guard.';
 
-
 create function public.apply_matchday_live_layout_physical_workspace_v14(
   p_matchday_id uuid,
   p_profile_key text,

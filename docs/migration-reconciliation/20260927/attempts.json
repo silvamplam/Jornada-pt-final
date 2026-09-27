@@ -1,0 +1,142 @@
+{
+  "rule": "Each run starts a new --network none PostgreSQL 17.6 container; stop on the first error; no migrations skipped.",
+  "attempts": [
+    {
+      "run": 36324274197,
+      "commit": "222c661f",
+      "phase": "tooling",
+      "first_failure": "CLI checksum URL returned HTTP 404; SQL not started",
+      "correction": "Use release asset checksums.txt"
+    },
+    {
+      "run": 36324496513,
+      "commit": "68077894",
+      "phase": "tooling",
+      "first_failure": "Checksum entry uses the versioned archive filename; SQL not started",
+      "correction": "Download and verify supabase_2.117.0_linux_amd64.tar.gz"
+    },
+    {
+      "run": 36324645612,
+      "commit": "749464ed",
+      "phase": "container",
+      "first_failure": "runuser is not installed in the Supabase image; SQL not started",
+      "correction": "Run the container as its postgres user"
+    },
+    {
+      "run": 36324790715,
+      "commit": "6192114b",
+      "phase": "baseline",
+      "first_failure": "baseline.sql:89: syntax error at or near TRIGGER",
+      "correction": "Do not render pg_constraint type t as a table constraint; recreate constraint triggers through their historical migrations"
+    },
+    {
+      "run": 36324935721,
+      "commit": "c48655fa",
+      "phase": "baseline",
+      "first_failure": "baseline.sql:817: function normalize_team_identity_v1(text) does not exist",
+      "correction": "Include unqualified helper dependencies from CHECK expressions and indexes, before table DDL"
+    },
+    {
+      "run": 36325011076,
+      "commit": "f67f91d0",
+      "phase": "baseline",
+      "first_failure": "baseline.sql:2105: function remove_deleted_editorial_source_from_matchday_bank() does not exist",
+      "correction": "Recover pre-migration trigger functions from steps/85 and steps/117, not from their later historical replacements"
+    },
+    {
+      "run": 36325221521,
+      "commit": "e6171c4a",
+      "phase": "tooling_after_baseline",
+      "first_failure": "chmod: /tmp/supabase: Operation not permitted",
+      "baseline_passed": true,
+      "correction": "The copied archive binary is already executable; do not chmod as a different user"
+    },
+    {
+      "run": 36325348952,
+      "commit": "5efc1ad1",
+      "phase": "cli_runtime_after_baseline",
+      "baseline_passed": true,
+      "first_failure": "exec /tmp/supabase: no such file or directory (glibc loader absent in Nix-based DB image)",
+      "correction": "Run the CLI in an Ubuntu sidecar sharing the same network-less namespace"
+    },
+    {
+      "run": 36325523365,
+      "commit": "d3492c0d",
+      "phase": "cli_connection_after_baseline",
+      "baseline_passed": true,
+      "first_failure": "CLI requests SSL by default; the disposable loopback PostgreSQL has no TLS",
+      "correction": "Use sslmode=disable only on the explicit isolated loopback URL"
+    },
+    {
+      "run": 36325637252,
+      "commit": "b3c00fe6",
+      "phase": "migration",
+      "baseline_passed": true,
+      "first_migration": "20260901145408_matchday_live_layout_placements_shadow.sql",
+      "first_failure": "relation matchday_editorial_bank_items_id_matchday_key already exists (42P07)",
+      "correction": "The baseline omitted the later unique constraint but retained its implicit index; omit constraint-owned indexes together with their constraint"
+    },
+    {
+      "run": 36325792833,
+      "commit": "e3302bb5",
+      "phase": "migration",
+      "baseline_passed": true,
+      "first_migration": "20260901214531_matchday_live_layout_source_retirement.sql",
+      "first_failure": "matchday-live-layout-retirement-repair-candidate-count:0 (P0001)",
+      "correction": "Historical repair requires exactly one existing transition; seed and remove a minimal synthetic legacy fixture only in the isolated replay, with the historical migration unchanged"
+    },
+    {
+      "run": 36326277909,
+      "commit": "d9b432bb",
+      "phase": "migration",
+      "baseline_passed": true,
+      "first_migration": "20260907222744_matchday_roundup_context_boundary_v28.sql",
+      "first_failure": "matchday-roundup-context-v28-carryover-patch-failed (P0001)",
+      "correction": "Both recorded migrations remain unchanged. An isolated prerequisite adds spaces around equality only in three roundup expressions of the installed v18 body, preserving SQL tokens; v28 then performs the functional patch itself. The synthetic retirement repair and v17/v27 passed."
+    },
+    {
+      "run": 36326530564,
+      "commit": "e970b674",
+      "phase": "migration",
+      "baseline_passed": true,
+      "first_migration": "20260907222744_matchday_roundup_context_boundary_v28.sql",
+      "first_failure": "matchday-roundup-context-v28-carryover-patch-failed (P0001)",
+      "correction": "The first whitespace prerequisite missed the single-line count expression. Correct the prerequisite, not history; add a token-equality test that requires all three occurrences."
+    },
+    {
+      "run": 36326672722,
+      "commit": "f5a32aaa",
+      "phase": "migration",
+      "baseline_passed": true,
+      "first_migration": "20260920141132_manual_newsroom_source_v1.sql",
+      "first_failure": "constraint newsroom_articles_manual_origin_urls_check of relation newsroom_articles does not exist (42704)",
+      "correction": "Restore its pre-chain definition from step 39 in the baseline; the historical migration then replaces it itself. No other first-operation unconditional constraint drops are missing."
+    },
+    {
+      "run": 36326952828,
+      "commit": "aee66c89",
+      "phase": "catalog_comparison",
+      "baseline_passed": true,
+      "replay_passed": true,
+      "migrations_applied": 149,
+      "first_failure": "No SQL migration failure. Comparison found inherited ACL/comment metadata missing on 3 functions and public schema grant, plus 32 functions outside the migration dependency closure.",
+      "correction": "Include the three original foundation function definitions from steps 113/117 with captured ACL/comments, and public schema postgres grant. Explicitly inventory excluded functions using the same dependency-closure rule as tables. Dry-run and migration list passed."
+    },
+    {
+      "run": 36327203323,
+      "commit": "3030a2af32ad07f82abb2914af9b06d554b055f8",
+      "phase": "complete",
+      "baseline_passed": true,
+      "replay_passed": true,
+      "migrations_applied": 149,
+      "first_failure": null,
+      "compared_objects": 438,
+      "differences": 0,
+      "excluded_tables": 30,
+      "excluded_functions": 32,
+      "cli_migration_list": "149 local/149 isolated remote aligned",
+      "isolated_dry_run": "Remote database is up to date",
+      "server_version": "17.6"
+    }
+  ]
+}

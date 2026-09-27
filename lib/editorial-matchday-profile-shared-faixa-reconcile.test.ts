@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { EDITORIAL_PROFILES } from "@/lib/editorial-profiles";
 
 const migration = readFileSync(fileURLToPath(new URL(
-  "../supabase/migrations/20260822211352_matchday_editorial_profile_shared_faixa_reconcile.sql",
+  "../supabase/migrations/20260822223715_matchday_editorial_profile_shared_faixa_reconcile.sql",
   import.meta.url,
 )), "utf8");
 const sql = migration.replace(/\s+/g, " ").trim();
@@ -107,7 +107,7 @@ test("o Apply valida payloads completos antes de substituir os três estados ato
 
 test("um segundo Apply idêntico é um no-op sem writes, timestamps ou nova revision", () => {
   const body = functionBody("apply_matchday_editorial_profile_reconcile");
-  const noOp = body.indexOf("An identical full-set Apply is a successful no-op");
+  const noOp = body.indexOf("if exists (", body.indexOf("matchday-editorial-profile-reconcile-manual-faixa-mismatch"));
   const firstWrite = body.indexOf("delete from public.matchday_editorial_profile_manual_overrides");
 
   assert.ok(noOp >= 0 && firstWrite > noOp);

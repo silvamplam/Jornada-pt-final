@@ -68,6 +68,7 @@ execute function public.newsroom_set_article_classification_updated_at_v1();
 
 alter table public.newsroom_editorial_article_classifications
   enable row level security;
+
 alter table public.newsroom_editorial_article_classifications
   force row level security;
 

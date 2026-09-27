@@ -27,7 +27,6 @@ revoke all on function
   jornada_private.matchday_live_layout_visual_family_capacity_v13(text)
 from public, anon, authenticated, service_role;
 
-
 create function
 jornada_private.normalize_matchday_live_layout_physical_placements_v13(
   p_placements jsonb
@@ -80,7 +79,6 @@ revoke all on function
   jornada_private.normalize_matchday_live_layout_physical_placements_v13(jsonb)
 from public, anon, authenticated, service_role;
 
-
 create function
 jornada_private.normalize_matchday_live_layout_bank_item_ids_v13(
   p_bank_item_ids jsonb
@@ -115,7 +113,6 @@ $function$;
 revoke all on function
   jornada_private.normalize_matchday_live_layout_bank_item_ids_v13(jsonb)
 from public, anon, authenticated, service_role;
-
 
 create function public.matchday_editorial_profile_workspace_token_v13(
   p_matchday_id uuid,
@@ -251,7 +248,6 @@ comment on function
   public.matchday_editorial_profile_workspace_token_v13(uuid, text)
 is
   'Deterministic OCC token for the legacy workspace inputs plus authoritative physical zones, blocks, placements, Bank state and displaced memory.';
-
 
 create function
 jornada_private.apply_matchday_live_layout_physical_state_v13_shadow(

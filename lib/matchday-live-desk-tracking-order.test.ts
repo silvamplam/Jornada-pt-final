@@ -9,7 +9,7 @@ import {
 } from "@/lib/editorial-matchday-profile-desk";
 
 const migration = readFileSync(
-  "supabase/migrations/20260903190000_matchday_live_desk_tracking_event_order.sql",
+  "supabase/migrations/20260903214406_matchday_live_desk_tracking_event_order.sql",
   "utf8",
 );
 

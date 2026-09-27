@@ -13,10 +13,12 @@ alter table public.matchday_editorial_profile_assignments enable row level secur
 
 revoke all on table public.matchday_editorial_profile_assignments
   from public, anon, authenticated, service_role;
+
 grant select on table public.matchday_editorial_profile_assignments to service_role;
 
 comment on table public.matchday_editorial_profile_assignments is
   'A ausência de linha mantém a Jornada no circuito editorial Atual/legacy; uma linha ativa explicitamente o perfil temático. Esta tabela não contém o estado interno do perfil. Apagar uma atribuição não representa apagar eventual estado temático independente.';
+
 comment on column public.matchday_editorial_profile_assignments.profile_key is
   'Profile editorial temático explicitamente atribuído à Jornada.';
 
@@ -98,6 +100,7 @@ $$;
 
 revoke execute on function public.set_matchday_editorial_profile_assignment(uuid, text)
   from public, anon, authenticated;
+
 grant execute on function public.set_matchday_editorial_profile_assignment(uuid, text)
   to service_role;
 

@@ -52,13 +52,16 @@ alter table public.matchday_editorial_profile_state_items enable row level secur
 
 revoke all on table public.matchday_editorial_profile_state_items
   from public, anon, authenticated, service_role;
+
 grant select on table public.matchday_editorial_profile_state_items
   to service_role;
 
 comment on table public.matchday_editorial_profile_state_items is
   'Estado temático interno e independente da assignment. Preserva a identidade canónica source_type + source_id e a colocação automática; remover a assignment não apaga este estado.';
+
 comment on column public.matchday_editorial_profile_state_items.zone_key is
   'Zona temática atual; NULL mantém a publicação conhecida sem ocupar capacidade visual.';
+
 comment on column public.matchday_editorial_profile_state_items.sort_order is
   'Posição por atualidade dentro da zona; NULL quando a publicação está fora da capacidade.';
 
@@ -579,6 +582,7 @@ $$;
 
 revoke all on function public.refresh_matchday_editorial_profile_distribution(uuid)
   from public, anon, authenticated, service_role;
+
 grant execute on function public.refresh_matchday_editorial_profile_distribution(uuid)
   to service_role;
 

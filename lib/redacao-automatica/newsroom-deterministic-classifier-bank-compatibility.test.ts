@@ -9,7 +9,7 @@ import {
 } from "@/lib/redacao-automatica/newsroom-deterministic-classifier";
 
 const historicalBank = readFileSync(
-  "supabase/migrations/20260826134553_matchday_editorial_bank_automatic_eligibility.sql",
+  "supabase/migrations/20260826143020_matchday_editorial_bank_automatic_eligibility.sql",
   "utf8",
 );
 const headlineBank = readFileSync(
@@ -21,7 +21,7 @@ const preservedBank = readFileSync(
   "utf8",
 );
 const contextualBank = readFileSync(
-  "supabase/migrations/20260831110517_matchday_editorial_bank_contextual_classification.sql",
+  "supabase/migrations/20260831155606_matchday_editorial_bank_contextual_classification.sql",
   "utf8",
 );
 const aliasSeed = readFileSync(

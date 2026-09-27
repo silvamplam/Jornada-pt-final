@@ -272,7 +272,7 @@ test("cliente e Apply usam o mesmo preview sem regra textual legacy", () => {
     "utf8",
   );
   const migration = readFileSync(
-    "supabase/migrations/20260902141655_matchday_preview_movement_without_cascade.sql",
+    "supabase/migrations/20260902151127_matchday_preview_movement_without_cascade.sql",
     "utf8",
   );
   const operations = readFileSync(

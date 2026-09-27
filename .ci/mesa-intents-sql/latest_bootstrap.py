@@ -48,7 +48,7 @@ alter table public.matchday_latest_news add column article_id uuid, add column s
         function(v14, 'jornada_private.' + name)
     function(v15, 'public.set_matchday_latest_news_settings_v15')
     function('supabase/migrations/20260823215153_batch_publication_latest_order_set_based.sql', 'public.normalize_matchday_latest_news_order')
-    function('supabase/migrations/20260826134553_matchday_editorial_bank_automatic_eligibility.sql', 'public.upsert_matchday_editorial_bank_publication')
+    function('supabase/migrations/20260826143020_matchday_editorial_bank_automatic_eligibility.sql', 'public.upsert_matchday_editorial_bank_publication')
     function('supabase/migrations/20260824130519_hotfix_matchday_zone_publication_min_uuid.sql', 'public.sync_matchday_zone_publication_to_bank')
     function(v18, 'jornada_private.is_matchday_live_layout_carryover_v18')
     function(v18, 'public.sync_matchday_zone_row_to_bank')

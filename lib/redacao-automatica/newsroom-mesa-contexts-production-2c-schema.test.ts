@@ -198,10 +198,10 @@ test("Mesa v2 publication keeps workspace compatibility and enforces context sco
 
   assert.ok(start >= 0 && end > start);
   assert.match(body, /v_source_scope text := 'workspace'/);
-  assert.match(body, /selection_payload ->> 'contractVersion' = '3'/);
+  assert.match(body, /selection_payload\s*->>\s*'contractVersion'\s*=\s*'3'/);
   assert.match(body, /newsroom_mesa_plan_context_sources_valid_v1/);
   assert.match(body, /v_declared_context_source_ids is distinct from v_frozen_context_source_ids/);
-  assert.match(body, /production_context_id, origin_kind/);
+  assert.match(body, /production_context_id,\s*origin_kind/);
   assert.match(body, /v_existing\.production_context_id is distinct from v_production_context_id/);
 });
 
@@ -217,7 +217,7 @@ test("consolidation preserves old engines and links outputs from Theme contexts 
 
   assert.ok(start >= 0 && end > start);
   assert.match(body, /return public\.newsroom_mesa_consolidate_publication_v3/);
-  assert.match(body, /v_source_scope not in \('workspace', 'context'\)/);
+  assert.match(body, /v_source_scope not in \('workspace',\s*'context'\)/);
   assert.match(body, /join public\.newsroom_mesa_production_context_items context_item/);
   assert.match(body, /insert into public\.newsroom_editorial_theme_articles/);
   assert.doesNotMatch(body, /update public\.newsroom_editorial_themes/);

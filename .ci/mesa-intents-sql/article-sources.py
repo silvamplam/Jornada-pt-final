@@ -9,9 +9,9 @@ execute, load, scalar, fixture, prepare, package, article, finish, receipts, uid
 # The synthetic baseline omits this existing production compatibility column.
 execute("alter table public.editorial_articles add column if not exists newsroom_article_id uuid references public.newsroom_articles(id);")
 if execute("select to_regprocedure('public.newsroom_organize_theme_selection_v3(uuid,uuid,text,text,uuid[],uuid[],jsonb)') is null;") == 't':
-    load('supabase/migrations/20260926183411_mesa_continuity_explicit_articles_and_reads.sql')
+    load('supabase/migrations/20260926193320_mesa_continuity_explicit_articles_and_reads.sql')
 if execute("select to_regclass('public.newsroom_editorial_article_sources') is null;") == 't':
-    load('supabase/migrations/20260926202221_newsroom_canonical_article_sources.sql')
+    load('supabase/migrations/20260926205936_newsroom_canonical_article_sources.sql')
 
 
 def publish(f,p,o,a):
@@ -156,7 +156,7 @@ def legacy_publication_marks_lifecycle_only():
     assert candidates(source) == []
     assert execute(f"select count(*) from public.newsroom_editorial_article_sources where newsroom_article_id='{source}';") == '0'
 
-    load('supabase/migrations/20260926220638_restore_legacy_mesa_lifecycle_publications.sql')
+    load('supabase/migrations/20260926224911_restore_legacy_mesa_lifecycle_publications.sql')
 
     after = scalar(f"""select jsonb_build_object(
       'lifecycle',lifecycle,'eligibleNew',eligible_new,'eligiblePublished',eligible_published)

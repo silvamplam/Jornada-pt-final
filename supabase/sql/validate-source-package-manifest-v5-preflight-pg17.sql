@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
 -- Run only on a disposable PostgreSQL 17 database before applying
--- 20260912173257_allow_mesa_v2_source_package_manifest_v5.sql.
+-- 20260912192043_allow_mesa_v2_source_package_manifest_v5.sql.
 do $roles$
 begin
   if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;

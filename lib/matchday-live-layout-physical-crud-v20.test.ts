@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { sqlIndexOf } from "./migration-test-helpers";
 
 const migrationPath =
   "supabase/migrations/20260905230000_matchday_live_layout_physical_crud_v20.sql";
 const atomicMigrationPath =
-  "supabase/migrations/20260920045217_matchday_live_layout_additional_zone_atomic_apply.sql";
+  "supabase/migrations/20260920141235_matchday_live_layout_additional_zone_atomic_apply.sql";
 const v21MigrationPath =
   "supabase/migrations/20260906220000_matchday_live_layout_four_news_optional_titles_v21.sql";
 const fixturePath =
@@ -28,21 +29,22 @@ const v21Migration = readFileSync(v21MigrationPath, "utf8");
 const fixture = readFileSync(fixturePath, "utf8");
 const route = readFileSync(routePath, "utf8");
 const v14 = readFileSync(v14Path, "utf8");
-const v18 = readFileSync(v18Path, "utf8");
+// The historical v18 lacks the unrecorded validations now restored explicitly.
+const v18 = readFileSync("supabase/migrations/20260927134943_replay_preserve_production_carryover_v18_validations.sql", "utf8");
 const v19 = readFileSync(v19Path, "utf8");
 
 function section(startNeedle: string, endNeedle: string): string {
-  const start = migration.indexOf(startNeedle);
+  const start = sqlIndexOf(migration, startNeedle);
   assert.ok(start >= 0, `missing section start: ${startNeedle}`);
-  const end = migration.indexOf(endNeedle, start + startNeedle.length);
+  const end = sqlIndexOf(migration, endNeedle, start + 1);
   assert.ok(end > start, `missing section end: ${endNeedle}`);
   return migration.slice(start, end);
 }
 
 function sectionOf(value: string, startNeedle: string, endNeedle: string): string {
-  const start = value.indexOf(startNeedle);
+  const start = sqlIndexOf(value, startNeedle);
   assert.ok(start >= 0, `missing section start: ${startNeedle}`);
-  const end = value.indexOf(endNeedle, start + startNeedle.length);
+  const end = sqlIndexOf(value, endNeedle, start + 1);
   assert.ok(end > start, `missing section end: ${endNeedle}`);
   return value.slice(start, end);
 }

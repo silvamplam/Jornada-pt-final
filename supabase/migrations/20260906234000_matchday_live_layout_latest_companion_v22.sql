@@ -50,7 +50,6 @@ comment on table public.matchday_live_layout_latest_companion
 is
   'Optional physical Latest companion relation. The host is identified only by physical zone UUID and must be a four_news zone.';
 
-
 -- ============================================================
 -- 1. RELATION INVARIANTS
 -- ============================================================
@@ -90,7 +89,6 @@ for each row
 execute function
   jornada_private.assert_matchday_live_layout_latest_companion_row_v22();
 
-
 create function
 jornada_private.prevent_matchday_live_layout_latest_companion_host_change_v22()
 returns trigger
@@ -126,7 +124,6 @@ on public.matchday_live_layout_zones
 for each row
 execute function
   jornada_private.prevent_matchday_live_layout_latest_companion_host_change_v22();
-
 
 -- ============================================================
 -- 2. V22 OCC TOKEN
@@ -168,7 +165,6 @@ comment on function
   jornada_private.matchday_live_layout_workspace_token_v22(uuid, text)
 is
   'V22 OCC token: existing physical v13 token plus the explicit Latest companion physical zone UUID.';
-
 
 -- ============================================================
 -- 3. READ-ONLY V22 WORKSPACE READER
@@ -248,7 +244,6 @@ comment on function
   public.read_matchday_live_layout_workspace_v22(uuid, text)
 is
   'Read-only v22 physical workspace snapshot. Extends v13 only with the explicit Latest companion relation and a companion-aware OCC token.';
-
 
 -- ============================================================
 -- 4. SINGLE-TRANSACTION V22 APPLY
@@ -469,7 +464,6 @@ comment on function
   )
 is
   'Single-transaction v22 physical Apply. Reuses v20 unchanged and adds only the explicit optional Latest companion relation by physical four_news zone UUID.';
-
 
 -- ============================================================
 -- 5. ACL POSTCONDITIONS

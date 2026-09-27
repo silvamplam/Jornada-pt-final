@@ -53,23 +53,15 @@ begin
         'thematic_zone_titles'
       ]::text[]
     ) <> '{}'::jsonb
-    or pg_catalog.jsonb_typeof(
-      p_page_controls -> 'latest_zone_title'
-    ) <> 'string'
-    or pg_catalog.char_length(
-      pg_catalog.btrim(
-        p_page_controls ->> 'latest_zone_title'
-      )
-    ) > 120
+    or pg_catalog.jsonb_typeof(p_page_controls -> 'latest_zone_title') <> 'string'
+    or pg_catalog.char_length(pg_catalog.btrim(p_page_controls ->> 'latest_zone_title')) > 120
   then
     raise exception
       'matchday-editorial-profile-workspace-v4-invalid-page-controls';
   end if;
 
   v_requested_latest_title :=
-    pg_catalog.btrim(
-      p_page_controls ->> 'latest_zone_title'
-    );
+    pg_catalog.btrim(p_page_controls ->> 'latest_zone_title');
 
   select editorial.latest_zone_title
   into v_current_latest_title
@@ -82,10 +74,7 @@ begin
   end if;
 
   v_title_changed :=
-    coalesce(
-      pg_catalog.btrim(v_current_latest_title),
-      ''
-    )
+    coalesce(pg_catalog.btrim(v_current_latest_title), '')
     is distinct from v_requested_latest_title;
 
   select *
@@ -103,8 +92,7 @@ begin
   );
 
   update public.matchday_editorials as editorial
-  set latest_zone_title =
-        nullif(v_requested_latest_title, ''),
+  set latest_zone_title = nullif(v_requested_latest_title, ''),
       updated_at = v_now
   where editorial.matchday_id = p_matchday_id;
 
@@ -118,8 +106,7 @@ begin
   if v_title_changed
     and v_final_revision = p_expected_revision
   then
-    update public.matchday_editorial_profile_reconcile_control
-      as control_row
+    update public.matchday_editorial_profile_reconcile_control as control_row
     set revision = control_row.revision + 1,
         last_applied_at = v_now,
         updated_at = v_now
@@ -145,17 +132,49 @@ end;
 $function$;
 
 revoke all on function public.apply_matchday_editorial_profile_workspace_v4(
-  uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb
+  uuid,
+  text,
+  bigint,
+  text,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb
 ) from public;
 
 revoke all on function public.apply_matchday_editorial_profile_workspace_v4(
-  uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb
+  uuid,
+  text,
+  bigint,
+  text,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb
 ) from anon;
 
 revoke all on function public.apply_matchday_editorial_profile_workspace_v4(
-  uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb
+  uuid,
+  text,
+  bigint,
+  text,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb
 ) from authenticated;
 
 grant execute on function public.apply_matchday_editorial_profile_workspace_v4(
-  uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb
+  uuid,
+  text,
+  bigint,
+  text,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb,
+  jsonb
 ) to service_role;

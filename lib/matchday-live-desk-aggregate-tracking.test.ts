@@ -11,11 +11,11 @@ import {
 } from "@/lib/editorial-matchday-profile-desk";
 
 const migration = readFileSync(
-  "supabase/migrations/20260902110327_matchday_live_desk_aggregate_tracking_reader.sql",
+  "supabase/migrations/20260902121536_matchday_live_desk_aggregate_tracking_reader.sql",
   "utf8",
 );
 const explicitBankMigration = readFileSync(
-  "supabase/migrations/20260902130518_matchday_explicit_bank_displaced_semantics.sql",
+  "supabase/migrations/20260902151042_matchday_explicit_bank_displaced_semantics.sql",
   "utf8",
 );
 const reader = readFileSync("lib/editorial-matchday-profile-desk.ts", "utf8");

@@ -6,7 +6,7 @@ import test from "node:test";
 const root = process.cwd();
 const migrationPath = path.join(
   root,
-  "supabase/migrations/20260823080936_matchday_editorial_profile_workspace_opening.sql",
+  "supabase/migrations/20260823095712_matchday_editorial_profile_workspace_opening.sql",
 );
 const migration = readFileSync(migrationPath, "utf8");
 const normalized = migration.toLowerCase();

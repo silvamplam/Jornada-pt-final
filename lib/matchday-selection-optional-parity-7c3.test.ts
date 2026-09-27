@@ -17,7 +17,7 @@ const route = readFileSync(
 );
 
 const migration = readFileSync(
-  "supabase/migrations/20260904001500_matchday_selection_optional_capacity.sql",
+  "supabase/migrations/20260903233122_matchday_selection_optional_capacity.sql",
   "utf8",
 );
 

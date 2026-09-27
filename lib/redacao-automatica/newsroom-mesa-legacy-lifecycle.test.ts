@@ -14,7 +14,7 @@ import {
 } from "./newsroom-operational-desk-read-model-internal";
 
 const migration = readFileSync(
-  "supabase/migrations/20260926220638_restore_legacy_mesa_lifecycle_publications.sql",
+  "supabase/migrations/20260926224911_restore_legacy_mesa_lifecycle_publications.sql",
   "utf8",
 );
 

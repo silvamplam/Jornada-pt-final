@@ -1,0 +1,12 @@
+{
+  "verified_at": "2026-09-27T14:45:10.860Z",
+  "project": "mztkeurmeadwbgebmuvv",
+  "method": "begin read only; catalog SELECT; commit",
+  "equals_snapshot": "production-catalog.json",
+  "equal": true,
+  "tables": 145,
+  "functions": 355,
+  "history_equals_snapshot": "remote-history.json",
+  "history_entries": 143,
+  "production_mutations": 0
+}

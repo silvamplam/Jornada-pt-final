@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migrationPath = "supabase/migrations/20260912152810_mesa_production_workspace_v2_provenance.sql";
+const migrationPath = "supabase/migrations/20260912172405_mesa_production_workspace_v2_provenance.sql";
 const migration = readFileSync(migrationPath, "utf8");
 const sharedScopeMigration = readFileSync(
-  "supabase/migrations/20260912175044_mesa_workspace_shared_output_scope_v2.sql",
+  "supabase/migrations/20260912192155_mesa_workspace_shared_output_scope_v2.sql",
   "utf8",
 );
 

@@ -3,11 +3,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const correction = readFileSync(
-  "supabase/migrations/20260902130518_matchday_explicit_bank_displaced_semantics.sql",
+  "supabase/migrations/20260902151042_matchday_explicit_bank_displaced_semantics.sql",
   "utf8",
 );
 const activation = readFileSync(
-  "supabase/migrations/20260901201455_matchday_live_layout_authoritative_activation.sql",
+  "supabase/migrations/20260901210438_matchday_live_layout_authoritative_activation.sql",
   "utf8",
 );
 const reader = readFileSync("lib/editorial-matchday-profile-desk.ts", "utf8");

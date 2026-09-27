@@ -73,7 +73,6 @@ alter table public.matchday_live_layout_zones
     ) is not null
   );
 
-
 -- ============================================================
 -- 2. LEGACY PROJECTION IS OPTIONAL COMPATIBILITY
 -- ============================================================
@@ -108,7 +107,6 @@ revoke all on function
     text
   )
 from public, anon, authenticated, service_role;
-
 
 create function
 jornada_private.project_matchday_live_layout_workspace_best_effort_v20(
@@ -296,7 +294,6 @@ revoke all on function
     text
   )
 from public, anon, authenticated, service_role;
-
 
 -- ============================================================
 -- 3. V17/V18/V19 FORWARD-ONLY PHYSICAL TOPOLOGY VALIDATION
@@ -486,7 +483,6 @@ comment on function
   )
 is
   'V20 physical source validator used by v17/v18/v19. It accepts arbitrary or zero zone cardinality, sparse occupancy and optional legacy projections.';
-
 
 -- ============================================================
 -- 4. PRIVATE V20 FINAL-STATE APPLY CORE
@@ -2244,7 +2240,6 @@ comment on function
   )
 is
   'Private v20 final-state physical Apply core with atomic topology CRUD, server-enforced deleted-zone displacement and best-effort legacy derivation.';
-
 
 -- ============================================================
 -- 5. SERVICE-ROLE V20 FACADE WITH THE EXISTING VIDEO GUARD

@@ -1,4 +1,4 @@
-﻿begin;
+begin;
 
 alter function public.matchday_editorial_profile_classification_plan(uuid)
 rename to matchday_editorial_profile_classification_plan_actuality_v1;

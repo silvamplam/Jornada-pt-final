@@ -222,3 +222,4 @@ grant execute on function public.newsroom_mesa_intent_latest_article_receipts_v2
   to service_role;
 
 commit;
+

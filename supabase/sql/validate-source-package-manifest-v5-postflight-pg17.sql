@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
 -- Run on the same disposable database immediately after applying
--- 20260912173257_allow_mesa_v2_source_package_manifest_v5.sql.
+-- 20260912192043_allow_mesa_v2_source_package_manifest_v5.sql.
 do $schema_assert$
 begin
   if to_regprocedure(

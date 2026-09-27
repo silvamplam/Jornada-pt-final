@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
 -- Run on the same disposable PostgreSQL 17 database used by the paired
--- preflight, after 20260912175044_mesa_workspace_shared_output_scope_v2.sql.
+-- preflight, after 20260912192155_mesa_workspace_shared_output_scope_v2.sql.
 -- All writes below are local fixtures and are intentionally transactional.
 
 do $schema_assert$

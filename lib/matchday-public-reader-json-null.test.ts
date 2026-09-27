@@ -7,7 +7,7 @@ function source(relativePath: string): string {
 }
 
 const migration = source(
-  "supabase/migrations/20260924193000_matchday_public_reader_json_null_hotfix.sql",
+  "supabase/migrations/20260924134717_matchday_public_reader_json_null_hotfix.sql",
 );
 const physicalReader = source("lib/public-matchday-physical.ts");
 const authority = source("lib/public-matchday-editorial.ts");

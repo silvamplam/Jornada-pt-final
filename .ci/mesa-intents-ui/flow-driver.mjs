@@ -30,12 +30,12 @@ if(h.sql("select to_regclass('public.newsroom_editorial_profiles') is null;")===
 }
 // Current workspace columns and article->Bank dependencies, loaded verbatim only in this guarded fixture.
 if(h.sql("select count(*) from information_schema.columns where table_schema='public' and table_name='newsroom_editorial_dossier_article_plans' and column_name='classification_mode';")==='0'){
- for(const migration of ['20260924200000_newsroom_article_plan_output_classification_authority.sql','20260924213644_newsroom_article_plan_classification_decision.sql'])
+ for(const migration of ['20260924162021_newsroom_article_plan_output_classification_authority.sql','20260924213644_newsroom_article_plan_classification_decision.sql'])
   h.sql(readFileSync(root+'/supabase/migrations/'+migration,'utf8'));
  h.sql(`alter table public.matchday_editorial_bank_items add column if not exists classification_key text,
   add column if not exists classification_source text,add column if not exists classified_at timestamptz,
   add column if not exists continuity_revalidated_at timestamptz;`);
- const classification=readFileSync(root+'/supabase/migrations/20260831110517_matchday_editorial_bank_contextual_classification.sql','utf8').replace(/\r\n/g,'\n');
+ const classification=readFileSync(root+'/supabase/migrations/20260831155606_matchday_editorial_bank_contextual_classification.sql','utf8').replace(/\r\n/g,'\n');
  const authorizationStart=classification.indexOf('create table\njornada_private.matchday_editorial_bank_classification_authorizations');
  assert.ok(authorizationStart>0);h.sql(classification.slice(authorizationStart,classification.indexOf('-- 5. GUARDA UNIVERSAL',authorizationStart)));
  const articleBank=readFileSync(root+'/supabase/steps/73-composicao-historica-banco-automatico-apply.sql','utf8');

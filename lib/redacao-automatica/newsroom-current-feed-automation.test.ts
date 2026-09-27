@@ -5,7 +5,7 @@ import test from "node:test";
 const routePath =
   "app/api/cron/redacao-automatica/current-feed/route.ts";
 const migrationPath =
-  "supabase/migrations/20260920093500_newsroom_current_feed_automation_v1.sql";
+  "supabase/migrations/20260920104412_newsroom_current_feed_automation_v1.sql";
 const feedPath =
   "lib/redacao-automatica/newsroom-current-feed.ts";
 const registryPath =

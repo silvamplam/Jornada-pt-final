@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { assertRecordedMigration } from "./migration-test-helpers";
 
 const migration = readFileSync(
   path.join(
     process.cwd(),
-    "supabase/migrations/20260826140515_initialize_matchday_editorial_thematic_continuity_v3.sql",
+    "supabase/migrations/20260826143320_initialize_matchday_editorial_thematic_continuity_v3.sql",
   ),
   "utf8",
 );
@@ -50,8 +51,8 @@ test("2: segunda chamada é no-op absoluto", () => {
 
 test("3: mudar a composição não contorna a idempotência por source/target", () => {
   const earlyNoOp = initializer.slice(
-    initializer.indexOf("-- A completed transition"),
-    initializer.indexOf("select\n    source_matchday.season_id"),
+    initializer.indexOf("from public.matchday_editorial_continuity_transitions as transition_row"),
+    initializer.indexOf("source_matchday.season_id"),
   );
   assert.match(earlyNoOp, /source_matchday_id = p_source_matchday_id/i);
   assert.match(earlyNoOp, /target_matchday_id = p_target_matchday_id/i);
@@ -206,8 +207,8 @@ test("17: carryover v2 é limpo apenas no final e sem alterar o resto do control
   assert.doesNotMatch(setClause, /live_public_zone_order\s*=/i);
 });
 
-test("18: erro intermédio reverte também o marcador", () => {
-  assert.match(migration, /^begin;[\s\S]*commit;\s*$/i);
+test("18: marcador precede materialização e a função não captura erros", () => {
+  assertRecordedMigration("supabase/migrations/20260826143320_initialize_matchday_editorial_thematic_continuity_v3.sql");
   assert.doesNotMatch(initializer, /exception\s+when/i);
 
   const marker = initializer.indexOf(

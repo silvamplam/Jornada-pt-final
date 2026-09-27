@@ -1,0 +1,814 @@
+{
+  "nature": "Dependency snapshot for replay only, not a backdated migration",
+  "tables": [
+    {
+      "table": "public.broadcast_channels",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/schema.sql",
+          "sha256": "d7adeafdf670cca35fda7b1450f426c40219bdf03d090565f4347ffbe74776f9"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.competitions",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/schema.sql",
+          "sha256": "d7adeafdf670cca35fda7b1450f426c40219bdf03d090565f4347ffbe74776f9"
+        },
+        {
+          "file": "supabase/steps/12-fase1-limpa-pais-competicao-epoca.sql",
+          "sha256": "9cad00297c3566da3af74cb46216c2865844aaf4e74294e6a49ae413156a722e"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.countries",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/schema.sql",
+          "sha256": "d7adeafdf670cca35fda7b1450f426c40219bdf03d090565f4347ffbe74776f9"
+        },
+        {
+          "file": "supabase/steps/11-paises-e-hierarquia.sql",
+          "sha256": "3896bb7abd58aeb254746ff72443e631c12614bb43b30d2338978f51791355f0"
+        },
+        {
+          "file": "supabase/steps/12-fase1-limpa-pais-competicao-epoca.sql",
+          "sha256": "9cad00297c3566da3af74cb46216c2865844aaf4e74294e6a49ae413156a722e"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.editorial_articles",
+      "snapshot": true,
+      "source_files": [],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.editorial_contents",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/fase-conteudos-editoriais-video-reportagem-4-editorial-contents-manual.sql",
+          "sha256": "dd3cd6d26837817ee77cca6fa6745fcd8d28d26e25394aa921df165cd63adc79"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matchday_editorial_bank_items",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/fase-composicao-banco-noticias-1a.sql",
+          "sha256": "0320a2b2a86ec2f323542d19c39c3f1134349e6d8346b6e5969b4506d174420c"
+        }
+      ],
+      "omitted_columns": [
+        "automatic_eligible",
+        "continuity_source_matchday_id",
+        "continuity_source_composition_id",
+        "editorially_worked_at",
+        "classification_key",
+        "classification_source",
+        "classified_at",
+        "continuity_revalidated_at"
+      ],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matchday_editorials",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/fase-editorial-a-matchday-editorials.sql",
+          "sha256": "705b9b2c3ec35c9418e5fe66f97964e8aeab78d4bd273c8a46a72dabe3f0136c"
+        }
+      ],
+      "omitted_columns": [
+        "video_highlight_section_title"
+      ],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matchday_hierarchical_composition_slots",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/105-composicao-hierarquica-opcional-apply.sql",
+          "sha256": "a7f50fa5f7a3ae5269809465684978f7e66333730738247f4f8eb6603e15d9d6"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matchday_highlights",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/fase-editorial-d-matchday-highlights.sql",
+          "sha256": "f516ad9bb887cf2a92362ae881233496b77702fc2d00c12f507a794e81a8ebc6"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matchday_horizontal_news",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/65-editorial-faixa-horizontal-noticias-apply.sql",
+          "sha256": "dd9fd6e08eadaa438eadc426de6f4c45870d7fee44ec820fecfefa0f7e0e2487"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matchday_latest_news",
+      "snapshot": true,
+      "source_files": [],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matchday_reference_composition_items",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/fase-editorial-m-reference-compositions.sql",
+          "sha256": "34a604be1690b698f123cff1edfaa9e48355db4d7686fa1522a1dc77df561646"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matchday_reference_compositions",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/fase-editorial-m-reference-compositions.sql",
+          "sha256": "34a604be1690b698f123cff1edfaa9e48355db4d7686fa1522a1dc77df561646"
+        }
+      ],
+      "omitted_columns": [
+        "hierarchical_editorial_excerpt",
+        "hierarchical_headline_title_color",
+        "hierarchical_zone_1_title",
+        "hierarchical_zone_2_title",
+        "hierarchical_block_order",
+        "hierarchical_editorial_source_type",
+        "hierarchical_editorial_source_id",
+        "hierarchical_video_position",
+        "hierarchical_faixa_title"
+      ],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matchday_roundup_items",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/fase-editorial-e-matchday-roundup-items.sql",
+          "sha256": "bdb2c12b693052b5cb2397f8039532c29b44af4a05fd066a967121083a62036f"
+        }
+      ],
+      "omitted_columns": [
+        "match_id",
+        "youtube_video_id",
+        "youtube_channel_id",
+        "is_embeddable",
+        "source_candidate_id"
+      ],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matchdays",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/schema.sql",
+          "sha256": "d7adeafdf670cca35fda7b1450f426c40219bdf03d090565f4347ffbe74776f9"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.matches",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/schema.sql",
+          "sha256": "d7adeafdf670cca35fda7b1450f426c40219bdf03d090565f4347ffbe74776f9"
+        }
+      ],
+      "omitted_columns": [
+        "rollover_excluded"
+      ],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_article_snapshots",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/15-redacao-automatica-newsroom-apply.sql",
+          "sha256": "7340659810078d671a325af6a89c3059697a66e7e9cc232d3f10c7ebadb597b9"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_articles",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/15-redacao-automatica-newsroom-apply.sql",
+          "sha256": "7340659810078d671a325af6a89c3059697a66e7e9cc232d3f10c7ebadb597b9"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": [
+        {
+          "table": "public.newsroom_articles",
+          "name": "newsroom_articles_manual_origin_urls_check",
+          "file": "supabase/steps/39-redacao-automatica-recolha-manual-apply.sql",
+          "definition": "check (\n      (\n        source_code = 'manual_entry'\n        and original_url is null\n        and normalized_url is null\n      )\n      or (\n        source_code <> 'manual_entry'\n        and original_url is not null\n        and normalized_url is not null\n      )\n    )"
+        }
+      ]
+    },
+    {
+      "table": "public.newsroom_editorial_dossier_article_plan_sources",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigos-planeados-schema-1-aplicar.sql",
+          "sha256": "d0db66a9c62755b54c1519c5684576d92a6de905682dec0d5afb3106fcb9fc6b"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_editorial_dossier_article_plans",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigos-planeados-schema-1-aplicar.sql",
+          "sha256": "d0db66a9c62755b54c1519c5684576d92a6de905682dec0d5afb3106fcb9fc6b"
+        }
+      ],
+      "omitted_columns": [
+        "destination",
+        "update_target_editorial_article_id",
+        "image_choice",
+        "dossier_image_id",
+        "classification_key",
+        "classification_mode"
+      ],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_editorial_dossier_sources",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-schema-1-aplicar.sql",
+          "sha256": "15a35c69875f9a0df3f64ecfeb5134e01fafa23ebcd0524dfe658e38165f7c06"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_editorial_dossiers",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-schema-1-aplicar.sql",
+          "sha256": "15a35c69875f9a0df3f64ecfeb5134e01fafa23ebcd0524dfe658e38165f7c06"
+        }
+      ],
+      "omitted_columns": [
+        "preparation_key"
+      ],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_editorial_profile_versions",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/43-redacao-automatica-linha-editorial-persistente-apply.sql",
+          "sha256": "85ef238b56368d461828f7bb1c88cd33a65b3506bada2c0c030c30276acf7400"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_editorial_profiles",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/43-redacao-automatica-linha-editorial-persistente-apply.sql",
+          "sha256": "85ef238b56368d461828f7bb1c88cd33a65b3506bada2c0c030c30276acf7400"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_editorial_review_states",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/93-redacao-automatica-blocos-revisao-editorial-apply.sql",
+          "sha256": "394f849192d5c6649ef06cb08980c30b2a25f1d5f9864a26a83a69001c691f47"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_editorial_source_packages",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/53-redacao-automatica-pacotes-fontes-persistentes-apply.sql",
+          "sha256": "dc56e7f7839df0f2427a86b04d56d789f3d3f81666193664145fb80fc85ef74a"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_manual_entry_requests",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/39-redacao-automatica-recolha-manual-apply.sql",
+          "sha256": "70b1dd96a309bbd5ff691f63f528d45a092310060a938b155a681aebde50d35f"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.season_teams",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/10-participantes-epoca.sql",
+          "sha256": "3227b5219cbc16091a6d40b065e1f4b695953197e121579f32d74190cd589ea5"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.seasons",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/schema.sql",
+          "sha256": "d7adeafdf670cca35fda7b1450f426c40219bdf03d090565f4347ffbe74776f9"
+        },
+        {
+          "file": "supabase/steps/12-fase1-limpa-pais-competicao-epoca.sql",
+          "sha256": "9cad00297c3566da3af74cb46216c2865844aaf4e74294e6a49ae413156a722e"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.site_advertising_slots",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/120-publicidade-lateral-unificada-apply.sql",
+          "sha256": "ea0ff64719ef361c327e9cc1c762db4055938b886edcbbb77c1d1e98983176d3"
+        }
+      ],
+      "omitted_columns": [
+        "display_format"
+      ],
+      "original_constraints": []
+    },
+    {
+      "table": "public.site_editorial_highlights",
+      "snapshot": true,
+      "source_files": [],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.site_editorial_horizontal_news",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/65-editorial-faixa-horizontal-noticias-apply.sql",
+          "sha256": "dd9fd6e08eadaa438eadc426de6f4c45870d7fee44ec820fecfefa0f7e0e2487"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.site_editorial_latest_news",
+      "snapshot": true,
+      "source_files": [],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.site_editorials",
+      "snapshot": true,
+      "source_files": [],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.team_aliases",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/fase-importador-jogos-team-aliases.sql",
+          "sha256": "72d585c3278dedef7cd397d9f970485f50750566822a54f1356551edaf487abb"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.teams",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/schema.sql",
+          "sha256": "d7adeafdf670cca35fda7b1450f426c40219bdf03d090565f4347ffbe74776f9"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.articles",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/schema.sql",
+          "sha256": "d7adeafdf670cca35fda7b1450f426c40219bdf03d090565f4347ffbe74776f9"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.newsroom_editorial_review_batches",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/steps/93-redacao-automatica-blocos-revisao-editorial-apply.sql",
+          "sha256": "394f849192d5c6649ef06cb08980c30b2a25f1d5f9864a26a83a69001c691f47"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.portal_permissions",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/portal-escolas-schema-1-20260626.sql",
+          "sha256": "34acda9a7adbd64d77d35b4ce7e1321c9243dfdb25a08e2bedf16d1b2ddcb4b4"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.portal_users",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/portal-escolas-auth-schema-1-20260626.sql",
+          "sha256": "33cbfb62f816b1f946215456910ea3ae28768f612b63938b918c7ce18a1d041b"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.site_editorial_roundup_items",
+      "snapshot": true,
+      "source_files": [],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.portal_access_profiles",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/portal-escolas-schema-1-20260626.sql",
+          "sha256": "34acda9a7adbd64d77d35b4ce7e1321c9243dfdb25a08e2bedf16d1b2ddcb4b4"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.portal_competitions",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/portal-escolas-schema-1-20260626.sql",
+          "sha256": "34acda9a7adbd64d77d35b4ce7e1321c9243dfdb25a08e2bedf16d1b2ddcb4b4"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.portal_contexts",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/portal-escolas-schema-1-20260626.sql",
+          "sha256": "34acda9a7adbd64d77d35b4ce7e1321c9243dfdb25a08e2bedf16d1b2ddcb4b4"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.portal_entities",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/portal-escolas-schema-1-20260626.sql",
+          "sha256": "34acda9a7adbd64d77d35b4ce7e1321c9243dfdb25a08e2bedf16d1b2ddcb4b4"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.portal_modalities",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/portal-escolas-multidesporto-schema-proposta-1-20260628.sql",
+          "sha256": "961a111f5c1a0c28ab7b7abc8b3320aa65abcb04d94c61745dde2881f42f739e"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    },
+    {
+      "table": "public.portal_modality_catalog",
+      "snapshot": true,
+      "source_files": [
+        {
+          "file": "supabase/sql/portal-escolas-multidesporto-schema-proposta-1-20260628.sql",
+          "sha256": "961a111f5c1a0c28ab7b7abc8b3320aa65abcb04d94c61745dde2881f42f739e"
+        }
+      ],
+      "omitted_columns": [],
+      "original_constraints": []
+    }
+  ],
+  "functions": [
+    {
+      "schema": "public",
+      "name": "remove_deleted_editorial_source_from_matchday_bank",
+      "identity": "",
+      "source": "supabase/steps/85-composicao-historica-limpeza-total-origem-eliminada-apply.sql"
+    },
+    {
+      "schema": "public",
+      "name": "sync_matchday_zone_row_to_bank",
+      "identity": "",
+      "source": "supabase/steps/117-composicao-banco-identidade-canonica-apply.sql"
+    },
+    {
+      "schema": "public",
+      "name": "activate_matchday_reference_composition",
+      "identity": "p_matchday_id uuid, p_composition_id uuid, p_publish_draft boolean",
+      "source": "supabase/steps/113-composicao-hierarquica-destaque-video-apply.sql"
+    },
+    {
+      "schema": "public",
+      "name": "sync_matchday_zone_publication_to_bank",
+      "identity": "p_matchday_id uuid, p_link_url text",
+      "source": "supabase/steps/117-composicao-banco-identidade-canonica-apply.sql"
+    },
+    {
+      "schema": "public",
+      "name": "upsert_matchday_editorial_bank_publication",
+      "identity": "p_matchday_id uuid, p_source_type text, p_source_id text, p_source_slug text, p_label text, p_title text, p_subtitle text, p_image_url text, p_link_url text",
+      "source": "supabase/steps/117-composicao-banco-identidade-canonica-apply.sql"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_protect_editorial_dossier_source_frozen_identity",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_protect_editorial_plan_profile_pin",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_protect_editorial_profile",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_reject_editorial_profile_version_mutation",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_reject_snapshot_mutation",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_save_editorial_dossier_article_plan",
+      "identity": "p_dossier_id uuid, p_article_plan_id uuid, p_working_title text, p_status text, p_sort_order integer, p_article_kind text, p_length_mode text, p_editorial_instructions text, p_dossier_source_ids uuid[]",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_set_article_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "newsroom_set_editorial_dossier_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "normalize_team_identity_v1",
+      "identity": "p_value text",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "portal_can_select_scope",
+      "identity": "target_portal_entity_id uuid, target_portal_context_id uuid, target_portal_competition_id uuid",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "rls_auto_enable",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_editorial_contents_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_matchday_editorial_bank_items_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_matchday_hierarchical_composition_slots_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_matchday_reference_composition_items_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_matchday_reference_compositions_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "sync_match_scheduled_date",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "sync_published_editorial_source_to_matchday_bank",
+      "identity": "",
+      "source": "production-catalog.json"
+    },
+    {
+      "schema": "public",
+      "name": "set_site_editorial_updated_at",
+      "identity": "",
+      "source": "production-catalog.json"
+    }
+  ],
+  "excluded_tables": [
+    "public.goals",
+    "public.headlines",
+    "public.live_updates",
+    "public.match_events",
+    "public.newsroom_editorial_compose_requests",
+    "public.newsroom_editorial_dossier_article_plan_generations",
+    "public.newsroom_editorial_profile_activation_events",
+    "public.newsroom_editorial_review_batch_items",
+    "public.players",
+    "public.portal_audit_events",
+    "public.portal_competition_categories",
+    "public.portal_competition_format_catalog",
+    "public.portal_competition_formats",
+    "public.portal_competition_participants",
+    "public.portal_content_submissions",
+    "public.portal_event_participants",
+    "public.portal_events",
+    "public.portal_games",
+    "public.portal_participants",
+    "public.portal_ranking_entries",
+    "public.portal_rankings",
+    "public.portal_result_entries",
+    "public.portal_results",
+    "public.portal_stages",
+    "public.site_featured_matches",
+    "public.standing_rows",
+    "public.standings",
+    "public.team_alias_audit_events",
+    "public.team_deletion_audit_events",
+    "public.team_public_name_audit_events"
+  ],
+  "excluded_functions": [
+    "public.manage_team_alias(p_action text, p_actor_type text, p_actor_reference text, p_source text, p_team_alias_id uuid, p_team_id uuid, p_alias text, p_request_reference text)",
+    "public.manage_team_alias_batch(p_country_id uuid, p_rows jsonb, p_apply boolean, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+    "public.manage_team_creation_batch(p_country_id uuid, p_rows jsonb, p_apply boolean, p_confirmed_preview_fingerprint text, p_confirmed_complete_existing_lines jsonb, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+    "public.manage_team_public_name(p_team_id uuid, p_public_name text, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+    "public.manage_team_safe_deletion(p_team_id uuid, p_apply boolean, p_confirmed_preview_fingerprint text, p_confirmed_action text, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+    "public.newsroom_activate_editorial_profile_version(p_profile_id uuid, p_version_id uuid, p_expected_active_version_id uuid, p_event_type text, p_reason text, p_created_by_actor_type text, p_created_by_actor_id text)",
+    "public.newsroom_apply_editorial_dossier_article_plan_generation(p_dossier_id uuid, p_article_plan_id uuid, p_editorial_article_id uuid, p_expected_article_updated_at timestamp with time zone, p_generated_body text, p_provider text, p_model text, p_prompt_version text, p_provider_response_id text, p_input_hash text, p_input_snapshot jsonb, p_input_tokens integer, p_output_tokens integer, p_total_tokens integer)",
+    "public.newsroom_apply_editorial_review(p_action text, p_items jsonb)",
+    "public.newsroom_apply_generated_article(p_dossier_id uuid, p_article_plan_id uuid, p_editorial_article_id uuid, p_expected_article_updated_at timestamp with time zone, p_generated_title text, p_generated_post_title text, p_image_url text, p_generated_body text, p_provider text, p_model text, p_prompt_version text, p_provider_response_id text, p_input_hash text, p_input_snapshot jsonb, p_input_tokens integer, p_output_tokens integer, p_total_tokens integer)",
+    "public.newsroom_claim_editorial_compose_generation(p_submission_id uuid, p_request_fingerprint text, p_claim_token uuid)",
+    "public.newsroom_complete_editorial_compose_generation(p_submission_id uuid, p_request_fingerprint text, p_claim_token uuid)",
+    "public.newsroom_create_complete_manual_entry(p_submission_id uuid, p_request_fingerprint text, p_ante_title text, p_title text, p_post_title text, p_author text, p_body jsonb, p_published_date text, p_published_time text, p_image_url text, p_content_hash text)",
+    "public.newsroom_create_editorial_dossier_article_plan_draft(p_dossier_id uuid, p_article_plan_id uuid)",
+    "public.newsroom_create_editorial_profile_version(p_profile_id uuid, p_based_on_version_id uuid, p_expected_latest_version_number integer, p_document_text text, p_content_hash text, p_change_summary text, p_created_by_actor_type text, p_created_by_actor_id text)",
+    "public.newsroom_create_manual_entry(p_submission_id uuid, p_request_fingerprint text, p_title text, p_body jsonb, p_published_date text, p_image_url text, p_content_hash text)",
+    "public.newsroom_fail_editorial_compose_generation(p_submission_id uuid, p_request_fingerprint text, p_claim_token uuid, p_error_code text)",
+    "public.newsroom_persist_article_snapshot(p_source_code text, p_original_url text, p_normalized_url text, p_external_id text, p_title text, p_subtitle text, p_summary text, p_author text, p_published_at timestamp with time zone, p_modified_at timestamp with time zone, p_detected_at timestamp with time zone, p_image_url text, p_processing_status text, p_content_hash text, p_body jsonb, p_source_metadata jsonb, p_extracted_at timestamp with time zone)",
+    "public.newsroom_pin_editorial_profile_version_for_plan(p_dossier_id uuid, p_plan_id uuid)",
+    "public.newsroom_prepare_editorial_compose(p_submission_id uuid, p_request_fingerprint text, p_working_title text, p_editorial_instructions text, p_context_instructions text, p_article_kind text, p_length_mode text, p_output_language text, p_newsroom_article_ids uuid[], p_newsroom_snapshot_ids uuid[], p_source_roles text[], p_source_priorities integer[], p_source_notes text[])",
+    "public.newsroom_reject_editorial_generation_mutation()",
+    "public.newsroom_reject_editorial_profile_activation_event_mutation()",
+    "public.portal_create_competition(p_portal_modality_id uuid, p_name text, p_slug text, p_scope text, p_format text, p_status text)",
+    "public.portal_create_competition_event(p_portal_competition_id uuid, p_name text, p_portal_stage_id uuid, p_type text, p_event_order integer, p_scheduled_at timestamp with time zone, p_venue text, p_notes text, p_participant_ids uuid[], p_status text)",
+    "public.portal_create_competition_format(p_portal_competition_id uuid, p_catalog_format_id uuid, p_name text, p_code text, p_format_scope text, p_format_family text, p_event_model text, p_result_model text, p_ranking_model text, p_notes text, p_status text)",
+    "public.portal_create_competition_participant(p_portal_competition_id uuid, p_name text, p_type text, p_group_label text, p_seed_order integer, p_external_reference text, p_notes text, p_status text, p_registration_status text)",
+    "public.portal_create_competition_structure(p_portal_competition_id uuid, p_name text, p_type text, p_stage_order integer, p_scheduled_date date, p_status text)",
+    "public.portal_create_content_submission(p_portal_competition_id uuid, p_type text, p_title text, p_summary text, p_body text, p_media_url text, p_portal_stage_id uuid, p_portal_event_id uuid, p_portal_participant_id uuid)",
+    "public.portal_create_modality(p_portal_context_id uuid, p_catalog_code text, p_name text, p_slug text, p_local_code text, p_status text, p_notes text)",
+    "public.portal_recalculate_competition_ranking(p_portal_competition_id uuid, p_portal_ranking_id uuid)",
+    "public.portal_recalculate_demo_competition_ranking()",
+    "public.portal_upsert_result_entry(p_portal_event_id uuid, p_portal_participant_id uuid, p_score_text text, p_score_numeric numeric, p_points numeric, p_outcome text, p_result_status text)",
+    "public.prevent_team_deletion_audit_event_mutation()"
+  ]
+}

@@ -21,8 +21,8 @@ execute, load, val, uid = (base[x] for x in ('execute', 'load', 'val', 'uid'))
 prepare, preview, request = (base[x] for x in ('prepare', 'preview', 'request'))
 expect_error, test, report = (base[x] for x in ('expect_error', 'test', 'report'))
 ROOT, args, RESULTS = (base[x] for x in ('ROOT', 'args', 'RESULTS'))
-MIGRATION = 'supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql'
-HOTFIX = 'supabase/migrations/20260918145300_newsroom_mesa_intent_update_revision_hotfix.sql'
+MIGRATION = 'supabase/migrations/20260918141330_newsroom_mesa_intent_publication_v1.sql'
+HOTFIX = 'supabase/migrations/20260918152310_newsroom_mesa_intent_update_revision_hotfix.sql'
 ARTICLE_CONTINUITY = 'supabase/migrations/20260919014344_newsroom_mesa_article_continuity_v2.sql'
 REVIEWED_SOURCE_MEMORY = 'supabase/sql/candidate-newsroom-mesa-reviewed-source-memory-v1.sql'
 
@@ -74,7 +74,7 @@ for name in ('jornada_private.begin_matchday_live_layout_downstream_v14',
              'public.refresh_matchday_live_layout_legacy'):
     execute(f"""create function {name}(uuid) returns void language plpgsql as $$
       begin raise exception 'physical-layout-projection-outside-this-fixture'; end; $$;""")
-function_from('supabase/migrations/20260901201453_matchday_live_layout_cutover_bridge.sql',
+function_from('supabase/migrations/20260901205409_matchday_live_layout_cutover_bridge.sql',
               'jornada_private.acquire_matchday_live_layout_cutover_writer_lock')
 for name in ('jornada_private.refresh_editorial_article_carryover_snapshot_v15',
              'public.sync_editorial_article_live_snapshots_v15'):

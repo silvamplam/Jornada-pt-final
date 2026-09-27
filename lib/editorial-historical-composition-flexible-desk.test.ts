@@ -25,7 +25,7 @@ const renderer = readFileSync(
 );
 const profiles = readFileSync("lib/editorial-profiles.ts", "utf8");
 const migrationPath =
-  "supabase/migrations/20260825145814_historical_composition_workspace.sql";
+  "supabase/migrations/20260826050409_historical_composition_workspace.sql";
 const migration = readFileSync(migrationPath, "utf8");
 
 test("a rota abre diretamente uma única Mesa hierárquica e conserva o legacy apenas internamente", () => {

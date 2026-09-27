@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
 -- Run on a disposable PostgreSQL 17 database immediately after
--- 20260914074012_newsroom_mesa_scoped_read_model_v1.sql.
+-- 20260914172949_newsroom_mesa_scoped_read_model_v1.sql.
 
 begin;
 

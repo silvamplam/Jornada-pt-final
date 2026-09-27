@@ -1,17 +1,18 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { sqlIndexOf } from "./migration-test-helpers";
 
 const migration = readFileSync(
-  "supabase/migrations/20260831110517_matchday_editorial_bank_contextual_classification.sql",
+  "supabase/migrations/20260831155606_matchday_editorial_bank_contextual_classification.sql",
   "utf8",
 );
 
 function section(startNeedle: string, endNeedle: string): string {
-  const start = migration.indexOf(startNeedle);
+  const start = sqlIndexOf(migration, startNeedle);
   assert.ok(start >= 0, `secao inicial nao encontrada: ${startNeedle}`);
 
-  const end = migration.indexOf(endNeedle, start + startNeedle.length);
+  const end = sqlIndexOf(migration, endNeedle, start + 1);
   assert.ok(end > start, `secao final nao encontrada: ${endNeedle}`);
 
   return migration.slice(start, end);
@@ -46,7 +47,7 @@ test("backfill automatico e continuidade sao validados antes do cutover", () => 
   const continuityBackfill = migration.indexOf(
     "classification_source = 'continuity_assisted'",
   );
-  const publicCutover = migration.indexOf(
+  const publicCutover = sqlIndexOf(migration,
     "create or replace function\npublic.matchday_editorial_profile_classification_plan(",
   );
 
@@ -199,7 +200,7 @@ test("writer interno preserva manual e continuidade materializada", () => {
 test("materializador agrupa bank rows e inclui matchday", () => {
   const body = section(
     "create or replace function\npublic.materialize_matchday_editorial_bank_contextual_classification()",
-    "-- ============================================================\n-- 8. INVALIDACAO DOS INPUTS SEMANTICOS",
+    "create function jornada_private.refresh_automatic_classifications_for_seasons(",
   );
 
   assert.match(
@@ -344,7 +345,7 @@ test("todos os inputs semanticos mutaveis possuem refresh dirigido", () => {
 test("reader publico projeta classification_key persistida", () => {
   const body = section(
     "create or replace function\npublic.matchday_editorial_profile_classification_plan(",
-    "-- Continuidade deixa de percorrer",
+    "create or replace function public.matchday_editorial_profile_continuity_classification_plan(",
   );
 
   assert.match(body, /bank_row\.classification_key as classified_zone_key/);

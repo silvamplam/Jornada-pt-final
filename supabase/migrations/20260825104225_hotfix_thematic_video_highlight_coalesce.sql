@@ -10,32 +10,15 @@ begin
 
   v_count := (
     pg_catalog.length(v_def)
-    - pg_catalog.length(
-        pg_catalog.replace(
-          v_def,
-          'pg_catalog.coalesce',
-          ''
-        )
-      )
+    - pg_catalog.length(pg_catalog.replace(v_def, 'pg_catalog.coalesce', ''))
   ) / pg_catalog.length('pg_catalog.coalesce');
 
   if v_count <> 1 then
-    raise exception
-      'hotfix-v6-qualified-coalesce-count-%',
-      v_count;
+    raise exception 'hotfix-v6-qualified-coalesce-count-%', v_count;
   end if;
 
-  v_def := pg_catalog.replace(
-    v_def,
-    'pg_catalog.coalesce',
-    'coalesce'
-  );
-
-  v_def := pg_catalog.regexp_replace(
-    v_def,
-    E';\\s*$',
-    ''
-  );
+  v_def := pg_catalog.replace(v_def, 'pg_catalog.coalesce', 'coalesce');
+  v_def := pg_catalog.regexp_replace(v_def, E';\\s*$', '');
 
   execute v_def;
 end;

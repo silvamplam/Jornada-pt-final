@@ -119,8 +119,6 @@ begin
   where marker_row.matchday_id = p_source_matchday_id;
 
   if found then
-    -- Marker presence chooses physical before validation. A broken physical
-    -- source raises here and can never be retried through legacy v6.
     perform
       jornada_private.assert_matchday_live_layout_physical_topology_source_v17(
         p_source_matchday_id,
@@ -130,9 +128,6 @@ begin
     return 'physical';
   end if;
 
-  -- Zones/blocks/projection alone are the legitimate pre-cutover shadow.
-  -- Settings, physical certificates, or an unprojected zone are evidence of
-  -- partial physical authority and therefore fail closed without fallback.
   if exists (
     select 1
     from public.matchday_live_layout_workspace_settings as settings_row
@@ -184,10 +179,6 @@ comment on function
 is
   'Single marker-aware dispatcher: coherent cutover sources are physical; genuine pre-cutover shadow sources are legacy; partial physical evidence raises and never falls back.';
 
-
--- Source preservation excludes desk-control deliberately: physical retirement
--- changes only its operational ownership fields. Every physical/content row is
--- otherwise hashed before and after retirement and stored in the certificate.
 create function
 jornada_private.matchday_live_layout_physical_archive_hash_v19(
   p_matchday_id uuid
@@ -226,8 +217,7 @@ as $function$
     'projection', coalesce((
       select pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_value)
         order by row_value.zone_id)
-      from jornada_private.matchday_live_layout_zone_legacy_projection
-        as row_value
+      from jornada_private.matchday_live_layout_zone_legacy_projection as row_value
       where row_value.matchday_id = p_matchday_id
     ), '[]'::jsonb),
     'assignment', coalesce((
@@ -315,11 +305,6 @@ revoke all on function
   jornada_private.matchday_live_layout_physical_archive_hash_v19(uuid)
 from public, anon, authenticated, service_role;
 
-
--- ============================================================
--- 3. POST-CARRYOVER PHYSICAL CERTIFICATE VALIDATOR
--- ============================================================
-
 create function
 jornada_private.assert_matchday_live_layout_physical_handoff_ready_v19(
   p_source_matchday_id uuid,
@@ -336,8 +321,7 @@ set search_path = ''
 as $function$
 declare
   v_profile_key text;
-  v_carryover
-    jornada_private.matchday_live_layout_physical_carryovers%rowtype;
+  v_carryover jornada_private.matchday_live_layout_physical_carryovers%rowtype;
   v_target_state_token text;
 begin
   if p_source_matchday_id is null
@@ -352,8 +336,7 @@ begin
 
   select topology_row.profile_key
   into v_profile_key
-  from jornada_private.matchday_live_layout_physical_topology_transitions
-    as topology_row
+  from jornada_private.matchday_live_layout_physical_topology_transitions as topology_row
   where topology_row.id = p_topology_transition_id
     and topology_row.source_matchday_id = p_source_matchday_id
     and topology_row.target_matchday_id = p_target_matchday_id;
@@ -364,8 +347,7 @@ begin
 
   select carryover_row.*
   into v_carryover
-  from jornada_private.matchday_live_layout_physical_carryovers
-    as carryover_row
+  from jornada_private.matchday_live_layout_physical_carryovers as carryover_row
   where carryover_row.id = p_carryover_id
     and carryover_row.topology_transition_id = p_topology_transition_id
     and carryover_row.source_matchday_id = p_source_matchday_id
@@ -388,25 +370,18 @@ begin
     raise exception 'matchday-live-layout-handoff-v19-composition-invalid';
   end if;
 
-  perform
-    jornada_private.assert_matchday_live_layout_physical_topology_source_v17(
-      p_source_matchday_id,
-      v_profile_key
-    );
-
-  perform
-    jornada_private.assert_matchday_live_layout_physical_topology_source_v17(
-      p_target_matchday_id,
-      v_profile_key
-    );
-
-  -- Compatibility is validated only as downstream output. It never
-  -- participates in topology identity, zone mapping or retirement proof.
+  perform jornada_private.assert_matchday_live_layout_physical_topology_source_v17(
+    p_source_matchday_id,
+    v_profile_key
+  );
+  perform jornada_private.assert_matchday_live_layout_physical_topology_source_v17(
+    p_target_matchday_id,
+    v_profile_key
+  );
   perform jornada_private.assert_matchday_live_layout_downstream_v14(
     p_source_matchday_id,
     v_profile_key
   );
-
   perform jornada_private.assert_matchday_live_layout_downstream_v14(
     p_target_matchday_id,
     v_profile_key
@@ -456,8 +431,7 @@ begin
           then map_row.target_zone_id else null end as zone_id,
         source_block.sort_order
       from public.matchday_live_layout_blocks as source_block
-      left join jornada_private.matchday_live_layout_physical_zone_maps
-        as map_row
+      left join jornada_private.matchday_live_layout_physical_zone_maps as map_row
         on map_row.topology_transition_id = p_topology_transition_id
        and map_row.source_zone_id = source_block.zone_id
       where source_block.matchday_id = p_source_matchday_id
@@ -529,11 +503,9 @@ begin
         target_bank.id is null
         or target_bank.id = source_bank.id
         or pg_catalog.lower(pg_catalog.btrim(target_bank.source_type))
-             is distinct from
-           pg_catalog.lower(pg_catalog.btrim(source_bank.source_type))
+             is distinct from pg_catalog.lower(pg_catalog.btrim(source_bank.source_type))
         or pg_catalog.lower(pg_catalog.btrim(target_bank.source_id))
-             is distinct from
-           pg_catalog.lower(pg_catalog.btrim(source_bank.source_id))
+             is distinct from pg_catalog.lower(pg_catalog.btrim(source_bank.source_id))
         or target_bank.status <> 'active'
         or pg_catalog.lower(pg_catalog.btrim(source_bank.status)) <> 'active'
         or target_bank.automatic_eligible
@@ -544,20 +516,15 @@ begin
         or target_bank.image_url is distinct from source_bank.image_url
         or target_bank.link_url is distinct from source_bank.link_url
         or target_bank.source_slug is distinct from source_bank.source_slug
-        or target_bank.origin_slot_type is distinct from
-            source_bank.origin_slot_type
+        or target_bank.origin_slot_type is distinct from source_bank.origin_slot_type
         or target_bank.sort_order is distinct from source_bank.sort_order
-        or target_bank.editorially_worked_at is distinct from
-            source_bank.editorially_worked_at
-        or target_bank.classification_key is distinct from
-            source_bank.classification_key
+        or target_bank.editorially_worked_at is distinct from source_bank.editorially_worked_at
+        or target_bank.classification_key is distinct from source_bank.classification_key
         or target_bank.classification_source is distinct from case
              when source_bank.classification_key is null then null
              else 'continuity_assisted' end
-        or target_bank.continuity_source_matchday_id is distinct from
-            p_source_matchday_id
-        or target_bank.continuity_source_composition_id is distinct from
-            p_source_composition_id
+        or target_bank.continuity_source_matchday_id is distinct from p_source_matchday_id
+        or target_bank.continuity_source_composition_id is distinct from p_source_composition_id
       )
   ) then
     raise exception 'matchday-live-layout-handoff-v19-bank-drift';
@@ -601,8 +568,7 @@ begin
       join jornada_private.matchday_live_layout_physical_bank_maps as bank_map
         on bank_map.carryover_id = p_carryover_id
        and bank_map.source_bank_item_id = source_placement.bank_item_id
-      left join jornada_private.matchday_live_layout_physical_zone_maps
-        as zone_map
+      left join jornada_private.matchday_live_layout_physical_zone_maps as zone_map
         on zone_map.topology_transition_id = p_topology_transition_id
        and zone_map.source_zone_id = source_placement.zone_id
       where source_placement.matchday_id = p_source_matchday_id
@@ -648,8 +614,7 @@ begin
      and bank_map.source_bank_item_id = source_bank.id
     join public.matchday_editorial_bank_items as target_bank
       on target_bank.id = bank_map.target_bank_item_id
-    left join public.matchday_editorial_profile_manual_overrides
-      as target_override
+    left join public.matchday_editorial_profile_manual_overrides as target_override
       on target_override.matchday_id = p_target_matchday_id
      and target_override.profile_key = v_profile_key
      and pg_catalog.lower(pg_catalog.btrim(target_override.source_type)) =
@@ -795,35 +760,25 @@ begin
 
   if exists (
     select 1
-    from jornada_private.matchday_live_layout_placement_shadow_sync_queue
-      as queue_row
+    from jornada_private.matchday_live_layout_placement_shadow_sync_queue as queue_row
     where queue_row.backend_pid = pg_catalog.pg_backend_pid()
       and queue_row.transaction_id = pg_catalog.pg_current_xact_id()
-      and queue_row.matchday_id in (
-        p_source_matchday_id,
-        p_target_matchday_id
-      )
+      and queue_row.matchday_id in (p_source_matchday_id, p_target_matchday_id)
   ) or exists (
     select 1
-    from jornada_private.matchday_live_layout_downstream_context
-      as context_row
+    from jornada_private.matchday_live_layout_downstream_context as context_row
     where context_row.backend_pid = pg_catalog.pg_backend_pid()
       and context_row.transaction_id = pg_catalog.pg_current_xact_id()
-      and context_row.matchday_id in (
-        p_source_matchday_id,
-        p_target_matchday_id
-      )
+      and context_row.matchday_id in (p_source_matchday_id, p_target_matchday_id)
   ) or exists (
     select 1
-    from jornada_private.matchday_live_layout_physical_carryover_context
-      as context_row
+    from jornada_private.matchday_live_layout_physical_carryover_context as context_row
     where context_row.backend_pid = pg_catalog.pg_backend_pid()
       and context_row.transaction_id = pg_catalog.pg_current_xact_id()
       and context_row.target_matchday_id = p_target_matchday_id
   ) or exists (
     select 1
-    from jornada_private.matchday_editorial_bank_classification_authorizations
-      as authorization_row
+    from jornada_private.matchday_editorial_bank_classification_authorizations as authorization_row
     where authorization_row.backend_pid = pg_catalog.pg_backend_pid()
       and authorization_row.transaction_id = pg_catalog.pg_current_xact_id()
       and authorization_row.bank_item_id in (
@@ -843,11 +798,6 @@ revoke all on function
   )
 from public, anon, authenticated, service_role;
 
-
--- ============================================================
--- 4. NON-DESTRUCTIVE PHYSICAL OWNERSHIP SWITCH
--- ============================================================
-
 create function
 jornada_private.retire_matchday_live_layout_physical_source_v19(
   p_source_matchday_id uuid,
@@ -864,14 +814,13 @@ security definer
 set search_path = ''
 as $function$
 begin
-  perform
-    jornada_private.assert_matchday_live_layout_physical_handoff_ready_v19(
-      p_source_matchday_id,
-      p_target_matchday_id,
-      p_source_composition_id,
-      p_topology_transition_id,
-      p_carryover_id
-    );
+  perform jornada_private.assert_matchday_live_layout_physical_handoff_ready_v19(
+    p_source_matchday_id,
+    p_target_matchday_id,
+    p_source_composition_id,
+    p_topology_transition_id,
+    p_carryover_id
+  );
 
   if p_source_archive_hash is null
     or jornada_private.matchday_live_layout_physical_archive_hash_v19(
@@ -899,10 +848,6 @@ begin
     raise exception 'matchday-live-layout-handoff-v19-desk-precondition';
   end if;
 
-  -- The partial unique index permits only one live matchday per season. The
-  -- ownership writes therefore occur in this order, after all target proofs.
-  -- The exclusive transaction barrier makes the internal both-off instant
-  -- unobservable and rollback restores the source on any later failure.
   update public.matchday_editorial_desk_control as source_desk
   set is_managed = false,
       carryover_source_composition_id = null,
@@ -934,8 +879,7 @@ begin
       carryover_snapshot = null,
       updated_at = excluded.updated_at
   where not public.matchday_editorial_desk_control.is_managed
-    and public.matchday_editorial_desk_control
-          .carryover_source_composition_id is null
+    and public.matchday_editorial_desk_control.carryover_source_composition_id is null
     and public.matchday_editorial_desk_control.carryover_snapshot is null;
 
   if not found then
@@ -957,7 +901,6 @@ revoke all on function
   )
 from public, anon, authenticated, service_role;
 
-
 create function
 jornada_private.assert_matchday_live_layout_physical_handoff_complete_v19(
   p_source_matchday_id uuid,
@@ -971,8 +914,7 @@ security definer
 set search_path = ''
 as $function$
 declare
-  v_handoff
-    jornada_private.matchday_live_layout_physical_handoffs%rowtype;
+  v_handoff jornada_private.matchday_live_layout_physical_handoffs%rowtype;
   v_current_token text;
 begin
   select handoff_row.*
@@ -986,14 +928,13 @@ begin
     raise exception 'matchday-live-layout-handoff-v19-certificate-missing';
   end if;
 
-  perform
-    jornada_private.assert_matchday_live_layout_physical_handoff_ready_v19(
-      p_source_matchday_id,
-      p_target_matchday_id,
-      p_source_composition_id,
-      v_handoff.topology_transition_id,
-      v_handoff.carryover_id
-    );
+  perform jornada_private.assert_matchday_live_layout_physical_handoff_ready_v19(
+    p_source_matchday_id,
+    p_target_matchday_id,
+    p_source_composition_id,
+    v_handoff.topology_transition_id,
+    v_handoff.carryover_id
+  );
 
   if not exists (
     select 1
@@ -1052,11 +993,6 @@ revoke all on function
   )
 from public, anon, authenticated, service_role;
 
-
--- ============================================================
--- 5. SHARED PHYSICAL NORMAL/RECOVERY CORE
--- ============================================================
-
 create function
 jornada_private.materialize_matchday_live_layout_physical_handoff_v19(
   p_source_matchday_id uuid,
@@ -1083,8 +1019,7 @@ declare
   v_carryover_id uuid;
   v_source_archive_hash text;
   v_target_state_token text;
-  v_existing_handoff
-    jornada_private.matchday_live_layout_physical_handoffs%rowtype;
+  v_existing_handoff jornada_private.matchday_live_layout_physical_handoffs%rowtype;
   v_outcome text;
 begin
   if p_source_matchday_id is null
@@ -1096,9 +1031,6 @@ begin
     raise exception 'matchday-live-layout-handoff-v19-invalid-envelope';
   end if;
 
-  -- One exclusive acquisition for the orchestration. v17/v18 re-enter the
-  -- same transaction-scoped advisory lock; PostgreSQL advisory locks are
-  -- session-reentrant. No second lock family is introduced.
   perform jornada_private.acquire_matchday_live_desk_handoff_lock();
   perform jornada_private.acquire_matchday_live_layout_cutover_core_lock();
 
@@ -1153,8 +1085,7 @@ begin
   if found then
     if v_existing_handoff.source_matchday_id <> p_source_matchday_id
       or v_existing_handoff.target_matchday_id <> p_target_matchday_id
-      or v_existing_handoff.source_composition_id <>
-         p_source_composition_id
+      or v_existing_handoff.source_composition_id <> p_source_composition_id
     then
       raise exception 'matchday-live-layout-handoff-v19-certificate-conflict';
     end if;
@@ -1163,17 +1094,15 @@ begin
       raise exception 'matchday-live-layout-handoff-v19-already-complete';
     end if;
 
-    perform
-      jornada_private.assert_matchday_live_layout_physical_handoff_complete_v19(
-        p_source_matchday_id,
-        p_target_matchday_id,
-        p_source_composition_id
-      );
+    perform jornada_private.assert_matchday_live_layout_physical_handoff_complete_v19(
+      p_source_matchday_id,
+      p_target_matchday_id,
+      p_source_composition_id
+    );
 
     select carryover_row.*
     into v_carryover
-    from jornada_private.matchday_live_layout_physical_carryovers
-      as carryover_row
+    from jornada_private.matchday_live_layout_physical_carryovers as carryover_row
     where carryover_row.id = v_existing_handoff.carryover_id;
 
     return pg_catalog.jsonb_build_object(
@@ -1182,8 +1111,7 @@ begin
       'publishedCompositionId', p_source_composition_id,
       'sourceMatchdayId', p_source_matchday_id,
       'nextMatchdayId', p_target_matchday_id,
-      'topologyTransitionId',
-        v_existing_handoff.topology_transition_id,
+      'topologyTransitionId', v_existing_handoff.topology_transition_id,
       'carryoverId', v_existing_handoff.carryover_id,
       'handoffId', v_existing_handoff.id,
       'carryoverApplied', true,
@@ -1193,13 +1121,10 @@ begin
       'inheritedBankCount', v_carryover.inherited_bank_count,
       'inheritedZoneCount', (
         select pg_catalog.count(*)
-        from jornada_private.matchday_live_layout_physical_zone_maps
-          as map_row
-        where map_row.topology_transition_id =
-              v_existing_handoff.topology_transition_id
+        from jornada_private.matchday_live_layout_physical_zone_maps as map_row
+        where map_row.topology_transition_id = v_existing_handoff.topology_transition_id
       ),
-      'inheritedPlacementCount',
-        v_carryover.inherited_placement_count,
+      'inheritedPlacementCount', v_carryover.inherited_placement_count,
       'inheritedLatestCount', v_carryover.inherited_latest_count,
       'inheritedRoundupCount', v_carryover.inherited_roundup_count,
       'stateToken', v_existing_handoff.target_state_token
@@ -1250,26 +1175,23 @@ begin
   if v_operation = 'normal' then
     if exists (
       select 1
-      from jornada_private.matchday_live_layout_physical_topology_transitions
-        as topology_row
+      from jornada_private.matchday_live_layout_physical_topology_transitions as topology_row
       where topology_row.source_matchday_id = p_source_matchday_id
          or topology_row.target_matchday_id = p_target_matchday_id
     ) or exists (
       select 1
-      from jornada_private.matchday_live_layout_physical_carryovers
-        as carryover_row
+      from jornada_private.matchday_live_layout_physical_carryovers as carryover_row
       where carryover_row.source_matchday_id = p_source_matchday_id
          or carryover_row.target_matchday_id = p_target_matchday_id
     ) then
       raise exception 'matchday-live-layout-handoff-v19-normal-not-virgin';
     end if;
 
-    p_source_composition_id :=
-      public.activate_matchday_reference_composition(
-        p_source_matchday_id,
-        p_source_composition_id,
-        true
-      );
+    p_source_composition_id := public.activate_matchday_reference_composition(
+      p_source_matchday_id,
+      p_source_composition_id,
+      true
+    );
 
     select *
     into v_topology
@@ -1305,8 +1227,7 @@ begin
 
     select topology_row.id
     into v_topology_id
-    from jornada_private.matchday_live_layout_physical_topology_transitions
-      as topology_row
+    from jornada_private.matchday_live_layout_physical_topology_transitions as topology_row
     where topology_row.source_matchday_id = p_source_matchday_id
       and topology_row.target_matchday_id = p_target_matchday_id
       and topology_row.profile_key = v_profile_key;
@@ -1317,8 +1238,7 @@ begin
 
     select carryover_row.*
     into v_carryover
-    from jornada_private.matchday_live_layout_physical_carryovers
-      as carryover_row
+    from jornada_private.matchday_live_layout_physical_carryovers as carryover_row
     where carryover_row.source_matchday_id = p_source_matchday_id
       and carryover_row.target_matchday_id = p_target_matchday_id;
 
@@ -1344,19 +1264,17 @@ begin
     end if;
   end if;
 
-  perform
-    jornada_private.assert_matchday_live_layout_physical_handoff_ready_v19(
-      p_source_matchday_id,
-      p_target_matchday_id,
-      p_source_composition_id,
-      v_topology_id,
-      v_carryover_id
-    );
+  perform jornada_private.assert_matchday_live_layout_physical_handoff_ready_v19(
+    p_source_matchday_id,
+    p_target_matchday_id,
+    p_source_composition_id,
+    v_topology_id,
+    v_carryover_id
+  );
 
-  v_source_archive_hash :=
-    jornada_private.matchday_live_layout_physical_archive_hash_v19(
-      p_source_matchday_id
-    );
+  v_source_archive_hash := jornada_private.matchday_live_layout_physical_archive_hash_v19(
+    p_source_matchday_id
+  );
 
   perform jornada_private.retire_matchday_live_layout_physical_source_v19(
     p_source_matchday_id,
@@ -1411,17 +1329,15 @@ begin
   )
   returning id into v_existing_handoff.id;
 
-  perform
-    jornada_private.assert_matchday_live_layout_physical_handoff_complete_v19(
-      p_source_matchday_id,
-      p_target_matchday_id,
-      p_source_composition_id
-    );
+  perform jornada_private.assert_matchday_live_layout_physical_handoff_complete_v19(
+    p_source_matchday_id,
+    p_target_matchday_id,
+    p_source_composition_id
+  );
 
   select carryover_row.*
   into v_carryover
-  from jornada_private.matchday_live_layout_physical_carryovers
-    as carryover_row
+  from jornada_private.matchday_live_layout_physical_carryovers as carryover_row
   where carryover_row.id = v_carryover_id;
 
   return pg_catalog.jsonb_build_object(
@@ -1464,11 +1380,6 @@ comment on function
 is
   'Private shared physical normal/recovery core. Under the existing exclusive handoff barrier it composes v17 and v18, validates their certificates, atomically switches live ownership without deleting source archive state, and writes the final v19 certificate last.';
 
-
--- ============================================================
--- 6. FREEZE THE EXISTING 7B/V6 ENTRYPOINTS AS LEGACY-ONLY
--- ============================================================
-
 alter function
   public.publish_matchday_reference_composition_with_continuity(uuid, uuid)
 rename to publish_matchday_continuity_legacy_v6;
@@ -1484,7 +1395,6 @@ comment on function
   jornada_private.publish_matchday_continuity_legacy_v6(uuid, uuid)
 is
   'Frozen 7B/v6 handoff wrapper. v19 invokes it only after the explicit dispatcher proves that the source is genuinely pre-cutover legacy.';
-
 
 alter function
   public.recover_matchday_live_layout_continuity(uuid, uuid, uuid)
@@ -1503,11 +1413,6 @@ comment on function
   jornada_private.recover_matchday_continuity_legacy_v6(uuid, uuid, uuid)
 is
   'Frozen 7B/v6 recovery wrapper. v19 invokes it only for a genuinely pre-cutover legacy source.';
-
-
--- ============================================================
--- 7. PUBLIC DISPATCHERS KEEP THE HISTORICAL API
--- ============================================================
 
 create function
 public.publish_matchday_reference_composition_with_continuity(
@@ -1558,21 +1463,17 @@ begin
   order by lock_row.id
   for update;
 
-  -- Dispatch happens before either materializer is entered. Exceptions from
-  -- physical validation/materialization are never caught as legacy fallback.
-  v_authority :=
-    jornada_private.matchday_live_layout_continuity_authority_v19(
-      p_matchday_id
-    );
+  v_authority := jornada_private.matchday_live_layout_continuity_authority_v19(
+    p_matchday_id
+  );
 
   if v_authority = 'physical' then
-    return
-      jornada_private.materialize_matchday_live_layout_physical_handoff_v19(
-        p_matchday_id,
-        v_next_matchday_id,
-        p_composition_id,
-        'normal'
-      );
+    return jornada_private.materialize_matchday_live_layout_physical_handoff_v19(
+      p_matchday_id,
+      v_next_matchday_id,
+      p_composition_id,
+      'normal'
+    );
   end if;
 
   return jornada_private.publish_matchday_continuity_legacy_v6(
@@ -1594,7 +1495,6 @@ comment on function
   public.publish_matchday_reference_composition_with_continuity(uuid, uuid)
 is
   'Marker-aware continuity dispatcher. Coherent physical sources use private v19; genuine legacy sources use frozen 7B/v6; partial physical evidence fails closed before materialization.';
-
 
 create function public.recover_matchday_live_layout_continuity(
   p_source_matchday_id uuid,
@@ -1626,19 +1526,17 @@ begin
   order by lock_row.id
   for update;
 
-  v_authority :=
-    jornada_private.matchday_live_layout_continuity_authority_v19(
-      p_source_matchday_id
-    );
+  v_authority := jornada_private.matchday_live_layout_continuity_authority_v19(
+    p_source_matchday_id
+  );
 
   if v_authority = 'physical' then
-    return
-      jornada_private.materialize_matchday_live_layout_physical_handoff_v19(
-        p_source_matchday_id,
-        p_target_matchday_id,
-        p_source_composition_id,
-        'recovery'
-      ) || pg_catalog.jsonb_build_object('recovered', true);
+    return jornada_private.materialize_matchday_live_layout_physical_handoff_v19(
+      p_source_matchday_id,
+      p_target_matchday_id,
+      p_source_composition_id,
+      'recovery'
+    ) || pg_catalog.jsonb_build_object('recovered', true);
   end if;
 
   return jornada_private.recover_matchday_continuity_legacy_v6(
@@ -1661,11 +1559,6 @@ comment on function public.recover_matchday_live_layout_continuity(
   uuid, uuid, uuid
 ) is
   'Marker-aware recovery dispatcher. Physical recovery accepts only v17 topology-only, v17+v18 carryover-complete, or fully certified v19 states; all hybrids fail closed. Legacy manifest recovery is preserved only for a genuine legacy source.';
-
-
--- ============================================================
--- 8. REAL PUBLICATION ENTRYPOINT, INCLUDING SAFE REPUBLICATION
--- ============================================================
 
 create or replace function public.publish_matchday_reference_composition(
   p_matchday_id uuid,
@@ -1760,17 +1653,15 @@ begin
         raise exception 'composition_historical_physical_authority_invalid';
       end if;
 
-      perform
-        jornada_private.assert_matchday_live_layout_physical_handoff_complete_v19(
-          p_matchday_id,
-          v_next_matchday_id,
-          v_transition.source_composition_id
-        );
+      perform jornada_private.assert_matchday_live_layout_physical_handoff_complete_v19(
+        p_matchday_id,
+        v_next_matchday_id,
+        v_transition.source_composition_id
+      );
 
-      v_source_archive_before :=
-        jornada_private.matchday_live_layout_physical_archive_hash_v19(
-          p_matchday_id
-        );
+      v_source_archive_before := jornada_private.matchday_live_layout_physical_archive_hash_v19(
+        p_matchday_id
+      );
     else
       if jornada_private.matchday_live_layout_continuity_authority_v19(
            p_matchday_id
@@ -1817,17 +1708,15 @@ begin
     end if;
 
     if v_transition.continuity_version = 19 then
-      perform
-        jornada_private.assert_matchday_live_layout_physical_handoff_complete_v19(
-          p_matchday_id,
-          v_next_matchday_id,
-          v_transition.source_composition_id
-        );
+      perform jornada_private.assert_matchday_live_layout_physical_handoff_complete_v19(
+        p_matchday_id,
+        v_next_matchday_id,
+        v_transition.source_composition_id
+      );
 
-      v_source_archive_after :=
-        jornada_private.matchday_live_layout_physical_archive_hash_v19(
-          p_matchday_id
-        );
+      v_source_archive_after := jornada_private.matchday_live_layout_physical_archive_hash_v19(
+        p_matchday_id
+      );
 
       if v_source_archive_after is distinct from v_source_archive_before then
         raise exception 'composition_historical_physical_archive_changed';
@@ -1866,11 +1755,10 @@ begin
     raise exception 'composition_first_publication_source_not_live';
   end if;
 
-  v_first_publication :=
-    public.publish_matchday_reference_composition_with_continuity(
-      p_matchday_id,
-      p_composition_id
-    );
+  v_first_publication := public.publish_matchday_reference_composition_with_continuity(
+    p_matchday_id,
+    p_composition_id
+  );
 
   return v_first_publication || pg_catalog.jsonb_build_object(
     'publicationKind', 'first_publication'
@@ -1885,11 +1773,6 @@ from public, anon, authenticated;
 grant execute on function
   public.publish_matchday_reference_composition(uuid, uuid)
 to service_role;
-
-
--- ============================================================
--- 9. LEAST-PRIVILEGE POSTCONDITIONS
--- ============================================================
 
 do $postconditions$
 begin

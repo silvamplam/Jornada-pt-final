@@ -8,7 +8,7 @@ const route = readFileSync(
 );
 
 const migration = readFileSync(
-  "supabase/migrations/20260826074500_historical_composition_dynamic_workspace_rpc.sql",
+  "supabase/migrations/20260826063919_historical_composition_dynamic_workspace_rpc.sql",
   "utf8",
 );
 

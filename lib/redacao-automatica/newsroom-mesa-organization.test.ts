@@ -342,7 +342,7 @@ test("fluxo da Mesa usa apenas fontes, fica na Mesa e oferece cancelamento sem p
 });
 
 test("RPC de fontes suporta conjunto, Tema existente aberto e associação idempotente", () => {
-  const sql = readFileSync("supabase/migrations/20260910223000_newsroom_mesa_theme_organization_v1.sql", "utf8");
+  const sql = readFileSync("supabase/migrations/20260911100419_newsroom_mesa_theme_organization_v1.sql", "utf8");
   assert.match(sql, /cardinality\(p_source_ids\) < 1/);
   assert.match(sql, /where t\.id = p_theme_id and t\.status = 'open'/);
   assert.match(sql, /where not exists \(select 1 from public\.newsroom_editorial_theme_sources/);
@@ -399,7 +399,7 @@ test("preparar no Tema encaminha a relação ao writer e mantém compatibilidade
 });
 
 test("SQL aditivo conserva authorities e não publica nem reescreve produções", () => {
-  const sql = readFileSync("supabase/migrations/20260910223000_newsroom_mesa_theme_organization_v1.sql", "utf8");
+  const sql = readFileSync("supabase/migrations/20260911100419_newsroom_mesa_theme_organization_v1.sql", "utf8");
   assert.match(sql, /dossier_id uuid primary key references public\.newsroom_editorial_dossiers/);
   assert.match(sql, /newsroom_prepare_editorial_dossier_workspace_v1\(/);
   assert.match(sql, /newsroom_set_editorial_theme_source_membership_v1\(/);
@@ -420,7 +420,7 @@ test("a seleção geral não fica contaminada pela seleção de um Tema", () => 
 });
 
 test("relação de Dossiê no SQL não usa o conflito de coluna ambígua", () => {
-  const sql = readFileSync("supabase/migrations/20260910223000_newsroom_mesa_theme_organization_v1.sql", "utf8");
+  const sql = readFileSync("supabase/migrations/20260911100419_newsroom_mesa_theme_organization_v1.sql", "utf8");
   assert.match(sql, /on conflict on constraint newsroom_editorial_theme_dossiers_pkey/);
   assert.doesNotMatch(sql, /on conflict \(dossier_id\)/);
 });

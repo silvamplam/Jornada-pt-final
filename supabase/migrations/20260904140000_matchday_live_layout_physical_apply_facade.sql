@@ -48,7 +48,6 @@ to service_role;
 comment on table public.matchday_live_layout_workspace_settings is
   'Authoritative physical live-desk settings. A Faixa vacancy is the absence of a placement inside faixa_slot_count; the extent is never inferred from the last occupied slot.';
 
-
 create table jornada_private.matchday_live_layout_physical_cutovers (
   matchday_id uuid primary key
     references public.matchdays(id)
@@ -68,7 +67,6 @@ from public, anon, authenticated, service_role;
 comment on table jornada_private.matchday_live_layout_physical_cutovers is
   'Private per-matchday authority marker. Only the physical facade inserts it, after locked OCC and complete pre-DML validation.';
 
-
 create table jornada_private.matchday_live_layout_downstream_context (
   backend_pid integer not null,
   transaction_id xid8 not null,
@@ -84,7 +82,6 @@ alter table jornada_private.matchday_live_layout_downstream_context
 
 revoke all on table jornada_private.matchday_live_layout_downstream_context
 from public, anon, authenticated, service_role;
-
 
 create function jornada_private.begin_matchday_live_layout_downstream_v14(
   p_matchday_id uuid
@@ -121,7 +118,6 @@ revoke all on function
   jornada_private.begin_matchday_live_layout_downstream_v14(uuid)
 from public, anon, authenticated, service_role;
 
-
 create function jornada_private.end_matchday_live_layout_downstream_v14(
   p_matchday_id uuid
 )
@@ -152,7 +148,6 @@ revoke all on function
   jornada_private.end_matchday_live_layout_downstream_v14(uuid)
 from public, anon, authenticated, service_role;
 
-
 create function jornada_private.is_matchday_live_layout_downstream_v14(
   p_matchday_id uuid
 )
@@ -176,7 +171,6 @@ revoke all on function
   jornada_private.is_matchday_live_layout_downstream_v14(uuid)
 from public, anon, authenticated, service_role;
 
-
 create function jornada_private.is_matchday_live_layout_physical_v14(
   p_matchday_id uuid
 )
@@ -196,7 +190,6 @@ $function$;
 revoke all on function
   jornada_private.is_matchday_live_layout_physical_v14(uuid)
 from public, anon, authenticated, service_role;
-
 
 -- ============================================================
 -- 2. STRICT PHYSICAL PAYLOAD NORMALIZERS
@@ -244,7 +237,6 @@ $function$;
 revoke all on function
   jornada_private.normalize_matchday_live_layout_zones_v14(jsonb)
 from public, anon, authenticated, service_role;
-
 
 create function jornada_private.normalize_matchday_live_layout_blocks_v14(
   p_blocks jsonb
@@ -299,7 +291,6 @@ revoke all on function
   jornada_private.normalize_matchday_live_layout_blocks_v14(jsonb)
 from public, anon, authenticated, service_role;
 
-
 create function jornada_private.validate_matchday_live_layout_legacy_projection_v14(
   p_matchday_id uuid,
   p_profile_key text
@@ -344,7 +335,6 @@ $function$;
 revoke all on function
   jornada_private.validate_matchday_live_layout_legacy_projection_v14(uuid, text)
 from public, anon, authenticated, service_role;
-
 
 -- ============================================================
 -- 3. ADDITIVE V13 TOKEN: EXISTING COMPONENTS PLUS SETTINGS/MARKER
@@ -514,7 +504,6 @@ comment on function
 is
   'Physical workspace OCC token. Preserves every v13 component and adds physical settings plus the per-matchday cutover marker, including placement created_at/updated_at, memory recorded_at, settings timestamps and cutover_at.';
 
-
 -- ============================================================
 -- 4. READER V13 EXTENSION (READ-ONLY, SERVICE-ROLE ONLY)
 -- ============================================================
@@ -612,7 +601,6 @@ comment on function
 is
   'Coherent read-only v13 physical workspace snapshot extended with authoritative physical settings and the explicit per-matchday cutover marker.';
 
-
 -- ============================================================
 -- 5. LEGACY WRITER FENCE: SAME MATCHDAY ROW LOCK, THEN MARKER
 -- ============================================================
@@ -655,7 +643,6 @@ $function$;
 revoke all on function
   jornada_private.assert_matchday_live_layout_legacy_writer_v14(uuid)
 from public, anon, authenticated, service_role;
-
 
 alter function public.apply_matchday_editorial_profile_workspace_v12(
   uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
@@ -752,7 +739,6 @@ grant execute on function
   )
 to service_role;
 
-
 alter function public.apply_matchday_editorial_profile_workspace_v11(
   uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
   jsonb,jsonb,jsonb
@@ -844,7 +830,6 @@ grant execute on function
   )
 to service_role;
 
-
 alter function public.apply_matchday_editorial_desk_state_v2(
   uuid,bigint,text,boolean,jsonb
 )
@@ -901,7 +886,6 @@ grant execute on function
   )
 to service_role;
 
-
 -- ============================================================
 -- 6. MARKER-AWARE TOPOLOGY SHADOW
 -- ============================================================
@@ -950,7 +934,6 @@ $function$;
 revoke all on function
   jornada_private.sync_matchday_live_layout_shadow(uuid[])
 from public, anon, authenticated, service_role;
-
 
 create or replace function
   jornada_private.enqueue_matchday_live_layout_shadow_sync()
@@ -1009,7 +992,6 @@ revoke all on function
   jornada_private.enqueue_matchday_live_layout_shadow_sync()
 from public, anon, authenticated, service_role;
 
-
 -- ============================================================
 -- 7. MARKER-AWARE LEGACY PLACEMENT FENCE AND SUBSET DRIFT GUARD
 -- ============================================================
@@ -1055,7 +1037,6 @@ $function$;
 revoke all on function
   jornada_private.assert_matchday_live_layout_projection_write_v14(uuid, boolean)
 from public, anon, authenticated, service_role;
-
 
 create or replace function
   jornada_private.enqueue_matchday_live_layout_placement_shadow_sync()
@@ -1178,7 +1159,6 @@ $function$;
 revoke all on function
   jornada_private.enqueue_matchday_live_layout_placement_shadow_sync()
 from public, anon, authenticated, service_role;
-
 
 create or replace function
   jornada_private.flush_matchday_live_layout_placement_shadow_sync_queue()
@@ -1345,7 +1325,6 @@ $function$;
 revoke all on function
   jornada_private.flush_matchday_live_layout_placement_shadow_sync_queue()
 from public, anon, authenticated, service_role;
-
 
 -- ============================================================
 -- 8. DIFFERENTIAL PHYSICAL -> LEGACY PLACEMENT MATERIALIZATION
@@ -2068,7 +2047,6 @@ revoke all on function
   )
 from public, anon, authenticated, service_role;
 
-
 create or replace function
 jornada_private.project_matchday_live_layout_placements_to_legacy(
   p_matchday_ids uuid[]
@@ -2110,7 +2088,6 @@ $function$;
 revoke all on function
   jornada_private.project_matchday_live_layout_placements_to_legacy(uuid[])
 from public, anon, authenticated, service_role;
-
 
 create function jornada_private.project_matchday_live_layout_workspace_v14(
   p_matchday_id uuid,
@@ -2313,7 +2290,6 @@ revoke all on function
   jornada_private.project_matchday_live_layout_workspace_v14(uuid, text)
 from public, anon, authenticated, service_role;
 
-
 create function jornada_private.assert_matchday_live_layout_downstream_v14(
   p_matchday_id uuid,
   p_profile_key text
@@ -2431,7 +2407,6 @@ $function$;
 revoke all on function
   jornada_private.assert_matchday_live_layout_downstream_v14(uuid, text)
 from public, anon, authenticated, service_role;
-
 
 -- ============================================================
 -- 9. SINGLE TRANSACTIONAL PHYSICAL WORKSPACE FACADE

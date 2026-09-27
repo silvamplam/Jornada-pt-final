@@ -1,5 +1,3 @@
-begin;
-
 alter table public.matchday_editorial_profile_reconcile_control
   drop constraint if exists
     matchday_editorial_profile_reconcile_control_block_order_check;
@@ -468,5 +466,3 @@ public.apply_matchday_editorial_profile_workspace_v6(
   jsonb
 )
 to service_role;
-
-commit;

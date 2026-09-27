@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migrationPath =
-  "supabase/migrations/20260901140411_matchday_live_layout_placements_shadow.sql";
+  "supabase/migrations/20260901145408_matchday_live_layout_placements_shadow.sql";
 const migration = readFileSync(migrationPath, "utf8");
 
 function section(startNeedle: string, endNeedle: string): string {

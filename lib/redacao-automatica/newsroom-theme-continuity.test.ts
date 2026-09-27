@@ -252,7 +252,7 @@ test("egress pesado é constante para P=1,3,10,30 e SEM_ALTERAÇÃO não entra n
 });
 
 test("migration é aditiva, scoped e não cria tabela nem coluna", () => {
-  const migration = read("supabase/migrations/20260914114311_newsroom_mesa_theme_continuity_v1.sql");
+  const migration = read("supabase/migrations/20260914171729_newsroom_mesa_theme_continuity_v1.sql");
   const route = read("app/api/admin/editorial/redacao-automatica/mesa/tema-continuity/route.ts");
   assert.match(migration, /newsroom_mesa_theme_continuity_v1\(p_theme_id uuid\)/);
   assert.match(migration, /workspace\.workspace_state = 'consolidated'/);
@@ -268,7 +268,7 @@ test("migration é aditiva, scoped e não cria tabela nem coluna", () => {
 
 test("Tema recupera publicados pela proveniência exata do contexto sem criar membership", () => {
   const migration = read(
-    "supabase/migrations/20260920151500_newsroom_mesa_theme_published_outputs_v2.sql",
+    "supabase/migrations/20260920150111_newsroom_mesa_theme_published_outputs_v2.sql",
   );
   const themePage = read(
     "app/admin/editorial/redacao-automatica/mesa/temas/[themeId]/page.tsx",
@@ -303,7 +303,7 @@ test("Tema recupera publicados pela proveniência exata do contexto sem criar me
 
 test("Temas dentro de selection recuperam só outputs que usaram fontes desse Tema", () => {
   const migration = read(
-    "supabase/migrations/20260920170000_newsroom_mesa_selection_theme_published_outputs_v3.sql",
+    "supabase/migrations/20260920153333_newsroom_mesa_selection_theme_published_outputs_v3.sql",
   );
   assert.match(migration, /preparation\.request -> 'selection' -> 'themeIds'/);
   assert.match(migration, /newsroom_mesa_output_source_usage/);

@@ -290,14 +290,19 @@ create index ned_article_plans_update_target_idx
 
 alter table public.newsroom_editorial_dossier_published_contexts
   enable row level security;
+
 alter table public.newsroom_editorial_dossier_published_contexts
   force row level security;
+
 alter table public.newsroom_editorial_dossier_article_plan_published_contexts
   enable row level security;
+
 alter table public.newsroom_editorial_dossier_article_plan_published_contexts
   force row level security;
+
 alter table public.newsroom_editorial_dossier_images
   enable row level security;
+
 alter table public.newsroom_editorial_dossier_images
   force row level security;
 

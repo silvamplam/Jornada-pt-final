@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
 -- Run only on a disposable PostgreSQL 17.11 database immediately before
--- 20260914114311_newsroom_mesa_theme_continuity_v1.sql.
+-- 20260914171729_newsroom_mesa_theme_continuity_v1.sql.
 
 begin;
 

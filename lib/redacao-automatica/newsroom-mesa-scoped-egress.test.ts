@@ -14,7 +14,7 @@ const selectionClient = read(`${root}/_mesa-selection-client.tsx`);
 const organizationClient = read(`${root}/_mesa-organization-client.tsx`);
 const sourceChanges = read(`${root}/_mesa-source-changes.tsx`);
 const organizationRoute = read("app/api/admin/editorial/redacao-automatica/mesa/organizacao/route.ts");
-const migrationPath = "supabase/migrations/20260914074012_newsroom_mesa_scoped_read_model_v1.sql";
+const migrationPath = "supabase/migrations/20260914172949_newsroom_mesa_scoped_read_model_v1.sql";
 const migration = read(migrationPath);
 
 test("Mesa page reads counts + page identities before hydrating at most the visible IDs", () => {

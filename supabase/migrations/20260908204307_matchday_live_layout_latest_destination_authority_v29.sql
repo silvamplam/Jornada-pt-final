@@ -121,7 +121,6 @@ comment on function
 is
   'Single physical Apply authority for Latest destination: HEADLINE/HIDDEN require no companion; ZONE uses the existing companion zone UUID. Delegates the physical write to v22 after validation.';
 
-
 create function public.set_matchday_latest_zone_placement_v29(
   p_matchday_id uuid,
   p_latest_zone_placement text
@@ -194,7 +193,6 @@ comment on function
   public.set_matchday_latest_zone_placement_v29(uuid, text)
 is
   'Legacy placement facade for explicit HEADLINE or HIDDEN choices. ZONE always requires the atomic physical Apply with an explicit zone UUID.';
-
 
 do $postconditions$
 begin
