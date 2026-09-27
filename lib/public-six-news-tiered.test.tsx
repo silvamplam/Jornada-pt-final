@@ -35,7 +35,7 @@ test("renderer partilhado distribui seis notícias por 1 + 2 + 3, cada uma com i
     assert.equal(card.find("img").attr("src"), `/editorial-${position}.jpg`);
     assert.equal(card.find("h3").text(), item(position).title);
     assert.equal(card.find("h3 a").attr("href"), `/noticias/${position}`);
-    assert.equal(card.find("p").text(), item(position).subtitle);
+    assert.equal(card.find("p").text(), position <= 3 ? item(position).subtitle : "");
   }
 });
 
