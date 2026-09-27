@@ -2,7 +2,6 @@
 -- No INSERT/COPY or production rows. Never apply to an existing database.
 do $guard$ begin if current_database() <> 'jornada_migration_replay' or current_setting('jornada.replay',true) is distinct from 'on' then raise exception 'isolated replay required'; end if; end $guard$;
 set check_function_bodies = off;
-create schema if not exists jornada_private;
 
 -- public.broadcast_channels; original DDL: supabase/schema.sql
 create table "public"."broadcast_channels" (

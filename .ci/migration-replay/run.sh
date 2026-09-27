@@ -20,12 +20,13 @@ trap cleanup EXIT
 test ! -e .ci/migration-replay/work/supabase/.temp/project-ref
 docker pull "$IMAGE"
 docker image inspect "$IMAGE" --format '{{json .RepoDigests}}' > "$OUTPUT/image.json"
-CID=$(docker run --detach --network none --entrypoint bash \
+CID=$(docker run --detach --network none --user postgres --entrypoint bash \
   --mount "type=bind,source=$ROOT/.ci/migration-replay,target=/replay,readonly" \
   --mount "type=bind,source=$ROOT/supabase/migrations,target=/migrations,readonly" \
   "$IMAGE" /replay/container-entrypoint.sh)
 test "$(docker inspect "$CID" --format '{{.HostConfig.NetworkMode}}')" = none
 for attempt in $(seq 1 50); do
+  test "$(docker inspect "$CID" --format '{{.State.Running}}')" = true
   if docker exec "$CID" pg_isready -U postgres; then break; fi
   sleep 1
 done
