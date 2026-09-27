@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { MANUAL_NEWSROOM_BODY_MAX_LENGTH } from "@/lib/redacao-automatica/manual-newsroom-entry-contract";
 import {
@@ -22,15 +22,6 @@ type SaveResponse = Readonly<{
   action?: unknown;
   newsroomArticleId?: unknown;
   error?: unknown;
-}>;
-
-type ManualSourceDraft = Readonly<{
-  body: string;
-  imageUrl: string;
-  publishedDate: string;
-  sourceUrl: string;
-  sourcePageTitle: string;
-  sourceHost: string;
 }>;
 
 function validDateOnly(value: string): boolean {
@@ -87,7 +78,6 @@ export default function ManualSourceEntry({
     : "");
   const [submitting, setSubmitting] = useState(false);
   const submissionIdRef = useRef("");
-  const submittingRef = useRef(false);
   const acceptedSourcesRef = useRef(new Set<MessageEventSource>());
   const sourceBookmarkRef = useRef<HTMLAnchorElement>(null);
   const imageBookmarkRef = useRef<HTMLAnchorElement>(null);
@@ -110,66 +100,6 @@ export default function ManualSourceEntry({
     const timeout = window.setTimeout(() => setStatus(""), 3000);
     return () => window.clearTimeout(timeout);
   }, [savedState]);
-
-  const saveManualSource = useCallback(async (draft: ManualSourceDraft) => {
-    if (submittingRef.current) return;
-    if (!draft.body.trim()) {
-      setOpen(true);
-      setStatus("O Corpo é obrigatório.");
-      return;
-    }
-    if (!validHttpUrl(draft.imageUrl, true)) {
-      setOpen(true);
-      setStatus("Indica um URL de imagem http/https válido, sem credenciais.");
-      return;
-    }
-    if (!validDateOnly(draft.publishedDate) || (draft.publishedDate && draft.publishedDate > maxDate)) {
-      setOpen(true);
-      setStatus("Indica uma data válida, não posterior a hoje.");
-      return;
-    }
-
-    if (!submissionIdRef.current) submissionIdRef.current = crypto.randomUUID();
-    submittingRef.current = true;
-    setSubmitting(true);
-    setStatus("A guardar a fonte em NOVAS…");
-    try {
-      const response = await fetch(ROUTE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          submissionId: submissionIdRef.current,
-          body: draft.body,
-          imageUrl: draft.imageUrl,
-          publishedDate: draft.publishedDate || null,
-          sourceUrl: draft.sourceUrl || null,
-          sourcePageTitle: draft.sourcePageTitle || null,
-          sourceHost: draft.sourceHost || null,
-        }),
-      });
-      const payload = await response.json().catch(() => null) as SaveResponse | null;
-      if (
-        !response.ok
-        || payload?.ok !== true
-        || (payload.action !== "created" && payload.action !== "reused")
-        || typeof payload.newsroomArticleId !== "string"
-      ) {
-        if (response.status === 409) throw new Error("Esta tentativa já foi usada com dados diferentes. Abre de novo o painel.");
-        throw new Error("Não foi possível guardar a fonte.");
-      }
-      const next = new URL("/admin/editorial/redacao-automatica/mesa", window.location.origin);
-      next.searchParams.set("tab", "novas");
-      next.searchParams.set("classification", "all");
-      next.searchParams.set("manual_source_state", payload.action);
-      next.searchParams.set("articleId", payload.newsroomArticleId);
-      window.location.assign(next.toString());
-    } catch (error) {
-      submittingRef.current = false;
-      setSubmitting(false);
-      setOpen(true);
-      setStatus(error instanceof Error ? error.message : "Não foi possível guardar a fonte.");
-    }
-  }, [maxDate]);
 
   useEffect(() => {
     function ready(target: MessageEventSource, origin: string) {
@@ -235,42 +165,71 @@ export default function ManualSourceEntry({
       setSourceUrl(nextSourceUrl);
       setSourcePageTitle(nextPageTitle);
       setSourceHost(nextHost);
-      submissionIdRef.current = "";
-      if (!nextBody) {
-        setOpen(true);
-        setStatus("Não foi possível extrair o corpo. Seleciona o texto na página ou cola-o aqui.");
-        return;
-      }
-      if (!nextImage) {
-        setOpen(true);
-        setStatus("Corpo recebido, mas falta indicar uma imagem válida.");
-        return;
-      }
-      setOpen(false);
-      void saveManualSource({
-        body: nextBody,
-        imageUrl: nextImage,
-        publishedDate: nextDate,
-        sourceUrl: nextSourceUrl,
-        sourcePageTitle: nextPageTitle,
-        sourceHost: nextHost,
-      });
+      setOpen(true);
+      setStatus(!nextBody
+        ? "Não foi possível extrair o corpo. Seleciona o texto na página ou cola-o aqui."
+        : !nextImage
+          ? "Corpo recebido, mas falta indicar uma imagem válida."
+          : "Fonte recebida. Confirma os campos antes de guardar.");
     }
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [saveManualSource]);
+  }, []);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void saveManualSource({
-      body,
-      imageUrl,
-      publishedDate,
-      sourceUrl,
-      sourcePageTitle,
-      sourceHost,
-    });
+    if (submitting) return;
+    if (!body.trim()) {
+      setStatus("O Corpo é obrigatório.");
+      return;
+    }
+    if (!validHttpUrl(imageUrl, true)) {
+      setStatus("Indica um URL de imagem http/https válido, sem credenciais.");
+      return;
+    }
+    if (!validDateOnly(publishedDate) || (publishedDate && publishedDate > maxDate)) {
+      setStatus("Indica uma data válida, não posterior a hoje.");
+      return;
+    }
+
+    if (!submissionIdRef.current) submissionIdRef.current = crypto.randomUUID();
+    setSubmitting(true);
+    setStatus("A guardar a fonte em NOVAS…");
+    try {
+      const response = await fetch(ROUTE, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submissionId: submissionIdRef.current,
+          body,
+          imageUrl,
+          publishedDate: publishedDate || null,
+          sourceUrl: sourceUrl || null,
+          sourcePageTitle: sourcePageTitle || null,
+          sourceHost: sourceHost || null,
+        }),
+      });
+      const payload = await response.json().catch(() => null) as SaveResponse | null;
+      if (
+        !response.ok
+        || payload?.ok !== true
+        || (payload.action !== "created" && payload.action !== "reused")
+        || typeof payload.newsroomArticleId !== "string"
+      ) {
+        if (response.status === 409) throw new Error("Esta tentativa já foi usada com dados diferentes. Abre de novo o painel.");
+        throw new Error("Não foi possível guardar a fonte.");
+      }
+      const next = new URL("/admin/editorial/redacao-automatica/mesa", window.location.origin);
+      next.searchParams.set("tab", "novas");
+      next.searchParams.set("classification", "all");
+      next.searchParams.set("manual_source_state", payload.action);
+      next.searchParams.set("articleId", payload.newsroomArticleId);
+      window.location.assign(next.toString());
+    } catch (error) {
+      setSubmitting(false);
+      setStatus(error instanceof Error ? error.message : "Não foi possível guardar a fonte.");
+    }
   }
 
   return (
@@ -337,7 +296,7 @@ export default function ManualSourceEntry({
               <a ref={sourceBookmarkRef} href="#" draggable>
                 Enviar para Jornada
               </a>
-              <span>traz Corpo + Imagem + Data opcional e guarda automaticamente em Novas</span>
+              <span>traz Corpo + Imagem + Data opcional</span>
             </div>
             <div>
               <a ref={imageBookmarkRef} href="#" draggable>
