@@ -32,12 +32,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .ci/migration-replay/tools
-          curl --fail --location --silent --show-error https://github.com/supabase/cli/releases/download/v2.117.0/supabase_linux_amd64.tar.gz \
+          curl --fail --location --silent --show-error https://github.com/supabase/cli/releases/download/v2.117.0/supabase_2.117.0_linux_amd64.tar.gz \
             -o .ci/migration-replay/tools/cli.tar.gz
           curl --fail --location --silent --show-error https://github.com/supabase/cli/releases/download/v2.117.0/checksums.txt \
             -o .ci/migration-replay/tools/checksums.txt
           cd .ci/migration-replay/tools
-          grep 'supabase_linux_amd64.tar.gz$' checksums.txt | sed 's/supabase_linux_amd64.tar.gz/cli.tar.gz/' | sha256sum --check
+          grep 'supabase_2.117.0_linux_amd64.tar.gz$' checksums.txt | sed 's/supabase_2.117.0_linux_amd64.tar.gz/cli.tar.gz/' | sha256sum --check
           tar -xzf cli.tar.gz supabase
           ./supabase migration up --help
       - name: Replay the entire reconstructed history in a fresh network-less container
