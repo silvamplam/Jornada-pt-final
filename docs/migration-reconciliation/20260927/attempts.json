@@ -50,6 +50,14 @@
       "first_failure": "chmod: /tmp/supabase: Operation not permitted",
       "baseline_passed": true,
       "correction": "The copied archive binary is already executable; do not chmod as a different user"
+    },
+    {
+      "run": 36325348952,
+      "commit": "5efc1ad1",
+      "phase": "cli_runtime_after_baseline",
+      "baseline_passed": true,
+      "first_failure": "exec /tmp/supabase: no such file or directory (glibc loader absent in Nix-based DB image)",
+      "correction": "Run the CLI in an Ubuntu sidecar sharing the same network-less namespace"
     }
   ]
 }

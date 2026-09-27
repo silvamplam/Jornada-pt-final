@@ -5,6 +5,7 @@ OUTPUT="$ROOT/.ci/migration-replay/output"
 mkdir -p "$OUTPUT"
 IMAGE=supabase/postgres:17.6.1.084
 CID=''
+CLI_CID=''
 cleanup() {
   for log in platform baseline init replay; do
     if [ -f "$OUTPUT/$log.log" ]; then echo "Last output: $log"; grep -E 'Applying migration|ERROR:' "$OUTPUT/$log.log" | tail -n 2 || true; tail -n 18 "$OUTPUT/$log.log"; fi
@@ -14,6 +15,7 @@ cleanup() {
     tail -n 12 "$OUTPUT/postgres.log"
     docker rm -f "$CID" >/dev/null
   fi
+  if [ -n "$CLI_CID" ]; then docker rm -f "$CLI_CID" >/dev/null; fi
 }
 trap cleanup EXIT
 # No production environment files, URLs, credentials, data or network enter the container.
@@ -36,19 +38,26 @@ docker exec "$CID" psql -U postgres -d jornada_migration_replay -Atc "select cur
 grep -Fx '17.6' "$OUTPUT/version.txt"
 docker exec "$CID" psql -X -v ON_ERROR_STOP=1 -U postgres -d jornada_migration_replay -f /replay/platform.sql > "$OUTPUT/platform.log" 2>&1
 docker exec "$CID" psql -X -v ON_ERROR_STOP=1 -U postgres -d jornada_migration_replay -f /replay/baseline.sql > "$OUTPUT/baseline.log" 2>&1
-# CLI receives a fresh project folder with no production link or seeds.
-docker exec "$CID" mkdir -p /tmp/project/supabase/migrations
-docker exec "$CID" bash -c 'cp /migrations/*.sql /tmp/project/supabase/migrations/'
-docker cp .ci/migration-replay/tools/supabase "$CID":/tmp/supabase
-docker exec "$CID" /tmp/supabase init --workdir /tmp/project --yes > "$OUTPUT/init.log" 2>&1
+# The official CLI needs a conventional glibc loader, unlike the Nix-based DB image.
+# Its sidecar shares ONLY the DB container's network namespace: still no external network.
+docker pull ubuntu:24.04
+mkdir -p "$OUTPUT/work/supabase/migrations"
+cp supabase/migrations/*.sql "$OUTPUT/work/supabase/migrations/"
+CLI_CID=$(docker run --detach --network "container:$CID" \
+  --mount "type=bind,source=$OUTPUT/work,target=/project" \
+  --mount "type=bind,source=$ROOT/.ci/migration-replay/tools,target=/tools,readonly" \
+  ubuntu:24.04 sleep infinity)
+test "$(docker inspect "$CLI_CID" --format '{{.HostConfig.NetworkMode}}')" = "container:$CID"
+cli() { docker exec "$CLI_CID" /tools/supabase "$@"; }
+cli init --workdir /project --yes > "$OUTPUT/init.log" 2>&1
 # The explicit URL resolves only to this network-less container's own loopback.
-docker exec "$CID" /tmp/supabase migration up --workdir /tmp/project \
+cli migration up --workdir /project \
   --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay \
   --include-all --yes > "$OUTPUT/replay.log" 2>&1
-docker exec "$CID" /tmp/supabase migration list --workdir /tmp/project \
+cli migration list --workdir /project \
   --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay \
   > "$OUTPUT/migration-list.txt" 2>&1
-docker exec "$CID" /tmp/supabase db push --workdir /tmp/project \
+cli db push --workdir /project \
   --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay \
   --skip-vault --dry-run > "$OUTPUT/dry-run.txt" 2>&1
 docker exec "$CID" psql -X -At -v ON_ERROR_STOP=1 -U postgres -d jornada_migration_replay \
