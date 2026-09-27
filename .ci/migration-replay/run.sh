@@ -7,7 +7,7 @@ IMAGE=supabase/postgres:17.6.1.084
 CID=''
 cleanup() {
   for log in platform baseline init replay; do
-    if [ -f "$OUTPUT/$log.log" ]; then echo "Last output: $log"; tail -n 18 "$OUTPUT/$log.log"; fi
+    if [ -f "$OUTPUT/$log.log" ]; then echo "Last output: $log"; grep -E 'Applying migration|ERROR:' "$OUTPUT/$log.log" | tail -n 2 || true; tail -n 18 "$OUTPUT/$log.log"; fi
   done
   if [ -n "$CID" ]; then
     docker logs "$CID" > "$OUTPUT/postgres.log" 2>&1 || true
@@ -40,12 +40,11 @@ docker exec "$CID" psql -X -v ON_ERROR_STOP=1 -U postgres -d jornada_migration_r
 docker exec "$CID" mkdir -p /tmp/project/supabase/migrations
 docker exec "$CID" bash -c 'cp /migrations/*.sql /tmp/project/supabase/migrations/'
 docker cp .ci/migration-replay/tools/supabase "$CID":/tmp/supabase
-docker exec "$CID" chmod +x /tmp/supabase
 docker exec "$CID" /tmp/supabase init --workdir /tmp/project --yes > "$OUTPUT/init.log" 2>&1
 # The explicit URL resolves only to this network-less container's own loopback.
 docker exec "$CID" /tmp/supabase migration up --workdir /tmp/project \
   --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay \
-  --include-all > "$OUTPUT/replay.log" 2>&1
+  --include-all --yes > "$OUTPUT/replay.log" 2>&1
 docker exec "$CID" /tmp/supabase migration list --workdir /tmp/project \
   --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay \
   > "$OUTPUT/migration-list.txt" 2>&1

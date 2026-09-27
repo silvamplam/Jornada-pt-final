@@ -1,0 +1,55 @@
+{
+  "rule": "Each run starts a new --network none PostgreSQL 17.6 container; stop on the first error; no migrations skipped.",
+  "attempts": [
+    {
+      "run": 36324274197,
+      "commit": "222c661f",
+      "phase": "tooling",
+      "first_failure": "CLI checksum URL returned HTTP 404; SQL not started",
+      "correction": "Use release asset checksums.txt"
+    },
+    {
+      "run": 36324496513,
+      "commit": "68077894",
+      "phase": "tooling",
+      "first_failure": "Checksum entry uses the versioned archive filename; SQL not started",
+      "correction": "Download and verify supabase_2.117.0_linux_amd64.tar.gz"
+    },
+    {
+      "run": 36324645612,
+      "commit": "749464ed",
+      "phase": "container",
+      "first_failure": "runuser is not installed in the Supabase image; SQL not started",
+      "correction": "Run the container as its postgres user"
+    },
+    {
+      "run": 36324790715,
+      "commit": "6192114b",
+      "phase": "baseline",
+      "first_failure": "baseline.sql:89: syntax error at or near TRIGGER",
+      "correction": "Do not render pg_constraint type t as a table constraint; recreate constraint triggers through their historical migrations"
+    },
+    {
+      "run": 36324935721,
+      "commit": "c48655fa",
+      "phase": "baseline",
+      "first_failure": "baseline.sql:817: function normalize_team_identity_v1(text) does not exist",
+      "correction": "Include unqualified helper dependencies from CHECK expressions and indexes, before table DDL"
+    },
+    {
+      "run": 36325011076,
+      "commit": "f67f91d0",
+      "phase": "baseline",
+      "first_failure": "baseline.sql:2105: function remove_deleted_editorial_source_from_matchday_bank() does not exist",
+      "correction": "Recover pre-migration trigger functions from steps/85 and steps/117, not from their later historical replacements"
+    },
+    {
+      "run": 36325221521,
+      "commit": "e6171c4a",
+      "phase": "tooling_after_baseline",
+      "first_failure": "chmod: /tmp/supabase: Operation not permitted",
+      "baseline_passed": true,
+      "correction": "The copied archive binary is already executable; do not chmod as a different user"
+    }
+  ]
+}
