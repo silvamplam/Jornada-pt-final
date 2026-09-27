@@ -26,7 +26,7 @@ function render(items = Array.from({ length: 6 }, (_, index) => item(index + 1))
     zone={createPublicFlexibleZone({ key: "teste", publicTitle: "Atualidade", visualFamily: family, items })} />));
 }
 
-test("renderer partilhado distribui seis notícias por 1 + 2 + 3, cada uma com imagem e ligação", () => {
+test("renderer partilhado distribui seis notícias por 1 + 2 + 3, cada uma com imagem, resumo e ligação", () => {
   const $ = render();
   assert.deepEqual($("[data-editorial-tier]").map((_, row) => $(row).find("article").length).get(), [1, 2, 3]);
   assert.equal($("article img").length, 6);
@@ -35,7 +35,7 @@ test("renderer partilhado distribui seis notícias por 1 + 2 + 3, cada uma com i
     assert.equal(card.find("img").attr("src"), `/editorial-${position}.jpg`);
     assert.equal(card.find("h3").text(), item(position).title);
     assert.equal(card.find("h3 a").attr("href"), `/noticias/${position}`);
-    assert.equal(card.find("p").text(), position <= 3 ? item(position).subtitle : "");
+    assert.equal(card.find("p").text(), item(position).subtitle);
   }
 });
 

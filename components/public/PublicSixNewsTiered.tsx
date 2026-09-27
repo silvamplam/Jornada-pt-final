@@ -48,7 +48,7 @@ const styles = `
     background: #eef2f5;
   }
   .public-six-news-tiered-row[data-editorial-tier="lead"] .public-six-news-tiered-media {
-    aspect-ratio: 2 / 1;
+    aspect-ratio: 2.2 / 1;
   }
   .public-six-news-tiered-row[data-editorial-tier="middle"] .public-six-news-tiered-media {
     min-height: 112px;
@@ -122,13 +122,13 @@ const styles = `
       align-items: start;
     }
     .public-six-news-tiered-row[data-editorial-tier="lead"] .public-six-news-tiered-card { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-    .public-six-news-tiered-row[data-editorial-tier="lead"] .public-six-news-tiered-media { aspect-ratio: 2 / 1; }
     .public-six-news-tiered-copy { padding-top: 0; }
     .public-six-news-tiered-row[data-editorial-tier="middle"] .public-six-news-tiered-media,
     .public-six-news-tiered-row[data-editorial-tier="final"] .public-six-news-tiered-media { aspect-ratio: 4 / 3; min-height: 0; }
     .public-six-news-tiered-row[data-editorial-tier="middle"] .public-six-news-tiered-title { font-size: 19px; }
     .public-six-news-tiered-row[data-editorial-tier="middle"] .public-six-news-tiered-subtitle,
     .public-six-news-tiered-subtitle { font-size: 13px; -webkit-line-clamp: 2; line-clamp: 2; }
+    .public-six-news-tiered-row[data-editorial-tier="final"] .public-six-news-tiered-subtitle { -webkit-line-clamp: 1; line-clamp: 1; }
   }
 `;
 
@@ -163,7 +163,7 @@ export default function PublicSixNewsTiered({
               <div className="public-six-news-tiered-copy">
                 {slot.item.label ? <span className="public-six-news-tiered-label">{slot.item.label}</span> : null}
                 <h3 className="public-six-news-tiered-title"><a href={slot.item.linkUrl}>{slot.item.title}</a></h3>
-                {tier.key !== "final" && slot.item.subtitle ? <p className="public-six-news-tiered-subtitle">{slot.item.subtitle}</p> : null}
+                {slot.item.subtitle ? <p className="public-six-news-tiered-subtitle">{slot.item.subtitle}</p> : null}
               </div>
             </article>
           ) : (

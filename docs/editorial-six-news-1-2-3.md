@@ -204,3 +204,44 @@ A zona cresce 128,2 px / 73,2 px nos dois viewports desktop, ficando próxima da
 Para repetir a comparação, iniciar a fixture existente antes da alteração com `SIX_NEWS_PREVIEW_PORT=3114` e depois da alteração com `SIX_NEWS_PREVIEW_PORT=3115`; o bundle é criado ao arrancar cada processo. Abrir `/?family=six_news_1_2_3`, `/?family=six_news` e `/?family=five_news_secondary` em cada porta, nos mesmos viewports. Para os testes: `node --import tsx --test` seguido dos oito ficheiros indicados.
 
 Ficheiros desta correção: `components/public/PublicSixNewsTiered.tsx`, `lib/public-six-news-tiered.test.tsx` e este relatório.
+
+## Recuperação dos resumos nas três peças finais
+
+Branch: `codex/six-news-final-summaries`, criada a partir de `main` atualizado em `2caea0782c68d68b4f82b8de000e1a8012b4dfc9`. Nesse momento, a correção anterior `76ddbe84` ainda não estava integrada em `origin/main`; foi reaplicada nesta branch como `c6db5851`, preservando o desenho corrigido antes desta afinação. Não houve merge.
+
+### Diagnóstico e solução
+
+O diagnóstico read-only confirmou que a versão corrigida excluía explicitamente os resumos do nível `final`. O estilo base já limitava os resumos a uma linha em desktop, mas a regra móvel genérica permitia duas. A imagem dominante tinha ratio 2:1 nos três viewports.
+
+A afinação repõe o resumo quando existe nas seis posições e limita explicitamente os três finais a uma linha também no móvel. A imagem dominante passa para 2,2:1, reduzindo a altura cerca de 9%; a regra móvel redundante foi removida para herdar o mesmo ratio. O recorte continua com `object-fit: cover` e enquadramento `standard`.
+
+As duas peças intermédias, as imagens finais, os gaps, a tipografia, a hierarquia 1+2+3 e a disponibilidade na Viva/Histórica mantêm-se. Nenhum outro renderer, contrato ou migration foi alterado.
+
+### Comparação com a versão corrigida
+
+Mesma fixture local, conteúdo sintético, imagens, ordem e viewport. Altura da zona incluindo título público, sem a fronteira exterior partilhada:
+
+| Viewport | Corrigida sem resumos finais | Proposta com uma linha | Diferença |
+| --- | ---: | ---: | ---: |
+| 1440 px | 675,6 px | 675,8 px | +0,2 px |
+| 1024 px | 605,5 px | 608,9 px | +3,4 px |
+| 390 px | 1009,0 px | 992,7 px | −16,3 px |
+
+| Viewport | Imagem dominante antes | Depois |
+| --- | ---: | ---: |
+| 1440 px | 226,8 px | 206,2 px |
+| 1024 px | 191,6 px | 174,2 px |
+| 390 px | 179,0 px | 162,7 px |
+
+A linha de resumo acrescenta 20,8 px à última linha desktop, quase totalmente compensados pela imagem dominante. No móvel, os resumos cabem na altura que as miniaturas já reservavam. A altura da linha intermédia e as dimensões das cinco imagens seguintes são idênticas às da versão corrigida.
+
+### Validação desta afinação
+
+- Preview antes/depois em 1440, 1024 e 390 px, com capturas individuais e comparação lado a lado.
+- Seis imagens carregadas com `cover`; recortes normais; níveis com 1/2/3 artigos; três resumos finais com clamp de uma linha e altura efetiva de uma linha em todos os viewports.
+- Sem overflow horizontal, sem erros JavaScript, títulos completos e alturas iguais dos cartões de cada linha desktop.
+- **66/66 testes focados aprovados**, nos mesmos oito ficheiros enumerados na secção anterior. O teste do renderer volta a exigir o conteúdo do resumo em todas as seis posições.
+- **TypeScript: 912 ficheiros versionados, zero diagnósticos.**
+- **`git diff --check`: aprovado.**
+
+Ficheiros desta afinação: `components/public/PublicSixNewsTiered.tsx`, `lib/public-six-news-tiered.test.tsx` e este relatório.
