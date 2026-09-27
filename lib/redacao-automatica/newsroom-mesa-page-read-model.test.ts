@@ -174,8 +174,8 @@ test("filtra na origem antes de hidratar o universo completo", async () => {
 test("PUBLICADAS devolve todo o universo e ordena pela data apresentada no cartão", async () => {
   const universe = Array.from({ length: 80 }, (_, index) => identity(index + 1, "published"));
   const fake = transport(universe);
-  fake.value.hydrateSources = async (ids) => ids.map((id, index) => {
-    const item = source(universe.find((row) => row.newsroom_article_id === id)!);
+  const hydrateSources = fake.value.hydrateSources;
+  fake.value.hydrateSources = async (ids) => (await hydrateSources(ids)).map((item, index) => {
     return {
       ...item,
       publishedAt: new Date(Date.parse(detectedAt) - (ids.length - index) * 60_000).toISOString(),

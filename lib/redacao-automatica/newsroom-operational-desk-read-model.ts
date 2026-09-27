@@ -54,7 +54,7 @@ const UUID_PATTERN =
 
 type SnapshotIdentityRow = Readonly<{ id: string; article_id: string; has_usable_snapshot: boolean }>;
 type CycleIdentityRow = Readonly<{ id: string; first_detected_at: string }>;
-type LegacyPackageRow = Readonly<{ id: string; manifest: unknown }>;
+type LegacyPackageRow = Readonly<{ id: string; manifest: unknown; created_at: string }>;
 
 function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
@@ -180,7 +180,7 @@ const transport = {
           + encodeURIComponent(JSON.stringify([{ newsroomArticleId: articleId }]))
         ));
         const packages = await readAllPages<LegacyPackageRow>(
-          "newsroom_editorial_source_packages?select=id,manifest"
+          "newsroom_editorial_source_packages?select=id,manifest,created_at"
           + `&or=(${filters.join(",")})`
           + "&order=id.asc",
         );
@@ -192,6 +192,7 @@ const transport = {
               newsroom_snapshot_id: reference.newsroomSnapshotId,
               used_at: reference.usedAt,
               package_id: reference.packageId,
+              package_created_at: row.created_at,
               package_group: reference.articlePosition,
               package_year: reference.year,
               package_month: reference.month,
