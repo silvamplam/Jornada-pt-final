@@ -2,6 +2,9 @@
 
 Reconstruction complete on `jornada-supabase-migration-history-reconciliation-20260927`.
 See [REPORT.md](REPORT.md) for the final replay, comparison, decisions and proposed repairs.
+The subsequent [global-suite gate](GLOBAL-SUITE-GATE.md) confirms zero new failures
+against current main. Repairs remain deferred until after PR/merge, main
+confirmation and a fresh read-only production preflight.
 Production is read-only throughout this phase. No remote repair or migration execution is authorized.
 
 ## Evidence and historical authority

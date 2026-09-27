@@ -1,7 +1,7 @@
 {
   "project": "mztkeurmeadwbgebmuvv",
   "branch": "jornada-supabase-migration-history-reconciliation-20260927",
-  "authorization": "NOT AUTHORIZED: stop before remote repair; request explicit approval",
+  "authorization": "NOT AUTHORIZED: no repair before PR/merge, main confirmation, fresh read-only preflight and explicit authorization",
   "execution_status": "not executed",
   "replay_run": "https://github.com/silvamplam/Jornada-pt-final/actions/runs/36327203323",
   "compared_objects": 438,
@@ -55,6 +55,8 @@
   "other_repairs": [],
   "schema_or_data_changes": [],
   "preconditions": [
+    "Complete the global suite gate without new regressions (completed; see global-suite-gate.json)",
+    "Obtain authorization for PR/merge and confirm the reconstructed chain is on main",
     "Verify linked project remains mztkeurmeadwbgebmuvv",
     "Re-read remote history/catalog and stop if changed from evidence",
     "Obtain explicit authorization for exactly these six versions",

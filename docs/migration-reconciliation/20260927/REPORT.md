@@ -147,5 +147,7 @@ A comparação cobre a cadeia e as suas dependências, não os 62 objetos exclu�
 dados editoriais, Auth completo ou toda a configuração da plataforma Supabase.
 
 Produção permaneceu read-only. Não houve repair, db push de produção, DDL/DML
-remoto ou merge. A próxima ação requer autorização específica para os seis
-repairs de histórico acima.
+remoto ou merge. O [gate global posterior](GLOBAL-SUITE-GATE.md) confirmou ausência
+de regressões novas. Antes de qualquer repair, é necessário tratar PR/merge,
+confirmar main e repetir o preflight read-only de produção. Só então poderá
+ser autorizada a execução dos seis repairs de histórico acima.
