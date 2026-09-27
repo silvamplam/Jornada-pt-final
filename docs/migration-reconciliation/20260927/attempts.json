@@ -58,6 +58,14 @@
       "baseline_passed": true,
       "first_failure": "exec /tmp/supabase: no such file or directory (glibc loader absent in Nix-based DB image)",
       "correction": "Run the CLI in an Ubuntu sidecar sharing the same network-less namespace"
+    },
+    {
+      "run": 36325523365,
+      "commit": "d3492c0d",
+      "phase": "cli_connection_after_baseline",
+      "baseline_passed": true,
+      "first_failure": "CLI requests SSL by default; the disposable loopback PostgreSQL has no TLS",
+      "correction": "Use sslmode=disable only on the explicit isolated loopback URL"
     }
   ]
 }

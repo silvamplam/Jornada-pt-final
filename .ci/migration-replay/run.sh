@@ -52,13 +52,13 @@ cli() { docker exec "$CLI_CID" /tools/supabase "$@"; }
 cli init --workdir /project --yes > "$OUTPUT/init.log" 2>&1
 # The explicit URL resolves only to this network-less container's own loopback.
 cli migration up --workdir /project \
-  --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay \
+  --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay?sslmode=disable \
   --include-all --yes > "$OUTPUT/replay.log" 2>&1
 cli migration list --workdir /project \
-  --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay \
+  --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay?sslmode=disable \
   > "$OUTPUT/migration-list.txt" 2>&1
 cli db push --workdir /project \
-  --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay \
+  --db-url postgresql://postgres@127.0.0.1:5432/jornada_migration_replay?sslmode=disable \
   --skip-vault --dry-run > "$OUTPUT/dry-run.txt" 2>&1
 docker exec "$CID" psql -X -At -v ON_ERROR_STOP=1 -U postgres -d jornada_migration_replay \
   -f /replay/catalog.sql > "$OUTPUT/catalog.json"
