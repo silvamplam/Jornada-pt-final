@@ -1,15 +1,12 @@
-begin
-;
+begin;
 
 alter function public.matchday_editorial_profile_classification_plan(uuid)
-rename to matchday_editorial_profile_classification_plan_actuality_v1
-;
+rename to matchday_editorial_profile_classification_plan_actuality_v1;
 
 comment on function
   public.matchday_editorial_profile_classification_plan_actuality_v1(uuid)
 is
-  'Implementação histórica preservada apenas como classificador de destino. A ordem cronológica devolvida por esta função deixa de comandar a Mesa.'
-;
+  'Implementação histórica preservada apenas como classificador de destino. A ordem cronológica devolvida por esta função deixa de comandar a Mesa.';
 
 create function public.matchday_editorial_profile_classification_plan(
   p_matchday_id uuid
@@ -69,24 +66,20 @@ as $function$
     actuality_order,
     entered_row.source_type,
     entered_row.source_id;
-$function$
-;
+$function$;
 
 revoke all on function
   public.matchday_editorial_profile_classification_plan(uuid)
-from public, anon, authenticated
-;
+from public, anon, authenticated;
 
 grant execute on function
   public.matchday_editorial_profile_classification_plan(uuid)
-to service_role
-;
+to service_role;
 
 comment on function
   public.matchday_editorial_profile_classification_plan(uuid)
 is
-  'Classifica o destino temático. A coluna actuality_order é mantida por compatibilidade da API, mas representa a sequência global estável de entrada no estado da Mesa por state_items.created_at; não usa datas editoriais para ordenar a Mesa.'
-;
+  'Classifica o destino temático. A coluna actuality_order é mantida por compatibilidade da API, mas representa a sequência global estável de entrada no estado da Mesa por state_items.created_at; não usa datas editoriais para ordenar a Mesa.';
 
 create or replace function public.matchday_editorial_profile_distribution_plan(
   p_matchday_id uuid
@@ -152,20 +145,16 @@ as $function$
       else null
     end as sort_order
   from ranked as ranked_row;
-$function$
-;
+$function$;
 
 comment on function
   public.matchday_editorial_profile_distribution_plan(uuid)
 is
-  'Materializa a classificação temática pela ordem estável de entrada no circuito. A data de publicação deixou de decidir posições de Zona ou Faixa.'
-;
+  'Materializa a classificação temática pela ordem estável de entrada no circuito. A data de publicação deixou de decidir posições de Zona ou Faixa.';
 
 comment on column
   public.matchday_editorial_profile_state_items.sort_order
 is
-  'Posição automática estável dentro da zona. Não representa atualidade cronológica.'
-;
+  'Posição automática estável dentro da zona. Não representa atualidade cronológica.';
 
-commit
-;
+commit;

@@ -83,9 +83,7 @@ create table "public"."editorial_articles" (
   constraint "editorial_articles_pkey" PRIMARY KEY (id),
   constraint "editorial_articles_scope_check" CHECK (scope = ANY (ARRAY['home'::text, 'matchday'::text, 'competition'::text, 'general'::text])),
   constraint "editorial_articles_slug_key" UNIQUE (slug),
-  constraint "editorial_articles_status_check" CHECK (status = ANY (ARRAY['draft'::text, 'published'::text])),
-  constraint "newsroom_link_legacy_article_source_v1" TRIGGER DEFERRABLE INITIALLY DEFERRED,
-  constraint "newsroom_mesa_after_article_publication_v2" TRIGGER DEFERRABLE INITIALLY DEFERRED
+  constraint "editorial_articles_status_check" CHECK (status = ANY (ARRAY['draft'::text, 'published'::text]))
 );
 
 -- public.editorial_contents; original DDL: supabase/sql/fase-conteudos-editoriais-video-reportagem-4-editorial-contents-manual.sql
@@ -475,9 +473,7 @@ create table "public"."newsroom_editorial_dossier_article_plan_sources" (
   "updated_at" timestamp with time zone default now() not null,
   constraint "newsroom_editorial_dossier_article_plan_sources_pkey" PRIMARY KEY (id),
   constraint "newsroom_editorial_dossier_article_plan_sources_plan_source_key" UNIQUE (article_plan_id, dossier_source_id),
-  constraint "newsroom_editorial_dossier_article_plan_sources_sort_order_chec" CHECK (sort_order >= 0),
-  constraint "newsroom_mesa_after_assignment_publication_v2" TRIGGER DEFERRABLE INITIALLY DEFERRED,
-  constraint "newsroom_mesa_plan_sources_match_context_v1" TRIGGER DEFERRABLE INITIALLY DEFERRED
+  constraint "newsroom_editorial_dossier_article_plan_sources_sort_order_chec" CHECK (sort_order >= 0)
 );
 
 -- public.newsroom_editorial_dossier_article_plans; original DDL: supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigos-planeados-schema-1-aplicar.sql
@@ -503,8 +499,7 @@ create table "public"."newsroom_editorial_dossier_article_plans" (
   constraint "newsroom_editorial_dossier_article_plans_profile_pin_check" CHECK (editorial_profile_id IS NULL AND editorial_profile_version_id IS NULL AND editorial_profile_pinned_at IS NULL OR editorial_profile_id IS NOT NULL AND editorial_profile_version_id IS NOT NULL AND editorial_profile_pinned_at IS NOT NULL),
   constraint "newsroom_editorial_dossier_article_plans_sort_order_check" CHECK (sort_order >= 0),
   constraint "newsroom_editorial_dossier_article_plans_status_check" CHECK (status = ANY (ARRAY['planned'::text, 'ready'::text, 'cancelled'::text])),
-  constraint "newsroom_editorial_dossier_article_plans_title_not_blank" CHECK (btrim(working_title) <> ''::text),
-  constraint "newsroom_mesa_after_plan_publication_v2" TRIGGER DEFERRABLE INITIALLY DEFERRED
+  constraint "newsroom_editorial_dossier_article_plans_title_not_blank" CHECK (btrim(working_title) <> ''::text)
 );
 
 -- public.newsroom_editorial_dossier_sources; original DDL: supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-schema-1-aplicar.sql
@@ -622,8 +617,7 @@ create table "public"."newsroom_editorial_source_packages" (
   constraint "newsroom_editorial_source_packages_month_check" CHECK (package_month ~ '^(0[1-9]|1[0-2])$'::text),
   constraint "newsroom_editorial_source_packages_pkey" PRIMARY KEY (id),
   constraint "newsroom_editorial_source_packages_time_check" CHECK (updated_at >= created_at),
-  constraint "newsroom_editorial_source_packages_year_check" CHECK (package_year ~ '^\d{4}$'::text),
-  constraint "newsroom_mesa_context_package_valid_v1" TRIGGER DEFERRABLE INITIALLY DEFERRED
+  constraint "newsroom_editorial_source_packages_year_check" CHECK (package_year ~ '^\d{4}$'::text)
 );
 
 -- public.newsroom_manual_entry_requests; original DDL: supabase/steps/39-redacao-automatica-recolha-manual-apply.sql
@@ -1836,8 +1830,6 @@ revoke all on function "public"."rls_auto_enable"() from public, anon, authentic
 create policy "Public read broadcast channels" on "public"."broadcast_channels" as permissive for select to public using (true);
 create policy "Public read competitions" on "public"."competitions" as permissive for select to public using (true);
 create policy "countries_select_public" on "public"."countries" as permissive for select to public using (true);
-CREATE CONSTRAINT TRIGGER newsroom_link_legacy_article_source_v1 AFTER INSERT OR UPDATE ON editorial_articles DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION newsroom_link_legacy_article_source_v1();
-CREATE CONSTRAINT TRIGGER newsroom_mesa_after_article_publication_v2 AFTER INSERT OR UPDATE ON editorial_articles DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION newsroom_mesa_after_article_publication_v2();
 CREATE TRIGGER remove_deleted_editorial_article_from_matchday_bank AFTER DELETE ON editorial_articles FOR EACH ROW EXECUTE FUNCTION remove_deleted_editorial_source_from_matchday_bank();
 CREATE TRIGGER sync_published_editorial_article_to_matchday_bank AFTER INSERT OR UPDATE ON editorial_articles FOR EACH ROW EXECUTE FUNCTION sync_published_editorial_source_to_matchday_bank();
 CREATE TRIGGER remove_deleted_editorial_content_from_matchday_bank AFTER DELETE ON editorial_contents FOR EACH ROW EXECUTE FUNCTION remove_deleted_editorial_source_from_matchday_bank();
@@ -1854,18 +1846,14 @@ create policy "Public read matches" on "public"."matches" as permissive for sele
 CREATE TRIGGER newsroom_article_snapshots_immutable BEFORE DELETE OR UPDATE ON newsroom_article_snapshots FOR EACH ROW EXECUTE FUNCTION newsroom_reject_snapshot_mutation();
 CREATE TRIGGER newsroom_articles_set_updated_at BEFORE UPDATE ON newsroom_articles FOR EACH ROW EXECUTE FUNCTION newsroom_set_article_updated_at();
 CREATE TRIGGER newsroom_editorial_dossier_article_plan_sources_set_updated_at BEFORE UPDATE ON newsroom_editorial_dossier_article_plan_sources FOR EACH ROW EXECUTE FUNCTION newsroom_set_editorial_dossier_updated_at();
-CREATE CONSTRAINT TRIGGER newsroom_mesa_after_assignment_publication_v2 AFTER INSERT OR DELETE OR UPDATE ON newsroom_editorial_dossier_article_plan_sources DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION newsroom_mesa_after_plan_publication_v2();
-CREATE CONSTRAINT TRIGGER newsroom_mesa_plan_sources_match_context_v1 AFTER INSERT OR DELETE OR UPDATE ON newsroom_editorial_dossier_article_plan_sources DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION newsroom_assert_mesa_plan_context_sources_v1();
 CREATE TRIGGER newsroom_editorial_dossier_article_plans_profile_pin_immutable BEFORE UPDATE ON newsroom_editorial_dossier_article_plans FOR EACH ROW EXECUTE FUNCTION newsroom_protect_editorial_plan_profile_pin();
 CREATE TRIGGER newsroom_editorial_dossier_article_plans_set_updated_at BEFORE UPDATE ON newsroom_editorial_dossier_article_plans FOR EACH ROW EXECUTE FUNCTION newsroom_set_editorial_dossier_updated_at();
-CREATE CONSTRAINT TRIGGER newsroom_mesa_after_plan_publication_v2 AFTER INSERT OR DELETE OR UPDATE ON newsroom_editorial_dossier_article_plans DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION newsroom_mesa_after_plan_publication_v2();
 CREATE TRIGGER newsroom_editorial_dossier_sources_protect_frozen_identity BEFORE UPDATE OF newsroom_article_id, newsroom_snapshot_id, title_snapshot, published_at_snapshot ON newsroom_editorial_dossier_sources FOR EACH ROW EXECUTE FUNCTION newsroom_protect_editorial_dossier_source_frozen_identity();
 CREATE TRIGGER newsroom_editorial_dossier_sources_set_updated_at BEFORE UPDATE ON newsroom_editorial_dossier_sources FOR EACH ROW EXECUTE FUNCTION newsroom_set_editorial_dossier_updated_at();
 CREATE TRIGGER newsroom_editorial_dossiers_set_updated_at BEFORE UPDATE ON newsroom_editorial_dossiers FOR EACH ROW EXECUTE FUNCTION newsroom_set_editorial_dossier_updated_at();
 CREATE TRIGGER newsroom_editorial_profile_versions_immutable BEFORE DELETE OR UPDATE ON newsroom_editorial_profile_versions FOR EACH ROW EXECUTE FUNCTION newsroom_reject_editorial_profile_version_mutation();
 CREATE TRIGGER newsroom_editorial_profiles_protected BEFORE UPDATE ON newsroom_editorial_profiles FOR EACH ROW EXECUTE FUNCTION newsroom_protect_editorial_profile();
 CREATE TRIGGER newsroom_editorial_review_states_set_updated_at BEFORE UPDATE ON newsroom_editorial_review_states FOR EACH ROW EXECUTE FUNCTION newsroom_set_article_updated_at();
-CREATE CONSTRAINT TRIGGER newsroom_mesa_context_package_valid_v1 AFTER INSERT OR UPDATE OF manifest ON newsroom_editorial_source_packages DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION newsroom_assert_mesa_context_package_v1();
 create policy "Public read seasons" on "public"."seasons" as permissive for select to public using (true);
 create policy "Public read teams" on "public"."teams" as permissive for select to public using (true);
 create policy "portal_permissions_select_own_active" on "public"."portal_permissions" as permissive for select to "authenticated" using (((status = 'active'::text) AND (EXISTS ( SELECT 1

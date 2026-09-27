@@ -1,5 +1,4 @@
-begin
-;
+begin;
 
 create table public.matchday_editorial_profile_assignments (
   matchday_id uuid primary key references public.matchdays(id) on delete cascade,
@@ -8,26 +7,20 @@ create table public.matchday_editorial_profile_assignments (
   updated_at timestamptz not null default now(),
   constraint matchday_editorial_profile_assignments_profile_key_check
     check (profile_key = 'liga_portugal_v1')
-)
-;
+);
 
-alter table public.matchday_editorial_profile_assignments enable row level security
-;
+alter table public.matchday_editorial_profile_assignments enable row level security;
 
 revoke all on table public.matchday_editorial_profile_assignments
-  from public, anon, authenticated, service_role
-;
+  from public, anon, authenticated, service_role;
 
-grant select on table public.matchday_editorial_profile_assignments to service_role
-;
+grant select on table public.matchday_editorial_profile_assignments to service_role;
 
 comment on table public.matchday_editorial_profile_assignments is
-  'A ausência de linha mantém a Jornada no circuito editorial Atual/legacy; uma linha ativa explicitamente o perfil temático. Esta tabela não contém o estado interno do perfil. Apagar uma atribuição não representa apagar eventual estado temático independente.'
-;
+  'A ausência de linha mantém a Jornada no circuito editorial Atual/legacy; uma linha ativa explicitamente o perfil temático. Esta tabela não contém o estado interno do perfil. Apagar uma atribuição não representa apagar eventual estado temático independente.';
 
 comment on column public.matchday_editorial_profile_assignments.profile_key is
-  'Profile editorial temático explicitamente atribuído à Jornada.'
-;
+  'Profile editorial temático explicitamente atribuído à Jornada.';
 
 create function public.set_matchday_editorial_profile_assignment(
   p_matchday_id uuid,
@@ -103,16 +96,12 @@ begin
 
   return p_profile_key;
 end;
-$$
-;
+$$;
 
 revoke execute on function public.set_matchday_editorial_profile_assignment(uuid, text)
-  from public, anon, authenticated
-;
+  from public, anon, authenticated;
 
 grant execute on function public.set_matchday_editorial_profile_assignment(uuid, text)
-  to service_role
-;
+  to service_role;
 
-commit
-;
+commit;

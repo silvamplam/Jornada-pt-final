@@ -1,5 +1,4 @@
-begin
-;
+begin;
 
 -- ============================================================
 -- LOTE 3 / V20
@@ -31,19 +30,16 @@ as $function$
     when 'five_news_secondary' then 5
     else null
   end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.matchday_live_layout_layout_capacity_v20(text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 comment on function
   jornada_private.matchday_live_layout_layout_capacity_v20(text)
 is
-  'Single SQL definition of persistable physical layout IDs and their slot capacity. NULL means unknown/non-persistable.'
-;
+  'Single SQL definition of persistable physical layout IDs and their slot capacity. NULL means unknown/non-persistable.';
 
 create or replace function
 jornada_private.matchday_live_layout_visual_family_capacity_v13(
@@ -60,17 +56,14 @@ as $function$
   select jornada_private.matchday_live_layout_layout_capacity_v20(
     p_visual_family
   );
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.matchday_live_layout_visual_family_capacity_v13(text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 alter table public.matchday_live_layout_zones
-  drop constraint matchday_live_layout_zones_visual_family_check
-;
+  drop constraint matchday_live_layout_zones_visual_family_check;
 
 alter table public.matchday_live_layout_zones
   add constraint matchday_live_layout_zones_visual_family_check
@@ -78,8 +71,7 @@ alter table public.matchday_live_layout_zones
     jornada_private.matchday_live_layout_layout_capacity_v20(
       visual_family
     ) is not null
-  )
-;
+  );
 
 -- ============================================================
 -- 2. LEGACY PROJECTION IS OPTIONAL COMPATIBILITY
@@ -107,16 +99,14 @@ begin
   -- already prove every mapping that exists. Missing mappings are valid: an
   -- arbitrary physical zone must never acquire a fabricated classification.
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.validate_matchday_live_layout_legacy_projection_v14(
     uuid,
     text
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function
 jornada_private.project_matchday_live_layout_workspace_best_effort_v20(
@@ -296,16 +286,14 @@ begin
     p_matchday_id
   );
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.project_matchday_live_layout_workspace_best_effort_v20(
     uuid,
     text
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 -- ============================================================
 -- 3. V17/V18/V19 FORWARD-ONLY PHYSICAL TOPOLOGY VALIDATION
@@ -479,16 +467,14 @@ begin
     raise exception 'matchday-live-layout-topology-v17-source-placement-invalid';
   end if;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.assert_matchday_live_layout_physical_topology_source_v17(
     uuid,
     text
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 comment on function
   jornada_private.assert_matchday_live_layout_physical_topology_source_v17(
@@ -496,8 +482,7 @@ comment on function
     text
   )
 is
-  'V20 physical source validator used by v17/v18/v19. It accepts arbitrary or zero zone cardinality, sparse occupancy and optional legacy projections.'
-;
+  'V20 physical source validator used by v17/v18/v19. It accepts arbitrary or zero zone cardinality, sparse occupancy and optional legacy projections.';
 
 -- ============================================================
 -- 4. PRIVATE V20 FINAL-STATE APPLY CORE
@@ -2241,23 +2226,20 @@ begin
     pg_catalog.jsonb_array_length(p_displaced_bank_item_ids),
     pg_catalog.jsonb_array_length(p_worked_bank_item_ids);
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.apply_matchday_live_layout_physical_workspace_v20_core(
     uuid,text,text,jsonb,jsonb,jsonb,integer,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 comment on function
   jornada_private.apply_matchday_live_layout_physical_workspace_v20_core(
     uuid,text,text,jsonb,jsonb,jsonb,integer,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
 is
-  'Private v20 final-state physical Apply core with atomic topology CRUD, server-enforced deleted-zone displacement and best-effort legacy derivation.'
-;
+  'Private v20 final-state physical Apply core with atomic topology CRUD, server-enforced deleted-zone displacement and best-effort legacy derivation.';
 
 -- ============================================================
 -- 5. SERVICE-ROLE V20 FACADE WITH THE EXISTING VIDEO GUARD
@@ -2395,27 +2377,23 @@ begin
     raise exception 'matchday-live-layout-physical-v20-highlight-required';
   end if;
 end;
-$function$
-;
+$function$;
 
 revoke all on function public.apply_matchday_live_layout_physical_v20(
   uuid,text,text,jsonb,jsonb,jsonb,integer,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
 )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function public.apply_matchday_live_layout_physical_v20(
   uuid,text,text,jsonb,jsonb,jsonb,integer,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
 )
-to service_role
-;
+to service_role;
 
 comment on function public.apply_matchday_live_layout_physical_v20(
   uuid,text,text,jsonb,jsonb,jsonb,integer,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
 )
 is
-  'Single-transaction service-role physical Apply v20. Supports final-state zone/block CRUD, sparse occupancy, deleted-zone displacement and optional legacy compatibility.'
-;
+  'Single-transaction service-role physical Apply v20. Supports final-state zone/block CRUD, sparse occupancy, deleted-zone displacement and optional legacy compatibility.';
 
 do $acl$
 begin
@@ -2443,11 +2421,8 @@ begin
     raise exception 'matchday-live-layout-physical-v20-acl-invalid';
   end if;
 end;
-$acl$
-;
+$acl$;
 
-notify pgrst, 'reload schema'
-;
+notify pgrst, 'reload schema';
 
-commit
-;
+commit;

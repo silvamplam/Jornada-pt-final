@@ -152,7 +152,7 @@
         "a76f3b026443c422b14e2cb69d0c2b1578453f0d1a56548ce58e5b66b6d3a7cc",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "fbd0235aa4bd4e5841208a6cb1b2dcb2e2e3f4f00c494b53c7d527d09c86f641",
+      "rendered_file_sha256": "710fe99730825ebb9193bb2cba11a0cbe602cc502da3ebeb7404a77cb70ad4a3",
       "original_local_file": "20260822154500_matchday_editorial_profile_assignment.sql",
       "classification": "same-version"
     },
@@ -187,7 +187,7 @@
         "b66f47be13de44a772ff6127a771afc554c333c94864621e56566773845c63e9",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "66e2463bf9dc9d538e5f6b67bdb4bdd075b583d48873f878fad5a790c114d967",
+      "rendered_file_sha256": "bc867d47e139d58dc57813bf561ae20875b9919302ca86695bc41d7f02910e38",
       "original_local_file": "20260822172842_matchday_editorial_profile_state_distribution.sql",
       "classification": "same-version"
     },
@@ -621,7 +621,7 @@
         "a762363154feb4b9ce3aed7d87f65882f359e96302069bd27dc4f6562e3ad02b",
         "b6196308110c547f5278c3450b100d0b5b9d4e93e7e4824f48a2a2a399f35fea"
       ],
-      "rendered_file_sha256": "257dc617b924fced13d3bb81a788f046c6f7e824f065b05758f5fa5b46baf519",
+      "rendered_file_sha256": "ac83615fb372cc5d46c4d1dfc495d7153ca01fbd6687d8be5806a9c07d11bd2e",
       "original_local_file": "20260828154500_apply_matchday_agenda_tv_sync_v1.sql",
       "classification": "same-version"
     },
@@ -638,7 +638,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "422f913cf37764cdf5e4680856c994e2929beff68ff4f6ef24dc6a3fc62fb31a",
+      "rendered_file_sha256": "cf7387808429bee927c5f28634a870f2e20c3b4f1701651aee6b250d385e322d",
       "original_local_file": "20260829143000_restore_thematic_zone_membership_null_sort_order.sql",
       "classification": "same-version"
     },
@@ -660,7 +660,7 @@
         "db0705121d760ece3643238409bf0890965d78fab74b2a3cb31511b442a50b38",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "8e402d6620b976d3159b1acf6e52c6eb9e38f431d81e46463e7165b1758a2e00",
+      "rendered_file_sha256": "4573fd79b1310e1b87425b7edfeb669713d69b90af216a3d13d9966975101146",
       "original_local_file": "20260829160000_thematic_positional_order_without_actuality.sql",
       "classification": "same-version"
     },
@@ -963,7 +963,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "9d608f8a2f9d4565ff0e34de3f1ffb62456f50f85897a188b5269bb9ba21eca2",
+      "rendered_file_sha256": "19e4ea32ab3444b0220567922139026c19e42b0e25a561ee7211fd28ccff512c",
       "original_local_file": "20260904120000_matchday_live_layout_physical_writer_v13_shadow.sql",
       "classification": "same-version"
     },
@@ -982,7 +982,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "f4c243b944640d9d190c393acf51c108218e50a834ae3c89da1ae7180ead4b15",
+      "rendered_file_sha256": "d587c4caf1faed97bb12809b70ceffd10a046f4e5e214959aba0c02dd4ed4d75",
       "original_local_file": "20260904130000_matchday_live_layout_workspace_v13_reader.sql",
       "classification": "same-version"
     },
@@ -1079,7 +1079,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "e7673963d4d5f8b762641ab8dc506b2c26f674b78d221f5ba8c94757d24ec8bc",
+      "rendered_file_sha256": "d459db704ecd10081e3882105de4558b4cf2e43e1749cc2d84f4f81102c8f1c8",
       "original_local_file": "20260904140000_matchday_live_layout_physical_apply_facade.sql",
       "classification": "same-version"
     },
@@ -1101,7 +1101,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "2d4a18abbf81908d501269e3d658d9eaacbb3452cbaa56e4f871af1f80bfae1d",
+      "rendered_file_sha256": "86e5945e17b93a017371d7ae8e9392dc5c80a0d6e7bf8e1179ccdeaeab974c90",
       "original_local_file": "20260904150000_matchday_live_layout_physical_apply_video_guard.sql",
       "classification": "same-version"
     },
@@ -1197,7 +1197,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "fa284e66a974a133367fd30b70254162263d30a61ec32420066cd86d0ddc1447",
+      "rendered_file_sha256": "9f928d316ef2981daa44c43643821480579022ec5d9b560bc088ca842afba640",
       "original_local_file": "20260905230000_matchday_live_layout_physical_crud_v20.sql",
       "classification": "same-version"
     },
@@ -1213,7 +1213,7 @@
         "d4bdda641583f75854f6cb98c6a6fbac0b0a85585beb51ab4320300f81c402a8",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "2be1f11cd69daa02a99c65e6b4739a3bc1ad2da770b161830feb31720374d57a",
+      "rendered_file_sha256": "c6125e638132efe04ea23e194a7e1ece06ab0fa63bd1fcadd2499f28e0bdce3d",
       "original_local_file": "20260906220000_matchday_live_layout_four_news_optional_titles_v21.sql",
       "classification": "same-version"
     },
@@ -1250,7 +1250,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "82362460611841cfa3666d3901566b5e2fbd8955e98106d9a96c890698fad91a",
+      "rendered_file_sha256": "25d6b7e129a3d1031195b85e16ac730275877f883eb1733e8a3ae3909708c998",
       "original_local_file": "20260906234000_matchday_live_layout_latest_companion_v22.sql",
       "classification": "same-version"
     },
@@ -1398,7 +1398,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "57b42dc88887790b2e2cf0ab07c4be432a97835de8623b9d6190abf497f17c29",
+      "rendered_file_sha256": "551e3ee05d82ed11957bd3b690e070992fab8f590cdc9820ca2f76dce2431efa",
       "original_local_file": "20260908112602_newsroom_editorial_themes_foundation.sql",
       "classification": "same-version"
     },
@@ -1438,7 +1438,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "bbba0f34c8ea57d3a9a1b9b7328c144608cd969754ebed9e740d7238240b9b34",
+      "rendered_file_sha256": "dd265c282534db74bf4ae2acb575bc45fca7684823ae5deca5502e689594ea2a",
       "original_local_file": "20260908122938_newsroom_editorial_article_classifications_foundation.sql",
       "classification": "same-version"
     },
@@ -1493,7 +1493,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "2e529c71082f7a7f3121a195bd431509fc092cee49806fe482f730aad470d13b",
+      "rendered_file_sha256": "944b2fa08f40126b89991ba9b0961badcebe6077e57455566fd0053b2924591f",
       "original_local_file": "20260908173933_matchday_historical_physical_archive_v20.sql",
       "classification": "same-version"
     },
@@ -1511,7 +1511,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "c988b84e48a5c392fe5be9c34f99bb0c31454eeebdd50e79ef3f45acfc7f893d",
+      "rendered_file_sha256": "ce3cab8097b929b15f706d6fafc3f765a06c1c68ef4e5e7b4216cb1e949ae111",
       "original_local_file": "20260908194740_matchday_historical_reopen_physical_handoff_authority_v20.sql",
       "classification": "same-version"
     },
@@ -1538,7 +1538,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "d8479f18a645adc122a6ec4fa0aaf90a79697b3a0c6a55fe6d35069faa1d1ad7",
+      "rendered_file_sha256": "6dbf5c0c758688b7747ebd714aab6826b4a6b20cf3a2864c975a4b47b3078a67",
       "original_local_file": "20260908204307_matchday_live_layout_latest_destination_authority_v29.sql",
       "classification": "same-version"
     },
@@ -1598,7 +1598,7 @@
         "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "f96d336d2d48f0f1c3a05646e9b71f1d57e3d6318b2f78cc7cbba8894c8a13e1",
+      "rendered_file_sha256": "02a73fe416828ffd9e63e80add8c0ddc2acedd4761f3ea52fcc88c0748abe97c",
       "original_local_file": "20260909100000_newsroom_editorial_production_workspace_foundation.sql",
       "classification": "same-version"
     },
@@ -2118,7 +2118,7 @@
         "ac9e64264c33a0af6f4d1de4fbe55ef435fe07f48d17f22b4fc0d50548f8c2b4",
         "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
       ],
-      "rendered_file_sha256": "a9279d3cef2d9a373707fa6fcdc0b737237f672b1765cae6991784e32ae86378",
+      "rendered_file_sha256": "b06cfc50f79ad33045a8c159061551d558cd13f43841e0be1181cb6a14056eb5",
       "original_local_file": "20260927110935_editorial_six_news_1_2_3.sql",
       "classification": "same-version"
     }

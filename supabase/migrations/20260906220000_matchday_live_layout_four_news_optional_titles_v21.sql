@@ -1,5 +1,4 @@
-begin
-;
+begin;
 
 -- ============================================================
 -- LOTE 5A2-B / V21
@@ -31,8 +30,7 @@ as $function$
     when 'four_news' then 4
     else null
   end;
-$function$
-;
+$function$;
 
 create or replace function
 jornada_private.assert_matchday_live_layout_physical_topology_source_v17(
@@ -201,8 +199,7 @@ begin
     raise exception 'matchday-live-layout-topology-v17-source-placement-invalid';
   end if;
 end;
-$function$
-;
+$function$;
 
 create or replace function
 jornada_private.apply_matchday_live_layout_physical_workspace_v20_core(
@@ -1941,8 +1938,6 @@ begin
     pg_catalog.jsonb_array_length(p_displaced_bank_item_ids),
     pg_catalog.jsonb_array_length(p_worked_bank_item_ids);
 end;
-$function$
-;
+$function$;
 
-commit
-;
+commit;

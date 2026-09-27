@@ -1,5 +1,4 @@
-begin
-;
+begin;
 
 -- ============================================================
 -- LOTE 7E / PASSO 6B PREREQUISITE
@@ -24,8 +23,7 @@ alter function public.apply_matchday_live_layout_physical_workspace_v14(
   jsonb,
   jsonb
 )
-rename to apply_matchday_live_layout_physical_workspace_v14_core
-;
+rename to apply_matchday_live_layout_physical_workspace_v14_core;
 
 alter function public.apply_matchday_live_layout_physical_workspace_v14_core(
   uuid,
@@ -42,8 +40,7 @@ alter function public.apply_matchday_live_layout_physical_workspace_v14_core(
   jsonb,
   jsonb
 )
-set schema jornada_private
-;
+set schema jornada_private;
 
 revoke all on function
   jornada_private.apply_matchday_live_layout_physical_workspace_v14_core(
@@ -61,8 +58,7 @@ revoke all on function
     jsonb,
     jsonb
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 comment on function
   jornada_private.apply_matchday_live_layout_physical_workspace_v14_core(
@@ -81,8 +77,7 @@ comment on function
     jsonb
   )
 is
-  'Private validated v14 physical apply core. The public service-role facade owns the transactional video publication guard.'
-;
+  'Private validated v14 physical apply core. The public service-role facade owns the transactional video publication guard.';
 
 create function public.apply_matchday_live_layout_physical_workspace_v14(
   p_matchday_id uuid,
@@ -229,8 +224,7 @@ begin
     raise exception 'matchday-live-layout-physical-v14-highlight-required';
   end if;
 end;
-$function$
-;
+$function$;
 
 revoke all on function public.apply_matchday_live_layout_physical_workspace_v14(
   uuid,
@@ -247,8 +241,7 @@ revoke all on function public.apply_matchday_live_layout_physical_workspace_v14(
   jsonb,
   jsonb
 )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function public.apply_matchday_live_layout_physical_workspace_v14(
   uuid,
@@ -265,8 +258,7 @@ grant execute on function public.apply_matchday_live_layout_physical_workspace_v
   jsonb,
   jsonb
 )
-to service_role
-;
+to service_role;
 
 comment on function public.apply_matchday_live_layout_physical_workspace_v14(
   uuid,
@@ -284,11 +276,8 @@ comment on function public.apply_matchday_live_layout_physical_workspace_v14(
   jsonb
 )
 is
-  'Single service-role physical workspace Apply facade. It locks and validates published roundup video plus the physical highlight before atomically delegating to the private v14 core.'
-;
+  'Single service-role physical workspace Apply facade. It locks and validates published roundup video plus the physical highlight before atomically delegating to the private v14 core.';
 
-notify pgrst, 'reload schema'
-;
+notify pgrst, 'reload schema';
 
-commit
-;
+commit;

@@ -1,5 +1,4 @@
-begin
-;
+begin;
 
 -- A historical composition is retired by the durable physical handoff and
 -- desk ownership switch. Physical placements and state memory remain valid
@@ -330,27 +329,21 @@ begin
 
   return v_draft_id;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   public.reopen_matchday_reference_composition(uuid, uuid)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function
   public.reopen_matchday_reference_composition(uuid, uuid)
-to service_role
-;
+to service_role;
 
 comment on function
   public.reopen_matchday_reference_composition(uuid, uuid)
 is
-  'Clones the current published composition of a source retired by a coherent durable physical handoff into an independent draft. Archived physical source rows and the target current state are not retirement authorities.'
-;
+  'Clones the current published composition of a source retired by a coherent durable physical handoff into an independent draft. Archived physical source rows and the target current state are not retirement authorities.';
 
-notify pgrst, 'reload schema'
-;
+notify pgrst, 'reload schema';
 
-commit
-;
+commit;

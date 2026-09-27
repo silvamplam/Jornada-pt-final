@@ -1,5 +1,4 @@
-begin
-;
+begin;
 
 -- LOTE 7E - PASSO 4
 -- Coherent read-only physical workspace snapshot. The legacy projection is
@@ -207,24 +206,20 @@ as $function$
       '[]'::jsonb
     ) as legacy_zone_projection
   from token_state;
-$function$
-;
+$function$;
 
 revoke all on function
   public.read_matchday_live_layout_workspace_v13(uuid, text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function
   public.read_matchday_live_layout_workspace_v13(uuid, text)
-to service_role
-;
+to service_role;
 
 comment on function
   public.read_matchday_live_layout_workspace_v13(uuid, text)
 is
-  'Read-only coherent v13 physical workspace snapshot. Legacy zone projection is explicit compatibility metadata and is never inferred.'
-;
+  'Read-only coherent v13 physical workspace snapshot. Legacy zone projection is explicit compatibility metadata and is never inferred.';
 
 do $postconditions$
 begin
@@ -249,11 +244,8 @@ begin
       'matchday-live-layout-workspace-v13-reader-service-role-missing';
   end if;
 end;
-$postconditions$
-;
+$postconditions$;
 
-notify pgrst, 'reload schema'
-;
+notify pgrst, 'reload schema';
 
-commit
-;
+commit;

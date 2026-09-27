@@ -1,5 +1,4 @@
-begin
-;
+begin;
 
 -- LOTE 7E / PASSO 6A
 -- Transactional physical workspace facade. The administrative route is not
@@ -35,24 +34,19 @@ create table public.matchday_live_layout_workspace_settings (
     check (
       pg_catalog.char_length(pg_catalog.btrim(latest_zone_title)) <= 120
     )
-)
-;
+);
 
 alter table public.matchday_live_layout_workspace_settings
-  enable row level security
-;
+  enable row level security;
 
 revoke all on table public.matchday_live_layout_workspace_settings
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant select on table public.matchday_live_layout_workspace_settings
-to service_role
-;
+to service_role;
 
 comment on table public.matchday_live_layout_workspace_settings is
-  'Authoritative physical live-desk settings. A Faixa vacancy is the absence of a placement inside faixa_slot_count; the extent is never inferred from the last occupied slot.'
-;
+  'Authoritative physical live-desk settings. A Faixa vacancy is the absence of a placement inside faixa_slot_count; the extent is never inferred from the last occupied slot.';
 
 create table jornada_private.matchday_live_layout_physical_cutovers (
   matchday_id uuid primary key
@@ -62,20 +56,16 @@ create table jornada_private.matchday_live_layout_physical_cutovers (
   cutover_at timestamptz not null default pg_catalog.statement_timestamp(),
   constraint matchday_live_layout_physical_cutovers_profile_check
     check (pg_catalog.btrim(profile_key) <> '')
-)
-;
+);
 
 alter table jornada_private.matchday_live_layout_physical_cutovers
-  enable row level security
-;
+  enable row level security;
 
 revoke all on table jornada_private.matchday_live_layout_physical_cutovers
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 comment on table jornada_private.matchday_live_layout_physical_cutovers is
-  'Private per-matchday authority marker. Only the physical facade inserts it, after locked OCC and complete pre-DML validation.'
-;
+  'Private per-matchday authority marker. Only the physical facade inserts it, after locked OCC and complete pre-DML validation.';
 
 create table jornada_private.matchday_live_layout_downstream_context (
   backend_pid integer not null,
@@ -85,16 +75,13 @@ create table jornada_private.matchday_live_layout_downstream_context (
   primary key (backend_pid, transaction_id, matchday_id),
   constraint matchday_live_layout_downstream_context_depth_check
     check (nesting_depth > 0)
-)
-;
+);
 
 alter table jornada_private.matchday_live_layout_downstream_context
-  enable row level security
-;
+  enable row level security;
 
 revoke all on table jornada_private.matchday_live_layout_downstream_context
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function jornada_private.begin_matchday_live_layout_downstream_v14(
   p_matchday_id uuid
@@ -125,13 +112,11 @@ begin
   do update set nesting_depth =
     jornada_private.matchday_live_layout_downstream_context.nesting_depth + 1;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.begin_matchday_live_layout_downstream_v14(uuid)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function jornada_private.end_matchday_live_layout_downstream_v14(
   p_matchday_id uuid
@@ -157,13 +142,11 @@ begin
       and matchday_id = p_matchday_id;
   end if;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.end_matchday_live_layout_downstream_v14(uuid)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function jornada_private.is_matchday_live_layout_downstream_v14(
   p_matchday_id uuid
@@ -182,13 +165,11 @@ as $function$
       and context_row.matchday_id = p_matchday_id
       and context_row.nesting_depth > 0
   );
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.is_matchday_live_layout_downstream_v14(uuid)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function jornada_private.is_matchday_live_layout_physical_v14(
   p_matchday_id uuid
@@ -204,13 +185,11 @@ as $function$
     from jornada_private.matchday_live_layout_physical_cutovers as cutover_row
     where cutover_row.matchday_id = p_matchday_id
   );
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.is_matchday_live_layout_physical_v14(uuid)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 -- ============================================================
 -- 2. STRICT PHYSICAL PAYLOAD NORMALIZERS
@@ -253,13 +232,11 @@ as $function$
     case when pg_catalog.jsonb_typeof(p_zones) = 'array'
       then p_zones else '[]'::jsonb end
   ) with ordinality as raw_row(payload, ordinality);
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.normalize_matchday_live_layout_zones_v14(jsonb)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function jornada_private.normalize_matchday_live_layout_blocks_v14(
   p_blocks jsonb
@@ -308,13 +285,11 @@ as $function$
     case when pg_catalog.jsonb_typeof(p_blocks) = 'array'
       then p_blocks else '[]'::jsonb end
   ) with ordinality as raw_row(payload, ordinality);
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.normalize_matchday_live_layout_blocks_v14(jsonb)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function jornada_private.validate_matchday_live_layout_legacy_projection_v14(
   p_matchday_id uuid,
@@ -355,13 +330,11 @@ begin
     raise exception 'matchday-live-layout-physical-v14-legacy-projection-invalid';
   end if;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.validate_matchday_live_layout_legacy_projection_v14(uuid, text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 -- ============================================================
 -- 3. ADDITIVE V13 TOKEN: EXISTING COMPONENTS PLUS SETTINGS/MARKER
@@ -516,41 +489,34 @@ as $function$
       )
     )::text
   ) as state_token;
-$function$
-;
+$function$;
 
 revoke all on function
   public.matchday_editorial_profile_workspace_token_v13(uuid, text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function
   public.matchday_editorial_profile_workspace_token_v13(uuid, text)
-to service_role
-;
+to service_role;
 
 comment on function
   public.matchday_editorial_profile_workspace_token_v13(uuid, text)
 is
-  'Physical workspace OCC token. Preserves every v13 component and adds physical settings plus the per-matchday cutover marker, including placement created_at/updated_at, memory recorded_at, settings timestamps and cutover_at.'
-;
+  'Physical workspace OCC token. Preserves every v13 component and adds physical settings plus the per-matchday cutover marker, including placement created_at/updated_at, memory recorded_at, settings timestamps and cutover_at.';
 
 -- ============================================================
 -- 4. READER V13 EXTENSION (READ-ONLY, SERVICE-ROLE ONLY)
 -- ============================================================
 
 alter function public.read_matchday_live_layout_workspace_v13(uuid, text)
-rename to read_live_layout_workspace_v13_pre_facade
-;
+rename to read_live_layout_workspace_v13_pre_facade;
 
 alter function public.read_live_layout_workspace_v13_pre_facade(uuid, text)
-set schema jornada_private
-;
+set schema jornada_private;
 
 revoke all on function
   jornada_private.read_live_layout_workspace_v13_pre_facade(uuid, text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function public.read_matchday_live_layout_workspace_v13(
   p_matchday_id uuid,
@@ -620,24 +586,20 @@ as $function$
     p_matchday_id,
     p_profile_key
   ) as base_row;
-$function$
-;
+$function$;
 
 revoke all on function
   public.read_matchday_live_layout_workspace_v13(uuid, text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function
   public.read_matchday_live_layout_workspace_v13(uuid, text)
-to service_role
-;
+to service_role;
 
 comment on function
   public.read_matchday_live_layout_workspace_v13(uuid, text)
 is
-  'Coherent read-only v13 physical workspace snapshot extended with authoritative physical settings and the explicit per-matchday cutover marker.'
-;
+  'Coherent read-only v13 physical workspace snapshot extended with authoritative physical settings and the explicit per-matchday cutover marker.';
 
 -- ============================================================
 -- 5. LEGACY WRITER FENCE: SAME MATCHDAY ROW LOCK, THEN MARKER
@@ -676,35 +638,30 @@ begin
     raise exception 'matchday-live-layout-legacy-writer-after-physical-cutover';
   end if;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.assert_matchday_live_layout_legacy_writer_v14(uuid)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 alter function public.apply_matchday_editorial_profile_workspace_v12(
   uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
   jsonb,jsonb,jsonb,jsonb,jsonb
 )
-rename to apply_profile_workspace_v12_pre_physical_facade
-;
+rename to apply_profile_workspace_v12_pre_physical_facade;
 
 alter function public.apply_profile_workspace_v12_pre_physical_facade(
   uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
   jsonb,jsonb,jsonb,jsonb,jsonb
 )
-set schema jornada_private
-;
+set schema jornada_private;
 
 revoke all on function
   jornada_private.apply_profile_workspace_v12_pre_physical_facade(
     uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
     jsonb,jsonb,jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function public.apply_matchday_editorial_profile_workspace_v12(
   p_matchday_id uuid,
@@ -766,46 +723,40 @@ begin
     p_displaced_arrival_bank_item_ids
   );
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   public.apply_matchday_editorial_profile_workspace_v12(
     uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
     jsonb,jsonb,jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function
   public.apply_matchday_editorial_profile_workspace_v12(
     uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
     jsonb,jsonb,jsonb,jsonb,jsonb
   )
-to service_role
-;
+to service_role;
 
 alter function public.apply_matchday_editorial_profile_workspace_v11(
   uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
   jsonb,jsonb,jsonb
 )
-rename to apply_profile_workspace_v11_pre_physical_facade
-;
+rename to apply_profile_workspace_v11_pre_physical_facade;
 
 alter function public.apply_profile_workspace_v11_pre_physical_facade(
   uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
   jsonb,jsonb,jsonb
 )
-set schema jornada_private
-;
+set schema jornada_private;
 
 revoke all on function
   jornada_private.apply_profile_workspace_v11_pre_physical_facade(
     uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
     jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function public.apply_matchday_editorial_profile_workspace_v11(
   p_matchday_id uuid,
@@ -863,43 +814,37 @@ begin
     p_displaced_bank_item_ids
   );
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   public.apply_matchday_editorial_profile_workspace_v11(
     uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
     jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function
   public.apply_matchday_editorial_profile_workspace_v11(
     uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,
     jsonb,jsonb,jsonb
   )
-to service_role
-;
+to service_role;
 
 alter function public.apply_matchday_editorial_desk_state_v2(
   uuid,bigint,text,boolean,jsonb
 )
-rename to apply_editorial_desk_v2_pre_physical_facade
-;
+rename to apply_editorial_desk_v2_pre_physical_facade;
 
 alter function public.apply_editorial_desk_v2_pre_physical_facade(
   uuid,bigint,text,boolean,jsonb
 )
-set schema jornada_private
-;
+set schema jornada_private;
 
 revoke all on function
   jornada_private.apply_editorial_desk_v2_pre_physical_facade(
     uuid,bigint,text,boolean,jsonb
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function public.apply_matchday_editorial_desk_state_v2(
   p_matchday_id uuid,
@@ -927,35 +872,30 @@ begin
     p_articles
   );
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   public.apply_matchday_editorial_desk_state_v2(
     uuid,bigint,text,boolean,jsonb
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function
   public.apply_matchday_editorial_desk_state_v2(
     uuid,bigint,text,boolean,jsonb
   )
-to service_role
-;
+to service_role;
 
 -- ============================================================
 -- 6. MARKER-AWARE TOPOLOGY SHADOW
 -- ============================================================
 
 alter function jornada_private.sync_matchday_live_layout_shadow(uuid[])
-rename to sync_live_layout_shadow_pre_physical_facade
-;
+rename to sync_live_layout_shadow_pre_physical_facade;
 
 revoke all on function
   jornada_private.sync_live_layout_shadow_pre_physical_facade(uuid[])
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function jornada_private.sync_matchday_live_layout_shadow(
   p_matchday_ids uuid[]
@@ -989,13 +929,11 @@ begin
     );
   end if;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.sync_matchday_live_layout_shadow(uuid[])
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create or replace function
   jornada_private.enqueue_matchday_live_layout_shadow_sync()
@@ -1048,13 +986,11 @@ begin
 
   return null;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.enqueue_matchday_live_layout_shadow_sync()
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 -- ============================================================
 -- 7. MARKER-AWARE LEGACY PLACEMENT FENCE AND SUBSET DRIFT GUARD
@@ -1096,13 +1032,11 @@ begin
     raise exception 'matchday-live-layout-legacy-placement-after-physical-cutover';
   end if;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.assert_matchday_live_layout_projection_write_v14(uuid, boolean)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create or replace function
   jornada_private.enqueue_matchday_live_layout_placement_shadow_sync()
@@ -1220,13 +1154,11 @@ begin
 
   return null;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.enqueue_matchday_live_layout_placement_shadow_sync()
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create or replace function
   jornada_private.flush_matchday_live_layout_placement_shadow_sync_queue()
@@ -1388,13 +1320,11 @@ begin
 
   return null;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.flush_matchday_live_layout_placement_shadow_sync_queue()
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 -- ============================================================
 -- 8. DIFFERENTIAL PHYSICAL -> LEGACY PLACEMENT MATERIALIZATION
@@ -2108,16 +2038,14 @@ begin
     p_matchday_id
   );
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.project_matchday_live_layout_placements_downstream_v14(
     uuid,
     text
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create or replace function
 jornada_private.project_matchday_live_layout_placements_to_legacy(
@@ -2155,13 +2083,11 @@ begin
       );
   end loop;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.project_matchday_live_layout_placements_to_legacy(uuid[])
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function jornada_private.project_matchday_live_layout_workspace_v14(
   p_matchday_id uuid,
@@ -2358,13 +2284,11 @@ begin
     raise exception 'matchday-live-layout-downstream-v14-topology-postcondition';
   end if;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.project_matchday_live_layout_workspace_v14(uuid, text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create function jornada_private.assert_matchday_live_layout_downstream_v14(
   p_matchday_id uuid,
@@ -2478,13 +2402,11 @@ begin
     raise exception 'matchday-live-layout-downstream-v14-postcondition';
   end if;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.assert_matchday_live_layout_downstream_v14(uuid, text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 -- ============================================================
 -- 9. SINGLE TRANSACTIONAL PHYSICAL WORKSPACE FACADE
@@ -4252,35 +4174,30 @@ begin
     pg_catalog.jsonb_array_length(p_displaced_bank_item_ids),
     pg_catalog.jsonb_array_length(p_worked_bank_item_ids);
 end;
-$function$
-;
+$function$;
 
 revoke all on function public.apply_matchday_live_layout_physical_workspace_v14(
   uuid,text,text,jsonb,jsonb,jsonb,integer,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
 )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function public.apply_matchday_live_layout_physical_workspace_v14(
   uuid,text,text,jsonb,jsonb,jsonb,integer,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
 )
-to service_role
-;
+to service_role;
 
 comment on function public.apply_matchday_live_layout_physical_workspace_v14(
   uuid,text,text,jsonb,jsonb,jsonb,integer,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
 )
 is
-  'Single-transaction service-role facade for the physical live desk. It validates physical OCC under the shared writer lock, marks per-matchday cutover, writes physical authority and materializes legacy downstream.'
-;
+  'Single-transaction service-role facade for the physical live desk. It validates physical OCC under the shared writer lock, marks per-matchday cutover, writes physical authority and materializes legacy downstream.';
 
 -- The v13 shadow writer remains a private implementation detail.
 revoke all on function
   jornada_private.apply_matchday_live_layout_physical_state_v13_shadow(
     uuid,text,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 do $postconditions$
 begin
@@ -4335,11 +4252,8 @@ begin
     raise exception 'matchday-live-layout-physical-v14-table-acl-invalid';
   end if;
 end;
-$postconditions$
-;
+$postconditions$;
 
-notify pgrst, 'reload schema'
-;
+notify pgrst, 'reload schema';
 
-commit
-;
+commit;

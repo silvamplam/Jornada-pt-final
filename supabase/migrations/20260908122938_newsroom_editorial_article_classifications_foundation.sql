@@ -1,5 +1,4 @@
-begin
-;
+begin;
 
 -- Mesa da Redacao - autoridade editorial corrente antes da publicacao.
 -- A ausencia de linha significa "por classificar"; nao existe uma sexta chave.
@@ -17,8 +16,7 @@ begin
     raise exception 'newsroom-article-classification-preflight-target-conflict';
   end if;
 end;
-$preflight$
-;
+$preflight$;
 
 create table public.newsroom_editorial_article_classifications (
   newsroom_article_id uuid primary key,
@@ -42,16 +40,14 @@ create table public.newsroom_editorial_article_classifications (
     ),
   constraint newsroom_editorial_article_classifications_source_check
     check (classification_source in ('automatic', 'manual'))
-)
-;
+);
 
 create index newsroom_editorial_article_classifications_listing_idx
   on public.newsroom_editorial_article_classifications (
     classification_key,
     classified_at desc,
     newsroom_article_id asc
-  )
-;
+  );
 
 create function public.newsroom_set_article_classification_updated_at_v1()
 returns trigger
@@ -63,34 +59,28 @@ begin
   new.updated_at := pg_catalog.statement_timestamp();
   return new;
 end;
-$function$
-;
+$function$;
 
 create trigger newsroom_editorial_article_classifications_set_updated_at_v1
 before update on public.newsroom_editorial_article_classifications
 for each row
-execute function public.newsroom_set_article_classification_updated_at_v1()
-;
+execute function public.newsroom_set_article_classification_updated_at_v1();
 
 alter table public.newsroom_editorial_article_classifications
-  enable row level security
-;
+  enable row level security;
 
 alter table public.newsroom_editorial_article_classifications
-  force row level security
-;
+  force row level security;
 
 revoke all privileges
 on table public.newsroom_editorial_article_classifications
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 -- Leitura administrativa direta e permitida. Todas as escritas passam pelos
 -- RPCs abaixo para que a precedencia manual seja uma invariante da base.
 grant select
 on table public.newsroom_editorial_article_classifications
-to service_role
-;
+to service_role;
 
 create function public.newsroom_read_article_classification_states_v1(
   p_newsroom_article_ids uuid[]
@@ -151,8 +141,7 @@ begin
     on classification_row.newsroom_article_id = requested_row.requested_id
   order by requested_row.requested_order;
 end;
-$function$
-;
+$function$;
 
 create function public.newsroom_apply_automatic_article_classification_v1(
   p_newsroom_article_id uuid,
@@ -238,8 +227,7 @@ begin
     v_row.classification_source = 'automatic',
     v_row_count > 0;
 end;
-$function$
-;
+$function$;
 
 create function public.newsroom_set_manual_article_classification_v1(
   p_newsroom_article_id uuid,
@@ -329,8 +317,7 @@ begin
     true,
     v_row_count > 0;
 end;
-$function$
-;
+$function$;
 
 create function public.newsroom_clear_article_classification_v1(
   p_newsroom_article_id uuid
@@ -385,88 +372,72 @@ begin
     true,
     v_row_count > 0;
 end;
-$function$
-;
+$function$;
 
 revoke all
 on function public.newsroom_set_article_classification_updated_at_v1()
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 revoke all
 on function public.newsroom_read_article_classification_states_v1(uuid[])
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 revoke all
 on function public.newsroom_apply_automatic_article_classification_v1(
   uuid,
   text
 )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 revoke all
 on function public.newsroom_set_manual_article_classification_v1(
   uuid,
   text
 )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 revoke all
 on function public.newsroom_clear_article_classification_v1(uuid)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute
 on function public.newsroom_read_article_classification_states_v1(uuid[])
-to service_role
-;
+to service_role;
 
 grant execute
 on function public.newsroom_apply_automatic_article_classification_v1(
   uuid,
   text
 )
-to service_role
-;
+to service_role;
 
 grant execute
 on function public.newsroom_set_manual_article_classification_v1(
   uuid,
   text
 )
-to service_role
-;
+to service_role;
 
 grant execute
 on function public.newsroom_clear_article_classification_v1(uuid)
-to service_role
-;
+to service_role;
 
 comment on table public.newsroom_editorial_article_classifications is
-  'Current optional pre-publication editorial classification of newsroom source identities. Absence of a row means unclassified.'
-;
+  'Current optional pre-publication editorial classification of newsroom source identities. Absence of a row means unclassified.';
 
 comment on column
   public.newsroom_editorial_article_classifications.classification_key is
-  'One of the same five canonical editorial classification keys; unclassified is represented by no row.'
-;
+  'One of the same five canonical editorial classification keys; unclassified is represented by no row.';
 
 comment on column
   public.newsroom_editorial_article_classifications.classification_source is
-  'Authority of the current value: automatic or manual. Manual values cannot be replaced by the automatic RPC.'
-;
+  'Authority of the current value: automatic or manual. Manual values cannot be replaced by the automatic RPC.';
 
 comment on constraint
   newsroom_editorial_article_classifications_article_fkey
   on public.newsroom_editorial_article_classifications is
-  'Cascade preserves the existing canonical newsroom source deletion flow; the classification is not independent history.'
-;
+  'Cascade preserves the existing canonical newsroom source deletion flow; the classification is not independent history.';
 
-notify pgrst, 'reload schema'
-;
+notify pgrst, 'reload schema';
 
-commit
-;
+commit;

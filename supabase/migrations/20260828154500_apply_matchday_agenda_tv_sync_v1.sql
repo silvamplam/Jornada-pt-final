@@ -175,15 +175,12 @@ begin
 
   return v_updated_count;
 end;
-$$
-;
+$$;
 
 revoke all
 on function public.apply_matchday_agenda_tv_sync_v1(uuid, jsonb)
-from public
-;
+from public;
 
 grant execute
 on function public.apply_matchday_agenda_tv_sync_v1(uuid, jsonb)
-to service_role
-;
+to service_role;

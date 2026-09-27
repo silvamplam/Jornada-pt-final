@@ -1,5 +1,4 @@
-begin
-;
+begin;
 
 -- ============================================================
 -- LOTE 5B1-A / V22
@@ -36,25 +35,20 @@ create table public.matchday_live_layout_latest_companion (
     references public.matchday_live_layout_zones(id, matchday_id)
     on delete no action
     deferrable initially deferred
-)
-;
+);
 
 create index matchday_live_layout_latest_companion_zone_idx
-on public.matchday_live_layout_latest_companion(zone_id)
-;
+on public.matchday_live_layout_latest_companion(zone_id);
 
 alter table public.matchday_live_layout_latest_companion
-  enable row level security
-;
+  enable row level security;
 
 revoke all on table public.matchday_live_layout_latest_companion
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 comment on table public.matchday_live_layout_latest_companion
 is
-  'Optional physical Latest companion relation. The host is identified only by physical zone UUID and must be a four_news zone.'
-;
+  'Optional physical Latest companion relation. The host is identified only by physical zone UUID and must be a four_news zone.';
 
 -- ============================================================
 -- 1. RELATION INVARIANTS
@@ -82,21 +76,18 @@ begin
 
   return new;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.assert_matchday_live_layout_latest_companion_row_v22()
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create trigger matchday_live_layout_latest_companion_row_guard
 before insert or update
 on public.matchday_live_layout_latest_companion
 for each row
 execute function
-  jornada_private.assert_matchday_live_layout_latest_companion_row_v22()
-;
+  jornada_private.assert_matchday_live_layout_latest_companion_row_v22();
 
 create function
 jornada_private.prevent_matchday_live_layout_latest_companion_host_change_v22()
@@ -121,21 +112,18 @@ begin
 
   return new;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.prevent_matchday_live_layout_latest_companion_host_change_v22()
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 create trigger matchday_live_layout_latest_companion_host_guard
 before update of visual_family
 on public.matchday_live_layout_zones
 for each row
 execute function
-  jornada_private.prevent_matchday_live_layout_latest_companion_host_change_v22()
-;
+  jornada_private.prevent_matchday_live_layout_latest_companion_host_change_v22();
 
 -- ============================================================
 -- 2. V22 OCC TOKEN
@@ -167,19 +155,16 @@ as $function$
   left join public.matchday_live_layout_latest_companion
     as companion_row
     on companion_row.matchday_id = p_matchday_id;
-$function$
-;
+$function$;
 
 revoke all on function
   jornada_private.matchday_live_layout_workspace_token_v22(uuid, text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 comment on function
   jornada_private.matchday_live_layout_workspace_token_v22(uuid, text)
 is
-  'V22 OCC token: existing physical v13 token plus the explicit Latest companion physical zone UUID.'
-;
+  'V22 OCC token: existing physical v13 token plus the explicit Latest companion physical zone UUID.';
 
 -- ============================================================
 -- 3. READ-ONLY V22 WORKSPACE READER
@@ -245,24 +230,20 @@ as $function$
     p_matchday_id,
     p_profile_key
   ) as base_row;
-$function$
-;
+$function$;
 
 revoke all on function
   public.read_matchday_live_layout_workspace_v22(uuid, text)
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function
   public.read_matchday_live_layout_workspace_v22(uuid, text)
-to service_role
-;
+to service_role;
 
 comment on function
   public.read_matchday_live_layout_workspace_v22(uuid, text)
 is
-  'Read-only v22 physical workspace snapshot. Extends v13 only with the explicit Latest companion relation and a companion-aware OCC token.'
-;
+  'Read-only v22 physical workspace snapshot. Extends v13 only with the explicit Latest companion relation and a companion-aware OCC token.';
 
 -- ============================================================
 -- 4. SINGLE-TRANSACTION V22 APPLY
@@ -460,24 +441,21 @@ begin
     v_applied.displaced_bank_item_count,
     v_applied.worked_bank_item_count;
 end;
-$function$
-;
+$function$;
 
 revoke all on function
   public.apply_matchday_live_layout_physical_v22(
     uuid,text,text,uuid,jsonb,jsonb,jsonb,integer,
     jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role
-;
+from public, anon, authenticated, service_role;
 
 grant execute on function
   public.apply_matchday_live_layout_physical_v22(
     uuid,text,text,uuid,jsonb,jsonb,jsonb,integer,
     jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
-to service_role
-;
+to service_role;
 
 comment on function
   public.apply_matchday_live_layout_physical_v22(
@@ -485,8 +463,7 @@ comment on function
     jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
 is
-  'Single-transaction v22 physical Apply. Reuses v20 unchanged and adds only the explicit optional Latest companion relation by physical four_news zone UUID.'
-;
+  'Single-transaction v22 physical Apply. Reuses v20 unchanged and adds only the explicit optional Latest companion relation by physical four_news zone UUID.';
 
 -- ============================================================
 -- 5. ACL POSTCONDITIONS
@@ -559,11 +536,8 @@ begin
       'matchday-live-layout-latest-companion-v22-table-acl-invalid';
   end if;
 end;
-$postconditions$
-;
+$postconditions$;
 
-notify pgrst, 'reload schema'
-;
+notify pgrst, 'reload schema';
 
-commit
-;
+commit;

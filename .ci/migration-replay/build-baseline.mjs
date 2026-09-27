@@ -14,7 +14,7 @@ const createdFunctions = new Set([...chain.matchAll(/create\s+(?:or\s+replace\s+
 const renameTargets = new Set([...chain.matchAll(/\brename\s+to\s+([a-z_]\w*)/gi)].map(m => m[1]));
 const addedConstraints = new Set([...chain.matchAll(/\badd\s+constraint\s+([a-z_]\w*)/gi)].map(m => m[1]));
 const createdIndexes = new Set([...chain.matchAll(/\bcreate\s+(?:unique\s+)?index\s+(?:if\s+not\s+exists\s+)?([a-z_]\w*)/gi)].map(m => m[1]));
-const createdTriggers = new Set([...chain.matchAll(/\bcreate\s+(?:or\s+replace\s+)?trigger\s+([a-z_]\w*)/gi)].map(m => m[1]));
+const createdTriggers = new Set([...chain.matchAll(/\bcreate\s+(?:or\s+replace\s+)?(?:constraint\s+)?trigger\s+([a-z_]\w*)/gi)].map(m => m[1]));
 const addedColumns = new Map();
 for (const m of chain.matchAll(/alter\s+table\s+(?:if\s+exists\s+)?(public|jornada_private)\.([a-z_]\w*)([^;]*);/gi)) {
   const key = m[1] + '.' + m[2];
@@ -80,7 +80,7 @@ for (const table of tables.values()) {
   const excluded = addedColumns.get(key(table)) || new Set();
   const columns = table.columns.filter(c => !excluded.has(c.name));
   const used = text => [...excluded].some(name => new RegExp('\\b'+name+'\\b').test(text));
-  const constraints = (table.constraints || []).filter(c => !addedConstraints.has(c.name) && !used(c.definition));
+  const constraints = (table.constraints || []).filter(c => c.type !== 't' && !addedConstraints.has(c.name) && !used(c.definition));
   const origin = sources.filter(s => new RegExp('create\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?(?:public\\.)?' + table.name + '\\s*\\(', 'i').test(s.sql));
   provenance.push({table:key(table), snapshot:true, source_files:origin.map(s => ({file:s.file,sha256:crypto.createHash('sha256').update(s.sql).digest('hex')})), omitted_columns:[...excluded].filter(n => table.columns.some(c=>c.name===n))});
   sql.push('\n-- ' + key(table) + '; original DDL: ' + (origin.map(x=>x.file).join(', ') || 'production catalogue; no original CREATE found'));

@@ -16,9 +16,9 @@ const manifest = [];
 for (const entry of snapshot.entries) {
   const decision = decisions.find(row => row.version === entry.version);
   const filename = entry.version + '_' + entry.name + '.sql';
-  // A newline prevents a trailing SQL comment from consuming the delimiter.
-  // statements[] elements themselves are preserved byte for byte.
-  const sql = entry.statements.map(statement => statement + (tokens(statement).at(-1) === ';' ? '\n' : '\n;\n')).join('\n');
+  // Preserve each array element byte for byte; add only a missing delimiter.
+  // A trailing line comment needs a newline before that delimiter.
+  const sql = entry.statements.map(statement => statement + (tokens(statement).at(-1) === ';' ? '\n' : (statement.split('\n').at(-1).includes('--') ? '\n;\n' : ';\n'))).join('\n');
   const oldPath = decision.original_local_file && path.join(directory, decision.original_local_file);
   if (oldPath && decision.original_local_file !== filename && fs.existsSync(oldPath)) {
     fs.renameSync(oldPath, path.join(directory, filename));
