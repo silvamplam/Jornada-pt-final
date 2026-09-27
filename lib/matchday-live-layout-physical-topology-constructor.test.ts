@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { sqlIndexOf, assertSqlMatch, assertSqlDoesNotMatch } from "./migration-test-helpers";
 
 const migrationPath =
   "supabase/migrations/20260905132044_matchday_live_layout_physical_topology_constructor_v17.sql";
@@ -11,9 +12,9 @@ const migration = readFileSync(migrationPath, "utf8");
 const fixture = readFileSync(fixturePath, "utf8");
 
 function section(startNeedle: string, endNeedle: string): string {
-  const start = migration.indexOf(startNeedle);
+  const start = sqlIndexOf(migration, startNeedle);
   assert.ok(start >= 0, `missing section start: ${startNeedle}`);
-  const end = migration.indexOf(endNeedle, start + startNeedle.length);
+  const end = sqlIndexOf(migration, endNeedle, start + startNeedle.length);
   assert.ok(end > start, `missing section end: ${endNeedle}`);
   return migration.slice(start, end);
 }
@@ -24,11 +25,11 @@ const constructor = section(
 );
 
 test("v17 keeps a permanent UUID-to-UUID physical zone map", () => {
-  assert.match(
+  assertSqlMatch(
     migration,
     /create table jornada_private\.matchday_live_layout_physical_topology_transitions/u,
   );
-  assert.match(
+  assertSqlMatch(
     migration,
     /create table jornada_private\.matchday_live_layout_physical_zone_maps/u,
   );
@@ -36,46 +37,46 @@ test("v17 keeps a permanent UUID-to-UUID physical zone map", () => {
     "create table jornada_private.matchday_live_layout_physical_zone_maps (",
     "create index matchday_live_layout_physical_zone_maps_source_idx",
   );
-  assert.match(mapTable, /source_zone_id uuid not null/u);
-  assert.match(mapTable, /target_zone_id uuid not null/u);
-  assert.match(mapTable, /source_zone_id <> target_zone_id/u);
-  assert.match(mapTable, /foreign key \(source_zone_id, source_matchday_id\)/u);
-  assert.match(mapTable, /foreign key \(target_zone_id, target_matchday_id\)/u);
-  assert.doesNotMatch(mapTable, /legacy_zone_key/u);
-  assert.match(migration, /enable row level security/u);
-  assert.match(
+  assertSqlMatch(mapTable, /source_zone_id uuid not null/u);
+  assertSqlMatch(mapTable, /target_zone_id uuid not null/u);
+  assertSqlMatch(mapTable, /source_zone_id <> target_zone_id/u);
+  assertSqlMatch(mapTable, /foreign key \(source_zone_id, source_matchday_id\)/u);
+  assertSqlMatch(mapTable, /foreign key \(target_zone_id, target_matchday_id\)/u);
+  assertSqlDoesNotMatch(mapTable, /legacy_zone_key/u);
+  assertSqlMatch(migration, /enable row level security/u);
+  assertSqlMatch(
     migration,
     /revoke all on table[\s\S]*?matchday_live_layout_physical_zone_maps[\s\S]*?service_role;/u,
   );
 });
 
 test("constructor is private, physical-only and has no legacy fallback", () => {
-  assert.match(
+  assertSqlMatch(
     constructor,
     /language plpgsql\s+volatile\s+security definer\s+set search_path = ''/u,
   );
-  assert.match(constructor, /source-not-physical/u);
-  assert.match(constructor, /source-authority-incoherent/u);
-  assert.match(constructor, /target-not-virgin/u);
-  assert.match(constructor, /target-not-consecutive/u);
-  assert.doesNotMatch(constructor, /sync_matchday_live_layout_shadow/u);
-  assert.doesNotMatch(constructor, /legacy_zone_key\s*=\s*['"]/u);
-  assert.doesNotMatch(
+  assertSqlMatch(constructor, /source-not-physical/u);
+  assertSqlMatch(constructor, /source-authority-incoherent/u);
+  assertSqlMatch(constructor, /target-not-virgin/u);
+  assertSqlMatch(constructor, /target-not-consecutive/u);
+  assertSqlDoesNotMatch(constructor, /sync_matchday_live_layout_shadow/u);
+  assertSqlDoesNotMatch(constructor, /legacy_zone_key\s*=\s*['"]/u);
+  assertSqlDoesNotMatch(
     migration,
     /grant execute on function\s+jornada_private\.materialize_matchday_live_layout_physical_topology_v17/u,
   );
 });
 
 test("locks and all validation precede the first topology DML", () => {
-  const writerLock = constructor.indexOf(
+  const writerLock = sqlIndexOf(constructor, 
     "acquire_matchday_live_layout_cutover_writer_lock",
   );
-  const rowLock = constructor.indexOf("order by lock_row.id\n  for update;");
-  const sourceValidation = constructor.indexOf(
+  const rowLock = sqlIndexOf(constructor, "order by lock_row.id\n  for update;");
+  const sourceValidation = sqlIndexOf(constructor, 
     "assert_matchday_live_layout_physical_topology_source_v17",
   );
-  const targetValidation = constructor.indexOf("target-not-virgin");
-  const firstDml = constructor.indexOf(
+  const targetValidation = sqlIndexOf(constructor, "target-not-virgin");
+  const firstDml = sqlIndexOf(constructor, 
     "insert into\n    jornada_private.matchday_live_layout_physical_topology_transitions",
   );
   assert.ok(writerLock >= 0);
@@ -86,22 +87,22 @@ test("locks and all validation precede the first topology DML", () => {
 });
 
 test("zones and blocks receive new UUIDs and preserve physical shape", () => {
-  assert.match(constructor, /source_zone\.id,\s+gen_random_uuid\(\)/u);
-  assert.match(
+  assertSqlMatch(constructor, /source_zone\.id,\s*gen_random_uuid\(\)/u);
+  assertSqlMatch(
     constructor,
     /insert into public\.matchday_live_layout_zones[\s\S]*?zone_map\.target_zone_id[\s\S]*?source_zone\.public_title[\s\S]*?source_zone\.visual_family/u,
   );
-  assert.match(
+  assertSqlMatch(
     constructor,
     /insert into public\.matchday_live_layout_blocks[\s\S]*?gen_random_uuid\(\)[\s\S]*?source_block\.sort_order/u,
   );
-  assert.match(
+  assertSqlMatch(
     constructor,
     /when source_block\.block_type = 'zone' then zone_map\.target_zone_id/u,
   );
-  assert.doesNotMatch(
+  assertSqlDoesNotMatch(
     constructor,
-    /select\s+source_zone\.id,\s+p_target_matchday_id/u,
+    /select\s+source_zone\.id,\s*p_target_matchday_id/u,
   );
 });
 
@@ -115,57 +116,57 @@ test("settings and compatibility projection are copied through physical identiti
     "latest_zone_title_color",
     "video_module_active",
   ]) {
-    assert.match(constructor, new RegExp(field));
+    assertSqlMatch(constructor, new RegExp(field));
   }
-  assert.match(
+  assertSqlMatch(
     constructor,
-    /source_projection\.legacy_zone_key,\s+zone_map\.target_zone_id/u,
+    /source_projection\.legacy_zone_key,\s*zone_map\.target_zone_id/u,
   );
-  assert.match(
+  assertSqlMatch(
     constructor,
     /zone_map\.source_zone_id = source_projection\.zone_id/u,
   );
-  assert.doesNotMatch(constructor, /where[\s\S]*?legacy_zone_key\s*=/u);
+  assertSqlDoesNotMatch(constructor, /where[\s\S]*?legacy_zone_key\s*=/u);
 });
 
 test("marker ordering prevents assignment from reopening v16 distribution", () => {
-  const settings = constructor.indexOf(
+  const settings = sqlIndexOf(constructor, 
     "insert into public.matchday_live_layout_workspace_settings",
   );
-  const projection = constructor.indexOf(
+  const projection = sqlIndexOf(constructor, 
     "insert into jornada_private.matchday_live_layout_zone_legacy_projection",
   );
-  const marker = constructor.indexOf(
+  const marker = sqlIndexOf(constructor, 
     "insert into jornada_private.matchday_live_layout_physical_cutovers",
   );
-  const assignment = constructor.indexOf(
+  const assignment = sqlIndexOf(constructor, 
     "insert into public.matchday_editorial_profile_assignments",
   );
-  const downstream = constructor.indexOf(
+  const downstream = sqlIndexOf(constructor, 
     "begin_matchday_live_layout_downstream_v14",
   );
   assert.ok(settings >= 0 && marker > settings);
   assert.ok(downstream > marker && projection > downstream);
   assert.ok(assignment > projection);
-  assert.match(constructor, /reverse-sync-enqueued/u);
-  assert.match(constructor, /v_source_state_items_before/u);
-  assert.match(constructor, /v_target_state_items_after/u);
+  assertSqlMatch(constructor, /reverse-sync-enqueued/u);
+  assertSqlMatch(constructor, /v_source_state_items_before/u);
+  assertSqlMatch(constructor, /v_target_state_items_after/u);
 });
 
 test("constructor never carries content or placements", () => {
-  assert.doesNotMatch(
+  assertSqlDoesNotMatch(
     constructor,
     /insert into public\.matchday_editorial_bank_items/u,
   );
-  assert.doesNotMatch(
+  assertSqlDoesNotMatch(
     constructor,
     /insert into public\.matchday_live_layout_placements/u,
   );
-  assert.doesNotMatch(constructor, /insert into public\.matchday_latest_news/u);
-  assert.doesNotMatch(constructor, /insert into public\.matchday_roundup_items/u);
-  assert.match(constructor, /content-postcondition/u);
-  assert.match(constructor, /classification_before/u);
-  assert.match(constructor, /source_placement_before/u);
+  assertSqlDoesNotMatch(constructor, /insert into public\.matchday_latest_news/u);
+  assertSqlDoesNotMatch(constructor, /insert into public\.matchday_roundup_items/u);
+  assertSqlMatch(constructor, /content-postcondition/u);
+  assertSqlMatch(constructor, /classification_before/u);
+  assertSqlMatch(constructor, /source_placement_before/u);
 });
 
 test("reader exposes every current v15 setting without changing its contract", () => {
@@ -173,27 +174,27 @@ test("reader exposes every current v15 setting without changing its contract", (
     "create or replace function public.read_matchday_live_layout_workspace_v13(",
     "revoke all on function\n  public.read_matchday_live_layout_workspace_v13",
   );
-  assert.match(reader, /'latest_zone_mode', settings_row\.latest_zone_mode/u);
-  assert.match(
+  assertSqlMatch(reader, /'latest_zone_mode', settings_row\.latest_zone_mode/u);
+  assertSqlMatch(
     reader,
     /'latest_zone_title_color', settings_row\.latest_zone_title_color/u,
   );
-  assert.doesNotMatch(reader, /\b(?:insert|update|delete|merge|truncate)\b/iu);
+  assertSqlDoesNotMatch(reader, /\b(?:insert|update|delete|merge|truncate)\b/iu);
 });
 
 test("PG17 fixture proves seven zones, failures and rollback", () => {
-  assert.match(fixture, /exactly seven target zones/u);
-  assert.match(fixture, /source and target zone UUID sets overlap/u);
-  assert.match(fixture, /source and target block UUID sets overlap/u);
-  assert.match(fixture, /physical zone map is not complete 7\/7/u);
-  assert.match(fixture, /only five compatibility projections/u);
-  assert.match(fixture, /target unexpectedly received placements/u);
-  assert.match(fixture, /source marker without settings did not fail closed/u);
-  assert.match(fixture, /orphan source block did not fail closed/u);
-  assert.match(fixture, /invalid source projection did not fail closed/u);
-  assert.match(fixture, /invalid source order did not fail closed/u);
-  assert.match(fixture, /partial target did not fail closed/u);
-  assert.match(fixture, /preexisting topology map did not fail closed/u);
-  assert.match(fixture, /rollback left target physical residue/u);
-  assert.match(fixture, /constructor retry did not fail closed/u);
+  assertSqlMatch(fixture, /exactly seven target zones/u);
+  assertSqlMatch(fixture, /source and target zone UUID sets overlap/u);
+  assertSqlMatch(fixture, /source and target block UUID sets overlap/u);
+  assertSqlMatch(fixture, /physical zone map is not complete 7\/7/u);
+  assertSqlMatch(fixture, /only five compatibility projections/u);
+  assertSqlMatch(fixture, /target unexpectedly received placements/u);
+  assertSqlMatch(fixture, /source marker without settings did not fail closed/u);
+  assertSqlMatch(fixture, /orphan source block did not fail closed/u);
+  assertSqlMatch(fixture, /invalid source projection did not fail closed/u);
+  assertSqlMatch(fixture, /invalid source order did not fail closed/u);
+  assertSqlMatch(fixture, /partial target did not fail closed/u);
+  assertSqlMatch(fixture, /preexisting topology map did not fail closed/u);
+  assertSqlMatch(fixture, /rollback left target physical residue/u);
+  assertSqlMatch(fixture, /constructor retry did not fail closed/u);
 });

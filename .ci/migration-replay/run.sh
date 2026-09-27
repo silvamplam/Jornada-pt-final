@@ -54,6 +54,10 @@ cli init --workdir /project --yes > "$OUTPUT/init.log" 2>&1
 for migration in supabase/migrations/*.sql; do
   name=$(basename "$migration")
   cp "$migration" "$OUTPUT/work/supabase/migrations/"
+  if [ "$name" = 20260907222744_matchday_roundup_context_boundary_v28.sql ]; then
+    docker exec "$CID" psql -X -v ON_ERROR_STOP=1 -U postgres -d jornada_migration_replay \
+      -f /replay/fixtures/v28-format-prerequisite.sql >> "$OUTPUT/replay.log" 2>&1
+  fi
   if [ "$name" = 20260901214531_matchday_live_layout_source_retirement.sql ]; then
     docker exec "$CID" psql -X -v ON_ERROR_STOP=1 -U postgres -d jornada_migration_replay \
       -f /replay/fixtures/retirement-before.sql >> "$OUTPUT/replay.log" 2>&1

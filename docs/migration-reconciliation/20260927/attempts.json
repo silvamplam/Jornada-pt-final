@@ -84,6 +84,15 @@
       "first_migration": "20260901214531_matchday_live_layout_source_retirement.sql",
       "first_failure": "matchday-live-layout-retirement-repair-candidate-count:0 (P0001)",
       "correction": "Historical repair requires exactly one existing transition; seed and remove a minimal synthetic legacy fixture only in the isolated replay, with the historical migration unchanged"
+    },
+    {
+      "run": 36326277909,
+      "commit": "d9b432bb",
+      "phase": "migration",
+      "baseline_passed": true,
+      "first_migration": "20260907222744_matchday_roundup_context_boundary_v28.sql",
+      "first_failure": "matchday-roundup-context-v28-carryover-patch-failed (P0001)",
+      "correction": "Both recorded migrations remain unchanged. An isolated prerequisite adds spaces around equality only in three roundup expressions of the installed v18 body, preserving SQL tokens; v28 then performs the functional patch itself. The synthetic retirement repair and v17/v27 passed."
     }
   ]
 }
