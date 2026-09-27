@@ -27,15 +27,15 @@ function functionBody(name: string, nextHeading: string): string {
 test("v16 confines automatic positional distribution to pre-cutover matchdays", () => {
   const plan = functionBody(
     "create or replace function public.matchday_editorial_profile_distribution_plan(",
-    "-- 2. LEGACY DISTRIBUTION WRITER",
+    "create or replace function public.refresh_matchday_editorial_profile_distribution(",
   );
   const writer = functionBody(
     "create or replace function public.refresh_matchday_editorial_profile_distribution(",
-    "-- 3. BANK AND ASSIGNMENT TRIGGERS",
+    "create or replace function public.refresh_matchday_editorial_profile_distribution_from_bank()",
   );
   const triggers = functionBody(
     "public.refresh_matchday_editorial_profile_distribution_from_bank()",
-    "-- 4. PHYSICAL OCC",
+    "create or replace function public.matchday_editorial_profile_workspace_token_v13(",
   );
 
   assert.match(plan, /matchday_live_layout_physical_cutovers/u);
@@ -57,15 +57,15 @@ test("v16 confines automatic positional distribution to pre-cutover matchdays", 
 test("v16 physical OCC and tracking ignore residual automatic state", () => {
   const token = functionBody(
     "create or replace function public.matchday_editorial_profile_workspace_token_v13(",
-    "-- The administrative desk still uses",
+    "create or replace function public.matchday_editorial_profile_workspace_token(",
   );
   const deskToken = functionBody(
     "public.matchday_editorial_profile_workspace_token(",
-    "-- 5. ADMIN/TRACKING READER",
+    "create or replace function public.read_matchday_live_desk_aggregate_tracking(",
   );
   const reader = functionBody(
     "create or replace function public.read_matchday_live_desk_aggregate_tracking(",
-    "-- 6. CONTRACT AND PRIVILEGE POSTCONDITIONS",
+    "revoke all on function public.read_matchday_live_desk_aggregate_tracking(uuid, text)",
   );
 
   assert.match(token, /when authority\.is_physical then ''/u);
