@@ -102,6 +102,15 @@
       "first_migration": "20260907222744_matchday_roundup_context_boundary_v28.sql",
       "first_failure": "matchday-roundup-context-v28-carryover-patch-failed (P0001)",
       "correction": "The first whitespace prerequisite missed the single-line count expression. Correct the prerequisite, not history; add a token-equality test that requires all three occurrences."
+    },
+    {
+      "run": 36326672722,
+      "commit": "f5a32aaa",
+      "phase": "migration",
+      "baseline_passed": true,
+      "first_migration": "20260920141132_manual_newsroom_source_v1.sql",
+      "first_failure": "constraint newsroom_articles_manual_origin_urls_check of relation newsroom_articles does not exist (42704)",
+      "correction": "Restore its pre-chain definition from step 39 in the baseline; the historical migration then replaces it itself. No other first-operation unconditional constraint drops are missing."
     }
   ]
 }

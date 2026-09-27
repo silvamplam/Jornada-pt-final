@@ -1,0 +1,729 @@
+{
+  "history": [
+    {
+      "name": "jornada_layouts_vivos_independentes",
+      "sql_md5": "fc0bca3df2825a2752d99000454d9248",
+      "version": "20260815104041"
+    },
+    {
+      "name": "jornada_zona_4_noticias_ultimas",
+      "sql_md5": "ccab58e0efccc37c91caf1cb798e0e0b",
+      "version": "20260815115203"
+    },
+    {
+      "name": "jornada_resumos_video_automaticos_1",
+      "sql_md5": "0d1bcefc74aa785345e37349e87e0300",
+      "version": "20260817164424"
+    },
+    {
+      "name": "redacao_automatica_source_package_manifest_v4_outputs",
+      "sql_md5": "35aa7e4b359059a9af32bfae6981fa63",
+      "version": "20260818115342"
+    },
+    {
+      "name": "matchday_editorial_continuity",
+      "sql_md5": "f8d49bd26cbe34167a4322231c1ba5fe",
+      "version": "20260818164845"
+    },
+    {
+      "name": "matchday_editorial_continuity_live_snapshot",
+      "sql_md5": "57f0e3bbaeaf5370f436b7a3fe196606",
+      "version": "20260818175756"
+    },
+    {
+      "name": "hierarchical_editorial_full_page",
+      "sql_md5": "6374c88b92d13c39adb9a53ae1790f47",
+      "version": "20260819083224"
+    },
+    {
+      "name": "hierarchical_editorial_excerpt_complete_paragraph",
+      "sql_md5": "705090027102c70ecd2a7b59e040fc2c",
+      "version": "20260819092027"
+    },
+    {
+      "name": "matchday_live_public_zone_order",
+      "sql_md5": "1bb5852875f29714cd21124563e8b3bb",
+      "version": "20260819183901"
+    },
+    {
+      "name": "enable_daily_results_scheduler_extensions",
+      "sql_md5": "69e86eedde344de14316c043219ae65c",
+      "version": "20260822090432"
+    },
+    {
+      "name": "schedule_daily_final_results_sync",
+      "sql_md5": "ff9765db97f3ef28e74aad2ff37ce741",
+      "version": "20260822092011"
+    },
+    {
+      "name": "matchday_editorial_profile_assignment",
+      "sql_md5": "3618298c8ec778343003c2429c464be0",
+      "version": "20260822154500"
+    },
+    {
+      "name": "matchday_editorial_profile_state_distribution",
+      "sql_md5": "b7d983872fe1b1d6d72020fc94c0d98f",
+      "version": "20260822172842"
+    },
+    {
+      "name": "matchday_editorial_profile_manual_overrides",
+      "sql_md5": "b4b03c63bdc2891beacaae27f5389ef2",
+      "version": "20260822203959"
+    },
+    {
+      "name": "matchday_editorial_profile_shared_faixa_reconcile",
+      "sql_md5": "9abd634c43040cda009dfe7c0c7d4a28",
+      "version": "20260822223715"
+    },
+    {
+      "name": "matchday_editorial_profile_reconcile_skip_faixa_bank_resync",
+      "sql_md5": "a0d2e1dacacc85a59c74feb6ffa55875",
+      "version": "20260822230119"
+    },
+    {
+      "name": "matchday_editorial_profile_workspace_opening",
+      "sql_md5": "648248ee0fc97c8729bfdf99c396c398",
+      "version": "20260823095712"
+    },
+    {
+      "name": "matchday_editorial_profile_flexible_layouts_latest_order",
+      "sql_md5": "2c34694c24109b23ee1f3e4f20a8e20b",
+      "version": "20260823141940"
+    },
+    {
+      "name": "matchday_editorial_profile_public_zone_titles",
+      "sql_md5": "d4336de5f1c032cd36bb8cbed935cd04",
+      "version": "20260823170440"
+    },
+    {
+      "name": "matchday_editorial_profile_latest_public_title",
+      "sql_md5": "6e8e8cce30d451608344fd2a127c117a",
+      "version": "20260823175248"
+    },
+    {
+      "name": "batch_publication_latest_order_set_based",
+      "sql_md5": "c19fa46591bc04f8cc9ae36b131ea331",
+      "version": "20260823215153"
+    },
+    {
+      "name": "thematic_editorial_selection_manual",
+      "sql_md5": "f28acdb4220ecd871af47ea21413fb38",
+      "version": "20260823221303"
+    },
+    {
+      "name": "thematic_editorial_selection_atomic_apply",
+      "sql_md5": "325bea183ca181ba24e707d2f05faab7",
+      "version": "20260823222923"
+    },
+    {
+      "name": "thematic_actuality_batch_circuit_safe",
+      "sql_md5": "e593036c9c540fc4830e3c617f92f463",
+      "version": "20260824010021"
+    },
+    {
+      "name": "thematic_faixa_membership_by_actuality",
+      "sql_md5": "323aff5a63759b7f7f86d5f5d6418cdd",
+      "version": "20260824014112"
+    },
+    {
+      "name": "hotfix_matchday_zone_publication_min_uuid",
+      "sql_md5": "02477ed32715aaf2c18de1a27afbfdac",
+      "version": "20260824130519"
+    },
+    {
+      "name": "editorial_article_canonical_delete_cleanup",
+      "sql_md5": "3741e7701b6159f7a998ad8b7e23ba90",
+      "version": "20260824150020"
+    },
+    {
+      "name": "editorial_article_canonical_delete_latest_cleanup",
+      "sql_md5": "d0fbbe8dc3a006dbb37bde74f0daafd9",
+      "version": "20260824151907"
+    },
+    {
+      "name": "thematic_video_highlight_module",
+      "sql_md5": "71e5c2d91719b6c8052d0b6382e3563b",
+      "version": "20260825102634"
+    },
+    {
+      "name": "hotfix_thematic_video_highlight_coalesce",
+      "sql_md5": "3309ff0030072fe1b4476c5d880c1d21",
+      "version": "20260825104225"
+    },
+    {
+      "name": "historical_composition_workspace",
+      "sql_md5": "66de8938eeadafd3f3c7ebd6e66290bf",
+      "version": "20260826050409"
+    },
+    {
+      "name": "historical_composition_dynamic_zones",
+      "sql_md5": "e9bde791443d49c4d2c3b84d748fa44b",
+      "version": "20260826061934"
+    },
+    {
+      "name": "historical_composition_dynamic_workspace_rpc",
+      "sql_md5": "0fed68f15f620cee39f3bcc0488dfdf5",
+      "version": "20260826063919"
+    },
+    {
+      "name": "historical_composition_body_order",
+      "sql_md5": "c57672c4ed9405f0bfc6d9014ecfddf8",
+      "version": "20260826094033"
+    },
+    {
+      "name": "historical_composition_dynamic_publication_activation",
+      "sql_md5": "343cf912d86e45efa06d6505e3550b54",
+      "version": "20260826120541"
+    },
+    {
+      "name": "matchday_editorial_bank_automatic_eligibility",
+      "sql_md5": "0ab0d15cd2b759c4d3730e97e1f8c5e5",
+      "version": "20260826143020"
+    },
+    {
+      "name": "matchday_editorial_continuity_transitions",
+      "sql_md5": "bedea65d61d14f37776a4f4fee346771",
+      "version": "20260826143142"
+    },
+    {
+      "name": "initialize_matchday_editorial_thematic_continuity_v3",
+      "sql_md5": "34dd1c5a866d8f5471b29da9d84d91a1",
+      "version": "20260826143320"
+    },
+    {
+      "name": "thematic_workspace_continuity_sources",
+      "sql_md5": "3ec711f3fb968ee0797f574b5db22a34",
+      "version": "20260826162011"
+    },
+    {
+      "name": "matchday_editorial_profile_continuity_classification",
+      "sql_md5": "33a230f617bd0e043bc6a776d667011b",
+      "version": "20260827094809"
+    },
+    {
+      "name": "newsroom_latest_snapshot_summaries_egress",
+      "sql_md5": "388385ce5e5741c6828c19d7c4aac8cc",
+      "version": "20260827145353"
+    },
+    {
+      "name": "newsroom_editorial_used_state_summaries_egress",
+      "sql_md5": "da342f6ea228bfb4fb4d738ef713ac6f",
+      "version": "20260827154329"
+    },
+    {
+      "name": "newsroom_editorial_used_state_summaries_safe_cast",
+      "sql_md5": "97476fcbd21f367fba90327bfc0a655e",
+      "version": "20260827154407"
+    },
+    {
+      "name": "newsroom_editorial_review_projection_egress",
+      "sql_md5": "cadc13349c6dab71b6b95a1b977b6f0f",
+      "version": "20260827162301"
+    },
+    {
+      "name": "historical_composition_optional_public_titles",
+      "sql_md5": "1cc08940bf9b9489e1c200e9390ed935",
+      "version": "20260827183157"
+    },
+    {
+      "name": "thematic_editorial_new_workflow",
+      "sql_md5": "0f122863b632dcf66b57afd379b94c45",
+      "version": "20260828101705"
+    },
+    {
+      "name": "fix_thematic_workspace_v8_coalesce",
+      "sql_md5": "e02035f268f3422a92d2f3a291688533",
+      "version": "20260828103427"
+    },
+    {
+      "name": "thematic_workspace_v9_apply_completeness_guard",
+      "sql_md5": "18df1d5d988365ff9a0f797dfacf625d",
+      "version": "20260828114246"
+    },
+    {
+      "name": "apply_matchday_agenda_tv_sync_v1",
+      "sql_md5": "ffd04d1c6695b5211d28c6cd4c4a403e",
+      "version": "20260828154500"
+    },
+    {
+      "name": "restore_thematic_zone_membership_null_sort_order",
+      "sql_md5": "3f10e5d81b9bf0019d412bc1da3ef854",
+      "version": "20260829143000"
+    },
+    {
+      "name": "thematic_positional_order_without_actuality",
+      "sql_md5": "62623ae02bbfbbc610d384a3ffb0e1e5",
+      "version": "20260829160000"
+    },
+    {
+      "name": "thematic_workspace_read_dedup",
+      "sql_md5": "10234ed43905d522a1bcf0cf88c71ab3",
+      "version": "20260829190443"
+    },
+    {
+      "name": "thematic_workspace_apply_token_cache",
+      "sql_md5": "b10da47479d2139cbb9e4671c2605958",
+      "version": "20260830181927"
+    },
+    {
+      "name": "thematic_workspace_apply_source_cache",
+      "sql_md5": "2723eb5b092eefc00e82d7f5f9db0a21",
+      "version": "20260830184144"
+    },
+    {
+      "name": "matchday_editorial_bank_contextual_classification",
+      "sql_md5": "49c9cc976717e51e8d50d6ac75dea422",
+      "version": "20260831155606"
+    },
+    {
+      "name": "matchday_live_layout_zones_blocks_shadow",
+      "sql_md5": "859940e4ac95f565c5cd9aa6a8c71eec",
+      "version": "20260901082156"
+    },
+    {
+      "name": "matchday_live_layout_placements_shadow",
+      "sql_md5": "e4d6eeb09b5716a1cdae63a6618ac0b0",
+      "version": "20260901145408"
+    },
+    {
+      "name": "matchday_live_layout_displaced_state_shadow",
+      "sql_md5": "2394a787b284de5359dcf4683d81b602",
+      "version": "20260901164825"
+    },
+    {
+      "name": "matchday_live_layout_write_core_preparation",
+      "sql_md5": "41b4e3891cfad36e4b758948e1b704b8",
+      "version": "20260901182545"
+    },
+    {
+      "name": "matchday_live_layout_cutover_bridge",
+      "sql_md5": "b66975d5d9519587131be0709677da1e",
+      "version": "20260901205409"
+    },
+    {
+      "name": "matchday_live_layout_authoritative_activation",
+      "sql_md5": "0fc8564c91774238eadfb674332ef1db",
+      "version": "20260901210438"
+    },
+    {
+      "name": "matchday_live_layout_source_retirement",
+      "sql_md5": "15e57253e3297339e718226ff6a37bd3",
+      "version": "20260901214531"
+    },
+    {
+      "name": "matchday_historical_republish_independence",
+      "sql_md5": "9f7a7d64fa10adf404620685357c2da7",
+      "version": "20260902091016"
+    },
+    {
+      "name": "matchday_faixa_bank_atomic_apply_fix",
+      "sql_md5": "8740689fcec2b974ec06408a31b6f610",
+      "version": "20260902103721"
+    },
+    {
+      "name": "matchday_live_desk_aggregate_tracking_reader",
+      "sql_md5": "092d0abc21e33c0398f032e2533f8d5f",
+      "version": "20260902121536"
+    },
+    {
+      "name": "matchday_explicit_bank_displaced_semantics",
+      "sql_md5": "3df059903aec7d80ab11c82de18b1ed1",
+      "version": "20260902151042"
+    },
+    {
+      "name": "matchday_preview_movement_without_cascade",
+      "sql_md5": "4aa4ee8a1de87ee60a2bf1a8e6927f53",
+      "version": "20260902151127"
+    },
+    {
+      "name": "matchday_live_desk_state_handoff",
+      "sql_md5": "12f07d90f38f68906e87ad662ce244d3",
+      "version": "20260903165824"
+    },
+    {
+      "name": "matchday_live_desk_tracking_event_order",
+      "sql_md5": "d698591b24676fa78b7c40e7bbf76408",
+      "version": "20260903214406"
+    },
+    {
+      "name": "matchday_editorial_movement_contract_v12",
+      "sql_md5": "533c0ae5f45f14a12bb21cc27a0760b1",
+      "version": "20260903214507"
+    },
+    {
+      "name": "matchday_live_faixa_contiguous_normalization",
+      "sql_md5": "d4664a53bfb2c351b9d4825f8c7d8257",
+      "version": "20260903221636"
+    },
+    {
+      "name": "matchday_selection_optional_capacity",
+      "sql_md5": "45c08c6e8ca89e33f31b6b4454f226d3",
+      "version": "20260903233122"
+    },
+    {
+      "name": "apply_matchday_agenda_tv_sync_v2",
+      "sql_md5": "85d595ff97170d21ecc0ca63011106ca",
+      "version": "20260904002633"
+    },
+    {
+      "name": "matchday_contextual_classification_manual_correction",
+      "sql_md5": "c574f05a8d0b4346283664e4b2274e4d",
+      "version": "20260904014649"
+    },
+    {
+      "name": "matchday_live_layout_physical_writer_v13_shadow",
+      "sql_md5": "506646a0b47300ac5d8ae5023d12479e",
+      "version": "20260904120000"
+    },
+    {
+      "name": "matchday_live_layout_workspace_v13_reader",
+      "sql_md5": "8aa96516af605d0d7df58ab855dd298c",
+      "version": "20260904130000"
+    },
+    {
+      "name": "matchday_live_layout_physical_apply_facade",
+      "sql_md5": "39ae41580e8d9fcf99c89474ab1a4d0d",
+      "version": "20260904140000"
+    },
+    {
+      "name": "matchday_live_layout_physical_apply_video_guard",
+      "sql_md5": "965422e381233a9296a9df844602689c",
+      "version": "20260904150000"
+    },
+    {
+      "name": "matchday_publication_physical_placement_boundary_v15",
+      "sql_md5": "59ebe098238fe54957412a2542d59b70",
+      "version": "20260905110018"
+    },
+    {
+      "name": "matchday_contextual_classification_physical_boundary_v16",
+      "sql_md5": "0a57fc29230b95e81f03141f9beb7201",
+      "version": "20260905123608"
+    },
+    {
+      "name": "matchday_live_layout_physical_topology_constructor_v17",
+      "sql_md5": "ef8c636d8626c286070554e4bfefb0da",
+      "version": "20260905132044"
+    },
+    {
+      "name": "matchday_live_layout_physical_carryover_v18",
+      "sql_md5": "f11d710e37129da101bbce0e084a97e5",
+      "version": "20260905135209"
+    },
+    {
+      "name": "matchday_live_layout_physical_handoff_v19",
+      "sql_md5": "1fc2ea48224f39b852232ad5be2fe767",
+      "version": "20260905142832"
+    },
+    {
+      "name": "matchday_live_layout_physical_crud_v20",
+      "sql_md5": "50e4b5ae9542ddd4b66cbee46c95e494",
+      "version": "20260905230000"
+    },
+    {
+      "name": "matchday_live_layout_four_news_optional_titles_v21",
+      "sql_md5": "70e9eff379ee183b13a7d974eb76f998",
+      "version": "20260906220000"
+    },
+    {
+      "name": "matchday_live_layout_latest_companion_v22",
+      "sql_md5": "dfeafd3613f327b468527b2c5e3e32d0",
+      "version": "20260906234000"
+    },
+    {
+      "name": "matchday_live_layout_latest_companion_generic_v23",
+      "sql_md5": "0a9f6397c12952bc13f6f27f643134b3",
+      "version": "20260907143836"
+    },
+    {
+      "name": "matchday_profile_reconcile_four_news_layout",
+      "sql_md5": "560e921757f3ca709273b6566f16f359",
+      "version": "20260907145743"
+    },
+    {
+      "name": "matchday_live_layout_selection_retirement_v24",
+      "sql_md5": "ad2564ad331ba5751eb62c7d4f3606e9",
+      "version": "20260907183300"
+    },
+    {
+      "name": "matchday_live_layout_latest_companion_handoff_v25",
+      "sql_md5": "7ced98e3655df56685ea8425bc5f95da",
+      "version": "20260907195917"
+    },
+    {
+      "name": "matchday_live_layout_reference_certificate_v26",
+      "sql_md5": "6fddf8f325418d8c9e9bab6bb249c75e",
+      "version": "20260907202642"
+    },
+    {
+      "name": "matchday_live_layout_physical_topology_ambiguity_v27",
+      "sql_md5": "2e6fe17f2d857c819eaf1c3db1513cd8",
+      "version": "20260907203518"
+    },
+    {
+      "name": "matchday_roundup_context_boundary_v28",
+      "sql_md5": "a97a808a93f40ef39954168a5631cd3f",
+      "version": "20260907222744"
+    },
+    {
+      "name": "newsroom_editorial_themes_foundation",
+      "sql_md5": "7c135d6deae3dea662662478b0c23f79",
+      "version": "20260908112602"
+    },
+    {
+      "name": "newsroom_editorial_article_classifications_foundation",
+      "sql_md5": "e072563107b8d179d267f8abd8ae0b67",
+      "version": "20260908122938"
+    },
+    {
+      "name": "historical_republish_v19_certificate_archive_integrity",
+      "sql_md5": "ff648e8092b255f495cc91682286f058",
+      "version": "20260908151027"
+    },
+    {
+      "name": "matchday_historical_physical_archive_v20",
+      "sql_md5": "f048c663a064bfe9ea8252071abb326c",
+      "version": "20260908173933"
+    },
+    {
+      "name": "matchday_historical_reopen_physical_handoff_authority_v20",
+      "sql_md5": "eaca93c8b517e52765fe40ea43e0e9c4",
+      "version": "20260908194740"
+    },
+    {
+      "name": "matchday_live_layout_latest_destination_authority_v29",
+      "sql_md5": "c4f3cba39d18002e87d4072978add807",
+      "version": "20260908204307"
+    },
+    {
+      "name": "newsroom_editorial_production_workspace_foundation",
+      "sql_md5": "a03661791880ac4e93e5bc6d1c2f095e",
+      "version": "20260909100000"
+    },
+    {
+      "name": "newsroom_mesa_theme_organization_v1",
+      "sql_md5": "64c80d2cfc560413de94bd51fad4fb2d",
+      "version": "20260911100419"
+    },
+    {
+      "name": "jornada_mesa_grupos_temas_v2",
+      "sql_md5": "7f02e15d905452a5875f5d0cbf1beb27",
+      "version": "20260911232119"
+    },
+    {
+      "name": "jornada_mesa_grupos_temas_v2_fk_indexes",
+      "sql_md5": "130728eab0da9a60142d096cef19ed67",
+      "version": "20260911232721"
+    },
+    {
+      "name": "jornada_dossie_producao_sem_limite",
+      "sql_md5": "22b6151356e412be13a1cf011c000252",
+      "version": "20260912004733"
+    },
+    {
+      "name": "mesa_production_workspace_v2_provenance",
+      "sql_md5": "493a515fe0b58a3121f0735494e574d9",
+      "version": "20260912172405"
+    },
+    {
+      "name": "allow_mesa_v2_source_package_manifest_v5",
+      "sql_md5": "ef2da4f15f27ae1ac81831008fcf4410",
+      "version": "20260912192043"
+    },
+    {
+      "name": "mesa_workspace_shared_output_scope_v2",
+      "sql_md5": "8623876c0b1b701c99fedf808d1adaa0",
+      "version": "20260912192155"
+    },
+    {
+      "name": "newsroom_mesa_contexts_production_2c",
+      "sql_md5": "5be057c5c019bdbdfc62b8eef89d01db",
+      "version": "20260913134418"
+    },
+    {
+      "name": "agenda_tv_sync_v2_preserve",
+      "sql_md5": "205388d18301c36f3557aa1dcabd479b",
+      "version": "20260913182822"
+    },
+    {
+      "name": "newsroom_mesa_theme_continuity_v1",
+      "sql_md5": "0a458ea534dd15568aea80d64c070dd0",
+      "version": "20260914171729"
+    },
+    {
+      "name": "newsroom_mesa_scoped_read_model_v1",
+      "sql_md5": "208c6b24ebd79fb7b225261450aa6948",
+      "version": "20260914172949"
+    },
+    {
+      "name": "newsroom_mesa_scoped_read_performance_v2",
+      "sql_md5": "13b4ceec94b6e3ba6265452248812f39",
+      "version": "20260914203405"
+    },
+    {
+      "name": "jornada_private_rls_hardening",
+      "sql_md5": "f949433de1f868a1ba68fdbd5c57ef89",
+      "version": "20260915095917"
+    },
+    {
+      "name": "matchday_historical_inherited_revalidation",
+      "sql_md5": "85e7138d5cf8a45fbe3eaa7918c9316c",
+      "version": "20260917092520"
+    },
+    {
+      "name": "newsroom_mesa_intent_preparation_v1",
+      "sql_md5": "9274768c48c2f00a24845cebbd2503dc",
+      "version": "20260918140702"
+    },
+    {
+      "name": "newsroom_mesa_intent_publication_v1",
+      "sql_md5": "1f57f6c5028d0c44acad5d22b5cf4495",
+      "version": "20260918141330"
+    },
+    {
+      "name": "newsroom_mesa_intent_update_revision_hotfix",
+      "sql_md5": "a4073fc9e2d5f86af52e6a63dae43f79",
+      "version": "20260918152310"
+    },
+    {
+      "name": "newsroom_mesa_global_article_candidates_v1",
+      "sql_md5": "c2f9d56f908e45ee11475af72f64f4fe",
+      "version": "20260919014256"
+    },
+    {
+      "name": "newsroom_mesa_selection_context_v1",
+      "sql_md5": "28e9f8bcba1ac26a2db203c7e07a025e",
+      "version": "20260919014322"
+    },
+    {
+      "name": "newsroom_mesa_article_continuity_v2",
+      "sql_md5": "328762e81fa5c24e90b859857c9a5af7",
+      "version": "20260919014344"
+    },
+    {
+      "name": "newsroom_mesa_output_focus_v1",
+      "sql_md5": "89a938512610c27e8bdd2c9babca4418",
+      "version": "20260919215554"
+    },
+    {
+      "name": "newsroom_mesa_reviewed_source_memory_v1",
+      "sql_md5": "1a54b4eeab22637e34d57cbd2472ed70",
+      "version": "20260919215613"
+    },
+    {
+      "name": "newsroom_current_feed_automation_v1",
+      "sql_md5": "67ed3c043b437c3720355dccb5f0c978",
+      "version": "20260920104412"
+    },
+    {
+      "name": "manual_newsroom_source_v1",
+      "sql_md5": "fcfb35b2860618f7868a62202752e852",
+      "version": "20260920141132"
+    },
+    {
+      "name": "matchday_live_layout_additional_zone_atomic_apply",
+      "sql_md5": "75a47819fd6efa4c046410fc27a528ba",
+      "version": "20260920141235"
+    },
+    {
+      "name": "newsroom_mesa_theme_published_outputs_v2",
+      "sql_md5": "c71d2b76beadea70dbd327be8e4797db",
+      "version": "20260920150111"
+    },
+    {
+      "name": "newsroom_mesa_selection_theme_published_outputs_v3",
+      "sql_md5": "4c21feba10e10d79744db91070d41795",
+      "version": "20260920153333"
+    },
+    {
+      "name": "match_video_summary_discovery_audit",
+      "sql_md5": "7a3577652fd60439595b75b38a41a730",
+      "version": "20260920180000"
+    },
+    {
+      "name": "newsroom_mesa_new_output_grouping_v2",
+      "sql_md5": "5dedfb3ce33621df5217fbd7ac65d24d",
+      "version": "20260921051856"
+    },
+    {
+      "name": "matchday_live_layout_zone_target_identity",
+      "sql_md5": "2a8be9b17c75d41a05c26076ccdfab86",
+      "version": "20260922131501"
+    },
+    {
+      "name": "matchday_historical_article_selection",
+      "sql_md5": "d015c4cd277701a57acd15467089c2f2",
+      "version": "20260922171755"
+    },
+    {
+      "name": "newsroom_manual_classification_theme_authority",
+      "sql_md5": "8fd6e567b129b68d3428b01dfa62f8ce",
+      "version": "20260922195433"
+    },
+    {
+      "name": "matchday_video_highlight_section_titles",
+      "sql_md5": "b22867eeab6d361584de6d9e723742ea",
+      "version": "20260924090832"
+    },
+    {
+      "name": "matchday_faixa_public_title",
+      "sql_md5": "440669adbdbf305bc43cad0b43a48288",
+      "version": "20260924094033"
+    },
+    {
+      "name": "historical_composition_faixa_public_title",
+      "sql_md5": "add83d06d5bb686d6e49a931b1e29e3d",
+      "version": "20260924121941"
+    },
+    {
+      "name": "matchday_public_reader_json_null_hotfix",
+      "sql_md5": "0f075369dc4fa5454039c40a51c15aa6",
+      "version": "20260924134717"
+    },
+    {
+      "name": "newsroom_article_plan_output_classification_authority",
+      "sql_md5": "1e4f5523b263cb5c2c65aabb4881ced7",
+      "version": "20260924162021"
+    },
+    {
+      "name": "newsroom_article_plan_classification_decision",
+      "sql_md5": "ff6dcea6bc372117a8073b31eb587e53",
+      "version": "20260924213644"
+    },
+    {
+      "name": "advertising_horizontal_format",
+      "sql_md5": "025640a53fc8ae92624ed4b5ce7229d2",
+      "version": "20260925221106"
+    },
+    {
+      "name": "mesa_continuity_explicit_articles_and_reads",
+      "sql_md5": "2cba63dda302535e38a888671880be86",
+      "version": "20260926193320"
+    },
+    {
+      "name": "newsroom_canonical_article_sources",
+      "sql_md5": "7823a1789656c4761bf688bcb5006c97",
+      "version": "20260926205936"
+    },
+    {
+      "name": "restore_legacy_mesa_lifecycle_publications",
+      "sql_md5": "67ce1abec09e20c8cc73a71f847eeeaa",
+      "version": "20260926224911"
+    },
+    {
+      "name": "editorial_six_news_1_2_3",
+      "sql_md5": "f04469d870ce892c61111621accc7f0b",
+      "version": "20260927110935"
+    }
+  ],
+  "capacity": 6,
+  "cron_jobs": [
+    {
+      "name": "jornada-sync-final-results-daily",
+      "active": true,
+      "schedule": "55 23 * * *"
+    }
+  ],
+  "captured_at": "2026-09-27T14:41:30.412637+00:00",
+  "postponed_not_excluded": 0
+}

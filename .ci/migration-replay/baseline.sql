@@ -1015,7 +1015,19 @@ create table "public"."newsroom_articles" (
   constraint "newsroom_articles_processing_status_check" CHECK (processing_status = ANY (ARRAY['detected'::text, 'normalized'::text, 'duplicate'::text, 'rejected'::text, 'ready_for_review'::text, 'failed'::text])),
   constraint "newsroom_articles_source_code_not_blank" CHECK (btrim(source_code) <> ''::text),
   constraint "newsroom_articles_source_url_key" UNIQUE (source_code, normalized_url),
-  constraint "newsroom_articles_title_not_blank" CHECK (btrim(title) <> ''::text)
+  constraint "newsroom_articles_title_not_blank" CHECK (btrim(title) <> ''::text),
+  constraint "newsroom_articles_manual_origin_urls_check" check (
+      (
+        source_code = 'manual_entry'
+        and original_url is null
+        and normalized_url is null
+      )
+      or (
+        source_code <> 'manual_entry'
+        and original_url is not null
+        and normalized_url is not null
+      )
+    )
 );
 
 -- public.newsroom_editorial_dossier_article_plan_sources; original DDL: supabase/sql/jornada-backoffice-redacao-automatica-dossie-editorial-artigos-planeados-schema-1-aplicar.sql

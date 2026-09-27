@@ -1,24 +1,24 @@
 {
   "base": "a4da9d88174694b61d9b149b960c8a1f8b517dd8",
-  "files": 60,
+  "files": 62,
   "base_counts": {
-    "tests": 595,
+    "tests": 614,
     "failed": 14,
-    "passed": 581,
+    "passed": 600,
     "cancelled": 0,
     "skipped": 0,
     "todo": 0,
-    "topLevel": 595,
+    "topLevel": 614,
     "suites": 0
   },
   "reconstructed_counts": {
-    "tests": 595,
+    "tests": 614,
     "failed": 14,
-    "passed": 581,
+    "passed": 600,
     "cancelled": 0,
     "skipped": 0,
     "todo": 0,
-    "topLevel": 595,
+    "topLevel": 614,
     "suites": 0
   },
   "new_functional_failures": [],
@@ -100,5 +100,14 @@
     "The agenda-v2 immutable hash now identifies the recorded remote SQL",
     "v18 final-state assertions use the explicit corrective migration rather than backdated historical source"
   ],
-  "unchanged": "No application behavior or historical SQL was modified to satisfy these tests"
+  "unchanged": "No application behavior or historical SQL was modified to satisfy these tests",
+  "additional_v17_v18": {
+    "base_passed": 19,
+    "reconstructed_passed": 19,
+    "classification": "Obsolete formatting and comment checks; replaced with whitespace-tolerant SQL contract checks and a direct null-preservation assertion. Historical SQL unchanged."
+  },
+  "typescript": {
+    "tracked_files": 912,
+    "diagnostics": 0
+  }
 }

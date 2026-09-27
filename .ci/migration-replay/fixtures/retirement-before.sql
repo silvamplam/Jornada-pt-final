@@ -30,4 +30,3 @@ insert into public.matchday_editorial_continuity_transitions(source_matchday_id,
 values('11111111-1111-4111-8111-000000000103','11111111-1111-4111-8111-000000000104','11111111-1111-4111-8111-000000000106',6);
 set local session_replication_role = origin;
 commit;
-

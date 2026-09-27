@@ -15,4 +15,3 @@ do $check$ begin
 end $check$;
 truncate public.competitions cascade;
 commit;
-

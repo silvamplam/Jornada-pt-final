@@ -16,6 +16,16 @@ const foundationSources = [
   {name:'remove_deleted_editorial_source_from_matchday_bank',file:'supabase/steps/85-composicao-historica-limpeza-total-origem-eliminada-apply.sql'},
   {name:'sync_matchday_zone_row_to_bank',file:'supabase/steps/117-composicao-banco-identidade-canonica-apply.sql'},
 ];
+const foundationConstraints = [{
+ table:'public.newsroom_articles',name:'newsroom_articles_manual_origin_urls_check',
+ file:'supabase/steps/39-redacao-automatica-recolha-manual-apply.sql',
+}].map(source=>{
+ const sql=fs.readFileSync(source.file,'utf8');
+ const start=sql.indexOf('add constraint '+source.name);
+ const end=sql.indexOf(';',start);
+ if(start<0||end<0) throw Error('Missing foundation constraint '+source.name);
+ return {...source,definition:sql.slice(start+'add constraint '.length+source.name.length,end).trim()};
+});
 const addedConstraints = new Set([...chain.matchAll(/\badd\s+constraint\s+([a-z_]\w*)/gi)].map(m => m[1]));
 const createdIndexes = new Set([...chain.matchAll(/\bcreate\s+(?:unique\s+)?index\s+(?:if\s+not\s+exists\s+)?([a-z_]\w*)/gi)].map(m => m[1]));
 const createdTriggers = new Set([...chain.matchAll(/\bcreate\s+(?:or\s+replace\s+)?(?:constraint\s+)?trigger\s+([a-z_]\w*)/gi)].map(m => m[1]));
@@ -100,8 +110,9 @@ for (const table of tables.values()) {
   const columns = table.columns.filter(c => !excluded.has(c.name));
   const used = text => [...excluded].some(name => new RegExp('\\b'+name+'\\b').test(text));
   const constraints = (table.constraints || []).filter(c => c.type !== 't' && !addedConstraints.has(c.name) && !used(c.definition));
+  constraints.push(...foundationConstraints.filter(c=>c.table===key(table)).map(c=>({name:c.name,type:'c',definition:c.definition})));
   const origin = sources.filter(s => new RegExp('create\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?(?:public\\.)?' + table.name + '\\s*\\(', 'i').test(s.sql));
-  provenance.push({table:key(table), snapshot:true, source_files:origin.map(s => ({file:s.file,sha256:crypto.createHash('sha256').update(s.sql).digest('hex')})), omitted_columns:[...excluded].filter(n => table.columns.some(c=>c.name===n))});
+  provenance.push({table:key(table), snapshot:true, source_files:origin.map(s => ({file:s.file,sha256:crypto.createHash('sha256').update(s.sql).digest('hex')})), omitted_columns:[...excluded].filter(n => table.columns.some(c=>c.name===n)),original_constraints:foundationConstraints.filter(c=>c.table===key(table))});
   sql.push('\n-- ' + key(table) + '; original DDL: ' + (origin.map(x=>x.file).join(', ') || 'production catalogue; no original CREATE found'));
   sql.push('create table ' + qualified(table) + ' (\n' + columns.map(c => '  '+q(c.name)+' '+c.type+(c.default?' default '+c.default:'')+(c.not_null?' not null':'')).concat(constraints.filter(c=>c.type!=='f').map(c=>'  constraint '+q(c.name)+' '+c.definition)).join(',\n') + '\n);');
   for (const c of constraints.filter(c=>c.type==='f')) {

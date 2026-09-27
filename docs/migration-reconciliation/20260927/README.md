@@ -34,3 +34,27 @@ CLI migration execution, list and dry-run use only loopback inside that containe
 Full replay and catalogue comparison are required before any proposed remote repair.
 
 Current repair authorization: **none**. Final decisions will be recorded after validation.
+
+## Historical execution prerequisites discovered by full replay
+
+The CLI applies every migration in version order, stopping on its first SQL error.
+Two explicitly isolated prerequisites are needed; they are not production migrations
+and do not change any historical file or version:
+
+* `20260901214531` repairs exactly one pre-existing continuity-v6 transition and
+  aborts when there are zero candidates. `fixtures/retirement-before.sql` creates
+  one entirely synthetic competition/season/source/target/article/transition.
+  Replica mode is used only while loading that legacy state; normal trigger and
+  constraint execution is restored before the historical migration. Its own
+  cardinality and state/hash checks run unchanged. `retirement-after.sql` checks
+  retirement and removes the synthetic dependency graph immediately afterwards.
+* `20260907222744` uses literal `replace()` on a v18 body whose recorded SQL has
+  different whitespace. `fixtures/v28-format-prerequisite.sql` restores only the
+  spacing of the three relevant roundup expressions in the installed function.
+  A regression test proves identical SQL tokens, and the SQL guard independently
+  rejects any non-whitespace difference. v28 itself still performs the functional
+  roundup correction. No validation is added retroactively to historical v18.
+
+Consequently, reproduction requires the documented baseline and replay harness;
+the historical migration directory alone is not a blank-database bootstrap.
+Every attempt and its first failure are retained in `attempts.json`.

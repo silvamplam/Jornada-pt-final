@@ -68,15 +68,15 @@ test("constructor is private, physical-only and has no legacy fallback", () => {
 });
 
 test("locks and all validation precede the first topology DML", () => {
-  const writerLock = sqlIndexOf(constructor, 
+  const writerLock = sqlIndexOf(constructor,
     "acquire_matchday_live_layout_cutover_writer_lock",
   );
   const rowLock = sqlIndexOf(constructor, "order by lock_row.id\n  for update;");
-  const sourceValidation = sqlIndexOf(constructor, 
+  const sourceValidation = sqlIndexOf(constructor,
     "assert_matchday_live_layout_physical_topology_source_v17",
   );
   const targetValidation = sqlIndexOf(constructor, "target-not-virgin");
-  const firstDml = sqlIndexOf(constructor, 
+  const firstDml = sqlIndexOf(constructor,
     "insert into\n    jornada_private.matchday_live_layout_physical_topology_transitions",
   );
   assert.ok(writerLock >= 0);
@@ -130,19 +130,19 @@ test("settings and compatibility projection are copied through physical identiti
 });
 
 test("marker ordering prevents assignment from reopening v16 distribution", () => {
-  const settings = sqlIndexOf(constructor, 
+  const settings = sqlIndexOf(constructor,
     "insert into public.matchday_live_layout_workspace_settings",
   );
-  const projection = sqlIndexOf(constructor, 
+  const projection = sqlIndexOf(constructor,
     "insert into jornada_private.matchday_live_layout_zone_legacy_projection",
   );
-  const marker = sqlIndexOf(constructor, 
+  const marker = sqlIndexOf(constructor,
     "insert into jornada_private.matchday_live_layout_physical_cutovers",
   );
-  const assignment = sqlIndexOf(constructor, 
+  const assignment = sqlIndexOf(constructor,
     "insert into public.matchday_editorial_profile_assignments",
   );
-  const downstream = sqlIndexOf(constructor, 
+  const downstream = sqlIndexOf(constructor,
     "begin_matchday_live_layout_downstream_v14",
   );
   assert.ok(settings >= 0 && marker > settings);
