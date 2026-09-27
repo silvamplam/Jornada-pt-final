@@ -25,7 +25,7 @@ Linhas: `[data-editorial-tier="lead"]`, `middle`, `final`.
 
 A migração `20260927110935_editorial_six_news_1_2_3.sql` é necessária antes de disponibilizar a funcionalidade num ambiente. Foi testada localmente; não foi aplicada em produção. Acrescenta a família às capacidades e validações existentes, preservando as restantes regras, permissões e corpos das RPC.
 
-## Validação
+## Validação inicial
 
 **19 ficheiros / 185 testes: 182 passaram e 3 falharam.** Antes da implementação, a mesma bateria sem os casos novos teve 177 testes / 174 aprovados e as mesmas 3 falhas.
 
@@ -97,3 +97,45 @@ node scripts/verify-six-news-tiered-sql.cjs postgresql://postgres@127.0.0.1:5543
 - `supabase/migrations/20260927110935_editorial_six_news_1_2_3.sql`
 - `supabase/sql/test-editorial-six-news-1-2-3.sql`
 - `docs/editorial-six-news-1-2-3.md`
+
+## Compactação visual na mesma branch
+
+Comparação read-only feita sobre `a158582958b21ec3183a975147c32dad4fccdc49`, antes de alterar o renderer. Conteúdo, imagens, ordem, título público e largura do contentor iguais para todas as famílias; as famílias de quatro/cinco usam os primeiros quatro/cinco artigos. Medição DOM da zona, incluindo o seu título e excluindo a fronteira exterior partilhada.
+
+| Viewport | Nova família antes | Nova família depois | Redução | `six_news` | `five_news_secondary` | `four_news` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1440 px | 1199,5 px | 547,4 px | 54,4% | 474,2 px | 661,1 px | 819,2 px |
+| 1024 px | 1106,3 px | 532,3 px | 51,9% | 443,8 px | 611,6 px | 777,8 px |
+| 390 px | 1176,5 px | 1009,0 px | 14,2% | 1880,4 px | 900,6 px | 1256,8 px |
+
+As três famílias de referência conservaram exatamente as mesmas alturas e geometria das imagens antes/depois. Em desktop, a nova família ficou 73,2 px / 88,5 px acima da `six_news` (15,4% / 19,9%), em vez de mais do dobro.
+
+Decomposição da altura da nova família em 1440 px:
+
+| Contribuição vertical | Antes | Depois |
+| --- | ---: | ---: |
+| Imagens: dominante + uma imagem por cada linha seguinte | 831,3 px | 325,6 px |
+| Títulos das linhas intermédia/final | 108,0 px | 68,4 px |
+| Subtítulos dessas linhas | 37,8 px | 35,0 px |
+| Etiquetas dessas linhas | 26,4 px | 26,4 px |
+| Gaps internos de texto dessas linhas | 28 px | 16 px |
+| Padding entre imagem e texto dessas linhas | 20 px | 12 px |
+| Margens entre os três níveis | 56 px | 16 px |
+| Padding entre os três níveis | 56 px | 16 px |
+| Dois separadores | 2 px | 2 px |
+| Título da zona + margem | 34 px | 30 px |
+
+O texto do destaque horizontal partilha a altura da sua imagem; não se soma novamente. Considera-se o cartão mais alto em cada linha. As proporções das imagens eram a principal causa da altura excessiva, seguidas pelos espaços entre níveis.
+
+Alteração limitada à apresentação: imagens panorâmicas em desktop (3,5:1 / 5:1 / 4,5:1), texto mais largo no destaque, gaps de 18 px, fronteiras discretas de 8 + 8 px e tipografia 28 / 20 / 17 px. Títulos completos, sem truncagem; subtítulos compactos. No móvel, imagem dominante 2:1, miniaturas 4:3 e separação de 10 + 10 px. O enquadramento `standard` existente é aplicado apenas às imagens deste renderer.
+
+Validação desta correção:
+
+- **47/47 testes aprovados**, sem alterações aos testes: `public-six-news-tiered.test.tsx`, `editorial-visual-families.test.ts`, `editorial-hierarchical-visual-grammar.test.tsx`, `public-editorial-titles-integrity.test.ts` e `public-editorial-image-framing.test.ts`.
+- 12 comparações de família/viewport: 1+2+3 preservado, seis imagens carregadas no novo renderer, nenhum overflow e alturas iguais dos cartões dentro de cada linha desktop.
+- Comparação lado a lado com `six_news` nos três viewports, ambos à mesma escala e com largura interna idêntica. Nenhum erro JavaScript no preview.
+- Migração, identidade, registo, contratos, dados e restantes renderers sem alterações.
+
+Para repetir: executar a fixture e abrir `/compare?width=1440`, `/compare?width=1024` ou `/compare?width=390`. A rota normal aceita `?family=six_news`, `?family=five_news_secondary` e `?family=four_news`. A variável opcional `SIX_NEWS_PREVIEW_PORT` permite comparar dois servidores locais sem interferência.
+
+Ficheiros desta correção: `components/public/PublicSixNewsTiered.tsx`, `scripts/serve-six-news-tiered-preview.tsx` e este relatório.
