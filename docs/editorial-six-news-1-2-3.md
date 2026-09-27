@@ -245,3 +245,23 @@ A linha de resumo acrescenta 20,8 px à última linha desktop, quase totalmente 
 - **`git diff --check`: aprovado.**
 
 Ficheiros desta afinação: `components/public/PublicSixNewsTiered.tsx`, `lib/public-six-news-tiered.test.tsx` e este relatório.
+
+## Segunda linha com texto à esquerda e imagem à direita
+
+Branch: `codex/six-news-middle-text-first`, criada a partir de `main` atualizado em `2caea0782c68d68b4f82b8de000e1a8012b4dfc9`. As correções anteriores ainda não estavam integradas no remoto e foram reaplicadas como `0e86b16f` e `c98bb6be`, antes desta inversão. A comparação visual desta etapa usa como baseline a última versão validada, com imagens equilibradas e resumos finais.
+
+O diagnóstico read-only localizou toda a composição no CSS de `PublicSixNewsTiered.tsx`. A alteração aplica `grid-template-areas: "copy media"` exclusivamente aos cartões de `[data-editorial-tier="middle"]`. As colunas desktop passam a texto 55% / imagem 45%, preservando as dimensões de cada elemento. No móvel, a imagem mantém a coluna de 38% (mínimo 100 px), agora à direita; a coluna flexível do texto fica à esquerda. Não houve alterações ao JSX, à lógica editorial, às outras linhas ou aos restantes renderers.
+
+Validação em browser com a mesma fixture, conteúdo e viewport antes/depois:
+
+| Viewport | Altura antes | Altura depois | Segunda linha |
+| --- | ---: | ---: | --- |
+| 1440 px | 675,8 px | 675,8 px | Texto à esquerda / imagem à direita |
+| 1024 px | 608,9 px | 608,9 px | Texto à esquerda / imagem à direita |
+| 390 px | 992,7 px | 992,7 px | Texto à esquerda / imagem à direita |
+
+As medições completas da primeira e da terceira linhas, incluindo as suas imagens, são exatamente iguais antes/depois. As dimensões dos elementos intermédios mantêm-se, com tolerância de 0,1 px para arredondamento das colunas. Confirmados seis artigos por 1+2+3, seis imagens carregadas com `cover`, títulos e resumos preservados, nenhum overflow e nenhum erro JavaScript.
+
+**66/66 testes focados passaram**, sem alterações aos testes, nos oito ficheiros já enumerados na validação do reequilíbrio das imagens. `git diff --check` aprovado. Capturas do preview guardadas em 1440, 1024 e 390 px. Não foi necessário alterar contratos, migrations, dados ou outras famílias.
+
+Ficheiros desta inversão: `components/public/PublicSixNewsTiered.tsx` e este relatório. O diff completo da branch também contém o teste do renderer herdado das correções anteriores reaplicadas.
