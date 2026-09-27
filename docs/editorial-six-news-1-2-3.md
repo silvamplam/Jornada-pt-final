@@ -139,3 +139,129 @@ Validação desta correção:
 Para repetir: executar a fixture e abrir `/compare?width=1440`, `/compare?width=1024` ou `/compare?width=390`. A rota normal aceita `?family=six_news`, `?family=five_news_secondary` e `?family=four_news`. A variável opcional `SIX_NEWS_PREVIEW_PORT` permite comparar dois servidores locais sem interferência.
 
 Ficheiros desta correção: `components/public/PublicSixNewsTiered.tsx`, `scripts/serve-six-news-tiered-preview.tsx` e este relatório.
+
+## Reequilíbrio das imagens após a compactação
+
+Branch: `codex/six-news-1-2-3-image-balance`, criada a partir de `main` atualizado em `2caea0782c68d68b4f82b8de000e1a8012b4dfc9`.
+
+### Diagnóstico read-only
+
+O renderer partilhado `PublicSixNewsTiered` envolve cada imagem num link `.public-six-news-tiered-media`, com `overflow: hidden`; a imagem ocupa o wrapper com `object-fit: cover` e enquadramento `standard` (`center 40%`). Não havia distorção geométrica: a sensação de imagem comprimida vinha do recorte excessivo imposto pelos ratios desktop 3,5:1 / 5:1 / 4,5:1. A 1440 px, as imagens intermédias tinham 567 × 113,4 px e as finais 372 × 82,7 px.
+
+A comparação com `six_news` e `five_news_secondary` usou os mesmos artigos sintéticos, imagens locais, ordem, título público e viewport. O primeiro preserva o seu renderer hierárquico; o segundo usa imagens 16:9, incluindo a grelha lateral. Ambos apresentavam recortes menos rasos. No móvel, o destaque 2:1 e as miniaturas 4:3 já eram adequados.
+
+Os espaços entre níveis já eram pequenos (8 px de margem + 8 px de padding + separador de 1 px). Reduzi-los, por si só, não compensaria imagens de largura total 16:9 nas duas linhas inferiores. A solução mantém os três níveis e coloca imagem e texto lado a lado dentro dos dois cartões intermédios.
+
+### Alteração limitada à apresentação
+
+- Destaque horizontal com imagem 2:1; imagens intermédias e finais 16:9 em desktop, sempre com `object-fit: cover`.
+- As duas peças intermédias continuam na mesma linha; cada cartão usa 45% / 55% para imagem / texto, descontando o gap de 14 px. Altura mínima de imagem de 112 px protege as larguras desktop mais estreitas.
+- Separação entre níveis reduzida para 6 + 6 px; padding acima do texto intermédio removido.
+- Resumo do destaque limitado a duas linhas, intermédios a uma em desktop; as três finais não apresentam resumo. Todos os títulos continuam completos, com a tipografia 28 / 20 / 17 px existente.
+- Abaixo de 680 px preservam-se o destaque 2:1, miniaturas 4:3 e organização móvel por níveis; a altura mínima desktop deixa de se aplicar.
+- O fallback Jornada mantém `contain`, para mostrar o logótipo completo.
+
+Identidade, capacidade, registos Viva/Histórica, migrations, dados e restantes famílias sem alterações. O seletor corrigido continua a ser `[data-public-visual-family="six_news_1_2_3"]`.
+
+### Comparação antes/depois
+
+Altura DOM da zona, incluindo título público e excluindo a fronteira exterior partilhada:
+
+| Viewport | Antes compactado | Depois | `six_news`, inalterado | `five_news_secondary`, inalterado |
+| --- | ---: | ---: | ---: | ---: |
+| 1440 px | 547,4 px | 675,6 px | 474,2 px | 661,1 px |
+| 1024 px | 532,3 px | 605,5 px | 443,8 px | 611,6 px |
+| 390 px | 1009,0 px | 1009,0 px | 1880,4 px | 900,6 px |
+
+Altura útil das imagens: destaque / intermédia / final:
+
+| Viewport | Antes | Depois |
+| --- | --- | --- |
+| 1440 px | 129,6 / 113,4 / 82,7 px | 226,8 / 140,0 / 209,3 px |
+| 1024 px | 109,5 / 95,8 / 69,6 px | 191,6 / 117,7 / 176,2 px |
+| 390 px | 179,0 / 102,0 / 102,0 px | 179,0 / 102,0 / 102,0 px |
+
+A zona cresce 128,2 px / 73,2 px nos dois viewports desktop, ficando próxima da família de cinco notícias. Continua abaixo dos 1199,5 / 1106,3 px da primeira versão. O móvel mantém a altura; retirar os resumos finais não reduz os cartões abaixo da altura das miniaturas.
+
+### Validação
+
+- Baseline e resultado: **66/66 testes aprovados**, zero falhas, nos oito ficheiros abaixo (todos em `lib/`). Só foi atualizada a asserção de resumos nas posições finais do teste existente.
+  - `public-six-news-tiered.test.tsx`
+  - `editorial-visual-families.test.ts`
+  - `editorial-hierarchical-visual-grammar.test.tsx`
+  - `public-editorial-titles-integrity.test.ts`
+  - `public-editorial-image-framing.test.ts`
+  - `editorial-historical-composition-public-dynamic.test.ts`
+  - `editorial-historical-composition-admin-dynamic-preview.test.ts`
+  - `public-matchday-thematic-renderer.test.ts`
+- TypeScript: **912 ficheiros versionados, zero diagnósticos**; os ficheiros pessoais não versionados foram excluídos.
+- Browser: 18 medições antes/depois (três famílias × três viewports × duas versões). Seis imagens carregadas, `cover`, três níveis 1/2/3, cartões com alturas iguais por linha desktop, sem overflow horizontal e sem erros JavaScript.
+- As medidas completas das duas famílias de referência são idênticas antes/depois.
+- Fallback de imagem vazia e de URL inválido confirmado a 1440 e 390 px: seis imagens carregadas, dois fallbacks, sem overflow.
+- Comparações visuais lado a lado guardadas para 1440, 1024 e 390 px. Preview local com conteúdo sintético, sem ligação à base de dados.
+- `git diff --check`: aprovado.
+
+Para repetir a comparação, iniciar a fixture existente antes da alteração com `SIX_NEWS_PREVIEW_PORT=3114` e depois da alteração com `SIX_NEWS_PREVIEW_PORT=3115`; o bundle é criado ao arrancar cada processo. Abrir `/?family=six_news_1_2_3`, `/?family=six_news` e `/?family=five_news_secondary` em cada porta, nos mesmos viewports. Para os testes: `node --import tsx --test` seguido dos oito ficheiros indicados.
+
+Ficheiros desta correção: `components/public/PublicSixNewsTiered.tsx`, `lib/public-six-news-tiered.test.tsx` e este relatório.
+
+## Recuperação dos resumos nas três peças finais
+
+Branch: `codex/six-news-final-summaries`, criada a partir de `main` atualizado em `2caea0782c68d68b4f82b8de000e1a8012b4dfc9`. Nesse momento, a correção anterior `76ddbe84` ainda não estava integrada em `origin/main`; foi reaplicada nesta branch como `c6db5851`, preservando o desenho corrigido antes desta afinação. Não houve merge.
+
+### Diagnóstico e solução
+
+O diagnóstico read-only confirmou que a versão corrigida excluía explicitamente os resumos do nível `final`. O estilo base já limitava os resumos a uma linha em desktop, mas a regra móvel genérica permitia duas. A imagem dominante tinha ratio 2:1 nos três viewports.
+
+A afinação repõe o resumo quando existe nas seis posições e limita explicitamente os três finais a uma linha também no móvel. A imagem dominante passa para 2,2:1, reduzindo a altura cerca de 9%; a regra móvel redundante foi removida para herdar o mesmo ratio. O recorte continua com `object-fit: cover` e enquadramento `standard`.
+
+As duas peças intermédias, as imagens finais, os gaps, a tipografia, a hierarquia 1+2+3 e a disponibilidade na Viva/Histórica mantêm-se. Nenhum outro renderer, contrato ou migration foi alterado.
+
+### Comparação com a versão corrigida
+
+Mesma fixture local, conteúdo sintético, imagens, ordem e viewport. Altura da zona incluindo título público, sem a fronteira exterior partilhada:
+
+| Viewport | Corrigida sem resumos finais | Proposta com uma linha | Diferença |
+| --- | ---: | ---: | ---: |
+| 1440 px | 675,6 px | 675,8 px | +0,2 px |
+| 1024 px | 605,5 px | 608,9 px | +3,4 px |
+| 390 px | 1009,0 px | 992,7 px | −16,3 px |
+
+| Viewport | Imagem dominante antes | Depois |
+| --- | ---: | ---: |
+| 1440 px | 226,8 px | 206,2 px |
+| 1024 px | 191,6 px | 174,2 px |
+| 390 px | 179,0 px | 162,7 px |
+
+A linha de resumo acrescenta 20,8 px à última linha desktop, quase totalmente compensados pela imagem dominante. No móvel, os resumos cabem na altura que as miniaturas já reservavam. A altura da linha intermédia e as dimensões das cinco imagens seguintes são idênticas às da versão corrigida.
+
+### Validação desta afinação
+
+- Preview antes/depois em 1440, 1024 e 390 px, com capturas individuais e comparação lado a lado.
+- Seis imagens carregadas com `cover`; recortes normais; níveis com 1/2/3 artigos; três resumos finais com clamp de uma linha e altura efetiva de uma linha em todos os viewports.
+- Sem overflow horizontal, sem erros JavaScript, títulos completos e alturas iguais dos cartões de cada linha desktop.
+- **66/66 testes focados aprovados**, nos mesmos oito ficheiros enumerados na secção anterior. O teste do renderer volta a exigir o conteúdo do resumo em todas as seis posições.
+- **TypeScript: 912 ficheiros versionados, zero diagnósticos.**
+- **`git diff --check`: aprovado.**
+
+Ficheiros desta afinação: `components/public/PublicSixNewsTiered.tsx`, `lib/public-six-news-tiered.test.tsx` e este relatório.
+
+## Segunda linha com texto à esquerda e imagem à direita
+
+Branch: `codex/six-news-middle-text-first`, criada a partir de `main` atualizado em `2caea0782c68d68b4f82b8de000e1a8012b4dfc9`. As correções anteriores ainda não estavam integradas no remoto e foram reaplicadas como `0e86b16f` e `c98bb6be`, antes desta inversão. A comparação visual desta etapa usa como baseline a última versão validada, com imagens equilibradas e resumos finais.
+
+O diagnóstico read-only localizou toda a composição no CSS de `PublicSixNewsTiered.tsx`. A alteração aplica `grid-template-areas: "copy media"` exclusivamente aos cartões de `[data-editorial-tier="middle"]`. As colunas desktop passam a texto 55% / imagem 45%, preservando as dimensões de cada elemento. No móvel, a imagem mantém a coluna de 38% (mínimo 100 px), agora à direita; a coluna flexível do texto fica à esquerda. Não houve alterações ao JSX, à lógica editorial, às outras linhas ou aos restantes renderers.
+
+Validação em browser com a mesma fixture, conteúdo e viewport antes/depois:
+
+| Viewport | Altura antes | Altura depois | Segunda linha |
+| --- | ---: | ---: | --- |
+| 1440 px | 675,8 px | 675,8 px | Texto à esquerda / imagem à direita |
+| 1024 px | 608,9 px | 608,9 px | Texto à esquerda / imagem à direita |
+| 390 px | 992,7 px | 992,7 px | Texto à esquerda / imagem à direita |
+
+As medições completas da primeira e da terceira linhas, incluindo as suas imagens, são exatamente iguais antes/depois. As dimensões dos elementos intermédios mantêm-se, com tolerância de 0,1 px para arredondamento das colunas. Confirmados seis artigos por 1+2+3, seis imagens carregadas com `cover`, títulos e resumos preservados, nenhum overflow e nenhum erro JavaScript.
+
+**66/66 testes focados passaram**, sem alterações aos testes, nos oito ficheiros já enumerados na validação do reequilíbrio das imagens. `git diff --check` aprovado. Capturas do preview guardadas em 1440, 1024 e 390 px. Não foi necessário alterar contratos, migrations, dados ou outras famílias.
+
+Ficheiros desta inversão: `components/public/PublicSixNewsTiered.tsx` e este relatório. O diff completo da branch também contém o teste do renderer herdado das correções anteriores reaplicadas.

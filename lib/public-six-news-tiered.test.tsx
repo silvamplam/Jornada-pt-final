@@ -26,7 +26,7 @@ function render(items = Array.from({ length: 6 }, (_, index) => item(index + 1))
     zone={createPublicFlexibleZone({ key: "teste", publicTitle: "Atualidade", visualFamily: family, items })} />));
 }
 
-test("renderer partilhado distribui seis notícias por 1 + 2 + 3, cada uma com imagem e ligação", () => {
+test("renderer partilhado distribui seis notícias por 1 + 2 + 3, cada uma com imagem, resumo e ligação", () => {
   const $ = render();
   assert.deepEqual($("[data-editorial-tier]").map((_, row) => $(row).find("article").length).get(), [1, 2, 3]);
   assert.equal($("article img").length, 6);
