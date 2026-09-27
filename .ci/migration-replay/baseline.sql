@@ -70,6 +70,380 @@ begin
   return new;
 end
 $$;;
+create or replace function public.activate_matchday_reference_composition(
+  p_matchday_id uuid,
+  p_composition_id uuid,
+  p_publish_draft boolean default false
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_target public.matchday_reference_compositions%rowtype;
+  v_slot_count integer;
+  v_complete_slot_count integer;
+  v_beyond_count integer;
+  v_complete_beyond_count integer;
+  v_beyond_position_count integer;
+  v_now timestamptz := now();
+begin
+  if p_matchday_id is null or p_composition_id is null then
+    raise exception 'composition_invalid';
+  end if;
+
+  perform 1
+  from public.matchday_reference_compositions
+  where matchday_id = p_matchday_id
+  for update;
+
+  select *
+  into v_target
+  from public.matchday_reference_compositions
+  where id = p_composition_id
+    and matchday_id = p_matchday_id
+  for update;
+
+  if v_target.id is null then
+    raise exception 'composition_not_found';
+  end if;
+
+  if v_target.status = 'draft' then
+    if not p_publish_draft then
+      raise exception 'composition_not_published';
+    end if;
+  elsif v_target.status <> 'published' then
+    raise exception 'composition_not_published';
+  end if;
+
+  if v_target.presentation_mode = 'hierarchical' then
+    select count(*), count(*) filter (
+      where nullif(btrim(label_snapshot), '') is not null
+        and nullif(btrim(title_snapshot), '') is not null
+        and nullif(btrim(subtitle_snapshot), '') is not null
+        and (
+          nullif(btrim(image_url_snapshot), '') is not null
+          or (
+            slot_key = 'dominant_main'
+            and (
+              (media_kind_snapshot = 'embed' and nullif(btrim(media_embed_url_snapshot), '') is not null)
+              or (media_kind_snapshot = 'direct_video' and nullif(btrim(media_video_url_snapshot), '') is not null)
+            )
+          )
+        )
+    )
+    into v_slot_count, v_complete_slot_count
+    from public.matchday_hierarchical_composition_slots
+    where composition_id = v_target.id;
+
+    if v_slot_count <> 15 or v_complete_slot_count <> 15 then
+      raise exception 'hierarchical_composition_incomplete';
+    end if;
+
+    select
+      count(*),
+      count(*) filter (
+        where nullif(btrim(label_snapshot), '') is not null
+          and nullif(btrim(title_snapshot), '') is not null
+          and nullif(btrim(subtitle_snapshot), '') is not null
+          and nullif(btrim(image_url_snapshot), '') is not null
+          and nullif(btrim(link_url_snapshot), '') is not null
+      ),
+      count(distinct sort_order) filter (where sort_order between 1 and 5)
+    into v_beyond_count, v_complete_beyond_count, v_beyond_position_count
+    from public.matchday_reference_composition_items
+    where composition_id = v_target.id
+      and slot_type = 'beyond_matchday';
+
+    if v_beyond_count <> 5
+       or v_complete_beyond_count <> 5
+       or v_beyond_position_count <> 5 then
+      raise exception 'hierarchical_beyond_matchday_incomplete';
+    end if;
+  end if;
+
+  update public.matchday_reference_compositions
+  set is_current = false,
+      updated_at = v_now
+  where matchday_id = p_matchday_id
+    and is_current = true;
+
+  update public.matchday_reference_compositions
+  set status = case when status = 'draft' then 'published' else status end,
+      is_current = true,
+      published_at = case when status = 'draft' then v_now else published_at end,
+      updated_at = v_now
+  where id = v_target.id
+    and matchday_id = p_matchday_id;
+
+  return v_target.id;
+end
+$$;;
+create or replace function public.sync_matchday_zone_publication_to_bank(
+  p_matchday_id uuid,
+  p_link_url text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_path text := regexp_replace(split_part(split_part(coalesce(btrim(p_link_url), ''), '?', 1), '#', 1), '/$', '');
+  v_slug text;
+  v_article public.editorial_articles%rowtype;
+  v_content public.editorial_contents%rowtype;
+begin
+  if p_matchday_id is null or v_path = '' then
+    return null;
+  end if;
+
+  if v_path like '/noticias/%' then
+    v_slug := nullif(substring(v_path from char_length('/noticias/') + 1), '');
+    if v_slug is null then return null; end if;
+
+    select * into v_article
+    from public.editorial_articles article
+    where article.slug = v_slug
+      and article.status = 'published'
+      and (article.matchday_id is null or article.matchday_id = p_matchday_id)
+    order by case when article.matchday_id = p_matchday_id then 0 else 1 end,
+             article.published_at desc nulls last,
+             article.updated_at desc nulls last,
+             article.id
+    limit 1;
+
+    if v_article.id is null then return null; end if;
+
+    return public.upsert_matchday_editorial_bank_publication(
+      p_matchday_id,
+      'editorial_article',
+      v_article.id::text,
+      v_article.slug,
+      v_article.label,
+      v_article.title,
+      v_article.subtitle,
+      v_article.image_url,
+      '/noticias/' || v_article.slug
+    );
+  end if;
+
+  if v_path like '/conteudos/%' then
+    v_slug := nullif(substring(v_path from char_length('/conteudos/') + 1), '');
+    if v_slug is null then return null; end if;
+
+    select * into v_content
+    from public.editorial_contents content
+    where content.slug = v_slug
+      and content.status = 'published'
+      and (content.matchday_id is null or content.matchday_id = p_matchday_id)
+    order by case when content.matchday_id = p_matchday_id then 0 else 1 end,
+             content.published_at desc nulls last,
+             content.updated_at desc nulls last,
+             content.id
+    limit 1;
+
+    if v_content.id is null then return null; end if;
+
+    return public.upsert_matchday_editorial_bank_publication(
+      p_matchday_id,
+      'editorial_content',
+      v_content.id::text,
+      v_content.slug,
+      coalesce(nullif(btrim(v_content.label), ''), nullif(btrim(v_content.content_type), '')),
+      v_content.title,
+      coalesce(nullif(btrim(v_content.summary), ''), nullif(btrim(v_content.subtitle), '')),
+      coalesce(nullif(btrim(v_content.thumbnail_url), ''), nullif(btrim(v_content.image_url), '')),
+      '/conteudos/' || v_content.slug
+    );
+  end if;
+
+  return null;
+end
+$$;;
+create or replace function public.upsert_matchday_editorial_bank_publication(
+  p_matchday_id uuid,
+  p_source_type text,
+  p_source_id text,
+  p_source_slug text,
+  p_label text,
+  p_title text,
+  p_subtitle text,
+  p_image_url text,
+  p_link_url text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_source_type text := lower(btrim(coalesce(p_source_type, '')));
+  v_source_id text := nullif(btrim(p_source_id), '');
+  v_source_slug text := nullif(btrim(p_source_slug), '');
+  v_title text := nullif(btrim(p_title), '');
+  v_link_url text := nullif(btrim(p_link_url), '');
+  v_normalized_link text := lower(regexp_replace(split_part(split_part(coalesce(v_link_url, ''), '?', 1), '#', 1), '/$', ''));
+  v_keep_id uuid;
+  v_drop_id uuid;
+  v_preserve_archived boolean := false;
+begin
+  if p_matchday_id is null or not exists (
+    select 1 from public.matchdays where id = p_matchday_id
+  ) then
+    raise exception 'invalid_matchday';
+  end if;
+
+  if v_source_type not in ('editorial_article', 'editorial_content') then
+    raise exception 'invalid_source_type';
+  end if;
+
+  if v_source_id is null then
+    raise exception 'missing_source_id';
+  end if;
+
+  if v_title is null then
+    raise exception 'missing_title';
+  end if;
+
+  select bank.id
+    into v_keep_id
+  from public.matchday_editorial_bank_items bank
+  where bank.matchday_id = p_matchday_id
+    and lower(btrim(coalesce(bank.source_type, ''))) = v_source_type
+    and lower(btrim(coalesce(bank.source_id, ''))) = lower(v_source_id)
+  order by bank.created_at asc, bank.id asc
+  limit 1;
+
+  if v_keep_id is null and v_normalized_link <> '' then
+    select bank.id
+      into v_keep_id
+    from public.matchday_editorial_bank_items bank
+    where bank.matchday_id = p_matchday_id
+      and lower(regexp_replace(split_part(split_part(coalesce(bank.link_url, ''), '?', 1), '#', 1), '/$', '')) = v_normalized_link
+    order by bank.created_at asc, bank.id asc
+    limit 1;
+  end if;
+
+  if v_keep_id is not null then
+    select coalesce(bool_or(bank.status = 'archived'), false)
+      into v_preserve_archived
+    from public.matchday_editorial_bank_items bank
+    where bank.matchday_id = p_matchday_id
+      and (
+        (
+          lower(btrim(coalesce(bank.source_type, ''))) = v_source_type
+          and lower(btrim(coalesce(bank.source_id, ''))) = lower(v_source_id)
+        )
+        or (
+          v_normalized_link <> ''
+          and lower(regexp_replace(split_part(split_part(coalesce(bank.link_url, ''), '?', 1), '#', 1), '/$', '')) = v_normalized_link
+        )
+      );
+
+    for v_drop_id in
+      select bank.id
+      from public.matchday_editorial_bank_items bank
+      where bank.id <> v_keep_id
+        and bank.matchday_id = p_matchday_id
+        and (
+          (
+            lower(btrim(coalesce(bank.source_type, ''))) = v_source_type
+            and lower(btrim(coalesce(bank.source_id, ''))) = lower(v_source_id)
+          )
+          or (
+            v_normalized_link <> ''
+            and lower(regexp_replace(split_part(split_part(coalesce(bank.link_url, ''), '?', 1), '#', 1), '/$', '')) = v_normalized_link
+          )
+        )
+      order by bank.created_at asc, bank.id asc
+    loop
+      delete from public.matchday_reference_composition_items dropped_item
+      where dropped_item.source_id = v_drop_id
+        and lower(btrim(coalesce(dropped_item.source_type, ''))) in ('manual_link', 'matchday_editorial_bank_item')
+        and exists (
+          select 1
+          from public.matchday_reference_composition_items kept_item
+          where kept_item.composition_id = dropped_item.composition_id
+            and kept_item.source_id = v_keep_id
+            and lower(btrim(coalesce(kept_item.source_type, ''))) in ('manual_link', 'matchday_editorial_bank_item')
+        );
+
+      update public.matchday_reference_composition_items
+      set source_id = v_keep_id,
+          source_type = 'matchday_editorial_bank_item',
+          updated_at = now()
+      where source_id = v_drop_id
+        and lower(btrim(coalesce(source_type, ''))) in ('manual_link', 'matchday_editorial_bank_item');
+
+      delete from public.matchday_hierarchical_composition_slots dropped_slot
+      where dropped_slot.bank_item_id = v_drop_id
+        and exists (
+          select 1
+          from public.matchday_hierarchical_composition_slots kept_slot
+          where kept_slot.composition_id = dropped_slot.composition_id
+            and kept_slot.bank_item_id = v_keep_id
+        );
+
+      update public.matchday_hierarchical_composition_slots
+      set bank_item_id = v_keep_id,
+          updated_at = now()
+      where bank_item_id = v_drop_id;
+
+      delete from public.matchday_editorial_bank_items
+      where id = v_drop_id;
+    end loop;
+
+    update public.matchday_editorial_bank_items
+    set matchday_id = p_matchday_id,
+        label = nullif(btrim(p_label), ''),
+        title = v_title,
+        subtitle = nullif(btrim(p_subtitle), ''),
+        image_url = nullif(btrim(p_image_url), ''),
+        link_url = v_link_url,
+        source_type = v_source_type,
+        source_id = v_source_id,
+        source_slug = v_source_slug,
+        origin_slot_type = null,
+        sort_order = null,
+        status = case when v_preserve_archived then 'archived' else status end,
+        updated_at = now()
+    where id = v_keep_id;
+  else
+    insert into public.matchday_editorial_bank_items (
+      matchday_id,
+      label,
+      title,
+      subtitle,
+      image_url,
+      link_url,
+      source_type,
+      source_id,
+      source_slug,
+      origin_slot_type,
+      sort_order,
+      status
+    ) values (
+      p_matchday_id,
+      nullif(btrim(p_label), ''),
+      v_title,
+      nullif(btrim(p_subtitle), ''),
+      nullif(btrim(p_image_url), ''),
+      v_link_url,
+      v_source_type,
+      v_source_id,
+      v_source_slug,
+      null,
+      null,
+      'active'
+    )
+    returning id into v_keep_id;
+  end if;
+
+  return v_keep_id;
+end
+$$;;
 CREATE OR REPLACE FUNCTION public.newsroom_protect_editorial_dossier_source_frozen_identity()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -2144,6 +2518,18 @@ alter function "public"."sync_matchday_zone_row_to_bank"() owner to "postgres";
 revoke all on function "public"."sync_matchday_zone_row_to_bank"() from public, anon, authenticated, service_role;
 grant EXECUTE on function "public"."sync_matchday_zone_row_to_bank"() to "service_role";
 comment on function "public"."sync_matchday_zone_row_to_bank"() is 'Synchronizes ordinary publication surfaces to contextual Bank participation. Exact private v18 carryover writes are inert because Bank was already materialized from its persistent source identity map.';
+alter function "public"."activate_matchday_reference_composition"(p_matchday_id uuid, p_composition_id uuid, p_publish_draft boolean) owner to "postgres";
+revoke all on function "public"."activate_matchday_reference_composition"(p_matchday_id uuid, p_composition_id uuid, p_publish_draft boolean) from public, anon, authenticated, service_role;
+grant EXECUTE on function "public"."activate_matchday_reference_composition"(p_matchday_id uuid, p_composition_id uuid, p_publish_draft boolean) to "service_role";
+comment on function "public"."activate_matchday_reference_composition"(p_matchday_id uuid, p_composition_id uuid, p_publish_draft boolean) is 'Publica ou reativa uma composiÃ§Ã£o; hierarchical aceita dominant_main com imagem ou snapshot audiovisual vÃ¡lido e mantÃ©m os restantes requisitos.';
+alter function "public"."sync_matchday_zone_publication_to_bank"(p_matchday_id uuid, p_link_url text) owner to "postgres";
+revoke all on function "public"."sync_matchday_zone_publication_to_bank"(p_matchday_id uuid, p_link_url text) from public, anon, authenticated, service_role;
+grant EXECUTE on function "public"."sync_matchday_zone_publication_to_bank"(p_matchday_id uuid, p_link_url text) to "service_role";
+comment on function "public"."sync_matchday_zone_publication_to_bank"(p_matchday_id uuid, p_link_url text) is 'Resolve /noticias ou /conteudos para a publicaÃ§Ã£o canÃ³nica elegÃ­vel (jornada atual ou sem jornada) e sincroniza-a no banco da jornada.';
+alter function "public"."upsert_matchday_editorial_bank_publication"(p_matchday_id uuid, p_source_type text, p_source_id text, p_source_slug text, p_label text, p_title text, p_subtitle text, p_image_url text, p_link_url text) owner to "postgres";
+revoke all on function "public"."upsert_matchday_editorial_bank_publication"(p_matchday_id uuid, p_source_type text, p_source_id text, p_source_slug text, p_label text, p_title text, p_subtitle text, p_image_url text, p_link_url text) from public, anon, authenticated, service_role;
+grant EXECUTE on function "public"."upsert_matchday_editorial_bank_publication"(p_matchday_id uuid, p_source_type text, p_source_id text, p_source_slug text, p_label text, p_title text, p_subtitle text, p_image_url text, p_link_url text) to "service_role";
+comment on function "public"."upsert_matchday_editorial_bank_publication"(p_matchday_id uuid, p_source_type text, p_source_id text, p_source_slug text, p_label text, p_title text, p_subtitle text, p_image_url text, p_link_url text) is 'Reconcilia uma publicação canónica dentro do banco de uma jornada, promove-a a elegível para classificação automática e preserva eventual proveniência de continuidade.';
 alter function "public"."newsroom_protect_editorial_dossier_source_frozen_identity"() owner to "postgres";
 revoke all on function "public"."newsroom_protect_editorial_dossier_source_frozen_identity"() from public, anon, authenticated, service_role;
 grant EXECUTE on function "public"."newsroom_protect_editorial_dossier_source_frozen_identity"() to "service_role";

@@ -111,6 +111,16 @@
       "first_migration": "20260920141132_manual_newsroom_source_v1.sql",
       "first_failure": "constraint newsroom_articles_manual_origin_urls_check of relation newsroom_articles does not exist (42704)",
       "correction": "Restore its pre-chain definition from step 39 in the baseline; the historical migration then replaces it itself. No other first-operation unconditional constraint drops are missing."
+    },
+    {
+      "run": 36326952828,
+      "commit": "aee66c89",
+      "phase": "catalog_comparison",
+      "baseline_passed": true,
+      "replay_passed": true,
+      "migrations_applied": 149,
+      "first_failure": "No SQL migration failure. Comparison found inherited ACL/comment metadata missing on 3 functions and public schema grant, plus 32 functions outside the migration dependency closure.",
+      "correction": "Include the three original foundation function definitions from steps 113/117 with captured ACL/comments, and public schema postgres grant. Explicitly inventory excluded functions using the same dependency-closure rule as tables. Dry-run and migration list passed."
     }
   ]
 }

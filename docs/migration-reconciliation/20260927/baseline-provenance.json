@@ -614,6 +614,24 @@
     },
     {
       "schema": "public",
+      "name": "activate_matchday_reference_composition",
+      "identity": "p_matchday_id uuid, p_composition_id uuid, p_publish_draft boolean",
+      "source": "supabase/steps/113-composicao-hierarquica-destaque-video-apply.sql"
+    },
+    {
+      "schema": "public",
+      "name": "sync_matchday_zone_publication_to_bank",
+      "identity": "p_matchday_id uuid, p_link_url text",
+      "source": "supabase/steps/117-composicao-banco-identidade-canonica-apply.sql"
+    },
+    {
+      "schema": "public",
+      "name": "upsert_matchday_editorial_bank_publication",
+      "identity": "p_matchday_id uuid, p_source_type text, p_source_id text, p_source_slug text, p_label text, p_title text, p_subtitle text, p_image_url text, p_link_url text",
+      "source": "supabase/steps/117-composicao-banco-identidade-canonica-apply.sql"
+    },
+    {
+      "schema": "public",
       "name": "newsroom_protect_editorial_dossier_source_frozen_identity",
       "identity": "",
       "source": "production-catalog.json"
@@ -758,5 +776,39 @@
     "public.team_alias_audit_events",
     "public.team_deletion_audit_events",
     "public.team_public_name_audit_events"
+  ],
+  "excluded_functions": [
+    "public.manage_team_alias(p_action text, p_actor_type text, p_actor_reference text, p_source text, p_team_alias_id uuid, p_team_id uuid, p_alias text, p_request_reference text)",
+    "public.manage_team_alias_batch(p_country_id uuid, p_rows jsonb, p_apply boolean, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+    "public.manage_team_creation_batch(p_country_id uuid, p_rows jsonb, p_apply boolean, p_confirmed_preview_fingerprint text, p_confirmed_complete_existing_lines jsonb, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+    "public.manage_team_public_name(p_team_id uuid, p_public_name text, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+    "public.manage_team_safe_deletion(p_team_id uuid, p_apply boolean, p_confirmed_preview_fingerprint text, p_confirmed_action text, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+    "public.newsroom_activate_editorial_profile_version(p_profile_id uuid, p_version_id uuid, p_expected_active_version_id uuid, p_event_type text, p_reason text, p_created_by_actor_type text, p_created_by_actor_id text)",
+    "public.newsroom_apply_editorial_dossier_article_plan_generation(p_dossier_id uuid, p_article_plan_id uuid, p_editorial_article_id uuid, p_expected_article_updated_at timestamp with time zone, p_generated_body text, p_provider text, p_model text, p_prompt_version text, p_provider_response_id text, p_input_hash text, p_input_snapshot jsonb, p_input_tokens integer, p_output_tokens integer, p_total_tokens integer)",
+    "public.newsroom_apply_editorial_review(p_action text, p_items jsonb)",
+    "public.newsroom_apply_generated_article(p_dossier_id uuid, p_article_plan_id uuid, p_editorial_article_id uuid, p_expected_article_updated_at timestamp with time zone, p_generated_title text, p_generated_post_title text, p_image_url text, p_generated_body text, p_provider text, p_model text, p_prompt_version text, p_provider_response_id text, p_input_hash text, p_input_snapshot jsonb, p_input_tokens integer, p_output_tokens integer, p_total_tokens integer)",
+    "public.newsroom_claim_editorial_compose_generation(p_submission_id uuid, p_request_fingerprint text, p_claim_token uuid)",
+    "public.newsroom_complete_editorial_compose_generation(p_submission_id uuid, p_request_fingerprint text, p_claim_token uuid)",
+    "public.newsroom_create_complete_manual_entry(p_submission_id uuid, p_request_fingerprint text, p_ante_title text, p_title text, p_post_title text, p_author text, p_body jsonb, p_published_date text, p_published_time text, p_image_url text, p_content_hash text)",
+    "public.newsroom_create_editorial_dossier_article_plan_draft(p_dossier_id uuid, p_article_plan_id uuid)",
+    "public.newsroom_create_editorial_profile_version(p_profile_id uuid, p_based_on_version_id uuid, p_expected_latest_version_number integer, p_document_text text, p_content_hash text, p_change_summary text, p_created_by_actor_type text, p_created_by_actor_id text)",
+    "public.newsroom_create_manual_entry(p_submission_id uuid, p_request_fingerprint text, p_title text, p_body jsonb, p_published_date text, p_image_url text, p_content_hash text)",
+    "public.newsroom_fail_editorial_compose_generation(p_submission_id uuid, p_request_fingerprint text, p_claim_token uuid, p_error_code text)",
+    "public.newsroom_persist_article_snapshot(p_source_code text, p_original_url text, p_normalized_url text, p_external_id text, p_title text, p_subtitle text, p_summary text, p_author text, p_published_at timestamp with time zone, p_modified_at timestamp with time zone, p_detected_at timestamp with time zone, p_image_url text, p_processing_status text, p_content_hash text, p_body jsonb, p_source_metadata jsonb, p_extracted_at timestamp with time zone)",
+    "public.newsroom_pin_editorial_profile_version_for_plan(p_dossier_id uuid, p_plan_id uuid)",
+    "public.newsroom_prepare_editorial_compose(p_submission_id uuid, p_request_fingerprint text, p_working_title text, p_editorial_instructions text, p_context_instructions text, p_article_kind text, p_length_mode text, p_output_language text, p_newsroom_article_ids uuid[], p_newsroom_snapshot_ids uuid[], p_source_roles text[], p_source_priorities integer[], p_source_notes text[])",
+    "public.newsroom_reject_editorial_generation_mutation()",
+    "public.newsroom_reject_editorial_profile_activation_event_mutation()",
+    "public.portal_create_competition(p_portal_modality_id uuid, p_name text, p_slug text, p_scope text, p_format text, p_status text)",
+    "public.portal_create_competition_event(p_portal_competition_id uuid, p_name text, p_portal_stage_id uuid, p_type text, p_event_order integer, p_scheduled_at timestamp with time zone, p_venue text, p_notes text, p_participant_ids uuid[], p_status text)",
+    "public.portal_create_competition_format(p_portal_competition_id uuid, p_catalog_format_id uuid, p_name text, p_code text, p_format_scope text, p_format_family text, p_event_model text, p_result_model text, p_ranking_model text, p_notes text, p_status text)",
+    "public.portal_create_competition_participant(p_portal_competition_id uuid, p_name text, p_type text, p_group_label text, p_seed_order integer, p_external_reference text, p_notes text, p_status text, p_registration_status text)",
+    "public.portal_create_competition_structure(p_portal_competition_id uuid, p_name text, p_type text, p_stage_order integer, p_scheduled_date date, p_status text)",
+    "public.portal_create_content_submission(p_portal_competition_id uuid, p_type text, p_title text, p_summary text, p_body text, p_media_url text, p_portal_stage_id uuid, p_portal_event_id uuid, p_portal_participant_id uuid)",
+    "public.portal_create_modality(p_portal_context_id uuid, p_catalog_code text, p_name text, p_slug text, p_local_code text, p_status text, p_notes text)",
+    "public.portal_recalculate_competition_ranking(p_portal_competition_id uuid, p_portal_ranking_id uuid)",
+    "public.portal_recalculate_demo_competition_ranking()",
+    "public.portal_upsert_result_entry(p_portal_event_id uuid, p_portal_participant_id uuid, p_score_text text, p_score_numeric numeric, p_points numeric, p_outcome text, p_result_status text)",
+    "public.prevent_team_deletion_audit_event_mutation()"
   ]
 }

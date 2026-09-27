@@ -23,7 +23,8 @@ for(const kind of ['tables','functions']) {
   const found=new Map(actual[kind].map(item=>[key(item),item]));
   for(const [name,item] of wanted) {
     if(!found.has(name)) {
-      if(kind==='tables' && baseline.excluded_tables.includes(name)) excluded.push({kind,name,reason:'outside dependency closure'});
+      if((kind==='tables' && baseline.excluded_tables.includes(name)) ||
+         (kind==='functions' && baseline.excluded_functions.includes(name))) excluded.push({kind,name,reason:'outside dependency closure; neither defined, renamed nor referenced by the chain/baseline'});
       else differences.push({kind,name,issue:'missing'});
       continue;
     }

@@ -13,6 +13,7 @@ create role "authenticator" nologin nobypassrls;
 create role "supabase_auth_admin" nologin nobypassrls;
 create role "supabase_storage_admin" nologin nobypassrls;
 grant usage on schema public to anon, authenticated, service_role;
+grant usage on schema public to postgres;
 grant usage on schema auth to anon, authenticated, service_role;
 create extension if not exists pgcrypto with schema extensions;
 create extension if not exists "uuid-ossp" with schema extensions;

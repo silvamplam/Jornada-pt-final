@@ -15,6 +15,9 @@ const renameTargets = new Set([...chain.matchAll(/\brename\s+to\s+([a-z_]\w*)/gi
 const foundationSources = [
   {name:'remove_deleted_editorial_source_from_matchday_bank',file:'supabase/steps/85-composicao-historica-limpeza-total-origem-eliminada-apply.sql'},
   {name:'sync_matchday_zone_row_to_bank',file:'supabase/steps/117-composicao-banco-identidade-canonica-apply.sql'},
+  {name:'activate_matchday_reference_composition',file:'supabase/steps/113-composicao-hierarquica-destaque-video-apply.sql'},
+  {name:'sync_matchday_zone_publication_to_bank',file:'supabase/steps/117-composicao-banco-identidade-canonica-apply.sql'},
+  {name:'upsert_matchday_editorial_bank_publication',file:'supabase/steps/117-composicao-banco-identidade-canonica-apply.sql'},
 ];
 const foundationConstraints = [{
  table:'public.newsroom_articles',name:'newsroom_articles_manual_origin_urls_check',
@@ -151,7 +154,7 @@ for(const table of tables.values()) {
 }
 sql.push(...post, 'set check_function_bodies = on;', '');
 fs.writeFileSync('.ci/migration-replay/baseline.sql',sql.join('\n'));
-fs.writeFileSync(evidence+'/baseline-provenance.json',JSON.stringify({nature:'Dependency snapshot for replay only, not a backdated migration',tables:provenance,functions:[...functions.values()].map(f=>({schema:f.schema,name:f.name,identity:f.identity,source:f.foundation_source||'production-catalog.json'})),excluded_tables:catalog.tables.filter(t=>!createdTables.has(key(t))&&!tables.has(key(t))).map(key)},null,2)+'\n');
+fs.writeFileSync(evidence+'/baseline-provenance.json',JSON.stringify({nature:'Dependency snapshot for replay only, not a backdated migration',tables:provenance,functions:[...functions.values()].map(f=>({schema:f.schema,name:f.name,identity:f.identity,source:f.foundation_source||'production-catalog.json'})),excluded_tables:catalog.tables.filter(t=>!createdTables.has(key(t))&&!tables.has(key(t))).map(key),excluded_functions:catalog.functions.filter(f=>!createdFunctions.has(key(f))&&!renameTargets.has(f.name)&&!functions.has(key(f))).map(f=>key(f)+'('+f.identity+')')},null,2)+'\n');
 const platform = [
  '-- Minimal Supabase platform surface for a data-free isolated PostgreSQL replay.',
  "do $guard$ begin if current_database() <> 'jornada_migration_replay' then raise exception 'isolated replay required'; end if; end $guard$;",
@@ -162,6 +165,7 @@ const platform = [
  'create table auth.users (id uuid primary key);',
  ...auxiliary.roles.filter(r=>r.name!=='postgres').map(r=>'create role '+q(r.name)+' nologin '+(r.bypass_rls?'bypassrls':'nobypassrls')+';'),
  'grant usage on schema public to anon, authenticated, service_role;',
+ 'grant usage on schema public to postgres;',
  'grant usage on schema auth to anon, authenticated, service_role;',
  'create extension if not exists pgcrypto with schema extensions;',
  'create extension if not exists "uuid-ossp" with schema extensions;',
