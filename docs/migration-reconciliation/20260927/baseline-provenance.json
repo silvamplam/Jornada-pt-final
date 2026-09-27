@@ -548,6 +548,18 @@
   "functions": [
     {
       "schema": "public",
+      "name": "remove_deleted_editorial_source_from_matchday_bank",
+      "identity": "",
+      "source": "supabase/steps/85-composicao-historica-limpeza-total-origem-eliminada-apply.sql"
+    },
+    {
+      "schema": "public",
+      "name": "sync_matchday_zone_row_to_bank",
+      "identity": "",
+      "source": "supabase/steps/117-composicao-banco-identidade-canonica-apply.sql"
+    },
+    {
+      "schema": "public",
       "name": "newsroom_protect_editorial_dossier_source_frozen_identity",
       "identity": "",
       "source": "production-catalog.json"

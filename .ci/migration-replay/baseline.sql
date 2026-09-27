@@ -2,6 +2,74 @@
 -- No INSERT/COPY or production rows. Never apply to an existing database.
 do $guard$ begin if current_database() <> 'jornada_migration_replay' or current_setting('jornada.replay',true) is distinct from 'on' then raise exception 'isolated replay required'; end if; end $guard$;
 set check_function_bodies = off;
+create or replace function public.remove_deleted_editorial_source_from_matchday_bank()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_source_type text;
+begin
+  if tg_table_name = 'editorial_articles' then
+    v_source_type := 'editorial_article';
+  elsif tg_table_name = 'editorial_contents' then
+    v_source_type := 'editorial_content';
+  else
+    raise exception 'unsupported_editorial_source_table';
+  end if;
+
+  -- A eliminação já foi autorizada pela aplicação depois de confirmar que
+  -- não restam vínculos públicos. Remove agora os resíduos internos.
+  delete from public.matchday_reference_composition_items composition_item
+  using public.matchday_editorial_bank_items bank
+  where composition_item.source_id = bank.id
+    and lower(btrim(coalesce(composition_item.source_type, ''))) in (
+      'manual_link',
+      'matchday_editorial_bank_item'
+    )
+    and lower(btrim(coalesce(bank.source_type, ''))) = v_source_type
+    and lower(btrim(coalesce(bank.source_id, ''))) = lower(old.id::text);
+
+  delete from public.matchday_editorial_bank_items bank
+  where lower(btrim(coalesce(bank.source_type, ''))) = v_source_type
+    and lower(btrim(coalesce(bank.source_id, ''))) = lower(old.id::text);
+
+  return old;
+end
+$$;;
+create or replace function public.sync_matchday_zone_row_to_bank()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_table_name = 'matchday_latest_news' then
+    if lower(btrim(coalesce(new.status, ''))) = 'published' then
+      perform public.sync_matchday_zone_publication_to_bank(new.matchday_id, new.link_url);
+    end if;
+  elsif tg_table_name = 'matchday_highlights' then
+    if lower(btrim(coalesce(new.status, ''))) = 'published' then
+      perform public.sync_matchday_zone_publication_to_bank(new.matchday_id, new.link_url);
+    end if;
+  elsif tg_table_name = 'matchday_horizontal_news' then
+    if lower(btrim(coalesce(new.status, ''))) = 'published' then
+      perform public.sync_matchday_zone_publication_to_bank(new.matchday_id, new.link_url);
+    end if;
+  elsif tg_table_name = 'matchday_editorials' then
+    perform public.sync_matchday_zone_publication_to_bank(new.matchday_id, new.headline_link_url);
+    if lower(btrim(coalesce(new.complementary_status, ''))) = 'published' then
+      perform public.sync_matchday_zone_publication_to_bank(new.matchday_id, new.complementary_link_url);
+    end if;
+    if lower(btrim(coalesce(new.side_block_status, ''))) = 'published' then
+      perform public.sync_matchday_zone_publication_to_bank(new.matchday_id, new.side_block_link_url);
+    end if;
+  end if;
+
+  return new;
+end
+$$;;
 CREATE OR REPLACE FUNCTION public.newsroom_protect_editorial_dossier_source_frozen_identity()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -2058,6 +2126,14 @@ comment on column "public"."portal_modality_catalog"."code" is 'Stable canonical
 comment on column "public"."portal_modality_catalog"."modality_family" is 'Optional grouping such as team_sport, individual_sport, racket_sport, mind_sport, multi_sport.';
 comment on column "public"."portal_modality_catalog"."default_event_model" is 'Suggested default event model, for example match, race, field_event, tournament_round.';
 comment on column "public"."portal_modality_catalog"."default_result_model" is 'Suggested default result model, for example score, sets, time, distance, ranking, points.';
+alter function "public"."remove_deleted_editorial_source_from_matchday_bank"() owner to "postgres";
+revoke all on function "public"."remove_deleted_editorial_source_from_matchday_bank"() from public, anon, authenticated, service_role;
+grant EXECUTE on function "public"."remove_deleted_editorial_source_from_matchday_bank"() to "service_role";
+comment on function "public"."remove_deleted_editorial_source_from_matchday_bank"() is 'Depois de a aplicação autorizar a eliminação sem vínculos públicos, remove Últimas ainda ligadas pelo URL, Seleção manual, estado temático, referências internas de composição e Banco da identidade editorial eliminada.';
+alter function "public"."sync_matchday_zone_row_to_bank"() owner to "postgres";
+revoke all on function "public"."sync_matchday_zone_row_to_bank"() from public, anon, authenticated, service_role;
+grant EXECUTE on function "public"."sync_matchday_zone_row_to_bank"() to "service_role";
+comment on function "public"."sync_matchday_zone_row_to_bank"() is 'Synchronizes ordinary publication surfaces to contextual Bank participation. Exact private v18 carryover writes are inert because Bank was already materialized from its persistent source identity map.';
 alter function "public"."newsroom_protect_editorial_dossier_source_frozen_identity"() owner to "postgres";
 revoke all on function "public"."newsroom_protect_editorial_dossier_source_frozen_identity"() from public, anon, authenticated, service_role;
 grant EXECUTE on function "public"."newsroom_protect_editorial_dossier_source_frozen_identity"() to "service_role";

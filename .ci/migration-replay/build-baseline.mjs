@@ -12,6 +12,10 @@ const chain = migrations.filter(f => !f.includes('_replay_preserve_')).map(f => 
 const createdTables = new Set([...chain.matchAll(/create\s+table\s+(?:if\s+not\s+exists\s+)?(?:(public|jornada_private)\.)?([a-z_]\w*)/gi)].map(m => (m[1] || 'public') + '.' + m[2]));
 const createdFunctions = new Set([...chain.matchAll(/create\s+(?:or\s+replace\s+)?function\s+(public|jornada_private)\.([a-z_]\w*)/gi)].map(m => m[1] + '.' + m[2]));
 const renameTargets = new Set([...chain.matchAll(/\brename\s+to\s+([a-z_]\w*)/gi)].map(m => m[1]));
+const foundationSources = [
+  {name:'remove_deleted_editorial_source_from_matchday_bank',file:'supabase/steps/85-composicao-historica-limpeza-total-origem-eliminada-apply.sql'},
+  {name:'sync_matchday_zone_row_to_bank',file:'supabase/steps/117-composicao-banco-identidade-canonica-apply.sql'},
+];
 const addedConstraints = new Set([...chain.matchAll(/\badd\s+constraint\s+([a-z_]\w*)/gi)].map(m => m[1]));
 const createdIndexes = new Set([...chain.matchAll(/\bcreate\s+(?:unique\s+)?index\s+(?:if\s+not\s+exists\s+)?([a-z_]\w*)/gi)].map(m => m[1]));
 const createdTriggers = new Set([...chain.matchAll(/\bcreate\s+(?:or\s+replace\s+)?(?:constraint\s+)?trigger\s+([a-z_]\w*)/gi)].map(m => m[1]));
@@ -29,6 +33,18 @@ const key = item => item.schema + '.' + item.name;
 const references = (text, item) => new RegExp('\\b' + item.schema + '\\.' + item.name + '\\b', 'i').test(text);
 const tables = new Map(), functions = new Map();
 let referenceText = chain;
+for (const source of foundationSources) {
+  const text = fs.readFileSync(source.file,'utf8');
+  const start = text.indexOf('create or replace function public.'+source.name+'(');
+  if(start<0) throw Error('Missing foundation function '+source.name);
+  const header = text.slice(start).match(/\bas\s+(\$[a-z_0-9]*\$)/i);
+  if(!header) throw Error('Missing function body '+source.name);
+  const end=text.indexOf(header[1],start+header.index+header[0].length);
+  if(end<0) throw Error('Missing function terminator '+source.name);
+  const fn={...catalog.functions.find(f=>f.schema==='public'&&f.name===source.name),definition:text.slice(start,end+header[1].length)+';',foundation_source:source.file};
+  functions.set(key(fn),fn);
+  referenceText+='\n'+fn.definition;
+}
 let changed = true;
 while (changed) {
   changed = false;
@@ -124,7 +140,7 @@ for(const table of tables.values()) {
 }
 sql.push(...post, 'set check_function_bodies = on;', '');
 fs.writeFileSync('.ci/migration-replay/baseline.sql',sql.join('\n'));
-fs.writeFileSync(evidence+'/baseline-provenance.json',JSON.stringify({nature:'Dependency snapshot for replay only, not a backdated migration',tables:provenance,functions:[...functions.values()].map(f=>({schema:f.schema,name:f.name,identity:f.identity,source:'production-catalog.json'})),excluded_tables:catalog.tables.filter(t=>!createdTables.has(key(t))&&!tables.has(key(t))).map(key)},null,2)+'\n');
+fs.writeFileSync(evidence+'/baseline-provenance.json',JSON.stringify({nature:'Dependency snapshot for replay only, not a backdated migration',tables:provenance,functions:[...functions.values()].map(f=>({schema:f.schema,name:f.name,identity:f.identity,source:f.foundation_source||'production-catalog.json'})),excluded_tables:catalog.tables.filter(t=>!createdTables.has(key(t))&&!tables.has(key(t))).map(key)},null,2)+'\n');
 const platform = [
  '-- Minimal Supabase platform surface for a data-free isolated PostgreSQL replay.',
  "do $guard$ begin if current_database() <> 'jornada_migration_replay' then raise exception 'isolated replay required'; end if; end $guard$;",
